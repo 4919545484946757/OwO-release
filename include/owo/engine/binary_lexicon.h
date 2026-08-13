@@ -6,17 +6,34 @@
 #include <cstdint>
 #include <filesystem>
 #include <limits>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 namespace owo::engine {
 
-inline constexpr std::uint32_t kBinaryLexiconVersion = 2;
+inline constexpr std::uint32_t kBinaryLexiconVersion = 3;
 
 struct LexiconIoResult {
     bool success{};
     std::string error;
+};
+
+struct BoundedInitialLookup {
+    std::vector<LexiconEntry> entries;
+    std::size_t work_units_consumed{};
+    std::size_t next_index{};
+    std::uint32_t next_frequency{};
+    bool exhausted{};
+};
+
+struct BoundedLexiconLookup {
+    std::vector<LexiconEntry> entries;
+    std::size_t work_units_consumed{};
+    std::size_t next_index{};
+    std::uint32_t next_frequency{};
+    bool exhausted{};
 };
 
 [[nodiscard]] LexiconIoResult write_binary_lexicon(
@@ -34,9 +51,18 @@ public:
     [[nodiscard]] LexiconIoResult load(const std::filesystem::path& path);
     [[nodiscard]] std::vector<LexiconEntry> lookup(
         std::span<const std::string_view> syllables) const override;
+    [[nodiscard]] BoundedLexiconLookup lookup_bounded(
+        std::span<const std::string_view> syllables, std::size_t start_index,
+        std::size_t result_limit, std::size_t work_unit_limit) const;
+    [[nodiscard]] std::optional<std::uint32_t> exact_frequency_upper_bound(
+        std::span<const std::string_view> syllables,
+        std::size_t start_index = 0) const;
     [[nodiscard]] std::vector<LexiconEntry> lookup_initial(
         char initial,
         std::size_t limit = (std::numeric_limits<std::size_t>::max)()) const override;
+    [[nodiscard]] BoundedInitialLookup lookup_initial_bounded(
+        char initial, std::size_t start_index, std::size_t result_limit,
+        std::size_t work_unit_limit) const;
     [[nodiscard]] std::vector<AbbreviatedLexiconMatch> lookup_mixed_abbreviation(
         std::string_view input, std::size_t limit) const override;
     [[nodiscard]] std::size_t maximum_reading_length() const noexcept override {
@@ -44,6 +70,9 @@ public:
     }
     [[nodiscard]] std::size_t size() const noexcept {
         return mapped_entries_ != nullptr ? mapped_entry_count_ : entries_.size();
+    }
+    [[nodiscard]] bool exact_lookup_frequency_ordered() const noexcept {
+        return lexicon_version_ >= 3;
     }
     [[nodiscard]] std::vector<LexiconEntry> materialize_entries() const;
 
@@ -85,6 +114,7 @@ private:
     std::array<std::vector<std::uint32_t>, 26> initial_entries_;
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mixed_entries_;
     std::size_t maximum_reading_length_{};
+    std::uint32_t lexicon_version_{};
 
     void* mapped_file_handle_{reinterpret_cast<void*>(-1)};
     void* mapped_mapping_handle_{};

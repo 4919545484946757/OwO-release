@@ -6,8 +6,8 @@
 #include <vector>
 
 int main(int argc, char** argv) {
-    if (argc < 4) {
-        std::cerr << "usage: owo_lexicon_merge <output.owolx> <input.owolx> <input.owolx> [...]\n";
+    if (argc < 3) {
+        std::cerr << "usage: owo_lexicon_merge <output.owolx> <input.owolx> [...]\n";
         return 2;
     }
     std::unordered_set<std::string> seen;

@@ -11,6 +11,9 @@ int main() {
         {{"xi", "an"}, "西安", 900}, {{"ni", "hao"}, "你好", 1000},
         {{"ni", "hao"}, "你号", 50}, {{"ni"}, "你", 1200}};
     entries.push_back({{"bu", "gan", "dang"}, "BGD", 2000});
+    entries.push_back({{"na"}, "NA", 1100});
+    entries.push_back({{"ne"}, "NE", 1000});
+    entries.push_back({{"nong"}, "NONG", 900});
     if (!owo::engine::write_binary_lexicon(first, entries).success ||
         !owo::engine::write_binary_lexicon(second, {entries.rbegin(), entries.rend()}).success) return 1;
 
@@ -20,16 +23,37 @@ int main() {
     if (left_bytes != right_bytes) { std::cerr << "output is not deterministic\n"; return 1; }
 
     owo::engine::BinaryLexicon lexicon;
-    if (!lexicon.load(first).success || lexicon.size() != 5 ||
+    if (!lexicon.load(first).success || lexicon.size() != 8 ||
         lexicon.maximum_reading_length() != 3) return 1;
     const std::string_view reading[]{"ni", "hao"};
     const auto matches = lexicon.lookup(reading);
-    if (matches.size() != 2 || matches[0].text != "你号" || matches[1].text != "你好") return 1;
+    if (matches.size() != 2 || matches[0].text != "你好" || matches[1].text != "你号" ||
+        !lexicon.exact_lookup_frequency_ordered()) return 1;
+    const auto exact_first = lexicon.lookup_bounded(reading, 0, 1, 1);
+    const auto exact_second = lexicon.lookup_bounded(
+        reading, exact_first.next_index, 1, 1);
+    if (exact_first.entries.size() != 1 || exact_first.exhausted ||
+        exact_first.entries.front().text != "你好" ||
+        exact_second.entries.size() != 1 || !exact_second.exhausted ||
+        exact_second.entries.front().text != "你号") return 1;
+    if (lexicon.exact_frequency_upper_bound(reading, 0) != std::uint32_t{1000} ||
+        lexicon.exact_frequency_upper_bound(reading, 1) != std::uint32_t{50} ||
+        lexicon.exact_frequency_upper_bound(reading, 2).has_value()) return 1;
     const std::string_view missing_reading[]{"bu", "cun", "zai"};
     if (!lexicon.lookup(missing_reading).empty()) return 1;
     const auto initials = lexicon.lookup_initial('n');
-    if (initials.size() != 1 || initials.front().text != "你" ||
+    if (initials.size() != 4 || initials.front().text != "你" ||
         !lexicon.lookup_initial('x').empty()) return 1;
+    const auto initial_first = lexicon.lookup_initial_bounded('n', 0, 2, 2);
+    const auto initial_second = lexicon.lookup_initial_bounded(
+        'n', initial_first.next_index, 2, 2);
+    if (initial_first.entries.size() != 2 || initial_first.exhausted ||
+        initial_first.work_units_consumed != 2 || initial_first.next_index != 2 ||
+        initial_second.entries.size() != 2 || !initial_second.exhausted ||
+        initial_second.work_units_consumed != 2 ||
+        initial_first.entries.front().text != "你" ||
+        initial_second.entries.front().text != "NE")
+        return 1;
 
     const auto abbreviated = lexicon.lookup_mixed_abbreviation("bugd", 8);
     if (abbreviated.size() != 1 || abbreviated.front().entry.text != "BGD" ||

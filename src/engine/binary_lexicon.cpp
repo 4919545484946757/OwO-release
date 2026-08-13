@@ -179,8 +179,8 @@ bool read_integer(const std::span<const unsigned char> bytes, std::size_t& offse
 
 bool entry_less(const LexiconEntry& left, const LexiconEntry& right) {
     if (left.syllables != right.syllables) return left.syllables < right.syllables;
-    if (left.text != right.text) return left.text < right.text;
-    return left.frequency > right.frequency;
+    if (left.frequency != right.frequency) return left.frequency > right.frequency;
+    return left.text < right.text;
 }
 
 }  // namespace
@@ -379,6 +379,7 @@ LexiconIoResult BinaryLexicon::load(const std::filesystem::path& path) {
     for (auto& values : initial_entries_) values.clear();
     mixed_entries_.clear();
     maximum_reading_length_ = 0;
+    lexicon_version_ = 0;
 
     std::array<unsigned char, 12> prefix{};
     {
@@ -395,7 +396,7 @@ LexiconIoResult BinaryLexicon::load(const std::filesystem::path& path) {
     if (!read_integer(std::span(prefix), prefix_offset, detected_version))
         return {false, "invalid lexicon header"};
 
-    if (detected_version == kBinaryLexiconVersion) {
+    if (detected_version == 2 || detected_version == kBinaryLexiconVersion) {
 #ifdef _WIN32
         static_assert(sizeof(CompactEntry) == sizeof(DiskEntry));
         static_assert(sizeof(SyllableRecord) == sizeof(DiskSyllableRecord));
@@ -439,7 +440,7 @@ LexiconIoResult BinaryLexicon::load(const std::filesystem::path& path) {
                    (static_cast<std::uint32_t>(bytes[field + 3]) << 24U);
         };
         if (!std::equal(kMagic.begin(), kMagic.end(), bytes) ||
-            u32(version_field) != kBinaryLexiconVersion ||
+            u32(version_field) != detected_version ||
             u32(header_size_field) != kV2HeaderSize ||
             u32(file_size_field) != static_cast<std::uint32_t>(size.QuadPart))
             return fail("invalid v2 lexicon header");
@@ -447,7 +448,7 @@ LexiconIoResult BinaryLexicon::load(const std::filesystem::path& path) {
             static_cast<std::uint64_t>(u32(payload_checksum_low_field)) |
             (static_cast<std::uint64_t>(u32(payload_checksum_high_field)) << 32U);
         if (!validation_cache_matches(path, file, static_cast<std::uint64_t>(size.QuadPart),
-                                      kBinaryLexiconVersion) &&
+                                      detected_version) &&
             checksum(std::span(bytes, static_cast<std::size_t>(size.QuadPart))
                          .subspan(kV2HeaderSize)) != expected_payload_checksum)
             return fail("v2 lexicon checksum mismatch");
@@ -544,6 +545,7 @@ LexiconIoResult BinaryLexicon::load(const std::filesystem::path& path) {
             bytes + u32(mixed_indices_offset_field));
         mapped_mixed_index_count_ = mixed_index_count;
         maximum_reading_length_ = u32(maximum_reading_length_field);
+        lexicon_version_ = detected_version;
         return {true, {}};
 #else
         return {false, "v2 memory-mapped lexicons require Windows"};
@@ -693,6 +695,7 @@ LexiconIoResult BinaryLexicon::load(const std::filesystem::path& path) {
     initial_entries_ = std::move(initial_entries);
     mixed_entries_ = std::move(mixed_entries);
     maximum_reading_length_ = maximum_reading_length;
+    lexicon_version_ = 1;
     return {true, {}};
 }
 
@@ -755,6 +758,150 @@ std::vector<LexiconEntry> BinaryLexicon::lookup(const std::span<const std::strin
     return matches;
 }
 
+BoundedLexiconLookup BinaryLexicon::lookup_bounded(
+    const std::span<const std::string_view> syllables,
+    const std::size_t start_index, const std::size_t result_limit,
+    const std::size_t work_unit_limit) const {
+    BoundedLexiconLookup result;
+    result.next_index = start_index;
+    if (syllables.empty() || result_limit == 0 || work_unit_limit == 0)
+        return result;
+
+    std::vector<std::uint16_t> reading;
+    reading.reserve(syllables.size());
+    for (const auto syllable : syllables) {
+        if (mapped_entries_ != nullptr) {
+            std::size_t first = 0;
+            std::size_t last = mapped_syllable_count_;
+            while (first < last) {
+                const auto middle = first + (last - first) / 2;
+                if (syllable_at(static_cast<std::uint16_t>(middle)) < syllable)
+                    first = middle + 1;
+                else
+                    last = middle;
+            }
+            if (first == mapped_syllable_count_ ||
+                syllable_at(static_cast<std::uint16_t>(first)) != syllable) {
+                result.exhausted = true;
+                return result;
+            }
+            reading.push_back(static_cast<std::uint16_t>(first));
+        } else {
+            const auto found = syllable_to_id_.find(std::string(syllable));
+            if (found == syllable_to_id_.end()) {
+                result.exhausted = true;
+                return result;
+            }
+            reading.push_back(found->second);
+        }
+    }
+    const auto entries = mapped_entries_ != nullptr
+        ? std::span<const CompactEntry>(mapped_entries_, mapped_entry_count_)
+        : std::span<const CompactEntry>(entries_);
+    const auto ids = mapped_entries_ != nullptr
+        ? std::span<const std::uint16_t>(mapped_syllable_ids_, mapped_syllable_id_count_)
+        : std::span<const std::uint16_t>(syllable_ids_);
+    const auto compare = [&](const CompactEntry& entry,
+                             const std::span<const std::uint16_t> right) {
+        const auto left = ids.subspan(entry.syllable_offset, entry.syllable_count);
+        const auto shared = std::min(left.size(), right.size());
+        for (std::size_t index = 0; index < shared; ++index) {
+            if (left[index] < right[index]) return -1;
+            if (left[index] > right[index]) return 1;
+        }
+        if (left.size() < right.size()) return -1;
+        if (left.size() > right.size()) return 1;
+        return 0;
+    };
+    const auto first = std::lower_bound(
+        entries.begin(), entries.end(), std::span<const std::uint16_t>(reading),
+        [&](const CompactEntry& entry, const std::span<const std::uint16_t> value) {
+            return compare(entry, value) < 0;
+        });
+    const auto last = std::upper_bound(
+        first, entries.end(), std::span<const std::uint16_t>(reading),
+        [&](const std::span<const std::uint16_t> value, const CompactEntry& entry) {
+            return compare(entry, value) > 0;
+        });
+    const auto count = static_cast<std::size_t>(last - first);
+    if (start_index >= count) {
+        result.exhausted = true;
+        result.next_index = count;
+        return result;
+    }
+    result.entries.reserve(std::min({result_limit, work_unit_limit,
+                                     count - start_index}));
+    while (result.next_index < count && result.entries.size() < result_limit &&
+           result.work_units_consumed < work_unit_limit) {
+        result.entries.push_back(materialize(*(first + result.next_index)));
+        ++result.next_index;
+        ++result.work_units_consumed;
+    }
+    result.exhausted = result.next_index == count;
+    if (!result.exhausted)
+        result.next_frequency = (first + result.next_index)->frequency;
+    return result;
+}
+
+std::optional<std::uint32_t> BinaryLexicon::exact_frequency_upper_bound(
+    const std::span<const std::string_view> syllables,
+    const std::size_t start_index) const {
+    if (!exact_lookup_frequency_ordered() || syllables.empty()) return std::nullopt;
+    std::vector<std::uint16_t> reading;
+    reading.reserve(syllables.size());
+    for (const auto syllable : syllables) {
+        if (mapped_entries_ != nullptr) {
+            std::size_t first = 0;
+            std::size_t last = mapped_syllable_count_;
+            while (first < last) {
+                const auto middle = first + (last - first) / 2;
+                if (syllable_at(static_cast<std::uint16_t>(middle)) < syllable)
+                    first = middle + 1;
+                else
+                    last = middle;
+            }
+            if (first == mapped_syllable_count_ ||
+                syllable_at(static_cast<std::uint16_t>(first)) != syllable)
+                return std::nullopt;
+            reading.push_back(static_cast<std::uint16_t>(first));
+        } else {
+            const auto found = syllable_to_id_.find(std::string(syllable));
+            if (found == syllable_to_id_.end()) return std::nullopt;
+            reading.push_back(found->second);
+        }
+    }
+    const auto entries = mapped_entries_ != nullptr
+        ? std::span<const CompactEntry>(mapped_entries_, mapped_entry_count_)
+        : std::span<const CompactEntry>(entries_);
+    const auto ids = mapped_entries_ != nullptr
+        ? std::span<const std::uint16_t>(mapped_syllable_ids_, mapped_syllable_id_count_)
+        : std::span<const std::uint16_t>(syllable_ids_);
+    const auto compare = [&](const CompactEntry& entry,
+                             const std::span<const std::uint16_t> right) {
+        const auto left = ids.subspan(entry.syllable_offset, entry.syllable_count);
+        const auto shared = std::min(left.size(), right.size());
+        for (std::size_t index = 0; index < shared; ++index) {
+            if (left[index] < right[index]) return -1;
+            if (left[index] > right[index]) return 1;
+        }
+        if (left.size() < right.size()) return -1;
+        if (left.size() > right.size()) return 1;
+        return 0;
+    };
+    const auto first = std::lower_bound(
+        entries.begin(), entries.end(), std::span<const std::uint16_t>(reading),
+        [&](const CompactEntry& entry, const std::span<const std::uint16_t> value) {
+            return compare(entry, value) < 0;
+        });
+    const auto last = std::upper_bound(
+        first, entries.end(), std::span<const std::uint16_t>(reading),
+        [&](const std::span<const std::uint16_t> value, const CompactEntry& entry) {
+            return compare(entry, value) > 0;
+        });
+    if (start_index >= static_cast<std::size_t>(last - first)) return std::nullopt;
+    return (first + start_index)->frequency;
+}
+
 std::vector<LexiconEntry> BinaryLexicon::lookup_initial(const char initial,
                                                         const std::size_t limit) const {
     if (initial < 'a' || initial > 'z' || limit == 0) return {};
@@ -777,6 +924,65 @@ std::vector<LexiconEntry> BinaryLexicon::lookup_initial(const char initial,
     for (std::size_t index = 0; index < count; ++index)
         matches.push_back(materialize(entries_[indices[index]]));
     return matches;
+}
+
+BoundedInitialLookup BinaryLexicon::lookup_initial_bounded(
+    const char initial, const std::size_t start_index,
+    const std::size_t result_limit, const std::size_t work_unit_limit) const {
+    BoundedInitialLookup result;
+    result.next_index = start_index;
+    if (initial < 'a' || initial > 'z' || result_limit == 0 ||
+        work_unit_limit == 0) return result;
+
+    const auto materialize_index = [&](const std::uint32_t entry_index)
+        -> std::optional<LexiconEntry> {
+        if (mapped_entries_ != nullptr) {
+            if (entry_index >= mapped_entry_count_) return std::nullopt;
+            return materialize(mapped_entries_[entry_index]);
+        }
+        if (entry_index >= entries_.size()) return std::nullopt;
+        return materialize(entries_[entry_index]);
+    };
+    const auto range_count = mapped_entries_ != nullptr
+        ? static_cast<std::size_t>(mapped_initial_ranges_[initial - 'a'].count)
+        : initial_entries_[initial - 'a'].size();
+    if (start_index >= range_count) {
+        result.exhausted = true;
+        result.next_index = range_count;
+        return result;
+    }
+    result.entries.reserve(std::min({result_limit, work_unit_limit,
+                                     range_count - start_index}));
+    while (result.next_index < range_count &&
+           result.entries.size() < result_limit &&
+           result.work_units_consumed < work_unit_limit) {
+        const auto entry_index = mapped_entries_ != nullptr
+            ? mapped_initial_indices_[
+                  mapped_initial_ranges_[initial - 'a'].offset + result.next_index]
+            : initial_entries_[initial - 'a'][result.next_index];
+        const auto entry = materialize_index(entry_index);
+        if (!entry) {
+            result.exhausted = true;
+            return result;
+        }
+        result.entries.push_back(std::move(*entry));
+        ++result.next_index;
+        ++result.work_units_consumed;
+    }
+    result.exhausted = result.next_index == range_count;
+    if (!result.exhausted) {
+        const auto entry_index = mapped_entries_ != nullptr
+            ? mapped_initial_indices_[
+                  mapped_initial_ranges_[initial - 'a'].offset + result.next_index]
+            : initial_entries_[initial - 'a'][result.next_index];
+        if (mapped_entries_ != nullptr) {
+            if (entry_index < mapped_entry_count_)
+                result.next_frequency = mapped_entries_[entry_index].frequency;
+        } else if (entry_index < entries_.size()) {
+            result.next_frequency = entries_[entry_index].frequency;
+        }
+    }
+    return result;
 }
 
 std::vector<AbbreviatedLexiconMatch> BinaryLexicon::lookup_mixed_abbreviation(

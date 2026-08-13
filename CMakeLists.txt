@@ -64,7 +64,10 @@ endif()
 add_library(owo_engine STATIC
     src/engine/binary_lexicon.cpp
     src/engine/candidate_generator.cpp
+    src/engine/candidate_scheduler.cpp
     src/engine/full_pinyin_schema.cpp
+    src/engine/lexicon_candidate_provider.cpp
+    src/engine/parse_candidate_sources.cpp
     src/engine/lexicon.cpp
     src/engine/language_model.cpp
     src/engine/user_frequency.cpp
@@ -332,6 +335,36 @@ else()
     target_compile_options(owo_engine_benchmark PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+add_executable(owo_candidate_budget_benchmark
+    benchmarks/candidate_budget_benchmark.cpp)
+target_link_libraries(owo_candidate_budget_benchmark PRIVATE owo_engine)
+target_compile_features(owo_candidate_budget_benchmark PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_options(owo_candidate_budget_benchmark PRIVATE /W4 /permissive- /utf-8)
+else()
+    target_compile_options(owo_candidate_budget_benchmark PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+add_executable(owo_exact_provider_benchmark
+    benchmarks/exact_provider_benchmark.cpp)
+target_link_libraries(owo_exact_provider_benchmark PRIVATE owo_engine)
+target_compile_features(owo_exact_provider_benchmark PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_options(owo_exact_provider_benchmark PRIVATE /W4 /permissive- /utf-8)
+else()
+    target_compile_options(owo_exact_provider_benchmark PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+add_executable(owo_parse_shadow_benchmark
+    benchmarks/parse_shadow_benchmark.cpp)
+target_link_libraries(owo_parse_shadow_benchmark PRIVATE owo_engine)
+target_compile_features(owo_parse_shadow_benchmark PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_options(owo_parse_shadow_benchmark PRIVATE /W4 /permissive- /utf-8)
+else()
+    target_compile_options(owo_parse_shadow_benchmark PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
 if(BUILD_TESTING)
     add_executable(owo_plugin_manifest_tests tests/plugin/plugin_manifest_tests.cpp)
     target_link_libraries(owo_plugin_manifest_tests PRIVATE owo_plugin)
@@ -546,6 +579,17 @@ if(BUILD_TESTING)
         target_compile_options(owo_candidate_generator_tests PRIVATE -Wall -Wextra -Wpedantic)
     endif()
     add_test(NAME owo.engine.candidates COMMAND owo_candidate_generator_tests)
+
+    add_executable(owo_candidate_scheduler_tests
+        tests/engine/candidate_scheduler_tests.cpp)
+    target_link_libraries(owo_candidate_scheduler_tests PRIVATE owo_engine)
+    target_compile_features(owo_candidate_scheduler_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_candidate_scheduler_tests PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(owo_candidate_scheduler_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME owo.engine.candidate_scheduler COMMAND owo_candidate_scheduler_tests)
 
     add_executable(owo_contextual_candidate_order_tests
         tests/ipc/contextual_candidate_order_tests.cpp)
