@@ -64,6 +64,29 @@ int main() {
     if (!separated.valid || !contains_path(separated, {"xi", "an"}) ||
         contains_path(separated, {"xian"})) return fail("apostrophe boundary failed");
 
+    const auto separated_abbreviation = schema.parse("wdt'a", 32, false);
+    const auto has_source_aligned_abbreviation = [](const auto& parsed,
+                                                     const std::size_t count) {
+        return std::any_of(parsed.paths.begin(), parsed.paths.end(), [&](const auto& path) {
+            if (path.match_kind != owo::engine::InputMatchKind::abbreviated_completion ||
+                path.syllables.size() != count) return false;
+            constexpr std::string_view sources = "wdta";
+            for (std::size_t index = 0; index < count; ++index) {
+                const auto& syllable = path.syllables[index];
+                if (syllable.begin >= parsed.normalized_input.size() ||
+                    parsed.normalized_input[syllable.begin] != sources[index]) return false;
+            }
+            return true;
+        });
+    };
+    if (!separated_abbreviation.valid ||
+        !has_source_aligned_abbreviation(separated_abbreviation, 4))
+        return fail("explicit boundary rejected an initial abbreviation chunk");
+    const auto trailing_separator = schema.parse("wdt'", 32, false);
+    if (!trailing_separator.valid || trailing_separator.normalized_input != "wdt'" ||
+        !has_source_aligned_abbreviation(trailing_separator, 3))
+        return fail("trailing explicit boundary rejected usable prefix candidates");
+
     const auto lan = schema.parse("lan");
     if (!contains_path(lan, {"lan"}) || contains_path(lan, {"la", "n"}))
         return fail("complete lan was over-segmented");
@@ -144,6 +167,9 @@ int main() {
     if (!contains_path(schema.parse("niaho"), {"ni", "hao"},
                        owo::engine::InputMatchKind::corrected))
         return fail("transposed-letter correction failed");
+    if (!contains_path(schema.parse("gongnneg", 16), {"gong", "neng"},
+                       owo::engine::InputMatchKind::corrected))
+        return fail("second-syllable transposition correction failed");
     if (contains_path(schema.parse("niaho", 32, false), {"ni", "hao"},
                       owo::engine::InputMatchKind::corrected))
         return fail("disabled correction still produced a corrected path");

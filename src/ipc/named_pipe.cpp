@@ -788,6 +788,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 ++pending;
         }
         protocol::Message response{};
+        response.request_id = decoded.message.request_id;
+        response.context_generation = decoded.message.context_generation;
         if (!decoded.validation) {
             std::clog << R"({"process":"core_service","module":"ipc","level":"error","event_id":"invalid_request"})"
                       << '\n';
@@ -812,8 +814,6 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
             const auto candidate_page_size = runtime_config != nullptr
                                                  ? runtime_config->candidate_page_size
                                                  : 5U;
-            response.request_id = decoded.message.request_id;
-            response.context_generation = decoded.message.context_generation;
             if (decoded.message.type == protocol::MessageType::shutdown_request) {
                 std::clog << R"({"process":"core_service","module":"lifecycle","level":"info","event_id":"shutdown_requested"})"
                           << '\n';
@@ -950,8 +950,6 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 };
                 response.type = protocol::MessageType::candidate_response;
                 constexpr std::uint64_t maximum_page = 100;
-                constexpr std::size_t maximum_expanded_pages = 8;
-                constexpr std::size_t maximum_expanded_candidates = 64;
                 std::size_t full_input_bytes = 0;
                 std::vector<std::string> model_candidate_pool;
                 std::vector<std::size_t> model_candidate_consumed;
@@ -968,10 +966,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 } else {
                     const auto page = static_cast<std::size_t>(decoded.message.page);
                     const auto page_size = static_cast<std::size_t>(candidate_page_size);
-                    const auto expanded_pages = std::min(
-                        maximum_expanded_pages, maximum_expanded_candidates / page_size);
+                    const auto expanded_pages =
+                        (protocol::kMaximumCandidateCount + page_size - 1) / page_size;
                     const auto result_size = decoded.message.expanded
-                                                 ? page_size * expanded_pages
+                                                 ? protocol::kMaximumCandidateCount
                                                  : page_size;
                     const auto begin = decoded.message.expanded ? 0 : page * page_size;
                     std::uint64_t parse_phase_us = 0;
@@ -983,7 +981,13 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     engine::CandidateGenerationMetrics generation_metrics;
                     const bool double_initial_request =
                         is_double_initial_input(decoded.message.text);
-                    auto result_limit = begin + result_size + 1;
+                    // Paged requests need one look-ahead candidate for
+                    // has_more. Expanded requests expose their complete
+                    // generated set, so do not create one hidden result that
+                    // the list can never render.
+                    auto result_limit = decoded.message.expanded
+                                            ? result_size
+                                            : begin + result_size + 1;
                     if (adaptive_ranking_enabled && !decoded.message.input.empty() &&
                         !decoded.message.context.empty())
                         result_limit = std::max<std::size_t>(result_limit, 16);
@@ -1093,6 +1097,12 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             auto corrected = schema.parse(
                                 decoded.message.text, parse_path_limit, true,
                                 &corrected_parse_metrics, cancelled);
+                            engine::ParseResult correction_only = corrected;
+                            std::erase_if(correction_only.paths, [](const auto& path) {
+                                return path.match_kind !=
+                                       engine::InputMatchKind::corrected;
+                            });
+                            correction_only.valid = !correction_only.paths.empty();
                             parse_phase_us += static_cast<std::uint64_t>(
                                 std::chrono::duration_cast<std::chrono::microseconds>(
                                     std::chrono::steady_clock::now() -
@@ -1100,7 +1110,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             const auto corrected_generation_started =
                                 std::chrono::steady_clock::now();
                             auto corrected_candidates = generator.generate(
-                                corrected, result_limit, adaptive_ranking_enabled,
+                                correction_only, result_limit,
+                                adaptive_ranking_enabled,
                                 decoded.message.context, &corrected_generation_metrics,
                                 cancelled, external_model_ranking_enabled);
                             generation_phase_us += static_cast<std::uint64_t>(
@@ -1119,8 +1130,32 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 corrected_generation_metrics.lexicon_lookup_count;
                             generation_metrics.sort_us +=
                                 corrected_generation_metrics.sort_us;
-                            if (!corrected_candidates.empty()) {
-                                parsed = std::move(corrected);
+                            const bool complete_correction = std::any_of(
+                                corrected_candidates.begin(),
+                                corrected_candidates.end(),
+                                [&correction_only](const auto& candidate) {
+                                    return candidate.match_kind ==
+                                               engine::InputMatchKind::corrected &&
+                                           candidate.consumed_input_bytes ==
+                                               correction_only.normalized_input.size();
+                                });
+                            if (complete_correction) {
+                                for (auto& candidate : candidates) {
+                                    if (corrected_candidates.size() >= result_limit)
+                                        break;
+                                    const auto duplicate = std::any_of(
+                                        corrected_candidates.begin(),
+                                        corrected_candidates.end(),
+                                        [&candidate](const auto& existing) {
+                                            return existing.text == candidate.text &&
+                                                   existing.consumed_input_bytes ==
+                                                       candidate.consumed_input_bytes;
+                                        });
+                                    if (!duplicate)
+                                        corrected_candidates.push_back(
+                                            std::move(candidate));
+                                }
+                                parsed = std::move(correction_only);
                                 candidates = std::move(corrected_candidates);
                             }
                         }
@@ -1128,6 +1163,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             arrange_double_initial_pages(
                                 candidates, page_size,
                                 parsed.normalized_input.size());
+                        if (decoded.message.expanded &&
+                            candidates.size() > result_size)
+                            candidates.resize(result_size);
                         if (!cancelled())
                             candidate_cache.put(cache_key, {parsed, candidates});
                     }
@@ -1171,7 +1209,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     response.expanded = decoded.message.expanded;
                     response.page_size = candidate_page_size;
                     response.correction_enabled = decoded.message.correction_enabled;
-                    response.has_more = visible_candidate_count > end;
+                    response.has_more = !decoded.message.expanded &&
+                                        visible_candidate_count > end;
                     // Preview the parser's preferred source structure. Auxiliary
                     // abbreviation/correction paths may generate candidates, but
                     // must not rewrite xing+b as xin+g+b or xing+ba+f as xing+baf.

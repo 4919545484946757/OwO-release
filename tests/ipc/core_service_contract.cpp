@@ -28,6 +28,17 @@ owo::protocol::DecodeResult send_request(const std::wstring& pipe_name,
     return {};
 }
 
+owo::protocol::DecodeResult send_payload(const std::wstring& pipe_name,
+                                         const std::string& payload) {
+    for (int attempt = 0; attempt < 100; ++attempt) {
+        const auto result = owo::ipc::exchange(pipe_name.c_str(), payload,
+                                               std::chrono::milliseconds(100));
+        if (result.status) return owo::protocol::decode_message(result.response);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return {};
+}
+
 bool valid_response(const owo::protocol::DecodeResult& response,
                     const std::uint64_t request_id,
                     const std::uint64_t generation,
@@ -62,6 +73,7 @@ int main() {
         {{"ce", "shi"}, "测试五", 600}, {{"ce", "shi"}, "测试六", 500},
         {{"ce", "shi"}, "测试七", 400},
         {{"wo", "ai"}, "我爱", 1500}, {{"wo"}, "我", 1400},
+        {{"gong", "neng"}, "功能", 1700},
         {{"shi", "jie"}, "世界", 1600},
         {{"ga"}, "A", 1000}, {{"ge"}, "B", 900},
         {{"gou"}, "C", 800}, {{"gu"}, "D", 700},
@@ -88,11 +100,33 @@ int main() {
                                        102, 8, "nihao"}),
         std::chrono::seconds(2)).response);
     persistent.reset();
+    auto invalid_payload = owo::protocol::encode_message(
+        {owo::protocol::MessageType::candidate_request, 120, 12, "nihao"});
+    const auto page_size_offset = invalid_payload.find("\"page_size\":0");
+    owo::protocol::DecodeResult invalid_request{};
+    if (page_size_offset != std::string::npos) {
+        invalid_payload.replace(page_size_offset, std::string("\"page_size\":0").size(),
+                                "\"page_size\":1");
+        invalid_request = send_payload(pipe_name, invalid_payload);
+    }
+    const bool invalid_request_identity_ok =
+        invalid_request.validation &&
+        invalid_request.message.type == owo::protocol::MessageType::error_response &&
+        invalid_request.message.request_id == 120 &&
+        invalid_request.message.context_generation == 12;
     const auto nihao_ranged = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request,
                     108, 8, "ni'hao'shi'jie"});
     const auto corrected = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request, 110, 8, "niaho"});
+    const auto corrected_second_syllable = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request, 121, 8, "gongnneg"});
+    const bool corrected_second_syllable_ok =
+        corrected_second_syllable.validation &&
+        !corrected_second_syllable.message.candidates.empty() &&
+        corrected_second_syllable.message.candidates.front() == "功能" &&
+        corrected_second_syllable.message.syllables ==
+            std::vector<std::string>{"gong", "nneg"};
     const auto stable_xingb = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request, 112, 8, "xingb"});
     const auto stable_xingbaf = send_request(
@@ -146,6 +180,14 @@ int main() {
     const auto persisted_result = persisted.load(user_path);
     std::filesystem::remove(user_path, ignored);
     std::filesystem::remove(user_path.wstring() + L".bak", ignored);
+    if (!invalid_request_identity_ok) {
+        std::cerr << "invalid request response did not preserve request identity\n";
+        return 4;
+    }
+    if (!corrected_second_syllable_ok) {
+        std::cerr << "second-syllable correction contract failed\n";
+        return 5;
+    }
     if (!commits_ok || !valid_response(first, 101, 7) || !valid_response(second, 102, 8) ||
         !valid_response(learned, 104, 8, {"你号", "你好"}) ||
         !nihao_ranged.validation ||

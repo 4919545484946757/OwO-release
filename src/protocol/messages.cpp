@@ -148,7 +148,7 @@ bool valid_candidate_consumed(const Message& message) {
     if (!is_candidate_response)
         return message.candidate_consumed.empty();
     if (message.candidate_consumed.size() != message.candidates.size() ||
-        message.candidate_consumed.size() > 64) return false;
+        message.candidate_consumed.size() > kMaximumCandidateCount) return false;
     return std::all_of(message.candidate_consumed.begin(),
                        message.candidate_consumed.end(), [](const std::uint64_t value) {
         return value > 0 && value <= kMaximumPayloadBytes;

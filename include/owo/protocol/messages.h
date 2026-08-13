@@ -2,11 +2,14 @@
 
 #include "owo/protocol/envelope.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 namespace owo::protocol {
+
+inline constexpr std::size_t kMaximumCandidateCount = 256;
 
 enum class MessageType {
     candidate_request,

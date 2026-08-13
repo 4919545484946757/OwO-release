@@ -33,6 +33,7 @@ int main() {
         {{"ke", "yi"}, "可以", 1500},
         {{"gou", "mai"}, "购买", 1600},
         {{"gou", "ma"}, "够吗", 1200},
+        {{"gong", "neng"}, "功能", 1800},
         {{"nian", "hou"}, "年后", 10000},
         {{"lan"}, "LAN", 100},
         {{"la", "n"}, "LA-N", 100000},
@@ -161,6 +162,13 @@ int main() {
                    value.match_kind == owo::engine::InputMatchKind::corrected;
         }))
         return fail("transposed input did not generate corrected candidates");
+    const auto corrected_second_syllable =
+        generator.generate(schema.parse("gongnneg", 16));
+    if (corrected_second_syllable.empty() ||
+        corrected_second_syllable.front().text != "功能" ||
+        corrected_second_syllable.front().match_kind !=
+            owo::engine::InputMatchKind::corrected)
+        return fail("second-syllable transposition did not generate corrected candidates");
 
     const auto exact_and_completed = generator.generate(schema.parse("zhonggu"));
     if (exact_and_completed.size() < 2 || exact_and_completed[0].text != "中古" ||
@@ -482,6 +490,12 @@ int main() {
         initial_candidates.front().source_segments !=
             std::vector<std::string>(10, "f"))
         return fail("long initial candidates failed");
+    const auto trailing_initial_candidates =
+        initial_generator.generate(schema.parse("ffffffffff'"));
+    if (trailing_initial_candidates.empty() ||
+        trailing_initial_candidates.front().text != std::string(10, 'F') ||
+        trailing_initial_candidates.front().consumed_input_bytes != 11)
+        return fail("trailing separator did not preserve initial candidates");
 
     const owo::engine::MemoryLexicon mixed_fallback_lexicon({
         {{"shi"}, "S", 1000}, {{"e"}, "E", 1000}, {{"fa"}, "F", 1000},

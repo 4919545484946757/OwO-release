@@ -1988,13 +1988,24 @@ void TextService::worker_loop(const std::stop_token stop_token) {
         }
         const auto decoded = protocol::decode_message(exchanged.response);
         if (!decoded.validation) {
-            auto detail = wide_from_utf8(decoded.validation.message);
+            if (decoded.validation.error == protocol::ErrorCode::unsupported_protocol)
+                core_client.reset();
+            auto detail = decoded.validation.error == protocol::ErrorCode::unsupported_protocol
+                              ? std::wstring(L"输入法组件版本不一致，请重启 OwO 或重新安装当前版本")
+                              : wide_from_utf8(decoded.validation.message);
             if (detail.empty()) detail = L"候选响应协议无效";
             post_candidate_failure(std::move(detail));
             continue;
         }
         if (decoded.message.request_id != request.request_id) {
-            post_candidate_failure(L"候选响应 request ID 不匹配");
+            core_client.reset();
+            post_candidate_failure(L"候选服务响应错位，正在重试");
+            continue;
+        }
+        if (decoded.message.type == protocol::MessageType::error_response) {
+            auto detail = wide_from_utf8(decoded.message.text);
+            if (detail.empty()) detail = L"候选服务返回错误";
+            post_candidate_failure(std::move(detail));
             continue;
         }
         if (request_type == protocol::MessageType::candidate_committed) {

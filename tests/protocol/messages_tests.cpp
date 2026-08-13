@@ -103,6 +103,19 @@ int main() {
         std::cerr << "misaligned candidate consumption was encoded\n";
         ++failures;
     }
+    auto expanded_capacity = original;
+    expanded_capacity.candidates.assign(kMaximumCandidateCount, "候选");
+    expanded_capacity.candidate_consumed.assign(kMaximumCandidateCount, 5);
+    if (encode_message(expanded_capacity).empty()) {
+        std::cerr << "expanded candidate capacity was rejected\n";
+        ++failures;
+    }
+    expanded_capacity.candidates.push_back("越界");
+    expanded_capacity.candidate_consumed.push_back(5);
+    if (!encode_message(expanded_capacity).empty()) {
+        std::cerr << "oversized expanded candidate response was encoded\n";
+        ++failures;
+    }
     auto invalid_page_size = original;
     invalid_page_size.page_size = 10;
     if (!encode_message(invalid_page_size).empty()) {

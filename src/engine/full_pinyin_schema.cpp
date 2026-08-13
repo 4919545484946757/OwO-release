@@ -93,6 +93,8 @@ std::string_view fallback_syllable(const char value) {
 struct ChunkPath {
     std::vector<Syllable> syllables;
     bool incomplete{};
+    InputMatchKind match_kind{InputMatchKind::exact};
+    std::uint32_t completion_characters{};
 };
 
 std::size_t unlikely_internal_vowel_syllables(const ChunkPath& path) {
@@ -645,7 +647,7 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
             return result;
         }
     }
-    if (result.normalized_input.front() == '\'' || result.normalized_input.back() == '\'' ||
+    if (result.normalized_input.front() == '\'' ||
         result.normalized_input.find("''") != std::string::npos) return result;
     const auto normalization_finished = std::chrono::steady_clock::now();
 
@@ -659,6 +661,28 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
         const auto chunk_end = separator == std::string::npos ? result.normalized_input.size() : separator;
         auto chunk_paths = parse_chunk(result.normalized_input, chunk_begin, chunk_end,
                                        max_paths, true, cancelled);
+        const auto chunk = std::string_view(result.normalized_input).substr(
+            chunk_begin, chunk_end - chunk_begin);
+        const bool consonant_abbreviation = chunk.size() >= 2 &&
+            std::all_of(chunk.begin(), chunk.end(), [](const char value) {
+                constexpr std::string_view vowels = "aeiouv";
+                return value >= 'a' && value <= 'z' &&
+                       vowels.find(value) == std::string_view::npos;
+            });
+        if (chunk_paths.empty() && consonant_abbreviation) {
+            std::vector<ParsePath> abbreviated;
+            append_abbreviated_completions(chunk, abbreviated, max_paths);
+            chunk_paths.reserve(abbreviated.size());
+            for (auto& path : abbreviated) {
+                for (auto& syllable : path.syllables) {
+                    syllable.begin += chunk_begin;
+                    syllable.end += chunk_begin;
+                }
+                chunk_paths.push_back({std::move(path.syllables), false,
+                                       path.match_kind,
+                                       path.completion_characters});
+            }
+        }
         if (separator != std::string::npos &&
             std::any_of(chunk_paths.begin(), chunk_paths.end(),
                         [](const ChunkPath& path) { return !path.incomplete; })) {
@@ -677,6 +701,10 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
                 if (next.size() >= max_paths) break;
                 ParsePath path = prefix;
                 path.syllables.insert(path.syllables.end(), suffix.syllables.begin(), suffix.syllables.end());
+                if (static_cast<std::uint8_t>(suffix.match_kind) >
+                    static_cast<std::uint8_t>(path.match_kind))
+                    path.match_kind = suffix.match_kind;
+                path.completion_characters += suffix.completion_characters;
                 next.push_back(std::move(path));
                 any_incomplete = any_incomplete || suffix.incomplete;
             }

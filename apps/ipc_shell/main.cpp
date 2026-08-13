@@ -15,8 +15,12 @@ int main(int argc, char** argv) {
                  : update ? owo::protocol::MessageType::candidate_update_request
                           : owo::protocol::MessageType::candidate_request,
         1, 1, input};
-    if (!shutdown && !update && argc > 2)
-        request.page = static_cast<std::uint64_t>(std::stoull(argv[2]));
+    if (!shutdown && !update && argc > 2) {
+        if (std::string_view(argv[2]) == "--expanded")
+            request.expanded = true;
+        else
+            request.page = static_cast<std::uint64_t>(std::stoull(argv[2]));
+    }
     const auto result = owo::ipc::exchange(
         owo::ipc::kCorePipeName, owo::protocol::encode_message(request),
         std::chrono::milliseconds(2000));
