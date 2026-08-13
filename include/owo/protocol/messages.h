@@ -11,6 +11,12 @@ namespace owo::protocol {
 
 inline constexpr std::size_t kMaximumCandidateCount = 256;
 
+enum class CandidateGroup : std::uint64_t {
+    sentence = 0,
+    dictionary = 1,
+    single_character = 2,
+};
+
 enum class MessageType {
     candidate_request,
     candidate_response,
@@ -33,6 +39,7 @@ struct Message {
     bool model_pending{};
     std::vector<std::string> syllables;
     std::vector<std::uint64_t> candidate_consumed;
+    std::vector<std::uint64_t> candidate_groups;
     bool expanded{};
     std::uint64_t page_size{};
     bool correction_enabled{true};

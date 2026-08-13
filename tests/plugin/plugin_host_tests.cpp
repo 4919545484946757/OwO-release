@@ -304,7 +304,8 @@ int main(const int argc, char** argv) {
         !write_file(full_staging / L"manifest.json", manifest_json(full_trust_id, true)) ||
         !write_file(full_staging / L"config.schema.json", "{}")) return finish(38);
     const auto full_published = owo::plugin::publish_staged_plugin(
-        root, full_staging, std::string(64, 'c'), std::string(64, '0'));
+        root, full_staging, std::string(64, 'c'), std::string(64, '0'), true,
+        owo::plugin::PluginTrustTier::unverified_package);
     if (!full_published.ok || !full_published.activated ||
         owo::plugin::launch_active_plugin(root, full_trust_id, std::chrono::seconds(1)))
         return finish(39);

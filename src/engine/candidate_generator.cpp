@@ -42,6 +42,9 @@ constexpr std::int64_t kPreferredInitialBonus = 6'000;
 constexpr std::int64_t kCommonInitialSeedBonus = 100'000;
 constexpr std::int64_t kMaximumBoundaryCoherenceBonus = 12'000;
 constexpr std::int64_t kUncoveredBoundaryCharacterPenalty = 12'000;
+constexpr std::int64_t kPreferredExactSegmentationBonus = 16'000;
+constexpr std::int64_t kAlternativeSegmentationPromotionMargin = 16'000;
+constexpr std::int64_t kHighConfidenceAlternativeScore = 12'000;
 
 std::int64_t common_initial_seed_bonus(const char initial,
                                        const std::string_view text) {
@@ -296,7 +299,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                     const std::string_view language_context,
                                                     CandidateGenerationMetrics* const metrics,
                                                     const std::function<bool()>& cancelled,
-                                                    const bool include_model_alternatives) const {
+                                                    const bool include_model_alternatives,
+                                                    const std::size_t partition_page_size) const {
     if (!parsed.valid || limit == 0) return {};
     // A normal first page needs only page_size + one look-ahead candidate.
     // Keeping a small quality margin avoids the former 32-result floor, which
@@ -504,16 +508,25 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     const bool long_ambiguous_input = parsed.normalized_input.size() >= 12 &&
                                       parsed.normalized_input.find('\'') ==
                                           std::string::npos;
-    // Long input uses every exact path already admitted by the parser's
-    // bounded result set. A fixed first-N cutoff is unstable as a sentence
-    // grows: harmless nearby boundaries can otherwise hide a later coherent
-    // path. Short input retains one preferred exact interpretation.
+    // Short input also evaluates a small exact-path set: min'gan must not be
+    // hidden merely because ming'an is the parser's first legal split.
     const std::size_t exact_path_limit = long_ambiguous_input
         ? static_cast<std::size_t>(std::count_if(
               parsed.paths.begin(), parsed.paths.end(), [](const ParsePath& path) {
                   return path.match_kind == InputMatchKind::exact;
               }))
-        : 1;
+        : 4;
+    const auto exact_path_count = static_cast<std::size_t>(std::count_if(
+        parsed.paths.begin(), parsed.paths.end(), [](const ParsePath& path) {
+            return path.match_kind == InputMatchKind::exact;
+        }));
+    const ParsePath* preferred_exact_path = nullptr;
+    for (const auto& path : parsed.paths) {
+        if (path.match_kind == InputMatchKind::exact) {
+            preferred_exact_path = &path;
+            break;
+        }
+    }
     std::size_t exact_paths_added = 0;
     for (const auto kind : {InputMatchKind::exact,
                             InputMatchKind::incomplete_completion,
@@ -604,6 +617,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         std::vector<std::vector<SearchState>> chart(path.syllables.size() + 1);
         SearchState initial;
         initial.score = -input_match_penalty(path) + source_initial_bonus(parsed, path);
+        if (exact_path_count > 1 && &path == preferred_exact_path)
+            initial.score += kPreferredExactSegmentationBonus;
         chart[0].push_back(std::move(initial));
         const std::size_t beam_width = long_ambiguous_input
             ? std::max<std::size_t>(64, search_limit * 8)
@@ -868,7 +883,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // is not a dictionary word: omit it when any whole word exists, otherwise
     // retain one fallback. This prevents both corpus noise and Beam permutations
     // from filling pages for inputs such as chan+wu or ni+jian.
-    limit_two_syllable_full_candidates(full);
+    if (partition_page_size == 0)
+        limit_two_syllable_full_candidates(full);
     const auto apply_cross_boundary_coherence = [this, metrics](Candidate& candidate) {
         constexpr std::size_t kMaximumPhraseCharacters = 4;
         const auto character_count = candidate.syllables.size();
@@ -1134,6 +1150,97 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // recreate the old one-double-initial-candidate limit.
     if (!pure_initial_sequence && !multiword_input)
         prioritize_two_character_words(ordered);
+    // Reserve one early dictionary slot for the strongest alternative exact
+    // segmentation. Otherwise a valid high-frequency word such as min'gan can
+    // be generated but buried behind every ming'an word and composition. Keep
+    // the preferred split at index zero so the preview and first candidate stay
+    // stable for inputs such as wan'an and nan'an.
+    if (!pure_initial_sequence && !multiword_input && ordered.size() > 2 &&
+        ordered.front().match_kind == InputMatchKind::exact) {
+        const auto preferred_segments = ordered.front().source_segments;
+        const auto alternative = std::find_if(
+            ordered.begin() + 1, ordered.end(), [&](const Candidate& candidate) {
+                return candidate.match_kind == InputMatchKind::exact &&
+                       candidate.consumed_input_bytes == full_input_bytes &&
+                       candidate.segment_count == 1 &&
+                       candidate.score >= kHighConfidenceAlternativeScore &&
+                       candidate.score + kAlternativeSegmentationPromotionMargin >=
+                           ordered.front().score &&
+                       candidate.source_segments != preferred_segments;
+            });
+        const auto destination = ordered.begin() +
+            static_cast<std::ptrdiff_t>(std::min<std::size_t>(2, ordered.size() - 1));
+        if (alternative != ordered.end() && alternative > destination)
+            std::rotate(destination, alternative, alternative + 1);
+    }
+    if (partition_page_size != 0) {
+        std::vector<Candidate> sentences;
+        std::vector<Candidate> dictionary_words;
+        std::vector<Candidate> compositions;
+        std::vector<Candidate> single_characters;
+        std::vector<Candidate> other;
+        for (auto& candidate : ordered) {
+            const auto characters = utf8_character_count(candidate.text);
+            const bool sentence = candidate.consumed_input_bytes ==
+                                      parsed.normalized_input.size() &&
+                                  candidate.syllables.size() >= 3 &&
+                                  characters == candidate.syllables.size() &&
+                                  candidate.segment_count > 1;
+            if (sentence)
+                sentences.push_back(std::move(candidate));
+            else if (characters >= 2 && candidate.segment_count == 1)
+                dictionary_words.push_back(std::move(candidate));
+            else if (characters >= 2)
+                compositions.push_back(std::move(candidate));
+            else if (characters == 1)
+                single_characters.push_back(std::move(candidate));
+            else
+                other.push_back(std::move(candidate));
+        }
+        const auto composition_capacity = partition_page_size * 2;
+        const auto composition_limit =
+            dictionary_words.size() < composition_capacity
+                ? composition_capacity - dictionary_words.size()
+                : std::size_t{0};
+        if (compositions.size() > composition_limit)
+            compositions.resize(composition_limit);
+        std::vector<Candidate> dictionary;
+        dictionary.reserve(dictionary_words.size() + compositions.size());
+        for (auto& candidate : dictionary_words)
+            dictionary.push_back(std::move(candidate));
+        for (auto& candidate : compositions)
+            dictionary.push_back(std::move(candidate));
+        std::stable_sort(dictionary.begin(), dictionary.end(), score_less);
+        if (!dictionary.empty()) {
+            const auto preferred_segments = dictionary.front().source_segments;
+            const auto alternative = std::find_if(
+                dictionary.begin() + 1, dictionary.end(), [&](const Candidate& candidate) {
+                    return candidate.match_kind == InputMatchKind::exact &&
+                           candidate.consumed_input_bytes == full_input_bytes &&
+                           candidate.segment_count == 1 &&
+                           candidate.score >= kHighConfidenceAlternativeScore &&
+                           candidate.score + kAlternativeSegmentationPromotionMargin >=
+                               dictionary.front().score &&
+                           candidate.source_segments != preferred_segments;
+                });
+            const auto destination = dictionary.begin() +
+                static_cast<std::ptrdiff_t>(
+                    std::min<std::size_t>(2, dictionary.size() - 1));
+            if (alternative != dictionary.end() && alternative > destination)
+                std::rotate(destination, alternative, alternative + 1);
+        }
+        ordered.clear();
+        ordered.reserve(sentences.size() + dictionary.size() +
+                        single_characters.size() + other.size());
+        const auto append = [&ordered](auto& source) {
+            for (auto& candidate : source)
+                ordered.push_back(std::move(candidate));
+        };
+        append(sentences);
+        append(dictionary);
+        append(single_characters);
+        append(other);
+    }
     if (ordered.size() > limit) ordered.resize(limit);
     if (include_model_alternatives && !model_seeds.empty()) {
         constexpr std::size_t kMaximumModelAlternatives = 64;

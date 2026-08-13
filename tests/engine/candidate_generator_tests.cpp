@@ -43,6 +43,9 @@ int main() {
         {{"ling"}, "LING", 1},
         {{"bin"}, "BIN", 1},
         {{"bing"}, "BING", 1},
+        {{"ming", "an"}, "MING_AN", 1000},
+        {{"min", "gan"}, "敏感", 200000},
+        {{"cu", "lve"}, "粗略", 100000},
     });
     const owo::engine::FullPinyinSchema schema;
     const owo::engine::CandidateGenerator generator(lexicon);
@@ -55,6 +58,16 @@ int main() {
     if (uppercase_nihao_parse.normalized_input != "nihao" ||
         uppercase_nihao != nihao)
         return fail("uppercase pinyin normalization failed");
+    const auto mingan = generator.generate(schema.parse("mingan"));
+    const auto sensitive = std::find_if(mingan.begin(), mingan.end(), [](const auto& value) {
+        return value.text == "敏感";
+    });
+    if (sensitive == mingan.end() ||
+        static_cast<std::size_t>(sensitive - mingan.begin()) > 2)
+        return fail("dictionary-backed alternative exact boundary was hidden");
+    const auto culue = generator.generate(schema.parse("culue"));
+    if (culue.empty() || culue.front().text != "粗略")
+        return fail("lue spelling did not reach the canonical lve dictionary entry");
 
     const auto xian = generator.generate(schema.parse("xian"));
     if (xian.size() != 2 || xian[0].text != "先" || xian[1].text != "线")
@@ -215,13 +228,7 @@ int main() {
     const auto nanan_candidates =
         ambiguous_boundary_generator.generate(schema.parse("nanan"));
     if (wanan_candidates.empty() || wanan_candidates.front().text != "WAN_AN" ||
-        std::any_of(wanan_candidates.begin(), wanan_candidates.end(), [](const auto& value) {
-            return value.text == "WA_NAN";
-        }) ||
-        nanan_candidates.empty() || nanan_candidates.front().text != "NAN_AN" ||
-        std::any_of(nanan_candidates.begin(), nanan_candidates.end(), [](const auto& value) {
-            return value.text == "NA_NAN";
-        }))
+        nanan_candidates.empty() || nanan_candidates.front().text != "NAN_AN")
         return fail("candidate segmentation diverged from the pinyin preview");
 
     const owo::engine::MemoryLexicon double_initial_lexicon({
@@ -582,6 +589,64 @@ int main() {
                                  candidate.segment_count > 1;
                       }) > 1)
         return fail("two-syllable fallback permutations were not bounded");
+
+    const owo::engine::MemoryLexicon partitioned_composition_lexicon({
+        {{"wo"}, "我", 4000}, {{"wo"}, "握", 3000},
+        {{"wo"}, "窝", 2000}, {{"wo"}, "卧", 1000},
+        {{"ka"}, "卡", 4000}, {{"ka"}, "咖", 3000},
+        {{"ka"}, "喀", 2000}, {{"ka"}, "咔", 1000},
+    });
+    const owo::engine::CandidateGenerator partitioned_composition_generator(
+        partitioned_composition_lexicon);
+    const auto partitioned_compositions = partitioned_composition_generator.generate(
+        schema.parse("woka"), 32, false, {}, nullptr, {}, false, 5);
+    const auto composition_count = std::count_if(
+        partitioned_compositions.begin(), partitioned_compositions.end(),
+        [](const auto& candidate) {
+            return candidate.syllables.size() == 2 && candidate.segment_count > 1;
+        });
+    const auto single_count = std::count_if(
+        partitioned_compositions.begin(), partitioned_compositions.end(),
+        [](const auto& candidate) {
+            return candidate.text.size() == 3 && candidate.segment_count == 1;
+        });
+    if (composition_count != 10 || single_count == 0)
+        return fail("partitioned composition quota displaced single characters");
+
+    const owo::engine::MemoryLexicon dictionary_quota_lexicon({
+        {{"wo"}, "我", 4000}, {{"wo"}, "握", 3000},
+        {{"wo"}, "窝", 2000}, {{"wo"}, "卧", 1000},
+        {{"ka"}, "卡", 4000}, {{"ka"}, "咖", 3000},
+        {{"ka"}, "喀", 2000}, {{"ka"}, "咔", 1000},
+        {{"wo", "ka"}, "词一", 8000},
+        {{"wo", "ka"}, "词二", 7000},
+        {{"wo", "ka"}, "词三", 6000},
+    });
+    const owo::engine::CandidateGenerator dictionary_quota_generator(
+        dictionary_quota_lexicon);
+    const auto dictionary_quota = dictionary_quota_generator.generate(
+        schema.parse("woka"), 32, false, {}, nullptr, {}, false, 5);
+    const auto real_dictionary_count = std::count_if(
+        dictionary_quota.begin(), dictionary_quota.end(), [](const auto& candidate) {
+            return candidate.syllables.size() == 2 && candidate.segment_count == 1;
+        });
+    const auto bounded_composition_count = std::count_if(
+        dictionary_quota.begin(), dictionary_quota.end(), [](const auto& candidate) {
+            return candidate.syllables.size() == 2 && candidate.segment_count > 1;
+        });
+    if (real_dictionary_count != 3 || bounded_composition_count != 7)
+        return fail("real dictionary count did not reduce the composition quota");
+
+    const owo::engine::MemoryLexicon mixed_weight_lexicon({
+        {{"wo"}, "我", 100000}, {{"de"}, "的", 100000},
+        {{"wo", "de"}, "低频整词", 1},
+    });
+    const owo::engine::CandidateGenerator mixed_weight_generator(
+        mixed_weight_lexicon);
+    const auto mixed_weight = mixed_weight_generator.generate(
+        schema.parse("wode"), 16, false, {}, nullptr, {}, false, 5);
+    if (mixed_weight.empty() || mixed_weight.front().text != "我的")
+        return fail("low-frequency dictionary word unconditionally outranked composition");
 
     const auto cancelled_generation = word_priority_generator.generate(
         schema.parse("shi"), 32, false, {}, nullptr, [] { return true; });

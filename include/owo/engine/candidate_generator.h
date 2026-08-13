@@ -47,7 +47,8 @@ public:
                                                   std::string_view language_context = {},
                                                   CandidateGenerationMetrics* metrics = nullptr,
                                                   const std::function<bool()>& cancelled = {},
-                                                  bool include_model_alternatives = false) const;
+                                                  bool include_model_alternatives = false,
+                                                  std::size_t partition_page_size = 0) const;
 
 private:
     const Lexicon& lexicon_;

@@ -51,7 +51,7 @@ bool valid_response(const owo::protocol::DecodeResult& response,
            response.message.context_generation == generation &&
            response.message.candidates == candidates &&
            response.message.syllables == syllables &&
-           response.message.page_size == 5 && !response.message.expanded &&
+           response.message.page_size == 7 && !response.message.expanded &&
            response.message.correction_enabled &&
            response.message.candidate_consumed ==
                std::vector<std::uint64_t>(candidates.size(), consumed);
@@ -71,8 +71,10 @@ int main() {
         {{"ce", "shi"}, "测试一", 1000}, {{"ce", "shi"}, "测试二", 900},
         {{"ce", "shi"}, "测试三", 800}, {{"ce", "shi"}, "测试四", 700},
         {{"ce", "shi"}, "测试五", 600}, {{"ce", "shi"}, "测试六", 500},
-        {{"ce", "shi"}, "测试七", 400},
+        {{"ce", "shi"}, "测试七", 400}, {{"ce", "shi"}, "测试八", 300},
+        {{"ce", "shi"}, "测试九", 200},
         {{"wo", "ai"}, "我爱", 1500}, {{"wo"}, "我", 1400},
+        {{"ai"}, "爱", 1350}, {{"shi"}, "是", 1300},
         {{"gong", "neng"}, "功能", 1700},
         {{"shi", "jie"}, "世界", 1600},
         {{"ga"}, "A", 1000}, {{"ge"}, "B", 900},
@@ -135,13 +137,23 @@ int main() {
         pipe_name, {owo::protocol::MessageType::candidate_request, 116, 8, "mingd"});
     const auto stable_kenengd = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request, 117, 8, "kenengd"});
-    const auto double_initial_first = send_request(
-        pipe_name, {owo::protocol::MessageType::candidate_request, 118, 8, "gd"});
     owo::protocol::Message double_initial_second_request{
         owo::protocol::MessageType::candidate_request, 119, 8, "gd"};
+    const auto double_initial_first = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request, 118, 8, "gd"});
     double_initial_second_request.page = 1;
     const auto double_initial_second = send_request(
         pipe_name, double_initial_second_request);
+    const auto sentence_first = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    122, 8, "woaishi"});
+    owo::protocol::Message sentence_second_request{
+        owo::protocol::MessageType::candidate_request, 123, 8, "woaishi"};
+    sentence_second_request.page = 1;
+    const auto sentence_second = send_request(pipe_name, sentence_second_request);
+    const auto composed_non_dictionary = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    124, 8, "woshi"});
     owo::protocol::Message correction_disabled_request{
         owo::protocol::MessageType::candidate_request, 111, 8, "niaho"};
     correction_disabled_request.correction_enabled = false;
@@ -170,6 +182,10 @@ int main() {
         owo::protocol::MessageType::candidate_request, 109, 8, "ceshi"};
     expanded_request.expanded = true;
     const auto expanded = send_request(pipe_name, expanded_request);
+    std::vector<std::string> paged_candidates = first_page.message.candidates;
+    paged_candidates.insert(paged_candidates.end(),
+                            second_page.message.candidates.begin(),
+                            second_page.message.candidates.end());
     const auto ranged = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request,
                     107, 8, "wo'ai'shi'jie"});
@@ -187,6 +203,18 @@ int main() {
     if (!corrected_second_syllable_ok) {
         std::cerr << "second-syllable correction contract failed\n";
         return 5;
+    }
+    const auto composed = std::find(
+        composed_non_dictionary.message.candidates.begin(),
+        composed_non_dictionary.message.candidates.end(), "我是");
+    const auto composed_index = static_cast<std::size_t>(
+        composed - composed_non_dictionary.message.candidates.begin());
+    if (!composed_non_dictionary.validation ||
+        composed == composed_non_dictionary.message.candidates.end() ||
+        composed_index >= composed_non_dictionary.message.candidate_groups.size() ||
+        composed_non_dictionary.message.candidate_groups[composed_index] != 1) {
+        std::cerr << "composed dictionary-area candidate contract failed\n";
+        return 6;
     }
     if (!commits_ok || !valid_response(first, 101, 7) || !valid_response(second, 102, 8) ||
         !valid_response(learned, 104, 8, {"你号", "你好"}) ||
@@ -210,10 +238,22 @@ int main() {
             std::vector<std::string>{"ke", "neng", "d"} ||
         !double_initial_first.validation ||
         double_initial_first.message.candidate_consumed !=
-            std::vector<std::uint64_t>{2, 2, 2, 1, 1} ||
+            std::vector<std::uint64_t>{2, 2, 2, 1, 1, 1, 1} ||
+        double_initial_first.message.candidate_groups !=
+            std::vector<std::uint64_t>{1, 1, 1, 2, 2, 2, 2} ||
         !double_initial_second.validation ||
         double_initial_second.message.candidate_consumed !=
-            std::vector<std::uint64_t>{2, 2, 2, 1, 1} ||
+            std::vector<std::uint64_t>{2, 2, 2, 2, 1, 1} ||
+        double_initial_second.message.candidate_groups !=
+            std::vector<std::uint64_t>{1, 1, 1, 1, 2, 2} ||
+        !sentence_first.validation || sentence_first.message.candidate_groups.empty() ||
+        sentence_first.message.candidate_groups.front() != 0 ||
+        std::count(sentence_first.message.candidate_groups.begin(),
+                   sentence_first.message.candidate_groups.end(), 0) > 2 ||
+        !sentence_second.validation ||
+        std::find(sentence_second.message.candidate_groups.begin(),
+                  sentence_second.message.candidate_groups.end(), 0) !=
+            sentence_second.message.candidate_groups.end() ||
         !correction_disabled.validation ||
         correction_disabled.message.type != owo::protocol::MessageType::candidate_response ||
         correction_disabled.message.correction_enabled ||
@@ -233,19 +273,24 @@ int main() {
         separated_correction_enabled.message.syllables !=
             std::vector<std::string>{"quan", "loi"} ||
         !valid_response(first_page, 106, 8,
-                        {"测试一", "测试二", "测试三", "测试四", "测试五"},
+                        {"测试一", "测试二", "测试三", "测试四", "测试五", "测试六", "测试七"},
                         {"ce", "shi"}) ||
+        first_page.message.candidate_groups !=
+            std::vector<std::uint64_t>(7, 1) ||
         first_page.message.page != 0 || !first_page.message.has_more ||
-        !valid_response(second_page, 105, 8, {"测试六", "测试七"}, {"ce", "shi"}) ||
+        !valid_response(second_page, 105, 8, {"测试八", "测试九"}, {"ce", "shi"}) ||
         second_page.message.page != 1 || second_page.message.has_more ||
         !expanded.validation || !expanded.message.expanded ||
-        expanded.message.page != 0 || expanded.message.page_size != 5 ||
+        expanded.message.page != 0 || expanded.message.page_size != 7 ||
         expanded.message.has_more ||
+        expanded.message.candidates != paged_candidates ||
         expanded.message.candidates !=
             std::vector<std::string>{"测试一", "测试二", "测试三", "测试四",
-                                     "测试五", "测试六", "测试七"} ||
+                                     "测试五", "测试六", "测试七", "测试八", "测试九"} ||
         expanded.message.candidate_consumed !=
-            std::vector<std::uint64_t>(7, 5) ||
+            std::vector<std::uint64_t>(9, 5) ||
+        expanded.message.candidate_groups !=
+            std::vector<std::uint64_t>(9, 1) ||
         !ranged.validation ||
         ranged.message.candidates != std::vector<std::string>{"我爱世界", "我爱", "我"} ||
         ranged.message.syllables !=
@@ -257,6 +302,28 @@ int main() {
         shutdown.message.text != "shutdown_ack" ||
         shutdown.message.request_id != 103 || shutdown.message.context_generation != 9 ||
         server_exit != 0) {
+        const auto dump = [](const char* name, const owo::protocol::DecodeResult& value) {
+            std::cerr << name << ": valid=" << static_cast<bool>(value.validation)
+                      << " page=" << value.message.page
+                      << " page_size=" << value.message.page_size
+                      << " more=" << value.message.has_more << " candidates=";
+            for (const auto& candidate : value.message.candidates)
+                std::cerr << '[' << candidate << ']';
+            std::cerr << " consumed=";
+            for (const auto consumed : value.message.candidate_consumed)
+                std::cerr << consumed << ',';
+            std::cerr << " groups=";
+            for (const auto group : value.message.candidate_groups)
+                std::cerr << group << ',';
+            std::cerr << '\n';
+        };
+        dump("double-first", double_initial_first);
+        dump("double-second", double_initial_second);
+        dump("sentence-first", sentence_first);
+        dump("sentence-second", sentence_second);
+        dump("first-page", first_page);
+        dump("second-page", second_page);
+        dump("expanded", expanded);
         std::cerr << "in-process core service contract failed\n";
         return 1;
     }

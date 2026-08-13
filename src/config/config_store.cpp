@@ -100,6 +100,7 @@ bool valid_shortcut(const std::string_view shortcut) {
 
 bool parse_shortcut_list(const std::string_view text, std::vector<std::string>& output) {
     output.clear();
+    if (text.empty()) return true;
     std::size_t offset = 0;
     while (offset < text.size()) {
         const auto separator = text.find(';', offset);
@@ -110,7 +111,7 @@ bool parse_shortcut_list(const std::string_view text, std::vector<std::string>& 
         if (separator == std::string_view::npos) break;
         offset = separator + 1;
     }
-    return !output.empty();
+    return true;
 }
 
 std::string serialize_shortcut_list(const std::vector<std::string>& shortcuts) {
@@ -187,17 +188,19 @@ ConfigValidationResult validate_config(const AppConfig& value) {
         return {false, "user_learning_sensitivity must be between 1 and 10"};
     if (value.model_timeout_ms < 5 || value.model_timeout_ms > 500)
         return {false, "model_timeout_ms must be between 5 and 500"};
-    const auto valid_list = [](const std::vector<std::string>& shortcuts) {
-        return !shortcuts.empty() && shortcuts.size() <= 16 &&
+    const auto valid_list = [](const bool enabled,
+                               const std::vector<std::string>& shortcuts) {
+        return (!enabled || !shortcuts.empty()) && shortcuts.size() <= 16 &&
             std::all_of(shortcuts.begin(), shortcuts.end(), valid_shortcut);
     };
-    if (!valid_list(value.correction_shortcuts) ||
-        !valid_list(value.language_shortcuts) ||
-        !valid_list(value.raw_input_shortcuts) ||
-        !valid_list(value.cursor_left_shortcuts) ||
-        !valid_list(value.cursor_right_shortcuts) ||
-        !valid_list(value.previous_page_shortcuts) ||
-        !valid_list(value.next_page_shortcuts))
+    if (!valid_list(value.correction_shortcut_enabled, value.correction_shortcuts) ||
+        !valid_list(value.language_shortcut_enabled, value.language_shortcuts) ||
+        !valid_list(value.raw_input_shortcut_enabled, value.raw_input_shortcuts) ||
+        !valid_list(value.cursor_left_shortcut_enabled, value.cursor_left_shortcuts) ||
+        !valid_list(value.cursor_right_shortcut_enabled, value.cursor_right_shortcuts) ||
+        !valid_list(value.previous_page_shortcut_enabled, value.previous_page_shortcuts) ||
+        !valid_list(value.next_page_shortcut_enabled, value.next_page_shortcuts) ||
+        !valid_list(value.punctuation_shortcut_enabled, value.punctuation_shortcuts))
         return {false, "shortcut list must contain canonical key or modifier combinations"};
     std::set<std::string_view> enabled_shortcuts;
     const auto unique_if_enabled = [&enabled_shortcuts](const bool enabled,
@@ -236,7 +239,7 @@ ConfigParseResult parse_config(const std::string_view utf8) {
         if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
         if (line.empty()) return {false, {}, "blank configuration lines are forbidden"};
         const auto separator = line.find('=');
-        if (separator == std::string_view::npos || separator == 0 || separator + 1 == line.size())
+        if (separator == std::string_view::npos || separator == 0)
             return {false, {}, "invalid configuration field"};
         if (!fields.emplace(std::string(line.substr(0, separator)),
                             std::string(line.substr(separator + 1))).second)
@@ -257,6 +260,10 @@ ConfigParseResult parse_config(const std::string_view utf8) {
         "raw_input_shortcut_enabled", "raw_input_shortcut"};
     constexpr std::string_view wrap_required[]{"candidate_wrap_length"};
     constexpr std::string_view learning_required[]{"user_learning_sensitivity"};
+    constexpr std::string_view partition_required[]{"candidate_partition_enabled"};
+    constexpr std::string_view punctuation_required[]{
+        "chinese_punctuation_enabled", "punctuation_shortcut_enabled",
+        "punctuation_shortcut"};
     constexpr std::string_view navigation_required[]{
         "cursor_left_shortcut_enabled", "cursor_left_shortcut",
         "cursor_right_shortcut_enabled", "cursor_right_shortcut",
@@ -266,7 +273,9 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 2 ? std::size(shortcut_required) : 0) +
                                (version >= 3 ? std::size(wrap_required) : 0) +
                                (version >= 4 ? std::size(learning_required) : 0) +
-                               (version >= 5 ? std::size(navigation_required) : 0);
+                               (version >= 5 ? std::size(navigation_required) : 0) +
+                               (version >= 7 ? std::size(partition_required) : 0) +
+                               (version >= 8 ? std::size(punctuation_required) : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -286,6 +295,11 @@ ConfigParseResult parse_config(const std::string_view utf8) {
             if (!fields.contains(std::string(key)))
                 return {false, {}, "configuration fields are missing or unknown"};
     }
+    if (version >= 7 && !fields.contains("candidate_partition_enabled"))
+        return {false, {}, "configuration fields are missing or unknown"};
+    if (version >= 8) for (const auto key : punctuation_required)
+        if (!fields.contains(std::string(key)))
+            return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
     if (!parse_u32(fields["candidate_page_size"], value.candidate_page_size) ||
         !parse_bool(fields["user_learning_enabled"], value.user_learning_enabled) ||
@@ -319,6 +333,19 @@ ConfigParseResult parse_config(const std::string_view utf8) {
     if (version >= 4 &&
         !parse_u32(fields["user_learning_sensitivity"], value.user_learning_sensitivity))
         return {false, {}, "configuration field type is invalid"};
+    if (version >= 7 &&
+        !parse_bool(fields["candidate_partition_enabled"],
+                    value.candidate_partition_enabled))
+        return {false, {}, "configuration field type is invalid"};
+    if (version >= 8) {
+        if (!parse_bool(fields["chinese_punctuation_enabled"],
+                        value.chinese_punctuation_enabled) ||
+            !parse_bool(fields["punctuation_shortcut_enabled"],
+                        value.punctuation_shortcut_enabled) ||
+            !parse_shortcut_list(fields["punctuation_shortcut"],
+                                 value.punctuation_shortcuts))
+            return {false, {}, "configuration field type is invalid"};
+    }
     if (version >= 5) {
         if (!parse_bool(fields["cursor_left_shortcut_enabled"],
                         value.cursor_left_shortcut_enabled) ||
@@ -359,6 +386,14 @@ std::string serialize_config(const AppConfig& value) {
     return "schema_version=" + std::to_string(kConfigSchemaVersion) +
            "\ncandidate_page_size=" + std::to_string(value.candidate_page_size) +
            "\ncandidate_wrap_length=" + std::to_string(value.candidate_wrap_length) +
+           "\ncandidate_partition_enabled=" +
+               (value.candidate_partition_enabled ? std::string("true") : "false") +
+           "\nchinese_punctuation_enabled=" +
+               (value.chinese_punctuation_enabled ? std::string("true") : "false") +
+           "\npunctuation_shortcut_enabled=" +
+               (value.punctuation_shortcut_enabled ? std::string("true") : "false") +
+           "\npunctuation_shortcut=" +
+               serialize_shortcut_list(value.punctuation_shortcuts) +
            "\nuser_learning_enabled=" + (value.user_learning_enabled ? std::string("true") : "false") +
            "\nuser_learning_sensitivity=" +
                std::to_string(value.user_learning_sensitivity) +

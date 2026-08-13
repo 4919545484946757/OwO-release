@@ -3,6 +3,8 @@ using System.Diagnostics;
 namespace OwO_Settings;
 
 internal sealed record SettingsSnapshot(uint CandidatePageSize, uint CandidateWrapLength,
+                                        bool CandidatePartitionEnabled,
+                                        bool ChinesePunctuationEnabled,
                                         uint UserLearningSensitivity,
                                         bool UserLearningEnabled,
                                         bool ModelRankingEnabled, uint ModelTimeoutMs,
@@ -12,7 +14,8 @@ internal sealed record SettingsSnapshot(uint CandidatePageSize, uint CandidateWr
                                         bool CursorLeftShortcutEnabled, IReadOnlyList<string> CursorLeftShortcuts,
                                         bool CursorRightShortcutEnabled, IReadOnlyList<string> CursorRightShortcuts,
                                         bool PreviousPageShortcutEnabled, IReadOnlyList<string> PreviousPageShortcuts,
-                                        bool NextPageShortcutEnabled, IReadOnlyList<string> NextPageShortcuts);
+                                        bool NextPageShortcutEnabled, IReadOnlyList<string> NextPageShortcuts,
+                                        bool PunctuationShortcutEnabled, IReadOnlyList<string> PunctuationShortcuts);
 
 internal sealed class ConfigShellClient
 {
@@ -32,6 +35,8 @@ internal sealed class ConfigShellClient
             .ToDictionary(parts => parts[0], parts => parts[1], StringComparer.Ordinal);
         return new(uint.Parse(values["candidate_page_size"]),
                    uint.Parse(values["candidate_wrap_length"]),
+                   bool.Parse(values["candidate_partition_enabled"]),
+                   bool.Parse(values["chinese_punctuation_enabled"]),
                    uint.Parse(values["user_learning_sensitivity"]),
                    bool.Parse(values["user_learning_enabled"]),
                    bool.Parse(values["model_ranking_enabled"]),
@@ -49,7 +54,9 @@ internal sealed class ConfigShellClient
                    bool.Parse(values["previous_page_shortcut_enabled"]),
                    SplitShortcuts(values["previous_page_shortcut"]),
                    bool.Parse(values["next_page_shortcut_enabled"]),
-                   SplitShortcuts(values["next_page_shortcut"]));
+                   SplitShortcuts(values["next_page_shortcut"]),
+                   bool.Parse(values["punctuation_shortcut_enabled"]),
+                   SplitShortcuts(values["punctuation_shortcut"]));
     }
 
     internal Task SaveAsync(SettingsSnapshot value, CancellationToken cancellationToken = default) =>
@@ -72,7 +79,11 @@ internal sealed class ConfigShellClient
                   value.PreviousPageShortcutEnabled.ToString().ToLowerInvariant(),
                   JoinShortcuts(value.PreviousPageShortcuts),
                   value.NextPageShortcutEnabled.ToString().ToLowerInvariant(),
-                  JoinShortcuts(value.NextPageShortcuts)], cancellationToken);
+                  JoinShortcuts(value.NextPageShortcuts),
+                  value.CandidatePartitionEnabled.ToString().ToLowerInvariant(),
+                  value.ChinesePunctuationEnabled.ToString().ToLowerInvariant(),
+                  value.PunctuationShortcutEnabled.ToString().ToLowerInvariant(),
+                  JoinShortcuts(value.PunctuationShortcuts)], cancellationToken);
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

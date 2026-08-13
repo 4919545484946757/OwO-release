@@ -49,7 +49,10 @@ int main(int argc, char** argv) {
             std::cout << '\n';
         }
         for (std::size_t index = 0; index < decoded.message.candidates.size(); ++index) {
-            std::cout << index + 1 << ". " << decoded.message.candidates[index] << '\n';
+            std::cout << index + 1 << ". " << decoded.message.candidates[index];
+            if (!decoded.message.candidate_groups.empty())
+                std::cout << " [group=" << decoded.message.candidate_groups[index] << ']';
+            std::cout << '\n';
         }
         std::cout << "page=" << decoded.message.page
                   << " has_more=" << decoded.message.has_more << '\n';

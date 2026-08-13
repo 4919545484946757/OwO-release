@@ -130,6 +130,14 @@ int main() {
     if (!preferred_source_is(schema.parse("wanan"), {"wan", "an"}) ||
         !preferred_source_is(schema.parse("nanan"), {"nan", "an"}))
         return fail("vowel-leading suffix preferred segmentation failed");
+    if (!contains_path(schema.parse("mingan"), {"min", "gan"},
+                       owo::engine::InputMatchKind::exact))
+        return fail("valid alternative exact boundary was dropped");
+    if (!contains_path(schema.parse("culue"), {"cu", "lve"},
+                       owo::engine::InputMatchKind::exact) ||
+        !contains_path(schema.parse("nunue"), {"nu", "nve"},
+                       owo::engine::InputMatchKind::exact))
+        return fail("ASCII u spelling for lue/nue was not normalized");
     if (!preferred_source_is(schema.parse("nengd"), {"neng", "d"}) ||
         !preferred_source_is(schema.parse("pengd"), {"peng", "d"}) ||
         !preferred_source_is(schema.parse("shengx"), {"sheng", "x"}) ||
@@ -192,6 +200,12 @@ int main() {
     if (contains_path(schema.parse("nxhap"), {"ni", "hao"},
                       owo::engine::InputMatchKind::corrected))
         return fail("two edits were corrected");
+    const auto long_local_correction = schema.parse(
+        "wangwangshituobukuaigauanxi", 16);
+    if (!contains_path(long_local_correction,
+                       {"wang", "wang", "shi", "tuo", "bu", "kai", "guan", "xi"},
+                       owo::engine::InputMatchKind::corrected))
+        return fail("local correction in long input was not retained");
     if (!contains_path(schema.parse("zhonggu"), {"zhong", "guo"},
                        owo::engine::InputMatchKind::incomplete_completion))
         return fail("complete-prefix completion failed");

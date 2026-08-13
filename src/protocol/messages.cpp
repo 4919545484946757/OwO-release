@@ -155,6 +155,19 @@ bool valid_candidate_consumed(const Message& message) {
     });
 }
 
+bool valid_candidate_groups(const Message& message) {
+    const bool is_candidate_response =
+        message.type == MessageType::candidate_response ||
+        message.type == MessageType::candidate_update_response;
+    if (!is_candidate_response) return message.candidate_groups.empty();
+    if (message.candidate_groups.empty()) return true;
+    if (message.candidate_groups.size() != message.candidates.size()) return false;
+    return std::all_of(message.candidate_groups.begin(),
+                       message.candidate_groups.end(), [](const std::uint64_t value) {
+        return value <= static_cast<std::uint64_t>(CandidateGroup::single_character);
+    });
+}
+
 bool valid_candidate_layout(const Message& message) {
     const bool is_candidate_request = message.type == MessageType::candidate_request;
     const bool is_candidate_response = message.type == MessageType::candidate_response;
@@ -185,6 +198,7 @@ bool valid_language_context(const Message& message) {
 
 std::string encode_message(const Message& message) {
     if (!valid_syllables(message.syllables) || !valid_candidate_consumed(message) ||
+        !valid_candidate_groups(message) ||
         !valid_candidate_layout(message) || !valid_feedback_input(message) ||
         !valid_language_context(message)) return {};
     const auto escaped = escape_json(message.text);
@@ -215,6 +229,12 @@ std::string encode_message(const Message& message) {
         encoded_consumed += std::to_string(message.candidate_consumed[index]);
     }
     encoded_consumed += ']';
+    std::string encoded_groups = "[";
+    for (std::size_t index = 0; index < message.candidate_groups.size(); ++index) {
+        if (index != 0) encoded_groups += ',';
+        encoded_groups += std::to_string(message.candidate_groups[index]);
+    }
+    encoded_groups += ']';
     return "{\"protocol_version\":" + std::to_string(kProtocolVersion) +
            ",\"type\":\"" + type_name(message.type) +
            "\",\"request_id\":" + std::to_string(message.request_id) +
@@ -225,6 +245,7 @@ std::string encode_message(const Message& message) {
            ",\"model_pending\":" + (message.model_pending ? "true" : "false") +
            ",\"syllables\":" + encoded_syllables +
            ",\"candidate_consumed\":" + encoded_consumed +
+           ",\"candidate_groups\":" + encoded_groups +
            ",\"expanded\":" + (message.expanded ? "true" : "false") +
            ",\"page_size\":" + std::to_string(message.page_size) +
            ",\"correction_enabled\":" +
@@ -311,6 +332,12 @@ DecodeResult decode_message(const std::string_view json) {
         if (!values) goto invalid;
         output.message.candidate_consumed = std::move(*values);
     }
+    if (!consume(json, offset, ",\"candidate_groups\":")) goto invalid;
+    {
+        auto values = parse_uint_array(json, offset);
+        if (!values) goto invalid;
+        output.message.candidate_groups = std::move(*values);
+    }
     if (!consume(json, offset, ",\"expanded\":")) goto invalid;
     {
         const auto value = parse_bool(json, offset);
@@ -343,6 +370,7 @@ DecodeResult decode_message(const std::string_view json) {
     }
     if (!consume(json, offset, "}") || offset != json.size()) goto invalid;
     if (!valid_candidate_consumed(output.message) ||
+        !valid_candidate_groups(output.message) ||
         !valid_candidate_layout(output.message) ||
         !valid_feedback_input(output.message) ||
         !valid_language_context(output.message)) goto invalid;

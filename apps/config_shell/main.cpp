@@ -33,6 +33,7 @@ bool parse_ascii(const std::wstring_view text, std::string& output) {
 }
 
 bool parse_shortcuts(const std::wstring_view text, std::vector<std::string>& output) {
+    if (text.empty()) { output.clear(); return true; }
     std::string ascii;
     if (!parse_ascii(text, ascii)) return false;
     output.clear();
@@ -72,10 +73,18 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         return parse_shortcuts(value, config.previous_page_shortcuts);
     if (field == L"next_page_shortcut")
         return parse_shortcuts(value, config.next_page_shortcuts);
+    if (field == L"punctuation_shortcut")
+        return parse_shortcuts(value, config.punctuation_shortcuts);
     bool parsed{};
     if (value == L"true") parsed = true;
     else if (value != L"false") return false;
     if (field == L"user_learning_enabled") config.user_learning_enabled = parsed;
+    else if (field == L"chinese_punctuation_enabled")
+        config.chinese_punctuation_enabled = parsed;
+    else if (field == L"punctuation_shortcut_enabled")
+        config.punctuation_shortcut_enabled = parsed;
+    else if (field == L"candidate_partition_enabled")
+        config.candidate_partition_enabled = parsed;
     else if (field == L"model_ranking_enabled") config.model_ranking_enabled = parsed;
     else if (field == L"correction_shortcut_enabled")
         config.correction_shortcut_enabled = parsed;
@@ -102,7 +111,9 @@ void usage() {
                  "<raw-enabled> <raw-key> [<candidate-wrap-length> "
                  "[<learning-sensitivity> [<cursor-left-enabled> <cursor-left-key> "
                  "<cursor-right-enabled> <cursor-right-key> <previous-page-enabled> "
-                 "<previous-page-key> <next-page-enabled> <next-page-key>]]]] | "
+                 "<previous-page-key> <next-page-enabled> <next-page-key> "
+                 "[<candidate-partition-enabled> <chinese-punctuation-enabled> "
+                 "<punctuation-shortcut-enabled> <punctuation-shortcut>]]]]] | "
                  "watch <timeout-ms>\n";
 }
 
@@ -157,7 +168,8 @@ int wmain(const int argc, wchar_t** argv) {
         return 0;
     }
     if (command == L"set-all" &&
-        (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23)) {
+        (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23 ||
+         argc == 24 || argc == 27)) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);
         if (!loaded.success) return 3;
@@ -175,7 +187,7 @@ int wmain(const int argc, wchar_t** argv) {
               !apply(value, L"raw_input_shortcut", argv[12]))) ||
             (argc >= 14 && !apply(value, L"candidate_wrap_length", argv[13])) ||
             (argc >= 15 && !apply(value, L"user_learning_sensitivity", argv[14])) ||
-            (argc == 23 &&
+            (argc >= 23 &&
              (!apply(value, L"cursor_left_shortcut_enabled", argv[15]) ||
               !apply(value, L"cursor_left_shortcut", argv[16]) ||
               !apply(value, L"cursor_right_shortcut_enabled", argv[17]) ||
@@ -183,7 +195,13 @@ int wmain(const int argc, wchar_t** argv) {
               !apply(value, L"previous_page_shortcut_enabled", argv[19]) ||
               !apply(value, L"previous_page_shortcut", argv[20]) ||
               !apply(value, L"next_page_shortcut_enabled", argv[21]) ||
-              !apply(value, L"next_page_shortcut", argv[22])))) {
+              !apply(value, L"next_page_shortcut", argv[22]))) ||
+            (argc >= 24 &&
+             !apply(value, L"candidate_partition_enabled", argv[23])) ||
+            (argc == 27 &&
+             (!apply(value, L"chinese_punctuation_enabled", argv[24]) ||
+              !apply(value, L"punctuation_shortcut_enabled", argv[25]) ||
+              !apply(value, L"punctuation_shortcut", argv[26])))) {
             std::cerr << "invalid configuration value type\n";
             return 4;
         }

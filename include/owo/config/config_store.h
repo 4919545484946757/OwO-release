@@ -8,13 +8,17 @@
 
 namespace owo::config {
 
-inline constexpr std::uint32_t kConfigSchemaVersion = 6;
+inline constexpr std::uint32_t kConfigSchemaVersion = 8;
 
 struct AppConfig {
-    std::uint32_t candidate_page_size{5};
+    std::uint32_t candidate_page_size{7};
     std::uint32_t candidate_wrap_length{12};
+    bool candidate_partition_enabled{true};
     bool user_learning_enabled{true};
-    std::uint32_t user_learning_sensitivity{7};
+    std::uint32_t user_learning_sensitivity{10};
+    bool chinese_punctuation_enabled{true};
+    bool punctuation_shortcut_enabled{false};
+    std::vector<std::string> punctuation_shortcuts{};
     bool model_ranking_enabled{false};
     std::uint32_t model_timeout_ms{50};
     bool correction_shortcut_enabled{true};

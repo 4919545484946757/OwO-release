@@ -94,13 +94,14 @@ private:
         std::uint64_t page{};
         bool has_more{};
         bool expanded{};
-        std::uint64_t page_size{5};
+        std::uint64_t page_size{7};
         bool preserve_paging{};
         bool request_failed{};
         std::wstring failure_detail;
         std::wstring segmented_input;
         std::vector<std::wstring> candidates;
         std::vector<std::uint64_t> candidate_consumed;
+        std::vector<std::uint64_t> candidate_groups;
     };
     struct PendingRequest {
         std::uint8_t type{};
@@ -171,11 +172,17 @@ private:
     void invoke_hit_target(const HitTarget& target);
     void defer_candidate_selection(std::size_t index, ITfContext* context);
     void clear_deferred_candidate_selection() noexcept;
+    void defer_punctuation(std::wstring punctuation, ITfContext* context);
+    void clear_deferred_punctuation() noexcept;
     [[nodiscard]] std::optional<HitTarget> hit_test(POINT point) const;
     void update_candidate_anchor(ITfContext* context);
     void clear_composition();
     [[nodiscard]] bool should_eat_key(WPARAM key) const noexcept;
-    HRESULT commit_candidate(ITfContext* context, std::size_t index);
+    [[nodiscard]] std::optional<std::wstring> chinese_punctuation_for_key(
+        WPARAM key, bool advance_quote_state = false);
+    HRESULT commit_candidate(ITfContext* context, std::size_t index,
+                             std::wstring_view suffix = {});
+    HRESULT commit_text(ITfContext* context, std::wstring text);
     HRESULT commit_raw_input(ITfContext* context);
     HRESULT commit_candidate_from_window(std::size_t index);
     HRESULT toggle_language_mode(ITfContext* context);
@@ -212,12 +219,15 @@ private:
     std::wstring segmented_input_;
     std::vector<std::wstring> candidates_;
     std::vector<std::uint64_t> candidate_consumed_;
+    std::vector<std::uint64_t> candidate_groups_;
     std::wstring candidate_failure_detail_;
     std::vector<HitRegion> hit_regions_;
     std::optional<HitTarget> hovered_target_;
     std::optional<HitTarget> pressed_target_;
     std::optional<std::wstring> deferred_candidate_text_;
     ITfContext* deferred_candidate_context_{nullptr};
+    std::optional<std::wstring> deferred_punctuation_;
+    ITfContext* deferred_punctuation_context_{nullptr};
     std::uint64_t context_generation_{0};
     std::uint64_t next_request_id_{1};
     std::uint64_t active_candidate_request_id_{0};
@@ -225,7 +235,7 @@ private:
     HANDLE candidate_cancellation_event_{nullptr};
     std::vector<HANDLE> retired_cancellation_events_;
     std::uint64_t candidate_page_{0};
-    std::uint64_t candidate_page_size_{5};
+    std::uint64_t candidate_page_size_{7};
     bool has_more_candidates_{false};
     bool candidate_request_pending_{false};
     int deferred_page_direction_{0};
@@ -241,6 +251,9 @@ private:
     std::vector<TF_PRESERVEDKEY> preserved_language_keys_;
     bool correction_enabled_{true};
     bool chinese_mode_{true};
+    bool chinese_punctuation_enabled_{true};
+    bool single_quote_open_{true};
+    bool double_quote_open_{true};
     bool foreground_focus_{true};
     POINT candidate_anchor_{};
     bool candidate_anchor_valid_{false};

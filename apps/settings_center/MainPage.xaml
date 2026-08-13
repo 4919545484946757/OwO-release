@@ -44,6 +44,8 @@
                                 <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Text="每页候选数" VerticalAlignment="Center" />
                             <NumberBox x:Name="CandidatePageSize" Grid.Row="0" Grid.Column="1"
@@ -63,13 +65,13 @@
                                 <TextBlock Text="1" VerticalAlignment="Center"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <Slider x:Name="UserLearningSensitivity" Grid.Column="1"
-                                        Minimum="1" Maximum="10" Value="7"
+                                        Minimum="1" Maximum="10" Value="10"
                                         StepFrequency="1" TickFrequency="1"
                                         SnapsTo="StepValues" IsThumbToolTipEnabled="True"
                                         ValueChanged="UserLearningSensitivity_ValueChanged"
                                         ToolTipService.ToolTip="1 最稳定，10 最灵敏" />
                                 <TextBlock x:Name="UserLearningSensitivityValue" Grid.Column="2"
-                                           Text="7" TextAlignment="Right"
+                                           Text="10" TextAlignment="Right"
                                            VerticalAlignment="Center" />
                             </Grid>
                             <TextBlock Grid.Row="4" Text="智能排序（本地自适应）" VerticalAlignment="Center" />
@@ -77,6 +79,12 @@
                             <TextBlock Grid.Row="5" Text="外部模型预算（毫秒）" VerticalAlignment="Center" />
                             <NumberBox x:Name="ModelTimeout" Grid.Row="5" Grid.Column="1"
                                        Minimum="5" Maximum="500" SpinButtonPlacementMode="Inline" />
+                            <TextBlock Grid.Row="6" Text="候选分区" VerticalAlignment="Center" />
+                            <ToggleSwitch x:Name="CandidatePartition" Grid.Row="6" Grid.Column="1"
+                                          OnContent="开" OffContent="关" />
+                            <TextBlock Grid.Row="7" Text="中文标点" VerticalAlignment="Center" />
+                            <ToggleSwitch x:Name="ChinesePunctuation" Grid.Row="7" Grid.Column="1"
+                                          OnContent="开" OffContent="关" />
                         </Grid>
                         <TextBlock Text="智能排序在本机学习当前拼音、所选候选及最近上屏片段之间的关系。切换焦点会清空短期前文，不读取窗口标题，也不会上传数据。基础候选不依赖模型，可随时关闭。"
                                    TextWrapping="Wrap"
@@ -92,6 +100,12 @@
                             <TextBlock Text="每项可同时绑定多种方案。点击快捷键按钮后按下新组合；使用加号添加方案，使用减号删除方案。启用的方案之间不能重复。"
                                        TextWrapping="Wrap"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                            <StackPanel Spacing="8">
+                                <Grid ColumnSpacing="4" HorizontalAlignment="Left"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="切换中文标点" VerticalAlignment="Center"/><ToggleSwitch x:Name="PunctuationShortcutEnabled" Grid.Column="1"/><Button Grid.Column="2" Content="＋" Tag="punctuation" Click="AddShortcutButton_Click" ToolTipService.ToolTip="添加快捷键方案"/></Grid>
+                                <StackPanel x:Name="PunctuationShortcutBindings" Spacing="8" />
+                            </StackPanel>
 
                             <StackPanel Spacing="8">
                                 <Grid ColumnSpacing="4" HorizontalAlignment="Left"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

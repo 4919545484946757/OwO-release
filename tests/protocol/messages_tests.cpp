@@ -9,6 +9,10 @@ int main() {
                      {"你好", "你号", "a\\\"b\n中文"}, 2, true};
     original.syllables = {"ni", "hao"};
     original.candidate_consumed = {5, 5, 5};
+    original.candidate_groups = {
+        static_cast<std::uint64_t>(CandidateGroup::sentence),
+        static_cast<std::uint64_t>(CandidateGroup::dictionary),
+        static_cast<std::uint64_t>(CandidateGroup::single_character)};
     original.expanded = true;
     original.page_size = 5;
     original.correction_enabled = false;
@@ -24,6 +28,7 @@ int main() {
         decoded.message.model_pending != original.model_pending ||
         decoded.message.syllables != original.syllables ||
         decoded.message.candidate_consumed != original.candidate_consumed ||
+        decoded.message.candidate_groups != original.candidate_groups ||
         decoded.message.expanded != original.expanded ||
         decoded.message.page_size != original.page_size ||
         decoded.message.correction_enabled != original.correction_enabled) {
@@ -106,12 +111,17 @@ int main() {
     auto expanded_capacity = original;
     expanded_capacity.candidates.assign(kMaximumCandidateCount, "候选");
     expanded_capacity.candidate_consumed.assign(kMaximumCandidateCount, 5);
+    expanded_capacity.candidate_groups.assign(
+        kMaximumCandidateCount,
+        static_cast<std::uint64_t>(CandidateGroup::dictionary));
     if (encode_message(expanded_capacity).empty()) {
         std::cerr << "expanded candidate capacity was rejected\n";
         ++failures;
     }
     expanded_capacity.candidates.push_back("越界");
     expanded_capacity.candidate_consumed.push_back(5);
+    expanded_capacity.candidate_groups.push_back(
+        static_cast<std::uint64_t>(CandidateGroup::dictionary));
     if (!encode_message(expanded_capacity).empty()) {
         std::cerr << "oversized expanded candidate response was encoded\n";
         ++failures;

@@ -51,6 +51,7 @@ public sealed partial class MainPage : Page
         SetShortcutBindings("cursor-right", ["Shift+Right"]);
         SetShortcutBindings("previous-page", ["[", "Shift+Up"]);
         SetShortcutBindings("next-page", ["]", "Shift+Down"]);
+        SetShortcutBindings("punctuation", []);
         UpdateShortcutButtons();
         ConfigPath.Text = _client.ConfigPath;
         PluginPath.Text = _pluginClient.StorePath;
@@ -68,6 +69,8 @@ public sealed partial class MainPage : Page
             var value = await _client.LoadAsync();
             CandidatePageSize.Value = value.CandidatePageSize;
             CandidateWrapLength.Value = value.CandidateWrapLength;
+            CandidatePartition.IsOn = value.CandidatePartitionEnabled;
+            ChinesePunctuation.IsOn = value.ChinesePunctuationEnabled;
             UserLearningSensitivity.Value = value.UserLearningSensitivity;
             UserLearning.IsOn = value.UserLearningEnabled;
             ModelRanking.IsOn = value.ModelRankingEnabled;
@@ -79,6 +82,7 @@ public sealed partial class MainPage : Page
             CursorRightShortcutEnabled.IsOn = value.CursorRightShortcutEnabled;
             PreviousPageShortcutEnabled.IsOn = value.PreviousPageShortcutEnabled;
             NextPageShortcutEnabled.IsOn = value.NextPageShortcutEnabled;
+            PunctuationShortcutEnabled.IsOn = value.PunctuationShortcutEnabled;
             SetShortcutBindings("correction", value.CorrectionShortcuts);
             SetShortcutBindings("language", value.LanguageShortcuts);
             SetShortcutBindings("raw", value.RawInputShortcuts);
@@ -86,6 +90,7 @@ public sealed partial class MainPage : Page
             SetShortcutBindings("cursor-right", value.CursorRightShortcuts);
             SetShortcutBindings("previous-page", value.PreviousPageShortcuts);
             SetShortcutBindings("next-page", value.NextPageShortcuts);
+            SetShortcutBindings("punctuation", value.PunctuationShortcuts);
             UpdateShortcutButtons();
             ShowStatus("配置已加载", InfoBarSeverity.Success);
         } catch (Exception error) {
@@ -102,6 +107,8 @@ public sealed partial class MainPage : Page
             ValidateShortcutConflicts();
             var value = new SettingsSnapshot((uint)CandidatePageSize.Value,
                 (uint)CandidateWrapLength.Value,
+                CandidatePartition.IsOn,
+                ChinesePunctuation.IsOn,
                 (uint)UserLearningSensitivity.Value,
                 UserLearning.IsOn, ModelRanking.IsOn, (uint)ModelTimeout.Value,
                 CorrectionShortcutEnabled.IsOn, ShortcutValues("correction"),
@@ -110,7 +117,8 @@ public sealed partial class MainPage : Page
                 CursorLeftShortcutEnabled.IsOn, ShortcutValues("cursor-left"),
                 CursorRightShortcutEnabled.IsOn, ShortcutValues("cursor-right"),
                 PreviousPageShortcutEnabled.IsOn, ShortcutValues("previous-page"),
-                NextPageShortcutEnabled.IsOn, ShortcutValues("next-page"));
+                NextPageShortcutEnabled.IsOn, ShortcutValues("next-page"),
+                PunctuationShortcutEnabled.IsOn, ShortcutValues("punctuation"));
             await _client.SaveAsync(value);
             ShowStatus("配置已保存，Core Service 将自动应用。", InfoBarSeverity.Success);
         } catch (Exception error) {
@@ -287,7 +295,6 @@ public sealed partial class MainPage : Page
     {
         var items = values.Where(value => !string.IsNullOrWhiteSpace(value))
             .Select(value => new ShortcutBinding(group, value)).ToList();
-        if (items.Count == 0) throw new InvalidOperationException("每项快捷键至少需要一种绑定方案。");
         _shortcutBindings[group] = items;
     }
 
@@ -302,6 +309,7 @@ public sealed partial class MainPage : Page
         "cursor-right" => CursorRightShortcutBindings,
         "previous-page" => PreviousPageShortcutBindings,
         "next-page" => NextPageShortcutBindings,
+        "punctuation" => PunctuationShortcutBindings,
         _ => throw new ArgumentOutOfRangeException(nameof(group)),
     };
 
@@ -334,7 +342,8 @@ public sealed partial class MainPage : Page
             ShowStatus("每项快捷键最多可添加 16 种方案。", InfoBarSeverity.Warning);
             return;
         }
-        var binding = new ShortcutBinding(group, bindings[^1].Value);
+        var binding = new ShortcutBinding(group,
+            bindings.Count == 0 ? "Ctrl+Period" : bindings[^1].Value);
         bindings.Add(binding);
         UpdateShortcutButtons();
         var panel = ShortcutPanel(group);
@@ -346,7 +355,7 @@ public sealed partial class MainPage : Page
     {
         if (sender is not Button { Tag: ShortcutBinding binding }) return;
         var bindings = _shortcutBindings[binding.Group];
-        if (bindings.Count == 1) {
+        if (bindings.Count == 1 && binding.Group != "punctuation") {
             ShowStatus("每项快捷键至少保留一种方案；如不需要可关闭该快捷键项。",
                        InfoBarSeverity.Warning);
             return;
@@ -369,6 +378,12 @@ public sealed partial class MainPage : Page
         if (CursorRightShortcutEnabled.IsOn) shortcuts.AddRange(ShortcutValues("cursor-right"));
         if (PreviousPageShortcutEnabled.IsOn) shortcuts.AddRange(ShortcutValues("previous-page"));
         if (NextPageShortcutEnabled.IsOn) shortcuts.AddRange(ShortcutValues("next-page"));
+        if (PunctuationShortcutEnabled.IsOn) {
+            var punctuation = ShortcutValues("punctuation");
+            if (punctuation.Count == 0)
+                throw new InvalidOperationException("启用中文标点快捷键前，请先添加至少一种绑定方案。");
+            shortcuts.AddRange(punctuation);
+        }
         if (shortcuts.Count != shortcuts.Distinct(StringComparer.Ordinal).Count())
             throw new InvalidOperationException("启用的快捷键不能重复。");
     }

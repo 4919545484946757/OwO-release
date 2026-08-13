@@ -104,7 +104,8 @@ int wmain(const int argc, wchar_t** argv) {
     PROCESS_INFORMATION navigation{};
     if (!launch(executable + L" " + config +
                 L" set-all 4 true true 40 true Ctrl+Alt+C false Ctrl+Shift+Space true Enter 18 9"
-                L" true Ctrl+Shift+Left true Ctrl+Shift+Right true Ctrl+Shift+Up true Ctrl+Shift+Down",
+                L" true Ctrl+Shift+Left true Ctrl+Shift+Right true Ctrl+Shift+Up true Ctrl+Shift+Down"
+                L" false true false \"\"",
                 navigation) || wait_and_close(navigation) != 0) return 21;
     std::ifstream navigation_input(path, std::ios::binary);
     const std::string navigation_bytes((std::istreambuf_iterator<char>(navigation_input)), {});
@@ -116,6 +117,14 @@ int wmain(const int argc, wchar_t** argv) {
         navigation_bytes.find("previous_page_shortcut=Ctrl+Shift+Up\n") ==
             std::string::npos ||
         navigation_bytes.find("next_page_shortcut=Ctrl+Shift+Down\n") ==
+            std::string::npos ||
+        navigation_bytes.find("candidate_partition_enabled=false\n") ==
+            std::string::npos ||
+        navigation_bytes.find("chinese_punctuation_enabled=true\n") ==
+            std::string::npos ||
+        navigation_bytes.find("punctuation_shortcut_enabled=false\n") ==
+            std::string::npos ||
+        navigation_bytes.find("punctuation_shortcut=\n") ==
             std::string::npos) return 22;
     PROCESS_INFORMATION invalid_all{};
     if (!launch(executable + L" " + config + L" set-all 4 true false 999", invalid_all) ||

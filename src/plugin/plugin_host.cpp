@@ -677,6 +677,7 @@ PluginHostLaunchResult launch_active_plugin(
 
     PSID appcontainer_sid = nullptr;
     LPPROC_THREAD_ATTRIBUTE_LIST attributes = nullptr;
+    SECURITY_CAPABILITIES capabilities{};
     STARTUPINFOEXW startup{};
     startup.StartupInfo.cb = sizeof(startup);
     PluginPipeOpenResult pipe;
@@ -698,7 +699,6 @@ PluginHostLaunchResult launch_active_plugin(
         InitializeProcThreadAttributeList(nullptr, 1, 0, &attribute_size);
         attributes = static_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(
             HeapAlloc(GetProcessHeap(), 0, attribute_size));
-        SECURITY_CAPABILITIES capabilities{};
         capabilities.AppContainerSid = appcontainer_sid;
         const bool attributes_ready = attributes != nullptr &&
             InitializeProcThreadAttributeList(attributes, 1, 0, &attribute_size) != FALSE &&

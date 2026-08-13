@@ -30,6 +30,7 @@ int main(const int argc, char** argv) {
     auto changed = store.snapshot();
     changed.candidate_page_size = 7;
     changed.candidate_wrap_length = 18;
+    changed.candidate_partition_enabled = false;
     changed.user_learning_enabled = false;
     changed.user_learning_sensitivity = 9;
     changed.model_ranking_enabled = true;
@@ -41,6 +42,9 @@ int main(const int argc, char** argv) {
     changed.cursor_right_shortcuts = {"Ctrl+Shift+Right"};
     changed.previous_page_shortcuts = {"[", "Ctrl+Shift+Up"};
     changed.next_page_shortcuts = {"]", "Ctrl+Shift+Down"};
+    changed.chinese_punctuation_enabled = false;
+    changed.punctuation_shortcut_enabled = true;
+    changed.punctuation_shortcuts = {"Ctrl+Period"};
     const auto first_save = store.save(changed);
     if (!first_save.success || !first_save.changed || first_save.generation != 2) return 4;
     changed.candidate_page_size = 8;
@@ -108,7 +112,11 @@ int main(const int argc, char** argv) {
         legacy.value.cursor_left_shortcuts != std::vector<std::string>{"Shift+Left"} ||
         legacy.value.next_page_shortcuts != std::vector<std::string>{"]", "Shift+Down"} ||
         legacy.value.candidate_wrap_length != 12 ||
-        legacy.value.user_learning_sensitivity != 7) return 20;
+        !legacy.value.candidate_partition_enabled ||
+        legacy.value.user_learning_sensitivity != 10 ||
+        !legacy.value.chinese_punctuation_enabled ||
+        legacy.value.punctuation_shortcut_enabled ||
+        !legacy.value.punctuation_shortcuts.empty()) return 20;
 
     const auto version_two = owo::config::parse_config(
         "schema_version=2\ncandidate_page_size=5\nuser_learning_enabled=true\n"
@@ -117,7 +125,8 @@ int main(const int argc, char** argv) {
         "language_shortcut_enabled=true\nlanguage_shortcut=Ctrl+Space\n"
         "raw_input_shortcut_enabled=true\nraw_input_shortcut=Enter\n");
     if (!version_two.ok || version_two.value.candidate_wrap_length != 12 ||
-        version_two.value.user_learning_sensitivity != 7) return 24;
+        !version_two.value.candidate_partition_enabled ||
+        version_two.value.user_learning_sensitivity != 10) return 24;
 
     auto duplicate_shortcuts = changed;
     duplicate_shortcuts.raw_input_shortcut_enabled = true;
@@ -140,6 +149,12 @@ int main(const int argc, char** argv) {
     duplicate_navigation.cursor_right_shortcuts =
         duplicate_navigation.cursor_left_shortcuts;
     if (owo::config::validate_config(duplicate_navigation).ok) return 30;
+
+    auto missing_punctuation_binding = changed;
+    missing_punctuation_binding.punctuation_shortcuts.clear();
+    if (owo::config::validate_config(missing_punctuation_binding).ok) return 31;
+    missing_punctuation_binding.punctuation_shortcut_enabled = false;
+    if (!owo::config::validate_config(missing_punctuation_binding).ok) return 32;
 
     const auto stable = owo::config::serialize_config(changed);
     const auto round_trip = owo::config::parse_config(stable);

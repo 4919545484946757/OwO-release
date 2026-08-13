@@ -57,7 +57,9 @@ int wmain(int argc, wchar_t** argv) {
         {{"ce"}, "栅", 400}, {{"ni", "hao"}, "你好", 1000},
         {{"ni", "hao"}, "泥号", 2000},
         {{"wang"}, "王", 3000}, {{"wang"}, "望", 2000},
-        {{"wang"}, "妄", 200}, {{"kuang", "wang"}, "狂妄", 5000}});
+        {{"wang"}, "妄", 200}, {{"kuang", "wang"}, "狂妄", 5000},
+        {{"ga"}, "甲", 1200}, {{"de"}, "的", 1100},
+        {{"ga", "de"}, "噶的", 1000}, {{"ge", "de"}, "各地", 900}});
     const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
     const auto pipe = LR"(\\.\pipe\OwO.InputMethod.ConfigContract.)" + std::to_wstring(suffix);
     const auto model_pipe = LR"(\\.\pipe\OwO.InputMethod.ConfigModelContract.)" +
@@ -72,6 +74,8 @@ int wmain(int argc, wchar_t** argv) {
                                             10, 1, "nihao"});
     const auto page_of_three = send(pipe, {owo::protocol::MessageType::candidate_request,
                                            20, 1, "ce"});
+    const auto compact_double_initial = send(
+        pipe, {owo::protocol::MessageType::candidate_request, 23, 1, "gd"});
     owo::protocol::Message expanded_request{
         owo::protocol::MessageType::candidate_request, 22, 1, "ce"};
     expanded_request.expanded = true;
@@ -115,13 +119,27 @@ int wmain(int argc, wchar_t** argv) {
                                         21, 1, "ce"};
     page_request.page = 1;
     const auto page_of_two = send(pipe, page_request);
+    const auto generation_before_partition = monitor.generation();
+    config.candidate_page_size = 5;
+    config.candidate_partition_enabled = true;
+    const bool partition_enabled_reload = writer.save(config).success &&
+        monitor.wait_for_generation(generation_before_partition, std::chrono::seconds(2));
+    const auto partitioned = send(
+        pipe, {owo::protocol::MessageType::candidate_request, 24, 1, "gd"});
+    const auto generation_before_legacy = monitor.generation();
+    config.candidate_partition_enabled = false;
+    const bool legacy_reload = writer.save(config).success &&
+        monitor.wait_for_generation(generation_before_legacy, std::chrono::seconds(2));
+    const auto legacy_layout = send(
+        pipe, {owo::protocol::MessageType::candidate_request, 25, 1, "gd"});
     const auto shutdown = send(pipe, {owo::protocol::MessageType::shutdown_request,
                                       3, 1, {}});
     server.join();
 
     owo::engine::UserFrequencyStore persisted;
     const auto loaded = persisted.load(frequency_path);
-    const bool ok = enabled_reload && disabled_reload &&
+    const bool ok = enabled_reload && disabled_reload && partition_enabled_reload &&
+                    legacy_reload &&
                     acknowledged(disabled, "commit_ack") &&
                     acknowledged(enabled, "commit_ack") &&
                     language_ranked.validation &&
@@ -134,6 +152,9 @@ int wmain(int argc, wchar_t** argv) {
                     model_disabled.validation && !model_disabled.message.model_pending &&
                     page_of_three.validation && page_of_three.message.candidates.size() == 3 &&
                     page_of_three.message.page_size == 3 && page_of_three.message.has_more &&
+                    compact_double_initial.validation &&
+                    compact_double_initial.message.page_size == 3 &&
+                    compact_double_initial.message.candidate_groups.empty() &&
                     expanded.validation && expanded.message.expanded &&
                     expanded.message.page_size == 3 && expanded.message.candidates.size() == 7 &&
                     !expanded.message.has_more &&
@@ -146,6 +167,13 @@ int wmain(int argc, wchar_t** argv) {
                     page_of_two.message.candidates ==
                         std::vector<std::string>{"策", "册"} &&
                     page_of_two.message.has_more &&
+                    partitioned.validation &&
+                    !partitioned.message.candidates.empty() &&
+                    partitioned.message.candidate_groups.size() ==
+                        partitioned.message.candidates.size() &&
+                    legacy_layout.validation &&
+                    !legacy_layout.message.candidates.empty() &&
+                    legacy_layout.message.candidate_groups.empty() &&
                     loaded.success && persisted.count("你好") == 1 &&
                     persisted.contextual_count("nihao", "你好") == 1 &&
                     persisted.language_context_score("我说", "nihao", "你好") > 0;

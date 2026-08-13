@@ -43,8 +43,19 @@ constexpr std::string_view kSyllables[] = {
     "ya", "yan", "yang", "yao", "ye", "yi", "yin", "ying", "yo", "yong", "you", "yu", "yuan", "yue", "yun",
     "za", "zai", "zan", "zang", "zao", "ze", "zei", "zen", "zeng", "zha", "zhai", "zhan", "zhang", "zhao", "zhe", "zhei", "zhen", "zheng", "zhi", "zhong", "zhou", "zhu", "zhua", "zhuai", "zhuan", "zhuang", "zhui", "zhun", "zhuo", "zi", "zong", "zou", "zu", "zuan", "zui", "zun", "zuo"};
 
+std::optional<std::string_view> canonical_complete_syllable(
+    const std::string_view value) {
+    const auto found = std::find(std::begin(kSyllables), std::end(kSyllables), value);
+    if (found != std::end(kSyllables)) return *found;
+    // On an ASCII keyboard, u is the conventional spelling of ü after l/n.
+    // Dictionaries retain the unambiguous v spelling internally.
+    if (value == "lue") return "lve";
+    if (value == "nue") return "nve";
+    return std::nullopt;
+}
+
 bool is_complete(const std::string_view value) {
-    return std::find(std::begin(kSyllables), std::end(kSyllables), value) != std::end(kSyllables);
+    return canonical_complete_syllable(value).has_value();
 }
 
 bool is_prefix(const std::string_view value) {
@@ -395,25 +406,38 @@ void append_corrected_paths(const std::string_view normalized,
     };
     struct CorrectionState {
         ParsePath path;
-        bool corrected{};
+        std::uint32_t edit_count{};
+        std::size_t first_edit_offset{};
     };
-    const auto beam_width = std::max<std::size_t>(
-        8, std::min<std::size_t>(32, std::min<std::size_t>(max_paths, 16) * 2));
+    const std::uint32_t maximum_edits = normalized.size() >= 12 ? 2U : 1U;
+    const auto beam_width = normalized.size() >= 12
+        ? std::max<std::size_t>(64, std::min<std::size_t>(128, max_paths * 8))
+        : std::max<std::size_t>(
+              8, std::min<std::size_t>(32, std::min<std::size_t>(max_paths, 16) * 2));
     const auto prune_states = [beam_width](std::vector<CorrectionState>& states) {
         std::stable_sort(states.begin(), states.end(), [](const auto& left, const auto& right) {
+            if (left.edit_count != right.edit_count)
+                return left.edit_count > right.edit_count;
+            // Prefer a long exact prefix. It avoids spending the limited edit
+            // budget on plausible early syllables before reaching the actual
+            // local typos later in a sentence.
             if (left.path.syllables.size() != right.path.syllables.size())
                 return left.path.syllables.size() < right.path.syllables.size();
+            if (left.edit_count >= 2 &&
+                left.first_edit_offset != right.first_edit_offset)
+                return left.first_edit_offset > right.first_edit_offset;
             return assisted_reading_key(left.path) < assisted_reading_key(right.path);
         });
         std::vector<CorrectionState> retained;
         retained.reserve(std::min(states.size(), beam_width * 2));
         std::unordered_set<std::string> seen;
-        std::array<std::size_t, 2> counts{};
+        std::array<std::size_t, 3> counts{};
         for (auto& state : states) {
-            const auto bucket = state.corrected ? 1U : 0U;
+            const auto bucket = static_cast<std::size_t>(state.edit_count);
+            if (bucket >= counts.size()) continue;
             if (counts[bucket] >= beam_width) continue;
             auto key = assisted_reading_key(state.path);
-            key.push_back(state.corrected ? '1' : '0');
+            key.push_back(static_cast<char>('0' + state.edit_count));
             if (!seen.insert(std::move(key)).second) continue;
             ++counts[bucket];
             retained.push_back(std::move(state));
@@ -424,17 +448,20 @@ void append_corrected_paths(const std::string_view normalized,
     std::vector<std::vector<CorrectionState>> chart(normalized.size() + 1);
     ParsePath initial;
     initial.match_kind = InputMatchKind::corrected;
-    initial.edit_count = 1;
-    chart[0].push_back({std::move(initial), false});
+    chart[0].push_back({std::move(initial), 0});
     for (std::size_t offset = 0; offset < normalized.size(); ++offset) {
         if ((cancelled && cancelled()) || chart[offset].empty()) continue;
         prune_states(chart[offset]);
         for (const auto& state : chart[offset]) {
-            if (state.path.syllables.size() + 1 >= exclusive_syllable_limit) continue;
+            if (state.path.syllables.size() + 1 > exclusive_syllable_limit) continue;
             for (const auto& token : tokens_at(offset)) {
-                if (state.corrected && token.corrected) continue;
+                if (token.corrected && state.edit_count >= maximum_edits) continue;
                 CorrectionState next = state;
-                next.corrected = state.corrected || token.corrected;
+                if (token.corrected) {
+                    if (next.edit_count == 0) next.first_edit_offset = offset;
+                    ++next.edit_count;
+                }
+                next.path.edit_count = next.edit_count;
                 next.path.syllables.push_back({std::string(token.syllable), offset,
                                                offset + token.consumed, true});
                 auto& destination = chart[offset + token.consumed];
@@ -446,7 +473,8 @@ void append_corrected_paths(const std::string_view normalized,
     auto& completed = chart.back();
     prune_states(completed);
     for (auto& state : completed) {
-        if (!state.corrected || state.path.syllables.size() >= exclusive_syllable_limit)
+        if (state.edit_count == 0 ||
+            state.path.syllables.size() > exclusive_syllable_limit)
             continue;
         paths.push_back(std::move(state.path));
         if (paths.size() >= max_paths) break;
@@ -479,8 +507,8 @@ std::vector<ChunkPath> parse_chunk(const std::string_view normalized,
         const auto maximum = std::min<std::size_t>(6, remaining);
         for (std::size_t length = maximum; length > 0; --length) {
             const auto token = normalized.substr(offset, length);
-            if (is_complete(token)) {
-                current.push_back({std::string(token), offset, offset + length, true});
+            if (const auto canonical = canonical_complete_syllable(token)) {
+                current.push_back({std::string(*canonical), offset, offset + length, true});
                 visit(offset + length);
                 current.pop_back();
             }

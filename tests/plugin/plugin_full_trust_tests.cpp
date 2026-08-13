@@ -72,7 +72,8 @@ int main(const int argc, char** argv) {
     if (!write_file(staging / L"manifest.json", manifest) ||
         !write_file(staging / L"config.schema.json", "{}")) return finish(5);
     const auto published = owo::plugin::publish_staged_plugin(
-        root, staging, std::string(64, 'a'), std::string(64, '0'));
+        root, staging, std::string(64, 'a'), std::string(64, '0'), true,
+        owo::plugin::PluginTrustTier::unverified_package);
     if (!published.ok || !published.activated) return finish(6);
     const auto denied = owo::plugin::launch_active_plugin(
         root, plugin_id, std::chrono::seconds(1));

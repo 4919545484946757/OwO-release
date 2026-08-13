@@ -27,7 +27,8 @@ bool rejected(std::string text, const std::string& from, const std::string& to) 
 
 int main(const int argc, char** argv) {
     const auto parsed = owo::plugin::parse_manifest(valid);
-    if (!parsed.ok || parsed.value.id != "owo.plugin.example" || parsed.value.api_version != 1) return 1;
+    if (!parsed.ok || parsed.value.id != "owo.plugin.example" || parsed.value.api_version != 1 ||
+        !parsed.value.permissions.empty()) return 1;
     if (!rejected(valid, "\"api_version\":1", "\"api_version\":2")) return 2;
     if (!rejected(valid, "\"runtime\":\"process\"", "\"runtime\":\"builtin\"")) return 3;
     if (!rejected(valid, "bin/example.exe", "../evil.exe")) return 4;

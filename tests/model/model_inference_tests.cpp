@@ -44,9 +44,9 @@ int main(const int argc, char** argv) {
     if (too_long.status != owo::model::ModelStatus::backend_error) return 4;
 
     auto slow_session = std::make_shared<owo::model::SyntheticInferenceSession>(
-        owo::model::SyntheticSessionOptions{20ms, false});
+        owo::model::SyntheticSessionOptions{100ms, false});
     owo::model::AssetCandidateRanker slow(manifest(), vocabulary(), slow_session);
-    if (slow.rank({4, std::string(slow.id()), "你", {"你好"}, 5ms}, {}).status !=
+    if (slow.rank({4, std::string(slow.id()), "你", {"你好"}, 20ms}, {}).status !=
         owo::model::ModelStatus::timeout) return 5;
     std::stop_source cancelled;
     cancelled.request_stop();

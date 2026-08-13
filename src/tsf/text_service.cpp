@@ -73,16 +73,6 @@ std::wstring_view candidate_status_text(const bool pending, const bool failed,
     return failure_detail.empty() ? L"候选服务暂不可用" : failure_detail;
 }
 
-bool is_double_initial_input(const std::wstring_view input) noexcept {
-    if (input.size() != 2) return false;
-    constexpr std::wstring_view vowels = L"aeiouv";
-    return std::all_of(input.begin(), input.end(), [vowels](wchar_t value) {
-        if (value >= L'A' && value <= L'Z') value = value - L'A' + L'a';
-        return value >= L'a' && value <= L'z' &&
-               vowels.find(value) == std::wstring_view::npos;
-    });
-}
-
 template <typename Interface>
 void release_interface(Interface*& value) noexcept {
     if (value == nullptr) return;
@@ -809,6 +799,8 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
         shortcut_matches(shortcut_config_.correction_shortcuts, key)) return true;
     if (shortcut_config_.language_shortcut_enabled &&
         shortcut_matches(shortcut_config_.language_shortcuts, key)) return true;
+    if (shortcut_config_.punctuation_shortcut_enabled &&
+        shortcut_matches(shortcut_config_.punctuation_shortcuts, key)) return true;
     if (!input_buffer_.empty() && shortcut_config_.raw_input_shortcut_enabled &&
         shortcut_matches(shortcut_config_.raw_input_shortcuts, key)) return true;
     if (!input_buffer_.empty() && shortcut_config_.cursor_left_shortcut_enabled &&
@@ -821,6 +813,9 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
         shortcut_matches(shortcut_config_.next_page_shortcuts, key)) return true;
     if (!chinese_mode_) return false;
     if (key >= 'A' && key <= 'Z') return !command_modifier_down();
+    if (chinese_punctuation_enabled_ && !command_modifier_down() &&
+        const_cast<TextService*>(this)->chinese_punctuation_for_key(key).has_value())
+        return true;
     if (input_buffer_.empty()) return false;
     if (key == VK_OEM_7) return GetKeyState(VK_SHIFT) >= 0 && !command_modifier_down();
     if (key == VK_BACK || key == VK_ESCAPE) return true;
@@ -863,6 +858,7 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
             segmented_input_ = input_buffer_;
             candidates_.clear();
             candidate_consumed_.clear();
+            candidate_groups_.clear();
             candidate_failure_detail_.clear();
             candidate_page_ = 0;
             has_more_candidates_ = false;
@@ -873,6 +869,10 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
     } else if (shortcut_config_.language_shortcut_enabled &&
                shortcut_matches(shortcut_config_.language_shortcuts, key)) {
         return toggle_language_mode(context);
+    } else if (shortcut_config_.punctuation_shortcut_enabled &&
+               shortcut_matches(shortcut_config_.punctuation_shortcuts, key)) {
+        chinese_punctuation_enabled_ = !chinese_punctuation_enabled_;
+        return S_OK;
     } else if (!input_buffer_.empty() && shortcut_config_.raw_input_shortcut_enabled &&
                shortcut_matches(shortcut_config_.raw_input_shortcuts, key)) {
         if (context != nullptr) return commit_raw_input(context);
@@ -905,7 +905,7 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
         candidates_expanded_ = false;
         ++context_generation_;
         queue_candidate_request();
-    } else if (key == VK_OEM_7 && !input_buffer_.empty() &&
+    } else if (key == VK_OEM_7 && !key_down(VK_SHIFT) && !input_buffer_.empty() &&
                input_buffer_.size() < kMaximumPinyinInputLength) {
         input_cursor_ = std::min(input_cursor_, input_buffer_.size());
         const bool left_separator = input_cursor_ > 0 &&
@@ -920,6 +920,23 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
         candidates_expanded_ = false;
         ++context_generation_;
         queue_candidate_request();
+    } else if (chinese_punctuation_enabled_ && !command_modifier_down() &&
+               chinese_punctuation_for_key(key).has_value()) {
+        const auto punctuation = chinese_punctuation_for_key(key, true);
+        if (!punctuation.has_value()) return E_UNEXPECTED;
+        if (context == nullptr) return E_UNEXPECTED;
+        if (!input_buffer_.empty() && candidate_request_pending_) {
+            defer_punctuation(*punctuation, context);
+            return S_OK;
+        }
+        if (!input_buffer_.empty() && !candidate_request_pending_ && !candidates_.empty())
+            return commit_candidate(context, 0, *punctuation);
+        if (!input_buffer_.empty()) {
+            const std::wstring raw = input_buffer_ + *punctuation;
+            clear_composition();
+            return commit_text(context, raw);
+        }
+        return commit_text(context, *punctuation);
     } else if (key == VK_BACK) {
         if (!erase_before_pinyin_cursor(
                 input_buffer_, segmented_input_, input_cursor_)) return S_OK;
@@ -1176,42 +1193,25 @@ SIZE TextService::desired_candidate_window_size() const {
                                      ? kExpandButtonWidthDip
                                      : kButtonWidthDip * 2.0F + kExpandButtonWidthDip +
                                            kControlGapDip * 2.0F;
-    const bool split_double_initial = is_double_initial_input(input_buffer_) &&
-        candidate_consumed_.size() == candidates_.size();
+    const bool partitioned = page_size >= 4 &&
+        candidate_groups_.size() == candidates_.size();
     const auto item_width = [this, wrap_length](const std::size_t index) {
         const auto display = wrapped_candidate_text(candidates_[index], wrap_length);
         return kCandidatePillBaseWidthDip +
                measure_text_width(dwrite_factory_, candidate_text_format_, display);
     };
-    const auto sequential_width = [&item_width](const std::vector<std::size_t>& indices) {
+    const auto row_width = [this, partitioned, &item_width](const std::size_t begin,
+                                                            const std::size_t end) {
         float width = 0.0F;
-        for (const auto index : indices) {
-            if (width != 0.0F) width += kCandidateGapDip;
+        for (std::size_t index = begin; index < end; ++index) {
+            if (index != begin) {
+                const bool group_boundary = partitioned &&
+                    candidate_groups_[index] != candidate_groups_[index - 1];
+                width += group_boundary ? kCandidateGroupGapDip : kCandidateGapDip;
+            }
             width += item_width(index);
         }
         return width;
-    };
-    const auto row_width = [this, split_double_initial, &item_width,
-                            &sequential_width](const std::size_t begin,
-                                               const std::size_t end) {
-        if (!split_double_initial) {
-            float width = 0.0F;
-            for (std::size_t index = begin; index < end; ++index) {
-                if (width != 0.0F) width += kCandidateGapDip;
-                width += item_width(index);
-            }
-            return width;
-        }
-        std::vector<std::size_t> dictionary;
-        std::vector<std::size_t> prefixes;
-        for (std::size_t index = begin; index < end; ++index) {
-            (candidate_consumed_[index] == input_buffer_.size() ? dictionary
-                                                                : prefixes)
-                .push_back(index);
-        }
-        const auto half_width = std::max(sequential_width(dictionary),
-                                         sequential_width(prefixes));
-        return half_width * 2.0F + kCandidateGroupGapDip;
     };
     float candidates_width = 0.0F;
     if (candidates_.empty()) {
@@ -1372,75 +1372,58 @@ void TextService::render_candidate_window() {
                                            kControlGapDip * 2.0F;
     const float controls_left = size.width - kHorizontalPaddingDip - controls_width;
     const float candidate_right = controls_left - kCandidateControlGapDip;
-    const bool split_double_initial = is_double_initial_input(input_buffer_) &&
-        candidate_consumed_.size() == candidates_.size();
-    const auto draw_indices = [this, &draw_candidate, wrap_length](
-                                  const std::vector<std::size_t>& indices,
-                                  const float left, const float right,
-                                  const float top, const float row_height) {
-        if (indices.empty() || right <= left) return;
-        const float gaps_width = indices.size() > 1
-                                     ? kCandidateGapDip *
-                                           static_cast<float>(indices.size() - 1)
-                                     : 0.0F;
+    const bool partitioned = candidate_page_size_ >= 4 &&
+        candidate_groups_.size() == candidates_.size();
+    const auto draw_candidate_row = [this, partitioned, candidate_right,
+                                     &draw_candidate, wrap_length,
+                                     mode_border_brush](const std::size_t begin,
+                                                        const std::size_t end,
+                                                        const float top,
+                                                        const float row_height) {
+        if (begin >= end) return;
+        float gaps_width = 0.0F;
+        for (std::size_t index = begin + 1; index < end; ++index) {
+            const bool boundary = partitioned &&
+                candidate_groups_[index] != candidate_groups_[index - 1];
+            gaps_width += boundary ? kCandidateGroupGapDip : kCandidateGapDip;
+        }
         float requested_total = 0.0F;
-        for (const auto index : indices) {
+        for (std::size_t index = begin; index < end; ++index) {
             const auto display = wrapped_candidate_text(candidates_[index], wrap_length);
             requested_total += kCandidatePillBaseWidthDip +
                                measure_text_width(dwrite_factory_, candidate_text_format_,
                                                   display);
         }
-        const float usable_width = std::max(1.0F, right - left - gaps_width);
+        const float usable_width = std::max(
+            1.0F, candidate_right - kHorizontalPaddingDip - gaps_width);
         const float width_scale = requested_total > usable_width
                                       ? usable_width / requested_total
                                       : 1.0F;
-        float x = left;
-        for (const auto index : indices) {
+        float x = kHorizontalPaddingDip;
+        for (std::size_t index = begin; index < end; ++index) {
+            if (index != begin) {
+                const bool boundary = partitioned &&
+                    candidate_groups_[index] != candidate_groups_[index - 1];
+                if (boundary) {
+                    x += kCandidateGroupGapDip * 0.5F;
+                    render_target_->DrawLine(
+                        D2D1::Point2F(x, top + 3.0F),
+                        D2D1::Point2F(x, top + row_height - 3.0F),
+                        mode_border_brush, 1.0F);
+                    x += kCandidateGroupGapDip * 0.5F;
+                } else {
+                    x += kCandidateGapDip;
+                }
+            }
             const auto display = wrapped_candidate_text(candidates_[index], wrap_length);
             const float requested_width =
                 kCandidatePillBaseWidthDip +
                 measure_text_width(dwrite_factory_, candidate_text_format_, display);
             const float width = requested_width * width_scale;
             draw_candidate(D2D1::RectF(x, top, x + width, top + row_height), index);
-            x += width + kCandidateGapDip;
+            x += width;
         }
     };
-    const auto draw_candidate_row = [this, split_double_initial, candidate_right,
-                                     &draw_indices](const std::size_t begin,
-                                                    const std::size_t end,
-                                                    const float top,
-                                                    const float row_height) {
-        std::vector<std::size_t> dictionary;
-        std::vector<std::size_t> prefixes;
-        if (split_double_initial) {
-            for (std::size_t index = begin; index < end; ++index) {
-                (candidate_consumed_[index] == input_buffer_.size() ? dictionary
-                                                                    : prefixes)
-                    .push_back(index);
-            }
-            const float available = std::max(
-                1.0F, candidate_right - kHorizontalPaddingDip - kCandidateGroupGapDip);
-            const float half = available * 0.5F;
-            draw_indices(dictionary, kHorizontalPaddingDip,
-                         kHorizontalPaddingDip + half, top, row_height);
-            draw_indices(prefixes,
-                         kHorizontalPaddingDip + half + kCandidateGroupGapDip,
-                         candidate_right, top, row_height);
-            return;
-        }
-        dictionary.reserve(end - begin);
-        for (std::size_t index = begin; index < end; ++index)
-            dictionary.push_back(index);
-        draw_indices(dictionary, kHorizontalPaddingDip, candidate_right, top, row_height);
-    };
-
-    if (split_double_initial && !candidates_.empty()) {
-        const float divider_x = (kHorizontalPaddingDip + candidate_right) * 0.5F;
-        render_target_->DrawLine(
-            D2D1::Point2F(divider_x, content_top + 3.0F),
-            D2D1::Point2F(divider_x, size.height - 11.0F),
-            mode_border_brush, 1.0F);
-    }
 
     if (candidates_.empty()) {
         const auto status = candidate_status_text(candidate_request_pending_,
@@ -1703,12 +1686,16 @@ void TextService::refresh_shortcut_config(const bool force) {
         if (!loaded.success) return;
         shortcut_config_initialized_ = true;
         shortcut_config_ = shortcut_config_store_.snapshot();
+        chinese_punctuation_enabled_ = shortcut_config_.chinese_punctuation_enabled;
         sync_preserved_language_key();
         return;
     }
     const auto reloaded = shortcut_config_store_.reload();
     if (reloaded.success) {
+        const bool configured_punctuation = shortcut_config_.chinese_punctuation_enabled;
         shortcut_config_ = shortcut_config_store_.snapshot();
+        if (configured_punctuation != shortcut_config_.chinese_punctuation_enabled)
+            chinese_punctuation_enabled_ = shortcut_config_.chinese_punctuation_enabled;
         sync_preserved_language_key();
     }
 }
@@ -1862,6 +1849,7 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
     candidate_failure_detail_.clear();
     if (reset_retry) candidate_retry_count_ = 0;
     clear_deferred_candidate_selection();
+    if (reset_retry) clear_deferred_punctuation();
     hovered_target_.reset();
     pressed_target_.reset();
     hit_regions_.clear();
@@ -1914,17 +1902,22 @@ void TextService::queue_commit_feedback(std::wstring candidate, std::wstring inp
 void TextService::worker_loop(const std::stop_token stop_token) {
     ipc::PersistentPipeClient core_client(ipc::kCorePipeName);
     while (!stop_token.stop_requested()) {
-        // Keep one connection for the base response plus its model update, then
-        // release it before idling so another TSF host process is never starved
-        // by Core's serialized candidate state.
-        core_client.reset();
         PendingRequest request{};
         {
             std::unique_lock lock(request_mutex_);
-            request_ready_.wait(lock, stop_token, [this] {
-                return pending_request_.has_value() || !feedback_requests_.empty();
-            });
+            const bool ready = request_ready_.wait_for(
+                lock, stop_token, std::chrono::milliseconds(50), [this] {
+                    return pending_request_.has_value() || !feedback_requests_.empty();
+                });
             if (stop_token.stop_requested()) break;
+            if (!ready) {
+                lock.unlock();
+                // Reuse the pipe across rapid input and page requests, then
+                // release it after a short idle period so another TSF host is
+                // never starved by Core's serialized connection loop.
+                core_client.reset();
+                continue;
+            }
             if (pending_request_.has_value()) {
                 request = std::move(*pending_request_);
                 pending_request_.reset();
@@ -2035,12 +2028,16 @@ void TextService::worker_loop(const std::stop_token stop_token) {
         }
         result->candidates.reserve(decoded.message.candidates.size());
         result->candidate_consumed.reserve(decoded.message.candidate_consumed.size());
+        result->candidate_groups.reserve(decoded.message.candidate_groups.size());
         for (std::size_t index = 0; index < decoded.message.candidates.size(); ++index) {
             auto converted = wide_from_utf8(decoded.message.candidates[index]);
             if (converted.empty()) continue;
             result->candidates.push_back(std::move(converted));
             result->candidate_consumed.push_back(
                 decoded.message.candidate_consumed[index]);
+            if (!decoded.message.candidate_groups.empty())
+                result->candidate_groups.push_back(
+                    decoded.message.candidate_groups[index]);
         }
         const auto converted_at = std::chrono::steady_clock::now();
         std::clog
@@ -2098,12 +2095,16 @@ void TextService::worker_loop(const std::stop_token stop_token) {
             if (update.message.candidates.empty()) break;
             std::vector<std::wstring> intelligent_candidates;
             std::vector<std::uint64_t> intelligent_consumed;
+            std::vector<std::uint64_t> intelligent_groups;
             for (std::size_t index = 0; index < update.message.candidates.size(); ++index) {
                 auto converted = wide_from_utf8(update.message.candidates[index]);
                 if (converted.empty()) continue;
                 intelligent_candidates.push_back(std::move(converted));
                 intelligent_consumed.push_back(
                     update.message.candidate_consumed[index]);
+                if (!update.message.candidate_groups.empty())
+                    intelligent_groups.push_back(
+                        update.message.candidate_groups[index]);
             }
             if (!intelligent_candidates.empty() &&
                 intelligent_candidates.size() == intelligent_consumed.size()) {
@@ -2115,6 +2116,7 @@ void TextService::worker_loop(const std::stop_token stop_token) {
                 ranked->preserve_paging = true;
                 ranked->candidates = std::move(intelligent_candidates);
                 ranked->candidate_consumed = std::move(intelligent_consumed);
+                ranked->candidate_groups = std::move(intelligent_groups);
                 if (PostMessageW(message_window_, kCandidateReady, 0,
                                  reinterpret_cast<LPARAM>(ranked.get())))
                     ranked.release();
@@ -2141,10 +2143,14 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
     if (!result->request_failed) candidate_retry_count_ = 0;
     candidates_ = std::move(result->candidates);
     candidate_consumed_ = std::move(result->candidate_consumed);
+    candidate_groups_ = std::move(result->candidate_groups);
     if (candidate_consumed_.size() != candidates_.size()) {
         candidates_.clear();
         candidate_consumed_.clear();
+        candidate_groups_.clear();
     }
+    if (!candidate_groups_.empty() && candidate_groups_.size() != candidates_.size())
+        candidate_groups_.clear();
     if (!result->preserve_paging && result->page_size >= 1 && result->page_size <= 9)
         candidate_page_size_ = result->page_size;
     if (candidates_expanded_) {
@@ -2163,11 +2169,34 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
                 input_buffer_, result->segmented_input);
     }
     if (!result->preserve_paging && deferred_page_direction_ != 0) {
-        const int direction = std::exchange(deferred_page_direction_, 0);
-        if ((direction > 0 && has_more_candidates_) ||
-            (direction < 0 && candidate_page_ > 0)) {
-            change_candidate_page(direction);
+        const int movement = std::exchange(deferred_page_direction_, 0);
+        if ((movement > 0 && has_more_candidates_) ||
+            (movement < 0 && candidate_page_ > 0)) {
+            const auto target = std::clamp<std::int64_t>(
+                static_cast<std::int64_t>(candidate_page_) + movement,
+                0, 100);
+            candidate_page_ = static_cast<std::uint64_t>(target);
+            has_more_candidates_ = false;
+            queue_candidate_request();
             return;
+        }
+    }
+    if (deferred_punctuation_) {
+        std::wstring punctuation = std::move(*deferred_punctuation_);
+        deferred_punctuation_.reset();
+        ITfContext* selected_context =
+            std::exchange(deferred_punctuation_context_, nullptr);
+        if (selected_context != nullptr) {
+            HRESULT committed = E_FAIL;
+            if (!candidates_.empty()) {
+                committed = commit_candidate(selected_context, 0, punctuation);
+            } else {
+                std::wstring raw = input_buffer_ + punctuation;
+                clear_composition();
+                committed = commit_text(selected_context, std::move(raw));
+            }
+            selected_context->Release();
+            if (SUCCEEDED(committed)) return;
         }
     }
     if (deferred_candidate_text_) {
@@ -2246,7 +2275,8 @@ void TextService::update_candidate_window() {
 void TextService::change_candidate_page(const int direction) {
     if (candidates_expanded_ || direction == 0) return;
     if (candidate_request_pending_) {
-        deferred_page_direction_ = direction > 0 ? 1 : -1;
+        deferred_page_direction_ = std::clamp(
+            deferred_page_direction_ + (direction > 0 ? 1 : -1), -100, 100);
         return;
     }
     if (direction > 0) {
@@ -2380,6 +2410,19 @@ void TextService::clear_deferred_candidate_selection() noexcept {
     release_interface(deferred_candidate_context_);
 }
 
+void TextService::defer_punctuation(std::wstring punctuation, ITfContext* context) {
+    if (context == nullptr || punctuation.empty()) return;
+    clear_deferred_punctuation();
+    context->AddRef();
+    deferred_punctuation_ = std::move(punctuation);
+    deferred_punctuation_context_ = context;
+}
+
+void TextService::clear_deferred_punctuation() noexcept {
+    deferred_punctuation_.reset();
+    release_interface(deferred_punctuation_context_);
+}
+
 void TextService::update_candidate_anchor(ITfContext* context) {
     auto* session = new (std::nothrow)
         CaretEditSession(context, &candidate_anchor_, &candidate_anchor_valid_);
@@ -2399,11 +2442,13 @@ void TextService::clear_composition() {
     segmented_input_.clear();
     candidates_.clear();
     candidate_consumed_.clear();
+    candidate_groups_.clear();
     candidate_failure_detail_.clear();
     hit_regions_.clear();
     hovered_target_.reset();
     pressed_target_.reset();
     clear_deferred_candidate_selection();
+    clear_deferred_punctuation();
     candidate_page_ = 0;
     has_more_candidates_ = false;
     candidate_request_pending_ = false;
@@ -2416,17 +2461,52 @@ void TextService::clear_composition() {
     if (candidate_window_ != nullptr) ShowWindow(candidate_window_, SW_HIDE);
 }
 
-HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t index) {
+std::optional<std::wstring> TextService::chinese_punctuation_for_key(
+    const WPARAM key, const bool advance_quote_state) {
+    const bool shift = key_down(VK_SHIFT);
+    switch (key) {
+        case VK_OEM_COMMA: return shift ? L"《" : L"，";
+        case VK_OEM_PERIOD: return shift ? L"》" : L"。";
+        case VK_OEM_2: if (shift) return L"？"; break;
+        case VK_OEM_1: return shift ? L"：" : L"；";
+        case VK_OEM_4: return shift ? L"【" : L"【";
+        case VK_OEM_6: return shift ? L"】" : L"】";
+        case VK_OEM_5: return shift ? L"｜" : L"、";
+        case VK_OEM_MINUS: return shift ? L"——" : L"－";
+        case VK_OEM_PLUS: return shift ? L"＋" : L"＝";
+        case VK_OEM_3: return shift ? L"～" : L"·";
+        case VK_OEM_7: {
+            bool& open = shift ? double_quote_open_ : single_quote_open_;
+            const std::wstring result = shift
+                ? (open ? L"“" : L"”")
+                : (open ? L"‘" : L"’");
+            if (advance_quote_state) open = !open;
+            return result;
+        }
+        case '9': if (shift) return L"（"; break;
+        case '0': if (shift) return L"）"; break;
+        case '1': if (shift) return L"！"; break;
+        case '4': if (shift) return L"￥"; break;
+        case '6': if (shift) return L"……"; break;
+        default: break;
+    }
+    return std::nullopt;
+}
+
+HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t index,
+                                      const std::wstring_view suffix) {
     if (candidate_request_pending_) return E_PENDING;
     if (index >= candidates_.size() || index >= candidate_consumed_.size())
         return E_INVALIDARG;
     const auto consumed = candidate_consumed_[index];
     if (consumed == 0 || consumed > input_buffer_.size()) return E_INVALIDARG;
     const std::wstring committed = candidates_[index];
+    std::wstring inserted = committed;
+    inserted.append(suffix);
     const std::wstring previous_context = recent_language_context_;
     std::wstring learned_input = input_buffer_.substr(0, static_cast<std::size_t>(consumed));
     while (!learned_input.empty() && learned_input.back() == L'\'') learned_input.pop_back();
-    auto* session = new (std::nothrow) CommitEditSession(context, committed);
+    auto* session = new (std::nothrow) CommitEditSession(context, std::move(inserted));
     if (session == nullptr) return E_OUTOFMEMORY;
     HRESULT session_result = E_FAIL;
     const HRESULT request_result = context->RequestEditSession(
@@ -2434,6 +2514,7 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
     session->Release();
     if (SUCCEEDED(request_result) && SUCCEEDED(session_result)) {
         append_language_context(committed);
+        append_language_context(suffix);
         recent_language_input_ = learned_input;
         if (consumed == input_buffer_.size()) {
             clear_composition();
@@ -2459,6 +2540,20 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
         }
         queue_commit_feedback(committed, std::move(learned_input), previous_context);
     }
+    return FAILED(request_result) ? request_result : session_result;
+}
+
+HRESULT TextService::commit_text(ITfContext* context, std::wstring text) {
+    if (context == nullptr || text.empty()) return E_INVALIDARG;
+    const std::wstring committed = text;
+    auto* session = new (std::nothrow) CommitEditSession(context, std::move(text));
+    if (session == nullptr) return E_OUTOFMEMORY;
+    HRESULT session_result = E_FAIL;
+    const HRESULT request_result = context->RequestEditSession(
+        client_id_, session, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
+    session->Release();
+    if (SUCCEEDED(request_result) && SUCCEEDED(session_result))
+        append_language_context(committed);
     return FAILED(request_result) ? request_result : session_result;
 }
 

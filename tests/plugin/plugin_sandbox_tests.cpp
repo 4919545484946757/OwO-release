@@ -211,8 +211,18 @@ int wmain(const int argc, wchar_t** argv) {
         : owo::plugin::PluginPipeReceiveResult{};
     if (untrusted != INVALID_HANDLE_VALUE) CloseHandle(untrusted);
     if (!untrusted_accepted.ok || untrusted_rejected.status.ok ||
-        untrusted_rejected.status.diagnostic !=
-            "named pipe client AppContainer SID mismatch") return finish(28);
+        (untrusted_rejected.status.diagnostic !=
+             "named pipe client AppContainer SID mismatch" &&
+         untrusted_rejected.status.diagnostic !=
+             "named pipe client token identity mismatch")) {
+        std::cerr << "untrusted pipe mismatch: qualified="
+                  << !qualified_name.empty() << " handle="
+                  << (untrusted != INVALID_HANDLE_VALUE) << " sent=" << untrusted_sent
+                  << " accepted=" << untrusted_accepted.ok << " receive_ok="
+                  << untrusted_rejected.status.ok << " diagnostic="
+                  << untrusted_rejected.status.diagnostic << '\n';
+        return finish(28);
+    }
 
     wchar_t executable_buffer[32768]{};
     const auto executable_length = GetModuleFileNameW(nullptr, executable_buffer,

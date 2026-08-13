@@ -122,7 +122,7 @@ int run_test(const int argc, char** argv) {
     forged_authorization.inventory_sha256.assign(64, 'f');
     if (owo::plugin::save_plugin_authorization(root, forged_authorization).ok) return 27;
     forged_authorization = authorization.value;
-    forged_authorization.schema_version = 2;
+    forged_authorization.schema_version = owo::plugin::kPluginAuthorizationSchemaVersion + 1;
     if (owo::plugin::save_plugin_authorization(root, forged_authorization).ok) return 30;
     const auto active = root / "active" / (plugin_id + ".record");
     if (read_file(active).find("version=1.0.0\n") == std::string::npos) return 6;

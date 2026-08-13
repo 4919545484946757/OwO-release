@@ -26,14 +26,14 @@ int main(const int argc, char** argv) {
     owo::config::ConfigStore writer;
     if (!writer.load(path).success) return 5;
     auto first = writer.snapshot();
-    first.candidate_page_size = 7;
+    first.candidate_page_size = 9;
     if (!writer.save(first).success || !monitor.wait_for_generation(1, 2s)) return 6;
     const auto first_snapshot = monitor.snapshot();
-    if (monitor.generation() != 2 || first_snapshot->candidate_page_size != 7) return 7;
+    if (monitor.generation() != 2 || first_snapshot->candidate_page_size != 9) return 7;
 
     { std::ofstream output(path, std::ios::binary | std::ios::trunc); output << "broken"; }
     std::this_thread::sleep_for(100ms);
-    if (monitor.generation() != 2 || monitor.snapshot()->candidate_page_size != 7 ||
+    if (monitor.generation() != 2 || monitor.snapshot()->candidate_page_size != 9 ||
         monitor.last_diagnostic().empty()) return 8;
 
     auto second = first;
