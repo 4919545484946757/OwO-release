@@ -23,6 +23,8 @@ struct SearchState {
 struct OrderedParsePath {
     const ParsePath* path{};
     std::uint32_t full_span_frequency{};
+    std::size_t phrase_covered_syllables{};
+    std::uint64_t phrase_frequency_evidence{};
 };
 
 std::int64_t unigram_score(const std::uint32_t frequency) {
@@ -565,7 +567,46 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     full_span_frequency = std::max(full_span_frequency,
                                                    entry.frequency);
             }
-            ordered_paths.push_back({&path, full_span_frequency});
+            // Whole-sentence entries are uncommon. Use a bounded dictionary
+            // phrase-cover pass as secondary evidence so an incomplete initial
+            // can select sheng'qi + yi'shi instead of starving that path behind
+            // alphabetically earlier one-character completions. Only spans of
+            // at least two syllables count; arbitrary single-character
+            // compositions must not look like dictionary-backed phrases.
+            std::vector<std::size_t> covered(path.syllables.size() + 1);
+            std::vector<std::uint64_t> phrase_evidence(path.syllables.size() + 1);
+            const auto maximum_phrase_length = std::min<std::size_t>(
+                4, lexicon_.maximum_reading_length());
+            for (std::size_t begin = 0; begin < path.syllables.size(); ++begin) {
+                if (begin != 0 && covered[begin] == 0) continue;
+                if (covered[begin + 1] < covered[begin]) {
+                    covered[begin + 1] = covered[begin];
+                    phrase_evidence[begin + 1] = phrase_evidence[begin];
+                }
+                std::vector<std::string_view> reading;
+                reading.reserve(maximum_phrase_length);
+                for (std::size_t end = begin + 1;
+                     end <= path.syllables.size() &&
+                     end - begin <= maximum_phrase_length; ++end) {
+                    reading.push_back(path.syllables[end - 1].text);
+                    if (end - begin < 2) continue;
+                    const auto entries = lexicon_.lookup(reading);
+                    std::uint32_t best_frequency = 0;
+                    for (const auto& entry : entries)
+                        best_frequency = std::max(best_frequency, entry.frequency);
+                    if (best_frequency == 0) continue;
+                    const auto next_covered = covered[begin] + end - begin;
+                    const auto next_evidence = phrase_evidence[begin] + best_frequency;
+                    if (next_covered > covered[end] ||
+                        (next_covered == covered[end] &&
+                         next_evidence > phrase_evidence[end])) {
+                        covered[end] = next_covered;
+                        phrase_evidence[end] = next_evidence;
+                    }
+                }
+            }
+            ordered_paths.push_back(
+                {&path, full_span_frequency, covered.back(), phrase_evidence.back()});
         }
     }
     // Parser ordering is deliberately independent from a concrete lexicon.
@@ -583,6 +624,10 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 return left.full_span_frequency != 0;
             if (left.full_span_frequency != right.full_span_frequency)
                 return left.full_span_frequency > right.full_span_frequency;
+            if (left.phrase_covered_syllables != right.phrase_covered_syllables)
+                return left.phrase_covered_syllables > right.phrase_covered_syllables;
+            if (left.phrase_frequency_evidence != right.phrase_frequency_evidence)
+                return left.phrase_frequency_evidence > right.phrase_frequency_evidence;
             if (left.path->completion_characters !=
                 right.path->completion_characters)
                 return left.path->completion_characters <

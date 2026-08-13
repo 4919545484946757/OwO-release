@@ -2,7 +2,7 @@
 
 OwO 是面向 Windows 11 x64 的模块化中文拼音输入法。基础输入、词典查询和候选上屏不依赖网络；智能排序不可用时会自动使用基础候选。
 
-当前版本：`0.1.0-alpha.2`
+当前版本：`0.1.0`
 
 ## 主要功能
 
@@ -15,7 +15,7 @@ OwO 是面向 Windows 11 x64 的模块化中文拼音输入法。基础输入、
 
 ## 安装
 
-推荐运行发行目录中的 `OwO-Input-Method-0.1.0-alpha.2-windows-x64-Setup.exe`。
+推荐运行发行目录中的 `OwO-Input-Method-0.1.0-windows-x64-Setup.exe`。
 
 也可以解压发行 ZIP 后双击 `Install-OwO.cmd`。安装完成后按 `Win + Space`，选择 OwO Input Method。安装、注册和卸载 TSF 时会出现 Windows UAC 提示。
 
@@ -55,8 +55,8 @@ Release 与发行包：
 cmake --preset windows-release
 cmake --build --preset windows-release
 .\scripts\build_settings_center.ps1 -Configuration Release
-.\scripts\package_release.ps1 -Version 0.1.0-alpha.2
-.\scripts\package_setup.ps1 -Version 0.1.0-alpha.2
+.\scripts\package_release.ps1 -Version 0.1.0
+.\scripts\package_setup.ps1 -Version 0.1.0
 ```
 
 架构与决策记录见 [`docs`](docs)，插件接口见 [`docs/plugins/development.md`](docs/plugins/development.md)。
@@ -68,4 +68,4 @@ cmake --build --preset windows-release
 - libime/Fcitx5Utils 采用 `LGPL-2.1-or-later`
 - 完整第三方许可随发行包提供于 `LICENSES` 目录
 
-Alpha 构建尚未进行商业代码签名，请只从可信来源获取，并核对发行目录中的 SHA-256 清单。
+当前构建尚未进行商业代码签名，请只从可信来源获取，并核对发行目录中的 SHA-256 清单。

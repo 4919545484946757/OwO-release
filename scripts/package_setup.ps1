@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.1.0-alpha.2',
+    [string]$Version = '0.1.0',
     [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\artifacts\release'),
     [string]$CompilerPath
 )
@@ -14,10 +14,11 @@ $releaseRoot = Join-Path $output $Version
 $stage = Join-Path $releaseRoot "OwO-Input-Method-$Version-windows-x64"
 $definition = Join-Path $root 'packaging\windows\OwO-Setup.iss'
 
-if ($Version -notmatch '^(\d+)\.(\d+)\.(\d+)-alpha\.(\d+)$') {
-    throw 'Setup version must use the form major.minor.patch-alpha.number.'
+if ($Version -notmatch '^(\d+)\.(\d+)\.(\d+)(?:-alpha\.(\d+))?$') {
+    throw 'Setup version must use major.minor.patch or major.minor.patch-alpha.number.'
 }
-$numericVersion = "$($Matches[1]).$($Matches[2]).$($Matches[3]).$($Matches[4])"
+$revision = if ([string]::IsNullOrEmpty($Matches[4])) { '0' } else { $Matches[4] }
+$numericVersion = "$($Matches[1]).$($Matches[2]).$($Matches[3]).$revision"
 
 if (-not (Test-Path -LiteralPath $stage -PathType Container)) {
     throw "Release staging directory is missing: $stage"

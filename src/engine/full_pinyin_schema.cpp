@@ -247,16 +247,114 @@ void prune_assisted_paths(std::vector<ParsePath>& paths, const std::size_t limit
         if (paths.size() > limit) paths.resize(limit);
         return;
     }
-    std::vector<ParsePath> unique;
-    unique.reserve(std::min(paths.size(), limit));
+    std::vector<ParsePath> deduplicated;
+    deduplicated.reserve(paths.size());
     std::unordered_set<std::string> seen;
-    seen.reserve(std::min(paths.size(), limit) * 2);
+    seen.reserve(paths.size() * 2);
     for (auto& path : paths) {
         if (!seen.insert(assisted_reading_key(path)).second) continue;
-        unique.push_back(std::move(path));
-        if (unique.size() >= limit) break;
+        deduplicated.push_back(std::move(path));
     }
-    paths = std::move(unique);
+    if (deduplicated.size() <= limit) {
+        paths = std::move(deduplicated);
+        return;
+    }
+
+    // Keep the best half by the normal assisted-path score, then reserve room
+    // for distinct completion families. A strict prefix cut lets variants of
+    // one short completion consume the whole budget before the lexicon can
+    // evaluate useful alternatives (for example, shqiyishi used to lose
+    // sheng'qi'yi'shi behind sha/she variants).
+    const auto completion_family = [](const ParsePath& path) {
+        for (std::size_t index = 0; index < path.syllables.size(); ++index) {
+            const auto& syllable = path.syllables[index];
+            if (syllable.text.size() <= syllable.end - syllable.begin) continue;
+            return std::to_string(index) + ':' + syllable.text;
+        }
+        return path.syllables.empty()
+                   ? std::string{}
+                   : std::string{"exact:"} + path.syllables.front().text;
+    };
+    const auto primary_family = [](const ParsePath& path) {
+        for (std::size_t index = 0; index < path.syllables.size(); ++index) {
+            const auto& syllable = path.syllables[index];
+            if (syllable.text.size() <= syllable.end - syllable.begin) continue;
+            return std::to_string(index) + ':' + syllable.text;
+        }
+        return std::string{};
+    };
+
+    std::vector<std::size_t> selected_indices;
+    selected_indices.reserve(limit);
+    std::vector<bool> selected(deduplicated.size(), false);
+    constexpr auto kind_count =
+        static_cast<std::size_t>(InputMatchKind::abbreviated_completion) + 1;
+    std::array<std::vector<std::size_t>, kind_count> groups;
+    for (std::size_t index = 0; index < deduplicated.size(); ++index)
+        groups[static_cast<std::size_t>(deduplicated[index].match_kind)].push_back(index);
+    const auto active_groups = static_cast<std::size_t>(std::count_if(
+        groups.begin(), groups.end(), [](const auto& group) { return !group.empty(); }));
+    std::size_t active_index = 0;
+    for (const auto& group : groups) {
+        if (group.empty()) continue;
+        const auto quota = limit / active_groups +
+                           (active_index++ < limit % active_groups ? 1 : 0);
+        // Most of the quota is reserved for distinct completion families;
+        // nearby variants of the highest-ranked family only need a small
+        // leading slice.
+        const auto leading_count = std::min(group.size(), (quota + 3) / 4);
+        std::size_t selected_in_group = 0;
+        std::unordered_set<std::string> families;
+        families.reserve(quota * 2);
+        const auto select = [&](const std::size_t index) {
+            selected[index] = true;
+            selected_indices.push_back(index);
+            ++selected_in_group;
+            families.insert(completion_family(deduplicated[index]));
+        };
+        for (std::size_t position = 0; position < leading_count; ++position)
+            select(group[position]);
+        // First guarantee one representative for every alternative at the
+        // earliest completed input segment. Later-segment variants must not
+        // crowd out sheng merely because they share the earlier sha family.
+        std::unordered_set<std::string> primary_families;
+        primary_families.reserve(quota * 2);
+        for (std::size_t position = 0; position < leading_count; ++position)
+            primary_families.insert(primary_family(deduplicated[group[position]]));
+        for (std::size_t position = leading_count;
+             position < group.size() && selected_in_group < quota; ++position) {
+            const auto index = group[position];
+            if (!primary_families.insert(primary_family(deduplicated[index])).second) continue;
+            select(index);
+        }
+        for (std::size_t position = leading_count;
+             position < group.size() &&
+             selected_in_group < quota; ++position) {
+            const auto index = group[position];
+            if (families.insert(completion_family(deduplicated[index])).second) {
+                selected[index] = true;
+                selected_indices.push_back(index);
+            }
+        }
+        for (const auto index : group) {
+            if (selected_in_group >= quota) break;
+            if (!selected[index]) select(index);
+        }
+    }
+    for (std::size_t index = 0;
+         index < deduplicated.size() && selected_indices.size() < limit; ++index) {
+        if (selected[index]) continue;
+        selected[index] = true;
+        selected_indices.push_back(index);
+    }
+
+    std::sort(selected_indices.begin(), selected_indices.end());
+    std::vector<ParsePath> selected_paths;
+    selected_paths.reserve(limit);
+    for (const auto index : selected_indices)
+        selected_paths.push_back(std::move(deduplicated[index]));
+    std::sort(selected_paths.begin(), selected_paths.end(), assisted_path_less);
+    paths = std::move(selected_paths);
 }
 
 void append_abbreviated_completions(const std::string_view normalized,
@@ -272,7 +370,7 @@ void append_abbreviated_completions(const std::string_view normalized,
     const auto beam_width = normalized.size() > 32
                                 ? std::size_t{32}
                                 : std::max<std::size_t>(
-                                      32, std::min<std::size_t>(32, max_paths) * 4);
+                                      32, std::min<std::size_t>(128, max_paths * 4));
     std::vector<std::vector<ParsePath>> chart(normalized.size() + 1);
     ParsePath initial;
     initial.match_kind = InputMatchKind::abbreviated_completion;
@@ -280,7 +378,7 @@ void append_abbreviated_completions(const std::string_view normalized,
 
     for (std::size_t offset = 0; offset < normalized.size(); ++offset) {
         if (chart[offset].empty()) continue;
-        prune_assisted_paths(chart[offset], beam_width);
+        prune_assisted_paths(chart[offset], beam_width, true);
         for (const auto& state : chart[offset]) {
             if (state.syllables.size() >= kMaximumAbbreviatedSyllables) continue;
             const auto maximum = std::min<std::size_t>(6, normalized.size() - offset);
@@ -295,7 +393,7 @@ void append_abbreviated_completions(const std::string_view normalized,
                     auto& destination = chart[offset + consumed];
                     destination.push_back(std::move(next));
                     if (destination.size() >= beam_width * 4)
-                        prune_assisted_paths(destination, beam_width);
+                        prune_assisted_paths(destination, beam_width, true);
                 }
             }
         }
@@ -305,7 +403,11 @@ void append_abbreviated_completions(const std::string_view normalized,
     completed.erase(std::remove_if(completed.begin(), completed.end(), [](const ParsePath& path) {
         return path.syllables.size() < 2 || path.completion_characters == 0;
     }), completed.end());
-    prune_assisted_paths(completed, max_paths, true);
+    // Keep a wider internal completion pool until all assisted match kinds are
+    // merged. The public result is still capped later; early truncation here
+    // prevents the final diversity pass from ever seeing useful syllable
+    // families near the middle of the completion alphabet.
+    prune_assisted_paths(completed, std::max<std::size_t>(max_paths, 128), true);
     for (auto& path : completed) paths.push_back(std::move(path));
 }
 
@@ -775,7 +877,8 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
     } else {
         std::vector<ParsePath> abbreviated_paths;
         if (!long_stable_trailing_prefix)
-            append_abbreviated_completions(result.normalized_input, abbreviated_paths, max_paths);
+            append_abbreviated_completions(result.normalized_input, abbreviated_paths,
+                                           std::max<std::size_t>(max_paths, 256));
         incomplete_paths.insert(incomplete_paths.end(),
                                 std::make_move_iterator(abbreviated_paths.begin()),
                                 std::make_move_iterator(abbreviated_paths.end()));

@@ -75,6 +75,10 @@ int main() {
         {{"ce", "shi"}, "测试九", 200},
         {{"wo", "ai"}, "我爱", 1500}, {{"wo"}, "我", 1400},
         {{"ai"}, "爱", 1350}, {{"shi"}, "是", 1300},
+        {{"jun", "jiang"}, "均将", 5000},
+        {{"he", "jun"}, "核菌", 4500},
+        {{"he"}, "和", 5000}, {{"he"}, "合", 4000},
+        {{"he"}, "盒", 3900}, {{"he"}, "喝", 3800},
         {{"gong", "neng"}, "功能", 1700},
         {{"shi", "jie"}, "世界", 1600},
         {{"ga"}, "A", 1000}, {{"ge"}, "B", 900},
@@ -154,6 +158,9 @@ int main() {
     const auto composed_non_dictionary = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request,
                     124, 8, "woshi"});
+    const auto winning_sentence_head = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    125, 8, "hejunjiang"});
     owo::protocol::Message correction_disabled_request{
         owo::protocol::MessageType::candidate_request, 111, 8, "niaho"};
     correction_disabled_request.correction_enabled = false;
@@ -216,6 +223,11 @@ int main() {
         std::cerr << "composed dictionary-area candidate contract failed\n";
         return 6;
     }
+    const auto winning_head = std::find(
+        winning_sentence_head.message.candidates.begin(),
+        winning_sentence_head.message.candidates.end(), "和");
+    const auto winning_head_index = static_cast<std::size_t>(
+        winning_head - winning_sentence_head.message.candidates.begin());
     if (!commits_ok || !valid_response(first, 101, 7) || !valid_response(second, 102, 8) ||
         !valid_response(learned, 104, 8, {"你号", "你好"}) ||
         !nihao_ranged.validation ||
@@ -254,6 +266,13 @@ int main() {
         std::find(sentence_second.message.candidate_groups.begin(),
                   sentence_second.message.candidate_groups.end(), 0) !=
             sentence_second.message.candidate_groups.end() ||
+        !winning_sentence_head.validation ||
+        winning_sentence_head.message.candidates.empty() ||
+        winning_head == winning_sentence_head.message.candidates.end() ||
+        winning_head_index >= winning_sentence_head.message.candidate_groups.size() ||
+        winning_sentence_head.message.candidate_groups[winning_head_index] != 2 ||
+        std::find(winning_sentence_head.message.candidates.begin(), winning_head,
+                  "合") != winning_head ||
         !correction_disabled.validation ||
         correction_disabled.message.type != owo::protocol::MessageType::candidate_response ||
         correction_disabled.message.correction_enabled ||
@@ -321,6 +340,7 @@ int main() {
         dump("double-second", double_initial_second);
         dump("sentence-first", sentence_first);
         dump("sentence-second", sentence_second);
+        dump("winning-sentence-head", winning_sentence_head);
         dump("first-page", first_page);
         dump("second-page", second_page);
         dump("expanded", expanded);

@@ -713,6 +713,23 @@ void arrange_partitioned_candidate_pages(
         }
     }
 
+    // The generator works with an internal pool that is intentionally much
+    // larger than one visible page. Its pool-relative placement can therefore
+    // bury the first character of the best sentence behind every homophone.
+    // Within the optional partitioned layout, keep that character first in the
+    // single-character area; the configured page split then determines its
+    // exact visible slot without relying on a hard-coded page size.
+    if (!sentences.empty()) {
+        const auto leading_text = std::string(utf8_prefix(sentences.front().text, 1));
+        const auto leading = std::find_if(
+            single_characters.begin(), single_characters.end(),
+            [&leading_text](const engine::Candidate& candidate) {
+                return candidate.text == leading_text;
+            });
+        if (leading != single_characters.end() && leading != single_characters.begin())
+            std::rotate(single_characters.begin(), leading, leading + 1);
+    }
+
     // Real multi-character dictionary entries have no quota. Compositions
     // only fill the unused capacity of two configured pages:
     // page_size * 2 - real dictionary entries. Single characters are excluded
@@ -1181,7 +1198,11 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     std::uint64_t generation_phase_us = 0;
                     // Expanded mode is a view of the same candidate session,
                     // not a separate higher-depth parse.
-                    const auto parse_path_limit = std::size_t{16};
+                    // Broad initial completions need enough alternatives for
+                    // dictionary evidence to select a useful family (for
+                    // example sh -> sheng in shqiyishi). Candidate generation
+                    // still applies its own bounded assisted-path budget.
+                    const auto parse_path_limit = std::size_t{32};
                     engine::FullPinyinParseMetrics parse_metrics;
                     engine::CandidateGenerationMetrics generation_metrics;
                     // Paged requests need one look-ahead candidate for
@@ -1248,7 +1269,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             decoded.message.text.size() >= 12 &&
                             decoded.message.text.find('\'') == std::string::npos;
                         const auto strict_path_limit = long_compact_input
-                            ? std::size_t{16} : std::size_t{8};
+                            ? std::size_t{16} : std::size_t{32};
                         if (long_compact_input) {
                             // Long ambiguous input must be deterministic for a
                             // given string. Reusing a boundary fixed by an
@@ -1286,6 +1307,11 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                     parsed.normalized_input.size()) return false;
                                 if (candidate.match_kind == engine::InputMatchKind::exact)
                                     return true;
+                                // A full-input dictionary phrase is conclusive
+                                // evidence even when only one source segment is
+                                // abbreviated, such as sh -> sheng in
+                                // shqiyishi -> 升旗仪式.
+                                if (candidate.segment_count == 1) return true;
                                 std::size_t abbreviated_segments = 0;
                                 const auto shared = std::min(
                                     candidate.source_segments.size(),

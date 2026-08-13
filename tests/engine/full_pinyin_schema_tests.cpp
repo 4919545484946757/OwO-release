@@ -172,6 +172,11 @@ int main() {
                        owo::engine::InputMatchKind::abbreviated_completion))
         return fail("mixed abbreviation completion failed");
 
+    const auto diverse_completion = schema.parse("shqiyishi", 32);
+    if (!contains_path(diverse_completion, {"sheng", "qi", "yi", "shi"},
+                       owo::engine::InputMatchKind::abbreviated_completion))
+        return fail("completion pruning starved a distinct syllable family");
+
     if (!contains_path(schema.parse("niaho"), {"ni", "hao"},
                        owo::engine::InputMatchKind::corrected))
         return fail("transposed-letter correction failed");

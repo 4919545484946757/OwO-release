@@ -126,6 +126,26 @@ int main() {
             std::vector<std::string>{"wei", "shen", "me"})
         return fail("dictionary-backed incomplete completion was starved");
 
+    const owo::engine::MemoryLexicon phrase_covered_completion_lexicon({
+        {{"sheng", "qi", "yi", "shi"}, "升旗仪式", 9380},
+        {{"sheng", "qi"}, "升旗", 5000},
+        {{"yi", "shi"}, "仪式", 5000},
+        {{"shi"}, "是", 100000}, {{"qi"}, "其", 100000},
+        {{"yi"}, "一", 100000}});
+    const owo::engine::CandidateGenerator phrase_covered_completion_generator(
+        phrase_covered_completion_lexicon);
+    const auto phrase_covered_completion =
+        phrase_covered_completion_generator.generate(schema.parse("shqiyishi", 32), 32);
+    const auto phrase_covered_result = std::find_if(
+        phrase_covered_completion.begin(), phrase_covered_completion.end(),
+        [](const auto& candidate) { return candidate.text == "升旗仪式"; });
+    if (phrase_covered_result == phrase_covered_completion.end() ||
+        phrase_covered_result->syllables !=
+            std::vector<std::string>{"sheng", "qi", "yi", "shi"} ||
+        phrase_covered_result - phrase_covered_completion.begin() >= 2) {
+        return fail("dictionary phrase-covered incomplete completion was starved");
+    }
+
     const auto single_initial = generator.generate(schema.parse("b"));
     if (single_initial.empty() || single_initial[0].text != "把")
         return fail("single initial did not generate prefix candidates");
