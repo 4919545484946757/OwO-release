@@ -68,6 +68,9 @@ struct ProviderAllocation {
 struct SchedulerMetrics {
     std::size_t provider_requests{};
     std::size_t continuation_requests{};
+    std::size_t result_slots_reclaimed{};
+    std::size_t reallocated_result_budget{};
+    std::size_t candidates_generated_after_reallocation{};
     std::size_t work_units_consumed{};
     std::size_t work_units_reclaimed{};
     std::size_t reallocated_work_budget{};

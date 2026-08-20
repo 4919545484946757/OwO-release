@@ -4,6 +4,7 @@ param(
     [string]$LexiconPath,
     [string]$LibimeRuntimeDirectory,
     [string]$LibimeModelPath,
+    [switch]$BuildLatest,
     [switch]$RestartCore,
     [switch]$DisableModelHost,
     [switch]$SkipRegistration,
@@ -13,6 +14,62 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+function Stop-OwOProcesses {
+    param([string[]]$Names)
+
+    foreach ($name in $Names) {
+        $processes = @(Get-Process -Name $name -ErrorAction SilentlyContinue)
+        foreach ($process in $processes) {
+            $processPath = try { $process.Path } catch { '<path unavailable>' }
+            Write-Output "Stopping $($process.ProcessName) PID $($process.Id): $processPath"
+            Stop-Process -Id $process.Id -Force -ErrorAction Stop
+            try { $process.WaitForExit(3000) } catch { }
+        }
+    }
+    $remaining = @(
+        foreach ($name in $Names) {
+            Get-Process -Name $name -ErrorAction SilentlyContinue
+        }
+    )
+    if ($remaining.Count -ne 0) {
+        $details = ($remaining | ForEach-Object { "$($_.ProcessName):$($_.Id)" }) -join ', '
+        throw "OwO processes did not stop cleanly: $details"
+    }
+}
+
+function Assert-ProcessPath {
+    param(
+        [System.Diagnostics.Process[]]$Processes,
+        [string]$ExpectedPath,
+        [string]$Label
+    )
+
+    $expected = [IO.Path]::GetFullPath($ExpectedPath)
+    foreach ($process in $Processes) {
+        $actual = try { [IO.Path]::GetFullPath($process.Path) } catch { '' }
+        if (-not [string]::Equals($actual, $expected,
+                [StringComparison]::OrdinalIgnoreCase)) {
+            throw "$Label started from an unexpected path: $actual (expected $expected)"
+        }
+    }
+}
+
+function Get-Sha256Hex {
+    param([string]$Path)
+
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $algorithm = [Security.Cryptography.SHA256]::Create()
+        try {
+            return ([BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+        } finally {
+            $algorithm.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+}
 
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
@@ -32,21 +89,42 @@ if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
 }
 $BuildDirectory = [IO.Path]::GetFullPath($BuildDirectory)
 
+if ($BuildLatest) {
+    # Stop the installed launcher first so it cannot respawn an installed Core
+    # while the development binaries are being linked.
+    Stop-OwOProcesses @('owo_runtime_launcher', 'owo_core_service', 'owo_model_host')
+    $buildTree = Split-Path -Parent $BuildDirectory
+    if (-not (Test-Path -LiteralPath (Join-Path $buildTree 'CMakeCache.txt') -PathType Leaf)) {
+        throw "CMake build tree is missing: $buildTree"
+    }
+    & cmake --build $buildTree --config Release --target `
+        owo_tsf owo_core_service owo_model_host owo_model_shell owo_ipc_shell `
+        owo_tsf_profile_check owo_runtime_launcher
+    if ($LASTEXITCODE -ne 0) {
+        throw "OwO Release build failed: $LASTEXITCODE"
+    }
+}
+
 $coreService = Join-Path $BuildDirectory 'owo_core_service.exe'
 $ipcShell = Join-Path $BuildDirectory 'owo_ipc_shell.exe'
 $modelHost = Join-Path $BuildDirectory 'owo_model_host.exe'
 $modelShell = Join-Path $BuildDirectory 'owo_model_shell.exe'
 $profileCheck = Join-Path $BuildDirectory 'owo_tsf_profile_check.exe'
 $buildTsfDll = Join-Path $BuildDirectory 'OwO.TSF.dll'
+foreach ($required in @($coreService, $profileCheck, $buildTsfDll)) {
+    if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
+        throw "Required development binary is missing: $required"
+    }
+}
 $deployDirectory = Join-Path $projectRoot 'build/manual-deploy'
 [void](New-Item -ItemType Directory -Path $deployDirectory -Force)
-$tsfHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $buildTsfDll).Hash.ToLowerInvariant()
+$tsfHash = Get-Sha256Hex $buildTsfDll
 $tsfDll = Join-Path $deployDirectory "OwO.TSF.$($tsfHash.Substring(0, 16)).dll"
 if (-not (Test-Path -LiteralPath $tsfDll -PathType Leaf)) {
     Copy-Item -LiteralPath $buildTsfDll -Destination $tsfDll -Force
 }
 
-foreach ($required in @($coreService, $profileCheck, $tsfDll)) {
+foreach ($required in @($tsfDll)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
         throw "Required development binary is missing: $required"
     }
@@ -89,24 +167,18 @@ $running = @(Get-Process -Name 'owo_core_service' -ErrorAction SilentlyContinue)
 $modelRunning = @(Get-Process -Name 'owo_model_host' -ErrorAction SilentlyContinue)
 if ($RestartCore -and $running.Count -ne 0) {
     if (Test-Path -LiteralPath $ipcShell -PathType Leaf) {
-        & $ipcShell --shutdown 2>$null | Out-Null
+        try { & $ipcShell --shutdown *> $null } catch { }
         Start-Sleep -Milliseconds 300
     }
-    $running = @(Get-Process -Name 'owo_core_service' -ErrorAction SilentlyContinue)
-    foreach ($process in $running) {
-        Stop-Process -Id $process.Id -Force
-    }
+    Stop-OwOProcesses @('owo_runtime_launcher', 'owo_core_service')
     $running = @()
 }
 if ($RestartCore -and $modelRunning.Count -ne 0) {
     if (Test-Path -LiteralPath $modelShell -PathType Leaf) {
-        & $modelShell --shutdown 2>$null | Out-Null
+        try { & $modelShell --shutdown *> $null } catch { }
         Start-Sleep -Milliseconds 300
     }
-    $modelRunning = @(Get-Process -Name 'owo_model_host' -ErrorAction SilentlyContinue)
-    foreach ($process in $modelRunning) {
-        Stop-Process -Id $process.Id -Force
-    }
+    Stop-OwOProcesses @('owo_model_host')
     $modelRunning = @()
 }
 
@@ -168,6 +240,19 @@ if ($running.Count -eq 0) {
     $running = @($core)
 }
 
+Assert-ProcessPath -Processes $running -ExpectedPath $coreService -Label 'OwO Core Service'
+if ($modelHostEnabled) {
+    Assert-ProcessPath -Processes $modelRunning -ExpectedPath $modelHost -Label 'OwO ModelHost'
+}
+
+# Verify again after process startup. This catches registration in a different
+# Windows user/session and prevents a successful-looking launch with no OwO
+# entry in the active input profile list.
+& $profileCheck --activate-session
+if ($LASTEXITCODE -ne 0) {
+    throw "OwO input profile verification failed after startup: $LASTEXITCODE"
+}
+
 if ($OpenSettings) {
     & (Join-Path $PSScriptRoot 'open-settings.ps1')
 }
@@ -187,4 +272,5 @@ if ($modelHostEnabled) {
 Write-Output "TSF DLL: $tsfDll"
 Write-Output "Lexicon: $LexiconPath"
 Write-Output "User frequency: $frequencyPath"
+Write-Output "Build updated: $BuildLatest"
 Write-Output 'OwO is activated for this Windows session; use Win+Space if the target app kept another profile.'

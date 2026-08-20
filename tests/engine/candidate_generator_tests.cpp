@@ -70,8 +70,22 @@ int main() {
         return fail("lue spelling did not reach the canonical lve dictionary entry");
 
     const auto xian = generator.generate(schema.parse("xian"));
-    if (xian.size() != 2 || xian[0].text != "先" || xian[1].text != "线")
-        return fail("unseparated xian did not prefer the whole syllable");
+    const auto xian_place = std::find_if(xian.begin(), xian.end(), [](const auto& value) {
+        return value.text == "西安" &&
+               value.source_segments == std::vector<std::string>{"xi", "an"};
+    });
+    const auto xian_character = std::find_if(
+        xian.begin(), xian.end(), [](const auto& value) { return value.text == "先"; });
+    if (xian_place == xian.end() || xian_character == xian.end() ||
+        static_cast<std::size_t>(xian_place - xian.begin()) > 2) {
+        for (std::size_t index = 0; index < xian.size(); ++index) {
+            std::cerr << "xian[" << index << "]=" << xian[index].text << " segments=";
+            for (const auto& segment : xian[index].source_segments)
+                std::cerr << segment << '/';
+            std::cerr << " score=" << xian[index].score << '\n';
+        }
+        return fail("unseparated xian did not expose dictionary-backed 西安");
+    }
 
     const auto separated = generator.generate(schema.parse("xi'an"));
     if (separated.size() != 1 || separated[0].text != "西安")

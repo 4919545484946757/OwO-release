@@ -56,6 +56,8 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         return parse_u32(value, config.candidate_page_size);
     if (field == L"candidate_wrap_length")
         return parse_u32(value, config.candidate_wrap_length);
+    if (field == L"alt_code_preview_page_size")
+        return parse_u32(value, config.alt_code_preview_page_size);
     if (field == L"user_learning_sensitivity")
         return parse_u32(value, config.user_learning_sensitivity);
     if (field == L"model_timeout_ms") return parse_u32(value, config.model_timeout_ms);
@@ -85,6 +87,10 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         config.punctuation_shortcut_enabled = parsed;
     else if (field == L"candidate_partition_enabled")
         config.candidate_partition_enabled = parsed;
+    else if (field == L"alt_code_preview_enabled")
+        config.alt_code_preview_enabled = parsed;
+    else if (field == L"alt_code_preview_wheel_enabled")
+        config.alt_code_preview_wheel_enabled = parsed;
     else if (field == L"model_ranking_enabled") config.model_ranking_enabled = parsed;
     else if (field == L"correction_shortcut_enabled")
         config.correction_shortcut_enabled = parsed;
@@ -113,7 +119,9 @@ void usage() {
                  "<cursor-right-enabled> <cursor-right-key> <previous-page-enabled> "
                  "<previous-page-key> <next-page-enabled> <next-page-key> "
                  "[<candidate-partition-enabled> <chinese-punctuation-enabled> "
-                 "<punctuation-shortcut-enabled> <punctuation-shortcut>]]]]] | "
+                 "<punctuation-shortcut-enabled> <punctuation-shortcut> "
+                 "[<alt-code-preview-enabled> <alt-code-preview-page-size> "
+                 "<alt-code-preview-wheel-enabled>]]]]]] | "
                  "watch <timeout-ms>\n";
 }
 
@@ -169,7 +177,7 @@ int wmain(const int argc, wchar_t** argv) {
     }
     if (command == L"set-all" &&
         (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23 ||
-         argc == 24 || argc == 27)) {
+         argc == 24 || argc == 27 || argc == 30)) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);
         if (!loaded.success) return 3;
@@ -198,10 +206,14 @@ int wmain(const int argc, wchar_t** argv) {
               !apply(value, L"next_page_shortcut", argv[22]))) ||
             (argc >= 24 &&
              !apply(value, L"candidate_partition_enabled", argv[23])) ||
-            (argc == 27 &&
+            (argc >= 27 &&
              (!apply(value, L"chinese_punctuation_enabled", argv[24]) ||
               !apply(value, L"punctuation_shortcut_enabled", argv[25]) ||
-              !apply(value, L"punctuation_shortcut", argv[26])))) {
+              !apply(value, L"punctuation_shortcut", argv[26]))) ||
+            (argc == 30 &&
+             (!apply(value, L"alt_code_preview_enabled", argv[27]) ||
+              !apply(value, L"alt_code_preview_page_size", argv[28]) ||
+              !apply(value, L"alt_code_preview_wheel_enabled", argv[29])))) {
             std::cerr << "invalid configuration value type\n";
             return 4;
         }

@@ -241,6 +241,12 @@ int main(int argc, char** argv) {
               << ",\"provider_requests\":" << mixed.metrics.provider_requests
               << ",\"continuation_requests\":"
               << mixed.metrics.continuation_requests
+              << ",\"result_slots_reclaimed\":"
+              << mixed.metrics.result_slots_reclaimed
+              << ",\"reallocated_result_budget\":"
+              << mixed.metrics.reallocated_result_budget
+              << ",\"candidates_after_reallocation\":"
+              << mixed.metrics.candidates_generated_after_reallocation
               << ",\"work_consumed\":" << mixed.metrics.work_units_consumed
               << ",\"work_reclaimed\":" << mixed.metrics.work_units_reclaimed
               << ",\"reallocated_work_budget\":"
@@ -250,6 +256,8 @@ int main(int argc, char** argv) {
     return equivalent && equivalent_three_page_initials == initials.size() &&
                    mixed.candidates.size() == kVisibleCandidates &&
                    mixed.metrics.continuation_requests != 0 &&
+                   mixed.metrics.result_slots_reclaimed != 0 &&
+                   mixed.metrics.candidates_generated_after_reallocation != 0 &&
                    mixed.metrics.work_units_reclaimed != 0
         ? 0 : 3;
 }

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace owo::engine {
@@ -64,6 +65,7 @@ ScheduledCandidates CandidateScheduler::generate(
     if (states.empty()) return output;
 
     std::unordered_set<std::string> seen;
+    std::unordered_map<std::string, std::size_t> current_candidates;
     seen.reserve(total_budget.max_results * 2);
     bool restored = previous != nullptr && schedule_matches(context, *previous) &&
                     previous->providers.size() == states.size();
@@ -129,7 +131,8 @@ ScheduledCandidates CandidateScheduler::generate(
     };
 
     const auto consume = [&](ProviderState& state, const GenerationBudget budget,
-                             const bool continuation_request) {
+                             const bool continuation_request,
+                             const bool reclaimable_allocation) {
         const auto* continuation = continuation_request && state.continuation
                                        ? &*state.continuation : nullptr;
         if (continuation != nullptr &&
@@ -149,15 +152,25 @@ ScheduledCandidates CandidateScheduler::generate(
         // their unused part is genuinely reclaimed. A continuation request is
         // offered the already-shared remaining pool; counting its unused part
         // again would multiply the same reclaimed work across providers.
-        if (!continuation_request && batch.exhausted &&
+        if (reclaimable_allocation && batch.exhausted &&
             consumed_work < budget.max_work_units)
             output.metrics.work_units_reclaimed += budget.max_work_units - consumed_work;
+        if (reclaimable_allocation && batch.exhausted &&
+            batch.candidates.size() < budget.max_results)
+            output.metrics.result_slots_reclaimed +=
+                budget.max_results - batch.candidates.size();
         for (auto& candidate : batch.candidates) {
-            if (output.candidates.size() >= total_budget.max_results) break;
-            if (!seen.insert(candidate.text).second) {
+            if (seen.contains(candidate.text)) {
                 ++output.metrics.duplicate_candidates_discarded;
+                const auto current = current_candidates.find(candidate.text);
+                if (current != current_candidates.end() &&
+                    candidate.score > output.candidates[current->second].score)
+                    output.candidates[current->second] = std::move(candidate);
                 continue;
             }
+            if (output.candidates.size() >= total_budget.max_results) break;
+            seen.insert(candidate.text);
+            current_candidates.emplace(candidate.text, output.candidates.size());
             output.candidates.push_back(std::move(candidate));
         }
         state.exhausted = batch.exhausted;
@@ -189,7 +202,7 @@ ScheduledCandidates CandidateScheduler::generate(
             if (receiver == states.end() || receiver->exhausted) break;
             const auto before_work = output.metrics.work_units_consumed;
             const auto before_results = output.candidates.size();
-            consume(*receiver, {1, remaining_work}, receiver->started);
+            consume(*receiver, {1, remaining_work}, receiver->started, false);
             if (before_work == output.metrics.work_units_consumed &&
                 before_results == output.candidates.size() && !receiver->exhausted)
                 receiver->exhausted = true;
@@ -200,7 +213,7 @@ ScheduledCandidates CandidateScheduler::generate(
         for (std::size_t index = 0; index < states.size(); ++index) {
             if (result_shares[index] == 0 || work_shares[index] == 0) continue;
             consume(states[index], {result_shares[index], work_shares[index]},
-                    states[index].started);
+                    states[index].started, true);
         }
     }
 
@@ -208,11 +221,15 @@ ScheduledCandidates CandidateScheduler::generate(
         const auto receiver = best_receiver();
         if (receiver == states.end() || receiver->exhausted) break;
         const auto missing = total_budget.max_results - output.candidates.size();
+        output.metrics.reallocated_result_budget += missing;
         output.metrics.reallocated_work_budget += remaining_work;
         const auto before = output.metrics.work_units_consumed;
-        consume(*receiver, {missing, remaining_work}, true);
+        const auto before_results = output.candidates.size();
+        consume(*receiver, {missing, remaining_work}, true, false);
         output.metrics.work_units_consumed_after_reallocation +=
             output.metrics.work_units_consumed - before;
+        output.metrics.candidates_generated_after_reallocation +=
+            output.candidates.size() - before_results;
     }
 
     std::stable_sort(output.candidates.begin(), output.candidates.end(),

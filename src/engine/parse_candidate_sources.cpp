@@ -1,4 +1,6 @@
 #include "owo/engine/parse_candidate_sources.h"
+#include "owo/engine/candidate_scoring.h"
+#include "owo/engine/composition_candidate_provider.h"
 
 #include <algorithm>
 #include <unordered_set>
@@ -20,18 +22,7 @@ std::vector<std::string> source_segments(const ParseResult& parsed,
 }
 
 std::int64_t match_adjustment(const ParsePath& path) {
-    switch (path.match_kind) {
-    case InputMatchKind::exact:
-        return 3'000'000;
-    case InputMatchKind::incomplete_completion:
-        return 1'000'000 - static_cast<std::int64_t>(path.completion_characters) * 10'000;
-    case InputMatchKind::corrected:
-        return -static_cast<std::int64_t>(path.edit_count) * 1'000'000;
-    case InputMatchKind::abbreviated_completion:
-        return -2'000'000 -
-               static_cast<std::int64_t>(path.completion_characters) * 10'000;
-    }
-    return 0;
+    return -candidate_input_match_penalty(path);
 }
 
 std::size_t match_weight(const InputMatchKind kind) {
@@ -51,7 +42,8 @@ ParseCandidateSourcePlan make_parse_candidate_source_plan(
     const std::uint64_t input_fingerprint,
     const std::uint64_t lexicon_generation,
     const std::uint64_t parse_generation,
-    const std::size_t maximum_paths) {
+    const std::size_t maximum_paths,
+    const bool include_experimental_composition) {
     ParseCandidateSourcePlan plan;
     plan.context = {parsed.normalized_input, input_fingerprint,
                     lexicon_generation, parse_generation};
@@ -60,6 +52,7 @@ ParseCandidateSourcePlan make_parse_candidate_source_plan(
 
     std::unordered_set<std::string> readings;
     std::size_t path_index = 0;
+    std::size_t composition_sources = 0;
     for (const auto& path : parsed.paths) {
         if (path_index >= maximum_paths) break;
         if (path.syllables.empty() ||
@@ -84,9 +77,33 @@ ParseCandidateSourcePlan make_parse_candidate_source_plan(
         auto provider = std::make_unique<ExactLexiconCandidateProvider>(
             lexicon, id, std::move(syllables), std::move(segments),
             path.match_kind, path.syllables.back().end,
-            ExactCandidateFilter::multiple_characters, match_adjustment(path));
+            ExactCandidateFilter::multiple_characters,
+            match_adjustment(path) + kCandidateDictionaryWordSchedulingBonus);
         plan.allocations.push_back({provider.get(), match_weight(path.match_kind)});
         plan.owned_providers.push_back(std::move(provider));
+
+        if (include_experimental_composition && path.syllables.size() >= 2 &&
+            composition_sources < 4) {
+            std::vector<std::string> composition_syllables;
+            std::vector<std::string> composition_segments;
+            composition_syllables.reserve(path.syllables.size());
+            composition_segments.reserve(path.syllables.size());
+            for (std::size_t index = 0; index < path.syllables.size(); ++index) {
+                composition_syllables.push_back(path.syllables[index].text);
+                composition_segments.push_back(parsed.normalized_input.substr(
+                    path.syllables[index].begin,
+                    path.syllables[index].end - path.syllables[index].begin));
+            }
+            auto composition = std::make_unique<CompositionCandidateProvider>(
+                lexicon,
+                "parse-composition-" + std::to_string(current_path_index),
+                std::move(composition_syllables), std::move(composition_segments),
+                path.match_kind, path.syllables.back().end,
+                match_adjustment(path));
+            plan.allocations.push_back({composition.get(), 5});
+            plan.owned_providers.push_back(std::move(composition));
+            ++composition_sources;
+        }
 
         // Leading dictionary ranges are independently consumable candidates.
         // Limit them to the three longest proper prefixes per parse path so a
@@ -112,8 +129,7 @@ ParseCandidateSourcePlan make_parse_candidate_source_plan(
                 std::move(prefix_syllables), std::move(prefix_segments),
                 path.match_kind, path.syllables[end - 1].end,
                 ExactCandidateFilter::multiple_characters,
-                match_adjustment(path) - 1'500'000 +
-                    static_cast<std::int64_t>(end) * 10'000);
+                match_adjustment(path) + kCandidateDictionaryWordSchedulingBonus);
             plan.allocations.push_back({prefix.get(), 2});
             plan.owned_providers.push_back(std::move(prefix));
             ++prefix_sources;
@@ -133,7 +149,7 @@ ParseCandidateSourcePlan make_parse_candidate_source_plan(
                     preferred->syllables.front().text},
                 std::vector<std::string>{segments.front()}, InputMatchKind::exact,
                 preferred->syllables.front().end,
-                ExactCandidateFilter::single_character, 2'000'000);
+                ExactCandidateFilter::single_character, 0);
             plan.allocations.push_back({provider.get(), 5});
             plan.owned_providers.push_back(std::move(provider));
         }

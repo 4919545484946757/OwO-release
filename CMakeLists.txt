@@ -64,6 +64,8 @@ endif()
 add_library(owo_engine STATIC
     src/engine/binary_lexicon.cpp
     src/engine/candidate_generator.cpp
+    src/engine/candidate_scoring.cpp
+    src/engine/composition_candidate_provider.cpp
     src/engine/candidate_scheduler.cpp
     src/engine/full_pinyin_schema.cpp
     src/engine/lexicon_candidate_provider.cpp

@@ -1,4 +1,5 @@
 #include "owo/engine/candidate_generator.h"
+#include "owo/engine/candidate_scoring.h"
 
 #include <algorithm>
 #include <array>
@@ -27,24 +28,21 @@ struct OrderedParsePath {
     std::uint64_t phrase_frequency_evidence{};
 };
 
-std::int64_t unigram_score(const std::uint32_t frequency) {
-    return static_cast<std::int64_t>(std::log1p(static_cast<double>(frequency)) * 1000.0);
-}
-
 // Raw corpus frequencies are attached to entries of different lengths. Without
 // a token transition cost, summing several high-frequency characters always
 // overwhelms a valid multi-syllable word and rewards pathological over-segmentation.
-constexpr std::int64_t kAdditionalSegmentPenalty = 22'000;
-constexpr std::int64_t kIncompleteBasePenalty = 1'500;
-constexpr std::int64_t kIncompleteCharacterPenalty = 750;
-constexpr std::int64_t kCorrectionPenalty = 6'000;
-constexpr std::int64_t kAbbreviationBasePenalty = 8'000;
+constexpr std::int64_t kAdditionalSegmentPenalty = kCandidateAdditionalSegmentPenalty;
+constexpr std::int64_t kIncompleteCharacterPenalty =
+    kCandidateIncompleteCharacterPenalty;
+constexpr std::int64_t kAbbreviationBasePenalty =
+    kCandidateAbbreviationBasePenalty;
 constexpr std::int64_t kMixedAbbreviationPhraseBonus = 8'000;
 constexpr std::int64_t kPreferredInitialBonus = 6'000;
 constexpr std::int64_t kCommonInitialSeedBonus = 100'000;
 constexpr std::int64_t kMaximumBoundaryCoherenceBonus = 12'000;
 constexpr std::int64_t kUncoveredBoundaryCharacterPenalty = 12'000;
-constexpr std::int64_t kPreferredExactSegmentationBonus = 16'000;
+constexpr std::int64_t kPreferredExactSegmentationBonus =
+    kCandidatePreferredExactSegmentationBonus;
 constexpr std::int64_t kAlternativeSegmentationPromotionMargin = 16'000;
 constexpr std::int64_t kHighConfidenceAlternativeScore = 12'000;
 
@@ -81,22 +79,6 @@ std::int64_t source_initial_bonus(const ParseResult& parsed, const ParsePath& pa
             bonus += kPreferredInitialBonus;
     }
     return bonus;
-}
-
-std::int64_t input_match_penalty(const ParsePath& path) {
-    if (path.match_kind == InputMatchKind::incomplete_completion) {
-        return kIncompleteBasePenalty +
-               static_cast<std::int64_t>(path.completion_characters) *
-                   kIncompleteCharacterPenalty;
-    }
-    if (path.match_kind == InputMatchKind::corrected)
-        return static_cast<std::int64_t>(path.edit_count) * kCorrectionPenalty;
-    if (path.match_kind == InputMatchKind::abbreviated_completion) {
-        return kAbbreviationBasePenalty +
-               static_cast<std::int64_t>(path.completion_characters) *
-                   kIncompleteCharacterPenalty;
-    }
-    return 0;
 }
 
 void prune(std::vector<SearchState>& states, const std::size_t width) {
@@ -347,7 +329,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             if (cancelled && cancelled()) return {};
             if (entry.syllables.size() != 1 || utf8_character_count(entry.text) != 1)
                 continue;
-            auto score = unigram_score(entry.frequency) +
+            auto score = candidate_unigram_score(entry.frequency) +
                          common_initial_seed_bonus(parsed.normalized_input.front(),
                                                    entry.text);
             if (user_frequency_ != nullptr) {
@@ -419,7 +401,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 match.source_segments.size() != 2 ||
                 utf8_character_count(match.entry.text) != 2)
                 continue;
-            auto score = unigram_score(match.entry.frequency) +
+            auto score = candidate_unigram_score(match.entry.frequency) +
                          kMixedAbbreviationPhraseBonus -
                          static_cast<std::int64_t>(
                              match.entry.syllables[0].size() +
@@ -448,7 +430,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             if (entry.syllables.size() != 1 ||
                 utf8_character_count(entry.text) != 1)
                 continue;
-            auto score = unigram_score(entry.frequency);
+            auto score = candidate_unigram_score(entry.frequency);
             if (user_frequency_ != nullptr) {
                 score += user_frequency_->score(entry.text);
                 if (contextual_ranking)
@@ -661,7 +643,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
 
         std::vector<std::vector<SearchState>> chart(path.syllables.size() + 1);
         SearchState initial;
-        initial.score = -input_match_penalty(path) + source_initial_bonus(parsed, path);
+        initial.score = -candidate_input_match_penalty(path) +
+                        source_initial_bonus(parsed, path);
         if (exact_path_count > 1 && &path == preferred_exact_path)
             initial.score += kPreferredExactSegmentationBonus;
         chart[0].push_back(std::move(initial));
@@ -693,7 +676,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     for (const auto& entry : entries) {
                         SearchState next = state;
                         next.text += entry.text;
-                        next.score += unigram_score(entry.frequency);
+                        next.score += candidate_unigram_score(entry.frequency);
                         if (!state.previous.empty()) next.score -= kAdditionalSegmentPenalty;
                         if (bigram_ != nullptr && !state.previous.empty())
                             next.score += bigram_->score(state.previous, entry.text);
@@ -747,7 +730,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             }
             retain_frequent_entries(prefix_entries, search_limit);
             for (const auto& entry : prefix_entries) {
-                auto score = unigram_score(entry.frequency) - input_match_penalty(path) +
+                auto score = candidate_unigram_score(entry.frequency) -
+                             candidate_input_match_penalty(path) +
                              source_initial_bonus(parsed, path);
                 if (user_frequency_ != nullptr) {
                     score += user_frequency_->score(entry.text);
@@ -807,7 +791,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 for (const auto& entry : entries) {
                     SearchState next = state;
                     next.text += entry.text;
-                    next.score += unigram_score(entry.frequency);
+                    next.score += candidate_unigram_score(entry.frequency);
                     next.score -= static_cast<std::int64_t>(
                         entry.syllables.front().size() - 1) * kIncompleteCharacterPenalty;
                     if (preferred_initial_syllable(initial_sequence_input[offset]) ==
@@ -883,7 +867,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 ++abbreviated_segments;
         }
         if (abbreviated_segments < 2) continue;
-        auto score = unigram_score(match.entry.frequency) + kMixedAbbreviationPhraseBonus -
+        auto score = candidate_unigram_score(match.entry.frequency) +
+                     kMixedAbbreviationPhraseBonus -
                      static_cast<std::int64_t>(abbreviated_segments) *
                          kIncompleteCharacterPenalty;
         if (user_frequency_ != nullptr) {
@@ -985,7 +970,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     phrase_score = std::max(
                         phrase_score,
                         std::min(kMaximumBoundaryCoherenceBonus,
-                                 unigram_score(entry.frequency) * 3 / 2));
+                                 candidate_unigram_score(entry.frequency) * 3 / 2));
                 }
                 best[end] = std::max(best[end], best[begin] + phrase_score);
             }

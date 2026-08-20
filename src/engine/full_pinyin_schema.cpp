@@ -638,9 +638,22 @@ std::vector<ChunkPath> parse_chunk(const std::string_view normalized,
         std::erase_if(paths, [minimum, explicit_single_syllable](const ChunkPath& path) {
             // A complete one-syllable input is an explicit reading, not an
             // unfinished prefix: lin must not reserve candidate slots for
-            // ling, nor bin for bing. Multi-syllable trailing completion is
-            // still useful (for example zhong+gu -> zhong+guo).
-            return path.syllables.size() > minimum ||
+            // ling, nor bin for bing. A complete alternative with a natural
+            // vowel-starting final boundary remains meaningful, however:
+            // xian can be xi+an and should expose dictionary-backed 西安. A
+            // one-letter tail such as du+o is deliberately excluded so the
+            // old over-segmentation regression does not return.
+            const auto preserves_implicit_boundary = [&] {
+                if (!explicit_single_syllable || path.incomplete ||
+                    path.syllables.size() <= minimum) return false;
+                const auto& suffix = path.syllables.back();
+                if (!suffix.complete || suffix.end - suffix.begin < 2 ||
+                    suffix.text.empty()) return false;
+                return suffix.text.front() == 'a' || suffix.text.front() == 'e' ||
+                       suffix.text.front() == 'o';
+            }();
+            return (path.syllables.size() > minimum &&
+                    !preserves_implicit_boundary) ||
                    (explicit_single_syllable && path.incomplete);
         });
     }
@@ -736,6 +749,34 @@ ParseResult FullPinyinSchema::parse_incremental(
                 combined.syllables.insert(combined.syllables.begin(),
                                           stable_prefix.begin(), stable_prefix.end());
                 result.paths.push_back(std::move(combined));
+            }
+            // Parsing the suffix in isolation can retain a valid implicit
+            // vowel boundary that the complete chunk would reject. For
+            // example, after reusing jiao, parsing dian alone preserves both
+            // dian and di+an; the full jiaodian parse correctly keeps only
+            // jiao+dian because it uses fewer syllables. Apply that same
+            // whole-chunk rule to complete exact paths after recombination.
+            auto minimum_exact_syllables = (std::numeric_limits<std::size_t>::max)();
+            for (const auto& path : result.paths) {
+                if (path.match_kind != InputMatchKind::exact ||
+                    std::any_of(path.syllables.begin(), path.syllables.end(),
+                                [](const Syllable& syllable) {
+                                    return !syllable.complete;
+                                })) continue;
+                minimum_exact_syllables = std::min(
+                    minimum_exact_syllables, path.syllables.size());
+            }
+            if (minimum_exact_syllables > 1 &&
+                minimum_exact_syllables !=
+                    (std::numeric_limits<std::size_t>::max)()) {
+                std::erase_if(result.paths, [minimum_exact_syllables](const ParsePath& path) {
+                    return path.match_kind == InputMatchKind::exact &&
+                           path.syllables.size() > minimum_exact_syllables &&
+                           std::all_of(path.syllables.begin(), path.syllables.end(),
+                                       [](const Syllable& syllable) {
+                                           return syllable.complete;
+                                       });
+                });
             }
             result.valid = !result.paths.empty();
             if (result.valid && reused != nullptr) *reused = true;

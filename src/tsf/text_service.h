@@ -169,6 +169,10 @@ private:
     void move_candidate_page_from_shortcut(int direction);
     void change_candidate_page(int direction);
     void scroll_expanded_candidates(int rows);
+    void append_alt_code_digit(unsigned digit);
+    void finish_alt_code_preview() noexcept;
+    HRESULT commit_alt_code_preview_from_window();
+    void change_alt_code_preview_page(int direction);
     void invoke_hit_target(const HitTarget& target);
     void defer_candidate_selection(std::size_t index, ITfContext* context);
     void clear_deferred_candidate_selection() noexcept;
@@ -198,6 +202,7 @@ private:
     HWND candidate_window_{nullptr};
     HHOOK keyboard_hook_{nullptr};
     bool language_space_key_suppressed_{false};
+    std::uint16_t alt_code_numpad_down_mask_{0};
     LanguageBarItem* language_bar_item_{nullptr};
     ID2D1Factory* d2d_factory_{nullptr};
     IDWriteFactory* dwrite_factory_{nullptr};
@@ -255,6 +260,15 @@ private:
     bool single_quote_open_{true};
     bool double_quote_open_{true};
     bool foreground_focus_{true};
+    struct AltCodePreviewItem {
+        std::wstring code;
+        std::wstring result;
+        bool strict{};
+    };
+    bool alt_code_preview_active_{false};
+    std::wstring alt_code_digits_;
+    std::vector<AltCodePreviewItem> alt_code_preview_items_;
+    std::size_t alt_code_preview_page_{0};
     POINT candidate_anchor_{};
     bool candidate_anchor_valid_{false};
     std::mutex request_mutex_;

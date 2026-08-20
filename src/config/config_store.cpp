@@ -184,6 +184,9 @@ ConfigValidationResult validate_config(const AppConfig& value) {
         return {false, "candidate_page_size must be between 1 and 9"};
     if (value.candidate_wrap_length < 4 || value.candidate_wrap_length > 64)
         return {false, "candidate_wrap_length must be between 4 and 64"};
+    if (value.alt_code_preview_page_size < 2 ||
+        value.alt_code_preview_page_size > 10)
+        return {false, "alt_code_preview_page_size must be between 2 and 10"};
     if (value.user_learning_sensitivity < 1 || value.user_learning_sensitivity > 10)
         return {false, "user_learning_sensitivity must be between 1 and 10"};
     if (value.model_timeout_ms < 5 || value.model_timeout_ms > 500)
@@ -264,6 +267,9 @@ ConfigParseResult parse_config(const std::string_view utf8) {
     constexpr std::string_view punctuation_required[]{
         "chinese_punctuation_enabled", "punctuation_shortcut_enabled",
         "punctuation_shortcut"};
+    constexpr std::string_view alt_code_preview_required[]{
+        "alt_code_preview_enabled", "alt_code_preview_page_size",
+        "alt_code_preview_wheel_enabled"};
     constexpr std::string_view navigation_required[]{
         "cursor_left_shortcut_enabled", "cursor_left_shortcut",
         "cursor_right_shortcut_enabled", "cursor_right_shortcut",
@@ -275,7 +281,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 4 ? std::size(learning_required) : 0) +
                                (version >= 5 ? std::size(navigation_required) : 0) +
                                (version >= 7 ? std::size(partition_required) : 0) +
-                               (version >= 8 ? std::size(punctuation_required) : 0);
+                               (version >= 8 ? std::size(punctuation_required) : 0) +
+                               (version >= 9 ? std::size(alt_code_preview_required) : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -298,6 +305,9 @@ ConfigParseResult parse_config(const std::string_view utf8) {
     if (version >= 7 && !fields.contains("candidate_partition_enabled"))
         return {false, {}, "configuration fields are missing or unknown"};
     if (version >= 8) for (const auto key : punctuation_required)
+        if (!fields.contains(std::string(key)))
+            return {false, {}, "configuration fields are missing or unknown"};
+    if (version >= 9) for (const auto key : alt_code_preview_required)
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
@@ -346,6 +356,15 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                  value.punctuation_shortcuts))
             return {false, {}, "configuration field type is invalid"};
     }
+    if (version >= 9) {
+        if (!parse_bool(fields["alt_code_preview_enabled"],
+                        value.alt_code_preview_enabled) ||
+            !parse_u32(fields["alt_code_preview_page_size"],
+                       value.alt_code_preview_page_size) ||
+            !parse_bool(fields["alt_code_preview_wheel_enabled"],
+                        value.alt_code_preview_wheel_enabled))
+            return {false, {}, "configuration field type is invalid"};
+    }
     if (version >= 5) {
         if (!parse_bool(fields["cursor_left_shortcut_enabled"],
                         value.cursor_left_shortcut_enabled) ||
@@ -390,6 +409,12 @@ std::string serialize_config(const AppConfig& value) {
                (value.candidate_partition_enabled ? std::string("true") : "false") +
            "\nchinese_punctuation_enabled=" +
                (value.chinese_punctuation_enabled ? std::string("true") : "false") +
+           "\nalt_code_preview_enabled=" +
+               (value.alt_code_preview_enabled ? std::string("true") : "false") +
+           "\nalt_code_preview_page_size=" +
+               std::to_string(value.alt_code_preview_page_size) +
+           "\nalt_code_preview_wheel_enabled=" +
+               (value.alt_code_preview_wheel_enabled ? std::string("true") : "false") +
            "\npunctuation_shortcut_enabled=" +
                (value.punctuation_shortcut_enabled ? std::string("true") : "false") +
            "\npunctuation_shortcut=" +

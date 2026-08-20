@@ -5,6 +5,9 @@ namespace OwO_Settings;
 internal sealed record SettingsSnapshot(uint CandidatePageSize, uint CandidateWrapLength,
                                         bool CandidatePartitionEnabled,
                                         bool ChinesePunctuationEnabled,
+                                        bool AltCodePreviewEnabled,
+                                        uint AltCodePreviewPageSize,
+                                        bool AltCodePreviewWheelEnabled,
                                         uint UserLearningSensitivity,
                                         bool UserLearningEnabled,
                                         bool ModelRankingEnabled, uint ModelTimeoutMs,
@@ -37,6 +40,9 @@ internal sealed class ConfigShellClient
                    uint.Parse(values["candidate_wrap_length"]),
                    bool.Parse(values["candidate_partition_enabled"]),
                    bool.Parse(values["chinese_punctuation_enabled"]),
+                   bool.Parse(values["alt_code_preview_enabled"]),
+                   uint.Parse(values["alt_code_preview_page_size"]),
+                   bool.Parse(values["alt_code_preview_wheel_enabled"]),
                    uint.Parse(values["user_learning_sensitivity"]),
                    bool.Parse(values["user_learning_enabled"]),
                    bool.Parse(values["model_ranking_enabled"]),
@@ -83,7 +89,10 @@ internal sealed class ConfigShellClient
                   value.CandidatePartitionEnabled.ToString().ToLowerInvariant(),
                   value.ChinesePunctuationEnabled.ToString().ToLowerInvariant(),
                   value.PunctuationShortcutEnabled.ToString().ToLowerInvariant(),
-                  JoinShortcuts(value.PunctuationShortcuts)], cancellationToken);
+                  JoinShortcuts(value.PunctuationShortcuts),
+                  value.AltCodePreviewEnabled.ToString().ToLowerInvariant(),
+                  value.AltCodePreviewPageSize.ToString(),
+                  value.AltCodePreviewWheelEnabled.ToString().ToLowerInvariant()], cancellationToken);
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

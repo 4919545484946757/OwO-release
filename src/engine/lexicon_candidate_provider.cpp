@@ -1,4 +1,5 @@
 #include "owo/engine/lexicon_candidate_provider.h"
+#include "owo/engine/candidate_scoring.h"
 
 #include <algorithm>
 
@@ -134,7 +135,7 @@ CandidateBatch ExactLexiconCandidateProvider::request(
             Candidate candidate;
             candidate.text = entry.text;
             candidate.syllables = entry.syllables;
-            candidate.score = static_cast<std::int64_t>(entry.frequency) +
+            candidate.score = candidate_unigram_score(entry.frequency) +
                               score_adjustment_;
             candidate.match_kind = match_kind_;
             candidate.source_segments = source_segments_;
@@ -145,7 +146,7 @@ CandidateBatch ExactLexiconCandidateProvider::request(
     }
     batch.next_score_upper_bound = batch.exhausted
         ? (std::numeric_limits<std::int64_t>::min)()
-        : static_cast<std::int64_t>(next_frequency) + score_adjustment_;
+        : candidate_unigram_score(next_frequency) + score_adjustment_;
     if (!batch.exhausted) {
         batch.continuation = ProviderContinuation{
             provider_id_, context.input_fingerprint, context.lexicon_generation,
@@ -161,7 +162,7 @@ std::int64_t ExactLexiconCandidateProvider::initial_score_upper_bound(
     for (const auto& syllable : syllables_) reading.push_back(syllable);
     const auto frequency = lexicon_.exact_frequency_upper_bound(reading);
     return frequency
-        ? static_cast<std::int64_t>(*frequency) + score_adjustment_
+        ? candidate_unigram_score(*frequency) + score_adjustment_
         : (std::numeric_limits<std::int64_t>::min)();
 }
 

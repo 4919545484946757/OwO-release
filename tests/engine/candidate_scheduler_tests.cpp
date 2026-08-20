@@ -1,4 +1,5 @@
 #include "owo/engine/candidate_scheduler.h"
+#include "owo/engine/composition_candidate_provider.h"
 #include "owo/engine/binary_lexicon.h"
 #include "owo/engine/lexicon_candidate_provider.h"
 #include "owo/engine/parse_candidate_sources.h"
@@ -87,6 +88,9 @@ int main() {
     for (const auto& value : result.candidates) actual.push_back(value.text);
     if (actual != expected || result.metrics.provider_requests != 3 ||
         result.metrics.continuation_requests != 1 ||
+        result.metrics.result_slots_reclaimed == 0 ||
+        result.metrics.reallocated_result_budget == 0 ||
+        result.metrics.candidates_generated_after_reallocation == 0 ||
         result.metrics.work_units_reclaimed == 0 ||
         result.metrics.reallocated_work_budget == 0 ||
         result.metrics.work_units_consumed_after_reallocation == 0 ||
@@ -106,22 +110,28 @@ int main() {
     const auto page_one = scheduler.generate(context, paged_providers, {3, 12});
     if (!page_one.continuation || page_one.candidates.size() != 3 ||
         page_one.candidates[0].text != "d1" || page_one.candidates[1].text != "c1" ||
-        page_one.candidates[2].text != "d2")
+        page_one.candidates[2].text != "d2") {
+        std::cerr << "first paged scheduling failed\n";
         return 1;
+    }
     const auto page_two = scheduler.generate(
         context, paged_providers, {3, 12}, &*page_one.continuation);
     if (page_two.continuation || page_two.candidates.size() != 3 ||
         page_two.candidates[0].text != "d3" || page_two.candidates[1].text != "d4" ||
-        page_two.candidates[2].text != "d5")
+        page_two.candidates[2].text != "d5") {
+        std::cerr << "continued paged scheduling failed\n";
         return 1;
+    }
     auto edited_context = context;
     edited_context.input = "nih";
     ++edited_context.input_fingerprint;
     const auto restarted = scheduler.generate(
         edited_context, paged_providers, {3, 12}, &*page_one.continuation);
     if (restarted.candidates.size() != 3 || restarted.candidates[0].text != "d1" ||
-        restarted.candidates[1].text != "c1" || restarted.candidates[2].text != "d2")
+        restarted.candidates[1].text != "c1" || restarted.candidates[2].text != "d2") {
+        std::cerr << "stale page restart failed\n";
         return 1;
+    }
 
     BoundedProvider duplicate_dictionary("dictionary", {
         candidate("你好", 100), candidate("你们", 90)}, 1);
@@ -164,6 +174,7 @@ int main() {
             {{"de"}, "的", 1000}, {{"dou"}, "都", 900},
             {{"dui"}, "对", 800}, {{"deng"}, "等", 700},
             {{"dao"}, "到", 600}, {{"ni"}, "你", 1200},
+            {{"hao"}, "好", 1100},
             {{"ni", "hao"}, "你好", 1000},
             {{"ni", "hao"}, "你号", 50}}).success)
         return 3;
@@ -212,8 +223,10 @@ int main() {
         exact.candidates[0].text != "你" || exact.candidates[1].text != "你好" ||
         exact.candidates[2].text != "你号" ||
         exact.metrics.continuation_requests != 1 ||
-        exact.metrics.work_units_reclaimed == 0)
+        exact.metrics.work_units_reclaimed == 0) {
+        std::cerr << "exact provider scheduling failed\n";
         return 3;
+    }
 
     owo::engine::ParseResult parsed;
     parsed.normalized_input = "nihao";
@@ -225,18 +238,47 @@ int main() {
     auto parse_plan = owo::engine::make_parse_candidate_source_plan(
         lexicon, parsed, 14, 8, 5);
     if (parse_plan.allocations.size() != 3 ||
-        parse_plan.owned_providers.size() != 3)
+        parse_plan.owned_providers.size() != 3) {
+        std::cerr << "parse source plan failed\n";
         return 3;
+    }
     const auto parsed_candidates = scheduler.generate(
         parse_plan.context, parse_plan.allocations, {3, 32});
     if (parsed_candidates.candidates.size() != 3 ||
-        parsed_candidates.candidates.front().text != "你好")
+        parsed_candidates.candidates.front().text != "你好") {
+        std::cerr << "parsed candidate scheduling failed: size="
+                  << parsed_candidates.candidates.size();
+        if (!parsed_candidates.candidates.empty())
+            std::cerr << " first=" << parsed_candidates.candidates.front().text;
+        std::cerr << '\n';
         return 3;
+    }
     const auto shadow = owo::engine::compare_candidate_results(
         parsed_candidates.candidates, parsed_candidates.candidates, 3);
     if (!shadow.first_candidate_equal || shadow.shared_count != 3 ||
-        shadow.equal_prefix_count != 3 || !shadow.scheduled_complete)
+        shadow.equal_prefix_count != 3 || !shadow.scheduled_complete) {
+        std::cerr << "shadow comparison failed\n";
         return 3;
+    }
+
+    owo::engine::CompositionCandidateProvider composition(
+        lexicon, "composition-test", {"ni", "hao"}, {"ni", "hao"},
+        owo::engine::InputMatchKind::exact, 5, 0);
+    std::optional<owo::engine::ProviderContinuation> composition_state;
+    owo::engine::CandidateBatch composed;
+    for (std::size_t attempt = 0; attempt < 8; ++attempt) {
+        composed = composition.request(
+            exact_context, {1, 1},
+            composition_state ? &*composition_state : nullptr);
+        composition_state = composed.continuation;
+        if (composed.exhausted) break;
+    }
+    if (!composed.exhausted || composed.candidates.size() != 1 ||
+        composed.candidates.front().text != "你好" ||
+        composed.candidates.front().segment_count != 2) {
+        std::cerr << "composition continuation failed\n";
+        return 3;
+    }
     std::error_code ignored;
     std::filesystem::remove(path, ignored);
 

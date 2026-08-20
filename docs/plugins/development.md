@@ -44,6 +44,50 @@ my-plugin/
 
 `id` 必须是小写反向域名形式，`version` 必须是三段数字版本，`entry` 必须是包内相对 `.exe` 路径。`network` 只有在同时声明 `network.client` 时才可设为 `true`；要求普通 Win32 用户令牌的能力还必须声明 `system.full_trust`。
 
+### 声明式设置页
+
+设置中心会为每个已安装插件建立独立侧栏入口，并以插件包内的
+`config_schema` 生成原生 WinUI 3 设置页。页面不会加载插件提供的 DLL、XAML
+或脚本，因此第三方插件不能借设置界面进入设置中心进程。
+
+当前支持 JSON Schema 风格的封闭字段集合：顶层 `title`、`description`、
+`type: "object"` 和 `properties`；属性支持 `boolean`、`string`、`integer`、
+`number`，以及可选的 `title`、`description`、`default`、`minimum`、
+`maximum` 和 `enum`。例如：
+
+```json
+{
+  "title": "Demo Plugin 设置",
+  "description": "这些选项只属于当前插件。",
+  "type": "object",
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "title": "启用增强候选",
+      "description": "允许插件处理 Core 明确传入的候选页。",
+      "default": true
+    },
+    "result_limit": {
+      "type": "integer",
+      "title": "最大结果数",
+      "default": 8,
+      "minimum": 1,
+      "maximum": 32
+    },
+    "style": {
+      "type": "string",
+      "title": "显示样式",
+      "default": "compact",
+      "enum": ["compact", "comfortable"]
+    }
+  }
+}
+```
+
+配置保存到插件专属数据目录的 `settings.json`。字段名最多 64 个 ASCII
+字母、数字、点、下划线或连字符；单个结构和配置文件最大 256 KiB，最多
+64 个字段、32 个枚举值。设置中心的全局搜索会索引插件名称、字段标题和说明。
+
 ## 3. 启动契约
 
 OwO 使用以下参数启动插件：

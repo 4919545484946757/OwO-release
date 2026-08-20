@@ -15,6 +15,23 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     exit $elevated.ExitCode
 }
 
+# OwO is registered as a Simplified Chinese TSF profile (LANGID 0x0804).
+# Without the corresponding user-language entry Windows can register the COM
+# server while still refusing to expose or activate the input profile. Fail
+# before copying files so ZIP/script installs receive the same actionable
+# diagnosis as the graphical setup wizard.
+$languages = @(Get-WinUserLanguageList)
+$chinese = $languages | Where-Object {
+    $_.LanguageTag -in @('zh-Hans-CN', 'zh-CN')
+} | Select-Object -First 1
+if ($null -eq $chinese) {
+    throw @'
+OwO requires the Windows "Chinese (Simplified, China)" language and basic typing support.
+Open Settings > Time & language > Language & region, add Chinese (Simplified, China),
+wait for the language components to finish downloading, and then run this installer again.
+'@
+}
+
 $version = '0.1.0'
 $packageRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $programRoot = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Programs\OwO\InputMethod'))
@@ -179,9 +196,6 @@ if ($register.ExitCode -ne 0) { throw "TSF registration failed: $($register.Exit
 if ($LASTEXITCODE -ne 0) { throw "OwO profile enable failed: $LASTEXITCODE" }
 
 $owoTip = '0804:{6D31C9B1-8978-4F49-89B4-66EB1E741591}{5D9F39C3-BDB4-453C-A7BA-B9EF82487629}'
-$languages = Get-WinUserLanguageList
-$chinese = $languages | Where-Object { $_.LanguageTag -eq 'zh-Hans-CN' } | Select-Object -First 1
-if ($null -eq $chinese) { throw 'Windows Simplified Chinese language entry is missing.' }
 if ($chinese.InputMethodTips -notcontains $owoTip) {
     $chinese.InputMethodTips.Add($owoTip)
     Set-WinUserLanguageList $languages -Force -WarningAction SilentlyContinue

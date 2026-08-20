@@ -21,6 +21,7 @@
 #include <cmath>
 #include <chrono>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <new>
 #include <string_view>
@@ -34,6 +35,8 @@ constexpr wchar_t kMessageClass[] = L"OwO.P1.MessageWindow";
 constexpr wchar_t kCandidateClass[] = L"OwO.P1.CandidateWindow";
 constexpr UINT kCandidateReady = WM_APP + 1;
 constexpr UINT kLanguageShortcutPressed = WM_APP + 2;
+constexpr UINT kAltCodeDigitPressed = WM_APP + 3;
+constexpr UINT kAltCodeFinished = WM_APP + 4;
 constexpr float kCandidateWindowMinWidthDip = 240.0F;
 constexpr float kCandidateWindowMaxWidthDip = 1400.0F;
 constexpr float kHeaderHeightDip = 40.0F;
@@ -55,6 +58,38 @@ constexpr auto kCandidateRequestBaseTimeout = std::chrono::milliseconds(900);
 constexpr auto kCandidateRequestMaximumTimeout = std::chrono::milliseconds(2500);
 constexpr auto kFeedbackRequestTimeout = std::chrono::milliseconds(100);
 thread_local TextService* keyboard_hook_service = nullptr;
+
+std::optional<std::wstring> alt_code_symbol(const std::wstring_view digits) {
+    if (digits.empty()) return std::nullopt;
+    std::uint64_t value = 0;
+    for (const wchar_t digit : digits) {
+        if (digit < L'0' || digit > L'9' ||
+            value > (std::numeric_limits<std::uint64_t>::max)() / 10)
+            return std::nullopt;
+        value = value * 10 + static_cast<unsigned>(digit - L'0');
+    }
+    if (value <= 255) {
+        if (value < 32 || value == 127) return std::nullopt;
+        const char byte = static_cast<char>(static_cast<unsigned char>(value));
+        const UINT code_page = digits.size() > 1 && digits.front() == L'0'
+                                   ? CP_ACP : CP_OEMCP;
+        wchar_t output[2]{};
+        const int length = MultiByteToWideChar(
+            code_page, MB_ERR_INVALID_CHARS, &byte, 1, output,
+            static_cast<int>(std::size(output)));
+        if (length != 1 || output[0] < L' ') return std::nullopt;
+        return std::wstring(1, output[0]);
+    }
+    if (value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff) ||
+        (value >= 0xfdd0 && value <= 0xfdef) || (value & 0xffff) >= 0xfffe)
+        return std::nullopt;
+    if (value <= 0xffff) return std::wstring(1, static_cast<wchar_t>(value));
+    value -= 0x10000;
+    std::wstring result;
+    result.push_back(static_cast<wchar_t>(0xd800 + (value >> 10)));
+    result.push_back(static_cast<wchar_t>(0xdc00 + (value & 0x3ff)));
+    return result;
+}
 
 bool system_uses_light_theme() noexcept {
     DWORD value = 1;
@@ -690,6 +725,7 @@ HRESULT TextService::Deactivate() {
     }
     if (keyboard_hook_service == this) keyboard_hook_service = nullptr;
     language_space_key_suppressed_ = false;
+    alt_code_numpad_down_mask_ = 0;
     destroy_windows();
     if (thread_manager_ != nullptr) {
         clear_preserved_language_key();
@@ -975,16 +1011,21 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
 
 HRESULT TextService::OnTestKeyUp(ITfContext*, const WPARAM key, LPARAM, BOOL* eaten) {
     if (eaten == nullptr) return E_POINTER;
-    static_cast<void>(key);
-    *eaten = FALSE;
+    *eaten = is_alt_key(key) && alt_code_preview_active_ ? TRUE : FALSE;
     return S_OK;
 }
 
-HRESULT TextService::OnKeyUp(ITfContext*, const WPARAM key, LPARAM, BOOL* eaten) {
+HRESULT TextService::OnKeyUp(ITfContext* context, const WPARAM key, LPARAM, BOOL* eaten) {
     if (eaten == nullptr) return E_POINTER;
-    static_cast<void>(key);
-    *eaten = FALSE;
-    return S_OK;
+    if (!is_alt_key(key) || !alt_code_preview_active_) {
+        *eaten = FALSE;
+        return S_OK;
+    }
+    *eaten = TRUE;
+    const auto symbol = alt_code_symbol(alt_code_digits_);
+    finish_alt_code_preview();
+    if (!symbol.has_value() || context == nullptr) return S_OK;
+    return commit_text(context, *symbol);
 }
 
 HRESULT TextService::OnPreservedKey(ITfContext* context, REFGUID guid, BOOL* eaten) {
@@ -1166,6 +1207,43 @@ SIZE TextService::desired_candidate_window_size() const {
         1, static_cast<std::size_t>(candidate_page_size_));
     const auto wrap_length = std::max<std::size_t>(
         1, static_cast<std::size_t>(shortcut_config_.candidate_wrap_length));
+    if (alt_code_preview_active_) {
+        const auto preview_page_size = std::max<std::size_t>(
+            2, static_cast<std::size_t>(shortcut_config_.alt_code_preview_page_size));
+        const bool has_strict = !alt_code_preview_items_.empty() &&
+                                alt_code_preview_items_.front().strict;
+        const auto tail_capacity = has_strict ? preview_page_size - 1
+                                              : preview_page_size;
+        const auto tail_begin = (has_strict ? std::size_t{1} : std::size_t{0}) +
+                                alt_code_preview_page_ * tail_capacity;
+        std::vector<std::size_t> visible;
+        if (has_strict) visible.push_back(0);
+        for (std::size_t index = tail_begin;
+             index < alt_code_preview_items_.size() &&
+             visible.size() < preview_page_size; ++index)
+            visible.push_back(index);
+        float items_width = 0.0F;
+        for (std::size_t shown = 0; shown < visible.size(); ++shown) {
+            if (shown != 0) items_width += kCandidateGapDip;
+            const auto index = visible[shown];
+            const auto& item = alt_code_preview_items_[index];
+            const float badge_width = std::max(
+                26.0F, measure_text_width(dwrite_factory_, label_text_format_, item.code) +
+                           12.0F);
+            items_width += badge_width + 19.0F +
+                           measure_text_width(dwrite_factory_,
+                                              candidate_text_format_, item.result);
+        }
+        const auto header = std::wstring(L"Alt ＋ ") + alt_code_digits_;
+        const float width = std::clamp(
+            std::max(kHorizontalPaddingDip * 2.0F +
+                         measure_text_width(dwrite_factory_, input_text_format_, header),
+                     kHorizontalPaddingDip * 2.0F + items_width),
+            kCandidateWindowMinWidthDip, kCandidateWindowMaxWidthDip);
+        return SIZE{dips_to_pixels(width, dpi),
+                    dips_to_pixels(kHeaderHeightDip + 16.0F +
+                                       kCandidateItemHeightDip, dpi)};
+    }
     const auto row_height = [this, wrap_length](const std::size_t begin,
                                                 const std::size_t end) {
         float height = kCandidateItemHeightDip;
@@ -1260,6 +1338,81 @@ void TextService::render_candidate_window() {
         D2D1::RectF(0.5F, 0.5F, size.width - 0.5F, size.height - 0.5F), 10.0F, 10.0F};
     render_target_->FillRoundedRectangle(card, mode_background_brush);
     render_target_->DrawRoundedRectangle(card, mode_border_brush, 1.0F);
+
+    if (alt_code_preview_active_) {
+        const auto header = std::wstring(L"Alt ＋ ") + alt_code_digits_;
+        render_target_->DrawTextW(
+            header.data(), static_cast<UINT32>(header.size()), input_text_format_,
+            D2D1::RectF(kHorizontalPaddingDip, 0.0F,
+                        size.width - kHorizontalPaddingDip, kHeaderHeightDip),
+            mode_accent_brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        render_target_->DrawLine(
+            D2D1::Point2F(10.0F, kHeaderHeightDip),
+            D2D1::Point2F(size.width - 10.0F, kHeaderHeightDip),
+            mode_border_brush, 1.0F);
+
+        const auto page_size = std::max<std::size_t>(
+            2, static_cast<std::size_t>(shortcut_config_.alt_code_preview_page_size));
+        const bool has_strict = !alt_code_preview_items_.empty() &&
+                                alt_code_preview_items_.front().strict;
+        const auto tail_capacity = has_strict ? page_size - 1 : page_size;
+        const auto tail_begin = (has_strict ? std::size_t{1} : std::size_t{0}) +
+                                alt_code_preview_page_ * tail_capacity;
+        std::vector<std::size_t> visible;
+        if (has_strict) visible.push_back(0);
+        for (std::size_t index = tail_begin;
+             index < alt_code_preview_items_.size() && visible.size() < page_size;
+             ++index)
+            visible.push_back(index);
+        float x = kHorizontalPaddingDip;
+        constexpr float top = kHeaderHeightDip + 8.0F;
+        for (const auto index : visible) {
+            const auto& item = alt_code_preview_items_[index];
+            const float badge_width = std::max(
+                26.0F, measure_text_width(dwrite_factory_, label_text_format_, item.code) +
+                           12.0F);
+            const float requested = badge_width + 19.0F +
+                measure_text_width(dwrite_factory_, candidate_text_format_,
+                                   item.result);
+            const float right = std::min(size.width - kHorizontalPaddingDip,
+                                         x + requested);
+            const D2D1_ROUNDED_RECT pill{
+                D2D1::RectF(x, top, right, top + kCandidateItemHeightDip), 7.0F, 7.0F};
+            if (item.strict)
+                render_target_->FillRoundedRectangle(pill, mode_highlight_brush);
+
+            const float badge_center = (pill.rect.top + pill.rect.bottom) * 0.5F;
+            const D2D1_ROUNDED_RECT badge{
+                D2D1::RectF(pill.rect.left + 6.0F, badge_center - 11.0F,
+                            pill.rect.left + 6.0F + badge_width,
+                            badge_center + 11.0F),
+                5.0F, 5.0F};
+            render_target_->FillRoundedRectangle(badge, mode_border_brush);
+            render_target_->DrawTextW(
+                item.code.data(), static_cast<UINT32>(item.code.size()),
+                label_text_format_, badge.rect, mode_accent_brush,
+                D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            render_target_->DrawTextW(
+                item.result.data(), static_cast<UINT32>(item.result.size()),
+                candidate_text_format_,
+                D2D1::RectF(badge.rect.right + 7.0F, top, right - 6.0F,
+                            top + kCandidateItemHeightDip), text_brush_,
+                D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            x = right + kCandidateGapDip;
+        }
+        if (visible.empty()) {
+            constexpr std::wstring_view status = L"当前代码暂无可显示符号";
+            render_target_->DrawTextW(
+                status.data(), static_cast<UINT32>(status.size()), candidate_text_format_,
+                D2D1::RectF(kHorizontalPaddingDip, top,
+                            size.width - kHorizontalPaddingDip,
+                            top + kCandidateItemHeightDip),
+                secondary_text_brush_, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
+        const HRESULT result = render_target_->EndDraw();
+        if (FAILED(result)) discard_device_resources();
+        return;
+    }
 
     const std::wstring& reading = segmented_input_.empty() ? input_buffer_ : segmented_input_;
     const std::wstring& preview = reading;
@@ -1525,6 +1678,14 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
         service->toggle_language_mode_from_window();
         return 0;
     }
+    if (message == kAltCodeDigitPressed && service != nullptr) {
+        service->append_alt_code_digit(static_cast<unsigned>(wparam));
+        return 0;
+    }
+    if (message == kAltCodeFinished && service != nullptr) {
+        service->commit_alt_code_preview_from_window();
+        return 0;
+    }
     if (message == WM_PAINT && service != nullptr) {
         PAINTSTRUCT paint{};
         BeginPaint(window, &paint);
@@ -1544,6 +1705,12 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
         window == service->candidate_window_) {
         const int delta = GET_WHEEL_DELTA_WPARAM(wparam);
         const int notches = std::max(1, (delta < 0 ? -delta : delta) / WHEEL_DELTA);
+        if (service->alt_code_preview_active_) {
+            if (service->shortcut_config_.alt_code_preview_wheel_enabled)
+                service->change_alt_code_preview_page(
+                    delta > 0 ? -notches : notches);
+            return 0;
+        }
         service->scroll_expanded_candidates(delta > 0 ? -notches : notches);
         return 0;
     }
@@ -1648,6 +1815,31 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
 LRESULT CALLBACK TextService::keyboard_hook_proc(const int code, const WPARAM key,
                                                   const LPARAM flags) {
     auto* service = keyboard_hook_service;
+    if (code >= 0 && service != nullptr) {
+        const auto bits = static_cast<ULONG_PTR>(flags);
+        const bool released = (bits & (1ULL << 31)) != 0;
+        const bool repeated = (bits & (1ULL << 30)) != 0;
+        const bool alt_context = (bits & (1ULL << 29)) != 0 || key_down(VK_MENU);
+        if (key >= VK_NUMPAD0 && key <= VK_NUMPAD9) {
+            const auto digit = static_cast<unsigned>(key - VK_NUMPAD0);
+            const auto digit_mask = static_cast<std::uint16_t>(1U << digit);
+            if (released) {
+                service->alt_code_numpad_down_mask_ &=
+                    static_cast<std::uint16_t>(~digit_mask);
+            } else if (!repeated && alt_context && !key_down(VK_CONTROL) &&
+                       (service->alt_code_numpad_down_mask_ & digit_mask) == 0) {
+                service->alt_code_numpad_down_mask_ |= digit_mask;
+                service->refresh_shortcut_config();
+                if (service->shortcut_config_.alt_code_preview_enabled &&
+                    service->message_window_ != nullptr)
+                    PostMessageW(service->message_window_, kAltCodeDigitPressed,
+                                 digit, 0);
+            }
+        } else if (is_alt_key(key) && released && service->message_window_ != nullptr) {
+            service->alt_code_numpad_down_mask_ = 0;
+            PostMessageW(service->message_window_, kAltCodeFinished, 0, 0);
+        }
+    }
     if (code >= 0 && service != nullptr && key == VK_SPACE) {
         const auto bits = static_cast<ULONG_PTR>(flags);
         const bool released = (bits & (1ULL << 31)) != 0;
@@ -1696,6 +1888,8 @@ void TextService::refresh_shortcut_config(const bool force) {
         shortcut_config_ = shortcut_config_store_.snapshot();
         if (configured_punctuation != shortcut_config_.chinese_punctuation_enabled)
             chinese_punctuation_enabled_ = shortcut_config_.chinese_punctuation_enabled;
+        if (!shortcut_config_.alt_code_preview_enabled)
+            finish_alt_code_preview();
         sync_preserved_language_key();
     }
 }
@@ -2230,7 +2424,8 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
 
 void TextService::update_candidate_window() {
     if (candidate_window_ == nullptr) return;
-    if (!chinese_mode_ || input_buffer_.empty() || !foreground_focus_) {
+    if ((!alt_code_preview_active_ &&
+         (!chinese_mode_ || input_buffer_.empty())) || !foreground_focus_) {
         ShowWindow(candidate_window_, SW_HIDE);
         return;
     }
@@ -2270,6 +2465,95 @@ void TextService::update_candidate_window() {
     }
     RedrawWindow(candidate_window_, nullptr, nullptr,
                  RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE | RDW_NOCHILDREN);
+}
+
+void TextService::append_alt_code_digit(const unsigned digit) {
+    if (digit > 9 || !foreground_focus_ || !input_buffer_.empty() ||
+        !shortcut_config_.alt_code_preview_enabled) return;
+    if (!alt_code_preview_active_) {
+        ITfDocumentMgr* document_manager = nullptr;
+        ITfContext* context = nullptr;
+        if (thread_manager_ != nullptr &&
+            SUCCEEDED(thread_manager_->GetFocus(&document_manager)) &&
+            document_manager != nullptr) {
+            document_manager->GetTop(&context);
+            document_manager->Release();
+        }
+        if (context != nullptr) {
+            update_candidate_anchor(context);
+            context->Release();
+        }
+        alt_code_preview_active_ = true;
+        alt_code_digits_.clear();
+    }
+    if (alt_code_digits_.size() >= 10) return;
+    alt_code_digits_.push_back(static_cast<wchar_t>(L'0' + digit));
+    alt_code_preview_page_ = 0;
+    alt_code_preview_items_.clear();
+    const auto append = [this](std::wstring code, const bool strict) {
+        const auto symbol = alt_code_symbol(code);
+        if (!symbol.has_value()) return;
+        alt_code_preview_items_.push_back({std::move(code), *symbol, strict});
+    };
+    append(alt_code_digits_, true);
+    for (wchar_t tail = L'0'; tail <= L'9'; ++tail) {
+        auto code = alt_code_digits_;
+        code.push_back(tail);
+        append(std::move(code), false);
+    }
+    hovered_target_.reset();
+    pressed_target_.reset();
+    update_candidate_window();
+}
+
+void TextService::finish_alt_code_preview() noexcept {
+    if (!alt_code_preview_active_) return;
+    alt_code_preview_active_ = false;
+    alt_code_digits_.clear();
+    alt_code_preview_items_.clear();
+    alt_code_preview_page_ = 0;
+    hovered_target_.reset();
+    pressed_target_.reset();
+    if (candidate_window_ != nullptr) ShowWindow(candidate_window_, SW_HIDE);
+}
+
+HRESULT TextService::commit_alt_code_preview_from_window() {
+    if (!alt_code_preview_active_) return S_FALSE;
+    const auto symbol = alt_code_symbol(alt_code_digits_);
+    finish_alt_code_preview();
+    if (!symbol.has_value() || thread_manager_ == nullptr) return S_FALSE;
+
+    ITfDocumentMgr* document_manager = nullptr;
+    HRESULT result = thread_manager_->GetFocus(&document_manager);
+    if (FAILED(result) || document_manager == nullptr)
+        return FAILED(result) ? result : E_FAIL;
+    ITfContext* context = nullptr;
+    result = document_manager->GetTop(&context);
+    document_manager->Release();
+    if (FAILED(result) || context == nullptr) return FAILED(result) ? result : E_FAIL;
+    result = commit_text(context, *symbol);
+    context->Release();
+    return result;
+}
+
+void TextService::change_alt_code_preview_page(const int direction) {
+    if (!alt_code_preview_active_ || direction == 0) return;
+    const auto page_size = std::max<std::size_t>(
+        2, static_cast<std::size_t>(shortcut_config_.alt_code_preview_page_size));
+    const bool has_strict = !alt_code_preview_items_.empty() &&
+                            alt_code_preview_items_.front().strict;
+    const auto tail_count = alt_code_preview_items_.size() -
+                            (has_strict ? std::size_t{1} : std::size_t{0});
+    const auto tail_capacity = has_strict ? page_size - 1 : page_size;
+    const auto page_count = std::max<std::size_t>(
+        1, (tail_count + tail_capacity - 1) / tail_capacity);
+    const auto requested = static_cast<std::int64_t>(alt_code_preview_page_) +
+                           static_cast<std::int64_t>(direction);
+    const auto clamped = std::clamp<std::int64_t>(
+        requested, 0, static_cast<std::int64_t>(page_count - 1));
+    if (clamped == static_cast<std::int64_t>(alt_code_preview_page_)) return;
+    alt_code_preview_page_ = static_cast<std::size_t>(clamped);
+    update_candidate_window();
 }
 
 void TextService::change_candidate_page(const int direction) {
@@ -2458,6 +2742,10 @@ void TextService::clear_composition() {
     candidates_expanded_ = false;
     expanded_scroll_row_ = 0;
     candidate_anchor_valid_ = false;
+    alt_code_preview_active_ = false;
+    alt_code_digits_.clear();
+    alt_code_preview_items_.clear();
+    alt_code_preview_page_ = 0;
     if (candidate_window_ != nullptr) ShowWindow(candidate_window_, SW_HIDE);
 }
 

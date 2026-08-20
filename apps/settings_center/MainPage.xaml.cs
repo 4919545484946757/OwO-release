@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Windows.System;
 using Windows.Storage.Pickers;
 
@@ -13,6 +14,19 @@ public sealed partial class MainPage : Page
     private Button? _shortcutCaptureTarget;
     private IntPtr _shortcutCaptureHook;
     private readonly LowLevelKeyboardProc _shortcutCaptureHookProc;
+    private readonly List<SearchItem> _baseSearchItems = [];
+    private readonly List<SearchItem> _pluginSearchItems = [];
+    private readonly Dictionary<string, PluginVersionSnapshot> _pluginPages = [];
+    private readonly Dictionary<string, Microsoft.UI.Xaml.FrameworkElement> _pluginConfigControls = [];
+    private NavigationViewItemHeader? _pluginPagesHeader;
+    private PluginSettingsModel? _pluginSettings;
+    private sealed record SearchItem(string Title, string Detail, string Page,
+                                     Microsoft.UI.Xaml.FrameworkElement? Target = null,
+                                     string? PluginField = null)
+    {
+        public override string ToString() => string.IsNullOrWhiteSpace(Detail)
+            ? Title : $"{Title}  ·  {Detail}";
+    }
     private sealed class ShortcutBinding(string group, string value)
     {
         internal string Group { get; } = group;
@@ -53,6 +67,7 @@ public sealed partial class MainPage : Page
         SetShortcutBindings("next-page", ["]", "Shift+Down"]);
         SetShortcutBindings("punctuation", []);
         UpdateShortcutButtons();
+        InitializeSearchIndex();
         ConfigPath.Text = _client.ConfigPath;
         PluginPath.Text = _pluginClient.StorePath;
         Loaded += async (_, _) => {
@@ -71,6 +86,9 @@ public sealed partial class MainPage : Page
             CandidateWrapLength.Value = value.CandidateWrapLength;
             CandidatePartition.IsOn = value.CandidatePartitionEnabled;
             ChinesePunctuation.IsOn = value.ChinesePunctuationEnabled;
+            AltCodePreview.IsOn = value.AltCodePreviewEnabled;
+            AltCodePreviewPageSize.Value = value.AltCodePreviewPageSize;
+            AltCodePreviewWheel.IsOn = value.AltCodePreviewWheelEnabled;
             UserLearningSensitivity.Value = value.UserLearningSensitivity;
             UserLearning.IsOn = value.UserLearningEnabled;
             ModelRanking.IsOn = value.ModelRankingEnabled;
@@ -109,6 +127,9 @@ public sealed partial class MainPage : Page
                 (uint)CandidateWrapLength.Value,
                 CandidatePartition.IsOn,
                 ChinesePunctuation.IsOn,
+                AltCodePreview.IsOn,
+                (uint)AltCodePreviewPageSize.Value,
+                AltCodePreviewWheel.IsOn,
                 (uint)UserLearningSensitivity.Value,
                 UserLearning.IsOn, ModelRanking.IsOn, (uint)ModelTimeout.Value,
                 CorrectionShortcutEnabled.IsOn, ShortcutValues("correction"),
@@ -139,15 +160,112 @@ public sealed partial class MainPage : Page
             UserLearningSensitivityValue.Text = ((int)Math.Round(e.NewValue)).ToString();
     }
 
-    private void SettingsTab_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    private async void SettingsNavigation_SelectionChanged(
+        NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        if (sender is not RadioButton { Tag: string page }) return;
+        if (args.SelectedItemContainer?.Tag is not string page) return;
+        if (page.StartsWith("plugin:", StringComparison.Ordinal)) {
+            if (_pluginPages.TryGetValue(page, out var plugin))
+                await ShowPluginSettingsAsync(plugin);
+            return;
+        }
+        ShowPage(page);
+    }
+
+    private void ShowPage(string page)
+    {
         GeneralSettingsPage.Visibility = page == "general"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         ShortcutSettingsPage.Visibility = page == "shortcuts"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         PluginSettingsPage.Visibility = page == "plugins"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+        (CurrentPageTitle.Text, CurrentPageDescription.Text) = page switch {
+            "shortcuts" => ("快捷键", "管理输入、翻页和模式切换的多组按键绑定"),
+            "plugins" => ("插件", "安装、授权、配置和维护 OwO 插件"),
+            _ => ("常规", "候选、学习、排序与输入体验"),
+        };
+    }
+
+    private void InitializeSearchIndex()
+    {
+        void Add(string title, string detail, string page,
+                 Microsoft.UI.Xaml.FrameworkElement target) =>
+            _baseSearchItems.Add(new SearchItem(title, detail, page, target));
+        Add("每页候选数", "候选 显示 数量", "general", CandidatePageSizeCard);
+        Add("候选词换行长度", "长词 换行", "general", CandidateWrapLengthCard);
+        Add("候选分区", "字典区 单字区", "general", CandidatePartitionCard);
+        Add("中文标点", "全角 标点", "general", ChinesePunctuationCard);
+        Add("用户词频学习", "学习 词频", "general", UserLearningCard);
+        Add("词频学习灵敏度", "灵敏度 1 10", "general", LearningSensitivityCard);
+        Add("智能排序", "模型 上下文 本地", "general", ModelRankingCard);
+        Add("外部模型预算", "模型 超时 毫秒", "general", ModelTimeoutCard);
+        Add("Alt 数字符号预览", "小键盘 符号", "general", AltCodePreviewCard);
+        Add("符号预览每页项数", "Alt 数量", "general", AltCodePreviewPageSizeCard);
+        Add("符号预览鼠标滚轮翻页", "Alt 滚轮", "general", AltCodePreviewWheelCard);
+        Add("切换中文标点", "快捷键", "shortcuts", PunctuationShortcutCard);
+        Add("切换拼音纠错", "快捷键 严格拼音", "shortcuts", CorrectionShortcutCard);
+        Add("切换中英文输入", "快捷键 语言", "shortcuts", LanguageShortcutCard);
+        Add("拼音原样上屏", "快捷键 Enter", "shortcuts", RawInputShortcutCard);
+        Add("拼音光标左移", "快捷键 光标", "shortcuts", CursorLeftShortcutCard);
+        Add("拼音光标右移", "快捷键 光标", "shortcuts", CursorRightShortcutCard);
+        Add("候选词上一页", "快捷键 翻页", "shortcuts", PreviousPageShortcutCard);
+        Add("候选词下一页", "快捷键 翻页", "shortcuts", NextPageShortcutCard);
+        Add("插件管理", "安装 权限 卸载 恢复", "plugins", PluginSection);
+    }
+
+    private void SettingsSearchBox_TextChanged(AutoSuggestBox sender,
+                                                AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
+        var query = sender.Text.Trim();
+        if (query.Length == 0) { sender.ItemsSource = null; return; }
+        sender.ItemsSource = _baseSearchItems.Concat(_pluginSearchItems)
+            .Where(item => ($"{item.Title} {item.Detail}").Contains(
+                query, StringComparison.OrdinalIgnoreCase)).Take(12).ToArray();
+    }
+
+    private void SettingsSearchBox_SuggestionChosen(
+        AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    {
+        if (args.SelectedItem is SearchItem item) sender.Text = item.Title;
+    }
+
+    private async void SettingsSearchBox_QuerySubmitted(
+        AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        var selected = args.ChosenSuggestion as SearchItem;
+        selected ??= _baseSearchItems.Concat(_pluginSearchItems).FirstOrDefault(item =>
+            ($"{item.Title} {item.Detail}").Contains(args.QueryText.Trim(),
+                StringComparison.OrdinalIgnoreCase));
+        if (selected is null) {
+            ShowStatus("未找到匹配的设置。", InfoBarSeverity.Warning);
+            return;
+        }
+        await NavigateToSearchItemAsync(selected);
+    }
+
+    private async Task NavigateToSearchItemAsync(SearchItem item)
+    {
+        if (item.Page.StartsWith("plugin:", StringComparison.Ordinal) &&
+            _pluginPages.TryGetValue(item.Page, out var plugin)) {
+            var navigation = SettingsNavigation.MenuItems.OfType<NavigationViewItem>()
+                .FirstOrDefault(value => Equals(value.Tag, item.Page));
+            if (navigation is not null) SettingsNavigation.SelectedItem = navigation;
+            await ShowPluginSettingsAsync(plugin, item.PluginField);
+            return;
+        }
+        SettingsNavigation.SelectedItem = item.Page switch {
+            "shortcuts" => ShortcutNavigationItem,
+            "plugins" => PluginNavigationItem,
+            _ => GeneralNavigationItem,
+        };
+        ShowPage(item.Page);
+        if (item.Target is not null) DispatcherQueue.TryEnqueue(() => {
+            item.Target.StartBringIntoView();
+            item.Target.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+        });
     }
 
     private void ShortcutButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -321,11 +439,11 @@ public sealed partial class MainPage : Page
             foreach (var binding in bindings) {
                 var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
                 var capture = new Button {
-                    Content = binding.Value, Tag = binding, MinWidth = 220,
+                    Content = binding.Value, Tag = binding,
                     HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Left,
                 };
                 capture.Click += ShortcutButton_Click;
-                var remove = new Button { Content = "−", Tag = binding, MinWidth = 40 };
+                var remove = new Button { Content = "−", Tag = binding };
                 remove.Click += RemoveShortcutButton_Click;
                 row.Children.Add(capture);
                 row.Children.Add(remove);
@@ -395,6 +513,7 @@ public sealed partial class MainPage : Page
             var value = await _pluginClient.LoadAsync();
             PluginVersions.ItemsSource = value.Plugins;
             RecoveryItems.ItemsSource = value.Recovery;
+            RebuildPluginNavigation(value.Plugins);
             NoPlugins.Visibility = value.Plugins.Count == 0
                 ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
             NoRecovery.Visibility = value.Recovery.Count == 0
@@ -405,6 +524,156 @@ public sealed partial class MainPage : Page
             ShowStatus(error.Message, InfoBarSeverity.Error);
         } finally {
             SetBusy(false);
+        }
+    }
+
+    private void RebuildPluginNavigation(IReadOnlyList<PluginVersionSnapshot> plugins)
+    {
+        foreach (var item in SettingsNavigation.MenuItems.OfType<NavigationViewItem>()
+                     .Where(item => item.Tag is string tag &&
+                                    tag.StartsWith("plugin:", StringComparison.Ordinal)).ToArray())
+            SettingsNavigation.MenuItems.Remove(item);
+        if (_pluginPagesHeader is not null) SettingsNavigation.MenuItems.Remove(_pluginPagesHeader);
+        _pluginPages.Clear();
+        _pluginSearchItems.Clear();
+        if (plugins.Count == 0) return;
+        _pluginPagesHeader = new NavigationViewItemHeader { Content = "插件设置" };
+        SettingsNavigation.MenuItems.Add(_pluginPagesHeader);
+        foreach (var plugin in plugins.OrderByDescending(value => value.Active)
+                                      .ThenBy(value => value.Name, StringComparer.Ordinal)) {
+            var page = $"plugin:{plugin.Id}:{plugin.Version}";
+            _pluginPages[page] = plugin;
+            SettingsNavigation.MenuItems.Add(new NavigationViewItem {
+                Content = plugin.Name, Tag = page,
+                Icon = new FontIcon { Glyph = "\uE74C" },
+            });
+            _pluginSearchItems.Add(new SearchItem(plugin.Name,
+                $"插件 {plugin.Id} {plugin.Version}", page));
+            try {
+                var model = PluginSettingsModel.Load(_pluginClient.StorePath, plugin);
+                foreach (var field in model.Fields)
+                    _pluginSearchItems.Add(new SearchItem(field.Title,
+                        $"{plugin.Name} {field.Description}", page, null, field.Key));
+            } catch {
+                // A damaged or legacy schema remains manageable from the main plugin page.
+            }
+        }
+    }
+
+    private async void PluginVersionSettings_Click(
+        object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: PluginVersionSnapshot plugin }) return;
+        var page = $"plugin:{plugin.Id}:{plugin.Version}";
+        var navigation = SettingsNavigation.MenuItems.OfType<NavigationViewItem>()
+            .FirstOrDefault(value => Equals(value.Tag, page));
+        if (navigation is not null) SettingsNavigation.SelectedItem = navigation;
+        await ShowPluginSettingsAsync(plugin);
+    }
+
+    private Task ShowPluginSettingsAsync(PluginVersionSnapshot plugin,
+                                          string? focusField = null)
+    {
+        try {
+            _pluginSettings = PluginSettingsModel.Load(_pluginClient.StorePath, plugin);
+            PluginConfigFields.Children.Clear();
+            _pluginConfigControls.Clear();
+            foreach (var field in _pluginSettings.Fields) AddPluginSettingField(field);
+            GeneralSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            ShortcutSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            PluginSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+            CurrentPageTitle.Text = _pluginSettings.Title;
+            CurrentPageDescription.Text = $"{plugin.Name} {plugin.Version} · {plugin.Id}";
+            PluginConfigNotice.Message = _pluginSettings.Description;
+            PluginConfigNotice.Severity = InfoBarSeverity.Informational;
+            PluginConfigSaveButton.IsEnabled = _pluginSettings.Fields.Count != 0;
+            if (_pluginSettings.Fields.Count == 0) {
+                PluginConfigNotice.Message = "该插件没有声明可配置字段。";
+            }
+            if (focusField is not null && _pluginConfigControls.TryGetValue(focusField, out var target))
+                DispatcherQueue.TryEnqueue(() => {
+                    target.StartBringIntoView();
+                    target.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                });
+        } catch (Exception error) {
+            ShowPage("plugins");
+            SettingsNavigation.SelectedItem = PluginNavigationItem;
+            ShowStatus($"无法打开插件设置：{error.Message}", InfoBarSeverity.Error);
+        }
+        return Task.CompletedTask;
+    }
+
+    private void AddPluginSettingField(PluginSettingField field)
+    {
+        var title = new TextBlock { Text = field.Title, FontWeight =
+            Microsoft.UI.Text.FontWeights.SemiBold };
+        var text = new StackPanel { Spacing = 3 };
+        text.Children.Add(title);
+        if (!string.IsNullOrWhiteSpace(field.Description)) text.Children.Add(new TextBlock {
+            Text = field.Description, TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current.Resources[
+                "TextFillColorSecondaryBrush"], FontSize = 12,
+        });
+        var grid = new Grid { ColumnSpacing = 24 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new Microsoft.UI.Xaml.GridLength(1,
+            Microsoft.UI.Xaml.GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = Microsoft.UI.Xaml.GridLength.Auto });
+        grid.Children.Add(text);
+        Microsoft.UI.Xaml.FrameworkElement control;
+        var value = _pluginSettings!.Values[field.Key];
+        if (field.Options.Count != 0) {
+            var combo = new ComboBox { ItemsSource = field.Options,
+                DisplayMemberPath = nameof(PluginSettingOption.Label) };
+            combo.SelectedItem = field.Options.FirstOrDefault(option =>
+                option.Value.GetRawText() == value.GetRawText()) ?? field.Options[0];
+            control = combo;
+        } else if (field.Type == "boolean") {
+            control = new ToggleSwitch { IsOn = value.ValueKind == JsonValueKind.True,
+                OnContent = "开", OffContent = "关" };
+        } else if (field.Type is "integer" or "number") {
+            control = new NumberBox { SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
+                Minimum = field.Minimum ?? double.MinValue,
+                Maximum = field.Maximum ?? double.MaxValue,
+                Value = value.TryGetDouble(out var number) ? number : 0 };
+        } else {
+            control = new TextBox { Text = value.ValueKind == JsonValueKind.String
+                ? value.GetString() ?? "" : "" };
+        }
+        Grid.SetColumn(control, 1);
+        control.VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center;
+        grid.Children.Add(control);
+        var card = new Border { Child = grid, Padding = new Microsoft.UI.Xaml.Thickness(16, 12, 16, 12),
+            CornerRadius = new Microsoft.UI.Xaml.CornerRadius(8), BorderThickness = new Microsoft.UI.Xaml.Thickness(1),
+            Background = (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current.Resources[
+                "CardBackgroundFillColorDefaultBrush"],
+            BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current.Resources[
+                "CardStrokeColorDefaultBrush"] };
+        PluginConfigFields.Children.Add(card);
+        _pluginConfigControls[field.Key] = control;
+    }
+
+    private void PluginConfigSaveButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (_pluginSettings is null) return;
+        try {
+            var values = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (var field in _pluginSettings.Fields) {
+                var control = _pluginConfigControls[field.Key];
+                values[field.Key] = control switch {
+                    ToggleSwitch toggle => toggle.IsOn,
+                    NumberBox number when field.Type == "integer" => checked((long)Math.Round(number.Value)),
+                    NumberBox number => number.Value,
+                    ComboBox { SelectedItem: PluginSettingOption option } =>
+                        JsonSerializer.Deserialize<object>(option.Value.GetRawText()),
+                    TextBox input => input.Text,
+                    _ => null,
+                };
+            }
+            _pluginSettings.Save(values);
+            ShowStatus($"{_pluginSettings.Plugin.Name} 的设置已保存。", InfoBarSeverity.Success);
+        } catch (Exception error) {
+            ShowStatus($"插件设置保存失败：{error.Message}", InfoBarSeverity.Error);
         }
     }
 
@@ -489,7 +758,7 @@ public sealed partial class MainPage : Page
         var acknowledgement = new CheckBox {
             Content = "我已阅读并理解：该插件可能造成隐私泄露、文件或账户损失，风险由我承担。",
         };
-        var content = new StackPanel { Spacing = 12, MaxWidth = 620 };
+        var content = new StackPanel { Spacing = 12 };
         content.Children.Add(new TextBlock {
             Text = $"{packageName}\n{packagePath}\n\n"
                 + $"插件：{preview.Name} {preview.Version}（{preview.PluginId}）\n"

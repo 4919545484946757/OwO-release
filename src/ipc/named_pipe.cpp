@@ -821,14 +821,23 @@ std::vector<std::uint64_t> candidate_groups_for_order(
 
 void restore_candidate_group_order(std::vector<std::string>& candidates,
                                    std::vector<std::uint64_t>& consumed,
-                                   std::vector<std::uint64_t>& groups) {
+                                   std::vector<std::uint64_t>& groups,
+                                   const std::vector<std::uint64_t>& layout) {
     if (candidates.size() != consumed.size() || candidates.size() != groups.size()) return;
-    std::vector<std::size_t> indices(candidates.size());
-    std::iota(indices.begin(), indices.end(), 0);
-    std::stable_sort(indices.begin(), indices.end(), [&groups](const auto left,
-                                                               const auto right) {
-        return groups[left] < groups[right];
-    });
+    std::vector<std::size_t> indices;
+    indices.reserve(candidates.size());
+    std::vector<bool> used(candidates.size());
+    const auto desired_count = std::min(layout.size(), candidates.size());
+    for (std::size_t slot = 0; slot < desired_count; ++slot) {
+        for (std::size_t index = 0; index < groups.size(); ++index) {
+            if (used[index] || groups[index] != layout[slot]) continue;
+            used[index] = true;
+            indices.push_back(index);
+            break;
+        }
+    }
+    for (std::size_t index = 0; index < candidates.size(); ++index)
+        if (!used[index]) indices.push_back(index);
     std::vector<std::string> ordered_candidates;
     std::vector<std::uint64_t> ordered_consumed;
     std::vector<std::uint64_t> ordered_groups;
@@ -1153,7 +1162,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             pending.candidate_groups);
                         restore_candidate_group_order(
                             response.candidates, response.candidate_consumed,
-                            response.candidate_groups);
+                            response.candidate_groups,
+                            pending.candidate_groups);
                     }
                 }
                 }
@@ -1610,11 +1620,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     // window. Drop mappings for older generations before the
                     // latest-only worker accepts the new ranking task.
                     model_requests.clear();
-                    model_requests.insert_or_assign(
-                        model_key(decoded.message.request_id,
-                                  decoded.message.context_generation),
-                        PendingModelRequest{model_queue.submit(
-                                   [model_pipe, request = std::move(model_request), model_timeout] {
+                    PendingModelRequest pending_model;
+                    pending_model.future = model_queue.submit(
+                        [model_pipe, request = std::move(model_request), model_timeout] {
                             const auto exchanged = exchange(
                                 model_pipe.c_str(), model::encode_model_message(request),
                                 std::chrono::milliseconds(model_timeout + 25U));
@@ -1623,12 +1631,20 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 model::decode_model_message(exchanged.response);
                             return decoded_model.validation ? decoded_model.message
                                                             : model::ModelMessage{};
-                        }), std::chrono::steady_clock::now(),
-                            std::move(model_update_candidates),
-                            std::move(model_update_consumed),
-                            std::move(model_update_groups), full_input_bytes,
-                            response.candidates.size(),
-                            contextual_preferences, learned_preferences});
+                        });
+                    pending_model.created = std::chrono::steady_clock::now();
+                    pending_model.candidates = std::move(model_update_candidates);
+                    pending_model.candidate_consumed = std::move(model_update_consumed);
+                    pending_model.candidate_groups = std::move(model_update_groups);
+                    pending_model.full_input_bytes = full_input_bytes;
+                    pending_model.visible_count = response.candidates.size();
+                    pending_model.contextual_preferences =
+                        std::move(contextual_preferences);
+                    pending_model.learned_preferences = std::move(learned_preferences);
+                    model_requests.insert_or_assign(
+                        model_key(decoded.message.request_id,
+                                  decoded.message.context_generation),
+                        std::move(pending_model));
                     response.model_pending = true;
                 }
                 if (cancellation_event != nullptr) CloseHandle(cancellation_event);

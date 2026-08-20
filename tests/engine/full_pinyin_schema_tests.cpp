@@ -57,8 +57,12 @@ int main() {
         !contains_path(nihao, {"ni", "hao"})) return fail("nihao parse failed");
 
     const auto ambiguous = schema.parse("xian");
-    if (!contains_path(ambiguous, {"xian"}) || contains_path(ambiguous, {"xi", "an"}))
-        return fail("unseparated xian did not prefer the whole syllable");
+    if (!contains_path(ambiguous, {"xian"}) ||
+        !contains_path(ambiguous, {"xi", "an"}) ||
+        ambiguous.paths.empty() ||
+        ambiguous.paths.front().syllables.size() != 1 ||
+        ambiguous.paths.front().syllables.front().text != "xian")
+        return fail("unseparated xian did not retain its dictionary-backed boundary");
 
     const auto separated = schema.parse("xi'an");
     if (!separated.valid || !contains_path(separated, {"xi", "an"}) ||
@@ -276,6 +280,20 @@ int main() {
         incremental_nihao.normalized_input != complete_nihao.normalized_input ||
         incremental_nihao.paths != complete_nihao.paths)
         return fail("niha to nihao incremental parse diverged from full parse");
+
+    for (const std::string_view input : {"jiaodian", "shubiao", "qingkuang"}) {
+        owo::engine::FullPinyinIncrementalState typing_state;
+        owo::engine::ParseResult typed;
+        for (std::size_t length = 1; length <= input.size(); ++length)
+            typed = schema.parse_incremental(input.substr(0, length), 32,
+                                             typing_state);
+        const auto direct = schema.parse(input, 32, false);
+        if (typed.normalized_input != direct.normalized_input ||
+            typed.paths != direct.paths) {
+            std::cerr << "incremental divergence: " << input << '\n';
+            return fail("focus-sensitive word diverged between typed and direct parse");
+        }
+    }
 
     return 0;
 }

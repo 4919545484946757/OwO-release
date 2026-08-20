@@ -43,6 +43,9 @@ int main(const int argc, char** argv) {
     changed.previous_page_shortcuts = {"[", "Ctrl+Shift+Up"};
     changed.next_page_shortcuts = {"]", "Ctrl+Shift+Down"};
     changed.chinese_punctuation_enabled = false;
+    changed.alt_code_preview_enabled = false;
+    changed.alt_code_preview_page_size = 6;
+    changed.alt_code_preview_wheel_enabled = false;
     changed.punctuation_shortcut_enabled = true;
     changed.punctuation_shortcuts = {"Ctrl+Period"};
     const auto first_save = store.save(changed);
@@ -91,6 +94,9 @@ int main(const int argc, char** argv) {
     invalid_value = fallback.snapshot();
     invalid_value.user_learning_sensitivity = 11;
     if (fallback.save(invalid_value).success) return 29;
+    invalid_value = fallback.snapshot();
+    invalid_value.alt_code_preview_page_size = 1;
+    if (fallback.save(invalid_value).success) return 33;
 
     if (owo::config::parse_config("schema_version=2\ncandidate_page_size=5\n"
             "user_learning_enabled=true\nmodel_ranking_enabled=false\nmodel_timeout_ms=50\n").ok) return 14;
@@ -115,6 +121,9 @@ int main(const int argc, char** argv) {
         !legacy.value.candidate_partition_enabled ||
         legacy.value.user_learning_sensitivity != 10 ||
         !legacy.value.chinese_punctuation_enabled ||
+        !legacy.value.alt_code_preview_enabled ||
+        legacy.value.alt_code_preview_page_size != 4 ||
+        !legacy.value.alt_code_preview_wheel_enabled ||
         legacy.value.punctuation_shortcut_enabled ||
         !legacy.value.punctuation_shortcuts.empty()) return 20;
 

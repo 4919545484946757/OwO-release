@@ -20,7 +20,8 @@ struct ParseCandidateSourcePlan {
 [[nodiscard]] ParseCandidateSourcePlan make_parse_candidate_source_plan(
     const BinaryLexicon& lexicon, const ParseResult& parsed,
     std::uint64_t input_fingerprint, std::uint64_t lexicon_generation,
-    std::uint64_t parse_generation, std::size_t maximum_paths = 8);
+    std::uint64_t parse_generation, std::size_t maximum_paths = 8,
+    bool include_experimental_composition = false);
 
 struct ShadowCandidateMetrics {
     std::size_t legacy_count{};

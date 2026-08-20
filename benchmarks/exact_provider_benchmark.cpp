@@ -41,6 +41,9 @@ int main(int argc, char** argv) {
     std::size_t character_candidates = 0;
     std::size_t work_consumed = 0;
     std::size_t work_reclaimed = 0;
+    std::size_t result_slots_reclaimed = 0;
+    std::size_t reallocated_result_budget = 0;
+    std::size_t candidates_after_reallocation = 0;
     std::size_t continuation_requests = 0;
     for (std::size_t index = 0; index < queries.size(); ++index) {
         const auto& query = queries[index];
@@ -75,6 +78,10 @@ int main(int argc, char** argv) {
         }
         work_consumed += generated.metrics.work_units_consumed;
         work_reclaimed += generated.metrics.work_units_reclaimed;
+        result_slots_reclaimed += generated.metrics.result_slots_reclaimed;
+        reallocated_result_budget += generated.metrics.reallocated_result_budget;
+        candidates_after_reallocation +=
+            generated.metrics.candidates_generated_after_reallocation;
         continuation_requests += generated.metrics.continuation_requests;
     }
     std::cout << "{\"benchmark\":\"owo.engine.exact_dual_provider\""
@@ -85,6 +92,11 @@ int main(int argc, char** argv) {
               << ",\"character_candidates\":" << character_candidates
               << ",\"work_consumed\":" << work_consumed
               << ",\"work_reclaimed\":" << work_reclaimed
+              << ",\"result_slots_reclaimed\":" << result_slots_reclaimed
+              << ",\"reallocated_result_budget\":"
+              << reallocated_result_budget
+              << ",\"candidates_after_reallocation\":"
+              << candidates_after_reallocation
               << ",\"continuation_requests\":" << continuation_requests << "}\n";
     return expected_hits == queries.size() && complete_pages == queries.size() ? 0 : 3;
 }
