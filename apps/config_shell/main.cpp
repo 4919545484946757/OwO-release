@@ -111,7 +111,7 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
 }
 
 void usage() {
-    std::cerr << "usage: owo_config_shell <path> show | repair | set <field> <value> | "
+    std::cerr << "usage: owo_config_shell <path> show | defaults | repair | set <field> <value> | "
                  "set-all <page-size> <learning> <ranking> <timeout-ms> "
                  "[<correction-enabled> <correction-key> <language-enabled> <language-key> "
                  "<raw-enabled> <raw-key> [<candidate-wrap-length> "
@@ -134,6 +134,10 @@ int wmain(const int argc, wchar_t** argv) {
     }
     const std::filesystem::path path(argv[1]);
     const std::wstring_view command(argv[2]);
+    if (command == L"defaults" && argc == 3) {
+        std::cout << owo::config::serialize_config(owo::config::AppConfig{});
+        return 0;
+    }
     if (command == L"show" && argc == 3) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);

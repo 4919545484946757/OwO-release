@@ -1,0 +1,29 @@
+{
+  "title": "OwO 半透明候选框",
+  "description": "配置候选框背景模糊、阴影及七类语义颜色。颜色与透明度成组保存，修改后会由 TSF 热加载。",
+  "type": "object",
+  "properties": {
+    "background_blur_enabled": {"type":"boolean","title":"高斯模糊背景","description":"采样候选框后方画面并进行本地高斯模糊。","default":true},
+    "background_blur_radius": {"type":"number","title":"高斯模糊半径","description":"只作用于候选框下方画面；数值越大背景越柔和。","default":4,"minimum":0,"maximum":24,"multipleOf":1},
+    "background_color": {"type":"string","format":"color","title":"背景颜色","description":"候选框主体背景。","default":"#101827"},
+    "background_opacity": {"type":"number","title":"背景透明度","description":"关闭模糊时控制透明度；开启模糊时，0 为纯模糊背景，1 为纯背景色。","default":0.93,"minimum":0,"maximum":1,"multipleOf":0.05},
+    "border_color": {"type":"string","format":"color","title":"边框颜色","default":"#88AACC"},
+    "border_opacity": {"type":"number","title":"边框透明度","default":0.35,"minimum":0,"maximum":1,"multipleOf":0.05},
+    "divider_color": {"type":"string","format":"color","title":"分割线颜色","default":"#FFFFFF"},
+    "divider_opacity": {"type":"number","title":"分割线透明度","default":0.16,"minimum":0,"maximum":1,"multipleOf":0.05},
+    "pinyin_text_color": {"type":"string","format":"color","title":"拼音文字颜色","default":"#9CCBFF"},
+    "pinyin_text_opacity": {"type":"number","title":"拼音文字透明度","default":1,"minimum":0,"maximum":1,"multipleOf":0.05},
+    "candidate_text_color": {"type":"string","format":"color","title":"候选文字颜色","default":"#F7FAFF"},
+    "candidate_text_opacity": {"type":"number","title":"候选文字透明度","default":0.96,"minimum":0,"maximum":1,"multipleOf":0.05},
+    "candidate_block_color": {"type":"string","format":"color","title":"候选块颜色","description":"首候选、悬停和按下状态的背景。","default":"#78AEFF"},
+    "candidate_block_opacity": {"type":"number","title":"候选块透明度","default":0.22,"minimum":0,"maximum":1,"multipleOf":0.05},
+    "candidate_number_color": {"type":"string","format":"color","title":"候选序号颜色","default":"#B9D9FF"},
+    "candidate_number_opacity": {"type":"number","title":"候选序号透明度","default":1,"minimum":0,"maximum":1,"multipleOf":0.05},
+    "shadow_enabled": {"type":"boolean","title":"候选栏阴影","description":"在候选栏后方显示独立柔化阴影。","default":false},
+    "shadow_color": {"type":"string","format":"color","title":"阴影颜色","default":"#000000"},
+    "shadow_opacity": {"type":"number","title":"阴影透明度","default":0.32,"minimum":0,"maximum":1,"multipleOf":0.05},
+    "shadow_blur_radius": {"type":"number","title":"阴影模糊半径","default":14,"minimum":1,"maximum":32,"multipleOf":1},
+    "shadow_offset_x": {"type":"number","title":"阴影水平偏移","default":0,"minimum":-16,"maximum":16,"multipleOf":1},
+    "shadow_offset_y": {"type":"number","title":"阴影垂直偏移","default":4,"minimum":-16,"maximum":16,"multipleOf":1}
+  }
+}

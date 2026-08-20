@@ -127,7 +127,7 @@ Compress-Archive -LiteralPath $stage -DestinationPath $binaryZip -CompressionLev
 
 $sourceStage = Join-Path $releaseRoot "OwO-Input-Method-$Version-source"
 [void](New-Item -ItemType Directory -Path $sourceStage -Force)
-foreach ($directory in @('apps', 'benchmarks', 'data', 'docs', 'include', 'packaging',
+foreach ($directory in @('apps', 'benchmarks', 'data', 'docs', 'include', 'packaging', 'plugins',
                          'scripts', 'src', 'tests', 'tools')) {
     $source = Join-Path $root $directory
     if (Test-Path -LiteralPath $source) {

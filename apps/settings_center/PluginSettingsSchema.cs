@@ -10,9 +10,11 @@ internal sealed record PluginSettingField(
     string Title,
     string Description,
     string Type,
+    string Format,
     JsonElement DefaultValue,
     double? Minimum,
     double? Maximum,
+    double? Step,
     IReadOnlyList<PluginSettingOption> Options);
 
 internal sealed class PluginSettingsModel
@@ -58,6 +60,9 @@ internal sealed class PluginSettingsModel
                 var type = Text(value, "type", "string", 16);
                 if (type is not ("boolean" or "string" or "integer" or "number"))
                     throw new InvalidOperationException($"插件设置 {property.Name} 使用了不支持的类型。" );
+                var format = Text(value, "format", "", 16);
+                if (format is not ("" or "color") || (format == "color" && type != "string"))
+                    throw new InvalidOperationException($"插件设置 {property.Name} 使用了不支持的格式。" );
                 var defaultValue = value.TryGetProperty("default", out var defaultElement)
                     ? defaultElement.Clone() : DefaultFor(type);
                 var options = new List<PluginSettingOption>();
@@ -72,9 +77,11 @@ internal sealed class PluginSettingsModel
                     Text(value, "title", property.Name, 128),
                     Text(value, "description", "", 512),
                     type,
+                    format,
                     defaultValue,
                     Number(value, "minimum"),
                     Number(value, "maximum"),
+                    Number(value, "multipleOf"),
                     options));
             }
         }
@@ -108,6 +115,9 @@ internal sealed class PluginSettingsModel
         File.WriteAllText(temporary, json);
         File.Move(temporary, ConfigPath, true);
     }
+
+    internal Dictionary<string, JsonElement> DefaultValues() => Fields.ToDictionary(
+        field => field.Key, field => field.DefaultValue.Clone(), StringComparer.Ordinal);
 
     private static JsonDocument ReadBoundedJson(string path, int maximumBytes)
     {

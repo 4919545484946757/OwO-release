@@ -1,6 +1,7 @@
 #pragma once
 
 #include "owo/config/config_store.h"
+#include "owo/plugin/candidate_theme.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -18,7 +19,7 @@
 #include <vector>
 
 struct ID2D1Factory;
-struct ID2D1HwndRenderTarget;
+struct ID2D1DCRenderTarget;
 struct ID2D1SolidColorBrush;
 struct IDWriteFactory;
 struct IDWriteTextFormat;
@@ -143,6 +144,10 @@ private:
     void discard_device_resources() noexcept;
     void discard_rendering() noexcept;
     void apply_candidate_window_effects() noexcept;
+    bool prepare_blurred_candidate_background() noexcept;
+    void present_candidate_surface() noexcept;
+    void update_candidate_shadow() noexcept;
+    void hide_candidate_windows() noexcept;
     void render_candidate_window();
     [[nodiscard]] SIZE desired_candidate_window_size() const;
     void worker_loop(std::stop_token stop_token);
@@ -152,6 +157,7 @@ private:
                                std::wstring context);
     void append_language_context(std::wstring_view text);
     void refresh_shortcut_config(bool force = false);
+    void refresh_candidate_theme(bool force = false);
     void sync_preserved_language_key();
     void clear_preserved_language_key() noexcept;
     void initialize_language_compartment();
@@ -199,6 +205,7 @@ private:
     DWORD thread_focus_sink_cookie_{TF_INVALID_COOKIE};
     DWORD language_compartment_sink_cookie_{TF_INVALID_COOKIE};
     HWND message_window_{nullptr};
+    HWND candidate_shadow_window_{nullptr};
     HWND candidate_window_{nullptr};
     HHOOK keyboard_hook_{nullptr};
     bool language_space_key_suppressed_{false};
@@ -209,9 +216,19 @@ private:
     IDWriteTextFormat* input_text_format_{nullptr};
     IDWriteTextFormat* candidate_text_format_{nullptr};
     IDWriteTextFormat* label_text_format_{nullptr};
-    ID2D1HwndRenderTarget* render_target_{nullptr};
+    ID2D1DCRenderTarget* render_target_{nullptr};
+    HDC layered_surface_dc_{nullptr};
+    HBITMAP layered_surface_bitmap_{nullptr};
+    HGDIOBJ layered_surface_previous_bitmap_{nullptr};
+    void* layered_surface_pixels_{nullptr};
+    SIZE layered_surface_size_{};
+    std::vector<std::uint32_t> blurred_candidate_background_;
+    SIZE candidate_shadow_surface_size_{};
+    owo::plugin::CandidateTheme candidate_shadow_theme_{};
+    bool candidate_shadow_surface_valid_{false};
     ID2D1SolidColorBrush* background_brush_{nullptr};
     ID2D1SolidColorBrush* border_brush_{nullptr};
+    ID2D1SolidColorBrush* divider_brush_{nullptr};
     ID2D1SolidColorBrush* text_brush_{nullptr};
     ID2D1SolidColorBrush* secondary_text_brush_{nullptr};
     ID2D1SolidColorBrush* accent_brush_{nullptr};
@@ -252,6 +269,9 @@ private:
     config::AppConfig shortcut_config_;
     ULONGLONG next_shortcut_config_refresh_{0};
     bool shortcut_config_initialized_{false};
+    plugin::CandidateTheme candidate_theme_{};
+    std::string candidate_theme_source_;
+    ULONGLONG next_candidate_theme_refresh_{0};
     std::vector<std::string> preserved_language_shortcuts_;
     std::vector<TF_PRESERVEDKEY> preserved_language_keys_;
     bool correction_enabled_{true};

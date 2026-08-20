@@ -16,6 +16,10 @@
 2. 双击 `Install-OwO.cmd`。
 3. 安装完成后按 `Win + Space`，选择 `OwO Input Method (P1 Prototype)`。
 
+图形安装向导会提供设置中心快捷入口选项：开始菜单默认勾选，桌面和任务栏引导默认
+不勾选。选择任务栏引导后，安装完成会打开设置中心；请右键单击其任务栏图标并选择
+“固定到任务栏”。Windows 11 不允许安装程序静默完成这一步。
+
 安装范围仅限当前 Windows 用户；首次注册和卸载 TSF 时会显示 Windows UAC 管理员授权提示。
 运行文件安装到
 `%LOCALAPPDATA%\Programs\OwO\InputMethod\0.1.0`，用户配置、词频和日志保存在

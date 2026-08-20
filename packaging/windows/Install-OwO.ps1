@@ -1,11 +1,16 @@
 [CmdletBinding()]
-param()
+param(
+    [switch]$NoSettingsStartMenuShortcut,
+    [switch]$CreateSettingsDesktopShortcut
+)
 
 $ErrorActionPreference = 'Stop'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     $arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "' + $PSCommandPath + '"'
+    if ($NoSettingsStartMenuShortcut) { $arguments += ' -NoSettingsStartMenuShortcut' }
+    if ($CreateSettingsDesktopShortcut) { $arguments += ' -CreateSettingsDesktopShortcut' }
     try {
         $elevated = Start-Process -FilePath 'powershell.exe' -Verb RunAs `
             -ArgumentList $arguments -Wait -PassThru
@@ -234,11 +239,16 @@ $startMenu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\OwO I
 [void](New-Item -ItemType Directory -Path $startMenu -Force)
 try {
     $shell = New-Object -ComObject WScript.Shell
-    $settingsShortcut = $shell.CreateShortcut(
-        [IO.Path]::Combine($startMenu, 'OwO Input Method Settings.lnk'))
-    $settingsShortcut.TargetPath = Join-Path $installRoot 'settings\OwO.Settings.exe'
-    $settingsShortcut.WorkingDirectory = Join-Path $installRoot 'settings'
-    $settingsShortcut.Save()
+    $settingsExecutable = Join-Path $installRoot 'settings\OwO.Settings.exe'
+    $settingsDirectory = Join-Path $installRoot 'settings'
+    if (-not $NoSettingsStartMenuShortcut) {
+        $settingsShortcut = $shell.CreateShortcut(
+            [IO.Path]::Combine($startMenu, 'OwO Input Method Settings.lnk'))
+        $settingsShortcut.TargetPath = $settingsExecutable
+        $settingsShortcut.WorkingDirectory = $settingsDirectory
+        $settingsShortcut.IconLocation = $settingsExecutable + ',0'
+        $settingsShortcut.Save()
+    }
     $uninstallShortcut = $shell.CreateShortcut(
         [IO.Path]::Combine($startMenu, 'Uninstall OwO Input Method.lnk'))
     $uninstallShortcut.TargetPath = 'powershell.exe'
@@ -246,8 +256,20 @@ try {
                                    $uninstallScript + '"'
     $uninstallShortcut.WorkingDirectory = $installRoot
     $uninstallShortcut.Save()
+    if ($CreateSettingsDesktopShortcut) {
+        $desktop = [Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory)
+        if ([string]::IsNullOrWhiteSpace($desktop)) {
+            throw 'Windows desktop directory is unavailable.'
+        }
+        $desktopShortcut = $shell.CreateShortcut(
+            [IO.Path]::Combine($desktop, 'OwO Input Method Settings.lnk'))
+        $desktopShortcut.TargetPath = $settingsExecutable
+        $desktopShortcut.WorkingDirectory = $settingsDirectory
+        $desktopShortcut.IconLocation = $settingsExecutable + ',0'
+        $desktopShortcut.Save()
+    }
 } catch {
-    Write-Warning "OwO was installed, but Start menu shortcuts could not be created: $($_.Exception.Message)"
+    Write-Warning "OwO was installed, but one or more shortcuts could not be created: $($_.Exception.Message)"
 }
 
 & $launcher

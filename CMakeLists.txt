@@ -120,6 +120,7 @@ if(WIN32)
 endif()
 
 add_library(owo_plugin STATIC
+    src/plugin/candidate_theme.cpp
     src/plugin/package_archive.cpp
     src/plugin/package_extraction.cpp
     src/plugin/plugin_manifest.cpp
@@ -289,7 +290,7 @@ if(WIN32)
     target_include_directories(owo_tsf PRIVATE include src/tsf)
     target_compile_features(owo_tsf PRIVATE cxx_std_20)
     target_compile_definitions(owo_tsf PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
-    target_link_libraries(owo_tsf PRIVATE owo_ipc ole32 oleaut32 advapi32 uuid user32
+    target_link_libraries(owo_tsf PRIVATE owo_ipc owo_plugin ole32 oleaut32 advapi32 uuid user32
                                              gdi32 d2d1 dwrite dwmapi)
     set_target_properties(owo_tsf PROPERTIES OUTPUT_NAME "OwO.TSF")
     if(MSVC)
@@ -376,6 +377,14 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME owo.plugin.manifest COMMAND owo_plugin_manifest_tests
              ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/plugin_manifest_valid.json)
+    add_executable(owo_candidate_theme_tests tests/plugin/candidate_theme_tests.cpp)
+    target_link_libraries(owo_candidate_theme_tests PRIVATE owo_plugin)
+    target_compile_features(owo_candidate_theme_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_candidate_theme_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    endif()
+    add_test(NAME owo.plugin.candidate_theme COMMAND owo_candidate_theme_tests
+             ${CMAKE_CURRENT_BINARY_DIR}/candidate-theme-test)
     add_executable(owo_plugin_package_tests tests/plugin/package_archive_tests.cpp)
     target_link_libraries(owo_plugin_package_tests PRIVATE owo_plugin)
     target_compile_features(owo_plugin_package_tests PRIVATE cxx_std_20)

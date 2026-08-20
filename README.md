@@ -16,6 +16,8 @@ OwO 是面向 Windows 11 x64 的模块化中文拼音输入法。基础输入、
 ## 安装
 
 推荐运行发行目录中的 `OwO-Input-Method-0.1.0-windows-x64-Setup.exe`。
+安装向导可选择把设置中心添加到开始菜单或桌面，也可在安装完成后打开 Windows 11
+任务栏固定引导。任务栏固定必须由用户在设置中心图标的右键菜单中确认。
 
 也可以解压发行 ZIP 后双击 `Install-OwO.cmd`。安装完成后按 `Win + Space`，选择 OwO Input Method。安装、注册和卸载 TSF 时会出现 Windows UAC 提示。
 

@@ -69,5 +69,15 @@ int main(const int argc, char** argv) {
         "\"permissions\":[\"resource.model.install\",\"system.full_trust\"]");
     if (!owo::plugin::parse_manifest(model_resource).ok ||
         !rejected(model_resource, ",\"system.full_trust\"", "")) return 21;
+    auto candidate_theme = valid;
+    candidate_theme.replace(candidate_theme.find("\"runtime\":\"process\""),
+        std::string("\"runtime\":\"process\"").size(), "\"runtime\":\"resource\"");
+    candidate_theme.replace(candidate_theme.find("bin/example.exe"),
+        std::string("bin/example.exe").size(), "resources/candidate.theme");
+    candidate_theme.replace(candidate_theme.find("\"permissions\":[]"),
+        std::string("\"permissions\":[]").size(),
+        "\"permissions\":[\"ui.candidate_theme\"]");
+    if (!owo::plugin::parse_manifest(candidate_theme).ok) return 22;
+    if (!rejected(candidate_theme, "\"ui.candidate_theme\"", "\"config.read\"")) return 23;
     return 0;
 }

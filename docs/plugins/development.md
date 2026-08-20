@@ -1,6 +1,6 @@
 # OwO 插件 API v1 开发指南
 
-本文说明 OwO 当前可安装的插件来源、进程协议、标准服务和权限模型。API v1 只支持 Windows 11 上的独立进程插件；插件代码不会加载进 TSF 或 Core Service 进程。
+本文说明 OwO 当前可安装的插件来源、运行时、标准服务和权限模型。API v1 支持 Windows 11 上的独立进程插件与声明式资源插件；插件代码不会加载进 TSF 或 Core Service 进程。
 
 ## 1. 可安装来源
 
@@ -42,7 +42,11 @@ my-plugin/
 }
 ```
 
-`id` 必须是小写反向域名形式，`version` 必须是三段数字版本，`entry` 必须是包内相对 `.exe` 路径。`network` 只有在同时声明 `network.client` 时才可设为 `true`；要求普通 Win32 用户令牌的能力还必须声明 `system.full_trust`。
+`id` 必须是小写反向域名形式，`version` 必须是三段数字版本。进程插件使用
+`runtime: "process"` 和包内 `bin/*.exe` 入口；纯资源插件使用
+`runtime: "resource"` 和包内 `resources/*.theme` 入口。资源插件不启动代码，当前只允许
+申请 `ui.candidate_theme`。`network` 只有在同时声明 `network.client` 时才可设为
+`true`；要求普通 Win32 用户令牌的能力还必须声明 `system.full_trust`。
 
 ### 声明式设置页
 
@@ -53,7 +57,8 @@ my-plugin/
 当前支持 JSON Schema 风格的封闭字段集合：顶层 `title`、`description`、
 `type: "object"` 和 `properties`；属性支持 `boolean`、`string`、`integer`、
 `number`，以及可选的 `title`、`description`、`default`、`minimum`、
-`maximum` 和 `enum`。例如：
+`maximum`、`multipleOf` 和 `enum`。字符串还可使用 `format: "color"`，设置中心会
+显示原生颜色选择器并保存 `#RRGGBB`。例如：
 
 ```json
 {
@@ -125,6 +130,7 @@ my-plugin.exe --owo-plugin-pipe <pipe> --owo-plugin-id <id> --owo-plugin-data <a
 | `owo.settings.write.v1` | `config.write` | 修改插件自身设置 |
 | `owo.notification.show.v1` | `notification.show` | 显示用户通知 |
 | `owo.ui.settings-page.v1` | `ui.settings_page` | 提供声明式设置页 |
+| `owo.ui.candidate-theme.v1` | `ui.candidate_theme` | 提供声明式候选框主题资源 |
 | `owo.ui.overlay.v1` | `ui.overlay` | 控制已授权的 UI 覆盖层 |
 | `owo.ui.desktop-pet.v1` | `ui.desktop_pet` | 控制已授权的桌面宠物 |
 | `owo.resource.dictionary.install.v1` | `resource.dictionary.install` | 提供字典资源安装操作 |
@@ -163,6 +169,7 @@ payload 在传输层是不透明 UTF-8 字节串。标准服务建议使用 UTF-
 | `resource.model.install` | 高、完整信任 | 安装排序模型资源 |
 | `resource.sound.install` | 高、完整信任 | 安装声音资源 |
 | `ui.settings_page` | 需注意 | 提供声明式设置页面 |
+| `ui.candidate_theme` | 低 | 更改候选框语义颜色，不执行插件代码 |
 
 任何需要完整信任的权限都必须同时声明 `system.full_trust`。权限在插件升级、manifest 变化、包摘要变化或发布者绑定变化后不会自动继承。TSF 输入线程不能直接调用插件；携带敏感权限的调用只接受 Core 内部标记的可信用户操作来源。
 
@@ -173,5 +180,28 @@ payload 在传输层是不透明 UTF-8 字节串。标准服务建议使用 UTF-
 3. 只声明实际使用的权限。开发阶段也不要依赖父进程环境变量或当前工作目录。
 4. 服务处理必须支持超时与取消；不要在输入线程执行磁盘扫描、联网或模型初始化。
 5. 发布时再制作 `.owopkg` 并生成覆盖规范化清单摘要的 `signature.json`。
+
+## 7. 候选框主题资源
+
+候选框皮肤应使用 `runtime: "resource"`，入口为 UTF-8 的 `resources/*.theme`。
+资源采用封闭的 `schema_version=1` 键值格式，必须为以下七个语义角色同时声明
+`color=#RRGGBB` 与 `opacity=0..1`：`background`、`border`、`divider`、
+`pinyin_text`、`candidate_text`、`candidate_block`、`candidate_number`。
+
+主题还可声明以下可选视觉效果：`background_blur.enabled`、
+`background_blur.radius`（0..24）、`shadow.enabled`、`shadow.color`、
+`shadow.opacity`、`shadow.blur_radius`（1..32）、`shadow.offset_x` 与
+`shadow.offset_y`（-16..16）。背景模糊由本体采样候选框后方画面并执行本地高斯卷积；
+阴影由独立、不可交互的分层窗口绘制，插件仍不获得屏幕读取或窗口控制接口。
+
+设置页可用同名的 `<role>_color` 和 `<role>_opacity` 字段覆盖资源默认值。TSF 只读取
+安装器已验证且已启用的资源快照，不加载插件代码；配置每秒最多检查一次，变化后原子
+替换 Direct2D 画刷。多个候选主题同时启用时，按插件 ID 排序后使用第一个有效主题。
+视觉效果对应的设置字段为 `background_blur_enabled`、`background_blur_radius`、
+`shadow_enabled`、`shadow_color`、`shadow_opacity`、`shadow_blur_radius`、
+`shadow_offset_x` 和 `shadow_offset_y`。
+
+官方示例位于 `plugins/candidate-glass`，所有项目维护插件统一放在 `plugins/`，可用
+`scripts/package_plugins.ps1` 批量生成 `.owopkg`。
 
 插件格式的安全边界参见 `docs/security/plugin-baseline.md`，签名与库存摘要格式参见 `docs/adr/0008-plugin-package-and-trust-foundation.md`，授权和运行时隔离分别参见 ADR 0011 至 0017。

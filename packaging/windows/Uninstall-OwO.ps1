@@ -100,6 +100,11 @@ Remove-Item -LiteralPath $uninstallKey `
     -Recurse -Force -ErrorAction SilentlyContinue
 $startMenu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\OwO Input Method'
 if (Test-Path -LiteralPath $startMenu) { Remove-Item -LiteralPath $startMenu -Recurse -Force }
+$desktop = [Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory)
+if (-not [string]::IsNullOrWhiteSpace($desktop)) {
+    Remove-Item -LiteralPath (Join-Path $desktop 'OwO Input Method Settings.lnk') `
+        -Force -ErrorAction SilentlyContinue
+}
 if ($RemoveUserData) {
     $userData = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'OwO\InputMethod'))
     if ($userData.EndsWith('OwO\InputMethod', [StringComparison]::OrdinalIgnoreCase) -and

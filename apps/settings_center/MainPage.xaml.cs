@@ -18,8 +18,10 @@ public sealed partial class MainPage : Page
     private readonly List<SearchItem> _pluginSearchItems = [];
     private readonly Dictionary<string, PluginVersionSnapshot> _pluginPages = [];
     private readonly Dictionary<string, Microsoft.UI.Xaml.FrameworkElement> _pluginConfigControls = [];
+    private readonly Dictionary<string, Expander> _pluginConfigExpanders = [];
     private NavigationViewItemHeader? _pluginPagesHeader;
     private PluginSettingsModel? _pluginSettings;
+    private string _currentPage = "general";
     private sealed record SearchItem(string Title, string Detail, string Page,
                                      Microsoft.UI.Xaml.FrameworkElement? Target = null,
                                      string? PluginField = null)
@@ -54,6 +56,25 @@ public sealed partial class MainPage : Page
     [DllImport("user32.dll")]
     private static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr message, IntPtr data);
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern uint RegisterWindowMessage(string message);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SendNotifyMessage(IntPtr window, uint message,
+                                                  IntPtr wparam, IntPtr lparam);
+
+    private static readonly uint CandidateThemeChangedMessage =
+        RegisterWindowMessage("OwO.CandidateTheme.Refresh.v1");
+
+    private static void NotifyCandidateThemeChanged()
+    {
+        const int HwndBroadcast = 0xffff;
+        if (CandidateThemeChangedMessage != 0)
+            SendNotifyMessage(new IntPtr(HwndBroadcast), CandidateThemeChangedMessage,
+                              IntPtr.Zero, IntPtr.Zero);
+    }
+
     public MainPage()
     {
         _shortcutCaptureHookProc = ShortcutCaptureHook;
@@ -82,25 +103,41 @@ public sealed partial class MainPage : Page
         SetBusy(true);
         try {
             var value = await _client.LoadAsync();
-            CandidatePageSize.Value = value.CandidatePageSize;
-            CandidateWrapLength.Value = value.CandidateWrapLength;
-            CandidatePartition.IsOn = value.CandidatePartitionEnabled;
-            ChinesePunctuation.IsOn = value.ChinesePunctuationEnabled;
-            AltCodePreview.IsOn = value.AltCodePreviewEnabled;
-            AltCodePreviewPageSize.Value = value.AltCodePreviewPageSize;
-            AltCodePreviewWheel.IsOn = value.AltCodePreviewWheelEnabled;
-            UserLearningSensitivity.Value = value.UserLearningSensitivity;
-            UserLearning.IsOn = value.UserLearningEnabled;
-            ModelRanking.IsOn = value.ModelRankingEnabled;
-            ModelTimeout.Value = value.ModelTimeoutMs;
-            CorrectionShortcutEnabled.IsOn = value.CorrectionShortcutEnabled;
-            LanguageShortcutEnabled.IsOn = value.LanguageShortcutEnabled;
-            RawInputShortcutEnabled.IsOn = value.RawInputShortcutEnabled;
-            CursorLeftShortcutEnabled.IsOn = value.CursorLeftShortcutEnabled;
-            CursorRightShortcutEnabled.IsOn = value.CursorRightShortcutEnabled;
-            PreviousPageShortcutEnabled.IsOn = value.PreviousPageShortcutEnabled;
-            NextPageShortcutEnabled.IsOn = value.NextPageShortcutEnabled;
-            PunctuationShortcutEnabled.IsOn = value.PunctuationShortcutEnabled;
+            ApplyGeneralSettings(value);
+            ApplyShortcutSettings(value);
+            ShowStatus("配置已加载", InfoBarSeverity.Success);
+        } catch (Exception error) {
+            ShowStatus(error.Message, InfoBarSeverity.Error);
+        } finally {
+            SetBusy(false);
+        }
+    }
+
+    private void ApplyGeneralSettings(SettingsSnapshot value)
+    {
+        CandidatePageSize.Value = value.CandidatePageSize;
+        CandidateWrapLength.Value = value.CandidateWrapLength;
+        CandidatePartition.IsOn = value.CandidatePartitionEnabled;
+        ChinesePunctuation.IsOn = value.ChinesePunctuationEnabled;
+        AltCodePreview.IsOn = value.AltCodePreviewEnabled;
+        AltCodePreviewPageSize.Value = value.AltCodePreviewPageSize;
+        AltCodePreviewWheel.IsOn = value.AltCodePreviewWheelEnabled;
+        UserLearningSensitivity.Value = value.UserLearningSensitivity;
+        UserLearning.IsOn = value.UserLearningEnabled;
+        ModelRanking.IsOn = value.ModelRankingEnabled;
+        ModelTimeout.Value = value.ModelTimeoutMs;
+    }
+
+    private void ApplyShortcutSettings(SettingsSnapshot value)
+    {
+        CorrectionShortcutEnabled.IsOn = value.CorrectionShortcutEnabled;
+        LanguageShortcutEnabled.IsOn = value.LanguageShortcutEnabled;
+        RawInputShortcutEnabled.IsOn = value.RawInputShortcutEnabled;
+        CursorLeftShortcutEnabled.IsOn = value.CursorLeftShortcutEnabled;
+        CursorRightShortcutEnabled.IsOn = value.CursorRightShortcutEnabled;
+        PreviousPageShortcutEnabled.IsOn = value.PreviousPageShortcutEnabled;
+        NextPageShortcutEnabled.IsOn = value.NextPageShortcutEnabled;
+        PunctuationShortcutEnabled.IsOn = value.PunctuationShortcutEnabled;
             SetShortcutBindings("correction", value.CorrectionShortcuts);
             SetShortcutBindings("language", value.LanguageShortcuts);
             SetShortcutBindings("raw", value.RawInputShortcuts);
@@ -109,13 +146,7 @@ public sealed partial class MainPage : Page
             SetShortcutBindings("previous-page", value.PreviousPageShortcuts);
             SetShortcutBindings("next-page", value.NextPageShortcuts);
             SetShortcutBindings("punctuation", value.PunctuationShortcuts);
-            UpdateShortcutButtons();
-            ShowStatus("配置已加载", InfoBarSeverity.Success);
-        } catch (Exception error) {
-            ShowStatus(error.Message, InfoBarSeverity.Error);
-        } finally {
-            SetBusy(false);
-        }
+        UpdateShortcutButtons();
     }
 
     private async void SaveButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -152,6 +183,51 @@ public sealed partial class MainPage : Page
     private async void ReloadButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) =>
         await LoadConfigAsync();
 
+    private async void ResetPageButton_Click(
+        object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        SetBusy(true);
+        try {
+            if (_currentPage == "plugins") {
+                SetBusy(false);
+                if (!await ConfirmAsync("重置插件配置",
+                    "将所有已安装插件的声明式配置恢复为各自 schema 中的默认值。"
+                        + "安装、授权和启停状态不会改变。", "恢复默认")) return;
+                SetBusy(true);
+                var resetCount = 0;
+                foreach (var group in _pluginPages.Values.GroupBy(plugin => plugin.Id,
+                             StringComparer.Ordinal)) {
+                    var plugin = group.OrderByDescending(value => value.Active)
+                                      .ThenByDescending(value => value.Version,
+                                                        StringComparer.Ordinal).First();
+                    try {
+                        var model = PluginSettingsModel.Load(_pluginClient.StorePath, plugin);
+                        var pluginDefaults = model.DefaultValues().ToDictionary(
+                            value => value.Key,
+                            value => (object?)JsonSerializer.Deserialize<object>(
+                                value.Value.GetRawText()), StringComparer.Ordinal);
+                        model.Save(pluginDefaults);
+                        ++resetCount;
+                    } catch (InvalidOperationException) {
+                        // Plugins without a supported declarative schema have no resettable page.
+                    }
+                }
+                NotifyCandidateThemeChanged();
+                ShowStatus($"已恢复 {resetCount} 个插件的默认配置。", InfoBarSeverity.Success);
+                return;
+            }
+            var defaults = await _client.LoadDefaultsAsync();
+            if (_currentPage == "general") ApplyGeneralSettings(defaults);
+            else if (_currentPage == "shortcuts") ApplyShortcutSettings(defaults);
+            else return;
+            ShowStatus("本页已恢复默认值；点击“保存”后应用。", InfoBarSeverity.Success);
+        } catch (Exception error) {
+            ShowStatus($"恢复默认值失败：{error.Message}", InfoBarSeverity.Error);
+        } finally {
+            SetBusy(false);
+        }
+    }
+
     private void UserLearningSensitivity_ValueChanged(
         object sender,
         Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
@@ -174,6 +250,7 @@ public sealed partial class MainPage : Page
 
     private void ShowPage(string page)
     {
+        _currentPage = page;
         GeneralSettingsPage.Visibility = page == "general"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         ShortcutSettingsPage.Visibility = page == "shortcuts"
@@ -181,6 +258,8 @@ public sealed partial class MainPage : Page
         PluginSettingsPage.Visibility = page == "plugins"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+        ResetPageButton.Visibility = page is "general" or "shortcuts" or "plugins"
+            ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         (CurrentPageTitle.Text, CurrentPageDescription.Text) = page switch {
             "shortcuts" => ("快捷键", "管理输入、翻页和模式切换的多组按键绑定"),
             "plugins" => ("插件", "安装、授权、配置和维护 OwO 插件"),
@@ -576,13 +655,16 @@ public sealed partial class MainPage : Page
     {
         try {
             _pluginSettings = PluginSettingsModel.Load(_pluginClient.StorePath, plugin);
+            _currentPage = $"plugin:{plugin.Id}:{plugin.Version}";
             PluginConfigFields.Children.Clear();
             _pluginConfigControls.Clear();
-            foreach (var field in _pluginSettings.Fields) AddPluginSettingField(field);
+            _pluginConfigExpanders.Clear();
+            AddPluginSettingFields();
             GeneralSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             ShortcutSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
+            ResetPageButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             CurrentPageTitle.Text = _pluginSettings.Title;
             CurrentPageDescription.Text = $"{plugin.Name} {plugin.Version} · {plugin.Id}";
             PluginConfigNotice.Message = _pluginSettings.Description;
@@ -593,6 +675,8 @@ public sealed partial class MainPage : Page
             }
             if (focusField is not null && _pluginConfigControls.TryGetValue(focusField, out var target))
                 DispatcherQueue.TryEnqueue(() => {
+                    if (_pluginConfigExpanders.TryGetValue(focusField, out var expander))
+                        expander.IsExpanded = true;
                     target.StartBringIntoView();
                     target.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
                 });
@@ -604,7 +688,23 @@ public sealed partial class MainPage : Page
         return Task.CompletedTask;
     }
 
-    private void AddPluginSettingField(PluginSettingField field)
+    private void AddPluginSettingFields()
+    {
+        var grouped = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var field in _pluginSettings!.Fields) {
+            if (grouped.Contains(field.Key)) continue;
+            PluginSettingField? opacity = null;
+            if (field.Format == "color" && field.Key.EndsWith("_color", StringComparison.Ordinal)) {
+                var opacityKey = field.Key[..^"_color".Length] + "_opacity";
+                opacity = _pluginSettings.Fields.FirstOrDefault(value =>
+                    value.Key == opacityKey && value.Type is "integer" or "number");
+                if (opacity is not null) grouped.Add(opacity.Key);
+            }
+            AddPluginSettingField(field, opacity);
+        }
+    }
+
+    private static StackPanel PluginSettingText(PluginSettingField field)
     {
         var title = new TextBlock { Text = field.Title, FontWeight =
             Microsoft.UI.Text.FontWeights.SemiBold };
@@ -615,19 +715,34 @@ public sealed partial class MainPage : Page
             Foreground = (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current.Resources[
                 "TextFillColorSecondaryBrush"], FontSize = 12,
         });
-        var grid = new Grid { ColumnSpacing = 24 };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new Microsoft.UI.Xaml.GridLength(1,
-            Microsoft.UI.Xaml.GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = Microsoft.UI.Xaml.GridLength.Auto });
-        grid.Children.Add(text);
-        Microsoft.UI.Xaml.FrameworkElement control;
+        return text;
+    }
+
+    private Microsoft.UI.Xaml.FrameworkElement CreatePluginSettingControl(
+        PluginSettingField field)
+    {
         var value = _pluginSettings!.Values[field.Key];
+        Microsoft.UI.Xaml.FrameworkElement control;
         if (field.Options.Count != 0) {
             var combo = new ComboBox { ItemsSource = field.Options,
                 DisplayMemberPath = nameof(PluginSettingOption.Label) };
             combo.SelectedItem = field.Options.FirstOrDefault(option =>
                 option.Value.GetRawText() == value.GetRawText()) ?? field.Options[0];
             control = combo;
+        } else if (field.Format == "color") {
+            var color = value.ValueKind == JsonValueKind.String
+                ? ParsePluginColor(value.GetString()) : Windows.UI.Color.FromArgb(255, 0, 0, 0);
+            control = new ColorPicker {
+                Color = color,
+                IsAlphaEnabled = false,
+                IsAlphaSliderVisible = false,
+                IsAlphaTextInputVisible = false,
+                IsColorChannelTextInputVisible = true,
+                IsHexInputVisible = true,
+                IsColorSpectrumVisible = true,
+                IsColorSliderVisible = true,
+                MinWidth = 300,
+            };
         } else if (field.Type == "boolean") {
             control = new ToggleSwitch { IsOn = value.ValueKind == JsonValueKind.True,
                 OnContent = "开", OffContent = "关" };
@@ -635,22 +750,84 @@ public sealed partial class MainPage : Page
             control = new NumberBox { SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline,
                 Minimum = field.Minimum ?? double.MinValue,
                 Maximum = field.Maximum ?? double.MaxValue,
+                SmallChange = field.Step ?? 1.0,
                 Value = value.TryGetDouble(out var number) ? number : 0 };
         } else {
             control = new TextBox { Text = value.ValueKind == JsonValueKind.String
                 ? value.GetString() ?? "" : "" };
         }
-        Grid.SetColumn(control, 1);
         control.VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center;
-        grid.Children.Add(control);
-        var card = new Border { Child = grid, Padding = new Microsoft.UI.Xaml.Thickness(16, 12, 16, 12),
+        _pluginConfigControls[field.Key] = control;
+        return control;
+    }
+
+    private void AddPluginSettingField(PluginSettingField field,
+                                       PluginSettingField? opacityField = null)
+    {
+        var firstColorField = field.Format == "color" &&
+            !_pluginConfigControls.Values.Any(value => value is ColorPicker);
+        var text = PluginSettingText(field);
+        var grid = new Grid { ColumnSpacing = 24 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new Microsoft.UI.Xaml.GridLength(1,
+            Microsoft.UI.Xaml.GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = Microsoft.UI.Xaml.GridLength.Auto });
+        var control = CreatePluginSettingControl(field);
+        Microsoft.UI.Xaml.FrameworkElement cardContent;
+        var cardPadding = new Microsoft.UI.Xaml.Thickness(16, 12, 16, 12);
+        if (field.Format == "color") {
+            var colorControls = new StackPanel { Spacing = 12 };
+            colorControls.Children.Add(control);
+            if (opacityField is not null) {
+                colorControls.Children.Add(new Border {
+                    Height = 1,
+                    Background = (Microsoft.UI.Xaml.Media.Brush)
+                        Microsoft.UI.Xaml.Application.Current.Resources[
+                            "DividerStrokeColorDefaultBrush"],
+                });
+                var opacityGrid = new Grid { ColumnSpacing = 24 };
+                opacityGrid.ColumnDefinitions.Add(new ColumnDefinition {
+                    Width = new Microsoft.UI.Xaml.GridLength(
+                        1, Microsoft.UI.Xaml.GridUnitType.Star),
+                });
+                opacityGrid.ColumnDefinitions.Add(new ColumnDefinition {
+                    Width = Microsoft.UI.Xaml.GridLength.Auto,
+                });
+                opacityGrid.Children.Add(PluginSettingText(opacityField));
+                var opacityControl = CreatePluginSettingControl(opacityField);
+                Grid.SetColumn(opacityControl, 1);
+                opacityGrid.Children.Add(opacityControl);
+                colorControls.Children.Add(opacityGrid);
+            }
+            var colorBody = new Border {
+                Child = colorControls,
+                Padding = new Microsoft.UI.Xaml.Thickness(16, 0, 16, 16),
+                HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch,
+            };
+            var expander = new Expander {
+                Header = text,
+                Content = colorBody,
+                IsExpanded = firstColorField,
+                HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch,
+            };
+            cardContent = expander;
+            cardPadding = new Microsoft.UI.Xaml.Thickness(0);
+            _pluginConfigExpanders[field.Key] = expander;
+            if (opacityField is not null)
+                _pluginConfigExpanders[opacityField.Key] = expander;
+        } else {
+            grid.Children.Add(text);
+            Grid.SetColumn(control, 1);
+            grid.Children.Add(control);
+            cardContent = grid;
+        }
+        var card = new Border { Child = cardContent, Padding = cardPadding,
             CornerRadius = new Microsoft.UI.Xaml.CornerRadius(8), BorderThickness = new Microsoft.UI.Xaml.Thickness(1),
             Background = (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current.Resources[
                 "CardBackgroundFillColorDefaultBrush"],
             BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current.Resources[
                 "CardStrokeColorDefaultBrush"] };
         PluginConfigFields.Children.Add(card);
-        _pluginConfigControls[field.Key] = control;
     }
 
     private void PluginConfigSaveButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -666,15 +843,46 @@ public sealed partial class MainPage : Page
                     NumberBox number => number.Value,
                     ComboBox { SelectedItem: PluginSettingOption option } =>
                         JsonSerializer.Deserialize<object>(option.Value.GetRawText()),
+                    ColorPicker picker =>
+                        $"#{picker.Color.R:X2}{picker.Color.G:X2}{picker.Color.B:X2}",
                     TextBox input => input.Text,
                     _ => null,
                 };
             }
             _pluginSettings.Save(values);
+            NotifyCandidateThemeChanged();
             ShowStatus($"{_pluginSettings.Plugin.Name} 的设置已保存。", InfoBarSeverity.Success);
         } catch (Exception error) {
             ShowStatus($"插件设置保存失败：{error.Message}", InfoBarSeverity.Error);
         }
+    }
+
+    private void PluginConfigResetButton_Click(
+        object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (_pluginSettings is null) return;
+        _pluginSettings.Values.Clear();
+        foreach (var value in _pluginSettings.DefaultValues())
+            _pluginSettings.Values[value.Key] = value.Value;
+        PluginConfigFields.Children.Clear();
+        _pluginConfigControls.Clear();
+        _pluginConfigExpanders.Clear();
+        AddPluginSettingFields();
+        ShowStatus($"{_pluginSettings.Plugin.Name} 已恢复默认值；点击“保存插件设置”后应用。",
+                   InfoBarSeverity.Success);
+    }
+
+    private static Windows.UI.Color ParsePluginColor(string? text)
+    {
+        if (text is null || text.Length != 7 || text[0] != '#' ||
+            !byte.TryParse(text.AsSpan(1, 2), System.Globalization.NumberStyles.HexNumber,
+                           null, out var red) ||
+            !byte.TryParse(text.AsSpan(3, 2), System.Globalization.NumberStyles.HexNumber,
+                           null, out var green) ||
+            !byte.TryParse(text.AsSpan(5, 2), System.Globalization.NumberStyles.HexNumber,
+                           null, out var blue))
+            return Windows.UI.Color.FromArgb(255, 0, 0, 0);
+        return Windows.UI.Color.FromArgb(255, red, green, blue);
     }
 
     private async void PluginReloadButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) =>
@@ -734,6 +942,7 @@ public sealed partial class MainPage : Page
                 result = await _pluginClient.InstallAsync(sourcePath);
             }
             await LoadPluginsAsync();
+            if (result.Activated) NotifyCandidateThemeChanged();
             var publisher = string.IsNullOrWhiteSpace(result.PublisherDisplayName)
                 ? PluginUiText.Trust(result.TrustTier) : result.PublisherDisplayName;
             var state = result.Activated ? "已安装并启用" : "已安装但保持停用";
@@ -826,6 +1035,7 @@ public sealed partial class MainPage : Page
             if (plugin.Active) await _pluginClient.DeactivateAsync(plugin.Id, plugin.Version);
             else await _pluginClient.ActivateAsync(plugin.Id, plugin.Version);
             await LoadPluginsAsync();
+            NotifyCandidateThemeChanged();
             ShowStatus($"插件已{action}。", InfoBarSeverity.Success);
         } catch (Exception error) {
             ShowStatus(error.Message, InfoBarSeverity.Error);
@@ -846,6 +1056,7 @@ public sealed partial class MainPage : Page
             if (plugin.Active) await _pluginClient.DeactivateAsync(plugin.Id, plugin.Version);
             await _pluginClient.RevokeAsync(plugin.Id, plugin.Version);
             await LoadPluginsAsync();
+            NotifyCandidateThemeChanged();
             ShowStatus("插件权限已撤销，插件已停用。", InfoBarSeverity.Success);
         } catch (Exception error) {
             ShowStatus(error.Message, InfoBarSeverity.Error);
@@ -884,6 +1095,7 @@ public sealed partial class MainPage : Page
             if (activating) await _pluginClient.ActivateAsync(item.PluginId, item.Version);
             else await _pluginClient.CleanupAsync(item);
             await LoadPluginsAsync();
+            if (activating) NotifyCandidateThemeChanged();
             ShowStatus($"恢复操作“{action}”已完成。", InfoBarSeverity.Success);
         } catch (Exception error) {
             ShowStatus(error.Message, InfoBarSeverity.Error);
@@ -895,6 +1107,8 @@ public sealed partial class MainPage : Page
     private void SetBusy(bool busy)
     {
         SaveButton.IsEnabled = !busy;
+        ResetPageButton.IsEnabled = !busy;
+        PluginConfigResetButton.IsEnabled = !busy && _pluginSettings?.Fields.Count != 0;
         ShortcutSection.IsEnabled = !busy;
         PluginSection.IsEnabled = !busy;
         Status.IsOpen = true;

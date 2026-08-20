@@ -26,13 +26,16 @@
 #include <new>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace owo::tsf {
 namespace {
 LONG object_count = 0;
 LONG lock_count = 0;
 constexpr wchar_t kMessageClass[] = L"OwO.P1.MessageWindow";
+constexpr wchar_t kCandidateShadowClass[] = L"OwO.P1.CandidateShadowWindow";
 constexpr wchar_t kCandidateClass[] = L"OwO.P1.CandidateWindow";
+constexpr wchar_t kCandidateThemeChangedMessageName[] = L"OwO.CandidateTheme.Refresh.v1";
 constexpr UINT kCandidateReady = WM_APP + 1;
 constexpr UINT kLanguageShortcutPressed = WM_APP + 2;
 constexpr UINT kAltCodeDigitPressed = WM_APP + 3;
@@ -165,6 +168,20 @@ RECT dip_rect_to_pixels(const D2D1_RECT_F bounds, const UINT dpi) noexcept {
                 static_cast<LONG>(std::floor(bounds.top * scale)),
                 static_cast<LONG>(std::ceil(bounds.right * scale)),
                 static_cast<LONG>(std::ceil(bounds.bottom * scale))};
+}
+
+float rounded_rect_coverage(const float x, const float y, const float left,
+                            const float top, const float right, const float bottom,
+                            const float radius) noexcept {
+    const float center_x = (left + right) * 0.5F;
+    const float center_y = (top + bottom) * 0.5F;
+    const float half_width = std::max((right - left) * 0.5F - radius, 0.0F);
+    const float half_height = std::max((bottom - top) * 0.5F - radius, 0.0F);
+    const float qx = std::abs(x - center_x) - half_width;
+    const float qy = std::abs(y - center_y) - half_height;
+    const float distance = std::hypot(std::max(qx, 0.0F), std::max(qy, 0.0F)) +
+                           std::min(std::max(qx, qy), 0.0F) - radius;
+    return std::clamp(0.5F - distance, 0.0F, 1.0F);
 }
 
 std::string utf8_from_wide(const std::wstring_view input) {
@@ -1055,16 +1072,28 @@ HRESULT TextService::initialize_windows() {
         return HRESULT_FROM_WIN32(GetLastError());
     }
     WNDCLASSW candidate_class = message_class;
-    candidate_class.style = CS_DROPSHADOW;
+    candidate_class.style = 0;
     candidate_class.hbrBackground = nullptr;
     candidate_class.lpszClassName = kCandidateClass;
     if (RegisterClassW(&candidate_class) == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
         return HRESULT_FROM_WIN32(GetLastError());
     }
+    WNDCLASSW shadow_class = candidate_class;
+    shadow_class.lpszClassName = kCandidateShadowClass;
+    if (RegisterClassW(&shadow_class) == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+        return HRESULT_FROM_WIN32(GetLastError());
+    }
     message_window_ = CreateWindowExW(0, kMessageClass, L"", 0, 0, 0, 0, 0,
                                       HWND_MESSAGE, nullptr, message_class.hInstance, this);
     if (message_window_ == nullptr) return HRESULT_FROM_WIN32(GetLastError());
-    candidate_window_ = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST,
+    candidate_shadow_window_ = CreateWindowExW(
+        WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST | WS_EX_LAYERED |
+            WS_EX_TRANSPARENT,
+        kCandidateShadowClass, L"", WS_POPUP, 0, 0, 1, 1, nullptr, nullptr,
+        message_class.hInstance, this);
+    if (candidate_shadow_window_ == nullptr) return HRESULT_FROM_WIN32(GetLastError());
+    candidate_window_ = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE |
+                                            WS_EX_TOPMOST | WS_EX_LAYERED,
                                         kCandidateClass, L"", WS_POPUP,
                                         0, 0, 780, 88, nullptr, nullptr,
                                         message_class.hInstance, this);
@@ -1078,8 +1107,10 @@ HRESULT TextService::initialize_windows() {
 void TextService::destroy_windows() noexcept {
     discard_rendering();
     if (candidate_window_ != nullptr) DestroyWindow(candidate_window_);
+    if (candidate_shadow_window_ != nullptr) DestroyWindow(candidate_shadow_window_);
     if (message_window_ != nullptr) DestroyWindow(message_window_);
     candidate_window_ = nullptr;
+    candidate_shadow_window_ = nullptr;
     message_window_ = nullptr;
 }
 
@@ -1134,29 +1165,76 @@ HRESULT TextService::ensure_device_resources() {
     const D2D1_SIZE_U pixel_size = D2D1::SizeU(
         static_cast<UINT32>(std::max(bounds.right - bounds.left, 1L)),
         static_cast<UINT32>(std::max(bounds.bottom - bounds.top, 1L)));
-    HRESULT result = d2d_factory_->CreateHwndRenderTarget(
-        D2D1::RenderTargetProperties(),
-        D2D1::HwndRenderTargetProperties(candidate_window_, pixel_size), &render_target_);
-    if (FAILED(result)) return result;
-    render_target_->SetDpi(static_cast<float>(dpi), static_cast<float>(dpi));
+    BITMAPINFO bitmap_info{};
+    bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bitmap_info.bmiHeader.biWidth = static_cast<LONG>(pixel_size.width);
+    bitmap_info.bmiHeader.biHeight = -static_cast<LONG>(pixel_size.height);
+    bitmap_info.bmiHeader.biPlanes = 1;
+    bitmap_info.bmiHeader.biBitCount = 32;
+    bitmap_info.bmiHeader.biCompression = BI_RGB;
+    void* pixels = nullptr;
+    layered_surface_dc_ = CreateCompatibleDC(nullptr);
+    if (layered_surface_dc_ == nullptr) return HRESULT_FROM_WIN32(GetLastError());
+    layered_surface_bitmap_ = CreateDIBSection(
+        layered_surface_dc_, &bitmap_info, DIB_RGB_COLORS, &pixels, nullptr, 0);
+    if (layered_surface_bitmap_ == nullptr || pixels == nullptr) {
+        const auto error = GetLastError();
+        discard_device_resources();
+        return HRESULT_FROM_WIN32(error == ERROR_SUCCESS ? ERROR_NOT_ENOUGH_MEMORY : error);
+    }
+    layered_surface_pixels_ = pixels;
+    layered_surface_previous_bitmap_ =
+        SelectObject(layered_surface_dc_, layered_surface_bitmap_);
+    if (layered_surface_previous_bitmap_ == nullptr ||
+        layered_surface_previous_bitmap_ == HGDI_ERROR) {
+        const auto error = GetLastError();
+        layered_surface_previous_bitmap_ = nullptr;
+        discard_device_resources();
+        return HRESULT_FROM_WIN32(error == ERROR_SUCCESS ? ERROR_INVALID_HANDLE : error);
+    }
+    layered_surface_size_ = {static_cast<LONG>(pixel_size.width),
+                             static_cast<LONG>(pixel_size.height)};
+    const auto properties = D2D1::RenderTargetProperties(
+        D2D1_RENDER_TARGET_TYPE_DEFAULT,
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM,
+                          D2D1_ALPHA_MODE_PREMULTIPLIED),
+        static_cast<float>(dpi), static_cast<float>(dpi));
+    HRESULT result = d2d_factory_->CreateDCRenderTarget(&properties, &render_target_);
+    if (FAILED(result)) {
+        discard_device_resources();
+        return result;
+    }
+    const RECT surface_bounds{0, 0, layered_surface_size_.cx, layered_surface_size_.cy};
+    result = render_target_->BindDC(layered_surface_dc_, &surface_bounds);
+    if (FAILED(result)) {
+        discard_device_resources();
+        return result;
+    }
 
     const auto create_brush = [this](const D2D1_COLOR_F color,
                                      ID2D1SolidColorBrush** brush) {
         return render_target_->CreateSolidColorBrush(color, brush);
     };
-    result = create_brush(D2D1::ColorF(0x202124, 1.0F), &background_brush_);
+    const auto theme_color = [](const plugin::CandidateThemeColor color) {
+        return D2D1::ColorF(color.rgb, color.opacity);
+    };
+    result = create_brush(theme_color(candidate_theme_.background), &background_brush_);
     if (SUCCEEDED(result))
-        result = create_brush(D2D1::ColorF(0xFFFFFF, 0.14F), &border_brush_);
+        result = create_brush(theme_color(candidate_theme_.border), &border_brush_);
     if (SUCCEEDED(result))
-        result = create_brush(D2D1::ColorF(0xFFFFFF, 0.96F), &text_brush_);
+        result = create_brush(theme_color(candidate_theme_.divider), &divider_brush_);
     if (SUCCEEDED(result))
-        result = create_brush(D2D1::ColorF(0xFFFFFF, 0.62F), &secondary_text_brush_);
+        result = create_brush(theme_color(candidate_theme_.candidate_text), &text_brush_);
     if (SUCCEEDED(result))
-        result = create_brush(D2D1::ColorF(0x8AB4F8, 1.0F), &accent_brush_);
+        result = create_brush(theme_color({candidate_theme_.candidate_text.rgb,
+            candidate_theme_.candidate_text.opacity * 0.64F}), &secondary_text_brush_);
     if (SUCCEEDED(result))
-        result = create_brush(D2D1::ColorF(0x8AB4F8, 0.18F), &highlight_brush_);
+        result = create_brush(theme_color(candidate_theme_.pinyin_text), &accent_brush_);
     if (SUCCEEDED(result))
-        result = create_brush(D2D1::ColorF(0xFFB74D, 1.0F), &strict_accent_brush_);
+        result = create_brush(theme_color(candidate_theme_.candidate_block), &highlight_brush_);
+    if (SUCCEEDED(result))
+        result = create_brush(theme_color(candidate_theme_.candidate_number),
+                              &strict_accent_brush_);
     if (FAILED(result)) discard_device_resources();
     return result;
 }
@@ -1167,9 +1245,19 @@ void TextService::discard_device_resources() noexcept {
     release_interface(accent_brush_);
     release_interface(secondary_text_brush_);
     release_interface(text_brush_);
+    release_interface(divider_brush_);
     release_interface(border_brush_);
     release_interface(background_brush_);
     release_interface(render_target_);
+    if (layered_surface_dc_ != nullptr && layered_surface_previous_bitmap_ != nullptr)
+        SelectObject(layered_surface_dc_, layered_surface_previous_bitmap_);
+    layered_surface_previous_bitmap_ = nullptr;
+    if (layered_surface_bitmap_ != nullptr) DeleteObject(layered_surface_bitmap_);
+    layered_surface_bitmap_ = nullptr;
+    layered_surface_pixels_ = nullptr;
+    if (layered_surface_dc_ != nullptr) DeleteDC(layered_surface_dc_);
+    layered_surface_dc_ = nullptr;
+    layered_surface_size_ = {};
 }
 
 void TextService::discard_rendering() noexcept {
@@ -1183,20 +1271,14 @@ void TextService::discard_rendering() noexcept {
 
 void TextService::apply_candidate_window_effects() noexcept {
     if (candidate_window_ == nullptr) return;
-    const BOOL dark_mode = TRUE;
-    DwmSetWindowAttribute(candidate_window_, DWMWA_USE_IMMERSIVE_DARK_MODE,
-                          &dark_mode, sizeof(dark_mode));
-    const DWM_WINDOW_CORNER_PREFERENCE corners = DWMWCP_ROUND;
+    // The bitmap owns the rounded, per-pixel alpha surface. Asking DWM for a
+    // client backdrop behind a layered HWND introduces an opaque black plate.
+    const DWM_WINDOW_CORNER_PREFERENCE corners = DWMWCP_DONOTROUND;
     DwmSetWindowAttribute(candidate_window_, DWMWA_WINDOW_CORNER_PREFERENCE,
                           &corners, sizeof(corners));
-    const DWM_SYSTEMBACKDROP_TYPE backdrop = DWMSBT_TRANSIENTWINDOW;
-    DwmSetWindowAttribute(candidate_window_, DWMWA_SYSTEMBACKDROP_TYPE,
-                          &backdrop, sizeof(backdrop));
     const COLORREF border_color = DWMWA_COLOR_NONE;
     DwmSetWindowAttribute(candidate_window_, DWMWA_BORDER_COLOR,
                           &border_color, sizeof(border_color));
-    const MARGINS margins{1, 1, 1, 1};
-    DwmExtendFrameIntoClientArea(candidate_window_, &margins);
 }
 
 SIZE TextService::desired_candidate_window_size() const {
@@ -1318,9 +1400,375 @@ SIZE TextService::desired_candidate_window_size() const {
                 dips_to_pixels(height, dpi)};
 }
 
+bool TextService::prepare_blurred_candidate_background() noexcept {
+    if (!candidate_theme_.background_blur_enabled || layered_surface_pixels_ == nullptr ||
+        layered_surface_dc_ == nullptr || layered_surface_size_.cx <= 0 ||
+        layered_surface_size_.cy <= 0 || candidate_window_ == nullptr)
+        return false;
+
+    struct Pixel { std::uint8_t blue, green, red, alpha; };
+    const int width = layered_surface_size_.cx;
+    const int height = layered_surface_size_.cy;
+    const auto count = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+    auto* destination = static_cast<Pixel*>(layered_surface_pixels_);
+    if (blurred_candidate_background_.size() == count) {
+        std::copy(blurred_candidate_background_.begin(),
+                  blurred_candidate_background_.end(),
+                  static_cast<std::uint32_t*>(layered_surface_pixels_));
+        const RECT surface_bounds{0, 0, width, height};
+        return SUCCEEDED(render_target_->BindDC(layered_surface_dc_, &surface_bounds));
+    }
+
+    const UINT dpi = std::max(GetDpiForWindow(candidate_window_), 96U);
+    const int radius = std::clamp(
+        dips_to_pixels(candidate_theme_.background_blur_radius, dpi), 0, 48);
+    const int capture_width = width + radius * 2;
+    const int capture_height = height + radius * 2;
+    const auto capture_count = static_cast<std::size_t>(capture_width) *
+                               static_cast<std::size_t>(capture_height);
+
+    BITMAPINFO capture_info{};
+    capture_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    capture_info.bmiHeader.biWidth = capture_width;
+    capture_info.bmiHeader.biHeight = -capture_height;
+    capture_info.bmiHeader.biPlanes = 1;
+    capture_info.bmiHeader.biBitCount = 32;
+    capture_info.bmiHeader.biCompression = BI_RGB;
+    HDC capture_dc = CreateCompatibleDC(nullptr);
+    if (capture_dc == nullptr) return false;
+    void* capture_pixels = nullptr;
+    HBITMAP capture_bitmap = CreateDIBSection(
+        capture_dc, &capture_info, DIB_RGB_COLORS, &capture_pixels, nullptr, 0);
+    if (capture_bitmap == nullptr || capture_pixels == nullptr) {
+        if (capture_bitmap != nullptr) DeleteObject(capture_bitmap);
+        DeleteDC(capture_dc);
+        return false;
+    }
+    HGDIOBJ capture_previous = SelectObject(capture_dc, capture_bitmap);
+    if (capture_previous == nullptr || capture_previous == HGDI_ERROR) {
+        DeleteObject(capture_bitmap);
+        DeleteDC(capture_dc);
+        return false;
+    }
+
+    DWORD candidate_affinity = WDA_NONE;
+    DWORD shadow_affinity = WDA_NONE;
+    GetWindowDisplayAffinity(candidate_window_, &candidate_affinity);
+    if (candidate_shadow_window_ != nullptr)
+        GetWindowDisplayAffinity(candidate_shadow_window_, &shadow_affinity);
+    // Exclude both layered surfaces from this one DWM capture frame without
+    // hiding either HWND. This removes the old hide/show flash while ensuring
+    // the candidate UI itself never feeds back into the blur source.
+    SetWindowDisplayAffinity(candidate_window_, WDA_EXCLUDEFROMCAPTURE);
+    if (candidate_shadow_window_ != nullptr)
+        SetWindowDisplayAffinity(candidate_shadow_window_, WDA_EXCLUDEFROMCAPTURE);
+    DwmFlush();
+    const auto restore_affinity = [this, candidate_affinity, shadow_affinity]() {
+        SetWindowDisplayAffinity(candidate_window_, candidate_affinity);
+        if (candidate_shadow_window_ != nullptr)
+            SetWindowDisplayAffinity(candidate_shadow_window_, shadow_affinity);
+    };
+    RECT window_bounds{};
+    if (!GetWindowRect(candidate_window_, &window_bounds)) {
+        restore_affinity();
+        SelectObject(capture_dc, capture_previous);
+        DeleteObject(capture_bitmap);
+        DeleteDC(capture_dc);
+        return false;
+    }
+    HDC screen = GetDC(nullptr);
+    if (screen == nullptr) {
+        restore_affinity();
+        SelectObject(capture_dc, capture_previous);
+        DeleteObject(capture_bitmap);
+        DeleteDC(capture_dc);
+        return false;
+    }
+    const BOOL copied = BitBlt(
+        capture_dc, 0, 0, capture_width, capture_height, screen,
+        window_bounds.left - radius, window_bounds.top - radius, SRCCOPY);
+    ReleaseDC(nullptr, screen);
+    restore_affinity();
+    if (!copied) {
+        SelectObject(capture_dc, capture_previous);
+        DeleteObject(capture_bitmap);
+        DeleteDC(capture_dc);
+        return false;
+    }
+
+    const auto* captured = static_cast<const Pixel*>(capture_pixels);
+    std::vector<Pixel> source(captured, captured + capture_count);
+    SelectObject(capture_dc, capture_previous);
+    DeleteObject(capture_bitmap);
+    DeleteDC(capture_dc);
+
+    std::vector<Pixel> horizontal(capture_count);
+    std::vector<Pixel> blurred(capture_count);
+    if (radius > 0) {
+        const float sigma = std::max(static_cast<float>(radius) * 0.5F, 0.5F);
+        std::vector<float> kernel(static_cast<std::size_t>(radius * 2 + 1));
+        float kernel_sum = 0.0F;
+        for (int offset = -radius; offset <= radius; ++offset) {
+            const float value = std::exp(-0.5F * static_cast<float>(offset * offset) /
+                                         (sigma * sigma));
+            kernel[static_cast<std::size_t>(offset + radius)] = value;
+            kernel_sum += value;
+        }
+        for (auto& value : kernel) value /= kernel_sum;
+        for (int y = 0; y < capture_height; ++y) {
+            for (int x = 0; x < capture_width; ++x) {
+                float blue = 0.0F, green = 0.0F, red = 0.0F;
+                for (int offset = -radius; offset <= radius; ++offset) {
+                    const int sample_x = std::clamp(x + offset, 0, capture_width - 1);
+                    const auto& pixel = source[
+                        static_cast<std::size_t>(y) * capture_width + sample_x];
+                    const float weight = kernel[static_cast<std::size_t>(offset + radius)];
+                    blue += pixel.blue * weight;
+                    green += pixel.green * weight;
+                    red += pixel.red * weight;
+                }
+                auto& pixel = horizontal[
+                    static_cast<std::size_t>(y) * capture_width + x];
+                pixel = {static_cast<std::uint8_t>(std::clamp(std::lround(blue), 0L, 255L)),
+                         static_cast<std::uint8_t>(std::clamp(std::lround(green), 0L, 255L)),
+                         static_cast<std::uint8_t>(std::clamp(std::lround(red), 0L, 255L)), 255};
+            }
+        }
+        for (int y = 0; y < capture_height; ++y) {
+            for (int x = 0; x < capture_width; ++x) {
+                float blue = 0.0F, green = 0.0F, red = 0.0F;
+                for (int offset = -radius; offset <= radius; ++offset) {
+                    const int sample_y = std::clamp(y + offset, 0, capture_height - 1);
+                    const auto& pixel = horizontal[
+                        static_cast<std::size_t>(sample_y) * capture_width + x];
+                    const float weight = kernel[static_cast<std::size_t>(offset + radius)];
+                    blue += pixel.blue * weight;
+                    green += pixel.green * weight;
+                    red += pixel.red * weight;
+                }
+                auto& pixel = blurred[
+                    static_cast<std::size_t>(y) * capture_width + x];
+                pixel = {static_cast<std::uint8_t>(std::clamp(std::lround(blue), 0L, 255L)),
+                         static_cast<std::uint8_t>(std::clamp(std::lround(green), 0L, 255L)),
+                         static_cast<std::uint8_t>(std::clamp(std::lround(red), 0L, 255L)), 255};
+            }
+        }
+    } else {
+        blurred = source;
+    }
+
+    const float scale = static_cast<float>(dpi) / 96.0F;
+    const float inset = 0.5F * scale;
+    const float corner = 10.0F * scale;
+    const float tint_strength = std::clamp(
+        candidate_theme_.background.opacity, 0.0F, 1.0F);
+    const float tint_red = static_cast<float>((candidate_theme_.background.rgb >> 16) & 0xff);
+    const float tint_green = static_cast<float>((candidate_theme_.background.rgb >> 8) & 0xff);
+    const float tint_blue = static_cast<float>(candidate_theme_.background.rgb & 0xff);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            auto& pixel = destination[static_cast<std::size_t>(y) * width + x];
+            const auto& backdrop = blurred[
+                static_cast<std::size_t>(y + radius) * capture_width + x + radius];
+            const float coverage = rounded_rect_coverage(
+                x + 0.5F, y + 0.5F, inset, inset,
+                static_cast<float>(width) - inset,
+                static_cast<float>(height) - inset, corner);
+            const float red = backdrop.red * (1.0F - tint_strength) +
+                              tint_red * tint_strength;
+            const float green = backdrop.green * (1.0F - tint_strength) +
+                                tint_green * tint_strength;
+            const float blue = backdrop.blue * (1.0F - tint_strength) +
+                               tint_blue * tint_strength;
+            pixel.red = static_cast<std::uint8_t>(std::clamp(
+                std::lround(red * coverage), 0L, 255L));
+            pixel.green = static_cast<std::uint8_t>(std::clamp(
+                std::lround(green * coverage), 0L, 255L));
+            pixel.blue = static_cast<std::uint8_t>(std::clamp(
+                std::lround(blue * coverage), 0L, 255L));
+            pixel.alpha = static_cast<std::uint8_t>(std::clamp(
+                std::lround(coverage * 255.0F), 0L, 255L));
+        }
+    }
+    const auto* words = static_cast<const std::uint32_t*>(layered_surface_pixels_);
+    blurred_candidate_background_.assign(words, words + count);
+    const RECT surface_bounds{0, 0, width, height};
+    return SUCCEEDED(render_target_->BindDC(layered_surface_dc_, &surface_bounds));
+}
+
+void TextService::present_candidate_surface() noexcept {
+    if (candidate_window_ == nullptr || layered_surface_dc_ == nullptr) return;
+    RECT window_bounds{};
+    if (!GetWindowRect(candidate_window_, &window_bounds)) return;
+    POINT destination{window_bounds.left, window_bounds.top};
+    POINT source{};
+    SIZE layered_size{layered_surface_size_.cx, layered_surface_size_.cy};
+    BLENDFUNCTION blend{AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+    HDC screen = GetDC(nullptr);
+    if (screen != nullptr) {
+        UpdateLayeredWindow(candidate_window_, screen, &destination, &layered_size,
+                            layered_surface_dc_, &source, 0, &blend, ULW_ALPHA);
+        ReleaseDC(nullptr, screen);
+    }
+}
+
+void TextService::update_candidate_shadow() noexcept {
+    if (candidate_shadow_window_ == nullptr || candidate_window_ == nullptr ||
+        !candidate_theme_.shadow_enabled || candidate_theme_.shadow.opacity <= 0.0F ||
+        !IsWindowVisible(candidate_window_)) {
+        if (candidate_shadow_window_ != nullptr) ShowWindow(candidate_shadow_window_, SW_HIDE);
+        return;
+    }
+    RECT candidate{};
+    if (!GetWindowRect(candidate_window_, &candidate)) return;
+    const UINT dpi = std::max(GetDpiForWindow(candidate_window_), 96U);
+    const float scale = static_cast<float>(dpi) / 96.0F;
+    const float blur = std::max(candidate_theme_.shadow_blur_radius * scale, 1.0F);
+    const float offset_x = candidate_theme_.shadow_offset_x * scale;
+    const float offset_y = candidate_theme_.shadow_offset_y * scale;
+    const float sigma = std::max(blur * 0.5F, 0.5F);
+    const int kernel_radius = std::max(1, static_cast<int>(std::ceil(sigma * 3.0F)));
+    const int margin = kernel_radius + static_cast<int>(std::ceil(
+        std::max(std::abs(offset_x), std::abs(offset_y)))) + 2;
+    const int candidate_width = candidate.right - candidate.left;
+    const int candidate_height = candidate.bottom - candidate.top;
+    const int width = candidate_width + margin * 2;
+    const int height = candidate_height + margin * 2;
+    if (width <= 0 || height <= 0) return;
+    POINT destination{candidate.left - margin, candidate.top - margin};
+    if (candidate_shadow_surface_valid_ &&
+        candidate_shadow_surface_size_.cx == width &&
+        candidate_shadow_surface_size_.cy == height &&
+        candidate_shadow_theme_ == candidate_theme_) {
+        SetWindowPos(candidate_shadow_window_, candidate_window_, destination.x,
+                     destination.y, width, height,
+                     SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        return;
+    }
+
+    BITMAPINFO info{};
+    info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    info.bmiHeader.biWidth = width;
+    info.bmiHeader.biHeight = -height;
+    info.bmiHeader.biPlanes = 1;
+    info.bmiHeader.biBitCount = 32;
+    info.bmiHeader.biCompression = BI_RGB;
+    HDC memory = CreateCompatibleDC(nullptr);
+    if (memory == nullptr) return;
+    void* raw_pixels = nullptr;
+    HBITMAP bitmap = CreateDIBSection(memory, &info, DIB_RGB_COLORS, &raw_pixels, nullptr, 0);
+    if (bitmap == nullptr || raw_pixels == nullptr) {
+        if (bitmap != nullptr) DeleteObject(bitmap);
+        DeleteDC(memory);
+        return;
+    }
+    HGDIOBJ previous = SelectObject(memory, bitmap);
+    auto* pixels = static_cast<std::uint32_t*>(raw_pixels);
+    const float corner = 10.0F * scale;
+    const float inset = 0.5F * scale;
+    const float actual_left = margin + inset;
+    const float actual_top = margin + inset;
+    const float actual_right = margin + candidate_width - inset;
+    const float actual_bottom = margin + candidate_height - inset;
+    const auto count = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+    std::vector<float> source_mask(count);
+    std::vector<float> horizontal_mask(count);
+    std::vector<float> blurred_mask(count);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            source_mask[static_cast<std::size_t>(y) * width + x] =
+                rounded_rect_coverage(
+                    x + 0.5F, y + 0.5F,
+                    actual_left + offset_x, actual_top + offset_y,
+                    actual_right + offset_x, actual_bottom + offset_y, corner);
+        }
+    }
+    std::vector<float> kernel(static_cast<std::size_t>(kernel_radius * 2 + 1));
+    float kernel_sum = 0.0F;
+    for (int offset = -kernel_radius; offset <= kernel_radius; ++offset) {
+        const float value = std::exp(-0.5F * static_cast<float>(offset * offset) /
+                                     (sigma * sigma));
+        kernel[static_cast<std::size_t>(offset + kernel_radius)] = value;
+        kernel_sum += value;
+    }
+    for (auto& value : kernel) value /= kernel_sum;
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            float alpha = 0.0F;
+            for (int offset = -kernel_radius; offset <= kernel_radius; ++offset) {
+                const int sample_x = x + offset;
+                if (sample_x < 0 || sample_x >= width) continue;
+                alpha += source_mask[static_cast<std::size_t>(y) * width + sample_x] *
+                         kernel[static_cast<std::size_t>(offset + kernel_radius)];
+            }
+            horizontal_mask[static_cast<std::size_t>(y) * width + x] = alpha;
+        }
+    }
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            float alpha = 0.0F;
+            for (int offset = -kernel_radius; offset <= kernel_radius; ++offset) {
+                const int sample_y = y + offset;
+                if (sample_y < 0 || sample_y >= height) continue;
+                alpha += horizontal_mask[static_cast<std::size_t>(sample_y) * width + x] *
+                         kernel[static_cast<std::size_t>(offset + kernel_radius)];
+            }
+            blurred_mask[static_cast<std::size_t>(y) * width + x] = alpha;
+        }
+    }
+    const unsigned red = (candidate_theme_.shadow.rgb >> 16) & 0xff;
+    const unsigned green = (candidate_theme_.shadow.rgb >> 8) & 0xff;
+    const unsigned blue = candidate_theme_.shadow.rgb & 0xff;
+    const float maximum_alpha = std::clamp(candidate_theme_.shadow.opacity, 0.0F, 1.0F);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const auto index = static_cast<std::size_t>(y) * width + x;
+            const float card_coverage = rounded_rect_coverage(
+                x + 0.5F, y + 0.5F, actual_left, actual_top,
+                actual_right, actual_bottom, corner);
+            const float falloff = blurred_mask[index] * (1.0F - card_coverage);
+            const unsigned alpha = static_cast<unsigned>(std::clamp(
+                std::lround(maximum_alpha * falloff * 255.0F), 0L, 255L));
+            const unsigned premultiplied_red = red * alpha / 255;
+            const unsigned premultiplied_green = green * alpha / 255;
+            const unsigned premultiplied_blue = blue * alpha / 255;
+            pixels[index] =
+                (alpha << 24) | (premultiplied_red << 16) |
+                (premultiplied_green << 8) | premultiplied_blue;
+        }
+    }
+    POINT source{};
+    SIZE size{width, height};
+    BLENDFUNCTION blend{AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+    HDC screen = GetDC(nullptr);
+    if (screen != nullptr) {
+        const BOOL updated = UpdateLayeredWindow(
+            candidate_shadow_window_, screen, &destination, &size,
+            memory, &source, 0, &blend, ULW_ALPHA);
+        ReleaseDC(nullptr, screen);
+        if (updated) {
+            candidate_shadow_surface_size_ = size;
+            candidate_shadow_theme_ = candidate_theme_;
+            candidate_shadow_surface_valid_ = true;
+            SetWindowPos(candidate_shadow_window_, candidate_window_, 0, 0, 0, 0,
+                         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        }
+    }
+    SelectObject(memory, previous);
+    DeleteObject(bitmap);
+    DeleteDC(memory);
+}
+
+void TextService::hide_candidate_windows() noexcept {
+    if (candidate_window_ != nullptr) ShowWindow(candidate_window_, SW_HIDE);
+    if (candidate_shadow_window_ != nullptr) ShowWindow(candidate_shadow_window_, SW_HIDE);
+    blurred_candidate_background_.clear();
+}
+
 void TextService::render_candidate_window() {
     hit_regions_.clear();
     if (FAILED(ensure_device_resources())) return;
+    const bool blurred_background = prepare_blurred_candidate_background();
     render_target_->BeginDraw();
     render_target_->SetTransform(D2D1::Matrix3x2F::Identity());
     render_target_->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
@@ -1328,15 +1776,15 @@ void TextService::render_candidate_window() {
     auto* mode_accent_brush = accent_brush_;
     auto* mode_highlight_brush = highlight_brush_;
     auto* mode_border_brush = border_brush_;
-    auto* candidate_number_brush = correction_enabled_ ? accent_brush_
-                                                        : strict_accent_brush_;
-    render_target_->Clear(D2D1::ColorF(0x202124, 1.0F));
+    auto* candidate_number_brush = strict_accent_brush_;
+    if (!blurred_background) render_target_->Clear(D2D1::ColorF(0x000000, 0.0F));
 
     const D2D1_SIZE_F size = render_target_->GetSize();
     const UINT dpi = std::max(GetDpiForWindow(candidate_window_), 96U);
     const D2D1_ROUNDED_RECT card{
         D2D1::RectF(0.5F, 0.5F, size.width - 0.5F, size.height - 0.5F), 10.0F, 10.0F};
-    render_target_->FillRoundedRectangle(card, mode_background_brush);
+    if (!blurred_background)
+        render_target_->FillRoundedRectangle(card, mode_background_brush);
     render_target_->DrawRoundedRectangle(card, mode_border_brush, 1.0F);
 
     if (alt_code_preview_active_) {
@@ -1349,7 +1797,7 @@ void TextService::render_candidate_window() {
         render_target_->DrawLine(
             D2D1::Point2F(10.0F, kHeaderHeightDip),
             D2D1::Point2F(size.width - 10.0F, kHeaderHeightDip),
-            mode_border_brush, 1.0F);
+            divider_brush_, 1.0F);
 
         const auto page_size = std::max<std::size_t>(
             2, static_cast<std::size_t>(shortcut_config_.alt_code_preview_page_size));
@@ -1410,7 +1858,11 @@ void TextService::render_candidate_window() {
                 secondary_text_brush_, D2D1_DRAW_TEXT_OPTIONS_CLIP);
         }
         const HRESULT result = render_target_->EndDraw();
-        if (FAILED(result)) discard_device_resources();
+        if (FAILED(result)) {
+            discard_device_resources();
+        } else {
+            present_candidate_surface();
+        }
         return;
     }
 
@@ -1473,7 +1925,7 @@ void TextService::render_candidate_window() {
     }
     render_target_->DrawLine(
         D2D1::Point2F(10.0F, kHeaderHeightDip),
-        D2D1::Point2F(size.width - 10.0F, kHeaderHeightDip), mode_border_brush, 1.0F);
+        D2D1::Point2F(size.width - 10.0F, kHeaderHeightDip), divider_brush_, 1.0F);
 
     const auto target_matches = [](const std::optional<HitTarget>& value,
                                    const HitTarget target) {
@@ -1528,8 +1980,7 @@ void TextService::render_candidate_window() {
     const bool partitioned = candidate_page_size_ >= 4 &&
         candidate_groups_.size() == candidates_.size();
     const auto draw_candidate_row = [this, partitioned, candidate_right,
-                                     &draw_candidate, wrap_length,
-                                     mode_border_brush](const std::size_t begin,
+                                     &draw_candidate, wrap_length](const std::size_t begin,
                                                         const std::size_t end,
                                                         const float top,
                                                         const float row_height) {
@@ -1562,7 +2013,7 @@ void TextService::render_candidate_window() {
                     render_target_->DrawLine(
                         D2D1::Point2F(x, top + 3.0F),
                         D2D1::Point2F(x, top + row_height - 3.0F),
-                        mode_border_brush, 1.0F);
+                        divider_brush_, 1.0F);
                     x += kCandidateGroupGapDip * 0.5F;
                 } else {
                     x += kCandidateGapDip;
@@ -1660,7 +2111,9 @@ void TextService::render_candidate_window() {
     if (FAILED(result)) {
         discard_device_resources();
         if (candidate_window_ != nullptr) InvalidateRect(candidate_window_, nullptr, FALSE);
+        return;
     }
+    present_candidate_surface();
 }
 
 LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
@@ -1669,6 +2122,13 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
         const auto* creation = reinterpret_cast<CREATESTRUCTW*>(lparam);
         service = static_cast<TextService*>(creation->lpCreateParams);
         SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(service));
+    }
+    static const UINT candidate_theme_changed =
+        RegisterWindowMessageW(kCandidateThemeChangedMessageName);
+    if (message == candidate_theme_changed && service != nullptr) {
+        service->next_candidate_theme_refresh_ = 0;
+        service->refresh_candidate_theme(true);
+        return 0;
     }
     if (message == kCandidateReady && service != nullptr) {
         service->handle_candidate_result(reinterpret_cast<CandidateResult*>(lparam));
@@ -1686,6 +2146,8 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
         service->commit_alt_code_preview_from_window();
         return 0;
     }
+    if (message == WM_NCHITTEST && service != nullptr &&
+        window == service->candidate_shadow_window_) return HTTRANSPARENT;
     if (message == WM_PAINT && service != nullptr) {
         PAINTSTRUCT paint{};
         BeginPaint(window, &paint);
@@ -1778,10 +2240,9 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     }
     if (message == WM_SIZE && service != nullptr &&
         window == service->candidate_window_ && service->render_target_ != nullptr) {
-        const HRESULT result = service->render_target_->Resize(
-            D2D1::SizeU(static_cast<UINT32>(LOWORD(lparam)),
-                        static_cast<UINT32>(HIWORD(lparam))));
-        if (FAILED(result)) service->discard_device_resources();
+        service->blurred_candidate_background_.clear();
+        service->discard_device_resources();
+        InvalidateRect(window, nullptr, FALSE);
         return 0;
     }
     if (message == WM_DPICHANGED && service != nullptr &&
@@ -1790,6 +2251,7 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
         SetWindowPos(window, nullptr, suggested->left, suggested->top,
                      suggested->right - suggested->left, suggested->bottom - suggested->top,
                      SWP_NOACTIVATE | SWP_NOZORDER);
+        service->blurred_candidate_background_.clear();
         service->discard_device_resources();
         InvalidateRect(window, nullptr, FALSE);
         return 0;
@@ -1805,6 +2267,7 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     }
     if (message == WM_DISPLAYCHANGE && service != nullptr &&
         window == service->candidate_window_) {
+        service->blurred_candidate_background_.clear();
         service->discard_device_resources();
         InvalidateRect(window, nullptr, FALSE);
         return 0;
@@ -1871,6 +2334,7 @@ void TextService::refresh_shortcut_config(const bool force) {
     const auto now = GetTickCount64();
     if (!force && shortcut_config_initialized_ && now < next_shortcut_config_refresh_) return;
     next_shortcut_config_refresh_ = now + kShortcutConfigRefreshIntervalMs;
+    refresh_candidate_theme(force);
     if (!shortcut_config_initialized_) {
         const auto path = config::default_config_path();
         if (path.empty()) return;
@@ -1891,6 +2355,28 @@ void TextService::refresh_shortcut_config(const bool force) {
         if (!shortcut_config_.alt_code_preview_enabled)
             finish_alt_code_preview();
         sync_preserved_language_key();
+    }
+}
+
+void TextService::refresh_candidate_theme(const bool force) {
+    const auto now = GetTickCount64();
+    if (!force && now < next_candidate_theme_refresh_) return;
+    next_candidate_theme_refresh_ = now + 1000;
+    const auto data_root = config::local_data_root();
+    const auto loaded = plugin::load_active_candidate_theme(
+        data_root.empty() ? std::filesystem::path{} : data_root / L"plugins");
+    const plugin::CandidateTheme next = loaded.active ? loaded.theme
+                                                       : plugin::CandidateTheme{};
+    const auto source = loaded.active ? loaded.plugin_id + "@" + loaded.version
+                                      : std::string{};
+    if (next == candidate_theme_ && source == candidate_theme_source_) return;
+    candidate_theme_ = next;
+    candidate_theme_source_ = source;
+    blurred_candidate_background_.clear();
+    discard_device_resources();
+    if (candidate_window_ != nullptr) {
+        update_candidate_shadow();
+        InvalidateRect(candidate_window_, nullptr, FALSE);
     }
 }
 
@@ -2426,7 +2912,7 @@ void TextService::update_candidate_window() {
     if (candidate_window_ == nullptr) return;
     if ((!alt_code_preview_active_ &&
          (!chinese_mode_ || input_buffer_.empty())) || !foreground_focus_) {
-        ShowWindow(candidate_window_, SW_HIDE);
+        hide_candidate_windows();
         return;
     }
     POINT position = candidate_anchor_;
@@ -2460,9 +2946,11 @@ void TextService::update_candidate_window() {
                                   current.right - current.left != window_size.cx ||
                                   current.bottom - current.top != window_size.cy;
     if (geometry_changed || !IsWindowVisible(candidate_window_)) {
+        blurred_candidate_background_.clear();
         SetWindowPos(candidate_window_, HWND_TOPMOST, x, y, window_size.cx, window_size.cy,
                      SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOCOPYBITS);
     }
+    update_candidate_shadow();
     RedrawWindow(candidate_window_, nullptr, nullptr,
                  RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE | RDW_NOCHILDREN);
 }
@@ -2514,7 +3002,7 @@ void TextService::finish_alt_code_preview() noexcept {
     alt_code_preview_page_ = 0;
     hovered_target_.reset();
     pressed_target_.reset();
-    if (candidate_window_ != nullptr) ShowWindow(candidate_window_, SW_HIDE);
+    hide_candidate_windows();
 }
 
 HRESULT TextService::commit_alt_code_preview_from_window() {
@@ -2746,7 +3234,7 @@ void TextService::clear_composition() {
     alt_code_digits_.clear();
     alt_code_preview_items_.clear();
     alt_code_preview_page_ = 0;
-    if (candidate_window_ != nullptr) ShowWindow(candidate_window_, SW_HIDE);
+    hide_candidate_windows();
 }
 
 std::optional<std::wstring> TextService::chinese_punctuation_for_key(

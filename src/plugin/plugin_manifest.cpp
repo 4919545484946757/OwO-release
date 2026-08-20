@@ -231,8 +231,15 @@ ManifestResult parse_manifest(const std::string_view json) {
     if (!semantic_version(result.version)) return {false, {}, "version must be strict major.minor.patch"};
     if (api_version != kPluginApiVersion) return {false, {}, "unsupported plugin api_version"};
     result.api_version = static_cast<std::uint32_t>(api_version);
-    if (result.runtime != "process") return {false, {}, "P3C v1 only accepts process runtime"};
-    if (!safe_relative_path(result.entry, "bin/", ".exe")) return {false, {}, "entry must be a safe bin/*.exe path"};
+    if (result.runtime == "process") {
+        if (!safe_relative_path(result.entry, "bin/", ".exe"))
+            return {false, {}, "process entry must be a safe bin/*.exe path"};
+    } else if (result.runtime == "resource") {
+        if (!safe_relative_path(result.entry, "resources/", ".theme"))
+            return {false, {}, "resource entry must be a safe resources/*.theme path"};
+    } else {
+        return {false, {}, "unsupported plugin runtime"};
+    }
     if (!safe_relative_path(result.config_schema, "", ".json")) return {false, {}, "config_schema must be a safe relative JSON path"};
     std::set<std::string> seen;
     for (const auto& permission : result.permissions) {
@@ -241,6 +248,9 @@ ManifestResult parse_manifest(const std::string_view json) {
         if (!seen.insert(permission).second) return {false, {}, "duplicate permission: " + permission};
     }
     if (result.permissions.size() > 32) return {false, {}, "too many permissions"};
+    if (result.runtime == "resource" &&
+        (result.permissions.size() != 1 || result.permissions.front() != "ui.candidate_theme"))
+        return {false, {}, "candidate theme resources may request only ui.candidate_theme"};
     const bool network_permission = std::find(result.permissions.begin(), result.permissions.end(),
                                               "network.client") != result.permissions.end();
     if (result.network != network_permission)

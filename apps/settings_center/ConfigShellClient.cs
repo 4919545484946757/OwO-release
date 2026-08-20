@@ -33,6 +33,18 @@ internal sealed class ConfigShellClient
     internal async Task<SettingsSnapshot> LoadAsync(CancellationToken cancellationToken = default)
     {
         var result = await RunAsync([_configPath, "show"], cancellationToken);
+        return Parse(result);
+    }
+
+    internal async Task<SettingsSnapshot> LoadDefaultsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var result = await RunAsync([_configPath, "defaults"], cancellationToken);
+        return Parse(result);
+    }
+
+    private static SettingsSnapshot Parse(string result)
+    {
         var values = result.Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Select(line => line.TrimEnd('\r').Split('=', 2)).Where(parts => parts.Length == 2)
             .ToDictionary(parts => parts[0], parts => parts[1], StringComparer.Ordinal);

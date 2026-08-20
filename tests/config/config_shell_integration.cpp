@@ -47,6 +47,10 @@ int wmain(const int argc, wchar_t** argv) {
     const std::wstring executable = quote(argv[1]);
     const std::wstring config = quote(path.wstring());
 
+    PROCESS_INFORMATION defaults{};
+    if (!launch(executable + L" " + config + L" defaults", defaults) ||
+        wait_and_close(defaults) != 0 || std::filesystem::exists(path)) return 30;
+
     PROCESS_INFORMATION initial{};
     if (!launch(executable + L" " + config + L" set candidate_page_size 5", initial) ||
         wait_and_close(initial) != 0) return 3;

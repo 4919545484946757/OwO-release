@@ -40,10 +40,46 @@ OutputBaseFilename=OwO-Input-Method-{#MyVersion}-windows-x64-Setup
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{tmp}\OwOPackage"; Flags: ignoreversion recursesubdirs createallsubdirs deleteafterinstall
 
+[Tasks]
+Name: "settingsstartmenu"; Description: "在开始菜单添加 OwO 设置中心"; GroupDescription: "设置中心快捷入口："
+Name: "settingsdesktop"; Description: "在桌面添加 OwO 设置中心"; GroupDescription: "设置中心快捷入口："; Flags: unchecked
+Name: "settingstaskbar"; Description: "安装后引导将 OwO 设置中心固定到任务栏（需要手动确认）"; GroupDescription: "设置中心快捷入口："; Flags: unchecked
+
 [Run]
-Filename: "{cmd}"; Parameters: "/d /c ""{tmp}\OwOPackage\Install-OwO.cmd"""; WorkingDir: "{tmp}\OwOPackage"; StatusMsg: "Installing OwO Input Method..."; Flags: waituntilterminated
+Filename: "{cmd}"; Parameters: "/d /c ""{tmp}\OwOPackage\Install-OwO.cmd""{code:GetInstallShortcutArguments}"; WorkingDir: "{tmp}\OwOPackage"; StatusMsg: "Installing OwO Input Method..."; Flags: waituntilterminated
+Filename: "{code:GetInstalledSettingsCenter}"; Description: "打开 OwO 设置中心并显示任务栏固定引导"; Flags: runasoriginaluser nowait skipifsilent; Tasks: settingstaskbar; AfterInstall: ShowTaskbarPinInstructions
 
 [Code]
+function GetInstallShortcutArguments(Param: String): String;
+begin
+  Result := '';
+  if not WizardIsTaskSelected('settingsstartmenu') then
+    Result := Result + ' -NoSettingsStartMenuShortcut';
+  if WizardIsTaskSelected('settingsdesktop') then
+    Result := Result + ' -CreateSettingsDesktopShortcut';
+end;
+
+function GetInstalledSettingsCenter(Param: String): String;
+var
+  InstallRoot: String;
+begin
+  if not RegQueryStringValue(HKCU,
+      'Software\Microsoft\Windows\CurrentVersion\Uninstall\OwO Input Method',
+      'InstallLocation', InstallRoot) then
+  begin
+    RaiseException('OwO 安装位置未写入注册表，无法打开设置中心。');
+  end;
+  Result := AddBackslash(InstallRoot) + 'settings\OwO.Settings.exe';
+end;
+
+procedure ShowTaskbarPinInstructions;
+begin
+  MsgBox('设置中心已打开。请右键单击任务栏上的 OwO 设置图标，' +
+    '选择“固定到任务栏”。' + #13#10#13#10 +
+    'Windows 11 要求任务栏固定操作由用户亲自确认，安装程序不会绕过此限制。',
+    mbInformation, MB_OK);
+end;
+
 function HasSimplifiedChineseLanguage: Boolean;
 var
   ResultCode: Integer;
