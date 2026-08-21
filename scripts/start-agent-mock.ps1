@@ -1,12 +1,15 @@
 [CmdletBinding()]
 param(
-    [string]$BuildTree = (Join-Path $PSScriptRoot '..\build\windows-release'),
+    [string]$BuildTree,
     [string]$PipeName = '\\.\pipe\OwO.Agent.External.v1'
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ([string]::IsNullOrWhiteSpace($BuildTree)) {
+    $BuildTree = Join-Path $root 'build\windows-release'
+}
 $build = [IO.Path]::GetFullPath($BuildTree)
 $savedPath = $env:Path
 Get-ChildItem Env: | Where-Object { $_.Name -ieq 'Path' } | Remove-Item
@@ -21,6 +24,6 @@ $executable = Join-Path $build 'Release\owo_agent_mock.exe'
 if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
     throw "OwO Agent mock executable is missing: $executable"
 }
-Write-Output '提示：此测试窗口会显示输入、应用信息和局部上下文，请勿输入真实敏感数据。'
+Write-Output 'Privacy notice: this test console displays input, application information, and local context. Do not enter real sensitive data.'
 & $executable --pipe $PipeName
 exit $LASTEXITCODE
