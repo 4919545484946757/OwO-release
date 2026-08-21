@@ -4,6 +4,8 @@ namespace OwO_Settings;
 
 internal sealed record SettingsSnapshot(uint CandidatePageSize, uint CandidateWrapLength,
                                         bool CandidatePartitionEnabled,
+                                        bool CandidateImmediateCommitEnabled,
+                                        bool FocusLossCommitEnabled,
                                         bool ChinesePunctuationEnabled,
                                         bool AltCodePreviewEnabled,
                                         uint AltCodePreviewPageSize,
@@ -51,6 +53,8 @@ internal sealed class ConfigShellClient
         return new(uint.Parse(values["candidate_page_size"]),
                    uint.Parse(values["candidate_wrap_length"]),
                    bool.Parse(values["candidate_partition_enabled"]),
+                   bool.Parse(values["candidate_immediate_commit_enabled"]),
+                   bool.Parse(values["focus_loss_commit_enabled"]),
                    bool.Parse(values["chinese_punctuation_enabled"]),
                    bool.Parse(values["alt_code_preview_enabled"]),
                    uint.Parse(values["alt_code_preview_page_size"]),
@@ -104,7 +108,9 @@ internal sealed class ConfigShellClient
                   JoinShortcuts(value.PunctuationShortcuts),
                   value.AltCodePreviewEnabled.ToString().ToLowerInvariant(),
                   value.AltCodePreviewPageSize.ToString(),
-                  value.AltCodePreviewWheelEnabled.ToString().ToLowerInvariant()], cancellationToken);
+                  value.AltCodePreviewWheelEnabled.ToString().ToLowerInvariant(),
+                  value.CandidateImmediateCommitEnabled.ToString().ToLowerInvariant(),
+                  value.FocusLossCommitEnabled.ToString().ToLowerInvariant()], cancellationToken);
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

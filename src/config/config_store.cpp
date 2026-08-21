@@ -270,6 +270,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
     constexpr std::string_view alt_code_preview_required[]{
         "alt_code_preview_enabled", "alt_code_preview_page_size",
         "alt_code_preview_wheel_enabled"};
+    constexpr std::string_view composition_required[]{
+        "candidate_immediate_commit_enabled", "focus_loss_commit_enabled"};
     constexpr std::string_view navigation_required[]{
         "cursor_left_shortcut_enabled", "cursor_left_shortcut",
         "cursor_right_shortcut_enabled", "cursor_right_shortcut",
@@ -282,7 +284,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 5 ? std::size(navigation_required) : 0) +
                                (version >= 7 ? std::size(partition_required) : 0) +
                                (version >= 8 ? std::size(punctuation_required) : 0) +
-                               (version >= 9 ? std::size(alt_code_preview_required) : 0);
+                               (version >= 9 ? std::size(alt_code_preview_required) : 0) +
+                               (version >= 10 ? std::size(composition_required) : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -308,6 +311,9 @@ ConfigParseResult parse_config(const std::string_view utf8) {
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
     if (version >= 9) for (const auto key : alt_code_preview_required)
+        if (!fields.contains(std::string(key)))
+            return {false, {}, "configuration fields are missing or unknown"};
+    if (version >= 10) for (const auto key : composition_required)
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
@@ -365,6 +371,13 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                         value.alt_code_preview_wheel_enabled))
             return {false, {}, "configuration field type is invalid"};
     }
+    if (version >= 10) {
+        if (!parse_bool(fields["candidate_immediate_commit_enabled"],
+                        value.candidate_immediate_commit_enabled) ||
+            !parse_bool(fields["focus_loss_commit_enabled"],
+                        value.focus_loss_commit_enabled))
+            return {false, {}, "configuration field type is invalid"};
+    }
     if (version >= 5) {
         if (!parse_bool(fields["cursor_left_shortcut_enabled"],
                         value.cursor_left_shortcut_enabled) ||
@@ -407,6 +420,10 @@ std::string serialize_config(const AppConfig& value) {
            "\ncandidate_wrap_length=" + std::to_string(value.candidate_wrap_length) +
            "\ncandidate_partition_enabled=" +
                (value.candidate_partition_enabled ? std::string("true") : "false") +
+           "\ncandidate_immediate_commit_enabled=" +
+               (value.candidate_immediate_commit_enabled ? std::string("true") : "false") +
+           "\nfocus_loss_commit_enabled=" +
+               (value.focus_loss_commit_enabled ? std::string("true") : "false") +
            "\nchinese_punctuation_enabled=" +
                (value.chinese_punctuation_enabled ? std::string("true") : "false") +
            "\nalt_code_preview_enabled=" +

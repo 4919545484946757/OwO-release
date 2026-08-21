@@ -1,0 +1,46 @@
+{
+  "title": "Agent IPC 连接器",
+  "description": "只连接本机第三方 Agent 命名管道。修改端点后请重新开始 Agent 会话。",
+  "type": "object",
+  "properties": {
+    "pipe_name": {
+      "type": "string",
+      "title": "第三方 Agent 管道",
+      "description": "必须是本机 \\\\.\\pipe\\ 下的固定命名管道。",
+      "default": "\\\\.\\pipe\\OwO.Agent.External.v1"
+    },
+    "timeout_ms": {
+      "type": "integer",
+      "title": "单次 IPC 超时（毫秒）",
+      "default": 10000,
+      "minimum": 500,
+      "maximum": 30000
+    },
+    "context_limit": {
+      "type": "integer",
+      "title": "会话上下文最大字节数",
+      "description": "仅发送必要的尾部局部上下文。",
+      "default": 256,
+      "minimum": 0,
+      "maximum": 2048
+    },
+    "send_application_identity": {
+      "type": "boolean",
+      "title": "发送焦点应用基础信息",
+      "description": "仅含进程 ID、可执行文件名和窗口类，不发送窗口标题。",
+      "default": true
+    },
+    "send_session_context": {
+      "type": "boolean",
+      "title": "发送必要局部上下文",
+      "description": "密码框或安全输入场景始终禁止发送。",
+      "default": true
+    },
+    "sensitive_filter_enabled": {
+      "type": "boolean",
+      "title": "敏感信息过滤",
+      "description": "必须保持开启；关闭时插件会拒绝运行而不是绕过过滤。",
+      "default": true
+    }
+  }
+}

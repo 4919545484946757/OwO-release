@@ -118,6 +118,8 @@ public sealed partial class MainPage : Page
         CandidatePageSize.Value = value.CandidatePageSize;
         CandidateWrapLength.Value = value.CandidateWrapLength;
         CandidatePartition.IsOn = value.CandidatePartitionEnabled;
+        CandidateImmediateCommit.IsOn = value.CandidateImmediateCommitEnabled;
+        FocusLossCommit.IsOn = value.FocusLossCommitEnabled;
         ChinesePunctuation.IsOn = value.ChinesePunctuationEnabled;
         AltCodePreview.IsOn = value.AltCodePreviewEnabled;
         AltCodePreviewPageSize.Value = value.AltCodePreviewPageSize;
@@ -157,6 +159,8 @@ public sealed partial class MainPage : Page
             var value = new SettingsSnapshot((uint)CandidatePageSize.Value,
                 (uint)CandidateWrapLength.Value,
                 CandidatePartition.IsOn,
+                CandidateImmediateCommit.IsOn,
+                FocusLossCommit.IsOn,
                 ChinesePunctuation.IsOn,
                 AltCodePreview.IsOn,
                 (uint)AltCodePreviewPageSize.Value,
@@ -275,6 +279,8 @@ public sealed partial class MainPage : Page
         Add("每页候选数", "候选 显示 数量", "general", CandidatePageSizeCard);
         Add("候选词换行长度", "长词 换行", "general", CandidateWrapLengthCard);
         Add("候选分区", "字典区 单字区", "general", CandidatePartitionCard);
+        Add("候选词即时上屏", "暂存 组合 上屏", "general", CandidateImmediateCommitCard);
+        Add("失焦保护", "候选框 关闭 上屏", "general", FocusLossCommitCard);
         Add("中文标点", "全角 标点", "general", ChinesePunctuationCard);
         Add("用户词频学习", "学习 词频", "general", UserLearningCard);
         Add("词频学习灵敏度", "灵敏度 1 10", "general", LearningSensitivityCard);
@@ -1027,13 +1033,17 @@ public sealed partial class MainPage : Page
             + $"{PluginUiText.Trust(plugin.TrustTier)}\n"
             + (plugin.Permissions.Count == 0 ? "未申请具名权限" :
                $"已授权：{string.Join("、", plugin.Permissions.Select(PluginUiText.Permission))}");
-        if (!await ConfirmAsync($"{action}插件",
-            $"{plugin.Name} {plugin.Version}\n{plugin.Id}{warning}", action))
-            return;
+        var agentPrivacyConsent = false;
+        if (!plugin.Active && plugin.Permissions.Contains("agent.ipc", StringComparer.Ordinal)) {
+            if (!await ConfirmAgentActivationAsync(plugin)) return;
+            agentPrivacyConsent = true;
+        } else if (!await ConfirmAsync($"{action}插件",
+                       $"{plugin.Name} {plugin.Version}\n{plugin.Id}{warning}", action)) return;
         SetBusy(true);
         try {
             if (plugin.Active) await _pluginClient.DeactivateAsync(plugin.Id, plugin.Version);
-            else await _pluginClient.ActivateAsync(plugin.Id, plugin.Version);
+            else await _pluginClient.ActivateAsync(
+                plugin.Id, plugin.Version, agentPrivacyConsent);
             await LoadPluginsAsync();
             NotifyCandidateThemeChanged();
             ShowStatus($"插件已{action}。", InfoBarSeverity.Success);
@@ -1042,6 +1052,43 @@ public sealed partial class MainPage : Page
         } finally {
             SetBusy(false);
         }
+    }
+
+    private async Task<bool> ConfirmAgentActivationAsync(PluginVersionSnapshot plugin)
+    {
+        var acknowledgement = new CheckBox {
+            Content = "我明确同意启用，并理解第三方 Agent 可能执行系统操作。",
+        };
+        var content = new StackPanel { Spacing = 12 };
+        content.Children.Add(new TextBlock {
+            Text = $"{plugin.Name} {plugin.Version}\n{plugin.Id}\n\n"
+                + "启用后，在你以 v 开头输入并按 Enter 或空格确认时，插件可能读取：去除 v 后的输入、"
+                + "焦点应用的进程 ID/程序名/窗口类，以及必要的短局部上下文。它会先过滤常见凭据、令牌"
+                + "和支付卡号，再把最少数据发送给你配置的本机第三方 Agent。\n\n"
+                + "密码框和安全输入框不会采集上下文；不会发送窗口标题、完整文档或剪贴板。第三方 Agent "
+                + "仍可能保存请求、关联应用使用习惯，或根据你选择的指令执行文件、程序、系统设置、账户等操作。"
+                + "OwO 不审计第三方 Agent，也不保证其操作可恢复。高风险指令不能通过候选框直接确认，必须回到"
+                + "第三方 Agent 自身的高风险确认界面。\n\n"
+                + "此同意只绑定当前精确插件版本与已授权权限；更新或新增权限需要重新确认。",
+            TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+        });
+        content.Children.Add(acknowledgement);
+        var dialog = new ContentDialog {
+            XamlRoot = XamlRoot,
+            Title = "启用 Agent IPC 连接器",
+            Content = new ScrollViewer {
+                Content = content,
+                MaxHeight = 520,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            },
+            PrimaryButtonText = "明确同意并启用",
+            CloseButtonText = "取消",
+            DefaultButton = ContentDialogButton.Close,
+            IsPrimaryButtonEnabled = false,
+        };
+        acknowledgement.Checked += (_, _) => dialog.IsPrimaryButtonEnabled = true;
+        acknowledgement.Unchecked += (_, _) => dialog.IsPrimaryButtonEnabled = false;
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
     private async void PluginVersionRevoke_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

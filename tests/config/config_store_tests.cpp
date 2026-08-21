@@ -31,6 +31,8 @@ int main(const int argc, char** argv) {
     changed.candidate_page_size = 7;
     changed.candidate_wrap_length = 18;
     changed.candidate_partition_enabled = false;
+    changed.candidate_immediate_commit_enabled = false;
+    changed.focus_loss_commit_enabled = true;
     changed.user_learning_enabled = false;
     changed.user_learning_sensitivity = 9;
     changed.model_ranking_enabled = true;
@@ -119,6 +121,8 @@ int main(const int argc, char** argv) {
         legacy.value.next_page_shortcuts != std::vector<std::string>{"]", "Shift+Down"} ||
         legacy.value.candidate_wrap_length != 12 ||
         !legacy.value.candidate_partition_enabled ||
+        !legacy.value.candidate_immediate_commit_enabled ||
+        legacy.value.focus_loss_commit_enabled ||
         legacy.value.user_learning_sensitivity != 10 ||
         !legacy.value.chinese_punctuation_enabled ||
         !legacy.value.alt_code_preview_enabled ||
@@ -135,6 +139,8 @@ int main(const int argc, char** argv) {
         "raw_input_shortcut_enabled=true\nraw_input_shortcut=Enter\n");
     if (!version_two.ok || version_two.value.candidate_wrap_length != 12 ||
         !version_two.value.candidate_partition_enabled ||
+        !version_two.value.candidate_immediate_commit_enabled ||
+        version_two.value.focus_loss_commit_enabled ||
         version_two.value.user_learning_sensitivity != 10) return 24;
 
     auto duplicate_shortcuts = changed;

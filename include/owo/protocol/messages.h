@@ -23,6 +23,8 @@ enum class MessageType {
     candidate_update_request,
     candidate_update_response,
     candidate_committed,
+    agent_request,
+    agent_response,
     acknowledgement,
     shutdown_request,
     error_response,

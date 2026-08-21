@@ -117,7 +117,7 @@ int wmain(int argc, wchar_t** argv) {
         startup_log("core_initialized", process_started);
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, lexicon,
                                          user_frequency_ptr, model_pipe_name,
-                                         config_monitor_ptr);
+                                         config_monitor_ptr, &plugin_executor);
     }
     if (user_frequency_ptr != nullptr) {
         const owo::engine::MemoryLexicon fallback({
@@ -125,21 +125,27 @@ int wmain(int argc, wchar_t** argv) {
             {{"xian"}, "先", 800}, {{"xian"}, "线", 700}, {{"xi", "an"}, "西安", 900}});
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, fallback,
                                          user_frequency_ptr, model_pipe_name,
-                                         config_monitor_ptr);
+                                         config_monitor_ptr, &plugin_executor);
     }
     if (model_pipe_name != nullptr) {
         const owo::engine::MemoryLexicon fallback({
             {{"ni", "hao"}, "你好", 1000}, {{"ni", "hao"}, "你号", 50},
             {{"xian"}, "先", 800}, {{"xian"}, "线", 700}, {{"xi", "an"}, "西安", 900}});
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, fallback, nullptr,
-                                         model_pipe_name, config_monitor_ptr);
+                                         model_pipe_name, config_monitor_ptr,
+                                         &plugin_executor);
     }
     if (config_monitor_ptr != nullptr) {
         const owo::engine::MemoryLexicon fallback({
             {{"ni", "hao"}, "你好", 1000}, {{"ni", "hao"}, "你号", 50},
             {{"xian"}, "先", 800}, {{"xian"}, "线", 700}, {{"xi", "an"}, "西安", 900}});
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, fallback, nullptr,
-                                         nullptr, config_monitor_ptr);
+                                         nullptr, config_monitor_ptr,
+                                         &plugin_executor);
     }
-    return owo::ipc::run_core_server(owo::ipc::kCorePipeName);
+    const owo::engine::MemoryLexicon fallback({
+        {{"ni", "hao"}, "你好", 1000}, {{"ni", "hao"}, "你号", 50},
+        {{"xian"}, "先", 800}, {{"xian"}, "线", 700}, {{"xi", "an"}, "西安", 900}});
+    return owo::ipc::run_core_server(owo::ipc::kCorePipeName, fallback, nullptr,
+                                     nullptr, nullptr, &plugin_executor);
 }

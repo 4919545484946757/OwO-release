@@ -87,6 +87,10 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         config.punctuation_shortcut_enabled = parsed;
     else if (field == L"candidate_partition_enabled")
         config.candidate_partition_enabled = parsed;
+    else if (field == L"candidate_immediate_commit_enabled")
+        config.candidate_immediate_commit_enabled = parsed;
+    else if (field == L"focus_loss_commit_enabled")
+        config.focus_loss_commit_enabled = parsed;
     else if (field == L"alt_code_preview_enabled")
         config.alt_code_preview_enabled = parsed;
     else if (field == L"alt_code_preview_wheel_enabled")
@@ -121,7 +125,9 @@ void usage() {
                  "[<candidate-partition-enabled> <chinese-punctuation-enabled> "
                  "<punctuation-shortcut-enabled> <punctuation-shortcut> "
                  "[<alt-code-preview-enabled> <alt-code-preview-page-size> "
-                 "<alt-code-preview-wheel-enabled>]]]]]] | "
+                 "<alt-code-preview-wheel-enabled> "
+                 "[<candidate-immediate-commit-enabled> "
+                 "<focus-loss-commit-enabled>]]]]]]] | "
                  "watch <timeout-ms>\n";
 }
 
@@ -181,7 +187,7 @@ int wmain(const int argc, wchar_t** argv) {
     }
     if (command == L"set-all" &&
         (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23 ||
-         argc == 24 || argc == 27 || argc == 30)) {
+         argc == 24 || argc == 27 || argc == 30 || argc == 32)) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);
         if (!loaded.success) return 3;
@@ -214,10 +220,13 @@ int wmain(const int argc, wchar_t** argv) {
              (!apply(value, L"chinese_punctuation_enabled", argv[24]) ||
               !apply(value, L"punctuation_shortcut_enabled", argv[25]) ||
               !apply(value, L"punctuation_shortcut", argv[26]))) ||
-            (argc == 30 &&
+            (argc >= 30 &&
              (!apply(value, L"alt_code_preview_enabled", argv[27]) ||
               !apply(value, L"alt_code_preview_page_size", argv[28]) ||
-              !apply(value, L"alt_code_preview_wheel_enabled", argv[29])))) {
+              !apply(value, L"alt_code_preview_wheel_enabled", argv[29]))) ||
+            (argc == 32 &&
+             (!apply(value, L"candidate_immediate_commit_enabled", argv[30]) ||
+              !apply(value, L"focus_loss_commit_enabled", argv[31])))) {
             std::cerr << "invalid configuration value type\n";
             return 4;
         }

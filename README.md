@@ -2,7 +2,7 @@
 
 OwO 是面向 Windows 11 x64 的模块化中文拼音输入法。基础输入、词典查询和候选上屏不依赖网络；智能排序不可用时会自动使用基础候选。
 
-当前版本：`0.1.0`
+当前版本：`0.2.1`
 
 ## 主要功能
 
@@ -15,7 +15,7 @@ OwO 是面向 Windows 11 x64 的模块化中文拼音输入法。基础输入、
 
 ## 安装
 
-推荐运行发行目录中的 `OwO-Input-Method-0.1.0-windows-x64-Setup.exe`。
+推荐运行发行目录中的 `OwO-Input-Method-0.2.1-windows-x64-Setup.exe`。
 安装向导可选择把设置中心添加到开始菜单或桌面，也可在安装完成后打开 Windows 11
 任务栏固定引导。任务栏固定必须由用户在设置中心图标的右键菜单中确认。
 
@@ -57,11 +57,13 @@ Release 与发行包：
 cmake --preset windows-release
 cmake --build --preset windows-release
 .\scripts\build_settings_center.ps1 -Configuration Release
-.\scripts\package_release.ps1 -Version 0.1.0
-.\scripts\package_setup.ps1 -Version 0.1.0
+.\scripts\package_release.ps1 -Version 0.2.1
+.\scripts\package_setup.ps1 -Version 0.2.1
 ```
 
 架构与决策记录见 [`docs`](docs)，插件接口见 [`docs/plugins/development.md`](docs/plugins/development.md)。
+高权限 Agent 连接器另有独立的[权限与隐私说明](docs/plugins/agent-ipc-privacy.md)及[第三方接入规范](docs/plugins/agent-ipc-integration.md)。
+本机联调可使用[模拟第三方 Agent](docs/plugins/agent-ipc-mock.md)。
 
 ## 平台与许可
 

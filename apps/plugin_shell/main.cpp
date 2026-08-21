@@ -329,12 +329,23 @@ int wmain(const int argc, wchar_t** argv) {
         }
         return 0;
     }
-    if (command == L"activate" && argc == 5) {
+    if (command == L"activate" && (argc == 5 || argc == 6)) {
         const auto id = utf8(argv[3]);
         const auto version = utf8(argv[4]);
         const auto installed = owo::plugin::query_installed_plugin_version(root, id, version);
         if (!installed.ok) {
             std::cerr << installed.diagnostic << '\n';
+            return 2;
+        }
+        const bool agent_ipc = std::find(installed.manifest.permissions.begin(),
+            installed.manifest.permissions.end(), "agent.ipc") !=
+            installed.manifest.permissions.end();
+        const bool agent_consent = argc == 6 &&
+            std::wstring_view(argv[5]) == L"I_ACCEPT_AGENT_IPC_PRIVACY_V1";
+        if ((agent_ipc && !agent_consent) || (!agent_ipc && argc != 5)) {
+            std::cerr << (agent_ipc
+                ? "Agent IPC activation requires explicit privacy acknowledgement\n"
+                : "unexpected activation acknowledgement\n");
             return 2;
         }
         const bool full_trust = std::find(installed.manifest.permissions.begin(),

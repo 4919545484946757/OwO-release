@@ -39,6 +39,7 @@ internal static class PluginUiText
     };
 
     internal static string Permission(string value) => value switch {
+        "agent.ipc" => "连接第三方 Agent",
         "candidate.transform" => "候选词变换",
         "config.read" => "读取插件配置",
         "config.write" => "修改插件配置",
@@ -223,9 +224,11 @@ internal sealed class PluginShellClient
         return value;
     }
 
-    internal Task ActivateAsync(string id, string version,
+    internal Task ActivateAsync(string id, string version, bool agentPrivacyConsent = false,
                                 CancellationToken cancellationToken = default) =>
-        RunAsync([_storePath, "activate", id, version], cancellationToken);
+        RunAsync(agentPrivacyConsent
+            ? [_storePath, "activate", id, version, "I_ACCEPT_AGENT_IPC_PRIVACY_V1"]
+            : [_storePath, "activate", id, version], cancellationToken);
 
     internal Task DeactivateAsync(string id, string version,
                                   CancellationToken cancellationToken = default) =>

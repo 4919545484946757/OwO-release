@@ -1,7 +1,6 @@
 {
   "name": "owo-input-method",
-  "version-semver": "0.1.0",
+  "version-semver": "0.2.1",
   "description": "OwO Input Method",
   "dependencies": []
 }
-

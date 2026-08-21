@@ -20,6 +20,10 @@ namespace owo::model {
 class IModelBackend;
 }
 
+namespace owo::core {
+class PluginExecutor;
+}
+
 namespace owo::ipc {
 
 inline constexpr wchar_t kCorePipeName[] = LR"(\\.\pipe\OwO.InputMethod.Core.P1)";
@@ -75,7 +79,8 @@ private:
                                   const engine::Lexicon& lexicon,
                                   engine::UserFrequencyStore* user_frequency,
                                   const wchar_t* model_pipe_name,
-                                  const config::ConfigMonitor* config_monitor);
+                                  const config::ConfigMonitor* config_monitor,
+                                  core::PluginExecutor* plugin_executor = nullptr);
 
 /// 运行 ModelHost v1 串行服务循环。后端在服务退出前必须保持有效。
 [[nodiscard]] int run_model_server(const wchar_t* pipe_name, model::IModelBackend& backend);

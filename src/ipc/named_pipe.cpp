@@ -1,4 +1,6 @@
 #include "owo/ipc/named_pipe.h"
+#include "owo/agent/agent_protocol.h"
+#include "owo/core/plugin_executor.h"
 #include "owo/ipc/contextual_candidate_order.h"
 #include "owo/config/config_monitor.h"
 #include "owo/model/model_backend.h"
@@ -688,7 +690,8 @@ std::uint64_t candidate_group(const engine::Candidate& candidate,
 void arrange_partitioned_candidate_pages(
     std::vector<engine::Candidate>& candidates,
     const std::size_t page_size,
-    const std::size_t full_input_bytes) {
+    const std::size_t full_input_bytes,
+    const bool single_syllable_input) {
     if (page_size < 4 || candidates.empty()) return;
     std::vector<engine::Candidate> sentences;
     std::vector<engine::Candidate> dictionary_candidates;
@@ -779,12 +782,24 @@ void arrange_partitioned_candidate_pages(
         single_count += std::min(
             unfilled, single_characters.size() - single_index - single_count);
 
-        const auto dictionary_end = dictionary_index + dictionary_count;
-        while (dictionary_index < dictionary_end)
-            paged.push_back(std::move(dictionary[dictionary_index++]));
         const auto single_end = single_index + single_count;
-        while (single_index < single_end)
-            paged.push_back(std::move(single_characters[single_index++]));
+        const auto dictionary_end = dictionary_index + dictionary_count;
+        // A compact input that is itself one complete syllable expresses a
+        // stronger single-character intent than an alternative cross-boundary
+        // parse (for example liang versus li'ang). Put only the first page's
+        // single-character area first; later pages retain the stable dictionary-
+        // then-character layout used by paging and expanded views.
+        if (first_page && single_syllable_input) {
+            while (single_index < single_end)
+                paged.push_back(std::move(single_characters[single_index++]));
+            while (dictionary_index < dictionary_end)
+                paged.push_back(std::move(dictionary[dictionary_index++]));
+        } else {
+            while (dictionary_index < dictionary_end)
+                paged.push_back(std::move(dictionary[dictionary_index++]));
+            while (single_index < single_end)
+                paged.push_back(std::move(single_characters[single_index++]));
+        }
 
         first_page = false;
         if (dictionary_count + single_count == 0) break;
@@ -941,7 +956,8 @@ ExchangeResult PersistentPipeClient::exchange(
 int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     engine::UserFrequencyStore* user_frequency,
                     const wchar_t* model_pipe_name,
-                    const config::ConfigMonitor* config_monitor) {
+                    const config::ConfigMonitor* config_monitor,
+                    core::PluginExecutor* plugin_executor) {
     const engine::FullPinyinSchema schema;
     const engine::CandidateGenerator generator(lexicon, nullptr, user_frequency);
     std::size_t unflushed_selections = 0;
@@ -959,6 +975,12 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
         std::vector<std::string> learned_preferences;
     };
     std::unordered_map<std::string, PendingModelRequest> model_requests;
+    struct PendingAgentRequest {
+        std::future<core::PluginExecutionResult> future;
+        std::stop_source cancellation;
+        std::chrono::steady_clock::time_point created;
+    };
+    std::unordered_map<std::string, PendingAgentRequest> agent_requests;
     LatestModelTaskQueue model_queue;
     CandidateResultCache candidate_cache;
     engine::FullPinyinIncrementalState incremental_parse_state;
@@ -1053,6 +1075,102 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     response.text = "shutdown_ack";
                 }
                 running = false;
+            } else if (decoded.message.type == protocol::MessageType::agent_request) {
+                response.type = protocol::MessageType::agent_response;
+                const auto agent_request = agent::decode_request(decoded.message.text);
+                if (!agent_request.ok || plugin_executor == nullptr) {
+                    const std::string session = agent_request.ok
+                        ? agent_request.value.session_id : std::string(32, '0');
+                    response.text = agent::encode_response({
+                        session, plugin_executor == nullptr
+                            ? "Agent 插件服务不可用" : "Agent 请求格式错误",
+                        {}, {}, plugin_executor == nullptr
+                            ? agent::Status::disconnected : agent::Status::error,
+                        0, false, plugin_executor == nullptr
+                            ? "plugin_unavailable" : "invalid_request"});
+                } else if (agent_request.value.action == agent::Action::poll) {
+                    const auto found = agent_requests.find(agent_request.value.session_id);
+                    if (found == agent_requests.end()) {
+                        response.text = agent::encode_response({
+                            agent_request.value.session_id, "Agent 会话不存在或已经结束",
+                            {}, {}, agent::Status::error, 0, false, "session_not_found"});
+                    } else if (found->second.future.wait_for(std::chrono::milliseconds(0)) !=
+                               std::future_status::ready) {
+                        response.text = agent::encode_response({
+                            agent_request.value.session_id, {}, {}, {},
+                            agent::Status::thinking, 0, false, {}});
+                    } else {
+                        auto completed = found->second.future.get();
+                        agent_requests.erase(found);
+                        const auto decoded_response = completed.ok
+                            ? agent::decode_response(completed.payload)
+                            : agent::ResponseDecodeResult{};
+                        if (!decoded_response.ok ||
+                            decoded_response.value.session_id != agent_request.value.session_id) {
+                            response.text = agent::encode_response({
+                                agent_request.value.session_id,
+                                completed.status == core::PluginExecutionStatus::timeout
+                                    ? "Agent 请求超时" : "Agent 插件返回异常",
+                                {}, {}, agent::Status::error, 0, false,
+                                completed.status == core::PluginExecutionStatus::timeout
+                                    ? "timeout" : "invalid_plugin_response"});
+                        } else {
+                            response.text = agent::encode_response(decoded_response.value);
+                            if (decoded_response.value.status == agent::Status::thinking ||
+                                decoded_response.value.status == agent::Status::executing) {
+                                agent::Request external_poll;
+                                external_poll.action = agent::Action::poll;
+                                external_poll.session_id = agent_request.value.session_id;
+                                external_poll.page = decoded_response.value.page;
+                                PendingAgentRequest pending;
+                                pending.created = std::chrono::steady_clock::now();
+                                core::PluginExecutionRequest invocation;
+                                invocation.plugin_id = std::string(agent::kAgentPluginId);
+                                invocation.service = std::string(agent::kAgentPluginService);
+                                invocation.payload = agent::encode_request(external_poll);
+                                invocation.required_permissions = {"agent.ipc", "input.context"};
+                                invocation.source = core::PluginCallSource::trusted_user_action;
+                                invocation.timeout = std::chrono::seconds(30);
+                                invocation.cancellation = pending.cancellation.get_token();
+                                auto submitted = plugin_executor->submit(std::move(invocation));
+                                pending.future = std::move(submitted.completion);
+                                agent_requests.emplace(external_poll.session_id,
+                                                       std::move(pending));
+                            }
+                        }
+                    }
+                } else if (agent_request.value.action == agent::Action::cancel) {
+                    const auto found = agent_requests.find(agent_request.value.session_id);
+                    if (found != agent_requests.end()) {
+                        found->second.cancellation.request_stop();
+                        agent_requests.erase(found);
+                    }
+                    response.text = agent::encode_response({
+                        agent_request.value.session_id, {}, {}, {},
+                        agent::Status::completed, 0, false, {}});
+                } else {
+                    const auto existing = agent_requests.find(agent_request.value.session_id);
+                    if (existing != agent_requests.end()) {
+                        existing->second.cancellation.request_stop();
+                        agent_requests.erase(existing);
+                    }
+                    PendingAgentRequest pending;
+                    pending.created = std::chrono::steady_clock::now();
+                    core::PluginExecutionRequest invocation;
+                    invocation.plugin_id = std::string(agent::kAgentPluginId);
+                    invocation.service = std::string(agent::kAgentPluginService);
+                    invocation.payload = agent::encode_request(agent_request.value);
+                    invocation.required_permissions = {"agent.ipc", "input.context"};
+                    invocation.source = core::PluginCallSource::trusted_user_action;
+                    invocation.timeout = std::chrono::seconds(30);
+                    invocation.cancellation = pending.cancellation.get_token();
+                    auto submitted = plugin_executor->submit(std::move(invocation));
+                    pending.future = std::move(submitted.completion);
+                    agent_requests.emplace(agent_request.value.session_id, std::move(pending));
+                    response.text = agent::encode_response({
+                        agent_request.value.session_id, {}, {}, {},
+                        agent::Status::thinking, agent_request.value.page, false, {}});
+                }
             } else if (decoded.message.type == protocol::MessageType::candidate_update_request) {
                 response.type = protocol::MessageType::candidate_update_response;
                 if (!external_model_ranking_enabled) {
@@ -1443,8 +1561,19 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             std::make_move_iterator(model_begin),
                             std::make_move_iterator(candidates.end()));
                         candidates.erase(model_begin, candidates.end());
+                        const bool single_syllable_input = std::any_of(
+                            parsed.paths.begin(), parsed.paths.end(),
+                            [&parsed](const engine::ParsePath& path) {
+                                return path.match_kind == engine::InputMatchKind::exact &&
+                                       path.syllables.size() == 1 &&
+                                       path.syllables.front().complete &&
+                                       path.syllables.front().begin == 0 &&
+                                       path.syllables.front().end ==
+                                           parsed.normalized_input.size();
+                            });
                         arrange_partitioned_candidate_pages(
-                            candidates, page_size, full_input_bytes);
+                            candidates, page_size, full_input_bytes,
+                            single_syllable_input);
                         candidates.insert(candidates.end(),
                                           std::make_move_iterator(hidden.begin()),
                                           std::make_move_iterator(hidden.end()));
@@ -1691,7 +1820,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
 int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     engine::UserFrequencyStore* user_frequency,
                     const wchar_t* model_pipe_name) {
-    return run_core_server(pipe_name, lexicon, user_frequency, model_pipe_name, nullptr);
+    return run_core_server(pipe_name, lexicon, user_frequency, model_pipe_name,
+                           nullptr, nullptr);
 }
 
 int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,

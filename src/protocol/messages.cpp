@@ -15,6 +15,8 @@ std::string type_name(const MessageType type) {
         case MessageType::candidate_update_request: return "candidate_update_request";
         case MessageType::candidate_update_response: return "candidate_update_response";
         case MessageType::candidate_committed: return "candidate_committed";
+        case MessageType::agent_request: return "agent_request";
+        case MessageType::agent_response: return "agent_response";
         case MessageType::acknowledgement: return "acknowledgement";
         case MessageType::shutdown_request: return "shutdown_request";
         case MessageType::error_response: return "error_response";
@@ -28,6 +30,8 @@ std::optional<MessageType> parse_type(const std::string_view value) {
     if (value == "candidate_update_request") return MessageType::candidate_update_request;
     if (value == "candidate_update_response") return MessageType::candidate_update_response;
     if (value == "candidate_committed") return MessageType::candidate_committed;
+    if (value == "agent_request") return MessageType::agent_request;
+    if (value == "agent_response") return MessageType::agent_response;
     if (value == "acknowledgement") return MessageType::acknowledgement;
     if (value == "shutdown_request") return MessageType::shutdown_request;
     if (value == "error_response") return MessageType::error_response;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "owo/config/config_store.h"
+#include "owo/agent/agent_protocol.h"
 #include "owo/plugin/candidate_theme.h"
 
 #include <Windows.h>
@@ -104,6 +105,11 @@ private:
         std::vector<std::uint64_t> candidate_consumed;
         std::vector<std::uint64_t> candidate_groups;
     };
+    struct AgentResult {
+        std::uint64_t request_id{};
+        std::uint64_t generation{};
+        agent::Response response;
+    };
     struct PendingRequest {
         std::uint8_t type{};
         std::uint64_t request_id{};
@@ -153,6 +159,12 @@ private:
     void worker_loop(std::stop_token stop_token);
     void queue_candidate_request();
     void schedule_candidate_request(bool reset_retry);
+    [[nodiscard]] bool is_agent_mode() const noexcept;
+    void queue_agent_action(agent::Action action, std::string command_id = {},
+                            std::uint32_t page = 0);
+    void cancel_agent_session();
+    void handle_agent_result(AgentResult* result);
+    [[nodiscard]] std::wstring agent_preview_text() const;
     void queue_commit_feedback(std::wstring candidate, std::wstring input,
                                std::wstring context);
     void append_language_context(std::wstring_view text);
@@ -172,6 +184,14 @@ private:
     void handle_candidate_result(CandidateResult* result);
     void update_candidate_window();
     void move_pinyin_cursor(int direction);
+    [[nodiscard]] bool has_composition() const noexcept;
+    [[nodiscard]] std::wstring staged_text() const;
+    [[nodiscard]] std::wstring composition_preview() const;
+    [[nodiscard]] std::size_t composition_cursor() const noexcept;
+    void set_composition_cursor(std::size_t cursor);
+    void restore_staged_suffix(std::size_t first);
+    HRESULT commit_pending_composition(ITfContext* context);
+    void commit_pending_on_focus_loss();
     void move_candidate_page_from_shortcut(int direction);
     void change_candidate_page(int direction);
     void scroll_expanded_candidates(int rows);
@@ -192,6 +212,7 @@ private:
         WPARAM key, bool advance_quote_state = false);
     HRESULT commit_candidate(ITfContext* context, std::size_t index,
                              std::wstring_view suffix = {});
+    HRESULT stage_agent_candidate(ITfContext* context, std::size_t index);
     HRESULT commit_text(ITfContext* context, std::wstring text);
     HRESULT commit_raw_input(ITfContext* context);
     HRESULT commit_candidate_from_window(std::size_t index);
@@ -234,14 +255,29 @@ private:
     ID2D1SolidColorBrush* accent_brush_{nullptr};
     ID2D1SolidColorBrush* highlight_brush_{nullptr};
     ID2D1SolidColorBrush* strict_accent_brush_{nullptr};
+    struct StagedCandidate {
+        std::wstring text;
+        std::wstring source_input;
+    };
     std::wstring input_buffer_;
     std::size_t input_cursor_{0};
+    std::vector<StagedCandidate> staged_candidates_;
+    std::size_t staged_cursor_{0};
     std::wstring recent_language_context_;
     std::wstring recent_language_input_;
     std::wstring segmented_input_;
     std::vector<std::wstring> candidates_;
     std::vector<std::uint64_t> candidate_consumed_;
     std::vector<std::uint64_t> candidate_groups_;
+    std::string agent_session_id_;
+    agent::Status agent_status_{agent::Status::agent_mode};
+    std::wstring agent_message_;
+    std::wstring agent_executing_command_;
+    std::wstring agent_last_submitted_pinyin_;
+    std::vector<std::string> agent_command_ids_;
+    std::vector<bool> agent_command_high_risk_;
+    bool agent_request_pending_{false};
+    bool agent_response_visible_{false};
     std::wstring candidate_failure_detail_;
     std::vector<HitRegion> hit_regions_;
     std::optional<HitTarget> hovered_target_;

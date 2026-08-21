@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(OwOLibimeBridge VERSION 0.1.0 LANGUAGES CXX)
+project(OwOLibimeBridge VERSION 0.2.0 LANGUAGES CXX)
 
 if(NOT WIN32)
     message(FATAL_ERROR "The first OwO libime bridge supports Windows only")

@@ -13,7 +13,8 @@ struct PluginServiceDefinition {
 
 // Standard Core-to-plugin services. Plugins may also expose vendor-prefixed *.v1 services.
 // A non-empty permission is injected by PluginExecutor and is verified again by PluginHost.
-inline constexpr std::array<PluginServiceDefinition, 18> kKnownPluginServices{{
+inline constexpr std::array<PluginServiceDefinition, 19> kKnownPluginServices{{
+    {"owo.agent.exchange.v1", "agent.ipc", "Exchange a filtered, user-confirmed Agent request."},
     {"owo.health.check.v1", {}, "Check whether the plugin is ready."},
     {"owo.lifecycle.event.v1", {}, "Receive a bounded Core lifecycle event."},
     {"owo.command.execute.v1", {}, "Execute a plugin-defined command."},

@@ -109,7 +109,7 @@ int wmain(const int argc, wchar_t** argv) {
     if (!launch(executable + L" " + config +
                 L" set-all 4 true true 40 true Ctrl+Alt+C false Ctrl+Shift+Space true Enter 18 9"
                 L" true Ctrl+Shift+Left true Ctrl+Shift+Right true Ctrl+Shift+Up true Ctrl+Shift+Down"
-                L" false true false \"\" true 6 false",
+                L" false true false \"\" true 6 false false true",
                 navigation) || wait_and_close(navigation) != 0) return 21;
     std::ifstream navigation_input(path, std::ios::binary);
     const std::string navigation_bytes((std::istreambuf_iterator<char>(navigation_input)), {});
@@ -135,6 +135,10 @@ int wmain(const int argc, wchar_t** argv) {
         navigation_bytes.find("alt_code_preview_page_size=6\n") ==
             std::string::npos ||
         navigation_bytes.find("alt_code_preview_wheel_enabled=false\n") ==
+            std::string::npos ||
+        navigation_bytes.find("candidate_immediate_commit_enabled=false\n") ==
+            std::string::npos ||
+        navigation_bytes.find("focus_loss_commit_enabled=true\n") ==
             std::string::npos) return 22;
     PROCESS_INFORMATION invalid_all{};
     if (!launch(executable + L" " + config + L" set-all 4 true false 999", invalid_all) ||

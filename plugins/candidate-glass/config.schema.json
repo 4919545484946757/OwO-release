@@ -1,12 +1,12 @@
 {
-  "title": "OwO 半透明候选框",
+  "title": "OwO 亚克力候选框",
   "description": "配置候选框背景模糊、阴影及七类语义颜色。颜色与透明度成组保存，修改后会由 TSF 热加载。",
   "type": "object",
   "properties": {
     "background_blur_enabled": {"type":"boolean","title":"高斯模糊背景","description":"采样候选框后方画面并进行本地高斯模糊。","default":true},
     "background_blur_radius": {"type":"number","title":"高斯模糊半径","description":"只作用于候选框下方画面；数值越大背景越柔和。","default":4,"minimum":0,"maximum":24,"multipleOf":1},
     "background_color": {"type":"string","format":"color","title":"背景颜色","description":"候选框主体背景。","default":"#101827"},
-    "background_opacity": {"type":"number","title":"背景透明度","description":"关闭模糊时控制透明度；开启模糊时，0 为纯模糊背景，1 为纯背景色。","default":0.93,"minimum":0,"maximum":1,"multipleOf":0.05},
+    "background_opacity": {"type":"number","title":"背景透明度","description":"关闭模糊时控制透明度；开启模糊时，0 为纯模糊背景，1 为纯背景色。","default":0.9,"minimum":0,"maximum":1,"multipleOf":0.05},
     "border_color": {"type":"string","format":"color","title":"边框颜色","default":"#88AACC"},
     "border_opacity": {"type":"number","title":"边框透明度","default":0.35,"minimum":0,"maximum":1,"multipleOf":0.05},
     "divider_color": {"type":"string","format":"color","title":"分割线颜色","default":"#FFFFFF"},

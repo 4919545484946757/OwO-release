@@ -81,6 +81,11 @@ int main() {
         {{"he"}, "盒", 3900}, {{"he"}, "喝", 3800},
         {{"gong", "neng"}, "功能", 1700},
         {{"shi", "jie"}, "世界", 1600},
+        {{"liang"}, "两", 1800}, {{"liang"}, "亮", 1700},
+        {{"liang"}, "量", 1600}, {{"liang"}, "梁", 1500},
+        {{"liang"}, "良", 1400},
+        {{"li", "ang"}, "里昂", 1300}, {{"li", "ang"}, "离昂", 1200},
+        {{"li", "ang"}, "立昂", 1100},
         {{"ga"}, "A", 1000}, {{"ge"}, "B", 900},
         {{"gou"}, "C", 800}, {{"gu"}, "D", 700},
         {{"gang"}, "E", 600}, {{"gong"}, "F", 500},
@@ -161,6 +166,9 @@ int main() {
     const auto winning_sentence_head = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request,
                     125, 8, "hejunjiang"});
+    const auto ambiguous_single_syllable = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    126, 8, "liang"});
     owo::protocol::Message correction_disabled_request{
         owo::protocol::MessageType::candidate_request, 111, 8, "niaho"};
     correction_disabled_request.correction_enabled = false;
@@ -228,6 +236,21 @@ int main() {
         winning_sentence_head.message.candidates.end(), "和");
     const auto winning_head_index = static_cast<std::size_t>(
         winning_head - winning_sentence_head.message.candidates.begin());
+    const auto first_dictionary = std::find(
+        ambiguous_single_syllable.message.candidate_groups.begin(),
+        ambiguous_single_syllable.message.candidate_groups.end(), 1);
+    const auto single_syllable_partition_ok =
+        ambiguous_single_syllable.validation &&
+        ambiguous_single_syllable.message.candidates.size() == 7 &&
+        ambiguous_single_syllable.message.candidate_groups.size() == 7 &&
+        ambiguous_single_syllable.message.candidate_groups.front() == 2 &&
+        first_dictionary != ambiguous_single_syllable.message.candidate_groups.end() &&
+        std::all_of(ambiguous_single_syllable.message.candidate_groups.begin(),
+                    first_dictionary,
+                    [](const std::uint64_t group) { return group == 2; }) &&
+        std::all_of(first_dictionary,
+                    ambiguous_single_syllable.message.candidate_groups.end(),
+                    [](const std::uint64_t group) { return group == 1; });
     if (!commits_ok || !valid_response(first, 101, 7) || !valid_response(second, 102, 8) ||
         !valid_response(learned, 104, 8, {"你号", "你好"}) ||
         !nihao_ranged.validation ||
@@ -267,6 +290,7 @@ int main() {
                   sentence_second.message.candidate_groups.end(), 0) !=
             sentence_second.message.candidate_groups.end() ||
         !winning_sentence_head.validation ||
+        !single_syllable_partition_ok ||
         winning_sentence_head.message.candidates.empty() ||
         winning_head == winning_sentence_head.message.candidates.end() ||
         winning_head_index >= winning_sentence_head.message.candidate_groups.size() ||
@@ -341,6 +365,7 @@ int main() {
         dump("sentence-first", sentence_first);
         dump("sentence-second", sentence_second);
         dump("winning-sentence-head", winning_sentence_head);
+        dump("ambiguous-single-syllable", ambiguous_single_syllable);
         dump("first-page", first_page);
         dump("second-page", second_page);
         dump("expanded", expanded);

@@ -4,6 +4,7 @@
 #include "owo/tsf/pinyin_cursor.h"
 
 #include "owo/config/config_paths.h"
+#include "owo/agent/agent_protocol.h"
 #include "owo/ipc/named_pipe.h"
 #include "owo/protocol/messages.h"
 
@@ -40,6 +41,7 @@ constexpr UINT kCandidateReady = WM_APP + 1;
 constexpr UINT kLanguageShortcutPressed = WM_APP + 2;
 constexpr UINT kAltCodeDigitPressed = WM_APP + 3;
 constexpr UINT kAltCodeFinished = WM_APP + 4;
+constexpr UINT kAgentReady = WM_APP + 5;
 constexpr float kCandidateWindowMinWidthDip = 240.0F;
 constexpr float kCandidateWindowMaxWidthDip = 1400.0F;
 constexpr float kHeaderHeightDip = 40.0F;
@@ -61,6 +63,71 @@ constexpr auto kCandidateRequestBaseTimeout = std::chrono::milliseconds(900);
 constexpr auto kCandidateRequestMaximumTimeout = std::chrono::milliseconds(2500);
 constexpr auto kFeedbackRequestTimeout = std::chrono::milliseconds(100);
 thread_local TextService* keyboard_hook_service = nullptr;
+
+std::string utf8_from_wide(std::wstring_view input);
+
+std::string new_agent_session_id() {
+    GUID value{};
+    if (FAILED(CoCreateGuid(&value))) return {};
+    constexpr char digits[] = "0123456789abcdef";
+    const auto* bytes = reinterpret_cast<const unsigned char*>(&value);
+    std::string result;
+    result.reserve(sizeof(value) * 2);
+    for (std::size_t index = 0; index < sizeof(value); ++index) {
+        result.push_back(digits[bytes[index] >> 4]);
+        result.push_back(digits[bytes[index] & 15]);
+    }
+    return result;
+}
+
+std::wstring agent_status_label(const agent::Status status) {
+    switch (status) {
+    case agent::Status::agent_mode: return L"Agent 模式";
+    case agent::Status::thinking: return L"思考中";
+    case agent::Status::executing: return L"执行中";
+    case agent::Status::completed: return L"已完成";
+    case agent::Status::disconnected: return L"未连接";
+    case agent::Status::error: return L"错误";
+    }
+    return L"错误";
+}
+
+agent::ApplicationContext current_agent_application() {
+    agent::ApplicationContext result;
+    HWND window = GetForegroundWindow();
+    if (window == nullptr) return result;
+    DWORD process_id = 0;
+    const DWORD thread_id = GetWindowThreadProcessId(window, &process_id);
+    result.process_id = process_id;
+    wchar_t class_name[129]{};
+    const int class_length = GetClassNameW(window, class_name,
+                                           static_cast<int>(std::size(class_name)));
+    if (class_length > 0)
+        result.window_class = utf8_from_wide(
+            std::wstring_view(class_name, static_cast<std::size_t>(class_length)));
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process_id);
+    if (process != nullptr) {
+        wchar_t path[32768]{};
+        DWORD size = static_cast<DWORD>(std::size(path));
+        if (QueryFullProcessImageNameW(process, 0, path, &size) && size != 0)
+            result.executable = utf8_from_wide(
+                std::filesystem::path(std::wstring_view(path, size)).filename().wstring());
+        CloseHandle(process);
+    }
+    GUITHREADINFO gui{sizeof(gui)};
+    if (thread_id != 0 && GetGUIThreadInfo(thread_id, &gui) && gui.hwndFocus != nullptr) {
+        wchar_t focus_class[32]{};
+        GetClassNameW(gui.hwndFocus, focus_class, static_cast<int>(std::size(focus_class)));
+        const auto style = static_cast<DWORD>(GetWindowLongPtrW(gui.hwndFocus, GWL_STYLE));
+        result.sensitive_input = (_wcsicmp(focus_class, L"Edit") == 0 &&
+                                  (style & ES_PASSWORD) != 0);
+    }
+    if (result.sensitive_input) {
+        result.executable.clear();
+        result.window_class.clear();
+    }
+    return result;
+}
 
 std::optional<std::wstring> alt_code_symbol(const std::wstring_view digits) {
     if (digits.empty()) return std::nullopt;
@@ -773,10 +840,12 @@ HRESULT TextService::Deactivate() {
 HRESULT TextService::OnSetFocus(const BOOL foreground) {
     foreground_focus_ = foreground != FALSE;
     if (!foreground_focus_) {
+        if (is_agent_mode()) cancel_agent_session();
+        else commit_pending_on_focus_loss();
         clear_composition();
         recent_language_context_.clear();
         recent_language_input_.clear();
-    } else if (!input_buffer_.empty()) {
+    } else if (has_composition()) {
         update_candidate_window();
     }
     return S_OK;
@@ -792,7 +861,22 @@ HRESULT TextService::OnUninitDocumentMgr(ITfDocumentMgr*) {
 
 HRESULT TextService::OnSetFocus(ITfDocumentMgr* document_manager,
                                 ITfDocumentMgr* previous_document_manager) {
-    if (document_manager != previous_document_manager) clear_composition();
+    if (document_manager != previous_document_manager) {
+        const bool agent_mode = is_agent_mode();
+        if (agent_mode) cancel_agent_session();
+        refresh_shortcut_config();
+        if (!agent_mode && shortcut_config_.focus_loss_commit_enabled && has_composition() &&
+            previous_document_manager != nullptr) {
+            ITfContext* previous_context = nullptr;
+            if (SUCCEEDED(previous_document_manager->GetTop(&previous_context)) &&
+                previous_context != nullptr) {
+                if (staged_candidates_.empty()) commit_raw_input(previous_context);
+                else commit_pending_composition(previous_context);
+                previous_context->Release();
+            }
+        }
+        clear_composition();
+    }
     if (document_manager != previous_document_manager) {
         recent_language_context_.clear();
         recent_language_input_.clear();
@@ -802,13 +886,22 @@ HRESULT TextService::OnSetFocus(ITfDocumentMgr* document_manager,
 }
 
 HRESULT TextService::OnPushContext(ITfContext*) {
+    if (is_agent_mode()) cancel_agent_session();
     clear_composition();
     recent_language_context_.clear();
     recent_language_input_.clear();
     return S_OK;
 }
 
-HRESULT TextService::OnPopContext(ITfContext*) {
+HRESULT TextService::OnPopContext(ITfContext* context) {
+    const bool agent_mode = is_agent_mode();
+    if (agent_mode) cancel_agent_session();
+    refresh_shortcut_config();
+    if (!agent_mode && shortcut_config_.focus_loss_commit_enabled && has_composition() &&
+        context != nullptr) {
+        if (staged_candidates_.empty()) commit_raw_input(context);
+        else commit_pending_composition(context);
+    }
     clear_composition();
     recent_language_context_.clear();
     recent_language_input_.clear();
@@ -817,11 +910,13 @@ HRESULT TextService::OnPopContext(ITfContext*) {
 
 HRESULT TextService::OnSetThreadFocus() {
     foreground_focus_ = true;
-    if (!input_buffer_.empty()) update_candidate_window();
+    if (has_composition()) update_candidate_window();
     return S_OK;
 }
 
 HRESULT TextService::OnKillThreadFocus() {
+    if (is_agent_mode()) cancel_agent_session();
+    else commit_pending_on_focus_loss();
     foreground_focus_ = false;
     clear_composition();
     recent_language_context_.clear();
@@ -854,22 +949,23 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
         shortcut_matches(shortcut_config_.language_shortcuts, key)) return true;
     if (shortcut_config_.punctuation_shortcut_enabled &&
         shortcut_matches(shortcut_config_.punctuation_shortcuts, key)) return true;
-    if (!input_buffer_.empty() && shortcut_config_.raw_input_shortcut_enabled &&
+    if (has_composition() && shortcut_config_.raw_input_shortcut_enabled &&
         shortcut_matches(shortcut_config_.raw_input_shortcuts, key)) return true;
-    if (!input_buffer_.empty() && shortcut_config_.cursor_left_shortcut_enabled &&
+    if (has_composition() && shortcut_config_.cursor_left_shortcut_enabled &&
         shortcut_matches(shortcut_config_.cursor_left_shortcuts, key)) return true;
-    if (!input_buffer_.empty() && shortcut_config_.cursor_right_shortcut_enabled &&
+    if (has_composition() && shortcut_config_.cursor_right_shortcut_enabled &&
         shortcut_matches(shortcut_config_.cursor_right_shortcuts, key)) return true;
     if (!input_buffer_.empty() && shortcut_config_.previous_page_shortcut_enabled &&
         shortcut_matches(shortcut_config_.previous_page_shortcuts, key)) return true;
     if (!input_buffer_.empty() && shortcut_config_.next_page_shortcut_enabled &&
         shortcut_matches(shortcut_config_.next_page_shortcuts, key)) return true;
     if (!chinese_mode_) return false;
+    if (is_agent_mode() && (key == VK_RETURN || key == VK_SPACE)) return true;
     if (key >= 'A' && key <= 'Z') return !command_modifier_down();
     if (chinese_punctuation_enabled_ && !command_modifier_down() &&
         const_cast<TextService*>(this)->chinese_punctuation_for_key(key).has_value())
         return true;
-    if (input_buffer_.empty()) return false;
+    if (!has_composition()) return false;
     if (key == VK_OEM_7) return GetKeyState(VK_SHIFT) >= 0 && !command_modifier_down();
     if (key == VK_BACK || key == VK_ESCAPE) return true;
     if ((key == VK_UP || key == VK_DOWN) && candidates_expanded_ &&
@@ -881,7 +977,8 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
         return candidates_expanded_ ||
                candidate_page_ > 0;
     if (key == VK_SPACE)
-        return candidate_request_pending_ || !candidates_.empty();
+        return is_agent_mode() || candidate_request_pending_ || !candidates_.empty() ||
+               (!staged_candidates_.empty() && input_buffer_.empty());
     return key >= '1' && key <= '9' &&
            (candidate_request_pending_ ||
             static_cast<std::size_t>(key - '1') < candidates_.size());
@@ -926,14 +1023,29 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
                shortcut_matches(shortcut_config_.punctuation_shortcuts, key)) {
         chinese_punctuation_enabled_ = !chinese_punctuation_enabled_;
         return S_OK;
-    } else if (!input_buffer_.empty() && shortcut_config_.raw_input_shortcut_enabled &&
+    } else if (is_agent_mode() &&
+               (key == VK_RETURN || key == VK_SPACE)) {
+        if (agent_response_visible_ && !agent_command_ids_.empty() && key == VK_SPACE) {
+            if (!agent_command_high_risk_.empty() && agent_command_high_risk_.front()) {
+                agent_status_ = agent::Status::error;
+                agent_message_ = L"高风险指令必须在第三方 Agent 内单独确认";
+                update_candidate_window();
+                return S_OK;
+            }
+            queue_agent_action(agent::Action::select, agent_command_ids_.front());
+        } else if (input_buffer_.size() > 1 || !staged_candidates_.empty()) {
+            queue_agent_action(agent::Action::submit);
+        }
+        return S_OK;
+    } else if (has_composition() && shortcut_config_.raw_input_shortcut_enabled &&
                shortcut_matches(shortcut_config_.raw_input_shortcuts, key)) {
-        if (context != nullptr) return commit_raw_input(context);
+        if (context != nullptr) return staged_candidates_.empty()
+            ? commit_raw_input(context) : commit_pending_composition(context);
         clear_composition();
-    } else if (!input_buffer_.empty() && shortcut_config_.cursor_left_shortcut_enabled &&
+    } else if (has_composition() && shortcut_config_.cursor_left_shortcut_enabled &&
                shortcut_matches(shortcut_config_.cursor_left_shortcuts, key)) {
         move_pinyin_cursor(-1);
-    } else if (!input_buffer_.empty() && shortcut_config_.cursor_right_shortcut_enabled &&
+    } else if (has_composition() && shortcut_config_.cursor_right_shortcut_enabled &&
                shortcut_matches(shortcut_config_.cursor_right_shortcuts, key)) {
         move_pinyin_cursor(1);
     } else if (!input_buffer_.empty() && shortcut_config_.previous_page_shortcut_enabled &&
@@ -944,6 +1056,23 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
         move_candidate_page_from_shortcut(1);
     } else if (key >= 'A' && key <= 'Z') {
         if (input_buffer_.size() >= kMaximumPinyinInputLength) return S_OK;
+        if (is_agent_mode() && agent_response_visible_) {
+            if (!agent_message_.empty()) {
+                input_buffer_ = L"v";
+                input_cursor_ = 1;
+            }
+            segmented_input_.clear();
+            candidates_.clear();
+            candidate_consumed_.clear();
+            candidate_groups_.clear();
+            agent_command_ids_.clear();
+            agent_command_high_risk_.clear();
+            agent_message_.clear();
+            agent_executing_command_.clear();
+            agent_response_visible_ = false;
+        }
+        if (staged_cursor_ < staged_candidates_.size())
+            restore_staged_suffix(staged_cursor_);
         const bool shift = key_down(VK_SHIFT);
         const bool caps_lock = (GetKeyState(VK_CAPITAL) & 1) != 0;
         const wchar_t base = shift != caps_lock ? L'A' : L'a';
@@ -960,6 +1089,8 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
         queue_candidate_request();
     } else if (key == VK_OEM_7 && !key_down(VK_SHIFT) && !input_buffer_.empty() &&
                input_buffer_.size() < kMaximumPinyinInputLength) {
+        if (staged_cursor_ < staged_candidates_.size())
+            restore_staged_suffix(staged_cursor_);
         input_cursor_ = std::min(input_cursor_, input_buffer_.size());
         const bool left_separator = input_cursor_ > 0 &&
                                     input_buffer_[input_cursor_ - 1] == L'\'';
@@ -991,15 +1122,61 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
         }
         return commit_text(context, *punctuation);
     } else if (key == VK_BACK) {
+        const bool was_agent_mode = is_agent_mode();
+        if (was_agent_mode && (agent_request_pending_ || agent_response_visible_) &&
+            !agent_last_submitted_pinyin_.empty()) {
+            cancel_agent_session();
+            input_buffer_ = L"v" + agent_last_submitted_pinyin_;
+            input_cursor_ = input_buffer_.size();
+            staged_candidates_.clear();
+            staged_cursor_ = 0;
+            segmented_input_.clear();
+            candidates_.clear();
+            candidate_consumed_.clear();
+            candidate_groups_.clear();
+            agent_status_ = agent::Status::agent_mode;
+            agent_message_.clear();
+            agent_executing_command_.clear();
+            agent_response_visible_ = false;
+        }
+        if (was_agent_mode && input_buffer_ == L"v" && !staged_candidates_.empty()) {
+            const auto restored = staged_candidates_.back().source_input;
+            staged_candidates_.pop_back();
+            staged_cursor_ = staged_candidates_.size();
+            input_buffer_.append(restored);
+            input_cursor_ = input_buffer_.size();
+            segmented_input_.clear();
+            candidate_page_ = 0;
+            has_more_candidates_ = false;
+            candidates_expanded_ = false;
+            ++context_generation_;
+            queue_candidate_request();
+            return S_OK;
+        }
+        if (input_cursor_ == 0 && staged_cursor_ > 0) {
+            const auto restored_cursor = staged_cursor_ - 1;
+            const auto restored_length = staged_candidates_[restored_cursor].source_input.size();
+            restore_staged_suffix(restored_cursor);
+            input_cursor_ = std::min(restored_length, input_buffer_.size());
+            candidate_page_ = 0;
+            has_more_candidates_ = false;
+            candidates_expanded_ = false;
+            ++context_generation_;
+            queue_candidate_request();
+            return S_OK;
+        }
         if (!erase_before_pinyin_cursor(
                 input_buffer_, segmented_input_, input_cursor_)) return S_OK;
         candidate_page_ = 0;
         has_more_candidates_ = false;
         candidates_expanded_ = false;
         ++context_generation_;
+        if (was_agent_mode && (input_buffer_.empty() || input_buffer_.front() != L'v'))
+            cancel_agent_session();
         if (input_buffer_.empty()) clear_composition();
         else queue_candidate_request();
     } else if (key == VK_ESCAPE) {
+        cancel_agent_session();
         clear_composition();
     } else if (candidates_expanded_ &&
                ((key == VK_DOWN && !key_down(VK_SHIFT) && !command_modifier_down()) ||
@@ -1016,12 +1193,31 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
     } else if (!candidates_expanded_ &&
                (key == VK_PRIOR || key == VK_OEM_4) && candidate_page_ > 0) {
         change_candidate_page(-1);
+    } else if (key == VK_SPACE && input_buffer_.empty() &&
+               !staged_candidates_.empty()) {
+        if (context != nullptr) return commit_pending_composition(context);
+        clear_composition();
     } else if (candidate_request_pending_) {
         const std::size_t index = key == VK_SPACE ? 0 : static_cast<std::size_t>(key - '1');
         defer_candidate_selection(index, context);
     } else if (context != nullptr && !candidates_.empty()) {
         const std::size_t index = key == VK_SPACE ? 0 : static_cast<std::size_t>(key - '1');
-        if (index < candidates_.size()) return commit_candidate(context, index);
+        if (index < candidates_.size()) {
+            if (is_agent_mode() && index < agent_command_ids_.size()) {
+                if (index < agent_command_high_risk_.size() &&
+                    agent_command_high_risk_[index]) {
+                    agent_status_ = agent::Status::error;
+                    agent_message_ = L"高风险指令必须在第三方 Agent 内单独确认";
+                    agent_response_visible_ = true;
+                    update_candidate_window();
+                    return S_OK;
+                }
+                queue_agent_action(agent::Action::select, agent_command_ids_[index]);
+                return S_OK;
+            }
+            if (is_agent_mode()) return stage_agent_candidate(context, index);
+            return commit_candidate(context, index);
+        }
     }
     return S_OK;
 }
@@ -1375,9 +1571,20 @@ SIZE TextService::desired_candidate_window_size() const {
     };
     float candidates_width = 0.0F;
     if (candidates_.empty()) {
-        const auto status = candidate_status_text(candidate_request_pending_,
-                                                  candidate_request_failed_,
-                                                  candidate_failure_detail_);
+        const auto status = is_agent_mode() && !agent_response_visible_ && input_buffer_.size() <= 1
+            ? (staged_candidates_.empty()
+                ? std::wstring_view(L"Agent 模式：继续输入请求")
+                : std::wstring_view(L"按 Enter 或空格发送给 Agent"))
+            : is_agent_mode() && agent_response_visible_
+            ? (!agent_executing_command_.empty()
+                ? std::wstring_view(agent_executing_command_)
+                : agent_request_pending_ ? std::wstring_view(L"正在等待 Agent…")
+                                         : std::wstring_view(L"暂无候选指令"))
+            : input_buffer_.empty() && !staged_candidates_.empty()
+            ? std::wstring_view(L"按 Enter 或空格上屏")
+            : candidate_status_text(candidate_request_pending_,
+                                    candidate_request_failed_,
+                                    candidate_failure_detail_);
         candidates_width = kCandidatePillBaseWidthDip +
                            measure_text_width(dwrite_factory_, candidate_text_format_, status);
     } else if (candidates_expanded_) {
@@ -1388,7 +1595,9 @@ SIZE TextService::desired_candidate_window_size() const {
     } else {
         candidates_width = row_width(0, candidates_.size());
     }
-    const std::wstring& reading = segmented_input_.empty() ? input_buffer_ : segmented_input_;
+    const std::wstring agent_preview = agent_preview_text();
+    const std::wstring reading = agent_preview.empty()
+        ? composition_preview() : agent_preview;
     const float preview_width = kHorizontalPaddingDip * 2.0F +
                                 measure_text_width(dwrite_factory_, input_text_format_, reading);
     const float candidate_row_width = kHorizontalPaddingDip * 2.0F + candidates_width +
@@ -1866,8 +2075,21 @@ void TextService::render_candidate_window() {
         return;
     }
 
-    const std::wstring& reading = segmented_input_.empty() ? input_buffer_ : segmented_input_;
-    const std::wstring& preview = reading;
+    std::wstring reading = segmented_input_.empty() ? input_buffer_ : segmented_input_;
+    const std::wstring staged = staged_text();
+    const std::wstring agent_preview = agent_preview_text();
+    const bool editable_agent_preview = agent_preview.empty() && is_agent_mode() &&
+        !input_buffer_.empty() && input_buffer_.front() == L'v';
+    std::wstring logical_input = input_buffer_;
+    std::size_t agent_prefix_length = 0;
+    if (editable_agent_preview) {
+        agent_prefix_length = 4;  // "v + "
+        if (!reading.empty() && reading.front() == L'v') reading.erase(reading.begin());
+        if (!logical_input.empty() && logical_input.front() == L'v')
+            logical_input.erase(logical_input.begin());
+    }
+    const std::wstring preview = agent_preview.empty()
+        ? composition_preview() : agent_preview;
     IDWriteTextLayout* preview_layout = nullptr;
     const HRESULT preview_layout_result = dwrite_factory_->CreateTextLayout(
         preview.data(), static_cast<UINT32>(preview.size()), input_text_format_,
@@ -1879,7 +2101,7 @@ void TextService::render_candidate_window() {
             mode_accent_brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
 
         std::vector<float> caret_positions(preview.size() + 1, 0.0F);
-        for (std::size_t shown = 0; shown <= preview.size(); ++shown) {
+        if (agent_preview.empty()) for (std::size_t shown = 0; shown <= preview.size(); ++shown) {
             FLOAT x = 0.0F;
             FLOAT y = 0.0F;
             DWRITE_HIT_TEST_METRICS metrics{};
@@ -1889,7 +2111,7 @@ void TextService::render_candidate_window() {
             else if (shown != 0)
                 caret_positions[shown] = caret_positions[shown - 1];
         }
-        for (std::size_t shown = 0; shown <= preview.size(); ++shown) {
+        if (agent_preview.empty()) for (std::size_t shown = 0; shown <= preview.size(); ++shown) {
             const float left = shown == 0
                                    ? kHorizontalPaddingDip
                                    : kHorizontalPaddingDip +
@@ -1905,16 +2127,46 @@ void TextService::render_candidate_window() {
                     D2D1::RectF(left, 0.0F, std::max(left + 1.0F, right),
                                 kHeaderHeightDip), dpi),
                 {HitKind::pinyin_cursor,
-                 input_cursor_for_preview_index(input_buffer_, preview, shown)}});
+                 [this, &staged, &reading, &logical_input, editable_agent_preview,
+                  agent_prefix_length, shown] {
+                    if (editable_agent_preview && shown <= agent_prefix_length)
+                        return staged_candidates_.size() + 1;
+                    const auto relative = shown -
+                        std::min(shown, agent_prefix_length);
+                    if (relative <= staged.size()) {
+                        std::size_t offset = 0;
+                        for (std::size_t index = 0;
+                             index < staged_candidates_.size(); ++index) {
+                            const auto next = offset + staged_candidates_[index].text.size();
+                            if (relative <= next)
+                                return relative * 2 < offset + next ? index : index + 1;
+                            offset = next;
+                        }
+                        return staged_candidates_.size();
+                    }
+                    return staged_candidates_.size() + input_cursor_for_preview_index(
+                        logical_input, reading, relative - staged.size()) +
+                        (editable_agent_preview ? 1 : 0);
+                }()}});
         }
-        const auto shown_cursor = preview_index_for_input_cursor(
-            input_buffer_, preview, input_cursor_);
-        const float caret_x = kHorizontalPaddingDip +
-                              caret_positions[std::min(shown_cursor, preview.size())];
-        render_target_->DrawLine(
-            D2D1::Point2F(caret_x, 7.0F),
-            D2D1::Point2F(caret_x, kHeaderHeightDip - 7.0F),
-            mode_accent_brush, 1.5F);
+        if (agent_preview.empty()) {
+            std::size_t shown_cursor = 0;
+            if (staged_cursor_ < staged_candidates_.size()) {
+                for (std::size_t index = 0; index < staged_cursor_; ++index)
+                    shown_cursor += staged_candidates_[index].text.size();
+            } else {
+                shown_cursor = staged.size() + preview_index_for_input_cursor(
+                    logical_input, reading, editable_agent_preview && input_cursor_ > 0
+                        ? input_cursor_ - 1 : input_cursor_);
+            }
+            shown_cursor += agent_prefix_length;
+            const float caret_x = kHorizontalPaddingDip +
+                                  caret_positions[std::min(shown_cursor, preview.size())];
+            render_target_->DrawLine(
+                D2D1::Point2F(caret_x, 7.0F),
+                D2D1::Point2F(caret_x, kHeaderHeightDip - 7.0F),
+                mode_accent_brush, 1.5F);
+        }
         preview_layout->Release();
     } else {
         render_target_->DrawTextW(
@@ -2030,9 +2282,20 @@ void TextService::render_candidate_window() {
     };
 
     if (candidates_.empty()) {
-        const auto status = candidate_status_text(candidate_request_pending_,
-                                                  candidate_request_failed_,
-                                                  candidate_failure_detail_);
+        const auto status = is_agent_mode() && !agent_response_visible_ && input_buffer_.size() <= 1
+            ? (staged_candidates_.empty()
+                ? std::wstring_view(L"Agent 模式：继续输入请求")
+                : std::wstring_view(L"按 Enter 或空格发送给 Agent"))
+            : is_agent_mode() && agent_response_visible_
+            ? (!agent_executing_command_.empty()
+                ? std::wstring_view(agent_executing_command_)
+                : agent_request_pending_ ? std::wstring_view(L"正在等待 Agent…")
+                                         : std::wstring_view(L"暂无候选指令"))
+            : input_buffer_.empty() && !staged_candidates_.empty()
+            ? std::wstring_view(L"按 Enter 或空格上屏")
+            : candidate_status_text(candidate_request_pending_,
+                                    candidate_request_failed_,
+                                    candidate_failure_detail_);
         render_target_->DrawTextW(
             status.data(), static_cast<UINT32>(status.size()), candidate_text_format_,
             D2D1::RectF(kHorizontalPaddingDip, content_top, candidate_right,
@@ -2132,6 +2395,10 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     }
     if (message == kCandidateReady && service != nullptr) {
         service->handle_candidate_result(reinterpret_cast<CandidateResult*>(lparam));
+        return 0;
+    }
+    if (message == kAgentReady && service != nullptr) {
+        service->handle_agent_result(reinterpret_cast<AgentResult*>(lparam));
         return 0;
     }
     if (message == kLanguageShortcutPressed && service != nullptr) {
@@ -2330,6 +2597,113 @@ void TextService::queue_candidate_request() {
     schedule_candidate_request(true);
 }
 
+bool TextService::is_agent_mode() const noexcept {
+    return (!input_buffer_.empty() && input_buffer_.front() == L'v') ||
+           !agent_session_id_.empty();
+}
+
+std::wstring TextService::agent_preview_text() const {
+    if (!is_agent_mode() || !agent_response_visible_) return {};
+    std::wstring preview = L"v + ";
+    preview.append(agent_message_);
+    preview.append(L"    [");
+    preview.append(agent_status_label(agent_status_));
+    preview.push_back(L']');
+    return preview;
+}
+
+void TextService::queue_agent_action(const agent::Action action,
+                                     std::string command_id,
+                                     const std::uint32_t page) {
+    if (agent_session_id_.empty()) agent_session_id_ = new_agent_session_id();
+    if (agent_session_id_.empty()) {
+        agent_status_ = agent::Status::error;
+        agent_message_ = L"无法创建 Agent 会话";
+        agent_response_visible_ = true;
+        update_candidate_window();
+        return;
+    }
+    agent::Request request;
+    request.action = action;
+    request.session_id = agent_session_id_;
+    if (action == agent::Action::submit) {
+        std::wstring input = staged_text();
+        if (input_buffer_.size() > 1)
+            input.append(std::wstring_view(input_buffer_).substr(1));
+        request.user_input = utf8_from_wide(input);
+        agent_last_submitted_pinyin_.clear();
+        for (const auto& fragment : staged_candidates_)
+            agent_last_submitted_pinyin_.append(fragment.source_input);
+        if (input_buffer_.size() > 1)
+            agent_last_submitted_pinyin_.append(
+                std::wstring_view(input_buffer_).substr(1));
+    }
+    if (action == agent::Action::submit) {
+        request.application = current_agent_application();
+        if (!request.application.sensitive_input)
+            request.session_context = utf8_from_wide(recent_language_context_);
+    }
+    request.command_id = std::move(command_id);
+    request.page = page;
+    const auto encoded = agent::encode_request(request);
+    if (encoded.empty()) {
+        agent_status_ = agent::Status::error;
+        agent_message_ = L"Agent 请求为空或格式无效";
+        agent_response_visible_ = true;
+        update_candidate_window();
+        return;
+    }
+    ++context_generation_;
+    const auto request_id = next_request_id_++;
+    {
+        std::lock_guard lock(request_mutex_);
+        pending_request_ = PendingRequest{
+            static_cast<std::uint8_t>(protocol::MessageType::agent_request),
+            request_id, context_generation_, 0, wide_from_utf8(encoded), false, true,
+            {}, {}};
+    }
+    active_candidate_request_id_ = request_id;
+    latest_candidate_request_id_.store(request_id, std::memory_order_release);
+    agent_request_pending_ = action != agent::Action::cancel;
+    agent_status_ = action == agent::Action::cancel
+        ? agent::Status::completed : agent::Status::thinking;
+    if (action != agent::Action::poll) {
+        agent_message_.clear();
+        agent_executing_command_.clear();
+        agent_command_ids_.clear();
+        agent_command_high_risk_.clear();
+        candidates_.clear();
+        candidate_consumed_.clear();
+        candidate_groups_.clear();
+        agent_response_visible_ = true;
+    }
+    request_ready_.notify_one();
+    update_candidate_window();
+}
+
+void TextService::cancel_agent_session() {
+    if (agent_session_id_.empty()) return;
+    agent::Request cancel;
+    cancel.action = agent::Action::cancel;
+    cancel.session_id = agent_session_id_;
+    const auto encoded = agent::encode_request(cancel);
+    if (!encoded.empty()) {
+        std::lock_guard lock(request_mutex_);
+        feedback_requests_.push_back(PendingRequest{
+            static_cast<std::uint8_t>(protocol::MessageType::agent_request),
+            next_request_id_++, context_generation_, 0, wide_from_utf8(encoded),
+            false, true, {}, {}});
+        request_ready_.notify_one();
+    }
+    agent_session_id_.clear();
+    agent_request_pending_ = false;
+    agent_response_visible_ = false;
+    agent_message_.clear();
+    agent_executing_command_.clear();
+    agent_command_ids_.clear();
+    agent_command_high_risk_.clear();
+}
+
 void TextService::refresh_shortcut_config(const bool force) {
     const auto now = GetTickCount64();
     if (!force && shortcut_config_initialized_ && now < next_shortcut_config_refresh_) return;
@@ -2524,6 +2898,14 @@ bool TextService::shortcut_matches(const std::vector<std::string>& shortcuts,
 }
 
 void TextService::schedule_candidate_request(const bool reset_retry) {
+    const bool agent_mode = is_agent_mode();
+    const std::wstring request_input = agent_mode && !input_buffer_.empty()
+        ? input_buffer_.substr(1) : input_buffer_;
+    if (request_input.empty()) {
+        candidate_request_pending_ = false;
+        update_candidate_window();
+        return;
+    }
     candidate_request_pending_ = true;
     candidate_request_failed_ = false;
     candidate_failure_detail_.clear();
@@ -2555,11 +2937,17 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
             active_candidate_request_id_, context_generation_);
         candidate_cancellation_event_ = CreateEventW(
             nullptr, TRUE, FALSE, event_name.c_str());
+        std::wstring request_context = recent_language_context_;
+        append_bounded_language_context(request_context, staged_text());
+        std::wstring previous_input = staged_candidates_.empty()
+            ? recent_language_input_ : staged_candidates_.back().source_input;
+        while (!previous_input.empty() && previous_input.back() == L'\'')
+            previous_input.pop_back();
         pending_request_ = PendingRequest{
             static_cast<std::uint8_t>(protocol::MessageType::candidate_request),
-            active_candidate_request_id_, context_generation_, candidate_page_, input_buffer_,
-            candidates_expanded_, correction_enabled_, recent_language_input_,
-            recent_language_context_};
+            active_candidate_request_id_, context_generation_, candidate_page_, request_input,
+            candidates_expanded_, correction_enabled_, previous_input,
+            std::move(request_context)};
     }
     request_ready_.notify_one();
     update_candidate_window();
@@ -2630,9 +3018,24 @@ void TextService::worker_loop(const std::stop_token stop_token) {
                              reinterpret_cast<LPARAM>(result.get())))
                 result.release();
         };
+        const auto post_agent_failure = [this, &request, request_type](
+                                             std::wstring detail,
+                                             const agent::Status status = agent::Status::error) {
+            if (request_type != protocol::MessageType::agent_request) return;
+            const auto original = agent::decode_request(utf8_from_wide(request.input));
+            if (!original.ok) return;
+            auto result = std::make_unique<AgentResult>();
+            result->request_id = request.request_id;
+            result->generation = request.generation;
+            result->response = {original.value.session_id, utf8_from_wide(detail), {}, {},
+                                status, 0, false, "ipc_error"};
+            if (PostMessageW(message_window_, kAgentReady, 0,
+                             reinterpret_cast<LPARAM>(result.get()))) result.release();
+        };
         const auto timeout = request_type == protocol::MessageType::candidate_request
-                                 ? candidate_request_timeout(request.input.size())
-                                 : kFeedbackRequestTimeout;
+            ? candidate_request_timeout(request.input.size())
+            : request_type == protocol::MessageType::agent_request
+                ? std::chrono::milliseconds(2500) : kFeedbackRequestTimeout;
         const auto exchange_started = std::chrono::steady_clock::now();
         const auto exchanged = core_client.exchange(
             protocol::encode_message(paged_message), timeout);
@@ -2656,6 +3059,8 @@ void TextService::worker_loop(const std::stop_token stop_token) {
                                   ? std::wstring(L"候选生成稍慢，请继续输入或重试")
                                   : std::wstring(L"候选服务暂不可用");
                 post_candidate_failure(std::move(detail));
+                if (request_type == protocol::MessageType::agent_request)
+                    post_agent_failure(L"Agent IPC 服务不可用", agent::Status::disconnected);
             }
             continue;
         }
@@ -2668,17 +3073,94 @@ void TextService::worker_loop(const std::stop_token stop_token) {
                               : wide_from_utf8(decoded.validation.message);
             if (detail.empty()) detail = L"候选响应协议无效";
             post_candidate_failure(std::move(detail));
+            if (request_type == protocol::MessageType::agent_request)
+                post_agent_failure(L"Agent 响应格式错误");
             continue;
         }
         if (decoded.message.request_id != request.request_id) {
             core_client.reset();
             post_candidate_failure(L"候选服务响应错位，正在重试");
+            if (request_type == protocol::MessageType::agent_request)
+                post_agent_failure(L"Agent 会话响应错位");
             continue;
         }
         if (decoded.message.type == protocol::MessageType::error_response) {
             auto detail = wide_from_utf8(decoded.message.text);
             if (detail.empty()) detail = L"候选服务返回错误";
             post_candidate_failure(std::move(detail));
+            if (request_type == protocol::MessageType::agent_request)
+                post_agent_failure(L"Agent 插件调用失败");
+            continue;
+        }
+        if (request_type == protocol::MessageType::agent_request) {
+            const auto original = agent::decode_request(utf8_from_wide(request.input));
+            if (!original.ok || decoded.message.type != protocol::MessageType::agent_response) {
+                post_agent_failure(L"Agent 响应类型错误");
+                continue;
+            }
+            auto current = agent::decode_response(decoded.message.text);
+            if (!current.ok || current.value.session_id != original.value.session_id) {
+                post_agent_failure(L"Agent 会话 ID 不匹配");
+                continue;
+            }
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+            while ((current.value.status == agent::Status::thinking ||
+                    current.value.status == agent::Status::executing) &&
+                   std::chrono::steady_clock::now() < deadline &&
+                   !stop_token.stop_requested()) {
+                if (current.value.status == agent::Status::executing ||
+                    !current.value.message.empty() ||
+                    !current.value.executing_command.empty()) {
+                    auto interim = std::make_unique<AgentResult>();
+                    interim->request_id = request.request_id;
+                    interim->generation = request.generation;
+                    interim->response = current.value;
+                    if (PostMessageW(message_window_, kAgentReady, 0,
+                                     reinterpret_cast<LPARAM>(interim.get()))) interim.release();
+                }
+                {
+                    std::unique_lock lock(request_mutex_);
+                    if (request_ready_.wait_for(lock, stop_token,
+                            std::chrono::milliseconds(150), [this] {
+                                return pending_request_.has_value();
+                            })) break;
+                }
+                agent::Request poll;
+                poll.action = agent::Action::poll;
+                poll.session_id = original.value.session_id;
+                const protocol::Message poll_message{
+                    protocol::MessageType::agent_request, request.request_id,
+                    request.generation, agent::encode_request(poll)};
+                const auto polled = core_client.exchange(
+                    protocol::encode_message(poll_message), std::chrono::milliseconds(2500));
+                if (!polled.status) {
+                    post_agent_failure(L"Agent IPC 轮询超时");
+                    current.ok = false;
+                    break;
+                }
+                const auto poll_envelope = protocol::decode_message(polled.response);
+                if (!poll_envelope.validation ||
+                    poll_envelope.message.type != protocol::MessageType::agent_response ||
+                    poll_envelope.message.request_id != request.request_id) {
+                    post_agent_failure(L"Agent 轮询响应无效");
+                    current.ok = false;
+                    break;
+                }
+                current = agent::decode_response(poll_envelope.message.text);
+                if (!current.ok || current.value.session_id != original.value.session_id) {
+                    post_agent_failure(L"Agent 轮询会话不匹配");
+                    current.ok = false;
+                    break;
+                }
+            }
+            if (current.ok && !stop_token.stop_requested()) {
+                auto result = std::make_unique<AgentResult>();
+                result->request_id = request.request_id;
+                result->generation = request.generation;
+                result->response = std::move(current.value);
+                if (PostMessageW(message_window_, kAgentReady, 0,
+                                 reinterpret_cast<LPARAM>(result.get()))) result.release();
+            }
             continue;
         }
         if (request_type == protocol::MessageType::candidate_committed) {
@@ -2844,9 +3326,14 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
     }
     if (!result->preserve_paging) {
         has_more_candidates_ = result->has_more;
-        if (!result->segmented_input.empty())
-            segmented_input_ = case_preserving_segmented_input(
-                input_buffer_, result->segmented_input);
+        if (!result->segmented_input.empty()) {
+            if (is_agent_mode() && !input_buffer_.empty() && input_buffer_.front() == L'v')
+                segmented_input_ = L"v" + case_preserving_segmented_input(
+                    std::wstring_view(input_buffer_).substr(1), result->segmented_input);
+            else
+                segmented_input_ = case_preserving_segmented_input(
+                    input_buffer_, result->segmented_input);
+        }
     }
     if (!result->preserve_paging && deferred_page_direction_ != 0) {
         const int movement = std::exchange(deferred_page_direction_, 0);
@@ -2887,7 +3374,9 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
         deferred_candidate_text_.reset();
         if (selected != candidates_.end() && selected_context != nullptr) {
             const auto index = static_cast<std::size_t>(selected - candidates_.begin());
-            const HRESULT committed = commit_candidate(selected_context, index);
+            const HRESULT committed = is_agent_mode()
+                ? stage_agent_candidate(selected_context, index)
+                : commit_candidate(selected_context, index);
             selected_context->Release();
             if (SUCCEEDED(committed)) return;
         } else if (selected_context != nullptr) {
@@ -2908,10 +3397,60 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
         << "}\n";
 }
 
+void TextService::handle_agent_result(AgentResult* raw_result) {
+    std::unique_ptr<AgentResult> result(raw_result);
+    if (result == nullptr || result->generation != context_generation_ ||
+        result->request_id != active_candidate_request_id_ ||
+        agent_session_id_.empty() ||
+        result->response.session_id != agent_session_id_) return;
+    agent_request_pending_ = result->response.status == agent::Status::thinking ||
+                             result->response.status == agent::Status::executing;
+    agent_status_ = result->response.status;
+    agent_message_ = wide_from_utf8(result->response.message);
+    agent_executing_command_ = wide_from_utf8(result->response.executing_command);
+    candidates_.clear();
+    candidate_consumed_.clear();
+    candidate_groups_.clear();
+    agent_command_ids_.clear();
+    agent_command_high_risk_.clear();
+    const bool terminal = agent_status_ == agent::Status::completed ||
+                          agent_status_ == agent::Status::disconnected ||
+                          agent_status_ == agent::Status::error;
+    if (!terminal) {
+        for (const auto& command : result->response.commands) {
+            auto label = wide_from_utf8(command.label);
+            if (label.empty()) continue;
+            candidates_.push_back(std::move(label));
+            candidate_consumed_.push_back(1);
+            candidate_groups_.push_back(0);
+            agent_command_ids_.push_back(command.id);
+            agent_command_high_risk_.push_back(command.high_risk);
+        }
+    }
+    candidate_page_ = terminal ? 0 : result->response.page;
+    has_more_candidates_ = !terminal && result->response.has_more;
+    agent_response_visible_ = true;
+    if (!agent_message_.empty() && agent_status_ != agent::Status::error &&
+        agent_status_ != agent::Status::disconnected) {
+        input_buffer_ = L"v";
+        input_cursor_ = 1;
+        staged_candidates_.clear();
+        staged_cursor_ = 0;
+        segmented_input_.clear();
+    }
+    if (terminal) {
+        agent_request_pending_ = false;
+        agent_session_id_.clear();
+    }
+    hovered_target_.reset();
+    pressed_target_.reset();
+    update_candidate_window();
+}
+
 void TextService::update_candidate_window() {
     if (candidate_window_ == nullptr) return;
     if ((!alt_code_preview_active_ &&
-         (!chinese_mode_ || input_buffer_.empty())) || !foreground_focus_) {
+         (!chinese_mode_ || !has_composition())) || !foreground_focus_) {
         hide_candidate_windows();
         return;
     }
@@ -2956,7 +3495,7 @@ void TextService::update_candidate_window() {
 }
 
 void TextService::append_alt_code_digit(const unsigned digit) {
-    if (digit > 9 || !foreground_focus_ || !input_buffer_.empty() ||
+    if (digit > 9 || !foreground_focus_ || has_composition() ||
         !shortcut_config_.alt_code_preview_enabled) return;
     if (!alt_code_preview_active_) {
         ITfDocumentMgr* document_manager = nullptr;
@@ -3046,6 +3585,15 @@ void TextService::change_alt_code_preview_page(const int direction) {
 
 void TextService::change_candidate_page(const int direction) {
     if (candidates_expanded_ || direction == 0) return;
+    if (is_agent_mode() && !agent_session_id_.empty()) {
+        if (agent_request_pending_) return;
+        if (direction > 0 && !has_more_candidates_) return;
+        if (direction < 0 && candidate_page_ == 0) return;
+        const auto next = static_cast<std::uint32_t>(direction > 0
+            ? candidate_page_ + 1 : candidate_page_ - 1);
+        queue_agent_action(agent::Action::page, {}, next);
+        return;
+    }
     if (candidate_request_pending_) {
         deferred_page_direction_ = std::clamp(
             deferred_page_direction_ + (direction > 0 ? 1 : -1), -100, 100);
@@ -3065,14 +3613,72 @@ void TextService::change_candidate_page(const int direction) {
     queue_candidate_request();
 }
 
+bool TextService::has_composition() const noexcept {
+    return !input_buffer_.empty() || !staged_candidates_.empty();
+}
+
+std::wstring TextService::staged_text() const {
+    std::wstring result;
+    for (const auto& fragment : staged_candidates_) result.append(fragment.text);
+    return result;
+}
+
+std::wstring TextService::composition_preview() const {
+    if (is_agent_mode() && !input_buffer_.empty() && input_buffer_.front() == L'v') {
+        std::wstring result = L"v + ";
+        result.append(staged_text());
+        std::wstring_view remaining = segmented_input_.empty()
+            ? std::wstring_view(input_buffer_).substr(1)
+            : std::wstring_view(segmented_input_);
+        if (!remaining.empty() && remaining.front() == L'v') remaining.remove_prefix(1);
+        result.append(remaining);
+        return result;
+    }
+    std::wstring result = staged_text();
+    result.append(segmented_input_.empty() ? input_buffer_ : segmented_input_);
+    return result;
+}
+
+std::size_t TextService::composition_cursor() const noexcept {
+    if (staged_cursor_ < staged_candidates_.size()) return staged_cursor_;
+    return staged_candidates_.size() + std::min(input_cursor_, input_buffer_.size());
+}
+
+void TextService::set_composition_cursor(const std::size_t cursor) {
+    const auto staged_count = staged_candidates_.size();
+    if (cursor <= staged_count) {
+        staged_cursor_ = cursor;
+        input_cursor_ = 0;
+    } else {
+        staged_cursor_ = staged_count;
+        input_cursor_ = std::min(cursor - staged_count, input_buffer_.size());
+    }
+}
+
+void TextService::restore_staged_suffix(const std::size_t first) {
+    if (first >= staged_candidates_.size()) {
+        staged_cursor_ = staged_candidates_.size();
+        return;
+    }
+    std::wstring restored;
+    for (std::size_t index = first; index < staged_candidates_.size(); ++index)
+        restored.append(staged_candidates_[index].source_input);
+    input_buffer_.insert(0, restored);
+    staged_candidates_.erase(staged_candidates_.begin() +
+                                 static_cast<std::ptrdiff_t>(first),
+                             staged_candidates_.end());
+    staged_cursor_ = staged_candidates_.size();
+    segmented_input_.clear();
+}
+
 void TextService::move_pinyin_cursor(const int direction) {
-    const auto current = static_cast<std::int64_t>(
-        std::min(input_cursor_, input_buffer_.size()));
+    const auto current = static_cast<std::int64_t>(composition_cursor());
     const auto requested = current + static_cast<std::int64_t>(direction);
     const auto clamped = std::clamp<std::int64_t>(
-        requested, 0, static_cast<std::int64_t>(input_buffer_.size()));
+        requested, 0, static_cast<std::int64_t>(
+            staged_candidates_.size() + input_buffer_.size()));
     if (clamped == current) return;
-    input_cursor_ = static_cast<std::size_t>(clamped);
+    set_composition_cursor(static_cast<std::size_t>(clamped));
     hovered_target_.reset();
     pressed_target_.reset();
     if (candidate_window_ != nullptr)
@@ -3114,7 +3720,7 @@ std::optional<TextService::HitTarget> TextService::hit_test(const POINT point) c
 
 void TextService::invoke_hit_target(const HitTarget& target) {
     if (target.kind == HitKind::pinyin_cursor) {
-        input_cursor_ = std::min(target.candidate_index, input_buffer_.size());
+        set_composition_cursor(target.candidate_index);
         hovered_target_.reset();
         pressed_target_.reset();
         if (candidate_window_ != nullptr)
@@ -3134,7 +3740,22 @@ void TextService::invoke_hit_target(const HitTarget& target) {
         case HitKind::pinyin_cursor:
             break;
         case HitKind::candidate:
-            commit_candidate_from_window(target.candidate_index);
+            if (is_agent_mode() && target.candidate_index < agent_command_ids_.size()) {
+                if (target.candidate_index < agent_command_high_risk_.size() &&
+                    agent_command_high_risk_[target.candidate_index]) {
+                    agent_status_ = agent::Status::error;
+                    agent_message_ = L"高风险指令必须在第三方 Agent 内单独确认";
+                    agent_response_visible_ = true;
+                    update_candidate_window();
+                } else {
+                    queue_agent_action(agent::Action::select,
+                                       agent_command_ids_[target.candidate_index]);
+                }
+            } else if (is_agent_mode()) {
+                stage_agent_candidate(nullptr, target.candidate_index);
+            } else {
+                commit_candidate_from_window(target.candidate_index);
+            }
             break;
         case HitKind::previous_page:
             change_candidate_page(-1);
@@ -3151,7 +3772,10 @@ void TextService::invoke_hit_target(const HitTarget& target) {
                 expanded_scroll_row_ = 0;
                 hovered_target_.reset();
                 pressed_target_.reset();
-                queue_candidate_request();
+                if (is_agent_mode() && agent_response_visible_)
+                    update_candidate_window();
+                else
+                    queue_candidate_request();
             }
             break;
     }
@@ -3211,6 +3835,9 @@ void TextService::clear_composition() {
     if (candidate_cancellation_event_ != nullptr) SetEvent(candidate_cancellation_event_);
     input_buffer_.clear();
     input_cursor_ = 0;
+    staged_candidates_.clear();
+    staged_cursor_ = 0;
+    agent_last_submitted_pinyin_.clear();
     segmented_input_.clear();
     candidates_.clear();
     candidate_consumed_.clear();
@@ -3282,6 +3909,33 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
     const std::wstring previous_context = recent_language_context_;
     std::wstring learned_input = input_buffer_.substr(0, static_cast<std::size_t>(consumed));
     while (!learned_input.empty() && learned_input.back() == L'\'') learned_input.pop_back();
+    if (!shortcut_config_.candidate_immediate_commit_enabled && suffix.empty()) {
+        auto source_end = static_cast<std::size_t>(consumed);
+        while (source_end < input_buffer_.size() && input_buffer_[source_end] == L'\'')
+            ++source_end;
+        staged_candidates_.push_back({committed, input_buffer_.substr(0, source_end)});
+        staged_cursor_ = staged_candidates_.size();
+        recent_language_input_ = learned_input;
+        input_buffer_.erase(0, source_end);
+        input_cursor_ = input_buffer_.size();
+        ++context_generation_;
+        segmented_input_.clear();
+        candidates_.clear();
+        candidate_consumed_.clear();
+        candidate_groups_.clear();
+        candidate_failure_detail_.clear();
+        candidate_page_ = 0;
+        has_more_candidates_ = false;
+        candidate_request_pending_ = false;
+        candidates_expanded_ = false;
+        hovered_target_.reset();
+        pressed_target_.reset();
+        update_candidate_anchor(context);
+        if (input_buffer_.empty()) update_candidate_window();
+        else queue_candidate_request();
+        return S_OK;
+    }
+    if (!staged_candidates_.empty()) inserted.insert(0, staged_text());
     auto* session = new (std::nothrow) CommitEditSession(context, std::move(inserted));
     if (session == nullptr) return E_OUTOFMEMORY;
     HRESULT session_result = E_FAIL;
@@ -3289,9 +3943,12 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
         client_id_, session, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
     session->Release();
     if (SUCCEEDED(request_result) && SUCCEEDED(session_result)) {
+        if (!staged_candidates_.empty()) append_language_context(staged_text());
         append_language_context(committed);
         append_language_context(suffix);
         recent_language_input_ = learned_input;
+        staged_candidates_.clear();
+        staged_cursor_ = 0;
         if (consumed == input_buffer_.size()) {
             clear_composition();
         } else {
@@ -3317,6 +3974,41 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
         queue_commit_feedback(committed, std::move(learned_input), previous_context);
     }
     return FAILED(request_result) ? request_result : session_result;
+}
+
+HRESULT TextService::stage_agent_candidate(ITfContext* context,
+                                           const std::size_t index) {
+    if (!is_agent_mode() || agent_response_visible_ || candidate_request_pending_)
+        return E_PENDING;
+    if (input_buffer_.empty() || input_buffer_.front() != L'v' ||
+        index >= candidates_.size() || index >= candidate_consumed_.size())
+        return E_INVALIDARG;
+    const auto consumed = static_cast<std::size_t>(candidate_consumed_[index]);
+    if (consumed == 0 || consumed > input_buffer_.size() - 1) return E_INVALIDARG;
+    auto source_end = 1 + consumed;
+    while (source_end < input_buffer_.size() && input_buffer_[source_end] == L'\'')
+        ++source_end;
+    staged_candidates_.push_back({candidates_[index],
+                                  input_buffer_.substr(1, source_end - 1)});
+    staged_cursor_ = staged_candidates_.size();
+    input_buffer_.erase(1, source_end - 1);
+    input_cursor_ = input_buffer_.size();
+    ++context_generation_;
+    segmented_input_.clear();
+    candidates_.clear();
+    candidate_consumed_.clear();
+    candidate_groups_.clear();
+    candidate_failure_detail_.clear();
+    candidate_page_ = 0;
+    has_more_candidates_ = false;
+    candidate_request_pending_ = false;
+    candidates_expanded_ = false;
+    hovered_target_.reset();
+    pressed_target_.reset();
+    if (context != nullptr) update_candidate_anchor(context);
+    if (input_buffer_.size() > 1) queue_candidate_request();
+    else update_candidate_window();
+    return S_OK;
 }
 
 HRESULT TextService::commit_text(ITfContext* context, std::wstring text) {
@@ -3349,6 +4041,44 @@ HRESULT TextService::commit_raw_input(ITfContext* context) {
     return FAILED(request_result) ? request_result : session_result;
 }
 
+HRESULT TextService::commit_pending_composition(ITfContext* context) {
+    if (context == nullptr || !has_composition()) return E_INVALIDARG;
+    const std::wstring previous_context = recent_language_context_;
+    const auto staged = staged_candidates_;
+    std::wstring text = staged_text();
+    text.append(input_buffer_);
+    const HRESULT result = commit_text(context, std::move(text));
+    if (SUCCEEDED(result)) {
+        std::wstring feedback_context = previous_context;
+        for (const auto& fragment : staged) {
+            std::wstring feedback_input = fragment.source_input;
+            while (!feedback_input.empty() && feedback_input.back() == L'\'')
+                feedback_input.pop_back();
+            queue_commit_feedback(fragment.text, feedback_input, feedback_context);
+            append_bounded_language_context(feedback_context, fragment.text);
+            recent_language_input_ = std::move(feedback_input);
+        }
+        clear_composition();
+    }
+    return result;
+}
+
+void TextService::commit_pending_on_focus_loss() {
+    refresh_shortcut_config();
+    if (!shortcut_config_.focus_loss_commit_enabled || !has_composition() ||
+        thread_manager_ == nullptr) return;
+    ITfDocumentMgr* document_manager = nullptr;
+    if (FAILED(thread_manager_->GetFocus(&document_manager)) ||
+        document_manager == nullptr) return;
+    ITfContext* context = nullptr;
+    const HRESULT top = document_manager->GetTop(&context);
+    document_manager->Release();
+    if (FAILED(top) || context == nullptr) return;
+    if (staged_candidates_.empty()) commit_raw_input(context);
+    else commit_pending_composition(context);
+    context->Release();
+}
+
 HRESULT TextService::toggle_language_mode(ITfContext* context) {
     return apply_language_mode(!chinese_mode_, context);
 }
@@ -3370,9 +4100,14 @@ HRESULT TextService::toggle_language_mode_from_window() {
 
 HRESULT TextService::apply_language_mode(const bool chinese, ITfContext* context) {
     if (chinese == chinese_mode_) return S_OK;
-    if (!chinese && !input_buffer_.empty()) {
+    if (!chinese && is_agent_mode()) {
+        cancel_agent_session();
+        clear_composition();
+    }
+    if (!chinese && has_composition()) {
         if (context == nullptr) return E_UNEXPECTED;
-        const HRESULT committed = commit_raw_input(context);
+        const HRESULT committed = staged_candidates_.empty()
+            ? commit_raw_input(context) : commit_pending_composition(context);
         if (FAILED(committed)) return committed;
     }
     chinese_mode_ = chinese;

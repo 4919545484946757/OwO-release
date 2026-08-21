@@ -64,6 +64,22 @@ int main() {
         std::cerr << "invalid candidate context input was encoded\n";
         ++failures;
     }
+    Message agent_request{MessageType::agent_request, 12, 7,
+        R"({"schema_version":1,"action":"submit"})"};
+    const auto decoded_agent = decode_message(encode_message(agent_request));
+    if (!decoded_agent.validation || decoded_agent.message.type != MessageType::agent_request ||
+        decoded_agent.message.text != agent_request.text) {
+        std::cerr << "agent request envelope round trip failed\n";
+        ++failures;
+    }
+    Message agent_response{MessageType::agent_response, 12, 7,
+        R"({"schema_version":1,"status":"thinking"})"};
+    const auto decoded_agent_response = decode_message(encode_message(agent_response));
+    if (!decoded_agent_response.validation ||
+        decoded_agent_response.message.type != MessageType::agent_response) {
+        std::cerr << "agent response envelope round trip failed\n";
+        ++failures;
+    }
     if (decode_message("{}").validation.error != ErrorCode::invalid_payload) {
         std::cerr << "invalid schema was accepted\n";
         ++failures;

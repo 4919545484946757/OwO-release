@@ -78,7 +78,7 @@
                 </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.PaneFooter>
-                <TextBlock Text="OwO 0.1.0" Margin="16,8,8,16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <TextBlock Text="OwO 0.2.1" Margin="16,8,8,16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             </NavigationView.PaneFooter>
             <Grid Background="{ThemeResource SettingsContentBackgroundBrush}" x:Name="MainContentRoot">
                 <Grid.RowDefinitions>
@@ -156,6 +156,32 @@
                                             <TextBlock Text="平衡词语候选与首字候选的屏内位置。" Style="{StaticResource SettingDescriptionStyle}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="CandidatePartition" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="CandidateImmediateCommitCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="候选词即时上屏" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="关闭后，短候选先暂存在拼音预览中，确认完整组合后再上屏。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="CandidateImmediateCommit" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="FocusLossCommitCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="失焦保护" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="候选框意外关闭且仍有输入时，尝试将预览内容直接上屏。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="FocusLossCommit" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="ChinesePunctuationCard" Style="{StaticResource SettingsCardStyle}">
