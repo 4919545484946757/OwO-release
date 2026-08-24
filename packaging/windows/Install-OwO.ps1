@@ -25,10 +25,18 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 # server while still refusing to expose or activate the input profile. Fail
 # before copying files so ZIP/script installs receive the same actionable
 # diagnosis as the graphical setup wizard.
-$languages = @(Get-WinUserLanguageList)
-$chinese = $languages | Where-Object {
-    $_.LanguageTag -in @('zh-Hans-CN', 'zh-CN')
-} | Select-Object -First 1
+$languages = Get-WinUserLanguageList
+$chinese = $null
+# Windows PowerShell 5.1 returns WinUserLanguageList as one generic-list
+# object instead of enumerating its entries through the pipeline. Use an
+# explicit foreach so a list such as "zh-Hans-CN, en-US" is inspected one
+# language at a time.
+foreach ($language in $languages) {
+    if ($language.LanguageTag -in @('zh-Hans-CN', 'zh-CN')) {
+        $chinese = $language
+        break
+    }
+}
 if ($null -eq $chinese) {
     throw @'
 OwO requires the Windows "Chinese (Simplified, China)" language and basic typing support.

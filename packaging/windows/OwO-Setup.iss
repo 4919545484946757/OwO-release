@@ -88,8 +88,9 @@ var
 begin
   PowerShellPath := ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe');
   Parameters := '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass ' +
-    '-Command "$found = Get-WinUserLanguageList | Where-Object { ' +
-    '$_.LanguageTag -eq ''zh-Hans-CN'' -or $_.LanguageTag -eq ''zh-CN'' }; ' +
+    '-Command "$tags = (Get-WinUserLanguageList).LanguageTag; ' +
+    '$found = $tags | Where-Object { ' +
+    '$_ -eq ''zh-Hans-CN'' -or $_ -eq ''zh-CN'' }; ' +
     'if ($null -ne $found) { exit 0 } else { exit 1 }"';
   Result := Exec(PowerShellPath, Parameters, '', SW_HIDE,
     ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
