@@ -8,7 +8,7 @@
 
 namespace owo::config {
 
-inline constexpr std::uint32_t kConfigSchemaVersion = 10;
+inline constexpr std::uint32_t kConfigSchemaVersion = 12;
 
 struct AppConfig {
     std::uint32_t candidate_page_size{7};
@@ -33,13 +33,17 @@ struct AppConfig {
     bool raw_input_shortcut_enabled{true};
     std::vector<std::string> raw_input_shortcuts{"Enter"};
     bool cursor_left_shortcut_enabled{true};
-    std::vector<std::string> cursor_left_shortcuts{"Shift+Left"};
+    std::vector<std::string> cursor_left_shortcuts{"Left"};
     bool cursor_right_shortcut_enabled{true};
-    std::vector<std::string> cursor_right_shortcuts{"Shift+Right"};
+    std::vector<std::string> cursor_right_shortcuts{"Right"};
     bool previous_page_shortcut_enabled{true};
-    std::vector<std::string> previous_page_shortcuts{"[", "Shift+Up"};
+    std::vector<std::string> previous_page_shortcuts{"[", "Up"};
     bool next_page_shortcut_enabled{true};
-    std::vector<std::string> next_page_shortcuts{"]", "Shift+Down"};
+    std::vector<std::string> next_page_shortcuts{"]", "Down"};
+    bool text_navigation_shortcut_enabled{true};
+    std::vector<std::string> text_navigation_shortcuts{
+        "Shift+Left", "Shift+Right", "Shift+Up", "Shift+Down"};
+    bool text_navigation_select_enabled{false};
     bool operator==(const AppConfig&) const = default;
 };
 

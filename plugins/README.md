@@ -18,3 +18,5 @@ plugins/
 运行 `scripts/package_plugins.ps1` 会把每个有效插件目录打包到
 `artifacts/plugins/*.owopkg`。构建产物、临时文件和签名密钥不得放入插件源码目录。
 
+当前候选框声明式资源包括 `candidate-glass` 主题和 `unicode-palette` 分类符号列表。
+

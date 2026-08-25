@@ -20,7 +20,9 @@ internal sealed record SettingsSnapshot(uint CandidatePageSize, uint CandidateWr
                                         bool CursorRightShortcutEnabled, IReadOnlyList<string> CursorRightShortcuts,
                                         bool PreviousPageShortcutEnabled, IReadOnlyList<string> PreviousPageShortcuts,
                                         bool NextPageShortcutEnabled, IReadOnlyList<string> NextPageShortcuts,
-                                        bool PunctuationShortcutEnabled, IReadOnlyList<string> PunctuationShortcuts);
+                                        bool PunctuationShortcutEnabled, IReadOnlyList<string> PunctuationShortcuts,
+                                        bool TextNavigationShortcutEnabled, IReadOnlyList<string> TextNavigationShortcuts,
+                                        bool TextNavigationSelectEnabled);
 
 internal sealed class ConfigShellClient
 {
@@ -78,7 +80,10 @@ internal sealed class ConfigShellClient
                    bool.Parse(values["next_page_shortcut_enabled"]),
                    SplitShortcuts(values["next_page_shortcut"]),
                    bool.Parse(values["punctuation_shortcut_enabled"]),
-                   SplitShortcuts(values["punctuation_shortcut"]));
+                   SplitShortcuts(values["punctuation_shortcut"]),
+                   bool.Parse(values["text_navigation_shortcut_enabled"]),
+                   SplitShortcuts(values["text_navigation_shortcut"]),
+                   bool.Parse(values["text_navigation_select_enabled"]));
     }
 
     internal Task SaveAsync(SettingsSnapshot value, CancellationToken cancellationToken = default) =>
@@ -110,7 +115,10 @@ internal sealed class ConfigShellClient
                   value.AltCodePreviewPageSize.ToString(),
                   value.AltCodePreviewWheelEnabled.ToString().ToLowerInvariant(),
                   value.CandidateImmediateCommitEnabled.ToString().ToLowerInvariant(),
-                  value.FocusLossCommitEnabled.ToString().ToLowerInvariant()], cancellationToken);
+                  value.FocusLossCommitEnabled.ToString().ToLowerInvariant(),
+                  value.TextNavigationShortcutEnabled.ToString().ToLowerInvariant(),
+                  JoinShortcuts(value.TextNavigationShortcuts),
+                  value.TextNavigationSelectEnabled.ToString().ToLowerInvariant()], cancellationToken);
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

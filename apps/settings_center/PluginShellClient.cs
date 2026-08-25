@@ -55,6 +55,7 @@ internal static class PluginUiText
         "process.launch" => "启动外部程序", "screen.capture" => "捕获屏幕",
         "microphone.capture" => "使用麦克风", "ui.overlay" => "创建 UI 覆盖层",
         "ui.candidate_theme" => "更改候选框主题",
+        "ui.unicode_palette" => "提供 Unicode 符号列表",
         "ui.desktop_pet" => "创建桌面宠物",
         "resource.dictionary.install" => "安装字典包",
         "resource.theme.install" => "安装主题包",

@@ -203,6 +203,8 @@ ConfigValidationResult validate_config(const AppConfig& value) {
         !valid_list(value.cursor_right_shortcut_enabled, value.cursor_right_shortcuts) ||
         !valid_list(value.previous_page_shortcut_enabled, value.previous_page_shortcuts) ||
         !valid_list(value.next_page_shortcut_enabled, value.next_page_shortcuts) ||
+        !valid_list(value.text_navigation_shortcut_enabled,
+                    value.text_navigation_shortcuts) ||
         !valid_list(value.punctuation_shortcut_enabled, value.punctuation_shortcuts))
         return {false, "shortcut list must contain canonical key or modifier combinations"};
     std::set<std::string_view> enabled_shortcuts;
@@ -221,7 +223,9 @@ ConfigValidationResult validate_config(const AppConfig& value) {
         !unique_if_enabled(value.previous_page_shortcut_enabled,
                            value.previous_page_shortcuts) ||
         !unique_if_enabled(value.next_page_shortcut_enabled,
-                           value.next_page_shortcuts))
+                           value.next_page_shortcuts) ||
+        !unique_if_enabled(value.text_navigation_shortcut_enabled,
+                           value.text_navigation_shortcuts))
         return {false, "enabled shortcuts must be unique"};
     return {true, {}};
 }
@@ -277,6 +281,9 @@ ConfigParseResult parse_config(const std::string_view utf8) {
         "cursor_right_shortcut_enabled", "cursor_right_shortcut",
         "previous_page_shortcut_enabled", "previous_page_shortcut",
         "next_page_shortcut_enabled", "next_page_shortcut"};
+    constexpr std::string_view text_navigation_required[]{
+        "text_navigation_shortcut_enabled", "text_navigation_shortcut",
+        "text_navigation_select_enabled"};
     const auto expected_size = std::size(base_required) +
                                (version >= 2 ? std::size(shortcut_required) : 0) +
                                (version >= 3 ? std::size(wrap_required) : 0) +
@@ -285,7 +292,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 7 ? std::size(partition_required) : 0) +
                                (version >= 8 ? std::size(punctuation_required) : 0) +
                                (version >= 9 ? std::size(alt_code_preview_required) : 0) +
-                               (version >= 10 ? std::size(composition_required) : 0);
+                               (version >= 10 ? std::size(composition_required) : 0) +
+                               (version >= 12 ? std::size(text_navigation_required) : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -314,6 +322,9 @@ ConfigParseResult parse_config(const std::string_view utf8) {
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
     if (version >= 10) for (const auto key : composition_required)
+        if (!fields.contains(std::string(key)))
+            return {false, {}, "configuration fields are missing or unknown"};
+    if (version >= 12) for (const auto key : text_navigation_required)
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
@@ -378,6 +389,15 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                         value.focus_loss_commit_enabled))
             return {false, {}, "configuration field type is invalid"};
     }
+    if (version >= 12) {
+        if (!parse_bool(fields["text_navigation_shortcut_enabled"],
+                        value.text_navigation_shortcut_enabled) ||
+            !parse_shortcut_list(fields["text_navigation_shortcut"],
+                                 value.text_navigation_shortcuts) ||
+            !parse_bool(fields["text_navigation_select_enabled"],
+                        value.text_navigation_select_enabled))
+            return {false, {}, "configuration field type is invalid"};
+    }
     if (version >= 5) {
         if (!parse_bool(fields["cursor_left_shortcut_enabled"],
                         value.cursor_left_shortcut_enabled) ||
@@ -406,6 +426,20 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                 value.previous_page_shortcuts.insert(value.previous_page_shortcuts.begin(), "[");
             if (value.next_page_shortcuts.front() != "]")
                 value.next_page_shortcuts.insert(value.next_page_shortcuts.begin(), "]");
+        }
+        if (version <= 10) {
+            if (value.cursor_left_shortcuts ==
+                std::vector<std::string>{"Shift+Left"})
+                value.cursor_left_shortcuts = {"Left"};
+            if (value.cursor_right_shortcuts ==
+                std::vector<std::string>{"Shift+Right"})
+                value.cursor_right_shortcuts = {"Right"};
+            if (value.previous_page_shortcuts ==
+                std::vector<std::string>{"[", "Shift+Up"})
+                value.previous_page_shortcuts = {"[", "Up"};
+            if (value.next_page_shortcuts ==
+                std::vector<std::string>{"]", "Shift+Down"})
+                value.next_page_shortcuts = {"]", "Down"};
         }
     }
     const auto validation = validate_config(value);
@@ -461,7 +495,13 @@ std::string serialize_config(const AppConfig& value) {
            "\nprevious_page_shortcut=" + serialize_shortcut_list(value.previous_page_shortcuts) +
            "\nnext_page_shortcut_enabled=" +
                (value.next_page_shortcut_enabled ? std::string("true") : "false") +
-           "\nnext_page_shortcut=" + serialize_shortcut_list(value.next_page_shortcuts) + "\n";
+           "\nnext_page_shortcut=" + serialize_shortcut_list(value.next_page_shortcuts) +
+           "\ntext_navigation_shortcut_enabled=" +
+               (value.text_navigation_shortcut_enabled ? std::string("true") : "false") +
+           "\ntext_navigation_shortcut=" +
+               serialize_shortcut_list(value.text_navigation_shortcuts) +
+           "\ntext_navigation_select_enabled=" +
+               (value.text_navigation_select_enabled ? std::string("true") : "false") + "\n";
 }
 
 ConfigIoResult ConfigStore::load(const std::filesystem::path& path) {

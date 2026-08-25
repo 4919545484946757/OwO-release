@@ -3,6 +3,7 @@
 #include "owo/config/config_store.h"
 #include "owo/agent/agent_protocol.h"
 #include "owo/plugin/candidate_theme.h"
+#include "owo/plugin/unicode_palette.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -128,6 +129,9 @@ private:
         previous_page,
         next_page,
         toggle_expanded,
+        unicode_toggle,
+        unicode_category,
+        unicode_item,
     };
     struct HitTarget {
         HitKind kind{HitKind::candidate};
@@ -170,6 +174,11 @@ private:
     void append_language_context(std::wstring_view text);
     void refresh_shortcut_config(bool force = false);
     void refresh_candidate_theme(bool force = false);
+    void toggle_unicode_palette();
+    void change_unicode_palette_page(int direction);
+    void scroll_unicode_palette_rows(int rows);
+    void scroll_unicode_categories(float dip_delta);
+    HRESULT commit_unicode_item_from_window(std::size_t item_index);
     void sync_preserved_language_key();
     void clear_preserved_language_key() noexcept;
     void initialize_language_compartment();
@@ -184,6 +193,7 @@ private:
     void handle_candidate_result(CandidateResult* result);
     void update_candidate_window();
     void move_pinyin_cursor(int direction);
+    HRESULT move_document_caret(ITfContext* context, WPARAM key, bool select);
     [[nodiscard]] bool has_composition() const noexcept;
     [[nodiscard]] std::wstring staged_text() const;
     [[nodiscard]] std::wstring composition_preview() const;
@@ -276,6 +286,7 @@ private:
     std::wstring agent_last_submitted_pinyin_;
     std::vector<std::string> agent_command_ids_;
     std::vector<bool> agent_command_high_risk_;
+    bool agent_request_submitted_{false};
     bool agent_request_pending_{false};
     bool agent_response_visible_{false};
     std::wstring candidate_failure_detail_;
@@ -307,6 +318,13 @@ private:
     bool shortcut_config_initialized_{false};
     plugin::CandidateTheme candidate_theme_{};
     std::string candidate_theme_source_;
+    plugin::UnicodePalette unicode_palette_{};
+    std::string unicode_palette_source_;
+    bool unicode_palette_visible_{false};
+    std::size_t unicode_category_index_{0};
+    std::size_t unicode_scroll_row_{0};
+    float unicode_category_scroll_offset_dip_{0.0F};
+    POINT unicode_hover_point_{};
     ULONGLONG next_candidate_theme_refresh_{0};
     std::vector<std::string> preserved_language_shortcuts_;
     std::vector<TF_PRESERVEDKEY> preserved_language_keys_;

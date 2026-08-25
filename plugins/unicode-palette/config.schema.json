@@ -1,0 +1,6 @@
+{
+  "title": "Unicode 符号列表",
+  "description": "在候选框中按分类浏览并上屏 Unicode 字符。停用插件即可隐藏候选框入口。",
+  "type": "object",
+  "properties": {}
+}

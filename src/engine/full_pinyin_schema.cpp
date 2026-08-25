@@ -51,6 +51,11 @@ std::optional<std::string_view> canonical_complete_syllable(
     // Dictionaries retain the unambiguous v spelling internally.
     if (value == "lue") return "lve";
     if (value == "nue") return "nve";
+    // A non-leading standalone v is the keyboard spelling of ü/yu. Treat it
+    // as a complete source segment so appending v cannot invalidate and
+    // repartition an already valid pinyin prefix. A leading v is reserved by
+    // TSF for Agent mode and is removed before parsing.
+    if (value == "v") return "yu";
     return std::nullopt;
 }
 

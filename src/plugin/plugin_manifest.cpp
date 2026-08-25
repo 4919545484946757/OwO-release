@@ -235,8 +235,9 @@ ManifestResult parse_manifest(const std::string_view json) {
         if (!safe_relative_path(result.entry, "bin/", ".exe"))
             return {false, {}, "process entry must be a safe bin/*.exe path"};
     } else if (result.runtime == "resource") {
-        if (!safe_relative_path(result.entry, "resources/", ".theme"))
-            return {false, {}, "resource entry must be a safe resources/*.theme path"};
+        if (!safe_relative_path(result.entry, "resources/", ".theme") &&
+            !safe_relative_path(result.entry, "resources/", ".palette"))
+            return {false, {}, "resource entry must be a safe resources/*.theme or *.palette path"};
     } else {
         return {false, {}, "unsupported plugin runtime"};
     }
@@ -249,8 +250,16 @@ ManifestResult parse_manifest(const std::string_view json) {
     }
     if (result.permissions.size() > 32) return {false, {}, "too many permissions"};
     if (result.runtime == "resource" &&
-        (result.permissions.size() != 1 || result.permissions.front() != "ui.candidate_theme"))
-        return {false, {}, "candidate theme resources may request only ui.candidate_theme"};
+        (result.permissions.size() != 1 ||
+         (result.permissions.front() != "ui.candidate_theme" &&
+          result.permissions.front() != "ui.unicode_palette")))
+        return {false, {}, "resource plugins may request one supported declarative UI permission"};
+    if (result.runtime == "resource" &&
+        ((result.permissions.front() == "ui.candidate_theme" &&
+          !result.entry.ends_with(".theme")) ||
+         (result.permissions.front() == "ui.unicode_palette" &&
+          !result.entry.ends_with(".palette"))))
+        return {false, {}, "resource entry type does not match its permission"};
     const bool network_permission = std::find(result.permissions.begin(), result.permissions.end(),
                                               "network.client") != result.permissions.end();
     if (result.network != network_permission)

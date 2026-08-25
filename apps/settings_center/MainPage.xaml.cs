@@ -82,10 +82,11 @@ public sealed partial class MainPage : Page
         SetShortcutBindings("correction", ["Ctrl+Q"]);
         SetShortcutBindings("language", ["Ctrl+Space"]);
         SetShortcutBindings("raw", ["Enter"]);
-        SetShortcutBindings("cursor-left", ["Shift+Left"]);
-        SetShortcutBindings("cursor-right", ["Shift+Right"]);
-        SetShortcutBindings("previous-page", ["[", "Shift+Up"]);
-        SetShortcutBindings("next-page", ["]", "Shift+Down"]);
+        SetShortcutBindings("cursor-left", ["Left"]);
+        SetShortcutBindings("cursor-right", ["Right"]);
+        SetShortcutBindings("previous-page", ["[", "Up"]);
+        SetShortcutBindings("next-page", ["]", "Down"]);
+        SetShortcutBindings("text-navigation", ["Shift+Left", "Shift+Right", "Shift+Up", "Shift+Down"]);
         SetShortcutBindings("punctuation", []);
         UpdateShortcutButtons();
         InitializeSearchIndex();
@@ -140,6 +141,8 @@ public sealed partial class MainPage : Page
         PreviousPageShortcutEnabled.IsOn = value.PreviousPageShortcutEnabled;
         NextPageShortcutEnabled.IsOn = value.NextPageShortcutEnabled;
         PunctuationShortcutEnabled.IsOn = value.PunctuationShortcutEnabled;
+        TextNavigationShortcutEnabled.IsOn = value.TextNavigationShortcutEnabled;
+        TextNavigationSelectEnabled.IsOn = value.TextNavigationSelectEnabled;
             SetShortcutBindings("correction", value.CorrectionShortcuts);
             SetShortcutBindings("language", value.LanguageShortcuts);
             SetShortcutBindings("raw", value.RawInputShortcuts);
@@ -148,6 +151,7 @@ public sealed partial class MainPage : Page
             SetShortcutBindings("previous-page", value.PreviousPageShortcuts);
             SetShortcutBindings("next-page", value.NextPageShortcuts);
             SetShortcutBindings("punctuation", value.PunctuationShortcuts);
+            SetShortcutBindings("text-navigation", value.TextNavigationShortcuts);
         UpdateShortcutButtons();
     }
 
@@ -174,7 +178,9 @@ public sealed partial class MainPage : Page
                 CursorRightShortcutEnabled.IsOn, ShortcutValues("cursor-right"),
                 PreviousPageShortcutEnabled.IsOn, ShortcutValues("previous-page"),
                 NextPageShortcutEnabled.IsOn, ShortcutValues("next-page"),
-                PunctuationShortcutEnabled.IsOn, ShortcutValues("punctuation"));
+                PunctuationShortcutEnabled.IsOn, ShortcutValues("punctuation"),
+                TextNavigationShortcutEnabled.IsOn, ShortcutValues("text-navigation"),
+                TextNavigationSelectEnabled.IsOn);
             await _client.SaveAsync(value);
             ShowStatus("配置已保存，Core Service 将自动应用。", InfoBarSeverity.Success);
         } catch (Exception error) {
@@ -512,6 +518,7 @@ public sealed partial class MainPage : Page
         "cursor-right" => CursorRightShortcutBindings,
         "previous-page" => PreviousPageShortcutBindings,
         "next-page" => NextPageShortcutBindings,
+        "text-navigation" => TextNavigationShortcutBindings,
         "punctuation" => PunctuationShortcutBindings,
         _ => throw new ArgumentOutOfRangeException(nameof(group)),
     };
@@ -581,6 +588,8 @@ public sealed partial class MainPage : Page
         if (CursorRightShortcutEnabled.IsOn) shortcuts.AddRange(ShortcutValues("cursor-right"));
         if (PreviousPageShortcutEnabled.IsOn) shortcuts.AddRange(ShortcutValues("previous-page"));
         if (NextPageShortcutEnabled.IsOn) shortcuts.AddRange(ShortcutValues("next-page"));
+        if (TextNavigationShortcutEnabled.IsOn)
+            shortcuts.AddRange(ShortcutValues("text-navigation"));
         if (PunctuationShortcutEnabled.IsOn) {
             var punctuation = ShortcutValues("punctuation");
             if (punctuation.Count == 0)

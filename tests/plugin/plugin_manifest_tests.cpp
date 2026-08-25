@@ -79,5 +79,13 @@ int main(const int argc, char** argv) {
         "\"permissions\":[\"ui.candidate_theme\"]");
     if (!owo::plugin::parse_manifest(candidate_theme).ok) return 22;
     if (!rejected(candidate_theme, "\"ui.candidate_theme\"", "\"config.read\"")) return 23;
+    auto unicode_palette = candidate_theme;
+    unicode_palette.replace(unicode_palette.find("resources/candidate.theme"),
+                            std::string("resources/candidate.theme").size(),
+                            "resources/unicode.palette");
+    unicode_palette.replace(unicode_palette.find("ui.candidate_theme"),
+                            std::string("ui.candidate_theme").size(),
+                            "ui.unicode_palette");
+    if (!owo::plugin::parse_manifest(unicode_palette).ok) return 24;
     return 0;
 }

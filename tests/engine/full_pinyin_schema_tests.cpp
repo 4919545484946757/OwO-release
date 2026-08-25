@@ -134,6 +134,9 @@ int main() {
     if (!preferred_source_is(schema.parse("wanan"), {"wan", "an"}) ||
         !preferred_source_is(schema.parse("nanan"), {"nan", "an"}))
         return fail("vowel-leading suffix preferred segmentation failed");
+    if (!preferred_source_is(schema.parse("ceshiyixiav"),
+                             {"ce", "shi", "yi", "xia", "v"}))
+        return fail("standalone trailing v destabilized the valid pinyin prefix");
     if (!contains_path(schema.parse("mingan"), {"min", "gan"},
                        owo::engine::InputMatchKind::exact))
         return fail("valid alternative exact boundary was dropped");
@@ -281,7 +284,8 @@ int main() {
         incremental_nihao.paths != complete_nihao.paths)
         return fail("niha to nihao incremental parse diverged from full parse");
 
-    for (const std::string_view input : {"jiaodian", "shubiao", "qingkuang"}) {
+    for (const std::string_view input : {
+             "jiaodian", "shubiao", "qingkuang", "ceshiyixiav"}) {
         owo::engine::FullPinyinIncrementalState typing_state;
         owo::engine::ParseResult typed;
         for (std::size_t length = 1; length <= input.size(); ++length)

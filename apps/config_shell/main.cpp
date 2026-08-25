@@ -75,6 +75,8 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         return parse_shortcuts(value, config.previous_page_shortcuts);
     if (field == L"next_page_shortcut")
         return parse_shortcuts(value, config.next_page_shortcuts);
+    if (field == L"text_navigation_shortcut")
+        return parse_shortcuts(value, config.text_navigation_shortcuts);
     if (field == L"punctuation_shortcut")
         return parse_shortcuts(value, config.punctuation_shortcuts);
     bool parsed{};
@@ -110,6 +112,10 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         config.previous_page_shortcut_enabled = parsed;
     else if (field == L"next_page_shortcut_enabled")
         config.next_page_shortcut_enabled = parsed;
+    else if (field == L"text_navigation_shortcut_enabled")
+        config.text_navigation_shortcut_enabled = parsed;
+    else if (field == L"text_navigation_select_enabled")
+        config.text_navigation_select_enabled = parsed;
     else return false;
     return true;
 }
@@ -187,7 +193,7 @@ int wmain(const int argc, wchar_t** argv) {
     }
     if (command == L"set-all" &&
         (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23 ||
-         argc == 24 || argc == 27 || argc == 30 || argc == 32)) {
+         argc == 24 || argc == 27 || argc == 30 || argc == 32 || argc == 35)) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);
         if (!loaded.success) return 3;
@@ -224,9 +230,13 @@ int wmain(const int argc, wchar_t** argv) {
              (!apply(value, L"alt_code_preview_enabled", argv[27]) ||
               !apply(value, L"alt_code_preview_page_size", argv[28]) ||
               !apply(value, L"alt_code_preview_wheel_enabled", argv[29]))) ||
-            (argc == 32 &&
+            (argc >= 32 &&
              (!apply(value, L"candidate_immediate_commit_enabled", argv[30]) ||
-              !apply(value, L"focus_loss_commit_enabled", argv[31])))) {
+              !apply(value, L"focus_loss_commit_enabled", argv[31]))) ||
+            (argc == 35 &&
+             (!apply(value, L"text_navigation_shortcut_enabled", argv[32]) ||
+              !apply(value, L"text_navigation_shortcut", argv[33]) ||
+              !apply(value, L"text_navigation_select_enabled", argv[34])))) {
             std::cerr << "invalid configuration value type\n";
             return 4;
         }

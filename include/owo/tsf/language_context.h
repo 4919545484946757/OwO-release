@@ -6,9 +6,12 @@
 
 namespace owo::tsf {
 
+inline constexpr std::size_t kDefaultLanguageContextUtf16Units = 24;
+
 inline void append_bounded_language_context(std::wstring& context,
                                             const std::wstring_view committed,
-                                            const std::size_t maximum_utf16_units = 16) {
+                                            const std::size_t maximum_utf16_units =
+                                                kDefaultLanguageContextUtf16Units) {
     if (maximum_utf16_units == 0) {
         context.clear();
         return;

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(OwOInputMethod VERSION 0.2.1 LANGUAGES CXX)
+project(OwOInputMethod VERSION 0.2.2 LANGUAGES CXX)
 
 include(CTest)
 
@@ -130,6 +130,7 @@ endif()
 
 add_library(owo_plugin STATIC
     src/plugin/candidate_theme.cpp
+    src/plugin/unicode_palette.cpp
     src/plugin/package_archive.cpp
     src/plugin/package_extraction.cpp
     src/plugin/plugin_manifest.cpp
@@ -411,6 +412,14 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME owo.plugin.candidate_theme COMMAND owo_candidate_theme_tests
              ${CMAKE_CURRENT_BINARY_DIR}/candidate-theme-test)
+    add_executable(owo_unicode_palette_tests tests/plugin/unicode_palette_tests.cpp)
+    target_link_libraries(owo_unicode_palette_tests PRIVATE owo_plugin)
+    target_compile_features(owo_unicode_palette_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_unicode_palette_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    endif()
+    add_test(NAME owo.plugin.unicode_palette COMMAND owo_unicode_palette_tests
+             ${CMAKE_CURRENT_BINARY_DIR}/unicode-palette-test)
     add_executable(owo_plugin_package_tests tests/plugin/package_archive_tests.cpp)
     target_link_libraries(owo_plugin_package_tests PRIVATE owo_plugin)
     target_compile_features(owo_plugin_package_tests PRIVATE cxx_std_20)

@@ -451,6 +451,35 @@
                                             <StackPanel x:Name="NextPageShortcutBindings" Spacing="8"/>
                                         </StackPanel>
                                     </Border>
+                                    <Border x:Name="TextNavigationShortcutCard" Style="{StaticResource SettingsCardStyle}">
+                                        <StackPanel Spacing="10">
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="文本区光标移动" Style="{StaticResource SettingTitleStyle}"/>
+                                                    <TextBlock Text="输入拼音时移动应用文本区光标，默认使用 Shift＋方向键。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                                </StackPanel>
+                                                <ToggleSwitch x:Name="TextNavigationShortcutEnabled" Grid.Column="1"/>
+                                                <Button Grid.Column="2" Content="＋" Tag="text-navigation" Click="AddShortcutButton_Click"/>
+                                            </Grid>
+                                            <StackPanel x:Name="TextNavigationShortcutBindings" Spacing="8"/>
+                                            <Grid Margin="16,4,0,0" ColumnSpacing="12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="选中途经文本" Style="{StaticResource SettingTitleStyle}"/>
+                                                    <TextBlock Text="关闭时只移动光标；开启时同时扩展文本选择。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                                </StackPanel>
+                                                <ToggleSwitch x:Name="TextNavigationSelectEnabled" Grid.Column="1" IsOn="False"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </ContentControl>
                         </Grid>

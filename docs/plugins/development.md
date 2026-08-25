@@ -44,8 +44,9 @@ my-plugin/
 
 `id` 必须是小写反向域名形式，`version` 必须是三段数字版本。进程插件使用
 `runtime: "process"` 和包内 `bin/*.exe` 入口；纯资源插件使用
-`runtime: "resource"` 和包内 `resources/*.theme` 入口。资源插件不启动代码，当前只允许
-申请 `ui.candidate_theme`。`network` 只有在同时声明 `network.client` 时才可设为
+`runtime: "resource"` 和包内 `resources/*.theme` 或 `resources/*.palette` 入口。
+资源插件不启动代码，只允许申请一个与入口类型对应的 `ui.candidate_theme` 或
+`ui.unicode_palette` 权限。`network` 只有在同时声明 `network.client` 时才可设为
 `true`；要求普通 Win32 用户令牌的能力还必须声明 `system.full_trust`。
 
 ### 声明式设置页
@@ -131,6 +132,7 @@ my-plugin.exe --owo-plugin-pipe <pipe> --owo-plugin-id <id> --owo-plugin-data <a
 | `owo.notification.show.v1` | `notification.show` | 显示用户通知 |
 | `owo.ui.settings-page.v1` | `ui.settings_page` | 提供声明式设置页 |
 | `owo.ui.candidate-theme.v1` | `ui.candidate_theme` | 提供声明式候选框主题资源 |
+| `owo.ui.unicode-palette.v1` | `ui.unicode_palette` | 提供经过校验的分类 Unicode 码点列表 |
 | `owo.ui.overlay.v1` | `ui.overlay` | 控制已授权的 UI 覆盖层 |
 | `owo.ui.desktop-pet.v1` | `ui.desktop_pet` | 控制已授权的桌面宠物 |
 | `owo.resource.dictionary.install.v1` | `resource.dictionary.install` | 提供字典资源安装操作 |
@@ -170,6 +172,7 @@ payload 在传输层是不透明 UTF-8 字节串。标准服务建议使用 UTF-
 | `resource.sound.install` | 高、完整信任 | 安装声音资源 |
 | `ui.settings_page` | 需注意 | 提供声明式设置页面 |
 | `ui.candidate_theme` | 低 | 更改候选框语义颜色，不执行插件代码 |
+| `ui.unicode_palette` | 低 | 在候选框中提供分类 Unicode 字符，不执行插件代码 |
 
 任何需要完整信任的权限都必须同时声明 `system.full_trust`。权限在插件升级、manifest 变化、包摘要变化或发布者绑定变化后不会自动继承。TSF 输入线程不能直接调用插件；携带敏感权限的调用只接受 Core 内部标记的可信用户操作来源。
 
@@ -203,5 +206,24 @@ payload 在传输层是不透明 UTF-8 字节串。标准服务建议使用 UTF-
 
 官方示例位于 `plugins/candidate-glass`，所有项目维护插件统一放在 `plugins/`，可用
 `scripts/package_plugins.ps1` 批量生成 `.owopkg`。
+
+## 8. Unicode 符号列表资源
+
+Unicode 列表使用 `runtime: "resource"`、`ui.unicode_palette` 权限和 UTF-8 的
+`resources/*.palette` 入口。文件是封闭的逐行格式：
+
+```text
+schema_version=1
+category=math|数学符号
+item=00B1|正负号
+item=221E|无穷
+```
+
+分类 ID 只能使用小写 ASCII 字母、数字、`-` 和 `_`；分类标签和字符名称使用 UTF-8。
+`item` 的第一段是一个 Unicode 标量的十六进制码点，代理项和大于 `U+10FFFF` 的值会被
+拒绝。宿主最多接受 32 个分类、每类 512 项和 256 KiB 资源数据。插件不能提供脚本、
+组合序列或上屏逻辑；候选框本体负责入口、分类切换、滚轮/按键翻页和点击上屏。
+
+官方示例位于 `plugins/unicode-palette`。
 
 插件格式的安全边界参见 `docs/security/plugin-baseline.md`，签名与库存摘要格式参见 `docs/adr/0008-plugin-package-and-trust-foundation.md`，授权和运行时隔离分别参见 ADR 0011 至 0017。

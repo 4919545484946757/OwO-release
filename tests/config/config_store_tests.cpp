@@ -117,8 +117,8 @@ int main(const int argc, char** argv) {
         legacy.value.correction_shortcuts != std::vector<std::string>{"Ctrl+Q"} ||
         legacy.value.language_shortcuts != std::vector<std::string>{"Ctrl+Space"} ||
         legacy.value.raw_input_shortcuts != std::vector<std::string>{"Enter"} ||
-        legacy.value.cursor_left_shortcuts != std::vector<std::string>{"Shift+Left"} ||
-        legacy.value.next_page_shortcuts != std::vector<std::string>{"]", "Shift+Down"} ||
+        legacy.value.cursor_left_shortcuts != std::vector<std::string>{"Left"} ||
+        legacy.value.next_page_shortcuts != std::vector<std::string>{"]", "Down"} ||
         legacy.value.candidate_wrap_length != 12 ||
         !legacy.value.candidate_partition_enabled ||
         !legacy.value.candidate_immediate_commit_enabled ||
@@ -130,6 +130,35 @@ int main(const int argc, char** argv) {
         !legacy.value.alt_code_preview_wheel_enabled ||
         legacy.value.punctuation_shortcut_enabled ||
         !legacy.value.punctuation_shortcuts.empty()) return 20;
+
+    auto version_ten_text = owo::config::serialize_config(owo::config::AppConfig{});
+    version_ten_text.replace(version_ten_text.find("schema_version=12"),
+                             std::string("schema_version=12").size(),
+                             "schema_version=10");
+    const auto text_navigation_begin = version_ten_text.find(
+        "text_navigation_shortcut_enabled=");
+    if (text_navigation_begin == std::string::npos) return 35;
+    version_ten_text.erase(text_navigation_begin);
+    version_ten_text.replace(version_ten_text.find("cursor_left_shortcut=Left"),
+                             std::string("cursor_left_shortcut=Left").size(),
+                             "cursor_left_shortcut=Shift+Left");
+    version_ten_text.replace(version_ten_text.find("cursor_right_shortcut=Right"),
+                             std::string("cursor_right_shortcut=Right").size(),
+                             "cursor_right_shortcut=Shift+Right");
+    version_ten_text.replace(version_ten_text.find("previous_page_shortcut=[;Up"),
+                             std::string("previous_page_shortcut=[;Up").size(),
+                             "previous_page_shortcut=[;Shift+Up");
+    version_ten_text.replace(version_ten_text.find("next_page_shortcut=];Down"),
+                             std::string("next_page_shortcut=];Down").size(),
+                             "next_page_shortcut=];Shift+Down");
+    const auto version_ten = owo::config::parse_config(version_ten_text);
+    if (!version_ten.ok ||
+        version_ten.value.cursor_left_shortcuts != std::vector<std::string>{"Left"} ||
+        version_ten.value.cursor_right_shortcuts != std::vector<std::string>{"Right"} ||
+        version_ten.value.previous_page_shortcuts !=
+            std::vector<std::string>{"[", "Up"} ||
+        version_ten.value.next_page_shortcuts !=
+            std::vector<std::string>{"]", "Down"}) return 34;
 
     const auto version_two = owo::config::parse_config(
         "schema_version=2\ncandidate_page_size=5\nuser_learning_enabled=true\n"
