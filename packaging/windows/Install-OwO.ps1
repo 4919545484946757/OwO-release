@@ -45,7 +45,7 @@ wait for the language components to finish downloading, and then run this instal
 '@
 }
 
-$version = '0.2.1'
+$version = '0.2.3'
 $packageRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $programRoot = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Programs\OwO\InputMethod'))
 $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\OwO Input Method'

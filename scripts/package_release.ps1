@@ -1,14 +1,23 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.2.2',
-    [string]$BuildDirectory = (Join-Path $PSScriptRoot '..\build\windows-release\Release'),
-    [string]$SettingsDirectory = (Join-Path $PSScriptRoot '..\build\settings-publish\win-x64'),
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\artifacts\release')
+    [string]$Version = '0.2.3',
+    [string]$BuildDirectory,
+    [string]$SettingsDirectory,
+    [string]$OutputDirectory
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
+    $BuildDirectory = Join-Path $root 'build\windows-release\Release'
+}
+if ([string]::IsNullOrWhiteSpace($SettingsDirectory)) {
+    $SettingsDirectory = Join-Path $root 'build\settings-publish\win-x64'
+}
+if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
+    $OutputDirectory = Join-Path $root 'artifacts\release'
+}
 $build = [IO.Path]::GetFullPath($BuildDirectory)
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $releaseRoot = Join-Path $output $Version

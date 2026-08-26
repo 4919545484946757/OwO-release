@@ -18,5 +18,11 @@ plugins/
 运行 `scripts/package_plugins.ps1` 会把每个有效插件目录打包到
 `artifacts/plugins/*.owopkg`。构建产物、临时文件和签名密钥不得放入插件源码目录。
 
-当前候选框声明式资源包括 `candidate-glass` 主题和 `unicode-palette` 分类符号列表。
+当前官方插件包括：
+
+- `candidate-glass`：声明式半透明候选框主题；
+- `unicode-palette`：分类 Unicode 符号列表；
+- `agent-ipc`：需逐版本知情授权的本机第三方 Agent 连接器。
+
+插件内容发生变化时必须提升 manifest 版本，禁止发布“同版本、不同摘要”的包。
 

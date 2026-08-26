@@ -894,6 +894,15 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
 
     if (base_valid) result.paths = std::move(combined);
     const auto base_paths = result.paths;
+    const bool stable_trailing_prefix = std::any_of(
+        base_paths.begin(), base_paths.end(), [](const ParsePath& path) {
+            if (path.syllables.size() < 2 || path.syllables.back().complete)
+                return false;
+            return std::all_of(path.syllables.begin(), path.syllables.end() - 1,
+                               [](const Syllable& syllable) {
+                                   return syllable.complete;
+                               });
+        });
     const bool long_stable_trailing_prefix = result.normalized_input.size() >= 12 &&
         std::any_of(base_paths.begin(), base_paths.end(), [](const ParsePath& path) {
             if (path.syllables.size() < 3 || path.syllables.back().complete) return false;
@@ -922,7 +931,11 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
         }
     } else {
         std::vector<ParsePath> abbreviated_paths;
-        if (!long_stable_trailing_prefix)
+        // Once the parser already has a complete prefix followed by one
+        // incomplete syllable (zhong'g, ni'h), prefix completion covers the
+        // useful candidates. Expanding the whole string as an abbreviation
+        // creates hundreds of duplicate families that are later discarded.
+        if (!long_stable_trailing_prefix && !stable_trailing_prefix)
             append_abbreviated_completions(result.normalized_input, abbreviated_paths,
                                            std::max<std::size_t>(max_paths, 256));
         incomplete_paths.insert(incomplete_paths.end(),

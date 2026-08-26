@@ -1,14 +1,23 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '1.0.0',
-    [string]$BuildDirectory = (Join-Path $PSScriptRoot '..\build\windows-release\Release'),
-    [string]$PluginPackage = (Join-Path $PSScriptRoot '..\artifacts\plugins\org.owo.agent-ipc-1.0.0.owopkg'),
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\artifacts\agent-sdk')
+    [string]$Version = '1.0.1',
+    [string]$BuildDirectory,
+    [string]$PluginPackage,
+    [string]$OutputDirectory
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
+    $BuildDirectory = Join-Path $root 'build\windows-release\Release'
+}
+if ([string]::IsNullOrWhiteSpace($PluginPackage)) {
+    $PluginPackage = Join-Path $root 'artifacts\plugins\org.owo.agent-ipc-1.0.1.owopkg'
+}
+if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
+    $OutputDirectory = Join-Path $root 'artifacts\agent-sdk'
+}
 $build = [IO.Path]::GetFullPath($BuildDirectory)
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $packageInput = [IO.Path]::GetFullPath($PluginPackage)

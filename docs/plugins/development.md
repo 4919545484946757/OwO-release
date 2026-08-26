@@ -121,6 +121,7 @@ my-plugin.exe --owo-plugin-pipe <pipe> --owo-plugin-id <id> --owo-plugin-data <a
 
 | 服务 | 所需权限 | 用途 |
 | --- | --- | --- |
+| `owo.agent.exchange.v1` | `agent.ipc` | 交换经过宿主确认、限长和脱敏的 Agent 请求 |
 | `owo.health.check.v1` | 无 | 检查插件是否就绪 |
 | `owo.lifecycle.event.v1` | 无 | 接收启动、停用等生命周期事件 |
 | `owo.command.execute.v1` | 无 | 执行插件声明的命令 |
@@ -183,6 +184,29 @@ payload 在传输层是不透明 UTF-8 字节串。标准服务建议使用 UTF-
 3. 只声明实际使用的权限。开发阶段也不要依赖父进程环境变量或当前工作目录。
 4. 服务处理必须支持超时与取消；不要在输入线程执行磁盘扫描、联网或模型初始化。
 5. 发布时再制作 `.owopkg` 并生成覆盖规范化清单摘要的 `signature.json`。
+
+本仓库的官方插件可统一构建与打包：
+
+```powershell
+cmake --build --preset windows-release
+.\scripts\package_plugins.ps1
+```
+
+产物位于 `artifacts/plugins`。包名使用 `<plugin-id>-<version>.owopkg`。发布后不得在
+版本号不变的情况下替换包内容；任何可见行为、二进制或包内文档变化都应提升三段式
+版本，并使用户重新核对摘要和权限。Agent 连接器还可随参考协议与模拟服务一起打包：
+
+```powershell
+.\scripts\package-agent-sdk.ps1 -Version 1.0.1
+```
+
+### Agent 类插件的边界
+
+API v1 提供的是受控 Agent IPC 桥接能力，不是内置的通用 Agent 运行时，也不等同于
+Codex 的技能、MCP 或工具执行环境。官方 `org.owo.agent-ipc` 只完成必要上下文收集、
+脱敏、结构化 IPC、状态展示和用户选择回传。第三方 Agent 自行负责模型、工具注册、
+身份验证、审计以及高风险操作确认，不能把 OwO 的 `system.full_trust` 当作自身的系统
+授权。完整协议见 `agent-ipc-integration.md`。
 
 ## 7. 候选框主题资源
 

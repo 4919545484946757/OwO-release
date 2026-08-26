@@ -66,6 +66,7 @@ constexpr std::size_t kMaximumPinyinInputLength = 256;
 constexpr ULONGLONG kShortcutConfigRefreshIntervalMs = 500;
 constexpr auto kCandidateRequestBaseTimeout = std::chrono::milliseconds(900);
 constexpr auto kCandidateRequestMaximumTimeout = std::chrono::milliseconds(2500);
+constexpr auto kCandidateRefinementDebounce = std::chrono::milliseconds(4);
 constexpr auto kFeedbackRequestTimeout = std::chrono::milliseconds(100);
 thread_local TextService* keyboard_hook_service = nullptr;
 
@@ -2879,7 +2880,10 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
         window == service->candidate_window_ && service->render_target_ != nullptr) {
         service->blurred_candidate_background_.clear();
         service->discard_device_resources();
-        InvalidateRect(window, nullptr, FALSE);
+        // Internal candidate resizing draws its replacement bitmap
+        // synchronously; suppress the otherwise visible empty interim paint.
+        if (!service->candidate_resize_in_progress_)
+            InvalidateRect(window, nullptr, FALSE);
         return 0;
     }
     if (message == WM_DPICHANGED && service != nullptr &&
@@ -3332,14 +3336,27 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
             ? recent_language_input_ : staged_candidates_.back().source_input;
         while (!previous_input.empty() && previous_input.back() == L'\'')
             previous_input.pop_back();
-        pending_request_ = PendingRequest{
+        auto pending = PendingRequest{
             static_cast<std::uint8_t>(protocol::MessageType::candidate_request),
             active_candidate_request_id_, context_generation_, candidate_page_, request_input,
             candidates_expanded_, correction_enabled_, previous_input,
             std::move(request_context)};
+        pending.defer_expensive_candidates = candidate_page_ == 0 &&
+                                              !candidates_expanded_;
+        pending_request_ = std::move(pending);
     }
     request_ready_.notify_one();
-    update_candidate_window();
+    // Draw the edited pinyin immediately but retain the current geometry until
+    // Core returns its matching candidate snapshot. Recomputing the layered
+    // window size with stale candidates and then again with the response caused
+    // two visible resizes for every key press.
+    if (candidate_window_ != nullptr && IsWindowVisible(candidate_window_)) {
+        RedrawWindow(candidate_window_, nullptr, nullptr,
+                     RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE |
+                         RDW_NOCHILDREN);
+    } else {
+        update_candidate_window();
+    }
 }
 
 void TextService::append_language_context(const std::wstring_view text) {
@@ -3393,6 +3410,8 @@ void TextService::worker_loop(const std::stop_token stop_token) {
         paged_message.page = request.page;
         paged_message.expanded = request.expanded;
         paged_message.correction_enabled = request.correction_enabled;
+        paged_message.defer_expensive_candidates =
+            request.defer_expensive_candidates;
         const auto post_candidate_failure = [this, &request, request_type](
                                                 std::wstring detail) {
             if (request_type != protocol::MessageType::candidate_request) return;
@@ -3571,6 +3590,8 @@ void TextService::worker_loop(const std::stop_token stop_token) {
         result->has_more = decoded.message.has_more;
         result->expanded = decoded.message.expanded;
         result->page_size = decoded.message.page_size;
+        result->refinement_pending =
+            decoded.message.candidate_refinement_pending;
         for (const auto& syllable : decoded.message.syllables) {
             auto converted = wide_from_utf8(syllable);
             if (converted.empty()) continue;
@@ -3605,7 +3626,43 @@ void TextService::worker_loop(const std::stop_token stop_token) {
             << std::chrono::duration_cast<std::chrono::microseconds>(
                    converted_at - exchange_finished).count()
             << R"(,"candidate_count":)" << result->candidates.size()
+            << R"(,"refinement_pending":)"
+            << (decoded.message.candidate_refinement_pending ? "true" : "false")
             << "}\n";
+        if (decoded.message.candidate_refinement_pending &&
+            request.defer_expensive_candidates) {
+            if (PostMessageW(message_window_, kCandidateReady, 0,
+                             reinterpret_cast<LPARAM>(result.get())))
+                result.release();
+            bool queued_refinement = false;
+            {
+                std::unique_lock lock(request_mutex_);
+                request_ready_.wait_for(
+                    lock, stop_token, kCandidateRefinementDebounce,
+                    [this, &request] {
+                        return pending_request_.has_value() ||
+                               latest_candidate_request_id_.load(
+                                   std::memory_order_acquire) != request.request_id;
+                    });
+                if (!stop_token.stop_requested() &&
+                    latest_candidate_request_id_.load(std::memory_order_acquire) ==
+                        request.request_id && !pending_request_.has_value()) {
+                    request.defer_expensive_candidates = false;
+                    request.queued_at = std::chrono::steady_clock::now();
+                    pending_request_ = std::move(request);
+                    queued_refinement = true;
+                }
+            }
+            if (queued_refinement) {
+                request_ready_.notify_one();
+            } else {
+                std::clog
+                    << R"({"process":"tsf","module":"candidate","level":"info","event_id":"candidate_refinement_superseded","request_id":)"
+                    << request.request_id
+                    << R"(,"generation":)" << request.generation << "}\n";
+            }
+            continue;
+        }
         if (!decoded.message.model_pending) {
             if (PostMessageW(message_window_, kCandidateReady, 0,
                              reinterpret_cast<LPARAM>(result.get())))
@@ -3688,7 +3745,8 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
         schedule_candidate_request(false);
         return;
     }
-    candidate_request_pending_ = false;
+    candidate_request_pending_ = result->refinement_pending &&
+                                 result->candidates.empty();
     candidate_request_failed_ = result->request_failed;
     candidate_failure_detail_ = std::move(result->failure_detail);
     if (!result->request_failed) candidate_retry_count_ = 0;
@@ -3873,14 +3931,21 @@ void TextService::update_candidate_window() {
     const bool geometry_changed = current.left != x || current.top != y ||
                                   current.right - current.left != window_size.cx ||
                                   current.bottom - current.top != window_size.cy;
-    if (geometry_changed || !IsWindowVisible(candidate_window_)) {
+    const bool visible = IsWindowVisible(candidate_window_) != FALSE;
+    if (geometry_changed || !visible) {
         blurred_candidate_background_.clear();
-        SetWindowPos(candidate_window_, HWND_TOPMOST, x, y, window_size.cx, window_size.cy,
-                     SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOCOPYBITS);
+        candidate_resize_in_progress_ = true;
+        const UINT flags = SWP_NOACTIVATE |
+            (visible ? SWP_NOREDRAW : SWP_SHOWWINDOW);
+        SetWindowPos(candidate_window_, HWND_TOPMOST, x, y,
+                     window_size.cx, window_size.cy, flags);
+        candidate_resize_in_progress_ = false;
     }
-    update_candidate_shadow();
     RedrawWindow(candidate_window_, nullptr, nullptr,
                  RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE | RDW_NOCHILDREN);
+    // Present the shadow only after the main layered bitmap is complete, so it
+    // cannot briefly outline an empty resized surface.
+    update_candidate_shadow();
 }
 
 void TextService::append_alt_code_digit(const unsigned digit) {

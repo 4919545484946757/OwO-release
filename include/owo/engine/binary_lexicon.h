@@ -51,6 +51,10 @@ public:
     [[nodiscard]] LexiconIoResult load(const std::filesystem::path& path);
     [[nodiscard]] std::vector<LexiconEntry> lookup(
         std::span<const std::string_view> syllables) const override;
+    [[nodiscard]] std::vector<LexiconTextEntry> lookup_texts(
+        std::span<const std::string_view> syllables) const override;
+    [[nodiscard]] std::uint32_t lookup_max_frequency(
+        std::span<const std::string_view> syllables) const override;
     [[nodiscard]] BoundedLexiconLookup lookup_bounded(
         std::span<const std::string_view> syllables, std::size_t start_index,
         std::size_t result_limit, std::size_t work_unit_limit) const;
@@ -60,11 +64,17 @@ public:
     [[nodiscard]] std::vector<LexiconEntry> lookup_initial(
         char initial,
         std::size_t limit = (std::numeric_limits<std::size_t>::max)()) const override;
+    [[nodiscard]] std::vector<InitialLexiconTextEntry> lookup_initial_texts(
+        char initial,
+        std::size_t limit = (std::numeric_limits<std::size_t>::max)()) const override;
     [[nodiscard]] BoundedInitialLookup lookup_initial_bounded(
         char initial, std::size_t start_index, std::size_t result_limit,
         std::size_t work_unit_limit) const;
     [[nodiscard]] std::vector<AbbreviatedLexiconMatch> lookup_mixed_abbreviation(
         std::string_view input, std::size_t limit) const override;
+    [[nodiscard]] std::vector<AbbreviatedLexiconTextMatch>
+        lookup_mixed_abbreviation_texts(
+            std::string_view input, std::size_t limit) const override;
     [[nodiscard]] std::size_t maximum_reading_length() const noexcept override {
         return maximum_reading_length_;
     }

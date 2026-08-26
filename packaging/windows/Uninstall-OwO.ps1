@@ -16,7 +16,7 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     exit $elevated.ExitCode
 }
 
-$version = '0.2.1'
+$version = '0.2.3'
 $programRoot = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Programs\OwO\InputMethod'))
 $scriptPackageRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $installedVersionRoot = [IO.Path]::GetFullPath((Join-Path $programRoot $version))

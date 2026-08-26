@@ -100,6 +100,7 @@ private:
         std::uint64_t page_size{7};
         bool preserve_paging{};
         bool request_failed{};
+        bool refinement_pending{};
         std::wstring failure_detail;
         std::wstring segmented_input;
         std::vector<std::wstring> candidates;
@@ -122,6 +123,7 @@ private:
         std::wstring feedback_input;
         std::wstring language_context;
         std::chrono::steady_clock::time_point queued_at{std::chrono::steady_clock::now()};
+        bool defer_expensive_candidates{};
     };
     enum class HitKind : std::uint8_t {
         pinyin_cursor,
@@ -238,6 +240,7 @@ private:
     HWND message_window_{nullptr};
     HWND candidate_shadow_window_{nullptr};
     HWND candidate_window_{nullptr};
+    bool candidate_resize_in_progress_{};
     HHOOK keyboard_hook_{nullptr};
     bool language_space_key_suppressed_{false};
     std::uint16_t alt_code_numpad_down_mask_{0};

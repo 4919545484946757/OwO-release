@@ -121,8 +121,12 @@ int main() {
 
     const auto mixed_incomplete = generator.generate(schema.parse("nih"));
     if (mixed_incomplete.empty() || mixed_incomplete[0].text != "你好" ||
-        mixed_incomplete[0].match_kind != owo::engine::InputMatchKind::incomplete_completion)
+        mixed_incomplete[0].match_kind != owo::engine::InputMatchKind::incomplete_completion) {
+        for (const auto& candidate : mixed_incomplete)
+            std::cerr << "nih candidate=" << candidate.text << " kind="
+                      << static_cast<unsigned>(candidate.match_kind) << '\n';
         return fail("complete and incomplete syllables did not generate a candidate");
+    }
 
     const owo::engine::MemoryLexicon evidence_ordered_completion_lexicon({
         {{"wei", "shen", "me"}, "为什么", 500000},
@@ -200,6 +204,78 @@ int main() {
         std::none_of(mixed_abbreviation.begin(), mixed_abbreviation.end(), [](const auto& value) {
             return value.text == "够吗";
         })) return fail("mixed abbreviation did not generate expected candidates");
+
+    const owo::engine::MemoryLexicon shorthand_lexicon({
+        {{"wei", "shen", "me"}, "为什么", 9000},
+        {{"wan", "shen", "me"}, "玩什么", 3000},
+        {{"ni", "jiu"}, "你就", 8000},
+        {{"na", "jiu"}, "那就", 4000},
+        {{"ren", "wei"}, "认为", 9000},
+        {{"ke", "yi"}, "可以", 9000},
+        {{"yong"}, "用", 9000},
+        {{"ji", "zhe"}, "记者", 9000},
+        {{"jie", "zhe"}, "接着", 8000},
+        {{"wo"}, "我", 7000},
+        {{"shi"}, "是", 7000},
+        {{"ma"}, "吗", 7000},
+        {{"ni"}, "你", 7000},
+        {{"ren"}, "人", 7000},
+        {{"ji"}, "记", 7000},
+    });
+    const owo::engine::CandidateGenerator shorthand_generator(shorthand_lexicon);
+    const auto wsm = shorthand_generator.generate(
+        schema.parse("wsm"), 16, false, {}, nullptr, {}, false, 7);
+    const auto nji = shorthand_generator.generate(
+        schema.parse("nji"), 16, false, {}, nullptr, {}, false, 7);
+    const auto rwkyy = shorthand_generator.generate(
+        schema.parse("rwkyy"), 16, false, {}, nullptr, {}, false, 7);
+    const auto jzhe = shorthand_generator.generate(
+        schema.parse("jzhe"), 16, false, {}, nullptr, {}, false, 7);
+    const auto composed_phrase = std::find_if(
+        rwkyy.begin(), rwkyy.end(), [](const auto& candidate) {
+            return candidate.text == "认为可以用" && candidate.segment_count > 1;
+        });
+    const auto has_single_character = [](const auto& candidates) {
+        return std::any_of(candidates.begin(), candidates.end(), [](const auto& candidate) {
+            return candidate.text.size() == 3 && candidate.consumed_input_bytes == 1;
+        });
+    };
+    const auto has_dictionary_word = [](const auto& candidates) {
+        return std::any_of(candidates.begin(), candidates.end(), [](const auto& candidate) {
+            return candidate.text.size() >= 6 && candidate.segment_count == 1;
+        });
+    };
+    const auto has_sentence = [](const auto& candidates) {
+        return std::any_of(candidates.begin(), candidates.end(), [](const auto& candidate) {
+            return candidate.syllables.size() >= 3 && candidate.segment_count > 1;
+        });
+    };
+    const auto why = std::find_if(wsm.begin(), wsm.end(), [](const auto& candidate) {
+        return candidate.text == "为什么" && candidate.segment_count == 1;
+    });
+    if (wsm.empty() || why == wsm.end() ||
+        nji.empty() || nji.front().text != "你就" ||
+        composed_phrase == rwkyy.end() ||
+        jzhe.size() < 2 || jzhe[0].text != "记者" ||
+        jzhe[1].text != "接着" || jzhe[0].segment_count != 1 ||
+        jzhe[1].segment_count != 1 ||
+        !has_sentence(wsm) || !has_dictionary_word(wsm) ||
+        !has_single_character(wsm) ||
+        !has_dictionary_word(nji) || !has_single_character(nji) ||
+        !has_sentence(rwkyy) || !has_dictionary_word(rwkyy) ||
+        !has_single_character(rwkyy) ||
+        !has_dictionary_word(jzhe) || !has_single_character(jzhe)) {
+        const auto dump = [](const std::string_view label, const auto& candidates) {
+            for (const auto& candidate : candidates)
+                std::cerr << label << '=' << candidate.text << " segments="
+                          << candidate.segment_count << '\n';
+        };
+        dump("wsm", wsm);
+        dump("nji", nji);
+        dump("rwkyy", rwkyy);
+        dump("jzhe", jzhe);
+        return fail("mixed shorthand candidates or partition metadata failed");
+    }
 
     const auto corrected = generator.generate(schema.parse("niaho"));
     if (corrected.empty() ||

@@ -39,6 +39,8 @@ struct Message {
     std::uint64_t page{};
     bool has_more{};
     bool model_pending{};
+    bool defer_expensive_candidates{};
+    bool candidate_refinement_pending{};
     std::vector<std::string> syllables;
     std::vector<std::uint64_t> candidate_consumed;
     std::vector<std::uint64_t> candidate_groups;

@@ -13,13 +13,11 @@ namespace owo::engine::detail {
 
 inline std::optional<std::vector<std::string>> mixed_abbreviation_segments(
     const std::span<const std::string_view> syllables, const std::string_view input) {
-    if (syllables.size() < 2 || input.size() < 3 ||
-        input.find('\'') != std::string_view::npos ||
-        !input.starts_with(syllables.front()) || input.size() <= syllables.front().size())
+    if (syllables.size() < 2 || input.size() < 2 ||
+        input.find('\'') != std::string_view::npos)
         return std::nullopt;
 
     std::vector<std::string> segments;
-    segments.emplace_back(syllables.front());
     const auto visit = [&](const auto& self, const std::size_t syllable_index,
                            const std::size_t input_offset,
                            const bool abbreviated) -> bool {
@@ -41,7 +39,7 @@ inline std::optional<std::vector<std::string>> mixed_abbreviation_segments(
         }
         return false;
     };
-    if (!visit(visit, 1, syllables.front().size(), false)) return std::nullopt;
+    if (!visit(visit, 0, 0, false)) return std::nullopt;
     return segments;
 }
 
@@ -56,11 +54,94 @@ inline std::optional<std::vector<std::string>> mixed_abbreviation_segments(
 inline void retain_best_mixed_matches(std::vector<AbbreviatedLexiconMatch>& matches,
                                       const std::size_t limit) {
     std::sort(matches.begin(), matches.end(), [](const auto& left, const auto& right) {
+        const auto all_initials = [](const auto& match) {
+            return std::all_of(match.source_segments.begin(),
+                               match.source_segments.end(),
+                               [](const std::string& segment) {
+                                   return segment.size() == 1;
+                               });
+        };
+        const auto left_initials = all_initials(left);
+        const auto right_initials = all_initials(right);
+        const auto exact_segments = [](const auto& match) {
+            std::size_t value = 0;
+            const auto shared = std::min(match.entry.syllables.size(),
+                                         match.source_segments.size());
+            for (std::size_t index = 0; index < shared; ++index)
+                value += match.entry.syllables[index].size() ==
+                         match.source_segments[index].size();
+            return value;
+        };
+        const auto left_exact = exact_segments(left);
+        const auto right_exact = exact_segments(right);
+        if (!left_initials && !right_initials && left_exact != right_exact)
+            return left_exact > right_exact;
+        const auto completion = [](const auto& match) {
+            std::size_t value = 0;
+            const auto shared = std::min(match.entry.syllables.size(),
+                                         match.source_segments.size());
+            for (std::size_t index = 0; index < shared; ++index)
+                value += match.entry.syllables[index].size() -
+                         match.source_segments[index].size();
+            return value;
+        };
+        const auto left_completion = completion(left);
+        const auto right_completion = completion(right);
+        if (left_completion != right_completion)
+            return left_completion < right_completion;
+        if (left.entry.syllables.size() != right.entry.syllables.size())
+            return left.entry.syllables.size() < right.entry.syllables.size();
         if (left.entry.frequency != right.entry.frequency)
             return left.entry.frequency > right.entry.frequency;
-        if (left.entry.syllables.size() != right.entry.syllables.size())
-            return left.entry.syllables.size() > right.entry.syllables.size();
         return left.entry.text < right.entry.text;
+    });
+    if (matches.size() > limit) matches.resize(limit);
+}
+
+inline void retain_best_mixed_matches(
+    std::vector<AbbreviatedLexiconTextMatch>& matches,
+    const std::size_t limit) {
+    std::sort(matches.begin(), matches.end(), [](const auto& left, const auto& right) {
+        const auto all_initials = [](const auto& match) {
+            return std::all_of(match.source_segments.begin(),
+                               match.source_segments.end(),
+                               [](const std::string& segment) {
+                                   return segment.size() == 1;
+                               });
+        };
+        const auto left_initials = all_initials(left);
+        const auto right_initials = all_initials(right);
+        const auto exact_segments = [](const auto& match) {
+            std::size_t value = 0;
+            const auto shared = std::min(match.syllables.size(),
+                                         match.source_segments.size());
+            for (std::size_t index = 0; index < shared; ++index)
+                value += match.syllables[index].size() ==
+                         match.source_segments[index].size();
+            return value;
+        };
+        const auto left_exact = exact_segments(left);
+        const auto right_exact = exact_segments(right);
+        if (!left_initials && !right_initials && left_exact != right_exact)
+            return left_exact > right_exact;
+        const auto completion = [](const auto& match) {
+            std::size_t value = 0;
+            const auto shared = std::min(match.syllables.size(),
+                                         match.source_segments.size());
+            for (std::size_t index = 0; index < shared; ++index)
+                value += match.syllables[index].size() -
+                         match.source_segments[index].size();
+            return value;
+        };
+        const auto left_completion = completion(left);
+        const auto right_completion = completion(right);
+        if (left_completion != right_completion)
+            return left_completion < right_completion;
+        if (left.syllables.size() != right.syllables.size())
+            return left.syllables.size() < right.syllables.size();
+        if (left.frequency != right.frequency)
+            return left.frequency > right.frequency;
+        return left.text < right.text;
     });
     if (matches.size() > limit) matches.resize(limit);
 }

@@ -98,13 +98,18 @@ OwO 对第三方 Agent 的识别依据是：用户明确配置的本机管道端
 ```text
 普通输入
   └─ 首字符 v → agent_mode（本地预览，仍生成普通拼音候选但不提交）
-       ├─ Enter/Space → submit → thinking
+       ├─ 候选完整消耗请求，或 Enter/Space → submit → thinking
        ├─ commands 非空 → select → thinking/executing
        ├─ 继续输入 → submit（同一 session_id）
        ├─ 翻页 → page（同一 session_id）
        ├─ completed → 结束会话
        └─ 删除 v / Escape / 失焦 / 关闭 → cancel → 结束会话
 ```
+
+预览中的已选候选仍属于当前 Agent 请求草稿。Backspace 首先撤销光标相邻的已选候选并
+恢复其原拼音，然后才逐字删除恢复后的拼音；仅当模式标记 `v` 本身被删除时退出。单独
+输入且从未发送请求的 `v` 在 Enter、Space 或切换中英文时按普通字母处理；已经发送过
+请求的会话继续遵循状态机，不会把模式标记提交给目标应用。
 
 第三方 Agent 应按 `(session_id, action)` 幂等处理重复请求。收到 `cancel` 后立即停止尚未执行的工作并释放会话资源。若操作已无法撤销，应只报告真实状态，不能伪造取消成功。不同 `session_id` 的状态不得混用；OwO 会拒绝不匹配的响应。
 
@@ -123,10 +128,11 @@ OwO 对第三方 Agent 的识别依据是：用户明确配置的本机管道端
 1. 启动只允许当前用户连接的管道服务器。
 2. 在 OwO 设置中心安装并明确授权 Agent IPC 连接器，确认端点一致。
 3. 输入 `vbangwozhaowenjian`，确认 `v` 未进入拼音解析，后续文本仍有拼音预览且没有上屏。
-4. 按 Enter，验证收到 `submit` 及非空 `session_id`。
+4. 完整选择拼音候选，验证可自动收到 `submit` 及非空 `session_id`；另行验证 Enter 和 Space 显式确认。
 5. 返回一个 `message` 和两个低风险 `commands`，验证点击第二项后收到同一会话的 `select` 和正确 ID。
 6. 返回分页结果，验证 `page` 不改变会话 ID。
 7. 删除开头 `v` 或按 Escape，验证收到 `cancel`。
 8. 在密码框中测试，验证 `session_context`、`executable` 和 `window_class` 为空。
 9. 返回错误 JSON、错误会话 ID和超过 65536 字节的数据，验证 OwO 不执行命令并显示简短错误。
 10. 返回 `high_risk: true`，验证输入法只提示前往第三方 Agent 确认。
+11. 选择部分候选后按 Backspace，验证候选恢复为原拼音且会话不取消；删除开头 `v` 后再验证 `cancel`。

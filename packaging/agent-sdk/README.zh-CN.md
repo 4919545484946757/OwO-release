@@ -1,14 +1,16 @@
 # OwO Agent IPC SDK 与可移植模拟 Agent
 
+SDK 与连接器版本：`1.0.1`
+
 该包用于开发、联调第三方 Agent。Windows x64 用户无需安装编译工具即可运行模拟服务。
 
 ## 快速测试
 
 1. 双击 `Start-Mock-Agent.cmd`，保持控制台打开。
-2. 如尚未安装连接器，在 OwO 设置中心安装 `connector/org.owo.agent-ipc-1.0.0.owopkg`。
+2. 如尚未安装连接器，在 OwO 设置中心安装 `connector/org.owo.agent-ipc-1.0.1.owopkg`。
 3. 阅读权限和隐私提示，明确同意后启用连接器。
 4. 确认插件管道为默认值 `\\.\pipe\OwO.Agent.External.v1`。
-5. 输入 `vbangwozhaowenjian`，选择拼音候选后按 Enter 或 Space。
+5. 输入 `vbangwozhaowenjian`；完整选择拼音候选会自动发送，也可按 Enter 或 Space 显式发送。
 6. 在模拟候选中测试回显、应用上下文、执行状态、高风险拦截、翻页和取消。
 
 模拟窗口会打印收到的输入、应用信息和局部上下文。请勿输入真实密码、令牌、支付信息或其他秘密。按 Ctrl+C 或关闭窗口停止服务。

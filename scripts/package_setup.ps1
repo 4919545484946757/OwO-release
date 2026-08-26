@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.2.2',
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\artifacts\release'),
+    [string]$Version = '0.2.3',
+    [string]$OutputDirectory,
     [string]$CompilerPath
 )
 
@@ -9,6 +9,9 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
+    $OutputDirectory = Join-Path $root 'artifacts\release'
+}
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $releaseRoot = Join-Path $output $Version
 $stage = Join-Path $releaseRoot "OwO-Input-Method-$Version-windows-x64"

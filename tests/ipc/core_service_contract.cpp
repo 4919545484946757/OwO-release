@@ -75,6 +75,9 @@ int main() {
         {{"ce", "shi"}, "测试九", 200},
         {{"wo", "ai"}, "我爱", 1500}, {{"wo"}, "我", 1400},
         {{"ai"}, "爱", 1350}, {{"shi"}, "是", 1300},
+        {{"ma"}, "吗", 1250},
+        {{"wei", "shen", "me"}, "为什么", 9000},
+        {{"wan", "shen", "me"}, "玩什么", 3000},
         {{"jun", "jiang"}, "均将", 5000},
         {{"he", "jun"}, "核菌", 4500},
         {{"he"}, "和", 5000}, {{"he"}, "合", 4000},
@@ -128,6 +131,14 @@ int main() {
     const auto nihao_ranged = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request,
                     108, 8, "ni'hao'shi'jie"});
+    owo::protocol::Message deferred_correction_request{
+        owo::protocol::MessageType::candidate_request, 127, 8, "niaho"};
+    deferred_correction_request.defer_expensive_candidates = true;
+    const auto deferred_correction_base = send_request(
+        pipe_name, deferred_correction_request);
+    deferred_correction_request.defer_expensive_candidates = false;
+    const auto deferred_correction_complete = send_request(
+        pipe_name, deferred_correction_request);
     const auto corrected = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request, 110, 8, "niaho"});
     const auto corrected_second_syllable = send_request(
@@ -169,6 +180,9 @@ int main() {
     const auto ambiguous_single_syllable = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request,
                     126, 8, "liang"});
+    const auto abbreviation_partition_order = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    128, 8, "wsm"});
     owo::protocol::Message correction_disabled_request{
         owo::protocol::MessageType::candidate_request, 111, 8, "niaho"};
     correction_disabled_request.correction_enabled = false;
@@ -219,6 +233,31 @@ int main() {
         std::cerr << "second-syllable correction contract failed\n";
         return 5;
     }
+    const bool abbreviation_partition_order_ok =
+        abbreviation_partition_order.validation &&
+        !abbreviation_partition_order.message.candidates.empty() &&
+        abbreviation_partition_order.message.candidate_groups.size() ==
+            abbreviation_partition_order.message.candidates.size() &&
+        abbreviation_partition_order.message.candidates.front() == "为什么" &&
+        abbreviation_partition_order.message.candidate_groups.front() == 1 &&
+        std::find(abbreviation_partition_order.message.candidate_groups.begin(),
+                  abbreviation_partition_order.message.candidate_groups.end(), 0) !=
+            abbreviation_partition_order.message.candidate_groups.end() &&
+        std::find(abbreviation_partition_order.message.candidate_groups.begin(),
+                  abbreviation_partition_order.message.candidate_groups.end(), 2) !=
+            abbreviation_partition_order.message.candidate_groups.end();
+    if (!abbreviation_partition_order_ok) {
+        std::cerr << "abbreviation partition confidence order failed\n";
+        for (std::size_t index = 0;
+             index < abbreviation_partition_order.message.candidates.size(); ++index) {
+            std::cerr << abbreviation_partition_order.message.candidates[index];
+            if (index < abbreviation_partition_order.message.candidate_groups.size())
+                std::cerr << ':'
+                          << abbreviation_partition_order.message.candidate_groups[index];
+            std::cerr << '\n';
+        }
+        return 14;
+    }
     const auto composed = std::find(
         composed_non_dictionary.message.candidates.begin(),
         composed_non_dictionary.message.candidates.end(), "我是");
@@ -260,6 +299,14 @@ int main() {
             std::vector<std::string>{"ni", "hao", "shi", "jie"} ||
         nihao_ranged.message.candidate_consumed !=
             std::vector<std::uint64_t>{14, 6, 6} ||
+        !deferred_correction_base.validation ||
+        deferred_correction_base.message.type !=
+            owo::protocol::MessageType::candidate_response ||
+        !deferred_correction_base.message.candidate_refinement_pending ||
+        !deferred_correction_complete.validation ||
+        deferred_correction_complete.message.candidate_refinement_pending ||
+        deferred_correction_complete.message.candidates !=
+            std::vector<std::string>{"你好", "你号"} ||
         !valid_response(corrected, 110, 8, {"你好", "你号"}, {"ni", "aho"}) ||
         !stable_xingb.validation ||
         stable_xingb.message.syllables != std::vector<std::string>{"xing", "b"} ||

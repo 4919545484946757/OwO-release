@@ -1,47 +1,62 @@
 # OwO 输入法
 
-OwO 是面向 Windows 11 x64 的模块化中文拼音输入法。基础输入、词典查询和候选上屏不依赖网络；智能排序不可用时会自动使用基础候选。
+OwO 是面向 Windows 11 x64 的模块化中文拼音输入法。基础输入、词典查询和上屏均可离线运行；智能排序或插件不可用时会自动回退，不阻塞基础候选。
 
-当前版本：`0.2.2`
+当前版本：`0.2.3`
 
-## 主要功能
+## 功能概览
 
-- Windows TSF 输入法，Direct2D/DirectWrite 候选窗口
-- 完整拼音、不完整拼音、缩写与可切换纠错
-- 本地词频学习和 libime 中文上下文排序
-- 候选点击、翻页、展开、滚轮浏览和拼音光标
-- WinUI 3 设置中心，可配置候选数量、学习灵敏度和多组快捷键
-- ZIP、文件夹和 `.owopkg` 插件安装；高权限插件须单独知情授权
+- Windows TSF 输入链路，Direct2D、DirectWrite 候选窗口
+- 完整拼音、不完整拼音、首字母缩写、混合缩写和可切换纠错
+- 句子、字典词和单字候选分区；分页、展开、点击与滚轮操作
+- 本地词频学习与 libime 中文上下文排序
+- 拼音光标、候选暂存、中文标点及可配置的多组快捷键
+- WinUI 3 设置中心，支持搜索、插件管理和声明式插件配置页
+- `.owopkg`、ZIP、文件夹插件安装；高权限插件逐版本告知并授权
+- 官方候选主题、Unicode 符号列表和 Agent IPC 连接器
 
-## 安装
+## 安装与使用
 
-推荐运行发行目录中的 `OwO-Input-Method-0.2.2-windows-x64-Setup.exe`。
-安装向导可选择把设置中心添加到开始菜单或桌面，也可在安装完成后打开 Windows 11
-任务栏固定引导。任务栏固定必须由用户在设置中心图标的右键菜单中确认。
+运行 `OwO-Input-Method-0.2.3-windows-x64-Setup.exe`，或解压便携包后双击 `Install-OwO.cmd`。系统需要 Windows 11 x64，以及“中文（简体，中国）”语言和基本输入支持；不要求把中文设为 Windows 显示语言。
 
-也可以解压发行 ZIP 后双击 `Install-OwO.cmd`。安装完成后按 `Win + Space`，选择 OwO Input Method。安装、注册和卸载 TSF 时会出现 Windows UAC 提示。
+安装完成后按 `Win + Space` 选择 OwO Input Method。常用入口：
 
-常用入口：
-
-- 设置中心：开始菜单中的“OwO Input Method Settings”，或 `Open-OwO-Settings.cmd`
+- 设置中心：开始菜单中的“OwO 输入法设置”，或 `Open-OwO-Settings.cmd`
 - 重启服务：`Start-OwO.cmd`
 - 卸载：开始菜单卸载项，或 `Uninstall-OwO.cmd`
 
-用户配置、词频和日志位于 `%LOCALAPPDATA%\OwO\InputMethod`。卸载默认保留这些数据。
+用户配置、词频和日志位于 `%LOCALAPPDATA%\OwO\InputMethod`，卸载默认保留这些数据。
 
-## 默认操作
+## 默认按键
 
-- `Space` 或数字键：选择候选
-- `[` / `]`：候选翻页
-- `Shift+↑` / `Shift+↓`：候选翻页
-- `Shift+←` / `Shift+→`：移动拼音光标
-- `Ctrl+Space`：切换中英文
-- `Ctrl+Q`：切换拼音纠错
-- `Enter`：直接输出当前字母
+| 操作 | 默认按键 |
+| --- | --- |
+| 选择首候选 | `Space` |
+| 选择编号候选 | 数字键 |
+| 上一页 / 下一页 | `[` / `]`、`↑` / `↓` |
+| 移动拼音光标 | `←` / `→` |
+| 移动应用文本光标 | `Shift+方向键`，默认不扩展选区 |
+| 切换中英文 | `Ctrl+Space` |
+| 切换拼音纠错 | `Ctrl+Q` |
+| 直接输出当前字母 | `Enter` |
 
-快捷键均可在设置中心启用、关闭或添加多组绑定。
+快捷键可在设置中心启用、关闭、改键或添加多组绑定。
 
-## 构建
+## Agent 模式
+
+安装并明确授权官方 Agent IPC 连接器后，以小写 `v` 作为拼音串首字符进入 Agent 模式，例如 `vbangwozhaowenjian`。`v` 仅是模式标记；后续内容仍可生成并选择拼音候选，但不会作为普通文本立即上屏。请求完整消耗或用户确认后，连接器会将经过限长和脱敏的数据发送给用户配置的本机第三方 Agent。
+
+Agent 返回的自然语言只用于显示，控制行为必须使用结构化命令 ID。删除文件、执行程序、账户、支付、凭据和系统设置等高风险操作不能由候选框直接授权。详见：
+
+- [权限与隐私说明](docs/plugins/agent-ipc-privacy.md)
+- [第三方 Agent 接入规范](docs/plugins/agent-ipc-integration.md)
+- [模拟 Agent 联调指南](docs/plugins/agent-ipc-mock.md)
+
+## 插件开发
+
+插件 API v1 支持隔离的进程插件和不执行代码的声明式资源插件。插件必须声明权限，不能加载进 TSF 或 Core Service。入门与接口清单见 [插件开发指南](docs/plugins/development.md)，安全边界见 [插件安全基线](docs/security/plugin-baseline.md)。官方插件源码集中在 [`plugins`](plugins)。
+
+## 构建与打包
 
 需要 Visual Studio 2022 Build Tools、MSVC x64、CMake 3.25+、.NET 10 SDK 和 Windows 11 SDK。
 
@@ -49,27 +64,20 @@ OwO 是面向 Windows 11 x64 的模块化中文拼音输入法。基础输入、
 cmake --preset windows-debug
 cmake --build --preset windows-debug
 ctest --preset windows-debug
-```
 
-Release 与发行包：
-
-```powershell
 cmake --preset windows-release
 cmake --build --preset windows-release
 .\scripts\build_settings_center.ps1 -Configuration Release
-.\scripts\package_release.ps1 -Version 0.2.2
-.\scripts\package_setup.ps1 -Version 0.2.2
+.\scripts\package_release.ps1 -Version 0.2.3
+.\scripts\package_setup.ps1 -Version 0.2.3
+.\scripts\package_plugins.ps1
+.\scripts\package-agent-sdk.ps1 -Version 1.0.1
 ```
 
-架构与决策记录见 [`docs`](docs)，插件接口见 [`docs/plugins/development.md`](docs/plugins/development.md)。
-高权限 Agent 连接器另有独立的[权限与隐私说明](docs/plugins/agent-ipc-privacy.md)及[第三方接入规范](docs/plugins/agent-ipc-integration.md)。
-本机联调可使用[模拟第三方 Agent](docs/plugins/agent-ipc-mock.md)。
+## 许可与完整性
 
-## 平台与许可
+- OwO 源码：`GPL-3.0-only`
+- libime / Fcitx5Utils：`LGPL-2.1-or-later`
+- 第三方许可：发行包 `LICENSES` 目录
 
-- 当前仅正式支持 Windows 11 x64
-- OwO 源码采用 `GPL-3.0-only`
-- libime/Fcitx5Utils 采用 `LGPL-2.1-or-later`
-- 完整第三方许可随发行包提供于 `LICENSES` 目录
-
-当前构建尚未进行商业代码签名，请只从可信来源获取，并核对发行目录中的 SHA-256 清单。
+当前构建未进行商业代码签名。请只从可信来源获取，并核对发行目录中的 `SHA256SUMS.txt`。

@@ -12,6 +12,7 @@
 #include <map>
 #include <optional>
 #include <set>
+#include <unordered_set>
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -699,7 +700,24 @@ LexiconIoResult BinaryLexicon::load(const std::filesystem::path& path) {
     return {true, {}};
 }
 
-std::vector<LexiconEntry> BinaryLexicon::lookup(const std::span<const std::string_view> syllables) const {
+std::vector<LexiconEntry> BinaryLexicon::lookup(
+    const std::span<const std::string_view> syllables) const {
+    const auto text_entries = lookup_texts(syllables);
+    std::vector<LexiconEntry> matches;
+    matches.reserve(text_entries.size());
+    for (const auto& text_entry : text_entries) {
+        LexiconEntry entry;
+        entry.syllables.reserve(syllables.size());
+        for (const auto syllable : syllables) entry.syllables.emplace_back(syllable);
+        entry.text.assign(text_entry.text);
+        entry.frequency = text_entry.frequency;
+        matches.push_back(std::move(entry));
+    }
+    return matches;
+}
+
+std::vector<LexiconTextEntry> BinaryLexicon::lookup_texts(
+    const std::span<const std::string_view> syllables) const {
     std::vector<std::uint16_t> reading;
     reading.reserve(syllables.size());
     for (const auto syllable : syllables) {
@@ -752,10 +770,28 @@ std::vector<LexiconEntry> BinaryLexicon::lookup(const std::span<const std::strin
         [&](const std::span<const std::uint16_t> value, const CompactEntry& entry) {
             return compare(entry, value) > 0;
         });
-    std::vector<LexiconEntry> matches;
+    std::vector<LexiconTextEntry> matches;
     matches.reserve(static_cast<std::size_t>(last - first));
-    for (auto entry = first; entry != last; ++entry) matches.push_back(materialize(*entry));
+    for (auto entry = first; entry != last; ++entry) {
+        const auto* text_pool = mapped_entries_ != nullptr
+                                    ? mapped_text_pool_
+                                    : text_pool_.data();
+        matches.push_back({std::string_view(text_pool + entry->text_offset,
+                                            entry->text_size),
+                           entry->frequency});
+    }
     return matches;
+}
+
+std::uint32_t BinaryLexicon::lookup_max_frequency(
+    const std::span<const std::string_view> syllables) const {
+    if (const auto upper_bound = exact_frequency_upper_bound(syllables))
+        return *upper_bound;
+    if (exact_lookup_frequency_ordered()) return 0;
+    std::uint32_t maximum = 0;
+    for (const auto& entry : lookup_texts(syllables))
+        maximum = std::max(maximum, entry.frequency);
+    return maximum;
 }
 
 BoundedLexiconLookup BinaryLexicon::lookup_bounded(
@@ -926,6 +962,54 @@ std::vector<LexiconEntry> BinaryLexicon::lookup_initial(const char initial,
     return matches;
 }
 
+std::vector<InitialLexiconTextEntry> BinaryLexicon::lookup_initial_texts(
+    const char initial, const std::size_t limit) const {
+    if (initial < 'a' || initial > 'z' || limit == 0) return {};
+    const auto append = [this](std::vector<InitialLexiconTextEntry>& matches,
+                               const std::uint32_t entry_index) {
+        const auto entries = mapped_entries_ != nullptr
+                                 ? std::span<const CompactEntry>(mapped_entries_,
+                                                                 mapped_entry_count_)
+                                 : std::span<const CompactEntry>(entries_);
+        const auto ids = mapped_entries_ != nullptr
+                             ? std::span<const std::uint16_t>(mapped_syllable_ids_,
+                                                             mapped_syllable_id_count_)
+                             : std::span<const std::uint16_t>(syllable_ids_);
+        if (entry_index >= entries.size()) return false;
+        const auto& entry = entries[entry_index];
+        if (entry.syllable_count != 1 || entry.syllable_offset >= ids.size())
+            return false;
+        const auto* text_pool = mapped_entries_ != nullptr
+                                    ? mapped_text_pool_
+                                    : text_pool_.data();
+        matches.push_back({syllable_at(ids[entry.syllable_offset]),
+                           std::string_view(text_pool + entry.text_offset,
+                                            entry.text_size),
+                           entry.frequency});
+        return true;
+    };
+
+    std::vector<InitialLexiconTextEntry> matches;
+    if (mapped_entries_ != nullptr) {
+        const auto range = mapped_initial_ranges_[initial - 'a'];
+        const auto count = std::min<std::size_t>(limit, range.count);
+        matches.reserve(count);
+        for (std::size_t index = 0; index < count; ++index) {
+            if (!append(matches,
+                        mapped_initial_indices_[range.offset + index]))
+                return {};
+        }
+    } else {
+        const auto& indices = initial_entries_[initial - 'a'];
+        const auto count = std::min(limit, indices.size());
+        matches.reserve(count);
+        for (std::size_t index = 0; index < count; ++index) {
+            if (!append(matches, indices[index])) return {};
+        }
+    }
+    return matches;
+}
+
 BoundedInitialLookup BinaryLexicon::lookup_initial_bounded(
     const char initial, const std::size_t start_index,
     const std::size_t result_limit, const std::size_t work_unit_limit) const {
@@ -987,9 +1071,47 @@ BoundedInitialLookup BinaryLexicon::lookup_initial_bounded(
 
 std::vector<AbbreviatedLexiconMatch> BinaryLexicon::lookup_mixed_abbreviation(
     const std::string_view input, const std::size_t limit) const {
+    auto text_matches = lookup_mixed_abbreviation_texts(input, limit);
+    std::vector<AbbreviatedLexiconMatch> matches;
+    matches.reserve(text_matches.size());
+    for (auto& text_match : text_matches) {
+        LexiconEntry entry;
+        entry.syllables.reserve(text_match.syllables.size());
+        for (const auto syllable : text_match.syllables)
+            entry.syllables.emplace_back(syllable);
+        entry.text.assign(text_match.text);
+        entry.frequency = text_match.frequency;
+        matches.push_back({std::move(entry), std::move(text_match.source_segments)});
+    }
+    return matches;
+}
+
+std::vector<AbbreviatedLexiconTextMatch>
+BinaryLexicon::lookup_mixed_abbreviation_texts(
+    const std::string_view input, const std::size_t limit) const {
     if (limit == 0 || input.size() < 2 || input.find('\'') != std::string_view::npos)
         return {};
-    std::vector<AbbreviatedLexiconMatch> matches;
+    std::vector<AbbreviatedLexiconTextMatch> matches;
+    const auto make_match = [this](const CompactEntry& entry,
+                                    std::vector<std::string> source_segments) {
+        AbbreviatedLexiconTextMatch match;
+        match.syllables.reserve(entry.syllable_count);
+        const auto ids = mapped_entries_ != nullptr
+                             ? std::span<const std::uint16_t>(mapped_syllable_ids_,
+                                                             mapped_syllable_id_count_)
+                             : std::span<const std::uint16_t>(syllable_ids_);
+        for (std::size_t index = 0; index < entry.syllable_count; ++index)
+            match.syllables.push_back(
+                syllable_at(ids[entry.syllable_offset + index]));
+        const auto* text_pool = mapped_entries_ != nullptr
+                                    ? mapped_text_pool_
+                                    : text_pool_.data();
+        match.text = std::string_view(text_pool + entry.text_offset,
+                                      entry.text_size);
+        match.frequency = entry.frequency;
+        match.source_segments = std::move(source_segments);
+        return match;
+    };
     const auto prune_threshold = limit > (std::numeric_limits<std::size_t>::max)() / 4
                                      ? (std::numeric_limits<std::size_t>::max)()
                                      : limit * 4;
@@ -1027,9 +1149,9 @@ std::vector<AbbreviatedLexiconMatch> BinaryLexicon::lookup_mixed_abbreviation(
                                         ? mapped_entries_[entry_index]
                                         : entries_[entry_index];
                 if (entry.syllable_count != 2) return;
-                matches.push_back({materialize(entry),
-                                   {std::string(1, input[0]),
-                                    std::string(1, input[1])}});
+                matches.push_back(make_match(
+                    entry, {std::string(1, input[0]),
+                            std::string(1, input[1])}));
                 if (matches.size() >= prune_threshold)
                     detail::retain_best_mixed_matches(matches, limit);
             };
@@ -1046,73 +1168,66 @@ std::vector<AbbreviatedLexiconMatch> BinaryLexicon::lookup_mixed_abbreviation(
         detail::retain_best_mixed_matches(matches, limit);
         return matches;
     }
+    std::unordered_set<std::uint32_t> visited_entries;
+    visited_entries.reserve(limit * 8);
+    const auto match_entry = [&](const std::uint32_t entry_index) {
+        if (!visited_entries.insert(entry_index).second) return true;
+        const auto entry_count = mapped_entries_ != nullptr
+                                     ? mapped_entry_count_
+                                     : entries_.size();
+        if (entry_index >= entry_count) return false;
+        const auto& entry = mapped_entries_ != nullptr ? mapped_entries_[entry_index]
+                                                        : entries_[entry_index];
+        std::vector<std::string_view> reading;
+        reading.reserve(entry.syllable_count);
+        for (std::size_t index = 0; index < entry.syllable_count; ++index) {
+            const auto id = mapped_entries_ != nullptr
+                                ? mapped_syllable_ids_[entry.syllable_offset + index]
+                                : syllable_ids_[entry.syllable_offset + index];
+            reading.push_back(syllable_at(id));
+        }
+        const auto segments = detail::mixed_abbreviation_segments(
+            std::span<const std::string_view>(reading), input);
+        if (!segments) return true;
+        matches.push_back(make_match(entry, *segments));
+        if (matches.size() >= prune_threshold)
+            detail::retain_best_mixed_matches(matches, limit);
+        return true;
+    };
     const auto maximum_first = std::min<std::size_t>(6, input.size() - 1);
+    const auto syllable_count = mapped_entries_ != nullptr
+                                    ? mapped_syllable_count_
+                                    : syllables_.size();
     for (std::size_t first_size = 1; first_size <= maximum_first; ++first_size) {
-        const auto first_syllable = input.substr(0, first_size);
-        std::optional<std::uint16_t> first_id;
-        if (mapped_entries_ != nullptr) {
-            std::size_t first = 0;
-            std::size_t last = mapped_syllable_count_;
-            while (first < last) {
-                const auto middle = first + (last - first) / 2;
-                if (syllable_at(static_cast<std::uint16_t>(middle)) < first_syllable)
-                    first = middle + 1;
-                else
-                    last = middle;
-            }
-            if (first != mapped_syllable_count_ &&
-                syllable_at(static_cast<std::uint16_t>(first)) == first_syllable)
-                first_id = static_cast<std::uint16_t>(first);
-        } else {
-            const auto found = syllable_to_id_.find(std::string(first_syllable));
-            if (found != syllable_to_id_.end()) first_id = found->second;
-        }
-        if (!first_id) continue;
-        const auto key = (static_cast<std::uint32_t>(*first_id) << 8U) |
-                         static_cast<unsigned char>(input[first_size]);
-        const std::uint32_t* bucket_begin = nullptr;
-        const std::uint32_t* bucket_end = nullptr;
-        if (mapped_entries_ != nullptr) {
-            const auto* bucket = std::lower_bound(
-                mapped_mixed_buckets_, mapped_mixed_buckets_ + mapped_mixed_bucket_count_, key,
-                [](const MixedBucket& value, const std::uint32_t expected) {
-                    return value.key < expected;
-                });
-            if (bucket == mapped_mixed_buckets_ + mapped_mixed_bucket_count_ ||
-                bucket->key != key)
+        const auto first_source = input.substr(0, first_size);
+        for (std::size_t first_id = 0; first_id < syllable_count; ++first_id) {
+            if (!syllable_at(static_cast<std::uint16_t>(first_id))
+                     .starts_with(first_source))
                 continue;
-            bucket_begin = mapped_mixed_indices_ + bucket->offset;
-            bucket_end = bucket_begin + bucket->count;
-        }
-        const auto owned_bucket = mapped_entries_ == nullptr ? mixed_entries_.find(key)
-                                                              : mixed_entries_.end();
-        if (mapped_entries_ == nullptr && owned_bucket == mixed_entries_.end()) continue;
-        const auto match_entry = [&](const std::uint32_t entry_index) {
-            const auto& entry = mapped_entries_ != nullptr ? mapped_entries_[entry_index]
-                                                            : entries_[entry_index];
-            std::vector<std::string_view> reading;
-            reading.reserve(entry.syllable_count);
-            for (std::size_t index = 0; index < entry.syllable_count; ++index) {
-                const auto id = mapped_entries_ != nullptr
-                                    ? mapped_syllable_ids_[entry.syllable_offset + index]
-                                    : syllable_ids_[entry.syllable_offset + index];
-                reading.push_back(syllable_at(id));
+            const auto key = (static_cast<std::uint32_t>(first_id) << 8U) |
+                             static_cast<unsigned char>(input[first_size]);
+            if (mapped_entries_ != nullptr) {
+                const auto* bucket = std::lower_bound(
+                    mapped_mixed_buckets_,
+                    mapped_mixed_buckets_ + mapped_mixed_bucket_count_, key,
+                    [](const MixedBucket& value, const std::uint32_t expected) {
+                        return value.key < expected;
+                    });
+                if (bucket == mapped_mixed_buckets_ + mapped_mixed_bucket_count_ ||
+                    bucket->key != key)
+                    continue;
+                for (auto index = mapped_mixed_indices_ + bucket->offset;
+                     index != mapped_mixed_indices_ + bucket->offset + bucket->count;
+                     ++index) {
+                    if (!match_entry(*index)) return {};
+                }
+            } else {
+                const auto bucket = mixed_entries_.find(key);
+                if (bucket == mixed_entries_.end()) continue;
+                for (const auto entry_index : bucket->second) {
+                    if (!match_entry(entry_index)) return {};
+                }
             }
-            const auto segments = detail::mixed_abbreviation_segments(
-                std::span<const std::string_view>(reading), input);
-            if (!segments) return;
-            matches.push_back({materialize(entry), *segments});
-            if (matches.size() >= prune_threshold) {
-                detail::retain_best_mixed_matches(matches, limit);
-            }
-        };
-        if (mapped_entries_ != nullptr) {
-            for (auto index = bucket_begin; index != bucket_end; ++index) {
-                if (*index >= mapped_entry_count_) return {};
-                match_entry(*index);
-            }
-        } else {
-            for (const auto entry_index : owned_bucket->second) match_entry(entry_index);
         }
     }
     detail::retain_best_mixed_matches(matches, limit);

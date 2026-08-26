@@ -198,13 +198,22 @@ bool valid_language_context(const Message& message) {
     return message.context.size() <= 256;
 }
 
+bool valid_candidate_refinement(const Message& message) {
+    if (message.defer_expensive_candidates &&
+        message.type != MessageType::candidate_request) return false;
+    if (message.candidate_refinement_pending &&
+        message.type != MessageType::candidate_response) return false;
+    return true;
+}
+
 }  // namespace
 
 std::string encode_message(const Message& message) {
     if (!valid_syllables(message.syllables) || !valid_candidate_consumed(message) ||
         !valid_candidate_groups(message) ||
         !valid_candidate_layout(message) || !valid_feedback_input(message) ||
-        !valid_language_context(message)) return {};
+        !valid_language_context(message) ||
+        !valid_candidate_refinement(message)) return {};
     const auto escaped = escape_json(message.text);
     if (!message.text.empty() && escaped.empty()) return {};
     const auto escaped_input = escape_json(message.input);
@@ -247,6 +256,10 @@ std::string encode_message(const Message& message) {
            ",\"page\":" + std::to_string(message.page) +
            ",\"has_more\":" + (message.has_more ? "true" : "false") +
            ",\"model_pending\":" + (message.model_pending ? "true" : "false") +
+           ",\"defer_expensive_candidates\":" +
+               (message.defer_expensive_candidates ? "true" : "false") +
+           ",\"candidate_refinement_pending\":" +
+               (message.candidate_refinement_pending ? "true" : "false") +
            ",\"syllables\":" + encoded_syllables +
            ",\"candidate_consumed\":" + encoded_consumed +
            ",\"candidate_groups\":" + encoded_groups +
@@ -324,6 +337,18 @@ DecodeResult decode_message(const std::string_view json) {
         if (!value) goto invalid;
         output.message.model_pending = *value;
     }
+    if (!consume(json, offset, ",\"defer_expensive_candidates\":")) goto invalid;
+    {
+        const auto value = parse_bool(json, offset);
+        if (!value) goto invalid;
+        output.message.defer_expensive_candidates = *value;
+    }
+    if (!consume(json, offset, ",\"candidate_refinement_pending\":")) goto invalid;
+    {
+        const auto value = parse_bool(json, offset);
+        if (!value) goto invalid;
+        output.message.candidate_refinement_pending = *value;
+    }
     if (!consume(json, offset, ",\"syllables\":")) goto invalid;
     {
         auto values = parse_string_array(json, offset);
@@ -377,7 +402,8 @@ DecodeResult decode_message(const std::string_view json) {
         !valid_candidate_groups(output.message) ||
         !valid_candidate_layout(output.message) ||
         !valid_feedback_input(output.message) ||
-        !valid_language_context(output.message)) goto invalid;
+        !valid_language_context(output.message) ||
+        !valid_candidate_refinement(output.message)) goto invalid;
     output.validation = {};
     return output;
 

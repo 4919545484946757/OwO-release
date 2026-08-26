@@ -1,12 +1,23 @@
 [CmdletBinding()]
 param(
-    [string]$PluginRoot = (Join-Path $PSScriptRoot '..\plugins'),
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot '..\artifacts\plugins'),
-    [string]$BuildDirectory = (Join-Path $PSScriptRoot '..\build\windows-release\Release')
+    [string]$PluginRoot,
+    [string]$OutputDirectory,
+    [string]$BuildDirectory
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+$root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if ([string]::IsNullOrWhiteSpace($PluginRoot)) {
+    $PluginRoot = Join-Path $root 'plugins'
+}
+if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
+    $OutputDirectory = Join-Path $root 'artifacts\plugins'
+}
+if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
+    $BuildDirectory = Join-Path $root 'build\windows-release\Release'
+}
 
 $plugins = [IO.Path]::GetFullPath($PluginRoot)
 $output = [IO.Path]::GetFullPath($OutputDirectory)
@@ -16,7 +27,8 @@ $build = [IO.Path]::GetFullPath($BuildDirectory)
 foreach ($directory in Get-ChildItem -LiteralPath $plugins -Directory | Sort-Object Name) {
     $manifestPath = Join-Path $directory.FullName 'manifest.json'
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { continue }
-    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 |
+        ConvertFrom-Json
     if ([string]::IsNullOrWhiteSpace($manifest.id) -or
         [string]::IsNullOrWhiteSpace($manifest.version)) {
         throw "Invalid plugin identity: $manifestPath"

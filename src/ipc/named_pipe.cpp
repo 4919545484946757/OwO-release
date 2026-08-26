@@ -754,6 +754,37 @@ void arrange_partitioned_candidate_pages(
         dictionary.push_back(std::move(candidate));
     }
 
+    // A generated sentence is normally the most useful whole-input result,
+    // but compact abbreviations can also produce weak character combinations
+    // beside a much stronger real phrase. Do not let the fixed group order put
+    // “我市吗” ahead of the dictionary-backed “为什么”. This is score-driven
+    // and applies to every input: sentence-first remains the default unless a
+    // real whole-input dictionary entry has stronger evidence.
+    const auto best_sentence_score = sentences.empty()
+        ? (std::numeric_limits<std::int64_t>::min)()
+        : std::max_element(sentences.begin(), sentences.end(),
+                           [](const engine::Candidate& left,
+                              const engine::Candidate& right) {
+                               return left.score < right.score;
+                           })->score;
+    const auto best_whole_dictionary = std::max_element(
+        dictionary.begin(), dictionary.end(),
+        [full_input_bytes](const engine::Candidate& left,
+                           const engine::Candidate& right) {
+            const auto evidence = [full_input_bytes](const engine::Candidate& value) {
+                return value.segment_count == 1 &&
+                       value.consumed_input_bytes == full_input_bytes
+                    ? value.score
+                    : (std::numeric_limits<std::int64_t>::min)();
+            };
+            return evidence(left) < evidence(right);
+        });
+    const bool dictionary_before_sentences =
+        !sentences.empty() && best_whole_dictionary != dictionary.end() &&
+        best_whole_dictionary->segment_count == 1 &&
+        best_whole_dictionary->consumed_input_bytes == full_input_bytes &&
+        best_whole_dictionary->score > best_sentence_score;
+
     std::vector<engine::Candidate> paged;
     paged.reserve(sentences.size() + dictionary.size() + single_characters.size());
     std::size_t dictionary_index = 0;
@@ -762,7 +793,7 @@ void arrange_partitioned_candidate_pages(
     while (first_page || dictionary_index < dictionary.size() ||
            single_index < single_characters.size()) {
         const auto sentence_count = first_page ? sentences.size() : 0;
-        if (first_page) {
+        if (first_page && !dictionary_before_sentences) {
             for (auto& sentence : sentences)
                 paged.push_back(std::move(sentence));
         }
@@ -789,7 +820,14 @@ void arrange_partitioned_candidate_pages(
         // parse (for example liang versus li'ang). Put only the first page's
         // single-character area first; later pages retain the stable dictionary-
         // then-character layout used by paging and expanded views.
-        if (first_page && single_syllable_input) {
+        if (first_page && dictionary_before_sentences) {
+            while (dictionary_index < dictionary_end)
+                paged.push_back(std::move(dictionary[dictionary_index++]));
+            for (auto& sentence : sentences)
+                paged.push_back(std::move(sentence));
+            while (single_index < single_end)
+                paged.push_back(std::move(single_characters[single_index++]));
+        } else if (first_page && single_syllable_input) {
             while (single_index < single_end)
                 paged.push_back(std::move(single_characters[single_index++]));
             while (dictionary_index < dictionary_end)
@@ -983,6 +1021,13 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
     std::unordered_map<std::string, PendingAgentRequest> agent_requests;
     LatestModelTaskQueue model_queue;
     CandidateResultCache candidate_cache;
+    struct PendingCandidateRefinement {
+        std::uint64_t request_id{};
+        std::uint64_t context_generation{};
+        CandidateCacheKey cache_key;
+        engine::ParseResult parsed;
+    };
+    std::optional<PendingCandidateRefinement> pending_candidate_refinement;
     engine::FullPinyinIncrementalState incremental_parse_state;
     std::uint64_t learning_generation = 0;
     const auto model_key = [](const std::uint64_t request_id, const std::uint64_t generation) {
@@ -1208,15 +1253,6 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             update.candidates, pending.full_input_bytes,
                             pending.candidates, pending.candidate_consumed,
                             response.candidates, response.candidate_consumed);
-                        std::string model_preferred_full;
-                        for (std::size_t index = 0;
-                             index < response.candidates.size(); ++index) {
-                            if (response.candidate_consumed[index] !=
-                                pending.full_input_bytes)
-                                continue;
-                            model_preferred_full = response.candidates[index];
-                            break;
-                        }
                         promote_preferred_candidates(
                             pending.contextual_preferences, response.candidates,
                             response.candidate_consumed);
@@ -1224,64 +1260,42 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             pending.learned_preferences, pending.candidates,
                             pending.candidate_consumed, response.candidates,
                             response.candidate_consumed);
-                        auto visible_full_count = std::max<std::size_t>(
-                            1, static_cast<std::size_t>(std::count(
-                                   pending.candidate_consumed.begin(),
-                                   pending.candidate_consumed.begin() +
-                                       static_cast<std::ptrdiff_t>(
-                                           std::min(pending.visible_count,
-                                            pending.candidate_consumed.size())),
-                                   pending.full_input_bytes)));
-                        // A learned choice may disagree with the language
-                        // model. Preserve both full-input candidates in that
-                        // case so the user can select the model preference and
-                        // naturally correct their frequency history. Inputs
-                        // without such a conflict still expose only the normal
-                        // one-or-two sentence budget.
-                        const auto learned_preferred_full = std::find_if(
-                            response.candidate_consumed.begin(),
-                            response.candidate_consumed.end(),
-                            [&pending](const std::uint64_t consumed) {
-                                return consumed == pending.full_input_bytes;
-                            });
-                        if (!model_preferred_full.empty() &&
-                            learned_preferred_full !=
-                                response.candidate_consumed.end()) {
-                            const auto index = static_cast<std::size_t>(
-                                learned_preferred_full -
-                                response.candidate_consumed.begin());
-                            if (response.candidates[index] != model_preferred_full)
-                                visible_full_count = std::max<std::size_t>(
-                                    visible_full_count, 2);
-                        }
-                        std::size_t retained_full = 0;
-                        for (std::size_t index = 0;
-                             index < response.candidates.size();) {
-                            if (response.candidate_consumed[index] !=
-                                pending.full_input_bytes ||
-                                retained_full++ < visible_full_count) {
-                                ++index;
-                                continue;
-                            }
-                            response.candidates.erase(
-                                response.candidates.begin() +
-                                static_cast<std::ptrdiff_t>(index));
-                            response.candidate_consumed.erase(
-                                response.candidate_consumed.begin() +
-                                static_cast<std::ptrdiff_t>(index));
-                        }
-                        if (response.candidates.size() > pending.visible_count) {
-                            response.candidates.resize(pending.visible_count);
-                            response.candidate_consumed.resize(pending.visible_count);
-                        }
                         response.candidate_groups = candidate_groups_for_order(
                             response.candidates, response.candidate_consumed,
                             pending.candidates, pending.candidate_consumed,
                             pending.candidate_groups);
-                        restore_candidate_group_order(
-                            response.candidates, response.candidate_consumed,
-                            response.candidate_groups,
-                            pending.candidate_groups);
+                        if (!pending.candidate_groups.empty() &&
+                            response.candidate_groups.empty()) {
+                            // An invalid model permutation must never erase a
+                            // structural candidate source. Fall back to the
+                            // deterministic base pool instead of publishing a
+                            // partially classified update.
+                            response.candidates = pending.candidates;
+                            response.candidate_consumed = pending.candidate_consumed;
+                            response.candidate_groups = pending.candidate_groups;
+                        } else {
+                            // Model ranking is authoritative only inside each
+                            // candidate group. Reapply the visible base layout
+                            // before truncation so hidden whole-input words
+                            // cannot consume every sentence slot (wsm used to
+                            // lose both short sentences at this point).
+                            const auto visible_layout_size = std::min(
+                                pending.visible_count,
+                                pending.candidate_groups.size());
+                            std::vector<std::uint64_t> visible_layout(
+                                pending.candidate_groups.begin(),
+                                pending.candidate_groups.begin() +
+                                    static_cast<std::ptrdiff_t>(visible_layout_size));
+                            restore_candidate_group_order(
+                                response.candidates, response.candidate_consumed,
+                                response.candidate_groups, visible_layout);
+                        }
+                        if (response.candidates.size() > pending.visible_count) {
+                            response.candidates.resize(pending.visible_count);
+                            response.candidate_consumed.resize(pending.visible_count);
+                            if (!response.candidate_groups.empty())
+                                response.candidate_groups.resize(pending.visible_count);
+                        }
                     }
                 }
                 }
@@ -1298,6 +1312,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 response.type = protocol::MessageType::candidate_response;
                 constexpr std::uint64_t maximum_page = 100;
                 std::size_t full_input_bytes = 0;
+                bool request_cancelled = false;
                 std::vector<std::string> model_candidate_pool;
                 std::vector<std::size_t> model_candidate_consumed;
                 std::vector<std::string> model_hidden_candidates;
@@ -1363,7 +1378,13 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     // page latency.
                     const auto required_pool_size = decoded.message.expanded
                         ? result_size : begin + result_size + 1;
-                    const auto generation_limit = result_limit;
+                    const auto full_generation_limit = result_limit;
+                    const auto fast_generation_limit = std::max<std::size_t>(
+                        result_size + 1, result_size * 2 + 4);
+                    const auto generation_limit =
+                        decoded.message.defer_expensive_candidates
+                            ? std::min(full_generation_limit, fast_generation_limit)
+                            : full_generation_limit;
                     CandidateCacheKey cache_key{
                         decoded.message.text,
                         decoded.message.input,
@@ -1373,6 +1394,19 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         parse_path_limit,
                         decoded.message.correction_enabled,
                         adaptive_ranking_enabled};
+                    std::optional<engine::ParseResult> refinement_parse;
+                    if (decoded.message.defer_expensive_candidates) {
+                        pending_candidate_refinement.reset();
+                    } else if (pending_candidate_refinement &&
+                               pending_candidate_refinement->request_id ==
+                                   decoded.message.request_id &&
+                               pending_candidate_refinement->context_generation ==
+                                   decoded.message.context_generation &&
+                               pending_candidate_refinement->cache_key == cache_key) {
+                        refinement_parse = std::move(
+                            pending_candidate_refinement->parsed);
+                        pending_candidate_refinement.reset();
+                    }
                     std::optional<CachedCandidateResult> previous_pool;
                     std::optional<CachedCandidateResult> cached;
                     if (decoded.message.expanded) {
@@ -1386,7 +1420,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     engine::ParseResult parsed;
                     std::vector<engine::Candidate> candidates;
                     bool correction_fallback = false;
+                    bool correction_deferred = false;
                     bool incremental_reused = false;
+                    bool refinement_parse_reused = false;
                     bool candidate_pool_exhausted = false;
                     if (cached) {
                         parsed = std::move(cached->parsed);
@@ -1398,7 +1434,11 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             decoded.message.text.find('\'') == std::string::npos;
                         const auto strict_path_limit = long_compact_input
                             ? std::size_t{16} : std::size_t{32};
-                        if (long_compact_input) {
+                        if (refinement_parse) {
+                            parsed = std::move(*refinement_parse);
+                            incremental_reused = true;
+                            refinement_parse_reused = true;
+                        } else if (long_compact_input) {
                             // Long ambiguous input must be deterministic for a
                             // given string. Reusing a boundary fixed by an
                             // earlier prefix can lock kuang'ao and poison the
@@ -1462,7 +1502,11 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                               (candidates.size() < result_size ||
                                                !strict_evidence) &&
                                               !cancelled();
-                        if (correction_fallback) {
+                        correction_deferred = correction_fallback &&
+                            decoded.message.defer_expensive_candidates;
+                        response.candidate_refinement_pending =
+                            correction_deferred || generation_limit < full_generation_limit;
+                        if (correction_fallback && !correction_deferred) {
                             engine::FullPinyinParseMetrics corrected_parse_metrics;
                             engine::CandidateGenerationMetrics corrected_generation_metrics;
                             const auto corrected_parse_started =
@@ -1541,7 +1585,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             candidates.resize(result_size);
                         candidate_pool_exhausted = candidates.size() < generation_limit;
                     }
-                    if (adaptive_ranking_enabled && !decoded.message.input.empty() &&
+                    if (!cancelled() && adaptive_ranking_enabled &&
+                        !decoded.message.input.empty() &&
                         !decoded.message.context.empty() && !candidates.empty()) {
                         const auto previous = schema.parse(
                             decoded.message.input, 8, false);
@@ -1551,7 +1596,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             contextual_preferences, candidates);
                     }
                     full_input_bytes = parsed.normalized_input.size();
-                    if (partitioned_layout && !cache_hit) {
+                    if (partitioned_layout && !cache_hit && !cancelled()) {
                         const auto model_begin = std::find_if(
                             candidates.begin(), candidates.end(),
                             [](const engine::Candidate& candidate) {
@@ -1581,11 +1626,25 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     if (!cache_hit && previous_pool)
                         preserve_candidate_pool_prefix(
                             previous_pool->candidates, candidates);
-                    if (!cache_hit && !cancelled())
+                    if (!cache_hit && !cancelled() &&
+                        !response.candidate_refinement_pending)
                         candidate_cache.put(
                             cache_key,
                             {parsed, candidates, generation_limit,
                              candidate_pool_exhausted});
+                    if (!cache_hit && !cancelled() &&
+                        response.candidate_refinement_pending) {
+                        pending_candidate_refinement = PendingCandidateRefinement{
+                            decoded.message.request_id,
+                            decoded.message.context_generation,
+                            cache_key,
+                            parsed};
+                    }
+                    request_cancelled = cancelled();
+                    if (request_cancelled) {
+                        candidates.clear();
+                        response.candidate_refinement_pending = false;
+                    }
                     const auto generation_finished = std::chrono::steady_clock::now();
                     const auto first_model_only = std::find_if(
                         candidates.begin(), candidates.end(),
@@ -1623,7 +1682,6 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     // Preview the parser's preferred source structure. Auxiliary
                     // abbreviation/correction paths may generate candidates, but
                     // must not rewrite xing+b as xin+g+b or xing+ba+f as xing+baf.
-                    const auto request_cancelled = cancelled();
                     if (!request_cancelled) {
                         const auto candidate_segments = candidates.empty()
                                                             ? std::vector<std::string>{}
@@ -1677,8 +1735,14 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         << R"(,"cache_hit":)" << (cache_hit ? "true" : "false")
                         << R"(,"correction_fallback":)"
                         << (correction_fallback ? "true" : "false")
+                        << R"(,"correction_deferred":)"
+                        << (correction_deferred ? "true" : "false")
+                        << R"(,"fast_generation_limit":)" << generation_limit
+                        << R"(,"full_generation_limit":)" << full_generation_limit
                         << R"(,"incremental_reused":)"
                         << (incremental_reused ? "true" : "false")
+                        << R"(,"refinement_parse_reused":)"
+                        << (refinement_parse_reused ? "true" : "false")
                         << "}\n";
                 }
                 // Transitional compatibility for the P1 TSF consumer. It is removed when
@@ -1729,7 +1793,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 model_update_groups.insert(model_update_groups.end(),
                                            model_hidden_groups.begin(),
                                            model_hidden_groups.end());
-                if (external_model_ranking_enabled && response.page == 0 &&
+                if (!request_cancelled && !response.candidate_refinement_pending &&
+                    external_model_ranking_enabled && response.page == 0 &&
                     !response.candidates.empty() &&
                     !is_double_initial_input(decoded.message.text) &&
                     model_requests.size() < 128) {

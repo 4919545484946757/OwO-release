@@ -26,6 +26,10 @@ int main() {
         decoded.message.page != original.page ||
         decoded.message.has_more != original.has_more ||
         decoded.message.model_pending != original.model_pending ||
+        decoded.message.defer_expensive_candidates !=
+            original.defer_expensive_candidates ||
+        decoded.message.candidate_refinement_pending !=
+            original.candidate_refinement_pending ||
         decoded.message.syllables != original.syllables ||
         decoded.message.candidate_consumed != original.candidate_consumed ||
         decoded.message.candidate_groups != original.candidate_groups ||
@@ -52,16 +56,24 @@ int main() {
     Message contextual_request{MessageType::candidate_request, 11, 6, "wang"};
     contextual_request.input = "kuang";
     contextual_request.context = "狂";
+    contextual_request.defer_expensive_candidates = true;
     const auto decoded_contextual = decode_message(encode_message(contextual_request));
     if (!decoded_contextual.validation ||
         decoded_contextual.message.input != contextual_request.input ||
-        decoded_contextual.message.context != contextual_request.context) {
+        decoded_contextual.message.context != contextual_request.context ||
+        !decoded_contextual.message.defer_expensive_candidates) {
         std::cerr << "candidate context input round trip failed\n";
         ++failures;
     }
     contextual_request.input = "kuang wang";
     if (!encode_message(contextual_request).empty()) {
         std::cerr << "invalid candidate context input was encoded\n";
+        ++failures;
+    }
+    auto invalid_deferred_response = original;
+    invalid_deferred_response.defer_expensive_candidates = true;
+    if (!encode_message(invalid_deferred_response).empty()) {
+        std::cerr << "response accepted request-only correction deferral\n";
         ++failures;
     }
     Message agent_request{MessageType::agent_request, 12, 7,

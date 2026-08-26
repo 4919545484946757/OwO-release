@@ -29,6 +29,8 @@ int main(int argc, char** argv) {
     std::optional<std::string> custom_query;
     bool assisted = false;
     bool parse_only = false;
+    bool print_candidates = false;
+    std::size_t partition_page_size = 0;
     for (int index = 1; index < argc; ++index) {
         if (std::string_view(argv[index]) == "--assisted") {
             if (assisted) return 2;
@@ -38,6 +40,17 @@ int main(int argc, char** argv) {
             custom_query = argv[++index];
         } else if (std::string_view(argv[index]) == "--parse-only") {
             parse_only = true;
+        } else if (std::string_view(argv[index]) == "--print-candidates") {
+            print_candidates = true;
+        } else if (std::string_view(argv[index]) == "--partition-page-size") {
+            if (partition_page_size != 0 || index + 1 >= argc) return 2;
+            try {
+                partition_page_size = static_cast<std::size_t>(
+                    std::stoul(argv[++index]));
+            } catch (...) {
+                return 2;
+            }
+            if (partition_page_size < 4) return 2;
         } else if (external_path.has_value()) {
             return 2;
         } else {
@@ -120,7 +133,28 @@ int main(int argc, char** argv) {
         owo::engine::FullPinyinParseMetrics parse_metrics;
         const auto parsed = schema.parse(query_at(index), 32, true, &parse_metrics);
         owo::engine::CandidateGenerationMetrics generation_metrics;
-        const auto candidates = generator.generate(parsed, 10, false, {}, &generation_metrics);
+        const auto candidates = generator.generate(
+            parsed, 10, false, {}, &generation_metrics, {}, false,
+            partition_page_size);
+        if (print_candidates) {
+            for (std::size_t candidate_index = 0;
+                 candidate_index < candidates.size(); ++candidate_index) {
+                const auto& candidate = candidates[candidate_index];
+                std::cout << "candidate[" << candidate_index << "]="
+                          << candidate.text << " kind="
+                          << static_cast<unsigned>(candidate.match_kind)
+                          << " score=" << candidate.score
+                          << " segments=" << candidate.segment_count
+                          << " consumed=" << candidate.consumed_input_bytes
+                          << " source=";
+                for (std::size_t segment = 0;
+                     segment < candidate.source_segments.size(); ++segment) {
+                    if (segment != 0) std::cout << '\'';
+                    std::cout << candidate.source_segments[segment];
+                }
+                std::cout << '\n';
+            }
+        }
         const auto elapsed = std::chrono::steady_clock::now() - start;
         samples.push_back(std::chrono::duration<double, std::micro>(elapsed).count());
         total_candidates += candidates.size();
