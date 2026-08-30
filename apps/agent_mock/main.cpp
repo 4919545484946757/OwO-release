@@ -7,11 +7,13 @@
 #include <Windows.h>
 #include <sddl.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -102,26 +104,92 @@ bool write_frame(const HANDLE pipe, const std::string_view payload) {
 struct Session {
     owo::agent::Request last_request;
     bool executing{};
+    std::uint64_t revision{};
+    owo::agent::TaskDraft task;
 };
+
+std::optional<owo::agent::PinyinRange> pinyin_range(
+    const std::string_view input, const std::string_view token) {
+    const auto offset = input.find(token);
+    if (offset == std::string_view::npos) return std::nullopt;
+    return owo::agent::PinyinRange{static_cast<std::uint32_t>(offset),
+        static_cast<std::uint32_t>(offset + token.size())};
+}
+
+owo::agent::Command slot_command(std::string id, std::string label,
+                                 const std::uint64_t revision,
+                                 owo::agent::SlotUpdate update) {
+    owo::agent::Command command;
+    command.id = std::move(id);
+    command.label = std::move(label);
+    command.description = "只更新对应任务槽位，不重新解析整条指令";
+    command.category = "task.slot.update";
+    command.risk_level = "none";
+    command.preview = "更新任务草稿，不直接执行系统操作";
+    command.task_revision = revision;
+    command.slot_updates.push_back(std::move(update));
+    return command;
+}
 
 owo::agent::Response page_response(const owo::agent::Request& request) {
     owo::agent::Response response;
     response.session_id = request.session_id;
     response.message = "模拟 Agent 已收到：" + request.user_input;
     response.status = owo::agent::Status::agent_mode;
+    response.request_id = request.request_id;
+    response.state_revision = 1;
+    response.progress = 100;
+    response.can_cancel = true;
+    response.can_continue_input = true;
+    response.capabilities = {"protocol.negotiation", "input.structured",
+                             "context.entries", "context.privacy",
+                             "commands.risk", "errors.structured", "state.progress",
+                             "tasks.slots", "tasks.incremental"};
     response.page = request.page;
+    const auto& raw = request.input_details.raw_pinyin;
+    const auto time = pinyin_range(raw, "sanzhong");
+    const auto intent = pinyin_range(raw, "tixingwo");
+    const auto content = pinyin_range(raw, "kaihui");
+    if (time && intent && content) {
+        response.message = "已识别提醒任务，请确定时间";
+        response.task.intent = "create_reminder";
+        response.task.intent_ranges = {*intent};
+        response.task.slots = {
+            {"time", "时间", "三点钟", {*time}, false, 650},
+            {"content", "事项", "开会", {*content}, true, 980},
+        };
+        response.task.revision = 1;
+        response.commands = {
+            slot_command("time-today-3", "今天3点提醒我开会", 1,
+                         {"time", "今天3点", {*time}, true}),
+            slot_command("time-tomorrow-3", "明天3点提醒我开会", 1,
+                         {"time", "明天3点", {*time}, true}),
+            slot_command("time-daily-3", "每天3点提醒我开会", 1,
+                         {"time", "每天3点", {*time}, true}),
+        };
+        return response;
+    }
     if (request.page == 0) {
         response.commands = {
-            {"echo", "回显本次请求", false},
-            {"inspect-context", "显示收到的应用上下文", false},
-            {"simulate-execution", "模拟执行中状态", false},
-            {"delete-demo", "模拟删除文件（高风险测试）", true},
+            {"echo", "回显本次请求", false, "返回 Agent 实际收到的自然语言输入",
+             "debug.echo", "none", false, "不会执行系统操作", true, ""},
+            {"inspect-context", "显示收到的应用上下文", false,
+             "显示分段上下文及其应用标识", "debug.context", "low", false,
+             "只返回本次请求内已有信息", true, ""},
+            {"simulate-execution", "模拟执行中状态", false,
+             "模拟一个可取消的异步任务", "debug.execution", "low", false,
+             "不会执行真实操作", true, ""},
+            {"delete-demo", "模拟删除文件（高风险测试）", true,
+             "验证高风险命令必须转到 Agent 可信界面确认", "file.delete", "high",
+             true, "不会实际删除文件", true, ""},
         };
         response.has_more = true;
     } else {
         response.commands = {
-            {"finish", "模拟完成任务", false},
-            {"error-demo", "模拟 Agent 错误", false},
+            {"finish", "模拟完成任务", false, "返回完成状态", "debug.finish",
+             "none", false, "不会执行系统操作", true, ""},
+            {"error-demo", "模拟 Agent 错误", false, "返回可识别的结构化错误",
+             "debug.error", "none", false, "不会执行系统操作", true, ""},
         };
     }
     return response;
@@ -135,8 +203,9 @@ owo::agent::Response process(const owo::agent::Request& request,
                 owo::agent::Status::completed, 0, false, {}};
     }
     if (request.action == owo::agent::Action::submit) {
-        sessions[request.session_id] = {request, false};
-        return page_response(request);
+        auto response = page_response(request);
+        sessions[request.session_id] = {request, false, 0, response.task};
+        return response;
     }
     const auto found = sessions.find(request.session_id);
     if (found == sessions.end())
@@ -156,6 +225,60 @@ owo::agent::Response process(const owo::agent::Request& request,
         return {request.session_id, "模拟 Agent 当前没有执行中的任务", {}, {},
                 owo::agent::Status::agent_mode, request.page, false, {}};
     }
+    if (!request.slot_updates.empty()) {
+        if (request.task_revision != found->second.task.revision) {
+            auto response = page_response(found->second.last_request);
+            response.status = owo::agent::Status::error;
+            response.message = "任务版本不匹配，请刷新候选";
+            response.error_code = "task_revision_mismatch";
+            response.task = found->second.task;
+            return response;
+        }
+        for (const auto& update : request.slot_updates) {
+            auto slot = std::find_if(found->second.task.slots.begin(),
+                found->second.task.slots.end(), [&](const auto& item) {
+                    return item.id == update.slot_id;
+                });
+            if (slot == found->second.task.slots.end()) continue;
+            if (slot->locked && slot->value != update.value) {
+                auto response = page_response(found->second.last_request);
+                response.status = owo::agent::Status::error;
+                response.message = "任务槽位已经锁定";
+                response.error_code = "slot_locked";
+                response.task = found->second.task;
+                return response;
+            }
+            slot->value = update.value;
+            slot->source_ranges = update.consumed_ranges;
+            slot->locked = update.lock;
+            slot->confidence_milli = 1000;
+        }
+        ++found->second.task.revision;
+        owo::agent::Response response;
+        response.session_id = request.session_id;
+        response.message = "时间槽位已锁定；任务草稿保持在输入法组合态";
+        response.status = owo::agent::Status::agent_mode;
+        response.task = found->second.task;
+        response.capabilities = {"protocol.negotiation", "input.structured",
+                                 "context.entries", "context.privacy", "commands.risk",
+                                 "errors.structured", "state.progress", "tasks.slots",
+                                 "tasks.incremental"};
+        owo::agent::Command execute;
+        execute.id = "execute-reminder";
+        execute.label = "确认创建提醒";
+        execute.description = "提交当前已锁定的任务草稿";
+        execute.category = "reminder.create";
+        execute.risk_level = "low";
+        execute.preview = "由第三方 Agent 按自身权限规则继续确认或执行";
+        execute.task_revision = found->second.task.revision;
+        execute.commit_task = true;
+        response.commands = {std::move(execute)};
+        return response;
+    }
+    if (request.command_id == "execute-reminder") {
+        return {request.session_id, "模拟提醒任务已完成", {}, {},
+                owo::agent::Status::completed, 0, false, {}};
+    }
     if (request.command_id == "echo") {
         return {request.session_id,
                 "回显：" + found->second.last_request.user_input, {}, {},
@@ -165,6 +288,9 @@ owo::agent::Response process(const owo::agent::Request& request,
         const auto& source = found->second.last_request;
         const std::string message = "应用=" + source.application.executable +
             "，窗口类=" + source.application.window_class +
+            "，焦点控件=" + source.application.focus_window_class +
+            "，上下文标识=" + source.application.context_id +
+            "，分段数=" + std::to_string(source.context_entries.size()) +
             "，局部上下文=" + source.session_context;
         return {request.session_id, message, {}, {},
                 owo::agent::Status::completed, 0, false, {}};
@@ -207,6 +333,7 @@ int wmain(const int argc, wchar_t** argv) {
         return 3;
     }
     std::unordered_map<std::string, Session> sessions;
+    std::unordered_map<std::string, owo::agent::Response> idempotent_responses;
     std::cout << "OwO 模拟第三方 Agent 已启动。\n"
               << "监听本机管道；按 Ctrl+C 停止。\n\n";
     while (running.load(std::memory_order_acquire)) {
@@ -228,18 +355,97 @@ int wmain(const int argc, wchar_t** argv) {
                               << " session=" << request.session_id
                               << " page=" << request.page << '\n'
                               << "       input=" << request.user_input << '\n'
+                              << "       request_id=" << request.request_id
+                              << " parent_request_id=" << request.parent_request_id
+                              << " idempotency_key=" << request.idempotency_key << '\n'
+                              << "       raw_pinyin=" << request.input_details.raw_pinyin
+                              << " segmented_pinyin=" << request.input_details.segmented_pinyin
+                              << " selected_text=" << request.input_details.selected_text
+                              << " pending_pinyin=" << request.input_details.pending_pinyin << '\n'
                               << "       app=" << request.application.executable
-                              << " class=" << request.application.window_class << '\n'
+                              << " pid=" << request.application.process_id
+                              << " tid=" << request.application.thread_id
+                              << " class=" << request.application.window_class
+                              << " focus_class=" << request.application.focus_window_class
+                              << " context_id=" << request.application.context_id << '\n'
                               << "       context=" << request.session_context
-                              << " command_id=" << request.command_id << '\n';
-                    const auto response = process(request, sessions);
-                    const auto encoded = owo::agent::encode_response(response);
+                              << " command_id=" << request.command_id
+                              << " task_revision=" << request.task_revision << '\n';
+                    for (const auto& update : request.slot_updates) {
+                        std::cout << "       slot_update=" << update.slot_id
+                                  << " value=" << update.value
+                                  << " lock=" << update.lock << " ranges=";
+                        for (const auto& range : update.consumed_ranges)
+                            std::cout << '[' << range.start << ',' << range.end << ')';
+                        std::cout << '\n';
+                    }
+                    for (const auto& entry : request.context_entries) {
+                        std::cout << "       context_entry=" << entry.context_id
+                                  << " sequence=" << entry.sequence
+                                  << " type=" << entry.context_type
+                                  << " source=" << entry.source
+                                  << " relevance=" << entry.relevance_milli
+                                  << " filtered=" << entry.filtered
+                                  << " redacted=" << entry.redacted
+                                  << " truncated=" << entry.truncated
+                                  << " app=" << entry.application.executable
+                                  << " pid=" << entry.application.process_id
+                                  << " tid=" << entry.application.thread_id
+                                  << " class=" << entry.application.window_class
+                                  << " focus_class=" <<
+                                         entry.application.focus_window_class << '\n'
+                                  << "         text=" << entry.text << '\n';
+                    }
+                    const auto idempotency_scope = request.session_id + ":" +
+                        request.idempotency_key;
+                    auto cached = request.idempotency_key.empty()
+                        ? idempotent_responses.end()
+                        : idempotent_responses.find(idempotency_scope);
+                    auto response = cached == idempotent_responses.end()
+                        ? process(request, sessions) : cached->second;
+                    response.request_id = request.request_id;
+                    response.schema_version = request.schema_version;
+                    response.capabilities = {"protocol.negotiation", "input.structured",
+                                             "context.entries", "context.privacy",
+                                             "commands.risk", "errors.structured",
+                                             "state.progress", "tasks.slots",
+                                             "tasks.incremental"};
+                    response.can_continue_input = true;
+                    if (response.status == owo::agent::Status::thinking ||
+                        response.status == owo::agent::Status::executing) {
+                        response.can_cancel = true;
+                        response.progress = 50;
+                        response.retry_after_ms = 150;
+                    } else if (response.status == owo::agent::Status::completed) {
+                        response.progress = 100;
+                    }
+                    if (!response.error_code.empty()) {
+                        response.error_message = response.message;
+                        response.retryable = response.error_code == "session_not_found";
+                    }
+                    if (cached == idempotent_responses.end() &&
+                        !request.idempotency_key.empty()) {
+                        const auto session = sessions.find(request.session_id);
+                        response.state_revision = session == sessions.end()
+                            ? 1 : ++session->second.revision;
+                        idempotent_responses.emplace(idempotency_scope, response);
+                    }
+                    const auto encoded = request.schema_version == 2
+                        ? owo::agent::encode_response_v2(response)
+                        : owo::agent::encode_response(response);
                     std::cout << "[发送] status=" << owo::agent::status_name(response.status)
                               << " commands=" << response.commands.size()
+                              << " task=" << response.task.intent
+                              << " task_revision=" << response.task.revision
                               << " message=" << response.message << "\n\n";
                     write_frame(pipe, encoded);
                 } else {
-                    std::cerr << "[拒绝] " << decoded.diagnostic << "\n\n";
+                    if (payload.find("\"schema_version\":1") != std::string::npos) {
+                        std::cerr << "[拒绝] 收到 Agent 协议 v1 请求；请升级并重新授权 "
+                                     "OwO Agent IPC 连接器 1.2.0，然后重启 OwO。\n\n";
+                    } else {
+                        std::cerr << "[拒绝] " << decoded.diagnostic << "\n\n";
+                    }
                 }
             }
             FlushFileBuffers(pipe);

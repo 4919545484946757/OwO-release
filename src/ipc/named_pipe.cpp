@@ -22,6 +22,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <chrono>
+#include <deque>
 #include <functional>
 #include <future>
 #include <iostream>
@@ -38,6 +39,72 @@
 
 namespace owo::ipc {
 namespace {
+
+void trim_utf8_tail(std::string& text, const std::size_t maximum_bytes) {
+    if (text.size() <= maximum_bytes) return;
+    std::size_t begin = text.size() - maximum_bytes;
+    while (begin < text.size() &&
+           (static_cast<unsigned char>(text[begin]) & 0xc0U) == 0x80U) ++begin;
+    text.erase(0, begin);
+}
+
+void record_agent_context(std::deque<agent::ContextEntry>& history,
+                          agent::ContextEntry entry) {
+    if (entry.context_id.empty() || entry.text.empty() ||
+        entry.application.sensitive_input) return;
+    const auto existing = std::find_if(history.begin(), history.end(), [&](const auto& value) {
+        return value.context_id == entry.context_id;
+    });
+    if (existing != history.end()) {
+        if (existing->text.size() >= entry.text.size() &&
+            existing->text.ends_with(entry.text)) {
+            entry.text = existing->text;
+        } else if (entry.text.size() < existing->text.size() ||
+                   !entry.text.starts_with(existing->text)) {
+            entry.text = existing->text + entry.text;
+        }
+        history.erase(existing);
+    }
+    trim_utf8_tail(entry.text, agent::kMaximumAgentContextEntryBytes);
+    if (entry.created_at_ms == 0) {
+        entry.created_at_ms = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
+    }
+    history.push_back(std::move(entry));
+    std::size_t total = 0;
+    for (const auto& value : history) total += value.text.size();
+    while (history.size() > agent::kMaximumAgentContextEntries ||
+           total > agent::kMaximumAgentContextBytes) {
+        total -= history.front().text.size();
+        history.pop_front();
+    }
+}
+
+std::string encode_agent_response_for(const agent::Request& request,
+                                      agent::Response response) {
+    if (response.request_id.empty()) response.request_id = request.request_id.empty()
+        ? "req-unknown" : request.request_id;
+    if (response.capabilities.empty()) {
+        response.capabilities = {"protocol.negotiation", "input.structured",
+                                 "context.entries", "context.privacy",
+                                 "commands.risk", "errors.structured", "state.progress",
+                                 "tasks.slots", "tasks.incremental"};
+    }
+    if (!response.error_code.empty() && response.error_message.empty())
+        response.error_message = response.message;
+    if (response.status == agent::Status::disconnected ||
+        response.status == agent::Status::timeout) response.retryable = true;
+    response.can_cancel = response.status == agent::Status::connecting ||
+        response.status == agent::Status::submitting ||
+        response.status == agent::Status::thinking ||
+        response.status == agent::Status::executing;
+    if (response.status == agent::Status::completed ||
+        response.status == agent::Status::cancelled) response.progress = 100;
+    response.schema_version = request.schema_version;
+    return request.schema_version == 2 ? agent::encode_response_v2(response)
+                                       : agent::encode_response(response);
+}
 
 class CurrentUserPipeSecurity final {
 public:
@@ -1019,6 +1086,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
         std::chrono::steady_clock::time_point created;
     };
     std::unordered_map<std::string, PendingAgentRequest> agent_requests;
+    std::deque<agent::ContextEntry> agent_context_history;
+    std::uint64_t agent_context_sequence{};
     LatestModelTaskQueue model_queue;
     CandidateResultCache candidate_cache;
     struct PendingCandidateRefinement {
@@ -1122,11 +1191,11 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 running = false;
             } else if (decoded.message.type == protocol::MessageType::agent_request) {
                 response.type = protocol::MessageType::agent_response;
-                const auto agent_request = agent::decode_request(decoded.message.text);
+                auto agent_request = agent::decode_request(decoded.message.text);
                 if (!agent_request.ok || plugin_executor == nullptr) {
                     const std::string session = agent_request.ok
                         ? agent_request.value.session_id : std::string(32, '0');
-                    response.text = agent::encode_response({
+                    response.text = encode_agent_response_for(agent_request.value, {
                         session, plugin_executor == nullptr
                             ? "Agent 插件服务不可用" : "Agent 请求格式错误",
                         {}, {}, plugin_executor == nullptr
@@ -1136,12 +1205,12 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 } else if (agent_request.value.action == agent::Action::poll) {
                     const auto found = agent_requests.find(agent_request.value.session_id);
                     if (found == agent_requests.end()) {
-                        response.text = agent::encode_response({
+                        response.text = encode_agent_response_for(agent_request.value, {
                             agent_request.value.session_id, "Agent 会话不存在或已经结束",
                             {}, {}, agent::Status::error, 0, false, "session_not_found"});
                     } else if (found->second.future.wait_for(std::chrono::milliseconds(0)) !=
                                std::future_status::ready) {
-                        response.text = agent::encode_response({
+                        response.text = encode_agent_response_for(agent_request.value, {
                             agent_request.value.session_id, {}, {}, {},
                             agent::Status::thinking, 0, false, {}});
                     } else {
@@ -1152,7 +1221,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             : agent::ResponseDecodeResult{};
                         if (!decoded_response.ok ||
                             decoded_response.value.session_id != agent_request.value.session_id) {
-                            response.text = agent::encode_response({
+                            response.text = encode_agent_response_for(agent_request.value, {
                                 agent_request.value.session_id,
                                 completed.status == core::PluginExecutionStatus::timeout
                                     ? "Agent 请求超时" : "Agent 插件返回异常",
@@ -1160,13 +1229,19 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 completed.status == core::PluginExecutionStatus::timeout
                                     ? "timeout" : "invalid_plugin_response"});
                         } else {
-                            response.text = agent::encode_response(decoded_response.value);
+                            response.text = encode_agent_response_for(
+                                agent_request.value, decoded_response.value);
                             if (decoded_response.value.status == agent::Status::thinking ||
                                 decoded_response.value.status == agent::Status::executing) {
                                 agent::Request external_poll;
                                 external_poll.action = agent::Action::poll;
                                 external_poll.session_id = agent_request.value.session_id;
                                 external_poll.page = decoded_response.value.page;
+                                external_poll.request_id = agent_request.value.request_id + ".poll." +
+                                    std::to_string(decoded_response.value.state_revision + 1);
+                                external_poll.parent_request_id = agent_request.value.request_id;
+                                external_poll.idempotency_key = external_poll.request_id;
+                                external_poll.capabilities = agent_request.value.capabilities;
                                 PendingAgentRequest pending;
                                 pending.created = std::chrono::steady_clock::now();
                                 core::PluginExecutionRequest invocation;
@@ -1190,10 +1265,30 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         found->second.cancellation.request_stop();
                         agent_requests.erase(found);
                     }
-                    response.text = agent::encode_response({
+                    response.text = encode_agent_response_for(agent_request.value, {
                         agent_request.value.session_id, {}, {}, {},
                         agent::Status::completed, 0, false, {}});
                 } else {
+                    if (agent_request.value.action == agent::Action::submit &&
+                        !agent_request.value.application.sensitive_input) {
+                        for (auto entry : agent_request.value.context_entries) {
+                            entry.sequence = ++agent_context_sequence;
+                            record_agent_context(agent_context_history, std::move(entry));
+                        }
+                        agent_request.value.context_entries.assign(
+                            agent_context_history.begin(), agent_context_history.end());
+                        for (auto& entry : agent_request.value.context_entries) {
+                            entry.is_current = !agent_request.value.application.context_id.empty() &&
+                                entry.context_id == agent_request.value.application.context_id;
+                            entry.relevance_milli = entry.is_current ? 1000U :
+                                (!entry.application.executable.empty() &&
+                                 entry.application.executable ==
+                                     agent_request.value.application.executable) ? 800U : 500U;
+                        }
+                    } else if (agent_request.value.application.sensitive_input) {
+                        agent_request.value.session_context.clear();
+                        agent_request.value.context_entries.clear();
+                    }
                     const auto existing = agent_requests.find(agent_request.value.session_id);
                     if (existing != agent_requests.end()) {
                         existing->second.cancellation.request_stop();
@@ -1212,7 +1307,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     auto submitted = plugin_executor->submit(std::move(invocation));
                     pending.future = std::move(submitted.completion);
                     agent_requests.emplace(agent_request.value.session_id, std::move(pending));
-                    response.text = agent::encode_response({
+                    response.text = encode_agent_response_for(agent_request.value, {
                         agent_request.value.session_id, {}, {}, {},
                         agent::Status::thinking, agent_request.value.page, false, {}});
                 }
@@ -1842,6 +1937,25 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     response.model_pending = true;
                 }
                 if (cancellation_event != nullptr) CloseHandle(cancellation_event);
+            } else if (decoded.message.type ==
+                       protocol::MessageType::agent_context_recorded) {
+                response.type = protocol::MessageType::acknowledgement;
+                response.text = "agent_context_ack";
+                agent::ApplicationContext application;
+                application.process_id = static_cast<std::uint32_t>(
+                    decoded.message.application_process_id);
+                application.thread_id = static_cast<std::uint32_t>(
+                    decoded.message.application_thread_id);
+                application.executable = decoded.message.application_executable;
+                application.window_class = decoded.message.application_window_class;
+                application.focus_window_class =
+                    decoded.message.application_focus_window_class;
+                application.context_id = decoded.message.application_context_id;
+                application.sensitive_input =
+                    decoded.message.application_sensitive_input;
+                record_agent_context(agent_context_history,
+                    {application.context_id, std::move(application),
+                     decoded.message.text, ++agent_context_sequence});
             } else if (decoded.message.type == protocol::MessageType::candidate_committed) {
                 response.type = protocol::MessageType::acknowledgement;
                 response.text = "commit_ack";

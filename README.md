@@ -46,7 +46,7 @@ OwO 是面向 Windows 11 x64 的模块化中文拼音输入法。基础输入、
 
 安装并明确授权官方 Agent IPC 连接器后，以小写 `v` 作为拼音串首字符进入 Agent 模式，例如 `vbangwozhaowenjian`。`v` 仅是模式标记；后续内容仍可生成并选择拼音候选，但不会作为普通文本立即上屏。请求完整消耗或用户确认后，连接器会将经过限长和脱敏的数据发送给用户配置的本机第三方 Agent。
 
-Agent 返回的自然语言只用于显示，控制行为必须使用结构化命令 ID。删除文件、执行程序、账户、支付、凭据和系统设置等高风险操作不能由候选框直接授权。详见：
+Agent 返回的自然语言只用于显示，控制行为必须使用结构化命令 ID。协议支持把意图拆成带原拼音区间的槽位；候选选择可只锁定或修改一个槽位，不重新发送整句，也不直接上屏。删除文件、执行程序、账户、支付、凭据和系统设置等高风险操作不能由候选框直接授权。详见：
 
 - [权限与隐私说明](docs/plugins/agent-ipc-privacy.md)
 - [第三方 Agent 接入规范](docs/plugins/agent-ipc-integration.md)
@@ -71,7 +71,7 @@ cmake --build --preset windows-release
 .\scripts\package_release.ps1 -Version 0.2.3
 .\scripts\package_setup.ps1 -Version 0.2.3
 .\scripts\package_plugins.ps1
-.\scripts\package-agent-sdk.ps1 -Version 1.0.1
+.\scripts\package-agent-sdk.ps1 -Version 1.2.0
 ```
 
 ## 许可与完整性

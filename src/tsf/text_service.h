@@ -122,6 +122,7 @@ private:
         bool correction_enabled{true};
         std::wstring feedback_input;
         std::wstring language_context;
+        agent::ApplicationContext application_context;
         std::chrono::steady_clock::time_point queued_at{std::chrono::steady_clock::now()};
         bool defer_expensive_candidates{};
     };
@@ -167,12 +168,18 @@ private:
     void schedule_candidate_request(bool reset_retry);
     [[nodiscard]] bool is_agent_mode() const noexcept;
     void queue_agent_action(agent::Action action, std::string command_id = {},
-                            std::uint32_t page = 0);
+                            std::uint32_t page = 0,
+                            std::uint64_t task_revision = 0,
+                            std::vector<agent::SlotUpdate> slot_updates = {});
+    bool select_agent_command(std::size_t index);
+    void apply_agent_task(const agent::TaskDraft& task);
     void cancel_agent_session();
     void handle_agent_result(AgentResult* result);
     [[nodiscard]] std::wstring agent_preview_text() const;
     void queue_commit_feedback(std::wstring candidate, std::wstring input,
                                std::wstring context);
+    void queue_agent_context(std::wstring text);
+    void rotate_agent_context();
     void append_language_context(std::wstring_view text);
     void refresh_shortcut_config(bool force = false);
     void refresh_candidate_theme(bool force = false);
@@ -277,18 +284,22 @@ private:
     std::vector<StagedCandidate> staged_candidates_;
     std::size_t staged_cursor_{0};
     std::wstring recent_language_context_;
+    std::wstring recent_agent_context_;
     std::wstring recent_language_input_;
     std::wstring segmented_input_;
     std::vector<std::wstring> candidates_;
     std::vector<std::uint64_t> candidate_consumed_;
     std::vector<std::uint64_t> candidate_groups_;
     std::string agent_session_id_;
+    std::string agent_context_id_;
     agent::Status agent_status_{agent::Status::agent_mode};
     std::wstring agent_message_;
     std::wstring agent_executing_command_;
     std::wstring agent_last_submitted_pinyin_;
-    std::vector<std::string> agent_command_ids_;
-    std::vector<bool> agent_command_high_risk_;
+    std::string agent_last_request_id_;
+    std::uint64_t agent_state_revision_{};
+    agent::TaskDraft agent_task_;
+    std::vector<agent::Command> agent_commands_;
     bool agent_request_submitted_{false};
     bool agent_request_pending_{false};
     bool agent_response_visible_{false};

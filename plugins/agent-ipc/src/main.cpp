@@ -32,7 +32,9 @@ struct Arguments {
 struct Settings {
     std::wstring pipe_name{LR"(\\.\pipe\OwO.Agent.External.v1)"};
     std::chrono::milliseconds timeout{10000};
-    std::size_t context_limit{256};
+    std::size_t context_limit{32768};
+    std::size_t context_entry_limit{8192};
+    std::size_t context_entry_count{16};
     bool send_application_identity{true};
     bool send_session_context{true};
     bool sensitive_filter_enabled{true};
@@ -147,8 +149,14 @@ Settings load_settings(const std::filesystem::path& data) {
     }
     if (const auto value = json_uint(*json, "timeout_ms"); value && *value >= 500 && *value <= 30000)
         result.timeout = std::chrono::milliseconds(*value);
-    if (const auto value = json_uint(*json, "context_limit"); value && *value <= 2048)
+    if (const auto value = json_uint(*json, "context_limit"); value && *value <= 131072)
         result.context_limit = *value;
+    if (const auto value = json_uint(*json, "context_entry_limit");
+        value && *value >= 256 && *value <= 32768)
+        result.context_entry_limit = *value;
+    if (const auto value = json_uint(*json, "context_entry_count");
+        value && *value >= 1 && *value <= owo::agent::kMaximumAgentContextEntries)
+        result.context_entry_count = *value;
     if (const auto value = json_bool(*json, "send_application_identity"))
         result.send_application_identity = *value;
     if (const auto value = json_bool(*json, "send_session_context"))
@@ -158,10 +166,21 @@ Settings load_settings(const std::filesystem::path& data) {
     return result;
 }
 
-owo::agent::Response error_response(const std::string& session,
+owo::agent::Response error_response(const owo::agent::Request& request,
                                     owo::agent::Status status,
                                     std::string code, std::string message) {
-    return {session, std::move(message), {}, {}, status, 0, false, std::move(code)};
+    owo::agent::Response response{
+        request.session_id, message, {}, {}, status, 0, false, code};
+    response.request_id = request.request_id;
+    response.error_message = std::move(message);
+    response.retryable = status == owo::agent::Status::disconnected ||
+                         status == owo::agent::Status::timeout;
+    response.can_continue_input = true;
+    response.capabilities = {"protocol.negotiation", "input.structured",
+                             "context.entries", "context.privacy",
+                             "commands.risk", "errors.structured", "state.progress",
+                             "tasks.slots", "tasks.incremental"};
+    return response;
 }
 
 owo::plugin::PluginMessage invoke_response(const owo::plugin::PluginMessage& request,
@@ -188,53 +207,157 @@ owo::plugin::PluginMessage process_request(const owo::plugin::PluginMessage& inv
                                "invalid structured Agent request");
     auto request = decoded.value;
     if (!settings.sensitive_filter_enabled) {
-        const auto response = error_response(request.session_id, owo::agent::Status::error,
+        const auto response = error_response(request, owo::agent::Status::error,
             "filter_disabled", "敏感信息过滤已关闭，插件拒绝发送请求");
         return invoke_response(invocation, owo::plugin::PluginStatus::success,
                                owo::agent::encode_response(response));
     }
     const auto filtered_input = owo::agent::filter_sensitive_text(request.user_input, 4096);
     if (!filtered_input.ok) {
-        const auto response = error_response(request.session_id, owo::agent::Status::error,
+        const auto response = error_response(request, owo::agent::Status::error,
             "filter_failed", "敏感信息过滤失败，请求未发送");
         return invoke_response(invocation, owo::plugin::PluginStatus::success,
                                owo::agent::encode_response(response));
     }
     request.user_input = filtered_input.value;
+    const auto filter_input_field = [&](std::string& value, const std::size_t limit) {
+        const auto filtered = owo::agent::filter_sensitive_text(value, limit);
+        if (!filtered.ok) return false;
+        value = filtered.value;
+        return true;
+    };
+    if (!filter_input_field(request.input_details.raw_pinyin, 4096) ||
+        !filter_input_field(request.input_details.segmented_pinyin, 8192) ||
+        !filter_input_field(request.input_details.selected_text, 16384) ||
+        !filter_input_field(request.input_details.pending_pinyin, 4096) ||
+        !filter_input_field(request.input_details.natural_language, 16384)) {
+        const auto response = error_response(request, owo::agent::Status::error,
+            "filter_failed", "结构化输入过滤失败，请求未发送");
+        return invoke_response(invocation, owo::plugin::PluginStatus::success,
+                               owo::agent::encode_response(response));
+    }
+    for (auto& update : request.slot_updates) {
+        if (!filter_input_field(update.value, 4096)) {
+            const auto response = error_response(request, owo::agent::Status::error,
+                "filter_failed", "任务槽位过滤失败，请求未发送");
+            return invoke_response(invocation, owo::plugin::PluginStatus::success,
+                                   owo::agent::encode_response(response));
+        }
+    }
     if (request.application.sensitive_input || !settings.send_session_context) {
         request.session_context.clear();
+        request.context_entries.clear();
     } else {
         const auto context = owo::agent::filter_sensitive_text(
-            request.session_context, settings.context_limit);
+            request.session_context,
+            std::min(settings.context_entry_limit, settings.context_limit));
         if (!context.ok) {
-            const auto response = error_response(request.session_id, owo::agent::Status::error,
+            const auto response = error_response(request, owo::agent::Status::error,
                 "filter_failed", "局部上下文过滤失败，请求未发送");
             return invoke_response(invocation, owo::plugin::PluginStatus::success,
                                    owo::agent::encode_response(response));
         }
         request.session_context = context.value;
+        std::vector<owo::agent::ContextEntry> eligible_entries;
+        for (const auto& entry : request.context_entries) {
+            if (entry.application.sensitive_input) continue;
+            if (!request.application.context_id.empty() &&
+                entry.context_id == request.application.context_id) continue;
+            const auto filtered = owo::agent::filter_sensitive_text(
+                entry.text, settings.context_entry_limit);
+            if (!filtered.ok) {
+                const auto response = error_response(
+                    request, owo::agent::Status::error,
+                    "filter_failed", "分段上下文过滤失败，请求未发送");
+                return invoke_response(invocation, owo::plugin::PluginStatus::success,
+                                       owo::agent::encode_response(response));
+            }
+            if (filtered.value.empty()) continue;
+            auto retained = entry;
+            retained.text = filtered.value;
+            retained.filtered = true;
+            retained.redacted = filtered.redacted;
+            retained.truncated = entry.text.size() > settings.context_entry_limit;
+            eligible_entries.push_back(std::move(retained));
+        }
+        std::stable_sort(eligible_entries.begin(), eligible_entries.end(),
+            [](const auto& left, const auto& right) {
+                if (left.relevance_milli != right.relevance_milli)
+                    return left.relevance_milli > right.relevance_milli;
+                return left.sequence > right.sequence;
+            });
+        std::vector<owo::agent::ContextEntry> selected_entries;
+        std::size_t total_bytes = request.session_context.size();
+        for (auto& entry : eligible_entries) {
+            if (selected_entries.size() >= settings.context_entry_count) break;
+            if (total_bytes + entry.text.size() > settings.context_limit) continue;
+            const bool duplicate = std::any_of(
+                selected_entries.begin(), selected_entries.end(), [&](const auto& selected) {
+                    return selected.text == entry.text ||
+                           selected.text.find(entry.text) != std::string::npos ||
+                           entry.text.find(selected.text) != std::string::npos;
+                });
+            if (duplicate) continue;
+            total_bytes += entry.text.size();
+            selected_entries.push_back(std::move(entry));
+        }
+        std::stable_sort(selected_entries.begin(), selected_entries.end(),
+            [](const auto& left, const auto& right) { return left.sequence < right.sequence; });
+        request.context_entries = std::move(selected_entries);
     }
-    if (!settings.send_application_identity) request.application = {};
+    if (!settings.send_application_identity) {
+        const auto current_id = request.application.context_id;
+        request.application = {};
+        request.application.context_id = current_id;
+        for (auto& entry : request.context_entries) {
+            const auto context_id = entry.context_id;
+            entry.application = {};
+            entry.application.context_id = context_id;
+        }
+    }
     if (request.application.sensitive_input) {
         request.application.executable.clear();
         request.application.window_class.clear();
+        request.application.focus_window_class.clear();
     }
-    const auto payload = owo::agent::encode_request(request);
+    const auto payload = request.schema_version == 2
+        ? owo::agent::encode_request_v2(request)
+        : owo::agent::encode_request(request);
     if (payload.empty())
         return invoke_response(invocation, owo::plugin::PluginStatus::invalid_request, {},
                                "filtered Agent request is invalid");
     const auto exchanged = owo::agent::exchange_agent_pipe(
         settings.pipe_name, payload, settings.timeout);
     if (!exchanged.ok) {
-        const auto response = error_response(request.session_id,
+        const auto response = error_response(request,
             owo::agent::Status::disconnected, "agent_disconnected", "第三方 Agent 未连接");
         return invoke_response(invocation, owo::plugin::PluginStatus::success,
                                owo::agent::encode_response(response));
     }
     const auto response = owo::agent::decode_response(exchanged.response);
-    if (!response.ok || response.value.session_id != request.session_id)
+    if (!response.ok || response.value.session_id != request.session_id ||
+        (response.value.schema_version >= 3 && !response.value.request_id.empty() &&
+         response.value.request_id != request.request_id))
         return invoke_response(invocation, owo::plugin::PluginStatus::plugin_error, {},
                                "third-party Agent returned invalid or mismatched data");
+    if (request.schema_version >= 3) {
+        const bool unsupported = std::any_of(
+            response.value.capabilities.begin(), response.value.capabilities.end(),
+            [&](const auto& capability) {
+                return std::find(request.capabilities.begin(), request.capabilities.end(),
+                                 capability) == request.capabilities.end();
+            });
+        const bool missing_required = std::any_of(
+            request.required_features.begin(), request.required_features.end(),
+            [&](const auto& required) {
+                return std::find(response.value.capabilities.begin(),
+                                 response.value.capabilities.end(), required) ==
+                       response.value.capabilities.end();
+            });
+        if (unsupported || missing_required)
+            return invoke_response(invocation, owo::plugin::PluginStatus::plugin_error, {},
+                                   "third-party Agent capability negotiation failed");
+    }
     return invoke_response(invocation, owo::plugin::PluginStatus::success,
                            owo::agent::encode_response(response.value));
 }
@@ -306,8 +429,13 @@ int run(const Arguments& arguments) {
                 cancel.action = owo::agent::Action::cancel;
                 cancel.user_input.clear();
                 cancel.command_id.clear();
+                cancel.parent_request_id = cancel.request_id;
+                cancel.request_id += ".cancel";
+                cancel.idempotency_key = cancel.request_id;
                 const auto settings = load_settings(arguments.data);
-                const auto payload = owo::agent::encode_request(cancel);
+                const auto payload = cancel.schema_version == 2
+                    ? owo::agent::encode_request_v2(cancel)
+                    : owo::agent::encode_request(cancel);
                 if (!payload.empty())
                     static_cast<void>(owo::agent::exchange_agent_pipe(
                         settings.pipe_name, payload, std::chrono::milliseconds(500)));

@@ -76,6 +76,27 @@ int main() {
         std::cerr << "response accepted request-only correction deferral\n";
         ++failures;
     }
+    Message context_event{MessageType::agent_context_recorded, 13, 5, "前序上下文"};
+    context_event.application_context_id = "ctx-editor-1";
+    context_event.application_process_id = 42;
+    context_event.application_thread_id = 84;
+    context_event.application_executable = "editor.exe";
+    context_event.application_window_class = "EditorWindow";
+    context_event.application_focus_window_class = "TextBox";
+    const auto decoded_context_event = decode_message(encode_message(context_event));
+    if (!decoded_context_event.validation ||
+        decoded_context_event.message.application_context_id !=
+            context_event.application_context_id ||
+        decoded_context_event.message.application_thread_id != 84 ||
+        decoded_context_event.message.application_focus_window_class != "TextBox") {
+        std::cerr << "Agent context event round trip failed\n";
+        ++failures;
+    }
+    context_event.application_context_id = "invalid context";
+    if (!encode_message(context_event).empty()) {
+        std::cerr << "invalid Agent context identifier was encoded\n";
+        ++failures;
+    }
     Message agent_request{MessageType::agent_request, 12, 7,
         R"({"schema_version":1,"action":"submit"})"};
     const auto decoded_agent = decode_message(encode_message(agent_request));

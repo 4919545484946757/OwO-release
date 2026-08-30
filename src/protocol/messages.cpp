@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <cctype>
 #include <optional>
 
 namespace owo::protocol {
@@ -15,6 +16,7 @@ std::string type_name(const MessageType type) {
         case MessageType::candidate_update_request: return "candidate_update_request";
         case MessageType::candidate_update_response: return "candidate_update_response";
         case MessageType::candidate_committed: return "candidate_committed";
+        case MessageType::agent_context_recorded: return "agent_context_recorded";
         case MessageType::agent_request: return "agent_request";
         case MessageType::agent_response: return "agent_response";
         case MessageType::acknowledgement: return "acknowledgement";
@@ -30,6 +32,7 @@ std::optional<MessageType> parse_type(const std::string_view value) {
     if (value == "candidate_update_request") return MessageType::candidate_update_request;
     if (value == "candidate_update_response") return MessageType::candidate_update_response;
     if (value == "candidate_committed") return MessageType::candidate_committed;
+    if (value == "agent_context_recorded") return MessageType::agent_context_recorded;
     if (value == "agent_request") return MessageType::agent_request;
     if (value == "agent_response") return MessageType::agent_response;
     if (value == "acknowledgement") return MessageType::acknowledgement;
@@ -206,6 +209,29 @@ bool valid_candidate_refinement(const Message& message) {
     return true;
 }
 
+bool valid_application_context(const Message& message) {
+    const bool empty = message.application_context_id.empty() &&
+        message.application_process_id == 0 && message.application_thread_id == 0 &&
+        message.application_executable.empty() && message.application_window_class.empty() &&
+        message.application_focus_window_class.empty() &&
+        !message.application_sensitive_input;
+    if (message.type != MessageType::candidate_committed &&
+        message.type != MessageType::agent_context_recorded) return empty;
+    if (message.type == MessageType::agent_context_recorded &&
+        (message.text.empty() || message.text.size() > 32768)) return false;
+    if (message.application_context_id.empty()) return empty;
+    if (message.application_context_id.size() > 128 ||
+        message.application_process_id > 0xffffffffULL ||
+        message.application_thread_id > 0xffffffffULL ||
+        message.application_executable.size() > 260 ||
+        message.application_window_class.size() > 128 ||
+        message.application_focus_window_class.size() > 128) return false;
+    return std::all_of(message.application_context_id.begin(),
+                       message.application_context_id.end(), [](const unsigned char value) {
+        return std::isalnum(value) != 0 || value == '-' || value == '_' || value == '.';
+    });
+}
+
 }  // namespace
 
 std::string encode_message(const Message& message) {
@@ -213,13 +239,19 @@ std::string encode_message(const Message& message) {
         !valid_candidate_groups(message) ||
         !valid_candidate_layout(message) || !valid_feedback_input(message) ||
         !valid_language_context(message) ||
-        !valid_candidate_refinement(message)) return {};
+        !valid_candidate_refinement(message) ||
+        !valid_application_context(message)) return {};
     const auto escaped = escape_json(message.text);
     if (!message.text.empty() && escaped.empty()) return {};
     const auto escaped_input = escape_json(message.input);
     if (!message.input.empty() && escaped_input.empty()) return {};
     const auto escaped_context = escape_json(message.context);
     if (!message.context.empty() && escaped_context.empty()) return {};
+    const auto escaped_application_context_id = escape_json(message.application_context_id);
+    const auto escaped_application_executable = escape_json(message.application_executable);
+    const auto escaped_application_window_class = escape_json(message.application_window_class);
+    const auto escaped_application_focus_window_class =
+        escape_json(message.application_focus_window_class);
     std::string encoded_candidates = "[";
     for (std::size_t index = 0; index < message.candidates.size(); ++index) {
         const auto candidate = escape_json(message.candidates[index]);
@@ -268,7 +300,18 @@ std::string encode_message(const Message& message) {
            ",\"correction_enabled\":" +
                (message.correction_enabled ? "true" : "false") +
            ",\"input\":\"" + escaped_input +
-           "\",\"context\":\"" + escaped_context + "\"}";
+           "\",\"context\":\"" + escaped_context +
+           "\",\"application_context_id\":\"" + escaped_application_context_id +
+           "\",\"application_process_id\":" +
+               std::to_string(message.application_process_id) +
+           ",\"application_thread_id\":" +
+               std::to_string(message.application_thread_id) +
+           ",\"application_executable\":\"" + escaped_application_executable +
+           "\",\"application_window_class\":\"" + escaped_application_window_class +
+           "\",\"application_focus_window_class\":\"" +
+               escaped_application_focus_window_class +
+           "\",\"application_sensitive_input\":" +
+               (message.application_sensitive_input ? "true" : "false") + "}";
 }
 
 DecodeResult decode_message(const std::string_view json) {
@@ -397,13 +440,56 @@ DecodeResult decode_message(const std::string_view json) {
         if (!value) goto invalid;
         output.message.context = *value;
     }
+    if (!consume(json, offset, ",\"application_context_id\":")) goto invalid;
+    {
+        const auto value = parse_string(json, offset);
+        if (!value) goto invalid;
+        output.message.application_context_id = *value;
+    }
+    if (!consume(json, offset, ",\"application_process_id\":")) goto invalid;
+    {
+        const auto value = parse_uint(json, offset);
+        if (!value) goto invalid;
+        output.message.application_process_id = *value;
+    }
+    if (!consume(json, offset, ",\"application_thread_id\":")) goto invalid;
+    {
+        const auto value = parse_uint(json, offset);
+        if (!value) goto invalid;
+        output.message.application_thread_id = *value;
+    }
+    if (!consume(json, offset, ",\"application_executable\":")) goto invalid;
+    {
+        const auto value = parse_string(json, offset);
+        if (!value) goto invalid;
+        output.message.application_executable = *value;
+    }
+    if (!consume(json, offset, ",\"application_window_class\":")) goto invalid;
+    {
+        const auto value = parse_string(json, offset);
+        if (!value) goto invalid;
+        output.message.application_window_class = *value;
+    }
+    if (!consume(json, offset, ",\"application_focus_window_class\":")) goto invalid;
+    {
+        const auto value = parse_string(json, offset);
+        if (!value) goto invalid;
+        output.message.application_focus_window_class = *value;
+    }
+    if (!consume(json, offset, ",\"application_sensitive_input\":")) goto invalid;
+    {
+        const auto value = parse_bool(json, offset);
+        if (!value) goto invalid;
+        output.message.application_sensitive_input = *value;
+    }
     if (!consume(json, offset, "}") || offset != json.size()) goto invalid;
     if (!valid_candidate_consumed(output.message) ||
         !valid_candidate_groups(output.message) ||
         !valid_candidate_layout(output.message) ||
         !valid_feedback_input(output.message) ||
         !valid_language_context(output.message) ||
-        !valid_candidate_refinement(output.message)) goto invalid;
+        !valid_candidate_refinement(output.message) ||
+        !valid_application_context(output.message)) goto invalid;
     output.validation = {};
     return output;
 

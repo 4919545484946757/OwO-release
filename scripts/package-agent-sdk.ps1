@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '1.0.1',
+    [string]$Version = '1.2.0',
     [string]$BuildDirectory,
     [string]$PluginPackage,
     [string]$OutputDirectory
@@ -13,7 +13,7 @@ if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
     $BuildDirectory = Join-Path $root 'build\windows-release\Release'
 }
 if ([string]::IsNullOrWhiteSpace($PluginPackage)) {
-    $PluginPackage = Join-Path $root 'artifacts\plugins\org.owo.agent-ipc-1.0.1.owopkg'
+    $PluginPackage = Join-Path $root "artifacts\plugins\org.owo.agent-ipc-$Version.owopkg"
 }
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
     $OutputDirectory = Join-Path $root 'artifacts\agent-sdk'
@@ -53,6 +53,8 @@ Copy-Item -LiteralPath (Join-Path $root 'docs\plugins\agent-ipc-integration.md')
 Copy-Item -LiteralPath (Join-Path $root 'docs\plugins\agent-ipc-privacy.md') `
     -Destination (Join-Path $stage 'docs') -Force
 Copy-Item -LiteralPath (Join-Path $root 'docs\plugins\agent-ipc-mock.md') `
+    -Destination (Join-Path $stage 'docs') -Force
+Copy-Item -LiteralPath (Join-Path $root 'docs\plugins\agent-ipc-v3.schema.json') `
     -Destination (Join-Path $stage 'docs') -Force
 Copy-Item -LiteralPath (Join-Path $root 'apps\agent_mock\main.cpp') `
     -Destination (Join-Path $stage 'examples\mock-agent') -Force

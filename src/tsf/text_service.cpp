@@ -88,23 +88,32 @@ std::string new_agent_session_id() {
 
 std::wstring agent_status_label(const agent::Status status) {
     switch (status) {
+    case agent::Status::connecting: return L"连接中";
     case agent::Status::agent_mode: return L"Agent 模式";
+    case agent::Status::submitting: return L"发送中";
     case agent::Status::thinking: return L"思考中";
+    case agent::Status::waiting_for_user: return L"等待输入";
     case agent::Status::executing: return L"执行中";
+    case agent::Status::waiting_for_confirmation: return L"等待确认";
+    case agent::Status::cancelling: return L"取消中";
+    case agent::Status::cancelled: return L"已取消";
     case agent::Status::completed: return L"已完成";
     case agent::Status::disconnected: return L"未连接";
+    case agent::Status::timeout: return L"超时";
     case agent::Status::error: return L"错误";
     }
     return L"错误";
 }
 
-agent::ApplicationContext current_agent_application() {
+agent::ApplicationContext current_agent_application(const std::string_view context_id) {
     agent::ApplicationContext result;
+    result.context_id.assign(context_id);
     HWND window = GetForegroundWindow();
     if (window == nullptr) return result;
     DWORD process_id = 0;
     const DWORD thread_id = GetWindowThreadProcessId(window, &process_id);
     result.process_id = process_id;
+    result.thread_id = thread_id;
     wchar_t class_name[129]{};
     const int class_length = GetClassNameW(window, class_name,
                                            static_cast<int>(std::size(class_name)));
@@ -122,8 +131,12 @@ agent::ApplicationContext current_agent_application() {
     }
     GUITHREADINFO gui{sizeof(gui)};
     if (thread_id != 0 && GetGUIThreadInfo(thread_id, &gui) && gui.hwndFocus != nullptr) {
-        wchar_t focus_class[32]{};
-        GetClassNameW(gui.hwndFocus, focus_class, static_cast<int>(std::size(focus_class)));
+        wchar_t focus_class[129]{};
+        const int focus_length = GetClassNameW(
+            gui.hwndFocus, focus_class, static_cast<int>(std::size(focus_class)));
+        if (focus_length > 0)
+            result.focus_window_class = utf8_from_wide(
+                std::wstring_view(focus_class, static_cast<std::size_t>(focus_length)));
         const auto style = static_cast<DWORD>(GetWindowLongPtrW(gui.hwndFocus, GWL_STYLE));
         result.sensitive_input = (_wcsicmp(focus_class, L"Edit") == 0 &&
                                   (style & ES_PASSWORD) != 0);
@@ -131,6 +144,7 @@ agent::ApplicationContext current_agent_application() {
     if (result.sensitive_input) {
         result.executable.clear();
         result.window_class.clear();
+        result.focus_window_class.clear();
     }
     return result;
 }
@@ -283,6 +297,12 @@ std::wstring wide_from_utf8(const std::string_view input) {
         return {};
     }
     return result;
+}
+
+std::uint64_t current_unix_time_ms() {
+    return static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count());
 }
 
 std::wstring unicode_scalar(const std::uint32_t codepoint) {
@@ -776,6 +796,7 @@ private:
 TextService::TextService() noexcept {
     next_request_id_ = (static_cast<std::uint64_t>(GetCurrentProcessId()) << 32U) |
                        (GetTickCount64() & 0xffffffffULL);
+    rotate_agent_context();
     InterlockedIncrement(&object_count);
 }
 
@@ -924,6 +945,7 @@ HRESULT TextService::Deactivate() {
 }
 
 HRESULT TextService::OnSetFocus(const BOOL foreground) {
+    const bool had_focus = foreground_focus_;
     foreground_focus_ = foreground != FALSE;
     if (!foreground_focus_) {
         if (is_agent_mode()) cancel_agent_session();
@@ -931,8 +953,11 @@ HRESULT TextService::OnSetFocus(const BOOL foreground) {
         clear_composition();
         recent_language_context_.clear();
         recent_language_input_.clear();
-    } else if (has_composition()) {
-        update_candidate_window();
+        recent_agent_context_.clear();
+        agent_context_id_.clear();
+    } else {
+        if (!had_focus) rotate_agent_context();
+        if (has_composition()) update_candidate_window();
     }
     return S_OK;
 }
@@ -966,6 +991,7 @@ HRESULT TextService::OnSetFocus(ITfDocumentMgr* document_manager,
     if (document_manager != previous_document_manager) {
         recent_language_context_.clear();
         recent_language_input_.clear();
+        rotate_agent_context();
     }
     foreground_focus_ = document_manager != nullptr;
     return S_OK;
@@ -976,6 +1002,7 @@ HRESULT TextService::OnPushContext(ITfContext*) {
     clear_composition();
     recent_language_context_.clear();
     recent_language_input_.clear();
+    rotate_agent_context();
     return S_OK;
 }
 
@@ -991,11 +1018,13 @@ HRESULT TextService::OnPopContext(ITfContext* context) {
     clear_composition();
     recent_language_context_.clear();
     recent_language_input_.clear();
+    rotate_agent_context();
     return S_OK;
 }
 
 HRESULT TextService::OnSetThreadFocus() {
     foreground_focus_ = true;
+    if (agent_context_id_.empty()) rotate_agent_context();
     if (has_composition()) update_candidate_window();
     return S_OK;
 }
@@ -1007,6 +1036,8 @@ HRESULT TextService::OnKillThreadFocus() {
     clear_composition();
     recent_language_context_.clear();
     recent_language_input_.clear();
+    recent_agent_context_.clear();
+    agent_context_id_.clear();
     return S_OK;
 }
 
@@ -1147,14 +1178,14 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
             clear_composition();
             return S_OK;
         }
-        if (agent_response_visible_ && !agent_command_ids_.empty() && key == VK_SPACE) {
-            if (!agent_command_high_risk_.empty() && agent_command_high_risk_.front()) {
+        if (agent_response_visible_ && !agent_commands_.empty() && key == VK_SPACE) {
+            if (agent_commands_.front().high_risk) {
                 agent_status_ = agent::Status::error;
                 agent_message_ = L"高风险指令必须在第三方 Agent 内单独确认";
                 update_candidate_window();
                 return S_OK;
             }
-            queue_agent_action(agent::Action::select, agent_command_ids_.front());
+            select_agent_command(0);
         } else if (input_buffer_.size() > 1 || !staged_candidates_.empty()) {
             queue_agent_action(agent::Action::submit);
         }
@@ -1192,8 +1223,7 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
             candidates_.clear();
             candidate_consumed_.clear();
             candidate_groups_.clear();
-            agent_command_ids_.clear();
-            agent_command_high_risk_.clear();
+            agent_commands_.clear();
             agent_message_.clear();
             agent_executing_command_.clear();
             agent_response_visible_ = false;
@@ -1346,16 +1376,15 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
     } else if (context != nullptr && !candidates_.empty()) {
         const std::size_t index = key == VK_SPACE ? 0 : static_cast<std::size_t>(key - '1');
         if (index < candidates_.size()) {
-            if (is_agent_mode() && index < agent_command_ids_.size()) {
-                if (index < agent_command_high_risk_.size() &&
-                    agent_command_high_risk_[index]) {
+            if (is_agent_mode() && index < agent_commands_.size()) {
+                if (agent_commands_[index].high_risk) {
                     agent_status_ = agent::Status::error;
                     agent_message_ = L"高风险指令必须在第三方 Agent 内单独确认";
                     agent_response_visible_ = true;
                     update_candidate_window();
                     return S_OK;
                 }
-                queue_agent_action(agent::Action::select, agent_command_ids_[index]);
+                select_agent_command(index);
                 return S_OK;
             }
             if (is_agent_mode()) return stage_agent_candidate(context, index);
@@ -2988,8 +3017,14 @@ std::wstring TextService::agent_preview_text() const {
 
 void TextService::queue_agent_action(const agent::Action action,
                                      std::string command_id,
-                                     const std::uint32_t page) {
-    if (agent_session_id_.empty()) agent_session_id_ = new_agent_session_id();
+                                     const std::uint32_t page,
+                                     const std::uint64_t task_revision,
+                                     std::vector<agent::SlotUpdate> slot_updates) {
+    if (agent_session_id_.empty()) {
+        agent_session_id_ = new_agent_session_id();
+        agent_last_request_id_.clear();
+        agent_state_revision_ = 0;
+    }
     if (agent_session_id_.empty()) {
         agent_status_ = agent::Status::error;
         agent_message_ = L"无法创建 Agent 会话";
@@ -3000,6 +3035,16 @@ void TextService::queue_agent_action(const agent::Action action,
     agent::Request request;
     request.action = action;
     request.session_id = agent_session_id_;
+    const auto request_id = next_request_id_++;
+    request.request_id = "req-" + std::to_string(request_id);
+    request.parent_request_id = agent_last_request_id_;
+    request.idempotency_key = request.request_id;
+    request.capabilities = {"protocol.negotiation", "input.structured",
+                            "context.entries", "context.privacy",
+                            "commands.risk", "errors.structured", "state.progress",
+                            "tasks.slots", "tasks.incremental"};
+    request.required_features = {"protocol.negotiation", "input.structured",
+                                 "commands.risk", "errors.structured", "tasks.slots"};
     if (action == agent::Action::submit) {
         std::wstring input = staged_text();
         if (input_buffer_.size() > 1)
@@ -3011,14 +3056,34 @@ void TextService::queue_agent_action(const agent::Action action,
         if (input_buffer_.size() > 1)
             agent_last_submitted_pinyin_.append(
                 std::wstring_view(input_buffer_).substr(1));
+        std::wstring segmented = segmented_input_;
+        if (!segmented.empty() && segmented.front() == L'v') segmented.erase(0, 1);
+        std::wstring pending = input_buffer_.size() > 1
+            ? std::wstring(std::wstring_view(input_buffer_).substr(1)) : std::wstring{};
+        request.input_details.raw_pinyin = utf8_from_wide(agent_last_submitted_pinyin_);
+        request.input_details.segmented_pinyin = utf8_from_wide(segmented);
+        request.input_details.selected_text = utf8_from_wide(staged_text());
+        request.input_details.pending_pinyin = utf8_from_wide(pending);
+        request.input_details.natural_language = request.user_input;
+        request.input_details.input_mode = "agent";
+        request.input_details.correction_enabled = correction_enabled_;
     }
     if (action == agent::Action::submit) {
-        request.application = current_agent_application();
-        if (!request.application.sensitive_input)
-            request.session_context = utf8_from_wide(recent_language_context_);
+        request.application = current_agent_application(agent_context_id_);
+        if (!request.application.sensitive_input) {
+            request.session_context = utf8_from_wide(recent_agent_context_);
+            if (!request.session_context.empty()) {
+                request.context_entries.push_back({
+                    agent_context_id_, request.application, request.session_context,
+                    GetTickCount64(), "current_input", "owo_commit",
+                    current_unix_time_ms(), 1000, true});
+            }
+        }
     }
     request.command_id = std::move(command_id);
     request.page = page;
+    request.task_revision = task_revision != 0 ? task_revision : agent_task_.revision;
+    request.slot_updates = std::move(slot_updates);
     const auto encoded = agent::encode_request(request);
     if (encoded.empty()) {
         agent_status_ = agent::Status::error;
@@ -3028,7 +3093,6 @@ void TextService::queue_agent_action(const agent::Action action,
         return;
     }
     ++context_generation_;
-    const auto request_id = next_request_id_++;
     {
         std::lock_guard lock(request_mutex_);
         pending_request_ = PendingRequest{
@@ -3038,6 +3102,7 @@ void TextService::queue_agent_action(const agent::Action action,
     }
     active_candidate_request_id_ = request_id;
     latest_candidate_request_id_.store(request_id, std::memory_order_release);
+    agent_last_request_id_ = request.request_id;
     if (action == agent::Action::submit) agent_request_submitted_ = true;
     agent_request_pending_ = action != agent::Action::cancel;
     agent_status_ = action == agent::Action::cancel
@@ -3045,8 +3110,7 @@ void TextService::queue_agent_action(const agent::Action action,
     if (action != agent::Action::poll) {
         agent_message_.clear();
         agent_executing_command_.clear();
-        agent_command_ids_.clear();
-        agent_command_high_risk_.clear();
+        agent_commands_.clear();
         candidates_.clear();
         candidate_consumed_.clear();
         candidate_groups_.clear();
@@ -3056,27 +3120,110 @@ void TextService::queue_agent_action(const agent::Action action,
     update_candidate_window();
 }
 
+void TextService::apply_agent_task(const agent::TaskDraft& task) {
+    agent_task_ = task;
+    if (task.intent.empty() || agent_last_submitted_pinyin_.empty()) return;
+    std::wstring remaining;
+    for (const auto& range : task.unconsumed_ranges) {
+        if (range.start >= range.end || range.end > agent_last_submitted_pinyin_.size()) continue;
+        remaining.append(std::wstring_view(agent_last_submitted_pinyin_).substr(
+            range.start, range.end - range.start));
+    }
+    input_buffer_ = L"v" + remaining;
+    input_cursor_ = input_buffer_.size();
+    segmented_input_ = remaining;
+    staged_candidates_.clear();
+    staged_cursor_ = 0;
+}
+
+bool TextService::select_agent_command(const std::size_t index) {
+    if (index >= agent_commands_.size()) return false;
+    const auto command = agent_commands_[index];
+    if (command.high_risk) return false;
+    if ((command.commit_task || !command.slot_updates.empty()) &&
+        (agent_task_.intent.empty() || command.task_revision != agent_task_.revision)) {
+        agent_status_ = agent::Status::error;
+        agent_message_ = L"任务状态已更新，请重新选择";
+        agent_response_visible_ = true;
+        update_candidate_window();
+        return false;
+    }
+    if (!command.slot_updates.empty()) {
+        auto updated = agent_task_;
+        for (const auto& patch : command.slot_updates) {
+            auto slot = std::find_if(updated.slots.begin(), updated.slots.end(),
+                [&](const auto& item) { return item.id == patch.slot_id; });
+            if (slot != updated.slots.end() && slot->locked && slot->value != patch.value) {
+                agent_status_ = agent::Status::error;
+                agent_message_ = L"该任务槽位已经锁定";
+                agent_response_visible_ = true;
+                update_candidate_window();
+                return false;
+            }
+            if (slot == updated.slots.end()) {
+                updated.slots.push_back({patch.slot_id, patch.slot_id, patch.value,
+                                         patch.consumed_ranges, patch.lock, 1000});
+            } else {
+                slot->value = patch.value;
+                slot->source_ranges = patch.consumed_ranges;
+                slot->locked = patch.lock;
+                slot->confidence_milli = 1000;
+            }
+            for (const auto& consumed : patch.consumed_ranges) {
+                std::vector<agent::PinyinRange> remainder;
+                for (const auto& range : updated.unconsumed_ranges) {
+                    if (consumed.end <= range.start || consumed.start >= range.end) {
+                        remainder.push_back(range);
+                        continue;
+                    }
+                    if (range.start < consumed.start)
+                        remainder.push_back({range.start, consumed.start});
+                    if (consumed.end < range.end)
+                        remainder.push_back({consumed.end, range.end});
+                }
+                updated.unconsumed_ranges = std::move(remainder);
+            }
+        }
+        updated.revision = command.task_revision + 1;
+        apply_agent_task(updated);
+    }
+    queue_agent_action(agent::Action::select, command.id, 0,
+                       command.task_revision, command.slot_updates);
+    return true;
+}
+
 void TextService::cancel_agent_session() {
     if (agent_session_id_.empty()) return;
     agent::Request cancel;
     cancel.action = agent::Action::cancel;
     cancel.session_id = agent_session_id_;
+    const auto request_id = next_request_id_++;
+    cancel.request_id = "req-" + std::to_string(request_id);
+    cancel.parent_request_id = agent_last_request_id_;
+    cancel.idempotency_key = cancel.request_id;
+    cancel.capabilities = {"protocol.negotiation", "input.structured",
+                           "context.entries", "context.privacy", "commands.risk",
+                           "errors.structured", "state.progress", "tasks.slots",
+                           "tasks.incremental"};
+    cancel.required_features = {"protocol.negotiation", "errors.structured"};
     const auto encoded = agent::encode_request(cancel);
     if (!encoded.empty()) {
         std::lock_guard lock(request_mutex_);
         feedback_requests_.push_back(PendingRequest{
             static_cast<std::uint8_t>(protocol::MessageType::agent_request),
-            next_request_id_++, context_generation_, 0, wide_from_utf8(encoded),
+            request_id, context_generation_, 0, wide_from_utf8(encoded),
             false, true, {}, {}});
         request_ready_.notify_one();
     }
     agent_session_id_.clear();
+    agent_last_request_id_.clear();
+    agent_state_revision_ = 0;
+    agent_task_ = {};
     agent_request_pending_ = false;
     agent_response_visible_ = false;
     agent_message_.clear();
     agent_executing_command_.clear();
-    agent_command_ids_.clear();
-    agent_command_high_risk_.clear();
+    agent_commands_.clear();
 }
 
 void TextService::refresh_shortcut_config(const bool force) {
@@ -3361,6 +3508,34 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
 
 void TextService::append_language_context(const std::wstring_view text) {
     append_bounded_language_context(recent_language_context_, text);
+    append_bounded_language_context(recent_agent_context_, text, 4096);
+    queue_agent_context(std::wstring(text));
+}
+
+void TextService::rotate_agent_context() {
+    recent_agent_context_.clear();
+    const auto id = new_agent_session_id();
+    agent_context_id_ = id.empty()
+        ? "ctx-" + std::to_string(GetCurrentProcessId()) + "-" +
+              std::to_string(GetTickCount64()) + "-" + std::to_string(next_request_id_)
+        : "ctx-" + id;
+}
+
+void TextService::queue_agent_context(std::wstring text) {
+    if (text.empty()) return;
+    if (agent_context_id_.empty()) rotate_agent_context();
+    const auto application = current_agent_application(agent_context_id_);
+    if (application.sensitive_input) return;
+    std::lock_guard lock(request_mutex_);
+    PendingRequest request;
+    request.type = static_cast<std::uint8_t>(
+        protocol::MessageType::agent_context_recorded);
+    request.request_id = next_request_id_++;
+    request.generation = context_generation_;
+    request.input = std::move(text);
+    request.application_context = application;
+    feedback_requests_.push_back(std::move(request));
+    request_ready_.notify_one();
 }
 
 void TextService::queue_commit_feedback(std::wstring candidate, std::wstring input,
@@ -3412,6 +3587,15 @@ void TextService::worker_loop(const std::stop_token stop_token) {
         paged_message.correction_enabled = request.correction_enabled;
         paged_message.defer_expensive_candidates =
             request.defer_expensive_candidates;
+        paged_message.application_context_id = request.application_context.context_id;
+        paged_message.application_process_id = request.application_context.process_id;
+        paged_message.application_thread_id = request.application_context.thread_id;
+        paged_message.application_executable = request.application_context.executable;
+        paged_message.application_window_class = request.application_context.window_class;
+        paged_message.application_focus_window_class =
+            request.application_context.focus_window_class;
+        paged_message.application_sensitive_input =
+            request.application_context.sensitive_input;
         const auto post_candidate_failure = [this, &request, request_type](
                                                 std::wstring detail) {
             if (request_type != protocol::MessageType::candidate_request) return;
@@ -3511,8 +3695,11 @@ void TextService::worker_loop(const std::stop_token stop_token) {
                 post_agent_failure(L"Agent 会话 ID 不匹配");
                 continue;
             }
+            std::uint64_t poll_revision = 0;
             const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
-            while ((current.value.status == agent::Status::thinking ||
+            while ((current.value.status == agent::Status::connecting ||
+                    current.value.status == agent::Status::submitting ||
+                    current.value.status == agent::Status::thinking ||
                     current.value.status == agent::Status::executing) &&
                    std::chrono::steady_clock::now() < deadline &&
                    !stop_token.stop_requested()) {
@@ -3536,6 +3723,11 @@ void TextService::worker_loop(const std::stop_token stop_token) {
                 agent::Request poll;
                 poll.action = agent::Action::poll;
                 poll.session_id = original.value.session_id;
+                poll.request_id = original.value.request_id + ".ui-poll." +
+                    std::to_string(++poll_revision);
+                poll.parent_request_id = original.value.request_id;
+                poll.idempotency_key = poll.request_id;
+                poll.capabilities = original.value.capabilities;
                 const protocol::Message poll_message{
                     protocol::MessageType::agent_request, request.request_id,
                     request.generation, agent::encode_request(poll)};
@@ -3850,34 +4042,44 @@ void TextService::handle_agent_result(AgentResult* raw_result) {
         result->request_id != active_candidate_request_id_ ||
         agent_session_id_.empty() ||
         result->response.session_id != agent_session_id_) return;
+    if (result->response.schema_version >= 3 &&
+        result->response.state_revision < agent_state_revision_) return;
+    agent_state_revision_ = std::max(
+        agent_state_revision_, result->response.state_revision);
     agent_request_pending_ = result->response.status == agent::Status::thinking ||
-                             result->response.status == agent::Status::executing;
+                             result->response.status == agent::Status::executing ||
+                             result->response.status == agent::Status::connecting ||
+                             result->response.status == agent::Status::submitting ||
+                             result->response.status == agent::Status::cancelling;
     agent_status_ = result->response.status;
     agent_message_ = wide_from_utf8(result->response.message);
     agent_executing_command_ = wide_from_utf8(result->response.executing_command);
+    if (!result->response.task.intent.empty()) apply_agent_task(result->response.task);
     candidates_.clear();
     candidate_consumed_.clear();
     candidate_groups_.clear();
-    agent_command_ids_.clear();
-    agent_command_high_risk_.clear();
+    agent_commands_.clear();
     const bool terminal = agent_status_ == agent::Status::completed ||
+                          agent_status_ == agent::Status::cancelled ||
                           agent_status_ == agent::Status::disconnected ||
+                          agent_status_ == agent::Status::timeout ||
                           agent_status_ == agent::Status::error;
     if (!terminal) {
         for (const auto& command : result->response.commands) {
+            if (!command.enabled) continue;
             auto label = wide_from_utf8(command.label);
             if (label.empty()) continue;
             candidates_.push_back(std::move(label));
             candidate_consumed_.push_back(1);
             candidate_groups_.push_back(0);
-            agent_command_ids_.push_back(command.id);
-            agent_command_high_risk_.push_back(command.high_risk);
+            agent_commands_.push_back(command);
         }
     }
     candidate_page_ = terminal ? 0 : result->response.page;
     has_more_candidates_ = !terminal && result->response.has_more;
     agent_response_visible_ = true;
-    if (!agent_message_.empty() && agent_status_ != agent::Status::error &&
+    if (result->response.task.intent.empty() && !agent_message_.empty() &&
+        agent_status_ != agent::Status::error &&
         agent_status_ != agent::Status::disconnected) {
         input_buffer_ = L"v";
         input_cursor_ = 1;
@@ -3888,6 +4090,9 @@ void TextService::handle_agent_result(AgentResult* raw_result) {
     if (terminal) {
         agent_request_pending_ = false;
         agent_session_id_.clear();
+        agent_last_request_id_.clear();
+        agent_state_revision_ = 0;
+        agent_task_ = {};
     }
     hovered_target_.reset();
     pressed_target_.reset();
@@ -4319,16 +4524,14 @@ void TextService::invoke_hit_target(const HitTarget& target) {
         case HitKind::pinyin_cursor:
             break;
         case HitKind::candidate:
-            if (is_agent_mode() && target.candidate_index < agent_command_ids_.size()) {
-                if (target.candidate_index < agent_command_high_risk_.size() &&
-                    agent_command_high_risk_[target.candidate_index]) {
+            if (is_agent_mode() && target.candidate_index < agent_commands_.size()) {
+                if (agent_commands_[target.candidate_index].high_risk) {
                     agent_status_ = agent::Status::error;
                     agent_message_ = L"高风险指令必须在第三方 Agent 内单独确认";
                     agent_response_visible_ = true;
                     update_candidate_window();
                 } else {
-                    queue_agent_action(agent::Action::select,
-                                       agent_command_ids_[target.candidate_index]);
+                    select_agent_command(target.candidate_index);
                 }
             } else if (is_agent_mode()) {
                 stage_agent_candidate(nullptr, target.candidate_index);
@@ -4435,6 +4638,8 @@ void TextService::clear_composition() {
     staged_candidates_.clear();
     staged_cursor_ = 0;
     agent_last_submitted_pinyin_.clear();
+    agent_task_ = {};
+    agent_commands_.clear();
     agent_request_submitted_ = false;
     segmented_input_.clear();
     candidates_.clear();
@@ -4635,13 +4840,15 @@ HRESULT TextService::commit_text(ITfContext* context, std::wstring text) {
 
 HRESULT TextService::commit_raw_input(ITfContext* context) {
     if (context == nullptr || input_buffer_.empty()) return E_INVALIDARG;
-    auto* session = new (std::nothrow) CommitEditSession(context, input_buffer_);
+    const std::wstring committed = input_buffer_;
+    auto* session = new (std::nothrow) CommitEditSession(context, committed);
     if (session == nullptr) return E_OUTOFMEMORY;
     HRESULT session_result = E_FAIL;
     const HRESULT request_result = context->RequestEditSession(
         client_id_, session, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
     session->Release();
     if (SUCCEEDED(request_result) && SUCCEEDED(session_result)) {
+        append_language_context(committed);
         clear_composition();
         recent_language_context_.clear();
         recent_language_input_.clear();
@@ -4719,6 +4926,7 @@ HRESULT TextService::apply_language_mode(const bool chinese, ITfContext* context
             if (FAILED(committed)) return committed;
         }
         clear_composition();
+        rotate_agent_context();
     }
     if (!chinese && has_composition()) {
         if (context == nullptr) return E_UNEXPECTED;

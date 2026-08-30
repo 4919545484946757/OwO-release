@@ -23,6 +23,7 @@ enum class MessageType {
     candidate_update_request,
     candidate_update_response,
     candidate_committed,
+    agent_context_recorded,
     agent_request,
     agent_response,
     acknowledgement,
@@ -49,6 +50,13 @@ struct Message {
     bool correction_enabled{true};
     std::string input;
     std::string context;
+    std::string application_context_id;
+    std::uint64_t application_process_id{};
+    std::uint64_t application_thread_id{};
+    std::string application_executable;
+    std::string application_window_class;
+    std::string application_focus_window_class;
+    bool application_sensitive_input{};
 };
 
 struct DecodeResult {

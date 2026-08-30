@@ -197,7 +197,7 @@ cmake --build --preset windows-release
 版本，并使用户重新核对摘要和权限。Agent 连接器还可随参考协议与模拟服务一起打包：
 
 ```powershell
-.\scripts\package-agent-sdk.ps1 -Version 1.0.1
+.\scripts\package-agent-sdk.ps1 -Version 1.2.0
 ```
 
 ### Agent 类插件的边界
@@ -207,6 +207,10 @@ Codex 的技能、MCP 或工具执行环境。官方 `org.owo.agent-ipc` 只完�
 脱敏、结构化 IPC、状态展示和用户选择回传。第三方 Agent 自行负责模型、工具注册、
 身份验证、审计以及高风险操作确认，不能把 OwO 的 `system.full_trust` 当作自身的系统
 授权。完整协议见 `agent-ipc-integration.md`。
+
+Agent 协议 v3 的 `tasks.slots` / `tasks.incremental` 能力允许插件返回任务草稿、槽位与
+原拼音范围的映射，以及候选对应的最小槽位补丁。宿主按任务版本校验补丁，保护已锁定
+槽位，并把未消耗范围留在组合态。插件不得把自然语言标签反向解析成槽位或执行参数。
 
 ## 7. 候选框主题资源
 
