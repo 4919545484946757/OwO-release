@@ -67,7 +67,8 @@ int main() {
         learned_candidates.begin(), learned_candidates.end(), [](const auto& value) {
             return value.text == "自定义词";
         });
-    if (learned_word == learned_candidates.end() ||
+    if (learned_word == learned_candidates.end() || learned_word != learned_candidates.begin() ||
+        !learned_word->user_lexicon ||
         learned_word->consumed_input_bytes != std::string_view("zidingyici").size())
         return fail("learned user word was not recalled as a full candidate");
 

@@ -25,6 +25,7 @@ struct Candidate {
     std::int64_t coherence_score{};
     std::vector<std::size_t> segment_lengths;
     bool model_only{};
+    bool user_lexicon{};
 
     bool operator==(const Candidate&) const = default;
 };

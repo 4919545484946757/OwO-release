@@ -165,6 +165,8 @@ std::string candidate_structure_key(const Candidate& candidate) {
 bool candidate_better(const Candidate& candidate, const Candidate& existing) {
     if (candidate.consumed_input_bytes != existing.consumed_input_bytes)
         return candidate.consumed_input_bytes > existing.consumed_input_bytes;
+    if (candidate.user_lexicon != existing.user_lexicon)
+        return candidate.user_lexicon;
     if ((candidate.segment_count == 1) != (existing.segment_count == 1))
         return candidate.segment_count == 1;
     if (candidate.score != existing.score) return candidate.score > existing.score;
@@ -184,6 +186,7 @@ void replace_candidate_payload(Candidate& existing, Candidate replacement) {
     existing.coherence_score = replacement.coherence_score;
     existing.segment_lengths = std::move(replacement.segment_lengths);
     existing.model_only = replacement.model_only;
+    existing.user_lexicon = replacement.user_lexicon;
 }
 
 class CandidateAccumulator {
@@ -226,6 +229,8 @@ private:
 };
 
 bool score_less(const Candidate& left, const Candidate& right) {
+    if (left.user_lexicon != right.user_lexicon)
+        return left.user_lexicon;
     if (left.score != right.score) return left.score > right.score;
     if (left.match_kind != right.match_kind) return left.match_kind < right.match_kind;
     if (left.syllables.size() != right.syllables.size())
@@ -655,6 +660,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                     InputMatchKind::exact, learned_segments,
                                     parsed.normalized_input.size(), 1};
                 candidate.segment_lengths = {learned_syllables.size()};
+                candidate.user_lexicon = true;
                 store_candidate(std::move(candidate));
             }
         }

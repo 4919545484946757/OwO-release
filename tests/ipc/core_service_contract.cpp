@@ -300,9 +300,8 @@ int main() {
     if (!commits_ok || !custom_word_ack.validation ||
         custom_word_ack.message.type != owo::protocol::MessageType::acknowledgement ||
         !custom_word_candidates.validation ||
-        std::find(custom_word_candidates.message.candidates.begin(),
-                  custom_word_candidates.message.candidates.end(), "自定义词") ==
-            custom_word_candidates.message.candidates.end() ||
+        custom_word_candidates.message.candidates.empty() ||
+        custom_word_candidates.message.candidates.front() != "自定义词" ||
         !valid_response(first, 101, 7) || !valid_response(second, 102, 8) ||
         !valid_response(learned, 104, 8, {"你号", "你好"}) ||
         !nihao_ranged.validation ||
