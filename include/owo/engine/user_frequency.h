@@ -1,12 +1,19 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace owo::engine {
+
+struct UserLexiconEntry {
+    std::string text;
+    std::uint32_t count{};
+};
 
 class UserFrequencyModel {
 public:
@@ -24,6 +31,12 @@ public:
         (void)input;
         (void)text;
         return 0;
+    }
+    [[nodiscard]] virtual std::vector<UserLexiconEntry> lookup(
+        std::string_view input, std::size_t limit) const {
+        (void)input;
+        (void)limit;
+        return {};
     }
 };
 
@@ -50,6 +63,8 @@ public:
     [[nodiscard]] std::int64_t language_context_score(
         std::string_view context, std::string_view input,
         std::string_view text) const override;
+    [[nodiscard]] std::vector<UserLexiconEntry> lookup(
+        std::string_view input, std::size_t limit) const override;
     [[nodiscard]] UserFrequencyIoResult flush() const;
 
 private:
@@ -57,6 +72,8 @@ private:
     std::unordered_map<std::string, std::uint32_t> counts_;
     std::unordered_map<std::string, std::uint32_t> contextual_counts_;
     std::unordered_map<std::string, std::uint32_t> language_context_counts_;
+    std::unordered_map<std::string,
+                       std::unordered_map<std::string, std::uint32_t>> user_lexicon_;
     std::uint32_t sensitivity_{7};
 };
 

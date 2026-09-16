@@ -201,6 +201,13 @@ int main() {
         commits_ok = commits_ok && committed.validation &&
                      committed.message.type == owo::protocol::MessageType::acknowledgement;
     }
+    owo::protocol::Message custom_word_commit{
+        owo::protocol::MessageType::candidate_committed, 220, 8, "自定义词"};
+    custom_word_commit.input = "zidingyici";
+    const auto custom_word_ack = send_request(pipe_name, custom_word_commit);
+    const auto custom_word_candidates = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    221, 8, "zidingyici"});
     const auto learned = send_request(pipe_name, {owo::protocol::MessageType::candidate_request, 104, 8, "nihao"});
     const auto first_page = send_request(pipe_name, {owo::protocol::MessageType::candidate_request, 106, 8, "ceshi"});
     owo::protocol::Message second_page_request{
@@ -290,7 +297,13 @@ int main() {
         std::all_of(first_dictionary,
                     ambiguous_single_syllable.message.candidate_groups.end(),
                     [](const std::uint64_t group) { return group == 1; });
-    if (!commits_ok || !valid_response(first, 101, 7) || !valid_response(second, 102, 8) ||
+    if (!commits_ok || !custom_word_ack.validation ||
+        custom_word_ack.message.type != owo::protocol::MessageType::acknowledgement ||
+        !custom_word_candidates.validation ||
+        std::find(custom_word_candidates.message.candidates.begin(),
+                  custom_word_candidates.message.candidates.end(), "自定义词") ==
+            custom_word_candidates.message.candidates.end() ||
+        !valid_response(first, 101, 7) || !valid_response(second, 102, 8) ||
         !valid_response(learned, 104, 8, {"你号", "你好"}) ||
         !nihao_ranged.validation ||
         nihao_ranged.message.candidates !=

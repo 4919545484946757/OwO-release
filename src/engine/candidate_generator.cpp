@@ -6,6 +6,7 @@
 #include <cmath>
 #include <chrono>
 #include <deque>
+#include <iterator>
 #include <limits>
 #include <string_view>
 #include <unordered_map>
@@ -338,6 +339,78 @@ void prioritize_two_character_words(std::vector<Candidate>& candidates) {
         candidates[positions[index]] = std::move(reordered[index]);
 }
 
+void promote_alternative_exact_segmentation(std::vector<Candidate>& candidates,
+                                            const std::size_t full_input_bytes) {
+    if (candidates.size() <= 2 ||
+        candidates.front().match_kind != InputMatchKind::exact) return;
+    const auto preferred_segments = candidates.front().source_segments;
+    // A composed fallback and a whole dictionary word use different scoring
+    // scales: the former pays a segment transition penalty while the latter
+    // does not.  Comparing their totals with a small relative margin buries a
+    // strong alternative boundary such as kuan'gao behind every kuang'ao word.
+    // Require a useful absolute composition score instead; only one best
+    // alternative segmentation is promoted, so weak Cartesian products still
+    // remain outside the early candidate slots.
+    constexpr std::int64_t kPrimaryCompositionMinimumScore = 12'000;
+    const auto alternative = std::find_if(
+        candidates.begin() + 1, candidates.end(), [&](const Candidate& candidate) {
+            if (candidate.match_kind != InputMatchKind::exact ||
+                candidate.consumed_input_bytes != full_input_bytes ||
+                candidate.source_segments == preferred_segments) return false;
+            const bool dictionary_word = candidate.segment_count == 1 &&
+                candidate.score >= kHighConfidenceAlternativeScore &&
+                candidate.score + kAlternativeSegmentationPromotionMargin >=
+                    candidates.front().score;
+            const bool primary_character_composition =
+                candidate.segment_count == candidate.syllables.size() &&
+                utf8_character_count(candidate.text) == candidate.syllables.size() &&
+                candidate.score >= kPrimaryCompositionMinimumScore;
+            return dictionary_word || primary_character_composition;
+        });
+    const auto destination = candidates.begin() +
+        static_cast<std::ptrdiff_t>(std::min<std::size_t>(2, candidates.size() - 1));
+    if (alternative != candidates.end() && alternative > destination)
+        std::rotate(destination, alternative, alternative + 1);
+}
+
+void promote_full_candidate_heads(const std::vector<Candidate>& sentences,
+                                  const std::vector<Candidate>& dictionary,
+                                  const std::size_t full_input_bytes,
+                                  std::vector<Candidate>& single_characters) {
+    if (single_characters.size() < 2) return;
+    std::vector<std::string> preferred;
+    preferred.reserve(2);
+    const auto collect = [&](const std::vector<Candidate>& source) {
+        for (const auto& candidate : source) {
+            if (preferred.size() == 2) break;
+            if (candidate.consumed_input_bytes != full_input_bytes) continue;
+            const auto head = std::string(utf8_first_character(candidate.text));
+            if (head.empty() || std::find(preferred.begin(), preferred.end(), head) !=
+                                    preferred.end()) continue;
+            preferred.push_back(head);
+        }
+    };
+    collect(sentences);
+    collect(dictionary);
+    if (preferred.empty()) return;
+    std::vector<Candidate> promoted;
+    promoted.reserve(single_characters.size());
+    std::vector<bool> used(single_characters.size());
+    for (const auto& head : preferred) {
+        const auto found = std::find_if(
+            single_characters.begin(), single_characters.end(),
+            [&](const Candidate& candidate) { return candidate.text == head; });
+        if (found == single_characters.end()) continue;
+        const auto index = static_cast<std::size_t>(found - single_characters.begin());
+        if (used[index]) continue;
+        used[index] = true;
+        promoted.push_back(std::move(*found));
+    }
+    for (std::size_t index = 0; index < single_characters.size(); ++index)
+        if (!used[index]) promoted.push_back(std::move(single_characters[index]));
+    single_characters = std::move(promoted);
+}
+
 void limit_two_syllable_full_candidates(std::vector<Candidate>& candidates) {
     const auto is_composed = [](const Candidate& candidate) {
         return candidate.syllables.size() == 2 && candidate.segment_count > 1;
@@ -553,6 +626,39 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     const auto store_candidate = [&unique](Candidate candidate) {
         unique.store(std::move(candidate));
     };
+    if (user_frequency_ != nullptr) {
+        std::string lookup_input;
+        lookup_input.reserve(parsed.normalized_input.size());
+        std::copy_if(parsed.normalized_input.begin(), parsed.normalized_input.end(),
+                     std::back_inserter(lookup_input),
+                     [](const char value) { return value != '\''; });
+        auto learned_entries = user_frequency_->lookup(lookup_input, search_limit);
+        const auto path = std::find_if(
+            parsed.paths.begin(), parsed.paths.end(), [](const ParsePath& value) {
+                return value.match_kind == InputMatchKind::exact;
+            });
+        if (path != parsed.paths.end()) {
+            const auto learned_segments = source_segments(parsed, *path);
+            std::vector<std::string> learned_syllables;
+            learned_syllables.reserve(path->syllables.size());
+            for (const auto& syllable : path->syllables)
+                learned_syllables.push_back(syllable.text);
+            for (const auto& entry : learned_entries) {
+                auto score = 12'000 + candidate_unigram_score(entry.count) +
+                             user_frequency_->score(entry.text) +
+                             user_frequency_->contextual_score(lookup_input,
+                                                                entry.text);
+                if (contextual_ranking && !language_context.empty())
+                    score += user_frequency_->language_context_score(
+                        language_context, lookup_input, entry.text);
+                Candidate candidate{entry.text, learned_syllables, score,
+                                    InputMatchKind::exact, learned_segments,
+                                    parsed.normalized_input.size(), 1};
+                candidate.segment_lengths = {learned_syllables.size()};
+                store_candidate(std::move(candidate));
+            }
+        }
+    }
     const auto mixed_limit = search_limit > 32 ? std::size_t{256}
                                                : std::max<std::size_t>(64, search_limit * 8);
     bool direct_mixed_candidate_found = false;
@@ -1078,7 +1184,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // rwkyy can still populate the single-character side of a partitioned
     // page. Previously those inputs were filled entirely by whole words or
     // sentence compositions before Core had anything it could balance.
-    if (mixed_abbreviation_candidate_found &&
+    if (mixed_abbreviation_candidate_found && !exact_candidate_found &&
         parsed.normalized_input.size() >= 2 &&
         parsed.normalized_input.find('\'') == std::string::npos &&
         parsed.normalized_input.front() >= 'a' &&
@@ -1229,6 +1335,14 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
     }
     const auto sentence_less = [](const Candidate& left, const Candidate& right) {
+        const auto full_dictionary_word = [](const Candidate& candidate) {
+            return candidate.match_kind == InputMatchKind::exact &&
+                   candidate.segment_count == 1 &&
+                   utf8_character_count(candidate.text) ==
+                       candidate.syllables.size();
+        };
+        if (full_dictionary_word(left) != full_dictionary_word(right))
+            return full_dictionary_word(left);
         constexpr std::int64_t kCoherenceDecisionMargin = 3'000;
         if (left.segment_count > 1 && right.segment_count > 1) {
             const auto difference = left.coherence_score - right.coherence_score;
@@ -1320,6 +1434,12 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         if (!expose_long_alternatives && full.size() >= 2) {
             const auto& first = full[0];
             const auto& second = full[1];
+            const auto exact_full_dictionary_word = [](const Candidate& candidate) {
+                return candidate.match_kind == InputMatchKind::exact &&
+                       candidate.segment_count == 1 &&
+                       utf8_character_count(candidate.text) ==
+                           candidate.syllables.size();
+            };
             const auto coherence_gap = first.coherence_score >= second.coherence_score
                 ? first.coherence_score - second.coherence_score
                 : second.coherence_score - first.coherence_score;
@@ -1333,9 +1453,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             // generated variant, not a useful second sentence. A genuinely
             // different sentence may occupy the second slot when both scores
             // remain close enough.
-            if (first_tail != second_tail &&
-                coherence_gap <= kSecondSentenceCoherenceMargin &&
-                score_gap <= kSecondSentenceScoreMargin)
+            if ((exact_full_dictionary_word(first) &&
+                 exact_full_dictionary_word(second)) ||
+                (first_tail != second_tail &&
+                 coherence_gap <= kSecondSentenceCoherenceMargin &&
+                 score_gap <= kSecondSentenceScoreMargin))
                 sentence_count = 2;
         }
         for (std::size_t index = 0; index < sentence_count; ++index)
@@ -1410,24 +1532,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // be generated but buried behind every ming'an word and composition. Keep
     // the preferred split at index zero so the preview and first candidate stay
     // stable for inputs such as wan'an and nan'an.
-    if (!pure_initial_sequence && !multiword_input && ordered.size() > 2 &&
-        ordered.front().match_kind == InputMatchKind::exact) {
-        const auto preferred_segments = ordered.front().source_segments;
-        const auto alternative = std::find_if(
-            ordered.begin() + 1, ordered.end(), [&](const Candidate& candidate) {
-                return candidate.match_kind == InputMatchKind::exact &&
-                       candidate.consumed_input_bytes == full_input_bytes &&
-                       candidate.segment_count == 1 &&
-                       candidate.score >= kHighConfidenceAlternativeScore &&
-                       candidate.score + kAlternativeSegmentationPromotionMargin >=
-                           ordered.front().score &&
-                       candidate.source_segments != preferred_segments;
-            });
-        const auto destination = ordered.begin() +
-            static_cast<std::ptrdiff_t>(std::min<std::size_t>(2, ordered.size() - 1));
-        if (alternative != ordered.end() && alternative > destination)
-            std::rotate(destination, alternative, alternative + 1);
-    }
+    if (!pure_initial_sequence && !multiword_input)
+        promote_alternative_exact_segmentation(ordered, full_input_bytes);
     if (partition_page_size != 0) {
         std::vector<Candidate> sentences;
         std::vector<Candidate> dictionary_words;
@@ -1465,25 +1571,24 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             dictionary.push_back(std::move(candidate));
         for (auto& candidate : compositions)
             dictionary.push_back(std::move(candidate));
-        std::stable_sort(dictionary.begin(), dictionary.end(), score_less);
-        if (!dictionary.empty()) {
-            const auto preferred_segments = dictionary.front().source_segments;
-            const auto alternative = std::find_if(
-                dictionary.begin() + 1, dictionary.end(), [&](const Candidate& candidate) {
+        std::stable_sort(dictionary.begin(), dictionary.end(),
+            [full_input_bytes](const Candidate& left, const Candidate& right) {
+                const auto complete_word = [full_input_bytes](const Candidate& candidate) {
                     return candidate.match_kind == InputMatchKind::exact &&
-                           candidate.consumed_input_bytes == full_input_bytes &&
                            candidate.segment_count == 1 &&
-                           candidate.score >= kHighConfidenceAlternativeScore &&
-                           candidate.score + kAlternativeSegmentationPromotionMargin >=
-                               dictionary.front().score &&
-                           candidate.source_segments != preferred_segments;
-                });
-            const auto destination = dictionary.begin() +
-                static_cast<std::ptrdiff_t>(
-                    std::min<std::size_t>(2, dictionary.size() - 1));
-            if (alternative != dictionary.end() && alternative > destination)
-                std::rotate(destination, alternative, alternative + 1);
-        }
+                           candidate.consumed_input_bytes == full_input_bytes &&
+                           utf8_character_count(candidate.text) ==
+                               candidate.syllables.size();
+                };
+                if (complete_word(left) != complete_word(right))
+                    return complete_word(left);
+                if (left.consumed_input_bytes != right.consumed_input_bytes)
+                    return left.consumed_input_bytes > right.consumed_input_bytes;
+                return score_less(left, right);
+            });
+        promote_alternative_exact_segmentation(dictionary, full_input_bytes);
+        promote_full_candidate_heads(
+            sentences, dictionary, full_input_bytes, single_characters);
         // Preserve every source in the bounded pool passed to Core. Appending
         // all sentences, then all dictionary words, and only then characters
         // meant the final `limit` truncation could erase entire groups. Core's

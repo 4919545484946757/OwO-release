@@ -168,6 +168,9 @@ $oldProfileCheck = if ($null -ne $previousInstallRoot) {
 $oldTsf = if ($null -ne $previousInstallRoot) {
     Join-Path $previousInstallRoot 'bin\OwO.TSF.dll'
 } else { $null }
+$oldX86Tsf = if ($null -ne $previousInstallRoot) {
+    Join-Path $previousInstallRoot 'bin\x86\OwO.TSF.dll'
+} else { $null }
 # Retire services started from old extracted packages as well as registered
 # install roots. Their global pipe names can mask the newly installed service.
 foreach ($process in Get-CimInstance Win32_Process | Where-Object {
@@ -199,12 +202,27 @@ if ($null -ne $oldTsf -and (Test-Path -LiteralPath $oldTsf -PathType Leaf)) {
         Write-Warning "Previous TSF registration could not be removed cleanly: $($oldUnregister.ExitCode)"
     }
 }
+if ($null -ne $oldX86Tsf -and (Test-Path -LiteralPath $oldX86Tsf -PathType Leaf)) {
+    $oldX86Unregister = Start-Process `
+        -FilePath "$env:SystemRoot\SysWOW64\regsvr32.exe" `
+        -ArgumentList @('/u', '/s', ('"{0}"' -f $oldX86Tsf)) `
+        -WindowStyle Hidden -Wait -PassThru
+    if ($oldX86Unregister.ExitCode -ne 0) {
+        Write-Warning "Previous x86 TSF registration could not be removed cleanly: $($oldX86Unregister.ExitCode)"
+    }
+}
 
 $tsf = Join-Path $installRoot 'bin\OwO.TSF.dll'
+$x86Tsf = Join-Path $installRoot 'bin\x86\OwO.TSF.dll'
 $profileCheck = Join-Path $installRoot 'bin\owo_tsf_profile_check.exe'
 $register = Start-Process -FilePath "$env:SystemRoot\System32\regsvr32.exe" `
     -ArgumentList @('/s', ('"{0}"' -f $tsf)) -WindowStyle Hidden -Wait -PassThru
 if ($register.ExitCode -ne 0) { throw "TSF registration failed: $($register.ExitCode)" }
+$x86Register = Start-Process -FilePath "$env:SystemRoot\SysWOW64\regsvr32.exe" `
+    -ArgumentList @('/s', ('"{0}"' -f $x86Tsf)) -WindowStyle Hidden -Wait -PassThru
+if ($x86Register.ExitCode -ne 0) {
+    throw "x86 TSF registration failed: $($x86Register.ExitCode)"
+}
 & $profileCheck --enable
 if ($LASTEXITCODE -ne 0) { throw "OwO profile enable failed: $LASTEXITCODE" }
 

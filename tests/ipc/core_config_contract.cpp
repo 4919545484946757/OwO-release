@@ -58,6 +58,9 @@ int wmain(int argc, wchar_t** argv) {
         {{"ni", "hao"}, "泥号", 2000},
         {{"wang"}, "王", 3000}, {{"wang"}, "望", 2000},
         {{"wang"}, "妄", 200}, {{"kuang", "wang"}, "狂妄", 5000},
+        {{"heng"}, "横", 5000}, {{"hen"}, "很", 10000000},
+        {{"he", "ni", "ge"}, "和你哥", 9000},
+        {{"hen", "neng", "gan"}, "很能干", 10000},
         {{"ga"}, "甲", 1200}, {{"de"}, "的", 1100},
         {{"ga", "de"}, "噶的", 1000}, {{"ge", "de"}, "各地", 900}});
     const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -76,6 +79,8 @@ int wmain(int argc, wchar_t** argv) {
                                            20, 1, "ce"});
     const auto compact_double_initial = send(
         pipe, {owo::protocol::MessageType::candidate_request, 23, 1, "gd"});
+    const auto complete_heng = send(
+        pipe, {owo::protocol::MessageType::candidate_request, 26, 1, "heng"});
     owo::protocol::Message expanded_request{
         owo::protocol::MessageType::candidate_request, 22, 1, "ce"};
     expanded_request.expanded = true;
@@ -126,6 +131,8 @@ int wmain(int argc, wchar_t** argv) {
         monitor.wait_for_generation(generation_before_partition, std::chrono::seconds(2));
     const auto partitioned = send(
         pipe, {owo::protocol::MessageType::candidate_request, 24, 1, "gd"});
+    const auto partitioned_heng = send(
+        pipe, {owo::protocol::MessageType::candidate_request, 27, 1, "heng"});
     const auto generation_before_legacy = monitor.generation();
     config.candidate_partition_enabled = false;
     const bool legacy_reload = writer.save(config).success &&
@@ -155,6 +162,9 @@ int wmain(int argc, wchar_t** argv) {
                     compact_double_initial.validation &&
                     compact_double_initial.message.page_size == 3 &&
                     compact_double_initial.message.candidate_groups.empty() &&
+                    complete_heng.validation &&
+                    complete_heng.message.syllables ==
+                        std::vector<std::string>{"heng"} &&
                     expanded.validation && expanded.message.expanded &&
                     expanded.message.page_size == 3 && expanded.message.candidates.size() == 7 &&
                     !expanded.message.has_more &&
@@ -171,6 +181,11 @@ int wmain(int argc, wchar_t** argv) {
                     !partitioned.message.candidates.empty() &&
                     partitioned.message.candidate_groups.size() ==
                         partitioned.message.candidates.size() &&
+                    partitioned_heng.validation &&
+                    partitioned_heng.message.syllables ==
+                        std::vector<std::string>{"heng"} &&
+                    !partitioned_heng.message.candidate_consumed.empty() &&
+                    partitioned_heng.message.candidate_consumed.front() == 4 &&
                     legacy_layout.validation &&
                     !legacy_layout.message.candidates.empty() &&
                     legacy_layout.message.candidate_groups.empty() &&

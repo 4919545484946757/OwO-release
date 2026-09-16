@@ -83,6 +83,19 @@ int main() {
         return 1;
     if (loaded.contextual_count("nihao", "你好") != 2 ||
         loaded.contextual_count("xian", "你好") != 0) return 2;
+    const auto persisted_learned = loaded.lookup("nihao", 4);
+    if (persisted_learned.size() != 1 ||
+        persisted_learned[0].text != "你好" ||
+        persisted_learned[0].count != 2) return 8;
+    loaded.record("xi'an", "西安", 2);
+    const auto compact_boundary = loaded.lookup("xian", 4);
+    if (compact_boundary.size() != 1 || compact_boundary[0].text != "西安")
+        return 9;
+    loaded.record("zidingyici", "自定义词", 3);
+    loaded.record("zidingyici", "自订义词", 1);
+    const auto learned = loaded.lookup("zidingyici", 1);
+    if (learned.size() != 1 || learned[0].text != "自定义词" ||
+        learned[0].count != 3 || !loaded.lookup("missing", 4).empty()) return 7;
     if (loaded.language_context_score("我喜欢", "pingguo", "苹果") <= 0 ||
         loaded.language_context_score("他喜欢", "pingguo", "苹果") != 0) return 5;
     loaded.set_sensitivity(10);

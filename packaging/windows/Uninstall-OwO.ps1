@@ -66,6 +66,7 @@ foreach ($process in Get-CimInstance Win32_Process | Where-Object {
 
 $profileCheck = Join-Path $installRoot 'bin\owo_tsf_profile_check.exe'
 $tsf = Join-Path $installRoot 'bin\OwO.TSF.dll'
+$x86Tsf = Join-Path $installRoot 'bin\x86\OwO.TSF.dll'
 if (Test-Path -LiteralPath $profileCheck) {
     & $profileCheck --disable | Out-Null
     if ($LASTEXITCODE -notin @(0, 4)) {
@@ -78,6 +79,15 @@ if (Test-Path -LiteralPath $tsf) {
         -WindowStyle Hidden -Wait -PassThru
     if ($unregister.ExitCode -ne 0) {
         throw "TSF unregistration failed: $($unregister.ExitCode)"
+    }
+}
+if (Test-Path -LiteralPath $x86Tsf) {
+    $x86Unregister = Start-Process `
+        -FilePath "$env:SystemRoot\SysWOW64\regsvr32.exe" `
+        -ArgumentList @('/u', '/s', ('"{0}"' -f $x86Tsf)) `
+        -WindowStyle Hidden -Wait -PassThru
+    if ($x86Unregister.ExitCode -ne 0) {
+        throw "x86 TSF unregistration failed: $($x86Unregister.ExitCode)"
     }
 }
 

@@ -1,7 +1,9 @@
 param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
-    [string]$DllPath
+    [string]$DllPath,
+    [ValidateSet('x64', 'x86')]
+    [string]$Architecture = 'x64'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -16,9 +18,14 @@ if (-not (Test-Path -LiteralPath $DllPath -PathType Leaf)) {
     throw "TSF DLL not found: $DllPath. Build the selected preset first."
 }
 
-$process = Start-Process -FilePath "$env:SystemRoot\System32\regsvr32.exe" `
+$regsvr32 = if ($Architecture -eq 'x86') {
+    Join-Path $env:SystemRoot 'SysWOW64\regsvr32.exe'
+} else {
+    Join-Path $env:SystemRoot 'System32\regsvr32.exe'
+}
+$process = Start-Process -FilePath $regsvr32 `
     -ArgumentList @('/s', $DllPath) -WindowStyle Hidden -Wait -PassThru
 if ($process.ExitCode -ne 0) {
     throw "regsvr32 failed with exit code $($process.ExitCode)"
 }
-Write-Output "Registered development TSF: $DllPath"
+Write-Output "Registered development TSF ($Architecture): $DllPath"

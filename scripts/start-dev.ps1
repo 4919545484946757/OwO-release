@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$BuildDirectory,
+    [string]$X86BuildDirectory,
     [string]$LexiconPath,
     [string]$LibimeRuntimeDirectory,
     [string]$LibimeModelPath,
@@ -88,6 +89,10 @@ if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
     }
 }
 $BuildDirectory = [IO.Path]::GetFullPath($BuildDirectory)
+if ([string]::IsNullOrWhiteSpace($X86BuildDirectory)) {
+    $X86BuildDirectory = Join-Path $projectRoot 'build\windows-x86-release\Release'
+}
+$X86BuildDirectory = [IO.Path]::GetFullPath($X86BuildDirectory)
 
 if ($BuildLatest) {
     # Stop the installed launcher first so it cannot respawn an installed Core
@@ -103,6 +108,17 @@ if ($BuildLatest) {
     if ($LASTEXITCODE -ne 0) {
         throw "OwO Release build failed: $LASTEXITCODE"
     }
+    $x86BuildTree = Split-Path -Parent $X86BuildDirectory
+    if (-not (Test-Path -LiteralPath (Join-Path $x86BuildTree 'CMakeCache.txt') -PathType Leaf)) {
+        & cmake --preset windows-x86-release
+        if ($LASTEXITCODE -ne 0) {
+            throw "OwO x86 configure failed: $LASTEXITCODE"
+        }
+    }
+    & cmake --build $x86BuildTree --config Release --target owo_tsf
+    if ($LASTEXITCODE -ne 0) {
+        throw "OwO x86 TSF build failed: $LASTEXITCODE"
+    }
 }
 
 $coreService = Join-Path $BuildDirectory 'owo_core_service.exe'
@@ -111,10 +127,14 @@ $modelHost = Join-Path $BuildDirectory 'owo_model_host.exe'
 $modelShell = Join-Path $BuildDirectory 'owo_model_shell.exe'
 $profileCheck = Join-Path $BuildDirectory 'owo_tsf_profile_check.exe'
 $buildTsfDll = Join-Path $BuildDirectory 'OwO.TSF.dll'
+$buildX86TsfDll = Join-Path $X86BuildDirectory 'OwO.TSF.dll'
 foreach ($required in @($coreService, $profileCheck, $buildTsfDll)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
         throw "Required development binary is missing: $required"
     }
+}
+if (-not (Test-Path -LiteralPath $buildX86TsfDll -PathType Leaf)) {
+    throw "Required x86 development TSF is missing: $buildX86TsfDll"
 }
 $deployDirectory = Join-Path $projectRoot 'build/manual-deploy'
 [void](New-Item -ItemType Directory -Path $deployDirectory -Force)
@@ -123,8 +143,13 @@ $tsfDll = Join-Path $deployDirectory "OwO.TSF.$($tsfHash.Substring(0, 16)).dll"
 if (-not (Test-Path -LiteralPath $tsfDll -PathType Leaf)) {
     Copy-Item -LiteralPath $buildTsfDll -Destination $tsfDll -Force
 }
+$x86TsfHash = Get-Sha256Hex $buildX86TsfDll
+$x86TsfDll = Join-Path $deployDirectory "OwO.TSF.x86.$($x86TsfHash.Substring(0, 16)).dll"
+if (-not (Test-Path -LiteralPath $x86TsfDll -PathType Leaf)) {
+    Copy-Item -LiteralPath $buildX86TsfDll -Destination $x86TsfDll -Force
+}
 
-foreach ($required in @($tsfDll)) {
+foreach ($required in @($tsfDll, $x86TsfDll)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
         throw "Required development binary is missing: $required"
     }
@@ -157,7 +182,10 @@ $modelHostEnabled = -not $DisableModelHost -and
     (Test-Path -LiteralPath $LibimeModelPath -PathType Leaf)
 
 if (-not $SkipRegistration) {
-    & (Join-Path $PSScriptRoot 'register-dev.ps1') -Configuration Release -DllPath $tsfDll
+    & (Join-Path $PSScriptRoot 'register-dev.ps1') -Configuration Release `
+        -DllPath $tsfDll -Architecture x64
+    & (Join-Path $PSScriptRoot 'register-dev.ps1') -Configuration Release `
+        -DllPath $x86TsfDll -Architecture x86
 }
 
 & $profileCheck --activate-session
@@ -270,6 +298,7 @@ if ($modelHostEnabled) {
     Write-Output 'ModelHost: disabled or libime runtime/model is incomplete; using base ranking.'
 }
 Write-Output "TSF DLL: $tsfDll"
+Write-Output "TSF DLL (x86): $x86TsfDll"
 Write-Output "Lexicon: $LexiconPath"
 Write-Output "User frequency: $frequencyPath"
 Write-Output "Build updated: $BuildLatest"

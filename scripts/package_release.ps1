@@ -2,6 +2,7 @@
 param(
     [string]$Version = '0.2.3',
     [string]$BuildDirectory,
+    [string]$X86BuildDirectory,
     [string]$SettingsDirectory,
     [string]$OutputDirectory
 )
@@ -12,6 +13,9 @@ $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
     $BuildDirectory = Join-Path $root 'build\windows-release\Release'
 }
+if ([string]::IsNullOrWhiteSpace($X86BuildDirectory)) {
+    $X86BuildDirectory = Join-Path $root 'build\windows-x86-release\Release'
+}
 if ([string]::IsNullOrWhiteSpace($SettingsDirectory)) {
     $SettingsDirectory = Join-Path $root 'build\settings-publish\win-x64'
 }
@@ -19,6 +23,7 @@ if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
     $OutputDirectory = Join-Path $root 'artifacts\release'
 }
 $build = [IO.Path]::GetFullPath($BuildDirectory)
+$x86Build = [IO.Path]::GetFullPath($X86BuildDirectory)
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $releaseRoot = Join-Path $output $Version
 $stage = Join-Path $releaseRoot "OwO-Input-Method-$Version-windows-x64"
@@ -45,6 +50,7 @@ $vcRuntime = Get-ChildItem -LiteralPath $vcRedistBase -Directory -ErrorAction Si
     Select-Object -First 1
 $required = @(
     (Join-Path $build 'OwO.TSF.dll'), (Join-Path $build 'owo_core_service.exe'),
+    (Join-Path $x86Build 'OwO.TSF.dll'),
     (Join-Path $build 'owo_model_host.exe'), (Join-Path $build 'owo_runtime_launcher.exe'),
     (Join-Path $build 'owo_tsf_profile_check.exe'),
     (Join-Path $settings 'OwO.Settings.exe'),
@@ -62,9 +68,11 @@ foreach ($path in $required) {
     if (-not (Test-Path -LiteralPath $path)) { throw "Release input is missing: $path" }
 }
 
-foreach ($directory in @('bin', 'data', 'model\runtime', 'settings', 'scripts', 'LICENSES')) {
+foreach ($directory in @('bin', 'bin\x86', 'data', 'model\runtime', 'settings', 'scripts', 'LICENSES')) {
     [void](New-Item -ItemType Directory -Path (Join-Path $stage $directory) -Force)
 }
+Copy-Item -LiteralPath (Join-Path $x86Build 'OwO.TSF.dll') `
+    -Destination (Join-Path $stage 'bin\x86\OwO.TSF.dll') -Force
 foreach ($name in @('OwO.TSF.dll', 'owo_core_service.exe', 'owo_model_host.exe',
                     'owo_runtime_launcher.exe', 'owo_tsf_profile_check.exe',
                     'owo_config_shell.exe', 'owo_plugin_shell.exe')) {

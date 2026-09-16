@@ -12,6 +12,13 @@ int fail(const std::string_view message) {
     return 1;
 }
 
+std::size_t utf8_character_count(const std::string_view text) {
+    return static_cast<std::size_t>(std::count_if(
+        text.begin(), text.end(), [](const unsigned char byte) {
+            return (byte & 0xc0U) != 0x80U;
+        }));
+}
+
 }  // namespace
 
 int main() {
@@ -49,6 +56,20 @@ int main() {
     });
     const owo::engine::FullPinyinSchema schema;
     const owo::engine::CandidateGenerator generator(lexicon);
+
+    owo::engine::UserFrequencyStore learned_words;
+    learned_words.record("zidingyici", "自定义词", 2);
+    const owo::engine::CandidateGenerator learned_generator(
+        lexicon, nullptr, &learned_words);
+    const auto learned_candidates = learned_generator.generate(
+        schema.parse("zidingyici"));
+    const auto learned_word = std::find_if(
+        learned_candidates.begin(), learned_candidates.end(), [](const auto& value) {
+            return value.text == "自定义词";
+        });
+    if (learned_word == learned_candidates.end() ||
+        learned_word->consumed_input_bytes != std::string_view("zidingyici").size())
+        return fail("learned user word was not recalled as a full candidate");
 
     const auto nihao = generator.generate(schema.parse("nihao"));
     if (nihao.size() != 2 || nihao[0].text != "你好" || nihao[1].text != "你号")
@@ -757,6 +778,104 @@ int main() {
         schema.parse("wode"), 16, false, {}, nullptr, {}, false, 5);
     if (mixed_weight.empty() || mixed_weight.front().text != "我的")
         return fail("low-frequency dictionary word unconditionally outranked composition");
+
+    const owo::engine::MemoryLexicon alternative_boundary_lexicon({
+        {{"kuang", "ao"}, "狂傲", 10000000},
+        {{"kuang", "ao"}, "词甲", 9000000},
+        {{"kuang", "ao"}, "词乙", 8000000},
+        {{"kuang", "ao"}, "词丙", 7000000},
+        {{"kuang", "ao"}, "词丁", 6000000},
+        {{"kuan"}, "宽", 100000000},
+        {{"gao"}, "高", 100000000},
+        {{"kuang"}, "狂", 100000000},
+        {{"ao"}, "傲", 100000000},
+    });
+    const owo::engine::CandidateGenerator alternative_boundary_generator(
+        alternative_boundary_lexicon);
+    const auto alternative_boundary = alternative_boundary_generator.generate(
+        schema.parse("kuangao"), 32, false, {}, nullptr, {}, false, 7);
+    const auto wide_high = std::find_if(
+        alternative_boundary.begin(), alternative_boundary.end(), [](const auto& candidate) {
+            return candidate.text == "宽高" &&
+                   candidate.source_segments ==
+                       std::vector<std::string>{"kuan", "gao"};
+        });
+    if (wide_high == alternative_boundary.end() ||
+        static_cast<std::size_t>(wide_high - alternative_boundary.begin()) > 2) {
+        for (const auto& candidate : alternative_boundary)
+            std::cerr << candidate.text << ':' << candidate.score << ':'
+                      << candidate.segment_count << '\n';
+        return fail("strong alternative exact segmentation composition was buried");
+    }
+
+    const owo::engine::MemoryLexicon single_syllable_boundary_lexicon({
+        {{"kua"}, "跨", 10000000},
+        {{"ku"}, "酷", 100000000},
+        {{"a"}, "啊", 100000000},
+    });
+    const owo::engine::CandidateGenerator single_syllable_boundary_generator(
+        single_syllable_boundary_lexicon);
+    const auto single_syllable_boundary = single_syllable_boundary_generator.generate(
+        schema.parse("kua"), 16);
+    const auto ku_a = std::find_if(
+        single_syllable_boundary.begin(), single_syllable_boundary.end(),
+        [](const auto& candidate) {
+            return candidate.text == "酷啊" &&
+                   candidate.source_segments ==
+                       std::vector<std::string>{"ku", "a"};
+        });
+    if (ku_a == single_syllable_boundary.end())
+        return fail("kua candidates dropped the exact ku+a segmentation");
+
+    const owo::engine::MemoryLexicon full_span_word_lexicon({
+        {{"yi", "fu", "zi"}, "遗腹子", 100},
+        {{"yi", "fu"}, "衣服", 10000000},
+        {{"yi", "fu"}, "依附", 9000000},
+        {{"yi"}, "遗", 1000}, {{"yi"}, "衣", 1000000},
+        {{"fu"}, "腹", 1000}, {{"fu"}, "服", 1000000},
+        {{"zi"}, "子", 1000000},
+    });
+    const owo::engine::CandidateGenerator full_span_word_generator(full_span_word_lexicon);
+    const auto full_span_word = full_span_word_generator.generate(
+        schema.parse("yifuzi"), 32, false, {}, nullptr, {}, false, 7);
+    const auto exact_full_word = std::find_if(
+        full_span_word.begin(), full_span_word.end(), [](const auto& candidate) {
+            return candidate.text == "遗腹子";
+        });
+    const auto first_two_character = std::find_if(
+        full_span_word.begin(), full_span_word.end(), [](const auto& candidate) {
+            return utf8_character_count(candidate.text) == 2;
+        });
+    if (exact_full_word == full_span_word.end() ||
+        (first_two_character != full_span_word.end() &&
+         exact_full_word > first_two_character)) {
+        for (const auto& candidate : full_span_word)
+            std::cerr << candidate.text << ':' << candidate.score << ':'
+                      << candidate.segment_count << ':'
+                      << candidate.consumed_input_bytes << '\n';
+        return fail("exact full-span word was ranked behind a shorter prefix");
+    }
+
+    const owo::engine::MemoryLexicon full_head_lexicon({
+        {{"zhang", "zi", "hao"}, "长子号", 10000000},
+        {{"zhang", "zi", "hao"}, "张子豪", 1},
+        {{"zhang"}, "长", 1000000}, {{"zhang"}, "章", 900000},
+        {{"zhang"}, "涨", 800000}, {{"zhang"}, "张", 100},
+        {{"zi"}, "子", 1000000}, {{"hao"}, "好", 1000000},
+    });
+    const owo::engine::CandidateGenerator full_head_generator(full_head_lexicon);
+    const auto full_heads = full_head_generator.generate(
+        schema.parse("zhangzihao"), 32, false, {}, nullptr, {}, false, 7);
+    std::vector<std::string> single_heads;
+    for (const auto& candidate : full_heads) {
+        if (candidate.syllables.size() == 1 &&
+            utf8_character_count(candidate.text) == 1)
+            single_heads.push_back(candidate.text);
+    }
+    const auto zhang = std::find(single_heads.begin(), single_heads.end(), "张");
+    if (zhang == single_heads.end() ||
+        static_cast<std::size_t>(zhang - single_heads.begin()) > 1)
+        return fail("leading character of a full-span candidate was buried");
 
     const auto cancelled_generation = word_priority_generator.generate(
         schema.parse("shi"), 32, false, {}, nullptr, [] { return true; });

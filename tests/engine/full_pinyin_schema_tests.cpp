@@ -97,6 +97,9 @@ int main() {
     const auto duo = schema.parse("duo");
     if (!contains_path(duo, {"duo"}) || contains_path(duo, {"du", "o"}))
         return fail("complete duo was over-segmented");
+    const auto kua = schema.parse("kua");
+    if (!contains_path(kua, {"kua"}) || !contains_path(kua, {"ku", "a"}))
+        return fail("complete kua dropped its useful ku+a boundary");
     const auto lin = schema.parse("lin");
     if (!contains_path(lin, {"lin"}) ||
         contains_path(lin, {"ling"}, owo::engine::InputMatchKind::incomplete_completion))
@@ -285,7 +288,8 @@ int main() {
         return fail("niha to nihao incremental parse diverged from full parse");
 
     for (const std::string_view input : {
-             "jiaodian", "shubiao", "qingkuang", "ceshiyixiav"}) {
+             "heng", "cheng", "sheng", "zheng", "jiaodian", "shubiao",
+             "qingkuang", "ceshiyixiav"}) {
         owo::engine::FullPinyinIncrementalState typing_state;
         owo::engine::ParseResult typed;
         for (std::size_t length = 1; length <= input.size(); ++length)

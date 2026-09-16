@@ -349,6 +349,16 @@ std::vector<std::string> preferred_source_segmentation(
         parsed.normalized_input.find('\'') == std::string::npos &&
         !candidate_segments.empty())
         return candidate_segments;
+    // A complete exact reading is authoritative for short and medium input.
+    // Candidate partitioning may place a mixed-abbreviation phrase or an
+    // initial-only fallback first, but that must never shorten or rewrite the
+    // pinyin preview (heng must remain heng rather than following an h* item).
+    if (exact != parsed.paths.end() &&
+        std::all_of(exact->syllables.begin(), exact->syllables.end(),
+                    [](const engine::Syllable& syllable) {
+                        return syllable.complete;
+                    }))
+        return source_segments(*exact);
     if (!correction_enabled)
         return exact != parsed.paths.end() ? source_segments(*exact) : raw_segments();
 
@@ -789,15 +799,40 @@ void arrange_partitioned_candidate_pages(
     // Within the optional partitioned layout, keep that character first in the
     // single-character area; the configured page split then determines its
     // exact visible slot without relying on a hard-coded page size.
-    if (!sentences.empty()) {
-        const auto leading_text = std::string(utf8_prefix(sentences.front().text, 1));
-        const auto leading = std::find_if(
-            single_characters.begin(), single_characters.end(),
-            [&leading_text](const engine::Candidate& candidate) {
-                return candidate.text == leading_text;
-            });
-        if (leading != single_characters.end() && leading != single_characters.begin())
-            std::rotate(single_characters.begin(), leading, leading + 1);
+    if (!single_characters.empty()) {
+        std::vector<std::string> preferred_heads;
+        preferred_heads.reserve(2);
+        const auto collect_head = [&](const engine::Candidate& candidate) {
+            if (preferred_heads.size() == 2 ||
+                candidate.consumed_input_bytes != full_input_bytes) return;
+            const auto head = std::string(utf8_prefix(candidate.text, 1));
+            if (head.empty() ||
+                std::find(preferred_heads.begin(), preferred_heads.end(), head) !=
+                    preferred_heads.end()) return;
+            preferred_heads.push_back(head);
+        };
+        for (const auto& sentence : sentences) collect_head(sentence);
+        for (const auto& candidate : dictionary_candidates) {
+            if (preferred_heads.size() == 2) break;
+            if (candidate.segment_count == 1) collect_head(candidate);
+        }
+        std::vector<engine::Candidate> reordered;
+        reordered.reserve(single_characters.size());
+        std::vector<bool> used(single_characters.size());
+        for (const auto& head : preferred_heads) {
+            const auto found = std::find_if(
+                single_characters.begin(), single_characters.end(),
+                [&](const engine::Candidate& candidate) {
+                    return candidate.text == head;
+                });
+            if (found == single_characters.end()) continue;
+            const auto index = static_cast<std::size_t>(found - single_characters.begin());
+            used[index] = true;
+            reordered.push_back(std::move(*found));
+        }
+        for (std::size_t index = 0; index < single_characters.size(); ++index)
+            if (!used[index]) reordered.push_back(std::move(single_characters[index]));
+        single_characters = std::move(reordered);
     }
 
     // Real multi-character dictionary entries have no quota. Compositions

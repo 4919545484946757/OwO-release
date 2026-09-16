@@ -17,6 +17,16 @@
       }
     },
     {
+      "name": "windows-x86-base",
+      "hidden": true,
+      "generator": "Visual Studio 17 2022",
+      "architecture": "Win32",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "BUILD_TESTING": "OFF"
+      }
+    },
+    {
       "name": "windows-debug",
       "inherits": "windows-base",
       "displayName": "Windows x64 Debug"
@@ -25,6 +35,16 @@
       "name": "windows-release",
       "inherits": "windows-base",
       "displayName": "Windows x64 Release"
+    },
+    {
+      "name": "windows-x86-debug",
+      "inherits": "windows-x86-base",
+      "displayName": "Windows x86 Debug"
+    },
+    {
+      "name": "windows-x86-release",
+      "inherits": "windows-x86-base",
+      "displayName": "Windows x86 Release"
     },
     {
       "name": "windows-release-ort",
@@ -56,6 +76,16 @@
     {
       "name": "windows-release",
       "configurePreset": "windows-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "windows-x86-debug",
+      "configurePreset": "windows-x86-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "windows-x86-release",
+      "configurePreset": "windows-x86-release",
       "configuration": "Release"
     },
     {

@@ -646,14 +646,17 @@ std::vector<ChunkPath> parse_chunk(const std::string_view normalized,
             // ling, nor bin for bing. A complete alternative with a natural
             // vowel-starting final boundary remains meaningful, however:
             // xian can be xi+an and should expose dictionary-backed 西安. A
-            // one-letter tail such as du+o is deliberately excluded so the
-            // old over-segmentation regression does not return.
+            // A single trailing `a` is also a useful independent syllable
+            // after a complete prefix (kua -> ku+a). Keep that boundary while
+            // still excluding du+o, whose generated placeholders previously
+            // displaced the much more likely complete `duo` reading.
             const auto preserves_implicit_boundary = [&] {
                 if (!explicit_single_syllable || path.incomplete ||
                     path.syllables.size() <= minimum) return false;
                 const auto& suffix = path.syllables.back();
-                if (!suffix.complete || suffix.end - suffix.begin < 2 ||
-                    suffix.text.empty()) return false;
+                if (!suffix.complete || suffix.text.empty()) return false;
+                if (suffix.end - suffix.begin == 1)
+                    return suffix.text == "a";
                 return suffix.text.front() == 'a' || suffix.text.front() == 'e' ||
                        suffix.text.front() == 'o';
             }();

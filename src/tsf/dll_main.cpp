@@ -132,10 +132,17 @@ HRESULT register_profile() {
             owo::tsf::kLanguageProfileGuid, description,
             static_cast<ULONG>(wcslen(description)), L"", 0, 0);
         if (SUCCEEDED(result)) {
-            // 注册不应改变用户当前输入法；测试宿主或设置界面必须显式启用。
+            // Enabling a profile only makes it available; it does not select it
+            // as the current input method. Keep newly created application
+            // contexts from treating OwO as an unavailable profile.
             result = profiles->EnableLanguageProfile(
                 owo::tsf::kTextServiceClsid, owo::tsf::kSimplifiedChinese,
-                owo::tsf::kLanguageProfileGuid, FALSE);
+                owo::tsf::kLanguageProfileGuid, TRUE);
+            if (SUCCEEDED(result)) {
+                result = profiles->EnableLanguageProfileByDefault(
+                    owo::tsf::kTextServiceClsid, owo::tsf::kSimplifiedChinese,
+                    owo::tsf::kLanguageProfileGuid, TRUE);
+            }
         }
         if (FAILED(result)) profiles->Unregister(owo::tsf::kTextServiceClsid);
     }
@@ -168,6 +175,7 @@ HRESULT register_categories() {
     if (FAILED(result)) return result;
     const std::array capabilities{
         GUID_TFCAT_TIP_KEYBOARD,
+        GUID_TFCAT_TIPCAP_INPUTMODECOMPARTMENT,
         GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT,
         GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT,
     };
@@ -177,6 +185,15 @@ HRESULT register_categories() {
                                               capability,
                                               owo::tsf::kTextServiceClsid);
         if (FAILED(result) && existing) result = S_OK;
+        // Capability categories are machine-wide on current Windows builds.
+        // A per-user development registration may not be elevated, but it must
+        // not roll back an otherwise usable COM server and language profile.
+        // The administrator-elevated package installer registers this optional
+        // compartment capability normally.
+        if (FAILED(result) &&
+            capability == GUID_TFCAT_TIPCAP_INPUTMODECOMPARTMENT) {
+            result = S_OK;
+        }
         if (FAILED(result)) break;
     }
     categories->Release();
@@ -189,6 +206,7 @@ void unregister_categories() {
                                    CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&categories)))) {
         const std::array capabilities{
             GUID_TFCAT_TIP_KEYBOARD,
+            GUID_TFCAT_TIPCAP_INPUTMODECOMPARTMENT,
             GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT,
             GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT,
         };

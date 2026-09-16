@@ -206,7 +206,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="3">
                                             <TextBlock Text="用户词频学习" Style="{StaticResource SettingTitleStyle}"/>
-                                            <TextBlock Text="根据你的候选选择调整本机词频。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                            <TextBlock Text="学习已上屏的候选与组合词，并加入本机用户词库。" Style="{StaticResource SettingDescriptionStyle}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="UserLearning" Grid.Column="1" VerticalAlignment="Center"/>
                                     </Grid>

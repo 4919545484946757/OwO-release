@@ -46,6 +46,14 @@ bool read_u64(const std::span<const unsigned char> bytes, std::size_t& offset, s
     return true;
 }
 
+std::string compact_input_key(const std::string_view input) {
+    std::string result;
+    result.reserve(input.size());
+    std::copy_if(input.begin(), input.end(), std::back_inserter(result),
+                 [](const char value) { return value != '\''; });
+    return result;
+}
+
 bool decode(const std::filesystem::path& path,
             std::unordered_map<std::string, std::uint32_t>& counts,
             std::unordered_map<std::string, std::uint32_t>& contextual_counts,
@@ -158,10 +166,28 @@ UserFrequencyIoResult UserFrequencyStore::load(const std::filesystem::path& path
     counts_.clear();
     contextual_counts_.clear();
     language_context_counts_.clear();
+    user_lexicon_.clear();
+    const auto rebuild_user_lexicon = [this] {
+        for (const auto& [key, count] : contextual_counts_) {
+            const auto separator = key.find('\0');
+            if (separator == std::string::npos || separator == 0 ||
+                separator + 1 >= key.size())
+                continue;
+            user_lexicon_[compact_input_key(
+                              std::string_view(key).substr(0, separator))]
+                         [key.substr(separator + 1)] = count;
+        }
+    };
     if (!std::filesystem::exists(path)) return {true, false, {}};
-    if (decode(path, counts_, contextual_counts_, language_context_counts_)) return {true, false, {}};
+    if (decode(path, counts_, contextual_counts_, language_context_counts_)) {
+        rebuild_user_lexicon();
+        return {true, false, {}};
+    }
     auto backup = path; backup += L".bak";
-    if (decode(backup, counts_, contextual_counts_, language_context_counts_)) return {true, true, {}};
+    if (decode(backup, counts_, contextual_counts_, language_context_counts_)) {
+        rebuild_user_lexicon();
+        return {true, true, {}};
+    }
     return {false, false, "user frequency and backup are invalid"};
 }
 
@@ -175,6 +201,7 @@ void UserFrequencyStore::record(const std::string_view input, const std::string_
     auto& value = contextual_counts_[std::move(key)];
     value = (std::numeric_limits<std::uint32_t>::max)() - value < amount
                 ? (std::numeric_limits<std::uint32_t>::max)() : value + amount;
+    user_lexicon_[compact_input_key(input)][std::string(text)] = value;
 }
 
 void UserFrequencyStore::record(const std::string_view context, const std::string_view input,
@@ -239,6 +266,29 @@ std::int64_t UserFrequencyStore::language_context_score(
     if (found == language_context_counts_.end()) return 0;
     const auto gain = 1'000LL + static_cast<std::int64_t>(sensitivity_ - 1U) * 1'000LL;
     return static_cast<std::int64_t>(found->second) * gain;
+}
+
+std::vector<UserLexiconEntry> UserFrequencyStore::lookup(
+    const std::string_view input, const std::size_t limit) const {
+    if (input.empty() || limit == 0) return {};
+    const auto found = user_lexicon_.find(compact_input_key(input));
+    if (found == user_lexicon_.end()) return {};
+    std::vector<UserLexiconEntry> entries;
+    entries.reserve((std::min)(limit, found->second.size()));
+    for (const auto& [text, count] : found->second)
+        entries.push_back({text, count});
+    const auto better = [](const UserLexiconEntry& left,
+                           const UserLexiconEntry& right) {
+        if (left.count != right.count) return left.count > right.count;
+        return left.text < right.text;
+    };
+    if (entries.size() > limit) {
+        std::nth_element(entries.begin(), entries.begin() + limit,
+                         entries.end(), better);
+        entries.resize(limit);
+    }
+    std::sort(entries.begin(), entries.end(), better);
+    return entries;
 }
 
 UserFrequencyIoResult UserFrequencyStore::flush() const {

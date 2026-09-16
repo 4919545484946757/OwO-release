@@ -72,6 +72,14 @@ thread_local TextService* keyboard_hook_service = nullptr;
 
 std::string utf8_from_wide(std::wstring_view input);
 
+std::wstring compact_feedback_input(const std::wstring_view input) {
+    std::wstring result;
+    result.reserve(input.size());
+    std::copy_if(input.begin(), input.end(), std::back_inserter(result),
+                 [](const wchar_t value) { return value != L'\''; });
+    return result;
+}
+
 std::string new_agent_session_id() {
     GUID value{};
     if (FAILED(CoCreateGuid(&value))) return {};
@@ -1523,16 +1531,19 @@ HRESULT TextService::initialize_rendering() {
     return S_OK;
 }
 
-HRESULT TextService::ensure_device_resources() {
-    if (render_target_ != nullptr) return S_OK;
+HRESULT TextService::ensure_device_resources(SIZE surface_size) {
+    surface_size.cx = std::max<LONG>(surface_size.cx, 1);
+    surface_size.cy = std::max<LONG>(surface_size.cy, 1);
+    if (render_target_ != nullptr &&
+        layered_surface_size_.cx == surface_size.cx &&
+        layered_surface_size_.cy == surface_size.cy) return S_OK;
+    if (render_target_ != nullptr) discard_device_resources();
     if (candidate_window_ == nullptr || d2d_factory_ == nullptr) return E_UNEXPECTED;
 
-    RECT bounds{};
-    GetClientRect(candidate_window_, &bounds);
     const UINT dpi = std::max(GetDpiForWindow(candidate_window_), 96U);
     const D2D1_SIZE_U pixel_size = D2D1::SizeU(
-        static_cast<UINT32>(std::max(bounds.right - bounds.left, 1L)),
-        static_cast<UINT32>(std::max(bounds.bottom - bounds.top, 1L)));
+        static_cast<UINT32>(surface_size.cx),
+        static_cast<UINT32>(surface_size.cy));
     BITMAPINFO bitmap_info{};
     bitmap_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     bitmap_info.bmiHeader.biWidth = static_cast<LONG>(pixel_size.width);
@@ -1797,156 +1808,164 @@ bool TextService::prepare_blurred_candidate_background() noexcept {
         return false;
 
     struct Pixel { std::uint8_t blue, green, red, alpha; };
-    const int width = layered_surface_size_.cx;
-    const int height = layered_surface_size_.cy;
-    const auto count = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+    const int surface_width = layered_surface_size_.cx;
+    const int surface_height = layered_surface_size_.cy;
+    const int width = std::clamp<int>(candidate_content_size_.cx, 1, surface_width);
+    const int height = std::clamp<int>(candidate_content_size_.cy, 1, surface_height);
+    const auto count = static_cast<std::size_t>(surface_width) *
+                       static_cast<std::size_t>(surface_height);
     auto* destination = static_cast<Pixel*>(layered_surface_pixels_);
-    if (blurred_candidate_background_.size() == count) {
-        std::copy(blurred_candidate_background_.begin(),
-                  blurred_candidate_background_.end(),
-                  static_cast<std::uint32_t*>(layered_surface_pixels_));
-        const RECT surface_bounds{0, 0, width, height};
-        return SUCCEEDED(render_target_->BindDC(layered_surface_dc_, &surface_bounds));
-    }
 
     const UINT dpi = std::max(GetDpiForWindow(candidate_window_), 96U);
     const int radius = std::clamp(
         dips_to_pixels(candidate_theme_.background_blur_radius, dpi), 0, 48);
-    const int capture_width = width + radius * 2;
-    const int capture_height = height + radius * 2;
-    const auto capture_count = static_cast<std::size_t>(capture_width) *
-                               static_cast<std::size_t>(capture_height);
+    if (blurred_candidate_background_.size() != count) {
+        // Capture and blur the stable backing canvas, not just the current card.
+        // Candidate text and card width can then change without another screen
+        // capture, Gaussian pass, or compositor synchronization.
+        const int capture_width = surface_width + radius * 2;
+        const int capture_height = surface_height + radius * 2;
+        const auto capture_count = static_cast<std::size_t>(capture_width) *
+                                   static_cast<std::size_t>(capture_height);
 
-    BITMAPINFO capture_info{};
-    capture_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    capture_info.bmiHeader.biWidth = capture_width;
-    capture_info.bmiHeader.biHeight = -capture_height;
-    capture_info.bmiHeader.biPlanes = 1;
-    capture_info.bmiHeader.biBitCount = 32;
-    capture_info.bmiHeader.biCompression = BI_RGB;
-    HDC capture_dc = CreateCompatibleDC(nullptr);
-    if (capture_dc == nullptr) return false;
-    void* capture_pixels = nullptr;
-    HBITMAP capture_bitmap = CreateDIBSection(
-        capture_dc, &capture_info, DIB_RGB_COLORS, &capture_pixels, nullptr, 0);
-    if (capture_bitmap == nullptr || capture_pixels == nullptr) {
-        if (capture_bitmap != nullptr) DeleteObject(capture_bitmap);
-        DeleteDC(capture_dc);
-        return false;
-    }
-    HGDIOBJ capture_previous = SelectObject(capture_dc, capture_bitmap);
-    if (capture_previous == nullptr || capture_previous == HGDI_ERROR) {
-        DeleteObject(capture_bitmap);
-        DeleteDC(capture_dc);
-        return false;
-    }
-
-    DWORD candidate_affinity = WDA_NONE;
-    DWORD shadow_affinity = WDA_NONE;
-    GetWindowDisplayAffinity(candidate_window_, &candidate_affinity);
-    if (candidate_shadow_window_ != nullptr)
-        GetWindowDisplayAffinity(candidate_shadow_window_, &shadow_affinity);
-    // Exclude both layered surfaces from this one DWM capture frame without
-    // hiding either HWND. This removes the old hide/show flash while ensuring
-    // the candidate UI itself never feeds back into the blur source.
-    SetWindowDisplayAffinity(candidate_window_, WDA_EXCLUDEFROMCAPTURE);
-    if (candidate_shadow_window_ != nullptr)
-        SetWindowDisplayAffinity(candidate_shadow_window_, WDA_EXCLUDEFROMCAPTURE);
-    DwmFlush();
-    const auto restore_affinity = [this, candidate_affinity, shadow_affinity]() {
-        SetWindowDisplayAffinity(candidate_window_, candidate_affinity);
-        if (candidate_shadow_window_ != nullptr)
-            SetWindowDisplayAffinity(candidate_shadow_window_, shadow_affinity);
-    };
-    RECT window_bounds{};
-    if (!GetWindowRect(candidate_window_, &window_bounds)) {
-        restore_affinity();
-        SelectObject(capture_dc, capture_previous);
-        DeleteObject(capture_bitmap);
-        DeleteDC(capture_dc);
-        return false;
-    }
-    HDC screen = GetDC(nullptr);
-    if (screen == nullptr) {
-        restore_affinity();
-        SelectObject(capture_dc, capture_previous);
-        DeleteObject(capture_bitmap);
-        DeleteDC(capture_dc);
-        return false;
-    }
-    const BOOL copied = BitBlt(
-        capture_dc, 0, 0, capture_width, capture_height, screen,
-        window_bounds.left - radius, window_bounds.top - radius, SRCCOPY);
-    ReleaseDC(nullptr, screen);
-    restore_affinity();
-    if (!copied) {
-        SelectObject(capture_dc, capture_previous);
-        DeleteObject(capture_bitmap);
-        DeleteDC(capture_dc);
-        return false;
-    }
-
-    const auto* captured = static_cast<const Pixel*>(capture_pixels);
-    std::vector<Pixel> source(captured, captured + capture_count);
-    SelectObject(capture_dc, capture_previous);
-    DeleteObject(capture_bitmap);
-    DeleteDC(capture_dc);
-
-    std::vector<Pixel> horizontal(capture_count);
-    std::vector<Pixel> blurred(capture_count);
-    if (radius > 0) {
-        const float sigma = std::max(static_cast<float>(radius) * 0.5F, 0.5F);
-        std::vector<float> kernel(static_cast<std::size_t>(radius * 2 + 1));
-        float kernel_sum = 0.0F;
-        for (int offset = -radius; offset <= radius; ++offset) {
-            const float value = std::exp(-0.5F * static_cast<float>(offset * offset) /
-                                         (sigma * sigma));
-            kernel[static_cast<std::size_t>(offset + radius)] = value;
-            kernel_sum += value;
+        BITMAPINFO capture_info{};
+        capture_info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        capture_info.bmiHeader.biWidth = capture_width;
+        capture_info.bmiHeader.biHeight = -capture_height;
+        capture_info.bmiHeader.biPlanes = 1;
+        capture_info.bmiHeader.biBitCount = 32;
+        capture_info.bmiHeader.biCompression = BI_RGB;
+        HDC capture_dc = CreateCompatibleDC(nullptr);
+        if (capture_dc == nullptr) return false;
+        void* capture_pixels = nullptr;
+        HBITMAP capture_bitmap = CreateDIBSection(
+            capture_dc, &capture_info, DIB_RGB_COLORS, &capture_pixels, nullptr, 0);
+        if (capture_bitmap == nullptr || capture_pixels == nullptr) {
+            if (capture_bitmap != nullptr) DeleteObject(capture_bitmap);
+            DeleteDC(capture_dc);
+            return false;
         }
-        for (auto& value : kernel) value /= kernel_sum;
-        for (int y = 0; y < capture_height; ++y) {
-            for (int x = 0; x < capture_width; ++x) {
-                float blue = 0.0F, green = 0.0F, red = 0.0F;
-                for (int offset = -radius; offset <= radius; ++offset) {
-                    const int sample_x = std::clamp(x + offset, 0, capture_width - 1);
-                    const auto& pixel = source[
-                        static_cast<std::size_t>(y) * capture_width + sample_x];
-                    const float weight = kernel[static_cast<std::size_t>(offset + radius)];
-                    blue += pixel.blue * weight;
-                    green += pixel.green * weight;
-                    red += pixel.red * weight;
+        HGDIOBJ capture_previous = SelectObject(capture_dc, capture_bitmap);
+        if (capture_previous == nullptr || capture_previous == HGDI_ERROR) {
+            DeleteObject(capture_bitmap);
+            DeleteDC(capture_dc);
+            return false;
+        }
+
+        POINT capture_origin = candidate_present_position_;
+        if (!candidate_present_geometry_valid_) {
+            RECT window_bounds{};
+            if (!GetWindowRect(candidate_window_, &window_bounds)) {
+                SelectObject(capture_dc, capture_previous);
+                DeleteObject(capture_bitmap);
+                DeleteDC(capture_dc);
+                return false;
+            }
+            capture_origin = {window_bounds.left, window_bounds.top};
+        }
+        HDC screen = GetDC(nullptr);
+        if (screen == nullptr) {
+            SelectObject(capture_dc, capture_previous);
+            DeleteObject(capture_bitmap);
+            DeleteDC(capture_dc);
+            return false;
+        }
+        // SRCCOPY deliberately omits CAPTUREBLT, so the layered candidate and
+        // shadow windows do not feed back into their own backdrop. Avoiding the
+        // previous display-affinity toggle also prevents DWM from withdrawing
+        // the candidate surface for a frame.
+        const BOOL copied = BitBlt(
+            capture_dc, 0, 0, capture_width, capture_height, screen,
+            capture_origin.x - radius, capture_origin.y - radius, SRCCOPY);
+        ReleaseDC(nullptr, screen);
+        if (!copied) {
+            SelectObject(capture_dc, capture_previous);
+            DeleteObject(capture_bitmap);
+            DeleteDC(capture_dc);
+            return false;
+        }
+
+        const auto* captured = static_cast<const Pixel*>(capture_pixels);
+        std::vector<Pixel> source(captured, captured + capture_count);
+        SelectObject(capture_dc, capture_previous);
+        DeleteObject(capture_bitmap);
+        DeleteDC(capture_dc);
+
+        std::vector<Pixel> blurred;
+        if (radius > 0) {
+            std::vector<Pixel> horizontal(capture_count);
+            blurred.resize(capture_count);
+            const float sigma = std::max(static_cast<float>(radius) * 0.5F, 0.5F);
+            std::vector<float> kernel(static_cast<std::size_t>(radius * 2 + 1));
+            float kernel_sum = 0.0F;
+            for (int offset = -radius; offset <= radius; ++offset) {
+                const float value = std::exp(
+                    -0.5F * static_cast<float>(offset * offset) / (sigma * sigma));
+                kernel[static_cast<std::size_t>(offset + radius)] = value;
+                kernel_sum += value;
+            }
+            for (auto& value : kernel) value /= kernel_sum;
+            for (int y = 0; y < capture_height; ++y) {
+                for (int x = 0; x < capture_width; ++x) {
+                    float blue = 0.0F, green = 0.0F, red = 0.0F;
+                    for (int offset = -radius; offset <= radius; ++offset) {
+                        const int sample_x = std::clamp(x + offset, 0, capture_width - 1);
+                        const auto& pixel = source[
+                            static_cast<std::size_t>(y) * capture_width + sample_x];
+                        const float weight =
+                            kernel[static_cast<std::size_t>(offset + radius)];
+                        blue += pixel.blue * weight;
+                        green += pixel.green * weight;
+                        red += pixel.red * weight;
+                    }
+                    auto& pixel = horizontal[
+                        static_cast<std::size_t>(y) * capture_width + x];
+                    pixel = {
+                        static_cast<std::uint8_t>(std::clamp(std::lround(blue), 0L, 255L)),
+                        static_cast<std::uint8_t>(std::clamp(std::lround(green), 0L, 255L)),
+                        static_cast<std::uint8_t>(std::clamp(std::lround(red), 0L, 255L)),
+                        255};
                 }
-                auto& pixel = horizontal[
-                    static_cast<std::size_t>(y) * capture_width + x];
-                pixel = {static_cast<std::uint8_t>(std::clamp(std::lround(blue), 0L, 255L)),
-                         static_cast<std::uint8_t>(std::clamp(std::lround(green), 0L, 255L)),
-                         static_cast<std::uint8_t>(std::clamp(std::lround(red), 0L, 255L)), 255};
+            }
+            for (int y = 0; y < capture_height; ++y) {
+                for (int x = 0; x < capture_width; ++x) {
+                    float blue = 0.0F, green = 0.0F, red = 0.0F;
+                    for (int offset = -radius; offset <= radius; ++offset) {
+                        const int sample_y = std::clamp(y + offset, 0, capture_height - 1);
+                        const auto& pixel = horizontal[
+                            static_cast<std::size_t>(sample_y) * capture_width + x];
+                        const float weight =
+                            kernel[static_cast<std::size_t>(offset + radius)];
+                        blue += pixel.blue * weight;
+                        green += pixel.green * weight;
+                        red += pixel.red * weight;
+                    }
+                    auto& pixel = blurred[
+                        static_cast<std::size_t>(y) * capture_width + x];
+                    pixel = {
+                        static_cast<std::uint8_t>(std::clamp(std::lround(blue), 0L, 255L)),
+                        static_cast<std::uint8_t>(std::clamp(std::lround(green), 0L, 255L)),
+                        static_cast<std::uint8_t>(std::clamp(std::lround(red), 0L, 255L)),
+                        255};
+                }
+            }
+        } else {
+            blurred = std::move(source);
+        }
+
+        blurred_candidate_background_.resize(count);
+        auto* cached = reinterpret_cast<Pixel*>(blurred_candidate_background_.data());
+        for (int y = 0; y < surface_height; ++y) {
+            for (int x = 0; x < surface_width; ++x) {
+                cached[static_cast<std::size_t>(y) * surface_width + x] =
+                    blurred[static_cast<std::size_t>(y + radius) * capture_width +
+                            x + radius];
             }
         }
-        for (int y = 0; y < capture_height; ++y) {
-            for (int x = 0; x < capture_width; ++x) {
-                float blue = 0.0F, green = 0.0F, red = 0.0F;
-                for (int offset = -radius; offset <= radius; ++offset) {
-                    const int sample_y = std::clamp(y + offset, 0, capture_height - 1);
-                    const auto& pixel = horizontal[
-                        static_cast<std::size_t>(sample_y) * capture_width + x];
-                    const float weight = kernel[static_cast<std::size_t>(offset + radius)];
-                    blue += pixel.blue * weight;
-                    green += pixel.green * weight;
-                    red += pixel.red * weight;
-                }
-                auto& pixel = blurred[
-                    static_cast<std::size_t>(y) * capture_width + x];
-                pixel = {static_cast<std::uint8_t>(std::clamp(std::lround(blue), 0L, 255L)),
-                         static_cast<std::uint8_t>(std::clamp(std::lround(green), 0L, 255L)),
-                         static_cast<std::uint8_t>(std::clamp(std::lround(red), 0L, 255L)), 255};
-            }
-        }
-    } else {
-        blurred = source;
     }
 
+    const auto* backdrop_pixels =
+        reinterpret_cast<const Pixel*>(blurred_candidate_background_.data());
     const float scale = static_cast<float>(dpi) / 96.0F;
     const float inset = 0.5F * scale;
     const float corner = 10.0F * scale;
@@ -1955,11 +1974,13 @@ bool TextService::prepare_blurred_candidate_background() noexcept {
     const float tint_red = static_cast<float>((candidate_theme_.background.rgb >> 16) & 0xff);
     const float tint_green = static_cast<float>((candidate_theme_.background.rgb >> 8) & 0xff);
     const float tint_blue = static_cast<float>(candidate_theme_.background.rgb & 0xff);
+    std::fill_n(static_cast<std::uint32_t*>(layered_surface_pixels_), count, 0U);
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            auto& pixel = destination[static_cast<std::size_t>(y) * width + x];
-            const auto& backdrop = blurred[
-                static_cast<std::size_t>(y + radius) * capture_width + x + radius];
+            auto& pixel = destination[
+                static_cast<std::size_t>(y) * surface_width + x];
+            const auto& backdrop = backdrop_pixels[
+                static_cast<std::size_t>(y) * surface_width + x];
             const float coverage = rounded_rect_coverage(
                 x + 0.5F, y + 0.5F, inset, inset,
                 static_cast<float>(width) - inset,
@@ -1980,26 +2001,36 @@ bool TextService::prepare_blurred_candidate_background() noexcept {
                 std::lround(coverage * 255.0F), 0L, 255L));
         }
     }
-    const auto* words = static_cast<const std::uint32_t*>(layered_surface_pixels_);
-    blurred_candidate_background_.assign(words, words + count);
-    const RECT surface_bounds{0, 0, width, height};
+    const RECT surface_bounds{0, 0, surface_width, surface_height};
     return SUCCEEDED(render_target_->BindDC(layered_surface_dc_, &surface_bounds));
 }
 
-void TextService::present_candidate_surface() noexcept {
-    if (candidate_window_ == nullptr || layered_surface_dc_ == nullptr) return;
-    RECT window_bounds{};
-    if (!GetWindowRect(candidate_window_, &window_bounds)) return;
-    POINT destination{window_bounds.left, window_bounds.top};
+bool TextService::present_candidate_surface() noexcept {
+    if (candidate_window_ == nullptr || layered_surface_dc_ == nullptr) return false;
+    POINT destination = candidate_present_position_;
+    if (!candidate_present_geometry_valid_) {
+        RECT window_bounds{};
+        if (!GetWindowRect(candidate_window_, &window_bounds)) return false;
+        destination = {window_bounds.left, window_bounds.top};
+    }
     POINT source{};
     SIZE layered_size{layered_surface_size_.cx, layered_surface_size_.cy};
     BLENDFUNCTION blend{AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
     HDC screen = GetDC(nullptr);
-    if (screen != nullptr) {
-        UpdateLayeredWindow(candidate_window_, screen, &destination, &layered_size,
-                            layered_surface_dc_, &source, 0, &blend, ULW_ALPHA);
-        ReleaseDC(nullptr, screen);
-    }
+    if (screen == nullptr) return false;
+    // UpdateLayeredWindow copies the completed off-screen bitmap and changes
+    // the HWND geometry as one compositor operation. The visible window never
+    // observes an empty intermediate size.
+    candidate_resize_in_progress_ = true;
+    const BOOL updated = UpdateLayeredWindow(
+        candidate_window_, screen, &destination, &layered_size,
+        layered_surface_dc_, &source, 0, &blend, ULW_ALPHA);
+    candidate_resize_in_progress_ = false;
+    ReleaseDC(nullptr, screen);
+    if (!updated) return false;
+    if (!IsWindowVisible(candidate_window_))
+        ShowWindow(candidate_window_, SW_SHOWNOACTIVATE);
+    return true;
 }
 
 void TextService::update_candidate_shadow() noexcept {
@@ -2010,7 +2041,15 @@ void TextService::update_candidate_shadow() noexcept {
         return;
     }
     RECT candidate{};
-    if (!GetWindowRect(candidate_window_, &candidate)) return;
+    if (candidate_present_geometry_valid_) {
+        candidate = {
+            candidate_present_position_.x,
+            candidate_present_position_.y,
+            candidate_present_position_.x + candidate_content_size_.cx,
+            candidate_present_position_.y + candidate_content_size_.cy};
+    } else if (!GetWindowRect(candidate_window_, &candidate)) {
+        return;
+    }
     const UINT dpi = std::max(GetDpiForWindow(candidate_window_), 96U);
     const float scale = static_cast<float>(dpi) / 96.0F;
     const float blur = std::max(candidate_theme_.shadow_blur_radius * scale, 1.0F);
@@ -2155,9 +2194,16 @@ void TextService::hide_candidate_windows() noexcept {
     blurred_candidate_background_.clear();
 }
 
-void TextService::render_candidate_window() {
+bool TextService::render_candidate_window() {
     hit_regions_.clear();
-    if (FAILED(ensure_device_resources())) return;
+    SIZE surface_size = candidate_present_size_;
+    if (!candidate_present_geometry_valid_) {
+        RECT bounds{};
+        if (!GetClientRect(candidate_window_, &bounds)) return false;
+        surface_size = {bounds.right - bounds.left, bounds.bottom - bounds.top};
+        candidate_content_size_ = surface_size;
+    }
+    if (FAILED(ensure_device_resources(surface_size))) return false;
     const bool blurred_background = prepare_blurred_candidate_background();
     render_target_->BeginDraw();
     render_target_->SetTransform(D2D1::Matrix3x2F::Identity());
@@ -2169,8 +2215,11 @@ void TextService::render_candidate_window() {
     auto* candidate_number_brush = strict_accent_brush_;
     if (!blurred_background) render_target_->Clear(D2D1::ColorF(0x000000, 0.0F));
 
-    const D2D1_SIZE_F size = render_target_->GetSize();
     const UINT dpi = std::max(GetDpiForWindow(candidate_window_), 96U);
+    const float pixel_to_dip = 96.0F / static_cast<float>(dpi);
+    const D2D1_SIZE_F size = D2D1::SizeF(
+        static_cast<float>(candidate_content_size_.cx) * pixel_to_dip,
+        static_cast<float>(candidate_content_size_.cy) * pixel_to_dip);
     const D2D1_ROUNDED_RECT card{
         D2D1::RectF(0.5F, 0.5F, size.width - 0.5F, size.height - 0.5F), 10.0F, 10.0F};
     if (!blurred_background)
@@ -2250,10 +2299,9 @@ void TextService::render_candidate_window() {
         const HRESULT result = render_target_->EndDraw();
         if (FAILED(result)) {
             discard_device_resources();
-        } else {
-            present_candidate_surface();
+            return false;
         }
-        return;
+        return present_candidate_surface();
     }
 
     if (unicode_palette_visible_ && !unicode_palette_.categories.empty()) {
@@ -2424,9 +2472,11 @@ void TextService::render_candidate_window() {
                 info_bounds.rect, text_brush_, D2D1_DRAW_TEXT_OPTIONS_CLIP);
         }
         const HRESULT result = render_target_->EndDraw();
-        if (FAILED(result)) discard_device_resources();
-        else present_candidate_surface();
-        return;
+        if (FAILED(result)) {
+            discard_device_resources();
+            return false;
+        }
+        return present_candidate_surface();
     }
 
     std::wstring reading = segmented_input_.empty() ? input_buffer_ : segmented_input_;
@@ -2754,9 +2804,9 @@ void TextService::render_candidate_window() {
     if (FAILED(result)) {
         discard_device_resources();
         if (candidate_window_ != nullptr) InvalidateRect(candidate_window_, nullptr, FALSE);
-        return;
+        return false;
     }
-    present_candidate_surface();
+    return present_candidate_surface();
 }
 
 LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
@@ -2795,10 +2845,22 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     }
     if (message == WM_NCHITTEST && service != nullptr &&
         window == service->candidate_shadow_window_) return HTTRANSPARENT;
+    if (message == WM_NCHITTEST && service != nullptr &&
+        window == service->candidate_window_ &&
+        service->candidate_present_geometry_valid_) {
+        const POINT point{GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+        const int local_x = point.x - service->candidate_present_position_.x;
+        const int local_y = point.y - service->candidate_present_position_.y;
+        if (local_x < 0 || local_y < 0 ||
+            local_x >= service->candidate_content_size_.cx ||
+            local_y >= service->candidate_content_size_.cy)
+            return HTTRANSPARENT;
+    }
     if (message == WM_PAINT && service != nullptr) {
         PAINTSTRUCT paint{};
         BeginPaint(window, &paint);
-        if (window == service->candidate_window_) service->render_candidate_window();
+        if (window == service->candidate_window_)
+            static_cast<void>(service->render_candidate_window());
         EndPaint(window, &paint);
         return 0;
     }
@@ -2907,23 +2969,26 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     }
     if (message == WM_SIZE && service != nullptr &&
         window == service->candidate_window_ && service->render_target_ != nullptr) {
+        if (service->candidate_resize_in_progress_) return 0;
         service->blurred_candidate_background_.clear();
         service->discard_device_resources();
-        // Internal candidate resizing draws its replacement bitmap
-        // synchronously; suppress the otherwise visible empty interim paint.
-        if (!service->candidate_resize_in_progress_)
-            InvalidateRect(window, nullptr, FALSE);
+        service->candidate_present_size_ = {
+            static_cast<LONG>(LOWORD(lparam)),
+            static_cast<LONG>(HIWORD(lparam))};
+        InvalidateRect(window, nullptr, FALSE);
         return 0;
     }
     if (message == WM_DPICHANGED && service != nullptr &&
         window == service->candidate_window_) {
         const auto* suggested = reinterpret_cast<const RECT*>(lparam);
-        SetWindowPos(window, nullptr, suggested->left, suggested->top,
-                     suggested->right - suggested->left, suggested->bottom - suggested->top,
-                     SWP_NOACTIVATE | SWP_NOZORDER);
+        service->candidate_present_position_ = {suggested->left, suggested->top};
+        service->candidate_present_size_ = {
+            suggested->right - suggested->left,
+            suggested->bottom - suggested->top};
+        service->candidate_present_geometry_valid_ = true;
         service->blurred_candidate_background_.clear();
         service->discard_device_resources();
-        InvalidateRect(window, nullptr, FALSE);
+        service->update_candidate_window();
         return 0;
     }
     if ((message == WM_THEMECHANGED || message == WM_SETTINGCHANGE ||
@@ -3134,6 +3199,9 @@ void TextService::apply_agent_task(const agent::TaskDraft& task) {
     segmented_input_ = remaining;
     staged_candidates_.clear();
     staged_cursor_ = 0;
+    learning_chain_text_.clear();
+    learning_chain_input_.clear();
+    learning_chain_context_.clear();
 }
 
 bool TextService::select_agent_command(const std::size_t index) {
@@ -4110,6 +4178,7 @@ void TextService::update_candidate_window() {
     if (!candidate_anchor_valid_) GetCursorPos(&position);
     const UINT dpi = std::max(GetDpiForWindow(candidate_window_), 96U);
     SIZE window_size = desired_candidate_window_size();
+    LONG stable_surface_width = dips_to_pixels(kCandidateWindowMaxWidthDip, dpi);
     int x = position.x + (candidate_anchor_valid_ ? 0 : dips_to_pixels(12.0F, dpi));
     int y = position.y + (candidate_anchor_valid_ ? dips_to_pixels(6.0F, dpi)
                                                   : dips_to_pixels(20.0F, dpi));
@@ -4124,6 +4193,8 @@ void TextService::update_candidate_window() {
                                      dips_to_pixels(16.0F, dpi);
         window_size.cx = std::min(window_size.cx, static_cast<LONG>(available_width));
         window_size.cy = std::min(window_size.cy, static_cast<LONG>(available_height));
+        stable_surface_width = std::min(
+            stable_surface_width, static_cast<LONG>(available_width));
         x = std::min(x, static_cast<int>(work_area.right - window_size.cx));
         if (y + window_size.cy > work_area.bottom) {
             y = position.y - window_size.cy - dips_to_pixels(6.0F, dpi);
@@ -4131,23 +4202,32 @@ void TextService::update_candidate_window() {
         x = std::max(x, static_cast<int>(work_area.left));
         y = std::max(y, static_cast<int>(work_area.top));
     }
-    RECT current{};
-    GetWindowRect(candidate_window_, &current);
-    const bool geometry_changed = current.left != x || current.top != y ||
-                                  current.right - current.left != window_size.cx ||
-                                  current.bottom - current.top != window_size.cy;
-    const bool visible = IsWindowVisible(candidate_window_) != FALSE;
-    if (geometry_changed || !visible) {
+    const SIZE surface_size{
+        std::max(stable_surface_width, window_size.cx), window_size.cy};
+    const bool content_changed = !candidate_present_geometry_valid_ ||
+        candidate_content_size_.cx != window_size.cx ||
+        candidate_content_size_.cy != window_size.cy;
+    const bool geometry_changed = !candidate_present_geometry_valid_ ||
+        candidate_present_position_.x != x || candidate_present_position_.y != y ||
+        candidate_present_size_.cx != surface_size.cx ||
+        candidate_present_size_.cy != surface_size.cy;
+    if (geometry_changed) {
         blurred_candidate_background_.clear();
-        candidate_resize_in_progress_ = true;
-        const UINT flags = SWP_NOACTIVATE |
-            (visible ? SWP_NOREDRAW : SWP_SHOWWINDOW);
-        SetWindowPos(candidate_window_, HWND_TOPMOST, x, y,
-                     window_size.cx, window_size.cy, flags);
-        candidate_resize_in_progress_ = false;
     }
-    RedrawWindow(candidate_window_, nullptr, nullptr,
-                 RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE | RDW_NOCHILDREN);
+    if (geometry_changed || content_changed) {
+        candidate_present_position_ = {x, y};
+        candidate_present_size_ = surface_size;
+        candidate_content_size_ = window_size;
+        candidate_present_geometry_valid_ = true;
+    }
+    // Build the complete frame in memory and atomically publish pixels and
+    // geometry. Never resize the visible layered HWND before its replacement
+    // surface is ready.
+    if (!render_candidate_window()) return;
+    // A synchronous state update may overtake a queued WM_PAINT. The frame now
+    // on screen already contains the latest snapshot, so validate that stale
+    // paint request instead of submitting the same layered bitmap twice.
+    ValidateRect(candidate_window_, nullptr);
     // Present the shadow only after the main layered bitmap is complete, so it
     // cannot briefly outline an empty resized surface.
     update_candidate_shadow();
@@ -4741,6 +4821,14 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
         else queue_candidate_request();
         return S_OK;
     }
+    const auto prior_staged = staged_candidates_;
+    const std::wstring prior_chain_text = learning_chain_text_;
+    const std::wstring prior_chain_input = learning_chain_input_;
+    const std::wstring prior_chain_context = learning_chain_context_;
+    std::wstring remaining_input = input_buffer_.substr(static_cast<std::size_t>(consumed));
+    while (!remaining_input.empty() && remaining_input.front() == L'\'')
+        remaining_input.erase(remaining_input.begin());
+    const bool finishes_composition = remaining_input.empty();
     if (!staged_candidates_.empty()) inserted.insert(0, staged_text());
     auto* session = new (std::nothrow) CommitEditSession(context, std::move(inserted));
     if (session == nullptr) return E_OUTOFMEMORY;
@@ -4755,29 +4843,57 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
         recent_language_input_ = learned_input;
         staged_candidates_.clear();
         staged_cursor_ = 0;
-        if (consumed == input_buffer_.size()) {
+        if (finishes_composition) {
             clear_composition();
         } else {
-            input_buffer_.erase(0, static_cast<std::size_t>(consumed));
-            while (!input_buffer_.empty() && input_buffer_.front() == L'\'')
-                input_buffer_.erase(input_buffer_.begin());
-            if (input_buffer_.empty()) {
-                clear_composition();
-            } else {
-                input_cursor_ = input_buffer_.size();
-                ++context_generation_;
-                segmented_input_.clear();
-                candidate_page_ = 0;
-                has_more_candidates_ = false;
-                candidate_request_pending_ = false;
-                candidates_expanded_ = false;
-                hovered_target_.reset();
-                pressed_target_.reset();
-                update_candidate_anchor(context);
-                queue_candidate_request();
-            }
+            input_buffer_ = std::move(remaining_input);
+            input_cursor_ = input_buffer_.size();
+            ++context_generation_;
+            segmented_input_.clear();
+            candidate_page_ = 0;
+            has_more_candidates_ = false;
+            candidate_request_pending_ = false;
+            candidates_expanded_ = false;
+            hovered_target_.reset();
+            pressed_target_.reset();
+            update_candidate_anchor(context);
+            queue_candidate_request();
         }
-        queue_commit_feedback(committed, std::move(learned_input), previous_context);
+
+        std::wstring feedback_context = previous_context;
+        std::wstring composite_text;
+        std::wstring composite_input;
+        for (const auto& fragment : prior_staged) {
+            std::wstring fragment_input = fragment.source_input;
+            while (!fragment_input.empty() && fragment_input.back() == L'\'')
+                fragment_input.pop_back();
+            queue_commit_feedback(fragment.text, fragment_input, feedback_context);
+            append_bounded_language_context(feedback_context, fragment.text);
+            composite_text += fragment.text;
+            composite_input += compact_feedback_input(fragment_input);
+        }
+        queue_commit_feedback(committed, learned_input, feedback_context);
+
+        composite_text += committed;
+        composite_input += compact_feedback_input(learned_input);
+        if (!prior_chain_text.empty()) {
+            composite_text.insert(0, prior_chain_text);
+            composite_input.insert(0, prior_chain_input);
+            if (finishes_composition)
+                queue_commit_feedback(composite_text, composite_input,
+                                      prior_chain_context);
+            else {
+                learning_chain_text_ = std::move(composite_text);
+                learning_chain_input_ = std::move(composite_input);
+                learning_chain_context_ = prior_chain_context;
+            }
+        } else if (!prior_staged.empty()) {
+            queue_commit_feedback(composite_text, composite_input, previous_context);
+        } else if (!finishes_composition) {
+            learning_chain_text_ = std::move(composite_text);
+            learning_chain_input_ = std::move(composite_input);
+            learning_chain_context_ = previous_context;
+        }
     }
     return FAILED(request_result) ? request_result : session_result;
 }
@@ -4865,14 +4981,21 @@ HRESULT TextService::commit_pending_composition(ITfContext* context) {
     const HRESULT result = commit_text(context, std::move(text));
     if (SUCCEEDED(result)) {
         std::wstring feedback_context = previous_context;
+        std::wstring composite_text;
+        std::wstring composite_input;
         for (const auto& fragment : staged) {
             std::wstring feedback_input = fragment.source_input;
             while (!feedback_input.empty() && feedback_input.back() == L'\'')
                 feedback_input.pop_back();
             queue_commit_feedback(fragment.text, feedback_input, feedback_context);
             append_bounded_language_context(feedback_context, fragment.text);
+            composite_text += fragment.text;
+            composite_input += compact_feedback_input(feedback_input);
             recent_language_input_ = std::move(feedback_input);
         }
+        if (staged.size() > 1)
+            queue_commit_feedback(std::move(composite_text),
+                                  std::move(composite_input), previous_context);
         clear_composition();
     }
     return result;
