@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <span>
 #include <vector>
 
@@ -108,6 +109,33 @@ int main() {
     loaded.set_sensitivity(1);
     if (loaded.score("你好") >= sensitive ||
         loaded.contextual_score("nihao", "你好") <= 0) return 3;
+
+    owo::engine::UserFrequencyStore ageing;
+    if (!ageing.load(path.wstring() + L".ageing").success) return 11;
+    ageing.set_sensitivity(10);
+    ageing.record("旧词");
+    ageing.record("热点", (std::numeric_limits<std::uint32_t>::max)());
+    const auto maximum_global_score = ageing.score("热点");
+    if (ageing.count("旧词") != 0 || ageing.count("热点") > 256 ||
+        maximum_global_score <= 0) return 11;
+    ageing.record("热点");
+    if (ageing.count("热点") >= 256 ||
+        ageing.score("热点") >= maximum_global_score) return 12;
+
+    ageing.record("ceshi", "旧测试");
+    ageing.record("ceshi", "新测试",
+                  (std::numeric_limits<std::uint32_t>::max)());
+    const auto aged_input_entries = ageing.lookup("ceshi", 4);
+    if (aged_input_entries.size() != 1 ||
+        aged_input_entries.front().text != "新测试" ||
+        aged_input_entries.front().count > 128) return 13;
+    ageing.record("同一上下文", "ceshi", "旧上下文");
+    ageing.record("同一上下文", "ceshi", "新上下文",
+                  (std::numeric_limits<std::uint32_t>::max)());
+    if (ageing.language_context_score("同一上下文", "ceshi", "旧上下文") != 0 ||
+        ageing.language_context_score("同一上下文", "ceshi", "新上下文") <= 0)
+        return 14;
+    std::filesystem::remove(path.wstring() + L".ageing", ignored);
 
     { std::ofstream corrupt(path, std::ios::binary | std::ios::trunc); corrupt << "broken"; }
     owo::engine::UserFrequencyStore recovered;

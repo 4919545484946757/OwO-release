@@ -8,7 +8,6 @@
 #include <array>
 #include <fstream>
 #include <iterator>
-#include <limits>
 #include <span>
 #include <vector>
 
@@ -19,6 +18,71 @@ constexpr std::array<unsigned char, 4> kMagic{'O', 'W', 'U', 'F'};
 constexpr std::uint32_t kVersion = 3;
 constexpr std::size_t kHeaderSize = 20;
 constexpr std::size_t kMaximumFileBytes = 16U * 1024U * 1024U;
+constexpr std::uint32_t kGlobalCountCeiling = 256;
+constexpr std::uint32_t kInputCountCeiling = 128;
+constexpr std::uint32_t kLanguageContextCountCeiling = 64;
+constexpr std::uint32_t kDecayNumerator = 3;
+constexpr std::uint32_t kDecayDenominator = 4;
+
+template <typename Predicate>
+bool decay_matching_counts(
+    std::unordered_map<std::string, std::uint32_t>& counts,
+    Predicate matches) {
+    bool changed = false;
+    for (auto iterator = counts.begin(); iterator != counts.end();) {
+        if (!matches(iterator->first)) {
+            ++iterator;
+            continue;
+        }
+        const auto reduced = static_cast<std::uint32_t>(
+            static_cast<std::uint64_t>(iterator->second) * kDecayNumerator /
+            kDecayDenominator);
+        changed = changed || reduced != iterator->second;
+        if (reduced == 0)
+            iterator = counts.erase(iterator);
+        else {
+            iterator->second = reduced;
+            ++iterator;
+        }
+    }
+    return changed;
+}
+
+template <typename Predicate>
+bool record_bounded(
+    std::unordered_map<std::string, std::uint32_t>& counts,
+    const std::string& key, const std::uint32_t amount,
+    const std::uint32_t ceiling, Predicate same_competition_group) {
+    const auto found = counts.find(key);
+    const auto current = found == counts.end() ? 0U : found->second;
+    if (static_cast<std::uint64_t>(current) + amount <= ceiling) {
+        counts[key] = current + amount;
+        return false;
+    }
+
+    // Reaching the ceiling is treated as an adaptive ageing epoch. Decay the
+    // candidates that compete in the same scope, then add the newest evidence.
+    // This preserves ordering while eventually removing stale one-off choices.
+    const auto decayed = decay_matching_counts(counts, same_competition_group);
+    auto& value = counts[key];
+    value = static_cast<std::uint32_t>((std::min)(
+        static_cast<std::uint64_t>(ceiling),
+        static_cast<std::uint64_t>(value) + amount));
+    return decayed;
+}
+
+std::int64_t bounded_learning_score(const std::uint32_t count,
+                                    const std::int64_t gain,
+                                    const std::uint32_t saturation_knee) {
+    if (count == 0) return 0;
+    // The first observation is worth exactly one gain unit. Later evidence
+    // keeps helping, but approaches (knee + 1) units instead of growing
+    // without bound.
+    const auto numerator = static_cast<std::int64_t>(count) *
+                           static_cast<std::int64_t>(saturation_knee + 1U) * gain;
+    return numerator /
+           (static_cast<std::int64_t>(count) + saturation_knee);
+}
 
 void append_u32(std::vector<unsigned char>& out, const std::uint32_t value) {
     for (unsigned shift = 0; shift < 32; shift += 8) out.push_back(static_cast<unsigned char>(value >> shift));
@@ -167,17 +231,6 @@ UserFrequencyIoResult UserFrequencyStore::load(const std::filesystem::path& path
     contextual_counts_.clear();
     language_context_counts_.clear();
     user_lexicon_.clear();
-    const auto rebuild_user_lexicon = [this] {
-        for (const auto& [key, count] : contextual_counts_) {
-            const auto separator = key.find('\0');
-            if (separator == std::string::npos || separator == 0 ||
-                separator + 1 >= key.size())
-                continue;
-            user_lexicon_[compact_input_key(
-                              std::string_view(key).substr(0, separator))]
-                         [key.substr(separator + 1)] = count;
-        }
-    };
     if (!std::filesystem::exists(path)) return {true, false, {}};
     if (decode(path, counts_, contextual_counts_, language_context_counts_)) {
         rebuild_user_lexicon();
@@ -191,6 +244,19 @@ UserFrequencyIoResult UserFrequencyStore::load(const std::filesystem::path& path
     return {false, false, "user frequency and backup are invalid"};
 }
 
+void UserFrequencyStore::rebuild_user_lexicon() {
+    user_lexicon_.clear();
+    for (const auto& [key, count] : contextual_counts_) {
+        const auto separator = key.find('\0');
+        if (separator == std::string::npos || separator == 0 ||
+            separator + 1 >= key.size())
+            continue;
+        user_lexicon_[compact_input_key(
+                          std::string_view(key).substr(0, separator))]
+                     [key.substr(separator + 1)] = count;
+    }
+}
+
 void UserFrequencyStore::record(const std::string_view input, const std::string_view text,
                                 const std::uint32_t amount) {
     record(text, amount);
@@ -198,10 +264,18 @@ void UserFrequencyStore::record(const std::string_view input, const std::string_
     std::string key(input);
     key.push_back('\0');
     key += text;
-    auto& value = contextual_counts_[std::move(key)];
-    value = (std::numeric_limits<std::uint32_t>::max)() - value < amount
-                ? (std::numeric_limits<std::uint32_t>::max)() : value + amount;
-    user_lexicon_[compact_input_key(input)][std::string(text)] = value;
+    std::string group(input);
+    group.push_back('\0');
+    const auto decayed = record_bounded(
+        contextual_counts_, key, amount, kInputCountCeiling,
+        [&group](const std::string_view candidate) {
+            return candidate.starts_with(group);
+        });
+    if (decayed)
+        rebuild_user_lexicon();
+    else
+        user_lexicon_[compact_input_key(input)][std::string(text)] =
+            contextual_counts_[key];
 }
 
 void UserFrequencyStore::record(const std::string_view context, const std::string_view input,
@@ -213,9 +287,15 @@ void UserFrequencyStore::record(const std::string_view context, const std::strin
     key += input;
     key.push_back('\0');
     key += text;
-    auto& value = language_context_counts_[std::move(key)];
-    value = (std::numeric_limits<std::uint32_t>::max)() - value < amount
-                ? (std::numeric_limits<std::uint32_t>::max)() : value + amount;
+    std::string group(context);
+    group.push_back('\0');
+    group += input;
+    group.push_back('\0');
+    record_bounded(
+        language_context_counts_, key, amount, kLanguageContextCountCeiling,
+        [&group](const std::string_view candidate) {
+            return candidate.starts_with(group);
+        });
 }
 
 void UserFrequencyStore::set_sensitivity(const std::uint32_t sensitivity) noexcept {
@@ -224,9 +304,9 @@ void UserFrequencyStore::set_sensitivity(const std::uint32_t sensitivity) noexce
 
 void UserFrequencyStore::record(const std::string_view text, const std::uint32_t amount) {
     if (text.empty() || amount == 0) return;
-    auto& value = counts_[std::string(text)];
-    value = (std::numeric_limits<std::uint32_t>::max)() - value < amount
-                ? (std::numeric_limits<std::uint32_t>::max)() : value + amount;
+    const std::string key(text);
+    record_bounded(counts_, key, amount, kGlobalCountCeiling,
+                   [](const std::string_view) { return true; });
 }
 
 std::uint32_t UserFrequencyStore::count(const std::string_view text) const {
@@ -245,13 +325,13 @@ std::uint32_t UserFrequencyStore::contextual_count(const std::string_view input,
 
 std::int64_t UserFrequencyStore::score(const std::string_view text) const {
     const auto gain = 250LL + static_cast<std::int64_t>(sensitivity_ - 1U) * 250LL;
-    return static_cast<std::int64_t>(count(text)) * gain;
+    return bounded_learning_score(count(text), gain, 32);
 }
 
 std::int64_t UserFrequencyStore::contextual_score(const std::string_view input,
                                                   const std::string_view text) const {
     const auto gain = 500LL + static_cast<std::int64_t>(sensitivity_ - 1U) * 500LL;
-    return static_cast<std::int64_t>(contextual_count(input, text)) * gain;
+    return bounded_learning_score(contextual_count(input, text), gain, 16);
 }
 
 std::int64_t UserFrequencyStore::language_context_score(
@@ -265,7 +345,7 @@ std::int64_t UserFrequencyStore::language_context_score(
     const auto found = language_context_counts_.find(key);
     if (found == language_context_counts_.end()) return 0;
     const auto gain = 1'000LL + static_cast<std::int64_t>(sensitivity_ - 1U) * 1'000LL;
-    return static_cast<std::int64_t>(found->second) * gain;
+    return bounded_learning_score(found->second, gain, 8);
 }
 
 std::vector<UserLexiconEntry> UserFrequencyStore::lookup(

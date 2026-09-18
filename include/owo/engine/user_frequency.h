@@ -77,6 +77,8 @@ public:
     [[nodiscard]] UserFrequencyIoResult flush() const;
 
 private:
+    void rebuild_user_lexicon();
+
     std::filesystem::path path_;
     std::unordered_map<std::string, std::uint32_t> counts_;
     std::unordered_map<std::string, std::uint32_t> contextual_counts_;
