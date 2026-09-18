@@ -637,16 +637,17 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         std::copy_if(parsed.normalized_input.begin(), parsed.normalized_input.end(),
                      std::back_inserter(lookup_input),
                      [](const char value) { return value != '\''; });
-        auto learned_entries = user_frequency_->lookup(lookup_input, search_limit);
-        const auto path = std::find_if(
+        const auto exact_path = std::find_if(
             parsed.paths.begin(), parsed.paths.end(), [](const ParsePath& value) {
                 return value.match_kind == InputMatchKind::exact;
             });
-        if (path != parsed.paths.end()) {
-            const auto learned_segments = source_segments(parsed, *path);
+        if (exact_path != parsed.paths.end()) {
+            const auto learned_entries = user_frequency_->lookup(
+                lookup_input, search_limit);
+            const auto learned_segments = source_segments(parsed, *exact_path);
             std::vector<std::string> learned_syllables;
-            learned_syllables.reserve(path->syllables.size());
-            for (const auto& syllable : path->syllables)
+            learned_syllables.reserve(exact_path->syllables.size());
+            for (const auto& syllable : exact_path->syllables)
                 learned_syllables.push_back(syllable.text);
             for (const auto& entry : learned_entries) {
                 auto score = 12'000 + candidate_unigram_score(entry.count) +
@@ -659,6 +660,36 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 Candidate candidate{entry.text, learned_syllables, score,
                                     InputMatchKind::exact, learned_segments,
                                     parsed.normalized_input.size(), 1};
+                candidate.segment_lengths = {learned_syllables.size()};
+                candidate.user_lexicon = true;
+                store_candidate(std::move(candidate));
+            }
+        }
+
+        const auto prefix_path = std::find_if(
+            parsed.paths.begin(), parsed.paths.end(), [](const ParsePath& value) {
+                return value.match_kind == InputMatchKind::exact ||
+                       value.match_kind == InputMatchKind::incomplete_completion;
+            });
+        if (prefix_path != parsed.paths.end()) {
+            const auto learned_prefixes = user_frequency_->lookup_prefix(
+                lookup_input, search_limit);
+            const auto learned_segments = source_segments(parsed, *prefix_path);
+            std::vector<std::string> learned_syllables;
+            learned_syllables.reserve(prefix_path->syllables.size());
+            for (const auto& syllable : prefix_path->syllables)
+                learned_syllables.push_back(syllable.text);
+            for (const auto& entry : learned_prefixes) {
+                const auto completion_characters =
+                    entry.input.size() - lookup_input.size();
+                auto score = 12'000 + candidate_unigram_score(entry.count) +
+                             user_frequency_->score(entry.text) - 1'500 -
+                             static_cast<std::int64_t>(completion_characters) *
+                                 kIncompleteCharacterPenalty;
+                Candidate candidate{
+                    entry.text, learned_syllables, score,
+                    InputMatchKind::incomplete_completion, learned_segments,
+                    parsed.normalized_input.size(), 1};
                 candidate.segment_lengths = {learned_syllables.size()};
                 candidate.user_lexicon = true;
                 store_candidate(std::move(candidate));
@@ -1341,6 +1372,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
     }
     const auto sentence_less = [](const Candidate& left, const Candidate& right) {
+        if (left.user_lexicon != right.user_lexicon)
+            return left.user_lexicon;
         const auto full_dictionary_word = [](const Candidate& candidate) {
             return candidate.match_kind == InputMatchKind::exact &&
                    candidate.segment_count == 1 &&
@@ -1424,7 +1457,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     const auto exact = std::find_if(full.begin(), full.end(), [](const Candidate& candidate) {
         return candidate.match_kind == InputMatchKind::exact;
     });
-    if (exact != full.end() && exact != full.begin())
+    if (exact != full.end() && exact != full.begin() &&
+        (full.empty() || !full.front().user_lexicon))
         std::rotate(full.begin(), exact, exact + 1);
 
     std::vector<Candidate> ordered;

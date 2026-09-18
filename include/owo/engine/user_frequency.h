@@ -13,6 +13,7 @@ namespace owo::engine {
 struct UserLexiconEntry {
     std::string text;
     std::uint32_t count{};
+    std::string input;
 };
 
 class UserFrequencyModel {
@@ -33,6 +34,12 @@ public:
         return 0;
     }
     [[nodiscard]] virtual std::vector<UserLexiconEntry> lookup(
+        std::string_view input, std::size_t limit) const {
+        (void)input;
+        (void)limit;
+        return {};
+    }
+    [[nodiscard]] virtual std::vector<UserLexiconEntry> lookup_prefix(
         std::string_view input, std::size_t limit) const {
         (void)input;
         (void)limit;
@@ -64,6 +71,8 @@ public:
         std::string_view context, std::string_view input,
         std::string_view text) const override;
     [[nodiscard]] std::vector<UserLexiconEntry> lookup(
+        std::string_view input, std::size_t limit) const override;
+    [[nodiscard]] std::vector<UserLexiconEntry> lookup_prefix(
         std::string_view input, std::size_t limit) const override;
     [[nodiscard]] UserFrequencyIoResult flush() const;
 

@@ -96,6 +96,11 @@ int main() {
     const auto learned = loaded.lookup("zidingyici", 1);
     if (learned.size() != 1 || learned[0].text != "自定义词" ||
         learned[0].count != 3 || !loaded.lookup("missing", 4).empty()) return 7;
+    const auto learned_prefix = loaded.lookup_prefix("zidingyic", 4);
+    if (learned_prefix.size() != 2 ||
+        learned_prefix[0].text != "自定义词" ||
+        learned_prefix[0].input != "zidingyici" ||
+        !loaded.lookup_prefix("z", 4).empty()) return 10;
     if (loaded.language_context_score("我喜欢", "pingguo", "苹果") <= 0 ||
         loaded.language_context_score("他喜欢", "pingguo", "苹果") != 0) return 5;
     loaded.set_sensitivity(10);

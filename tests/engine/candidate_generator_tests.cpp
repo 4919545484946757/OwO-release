@@ -71,6 +71,22 @@ int main() {
         !learned_word->user_lexicon ||
         learned_word->consumed_input_bytes != std::string_view("zidingyici").size())
         return fail("learned user word was not recalled as a full candidate");
+    const auto learned_incomplete_candidates = learned_generator.generate(
+        schema.parse("zidingyic"));
+    if (learned_incomplete_candidates.empty() ||
+        learned_incomplete_candidates.front().text != "自定义词" ||
+        learned_incomplete_candidates.front().match_kind !=
+            owo::engine::InputMatchKind::incomplete_completion ||
+        !learned_incomplete_candidates.front().user_lexicon)
+        return fail("incomplete pinyin did not recall a learned user word");
+    const auto learned_missing_syllable_candidates = learned_generator.generate(
+        schema.parse("zidingyi"));
+    if (learned_missing_syllable_candidates.empty() ||
+        learned_missing_syllable_candidates.front().text != "自定义词" ||
+        learned_missing_syllable_candidates.front().match_kind !=
+            owo::engine::InputMatchKind::incomplete_completion ||
+        !learned_missing_syllable_candidates.front().user_lexicon)
+        return fail("a complete shorter reading displaced an incomplete learned word");
 
     const auto nihao = generator.generate(schema.parse("nihao"));
     if (nihao.size() != 2 || nihao[0].text != "你好" || nihao[1].text != "你号")

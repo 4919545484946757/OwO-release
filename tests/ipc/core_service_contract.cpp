@@ -208,6 +208,12 @@ int main() {
     const auto custom_word_candidates = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request,
                     221, 8, "zidingyici"});
+    const auto incomplete_custom_word_candidates = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    222, 8, "zidingyic"});
+    const auto missing_syllable_custom_word_candidates = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    223, 8, "zidingyi"});
     const auto learned = send_request(pipe_name, {owo::protocol::MessageType::candidate_request, 104, 8, "nihao"});
     const auto first_page = send_request(pipe_name, {owo::protocol::MessageType::candidate_request, 106, 8, "ceshi"});
     owo::protocol::Message second_page_request{
@@ -302,6 +308,13 @@ int main() {
         !custom_word_candidates.validation ||
         custom_word_candidates.message.candidates.empty() ||
         custom_word_candidates.message.candidates.front() != "自定义词" ||
+        !incomplete_custom_word_candidates.validation ||
+        incomplete_custom_word_candidates.message.candidates.empty() ||
+        incomplete_custom_word_candidates.message.candidates.front() != "自定义词" ||
+        !missing_syllable_custom_word_candidates.validation ||
+        missing_syllable_custom_word_candidates.message.candidates.empty() ||
+        missing_syllable_custom_word_candidates.message.candidates.front() !=
+            "自定义词" ||
         !valid_response(first, 101, 7) || !valid_response(second, 102, 8) ||
         !valid_response(learned, 104, 8, {"你号", "你好"}) ||
         !nihao_ranged.validation ||

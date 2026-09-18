@@ -276,10 +276,39 @@ std::vector<UserLexiconEntry> UserFrequencyStore::lookup(
     std::vector<UserLexiconEntry> entries;
     entries.reserve((std::min)(limit, found->second.size()));
     for (const auto& [text, count] : found->second)
-        entries.push_back({text, count});
+        entries.push_back({text, count, found->first});
     const auto better = [](const UserLexiconEntry& left,
                            const UserLexiconEntry& right) {
         if (left.count != right.count) return left.count > right.count;
+        return left.text < right.text;
+    };
+    if (entries.size() > limit) {
+        std::nth_element(entries.begin(), entries.begin() + limit,
+                         entries.end(), better);
+        entries.resize(limit);
+    }
+    std::sort(entries.begin(), entries.end(), better);
+    return entries;
+}
+
+std::vector<UserLexiconEntry> UserFrequencyStore::lookup_prefix(
+    const std::string_view input, const std::size_t limit) const {
+    const auto compact = compact_input_key(input);
+    if (compact.size() < 2 || limit == 0) return {};
+    std::vector<UserLexiconEntry> entries;
+    for (const auto& [learned_input, words] : user_lexicon_) {
+        if (learned_input.size() <= compact.size() ||
+            !std::string_view(learned_input).starts_with(compact))
+            continue;
+        for (const auto& [text, count] : words)
+            entries.push_back({text, count, learned_input});
+    }
+    const auto better = [](const UserLexiconEntry& left,
+                           const UserLexiconEntry& right) {
+        if (left.input.size() != right.input.size())
+            return left.input.size() < right.input.size();
+        if (left.count != right.count) return left.count > right.count;
+        if (left.input != right.input) return left.input < right.input;
         return left.text < right.text;
     };
     if (entries.size() > limit) {
