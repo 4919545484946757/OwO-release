@@ -118,6 +118,64 @@ std::string compact_input_key(const std::string_view input) {
     return result;
 }
 
+std::string_view relevant_language_context(std::string_view context) {
+    while (!context.empty()) {
+        const auto value = static_cast<unsigned char>(context.back());
+        if (value != ' ' && value != '\t' && value != '\r' && value != '\n') break;
+        context.remove_suffix(1);
+    }
+    std::size_t sentence_begin = 0;
+    constexpr std::array<std::string_view, 5> boundaries{
+        "。", "！", "？", "\n", "\r"};
+    for (const auto boundary : boundaries) {
+        const auto position = context.rfind(boundary);
+        if (position != std::string_view::npos)
+            sentence_begin = (std::max)(sentence_begin,
+                                        position + boundary.size());
+    }
+    context.remove_prefix((std::min)(sentence_begin, context.size()));
+    while (!context.empty() &&
+           (context.front() == ' ' || context.front() == '\t'))
+        context.remove_prefix(1);
+    return context;
+}
+
+std::vector<std::size_t> utf8_boundaries(const std::string_view text) {
+    std::vector<std::size_t> boundaries;
+    boundaries.reserve(text.size() + 1);
+    for (std::size_t offset = 0; offset < text.size(); ++offset) {
+        if ((static_cast<unsigned char>(text[offset]) & 0xc0U) != 0x80U)
+            boundaries.push_back(offset);
+    }
+    boundaries.push_back(text.size());
+    return boundaries;
+}
+
+struct ContextSuffix {
+    std::string_view text;
+    std::size_t character_count{};
+};
+
+std::vector<ContextSuffix> context_suffixes_for_record(
+    const std::string_view raw_context) {
+    const auto context = relevant_language_context(raw_context);
+    if (context.empty()) return {};
+    const auto boundaries = utf8_boundaries(context);
+    if (boundaries.size() <= 1) return {};
+    const auto characters = boundaries.size() - 1;
+    constexpr std::array<std::size_t, 6> requested{1, 2, 3, 4, 8, 16};
+    std::vector<ContextSuffix> result;
+    result.reserve(requested.size() + 1);
+    for (const auto length : requested) {
+        const auto kept = (std::min)(length, characters);
+        if (!result.empty() && result.back().character_count == kept) continue;
+        result.push_back({context.substr(boundaries[characters - kept]), kept});
+    }
+    if (result.back().character_count != characters)
+        result.push_back({context, characters});
+    return result;
+}
+
 bool decode(const std::filesystem::path& path,
             std::unordered_map<std::string, std::uint32_t>& counts,
             std::unordered_map<std::string, std::uint32_t>& contextual_counts,
@@ -282,20 +340,20 @@ void UserFrequencyStore::record(const std::string_view context, const std::strin
                                 const std::string_view text, const std::uint32_t amount) {
     record(input, text, amount);
     if (context.empty() || input.empty() || text.empty() || amount == 0) return;
-    std::string key(context);
-    key.push_back('\0');
-    key += input;
-    key.push_back('\0');
-    key += text;
-    std::string group(context);
-    group.push_back('\0');
-    group += input;
-    group.push_back('\0');
-    record_bounded(
-        language_context_counts_, key, amount, kLanguageContextCountCeiling,
-        [&group](const std::string_view candidate) {
-            return candidate.starts_with(group);
-        });
+    for (const auto suffix : context_suffixes_for_record(context)) {
+        std::string group(suffix.text);
+        group.push_back('\0');
+        group += input;
+        group.push_back('\0');
+        auto key = group;
+        key += text;
+        record_bounded(
+            language_context_counts_, key, amount,
+            kLanguageContextCountCeiling,
+            [&group](const std::string_view candidate) {
+                return candidate.starts_with(group);
+            });
+    }
 }
 
 void UserFrequencyStore::set_sensitivity(const std::uint32_t sensitivity) noexcept {
@@ -337,15 +395,22 @@ std::int64_t UserFrequencyStore::contextual_score(const std::string_view input,
 std::int64_t UserFrequencyStore::language_context_score(
     const std::string_view context, const std::string_view input,
     const std::string_view text) const {
-    std::string key(context);
-    key.push_back('\0');
-    key += input;
-    key.push_back('\0');
-    key += text;
-    const auto found = language_context_counts_.find(key);
-    if (found == language_context_counts_.end()) return 0;
     const auto gain = 1'000LL + static_cast<std::int64_t>(sensitivity_ - 1U) * 1'000LL;
-    return bounded_learning_score(found->second, gain, 8);
+    std::int64_t best = 0;
+    for (const auto suffix : context_suffixes_for_record(context)) {
+        std::string key(suffix.text);
+        key.push_back('\0');
+        key += input;
+        key.push_back('\0');
+        key += text;
+        const auto found = language_context_counts_.find(key);
+        if (found == language_context_counts_.end()) continue;
+        const auto score = bounded_learning_score(found->second, gain, 8);
+        const auto weight = (std::min<std::size_t>)(
+            100, 25 + suffix.character_count * 15);
+        best = (std::max)(best, score * static_cast<std::int64_t>(weight) / 100);
+    }
+    return best;
 }
 
 std::vector<UserLexiconEntry> UserFrequencyStore::lookup(

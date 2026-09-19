@@ -102,8 +102,35 @@ int main() {
         learned_prefix[0].text != "自定义词" ||
         learned_prefix[0].input != "zidingyici" ||
         !loaded.lookup_prefix("z", 4).empty()) return 10;
-    if (loaded.language_context_score("我喜欢", "pingguo", "苹果") <= 0 ||
-        loaded.language_context_score("他喜欢", "pingguo", "苹果") != 0) return 5;
+    const auto exact_preference =
+        loaded.language_context_score("我喜欢", "pingguo", "苹果");
+    const auto generalized_preference =
+        loaded.language_context_score("他喜欢", "pingguo", "苹果");
+    if (exact_preference <= generalized_preference || generalized_preference <= 0)
+        return 5;
+    if (loaded.language_context_score("昨天我喜欢", "pingguo", "苹果") <= 0 ||
+        loaded.language_context_score("昨天我讨厌", "pingguo", "苹果") != 0)
+        return 15;
+    loaded.record("我不喜欢", "pingguo", "香蕉", 2);
+    const auto apple_after_like =
+        loaded.language_context_score("昨天我喜欢", "pingguo", "苹果");
+    const auto banana_after_like =
+        loaded.language_context_score("昨天我喜欢", "pingguo", "香蕉");
+    const auto banana_after_dislike =
+        loaded.language_context_score("大家都不喜欢", "pingguo", "香蕉");
+    const auto apple_after_dislike =
+        loaded.language_context_score("大家都不喜欢", "pingguo", "苹果");
+    if (apple_after_like <= banana_after_like ||
+        banana_after_dislike <= apple_after_dislike) {
+        std::cerr << "context specificity failed: "
+                  << apple_after_like << ',' << banana_after_like << ','
+                  << banana_after_dislike << ',' << apple_after_dislike << '\n';
+        return 16;
+    }
+    loaded.record("旧句。现在", "ceshi", "跨句隔离");
+    if (loaded.language_context_score("别的句子。现在", "ceshi", "跨句隔离") <= 0 ||
+        loaded.language_context_score("别的句子。", "ceshi", "跨句隔离") != 0)
+        return 17;
     loaded.set_sensitivity(10);
     const auto sensitive = loaded.score("你好");
     loaded.set_sensitivity(1);

@@ -626,6 +626,20 @@ int main() {
     if (language_learned.empty() || language_learned[0].text != "泥号")
         return fail("language context ranking failed");
 
+    owo::engine::UserFrequencyStore generalized_language_frequency;
+    generalized_language_frequency.set_sensitivity(10);
+    generalized_language_frequency.record("会议中我说", "nihao", "泥号");
+    generalized_language_frequency.record("会议中他说", "nihao", "你好");
+    const owo::engine::CandidateGenerator generalized_language_personalized(
+        compositional, nullptr, &generalized_language_frequency);
+    const auto generalized_first = generalized_language_personalized.generate(
+        schema.parse("nihao"), 32, true, "昨天我说");
+    const auto generalized_second = generalized_language_personalized.generate(
+        schema.parse("nihao"), 32, true, "昨天他说");
+    if (generalized_first.empty() || generalized_first.front().text != "泥号" ||
+        generalized_second.empty() || generalized_second.front().text != "你好")
+        return fail("language context suffix generalization failed");
+
     const owo::engine::MemoryLexicon long_lexicon({
         {{"ni"}, "N", 1000},
         {{"ni", "hao"}, "NH", 2000},
