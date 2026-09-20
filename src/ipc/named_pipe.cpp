@@ -7,6 +7,7 @@
 #include "owo/model/model_protocol.h"
 
 #include "owo/engine/candidate_generator.h"
+#include "owo/engine/exact_code_schema.h"
 #include "owo/engine/full_pinyin_schema.h"
 #include "owo/engine/lexicon.h"
 #include "owo/engine/user_frequency.h"
@@ -1098,7 +1099,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     const wchar_t* model_pipe_name,
                     const config::ConfigMonitor* config_monitor,
                     core::PluginExecutor* plugin_executor) {
-    const engine::FullPinyinSchema schema;
+    const engine::FullPinyinSchema full_pinyin_schema;
+    const engine::ExactCodeSchema exact_code_schema;
     const engine::CandidateGenerator generator(lexicon, nullptr, user_frequency);
     std::size_t unflushed_selections = 0;
     int exit_code = 0;
@@ -1191,6 +1193,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                             : std::shared_ptr<const config::AppConfig>{};
             const bool adaptive_ranking_enabled = runtime_config != nullptr &&
                 runtime_config->model_ranking_enabled;
+            const bool full_pinyin_scheme = runtime_config == nullptr ||
+                runtime_config->input_scheme == "full_pinyin";
             const bool external_model_ranking_enabled = model_pipe_name != nullptr &&
                 (runtime_config == nullptr || runtime_config->model_ranking_enabled);
             const bool user_learning_enabled = runtime_config == nullptr ||
@@ -1461,7 +1465,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     const auto page_size = static_cast<std::size_t>(candidate_page_size);
                     const bool partitioned_layout = candidate_partition_enabled &&
                         page_size >= 4;
-                    const bool legacy_double_initial = !candidate_partition_enabled &&
+                    const bool legacy_double_initial = full_pinyin_scheme &&
+                        !candidate_partition_enabled &&
                         is_double_initial_input(decoded.message.text);
                     const auto result_size = decoded.message.expanded
                                                  ? protocol::kMaximumCandidateCount
@@ -1559,12 +1564,16 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         candidates = std::move(cached->candidates);
                     } else {
                         const auto strict_parse_started = std::chrono::steady_clock::now();
-                        const auto long_compact_input =
+                        const auto long_compact_input = full_pinyin_scheme &&
                             decoded.message.text.size() >= 12 &&
                             decoded.message.text.find('\'') == std::string::npos;
                         const auto strict_path_limit = long_compact_input
                             ? std::size_t{16} : std::size_t{32};
-                        if (refinement_parse) {
+                        if (!full_pinyin_scheme) {
+                            parsed = exact_code_schema.parse(
+                                decoded.message.text, strict_path_limit);
+                            incremental_parse_state = {};
+                        } else if (refinement_parse) {
                             parsed = std::move(*refinement_parse);
                             incremental_reused = true;
                             refinement_parse_reused = true;
@@ -1574,13 +1583,13 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             // earlier prefix can lock kuang'ao and poison the
                             // candidate cache even after kuan'gao becomes the
                             // stronger complete sentence.
-                            parsed = schema.parse(
+                            parsed = full_pinyin_schema.parse(
                                 decoded.message.text, strict_path_limit, false,
                                 &parse_metrics, cancelled);
                             incremental_parse_state = {
                                 decoded.message.text, parsed, strict_path_limit};
                         } else {
-                            parsed = schema.parse_incremental(
+                            parsed = full_pinyin_schema.parse_incremental(
                                 decoded.message.text, strict_path_limit,
                                 incremental_parse_state, &parse_metrics, cancelled,
                                 &incremental_reused);
@@ -1628,7 +1637,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                        (abbreviated_segments >= 2 &&
                                         abbreviated_segments <= 4);
                             });
-                        correction_fallback = decoded.message.correction_enabled &&
+                        correction_fallback = full_pinyin_scheme &&
+                                              decoded.message.correction_enabled &&
                                               (candidates.size() < result_size ||
                                                !strict_evidence) &&
                                               !cancelled();
@@ -1641,7 +1651,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             engine::CandidateGenerationMetrics corrected_generation_metrics;
                             const auto corrected_parse_started =
                                 std::chrono::steady_clock::now();
-                            auto corrected = schema.parse(
+                            auto corrected = full_pinyin_schema.parse(
                                 decoded.message.text, parse_path_limit, true,
                                 &corrected_parse_metrics, cancelled);
                             engine::ParseResult correction_only = corrected;
@@ -1718,8 +1728,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     if (!cancelled() && adaptive_ranking_enabled &&
                         !decoded.message.input.empty() &&
                         !decoded.message.context.empty() && !candidates.empty()) {
-                        const auto previous = schema.parse(
-                            decoded.message.input, 8, false);
+                        const auto previous = full_pinyin_scheme
+                            ? full_pinyin_schema.parse(decoded.message.input, 8, false)
+                            : exact_code_schema.parse(decoded.message.input, 8);
                         contextual_preferences = contextual_lexicon_preferences(
                             lexicon, previous, decoded.message.context, candidates);
                         promote_contextual_preferences(
@@ -1926,7 +1937,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 if (!request_cancelled && !response.candidate_refinement_pending &&
                     external_model_ranking_enabled && response.page == 0 &&
                     !response.candidates.empty() &&
-                    !is_double_initial_input(decoded.message.text) &&
+                    (!full_pinyin_scheme ||
+                     !is_double_initial_input(decoded.message.text)) &&
                     model_requests.size() < 128) {
                     model::ModelMessage model_request;
                     model_request.type = model::ModelMessageType::rank_request;
@@ -1996,7 +2008,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 response.text = "commit_ack";
                 if (user_frequency != nullptr && user_learning_enabled &&
                     !decoded.message.text.empty()) {
-                    const auto feedback = schema.parse(decoded.message.input, 1, false);
+                    const auto feedback = full_pinyin_scheme
+                        ? full_pinyin_schema.parse(decoded.message.input, 1, false)
+                        : exact_code_schema.parse(decoded.message.input, 1);
                     if (feedback.valid)
                         user_frequency->record(decoded.message.context,
                                                feedback.normalized_input,

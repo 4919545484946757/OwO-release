@@ -180,6 +180,9 @@ bool replace_file(const std::filesystem::path& temporary, const std::filesystem:
 }  // namespace
 
 ConfigValidationResult validate_config(const AppConfig& value) {
+    if (value.input_scheme != "full_pinyin" &&
+        value.input_scheme != "exact_code")
+        return {false, "input_scheme must be full_pinyin or exact_code"};
     if (value.candidate_page_size < 1 || value.candidate_page_size > 9)
         return {false, "candidate_page_size must be between 1 and 9"};
     if (value.candidate_wrap_length < 4 || value.candidate_wrap_length > 64)
@@ -284,6 +287,7 @@ ConfigParseResult parse_config(const std::string_view utf8) {
     constexpr std::string_view text_navigation_required[]{
         "text_navigation_shortcut_enabled", "text_navigation_shortcut",
         "text_navigation_select_enabled"};
+    constexpr std::string_view input_scheme_required[]{"input_scheme"};
     const auto expected_size = std::size(base_required) +
                                (version >= 2 ? std::size(shortcut_required) : 0) +
                                (version >= 3 ? std::size(wrap_required) : 0) +
@@ -293,7 +297,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 8 ? std::size(punctuation_required) : 0) +
                                (version >= 9 ? std::size(alt_code_preview_required) : 0) +
                                (version >= 10 ? std::size(composition_required) : 0) +
-                               (version >= 12 ? std::size(text_navigation_required) : 0);
+                               (version >= 12 ? std::size(text_navigation_required) : 0) +
+                               (version >= 13 ? std::size(input_scheme_required) : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -327,7 +332,10 @@ ConfigParseResult parse_config(const std::string_view utf8) {
     if (version >= 12) for (const auto key : text_navigation_required)
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
+    if (version >= 13 && !fields.contains("input_scheme"))
+        return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
+    if (version >= 13) value.input_scheme = fields["input_scheme"];
     if (!parse_u32(fields["candidate_page_size"], value.candidate_page_size) ||
         !parse_bool(fields["user_learning_enabled"], value.user_learning_enabled) ||
         !parse_bool(fields["model_ranking_enabled"], value.model_ranking_enabled) ||
@@ -450,6 +458,7 @@ ConfigParseResult parse_config(const std::string_view utf8) {
 std::string serialize_config(const AppConfig& value) {
     if (!validate_config(value).ok) return {};
     return "schema_version=" + std::to_string(kConfigSchemaVersion) +
+           "\ninput_scheme=" + value.input_scheme +
            "\ncandidate_page_size=" + std::to_string(value.candidate_page_size) +
            "\ncandidate_wrap_length=" + std::to_string(value.candidate_wrap_length) +
            "\ncandidate_partition_enabled=" +

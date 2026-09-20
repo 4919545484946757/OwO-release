@@ -28,6 +28,7 @@ int main(const int argc, char** argv) {
         store.snapshot() != owo::config::AppConfig{}) return 3;
 
     auto changed = store.snapshot();
+    changed.input_scheme = "exact_code";
     changed.candidate_page_size = 7;
     changed.candidate_wrap_length = 18;
     changed.candidate_partition_enabled = false;
@@ -99,6 +100,9 @@ int main(const int argc, char** argv) {
     invalid_value = fallback.snapshot();
     invalid_value.alt_code_preview_page_size = 1;
     if (fallback.save(invalid_value).success) return 33;
+    invalid_value = fallback.snapshot();
+    invalid_value.input_scheme = "unknown";
+    if (fallback.save(invalid_value).success) return 36;
 
     if (owo::config::parse_config("schema_version=2\ncandidate_page_size=5\n"
             "user_learning_enabled=true\nmodel_ranking_enabled=false\nmodel_timeout_ms=50\n").ok) return 14;
@@ -132,9 +136,13 @@ int main(const int argc, char** argv) {
         !legacy.value.punctuation_shortcuts.empty()) return 20;
 
     auto version_ten_text = owo::config::serialize_config(owo::config::AppConfig{});
-    version_ten_text.replace(version_ten_text.find("schema_version=12"),
-                             std::string("schema_version=12").size(),
+    version_ten_text.replace(version_ten_text.find("schema_version=13"),
+                             std::string("schema_version=13").size(),
                              "schema_version=10");
+    const auto input_scheme_begin = version_ten_text.find("input_scheme=");
+    if (input_scheme_begin == std::string::npos) return 36;
+    version_ten_text.erase(input_scheme_begin,
+        version_ten_text.find('\n', input_scheme_begin) - input_scheme_begin + 1);
     const auto text_navigation_begin = version_ten_text.find(
         "text_navigation_shortcut_enabled=");
     if (text_navigation_begin == std::string::npos) return 35;

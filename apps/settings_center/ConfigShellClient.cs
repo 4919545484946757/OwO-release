@@ -2,7 +2,8 @@ using System.Diagnostics;
 
 namespace OwO_Settings;
 
-internal sealed record SettingsSnapshot(uint CandidatePageSize, uint CandidateWrapLength,
+internal sealed record SettingsSnapshot(string InputScheme,
+                                        uint CandidatePageSize, uint CandidateWrapLength,
                                         bool CandidatePartitionEnabled,
                                         bool CandidateImmediateCommitEnabled,
                                         bool FocusLossCommitEnabled,
@@ -52,7 +53,8 @@ internal sealed class ConfigShellClient
         var values = result.Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Select(line => line.TrimEnd('\r').Split('=', 2)).Where(parts => parts.Length == 2)
             .ToDictionary(parts => parts[0], parts => parts[1], StringComparer.Ordinal);
-        return new(uint.Parse(values["candidate_page_size"]),
+        return new(values["input_scheme"],
+                   uint.Parse(values["candidate_page_size"]),
                    uint.Parse(values["candidate_wrap_length"]),
                    bool.Parse(values["candidate_partition_enabled"]),
                    bool.Parse(values["candidate_immediate_commit_enabled"]),
@@ -118,7 +120,8 @@ internal sealed class ConfigShellClient
                   value.FocusLossCommitEnabled.ToString().ToLowerInvariant(),
                   value.TextNavigationShortcutEnabled.ToString().ToLowerInvariant(),
                   JoinShortcuts(value.TextNavigationShortcuts),
-                  value.TextNavigationSelectEnabled.ToString().ToLowerInvariant()], cancellationToken);
+                  value.TextNavigationSelectEnabled.ToString().ToLowerInvariant(),
+                  value.InputScheme], cancellationToken);
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

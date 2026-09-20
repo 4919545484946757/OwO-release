@@ -73,6 +73,7 @@ std::string_view preferred_initial_syllable(const char initial) {
 }
 
 std::int64_t source_initial_bonus(const ParseResult& parsed, const ParsePath& path) {
+    if (!parsed.phonetic_assistance) return 0;
     std::int64_t bonus = 0;
     for (const auto& syllable : path.syllables) {
         if (syllable.end != syllable.begin + 1 ||
@@ -459,6 +460,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // were visible.
     constexpr std::size_t kMinimumSearchLimit = 12;
     const auto search_limit = std::max(kMinimumSearchLimit, limit);
+    const bool phonetic_assistance = parsed.phonetic_assistance;
 
     // A lone consonant is a request for common characters across every valid
     // final, not for the first parser completion bucket (da, dai, dan, ...).
@@ -470,14 +472,16 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     const bool trailing_separator = parsed.normalized_input.ends_with('\'');
     const auto initial_sequence_input = std::string_view(parsed.normalized_input).substr(
         0, parsed.normalized_input.size() - (trailing_separator ? 1 : 0));
-    const bool pure_initial_sequence = initial_sequence_input.size() >= 2 &&
+    const bool pure_initial_sequence = phonetic_assistance &&
+        initial_sequence_input.size() >= 2 &&
         initial_sequence_input.size() <= 256 &&
         std::all_of(initial_sequence_input.begin(), initial_sequence_input.end(),
                     [vowels](const char value) {
             return value >= 'a' && value <= 'z' &&
                    vowels.find(value) == std::string_view::npos;
         });
-    const bool single_initial = initial_sequence_input.size() == 1 &&
+    const bool single_initial = phonetic_assistance &&
+        initial_sequence_input.size() == 1 &&
         initial_sequence_input.front() >= 'a' &&
         initial_sequence_input.front() <= 'z' &&
         vowels.find(initial_sequence_input.front()) == std::string_view::npos;
@@ -671,7 +675,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 return value.match_kind == InputMatchKind::exact ||
                        value.match_kind == InputMatchKind::incomplete_completion;
             });
-        if (prefix_path != parsed.paths.end()) {
+        if (phonetic_assistance && prefix_path != parsed.paths.end()) {
             const auto learned_prefixes = user_frequency_->lookup_prefix(
                 lookup_input, search_limit);
             const auto learned_segments = source_segments(parsed, *prefix_path);
@@ -700,6 +704,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                : std::max<std::size_t>(64, search_limit * 8);
     bool direct_mixed_candidate_found = false;
     const auto has_consonant_tail = [&] {
+        if (!phonetic_assistance) return false;
         if (parsed.normalized_input.size() < 4 ||
             parsed.normalized_input.size() > 12 ||
             parsed.normalized_input.find('\'') != std::string::npos)
@@ -755,7 +760,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     }
     std::vector<OrderedParsePath> ordered_paths;
     ordered_paths.reserve(parsed.paths.size());
-    const bool long_ambiguous_input = parsed.normalized_input.size() >= 12 &&
+    const bool long_ambiguous_input = phonetic_assistance &&
+                                      parsed.normalized_input.size() >= 12 &&
                                       parsed.normalized_input.find('\'') ==
                                           std::string::npos;
     // Short input also evaluates a small exact-path set: min'gan must not be
@@ -1167,11 +1173,13 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     if (cancelled && cancelled()) return {};
     const bool mixed_fallback = unique.size() == 0 || pure_initial_sequence;
     const auto mixed_lookup_started = std::chrono::steady_clock::now();
-    const auto mixed_matches = direct_mixed_candidate_found || exact_candidate_found
+    const auto mixed_matches = !phonetic_assistance ||
+                               direct_mixed_candidate_found || exact_candidate_found
                                    ? std::vector<AbbreviatedLexiconTextMatch>{}
                                    : lexicon_.lookup_mixed_abbreviation_texts(
                                          parsed.normalized_input, mixed_limit);
-    if (metrics != nullptr && !direct_mixed_candidate_found && !exact_candidate_found) {
+    if (metrics != nullptr && phonetic_assistance &&
+        !direct_mixed_candidate_found && !exact_candidate_found) {
         metrics->lexicon_lookup_us += static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::steady_clock::now() - mixed_lookup_started).count());

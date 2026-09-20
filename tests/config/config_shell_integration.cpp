@@ -74,6 +74,15 @@ int wmain(const int argc, wchar_t** argv) {
     unchanged_input.close();
     if (unchanged != bytes) return 9;
 
+    PROCESS_INFORMATION scheme{};
+    if (!launch(executable + L" " + config + L" set input_scheme exact_code", scheme) ||
+        wait_and_close(scheme) != 0) return 31;
+    std::ifstream scheme_input(path, std::ios::binary);
+    const std::string scheme_bytes((std::istreambuf_iterator<char>(scheme_input)), {});
+    scheme_input.close();
+    if (scheme_bytes.find("input_scheme=exact_code\n") == std::string::npos)
+        return 32;
+
     PROCESS_INFORMATION set_all{};
     if (!launch(executable + L" " + config + L" set-all 3 false true 25", set_all) ||
         wait_and_close(set_all) != 0) return 13;

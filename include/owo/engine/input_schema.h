@@ -8,6 +8,11 @@
 
 namespace owo::engine {
 
+enum class InputSchemeKind : std::uint8_t {
+    full_pinyin,
+    exact_code,
+};
+
 struct Syllable {
     std::string text;
     std::size_t begin{};
@@ -38,6 +43,11 @@ struct ParseResult {
     std::vector<ParsePath> paths;
     bool valid{false};
     bool has_incomplete_syllable{false};
+    InputSchemeKind scheme{InputSchemeKind::full_pinyin};
+    // Candidate generation consumes capabilities rather than scheme identities.
+    // A future double-pinyin scheme can opt into phonetic assistance, while a
+    // table-code scheme can remain exact without adding another generator branch.
+    bool phonetic_assistance{true};
 };
 
 class InputSchema {

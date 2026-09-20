@@ -8,9 +8,10 @@
 
 namespace owo::config {
 
-inline constexpr std::uint32_t kConfigSchemaVersion = 12;
+inline constexpr std::uint32_t kConfigSchemaVersion = 13;
 
 struct AppConfig {
+    std::string input_scheme{"full_pinyin"};
     std::uint32_t candidate_page_size{7};
     std::uint32_t candidate_wrap_length{12};
     bool candidate_partition_enabled{true};

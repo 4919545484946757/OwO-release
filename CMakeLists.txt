@@ -68,6 +68,7 @@ add_library(owo_engine STATIC
     src/engine/composition_candidate_provider.cpp
     src/engine/candidate_scheduler.cpp
     src/engine/full_pinyin_schema.cpp
+    src/engine/exact_code_schema.cpp
     src/engine/lexicon_candidate_provider.cpp
     src/engine/parse_candidate_sources.cpp
     src/engine/lexicon.cpp

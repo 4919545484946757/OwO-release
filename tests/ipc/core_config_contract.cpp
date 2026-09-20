@@ -139,6 +139,14 @@ int wmain(int argc, wchar_t** argv) {
         monitor.wait_for_generation(generation_before_legacy, std::chrono::seconds(2));
     const auto legacy_layout = send(
         pipe, {owo::protocol::MessageType::candidate_request, 25, 1, "gd"});
+    const auto generation_before_scheme = monitor.generation();
+    config.input_scheme = "exact_code";
+    const bool exact_code_reload = writer.save(config).success &&
+        monitor.wait_for_generation(generation_before_scheme, std::chrono::seconds(2));
+    const auto exact_code_candidates = send(
+        pipe, {owo::protocol::MessageType::candidate_request, 28, 1, "ni'hao"});
+    const auto exact_code_without_abbreviation = send(
+        pipe, {owo::protocol::MessageType::candidate_request, 29, 1, "gd"});
     const auto shutdown = send(pipe, {owo::protocol::MessageType::shutdown_request,
                                       3, 1, {}});
     server.join();
@@ -146,7 +154,7 @@ int wmain(int argc, wchar_t** argv) {
     owo::engine::UserFrequencyStore persisted;
     const auto loaded = persisted.load(frequency_path);
     const bool ok = enabled_reload && disabled_reload && partition_enabled_reload &&
-                    legacy_reload &&
+                    legacy_reload && exact_code_reload &&
                     acknowledged(disabled, "commit_ack") &&
                     acknowledged(enabled, "commit_ack") &&
                     language_ranked.validation &&
@@ -189,6 +197,13 @@ int wmain(int argc, wchar_t** argv) {
                     legacy_layout.validation &&
                     !legacy_layout.message.candidates.empty() &&
                     legacy_layout.message.candidate_groups.empty() &&
+                    exact_code_candidates.validation &&
+                    !exact_code_candidates.message.candidates.empty() &&
+                    exact_code_candidates.message.candidates.front() == "你好" &&
+                    exact_code_candidates.message.syllables ==
+                        std::vector<std::string>{"ni", "hao"} &&
+                    exact_code_without_abbreviation.validation &&
+                    exact_code_without_abbreviation.message.candidates.empty() &&
                     loaded.success && persisted.count("你好") == 1 &&
                     persisted.contextual_count("nihao", "你好") == 1 &&
                     persisted.language_context_score("我说", "nihao", "你好") > 0;

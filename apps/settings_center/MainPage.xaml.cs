@@ -116,6 +116,7 @@ public sealed partial class MainPage : Page
 
     private void ApplyGeneralSettings(SettingsSnapshot value)
     {
+        InputScheme.SelectedIndex = value.InputScheme == "exact_code" ? 1 : 0;
         CandidatePageSize.Value = value.CandidatePageSize;
         CandidateWrapLength.Value = value.CandidateWrapLength;
         CandidatePartition.IsOn = value.CandidatePartitionEnabled;
@@ -129,6 +130,16 @@ public sealed partial class MainPage : Page
         UserLearning.IsOn = value.UserLearningEnabled;
         ModelRanking.IsOn = value.ModelRankingEnabled;
         ModelTimeout.Value = value.ModelTimeoutMs;
+    }
+
+    private void InputScheme_SelectionChanged(
+        object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
+    {
+        if (CorrectionShortcutCard is not null) {
+            var enabled = InputScheme.SelectedIndex == 0;
+            CorrectionShortcutCard.IsHitTestVisible = enabled;
+            CorrectionShortcutCard.Opacity = enabled ? 1.0 : 0.55;
+        }
     }
 
     private void ApplyShortcutSettings(SettingsSnapshot value)
@@ -160,7 +171,9 @@ public sealed partial class MainPage : Page
         SetBusy(true);
         try {
             ValidateShortcutConflicts();
-            var value = new SettingsSnapshot((uint)CandidatePageSize.Value,
+            var value = new SettingsSnapshot(
+                InputScheme.SelectedIndex == 1 ? "exact_code" : "full_pinyin",
+                (uint)CandidatePageSize.Value,
                 (uint)CandidateWrapLength.Value,
                 CandidatePartition.IsOn,
                 CandidateImmediateCommit.IsOn,
@@ -283,6 +296,7 @@ public sealed partial class MainPage : Page
                  Microsoft.UI.Xaml.FrameworkElement target) =>
             _baseSearchItems.Add(new SearchItem(title, detail, page, target));
         Add("每页候选数", "候选 显示 数量", "general", CandidatePageSizeCard);
+        Add("输入方案", "全拼 拼音 精确编码 表码", "general", InputSchemeCard);
         Add("候选词换行长度", "长词 换行", "general", CandidateWrapLengthCard);
         Add("候选分区", "字典区 单字区", "general", CandidatePartitionCard);
         Add("候选词即时上屏", "暂存 组合 上屏", "general", CandidateImmediateCommitCard);
@@ -296,11 +310,11 @@ public sealed partial class MainPage : Page
         Add("符号预览每页项数", "Alt 数量", "general", AltCodePreviewPageSizeCard);
         Add("符号预览鼠标滚轮翻页", "Alt 滚轮", "general", AltCodePreviewWheelCard);
         Add("切换中文标点", "快捷键", "shortcuts", PunctuationShortcutCard);
-        Add("切换拼音纠错", "快捷键 严格拼音", "shortcuts", CorrectionShortcutCard);
+        Add("切换输入纠错", "快捷键 全拼 严格输入", "shortcuts", CorrectionShortcutCard);
         Add("切换中英文输入", "快捷键 语言", "shortcuts", LanguageShortcutCard);
-        Add("拼音原样上屏", "快捷键 Enter", "shortcuts", RawInputShortcutCard);
-        Add("拼音光标左移", "快捷键 光标", "shortcuts", CursorLeftShortcutCard);
-        Add("拼音光标右移", "快捷键 光标", "shortcuts", CursorRightShortcutCard);
+        Add("输入编码原样上屏", "快捷键 Enter", "shortcuts", RawInputShortcutCard);
+        Add("预编辑光标左移", "快捷键 编码 光标", "shortcuts", CursorLeftShortcutCard);
+        Add("预编辑光标右移", "快捷键 编码 光标", "shortcuts", CursorRightShortcutCard);
         Add("候选词上一页", "快捷键 翻页", "shortcuts", PreviousPageShortcutCard);
         Add("候选词下一页", "快捷键 翻页", "shortcuts", NextPageShortcutCard);
         Add("插件管理", "安装 权限 卸载 恢复", "plugins", PluginSection);

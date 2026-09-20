@@ -1,4 +1,5 @@
 #include "owo/engine/candidate_generator.h"
+#include "owo/engine/exact_code_schema.h"
 #include "owo/engine/full_pinyin_schema.h"
 
 #include <algorithm>
@@ -56,6 +57,19 @@ int main() {
     });
     const owo::engine::FullPinyinSchema schema;
     const owo::engine::CandidateGenerator generator(lexicon);
+    const owo::engine::ExactCodeSchema exact_code_schema;
+    const auto exact_code_parse = exact_code_schema.parse("NI'HAO");
+    const auto exact_code_candidates = generator.generate(exact_code_parse);
+    if (!exact_code_parse.valid ||
+        exact_code_parse.scheme != owo::engine::InputSchemeKind::exact_code ||
+        exact_code_parse.normalized_input != "ni'hao" ||
+        exact_code_candidates.empty() ||
+        exact_code_candidates.front().text != "你好")
+        return fail("exact-code input scheme did not perform an exact lookup");
+    const auto unsegmented_exact_code = generator.generate(
+        exact_code_schema.parse("nh"));
+    if (!unsegmented_exact_code.empty())
+        return fail("exact-code input unexpectedly used pinyin abbreviation rules");
 
     owo::engine::UserFrequencyStore learned_words;
     learned_words.record("zidingyici", "自定义词", 2);

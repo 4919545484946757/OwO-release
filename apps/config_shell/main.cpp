@@ -52,6 +52,8 @@ bool parse_shortcuts(const std::wstring_view text, std::vector<std::string>& out
 
 bool apply(owo::config::AppConfig& config, const std::wstring_view field,
            const std::wstring_view value) {
+    if (field == L"input_scheme")
+        return parse_ascii(value, config.input_scheme);
     if (field == L"candidate_page_size")
         return parse_u32(value, config.candidate_page_size);
     if (field == L"candidate_wrap_length")
@@ -133,7 +135,7 @@ void usage() {
                  "[<alt-code-preview-enabled> <alt-code-preview-page-size> "
                  "<alt-code-preview-wheel-enabled> "
                  "[<candidate-immediate-commit-enabled> "
-                 "<focus-loss-commit-enabled>]]]]]]] | "
+                 "<focus-loss-commit-enabled> [<input-scheme>]]]]]]]] | "
                  "watch <timeout-ms>\n";
 }
 
@@ -193,7 +195,8 @@ int wmain(const int argc, wchar_t** argv) {
     }
     if (command == L"set-all" &&
         (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23 ||
-         argc == 24 || argc == 27 || argc == 30 || argc == 32 || argc == 35)) {
+         argc == 24 || argc == 27 || argc == 30 || argc == 32 || argc == 35 ||
+         argc == 36)) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);
         if (!loaded.success) return 3;
@@ -233,10 +236,11 @@ int wmain(const int argc, wchar_t** argv) {
             (argc >= 32 &&
              (!apply(value, L"candidate_immediate_commit_enabled", argv[30]) ||
               !apply(value, L"focus_loss_commit_enabled", argv[31]))) ||
-            (argc == 35 &&
+            (argc >= 35 &&
              (!apply(value, L"text_navigation_shortcut_enabled", argv[32]) ||
               !apply(value, L"text_navigation_shortcut", argv[33]) ||
-              !apply(value, L"text_navigation_select_enabled", argv[34])))) {
+              !apply(value, L"text_navigation_select_enabled", argv[34]))) ||
+            (argc == 36 && !apply(value, L"input_scheme", argv[35]))) {
             std::cerr << "invalid configuration value type\n";
             return 4;
         }
