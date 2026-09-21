@@ -1076,7 +1076,8 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
         if (shortcut_config_.next_page_shortcut_enabled &&
             shortcut_matches(shortcut_config_.next_page_shortcuts, key)) return true;
     }
-    if (shortcut_config_.correction_shortcut_enabled &&
+    if (shortcut_config_.input_scheme == "full_pinyin" &&
+        shortcut_config_.correction_shortcut_enabled &&
         shortcut_matches(shortcut_config_.correction_shortcuts, key)) return true;
     if (shortcut_config_.language_shortcut_enabled &&
         shortcut_matches(shortcut_config_.language_shortcuts, key)) return true;
@@ -1150,7 +1151,8 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM, BOOL* ea
         }
     }
 
-    if (shortcut_config_.correction_shortcut_enabled &&
+    if (shortcut_config_.input_scheme == "full_pinyin" &&
+        shortcut_config_.correction_shortcut_enabled &&
         shortcut_matches(shortcut_config_.correction_shortcuts, key)) {
         correction_enabled_ = !correction_enabled_;
         if (!input_buffer_.empty()) {
@@ -3306,6 +3308,8 @@ void TextService::refresh_shortcut_config(const bool force) {
         if (!loaded.success) return;
         shortcut_config_initialized_ = true;
         shortcut_config_ = shortcut_config_store_.snapshot();
+        if (shortcut_config_.input_scheme != "full_pinyin")
+            correction_enabled_ = true;
         chinese_punctuation_enabled_ = shortcut_config_.chinese_punctuation_enabled;
         sync_preserved_language_key();
         return;
@@ -3313,11 +3317,15 @@ void TextService::refresh_shortcut_config(const bool force) {
     const auto reloaded = shortcut_config_store_.reload();
     if (reloaded.success) {
         const bool configured_punctuation = shortcut_config_.chinese_punctuation_enabled;
+        const auto configured_scheme = shortcut_config_.input_scheme;
         shortcut_config_ = shortcut_config_store_.snapshot();
         if (configured_punctuation != shortcut_config_.chinese_punctuation_enabled)
             chinese_punctuation_enabled_ = shortcut_config_.chinese_punctuation_enabled;
         if (!shortcut_config_.alt_code_preview_enabled)
             finish_alt_code_preview();
+        if (configured_scheme != shortcut_config_.input_scheme &&
+            shortcut_config_.input_scheme != "full_pinyin")
+            correction_enabled_ = true;
         sync_preserved_language_key();
     }
 }

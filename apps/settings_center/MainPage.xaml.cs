@@ -21,7 +21,15 @@ public sealed partial class MainPage : Page
     private readonly Dictionary<string, Expander> _pluginConfigExpanders = [];
     private NavigationViewItemHeader? _pluginPagesHeader;
     private PluginSettingsModel? _pluginSettings;
-    private string _currentPage = "general";
+    private string _currentPage = "schemes";
+    private sealed record InputSchemeOption(string Id, string Name, string Description,
+                                            string Capabilities);
+    private static readonly InputSchemeOption[] InputSchemes = [
+        new("full_pinyin", "全拼", "使用汉语拼音连续输入，适合日常中文输入。",
+            "支持自动分割、不完整拼音、简拼、混拼与可切换纠错。"),
+        new("exact_code", "精确编码（实验性）", "按显式撇号分段并精确查询词典，用于验证表码方案接入。",
+            "不启用拼音纠错、自动补全或缩写展开；当前仍使用拼音词典数据。"),
+    ];
     private sealed record SearchItem(string Title, string Detail, string Page,
                                      Microsoft.UI.Xaml.FrameworkElement? Target = null,
                                      string? PluginField = null)
@@ -79,6 +87,8 @@ public sealed partial class MainPage : Page
     {
         _shortcutCaptureHookProc = ShortcutCaptureHook;
         InitializeComponent();
+        InputScheme.ItemsSource = InputSchemes;
+        InputScheme.SelectedIndex = 0;
         SetShortcutBindings("correction", ["Ctrl+Q"]);
         SetShortcutBindings("language", ["Ctrl+Space"]);
         SetShortcutBindings("raw", ["Enter"]);
@@ -90,6 +100,7 @@ public sealed partial class MainPage : Page
         SetShortcutBindings("punctuation", []);
         UpdateShortcutButtons();
         InitializeSearchIndex();
+        ShowPage("schemes");
         ConfigPath.Text = _client.ConfigPath;
         PluginPath.Text = _pluginClient.StorePath;
         Loaded += async (_, _) => {
@@ -104,7 +115,9 @@ public sealed partial class MainPage : Page
         SetBusy(true);
         try {
             var value = await _client.LoadAsync();
-            ApplyGeneralSettings(value);
+            ApplySchemeSettings(value);
+            ApplyCandidateSettings(value);
+            ApplyIntelligenceSettings(value);
             ApplyShortcutSettings(value);
             ShowStatus("配置已加载", InfoBarSeverity.Success);
         } catch (Exception error) {
@@ -114,9 +127,15 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private void ApplyGeneralSettings(SettingsSnapshot value)
+    private void ApplySchemeSettings(SettingsSnapshot value)
     {
-        InputScheme.SelectedIndex = value.InputScheme == "exact_code" ? 1 : 0;
+        InputScheme.SelectedItem = InputSchemes.FirstOrDefault(
+            scheme => scheme.Id == value.InputScheme) ?? InputSchemes[0];
+        UpdateInputSchemePresentation();
+    }
+
+    private void ApplyCandidateSettings(SettingsSnapshot value)
+    {
         CandidatePageSize.Value = value.CandidatePageSize;
         CandidateWrapLength.Value = value.CandidateWrapLength;
         CandidatePartition.IsOn = value.CandidatePartitionEnabled;
@@ -126,20 +145,54 @@ public sealed partial class MainPage : Page
         AltCodePreview.IsOn = value.AltCodePreviewEnabled;
         AltCodePreviewPageSize.Value = value.AltCodePreviewPageSize;
         AltCodePreviewWheel.IsOn = value.AltCodePreviewWheelEnabled;
+        UpdateDependentSettings();
+    }
+
+    private void ApplyIntelligenceSettings(SettingsSnapshot value)
+    {
         UserLearningSensitivity.Value = value.UserLearningSensitivity;
         UserLearning.IsOn = value.UserLearningEnabled;
         ModelRanking.IsOn = value.ModelRankingEnabled;
         ModelTimeout.Value = value.ModelTimeoutMs;
+        UpdateDependentSettings();
     }
 
     private void InputScheme_SelectionChanged(
         object sender, Microsoft.UI.Xaml.Controls.SelectionChangedEventArgs e)
     {
-        if (CorrectionShortcutCard is not null) {
-            var enabled = InputScheme.SelectedIndex == 0;
-            CorrectionShortcutCard.IsHitTestVisible = enabled;
-            CorrectionShortcutCard.Opacity = enabled ? 1.0 : 0.55;
-        }
+        UpdateInputSchemePresentation();
+    }
+
+    private void UpdateInputSchemePresentation()
+    {
+        if (InputScheme.SelectedItem is not InputSchemeOption scheme ||
+            InputSchemeDescription is null || InputSchemeCapabilities is null) return;
+        InputSchemeDescription.Text = scheme.Description;
+        InputSchemeCapabilities.Message = scheme.Capabilities;
+        if (CorrectionShortcutCard is null) return;
+        var enabled = scheme.Id == "full_pinyin";
+        CorrectionShortcutCard.IsHitTestVisible = enabled;
+        CorrectionShortcutCard.Opacity = enabled ? 1.0 : 0.55;
+    }
+
+    private void DependentSetting_Toggled(
+        object sender, Microsoft.UI.Xaml.RoutedEventArgs e) =>
+        UpdateDependentSettings();
+
+    private void UpdateDependentSettings()
+    {
+        if (LearningSensitivityCard is null || ModelTimeoutCard is null ||
+            AltCodePreviewPageSizeCard is null || AltCodePreviewWheelCard is null) return;
+        SetCardEnabled(LearningSensitivityCard, UserLearning.IsOn);
+        SetCardEnabled(ModelTimeoutCard, ModelRanking.IsOn);
+        SetCardEnabled(AltCodePreviewPageSizeCard, AltCodePreview.IsOn);
+        SetCardEnabled(AltCodePreviewWheelCard, AltCodePreview.IsOn);
+    }
+
+    private static void SetCardEnabled(Microsoft.UI.Xaml.FrameworkElement card, bool enabled)
+    {
+        card.IsHitTestVisible = enabled;
+        card.Opacity = enabled ? 1.0 : 0.55;
     }
 
     private void ApplyShortcutSettings(SettingsSnapshot value)
@@ -154,15 +207,15 @@ public sealed partial class MainPage : Page
         PunctuationShortcutEnabled.IsOn = value.PunctuationShortcutEnabled;
         TextNavigationShortcutEnabled.IsOn = value.TextNavigationShortcutEnabled;
         TextNavigationSelectEnabled.IsOn = value.TextNavigationSelectEnabled;
-            SetShortcutBindings("correction", value.CorrectionShortcuts);
-            SetShortcutBindings("language", value.LanguageShortcuts);
-            SetShortcutBindings("raw", value.RawInputShortcuts);
-            SetShortcutBindings("cursor-left", value.CursorLeftShortcuts);
-            SetShortcutBindings("cursor-right", value.CursorRightShortcuts);
-            SetShortcutBindings("previous-page", value.PreviousPageShortcuts);
-            SetShortcutBindings("next-page", value.NextPageShortcuts);
-            SetShortcutBindings("punctuation", value.PunctuationShortcuts);
-            SetShortcutBindings("text-navigation", value.TextNavigationShortcuts);
+        SetShortcutBindings("correction", value.CorrectionShortcuts);
+        SetShortcutBindings("language", value.LanguageShortcuts);
+        SetShortcutBindings("raw", value.RawInputShortcuts);
+        SetShortcutBindings("cursor-left", value.CursorLeftShortcuts);
+        SetShortcutBindings("cursor-right", value.CursorRightShortcuts);
+        SetShortcutBindings("previous-page", value.PreviousPageShortcuts);
+        SetShortcutBindings("next-page", value.NextPageShortcuts);
+        SetShortcutBindings("punctuation", value.PunctuationShortcuts);
+        SetShortcutBindings("text-navigation", value.TextNavigationShortcuts);
         UpdateShortcutButtons();
     }
 
@@ -172,7 +225,7 @@ public sealed partial class MainPage : Page
         try {
             ValidateShortcutConflicts();
             var value = new SettingsSnapshot(
-                InputScheme.SelectedIndex == 1 ? "exact_code" : "full_pinyin",
+                (InputScheme.SelectedItem as InputSchemeOption)?.Id ?? "full_pinyin",
                 (uint)CandidatePageSize.Value,
                 (uint)CandidateWrapLength.Value,
                 CandidatePartition.IsOn,
@@ -240,9 +293,13 @@ public sealed partial class MainPage : Page
                 return;
             }
             var defaults = await _client.LoadDefaultsAsync();
-            if (_currentPage == "general") ApplyGeneralSettings(defaults);
-            else if (_currentPage == "shortcuts") ApplyShortcutSettings(defaults);
-            else return;
+            switch (_currentPage) {
+                case "schemes": ApplySchemeSettings(defaults); break;
+                case "candidates": ApplyCandidateSettings(defaults); break;
+                case "intelligence": ApplyIntelligenceSettings(defaults); break;
+                case "shortcuts": ApplyShortcutSettings(defaults); break;
+                default: return;
+            }
             ShowStatus("本页已恢复默认值；点击“保存”后应用。", InfoBarSeverity.Success);
         } catch (Exception error) {
             ShowStatus($"恢复默认值失败：{error.Message}", InfoBarSeverity.Error);
@@ -274,20 +331,50 @@ public sealed partial class MainPage : Page
     private void ShowPage(string page)
     {
         _currentPage = page;
-        GeneralSettingsPage.Visibility = page == "general"
+        var generalPage = page is "schemes" or "candidates" or "intelligence";
+        GeneralSettingsPage.Visibility = generalPage
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         ShortcutSettingsPage.Visibility = page == "shortcuts"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         PluginSettingsPage.Visibility = page == "plugins"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-        ResetPageButton.Visibility = page is "general" or "shortcuts" or "plugins"
+        SetVisibility(page == "schemes", InputSchemeSectionTitle, InputSchemeCard,
+                      InputSchemeCapabilities);
+        SetVisibility(page == "candidates", CandidateSectionTitle,
+                      CandidatePageSizeCard, CandidateWrapLengthCard,
+                      CandidatePartitionCard, CandidateImmediateCommitCard,
+                      FocusLossCommitCard, ChinesePunctuationCard,
+                      AltCodeSectionTitle, AltCodePreviewCard,
+                      AltCodePreviewPageSizeCard, AltCodePreviewWheelCard);
+        SetVisibility(page == "intelligence", LearningSectionTitle,
+                      UserLearningCard, LearningSensitivityCard,
+                      ModelRankingCard, ModelTimeoutCard);
+        if (generalPage) GeneralSettingsPage.ChangeView(null, 0, null, true);
+        var configurationPage = generalPage || page == "shortcuts";
+        SaveButton.Visibility = configurationPage
+            ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        ReloadButton.Visibility = configurationPage
+            ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        ResetPageButton.Visibility = page is "schemes" or "candidates" or
+            "intelligence" or "shortcuts" or "plugins"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         (CurrentPageTitle.Text, CurrentPageDescription.Text) = page switch {
+            "schemes" => ("输入方案", "选择编码方案并查看当前方案能力"),
+            "candidates" => ("候选与输入", "调整候选显示、组合上屏、标点和符号预览"),
+            "intelligence" => ("学习与排序", "管理本地词频学习、上下文排序和模型预算"),
             "shortcuts" => ("快捷键", "管理输入、翻页和模式切换的多组按键绑定"),
             "plugins" => ("插件", "安装、授权、配置和维护 OwO 插件"),
-            _ => ("常规", "候选、学习、排序与输入体验"),
+            _ => ("输入方案", "选择编码方案并查看当前方案能力"),
         };
+    }
+
+    private static void SetVisibility(
+        bool visible, params Microsoft.UI.Xaml.FrameworkElement[] elements)
+    {
+        var value = visible ? Microsoft.UI.Xaml.Visibility.Visible
+                            : Microsoft.UI.Xaml.Visibility.Collapsed;
+        foreach (var element in elements) element.Visibility = value;
     }
 
     private void InitializeSearchIndex()
@@ -295,20 +382,20 @@ public sealed partial class MainPage : Page
         void Add(string title, string detail, string page,
                  Microsoft.UI.Xaml.FrameworkElement target) =>
             _baseSearchItems.Add(new SearchItem(title, detail, page, target));
-        Add("每页候选数", "候选 显示 数量", "general", CandidatePageSizeCard);
-        Add("输入方案", "全拼 拼音 精确编码 表码", "general", InputSchemeCard);
-        Add("候选词换行长度", "长词 换行", "general", CandidateWrapLengthCard);
-        Add("候选分区", "字典区 单字区", "general", CandidatePartitionCard);
-        Add("候选词即时上屏", "暂存 组合 上屏", "general", CandidateImmediateCommitCard);
-        Add("失焦保护", "候选框 关闭 上屏", "general", FocusLossCommitCard);
-        Add("中文标点", "全角 标点", "general", ChinesePunctuationCard);
-        Add("用户词频学习", "学习 词频", "general", UserLearningCard);
-        Add("词频学习灵敏度", "灵敏度 1 10", "general", LearningSensitivityCard);
-        Add("智能排序", "模型 上下文 本地", "general", ModelRankingCard);
-        Add("外部模型预算", "模型 超时 毫秒", "general", ModelTimeoutCard);
-        Add("Alt 数字符号预览", "小键盘 符号", "general", AltCodePreviewCard);
-        Add("符号预览每页项数", "Alt 数量", "general", AltCodePreviewPageSizeCard);
-        Add("符号预览鼠标滚轮翻页", "Alt 滚轮", "general", AltCodePreviewWheelCard);
+        Add("输入方案", "全拼 拼音 精确编码 表码", "schemes", InputSchemeCard);
+        Add("每页候选数", "候选 显示 数量", "candidates", CandidatePageSizeCard);
+        Add("候选词换行长度", "长词 换行", "candidates", CandidateWrapLengthCard);
+        Add("候选分区", "字典区 单字区", "candidates", CandidatePartitionCard);
+        Add("候选词即时上屏", "暂存 组合 上屏", "candidates", CandidateImmediateCommitCard);
+        Add("失焦保护", "候选框 关闭 上屏", "candidates", FocusLossCommitCard);
+        Add("中文标点", "全角 标点", "candidates", ChinesePunctuationCard);
+        Add("用户词频学习", "学习 词频", "intelligence", UserLearningCard);
+        Add("词频学习灵敏度", "灵敏度 1 10", "intelligence", LearningSensitivityCard);
+        Add("智能排序", "模型 上下文 本地", "intelligence", ModelRankingCard);
+        Add("外部模型预算", "模型 超时 毫秒", "intelligence", ModelTimeoutCard);
+        Add("Alt 数字符号预览", "小键盘 符号", "candidates", AltCodePreviewCard);
+        Add("符号预览每页项数", "Alt 数量", "candidates", AltCodePreviewPageSizeCard);
+        Add("符号预览鼠标滚轮翻页", "Alt 滚轮", "candidates", AltCodePreviewWheelCard);
         Add("切换中文标点", "快捷键", "shortcuts", PunctuationShortcutCard);
         Add("切换输入纠错", "快捷键 全拼 严格输入", "shortcuts", CorrectionShortcutCard);
         Add("切换中英文输入", "快捷键 语言", "shortcuts", LanguageShortcutCard);
@@ -362,9 +449,12 @@ public sealed partial class MainPage : Page
             return;
         }
         SettingsNavigation.SelectedItem = item.Page switch {
+            "schemes" => SchemeNavigationItem,
+            "candidates" => CandidateNavigationItem,
+            "intelligence" => IntelligenceNavigationItem,
             "shortcuts" => ShortcutNavigationItem,
             "plugins" => PluginNavigationItem,
-            _ => GeneralNavigationItem,
+            _ => SchemeNavigationItem,
         };
         ShowPage(item.Page);
         if (item.Target is not null) DispatcherQueue.TryEnqueue(() => {
@@ -694,6 +784,8 @@ public sealed partial class MainPage : Page
             PluginSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
             ResetPageButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            SaveButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            ReloadButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             CurrentPageTitle.Text = _pluginSettings.Title;
             CurrentPageDescription.Text = $"{plugin.Name} {plugin.Version} · {plugin.Id}";
             PluginConfigNotice.Message = _pluginSettings.Description;
@@ -1177,6 +1269,7 @@ public sealed partial class MainPage : Page
     private void SetBusy(bool busy)
     {
         SaveButton.IsEnabled = !busy;
+        ReloadButton.IsEnabled = !busy;
         ResetPageButton.IsEnabled = !busy;
         PluginConfigResetButton.IsEnabled = !busy && _pluginSettings?.Fields.Count != 0;
         ShortcutSection.IsEnabled = !busy;

@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Windows.Graphics;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -21,7 +22,21 @@ public sealed partial class MainWindow : Window
 
         AppWindow.SetIcon("Assets/AppIcon.ico");
 
-        // Navigate the root frame to the main page on startup.
-        RootFrame.Navigate(typeof(MainPage));
+        if (App.InstallPackageRoot is not null) {
+            AppWindow.Resize(new SizeInt32(1040, 760));
+            AppTitleBar.Title = "安装 OwO 输入法";
+            try {
+                RootFrame.Content = new SetupPage();
+            } catch (Exception error) {
+                RootFrame.Content = new Microsoft.UI.Xaml.Controls.TextBlock {
+                    Text = $"安装界面无法启动：{error.Message}",
+                    TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
+                    Margin = new Microsoft.UI.Xaml.Thickness(32)
+                };
+            }
+        } else {
+            AppWindow.Resize(new SizeInt32(1080, 760));
+            RootFrame.Navigate(typeof(MainPage));
+        }
     }
 }

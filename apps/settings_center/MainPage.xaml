@@ -61,9 +61,19 @@
                 </StackPanel>
             </NavigationView.PaneHeader>
             <NavigationView.MenuItems>
-                <NavigationViewItem x:Name="GeneralNavigationItem" Content="常规" Tag="general" IsSelected="True">
+                <NavigationViewItem x:Name="SchemeNavigationItem" Content="输入方案" Tag="schemes" IsSelected="True">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph=""/>
+                        <FontIcon Glyph=""/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="CandidateNavigationItem" Content="候选与输入" Tag="candidates">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph=""/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="IntelligenceNavigationItem" Content="学习与排序" Tag="intelligence">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph=""/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="ShortcutNavigationItem" Content="快捷键" Tag="shortcuts">
@@ -110,15 +120,15 @@
                 </VisualStateManager.VisualStateGroups>
                 <Grid x:Name="PageHeaderArea" Margin="32,6,32,16" Grid.Row="0">
                     <StackPanel x:Name="PageHeaderContent" Spacing="4" HorizontalAlignment="Stretch" MaxWidth="960">
-                        <TextBlock x:Name="CurrentPageTitle" Text="常规" Style="{StaticResource TitleTextBlockStyle}"/>
-                        <TextBlock x:Name="CurrentPageDescription" Text="候选、学习、排序与输入体验" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock x:Name="CurrentPageTitle" Text="输入方案" Style="{StaticResource TitleTextBlockStyle}"/>
+                        <TextBlock x:Name="CurrentPageDescription" Text="选择编码方案并查看当前方案能力" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     </StackPanel>
                 </Grid>
                 <Grid Grid.Row="1">
                     <ScrollViewer x:Name="GeneralSettingsPage" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                         <Grid x:Name="GeneralContentArea" Margin="32,0,32,24">
                             <StackPanel Margin="0" Spacing="8" HorizontalAlignment="Stretch" MaxWidth="960">
-                                <TextBlock Text="候选与输入" Style="{StaticResource SectionTitleStyle}"/>
+                                <TextBlock x:Name="InputSchemeSectionTitle" Text="当前输入方案" Style="{StaticResource SectionTitleStyle}"/>
                                 <Border x:Name="InputSchemeCard" Style="{StaticResource SettingsCardStyle}">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
@@ -127,14 +137,13 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="3">
                                             <TextBlock Text="输入方案" Style="{StaticResource SettingTitleStyle}"/>
-                                            <TextBlock Text="全拼为默认方案；精确编码仅按撇号分段，不启用拼音纠错、补全或简拼。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                            <TextBlock x:Name="InputSchemeDescription" Text="选择用于解释预编辑编码的输入方案。" Style="{StaticResource SettingDescriptionStyle}"/>
                                         </StackPanel>
-                                        <ComboBox x:Name="InputScheme" Grid.Column="1" MinWidth="180" SelectedIndex="0" VerticalAlignment="Center" SelectionChanged="InputScheme_SelectionChanged">
-                                            <ComboBoxItem Content="全拼"/>
-                                            <ComboBoxItem Content="精确编码（实验性）"/>
-                                        </ComboBox>
+                                        <ComboBox x:Name="InputScheme" Grid.Column="1" MinWidth="200" SelectedValuePath="Id" DisplayMemberPath="Name" VerticalAlignment="Center" SelectionChanged="InputScheme_SelectionChanged"/>
                                     </Grid>
                                 </Border>
+                                <InfoBar x:Name="InputSchemeCapabilities" IsOpen="True" IsClosable="False" Severity="Informational" Message="正在读取输入方案能力。"/>
+                                <TextBlock x:Name="CandidateSectionTitle" Text="候选显示与组合" Style="{StaticResource SectionTitleStyle}"/>
                                 <Border x:Name="CandidatePageSizeCard" Style="{StaticResource SettingsCardStyle}">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
@@ -213,7 +222,7 @@
                                         <ToggleSwitch x:Name="ChinesePunctuation" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
-                                <TextBlock Text="词频与智能排序" Style="{StaticResource SectionTitleStyle}"/>
+                                <TextBlock x:Name="LearningSectionTitle" Text="词频与智能排序" Style="{StaticResource SectionTitleStyle}"/>
                                 <Border x:Name="UserLearningCard" Style="{StaticResource SettingsCardStyle}">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
@@ -224,7 +233,7 @@
                                             <TextBlock Text="用户词频学习" Style="{StaticResource SettingTitleStyle}"/>
                                             <TextBlock Text="学习已上屏的候选与组合词，并加入本机用户词库。" Style="{StaticResource SettingDescriptionStyle}"/>
                                         </StackPanel>
-                                        <ToggleSwitch x:Name="UserLearning" Grid.Column="1" VerticalAlignment="Center"/>
+                                        <ToggleSwitch x:Name="UserLearning" Grid.Column="1" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="LearningSensitivityCard" Style="{StaticResource SettingsCardStyle}">
@@ -259,7 +268,7 @@
                                             <TextBlock Text="智能排序（本地自适应）" Style="{StaticResource SettingTitleStyle}"/>
                                             <TextBlock Text="结合最近上屏上下文重排候选，不上传输入数据。" Style="{StaticResource SettingDescriptionStyle}"/>
                                         </StackPanel>
-                                        <ToggleSwitch x:Name="ModelRanking" Grid.Column="1" VerticalAlignment="Center"/>
+                                        <ToggleSwitch x:Name="ModelRanking" Grid.Column="1" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="ModelTimeoutCard" Style="{StaticResource SettingsCardStyle}">
@@ -275,7 +284,7 @@
                                         <NumberBox x:Name="ModelTimeout" Grid.Column="1" Minimum="5" Maximum="500" SpinButtonPlacementMode="Inline" VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
-                                <TextBlock Text="Alt 数字符号预览" Style="{StaticResource SectionTitleStyle}"/>
+                                <TextBlock x:Name="AltCodeSectionTitle" Text="Alt 数字符号预览" Style="{StaticResource SectionTitleStyle}"/>
                                 <Border x:Name="AltCodePreviewCard" Style="{StaticResource SettingsCardStyle}">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
@@ -286,7 +295,7 @@
                                             <TextBlock Text="显示符号预览" Style="{StaticResource SettingTitleStyle}"/>
                                             <TextBlock Text="按住 Alt 输入小键盘数字时显示代码和结果。" Style="{StaticResource SettingDescriptionStyle}"/>
                                         </StackPanel>
-                                        <ToggleSwitch x:Name="AltCodePreview" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
+                                        <ToggleSwitch x:Name="AltCodePreview" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="AltCodePreviewPageSizeCard" Style="{StaticResource SettingsCardStyle}">
@@ -596,7 +605,7 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Button x:Name="SaveButton" Content="保存" Click="SaveButton_Click"/>
-                            <Button Grid.Column="1" Content="重新加载" Click="ReloadButton_Click"/>
+                            <Button x:Name="ReloadButton" Grid.Column="1" Content="重新加载" Click="ReloadButton_Click"/>
                             <Button x:Name="ResetPageButton" Grid.Column="2" Content="重置本页" Click="ResetPageButton_Click"/>
                             <InfoBar x:Name="Status" Grid.Column="3" IsOpen="True" Severity="Informational" Title="正在加载配置" IsClosable="False" HorizontalAlignment="Stretch"/>
                             <TextBlock x:Name="ConfigPath" Visibility="Collapsed"/>

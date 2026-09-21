@@ -22,6 +22,7 @@ namespace OwO_Settings;
 public partial class App : Application
 {
     private Window? _window;
+    internal static string? InstallPackageRoot { get; private set; }
     internal Window MainWindow => _window
         ?? throw new InvalidOperationException("主窗口尚未创建。");
     
@@ -54,6 +55,11 @@ public partial class App : Application
     /// <param name="args">Details about the launch request and process.</param>
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
+        var arguments = Environment.GetCommandLineArgs();
+        var installIndex = Array.FindIndex(arguments, value =>
+            value.Equals("--install", StringComparison.OrdinalIgnoreCase));
+        if (installIndex >= 0 && installIndex + 1 < arguments.Length)
+            InstallPackageRoot = arguments[installIndex + 1];
         _window = new MainWindow();
         _window.Activate();
     }
