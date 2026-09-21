@@ -118,6 +118,31 @@ int main() {
     if (std::any_of(learned_short_prefix.begin(), learned_short_prefix.end(),
                     [](const auto& value) { return value.text == "添加更多符号"; }))
         return fail("short prefix predicted an unrelated long learned phrase");
+    const auto contains_learned_phrase = [](const auto& candidates) {
+        return std::any_of(candidates.begin(), candidates.end(),
+                           [](const auto& candidate) {
+                               return candidate.text == "添加更多符号";
+                           });
+    };
+    if (contains_learned_phrase(learned_generator.generate(
+            schema.parse("tianjiagengduofu"), 32, false, {}, nullptr, {},
+            false, 0, false, 1)))
+        return fail("disabled user completion still recalled a prefix");
+    if (!contains_learned_phrase(learned_generator.generate(
+            schema.parse("tianjiagengduofuhao"), 32, false, {}, nullptr, {},
+            false, 0, false, 1)))
+        return fail("disabled user completion also disabled exact learned words");
+    if (contains_learned_phrase(learned_generator.generate(
+            schema.parse("tianjiagengduofu"), 32, false, {}, nullptr, {},
+            false, 0, true, 0)))
+        return fail("zero following syllables still recalled a longer phrase");
+    if (contains_learned_phrase(learned_generator.generate(
+            schema.parse("tianjiage"), 32, false, {}, nullptr, {},
+            false, 0, true, 2)) ||
+        !contains_learned_phrase(learned_generator.generate(
+            schema.parse("tianjiage"), 32, false, {}, nullptr, {},
+            false, 0, true, 3)))
+        return fail("user completion syllable range was not applied");
 
     const auto nihao = generator.generate(schema.parse("nihao"));
     if (nihao.size() != 2 || nihao[0].text != "你好" || nihao[1].text != "你号")

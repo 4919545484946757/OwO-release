@@ -258,6 +258,32 @@
                                         </Grid>
                                     </Grid>
                                 </Border>
+                                <Border x:Name="UserCompletionCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="用户词拼音补全" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="仅全拼方案：从拼音前缀补全本机用户词；完整编码仍可独立匹配。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="UserCompletion" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="UserCompletionRangeCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="最多补全后续音节" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="0 表示仅补完当前音节；数值越大，越早显示较长的用户词（0–8，默认 1）。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <NumberBox x:Name="UserCompletionRange" Grid.Column="1" Minimum="0" Maximum="8" Value="1" SpinButtonPlacementMode="Inline" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
                                 <Border x:Name="ModelRankingCard" Style="{StaticResource SettingsCardStyle}">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>

@@ -13,6 +13,8 @@ internal sealed record SettingsSnapshot(string InputScheme,
                                         bool AltCodePreviewWheelEnabled,
                                         uint UserLearningSensitivity,
                                         bool UserLearningEnabled,
+                                        bool UserCompletionEnabled,
+                                        uint UserCompletionMaxSyllables,
                                         bool ModelRankingEnabled, uint ModelTimeoutMs,
                                         bool CorrectionShortcutEnabled, IReadOnlyList<string> CorrectionShortcuts,
                                         bool LanguageShortcutEnabled, IReadOnlyList<string> LanguageShortcuts,
@@ -65,6 +67,8 @@ internal sealed class ConfigShellClient
                    bool.Parse(values["alt_code_preview_wheel_enabled"]),
                    uint.Parse(values["user_learning_sensitivity"]),
                    bool.Parse(values["user_learning_enabled"]),
+                   bool.Parse(values["user_lexicon_completion_enabled"]),
+                   uint.Parse(values["user_lexicon_completion_max_syllables"]),
                    bool.Parse(values["model_ranking_enabled"]),
                    uint.Parse(values["model_timeout_ms"]),
                    bool.Parse(values["correction_shortcut_enabled"]),
@@ -121,7 +125,9 @@ internal sealed class ConfigShellClient
                   value.TextNavigationShortcutEnabled.ToString().ToLowerInvariant(),
                   JoinShortcuts(value.TextNavigationShortcuts),
                   value.TextNavigationSelectEnabled.ToString().ToLowerInvariant(),
-                  value.InputScheme], cancellationToken);
+                  value.InputScheme,
+                  value.UserCompletionEnabled.ToString().ToLowerInvariant(),
+                  value.UserCompletionMaxSyllables.ToString()], cancellationToken);
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

@@ -62,6 +62,8 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         return parse_u32(value, config.alt_code_preview_page_size);
     if (field == L"user_learning_sensitivity")
         return parse_u32(value, config.user_learning_sensitivity);
+    if (field == L"user_lexicon_completion_max_syllables")
+        return parse_u32(value, config.user_lexicon_completion_max_syllables);
     if (field == L"model_timeout_ms") return parse_u32(value, config.model_timeout_ms);
     if (field == L"correction_shortcut")
         return parse_shortcuts(value, config.correction_shortcuts);
@@ -85,6 +87,8 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
     if (value == L"true") parsed = true;
     else if (value != L"false") return false;
     if (field == L"user_learning_enabled") config.user_learning_enabled = parsed;
+    else if (field == L"user_lexicon_completion_enabled")
+        config.user_lexicon_completion_enabled = parsed;
     else if (field == L"chinese_punctuation_enabled")
         config.chinese_punctuation_enabled = parsed;
     else if (field == L"punctuation_shortcut_enabled")
@@ -135,7 +139,8 @@ void usage() {
                  "[<alt-code-preview-enabled> <alt-code-preview-page-size> "
                  "<alt-code-preview-wheel-enabled> "
                  "[<candidate-immediate-commit-enabled> "
-                 "<focus-loss-commit-enabled> [<input-scheme>]]]]]]]] | "
+                 "<focus-loss-commit-enabled> [<input-scheme> "
+                 "[<user-completion-enabled> <user-completion-max-syllables>]]]]]]]]] | "
                  "watch <timeout-ms>\n";
 }
 
@@ -196,7 +201,7 @@ int wmain(const int argc, wchar_t** argv) {
     if (command == L"set-all" &&
         (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23 ||
          argc == 24 || argc == 27 || argc == 30 || argc == 32 || argc == 35 ||
-         argc == 36)) {
+         argc == 36 || argc == 38)) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);
         if (!loaded.success) return 3;
@@ -240,7 +245,10 @@ int wmain(const int argc, wchar_t** argv) {
              (!apply(value, L"text_navigation_shortcut_enabled", argv[32]) ||
               !apply(value, L"text_navigation_shortcut", argv[33]) ||
               !apply(value, L"text_navigation_select_enabled", argv[34]))) ||
-            (argc == 36 && !apply(value, L"input_scheme", argv[35]))) {
+            (argc >= 36 && !apply(value, L"input_scheme", argv[35])) ||
+            (argc == 38 &&
+             (!apply(value, L"user_lexicon_completion_enabled", argv[36]) ||
+              !apply(value, L"user_lexicon_completion_max_syllables", argv[37])))) {
             std::cerr << "invalid configuration value type\n";
             return 4;
         }

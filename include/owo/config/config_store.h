@@ -8,7 +8,7 @@
 
 namespace owo::config {
 
-inline constexpr std::uint32_t kConfigSchemaVersion = 13;
+inline constexpr std::uint32_t kConfigSchemaVersion = 14;
 
 struct AppConfig {
     std::string input_scheme{"full_pinyin"};
@@ -19,6 +19,8 @@ struct AppConfig {
     bool focus_loss_commit_enabled{false};
     bool user_learning_enabled{true};
     std::uint32_t user_learning_sensitivity{10};
+    bool user_lexicon_completion_enabled{true};
+    std::uint32_t user_lexicon_completion_max_syllables{1};
     bool chinese_punctuation_enabled{true};
     bool alt_code_preview_enabled{true};
     std::uint32_t alt_code_preview_page_size{4};

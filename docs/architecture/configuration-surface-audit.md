@@ -1,7 +1,7 @@
 # 配置界面与运行时合约审计
 
 - 审计日期：2026-09-21
-- 配置版本：Schema v13
+- 配置版本：Schema v14
 
 设置中心只通过 `owo_config_shell` 读取和原子保存配置，不直接修改配置文件。Core Service
 在候选请求边界热加载候选、学习和模型配置；TSF 以短周期读取输入行为及快捷键配置。
@@ -20,12 +20,13 @@
 | 候选与输入 | `alt_code_preview_*` | TSF | 下一次 Alt 数字预览和滚轮操作 |
 | 学习与排序 | `user_learning_enabled` | Core | 下一次候选提交反馈 |
 | 学习与排序 | `user_learning_sensitivity` | Core | 下一候选请求及学习更新 |
+| 学习与排序 | `user_lexicon_completion_enabled`、`user_lexicon_completion_max_syllables` | Core | 下一候选请求；只影响用户词前缀补全，不影响完整编码匹配 |
 | 学习与排序 | `model_ranking_enabled` | Core | 下一候选请求；关闭时基础候选不等待 ModelHost |
 | 学习与排序 | `model_timeout_ms` | Core | 下一次模型排序请求 |
 | 快捷键 | 纠错、语言、原样上屏、光标、翻页、标点、文本导航 | TSF | 短周期热加载；列表支持多绑定并校验冲突 |
 | 快捷键 | `text_navigation_select_enabled` | TSF | 下一次应用文本光标移动 |
 
-界面依赖关系：关闭用户学习时禁用灵敏度控件；关闭智能排序时禁用模型预算；关闭 Alt
+界面依赖关系：关闭用户学习时禁用灵敏度控件；关闭用户词补全时禁用范围控件；关闭智能排序时禁用模型预算；关闭 Alt
 符号预览时禁用其页大小和滚轮选项；非全拼方案禁用纠错快捷键编辑。这些只是界面能力
 约束，保存时仍保留其他方案的原设置，用户切回方案后无需重新配置。
 

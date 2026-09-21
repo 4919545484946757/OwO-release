@@ -192,6 +192,8 @@ ConfigValidationResult validate_config(const AppConfig& value) {
         return {false, "alt_code_preview_page_size must be between 2 and 10"};
     if (value.user_learning_sensitivity < 1 || value.user_learning_sensitivity > 10)
         return {false, "user_learning_sensitivity must be between 1 and 10"};
+    if (value.user_lexicon_completion_max_syllables > 8)
+        return {false, "user_lexicon_completion_max_syllables must be between 0 and 8"};
     if (value.model_timeout_ms < 5 || value.model_timeout_ms > 500)
         return {false, "model_timeout_ms must be between 5 and 500"};
     const auto valid_list = [](const bool enabled,
@@ -288,6 +290,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
         "text_navigation_shortcut_enabled", "text_navigation_shortcut",
         "text_navigation_select_enabled"};
     constexpr std::string_view input_scheme_required[]{"input_scheme"};
+    constexpr std::string_view user_completion_required[]{
+        "user_lexicon_completion_enabled", "user_lexicon_completion_max_syllables"};
     const auto expected_size = std::size(base_required) +
                                (version >= 2 ? std::size(shortcut_required) : 0) +
                                (version >= 3 ? std::size(wrap_required) : 0) +
@@ -298,7 +302,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 9 ? std::size(alt_code_preview_required) : 0) +
                                (version >= 10 ? std::size(composition_required) : 0) +
                                (version >= 12 ? std::size(text_navigation_required) : 0) +
-                               (version >= 13 ? std::size(input_scheme_required) : 0);
+                               (version >= 13 ? std::size(input_scheme_required) : 0) +
+                               (version >= 14 ? std::size(user_completion_required) : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -334,8 +339,17 @@ ConfigParseResult parse_config(const std::string_view utf8) {
             return {false, {}, "configuration fields are missing or unknown"};
     if (version >= 13 && !fields.contains("input_scheme"))
         return {false, {}, "configuration fields are missing or unknown"};
+    if (version >= 14) for (const auto key : user_completion_required)
+        if (!fields.contains(std::string(key)))
+            return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
     if (version >= 13) value.input_scheme = fields["input_scheme"];
+    if (version >= 14 &&
+        (!parse_bool(fields["user_lexicon_completion_enabled"],
+                     value.user_lexicon_completion_enabled) ||
+         !parse_u32(fields["user_lexicon_completion_max_syllables"],
+                    value.user_lexicon_completion_max_syllables)))
+        return {false, {}, "configuration field type is invalid"};
     if (!parse_u32(fields["candidate_page_size"], value.candidate_page_size) ||
         !parse_bool(fields["user_learning_enabled"], value.user_learning_enabled) ||
         !parse_bool(fields["model_ranking_enabled"], value.model_ranking_enabled) ||
@@ -482,6 +496,10 @@ std::string serialize_config(const AppConfig& value) {
            "\nuser_learning_enabled=" + (value.user_learning_enabled ? std::string("true") : "false") +
            "\nuser_learning_sensitivity=" +
                std::to_string(value.user_learning_sensitivity) +
+           "\nuser_lexicon_completion_enabled=" +
+               (value.user_lexicon_completion_enabled ? std::string("true") : "false") +
+           "\nuser_lexicon_completion_max_syllables=" +
+               std::to_string(value.user_lexicon_completion_max_syllables) +
            "\nmodel_ranking_enabled=" + (value.model_ranking_enabled ? std::string("true") : "false") +
            "\nmodel_timeout_ms=" + std::to_string(value.model_timeout_ms) +
            "\ncorrection_shortcut_enabled=" +

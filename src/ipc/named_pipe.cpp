@@ -1208,6 +1208,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
             const auto candidate_page_size = runtime_config != nullptr
                                                  ? runtime_config->candidate_page_size
                                                  : 7U;
+            const bool user_completion_enabled = runtime_config == nullptr ||
+                runtime_config->user_lexicon_completion_enabled;
+            const auto user_completion_max_syllables = runtime_config != nullptr
+                ? runtime_config->user_lexicon_completion_max_syllables : 1U;
             const bool candidate_partition_enabled = runtime_config == nullptr ||
                 runtime_config->candidate_partition_enabled;
             if (decoded.message.type == protocol::MessageType::shutdown_request) {
@@ -1602,7 +1606,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             parsed, generation_limit, adaptive_ranking_enabled,
                             decoded.message.context, &generation_metrics, cancelled,
                             external_model_ranking_enabled,
-                            partitioned_layout ? page_size : 0);
+                            partitioned_layout ? page_size : 0,
+                            user_completion_enabled, user_completion_max_syllables);
                         generation_phase_us += static_cast<std::uint64_t>(
                             std::chrono::duration_cast<std::chrono::microseconds>(
                                 std::chrono::steady_clock::now() -
@@ -1671,7 +1676,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 adaptive_ranking_enabled,
                                 decoded.message.context, &corrected_generation_metrics,
                                 cancelled, external_model_ranking_enabled,
-                                partitioned_layout ? page_size : 0);
+                                partitioned_layout ? page_size : 0,
+                                user_completion_enabled, user_completion_max_syllables);
                             generation_phase_us += static_cast<std::uint64_t>(
                                 std::chrono::duration_cast<std::chrono::microseconds>(
                                     std::chrono::steady_clock::now() -

@@ -36,6 +36,8 @@ int main(const int argc, char** argv) {
     changed.focus_loss_commit_enabled = true;
     changed.user_learning_enabled = false;
     changed.user_learning_sensitivity = 9;
+    changed.user_lexicon_completion_enabled = false;
+    changed.user_lexicon_completion_max_syllables = 4;
     changed.model_ranking_enabled = true;
     changed.model_timeout_ms = 80;
     changed.correction_shortcuts = {"Ctrl+Alt+C", "F8"};
@@ -98,6 +100,9 @@ int main(const int argc, char** argv) {
     invalid_value.user_learning_sensitivity = 11;
     if (fallback.save(invalid_value).success) return 29;
     invalid_value = fallback.snapshot();
+    invalid_value.user_lexicon_completion_max_syllables = 9;
+    if (fallback.save(invalid_value).success) return 37;
+    invalid_value = fallback.snapshot();
     invalid_value.alt_code_preview_page_size = 1;
     if (fallback.save(invalid_value).success) return 33;
     invalid_value = fallback.snapshot();
@@ -135,7 +140,23 @@ int main(const int argc, char** argv) {
         legacy.value.punctuation_shortcut_enabled ||
         !legacy.value.punctuation_shortcuts.empty()) return 20;
 
-    auto version_ten_text = owo::config::serialize_config(owo::config::AppConfig{});
+    auto version_thirteen_text = owo::config::serialize_config(owo::config::AppConfig{});
+    version_thirteen_text.replace(version_thirteen_text.find("schema_version=14"),
+                                  std::string("schema_version=14").size(),
+                                  "schema_version=13");
+    for (const auto key : {"user_lexicon_completion_enabled=",
+                           "user_lexicon_completion_max_syllables="}) {
+        const auto begin = version_thirteen_text.find(key);
+        if (begin == std::string::npos) return 38;
+        version_thirteen_text.erase(begin,
+            version_thirteen_text.find('\n', begin) - begin + 1);
+    }
+    const auto version_thirteen = owo::config::parse_config(version_thirteen_text);
+    if (!version_thirteen.ok ||
+        !version_thirteen.value.user_lexicon_completion_enabled ||
+        version_thirteen.value.user_lexicon_completion_max_syllables != 1)
+        return 39;
+    auto version_ten_text = version_thirteen_text;
     version_ten_text.replace(version_ten_text.find("schema_version=13"),
                              std::string("schema_version=13").size(),
                              "schema_version=10");
@@ -178,7 +199,9 @@ int main(const int argc, char** argv) {
         !version_two.value.candidate_partition_enabled ||
         !version_two.value.candidate_immediate_commit_enabled ||
         version_two.value.focus_loss_commit_enabled ||
-        version_two.value.user_learning_sensitivity != 10) return 24;
+        version_two.value.user_learning_sensitivity != 10 ||
+        !version_two.value.user_lexicon_completion_enabled ||
+        version_two.value.user_lexicon_completion_max_syllables != 1) return 24;
 
     auto duplicate_shortcuts = changed;
     duplicate_shortcuts.raw_input_shortcut_enabled = true;

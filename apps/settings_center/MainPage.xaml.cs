@@ -152,6 +152,8 @@ public sealed partial class MainPage : Page
     {
         UserLearningSensitivity.Value = value.UserLearningSensitivity;
         UserLearning.IsOn = value.UserLearningEnabled;
+        UserCompletion.IsOn = value.UserCompletionEnabled;
+        UserCompletionRange.Value = value.UserCompletionMaxSyllables;
         ModelRanking.IsOn = value.ModelRankingEnabled;
         ModelTimeout.Value = value.ModelTimeoutMs;
         UpdateDependentSettings();
@@ -173,6 +175,7 @@ public sealed partial class MainPage : Page
         var enabled = scheme.Id == "full_pinyin";
         CorrectionShortcutCard.IsHitTestVisible = enabled;
         CorrectionShortcutCard.Opacity = enabled ? 1.0 : 0.55;
+        UpdateDependentSettings();
     }
 
     private void DependentSetting_Toggled(
@@ -181,9 +184,15 @@ public sealed partial class MainPage : Page
 
     private void UpdateDependentSettings()
     {
-        if (LearningSensitivityCard is null || ModelTimeoutCard is null ||
+        if (LearningSensitivityCard is null || UserCompletionCard is null ||
+            UserCompletionRangeCard is null ||
+            ModelTimeoutCard is null ||
             AltCodePreviewPageSizeCard is null || AltCodePreviewWheelCard is null) return;
         SetCardEnabled(LearningSensitivityCard, UserLearning.IsOn);
+        var pinyinScheme = (InputScheme.SelectedItem as InputSchemeOption)?.Id ==
+            "full_pinyin";
+        SetCardEnabled(UserCompletionCard, pinyinScheme);
+        SetCardEnabled(UserCompletionRangeCard, pinyinScheme && UserCompletion.IsOn);
         SetCardEnabled(ModelTimeoutCard, ModelRanking.IsOn);
         SetCardEnabled(AltCodePreviewPageSizeCard, AltCodePreview.IsOn);
         SetCardEnabled(AltCodePreviewWheelCard, AltCodePreview.IsOn);
@@ -236,7 +245,9 @@ public sealed partial class MainPage : Page
                 (uint)AltCodePreviewPageSize.Value,
                 AltCodePreviewWheel.IsOn,
                 (uint)UserLearningSensitivity.Value,
-                UserLearning.IsOn, ModelRanking.IsOn, (uint)ModelTimeout.Value,
+                UserLearning.IsOn, UserCompletion.IsOn,
+                (uint)UserCompletionRange.Value,
+                ModelRanking.IsOn, (uint)ModelTimeout.Value,
                 CorrectionShortcutEnabled.IsOn, ShortcutValues("correction"),
                 LanguageShortcutEnabled.IsOn, ShortcutValues("language"),
                 RawInputShortcutEnabled.IsOn, ShortcutValues("raw"),
@@ -349,6 +360,7 @@ public sealed partial class MainPage : Page
                       AltCodePreviewPageSizeCard, AltCodePreviewWheelCard);
         SetVisibility(page == "intelligence", LearningSectionTitle,
                       UserLearningCard, LearningSensitivityCard,
+                      UserCompletionCard, UserCompletionRangeCard,
                       ModelRankingCard, ModelTimeoutCard);
         if (generalPage) GeneralSettingsPage.ChangeView(null, 0, null, true);
         var configurationPage = generalPage || page == "shortcuts";
@@ -391,6 +403,8 @@ public sealed partial class MainPage : Page
         Add("中文标点", "全角 标点", "candidates", ChinesePunctuationCard);
         Add("用户词频学习", "学习 词频", "intelligence", UserLearningCard);
         Add("词频学习灵敏度", "灵敏度 1 10", "intelligence", LearningSensitivityCard);
+        Add("用户词拼音补全", "学习 词库 前缀 补全", "intelligence", UserCompletionCard);
+        Add("最多补全后续音节", "用户词 补全 范围 长短", "intelligence", UserCompletionRangeCard);
         Add("智能排序", "模型 上下文 本地", "intelligence", ModelRankingCard);
         Add("外部模型预算", "模型 超时 毫秒", "intelligence", ModelTimeoutCard);
         Add("Alt 数字符号预览", "小键盘 符号", "candidates", AltCodePreviewCard);

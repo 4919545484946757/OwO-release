@@ -5,6 +5,7 @@
 #include "owo/ipc/named_pipe.h"
 #include "owo/protocol/messages.h"
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <iostream>
@@ -50,6 +51,7 @@ int wmain(int argc, wchar_t** argv) {
     if (!monitor.start(config_path, std::chrono::milliseconds(10)).success) return 2;
     owo::engine::UserFrequencyStore frequencies;
     if (!frequencies.load(frequency_path).success) return 2;
+    frequencies.record("tianjiagengduofuhao", "添加更多符号", 2);
     const owo::engine::MemoryLexicon lexicon({
         {{"ce"}, "测", 1000}, {{"ce"}, "侧", 900},
         {{"ce"}, "策", 800}, {{"ce"}, "册", 700},
@@ -139,6 +141,25 @@ int wmain(int argc, wchar_t** argv) {
         monitor.wait_for_generation(generation_before_legacy, std::chrono::seconds(2));
     const auto legacy_layout = send(
         pipe, {owo::protocol::MessageType::candidate_request, 25, 1, "gd"});
+    const auto completion_default = send(
+        pipe, {owo::protocol::MessageType::candidate_request, 30, 1, "tianjiage"});
+    const auto generation_before_completion = monitor.generation();
+    config.user_lexicon_completion_max_syllables = 3;
+    const bool completion_range_reload = writer.save(config).success &&
+        monitor.wait_for_generation(generation_before_completion,
+                                    std::chrono::seconds(2));
+    const auto completion_extended = send(
+        pipe, {owo::protocol::MessageType::candidate_request, 31, 1, "tianjiage"});
+    const auto generation_before_completion_disable = monitor.generation();
+    config.user_lexicon_completion_enabled = false;
+    const bool completion_disabled_reload = writer.save(config).success &&
+        monitor.wait_for_generation(generation_before_completion_disable,
+                                    std::chrono::seconds(2));
+    const auto completion_disabled = send(
+        pipe, {owo::protocol::MessageType::candidate_request, 32, 1, "tianjiage"});
+    const auto exact_learned_word = send(
+        pipe, {owo::protocol::MessageType::candidate_request, 33, 1,
+               "tianjiagengduofuhao"});
     const auto generation_before_scheme = monitor.generation();
     config.input_scheme = "exact_code";
     const bool exact_code_reload = writer.save(config).success &&
@@ -155,6 +176,7 @@ int wmain(int argc, wchar_t** argv) {
     const auto loaded = persisted.load(frequency_path);
     const bool ok = enabled_reload && disabled_reload && partition_enabled_reload &&
                     legacy_reload && exact_code_reload &&
+                    completion_range_reload && completion_disabled_reload &&
                     acknowledged(disabled, "commit_ack") &&
                     acknowledged(enabled, "commit_ack") &&
                     language_ranked.validation &&
@@ -197,6 +219,22 @@ int wmain(int argc, wchar_t** argv) {
                     legacy_layout.validation &&
                     !legacy_layout.message.candidates.empty() &&
                     legacy_layout.message.candidate_groups.empty() &&
+                    completion_default.validation &&
+                    std::find(completion_default.message.candidates.begin(),
+                              completion_default.message.candidates.end(),
+                              "添加更多符号") == completion_default.message.candidates.end() &&
+                    completion_extended.validation &&
+                    std::find(completion_extended.message.candidates.begin(),
+                              completion_extended.message.candidates.end(),
+                              "添加更多符号") != completion_extended.message.candidates.end() &&
+                    completion_disabled.validation &&
+                    std::find(completion_disabled.message.candidates.begin(),
+                              completion_disabled.message.candidates.end(),
+                              "添加更多符号") == completion_disabled.message.candidates.end() &&
+                    exact_learned_word.validation &&
+                    std::find(exact_learned_word.message.candidates.begin(),
+                              exact_learned_word.message.candidates.end(),
+                              "添加更多符号") != exact_learned_word.message.candidates.end() &&
                     exact_code_candidates.validation &&
                     !exact_code_candidates.message.candidates.empty() &&
                     exact_code_candidates.message.candidates.front() == "你好" &&

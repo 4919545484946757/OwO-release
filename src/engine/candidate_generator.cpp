@@ -452,7 +452,9 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                     CandidateGenerationMetrics* const metrics,
                                                     const std::function<bool()>& cancelled,
                                                     const bool include_model_alternatives,
-                                                    const std::size_t partition_page_size) const {
+                                                    const std::size_t partition_page_size,
+                                                    const bool user_completion_enabled,
+                                                    const std::size_t user_completion_max_syllables) const {
     if (!parsed.valid || limit == 0) return {};
     // A normal first page needs only page_size + one look-ahead candidate.
     // Keeping a small quality margin avoids the former 32-result floor, which
@@ -675,7 +677,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 return value.match_kind == InputMatchKind::exact ||
                        value.match_kind == InputMatchKind::incomplete_completion;
             });
-        if (phonetic_assistance && prefix_path != parsed.paths.end()) {
+        if (phonetic_assistance && user_completion_enabled &&
+            prefix_path != parsed.paths.end()) {
             const auto learned_prefixes = user_frequency_->lookup_prefix(
                 lookup_input, search_limit);
             const auto learned_segments = source_segments(parsed, *prefix_path);
@@ -684,12 +687,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             for (const auto& syllable : prefix_path->syllables)
                 learned_syllables.push_back(syllable.text);
             for (const auto& entry : learned_prefixes) {
-                // A learned word can complete the current syllable or one
-                // following syllable. More distant prefixes are predictions,
-                // not ordinary pinyin candidates: e.g. tianjiage must not
-                // recall tianjiagengduofuhao -> 添加更多符号.
+                // Keep distant user-lexicon predictions out of ordinary
+                // candidates unless the user explicitly raises the completion
+                // range. Zero still allows completing the current syllable.
                 if (utf8_character_count(entry.text) >
-                    learned_syllables.size() + 1)
+                    learned_syllables.size() + user_completion_max_syllables)
                     continue;
                 const auto completion_characters =
                     entry.input.size() - lookup_input.size();
