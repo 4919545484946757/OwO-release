@@ -102,6 +102,23 @@ int main() {
         !learned_missing_syllable_candidates.front().user_lexicon)
         return fail("a complete shorter reading displaced an incomplete learned word");
 
+    learned_words.record("tianjiagengduofuhao", "添加更多符号", 2);
+    const auto learned_long_word = learned_generator.generate(
+        schema.parse("tianjiagengduofuhao"));
+    if (std::none_of(learned_long_word.begin(), learned_long_word.end(),
+                     [](const auto& value) { return value.text == "添加更多符号"; }))
+        return fail("full learned phrase was not recalled");
+    const auto learned_near_complete = learned_generator.generate(
+        schema.parse("tianjiagengduofu"));
+    if (std::none_of(learned_near_complete.begin(), learned_near_complete.end(),
+                     [](const auto& value) { return value.text == "添加更多符号"; }))
+        return fail("one missing syllable no longer recalls a learned phrase");
+    const auto learned_short_prefix = learned_generator.generate(
+        schema.parse("tianjiage"));
+    if (std::any_of(learned_short_prefix.begin(), learned_short_prefix.end(),
+                    [](const auto& value) { return value.text == "添加更多符号"; }))
+        return fail("short prefix predicted an unrelated long learned phrase");
+
     const auto nihao = generator.generate(schema.parse("nihao"));
     if (nihao.size() != 2 || nihao[0].text != "你好" || nihao[1].text != "你号")
         return fail("real Chinese nihao candidates failed");

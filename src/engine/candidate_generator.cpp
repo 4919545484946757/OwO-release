@@ -684,6 +684,13 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             for (const auto& syllable : prefix_path->syllables)
                 learned_syllables.push_back(syllable.text);
             for (const auto& entry : learned_prefixes) {
+                // A learned word can complete the current syllable or one
+                // following syllable. More distant prefixes are predictions,
+                // not ordinary pinyin candidates: e.g. tianjiage must not
+                // recall tianjiagengduofuhao -> 添加更多符号.
+                if (utf8_character_count(entry.text) >
+                    learned_syllables.size() + 1)
+                    continue;
                 const auto completion_characters =
                     entry.input.size() - lookup_input.size();
                 auto score = 12'000 + candidate_unigram_score(entry.count) +
