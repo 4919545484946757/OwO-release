@@ -9,6 +9,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+function Get-Sha256Hex {
+    param([Parameter(Mandatory)][string]$LiteralPath)
+
+    $stream = [IO.File]::Open($LiteralPath, [IO.FileMode]::Open,
+        [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    try {
+        $algorithm = [Security.Cryptography.SHA256]::Create()
+        try { $bytes = $algorithm.ComputeHash($stream) }
+        finally { $algorithm.Dispose() }
+    } finally { $stream.Dispose() }
+    return [BitConverter]::ToString($bytes).Replace('-', '').ToLowerInvariant()
+}
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
     $BuildDirectory = Join-Path $root 'build\windows-release\Release'
@@ -133,7 +146,7 @@ foreach ($entry in $licenseInputs.GetEnumerator()) {
 $hashLines = Get-ChildItem -LiteralPath $stage -File -Recurse |
     Sort-Object FullName | ForEach-Object {
         $relative = $_.FullName.Substring($stage.Length).TrimStart('\', '/').Replace('\', '/')
-        $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant()
+        $hash = Get-Sha256Hex -LiteralPath $_.FullName
         "$hash  $relative"
     }
 [IO.File]::WriteAllLines((Join-Path $stage 'SHA256SUMS.txt'), $hashLines,
@@ -163,7 +176,7 @@ $sourceZip = Join-Path $releaseRoot "OwO-Input-Method-$Version-source.zip"
 Compress-Archive -LiteralPath $sourceStage -DestinationPath $sourceZip -CompressionLevel Optimal
 
 $releaseHashes = foreach ($file in @($binaryZip, $sourceZip)) {
-    $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash.ToLowerInvariant()
+    $hash = Get-Sha256Hex -LiteralPath $file
     "$hash  $([IO.Path]::GetFileName($file))"
 }
 [IO.File]::WriteAllLines((Join-Path $releaseRoot 'SHA256SUMS.txt'), $releaseHashes,
