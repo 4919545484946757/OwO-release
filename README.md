@@ -13,13 +13,13 @@ OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入
 - 本地词频学习与 libime 中文上下文排序
 - 预编辑编码光标、候选暂存、中文标点及可配置的多组快捷键
 - WinUI 3 设置中心，按输入方案、候选、学习、快捷键和插件分区，支持全局搜索
-- WinUI 3 安装向导，提供依赖检查、快捷入口选择和可见安装状态
+- WinUI 3 三步安装向导，将软件介绍、安装选项和安装进度分别呈现
 - `.owopkg`、ZIP、文件夹插件安装；高权限插件逐版本告知并授权
 - 官方候选主题、Unicode 符号列表和 Agent IPC 连接器
 
 ## 安装与使用
 
-运行 `OwO-Input-Method-0.2.3-windows-x64-Setup.exe` 后会进入 WinUI 3 安装向导；也可解压便携包后双击 `Install-OwO.cmd` 使用脚本入口。系统需要 Windows 11 x64，以及“中文（简体，中国）”语言和基本输入支持；不要求把中文设为 Windows 显示语言。
+运行 `OwO-Input-Method-0.2.3-windows-x64-Setup.exe` 后会进入 WinUI 3 安装向导：先查看软件介绍，再选择安装位置、安装选项和快捷方式，最后在独立页面查看安装进度与可展开的详细信息。也可解压便携包后双击 `Install-OwO.cmd` 使用脚本入口。系统需要 Windows 11 x64，以及“中文（简体，中国）”语言和基本输入支持；不要求把中文设为 Windows 显示语言。
 
 安装完成后按 `Win + Space` 选择 OwO Input Method。常用入口：
 
@@ -79,7 +79,7 @@ cmake --build --preset windows-release
 
 `open-owo-installer.cmd` 会重新发布设置中心、在 `build\installer-preview` 生成临时完整安装暂存目录，并打开 WinUI 3 安装界面；它不会自动执行安装。
 
-安装界面阶段预览可分别运行 `open-owo-installer-checking.cmd`、`open-owo-installer-ready.cmd`、`open-owo-installer-installing.cmd`、`open-owo-installer-success.cmd` 和 `open-owo-installer-error.cmd`。阶段预览会禁用所有真实安装操作。
+安装向导的三个主页面可分别运行 `open-owo-installer-start.cmd`、`open-owo-installer-options.cmd` 和 `open-owo-installer-progress.cmd` 预览。检查中、选项就绪、安装中、成功和失败等状态仍可通过原有的 `open-owo-installer-checking.cmd`、`open-owo-installer-ready.cmd`、`open-owo-installer-installing.cmd`、`open-owo-installer-success.cmd` 和 `open-owo-installer-error.cmd` 查看。阶段预览会禁用所有真实安装操作。
 
 ## 许可与完整性
 

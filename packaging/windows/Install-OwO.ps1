@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [switch]$NoSettingsStartMenuShortcut,
-    [switch]$CreateSettingsDesktopShortcut
+    [switch]$CreateSettingsDesktopShortcut,
+    [string]$InstallDirectory
 )
 
 $ErrorActionPreference = 'Stop'
@@ -11,6 +12,9 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     $arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "' + $PSCommandPath + '"'
     if ($NoSettingsStartMenuShortcut) { $arguments += ' -NoSettingsStartMenuShortcut' }
     if ($CreateSettingsDesktopShortcut) { $arguments += ' -CreateSettingsDesktopShortcut' }
+    if (-not [string]::IsNullOrWhiteSpace($InstallDirectory)) {
+        $arguments += ' -InstallDirectory "' + $InstallDirectory.Replace('"', '""') + '"'
+    }
     try {
         $elevated = Start-Process -FilePath 'powershell.exe' -Verb RunAs `
             -ArgumentList $arguments -Wait -PassThru
@@ -47,9 +51,31 @@ wait for the language components to finish downloading, and then run this instal
 
 $version = '0.2.3'
 $packageRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$programRoot = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Programs\OwO\InputMethod'))
+$defaultProgramRoot = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Programs\OwO\InputMethod'))
 $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\OwO Input Method'
-$preferredInstallRoot = [IO.Path]::GetFullPath((Join-Path $programRoot $version))
+$preferredInstallRoot = if ([string]::IsNullOrWhiteSpace($InstallDirectory)) {
+    [IO.Path]::GetFullPath((Join-Path $defaultProgramRoot $version))
+} else {
+    [IO.Path]::GetFullPath($InstallDirectory)
+}
+$programRoot = [IO.Path]::GetFullPath((Split-Path -Parent $preferredInstallRoot))
+$volumeRoot = [IO.Path]::GetPathRoot($preferredInstallRoot)
+if ([string]::Equals($preferredInstallRoot.TrimEnd([IO.Path]::DirectorySeparatorChar),
+        $volumeRoot.TrimEnd([IO.Path]::DirectorySeparatorChar),
+        [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Refusing to install OwO into a filesystem root.'
+}
+$normalizedPackageRoot = $packageRoot.TrimEnd([IO.Path]::DirectorySeparatorChar)
+$normalizedInstallRoot = $preferredInstallRoot.TrimEnd([IO.Path]::DirectorySeparatorChar)
+if ($normalizedInstallRoot.Equals($normalizedPackageRoot, [StringComparison]::OrdinalIgnoreCase) -or
+    $normalizedInstallRoot.StartsWith(
+        $normalizedPackageRoot + [IO.Path]::DirectorySeparatorChar,
+        [StringComparison]::OrdinalIgnoreCase) -or
+    $normalizedPackageRoot.StartsWith(
+        $normalizedInstallRoot + [IO.Path]::DirectorySeparatorChar,
+        [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Refusing an installation path that overlaps the installer package.'
+}
 $registeredInstallRoot = $null
 $registeredInstall = Get-ItemProperty -LiteralPath $uninstallKey `
     -Name InstallLocation -ErrorAction SilentlyContinue
@@ -59,13 +85,14 @@ if ($null -ne $registeredInstall) {
 $previousInstallRoot = $null
 if (-not [string]::IsNullOrWhiteSpace($registeredInstallRoot)) {
     $registeredInstallRoot = [IO.Path]::GetFullPath($registeredInstallRoot)
-    if ($registeredInstallRoot.StartsWith(
-            $programRoot + [IO.Path]::DirectorySeparatorChar,
-            [StringComparison]::OrdinalIgnoreCase) -and
-        (Test-Path -LiteralPath $registeredInstallRoot -PathType Container)) {
+    if ((Test-Path -LiteralPath $registeredInstallRoot -PathType Container) -and
+        (Test-Path -LiteralPath (Join-Path $registeredInstallRoot 'bin\OwO.TSF.dll') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $registeredInstallRoot 'scripts\Uninstall-OwO.ps1') -PathType Leaf)) {
         $previousInstallRoot = $registeredInstallRoot
     }
-} elseif (Test-Path -LiteralPath $preferredInstallRoot -PathType Container) {
+} elseif ((Test-Path -LiteralPath $preferredInstallRoot -PathType Container) -and
+          (Test-Path -LiteralPath (Join-Path $preferredInstallRoot 'bin\OwO.TSF.dll') -PathType Leaf) -and
+          (Test-Path -LiteralPath (Join-Path $preferredInstallRoot 'scripts\Uninstall-OwO.ps1') -PathType Leaf)) {
     $previousInstallRoot = $preferredInstallRoot
 }
 
@@ -75,13 +102,21 @@ if (-not [string]::IsNullOrWhiteSpace($registeredInstallRoot)) {
 # registration, then retire the previous instance asynchronously.
 $installRoot = $preferredInstallRoot
 if (Test-Path -LiteralPath $installRoot) {
-    $instance = Get-Date -Format 'yyyyMMddHHmmss'
-    $instance += '-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
-    $installRoot = [IO.Path]::GetFullPath((Join-Path $programRoot "$version-$instance"))
+    $existingFiles = @(Get-ChildItem -LiteralPath $installRoot -Force -ErrorAction Stop)
+    $isExistingOwO = (Test-Path -LiteralPath (Join-Path $installRoot 'bin\OwO.TSF.dll') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $installRoot 'scripts\Uninstall-OwO.ps1') -PathType Leaf)
+    if ($isExistingOwO) {
+        $instance = Get-Date -Format 'yyyyMMddHHmmss'
+        $instance += '-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
+        $directoryName = [IO.Path]::GetFileName($installRoot.TrimEnd([IO.Path]::DirectorySeparatorChar))
+        $installRoot = [IO.Path]::GetFullPath((Join-Path $programRoot "$directoryName-$instance"))
+    } elseif ($existingFiles.Count -ne 0) {
+        throw 'The selected installation directory is not empty and is not an OwO installation.'
+    }
 }
 if (-not $installRoot.StartsWith($programRoot + [IO.Path]::DirectorySeparatorChar,
-                                 [StringComparison]::OrdinalIgnoreCase)) {
-    throw 'Refusing an installation path outside the OwO program directory.'
+        [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Refusing an installation path outside its selected parent directory.'
 }
 
 [void](New-Item -ItemType Directory -Path $installRoot -Force)
@@ -316,7 +351,7 @@ if ($null -ne $previousInstallRoot -and
     $cleanupArguments = '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass' +
         ' -File "' + $cleanupScript + '"' +
         ' -InstallRoot "' + $previousInstallRoot + '"' +
-        ' -ProgramRoot "' + $programRoot + '"' +
+        ' -ProgramRoot "' + ([IO.Path]::GetFullPath((Split-Path -Parent $previousInstallRoot))) + '"' +
         ' -ParentProcessId ' + $PID
     Start-Process -FilePath 'powershell.exe' -ArgumentList $cleanupArguments `
         -WindowStyle Hidden | Out-Null

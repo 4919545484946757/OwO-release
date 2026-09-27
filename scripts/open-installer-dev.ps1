@@ -3,7 +3,7 @@ param(
     [string]$Version = '0.2.3',
     [string]$PackageRoot,
     [switch]$SkipBuild,
-    [ValidateSet('checking', 'ready', 'installing', 'success', 'error')]
+    [ValidateSet('start', 'options', 'progress', 'checking', 'ready', 'installing', 'success', 'error')]
     [string]$PreviewStage
 )
 

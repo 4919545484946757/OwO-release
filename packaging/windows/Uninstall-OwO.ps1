@@ -17,9 +17,9 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 }
 
 $version = '0.2.3'
-$programRoot = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Programs\OwO\InputMethod'))
+$defaultProgramRoot = [IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA 'Programs\OwO\InputMethod'))
 $scriptPackageRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$installedVersionRoot = [IO.Path]::GetFullPath((Join-Path $programRoot $version))
+$installedVersionRoot = [IO.Path]::GetFullPath((Join-Path $defaultProgramRoot $version))
 $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\OwO Input Method'
 $registeredInstallRoot = $null
 $registeredInstall = Get-ItemProperty -LiteralPath $uninstallKey `
@@ -27,25 +27,32 @@ $registeredInstall = Get-ItemProperty -LiteralPath $uninstallKey `
 if ($null -ne $registeredInstall) {
     $registeredInstallRoot = $registeredInstall.InstallLocation
 }
-$installRoot = if ($scriptPackageRoot.StartsWith(
-        $programRoot + [IO.Path]::DirectorySeparatorChar,
-        [StringComparison]::OrdinalIgnoreCase)) {
-    $scriptPackageRoot
-} elseif (-not [string]::IsNullOrWhiteSpace($registeredInstallRoot)) {
+$installRoot = if (-not [string]::IsNullOrWhiteSpace($registeredInstallRoot)) {
     # ZIP-root uninstallers follow the currently registered side-by-side
-    # instance, which may have a reinstall suffix when an old TSF DLL is locked.
+    # instance, including a user-selected install location.
     [IO.Path]::GetFullPath($registeredInstallRoot)
+} elseif ((Test-Path -LiteralPath (Join-Path $scriptPackageRoot 'bin\OwO.TSF.dll') -PathType Leaf) -and
+          (Test-Path -LiteralPath (Join-Path $scriptPackageRoot 'scripts\Uninstall-OwO.ps1') -PathType Leaf)) {
+    $scriptPackageRoot
 } else {
     # The ZIP-root Uninstall-OwO.cmd invokes this copy of the script. Resolve
     # the actual per-user installation instead of trying to delete the ZIP.
     $installedVersionRoot
 }
-if (-not $installRoot.StartsWith($programRoot + [IO.Path]::DirectorySeparatorChar,
-                                 [StringComparison]::OrdinalIgnoreCase)) {
-    throw 'Refusing to uninstall a directory outside the OwO program directory.'
+$programRoot = [IO.Path]::GetFullPath((Split-Path -Parent $installRoot))
+$volumeRoot = [IO.Path]::GetPathRoot($installRoot)
+if ([string]::Equals($installRoot.TrimEnd([IO.Path]::DirectorySeparatorChar),
+        $volumeRoot.TrimEnd([IO.Path]::DirectorySeparatorChar),
+        [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Refusing to uninstall a filesystem root.'
 }
 if (-not (Test-Path -LiteralPath $installRoot -PathType Container)) {
     throw "OwO Input Method $version is not installed: $installRoot"
+}
+foreach ($marker in @('bin\OwO.TSF.dll', 'scripts\Uninstall-OwO.ps1', 'settings\OwO.Settings.exe')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $installRoot $marker) -PathType Leaf)) {
+        throw "Refusing to uninstall a directory without the expected OwO files: $installRoot"
+    }
 }
 
 $modelPointer = Join-Path $installRoot 'model\active-model-path.txt'
@@ -129,8 +136,15 @@ if (-not [string]::IsNullOrWhiteSpace($cachedModel)) {
     $cachedModel = [IO.Path]::GetFullPath($cachedModel)
     $cacheDirectory = [IO.Path]::GetFullPath((Split-Path -Parent $cachedModel))
     $cacheUsedByAnotherInstall = $false
-    foreach ($otherPointer in Get-ChildItem -LiteralPath $programRoot `
-            -Filter 'active-model-path.txt' -File -Recurse -ErrorAction SilentlyContinue) {
+    # Installed instances are direct siblings. Avoid a recursive scan because
+    # a custom location may make the selected parent a large application or
+    # even a drive-root directory.
+    $otherPointers = foreach ($sibling in Get-ChildItem -LiteralPath $programRoot `
+            -Directory -ErrorAction SilentlyContinue) {
+        $pointer = Join-Path $sibling.FullName 'model\active-model-path.txt'
+        if (Test-Path -LiteralPath $pointer -PathType Leaf) { Get-Item -LiteralPath $pointer }
+    }
+    foreach ($otherPointer in $otherPointers) {
         if ($otherPointer.FullName.Equals($modelPointer, [StringComparison]::OrdinalIgnoreCase)) {
             continue
         }
