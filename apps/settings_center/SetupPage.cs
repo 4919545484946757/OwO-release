@@ -10,6 +10,10 @@ namespace OwO_Settings;
 public sealed class SetupPage : Page
 {
     private readonly string _packageRoot;
+    private readonly string? _previewStage;
+    private readonly InfoBar _previewNotice = new() { IsOpen = false, IsClosable = false,
+        Severity = InfoBarSeverity.Warning,
+        Message = "这是安装界面阶段预览，不会执行真实安装。" };
     private readonly TextBlock _languageStatus = new() { Text = "正在检查…", TextWrapping = TextWrapping.Wrap };
     private readonly Button _openLanguageSettings = new() { Content = "打开语言设置", Visibility = Visibility.Collapsed };
     private readonly Button _recheckLanguage = new() { Content = "重新检查" };
@@ -31,6 +35,7 @@ public sealed class SetupPage : Page
     {
         _packageRoot = Path.GetFullPath(App.InstallPackageRoot ??
             Path.Combine(AppContext.BaseDirectory, ".."));
+        _previewStage = App.InstallPreviewStage;
         Content = BuildContent();
         _openLanguageSettings.Click += OpenLanguageSettingsButton_Click;
         _recheckLanguage.Click += RecheckLanguageButton_Click;
@@ -41,8 +46,12 @@ public sealed class SetupPage : Page
         _consent.Unchecked += (_, _) => UpdateInstallAvailability();
         // Environment validation is started after the first dispatcher turn so
         // unpackaged WinUI has finished attaching the page to its XamlRoot.
-        Loaded += (_, _) => DispatcherQueue.TryEnqueue(async () =>
-            await CheckEnvironmentAsync());
+        Loaded += (_, _) => DispatcherQueue.TryEnqueue(async () => {
+            if (_previewStage is null)
+                await CheckEnvironmentAsync();
+            else
+                ApplyPreviewStage(_previewStage);
+        });
     }
 
     private UIElement BuildContent()
@@ -57,6 +66,7 @@ public sealed class SetupPage : Page
         body.Children.Add(new TextBlock { Text = "Windows 11 · WinUI 3 安装向导" });
         body.Children.Add(new TextBlock { Text = "向导会先检查系统依赖和安装包，再由受控安装后端完成文件校验、TSF 注册和服务启动。",
             TextWrapping = TextWrapping.Wrap });
+        body.Children.Add(_previewNotice);
         body.Children.Add(SectionTitle("环境检查"));
 
         var languageGrid = new Grid { ColumnSpacing = 16 };
@@ -137,7 +147,78 @@ public sealed class SetupPage : Page
     }
 
     private void UpdateInstallAvailability() => _install.IsEnabled =
-        _languageReady && _packageReady && _consent.IsChecked == true;
+        _previewStage is null && _languageReady && _packageReady &&
+        _consent.IsChecked == true;
+
+    private void ApplyPreviewStage(string stage)
+    {
+        _previewNotice.IsOpen = true;
+        _openLanguageSettings.Visibility = Visibility.Collapsed;
+        _recheckLanguage.IsEnabled = false;
+        _startMenuShortcut.IsEnabled = false;
+        _desktopShortcut.IsEnabled = false;
+        _taskbarGuide.IsEnabled = false;
+        _consent.IsEnabled = false;
+        _install.IsEnabled = false;
+        _openSettings.IsEnabled = false;
+        _close.Content = "关闭预览";
+        _languageReady = true;
+        _packageReady = true;
+
+        switch (stage) {
+            case "checking":
+                _languageStatus.Text = "正在检查中文语言和基本输入组件…";
+                _packageStatus.Severity = InfoBarSeverity.Informational;
+                _packageStatus.Message = "正在验证安装包结构和文件完整性。";
+                _progress.Visibility = Visibility.Visible;
+                break;
+            case "ready":
+                SetPreviewPrerequisitesReady();
+                _consent.IsChecked = true;
+                _install.Content = "安装（预览）";
+                _installStatus.IsOpen = true;
+                _installStatus.Severity = InfoBarSeverity.Informational;
+                _installStatus.Message = "环境检查完成，已准备进入安装阶段。";
+                break;
+            case "installing":
+                SetPreviewPrerequisitesReady();
+                _consent.IsChecked = true;
+                _progress.Visibility = Visibility.Visible;
+                _install.Visibility = Visibility.Collapsed;
+                _installStatus.IsOpen = true;
+                _installStatus.Severity = InfoBarSeverity.Informational;
+                _installStatus.Message = "正在安装、校验并启用 OwO 输入法…";
+                break;
+            case "success":
+                SetPreviewPrerequisitesReady();
+                _install.Visibility = Visibility.Collapsed;
+                _openSettings.Visibility = Visibility.Visible;
+                _installStatus.IsOpen = true;
+                _installStatus.Severity = InfoBarSeverity.Success;
+                _installStatus.Message = "安装成功。现在可以按 Win＋Space 选择 OwO 输入法。";
+                _installLog.Text = "TSF 配置已注册。\r\nCore Service 已启动。\r\n设置中心快捷入口已创建。";
+                _installLog.Visibility = Visibility.Visible;
+                break;
+            case "error":
+                SetPreviewPrerequisitesReady();
+                _install.Content = "重试（预览）";
+                _installStatus.IsOpen = true;
+                _installStatus.Severity = InfoBarSeverity.Error;
+                _installStatus.Message = "安装失败：示例安装后端错误。";
+                _installLog.Text = "示例错误：TSF registration failed。\r\n阶段预览未执行任何系统操作。";
+                _installLog.Visibility = Visibility.Visible;
+                break;
+            default:
+                throw new ArgumentException($"未知安装预览阶段：{stage}");
+        }
+    }
+
+    private void SetPreviewPrerequisitesReady()
+    {
+        _languageStatus.Text = "已安装，可以注册并激活 OwO 输入法。";
+        _packageStatus.Severity = InfoBarSeverity.Success;
+        _packageStatus.Message = "安装包结构完整。";
+    }
 
     private async void OpenLanguageSettingsButton_Click(object sender, RoutedEventArgs e) =>
         await Launcher.LaunchUriAsync(new Uri("ms-settings:regionlanguage"));

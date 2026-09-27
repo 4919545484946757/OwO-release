@@ -2,7 +2,9 @@
 param(
     [string]$Version = '0.2.3',
     [string]$PackageRoot,
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [ValidateSet('checking', 'ready', 'installing', 'success', 'error')]
+    [string]$PreviewStage
 )
 
 $ErrorActionPreference = 'Stop'
@@ -62,8 +64,15 @@ foreach ($required in @($settings, $installerBackend)) {
 Stop-SettingsProcessAtPath -ExpectedPath $settings
 
 $quotedPackage = '"' + $package + '"'
+$arguments = @('--install', $quotedPackage)
+if (-not [string]::IsNullOrWhiteSpace($PreviewStage)) {
+    $arguments += @('--install-preview-stage', $PreviewStage)
+}
 $process = Start-Process -FilePath $settings `
-    -ArgumentList @('--install', $quotedPackage) -WorkingDirectory $package -PassThru
+    -ArgumentList $arguments -WorkingDirectory $package -PassThru
 Write-Output "OwO WinUI installer opened."
 Write-Output "Package root: $package"
+if (-not [string]::IsNullOrWhiteSpace($PreviewStage)) {
+    Write-Output "Preview stage: $PreviewStage (no installation will be performed)"
+}
 Write-Output "Process ID: $($process.Id)"

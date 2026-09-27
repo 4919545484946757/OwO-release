@@ -23,6 +23,7 @@ public partial class App : Application
 {
     private Window? _window;
     internal static string? InstallPackageRoot { get; private set; }
+    internal static string? InstallPreviewStage { get; private set; }
     internal Window MainWindow => _window
         ?? throw new InvalidOperationException("主窗口尚未创建。");
     
@@ -60,6 +61,10 @@ public partial class App : Application
             value.Equals("--install", StringComparison.OrdinalIgnoreCase));
         if (installIndex >= 0 && installIndex + 1 < arguments.Length)
             InstallPackageRoot = arguments[installIndex + 1];
+        var previewIndex = Array.FindIndex(arguments, value =>
+            value.Equals("--install-preview-stage", StringComparison.OrdinalIgnoreCase));
+        if (previewIndex >= 0 && previewIndex + 1 < arguments.Length)
+            InstallPreviewStage = arguments[previewIndex + 1].ToLowerInvariant();
         _window = new MainWindow();
         _window.Activate();
     }

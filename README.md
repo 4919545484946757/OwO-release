@@ -79,6 +79,8 @@ cmake --build --preset windows-release
 
 `open-owo-installer.cmd` 会重新发布设置中心、在 `build\installer-preview` 生成临时完整安装暂存目录，并打开 WinUI 3 安装界面；它不会自动执行安装。
 
+安装界面阶段预览可分别运行 `open-owo-installer-checking.cmd`、`open-owo-installer-ready.cmd`、`open-owo-installer-installing.cmd`、`open-owo-installer-success.cmd` 和 `open-owo-installer-error.cmd`。阶段预览会禁用所有真实安装操作。
+
 ## 许可与完整性
 
 - OwO 源码：`GPL-3.0-only`

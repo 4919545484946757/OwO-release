@@ -24,7 +24,8 @@ public sealed partial class MainWindow : Window
 
         if (App.InstallPackageRoot is not null) {
             AppWindow.Resize(new SizeInt32(1040, 760));
-            AppTitleBar.Title = "安装 OwO 输入法";
+            AppTitleBar.Title = App.InstallPreviewStage is null
+                ? "安装 OwO 输入法" : "安装 OwO 输入法 · 阶段预览";
             try {
                 RootFrame.Content = new SetupPage();
             } catch (Exception error) {
