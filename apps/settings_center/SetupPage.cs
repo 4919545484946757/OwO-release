@@ -39,6 +39,7 @@ public sealed class SetupPage : Page
     private readonly ProgressBar _progress = new() { IsIndeterminate = true };
     private readonly TextBlock _progressPercentage = new() {
         Text = "0%", FontSize = 14, Opacity = 0.78,
+        MinWidth = 48, TextAlignment = TextAlignment.Right,
         HorizontalAlignment = HorizontalAlignment.Right,
         VerticalAlignment = VerticalAlignment.Center
     };
@@ -315,7 +316,15 @@ public sealed class SetupPage : Page
         }
         body.Children.Add(_progress);
         _progressPercentage.Text = "0%";
-        var stageRow = new Grid { ColumnSpacing = 16 };
+        var stageRow = new Grid {
+            ColumnSpacing = 20, Padding = new Thickness(4, 8, 16, 8),
+            MinHeight = 40, HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        stageRow.SizeChanged += (_, args) => {
+            var compact = args.NewSize.Width < 480;
+            stageRow.Padding = new Thickness(4, 8, compact ? 10 : 16, 8);
+            stageRow.ColumnSpacing = compact ? 12 : 20;
+        };
         stageRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         stageRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         stageRow.Children.Add(_stageMessage);
