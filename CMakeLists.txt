@@ -69,6 +69,7 @@ add_library(owo_engine STATIC
     src/engine/candidate_scheduler.cpp
     src/engine/full_pinyin_schema.cpp
     src/engine/exact_code_schema.cpp
+    src/engine/input_method_provider.cpp
     src/engine/lexicon_candidate_provider.cpp
     src/engine/parse_candidate_sources.cpp
     src/engine/lexicon.cpp
@@ -390,6 +391,13 @@ else()
 endif()
 
 if(BUILD_TESTING)
+    add_executable(owo_input_method_provider_tests tests/engine/input_method_provider_tests.cpp)
+    target_link_libraries(owo_input_method_provider_tests PRIVATE owo_engine)
+    target_compile_features(owo_input_method_provider_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_input_method_provider_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    endif()
+    add_test(NAME owo.engine.input_method_provider COMMAND owo_input_method_provider_tests)
     add_executable(owo_agent_protocol_tests tests/agent/agent_protocol_tests.cpp)
     target_link_libraries(owo_agent_protocol_tests PRIVATE owo_agent)
     target_compile_features(owo_agent_protocol_tests PRIVATE cxx_std_20)
