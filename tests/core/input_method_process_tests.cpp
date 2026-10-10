@@ -5,6 +5,8 @@
 #include "owo/plugin/input_method_protocol.h"
 #include "owo/ipc/input_method_control.h"
 #include "owo/ipc/input_method_server.h"
+#include "owo/ipc/input_method_client.h"
+#include "owo/tsf/input_method_session.h"
 #include "owo/ipc/named_pipe.h"
 #include "scheme.h"
 
@@ -180,6 +182,98 @@ void pipe_tests(const std::filesystem::path& root, const engine::InputMethodDesc
         static_cast<bool>(ipc::decode_input_method_control_response(denied.response, out)) &&
         out.status == ipc::InputMethodControlStatus::rejected, "production policy fails closed for unknown input");
 }
+void async_client_tests(const std::filesystem::path& root, const engine::InputMethodDescriptor& d,
+                        const std::string& suffix) {
+    using namespace std::chrono_literals;
+    const auto name = LR"(\\.\pipe\OwO.Test.InputSchemes.Async.)" + std::wstring(suffix.begin(), suffix.end());
+    ipc::InputMethodPipeServer server(root, name, [](std::uint32_t) { return ipc::InputMethodFocus{1, false}; });
+    require(server.started(), "async test pipe started");
+    ipc::InputMethodAsyncClient client(name);
+    const auto get_result = [](std::future<ipc::InputMethodClientResult> future) {
+        require(future.wait_for(5s) == std::future_status::ready, "async client future deadline");
+        return future.get();
+    };
+    auto discovered = get_result(client.discover(1, d.plugin_id));
+    require(static_cast<bool>(discovered.status) && discovered.descriptors.size() == 1, "async discovery");
+    tsf::InputMethodDocumentSession document;
+    require(document.enter(1) && !document.bind(discovered, "discovery-only"),
+        "discovery metadata cannot masquerade as opened session");
+    require(document.enter(10), "trusted document generation");
+    auto opened = get_result(client.open(10, d.plugin_id, d.id, "async-session", false));
+    require(document.bind(opened, "async-session"), "async open binds document composition");
+    auto& composition = document.composition();
+    require(composition.insert("a"), "document raw encoding");
+    require(!document.bind(opened, "async-session") && composition.input() == "a",
+        "completed open cannot be applied twice to erase raw input");
+    auto request = composition.compose_request(1, 0, 2);
+    require(request.has_value(), "document request");
+    auto candidates = get_result(client.submit(10, *request, false));
+    require(candidates.response && candidates.response->request_id == 1 &&
+        candidates.response->candidates.front().text == "日" && document.apply(candidates).accepted,
+        "wire poll IDs map back to local composition IDs");
+    auto selected = composition.select_request(2, "a");
+    require(selected.has_value(), "document selection");
+    auto acknowledgement = get_result(client.submit(10, *selected, false));
+    auto prepared = document.apply(acknowledgement);
+    require(prepared.commit && prepared.commit->text == "日" && composition.input() == "a" &&
+        document.finish_commit(10, true) && composition.input().empty(), "async two-stage candidate commit");
+    engine::InputMethodRequest input;
+    input.request_id = 3; input.session_id = "async-session"; input.scheme_id = d.id;
+    input.input = "hang"; input.caret_byte = 4; input.page_size = 2;
+    const auto marker = root / "data" / d.plugin_id / "input-active.txt";
+    std::filesystem::remove(marker);
+    auto stale = client.submit(10, input, false);
+    const auto deadline = std::chrono::steady_clock::now() + 2s;
+    while (!std::filesystem::exists(marker) && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(5ms);
+    require(std::filesystem::exists(marker), "async slow task actually entered plugin");
+    input.request_id = 4; input.input = "ab"; input.caret_byte = 2;
+    auto latest = client.submit(10, input, false);
+    require(get_result(std::move(stale)).status.error == protocol::ErrorCode::cancelled,
+        "new input cancels old async publication");
+    auto value = get_result(std::move(latest));
+    require(value.response && value.response->request_id == 4 && value.response->candidates.front().text == "明",
+        "async latest input accepted");
+    input.request_id = 5; input.input = "slow"; input.caret_byte = 4;
+    auto valid = client.submit(10, input, false);
+    auto invalid = input; invalid.request_id = 6; invalid.caret_byte = 999;
+    require(get_result(client.submit(10, invalid, false)).status.error == protocol::ErrorCode::invalid_payload,
+        "invalid async task rejected before supersession");
+    require(get_result(std::move(valid)).response.has_value(), "invalid task leaves valid task intact");
+    std::vector<std::future<ipc::InputMethodClientResult>> burst;
+    for (std::uint64_t number = 6; number <= 25; ++number) {
+        auto item = input; item.request_id = number; item.input = "ab"; item.caret_byte = 2;
+        burst.push_back(client.submit(10, item, false));
+    }
+    for (std::size_t at = 0; at + 1 < burst.size(); ++at) {
+        const auto item = get_result(std::move(burst[at]));
+        require(static_cast<bool>(item.status) || item.status.error == protocol::ErrorCode::cancelled,
+            "bounded burst resolves superseded futures");
+    }
+    auto burst_latest = get_result(std::move(burst.back()));
+    require(burst_latest.response && burst_latest.response->request_id == 25 &&
+        burst_latest.response->candidates.front().text == "明", "burst keeps latest task");
+    require(!get_result(client.submit(99, input, false)).status, "wrong document cannot submit");
+    input.request_id = 26; input.input = "hang"; input.caret_byte = 4;
+    auto cancelled = client.submit(10, input, false);
+    document.invalidate();
+    require(static_cast<bool>(get_result(client.close()).status) &&
+        get_result(std::move(cancelled)).status.error == protocol::ErrorCode::cancelled,
+        "document cancellation closes background connection");
+    require(!document.apply(candidates).accepted && !document.bind(opened, "async-session") &&
+        !document.finish_commit(10, true), "completed old futures cannot reopen or commit after focus loss");
+    require(document.enter(11) && !document.enter(10), "document generations cannot be reused");
+    opened = get_result(client.open(11, d.plugin_id, d.id, "new-session", false));
+    require(document.bind(opened, "new-session") && !document.apply(candidates).accepted,
+        "new document rejects previous completed result");
+    input.request_id = 1; input.session_id = "new-session"; input.input = "a"; input.caret_byte = 1;
+    require(!get_result(client.submit(11, input)).status && !get_result(client.submit(11, input, false)).status,
+        "default sensitive guard closes binding");
+    require(static_cast<bool>(get_result(client.close()).status), "explicit close finishes");
+    ipc::InputMethodAsyncClient missing(name + L".missing");
+    require(!get_result(missing.open(1, d.plugin_id, d.id, "missing", false)).status,
+        "unavailable Core returns bounded failure");
+}
 }
 int main(int argc, char** argv) {
     if (argc != 3) return 1;
@@ -330,6 +424,7 @@ int main(int argc, char** argv) {
                 "late discovery cannot reopen a closed session");
         }
         pipe_tests(root, descriptor, suffix);
+        async_client_tests(root, descriptor, suffix);
     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; outcome = 2; }
     // Only this test's unique absolute store and deterministic sandbox profile are removed.
     std::error_code error;

@@ -249,7 +249,7 @@ if(WIN32)
     target_compile_features(owo_plugin_shell PRIVATE cxx_std_20)
     target_compile_options(owo_plugin_shell PRIVATE /W4 /permissive- /utf-8 /EHsc)
 
-    add_library(owo_ipc STATIC src/ipc/named_pipe.cpp src/ipc/input_method_server.cpp)
+    add_library(owo_ipc STATIC src/ipc/named_pipe.cpp src/ipc/input_method_server.cpp src/ipc/input_method_client.cpp)
     target_include_directories(owo_ipc PUBLIC include)
     target_link_libraries(owo_ipc PUBLIC owo_protocol owo_engine owo_model owo_config)
     target_link_libraries(owo_ipc PRIVATE owo_agent owo_core_plugin owo_input_method_control)
