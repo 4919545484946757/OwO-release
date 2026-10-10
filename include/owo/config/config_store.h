@@ -20,7 +20,7 @@ struct AppConfig {
     bool user_learning_enabled{true};
     std::uint32_t user_learning_sensitivity{10};
     bool user_lexicon_completion_enabled{true};
-    std::uint32_t user_lexicon_completion_max_syllables{1};
+    std::uint32_t user_lexicon_completion_max_syllables{0};
     bool chinese_punctuation_enabled{true};
     bool alt_code_preview_enabled{true};
     std::uint32_t alt_code_preview_page_size{4};

@@ -279,9 +279,9 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Spacing="3">
                                             <TextBlock Text="最多补全后续音节" Style="{StaticResource SettingTitleStyle}"/>
-                                            <TextBlock Text="0 表示仅补完当前音节；数值越大，越早显示较长的用户词（0–8，默认 1）。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                            <TextBlock Text="用户词拼音补全的范围：0 仅补完当前音节；数值越大，越早显示较长的用户词（0–8，默认 0）。" Style="{StaticResource SettingDescriptionStyle}"/>
                                         </StackPanel>
-                                        <NumberBox x:Name="UserCompletionRange" Grid.Column="1" Minimum="0" Maximum="8" Value="1" SpinButtonPlacementMode="Inline" VerticalAlignment="Center"/>
+                                        <NumberBox x:Name="UserCompletionRange" Grid.Column="1" Minimum="0" Maximum="8" Value="0" SpinButtonPlacementMode="Inline" VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="ModelRankingCard" Style="{StaticResource SettingsCardStyle}">

@@ -51,7 +51,7 @@ public:
                                                   bool include_model_alternatives = false,
                                                   std::size_t partition_page_size = 0,
                                                   bool user_completion_enabled = true,
-                                                  std::size_t user_completion_max_syllables = 1) const;
+                                                  std::size_t user_completion_max_syllables = 0) const;
 
 private:
     const Lexicon& lexicon_;

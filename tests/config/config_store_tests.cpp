@@ -154,7 +154,7 @@ int main(const int argc, char** argv) {
     const auto version_thirteen = owo::config::parse_config(version_thirteen_text);
     if (!version_thirteen.ok ||
         !version_thirteen.value.user_lexicon_completion_enabled ||
-        version_thirteen.value.user_lexicon_completion_max_syllables != 1)
+        version_thirteen.value.user_lexicon_completion_max_syllables != 0)
         return 39;
     auto version_ten_text = version_thirteen_text;
     version_ten_text.replace(version_ten_text.find("schema_version=13"),
@@ -201,7 +201,7 @@ int main(const int argc, char** argv) {
         version_two.value.focus_loss_commit_enabled ||
         version_two.value.user_learning_sensitivity != 10 ||
         !version_two.value.user_lexicon_completion_enabled ||
-        version_two.value.user_lexicon_completion_max_syllables != 1) return 24;
+        version_two.value.user_lexicon_completion_max_syllables != 0) return 24;
 
     auto duplicate_shortcuts = changed;
     duplicate_shortcuts.raw_input_shortcut_enabled = true;
