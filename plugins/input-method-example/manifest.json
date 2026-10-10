@@ -5,7 +5,7 @@
   "api_version": 1,
   "runtime": "process",
   "entry": "bin/owo_example_input_method_plugin.exe",
-  "permissions": ["input.context"],
+  "permissions": ["input.scheme"],
   "network": false,
   "config_schema": "config.schema.json"
 }

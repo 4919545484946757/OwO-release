@@ -30,6 +30,26 @@ public:
 }
 int main() {
     const auto d = example::table_descriptor("owo.plugin.codec-test");
+    const auto metadata = plugin::encode_input_method_descriptors(d.plugin_id, {d});
+    std::vector<engine::InputMethodDescriptor> descriptors;
+    check(!metadata.empty() && plugin::decode_input_method_descriptors(d.plugin_id, metadata, descriptors).ok &&
+        descriptors.size() == 1 && descriptors.front().alphabet == d.alphabet, "scheme descriptor roundtrip");
+    for (std::size_t n = 0; n < metadata.size(); ++n)
+        check(!plugin::decode_input_method_descriptors(d.plugin_id, std::string_view(metadata).substr(0, n), descriptors).ok &&
+            descriptors.empty(), "truncated metadata rejected atomically");
+    check(!plugin::decode_input_method_descriptors("other.plugin", metadata, descriptors).ok, "descriptor namespace ownership");
+    check(!plugin::decode_input_method_descriptors(d.plugin_id, metadata + "x", descriptors).ok, "metadata trailing bytes rejected");
+    check(plugin::encode_input_method_descriptors(d.plugin_id, {d, d}).empty(), "duplicate scheme IDs rejected");
+    std::vector<engine::InputMethodDescriptor> excessive(plugin::kMaximumPluginInputSchemes + 1, d);
+    check(plugin::encode_input_method_descriptors(d.plugin_id, excessive).empty(), "scheme count bounded");
+    auto foreign_descriptor = d;
+    foreign_descriptor.id = d.plugin_id + "/foreign";
+    foreign_descriptor.kind = engine::InputMethodKind::transliteration;
+    foreign_descriptor.alphabet += U"é";
+    check(plugin::decode_input_method_descriptors(d.plugin_id,
+        plugin::encode_input_method_descriptors(d.plugin_id, {d, foreign_descriptor}), descriptors).ok &&
+        descriptors.size() == 2 && descriptors.back().alphabet.back() == U'é' &&
+        descriptors.back().kind == engine::InputMethodKind::transliteration, "Unicode multisource descriptions");
     auto r = request(d);
     const auto wire = plugin::encode_input_method_request(d, r);
     engine::InputMethodRequest decoded;

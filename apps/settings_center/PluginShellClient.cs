@@ -49,6 +49,7 @@ internal static class PluginUiText
         "ui.settings_page" => "提供设置页面",
         "clipboard.read" => "读取剪贴板", "clipboard.write" => "写入剪贴板",
         "input.context" => "读取输入上下文", "input.commit" => "提交文本",
+        "input.scheme" => "提供输入方案（接收该方案的编码，不包含周边上下文）",
         "input.replace" => "替换用户文本", "network.client" => "访问网络",
         "filesystem.user_selected" => "访问用户选择的文件",
         "filesystem.unrestricted" => "访问任意用户文件",

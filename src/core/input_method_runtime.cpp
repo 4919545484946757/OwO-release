@@ -58,7 +58,7 @@ public:
         plugin::PluginInvokeRequest call;
         call.service = plugin::kInputMethodService;
         call.payload = payload;
-        call.required_permissions = {"input.context"};
+        call.required_permissions = {"input.scheme"};
         // Attributed by the host-selected scheme, never decoded from plugin or Core IPC data.
         call.user_initiated = true;
         call.timeout = remaining;
@@ -78,6 +78,9 @@ public:
             session_.terminate();
             return failure(r, InputMethodStatus::error, "Invalid input scheme response");
         }
+        if (response.status != InputMethodStatus::success)
+            return failure(r, response.status, response.status == InputMethodStatus::cancelled ? std::string{} :
+                response.status == InputMethodStatus::unavailable ? "Input scheme unavailable" : "Input scheme reported an error");
         if (!stop.stop_requested() && response.status == InputMethodStatus::success) {
             issued_session_ = r.session_id; issued_input_ = r.input; issued_page_ = r.page;
             for (const auto& candidate : response.candidates) issued_ids_.push_back(candidate.id);
@@ -93,7 +96,7 @@ private:
             active.publisher_certificate_sha256 != binding_.publisher_certificate_sha256) return false;
         const auto grant = plugin::load_plugin_authorization(root_, descriptor_.plugin_id, active.manifest.version);
         return grant.ok && plugin::is_plugin_permission_granted(grant.value, active.manifest,
-            active.inventory_sha256, active.publisher_certificate_sha256, "input.context");
+            active.inventory_sha256, active.publisher_certificate_sha256, "input.scheme");
     }
     std::filesystem::path root_;
     InputMethodDescriptor descriptor_;
@@ -109,18 +112,65 @@ private:
 } // namespace
 
 engine::InputMethodValidation register_plugin_input_method(engine::InputMethodRegistry& registry,
-    const std::filesystem::path& root, engine::InputMethodDescriptor descriptor, std::chrono::milliseconds timeout) {
+    const std::filesystem::path& root, engine::InputMethodDescriptor descriptor, std::chrono::milliseconds timeout,
+    std::string_view expected_version, std::string_view expected_inventory, std::string_view expected_publisher) {
     const auto validated = engine::validate_input_method_descriptor(descriptor);
     if (!validated.ok) return validated;
     if (timeout.count() <= 0 || timeout > std::chrono::seconds(5)) return {false, "Invalid scheme timeout"};
     const auto active = plugin::query_active_plugin_version(root, descriptor.plugin_id);
     if (!active.ok || active.manifest.runtime != "process") return {false, "Active process plugin required"};
+    if ((!expected_version.empty() && active.manifest.version != expected_version) ||
+        (!expected_inventory.empty() && active.inventory_sha256 != expected_inventory) ||
+        (!expected_publisher.empty() && active.publisher_certificate_sha256 != expected_publisher))
+        return {false, "Input scheme binding changed during discovery"};
     const auto grant = plugin::load_plugin_authorization(root, descriptor.plugin_id, active.manifest.version);
     if (!grant.ok || !plugin::is_plugin_permission_granted(grant.value, active.manifest,
-        active.inventory_sha256, active.publisher_certificate_sha256, "input.context"))
-        return {false, "Explicit input.context authorization required"};
+        active.inventory_sha256, active.publisher_certificate_sha256, "input.scheme"))
+        return {false, "Explicit input.scheme authorization required"};
     auto provider = std::make_shared<ProcessProvider>(root, descriptor, active, timeout);
     return registry.add(std::move(descriptor), std::move(provider));
+}
+
+InputMethodDiscovery discover_plugin_input_methods(const std::filesystem::path& root,
+    std::string_view plugin_id, std::chrono::milliseconds timeout) {
+    const auto reject = [](std::string diagnostic) {
+        InputMethodDiscovery result;
+        result.validation = {false, std::move(diagnostic)};
+        return result;
+    };
+    if (timeout.count() <= 0 || timeout > std::chrono::seconds(5)) return reject("Invalid discovery timeout");
+    const auto active = plugin::query_active_plugin_version(root, plugin_id);
+    if (!active.ok || active.manifest.runtime != "process") return reject("Active process plugin required");
+    const auto authorized = [&] {
+        const auto current = plugin::query_active_plugin_version(root, plugin_id);
+        if (!current.ok || current.installed_path != active.installed_path ||
+            current.manifest.version != active.manifest.version || current.inventory_sha256 != active.inventory_sha256 ||
+            current.publisher_certificate_sha256 != active.publisher_certificate_sha256) return false;
+        const auto grant = plugin::load_plugin_authorization(root, plugin_id, current.manifest.version);
+        return grant.ok && plugin::is_plugin_permission_granted(grant.value, current.manifest,
+            current.inventory_sha256, current.publisher_certificate_sha256, "input.scheme");
+    };
+    if (!authorized()) return reject("Explicit input.scheme authorization required");
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    auto launched = plugin::launch_active_plugin(root, plugin_id, timeout);
+    if (!launched) return reject("Input scheme discovery process unavailable");
+    const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now());
+    if (remaining.count() <= 0) return reject("Input scheme discovery timed out");
+    plugin::PluginInvokeRequest request;
+    request.service = plugin::kInputMethodDescribeService;
+    request.required_permissions = {"input.scheme"};
+    request.user_initiated = true;
+    request.timeout = remaining;
+    const auto invoked = launched.session.invoke(std::move(request));
+    if (!invoked.ok) return reject("Input scheme discovery failed");
+    if (!authorized()) return reject("Input scheme authorization changed during discovery");
+    InputMethodDiscovery result;
+    result.validation = plugin::decode_input_method_descriptors(plugin_id, invoked.payload, result.descriptors);
+    if (!result.validation.ok) return reject("Invalid input scheme descriptors");
+    result.version = active.manifest.version;
+    result.inventory = active.inventory_sha256;
+    result.publisher = active.publisher_certificate_sha256;
+    return result;
 }
 
 struct InputMethodWorker::Impl {
@@ -199,5 +249,125 @@ std::future<engine::InputMethodResponse> InputMethodWorker::submit(engine::Input
     cancellation.request_stop();
     implementation_->condition.notify_one();
     return future;
+}
+
+void InputMethodWorker::cancel() {
+    std::stop_source cancellation;
+    {
+        std::lock_guard lock(implementation_->mutex);
+        ++implementation_->generation;
+        cancellation = implementation_->active;
+        if (implementation_->pending) {
+            implementation_->pending->promise.set_value(failure(
+                implementation_->pending->request, engine::InputMethodStatus::cancelled));
+            implementation_->pending.reset();
+        }
+    }
+    cancellation.request_stop();
+}
+
+struct InputMethodSessionRouter::Impl {
+    explicit Impl(std::filesystem::path value) : root(std::move(value)), worker(registry) {}
+    std::filesystem::path root;
+    engine::InputMethodRegistry registry;
+    InputMethodWorker worker;
+    std::mutex mutex;
+    std::mutex control_mutex;
+    std::uint64_t owner{};
+    std::string session;
+    engine::InputMethodDescriptor descriptor;
+    std::uint64_t last_request{};
+    std::uint64_t generation{};
+    std::uint64_t opening_owner{};
+    std::string opening_session;
+};
+InputMethodSessionRouter::InputMethodSessionRouter(std::filesystem::path root)
+    : implementation_(std::make_unique<Impl>(std::move(root))) {}
+InputMethodSessionRouter::~InputMethodSessionRouter() = default;
+
+engine::InputMethodValidation InputMethodSessionRouter::open(std::uint64_t owner, std::string session,
+    std::string_view plugin_id, std::string_view scheme_id) {
+    auto& state = *implementation_;
+    std::lock_guard control(state.control_mutex);
+    if (owner == 0 || session.empty() || session.size() > 128) return {false, "Invalid scheme session"};
+    std::uint64_t generation{};
+    {
+        std::lock_guard lock(state.mutex);
+        if ((state.owner != 0 && state.owner != owner) ||
+            (state.opening_owner != 0 && state.opening_owner != owner))
+            return {false, "Another owner has an active scheme session"};
+        generation = ++state.generation;
+        state.opening_owner = owner; state.opening_session = session;
+    }
+    const auto abandon = [&](engine::InputMethodValidation validation) {
+        std::lock_guard lock(state.mutex);
+        if (generation == state.generation) { state.opening_owner = 0; state.opening_session.clear(); }
+        return validation;
+    };
+    auto discovery = discover_plugin_input_methods(state.root, plugin_id);
+    if (!discovery.validation.ok) return abandon(discovery.validation);
+    const auto found = std::find_if(discovery.descriptors.begin(), discovery.descriptors.end(),
+        [&](const auto& d) { return d.id == scheme_id; });
+    if (found == discovery.descriptors.end()) return abandon({false, "Scheme was not advertised by the plugin"});
+    engine::InputMethodRequest empty;
+    empty.request_id = 1; empty.session_id = session; empty.scheme_id = found->id;
+    empty.page_size = (std::min)(std::size_t{7}, found->max_candidates);
+    if (!engine::validate_input_method_request(*found, empty).ok) return abandon({false, "Invalid scheme session"});
+    {
+        std::lock_guard lock(state.mutex);
+        if (generation != state.generation) return {false, "Scheme session changed during discovery"};
+        state.opening_owner = 0; state.opening_session.clear();
+        state.worker.cancel();
+        if (state.owner != 0) state.registry.remove_plugin(state.descriptor.plugin_id);
+        state.owner = 0; state.session.clear();
+        const auto registered = register_plugin_input_method(state.registry, state.root, *found,
+            std::chrono::milliseconds(1000), discovery.version, discovery.inventory, discovery.publisher);
+        ++state.generation;
+        if (!registered.ok) return registered;
+        state.owner = owner; state.session = std::move(session); state.descriptor = *found; state.last_request = 0;
+    }
+    return {true, {}};
+}
+
+std::future<engine::InputMethodResponse> InputMethodSessionRouter::submit(std::uint64_t owner,
+    engine::InputMethodRequest request, bool sensitive) {
+    auto& state = *implementation_;
+    std::lock_guard lock(state.mutex);
+    const auto rejected = [&](engine::InputMethodStatus status, std::string diagnostic) {
+        std::promise<engine::InputMethodResponse> promise;
+        auto future = promise.get_future();
+        promise.set_value(failure(request, status, std::move(diagnostic)));
+        return future;
+    };
+    if (owner == 0 || state.owner != owner || state.session != request.session_id ||
+        state.descriptor.id != request.scheme_id)
+        return rejected(engine::InputMethodStatus::unavailable, "Input scheme session is not bound to this owner");
+    if (sensitive) {
+        state.worker.cancel();
+        state.registry.remove_plugin(state.descriptor.plugin_id);
+        state.owner = 0; state.session.clear(); ++state.generation;
+        return rejected(engine::InputMethodStatus::error, "Sensitive input cannot be sent to an input scheme plugin");
+    }
+    const auto validation = engine::validate_input_method_request(state.descriptor, request);
+    if (!validation.ok) return rejected(engine::InputMethodStatus::error, validation.diagnostic);
+    if (request.request_id <= state.last_request)
+        return rejected(engine::InputMethodStatus::error, "Input scheme request is stale");
+    state.last_request = request.request_id;
+    return state.worker.submit(std::move(request));
+}
+
+bool InputMethodSessionRouter::close(std::uint64_t owner, std::string_view session) {
+    auto& state = *implementation_;
+    std::lock_guard lock(state.mutex);
+    const bool active = state.owner == owner && state.session == session;
+    const bool opening = state.opening_owner == owner && state.opening_session == session;
+    if (owner == 0 || (!active && !opening)) return false;
+    if (active) {
+        state.worker.cancel();
+        state.registry.remove_plugin(state.descriptor.plugin_id);
+        state.owner = 0; state.session.clear();
+    }
+    state.opening_owner = 0; state.opening_session.clear(); ++state.generation;
+    return true;
 }
 } // namespace owo::core

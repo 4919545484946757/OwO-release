@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
         require(write(staging / "config.schema.json", "{}") && write(staging / "manifest.json",
             "{\"id\":\"" + plugin_id + "\",\"name\":\"Scheme Probe\",\"version\":\"1.0.0\","
             "\"api_version\":1,\"runtime\":\"process\",\"entry\":\"bin/probe.exe\","
-            "\"permissions\":[\"input.context\"],\"network\":false,\"config_schema\":\"config.schema.json\"}"), "fixture files");
+            "\"permissions\":[\"input.scheme\",\"input.context\"],\"network\":false,\"config_schema\":\"config.schema.json\"}"), "fixture files");
         require(plugin::publish_staged_plugin(root, staging, std::string(64, 'a'), std::string(64, 'b')).ok,
                 "publish test plugin");
         const auto active = plugin::query_active_plugin_version(root, plugin_id);
@@ -52,9 +52,22 @@ int main(int argc, char** argv) {
         engine::InputMethodRegistry registry;
         const auto descriptor = example::table_descriptor(plugin_id);
         require(!core::register_plugin_input_method(registry, root, descriptor).ok, "ungranted registration rejected");
-        const auto grant = plugin::make_plugin_authorization(active.manifest, active.inventory_sha256,
+        require(!core::discover_plugin_input_methods(root, plugin_id).validation.ok, "ungranted discovery rejected");
+        const auto old_grant = plugin::make_plugin_authorization(active.manifest, active.inventory_sha256,
             active.publisher_certificate_sha256, {"input.context"});
+        require(old_grant.ok && plugin::save_plugin_authorization(root, old_grant.value).ok, "legacy context-only fixture grant");
+        require(!core::register_plugin_input_method(registry, root, descriptor).ok &&
+            !core::discover_plugin_input_methods(root, plugin_id).validation.ok, "context permission cannot imply scheme permission");
+        const auto grant = plugin::make_plugin_authorization(active.manifest, active.inventory_sha256,
+            active.publisher_certificate_sha256, {"input.scheme"});
         require(grant.ok && plugin::save_plugin_authorization(root, grant.value).ok, "explicit test authorization");
+        const auto discovered = core::discover_plugin_input_methods(root, plugin_id);
+        require(discovered.validation.ok && discovered.descriptors.size() == 1 &&
+            discovered.descriptors.front().id == descriptor.id, "discover authorized process scheme");
+        require(!core::register_plugin_input_method(registry, root, descriptor, std::chrono::milliseconds(1000),
+            discovered.version, std::string(64, 'c')).ok, "stale discovery binding rejected");
+        require(!core::register_plugin_input_method(registry, root, descriptor, std::chrono::milliseconds(1000),
+            discovered.version, discovered.inventory, std::string(64, 'c')).ok, "stale publisher binding rejected");
         require(core::register_plugin_input_method(registry, root, descriptor, std::chrono::milliseconds(1500)).ok,
                 "authorized process adapter registered");
         {
@@ -120,6 +133,43 @@ int main(int argc, char** argv) {
             require(get(worker.submit(r)).status == engine::InputMethodStatus::unavailable, "disabled process result unavailable");
         }
         registry.remove_plugin(plugin_id);
+        require(plugin::activate_installed_plugin_version(root, plugin_id, "1.0.0").ok, "reactivate fixture for session tests");
+        {
+            core::InputMethodSessionRouter router(root);
+            engine::InputMethodRequest r;
+            r.request_id = 1; r.session_id = "router-session"; r.scheme_id = descriptor.id;
+            r.input = "ab"; r.caret_byte = 2;
+            require(get(router.submit(100, r, false)).status == engine::InputMethodStatus::unavailable, "no implicit scheme session");
+            require(!router.open(0, r.session_id, plugin_id, descriptor.id).ok, "owner identity required");
+            require(!router.open(100, r.session_id, plugin_id, plugin_id + "/unknown").ok, "unadvertised scheme rejected");
+            require(router.open(100, r.session_id, plugin_id, descriptor.id).ok, "explicit session binding");
+            require(!router.open(200, "other", plugin_id, descriptor.id).ok, "another owner cannot replace session");
+            require(get(router.submit(200, r, false)).status == engine::InputMethodStatus::unavailable, "cross-owner request rejected");
+            auto wrong = r; wrong.session_id = "other";
+            require(get(router.submit(100, wrong, false)).status == engine::InputMethodStatus::unavailable, "cross-session request rejected");
+            require(get(router.submit(100, r, false)).status == engine::InputMethodStatus::success, "session routes to real process");
+            require(get(router.submit(100, r, false)).status == engine::InputMethodStatus::error, "replayed request rejected");
+            require(!router.close(200, r.session_id), "cross-owner close rejected");
+            ++r.request_id;
+            require(get(router.submit(100, r, true)).status == engine::InputMethodStatus::error, "sensitive input rejected");
+            ++r.request_id;
+            require(get(router.submit(100, r, false)).status == engine::InputMethodStatus::unavailable, "sensitive transition invalidates session");
+            require(router.open(100, r.session_id, plugin_id, descriptor.id).ok, "explicit reopen after secure transition");
+            require(router.close(100, r.session_id), "owner closes bound session");
+            require(get(router.submit(100, r, false)).status == engine::InputMethodStatus::unavailable, "closed session has no output");
+            const auto describe_marker = root / "data" / plugin_id / "describe-active.txt";
+            std::filesystem::remove(describe_marker);
+            auto opening = std::async(std::launch::async, [&] {
+                return router.open(100, r.session_id, plugin_id, descriptor.id);
+            });
+            const auto open_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (!std::filesystem::exists(describe_marker) && std::chrono::steady_clock::now() < open_deadline)
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            require(std::filesystem::exists(describe_marker), "discovery is in flight");
+            require(router.close(100, r.session_id), "close cancels pending session open");
+            require(!opening.get().ok && get(router.submit(100, r, false)).status == engine::InputMethodStatus::unavailable,
+                "late discovery cannot reopen a closed session");
+        }
     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; outcome = 2; }
     // Only this test's unique absolute store and deterministic sandbox profile are removed.
     std::error_code error;

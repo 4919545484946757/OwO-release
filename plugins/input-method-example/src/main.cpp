@@ -57,6 +57,17 @@ int wmain(int argc, wchar_t** argv) {
         }
         if (call.type != plugin::PluginMessageType::invoke_request) return 9;
         result.type = plugin::PluginMessageType::invoke_response;
+        if (call.service == plugin::kInputMethodDescribeService && call.payload.empty()) {
+#ifdef OWO_INPUT_METHOD_TEST_FAULTS
+            std::ofstream marker(std::filesystem::path(argv[6]) / "describe-active.txt", std::ios::binary);
+            marker << call.request_id;
+            marker.close();
+            Sleep(100);
+#endif
+            result.payload = plugin::encode_input_method_descriptors(plugin_id, {descriptor});
+            if (!plugin::send_plugin_pipe_message(connection.pipe, result, std::chrono::seconds(5)).ok) return 10;
+            continue;
+        }
         engine::InputMethodRequest request;
         if (call.service != plugin::kInputMethodService ||
             !plugin::decode_input_method_request(descriptor, call.payload, request).ok) {

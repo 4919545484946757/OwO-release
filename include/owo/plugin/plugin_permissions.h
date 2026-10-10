@@ -20,7 +20,7 @@ struct PluginPermissionDefinition {
     bool requires_full_trust;
 };
 
-inline constexpr std::array<PluginPermissionDefinition, 27> kKnownPluginPermissions{{
+inline constexpr std::array<PluginPermissionDefinition, 28> kKnownPluginPermissions{{
     {"agent.ipc", PluginPermissionRisk::critical, true},
     {"candidate.transform", PluginPermissionRisk::elevated, false},
     {"clipboard.read", PluginPermissionRisk::elevated, false},
@@ -30,6 +30,7 @@ inline constexpr std::array<PluginPermissionDefinition, 27> kKnownPluginPermissi
     {"filesystem.unrestricted", PluginPermissionRisk::critical, true},
     {"filesystem.user_selected", PluginPermissionRisk::elevated, false},
     {"input.commit", PluginPermissionRisk::high, false},
+    {"input.scheme", PluginPermissionRisk::high, false},
     {"input.context", PluginPermissionRisk::high, false},
     {"input.replace", PluginPermissionRisk::critical, false},
     {"microphone.capture", PluginPermissionRisk::high, true},

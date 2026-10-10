@@ -1,6 +1,7 @@
 #include "owo/plugin/input_method_protocol.h"
 
 #include <utility>
+#include <unordered_set>
 
 namespace owo::plugin {
 namespace {
@@ -147,5 +148,56 @@ engine::InputMethodValidation decode_input_method_response(const engine::InputMe
     const auto validation = engine::validate_input_method_response(d, r, value);
     if (validation.ok) output = std::move(value);
     return validation;
+}
+std::string encode_input_method_descriptors(std::string_view plugin_id,
+    const std::vector<engine::InputMethodDescriptor>& descriptors) {
+    if (descriptors.empty() || descriptors.size() > kMaximumPluginInputSchemes) return {};
+    std::unordered_set<std::string> ids;
+    Writer writer("OWID");
+    writer.integer(engine::kInputMethodApiVersion, 4);
+    writer.integer(descriptors.size(), 4);
+    for (const auto& d : descriptors) {
+        if (d.plugin_id != plugin_id || !engine::validate_input_method_descriptor(d).ok ||
+            !ids.insert(d.id).second) return {};
+        writer.text(d.id); writer.text(d.plugin_id); writer.text(d.name); writer.text(d.language_tag);
+        writer.integer(static_cast<std::uint8_t>(d.kind), 1);
+        writer.integer(d.max_input_bytes, 4); writer.integer(d.max_candidates, 4);
+        writer.integer(d.alphabet.size(), 4);
+        for (auto scalar : d.alphabet) writer.integer(scalar, 4);
+    }
+    if (writer.bytes.size() > kMaximumInputMethodWireBytes) return {};
+    return std::move(writer.bytes);
+}
+
+engine::InputMethodValidation decode_input_method_descriptors(std::string_view plugin_id,
+    std::string_view payload, std::vector<engine::InputMethodDescriptor>& output) {
+    output.clear();
+    Reader reader{payload};
+    std::size_t count{};
+    if (!reader.header("OWID") || !reader.size(count) || count == 0 || count > kMaximumPluginInputSchemes)
+        return invalid();
+    std::vector<engine::InputMethodDescriptor> values;
+    std::unordered_set<std::string> ids;
+    for (std::size_t i = 0; i < count; ++i) {
+        engine::InputMethodDescriptor d;
+        std::uint64_t kind{};
+        std::size_t alphabet_count{};
+        if (!reader.text(d.id, 257) || !reader.text(d.plugin_id, 128) || !reader.text(d.name, 256) ||
+            !reader.text(d.language_tag, 64) || !reader.integer(kind, 1) || !reader.size(d.max_input_bytes) ||
+            !reader.size(d.max_candidates) || !reader.size(alphabet_count) || alphabet_count == 0 ||
+            alphabet_count > 1024) return invalid();
+        d.kind = static_cast<engine::InputMethodKind>(kind);
+        for (std::size_t j = 0; j < alphabet_count; ++j) {
+            std::uint64_t scalar{};
+            if (!reader.integer(scalar, 4)) return invalid();
+            d.alphabet.push_back(static_cast<char32_t>(scalar));
+        }
+        if (d.plugin_id != plugin_id || !engine::validate_input_method_descriptor(d).ok ||
+            !ids.insert(d.id).second) return invalid();
+        values.push_back(std::move(d));
+    }
+    if (!reader.done()) return invalid();
+    output = std::move(values);
+    return {true, {}};
 }
 } // namespace owo::plugin
