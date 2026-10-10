@@ -39,9 +39,15 @@ public sealed class SetupPage : Page
     private readonly ProgressBar _progress = new() { IsIndeterminate = true };
     private readonly TextBlock _progressPercentage = new() {
         Text = "0%", FontSize = 14, Opacity = 0.78,
-        HorizontalAlignment = HorizontalAlignment.Right
+        HorizontalAlignment = HorizontalAlignment.Right,
+        VerticalAlignment = VerticalAlignment.Center
     };
-    private readonly InfoBar _installStatus = new() { IsOpen = true, IsClosable = false };
+    private readonly TextBlock _stageMessage = new() {
+        TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center
+    };
+    private readonly InfoBar _installStatus = new() {
+        IsOpen = true, IsClosable = false, HorizontalContentAlignment = HorizontalAlignment.Stretch
+    };
     private readonly ToggleButton _detailsToggle = new() { Content = "显示安装详细信息" };
     private readonly TextBox _installLog = new() {
         IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
@@ -309,7 +315,16 @@ public sealed class SetupPage : Page
         }
         body.Children.Add(_progress);
         _progressPercentage.Text = "0%";
-        body.Children.Add(_progressPercentage);
+        var stageRow = new Grid { ColumnSpacing = 16 };
+        stageRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        stageRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        stageRow.Children.Add(_stageMessage);
+        Grid.SetColumn(_progressPercentage, 1);
+        stageRow.Children.Add(_progressPercentage);
+        _installStatus.Content = stageRow;
+        _installStatus.Severity = InfoBarSeverity.Informational;
+        _stageMessage.Text = message;
+        body.Children.Add(_installStatus);
         body.Children.Add(new TextBlock {
             Text = "正在安装 OwO 输入法", FontSize = 24,
             TextWrapping = TextWrapping.Wrap,
@@ -320,9 +335,6 @@ public sealed class SetupPage : Page
             Text = "请稍候，安装完成前不要关闭此窗口。",
             TextWrapping = TextWrapping.Wrap, Opacity = 0.78
         });
-        _installStatus.Severity = InfoBarSeverity.Informational;
-        _installStatus.Message = message;
-        body.Children.Add(_installStatus);
         body.Children.Add(_detailsToggle);
         body.Children.Add(_installLog);
         SetPage(body);
@@ -461,7 +473,7 @@ public sealed class SetupPage : Page
             _progress.Value = 100;
             _progressPercentage.Text = "100%";
             _installStatus.Severity = InfoBarSeverity.Success;
-            _installStatus.Message = _taskbarGuide.IsChecked == true
+            _stageMessage.Text = _taskbarGuide.IsChecked == true
                 ? "安装成功。打开设置中心后，可右键任务栏图标并选择“固定到任务栏”。"
                 : "安装成功。现在可以按 Win＋Space 选择 OwO 输入法。";
             _openSettings.Visibility = Visibility.Visible;
@@ -473,7 +485,7 @@ public sealed class SetupPage : Page
             _progress.Value = 0;
             _progressPercentage.Text = "0%";
             _installStatus.Severity = InfoBarSeverity.Error;
-            _installStatus.Message = $"安装失败：{exception.Message}";
+            _stageMessage.Text = $"安装失败：{exception.Message}";
             _installLog.Text = string.IsNullOrWhiteSpace(_installLog.Text)
                 ? exception.ToString() : _installLog.Text + Environment.NewLine + exception;
             SetDetailsVisibility(true);
