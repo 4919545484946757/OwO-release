@@ -10,7 +10,7 @@ cmake --build --preset windows-release --target owo_example_input_method_plugin
 
 产物：`build/windows-release/Release/owo_example_input_method_plugin.exe`。开发打包时放入本目录的 `bin/`，与清单及配置文件组成普通插件文件夹。不要把测试探针 `owo_input_method_process_probe.exe` 打包，它带有仅用于测试的故障注入。
 
-本阶段已实现独立授权、方案发现、Core 会话路由、实验服务 IPC 和后台客户端；设置中心选择与实际 TSF 输入接线仍未完成，安装示例不会替换拼音方案。真实的进程链路通过 `owo.core.input_method_process` 专用测试验证，在独立临时仓库中授权与运行，不启用用户已安装的插件。
+本阶段已开放实验性设置中心选择及 TSF 输入接线。安装并明确授权、启用后，在「输入方案」页点击「发现已授权插件输入方案」，选择本方案并保存。默认仍为全拼，不自动切换方案。真实的进程链路通过 `owo.core.input_method_process` 专用测试验证，在独立临时仓库中授权与运行，不启用用户已安装的插件。当前限支持通过安全检查的原生 Edit/RichEdit 控件；自定义宿主兼容性仍待完善。
 
 宿主必须先验证插件安装绑定与明确的 `input.scheme` 授权，再调用 `discover_plugin_input_methods()` 获取描述，通过 `InputMethodSessionRouter.open()` 绑定实际声明的方案。旧 `input.context` 授权不等于新方案授权，不会自动迁移。测试用例自动授权只针对隔离测试夹具，不能作为发行安装授权流程。
 

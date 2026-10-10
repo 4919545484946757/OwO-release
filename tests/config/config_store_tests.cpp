@@ -237,5 +237,14 @@ int main(const int argc, char** argv) {
         stable != owo::config::serialize_config(round_trip.value)) return 19;
 
     std::filesystem::remove_all(root, error);
+    auto plugin_scheme = changed;
+    plugin_scheme.input_scheme = "plugin:owo.input-method-example/table";
+    if (!owo::config::validate_config(plugin_scheme).ok) return 70;
+    const auto scheme_roundtrip = owo::config::parse_config(owo::config::serialize_config(plugin_scheme));
+    if (!scheme_roundtrip.ok || scheme_roundtrip.value != plugin_scheme) return 71;
+    for (const auto bad : {"plugin:", "plugin:../table", "plugin:owo.test/../table", "plugin:owo.test/", "plugin:owo.test/a/b"}) {
+        plugin_scheme.input_scheme = bad;
+        if (owo::config::validate_config(plugin_scheme).ok) return 72;
+    }
     return 0;
 }

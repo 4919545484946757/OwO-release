@@ -143,6 +143,7 @@
                                     </Grid>
                                 </Border>
                                 <InfoBar x:Name="InputSchemeCapabilities" IsOpen="True" IsClosable="False" Severity="Informational" Message="正在读取输入方案能力。"/>
+                                <Button x:Name="DiscoverSchemesButton" Content="发现已授权插件输入方案" Click="DiscoverSchemes_Click"/>
                                 <TextBlock x:Name="CandidateSectionTitle" Text="候选显示与组合" Style="{StaticResource SectionTitleStyle}"/>
                                 <Border x:Name="CandidatePageSizeCard" Style="{StaticResource SettingsCardStyle}">
                                     <Grid ColumnSpacing="16">

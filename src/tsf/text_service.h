@@ -241,9 +241,39 @@ private:
     HRESULT toggle_language_mode_from_window();
 
     LONG references_{1};
-    // Experimental scheme path remains inactive until explicit scheme selection is wired.
+    bool plugin_scheme_selected() const noexcept;
+    bool plugin_context_allowed(ITfContext*);
+    bool plugin_context_is_current(ITfContext*) const;
+    bool plugin_should_eat_key(ITfContext*, WPARAM, LPARAM);
+    HRESULT handle_plugin_key(ITfContext*, WPARAM, LPARAM, BOOL*);
+    void poll_plugin_input();
+    void finish_plugin_input_on_ui();
+    void queue_plugin_compose();
+    void select_plugin_candidate(std::size_t, bool defer = false);
+    void change_plugin_page(int);
+    void sync_plugin_display();
+    void reset_plugin_input();
+    void commit_plugin_text(std::wstring, bool selected, bool switch_language = false);
+    // Explicitly selected, independently authorized plugin scheme path.
     InputMethodDocumentSession plugin_input_document_;
     std::unique_ptr<ipc::InputMethodAsyncClient> plugin_input_client_;
+    ITfContext* plugin_input_context_{nullptr};
+    ITfRange* plugin_input_selection_{nullptr};
+    ITfContext* plugin_replay_context_{nullptr};
+    ITfRange* plugin_replay_selection_{nullptr};
+    std::uint64_t plugin_replay_generation_{};
+    bool plugin_input_needs_compose_{};
+    bool plugin_switch_after_commit_{};
+    ULONGLONG plugin_commit_deadline_{};
+    std::optional<engine::InputMethodDescriptor> plugin_input_descriptor_;
+    std::future<ipc::InputMethodClientResult> plugin_input_future_;
+    std::string plugin_input_session_;
+    std::uint64_t plugin_input_request_id_{};
+    struct PluginPendingSelection { std::size_t index; std::wstring input; std::uint64_t generation, page; };
+    std::optional<PluginPendingSelection> plugin_pending_selection_;
+    bool plugin_input_opening_{}, plugin_input_committing_{};
+    struct PluginDeferredKey { WPARAM key; LPARAM flags; BYTE state[256]; };
+    std::deque<PluginDeferredKey> plugin_deferred_keys_;
     ITfThreadMgr* thread_manager_{nullptr};
     TfClientId client_id_{TF_CLIENTID_NULL};
     DWORD thread_manager_event_sink_cookie_{TF_INVALID_COOKIE};

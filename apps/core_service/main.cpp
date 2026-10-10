@@ -27,7 +27,8 @@ int wmain(int argc, wchar_t** argv) {
     const wchar_t* config_path = nullptr;
     const wchar_t* plugin_store_path = nullptr;
     bool config_disabled = false;
-    bool experimental_input_schemes = false;
+    // Listener alone grants nothing. Every open still requires explicit package-bound authorization.
+    bool experimental_input_schemes = true;
     for (int index = 1; index < argc;) {
         const std::wstring_view option(argv[index]);
         if (option == L"--experimental-input-schemes") {
@@ -80,7 +81,7 @@ int wmain(int argc, wchar_t** argv) {
         input_schemes = std::make_unique<owo::ipc::InputMethodPipeServer>(effective_plugin_store);
         if (!input_schemes->started()) {
             std::cerr << "experimental_input_scheme_pipe_unavailable\n";
-            return 3;
+            input_schemes.reset(); // basic candidates remain available
         }
     }
     std::clog << R"({"process":"core_service","module":"plugin","level":"info","event_id":"plugin_worker_ready"})"

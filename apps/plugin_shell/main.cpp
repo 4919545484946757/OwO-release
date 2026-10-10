@@ -2,6 +2,7 @@
 #include "owo/plugin/plugin_authorization_store.h"
 #include "owo/plugin/plugin_permissions.h"
 #include "owo/plugin/plugin_store.h"
+#include "owo/core/input_method_runtime.h"
 
 #include <Windows.h>
 
@@ -219,6 +220,29 @@ void print_uninstall_result(const owo::plugin::PluginUninstallResult& result) {
               << ",\"diagnostic\":" << json_escape(result.diagnostic) << "}\n";
 }
 
+int input_schemes(const std::filesystem::path& root) {
+    const auto installed = owo::plugin::list_installed_plugins(root);
+    if (!installed.ok) { std::cerr << installed.diagnostic << '\n'; return 2; }
+    bool comma = false;
+    std::cout << "{\"schemes\":[";
+    for (const auto& version : installed.versions) {
+        if (!version.active || std::find(version.manifest.permissions.begin(),
+            version.manifest.permissions.end(), "input.scheme") == version.manifest.permissions.end()) continue;
+        const auto discovery = owo::core::discover_plugin_input_methods(root, version.manifest.id);
+        if (!discovery.validation.ok) continue; // revoked/unavailable is not selectable
+        for (const auto& scheme : discovery.descriptors) {
+            if (comma) std::cout << ',';
+            comma = true;
+            std::cout << "{\"id\":" << json_escape("plugin:" + scheme.id)
+                << ",\"name\":" << json_escape(scheme.name)
+                << ",\"plugin_id\":" << json_escape(scheme.plugin_id)
+                << ",\"language\":" << json_escape(scheme.language_tag) << '}';
+        }
+    }
+    std::cout << "]}\n";
+    return 0;
+}
+
 int list(const std::filesystem::path& root) {
     const auto plugins = owo::plugin::list_installed_plugins(root);
     if (!plugins.ok) {
@@ -285,6 +309,7 @@ int wmain(const int argc, wchar_t** argv) {
     const std::filesystem::path root(argv[1]);
     const std::wstring_view command(argv[2]);
     if (command == L"list" && argc == 3) return list(root);
+    if (command == L"input-schemes" && argc == 3) return input_schemes(root);
     if (command == L"inspect-install" && argc == 4) {
         const auto preview = owo::plugin::inspect_plugin_install(argv[3]);
         print_install_preview(preview);

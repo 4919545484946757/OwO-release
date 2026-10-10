@@ -179,10 +179,26 @@ bool replace_file(const std::filesystem::path& temporary, const std::filesystem:
 
 }  // namespace
 
+bool is_plugin_input_scheme(std::string_view value) noexcept {
+    if (!value.starts_with("plugin:")) return false;
+    value.remove_prefix(7);
+    const auto slash = value.find('/');
+    if (slash == std::string_view::npos || slash == 0 || slash + 1 == value.size() ||
+        value.size() > 193 || value.find('/', slash + 1) != std::string_view::npos) return false;
+    const auto valid = [](std::string_view id) {
+        return id.size() <= 96 && id.front() != '.' && id.back() != '.' &&
+            id.find("..") == std::string_view::npos && std::all_of(id.begin(), id.end(), [](char c) {
+                return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                    (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-';
+            });
+    };
+    return valid(value.substr(0, slash)) && valid(value.substr(slash + 1));
+}
+
 ConfigValidationResult validate_config(const AppConfig& value) {
     if (value.input_scheme != "full_pinyin" &&
-        value.input_scheme != "exact_code")
-        return {false, "input_scheme must be full_pinyin or exact_code"};
+        value.input_scheme != "exact_code" && !is_plugin_input_scheme(value.input_scheme))
+        return {false, "input_scheme must be full_pinyin, exact_code or plugin:<id>/<scheme>"};
     if (value.candidate_page_size < 1 || value.candidate_page_size > 9)
         return {false, "candidate_page_size must be between 1 and 9"};
     if (value.candidate_wrap_length < 4 || value.candidate_wrap_length > 64)

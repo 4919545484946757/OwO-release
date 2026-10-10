@@ -99,6 +99,14 @@ internal sealed record PluginSnapshot(
     [property: JsonPropertyName("plugins")] List<PluginVersionSnapshot> Plugins,
     [property: JsonPropertyName("recovery")] List<PluginRecoverySnapshot> Recovery);
 
+internal sealed record InputSchemeSnapshot(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("plugin_id")] string PluginId,
+    [property: JsonPropertyName("language")] string Language);
+internal sealed record InputSchemeList(
+    [property: JsonPropertyName("schemes")] List<InputSchemeSnapshot> Schemes);
+
 internal sealed record PluginInstallSnapshot(
     [property: JsonPropertyName("schema_version")] int SchemaVersion,
     [property: JsonPropertyName("ok")] bool Ok,
@@ -139,6 +147,12 @@ internal sealed record PluginInstallPreviewSnapshot(
 
 internal sealed class PluginShellClient
 {
+    internal async Task<List<InputSchemeSnapshot>> DiscoverInputSchemesAsync()
+    {
+        var json = await RunAsync([_storePath, "input-schemes"], CancellationToken.None);
+        return JsonSerializer.Deserialize<InputSchemeList>(json)?.Schemes
+            ?? throw new InvalidOperationException("输入方案后端返回无效数据。");
+    }
     private sealed record ShellRunResult(int ExitCode, string Output, string Error);
 
     private readonly string _shellPath = Environment.GetEnvironmentVariable("OWO_PLUGIN_SHELL_PATH")

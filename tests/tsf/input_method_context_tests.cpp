@@ -26,5 +26,23 @@ int main() {
     f.read_only = false; f.loading = true;
     check(evaluate_input_method_context(f) == InputMethodContextSafety::read_only, "loading");
     check(inspect_input_method_context(nullptr, 0) == InputMethodContextSafety::unknown, "null context blocked");
+    const InputMethodWriteFacts write{1, 1, 2000, 2000, 1000, true, true, true, true, InputMethodContextSafety::allowed};
+    check(input_method_write_allowed(write), "current safe write allowed");
+    for (int n = 0; n < 10; ++n) {
+        auto stale = write;
+        switch (n) {
+        case 0: stale.expected_generation = 0; break;
+        case 1: stale.current_generation = 2; break;
+        case 2: stale.current_deadline = 3000; break;
+        case 3: stale.now = stale.expected_deadline; break;
+        case 4: stale.scheme_selected = false; break;
+        case 5: stale.write_pending = false; break;
+        case 6: stale.same_context = false; break;
+        case 7: stale.same_selection = false; break;
+        case 8: stale.safety = InputMethodContextSafety::sensitive; break;
+        case 9: stale.safety = InputMethodContextSafety::unknown; break;
+        }
+        check(!input_method_write_allowed(stale), "stale or unsafe write rejected");
+    }
     return failures ? 1 : 0;
 }

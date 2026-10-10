@@ -30,6 +30,7 @@ public sealed partial class MainPage : Page
         new("exact_code", "精确编码（实验性）", "按显式撇号分段并精确查询词典，用于验证表码方案接入。",
             "不启用拼音纠错、自动补全或缩写展开；当前仍使用拼音词典数据。"),
     ];
+    private readonly List<InputSchemeOption> _availableSchemes = [.. InputSchemes];
     private sealed record SearchItem(string Title, string Detail, string Page,
                                      Microsoft.UI.Xaml.FrameworkElement? Target = null,
                                      string? PluginField = null)
@@ -87,7 +88,7 @@ public sealed partial class MainPage : Page
     {
         _shortcutCaptureHookProc = ShortcutCaptureHook;
         InitializeComponent();
-        InputScheme.ItemsSource = InputSchemes;
+        InputScheme.ItemsSource = _availableSchemes;
         InputScheme.SelectedIndex = 0;
         SetShortcutBindings("correction", ["Ctrl+Q"]);
         SetShortcutBindings("language", ["Ctrl+Space"]);
@@ -129,9 +130,36 @@ public sealed partial class MainPage : Page
 
     private void ApplySchemeSettings(SettingsSnapshot value)
     {
-        InputScheme.SelectedItem = InputSchemes.FirstOrDefault(
-            scheme => scheme.Id == value.InputScheme) ?? InputSchemes[0];
+        if (value.InputScheme.StartsWith("plugin:", StringComparison.Ordinal) &&
+            !_availableSchemes.Any(scheme => scheme.Id == value.InputScheme)) {
+            _availableSchemes.Add(new(value.InputScheme, value.InputScheme[7..],
+                "已保存的插件方案；点击发现按钮核对当前授权和可用性。",
+                "实验性插件输入；不可用时保留编码，不自动回退拼音。"));
+            InputScheme.ItemsSource = _availableSchemes.ToArray();
+        }
+        InputScheme.SelectedItem = _availableSchemes.FirstOrDefault(
+            scheme => scheme.Id == value.InputScheme) ?? _availableSchemes[0];
         UpdateInputSchemePresentation();
+    }
+
+    private async void DiscoverSchemes_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        DiscoverSchemesButton.IsEnabled = false;
+        try {
+            var selected = (InputScheme.SelectedItem as InputSchemeOption)?.Id;
+            var discovered = await _pluginClient.DiscoverInputSchemesAsync();
+            var previous = _availableSchemes.FirstOrDefault(s => s.Id == selected);
+            _availableSchemes.Clear(); _availableSchemes.AddRange(InputSchemes);
+            _availableSchemes.AddRange(discovered.Select(s => new InputSchemeOption(s.Id,
+                s.Name + "（插件·实验性）", $"{s.PluginId} · {s.Language}",
+                "独立编码、候选选择和分页；仅发送本次编码，无周边文本。拼音智能功能不参与。")));
+            if (previous is not null && !_availableSchemes.Any(s => s.Id == selected))
+                _availableSchemes.Add(previous with { Description = "方案当前不可用或未获授权；请检查插件页面。" });
+            InputScheme.ItemsSource = _availableSchemes.ToArray();
+            InputScheme.SelectedItem = _availableSchemes.FirstOrDefault(s => s.Id == selected) ?? _availableSchemes[0];
+            ShowStatus($"发现 {discovered.Count} 个已授权方案；选择后点击保存。", InfoBarSeverity.Informational);
+        } catch (Exception error) { ShowStatus(error.Message, InfoBarSeverity.Error); }
+        finally { DiscoverSchemesButton.IsEnabled = true; }
     }
 
     private void ApplyCandidateSettings(SettingsSnapshot value)
@@ -188,12 +216,22 @@ public sealed partial class MainPage : Page
             UserCompletionRangeCard is null ||
             ModelTimeoutCard is null ||
             AltCodePreviewPageSizeCard is null || AltCodePreviewWheelCard is null) return;
-        SetCardEnabled(LearningSensitivityCard, UserLearning.IsOn);
+        var pluginScheme = (InputScheme.SelectedItem as InputSchemeOption)?.Id
+            .StartsWith("plugin:", StringComparison.Ordinal) == true;
+        SetCardEnabled(UserLearningCard, !pluginScheme);
+        SetCardEnabled(LearningSensitivityCard, !pluginScheme && UserLearning.IsOn);
+        SetCardEnabled(ModelRankingCard, !pluginScheme);
+        SetCardEnabled(CandidatePartitionCard, !pluginScheme);
+        SetCardEnabled(CandidateImmediateCommitCard, !pluginScheme);
+        SetCardEnabled(FocusLossCommitCard, !pluginScheme);
+        SetCardEnabled(TextNavigationShortcutCard, !pluginScheme);
+        SetCardEnabled(ChinesePunctuationCard, !pluginScheme);
+        SetCardEnabled(PunctuationShortcutCard, !pluginScheme);
         var pinyinScheme = (InputScheme.SelectedItem as InputSchemeOption)?.Id ==
             "full_pinyin";
         SetCardEnabled(UserCompletionCard, pinyinScheme);
         SetCardEnabled(UserCompletionRangeCard, pinyinScheme && UserCompletion.IsOn);
-        SetCardEnabled(ModelTimeoutCard, ModelRanking.IsOn);
+        SetCardEnabled(ModelTimeoutCard, !pluginScheme && ModelRanking.IsOn);
         SetCardEnabled(AltCodePreviewPageSizeCard, AltCodePreview.IsOn);
         SetCardEnabled(AltCodePreviewWheelCard, AltCodePreview.IsOn);
     }
@@ -351,7 +389,7 @@ public sealed partial class MainPage : Page
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
         SetVisibility(page == "schemes", InputSchemeSectionTitle, InputSchemeCard,
-                      InputSchemeCapabilities);
+                      InputSchemeCapabilities, DiscoverSchemesButton);
         SetVisibility(page == "candidates", CandidateSectionTitle,
                       CandidatePageSizeCard, CandidateWrapLengthCard,
                       CandidatePartitionCard, CandidateImmediateCommitCard,

@@ -10,6 +10,9 @@ namespace owo::config {
 
 inline constexpr std::uint32_t kConfigSchemaVersion = 14;
 
+// Persisted reference only, never a grant or filesystem path.
+[[nodiscard]] bool is_plugin_input_scheme(std::string_view) noexcept;
+
 struct AppConfig {
     std::string input_scheme{"full_pinyin"};
     std::uint32_t candidate_page_size{7};
