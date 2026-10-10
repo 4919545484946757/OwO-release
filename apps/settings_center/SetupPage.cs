@@ -3,8 +3,10 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Windowing;
 using Microsoft.Win32;
 using System.Diagnostics;
+using Windows.Graphics;
 using Windows.Storage.Pickers;
 using Windows.System;
 
@@ -87,7 +89,7 @@ public sealed class SetupPage : Page
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.Children.Add(_pageHost);
 
-        var footer = new Grid { Padding = new Thickness(32, 14, 32, 18), ColumnSpacing = 10 };
+        var footer = new Grid { Padding = new Thickness(24, 10, 24, 14), ColumnSpacing = 10 };
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -107,7 +109,7 @@ public sealed class SetupPage : Page
     private StackPanel PageBody(string title, string subtitle)
     {
         var body = new StackPanel {
-            Spacing = 14, Margin = new Thickness(48, 40, 48, 28), MaxWidth = 850,
+            Spacing = 14, Margin = new Thickness(32, 28, 32, 20), MaxWidth = 900,
             HorizontalAlignment = HorizontalAlignment.Center
         };
         body.Children.Add(new TextBlock {
@@ -133,6 +135,7 @@ public sealed class SetupPage : Page
     private void ShowWelcome()
     {
         _step = SetupStep.Welcome;
+        ResizeInstallerWindow(760);
         var body = PageBody("欢迎安装 OwO 输入法", "面向 Windows 11 的模块化中文输入法。");
         body.Children.Add(new TextBlock {
             Text = "OwO 提供本地拼音候选、用户学习、上下文排序和插件扩展能力。安装向导将在后续步骤中让你选择安装位置和快捷方式。",
@@ -157,6 +160,7 @@ public sealed class SetupPage : Page
     private void ShowOptions()
     {
         _step = SetupStep.Options;
+        ResizeInstallerWindow(760);
         var body = PageBody("安装选项", "选择安装位置、安装选项和快捷方式设置。");
 
         body.Children.Add(SectionTitle("安装位置"));
@@ -222,22 +226,10 @@ public sealed class SetupPage : Page
     {
         _step = SetupStep.Progress;
         var body = new StackPanel {
-            Spacing = 14, Margin = new Thickness(48, 28, 48, 28), MaxWidth = 850,
+            Spacing = 12, Margin = new Thickness(24, 18, 24, 16), MaxWidth = 940,
             HorizontalAlignment = HorizontalAlignment.Center
         };
         body.Children.Add(ProgressBanner());
-        body.Children.Add(new TextBlock {
-            Text = "正在安装 OwO 输入法", FontSize = 26,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Margin = new Thickness(0, 8, 0, 0)
-        });
-        body.Children.Add(new TextBlock {
-            Text = "请稍候，安装完成前不要关闭此窗口。",
-            TextWrapping = TextWrapping.Wrap, Opacity = 0.78
-        });
-        _installStatus.Severity = InfoBarSeverity.Informational;
-        _installStatus.Message = message;
-        body.Children.Add(_installStatus);
         _progress.IsIndeterminate = indeterminate;
         if (!indeterminate) {
             _progress.Minimum = 0;
@@ -247,9 +239,22 @@ public sealed class SetupPage : Page
         body.Children.Add(_progress);
         _progressPercentage.Text = "0%";
         body.Children.Add(_progressPercentage);
+        body.Children.Add(new TextBlock {
+            Text = "正在安装 OwO 输入法", FontSize = 24,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Margin = new Thickness(0, 2, 0, 0)
+        });
+        body.Children.Add(new TextBlock {
+            Text = "请稍候，安装完成前不要关闭此窗口。",
+            TextWrapping = TextWrapping.Wrap, Opacity = 0.78
+        });
+        _installStatus.Severity = InfoBarSeverity.Informational;
+        _installStatus.Message = message;
+        body.Children.Add(_installStatus);
         body.Children.Add(_detailsToggle);
         body.Children.Add(_installLog);
         SetPage(body);
+        SetDetailsVisibility(false);
 
         _back.Visibility = Visibility.Collapsed;
         _cancel.Visibility = Visibility.Visible;
@@ -468,6 +473,24 @@ public sealed class SetupPage : Page
         _detailsToggle.IsChecked = visible;
         _detailsToggle.Content = visible ? "隐藏安装详细信息" : "显示安装详细信息";
         _installLog.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (_step == SetupStep.Progress)
+            ResizeInstallerWindow(visible ? 900 : 670);
+    }
+
+    private static void ResizeInstallerWindow(int preferredHeight)
+    {
+        var window = ((App)Application.Current).MainWindow;
+        var display = DisplayArea.GetFromWindowId(window.AppWindow.Id, DisplayAreaFallback.Primary);
+        var workArea = display.WorkArea;
+        var width = Math.Min(1040, Math.Max(320, workArea.Width - 48));
+        var height = Math.Min(preferredHeight, Math.Max(320, workArea.Height - 48));
+        var currentPosition = window.AppWindow.Position;
+        var currentSize = window.AppWindow.Size;
+        var centeredX = currentPosition.X + (currentSize.Width - width) / 2;
+        var centeredY = currentPosition.Y + (currentSize.Height - height) / 2;
+        var x = Math.Clamp(centeredX, workArea.X, workArea.X + workArea.Width - width);
+        var y = Math.Clamp(centeredY, workArea.Y, workArea.Y + workArea.Height - height);
+        window.AppWindow.MoveAndResize(new RectInt32(x, y, width, height));
     }
 
     private void OpenSettingsButton_Click(object sender, RoutedEventArgs e)
