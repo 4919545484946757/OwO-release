@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Win32;
 using System.Diagnostics;
 using Windows.Storage.Pickers;
@@ -34,6 +35,10 @@ public sealed class SetupPage : Page
     private readonly CheckBox _consent = new();
 
     private readonly ProgressBar _progress = new() { IsIndeterminate = true };
+    private readonly TextBlock _progressPercentage = new() {
+        Text = "0%", FontSize = 14, Opacity = 0.78,
+        HorizontalAlignment = HorizontalAlignment.Right
+    };
     private readonly InfoBar _installStatus = new() { IsOpen = true, IsClosable = false };
     private readonly ToggleButton _detailsToggle = new() { Content = "显示安装详细信息" };
     private readonly TextBox _installLog = new() {
@@ -216,13 +221,32 @@ public sealed class SetupPage : Page
     private void ShowProgress(string message, bool indeterminate = true)
     {
         _step = SetupStep.Progress;
-        var body = PageBody("正在安装 OwO 输入法", "请稍候，安装完成前不要关闭此窗口。");
-        _progress.IsIndeterminate = indeterminate;
-        if (!indeterminate) _progress.Value = 0;
-        body.Children.Add(_progress);
+        var body = new StackPanel {
+            Spacing = 14, Margin = new Thickness(48, 28, 48, 28), MaxWidth = 850,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        body.Children.Add(ProgressBanner());
+        body.Children.Add(new TextBlock {
+            Text = "正在安装 OwO 输入法", FontSize = 26,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Margin = new Thickness(0, 8, 0, 0)
+        });
+        body.Children.Add(new TextBlock {
+            Text = "请稍候，安装完成前不要关闭此窗口。",
+            TextWrapping = TextWrapping.Wrap, Opacity = 0.78
+        });
         _installStatus.Severity = InfoBarSeverity.Informational;
         _installStatus.Message = message;
         body.Children.Add(_installStatus);
+        _progress.IsIndeterminate = indeterminate;
+        if (!indeterminate) {
+            _progress.Minimum = 0;
+            _progress.Maximum = 100;
+            _progress.Value = 0;
+        }
+        body.Children.Add(_progress);
+        _progressPercentage.Text = "0%";
+        body.Children.Add(_progressPercentage);
         body.Children.Add(_detailsToggle);
         body.Children.Add(_installLog);
         SetPage(body);
@@ -358,6 +382,7 @@ public sealed class SetupPage : Page
                 throw new InvalidOperationException($"安装后端退出码：{result.ExitCode}");
             _progress.IsIndeterminate = false;
             _progress.Value = 100;
+            _progressPercentage.Text = "100%";
             _installStatus.Severity = InfoBarSeverity.Success;
             _installStatus.Message = _taskbarGuide.IsChecked == true
                 ? "安装成功。打开设置中心后，可右键任务栏图标并选择“固定到任务栏”。"
@@ -369,6 +394,7 @@ public sealed class SetupPage : Page
         } catch (Exception exception) {
             _progress.IsIndeterminate = false;
             _progress.Value = 0;
+            _progressPercentage.Text = "0%";
             _installStatus.Severity = InfoBarSeverity.Error;
             _installStatus.Message = $"安装失败：{exception.Message}";
             _installLog.Text = string.IsNullOrWhiteSpace(_installLog.Text)
@@ -403,12 +429,15 @@ public sealed class SetupPage : Page
                 break;
             case "progress":
             case "installing":
-                ShowProgress("正在复制文件、注册 TSF 并启动服务…");
+                ShowProgress("正在复制文件、注册 TSF 并启动服务…", false);
+                _progress.Value = 46;
+                _progressPercentage.Text = "46%";
                 _installLog.Text = "正在准备安装目录…\r\n正在复制程序文件…\r\n正在注册输入法组件…";
                 break;
             case "success":
                 ShowProgress("安装成功。现在可以按 Win＋Space 选择 OwO 输入法。", false);
                 _progress.Value = 100;
+                _progressPercentage.Text = "100%";
                 _installStatus.Severity = InfoBarSeverity.Success;
                 _installLog.Text = "TSF 配置已注册。\r\nCore Service 已启动。\r\n设置中心快捷入口已创建。";
                 _openSettings.Visibility = Visibility.Visible;
@@ -464,6 +493,17 @@ public sealed class SetupPage : Page
         content.Children.Add(new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap });
         return Card(content);
     }
+
+    private static Border ProgressBanner() => new() {
+        Height = 238,
+        CornerRadius = new CornerRadius(12),
+        Child = new Image {
+            Source = new BitmapImage(new Uri("ms-appx:///Assets/SetupProgressBanner.png")),
+            Stretch = Stretch.UniformToFill,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center
+        }
+    };
 
     private static TextBlock SectionTitle(string text) => new() {
         Text = text, FontSize = 20, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
