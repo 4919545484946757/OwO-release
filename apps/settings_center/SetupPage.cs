@@ -52,7 +52,7 @@ public sealed class SetupPage : Page
     private readonly ToggleButton _detailsToggle = new() { Content = "显示安装详细信息" };
     private readonly TextBox _installLog = new() {
         IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap,
-        MinHeight = 190, MaxHeight = 300, Visibility = Visibility.Collapsed,
+        MinHeight = 140, MaxHeight = 220, Visibility = Visibility.Collapsed,
         FontFamily = new FontFamily("Consolas")
     };
 
@@ -567,7 +567,7 @@ public sealed class SetupPage : Page
         _detailsToggle.Content = visible ? "隐藏安装详细信息" : "显示安装详细信息";
         _installLog.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         if (_step == SetupStep.Progress)
-            ResizeInstallerWindow(visible ? 900 : 670);
+            ResizeInstallerWindow(visible ? 810 : 670);
     }
 
     private static void ResizeInstallerWindow(int preferredHeight)
