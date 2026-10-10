@@ -975,6 +975,9 @@ HRESULT TextService::OnInitDocumentMgr(ITfDocumentMgr*) {
 }
 
 HRESULT TextService::OnUninitDocumentMgr(ITfDocumentMgr*) {
+    // Retire experimental results even if a host omits a separate focus-loss callback.
+    plugin_input_document_.invalidate();
+    if (plugin_input_client_) (void)plugin_input_client_->close();
     return S_OK;
 }
 
@@ -4722,6 +4725,8 @@ void TextService::update_candidate_anchor(ITfContext* context) {
 }
 
 void TextService::clear_composition() {
+    plugin_input_document_.invalidate();
+    if (plugin_input_client_) (void)plugin_input_client_->close();
     ++context_generation_;
     latest_candidate_request_id_.store(0, std::memory_order_release);
     if (candidate_cancellation_event_ != nullptr) SetEvent(candidate_cancellation_event_);

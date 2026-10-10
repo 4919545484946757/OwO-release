@@ -30,6 +30,22 @@ int wmain(int argc, wchar_t** argv) {
     if (token) CloseHandle(token);
     BOOL in_job{};
     if (!sandboxed || !IsProcessInJob(GetCurrentProcess(), nullptr, &in_job) || !in_job) return 3;
+#ifdef OWO_INPUT_METHOD_TEST_FAULTS
+    // Real AppContainer resource and budget checks, only in the test probe.
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+    if (!QueryInformationJobObject(nullptr, JobObjectExtendedLimitInformation, &limits, sizeof(limits), nullptr) ||
+        limits.ProcessMemoryLimit != 512ULL * 1024ULL * 1024ULL) return 30;
+    std::ifstream dictionary("assets/dictionary-test.txt", std::ios::binary);
+    std::string word; dictionary >> word;
+    if (word != "packaged-dictionary") return 31;
+    dictionary.close();
+    std::ofstream forbidden("assets/should-not-write.txt", std::ios::binary);
+    if (forbidden) return 32;
+    const auto private_file = std::filesystem::path(argv[6]) / "private-learning-test.txt";
+    { std::ofstream data(private_file, std::ios::binary); data << "private-data"; if (!data) return 33; }
+    std::ifstream data(private_file, std::ios::binary); data >> word;
+    if (word != "private-data") return 34;
+#endif
     auto connection = plugin::connect_plugin_pipe_client(argv[2], std::chrono::seconds(5));
     if (!connection) return 4;
     plugin::PluginMessage hello;

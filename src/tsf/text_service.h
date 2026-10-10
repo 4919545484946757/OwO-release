@@ -4,6 +4,7 @@
 #include "owo/agent/agent_protocol.h"
 #include "owo/plugin/candidate_theme.h"
 #include "owo/plugin/unicode_palette.h"
+#include "owo/tsf/input_method_session.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -13,6 +14,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -239,6 +241,9 @@ private:
     HRESULT toggle_language_mode_from_window();
 
     LONG references_{1};
+    // Experimental scheme path remains inactive until explicit scheme selection is wired.
+    InputMethodDocumentSession plugin_input_document_;
+    std::unique_ptr<ipc::InputMethodAsyncClient> plugin_input_client_;
     ITfThreadMgr* thread_manager_{nullptr};
     TfClientId client_id_{TF_CLIENTID_NULL};
     DWORD thread_manager_event_sink_cookie_{TF_INVALID_COOKIE};

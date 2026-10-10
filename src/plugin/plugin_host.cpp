@@ -739,7 +739,16 @@ PluginHostLaunchResult launch_active_plugin(
         installed.manifest.permissions.end(), "process.launch") !=
         installed.manifest.permissions.end();
     limits.BasicLimitInformation.ActiveProcessLimit = full_trust && process_launch ? 8 : 1;
-    limits.ProcessMemoryLimit = (full_trust ? 512ULL : 128ULL) * 1024ULL * 1024ULL;
+    // Compact dictionaries and language models need more than the generic sandbox budget.
+    // A manifest declaration alone must not increase the budget: require a current grant.
+    bool authorized_input_scheme = false;
+    if (!full_trust && std::find(installed.manifest.permissions.begin(), installed.manifest.permissions.end(),
+        "input.scheme") != installed.manifest.permissions.end()) {
+        const auto grant = load_plugin_authorization(plugin_store_root, installed.manifest.id, installed.manifest.version);
+        authorized_input_scheme = grant.ok && is_plugin_permission_granted(grant.value, installed.manifest,
+            installed.inventory_sha256, installed.publisher_certificate_sha256, "input.scheme");
+    }
+    limits.ProcessMemoryLimit = (full_trust || authorized_input_scheme ? 512ULL : 128ULL) * 1024ULL * 1024ULL;
     if (job == nullptr || !SetInformationJobObject(
             job, JobObjectExtendedLimitInformation, &limits, sizeof(limits))) {
         const DWORD error = GetLastError();

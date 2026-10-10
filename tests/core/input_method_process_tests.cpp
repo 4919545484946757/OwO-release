@@ -289,6 +289,8 @@ int main(int argc, char** argv) {
         const auto staging = root / "staging" / ".scheme";
         std::filesystem::create_directories(staging / "bin");
         std::filesystem::copy_file(argv[2], staging / "bin" / "probe.exe");
+        std::filesystem::create_directories(staging / "assets");
+        require(write(staging / "assets" / "dictionary-test.txt", "packaged-dictionary"), "dictionary asset fixture");
         require(write(staging / "config.schema.json", "{}") && write(staging / "manifest.json",
             "{\"id\":\"" + plugin_id + "\",\"name\":\"Scheme Probe\",\"version\":\"1.0.0\","
             "\"api_version\":1,\"runtime\":\"process\",\"entry\":\"bin/probe.exe\","

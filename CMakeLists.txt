@@ -334,6 +334,7 @@ if(WIN32)
         src/tsf/dll_main.cpp
         src/tsf/pinyin_cursor.cpp
         src/tsf/text_service.cpp
+        src/tsf/input_method_context.cpp
     )
     target_include_directories(owo_tsf PRIVATE include src/tsf)
     target_compile_features(owo_tsf PRIVATE cxx_std_20)
@@ -836,6 +837,13 @@ if(BUILD_TESTING)
         add_test(NAME owo.tsf.dll_smoke
                  COMMAND owo_tsf_smoke $<TARGET_FILE:owo_tsf>)
 
+        add_executable(owo_input_method_context_tests tests/tsf/input_method_context_tests.cpp src/tsf/input_method_context.cpp)
+        target_include_directories(owo_input_method_context_tests PRIVATE include)
+        target_compile_features(owo_input_method_context_tests PRIVATE cxx_std_20)
+        target_compile_definitions(owo_input_method_context_tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+        target_compile_options(owo_input_method_context_tests PRIVATE /W4 /permissive- /utf-8)
+        target_link_libraries(owo_input_method_context_tests PRIVATE ole32 oleaut32 uuid)
+        add_test(NAME owo.tsf.input_method_context COMMAND owo_input_method_context_tests)
         add_executable(owo_pinyin_cursor_tests
             tests/tsf/pinyin_cursor_tests.cpp
             src/tsf/pinyin_cursor.cpp)
