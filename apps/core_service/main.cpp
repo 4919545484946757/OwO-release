@@ -1,4 +1,5 @@
 #include "owo/ipc/named_pipe.h"
+#include "owo/ipc/input_method_server.h"
 #include "owo/config/config_monitor.h"
 #include "owo/config/config_paths.h"
 #include "owo/core/plugin_executor.h"
@@ -6,6 +7,7 @@
 #include "owo/engine/user_frequency.h"
 
 #include <iostream>
+#include <memory>
 #include <chrono>
 #include <string_view>
 #include <utility>
@@ -25,9 +27,13 @@ int wmain(int argc, wchar_t** argv) {
     const wchar_t* config_path = nullptr;
     const wchar_t* plugin_store_path = nullptr;
     bool config_disabled = false;
+    bool experimental_input_schemes = false;
     for (int index = 1; index < argc;) {
         const std::wstring_view option(argv[index]);
-        if (option == L"--model-host") {
+        if (option == L"--experimental-input-schemes") {
+            experimental_input_schemes = true;
+            ++index;
+        } else if (option == L"--model-host") {
             model_pipe_name = owo::ipc::kModelHostPipeName;
             ++index;
         } else if (option == L"--no-config") {
@@ -68,7 +74,15 @@ int wmain(int argc, wchar_t** argv) {
         std::cerr << "plugin_store_must_be_local_absolute_child\n";
         return 2;
     }
-    owo::core::PluginExecutor plugin_executor(std::move(effective_plugin_store));
+    owo::core::PluginExecutor plugin_executor(effective_plugin_store);
+    std::unique_ptr<owo::ipc::InputMethodPipeServer> input_schemes;
+    if (experimental_input_schemes) {
+        input_schemes = std::make_unique<owo::ipc::InputMethodPipeServer>(effective_plugin_store);
+        if (!input_schemes->started()) {
+            std::cerr << "experimental_input_scheme_pipe_unavailable\n";
+            return 3;
+        }
+    }
     std::clog << R"({"process":"core_service","module":"plugin","level":"info","event_id":"plugin_worker_ready"})"
               << '\n';
     const auto default_config_path = owo::config::default_config_path();

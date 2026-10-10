@@ -59,6 +59,8 @@ public:
     [[nodiscard]] std::future<engine::InputMethodResponse> submit(std::uint64_t owner_id,
         engine::InputMethodRequest, bool sensitive_input);
     [[nodiscard]] bool close(std::uint64_t owner_id, std::string_view session_id);
+    // Snapshot revalidates active package/authorization; use on control/result publication paths,
+    // not inside a key callback. Null on closed, replaced or revoked bindings.
     [[nodiscard]] std::optional<engine::InputMethodDescriptor> descriptor(
         std::uint64_t owner_id, std::string_view session_id) const;
 private:

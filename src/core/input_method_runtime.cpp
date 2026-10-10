@@ -276,6 +276,9 @@ struct InputMethodSessionRouter::Impl {
     std::uint64_t owner{};
     std::string session;
     engine::InputMethodDescriptor descriptor;
+    std::string version;
+    std::string inventory;
+    std::string publisher;
     std::uint64_t last_request{};
     std::uint64_t generation{};
     std::uint64_t opening_owner{};
@@ -325,6 +328,7 @@ engine::InputMethodValidation InputMethodSessionRouter::open(std::uint64_t owner
         ++state.generation;
         if (!registered.ok) return registered;
         state.owner = owner; state.session = std::move(session); state.descriptor = *found; state.last_request = 0;
+        state.version = discovery.version; state.inventory = discovery.inventory; state.publisher = discovery.publisher;
     }
     return {true, {}};
 }
@@ -373,8 +377,24 @@ bool InputMethodSessionRouter::close(std::uint64_t owner, std::string_view sessi
 std::optional<engine::InputMethodDescriptor> InputMethodSessionRouter::descriptor(
     std::uint64_t owner, std::string_view session) const {
     auto& state = *implementation_;
+    engine::InputMethodDescriptor descriptor;
+    std::string version, inventory, publisher;
+    std::uint64_t generation{};
+    {
+        std::lock_guard lock(state.mutex);
+        if (!owner || state.owner != owner || state.session != session) return std::nullopt;
+        descriptor = state.descriptor; generation = state.generation;
+        version = state.version; inventory = state.inventory; publisher = state.publisher;
+    }
+    // Revalidate when a queued result is published, not only while computing it.
+    const auto active = plugin::query_active_plugin_version(state.root, descriptor.plugin_id);
+    if (!active.ok || active.manifest.version != version || active.inventory_sha256 != inventory ||
+        active.publisher_certificate_sha256 != publisher) return std::nullopt;
+    const auto grant = plugin::load_plugin_authorization(state.root, descriptor.plugin_id, version);
+    if (!grant.ok || !plugin::is_plugin_permission_granted(grant.value, active.manifest,
+        inventory, publisher, "input.scheme")) return std::nullopt;
     std::lock_guard lock(state.mutex);
-    if (!owner || state.owner != owner || state.session != session) return std::nullopt;
-    return state.descriptor;
+    if (state.generation != generation || state.owner != owner || state.session != session) return std::nullopt;
+    return descriptor;
 }
 } // namespace owo::core

@@ -2,6 +2,10 @@
 #include "owo/plugin/plugin_authorization_store.h"
 #include "owo/plugin/plugin_sandbox.h"
 #include "owo/plugin/plugin_store.h"
+#include "owo/plugin/input_method_protocol.h"
+#include "owo/ipc/input_method_control.h"
+#include "owo/ipc/input_method_server.h"
+#include "owo/ipc/named_pipe.h"
 #include "scheme.h"
 
 #ifndef NOMINMAX
@@ -13,6 +17,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <thread>
+#include <atomic>
 
 using namespace owo;
 namespace {
@@ -25,6 +30,155 @@ void require(bool ok, const char* name) { if (!ok) throw std::runtime_error(name
 engine::InputMethodResponse get(std::future<engine::InputMethodResponse> future) {
     require(future.wait_for(std::chrono::seconds(8)) == std::future_status::ready, "worker future deadline");
     return future.get();
+}
+void pipe_tests(const std::filesystem::path& root, const engine::InputMethodDescriptor& d,
+                const std::string& suffix) {
+    using namespace std::chrono_literals;
+    std::atomic<std::uint64_t> focus{1};
+    std::atomic<std::uint32_t> observed_pid{};
+    const auto name = LR"(\\.\pipe\OwO.Test.InputSchemes.)" + std::wstring(suffix.begin(), suffix.end());
+    ipc::InputMethodPipeServer server(root, name, [&](std::uint32_t pid) {
+        observed_pid = pid;
+        return ipc::InputMethodFocus{focus.load(), focus.load() == 0};
+    });
+    require(server.started(), "experimental pipe started");
+    ipc::InputMethodPipeServer collision(root, name);
+    require(!collision.started(), "pipe name cannot be taken over");
+    ipc::PersistentPipeClient client(name);
+    std::uint64_t id{};
+    const auto send = [&](ipc::InputMethodControlRequest r) {
+        if (!r.request_id) r.request_id = ++id;
+        auto exchanged = client.exchange(ipc::encode_input_method_control_request(r), 2s);
+        require(static_cast<bool>(exchanged.status), "control pipe exchange");
+        ipc::InputMethodControlResponse response;
+        require(static_cast<bool>(ipc::decode_input_method_control_response(exchanged.response, response)) &&
+            response.request_id == r.request_id, "control response identity");
+        return response;
+    };
+    const auto wait = [&](std::uint64_t ticket) {
+        const auto deadline = std::chrono::steady_clock::now() + 4s;
+        for (;;) {
+            ipc::InputMethodControlRequest poll;
+            poll.action = ipc::InputMethodControlAction::poll; poll.ticket = ticket;
+            auto result = send(poll);
+            if (result.status != ipc::InputMethodControlStatus::pending) return result;
+            require(std::chrono::steady_clock::now() < deadline, "control result deadline");
+            std::this_thread::sleep_for(10ms);
+        }
+    };
+    ipc::InputMethodControlRequest r;
+    r.plugin_id = d.plugin_id;
+    auto discovery = send(r);
+    require(discovery.status == ipc::InputMethodControlStatus::pending, "discovery does not block transport");
+    auto metadata = wait(discovery.ticket);
+    std::vector<engine::InputMethodDescriptor> descriptions;
+    require(metadata.status == ipc::InputMethodControlStatus::ready &&
+        plugin::decode_input_method_descriptors(d.plugin_id, metadata.payload, descriptions).ok &&
+        descriptions.size() == 1, "real pipe discovery");
+    r.action = ipc::InputMethodControlAction::open; r.scheme_id = d.id; r.session_id = "pipe-session";
+    const auto open = [&] {
+        const auto result = send(r);
+        require(result.status == ipc::InputMethodControlStatus::pending &&
+            wait(result.ticket).status == ipc::InputMethodControlStatus::ready, "real pipe open");
+    };
+    open();
+    require(observed_pid == GetCurrentProcessId(), "client PID obtained from actual pipe");
+    engine::InputMethodRequest input;
+    input.session_id = r.session_id; input.scheme_id = d.id; input.page_size = 2;
+    const auto submit = [&](const char* text) {
+        input.request_id = ++id; input.input = text; input.caret_byte = input.input.size();
+        ipc::InputMethodControlRequest req;
+        req.request_id = id; req.action = ipc::InputMethodControlAction::submit;
+        req.payload = plugin::encode_input_method_request(d, input);
+        return send(req);
+    };
+    auto first = submit("a");
+    ipc::InputMethodControlRequest invalid;
+    invalid.action = ipc::InputMethodControlAction::submit; invalid.payload = "malformed";
+    require(send(invalid).status == ipc::InputMethodControlStatus::rejected,
+        "invalid input does not replace active request");
+    auto first_result = wait(first.ticket);
+    engine::InputMethodResponse response;
+    require(first_result.status == ipc::InputMethodControlStatus::ready &&
+        plugin::decode_input_method_response(d, input, first_result.payload, response).ok &&
+        response.candidates.front().text == "日", "real pipe candidate response");
+    auto slow = submit("hang");
+    auto newer = submit("ab");
+    require(slow.status == ipc::InputMethodControlStatus::pending &&
+        newer.status == ipc::InputMethodControlStatus::pending, "slow plugin leaves transport responsive");
+    require(wait(slow.ticket).status == ipc::InputMethodControlStatus::rejected, "stale ticket rejected");
+    auto latest = wait(newer.ticket);
+    require(latest.status == ipc::InputMethodControlStatus::ready &&
+        plugin::decode_input_method_response(d, input, latest.payload, response).ok &&
+        response.candidates.front().text == "明", "latest input wins through pipe");
+    ipc::InputMethodControlRequest replay; replay.request_id = id;
+    replay.action = ipc::InputMethodControlAction::poll; replay.ticket = newer.ticket;
+    require(send(replay).status == ipc::InputMethodControlStatus::rejected, "control replay rejected");
+    auto pending = submit("slow");
+    focus = 2;
+    require(wait(pending.ticket).status == ipc::InputMethodControlStatus::rejected, "focus change discards result");
+    require(submit("a").status == ipc::InputMethodControlStatus::rejected, "focus change requires reopen");
+    open();
+    ipc::InputMethodControlRequest sensitive;
+    sensitive.action = ipc::InputMethodControlAction::poll; sensitive.ticket = 999; sensitive.sensitive_input = true;
+    require(send(sensitive).status == ipc::InputMethodControlStatus::rejected &&
+        submit("a").status == ipc::InputMethodControlStatus::rejected, "client can only tighten safety");
+    focus = 0;
+    require(send(r).status == ipc::InputMethodControlStatus::rejected, "unsafe host focus blocks open");
+    focus = 3; open();
+    pending = submit("slow");
+    client.reset();
+    require(wait(pending.ticket).status == ipc::InputMethodControlStatus::rejected, "reconnection cannot retrieve old result");
+    require(submit("a").status == ipc::InputMethodControlStatus::rejected, "disconnection closes session");
+    // Close while discovery is running; a late completion must never reopen the session.
+    auto opening = send(r);
+    require(opening.status == ipc::InputMethodControlStatus::pending, "pending open after reconnect");
+    ipc::InputMethodControlRequest close;
+    close.action = ipc::InputMethodControlAction::close; close.session_id = r.session_id;
+    require(send(close).status == ipc::InputMethodControlStatus::ready, "close cancels pending control");
+    std::this_thread::sleep_for(250ms);
+    require(wait(opening.ticket).status == ipc::InputMethodControlStatus::rejected &&
+        submit("a").status == ipc::InputMethodControlStatus::rejected, "late open cannot revive session");
+    open();
+    focus = 4;
+    std::this_thread::sleep_for(100ms); // no client traffic: IO wait must still invalidate focus
+    {
+        ipc::PersistentPipeClient next_client(name);
+        auto next_open = r; next_open.request_id = 1;
+        const auto exchanged = next_client.exchange(ipc::encode_input_method_control_request(next_open), 2s);
+        ipc::InputMethodControlResponse accepted;
+        require(static_cast<bool>(exchanged.status) &&
+            static_cast<bool>(ipc::decode_input_method_control_response(exchanged.response, accepted)) &&
+            accepted.status == ipc::InputMethodControlStatus::pending,
+            "idle previous client releases pipe to next foreground owner");
+        auto next_close = close; next_close.request_id = 2;
+        require(static_cast<bool>(next_client.exchange(ipc::encode_input_method_control_request(next_close), 2s).status),
+            "next owner closes its pending open");
+    }
+    std::this_thread::sleep_for(200ms);
+    require(submit("a").status == ipc::InputMethodControlStatus::rejected, "idle focus invalidates session");
+    open();
+    auto queued = submit("ab");
+    std::this_thread::sleep_for(300ms);
+    const auto active = plugin::query_active_plugin_version(root, d.plugin_id);
+    const auto revoked = plugin::make_plugin_authorization(active.manifest, active.inventory_sha256,
+        active.publisher_certificate_sha256, {});
+    require(revoked.ok && plugin::save_plugin_authorization(root, revoked.value).ok, "revoke before publication");
+    require(wait(queued.ticket).status == ipc::InputMethodControlStatus::rejected,
+        "queued result rechecks authorization at publication");
+    const auto restored = plugin::make_plugin_authorization(active.manifest, active.inventory_sha256,
+        active.publisher_certificate_sha256, {"input.scheme"});
+    require(restored.ok && plugin::save_plugin_authorization(root, restored.value).ok, "restore after publication test");
+    // Also verify the production resolver: this console is not a foreground Edit/RichEdit input.
+    ipc::InputMethodPipeServer native(root, name + L".native");
+    require(native.started(), "native policy pipe started");
+    ipc::PersistentPipeClient native_client(name + L".native");
+    r.request_id = 1;
+    const auto denied = native_client.exchange(ipc::encode_input_method_control_request(r), 2s);
+    ipc::InputMethodControlResponse out;
+    require(static_cast<bool>(denied.status) &&
+        static_cast<bool>(ipc::decode_input_method_control_response(denied.response, out)) &&
+        out.status == ipc::InputMethodControlStatus::rejected, "production policy fails closed for unknown input");
 }
 }
 int main(int argc, char** argv) {
@@ -175,6 +329,7 @@ int main(int argc, char** argv) {
             require(!opening.get().ok && get(router.submit(100, r, false)).status == engine::InputMethodStatus::unavailable,
                 "late discovery cannot reopen a closed session");
         }
+        pipe_tests(root, descriptor, suffix);
     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; outcome = 2; }
     // Only this test's unique absolute store and deterministic sandbox profile are removed.
     std::error_code error;
