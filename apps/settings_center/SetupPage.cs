@@ -57,6 +57,15 @@ public sealed class SetupPage : Page
     {
         _packageRoot = Path.GetFullPath(App.InstallPackageRoot ?? Path.Combine(AppContext.BaseDirectory, ".."));
         _previewStage = App.InstallPreviewStage;
+        foreach (var option in new[] { _startMenuShortcut, _desktopShortcut, _taskbarGuide }) {
+            option.Content = new TextBlock {
+                Text = option.Content.ToString(), TextWrapping = TextWrapping.Wrap
+            };
+            option.HorizontalAlignment = HorizontalAlignment.Stretch;
+            option.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        }
+        _consent.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _consent.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         _installDirectory.Text = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Programs", "OwO", "InputMethod", Version);
@@ -102,6 +111,22 @@ public sealed class SetupPage : Page
         Grid.SetColumn(_primary, 3);
         footer.Children.Add(_primary);
         _primary.Style = Application.Current.Resources["AccentButtonStyle"] as Style;
+        footer.SizeChanged += (_, args) => {
+            var narrow = args.NewSize.Width < 560;
+            footer.Padding = new Thickness(narrow ? 12 : 24, 10, narrow ? 12 : 24, 14);
+            footer.RowDefinitions.Clear();
+            if (narrow) {
+                for (var index = 0; index < 4; index++)
+                    footer.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            }
+            var buttons = new[] { _back, _cancel, _openSettings, _primary };
+            for (var index = 0; index < buttons.Length; index++) {
+                Grid.SetRow(buttons[index], narrow ? index : 0);
+                Grid.SetColumn(buttons[index], narrow ? 0 : index);
+                Grid.SetColumnSpan(buttons[index], narrow ? 4 : 1);
+                buttons[index].HorizontalAlignment = narrow ? HorizontalAlignment.Stretch : HorizontalAlignment.Right;
+            }
+        };
         Grid.SetRow(footer, 1);
         root.Children.Add(footer);
         return root;
@@ -116,6 +141,7 @@ public sealed class SetupPage : Page
         body.Children.Add(WizardSteps(_step));
         body.Children.Add(new TextBlock {
             Text = title, FontSize = 30,
+            TextWrapping = TextWrapping.Wrap,
             FontWeight = Microsoft.UI.Text.FontWeights.Normal
         });
         body.Children.Add(new TextBlock {
@@ -128,10 +154,28 @@ public sealed class SetupPage : Page
     private void SetPage(UIElement content)
     {
         _pageHost.Children.Clear();
-        _pageHost.Children.Add(new ScrollViewer {
-            Content = content,
+        if (content is FrameworkElement element) {
+            element.Margin = new Thickness(0);
+            element.HorizontalAlignment = HorizontalAlignment.Stretch;
+        }
+        // ScrollViewer can measure unconstrained content at its desired width.
+        // Supply a finite viewport width so long paths, cards and images wrap
+        // before arranging rather than expanding past the window edge.
+        var viewport = new Grid { Padding = new Thickness(24, 18, 24, 16) };
+        viewport.Children.Add(content);
+        var scroll = new ScrollViewer {
+            Content = viewport, HorizontalScrollMode = ScrollMode.Disabled,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollMode = ScrollMode.Enabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalContentAlignment = HorizontalAlignment.Stretch
-        });
+        };
+        scroll.SizeChanged += (_, args) => {
+            viewport.Width = Math.Max(0, args.NewSize.Width - 16);
+            var inset = args.NewSize.Width < 600 ? 12 : 24;
+            viewport.Padding = new Thickness(inset, 18, inset, 16);
+        };
+        _pageHost.Children.Add(scroll);
     }
 
     private void ShowWelcome()
@@ -213,12 +257,8 @@ public sealed class SetupPage : Page
             TextWrapping = TextWrapping.Wrap
         });
         languageText.Children.Add(_languageStatus);
-        var languageActions = new StackPanel {
-            Orientation = Orientation.Horizontal, Spacing = 8,
-            Margin = new Thickness(0, 8, 0, 0)
-        };
-        languageActions.Children.Add(_recheckLanguage);
-        languageActions.Children.Add(_openLanguageSettings);
+        var languageActions = ResponsiveColumns(_recheckLanguage, _openLanguageSettings);
+        languageActions.Margin = new Thickness(0, 8, 0, 0);
         languageText.Children.Add(languageActions);
         languageText.Children.Add(_packageStatus);
         body.Children.Add(ResponsiveColumns(Card(options), Card(languageText)));
@@ -272,6 +312,7 @@ public sealed class SetupPage : Page
         body.Children.Add(_progressPercentage);
         body.Children.Add(new TextBlock {
             Text = "正在安装 OwO 输入法", FontSize = 24,
+            TextWrapping = TextWrapping.Wrap,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             Margin = new Thickness(0, 2, 0, 0)
         });
@@ -513,8 +554,10 @@ public sealed class SetupPage : Page
         var window = ((App)Application.Current).MainWindow;
         var display = DisplayArea.GetFromWindowId(window.AppWindow.Id, DisplayAreaFallback.Primary);
         var workArea = display.WorkArea;
-        var width = Math.Min(1040, Math.Max(320, workArea.Width - 48));
-        var height = Math.Min(preferredHeight, Math.Max(320, workArea.Height - 48));
+        // AppWindow uses physical pixels; XAML layout sizes are logical pixels.
+        var scale = window.Content.XamlRoot?.RasterizationScale ?? 1;
+        var width = Math.Min((int)Math.Round(1040 * scale), Math.Max(1, workArea.Width - 48));
+        var height = Math.Min((int)Math.Round(preferredHeight * scale), Math.Max(1, workArea.Height - 48));
         var currentPosition = window.AppWindow.Position;
         var currentSize = window.AppWindow.Size;
         var centeredX = currentPosition.X + (currentSize.Width - width) / 2;
@@ -549,6 +592,7 @@ public sealed class SetupPage : Page
             var panel = new StackPanel { Spacing = 8 };
             panel.Children.Add(new TextBlock {
                 Text = $"0{index + 1}  {labels[index]}", FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
                 Opacity = index == (int)current ? 1 : 0.55
             });
             panel.Children.Add(new Border {
