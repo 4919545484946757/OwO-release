@@ -567,16 +567,25 @@ public sealed class SetupPage : Page
         _detailsToggle.Content = visible ? "隐藏安装详细信息" : "显示安装详细信息";
         _installLog.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         if (_step == SetupStep.Progress)
-            ResizeInstallerWindow(visible ? 810 : 670);
+            ResizeInstallerWindow(visible ? 720 : 670, preservePosition: true);
     }
 
-    private static void ResizeInstallerWindow(int preferredHeight)
+    private static void ResizeInstallerWindow(int preferredHeight, bool preservePosition = false)
     {
         var window = ((App)Application.Current).MainWindow;
         var display = DisplayArea.GetFromWindowId(window.AppWindow.Id, DisplayAreaFallback.Primary);
         var workArea = display.WorkArea;
         // AppWindow uses physical pixels; XAML layout sizes are logical pixels.
         var scale = window.Content.XamlRoot?.RasterizationScale ?? 1;
+        if (preservePosition) {
+            var position = window.AppWindow.Position;
+            var availableHeight = Math.Max(1, workArea.Y + workArea.Height - position.Y);
+            var targetHeight = Math.Min((int)Math.Round(preferredHeight * scale), availableHeight);
+            // Resize preserves the top-left origin and the existing width;
+            // details affect only the vertical expansion area.
+            window.AppWindow.Resize(new SizeInt32(window.AppWindow.Size.Width, targetHeight));
+            return;
+        }
         var width = Math.Min((int)Math.Round(1040 * scale), Math.Max(1, workArea.Width - 48));
         var height = Math.Min((int)Math.Round(preferredHeight * scale), Math.Max(1, workArea.Height - 48));
         var currentPosition = window.AppWindow.Position;
