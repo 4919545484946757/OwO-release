@@ -370,4 +370,11 @@ bool InputMethodSessionRouter::close(std::uint64_t owner, std::string_view sessi
     state.opening_owner = 0; state.opening_session.clear(); ++state.generation;
     return true;
 }
+std::optional<engine::InputMethodDescriptor> InputMethodSessionRouter::descriptor(
+    std::uint64_t owner, std::string_view session) const {
+    auto& state = *implementation_;
+    std::lock_guard lock(state.mutex);
+    if (!owner || state.owner != owner || state.session != session) return std::nullopt;
+    return state.descriptor;
+}
 } // namespace owo::core

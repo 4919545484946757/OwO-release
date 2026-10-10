@@ -176,3 +176,34 @@ owner ID 必须由可信宿主根据实际客户端身份生成或验证；`sens
 - 不改现有拼音候选算法；不授权、启用或迁移真实已安装插件。测试自动授权仅限独立临时夹具。
 - 回滚本次提交即可返回 S2a；实验示例清单与运行时授权门禁需同步回滚。
 - 下一步：S2b2 的非阻塞服务 IPC 与客户端身份/焦点生命周期接线；再进入 S3 方案选择、按键能力与学习规则适配。
+
+## S2b2 第一部分：异步控制协议（尚未开放管道）
+
+新增独立 `owo_input_method_control` 编解码库，不修改现有拼音候选协议。
+本次仅完成传输契约与 owner/session 绑定的描述查询；Core 服务暂未监听此协议，
+TSF 和设置中心也不会调用它。不能据此认为第三方输入方案已能实际输入。
+
+请求格式：`OWCQ`、`u32 version=1`、`u64 request_id`、`u8 action`、
+`u64 ticket`、plugin/scheme/session/payload 四个长度前缀字符串、`u8 sensitive_input`。
+响应格式：`OWCR`、版本、request ID、ticket、`u8 status`、payload、diagnostic。
+全部数字为小端；字符串长度为 `u32` 字节数，payload 可含零字节。
+
+动作：discover=0、open=1、submit=2、poll=3、close=4。
+状态：pending=0、ready=1、rejected=2、error=3。
+
+- discover 只带 plugin ID；open 带 plugin/scheme/session；submit 只带内层请求载荷；
+  poll 只带 ticket；close 只带 session。拒绝动作不允许的附加字段。
+- 异步设计为提交后返回 pending/ticket，再用新 request ID 查询同一 ticket，
+  避免在输入回调中等待插件启动或结果。ticket 不代表授权。
+- 编码不合法时返回空字符串；解码拒绝截断、尾随字节、未知版本/动作/状态、
+  非法布尔和超限长度，并清空输出。payload 上限 128 KiB，诊断只允许短 ASCII 状态。
+- 外层没有 owner 字段：未来服务必须从实际客户端连接生成身份，不能接受客户端自报 owner。
+  `sensitive_input=true` 只能增加限制，false 不代表输入安全。
+- `InputMethodSessionRouter::descriptor(owner, session)` 仅返回当前匹配会话的描述副本，
+  关闭后或跨 owner/session 查询返回空；不提供跨会话元数据读取。
+
+后续接线必须实现：独立受保护管道、真实客户端身份、焦点安全检查、断连/失焦取消、
+有界控制队列、结果发布前会话代数检查及真实管道测试。完成前不得外发用户编码。
+
+本部分验收：Release 构建通过；四项定向 CTest（控制协议、运行时、方案接口、
+真实隔离进程）全部通过。未执行全量测试，未部署或打包。

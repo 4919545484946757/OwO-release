@@ -5,6 +5,7 @@
 #include <chrono>
 #include <filesystem>
 #include <future>
+#include <optional>
 
 namespace owo::core {
 
@@ -58,6 +59,8 @@ public:
     [[nodiscard]] std::future<engine::InputMethodResponse> submit(std::uint64_t owner_id,
         engine::InputMethodRequest, bool sensitive_input);
     [[nodiscard]] bool close(std::uint64_t owner_id, std::string_view session_id);
+    [[nodiscard]] std::optional<engine::InputMethodDescriptor> descriptor(
+        std::uint64_t owner_id, std::string_view session_id) const;
 private:
     struct Impl;
     std::unique_ptr<Impl> implementation_;

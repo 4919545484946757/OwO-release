@@ -143,6 +143,10 @@ int main(int argc, char** argv) {
             require(!router.open(0, r.session_id, plugin_id, descriptor.id).ok, "owner identity required");
             require(!router.open(100, r.session_id, plugin_id, plugin_id + "/unknown").ok, "unadvertised scheme rejected");
             require(router.open(100, r.session_id, plugin_id, descriptor.id).ok, "explicit session binding");
+            require(router.descriptor(100, r.session_id).has_value() &&
+                router.descriptor(100, r.session_id)->id == descriptor.id, "bound descriptor available to owner");
+            require(!router.descriptor(200, r.session_id) && !router.descriptor(100, "wrong"),
+                "descriptor cannot cross owner or session");
             require(!router.open(200, "other", plugin_id, descriptor.id).ok, "another owner cannot replace session");
             require(get(router.submit(200, r, false)).status == engine::InputMethodStatus::unavailable, "cross-owner request rejected");
             auto wrong = r; wrong.session_id = "other";
@@ -156,6 +160,7 @@ int main(int argc, char** argv) {
             require(get(router.submit(100, r, false)).status == engine::InputMethodStatus::unavailable, "sensitive transition invalidates session");
             require(router.open(100, r.session_id, plugin_id, descriptor.id).ok, "explicit reopen after secure transition");
             require(router.close(100, r.session_id), "owner closes bound session");
+            require(!router.descriptor(100, r.session_id), "closed descriptor unavailable");
             require(get(router.submit(100, r, false)).status == engine::InputMethodStatus::unavailable, "closed session has no output");
             const auto describe_marker = root / "data" / plugin_id / "describe-active.txt";
             std::filesystem::remove(describe_marker);
