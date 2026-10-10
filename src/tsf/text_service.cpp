@@ -2030,9 +2030,13 @@ bool TextService::present_candidate_surface() noexcept {
     candidate_resize_in_progress_ = false;
     ReleaseDC(nullptr, screen);
     if (!updated) return false;
-    if (!IsWindowVisible(candidate_window_))
-        ShowWindow(candidate_window_, SW_SHOWNOACTIVATE);
-    return true;
+    // WS_EX_TOPMOST places the window in the topmost band at creation, but
+    // another topmost foreground window can subsequently cover it. Publishing
+    // a layered bitmap does not restore Z order. Reassert it on every completed
+    // frame, without activating, moving, resizing or clearing the bitmap.
+    return SetWindowPos(candidate_window_, HWND_TOPMOST, 0, 0, 0, 0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE |
+                            SWP_NOOWNERZORDER | SWP_SHOWWINDOW) != FALSE;
 }
 
 void TextService::update_candidate_shadow() noexcept {
