@@ -145,7 +145,6 @@ public sealed class SetupPage : Page
             Spacing = 14, Margin = new Thickness(24, 24, 24, 20), MaxWidth = 940,
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
-        body.Children.Add(WizardSteps(_step));
         body.Children.Add(new TextBlock {
             Text = title, FontSize = 30,
             TextWrapping = TextWrapping.Wrap,
@@ -161,6 +160,10 @@ public sealed class SetupPage : Page
     private void SetPage(UIElement content)
     {
         _pageHost.Children.Clear();
+        // All installer states share one step indicator, including checking,
+        // installing and the success/error pages built outside PageBody.
+        if (content is StackPanel body)
+            body.Children.Insert(0, WizardSteps(_step));
         if (content is FrameworkElement element) {
             element.Margin = new Thickness(0);
             element.HorizontalAlignment = HorizontalAlignment.Stretch;
