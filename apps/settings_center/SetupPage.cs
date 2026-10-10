@@ -101,6 +101,7 @@ public sealed class SetupPage : Page
         footer.Children.Add(_openSettings);
         Grid.SetColumn(_primary, 3);
         footer.Children.Add(_primary);
+        _primary.Style = Application.Current.Resources["AccentButtonStyle"] as Style;
         Grid.SetRow(footer, 1);
         root.Children.Add(footer);
         return root;
@@ -109,12 +110,13 @@ public sealed class SetupPage : Page
     private StackPanel PageBody(string title, string subtitle)
     {
         var body = new StackPanel {
-            Spacing = 14, Margin = new Thickness(32, 28, 32, 20), MaxWidth = 900,
-            HorizontalAlignment = HorizontalAlignment.Center
+            Spacing = 14, Margin = new Thickness(24, 24, 24, 20), MaxWidth = 940,
+            HorizontalAlignment = HorizontalAlignment.Stretch
         };
+        body.Children.Add(WizardSteps(_step));
         body.Children.Add(new TextBlock {
             Text = title, FontSize = 30,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            FontWeight = Microsoft.UI.Text.FontWeights.Normal
         });
         body.Children.Add(new TextBlock {
             Text = subtitle, FontSize = 16, Opacity = 0.78,
@@ -136,17 +138,33 @@ public sealed class SetupPage : Page
     {
         _step = SetupStep.Welcome;
         ResizeInstallerWindow(760);
-        var body = PageBody("欢迎安装 OwO 输入法", "面向 Windows 11 的模块化中文输入法。");
-        body.Children.Add(new TextBlock {
-            Text = "OwO 提供本地拼音候选、用户学习、上下文排序和插件扩展能力。安装向导将在后续步骤中让你选择安装位置和快捷方式。",
-            TextWrapping = TextWrapping.Wrap, FontSize = 17, MaxWidth = 720,
-            Margin = new Thickness(0, 14, 0, 18)
+        var body = PageBody("欢迎使用 OwO", "面向 Windows 11 的模块化中文输入法。");
+        var introduction = new StackPanel { Spacing = 14 };
+        introduction.Children.Add(new TextBlock {
+            Text = "OwO", FontSize = 52, CharacterSpacing = 80,
+            Foreground = AccentBrush()
         });
-        var features = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
-        features.Children.Add(FeatureCard("原生输入体验", "使用 Windows TSF 接入常用应用。"));
-        features.Children.Add(FeatureCard("本地优先", "基础候选与用户数据保存在本机。"));
-        features.Children.Add(FeatureCard("可扩展", "可安装候选框皮肤和功能插件。"));
+        introduction.Children.Add(new TextBlock {
+            Text = "让每一次表达，更贴近你的习惯。", FontSize = 24,
+            TextWrapping = TextWrapping.Wrap
+        });
+        introduction.Children.Add(new TextBlock {
+            Text = "从拼音输入到个性化候选，OwO 将本地词库、用户学习和可选智能排序融入日常输入。你也可以通过插件定制外观与功能。",
+            TextWrapping = TextWrapping.Wrap, Opacity = 0.78, MaxWidth = 760
+        });
+        introduction.Children.Add(new TextBlock {
+            Text = $"版本 {Version}  ·  Windows 11 x64", FontSize = 12, Opacity = 0.65
+        });
+        body.Children.Add(Card(introduction));
+        var features = ResponsiveColumns(
+            FeatureCard("\uE8D2", "流畅表达", "拼音候选、快捷选词与用户词库，适配日常输入。"),
+            FeatureCard("\uE753", "本地优先", "基础输入无需联网，词库与学习数据保存在本机。"),
+            FeatureCard("\uE713", "按需扩展", "在设置中心调整输入偏好、管理主题和功能插件。"));
         body.Children.Add(features);
+        body.Children.Add(new TextBlock {
+            Text = "接下来：选择安装位置与快捷方式，再查看安装进度。安装完成后，按 Win＋Space 切换到 OwO。",
+            TextWrapping = TextWrapping.Wrap, Opacity = 0.7, Margin = new Thickness(0, 4, 0, 0)
+        });
         SetPage(body);
         _back.Visibility = Visibility.Collapsed;
         _cancel.Visibility = Visibility.Visible;
@@ -163,27 +181,36 @@ public sealed class SetupPage : Page
         ResizeInstallerWindow(760);
         var body = PageBody("安装选项", "选择安装位置、安装选项和快捷方式设置。");
 
-        body.Children.Add(SectionTitle("安装位置"));
+        var installation = new StackPanel { Spacing = 10 };
+        installation.Children.Add(SectionTitle("安装位置"));
         var location = new Grid { ColumnSpacing = 10 };
         location.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         location.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         location.Children.Add(_installDirectory);
         Grid.SetColumn(_browseDirectory, 1);
         location.Children.Add(_browseDirectory);
-        body.Children.Add(location);
+        installation.Children.Add(location);
+        installation.Children.Add(new TextBlock {
+            Text = "浏览时会在所选文件夹下创建 OwO 目录。也可直接填写完整路径；目标应为空文件夹或已有的 OwO 安装目录。",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7
+        });
+        body.Children.Add(Card(installation));
 
-        body.Children.Add(SectionTitle("快捷方式"));
         var options = new StackPanel { Spacing = 10 };
+        options.Children.Add(SectionTitle("快捷入口"));
         options.Children.Add(_startMenuShortcut);
         options.Children.Add(_desktopShortcut);
         options.Children.Add(_taskbarGuide);
-        body.Children.Add(Card(options));
+        options.Children.Add(new TextBlock {
+            Text = "Windows 任务栏固定由你手动完成，安装器可在完成后提供操作提示。",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7
+        });
 
-        body.Children.Add(SectionTitle("安装检查"));
         var languageText = new StackPanel { Spacing = 4 };
+        languageText.Children.Add(SectionTitle("安装检查"));
         languageText.Children.Add(new TextBlock {
             Text = "中文（简体，中国）与基本输入支持",
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            TextWrapping = TextWrapping.Wrap
         });
         languageText.Children.Add(_languageStatus);
         var languageActions = new StackPanel {
@@ -193,8 +220,12 @@ public sealed class SetupPage : Page
         languageActions.Children.Add(_recheckLanguage);
         languageActions.Children.Add(_openLanguageSettings);
         languageText.Children.Add(languageActions);
-        body.Children.Add(Card(languageText));
-        body.Children.Add(_packageStatus);
+        languageText.Children.Add(_packageStatus);
+        body.Children.Add(ResponsiveColumns(Card(options), Card(languageText)));
+        body.Children.Add(new TextBlock {
+            Text = "安装到当前用户账户；注册输入法组件时，Windows 会请求管理员授权。无需将中文设为系统显示语言。",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7
+        });
 
         _consent.Content = new TextBlock {
             Text = "我确认安装来源可信，并同意注册输入法组件和启动当前用户后台服务。",
@@ -506,14 +537,73 @@ public sealed class SetupPage : Page
         }
     }
 
-    private static Border FeatureCard(string title, string description)
+    private static Brush AccentBrush() =>
+        (Brush)Application.Current.Resources["SystemControlForegroundAccentBrush"];
+
+    private static UIElement WizardSteps(SetupStep current)
     {
-        var content = new StackPanel { Spacing = 6, Width = 220 };
+        var labels = new[] { "开始", "安装选项", "安装进度" };
+        var grid = new Grid { ColumnSpacing = 12, Margin = new Thickness(0, 0, 0, 8) };
+        for (var index = 0; index < labels.Length; index++) {
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var panel = new StackPanel { Spacing = 8 };
+            panel.Children.Add(new TextBlock {
+                Text = $"0{index + 1}  {labels[index]}", FontSize = 12,
+                Opacity = index == (int)current ? 1 : 0.55
+            });
+            panel.Children.Add(new Border {
+                Height = 3, CornerRadius = new CornerRadius(2),
+                Background = index == (int)current ? AccentBrush() :
+                    new SolidColorBrush(Windows.UI.Color.FromArgb(35, 128, 128, 128))
+            });
+            Grid.SetColumn(panel, index);
+            grid.Children.Add(panel);
+        }
+        return grid;
+    }
+
+    private static Grid ResponsiveColumns(params FrameworkElement[] items)
+    {
+        var grid = new Grid { ColumnSpacing = 12, RowSpacing = 12 };
+        void Arrange(bool horizontal)
+        {
+            grid.ColumnDefinitions.Clear();
+            grid.RowDefinitions.Clear();
+            for (var index = 0; index < items.Length; index++) {
+                if (horizontal) grid.ColumnDefinitions.Add(new ColumnDefinition {
+                    Width = new GridLength(1, GridUnitType.Star)
+                });
+                else grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                Grid.SetColumn(items[index], horizontal ? index : 0);
+                Grid.SetRow(items[index], horizontal ? 0 : index);
+            }
+        }
+        foreach (var item in items) grid.Children.Add(item);
+        var horizontal = true;
+        Arrange(horizontal);
+        grid.SizeChanged += (_, args) => {
+            var next = args.NewSize.Width >= 720;
+            if (next == horizontal) return;
+            horizontal = next;
+            Arrange(horizontal);
+        };
+        return grid;
+    }
+
+    private static Border FeatureCard(string glyph, string title, string description)
+    {
+        var content = new StackPanel { Spacing = 10 };
+        content.Children.Add(new FontIcon {
+            Glyph = glyph, FontSize = 22, Foreground = AccentBrush(),
+            HorizontalAlignment = HorizontalAlignment.Left
+        });
         content.Children.Add(new TextBlock {
             Text = title, FontSize = 17,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            FontWeight = Microsoft.UI.Text.FontWeights.Normal
         });
-        content.Children.Add(new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap });
+        content.Children.Add(new TextBlock {
+            Text = description, TextWrapping = TextWrapping.Wrap, Opacity = 0.7
+        });
         return Card(content);
     }
 
@@ -529,13 +619,15 @@ public sealed class SetupPage : Page
     };
 
     private static TextBlock SectionTitle(string text) => new() {
-        Text = text, FontSize = 20, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-        Margin = new Thickness(0, 10, 0, 0)
+        Text = text, FontSize = 18, FontWeight = Microsoft.UI.Text.FontWeights.Normal,
+        Margin = new Thickness(0, 0, 0, 6)
     };
 
     private static Border Card(UIElement content) => new() {
         Child = content, Padding = new Thickness(18), CornerRadius = new CornerRadius(8),
-        BorderThickness = new Thickness(1)
+        BorderThickness = new Thickness(1),
+        Background = new SolidColorBrush(Windows.UI.Color.FromArgb(12, 128, 128, 128)),
+        BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(30, 128, 128, 128))
     };
 
     private static void CloseWindow() => ((App)Application.Current).MainWindow.Close();
