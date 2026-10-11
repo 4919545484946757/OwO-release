@@ -1,0 +1,13 @@
+   Compiling owo-build-info v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-build-info)
+    Checking owo-agent-server v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-server)
+    Checking owo-agent-cli v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-cli)
+warning: function `render_final_result_jsonl` is never used
+   --> crates\owo-agent-cli\src\ui_output.rs:295:8
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+295 | pub fn render_final_result_jsonl(
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+    |
+
+warning: `owo-agent-cli` (bin "owo-agent") generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.16s

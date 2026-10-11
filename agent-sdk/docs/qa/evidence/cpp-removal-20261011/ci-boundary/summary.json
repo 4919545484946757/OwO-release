@@ -1,0 +1,48 @@
+﻿{
+    "timestamp":  "2026-10-11T07:35:06Z",
+    "ok":  true,
+    "completed":  true,
+    "interrupted":  false,
+    "resources":  {
+                      "redline":  "§2.4 Rust 编译与测试资源安全红线",
+                      "mode":  "normal",
+                      "jobs":  2,
+                      "test_threads":  2,
+                      "policy_source":  "ci-gate-preflight",
+                      "cargo_env":  {
+                                        "CARGO_BUILD_JOBS":  "2",
+                                        "RUST_TEST_THREADS":  "2"
+                                    },
+                      "cpu_logical":  16,
+                      "memory_gate":  {
+                                          "min_free_gb":  6,
+                                          "max_used_percent":  80
+                                      },
+                      "memory_at_write":  {
+                                              "status":  "ok",
+                                              "total_gb":  23.29,
+                                              "free_gb":  8.71,
+                                              "used_percent":  62.6,
+                                              "source":  "cim"
+                                          },
+                      "disk_at_write":  {
+                                            "status":  "ok",
+                                            "drive":  "D",
+                                            "free_gb":  75.44,
+                                            "total_gb":  629.92,
+                                            "source":  "psdrive"
+                                        },
+                      "applied":  [
+
+                                  ],
+                      "guard_events":  [
+
+                                       ]
+                  },
+    "steps":  [
+                  "Agent workspace boundary"
+              ],
+    "failures":  [
+
+                 ]
+}

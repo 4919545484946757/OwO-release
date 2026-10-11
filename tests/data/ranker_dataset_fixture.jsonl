@@ -1,3 +1,0 @@
-{"schema_version":1,"example_id":"synthetic.train.001","split":"train","group_id":"synthetic.nihao.train","source_id":"owo.synthetic.v1","source_record_id":"case.001","context":"请向大家","input":"nihao","candidates":["你好","泥号"],"selected_index":0}
-{"schema_version":1,"example_id":"synthetic.validation.001","split":"validation","group_id":"synthetic.xian.validation","source_id":"owo.synthetic.v1","source_record_id":"case.002","context":"我来自","input":"xian","candidates":["西安","先","线"],"selected_index":0}
-{"schema_version":1,"example_id":"synthetic.test.001","split":"test","group_id":"synthetic.ceshi.test","source_id":"owo.synthetic.v1","source_record_id":"case.003","context":"这是一次","input":"ceshi","candidates":["侧视","测试"],"selected_index":1}

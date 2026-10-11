@@ -1,0 +1,11 @@
+{
+  "deleted_files": 277,
+  "remaining_root_cpp_sources": [],
+  "local_input_method_archive_exists": false,
+  "no_backup_created": true,
+  "agent_runtime_source_and_manifests_unchanged": true,
+  "agent_check": "passed",
+  "ci_boundary_and_negative_fixtures": "passed",
+  "pre_existing_local_document_unchanged": true,
+  "current_entry_links": "passed"
+}

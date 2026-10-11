@@ -6,8 +6,8 @@
 ## 1. 工作范围与事实优先级
 
 - 当前活跃开发目标是 `agent-sdk/`：Rust Agent SDK、共享 Daemon、CLI/TUI、HTTP API 和本地多 Agent 工作台。
-- 根目录 OwO C++ 输入法工程是历史基线，不主动修改。新业务代码放在 `agent-sdk/`；根目录规则文档等仅在任务明确涉及时修改。
-- 2026-10-11 已从 `agent-sdk/` 活动源码、workspace 和锁文件剔除输入法 IPC 适配库；Agent CLI、Daemon、桌面客户端保持独立。历史 C++ 工程及说明归档见 `docs/archive/owo-input-method/`，不得重新加入 Agent 构建、依赖或产品入口；运行 `agent-sdk/scripts/check-agent-boundary.py` 检查边界。
+- 用户已明确剔除历史输入法工程：本工作树不保留 C++ 输入法源码或本地备份，输入法由独立 OwO 主仓库维护。新业务代码放在 `agent-sdk/`；根目录规则文档等仅在任务明确涉及时修改。
+- 2026-10-11 已从 `agent-sdk/` 活动源码、workspace 和锁文件剔除输入法 IPC 适配库；Agent CLI、Daemon、桌面客户端保持独立。历史 C++ 工程、输入法构建/安装脚本和本地归档均已删除，不得重新加入 Agent 构建、依赖或产品入口；运行 `agent-sdk/scripts/check-agent-boundary.py` 检查边界。
 - 开始工作先读 `git status --short`，保留既有修改和未跟踪文件。不擅自 reset、clean、覆盖他人修改、清理构建产物或提交整个工作区。
 - 证据顺序：当前源码与实际调用链 > 当前源码对应的运行/测试证据 > 最新专项设计 > 主技术文档 > README、历史验收和施工记录。源码能说明“怎么实现”，运行证据才能说明“本次是否可用”。
 - 本文件的检查快照不是长期验收结论；后续改动必须重新核对涉及的事实。

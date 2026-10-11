@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep the active Agent workspace independent of the archived IME integration."""
+"""Keep the active Agent workspace independent of the separate IME project."""
 from __future__ import annotations
 
 import argparse
@@ -10,6 +10,11 @@ import tempfile
 import tomllib
 
 FORBIDDEN_PACKAGE = "owo-agent-ime"
+LEGACY_ROOT_ENTRIES = (
+    "CMakeLists.txt", "CMakePresets.json", "vcpkg.json", "global.json",
+    "src/tsf", "include/owo", "apps/settings_center", "packaging/windows",
+    "docs/archive/owo-input-method",
+)
 
 
 def mentions_ime(value: object) -> bool:
@@ -25,6 +30,9 @@ def mentions_ime(value: object) -> bool:
 def inspect(root: Path) -> list[str]:
     root = root.resolve()
     errors: list[str] = []
+    for relative in LEGACY_ROOT_ENTRIES:
+        if (root.parent / relative).exists():
+            errors.append("Legacy IME entry exists in repository root: " + relative)
     manifest = root / "Cargo.toml"
     if not manifest.is_file():
         return ["Agent workspace manifest is missing"]
@@ -67,7 +75,7 @@ def metadata_errors(data: dict) -> list[str]:
 def self_test() -> None:
     """Exercise clean graphs, alias/target dependencies and stale/orphan fixtures."""
     with tempfile.TemporaryDirectory(prefix="owo-agent-boundary-") as directory:
-        root = Path(directory)
+        root = Path(directory) / "agent-sdk"
         crate = root / "crates/cli"
         crate.mkdir(parents=True)
         workspace = root / "Cargo.toml"
@@ -96,6 +104,13 @@ def self_test() -> None:
         assert inspect(root), "IME workspace membership must fail"
         assert metadata_errors({"packages": [{"name": "owo-agent-ime"}]}), "Resolved IME must fail"
         assert not metadata_errors({"packages": [{"name": "owo-agent-cli"}]}), "Clean graph should pass"
+        workspace.write_text('[workspace]\nmembers = ["crates/cli"]\n', encoding="utf-8")
+        legacy = root.parent / "CMakeLists.txt"
+        legacy.write_text("project(OwOInputMethod)\n", encoding="utf-8")
+        assert inspect(root), "Root C++ IME project must fail"
+        legacy.unlink()
+        assert not inspect(root), "Clean root should pass after removing legacy project"
+
     print("Agent boundary negative fixtures passed")
 
 
