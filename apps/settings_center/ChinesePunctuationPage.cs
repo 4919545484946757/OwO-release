@@ -66,8 +66,9 @@ public sealed partial class MainPage
     private void UpdatePunctuationNotice()
     {
         if (ChinesePunctuationNotice is null || ChinesePunctuation is null) return;
+        var saveHint = AutoSaveSettings?.IsOn == true ? "修改后会自动保存。" : "修改后点击保存。";
         ChinesePunctuationNotice.Message = ChinesePunctuation.IsOn
-            ? "总开关已开启：中文模式使用下方已开启的中文标点。修改后点击保存；英文模式不受影响。"
+            ? $"总开关已开启：中文模式使用下方已开启的中文标点。{saveHint}英文模式不受影响。"
             : "总开关已关闭：目前保留英文标点。下方偏好仍会保存，重新打开总开关后生效。";
     }
 

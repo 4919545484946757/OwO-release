@@ -61,13 +61,18 @@
                             FontSize="22"
                             VerticalAlignment="Center"/>
 
-                    <TextBlock Text="OwO 输入法"
+                    <Button Click="GeneralSettings_Click" Background="Transparent" BorderThickness="0" Padding="0" AutomationProperties.Name="打开通用设置">
+                        <TextBlock Text="OwO 输入法"
                             FontSize="20"
                             FontWeight="SemiBold"
                             VerticalAlignment="Center"/>
+                    </Button>
                 </StackPanel>
             </NavigationView.PaneHeader>
             <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="GeneralNavigationItem" Content="通用设置" Tag="general">
+                    <NavigationViewItem.Icon><SymbolIcon Symbol="Setting"/></NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem x:Name="SchemeNavigationItem" Content="输入方案" Tag="schemes" IsSelected="True">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph=""/>
@@ -621,6 +626,21 @@
                                 </StackPanel>
                             </ContentControl>
                         </Grid>
+                    </ScrollViewer>
+                    <ScrollViewer x:Name="GeneralPreferencesPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">
+                            <Border x:Name="AutoSaveCard" Style="{StaticResource SettingsCardStyle}">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="3">
+                                        <TextBlock Text="自动保存设置" Style="{StaticResource SettingTitleStyle}"/>
+                                        <TextBlock Text="自动保存输入、快捷键、标点及插件配置。关闭后使用保存按钮；此开关立即保存。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="AutoSaveSettings" Grid.Column="1" Toggled="AutoSaveSettings_Toggled" AutomationProperties.Name="自动保存设置"/>
+                                </Grid>
+                            </Border>
+                            <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Message="连续调整会合并为一次保存。无效配置不会覆盖已保存内容；安装、启用插件及权限授权仍需明确操作。"/>
+                        </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer x:Name="ChinesePunctuationPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">

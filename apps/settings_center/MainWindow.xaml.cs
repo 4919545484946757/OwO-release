@@ -13,6 +13,7 @@ namespace OwO_Settings;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
+    private bool _closingAfterSave, _checkingSaveOnClose;
     public MainWindow()
     {
         InitializeComponent();
@@ -38,6 +39,34 @@ public sealed partial class MainWindow : Window
         } else {
             AppWindow.Resize(new SizeInt32(1080, 760));
             RootFrame.Navigate(typeof(MainPage));
+            AppWindow.Closing += async (_, args) => {
+                if (_closingAfterSave || RootFrame.Content is not MainPage page) return;
+                args.Cancel = true;
+                if (_checkingSaveOnClose) return;
+                _checkingSaveOnClose = true;
+                page.IsEnabled = false;
+                try {
+                    if (await page.FlushAutoSaveAsync()) {
+                        _closingAfterSave = true;
+                        Close();
+                    } else {
+                        var dialog = new Microsoft.UI.Xaml.Controls.ContentDialog {
+                            XamlRoot = page.XamlRoot,
+                            Title = "部分设置尚未保存",
+                            Content = "自动保存失败。返回修正配置，或关闭并放弃尚未保存的修改。",
+                            PrimaryButtonText = "返回设置", SecondaryButtonText = "放弃修改并关闭",
+                            CloseButtonText = "取消", DefaultButton = Microsoft.UI.Xaml.Controls.ContentDialogButton.Primary
+                        };
+                        if (await dialog.ShowAsync() == Microsoft.UI.Xaml.Controls.ContentDialogResult.Secondary) {
+                            _closingAfterSave = true;
+                            Close();
+                        }
+                    }
+                } finally {
+                    _checkingSaveOnClose = false;
+                    if (!_closingAfterSave) page.IsEnabled = true;
+                }
+            };
         }
     }
 }

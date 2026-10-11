@@ -101,6 +101,7 @@ public sealed partial class MainPage : Page
         SetShortcutBindings("punctuation", []);
         UpdateShortcutButtons();
         InitializePunctuationSettings();
+        InitializeAutoSave();
         InitializeSearchIndex();
         ShowPage("schemes");
         ConfigPath.Text = _client.ConfigPath;
@@ -114,6 +115,9 @@ public sealed partial class MainPage : Page
 
     private async Task LoadConfigAsync()
     {
+        await _settingsSaveGate.WaitAsync();
+        _settingsLoaded = false;
+        _pendingSettingsSave = false;
         SetBusy(true);
         try {
             var value = await _client.LoadAsync();
@@ -121,11 +125,13 @@ public sealed partial class MainPage : Page
             ApplyCandidateSettings(value);
             ApplyIntelligenceSettings(value);
             ApplyShortcutSettings(value);
+            _settingsLoaded = true;
             ShowStatus("配置已加载", InfoBarSeverity.Success);
         } catch (Exception error) {
             ShowStatus(error.Message, InfoBarSeverity.Error);
         } finally {
             SetBusy(false);
+            _settingsSaveGate.Release();
         }
     }
 
@@ -270,11 +276,16 @@ public sealed partial class MainPage : Page
     }
 
     private async void SaveButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => await SaveSettingsManuallyAsync();
+
+    private SettingsSnapshot CaptureSettings()
     {
-        SetBusy(true);
-        try {
+            NumberBox[] numbers = [CandidatePageSize, CandidateWrapLength,
+                AltCodePreviewPageSize, UserCompletionRange, ModelTimeout];
+            if (numbers.Any(number => !double.IsFinite(number.Value)))
+                throw new InvalidOperationException("数值设置尚未填写完整，请输入有效数字后保存。");
             ValidateShortcutConflicts();
-            var value = new SettingsSnapshot(
+            return new SettingsSnapshot(
                 (InputScheme.SelectedItem as InputSchemeOption)?.Id ?? "full_pinyin",
                 (uint)CandidatePageSize.Value,
                 (uint)CandidateWrapLength.Value,
@@ -300,13 +311,6 @@ public sealed partial class MainPage : Page
                 TextNavigationShortcutEnabled.IsOn, ShortcutValues("text-navigation"),
                 TextNavigationSelectEnabled.IsOn,
                 PunctuationMask());
-            await _client.SaveAsync(value);
-            ShowStatus("配置已保存，Core Service 将自动应用。", InfoBarSeverity.Success);
-        } catch (Exception error) {
-            ShowStatus(error.Message, InfoBarSeverity.Error);
-        } finally {
-            SetBusy(false);
-        }
     }
 
     private async void ReloadButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) =>
@@ -317,6 +321,10 @@ public sealed partial class MainPage : Page
     {
         SetBusy(true);
         try {
+            if (_currentPage == "general") {
+                AutoSaveSettings.IsOn = true;
+                return;
+            }
             if (_currentPage == "plugins") {
                 SetBusy(false);
                 if (!await ConfirmAsync("重置插件配置",
@@ -354,11 +362,12 @@ public sealed partial class MainPage : Page
                 case "shortcuts": ApplyShortcutSettings(defaults); break;
                 default: return;
             }
-            ShowStatus("本页已恢复默认值；点击“保存”后应用。", InfoBarSeverity.Success);
+            ShowStatus(AutoSaveSettings.IsOn ? "本页已恢复默认值，正在自动保存。" : "本页已恢复默认值；点击“保存”后应用。", InfoBarSeverity.Success);
         } catch (Exception error) {
             ShowStatus($"恢复默认值失败：{error.Message}", InfoBarSeverity.Error);
         } finally {
             SetBusy(false);
+            QueueSettingsAutoSave();
         }
     }
 
@@ -393,6 +402,8 @@ public sealed partial class MainPage : Page
         PluginSettingsPage.Visibility = page == "plugins"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+        GeneralPreferencesPage.Visibility = page == "general"
+            ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         ChinesePunctuationPage.Visibility = page == "punctuation"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         if (page == "punctuation") {
@@ -418,9 +429,10 @@ public sealed partial class MainPage : Page
         ReloadButton.Visibility = configurationPage
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         ResetPageButton.Visibility = page is "schemes" or "candidates" or
-            "intelligence" or "shortcuts" or "plugins" or "punctuation"
+            "intelligence" or "shortcuts" or "plugins" or "punctuation" or "general"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         (CurrentPageTitle.Text, CurrentPageDescription.Text) = page switch {
+            "general" => ("通用设置", "设置中心的保存行为与通用偏好"),
             "schemes" => ("输入方案", "选择编码方案并查看当前方案能力"),
             "candidates" => ("候选与输入", "调整候选显示、组合上屏、标点和符号预览"),
             "punctuation" => ("中文标点", "逐项选择中文格式；总开关和中英文模式仍决定是否启用"),
@@ -444,6 +456,7 @@ public sealed partial class MainPage : Page
         void Add(string title, string detail, string page,
                  Microsoft.UI.Xaml.FrameworkElement target) =>
             _baseSearchItems.Add(new SearchItem(title, detail, page, target));
+        Add("自动保存设置", "通用 自动 保存 配置", "general", AutoSaveCard);
         Add("输入方案", "全拼 拼音 精确编码 表码", "schemes", InputSchemeCard);
         Add("每页候选数", "候选 显示 数量", "candidates", CandidatePageSizeCard);
         Add("候选词换行长度", "长词 换行", "candidates", CandidateWrapLengthCard);
@@ -516,6 +529,7 @@ public sealed partial class MainPage : Page
             return;
         }
         SettingsNavigation.SelectedItem = item.Page switch {
+            "general" => GeneralNavigationItem,
             "schemes" => SchemeNavigationItem,
             "candidates" => CandidateNavigationItem,
             "punctuation" => CandidateNavigationItem,
@@ -697,6 +711,7 @@ public sealed partial class MainPage : Page
 
     private void UpdateShortcutButtons()
     {
+        QueueSettingsAutoSave();
         foreach (var (group, bindings) in _shortcutBindings) {
             var panel = ShortcutPanel(group);
             panel.Children.Clear();
@@ -846,11 +861,14 @@ public sealed partial class MainPage : Page
             PluginConfigFields.Children.Clear();
             _pluginConfigControls.Clear();
             _pluginConfigExpanders.Clear();
-            AddPluginSettingFields();
+            _buildingPluginSettings = true;
+            try { AddPluginSettingFields(); }
+            finally { _buildingPluginSettings = false; }
             GeneralSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             ShortcutSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             ChinesePunctuationPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            GeneralPreferencesPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
             ResetPageButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             SaveButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
@@ -947,6 +965,7 @@ public sealed partial class MainPage : Page
                 ? value.GetString() ?? "" : "" };
         }
         control.VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center;
+        ObserveAutoSave(control, plugin: true);
         _pluginConfigControls[field.Key] = control;
         return control;
     }
@@ -1020,12 +1039,10 @@ public sealed partial class MainPage : Page
         PluginConfigFields.Children.Add(card);
     }
 
-    private void PluginConfigSaveButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    private Dictionary<string, object?> CapturePluginValues()
     {
-        if (_pluginSettings is null) return;
-        try {
             var values = new Dictionary<string, object?>(StringComparer.Ordinal);
-            foreach (var field in _pluginSettings.Fields) {
+            foreach (var field in _pluginSettings!.Fields) {
                 var control = _pluginConfigControls[field.Key];
                 values[field.Key] = control switch {
                     ToggleSwitch toggle => toggle.IsOn,
@@ -1039,7 +1056,16 @@ public sealed partial class MainPage : Page
                     _ => null,
                 };
             }
+            return values;
+    }
+
+    private void PluginConfigSaveButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (_pluginSettings is null) return;
+        try {
+            var values = CapturePluginValues();
             _pluginSettings.Save(values);
+            _pendingPluginSaves.Remove(_pluginSettings);
             NotifyCandidateThemeChanged();
             ShowStatus($"{_pluginSettings.Plugin.Name} 的设置已保存。", InfoBarSeverity.Success);
         } catch (Exception error) {
@@ -1057,8 +1083,11 @@ public sealed partial class MainPage : Page
         PluginConfigFields.Children.Clear();
         _pluginConfigControls.Clear();
         _pluginConfigExpanders.Clear();
-        AddPluginSettingFields();
-        ShowStatus($"{_pluginSettings.Plugin.Name} 已恢复默认值；点击“保存插件设置”后应用。",
+        _buildingPluginSettings = true;
+        try { AddPluginSettingFields(); }
+        finally { _buildingPluginSettings = false; }
+        QueuePluginAutoSave();
+        ShowStatus(AutoSaveSettings.IsOn ? $"{_pluginSettings.Plugin.Name} 已恢复默认值，正在自动保存。" : $"{_pluginSettings.Plugin.Name} 已恢复默认值；点击“保存插件设置”后应用。",
                    InfoBarSeverity.Success);
     }
 
@@ -1337,6 +1366,7 @@ public sealed partial class MainPage : Page
 
     private void SetBusy(bool busy)
     {
+        _settingsBusy = busy;
         SaveButton.IsEnabled = !busy;
         ReloadButton.IsEnabled = !busy;
         ResetPageButton.IsEnabled = !busy;
