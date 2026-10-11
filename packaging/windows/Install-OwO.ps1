@@ -29,7 +29,18 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 # server while still refusing to expose or activate the input profile. Fail
 # before copying files so ZIP/script installs receive the same actionable
 # diagnosis as the graphical setup wizard.
-$languages = Get-WinUserLanguageList
+$profile = Get-ItemProperty -LiteralPath 'HKCU:\Control Panel\International\User Profile' `
+    -Name Languages -ErrorAction SilentlyContinue
+$registeredChinese = @($profile.Languages | Where-Object {
+    $_ -in @('zh-Hans-CN', 'zh-CN')
+}).Count -gt 0
+# Match the wizard's per-user registry fallback. Do not turn a failed cmdlet
+# into a misleading "language not installed" diagnosis.
+$languages = @()
+if (-not $registeredChinese) {
+    try { $languages = Get-WinUserLanguageList -ErrorAction Stop }
+    catch { throw "OwO language detection failed. Retry in the target user account: $($_.Exception.Message)" }
+}
 $chinese = $null
 # Windows PowerShell 5.1 returns WinUserLanguageList as one generic-list
 # object instead of enumerating its entries through the pipeline. Use an
@@ -41,7 +52,7 @@ foreach ($language in $languages) {
         break
     }
 }
-if ($null -eq $chinese) {
+if (-not $registeredChinese -and $null -eq $chinese) {
     throw @'
 OwO requires the Windows "Chinese (Simplified, China)" language and basic typing support.
 Open Settings > Time & language > Language & region, add Chinese (Simplified, China),

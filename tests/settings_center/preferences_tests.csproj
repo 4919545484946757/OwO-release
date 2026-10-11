@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../apps/settings_center/SettingsUiPreferences.cs" Link="SettingsUiPreferences.cs"/>
+    <Compile Include="../../apps/settings_center/SetupPrerequisites.cs" Link="SetupPrerequisites.cs"/>
   </ItemGroup>
 </Project>
