@@ -1,5 +1,5 @@
 ﻿# ci-gate.ps1 — agent-sdk CI 核心门禁（PR/Merge 工作流与本地验证共用；幂等、只读为主）
-# 步骤顺序：utf8 → permission-ctor → forbidden-files → fmt → clippy → test →
+# 步骤顺序：agent-boundary → utf8 → permission-ctor → forbidden-files → fmt → clippy → test →
 #          route-contract → node → ts → desktop(src-tauri: fmt/clippy/test) → desktop-selftest
 #          → resource-policy-selftest
 # R3-D（指南 §3.6）：长步骤经 Invoke-CiLoggedCommand/Invoke-CiCargo 流式执行——每 30s
@@ -116,6 +116,12 @@ Invoke-CiStep -Name "根目录 Cargo manifest 清理检查（F-15）" -Id "root-
         Write-Host "    [root-manifest] 通过：仓库根无 Cargo.toml，workspace=$root"
         $global:LASTEXITCODE = 0
     }
+}
+
+# 0.2) Agent / historical IME boundary. This also covers aliased target dependencies.
+Invoke-CiStep -Name "Agent workspace boundary" -Id "agent-boundary" -Cwd $root -LogDir $LogDir -Block {
+    Invoke-CiLoggedCommand -Exe "python" -Arguments @('scripts/check-agent-boundary.py', '--self-test') `
+        -Cwd $root -TimeoutSec 60 -HeartbeatSec $HeartbeatSec -Label 'agent-boundary'
 }
 
 # 0) UTF-8 扫描（AGENTS.md 硬性要求：源文件 UTF-8；.ps1 需带 UTF-8 BOM）

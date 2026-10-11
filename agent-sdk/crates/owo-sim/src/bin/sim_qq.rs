@@ -190,7 +190,7 @@ fn seed_incoming() {
 }
 
 const DEFAULT_SCENARIO: &str = r#"{
-  "contacts": ["张子豪", "李四", "26大创-智能输入法"],
+  "contacts": ["张子豪", "李四", "26大创-Agent项目"],
   "incoming": [
     { "from": "张子豪", "delay_ms": 1500, "text": "在吗？帮我看看今晚吃什么好" },
     { "from": "张子豪", "delay_ms": 6000, "text": "想吃点清淡的，不想吃太辣" }

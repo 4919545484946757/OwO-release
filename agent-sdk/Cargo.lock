@@ -1893,24 +1893,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "owo-agent-ime"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "futures",
- "owo-agent-protocol",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tracing",
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "owo-agent-kernel"
 version = "0.1.0"
 dependencies = [

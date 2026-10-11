@@ -1,0 +1,19 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling syn v2.0.119
+   Compiling windows-interface v0.59.3
+   Compiling windows-implement v0.60.2
+    Checking windows-core v0.61.2
+   Compiling syn v3.0.3
+   Compiling serde_derive v1.0.229
+    Checking windows-future v0.2.1
+    Checking num-traits v0.2.19
+    Checking serde v1.0.229
+    Checking windows-collections v0.2.0
+    Checking windows-numerics v0.2.0
+    Checking memchr v2.8.3
+    Checking chrono v0.4.45
+    Checking serde_json v1.0.151
+    Checking windows v0.61.3
+    Checking owo-sim v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-sim)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 19.65s

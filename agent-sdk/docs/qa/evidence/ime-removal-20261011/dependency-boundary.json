@@ -1,0 +1,11 @@
+{
+  "base_head": "44ea694627b236af3ffbedb545a31b36ee91c7bd",
+  "workspace_members": 21,
+  "resolved_packages": 335,
+  "ime_package_in_resolve": false,
+  "ime_in_default_members": false,
+  "locked_offline_metadata": "passed",
+  "static_boundary": "passed",
+  "negative_fixtures": "passed",
+  "no_dependency_upgrades": true
+}

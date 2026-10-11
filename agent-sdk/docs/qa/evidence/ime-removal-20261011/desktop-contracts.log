@@ -1,0 +1,13 @@
+   Compiling owo-build-info v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-build-info)
+   Compiling owo-agent-server v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-server)
+
+running 4 tests
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 28.81s
+     Running tests\desktop_six_item_contract_tests.rs (target\debug\deps\desktop_six_item_contract_tests-7517cdba46498685.exe)
+test bearer_alone_cannot_register_desktop_credentials ... ok
+test durable_terminal_and_latest_failure_survive_reopen ... ok
+test secure_credential_references_are_endpoint_bound_and_revocable ... ok
+test session_http_returns_durable_host_facts ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+

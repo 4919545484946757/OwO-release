@@ -1,71 +1,31 @@
-# OwO 输入法
+# OwO Agent
 
-OwO 是面向 Windows 11 x64 的模块化中文拼音输入法。基础输入、词典查询和候选上屏不依赖网络；智能排序不可用时会自动使用基础候选。
+面向本地项目的人机协作 Agent 工作台。当前开发入口是 [agent-sdk](agent-sdk/README.md)，包含 Rust 核心、共享 Daemon、CLI/TUI 和 Electron 桌面客户端。
 
-当前版本：`0.1.0-alpha.2`
+## 当前入口
 
-## 主要功能
+- [Agent 源码与使用说明](agent-sdk/README.md)
+- [主开发技术文档](builGoal/主开发技术文档-Agent-SDK-v1.md)
+- [后续任务与验收约束](builGoal/Agent-SDK-后续任务实施指南-2026-09-18.md)
+- [桌面六项优化与验证记录](agent-sdk/docs/review/desktop-six-items-implementation-20261011.md)
+- [开发约束](AGENTS.md)
 
-- Windows TSF 输入法，Direct2D/DirectWrite 候选窗口
-- 完整拼音、不完整拼音、缩写与可切换纠错
-- 本地词频学习和 libime 中文上下文排序
-- 候选点击、翻页、展开、滚轮浏览和拼音光标
-- WinUI 3 设置中心，可配置候选数量、学习灵敏度和多组快捷键
-- ZIP、文件夹和 `.owopkg` 插件安装；高权限插件须单独知情授权
+## 主要能力
 
-## 安装
+Agent 支持会话与流式输出、文件和 Git 工具、权限审批与审计、任务取消与恢复，以及多 Agent 团队和产物评审。Electron 与终端共用 Daemon；桌面提供项目首页、会话历史、产物与证据、自定义模型配置和设置面板。
 
-推荐运行发行目录中的 `OwO-Input-Method-0.1.0-alpha.2-windows-x64-Setup.exe`。
+功能成熟度、配置状态和当次可用性以当前源码、诊断和验证记录为准。历史测试与截图不代替新版本的桌面或发布验收。
 
-也可以解压发行 ZIP 后双击 `Install-OwO.cmd`。安装完成后按 `Win + Space`，选择 OwO Input Method。安装、注册和卸载 TSF 时会出现 Windows UAC 提示。
+## 桌面运行
 
-常用入口：
+已有依赖和当前 debug 核心时，可双击 `agent-sdk/desktop/electron/start-current.cmd`。完整安装、模型环境配置和构建方式见 [Agent README](agent-sdk/README.md)；Rust 构建须遵守 [资源策略](AGENTS.md)。
 
-- 设置中心：开始菜单中的“OwO Input Method Settings”，或 `Open-OwO-Settings.cmd`
-- 重启服务：`Start-OwO.cmd`
-- 卸载：开始菜单卸载项，或 `Uninstall-OwO.cmd`
+## 项目边界
 
-用户配置、词频和日志位于 `%LOCALAPPDATA%\OwO\InputMethod`。卸载默认保留这些数据。
+`agent-sdk/` 是活动 Agent 工程。历史 C++ 输入法源码保留在根目录，说明位于 [历史输入法归档](docs/archive/owo-input-method/README.md)，不属于 Agent 的源码入口、依赖、构建或桌面发布包。2026-10-11 已移除 Agent 内的旧 IPC 适配库，并在 CI 增加边界检查。
 
-## 默认操作
+用户级输入法安装和历史本地数据不受这次源码整理影响。仓库历史保留，未重写 Git 历史。
 
-- `Space` 或数字键：选择候选
-- `[` / `]`：候选翻页
-- `Shift+↑` / `Shift+↓`：候选翻页
-- `Shift+←` / `Shift+→`：移动拼音光标
-- `Ctrl+Space`：切换中英文
-- `Ctrl+Q`：切换拼音纠错
-- `Enter`：直接输出当前字母
+## 许可
 
-快捷键均可在设置中心启用、关闭或添加多组绑定。
-
-## 构建
-
-需要 Visual Studio 2022 Build Tools、MSVC x64、CMake 3.25+、.NET 10 SDK 和 Windows 11 SDK。
-
-```powershell
-cmake --preset windows-debug
-cmake --build --preset windows-debug
-ctest --preset windows-debug
-```
-
-Release 与发行包：
-
-```powershell
-cmake --preset windows-release
-cmake --build --preset windows-release
-.\scripts\build_settings_center.ps1 -Configuration Release
-.\scripts\package_release.ps1 -Version 0.1.0-alpha.2
-.\scripts\package_setup.ps1 -Version 0.1.0-alpha.2
-```
-
-架构与决策记录见 [`docs`](docs)，插件接口见 [`docs/plugins/development.md`](docs/plugins/development.md)。
-
-## 平台与许可
-
-- 当前仅正式支持 Windows 11 x64
-- OwO 源码采用 `GPL-3.0-only`
-- libime/Fcitx5Utils 采用 `LGPL-2.1-or-later`
-- 完整第三方许可随发行包提供于 `LICENSES` 目录
-
-Alpha 构建尚未进行商业代码签名，请只从可信来源获取，并核对发行目录中的 SHA-256 清单。
+源码采用 GPL-3.0-only。第三方组件许可按对应依赖与发行资料核对。

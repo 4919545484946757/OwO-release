@@ -1,6 +1,6 @@
 # OwO Agent SDK
 
-Codex 式 Agent 智能体 SDK（当前基线 v0.6，桌面工作台 + 全流程感知/学习/执行已落地）。
+面向本地项目的人机协作 Agent SDK：Rust 核心、共享 Daemon、CLI/TUI 与 Electron 工作台。功能成熟度以当前源码、诊断及同版本验证记录为准。
 
 ## 目标形态
 
@@ -10,10 +10,15 @@ Codex 式 Agent 智能体 SDK（当前基线 v0.6，桌面工作台 + 全流程�
 - HTTP API（`owo-agent-server`）：session/turn/permission/diff/revert/abort，SSE 事件流。
 - CLI（`owo-agent-cli`）：交互式 `turn` 与 `serve`。
 
-技术基线见 `../builGoal/技术文档-AI智能体输入法.md`（v0.6，只实施 Agent 智能体方案，输入法路线不实施）。
-迭代依据：技术文档 5.8 全流程专项（M-A 场景图定位 / M-B 动作程序 / M-C 静默学习 / M-D 技能健康 / M-E 本地 ONNX OCR）与附录 C 验收基线；逐项实测记录见 `ACCEPTANCE.md`。
+当前设计入口：[主开发技术文档](../builGoal/主开发技术文档-Agent-SDK-v1.md)、[后续任务实施指南](../builGoal/Agent-SDK-后续任务实施指南-2026-09-18.md)、[CLI 与 Electron 施工文档](../builGoal/Agent-SDK-CLI优先-Codex式拆分-Electron前端-施工文档-2026-09-24.md)。最近桌面验证见 [六项优化记录](docs/review/desktop-six-items-implementation-20261011.md)。
 
-## 当前基线（v0.6，2026-08-14 交付面收敛）
+2026-10-11 已剔除活动 Agent 工程内的旧输入法适配库、workspace 登记与锁文件条目。Agent 核心、CLI 和桌面保持独立；默认与全 workspace 构建均不包含该适配库。历史资料见 [独立归档说明](../docs/archive/owo-input-method/README.md)，不可作为当前 Agent 能力入口。
+
+边界检查：Python 3.11+ 执行 `python scripts/check-agent-boundary.py`；CI 门禁包含 `agent-boundary` 步骤。
+
+以下 v0.6/v0.4 内容为历史功能记录，其覆盖范围和验收数字不能代替当前版本验证。
+
+## 历史基线（v0.6，2026-08-14 交付记录）
 
 - **HTTP 服务面契约化**：`/locate/query`、`/memory/recall`、`/skills/health[/{name}/reset]`、`/plugins`、`/traces[/{index}]`、`/subagent/run`、`/project/rules[/template]`、`/mcp[/add|/remove]`、`/session/{id}/context`、`/computer-use/*`、`/usage` 等端点与 `/openapi.json` 完全一致；路由契约测试（`tests/route_contract.rs`）防回归。
 - **桌面工作台全面板**：插件管理、技能健康、记忆检索、Traces 回放、子代理（只读/通用）、项目规则（AGENTS.md 注入/编辑/模板）、MCP 管理、会话上下文 token 仪表、模型用量、computer-use 任务面板；接口不可用时显示可读错误，不白屏。

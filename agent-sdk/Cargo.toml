@@ -2,8 +2,6 @@
 resolver = "2"
 members = [
     "crates/owo-agent-protocol",
-  # 输入法宿主（远端 engine 分支合并，2026-09-30）：serve-ime 命名管道 IPC v3 适配。
-  "crates/owo-agent-ime",
     # 微内核（M0）：依赖根，只放被多个运行边界共用的稳定原语；core/server/cli 单向依赖它。
     "crates/owo-agent-kernel",
     "crates/owo-agent-core",

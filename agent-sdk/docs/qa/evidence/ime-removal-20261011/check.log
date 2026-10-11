@@ -1,0 +1,20 @@
+    Checking owo-agent-perception v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-perception)
+    Checking owo-agent-executor v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-executor)
+    Checking owo-agent-workflow v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-workflow)
+    Checking owo-agent-core v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-core)
+   Compiling owo-build-info v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-build-info)
+    Checking owo-agent-product-eval v0.1.0 (D:\OwO-master\agent-sdk\devtools\product-eval)
+    Checking owo-agent-eval-facade v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-eval-facade)
+    Checking owo-agent-server v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-server)
+    Checking owo-agent-cli v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-cli)
+warning: function `render_final_result_jsonl` is never used
+    |
+295 | pub fn render_final_result_jsonl(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   --> crates\owo-agent-cli\src\ui_output.rs:295:8
+warning: `owo-agent-cli` (bin "owo-agent") generated 1 warning
+    Checking owo-sim v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-sim)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 50.83s
