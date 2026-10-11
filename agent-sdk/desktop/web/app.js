@@ -20,7 +20,7 @@ const state = {
   // 跨会话审批队列：request_id → { tool, reason, sessionId }。
   // 多对话并行时每个会话都可能挂起等待审批，单值卡会互相覆盖/不可见。
   pendingApprovals: new Map(),
-  // 「完全访问 / 自动允许」下被自动放行的工具名（FIFO）。用于给对应的工具步骤
+  // 历史自动放行记录（FIFO），仅供旧回合的步骤展示。用于给对应的工具步骤
   // 打一个「自动放行」小徽标，而不是逐条往对话流里塞系统消息。
   autoAllowed: [],
   // 仍在运行的回合：sessionId → { controller, startedAt }。切走会话不打断任务，
@@ -48,6 +48,8 @@ const state = {
   runStartedAt: 0,
   runTicker: null,
   lastTurnOutcome: "",
+  completedTurnFacts: new Map(),
+  lastSessionPrompts: new Map(),
 };
 
 const $ = (id) => document.getElementById(id);
@@ -1285,7 +1287,9 @@ function fillTurnSummaryMeta(turn) {
     : turn.modelCalls;
   if (modelCallCount) parts.push(`模型请求 ${modelCallCount} 次`);
   if (server.steps) parts.push(`共 ${server.steps} 步`);
-  if (server.total_tokens) {
+  const reportedUsage = window.OwoCompletionRecord?.usageFromTurnStats(server);
+  if (reportedUsage) parts.push(reportedUsage.text);
+  else if (server.total_tokens != null && Number.isFinite(Number(server.total_tokens))) {
     const tokens =
       server.total_tokens >= 1000
         ? `${(server.total_tokens / 1000).toFixed(1)}k`
@@ -1293,6 +1297,9 @@ function fillTurnSummaryMeta(turn) {
     parts.push(`消耗 ${tokens} tokens`);
   }
   if (server.cost_usd > 0) parts.push(`$${Number(server.cost_usd).toFixed(4)}`);
+  if (!reportedUsage && server.total_tokens == null) parts.push("用量未知");
+  const actualModel = window.OwoCompletionRecord?.fromTurnStats(server).lastExecutionModel;
+  if (actualModel) parts.push("实际模型 " + actualModel);
   const completionEvidence = window.OwoCompletionRecord?.summarize(server.completion_record);
   if (completionEvidence) parts.push(completionEvidence.compact);
   const meta = card.querySelector(".turn-summary-meta");
@@ -1909,6 +1916,7 @@ const LOCAL_PREFS = {
   fileOpener: "system",
   compact: false,
   theme: "light",
+  zoom: 1,
   speechLang: "zh-CN",
   sound: false,
 };
@@ -1925,6 +1933,7 @@ function saveLocalPrefs() {
 }
 function applyLocalPrefs() {
   document.body.classList.toggle("compact-mode", LOCAL_PREFS.compact);
+  if (window.owo?.setZoom) window.owo.setZoom([1,1.25,1.5].includes(Number(LOCAL_PREFS.zoom)) ? Number(LOCAL_PREFS.zoom) : 1).catch(() => {});
   const recognitionLang = LOCAL_PREFS.speechLang;
   if (recognition) recognition.lang = recognitionLang;
   $("defaultWorkspacePath").textContent =
@@ -1939,6 +1948,7 @@ function syncLocalPrefs() {
   setSelect("prefFileOpener", prefs.fileOpener);
   setSelect("prefSpeechLang", prefs.speechLang);
   setSelect("prefTheme", prefs.theme);
+  setSelect("prefZoom", String(prefs.zoom || 1));
   setToggle("prefCompact", prefs.compact);
   setToggle("prefSound", prefs.sound);
 }
@@ -2045,9 +2055,13 @@ function initGlobalStatusBar() {
   window.OwoStatusBar.mount(host, {
     getFacts: () => ({
       workspaceRoot: $("workspace")?.value || localStorage.getItem("owo.workspace") || "",
-      reading: state.reading,
+      reading: Boolean(currentTurn()),
+      stopping: currentTurn()?.stopping === true,
       pendingApproval: Boolean(state.pendingApproval) || state.pendingApprovals.size > 0,
-      lastTurnOutcome: state.lastTurnOutcome,
+      lastTurnOutcome: currentTurn() ? "" : state.completedTurnFacts.get(state.sessionId)?.outcome || "",
+      selectedModel: currentTurn()?.requestedModel || getComposerModel(),
+      settings: { model: getDefaultModel(), custom_models: loadCustomModels() },
+      ...(state.completedTurnFacts.get(state.sessionId) || {}),
     }),
   });
   window.OwoStatusBar.reportPermission({
@@ -2068,8 +2082,7 @@ window.addEventListener("owo:statusbar-navigate", (event) => {
     setSettingsPageVisible(true);
     setSettingsTab("models");
   } else if (key === "permission") {
-    openToolsView();
-    mountPanel("permissions");
+    openPanelById("permissions");
   } else if (key === "chat") {
     setSettingsPageVisible(false);
   }
@@ -2232,6 +2245,7 @@ function updateComposerRunning() {
   const running = !!currentTurn();
   const button = $("sendBtn");
   if (!button) return;
+  button.disabled = currentTurn()?.stopping === true;
   button.classList.toggle("is-stop", running);
   button.innerHTML = running ? STOP_SVG : SEND_SVG;
   button.title = running ? "中断当前回合" : "发送";
@@ -2243,17 +2257,24 @@ function setMicRecording(on) {
   button.innerHTML = on ? MIC_REC_SVG : MIC_SVG;
   button.title = on ? "停止录音" : "语音输入";
 }
-function abortTurn() {
-  // 只中断「当前视图会话」的回合：**绝不**回落到全局 controller
-  // （曾导致：在 B 会话点停止 → 把仍在运行的 A 会话回合掐掉）。
-  const turn = currentTurn();
-  if (!turn || !state.sessionId) return;
-  // 主动中断后 SSE 会断开、收不到 user_answered：先把未答提问卡显式作废。
-  settlePendingQuestion("aborted");
-  api(`/session/${state.sessionId}/abort`, { method: "POST" }).catch(() => {
-    // 服务端可能已结束回合，忽略
-  });
-  if (turn.controller) turn.controller.abort();
+async function abortTurn() {
+  const turn = currentTurn(), sessionId = state.sessionId;
+  if (!turn || !sessionId || turn.stopping) return;
+  if (!turn.turnId) { showToast("缺少回合身份，无法安全取消；请查看宿主状态"); return; }
+  turn.stopping = true; updateComposerRunning(); setRunPhase("waiting", "正在请求停止；已产生的变更会保留");
+  try {
+    const result = await api("/session/" + encodeURIComponent(sessionId) + "/abort", { method: "POST", body: JSON.stringify({ turn_id: turn.turnId }) });
+    if (result.state === "already_finished") {
+      const detail = await api("/session/" + encodeURIComponent(sessionId));
+      restoreSessionFacts(sessionId, detail);
+      if (turn.remote && state.activeTurns.get(sessionId) === turn) {
+        turn.observer?.stop(); state.activeTurns.delete(sessionId);
+        if (detail.active_turn_id) resumeHostTurn(sessionId, detail);
+      }
+      turn.stopping = false;
+      if (state.sessionId === sessionId) { if (!currentTurn()) stopRunStatus(); updateComposerRunning(); window.OwoStatusBar?.repaint(); }
+    }
+  } catch (error) { turn.stopping = false; updateComposerRunning(); showToast("停止请求未成功：" + friendlyError(error), "error"); }
 }
 
 // ---------- 运行状态条：转圈 + 阶段文案 + 计时（阻塞态一眼可见） ----------
@@ -2269,10 +2290,10 @@ const RUN_PHASE_DEFAULT = {
 function startRunStatus() {
   const el = $("runStatus");
   if (!el) return;
-  state.runStartedAt = Date.now();
+  state.runStartedAt = currentTurn()?.startedAt || Date.now();
   el.classList.remove("hidden", "is-waiting");
   el.classList.add("is-live");
-  $("runStatusText").textContent = RUN_PHASE_DEFAULT.thinking;
+  $("runStatusText").textContent = currentTurn()?.phaseText || RUN_PHASE_DEFAULT[currentTurn()?.phase] || RUN_PHASE_DEFAULT.thinking;
   $("runStatusTimer").textContent = "0s";
   if (state.runTicker) clearInterval(state.runTicker);
   state.runTicker = setInterval(() => {
@@ -2285,6 +2306,10 @@ function startRunStatus() {
 
 // 阶段切换：文案可覆盖（如带工具名），等待审批为黄色阻塞态。
 function setRunPhase(phase, text) {
+  const owner = writeTargetSid || state.sessionId;
+  const active = state.activeTurns.get(owner);
+  if (active) { active.phase = phase; active.phaseText = text || RUN_PHASE_DEFAULT[phase] || phase; }
+  if (owner !== state.sessionId) return;
   const el = $("runStatus");
   if (!el || el.classList.contains("hidden")) return;
   el.classList.toggle("is-waiting", phase === "waiting");
@@ -2351,6 +2376,7 @@ function addHistoricalTurnFailure(storedText) {
   const presentation = window.OwoModelRecovery && window.OwoModelRecovery.summarizeTurnFailure
     ? window.OwoModelRecovery.summarizeTurnFailure(reason) : null;
   const failure = addMessage("error", prefix + ((presentation && presentation.message) || reason));
+  failure.appendChild(turnRecoveryActions(state.sessionId, state.lastSessionPrompts?.get(state.sessionId) || "", reason));
   if (presentation) attachTurnFailureActions(failure, reason, presentation);
   return failure;
 }
@@ -2374,6 +2400,9 @@ function showTurnFailure(message) {
       ? window.OwoModelRecovery.summarizeTurnFailure(reason) : null;
     const failure = addMessage("error", "回合未完成：" + ((presentation && presentation.message) || reason));
     if (presentation) attachTurnFailureActions(failure, reason, presentation);
+    const sid = writeTargetSid || state.sessionId;
+    const input = state.activeTurns.get(sid)?.prompt || state.lastSessionPrompts?.get(sid) || "";
+    failure.appendChild(turnRecoveryActions(sid, input, reason));
   }
   const turn = state.turn;
   // 只有真的跑过（有模型调用/工具）才补汇报卡；请求级失败（如鉴权）不打扰。
@@ -2693,59 +2722,19 @@ function openEffortMenu() {
   });
 }
 
-// ---------- 访问级别（完全访问）下拉 ----------
-// 前端实现的审批策略：ask=逐次询问；auto=自动放行只读类工具；full=全部自动放行。
-// 只影响本机审批行为，不修改服务端设置。
-
-const ACCESS_MODES = [
-  { id: "ask", label: "逐次询问", desc: "每个工具调用都需你确认" },
-  { id: "auto", label: "自动允许", desc: "自动放行只读类工具（读取 / 搜索 / 列表）" },
-  { id: "full", label: "完全访问", desc: "自动放行所有工具调用，请谨慎使用" },
-];
-const SAFE_TOOL_PATTERN = /(read|list|search|glob|grep|find|diff|status|health|stat|view|snapshot|observ|tree|cat\b|ls\b)/i;
-
-function getAccessMode() {
-  return localStorage.getItem("owo.access-mode") || "ask";
-}
-function setAccessMode(mode) {
-  localStorage.setItem("owo.access-mode", mode);
-  renderAccessChip();
-}
+// 审批由服务端策略裁决；前端不会替用户自动批准待确认请求。
+const ACCESS_MODES = [{ id: "ask", label: "每次询问", desc: "待确认请求由你决定；已授权操作按服务端策略执行" }];
+function getAccessMode() { return "ask"; }
+function setAccessMode() { localStorage.removeItem("owo.access-mode"); renderAccessChip(); }
 function renderAccessChip() {
-  const mode = ACCESS_MODES.find((item) => item.id === getAccessMode()) || ACCESS_MODES[0];
-  const text = $("accessChipText");
-  const dot = $("accessDot");
-  const chip = $("accessChip");
-  if (text) text.textContent = mode.label;
-  if (dot) dot.className = `codex-access-dot mode-${mode.id}`;
-  if (chip) {
-    chip.dataset.mode = mode.id;
-    chip.title = `工具访问级别：${mode.label}（${mode.desc}）`;
-  }
+  const text = $("accessChipText"), dot = $("accessDot"), chip = $("accessChip");
+  if (text) text.textContent = "每次询问";
+  if (dot) dot.className = "codex-access-dot mode-ask";
+  if (chip) { chip.dataset.mode = "ask"; chip.title = "审批方式：每次询问；自动授权请查看服务端权限中心"; }
 }
 function openAccessMenu() {
-  const current = getAccessMode();
-  let html = '<div class="composer-menu-title">工具访问级别</div>';
-  for (const mode of ACCESS_MODES) {
-    const active = mode.id === current ? " active" : "";
-    const check = mode.id === current ? '<span class="composer-menu-check">✓</span>' : "";
-    html +=
-      `<button type="button" class="composer-menu-item has-desc${active}" data-access="${mode.id}">` +
-      `<span class="composer-menu-label"><span class="codex-access-dot mode-${mode.id}"></span>${esc(mode.label)}</span>` +
-      `<span class="composer-menu-desc">${esc(mode.desc)}</span>` +
-      `${check}</button>`;
-  }
-  openComposerMenu($("accessChip"), html, (menu) => {
-    for (const button of menu.querySelectorAll("[data-access]")) {
-      button.addEventListener("click", () => {
-        const mode = button.dataset.access;
-        closeComposerMenu();
-        if (mode === getAccessMode()) return;
-        setAccessMode(mode);
-        const label = (ACCESS_MODES.find((item) => item.id === mode) || {}).label;
-        showToast(`访问级别已切换：${label}`, mode === "full" ? "error" : "ok");
-      });
-    }
+  openComposerMenu($("accessChip"), '<div class="composer-menu-title">本机审批方式</div><div class="composer-menu-note">待确认请求不会自动批准。已授权操作由服务端策略执行；范围与有效期请在权限中心查看。</div><button type="button" class="composer-menu-item" data-open-permissions>打开权限中心 →</button>', menu => {
+    menu.querySelector("[data-open-permissions]").addEventListener("click", () => { closeComposerMenu(); openPanelById("permissions"); });
   });
 }
 
@@ -2876,35 +2865,11 @@ function updateComposerHint() {
   chip.classList.toggle("hidden", !!promptEl.value);
 }
 
-// ---------- 自定义模型：元数据存 localStorage（服务端 settings 不保留该字段，避免往返丢失）；
-// 密钥同样只进 localStorage，永不写入设置。
-function customModelKeys() {
-  try {
-    return JSON.parse(localStorage.getItem("owo.model-keys") || "{}");
-  } catch (_) {
-    return {};
-  }
-}
-function loadCustomModels() {
-  try {
-    return JSON.parse(localStorage.getItem("owo.custom-models") || "[]");
-  } catch (_) {
-    return [];
-  }
-}
-function saveCustomModels(models) {
-  localStorage.setItem("owo.custom-models", JSON.stringify(models));
-  state.settings = state.settings || {};
-  state.settings.custom_models = models;
-}
+// Credentials are never returned to this renderer.
+function customModelKeys() { return {}; }
+function loadCustomModels() { return window.OwoCustomModels.models(); }
+function saveCustomModels() { throw new Error("请使用桌面安全存储保存模型"); }
 
-/// 推理模型判定：名字启发式只是**先验**，真正的判定靠运行时——回合里真的收到过
-/// reasoning 增量的模型记进 localStorage（`rememberReasoningModel`）。
-/// 这是被 deepseek-flash 教的：名字完全看不出是推理模型（直连实测每回合回 ~220 字
-/// 推理），只有跑过才知道。启发式里把 DeepSeek flash/v4 系写死是刻意的：
-/// localStorage 按 origin 隔离，而核心每次重启都换端口，学到的集合活不过重启
-/// （与桌宠皮肤当初同一类问题）；先把已知推理系名字写死兜底，彻底解法是
-/// 本机偏好走壳侧文件（后续与 owo.prefs 一起迁）。
 const REASONING_MODEL_RE =
   /reason|z1|thinking|o[13](-mini)?$|deepseek-(flash|v\d)/i;
 
@@ -3010,7 +2975,9 @@ function syncProviderModels(presetOverride) {
 function renderCustomModels() {
   const list = $("customModelList");
   if (!list) return;
-  const models = loadCustomModels();
+  const models = loadCustomModels().filter(model => !model.disabled);
+  const storage = $("customModelStorageState");
+  if (storage) storage.textContent = window.OwoCustomModels.status().problem ? "部分旧配置尚未迁移或凭据存储不可用。原数据已保留，请检查桌面核心与加密存储。" : "模型配置跨重启保存；密钥由桌面壳加密托管，不返回给页面。";
   const select = $("settingsModel");
   for (const option of [...select.options]) {
     if (option.dataset.custom === "1") option.remove();
@@ -3026,7 +2993,6 @@ function renderCustomModels() {
     list.innerHTML = '<div class="sub">暂无自定义模型，点击右上角添加。</div>';
     return;
   }
-  const keys = customModelKeys();
   list.innerHTML = "";
   for (const model of models) {
     const row = document.createElement("div");
@@ -3034,7 +3000,7 @@ function renderCustomModels() {
     row.innerHTML = `
       <div class="model-row-main">
         <strong>${esc(model.label || model.id)}</strong>
-        <span class="sub">${esc(model.id)} ｜ ${esc(model.apiFormat === "anthropic" ? "Anthropic" : "OpenAI 兼容")} ｜ ${esc(model.baseUrl || "默认端点")}${keys[model.id] ? " ｜ 密钥已存" : ""}</span>
+        <span class="sub">${esc(model.id)} ｜ ${esc(model.apiFormat === "anthropic" ? "Anthropic" : "OpenAI 兼容")} ｜ ${esc(model.baseUrl || "默认端点")}${model.hasKey ? " ｜ 已加密存储" : ""}</span>
       </div>
       <div class="model-row-actions">
         <button type="button" class="ghost" data-act="default">设为默认</button>
@@ -3054,10 +3020,8 @@ function renderCustomModels() {
         confirmText: "移除",
         kind: "danger",
         onConfirm: async () => {
-          saveCustomModels(loadCustomModels().filter((item) => item.id !== model.id));
-          const keys = customModelKeys();
-          delete keys[model.id];
-          localStorage.setItem("owo.model-keys", JSON.stringify(keys));
+          await window.OwoCustomModels.remove(model.id);
+          state.settings.custom_models = loadCustomModels();
           renderCustomModels();
           showToast("已移除自定义模型", "ok");
         },
@@ -3069,7 +3033,6 @@ function renderCustomModels() {
 
 function openCustomModelDialog(existing) {
   const model = existing || { apiFormat: "openai" };
-  const keys = customModelKeys();
   openModal({
     title: existing ? "编辑自定义模型" : "添加自定义模型",
     body: `
@@ -3093,8 +3056,8 @@ function openCustomModelDialog(existing) {
           <input type="checkbox" id="cmFullUrl" ${model.useFullUrl ? "checked" : ""}>
           <span>使用完整 URL（不做路径拼接）</span>
         </label>
-        <label class="field-label">API 密钥（只保存在本机浏览器，不写入设置文件）
-          <input type="password" id="cmKey" autocomplete="new-password" placeholder="${model.id && keys[model.id] ? "已保存，留空则不修改" : "sk-…"}">
+        <label class="field-label">API 密钥（桌面壳加密保存，不进入浏览器存储）
+          <input type="password" id="cmKey" autocomplete="new-password" placeholder="${model.hasKey ? "已加密保存，留空保留" : "填写此端点的密钥"}">
         </label>
         <details class="form-advanced">
           <summary>高级配置</summary>
@@ -3128,7 +3091,6 @@ function openCustomModelDialog(existing) {
         onClick: async ({ body }) => {
           const result = body.querySelector("#cmTestResult");
           const baseUrl = body.querySelector("#cmBaseUrl").value.trim();
-          const key = body.querySelector("#cmKey").value.trim() || (model.id && keys[model.id]) || "";
           result.hidden = false;
           if (!baseUrl) {
             result.textContent = "请先填写请求地址";
@@ -3136,20 +3098,14 @@ function openCustomModelDialog(existing) {
           }
           result.textContent = "正在测试连接…";
           try {
-            const target = baseUrl.replace(/\/+$/, "") + "/models";
-            const response = await window.OwoApi.resource(target, {
-              headers: key ? { Authorization: `Bearer ${key}` } : {},
+            const response = await window.OwoCustomModels.probe({
+              id: body.querySelector("#cmId").value.trim(), previousId: model.id, baseUrl,
+              apiFormat: body.querySelector("#cmApiFormat").value, useFullUrl: body.querySelector("#cmFullUrl").checked,
+              apiKey: body.querySelector("#cmKey").value.trim(),
             });
-            if (response.ok) {
-              const data = await response.json().catch(() => null);
-              const count = data && Array.isArray(data.data) ? data.data.length : "?";
-              result.textContent = `连接成功：端点返回 ${count} 个模型`;
-            } else {
-              result.textContent = `端点返回 ${response.status} ${response.statusText}`;
-            }
-          } catch (error) {
-            result.textContent = `连接失败：${error.message || error}（可能受跨域或网络限制）`;
-          }
+            result.textContent = response.note || (response.ok ? "连接成功：端点返回 " + (response.models ?? "未知数量") + " 个模型" : "连接未通过，HTTP " + (response.status ?? "未知"));
+          } catch (error) { result.textContent = "连接测试失败：" + friendlyError(error); }
+
         },
       },
       {
@@ -3174,15 +3130,12 @@ function openCustomModelDialog(existing) {
           };
           try { ModelRouting.buildCustomModelConnection(id, [next], {}); }
           catch (error) { showToast(error.message, "error"); return; }
-          const keyInput = $("cmKey").value.trim();
-          if (keyInput) {
-            const allKeys = customModelKeys();
-            allKeys[id] = keyInput;
-            localStorage.setItem("owo.model-keys", JSON.stringify(allKeys));
-          }
-          const models = loadCustomModels().filter((item) => item.id !== id);
-          models.push(next);
-          saveCustomModels(models);
+          try {
+            await window.OwoCustomModels.upsert(next, $("cmKey").value.trim(), existing?.id);
+            $("cmKey").value = "";
+            state.settings = state.settings || {};
+            state.settings.custom_models = loadCustomModels();
+          } catch (error) { showToast("模型未保存：" + friendlyError(error), "error"); return; }
           renderCustomModels();
           close();
           showToast(`已保存自定义模型 ${next.label}`, "ok");
@@ -3218,6 +3171,10 @@ for (const [id, key] of Object.entries(PREF_SELECT_MAP)) {
     }
   });
 }
+const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+themeMedia.addEventListener?.("change", event => {
+  if (loadLocalPrefs().theme === "system") applyTheme(event.matches ? "dark" : "light");
+});
 const PREF_TOGGLE_MAP = {
   prefCompact: "compact",
   prefSound: "sound",
@@ -3693,7 +3650,15 @@ function openModelGateSettings() {
 }
 
 function formatCount(value) {
-  return Number(value || 0).toLocaleString("zh-CN");
+  if (value == null || value === "" || !Number.isFinite(Number(value))) return "未知";
+  return Number(value).toLocaleString("zh-CN");
+}
+
+function formatUsageCost(data) {
+  const budget = data?.budget || {};
+  const hasPrices = Number(budget.input_price_per_mtok) > 0 && Number(budget.output_price_per_mtok) > 0;
+  if (!hasPrices) return "未知（单价未配置）";
+  return data.cost_usd == null || !Number.isFinite(Number(data.cost_usd)) ? "未知" : "$" + Number(data.cost_usd).toFixed(4);
 }
 
 async function refreshUsage() {
@@ -3705,7 +3670,7 @@ async function refreshUsage() {
       { label: "累计 Tokens", value: formatCount(usage.total_tokens) },
       { label: "输入 Tokens", value: formatCount(usage.prompt_tokens) },
       { label: "输出 Tokens", value: formatCount(usage.completion_tokens) },
-      { label: "累计成本", value: `$${(data.cost_usd || 0).toFixed(4)}` },
+      { label: "累计估算成本", value: formatUsageCost(data) },
       { label: "Token 预算", value: budget.token_cap != null ? formatCount(budget.token_cap) : "未配置" },
       { label: "成本预算", value: budget.cost_cap_usd != null ? `$${budget.cost_cap_usd}` : "未配置" },
     ];
@@ -3794,10 +3759,11 @@ const workbenchView = window.OwoWorkbenchView.create({
   toggleButton: $("toggleTools"),
   clearToolGroups: () => clearCodexGroup(),
   scrollSettings: () => document.querySelector("#sidebar section.settings-section")?.scrollIntoView({ block: "start" }),
-  replaceRoute: (route) => window.OwoWorkbenchView.replaceRouteHash(window.location, window.history, route),
+  replaceRoute: (route) => window.OwoWorkbenchView.replaceRouteHash(window.location, window.history, route, true),
+  leavePanel: () => unmountActivePanel(),
 });
-function setToolsVisible(visible) {
-  workbenchView.showTools(visible);
+function setToolsVisible(visible, preserveRoute) {
+  workbenchView.showTools(visible, preserveRoute);
 }
 function setSettingsPageVisible(visible) {
   workbenchView.showSettings(visible);
@@ -3821,6 +3787,7 @@ function syncToolsJump() {
         ? !CODEX_GROUPS.some((group) => document.body.classList.contains(`tools-group-${group}`))
         : document.body.classList.contains(`tools-group-${target}`);
     button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
   }
 }
 for (const button of document.querySelectorAll("[data-jump]")) {
@@ -3867,6 +3834,9 @@ for (const button of document.querySelectorAll("[data-codex-group]")) {
     if (group === "system") void refreshPluginSkillOverview();
     syncToolsJump();
   });
+}
+for (const button of document.querySelectorAll("[data-workbench-panel]")) {
+  button.addEventListener("click", () => openPanelById(button.dataset.workbenchPanel));
 }
 function bindToolsEntry(id) {
   $(id).addEventListener("click", () => {
@@ -4366,7 +4336,14 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   const key = event.key.toLowerCase();
-  if (key === "n") {
+  if (key === "k") {
+    event.preventDefault();
+    openWorkbenchSearch();
+  } else if (key === "r") {
+    event.preventDefault();
+    if (state.activeTurns.size) showToast("任务运行中，请结束任务后刷新界面");
+    else window.location.reload();
+  } else if (key === "n") {
     event.preventDefault();
     newSession().catch((error) => addMessage("error", `创建会话失败：${error.message || error}`));
   } else if (key === "o") {
@@ -4407,7 +4384,7 @@ const workspaceFolderPicker = window.OwoFolderPicker.attach(
 const workspacePickerHint = $("workspacePickerHint");
 if (workspacePickerHint) {
   workspacePickerHint.textContent = workspaceFolderPicker.native
-    ? "使用 Electron 原生目录选择器设置；切换后会重启核心，新会话使用新目录。"
+    ? "切换项目目录后，新会话使用新目录；已有会话保留原项目。"
     : "浏览器预览无法访问本机目录。请在 OwO Agent Electron 工作台中选择或切换工作区。";
 }
 // composer 项目 chip 与工作区菜单均复用同一个原生目录选择器。
@@ -4807,6 +4784,7 @@ workbenchRefresh = window.OwoRefresh.createScheduler(WORKBENCH_REFRESH_PLANS, {
 window.addEventListener("beforeunload", () => {
   workbenchRefresh.stop();
   stopInvalidation();
+  for (const entry of state.activeTurns.values()) entry.observer?.stop();
 });
 
 const BOOT_HYDRATE_TASKS = [refreshSessions, refreshSettings, refreshSkills, refreshWhitelist];
@@ -4817,7 +4795,9 @@ async function hydrateShell() {
 }
 
 async function boot() {
+  await window.OwoCustomModels.init();
   initSpeech();
+  window.OwoAccessibility?.annotate($("settingsContent"));
   initPanels();
   initProviderPresets();
   initPluginSkillTabs();
@@ -4846,3 +4826,10 @@ async function boot() {
 }
 
 boot();
+
+$("prefZoom")?.addEventListener("change", async event => {
+ const factor = Number(event.target.value);
+ if (!window.owo?.setZoom) { showToast("浏览器请使用浏览器缩放"); return; }
+ try { await window.owo.setZoom(factor); LOCAL_PREFS.zoom = factor; saveLocalPrefs(); }
+ catch { showToast("缩放未应用，请重试", "error"); }
+});

@@ -1,0 +1,4336 @@
+TAP version 13
+# Subtest: 离开帮助页后的旧响应不会覆盖重新打开页面的数据
+ok 1 - 离开帮助页后的旧响应不会覆盖重新打开页面的数据
+  ---
+  duration_ms: 33.3679
+  type: 'test'
+  ...
+# Subtest: 能力请求失败显示不可用和重试提示，不伪装成零项
+ok 2 - 能力请求失败显示不可用和重试提示，不伪装成零项
+  ---
+  duration_ms: 3.6251
+  type: 'test'
+  ...
+# Subtest: MCP 服务器名称作为卡片文本转义，不能注入 HTML
+ok 3 - MCP 服务器名称作为卡片文本转义，不能注入 HTML
+  ---
+  duration_ms: 2.0352
+  type: 'test'
+  ...
+# Subtest: 未知响应形状显示未知而不是空列表
+ok 4 - 未知响应形状显示未知而不是空列表
+  ---
+  duration_ms: 8.284
+  type: 'test'
+  ...
+# Subtest: dispose 存在：离开面板时可隔离在途请求
+ok 5 - dispose 存在：离开面板时可隔离在途请求
+  ---
+  duration_ms: 1.6733
+  type: 'test'
+  ...
+# Subtest: 刷新 Inbox 与初始加载竞争时，较新的刷新结果优先
+ok 6 - 刷新 Inbox 与初始加载竞争时，较新的刷新结果优先
+  ---
+  duration_ms: 23.9253
+  type: 'test'
+  ...
+# Subtest: dispose：忽略离开面板前发出的 Inbox 响应
+ok 7 - dispose：忽略离开面板前发出的 Inbox 响应
+  ---
+  duration_ms: 0.4003
+  type: 'test'
+  ...
+# Subtest: dispose：忽略离开面板前发出的待办处理结果
+ok 8 - dispose：忽略离开面板前发出的待办处理结果
+  ---
+  duration_ms: 0.7785
+  type: 'test'
+  ...
+# Subtest: 面板注册：id/title/mount/_test 齐备
+ok 9 - 面板注册：id/title/mount/_test 齐备
+  ---
+  duration_ms: 2.0056
+  type: 'test'
+  ...
+# Subtest: normStatus/isRetryableStep：Debug 帧归一 + Failed/Aborted 可重试
+ok 10 - normStatus/isRetryableStep：Debug 帧归一 + Failed/Aborted 可重试
+  ---
+  duration_ms: 0.3294
+  type: 'test'
+  ...
+# Subtest: candidateTeams：排除 succeeded/cancelled，awaiting_human 优先，截断上限
+ok 11 - candidateTeams：排除 succeeded/cancelled，awaiting_human 优先，截断上限
+  ---
+  duration_ms: 1.744
+  type: 'test'
+  ...
+# Subtest: humanTasksOf/humanItemsOf：人节点闸门（human 成员 + 未终态）+ awaiting_human 团队兜底
+ok 12 - humanTasksOf/humanItemsOf：人节点闸门（human 成员 + 未终态）+ awaiting_human 团队兜底
+  ---
+  duration_ms: 0.5967
+  type: 'test'
+  ...
+# Subtest: failedItemsOf：Failed/Aborted 步骤，error/failure_code 双字段，终态团队不提供
+ok 13 - failedItemsOf：Failed/Aborted 步骤，error/failure_code 双字段，终态团队不提供
+  ---
+  duration_ms: 0.6151
+  type: 'test'
+  ...
+# Subtest: leaseOf/leaseItemsOf：写租约双路径容错读取，已释放不聚合
+ok 14 - leaseOf/leaseItemsOf：写租约双路径容错读取，已释放不聚合
+  ---
+  duration_ms: 0.6605
+  type: 'test'
+  ...
+# Subtest: normReviewState/reviewItemsOf：pendingreview + 校验未通过，其余过滤，team_id 回落
+ok 15 - normReviewState/reviewItemsOf：pendingreview + 校验未通过，其余过滤，team_id 回落
+  ---
+  duration_ms: 0.6591
+  type: 'test'
+  ...
+# Subtest: projectIdsOf：project_space_id 优先，缺省 proj-<team_id>，去重截断
+ok 16 - projectIdsOf：project_space_id 优先，缺省 proj-<team_id>，去重截断
+  ---
+  duration_ms: 0.2508
+  type: 'test'
+  ...
+# Subtest: aggregate：四类聚合；详情/产物加载失败条目跳过
+ok 17 - aggregate：四类聚合；详情/产物加载失败条目跳过
+  ---
+  duration_ms: 0.3034
+  type: 'test'
+  ...
+# Subtest: buildRetryBody：POST /teams/{id}/steer 冻结契约（command=retry）
+ok 18 - buildRetryBody：POST /teams/{id}/steer 冻结契约（command=retry）
+  ---
+  duration_ms: 0.2025
+  type: 'test'
+  ...
+# Subtest: sectionsHtml：四类目节骨架 + 计数 + 重试按钮 data 属性 + 提交锁 + 结果区
+ok 19 - sectionsHtml：四类目节骨架 + 计数 + 重试按钮 data 属性 + 提交锁 + 结果区
+  ---
+  duration_ms: 1.5021
+  type: 'test'
+  ...
+# Subtest: load()：四类聚合落 state；404 产物静默；详情失败降级并记错误
+ok 20 - load()：四类聚合落 state；404 产物静默；详情失败降级并记错误
+  ---
+  duration_ms: 1.649
+  type: 'test'
+  ...
+# Subtest: load()：详情请求失败 → 降级空聚合 + detailErrors 记录，不阻塞其余类目
+ok 21 - load()：详情请求失败 → 降级空聚合 + detailErrors 记录，不阻塞其余类目
+  ---
+  duration_ms: 0.6352
+  type: 'test'
+  ...
+# Subtest: load()：团队列表失败 → errors 记录，终态安全
+ok 22 - load()：团队列表失败 → errors 记录，终态安全
+  ---
+  duration_ms: 0.3093
+  type: 'test'
+  ...
+# Subtest: submitRetry：提交锁（快速双击只发一次）+ 冻结契约 + 失败兜底 + 成功后重载
+ok 23 - submitRetry：提交锁（快速双击只发一次）+ 冻结契约 + 失败兜底 + 成功后重载
+  ---
+  duration_ms: 1.5465
+  type: 'test'
+  ...
+# Subtest: submitRetry：dispose 后原重试未结束前保留提交锁
+ok 24 - submitRetry：dispose 后原重试未结束前保留提交锁
+  ---
+  duration_ms: 0.3073
+  type: 'test'
+  ...
+# Subtest: gotoWorkswarm：无 DOM 环境安全（Node 下不抛错）
+ok 25 - gotoWorkswarm：无 DOM 环境安全（Node 下不抛错）
+  ---
+  duration_ms: 0.2954
+  type: 'test'
+  ...
+# Subtest: 接线守卫：index.html 脚本 + PANEL_ORDER 唯一来源 app-domain.js + style.css 第 21 节在场
+ok 26 - 接线守卫：index.html 脚本 + PANEL_ORDER 唯一来源 app-domain.js + style.css 第 21 节在场
+  ---
+  duration_ms: 0.9261
+  type: 'test'
+  ...
+# Subtest: inboxItemsOf：归一化 + 非法条目丢弃 + 字段缺省
+ok 27 - inboxItemsOf：归一化 + 非法条目丢弃 + 字段缺省
+  ---
+  duration_ms: 0.1878
+  type: 'test'
+  ...
+# Subtest: normItemStatus/groupInbox：四类分组，resolved 不再出现
+ok 28 - normItemStatus/groupInbox：四类分组，resolved 不再出现
+  ---
+  duration_ms: 0.2337
+  type: 'test'
+  ...
+# Subtest: buildInboxActionPath：id encodeURIComponent + 动作分段
+ok 29 - buildInboxActionPath：id encodeURIComponent + 动作分段
+  ---
+  duration_ms: 0.1074
+  type: 'test'
+  ...
+# Subtest: buildResolveBody：按 kind 分派（冻结③）+ 非法动作报错
+ok 30 - buildResolveBody：按 kind 分派（冻结③）+ 非法动作报错
+  ---
+  duration_ms: 0.1823
+  type: 'test'
+  ...
+# Subtest: inboxSectionsHtml：四节骨架 + 计数徽标 + 动作按钮 data 属性
+ok 31 - inboxSectionsHtml：四节骨架 + 计数徽标 + 动作按钮 data 属性
+  ---
+  duration_ms: 0.5429
+  type: 'test'
+  ...
+# Subtest: load()：inbox 优先（不触发 /teams 客户端聚合）
+ok 32 - load()：inbox 优先（不触发 /teams 客户端聚合）
+  ---
+  duration_ms: 0.3855
+  type: 'test'
+  ...
+# Subtest: load()（九期）：inbox 在线但列表为空 → 保持 Inbox 口径，不偷偷切换数据源
+ok 33 - load()（九期）：inbox 在线但列表为空 → 保持 Inbox 口径，不偷偷切换数据源
+  ---
+  duration_ms: 0.3733
+  type: 'test'
+  ...
+# Subtest: load()（九期）：404（Inbox 未部署）→ 回退七期客户端聚合
+ok 34 - load()（九期）：404（Inbox 未部署）→ 回退七期客户端聚合
+  ---
+  duration_ms: 0.4252
+  type: 'test'
+  ...
+# Subtest: load()（九期）：非 404 失败 → 保持 Inbox 口径 + 错误行，不切数据源
+ok 35 - load()（九期）：非 404 失败 → 保持 Inbox 口径 + 错误行，不切数据源
+  ---
+  duration_ms: 0.3969
+  type: 'test'
+  ...
+# Subtest: refreshInbox()（九期）：动作后重取为空仍保持 Inbox 口径
+ok 36 - refreshInbox()（九期）：动作后重取为空仍保持 Inbox 口径
+  ---
+  duration_ms: 0.3692
+  type: 'test'
+  ...
+# Subtest: startInboxAction()：claim → POST /human/inbox/{id}/claim；提交锁双击一次
+ok 37 - startInboxAction()：claim → POST /human/inbox/{id}/claim；提交锁双击一次
+  ---
+  duration_ms: 0.422
+  type: 'test'
+  ...
+# Subtest: startInboxAction()：artifact_review resolve 按 decision 分派到 resolve 端点
+ok 38 - startInboxAction()：artifact_review resolve 按 decision 分派到 resolve 端点
+  ---
+  duration_ms: 0.5763
+  type: 'test'
+  ...
+# Subtest: startInboxAction()：human_result 缺 result 不发请求
+ok 39 - startInboxAction()：human_result 缺 result 不发请求
+  ---
+  duration_ms: 0.267
+  type: 'test'
+  ...
+# Subtest: startInboxAction()：失败兜底（friendly 文本，不抛错）
+ok 40 - startInboxAction()：失败兜底（friendly 文本，不抛错）
+  ---
+  duration_ms: 0.5221
+  type: 'test'
+  ...
+# Subtest: 业务脚本不绕过统一 API 客户端
+ok 41 - 业务脚本不绕过统一 API 客户端
+  ---
+  duration_ms: 20.2076
+  type: 'test'
+  ...
+# Subtest: 工作台三态视图由单一控制器管理并在启动前加载
+ok 42 - 工作台三态视图由单一控制器管理并在启动前加载
+  ---
+  duration_ms: 4.5377
+  type: 'test'
+  ...
+# Subtest: 请求自动带 token，401 只刷新并重试一次
+ok 43 - 请求自动带 token，401 只刷新并重试一次
+  ---
+  duration_ms: 32.5278
+  type: 'test'
+  ...
+# Subtest: 公开健康检查不触发 bearer token 引导
+ok 44 - 公开健康检查不触发 bearer token 引导
+  ---
+  duration_ms: 1.416
+  type: 'test'
+  ...
+# Subtest: 桌面配对门拒绝普通浏览器时显示可操作的原因
+ok 45 - 桌面配对门拒绝普通浏览器时显示可操作的原因
+  ---
+  duration_ms: 2.2693
+  type: 'test'
+  ...
+# Subtest: 浏览器预览的 token 引导 404 显示 Electron 连接指引并保留诊断
+ok 46 - 浏览器预览的 token 引导 404 显示 Electron 连接指引并保留诊断
+  ---
+  duration_ms: 1.3774
+  type: 'test'
+  ...
+# Subtest: 上传和下载复用同一鉴权路径
+ok 47 - 上传和下载复用同一鉴权路径
+  ---
+  duration_ms: 5.6064
+  type: 'test'
+  ...
+# Subtest: Tauri 桌面端先向壳询问核心连接，携带实例身份与配对证明引导 token
+ok 48 - Tauri 桌面端先向壳询问核心连接，携带实例身份与配对证明引导 token
+  ---
+  duration_ms: 4.2485
+  type: 'test'
+  ...
+# Subtest: R3-B §3.4：非 ready 的连接快照不得被永久缓存（否则稳定码永远读不到）
+ok 49 - R3-B §3.4：非 ready 的连接快照不得被永久缓存（否则稳定码永远读不到）
+  ---
+  duration_ms: 0.7539
+  type: 'test'
+  ...
+# Subtest: §6.1.4 诊断对象同时暴露 expected/actual build id（不一致时供错误页消费）
+ok 50 - §6.1.4 诊断对象同时暴露 expected/actual build id（不一致时供错误页消费）
+  ---
+  duration_ms: 2.045
+  type: 'test'
+  ...
+# Subtest: §4 壳注入 token：桌面模式冷启动零 /auth/token 请求，重连后失效
+ok 51 - §4 壳注入 token：桌面模式冷启动零 /auth/token 请求，重连后失效
+  ---
+  duration_ms: 1.6152
+  type: 'test'
+  ...
+# Subtest: §8.2 第5条：401 必须整体重查壳连接（旧注入 token 不得复用）
+ok 52 - §8.2 第5条：401 必须整体重查壳连接（旧注入 token 不得复用）
+  ---
+  duration_ms: 2.42
+  type: 'test'
+  ...
+# Subtest: §8.2 第5条：core 重启换端口后，网络失败必须触发重查连接并重试成功
+ok 53 - §8.2 第5条：core 重启换端口后，网络失败必须触发重查连接并重试成功
+  ---
+  duration_ms: 1.1921
+  type: 'test'
+  ...
+# Subtest: §8.2：POST 网络失败必须上抛且不得自动重放（避免重复回合/写入副作用）
+ok 54 - §8.2：POST 网络失败必须上抛且不得自动重放（避免重复回合/写入副作用）
+  ---
+  duration_ms: 0.585
+  type: 'test'
+  ...
+# Subtest: §8.2 第5条：核心始终不可达时网络失败只重试一次并受冷却约束（不得风暴重查）
+ok 55 - §8.2 第5条：核心始终不可达时网络失败只重试一次并受冷却约束（不得风暴重查）
+  ---
+  duration_ms: 2.3213
+  type: 'test'
+  ...
+# Subtest: 核心未就绪时保留原基址，并暴露启动诊断供恢复流程消费
+ok 56 - 核心未就绪时保留原基址，并暴露启动诊断供恢复流程消费
+  ---
+  duration_ms: 1.2497
+  type: 'test'
+  ...
+# Subtest: §3.1 openEventStream：Bearer 头 + 401 单次刷新重试（token 不进 URL）
+ok 57 - §3.1 openEventStream：Bearer 头 + 401 单次刷新重试（token 不进 URL）
+  ---
+  duration_ms: 2.2489
+  type: 'test'
+  ...
+# Subtest: §3.1 openEventStream：Last-Event-ID 头续传 + SSE 逐帧解析（id/多行/注释帧）
+ok 58 - §3.1 openEventStream：Last-Event-ID 头续传 + SSE 逐帧解析（id/多行/注释帧）
+  ---
+  duration_ms: 3.0935
+  type: 'test'
+  ...
+# Subtest: §4.6 壳诊断归一：generation/attempt 必须透出，旧壳缺失时保持 null
+ok 59 - §4.6 壳诊断归一：generation/attempt 必须透出，旧壳缺失时保持 null
+  ---
+  duration_ms: 0.2426
+  type: 'test'
+  ...
+# Subtest: §3.1 openEventStream：Last-Event-ID 头随请求发送
+ok 60 - §3.1 openEventStream：Last-Event-ID 头随请求发送
+  ---
+  duration_ms: 0.9538
+  type: 'test'
+  ...
+# Subtest: index.html 引入 core/api-client.js（认证头唯一实现）
+ok 61 - index.html 引入 core/api-client.js（认证头唯一实现）
+  ---
+  duration_ms: 1.3617
+  type: 'test'
+  ...
+# Subtest: index.html 不再按 __TAURI_INTERNALS__ 把 baseUrl 钉死到硬编码端口
+ok 62 - index.html 不再按 __TAURI_INTERNALS__ 把 baseUrl 钉死到硬编码端口
+  ---
+  duration_ms: 1.2942
+  type: 'test'
+  ...
+# Subtest: 工具面板把公开 /health 请求作为公开请求发送
+ok 63 - 工具面板把公开 /health 请求作为公开请求发送
+  ---
+  duration_ms: 1.2132
+  type: 'test'
+  ...
+# Subtest: app.js 的 token 引导复用 ApiClient，不自带实例/配对实现
+ok 64 - app.js 的 token 引导复用 ApiClient，不自带实例/配对实现
+  ---
+  duration_ms: 1.5345
+  type: 'test'
+  ...
+# Subtest: 发送时无会话会自动新建，而不是提示后放弃
+ok 65 - 发送时无会话会自动新建，而不是提示后放弃
+  ---
+  duration_ms: 1.2781
+  type: 'test'
+  ...
+# Subtest: 侧栏项目分组可折叠且折叠态持久化
+ok 66 - 侧栏项目分组可折叠且折叠态持久化
+  ---
+  duration_ms: 3.4485
+  type: 'test'
+  ...
+# Subtest: 首启门读服务端真实字段，不读不存在的 settings.provider_ready
+ok 67 - 首启门读服务端真实字段，不读不存在的 settings.provider_ready
+  ---
+  duration_ms: 1.8352
+  type: 'test'
+  ...
+# Subtest: 本地端点（Ollama）不因缺密钥被拦
+ok 68 - 本地端点（Ollama）不因缺密钥被拦
+  ---
+  duration_ms: 2.7876
+  type: 'test'
+  ...
+# Subtest: groupArtifactChain：单件自成链，approved head 指向已批准版本
+ok 69 - groupArtifactChain：单件自成链，approved head 指向已批准版本
+  ---
+  duration_ms: 2.4727
+  type: 'test'
+  ...
+# Subtest: groupArtifactChain：线性链按版本升序，head=最新，approvedHead=最高已批准
+ok 70 - groupArtifactChain：线性链按版本升序，head=最新，approvedHead=最高已批准
+  ---
+  duration_ms: 14.3396
+  type: 'test'
+  ...
+# Subtest: groupArtifactChain：断链（supersedes 指向不存在产物）另起一条链
+ok 71 - groupArtifactChain：断链（supersedes 指向不存在产物）另起一条链
+  ---
+  duration_ms: 0.1886
+  type: 'test'
+  ...
+# Subtest: groupArtifactChain：多条 kind 混排互不串链
+ok 72 - groupArtifactChain：多条 kind 混排互不串链
+  ---
+  duration_ms: 0.1407
+  type: 'test'
+  ...
+# Subtest: groupArtifactChain：空数组/null → 空链；无 artifact_id 的脏行被剔除
+ok 73 - groupArtifactChain：空数组/null → 空链；无 artifact_id 的脏行被剔除
+  ---
+  duration_ms: 0.206
+  type: 'test'
+  ...
+# Subtest: normReviewState/reviewBadgeHtml：六种评审状态映射与徽标分类
+ok 74 - normReviewState/reviewBadgeHtml：六种评审状态映射与徽标分类
+  ---
+  duration_ms: 0.2783
+  type: 'test'
+  ...
+# Subtest: isReviewable：仅 PendingReview 且非提交中可评审
+ok 75 - isReviewable：仅 PendingReview 且非提交中可评审
+  ---
+  duration_ms: 0.3136
+  type: 'test'
+  ...
+# Subtest: buildReviewBody：合法 approve 生成冻结契约六字段
+ok 76 - buildReviewBody：合法 approve 生成冻结契约六字段
+  ---
+  duration_ms: 0.5655
+  type: 'test'
+  ...
+# Subtest: buildReviewBody：未知动作 / 缺评审者 → 抛错
+ok 77 - buildReviewBody：未知动作 / 缺评审者 → 抛错
+  ---
+  duration_ms: 0.8636
+  type: 'test'
+  ...
+# Subtest: buildReviewBody：生产者（含 m- 前缀形态）不能自行批准
+ok 78 - buildReviewBody：生产者（含 m- 前缀形态）不能自行批准
+  ---
+  duration_ms: 0.7397
+  type: 'test'
+  ...
+# Subtest: buildReviewBody：幂等键缺省时自动生成且含 artifact/decision/reviewer
+ok 79 - buildReviewBody：幂等键缺省时自动生成且含 artifact/decision/reviewer
+  ---
+  duration_ms: 0.3949
+  type: 'test'
+  ...
+# Subtest: submitArtifactReview：成功路径记录 reviewResult 并解锁
+ok 80 - submitArtifactReview：成功路径记录 reviewResult 并解锁
+  ---
+  duration_ms: 0.4075
+  type: 'test'
+  ...
+# Subtest: submitArtifactReview：409 → 计划规定文案（版本已更新，请刷新后重试）
+ok 81 - submitArtifactReview：409 → 计划规定文案（版本已更新，请刷新后重试）
+  ---
+  duration_ms: 0.8381
+  type: 'test'
+  ...
+# Subtest: submitArtifactReview：403 → 无评审权限文案
+ok 82 - submitArtifactReview：403 → 无评审权限文案
+  ---
+  duration_ms: 0.2445
+  type: 'test'
+  ...
+# Subtest: submitArtifactReview：网络失败 → 可操作提示（连接/服务确认）
+ok 83 - submitArtifactReview：网络失败 → 可操作提示（连接/服务确认）
+  ---
+  duration_ms: 0.4142
+  type: 'test'
+  ...
+# Subtest: submitArtifactReview：提交中重复提交被忙锁拒绝；非法产物拒绝
+ok 84 - submitArtifactReview：提交中重复提交被忙锁拒绝；非法产物拒绝
+  ---
+  duration_ms: 1.0445
+  type: 'test'
+  ...
+# Subtest: artifactHistoryHtml：不可变记录映射（空/含评语/决策徽标）
+ok 85 - artifactHistoryHtml：不可变记录映射（空/含评语/决策徽标）
+  ---
+  duration_ms: 0.4642
+  type: 'test'
+  ...
+# Subtest: renderArtifactsChains：链头标记 + approved head + 评审表单仅出现在待评审版本
+ok 86 - renderArtifactsChains：链头标记 + approved head + 评审表单仅出现在待评审版本
+  ---
+  duration_ms: 0.7502
+  type: 'test'
+  ...
+# Subtest: renderArtifactsChains：无链渲染为空串（空态由外层处理）
+ok 87 - renderArtifactsChains：无链渲染为空串（空态由外层处理）
+  ---
+  duration_ms: 0.1644
+  type: 'test'
+  ...
+# Subtest: artifactRowHtml：提交中的产物行评审按钮 disabled（锁定）
+ok 88 - artifactRowHtml：提交中的产物行评审按钮 disabled（锁定）
+  ---
+  duration_ms: 0.2839
+  type: 'test'
+  ...
+# Subtest: artifactRowHtml：reviewFlash 存续——产物区重载后结果提示不丢
+ok 89 - artifactRowHtml：reviewFlash 存续——产物区重载后结果提示不丢
+  ---
+  duration_ms: 0.3438
+  type: 'test'
+  ...
+# Subtest: interval accepts only positive safe integers
+ok 90 - interval accepts only positive safe integers
+  ---
+  duration_ms: 2.8997
+  type: 'test'
+  ...
+# Subtest: daily schedule requires valid 24-hour HH:MM
+ok 91 - daily schedule requires valid 24-hour HH:MM
+  ---
+  duration_ms: 0.5423
+  type: 'test'
+  ...
+# Subtest: one-shot local time becomes RFC3339 with explicit local offset
+ok 92 - one-shot local time becomes RFC3339 with explicit local offset
+  ---
+  duration_ms: 1.0303
+  type: 'test'
+  ...
+# Subtest: automation actions preserve reminder and read-only Agent task intent
+ok 93 - automation actions preserve reminder and read-only Agent task intent
+  ---
+  duration_ms: 0.53
+  type: 'test'
+  ...
+# Subtest: automation and reminder mutations explain the offline core requirement
+ok 94 - automation and reminder mutations explain the offline core requirement
+  ---
+  duration_ms: 0.4408
+  type: 'test'
+  ...
+# Subtest: automation form exposes the supported read-only Agent action
+ok 95 - automation form exposes the supported read-only Agent action
+  ---
+  duration_ms: 0.2091
+  type: 'test'
+  ...
+# Subtest: automation toggle failures stay visible and use an encoded task id
+ok 96 - automation toggle failures stay visible and use an encoded task id
+  ---
+  duration_ms: 11.3457
+  type: 'test'
+  ...
+# Subtest: automation deletion requires confirmation and reports request failures
+ok 97 - automation deletion requires confirmation and reports request failures
+  ---
+  duration_ms: 14.3691
+  type: 'test'
+  ...
+# Subtest: automation deletion stays locked across panel remounts until confirmation settles
+ok 98 - automation deletion stays locked across panel remounts until confirmation settles
+  ---
+  duration_ms: 42.7092
+  type: 'test'
+  ...
+# Subtest: native hidden controls stay hidden despite component display styles
+ok 99 - native hidden controls stay hidden despite component display styles
+  ---
+  duration_ms: 0.9187
+  type: 'test'
+  ...
+# Subtest: automation and reminder lists show inline errors and recover through retry
+ok 100 - automation and reminder lists show inline errors and recover through retry
+  ---
+  duration_ms: 2.3011
+  type: 'test'
+  ...
+# Subtest: rapid automation form submissions create only one task and restore the submit control
+ok 101 - rapid automation form submissions create only one task and restore the submit control
+  ---
+  duration_ms: 11.219
+  type: 'test'
+  ...
+# Subtest: pending task creation remains locked across panel disposal and remount
+ok 102 - pending task creation remains locked across panel disposal and remount
+  ---
+  duration_ms: 13.2729
+  type: 'test'
+  ...
+# Subtest: late automation list responses cannot repaint after a newer refresh or disposal
+ok 103 - late automation list responses cannot repaint after a newer refresh or disposal
+  ---
+  duration_ms: 30.707
+  type: 'test'
+  ...
+# Subtest: automatic toggle stays locked across panel remounts until the original request settles
+ok 104 - automatic toggle stays locked across panel remounts until the original request settles
+  ---
+  duration_ms: 26.012
+  type: 'test'
+  ...
+# Subtest: failed automation run history offers retry and ignores a response after reopening
+ok 105 - failed automation run history offers retry and ignores a response after reopening
+  ---
+  duration_ms: 23.8785
+  type: 'test'
+  ...
+# Subtest: §8.1 web 出口自带 x-owo-client: web 标签（服务端 ledger 归类唯一依据）
+ok 106 - §8.1 web 出口自带 x-owo-client: web 标签（服务端 ledger 归类唯一依据）
+  ---
+  duration_ms: 73.1268
+  type: 'test'
+  ...
+# Subtest: §4 desktop-webview 模式：壳注入 token，冷启动真实请求 = 5 且零 /auth/token
+ok 107 - §4 desktop-webview 模式：壳注入 token，冷启动真实请求 = 5 且零 /auth/token
+  ---
+  duration_ms: 28.3077
+  type: 'test'
+  ...
+# Subtest: §4 browser-dev 模式：/auth/token 引导，冷启动真实请求 = 6
+ok 108 - §4 browser-dev 模式：/auth/token 引导，冷启动真实请求 = 6
+  ---
+  duration_ms: 23.9451
+  type: 'test'
+  ...
+# Subtest: §4 无 token 的业务请求在传输层被拒（401 JSON），引导后重试成功
+ok 109 - §4 无 token 的业务请求在传输层被拒（401 JSON），引导后重试成功
+  ---
+  duration_ms: 11.7611
+  type: 'test'
+  ...
+# Subtest: 首屏先健康检查，再只水合会话、设置、技能与白名单
+ok 110 - 首屏先健康检查，再只水合会话、设置、技能与白名单
+  ---
+  duration_ms: 3.1261
+  type: 'test'
+  ...
+# Subtest: steady refresh is bounded; wide domain refresh is reserved for degraded SSE fallback
+ok 111 - steady refresh is bounded; wide domain refresh is reserved for degraded SSE fallback
+  ---
+  duration_ms: 0.77
+  type: 'test'
+  ...
+# Subtest: active entrypoint wires every server domain to the authenticated invalidation stream
+ok 112 - active entrypoint wires every server domain to the authenticated invalidation stream
+  ---
+  duration_ms: 1.4273
+  type: 'test'
+  ...
+# Subtest: polling and event handlers suspend in native desktop background and flush on wake
+ok 113 - polling and event handlers suspend in native desktop background and flush on wake
+  ---
+  duration_ms: 3.9355
+  type: 'test'
+  ...
+# Subtest: connection loss stops SSE and a new Core instance rebuilds the stream
+ok 114 - connection loss stops SSE and a new Core instance rebuilds the stream
+  ---
+  duration_ms: 0.5214
+  type: 'test'
+  ...
+# Subtest: hidden inspector panels are mounted on demand, not during chat startup
+ok 115 - hidden inspector panels are mounted on demand, not during chat startup
+  ---
+  duration_ms: 0.2972
+  type: 'test'
+  ...
+# Subtest: unknown maturity labels are escaped before rendering into capability badges
+ok 116 - unknown maturity labels are escaped before rendering into capability badges
+  ---
+  duration_ms: 3.9238
+  type: 'test'
+  ...
+# Subtest: latest capability refresh wins when responses arrive out of order
+ok 117 - latest capability refresh wins when responses arrive out of order
+  ---
+  duration_ms: 16.3911
+  type: 'test'
+  ...
+# Subtest: disposing a capability page prevents a late request from painting detached content
+ok 118 - disposing a capability page prevents a late request from painting detached content
+  ---
+  duration_ms: 14.6403
+  type: 'test'
+  ...
+# Subtest: initial load failure replaces the loading label with a retryable error state
+ok 119 - initial load failure replaces the loading label with a retryable error state
+  ---
+  duration_ms: 2.7742
+  type: 'test'
+  ...
+# Subtest: command execution shares one submission lock and safely escapes array result text
+ok 120 - command execution shares one submission lock and safely escapes array result text
+  ---
+  duration_ms: 4.872
+  type: 'test'
+  ...
+# Subtest: pending command stays locked across panel disposal and remount
+ok 121 - pending command stays locked across panel disposal and remount
+  ---
+  duration_ms: 2.1636
+  type: 'test'
+  ...
+# Subtest: command requests resolving after panel disposal cannot repaint results
+ok 122 - command requests resolving after panel disposal cannot repaint results
+  ---
+  duration_ms: 1.557
+  type: 'test'
+  ...
+# Subtest: command panel initializes its default API helpers when none are injected
+ok 123 - command panel initializes its default API helpers when none are injected
+  ---
+  duration_ms: 7.353
+  type: 'test'
+  ...
+# Subtest: completion evidence summary keeps host decision and candidate binding visible
+ok 124 - completion evidence summary keeps host decision and candidate binding visible
+  ---
+  duration_ms: 2.6377
+  type: 'test'
+  ...
+# Subtest: missing durable record stays absent and malformed receipt entries are ignored
+ok 125 - missing durable record stays absent and malformed receipt entries are ignored
+  ---
+  duration_ms: 0.7535
+  type: 'test'
+  ...
+# Subtest: expanded receipt details stay bounded while preserving the total count
+ok 126 - expanded receipt details stay bounded while preserving the total count
+  ---
+  duration_ms: 0.471
+  type: 'test'
+  ...
+# Subtest: HTTP health success does not erase a token-pairing authorization failure
+ok 127 - HTTP health success does not erase a token-pairing authorization failure
+  ---
+  duration_ms: 3.5898
+  type: 'test'
+  ...
+# Subtest: transport errors still show the offline state and start low-frequency recovery
+ok 128 - transport errors still show the offline state and start low-frequency recovery
+  ---
+  duration_ms: 1.0586
+  type: 'test'
+  ...
+# Subtest: ApiClient authorization events update the global status and stop authenticated streams
+ok 129 - ApiClient authorization events update the global status and stop authenticated streams
+  ---
+  duration_ms: 1.0711
+  type: 'test'
+  ...
+# Subtest: core mutations start disabled and unlock only after authenticated readiness
+ok 130 - core mutations start disabled and unlock only after authenticated readiness
+  ---
+  duration_ms: 3.0968
+  type: 'test'
+  ...
+# Subtest: core mutations relock after disconnect and remain reversible on recovery
+ok 131 - core mutations relock after disconnect and remain reversible on recovery
+  ---
+  duration_ms: 0.8949
+  type: 'test'
+  ...
+# Subtest: busy actions stay locked through availability updates and release to current state
+ok 132 - busy actions stay locked through availability updates and release to current state
+  ---
+  duration_ms: 0.874
+  type: 'test'
+  ...
+# Subtest: dynamic panels get a generic readiness note when they have no specific hint
+ok 133 - dynamic panels get a generic readiness note when they have no specific hint
+  ---
+  duration_ms: 1.4999
+  type: 'test'
+  ...
+# Subtest: the shared gate API marks late controls and holds/release busy state
+ok 134 - the shared gate API marks late controls and holds/release busy state
+  ---
+  duration_ms: 1.0275
+  type: 'test'
+  ...
+# Subtest: dynamically mounted actions inherit offline state and busy controls can recover
+ok 135 - dynamically mounted actions inherit offline state and busy controls can recover
+  ---
+  duration_ms: 0.9714
+  type: 'test'
+  ...
+# Subtest: backend write actions across automation, intelligence, and plugins opt into the shared gate
+ok 136 - backend write actions across automation, intelligence, and plugins opt into the shared gate
+  ---
+  duration_ms: 2.4591
+  type: 'test'
+  ...
+# Subtest: actual composer sends all custom connection fields to the turn route
+ok 137 - actual composer sends all custom connection fields to the turn route
+  ---
+  duration_ms: 4.1952
+  type: 'test'
+  ...
+# Subtest: actual composer keeps draft and submits nothing against an old core
+ok 138 - actual composer keeps draft and submits nothing against an old core
+  ---
+  duration_ms: 1.1784
+  type: 'test'
+  ...
+# Subtest: all existing panels remain searchable, grouped and unique
+ok 139 - all existing panels remain searchable, grouped and unique
+  ---
+  duration_ms: 2.0743
+  type: 'test'
+  ...
+# Subtest: effective permissions initialize the draft without inventing defaults
+ok 140 - effective permissions initialize the draft without inventing defaults
+  ---
+  duration_ms: 0.6141
+  type: 'test'
+  ...
+# Subtest: controller preserves server effective network value until the user edits it
+ok 141 - controller preserves server effective network value until the user edits it
+  ---
+  duration_ms: 3.2202
+  type: 'test'
+  ...
+# Subtest: tool names and old browser full/auto preferences cannot auto approve
+ok 142 - tool names and old browser full/auto preferences cannot auto approve
+  ---
+  duration_ms: 2.3066
+  type: 'test'
+  ...
+# Subtest: host telemetry supplies last model; missing metrics remain unknown
+ok 143 - host telemetry supplies last model; missing metrics remain unknown
+  ---
+  duration_ms: 1.5069
+  type: 'test'
+  ...
+# Subtest: answer completion and host acceptance are different visible states
+ok 144 - answer completion and host acceptance are different visible states
+  ---
+  duration_ms: 3.6496
+  type: 'test'
+  ...
+# Subtest: usage formatting distinguishes missing usage from a measured zero
+ok 145 - usage formatting distinguishes missing usage from a measured zero
+  ---
+  duration_ms: 25.1506
+  type: 'test'
+  ...
+# Subtest: wizard stages retain all seven original sections in three steps
+ok 146 - wizard stages retain all seven original sections in three steps
+  ---
+  duration_ms: 2.6499
+  type: 'test'
+  ...
+# Subtest: absent provider usage cannot be rendered as an aggregate zero
+ok 147 - absent provider usage cannot be rendered as an aggregate zero
+  ---
+  duration_ms: 2.1188
+  type: 'test'
+  ...
+# Subtest: a default zero cost with missing prices is unknown, not free
+ok 148 - a default zero cost with missing prices is unknown, not free
+  ---
+  duration_ms: 3.0014
+  type: 'test'
+  ...
+# Subtest: durable facts restore host model, measured zero usage and receipt identities
+ok 149 - durable facts restore host model, measured zero usage and receipt identities
+  ---
+  duration_ms: 5.1979
+  type: 'test'
+  ...
+# Subtest: an interrupted newer turn does not inherit an old successful receipt
+ok 150 - an interrupted newer turn does not inherit an old successful receipt
+  ---
+  duration_ms: 1.3545
+  type: 'test'
+  ...
+# Subtest: new failure cannot reuse earlier model metrics and cancellation is authoritative
+ok 151 - new failure cannot reuse earlier model metrics and cancellation is authoritative
+  ---
+  duration_ms: 1.5137
+  type: 'test'
+  ...
+# Subtest: legacy keys are removed only after a successful migration response
+ok 152 - legacy keys are removed only after a successful migration response
+  ---
+  duration_ms: 2.1749
+  type: 'test'
+  ...
+# Subtest: background replay sends no requests; resume drains cursors and stops at host end
+ok 153 - background replay sends no requests; resume drains cursors and stops at host end
+  ---
+  duration_ms: 64.2424
+  type: 'test'
+  ...
+# Subtest: obsolete artifact reads cannot replace the newly selected delivery
+ok 154 - obsolete artifact reads cannot replace the newly selected delivery
+  ---
+  duration_ms: 2.8598
+  type: 'test'
+  ...
+# Subtest: evidence distinguishes schema validity from absent behavioral receipts
+ok 155 - evidence distinguishes schema validity from absent behavioral receipts
+  ---
+  duration_ms: 1.3961
+  type: 'test'
+  ...
+# Subtest: project home excludes archived sessions and compares canonical Windows paths
+ok 156 - project home excludes archived sessions and compares canonical Windows paths
+  ---
+  duration_ms: 1.4542
+  type: 'test'
+  ...
+# Subtest: secure model routing sends a reference and never a renderer key
+ok 157 - secure model routing sends a reference and never a renderer key
+  ---
+  duration_ms: 1.7501
+  type: 'test'
+  ...
+# Subtest: stop waits for host confirmation and only submits the displayed turn identity
+ok 158 - stop waits for host confirmation and only submits the displayed turn identity
+  ---
+  duration_ms: 3.4962
+  type: 'test'
+  ...
+# Subtest: §3.1 经 openStream（带认证 fetch-stream）建立唯一连接并收帧
+ok 159 - §3.1 经 openStream（带认证 fetch-stream）建立唯一连接并收帧
+  ---
+  duration_ms: 4.344
+  type: 'test'
+  ...
+# Subtest: §3.2 域失效：版本号只触发一次刷新，旧版本计 duplicate 丢弃
+ok 160 - §3.2 域失效：版本号只触发一次刷新，旧版本计 duplicate 丢弃
+  ---
+  duration_ms: 0.561
+  type: 'test'
+  ...
+# Subtest: §3.2 防抖：同域短窗口多次失效合并为一次（coalesced 计数）
+ok 161 - §3.2 防抖：同域短窗口多次失效合并为一次（coalesced 计数）
+  ---
+  duration_ms: 100.0273
+  type: 'test'
+  ...
+# Subtest: §3.2 无关域不触发；解绑后不再触发；坏帧不抛异常
+ok 162 - §3.2 无关域不触发；解绑后不再触发；坏帧不抛异常
+  ---
+  duration_ms: 0.7512
+  type: 'test'
+  ...
+# Subtest: §3.4 隐藏窗口：不触发刷新（canary=0），回可见补刷一次
+ok 163 - §3.4 隐藏窗口：不触发刷新（canary=0），回可见补刷一次
+  ---
+  duration_ms: 81.2416
+  type: 'test'
+  ...
+# Subtest: §8.2 桌面壳隐藏：visibilityState 仍 visible 时后台标记必须接管守卫
+ok 164 - §8.2 桌面壳隐藏：visibilityState 仍 visible 时后台标记必须接管守卫
+  ---
+  duration_ms: 84.6161
+  type: 'test'
+  ...
+# Subtest: §8.2 后台标记与页面可见性取并集：任一隐藏即隐藏
+ok 165 - §8.2 后台标记与页面可见性取并集：任一隐藏即隐藏
+  ---
+  duration_ms: 0.3447
+  type: 'test'
+  ...
+# Subtest: §3.1 断线重连带 Last-Event-ID 续传
+ok 166 - §3.1 断线重连带 Last-Event-ID 续传
+  ---
+  duration_ms: 54.1249
+  type: 'test'
+  ...
+# Subtest: §3.4 连续失败 → Degraded 单一兜底调度；恢复后关闭轮询
+ok 167 - §3.4 连续失败 → Degraded 单一兜底调度；恢复后关闭轮询
+  ---
+  duration_ms: 217.1783
+  type: 'test'
+  ...
+# Subtest: §3.4 stop()：取消 signal、清空 timer、不再重连
+ok 168 - §3.4 stop()：取消 signal、清空 timer、不再重连
+  ---
+  duration_ms: 46.552
+  type: 'test'
+  ...
+# Subtest: §3.4 幂等：重复 start 不叠加连接
+ok 169 - §3.4 幂等：重复 start 不叠加连接
+  ---
+  duration_ms: 0.4299
+  type: 'test'
+  ...
+# Subtest: R3 §8.2 桌面注入 base 后事件流 URL 只有一个前缀（宿主组装）
+ok 170 - R3 §8.2 桌面注入 base 后事件流 URL 只有一个前缀（宿主组装）
+  ---
+  duration_ms: 59.2372
+  type: 'test'
+  ...
+# Subtest: R3 §8.2 进入 Degraded 不得立即全量冲刷（兜底仍按周期跑）
+ok 171 - R3 §8.2 进入 Degraded 不得立即全量冲刷（兜底仍按周期跑）
+  ---
+  duration_ms: 152.5067
+  type: 'test'
+  ...
+# Subtest: active workbench consumes every server invalidation domain through one authenticated stream
+ok 172 - active workbench consumes every server invalidation domain through one authenticated stream
+  ---
+  duration_ms: 4.4606
+  type: 'test'
+  ...
+# Subtest: the latest Fleet task action wins when task details and events return out of order
+ok 173 - the latest Fleet task action wins when task details and events return out of order
+  ---
+  duration_ms: 3.3502
+  type: 'test'
+  ...
+# Subtest: Fleet invalidates in-flight requests on disposal
+ok 174 - Fleet invalidates in-flight requests on disposal
+  ---
+  duration_ms: 1.3213
+  type: 'test'
+  ...
+# Subtest: Fleet fallback transport turns non-success HTTP responses into visible errors
+ok 175 - Fleet fallback transport turns non-success HTTP responses into visible errors
+  ---
+  duration_ms: 5.4322
+  type: 'test'
+  ...
+# Subtest: Fleet write responses from a previous mount cannot update the remounted panel
+ok 176 - Fleet write responses from a previous mount cannot update the remounted panel
+  ---
+  duration_ms: 64.2746
+  type: 'test'
+  ...
+# Subtest: Fleet write actions ignore duplicate clicks and retain their lock across remount
+ok 177 - Fleet write actions ignore duplicate clicks and retain their lock across remount
+  ---
+  duration_ms: 37.6144
+  type: 'test'
+  ...
+# Subtest: Fleet synchronous transport errors are shown and release the write lock
+ok 178 - Fleet synchronous transport errors are shown and release the write lock
+  ---
+  duration_ms: 14.0841
+  type: 'test'
+  ...
+# Subtest: Goal cloud panel renders named progress events and slow-consumer gap notices
+ok 179 - Goal cloud panel renders named progress events and slow-consumer gap notices
+  ---
+  duration_ms: 3.2135
+  type: 'test'
+  ...
+# Subtest: Goal cloud panel closes a cursor replay after the task is already complete
+ok 180 - Goal cloud panel closes a cursor replay after the task is already complete
+  ---
+  duration_ms: 3.1291
+  type: 'test'
+  ...
+# Subtest: Goal disposes cloud SSE and ignores callbacks delivered after unmount
+ok 181 - Goal disposes cloud SSE and ignores callbacks delivered after unmount
+  ---
+  duration_ms: 1.5834
+  type: 'test'
+  ...
+# Subtest: Goal create is single-flight across remount and ignores an old success response
+ok 182 - Goal create is single-flight across remount and ignores an old success response
+  ---
+  duration_ms: 1.8968
+  type: 'test'
+  ...
+# Subtest: saving an old goal plan cannot replace a newer selection after its request returns
+ok 183 - saving an old goal plan cannot replace a newer selection after its request returns
+  ---
+  duration_ms: 3.1403
+  type: 'test'
+  ...
+# Subtest: Goal run and abort actions are single-flight per goal and release their buttons
+ok 184 - Goal run and abort actions are single-flight per goal and release their buttons
+  ---
+  duration_ms: 1.6879
+  type: 'test'
+  ...
+# Subtest: opening goals out of order keeps the newest selected goal detail
+ok 185 - opening goals out of order keeps the newest selected goal detail
+  ---
+  duration_ms: 1.3067
+  type: 'test'
+  ...
+# Subtest: Goal wave previews escape model or server supplied step ids
+ok 186 - Goal wave previews escape model or server supplied step ids
+  ---
+  duration_ms: 1.2049
+  type: 'test'
+  ...
+# Subtest: ordinary prose containing pipes is not misclassified as a table
+ok 187 - ordinary prose containing pipes is not misclassified as a table
+  ---
+  duration_ms: 2.2736
+  type: 'test'
+  ...
+# Subtest: Markdown tables preserve empty cells, escaped/code pipes, and column alignment
+ok 188 - Markdown tables preserve empty cells, escaped/code pipes, and column alignment
+  ---
+  duration_ms: 1.2566
+  type: 'test'
+  ...
+# Subtest: fenced code accepts language metadata and matching longer tilde fences
+ok 189 - fenced code accepts language metadata and matching longer tilde fences
+  ---
+  duration_ms: 0.3817
+  type: 'test'
+  ...
+# Subtest: unsafe links stay unlinked and raw HTML remains escaped
+ok 190 - unsafe links stay unlinked and raw HTML remains escaped
+  ---
+  duration_ms: 0.6411
+  type: 'test'
+  ...
+# Subtest: code-copy falls back when clipboard permission is denied and announces success
+ok 191 - code-copy falls back when clipboard permission is denied and announces success
+  ---
+  duration_ms: 1.7835
+  type: 'test'
+  ...
+# Subtest: code-copy reports failure without leaking a rejected clipboard promise
+ok 192 - code-copy reports failure without leaking a rejected clipboard promise
+  ---
+  duration_ms: 1.2593
+  type: 'test'
+  ...
+# Subtest: stdio enables and requires only the command field
+ok 193 - stdio enables and requires only the command field
+  ---
+  duration_ms: 3.2248
+  type: 'test'
+  ...
+# Subtest: http enables and requires only the URL field
+ok 194 - http enables and requires only the URL field
+  ---
+  duration_ms: 2.2008
+  type: 'test'
+  ...
+# Subtest: memory panel initializes its default API helpers when none are injected
+ok 195 - memory panel initializes its default API helpers when none are injected
+  ---
+  duration_ms: 6.442
+  type: 'test'
+  ...
+# Subtest: memory recall keeps the newest query and ignores late responses after disposal
+ok 196 - memory recall keeps the newest query and ignores late responses after disposal
+  ---
+  duration_ms: 1.5431
+  type: 'test'
+  ...
+# Subtest: manual memory relation rejects incomplete input and suppresses duplicate submissions
+ok 197 - manual memory relation rejects incomplete input and suppresses duplicate submissions
+  ---
+  duration_ms: 1.5059
+  type: 'test'
+  ...
+# Subtest: memory entries apply app and inclusive date filters
+ok 198 - memory entries apply app and inclusive date filters
+  ---
+  duration_ms: 1.2905
+  type: 'test'
+  ...
+# Subtest: memory entries reject reversed or malformed date filters without a request
+ok 199 - memory entries reject reversed or malformed date filters without a request
+  ---
+  duration_ms: 2.2102
+  type: 'test'
+  ...
+# Subtest: provider model-missing errors offer an in-session switch action
+ok 200 - provider model-missing errors offer an in-session switch action
+  ---
+  duration_ms: 1.5185
+  type: 'test'
+  ...
+# Subtest: provider failures show an actionable summary and retain raw JSON for diagnostics
+ok 201 - provider failures show an actionable summary and retain raw JSON for diagnostics
+  ---
+  duration_ms: 1.0209
+  type: 'test'
+  ...
+# Subtest: output-budget failures offer a direct path to raise the affected model limit
+ok 202 - output-budget failures offer a direct path to raise the affected model limit
+  ---
+  duration_ms: 0.2803
+  type: 'test'
+  ...
+# Subtest: unrelated request failures do not offer model-switch recovery
+ok 203 - unrelated request failures do not offer model-switch recovery
+  ---
+  duration_ms: 0.1604
+  type: 'test'
+  ...
+# Subtest: desktop web loads recovery helper and attaches the switch action to model errors
+ok 204 - desktop web loads recovery helper and attaches the switch action to model errors
+  ---
+  duration_ms: 4.871
+  type: 'test'
+  ...
+# Subtest: runtime model wins over stale saved-model value
+ok 205 - runtime model wins over stale saved-model value
+  ---
+  duration_ms: 1.8526
+  type: 'test'
+  ...
+# Subtest: empty session model clears the override
+ok 206 - empty session model clears the override
+  ---
+  duration_ms: 0.841
+  type: 'test'
+  ...
+# Subtest: new sessions inherit no previous override
+ok 207 - new sessions inherit no previous override
+  ---
+  duration_ms: 0.3038
+  type: 'test'
+  ...
+# Subtest: provider aliases resolve environment-only Qwen runtime to the DashScope model catalog
+ok 208 - provider aliases resolve environment-only Qwen runtime to the DashScope model catalog
+  ---
+  duration_ms: 0.5816
+  type: 'test'
+  ...
+# Subtest: DashScope catalog includes currently documented Qwen 3.8 models
+ok 209 - DashScope catalog includes currently documented Qwen 3.8 models
+  ---
+  duration_ms: 0.9676
+  type: 'test'
+  ...
+# Subtest: known provider model lists hide incompatible choices but preserve an invalid current model with warning state
+ok 210 - known provider model lists hide incompatible choices but preserve an invalid current model with warning state
+  ---
+  duration_ms: 0.431
+  type: 'test'
+  ...
+# Subtest: settings model list adds supported options and marks only the incompatible current choice
+ok 211 - settings model list adds supported options and marks only the incompatible current choice
+  ---
+  duration_ms: 4.1237
+  type: 'test'
+  ...
+# Subtest: Qwen runtime alias filters composer/settings choices even when endpoint came from environment
+ok 212 - Qwen runtime alias filters composer/settings choices even when endpoint came from environment
+  ---
+  duration_ms: 2.9277
+  type: 'test'
+  ...
+# Subtest: same-session model updates are serialized and only latest selection reports current
+ok 213 - same-session model updates are serialized and only latest selection reports current
+  ---
+  duration_ms: 0.8545
+  type: 'test'
+  ...
+# Subtest: failed older model choice does not block newer choice or surface as current
+ok 214 - failed older model choice does not block newer choice or surface as current
+  ---
+  duration_ms: 0.6898
+  type: 'test'
+  ...
+# Subtest: provider compatibility distinguishes unsupported choices from custom endpoints and models
+ok 215 - provider compatibility distinguishes unsupported choices from custom endpoints and models
+  ---
+  duration_ms: 0.237
+  type: 'test'
+  ...
+# Subtest: composer menu labels unsupported current model separately instead of as provider-supported
+ok 216 - composer menu labels unsupported current model separately instead of as provider-supported
+  ---
+  duration_ms: 2.7568
+  type: 'test'
+  ...
+# Subtest: custom selection carries its own connection instead of only the model id
+ok 217 - custom selection carries its own connection instead of only the model id
+  ---
+  duration_ms: 0.412
+  type: 'test'
+  ...
+# Subtest: invalid custom configuration fails before submitting a turn
+ok 218 - invalid custom configuration fails before submitting a turn
+  ---
+  duration_ms: 0.5054
+  type: 'test'
+  ...
+# Subtest: creating a note after viewing another clears the stale note identity and saves typed Markdown
+ok 219 - creating a note after viewing another clears the stale note identity and saves typed Markdown
+  ---
+  duration_ms: 4.3856
+  type: 'test'
+  ...
+# Subtest: cancelling note creation restores the previously selected note
+ok 220 - cancelling note creation restores the previously selected note
+  ---
+  duration_ms: 1.1744
+  type: 'test'
+  ...
+# Subtest: deleting a note does not hide a different selection when the response arrives late
+ok 221 - deleting a note does not hide a different selection when the response arrives late
+  ---
+  duration_ms: 6.9777
+  type: 'test'
+  ...
+# Subtest: unmounting while delete confirmation is open prevents the delayed delete
+ok 222 - unmounting while delete confirmation is open prevents the delayed delete
+  ---
+  duration_ms: 1.6309
+  type: 'test'
+  ...
+# Subtest: note list shows a retryable inline error and recovers on retry
+ok 223 - note list shows a retryable inline error and recovers on retry
+  ---
+  duration_ms: 2.3253
+  type: 'test'
+  ...
+# Subtest: note list announces its loading state before data arrives
+ok 224 - note list announces its loading state before data arrives
+  ---
+  duration_ms: 2.0102
+  type: 'test'
+  ...
+# Subtest: note full-text search is gated and explained when the core is disconnected
+ok 225 - note full-text search is gated and explained when the core is disconnected
+  ---
+  duration_ms: 1.4691
+  type: 'test'
+  ...
+# Subtest: search uses latest-result-wins and exposes searching state
+ok 226 - search uses latest-result-wins and exposes searching state
+  ---
+  duration_ms: 3.5107
+  type: 'test'
+  ...
+# Subtest: dispose prevents in-flight list response from mutating the unmounted page
+ok 227 - dispose prevents in-flight list response from mutating the unmounted page
+  ---
+  duration_ms: 1.9321
+  type: 'test'
+  ...
+# Subtest: slow create response does not close or replace a newer draft
+ok 228 - slow create response does not close or replace a newer draft
+  ---
+  duration_ms: 1.6644
+  type: 'test'
+  ...
+# Subtest: pending note creation keeps the save lock across panel remounts
+ok 229 - pending note creation keeps the save lock across panel remounts
+  ---
+  duration_ms: 1.7111
+  type: 'test'
+  ...
+# Subtest: note list results are keyboard-focusable buttons with accessible names
+ok 230 - note list results are keyboard-focusable buttons with accessible names
+  ---
+  duration_ms: 2.4654
+  type: 'test'
+  ...
+# Subtest: search failures expose an in-place retry that repeats the current query
+ok 231 - search failures expose an in-place retry that repeats the current query
+  ---
+  duration_ms: 2.7912
+  type: 'test'
+  ...
+# Subtest: note title rename has a visible button and ignores a response after switching notes
+ok 232 - note title rename has a visible button and ignores a response after switching notes
+  ---
+  duration_ms: 1.977
+  type: 'test'
+  ...
+# Subtest: notification sound stays silent until enabled and unlocks from the settings gesture
+ok 233 - notification sound stays silent until enabled and unlocks from the settings gesture
+  ---
+  duration_ms: 2.9901
+  type: 'test'
+  ...
+# Subtest: notification sound plays a short, bounded tone only when enabled
+ok 234 - notification sound plays a short, bounded tone only when enabled
+  ---
+  duration_ms: 1.905
+  type: 'test'
+  ...
+# Subtest: settings expose only preferences that are wired to runtime behavior
+ok 235 - settings expose only preferences that are wired to runtime behavior
+  ---
+  duration_ms: 3.9902
+  type: 'test'
+  ...
+# Subtest: observability refresh uses only the latest response and invalidates work on disposal
+ok 236 - observability refresh uses only the latest response and invalidates work on disposal
+  ---
+  duration_ms: 4.5558
+  type: 'test'
+  ...
+# Subtest: observability panel initializes default API helpers and reports HTTP failures
+ok 237 - observability panel initializes default API helpers and reports HTTP failures
+  ---
+  duration_ms: 6.7964
+  type: 'test'
+  ...
+# Subtest: observability report requests are fenced when the page is disposed
+ok 238 - observability report requests are fenced when the page is disposed
+  ---
+  duration_ms: 1.5349
+  type: 'test'
+  ...
+# Subtest: observability weekly report keeps an inline retry action after request failure
+ok 239 - observability weekly report keeps an inline retry action after request failure
+  ---
+  duration_ms: 1.4386
+  type: 'test'
+  ...
+# Subtest: observability weekly report prevents duplicate requests while loading
+ok 240 - observability weekly report prevents duplicate requests while loading
+  ---
+  duration_ms: 1.1465
+  type: 'test'
+  ...
+# Subtest: observability metrics escape labels and reject malformed numeric payloads
+ok 241 - observability metrics escape labels and reject malformed numeric payloads
+  ---
+  duration_ms: 2.338
+  type: 'test'
+  ...
+# Subtest: panel observer scope disconnects observers when a feature panel is replaced
+ok 242 - panel observer scope disconnects observers when a feature panel is replaced
+  ---
+  duration_ms: 1.6739
+  type: 'test'
+  ...
+# Subtest: observer scope can be reused across panel mounts and tolerates unsupported browsers
+ok 243 - observer scope can be reused across panel mounts and tolerates unsupported browsers
+  ---
+  duration_ms: 0.3765
+  type: 'test'
+  ...
+# Subtest: feature panel mounts replace stale roots and release layout observers
+ok 244 - feature panel mounts replace stale roots and release layout observers
+  ---
+  duration_ms: 1.9947
+  type: 'test'
+  ...
+# Subtest: 同步面板异常被局部兜底，导航调用方保持可用
+ok 245 - 同步面板异常被局部兜底，导航调用方保持可用
+  ---
+  duration_ms: 2.839
+  type: 'test'
+  ...
+# Subtest: 异步面板拒绝也变为局部失败，不泄漏未处理拒绝
+ok 246 - 异步面板拒绝也变为局部失败，不泄漏未处理拒绝
+  ---
+  duration_ms: 0.3905
+  type: 'test'
+  ...
+# Subtest: 正常面板挂载的同步返回值保持原样
+ok 247 - 正常面板挂载的同步返回值保持原样
+  ---
+  duration_ms: 0.1917
+  type: 'test'
+  ...
+# Subtest: 面板重挂载前 dispose 与挂载失败恢复均接入共享导航
+ok 248 - 面板重挂载前 dispose 与挂载失败恢复均接入共享导航
+  ---
+  duration_ms: 1.5766
+  type: 'test'
+  ...
+# Subtest: 分区标题后的主体与标题同宽，避免两列布局留下空半屏
+ok 249 - 分区标题后的主体与标题同宽，避免两列布局留下空半屏
+  ---
+  duration_ms: 0.6021
+  type: 'test'
+  ...
+# Subtest: layout flags module is wired before app-domain panel layout
+ok 250 - layout flags module is wired before app-domain panel layout
+  ---
+  duration_ms: 2.6192
+  type: 'test'
+  ...
+# Subtest: Team tools use their own responsive grid instead of heuristic full-width layout
+ok 251 - Team tools use their own responsive grid instead of heuristic full-width layout
+  ---
+  duration_ms: 1.7441
+  type: 'test'
+  ...
+# Subtest: walks the full frontend surface
+ok 252 - walks the full frontend surface
+  ---
+  duration_ms: 2.6845
+  type: 'test'
+  ...
+# Subtest: lint core/accessibility.js
+ok 253 - lint core/accessibility.js
+  ---
+  duration_ms: 0.9346
+  type: 'test'
+  ...
+# Subtest: lint core/api-client.js
+ok 254 - lint core/api-client.js
+  ---
+  duration_ms: 1.2368
+  type: 'test'
+  ...
+# Subtest: lint core/completion-record.js
+ok 255 - lint core/completion-record.js
+  ---
+  duration_ms: 0.494
+  type: 'test'
+  ...
+# Subtest: lint core/core-action-availability.js
+ok 256 - lint core/core-action-availability.js
+  ---
+  duration_ms: 0.5093
+  type: 'test'
+  ...
+# Subtest: lint core/custom-model-store.js
+ok 257 - lint core/custom-model-store.js
+  ---
+  duration_ms: 0.4752
+  type: 'test'
+  ...
+# Subtest: lint core/events.js
+ok 258 - lint core/events.js
+  ---
+  duration_ms: 0.7782
+  type: 'test'
+  ...
+# Subtest: lint core/folder-picker.js
+ok 259 - lint core/folder-picker.js
+  ---
+  duration_ms: 0.4416
+  type: 'test'
+  ...
+# Subtest: lint core/markdown.js
+ok 260 - lint core/markdown.js
+  ---
+  duration_ms: 1.0694
+  type: 'test'
+  ...
+# Subtest: lint core/model-output-budget.js
+ok 261 - lint core/model-output-budget.js
+  ---
+  duration_ms: 0.8035
+  type: 'test'
+  ...
+# Subtest: lint core/model-recovery.js
+ok 262 - lint core/model-recovery.js
+  ---
+  duration_ms: 0.5815
+  type: 'test'
+  ...
+# Subtest: lint core/model-routing.js
+ok 263 - lint core/model-routing.js
+  ---
+  duration_ms: 0.4616
+  type: 'test'
+  ...
+# Subtest: lint core/notification-sound.js
+ok 264 - lint core/notification-sound.js
+  ---
+  duration_ms: 0.3407
+  type: 'test'
+  ...
+# Subtest: lint core/observer-scope.js
+ok 265 - lint core/observer-scope.js
+  ---
+  duration_ms: 0.3362
+  type: 'test'
+  ...
+# Subtest: lint core/panel-runtime.js
+ok 266 - lint core/panel-runtime.js
+  ---
+  duration_ms: 0.3182
+  type: 'test'
+  ...
+# Subtest: lint core/recovery.js
+ok 267 - lint core/recovery.js
+  ---
+  duration_ms: 0.3587
+  type: 'test'
+  ...
+# Subtest: lint core/router.js
+ok 268 - lint core/router.js
+  ---
+  duration_ms: 0.3591
+  type: 'test'
+  ...
+# Subtest: lint core/service-readiness.js
+ok 269 - lint core/service-readiness.js
+  ---
+  duration_ms: 0.272
+  type: 'test'
+  ...
+# Subtest: lint core/session-facts.js
+ok 270 - lint core/session-facts.js
+  ---
+  duration_ms: 0.2554
+  type: 'test'
+  ...
+# Subtest: lint core/session-start.js
+ok 271 - lint core/session-start.js
+  ---
+  duration_ms: 1.3212
+  type: 'test'
+  ...
+# Subtest: lint core/turn-recovery.js
+ok 272 - lint core/turn-recovery.js
+  ---
+  duration_ms: 0.363
+  type: 'test'
+  ...
+# Subtest: lint core/turn-sse.js
+ok 273 - lint core/turn-sse.js
+  ---
+  duration_ms: 0.4658
+  type: 'test'
+  ...
+# Subtest: lint core/workbench-navigation.js
+ok 274 - lint core/workbench-navigation.js
+  ---
+  duration_ms: 0.2862
+  type: 'test'
+  ...
+# Subtest: lint core/workbench-refresh.js
+ok 275 - lint core/workbench-refresh.js
+  ---
+  duration_ms: 0.2535
+  type: 'test'
+  ...
+# Subtest: lint core/workbench-view.js
+ok 276 - lint core/workbench-view.js
+  ---
+  duration_ms: 0.2825
+  type: 'test'
+  ...
+# Subtest: lint core/workspace-display.js
+ok 277 - lint core/workspace-display.js
+  ---
+  duration_ms: 0.2325
+  type: 'test'
+  ...
+# Subtest: lint core/workspace-routing.js
+ok 278 - lint core/workspace-routing.js
+  ---
+  duration_ms: 0.2561
+  type: 'test'
+  ...
+# Subtest: lint shell/connection.js
+ok 279 - lint shell/connection.js
+  ---
+  duration_ms: 0.2762
+  type: 'test'
+  ...
+# Subtest: lint shell/markdown.js
+ok 280 - lint shell/markdown.js
+  ---
+  duration_ms: 0.4258
+  type: 'test'
+  ...
+# Subtest: lint shell/speech.js
+ok 281 - lint shell/speech.js
+  ---
+  duration_ms: 0.342
+  type: 'test'
+  ...
+# Subtest: lint views/diagnostics-ledger.view.js
+ok 282 - lint views/diagnostics-ledger.view.js
+  ---
+  duration_ms: 0.8172
+  type: 'test'
+  ...
+# Subtest: lint views/service-error.view.js
+ok 283 - lint views/service-error.view.js
+  ---
+  duration_ms: 0.5166
+  type: 'test'
+  ...
+# Subtest: lint views/settings-panel.view.js
+ok 284 - lint views/settings-panel.view.js
+  ---
+  duration_ms: 0.8678
+  type: 'test'
+  ...
+# Subtest: lint views/setup-guide.view.js
+ok 285 - lint views/setup-guide.view.js
+  ---
+  duration_ms: 0.8256
+  type: 'test'
+  ...
+# Subtest: lint views/status-bar.view.js
+ok 286 - lint views/status-bar.view.js
+  ---
+  duration_ms: 0.7931
+  type: 'test'
+  ...
+# Subtest: lint panels/about.panel.js
+ok 287 - lint panels/about.panel.js
+  ---
+  duration_ms: 1.0483
+  type: 'test'
+  ...
+# Subtest: lint panels/action-center.panel.js
+ok 288 - lint panels/action-center.panel.js
+  ---
+  duration_ms: 1.5296
+  type: 'test'
+  ...
+# Subtest: lint panels/automations.panel.js
+ok 289 - lint panels/automations.panel.js
+  ---
+  duration_ms: 0.8151
+  type: 'test'
+  ...
+# Subtest: lint panels/capabilities.panel.js
+ok 290 - lint panels/capabilities.panel.js
+  ---
+  duration_ms: 0.4929
+  type: 'test'
+  ...
+# Subtest: lint panels/command.panel.js
+ok 291 - lint panels/command.panel.js
+  ---
+  duration_ms: 0.5722
+  type: 'test'
+  ...
+# Subtest: lint panels/eval.panel.js
+ok 292 - lint panels/eval.panel.js
+  ---
+  duration_ms: 0.5507
+  type: 'test'
+  ...
+# Subtest: lint panels/evidence.panel.js
+ok 293 - lint panels/evidence.panel.js
+  ---
+  duration_ms: 0.7059
+  type: 'test'
+  ...
+# Subtest: lint panels/fleet.panel.js
+ok 294 - lint panels/fleet.panel.js
+  ---
+  duration_ms: 0.9606
+  type: 'test'
+  ...
+# Subtest: lint panels/goal.panel.js
+ok 295 - lint panels/goal.panel.js
+  ---
+  duration_ms: 0.9623
+  type: 'test'
+  ...
+# Subtest: lint panels/home.panel.js
+ok 296 - lint panels/home.panel.js
+  ---
+  duration_ms: 0.5385
+  type: 'test'
+  ...
+# Subtest: lint panels/memory.panel.js
+ok 297 - lint panels/memory.panel.js
+  ---
+  duration_ms: 0.722
+  type: 'test'
+  ...
+# Subtest: lint panels/notes.panel.js
+ok 298 - lint panels/notes.panel.js
+  ---
+  duration_ms: 0.848
+  type: 'test'
+  ...
+# Subtest: lint panels/observability.panel.js
+ok 299 - lint panels/observability.panel.js
+  ---
+  duration_ms: 0.8016
+  type: 'test'
+  ...
+# Subtest: lint panels/plugin-market.panel.js
+ok 300 - lint panels/plugin-market.panel.js
+  ---
+  duration_ms: 0.8121
+  type: 'test'
+  ...
+# Subtest: lint panels/product-comparison.panel.js
+ok 301 - lint panels/product-comparison.panel.js
+  ---
+  duration_ms: 0.7822
+  type: 'test'
+  ...
+# Subtest: lint panels/project-history.panel.js
+ok 302 - lint panels/project-history.panel.js
+  ---
+  duration_ms: 2.1736
+  type: 'test'
+  ...
+# Subtest: lint panels/project-launcher.panel.js
+ok 303 - lint panels/project-launcher.panel.js
+  ---
+  duration_ms: 1.3763
+  type: 'test'
+  ...
+# Subtest: lint panels/team.panel.js
+ok 304 - lint panels/team.panel.js
+  ---
+  duration_ms: 0.6065
+  type: 'test'
+  ...
+# Subtest: lint panels/workflow.panel.js
+ok 305 - lint panels/workflow.panel.js
+  ---
+  duration_ms: 0.9883
+  type: 'test'
+  ...
+# Subtest: lint panels/workswarm.panel.js
+ok 306 - lint panels/workswarm.panel.js
+  ---
+  duration_ms: 3.0747
+  type: 'test'
+  ...
+# Subtest: lint panels/workswarm/domain.js
+ok 307 - lint panels/workswarm/domain.js
+  ---
+  duration_ms: 0.5893
+  type: 'test'
+  ...
+# Subtest: lint panels/workswarm/format.js
+ok 308 - lint panels/workswarm/format.js
+  ---
+  duration_ms: 0.8755
+  type: 'test'
+  ...
+# Subtest: lint panels/workswarm/render.js
+ok 309 - lint panels/workswarm/render.js
+  ---
+  duration_ms: 1.5689
+  type: 'test'
+  ...
+# Subtest: lint panels/workswarm/render_changes.js
+ok 310 - lint panels/workswarm/render_changes.js
+  ---
+  duration_ms: 0.6254
+  type: 'test'
+  ...
+# Subtest: lint panels/workswarm/render_conversation.js
+ok 311 - lint panels/workswarm/render_conversation.js
+  ---
+  duration_ms: 0.5409
+  type: 'test'
+  ...
+# Subtest: lint permissions/permissions.api.js
+ok 312 - lint permissions/permissions.api.js
+  ---
+  duration_ms: 0.5092
+  type: 'test'
+  ...
+# Subtest: lint permissions/permissions.controller.js
+ok 313 - lint permissions/permissions.controller.js
+  ---
+  duration_ms: 0.7948
+  type: 'test'
+  ...
+# Subtest: lint permissions/permissions.domain.js
+ok 314 - lint permissions/permissions.domain.js
+  ---
+  duration_ms: 0.7799
+  type: 'test'
+  ...
+# Subtest: lint permissions/permissions.view.js
+ok 315 - lint permissions/permissions.view.js
+  ---
+  duration_ms: 0.8169
+  type: 'test'
+  ...
+# Subtest: lint config/provider-presets.js
+ok 316 - lint config/provider-presets.js
+  ---
+  duration_ms: 0.2651
+  type: 'test'
+  ...
+# Subtest: lint app-domain.js
+ok 317 - lint app-domain.js
+  ---
+  duration_ms: 2.8417
+  type: 'test'
+  ...
+# Subtest: lint app.js
+ok 318 - lint app.js
+  ---
+  duration_ms: 5.5122
+  type: 'test'
+  ...
+# Subtest: lint index.html
+ok 319 - lint index.html
+  ---
+  duration_ms: 3.1359
+  type: 'test'
+  ...
+# Subtest: 左键点击＝只互动：happy 摇动 + ❤×4 + 互动台词，且不弹菜单、不移动窗口
+ok 320 - 左键点击＝只互动：happy 摇动 + ❤×4 + 互动台词，且不弹菜单、不移动窗口
+  ---
+  duration_ms: 7.7733
+  type: 'test'
+  ...
+# Subtest: 菜单开着时的左键点击：先收起菜单，不再顺手多弹一次
+ok 321 - 菜单开着时的左键点击：先收起菜单，不再顺手多弹一次
+  ---
+  duration_ms: 2.0469
+  type: 'test'
+  ...
+# Subtest: 拖动＝纯移动：交给壳 moveBy，不互动、不弹菜单
+ok 322 - 拖动＝纯移动：交给壳 moveBy，不互动、不弹菜单
+  ---
+  duration_ms: 1.5086
+  type: 'test'
+  ...
+# Subtest: 右键＝功能面：菜单按当前状态列动作（审批一步可达），再按一次关掉
+ok 323 - 右键＝功能面：菜单按当前状态列动作（审批一步可达），再按一次关掉
+  ---
+  duration_ms: 2.2843
+  type: 'test'
+  ...
+# Subtest: 长距拖动（累计 >420px）＝仍然是纯移动，不得顺手摸摸头
+ok 324 - 长距拖动（累计 >420px）＝仍然是纯移动，不得顺手摸摸头
+  ---
+  duration_ms: 3.6529
+  type: 'test'
+  ...
+# Subtest: 拖回起点再松手：仍算拖动，不摸摸头
+ok 325 - 拖回起点再松手：仍算拖动，不摸摸头
+  ---
+  duration_ms: 1.4828
+  type: 'test'
+  ...
+# Subtest: 接线层：划动摸头残留必须清干净（不许留死变量绕过行为断言）
+ok 326 - 接线层：划动摸头残留必须清干净（不许留死变量绕过行为断言）
+  ---
+  duration_ms: 0.406
+  type: 'test'
+  ...
+# Subtest: 接线层：打开菜单的调用点只能在右键处理器内，文案与按键口径一致
+ok 327 - 接线层：打开菜单的调用点只能在右键处理器内，文案与按键口径一致
+  ---
+  duration_ms: 0.5361
+  type: 'test'
+  ...
+# Subtest: market catalog displays the actual minimum app version field
+ok 328 - market catalog displays the actual minimum app version field
+  ---
+  duration_ms: 3.229
+  type: 'test'
+  ...
+# Subtest: remote plugin installation is single-flight and restores its button
+ok 329 - remote plugin installation is single-flight and restores its button
+  ---
+  duration_ms: 1.4693
+  type: 'test'
+  ...
+# Subtest: plugin action lock survives panel remount and clears when the request settles
+ok 330 - plugin action lock survives panel remount and clears when the request settles
+  ---
+  duration_ms: 1.3272
+  type: 'test'
+  ...
+# Subtest: older catalog refresh responses cannot overwrite newer results or repaint after disposal
+ok 331 - older catalog refresh responses cannot overwrite newer results or repaint after disposal
+  ---
+  duration_ms: 0.8203
+  type: 'test'
+  ...
+# Subtest: plugin uninstall asks for confirmation and cancellation makes no uninstall request
+ok 332 - plugin uninstall asks for confirmation and cancellation makes no uninstall request
+  ---
+  duration_ms: 4.1633
+  type: 'test'
+  ...
+# Subtest: opening the tools overview or plugin group loads extension data on demand
+ok 333 - opening the tools overview or plugin group loads extension data on demand
+  ---
+  duration_ms: 0.9843
+  type: 'test'
+  ...
+# Subtest: extension failures replace loading counts and explain the existing retry controls
+ok 334 - extension failures replace loading counts and explain the existing retry controls
+  ---
+  duration_ms: 1.6029
+  type: 'test'
+  ...
+# Subtest: 主工作台插件推荐显示最低支持版本字段，不把描述误当版本
+ok 335 - 主工作台插件推荐显示最低支持版本字段，不把描述误当版本
+  ---
+  duration_ms: 1.9009
+  type: 'test'
+  ...
+# Subtest: 扩展请求在认证引导一直未返回时仍会超时并中止底层请求
+ok 336 - 扩展请求在认证引导一直未返回时仍会超时并中止底层请求
+  ---
+  duration_ms: 22.8637
+  type: 'test'
+  ...
+# Subtest: request config forces both host modes and validates repetitions/classification
+ok 337 - request config forces both host modes and validates repetitions/classification
+  ---
+  duration_ms: 2.1695
+  type: 'test'
+  ...
+# Subtest: report includes failed attempts, paired cells, wall/token ratios, exact tool counters and checker counts
+ok 338 - report includes failed attempts, paired cells, wall/token ratios, exact tool counters and checker counts
+  ---
+  duration_ms: 1.0284
+  type: 'test'
+  ...
+# Subtest: exact tool counts are compared without inferring zero from an empty legacy log
+ok 339 - exact tool counts are compared without inferring zero from an empty legacy log
+  ---
+  duration_ms: 1.3965
+  type: 'test'
+  ...
+# Subtest: reference, missing fingerprints, mismatched models and incomplete pairs never claim comparability
+ok 340 - reference, missing fingerprints, mismatched models and incomplete pairs never claim comparability
+  ---
+  duration_ms: 0.8167
+  type: 'test'
+  ...
+# Subtest: unknown token/call/checker metrics remain unknown and do not get coerced to zero
+ok 341 - unknown token/call/checker metrics remain unknown and do not get coerced to zero
+  ---
+  duration_ms: 0.2211
+  type: 'test'
+  ...
+# Subtest: start submission is single-flight and uses exact registered host payload
+ok 342 - start submission is single-flight and uses exact registered host payload
+  ---
+  duration_ms: 7.3842
+  type: 'test'
+  ...
+# Subtest: switching selections discards late results even when transport ignores abort
+ok 343 - switching selections discards late results even when transport ignores abort
+  ---
+  duration_ms: 0.6413
+  type: 'test'
+  ...
+# Subtest: polling has one timer, pauses in hidden view and stops at terminal
+ok 344 - polling has one timer, pauses in hidden view and stops at terminal
+  ---
+  duration_ms: 1.8534
+  type: 'test'
+  ...
+# Subtest: initial read failure retains selected identity and retries without accepting a result
+ok 345 - initial read failure retains selected identity and retries without accepting a result
+  ---
+  duration_ms: 1.0511
+  type: 'test'
+  ...
+# Subtest: cancellation fences outstanding reads so late running status cannot replace cancelled
+ok 346 - cancellation fences outstanding reads so late running status cannot replace cancelled
+  ---
+  duration_ms: 1.4273
+  type: 'test'
+  ...
+# Subtest: dispose aborts the read and prevents polling or a late callback from mutating view
+ok 347 - dispose aborts the read and prevents polling or a late callback from mutating view
+  ---
+  duration_ms: 0.4242
+  type: 'test'
+  ...
+# Subtest: report escapes errors, task names, artifacts and model text
+ok 348 - report escapes errors, task names, artifacts and model text
+  ---
+  duration_ms: 0.4704
+  type: 'test'
+  ...
+# Subtest: selected terminal detail updates the corresponding history status
+ok 349 - selected terminal detail updates the corresponding history status
+  ---
+  duration_ms: 2.6636
+  type: 'test'
+  ...
+# Subtest: large report bounds initial sample DOM while summaries retain every failed attempt
+ok 350 - large report bounds initial sample DOM while summaries retain every failed attempt
+  ---
+  duration_ms: 1.418
+  type: 'test'
+  ...
+# Subtest: renders the authoritative shared Team enablement verdict and each guardrail
+ok 351 - renders the authoritative shared Team enablement verdict and each guardrail
+  ---
+  duration_ms: 0.4144
+  type: 'test'
+  ...
+# Subtest: engineering eval panel registers as a lazy browser panel
+ok 352 - engineering eval panel registers as a lazy browser panel
+  ---
+  duration_ms: 2.237
+  type: 'test'
+  ...
+# Subtest: mount loads report history through injected transport and escapes untrusted report data
+ok 353 - mount loads report history through injected transport and escapes untrusted report data
+  ---
+  duration_ms: 6.4142
+  type: 'test'
+  ...
+# Subtest: run action reports credential skips and restores the submit button
+ok 354 - run action reports credential skips and restores the submit button
+  ---
+  duration_ms: 12.8529
+  type: 'test'
+  ...
+# Subtest: history selection loads the clicked report instead of always loading latest
+ok 355 - history selection loads the clicked report instead of always loading latest
+  ---
+  duration_ms: 14.9745
+  type: 'test'
+  ...
+# Subtest: leaving and reopening while a run is pending restores the run button when it finishes
+ok 356 - leaving and reopening while a run is pending restores the run button when it finishes
+  ---
+  duration_ms: 54.0999
+  type: 'test'
+  ...
+# Subtest: normStatus：Debug 形式与 snake_case 归一一致
+ok 357 - normStatus：Debug 形式与 snake_case 归一一致
+  ---
+  duration_ms: 2.6991
+  type: 'test'
+  ...
+# Subtest: durationText：人类可读且容错缺失/倒挂
+ok 358 - durationText：人类可读且容错缺失/倒挂
+  ---
+  duration_ms: 0.3443
+  type: 'test'
+  ...
+# Subtest: plannedCalls：strategy_decision.budget_calls_total 容错
+ok 359 - plannedCalls：strategy_decision.budget_calls_total 容错
+  ---
+  duration_ms: 0.1915
+  type: 'test'
+  ...
+# Subtest: taskCounts：成功/失败归类；空任务 → null
+ok 360 - taskCounts：成功/失败归类；空任务 → null
+  ---
+  duration_ms: 1.051
+  type: 'test'
+  ...
+# Subtest: templateOptions/projectOptions：去重 + 动态组队桶 + 派生项目键
+ok 361 - templateOptions/projectOptions：去重 + 动态组队桶 + 派生项目键
+  ---
+  duration_ms: 11.6791
+  type: 'test'
+  ...
+# Subtest: matchesFilters：四维过滤（状态归一/模板含动态桶/项目/搜索）
+ok 362 - matchesFilters：四维过滤（状态归一/模板含动态桶/项目/搜索）
+  ---
+  duration_ms: 0.3614
+  type: 'test'
+  ...
+# Subtest: visibleTeams：过滤 + created_at 降序 + 截断
+ok 363 - visibleTeams：过滤 + created_at 降序 + 截断
+  ---
+  duration_ms: 0.4478
+  type: 'test'
+  ...
+# Subtest: objectiveFromDetail：additive 优先 → audit「目标 …」启发式 → null
+ok 364 - objectiveFromDetail：additive 优先 → audit「目标 …」启发式 → null
+  ---
+  duration_ms: 0.2191
+  type: 'test'
+  ...
+# Subtest: rerunBody：同目标+模板+工作区（六期冻结形状）；缺 objective 报错
+ok 365 - rerunBody：同目标+模板+工作区（六期冻结形状）；缺 objective 报错
+  ---
+  duration_ms: 0.6328
+  type: 'test'
+  ...
+# Subtest: shellHtml：骨架完整（标题/刷新/错误区/过滤区/列表区）
+ok 366 - shellHtml：骨架完整（标题/刷新/错误区/过滤区/列表区）
+  ---
+  duration_ms: 0.687
+  type: 'test'
+  ...
+# Subtest: filtersHtml：状态下拉 selected 与模板/项目选项
+ok 367 - filtersHtml：状态下拉 selected 与模板/项目选项
+  ---
+  duration_ms: 1.2487
+  type: 'test'
+  ...
+# Subtest: rowHtml：徽标/耗时/预算/交付物/动作 data 属性 + 提交锁 + 结果区
+ok 368 - rowHtml：徽标/耗时/预算/交付物/动作 data 属性 + 提交锁 + 结果区
+  ---
+  duration_ms: 0.5709
+  type: 'test'
+  ...
+# Subtest: listHtml：空态文案
+ok 369 - listHtml：空态文案
+  ---
+  duration_ms: 0.1551
+  type: 'test'
+  ...
+# Subtest: load()：列表 + 详情/交付物/工作区富化；404 静默降级
+ok 370 - load()：列表 + 详情/交付物/工作区富化；404 静默降级
+  ---
+  duration_ms: 11.999
+  type: 'test'
+  ...
+# Subtest: enrichVisible：相同团队/项目合并并发请求，完成后复用缓存
+ok 371 - enrichVisible：相同团队/项目合并并发请求，完成后复用缓存
+  ---
+  duration_ms: 17.4824
+  type: 'test'
+  ...
+# Subtest: 项目历史搜索输入防抖：只为最终命中行补充详情
+ok 372 - 项目历史搜索输入防抖：只为最终命中行补充详情
+  ---
+  duration_ms: 247.1339
+  type: 'test'
+  ...
+# Subtest: dispose：切页时取消待处理的搜索补充
+ok 373 - dispose：切页时取消待处理的搜索补充
+  ---
+  duration_ms: 231.6515
+  type: 'test'
+  ...
+# Subtest: dispose：忽略卸载前发出的迟到团队列表响应
+ok 374 - dispose：忽略卸载前发出的迟到团队列表响应
+  ---
+  duration_ms: 13.9907
+  type: 'test'
+  ...
+# Subtest: load() 刷新成功后失效旧富化缓存并重新读取
+ok 375 - load() 刷新成功后失效旧富化缓存并重新读取
+  ---
+  duration_ms: 0.9564
+  type: 'test'
+  ...
+# Subtest: startRerun()：成功路径（请求体含模板与工作区）+ 提交锁双击只发一次
+ok 376 - startRerun()：成功路径（请求体含模板与工作区）+ 提交锁双击只发一次
+  ---
+  duration_ms: 0.4959
+  type: 'test'
+  ...
+# Subtest: 复跑会等待工作区读取，并复用确认过的工作区配置
+ok 377 - 复跑会等待工作区读取，并复用确认过的工作区配置
+  ---
+  duration_ms: 2.124
+  type: 'test'
+  ...
+# Subtest: 工作区读取失败时阻止无工作区复跑，并展示错误原因
+ok 378 - 工作区读取失败时阻止无工作区复跑，并展示错误原因
+  ---
+  duration_ms: 0.7665
+  type: 'test'
+  ...
+# Subtest: 无效工作区响应不会被当成未绑定并启动复跑
+ok 379 - 无效工作区响应不会被当成未绑定并启动复跑
+  ---
+  duration_ms: 0.315
+  type: 'test'
+  ...
+# Subtest: startRerun()：失败兜底（friendly 文本，不抛错）
+ok 380 - startRerun()：失败兜底（friendly 文本，不抛错）
+  ---
+  duration_ms: 0.255
+  type: 'test'
+  ...
+# Subtest: startRerun()：缺 objective 不发请求
+ok 381 - startRerun()：缺 objective 不发请求
+  ---
+  duration_ms: 0.176
+  type: 'test'
+  ...
+# Subtest: index.html 引入 project-history 面板脚本
+ok 382 - index.html 引入 project-history 面板脚本
+  ---
+  duration_ms: 0.0828
+  type: 'test'
+  ...
+# Subtest: PANEL_ORDER 注册 project-history（唯一来源 app-domain.js）
+ok 383 - PANEL_ORDER 注册 project-history（唯一来源 app-domain.js）
+  ---
+  duration_ms: 0.3059
+  type: 'test'
+  ...
+# Subtest: style.css 提供面板样式节（.owo-ac-* 复用 + ph 专属类）
+ok 384 - style.css 提供面板样式节（.owo-ac-* 复用 + ph 专属类）
+  ---
+  duration_ms: 0.2313
+  type: 'test'
+  ...
+# Subtest: parseWritePaths：逗号/换行/去重/去空白
+ok 385 - parseWritePaths：逗号/换行/去重/去空白
+  ---
+  duration_ms: 2.6168
+  type: 'test'
+  ...
+# Subtest: pathIsSafe：拒绝 .. 与绝对路径转义
+ok 386 - pathIsSafe：拒绝 .. 与绝对路径转义
+  ---
+  duration_ms: 0.3603
+  type: 'test'
+  ...
+# Subtest: validateState：目标/目录必填 + 不安全路径 + 深度边界
+ok 387 - validateState：目标/目录必填 + 不安全路径 + 深度边界
+  ---
+  duration_ms: 0.5449
+  type: 'test'
+  ...
+# Subtest: buildCreateBody：冻结契约形状（workspace/strategy/mode/template）
+ok 388 - buildCreateBody：冻结契约形状（workspace/strategy/mode/template）
+  ---
+  duration_ms: 0.5194
+  type: 'test'
+  ...
+# Subtest: buildCreateBody：tree_depth 越界收敛到 1–8
+ok 389 - buildCreateBody：tree_depth 越界收敛到 1–8
+  ---
+  duration_ms: 0.1903
+  type: 'test'
+  ...
+# Subtest: previewFromTemplate：角色/依赖/预算/产物类型
+ok 390 - previewFromTemplate：角色/依赖/预算/产物类型
+  ---
+  duration_ms: 0.3709
+  type: 'test'
+  ...
+# Subtest: previewFromStrategy：single 一角色 / team 双角色 / auto 交策略判定
+ok 391 - previewFromStrategy：single 一角色 / team 双角色 / auto 交策略判定
+  ---
+  duration_ms: 0.3473
+  type: 'test'
+  ...
+# Subtest: permissionsSummary：只读/受控写入/无允许路径告警
+ok 392 - permissionsSummary：只读/受控写入/无允许路径告警
+  ---
+  duration_ms: 0.2559
+  type: 'test'
+  ...
+# Subtest: buildPreview：目录命中模板；未命中回退策略预览
+ok 393 - buildPreview：目录命中模板；未命中回退策略预览
+  ---
+  duration_ms: 0.5949
+  type: 'test'
+  ...
+# Subtest: 目录树读取失败时提供可访问的重试，成功后恢复目录选择器
+ok 394 - 目录树读取失败时提供可访问的重试，成功后恢复目录选择器
+  ---
+  duration_ms: 3.0481
+  type: 'test'
+  ...
+# Subtest: 模板目录失败时展示可访问的重试状态，重试成功后恢复候选
+ok 395 - 模板目录失败时展示可访问的重试状态，重试成功后恢复候选
+  ---
+  duration_ms: 0.9153
+  type: 'test'
+  ...
+# Subtest: templateOptionsHtml：未安装禁用 + 选中态
+ok 396 - templateOptionsHtml：未安装禁用 + 选中态
+  ---
+  duration_ms: 0.2156
+  type: 'test'
+  ...
+# Subtest: catalogHtml：候选徽标/安装按钮/选用按钮/角色与预算行
+ok 397 - catalogHtml：候选徽标/安装按钮/选用按钮/角色与预算行
+  ---
+  duration_ms: 0.5123
+  type: 'test'
+  ...
+# Subtest: normTemplate：三路实现嵌套形状（template.template_id/name/depends_on/预算逐角色）
+ok 398 - normTemplate：三路实现嵌套形状（template.template_id/name/depends_on/预算逐角色）
+  ---
+  duration_ms: 0.4913
+  type: 'test'
+  ...
+# Subtest: doCreate：校验失败零请求；成功一次 POST /teams 且结果进入状态
+ok 399 - doCreate：校验失败零请求；成功一次 POST /teams 且结果进入状态
+  ---
+  duration_ms: 25.3002
+  type: 'test'
+  ...
+# Subtest: doCreate：快速双击只发一次请求（提交锁）
+ok 400 - doCreate：快速双击只发一次请求（提交锁）
+  ---
+  duration_ms: 12.8381
+  type: 'test'
+  ...
+# Subtest: doCreate：服务端 400 错误进入友好错误且解锁
+ok 401 - doCreate：服务端 400 错误进入友好错误且解锁
+  ---
+  duration_ms: 11.7229
+  type: 'test'
+  ...
+# Subtest: doCreate：当前页面创建成功后保留组队理由等待用户打开
+ok 402 - doCreate：当前页面创建成功后保留组队理由等待用户打开
+  ---
+  duration_ms: 100.6636
+  type: 'test'
+  ...
+# Subtest: gotoTeam：切导航按钮并调 workswarm.open(team_id)
+ok 403 - gotoTeam：切导航按钮并调 workswarm.open(team_id)
+  ---
+  duration_ms: 100.6891
+  type: 'test'
+  ...
+# Subtest: viewHtml：七步骨架 + 错误区 aria-live + 预览区在场
+ok 404 - viewHtml：七步骨架 + 错误区 aria-live + 预览区在场
+  ---
+  duration_ms: 0.496
+  type: 'test'
+  ...
+# Subtest: viewHtml：写入模式展开 + 只读隐藏切换
+ok 405 - viewHtml：写入模式展开 + 只读隐藏切换
+  ---
+  duration_ms: 0.1603
+  type: 'test'
+  ...
+# Subtest: resultHtml：team_id 与直达按钮
+ok 406 - resultHtml：team_id 与直达按钮
+  ---
+  duration_ms: 0.118
+  type: 'test'
+  ...
+# Subtest: workspaceFromTeam：完整/缺字段/旧记录
+ok 407 - workspaceFromTeam：完整/缺字段/旧记录
+  ---
+  duration_ms: 8.2256
+  type: 'test'
+  ...
+# Subtest: workspaceBoxHtml：未绑定空态/绑定内容/目录树与 Git 按钮
+ok 408 - workspaceBoxHtml：未绑定空态/绑定内容/目录树与 Git 按钮
+  ---
+  duration_ms: 0.2951
+  type: 'test'
+  ...
+# Subtest: workspaceTreeHtml：层级缩进渲染；空条目空态
+ok 409 - workspaceTreeHtml：层级缩进渲染；空条目空态
+  ---
+  duration_ms: 0.2707
+  type: 'test'
+  ...
+# Subtest: gitStatusHtml：非 Git 仓库不报错；分支与变更行
+ok 410 - gitStatusHtml：非 Git 仓库不报错；分支与变更行
+  ---
+  duration_ms: 1.2703
+  type: 'test'
+  ...
+# Subtest: templateBoxHtml：动态组队提示/模板 id 与版本
+ok 411 - templateBoxHtml：动态组队提示/模板 id 与版本
+  ---
+  duration_ms: 0.2992
+  type: 'test'
+  ...
+# Subtest: failureCodeLabel / failureBadgeHtml：三码映射与 error 前缀兜底
+ok 412 - failureCodeLabel / failureBadgeHtml：三码映射与 error 前缀兜底
+  ---
+  duration_ms: 0.3423
+  type: 'test'
+  ...
+# Subtest: Project Launcher 当前 DOM 具有布局、长路径换行与目录树滚动样式
+ok 413 - Project Launcher 当前 DOM 具有布局、长路径换行与目录树滚动样式
+  ---
+  duration_ms: 0.4863
+  type: 'test'
+  ...
+# Subtest: rolePermissions：只读工作区全员只读；评审角色恒只读；可写按路径下发；未声明路径拒绝写入
+ok 414 - rolePermissions：只读工作区全员只读；评审角色恒只读；可写按路径下发；未声明路径拒绝写入
+  ---
+  duration_ms: 0.4202
+  type: 'test'
+  ...
+# Subtest: rolePermText：三写模式文案 + 命令/浏览器附加能力
+ok 415 - rolePermText：三写模式文案 + 命令/浏览器附加能力
+  ---
+  duration_ms: 0.1527
+  type: 'test'
+  ...
+# Subtest: previewHtml：每角色附实际执行权限行（模板与策略两来源）
+ok 416 - previewHtml：每角色附实际执行权限行（模板与策略两来源）
+  ---
+  duration_ms: 0.2784
+  type: 'test'
+  ...
+# Subtest: 模板安装失败会释放锁，用户可以再次安装
+ok 417 - 模板安装失败会释放锁，用户可以再次安装
+  ---
+  duration_ms: 0.3078
+  type: 'test'
+  ...
+# Subtest: 过期目录请求不能覆盖后发出的模板目录
+ok 418 - 过期目录请求不能覆盖后发出的模板目录
+  ---
+  duration_ms: 0.2161
+  type: 'test'
+  ...
+# Subtest: dispose 使在途目录树响应失效
+ok 419 - dispose 使在途目录树响应失效
+  ---
+  duration_ms: 0.2132
+  type: 'test'
+  ...
+# Subtest: dispose 在创建请求进行中可释放 UI 锁且不触碰已卸载根节点
+ok 420 - dispose 在创建请求进行中可释放 UI 锁且不触碰已卸载根节点
+  ---
+  duration_ms: 5.3352
+  type: 'test'
+  ...
+# Subtest: 旧面板的创建响应不污染后来挂载的页面，并释放新页面的创建锁
+ok 421 - 旧面板的创建响应不污染后来挂载的页面，并释放新页面的创建锁
+  ---
+  duration_ms: 10.833
+  type: 'test'
+  ...
+# Subtest: new sessions do not inherit previous model overrides and can restore default
+ok 422 - new sessions do not inherit previous model overrides and can restore default
+  ---
+  duration_ms: 1.5901
+  type: 'test'
+  ...
+# Subtest: sidebar exposes project workspaces and Electron project creation
+ok 423 - sidebar exposes project workspaces and Electron project creation
+  ---
+  duration_ms: 0.3341
+  type: 'test'
+  ...
+# Subtest: empty workspace is shown consistently instead of a fake local project
+ok 424 - empty workspace is shown consistently instead of a fake local project
+  ---
+  duration_ms: 0.5536
+  type: 'test'
+  ...
+# Subtest: model picker states the change scope and provides a searchable model list
+ok 425 - model picker states the change scope and provides a searchable model list
+  ---
+  duration_ms: 2.2191
+  type: 'test'
+  ...
+# Subtest: model picker supports keyboard traversal across filtered choices
+ok 426 - model picker supports keyboard traversal across filtered choices
+  ---
+  duration_ms: 2.3663
+  type: 'test'
+  ...
+# Subtest: composer menu placement uses the final width and keeps a viewport gutter
+ok 427 - composer menu placement uses the final width and keeps a viewport gutter
+  ---
+  duration_ms: 0.9202
+  type: 'test'
+  ...
+# Subtest: narrow composer keeps per-session model switching reachable
+ok 428 - narrow composer keeps per-session model switching reachable
+  ---
+  duration_ms: 0.3782
+  type: 'test'
+  ...
+# Subtest: model settings warn on mismatched current models and expose provider-compatible choices
+ok 429 - model settings warn on mismatched current models and expose provider-compatible choices
+  ---
+  duration_ms: 0.2384
+  type: 'test'
+  ...
+# Subtest: blank prompt and model setup gates run before automatic session creation
+ok 430 - blank prompt and model setup gates run before automatic session creation
+  ---
+  duration_ms: 1.2458
+  type: 'test'
+  ...
+# Subtest: automatic first-send session creation is single-flight and can retry after failure
+ok 431 - automatic first-send session creation is single-flight and can retry after failure
+  ---
+  duration_ms: 2.1816
+  type: 'test'
+  ...
+# Subtest: first send uses the single-flight automatic session gate
+ok 432 - first send uses the single-flight automatic session gate
+  ---
+  duration_ms: 0.342
+  type: 'test'
+  ...
+# Subtest: model changes serialize by session and stale session responses cannot update the current chip
+ok 433 - model changes serialize by session and stale session responses cannot update the current chip
+  ---
+  duration_ms: 0.4076
+  type: 'test'
+  ...
+# Subtest: stale session refreshes cannot overwrite current selection or panels
+ok 434 - stale session refreshes cannot overwrite current selection or panels
+  ---
+  duration_ms: 0.4327
+  type: 'test'
+  ...
+# Subtest: creating a project keeps the model explicitly selected for the next session
+ok 435 - creating a project keeps the model explicitly selected for the next session
+  ---
+  duration_ms: 0.3348
+  type: 'test'
+  ...
+# Subtest: workspace selection requires a desktop persistence result before updating the active workspace
+ok 436 - workspace selection requires a desktop persistence result before updating the active workspace
+  ---
+  duration_ms: 0.2526
+  type: 'test'
+  ...
+# Subtest: workspace switches are serialized and new project activation is fenced
+ok 437 - workspace switches are serialized and new project activation is fenced
+  ---
+  duration_ms: 0.8974
+  type: 'test'
+  ...
+# Subtest: project folder failures preserve the completed stage in the user-facing message
+ok 438 - project folder failures preserve the completed stage in the user-facing message
+  ---
+  duration_ms: 0.2963
+  type: 'test'
+  ...
+# Subtest: first-run empty state makes workspace selection explicit and restores the normal welcome after selection
+ok 439 - first-run empty state makes workspace selection explicit and restores the normal welcome after selection
+  ---
+  duration_ms: 1.4823
+  type: 'test'
+  ...
+# Subtest: first send without a workspace opens the project picker before the model gate
+ok 440 - first send without a workspace opens the project picker before the model gate
+  ---
+  duration_ms: 0.1897
+  type: 'test'
+  ...
+# Subtest: 认证握手失败提供重启后台和查看日志入口
+ok 441 - 认证握手失败提供重启后台和查看日志入口
+  ---
+  duration_ms: 2.4349
+  type: 'test'
+  ...
+# Subtest: §3.4：错误卡按稳定码渲染契约动作（八个码逐项锁定，不多不少）
+ok 442 - §3.4：错误卡按稳定码渲染契约动作（八个码逐项锁定，不多不少）
+  ---
+  duration_ms: 0.6785
+  type: 'test'
+  ...
+# Subtest: §4.7：动作 ID 只用稳定集合，不得混入中文判型
+ok 443 - §4.7：动作 ID 只用稳定集合，不得混入中文判型
+  ---
+  duration_ms: 0.4128
+  type: 'test'
+  ...
+# Subtest: §3.4：每个动作都真的接到出口（retry/logs/settings/data-dir/test/workspace）
+ok 444 - §3.4：每个动作都真的接到出口（retry/logs/settings/data-dir/test/workspace）
+  ---
+  duration_ms: 0.2706
+  type: 'test'
+  ...
+# Subtest: §3.4：引导页呈现 provider/not_configured 与两个契约动作
+ok 445 - §3.4：引导页呈现 provider/not_configured 与两个契约动作
+  ---
+  duration_ms: 0.1757
+  type: 'test'
+  ...
+# Subtest: §6.9 单一事实源：故障矩阵的契约动作必须与 UI 实际动作同源（文案漂移即红）
+ok 446 - §6.9 单一事实源：故障矩阵的契约动作必须与 UI 实际动作同源（文案漂移即红）
+  ---
+  duration_ms: 0.9579
+  type: 'test'
+  ...
+# Subtest: §3.4 时限：两层时限拆分后不得退回单一 45s 大帽（R3-BUG-06）
+ok 447 - §3.4 时限：两层时限拆分后不得退回单一 45s 大帽（R3-BUG-06）
+  ---
+  duration_ms: 0.3211
+  type: 'test'
+  ...
+# Subtest: §3.4 归因：provider 未配置与数据目录不可写不得落在 core/* 超时码上（R3-BUG-05）
+ok 448 - §3.4 归因：provider 未配置与数据目录不可写不得落在 core/* 超时码上（R3-BUG-05）
+  ---
+  duration_ms: 0.4215
+  type: 'test'
+  ...
+# Subtest: 契约1：顶层脚本不得引用裸 global（ReferenceError 会清空白屏）
+ok 449 - 契约1：顶层脚本不得引用裸 global（ReferenceError 会清空白屏）
+  ---
+  duration_ms: 35.8212
+  type: 'test'
+  ...
+# Subtest: 契约2：renderSetupGuide 在组件缺失或抛错时显示可操作的本地兜底
+ok 450 - 契约2：renderSetupGuide 在组件缺失或抛错时显示可操作的本地兜底
+  ---
+  duration_ms: 2.8991
+  type: 'test'
+  ...
+# Subtest: 契约3：壳连接快照缺失时仍走引导判定（provider 分流不被跳过）
+ok 451 - 契约3：壳连接快照缺失时仍走引导判定（provider 分流不被跳过）
+  ---
+  duration_ms: 1.6681
+  type: 'test'
+  ...
+# Subtest: 错误卡必须跟查到稳定码：有界预算 + 只在壳里挂 + 换码即重绘且自终止
+ok 452 - 错误卡必须跟查到稳定码：有界预算 + 只在壳里挂 + 换码即重绘且自终止
+  ---
+  duration_ms: 1.4355
+  type: 'test'
+  ...
+# Subtest: 跟查不得引入 HTTP：只允许壳 IPC 重查（§8.2 首屏请求预算另有时限约束）
+ok 453 - 跟查不得引入 HTTP：只允许壳 IPC 重查（§8.2 首屏请求预算另有时限约束）
+  ---
+  duration_ms: 0.398
+  type: 'test'
+  ...
+# Subtest: needsSetup 必须把 provider/not_configured 认成引导页（不是错误卡）
+ok 454 - needsSetup 必须把 provider/not_configured 认成引导页（不是错误卡）
+  ---
+  duration_ms: 0.2759
+  type: 'test'
+  ...
+# Subtest: 引导页在未配置态必须自带稳定码（成功/失败两条回调路径都覆盖）
+ok 455 - 引导页在未配置态必须自带稳定码（成功/失败两条回调路径都覆盖）
+  ---
+  duration_ms: 0.3745
+  type: 'test'
+  ...
+# Subtest: 四类计数：health/auth 取服务端口径，events 单列且 business 去掉 SSE
+ok 456 - 四类计数：health/auth 取服务端口径，events 单列且 business 去掉 SSE
+  ---
+  duration_ms: 3.2871
+  type: 'test'
+  ...
+# Subtest: P50/P95 按 route_template 聚合：最近秩法 + 错误计数
+ok 457 - P50/P95 按 route_template 聚合：最近秩法 + 错误计数
+  ---
+  duration_ms: 1.379
+  type: 'test'
+  ...
+# Subtest: 慢请求 Top N 按耗时降序，来源分布分 web/shell
+ok 458 - 慢请求 Top N 按耗时降序，来源分布分 web/shell
+  ---
+  duration_ms: 2.5455
+  type: 'test'
+  ...
+# Subtest: 渲染必须覆盖 §4.6 全部条目：数量、四类计数、慢请求、P50/P95、来源、重启、SSE、导出
+ok 459 - 渲染必须覆盖 §4.6 全部条目：数量、四类计数、慢请求、P50/P95、来源、重启、SSE、导出
+  ---
+  duration_ms: 3.8552
+  type: 'test'
+  ...
+# Subtest: §4.6 禁止回显：本地绝对路径、Bearer、配对秘密、原始 query 都不得出现在页面或导出包
+ok 460 - §4.6 禁止回显：本地绝对路径、Bearer、配对秘密、原始 query 都不得出现在页面或导出包
+  ---
+  duration_ms: 3.133
+  type: 'test'
+  ...
+# Subtest: load() 经 OwoApi 取两个端点并渲染；端点不可达时给出可读提示而非空白
+ok 461 - load() 经 OwoApi 取两个端点并渲染；端点不可达时给出可读提示而非空白
+  ---
+  duration_ms: 3.4999
+  type: 'test'
+  ...
+# Subtest: 骨架态不得播报假数字：0 ≠ 未知（真机误判回归）
+ok 462 - 骨架态不得播报假数字：0 ≠ 未知（真机误判回归）
+  ---
+  duration_ms: 1.1148
+  type: 'test'
+  ...
+# Subtest: 生成/复制/下载三个出口分工明确：一键生成不得写用户目录
+ok 463 - 生成/复制/下载三个出口分工明确：一键生成不得写用户目录
+  ---
+  duration_ms: 10.307
+  type: 'test'
+  ...
+# Subtest: 接线：诊断台账是懒加载面板，首屏不读取诊断数据
+ok 464 - 接线：诊断台账是懒加载面板，首屏不读取诊断数据
+  ---
+  duration_ms: 1.1079
+  type: 'test'
+  ...
+# Subtest: §4.6 重启口径：壳上报 generation/attempt 时用权威计数，不再拿引导次数近似
+ok 465 - §4.6 重启口径：壳上报 generation/attempt 时用权威计数，不再拿引导次数近似
+  ---
+  duration_ms: 2.0201
+  type: 'test'
+  ...
+# Subtest: §4.6 旧壳未上报代际：显式说「壳未上报」并保留近似口径（不得用 0 冒充）
+ok 466 - §4.6 旧壳未上报代际：显式说「壳未上报」并保留近似口径（不得用 0 冒充）
+  ---
+  duration_ms: 1.5647
+  type: 'test'
+  ...
+# Subtest: §4.6 auth 卡片口径修正：壳注入 token 后引导数为 0 不等于未引导
+ok 467 - §4.6 auth 卡片口径修正：壳注入 token 后引导数为 0 不等于未引导
+  ---
+  duration_ms: 1.3382
+  type: 'test'
+  ...
+# Subtest: 桌面壳内选定目录：输入框转只读、按钮走原生 IPC、回调拿到壳侧权威路径
+ok 468 - 桌面壳内选定目录：输入框转只读、按钮走原生 IPC、回调拿到壳侧权威路径
+  ---
+  duration_ms: 8.4654
+  type: 'test'
+  ...
+# Subtest: 工作区设置保留壳侧权威绝对路径，不用目录别名覆盖新会话路径
+ok 469 - 工作区设置保留壳侧权威绝对路径，不用目录别名覆盖新会话路径
+  ---
+  duration_ms: 1.7634
+  type: 'test'
+  ...
+# Subtest: 取消是合法终态：不报错、不改值、按钮恢复可用
+ok 470 - 取消是合法终态：不报错、不改值、按钮恢复可用
+  ---
+  duration_ms: 1.866
+  type: 'test'
+  ...
+# Subtest: 壳侧校验失败：错误文案原样上抛，不伪装成已设置
+ok 471 - 壳侧校验失败：错误文案原样上抛，不伪装成已设置
+  ---
+  duration_ms: 1.5965
+  type: 'test'
+  ...
+# Subtest: IPC 抛异常（旧壳未注册命令）也必须落到 onError，不得留悬挂按钮
+ok 472 - IPC 抛异常（旧壳未注册命令）也必须落到 onError，不得留悬挂按钮
+  ---
+  duration_ms: 1.7101
+  type: 'test'
+  ...
+# Subtest: 纯浏览器降级：显式禁用原生入口并写明原因，不伪装成功
+ok 473 - 纯浏览器降级：显式禁用原生入口并写明原因，不伪装成功
+  ---
+  duration_ms: 1.0771
+  type: 'test'
+  ...
+# Subtest: normalize：代际/attempt 数字归一，缺失归 null（不得用 0 冒充未上报）
+ok 474 - normalize：代际/attempt 数字归一，缺失归 null（不得用 0 冒充未上报）
+  ---
+  duration_ms: 1.0954
+  type: 'test'
+  ...
+# Subtest: 接线：工具页的工作区选择与引导页均走原生选择器，所选路径进入新会话
+ok 475 - 接线：工具页的工作区选择与引导页均走原生选择器，所选路径进入新会话
+  ---
+  duration_ms: 2.0626
+  type: 'test'
+  ...
+# Subtest: 脱敏红线：路径不进 title 之外的展示口径，别名列只显示目录名
+ok 476 - 脱敏红线：路径不进 title 之外的展示口径，别名列只显示目录名
+  ---
+  duration_ms: 1.7828
+  type: 'test'
+  ...
+# Subtest: 域·specFromOverview：未提交过结构化配置时必须区分 null 与空对象
+ok 477 - 域·specFromOverview：未提交过结构化配置时必须区分 null 与空对象
+  ---
+  duration_ms: 5.2406
+  type: 'test'
+  ...
+# Subtest: 域·dimensionsFromOverview：以服务端矩阵为准，缺项标为不可配置而不是自行推导
+ok 478 - 域·dimensionsFromOverview：以服务端矩阵为准，缺项标为不可配置而不是自行推导
+  ---
+  duration_ms: 3.0522
+  type: 'test'
+  ...
+# Subtest: 域·validateSpec：合法返回空数组，非法返回中文原因数组
+ok 479 - 域·validateSpec：合法返回空数组，非法返回中文原因数组
+  ---
+  duration_ms: 1.8256
+  type: 'test'
+  ...
+# Subtest: 域·needsFullAccessConfirm + 时长选项（完全访问三要素里的时长不能手填）
+ok 480 - 域·needsFullAccessConfirm + 时长选项（完全访问三要素里的时长不能手填）
+  ---
+  duration_ms: 1.4942
+  type: 'test'
+  ...
+# Subtest: 域·summarizeScope / persistenceLabel：新契约三值 + 旧字面量兼容
+ok 481 - 域·summarizeScope / persistenceLabel：新契约三值 + 旧字面量兼容
+  ---
+  duration_ms: 1.358
+  type: 'test'
+  ...
+# Subtest: 域·groupByDimension：同类请求聚组、未知维度排最后、脏输入不炸
+ok 482 - 域·groupByDimension：同类请求聚组、未知维度排最后、脏输入不炸
+  ---
+  duration_ms: 1.5497
+  type: 'test'
+  ...
+# Subtest: 域·revokePayload：三种粒度各归一，混传/空传拒绝
+ok 483 - 域·revokePayload：三种粒度各归一，混传/空传拒绝
+  ---
+  duration_ms: 1.2339
+  type: 'test'
+  ...
+# Subtest: 域·isGrantGone：撤销后复查判据（条目消失 = 正常终态）
+ok 484 - 域·isGrantGone：撤销后复查判据（条目消失 = 正常终态）
+  ---
+  duration_ms: 1.3617
+  type: 'test'
+  ...
+# Subtest: 域·isPendingGone / isErrorGone：404 与 gone 类都是正常态判据
+ok 485 - 域·isPendingGone / isErrorGone：404 与 gone 类都是正常态判据
+  ---
+  duration_ms: 2.2986
+  type: 'test'
+  ...
+# Subtest: 域·normalizeError：两种错误形态都兼容且 code 原样可见（§3.4）
+ok 486 - 域·normalizeError：两种错误形态都兼容且 code 原样可见（§3.4）
+  ---
+  duration_ms: 1.6542
+  type: 'test'
+  ...
+# Subtest: 域·overviewIsUsable：HTTP 200 不等于有数据
+ok 487 - 域·overviewIsUsable：HTTP 200 不等于有数据
+  ---
+  duration_ms: 1.2037
+  type: 'test'
+  ...
+# Subtest: api·overview 走 GET /permissions/overview（路径集中在常量、方法显式）
+ok 488 - api·overview 走 GET /permissions/overview（路径集中在常量、方法显式）
+  ---
+  duration_ms: 1.2173
+  type: 'test'
+  ...
+# Subtest: api·submitSpec：普通配置不带 confirm/duration_secs，完全访问必须带
+ok 489 - api·submitSpec：普通配置不带 confirm/duration_secs，完全访问必须带
+  ---
+  duration_ms: 1.319
+  type: 'test'
+  ...
+# Subtest: api·完全访问缺 confirm → 本地拒绝且一个请求都不发
+ok 490 - api·完全访问缺 confirm → 本地拒绝且一个请求都不发
+  ---
+  duration_ms: 1.2128
+  type: 'test'
+  ...
+# Subtest: api·revoke 载荷与审批端点/body（scope 字面量 once|task|workspace）
+ok 491 - api·revoke 载荷与审批端点/body（scope 字面量 once|task|workspace）
+  ---
+  duration_ms: 1.222
+  type: 'test'
+  ...
+# Subtest: controller·loading：进入面板的第一帧是 loading，且不播报任何权限事实
+ok 492 - controller·loading：进入面板的第一帧是 loading，且不播报任何权限事实
+  ---
+  duration_ms: 2.703
+  type: 'test'
+  ...
+# Subtest: controller·ready：四维矩阵 + 待审批 + 已授权 + 最近决定全部就位并回灌状态条
+ok 493 - controller·ready：四维矩阵 + 待审批 + 已授权 + 最近决定全部就位并回灌状态条
+  ---
+  duration_ms: 1.4826
+  type: 'test'
+  ...
+# Subtest: controller·error：网络失败与 200 空数据都落错误态并保留重试出口
+ok 494 - controller·error：网络失败与 200 空数据都落错误态并保留重试出口
+  ---
+  duration_ms: 3.9506
+  type: 'test'
+  ...
+# Subtest: controller·empty：三个列表全空且无维度矩阵时是空态，不是错误态
+ok 495 - controller·empty：三个列表全空且无维度矩阵时是空态，不是错误态
+  ---
+  duration_ms: 1.8121
+  type: 'test'
+  ...
+# Subtest: controller·提交前校验：非法草稿被拦住，一次请求都不发
+ok 496 - controller·提交前校验：非法草稿被拦住，一次请求都不发
+  ---
+  duration_ms: 1.7527
+  type: 'test'
+  ...
+# Subtest: controller·完全访问：双确认 + 风险告知 + 时长选择，未确认不发请求
+ok 497 - controller·完全访问：双确认 + 风险告知 + 时长选择，未确认不发请求
+  ---
+  duration_ms: 2.2627
+  type: 'test'
+  ...
+# Subtest: controller·无需确认时不留死控件：给原因而不是静默 return
+ok 498 - controller·无需确认时不留死控件：给原因而不是静默 return
+  ---
+  duration_ms: 1.7043
+  type: 'test'
+  ...
+# Subtest: controller·取消二次确认回到未提交态；一步关闭完全访问不需要确认
+ok 499 - controller·取消二次确认回到未提交态；一步关闭完全访问不需要确认
+  ---
+  duration_ms: 5.0998
+  type: 'test'
+  ...
+# Subtest: controller·审批四动作：body {allow,scope} 正确，成功后重拉概览
+ok 500 - controller·审批四动作：body {allow,scope} 正确，成功后重拉概览
+  ---
+  duration_ms: 7.6448
+  type: 'test'
+  ...
+# Subtest: controller·破坏性审批不可请求持久授权
+ok 501 - controller·破坏性审批不可请求持久授权
+  ---
+  duration_ms: 1.196
+  type: 'test'
+  ...
+# Subtest: controller·审批条目已消失（404/gone）走空态而非错误态
+ok 502 - controller·审批条目已消失（404/gone）走空态而非错误态
+  ---
+  duration_ms: 2.6671
+  type: 'test'
+  ...
+# Subtest: controller·撤销三粒度级联 payload + 撤销后立即复查（断言条目消失）
+ok 503 - controller·撤销三粒度级联 payload + 撤销后立即复查（断言条目消失）
+  ---
+  duration_ms: 29.4988
+  type: 'test'
+  ...
+# Subtest: controller·revoked:0 与复查仍存在：前者当正常态，后者才报错
+ok 504 - controller·revoked:0 与复查仍存在：前者当正常态，后者才报错
+  ---
+  duration_ms: 14.8621
+  type: 'test'
+  ...
+# Subtest: controller·dispose 清 timer：本页禁止 setInterval，离开面板后不得再回调渲染
+ok 505 - controller·dispose 清 timer：本页禁止 setInterval，离开面板后不得再回调渲染
+  ---
+  duration_ms: 2.2054
+  type: 'test'
+  ...
+# Subtest: 渲染·四维表：可配置维度给下拉，不可配置维度只给文字（假控件防护）
+ok 506 - 渲染·四维表：可配置维度给下拉，不可配置维度只给文字（假控件防护）
+  ---
+  duration_ms: 2.0606
+  type: 'test'
+  ...
+# Subtest: 渲染·待审批：破坏性请求只给一次性动作，只读请求可选授权范围
+ok 507 - 渲染·待审批：破坏性请求只给一次性动作，只读请求可选授权范围
+  ---
+  duration_ms: 2.7636
+  type: 'test'
+  ...
+# Subtest: 渲染·已授予列表：有效期/到期/次数/范围 + 三粒度撤销按钮
+ok 508 - 渲染·已授予列表：有效期/到期/次数/范围 + 三粒度撤销按钮
+  ---
+  duration_ms: 1.6811
+  type: 'test'
+  ...
+# Subtest: 渲染·三态与复查提示：loading/error/empty 都有专属标记，错误态保留重试
+ok 509 - 渲染·三态与复查提示：loading/error/empty 都有专属标记，错误态保留重试
+  ---
+  duration_ms: 1.9141
+  type: 'test'
+  ...
+# Subtest: 渲染·完全访问确认卡：范围 + 时长候选 + 风险清单三要素齐备
+ok 510 - 渲染·完全访问确认卡：范围 + 时长候选 + 风险清单三要素齐备
+  ---
+  duration_ms: 1.6333
+  type: 'test'
+  ...
+# Subtest: 渲染·事件委托：动作转成 controller 调用（审批索引定位、撤销粒度、维度变更）
+ok 511 - 渲染·事件委托：动作转成 controller 调用（审批索引定位、撤销粒度、维度变更）
+  ---
+  duration_ms: 2.2029
+  type: 'test'
+  ...
+# Subtest: 面板契约：注册 OwoPanels.permissions + mount 才发请求（按需加载）
+ok 512 - 面板契约：注册 OwoPanels.permissions + mount 才发请求（按需加载）
+  ---
+  duration_ms: 3.9961
+  type: 'test'
+  ...
+# Subtest: 分层红线：view 零网络、api/domain 零 DOM、网络只经注入的 fetchJson（§4.8）
+ok 513 - 分层红线：view 零网络、api/domain 零 DOM、网络只经注入的 fetchJson（§4.8）
+  ---
+  duration_ms: 2.0556
+  type: 'test'
+  ...
+# Subtest: 接线：权限中心注册为按需面板，状态条点击进入该面板
+ok 514 - 接线：权限中心注册为按需面板，状态条点击进入该面板
+  ---
+  duration_ms: 1.0897
+  type: 'test'
+  ...
+# Subtest: 权限审批动作与长期授权撤销粒度保持独立
+ok 515 - 权限审批动作与长期授权撤销粒度保持独立
+  ---
+  duration_ms: 0.1881
+  type: 'test'
+  ...
+# Subtest: controller·读取失败或只读时所有权限变更入口 fail closed
+ok 516 - controller·读取失败或只读时所有权限变更入口 fail closed
+  ---
+  duration_ms: 2.86
+  type: 'test'
+  ...
+# Subtest: 渲染·权限事实未就绪时隐藏推测状态，只留重试；只读档禁用每个变更控件
+ok 517 - 渲染·权限事实未就绪时隐藏推测状态，只留重试；只读档禁用每个变更控件
+  ---
+  duration_ms: 1.983
+  type: 'test'
+  ...
+# Subtest: 过渡态不再一次性判否：starting→ready 且壳说提供商未就绪时，必须进引导页
+ok 518 - 过渡态不再一次性判否：starting→ready 且壳说提供商未就绪时，必须进引导页
+  ---
+  duration_ms: 61.9225
+  type: 'test'
+  ...
+# Subtest: 有环境凭据的健康启动不得被顶进引导页（R3-BUG-23 前提）
+ok 519 - 有环境凭据的健康启动不得被顶进引导页（R3-BUG-23 前提）
+  ---
+  duration_ms: 1.1671
+  type: 'test'
+  ...
+# Subtest: 真故障终态不被引导页盖掉归因：failed 直接放行错误卡，且不复查提供商
+ok 520 - 真故障终态不被引导页盖掉归因：failed 直接放行错误卡，且不复查提供商
+  ---
+  duration_ms: 1.1832
+  type: 'test'
+  ...
+# Subtest: 未选工作区仍是即时终态；稳定码 provider/not_configured 也直接进引导
+ok 521 - 未选工作区仍是即时终态；稳定码 provider/not_configured 也直接进引导
+  ---
+  duration_ms: 2.2543
+  type: 'test'
+  ...
+# Subtest: workspace 为空时必须进引导；已明确稍后配置模型时只要求工作区
+ok 522 - workspace 为空时必须进引导；已明确稍后配置模型时只要求工作区
+  ---
+  duration_ms: 2.3045
+  type: 'test'
+  ...
+# Subtest: 取不到终态时不得无限等待：超时按不进引导处理
+ok 523 - 取不到终态时不得无限等待：超时按不进引导处理
+  ---
+  duration_ms: 134.7677
+  type: 'test'
+  ...
+# Subtest: 非壳环境（纯浏览器 dev）不判引导；引导门取样全程零 HTTP
+ok 524 - 非壳环境（纯浏览器 dev）不判引导；引导门取样全程零 HTTP
+  ---
+  duration_ms: 2.1157
+  type: 'test'
+  ...
+# Subtest: 设置门脚本接线：桌面先加载原生目录选择器与配置视图，后加载 app 主入口
+ok 525 - 设置门脚本接线：桌面先加载原生目录选择器与配置视图，后加载 app 主入口
+  ---
+  duration_ms: 1.0538
+  type: 'test'
+  ...
+# Subtest: 明确配置的 shell 工作区会回灌输入框，即使 WebView 本地存储为空
+ok 526 - 明确配置的 shell 工作区会回灌输入框，即使 WebView 本地存储为空
+  ---
+  duration_ms: 1.2537
+  type: 'test'
+  ...
+# Subtest: 五段齐全且顺序符合 §4.3，每段都是可点击按钮（不是文字灯）
+ok 527 - 五段齐全且顺序符合 §4.3，每段都是可点击按钮（不是文字灯）
+  ---
+  duration_ms: 4.7637
+  type: 'test'
+  ...
+# Subtest: 点击段落派发导航事件，目标页与 §4.3 一一对应
+ok 528 - 点击段落派发导航事件，目标页与 §4.3 一一对应
+  ---
+  duration_ms: 3.2628
+  type: 'test'
+  ...
+# Subtest: 稳定错误码 → 用户术语（§4.7 同码同术语，不泄漏内部枚举）
+ok 529 - 稳定错误码 → 用户术语（§4.7 同码同术语，不泄漏内部枚举）
+  ---
+  duration_ms: 1.2111
+  type: 'test'
+  ...
+# Subtest: 后台四态可辨识：可用 / 正在启动 / 降级 / 失败（§4.3 列举的四态）
+ok 530 - 后台四态可辨识：可用 / 正在启动 / 降级 / 失败（§4.3 列举的四态）
+  ---
+  duration_ms: 1.1409
+  type: 'test'
+  ...
+# Subtest: 浏览器预览与桌面诊断故障不再永久显示为检查中
+ok 531 - 浏览器预览与桌面诊断故障不再永久显示为检查中
+  ---
+  duration_ms: 1.4334
+  type: 'test'
+  ...
+# Subtest: 工作区段给名称 + 路径摘要，绝不回显完整本地绝对路径
+ok 532 - 工作区段给名称 + 路径摘要，绝不回显完整本地绝对路径
+  ---
+  duration_ms: 0.8514
+  type: 'test'
+  ...
+# Subtest: 权限段待审批数量来自运行态；档位未回灌时说「点按查看」而不是猜
+ok 533 - 权限段待审批数量来自运行态；档位未回灌时说「点按查看」而不是猜
+  ---
+  duration_ms: 1.1136
+  type: 'test'
+  ...
+# Subtest: 当前任务段：运行 / 等待审批 / 已取消 / 已完成 / 空闲各有区分
+ok 534 - 当前任务段：运行 / 等待审批 / 已取消 / 已完成 / 空闲各有区分
+  ---
+  duration_ms: 1.0984
+  type: 'test'
+  ...
+# Subtest: 模型状态兼容对象形设置值，不显示 [object Object]
+ok 535 - 模型状态兼容对象形设置值，不显示 [object Object]
+  ---
+  duration_ms: 1.2057
+  type: 'test'
+  ...
+# Subtest: 壳提供商状态含对象时仍显示可读模型名
+ok 536 - 壳提供商状态含对象时仍显示可读模型名
+  ---
+  duration_ms: 10.6673
+  type: 'test'
+  ...
+# Subtest: 模型段两份真相不混着说：壳侧报未配置但 core 已就绪时不得标红下结论
+ok 537 - 模型段两份真相不混着说：壳侧报未配置但 core 已就绪时不得标红下结论
+  ---
+  duration_ms: 2.5086
+  type: 'test'
+  ...
+# Subtest: 壳侧报未配置且 core 也没就绪时，模型段就该显眼（不是永远温和）
+ok 538 - 壳侧报未配置且 core 也没就绪时，模型段就该显眼（不是永远温和）
+  ---
+  duration_ms: 2.1613
+  type: 'test'
+  ...
+# Subtest: 未显式选择但环境有凭据：模型段说清来源，既不谎称已选也不报未配置
+ok 539 - 未显式选择但环境有凭据：模型段说清来源，既不谎称已选也不报未配置
+  ---
+  duration_ms: 2.4401
+  type: 'test'
+  ...
+# Subtest: 重绘只改文本不重建节点（保住键盘焦点）
+ok 540 - 重绘只改文本不重建节点（保住键盘焦点）
+  ---
+  duration_ms: 1.5315
+  type: 'test'
+  ...
+# Subtest: 状态条零新增 HTTP：模型/工作区段走壳 IPC（§8.2 首屏 ≤5 请求口径）
+ok 541 - 状态条零新增 HTTP：模型/工作区段走壳 IPC（§8.2 首屏 ≤5 请求口径）
+  ---
+  duration_ms: 0.326
+  type: 'test'
+  ...
+# Subtest: 工作区段壳侧回灌：localStorage 为空时也必须显示已选工作区（R4 真机缺陷回归）
+ok 542 - 工作区段壳侧回灌：localStorage 为空时也必须显示已选工作区（R4 真机缺陷回归）
+  ---
+  duration_ms: 5.003
+  type: 'test'
+  ...
+# Subtest: 接线：容器与脚本就位、boot 早期挂载、导航事件有接收方
+ok 543 - 接线：容器与脚本就位、boot 早期挂载、导航事件有接收方
+  ---
+  duration_ms: 0.5125
+  type: 'test'
+  ...
+# Subtest: selected custom model status uses its own endpoint instead of the cached default provider
+ok 544 - selected custom model status uses its own endpoint instead of the cached default provider
+  ---
+  duration_ms: 0.8974
+  type: 'test'
+  ...
+# Subtest: 单飞恢复：并发触发合并为一次执行
+ok 545 - 单飞恢复：并发触发合并为一次执行
+  ---
+  duration_ms: 36.2406
+  type: 'test'
+  ...
+# Subtest: 恢复失败按退避序列重试，成功后重置退避（注入 fake scheduler）
+ok 546 - 恢复失败按退避序列重试，成功后重置退避（注入 fake scheduler）
+  ---
+  duration_ms: 1.7768
+  type: 'test'
+  ...
+# Subtest: 恢复动作抛错时 trigger 返回的 promise 以同错误拒绝
+ok 547 - 恢复动作抛错时 trigger 返回的 promise 以同错误拒绝
+  ---
+  duration_ms: 2.2777
+  type: 'test'
+  ...
+# Subtest: 受限并发：并发不超过上限，任务失败不中断整体
+ok 548 - 受限并发：并发不超过上限，任务失败不中断整体
+  ---
+  duration_ms: 52.6613
+  type: 'test'
+  ...
+# Subtest: 受限并发：空任务列表与宽度钳制
+ok 549 - 受限并发：空任务列表与宽度钳制
+  ---
+  duration_ms: 0.5299
+  type: 'test'
+  ...
+# Subtest: startup and manual recovery share one in-flight health probe
+ok 550 - startup and manual recovery share one in-flight health probe
+  ---
+  duration_ms: 4.1157
+  type: 'test'
+  ...
+# Subtest: offline browser-preview banner explains the Electron session requirement
+ok 551 - offline browser-preview banner explains the Electron session requirement
+  ---
+  duration_ms: 4.4505
+  type: 'test'
+  ...
+# Subtest: offline desktop banner keeps the service retry guidance
+ok 552 - offline desktop banner keeps the service retry guidance
+  ---
+  duration_ms: 2.7116
+  type: 'test'
+  ...
+# Subtest: an older failed probe cannot undo a later successful API connection
+ok 553 - an older failed probe cannot undo a later successful API connection
+  ---
+  duration_ms: 1.074
+  type: 'test'
+  ...
+# Subtest: 会话读取失败可从侧栏重试，错误安全显示，成功后替换错误行
+ok 554 - 会话读取失败可从侧栏重试，错误安全显示，成功后替换错误行
+  ---
+  duration_ms: 3.5191
+  type: 'test'
+  ...
+# Subtest: 会话错误按状态和桌面桥接来源给出可操作提示，原错误可单独展开
+ok 555 - 会话错误按状态和桌面桥接来源给出可操作提示，原错误可单独展开
+  ---
+  duration_ms: 2.569
+  type: 'test'
+  ...
+# Subtest: missing setup view renders a visible alert and a reload action
+ok 556 - missing setup view renders a visible alert and a reload action
+  ---
+  duration_ms: 2.7486
+  type: 'test'
+  ...
+# Subtest: setup view initialization errors render the same actionable fallback
+ok 557 - setup view initialization errors render the same actionable fallback
+  ---
+  duration_ms: 0.7935
+  type: 'test'
+  ...
+# Subtest: late team review response cannot overwrite the newly mounted panel
+ok 558 - late team review response cannot overwrite the newly mounted panel
+  ---
+  duration_ms: 14.1426
+  type: 'test'
+  ...
+# Subtest: team import ignores duplicate clicks and unlocks the active mount after completion
+ok 559 - team import ignores duplicate clicks and unlocks the active mount after completion
+  ---
+  duration_ms: 2.0969
+  type: 'test'
+  ...
+# Subtest: late team review result cannot replace a newer review in the same mount
+ok 560 - late team review result cannot replace a newer review in the same mount
+  ---
+  duration_ms: 10.1025
+  type: 'test'
+  ...
+# Subtest: panel fallback shares authentication, refreshes stale token once and parses responses
+ok 561 - panel fallback shares authentication, refreshes stale token once and parses responses
+  ---
+  duration_ms: 33.1674
+  type: 'test'
+  ...
+# Subtest: panel fallback surfaces final failure and cannot retry writes indefinitely
+ok 562 - panel fallback surfaces final failure and cannot retry writes indefinitely
+  ---
+  duration_ms: 3.4745
+  type: 'test'
+  ...
+# Subtest: static resources and provider probes never inherit daemon credentials or retry lifecycle
+ok 563 - static resources and provider probes never inherit daemon credentials or retry lifecycle
+  ---
+  duration_ms: 0.6395
+  type: 'test'
+  ...
+# Subtest: public health uses current shell port without bootstrapping auth
+ok 564 - public health uses current shell port without bootstrapping auth
+  ---
+  duration_ms: 1.7743
+  type: 'test'
+  ...
+# Subtest: actual app JSON and binary wrappers share the same request boundary
+ok 565 - actual app JSON and binary wrappers share the same request boundary
+  ---
+  duration_ms: 2.9958
+  type: 'test'
+  ...
+# Subtest: final is provisional; persisted host stats close acceptance
+ok 566 - final is provisional; persisted host stats close acceptance
+  ---
+  duration_ms: 2.0813
+  type: 'test'
+  ...
+# Subtest: save failure after final overrides text completion
+ok 567 - save failure after final overrides text completion
+  ---
+  duration_ms: 29.8286
+  type: 'test'
+  ...
+# Subtest: EOF after final resumes to host stats using durable cursor
+ok 568 - EOF after final resumes to host stats using durable cursor
+  ---
+  duration_ms: 1.9791
+  type: 'test'
+  ...
+# Subtest: completed replay drains multiple pages and excludes foreign/duplicate records
+ok 569 - completed replay drains multiple pages and excludes foreign/duplicate records
+  ---
+  duration_ms: 1.0673
+  type: 'test'
+  ...
+# Subtest: candidate host status is exposed without being promoted to accepted
+ok 570 - candidate host status is exposed without being promoted to accepted
+  ---
+  duration_ms: 1.0146
+  type: 'test'
+  ...
+# Subtest: missing/unknown completion receipts fail closed
+ok 571 - missing/unknown completion receipts fail closed
+  ---
+  duration_ms: 1.3234
+  type: 'test'
+  ...
+# Subtest: callback exceptions propagate and never trigger replay
+ok 572 - callback exceptions propagate and never trigger replay
+  ---
+  duration_ms: 0.9211
+  type: 'test'
+  ...
+# Subtest: split UTF-8, CRLF and multiline JSON survive framing
+ok 573 - split UTF-8, CRLF and multiline JSON survive framing
+  ---
+  duration_ms: 4.6667
+  type: 'test'
+  ...
+# Subtest: oversized frames and malformed JSON cannot become successful results
+ok 574 - oversized frames and malformed JSON cannot become successful results
+  ---
+  duration_ms: 9.5426
+  type: 'test'
+  ...
+# Subtest: cancel while waiting for replay exits without accepting provisional text
+ok 575 - cancel while waiting for replay exits without accepting provisional text
+  ---
+  duration_ms: 1.1367
+  type: 'test'
+  ...
+# Subtest: consumer failures cancel the unfinished browser SSE body
+ok 576 - consumer failures cancel the unfinished browser SSE body
+  ---
+  duration_ms: 0.6187
+  type: 'test'
+  ...
+# Subtest: persisted terminal stats complete an open SSE without waiting for EOF
+ok 577 - persisted terminal stats complete an open SSE without waiting for EOF
+  ---
+  duration_ms: 0.4423
+  type: 'test'
+  ...
+# Subtest: stalled open stream recovers durable stats and deduplicates final
+ok 578 - stalled open stream recovers durable stats and deduplicates final
+  ---
+  duration_ms: 11.2879
+  type: 'test'
+  ...
+# Subtest: active replay retains the original stream until it produces completion
+ok 579 - active replay retains the original stream until it produces completion
+  ---
+  duration_ms: 10.5469
+  type: 'test'
+  ...
+# Subtest: abort interrupts a stalled stream without accepting provisional output
+ok 580 - abort interrupts a stalled stream without accepting provisional output
+  ---
+  duration_ms: 12.1181
+  type: 'test'
+  ...
+# Subtest: replay timeout cancels its request and cannot accept provisional output
+ok 581 - replay timeout cancels its request and cannot accept provisional output
+  ---
+  duration_ms: 14.0017
+  type: 'test'
+  ...
+# Subtest: SSE parser preserves event id and joins multiline data
+ok 582 - SSE parser preserves event id and joins multiline data
+  ---
+  duration_ms: 1.8417
+  type: 'test'
+  ...
+# Subtest: replay URL encodes the session and sends a session sequence cursor
+ok 583 - replay URL encodes the session and sends a session sequence cursor
+  ---
+  duration_ms: 0.6439
+  type: 'test'
+  ...
+# Subtest: replay records are turn-scoped, strictly after cursor, and ordered
+ok 584 - replay records are turn-scoped, strictly after cursor, and ordered
+  ---
+  duration_ms: 0.2474
+  type: 'test'
+  ...
+# Subtest: active desktop entry loads the durable consumer before app.js
+ok 585 - active desktop entry loads the durable consumer before app.js
+  ---
+  duration_ms: 3.9232
+  type: 'test'
+  ...
+# Subtest: UI copy lexer scans quoted and template strings in linear time
+ok 586 - UI copy lexer scans quoted and template strings in linear time
+  ---
+  duration_ms: 1.4908
+  type: 'test'
+  ...
+# Subtest: §8.2 UI 文案 lint：普通界面不得泄漏 API 路径、HTTP 方法与内部字段名
+ok 587 - §8.2 UI 文案 lint：普通界面不得泄漏 API 路径、HTTP 方法与内部字段名
+  ---
+  duration_ms: 29.1572
+  type: 'test'
+  ...
+# Subtest: §8.2 开发者面板豁免清单必须与真实文件一致
+ok 588 - §8.2 开发者面板豁免清单必须与真实文件一致
+  ---
+  duration_ms: 0.6187
+  type: 'test'
+  ...
+# Subtest: §5.1.4 用户界面不出现 API 路径（团队/产物页）
+ok 589 - §5.1.4 用户界面不出现 API 路径（团队/产物页）
+  ---
+  duration_ms: 4.9361
+  type: 'test'
+  ...
+# Subtest: 服务连接：启动快速探测、离线退避和重连入口
+ok 590 - 服务连接：启动快速探测、离线退避和重连入口
+  ---
+  duration_ms: 3.6717
+  type: 'test'
+  ...
+# Subtest: OpenAPI 文档从同源工作台入口打开
+ok 591 - OpenAPI 文档从同源工作台入口打开
+  ---
+  duration_ms: 2.6605
+  type: 'test'
+  ...
+# Subtest: §4.6/§4.8 首次配置引导：NoWorkspace 分流 + 提供商选择
+ok 592 - §4.6/§4.8 首次配置引导：NoWorkspace 分流 + 提供商选择
+  ---
+  duration_ms: 4.6821
+  type: 'test'
+  ...
+# Subtest: 响应式工作台：窄窗口隐藏检查器并将会话侧栏改为抽屉
+ok 593 - 响应式工作台：窄窗口隐藏检查器并将会话侧栏改为抽屉
+  ---
+  duration_ms: 4.1546
+  type: 'test'
+  ...
+# Subtest: §5.1.3 项目页：深度改三段选项，原始数值进高级折叠
+ok 594 - §5.1.3 项目页：深度改三段选项，原始数值进高级折叠
+  ---
+  duration_ms: 0.5835
+  type: 'test'
+  ...
+# Subtest: §5.5 主审批卡：展示服务端解释与脱敏参数，并显式提交授权范围
+ok 595 - §5.5 主审批卡：展示服务端解释与脱敏参数，并显式提交授权范围
+  ---
+  duration_ms: 3.745
+  type: 'test'
+  ...
+# Subtest: §12-13 约束表单：自动化与 MCP 按类型显示有效字段
+ok 596 - §12-13 约束表单：自动化与 MCP 按类型显示有效字段
+  ---
+  duration_ms: 3.7946
+  type: 'test'
+  ...
+# Subtest: 模块边界守卫：app.js 与 app-domain.js 函数定义零交集
+ok 597 - 模块边界守卫：app.js 与 app-domain.js 函数定义零交集
+  ---
+  duration_ms: 3.5542
+  type: 'test'
+  ...
+# Subtest: 工具和设置导航：按功能组进入工具页、按分类切换设置页
+ok 598 - 工具和设置导航：按功能组进入工具页、按分类切换设置页
+  ---
+  duration_ms: 3.8642
+  type: 'test'
+  ...
+# Subtest: 工具分组切换将专属滚动容器复位到分组起点
+ok 599 - 工具分组切换将专属滚动容器复位到分组起点
+  ---
+  duration_ms: 1.034
+  type: 'test'
+  ...
+# Subtest: R10 侧栏：复杂表单受工具/设置视图状态门控，不常驻会话导航
+ok 600 - R10 侧栏：复杂表单受工具/设置视图状态门控，不常驻会话导航
+  ---
+  duration_ms: 3.7047
+  type: 'test'
+  ...
+# Subtest: R12 会话卡片：低频操作收进 ⋯ 弹层，卡片上不再堆按钮
+ok 601 - R12 会话卡片：低频操作收进 ⋯ 弹层，卡片上不再堆按钮
+  ---
+  duration_ms: 1.9381
+  type: 'test'
+  ...
+# Subtest: R13 模型接入：端点、密钥和模型选择从活动设置表单保存
+ok 602 - R13 模型接入：端点、密钥和模型选择从活动设置表单保存
+  ---
+  duration_ms: 2.1763
+  type: 'test'
+  ...
+# Subtest: R10 模型操作：设置页配置默认模型，输入区可快速切换可用模型
+ok 603 - R10 模型操作：设置页配置默认模型，输入区可快速切换可用模型
+  ---
+  duration_ms: 1.9142
+  type: 'test'
+  ...
+# Subtest: refreshes are bounded globally and independently drained as slots free
+ok 604 - refreshes are bounded globally and independently drained as slots free
+  ---
+  duration_ms: 7.659
+  type: 'test'
+  ...
+# Subtest: slow refresh never overlaps itself or queues catch-up requests
+ok 605 - slow refresh never overlaps itself or queues catch-up requests
+  ---
+  duration_ms: 2.3278
+  type: 'test'
+  ...
+# Subtest: hidden page and native background state suppress fresh requests
+ok 606 - hidden page and native background state suppress fresh requests
+  ---
+  duration_ms: 1.2513
+  type: 'test'
+  ...
+# Subtest: queued work is discarded if the page hides while requests are in flight
+ok 607 - queued work is discarded if the page hides while requests are in flight
+  ---
+  duration_ms: 1.0205
+  type: 'test'
+  ...
+# Subtest: a rejected refresh releases its slot and allows later attempts
+ok 608 - a rejected refresh releases its slot and allows later attempts
+  ---
+  duration_ms: 1.4178
+  type: 'test'
+  ...
+# Subtest: start is idempotent and stop removes timers/listeners without cancelling active calls
+ok 609 - start is idempotent and stop removes timers/listeners without cancelling active calls
+  ---
+  duration_ms: 1.0502
+  type: 'test'
+  ...
+# Subtest: actual bootstrap health-checks first and runs only the four essential hydration requests
+ok 610 - actual bootstrap health-checks first and runs only the four essential hydration requests
+  ---
+  duration_ms: 4.06
+  type: 'test'
+  ...
+# Subtest: scheduler sleeps until the nearest refresh deadline instead of waking every second
+ok 611 - scheduler sleeps until the nearest refresh deadline instead of waking every second
+  ---
+  duration_ms: 0.9894
+  type: 'test'
+  ...
+# Subtest: 有效初始深链在服务水合与会话恢复后应用
+ok 612 - 有效初始深链在服务水合与会话恢复后应用
+  ---
+  duration_ms: 1.6633
+  type: 'test'
+  ...
+# Subtest: 工具与设置切换维持互斥视图并更新可访问控件状态
+ok 613 - 工具与设置切换维持互斥视图并更新可访问控件状态
+  ---
+  duration_ms: 1.3768
+  type: 'test'
+  ...
+# Subtest: 工具按钮可从工具视图和设置页回到会话，再从会话重新打开工具
+ok 614 - 工具按钮可从工具视图和设置页回到会话，再从会话重新打开工具
+  ---
+  duration_ms: 0.2025
+  type: 'test'
+  ...
+# Subtest: 打开扩展面板时清除侧栏分组筛选并恢复全部导航
+ok 615 - 打开扩展面板时清除侧栏分组筛选并恢复全部导航
+  ---
+  duration_ms: 0.2469
+  type: 'test'
+  ...
+# Subtest: 有效初始深链进入指定页，无效 hash 回到会话页
+ok 616 - 有效初始深链进入指定页，无效 hash 回到会话页
+  ---
+  duration_ms: 0.1867
+  type: 'test'
+  ...
+# Subtest: route hash follows chat, settings, and panel transitions while preserving path and query
+ok 617 - route hash follows chat, settings, and panel transitions while preserving path and query
+  ---
+  duration_ms: 2.3276
+  type: 'test'
+  ...
+# Subtest: workflow polling retries transient failures with backoff and keeps status visible
+ok 618 - workflow polling retries transient failures with backoff and keeps status visible
+  ---
+  duration_ms: 3.5744
+  type: 'test'
+  ...
+# Subtest: workflow results arriving after panel disposal cannot repaint or restart polling
+ok 619 - workflow results arriving after panel disposal cannot repaint or restart polling
+  ---
+  duration_ms: 0.8903
+  type: 'test'
+  ...
+# Subtest: workflow audit failures render inline without throwing from the error handler
+ok 620 - workflow audit failures render inline without throwing from the error handler
+  ---
+  duration_ms: 1.045
+  type: 'test'
+  ...
+# Subtest: late workflow definition responses cannot replace the most recently selected flow
+ok 621 - late workflow definition responses cannot replace the most recently selected flow
+  ---
+  duration_ms: 1.2473
+  type: 'test'
+  ...
+# Subtest: workflow start suppresses duplicate submissions while the first request is pending
+ok 622 - workflow start suppresses duplicate submissions while the first request is pending
+  ---
+  duration_ms: 2.0541
+  type: 'test'
+  ...
+# Subtest: a workflow start response arriving after panel disposal does not repaint a new panel or subscribe stale events
+ok 623 - a workflow start response arriving after panel disposal does not repaint a new panel or subscribe stale events
+  ---
+  duration_ms: 0.8641
+  type: 'test'
+  ...
+# Subtest: workflow DSL reports JSON syntax locally while core actions are disabled
+ok 624 - workflow DSL reports JSON syntax locally while core actions are disabled
+  ---
+  duration_ms: 0.8045
+  type: 'test'
+  ...
+# Subtest: workflow validation locks duplicate submits and ignores results from an old mount
+ok 625 - workflow validation locks duplicate submits and ignores results from an old mount
+  ---
+  duration_ms: 0.8505
+  type: 'test'
+  ...
+# Subtest: workflow approval is single-flight per run and locks approve/reject together
+ok 626 - workflow approval is single-flight per run and locks approve/reject together
+  ---
+  duration_ms: 1.133
+  type: 'test'
+  ...
+# Subtest: workflow abort is single-flight per run and terminal snapshots do not offer abort
+ok 627 - workflow abort is single-flight per run and terminal snapshots do not offer abort
+  ---
+  duration_ms: 1.02
+  type: 'test'
+  ...
+# Subtest: workflow list labels the direct mock run as sandbox behavior
+ok 628 - workflow list labels the direct mock run as sandbox behavior
+  ---
+  duration_ms: 0.2052
+  type: 'test'
+  ...
+# Subtest: workflow DSL validation explains its core dependency and is gated while disconnected
+ok 629 - workflow DSL validation explains its core dependency and is gated while disconnected
+  ---
+  duration_ms: 0.2416
+  type: 'test'
+  ...
+# Subtest: workspace updates serialize in user order and only the latest result reaches the UI
+ok 630 - workspace updates serialize in user order and only the latest result reaches the UI
+  ---
+  duration_ms: 47.1395
+  type: 'test'
+  ...
+# Subtest: a project creation that finishes after a newer workspace choice stays inactive
+ok 631 - a project creation that finishes after a newer workspace choice stays inactive
+  ---
+  duration_ms: 0.4248
+  type: 'test'
+  ...
+# Subtest: a failed workspace write does not poison the queue
+ok 632 - a failed workspace write does not poison the queue
+  ---
+  duration_ms: 0.6303
+  type: 'test'
+  ...
+# Subtest: project creation failures identify its completed stage
+ok 633 - project creation failures identify its completed stage
+  ---
+  duration_ms: 0.3066
+  type: 'test'
+  ...
+# Subtest: workspace persistence rejects a missing desktop response before the active path can be applied
+ok 634 - workspace persistence rejects a missing desktop response before the active path can be applied
+  ---
+  duration_ms: 0.2775
+  type: 'test'
+  ...
+# Subtest: workspace persistence rejects an explicit host failure and accepts its success envelope
+ok 635 - workspace persistence rejects an explicit host failure and accepts its success envelope
+  ---
+  duration_ms: 0.1618
+  type: 'test'
+  ...
+# Subtest: 切换 Team 时保留在途产物评审和返工提交锁
+ok 636 - 切换 Team 时保留在途产物评审和返工提交锁
+  ---
+  duration_ms: 2.1338
+  type: 'test'
+  ...
+# Subtest: 模块导出与浏览器骨架完好
+ok 637 - 模块导出与浏览器骨架完好
+  ---
+  duration_ms: 0.3172
+  type: 'test'
+  ...
+# Subtest: WorkSwarm live polling deduplicates slow snapshots and aborts stale requests
+ok 638 - WorkSwarm live polling deduplicates slow snapshots and aborts stale requests
+  ---
+  duration_ms: 0.6238
+  type: 'test'
+  ...
+# Subtest: normStatus / isTerminalTeam 状态归一化
+ok 639 - normStatus / isTerminalTeam 状态归一化
+  ---
+  duration_ms: 0.1782
+  type: 'test'
+  ...
+# Subtest: 任务选择器将未知状态和所有动态字段作为文本转义
+ok 640 - 任务选择器将未知状态和所有动态字段作为文本转义
+  ---
+  duration_ms: 0.2107
+  type: 'test'
+  ...
+# Subtest: computeRunSummary：混合 DAG 计数/失败步骤/累计尝试/阻塞
+ok 641 - computeRunSummary：混合 DAG 计数/失败步骤/累计尝试/阻塞
+  ---
+  duration_ms: 1.6559
+  type: 'test'
+  ...
+# Subtest: computeRunSummary：中断团队不再显示为正常执行中
+ok 642 - computeRunSummary：中断团队不再显示为正常执行中
+  ---
+  duration_ms: 0.3651
+  type: 'test'
+  ...
+# Subtest: computeRunSummary：终态中断标记不覆盖终态显示；产物未知显示 null
+ok 643 - computeRunSummary：终态中断标记不覆盖终态显示；产物未知显示 null
+  ---
+  duration_ms: 0.2853
+  type: 'test'
+  ...
+# Subtest: computeRunSummary：等待人节点/运行阶段推导
+ok 644 - computeRunSummary：等待人节点/运行阶段推导
+  ---
+  duration_ms: 0.3664
+  type: 'test'
+  ...
+# Subtest: shouldShowRetry / retryableTasks 门控矩阵
+ok 645 - shouldShowRetry / retryableTasks 门控矩阵
+  ---
+  duration_ms: 0.4553
+  type: 'test'
+  ...
+# Subtest: buildRetryBody：第三路冻结契约形状
+ok 646 - buildRetryBody：第三路冻结契约形状
+  ---
+  duration_ms: 0.2666
+  type: 'test'
+  ...
+# Subtest: dagSvg：仅 Failed/Aborted 节点出现重试按钮；终态成功团队不出现
+ok 647 - dagSvg：仅 Failed/Aborted 节点出现重试按钮；终态成功团队不出现
+  ---
+  duration_ms: 0.5763
+  type: 'test'
+  ...
+# Subtest: 三态提示具备读屏告警与加载语义
+ok 648 - 三态提示具备读屏告警与加载语义
+  ---
+  duration_ms: 0.1641
+  type: 'test'
+  ...
+# Subtest: renderDetail 骨架：运行摘要 / 中断横幅 / 审计键盘焦点 / retry 提示
+ok 649 - renderDetail 骨架：运行摘要 / 中断横幅 / 审计键盘焦点 / retry 提示
+  ---
+  duration_ms: 0.4861
+  type: 'test'
+  ...
+# Subtest: renderList 骨架：加载三态在场
+ok 650 - renderList 骨架：加载三态在场
+  ---
+  duration_ms: 0.2044
+  type: 'test'
+  ...
+# Subtest: explainError：400/404/409/网络/凭据映射
+ok 651 - explainError：400/404/409/网络/凭据映射
+  ---
+  duration_ms: 0.3922
+  type: 'test'
+  ...
+# Subtest: WorkSwarm 错误态中的交付物与评审历史重试按钮会重新发起对应请求
+ok 652 - WorkSwarm 错误态中的交付物与评审历史重试按钮会重新发起对应请求
+  ---
+  duration_ms: 1.4351
+  type: 'test'
+  ...
+# Subtest: handleRetryClick：快速双击只产生一次请求；结束后解锁并恢复文案
+ok 653 - handleRetryClick：快速双击只产生一次请求；结束后解锁并恢复文案
+  ---
+  duration_ms: 25.4378
+  type: 'test'
+  ...
+# Subtest: submitRetry：终态成功/取消团队拒绝且零请求
+ok 654 - submitRetry：终态成功/取消团队拒绝且零请求
+  ---
+  duration_ms: 0.2583
+  type: 'test'
+  ...
+# Subtest: syncDetail：interrupted 标记从详情响应流入面板状态
+ok 655 - syncDetail：interrupted 标记从详情响应流入面板状态
+  ---
+  duration_ms: 0.4125
+  type: 'test'
+  ...
+# Subtest: style.css 第 16 节守卫：inline 换行/中断徽标/重试按钮/表格包裹/窄栏断点/焦点环
+ok 656 - style.css 第 16 节守卫：inline 换行/中断徽标/重试按钮/表格包裹/窄栏断点/焦点环
+  ---
+  duration_ms: 2.4271
+  type: 'test'
+  ...
+# Subtest: applyProgress：合法事件入状态并同步 teamStatus/active
+ok 657 - applyProgress：合法事件入状态并同步 teamStatus/active
+  ---
+  duration_ms: 0.1949
+  type: 'test'
+  ...
+# Subtest: applyProgress：seq 单调守卫——旧/重复/无 seq 一律跳过（断线重连去重）
+ok 658 - applyProgress：seq 单调守卫——旧/重复/无 seq 一律跳过（断线重连去重）
+  ---
+  duration_ms: 0.1569
+  type: 'test'
+  ...
+# Subtest: applyProgress：current_steps 缺 step_id 的行被剔除、缺失字段归零
+ok 659 - applyProgress：current_steps 缺 step_id 的行被剔除、缺失字段归零
+  ---
+  duration_ms: 0.1057
+  type: 'test'
+  ...
+# Subtest: computeProgressView：耗时基于 started_at，running 标记与状态中文
+ok 660 - computeProgressView：耗时基于 started_at，running 标记与状态中文
+  ---
+  duration_ms: 0.1553
+  type: 'test'
+  ...
+# Subtest: computeProgressView：无 progress → null；started_at 非法 → elapsed null
+ok 661 - computeProgressView：无 progress → null；started_at 非法 → elapsed null
+  ---
+  duration_ms: 0.0813
+  type: 'test'
+  ...
+# Subtest: computeProgressView：取消中标志进入视图
+ok 662 - computeProgressView：取消中标志进入视图
+  ---
+  duration_ms: 0.0594
+  type: 'test'
+  ...
+# Subtest: renderProgress：空态/计数徽标/取消中/步骤行（worker·状态·尝试·耗时）
+ok 663 - renderProgress：空态/计数徽标/取消中/步骤行（worker·状态·尝试·耗时）
+  ---
+  duration_ms: 0.2355
+  type: 'test'
+  ...
+# Subtest: fmtElapsed：秒/分/时边界
+ok 664 - fmtElapsed：秒/分/时边界
+  ---
+  duration_ms: 0.1058
+  type: 'test'
+  ...
+# Subtest: handleEventFrame：嵌套 progress 帧（第二路实现形状）与扁平形状均采纳
+ok 665 - handleEventFrame：嵌套 progress 帧（第二路实现形状）与扁平形状均采纳
+  ---
+  duration_ms: 0.225
+  type: 'test'
+  ...
+# Subtest: handleEventFrame：audit 帧去重入列
+ok 666 - handleEventFrame：audit 帧去重入列
+  ---
+  duration_ms: 0.1222
+  type: 'test'
+  ...
+# Subtest: 四期样式守卫：style.css 第 18 节 WorkSwarm 进度区/评审闭环/徽标守卫在场
+ok 667 - 四期样式守卫：style.css 第 18 节 WorkSwarm 进度区/评审闭环/徽标守卫在场
+  ---
+  duration_ms: 1.9908
+  type: 'test'
+  ...
+# Subtest: strategyDecisionOf：完整判定/字符串 reasons/字符串角色/非法输入
+ok 668 - strategyDecisionOf：完整判定/字符串 reasons/字符串角色/非法输入
+  ---
+  duration_ms: 0.3807
+  type: 'test'
+  ...
+# Subtest: strategyBoxHtml：单/多 Agent 徽标与理由列表
+ok 669 - strategyBoxHtml：单/多 Agent 徽标与理由列表
+  ---
+  duration_ms: 0.1632
+  type: 'test'
+  ...
+# Subtest: metricsFromPayload：标准形状/别名形状/空形状
+ok 670 - metricsFromPayload：标准形状/别名形状/空形状
+  ---
+  duration_ms: 1.1319
+  type: 'test'
+  ...
+# Subtest: metricsFromPayload：上下文耗时可独立呈现且标明截断采样
+ok 671 - metricsFromPayload：上下文耗时可独立呈现且标明截断采样
+  ---
+  duration_ms: 0.2175
+  type: 'test'
+  ...
+# Subtest: metricsCardsHtml：汇总条/卡片/预算余量/空态
+ok 672 - metricsCardsHtml：汇总条/卡片/预算余量/空态
+  ---
+  duration_ms: 0.3082
+  type: 'test'
+  ...
+# Subtest: fmtMs：毫秒/秒/分秒档位
+ok 673 - fmtMs：毫秒/秒/分秒档位
+  ---
+  duration_ms: 0.0758
+  type: 'test'
+  ...
+# Subtest: diffLines/diffHtml：LCS 行差异与 +/- 渲染
+ok 674 - diffLines/diffHtml：LCS 行差异与 +/- 渲染
+  ---
+  duration_ms: 0.4044
+  type: 'test'
+  ...
+# Subtest: artifactTimelineHtml：版本节点/状态徽标/箭头数
+ok 675 - artifactTimelineHtml：版本节点/状态徽标/箭头数
+  ---
+  duration_ms: 0.1884
+  type: 'test'
+  ...
+# Subtest: buildReworkBody：冻结契约四字段 + 校验 + 幂等键自动生成
+ok 676 - buildReworkBody：冻结契约四字段 + 校验 + 幂等键自动生成
+  ---
+  duration_ms: 0.5222
+  type: 'test'
+  ...
+# Subtest: explainReworkError：409 幂等冲突/404/回退文案
+ok 677 - explainReworkError：409 幂等冲突/404/回退文案
+  ---
+  duration_ms: 0.1768
+  type: 'test'
+  ...
+# Subtest: submitRework：成功记录 flash + 忙锁 + 失败文案（注入传输层）
+ok 678 - submitRework：成功记录 flash + 忙锁 + 失败文案（注入传输层）
+  ---
+  duration_ms: 0.5363
+  type: 'test'
+  ...
+# Subtest: deliverablesFromPayload：分列形状/单列分桶/空形状
+ok 679 - deliverablesFromPayload：分列形状/单列分桶/空形状
+  ---
+  duration_ms: 0.2907
+  type: 'test'
+  ...
+# Subtest: metricsFromPayload：服务端实弹形状（五期 team-metrics live shape）
+ok 680 - metricsFromPayload：服务端实弹形状（五期 team-metrics live shape）
+  ---
+  duration_ms: 0.1933
+  type: 'test'
+  ...
+# Subtest: deliverablesFromPayload：服务端实弹形状（pending_review + null 桶 + manifest）
+ok 681 - deliverablesFromPayload：服务端实弹形状（pending_review + null 桶 + manifest）
+  ---
+  duration_ms: 0.119
+  type: 'test'
+  ...
+# Subtest: deliverablesBoxHtml：计数徽标/交付列表/全空提示
+ok 682 - deliverablesBoxHtml：计数徽标/交付列表/全空提示
+  ---
+  duration_ms: 0.1076
+  type: 'test'
+  ...
+# Subtest: latestChangesReviewId：取最近一次要求修改评审 id
+ok 683 - latestChangesReviewId：取最近一次要求修改评审 id
+  ---
+  duration_ms: 0.173
+  type: 'test'
+  ...
+# Subtest: 交接引用候选失败可读可重试，重试成功后候选及时更新
+ok 684 - 交接引用候选失败可读可重试，重试成功后候选及时更新
+  ---
+  duration_ms: 1.335
+  type: 'test'
+  ...
+# Subtest: artifactRowHtml：链内最新 Draft/Rejected 行带返工表单，其余状态不带
+ok 685 - artifactRowHtml：链内最新 Draft/Rejected 行带返工表单，其余状态不带
+  ---
+  duration_ms: 7.8609
+  type: 'test'
+  ...
+# Subtest: 五期样式守卫：style.css 第 19 节策略/指标/时间线/差异/交付物样式在场
+ok 686 - 五期样式守卫：style.css 第 19 节策略/指标/时间线/差异/交付物样式在场
+  ---
+  duration_ms: 1.0428
+  type: 'test'
+  ...
+# Subtest: 七期 workerProfilesTable：角色×权限×预算表 + 空态容错
+ok 687 - 七期 workerProfilesTable：角色×权限×预算表 + 空态容错
+  ---
+  duration_ms: 0.2368
+  type: 'test'
+  ...
+# Subtest: 七期 writeLeaseBox：持有/已释放/无租约三态
+ok 688 - 七期 writeLeaseBox：持有/已释放/无租约三态
+  ---
+  duration_ms: 4.9438
+  type: 'test'
+  ...
+# Subtest: 七期 changesListHtml：变更行状态徽标 + ±行数 + diff 预览 + 空态
+ok 689 - 七期 changesListHtml：变更行状态徽标 + ±行数 + diff 预览 + 空态
+  ---
+  duration_ms: 0.3229
+  type: 'test'
+  ...
+# Subtest: 七期 validationBadgeHtml + artifactFileName：校验徽标三态与扩展名推断
+ok 690 - 七期 validationBadgeHtml + artifactFileName：校验徽标三态与扩展名推断
+  ---
+  duration_ms: 0.1285
+  type: 'test'
+  ...
+# Subtest: 七期 deliveryManifestText：容错文本化（版本/哈希/大小/批准态/引用）
+ok 691 - 七期 deliveryManifestText：容错文本化（版本/哈希/大小/批准态/引用）
+  ---
+  duration_ms: 0.2067
+  type: 'test'
+  ...
+# Subtest: 七期 stopping/stopped：门控与状态中文化 + 模块 CSS 在场
+ok 692 - 七期 stopping/stopped：门控与状态中文化 + 模块 CSS 在场
+  ---
+  duration_ms: 0.1519
+  type: 'test'
+  ...
+# Subtest: 七期 artifactRowHtml：校验徽标/证据/Handoff/sha256/下载按钮在场
+ok 693 - 七期 artifactRowHtml：校验徽标/证据/Handoff/sha256/下载按钮在场
+  ---
+  duration_ms: 0.1574
+  type: 'test'
+  ...
+# Subtest: 七期 changesRemoteView：端点载荷归一 + 全字段容错
+ok 694 - 七期 changesRemoteView：端点载荷归一 + 全字段容错
+  ---
+  duration_ms: 0.1892
+  type: 'test'
+  ...
+# Subtest: 七期 changeRecordsHtml：越界/通过徽标 + 文件行 + diff 容器
+ok 695 - 七期 changeRecordsHtml：越界/通过徽标 + 文件行 + diff 容器
+  ---
+  duration_ms: 0.1778
+  type: 'test'
+  ...
+# Subtest: 七期 changesRuntimeHtml：远程优先 + 详情文件清单补充 + 双空态
+ok 696 - 七期 changesRuntimeHtml：远程优先 + 详情文件清单补充 + 双空态
+  ---
+  duration_ms: 0.201
+  type: 'test'
+  ...
+# Subtest: 七期 loadWorkspaceChanges：成功落地归一视图；404/失败容错为 null
+ok 697 - 七期 loadWorkspaceChanges：成功落地归一视图；404/失败容错为 null
+  ---
+  duration_ms: 0.2109
+  type: 'test'
+  ...
+# Subtest: normCsStatus：Debug/混合形式归一
+ok 698 - normCsStatus：Debug/混合形式归一
+  ---
+  duration_ms: 0.1652
+  type: 'test'
+  ...
+# Subtest: changeSetsView：归一 + 容错（非对象条目/缺 id 丢弃/文件清单数组化）
+ok 699 - changeSetsView：归一 + 容错（非对象条目/缺 id 丢弃/文件清单数组化）
+  ---
+  duration_ms: 0.197
+  type: 'test'
+  ...
+# Subtest: changeSetBadge：状态徽标配色（accepted 绿 / conflicted 红 / pending 警示）
+ok 700 - changeSetBadge：状态徽标配色（accepted 绿 / conflicted 红 / pending 警示）
+  ---
+  duration_ms: 0.1067
+  type: 'test'
+  ...
+# Subtest: changeSetsHtml：空态 + 待审批动作（data 属性/提交锁）+ 结果区
+ok 701 - changeSetsHtml：空态 + 待审批动作（data 属性/提交锁）+ 结果区
+  ---
+  duration_ms: 0.284
+  type: 'test'
+  ...
+# Subtest: startChangeSetAction()：成功路径（POST /change-sets/{id}/{action}）+ 幂等重放文案
+ok 702 - startChangeSetAction()：成功路径（POST /change-sets/{id}/{action}）+ 幂等重放文案
+  ---
+  duration_ms: 0.3047
+  type: 'test'
+  ...
+# Subtest: startChangeSetAction()：幂等重放（replayed）提示
+ok 703 - startChangeSetAction()：幂等重放（replayed）提示
+  ---
+  duration_ms: 0.1403
+  type: 'test'
+  ...
+# Subtest: startChangeSetAction()：409 冲突文案（不覆盖用户新内容）
+ok 704 - startChangeSetAction()：409 冲突文案（不覆盖用户新内容）
+  ---
+  duration_ms: 0.3125
+  type: 'test'
+  ...
+# Subtest: startChangeSetAction()：提交锁双击只发一次；未知动作零请求
+ok 705 - startChangeSetAction()：提交锁双击只发一次；未知动作零请求
+  ---
+  duration_ms: 0.2192
+  type: 'test'
+  ...
+# Subtest: loadChangeSets()：404 容错为 null（端点未上线空态）
+ok 706 - loadChangeSets()：404 容错为 null（端点未上线空态）
+  ---
+  duration_ms: 0.2053
+  type: 'test'
+  ...
+# Subtest: loadChangeSets()（九期）：捕获 approval_blocked/approval_block_reason 门控视图
+ok 707 - loadChangeSets()（九期）：捕获 approval_blocked/approval_block_reason 门控视图
+  ---
+  duration_ms: 0.2259
+  type: 'test'
+  ...
+# Subtest: csStatusHint / approvalBlockView：九期状态口径与门控视图归一
+ok 708 - csStatusHint / approvalBlockView：九期状态口径与门控视图归一
+  ---
+  duration_ms: 0.1515
+  type: 'test'
+  ...
+# Subtest: changeSetsHtml（九期）：conflicted 行提供可重试动作 + 冲突清单；门控横幅展示阻断原因
+ok 709 - changeSetsHtml（九期）：conflicted 行提供可重试动作 + 冲突清单；门控横幅展示阻断原因
+  ---
+  duration_ms: 0.295
+  type: 'test'
+  ...
+# Subtest: artifactRowHtml（九期）：门控阻断时批准按钮禁用并展示原因，要求修改/驳回不受影响
+ok 710 - artifactRowHtml（九期）：门控阻断时批准按钮禁用并展示原因，要求修改/驳回不受影响
+  ---
+  duration_ms: 0.3132
+  type: 'test'
+  ...
+# Subtest: startChangeSetAction()（九期）：请求体携带 idempotency_key（修复空体 422）
+ok 711 - startChangeSetAction()（九期）：请求体携带 idempotency_key（修复空体 422）
+  ---
+  duration_ms: 0.2089
+  type: 'test'
+  ...
+# Subtest: 创建团队表单使用任务语言并提供可访问的状态入口
+ok 712 - 创建团队表单使用任务语言并提供可访问的状态入口
+  ---
+  duration_ms: 0.3338
+  type: 'test'
+  ...
+# Subtest: 模板加载失败时可就地重试，手工角色配置仍保留
+ok 713 - 模板加载失败时可就地重试，手工角色配置仍保留
+  ---
+  duration_ms: 0.4806
+  type: 'test'
+  ...
+# Subtest: approvalBlockBanner：仅由 approvalBlock 参数驱动（无 state 依赖）
+ok 714 - approvalBlockBanner：仅由 approvalBlock 参数驱动（无 state 依赖）
+  ---
+  duration_ms: 0.9839
+  type: 'test'
+  ...
+# Subtest: changeSetsHtml：空态与待审批动作（接受/拒绝/撤销 + busy 提交锁）
+ok 715 - changeSetsHtml：空态与待审批动作（接受/拒绝/撤销 + busy 提交锁）
+  ---
+  duration_ms: 0.6446
+  type: 'test'
+  ...
+# Subtest: changeSetsHtml（九期）：conflicted 提供可重试动作 + 冲突清单；门控横幅置顶
+ok 716 - changeSetsHtml（九期）：conflicted 提供可重试动作 + 冲突清单；门控横幅置顶
+  ---
+  duration_ms: 0.2658
+  type: 'test'
+  ...
+# Subtest: artifactRowHtml：评审表单 + busy/门控对批准按钮的锁定语义
+ok 717 - artifactRowHtml：评审表单 + busy/门控对批准按钮的锁定语义
+  ---
+  duration_ms: 1.4242
+  type: 'test'
+  ...
+# Subtest: artifactRowHtml：reviewFlash 存续只渲染对应产物行
+ok 718 - artifactRowHtml：reviewFlash 存续只渲染对应产物行
+  ---
+  duration_ms: 0.37
+  type: 'test'
+  ...
+# Subtest: artifactRowHtml：返工表单仅限链内最新 Draft/Rejected（isHead 引用判定）
+ok 719 - artifactRowHtml：返工表单仅限链内最新 Draft/Rejected（isHead 引用判定）
+  ---
+  duration_ms: 0.2693
+  type: 'test'
+  ...
+# Subtest: teamConversationHtml：按发言人渲染真实交接、接收者、Markdown 与时间顺序
+ok 720 - teamConversationHtml：按发言人渲染真实交接、接收者、Markdown 与时间顺序
+  ---
+  duration_ms: 10.0533
+  type: 'test'
+  ...
+# Subtest: teamConversationHtml：空态、错误态和自由文本均安全转义
+ok 721 - teamConversationHtml：空态、错误态和自由文本均安全转义
+  ---
+  duration_ms: 0.227
+  type: 'test'
+  ...
+1..721
+# tests 721
+# suites 0
+# pass 721
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1597.1775

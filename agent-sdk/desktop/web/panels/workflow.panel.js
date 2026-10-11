@@ -112,14 +112,14 @@
       ".owo-wf-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}" +
       ".owo-wf-chip{display:inline-block;padding:2px 9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);font-size:11.5px}" +
       ".owo-wf-step{display:flex;gap:9px;align-items:baseline;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);margin-bottom:5px}" +
-      ".owo-wf-step-idx{flex:none;width:20px;height:20px;display:grid;place-items:center;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700}" +
+      ".owo-wf-step-idx{flex:none;width:20px;height:20px;display:grid;place-items:center;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:700}" +
       ".owo-wf-step-kind{flex:none;font-weight:600;font-size:12px;color:var(--accent)}" +
       ".owo-wf-step-body{flex:1;min-width:0;font-size:12px;color:var(--text-2);word-break:break-word}" +
       ".owo-wf-step-body code{font-size:11.5px;background:var(--surface-2);border-radius:4px;padding:0 4px}" +
       /* 事件时间线 */
       ".owo-wf-events{max-height:220px;overflow:auto;font-size:12px}" +
       ".owo-wf-event{display:flex;gap:8px;align-items:baseline;padding:3px 0;border-bottom:1px dashed var(--border)}" +
-      ".owo-wf-event-time{flex:none;color:var(--text-3);font-size:11px;font-variant-numeric:tabular-nums}" +
+      ".owo-wf-event-time{flex:none;color:var(--text-3);font-size:12px;font-variant-numeric:tabular-nums}" +
       ".owo-wf-event-kind{flex:none;font-weight:600;color:var(--accent)}" +
       ".owo-wf-event-detail{flex:1;min-width:0;color:var(--text-2);word-break:break-word}" +
       "</style>"
@@ -172,7 +172,7 @@
     var el = document.getElementById("owo-workflow-list");
     if (!el) { return; }
     if (!flows || !flows.length) {
-      el.innerHTML = '<div class="sub">未发现 .owflow 文件（工作区 ' + esc(BASE) + '）</div>';
+      el.innerHTML = '<div class="owo-empty">当前项目没有工作流。将 .owflow 文件放入项目目录后刷新；运行前会校验流程与权限。</div>';
       return;
     }
     el.innerHTML = flows

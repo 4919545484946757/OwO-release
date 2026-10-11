@@ -231,7 +231,7 @@ test("当前任务段：运行 / 等待审批 / 已取消 / 已完成 / 空闲�
   assert.equal(task({ reading: true, pendingApproval: "r" }).text, "等待审批", "等待审批优先级高于运行中");
   assert.equal(task({ lastTurnOutcome: "cancelled" }).text, "已取消");
   assert.equal(task({ lastTurnOutcome: "failed" }).text, "上一轮失败");
-  assert.equal(task({ lastTurnOutcome: "completed" }).text, "已完成");
+  assert.equal(task({ lastTurnOutcome: "completed" }).text, "回答完成 · 未验证");
   assert.equal(task({}).text, "空闲");
 });
 

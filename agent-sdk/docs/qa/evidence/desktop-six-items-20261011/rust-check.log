@@ -1,0 +1,10 @@
+    Checking owo-agent-protocol v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-protocol)
+    Checking owo-agent-policy v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-policy)
+    Checking owo-agent-workswarm v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-workswarm)
+    Checking owo-agent-extensions v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-extensions)
+    Checking owo-agent-core v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-core)
+   Compiling owo-build-info v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-build-info)
+    Checking owo-agent-product-eval v0.1.0 (D:\OwO-master\agent-sdk\devtools\product-eval)
+    Checking owo-agent-eval-facade v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-eval-facade)
+    Checking owo-agent-server v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-server)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 57.09s

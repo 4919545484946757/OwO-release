@@ -93,12 +93,12 @@
         const summary = text(row.summary) || "（服务端未提供范围说明）";
         const control = row.configurable ? dimensionControl(key, draft[key], editable) : honestNonConfigurable(effective);
         return (
-          "<tr>" +
+          '<tr' + (Array.isArray(snap.changedFields) && snap.changedFields.includes(key) ? ' class="owo-perm-changed"' : "") + ">" +
           "<th>" + esc(text(row.label) || (d ? d.dimensionLabel(key) : key)) + "</th>" +
           "<td>" + esc(effective || "未知") + "</td>" +
           "<td>" + esc(source) + "</td>" +
           "<td>" + esc(summary) + "</td>" +
-          "<td>" + control + "</td>" +
+          "<td>" + control + (Array.isArray(snap.changedFields) && snap.changedFields.includes(key) ? '<span class="owo-perm-change-note">将从 ' + esc(effective) + " 变为 " + esc(d ? d.summarizeScope(draft[key]) : draft[key]) + "</span>" : "") + "</td>" +
           "</tr>"
         );
       })
@@ -125,10 +125,13 @@
   }
 
   function selectControl(name, values, current, labeler, editable) {
+    const d = domain();
+    const placeholder = values.includes(current) ? "" : '<option value="" selected>未返回生效值</option>';
     const options = values
       .map((value) => '<option value="' + esc(value) + '"' + (value === current ? " selected" : "") + ">" + esc(labeler ? labeler(value) : value) + "</option>")
       .join("");
-    return '<select name="' + esc(name) + '" aria-label="' + esc(name) + '"' + (editable ? "" : " disabled") + '>' + options + "</select>";
+    const label = d ? d.dimensionLabel(name.replace("perm-dimension-", "")) + "配置" : name;
+    return '<select name="' + esc(name) + '" aria-label="' + esc(label) + '"' + (editable ? "" : " disabled") + '>' + placeholder + options + "</select>";
   }
 
   /** 不可配置维度的诚实呈现：没有 <select>/<input>，只有文字与原因。 */
@@ -416,7 +419,7 @@
       '<section data-panel="permissions" class="stack">' +
       '<div class="inline">' +
       '<button type="button" class="primary" data-perm-action="reload"' + (snap.phase === "loading" || snap.busy ? " disabled" : "") + '>刷新权限概览</button>' +
-      '<button type="button" class="primary" data-perm-action="submit"' + (editable ? "" : ' disabled title="权限概览成功读取且当前为可写模式后才能保存"') + '>保存权限配置</button>' +
+      '<button type="button" class="primary" data-perm-action="submit"' + (editable ? "" : ' disabled title="权限概览成功读取且当前为可写模式后才能保存"') + '>' + (snap.changedFields?.length ? '保存 ' + snap.changedFields.length + ' 项改动' : '保存权限配置') + '</button>' +
       '<span class="sub" data-perm-status="1">' +
       esc(snap.verify || snap.notice ||
         (snap.phase === "loading" ? "正在读取权限概览…" :

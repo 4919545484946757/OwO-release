@@ -1,0 +1,10 @@
+[
+  {
+    "name": "web",
+    "exit_code": 0
+  },
+  {
+    "name": "electron",
+    "exit_code": 0
+  }
+]

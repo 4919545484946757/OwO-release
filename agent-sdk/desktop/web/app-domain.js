@@ -354,6 +354,8 @@ function renderSessionListFailure(error, selectId) {
 async function refreshSessionsImpl(selectId, generation, selectionVersion) {
   const sessions = await api("/sessions");
   if (generation !== sessionListRefreshGeneration) return;
+  state.sessionIndex = sessions;
+  state.sessionsKnown = true;
   // 用户在请求期间切换了会话时，按实时状态标记选中项；列表刷新不拥有选中状态。
   const selectedSessionId = selectionVersion === state.selectionVersion
     ? (selectId || state.sessionId)
@@ -714,7 +716,93 @@ async function sessionRedo(sessionId) {
   else await refreshSessions(state.sessionId);
 }
 
-async function selectSession(id) {
+function restoreSessionFacts(sessionId, detail) {
+  const facts = window.OwoSessionFacts.fromDetail(detail);
+  state.completedTurnFacts.set(sessionId, facts);
+  if (detail.active_turn_id && !state.activeTurns.has(sessionId)) resumeHostTurn(sessionId, detail);
+  if (state.sessionId === sessionId && currentTurn()) { startRunStatus(); updateComposerRunning(); }
+  window.OwoStatusBar?.repaint();
+  return facts;
+}
+function renderHistoricalCompletion(sessionId, facts) {
+  if (!facts.historyAvailable || !facts.terminal || facts.outcome === "running") return;
+  const node = document.createElement("section");
+  node.className = "historical-completion";
+  const summary = window.OwoCompletionRecord.summarize(facts.lastCompletionRecord);
+  const usage = window.OwoCompletionRecord.usageFromTurnStats(facts.stats);
+  node.textContent = [summary?.compact || "宿主终态：" + facts.outcome, "实际模型：" + (facts.lastExecutionModel || "未知"), usage?.text || "用量明细未返回"].join(" · ");
+  if (["failed","cancelled","interrupted"].includes(facts.outcome)) node.appendChild(turnRecoveryActions(sessionId, state.lastSessionPrompts.get(sessionId) || "", facts.outcome));
+  sessionView(sessionId).appendChild(node);
+}
+function resumeHostTurn(sessionId, detail) {
+  const turnId = detail.active_turn_id;
+  const temp = { tools: 0, failed: 0, modelCalls: 0, startedAt: Date.parse(detail.activity?.started_at || "") || Date.now(), files: new Set(), server: null };
+  let text = "", bubble = null, terminal = null;
+  const entry = { remote: true, turnId, startedAt: temp.startedAt, phase: detail.activity?.phase || "thinking", controller: new AbortController() };
+  state.activeTurns.set(sessionId, entry);
+  const observer = window.OwoTurnRecovery.observe({
+    sessionId, turnId, getPage: (path, options) => window.OwoApi.get(path, options),
+    visible: () => !uiHidden() && state.sessionId === sessionId,
+    onPage(records) {
+      const previousTarget = writeTargetSid, previousTurn = state.turn;
+      writeTargetSid = sessionId; state.turn = temp;
+      try {
+        for (const record of records) {
+          const value = record.payload;
+          if (value.type === "token_delta") {
+            text = (text + String(value.delta || "")).slice(-1048576);
+            if (!bubble) bubble = addMessage("assistant", "");
+            bubble.innerHTML = renderMarkdown(text); followScroll();
+          } else if (value.type === "final") {
+            text = value.text || text; if (!bubble) bubble = addMessage("assistant", "");
+            bubble.innerHTML = renderMarkdown(text); bindCopyButtons(bubble);
+          } else if (value.type === "tool_use") { entry.phase = "tool"; entry.tool = value.tool; pushToolUse(value); }
+          else if (value.type === "tool_result") { pushToolResult(value); entry.phase = "thinking"; }
+          else if (value.type === "progress") { entry.phase = "thinking"; if (value.message === "模型调用") temp.modelCalls++; }
+          else if (value.type === "user_question") showQuestionCard(value);
+          else if (value.type === "user_answered") markQuestionAnswered(value);
+          else if (["turn_stats", "turn_failed"].includes(value.type)) terminal = value;
+        }
+      } finally { writeTargetSid = previousTarget; state.turn = previousTurn; }
+      if (state.sessionId === sessionId) setRunPhase(entry.phase, entry.tool ? "正在执行：" + entry.tool : "正在恢复宿主输出");
+    },
+    async onEnd(page) {
+      if (state.activeTurns.get(sessionId) !== entry) return;
+      state.activeTurns.delete(sessionId);
+      if (terminal) rememberTurnFacts(sessionId, terminal);
+      else state.completedTurnFacts.set(sessionId, { outcome: "interrupted", turnId, lastExecutionModel: "", lastCompletionRecord: null });
+      if (state.sessionId === sessionId) {
+        stopRunStatus(); updateComposerRunning(); window.OwoStatusBar?.repaint();
+        if (terminal?.type === "turn_failed") {
+          const previous = writeTargetSid; writeTargetSid = sessionId;
+          showTurnFailure(terminal.message || "宿主报告回合未完成"); writeTargetSid = previous;
+        }
+        await selectSession(sessionId, true);
+      }
+    },
+    onError() { if (state.sessionId === sessionId) setRunPhase("waiting", "连接暂不可用，保留任务并等待重连"); }
+  });
+  entry.observer = observer;
+}
+function turnRecoveryActions(sessionId, prompt, reason) {
+  const row = document.createElement("div"); row.className = "turn-recovery-actions";
+  for (const [label, action] of [["查看变更与证据", "evidence"], ["修改输入", "edit"], ["重试此任务", "retry"]]) {
+    const button = document.createElement("button"); button.type = "button"; button.textContent = label;
+    button.addEventListener("click", async () => {
+      if (action === "evidence") { openPanelById("evidence"); window.OwoPanels.evidence.openSession?.(sessionId); return; }
+      if (!prompt) { showToast("未找到原始输入，请在会话中填写任务"); return; }
+      if (state.sessionId !== sessionId) await selectSession(sessionId);
+      if (currentTurn()) { showToast("此会话仍有任务在运行"); return; }
+      if ($("prompt").value.trim() && !await askConfirm("当前输入已有草稿，是否替换为这个任务？")) return;
+      $("prompt").value = prompt; $("prompt").focus();
+      if (action === "retry" && await askConfirm("重新执行此任务？已有文件变更会保留，新操作仍由服务端策略与审批控制。")) await sendPrompt();
+    });
+    row.appendChild(button);
+  }
+  return row;
+}
+
+async function selectSession(id, forceHistory = false) {
   const selectionVersion = ++state.selectionVersion;
   state.sessionId = id;
   // 记住当前对话：下次进入自动恢复，不再要求手动切换。
@@ -745,7 +833,10 @@ async function selectSession(id) {
     if (selectionVersion !== state.selectionVersion) return;
     state.selectedModel = String((detail && detail.model_override) || "").trim();
     if (typeof refreshComposerModelChip === "function") refreshComposerModelChip();
-    if (reusedView) {
+    const previousInput = [...(detail.messages || [])].reverse().find(message => message.role === "user" && message.content);
+    if (previousInput) state.lastSessionPrompts.set(id, String(previousInput.content));
+    const restoredFacts = restoreSessionFacts(id, detail);
+    if (reusedView && (!forceHistory || runningTurn)) {
       // 本地视图还在（可能正有运行中回合的实时输出）：不重拉历史覆盖，只刷新侧栏。
       $("emptyState").classList.add("hidden");
       await refreshSessions(id);
@@ -817,6 +908,7 @@ async function selectSession(id) {
       historyToolRun = null;
       rendered += 1;
     }
+    renderHistoricalCompletion(id, restoredFacts);
     if (lastRole === "user") {
       addMessage("system", "上一条消息还没有回复（回合可能失败或被中断），可重新发送让助手继续");
     }
@@ -913,6 +1005,14 @@ function parseSseBlock(block) {
   return window.OwoTurnSse.parseBlock(block);
 }
 
+function rememberTurnFacts(sessionId, stats) {
+  if (!state.completedTurnFacts) state.completedTurnFacts = new Map();
+  const facts = window.OwoCompletionRecord?.fromTurnStats(stats) || {};
+  const status = stats?.completion_status;
+  state.completedTurnFacts.set(sessionId, { ...facts, outcome: status === "aborted" ? "cancelled" : status === "blocked" ? "failed" : "completed" });
+  window.OwoStatusBar?.repaint();
+}
+
 async function sendPrompt() {
   const promptInput = $("prompt");
   const promptValue = promptInput.value;
@@ -929,8 +1029,10 @@ async function sendPrompt() {
   let modelConnection;
   try {
     modelConnection = ModelRouting.buildCustomModelConnection(getComposerModel(), loadCustomModels(), customModelKeys());
+    const capabilities = await api("/capabilities");
+    if (capabilities?.constraints?.scoped_turn_cancellation !== true) throw new Error("当前核心不支持按回合停止，请更新核心；本次未发送");
     if (modelConnection) {
-      const capabilities = await api("/capabilities");
+      if (modelConnection.api_key_env && capabilities?.constraints?.custom_model_env_credentials !== true) throw new Error("当前核心不支持安全凭据引用，请更新核心；本次未发送");
       if (!capabilities || !capabilities.constraints || capabilities.constraints.custom_model_connection !== true) {
         throw new Error("当前核心不支持自定义模型连接配置，请更新核心；本次未发送");
       }
@@ -966,6 +1068,8 @@ async function sendPrompt() {
   state.autoScroll = true;
   updateScrollBottomBtn();
   addMessage("user", prompt);
+  if (!state.lastSessionPrompts) state.lastSessionPrompts = new Map();
+  state.lastSessionPrompts.set(state.sessionId, prompt);
   const attachments = state.attachments.map((attachment) => attachment.id);
   if (attachments.length) {
     addMessage("system", `附带 ${attachments.length} 个附件`);
@@ -992,11 +1096,14 @@ async function sendPrompt() {
   state.activeTurns.set(turnSessionId, {
     controller: state.abortController,
     startedAt: Date.now(),
+    turnId: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const v = Math.floor(Math.random() * 16); return (c === "x" ? v : (v & 3) | 8).toString(16); }),
+    prompt, phase: "thinking",
+    requestedModel: getComposerModel(),
   });
   try {
     const controller = state.abortController;
     const response = await window.OwoApi.stream("/session/" + encodeURIComponent(turnSessionId) + "/turn", {
-      method: "POST", json: { prompt, attachments, ...(modelConnection ? { model_connection: modelConnection } : {}) }, signal: controller.signal,
+      method: "POST", json: { prompt, attachments, turn_id: state.activeTurns.get(turnSessionId).turnId, ...(modelConnection ? { model_connection: modelConnection } : {}) }, signal: controller.signal,
     });
     const handlePayload = (event, payload) => {
       writeTargetSid = turnSessionId;
@@ -1055,6 +1162,7 @@ async function sendPrompt() {
           break;
         case "turn_stats":
           turn.server = payload;
+          rememberTurnFacts(turnSessionId, payload);
           finishThinking();
           settlePendingQuestion("ended");
           stopRunStatus();
@@ -1088,6 +1196,7 @@ async function sendPrompt() {
             blocked: " · 存在阻断问题",
             aborted: " · 已取消",
           })[payload.completion_status] || "";
+          rememberTurnFacts(turnSessionId, turn.server);
           showTurnFailure((payload.message || "未知原因") + completionLabel);
           break;
         }
@@ -1106,6 +1215,8 @@ async function sendPrompt() {
       ),
     });
     turn.completionStatus = result.completionStatus;
+    const facts = state.completedTurnFacts?.get(turnSessionId);
+    if (facts) facts.outcome = result.completionStatus === "aborted" ? "cancelled" : result.completionStatus === "blocked" ? "failed" : "completed";
     if (result.completionStatus !== "aborted") window.OwoNotificationSound?.play(loadLocalPrefs().sound);
     state.lastTurnOutcome = result.completionStatus === "aborted"
       ? "cancelled"
@@ -1120,13 +1231,21 @@ async function sendPrompt() {
   } catch (error) {
     writeTargetSid = turnSessionId;
     if (!assistantText && streaming) streaming.remove();
-    if (error.name !== "AbortError") {
+    if (error.name !== "AbortError" && error.completionStatus !== "aborted") {
       window.OwoNotificationSound?.play(loadLocalPrefs().sound);
       state.lastTurnOutcome = "failed";
+      if (!state.completedTurnFacts) state.completedTurnFacts = new Map();
+      state.completedTurnFacts.set(turnSessionId, { ...(state.completedTurnFacts.get(turnSessionId) || {}), outcome: "failed" });
       if (!failureDisplayed) showTurnFailure(error.message);
-    } else {
+    } else if (error.completionStatus === "aborted") {
       state.lastTurnOutcome = "cancelled";
-      addEventChip("stop", "已被你停止", "本回合在收到中断请求后结束，未完成的部分可重新发送继续。");
+      if (!state.completedTurnFacts) state.completedTurnFacts = new Map();
+      state.completedTurnFacts.set(turnSessionId, { ...(state.completedTurnFacts.get(turnSessionId) || {}), outcome: "cancelled" });
+      addEventChip("stop", "宿主已停止此回合", "已产生的文件变更可能保留，请在证据页查看。");
+    } else {
+      if (!state.completedTurnFacts) state.completedTurnFacts = new Map();
+      state.completedTurnFacts.set(turnSessionId, { outcome: "interrupted", lastExecutionModel: "", lastCompletionRecord: null });
+      showTurnFailure("连接已中断；宿主是否结束尚未确认，请重新打开会话查看。");
     }
   } finally {
     if (turnSessionId) {
@@ -1203,7 +1322,7 @@ async function uploadAttachments(files) {
 }
 
 // ---------- 审批条 ----------
-// 访问级别（composer 下拉）：ask 逐次询问；auto 自动放行只读类工具；full 全部放行。
+// 待确认请求始终由用户决定，不按工具名称或浏览器偏好代为批准。
 // 审批超时预算（与引擎侧一致）：超时即按拒绝处理，因此卡片必须自带倒计时，
 // 否则用户一旦没注意到顶部审批条，回合会在 5 分钟后静默失败（实测因此丢了两次 PPT 请求）。
 const APPROVAL_TIMEOUT_MS = 300000;
@@ -1226,18 +1345,6 @@ function showApproval(payload) {
     // 计时起点只在此处落一次：后续 5s 轮询同步不会重置已有的倒计时。
     requestedAt: Date.now(),
   });
-  const mode = getAccessMode();
-  if (mode !== "ask") {
-    const safe = SAFE_TOOL_PATTERN.test(payload.tool || "");
-    if (mode === "full" || safe) {
-      // 不逐条写系统消息：完全访问模式下一次任务能自动放行几十次，
-      // 会把对话流淹成权限日志（实测 64 次工具调用刷出 30+ 条）。改为在对应
-      // 的工具步骤上打一枚「自动放行」徽标（pushToolUse 消费这条记录）。
-      queueAutoAllowed(payload.tool);
-      respondApproval(requestId, true);
-      return;
-    }
-  }
   renderApprovals();
 }
 
@@ -2445,6 +2552,8 @@ async function createComputerTask() {
 
 // 挂载顺序（与 index.html 的 script 引入顺序一致）。
 const PANEL_ORDER = [
+  "home",
+  "evidence",
   "notes",
   "automations",
   "plugin-market",
@@ -2470,6 +2579,16 @@ const PANEL_ORDER = [
 function panelHelpers() {
   return {
     baseUrl: API_BASE,
+    snapshot: () => ({ workspace: $("workspace")?.value || "", settings: state.settings || {}, sessions: state.sessionIndex || [], sessionsKnown: state.sessionsKnown === true }),
+    openPanel: openPanelById,
+    downloadArtifact: async id => {
+      if (window.owo?.downloadArtifact) return window.owo.downloadArtifact(id);
+      const blob = await window.OwoApi.download("/artifacts/" + encodeURIComponent(id) + "/content?raw=true");
+      const url = URL.createObjectURL(blob), link = document.createElement("a"); link.href = url; link.download = "artifact"; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+    openChat: async () => { setSettingsPageVisible(false); await newSession(); $("prompt").focus(); },
+    openSession: async id => { setSettingsPageVisible(false); await selectSession(id); },
+    openTeam: id => { openPanelById("workswarm"); window.OwoPanels.workswarm.open(id); },
     get(path, options) {
       const requestOptions = Object.assign({}, options || {});
       // /health is intentionally public in the server contract. Tool panels must be
@@ -2503,12 +2622,23 @@ function panelHelpers() {
 }
 
 let currentPanel = null;
+const panelScrollPositions = new Map();
+function unmountActivePanel() {
+  const root = $("panelRoot");
+  if (currentPanel && root) panelScrollPositions.set(currentPanel, root.scrollTop);
+  const panel = window.OwoPanels?.[currentPanel];
+  if (panel && typeof panel.dispose === "function") panel.dispose();
+  currentPanel = null;
+  clearPanelLayoutObservers();
+}
 const panelObserverScope = window.OwoObserverScope.createObserverScope();
+let stopPanelAccessibility = null;
 
 // The panel slot is shared, but each mount gets a fresh DOM root. Late replies from
 // the previous panel can then update only its detached root, never the active page.
 function clearPanelLayoutObservers() {
   panelObserverScope.clear();
+  stopPanelAccessibility?.(); stopPanelAccessibility = null;
   panelTocSync = null;
 }
 
@@ -2517,6 +2647,13 @@ function mountPanel(id, writeHash = true) {
   const panel = window.OwoPanels && window.OwoPanels[id];
   const previousRoot = $("panelRoot");
   if (!panel || !previousRoot) return;
+  if (currentPanel) panelScrollPositions.set(currentPanel, previousRoot.scrollTop);
+  document.body.classList.add("panel-open");
+  const description = window.OwoWorkbenchNavigation.find(id);
+  const newTaskButton = $("workbenchPanelNewTask");
+  if (newTaskButton) newTaskButton.hidden = id === "project-launcher";
+  if ($("workbenchPanelTitle")) $("workbenchPanelTitle").textContent = description?.title || panel.title || id;
+  if ($("workbenchPanelDescription")) $("workbenchPanelDescription").textContent = description?.description || "";
   // 每次替换根节点前都释放上一个实例，即使用户再次点开同一面板。
   // 工作流、目标云端订阅和 WorkSwarm 都有监听/SSE；同面板重挂载也必须 dispose。
   if (currentPanel) {
@@ -2532,6 +2669,8 @@ function mountPanel(id, writeHash = true) {
   if (writeHash) workbenchView.setRoute(id);
   for (const button of document.querySelectorAll("#panelNav button")) {
     button.classList.toggle("active", button.dataset.panel === id);
+    if (button.dataset.panel === id) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
   }
   const root = previousRoot.cloneNode(false);
   previousRoot.replaceWith(root);
@@ -2560,6 +2699,11 @@ function mountPanel(id, writeHash = true) {
   try {
     window.OwoPanelRuntime.mount(panel, root, panelHelpers(), showMountError);
     layoutPanel(root);
+    stopPanelAccessibility = window.OwoAccessibility?.watch(root);
+    const heading = root.querySelector("h2");
+    if (heading && description && heading.textContent.trim() === description.title) heading.hidden = true;
+    window.OwoCoreActionAvailability?.update(window.OwoCoreActionAvailability.isAvailable(), root);
+    requestAnimationFrame(() => { if ($("panelRoot") === root) root.scrollTop = panelScrollPositions.get(id) || 0; });
   } catch (error) {
     showMountError(error);
   }
@@ -2631,7 +2775,7 @@ let panelTocSync = null;
 /// 在面板左侧生成吸顶目录，点击滚到对应分区——长面板不必一路往下找。
 function buildPanelToc(section, container) {
   const headings = Array.from(container.children).filter(
-    (el) => el.classList.contains("sub") || /^H[2-4]$/.test(el.tagName)
+    (el) => !el.hasAttribute("data-core-action-hint") && (el.classList.contains("sub") || /^H[2-4]$/.test(el.tagName))
   );
   if (headings.length < 3) return;
   const nav = document.createElement("nav");
@@ -2766,17 +2910,15 @@ function panelFromHash() {
 // 深链打开：确保工具视图可见，再把对应面板挂上。
 function openPanelById(id) {
   if (!id || !window.OwoPanels || !window.OwoPanels[id]) return false;
-  if (document.body.classList.contains("settings-open")) setSettingsPageVisible(false);
+  // showTools also leaves settings without creating an intermediate chat route.
   // Clear the sidebar group filter so the shared extension panel stays visible.
   window.OwoWorkbenchView.clearGroupFilters(document.body);
-  setToolsVisible(true);
-  // The settings overview is lazy-loaded on first entry into the tools view.
-  // A deep-linked extension panel enters that view too, so hydrate its shared overview.
-  if (typeof refreshPluginSkillOverview === "function") void refreshPluginSkillOverview();
+  setToolsVisible(true, true);
+  // The focused page does not hydrate the hidden tools overview.
   mountPanel(id);
   // 深链落到面板本身：扩展面板区在工具视图下方，需要滚动过去才算"打开"。
   const target = $("panelRoot");
-  if (target && target.scrollIntoView) target.scrollIntoView({ block: "start" });
+  if (target) $("sidebar").scrollTop = 0;
   return true;
 }
 
@@ -2786,15 +2928,34 @@ function initPanels() {
   window.OwoPanels = window.OwoPanels || {};
   window.OwoPanels.baseUrl = API_BASE;
   nav.innerHTML = "";
-  for (const id of PANEL_ORDER) {
+  let currentGroup = "";
+  for (const entry of window.OwoWorkbenchNavigation.search("", PANEL_ORDER)) {
+    const id = entry.id;
     const panel = window.OwoPanels[id];
     if (!panel) continue;
     const button = document.createElement("button");
-    button.textContent = panel.title || id;
+    if (entry.group !== currentGroup) {
+      const heading = document.createElement("h3");
+      heading.className = "workbench-nav-group";
+      heading.textContent = entry.group;
+      nav.appendChild(heading);
+      currentGroup = entry.group;
+    }
+    button.textContent = entry.title;
+    button.title = entry.description;
     button.dataset.panel = id;
-    button.addEventListener("click", () => mountPanel(id));
+    button.addEventListener("click", () => openPanelById(id));
     nav.appendChild(button);
   }
+  $("panelSearch")?.addEventListener("input", (event) => {
+    const matches = new Set(window.OwoWorkbenchNavigation.search(event.target.value, PANEL_ORDER).map(item => item.id));
+    for (const button of nav.querySelectorAll("button[data-panel]")) button.hidden = !matches.has(button.dataset.panel);
+    for (const heading of nav.querySelectorAll(".workbench-nav-group")) {
+      let visible = false;
+      for (let node = heading.nextElementSibling; node && node.tagName !== "H3"; node = node.nextElementSibling) if (!node.hidden) visible = true;
+      heading.hidden = !visible;
+    }
+  });
   // 保留有效的工具/设置深链；旧面板、拼错的 hash 不得劫持默认会话页。
   const initialRoute = window.OwoWorkbenchView.resolveInitialRoute(location.hash, PANEL_ORDER);
   if (location.hash && initialRoute.kind === "chat") {
@@ -2809,6 +2970,20 @@ function initPanels() {
 }
 
 window.addEventListener("hashchange", () => applyDeepLink());
+window.addEventListener("popstate", () => { if (!applyDeepLink()) setSettingsPageVisible(false); });
+
+function openWorkbenchSearch() {
+  const entries = window.OwoWorkbenchNavigation.search("", PANEL_ORDER).filter(item => window.OwoPanels?.[item.id]);
+  openModal({ title: "查找功能", body: '<label><span class="sr-only">搜索功能</span><input id="workbenchQuickSearch" type="search" placeholder="搜索任务、笔记、权限或工具…"></label><div class="workbench-quick-results">' + entries.map(item => '<button type="button" data-quick-panel="' + esc(item.id) + '"><strong>' + esc(item.title) + '</strong><span>' + esc(item.description) + '</span></button>').join("") + "</div>" });
+  const body = $("modalBody");
+  const input = $("workbenchQuickSearch");
+  input.addEventListener("input", () => {
+    const matches = new Set(window.OwoWorkbenchNavigation.search(input.value, PANEL_ORDER).map(item => item.id));
+    for (const button of body.querySelectorAll("[data-quick-panel]")) button.hidden = !matches.has(button.dataset.quickPanel);
+  });
+  for (const button of body.querySelectorAll("[data-quick-panel]")) button.addEventListener("click", () => { closeModal(); openPanelById(button.dataset.quickPanel); });
+  input.addEventListener("keydown", event => { if (event.key === "Enter") { const first = Array.from(body.querySelectorAll("[data-quick-panel]")).find(button => !button.hidden); if (first) first.click(); } });
+}
 
 // 深链：#<panel-id> 打开对应面板，#settings 打开设置页（便于分享与逐页截图验证）。
 function applyDeepLink() {

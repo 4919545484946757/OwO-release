@@ -57,6 +57,7 @@ const {
   nativeImage,
   globalShortcut,
   screen,
+  safeStorage, session, net,
 } = electronApi;
 const { spawn, execFile } = require("node:child_process");
 const fs = require("node:fs");
@@ -67,6 +68,37 @@ const crypto = require("node:crypto");
 const supervision = require("./core-supervision.js");
 const shellCommands = require("./shell-commands.js");
 const { configuredWorkspacePath } = require("./workspace-state.js");
+const { CustomModelVault } = require("./custom-model-vault.js");
+const modelBroker = require("./custom-model-broker.js");
+const { migrateOrigins } = require("./legacy-model-migration.js");
+let vaultInstance = null, vaultStartupError = "";
+function modelVault() {
+  if (!vaultInstance) vaultInstance = new CustomModelVault(path.join(dataRoot(), "custom-models.secure.json"), safeStorage);
+  return vaultInstance;
+}
+async function syncModelCredentials(records, before) {
+  if (!core?.token) throw Error("credentials/core_not_ready");
+  const headers = { Authorization: "Bearer " + core.token };
+  const caps = await httpGet(core.port, "/capabilities", headers);
+  if (caps.status !== 200 || JSON.parse(caps.body).constraints?.custom_model_env_credentials !== true) throw Error("credentials/core_upgrade_required");
+  const previousRefs = new Set(before.map(record => record.ref));
+  for (const record of records) {
+    if (record.disabled || !record.sealed || previousRefs.has(record.ref)) continue;
+    const result = await httpPost(core.port, "/desktop/model-credentials", headers, {
+      credential_ref: record.ref, model: record.id, base_url: record.baseUrl, api_format: record.apiFormat, api_key: modelVault().secret(record),
+    });
+    if (result.status !== 200) throw Error("credentials/core_registration_failed");
+  }
+  const retained = new Set(records.filter(record => !record.disabled).map(record => record.ref));
+  for (const record of before) {
+    if (!record.sealed || retained.has(record.ref)) continue;
+    const result = await httpPost(core.port, "/desktop/model-credentials", headers, {
+      credential_ref: record.ref, model: record.id, base_url: record.baseUrl, api_format: record.apiFormat,
+    });
+    if (result.status !== 200) throw Error("credentials/core_revocation_failed");
+  }
+}
+
 
 const {
   CORE_API_VERSION,
@@ -344,8 +376,11 @@ function writeConfig(config) {
 // ---------- 核心：环境变量注入 ----------
 
 function coreEnv(config, extra = {}) {
+  let bindings = {};
+  try { bindings = modelVault().environment(); } catch { vaultStartupError = "credentials/unlock_failed"; }
   return shellCommands.applyModelEnvironment({
     ...process.env,
+    ...bindings,
     OWO_AGENT_DATA: agentDataDir(),
     OWO_DESKTOP_RELEASE: "1",
     OWO_DESKTOP_PAIRING_SECRET: PAIRING_SECRET,
@@ -1115,6 +1150,30 @@ ipcMain.handle("app:openExternal", (_event, url) => {
   return { ok: true };
 });
 
+for (const operation of ["list", "upsert", "remove", "migrate", "probe"]) {
+  ipcMain.handle("models:" + operation, async (event, input = {}) => {
+    modelBroker.assertFrame(event, mainWindow, core);
+    if (operation === "list") return { ...modelVault().snapshot(), error: vaultStartupError || null };
+    if (operation === "probe") return modelBroker.probe(modelVault(), input);
+    const result = operation === "upsert" ? await modelVault().upsert(input, syncModelCredentials)
+      : operation === "remove" ? await modelVault().remove(String(input.id || ""), syncModelCredentials)
+      : await modelVault().migrate(input.models, input.keys, syncModelCredentials);
+    if (operation === "migrate" && !result.conflictedIds?.length) vaultStartupError = "";
+    else if (!vaultStartupError.includes("migration")) vaultStartupError = "";
+    return result;
+  });
+}
+ipcMain.handle("artifact:download", (event, id) => {
+  modelBroker.assertFrame(event, mainWindow, core);
+  if (typeof id !== "string" || !id || id.length > 400) throw Error("artifact/invalid_id");
+  mainWindow.webContents.downloadURL(webUiUrl(core.port) + "artifacts/" + encodeURIComponent(id) + "/content?raw=true", { headers: shellHeaders({ Authorization: "Bearer " + core.token }) });
+  return { ok: true };
+});
+ipcMain.handle("view:zoom", (event, factor) => {
+  modelBroker.assertFrame(event, mainWindow, core);
+  if (![1, 1.25, 1.5].includes(Number(factor))) throw Error("view/invalid_zoom");
+  mainWindow.webContents.setZoomFactor(Number(factor)); return { ok: true, factor: Number(factor) };
+});
 // ---------- 桌宠 IPC ----------
 // 桌宠页面无 Node 权限，这三件事只能主进程代劳。与旧 Tauri 壳的
 // `move_pet_by` / `set_pet_visible` / `open_workbench` 语义一致。
@@ -1404,6 +1463,11 @@ app.whenReady().then(async () => {
   createTray();
   registerGlobalShortcut();
   createWindow();
+  try {
+    const result = await migrateOrigins({ BrowserWindow, session, net, logFile: coreLogPath(), userData: app.getPath("userData"), vault: modelVault() });
+    if (result.conflicts) vaultStartupError = "credentials/migration_conflict";
+  }
+  catch { vaultStartupError = "credentials/legacy_migration_pending"; }
   await startCore({ reason: "launch" });
   startPetWatchdog();
   app.on("activate", () => {

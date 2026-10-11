@@ -1,0 +1,90 @@
+[
+  {
+    "check": "secure reference capability",
+    "passed": true
+  },
+  {
+    "check": "runtime OpenAPI equals checked snapshot",
+    "passed": true
+  },
+  {
+    "check": "unpaired registration is rejected",
+    "passed": true
+  },
+  {
+    "check": "paired registration succeeds",
+    "passed": true
+  },
+  {
+    "check": "turn telemetry names actual model",
+    "passed": true
+  },
+  {
+    "check": "history restores exact provider telemetry",
+    "passed": true
+  },
+  {
+    "check": "usage is measured by scripted fixture",
+    "passed": true
+  },
+  {
+    "check": "daemon restart preserves completed facts",
+    "passed": true
+  },
+  {
+    "check": "new ephemeral port",
+    "passed": true
+  },
+  {
+    "check": "credential can be registered again by its desktop owner",
+    "passed": true
+  },
+  {
+    "check": "model request began",
+    "passed": true
+  },
+  {
+    "check": "scoped cancellation accepted",
+    "passed": true
+  },
+  {
+    "check": "cancelled stream closes",
+    "passed": true
+  },
+  {
+    "check": "cancelled host terminal persisted",
+    "passed": true
+  },
+  {
+    "check": "history reports the cancelled turn",
+    "passed": true
+  },
+  {
+    "check": "canonical diff endpoint remains available",
+    "passed": true
+  },
+  {
+    "check": "revoked credential never falls back to a default provider",
+    "passed": true
+  },
+  {
+    "check": "synthetic credential absent from persisted facts",
+    "passed": true
+  },
+  {
+    "check": "model calls stayed local",
+    "passed": true
+  },
+  {
+    "identity": {
+      "api_version": "0.7",
+      "build_id": "60a421ff0222d8e6f0bb671ab68dd14f6c6dab72",
+      "event": "core_ready",
+      "instance_id": "57237859853741b49ec2f9994e0dffa2",
+      "pid": 19996,
+      "port": 43128
+    },
+    "source": "current debug CLI; current frontend files",
+    "model": "local scripted provider; no cloud"
+  }
+]

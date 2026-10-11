@@ -804,6 +804,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/desktop/model-credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Paired desktop owner only. Publishes or revokes a restricted, endpoint-bound environment reference; never returns a secret. */
+        post: operations["desktopModelCredentialBind"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/desktop/pet": {
         parameters: {
             query?: never;
@@ -3203,7 +3220,7 @@ export interface paths {
         get: operations["getSession"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["deleteSession"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4025,6 +4042,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{id}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["workswarmReadTeamContext"];
+        put?: never;
+        post: operations["workswarmPublishTeamContext"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{id}/diagnostic": {
         parameters: {
             query?: never;
@@ -4537,22 +4570,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/teams/{id}/context": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["workswarmReadTeamContext"];
-        put?: never;
-        post: operations["workswarmPublishTeamContext"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4614,18 +4631,46 @@ export interface components {
             /** @enum {string} */
             category: "code" | "research" | "document";
             mean_model_calls: number;
+            mean_tool_calls: ((number | null) | null) | null;
             mean_wall_ms: number;
             passed: number;
             runs_total: number;
             success_rate: number;
             /** Format: int64 */
             total_tokens: ((number | null) | null) | null;
-            mean_tool_calls: ((number | null) | null) | null;
         };
         CreateSessionRequest: {
             model?: string;
             system_prompt?: string;
             workspace: string;
+        };
+        /** @description Explicit connection for this turn only; credentials are never persisted with sessions or traces. */
+        CustomModelConnection: {
+            /** @enum {string} */
+            api_format?: "openai" | "anthropic";
+            api_key?: string;
+            api_key_env?: string;
+            /** Format: uri */
+            base_url: string;
+            model: string;
+            temperature?: number;
+            timeout_secs?: number;
+            use_full_url?: boolean;
+        };
+        DesktopModelCredentialBinding: {
+            /** @enum {string} */
+            api_format?: "openai" | "anthropic";
+            /** @description Omit to revoke. Never persisted by this API. */
+            api_key?: string | null;
+            /** Format: uri */
+            base_url: string;
+            credential_ref: string;
+            model: string;
+        };
+        EnablementRule: {
+            detail: string;
+            name: string;
+            satisfied: boolean;
         };
         Error: {
             error: string;
@@ -4656,6 +4701,21 @@ export interface components {
             agent_mode: "single" | "multi";
             case_id: string;
             repetition: number;
+        };
+        /** @description 共享 Team 自动启用结论：质量/成功率守卫、样本量、收益与资源护栏 */
+        ModeComparison: {
+            alignment_guardrails: components["schemas"]["EnablementRule"][];
+            enabled: boolean;
+            multi_calls_rel_change: ((number | null) | null) | null;
+            multi_cost_rel_change: ((number | null) | null) | null;
+            multi_success_rate_diff: number;
+            multi_tokens_rel_change: ((number | null) | null) | null;
+            multi_tool_calls_rel_change: ((number | null) | null) | null;
+            multi_wall_rel_change: ((number | null) | null) | null;
+            quality_guardrails: components["schemas"]["EnablementRule"][];
+            resource_guardrails: components["schemas"]["EnablementRule"][];
+            rules: components["schemas"]["EnablementRule"][];
+            sample_sufficient: boolean;
         };
         /** @description 世界模型候选（新候选恒 shadow 起步，达标后显式人工晋升；Option 字段缺省序列化为 null） */
         ModelCandidate: {
@@ -4694,6 +4754,7 @@ export interface components {
         };
         /** @description ProductEvalReport 原样（core 序列化；聚合全部 journal 记录含失败 + 未完成单元格清单） */
         ProductEvalReport: {
+            comparison?: components["schemas"]["ModeComparison"];
             /** @enum {string} */
             execution: "reference" | "live";
             generated_at: string;
@@ -4705,7 +4766,6 @@ export interface components {
             schema_version: number;
             suite_hash: string;
             suite_name: string;
-            comparison?: components["schemas"]["ModeComparison"];
         };
         /** @description 一次运行的完整记录（journal 最小单元；失败记录同样保留；Option 字段缺数据时序列化为 null） */
         ProductEvalRun: {
@@ -4733,14 +4793,14 @@ export interface components {
              * @enum {string}
              */
             status: "passed" | "failed" | "error" | "timeout" | "cancelled";
+            /** @description 精确工具调用数；旧记录或执行器无法观测时为 null */
+            tool_calls: ((number | null) | null) | null;
             /** @description 真实工具调用轨迹（单 Agent 执行器填写：工具+实参摘要+结果；旧记录缺省为空数组） */
             tool_log: string[];
             /** Format: int64 */
             total_tokens: ((number | null) | null) | null;
             /** Format: int64 */
             wall_ms: number;
-            /** @description 精确工具调用数；旧记录或执行器无法观测时为 null */
-            tool_calls: ((number | null) | null) | null;
         };
         /** @description ProductEval 运行摘要（列表元素与详情基底；六态：queued/running/cancelled/completed/failed/interrupted） */
         ProductEvalRunSummary: {
@@ -4769,6 +4829,22 @@ export interface components {
             status: "queued" | "running" | "cancelled" | "completed" | "failed" | "interrupted";
             suite: string;
         };
+        SessionDetail: {
+            active_turn_id?: string | null;
+            activity?: {
+                [key: string]: unknown;
+            } | null;
+            id?: string;
+            messages?: {
+                [key: string]: unknown;
+            }[];
+            model?: string;
+            model_override?: string | null;
+            title?: string;
+            turn_history?: components["schemas"]["SessionTurnHistoryV1"] | null;
+            turn_history_error?: string | null;
+            workspace?: string;
+        };
         SessionInfo: {
             archived?: boolean;
             created_at?: string;
@@ -4780,6 +4856,28 @@ export interface components {
             title?: string;
             updated_at?: string;
             workspace?: string;
+        };
+        SessionTurnHistoryV1: {
+            last_event_at?: string;
+            last_event_type?: string;
+            last_stats?: {
+                created_at?: string;
+                payload?: {
+                    [key: string]: unknown;
+                };
+                seq?: number;
+                turn_id?: string;
+            } | null;
+            last_terminal?: {
+                created_at?: string;
+                payload?: {
+                    [key: string]: unknown;
+                };
+                seq?: number;
+                turn_id?: string;
+            } | null;
+            last_turn_id?: string;
+            latest_seq?: number;
         };
         TurnEventRecord: {
             created_at: string;
@@ -4800,6 +4898,7 @@ export interface components {
         };
         TurnRequest: {
             attachments?: string[];
+            model_connection?: components["schemas"]["CustomModelConnection"];
             prompt: string;
             /** @description Narrow this turn to host-verified read operations; false never relaxes host policy */
             read_only?: boolean;
@@ -4808,39 +4907,6 @@ export interface components {
              * @description Preallocated identity for scoped cancellation, replay and duplicate suppression
              */
             turn_id?: string;
-            model_connection?: components["schemas"]["CustomModelConnection"];
-        };
-        EnablementRule: {
-            name: string;
-            satisfied: boolean;
-            detail: string;
-        };
-        /** @description Shared Team auto-enablement verdict combining quality, sample, gain, and resource guardrails. */
-        ModeComparison: {
-            multi_success_rate_diff: number;
-            multi_wall_rel_change: ((number | null) | null) | null;
-            multi_calls_rel_change: ((number | null) | null) | null;
-            multi_tool_calls_rel_change: ((number | null) | null) | null;
-            multi_tokens_rel_change: ((number | null) | null) | null;
-            multi_cost_rel_change: ((number | null) | null) | null;
-            rules: components["schemas"]["EnablementRule"][];
-            resource_guardrails: components["schemas"]["EnablementRule"][];
-            enabled: boolean;
-            sample_sufficient: boolean;
-            quality_guardrails: components["schemas"]["EnablementRule"][];
-            alignment_guardrails: components["schemas"]["EnablementRule"][];
-        };
-        /** @description Explicit connection for this turn only; credentials are never persisted with sessions or traces. */
-        CustomModelConnection: {
-            model: string;
-            /** Format: uri */
-            base_url: string;
-            /** @enum {string} */
-            api_format?: "openai" | "anthropic";
-            use_full_url?: boolean;
-            api_key?: string;
-            temperature?: number;
-            timeout_secs?: number;
         };
     };
     responses: never;
@@ -4985,6 +5051,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         artifact_id: string;
+                        attempt_id?: string | null;
                         evidence_refs: string[];
                         /** @enum {string} */
                         format: "json" | "csv" | "research" | "markdown";
@@ -4995,6 +5062,7 @@ export interface operations {
                         kind: string;
                         sha256: string;
                         size_bytes: number;
+                        task_id?: string | null;
                         team_id: string;
                         validation: {
                             format: string;
@@ -5002,8 +5070,6 @@ export interface operations {
                             valid: boolean;
                         };
                         version: number;
-                        task_id?: string | null;
-                        attempt_id?: string | null;
                     };
                 };
             };
@@ -5153,7 +5219,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description rework task created（重置原步骤及未完成下游，重跑后登记 v2 并标 v1 Superseded；approved head 不变直至 v2 批准） */
+            /** @description 返工意图已持久化并派发（dispatching → requested → completed/failed）；新版本登记后将 v1 标为 Superseded，approved head 不变直至新版本批准 */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -5387,6 +5453,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        attempt_id?: string | null;
                         change_set_id: string;
                         changed_files?: string[];
                         created_at?: string;
@@ -5397,7 +5464,6 @@ export interface operations {
                         status: "pending_review" | "accepted" | "rejected" | "reverted" | "conflicted";
                         step_id?: string;
                         team_id?: string;
-                        attempt_id?: string | null;
                     } & {
                         [key: string]: unknown;
                     };
@@ -6418,6 +6484,42 @@ export interface operations {
         responses: {
             /** @description app launched */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    desktopModelCredentialBind: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DesktopModelCredentialBinding"];
+            };
+        };
+        responses: {
+            /** @description Reference updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid credential binding */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Paired desktop proof required */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10498,8 +10600,37 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description session detail with messages */
+            /** @description session detail with durable host facts */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionDetail"];
+                };
+            };
+        };
+    };
+    deleteSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description session deleted (store + memory cache) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description session not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10536,9 +10667,9 @@ export interface operations {
                 content: {
                     "application/json": {
                         ok: boolean;
-                        turn_id?: string | null;
                         /** @enum {string} */
                         state: "cancellation_requested" | "cancellation_queued" | "no_active_turn" | "already_finished";
+                        turn_id?: string | null;
                     };
                 };
             };
@@ -10830,9 +10961,9 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        ok: boolean;
                         allowed: boolean;
                         granted: boolean;
+                        ok: boolean;
                     };
                 };
             };
@@ -11593,6 +11724,8 @@ export interface operations {
                     /** @enum {string} */
                     mode?: "single" | "team" | "swarmflow";
                     objective: string;
+                    /** @description optional REPL session; server snapshots bounded same-workspace user constraints */
+                    parent_session_id?: string;
                     roles?: Record<string, never>[];
                     /**
                      * @description 五期组队策略（缺省 auto：按任务画像判定，不再盲目启用多 Agent）；未知值 400
@@ -11611,8 +11744,6 @@ export interface operations {
                         /** @description 相对 root 的允许写入路径 */
                         write_allowed_paths?: string[];
                     };
-                    /** @description optional REPL session; server snapshots bounded same-workspace user constraints */
-                    parent_session_id?: string;
                 };
             };
         };
@@ -11855,7 +11986,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 八期（二路 wire）：团队的 ChangeSet 列表——change_set 元素含 change_set_id/team_id/step_id/role/base_hashes/result_hashes/changed_files/diff_ref/status/decisions/created_at/resolved_at；status ∈ pending_review|accepted|rejected|reverted|conflicted；未接受 ChangeSet 阻断该团队最终 approved head（change_set_store::approval_block_for_team 门控），UI 全字段容错读取 */
+            /** @description 八期（二路 wire）：团队的 ChangeSet 列表——change_set 元素含 change_set_id/team_id/step_id/attempt_id/role/base_hashes/result_hashes/changed_files/diff_ref/status/decisions/created_at/resolved_at；status ∈ pending_review|accepted|rejected|reverted|conflicted；未接受 ChangeSet 阻断该团队最终 approved head（change_set_store::approval_block_for_team 门控），UI 全字段容错读取 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -11863,6 +11994,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         change_sets: ({
+                            attempt_id?: string | null;
                             /** @description 执行前文件内容哈希（内容进 CAS） */
                             base_hashes?: {
                                 [key: string]: unknown;
@@ -11885,7 +12017,6 @@ export interface operations {
                             status?: "pending_review" | "accepted" | "rejected" | "reverted" | "conflicted";
                             step_id?: string;
                             team_id?: string;
-                            attempt_id?: string | null;
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -11895,6 +12026,87 @@ export interface operations {
             };
             /** @description team not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workswarmReadTeamContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description versioned team facts with bounded CAS content */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unknown team */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workswarmPublishTeamContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    expected_revision: number;
+                    file_hash?: string | null;
+                    key: string;
+                    producer: string;
+                    source_refs?: string[];
+                    task_id?: string | null;
+                    value: string;
+                };
+            };
+        };
+        responses: {
+            /** @description candidate fact published */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description invalid fact */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description unknown team */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description stale expected_revision */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12708,87 +12920,6 @@ export interface operations {
         responses: {
             /** @description active rule model + candidates + per-signature samples + calibration report */
             200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    workswarmReadTeamContext: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description versioned team facts with bounded CAS content */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description unknown team */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    workswarmPublishTeamContext: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** Format: int64 */
-                    expected_revision: number;
-                    key: string;
-                    value: string;
-                    producer: string;
-                    task_id?: string | null;
-                    source_refs?: string[];
-                    file_hash?: string | null;
-                };
-            };
-        };
-        responses: {
-            /** @description candidate fact published */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description invalid fact */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description unknown team */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description stale expected_revision */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };

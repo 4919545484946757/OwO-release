@@ -11,14 +11,15 @@
     return { kind: "chat" };
   }
 
-  function replaceRouteHash(location, history, route) {
+  function replaceRouteHash(location, history, route, push) {
     if (!location || !history || typeof history.replaceState !== "function") {
       throw new TypeError("location and history.replaceState are required");
     }
     const id = String(route || "").replace(/^#/, "").trim();
     const hash = id ? "#" + id : "";
     if (location.hash === hash) return false;
-    history.replaceState(null, "", String(location.pathname || "/") + String(location.search || "") + hash);
+    const write = push && typeof history.pushState === "function" ? "pushState" : "replaceState";
+    history[write](null, "", String(location.pathname || "/") + String(location.search || "") + hash);
     return true;
   }
 
@@ -40,21 +41,26 @@
     const clearToolGroups = options.clearToolGroups || function () {};
     const scrollSettings = options.scrollSettings || function () {};
     const replaceRoute = options.replaceRoute || function () {};
+    const leavePanel = options.leavePanel || function () {};
 
     function setToggleButton(expanded) {
       toggleButton.setAttribute("aria-expanded", String(expanded));
       toggleButton.textContent = expanded ? "收起工具与设置" : "显示工具与设置";
     }
 
-    function showTools(visible) {
+    function showTools(visible, preserveRoute) {
+      if (!visible) leavePanel();
+      body.classList.remove("panel-open");
       body.classList.toggle("show-tools", visible);
       body.classList.toggle("tools-open", visible);
       body.classList.toggle("settings-open", false);
       setToggleButton(visible);
-      replaceRoute(null);
+      if (!preserveRoute) replaceRoute(null);
     }
 
     function showSettings(visible) {
+      leavePanel();
+      body.classList.remove("panel-open");
       body.classList.toggle("settings-open", visible);
       if (visible) {
         body.classList.remove("tools-open");

@@ -29,7 +29,7 @@ test("工作台三态视图由单一控制器管理并在启动前加载", () =>
   const viewScript = index.search(/<script src="core\/workbench-view\.js(?:\?[^"]*)?"><\/script>/);
   assert.ok(viewScript >= 0 && viewScript < index.indexOf('<script src="app.js"></script>'));
   assert.match(app, /window\.OwoWorkbenchView\.create\(/);
-  assert.match(app, /workbenchView\.showTools\(visible\)/);
+  assert.match(app, /workbenchView\.showTools\(visible, preserveRoute\)/);
   assert.match(app, /workbenchView\.showSettings\(visible\)/);
 });
 

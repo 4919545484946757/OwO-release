@@ -48,6 +48,7 @@
       dimensions: [],
       spec: null,
       draft: null,
+      baselineDraft: null,
       pending: [],
       grants: [],
       recentDecisions: [],
@@ -109,6 +110,8 @@
         dimensions: state.dimensions.slice(),
         spec: state.spec,
         draft: state.draft ? JSON.parse(JSON.stringify(state.draft)) : null,
+        baselineDraft: state.baselineDraft,
+        changedFields: domain ? domain.changesFromDraft(state.draft, state.baselineDraft) : [],
         pending: state.pending.slice(),
         grants: state.grants.slice(),
         recentDecisions: state.recentDecisions.slice(),
@@ -146,6 +149,7 @@
       state.dimensions = domain ? domain.dimensionsFromOverview(overview) : (Array.isArray(overview.dimensions) ? overview.dimensions : []);
       state.spec = domain ? domain.specFromOverview(overview) : (isPlainObject(overview.spec) ? overview.spec : null);
       state.draft = state.spec ? JSON.parse(JSON.stringify(state.spec)) : defaultDraft();
+      state.baselineDraft = JSON.parse(JSON.stringify(state.draft));
       state.pending = domain ? domain.listField(overview, "pending") : (Array.isArray(overview.pending) ? overview.pending : []);
       state.grants = domain ? domain.listField(overview, "grants") : (Array.isArray(overview.grants) ? overview.grants : []);
       state.recentDecisions = domain ? domain.listField(overview, "recent_decisions") : [];
@@ -155,7 +159,7 @@
     }
 
     function defaultDraft() {
-      return { filesystem: "workspace_write", command: "allowlisted", network: "deny", persistence: "task", scopes: [] };
+      return domain ? domain.draftFromOverview(state.overview) : { filesystem: "", command: "", network: "", persistence: "", scopes: [] };
     }
 
     /** §4.3 状态条权限段回灌（零额外请求；函数不存在时安全跳过）。 */

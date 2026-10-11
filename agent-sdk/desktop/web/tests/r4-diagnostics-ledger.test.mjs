@@ -322,7 +322,7 @@ test("接线：诊断台账是懒加载面板，首屏不读取诊断数据", ()
   assert.match(indexHtml, /<div id="panelRoot"><\/div>/, "工具面板必须复用统一挂载根节点");
   assert.match(appDomainSource, /"diagnostics-ledger"/, "诊断台账必须进入统一面板目录");
   assert.match(appDomainSource, /function mountPanel\(id, writeHash = true\)/, "面板必须复用统一挂载生命周期");
-  assert.match(appDomainSource, /button\.addEventListener\("click", \(\) => mountPanel\(id\)\)/,
+  assert.match(appDomainSource, /button\.addEventListener\("click", \(\) => openPanelById\(id\)\)/,
     "诊断请求须由用户显式打开面板触发");
   assert.match(viewSource, /mount\(root\)[\s\S]*load\(root, \{ force: true \}\)/,
     "进入面板时才发起诊断读取");

@@ -68,7 +68,7 @@ window.OwoPanels.observability = (function () {
       '#owo-mtr-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(116px,1fr));gap:8px}' +
       '.owo-mtr-card{display:flex;flex-direction:column;gap:2px;justify-content:center;padding:9px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);text-align:left}' +
       '.owo-mtr-card b{font-size:19px;font-variant-numeric:tabular-nums;line-height:1.1;color:var(--text);overflow-wrap:anywhere}' +
-      '.owo-mtr-card span{font-size:11px;color:var(--text-2)}' +
+      '.owo-mtr-card span{font-size:12px;color:var(--text-2)}' +
       '.owo-mtr-table{width:100%;border-collapse:collapse;font-size:12px}' +
       '.owo-mtr-table td,.owo-mtr-table th{border:0;border-bottom:1px solid var(--border);padding:5px 9px;text-align:left}' +
       '.owo-mtr-table th{background:var(--surface-2);color:var(--text-2);font-weight:650;white-space:nowrap}' +
@@ -381,9 +381,9 @@ window.OwoPanels.observability = (function () {
         var exceeded = d.budget && d.budget.exceeded ? ' <b class="bad">超限</b>' : "";
         return (
           "<tr><td>" + H.esc(d.dimension) + "</td><td>" + metricText(d.calls, "0") +
-          "</td><td>" + metricText(d.total_tokens, "0") +
-          "</td><td>" + H.esc(String(d.cost_usd)) + " USD" +
-          "</td><td>" + H.esc(String(d.budget ? d.budget.spent_usd : 0)) + " / " +
+          "</td><td>" + metricText(d.total_tokens) +
+          "</td><td>" + metricText(d.cost_usd) + (d.cost_usd == null ? "" : " USD") +
+          "</td><td>" + metricText(d.budget ? d.budget.spent_usd : null) + " / " +
           H.esc(String(d.budget ? d.budget.limit_usd : "—")) + budget + exceeded + "</td></tr>"
         );
       })

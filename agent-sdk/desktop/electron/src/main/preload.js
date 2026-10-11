@@ -3,6 +3,9 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("owo", {
   getCoreState: () => ipcRenderer.invoke("core:get"),
+  downloadArtifact: id => ipcRenderer.invoke("artifact:download", id),
+  setZoom: factor => ipcRenderer.invoke("view:zoom", factor),
+  customModels: { list: () => ipcRenderer.invoke("models:list"), upsert: input => ipcRenderer.invoke("models:upsert", input), remove: id => ipcRenderer.invoke("models:remove", { id }), migrate: input => ipcRenderer.invoke("models:migrate", input), probe: input => ipcRenderer.invoke("models:probe", input) },
   restartCore: () => ipcRenderer.invoke("core:restart"),
   readConfig: () => ipcRenderer.invoke("config:read"),
   writeConfig: (config) => ipcRenderer.invoke("config:write", config),

@@ -1,0 +1,28 @@
+   Compiling owo-agent-server v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-server)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.66s
+
+running 5 tests
+test artifact_content_envelope_and_raw_download ... ok
+     Running tests\artifact_delivery_api_tests.rs (target\debug\deps\artifact_delivery_api_tests-899a92843a07da88.exe)
+test artifact_metadata_shape_and_legacy_fallback ... ok
+test contract_gate_rejects_invalid_and_registers_valid_artifacts ... ok
+test delivery_manifest_lists_latest_per_kind ... ok
+test unknown_artifact_and_project_return_404 ... ok
+
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.67s
+     Running tests\artifact_review_api_tests.rs (target\debug\deps\artifact_review_api_tests-a091f2f0c200946d.exe)
+
+running 9 tests
+test approve_review_full_chain_via_http ... ok
+test idempotency_key_reused_on_other_artifact_conflicts_via_http ... ok
+test idempotent_replay_via_http_has_zero_side_effects ... ok
+test producer_self_approve_forbidden_without_policy ... ok
+test request_changes_and_reject_lifecycles_via_http ... ok
+test review_404_and_400_boundaries ... ok
+test rework_contract_guards ... ok
+test rework_full_loop_produces_v2_and_switches_head_on_approval ... ok
+test stale_expected_version_conflicts_via_http ... ok
+
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.02s

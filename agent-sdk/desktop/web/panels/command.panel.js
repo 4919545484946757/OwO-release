@@ -64,7 +64,7 @@ window.OwoPanels.command = (function () {
       "<style>" +
       ".owo-command-log{height:180px;overflow:auto;background:var(--surface-2);color:var(--green);font-family:monospace;font-size:12px;padding:6px}" +
       ".owo-command-result{border:1px solid var(--border-strong);border-radius:6px;padding:6px;margin:4px 0;font-size:12px;background:var(--surface-2)}" +
-      ".owo-command-tag{display:inline-block;padding:1px 8px;border-radius:8px;font-size:11px;background:var(--accent-soft);color:var(--accent);margin-right:6px}" +
+      ".owo-command-tag{display:inline-block;padding:1px 8px;border-radius:8px;font-size:12px;background:var(--accent-soft);color:var(--accent);margin-right:6px}" +
       "</style>" +
       '<div class="stack">' +
       '<div class="sub">统一命令入口（文本 / 语音 / 区域 OCR）</div>' +

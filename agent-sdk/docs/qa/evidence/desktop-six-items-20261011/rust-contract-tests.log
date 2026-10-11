@@ -1,0 +1,34 @@
+   Compiling owo-agent-kernel v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-kernel)
+   Compiling sherpa-onnx-sys v1.13.5
+   Compiling ort-sys v2.0.0-rc.13
+   Compiling sherpa-onnx v1.13.5
+   Compiling ort v2.0.0-rc.13
+   Compiling owo-agent-tool-safety v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-tool-safety)
+   Compiling owo-agent-contracts v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-contracts)
+   Compiling owo-agent-memory v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-memory)
+   Compiling owo-agent-plugins v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-plugins)
+   Compiling owo-agent-perception v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-perception)
+   Compiling owo-agent-protocol v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-protocol)
+   Compiling owo-agent-executor v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-executor)
+   Compiling owo-agent-mcp v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-mcp)
+   Compiling owo-agent-policy v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-policy)
+   Compiling owo-agent-workflow v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-workflow)
+   Compiling owo-agent-workswarm v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-workswarm)
+   Compiling owo-agent-extensions v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-extensions)
+   Compiling owo-agent-env v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-env)
+   Compiling owo-agent-core v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-core)
+   Compiling owo-agent-product-eval v0.1.0 (D:\OwO-master\agent-sdk\devtools\product-eval)
+   Compiling owo-agent-eval-facade v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-eval-facade)
+   Compiling owo-build-info v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-build-info)
+   Compiling owo-agent-server v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-server)
+
+running 4 tests
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3m 45s
+     Running tests\desktop_six_item_contract_tests.rs (target\debug\deps\desktop_six_item_contract_tests-fe182692eb0c3216.exe)
+test bearer_alone_cannot_register_desktop_credentials ... ok
+test durable_terminal_and_latest_failure_survive_reopen ... ok
+test secure_credential_references_are_endpoint_bound_and_revocable ... ok
+test session_http_returns_durable_host_facts ... ok
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+

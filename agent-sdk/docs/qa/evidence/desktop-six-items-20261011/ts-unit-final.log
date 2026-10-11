@@ -1,0 +1,110 @@
+
+> @owo-agent/client@0.1.0 test:unit
+> tsc -p tsconfig.test.json && node --test dist-tests/tests/client.unit.test.js
+
+TAP version 13
+# Subtest: runTurn 复用自定义请求头并处理无换行的最后一个 SSE 事件
+ok 1 - runTurn 复用自定义请求头并处理无换行的最后一个 SSE 事件
+  ---
+  duration_ms: 19.0311
+  type: 'test'
+  ...
+# Subtest: pre-aborted run does not submit or cancel any turn
+ok 2 - pre-aborted run does not submit or cancel any turn
+  ---
+  duration_ms: 0.5171
+  type: 'test'
+  ...
+# Subtest: runTurn 在 SSE 没有 final 事件时失败
+ok 3 - runTurn 在 SSE 没有 final 事件时失败
+  ---
+  duration_ms: 0.4251
+  type: 'test'
+  ...
+# Subtest: ModelCandidate 治理字段契约（provider_ref / provider / calibration_summary / gates）
+ok 4 - ModelCandidate 治理字段契约（provider_ref / provider / calibration_summary / gates）
+  ---
+  duration_ms: 0.1463
+  type: 'test'
+  ...
+# Subtest: steer retry 冻结契约（command 枚举含 retry，step_id + note）
+ok 5 - steer retry 冻结契约（command 枚举含 retry，step_id + note）
+  ---
+  duration_ms: 0.1739
+  type: 'test'
+  ...
+# Subtest: R2 additive：interrupted 布尔位出现在 teams 列表 / 详情 / steer / events 快照
+ok 6 - R2 additive：interrupted 布尔位出现在 teams 列表 / 详情 / steer / events 快照
+  ---
+  duration_ms: 0.1368
+  type: 'test'
+  ...
+# Subtest: ProductEval 冻结契约（创建/列表/详情/取消 + 六态 + workswarm≡multi 口径）
+ok 7 - ProductEval 冻结契约（创建/列表/详情/取消 + 六态 + workswarm≡multi 口径）
+  ---
+  duration_ms: 0.6723
+  type: 'test'
+  ...
+# Subtest: Artifact 评审冻结契约（三决定 + 幂等重放 + 版本链 + approved head）
+ok 8 - Artifact 评审冻结契约（三决定 + 幂等重放 + 版本链 + approved head）
+  ---
+  duration_ms: 0.3359
+  type: 'test'
+  ...
+# Subtest: 五期契约（返工 + 交付物 + 指标 + 诊断）
+ok 9 - 五期契约（返工 + 交付物 + 指标 + 诊断）
+  ---
+  duration_ms: 0.3031
+  type: 'test'
+  ...
+# Subtest: 六期契约（工作区绑定 + 模板目录 + teams workspace 字段）
+ok 10 - 六期契约（工作区绑定 + 模板目录 + teams workspace 字段）
+  ---
+  duration_ms: 0.4225
+  type: 'test'
+  ...
+# Subtest: 七期契约（teams/{id} 新字段 + artifacts 新字段 + 3 条新路由）
+ok 11 - 七期契约（teams/{id} 新字段 + artifacts 新字段 + 3 条新路由）
+  ---
+  duration_ms: 0.2319
+  type: 'test'
+  ...
+# Subtest: 七期契约（二路交接：GET /projects/{id}/workspace/changes 变更追踪）
+ok 12 - 七期契约（二路交接：GET /projects/{id}/workspace/changes 变更追踪）
+  ---
+  duration_ms: 0.1144
+  type: 'test'
+  ...
+# Subtest: 八期契约（ChangeSet 五路由：列表/详情/accept/reject/revert）
+ok 13 - 八期契约（ChangeSet 五路由：列表/详情/accept/reject/revert）
+  ---
+  duration_ms: 0.1369
+  type: 'test'
+  ...
+# Subtest: 八期契约（Human Inbox 五路由：列表/详情/claim/release/resolve）
+ok 14 - 八期契约（Human Inbox 五路由：列表/详情/claim/release/resolve）
+  ---
+  duration_ms: 0.1093
+  type: 'test'
+  ...
+# Subtest: 十期契约（/health additive build：BuildInfo 三字段 + 旧形状仍合法）
+ok 15 - 十期契约（/health additive build：BuildInfo 三字段 + 旧形状仍合法）
+  ---
+  duration_ms: 0.0762
+  type: 'test'
+  ...
+# Subtest: R3 契约（/diagnostics/requests：ledger 六字段白名单 + 三桶聚合）
+ok 16 - R3 契约（/diagnostics/requests：ledger 六字段白名单 + 三桶聚合）
+  ---
+  duration_ms: 0.1016
+  type: 'test'
+  ...
+1..16
+# tests 16
+# suites 0
+# pass 16
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 119.0552

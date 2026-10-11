@@ -527,6 +527,72 @@ impl SessionStore for SqliteSessionStore {
         rows.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)
     }
 
+    fn turn_history(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<owo_agent_protocol::SessionTurnHistoryV1>, AgentError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| AgentError::Session("SQLite lock poisoned".into()))?;
+        let latest: Option<(String, i64, String, String)> = conn.query_row(
+            "SELECT turn_id, seq, created_at, payload_json FROM turn_events WHERE session_id = ?1 ORDER BY seq DESC LIMIT 1",
+            [session_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        ).optional().map_err(sqlite_error)?;
+        let Some((last_turn_id, latest_seq, last_event_at, payload)) = latest else {
+            return Ok(None);
+        };
+        let latest_payload: serde_json::Value =
+            serde_json::from_str(&payload).map_err(|e| AgentError::Session(e.to_string()))?;
+        let terminal: Option<(String, i64, String, String)> = conn.query_row(
+            "SELECT turn_id, seq, created_at, payload_json FROM turn_events
+             WHERE session_id = ?1 AND json_extract(payload_json, '$.type') IN ('turn_stats', 'turn_failed')
+             ORDER BY seq DESC LIMIT 1",
+            [session_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        ).optional().map_err(sqlite_error)?;
+        let last_terminal = terminal
+            .map(|(turn_id, seq, created_at, payload)| {
+                serde_json::from_str::<SseEvent>(&payload)
+                    .map(|payload| TurnEventRecord {
+                        session_id: session_id.to_string(),
+                        turn_id,
+                        seq: seq as u64,
+                        created_at,
+                        payload,
+                    })
+                    .map_err(|e| AgentError::Session(e.to_string()))
+            })
+            .transpose()?;
+        let last_stats: Option<(String, i64, String, String)> = conn.query_row(
+            "SELECT turn_id, seq, created_at, payload_json FROM turn_events WHERE session_id = ?1 AND json_extract(payload_json, '$.type') = 'turn_stats' ORDER BY seq DESC LIMIT 1",
+            [session_id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        ).optional().map_err(sqlite_error)?;
+        let last_stats = last_stats
+            .map(|(turn_id, seq, created_at, payload)| {
+                serde_json::from_str::<SseEvent>(&payload)
+                    .map(|payload| TurnEventRecord {
+                        session_id: session_id.to_string(),
+                        turn_id,
+                        seq: seq as u64,
+                        created_at,
+                        payload,
+                    })
+                    .map_err(|e| AgentError::Session(e.to_string()))
+            })
+            .transpose()?;
+        Ok(Some(owo_agent_protocol::SessionTurnHistoryV1 {
+            last_turn_id,
+            latest_seq: latest_seq as u64,
+            last_event_at,
+            last_event_type: latest_payload["type"]
+                .as_str()
+                .unwrap_or("unknown")
+                .to_string(),
+            last_terminal,
+            last_stats,
+        }))
+    }
+
     fn list(&self) -> Vec<String> {
         let conn = match self.conn.lock() {
             Ok(conn) => conn,

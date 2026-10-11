@@ -407,7 +407,7 @@ test("doCreate：服务端 400 错误进入友好错误且解锁", async () => {
   assert.equal(T.state.creating, false);
 });
 
-test("doCreate：当前页面创建成功后自动打开团队详情", async () => {
+test("doCreate：当前页面创建成功后保留组队理由等待用户打开", async () => {
   resetState();
   const clicks = [];
   let opened = null;
@@ -429,8 +429,9 @@ test("doCreate：当前页面创建成功后自动打开团队详情", async () 
   T.doCreate();
   await drain();
   await new Promise((resolve) => setTimeout(resolve, 80));
-  assert.deepEqual(clicks, ["nav"]);
-  assert.equal(opened, "team-created");
+  assert.deepEqual(clicks, []);
+  assert.equal(opened, null);
+  assert.match(T.resultHtml(T.state.result), /pl-goto-team/);
   delete globalThis.document;
   if (previousWorkswarm === undefined) delete panels.workswarm;
   else panels.workswarm = previousWorkswarm;

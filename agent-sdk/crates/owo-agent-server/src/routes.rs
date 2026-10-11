@@ -3,6 +3,7 @@
 //! 契约测试按行扫描本文件与 `lib.rs` 的 route 声明；每条路由保持
 //! 单行声明（`/session/{id}` 的 GET+DELETE 用变量绕开折行）。修改路由必须同步
 //! `openapi.rs`、`tests/route_contract_tests.rs` 与 `clients/ts/openapi.json`。
+use super::desktop_model_credentials::register as register_model_credential;
 use super::*;
 
 pub fn build_router(state: Arc<AppState>) -> Router {
@@ -219,6 +220,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             get(activity_api::pet_state_get).post(activity_api::pet_state_set),
         )
         .route("/desktop/pet/report", post(activity_api::pet_state_report))
+        .route(
+            "/desktop/model-credentials",
+            post(register_model_credential),
+        )
         .route(
             "/approvals/pending",
             get(activity_api::pending_approvals_list),

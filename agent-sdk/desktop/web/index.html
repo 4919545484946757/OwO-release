@@ -62,6 +62,7 @@
         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3.2v9.6M3.2 8h9.6"/></svg>
         新对话
       </button>
+      <div class="workbench-shortcuts"><button type="button" data-workbench-panel="home">项目首页</button><button type="button" data-workbench-panel="evidence">产物与证据</button><button type="button" data-workbench-panel="project-launcher" class="primary workbench-new-task">＋ 新任务</button><button type="button" data-workbench-panel="project-history">项目与任务</button><button type="button" data-workbench-panel="action-center">待我处理</button><button type="button" data-workbench-panel="workswarm">团队协作</button><button type="button" data-workbench-panel="notes">项目笔记</button></div>
       <nav class="codex-nav" aria-label="工作台导航">
         <button type="button" data-codex-group="workspace">
           <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2.2 4.4c0-.66.54-1.2 1.2-1.2h2.3l1.4 1.6h4.5c.66 0 1.2.54 1.2 1.2v5.6c0 .66-.54 1.2-1.2 1.2H3.4c-.66 0-1.2-.54-1.2-1.2V4.4z"/></svg>
@@ -255,7 +256,7 @@
         <span class="tool-card-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.7"/><path d="M8 4.7V8l2.5 1.7"/></svg></span>
         <div class="tool-card-title">
           <strong>自动化任务</strong>
-          <span class="tool-card-desc">按「间隔 / 每天 / 单次」触发提醒或任务，到点后在会话中推送；支持执行记录回查。已迁入扩展面板「自动化」。</span>
+          <span class="tool-card-desc">按「间隔 / 每天 / 单次」触发提醒或任务，到点后在会话中推送；支持查看执行记录。</span>
         </div>
       </div>
       <div class="tool-card-body">
@@ -430,23 +431,22 @@
         <span class="tool-card-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 1.9 3.3 3.7v3.5c0 3 2 5.4 4.7 6.4 2.7-1 4.7-3.4 4.7-6.4V3.7z"/><path d="M5.9 7.9 7.3 9.3 10 6.5"/></svg></span>
         <div class="tool-card-title">
           <strong>应用白名单</strong>
-          <span class="tool-card-desc">把桌面应用加入 P0 白名单后，agent 操作这些应用时无需逐次审批，适合你完全信任的工具。</span>
+          <span class="tool-card-desc">这些应用的操作可减少逐次询问；实际动作仍受核心策略约束。请在权限中心核对范围。</span>
         </div>
       </div>
       <div class="tool-card-body">
         <ul id="whitelistList" class="list"></ul>
         <form id="whitelistForm" class="tool-actions">
           <input id="wlAppId" placeholder="app_id" required>
-          <button type="submit" class="primary" data-core-action>添加 P0</button>
+          <button type="submit" class="primary" data-core-action>添加应用</button>
         </form>
-        <p class="sub" data-core-action-hint>连接并授权本地核心后可管理 P0 应用白名单；白名单会减少逐次审批，请只添加你信任的应用。</p>
+        <p class="sub" data-core-action-hint>连接并授权本地核心后可管理免审批应用列表；白名单会减少逐次审批，请只添加你信任的应用。</p>
       </div>
     </section>
 
-    <section class="span-all" data-group="panels">
-      <h2>扩展面板</h2>
-      <div id="panelNav" class="inline"></div>
-      <div id="panelRoot"></div>
+    <section class="span-all" data-group="panels" id="workbenchPanelSection">
+      <div class="workbench-panel-header"><div><span class="workbench-eyebrow">项目工作台</span><h2 id="workbenchPanelTitle">选择一个工具</h2><p id="workbenchPanelDescription" class="sub">按任务查找功能，Ctrl+K 快速切换</p></div><button type="button" id="workbenchPanelNewTask" data-workbench-panel="project-launcher" class="primary">＋ 新任务</button></div>
+      <div class="workbench-panel-layout"><nav class="workbench-panel-rail" aria-label="功能导航"><label class="workbench-panel-search"><span class="sr-only">搜索功能</span><input id="panelSearch" type="search" placeholder="搜索功能…"></label><div id="panelNav"></div></nav><div id="panelRoot"></div></div>
     </section>
 
     <section class="settings-section" data-group="settings">
@@ -478,7 +478,7 @@
             <div class="settings-card-list">
               <p class="sub" data-core-action-hint>连接并授权本地核心后才能更改云端模型的数据出境设置。</p>
               <div class="settings-row">
-                <div class="settings-row-label"><strong>云端模型（数据出境）</strong><span>关闭后仅使用本地 / 自建端点，数据不出本机</span></div>
+                <div class="settings-row-label"><strong>云端模型（数据出境）</strong><span>关闭后仅允许本地模型端点；其他工具联网由权限规则控制</span></div>
                 <div class="settings-row-control">
                   <button type="button" class="toggle" id="egressToggle" data-core-action role="switch" aria-checked="false"><span class="toggle-knob"></span></button>
                 </div>
@@ -561,7 +561,7 @@
                 </div>
               </div>
               <div class="settings-row">
-                <div class="settings-row-label"><strong>API 密钥</strong><span>加密保存到本机（DPAPI 信封），不明文写入工作区</span></div>
+                <div class="settings-row-label"><strong>API 密钥</strong><span>默认服务商密钥由核心加密保存；自定义模型使用独立的本机存储</span></div>
                 <div class="settings-row-control">
                   <input id="providerApiKey" data-core-action type="password" placeholder="未保存" spellcheck="false" autocomplete="off">
                 </div>
@@ -590,12 +590,12 @@
                 <strong>自定义模型</strong>
                 <button type="button" id="customModelAddBtn" class="primary">+ 自定义模型</button>
               </div>
-              <div id="customModelList" class="model-list"><div class="sub">暂无自定义模型，点击右上角添加。</div></div>
+              <div id="customModelStorageState" class="storage-status" role="status"></div><div id="customModelList" class="model-list"><div class="sub">暂无自定义模型，点击右上角添加。</div></div>
             </div>
             <div class="settings-block" style="margin-top:14px">
               <div class="settings-block-head"><strong>密钥</strong></div>
               <div class="settings-row">
-                <div class="settings-row-label"><strong>API 密钥来源</strong><span>已保存的密钥（DPAPI 信封，绑定本机账户）优先，其次启动终端的环境变量；任何形式都不明文落盘</span></div>
+                <div class="settings-row-label"><strong>API 密钥来源</strong><span>默认服务商密钥由核心使用 DPAPI 保存，或从环境变量读取。自定义模型由桌面壳加密保存，执行时只传受限环境引用；浏览器旧数据迁移成功后才清理</span></div>
                 <div class="settings-row-control"><span class="pill">DPAPI 信封 / 环境变量</span></div>
               </div>
             </div>
@@ -618,6 +618,10 @@
                 </div>
               </div>
 
+              <div class="settings-row">
+                <div class="settings-row-label"><strong>界面缩放</strong><span>桌面端支持 100%、125%、150%；窄窗口自动重排</span></div>
+                <div class="settings-row-control"><select id="prefZoom" aria-label="界面缩放"><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option></select></div>
+              </div>
               <div class="settings-row">
                 <div class="settings-row-label"><strong>会话栏宽度</strong><span>由拖拽分隔条调整；此处可恢复默认</span></div>
                 <div class="settings-row-control"><button type="button" id="resetLayoutBtn">恢复默认布局</button></div>
@@ -835,7 +839,7 @@
         <p id="emptyStateDescription">从左侧选择会话继续，或直接输入指令开始</p>
         <button type="button" id="emptyStateWorkspaceBtn" class="primary codex-empty-action" hidden>选择或新建项目工作区</button>
       </div>
-      <div id="messages"></div>
+      <div id="messages" role="log" aria-label="会话消息" aria-live="polite" aria-relevant="additions" aria-atomic="false"></div>
       <button type="button" id="scrollBottomBtn" class="scroll-bottom hidden" title="回到底部" aria-label="回到底部">
         <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.4v8.4M4.6 8.6 8 12l3.4-3.4"/></svg>
       </button>
@@ -875,9 +879,9 @@
           </button>
         </div>
         <div class="codex-composer-right">
-          <button type="button" id="accessChip" class="codex-access-chip" title="工具访问级别">
+          <button type="button" id="accessChip" class="codex-access-chip" title="本机审批方式；实际授权由服务端策略决定">
             <span class="codex-access-dot" id="accessDot" aria-hidden="true"></span>
-            <span id="accessChipText">逐次询问</span>
+            <span id="accessChipText">每次询问</span>
             <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6.5 8 9.5l3-3"/></svg>
           </button>
           <button type="button" id="modelChip" class="codex-model-chip" title="选择模型">
@@ -914,9 +918,9 @@
     <section>
       <h2>审计日志</h2>
       <div class="inline audit-filters">
-        <input id="auditEvent" placeholder="事件过滤（permission/tool_call/model…）">
-        <input id="auditTool" placeholder="工具过滤（read_file…）">
-        <input id="auditQ" placeholder="关键词搜索">
+        <input id="auditEvent" aria-label="审计事件过滤" placeholder="事件过滤（permission/tool_call/model…）">
+        <input id="auditTool" aria-label="审计工具过滤" placeholder="工具过滤（read_file…）">
+        <input id="auditQ" aria-label="审计关键词" placeholder="关键词搜索">
         <button id="auditFilterBtn">应用</button>
       </div>
       <ul id="auditList" class="list"></ul>
@@ -969,6 +973,8 @@
   <script src="views/status-bar.view.js"></script>
   <script src="views/diagnostics-ledger.view.js"></script>
   <script src="panels/notes.panel.js"></script>
+  <script src="panels/home.panel.js"></script>
+  <script src="panels/evidence.panel.js"></script>
   <script src="panels/automations.panel.js"></script>
   <script src="panels/plugin-market.panel.js"></script>
   <script src="panels/workflow.panel.js"></script>
@@ -994,15 +1000,21 @@
   <script src="core/recovery.js"></script>
   <script src="core/workbench-refresh.js"></script>
   <script src="core/turn-sse.js"></script>
+  <script src="core/turn-recovery.js"></script>
   <script src="core/completion-record.js"></script>
+  <script src="core/session-facts.js"></script>
   <script src="core/workbench-view.js?v=20261009-2"></script>
+  <script src="core/workbench-navigation.js"></script>
   <script src="core/observer-scope.js"></script>
   <script src="core/model-routing.js"></script>
+  <script src="core/custom-model-store.js"></script>
   <script src="core/model-output-budget.js"></script>
   <script src="core/session-start.js"></script>
   <script src="core/workspace-routing.js"></script>
+  <script src="core/workspace-display.js"></script>
   <script src="core/model-recovery.js"></script>
   <script src="core/panel-runtime.js"></script>
+  <script src="core/accessibility.js"></script>
   <script src="core/notification-sound.js"></script>
   <script src="core/core-action-availability.js"></script>
   <script src="core/markdown.js"></script>

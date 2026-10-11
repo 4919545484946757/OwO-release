@@ -1,0 +1,2 @@
+
+NATIVE_VAULT save PASS (DPAPI, isolated partition, no cloud requests)

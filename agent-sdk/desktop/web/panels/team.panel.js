@@ -52,7 +52,7 @@
         ".owo-team-finding{display:flex;gap:8px;align-items:baseline;padding:5px 8px;border:1px solid var(--border,#333);border-radius:6px;margin-bottom:4px;background:var(--surface,#1c2128)}" +
         ".owo-team-finding-cat{flex:none;font-weight:600;font-size:12px}" +
         ".owo-team-finding-detail{flex:1;min-width:0;font-size:12px;color:var(--text-2,#adbac7);word-break:break-word}" +
-        ".owo-team-finding-sev{flex:none;font-size:11px;padding:1px 7px;border-radius:9px}" +
+        ".owo-team-finding-sev{flex:none;font-size:12px;padding:1px 7px;border-radius:9px}" +
         ".owo-team-sev-high{color:var(--red,#f85149);background:var(--red-soft,#3d1a1a)}" +
         ".owo-team-sev-medium{color:var(--yellow,#d29922);background:rgba(210,153,34,.15)}" +
         ".owo-team-sev-low{color:var(--text-3,#768390);background:var(--surface-2,#22272e)}" +
@@ -64,7 +64,7 @@
         ".owo-team-ver-sha code{background:var(--surface-2,#22272e);border-radius:4px;padding:0 4px}" +
         /* 审计时间线 */
         ".owo-team-audit-line{display:flex;gap:8px;align-items:baseline;padding:3px 0;border-bottom:1px dashed var(--border,#333);font-size:12px}" +
-        ".owo-team-audit-line time{flex:none;color:var(--text-3,#768390);font-size:11px}" +
+        ".owo-team-audit-line time{flex:none;color:var(--text-3,#768390);font-size:12px}" +
         ".owo-team-audit-line span{flex:1;min-width:0;word-break:break-word;color:var(--text-2,#adbac7)}" +
         "@media (max-width: 760px) { .owo-team-panel { grid-template-columns: minmax(0, 1fr); } }" +
         "</style>" +

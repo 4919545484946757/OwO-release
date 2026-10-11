@@ -152,7 +152,7 @@ export function createClient(options: ClientOptions): ApiClient {
       ensureNotAborted();
       if (input.read_only === true || canonicalTurnId || input.model_connection) {
         const capability = await client.GET("/capabilities", { signal: controller.signal });
-        const support = capability.data as { constraints?: { request_read_only?: boolean; scoped_turn_cancellation?: boolean; custom_model_connection?: boolean } } | undefined;
+        const support = capability.data as { constraints?: { request_read_only?: boolean; scoped_turn_cancellation?: boolean; custom_model_connection?: boolean; custom_model_env_credentials?: boolean } } | undefined;
         ensureNotAborted();
         if (input.read_only === true && (!capability.response.ok || support?.constraints?.request_read_only !== true)) {
           throw new Error("permission/read_only_unsupported: no turn was submitted");
@@ -160,6 +160,7 @@ export function createClient(options: ClientOptions): ApiClient {
         if (input.model_connection && (!capability.response.ok || support?.constraints?.custom_model_connection !== true)) {
           throw new Error("model_connection/unsupported: no turn was submitted");
         }
+        if (input.model_connection?.api_key_env && support?.constraints?.custom_model_env_credentials !== true) throw new Error("model_connection/secure_credentials_unsupported: no turn was submitted");
         scopedCancellationSupported = capability.response.ok && support?.constraints?.scoped_turn_cancellation === true;
         if (canonicalTurnId && !scopedCancellationSupported) {
           throw new Error("turn/scoped_cancellation_unsupported: no turn was submitted");

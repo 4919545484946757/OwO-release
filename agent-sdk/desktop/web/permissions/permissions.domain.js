@@ -128,6 +128,22 @@
     return out;
   }
 
+  function draftFromOverview(json) {
+    const spec = specFromOverview(json);
+    if (spec) return spec;
+    const values = { filesystem: FILESYSTEM_VALUES, command: COMMAND_VALUES, network: NETWORK_VALUES, persistence: PERSISTENCE_VALUES };
+    const draft = { scopes: [] };
+    const rows = dimensionsFromOverview(json);
+    for (const key of DIMENSION_KEYS) {
+      const row = rows.find(item => item.key === key && !item.synthesized);
+      draft[key] = row && values[key].includes(row.effective) ? row.effective : "";
+    }
+    return draft;
+  }
+  function changesFromDraft(draft, baseline) {
+    if (!draft || !baseline) return [];
+    return SPEC_FIELDS.filter(key => JSON.stringify(draft[key]) !== JSON.stringify(baseline[key]));
+  }
   function dimensionLabel(key) {
     switch (text(key)) {
       case "filesystem":
@@ -427,6 +443,8 @@
     PROFILE_LABELS: PROFILE_LABELS,
     PERSISTENCE_LABELS: PERSISTENCE_LABELS,
     specFromOverview: specFromOverview,
+    draftFromOverview: draftFromOverview,
+    changesFromDraft: changesFromDraft,
     dimensionsFromOverview: dimensionsFromOverview,
     dimensionLabel: dimensionLabel,
     dimensionOfTool: dimensionOfTool,

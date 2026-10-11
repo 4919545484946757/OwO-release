@@ -17,7 +17,7 @@
   const SEGMENTS = [
     { key: "backend", label: "后台", target: "settings", hint: "核心服务状态 · 点击进入设置与诊断" },
     { key: "workspace", label: "工作区", target: "projects", hint: "当前项目与读写范围 · 点击进入工作区" },
-    { key: "model", label: "模型", target: "model", hint: "切换模型、设置自定义接口地址与模型名 · 点击进入模型页" },
+    { key: "model", label: "本次模型", target: "model", hint: "切换模型、设置自定义接口地址与模型名 · 点击进入模型页" },
     { key: "permission", label: "权限", target: "permissions", hint: "权限档位与待审批 · 点击进入权限中心" },
     { key: "task", label: "当前任务", target: "chat", hint: "任务进展 · 点击进入会话" },
   ];
@@ -125,7 +125,13 @@
     const state = source || {};
     const settings = state.settings || {};
     const selected = String(state.selectedModel || state.pendingModelOverride || settings.model || "");
-    const custom = (Array.isArray(settings.custom_models) ? settings.custom_models : []).find((item) => item && item.id === selected);
+    const custom = (Array.isArray(settings.custom_models) ? settings.custom_models : []).find(item => item && item.id === selected);
+    if (selected) {
+      const actual = String(state.lastExecutionModel || "未知");
+      const defaultModel = String(settings.model || modelLabel(cache.model?.model, ["model", "id", "name"]) || "未知");
+      const endpoint = custom ? String(custom.baseUrl || "") : "";
+      return { text: custom ? (custom.apiFormat === "anthropic" ? "Anthropic" : "OpenAI 兼容") + " · " + selected : selected, secondary: "上次实际：" + actual, tone: "muted", detail: "默认模型：" + defaultModel + "；本次请求：" + selected + "；上次实际执行：" + actual + (endpoint ? "；自定义端点：" + endpoint : "") };
+    }
     if (custom) {
       return {
         text: (custom.apiFormat === "anthropic" ? "Anthropic" : "OpenAI 兼容") + " · " + custom.id,
@@ -187,12 +193,22 @@
 
   function taskFromFacts(source) {
     const state = source || {};
+    if (state.stopping) return { text: "正在停止", tone: "warn", detail: "等待宿主终态，已产生的变更可能保留" };
     if (state.pendingApproval) return { text: "等待审批", tone: "warn" };
     if (state.reading) return { text: "运行中", tone: "ok" };
     const outcome = String(state.lastTurnOutcome || "");
     if (outcome === "cancelled") return { text: "已取消", tone: "muted" };
-    if (outcome === "failed") return { text: "上一轮失败", tone: "bad" };
-    if (outcome === "completed") return { text: "已完成", tone: "muted" };
+    if (outcome === "interrupted") return { text: "终态未确认", tone: "warn" };
+    if (outcome === "failed") return { text: state.lastCompletionRecord?.status === "blocked" || state.lastCompletionStatus === "blocked" ? "存在阻断" : "上一轮失败", tone: "bad" };
+    if (outcome === "completed") {
+      const record = state.lastCompletionRecord;
+      const status = record?.status || state.lastCompletionStatus;
+      if (record?.status === "accepted") return { text: "验收通过", tone: "ok", detail: "宿主完成记录；回执 " + (Array.isArray(record.evidence_receipt_ids) ? record.evidence_receipt_ids.length : 0) + " 项" };
+      if (status === "candidate") return { text: "候选待验收", tone: "warn" };
+      if (status === "blocked") return { text: "存在阻断", tone: "bad" };
+      if (status === "aborted") return { text: "已取消", tone: "muted" };
+      return { text: "回答完成 · 未验证", tone: "muted", detail: status === "accepted" ? "宿主状态为 accepted，但验收记录未返回" : "回答结束不代表产物已验收" };
+    }
     return { text: "空闲", tone: "muted" };
   }
 
@@ -288,7 +304,7 @@
   let lastSerialized = "";
 
   function paint(list) {
-    const serialized = list.map((item) => item.key + ":" + item.text + ":" + item.tone).join("|");
+    const serialized = list.map((item) => item.key + ":" + item.text + ":" + item.tone + ":" + (item.secondary || "") + ":" + (item.detail || "")).join("|");
     if (serialized === lastSerialized) return;
     lastSerialized = serialized;
     for (const item of list) {
@@ -296,6 +312,9 @@
       if (!node) continue;
       const value = node.querySelector(".owo-status-value");
       if (value && value.textContent !== item.text) value.textContent = item.text;
+      let secondary = node.querySelector(".owo-status-secondary");
+      if (!secondary && item.key === "model") { secondary = global.document.createElement("span"); secondary.className = "owo-status-secondary"; node.appendChild(secondary); }
+      if (secondary) { secondary.textContent = item.secondary || ""; secondary.hidden = !item.secondary; }
       node.setAttribute("data-tone", item.tone);
       node.setAttribute("data-target", item.target);
       node.title = item.label + "：" + item.text + "（" + (item.detail ? item.detail + " · " : "") + item.hint + "）";

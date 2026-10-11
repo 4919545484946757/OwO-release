@@ -1,0 +1,358 @@
+TAP version 13
+# Subtest: Electron 桌宠请求必须使用当前核心 bearer token
+ok 1 - Electron 桌宠请求必须使用当前核心 bearer token
+  ---
+  duration_ms: 2.4507
+  type: 'test'
+  ...
+# Subtest: 解析标准 core_ready 行
+ok 2 - 解析标准 core_ready 行
+  ---
+  duration_ms: 0.2377
+  type: 'test'
+  ...
+# Subtest: ready 行容忍噪声并拒绝非法取值
+ok 3 - ready 行容忍噪声并拒绝非法取值
+  ---
+  duration_ms: 0.7222
+  type: 'test'
+  ...
+# Subtest: core_fatal 只接受 layer/name 形状的稳定码
+ok 4 - core_fatal 只接受 layer/name 形状的稳定码
+  ---
+  duration_ms: 0.1679
+  type: 'test'
+  ...
+# Subtest: 认证握手：只有 HTTP 200 且取得 bearer token 才算 ready
+ok 5 - 认证握手：只有 HTTP 200 且取得 bearer token 才算 ready
+  ---
+  duration_ms: 0.6895
+  type: 'test'
+  ...
+# Subtest: 健康检查：版本一致且身份一致才放行
+ok 6 - 健康检查：版本一致且身份一致才放行
+  ---
+  duration_ms: 0.132
+  type: 'test'
+  ...
+# Subtest: 健康检查：拒绝旧版本核心
+ok 7 - 健康检查：拒绝旧版本核心
+  ---
+  duration_ms: 0.2066
+  type: 'test'
+  ...
+# Subtest: 健康检查：拒绝未 healthy 与启动中
+ok 8 - 健康检查：拒绝未 healthy 与启动中
+  ---
+  duration_ms: 0.1647
+  type: 'test'
+  ...
+# Subtest: 健康检查：端口被别的核心占用时按实例身份拒绝
+ok 9 - 健康检查：端口被别的核心占用时按实例身份拒绝
+  ---
+  duration_ms: 0.3664
+  type: 'test'
+  ...
+# Subtest: 退避序列有上界
+ok 10 - 退避序列有上界
+  ---
+  duration_ms: 0.4726
+  type: 'test'
+  ...
+# Subtest: 代际守卫：过期那一轮不得再重启
+ok 11 - 代际守卫：过期那一轮不得再重启
+  ---
+  duration_ms: 0.2248
+  type: 'test'
+  ...
+# Subtest: 用户主动重启不计入自动重试预算
+ok 12 - 用户主动重启不计入自动重试预算
+  ---
+  duration_ms: 0.0794
+  type: 'test'
+  ...
+# Subtest: 发现文件端口取值：防御式且拒绝非法
+ok 13 - 发现文件端口取值：防御式且拒绝非法
+  ---
+  duration_ms: 0.118
+  type: 'test'
+  ...
+# Subtest: provider 别名归一与本地判定
+ok 14 - provider 别名归一与本地判定
+  ---
+  duration_ms: 0.1194
+  type: 'test'
+  ...
+# Subtest: 配置校验：结构性错误被拦下
+ok 15 - 配置校验：结构性错误被拦下
+  ---
+  duration_ms: 0.2164
+  type: 'test'
+  ...
+# Subtest: 默认输出上限保持 32k，并允许用户配置更大的模型输出预算
+ok 16 - 默认输出上限保持 32k，并允许用户配置更大的模型输出预算
+  ---
+  duration_ms: 0.2117
+  type: 'test'
+  ...
+# Subtest: 配置校验：合法配置放行，缺凭据只告警不阻断
+ok 17 - 配置校验：合法配置放行，缺凭据只告警不阻断
+  ---
+  duration_ms: 0.1664
+  type: 'test'
+  ...
+# Subtest: safeLogWrite：写入正常时透传并报告成功
+ok 18 - safeLogWrite：写入正常时透传并报告成功
+  ---
+  duration_ms: 0.1386
+  type: 'test'
+  ...
+# Subtest: safeLogWrite：EPIPE 等写入异常被吞掉，不向上抛
+ok 19 - safeLogWrite：EPIPE 等写入异常被吞掉，不向上抛
+  ---
+  duration_ms: 0.232
+  type: 'test'
+  ...
+# Subtest: safeStreamLogWrite：异步 EPIPE 后停止写入且不崩溃
+ok 20 - safeStreamLogWrite：异步 EPIPE 后停止写入且不崩溃
+  ---
+  duration_ms: 0.1842
+  type: 'test'
+  ...
+# Subtest: safeLogWrite：底层非函数 / 流已关闭时静默降级
+ok 21 - safeLogWrite：底层非函数 / 流已关闭时静默降级
+  ---
+  duration_ms: 0.1426
+  type: 'test'
+  ...
+# Subtest: 实例头常量与服务端口头名一致
+ok 22 - 实例头常量与服务端口头名一致
+  ---
+  duration_ms: 0.073
+  type: 'test'
+  ...
+# Subtest: 实例头语义：身份已知才带，接管外部核心必须清空
+ok 23 - 实例头语义：身份已知才带，接管外部核心必须清空
+  ---
+  duration_ms: 0.0957
+  type: 'test'
+  ...
+# Subtest: encrypted persistence survives a new vault and exposes references only
+ok 24 - encrypted persistence survives a new vault and exposes references only
+  ---
+  duration_ms: 12.1102
+  type: 'test'
+  ...
+# Subtest: endpoint binding tampering cannot decrypt or return the secret
+ok 25 - endpoint binding tampering cannot decrypt or return the secret
+  ---
+  duration_ms: 8.3267
+  type: 'test'
+  ...
+# Subtest: new endpoint requires explicit reentry and failed save preserves old data
+ok 26 - new endpoint requires explicit reentry and failed save preserves old data
+  ---
+  duration_ms: 7.1258
+  type: 'test'
+  ...
+# Subtest: no plaintext fallback when native encryption is unavailable
+ok 27 - no plaintext fallback when native encryption is unavailable
+  ---
+  duration_ms: 1.7955
+  type: 'test'
+  ...
+# Subtest: duplicate legacy ids preserve conflicts; removal leaves no reusable key
+ok 28 - duplicate legacy ids preserve conflicts; removal leaves no reusable key
+  ---
+  duration_ms: 12.7844
+  type: 'test'
+  ...
+# Subtest: two vault instances serialize writes without losing either model
+ok 29 - two vault instances serialize writes without losing either model
+  ---
+  duration_ms: 66.0389
+  type: 'test'
+  ...
+# Subtest: partial host synchronization rolls back and never commits a failed update
+ok 30 - partial host synchronization rolls back and never commits a failed update
+  ---
+  duration_ms: 5.2276
+  type: 'test'
+  ...
+# Subtest: public snapshot ignores unrecognized fields rather than returning secrets
+ok 31 - public snapshot ignores unrecognized fields rather than returning secrets
+  ---
+  duration_ms: 4.3168
+  type: 'test'
+  ...
+# Subtest: IPC refuses child frames, other origins and different web contents
+ok 32 - IPC refuses child frames, other origins and different web contents
+  ---
+  duration_ms: 0.4082
+  type: 'test'
+  ...
+# Subtest: old port candidates are bounded and never include remote origins
+ok 33 - old port candidates are bounded and never include remote origins
+  ---
+  duration_ms: 2.7598
+  type: 'test'
+  ...
+# Subtest: full URL probe makes no request and never claims successful connectivity
+ok 34 - full URL probe makes no request and never claims successful connectivity
+  ---
+  duration_ms: 1.0621
+  type: 'test'
+  ...
+# Subtest: every explicit provider injects the endpoint and model shown in settings
+ok 35 - every explicit provider injects the endpoint and model shown in settings
+  ---
+  duration_ms: 8.8356
+  type: 'test'
+  ...
+# Subtest: explicit provider switch replaces inherited endpoint/model/native routing
+ok 36 - explicit provider switch replaces inherited endpoint/model/native routing
+  ---
+  duration_ms: 2.8835
+  type: 'test'
+  ...
+# Subtest: timeout reaches the gateway variable and temperature zero is preserved
+ok 37 - timeout reaches the gateway variable and temperature zero is preserved
+  ---
+  duration_ms: 1.5603
+  type: 'test'
+  ...
+# Subtest: explicit parameter clear removes inherited values; omission preserves them
+ok 38 - explicit parameter clear removes inherited values; omission preserves them
+  ---
+  duration_ms: 2.1475
+  type: 'test'
+  ...
+# Subtest: local custom and externally configured local endpoints are ready without credentials
+ok 39 - local custom and externally configured local endpoints are ready without credentials
+  ---
+  duration_ms: 1.6655
+  type: 'test'
+  ...
+# Subtest: integer runtime budgets reject fractions instead of silently falling back in Rust
+ok 40 - integer runtime budgets reject fractions instead of silently falling back in Rust
+  ---
+  duration_ms: 0.7372
+  type: 'test'
+  ...
+# Subtest: 命令面与 web 实际调用完全对账（不缺不漏）
+ok 41 - 命令面与 web 实际调用完全对账（不缺不漏）
+  ---
+  duration_ms: 14.0894
+  type: 'test'
+  ...
+# Subtest: project folder names reject traversal, invalid characters and reserved device names
+ok 42 - project folder names reject traversal, invalid characters and reserved device names
+  ---
+  duration_ms: 0.7774
+  type: 'test'
+  ...
+# Subtest: provider 默认值与旧 Tauri provider.rs 逐字一致
+ok 43 - provider 默认值与旧 Tauri provider.rs 逐字一致
+  ---
+  duration_ms: 0.2069
+  type: 'test'
+  ...
+# Subtest: 有效端点/模型：显式配置优先，缺失回落提供商默认
+ok 44 - 有效端点/模型：显式配置优先，缺失回落提供商默认
+  ---
+  duration_ms: 0.1353
+  type: 'test'
+  ...
+# Subtest: 凭据解析：文件 > 指定环境变量 > 默认环境变量 > 历史变量，掩码不泄漏本体
+ok 45 - 凭据解析：文件 > 指定环境变量 > 默认环境变量 > 历史变量，掩码不泄漏本体
+  ---
+  duration_ms: 0.2601
+  type: 'test'
+  ...
+# Subtest: get_provider_status 形状：字段齐全、密钥只给掩码与布尔
+ok 46 - get_provider_status 形状：字段齐全、密钥只给掩码与布尔
+  ---
+  duration_ms: 0.4218
+  type: 'test'
+  ...
+# Subtest: 本地端点（ollama）不需要凭据也算 ready；unset 必须有凭据
+ok 47 - 本地端点（ollama）不需要凭据也算 ready；unset 必须有凭据
+  ---
+  duration_ms: 0.1959
+  type: 'test'
+  ...
+# Subtest: set_model_config：未传字段保持原样（不得抹掉用户已存的密钥）
+ok 48 - set_model_config：未传字段保持原样（不得抹掉用户已存的密钥）
+  ---
+  duration_ms: 0.367
+  type: 'test'
+  ...
+# Subtest: set_model_config：显式空串/0 = 清除，非法值也按清除处理
+ok 49 - set_model_config：显式空串/0 = 清除，非法值也按清除处理
+  ---
+  duration_ms: 0.4483
+  type: 'test'
+  ...
+# Subtest: set_model_config：未知 provider 拒绝；越界数值按旧壳语义「清除」而非拒绝
+ok 50 - set_model_config：未知 provider 拒绝；越界数值按旧壳语义「清除」而非拒绝
+  ---
+  duration_ms: 0.6349
+  type: 'test'
+  ...
+# Subtest: model output env clears inherited limits, sets 32k default and forwards per-model overrides
+ok 51 - model output env clears inherited limits, sets 32k default and forwards per-model overrides
+  ---
+  duration_ms: 0.5379
+  type: 'test'
+  ...
+# Subtest: get_provider_status：每模型输出预算只回传合法整数，不暴露其他配置
+ok 52 - get_provider_status：每模型输出预算只回传合法整数，不暴露其他配置
+  ---
+  duration_ms: 0.2513
+  type: 'test'
+  ...
+# Subtest: set_model_config：按模型输出上限可保存、校验并清除
+ok 53 - set_model_config：按模型输出上限可保存、校验并清除
+  ---
+  duration_ms: 11.7749
+  type: 'test'
+  ...
+# Subtest: set_model_config：可调参数与模型清单按契约落位
+ok 54 - set_model_config：可调参数与模型清单按契约落位
+  ---
+  duration_ms: 0.2337
+  type: 'test'
+  ...
+# Subtest: changing the selected workspace preserves the shared daemon and running turn connection
+ok 55 - changing the selected workspace preserves the shared daemon and running turn connection
+  ---
+  duration_ms: 2.1038
+  type: 'test'
+  ...
+# Subtest: unavailable workspace does not persist a selection or restart the daemon
+ok 56 - unavailable workspace does not persist a selection or restart the daemon
+  ---
+  duration_ms: 1.9739
+  type: 'test'
+  ...
+# Subtest: native workspace picker delegates to the same session workspace selection
+ok 57 - native workspace picker delegates to the same session workspace selection
+  ---
+  duration_ms: 0.8189
+  type: 'test'
+  ...
+# Subtest: workspace is configured only when workspace.json contains an explicit path
+ok 58 - workspace is configured only when workspace.json contains an explicit path
+  ---
+  duration_ms: 5.9252
+  type: 'test'
+  ...
+1..58
+# tests 58
+# suites 0
+# pass 58
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 202.4962

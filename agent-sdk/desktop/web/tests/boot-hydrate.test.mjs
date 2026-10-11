@@ -75,7 +75,7 @@ test("connection loss stops SSE and a new Core instance rebuilds the stream", ()
 test("hidden inspector panels are mounted on demand, not during chat startup", () => {
   const init = appDomain.match(/function initPanels\(\) \{[\s\S]*?\n\}/);
   assert.ok(init);
-  assert.match(init[0], /button\.addEventListener\("click", \(\) => mountPanel\(id\)\)/);
+  assert.match(init[0], /button\.addEventListener\("click", \(\) => openPanelById\(id\)\)/);
   assert.doesNotMatch(init[0], /mountPanel\(first/);
   assert.match(init[0], /panel-empty-state/);
 });

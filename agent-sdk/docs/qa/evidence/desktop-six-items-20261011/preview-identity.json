@@ -1,0 +1,10 @@
+{
+  "pid": 10764,
+  "core": "D:\\OwO-master\\agent-sdk\\target\\debug\\owo-agent.exe",
+  "core_sha256": "031d872e434395351f4d7b623b409ed60d2c6cff58fb164a28724fbbeefc1316",
+  "frontend": "current desktop/web source",
+  "profile": "isolated preview-profile",
+  "requested_cloud_environment": false,
+  "cloud_requests_executed": false,
+  "notes": "GUI observation only; no model turn submitted from preview; displayed egress setting not independently changed"
+}

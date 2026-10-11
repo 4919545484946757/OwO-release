@@ -2,8 +2,8 @@
 // Project Launcher（新建项目任务）面板 —— desktop/web/panels/project-launcher.panel.js
 //
 // 六期第四路：把工作区、模板、自适应组队和交付物串成普通用户可直接使用的
-// 启动流程（七步）：① 目标 ② 绑定项目目录 ③ 只读/写入范围 ④ 组队模式
-// ⑤ 已安装模板 ⑥ 预览角色/预算/权限 ⑦ 创建并进入 TeamRun。
+// 启动流程（七步）：① 目标 项目目录 ③ 只读/写入范围 执行方式
+// ⑤ 已安装模板 ⑥ 预览角色/预算/权限 开始任务并进入 TeamRun。
 //
 // 依赖路由（六期冻结契约，字段 UI 全容错缺省）：
 //   GET  /teams/templates/catalog            {catalog:[{template_id,version,title,
@@ -112,6 +112,7 @@
       selectedTemplate: "",
       installBusy: {},
       creating: false,
+      wizardStep: 1,
       result: null,
       error: "",
     };
@@ -516,6 +517,12 @@
     }
 
     /// 创建结果 HTML（team_id + 直达详情按钮）。
+    function decisionHtml(decision) {
+      if (!decision || typeof decision !== "object") return '<div class="hint">组队理由尚未返回，请在团队详情查看。</div>';
+      const reasons = Array.isArray(decision.reasons) ? decision.reasons : [];
+      return '<div class="owo-pl-decision"><strong>核心选择：' + esc(decision.mode || decision.strategy || "未返回") + '</strong>' +
+        (reasons.length ? '<ul>' + reasons.map(reason => '<li>' + esc(String(reason)) + '</li>').join("") + '</ul>' : '<span>核心未返回推荐理由。</span>') + '</div>';
+    }
     function resultHtml(r) {
       if (!r || !r.team_id) return "";
       return (
@@ -523,7 +530,8 @@
         "<div>团队已创建：<b>" + esc(r.team_id) + "</b>" +
         (r.project_space_id ? '<span class="hint">（' + esc(r.project_space_id) + "）</span>" : "") +
         "</div>" +
-        '<button class="primary" id="pl-goto-team">进入团队详情（执行进度 / 指标 / 交付物）</button>' +
+        decisionHtml(r.strategy_decision) +
+        '<button class="primary" id="pl-goto-team">查看执行进度与交付物 →</button>' +
         "</div>"
       );
     }
@@ -750,7 +758,7 @@
               };
             // 创建动作已由当前挂载页发起且成功：直接进入执行详情；结果卡仍保留
             // 显式入口，方便用户稍后返回后再次打开。
-            if (state.result.team_id) gotoTeam(String(state.result.team_id));
+            // Keep the host decision visible before opening execution details.
           }
         }).catch(function (e) {
           state.error = friendly(e);
@@ -800,13 +808,14 @@
     function viewHtml() {
       return (
         '<div class="owo-pl">' +
-        '<h2>新建项目任务</h2>' +
-        '<p class="hint">七步流程：目标 → 绑定项目目录 → 读写范围 → 组队模式 → 已安装模板 → 预览 → 创建。创建后自动进入团队详情查看执行进度与最终交付物。</p>' +
-        '<div class="owo-pl-step"><label class="owo-pl-label">① 任务目标</label>' +
+        '<h2>新建任务</h2>' +
+        '<p class="hint">目标 → 范围与方式 → 预览并开始。默认只读，执行仍受权限与审批约束。</p>' +
+        '<nav class="owo-pl-wizard" aria-label="新任务步骤"><button type="button" data-pl-wizard="1">1 · 任务目标</button><button type="button" data-pl-wizard="2">2 · 范围与方式</button><button type="button" data-pl-wizard="3">3 · 预览并开始</button></nav><p id="pl-wizard-error" role="alert" hidden></p>' +
+        '<div class="owo-pl-step"><label class="owo-pl-label">任务目标</label>' +
         '<textarea id="pl-objective" rows="3" placeholder="例如：修复登录超时问题并补充回归测试（结构化/文档/研究任务均可）">' + esc(state.objective) + "</textarea></div>" +
-        '<div class="owo-pl-step"><label class="owo-pl-label">② 绑定项目目录 <span class="hint">Agent 将以该目录为工作区</span></label>' +
+        '<div class="owo-pl-step"><label class="owo-pl-label">项目目录 <span class="hint">Agent 将以该目录为工作区</span></label>' +
         '<input id="pl-root" size="60" placeholder="例如 T:\\我的项目\\demo（真实存在的目录）" value="' + esc(win.OwoWorkspaceDisplay ? win.OwoWorkspaceDisplay.alias(state.root) : state.root) + '"><span class="hint">日常显示项目别名，完整位置仅在详情中查看</span></div>' +
-        '<div class="owo-pl-step"><label class="owo-pl-label">③ 读写范围</label>' +
+        '<div class="owo-pl-step"><label class="owo-pl-label">读写范围</label>' +
         '<div class="owo-ws-inline"><label><input type="checkbox" id="pl-readonly"' + (state.readOnly ? " checked" : "") + "> 只读（默认；取消勾选进入受控写入）</label></div>" +
         '<div id="pl-writebox"' + (state.readOnly ? ' hidden' : "") + ">" +
         '<label class="owo-pl-label">允许写入路径（相对 root，逗号或换行分隔；留空 = 拒绝一切写入）</label>' +
@@ -828,13 +837,13 @@
         '<button type="button" class="owo-ws-mini' + (Number(state.treeDepth) > 4 ? " primary" : "") + '" data-pl-depth="8">深入 · 8 层</button>' +
         '<details class="owo-pl-advanced"><summary>自定义深度（1–8）</summary><input id="pl-depth" type="number" min="1" max="8" value="' + esc(String(state.treeDepth)) + '" size="3"></details>' +
         "</div></div>" +
-        '<div class="owo-pl-step"><label class="owo-pl-label">④ 组队模式</label>' +
+        '<div class="owo-pl-step"><label class="owo-pl-label">执行方式</label>' +
         '<select id="pl-strategy">' +
         '<option value="auto"' + (state.strategy === "auto" ? " selected" : "") + ">自动组队（推荐：简单任务自动单 Agent）</option>" +
         '<option value="single"' + (state.strategy === "single" ? " selected" : "") + ">单 Agent</option>" +
         '<option value="team"' + (state.strategy === "team" ? " selected" : "") + ">多 Agent</option>" +
         "</select></div>" +
-        '<div class="owo-pl-step"><label class="owo-pl-label">⑤ 模板 <span class="hint">仅已安装模板可选；候选需先安装（幂等）</span></label>' +
+        '<div class="owo-pl-step"><label class="owo-pl-label">任务模板 <span class="hint">仅已安装模板可选；候选需先安装（幂等）</span></label>' +
         '<select id="pl-template">' + templateOptionsHtml(state.catalog, state.selectedTemplate) + "</select>" +
         '<div id="pl-catalog" class="owo-pl-cats">' +
         (state.catalogError
@@ -843,20 +852,49 @@
             ? catalogHtml(state.catalog, state.installBusy)
             : stateBox("loading", "正在加载内置模板目录…")) +
         "</div></div>" +
-        '<div class="owo-pl-step"><label class="owo-pl-label">⑥ 预览（角色 / 预算 / 权限）</label>' +
+        '<div class="owo-pl-step"><label class="owo-pl-label">执行预览 · 角色 / 预算 / 权限</label>' +
         '<div id="pl-preview">' + previewHtml(buildPreview(state, state.catalog), state) + "</div></div>" +
-        '<div class="owo-pl-step"><label class="owo-pl-label">⑦ 创建</label>' +
+        '<div class="owo-pl-step"><label class="owo-pl-label">开始任务</label>' +
         '<div class="owo-ws-inline"><button id="pl-create" data-core-action data-core-busy="' + (state.creating ? "true" : "false") + '" class="primary"' + (state.creating ? ' disabled aria-busy="true"' : "") + ">创建团队并开始执行</button></div>" +
         '<div id="pl-errors" aria-live="polite"></div>' +
-        '<div id="pl-result">' + resultHtml(state.result) + "</div></div>" +
+        '<div id="pl-result">' + resultHtml(state.result) + '</div></div><div class="owo-pl-wizard-actions"><button type="button" id="pl-prev">← 上一步</button><button type="button" id="pl-next" class="primary">下一步 →</button></div>' +
         "</div>"
       );
+    }
+
+    function wizardStage(index) { return index === 0 ? 1 : index < 5 ? 2 : 3; }
+    function syncWizard() {
+      if (!rootEl) return;
+      Array.from(rootEl.querySelectorAll(".owo-pl-step")).forEach((section, index) => { section.hidden = wizardStage(index) !== state.wizardStep; });
+      rootEl.querySelectorAll("[data-pl-wizard]").forEach(button => {
+        if (Number(button.getAttribute("data-pl-wizard")) === state.wizardStep) button.setAttribute("aria-current", "step");
+        else button.removeAttribute("aria-current");
+      });
+      const back = el("#pl-prev"), next = el("#pl-next");
+      if (back) back.hidden = state.wizardStep === 1;
+      if (next) next.hidden = state.wizardStep === 3;
+    }
+    function moveWizard(next) {
+      syncStateFromDom();
+      let message = "";
+      if (next > state.wizardStep && !String(state.objective || "").trim()) message = "先描述任务目标，再选择执行范围。";
+      if (next === 3 && !String(state.root || "").trim()) message = "请选择项目目录，再预览任务。";
+      const error = el("#pl-wizard-error");
+      if (error) { error.textContent = message; error.hidden = !message; }
+      if (message) return;
+      state.wizardStep = Math.max(1, Math.min(3, next));
+      syncWizard(); rootEl.scrollTop = 0;
     }
 
     function render() {
       if (!rootEl) return;
       rootEl.innerHTML = viewHtml();
 
+      syncWizard();
+      rootEl.querySelectorAll("[data-pl-wizard]").forEach(button => button.addEventListener("click", () => moveWizard(Number(button.getAttribute("data-pl-wizard")))));
+      const next = el("#pl-next"), back = el("#pl-prev");
+      if (next) next.onclick = () => moveWizard(state.wizardStep + 1);
+      if (back) back.onclick = () => moveWizard(state.wizardStep - 1);
       // —— 绑定 ——
       var obj = el("#pl-objective");
       if (obj) obj.addEventListener("input", repaintPreview);
@@ -1010,6 +1048,7 @@
       templateOptionsHtml: templateOptionsHtml,
       catalogHtml: catalogHtml,
       resultHtml: resultHtml,
+      wizardStage: wizardStage,
       viewHtml: viewHtml,
       gotoTeam: gotoTeam,
       doCreate: doCreate,
@@ -1032,6 +1071,7 @@
 
     return {
       id: ID,
+      setObjective: function (text) { state.objective = String(text || ""); state.wizardStep = 1; render(); },
       title: "新建项目任务",
       mount: mount,
       dispose: dispose,

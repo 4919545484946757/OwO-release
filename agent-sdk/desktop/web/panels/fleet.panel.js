@@ -112,17 +112,17 @@
         ".owo-fleet-card.owo-fleet-err { border-color: var(--red); background: var(--red-soft); color: var(--red); font-size: 12px; }" +
         ".owo-fleet-card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }" +
         ".owo-fleet-meta { color: var(--text-3); font-size: 12px; }" +
-        ".owo-fleet-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; line-height: 18px; background: var(--surface-3); color: var(--text-2); }" +
+        ".owo-fleet-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size:12px; line-height: 18px; background: var(--surface-3); color: var(--text-2); }" +
         ".owo-fleet-badge.ok { background: var(--green-soft); color: var(--green); }" +
         ".owo-fleet-badge.bad { background: var(--red-soft); color: var(--red); }" +
         ".owo-fleet-badge.warn { background: var(--yellow-soft); color: var(--yellow); }" +
         ".owo-fleet-badge.run { background: var(--accent-soft); color: var(--accent); }" +
         ".owo-fleet-chips { display: flex; flex-wrap: wrap; gap: 6px; }" +
-        ".owo-fleet-chip { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); }" +
+        ".owo-fleet-chip { font-size:12px; padding: 1px 8px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); }" +
         ".owo-fleet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }" +
         ".owo-fleet-events { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }" +
         ".owo-fleet-event { display: flex; gap: 8px; align-items: baseline; border-left: 2px solid var(--border-strong); padding: 2px 0 2px 8px; }" +
-        ".owo-fleet-event-kind { flex: none; font-size: 11px; color: var(--accent); }" +
+        ".owo-fleet-event-kind { flex: none; font-size:12px; color: var(--accent); }" +
         ".owo-fleet-event-text { font-size: 12px; color: var(--text-2); word-break: break-all; }" +
         ".owo-fleet-approval { border: 1px dashed var(--border-strong); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }" +
         ".owo-fleet-kv { font-size: 12px; color: var(--text-2); }" +

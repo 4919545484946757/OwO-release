@@ -695,6 +695,28 @@ pub struct SessionInfo {
     pub fork_point: Option<usize>,
 }
 
+/// Restricted names for desktop-managed custom credentials. No arbitrary environment lookup.
+pub fn custom_credential_env_names(reference: &str) -> Option<(String, String)> {
+    if reference.len() != 32 || !reference.bytes().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    Some((
+        format!("OWO_CUSTOM_MODEL_SECRET_{reference}"),
+        format!("OWO_CUSTOM_MODEL_BINDING_{reference}"),
+    ))
+}
+
+/// A bounded, durable view of the last session event and last host terminal record.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionTurnHistoryV1 {
+    pub last_turn_id: String,
+    pub latest_seq: u64,
+    pub last_event_at: String,
+    pub last_event_type: String,
+    pub last_terminal: Option<TurnEventRecord>,
+    pub last_stats: Option<TurnEventRecord>,
+}
+
 /// Ephemeral, explicit connection for one turn. Never saved with the session.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -707,6 +729,8 @@ pub struct CustomModelConnection {
     pub use_full_url: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key_env: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

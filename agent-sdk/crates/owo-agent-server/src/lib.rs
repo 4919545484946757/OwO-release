@@ -39,6 +39,7 @@ pub mod capabilities;
 mod cloud_api;
 mod computer_api;
 mod desktop_api;
+mod desktop_model_credentials;
 mod desktop_world_api;
 pub mod discovery;
 pub mod error_codes;

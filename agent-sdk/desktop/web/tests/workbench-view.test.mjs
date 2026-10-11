@@ -151,5 +151,5 @@ test("route hash follows chat, settings, and panel transitions while preserving 
   const openPanel = /function openPanelById\(id\) \{([\s\S]*?)\n\}/.exec(domain)?.[1];
   assert.ok(openPanel, "panel route handler must exist");
   assert.match(openPanel, /clearGroupFilters\(document\.body\)/);
-  assert.match(openPanel, /refreshPluginSkillOverview/, "deep-linked panels hydrate the shared settings overview");
+  assert.doesNotMatch(openPanel, /refreshPluginSkillOverview/, "focused pages must not hydrate a hidden tools overview");
 });

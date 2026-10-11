@@ -175,7 +175,15 @@ pub(super) async fn get_session(
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let session = load_session(&state, &id)?;
+    let history = state.store.turn_history(&id);
+    let history_error = history.as_ref().err().map(|_| "history/unavailable");
+    let active_turn_id = state.turn_controls.lock().map_err(poison)?.active_id(&id);
+    let activity = state.activities.lock().map_err(poison)?.get(&id).cloned();
     Ok(Json(json!({
+        "turn_history": history.ok().flatten(),
+        "turn_history_error": history_error,
+        "active_turn_id": active_turn_id,
+        "activity": activity,
         "id": session.id,
         "title": session.display_title(),
         "model": session.model,

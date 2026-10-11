@@ -42,6 +42,36 @@ pub fn custom_model_provider(
         .unwrap_or("")
         .trim()
         .to_string();
+    if let Some(name) = connection.api_key_env.as_deref() {
+        if !key.is_empty() {
+            return Err("model_connection/ambiguous_credential".to_string());
+        }
+        let reference = name
+            .strip_prefix("OWO_CUSTOM_MODEL_SECRET_")
+            .ok_or_else(|| "model_connection/invalid_credential_reference".to_string())?;
+        let (expected, metadata) = owo_agent_protocol::custom_credential_env_names(reference)
+            .ok_or_else(|| "model_connection/invalid_credential_reference".to_string())?;
+        if expected != name {
+            return Err("model_connection/invalid_credential_reference".to_string());
+        }
+        let stored: serde_json::Value = std::env::var(metadata)
+            .ok()
+            .and_then(|value| serde_json::from_str(&value).ok())
+            .ok_or_else(|| {
+                "provider/not_configured: credential reference is unavailable".to_string()
+            })?;
+        let protocol = if format.is_empty() { "openai" } else { format };
+        if stored["model"].as_str() != Some(model)
+            || stored["base_url"].as_str() != Some(url.as_str())
+            || stored["api_format"].as_str() != Some(protocol)
+        {
+            return Err("model_connection/credential_binding_mismatch".to_string());
+        }
+        key = std::env::var(name).unwrap_or_default();
+        if key.trim().is_empty() {
+            return Err("provider/not_configured: credential reference is unavailable".to_string());
+        }
+    }
     // An absent custom credential may only inherit one for the same configured origin.
     // Never send a default service's credential to an unrelated custom host.
     if key.is_empty() && !local {

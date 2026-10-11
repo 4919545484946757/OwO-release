@@ -9,6 +9,8 @@
   function buildCustomModelConnection(id, models, keys) {
     const model = (Array.isArray(models) ? models : []).find((item) => item && item.id === id);
     if (!model) return null;
+    if (model.disabled) throw new Error("该自定义模型已移除，请选择其他模型");
+    if (model.migrationPending) throw new Error("此模型尚未完成安全迁移，请在桌面端修复配置");
     const baseUrl = String(model.baseUrl || "").trim();
     let url;
     try { url = new URL(baseUrl); } catch (_) { throw new Error("请填写自定义模型的请求地址"); }
@@ -22,7 +24,10 @@
       use_full_url: model.useFullUrl === true,
     };
     const key = String((keys && keys[model.id]) || "").trim();
-    if (key) request.api_key = key;
+    if (model.apiKeyEnv) {
+      if (!/^OWO_CUSTOM_MODEL_SECRET_[a-fA-F0-9]{32}$/.test(model.apiKeyEnv)) throw new Error("无效的模型凭据引用");
+      request.api_key_env = model.apiKeyEnv;
+    } else if (key) request.api_key = key;
     if (model.temperature !== undefined) {
       const value = Number(model.temperature);
       if (!Number.isFinite(value) || value < 0 || value > 2) throw new Error("温度必须在 0 到 2 之间");

@@ -52,6 +52,13 @@ pub trait SessionStore: Send + Sync {
         let _ = (session_id, turn_id, after_seq, limit);
         Err(AgentError::Session("当前存储不支持回合事件回放".into()))
     }
+    /// Durable facts from the host; unsupported stores explicitly return no history.
+    fn turn_history(
+        &self,
+        _session_id: &str,
+    ) -> Result<Option<owo_agent_protocol::SessionTurnHistoryV1>, AgentError> {
+        Ok(None)
+    }
     /// 列出全部会话 ID（按更新时间倒序）。
     fn list(&self) -> Vec<String> {
         Vec::new()

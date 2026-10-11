@@ -78,11 +78,11 @@ window.OwoPanels.goal = (function () {
       '.owo-goal-steps{width:100%;min-height:120px;font-family:monospace;font-size:12px}' +
       '.owo-goal-table{width:100%;border-collapse:collapse;font-size:12px}' +
       '.owo-goal-table td,.owo-goal-table th{border:1px solid var(--border-strong);padding:3px 6px;text-align:left}' +
-      '.owo-goal-badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px;color:var(--accent-ink)}' +
+      '.owo-goal-badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:12px;color:var(--accent-ink)}' +
       '.owo-goal-badge.ok{background:var(--green)}.owo-goal-badge.bad{background:var(--red)}' +
       '.owo-goal-badge.warn{background:var(--yellow)}' +
       '.owo-goal-cloudlog{height:140px;overflow:auto;background:var(--surface-2);color:var(--green);font-family:monospace;font-size:12px;padding:6px}' +
-      '.owo-goal-output{max-height:120px;overflow:auto;white-space:pre-wrap;font-family:monospace;font-size:11px;background:var(--surface-2);padding:4px;margin-top:2px}' +
+      '.owo-goal-output{max-height:120px;overflow:auto;white-space:pre-wrap;font-family:monospace;font-size:12px;background:var(--surface-2);padding:4px;margin-top:2px}' +
       '</style>' +
       '<div class="stack">' +
       '<div class="sub">编排目标（Goal/Plan）</div>' +

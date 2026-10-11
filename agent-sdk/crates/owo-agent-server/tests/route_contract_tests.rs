@@ -3800,3 +3800,20 @@ async fn team_create_rejects_parent_session_from_another_workspace() {
 // Keep these cases in the complete route suite as well as the bounded focused target.
 #[path = "major_repair_http_tests.rs"]
 mod major_repair_http;
+
+#[test]
+fn desktop_credentials_and_durable_session_facts_are_documented() {
+    let spec: serde_json::Value = serde_json::from_str(CONTRACT_SNAPSHOT).unwrap();
+    assert!(spec["paths"]["/desktop/model-credentials"]["post"].is_object());
+    assert_eq!(
+        spec["components"]["schemas"]["DesktopModelCredentialBinding"]["properties"]["api_key"]
+            ["writeOnly"],
+        true
+    );
+    assert!(
+        spec["components"]["schemas"]["SessionDetail"]["properties"]["turn_history"].is_object()
+    );
+}
+
+#[path = "desktop_six_item_contract_tests.rs"]
+mod desktop_six_item_contracts;

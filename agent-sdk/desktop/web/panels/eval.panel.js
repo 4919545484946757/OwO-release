@@ -59,7 +59,7 @@ window.OwoPanels.eval = (function () {
       '.owo-eval-item{cursor:pointer}' +
       '.owo-eval-item{width:100%;text-align:left;color:inherit;background:transparent;border:0;font:inherit}' +
       '.owo-eval-item:hover{background:var(--surface-2)}' +
-      '.owo-eval-badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px;color:var(--accent-ink)}' +
+      '.owo-eval-badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:12px;color:var(--accent-ink)}' +
       '.owo-eval-badge.ok{background:var(--green)}.owo-eval-badge.bad{background:var(--red)}' +
       '.owo-eval-badge.warn{background:var(--yellow)}' +
       // 报告详情卡（原 pre JSON 直出 → 结构化卡片）

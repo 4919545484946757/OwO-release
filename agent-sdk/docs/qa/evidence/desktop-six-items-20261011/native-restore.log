@@ -1,0 +1,2 @@
+
+NATIVE_VAULT restore PASS (DPAPI, isolated partition, no cloud requests)

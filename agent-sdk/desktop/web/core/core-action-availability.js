@@ -48,7 +48,8 @@
           typeof panel.insertBefore !== "function" ||
           panel.querySelector("[data-core-action-hint]")) continue;
       var hint = document.createElement("p");
-      hint.className = "sub";
+      hint.className = "core-availability-hint";
+      hint.hidden = available;
       hint.setAttribute("data-core-action-hint", "");
       hint.textContent = "连接并授权本地核心后可使用此页面的写入与管理操作。";
       panel.insertBefore(hint, panel.firstChild || null);

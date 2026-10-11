@@ -920,9 +920,9 @@ test("接线：权限中心注册为按需面板，状态条点击进入该面�
   assert.ok(order[3] < indexHtml.indexOf('<script src="app-domain.js"></script>'), "面板必须在装配层之前加载");
   assert.match(appDomainSource, /const PANEL_ORDER = \[[\s\S]*?"permissions"/, "权限中心必须进入工具面板目录");
   assert.match(appDomainSource, /function mountPanel\(id, writeHash = true\)/, "权限面板必须复用统一 mount/dispose 生命周期");
-  assert.match(appSource, /key === "permission"[\s\S]*?openToolsView\(\);[\s\S]*?mountPanel\("permissions"\)/,
+  assert.match(appSource, /key === "permission"[\s\S]*?openPanelById\("permissions"\)/,
     "全局权限状态必须打开工具视图并挂载权限中心");
-  assert.match(appDomainSource, /function initPanels\(\)[\s\S]*?button\.addEventListener\("click", \(\) => mountPanel\(id\)\)/,
+  assert.match(appDomainSource, /function initPanels\(\)[\s\S]*?button\.addEventListener\("click", \(\) => openPanelById\(id\)\)/,
     "面板首个请求由用户显式打开触发");
   const boot = /const BOOT_HYDRATE_TASKS = \[([\s\S]*?)\];/.exec(appSource);
   assert.ok(boot, "首屏水合任务清单应存在");

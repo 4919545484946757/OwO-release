@@ -34,5 +34,21 @@
     ].filter(Boolean).join(" · ");
     return { status, compact, details };
   }
-  root.OwoCompletionRecord = Object.freeze({ summarize });
+  function fromTurnStats(stats) {
+    const value = stats && typeof stats === "object" ? stats : {};
+    const calls = Array.isArray(value.model_calls) ? value.model_calls : [];
+    const reported = calls.filter(call => call && typeof call.model === "string" && call.model.trim());
+    return { lastExecutionModel: reported.length ? reported[reported.length - 1].model.trim() : "",
+      lastCompletionStatus: typeof value.completion_status === "string" ? value.completion_status : "",
+      lastCompletionRecord: value.completion_record && typeof value.completion_record === "object" ? value.completion_record : null };
+  }
+  function usageFromTurnStats(stats) {
+    const calls = Array.isArray(stats?.model_calls) ? stats.model_calls : [];
+    if (!calls.length) return null;
+    const known = calls.filter(call => call?.usage && call.usage.total_tokens != null && Number.isFinite(Number(call.usage.total_tokens)));
+    if (!known.length) return { text: "用量未知", known: 0, total: calls.length };
+    const tokens = known.reduce((sum, call) => sum + Number(call.usage.total_tokens), 0);
+    return { text: "已知 " + tokens + " Tokens · 用量覆盖 " + known.length + "/" + calls.length, known: known.length, total: calls.length };
+  }
+  root.OwoCompletionRecord = Object.freeze({ summarize, fromTurnStats, usageFromTurnStats });
 })(globalThis);
