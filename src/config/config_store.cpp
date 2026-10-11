@@ -196,6 +196,8 @@ bool is_plugin_input_scheme(std::string_view value) noexcept {
 }
 
 ConfigValidationResult validate_config(const AppConfig& value) {
+    if (value.chinese_punctuation_mask & ~kChinesePunctuationAll)
+        return {false, "chinese_punctuation_mask contains unknown punctuation bits"};
     if (value.input_scheme != "full_pinyin" &&
         value.input_scheme != "exact_code" && !is_plugin_input_scheme(value.input_scheme))
         return {false, "input_scheme must be full_pinyin, exact_code or plugin:<id>/<scheme>"};
@@ -319,7 +321,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 10 ? std::size(composition_required) : 0) +
                                (version >= 12 ? std::size(text_navigation_required) : 0) +
                                (version >= 13 ? std::size(input_scheme_required) : 0) +
-                               (version >= 14 ? std::size(user_completion_required) : 0);
+                               (version >= 14 ? std::size(user_completion_required) : 0) +
+                               (version >= 15 ? 1 : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -359,6 +362,10 @@ ConfigParseResult parse_config(const std::string_view utf8) {
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
+    if (version >= 15 &&
+        (!fields.contains("chinese_punctuation_mask") ||
+         !parse_u32(fields["chinese_punctuation_mask"], value.chinese_punctuation_mask)))
+        return {false, {}, "chinese_punctuation_mask is missing or invalid"};
     if (version >= 13) value.input_scheme = fields["input_scheme"];
     if (version >= 14 &&
         (!parse_bool(fields["user_lexicon_completion_enabled"],
@@ -499,6 +506,7 @@ std::string serialize_config(const AppConfig& value) {
                (value.focus_loss_commit_enabled ? std::string("true") : "false") +
            "\nchinese_punctuation_enabled=" +
                (value.chinese_punctuation_enabled ? std::string("true") : "false") +
+           "\nchinese_punctuation_mask=" + std::to_string(value.chinese_punctuation_mask) +
            "\nalt_code_preview_enabled=" +
                (value.alt_code_preview_enabled ? std::string("true") : "false") +
            "\nalt_code_preview_page_size=" +

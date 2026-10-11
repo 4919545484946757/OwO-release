@@ -16,6 +16,25 @@ void write(const std::filesystem::path& path, const std::string_view text) {
 int main(const int argc, char** argv) {
     if (argc != 2) return 1;
     const std::filesystem::path root(argv[1]);
+    // Per-key preferences survive persistence, while older schemas preserve all conversions.
+    auto punctuation = owo::config::AppConfig{};
+    for (const char source : owo::config::kChinesePunctuationSources)
+        if (!owo::config::punctuation_selected(punctuation.chinese_punctuation_mask, source)) return 50;
+    if (owo::config::punctuation_selected(punctuation.chinese_punctuation_mask, '/')) return 51;
+    punctuation.chinese_punctuation_mask = 1;
+    const auto punctuation_roundtrip = owo::config::parse_config(owo::config::serialize_config(punctuation));
+    if (!punctuation_roundtrip.ok || punctuation_roundtrip.value != punctuation ||
+        !owo::config::punctuation_selected(1, ',') || owo::config::punctuation_selected(1, '.')) return 52;
+    punctuation.chinese_punctuation_mask = 0;
+    if (!owo::config::parse_config(owo::config::serialize_config(punctuation)).ok) return 53;
+    punctuation.chinese_punctuation_mask = 0x80000000;
+    if (owo::config::validate_config(punctuation).ok) return 54;
+    auto version_fourteen = owo::config::serialize_config(owo::config::AppConfig{});
+    version_fourteen.replace(0, std::string("schema_version=15").size(), "schema_version=14");
+    const auto mask_begin = version_fourteen.find("chinese_punctuation_mask=");
+    version_fourteen.erase(mask_begin, version_fourteen.find('\n', mask_begin) - mask_begin + 1);
+    const auto migrated = owo::config::parse_config(version_fourteen);
+    if (!migrated.ok || migrated.value.chinese_punctuation_mask != owo::config::kChinesePunctuationAll) return 55;
     std::error_code error;
     std::filesystem::remove_all(root, error);
     std::filesystem::create_directories(root, error);
@@ -48,6 +67,7 @@ int main(const int argc, char** argv) {
     changed.previous_page_shortcuts = {"[", "Ctrl+Shift+Up"};
     changed.next_page_shortcuts = {"]", "Ctrl+Shift+Down"};
     changed.chinese_punctuation_enabled = false;
+    changed.chinese_punctuation_mask = 7;
     changed.alt_code_preview_enabled = false;
     changed.alt_code_preview_page_size = 6;
     changed.alt_code_preview_wheel_enabled = false;
@@ -140,7 +160,7 @@ int main(const int argc, char** argv) {
         legacy.value.punctuation_shortcut_enabled ||
         !legacy.value.punctuation_shortcuts.empty()) return 20;
 
-    auto version_thirteen_text = owo::config::serialize_config(owo::config::AppConfig{});
+    auto version_thirteen_text = version_fourteen;
     version_thirteen_text.replace(version_thirteen_text.find("schema_version=14"),
                                   std::string("schema_version=14").size(),
                                   "schema_version=13");

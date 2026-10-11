@@ -59,6 +59,16 @@ if ($LASTEXITCODE -ne 0) {
     throw "OwO Release runtime build failed: $LASTEXITCODE"
 }
 
+# A new configuration schema must be understood by both in-process TSF builds.
+# Never register a stale x86 DLL after saving settings from the latest x64 UI.
+$x86BuildTree = Join-Path $projectRoot 'build/windows-x86-release'
+if (-not (Test-Path -LiteralPath (Join-Path $x86BuildTree 'CMakeCache.txt'))) {
+    cmake --preset windows-x86-release -S $projectRoot
+    if ($LASTEXITCODE -ne 0) { throw "OwO x86 configure failed: $LASTEXITCODE" }
+}
+cmake --build $x86BuildTree --config Release --target owo_tsf -- /m:1
+if ($LASTEXITCODE -ne 0) { throw "OwO x86 TSF build failed: $LASTEXITCODE" }
+
 Get-Process -Name 'OwO.Settings' -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -eq $settingsCenter } |
     Stop-Process -Force

@@ -25,7 +25,8 @@ internal sealed record SettingsSnapshot(string InputScheme,
                                         bool NextPageShortcutEnabled, IReadOnlyList<string> NextPageShortcuts,
                                         bool PunctuationShortcutEnabled, IReadOnlyList<string> PunctuationShortcuts,
                                         bool TextNavigationShortcutEnabled, IReadOnlyList<string> TextNavigationShortcuts,
-                                        bool TextNavigationSelectEnabled);
+                                        bool TextNavigationSelectEnabled,
+                                        uint ChinesePunctuationMask);
 
 internal sealed class ConfigShellClient
 {
@@ -89,7 +90,8 @@ internal sealed class ConfigShellClient
                    SplitShortcuts(values["punctuation_shortcut"]),
                    bool.Parse(values["text_navigation_shortcut_enabled"]),
                    SplitShortcuts(values["text_navigation_shortcut"]),
-                   bool.Parse(values["text_navigation_select_enabled"]));
+                   bool.Parse(values["text_navigation_select_enabled"]),
+                   uint.Parse(values["chinese_punctuation_mask"]));
     }
 
     internal Task SaveAsync(SettingsSnapshot value, CancellationToken cancellationToken = default) =>
@@ -127,7 +129,8 @@ internal sealed class ConfigShellClient
                   value.TextNavigationSelectEnabled.ToString().ToLowerInvariant(),
                   value.InputScheme,
                   value.UserCompletionEnabled.ToString().ToLowerInvariant(),
-                  value.UserCompletionMaxSyllables.ToString()], cancellationToken);
+                  value.UserCompletionMaxSyllables.ToString(),
+                  value.ChinesePunctuationMask.ToString()], cancellationToken);
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

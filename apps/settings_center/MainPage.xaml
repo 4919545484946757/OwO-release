@@ -217,17 +217,23 @@
                                         <ToggleSwitch x:Name="FocusLossCommit" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
-                                <Border x:Name="ChinesePunctuationCard" Style="{StaticResource SettingsCardStyle}">
+                                <Border x:Name="ChinesePunctuationCard" Style="{StaticResource SettingsCardStyle}" Tapped="ChinesePunctuationCard_Tapped">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Spacing="3">
-                                            <TextBlock Text="中文标点" Style="{StaticResource SettingTitleStyle}"/>
-                                            <TextBlock Text="中文模式下自动输入全角中文标点。" Style="{StaticResource SettingDescriptionStyle}"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="ChinesePunctuation" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
+                                        <Button Click="OpenChinesePunctuation_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Padding="0" AutomationProperties.Name="打开中文标点设置">
+                                            <StackPanel Spacing="3">
+                                                <TextBlock Text="中文标点" Style="{StaticResource SettingTitleStyle}"/>
+                                                <TextBlock Text="控制中文标点总开关，点击配置各类标点。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <ToggleSwitch x:Name="ChinesePunctuation" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center" Toggled="ChinesePunctuation_Toggled" AutomationProperties.Name="中文标点总开关"/>
+                                        <Button Grid.Column="2" Click="OpenChinesePunctuation_Click" Background="Transparent" BorderThickness="0" Padding="8" VerticalAlignment="Center" AutomationProperties.Name="进入中文标点设置">
+                                            <FontIcon Glyph="&#xE76C;" FontSize="12"/>
+                                        </Button>
                                     </Grid>
                                 </Border>
                                 <TextBlock x:Name="LearningSectionTitle" Text="词频与智能排序" Style="{StaticResource SectionTitleStyle}"/>
@@ -615,6 +621,13 @@
                                 </StackPanel>
                             </ContentControl>
                         </Grid>
+                    </ScrollViewer>
+                    <ScrollViewer x:Name="ChinesePunctuationPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">
+                            <Button Content="返回候选与输入" Click="ChinesePunctuationBack_Click"/>
+                            <InfoBar x:Name="ChinesePunctuationNotice" IsOpen="True" IsClosable="False" Severity="Informational"/>
+                            <StackPanel x:Name="ChinesePunctuationFields" Spacing="8"/>
+                        </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer x:Name="PluginConfigPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                         <Grid x:Name="PluginConfigContentArea" Margin="32,0,32,24">

@@ -4858,6 +4858,28 @@ void TextService::clear_composition() {
 std::optional<std::wstring> TextService::chinese_punctuation_for_key(
     const WPARAM key, const bool advance_quote_state) {
     const bool shift = key_down(VK_SHIFT);
+    char source = 0;
+    switch (key) {
+        case VK_OEM_COMMA: source = shift ? '<' : ','; break;
+        case VK_OEM_PERIOD: source = shift ? '>' : '.'; break;
+        case VK_OEM_2: source = shift ? '?' : '/'; break;
+        case VK_OEM_1: source = shift ? ':' : ';'; break;
+        case VK_OEM_4: source = shift ? '{' : '['; break;
+        case VK_OEM_6: source = shift ? '}' : ']'; break;
+        case VK_OEM_5: source = shift ? '|' : '\\'; break;
+        case VK_OEM_MINUS: source = shift ? '_' : '-'; break;
+        case VK_OEM_PLUS: source = shift ? '+' : '='; break;
+        case VK_OEM_3: source = shift ? '~' : '`'; break;
+        case VK_OEM_7: source = shift ? '"' : '\''; break;
+        case '9': if (shift) source = '('; break;
+        case '0': if (shift) source = ')'; break;
+        case '1': if (shift) source = '!'; break;
+        case '4': if (shift) source = '$'; break;
+        case '6': if (shift) source = '^'; break;
+        default: break;
+    }
+    if (!config::punctuation_selected(shortcut_config_.chinese_punctuation_mask, source))
+        return std::nullopt;
     switch (key) {
         case VK_OEM_COMMA: return shift ? L"《" : L"，";
         case VK_OEM_PERIOD: return shift ? L"》" : L"。";

@@ -100,6 +100,7 @@ public sealed partial class MainPage : Page
         SetShortcutBindings("text-navigation", ["Shift+Left", "Shift+Right", "Shift+Up", "Shift+Down"]);
         SetShortcutBindings("punctuation", []);
         UpdateShortcutButtons();
+        InitializePunctuationSettings();
         InitializeSearchIndex();
         ShowPage("schemes");
         ConfigPath.Text = _client.ConfigPath;
@@ -170,6 +171,7 @@ public sealed partial class MainPage : Page
         CandidateImmediateCommit.IsOn = value.CandidateImmediateCommitEnabled;
         FocusLossCommit.IsOn = value.FocusLossCommitEnabled;
         ChinesePunctuation.IsOn = value.ChinesePunctuationEnabled;
+        ApplyPunctuationMask(value.ChinesePunctuationMask);
         AltCodePreview.IsOn = value.AltCodePreviewEnabled;
         AltCodePreviewPageSize.Value = value.AltCodePreviewPageSize;
         AltCodePreviewWheel.IsOn = value.AltCodePreviewWheelEnabled;
@@ -226,6 +228,7 @@ public sealed partial class MainPage : Page
         SetCardEnabled(FocusLossCommitCard, !pluginScheme);
         SetCardEnabled(TextNavigationShortcutCard, !pluginScheme);
         SetCardEnabled(ChinesePunctuationCard, !pluginScheme);
+        foreach (var toggle in _punctuationSwitches.Values) toggle.IsEnabled = !pluginScheme;
         SetCardEnabled(PunctuationShortcutCard, !pluginScheme);
         var pinyinScheme = (InputScheme.SelectedItem as InputSchemeOption)?.Id ==
             "full_pinyin";
@@ -295,7 +298,8 @@ public sealed partial class MainPage : Page
                 NextPageShortcutEnabled.IsOn, ShortcutValues("next-page"),
                 PunctuationShortcutEnabled.IsOn, ShortcutValues("punctuation"),
                 TextNavigationShortcutEnabled.IsOn, ShortcutValues("text-navigation"),
-                TextNavigationSelectEnabled.IsOn);
+                TextNavigationSelectEnabled.IsOn,
+                PunctuationMask());
             await _client.SaveAsync(value);
             ShowStatus("配置已保存，Core Service 将自动应用。", InfoBarSeverity.Success);
         } catch (Exception error) {
@@ -345,6 +349,7 @@ public sealed partial class MainPage : Page
             switch (_currentPage) {
                 case "schemes": ApplySchemeSettings(defaults); break;
                 case "candidates": ApplyCandidateSettings(defaults); break;
+                case "punctuation": ApplyPunctuationMask(defaults.ChinesePunctuationMask); break;
                 case "intelligence": ApplyIntelligenceSettings(defaults); break;
                 case "shortcuts": ApplyShortcutSettings(defaults); break;
                 default: return;
@@ -388,6 +393,12 @@ public sealed partial class MainPage : Page
         PluginSettingsPage.Visibility = page == "plugins"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+        ChinesePunctuationPage.Visibility = page == "punctuation"
+            ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        if (page == "punctuation") {
+            ChinesePunctuationPage.ChangeView(null, 0, null, true);
+            UpdatePunctuationNotice();
+        }
         SetVisibility(page == "schemes", InputSchemeSectionTitle, InputSchemeCard,
                       InputSchemeCapabilities, DiscoverSchemesButton);
         SetVisibility(page == "candidates", CandidateSectionTitle,
@@ -401,17 +412,18 @@ public sealed partial class MainPage : Page
                       UserCompletionCard, UserCompletionRangeCard,
                       ModelRankingCard, ModelTimeoutCard);
         if (generalPage) GeneralSettingsPage.ChangeView(null, 0, null, true);
-        var configurationPage = generalPage || page == "shortcuts";
+        var configurationPage = generalPage || page is "shortcuts" or "punctuation";
         SaveButton.Visibility = configurationPage
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         ReloadButton.Visibility = configurationPage
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         ResetPageButton.Visibility = page is "schemes" or "candidates" or
-            "intelligence" or "shortcuts" or "plugins"
+            "intelligence" or "shortcuts" or "plugins" or "punctuation"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         (CurrentPageTitle.Text, CurrentPageDescription.Text) = page switch {
             "schemes" => ("输入方案", "选择编码方案并查看当前方案能力"),
             "candidates" => ("候选与输入", "调整候选显示、组合上屏、标点和符号预览"),
+            "punctuation" => ("中文标点", "逐项选择中文格式；总开关和中英文模式仍决定是否启用"),
             "intelligence" => ("学习与排序", "管理本地词频学习、上下文排序和模型预算"),
             "shortcuts" => ("快捷键", "管理输入、翻页和模式切换的多组按键绑定"),
             "plugins" => ("插件", "安装、授权、配置和维护 OwO 插件"),
@@ -439,6 +451,9 @@ public sealed partial class MainPage : Page
         Add("候选词即时上屏", "暂存 组合 上屏", "candidates", CandidateImmediateCommitCard);
         Add("失焦保护", "候选框 关闭 上屏", "candidates", FocusLossCommitCard);
         Add("中文标点", "全角 标点", "candidates", ChinesePunctuationCard);
+        foreach (var option in PunctuationOptions)
+            Add($"中文标点 · {option.Name}", $"标点 {option.Source} {option.Output}",
+                "punctuation", _punctuationCards[option.Source]);
         Add("用户词频学习", "学习 词频", "intelligence", UserLearningCard);
         Add("词频学习灵敏度", "灵敏度 1 10", "intelligence", LearningSensitivityCard);
         Add("用户词拼音补全", "学习 词库 前缀 补全", "intelligence", UserCompletionCard);
@@ -503,6 +518,7 @@ public sealed partial class MainPage : Page
         SettingsNavigation.SelectedItem = item.Page switch {
             "schemes" => SchemeNavigationItem,
             "candidates" => CandidateNavigationItem,
+            "punctuation" => CandidateNavigationItem,
             "intelligence" => IntelligenceNavigationItem,
             "shortcuts" => ShortcutNavigationItem,
             "plugins" => PluginNavigationItem,
@@ -834,6 +850,7 @@ public sealed partial class MainPage : Page
             GeneralSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             ShortcutSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            ChinesePunctuationPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
             ResetPageButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             SaveButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
