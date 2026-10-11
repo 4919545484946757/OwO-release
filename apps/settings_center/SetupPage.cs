@@ -570,7 +570,7 @@ public sealed class SetupPage : Page
         _detailsToggle.Content = visible ? "隐藏安装详细信息" : "显示安装详细信息";
         _installLog.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         if (_step == SetupStep.Progress)
-            ResizeInstallerWindow(visible ? 720 : 670, preservePosition: true);
+            ResizeInstallerWindow(visible ? 750 : 670, preservePosition: true);
     }
 
     private static void ResizeInstallerWindow(int preferredHeight, bool preservePosition = false)
