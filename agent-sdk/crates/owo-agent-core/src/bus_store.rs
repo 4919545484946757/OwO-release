@@ -157,7 +157,10 @@ impl BusStore {
 
     /// 按写入顺序重放全部已持久化消息（启动断点恢复）。
     pub fn replay_messages(&self) -> Vec<BusMessage> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         inner
             .order
             .iter()

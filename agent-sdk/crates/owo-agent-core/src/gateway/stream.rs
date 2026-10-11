@@ -75,11 +75,16 @@ pub fn parse_sse_payload(payload: &str) -> Option<StreamDelta> {
     })
 }
 
+/// 单个工具调用累计参数上限：异常/被劫持端点可能无界推送 arguments，
+/// 超出即标记截断并在构建时显式报错（不静默解析半截 JSON）。
+const MAX_TOOL_CALL_ARGUMENT_BYTES: usize = 4 * 1024 * 1024;
+
 #[derive(Debug, Default)]
 pub(super) struct ToolCallAccumulator {
     id: String,
     name: String,
     arguments: String,
+    truncated: bool,
 }
 
 pub(super) fn accumulate_tool_fragments(
@@ -102,7 +107,11 @@ pub(super) fn accumulate_tool_fragments(
             .pointer("/function/arguments")
             .and_then(Value::as_str)
         {
-            entry.arguments.push_str(arguments);
+            if entry.arguments.len() + arguments.len() > MAX_TOOL_CALL_ARGUMENT_BYTES {
+                entry.truncated = true;
+            } else {
+                entry.arguments.push_str(arguments);
+            }
         }
     }
 }
@@ -112,6 +121,13 @@ pub(super) fn build_tool_calls(
 ) -> Result<Option<Vec<ToolCall>>, String> {
     if accumulators.is_empty() {
         return Ok(None);
+    }
+    if let Some(accum) = accumulators.values().find(|accum| accum.truncated) {
+        return Err(format!(
+            "模型返回的工具 {} 参数超过上限（{} MiB），已拒绝解析",
+            accum.name,
+            MAX_TOOL_CALL_ARGUMENT_BYTES / (1024 * 1024)
+        ));
     }
     let mut calls: Vec<(usize, ToolCall)> = accumulators
         .drain()

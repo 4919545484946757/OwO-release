@@ -674,8 +674,21 @@ async fn p1_worker_pool_mode_runs_steps_in_subprocess() {
     let e1 = steps.iter().find(|s| s["step_id"] == "e1").unwrap();
     assert_eq!(e1["output"], "out-A", "echo 步骤应经子进程执行：{e1}");
     // 审计链路含 worker 生命周期事件（started/stopped 同源写入）。
-    let (_, audit) = call(&app, "GET", &format!("/goal/{goal_id}/audit"), None).await;
-    let text = serde_json::to_string(&audit).unwrap();
+    // worker.stopped 由子进程回收路径异步写入，终态后可能略晚于 Succeeded；
+    // 单次读取会在并行测试负载下抖动，这里在有界时间内轮询。
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let mut text;
+    loop {
+        let (_, audit) = call(&app, "GET", &format!("/goal/{goal_id}/audit"), None).await;
+        text = serde_json::to_string(&audit).unwrap();
+        if text.contains("worker.started") && text.contains("worker.stopped") {
+            break;
+        }
+        if std::time::Instant::now() >= deadline {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
     assert!(
         text.contains("worker.started"),
         "审计应含 worker 启动事件：{text}"

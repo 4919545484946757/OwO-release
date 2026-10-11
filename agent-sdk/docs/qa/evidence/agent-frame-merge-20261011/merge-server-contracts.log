@@ -1,0 +1,719 @@
+   Compiling owo-agent-tool-safety v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-tool-safety)
+   Compiling owo-agent-contracts v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-contracts)
+   Compiling owo-agent-memory v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-memory)
+   Compiling owo-agent-plugins v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-plugins)
+   Compiling owo-agent-perception v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-perception)
+   Compiling owo-agent-executor v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-executor)
+   Compiling owo-agent-mcp v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-mcp)
+   Compiling owo-agent-policy v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-policy)
+   Compiling owo-agent-workflow v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-workflow)
+   Compiling owo-agent-workswarm v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-workswarm)
+   Compiling owo-agent-extensions v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-extensions)
+   Compiling owo-agent-core v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-core)
+   Compiling owo-build-info v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-build-info)
+   Compiling owo-agent-product-eval v0.1.0 (D:\OwO-master\agent-sdk\devtools\product-eval)
+   Compiling owo-agent-eval-facade v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-eval-facade)
+   Compiling owo-agent-server v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-server)
+
+running 4 tests
+test bearer_alone_cannot_register_desktop_credentials ... ok
+test durable_terminal_and_latest_failure_survive_reopen ... ok
+test secure_credential_references_are_endpoint_bound_and_revocable ... ok
+test session_http_returns_durable_host_facts ... ok
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3m 31s
+     Running tests\desktop_six_item_contract_tests.rs (target\debug\deps\desktop_six_item_contract_tests-7517cdba46498685.exe)
+     Running tests\route_contract_tests.rs (target\debug\deps\route_contract_tests-73b4c20c03e76f18.exe)
+
+running 51 tests
+test a8_activity_pet_approvals_and_automation_runs_contract ... ok
+test all_contract_endpoints_are_reachable ... FAILED
+test answer_question_routes_to_pending_sender ... ok
+test approved_write_diff_and_revert_close_the_server_golden_path ... ok
+test artifact_review_contract_shape_is_frozen ... ok
+test auth_token_desktop_pairing_is_documented_and_cors_allowed ... ok
+test concurrent_slow_http_turn_clients_each_replay_failed_state ... ok
+test cors_exposes_turn_id_for_stream_recovery ... ok
+test cors_whitelist_enforces_origins ... ok
+test deprecation_header_absent_on_current_routes ... ok
+test deprecation_header_value_contract ... ok
+test desktop_credentials_and_durable_session_facts_are_documented ... ok
+test desktop_six_item_contracts::bearer_alone_cannot_register_desktop_credentials ... ok
+test desktop_six_item_contracts::durable_terminal_and_latest_failure_survive_reopen ... ok
+test desktop_six_item_contracts::secure_credential_references_are_endpoint_bound_and_revocable ... ok
+test desktop_six_item_contracts::session_http_returns_durable_host_facts ... ok
+test diagnostics_requests_ledger_is_protected_and_privacy_safe ... ok
+test event_streams_require_bearer_auth ... ok
+test events_stream_explicit_zero_replays_history ... ok
+test events_stream_fresh_subscription_does_not_replay_history ... ok
+test events_stream_resumes_from_last_event_id_header ... ok
+test fs_open_enforces_workspace_scope_and_rejects_empty_path ... ok
+test health_build_identity_has_full_semantics ... ok
+test health_contract_version_and_optional_build ... ok
+test health_identity_is_single_source_with_build_info ... ok
+test major_repair_http::expired_approval_channel_does_not_create_a_reusable_grant ... ok
+test major_repair_http::http_custom_connection_rejects_invalid_before_accepting_turn_and_matches_schema ... ok
+test major_repair_http::http_custom_connection_routes_endpoint_key_format_full_url_and_preserves_defaults ... ok
+test major_repair_http::http_custom_connection_timeout_is_turn_local_and_cleans_up ... ok
+test major_repair_http::http_custom_connections_remain_isolated_between_simultaneous_sessions ... ok
+test major_repair_http::http_scoped_cancellation_preserves_prestart_and_does_not_abort_next_turn ... ok
+test major_repair_http::http_turn_readonly_is_request_scoped_and_never_relaxes_parent_policy ... ok
+test mutation_routes_publish_exactly_one_domain_invalidate ... ok
+test openapi_json_covers_snapshot_and_registered_routes ... ok
+test pet_static_routes_are_mounted_and_no_store ... ok
+test product_eval_contract_shapes_are_frozen ... ok
+test provider_disconnect_after_delta_is_persisted_as_failed_and_replayable ... ok
+test public_endpoints_are_token_free_and_bad_token_rejected ... ok
+test rate_limit_returns_429_with_retry_after ... ok
+test schemas_endpoints_serve_versioned_json_schema ... ok
+test session_revert_conflict_returns_structured_409_and_preserves_user_edit ... ok
+test slow_http_consumer_and_provider_disconnect_preserve_failed_turn_replay ... ok
+test slow_http_turn_client_triggers_bounded_queue_overflow_and_cancels_provider ... ok
+test steer_retry_contract_shape_is_frozen ... ok
+test team_context_api_persists_facts_and_rejects_stale_revision ... ok
+test team_create_rejects_parent_session_from_another_workspace ... ok
+test team_create_snapshots_only_same_workspace_source_session_constraints ... ok
+test turn_event_replay_filters_by_turn_and_resumes_after_session_seq ... ok
+test turn_replay_openapi_documents_identity_and_terminal_state ... ok
+test unauthorized_requests_get_401 ... ok
+test v05_routes_are_registered_not_404_via_real_http ... ok
+failures:
+
+
+---- all_contract_endpoints_are_reachable stdout ----
+{"duration_ms":3,"level":"info","method":"POST","msg":"request","route_template":"/session","source":"other","status":200,"target":"http","trace_id":"67c6c8c748014234a0c1678f","ts":"2026-10-11T06:22:09.416404500+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/activity","source":"other","status":200,"target":"http","trace_id":"bf29b2a0a80b486e84d75fc7","ts":"2026-10-11T06:22:09.423684500+00:00"}
+contract GET /activity → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/approvals/pending","source":"other","status":200,"target":"http","trace_id":"892004c1ef83454ab5f7367d","ts":"2026-10-11T06:22:09.423888500+00:00"}
+contract GET /approvals/pending → 200
+{"duration_ms":52,"level":"info","method":"GET","msg":"request","route_template":"/artifacts/{id}/content","source":"other","status":404,"target":"http","trace_id":"011c8c2c1130433ea8b14486","ts":"2026-10-11T06:22:09.476811800+00:00"}
+contract GET /artifacts/df449e2d-8bbe-4221-92e3-96ba0974f4f4/content → 404
+contract GET /artifacts/df449e2d-8bbe-4221-92e3-96ba0974f4f4/history → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/artifacts/{id}/metadata","source":"other","status":404,"target":"http","trace_id":"ccf50521c0bd45c5b3eb92f9","ts":"2026-10-11T06:22:09.478001400+00:00"}
+contract GET /artifacts/df449e2d-8bbe-4221-92e3-96ba0974f4f4/metadata → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/artifacts/{id}/review","source":"other","status":422,"target":"http","trace_id":"1b58429b53254c9092a2dcde","ts":"2026-10-11T06:22:09.478391100+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/artifacts/{id}/history","source":"other","status":404,"target":"http","trace_id":"1d89061a54ba49c4beb34860","ts":"2026-10-11T06:22:09.477631500+00:00"}
+contract POST /artifacts/df449e2d-8bbe-4221-92e3-96ba0974f4f4/review → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/artifacts/{id}/rework","source":"other","status":404,"target":"http","trace_id":"16366d06c4fd46028d194013","ts":"2026-10-11T06:22:09.478761600+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/audit","source":"other","status":200,"target":"http","trace_id":"593664253bc5461aafbbe055","ts":"2026-10-11T06:22:09.479069+00:00"}
+contract GET /audit → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/auth/token","source":"other","status":200,"target":"http","trace_id":"2302fe6162424350912e9909","ts":"2026-10-11T06:22:09.479251+00:00"}
+contract GET /auth/token → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/automations","source":"other","status":200,"target":"http","trace_id":"a315a296fb4f4f73b2631138","ts":"2026-10-11T06:22:09.479422400+00:00"}
+contract POST /artifacts/df449e2d-8bbe-4221-92e3-96ba0974f4f4/rework → 404
+contract GET /automations → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/automations","source":"other","status":422,"target":"http","trace_id":"75fc51f9c4d04d869e1dd53c","ts":"2026-10-11T06:22:09.479609400+00:00"}
+contract POST /automations → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/automations/reminders","source":"other","status":200,"target":"http","trace_id":"68201ff7995c450d97e691e9","ts":"2026-10-11T06:22:09.479749800+00:00"}
+contract GET /automations/reminders → 200
+{"duration_ms":1,"level":"info","method":"POST","msg":"request","route_template":"/automations/reminders/clear","source":"other","status":200,"target":"http","trace_id":"cfcb262bdb2c41ba8e95e9c8","ts":"2026-10-11T06:22:09.481062600+00:00"}
+contract POST /automations/reminders/clear → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/automations/runs","source":"other","status":200,"target":"http","trace_id":"c01453d8bc4d47d898763946","ts":"2026-10-11T06:22:09.481302500+00:00"}
+contract DELETE /automations/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 200
+contract GET /automations/runs → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/automations/{id}/toggle","source":"other","status":404,"target":"http","trace_id":"01535a1e260541adafa3d1f2","ts":"2026-10-11T06:22:09.482647800+00:00"}
+contract POST /automations/df449e2d-8bbe-4221-92e3-96ba0974f4f4/toggle → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/capabilities","source":"other","status":200,"target":"http","trace_id":"6666d6199397414f83223c5e","ts":"2026-10-11T06:22:09.483254300+00:00"}
+contract GET /capabilities → 200
+{"duration_ms":3,"level":"info","method":"GET","msg":"request","route_template":"/change-sets/{id}","source":"other","status":404,"target":"http","trace_id":"c1312cffffc04bc9bf20bd3d","ts":"2026-10-11T06:22:09.486541900+00:00"}
+contract GET /change-sets/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/change-sets/{id}/accept","source":"other","status":404,"target":"http","trace_id":"79149000c33349cbaa05aeb1","ts":"2026-10-11T06:22:09.487007900+00:00"}
+contract POST /change-sets/df449e2d-8bbe-4221-92e3-96ba0974f4f4/accept → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/change-sets/{id}/reject","source":"other","status":404,"target":"http","trace_id":"c6d18d6ba45d4f05a756621f","ts":"2026-10-11T06:22:09.487222800+00:00"}
+contract POST /change-sets/df449e2d-8bbe-4221-92e3-96ba0974f4f4/reject → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/change-sets/{id}/revert","source":"other","status":404,"target":"http","trace_id":"3882bc91af9d45a4b50473a9","ts":"2026-10-11T06:22:09.487435+00:00"}
+contract POST /change-sets/df449e2d-8bbe-4221-92e3-96ba0974f4f4/revert → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/cloud/tasks","source":"other","status":422,"target":"http","trace_id":"3041aecb52224a3696307a50","ts":"2026-10-11T06:22:09.487636300+00:00"}
+contract POST /cloud/tasks → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/cloud/tasks/{id}","source":"other","status":404,"target":"http","trace_id":"1b4d9226725945698a4e1b7c","ts":"2026-10-11T06:22:09.487807+00:00"}
+contract GET /cloud/tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/cloud/tasks/{id}/cancel","source":"other","status":400,"target":"http","trace_id":"112748b5a4554d0bb6a09747","ts":"2026-10-11T06:22:09.488569600+00:00"}
+contract POST /cloud/tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4/cancel → 400
+contract GET /cloud/tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4/events → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/cloud/tasks/{id}/events","source":"other","status":200,"target":"http","trace_id":"dfe4ae8978e04959a947b94c","ts":"2026-10-11T06:22:09.488864300+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/cloud/tasks/{id}/result","source":"other","status":404,"target":"http","trace_id":"7a47b2f3aeb84583adbbbe48","ts":"2026-10-11T06:22:09.489034900+00:00"}
+contract GET /cloud/tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4/result → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/command/audit","source":"other","status":200,"target":"http","trace_id":"2cb9bfe1f32943529b0ecc69","ts":"2026-10-11T06:22:09.489212800+00:00"}
+contract GET /command/audit → 200
+{"duration_ms":1,"level":"info","method":"POST","msg":"request","route_template":"/command/run","source":"other","status":400,"target":"http","trace_id":"54e77d6c1c6c4b1bbb961db9","ts":"2026-10-11T06:22:09.490991700+00:00"}
+contract POST /command/run → 400
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/computer-use/sensitive-check","source":"other","status":200,"target":"http","trace_id":"7b1266088bdc4e10864ea14f","ts":"2026-10-11T06:22:09.491218900+00:00"}
+contract POST /computer-use/sensitive-check → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/computer-use/task","source":"other","status":200,"target":"http","trace_id":"9d4db19f7dba4ef8afe7ad5c","ts":"2026-10-11T06:22:09.491520+00:00"}
+contract POST /computer-use/task → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/computer-use/task/{id}/check/{action}","source":"other","status":400,"target":"http","trace_id":"54aeaeb86ca84bc6af88b1b7","ts":"2026-10-11T06:22:09.491694700+00:00"}
+contract GET /computer-use/task/df449e2d-8bbe-4221-92e3-96ba0974f4f4/check/cancel → 400
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/computer-use/task/{id}/run","source":"other","status":422,"target":"http","trace_id":"35d62064472d4e09bd5fae90","ts":"2026-10-11T06:22:09.491883300+00:00"}
+contract POST /computer-use/task/df449e2d-8bbe-4221-92e3-96ba0974f4f4/run → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/computer-use/task/{id}/{action}","source":"other","status":400,"target":"http","trace_id":"25f3cbaf709e4973b16e6c1b","ts":"2026-10-11T06:22:09.492133+00:00"}
+contract POST /computer-use/task/df449e2d-8bbe-4221-92e3-96ba0974f4f4/cancel → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/computer-use/tasks","source":"other","status":200,"target":"http","trace_id":"f18ae38585c843e181b571c2","ts":"2026-10-11T06:22:09.492323600+00:00"}
+contract GET /computer-use/tasks → 200
+{"duration_ms":76,"level":"info","method":"GET","msg":"request","route_template":"/context/snapshot","source":"other","status":200,"target":"http","trace_id":"b13a1f66a0f6400aaa367dde","ts":"2026-10-11T06:22:09.569001400+00:00"}
+contract GET /context/snapshot → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/datasets/build","source":"other","status":400,"target":"http","trace_id":"4df5a2cd26334687a0022807","ts":"2026-10-11T06:22:09.569764300+00:00"}
+contract POST /datasets/build → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/datasets/{id}/manifest","source":"other","status":404,"target":"http","trace_id":"9754b0ad9ded4277b213559f","ts":"2026-10-11T06:22:09.570232300+00:00"}
+contract GET /datasets/df449e2d-8bbe-4221-92e3-96ba0974f4f4/manifest → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop-envs","source":"other","status":200,"target":"http","trace_id":"4f37cb55e6a74029842d2bf4","ts":"2026-10-11T06:22:09.570990700+00:00"}
+contract POST /desktop-envs → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop-envs/{id}/inject-fault","source":"other","status":404,"target":"http","trace_id":"2f404580c0584ccfbd772f45","ts":"2026-10-11T06:22:09.571387400+00:00"}
+contract POST /desktop-envs/df449e2d-8bbe-4221-92e3-96ba0974f4f4/inject-fault → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop-envs/{id}/judge","source":"other","status":404,"target":"http","trace_id":"92c573cb2f7f4211b0a97550","ts":"2026-10-11T06:22:09.571645300+00:00"}
+contract POST /desktop-envs/df449e2d-8bbe-4221-92e3-96ba0974f4f4/judge → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop-envs/{id}/lease","source":"other","status":404,"target":"http","trace_id":"34f394ac33d94278a761fdec","ts":"2026-10-11T06:22:09.571862800+00:00"}
+contract POST /desktop-envs/df449e2d-8bbe-4221-92e3-96ba0974f4f4/lease → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/desktop-envs/{id}/observe","source":"other","status":404,"target":"http","trace_id":"13652b9753034209b89559a3","ts":"2026-10-11T06:22:09.572027+00:00"}
+contract GET /desktop-envs/df449e2d-8bbe-4221-92e3-96ba0974f4f4/observe → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop-envs/{id}/reset","source":"other","status":404,"target":"http","trace_id":"d9d9f7a096db4779ba9c44e7","ts":"2026-10-11T06:22:09.572215300+00:00"}
+contract POST /desktop-envs/df449e2d-8bbe-4221-92e3-96ba0974f4f4/reset → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop-envs/{id}/restore","source":"other","status":404,"target":"http","trace_id":"1d77d4bbfaa94348a7600a06","ts":"2026-10-11T06:22:09.572385+00:00"}
+contract POST /desktop-envs/df449e2d-8bbe-4221-92e3-96ba0974f4f4/restore → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop-envs/{id}/snapshot","source":"other","status":404,"target":"http","trace_id":"de35601b891b4905863b3c41","ts":"2026-10-11T06:22:09.572537400+00:00"}
+contract POST /desktop-envs/df449e2d-8bbe-4221-92e3-96ba0974f4f4/snapshot → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop-envs/{id}/step","source":"other","status":404,"target":"http","trace_id":"0db83ad7fa5e4790a30152a9","ts":"2026-10-11T06:22:09.572756700+00:00"}
+contract POST /desktop-envs/df449e2d-8bbe-4221-92e3-96ba0974f4f4/step → 404
+{"duration_ms":8,"level":"info","method":"POST","msg":"request","route_template":"/desktop/activate","source":"other","status":400,"target":"http","trace_id":"df20cb8e8d304a2a9a19a93b","ts":"2026-10-11T06:22:09.581209900+00:00"}
+contract POST /desktop/activate → 400
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop/click","source":"other","status":422,"target":"http","trace_id":"7b5965d9b90340f9b425aaa3","ts":"2026-10-11T06:22:09.581734600+00:00"}
+contract POST /desktop/click → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/desktop/foreground","source":"other","status":200,"target":"http","trace_id":"23e61367d7974ab9b33b8153","ts":"2026-10-11T06:22:09.582042+00:00"}
+contract GET /desktop/foreground → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop/key","source":"other","status":422,"target":"http","trace_id":"003c3095d3264350a003b292","ts":"2026-10-11T06:22:09.582294900+00:00"}
+contract POST /desktop/key → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop/launch","source":"other","status":422,"target":"http","trace_id":"9f6aab455a3f448da4517070","ts":"2026-10-11T06:22:09.582511900+00:00"}
+contract POST /desktop/launch → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop/model-credentials","source":"other","status":422,"target":"http","trace_id":"7a556f65a0a84de09c5eceac","ts":"2026-10-11T06:22:09.582690600+00:00"}
+contract POST /desktop/model-credentials → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/desktop/pet","source":"other","status":200,"target":"http","trace_id":"7c71349c71994481a7b7ae87","ts":"2026-10-11T06:22:09.582840300+00:00"}
+contract GET /desktop/pet → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop/pet","source":"other","status":422,"target":"http","trace_id":"9f12e57b6c0b456b99ba8bd0","ts":"2026-10-11T06:22:09.582977400+00:00"}
+contract POST /desktop/pet → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop/pet/report","source":"other","status":422,"target":"http","trace_id":"0abe3e66e5564a7e93e85ee5","ts":"2026-10-11T06:22:09.583114+00:00"}
+contract POST /desktop/pet/report → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop/scroll","source":"other","status":422,"target":"http","trace_id":"05a2a1864b32447c90c37cc7","ts":"2026-10-11T06:22:09.583264300+00:00"}
+contract POST /desktop/scroll → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop/shortcut","source":"other","status":422,"target":"http","trace_id":"2966424d0464465aa7f4a804","ts":"2026-10-11T06:22:09.583404900+00:00"}
+contract POST /desktop/shortcut → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop/type","source":"other","status":422,"target":"http","trace_id":"dfd8e017959c448b9578c9ed","ts":"2026-10-11T06:22:09.583561100+00:00"}
+contract POST /desktop/type → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/desktop/wait","source":"other","status":422,"target":"http","trace_id":"da634e6778534f48b2139eaa","ts":"2026-10-11T06:22:09.583709700+00:00"}
+contract POST /desktop/wait → 422
+{"duration_ms":9,"level":"info","method":"GET","msg":"request","route_template":"/desktop/windows","source":"other","status":200,"target":"http","trace_id":"f4f683f79eb3499485fa7823","ts":"2026-10-11T06:22:09.593573300+00:00"}
+contract GET /desktop/windows → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/diagnostics/requests","source":"other","status":200,"target":"http","trace_id":"d5f9746c669f40b5a00c1062","ts":"2026-10-11T06:22:09.594634500+00:00"}
+contract GET /diagnostics/requests → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/eval/gate/report","source":"other","status":404,"target":"http","trace_id":"f052fe10beaa4b44a140f83f","ts":"2026-10-11T06:22:09.595037600+00:00"}
+contract GET /eval/gate/report → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/eval/gate/reports","source":"other","status":200,"target":"http","trace_id":"d7d0e6a61c70478584e9fdc1","ts":"2026-10-11T06:22:09.595264500+00:00"}
+contract GET /eval/gate/reports → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/eval/gate/run","source":"other","status":400,"target":"http","trace_id":"e165c477e8ff46e983dbaf10","ts":"2026-10-11T06:22:09.595579300+00:00"}
+contract POST /eval/gate/run → 400
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/eval/run","source":"other","status":422,"target":"http","trace_id":"51bcce14c45148c4b9f46b76","ts":"2026-10-11T06:22:09.595782200+00:00"}
+contract POST /eval/run → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/events/stream","source":"other","status":200,"target":"http","trace_id":"c3911c21f4694cd08aa7db61","ts":"2026-10-11T06:22:09.596037+00:00"}
+contract GET /events/stream → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/fleet/approvals/{id}/respond","source":"other","status":404,"target":"http","trace_id":"8572cbb4797345d4aefc4f63","ts":"2026-10-11T06:22:09.596352+00:00"}
+contract POST /fleet/approvals/df449e2d-8bbe-4221-92e3-96ba0974f4f4/respond → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/fleet/nodes","source":"other","status":200,"target":"http","trace_id":"ad901849b0fc4539b5cc0d71","ts":"2026-10-11T06:22:09.596523700+00:00"}
+contract GET /fleet/nodes → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/fleet/nodes/register","source":"other","status":422,"target":"http","trace_id":"c2c6e00bdb794ee4a6c99065","ts":"2026-10-11T06:22:09.596823600+00:00"}
+contract POST /fleet/nodes/register → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/fleet/nodes/{node_id}/heartbeat","source":"other","status":422,"target":"http","trace_id":"598f70fdba784c36901966f4","ts":"2026-10-11T06:22:09.597016500+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/fleet/nodes/{node_id}/tasks","source":"other","status":404,"target":"http","trace_id":"316a7b9450ad44abaa50fc64","ts":"2026-10-11T06:22:09.597178100+00:00"}
+contract GET /fleet/nodes/no-such-node/tasks → 404
+{"duration_ms":3,"level":"info","method":"POST","msg":"request","route_template":"/fleet/tasks/submit","source":"other","status":200,"target":"http","trace_id":"24f032b857fa4f3d91a5a3fc","ts":"2026-10-11T06:22:09.600428200+00:00"}
+contract POST /fleet/tasks/submit → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/fleet/tasks/{id}","source":"other","status":404,"target":"http","trace_id":"8d2363d1369f44e6a507c350","ts":"2026-10-11T06:22:09.600765900+00:00"}
+contract GET /fleet/tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/fleet/tasks/{id}/cancel","source":"other","status":404,"target":"http","trace_id":"159b4862f7e345bc83eff52a","ts":"2026-10-11T06:22:09.600993800+00:00"}
+contract POST /fleet/tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4/cancel → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/fleet/tasks/{id}/cancel-ack","source":"other","status":422,"target":"http","trace_id":"911ae0da0a6942c0b9315029","ts":"2026-10-11T06:22:09.601317700+00:00"}
+contract POST /fleet/tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4/cancel-ack → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/fleet/tasks/{id}/claim","source":"other","status":422,"target":"http","trace_id":"bc8c3b9738bc4ee9ad796339","ts":"2026-10-11T06:22:09.601640600+00:00"}
+contract POST /fleet/tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4/claim → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/fleet/tasks/{id}/events","source":"other","status":404,"target":"http","trace_id":"702eca59c3bb472e9f6b29cb","ts":"2026-10-11T06:22:09.601891400+00:00"}
+contract GET /fleet/tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4/events → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/fleet/tasks/{id}/progress","source":"other","status":422,"target":"http","trace_id":"36da023b659e4de6ad66ad81","ts":"2026-10-11T06:22:09.602080500+00:00"}
+contract POST /fleet/tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4/progress → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/fleet/tasks/{id}/result","source":"other","status":422,"target":"http","trace_id":"55b728b85c0a41c39bcd4eba","ts":"2026-10-11T06:22:09.602258600+00:00"}
+contract POST /fleet/tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4/result → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/fs/open","source":"other","status":422,"target":"http","trace_id":"f03e3e12c925455e849fca3c","ts":"2026-10-11T06:22:09.602542100+00:00"}
+contract POST /fs/open → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/goal","source":"other","status":200,"target":"http","trace_id":"d0e123389e304cb597eac312","ts":"2026-10-11T06:22:09.602952600+00:00"}
+contract GET /goal → 200
+{"duration_ms":1,"level":"info","method":"POST","msg":"request","route_template":"/goal","source":"other","status":201,"target":"http","trace_id":"2756e215e030456897c92c18","ts":"2026-10-11T06:22:09.604105800+00:00"}
+contract POST /goal → 201
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/goal/{id}","source":"other","status":404,"target":"http","trace_id":"e3ba98635943413f9e99a53c","ts":"2026-10-11T06:22:09.604334800+00:00"}
+contract GET /goal/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/goal/{id}/abort","source":"other","status":404,"target":"http","trace_id":"5bfc2d2e0f774c28b6b4ab18","ts":"2026-10-11T06:22:09.604540600+00:00"}
+contract POST /goal/df449e2d-8bbe-4221-92e3-96ba0974f4f4/abort → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/goal/{id}/audit","source":"other","status":404,"target":"http","trace_id":"c483469cb0974ee2a80bfffb","ts":"2026-10-11T06:22:09.604724200+00:00"}
+contract GET /goal/df449e2d-8bbe-4221-92e3-96ba0974f4f4/audit → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/goal/{id}/plan","source":"other","status":404,"target":"http","trace_id":"2e9e3d3997e34336965eaf68","ts":"2026-10-11T06:22:09.605162600+00:00"}
+contract GET /goal/df449e2d-8bbe-4221-92e3-96ba0974f4f4/plan → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/goal/{id}/plan","source":"other","status":404,"target":"http","trace_id":"5fe98119d6134932b512827e","ts":"2026-10-11T06:22:09.605453900+00:00"}
+contract POST /goal/df449e2d-8bbe-4221-92e3-96ba0974f4f4/plan → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/goal/{id}/run","source":"other","status":404,"target":"http","trace_id":"0330f68f92c34842bd4eb62f","ts":"2026-10-11T06:22:09.605656800+00:00"}
+contract POST /goal/df449e2d-8bbe-4221-92e3-96ba0974f4f4/run → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/goal/{id}/runs","source":"other","status":404,"target":"http","trace_id":"52c64469cedd4f3ebb4f0144","ts":"2026-10-11T06:22:09.605842100+00:00"}
+contract GET /goal/df449e2d-8bbe-4221-92e3-96ba0974f4f4/runs → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/goal/{id}/status","source":"other","status":404,"target":"http","trace_id":"6380d68a06dd4eefa62a96c2","ts":"2026-10-11T06:22:09.606030400+00:00"}
+contract GET /goal/df449e2d-8bbe-4221-92e3-96ba0974f4f4/status → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/health","source":"other","status":200,"target":"http","trace_id":"18a1e49af1b54bf6949e085d","ts":"2026-10-11T06:22:09.606205300+00:00"}
+contract GET /health → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/human/inbox","source":"other","status":200,"target":"http","trace_id":"128065f276ea4d0481737233","ts":"2026-10-11T06:22:09.606722500+00:00"}
+contract GET /human/inbox → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/human/inbox/{id}","source":"other","status":404,"target":"http","trace_id":"8a2d0cc21126430dab1458b3","ts":"2026-10-11T06:22:09.606991100+00:00"}
+contract GET /human/inbox/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/human/inbox/{id}/claim","source":"other","status":404,"target":"http","trace_id":"854f45e32c324ad9a73f73b0","ts":"2026-10-11T06:22:09.607447500+00:00"}
+contract POST /human/inbox/df449e2d-8bbe-4221-92e3-96ba0974f4f4/claim → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/human/inbox/{id}/release","source":"other","status":404,"target":"http","trace_id":"1be93288a1ae47c9b5abb8dd","ts":"2026-10-11T06:22:09.607879400+00:00"}
+contract POST /human/inbox/df449e2d-8bbe-4221-92e3-96ba0974f4f4/release → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/human/inbox/{id}/resolve","source":"other","status":404,"target":"http","trace_id":"08caa7f306974ea594fa2d85","ts":"2026-10-11T06:22:09.608355700+00:00"}
+contract POST /human/inbox/df449e2d-8bbe-4221-92e3-96ba0974f4f4/resolve → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/intent/parse","source":"other","status":200,"target":"http","trace_id":"90c480664fa34c28ab7a60d9","ts":"2026-10-11T06:22:09.608706600+00:00"}
+contract POST /intent/parse → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/learn/clear","source":"other","status":200,"target":"http","trace_id":"6abdec37e7bf4a4f864330f0","ts":"2026-10-11T06:22:09.609048500+00:00"}
+contract POST /learn/clear → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/learn/execute","source":"other","status":422,"target":"http","trace_id":"0fab17c5ab784b658bcc3c3e","ts":"2026-10-11T06:22:09.609279200+00:00"}
+contract POST /learn/execute → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/learn/execute-package","source":"other","status":422,"target":"http","trace_id":"4776bc4edf854d0da4829aaa","ts":"2026-10-11T06:22:09.609513900+00:00"}
+contract POST /learn/execute-package → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/learn/export/{name}","source":"other","status":404,"target":"http","trace_id":"58cddb5e7f314fa5bba20b0d","ts":"2026-10-11T06:22:09.609995500+00:00"}
+contract GET /learn/export/no-such-name → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/learn/import","source":"other","status":400,"target":"http","trace_id":"bb4fc54866634d89aa4d8529","ts":"2026-10-11T06:22:09.610397200+00:00"}
+contract POST /learn/import → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/learn/packages","source":"other","status":200,"target":"http","trace_id":"3241bd1ea7494b908babf0e1","ts":"2026-10-11T06:22:09.610649+00:00"}
+contract GET /learn/packages → 200
+{"duration_ms":0,"level":"info","method":"DELETE","msg":"request","route_template":"/learn/packages/{name}","source":"other","status":404,"target":"http","trace_id":"5746a21155e741208aa250b4","ts":"2026-10-11T06:22:09.610886700+00:00"}
+contract DELETE /learn/packages/no-such-name → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/learn/packages/{name}","source":"other","status":404,"target":"http","trace_id":"d4e25b214f574ffb9783a7bf","ts":"2026-10-11T06:22:09.611101800+00:00"}
+contract GET /learn/packages/no-such-name → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/learn/pause","source":"other","status":200,"target":"http","trace_id":"a35067aba3c44036822c4cef","ts":"2026-10-11T06:22:09.611374400+00:00"}
+contract POST /learn/pause → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/learn/record","source":"other","status":422,"target":"http","trace_id":"8d313876cf79413384c05708","ts":"2026-10-11T06:22:09.611666800+00:00"}
+contract POST /learn/record → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/learn/resume","source":"other","status":200,"target":"http","trace_id":"f9afa17780f94ac996eaa4ee","ts":"2026-10-11T06:22:09.611955+00:00"}
+contract POST /learn/resume → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/learn/sink","source":"other","status":422,"target":"http","trace_id":"6341399f96b64bdcaa5b96ee","ts":"2026-10-11T06:22:09.612130200+00:00"}
+contract POST /learn/sink → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/learn/start","source":"other","status":200,"target":"http","trace_id":"c14666d0ffe24ac4879e5911","ts":"2026-10-11T06:22:09.612304200+00:00"}
+contract POST /learn/start → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/learn/status","source":"other","status":200,"target":"http","trace_id":"80be6c3d294b4776b5df7a95","ts":"2026-10-11T06:22:09.612452400+00:00"}
+contract GET /learn/status → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/learn/stop","source":"other","status":200,"target":"http","trace_id":"d9497868c8104eefb75fd64d","ts":"2026-10-11T06:22:09.612638200+00:00"}
+contract POST /learn/stop → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/locate/query","source":"other","status":200,"target":"http","trace_id":"70a23068ad4e4cd2a244b58e","ts":"2026-10-11T06:22:09.612885500+00:00"}
+contract POST /locate/query → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/mcp","source":"other","status":200,"target":"http","trace_id":"c33b845d59104c7aa8e21960","ts":"2026-10-11T06:22:09.613153100+00:00"}
+contract GET /mcp → 200
+{"duration_ms":2266,"level":"info","method":"POST","msg":"request","route_template":"/mcp/add","source":"other","status":502,"target":"http","trace_id":"51e8c8f2864546a1be6b6b97","ts":"2026-10-11T06:22:11.879340200+00:00"}
+contract POST /mcp/add → 502
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/mcp/enabled","source":"other","status":404,"target":"http","trace_id":"4694a9040819434093f564b7","ts":"2026-10-11T06:22:11.879930+00:00"}
+contract POST /mcp/enabled → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/mcp/health","source":"other","status":200,"target":"http","trace_id":"139e02fe541441779823e826","ts":"2026-10-11T06:22:11.880186500+00:00"}
+contract GET /mcp/health → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/mcp/reconnect","source":"other","status":404,"target":"http","trace_id":"f931284af0f7459186f0a65d","ts":"2026-10-11T06:22:11.880473100+00:00"}
+contract POST /mcp/reconnect → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/mcp/remove","source":"other","status":404,"target":"http","trace_id":"f266105e1ce54ca1be2b1fae","ts":"2026-10-11T06:22:11.880741800+00:00"}
+contract POST /mcp/remove → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/memory/clear","source":"other","status":200,"target":"http","trace_id":"3007be5d63fc499385e46eb8","ts":"2026-10-11T06:22:11.881383700+00:00"}
+contract POST /memory/clear → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/memory/graph/entities","source":"other","status":200,"target":"http","trace_id":"1ec71a02ba7343b092c0adda","ts":"2026-10-11T06:22:11.881607+00:00"}
+contract GET /memory/graph/entities → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/memory/graph/entries","source":"other","status":200,"target":"http","trace_id":"bb15db07eefc4b3886b28c88","ts":"2026-10-11T06:22:11.881752700+00:00"}
+contract GET /memory/graph/entries → 200
+{"duration_ms":0,"level":"info","method":"DELETE","msg":"request","route_template":"/memory/graph/link","source":"other","status":415,"target":"http","trace_id":"1cd63a42b9d042cab27ee80b","ts":"2026-10-11T06:22:11.881885700+00:00"}
+contract DELETE /memory/graph/link → 415
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/memory/graph/link","source":"other","status":201,"target":"http","trace_id":"715cd01ebebd4d06bba17b7d","ts":"2026-10-11T06:22:11.882493900+00:00"}
+contract POST /memory/graph/link → 201
+{"duration_ms":6,"level":"info","method":"GET","msg":"request","route_template":"/memory/graph/links","source":"other","status":200,"target":"http","trace_id":"a9e73a0e92004b0dadc5eb4e","ts":"2026-10-11T06:22:11.889359300+00:00"}
+contract GET /memory/graph/links → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/memory/graph/recall","source":"other","status":400,"target":"http","trace_id":"7f0111ac7c134db4a9cd8066","ts":"2026-10-11T06:22:11.889903+00:00"}
+contract GET /memory/graph/recall → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/memory/graph/timeline","source":"other","status":200,"target":"http","trace_id":"2ce82deb688148439075fbbe","ts":"2026-10-11T06:22:11.890145700+00:00"}
+contract GET /memory/graph/timeline → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/memory/mine-skill","source":"other","status":400,"target":"http","trace_id":"66eeb87733834a37b84d35dc","ts":"2026-10-11T06:22:11.890385800+00:00"}
+contract POST /memory/mine-skill → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/memory/observations","source":"other","status":200,"target":"http","trace_id":"40080f5a60be467db96b1d18","ts":"2026-10-11T06:22:11.890545500+00:00"}
+contract GET /memory/observations → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/memory/recall","source":"other","status":400,"target":"http","trace_id":"43908e310c1741f3b366584a","ts":"2026-10-11T06:22:11.890684600+00:00"}
+contract GET /memory/recall → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/metrics/health","source":"other","status":200,"target":"http","trace_id":"c60fb3028b0d4a229efdfd1c","ts":"2026-10-11T06:22:11.891171400+00:00"}
+contract GET /metrics/health → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/metrics/overview","source":"other","status":200,"target":"http","trace_id":"f9e37f67f0e54590b18db4d7","ts":"2026-10-11T06:22:11.891422900+00:00"}
+contract GET /metrics/overview → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/metrics/prometheus","source":"other","status":200,"target":"http","trace_id":"ee247a24c5e04b08a42081b8","ts":"2026-10-11T06:22:11.891858800+00:00"}
+contract GET /metrics/prometheus → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/metrics/runtime","source":"other","status":200,"target":"http","trace_id":"2a002126b32547208ece3006","ts":"2026-10-11T06:22:11.892033100+00:00"}
+contract GET /metrics/runtime → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/metrics/slo","source":"other","status":200,"target":"http","trace_id":"5b3a6df9819c40229d9d0c60","ts":"2026-10-11T06:22:11.892295800+00:00"}
+contract GET /metrics/slo → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/metrics/slo/alerts","source":"other","status":200,"target":"http","trace_id":"57aeb2474b874132a7b6ac0a","ts":"2026-10-11T06:22:11.892581600+00:00"}
+contract GET /metrics/slo/alerts → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/metrics/slo/report","source":"other","status":200,"target":"http","trace_id":"6e37439ec92d4458a1dc1689","ts":"2026-10-11T06:22:11.892835600+00:00"}
+contract GET /metrics/slo/report → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/metrics/tools","source":"other","status":200,"target":"http","trace_id":"3bab284841b846d185830526","ts":"2026-10-11T06:22:11.893118800+00:00"}
+contract GET /metrics/tools → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/metrics/turns","source":"other","status":200,"target":"http","trace_id":"88847573b6bc44b7aa979701","ts":"2026-10-11T06:22:11.893330400+00:00"}
+contract GET /metrics/turns → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/model-candidates","source":"other","status":200,"target":"http","trace_id":"ad354546f1044b5daaa73462","ts":"2026-10-11T06:22:11.893612+00:00"}
+contract POST /model-candidates → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/model-candidates/{id}/promote","source":"other","status":404,"target":"http","trace_id":"10074605117b40fb9e09f915","ts":"2026-10-11T06:22:11.893829400+00:00"}
+contract POST /model-candidates/df449e2d-8bbe-4221-92e3-96ba0974f4f4/promote → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/notes","source":"other","status":200,"target":"http","trace_id":"dec37550670249cbad03da37","ts":"2026-10-11T06:22:11.894738+00:00"}
+contract GET /notes → 200
+{"duration_ms":13,"level":"info","method":"POST","msg":"request","route_template":"/notes","source":"other","status":201,"target":"http","trace_id":"17600ad615d247d6b020a84d","ts":"2026-10-11T06:22:11.908023400+00:00"}
+contract POST /notes → 201
+{"duration_ms":14,"level":"info","method":"POST","msg":"request","route_template":"/notes/import","source":"other","status":200,"target":"http","trace_id":"3829fd4bc2bc4277924f7ad7","ts":"2026-10-11T06:22:11.923054900+00:00"}
+contract POST /notes/import → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/notes/search","source":"other","status":400,"target":"http","trace_id":"0539c859612847498e7ac52e","ts":"2026-10-11T06:22:11.923423100+00:00"}
+contract GET /notes/search → 400
+{"duration_ms":0,"level":"info","method":"DELETE","msg":"request","route_template":"/notes/{id}","source":"other","status":404,"target":"http","trace_id":"8bfeb1e477e7412390938ebe","ts":"2026-10-11T06:22:11.923681900+00:00"}
+contract DELETE /notes/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/notes/{id}","source":"other","status":404,"target":"http","trace_id":"2fd52160fae34302b14c5f4f","ts":"2026-10-11T06:22:11.923921900+00:00"}
+contract GET /notes/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"PUT","msg":"request","route_template":"/notes/{id}","source":"other","status":404,"target":"http","trace_id":"8f40c14f9d844072937c41a3","ts":"2026-10-11T06:22:11.924198800+00:00"}
+contract PUT /notes/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/notes/{id}/blocks","source":"other","status":404,"target":"http","trace_id":"4ee996307e9e442794845a4a","ts":"2026-10-11T06:22:11.924439+00:00"}
+contract POST /notes/df449e2d-8bbe-4221-92e3-96ba0974f4f4/blocks → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/notes/{id}/blocks/move","source":"other","status":404,"target":"http","trace_id":"ddf03112f0b445b1bbf5751c","ts":"2026-10-11T06:22:11.924641200+00:00"}
+contract POST /notes/df449e2d-8bbe-4221-92e3-96ba0974f4f4/blocks/move → 404
+{"duration_ms":0,"level":"info","method":"DELETE","msg":"request","route_template":"/notes/{id}/blocks/{block_id}","source":"other","status":404,"target":"http","trace_id":"02458ed151554372a8dece87","ts":"2026-10-11T06:22:11.924828400+00:00"}
+contract DELETE /notes/df449e2d-8bbe-4221-92e3-96ba0974f4f4/blocks/no-such-block → 404
+{"duration_ms":0,"level":"info","method":"PATCH","msg":"request","route_template":"/notes/{id}/blocks/{block_id}","source":"other","status":404,"target":"http","trace_id":"01f6da9f3bb949d89f5f8f15","ts":"2026-10-11T06:22:11.925025+00:00"}
+contract PATCH /notes/df449e2d-8bbe-4221-92e3-96ba0974f4f4/blocks/no-such-block → 404
+{"duration_ms":0,"level":"info","method":"DELETE","msg":"request","route_template":"/automations/{id}","source":"other","status":200,"target":"http","trace_id":"04682c453aed40b389d13d3a","ts":"2026-10-11T06:22:09.482437200+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/notes/{id}/export/{format}","source":"other","status":404,"target":"http","trace_id":"f1b6d218c27740bb92798888","ts":"2026-10-11T06:22:11.925273300+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/notes/{id}/reindex","source":"other","status":404,"target":"http","trace_id":"4b88549cc36d4499a0f63b92","ts":"2026-10-11T06:22:11.925444800+00:00"}
+contract POST /notes/df449e2d-8bbe-4221-92e3-96ba0974f4f4/reindex → 404
+{"duration_ms":13,"level":"info","method":"GET","msg":"request","route_template":"/openapi.json","source":"other","status":200,"target":"http","trace_id":"c392e19d32fa442782b86f2e","ts":"2026-10-11T06:22:11.939271+00:00"}
+contract GET /openapi.json → 200
+{"duration_ms":20,"level":"info","method":"POST","msg":"request","route_template":"/perception/capture","source":"other","status":400,"target":"http","trace_id":"933697f80d7c4c95ad8c7a65","ts":"2026-10-11T06:22:11.959986500+00:00"}
+contract POST /perception/capture → 400
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/perception/elements","source":"other","status":422,"target":"http","trace_id":"b5e25634a5c848b9afbd7eb1","ts":"2026-10-11T06:22:11.960464+00:00"}
+contract GET /notes/df449e2d-8bbe-4221-92e3-96ba0974f4f4/export/md → 404
+contract POST /perception/elements → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/perception/events","source":"other","status":200,"target":"http","trace_id":"a2c119e19cfe4431a3e0e189","ts":"2026-10-11T06:22:11.960822300+00:00"}
+contract GET /perception/events → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/perception/layers","source":"other","status":422,"target":"http","trace_id":"9a0da14dda144e67811ec988","ts":"2026-10-11T06:22:11.961007500+00:00"}
+contract POST /perception/layers → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/perception/ocr","source":"other","status":400,"target":"http","trace_id":"7e45928fce324ac9b44638fe","ts":"2026-10-11T06:22:11.961157+00:00"}
+contract POST /perception/ocr → 400
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/perception/ocr/bytes","source":"other","status":422,"target":"http","trace_id":"a6cb1575af454fe291a8cdd8","ts":"2026-10-11T06:22:11.961314800+00:00"}
+contract POST /perception/ocr/bytes → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/perception/ocr/region","source":"other","status":422,"target":"http","trace_id":"061b3e93ba4a41aba2f74ec6","ts":"2026-10-11T06:22:11.961472900+00:00"}
+contract POST /perception/ocr/region → 422
+{"duration_ms":9,"level":"info","method":"GET","msg":"request","route_template":"/perception/ocr/status","source":"other","status":200,"target":"http","trace_id":"a7efe71fdbe74a13982d87d3","ts":"2026-10-11T06:22:11.971112800+00:00"}
+contract GET /perception/ocr/status → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/perception/template/build","source":"other","status":422,"target":"http","trace_id":"71cbea848e734c51bdb6dbcd","ts":"2026-10-11T06:22:11.971628600+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/perception/template/build-ocr","source":"other","status":422,"target":"http","trace_id":"8ffe92d8eb614956b10e7556","ts":"2026-10-11T06:22:11.971818100+00:00"}
+contract POST /perception/template/build-ocr → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/perception/template/detect","source":"other","status":422,"target":"http","trace_id":"e080b69fdeb94ea2af399ac5","ts":"2026-10-11T06:22:11.971985600+00:00"}
+contract POST /perception/template/detect → 422
+contract POST /perception/template/build → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/perception/template/detect-ocr","source":"other","status":422,"target":"http","trace_id":"d74542082e98424bbf50888f","ts":"2026-10-11T06:22:11.972120900+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/perception/template/{app_id}","source":"other","status":404,"target":"http","trace_id":"6f313d3e89494e99892d7882","ts":"2026-10-11T06:22:11.972311+00:00"}
+contract GET /perception/template/no-such-app → 404
+contract POST /perception/template/detect-ocr → 422
+{"duration_ms":30,"level":"info","method":"POST","msg":"request","route_template":"/perception/tree","source":"other","status":200,"target":"http","trace_id":"255fc4950750478cb398680e","ts":"2026-10-11T06:22:12.003203400+00:00"}
+contract POST /perception/tree → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/perception/window","source":"other","status":422,"target":"http","trace_id":"f1aaf037aae8497fbafabade","ts":"2026-10-11T06:22:12.003663800+00:00"}
+contract POST /perception/window → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/permissions","source":"other","status":200,"target":"http","trace_id":"4b05fd45698141a2875218e5","ts":"2026-10-11T06:22:12.003914600+00:00"}
+contract GET /permissions → 200
+{"duration_ms":1,"level":"info","method":"POST","msg":"request","route_template":"/permissions","source":"other","status":200,"target":"http","trace_id":"1b33dae0826b4b6aba22fbc0","ts":"2026-10-11T06:22:12.005106600+00:00"}
+contract POST /permissions → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/permissions/grants","source":"other","status":200,"target":"http","trace_id":"3484bcf26e32493d9087bbf0","ts":"2026-10-11T06:22:12.005279700+00:00"}
+contract GET /permissions/grants → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/permissions/grants/revoke","source":"other","status":404,"target":"http","trace_id":"5e79194213db464db05c5e73","ts":"2026-10-11T06:22:12.005658700+00:00"}
+contract POST /permissions/grants/revoke → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/permissions/overview","source":"other","status":200,"target":"http","trace_id":"6bf0baa9cbdf49e3929c7fad","ts":"2026-10-11T06:22:12.006252200+00:00"}
+contract GET /permissions/overview → 200
+{"duration_ms":7,"level":"info","method":"POST","msg":"request","route_template":"/permissions/spec","source":"other","status":200,"target":"http","trace_id":"8de77ce756c64865b272bc86","ts":"2026-10-11T06:22:12.013465700+00:00"}
+contract POST /permissions/spec → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/plugins","source":"other","status":200,"target":"http","trace_id":"e3623abf2d83432cb55c44c2","ts":"2026-10-11T06:22:12.013950700+00:00"}
+contract GET /plugins → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/plugins/market","source":"other","status":200,"target":"http","trace_id":"d84c8a31b31f430598864c24","ts":"2026-10-11T06:22:12.014262+00:00"}
+contract GET /plugins/market → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/plugins/market/audit","source":"other","status":200,"target":"http","trace_id":"e7cdb732fdcb4ad093d5dfa1","ts":"2026-10-11T06:22:12.014455200+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/plugins/market/install","source":"other","status":400,"target":"http","trace_id":"0638aef262c34f92bc22af28","ts":"2026-10-11T06:22:12.014759+00:00"}
+contract POST /plugins/market/install → 400
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/plugins/market/install-remote","source":"other","status":400,"target":"http","trace_id":"d6752a22b6974ac29d5f118c","ts":"2026-10-11T06:22:12.015021800+00:00"}
+contract POST /plugins/market/install-remote → 400
+contract GET /plugins/market/audit → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/plugins/market/refresh","source":"other","status":400,"target":"http","trace_id":"514fe4f94cd24034b210c350","ts":"2026-10-11T06:22:12.015236600+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/plugins/market/scan","source":"other","status":400,"target":"http","trace_id":"d17f69df5b074bbfba0690e6","ts":"2026-10-11T06:22:12.015411+00:00"}
+contract POST /plugins/market/refresh → 400
+contract GET /plugins/market/scan → 400
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/plugins/market/seed","source":"other","status":200,"target":"http","trace_id":"2b9037d799e44e23884d8b90","ts":"2026-10-11T06:22:12.016194700+00:00"}
+contract POST /plugins/market/seed → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/plugins/market/uninstall","source":"other","status":404,"target":"http","trace_id":"37f9a456b48b4030a43a1a31","ts":"2026-10-11T06:22:12.016480900+00:00"}
+contract POST /plugins/market/uninstall → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/plugins/market/update","source":"other","status":400,"target":"http","trace_id":"b8a96fd2c7a3400eb133a696","ts":"2026-10-11T06:22:12.016742+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/plugins/market/verify","source":"other","status":400,"target":"http","trace_id":"9abea5b14dc34adab6b33d9c","ts":"2026-10-11T06:22:12.016966500+00:00"}
+contract POST /plugins/market/verify → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/plugins/market/versions","source":"other","status":400,"target":"http","trace_id":"eab23589b1fb4408978ef28b","ts":"2026-10-11T06:22:12.017117400+00:00"}
+contract GET /plugins/market/versions → 400
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/plugins/{id}/enabled","source":"other","status":200,"target":"http","trace_id":"96bce03db7c94ee0bdb8b77d","ts":"2026-10-11T06:22:12.017812700+00:00"}
+contract POST /plugins/market/update → 400
+contract POST /fleet/nodes/no-such-node/heartbeat → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/proactive/decide","source":"other","status":422,"target":"http","trace_id":"a0e4c8e6bdd744d9ab74c453","ts":"2026-10-11T06:22:12.018112500+00:00"}
+contract POST /plugins/df449e2d-8bbe-4221-92e3-96ba0974f4f4/enabled → 200
+contract POST /proactive/decide → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/proactive/observe","source":"other","status":422,"target":"http","trace_id":"556706db05614a7b8697ae2a","ts":"2026-10-11T06:22:12.018372500+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/proactive/suggestions","source":"other","status":200,"target":"http","trace_id":"e9fddf24dca04b6a8e340a90","ts":"2026-10-11T06:22:12.018607800+00:00"}
+contract GET /proactive/suggestions → 200
+contract POST /proactive/observe → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/product-eval/runs","source":"other","status":200,"target":"http","trace_id":"e84a2dc5619642e89fde3483","ts":"2026-10-11T06:22:12.018990800+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/product-eval/runs","source":"other","status":400,"target":"http","trace_id":"0afa3a51f085485fb593b17f","ts":"2026-10-11T06:22:12.019446400+00:00"}
+contract GET /product-eval/runs → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/product-eval/runs/{id}/cancel","source":"other","status":404,"target":"http","trace_id":"163fbdfdfe2e48fcaa626279","ts":"2026-10-11T06:22:12.019885100+00:00"}
+contract POST /product-eval/runs/df449e2d-8bbe-4221-92e3-96ba0974f4f4/cancel → 404
+contract POST /product-eval/runs → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/project/rules","source":"other","status":200,"target":"http","trace_id":"77717fa7307e45d59c406fd7","ts":"2026-10-11T06:22:12.020138400+00:00"}
+contract GET /project/rules → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/project/rules","source":"other","status":200,"target":"http","trace_id":"ae936f2811b846ea877fbb25","ts":"2026-10-11T06:22:12.020788100+00:00"}
+contract POST /project/rules → 200
+contract POST /project/rules/template → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/projects/{id}","source":"other","status":404,"target":"http","trace_id":"cfb6a04078a44fada8fc5102","ts":"2026-10-11T06:22:12.021342900+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/project/rules/template","source":"other","status":400,"target":"http","trace_id":"e6712c5a49314bebba643d48","ts":"2026-10-11T06:22:12.020964600+00:00"}
+contract GET /projects/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/projects/{id}/artifacts","source":"other","status":404,"target":"http","trace_id":"ceac5b406e09484d8ac5f372","ts":"2026-10-11T06:22:12.021632400+00:00"}
+contract GET /projects/df449e2d-8bbe-4221-92e3-96ba0974f4f4/artifacts → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/projects/{id}/deliverables","source":"other","status":404,"target":"http","trace_id":"ad8d5567535b4e3194c23b1b","ts":"2026-10-11T06:22:12.021881+00:00"}
+contract GET /projects/df449e2d-8bbe-4221-92e3-96ba0974f4f4/deliverables → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/projects/{id}/delivery-manifest","source":"other","status":404,"target":"http","trace_id":"2b5ebad3a80649859582a983","ts":"2026-10-11T06:22:12.022124500+00:00"}
+contract GET /projects/df449e2d-8bbe-4221-92e3-96ba0974f4f4/delivery-manifest → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/projects/{id}/workspace","source":"other","status":404,"target":"http","trace_id":"4fdc7b076ae14b40935a8d5d","ts":"2026-10-11T06:22:12.022373400+00:00"}
+contract GET /projects/df449e2d-8bbe-4221-92e3-96ba0974f4f4/workspace → 404
+{"duration_ms":0,"level":"info","method":"PUT","msg":"request","route_template":"/projects/{id}/workspace","source":"other","status":404,"target":"http","trace_id":"8a8a50f4ab26462e97d84f0f","ts":"2026-10-11T06:22:12.022795700+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/projects/{id}/workspace/changes","source":"other","status":404,"target":"http","trace_id":"b95e1c37cb954de5a076bfec","ts":"2026-10-11T06:22:12.023042900+00:00"}
+contract PUT /projects/df449e2d-8bbe-4221-92e3-96ba0974f4f4/workspace → 404
+contract GET /projects/df449e2d-8bbe-4221-92e3-96ba0974f4f4/workspace/changes → 404
+contract GET /projects/df449e2d-8bbe-4221-92e3-96ba0974f4f4/workspace/git-status → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/projects/{id}/workspace/git-status","source":"other","status":404,"target":"http","trace_id":"c738e05e3e2e45ceb8421add","ts":"2026-10-11T06:22:12.023279800+00:00"}
+contract GET /projects/df449e2d-8bbe-4221-92e3-96ba0974f4f4/workspace/tree → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/projects/{id}/workspace/tree","source":"other","status":404,"target":"http","trace_id":"7dafd9beadea4167980161fd","ts":"2026-10-11T06:22:12.023501100+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/schemas","source":"other","status":200,"target":"http","trace_id":"0e2876dd42e04659be4f9d20","ts":"2026-10-11T06:22:12.023665200+00:00"}
+contract GET /schemas → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/schemas/{kind}/{version}","source":"other","status":200,"target":"http","trace_id":"7df1824f3fb9407699bf7bd0","ts":"2026-10-11T06:22:12.023890200+00:00"}
+contract GET /schemas/owflow/v1 → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/server/shutdown","source":"other","status":400,"target":"http","trace_id":"3ee04adfa3834d7492c8e80d","ts":"2026-10-11T06:22:12.024066300+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/server/status","source":"other","status":200,"target":"http","trace_id":"d92c3412d7434465b492c335","ts":"2026-10-11T06:22:12.024218600+00:00"}
+contract POST /server/shutdown → 400
+contract GET /server/status → 200
+{"duration_ms":2,"level":"info","method":"POST","msg":"request","route_template":"/session","source":"other","status":200,"target":"http","trace_id":"2ad5b5e8979b488d893fbbc3","ts":"2026-10-11T06:22:12.026692400+00:00"}
+contract POST /session → 200
+{"duration_ms":1,"level":"info","method":"DELETE","msg":"request","route_template":"/session/{id}","source":"other","status":200,"target":"http","trace_id":"4da1be36b6c248229cf027c6","ts":"2026-10-11T06:22:12.028203900+00:00"}
+contract DELETE /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/session/{id}","source":"other","status":404,"target":"http","trace_id":"c4d1f319e96f4e24ade77ff9","ts":"2026-10-11T06:22:12.028524500+00:00"}
+contract GET /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/abort","source":"other","status":404,"target":"http","trace_id":"92ef089e70064f66bbf5d00f","ts":"2026-10-11T06:22:12.028752+00:00"}
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/abort → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/answer/{question_id}","source":"other","status":422,"target":"http","trace_id":"09f8a585e1ff445da99affff","ts":"2026-10-11T06:22:12.028948100+00:00"}
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/answer/{question_id} → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/archive","source":"other","status":422,"target":"http","trace_id":"1d0f3a0e46d440ba8fae5eaf","ts":"2026-10-11T06:22:12.029114200+00:00"}
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/archive → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/session/{id}/attachments","source":"other","status":404,"target":"http","trace_id":"681755843ead4688bd389f88","ts":"2026-10-11T06:22:12.029338700+00:00"}
+contract GET /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/attachments → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/attachments","source":"other","status":422,"target":"http","trace_id":"0e136a8975ee40c594a269de","ts":"2026-10-11T06:22:12.029510800+00:00"}
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/attachments → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/session/{id}/children","source":"other","status":200,"target":"http","trace_id":"aec7ad36972749a3be9bbc3a","ts":"2026-10-11T06:22:12.029791100+00:00"}
+contract GET /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/children → 200
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/compact → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/compact","source":"other","status":404,"target":"http","trace_id":"9ff62554a3914c49b289c5dd","ts":"2026-10-11T06:22:12.029998+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/session/{id}/context","source":"other","status":404,"target":"http","trace_id":"f3c27e9c61b849d895c277e4","ts":"2026-10-11T06:22:12.030186300+00:00"}
+contract GET /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/context → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/session/{id}/diff","source":"other","status":404,"target":"http","trace_id":"f0165355bc9d435aa615f39c","ts":"2026-10-11T06:22:12.030373+00:00"}
+contract GET /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/diff → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/session/{id}/export/{format}","source":"other","status":404,"target":"http","trace_id":"3b95fe6878cc4ac481a6d878","ts":"2026-10-11T06:22:12.030561500+00:00"}
+contract GET /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/export/md → 404
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/fork → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/fork","source":"other","status":422,"target":"http","trace_id":"5beff75054114a6b992d8236","ts":"2026-10-11T06:22:12.030782+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/model","source":"other","status":404,"target":"http","trace_id":"6cdb60b5cb2e494da4e1e1c6","ts":"2026-10-11T06:22:12.030992900+00:00"}
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/model → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/permission/{request_id}","source":"other","status":404,"target":"http","trace_id":"690c5d1bfe934f8eb2e1902e","ts":"2026-10-11T06:22:12.031175900+00:00"}
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/permission/no-such-request → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/pin","source":"other","status":422,"target":"http","trace_id":"b89daf3bcde44fa6af0f65cf","ts":"2026-10-11T06:22:12.031325600+00:00"}
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/pin → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/redo","source":"other","status":404,"target":"http","trace_id":"7b83201dd6854bd3a2d9965c","ts":"2026-10-11T06:22:12.031510900+00:00"}
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/redo → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/rename","source":"other","status":422,"target":"http","trace_id":"d5ff574805154153a3919bdb","ts":"2026-10-11T06:22:12.031671300+00:00"}
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/rename → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/revert","source":"other","status":404,"target":"http","trace_id":"8049add348264ebbae0b81cc","ts":"2026-10-11T06:22:12.031938300+00:00"}
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/revert → 404
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/rewind → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/rewind","source":"other","status":422,"target":"http","trace_id":"80ca136fa39044a99c485076","ts":"2026-10-11T06:22:12.032088100+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/turn","source":"other","status":404,"target":"http","trace_id":"4ba75d39b7ee499eae403ddb","ts":"2026-10-11T06:22:12.032294900+00:00"}
+contract POST /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/turn → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/session/{id}/turn/events","source":"other","status":400,"target":"http","trace_id":"07aeeecdd6af49de9ee94a7b","ts":"2026-10-11T06:22:12.032448700+00:00"}
+contract GET /session/df449e2d-8bbe-4221-92e3-96ba0974f4f4/turn/events → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/sessions","source":"other","status":200,"target":"http","trace_id":"8e47bf20f34946c48235b185","ts":"2026-10-11T06:22:12.032674900+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/settings","source":"other","status":200,"target":"http","trace_id":"ce940cf0077c4791b0328edd","ts":"2026-10-11T06:22:12.033560100+00:00"}
+contract GET /sessions → 200
+contract GET /settings → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/settings","source":"other","status":200,"target":"http","trace_id":"0b1d95ef6d9940918aa94528","ts":"2026-10-11T06:22:12.034230800+00:00"}
+contract POST /settings → 200
+contract POST /settings/egress → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/settings/egress","source":"other","status":422,"target":"http","trace_id":"1c21ebf0483b493894d5774b","ts":"2026-10-11T06:22:12.034415500+00:00"}
+{"duration_ms":68,"level":"info","method":"POST","msg":"request","route_template":"/settings/provider-test","source":"other","status":200,"target":"http","trace_id":"1d6a6ee6559841d595f9b13e","ts":"2026-10-11T06:22:12.103445600+00:00"}
+contract POST /settings/provider-test → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/skill/verify","source":"other","status":422,"target":"http","trace_id":"a0eed0d6c3d7489fb5b75189","ts":"2026-10-11T06:22:12.103745300+00:00"}
+contract POST /skill/verify → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/skills","source":"other","status":200,"target":"http","trace_id":"92d8804bda0d4df6a1ae8023","ts":"2026-10-11T06:22:12.103916500+00:00"}
+contract GET /skills → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/skills/health","source":"other","status":200,"target":"http","trace_id":"721bccf1ba8749e89d90597b","ts":"2026-10-11T06:22:12.104061800+00:00"}
+contract GET /skills/health → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/skills/health/{name}/reset","source":"other","status":400,"target":"http","trace_id":"7971992454504614b2e2c4d8","ts":"2026-10-11T06:22:12.104306800+00:00"}
+contract POST /skills/health/no-such-name/reset → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/skills/{name}","source":"other","status":404,"target":"http","trace_id":"43fdb249db1548278708147e","ts":"2026-10-11T06:22:12.104446700+00:00"}
+contract GET /skills/no-such-name → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/skills/{name}","source":"other","status":422,"target":"http","trace_id":"9458864211bd4252b5a117d6","ts":"2026-10-11T06:22:12.104602600+00:00"}
+contract POST /skills/no-such-name → 422
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/skills/{name}/enabled","source":"other","status":404,"target":"http","trace_id":"281e41f1257c494d89852ae7","ts":"2026-10-11T06:22:12.104753100+00:00"}
+contract POST /skills/no-such-name/enabled → 404
+{"level":"info","msg":"数据备份完成：4884 字节","target":"storage","trace_id":"d9bfa60300184b4889b8e725","ts":"2026-10-11T06:22:12.114732600+00:00"}
+{"duration_ms":10,"level":"info","method":"POST","msg":"request","route_template":"/storage/backup","source":"other","status":200,"target":"http","trace_id":"d9bfa60300184b4889b8e725","ts":"2026-10-11T06:22:12.115220800+00:00"}
+contract POST /storage/backup → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/storage/clear","source":"other","status":400,"target":"http","trace_id":"a6c9c75849fd437db5f2da0b","ts":"2026-10-11T06:22:12.115579200+00:00"}
+contract POST /storage/clear → 400
+{"duration_ms":1,"level":"info","method":"POST","msg":"request","route_template":"/storage/export","source":"other","status":200,"target":"http","trace_id":"54a7d31cce894a5a90f076cc","ts":"2026-10-11T06:22:12.116904200+00:00"}
+contract POST /storage/export → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/storage/restore","source":"other","status":400,"target":"http","trace_id":"16103660083b42759347e195","ts":"2026-10-11T06:22:12.117081400+00:00"}
+contract POST /storage/restore → 400
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/stt/transcribe","source":"other","status":400,"target":"http","trace_id":"b296755d32c147cd869fadab","ts":"2026-10-11T06:22:12.117637300+00:00"}
+contract POST /stt/transcribe → 400
+{"duration_ms":1,"level":"info","method":"POST","msg":"request","route_template":"/subagent/run","source":"other","status":500,"target":"http","trace_id":"fb3e9a731e6b48ee97478608","ts":"2026-10-11T06:22:12.119304300+00:00"}
+contract POST /subagent/run → 500
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/tasks/{id}/handoff","source":"other","status":404,"target":"http","trace_id":"7fd6dd5e9ca4467f8b733906","ts":"2026-10-11T06:22:12.119858700+00:00"}
+contract POST /tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4/handoff → 404
+contract POST /tasks/df449e2d-8bbe-4221-92e3-96ba0974f4f4/human-result → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/tasks/{id}/human-result","source":"other","status":404,"target":"http","trace_id":"c3be469a51f14380a3115e21","ts":"2026-10-11T06:22:12.120141800+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/team/audit","source":"other","status":200,"target":"http","trace_id":"389292624f284937bfced0cc","ts":"2026-10-11T06:22:12.120311900+00:00"}
+contract GET /team/audit → 200
+contract POST /team/export → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/team/import","source":"other","status":400,"target":"http","trace_id":"6913f03d5b9348cfa660565c","ts":"2026-10-11T06:22:12.120752+00:00"}
+contract POST /team/import → 400
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/team/review","source":"other","status":400,"target":"http","trace_id":"dffa83df44554b36b3d6c713","ts":"2026-10-11T06:22:12.120914800+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/team/export","source":"other","status":404,"target":"http","trace_id":"1c9b84f10f3e4e5c855ca733","ts":"2026-10-11T06:22:12.120551400+00:00"}
+contract POST /team/review → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/product-eval/runs/{id}","source":"other","status":404,"target":"http","trace_id":"35a4561668de4df68f830314","ts":"2026-10-11T06:22:12.019686200+00:00"}
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/team/versions","source":"other","status":400,"target":"http","trace_id":"a17425e5dd2b42d48cc717fd","ts":"2026-10-11T06:22:12.121195300+00:00"}
+contract GET /team/versions → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/teams","source":"other","status":200,"target":"http","trace_id":"57d047e7024b4abab6c4ab3d","ts":"2026-10-11T06:22:12.121470600+00:00"}
+contract GET /teams → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/teams","source":"other","status":400,"target":"http","trace_id":"18cc7eb44ce04947ba8a326a","ts":"2026-10-11T06:22:12.121903100+00:00"}
+contract POST /teams → 400
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/teams/templates","source":"other","status":200,"target":"http","trace_id":"2c3e0ddad9c84365a801d31a","ts":"2026-10-11T06:22:12.122210800+00:00"}
+contract GET /teams/templates → 200
+{"duration_ms":1,"level":"info","method":"GET","msg":"request","route_template":"/teams/templates/catalog","source":"other","status":200,"target":"http","trace_id":"8ae5cfa570c24f4490b2fca4","ts":"2026-10-11T06:22:12.123730700+00:00"}
+contract GET /teams/templates/catalog → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/teams/templates/catalog/{id}/install","source":"other","status":404,"target":"http","trace_id":"491717f3bddf4b958e2fe9d8","ts":"2026-10-11T06:22:12.123915500+00:00"}
+contract POST /teams/templates/catalog/df449e2d-8bbe-4221-92e3-96ba0974f4f4/install → 404
+contract GET /teams/templates/proposals → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/teams/templates/proposals","source":"other","status":200,"target":"http","trace_id":"a3ab1c40d3944a25ba35320d","ts":"2026-10-11T06:22:12.124160400+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/teams/templates/proposals/{proposal_id}/adopt","source":"other","status":404,"target":"http","trace_id":"3d73a50cd12d41348abc0e56","ts":"2026-10-11T06:22:12.124382200+00:00"}
+contract POST /teams/templates/proposals/no-such-proposal/adopt → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/teams/templates/proposals/{proposal_id}/reject","source":"other","status":404,"target":"http","trace_id":"9ec1158c9cc647c4bd371619","ts":"2026-10-11T06:22:12.124581800+00:00"}
+contract POST /teams/templates/proposals/no-such-proposal/reject → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/teams/{id}","source":"other","status":404,"target":"http","trace_id":"ba256c0413174b70b73058bf","ts":"2026-10-11T06:22:12.124992700+00:00"}
+contract GET /teams/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/teams/{id}/change-sets","source":"other","status":200,"target":"http","trace_id":"72956d3095b5496a8c663105","ts":"2026-10-11T06:22:12.125208600+00:00"}
+contract GET /teams/df449e2d-8bbe-4221-92e3-96ba0974f4f4/change-sets → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/teams/{id}/context","source":"other","status":404,"target":"http","trace_id":"864cf9aac63b4b56b80aba4c","ts":"2026-10-11T06:22:12.125451200+00:00"}
+contract GET /teams/df449e2d-8bbe-4221-92e3-96ba0974f4f4/context → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/teams/{id}/context","source":"other","status":422,"target":"http","trace_id":"644e671b91bf47ec803b8207","ts":"2026-10-11T06:22:12.125627500+00:00"}
+contract POST /teams/df449e2d-8bbe-4221-92e3-96ba0974f4f4/context → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/teams/{id}/diagnostic","source":"other","status":404,"target":"http","trace_id":"b175af1afb264fd59d78b090","ts":"2026-10-11T06:22:12.125875+00:00"}
+contract GET /teams/df449e2d-8bbe-4221-92e3-96ba0974f4f4/diagnostic → 404
+contract GET /product-eval/runs/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/teams/{id}/events","source":"other","status":404,"target":"http","trace_id":"f0d252fe29ec43e2bc7004af","ts":"2026-10-11T06:22:12.126153300+00:00"}
+contract GET /teams/df449e2d-8bbe-4221-92e3-96ba0974f4f4/events → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/teams/{id}/metrics","source":"other","status":404,"target":"http","trace_id":"90c9e90843e843908bcac768","ts":"2026-10-11T06:22:12.126429500+00:00"}
+contract GET /teams/df449e2d-8bbe-4221-92e3-96ba0974f4f4/metrics → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/teams/{id}/steer","source":"other","status":404,"target":"http","trace_id":"d3c3bcfc35ea4f4ea56c7bb6","ts":"2026-10-11T06:22:12.126855500+00:00"}
+contract POST /teams/df449e2d-8bbe-4221-92e3-96ba0974f4f4/steer → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/teams/{id}/tasks","source":"other","status":404,"target":"http","trace_id":"5f540b9cd6e64af8a92bf62f","ts":"2026-10-11T06:22:12.127146+00:00"}
+contract GET /teams/df449e2d-8bbe-4221-92e3-96ba0974f4f4/tasks → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/traces","source":"other","status":200,"target":"http","trace_id":"2e0eaae282754f2fac4a679f","ts":"2026-10-11T06:22:12.127396100+00:00"}
+contract GET /traces → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/traces/{index}","source":"other","status":404,"target":"http","trace_id":"bf43d61a00a540c09cc0a2bf","ts":"2026-10-11T06:22:12.127625800+00:00"}
+contract GET /traces/0 → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/transitions/{id}","source":"other","status":404,"target":"http","trace_id":"98eb94cbb9ef4e5fa33ce041","ts":"2026-10-11T06:22:12.127804700+00:00"}
+contract GET /transitions/df449e2d-8bbe-4221-92e3-96ba0974f4f4 → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/usage","source":"other","status":200,"target":"http","trace_id":"fd4235b18a6d4afca102ac24","ts":"2026-10-11T06:22:12.128007600+00:00"}
+contract GET /usage → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/usage/records","source":"other","status":200,"target":"http","trace_id":"531bff3abc6345aea20a8206","ts":"2026-10-11T06:22:12.128177900+00:00"}
+contract GET /usage/records → 200
+contract GET /usage/report → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/usage/summary","source":"other","status":200,"target":"http","trace_id":"fa52b04e1f1c41b6977e51cd","ts":"2026-10-11T06:22:12.128515100+00:00"}
+contract GET /usage/summary → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/usage/report","source":"other","status":200,"target":"http","trace_id":"43c757bf239b415bb91d6581","ts":"2026-10-11T06:22:12.128369900+00:00"}
+{"level":"info","msg":"预算加额 $0.00，硬熔断已解除","target":"usage","trace_id":"daaa703e9bce451793232583","ts":"2026-10-11T06:22:12.128677200+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/usage/topup","source":"other","status":200,"target":"http","trace_id":"daaa703e9bce451793232583","ts":"2026-10-11T06:22:12.128760700+00:00"}
+contract POST /usage/topup → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/vision/describe","source":"other","status":403,"target":"http","trace_id":"80ae53ae493c4f18b2b834a0","ts":"2026-10-11T06:22:12.128931800+00:00"}
+contract POST /vision/describe → 403
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/vision/ground","source":"other","status":422,"target":"http","trace_id":"3145d3f2209a4bb9a74705e3","ts":"2026-10-11T06:22:12.129089800+00:00"}
+contract POST /vision/ground → 422
+{"duration_ms":3048,"level":"info","method":"GET","msg":"request","route_template":"/vision/status","source":"other","status":200,"target":"http","trace_id":"688bc96f087a44b4be185e75","ts":"2026-10-11T06:22:15.177624+00:00"}
+contract GET /vision/status → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/vision/verify","source":"other","status":422,"target":"http","trace_id":"bb1bc77910c34c21932beb9f","ts":"2026-10-11T06:22:15.177910+00:00"}
+contract POST /vision/verify → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/whitelist","source":"other","status":200,"target":"http","trace_id":"627d213062644470b3a41533","ts":"2026-10-11T06:22:15.178142200+00:00"}
+contract GET /whitelist → 200
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/whitelist/manage","source":"other","status":422,"target":"http","trace_id":"11add44f97534ae0a3ac96f9","ts":"2026-10-11T06:22:15.178295400+00:00"}
+contract POST /whitelist/manage → 422
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/workflow","source":"other","status":200,"target":"http","trace_id":"8793d130052b459abf71dec3","ts":"2026-10-11T06:22:15.178791+00:00"}
+contract GET /workflow → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/workflow/run/{run_id}","source":"other","status":404,"target":"http","trace_id":"e2bce261b8614093a679da87","ts":"2026-10-11T06:22:15.178961600+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/workflow/run/{run_id}/abort","source":"other","status":404,"target":"http","trace_id":"77161950ec824108953894ca","ts":"2026-10-11T06:22:15.179109700+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/workflow/run/{run_id}/approval","source":"other","status":404,"target":"http","trace_id":"41983d3e772f4cd6932a8a15","ts":"2026-10-11T06:22:15.179329500+00:00"}
+contract POST /workflow/run/no-such-run/approval → 404
+contract GET /workflow/run/no-such-run → 404
+contract POST /workflow/run/no-such-run/abort → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/workflow/run/{run_id}/audit","source":"other","status":404,"target":"http","trace_id":"339967d92a534610bc1a93c2","ts":"2026-10-11T06:22:15.179467800+00:00"}
+contract GET /workflow/run/no-such-run/audit → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/workflow/run/{run_id}/events","source":"other","status":404,"target":"http","trace_id":"03658a33886a4bfa8e3238c8","ts":"2026-10-11T06:22:15.179598700+00:00"}
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/workflow/validate","source":"other","status":200,"target":"http","trace_id":"e24456e50dc947e78ee9c3f5","ts":"2026-10-11T06:22:15.179932500+00:00"}
+contract POST /workflow/validate → 200
+contract GET /workflow/run/no-such-run/events → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/workflow/{name}","source":"other","status":404,"target":"http","trace_id":"3c315099950e48b4b4303256","ts":"2026-10-11T06:22:15.180295500+00:00"}
+contract GET /workflow/no-such-name → 404
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/workflow/{name}/run","source":"other","status":404,"target":"http","trace_id":"a322c69bff1b4aba81ad363c","ts":"2026-10-11T06:22:15.180633700+00:00"}
+contract POST /workflow/no-such-name/run → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/workflow/{name}/runs","source":"other","status":200,"target":"http","trace_id":"403ca824e229456bbcd1f52f","ts":"2026-10-11T06:22:15.180818600+00:00"}
+contract GET /workflow/no-such-name/runs → 200
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/workspace/tree","source":"other","status":400,"target":"http","trace_id":"6caec6ba050b46429b30e323","ts":"2026-10-11T06:22:15.180963300+00:00"}
+contract GET /workspace/tree → 400
+contract POST /world-model/predict → 404
+{"duration_ms":0,"level":"info","method":"GET","msg":"request","route_template":"/world-model/providers","source":"other","status":200,"target":"http","trace_id":"db8bcb8035c148eda272dcdf","ts":"2026-10-11T06:22:15.181360400+00:00"}
+
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/world-model/predict","source":"other","status":404,"target":"http","trace_id":"568c291256cf4381855453f8","ts":"2026-10-11T06:22:15.181136800+00:00"}
+thread 'all_contract_endpoints_are_reachable' (1120) panicked at crates\owo-agent-server\tests\route_contract_tests.rs:669:5:
+契约路径不可达（404/405）：
+GET /session/{id} → 404
+POST /session/{id}/abort → 404
+GET /session/{id}/attachments → 404
+POST /session/{id}/compact → 404
+GET /session/{id}/context → 404
+GET /session/{id}/diff → 404
+GET /session/{id}/export/{format} → 404
+POST /session/{id}/model → 404
+POST /session/{id}/revert → 404
+POST /session/{id}/turn → 404
+contract GET /world-model/providers → 200
+POST /session/{id}/redo → 404
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+failures:
+
+    all_contract_endpoints_are_reachable
+
+test result: FAILED. 50 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 22.76s
+
+error: test failed, to rerun pass `-p owo-agent-server --test route_contract_tests`

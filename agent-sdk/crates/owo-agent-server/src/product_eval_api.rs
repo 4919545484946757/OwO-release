@@ -285,7 +285,7 @@ impl ProductEvalHub {
             let record = handle
                 .record
                 .lock()
-                .expect("product-eval record 锁")
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
                 .clone();
             by_id.insert(record.run_id.clone(), record);
         }
@@ -312,7 +312,7 @@ impl ProductEvalHub {
             Some(handle) => handle
                 .record
                 .lock()
-                .expect("product-eval record 锁")
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
                 .clone(),
             None => {
                 let text = std::fs::read_to_string(dir.join("hub.json")).ok()?;
@@ -349,7 +349,10 @@ async fn run_job(
 ) {
     // queued → running（若已被取消则跳过；最终态不回退）。
     {
-        let mut record = handle.record.lock().expect("product-eval record 锁");
+        let mut record = handle
+            .record
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         if record.status == ST_QUEUED {
             record.status = ST_RUNNING.to_string();
             record.started_at = Some(now_rfc3339());
@@ -366,7 +369,10 @@ async fn run_job(
     let executor = match executor {
         Ok(executor) => executor,
         Err(message) => {
-            let mut record = handle.record.lock().expect("product-eval record 锁");
+            let mut record = handle
+                .record
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             if !record.terminal() {
                 record.status = ST_FAILED.to_string();
                 record.finished_at = Some(now_rfc3339());
@@ -380,7 +386,10 @@ async fn run_job(
     let bundle = match product_eval::load_suite(&suite_path) {
         Ok(bundle) => bundle,
         Err(e) => {
-            let mut record = handle.record.lock().expect("product-eval record 锁");
+            let mut record = handle
+                .record
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             if !record.terminal() {
                 record.status = ST_FAILED.to_string();
                 record.finished_at = Some(now_rfc3339());
@@ -405,7 +414,7 @@ async fn run_job(
     let model = handle
         .record
         .lock()
-        .expect("product-eval record 锁")
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
         .model
         .clone();
     let cancel = Arc::clone(&handle.cancel);
@@ -413,7 +422,10 @@ async fn run_job(
         .run(executor, &params.execution, model, &opts, cancel)
         .await;
 
-    let mut record = handle.record.lock().expect("product-eval record 锁");
+    let mut record = handle
+        .record
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     match result {
         Ok(report) => {
             if record.status == ST_CANCELLED {
@@ -715,7 +727,10 @@ async fn cancel_run(
         record.status = ST_CANCELLED.to_string();
         record.finished_at = Some(now_rfc3339());
         if let Some(handle) = in_memory.as_ref() {
-            *handle.record.lock().expect("product-eval record 锁") = record.clone();
+            *handle
+                .record
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) = record.clone();
         }
         persist_record(&dir, &record);
         tracing::info!(run_id = %run_id, "product-eval 运行已请求取消（协作令牌已置位）");

@@ -177,11 +177,8 @@ impl AutomationStore {
             "reminders": self.reminders,
             "runs": self.runs,
         });
-        std::fs::write(
-            self.path(),
-            serde_json::to_string_pretty(&data).map_err(|e| e.to_string())?,
-        )
-        .map_err(|error| error.to_string())
+        let content = serde_json::to_string_pretty(&data).map_err(|e| e.to_string())?;
+        crate::atomic_write(&self.path(), content.as_bytes()).map_err(|error| error.to_string())
     }
 
     pub fn list(&self) -> Vec<AutomationTask> {

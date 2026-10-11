@@ -91,6 +91,10 @@ impl SqliteSessionStore {
     /// 打开并自动迁移（MIGRATIONS 或测试注入的迁移表）；迁移失败降级只读。
     fn open_with_migrations(path: &Path, migrations: &[Migration]) -> Result<Self, AgentError> {
         let mut conn = Connection::open(path).map_err(sqlite_error)?;
+        // 多连接（会话库 + 审计 + 并发回合）共存：写锁竞争在 busy_timeout 内自旋等待，
+        // 避免瞬时 SQLITE_BUSY 被当成永久失败。
+        conn.busy_timeout(std::time::Duration::from_millis(5000))
+            .map_err(sqlite_error)?;
         conn.execute_batch(base_schema()).map_err(sqlite_error)?;
         let mut status = MigrationStatus {
             schema_version: user_version(&conn)?,
@@ -106,6 +110,7 @@ impl SqliteSessionStore {
                 let read_only_conn =
                     Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
                         .map_err(sqlite_error)?;
+                let _ = read_only_conn.busy_timeout(std::time::Duration::from_millis(5000));
                 status.read_only = true;
                 status.last_error = Some(error.to_string());
                 return Ok(Self {

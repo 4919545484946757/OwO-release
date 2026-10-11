@@ -99,6 +99,18 @@ pub(crate) fn validate_single_verification_plan(
     Ok(())
 }
 
+/// 新计划是否"逐字保留"了已登记计划里的全部要求（允许新增，不允许删除/改写）。
+/// 用于允许首次写入后补上行为命令等**加强型**修正，同时禁止降低验收要求。
+fn plan_is_superset(
+    previous: &crate::plan::VerificationPlanV1,
+    next: &crate::plan::VerificationPlanV1,
+) -> bool {
+    previous
+        .requirements
+        .iter()
+        .all(|old| next.requirements.iter().any(|new| new == old))
+}
+
 pub(super) fn validate_single_request_coverage(
     plan: &crate::plan::VerificationPlanV1,
     request: &str,
@@ -121,7 +133,21 @@ pub(super) fn validate_single_request_coverage(
             }
         }
     }
-    crate::request_requirements::validate_exact_user_request_quotes(&quotes, request)?;
+    crate::request_requirements::validate_exact_user_request_quotes(&quotes, request).map_err(
+        |error| {
+            // 真实模型实测：模型常引用自己改写的句子而被拒，反复重试浪费回合。
+            // 错误里直接给出用户原文的可复制片段，帮助模型一次改对。
+            let suggestion = request
+                .lines()
+                .map(str::trim)
+                .find(|line| !line.is_empty())
+                .map(|line| line.chars().take(60).collect::<String>())
+                .unwrap_or_default();
+            format!(
+                "{error}；请逐字复制用户原文中的连续片段（仅允许反引号差异），例如：{suggestion}"
+            )
+        },
+    )?;
     crate::request_requirements::validate_plan_covers_explicit_acceptance(plan, request)?;
     Ok(())
 }
@@ -319,7 +345,7 @@ impl Tool for SingleVerificationPlanTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "verification_plan".into(),
-            description: "开始任何工作区写入前，先登记本次任务的宿主验收要求。计划首次写入后不可替换。每个必需 covers_requirement_ids 都必须写成 user-request:<用户原文中的精确验收片段>，宿主会核对它确实出现在本回合输入中。选验证器按产物类型：源码/可运行工程用 workspace-command-success-v1（只接受宿主登记的行为命令，如 cargo test/npm test/python -m pytest，禁止 dir/echo 等普通命令）；文本或文档产物用静态校验 workspace-file-exists-v1 / workspace-file-non-empty-v1 / workspace-file-contains-v1 / workspace-json-field-equals-v1，不要为普通文本文件登记命令校验；确实没有可运行自动验收时，才可声明 single-human-acceptance-v1 + manual scope，宿主会展示当前候选快照并等待用户明确验收。计划本身不是通过证据。resources 四个字段按 schema 显式填写；人工验收不消耗该资源配额。".into(),
+            description: "开始任何工作区写入前，先登记本次任务的宿主验收要求。计划首次写入后只能追加/加强（例如补上行为命令），不能删除或改写既有要求。每个必需 covers_requirement_ids 都必须写成 user-request:<用户原文中的精确验收片段>，宿主会核对它确实出现在本回合输入中（允许用户原文与引用之间有 Markdown 反引号差异）。选验证器按产物类型：源码/可运行工程用 workspace-command-success-v1（只接受宿主登记的行为命令，如 cargo test/npm test/python -m pytest，禁止 dir/echo 等普通命令）；文本或文档产物用静态校验 workspace-file-exists-v1 / workspace-file-non-empty-v1 / workspace-file-contains-v1 / workspace-json-field-equals-v1，不要为普通文本文件登记命令校验；确实没有可运行自动验收时，才可声明 single-human-acceptance-v1 + manual scope，宿主会展示当前候选快照并等待用户明确验收。计划本身不是通过证据。arguments 只允许契约列出的字段，多一个额外字段都会被拒。resources 四个字段按 schema 显式填写；人工验收不消耗该资源配额。可照抄的最小示例（单条行为命令）：{\"plan\":{\"plan_id\":\"p1\",\"requirements\":[{\"requirement_id\":\"req-tests\",\"covers_requirement_ids\":[\"user-request:<原文逐字片段>\"],\"validator_id\":\"workspace-command-success-v1\",\"validator_version\":\"1\",\"arguments\":{\"command\":\"npm test\"},\"required\":true,\"scope\":{\"kind\":\"workspace_paths\",\"relative_paths\":[\"tests/game.test.mjs\"]},\"resources\":{\"cpu_slots\":1,\"memory_mb\":64,\"exclusive_workspace\":false,\"timeout_ms\":30000}}]}}".into(),
             input_schema: verification_plan_input_schema(),
             effect: None,
         }
@@ -351,23 +377,24 @@ impl Tool for SingleVerificationPlanTool {
             .execution_receipts
             .iter()
             .any(|receipt| receipt.turn_id == turn_id && receipt.status != "reverted");
-        if has_current_turn_writes
-            && (ctx.session.single_verification_plan_turn_id.as_deref() != Some(turn_id.as_str())
-                || ctx.session.single_verification_plan.as_ref() != Some(&plan))
-        {
+        let registered_same_turn =
+            ctx.session.single_verification_plan_turn_id.as_deref() == Some(turn_id.as_str());
+        // 真实模型实测：模型常在首次登记时写错 validator 参数，随后才想补上行为命令。
+        // 允许「追加/加强」型替换（逐字保留全部既有要求），仍禁止删除或改写既有要求，
+        // 从而既解开死锁，又保持"不能看到结果后降低验收"的防作弊语义。
+        let weakens = match ctx.session.single_verification_plan.as_ref() {
+            Some(previous) => previous != &plan && !plan_is_superset(previous, &plan),
+            None => true,
+        };
+        if has_current_turn_writes && !(registered_same_turn && !weakens) {
             return Err(
-                "VerificationPlan 必须在首次工作区写入前登记，且本回合登记后不可替换".to_string(),
+                "VerificationPlan 必须在首次工作区写入前登记；首次写入后只能追加/加强验收要求，不能替换或降低".to_string(),
             );
         }
-        if ctx.session.single_verification_plan_turn_id.as_deref() == Some(turn_id.as_str())
-            && ctx
-                .session
-                .single_verification_plan
-                .as_ref()
-                .is_some_and(|registered| registered != &plan)
-        {
+        if registered_same_turn && weakens {
             return Err(
-                "本回合 VerificationPlan 已冻结，不能在看到验证结果后降低验收要求".to_string(),
+                "本回合 VerificationPlan 已冻结，不能在看到验证结果后降低验收要求；只能追加/加强"
+                    .to_string(),
             );
         }
         let mut resolved_context = task_context.clone();
@@ -525,6 +552,88 @@ mod schema_tests {
                 "not-registered",
                 &json!({"text":"hello"})
             )
+        );
+    }
+
+    #[test]
+    fn plan_superset_allows_appending_but_not_rewriting_registered_requirements() {
+        let requirement = |id: &str, validator: &str, arguments: Value| {
+            json!({
+                "requirement_id": id,
+                "covers_requirement_ids": ["user-request:must work"],
+                "validator_id": validator,
+                "validator_version": "1",
+                "arguments": arguments,
+                "required": true,
+                "scope": {"kind": "workspace_paths", "relative_paths": ["README.md"]},
+                "resources": {
+                    "cpu_slots": 1,
+                    "memory_mb": 32,
+                    "exclusive_workspace": false,
+                    "timeout_ms": 5000
+                }
+            })
+        };
+        let plan = |requirements: Vec<Value>| {
+            serde_json::from_value::<crate::plan::VerificationPlanV1>(json!({
+                "plan_id": "p1",
+                "requirements": requirements
+            }))
+            .expect("测试计划应可反序列化")
+        };
+        let base = plan(vec![requirement(
+            "req-static",
+            "workspace-file-exists-v1",
+            json!({}),
+        )]);
+        // 追加行为命令属于"加强"，允许（真实模型实测：先登记静态校验，写入后想补命令）。
+        let mut appended = base.clone();
+        appended.requirements.push(
+            serde_json::from_value(requirement(
+                "req-tests",
+                "workspace-command-success-v1",
+                json!({"command": "npm test"}),
+            ))
+            .unwrap(),
+        );
+        assert!(plan_is_superset(&base, &appended));
+        // 反向删减既有要求属于"降低"，拒绝。
+        assert!(!plan_is_superset(&appended, &base));
+        // 改写既有要求的参数属于"降低"，拒绝。
+        let mut rewritten = base.clone();
+        rewritten.requirements[0].arguments = json!({"text": "改掉"});
+        assert!(!plan_is_superset(&base, &rewritten));
+        // 完全一致（幂等重登记）视为不降低。
+        assert!(plan_is_superset(&base, &base));
+    }
+
+    #[test]
+    fn coverage_error_suggests_a_copyable_user_excerpt() {
+        let plan = serde_json::from_value::<crate::plan::VerificationPlanV1>(json!({
+            "plan_id": "p",
+            "requirements": [{
+                "requirement_id": "r",
+                "covers_requirement_ids": ["user-request:并不存在的原文"],
+                "validator_id": "workspace-file-exists-v1",
+                "validator_version": "1",
+                "arguments": {},
+                "required": true,
+                "scope": {"kind": "workspace_paths", "relative_paths": ["README.md"]},
+                "resources": {
+                    "cpu_slots": 1,
+                    "memory_mb": 8,
+                    "exclusive_workspace": false,
+                    "timeout_ms": 1000
+                }
+            }]
+        }))
+        .unwrap();
+        let error =
+            validate_single_request_coverage(&plan, "构建坦克大战：支持本地双人并训练 AI 对手")
+                .unwrap_err();
+        assert!(
+            error.contains("例如：构建坦克大战"),
+            "覆盖率错误应附带可复制的用户原文片段：{error}"
         );
     }
 }

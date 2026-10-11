@@ -81,6 +81,26 @@ fn router(state: Arc<owo_agent_server::AppState>) -> Router {
     team_api::router(state)
 }
 
+/// 回归：技能包内联 base64，真实包很容易超过全局 1 MiB 体上限；评审/导入路由必须
+/// 单独放宽（否则 413，业务层都进不去）。
+#[tokio::test]
+async fn import_accepts_packages_larger_than_the_global_json_limit() {
+    let (state, _temp) = test_state();
+    // 复刻真实组合：先合并 team_api，再套全局 1 MiB 上限；路由级 32 MiB 必须胜出。
+    let app = Router::new()
+        .merge(team_api::router(Arc::clone(&state)))
+        .layer(axum::extract::DefaultBodyLimit::max(1024 * 1024));
+    let package = base64::engine::general_purpose::STANDARD.encode(vec![b'A'; 1_500_000]);
+    let body = json!({ "package_b64": package }).to_string();
+    let (status, _) = call(&app, request("POST", "/team/import", Some(&body))).await;
+    assert_ne!(
+        status,
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "真实技能包常超过全局 1 MiB：导入路由必须单独放宽体上限"
+    );
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
 /// 构造技能包（写入 pipeline.store 供导出）。
 fn seed_package(state: &owo_agent_server::AppState, id: &str, version: &str, skill_md: &str) {
     use owo_agent_core::learn::ActionGraph;

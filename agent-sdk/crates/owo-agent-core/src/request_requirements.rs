@@ -81,7 +81,16 @@ pub fn validate_exact_user_request_quotes(quotes: &[String], request: &str) -> R
             return Err("任务重复引用同一条用户原文要求".to_string());
         }
         if !normalized_request.contains(&normalized_quote) {
-            return Err(format!("任务引用不属于当前用户目标原文：{quote}"));
+            // 真实模型实测：用户原文常带 Markdown 反引号（如 `创建 \`src/a.js\``），
+            // 模型引用时往往会去掉反引号。此时只要去掉反引号后仍逐字出现，就视为有效
+            // 引用——不放松"必须真实存在于用户原文"的约束，只容忍反引号差异。
+            let request_without_ticks = normalized_request.replace('`', "");
+            let quote_without_ticks = normalized_quote.replace('`', "");
+            if quote_without_ticks.is_empty()
+                || !request_without_ticks.contains(&quote_without_ticks)
+            {
+                return Err(format!("任务引用不属于当前用户目标原文：{quote}"));
+            }
         }
     }
     Ok(())
@@ -194,5 +203,21 @@ mod tests {
     fn ordinary_lists_are_not_promoted_to_acceptance_requirements() {
         let request = "执行顺序\n1. 先检查代码\n2. 再修改实现";
         assert!(explicit_acceptance_items(request).is_empty());
+    }
+
+    #[test]
+    fn quote_matches_user_request_with_markdown_backticks_removed() {
+        // 用户原文带反引号，模型引用时去掉反引号仍应视为有效（真实模型实测形态）。
+        let request = "第 1 步：创建 `tank-game/index.html` 与 `tank-game/game.js`";
+        assert!(validate_exact_user_request_quotes(
+            &["创建 tank-game/index.html 与 tank-game/game.js".to_string()],
+            request
+        )
+        .is_ok());
+        // 去掉反引号后仍不存在的内容照旧拒绝，不放松真实性约束。
+        let error =
+            validate_exact_user_request_quotes(&["创建 tank-game/other.js".to_string()], request)
+                .unwrap_err();
+        assert!(error.contains("不属于当前用户目标原文"), "{error}");
     }
 }

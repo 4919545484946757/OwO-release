@@ -181,7 +181,13 @@ impl SkillHealthStore {
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
             let json = serde_json::to_string_pretty(&self.entries).map_err(|e| e.to_string())?;
-            std::fs::write(path, json).map_err(|e| e.to_string())?;
+            // 原子写（tmp → rename）：崩溃不会留下半截 JSON 导致健康状态整库丢失。
+            let tmp = path.with_extension(format!("json.tmp-{}", std::process::id()));
+            std::fs::write(&tmp, json).map_err(|e| e.to_string())?;
+            std::fs::rename(&tmp, path).map_err(|error| {
+                let _ = std::fs::remove_file(&tmp);
+                error.to_string()
+            })?;
         }
         Ok(())
     }

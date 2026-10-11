@@ -212,6 +212,49 @@ impl SandboxCommand {
             .cloned()
     }
 
+    /// 命令文本级危险程序检查（比整串子串更精确，供 `cmd /C <command>` 的命令体使用）。
+    ///
+    /// 真实模型实测：整串子串匹配会把 `python -c "print(format(x))"`、`--format=json`
+    /// 这类正常命令误杀（黑名单里的 `format` 本意是磁盘格式化工具）。这里按 shell
+    /// 分隔符切词，只把"作为程序名出现"的危险片段判为命中；含空格的片段（如
+    /// `reg delete`）仍按连续子串检查。
+    pub fn deny_hit_in_command(text: &str, deny_programs: &[String]) -> Option<String> {
+        let lower = text.to_lowercase();
+        let trim_executable = |name: &str| -> String {
+            let lower_name = name.to_lowercase();
+            for suffix in [".exe", ".com", ".bat", ".cmd", ".ps1"] {
+                if let Some(stripped) = lower_name.strip_suffix(suffix) {
+                    return stripped.to_string();
+                }
+            }
+            lower_name
+        };
+        for fragment in deny_programs {
+            let fragment_lower = fragment.to_lowercase();
+            if fragment_lower.contains(' ') {
+                if lower.contains(&fragment_lower) {
+                    return Some(fragment.clone());
+                }
+                continue;
+            }
+            // 单程序名：按空白与 shell 分隔符切词，只把"整词等于程序名"的片段判为命中。
+            // 这样 `format(x)`、`--format=json`、`print(format(x))` 等参数用法不会误杀，
+            // 而 `cmd /C "shutdown /s"`、`echo hi;format c:` 仍会被拦下。
+            let hit = lower
+                .split(|c: char| c.is_whitespace() || matches!(c, ';' | '&' | '|'))
+                .map(|token| token.trim_matches(|c| c == '"' || c == '\''))
+                .filter(|token| !token.is_empty())
+                .any(|token| {
+                    let name = token.rsplit(['\\', '/']).next().unwrap_or(token);
+                    trim_executable(name) == fragment_lower
+                });
+            if hit {
+                return Some(fragment.clone());
+            }
+        }
+        None
+    }
+
     /// 命令级校验：策略自检 + 工作区越界 + 危险程序黑名单。
     pub fn validate(&self) -> Result<(), SandboxError> {
         self.policy.validate()?;

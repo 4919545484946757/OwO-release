@@ -8,6 +8,7 @@
 //!
 //! 模块约定：不引用 `crate::`/`super::`（AppState 全限定），可被测试以 #[path] mod 独立编译。
 
+use axum::extract::DefaultBodyLimit;
 use axum::extract::State;
 use axum::routing::post;
 use axum::{Json, Router};
@@ -31,7 +32,12 @@ pub const CLEAR_CONFIRM: &str = "CLEAR_ALL";
 pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/storage/backup", post(backup_handler))
-        .route("/storage/restore", post(restore_handler))
+        // 恢复请求内联 base64 归档（backup 也内联返回），真实数据根的归档很容易超过
+        // 全局 1 MiB 体上限；这里单独放宽到 256 MiB，否则恢复会被 413 直接拒绝。
+        .route(
+            "/storage/restore",
+            post(restore_handler).layer(DefaultBodyLimit::max(256 * 1024 * 1024)),
+        )
         .route("/storage/export", post(export_handler))
         .route("/storage/clear", post(clear_handler))
         .with_state(state)

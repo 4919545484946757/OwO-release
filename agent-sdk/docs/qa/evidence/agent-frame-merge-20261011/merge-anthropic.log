@@ -1,0 +1,15 @@
+
+running 8 tests
+test anthropic::tests::anthropic_request_uses_the_same_registry_tool_contracts ... ok
+test anthropic::tests::error_payload_maps_to_message ... ok
+test anthropic::tests::images_convert_to_image_blocks ... ok
+test anthropic::tests::malformed_anthropic_tool_uses_are_rejected_instead_of_defaulted ... ok
+test anthropic::tests::non_stream_response_parses_blocks ... ok
+test anthropic::tests::oversized_anthropic_tool_arguments_are_rejected ... ok
+test anthropic::tests::request_body_extracts_system_and_merges_tool_results ... ok
+test anthropic::tests::stream_state_accumulates_text_tools_and_usage ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 604 filtered out; finished in 0.19s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.53s
+     Running unittests src\lib.rs (target\debug\deps\owo_agent_core-64f1915f4c166bb8.exe)

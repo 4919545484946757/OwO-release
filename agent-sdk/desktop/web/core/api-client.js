@@ -303,6 +303,24 @@
           return execute(false);
         }
         if (!response.ok) {
+          // 429/5xx 属于瞬时故障：幂等方法（GET/HEAD/PUT/DELETE）可安全重放一次，
+          // 优先尊重 Retry-After（上限 2s，避免把 UI 卡死）；POST/PATCH 仍不重放。
+          const retryableStatus =
+            response.status === 429 ||
+            response.status === 502 ||
+            response.status === 503 ||
+            response.status === 504;
+          if (networkRetrySafe && retryableStatus && allowRetry) {
+            const retryAfter = Number(response.headers.get("retry-after"));
+            const delay =
+              Number.isFinite(retryAfter) && retryAfter > 0
+                ? Math.min(retryAfter * 1000, 2000)
+                : 300;
+            await response.text();
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            headers.delete("Authorization");
+            return execute(false);
+          }
           const body = await response.text();
           throw new ApiError(response.status + ": " + body, {
             status: response.status,

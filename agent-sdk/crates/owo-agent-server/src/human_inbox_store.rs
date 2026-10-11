@@ -244,7 +244,10 @@ impl HumanInboxStore {
     /// 「出现」（重试轮次）都得到独立待办，不被旧 resolved 记录永久吞掉；
     /// 首选版本仍是 open/claimed 时复用原记录，不产生重复条目。
     pub fn ensure_item(&self, draft: &InboxItemDraft) -> HumanWorkItem {
-        let mut file = self.inner.lock().expect("human inbox lock");
+        let mut file = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let base = draft.base_key();
         let mut item_id = draft.item_id();
         if file
@@ -306,7 +309,10 @@ impl HumanInboxStore {
 
     /// 领取：open → claimed（CAS）；同人重复领取幂等；他人已领取 → Conflict。
     pub fn claim(&self, item_id: &str, user: &str) -> Result<HumanWorkItem, ClaimError> {
-        let mut file = self.inner.lock().expect("human inbox lock");
+        let mut file = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let item = file.items.get_mut(item_id).ok_or(ClaimError::NotFound)?;
         match item.status.as_str() {
             STATUS_RESOLVED | STATUS_RESOLVING => {
@@ -335,7 +341,10 @@ impl HumanInboxStore {
 
     /// 释放：claimed → open（仅领取者可释放）。
     pub fn release(&self, item_id: &str, user: &str) -> Result<HumanWorkItem, ClaimError> {
-        let mut file = self.inner.lock().expect("human inbox lock");
+        let mut file = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let item = file.items.get_mut(item_id).ok_or(ClaimError::NotFound)?;
         if item.status != STATUS_CLAIMED {
             return Err(ClaimError::Conflict {
@@ -364,7 +373,10 @@ impl HumanInboxStore {
         item_id: &str,
         idempotency_key: &str,
     ) -> Result<String, ResolveLeaseError> {
-        let mut file = self.inner.lock().expect("human inbox lock");
+        let mut file = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let item = file
             .items
             .get_mut(item_id)
@@ -392,7 +404,10 @@ impl HumanInboxStore {
 
     /// resolve 成功终态：resolving → resolved（缓存结果）。
     pub fn finish_resolve(&self, item_id: &str, result: Value) -> Option<HumanWorkItem> {
-        let mut file = self.inner.lock().expect("human inbox lock");
+        let mut file = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let item = file.items.get_mut(item_id)?;
         if item.status != STATUS_RESOLVING {
             return None;
@@ -407,7 +422,10 @@ impl HumanInboxStore {
 
     /// resolve 分派失败：resolving → 原状态（open/claimed），记录错误可重试。
     pub fn abort_resolve(&self, item_id: &str, prev_status: &str, error: &str) {
-        let mut file = self.inner.lock().expect("human inbox lock");
+        let mut file = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         if let Some(item) = file.items.get_mut(item_id) {
             if item.status == STATUS_RESOLVING {
                 item.status = prev_status.to_string();
@@ -429,7 +447,11 @@ impl HumanInboxStore {
     /// resolved 记录数（自检/统计；当前仅测试消费，保留为公开自省 API）。
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn len(&self) -> usize {
-        self.inner.lock().expect("human inbox lock").items.len()
+        self.inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .items
+            .len()
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
@@ -449,7 +471,9 @@ fn shared_registry() -> &'static Mutex<HashMap<PathBuf, Arc<HumanInboxStore>>> {
 
 /// 取（并懒建）路径对应的进程内共享存储实例。
 pub fn open_shared(path: &Path) -> Arc<HumanInboxStore> {
-    let mut registry = shared_registry().lock().expect("human inbox registry");
+    let mut registry = shared_registry()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     registry
         .entry(path.to_path_buf())
         .or_insert_with(|| Arc::new(HumanInboxStore::new(path.to_path_buf())))

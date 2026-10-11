@@ -40,6 +40,9 @@ pub mod change_set_store;
 pub mod cloud_exec;
 pub mod notes;
 
+mod atomic_io;
+pub(crate) use atomic_io::atomic_write;
+
 // 顶层再导出：与拆分前 `owo-agent-core` 的公共面保持兼容（glob 形式避免漏项，
 // core 侧原有的逐条 `pub use` 继续照旧工作）。
 pub use automation::*;

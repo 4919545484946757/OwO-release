@@ -175,6 +175,42 @@ pub(super) async fn write_file_body(
     }))
 }
 
+/// 编辑片段匹配：优先精确；未命中时容忍 CRLF/LF 行尾差异（变体必须真实存在）。
+/// 返回（实际用于替换的片段，命中次数）；0 = 未找到。
+///
+/// 真实模型实测：Windows 工作区文件是 CRLF，模型按 LF 提供片段 → 精确匹配失败、
+/// 白白消耗一个修复回合。这里只在"换行符差异"上容忍，其余空白仍要求一致。
+pub(super) fn match_edit_fragment(original: &str, old_string: &str) -> (String, usize) {
+    let exact = original.matches(old_string).count();
+    if exact > 0 {
+        return (old_string.to_string(), exact);
+    }
+    for candidate in [
+        old_string.replace("\r\n", "\n"),
+        old_string.replace('\n', "\r\n"),
+    ] {
+        if candidate == old_string {
+            continue;
+        }
+        let count = original.matches(candidate.as_str()).count();
+        if count > 0 {
+            return (candidate, count);
+        }
+    }
+    (old_string.to_string(), 0)
+}
+
+/// 让 new_string 沿用匹配片段的行尾风格，避免编辑后文件混合 CRLF/LF。
+pub(super) fn align_new_lines(matched_old: &str, new_string: &str) -> String {
+    if matched_old.contains("\r\n") && !new_string.contains('\r') {
+        new_string.replace('\n', "\r\n")
+    } else if !matched_old.contains('\r') && new_string.contains("\r\n") {
+        new_string.replace("\r\n", "\n")
+    } else {
+        new_string.to_string()
+    }
+}
+
 /// `edit_file`：精确替换（`old_string` 必须唯一命中，除非 `replace_all`）。
 /// 复用 [`write_file_body`] 的快照/冲突校验，可 diff/revert。
 pub(super) struct EditFileTool;
@@ -214,10 +250,10 @@ impl Tool for EditFileTool {
         let original = tokio::fs::read_to_string(&abs)
             .await
             .map_err(|e| format!("读取 {path} 失败：{e}"))?;
-        let occurrences = original.matches(old_string.as_str()).count();
+        let (matched_old, occurrences) = match_edit_fragment(&original, &old_string);
         if occurrences == 0 {
             return Err(format!(
-                "未找到 old_string（{path}）：请确认空白/缩进与文件一致"
+                "未找到 old_string（{path}）：请确认空白/缩进与文件一致；文件行尾可能是 CRLF，可先 read_file 复制原文"
             ));
         }
         if occurrences > 1 && !replace_all {
@@ -225,10 +261,11 @@ impl Tool for EditFileTool {
                 "old_string 命中 {occurrences} 处（不唯一）：请扩大上下文或设置 replace_all=true"
             ));
         }
+        let matched_new = align_new_lines(&matched_old, &new_string);
         let updated = if replace_all {
-            original.replace(old_string.as_str(), new_string.as_str())
+            original.replace(matched_old.as_str(), matched_new.as_str())
         } else {
-            original.replacen(old_string.as_str(), new_string.as_str(), 1)
+            original.replacen(matched_old.as_str(), matched_new.as_str(), 1)
         };
         write_file_body(ctx, &path, &abs, &updated).await?;
         Ok(json!({
@@ -322,7 +359,7 @@ impl Tool for MultiEditTool {
 
         // 内存中顺序应用；任一处失败立即返回，原文件不受影响。
         for (index, (old_string, new_string, replace_all)) in planned.iter().enumerate() {
-            let occurrences = content.matches(old_string.as_str()).count();
+            let (matched_old, occurrences) = match_edit_fragment(&content, old_string);
             if occurrences == 0 {
                 return Err(format!(
                     "第 {}/{} 处替换失败：未找到 old_string（前面的替换可能已改变上下文）。整批未应用，请 read_file 后重试",
@@ -337,10 +374,11 @@ impl Tool for MultiEditTool {
                     planned.len()
                 ));
             }
+            let matched_new = align_new_lines(&matched_old, new_string);
             content = if *replace_all {
-                content.replace(old_string.as_str(), new_string.as_str())
+                content.replace(matched_old.as_str(), matched_new.as_str())
             } else {
-                content.replacen(old_string.as_str(), new_string.as_str(), 1)
+                content.replacen(matched_old.as_str(), matched_new.as_str(), 1)
             };
         }
 

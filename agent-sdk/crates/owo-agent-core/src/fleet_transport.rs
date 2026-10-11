@@ -180,7 +180,10 @@ impl InMemoryTransport {
     /// 追加事件（节点协议进度/取消确认回传路径；不做状态迁移）。
     /// 幂等约束由调用方保证（终态任务由 [`Self::complete_task`] 拒绝重复完成）。
     pub fn append_event(&self, task_id: &str, event: TransportEvent) -> bool {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let Some(t) = inner.tasks.get_mut(task_id) else {
             return false;
         };
@@ -244,7 +247,10 @@ impl InMemoryTransport {
     /// 完成一个任务（模拟远端执行产出；事件挂到任务上）。
     /// 幂等：已终态（Succeeded/Failed/Cancelled）的任务不再完成（防重复执行/重复事件）。
     pub fn complete_task(&self, task_id: &str, ok: bool, payload: serde_json::Value) -> bool {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let Some(t) = inner.tasks.get_mut(task_id) else {
             return false;
         };
@@ -277,7 +283,10 @@ impl InMemoryTransport {
 
     /// 审批通过：`AwaitingApproval` → `Running` + `ApprovalGranted` 事件（远程审批回传闭环）。
     pub fn approve_task(&self, task_id: &str, approved_by: &str) -> bool {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let Some(t) = inner.tasks.get_mut(task_id) else {
             return false;
         };
@@ -297,7 +306,10 @@ impl InMemoryTransport {
 
     /// 审批拒绝：`AwaitingApproval` → `Cancelled` + 事件。
     pub fn deny_task(&self, task_id: &str, reason: &str) -> bool {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let Some(t) = inner.tasks.get_mut(task_id) else {
             return false;
         };

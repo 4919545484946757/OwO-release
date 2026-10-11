@@ -8,11 +8,56 @@
 //!   → 轮询 GET /jobs/{jobId} 至 done → 下载 resultUrl.jsonUrl（JSONL）→ 解析文本+坐标。
 
 use crate::ocr::{OcrBox, OcrSummary};
+use futures_util::StreamExt;
 use serde_json::Value;
 use std::time::Duration;
 
 const DEFAULT_API_URL: &str = "https://paddleocr.aistudio-app.com/api/v2/ocr/jobs";
 const DEFAULT_MODEL: &str = "PP-OCRv6";
+
+/// 云 OCR 控制面响应上限（提交/轮询）。
+const MAX_OCR_CONTROL_BYTES: usize = 1024 * 1024;
+/// 云 OCR 结果 JSONL 上限。
+const MAX_OCR_RESULT_BYTES: usize = 64 * 1024 * 1024;
+
+/// 流式读取响应体并在上限处截断（不受信/异常端点不整块读进内存）。
+async fn read_capped(
+    response: reqwest::Response,
+    max: usize,
+    context: &str,
+) -> Result<Vec<u8>, String> {
+    let mut bytes: Vec<u8> = Vec::with_capacity(64 * 1024);
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| format!("{context}读取失败：{e}"))?;
+        if bytes.len() + chunk.len() > max {
+            return Err(format!(
+                "{context}超过上限（{} MiB），已拒绝",
+                max / (1024 * 1024)
+            ));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(bytes)
+}
+
+async fn read_json_capped(
+    response: reqwest::Response,
+    max: usize,
+    context: &str,
+) -> Result<Value, String> {
+    let bytes = read_capped(response, max, context).await?;
+    serde_json::from_slice(&bytes).map_err(|e| format!("{context}解析失败：{e}"))
+}
+
+async fn read_text_capped(
+    response: reqwest::Response,
+    max: usize,
+    context: &str,
+) -> Result<String, String> {
+    let bytes = read_capped(response, max, context).await?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
 
 /// Paddle 云 OCR 是否启用：配置了 token 且数据出境开关未关闭。
 pub fn paddle_enabled() -> bool {
@@ -130,10 +175,7 @@ pub async fn ocr_paddle(bmp: &[u8]) -> Result<OcrSummary, String> {
         .await
         .map_err(|e| format!("提交 OCR 任务失败：{e}"))?;
     let status = response.status();
-    let value: Value = response
-        .json()
-        .await
-        .map_err(|e| format!("OCR 任务响应解析失败：{e}"))?;
+    let value = read_json_capped(response, MAX_OCR_CONTROL_BYTES, "OCR 任务响应").await?;
     if !status.is_success() {
         return Err(format!(
             "OCR 任务提交失败（HTTP {status}）：{}",
@@ -157,7 +199,7 @@ pub async fn ocr_paddle(bmp: &[u8]) -> Result<OcrSummary, String> {
         if std::time::Instant::now() > deadline {
             return Err("OCR 任务轮询超时（180s）".to_string());
         }
-        let state_value: Value = client
+        let state_response = client
             .get(&poll_url)
             .bearer_auth(
                 std::env::var("PADDLE_OCR_TOKEN")
@@ -165,10 +207,9 @@ pub async fn ocr_paddle(bmp: &[u8]) -> Result<OcrSummary, String> {
             )
             .send()
             .await
-            .map_err(|e| format!("查询 OCR 任务失败：{e}"))?
-            .json()
-            .await
-            .map_err(|e| format!("OCR 任务状态解析失败：{e}"))?;
+            .map_err(|e| format!("查询 OCR 任务失败：{e}"))?;
+        let state_value =
+            read_json_capped(state_response, MAX_OCR_CONTROL_BYTES, "OCR 任务状态").await?;
         let state = state_value
             .get("data")
             .and_then(|data| data.get("state"))
@@ -202,14 +243,12 @@ pub async fn ocr_paddle(bmp: &[u8]) -> Result<OcrSummary, String> {
 
     // 下载 JSONL 结果
     let jsonl_url = jsonl_url.ok_or_else(|| "OCR 任务未完成".to_string())?;
-    let jsonl = client
+    let jsonl_response = client
         .get(&jsonl_url)
         .send()
         .await
-        .map_err(|e| format!("下载 OCR 结果失败：{e}"))?
-        .text()
-        .await
-        .map_err(|e| format!("读取 OCR 结果失败：{e}"))?;
+        .map_err(|e| format!("下载 OCR 结果失败：{e}"))?;
+    let jsonl = read_text_capped(jsonl_response, MAX_OCR_RESULT_BYTES, "OCR 结果").await?;
     parse_paddle_jsonl(&jsonl).map_err(|error| {
         if std::env::var("OWO_OCR_STRICT")
             .map(|value| value.eq_ignore_ascii_case("paddle"))

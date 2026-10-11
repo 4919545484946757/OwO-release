@@ -249,7 +249,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
 
     async fn save_project_space(&self, space: &ProjectSpace) -> Result<()> {
         let json = Self::serialize(space)?;
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             "INSERT INTO project_spaces (project_id, data_json, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4)
@@ -260,7 +263,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn get_team_context(&self, team_id: &str) -> Result<SharedContextSnapshot> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let row = conn.query_row(
             "SELECT revision, facts_json FROM team_contexts WHERE team_id = ?1",
             params![team_id],
@@ -290,7 +296,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
                 "共享上下文 revision 必须递增 1 且不超过 SQLite 整数上限".to_string(),
             ));
         }
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let row = tx.query_row(
             "SELECT revision, facts_json FROM team_contexts WHERE team_id = ?1",
@@ -325,7 +334,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn get_project_space(&self, project_id: &str) -> Result<ProjectSpace> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let json: String = conn
             .query_row(
                 "SELECT data_json FROM project_spaces WHERE project_id = ?1",
@@ -342,7 +354,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn list_project_spaces(&self) -> Result<Vec<ProjectSpace>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare("SELECT data_json FROM project_spaces ORDER BY created_at")?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         let mut result = Vec::new();
@@ -354,7 +369,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn delete_project_space(&self, project_id: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             "DELETE FROM project_spaces WHERE project_id = ?1",
             params![project_id],
@@ -371,7 +389,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
         let mut artifact = artifact.clone();
         if artifact.supersedes_artifact_id.is_none() {
             let latest: Option<Artifact> = {
-                let conn = self.conn.lock().unwrap();
+                let conn = self
+                    .conn
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
                 let mut stmt =
                     conn.prepare("SELECT data_json FROM artifacts WHERE project_id = ?1")?;
                 let mut rows = stmt.query(params![project_id])?;
@@ -401,7 +422,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
             }
         }
         let json = Self::serialize(&artifact)?;
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             "INSERT INTO artifacts (artifact_id, project_id, data_json, created_at)
              VALUES (?1, ?2, ?3, ?4)
@@ -412,7 +436,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn get_artifact(&self, artifact_id: &str) -> Result<Artifact> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let json: String = conn
             .query_row(
                 "SELECT data_json FROM artifacts WHERE artifact_id = ?1",
@@ -429,7 +456,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn list_artifacts_by_project(&self, project_id: &str) -> Result<Vec<Artifact>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare(
             "SELECT data_json FROM artifacts
              WHERE project_id = ?1
@@ -445,7 +475,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn delete_artifact(&self, artifact_id: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             "DELETE FROM artifacts WHERE artifact_id = ?1",
             params![artifact_id],
@@ -457,7 +490,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
 
     async fn save_decision(&self, decision: &DecisionRecord, project_id: &str) -> Result<()> {
         let json = Self::serialize(decision)?;
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             "INSERT INTO decisions (decision_id, project_id, data_json, created_at)
              VALUES (?1, ?2, ?3, ?4)
@@ -468,7 +504,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn get_decision(&self, decision_id: &str) -> Result<DecisionRecord> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let json: String = conn
             .query_row(
                 "SELECT data_json FROM decisions WHERE decision_id = ?1",
@@ -485,7 +524,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn list_decisions_by_project(&self, project_id: &str) -> Result<Vec<DecisionRecord>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare(
             "SELECT data_json FROM decisions
              WHERE project_id = ?1
@@ -504,7 +546,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
 
     async fn save_handoff(&self, handoff: &HandoffRecord, project_id: &str) -> Result<()> {
         let json = Self::serialize(handoff)?;
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             "INSERT INTO handoffs (handoff_id, project_id, data_json, created_at)
              VALUES (?1, ?2, ?3, ?4)
@@ -515,7 +560,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn get_handoff(&self, handoff_id: &str) -> Result<HandoffRecord> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let json: String = conn
             .query_row(
                 "SELECT data_json FROM handoffs WHERE handoff_id = ?1",
@@ -532,7 +580,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn list_handoffs_by_project(&self, project_id: &str) -> Result<Vec<HandoffRecord>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare(
             "SELECT data_json FROM handoffs
              WHERE project_id = ?1
@@ -551,7 +602,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
 
     async fn save_team_run(&self, team_run: &TeamRun) -> Result<()> {
         let json = Self::serialize(team_run)?;
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             "INSERT INTO team_runs (team_id, data_json, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4)
@@ -574,7 +628,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
         }
         let team_json = Self::serialize(team_run)?;
         let space_json = Self::serialize(space)?;
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let tx = conn.transaction()?;
         tx.execute(
             "INSERT INTO team_runs (team_id, data_json, created_at, updated_at)
@@ -593,7 +650,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn get_team_run(&self, team_id: &str) -> Result<TeamRun> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let json: String = conn
             .query_row(
                 "SELECT data_json FROM team_runs WHERE team_id = ?1",
@@ -610,7 +670,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn list_team_runs(&self) -> Result<Vec<TeamRun>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare("SELECT data_json FROM team_runs ORDER BY created_at")?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         let mut result = Vec::new();
@@ -622,7 +685,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn delete_team_run(&self, team_id: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute("DELETE FROM team_runs WHERE team_id = ?1", params![team_id])?;
         Ok(())
     }
@@ -630,7 +696,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     // -- ArtifactReview --
 
     async fn save_artifact_review(&self, review: &ArtifactReviewRecord) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             "INSERT INTO artifact_reviews (
                  review_id, artifact_id, artifact_version, team_id, decision,
@@ -657,7 +726,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn list_artifact_reviews(&self, artifact_id: &str) -> Result<Vec<ArtifactReviewRecord>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare(
             "SELECT review_id, artifact_id, artifact_version, team_id, decision,
                     reviewer, comment, idempotency_key, content_ref, created_at,
@@ -676,7 +748,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
         &self,
         idempotency_key: &str,
     ) -> Result<Option<ArtifactReviewRecord>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare(
             "SELECT review_id, artifact_id, artifact_version, team_id, decision,
                     reviewer, comment, idempotency_key, content_ref, created_at,
@@ -691,7 +766,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
     }
 
     async fn get_artifact_project(&self, artifact_id: &str) -> Result<String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let project_id: String = conn
             .query_row(
                 "SELECT project_id FROM artifacts WHERE artifact_id = ?1",
@@ -714,7 +792,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
         artifact_id: &str,
         approved_at: &str,
     ) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             "INSERT INTO artifact_approved_heads (project_id, kind, artifact_id, approved_at)
              VALUES (?1, ?2, ?3, ?4)
@@ -727,7 +808,10 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
 
     async fn get_approved_head(&self, project_id: &str, kind: &str) -> Result<Option<Artifact>> {
         let artifact_id: Option<String> = {
-            let conn = self.conn.lock().unwrap();
+            let conn = self
+                .conn
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             conn.query_row(
                 "SELECT artifact_id FROM artifact_approved_heads
                  WHERE project_id = ?1 AND kind = ?2",

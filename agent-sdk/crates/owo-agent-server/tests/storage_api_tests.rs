@@ -263,3 +263,25 @@ async fn clear_requires_confirm_and_validates_integrity() {
     let list = body_json(sessions).await;
     assert_eq!(list.as_array().unwrap().len(), 0, "清空后会话列表应为空");
 }
+
+/// 回归：恢复请求内联 base64 归档，真实数据根的归档很容易超过全局 1 MiB 体上限；
+/// 恢复路由必须单独放宽，否则会被 413 直接拒绝（业务层都进不去）。
+#[tokio::test]
+async fn restore_accepts_bodies_larger_than_the_global_json_limit() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+    let archive = "A".repeat(1_500_000);
+    let body = serde_json::json!({ "archive_b64": archive }).to_string();
+    let response = app
+        .clone()
+        .oneshot(request(&state, "POST", "/storage/restore", Some(&body)))
+        .await
+        .unwrap();
+    assert_ne!(
+        response.status(),
+        axum::http::StatusCode::PAYLOAD_TOO_LARGE,
+        "真实归档常超过全局 1 MiB：恢复路由必须单独放宽体上限"
+    );
+    // 非法 zip 应到业务层 400，而不是体上限 413。
+    assert_eq!(response.status(), axum::http::StatusCode::BAD_REQUEST);
+}

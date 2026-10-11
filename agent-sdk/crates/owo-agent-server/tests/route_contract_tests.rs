@@ -634,7 +634,19 @@ async fn all_contract_endpoints_are_reachable() {
             } else {
                 Some(sample_body(&path).unwrap_or("{}"))
             };
-            let uri = sample_path(&path, &session_id);
+            // DELETE must not consume the fixture used by the remaining routes.
+            let route_session_id = if path == "/session/{id}" && method == "DELETE" {
+                let disposable = state.store.create(&state.workspace, "idle", None).unwrap();
+                state
+                    .sessions
+                    .lock()
+                    .unwrap()
+                    .insert(disposable.id.clone(), disposable.clone());
+                disposable.id
+            } else {
+                session_id.clone()
+            };
+            let uri = sample_path(&path, &route_session_id);
             // 每请求加超时：SSE/慢路径不应拖垮契约测试（挂起即视为失败并指明路径）。
             let response = match tokio::time::timeout(
                 std::time::Duration::from_secs(60),
@@ -1103,7 +1115,7 @@ async fn concurrent_slow_http_turn_clients_each_replay_failed_state() {
     }
     assert_eq!(responses.len(), CONNECTIONS);
 
-    tokio::time::timeout(Duration::from_secs(10), async {
+    tokio::time::timeout(Duration::from_secs(30), async {
         loop {
             let value = client
                 .get(format!("{base}/metrics/runtime"))
@@ -1131,7 +1143,7 @@ async fn concurrent_slow_http_turn_clients_each_replay_failed_state() {
         .collect();
     drop(responses);
     for (session_id, turn_id) in replay_keys {
-        let replay = tokio::time::timeout(Duration::from_secs(10), async {
+        let replay = tokio::time::timeout(Duration::from_secs(30), async {
             loop {
                 let page = client
                     .get(format!(

@@ -22,6 +22,7 @@ owo-agent-plugins.workspace = true
 owo-agent-tool-safety.workspace = true
 tokio.workspace = true
 reqwest.workspace = true
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 serde.workspace = true
 serde_json.workspace = true
 # 内联全限定路径（`mcp.rs:285` 的 `tracing::info!`）不会出现在 `use` 行里，

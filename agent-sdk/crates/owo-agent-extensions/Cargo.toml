@@ -33,3 +33,4 @@ async-trait.workspace = true
 tracing.workspace = true
 rusqlite = { version = "0.32", features = ["bundled"] }
 reqwest.workspace = true
+futures-util = { version = "0.3", default-features = false, features = ["std"] }

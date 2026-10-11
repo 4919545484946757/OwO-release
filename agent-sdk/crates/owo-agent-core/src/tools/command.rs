@@ -217,9 +217,10 @@ impl Tool for RunCommandTool {
         // `cmd /C <外部命令>` 至少占 2 个 Job 进程（cmd + 子进程）；默认 limit=1 会
         // 直接报 "Not enough quota"。放宽到 16，仍能兜住进程炸弹。
         policy.active_process_limit = Some(16);
-        // 命令文本（cmd /C <command> 的命令体）同样过 deny 检查。
+        // 命令文本（cmd /C <command> 的命令体）同样过 deny 检查；用词级检查避免
+        // `format(x)`、`--format=json` 这类正常参数被整串子串误杀。
         if let Some(fragment) =
-            crate::sandbox::SandboxCommand::deny_hit(&command, &policy.deny_programs)
+            crate::sandbox::SandboxCommand::deny_hit_in_command(&command, &policy.deny_programs)
         {
             return Err(format!("命令命中危险黑名单片段：{fragment}"));
         }

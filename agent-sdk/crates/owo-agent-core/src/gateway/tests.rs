@@ -126,6 +126,235 @@ async fn openai_provider_reports_non_stream_usage_request_and_model() {
     assert_eq!(provider.usage_snapshot().total_tokens, 13);
 }
 
+/// 真实模型实测：glm-5.x 复杂任务会把整个输出预算烧在思考上，流式以
+/// `finish_reason=length` 结束且正文为空 → 旧行为整轮失败。现在应自动提升
+/// 输出预算（翻倍）并把推理档降到 low 后重试一次，且重试不重复用户可见正文。
+#[tokio::test]
+async fn reasoning_only_max_tokens_is_retried_with_boosted_budget_and_low_effort() {
+    let _env_guard = ENV_LOCK.lock().await;
+    let saved_max = std::env::var("OWO_MODEL_MAX_OUTPUT_TOKENS").ok();
+    let saved_effort = std::env::var("OWO_REASONING_EFFORT").ok();
+    std::env::set_var("OWO_MODEL_MAX_OUTPUT_TOKENS", "8000");
+    std::env::set_var("OWO_REASONING_EFFORT", "high");
+
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let address = listener.local_addr().unwrap();
+    let bodies = Arc::new(StdMutex::new(Vec::<String>::new()));
+    let bodies_for_server = Arc::clone(&bodies);
+    let server = tokio::spawn(async move {
+        for attempt in 0..2 {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = vec![0_u8; 16 * 1024];
+            let read = tokio::io::AsyncReadExt::read(&mut socket, &mut request)
+                .await
+                .unwrap();
+            bodies_for_server
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .push(String::from_utf8_lossy(&request[..read]).to_string());
+            let body = if attempt == 0 {
+                "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"先想很久\"},\"finish_reason\":null}]}\n\ndata: {\"choices\":[{\"delta\":{},\"finish_reason\":\"length\"}]}\n\ndata: [DONE]\n\n"
+            } else {
+                "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"收敛\"},\"finish_reason\":null}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"最终答案\"},\"finish_reason\":null}]}\n\ndata: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
+            };
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            tokio::io::AsyncWriteExt::write_all(&mut socket, response.as_bytes())
+                .await
+                .unwrap();
+        }
+    });
+
+    let endpoint = format!("http://{address}/custom-completion");
+    let options = owo_agent_protocol::CustomModelConnection {
+        model: "glm-5.3-flash".into(),
+        base_url: endpoint.clone(),
+        api_format: "openai".into(),
+        use_full_url: true,
+        api_key: None,
+        api_key_env: None,
+        temperature: Some(0.25),
+        timeout_secs: Some(5),
+    };
+    let provider = OpenAiCompatibleProvider::new(OpenAiCompatibleConfig {
+        base_url: endpoint,
+        api_key: "test-only".to_string(),
+        model: "glm-5.3-flash".to_string(),
+        cloud_enabled: false,
+    })
+    .unwrap()
+    .with_connection_options(&options);
+    let mut chunks: Vec<StreamChunk> = Vec::new();
+    let output = provider
+        .complete_stream_with_reasoning_and_model(
+            None,
+            &[ChatMessage::user("构建一个游戏".into())],
+            &[],
+            &mut |chunk| chunks.push(chunk),
+        )
+        .await
+        .expect("仅思考触顶应自动提升预算重试并成功");
+    server.await.unwrap();
+
+    assert!(matches!(output, ModelOutput::Text(ref text) if text == "最终答案"));
+    let bodies = bodies.lock().unwrap_or_else(|p| p.into_inner());
+    assert_eq!(bodies.len(), 2, "应发出两次请求（首次触顶 + 提升预算重试）");
+    assert!(bodies.iter().all(|request| {
+        request.starts_with("POST /custom-completion HTTP/")
+            && request.contains("\"temperature\":0.25")
+    }));
+    assert!(
+        bodies[0].contains("\"max_tokens\":8000"),
+        "首次请求应使用原预算：{}",
+        bodies[0]
+    );
+    assert!(
+        bodies[1].contains("\"max_tokens\":16000"),
+        "重试应把输出预算翻倍：{}",
+        bodies[1]
+    );
+    assert!(
+        bodies[1].contains("\"reasoning_effort\":\"low\""),
+        "重试应把 glm-5 推理档降到 low：{}",
+        bodies[1]
+    );
+    assert!(
+        chunks
+            .iter()
+            .any(|chunk| matches!(chunk, StreamChunk::Content(text) if text == "最终答案")),
+        "重试后的正文必须透传"
+    );
+
+    match saved_max {
+        Some(value) => std::env::set_var("OWO_MODEL_MAX_OUTPUT_TOKENS", value),
+        None => std::env::remove_var("OWO_MODEL_MAX_OUTPUT_TOKENS"),
+    }
+    match saved_effort {
+        Some(value) => std::env::set_var("OWO_REASONING_EFFORT", value),
+        None => std::env::remove_var("OWO_REASONING_EFFORT"),
+    }
+}
+
+#[tokio::test]
+async fn non_stream_length_finish_is_rejected_instead_of_returning_truncated_text() {
+    let _env_guard = ENV_LOCK.lock().await;
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut request = [0_u8; 4096];
+        let _ = tokio::io::AsyncReadExt::read(&mut socket, &mut request)
+            .await
+            .unwrap();
+        let payload = json!({
+            "id": "truncated-id",
+            "model": "served-model",
+            "choices": [{
+                "finish_reason": "length",
+                "message": {"role": "assistant", "content": "{\"partial\":"}
+            }],
+            "usage": {"prompt_tokens": 9, "completion_tokens": 4, "total_tokens": 13}
+        })
+        .to_string();
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            payload.len(),
+            payload
+        );
+        tokio::io::AsyncWriteExt::write_all(&mut socket, response.as_bytes())
+            .await
+            .unwrap();
+    });
+    let provider = OpenAiCompatibleProvider::new(OpenAiCompatibleConfig {
+        base_url: format!("http://{address}/v1"),
+        api_key: "test-only".to_string(),
+        model: "configured-model".to_string(),
+        cloud_enabled: false,
+    })
+    .unwrap();
+    let error = provider
+        .complete_with_model(
+            Some("requested-model"),
+            &[ChatMessage::user("hi".into())],
+            &[],
+        )
+        .await
+        .expect_err("finish_reason=length 的非流式响应必须报错，而不是返回截断文本");
+    assert!(error.contains("max_tokens"), "{error}");
+    server.await.unwrap();
+}
+
+#[tokio::test]
+async fn oversized_non_stream_response_is_rejected_instead_of_buffering() {
+    let _env_guard = ENV_LOCK.lock().await;
+    let saved = std::env::var("OWO_MODEL_MAX_RESPONSE_BYTES").ok();
+    std::env::set_var("OWO_MODEL_MAX_RESPONSE_BYTES", "2048");
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut request = [0_u8; 4096];
+        let _ = tokio::io::AsyncReadExt::read(&mut socket, &mut request)
+            .await
+            .unwrap();
+        let payload = json!({
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {"role": "assistant", "content": "x".repeat(8000)}
+            }]
+        })
+        .to_string();
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            payload.len(),
+            payload
+        );
+        let _ = tokio::io::AsyncWriteExt::write_all(&mut socket, response.as_bytes()).await;
+    });
+    let provider = OpenAiCompatibleProvider::new(OpenAiCompatibleConfig {
+        base_url: format!("http://{address}/v1"),
+        api_key: "test-only".to_string(),
+        model: "configured-model".to_string(),
+        cloud_enabled: false,
+    })
+    .unwrap();
+    let error = provider
+        .complete_with_model(Some("m"), &[ChatMessage::user("hi".into())], &[])
+        .await
+        .expect_err("超大非流式响应必须被拒绝而不是整块缓冲");
+    assert!(error.contains("超过上限"), "{error}");
+    server.await.unwrap();
+    match saved {
+        Some(value) => std::env::set_var("OWO_MODEL_MAX_RESPONSE_BYTES", value),
+        None => std::env::remove_var("OWO_MODEL_MAX_RESPONSE_BYTES"),
+    }
+}
+
+#[tokio::test]
+async fn oversized_model_request_body_is_rejected_before_send() {
+    let _guard = ENV_LOCK.lock().await;
+    let saved = std::env::var("OWO_MODEL_MAX_REQUEST_BYTES").ok();
+    std::env::set_var("OWO_MODEL_MAX_REQUEST_BYTES", "1024");
+    let small = json!({"messages": [{"role": "user", "content": "hi"}]});
+    assert!(ensure_request_body_size(&small).is_ok());
+    let big = json!({"messages": [{"role": "user", "content": "x".repeat(4096)}]});
+    let error = ensure_request_body_size(&big).unwrap_err();
+    assert!(error.contains("过大"), "{error}");
+    match saved {
+        Some(value) => std::env::set_var("OWO_MODEL_MAX_REQUEST_BYTES", value),
+        None => std::env::remove_var("OWO_MODEL_MAX_REQUEST_BYTES"),
+    }
+}
+
 #[tokio::test]
 async fn resilient_provider_preserves_non_stream_request_metadata() {
     let provider = ResilientProvider::new(
@@ -237,6 +466,23 @@ fn rejects_malformed_tool_call_arguments_instead_of_silently_using_null() {
     let error = build_tool_calls(&mut accumulators).unwrap_err();
     assert!(error.contains("read_file"));
     assert!(error.contains("不是有效 JSON"));
+}
+
+#[test]
+fn oversized_tool_call_arguments_are_rejected_before_parsing() {
+    let mut accumulators = HashMap::new();
+    let big = "x".repeat(5 * 1024 * 1024);
+    accumulate_tool_fragments(
+        &mut accumulators,
+        &[json!({
+            "index": 0,
+            "id": "call_big",
+            "function": { "name": "write_file", "arguments": big }
+        })],
+    );
+    let error = build_tool_calls(&mut accumulators).unwrap_err();
+    assert!(error.contains("超过上限"), "{error}");
+    assert!(error.contains("write_file"), "{error}");
 }
 
 #[test]
@@ -1170,6 +1416,122 @@ async fn resilient_chain_forwards_reasoning_chunks() {
     );
 }
 
+/// 回归（真实模型实测）：长思考流在上游 ConnectionReset 时，仅思考增量已发出——
+/// 必须重试而不是整轮失败（思考不进最终回答）；一旦正文已发出则仍不重试。
+#[tokio::test]
+async fn resilient_retries_after_reasoning_only_partial_emit_but_not_after_content() {
+    struct PartialStreamProvider {
+        calls: StdMutex<usize>,
+        content_on_first: bool,
+    }
+    #[async_trait]
+    impl ModelProvider for PartialStreamProvider {
+        async fn complete(
+            &self,
+            messages: &[ChatMessage],
+            tools: &[ToolSpec],
+        ) -> Result<ModelOutput, String> {
+            self.complete_stream_with_reasoning_and_model(None, messages, tools, &mut |_| {})
+                .await
+        }
+        async fn complete_stream_with_reasoning(
+            &self,
+            messages: &[ChatMessage],
+            tools: &[ToolSpec],
+            on_chunk: &mut (dyn FnMut(StreamChunk) + Send),
+        ) -> Result<ModelOutput, String> {
+            self.complete_stream_with_reasoning_and_model(None, messages, tools, on_chunk)
+                .await
+        }
+        async fn complete_stream_with_reasoning_and_model(
+            &self,
+            _model: Option<&str>,
+            _messages: &[ChatMessage],
+            _tools: &[ToolSpec],
+            on_chunk: &mut (dyn FnMut(StreamChunk) + Send),
+        ) -> Result<ModelOutput, String> {
+            let call = {
+                let mut calls = self.calls.lock().unwrap_or_else(|p| p.into_inner());
+                *calls += 1;
+                *calls
+            };
+            if call == 1 {
+                if self.content_on_first {
+                    on_chunk(StreamChunk::Content("半句正文".to_string()));
+                } else {
+                    on_chunk(StreamChunk::Reasoning("先想很久……".to_string()));
+                }
+                return Err("流式读取失败：connection reset by peer".to_string());
+            }
+            on_chunk(StreamChunk::Reasoning("继续思考。".to_string()));
+            on_chunk(StreamChunk::Content("最终答案".to_string()));
+            Ok(ModelOutput::Text("最终答案".to_string()))
+        }
+    }
+
+    // 仅思考已发出：可重试恢复。
+    let reasoning_only = Arc::new(PartialStreamProvider {
+        calls: StdMutex::new(0),
+        content_on_first: false,
+    });
+    let resilient = ResilientProvider::new(
+        Arc::clone(&reasoning_only) as Arc<dyn ModelProvider>,
+        Vec::new(),
+        CircuitBreaker::from_env(),
+        fast_retry(2),
+    );
+    let mut chunks: Vec<StreamChunk> = Vec::new();
+    let output = resilient
+        .complete_stream_with_reasoning_and_model(Some("glm-5.3-flash"), &[], &[], &mut |chunk| {
+            chunks.push(chunk)
+        })
+        .await
+        .expect("仅思考中断必须可重试恢复");
+    assert!(matches!(output, ModelOutput::Text(ref text) if text == "最终答案"));
+    assert_eq!(
+        *reasoning_only
+            .calls
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()),
+        2,
+        "仅思考增量已发出时允许重试一次"
+    );
+    assert!(
+        chunks
+            .iter()
+            .any(|chunk| matches!(chunk, StreamChunk::Content(text) if text == "最终答案")),
+        "重试后的正文必须透传"
+    );
+
+    // 正文已发出：不重试，显式失败。
+    let content_first = Arc::new(PartialStreamProvider {
+        calls: StdMutex::new(0),
+        content_on_first: true,
+    });
+    let resilient = ResilientProvider::new(
+        Arc::clone(&content_first) as Arc<dyn ModelProvider>,
+        Vec::new(),
+        CircuitBreaker::from_env(),
+        fast_retry(2),
+    );
+    let error = resilient
+        .complete_stream_with_reasoning_and_model(Some("glm-5.3-flash"), &[], &[], &mut |_| {})
+        .await
+        .expect_err("正文已发出后必须失败而不是重复输出");
+    assert!(
+        error.contains("不再重试"),
+        "错误应说明正文已发出不再重试：{error}"
+    );
+    assert_eq!(
+        *content_first
+            .calls
+            .lock()
+            .unwrap_or_else(|p| p.into_inner()),
+        1,
+        "正文已发出后不得重试"
+    );
+}
+
 /// DeferredProvider（取优合并自远端 engine）：未配置时调用点返回稳定码
 /// `provider/not_configured`，且 `provider_ready()` 为 false——core 仍可用。
 #[tokio::test]
@@ -1371,6 +1733,48 @@ async fn request_body_sends_reasoning_effort_only_for_known_levels() {
     std::env::set_var("OWO_REASONING_EFFORT", "unsupported");
     let body = provider.request_body(None, &[], &[], false);
     assert!(body.get("reasoning_effort").is_none(), "非法取值不应下发");
+
+    match saved {
+        Some(value) => std::env::set_var("OWO_REASONING_EFFORT", value),
+        None => std::env::remove_var("OWO_REASONING_EFFORT"),
+    }
+}
+
+#[tokio::test]
+async fn request_body_clamps_glm5_reasoning_effort_to_supported_levels() {
+    let _guard = ENV_LOCK.lock().await;
+    let saved = std::env::var("OWO_REASONING_EFFORT").ok();
+    let provider = OpenAiCompatibleProvider::new(OpenAiCompatibleConfig {
+        base_url: "http://127.0.0.1:11434/v1".to_string(),
+        api_key: String::new(),
+        model: "local".to_string(),
+        cloud_enabled: false,
+    })
+    .unwrap();
+
+    // glm-5.x 只接受 low/high/max（实测 minimal/medium 会 400），设置档位需映射。
+    for (value, expected) in [
+        ("minimal", "low"),
+        ("low", "low"),
+        ("medium", "high"),
+        ("high", "high"),
+        ("max", "max"),
+    ] {
+        std::env::set_var("OWO_REASONING_EFFORT", value);
+        let body = provider.request_body(Some("glm-5.3-flash"), &[], &[], false);
+        assert_eq!(
+            body["reasoning_effort"], expected,
+            "glm-5 档位 {value} 应映射为 {expected}"
+        );
+    }
+
+    // 其他 OpenAI 兼容端点保持原档位透传；max 不是设置档位，不下发。
+    std::env::set_var("OWO_REASONING_EFFORT", "minimal");
+    let body = provider.request_body(Some("gpt-4o"), &[], &[], false);
+    assert_eq!(body["reasoning_effort"], "minimal");
+    std::env::set_var("OWO_REASONING_EFFORT", "max");
+    let body = provider.request_body(Some("gpt-4o"), &[], &[], false);
+    assert!(body.get("reasoning_effort").is_none());
 
     match saved {
         Some(value) => std::env::set_var("OWO_REASONING_EFFORT", value),

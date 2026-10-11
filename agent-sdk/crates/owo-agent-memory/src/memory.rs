@@ -37,6 +37,27 @@ fn default_memory_confidence() -> f64 {
     0.5
 }
 
+/// 原子落盘：同目录临时文件 + rename 覆盖，避免崩溃留下半写 JSON。
+fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    let tmp = parent.join(format!(
+        ".{}.tmp-{}",
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("memory"),
+        uuid::Uuid::new_v4()
+    ));
+    std::fs::write(&tmp, bytes).map_err(|error| {
+        let _ = std::fs::remove_file(&tmp);
+        error.to_string()
+    })?;
+    std::fs::rename(&tmp, path).map_err(|error| {
+        let _ = std::fs::remove_file(&tmp);
+        error.to_string()
+    })
+}
+
 impl MemoryEntry {
     pub fn from_observation(observation: &Observation) -> Self {
         let normalized = normalize_summary(&observation.summary);
@@ -105,14 +126,11 @@ impl SemanticMemory {
         self.rebuild_index();
     }
 
-    /// 持久化全部条目（JSON 数组）。
+    /// 持久化全部条目（JSON 数组）。原子落盘：崩溃不会留下半写文件导致整库丢失。
     pub fn save_to(&self, path: &Path) -> Result<(), String> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
-        }
         let json =
             serde_json::to_string_pretty(&self.entries).map_err(|error| error.to_string())?;
-        std::fs::write(path, json).map_err(|error| error.to_string())
+        atomic_write(path, json.as_bytes())
     }
 
     /// 从持久化文件加载并重建索引；文件缺失/损坏时静默为空。
@@ -245,5 +263,28 @@ mod tests {
             normalize_summary("金额 123 元"),
             vec!["金额", "{num}", "元"]
         );
+    }
+
+    #[test]
+    fn save_to_is_atomic_and_round_trips() {
+        let dir = std::env::temp_dir().join(format!("owo-memory-{}", uuid::Uuid::new_v4()));
+        let path = dir.join("semantic.json");
+        let mut memory = SemanticMemory::new();
+        memory.add_observation(&observation("点击发送按钮"));
+        memory.save_to(&path).unwrap();
+        let mut loaded = SemanticMemory::new();
+        loaded.load_from(&path);
+        assert_eq!(loaded.recall("发送按钮", 2).len(), 1);
+
+        // 覆盖写不残留临时文件。
+        memory.save_to(&path).unwrap();
+        let residue: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.file_name().to_string_lossy().to_string())
+            .filter(|name| name.contains(".tmp-"))
+            .collect();
+        assert!(residue.is_empty(), "不应残留临时文件：{residue:?}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

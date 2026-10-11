@@ -1,6 +1,7 @@
 //! 传输后端抽象：CloudTransport + Mock/HTTP 实现与凭据读取（从 cloud_exec.rs 拆出）。
 
 use super::*;
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
@@ -175,6 +176,28 @@ impl HttpTransport {
     }
 }
 
+/// 远端响应体上限：不受信远端可能返回超大 body，先流式读取并在上限处截断。
+const MAX_REMOTE_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
+
+async fn read_json_capped<T: serde::de::DeserializeOwned>(
+    response: reqwest::Response,
+    context: &str,
+) -> Result<T, String> {
+    let mut bytes: Vec<u8> = Vec::with_capacity(64 * 1024);
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| format!("{context}读取失败：{e}"))?;
+        if bytes.len() + chunk.len() > MAX_REMOTE_RESPONSE_BYTES {
+            return Err(format!(
+                "{context}超过上限（{} MiB），已拒绝解析",
+                MAX_REMOTE_RESPONSE_BYTES / (1024 * 1024)
+            ));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&bytes).map_err(|e| format!("{context}解析失败：{e}"))
+}
+
 #[async_trait::async_trait]
 impl CloudTransport for HttpTransport {
     fn kind(&self) -> &'static str {
@@ -183,10 +206,7 @@ impl CloudTransport for HttpTransport {
 
     async fn submit(&self, spec: &CloudTaskSpec) -> Result<String, String> {
         let response = self.call("POST", "/cloud/tasks", Some(spec)).await?;
-        let value: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|e| format!("远端响应解析失败：{e}"))?;
+        let value: serde_json::Value = read_json_capped(response, "远端响应").await?;
         value
             .get("id")
             .and_then(serde_json::Value::as_str)
@@ -198,10 +218,7 @@ impl CloudTransport for HttpTransport {
         let response = self
             .call("GET", &format!("/cloud/tasks/{remote_id}"), None)
             .await?;
-        let value: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|e| format!("远端响应解析失败：{e}"))?;
+        let value: serde_json::Value = read_json_capped(response, "远端响应").await?;
         let state = value
             .get("state")
             .and_then(serde_json::Value::as_str)
@@ -226,20 +243,14 @@ impl CloudTransport for HttpTransport {
         let response = self
             .call("GET", &format!("/cloud/tasks/{remote_id}/result"), None)
             .await?;
-        response
-            .json()
-            .await
-            .map_err(|e| format!("远端结果解析失败：{e}"))
+        read_json_capped(response, "远端结果").await
     }
 
     async fn cancel(&self, remote_id: &str) -> Result<(), String> {
         let response = self
             .call("POST", &format!("/cloud/tasks/{remote_id}/cancel"), None)
             .await?;
-        let _: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|e| format!("远端响应解析失败：{e}"))?;
+        let _: serde_json::Value = read_json_capped(response, "远端响应").await?;
         Ok(())
     }
 }

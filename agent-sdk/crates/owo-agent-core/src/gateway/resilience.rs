@@ -676,10 +676,16 @@ impl ModelProvider for ResilientProvider {
         'providers: for provider in self.providers() {
             let mut attempt = 0;
             loop {
-                let mut emitted = false;
+                // 正文增量会进入用户可见回答，一旦发出就绝不重试（避免重复）；
+                // 思考增量只是临时通道（不进最终回答、不持久化），仅思考已发出时
+                // 允许重试/降级——真实模型长思考流常在上游 ConnectionReset 后整轮失败，
+                // 此前的单一 emitted 布尔把这类可恢复场景也一并判死。
+                let mut emitted_content = false;
                 let result = {
                     let mut forward = |chunk: StreamChunk| {
-                        emitted = true;
+                        if matches!(chunk, StreamChunk::Content(_)) {
+                            emitted_content = true;
+                        }
                         on_chunk(chunk);
                     };
                     provider
@@ -697,10 +703,10 @@ impl ModelProvider for ResilientProvider {
                         return Ok(observed);
                     }
                     Err(error) => {
-                        if emitted {
+                        if emitted_content {
                             permit.failure();
                             return Err(format!(
-                                "{error}（流式中断：已输出部分内容，不再重试以免重复）"
+                                "{error}（流式中断：已输出正文内容，不再重试以免重复）"
                             ));
                         }
                         let retriable = is_retriable(&error, &self.retry);

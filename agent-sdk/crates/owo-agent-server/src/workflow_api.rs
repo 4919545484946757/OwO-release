@@ -323,8 +323,14 @@ async fn run_workflow(
             Ok(outcome) => {
                 let snapshot = outcome_snapshot(&outcome);
                 let audit = audit_tail_json(guard.audit(), 50);
-                *spawned.outcome.lock().unwrap() = Some(snapshot.clone());
-                *spawned.audit_tail.lock().unwrap() = audit.clone();
+                *spawned
+                    .outcome
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(snapshot.clone());
+                *spawned
+                    .audit_tail
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()) = audit.clone();
                 spawned.events.push(
                     "state_change",
                     &serde_json::json!({ "run_id": spawned.run_id, "state": snapshot["state"] }),
@@ -352,7 +358,10 @@ async fn run_workflow(
             }
             Err(error) => {
                 let failed = serde_json::json!({ "state": "error", "error": error });
-                *spawned.outcome.lock().unwrap() = Some(failed.clone());
+                *spawned
+                    .outcome
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(failed.clone());
                 spawned.events.push(
                     "state_change",
                     &serde_json::json!({ "run_id": spawned.run_id, "state": "error" }),
@@ -378,11 +387,19 @@ async fn list_runs(
     let registry = runs_registry();
     let mut runs: Vec<serde_json::Value> = Vec::new();
     // 注册表（含运行中）
-    for entry in registry.lock().unwrap().values() {
+    for entry in registry
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .values()
+    {
         if entry.name != name {
             continue;
         }
-        let outcome = entry.outcome.lock().unwrap().clone();
+        let outcome = entry
+            .outcome
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone();
         let state = match &outcome {
             Some(value) => value["state"].clone(),
             None => serde_json::json!("running"),
@@ -448,7 +465,11 @@ async fn run_snapshot(Path(run_id): Path<String>) -> ApiResult<serde_json::Value
         .get(&run_id)
         .cloned()
         .ok_or_else(|| api_err(StatusCode::NOT_FOUND, format!("运行不存在：{run_id}")))?;
-    let outcome = entry.outcome.lock().unwrap().clone();
+    let outcome = entry
+        .outcome
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
     let pending = pending_approvals(&run_id);
     // 人审等待中：引擎处于 WaitingApproval（outcome 尚未落盘），以 pending 判定。
     let state = if !pending.is_empty() {
@@ -577,6 +598,10 @@ async fn run_audit(Path(run_id): Path<String>) -> ApiResult<serde_json::Value> {
         .get(&run_id)
         .cloned()
         .ok_or_else(|| api_err(StatusCode::NOT_FOUND, format!("运行不存在：{run_id}")))?;
-    let tail = entry.audit_tail.lock().unwrap().clone();
+    let tail = entry
+        .audit_tail
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
     Ok(Json(serde_json::json!({ "run_id": run_id, "audit": tail })))
 }

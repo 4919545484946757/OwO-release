@@ -1880,6 +1880,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "futures-util",
  "owo-agent-kernel",
  "owo-agent-protocol",
  "reqwest",
@@ -1932,6 +1933,7 @@ name = "owo-agent-mcp"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "futures-util",
  "owo-agent-core",
  "owo-agent-plugins",
  "owo-agent-tool-safety",

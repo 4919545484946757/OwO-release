@@ -170,11 +170,27 @@ pub async fn ollama_models(config: &VisionConfig) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// 视觉请求图片上限：4K 截图 PNG 可达数 MB，base64 后更大；超限直接给出
+/// 可操作错误，而不是把超大请求发给模型端点。
+const MAX_VISION_IMAGE_BYTES: usize = 8 * 1024 * 1024;
+
+fn ensure_vision_image_size(png: &[u8]) -> Result<(), String> {
+    if png.len() > MAX_VISION_IMAGE_BYTES {
+        return Err(format!(
+            "截图 PNG 过大（{:.1} MiB，上限 {} MiB），请缩小截图区域后重试",
+            png.len() as f64 / (1024.0 * 1024.0),
+            MAX_VISION_IMAGE_BYTES / (1024 * 1024)
+        ));
+    }
+    Ok(())
+}
+
 async fn describe_ollama(
     config: &VisionConfig,
     png: &[u8],
     prompt: &str,
 ) -> Result<String, String> {
+    ensure_vision_image_size(png)?;
     let url = format!("{}/api/generate", config.ollama_host.trim_end_matches('/'));
     let body = json!({
         "model": config.model,
@@ -220,6 +236,7 @@ async fn describe_openai(
     png: &[u8],
     prompt: &str,
 ) -> Result<String, String> {
+    ensure_vision_image_size(png)?;
     let base = config
         .base_url
         .clone()
@@ -510,6 +527,13 @@ async fn current_ocr_lines(bmp: &[u8]) -> Vec<crate::ocr::OcrLine> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn oversized_vision_image_is_rejected_before_upload() {
+        assert!(ensure_vision_image_size(&[0u8; 1024]).is_ok());
+        let error = ensure_vision_image_size(&vec![0u8; MAX_VISION_IMAGE_BYTES + 1]).unwrap_err();
+        assert!(error.contains("过大"), "{error}");
+    }
 
     /// 真机门控（M4.1/M5.3）：OpenAI-compatible 视觉通道端到端。
     ///

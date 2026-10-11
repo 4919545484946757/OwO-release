@@ -107,6 +107,45 @@ fn deny_hit_is_case_insensitive_substring() {
 }
 
 #[test]
+fn deny_hit_in_command_matches_programs_not_arguments() {
+    let deny = vec![
+        "shutdown".to_string(),
+        "format".to_string(),
+        "reg delete".to_string(),
+    ];
+    // 作为程序名出现 → 命中（含引号/路径/.exe 后缀）。
+    assert_eq!(
+        SandboxCommand::deny_hit_in_command("format c:", &deny),
+        Some("format".to_string())
+    );
+    assert_eq!(
+        SandboxCommand::deny_hit_in_command("cmd /C \"shutdown /s\"", &deny),
+        Some("shutdown".to_string())
+    );
+    assert_eq!(
+        SandboxCommand::deny_hit_in_command("C:\\Windows\\System32\\FORMAT.EXE c:", &deny),
+        Some("format".to_string())
+    );
+    assert_eq!(
+        SandboxCommand::deny_hit_in_command("reg delete HKLM\\Software\\X /f", &deny),
+        Some("reg delete".to_string())
+    );
+    // 作为普通参数/函数名出现 → 不得误杀（真实模型实测形态）。
+    assert_eq!(
+        SandboxCommand::deny_hit_in_command("python -c \"print(format(x))\"", &deny),
+        None
+    );
+    assert_eq!(
+        SandboxCommand::deny_hit_in_command("python train.py --format json", &deny),
+        None
+    );
+    assert_eq!(
+        SandboxCommand::deny_hit_in_command("node -e \"console.log('formatting')\"", &deny),
+        None
+    );
+}
+
+#[test]
 fn probe_is_explicit_and_never_silent() {
     // Wave 2 真实探测：结果必须显式（Full/Degraded 或 Unsupported+原因）。
     let support = probe_platform_support();

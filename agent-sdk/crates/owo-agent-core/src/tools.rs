@@ -585,9 +585,12 @@ use interaction::{AskUserTool, UseSkillTool};
 #[cfg(test)]
 mod tests {
     use super::verification_tool::validate_single_request_coverage;
+    use super::web::append_capped;
     use super::workspace_edit::{
-        apply_hunks, parse_patch, path_in_whitelist, write_file_body, PatchHunk, PatchOp,
+        align_new_lines, apply_hunks, match_edit_fragment, parse_patch, path_in_whitelist,
+        write_file_body, PatchHunk, PatchOp,
     };
+    use super::workspace_read::fallback_search_files;
     use super::*;
 
     fn sample_single_plan(validator_id: &str, arguments: Value) -> crate::plan::VerificationPlanV1 {
@@ -672,6 +675,111 @@ mod tests {
         assert!(validate_single_verification_plan(&manual).is_ok());
         manual.requirements[0].arguments = json!({"question":"accept?"});
         assert!(validate_single_verification_plan(&manual).is_err());
+    }
+
+    /// 回归（真实模型实测）：首次写入后允许"追加/加强"验收要求（补行为命令），
+    /// 但删除/改写既有要求仍被拒绝——既解开冻结死锁，又保持防作弊语义。
+    #[tokio::test]
+    async fn verification_plan_amendment_after_write_is_append_only() {
+        let workspace =
+            std::env::temp_dir().join(format!("owo-plan-amend-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&workspace).unwrap();
+        let policy = crate::Policy::new(&workspace);
+        let audit = Arc::new(Mutex::new(crate::AuditLog::default()));
+        let skills = crate::SkillRegistry::default();
+        let elements = Arc::new(Mutex::new(crate::ElementRegistry::new()));
+        let mut session = Session::new(&workspace, "mock", None);
+        let turn_id = "turn-amend-1".to_string();
+        let request = "用户要求功能正常运行：创建 src/a.js 后运行 npm test。";
+        session.active_task_context = Some(crate::task_context::ResolvedTaskContext {
+            origin: crate::task_context::TaskContextOrigin::SingleTurn,
+            attempt_id: Some(turn_id.clone()),
+            objective: Some(request.to_string()),
+            ..Default::default()
+        });
+        let mut context = ToolContext {
+            workspace: &workspace,
+            policy: &policy,
+            session: &mut session,
+            audit: &audit,
+            subagent: None,
+            skills: &skills,
+            elements: &elements,
+            fanout: None,
+            abort: None,
+            questioner: None,
+        };
+
+        let plan_static = sample_single_plan("workspace-file-exists-v1", json!({}));
+        SingleVerificationPlanTool
+            .run(&mut context, json!({ "plan": plan_static }))
+            .await
+            .expect("写入前登记静态验收应成功");
+
+        // 模拟首次写入：当前回合出现执行收据。
+        context
+            .session
+            .execution_receipts
+            .push(crate::session::ExecutionReceipt {
+                receipt_id: "exec-amend-1".to_string(),
+                tool: "write_file".to_string(),
+                turn_id: turn_id.clone(),
+                changed_files: vec!["src/lib.rs".to_string()],
+                snapshot_keys: Default::default(),
+                before_hashes: Default::default(),
+                after_hashes: Default::default(),
+                diff_sha256: "diff".to_string(),
+                created_at: "2026-10-10T00:00:00Z".to_string(),
+                status: "executed".to_string(),
+                validation_receipt_id: None,
+            });
+
+        // 追加行为命令（逐字保留既有要求）→ 允许。
+        let mut plan_amended = plan_static.clone();
+        plan_amended
+            .requirements
+            .push(crate::plan::VerificationRequirementV1 {
+                requirement_id: "req-tests".to_string(),
+                covers_requirement_ids: vec!["user-request:用户要求功能正常运行".to_string()],
+                validator_id: "workspace-command-success-v1".to_string(),
+                validator_version: Some("1".to_string()),
+                scope: crate::plan::VerificationScopeV1::WorkspacePaths {
+                    relative_paths: vec!["src/lib.rs".to_string()],
+                },
+                arguments: json!({"command":"npm test"}),
+                required: true,
+                resources: crate::plan::VerificationResourcesV1 {
+                    cpu_slots: 1,
+                    memory_mb: 16,
+                    exclusive_workspace: false,
+                    timeout_ms: 10_000,
+                },
+            });
+        SingleVerificationPlanTool
+            .run(&mut context, json!({ "plan": plan_amended }))
+            .await
+            .expect("首次写入后追加行为命令应被允许（不能死锁在冻结计划上）");
+
+        // 删掉既有静态要求 → 属于降低验收，拒绝。
+        let mut plan_weaker = plan_amended.clone();
+        plan_weaker
+            .requirements
+            .retain(|requirement| requirement.requirement_id != "req-user-visible");
+        let error = SingleVerificationPlanTool
+            .run(&mut context, json!({ "plan": plan_weaker }))
+            .await
+            .unwrap_err();
+        assert!(
+            error.contains("只能追加/加强"),
+            "删除既有要求必须被拒并说明只能追加/加强：{error}"
+        );
+
+        // 原样重复登记（幂等）→ 允许。
+        SingleVerificationPlanTool
+            .run(&mut context, json!({ "plan": plan_amended }))
+            .await
+            .expect("幂等重登记应成功");
+        let _ = std::fs::remove_dir_all(&workspace);
     }
 
     /// 回归：UTF-8 输出不得被二次误解，OEM 代码页（GBK）输出不得变成替换字符。
@@ -1650,6 +1758,68 @@ mod tests {
             strip_verbatim_prefix(Path::new("/home/ws/src/a.rs")),
             PathBuf::from("/home/ws/src/a.rs")
         );
+    }
+
+    #[test]
+    fn edit_fragment_tolerates_crlf_lf_mismatch_and_keeps_line_style() {
+        // 文件 CRLF、模型给 LF 片段 → 唯一命中，new 沿用 CRLF。
+        let original = "alpha\r\nbeta\r\ngamma\r\n";
+        let (matched, count) = match_edit_fragment(original, "beta\ngamma");
+        assert_eq!(count, 1);
+        assert_eq!(matched, "beta\r\ngamma");
+        assert_eq!(
+            align_new_lines(&matched, "beta2\ngamma2"),
+            "beta2\r\ngamma2"
+        );
+
+        // 文件 LF、模型给 CRLF 片段 → 命中且 new 归一为 LF。
+        let original_lf = "alpha\nbeta\ngamma\n";
+        let (matched_lf, count_lf) = match_edit_fragment(original_lf, "beta\r\ngamma");
+        assert_eq!(count_lf, 1);
+        assert_eq!(matched_lf, "beta\ngamma");
+        assert_eq!(align_new_lines(&matched_lf, "b\r\ng"), "b\ng");
+
+        // 精确命中保持原样；完全不存在仍为 0。
+        assert_eq!(match_edit_fragment(original, "beta\r\ngamma").1, 1);
+        assert_eq!(match_edit_fragment(original, "not-there").1, 0);
+    }
+
+    #[test]
+    fn fallback_search_files_matches_names_case_insensitively_and_skips_noise_dirs() {
+        let workspace =
+            std::env::temp_dir().join(format!("owo-fallback-search-{}", uuid::Uuid::new_v4()));
+        for dir in ["a", ".git", "node_modules", "target"] {
+            std::fs::create_dir_all(workspace.join(dir)).unwrap();
+        }
+        std::fs::write(workspace.join("a").join("Note.md"), "x").unwrap();
+        std::fs::write(workspace.join("b_notes.txt"), "x").unwrap();
+        std::fs::write(workspace.join(".git").join("notes.md"), "x").unwrap();
+        std::fs::write(workspace.join("node_modules").join("notes.js"), "x").unwrap();
+        std::fs::write(workspace.join("target").join("notes.rs"), "x").unwrap();
+
+        let mut matches = fallback_search_files(&workspace, "note");
+        matches.sort();
+        assert_eq!(
+            matches,
+            vec!["a/Note.md".to_string(), "b_notes.txt".to_string()],
+            "兜底搜索应大小写不敏感且跳过 .git/node_modules/target"
+        );
+        assert!(fallback_search_files(&workspace, "zzz-not-there").is_empty());
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    #[test]
+    fn web_fetch_byte_cap_never_exceeds_the_limit() {
+        let mut buffer = Vec::new();
+        assert!(append_capped(&mut buffer, b"12345", 4));
+        assert_eq!(buffer, b"1234");
+        assert!(append_capped(&mut buffer, b"6", 4));
+        assert_eq!(buffer, b"1234");
+
+        let mut exact = Vec::new();
+        assert!(!append_capped(&mut exact, b"abc", 3));
+        assert_eq!(exact, b"abc");
+        assert!(append_capped(&mut exact, b"d", 3));
     }
 
     #[test]

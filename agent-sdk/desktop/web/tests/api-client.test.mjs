@@ -490,6 +490,40 @@ test("§8.2：POST 网络失败必须上抛且不得自动重放（避免重复�
   }
 });
 
+test("§8.2：幂等请求遇到 429/5xx 自动重试一次，POST 不重放", async () => {
+  const originalFetch = global.fetch;
+  let getCalls = 0;
+  let postCalls = 0;
+  global.fetch = async (url, options = {}) => {
+    if (String(url).endsWith("/auth/token")) {
+      return new Response(JSON.stringify({ token: "tok-503" }), { status: 200 });
+    }
+    const method = String((options && options.method) || "GET").toUpperCase();
+    if (method === "POST") {
+      postCalls += 1;
+      return new Response("busy", { status: 503 });
+    }
+    getCalls += 1;
+    if (getCalls === 1) return new Response("busy", { status: 503 });
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  try {
+    const client = new ApiClient("http://127.0.0.1:4096");
+    assert.deepEqual(await client.get("/sessions"), { ok: true });
+    assert.equal(getCalls, 2, "GET 503 应自动重试一次并成功");
+    await assert.rejects(
+      () => client.post("/session/s1/turn", { prompt: "瞬时 503" }),
+      /503/
+    );
+    assert.equal(postCalls, 1, "POST 503 不得自动重放（避免重复回合）");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("§8.2 第5条：核心始终不可达时网络失败只重试一次并受冷却约束（不得风暴重查）", async () => {
   const originalFetch = global.fetch;
   const originalTauri = global.__TAURI_INTERNALS__;

@@ -6,9 +6,36 @@
 //!   `verify_plugin_signature` 强制校验 → `PluginManager::install/update`，全程审计。
 //! - 签名失败 / zip-slip / 高危扫描均返回明确错误（HTTP 层映射 400）。
 
+use futures_util::StreamExt;
 use owo_agent_core::plugin::{MarketUpdateManifest, PluginManager};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
+
+/// registry.json 上限：不受信 registry 可能返回超大 body。
+const MAX_REGISTRY_BYTES: usize = 4 * 1024 * 1024;
+/// 插件包下载上限。
+const MAX_PLUGIN_DOWNLOAD_BYTES: usize = 64 * 1024 * 1024;
+
+/// 流式读取响应体并在上限处截断（超限显式报错，不整块读进内存）。
+async fn read_capped(
+    response: reqwest::Response,
+    max: usize,
+    context: &str,
+) -> Result<Vec<u8>, String> {
+    let mut bytes: Vec<u8> = Vec::with_capacity(64 * 1024);
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| format!("{context}读取失败：{e}"))?;
+        if bytes.len() + chunk.len() > max {
+            return Err(format!(
+                "{context}超过上限（{} MiB），已拒绝",
+                max / (1024 * 1024)
+            ));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(bytes)
+}
 
 /// registry 来源。
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -66,10 +93,9 @@ async fn fetch_remote(url: &str) -> Result<FetchedRegistry, String> {
             response.status()
         ));
     }
-    let manifest: MarketUpdateManifest = response
-        .json()
-        .await
-        .map_err(|e| format!("registry.json 解析失败：{e}"))?;
+    let bytes = read_capped(response, MAX_REGISTRY_BYTES, "registry.json").await?;
+    let manifest: MarketUpdateManifest =
+        serde_json::from_slice(&bytes).map_err(|e| format!("registry.json 解析失败：{e}"))?;
     Ok(FetchedRegistry {
         source: RegistrySource::Remote,
         manifest,
@@ -92,11 +118,7 @@ pub async fn download_and_unpack(url: &str, temp_root: &Path) -> Result<PathBuf,
     if !response.status().is_success() {
         return Err(format!("插件包下载返回 {}", response.status()));
     }
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| format!("插件包读取失败：{e}"))?
-        .to_vec();
+    let bytes = read_capped(response, MAX_PLUGIN_DOWNLOAD_BYTES, "插件包").await?;
     unpack_zip(&bytes, temp_root)
 }
 

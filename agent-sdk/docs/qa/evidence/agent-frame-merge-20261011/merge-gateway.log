@@ -1,0 +1,80 @@
+   Compiling owo-agent-tool-safety v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-tool-safety)
+   Compiling owo-agent-contracts v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-contracts)
+   Compiling owo-agent-memory v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-memory)
+   Compiling owo-agent-plugins v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-plugins)
+   Compiling owo-agent-perception v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-perception)
+   Compiling owo-agent-protocol v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-protocol)
+   Compiling owo-agent-executor v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-executor)
+   Compiling owo-agent-mcp v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-mcp)
+   Compiling owo-agent-policy v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-policy)
+   Compiling owo-agent-workflow v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-workflow)
+   Compiling owo-agent-extensions v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-extensions)
+   Compiling owo-agent-workswarm v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-workswarm)
+   Compiling owo-agent-core v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-core)
+   Compiling owo-agent-product-eval v0.1.0 (D:\OwO-master\agent-sdk\devtools\product-eval)
+   Compiling owo-agent-eval-facade v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-eval-facade)
+
+running 58 tests
+test gateway::provider::stream_wait_contract_tests::done_marker_completes_without_waiting_for_connection_eof ... ok
+test gateway::provider::timeout_config_tests::timeout_values_are_bounded_and_fall_back_safely ... ok
+test gateway::provider::stream_wait_contract_tests::response_header_timeout_is_independent_of_stream_body ... ok
+test gateway::resilience::deferred_cache_tests::cache_hit_does_not_construct_a_discarded_provider ... ok
+test gateway::resilience::probe_lifecycle_tests::cancelled_probe_releases_its_slot_without_resetting_failures ... ok
+test gateway::resilience::probe_lifecycle_tests::cancelling_each_gateway_entry_releases_the_half_open_probe ... ok
+test gateway::resilience::probe_lifecycle_tests::old_cancelled_probe_does_not_release_a_new_probe_after_reset ... ok
+test gateway::stream::progress_boundary_tests::heartbeat_and_metadata_do_not_count_as_model_progress ... ok
+test gateway::stream::progress_boundary_tests::unterminated_frames_invalid_utf8_and_accumulated_output_are_bounded ... ok
+test gateway::tests::budget_violation_blocks_when_caps_exceeded ... ok
+test gateway::tests::canonical_tool_call_validation_rejects_empty_identity_fields ... ok
+test gateway::tests::cloud_disabled_rejects_requests_before_network ... ok
+test gateway::tests::cloud_switch_applies_without_reconstruction ... ok
+test gateway::tests::deferred_provider_ready_when_configured_and_reuses_instances ... ok
+test gateway::tests::deferred_provider_reports_not_configured_without_credentials ... ok
+test gateway::tests::ignores_heartbeat_and_done ... ok
+test gateway::tests::live_model_override_reaches_endpoint ... ignored, 真实端点：需要 OPENAI_API_KEY，显式 --ignored 运行
+test gateway::tests::live_glm_stream_finishes_with_bounded_reasoning ... ignored, 真实 GLM API 请求；显式 --ignored 运行
+test gateway::tests::local_endpoint_does_not_require_key_or_cloud_switch ... ok
+test gateway::tests::model_switch_applies_without_reconstruction ... ok
+test gateway::tests::non_stream_length_finish_is_rejected_instead_of_returning_truncated_text ... ok
+test gateway::tests::observed_methods_do_not_fallback_after_permanent_failure ... ok
+test gateway::tests::openai_provider_reports_non_stream_usage_request_and_model ... ok
+test gateway::tests::openai_request_uses_one_standard_registry_backed_tool_list ... ok
+test gateway::tests::oversized_model_request_body_is_rejected_before_send ... ok
+test gateway::tests::oversized_non_stream_response_is_rejected_instead_of_buffering ... ok
+test gateway::tests::oversized_tool_call_arguments_are_rejected_before_parsing ... ok
+test gateway::tests::parse_sse_payload_extracts_trailing_usage_block ... ok
+test gateway::tests::parse_sse_payload_reads_reasoning_channel ... ok
+test gateway::tests::parses_content_delta ... ok
+test gateway::tests::parses_stream_finish_reason ... ok
+test gateway::tests::parses_tool_call_fragments_and_assembles ... ok
+test gateway::tests::parses_usage_value_for_openai_and_ollama_fields ... ok
+test gateway::tests::permanent_resource_exhaustion_is_not_retried_but_transient_429_policy_remains ... ok
+test gateway::tests::provider_creates_direct_client_when_proxy_configured ... ok
+test gateway::tests::reasoning_only_max_tokens_is_retried_with_boosted_budget_and_low_effort ... ok
+test gateway::tests::rejects_invalid_and_unadvertised_non_stream_tool_calls ... ok
+test gateway::tests::rejects_malformed_tool_call_arguments_instead_of_silently_using_null ... ok
+test gateway::tests::request_body_applies_bounded_output_token_env ... ok
+test gateway::tests::request_body_clamps_glm5_reasoning_effort_to_supported_levels ... ok
+test gateway::tests::request_body_model_override_wins_and_sentinel_never_leaks ... ok
+test gateway::tests::request_body_sends_reasoning_effort_only_for_known_levels ... ok
+test gateway::tests::resilient_chain_forwards_model_override ... ok
+test gateway::tests::resilient_chain_forwards_reasoning_chunks ... ok
+test gateway::tests::resilient_provider_preserves_non_stream_request_metadata ... ok
+test gateway::tests::resilient_provider_preserves_per_request_metadata ... ok
+test gateway::tests::resilient_reasoning_stream_retries_before_any_chunk ... ok
+test gateway::tests::resilient_retries_after_reasoning_only_partial_emit_but_not_after_content ... ok
+test gateway::tests::resilient_still_retries_before_any_delta ... ok
+test gateway::tests::resilient_streams_deltas_immediately_and_does_not_retry_after_emit ... ok
+test gateway::tests::stream_request_includes_usage_option ... ok
+test gateway::tests::subagent_model_resolution_uses_provider_fallback_for_empty_or_default ... ok
+test gateway::tests::tier_resolver_reads_env_with_vision_alias_fallback ... ok
+test gateway::tests::token_usage_arithmetic_and_cost_estimate ... ok
+test gateway::tests::unconfigured_provider_returns_stable_code ... ok
+test gateway::tests::user_with_images_roundtrip_and_legacy_compat ... ok
+test gateway::tests::utf8_chunks_are_reassembled_without_replacement_characters ... ok
+test gateway::tests::validates_tool_arguments_against_the_registry_schema_sent_to_the_model ... ok
+
+
+test result: ok. 56 passed; 0 failed; 2 ignored; 0 measured; 554 filtered out; finished in 0.21s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 50s
+     Running unittests src\lib.rs (target\debug\deps\owo_agent_core-64f1915f4c166bb8.exe)

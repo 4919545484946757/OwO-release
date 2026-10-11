@@ -1353,6 +1353,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "futures-util",
  "owo-agent-kernel",
  "owo-agent-protocol",
  "reqwest",

@@ -737,8 +737,11 @@ impl CloudTaskQueue {
             duration_ms: 0,
         };
         let content = serde_json::to_string_pretty(&record).map_err(|error| error.to_string())?;
-        std::fs::write(dir.join(format!("{}.json", record.task_id)), content)
-            .map_err(|error| format!("任务持久化失败：{error}"))?;
+        crate::atomic_write(
+            &dir.join(format!("{}.json", record.task_id)),
+            content.as_bytes(),
+        )
+        .map_err(|error| format!("任务持久化失败：{error}"))?;
         Ok(record)
     }
 
@@ -1293,8 +1296,11 @@ impl CloudTaskQueue {
             .get(task_id)
             .ok_or_else(|| format!("任务不存在：{task_id}"))?;
         let content = serde_json::to_string_pretty(record).map_err(|e| e.to_string())?;
-        std::fs::write(self.dir.join(format!("{task_id}.json")), content)
-            .map_err(|e| format!("任务持久化失败：{e}"))
+        crate::atomic_write(
+            &self.dir.join(format!("{task_id}.json")),
+            content.as_bytes(),
+        )
+        .map_err(|e| format!("任务持久化失败：{e}"))
     }
 }
 

@@ -4,6 +4,7 @@
 
 use super::{decode_process_output, Tool, ToolContext, ToolSpec};
 use async_trait::async_trait;
+use futures_util::StreamExt;
 use owo_agent_kernel::required_string;
 use serde_json::{json, Value};
 use std::sync::{Mutex, OnceLock};
@@ -99,6 +100,21 @@ fn proxy_from_config(value: &str) -> Result<reqwest::Proxy, String> {
         .map_err(|_| "代理配置无效（OWO_HTTP_PROXY），请检查 URL 格式".to_string())
 }
 
+/// 把一块响应体追加到缓冲区，超过上限即截断；返回是否已截断。
+pub(super) fn append_capped(buffer: &mut Vec<u8>, chunk: &[u8], max_bytes: usize) -> bool {
+    if buffer.len() >= max_bytes {
+        return true;
+    }
+    let remaining = max_bytes - buffer.len();
+    if chunk.len() > remaining {
+        buffer.extend_from_slice(&chunk[..remaining]);
+        true
+    } else {
+        buffer.extend_from_slice(chunk);
+        false
+    }
+}
+
 fn build_http_client(proxy: Option<&str>) -> Result<reqwest::Client, String> {
     let mut builder = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(20))
@@ -159,13 +175,20 @@ impl Tool for WebFetchTool {
             .and_then(|value| value.to_str().ok())
             .unwrap_or_default()
             .to_string();
-        let bytes = response
-            .bytes()
-            .await
-            .map_err(|error| format!("读取响应失败：{error}"))?;
-        let truncated = bytes.len() > max_bytes;
+        // 流式读取并在上限处截断：先 bytes() 再截断会把整个响应体读进内存，
+        // 超大页面/慢速灌包可能拖垮进程。
+        let mut bytes: Vec<u8> = Vec::with_capacity(max_bytes.min(64 * 1024));
+        let mut truncated = false;
+        let mut stream = response.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|error| format!("读取响应失败：{error}"))?;
+            if append_capped(&mut bytes, &chunk, max_bytes) {
+                truncated = true;
+                break;
+            }
+        }
         // 响应体未必是 UTF-8：国内站点常见 GBK 且不带 charset 声明，用 lossy 解会整页乱码。
-        let raw = decode_process_output(&bytes[..bytes.len().min(max_bytes)]);
+        let raw = decode_process_output(&bytes);
         let text = if content_type.contains("html") {
             html_to_text(&raw)
         } else {
@@ -232,13 +255,27 @@ impl Tool for WebSearchTool {
                         attempts.push(format!("{endpoint} → HTTP {status}"));
                         continue;
                     }
-                    let body = match response.text().await {
-                        Ok(body) => body,
-                        Err(error) => {
-                            attempts.push(format!("{endpoint} → 读取响应失败：{error}"));
-                            continue;
+                    let mut bytes: Vec<u8> = Vec::with_capacity(64 * 1024);
+                    let mut stream = response.bytes_stream();
+                    let mut read_error = None;
+                    while let Some(chunk) = stream.next().await {
+                        match chunk {
+                            Ok(chunk) => {
+                                if append_capped(&mut bytes, &chunk, 1_048_576) {
+                                    break;
+                                }
+                            }
+                            Err(error) => {
+                                read_error = Some(error);
+                                break;
+                            }
                         }
-                    };
+                    }
+                    if let Some(error) = read_error {
+                        attempts.push(format!("{endpoint} → 读取响应失败：{error}"));
+                        continue;
+                    }
+                    let body = decode_process_output(&bytes);
                     let results = parse_search_results(endpoint, &body);
                     if results.is_empty() {
                         attempts.push(format!("{endpoint} → 无结果（页面结构可能已变）"));

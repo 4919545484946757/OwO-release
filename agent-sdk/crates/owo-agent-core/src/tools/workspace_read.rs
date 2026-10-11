@@ -45,6 +45,60 @@ impl Tool for ListDirTool {
     }
 }
 
+/// 无 ripgrep / 沙箱不可用时的纯 Rust 兜底：按文件名关键字（大小写不敏感）递归搜索。
+/// 只读、不跟随符号链接、跳过常见噪声目录；用条目预算防止超大仓库拖死回合。
+pub(super) fn fallback_search_files(workspace: &std::path::Path, pattern: &str) -> Vec<String> {
+    const MAX_ENTRIES: usize = 20_000;
+    const MAX_DEPTH: usize = 12;
+    const MAX_RESULTS: usize = 200;
+    let needle = pattern.to_lowercase();
+    let mut results = Vec::new();
+    let mut visited = 0usize;
+    let mut stack = vec![(workspace.to_path_buf(), 0usize)];
+    while let Some((dir, depth)) = stack.pop() {
+        if depth > MAX_DEPTH || results.len() >= MAX_RESULTS || visited >= MAX_ENTRIES {
+            break;
+        }
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            visited += 1;
+            if visited >= MAX_ENTRIES || results.len() >= MAX_RESULTS {
+                break;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if file_type.is_dir() {
+                if matches!(
+                    name.as_str(),
+                    ".git" | "target" | "node_modules" | ".svn" | ".hg"
+                ) {
+                    continue;
+                }
+                stack.push((entry.path(), depth + 1));
+            } else if file_type.is_file() && name.to_lowercase().contains(&needle) {
+                let path = entry.path();
+                let relative = path.strip_prefix(workspace).unwrap_or(&path);
+                results.push(relative.to_string_lossy().replace('\\', "/"));
+            }
+        }
+    }
+    results.sort();
+    results
+}
+
+fn fallback_search_result(workspace: &std::path::Path, pattern: &str, reason: &str) -> Value {
+    json!({
+        "pattern": pattern,
+        "matches": fallback_search_files(workspace, pattern),
+        "tool": "walk",
+        "note": format!("{reason}；已使用内置文件名搜索兜底（结果集上限 200，跳过 .git/target/node_modules）"),
+    })
+}
+
 pub(super) struct SearchFilesTool;
 
 #[async_trait]
@@ -74,10 +128,13 @@ impl Tool for SearchFilesTool {
         if pattern.trim().is_empty() {
             return Err("搜索模式不能为空".to_string());
         }
-        let rg = external_tools::resolve_ripgrep().ok_or_else(|| {
-            "随包 ripgrep 不可用：请重新安装 OwO Agent，或仅在测试时设置 OWO_EXTERNAL_TOOLS_DIR"
-                .to_string()
-        })?;
+        let Some(rg) = external_tools::resolve_ripgrep() else {
+            return Ok(fallback_search_result(
+                ctx.workspace,
+                &pattern,
+                "随包 ripgrep 不可用",
+            ));
+        };
 
         let mut policy = tool_sandbox_policy(ctx, "search_files");
         policy.cpu_ms = Some(30_000);
@@ -106,11 +163,18 @@ impl Tool for SearchFilesTool {
             let mut manager = manager
                 .lock()
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
-            manager
-                .spawn(&sandbox_command)
-                .map_err(|error| format!("搜索沙箱拒绝执行：{error}"))?
+            match manager.spawn(&sandbox_command) {
+                Ok(process) => process,
+                Err(error) => {
+                    return Ok(fallback_search_result(
+                        ctx.workspace,
+                        &pattern,
+                        &format!("搜索沙箱拒绝执行：{error}"),
+                    ))
+                }
+            }
         };
-        let output = tokio::time::timeout(
+        let output = match tokio::time::timeout(
             std::time::Duration::from_secs(30),
             tokio::task::spawn_blocking(move || {
                 let mut process = process;
@@ -118,15 +182,40 @@ impl Tool for SearchFilesTool {
             }),
         )
         .await
-        .map_err(|_| "ripgrep 搜索超时（30s，进程仍在受限 Job 内）".to_string())?
-        .map_err(|join_error| format!("搜索等待失败：{join_error}"))?
-        .map_err(|error| format!("ripgrep 执行失败：{error}"))?;
+        {
+            Ok(Ok(Ok(output))) => output,
+            Ok(Ok(Err(error))) => {
+                return Ok(fallback_search_result(
+                    ctx.workspace,
+                    &pattern,
+                    &format!("ripgrep 执行失败：{error}"),
+                ))
+            }
+            Ok(Err(join_error)) => {
+                return Ok(fallback_search_result(
+                    ctx.workspace,
+                    &pattern,
+                    &format!("搜索等待失败：{join_error}"),
+                ))
+            }
+            Err(_) => {
+                return Ok(fallback_search_result(
+                    ctx.workspace,
+                    &pattern,
+                    "ripgrep 搜索超时（30s）",
+                ))
+            }
+        };
 
         if output.exit_code != 0 && output.exit_code != 1 {
-            return Err(format!(
-                "ripgrep 搜索失败（exit_code={}）：{}",
-                output.exit_code,
-                decode_process_output(&output.stderr).trim()
+            return Ok(fallback_search_result(
+                ctx.workspace,
+                &pattern,
+                &format!(
+                    "ripgrep 搜索失败（exit_code={}）：{}",
+                    output.exit_code,
+                    decode_process_output(&output.stderr).trim()
+                ),
             ));
         }
         let matches = decode_process_output(&output.stdout)

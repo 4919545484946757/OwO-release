@@ -519,13 +519,18 @@ impl Plan {
         Ok(waves)
     }
 
-    /// 序列化持久化：`<dir>/<plan_id>.json`。
+    /// 序列化持久化：`<dir>/<plan_id>.json`（原子写：崩溃不留下半截计划）。
     pub fn persist(&self, dir: &Path) -> Result<PathBuf, String> {
         std::fs::create_dir_all(dir).map_err(|e| format!("创建计划目录失败：{e}"))?;
         let path = dir.join(format!("{}.json", self.id));
         let json =
             serde_json::to_string_pretty(self).map_err(|e| format!("计划序列化失败：{e}"))?;
-        std::fs::write(&path, json).map_err(|e| format!("计划写入失败：{e}"))?;
+        let tmp = path.with_extension(format!("json.tmp-{}", std::process::id()));
+        std::fs::write(&tmp, json).map_err(|e| format!("计划写入失败：{e}"))?;
+        std::fs::rename(&tmp, &path).map_err(|error| {
+            let _ = std::fs::remove_file(&tmp);
+            format!("计划原子覆盖失败：{error}")
+        })?;
         Ok(path)
     }
 

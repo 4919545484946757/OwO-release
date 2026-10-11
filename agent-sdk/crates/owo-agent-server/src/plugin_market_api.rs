@@ -38,7 +38,9 @@ fn audit_log() -> &'static Mutex<Vec<String>> {
 /// 按 data_root 键控取（或创建）PluginManager；每次调用同步 require_signature
 /// 环境变量（静态缓存不会携带跨测试/跨进程 env 变化）。
 fn manager_for(data_root: &Path) -> Arc<Mutex<PluginManager>> {
-    let mut map = managers().lock().unwrap();
+    let mut map = managers()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let manager = map
         .entry(data_root.to_path_buf())
         .or_insert_with(|| {

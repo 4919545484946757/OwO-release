@@ -1,0 +1,59 @@
+   Compiling owo-agent-server v0.1.0 (D:\OwO-master\agent-sdk\crates\owo-agent-server)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 17.67s
+     Running tests\route_contract_tests.rs (target\debug\deps\route_contract_tests-73b4c20c03e76f18.exe)
+
+running 51 tests
+test a8_activity_pet_approvals_and_automation_runs_contract ... ok
+test all_contract_endpoints_are_reachable ... ok
+test answer_question_routes_to_pending_sender ... ok
+test approved_write_diff_and_revert_close_the_server_golden_path ... ok
+test artifact_review_contract_shape_is_frozen ... ok
+test auth_token_desktop_pairing_is_documented_and_cors_allowed ... ok
+test concurrent_slow_http_turn_clients_each_replay_failed_state ... ok
+test cors_exposes_turn_id_for_stream_recovery ... ok
+test cors_whitelist_enforces_origins ... ok
+test deprecation_header_absent_on_current_routes ... ok
+test deprecation_header_value_contract ... ok
+test desktop_credentials_and_durable_session_facts_are_documented ... ok
+test desktop_six_item_contracts::bearer_alone_cannot_register_desktop_credentials ... ok
+test desktop_six_item_contracts::durable_terminal_and_latest_failure_survive_reopen ... ok
+test desktop_six_item_contracts::secure_credential_references_are_endpoint_bound_and_revocable ... ok
+test desktop_six_item_contracts::session_http_returns_durable_host_facts ... ok
+test diagnostics_requests_ledger_is_protected_and_privacy_safe ... ok
+test event_streams_require_bearer_auth ... ok
+test events_stream_explicit_zero_replays_history ... ok
+test events_stream_fresh_subscription_does_not_replay_history ... ok
+test events_stream_resumes_from_last_event_id_header ... ok
+test fs_open_enforces_workspace_scope_and_rejects_empty_path ... ok
+test health_build_identity_has_full_semantics ... ok
+test health_contract_version_and_optional_build ... ok
+test health_identity_is_single_source_with_build_info ... ok
+test major_repair_http::expired_approval_channel_does_not_create_a_reusable_grant ... ok
+test major_repair_http::http_custom_connection_rejects_invalid_before_accepting_turn_and_matches_schema ... ok
+test major_repair_http::http_custom_connection_routes_endpoint_key_format_full_url_and_preserves_defaults ... ok
+test major_repair_http::http_custom_connection_timeout_is_turn_local_and_cleans_up ... ok
+test major_repair_http::http_custom_connections_remain_isolated_between_simultaneous_sessions ... ok
+test major_repair_http::http_scoped_cancellation_preserves_prestart_and_does_not_abort_next_turn ... ok
+test major_repair_http::http_turn_readonly_is_request_scoped_and_never_relaxes_parent_policy ... ok
+test mutation_routes_publish_exactly_one_domain_invalidate ... ok
+test openapi_json_covers_snapshot_and_registered_routes ... ok
+test pet_static_routes_are_mounted_and_no_store ... ok
+test product_eval_contract_shapes_are_frozen ... ok
+test provider_disconnect_after_delta_is_persisted_as_failed_and_replayable ... ok
+test public_endpoints_are_token_free_and_bad_token_rejected ... ok
+test rate_limit_returns_429_with_retry_after ... ok
+test schemas_endpoints_serve_versioned_json_schema ... ok
+test session_revert_conflict_returns_structured_409_and_preserves_user_edit ... ok
+test slow_http_consumer_and_provider_disconnect_preserve_failed_turn_replay ... ok
+test slow_http_turn_client_triggers_bounded_queue_overflow_and_cancels_provider ... ok
+test steer_retry_contract_shape_is_frozen ... ok
+test team_context_api_persists_facts_and_rejects_stale_revision ... ok
+test team_create_rejects_parent_session_from_another_workspace ... ok
+test team_create_snapshots_only_same_workspace_source_session_constraints ... ok
+test turn_event_replay_filters_by_turn_and_resumes_after_session_seq ... ok
+test turn_replay_openapi_documents_identity_and_terminal_state ... ok
+test unauthorized_requests_get_401 ... ok
+test v05_routes_are_registered_not_404_via_real_http ... ok
+
+
+test result: ok. 51 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 24.12s

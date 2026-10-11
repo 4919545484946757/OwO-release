@@ -34,6 +34,20 @@ pub(crate) struct TurnArgs {
     data_dir: Option<PathBuf>,
 }
 
+/// stdin 提示词上限：与服务端默认 JSON 体上限（1 MiB）对齐，避免先读入
+/// 超大输入再被 413 拒绝；用 `Read::take` 限制读取量，内存有界。
+const MAX_PROMPT_BYTES: usize = 1024 * 1024;
+
+fn ensure_prompt_size(len: usize) -> Result<(), String> {
+    if len > MAX_PROMPT_BYTES {
+        return Err(format!(
+            "stdin 提示词过大（上限 {} KiB）：请改用附件上传或拆分任务",
+            MAX_PROMPT_BYTES / 1024
+        ));
+    }
+    Ok(())
+}
+
 /// B4（取优合并自远端 engine）：解析一次性任务的提示词来源——
 /// `--prompt X` > `--prompt -`（stdin）> stdin 管道（未显式传入且非终端）。
 fn resolve_turn_prompt(option: Option<String>) -> Result<String, Box<dyn std::error::Error>> {
@@ -43,7 +57,10 @@ fn resolve_turn_prompt(option: Option<String>) -> Result<String, Box<dyn std::er
         matches!(explicit, Some("-")) || (explicit.is_none() && !std::io::stdin().is_terminal());
     let stdin_text = if needs_stdin {
         let mut buffer = String::new();
-        std::io::stdin().read_to_string(&mut buffer)?;
+        std::io::stdin()
+            .take((MAX_PROMPT_BYTES + 1) as u64)
+            .read_to_string(&mut buffer)?;
+        ensure_prompt_size(buffer.len())?;
         Some(buffer)
     } else {
         None
@@ -380,8 +397,16 @@ fn decide_question(
 
 #[cfg(test)]
 mod tests {
-    use super::{decide_question, resolve_prompt_value};
+    use super::{decide_question, ensure_prompt_size, resolve_prompt_value, MAX_PROMPT_BYTES};
     use crate::ui_output::OutputMode;
+
+    #[test]
+    fn oversized_stdin_prompt_is_rejected_with_actionable_error() {
+        assert!(ensure_prompt_size(1024).is_ok());
+        let error = ensure_prompt_size(MAX_PROMPT_BYTES + 1).unwrap_err();
+        assert!(error.contains("过大"), "{error}");
+        assert!(error.contains("KiB"), "{error}");
+    }
 
     /// plain/jsonl 非交互模式不能等待 300s 提问超时：直接给确定性继续指令。
     #[test]

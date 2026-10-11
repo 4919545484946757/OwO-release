@@ -48,7 +48,10 @@ impl WfEvents {
     /// 推送一帧（历史 + 广播；无订阅者不阻塞）。
     pub fn push(&self, name: &str, data: &serde_json::Value) {
         let frame = event_frame(name, data);
-        self.history.lock().unwrap().push(frame.clone());
+        self.history
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push(frame.clone());
         let _ = self.tx.send(frame);
     }
 
@@ -69,7 +72,10 @@ impl WfEvents {
     }
 
     pub fn history(&self) -> Vec<String> {
-        self.history.lock().unwrap().clone()
+        self.history
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
     }
 }
 
@@ -99,7 +105,9 @@ fn pending_map() -> &'static Arc<Mutex<HashMapLock>> {
 /// 面板裁决入口：POST /workflow/run/{run_id}/approval。
 /// 返回 Ok(true) 表示已裁决；Err 为可读错误（未知 run / 无 pending）。
 pub fn decide_approval(run_id: &str, approve: bool) -> Result<(), String> {
-    let mut map = pending_map().lock().unwrap();
+    let mut map = pending_map()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let keys: Vec<String> = map
         .iter()
         .filter(|(_, (r, _, _, _))| r == run_id)
@@ -145,7 +153,9 @@ impl HumanApprover for ChannelApprover {
         let id = format!("wf-{}-{}", self.run_id, uuid::Uuid::new_v4().simple());
         let (tx, rx) = tokio::sync::oneshot::channel();
         {
-            let mut map = pending_map().lock().unwrap();
+            let mut map = pending_map()
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             map.insert(
                 id.clone(),
                 (
@@ -164,7 +174,10 @@ impl HumanApprover for ChannelApprover {
         };
         if let Some(events) = &self.events {
             let seq = {
-                let mut s = self.step_seq.lock().unwrap();
+                let mut s = self
+                    .step_seq
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
                 *s += 1;
                 *s
             };
@@ -181,7 +194,9 @@ impl HumanApprover for ChannelApprover {
             Ok(Ok(true)) => Approval::Approved,
             Ok(Ok(false)) => {
                 {
-                    let mut map = pending_map().lock().unwrap();
+                    let mut map = pending_map()
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
                     map.remove(&id);
                 }
                 if let Some(events) = &self.events {
@@ -192,7 +207,9 @@ impl HumanApprover for ChannelApprover {
             Ok(Err(_)) | Err(_) => {
                 // 超时/通道关闭：必须清理 pending 记录，否则快照恒为 waiting_approval。
                 {
-                    let mut map = pending_map().lock().unwrap();
+                    let mut map = pending_map()
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
                     map.remove(&id);
                 }
                 if let Some(events) = &self.events {
@@ -211,7 +228,9 @@ impl HumanApprover for ChannelApprover {
 /// 当前 pending 审批清单（面板轮询用）。
 pub fn pending_approvals(run_id: &str) -> Vec<PendingApprovalInfo> {
     let mut out = Vec::new();
-    let map = pending_map().lock().unwrap();
+    let map = pending_map()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     for (id, (run, prompt, created_at, _)) in map.iter() {
         if run == run_id {
             out.push(PendingApprovalInfo {
