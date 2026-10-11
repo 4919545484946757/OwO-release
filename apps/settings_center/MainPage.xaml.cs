@@ -946,7 +946,7 @@ public sealed partial class MainPage : Page
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = Microsoft.UI.Xaml.GridLength.Auto });
         var control = CreatePluginSettingControl(field);
         Microsoft.UI.Xaml.FrameworkElement cardContent;
-        var cardPadding = new Microsoft.UI.Xaml.Thickness(16, 12, 16, 12);
+        var cardPadding = new Microsoft.UI.Xaml.Thickness(16, 12, 4, 12);
         if (field.Format == "color") {
             var colorControls = new StackPanel { Spacing = 12 };
             colorControls.Children.Add(control);
