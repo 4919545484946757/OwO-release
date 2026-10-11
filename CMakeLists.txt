@@ -844,6 +844,16 @@ if(BUILD_TESTING)
         target_compile_options(owo_input_method_context_tests PRIVATE /W4 /permissive- /utf-8)
         target_link_libraries(owo_input_method_context_tests PRIVATE ole32 oleaut32 uuid)
         add_test(NAME owo.tsf.input_method_context COMMAND owo_input_method_context_tests)
+
+        add_executable(owo_candidate_window_order_tests tests/tsf/candidate_window_order_tests.cpp)
+        target_include_directories(owo_candidate_window_order_tests PRIVATE include)
+        target_compile_features(owo_candidate_window_order_tests PRIVATE cxx_std_20)
+        target_compile_definitions(owo_candidate_window_order_tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+        target_link_libraries(owo_candidate_window_order_tests PRIVATE user32)
+        if(MSVC)
+            target_compile_options(owo_candidate_window_order_tests PRIVATE /W4 /permissive- /utf-8)
+        endif()
+        add_test(NAME owo.tsf.candidate_window_order COMMAND owo_candidate_window_order_tests)
         add_executable(owo_pinyin_cursor_tests
             tests/tsf/pinyin_cursor_tests.cpp
             src/tsf/pinyin_cursor.cpp)

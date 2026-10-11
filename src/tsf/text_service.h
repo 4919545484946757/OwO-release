@@ -161,6 +161,7 @@ private:
     void apply_candidate_window_effects() noexcept;
     bool prepare_blurred_candidate_background() noexcept;
     [[nodiscard]] bool present_candidate_surface() noexcept;
+    void maintain_candidate_window_order() noexcept;
     void update_candidate_shadow() noexcept;
     void hide_candidate_windows() noexcept;
     [[nodiscard]] bool render_candidate_window();

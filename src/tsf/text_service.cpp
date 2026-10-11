@@ -1,5 +1,6 @@
 #include "text_service.h"
 #include "owo/tsf/input_method_context.h"
+#include "owo/tsf/candidate_window_order.h"
 #include <functional>
 #include "owo/tsf/language_context.h"
 
@@ -45,6 +46,7 @@ constexpr UINT kAltCodeDigitPressed = WM_APP + 3;
 constexpr UINT kAltCodeFinished = WM_APP + 4;
 constexpr UINT kAgentReady = WM_APP + 5;
 constexpr UINT_PTR kPluginInputTimer = 0x4f57;
+constexpr UINT_PTR kCandidateWindowOrderTimer = 0x4f58;
 constexpr UINT kPluginCommitReady = WM_APP + 6;
 constexpr float kCandidateWindowMinWidthDip = 240.0F;
 constexpr float kCandidateWindowMaxWidthDip = 1400.0F;
@@ -2069,9 +2071,33 @@ bool TextService::present_candidate_surface() noexcept {
     // another topmost foreground window can subsequently cover it. Publishing
     // a layered bitmap does not restore Z order. Reassert it on every completed
     // frame, without activating, moving, resizing or clearing the bitmap.
-    return SetWindowPos(candidate_window_, HWND_TOPMOST, 0, 0, 0, 0,
+    const HWND host = GetForegroundWindow();
+    if (foreground_focus_) bind_candidate_owner(candidate_window_, candidate_shadow_window_, host);
+    const bool shown = SetWindowPos(candidate_window_, HWND_TOPMOST, 0, 0, 0, 0,
                         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE |
                             SWP_NOOWNERZORDER | SWP_SHOWWINDOW) != FALSE;
+    if (shown && message_window_) SetTimer(message_window_, kCandidateWindowOrderTimer, 100, nullptr);
+    return shown;
+}
+
+void TextService::maintain_candidate_window_order() noexcept {
+    if (!candidate_window_ || !IsWindowVisible(candidate_window_)) {
+        if (message_window_) KillTimer(message_window_, kCandidateWindowOrderTimer);
+        return;
+    }
+    const HWND host = GetForegroundWindow();
+    DWORD process = 0;
+    if (host) GetWindowThreadProcessId(host, &process);
+    // Never raise an old composition over another application's input window.
+    // A null foreground HWND is transient during activation; wait for TSF focus.
+    if (!foreground_focus_ || (host && process != GetCurrentProcessId())) {
+        hide_candidate_windows();
+        return;
+    }
+    bind_candidate_owner(candidate_window_, candidate_shadow_window_, host);
+    if (candidate_needs_raise(candidate_window_, host)) {
+        raise_candidate_windows(candidate_window_, candidate_shadow_window_);
+    }
 }
 
 void TextService::update_candidate_shadow() noexcept {
@@ -2230,6 +2256,7 @@ void TextService::update_candidate_shadow() noexcept {
 }
 
 void TextService::hide_candidate_windows() noexcept {
+    if (message_window_) KillTimer(message_window_, kCandidateWindowOrderTimer);
     if (candidate_window_ != nullptr) ShowWindow(candidate_window_, SW_HIDE);
     if (candidate_shadow_window_ != nullptr) ShowWindow(candidate_shadow_window_, SW_HIDE);
     blurred_candidate_background_.clear();
@@ -2871,6 +2898,9 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     }
     if (message == WM_TIMER && wparam == kPluginInputTimer && service != nullptr) {
         service->poll_plugin_input(); return 0;
+    }
+    if (message == WM_TIMER && wparam == kCandidateWindowOrderTimer && service != nullptr) {
+        service->maintain_candidate_window_order(); return 0;
     }
     if (message == kPluginCommitReady && service != nullptr) {
         service->finish_plugin_input_on_ui(); return 0;
