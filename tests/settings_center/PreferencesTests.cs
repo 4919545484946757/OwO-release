@@ -1,5 +1,8 @@
 using OwO_Settings;
 
+await InstallerPayloadTests.RunAsync();
+if (args.Length == 1) await InstallerPayloadTests.VerifyReleaseAsync(args[0]);
+
 foreach (var architecture in Enum.GetValues<System.Runtime.InteropServices.Architecture>()) {
     var supported = SetupPrerequisites.ArchitectureError(architecture).Length == 0;
     if (supported != (architecture == System.Runtime.InteropServices.Architecture.X64))

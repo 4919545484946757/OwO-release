@@ -24,6 +24,8 @@ public partial class App : Application
     private Window? _window;
     internal static string? InstallPackageRoot { get; private set; }
     internal static string? InstallPreviewStage { get; private set; }
+    internal static InstallerPayload? BundledInstaller => null;
+    internal static string ResourceDirectory => AppContext.BaseDirectory;
     internal Window MainWindow => _window
         ?? throw new InvalidOperationException("主窗口尚未创建。");
     

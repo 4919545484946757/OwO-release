@@ -63,6 +63,7 @@ public sealed class SetupPage : Page
     private bool _packageReady;
     private bool _checking;
     private bool _installing;
+    internal bool InstallationInProgress => _installing;
     private static string WindowsPowerShell => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.System),
         "WindowsPowerShell", "v1.0", "powershell.exe");
@@ -425,9 +426,10 @@ public sealed class SetupPage : Page
             "Open-OwO-Settings.cmd", "Uninstall-OwO.cmd" };
         var missing = required.Where(item => !Directory.Exists(Path.Combine(_packageRoot, item)) &&
                                              !File.Exists(Path.Combine(_packageRoot, item))).ToArray();
-        _packageReady = missing.Length == 0;
+        _packageReady = App.BundledInstaller is not null || missing.Length == 0;
         _packageStatus.Severity = _packageReady ? InfoBarSeverity.Success : InfoBarSeverity.Error;
-        _packageStatus.Message = _packageReady ? "安装包结构完整。" :
+        _packageStatus.Message = App.BundledInstaller is not null
+            ? "安装文件已内置，点击安装后校验并解压。" : _packageReady ? "安装包结构完整。" :
             $"安装包不完整，缺少：{string.Join("、", missing)}";
         try {
             var result = await RunProcessAsync(WindowsPowerShell, [
@@ -522,6 +524,21 @@ public sealed class SetupPage : Page
         _installing = true;
         try {
             ShowProgress("正在复制文件、注册 TSF 并启动服务…");
+            if (App.BundledInstaller is { } payload) {
+                _progress.IsIndeterminate = false;
+                var preparing = true;
+                try {
+                    await payload.PrepareAsync(new Progress<InstallerPayloadProgress>(update => {
+                        if (!preparing) return;
+                        _stageMessage.Text = update.Message;
+                        _progress.Value = update.Percent;
+                        _progressPercentage.Text = $"{update.Percent}%";
+                    }));
+                } finally { preparing = false; }
+                _progress.IsIndeterminate = true;
+                _progressPercentage.Text = "—";
+                _stageMessage.Text = "正在安装文件、注册 TSF 并启动服务…";
+            }
             var arguments = new List<string> {
                 "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                 "-File", Path.Combine(_packageRoot, "scripts", "Install-OwO.ps1"),
@@ -743,7 +760,7 @@ public sealed class SetupPage : Page
         Height = 238,
         CornerRadius = new CornerRadius(12),
         Child = new Image {
-            Source = new BitmapImage(new Uri("ms-appx:///Assets/SetupProgressBanner.png")),
+            Source = new BitmapImage(new Uri(Path.Combine(App.ResourceDirectory, "Assets", "SetupProgressBanner.png"))),
             Stretch = Stretch.UniformToFill,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Center
