@@ -31,9 +31,17 @@ dotnet run --project tests/settings_center/preferences_tests.csproj -c Release -
 
 Setup 发布使用专用锁文件和自包含单文件模式。构建脚本检查未留下运行必需的独立 DLL/XBF/PRI，并避免覆盖已有 Setup。
 
-独立宿主使用最小 `App.xaml` 初始化 WinUI，窗口以代码创建。启动时把运行库路径定位到 .NET 自解压目录，并通过 `ResourceManagerRequested` 显式加载该目录的 `OwO.Setup.pri`，避免运行目录或 EXE 改名影响资源加载。启动阶段和失败日志分别写入 `%LOCALAPPDATA%\OwO\InputMethod\logs\setup-startup.log` 与 `setup-crash.log`。
+独立宿主使用最小 `App.xaml` 初始化 WinUI，窗口以代码创建。启动时把运行库路径定位到 .NET 自解压目录，并通过 `ResourceManagerRequested` 显式加载固定名称 `resources.pri`。项目必须设置 `ProjectPriFileName=resources.pri`：仅显式加载旧的 `OwO.Setup.pri` 不足以覆盖 WinUI 控件延迟加载，发行版改名或浏览器添加 `(1)` 后缀后，进入选项页仍会闪退。此处理依据 [Windows App SDK 官方问题记录及建议](https://github.com/microsoft/WindowsAppSDK/issues/6248)。启动阶段和失败日志分别写入 `%LOCALAPPDATA%\OwO\InputMethod\logs\setup-startup.log` 与 `setup-crash.log`。
 
-测试覆盖延迟解压、真实发行载荷的逐文件校验、越界/重复/链接/损坏载荷拒绝和临时目录清理。启动日志已验证 XAML 初始化和向导窗口激活；本机界面自动化工具将窗口误识别为 Visual Studio Installer，无法可靠绑定，因此步骤切换、布局和阶段预览仍需手动验收。未自动确认可信来源、批准 UAC 或执行实际安装。
+### 导航回归检查
+
+```powershell
+.\scripts\test_setup_navigation.ps1 -SetupPath <生成的Setup.exe>
+```
+
+该检查分别使用原文件名、发行文件名和下载重复文件名运行同一个 EXE。每次重复四轮“下一步→选项页→上一步”，检查真实语言探测结束及安装按钮在未授权时保持禁用，然后检查进度页和详情展开/收起。只读验证模式 `--verify-installer-navigation` 不授权、不安装、不注册输入法、不解压安装负载；完成后自动关闭窗口。测试在本机已安装 OwO 的情况下同样适用。
+
+测试覆盖延迟解压、真实发行载荷的逐文件校验、越界/重复/链接/损坏载荷拒绝和临时目录清理。导航回归模式额外覆盖原名/改名/下载后缀 EXE 的选项页延迟资源加载、重复返回与进入、进度页详情展开/收起。本机界面自动化工具将窗口误识别为 Visual Studio Installer，无法可靠绑定，因此视觉布局和鼠标点击仍需手动验收。未自动确认可信来源、批准 UAC 或执行实际安装。
 
 单文件部署与自定义资源管理器采用微软提供的机制：[单文件部署要求](https://learn.microsoft.com/zh-cn/windows/apps/package-and-deploy/unpackage-winui-app)、[ResourceManagerRequested](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.application.resourcemanagerrequested)。
 

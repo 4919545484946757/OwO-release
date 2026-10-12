@@ -12,7 +12,7 @@ using Windows.System;
 
 namespace OwO_Settings;
 
-public sealed class SetupPage : Page
+public sealed partial class SetupPage : Page
 {
     private enum SetupStep { Welcome, Options, Progress }
 
@@ -393,6 +393,11 @@ public sealed class SetupPage : Page
     }
 
     private async void PrimaryButton_Click(object sender, RoutedEventArgs e)
+    {
+        await AdvanceAsync();
+    }
+
+    private async Task AdvanceAsync()
     {
         if (_previewStage is not null) return;
         if (_step == SetupStep.Welcome) {

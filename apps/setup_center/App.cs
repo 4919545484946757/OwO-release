@@ -19,9 +19,15 @@ public sealed partial class App : Application
     public App()
     {
         LogStage("Application constructor");
-        UnhandledException += (_, args) => LogFailure(args.Exception);
-        ResourceManagerRequested += (_, args) => args.CustomResourceManager =
-            new Microsoft.Windows.ApplicationModel.Resources.ResourceManager(Path.Combine(ResourceDirectory, "OwO.Setup.pri"));
+        UnhandledException += (_, args) => {
+            LogStage("Unhandled UI exception: " + args.Message);
+            LogFailure(args.Exception);
+        };
+        ResourceManagerRequested += (_, args) => {
+            var resources = new Microsoft.Windows.ApplicationModel.Resources.ResourceManager(Path.Combine(ResourceDirectory, "resources.pri"));
+            resources.ResourceNotFound += (_, missing) => LogStage("Resource not found: " + missing.Name);
+            args.CustomResourceManager = resources;
+        };
         InitializeComponent();
         LogStage("XAML initialized");
     }
@@ -52,6 +58,20 @@ public sealed partial class App : Application
         root.Children.Add(page);
         MainWindow.AppWindow.Closing += (_, args) => args.Cancel = page.InstallationInProgress;
         MainWindow.Closed += (_, _) => BundledInstaller.Cleanup();
+        if (arguments.Contains("--verify-installer-navigation")) {
+            page.Loaded += async (_, _) => {
+                try {
+                    await page.VerifyNavigationAsync();
+                    LogStage("Navigation verification passed");
+                } catch (Exception error) {
+                    Environment.ExitCode = 1;
+                    LogFailure(error);
+                    LogStage("Navigation verification failed: " + error.Message);
+                } finally {
+                    MainWindow.Close();
+                }
+            };
+        }
         MainWindow.Activate();
         LogStage("Wizard activated");
     }
@@ -61,7 +81,7 @@ public sealed partial class App : Application
         try {
             var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OwO", "InputMethod", "logs");
             Directory.CreateDirectory(root);
-            File.WriteAllText(Path.Combine(root, "setup-crash.log"), error.ToString());
+            File.WriteAllText(Path.Combine(root, "setup-crash.log"), $"{DateTimeOffset.Now:O}\n{error}");
         } catch { }
     }
 

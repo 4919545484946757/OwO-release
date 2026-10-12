@@ -5,6 +5,9 @@
     <TargetPlatformMinVersion>10.0.22000.0</TargetPlatformMinVersion>
     <RootNamespace>OwO_Settings</RootNamespace>
     <AssemblyName>OwO.Setup</AssemblyName>
+    <!-- WinUI otherwise derives lazy resource lookup from the EXE name.
+         Release naming and browser download suffixes must not change it. -->
+    <ProjectPriFileName>resources.pri</ProjectPriFileName>
     <ApplicationManifest>../settings_center/app.manifest</ApplicationManifest>
     <Platforms>x64</Platforms>
     <Platform>x64</Platform>
