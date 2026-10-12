@@ -145,7 +145,8 @@ let coreState = { state: "starting" };
 let petWindow = null;
 let petUiPort = null; // 与 uiPort 同理：核心重启换端口后必须重新导航
 let petWatchdog = null; // 显隐看门狗（见 startPetWatchdog）
-const PET_SIZE = { width: 220, height: 262 };
+const PET_SIZE = { width: 270, height: 290 };
+const agentPetWindows = new Map();
 
 // ---------- 监管状态 ----------
 let generation = 0; // 每次拉起核心 +1：过期那一轮的异步回调一律失效
@@ -930,12 +931,62 @@ function createPetWindow(port) {
   petWindow.on("close", (event) => {
     if (!app.isQuitting) {
       event.preventDefault();
-      petWindow.hide();
+      void setPetDesired(false);
     }
   });
   petWindow.loadURL(petUrl(port));
   return petWindow;
 }
+
+const petPresence=require('./pet-presence.js').createPetPresence({primary:()=>petWindow,peers:()=>agentPetWindows});
+// Each secondary window runs the existing complete animated pet renderer.
+function actorPreferences() {
+  try{return JSON.parse(fs.readFileSync(path.join(dataRoot(),'pet-actors.json'),'utf8'));}catch{return {};}
+}
+let actorSaveTimer=null;
+function saveActorPosition(w) {
+  clearTimeout(actorSaveTimer);
+  actorSaveTimer=setTimeout(()=>{
+    const prefs=actorPreferences();
+    for(const [role,window] of agentPetWindows)if(!window.isDestroyed()){const [x,y]=window.getPosition();prefs[role]={...prefs[role],x,y};}
+    fs.mkdirSync(dataRoot(),{recursive:true});fs.writeFileSync(path.join(dataRoot(),'pet-actors.json'),JSON.stringify(prefs),'utf8');
+    if(w===petWindow)schedulePetBoundsSave();
+  },600);
+}
+function movePetActor(w,dx,dy) {
+  const [x,y]=w.getPosition();const next=clampToWorkArea(x+Math.max(-500,Math.min(500,dx)),y+Math.max(-500,Math.min(500,dy)));
+  w.setPosition(Math.round(next.x),Math.round(next.y));if(w!==petWindow&&petWindow&&!petWindow.isDestroyed())petWindow.setPosition(Math.round(next.x),Math.round(next.y));schedulePetBoundsSave();saveActorPosition(w);return {ok:true};
+}
+function resetPetActor(w){const area=screen.getPrimaryDisplay().workArea;const bounds=clampToWorkArea(area.x+area.width-PET_SIZE.width-24,area.y+area.height-PET_SIZE.height-24);for(const actor of [petWindow,...agentPetWindows.values()])if(actor&&!actor.isDestroyed())actor.setPosition(bounds.x,bounds.y);petPresence.apply();schedulePetBoundsSave();saveActorPosition(w);return {ok:true};}
+function ensureAgentPets(ref) {
+  if(!coreState.port)return;
+  if(!ref?.id){for(const w of agentPetWindows.values())if(!w.isDestroyed())w.destroy();agentPetWindows.clear();petPresence.bind(ref);return;}
+  const members=(ref?.members || []).filter(m=>m.runtime_binding?.kind==='agent');
+  const primary=members.find(m=>['lead','planner'].includes(m.role)) || members[0];
+  const roles=Array.isArray(ref?.members)?members.filter(m=>m!==primary).map(m=>m.role):['implementer','reviewer'];
+  for(const [role,w] of agentPetWindows)if(!roles.includes(role)){w.destroy();agentPetWindows.delete(role);}
+  const prefs=actorPreferences(),used=new Set([readPetPref().skin || 'petdex-haibara-ai']);
+  for(const role of roles){const w=agentPetWindows.get(role);if(w&&!w.isDestroyed()&&prefs[role]?.skin)used.add(prefs[role].skin);}
+  const available=['petdex-coco','petdex-boba','petdex-lulu-capybara','petdex-usagi','petdex-wangcai','petdex-doraemon','petdex-zero-two','petdex-nier-2b'];
+  let index=0;
+  for(const role of roles){
+    index++;
+    const existing=agentPetWindows.get(role);if(existing&&!existing.isDestroyed()){if(prefs[role]?.skin)used.add(prefs[role].skin);continue;}
+    const requested=prefs[role]?.skin;const skin=requested&&!used.has(requested)?requested:available.find(x=>!used.has(x));
+    if(!skin)throw Error('No distinct skin available for configured agent');used.add(skin);
+    const origin=petWindow&&!petWindow.isDestroyed()?petWindow.getBounds():petDefaultBounds();
+    const saved=prefs[role],position=saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y)?clampToWorkArea(saved.x,saved.y):clampToWorkArea(origin.x-index*PET_SIZE.width,origin.y);
+    const w=new BrowserWindow({...PET_SIZE,...position,show:false,frame:false,transparent:true,backgroundColor:'#00000000',resizable:false,movable:false,skipTaskbar:true,alwaysOnTop:true,hasShadow:false,webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});
+    agentPetWindows.set(role,w);prefs[role]={...prefs[role],skin};
+    w.webContents.setWindowOpenHandler(()=>({action:'deny'}));
+    w.on('close',event=>{if(!app.isQuitting){event.preventDefault();void setPetDesired(false);}});
+    w.on('closed',()=>agentPetWindows.delete(role));
+    w.loadURL(petUrl(coreState.port)+'?member=1&role='+encodeURIComponent(role)+'&skin='+encodeURIComponent(skin));
+  }
+  fs.writeFileSync(path.join(dataRoot(),'pet-actors.json'),JSON.stringify(prefs),'utf8');
+  petPresence.bind(ref);
+}
+function applyPetVisibility(visible){petPresence.setVisible(visible);}
 
 /// 核心 ready 时挂上桌宠；端口变（核心重启）则重新导航。
 function syncPetWindow(port) {
@@ -947,6 +998,7 @@ function syncPetWindow(port) {
   if (petUiPort !== port) {
     petUiPort = port;
     petWindow.loadURL(petUrl(port));
+    for(const w of agentPetWindows.values())if(!w.isDestroyed()){const old=new URL(w.webContents.getURL());w.loadURL(petUrl(port)+old.search);}
   }
 }
 
@@ -970,10 +1022,7 @@ async function setPetDesired(visible) {
     return { ok: false, reason: String(error && error.message ? error.message : error) };
   }
   // 顺手立刻应用到窗口，不必等桌宠页下一次心跳（最多 10s，手感太差）。
-  if (petWindow && !petWindow.isDestroyed()) {
-    if (visible) petWindow.show();
-    else petWindow.hide();
-  }
+  applyPetVisibility(visible);
   return { ok: true };
 }
 
@@ -992,12 +1041,7 @@ function startPetWatchdog() {
       if (response.status !== 200) return;
       const data = JSON.parse(response.body);
       if (typeof data.desired !== "boolean") return;
-      const visible = petWindow.isVisible();
-      if (visible !== data.desired) {
-        console.log(`[pet] watchdog: desired=${data.desired} visible=${visible} → 纠正`);
-        if (data.desired) petWindow.show();
-        else petWindow.hide();
-      }
+      applyPetVisibility(data.desired);
     } catch (_) {
       /* 核心不可达：下一轮再试 */
     }
@@ -1027,7 +1071,7 @@ function refreshTrayMenu() {
       click: () => {
         if (!petWindow || petWindow.isDestroyed()) return;
         // 当前可见性取自窗口本身，写回的却是内核期望值（见 setPetDesired 说明）。
-        void setPetDesired(!petWindow.isVisible());
+        void setPetDesired(!petPresence.isVisible());
       },
     },
     { label: stateText, enabled: false },
@@ -1102,6 +1146,9 @@ function registerGlobalShortcut() {
   return registered;
 }
 
+require('./pet-task-confirmation.js').installTaskConfirmation({pet:()=>petWindow,pets:()=>[petWindow,...agentPetWindows.values()],workspace:()=>workspacePath(),port:()=>coreState.port});
+require('./pet-feed.js').installPetFeed({pet:()=>petWindow,main:()=>mainWindow,workspace:()=>showWorkspace(),dataRoot,port:()=>coreState.port,pets:()=>[petWindow,...agentPetWindows.values()],ensureAgents:ensureAgentPets,moveActor:movePetActor,resetActor:resetPetActor,setVisible:setPetDesired,present:state=>petPresence.update(state),queryVisible:()=>petPresence.isVisible()});
+
 // ---------- IPC ----------
 
 ipcMain.handle("core:get", () => coreState);
@@ -1163,6 +1210,19 @@ for (const operation of ["list", "upsert", "remove", "migrate", "probe"]) {
     return result;
   });
 }
+const teamFiles=require('./team-files.js').createTeamFiles({
+  get:async route=>{
+    if(!core?.port||!core?.token)throw Error('核心服务未连接');
+    const response=await httpGet(core.port,route,{Authorization:'Bearer '+core.token});
+    if(response.status!==200)throw Error('文件信息暂时不可用（'+response.status+'）');
+    return JSON.parse(response.body);
+  },
+  open:file=>shell.openPath(file),reveal:file=>shell.showItemInFolder(file),
+});
+for(const operation of ['list','act'])ipcMain.handle('team:files:'+operation,async(event,input)=>{
+  modelBroker.assertFrame(event,mainWindow,core);
+  return operation==='list'?teamFiles.describe(input?.teamId):teamFiles.act(input||{});
+});
 ipcMain.handle("artifact:download", (event, id) => {
   modelBroker.assertFrame(event, mainWindow, core);
   if (typeof id !== "string" || !id || id.length > 400) throw Error("artifact/invalid_id");
@@ -1192,8 +1252,7 @@ ipcMain.handle("pet:move", (_event, dx, dy) => {
 ipcMain.handle("pet:visible", (_event, visible) => {
   if (!petWindow || petWindow.isDestroyed()) return { ok: false };
   console.log(`[pet] setVisible(${visible})`);
-  if (visible) petWindow.show();
-  else petWindow.hide();
+  applyPetVisibility(visible);
   return { ok: true };
 });
 
@@ -1211,7 +1270,7 @@ ipcMain.handle("pet:workbench", () => {
 // 未经页面的隐藏（外部 hide、窗口被移出可视区）都会让桌宠静默消失且永不回来。
 ipcMain.handle("pet:query", () => {
   if (!petWindow || petWindow.isDestroyed()) return { visible: false, alive: false };
-  return { visible: petWindow.isVisible(), alive: true };
+  return { visible: petPresence.isVisible(), alive: true };
 });
 
 ipcMain.handle("pet:reset", () => {
@@ -1222,7 +1281,8 @@ ipcMain.handle("pet:reset", () => {
     y: Math.max(area.y, area.y + area.height - PET_SIZE.height - 24),
   };
   petWindow.setBounds({ ...PET_SIZE, ...bounds });
-  petWindow.show();
+  for(const w of agentPetWindows.values())if(!w.isDestroyed())w.setPosition(bounds.x,bounds.y);
+  petPresence.apply();
   // "回到右下角"同时要清掉记住的位置，否则下次启动又回到旧坐标。
   writePetPref({ x: bounds.x, y: bounds.y });
   return { ok: true, bounds };
@@ -1445,6 +1505,11 @@ ipcMain.handle("shell:invoke", async (_event, name, args) => {
 // ---------- 生命周期 ----------
 
 // M7：单实例——第二次启动唤醒既有的那个窗口，而不是再拉一个核心。
+if (process.env.OWO_DESKTOP_PROFILE_DIR) {
+  const profile = path.resolve(process.env.OWO_DESKTOP_PROFILE_DIR);
+  fs.mkdirSync(profile, { recursive: true });
+  app.setPath('userData', profile);
+}
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();

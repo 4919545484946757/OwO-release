@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'none'; connect-src 'none'">
+<title>确认交给队伍的任务</title><link rel="stylesheet" href="pet-task-confirmation.css"></head>
+<body><main><div class="eyebrow">桌宠已收到需求</div><h1>这就是要交给队伍的任务吗？</h1><p class="intro">可以先改好文字。确认后，指挥员才会理解需求、写执行提示词并安排成员。</p>
+<p id="previous" class="intro" hidden>上一队伍已中断。本次确认会开始新队伍，旧任务保留在工作台，不会自动恢复。</p><label for="task">任务内容</label><textarea id="task" maxlength="8000" spellcheck="false" autofocus></textarea><div class="count" id="count"></div>
+<section class="context"><div><span>项目目录</span><strong id="workspace"></strong></div><div><span>成果保存到</span><strong id="output"></strong></div></section>
+<section class="team"><h2>本次队伍</h2><div id="roles"></div><p>由指挥员决定具体任务、责任人和交付标准。写文件或运行命令仍按项目原有权限处理。</p></section>
+<p id="error" role="alert" hidden></p></main><footer><button id="cancel" class="secondary">取消，不执行</button><button id="confirm" class="primary">确认任务，开始执行</button></footer>
+<script src="pet-task-confirmation-ui.js"></script></body></html>

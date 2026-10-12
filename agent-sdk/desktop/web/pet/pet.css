@@ -197,3 +197,19 @@ body { display: grid; place-items: end center; padding: 8px; }
   .pet.antic .avatar,
   .pet.happy .avatar { animation: none !important; }
 }
+
+/* The animated pet itself is the agent; there is no surrounding control panel. */
+.pet .halo{display:none;animation:none}
+.bubble{top:-22px;width:max-content;max-width:246px;white-space:nowrap;text-align:center;line-height:1.5;padding:7px 13px;background:rgba(24,29,39,.9);border:1px solid rgba(255,255,255,.12);font-size:12px;pointer-events:none}
+.pet.feed-hover .halo{display:block;opacity:1;animation:none;border-color:#b4f2d7;box-shadow:0 0 24px #9ae5c95c}
+.feed-hover .avatar{transform:translateY(-5px) rotate(-3deg);transition:transform .18s}
+.feed-working .bubble{color:#b8e1ff}.feed-complete .bubble{color:#bbf3d5}
+#feed-food{pointer-events:none;position:absolute;z-index:10;top:54px;left:34px;max-width:200px;border-radius:10px;background:#fcfff9;color:#263d37;padding:9px 13px;font:12px 'Segoe UI',sans-serif;box-shadow:0 6px 24px #0003;opacity:0}
+body:has(.feed-eating) #feed-food{animation:feed-food .9s cubic-bezier(.4,0,.2,1) forwards}.feed-eating .avatar{animation:feed-swallow .9s ease-in-out}
+@keyframes feed-food{0%{opacity:1;transform:translate(-12px,-18px) rotate(-5deg)}35%{opacity:1;border-radius:50%;transform:translate(18px,10px) scale(.55)}75%,100%{opacity:0;transform:translate(35px,70px) scale(0)}}
+@keyframes feed-swallow{0%,55%,100%{transform:scale(1)}65%{transform:translateY(-4px) scale(1.025)}78%{transform:scale(1.07,.93)}90%{transform:scale(.98,1.035)}}
+@media(prefers-reduced-motion:reduce){.feed-eating .avatar{animation:none}body:has(.feed-eating) #feed-food{animation:feed-food .1s linear}}
+
+/* Commander: stable stance while reading/assigning; keep explicit feed and touch gestures. */
+.pet.commander { animation: none; }
+.pet.commander.speaking:not(.feed-eating):not(.happy):not(.dropped) .avatar { animation: none; }

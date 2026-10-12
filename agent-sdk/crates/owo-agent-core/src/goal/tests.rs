@@ -1494,3 +1494,51 @@ fn host_abort_signal_is_shared_with_goal_runner() {
     assert!(std::sync::Arc::ptr_eq(&observed, &host_abort));
     assert!(observed.load(std::sync::atomic::Ordering::SeqCst));
 }
+
+struct DeadlineWorker;
+#[async_trait::async_trait]
+impl Worker for DeadlineWorker {
+    fn name(&self) -> &str {
+        "deadline-worker"
+    }
+    async fn run(&self, _input: &serde_json::Value) -> Result<String, String> {
+        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        Ok("must not finish".into())
+    }
+}
+#[tokio::test]
+async fn in_flight_worker_is_cancelled_at_goal_deadline() {
+    let mut goal = Goal::new("deadline-goal", "enforce in-flight deadline");
+    goal.budget.max_duration_secs = 1;
+    let mut plan = Plan::new("deadline-plan", "deadline-goal");
+    plan.add_step(StepSpec::new("slow", "deadline-worker"));
+    let registry = WorkerRegistry::new();
+    registry.register(std::sync::Arc::new(DeadlineWorker));
+    let mut runner = GoalRunner::new(goal, plan, RunnerConfig::default());
+    let aborted = std::sync::Arc::clone(&runner.aborted_flag);
+    let task = tokio::spawn(async move {
+        let result = runner.run(&registry).await;
+        (result, runner.state)
+    });
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    assert!(
+        aborted.load(std::sync::atomic::Ordering::SeqCst),
+        "deadline must signal cancellation before cleanup completes"
+    );
+    let (result, state) = tokio::time::timeout(
+        CANCELLATION_CLEANUP_GRACE + std::time::Duration::from_secs(5),
+        task,
+    )
+    .await
+    .expect("cleanup must remain bounded")
+    .unwrap();
+    let result = result.unwrap();
+    assert_eq!(result, GoalStatus::Failed);
+    assert!(state
+        .goal
+        .error
+        .as_deref()
+        .unwrap_or_default()
+        .contains("预算"));
+    assert_ne!(state.records["slow"].status, StepStatus::Succeeded);
+}

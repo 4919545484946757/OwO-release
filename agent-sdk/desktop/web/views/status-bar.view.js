@@ -15,11 +15,11 @@
   "use strict";
 
   const SEGMENTS = [
-    { key: "backend", label: "后台", target: "settings", hint: "核心服务状态 · 点击进入设置与诊断" },
+    { key: "backend", label: "服务", target: "settings", hint: "核心服务状态 · 点击进入设置与诊断" },
     { key: "workspace", label: "工作区", target: "projects", hint: "当前项目与读写范围 · 点击进入工作区" },
-    { key: "model", label: "本次模型", target: "model", hint: "切换模型、设置自定义接口地址与模型名 · 点击进入模型页" },
+    { key: "model", label: "模型", target: "model", hint: "切换模型、设置自定义接口地址与模型名 · 点击进入模型页" },
     { key: "permission", label: "权限", target: "permissions", hint: "权限档位与待审批 · 点击进入权限中心" },
-    { key: "task", label: "当前任务", target: "chat", hint: "任务进展 · 点击进入会话" },
+    { key: "task", label: "任务", target: "chat", hint: "任务进展 · 点击进入会话" },
   ];
 
   const PROVIDER_TTL_MS = 15000;
@@ -300,6 +300,7 @@
 
   let host = null;
   let source = null;
+  let onRefresh = null;
   let timer = 0;
   let lastSerialized = "";
 
@@ -324,7 +325,9 @@
 
   function repaint() {
     if (!host || uiHidden()) return;
-    paint(computeFacts(source ? source() : {}, streamState()));
+    const facts = computeFacts(source ? source() : {}, streamState());
+    paint(facts);
+    if (onRefresh) onRefresh(facts);
   }
 
   function streamState() {
@@ -374,6 +377,7 @@
     if (!root || typeof global.document === "undefined") return;
     host = root;
     source = (options && options.getFacts) || null;
+    onRefresh = (options && options.onRefresh) || null;
     build();
     if (!timer && typeof global.setInterval === "function") {
       timer = global.setInterval(() => {
@@ -394,6 +398,7 @@
     timer = 0;
     host = null;
     source = null;
+    onRefresh = null;
     // 缓存必须一起清：验收脚本会在同一进程里连跑多个场景（不同私有工作区），
     // 留着上一轮的工作区/提供商结果就是"看起来成功"的假绿。
     cache.provider = { at: 0, value: null, pending: false };

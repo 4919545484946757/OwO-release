@@ -278,11 +278,22 @@ impl TeamCoordinator {
     pub async fn finalize_success(&self, team_id: &str) -> WorkSwarmResult<TeamRun> {
         let lock = self.team_lock(team_id);
         let _guard = lock.lock().await;
+        let repair_epoch = self.phase_epoch(team_id);
         let (mut team, mut space, mut state) = self.load_bundle(team_id).await?;
-        let accepted = match self
+        if self.phase_epoch(team_id) != repair_epoch || self.cancel_token(team_id).is_cancelled() {
+            return Err(WorkSwarmError::Conflict(
+                "交付检查期间任务已取消或代次变化".into(),
+            ));
+        }
+        let gate_result = self
             .validate_delivery_gate(team_id, &space, &mut state)
-            .await
-        {
+            .await;
+        if self.phase_epoch(team_id) != repair_epoch || self.cancel_token(team_id).is_cancelled() {
+            return Err(WorkSwarmError::Conflict(
+                "交付验收期间任务已取消或代次变化".into(),
+            ));
+        }
+        let accepted = match gate_result {
             Ok(receipts) => receipts,
             Err(error @ WorkSwarmError::DeliveryPending(_)) => {
                 let reason = format!("delivery_pending:changeset:{error}");
@@ -298,6 +309,64 @@ impl TeamCoordinator {
                     format!("交付门等待 ChangeSet 人工处理：{error}"),
                 );
                 return Err(error);
+            }
+            Err(error @ WorkSwarmError::DeliveryRepair { .. }) => {
+                let (step_id, attempt_id, validator_id, reason) = match &error {
+                    WorkSwarmError::DeliveryRepair {
+                        step_id,
+                        attempt_id,
+                        validator_id,
+                        reason,
+                    } => (
+                        step_id.clone(),
+                        attempt_id.clone(),
+                        validator_id.clone(),
+                        reason.clone(),
+                    ),
+                    _ => unreachable!(),
+                };
+                self.persist_state(&state)?;
+                drop(_guard);
+                let request = super::coord_rework::ReworkRequest {
+                    step_id: step_id.clone(),
+                    instruction: reason.clone(),
+                    note: "宿主交付检查返工".into(),
+                    actor: "host_validator".into(),
+                    source_id: Some(format!("gate:{step_id}:{attempt_id}:{validator_id}")),
+                    expected_attempt_id: Some(attempt_id),
+                    issue_ids: Vec::new(),
+                };
+                match self
+                    .rework_batch(team_id, &[request], Some(repair_epoch))
+                    .await
+                {
+                    Ok(_) => {
+                        self.audit(
+                            team_id,
+                            "team.delivery_rework_dispatched",
+                            format!("任务 {step_id}：{reason}"),
+                        );
+                        return Err(error);
+                    }
+                    Err(failure) => {
+                        let lock = self.team_lock(team_id);
+                        let _guard = lock.lock().await;
+                        if self.phase_epoch(team_id) != repair_epoch
+                            || self.cancel_token(team_id).is_cancelled()
+                        {
+                            return Err(failure);
+                        }
+                        let (mut team, _, mut state) = self.load_bundle(team_id).await?;
+                        self.fail_run_internal(
+                            team_id,
+                            &mut team,
+                            &mut state,
+                            &format!("交付返工无法继续：{failure}；{reason}"),
+                        )
+                        .await?;
+                        return Err(failure);
+                    }
+                }
             }
             Err(error) => {
                 let reason = format!("交付验收未通过：{error}");
@@ -422,6 +491,12 @@ impl TeamCoordinator {
             .put(&manifest_bytes)
             .map_err(|e| WorkSwarmError::Run(format!("交付清单 CAS 落盘失败：{e}")))?;
 
+        // Artifact reads above can yield while Cancel invalidates this generation.
+        if self.phase_epoch(team_id) != repair_epoch || self.cancel_token(team_id).is_cancelled() {
+            return Err(WorkSwarmError::Conflict(
+                "交付提交前任务已取消或代次变化".into(),
+            ));
+        }
         let mut succeeded_state = state.clone();
         succeeded_state.completion_record = Some(completion_record);
         succeeded_state.goal.transition(GoalStatus::Succeeded);

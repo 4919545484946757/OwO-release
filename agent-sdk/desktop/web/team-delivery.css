@@ -1,0 +1,47 @@
+/* The team page prioritizes the user's files and a compact progress summary. */
+#workbenchPanelSection:has([data-panel="workswarm"]) .workbench-panel-rail { display:none; }
+body.tools-open.panel-open #workbenchPanelSection:has([data-panel="workswarm"]) .workbench-panel-layout { grid-template-columns:minmax(0,1fr); }
+.owo-ws-panel:has(#ws-d-main) .owo-ws-tabs { display:none; }
+.owo-ws-panel:has(#ws-d-main) { max-width:1080px; margin:0 auto; }
+.owo-ws-panel #ws-d-main { gap:16px !important; }
+.owo-ws-panel .owo-ws-d-head { margin-bottom:18px; gap:12px; }
+.owo-ws-panel #ws-d-active { display:none; }
+.owo-ws-panel #ws-d-error:empty { display:none; }
+.owo-ws-panel #ws-d-gate { display:none !important; }
+.team-delivery { padding:24px; border:1px solid var(--border); border-radius:16px; background:var(--surface); }
+.team-result-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:28px; }
+.team-result-eyebrow { margin:0 0 8px; color:var(--text-3); font-size:12px; }
+.team-result-heading h2 { font-size:23px !important; line-height:1.45; margin:0 0 8px !important; overflow-wrap:anywhere; }
+.team-result-heading .hint { margin:0; }
+.team-file-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.team-file-heading h3 { margin:0; font-size:15px; }
+.team-file-heading h3 span { color:var(--text-3); font-size:12px; padding-left:8px; }
+.team-file-list { display:flex; flex-direction:column; gap:10px; }
+.team-file-row { display:flex; align-items:center; gap:14px; padding:16px; border:1px solid var(--border); border-radius:12px; background:var(--surface-2); }
+.team-file-icon { display:grid; place-items:center; flex:0 0 44px; height:48px; border-radius:10px; background:var(--accent-soft); color:var(--accent-text); font-size:11px; font-weight:700; }
+.team-file-info { flex:1; min-width:0; }.team-file-info strong { font-size:15px; overflow-wrap:anywhere; }
+.team-file-info p { margin:5px 0 0; font-size:12px; color:var(--text-3); overflow-wrap:anywhere; }
+.team-file-actions { display:flex; gap:8px; flex-wrap:wrap; }.team-file-actions button { font-size:12px; padding:8px 12px; }
+.team-file-empty { border:1px dashed var(--border); padding:20px; border-radius:10px; color:var(--text-3); font-size:13px; }
+.team-file-feedback { margin:12px 0 0; font-size:12px; color:var(--text-2); }.team-file-feedback:empty { display:none; }
+.owo-ws-panel .team-progress { padding:16px 20px; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+.owo-ws-panel .team-progress h3 { font-size:14px; margin:0 0 12px; }.team-progress h3 .hint { display:none; }
+.owo-ws-panel .owo-ws-statgrid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:12px; margin:12px 0; }
+.owo-ws-panel .owo-ws-stat { display:flex; flex-direction:column; gap:5px; }.owo-ws-stat small { font-size:11px; color:var(--text-3); }.owo-ws-stat b { font-size:18px; }
+.team-more { border:1px solid var(--border); border-radius:12px; padding:0 20px; background:var(--surface); }
+.team-more > summary { cursor:pointer; font-weight:600; font-size:13px; padding:16px 0; color:var(--text-2); }
+.team-more > .owo-ws-sec { padding:16px 0; border:0; border-top:1px solid var(--border); border-radius:0; background:transparent; box-shadow:none; }
+.team-more .hint { font-size:12px; }.team-more h3 { font-size:14px; }
+.team-more > .team-run-meta { display:flex; flex-direction:column; gap:12px; padding:0 0 16px; font-size:12px; overflow-wrap:anywhere; }
+@media(max-width:720px) { .team-delivery { padding:18px; }.team-file-row { flex-wrap:wrap; }.team-file-actions { padding-left:58px; width:100%; }.owo-ws-panel .owo-ws-statgrid { grid-template-columns:repeat(4,minmax(0,1fr)); }.team-result-heading h2 { font-size:19px !important; } }
+
+/* Override the shared panel heading margins so files and progress fit together. */
+#panelRoot .team-delivery { margin:0; padding:20px; }
+#panelRoot .team-result-heading { margin-bottom:18px; }
+#panelRoot .team-file-heading h3 { margin:0; font-size:15px; }
+#panelRoot .team-progress { gap:8px; }
+#panelRoot .team-progress h3 { margin:0; font-size:14px; }
+#panelRoot .team-progress .owo-ws-statgrid { grid-template-columns:repeat(auto-fit,minmax(80px,1fr)); margin:6px 0; }
+#panelRoot .team-progress .owo-ws-sumline.hint { display:none; }
+#panelRoot .team-more { margin:0; }
+#panelRoot .team-more > .owo-ws-sec h3 { margin:0; }

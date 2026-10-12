@@ -694,6 +694,14 @@ function showSessionView(sessionId) {
   });
 }
 
+function syncSessionWelcome() {
+  const empty = $("emptyState");
+  if (!empty) return;
+  const view = state.sessionId ? $("messages").querySelector(`.session-view[data-sid="${state.sessionId}"]`) : null;
+  const work = view?.querySelector(".msg.user,.msg.assistant,.msg.error,.event-chip,.tool-steps,.thinking-block,.turn-summary,.historical-completion");
+  empty.classList.toggle("hidden", Boolean(currentTurn() || work));
+}
+
 function newMessageBlock(node) {
   writeBox().appendChild(node);
   followScroll();
@@ -1041,7 +1049,6 @@ function createToolRunShell() {
   const icon = document.createElement("span");
   icon.className = "tool-steps-icon";
   icon.setAttribute("aria-hidden", "true");
-  icon.textContent = "⚙";
   const text = document.createElement("span");
   text.className = "tool-steps-text";
   const chev = document.createElement("span");
@@ -1327,7 +1334,7 @@ async function renderTurnSummary(sessionId, turn) {
   card.className = "turn-summary";
   card.innerHTML =
     '<div class="turn-summary-head">' +
-    '<span class="turn-summary-icon">📄</span>' +
+    '<span class="turn-summary-icon" aria-hidden="true"></span>' +
     '<strong class="turn-summary-files">读取改动…</strong>' +
     '<span class="turn-summary-chev">⌄</span>' +
     '<span class="turn-summary-deltas"></span>' +
@@ -1449,9 +1456,8 @@ function addMessage(kind, text, meta = "") {
   bindCopyButtons(div);
   writeBox().appendChild(div);
   followScroll();
-  // 有消息时隐藏中央空状态
-  const empty = $("emptyState");
-  if (empty) empty.classList.add("hidden");
+  // Administrative notices do not replace the workspace entrance.
+  syncSessionWelcome();
   return div;
 }
 
@@ -1550,6 +1556,7 @@ async function refreshHealth() {
 }
 
 async function refreshPerception() {
+  if (!$("taskAdvanced").open) return;
   try {
     const snapshot = await api("/context/snapshot");
     const levelLabels = {
@@ -1560,9 +1567,9 @@ async function refreshPerception() {
     const level = levelLabels[snapshot.permission_level] || "状态未知";
     $("permission").textContent = `感知：${level}`;
     const actions = Array.isArray(snapshot.recent_actions) && snapshot.recent_actions.length
-      ? snapshot.recent_actions.join("、")
+      ? window.OwoTaskDetails.describeActions(snapshot.recent_actions)
       : "暂无近期操作";
-    $("snapshot").textContent = `感知层级：${level}\n近期操作：${actions}`;
+    $("snapshot").textContent = `可读取的信息：${level}\n近期活动：${actions}`;
   } catch (_) {
     $("snapshot").textContent = "（无法获取情景快照）";
   }
@@ -1947,7 +1954,7 @@ function syncLocalPrefs() {
   };
   setSelect("prefFileOpener", prefs.fileOpener);
   setSelect("prefSpeechLang", prefs.speechLang);
-  setSelect("prefTheme", prefs.theme);
+  setSelect("prefTheme", prefs.theme === "system" ? "system" : (document.body.classList.contains("dark-theme") ? "dark" : "light"));
   setSelect("prefZoom", String(prefs.zoom || 1));
   setToggle("prefCompact", prefs.compact);
   setToggle("prefSound", prefs.sound);
@@ -2049,10 +2056,44 @@ for (const item of document.querySelectorAll(".settings-nav-item")) {
   item.addEventListener("click", () => setSettingsTab(item.dataset.settingsTab));
 }
 
+function syncTaskDetails(statusFacts) {
+  if (!window.OwoTaskDetails) return;
+  const active = currentTurn(), session = (state.sessionIndex || []).find(item => item.id === state.sessionId);
+  const request = active?.prompt || state.lastSessionPrompts.get(state.sessionId) || "";
+  const view = state.sessionId ? $("messages").querySelector(`.session-view[data-sid="${state.sessionId}"]`) : null;
+  const steps = document.body.classList.contains("inspector-open") && view
+    ? Array.from(view.querySelectorAll(".tool-step")).slice(-5).map(row => ({
+        label: [row.querySelector(".tool-step-label")?.textContent, row.querySelector(".tool-step-text")?.textContent].filter(Boolean).join(" · "),
+        state: row.querySelector(".tool-step-state")?.textContent || (row.classList.contains("is-ok") ? "已完成" : row.classList.contains("is-fail") ? "执行失败" : row.classList.contains("is-running") ? "进行中" : "状态未知"),
+      })) : [];
+  if (document.body.classList.contains("inspector-open")) {
+    const form = $("chatForm")?.getBoundingClientRect?.();
+    const approval = !$("approvalBar")?.classList.contains("hidden") ? $("approvalBar")?.getBoundingClientRect?.() : null;
+    if (form) {
+      const top = approval?.height ? Math.min(form.top, approval.top) : form.top;
+      $("right")?.style.setProperty("--task-detail-bottom", Math.max(16, window.innerHeight - top + 12) + "px");
+    }
+  }
+  window.OwoTaskDetails.render(document, {
+    statusFacts: Array.isArray(statusFacts) ? statusFacts : window.OwoStatusBar?.snapshotFacts() || [],
+    workspace: $("composerProjectName")?.textContent || "个人工作台",
+    title: session?.title || "", request, running: Boolean(active), phase: active?.phase,
+    pendingApprovals: state.pendingApprovals.size, pendingQuestion: state.pendingQuestion, authFailed: authorizationUnavailable,
+    steps, hasFileChanges: Boolean($("diffList")?.querySelector(".diff-item")),
+  });
+}
+function setTaskDetailsVisible(open) {
+  document.body.classList.toggle("inspector-open", open);
+  $("inspectorToggle").setAttribute("aria-expanded", String(open));
+  $("inspectorToggle").setAttribute("aria-label", open ? "关闭任务详情" : "打开任务详情");
+  syncTaskDetails();
+  if (open) { $("right").querySelector(".task-details-content").scrollTop = 0; $("taskDetailsClose").focus(); }
+}
 function initGlobalStatusBar() {
   const host = $("globalStatusBar");
   if (!host || !window.OwoStatusBar) return;
   window.OwoStatusBar.mount(host, {
+    onRefresh: syncTaskDetails,
     getFacts: () => ({
       workspaceRoot: $("workspace")?.value || localStorage.getItem("owo.workspace") || "",
       reading: Boolean(currentTurn()),
@@ -2072,12 +2113,13 @@ function initGlobalStatusBar() {
 
 window.addEventListener("owo:statusbar-navigate", (event) => {
   const key = event.detail?.key;
+  $("connectionDetails").open = false;
   if (key === "backend") {
     setSettingsPageVisible(true);
     setSettingsTab("general");
   } else if (key === "workspace") {
     setSettingsPageVisible(false);
-    document.querySelector('[data-codex-group="workspace"]')?.click();
+    openWorkspaceMenu($("sidebarWorkspaceBtn"));
   } else if (key === "model") {
     setSettingsPageVisible(true);
     setSettingsTab("models");
@@ -2215,6 +2257,11 @@ document.addEventListener("keydown", (event) => {
   const modalWasOpen = !modalRoot.classList.contains("hidden");
   if (menuWasOpen) closeComposerMenu();
   if (modalWasOpen) closeModal();
+  const connectionWasOpen = $("connectionDetails")?.open;
+  if (connectionWasOpen) { $("connectionDetails").open = false; $("connectionDetails").querySelector("summary")?.focus(); }
+  if (!menuWasOpen && !modalWasOpen && !connectionWasOpen && document.body.classList.contains("inspector-open") && !menuAnchor) {
+    setTaskDetailsVisible(false); $("inspectorToggle").focus();
+  }
   // Close the mobile drawer only when no overlay or dialog consumed Escape.
   if (!menuWasOpen && !modalWasOpen && document.body.classList.contains("mobile-sidebar-open")) {
     setMobileSidebarOpen(false);
@@ -2293,6 +2340,8 @@ function startRunStatus() {
   state.runStartedAt = currentTurn()?.startedAt || Date.now();
   el.classList.remove("hidden", "is-waiting");
   el.classList.add("is-live");
+  el.dataset.phase = currentTurn()?.phase || "thinking";
+  document.body.dataset.agent = /^(waiting|asking)$/.test(el.dataset.phase) ? "waiting" : "running";
   $("runStatusText").textContent = currentTurn()?.phaseText || RUN_PHASE_DEFAULT[currentTurn()?.phase] || RUN_PHASE_DEFAULT.thinking;
   $("runStatusTimer").textContent = "0s";
   if (state.runTicker) clearInterval(state.runTicker);
@@ -2313,6 +2362,8 @@ function setRunPhase(phase, text) {
   const el = $("runStatus");
   if (!el || el.classList.contains("hidden")) return;
   el.classList.toggle("is-waiting", phase === "waiting");
+  el.dataset.phase = phase;
+  document.body.dataset.agent = /^(waiting|asking)$/.test(phase) ? "waiting" : "running";
   const label = $("runStatusText");
   const next = text || RUN_PHASE_DEFAULT[phase];
   if (label && next) label.textContent = next;
@@ -2327,7 +2378,9 @@ function stopRunStatus() {
   if (el) {
     el.classList.add("hidden");
     el.classList.remove("is-live", "is-waiting");
+    delete el.dataset.phase;
   }
+  document.body.dataset.agent = state.pendingApprovals && state.pendingApprovals.size ? "waiting" : "idle";
 }
 
 function attachTurnFailureActions(failure, reason, presentation) {
@@ -3694,17 +3747,25 @@ if (savedWorkspace) $("workspace").value = savedWorkspace;
 function applyTheme(theme) {
   const dark = theme === "dark";
   document.body.classList.toggle("dark-theme", dark);
+  const appearanceTheme = $("prefTheme");
+  if (appearanceTheme && LOCAL_PREFS.theme !== "system") appearanceTheme.value = dark ? "dark" : "light";
   $("themeToggle").textContent = dark ? "☀" : "☾";
   $("themeToggle").title = dark ? "切换白色主题" : "切换深色主题";
+  // 主题按钮用线性图标（与其余图标同一笔触），文字符号在不同字体下粗细不一。
+  const themeIcon = dark
+    ? '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="2.9"/><path d="M8 1.8v1.4M8 12.8v1.4M1.8 8h1.4M12.8 8h1.4M3.6 3.6l1 1M11.4 11.4l1 1M3.6 12.4l1-1M11.4 4.6l1-1"/></svg>'
+    : '<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8z"/></svg>';
   const side = $("themeToggleSide");
   if (side) {
-    side.textContent = dark ? "☀" : "☾";
+    side.innerHTML = themeIcon;
     side.title = $("themeToggle").title;
+    side.setAttribute("aria-label", side.title);
   }
   const bar = $("menubarTheme");
   if (bar) {
-    bar.textContent = dark ? "☀" : "☾";
+    bar.innerHTML = themeIcon;
     bar.title = $("themeToggle").title;
+    bar.setAttribute("aria-label", bar.title);
   }
   localStorage.setItem("owo.theme", dark ? "dark" : "light");
 }
@@ -3735,7 +3796,7 @@ enableResize("rightResize", "--inspect-width", 260, 520, true);
 const mobileSidebarToggle = $("mobileSidebarToggle");
 const mobileSidebarBackdrop = $("mobileSidebarBackdrop");
 function setMobileSidebarOpen(open) {
-  const visible = Boolean(open) && window.matchMedia("(max-width: 700px)").matches;
+  const visible = Boolean(open) && window.matchMedia("(max-width: 860px)").matches;
   document.body.classList.toggle("mobile-sidebar-open", visible);
   mobileSidebarToggle.setAttribute("aria-expanded", String(visible));
   mobileSidebarToggle.setAttribute("aria-label", visible ? "关闭会话侧栏" : "打开会话侧栏");
@@ -3751,7 +3812,7 @@ document.addEventListener("click", (event) => {
   }
 });
 window.addEventListener("resize", () => {
-  if (!window.matchMedia("(max-width: 700px)").matches) setMobileSidebarOpen(false);
+  if (!window.matchMedia("(max-width: 860px)").matches) setMobileSidebarOpen(false);
 });
 // 会话、工具与设置三态由 core/workbench-view.js 唯一维护；本文件保留兼容调用名。
 const workbenchView = window.OwoWorkbenchView.create({
@@ -3840,6 +3901,7 @@ for (const button of document.querySelectorAll("[data-workbench-panel]")) {
 }
 function bindToolsEntry(id) {
   $(id).addEventListener("click", () => {
+    if (id === "codexToolsEntry") { openWorkbenchSearch(); return; }
     if (document.body.classList.contains("tools-open")) setSettingsPageVisible(false);
     else openToolsView();
   });
@@ -3848,9 +3910,33 @@ bindToolsEntry("codexToolsEntry");
 bindToolsEntry("sidebarToolsBtn");
 $("codexSettingsEntry").addEventListener("click", () => setSettingsPageVisible(true));
 $("codexViewBack").addEventListener("click", () => setSettingsPageVisible(false));
-$("inspectorToggle").addEventListener("click", () => {
-  document.body.classList.toggle("inspector-open");
+$("inspectorToggle").addEventListener("click", () => setTaskDetailsVisible(!document.body.classList.contains("inspector-open")));
+// 功能页内主侧栏常驻：在功能页点会话或「新对话」，先回到对话视图，再交给原有处理器。
+document.addEventListener("click", (event) => {
+  if (!document.body.classList.contains("panel-open")) return;
+  const target = event.target instanceof Element ? event.target : null;
+  if (target && target.closest("#sidebar .codex-sidebar [data-session-select], #sidebar .codex-sidebar #newSession")) {
+    setSettingsPageVisible(false);
+  }
+}, true);
+$("taskStatusPill").addEventListener("click", () => {
+  if (document.body.classList.contains("tools-open") || document.body.classList.contains("settings-open")) setSettingsPageVisible(false);
+  setTaskDetailsVisible(true);
 });
+$("taskDetailsClose").addEventListener("click", () => { setTaskDetailsVisible(false); $("inspectorToggle").focus(); });
+$("taskDetailReview").addEventListener("click", () => {
+  setTaskDetailsVisible(false);
+  const target = state.pendingQuestion ? document.querySelector(".msg.question") : $("approvalBar");
+  target?.scrollIntoView({ block: "nearest" }); target?.querySelector("button,input,textarea")?.focus();
+});
+$("taskAdvanced").addEventListener("toggle", () => {
+  if ($("taskAdvanced").open) void Promise.allSettled([refreshPerception(), refreshSuggestions(), refreshObservations(), refreshAudit()]);
+});
+document.addEventListener("click", event => {
+  const connection = $("connectionDetails");
+  if (connection.open && !connection.contains(event.target)) connection.open = false;
+});
+
 $("themeToggleSide").addEventListener("click", () => {
   applyTheme(document.body.classList.contains("dark-theme") ? "light" : "dark");
 });
@@ -4425,11 +4511,11 @@ function syncProjectChip() {
   const emptyState = $("emptyState");
   if (emptyState) emptyState.classList.toggle("needs-workspace", needsWorkspace);
   const emptyTitle = $("emptyStateTitle");
-  if (emptyTitle) emptyTitle.textContent = needsWorkspace ? "先选择一个项目工作区" : "今天要构建什么？";
+  if (emptyTitle) emptyTitle.textContent = needsWorkspace ? "先选择一个项目工作区" : "你想完成什么？";
   const emptyDescription = $("emptyStateDescription");
   if (emptyDescription) emptyDescription.textContent = needsWorkspace
     ? "新任务需要一个工作目录。选择已有文件夹，或创建一个新项目文件夹。"
-    : "从左侧选择会话继续，或直接输入指令开始";
+    : "直接描述目标，或先定义范围与执行方式。已有结果可在产物与证据中查看。";
   const emptyWorkspaceButton = $("emptyStateWorkspaceBtn");
   if (emptyWorkspaceButton) emptyWorkspaceButton.hidden = !needsWorkspace;
 }
@@ -4821,6 +4907,7 @@ async function boot() {
   shellHydrated = true;
   // 初始深链要等服务水合/恢复完成再打开，避免面板请求早于授权与 ready。
   applyDeepLink();
+  window.owo?.pendingFeed?.().then(openPetFeedRun).catch(()=>{});
   startInvalidation();
   workbenchRefresh.start();
 }
@@ -4833,3 +4920,11 @@ $("prefZoom")?.addEventListener("change", async event => {
  try { await window.owo.setZoom(factor); LOCAL_PREFS.zoom = factor; saveLocalPrefs(); }
  catch { showToast("缩放未应用，请重试", "error"); }
 });
+
+function openPetFeedRun(ref) {
+  if (!shellHydrated) return;
+  if(ref?.panel==='permissions'){openPanelById('permissions');return;}
+  openPanelById('workswarm');
+  if(ref?.id) window.OwoPanels.workswarm.open(ref.id);
+}
+window.owo?.onOpenFeed?.(openPetFeedRun);

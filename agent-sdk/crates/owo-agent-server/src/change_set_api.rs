@@ -161,7 +161,8 @@ pub(crate) async fn revert_change_set(
 
 /// ChangeSet 人工接受后，若团队先前停在交付门等待人工处理，则重跑唯一 DeliveryGate。
 async fn finalize_waiting_delivery(
-    coordinator: &TeamCoordinator,
+    coordinator: &Arc<TeamCoordinator>,
+    state: &Arc<AppState>,
     team_id: &str,
     workspace_root: &Path,
 ) {
@@ -184,6 +185,25 @@ async fn finalize_waiting_delivery(
     }
     let _delivery_lease = super::acquire_workspace_delivery_lease(workspace_root).await;
     if let Err(error) = coordinator.finalize_success(team_id).await {
+        if matches!(
+            &error,
+            owo_agent_core::workswarm::WorkSwarmError::DeliveryRepair { .. }
+        ) {
+            let coordinator = Arc::clone(coordinator);
+            let state = Arc::clone(state);
+            let id = team_id.to_string();
+            tokio::spawn(async move {
+                for _ in 0..100 {
+                    if !coordinator.is_loop_alive(&id) {
+                        super::run_team_loop(state, coordinator, id).await;
+                        return;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                }
+                tracing::warn!(team_id=%id,"返工已登记，原循环尚未退出，请从工作台继续");
+            });
+            return;
+        }
         if !matches!(
             error,
             owo_agent_core::workswarm::WorkSwarmError::DeliveryPending(_)
@@ -222,7 +242,7 @@ async fn decide(
     if let Some(decision) = &existing.decision {
         if decision.action == action.as_str() {
             let root = workspace_root(&state, &coordinator, &existing.team_id);
-            finalize_waiting_delivery(&coordinator, &existing.team_id, &root).await;
+            finalize_waiting_delivery(&coordinator, &state, &existing.team_id, &root).await;
             return Ok(Json(json!({
                 "replayed": true,
                 "change_set": existing,
@@ -316,7 +336,7 @@ async fn decide(
         ),
     );
     let root = workspace_root(&state, &coordinator, &outcome.change_set.team_id);
-    finalize_waiting_delivery(&coordinator, &outcome.change_set.team_id, &root).await;
+    finalize_waiting_delivery(&coordinator, &state, &outcome.change_set.team_id, &root).await;
     Ok(Json(json!({
         "replayed": outcome.replayed,
         "change_set": outcome.change_set,

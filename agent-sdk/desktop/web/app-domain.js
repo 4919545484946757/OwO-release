@@ -223,7 +223,7 @@ async function refreshSuggestions() {
       const li = document.createElement("li");
       li.innerHTML = `<strong>${esc(suggestion.app_id)}</strong><span class="sub">${esc(suggestion.summary)}</span><span class="sub">${esc(suggestion.sequence.join(" → "))}</span>`;
       const actions = ["learn", "execute_once", "ignore", "mute_forever"];
-      const labels = { learn: "学习", execute: "执行一次", ignore: "忽略", mute: "静默" };
+      const labels = { learn: "保存为技能", execute_once: "执行一次", ignore: "忽略", mute_forever: "不再提示" };
       for (const action of actions) {
         const button = document.createElement("button");
         button.textContent = labels[action];
@@ -401,8 +401,9 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
     });
   }
   list.innerHTML = "";
-  const renderSession = (session, depth) => {
+  const renderSession = (session, depth, groupWorkspace) => {
     const li = document.createElement("li");
+    li.dataset.groupWorkspace = groupWorkspace || "";
     // 运行中徽标：该会话仍有未完成回合（后台并行执行）。
     if (state.activeTurns.has(session.id)) {
       li.classList.add("running");
@@ -551,7 +552,7 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
     }
     list.appendChild(li);
     for (const child of byParent.get(session.id) || []) {
-      renderSession(child, depth + 1);
+      renderSession(child, depth + 1, groupWorkspace);
     }
   };
   // Codex 风格：一级按项目（工作区）分桶，fork 父子树留在组内。
@@ -570,6 +571,7 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
     const groupId = "grp:" + (group.workspace || "").toLowerCase();
     const header = document.createElement("li");
     header.className = "codex-session-group";
+    header.dataset.groupWorkspace = group.workspace || "";
     const collapsed = collapsedGroups.has(group.workspace || "");
     header.setAttribute("role", "button");
     header.setAttribute("tabindex", "0");
@@ -610,7 +612,7 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
       }
     });
     list.appendChild(header);
-    for (const session of children) renderSession(session, 0);
+    for (const session of children) renderSession(session, 0, group.workspace);
     if (collapsed) {
       // 折叠：隐藏本组标题之后、下一个组标题之前的全部条目（含 fork 子树）。
       let node = header.nextElementSibling;
@@ -647,6 +649,7 @@ function filterSessionList() {
     // 搜索期间：命中的显示，未命中的隐藏（忽略折叠标记）。
     // 非搜索期间：不动 hidden，折叠态由 refreshSessions 负责。
     if (query) li.classList.toggle("hidden", !li.textContent.toLowerCase().includes(query));
+    else li.classList.toggle("hidden", collapsedGroups.has(li.dataset.groupWorkspace || ""));
   }
   // 组标题：搜索后没有可见子项的组一并隐藏，不留空标题。
   for (const li of items) {
@@ -660,7 +663,9 @@ function filterSessionList() {
       }
       node = node.nextElementSibling;
     }
-    li.classList.toggle("hidden", !anyVisible);
+    li.classList.toggle("hidden", Boolean(query) && !anyVisible);
+    li.setAttribute("aria-expanded", String(query ? anyVisible : !collapsedGroups.has(li.dataset.groupWorkspace || "")));
+    li.querySelector(".codex-group-caret")?.classList.toggle("searching", Boolean(query));
   }
   // 搜索时把组标题的折叠箭头显示成"展开"态，避免误导（内容其实已强制展开）。
   if (query) {
@@ -838,7 +843,7 @@ async function selectSession(id, forceHistory = false) {
     const restoredFacts = restoreSessionFacts(id, detail);
     if (reusedView && (!forceHistory || runningTurn)) {
       // 本地视图还在（可能正有运行中回合的实时输出）：不重拉历史覆盖，只刷新侧栏。
-      $("emptyState").classList.add("hidden");
+      syncSessionWelcome();
       await refreshSessions(id);
       if (selectionVersion !== state.selectionVersion) return;
       await refreshDiff(id);
@@ -912,14 +917,11 @@ async function selectSession(id, forceHistory = false) {
     if (lastRole === "user") {
       addMessage("system", "上一条消息还没有回复（回合可能失败或被中断），可重新发送让助手继续");
     }
-    addMessage("system", `已恢复会话：${detail.title || id.slice(0, 12)}`);
-    // 空会话（无任何消息）时展示中央空状态；决策须在系统提示之后，避免被其掩埋
-    if (rendered) $("emptyState").classList.add("hidden");
-    else $("emptyState").classList.remove("hidden");
+    syncSessionWelcome();
   } catch (error) {
     if (selectionVersion !== state.selectionVersion) return;
     sessionView(id).innerHTML = "";
-    addMessage("system", `会话加载失败：${friendlyError(error, { resource: true })}`);
+    addMessage("error", `会话加载失败：${friendlyError(error, { resource: true })}`);
   }
   await refreshSessions(id);
   if (selectionVersion !== state.selectionVersion) return;
@@ -977,7 +979,8 @@ async function newSession() {
   });
   state.pendingModelOverride = null;
   await selectSession(session.id);
-  addMessage("system", "已创建新会话，工作区：" + workspace);
+  showToast("新对话已就绪");
+  syncSessionWelcome();
 }
 
 // 进入时自动恢复上次的对话：优先 localStorage 记忆，其次最近更新的会话；
@@ -1748,34 +1751,44 @@ async function refreshDiff(sessionId) {
   const list = $("diffList");
   if (sessionId && sessionId !== state.sessionId) return;
   const generation = ++sessionDiffRefreshGeneration;
+  $("revertBtn").disabled = true;
   if (!sessionId) {
-    list.innerHTML = "";
+    list.innerHTML = '<li class="sub">开始任务后，可以在这里检查文件变化。</li>';
     return;
   }
-  list.innerHTML = "";
+  list.innerHTML = '<li class="sub">正在读取文件变化…</li>';
   try {
     const diffs = await api(`/session/${sessionId}/diff`);
     if (generation !== sessionDiffRefreshGeneration || sessionId !== state.sessionId) return;
+    list.innerHTML = "";
+    let index = 0;
     for (const diff of diffs) {
       const li = document.createElement("li");
       li.className = "diff-item";
       const changed = diff.before != null && diff.after != null ? "修改" : diff.after != null ? "新增" : "删除";
-      const marker = changed === "删除" ? "🗑" : changed === "新增" ? "➕" : "✏️";
-      li.innerHTML = `<strong>${marker} ${esc(diff.path)}</strong><span class="sub">${changed}</span>`;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "diff-open";
+      button.innerHTML = '<span class="file-change-kind">' + changed + '</span><strong>' + esc(diff.path) + '</strong><span aria-hidden="true">⌄</span>';
+      button.title = "查看修改前后的内容：" + diff.path;
+      button.setAttribute("aria-expanded", "false");
       const body = document.createElement("pre");
       body.className = "diff-body hidden";
+      body.id = "diff-preview-" + generation + "-" + index++;
       body.textContent = diffText(diff);
-      li.appendChild(body);
-      li.addEventListener("click", (event) => {
-        if (event.target.tagName === "BUTTON") return;
-        body.classList.toggle("hidden");
+      button.setAttribute("aria-controls", body.id);
+      button.addEventListener("click", () => {
+        const hidden = body.classList.toggle("hidden");
+        button.setAttribute("aria-expanded", String(!hidden));
       });
+      li.append(button, body);
       list.appendChild(li);
     }
-    if (!diffs.length) list.innerHTML = '<li class="sub">暂无改动</li>';
+    $("revertBtn").disabled = diffs.length === 0;
+    if (!diffs.length) list.innerHTML = '<li class="sub">本次会话没有文件改动。文字结果保留在对话中。</li>';
   } catch (_) {
     if (generation !== sessionDiffRefreshGeneration || sessionId !== state.sessionId) return;
-    list.innerHTML = '<li class="sub">无会话或读取失败</li>';
+    list.innerHTML = '<li class="sub">暂时无法读取文件变化，请稍后重新打开会话。</li>';
   }
 }
 
@@ -1803,9 +1816,9 @@ function diffText(diff) {
 async function revertAll() {
   if (!state.sessionId) return;
   const ok = await askConfirm({
-    title: "回滚改动",
-    message: "确定回滚当前会话全部写操作？",
-    confirmText: "回滚",
+    title: "撤销文件改动",
+    message: "确定撤销本次会话产生的文件改动？这会恢复修改前的文件内容。",
+    confirmText: "撤销",
     kind: "danger",
   });
   if (!ok) return;
@@ -2629,7 +2642,18 @@ function unmountActivePanel() {
   const panel = window.OwoPanels?.[currentPanel];
   if (panel && typeof panel.dispose === "function") panel.dispose();
   currentPanel = null;
+  markSidebarPanel(null);
   clearPanelLayoutObservers();
+}
+
+/// 主侧栏的工作入口跟随当前功能页高亮（功能页内主侧栏常驻，用户始终知道自己在哪）。
+function markSidebarPanel(id) {
+  for (const button of document.querySelectorAll(".codex-sidebar [data-workbench-panel]")) {
+    const current = Boolean(id) && button.dataset.workbenchPanel === id;
+    button.classList.toggle("is-current", current);
+    if (current) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  }
 }
 const panelObserverScope = window.OwoObserverScope.createObserverScope();
 let stopPanelAccessibility = null;
@@ -2663,12 +2687,17 @@ function mountPanel(id, writeHash = true) {
     }
   }
   currentPanel = id;
+  markSidebarPanel(id);
   // 面板深链：#<panel-id>，便于分享/直达/自动化验证（不改动其它状态）。
   // 引导时的默认挂载传 writeHash=false：否则地址栏被钉上 #notes，刷新后
   // applyDeepLink 又把它当深链 → 每次打开工作台都停在工具视图（用户实测反馈）。
   if (writeHash) workbenchView.setRoute(id);
   for (const button of document.querySelectorAll("#panelNav button")) {
     button.classList.toggle("active", button.dataset.panel === id);
+    if (button.dataset.panel === id) {
+      const section = button.closest("details");
+      if (section) { section.open = true; if (section.dataset.searchWasOpen != null) section.dataset.searchWasOpen = "true"; }
+    }
     if (button.dataset.panel === id) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   }
@@ -2922,40 +2951,49 @@ function openPanelById(id) {
   return true;
 }
 
+function filterPanelNavigation(nav, query) {
+  const searching = Boolean(String(query || "").trim());
+  const matches = new Set(window.OwoWorkbenchNavigation.search(query, PANEL_ORDER).map(item => item.id));
+  for (const button of nav.querySelectorAll("button[data-panel]")) button.hidden = !matches.has(button.dataset.panel);
+  for (const section of nav.querySelectorAll(".workbench-nav-section")) {
+    if (searching && section.dataset.searchWasOpen == null) section.dataset.searchWasOpen = String(section.open);
+    const visible = Array.from(section.querySelectorAll("button[data-panel]")).some(button => !button.hidden);
+    section.hidden = !visible;
+    if (searching) section.open = visible;
+    else if (section.dataset.searchWasOpen != null) {
+      section.open = section.dataset.searchWasOpen === "true";
+      delete section.dataset.searchWasOpen;
+    }
+  }
+}
+
 function initPanels() {
   const nav = $("panelNav");
   if (!nav) return;
   window.OwoPanels = window.OwoPanels || {};
   window.OwoPanels.baseUrl = API_BASE;
   nav.innerHTML = "";
-  let currentGroup = "";
-  for (const entry of window.OwoWorkbenchNavigation.search("", PANEL_ORDER)) {
-    const id = entry.id;
-    const panel = window.OwoPanels[id];
-    if (!panel) continue;
-    const button = document.createElement("button");
-    if (entry.group !== currentGroup) {
-      const heading = document.createElement("h3");
-      heading.className = "workbench-nav-group";
-      heading.textContent = entry.group;
-      nav.appendChild(heading);
-      currentGroup = entry.group;
+  for (const group of window.OwoWorkbenchNavigation.sections(PANEL_ORDER)) {
+    const section = document.createElement(group.primary ? "div" : "details");
+    section.className = group.primary ? "workbench-nav-primary" : "workbench-nav-section";
+    if (!group.primary) {
+      const summary = document.createElement("summary");
+      summary.textContent = group.label;
+      section.appendChild(summary);
     }
-    button.textContent = entry.title;
-    button.title = entry.description;
-    button.dataset.panel = id;
-    button.addEventListener("click", () => openPanelById(id));
-    nav.appendChild(button);
+    for (const entry of group.entries) {
+      const id = entry.id;
+      if (!window.OwoPanels[id]) continue;
+      const button = document.createElement("button");
+      button.textContent = entry.title;
+      button.title = entry.description;
+      button.dataset.panel = id;
+      button.addEventListener("click", () => openPanelById(id));
+      section.appendChild(button);
+    }
+    nav.appendChild(section);
   }
-  $("panelSearch")?.addEventListener("input", (event) => {
-    const matches = new Set(window.OwoWorkbenchNavigation.search(event.target.value, PANEL_ORDER).map(item => item.id));
-    for (const button of nav.querySelectorAll("button[data-panel]")) button.hidden = !matches.has(button.dataset.panel);
-    for (const heading of nav.querySelectorAll(".workbench-nav-group")) {
-      let visible = false;
-      for (let node = heading.nextElementSibling; node && node.tagName !== "H3"; node = node.nextElementSibling) if (!node.hidden) visible = true;
-      heading.hidden = !visible;
-    }
-  });
+  $("panelSearch")?.addEventListener("input", (event) => filterPanelNavigation(nav, event.target.value));
   // 保留有效的工具/设置深链；旧面板、拼错的 hash 不得劫持默认会话页。
   const initialRoute = window.OwoWorkbenchView.resolveInitialRoute(location.hash, PANEL_ORDER);
   if (location.hash && initialRoute.kind === "chat") {

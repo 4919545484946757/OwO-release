@@ -36,12 +36,27 @@
   ];
   const entries = groups.flatMap(group => group.items.map(([id, title, description]) =>
     ({ id, title, description, group: group.label })));
+  const primaryIds = ["home", "project-launcher", "project-history", "workswarm", "evidence", "action-center"];
+  function sections(available) {
+    const allowed = entry => !available || available.includes(entry.id);
+    const primary = primaryIds.map(id => entries.find(entry => entry.id === id)).filter(entry => entry && allowed(entry));
+    const secondary = [
+      { label: "资料与记忆", ids: ["goal", "notes", "memory", "team"] },
+      { label: "自动化", ids: ["automations", "workflow"] },
+      { label: "工具与权限", ids: ["plugin-market", "permissions", "command"] },
+      { label: "诊断与实验", ids: ["capabilities", "eval", "product-eval", "observability", "diagnostics-ledger", "fleet", "about"] },
+    ].map(group => ({
+      label: group.label,
+      entries: group.ids.map(id => entries.find(entry => entry.id === id)).filter(entry => entry && allowed(entry)),
+    })).filter(group => group.entries.length);
+    return [{ label: "工作台", primary: true, entries: primary }, ...secondary];
+  }
   function find(id) { return entries.find(item => item.id === id) || null; }
   function search(query, available) {
     const q = String(query || "").trim().toLowerCase();
     return entries.filter(item => (!available || available.includes(item.id)) &&
       (!q || [item.id, item.title, item.description, item.group].join(" ").toLowerCase().includes(q)));
   }
-  root.OwoWorkbenchNavigation = Object.freeze({ groups, entries, find, search });
+  root.OwoWorkbenchNavigation = Object.freeze({ groups, entries, primaryIds, sections, find, search });
   if (typeof module !== "undefined" && module.exports) module.exports = root.OwoWorkbenchNavigation;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -924,7 +924,31 @@ pub async fn team_budget_exhaustion(
     let team = coordinator.get_team_run(team_id).await?;
     let journal = MetricsJournal::for_team(coordinator.run_dir(), team_id);
     let records = journal.read_records();
-    Ok(budget_exhaustion_reason(&team.budget, &records, now_ms()))
+    let now = now_ms();
+    if let Some(reason) = budget_exhaustion_reason(&team.budget, &records, now) {
+        return Ok(Some(reason));
+    }
+    // Completed spans do not exist during the first in-flight worker. A persisted
+    // team timestamp keeps the same wall deadline across phases and restarts.
+    if let Some(secs) = team
+        .budget
+        .get("max_wall_secs")
+        .and_then(Value::as_u64)
+        .filter(|s| *s > 0)
+    {
+        let started = chrono::DateTime::parse_from_rfc3339(&team.created_at)
+            .map_err(|error| {
+                WorkSwarmError::Run(format!("team wall budget timestamp invalid: {error}"))
+            })?
+            .timestamp_millis();
+        let elapsed = now.saturating_sub(started.max(0) as u64);
+        if elapsed > secs.saturating_mul(1000) {
+            return Ok(Some(format!(
+                "wall budget exhausted: {elapsed}ms exceeds {secs}s; scheduling stopped"
+            )));
+        }
+    }
+    Ok(None)
 }
 
 #[cfg(test)]

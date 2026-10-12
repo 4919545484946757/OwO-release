@@ -167,7 +167,7 @@ test("model changes serialize by session and stale session responses cannot upda
 test("stale session refreshes cannot overwrite current selection or panels", () => {
   assert.match(domain, /generation !== sessionListRefreshGeneration/);
   assert.match(domain, /selectionVersion === state\.selectionVersion/);
-  const renderSession = /const renderSession = \(session, depth\) => \{([\s\S]*?)\n  \};/.exec(domain)?.[1];
+  const renderSession = /const renderSession = \(session, depth, groupWorkspace\) => \{([\s\S]*?)\n  \};/.exec(domain)?.[1];
   assert.ok(renderSession);
   assert.doesNotMatch(renderSession, /state\.sessionId\s*=\s*session\.id/);
   const contextRefresh = /async function refreshSessionContext\(sessionId\) \{([\s\S]*?)\n\}/.exec(domain)?.[1];
@@ -238,7 +238,7 @@ test("first-run empty state makes workspace selection explicit and restores the 
   assert.equal(classes.has("needs-workspace"), true);
   elements.workspace.value = "D:\\work\\project";
   sync();
-  assert.equal(elements.emptyStateTitle.textContent, "今天要构建什么？");
+  assert.equal(elements.emptyStateTitle.textContent, "你想完成什么？");
   assert.equal(elements.emptyStateWorkspaceBtn.hidden, true);
   assert.equal(classes.has("needs-workspace"), false);
 });

@@ -58,7 +58,7 @@ fn inner_worker_for(
         Some("echo") => Some(Arc::new(EchoWorker)),
         Some("sleep") => Some(Arc::new(SleepWorker)),
         Some("fail") => Some(Arc::new(FailWorker)),
-        _ => {
+        None | Some("agent") => {
             // 绑定后：Worker 实际运行目录 = 项目绑定目录。
             let workspace = scope
                 .map(|s| s.root.clone())
@@ -82,6 +82,7 @@ fn inner_worker_for(
                 role: role.to_string(),
             }))
         }
+        Some(_) => None,
     }
 }
 
@@ -163,6 +164,10 @@ pub(super) async fn build_run_registry(
     let usage_tracker = Arc::new(workswarm_metrics::UsageAttributionTracker::default());
     let registry = WorkerRegistry::new();
     for r in &meta.roles {
+        // Human nodes are satisfied by submit_human_result, never by a worker registry.
+        if r.assignee == "human" {
+            continue;
+        }
         let member_id = format!("m-{}", r.role);
         let worker_kind = r
             .worker

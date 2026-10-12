@@ -546,7 +546,24 @@ impl GoalRunner {
                 if set.is_empty() || stop_error.is_some() {
                     break;
                 }
-                let joined = set.join_next().await;
+                let joined = if budget.max_duration_secs > 0 {
+                    let remaining = std::time::Duration::from_secs(budget.max_duration_secs)
+                        .saturating_sub(started.elapsed());
+                    match tokio::time::timeout(remaining, set.join_next()).await {
+                        Ok(joined) => joined,
+                        Err(_) => {
+                            self.aborted_flag
+                                .store(true, std::sync::atomic::Ordering::SeqCst);
+                            stop_error = Some(StepStop::Budget(format!(
+                                "执行时长超过 {}s，已取消在飞任务",
+                                budget.max_duration_secs
+                            )));
+                            break;
+                        }
+                    }
+                } else {
+                    set.join_next().await
+                };
                 let completed_step_id = joined
                     .as_ref()
                     .and_then(|result| result.as_ref().ok())

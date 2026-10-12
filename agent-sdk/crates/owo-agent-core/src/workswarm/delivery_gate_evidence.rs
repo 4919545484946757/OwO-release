@@ -7,6 +7,31 @@ pub(super) fn is_code_artifact_kind(kind: &str) -> bool {
     )
 }
 
+/// Classification only strengthens acceptance; model labels never grant execution.
+pub(super) fn requires_source_delivery(
+    kind: &str,
+    format: &str,
+    file_name: &str,
+    content: &str,
+) -> bool {
+    if kind.eq_ignore_ascii_case("review") {
+        return false;
+    }
+    if is_code_artifact_kind(kind) || (!file_name.is_empty() && is_source_code_path(file_name)) {
+        return true;
+    }
+    if matches!(
+        format.trim().to_ascii_lowercase().as_str(),
+        "html" | "javascript" | "js" | "typescript" | "python" | "rust" | "source" | "code"
+    ) {
+        return true;
+    }
+    let body = content
+        .trim_start_matches(|ch: char| ch == '\u{feff}' || ch.is_whitespace())
+        .to_ascii_lowercase();
+    body.starts_with("<!doctype html") || body.starts_with("<html") || body.starts_with("```html")
+}
+
 /// Classify source paths from host-observed writes; model-declared Artifact.kind is not trusted.
 pub(super) fn is_source_code_path(raw: &str) -> bool {
     let normalized = raw.replace('\\', "/");
@@ -1125,5 +1150,49 @@ mod behavior_receipt_tests {
             &change_sets,
         )
         .is_none());
+    }
+}
+
+#[cfg(test)]
+mod runnable_artifact_regressions {
+    use super::*;
+    #[test]
+    fn implementer_html_requires_source_delivery_even_without_declared_code_kind() {
+        assert!(requires_source_delivery(
+            "implementer",
+            "html",
+            "result.txt",
+            "<!doctype html><html></html>"
+        ));
+        assert!(requires_source_delivery(
+            "text",
+            "text",
+            "result.txt",
+            " \u{feff}<!doctype html><html></html>"
+        ));
+        assert!(requires_source_delivery(
+            "text",
+            "text",
+            "page.html",
+            "body"
+        ));
+        assert!(requires_source_delivery(
+            "text",
+            "text",
+            "result.txt",
+            "```html\n<html></html>\n```"
+        ));
+        assert!(!requires_source_delivery(
+            "implementer",
+            "markdown",
+            "notes.md",
+            "A normal summary"
+        ));
+        assert!(!requires_source_delivery(
+            "review",
+            "json",
+            "review.json",
+            "{\"finding\":\"<html>\"}"
+        ));
     }
 }

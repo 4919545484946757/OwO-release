@@ -7,6 +7,36 @@ use super::task_graph::{
 use super::*;
 
 impl TeamCoordinator {
+    /// Validate the lead candidate before publishing it. Uses exactly the same
+    /// host schema, coverage, scopes and budget placement as final assignment.
+    pub(super) fn validate_parallel_candidate(
+        &self,
+        team_id: &str,
+        output: &str,
+    ) -> WorkSwarmResult<()> {
+        let meta = RunMeta::load(&self.run_dir, team_id)?;
+        if !meta.parallel {
+            return Ok(());
+        }
+        let (items, versioned) = parse_parallel_subtasks(output).ok_or_else(|| {
+            WorkSwarmError::Validation("指挥计划须为可解析的 TaskGraph JSON".into())
+        })?;
+        let mut graph = validate_parallel_subtasks(&meta.roles, &items, versioned)
+            .map_err(WorkSwarmError::Validation)?;
+        if versioned {
+            let state = self.load_run_state(team_id)?;
+            let quotes = graph
+                .tasks
+                .iter()
+                .map(|task| task.user_requirement_quotes.clone())
+                .collect::<Vec<_>>();
+            validate_task_requirement_coverage(&quotes, &state.goal.objective)
+                .map_err(WorkSwarmError::Validation)?;
+        }
+        assign_task_model_call_budgets(&mut graph.tasks, &meta.budgets)
+            .map_err(WorkSwarmError::Validation)?;
+        Ok(())
+    }
     /// 十一期：并行开发的任务主动分配（幂等）。
     ///
     /// 运行条件：`RunMeta.parallel` 为真，且 **lead 步骤已成功**且产物可解析为

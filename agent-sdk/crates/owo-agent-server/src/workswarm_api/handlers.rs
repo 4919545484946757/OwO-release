@@ -347,6 +347,19 @@ async fn create_team(
     // 请求显式字段优先，配置只在缺省时补位（CLI/UI 传参即覆盖）。
     let settings = owo_agent_core::Settings::load(&state.workspace);
     let settings_applied = apply_team_settings(&mut req, &settings);
+    for role in &req.roles {
+        if role.assignee != "human"
+            && role.worker.as_deref().is_some_and(|worker| {
+                !matches!(worker.trim(), "" | "agent" | "echo" | "sleep" | "fail")
+            })
+        {
+            return Err(error_response(&WorkSwarmError::Validation(format!(
+                "未注册的执行器：{}；外部 Agent 需要显式适配器，不能仅指定名称",
+                role.worker.as_deref().unwrap_or_default()
+            ))));
+        }
+    }
+
     let team = coordinator
         .create_team_run(&req)
         .await

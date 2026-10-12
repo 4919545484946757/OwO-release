@@ -179,14 +179,68 @@ impl Worker for RoleWorker {
             })
             .unwrap_or_else(|| self.capabilities.clone());
         let is_reviewer = super::util::is_review_role(&self.role, &effective_capabilities);
-        let enriched = TeamCoordinator::build_enriched_input_owned(ctx, input, &worker_kind);
+        let mut enriched = TeamCoordinator::build_enriched_input_owned(ctx, input, &worker_kind);
         // Prompt 上下文指标在 Server 使用最终 WorkerProfile 编译后记录，
         // 避免这里先用粗略角色画像生成一份与实际工具面不一致的 Prompt。
         // Worker 上下文装配完成、即将进入真实执行时推进进度状态。
         // Server 指标包装器同样调用该方法；核心入口的调用保证内嵌/测试宿主行为一致，重复调用幂等。
         self.coordinator
             .mark_phase_step_running(&self.team_id, &step_id);
-        let out = self.inner.run(&enriched).await?;
+        let plan_epoch = self.coordinator.current_execution_epoch(&self.team_id);
+        let mut out = self.inner.run(&enriched).await?;
+        if self.role == "lead" {
+            // One semantic correction per worker invocation. Both calls go through
+            // the same metered, scoped inner worker; GoalRunner retry budgets remain.
+            for correction in 0..=1 {
+                let parsed = crate::workswarm_output::parse_worker_output(&out);
+                let candidate = match &parsed {
+                    crate::workswarm_output::WorkerOutputParse::Parsed(ref contract)
+                        if contract.status != crate::workswarm_output::WorkerOutputStatus::Done =>
+                    {
+                        break
+                    }
+                    crate::workswarm_output::WorkerOutputParse::Parsed(ref contract) => contract
+                        .artifact
+                        .as_ref()
+                        .map(|a| a.content.as_str())
+                        .unwrap_or(""),
+                    _ => out.as_str(),
+                };
+                match self
+                    .coordinator
+                    .validate_parallel_candidate(&self.team_id, candidate)
+                {
+                    Ok(()) => break,
+                    Err(WorkSwarmError::Validation(reason)) if correction == 0 => {
+                        if self.coordinator.current_execution_epoch(&self.team_id) != plan_epoch
+                            || self.coordinator.cancel_token(&self.team_id).is_cancelled()
+                        {
+                            return Err("指挥计划纠正前任务已取消或代次变化".into());
+                        }
+                        let reason = reason.chars().take(2000).collect::<String>();
+                        let note = format!("上次 TaskGraph 被宿主拒绝：{reason}。修正同一用户目标的计划，禁止扩大权限、写范围或改变需求。聊天文本任务 verification 必须为 JSON 字符串 \"non_empty\"，不要包装成文件 VerificationPlan；文件验证必须列出具体文件路径。返回完整 WorkerOutputV1，artifact.content 为修正后的 TaskGraph JSON。");
+                        enriched["task_graph_repair"] = json!({"reason": reason});
+                        if let Some(context) = enriched
+                            .get_mut("team_prompt_context")
+                            .and_then(Value::as_object_mut)
+                        {
+                            let handoff = context
+                                .get("handoff_contract")
+                                .and_then(Value::as_str)
+                                .unwrap_or_default();
+                            context.insert(
+                                "handoff_contract".into(),
+                                json!(format!("{handoff}\n\n{note}")),
+                            );
+                        } else if let Some(object) = enriched.as_object_mut() {
+                            object.insert("task_graph_repair_note".into(), json!(note));
+                        }
+                        out = self.inner.run(&enriched).await?;
+                    }
+                    Err(error) => return Err(format!("task_graph_invalid:{error}")),
+                }
+            }
+        }
         // 输出契约（V1）：结构化 JSON → 登记前防御——producer 取 artifact.content
         //（交付物正文，不再拿整段自由文本/信封当产物），critic 禁止携带 artifact
         //（评审无权覆盖交付物，越权即 scope_violation）。契约失败已在 worker 层

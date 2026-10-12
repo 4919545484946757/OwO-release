@@ -9,6 +9,13 @@ pub enum WorkSwarmError {
     Conflict(String),
     #[error("等待人工处理：{0}")]
     DeliveryPending(String),
+    #[error("交付需返修：{reason}（任务 {step_id}，验证器 {validator_id}）")]
+    DeliveryRepair {
+        step_id: String,
+        attempt_id: String,
+        validator_id: String,
+        reason: String,
+    },
     #[error("未找到：{0}")]
     NotFound(String),
     #[error("存储错误：{0}")]

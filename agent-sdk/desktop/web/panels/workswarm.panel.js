@@ -77,6 +77,7 @@
     // ---------- helpers（优先 app.js 注入，缺失时自建回退） ----------
     var H = {};
     var rootEl = null;
+    var deliveryView = null;
     function defaultGet(path, options) {
       return window.OwoApi.get(path, options);
     }
@@ -1620,15 +1621,15 @@
         '<span class="owo-ws-badge st-' + esc(s.statusKey) + '">' + esc(s.statusLabel) + "</span>" +
         '<span class="chip">' + esc(s.phase) + "</span>";
       var stats = [
-        { label: "成功", v: s.counts.succeeded, k: s.counts.succeeded ? "ok" : "" },
+        { label: "完成步骤", v: s.counts.succeeded, k: s.counts.succeeded ? "ok" : "" },
         { label: "失败/中止", v: s.counts.failed, k: s.counts.failed ? "bad" : "" },
         { label: "等待", v: s.counts.waiting, k: "" },
         { label: "运行中", v: s.counts.running, k: s.counts.running ? "run" : "" },
         { label: "阻塞", v: s.counts.blocked, k: s.counts.blocked ? "bad" : "" },
-        { label: "累计尝试", v: s.totalAttempts, k: "" },
-        { label: "产物", v: s.artifactCount == null ? "—" : s.artifactCount, k: "" },
+        { label: "执行记录", v: s.artifactCount == null ? "—" : s.artifactCount, k: "" },
       ];
       var cells = stats
+        .filter(function(x){return x.v!==0 || x.label==="完成步骤" || x.label==="执行记录";})
         .map(function (x) {
           return (
             '<div class="owo-ws-stat"><small>' + esc(x.label) + '</small><b class="' + x.k + '">' + esc(x.v) + "</b></div>"
@@ -1707,6 +1708,13 @@
     }
 
     function paintDetailLive() {
+      var status=normStatus(currentTeamStatus());
+      var continueButton=el('#ws-act-continue'),cancelButton=el('#ws-act-cancel');
+      if(continueButton)continueButton.style.display=interruptedView()||status==='paused'?'':'none';
+      if(cancelButton)cancelButton.style.display=isTerminalTeam(status)?'none':'';
+      var manual=el('[data-team-section="调整任务与人工协作"]');
+      if(manual && status==='awaiting_human')manual.open=true;
+      if(deliveryView && state.current)deliveryView.load(state.current, currentTeamStatus()+":"+(state.tasks||[]).map(function(t){return t.status+":"+t.attempts;}).join(","));
       paintStatusLive();
       paintRunSummary();
       paintInterrupted();
@@ -3347,6 +3355,7 @@
         "</div>" +
         '<div id="ws-d-main" style="display:flex;flex-direction:column;gap:10px">' +
         '<pre class="owo-ws-result sub" id="ws-d-error"></pre>' +
+        '<section class="team-delivery" id="ws-d-delivery" aria-label="本次任务的生成文件"></section>' +
         '<div class="owo-ws-sec">' +
         '<h3>运行摘要 <span class="hint">状态 / 活动阶段 / 任务计数 / 失败步骤 / 尝试 / 产物</span></h3>' +
         '<div id="ws-d-summary" class="owo-ws-sumbox" aria-live="polite">' + stateBox("loading", "正在汇总运行状态…") + "</div>" +
@@ -3469,7 +3478,34 @@
       );
     }
 
+    function simplifyTeamDetail() {
+      var main=el('#ws-d-main');
+      if(!main || !main.children || !win.document) return;
+      var groups={};
+      ['执行过程','调整任务与人工协作','记录与诊断'].forEach(function(label){
+        var details=win.document.createElement('details');details.className='team-more';details.dataset.teamSection=label;
+        var summary=win.document.createElement('summary');summary.textContent=label;details.appendChild(summary);groups[label]=details;
+      });
+      Array.from(main.children).forEach(function(section){
+        if(!section.classList.contains('owo-ws-sec'))return;
+        var heading=section.querySelector('h3,summary');
+        var text=heading?heading.textContent:'';
+        if(text.indexOf('运行摘要')===0){section.classList.add('team-progress');heading.firstChild.textContent='执行进度 ';return;}
+        var group=/^(成员与职责|任务 DAG|实时进度|团队交接对话)/.test(text)?'执行过程':/^(运行操作|人节点结果|任务交接)/.test(text)?'调整任务与人工协作':'记录与诊断';
+        groups[group].appendChild(section);
+      });
+      var metadata=win.document.createElement('div');metadata.className='team-run-meta';
+      ['ws-d-id','ws-d-meta','ws-d-diag'].forEach(function(id){var element=el('#'+id);if(element)metadata.appendChild(element);});
+      groups['记录与诊断'].insertBefore(metadata,groups['记录与诊断'].children[1]||null);
+      Object.keys(groups).forEach(function(key){main.appendChild(groups[key]);});
+      var header=el('.owo-ws-d-head');
+      [['ws-act-continue','继续任务'],['ws-act-cancel','停止任务']].forEach(function(item){var button=el('#'+item[0]);if(button&&header){button.textContent=item[1];header.appendChild(button);}});
+      var box=el('#ws-d-delivery');
+      if(box && win.OwoTeamDelivery)deliveryView=win.OwoTeamDelivery.create({box:box,bridge:win.owo&&win.owo.teamFiles});
+    }
+
     function bindDetail() {
+      simplifyTeamDetail();
       var back = el("#ws-d-back");
       if (back)
         back.onclick = function () {
@@ -3585,6 +3621,7 @@
     }
 
     function openTeam(id) {
+      if(rootEl)rootEl.scrollTop=0;
       if (!id || typeof id !== "string") return; // 防 /teams/undefined
       stopLive();
       state.view = "detail";
@@ -3643,6 +3680,7 @@
       var main = el("#ws-main");
       if (!main) return;
       try {
+        if(deliveryView){deliveryView.dispose();deliveryView=null;}
         paintTabs();
         // 离开详情视图必须停掉 SSE/轮询，避免在创建页/列表页留下幽灵请求
         if (state.view !== "detail") stopLive();

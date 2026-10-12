@@ -113,6 +113,7 @@ function loadPet(options) {
 
   const sandbox = {
     document: documentStub,
+    URLSearchParams, location: {search: ""},
     console,
     // 计时器全部假掉：boot 的状态轮询/彩蛋定时器不会真跑，测试只驱动被测的那条路径。
     setTimeout: () => 1,
@@ -162,6 +163,7 @@ function loadPet(options) {
     ids,
     calls,
     document: documentStub,
+    URLSearchParams, location: {search: ""},
     run: (code) => vm.runInContext(code, sandbox),
   };
 }

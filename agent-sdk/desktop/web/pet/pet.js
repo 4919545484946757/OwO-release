@@ -136,6 +136,7 @@ function startAnim(a) {
   }
   const row = a.row || 0;
   const info = sheetInfo(a.sheet, frame.width, frame.height);
+  if (animRun && animRun.sheet === a.sheet && animRun.row === row) return true;
   animRun = {
     sheet: a.sheet,
     row,
@@ -285,7 +286,7 @@ function applySkin(entry) {
     bubbles: entry.bubbles || DEFAULT_BUBBLES,
   };
   currentSkinId = entry.id;
-  saveSkinPref(entry.id);
+  if (globalThis.OwoPetActor?.role === "planner") saveSkinPref(entry.id);
   render(status);
 }
 
@@ -297,13 +298,21 @@ async function loadSkinIndex() {
 
 /// 恢复上次皮肤；偏好里已没有（旧皮肤下架）时回落默认。
 async function restoreSkin() {
+  const role = globalThis.OwoPetActor?.role;
+  const bound = new URLSearchParams(globalThis.location?.search || "").get("skin") || { implementer: "petdex-coco", w1: "petdex-coco", reviewer: "petdex-boba" }[role];
+  if (bound && skinEntry(bound)) return bound;
   const saved = await loadSkinPref();
   if (saved && skinEntry(saved)) return saved;
   if (skinIndex.default && skinEntry(skinIndex.default)) return skinIndex.default;
   return skinIndex.skins.length ? skinIndex.skins[0].id : "";
 }
 
+globalThis.OwoPetActor = { render, role: new URLSearchParams(globalThis.location?.search || "").get("role") || "planner" };
+// The commander reads the brief in place; sprite motion carries its state.
+pet.classList.toggle("commander", ["planner", "lead"].includes(globalThis.OwoPetActor.role));
+
 function render(next) {
+  if ((globalThis.OwoFeedUI?.controller.ref || !activity.pending_approvals) && globalThis.OwoFeedUI?.state?.()) next = globalThis.OwoFeedUI.state();
   status = next || "idle";
   // 只切状态类，保留 dragging/dropped/antic/happy 等临时动画类。
   for (const s of STATES) pet.classList.toggle(s, s === status);
@@ -328,7 +337,8 @@ function render(next) {
     }
   }
   // 临时台词没说完前不被状态轮询覆盖。
-  if (!sayActive) bubble.textContent = describeHead() || config.bubbles[status] || DEFAULT_BUBBLES.idle;
+  if (!sayActive && globalThis.OwoFeedUI && (globalThis.OwoFeedUI.controller.ref || !activity.pending_approvals) && globalThis.OwoFeedUI.text()) bubble.textContent = globalThis.OwoFeedUI.text();
+  else if (!sayActive) bubble.textContent = describeHead() || config.bubbles[status] || DEFAULT_BUBBLES.idle;
 }
 
 // ---- 数据通道：全部经 window.OwoApi ----
@@ -502,9 +512,20 @@ async function abortCurrent(sessionId) {
 
 function openMenu(x, y) {
   menu.replaceChildren();
-  menu.appendChild(menuHead(describeHead() || "空闲"));
+  menu.appendChild(menuHead(globalThis.OwoFeedUI?.text() || describeHead() || "空闲"));
+  if (globalThis.OwoFeedUI) {
+    menu.appendChild(menuItem("喂入剪贴板需求", () => globalThis.OwoFeedUI.paste()));
+    menu.appendChild(menuItem("查看任务与成果", () => globalThis.OwoFeedUI.controller.open()));
+    if ((globalThis.OwoFeedUI.controller.busy || globalThis.OwoFeedUI.controller.interrupted) && globalThis.OwoFeedUI.controller.ref?.id) menu.appendChild(menuItem("停止这次任务", () => globalThis.OwoFeedUI.controller.cancel(), "is-deny"));
+  }
 
-  const waiting = (activity.pending || [])[0];
+  const boundTeam = !!globalThis.OwoFeedUI?.controller.ref;
+  if(boundTeam && activity.pending.length && shellBridge?.openApprovals)menu.appendChild(menuItem("打开审批中心（核对任务后处理）",()=>shellBridge.openApprovals()));
+  if(globalThis.OwoFeedUI?.controller.ref?.pending){
+    menu.appendChild(menuItem("查找已启动的任务",()=>globalThis.OwoFeedUI.controller.reconcile()));
+    menu.appendChild(menuItem("解除不确定绑定",()=>{if(globalThis.confirm("任务可能仍在运行。已查看团队记录并确认可以解除观察绑定？"))return globalThis.OwoFeedUI.controller.forget();}));
+  }
+  const waiting = boundTeam ? null : (activity.pending || [])[0];
   if (waiting) {
     const remaining = approvalRemaining(waiting.request_id);
     menu.appendChild(
@@ -522,7 +543,7 @@ function openMenu(x, y) {
       , "is-deny")
     );
   }
-  const head = (activity.active || [])[0];
+  const head = boundTeam ? null : (activity.active || [])[0];
   if (head && head.session_id) {
     menu.appendChild(menuItem("停止当前回合", () => abortCurrent(head.session_id), "is-deny"));
   }
@@ -530,7 +551,7 @@ function openMenu(x, y) {
     menu.appendChild(menuItem("打开工作台", () => shellBridge.showWorkbench()));
   }
   // 皮肤区：只列清单里真实存在的（缺 idle 的在生成 index 时已剔除）。
-  if (skinIndex.skins.length) {
+  if (skinIndex.skins.length && !globalThis.OwoFeedUI) {
     menu.appendChild(menuHead("换形象", "menu-sub"));
     for (const entry of skinIndex.skins) {
       menu.appendChild(
@@ -658,7 +679,7 @@ let anticTimer = 0;
 function scheduleAntic() {
   clearTimeout(anticTimer);
   anticTimer = setTimeout(() => {
-    if (status === "idle" && !down) {
+    if (status === "idle" && !down && !pet.classList.contains("commander")) {
       pet.classList.add("antic");
       setTimeout(() => pet.classList.remove("antic"), 1700);
     }
@@ -770,8 +791,10 @@ async function boot() {
     /* 保持默认外观，继续往下走 */
   }
   // 心跳与状态轮询都是低频轻请求，失败了自然重来，不必打断桌宠显示。
-  reportVisibility();
-  setInterval(reportVisibility, 10000);
+  if (globalThis.OwoPetActor?.role === "planner") {
+    reportVisibility();
+    setInterval(reportVisibility, 10000);
+  }
   schedulePoll(0);
 }
 

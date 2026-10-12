@@ -1,5 +1,5 @@
 {
-  "default": "petdex-aerith",
+  "default": "petdex-haibara-ai",
   "skins": [
     {
       "id": "petdex-aerith",
@@ -324,26 +324,34 @@
         "idle": {
           "sheet": "spritesheet.webp",
           "row": 0,
-          "frames": 8,
-          "durationMs": 1200
+          "frames": 7,
+          "durationMs": 2000,
+          "cols": 8,
+          "rows": 11
         },
         "thinking": {
           "sheet": "spritesheet.webp",
           "row": 8,
-          "frames": 8,
-          "durationMs": 1300
+          "frames": 6,
+          "durationMs": 1800,
+          "cols": 8,
+          "rows": 11
         },
         "speaking": {
           "sheet": "spritesheet.webp",
           "row": 3,
-          "frames": 8,
-          "durationMs": 900
+          "frames": 4,
+          "durationMs": 1400,
+          "cols": 8,
+          "rows": 11
         },
         "alert": {
           "sheet": "spritesheet.webp",
           "row": 4,
-          "frames": 8,
-          "durationMs": 800
+          "frames": 5,
+          "durationMs": 1400,
+          "cols": 8,
+          "rows": 11
         }
       },
       "bubbles": {

@@ -101,7 +101,7 @@ fn prepare_reworks(
             .and_then(|value| value.get("attempt"))
             .and_then(Value::as_u64)
             .unwrap_or(0);
-        if request.actor == "reviewer"
+        if matches!(request.actor.as_str(), "reviewer" | "host_validator")
             && attempt >= u64::from(state.goal.budget.max_retries_per_step)
         {
             return Err(WorkSwarmError::Validation(format!(
@@ -138,6 +138,31 @@ fn prepare_reworks(
         return Err(WorkSwarmError::Conflict(
             "返修批次只有部分已应用，拒绝重置未核对的状态".into(),
         ));
+    }
+    let automatic = prepared
+        .iter()
+        .filter(|item| matches!(item.request.actor.as_str(), "reviewer" | "host_validator"))
+        .count() as u64;
+    if automatic > 0 {
+        let prior: u64 = state
+            .plan
+            .steps
+            .iter()
+            .map(|step| {
+                step.input
+                    .get("rework")
+                    .and_then(|v| v.get("attempt"))
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0)
+            })
+            .fold(0u64, u64::saturating_add);
+        if u64::from(state.total_retries)
+            .saturating_add(prior)
+            .saturating_add(automatic)
+            > u64::from(state.goal.budget.max_total_retries)
+        {
+            return Err(WorkSwarmError::Validation("全队自动返工预算已耗尽".into()));
+        }
     }
     Ok(ReworkPreparation::Ready(prepared))
 }
@@ -216,6 +241,20 @@ impl TeamCoordinator {
             return Err(WorkSwarmError::Conflict("返修领取的阶段代次已变化".into()));
         }
         let (mut team, mut space, mut state) = self.load_bundle(team_id).await?;
+        let automatic = requests
+            .iter()
+            .any(|request| matches!(request.actor.as_str(), "reviewer" | "host_validator"));
+        if automatic
+            && (self.cancel_token(team_id).is_cancelled()
+                || state.aborted
+                || team.status == TeamRunStatus::Cancelled
+                || expected_epoch.is_some_and(|epoch| self.phase_epoch(team_id) != epoch))
+        {
+            return Err(WorkSwarmError::Conflict(
+                "自动返工已取消或代次变化，不能重开任务".into(),
+            ));
+        }
+
         let prepared = match prepare_reworks(&state, requests)? {
             ReworkPreparation::AlreadyApplied => {
                 if team.status == TeamRunStatus::Succeeded
@@ -437,5 +476,26 @@ mod batch_tests {
         state.plan.steps[0].input["rework"] = json!({"source_id":"review-1","instruction":"fix a"});
         assert!(prepare_reworks(&state, &[request("a"), request("b")]).is_err());
         assert!(prepare_reworks(&state, &[request("b"), request("b")]).is_err());
+    }
+    #[test]
+    fn host_validator_uses_the_same_per_owner_budget() {
+        let mut state = state();
+        state.plan.steps[0].input = json!({"rework":{"attempt":2}});
+        let mut req = request("a");
+        req.actor = "host_validator".into();
+        req.issue_ids.clear();
+        assert!(prepare_reworks(&state, &[req]).is_err());
+    }
+    #[test]
+    fn automatic_batch_cannot_exceed_shared_retry_budget() {
+        let mut state = state();
+        state.goal.budget.max_total_retries = 1;
+        let before = serde_json::to_value(&state).unwrap();
+        assert!(prepare_reworks(&state, &[request("a"), request("b")]).is_err());
+        assert_eq!(serde_json::to_value(&state).unwrap(), before);
+        state.goal.budget.max_total_retries = 3;
+        state.total_retries = 2;
+        state.plan.steps[1].input["rework"] = json!({"attempt":1});
+        assert!(prepare_reworks(&state, &[request("a")]).is_err());
     }
 }

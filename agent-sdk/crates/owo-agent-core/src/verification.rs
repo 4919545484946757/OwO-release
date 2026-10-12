@@ -214,6 +214,8 @@ pub fn is_registered_behavior_command(command: &str) -> bool {
         "--if-present",
         "--passwithnotests",
         "--skip",
+        "--test-only",
+        "--test-name-pattern",
         "--exclude-task",
         "-x",
         "-dskiptests",
@@ -222,6 +224,8 @@ pub fn is_registered_behavior_command(command: &str) -> bool {
     if tokens.iter().any(|token| {
         let normalized = token.to_ascii_lowercase();
         bypass_flags.contains(&normalized.as_str())
+            || normalized.starts_with("--test-name-pattern=")
+            || normalized.starts_with("--test-only=")
             || normalized.starts_with("--no-run=")
             || normalized.starts_with("--collect-only=")
             || normalized.starts_with("-dmaven.test.skip=")
@@ -234,6 +238,18 @@ pub fn is_registered_behavior_command(command: &str) -> bool {
                 })
     }) {
         return false;
+    }
+    if tokens.first() == Some(&"node") {
+        return tokens.len() >= 3
+            && tokens[1] == "--test"
+            && tokens[2..].iter().all(|file| {
+                !file.starts_with('-')
+                    && !file.contains('*')
+                    && !file.contains('?')
+                    && [".js", ".cjs", ".mjs"]
+                        .iter()
+                        .any(|extension| file.ends_with(extension))
+            });
     }
     matches!(
         tokens.as_slice(),
@@ -496,5 +512,27 @@ mod tests {
             "any-hash".to_string(),
         )]);
         assert!(!matches(root.path(), &escaped));
+    }
+}
+
+#[cfg(test)]
+mod node_behavior_regressions {
+    use super::is_registered_behavior_command;
+    #[test]
+    fn node_test_entry_is_registered_but_skip_and_shell_bypass_are_not() {
+        assert!(is_registered_behavior_command(
+            "node --test outputs/page.test.cjs"
+        ));
+        for command in [
+            "node --eval malicious",
+            "node --test",
+            "node --test --test-skip-pattern=.* outputs/page.test.cjs",
+            "node --test --test-shard=2/2 outputs/page.test.cjs",
+            "node --test --test-only outputs/page.test.cjs",
+            "node --test --test-name-pattern=nonexistent outputs/page.test.cjs",
+            "node --test outputs/page.test.cjs && echo passed",
+        ] {
+            assert!(!is_registered_behavior_command(command), "{command}");
+        }
     }
 }

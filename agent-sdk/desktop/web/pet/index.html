@@ -14,6 +14,7 @@
           否则 OwoApi 缺失，桌宠拿不到 pairing/instance 头而永远停在 idle；
         * 页面内不允许 Node 权限，一切窗口行为走 preload 注入的 window.petShell。
     -->
+    <div id="feed-food" aria-hidden="true"></div>
     <button
       class="pet idle"
       id="pet"
@@ -30,5 +31,6 @@
     <div class="skin-menu" id="skin-menu" hidden></div>
     <script src="/core/api-client.js"></script>
     <script src="pet.js"></script>
+    <script src="feed-controller.js"></script>
   </body>
 </html>

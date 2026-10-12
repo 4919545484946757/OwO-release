@@ -1371,3 +1371,48 @@ async fn diagnostic_export_is_sanitized_and_complete() {
     assert!(dumped.contains("诊断脱敏"), "objective 应保留：{dumped}");
     assert!(dumped.contains(&project_id), "project id 应保留：{dumped}");
 }
+
+#[tokio::test]
+async fn unknown_worker_is_rejected_before_team_creation() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+    let body = json!({
+        "strategy":"team", "objective":"custom executor must not silently become the default agent",
+        "roles":[{"role":"builder","assignee":"agent","worker":"not-installed"}]
+    });
+    let (status, result) = call(&state, &app, "POST", "/teams", Some(&body.to_string())).await;
+    assert_eq!(status, 400, "{result}");
+    let (status, teams) = call(&state, &app, "GET", "/teams", None).await;
+    assert_eq!(status, 200);
+    assert!(teams["teams"].as_array().unwrap().is_empty(), "{teams}");
+}
+
+#[tokio::test]
+async fn wall_budget_cancels_an_in_flight_phase_before_it_succeeds() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+    let body = json!({
+        "strategy":"team", "objective":"bounded slow phase",
+        "budget":{"max_wall_secs":1},
+        "roles":[{"role":"runner","assignee":"agent","worker":"sleep",
+                  "extra_input":{"ms":5000},"verify":"non_empty"}]
+    });
+    let (status, created) = call(&state, &app, "POST", "/teams", Some(&body.to_string())).await;
+    assert_eq!(status, 202, "{created}");
+    let id = created["team_id"].as_str().unwrap();
+    let snapshot = poll_team_status(
+        &state,
+        &app,
+        id,
+        &["cancelled"],
+        std::time::Duration::from_secs(8),
+    )
+    .await;
+    assert_eq!(snapshot["team"]["status"], "cancelled");
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    let (_, final_state) = call(&state, &app, "GET", &format!("/teams/{id}"), None).await;
+    assert_eq!(
+        final_state["team"]["status"], "cancelled",
+        "late phase must not publish success: {final_state}"
+    );
+}

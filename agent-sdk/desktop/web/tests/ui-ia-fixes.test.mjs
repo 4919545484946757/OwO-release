@@ -75,7 +75,7 @@ test("响应式工作台：窄窗口隐藏检查器并将会话侧栏改为抽�
   const app = read("../app.js");
   assert.match(index, /id="mobileSidebarToggle"[^>]*aria-controls="sidebar"/);
   assert.match(index, /id="mobileSidebarBackdrop"/);
-  assert.match(app, /matchMedia\("\(max-width: 700px\)"\)/);
+  assert.match(app, /matchMedia\("\(max-width: 860px\)"\)/);
   assert.match(app, /mobileSidebarBackdrop\.addEventListener\("click"/);
   assert.match(app, /!menuWasOpen && !modalWasOpen && document\.body\.classList\.contains\("mobile-sidebar-open"\)[\s\S]*?setMobileSidebarOpen\(false\);[\s\S]*?mobileSidebarToggle\.focus\(\)/,
     "Escape closes the drawer and restores focus when no overlay is open");

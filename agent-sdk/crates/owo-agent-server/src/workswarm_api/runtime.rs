@@ -206,6 +206,31 @@ mod budget_guard_tests {
 /// 团队运行循环：run_phase 阶段推进；人节点等待窗口内轮询（结果落盘即唤醒；cancel 即终止）。
 ///
 /// 每轮外层迭代重建 worker 注册表（steer/replace 修改角色规格后新阶段生效）。
+async fn run_bounded_team_phase(
+    coordinator: &Arc<TeamCoordinator>,
+    team_id: &str,
+    registry: &owo_agent_core::goal::WorkerRegistry,
+) -> owo_agent_core::workswarm::WorkSwarmResult<owo_agent_core::PhaseOutcome> {
+    let (budget_done, mut budget_done_rx) = tokio::sync::watch::channel(false);
+    let budget_coordinator = Arc::clone(coordinator);
+    let budget_team_id = team_id.to_string();
+    let budget_watch = tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                _ = budget_done_rx.changed() => break,
+                _ = tokio::time::sleep(Duration::from_secs(1)) => {
+                    if stop_if_budget_exhausted(&budget_coordinator, &budget_team_id).await { break; }
+                }
+            }
+        }
+    });
+    let phase_result = coordinator.run_phase(team_id, registry).await;
+    let _ = budget_done.send(true);
+    let _ = budget_watch.await;
+
+    phase_result
+}
+
 pub(crate) async fn run_team_loop(
     state: Arc<AppState>,
     coordinator: Arc<TeamCoordinator>,
@@ -282,7 +307,7 @@ pub(crate) async fn run_team_loop(
         registry_timer.finish(&lifecycle_journal, &team_id, "succeeded");
         let phase_timer =
             workswarm_metrics::TeamLifecycleTimer::start(phase_sequence, "phase_orchestration");
-        let phase_result = coordinator.run_phase(&team_id, &registry).await;
+        let phase_result = run_bounded_team_phase(&coordinator, &team_id, &registry).await;
         let phase_epoch = coordinator.current_execution_epoch(&team_id);
         let phase_outcome = match &phase_result {
             Err(_) => "failed",
@@ -306,167 +331,181 @@ pub(crate) async fn run_team_loop(
                 tokio::time::sleep(backoff).await;
                 backoff = (backoff * 2).min(Duration::from_secs(30));
             }
-            Ok(outcome) => match outcome {
-                owo_agent_core::PhaseOutcome::MoreReady => {
-                    backoff = Duration::from_secs(1);
-                    continue;
-                }
-                owo_agent_core::PhaseOutcome::Done => {
-                    let delivery_timer = workswarm_metrics::TeamLifecycleTimer::start(
-                        phase_sequence,
-                        "delivery_finalize",
-                    );
-                    let _delivery_lease =
-                        super::acquire_workspace_delivery_lease(&verification_root).await;
-                    let result = coordinator.finalize_success(&team_id).await;
-                    delivery_timer.finish(
-                        &lifecycle_journal,
-                        &team_id,
-                        if result.is_ok() {
-                            "succeeded"
-                        } else {
-                            "failed"
-                        },
-                    );
-                    if let Err(e) = result {
-                        tracing::error!(team_id = %team_id, %e, "workswarm 收尾失败");
+            Ok(outcome) => {
+                match outcome {
+                    owo_agent_core::PhaseOutcome::MoreReady => {
+                        backoff = Duration::from_secs(1);
+                        continue;
                     }
-                    return;
-                }
-                owo_agent_core::PhaseOutcome::Failed
-                | owo_agent_core::PhaseOutcome::Aborted
-                | owo_agent_core::PhaseOutcome::Finished => {
-                    fail_pending_rework_tasks(
-                        &coordinator,
-                        &team_id,
-                        "团队执行在返工产出新版本前终止",
-                    )
-                    .await;
-                    return;
-                }
-                owo_agent_core::PhaseOutcome::AwaitingHuman { waits } => {
-                    tracing::info!(team_id = %team_id, ?waits, "团队等待人节点，进入事件门闩");
-                    // 订阅状态变化后重查一次阶段，关闭“人结果恰好在进入门闩时提交”的竞态。
-                    // 后续只有进度、取消或 1s 预算心跳会唤醒；等待期间不重复运行调度器。
-                    let mut progress_rx = coordinator.subscribe_progress(&team_id);
-                    let cancel = coordinator.cancel_token(&team_id);
-                    let mut cancel_rx = cancel.rx();
-                    'latch: loop {
-                        if cancel.is_cancelled() {
-                            if let Err(e) = coordinator
-                                .apply_steer(&team_id, &SteerCommand::Cancel)
-                                .await
-                            {
-                                tracing::error!(team_id = %team_id, %e, "取消收尾失败");
-                            }
-                            fail_pending_rework_tasks(
-                                &coordinator,
-                                &team_id,
-                                "团队已取消，返工未产出新版本",
-                            )
-                            .await;
-                            return;
-                        }
-                        // 人节点等待期间仍守住墙钟预算；其余时候完全由状态事件唤醒。
-                        if stop_if_budget_exhausted(&coordinator, &team_id).await {
-                            return;
-                        }
-                        let observed_progress = *progress_rx.borrow_and_update();
-                        lifecycle_sequence = lifecycle_sequence.saturating_add(1);
-                        let latch_sequence = lifecycle_sequence;
-                        let phase_timer = workswarm_metrics::TeamLifecycleTimer::start(
-                            latch_sequence,
-                            "phase_orchestration",
+                    owo_agent_core::PhaseOutcome::Done => {
+                        let delivery_timer = workswarm_metrics::TeamLifecycleTimer::start(
+                            phase_sequence,
+                            "delivery_finalize",
                         );
-                        let phase_result = coordinator.run_phase(&team_id, &registry).await;
-                        let phase_epoch = coordinator.current_execution_epoch(&team_id);
-                        let phase_outcome = match &phase_result {
-                            Err(_) => "failed",
-                            Ok(owo_agent_core::PhaseOutcome::MoreReady) => "more_ready",
-                            Ok(owo_agent_core::PhaseOutcome::Done) => "done",
-                            Ok(owo_agent_core::PhaseOutcome::AwaitingHuman { .. }) => {
-                                "awaiting_human"
-                            }
-                            Ok(owo_agent_core::PhaseOutcome::Failed) => "failed",
-                            Ok(owo_agent_core::PhaseOutcome::Aborted) => "aborted",
-                            Ok(owo_agent_core::PhaseOutcome::Finished) => "finished",
-                        };
-                        phase_timer.finish_with_phase_epoch(
+                        let _delivery_lease =
+                            super::acquire_workspace_delivery_lease(&verification_root).await;
+                        let result = coordinator.finalize_success(&team_id).await;
+                        delivery_timer.finish(
                             &lifecycle_journal,
                             &team_id,
-                            phase_outcome,
-                            Some(phase_epoch),
-                        );
-                        match phase_result {
-                            Ok(owo_agent_core::PhaseOutcome::AwaitingHuman { .. }) => loop {
-                                tokio::select! {
-                                    changed = progress_rx.changed() => {
-                                        if changed.is_err() || *progress_rx.borrow_and_update() != observed_progress {
-                                            continue 'latch;
-                                        }
-                                    }
-                                    changed = cancel_rx.changed() => {
-                                        if changed.is_err() || *cancel_rx.borrow() {
-                                            if let Err(e) = coordinator
-                                                .apply_steer(&team_id, &SteerCommand::Cancel)
-                                                .await
-                                            {
-                                                tracing::error!(team_id = %team_id, %e, "取消收尾失败");
-                                            }
-                                            fail_pending_rework_tasks(
-                                                &coordinator,
-                                                &team_id,
-                                                "团队已取消，返工未产出新版本",
-                                            )
-                                            .await;
-                                            return;
-                                        }
-                                    }
-                                    _ = tokio::time::sleep(Duration::from_secs(1)) => {
-                                        if stop_if_budget_exhausted(&coordinator, &team_id).await {
-                                            return;
-                                        }
-                                    }
-                                }
+                            if result.is_ok() {
+                                "succeeded"
+                            } else {
+                                "failed"
                             },
-                            Ok(owo_agent_core::PhaseOutcome::Done) => {
-                                let delivery_timer = workswarm_metrics::TeamLifecycleTimer::start(
-                                    latch_sequence,
-                                    "delivery_finalize",
-                                );
-                                let _delivery_lease =
-                                    super::acquire_workspace_delivery_lease(&verification_root)
-                                        .await;
-                                let result = coordinator.finalize_success(&team_id).await;
-                                delivery_timer.finish(
-                                    &lifecycle_journal,
-                                    &team_id,
-                                    if result.is_ok() {
-                                        "succeeded"
-                                    } else {
-                                        "failed"
-                                    },
-                                );
-                                return;
-                            }
-                            Ok(owo_agent_core::PhaseOutcome::MoreReady) => break, // 外层循环重建注册表继续
-                            Ok(_) => {
+                        );
+                        if matches!(
+                            &result,
+                            Err(owo_agent_core::workswarm::WorkSwarmError::DeliveryRepair { .. })
+                        ) {
+                            tracing::info!(team_id = %team_id, "交付门已派发定向返工，继续调度");
+                            continue;
+                        }
+                        if let Err(e) = result {
+                            tracing::error!(team_id = %team_id, %e, "workswarm 收尾失败");
+                        }
+                        return;
+                    }
+                    owo_agent_core::PhaseOutcome::Failed
+                    | owo_agent_core::PhaseOutcome::Aborted
+                    | owo_agent_core::PhaseOutcome::Finished => {
+                        fail_pending_rework_tasks(
+                            &coordinator,
+                            &team_id,
+                            "团队执行在返工产出新版本前终止",
+                        )
+                        .await;
+                        return;
+                    }
+                    owo_agent_core::PhaseOutcome::AwaitingHuman { waits } => {
+                        tracing::info!(team_id = %team_id, ?waits, "团队等待人节点，进入事件门闩");
+                        // 订阅状态变化后重查一次阶段，关闭“人结果恰好在进入门闩时提交”的竞态。
+                        // 后续只有进度、取消或 1s 预算心跳会唤醒；等待期间不重复运行调度器。
+                        let mut progress_rx = coordinator.subscribe_progress(&team_id);
+                        let cancel = coordinator.cancel_token(&team_id);
+                        let mut cancel_rx = cancel.rx();
+                        'latch: loop {
+                            if cancel.is_cancelled() {
+                                if let Err(e) = coordinator
+                                    .apply_steer(&team_id, &SteerCommand::Cancel)
+                                    .await
+                                {
+                                    tracing::error!(team_id = %team_id, %e, "取消收尾失败");
+                                }
                                 fail_pending_rework_tasks(
                                     &coordinator,
                                     &team_id,
-                                    "团队执行在返工产出新版本前终止",
+                                    "团队已取消，返工未产出新版本",
                                 )
                                 .await;
                                 return;
-                            } // 终态
-                            Err(e) => {
-                                tracing::warn!(team_id = %team_id, %e, "门闩等待中 run_phase 失败，退避");
-                                tokio::time::sleep(Duration::from_secs(1)).await;
+                            }
+                            // 人节点等待期间仍守住墙钟预算；其余时候完全由状态事件唤醒。
+                            if stop_if_budget_exhausted(&coordinator, &team_id).await {
+                                return;
+                            }
+                            let observed_progress = *progress_rx.borrow_and_update();
+                            lifecycle_sequence = lifecycle_sequence.saturating_add(1);
+                            let latch_sequence = lifecycle_sequence;
+                            let phase_timer = workswarm_metrics::TeamLifecycleTimer::start(
+                                latch_sequence,
+                                "phase_orchestration",
+                            );
+                            let phase_result =
+                                run_bounded_team_phase(&coordinator, &team_id, &registry).await;
+                            let phase_epoch = coordinator.current_execution_epoch(&team_id);
+                            let phase_outcome = match &phase_result {
+                                Err(_) => "failed",
+                                Ok(owo_agent_core::PhaseOutcome::MoreReady) => "more_ready",
+                                Ok(owo_agent_core::PhaseOutcome::Done) => "done",
+                                Ok(owo_agent_core::PhaseOutcome::AwaitingHuman { .. }) => {
+                                    "awaiting_human"
+                                }
+                                Ok(owo_agent_core::PhaseOutcome::Failed) => "failed",
+                                Ok(owo_agent_core::PhaseOutcome::Aborted) => "aborted",
+                                Ok(owo_agent_core::PhaseOutcome::Finished) => "finished",
+                            };
+                            phase_timer.finish_with_phase_epoch(
+                                &lifecycle_journal,
+                                &team_id,
+                                phase_outcome,
+                                Some(phase_epoch),
+                            );
+                            match phase_result {
+                                Ok(owo_agent_core::PhaseOutcome::AwaitingHuman { .. }) => loop {
+                                    tokio::select! {
+                                        changed = progress_rx.changed() => {
+                                            if changed.is_err() || *progress_rx.borrow_and_update() != observed_progress {
+                                                continue 'latch;
+                                            }
+                                        }
+                                        changed = cancel_rx.changed() => {
+                                            if changed.is_err() || *cancel_rx.borrow() {
+                                                if let Err(e) = coordinator
+                                                    .apply_steer(&team_id, &SteerCommand::Cancel)
+                                                    .await
+                                                {
+                                                    tracing::error!(team_id = %team_id, %e, "取消收尾失败");
+                                                }
+                                                fail_pending_rework_tasks(
+                                                    &coordinator,
+                                                    &team_id,
+                                                    "团队已取消，返工未产出新版本",
+                                                )
+                                                .await;
+                                                return;
+                                            }
+                                        }
+                                        _ = tokio::time::sleep(Duration::from_secs(1)) => {
+                                            if stop_if_budget_exhausted(&coordinator, &team_id).await {
+                                                return;
+                                            }
+                                        }
+                                    }
+                                },
+                                Ok(owo_agent_core::PhaseOutcome::Done) => {
+                                    let delivery_timer =
+                                        workswarm_metrics::TeamLifecycleTimer::start(
+                                            latch_sequence,
+                                            "delivery_finalize",
+                                        );
+                                    let _delivery_lease =
+                                        super::acquire_workspace_delivery_lease(&verification_root)
+                                            .await;
+                                    let result = coordinator.finalize_success(&team_id).await;
+                                    delivery_timer.finish(
+                                        &lifecycle_journal,
+                                        &team_id,
+                                        if result.is_ok() {
+                                            "succeeded"
+                                        } else {
+                                            "failed"
+                                        },
+                                    );
+                                    if matches!(&result, Err(owo_agent_core::workswarm::WorkSwarmError::DeliveryRepair { .. })) {
+                                    break 'latch;
+                                }
+                                    return;
+                                }
+                                Ok(owo_agent_core::PhaseOutcome::MoreReady) => break, // 外层循环重建注册表继续
+                                Ok(_) => {
+                                    fail_pending_rework_tasks(
+                                        &coordinator,
+                                        &team_id,
+                                        "团队执行在返工产出新版本前终止",
+                                    )
+                                    .await;
+                                    return;
+                                } // 终态
+                                Err(e) => {
+                                    tracing::warn!(team_id = %team_id, %e, "门闩等待中 run_phase 失败，退避");
+                                    tokio::time::sleep(Duration::from_secs(1)).await;
+                                }
                             }
                         }
                     }
                 }
-            },
+            }
         }
     }
 }

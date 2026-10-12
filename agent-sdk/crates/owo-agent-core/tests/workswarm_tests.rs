@@ -3899,3 +3899,261 @@ async fn artifact_pages_reach_tail_and_pin_current_task_attempt_and_hash() {
         .await
         .is_err());
 }
+
+struct HtmlCandidateWorker;
+#[async_trait]
+impl Worker for HtmlCandidateWorker {
+    fn name(&self) -> &str {
+        "html-candidate"
+    }
+    async fn run(&self, input: &Value) -> Result<String, String> {
+        if input.get("role").and_then(Value::as_str) == Some("reviewer") {
+            return EchoWorker.run(input).await;
+        }
+        Ok(serde_json::json!({"status":"done","summary":"HTML candidate","artifact":{"kind":"document","format":"text","content":"<!doctype html><html><body><button>预约试玩</button></body></html>"},"evidence":[],"open_issues":[]}).to_string())
+    }
+}
+async fn drive_candidate_phase(
+    h: &Harness,
+    team_id: &str,
+    registry: &WorkerRegistry,
+) -> PhaseOutcome {
+    for _ in 0..50 {
+        let outcome = h.coordinator.run_phase(team_id, registry).await.unwrap();
+        if !matches!(outcome, PhaseOutcome::MoreReady) {
+            return outcome;
+        }
+    }
+    panic!("candidate phase did not converge");
+}
+
+#[tokio::test]
+async fn pure_html_candidate_dispatches_bounded_host_repair_and_rechecks_review() {
+    let h = harness();
+    let mut producer = RoleSpec::agent("implementer");
+    producer.verify = Some("non_empty".into());
+    let mut reviewer = RoleSpec::agent("reviewer");
+    reviewer.depends_on = vec!["implementer".into()];
+    reviewer.verify = Some("non_empty".into());
+    let roles = vec![producer, reviewer];
+    let mut req = CreateTeamRequest::new("create a playable page", TeamMode::Team);
+    req.roles = roles.clone();
+    req.budget = serde_json::json!({"max_retries_per_step":1,"max_total_retries":1});
+    let team = h.coordinator.create_team_run(&req).await.unwrap();
+    let registry = build_registry(&h, &team.team_id, Arc::new(HtmlCandidateWorker), &roles);
+    let initial = drive_candidate_phase(&h, &team.team_id, &registry).await;
+    assert!(
+        matches!(initial, PhaseOutcome::Done),
+        "initial={initial:?}, state={:?}",
+        h.coordinator
+            .load_run_state(&team.team_id)
+            .map(|state| (state.goal.error, state.events))
+    );
+    let error = h
+        .coordinator
+        .finalize_success(&team.team_id)
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        owo_agent_core::workswarm::WorkSwarmError::DeliveryRepair { .. }
+    ));
+    let state = h.coordinator.load_run_state(&team.team_id).unwrap();
+    assert_eq!(
+        state.records["s-implementer"].status,
+        owo_agent_core::plan::StepStatus::Pending
+    );
+    assert_eq!(
+        state.records["s-reviewer"].status,
+        owo_agent_core::plan::StepStatus::Pending
+    );
+    assert!(matches!(
+        drive_candidate_phase(&h, &team.team_id, &registry).await,
+        PhaseOutcome::Done
+    ));
+    assert!(h.coordinator.finalize_success(&team.team_id).await.is_err());
+    assert_eq!(
+        h.coordinator
+            .get_team_run(&team.team_id)
+            .await
+            .unwrap()
+            .status,
+        TeamRunStatus::Failed
+    );
+}
+
+#[tokio::test]
+async fn cancelled_candidate_cannot_publish_a_success_manifest() {
+    let h = harness();
+    let roles = relay_roles("echo");
+    let mut req = CreateTeamRequest::new(OBJECTIVE, TeamMode::Team);
+    req.roles = roles.clone();
+    let team = h.coordinator.create_team_run(&req).await.unwrap();
+    let registry = build_registry(&h, &team.team_id, Arc::new(EchoWorker), &roles);
+    assert!(matches!(
+        drive_candidate_phase(&h, &team.team_id, &registry).await,
+        PhaseOutcome::Done
+    ));
+    h.coordinator
+        .apply_steer(
+            &team.team_id,
+            &owo_agent_core::workswarm::SteerCommand::Cancel,
+        )
+        .await
+        .unwrap();
+    assert!(h.coordinator.finalize_success(&team.team_id).await.is_err());
+    assert_eq!(
+        h.coordinator
+            .get_team_run(&team.team_id)
+            .await
+            .unwrap()
+            .status,
+        TeamRunStatus::Cancelled
+    );
+    let space = h
+        .store
+        .get_project_space(team.project_space_id.as_deref().unwrap())
+        .await
+        .unwrap();
+    assert!(space.delivery_manifest_ref.is_none());
+}
+
+struct CorrectingCommanderWorker {
+    lead_calls: std::sync::atomic::AtomicUsize,
+    writer_calls: std::sync::atomic::AtomicUsize,
+    remains_invalid: bool,
+}
+#[async_trait]
+impl Worker for CorrectingCommanderWorker {
+    fn name(&self) -> &str {
+        "agent"
+    }
+    async fn run(&self, input: &Value) -> Result<String, String> {
+        match input["role"].as_str().unwrap_or("") {
+            "lead" => {
+                let call = self
+                    .lead_calls
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                if call > 0 {
+                    assert!(input["task_graph_repair"]["reason"].as_str().is_some());
+                    assert!(input["team_prompt_context"]["handoff_contract"]
+                        .as_str()
+                        .unwrap()
+                        .contains("禁止扩大权限"));
+                }
+                let verification = if call == 0 || self.remains_invalid {
+                    serde_json::json!({"plan_id":"bad","requirements":[{"requirement_id":"r","validator_id":"non_empty","validator_version":"1","scope":{"kind":"workspace_paths","relative_paths":[]},"arguments":{},"required":true}]})
+                } else {
+                    serde_json::json!("non_empty")
+                };
+                let plan = serde_json::json!({"version":1,"brief":{"goal":"整理文案"},"tasks":[{
+                    "task_id":"t1","worker":"w1","task":"整理文案","acceptance":"整理文案",
+                    "depends_on":[],"requirement_quotes":["整理文案"],"write_paths":[],"read_refs":[],"contract_refs":[],"required_capabilities":[],"estimated_effort":1,"verification":verification,"risk":"low","priority":50
+                }]});
+                Ok(serde_json::json!({"status":"done","summary":"指挥计划","artifact":{"kind":"plan","format":"json","content":plan.to_string()},"evidence":[],"open_issues":[]}).to_string())
+            }
+            "reviewer" => {
+                let context = input["team_prompt_context"].clone();
+                EchoWorker.run(&serde_json::json!({"role":"reviewer","capabilities":["review"],"text":context.to_string()})).await
+            }
+            _ => {
+                self.writer_calls
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Ok(serde_json::json!({"status":"done","summary":"文案完成","artifact":{"kind":"document","format":"markdown","content":"整理后的文案"},"evidence":[],"open_issues":[]}).to_string())
+            }
+        }
+    }
+}
+fn commander_test_roles() -> Vec<RoleSpec> {
+    let lead = RoleSpec::agent("lead");
+    let mut writer = RoleSpec::agent("w1");
+    writer.depends_on = vec!["lead".into()];
+    let mut reviewer = RoleSpec::agent("reviewer");
+    reviewer.depends_on = vec!["w1".into()];
+    reviewer.capabilities = vec!["review".into()];
+    let mut roles = vec![lead, writer, reviewer];
+    for role in &mut roles {
+        role.verify = Some("non_empty".into());
+    }
+    roles
+}
+#[tokio::test]
+async fn commander_corrects_plan_before_any_executor_is_dispatched() {
+    let h = harness();
+    let roles = commander_test_roles();
+    let mut req = CreateTeamRequest::new("整理文案", TeamMode::Team);
+    req.roles = roles.clone();
+    req.parallel = true;
+    req.budget = serde_json::json!({"max_retries_per_step":0,"max_total_retries":0});
+    let team = h.coordinator.create_team_run(&req).await.unwrap();
+    let worker = Arc::new(CorrectingCommanderWorker {
+        lead_calls: 0.into(),
+        writer_calls: 0.into(),
+        remains_invalid: false,
+    });
+    let registry = build_registry(&h, &team.team_id, worker.clone(), &roles);
+    let outcome = drive_next(&h, &team.team_id, &registry).await;
+    assert!(matches!(outcome, PhaseOutcome::Done));
+    assert_eq!(
+        worker.lead_calls.load(std::sync::atomic::Ordering::SeqCst),
+        2
+    );
+    assert_eq!(
+        worker
+            .writer_calls
+            .load(std::sync::atomic::Ordering::SeqCst),
+        1
+    );
+    let space = h
+        .store
+        .get_project_space(team.project_space_id.as_deref().unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        space
+            .artifacts
+            .iter()
+            .filter(|id| id.contains(":lead:"))
+            .count(),
+        1,
+        "invalid plan must not be published"
+    );
+}
+#[tokio::test]
+async fn commander_correction_is_bounded_and_never_dispatches_invalid_tasks() {
+    let h = harness();
+    let roles = commander_test_roles();
+    let mut req = CreateTeamRequest::new("整理文案", TeamMode::Team);
+    req.roles = roles.clone();
+    req.parallel = true;
+    req.budget = serde_json::json!({"max_retries_per_step":0,"max_total_retries":0});
+    let team = h.coordinator.create_team_run(&req).await.unwrap();
+    let worker = Arc::new(CorrectingCommanderWorker {
+        lead_calls: 0.into(),
+        writer_calls: 0.into(),
+        remains_invalid: true,
+    });
+    let registry = build_registry(&h, &team.team_id, worker.clone(), &roles);
+    assert!(matches!(
+        drive_next(&h, &team.team_id, &registry).await,
+        PhaseOutcome::Failed
+    ));
+    assert_eq!(
+        worker.lead_calls.load(std::sync::atomic::Ordering::SeqCst),
+        2
+    );
+    assert_eq!(
+        worker
+            .writer_calls
+            .load(std::sync::atomic::Ordering::SeqCst),
+        0
+    );
+    assert_eq!(
+        h.coordinator
+            .get_team_run(&team.team_id)
+            .await
+            .unwrap()
+            .status,
+        TeamRunStatus::Failed
+    );
+}

@@ -14,6 +14,7 @@ impl TeamCoordinator {
         space: &ProjectSpace,
         state: &mut GoalRunState,
     ) -> WorkSwarmResult<DeliveryGateAcceptance> {
+        let mut pending_delivery_repair: Option<WorkSwarmError> = None;
         if state.aborted || !Self::all_succeeded(state) {
             return Err(WorkSwarmError::Conflict(
                 "存在未完成或已取消的步骤，不能收尾".to_string(),
@@ -184,13 +185,6 @@ impl TeamCoordinator {
             } else {
                 None
             };
-            if changeset_contains_code && !has_behavior_command && host_behavior_evidence.is_none()
-            {
-                return Err(WorkSwarmError::Conflict(format!(
-                    "任务 {} 的实际 ChangeSet 修改了源代码，但没有宿主行为验证证据：请在写入后运行获准的行为命令（run_command），或在 VerificationPlan 声明 workspace-command-success-v1 验收要求",
-                    step.id
-                )));
-            }
             if has_behavior_command {
                 // 计划声明了行为命令：逐一校验其 WorkspacePaths 覆盖全部已改源码。
                 let uncovered_source_paths = super::delivery_gate_evidence::uncovered_source_paths(
@@ -215,25 +209,9 @@ impl TeamCoordinator {
             });
             let input_bytes = serde_json::to_vec(&input_snapshot)?;
             let input_sha256 = CasStore::hash_of(&input_bytes);
+            let mut repair_required = false;
             for artifact_id in &handoff.output_artifact_refs {
                 let artifact = catalog.get(artifact_id)?.clone();
-                let code_artifact =
-                    super::delivery_gate_evidence::is_code_artifact_kind(&artifact.kind);
-                if code_artifact && !changeset_contains_code {
-                    return Err(WorkSwarmError::Conflict(format!(
-                        "代码产物 {} 没有关联当前 attempt 的源文件 ChangeSet，不能作为交付",
-                        artifact.artifact_id
-                    )));
-                }
-                if (changeset_contains_code || code_artifact)
-                    && !has_behavior_command
-                    && host_behavior_evidence.is_none()
-                {
-                    return Err(WorkSwarmError::Conflict(format!(
-                        "代码任务 {} 缺少必需的宿主行为验证命令，静态文件检查不能通过交付门",
-                        step.id
-                    )));
-                }
                 if artifact.team_id != team_id || artifact.producer != step.worker {
                     return Err(WorkSwarmError::Conflict(format!(
                         "任务 {} 的产物 {} 与当前团队/成员不匹配",
@@ -250,6 +228,31 @@ impl TeamCoordinator {
                 }
                 let verified_content = text_cache.read(&artifact).await?;
                 let content = verified_content.as_ref();
+                let code_artifact = super::delivery_gate_evidence::requires_source_delivery(
+                    &artifact.kind,
+                    &artifact.format,
+                    &artifact.file_name,
+                    content,
+                );
+                if code_artifact && !changeset_contains_code {
+                    repair_required = true;
+                    pending_delivery_repair.get_or_insert(WorkSwarmError::DeliveryRepair {
+                        step_id: step.id.clone(), attempt_id: attempt_id.to_string(),
+                        validator_id: "workspace-command-success-v1".into(),
+                        reason: "可运行产物必须在已有授权写范围内落盘，形成当前 attempt 的源码 ChangeSet，再运行登记的真实行为测试；不得增加权限或只交静态 HTML".into(),
+                    });
+                }
+                if (changeset_contains_code || code_artifact)
+                    && !has_behavior_command
+                    && host_behavior_evidence.is_none()
+                {
+                    repair_required = true;
+                    pending_delivery_repair.get_or_insert(WorkSwarmError::DeliveryRepair {
+                        step_id: step.id.clone(), attempt_id: attempt_id.to_string(),
+                        validator_id: "workspace-command-success-v1".into(),
+                        reason: "当前源码缺少匹配最终文件哈希的宿主行为验证证据；请在修改后运行获准测试（例如 node --test outputs/page.test.cjs），检查后不要修改源码，重新交付并独立评审".into(),
+                    });
+                }
                 let actual_hash = artifact.sha256.clone();
                 let reviewer = run_meta
                     .roles
@@ -560,7 +563,7 @@ impl TeamCoordinator {
 
                 for requirement in &verification_plan.requirements {
                     let started_at = now_ts();
-                    let (mut verdict, mut detail, subject_hashes, command_evidence_ref) =
+                    let (verdict, detail, subject_hashes, command_evidence_ref) =
                         if requirement.validator_id == "workspace-command-success-v1" {
                             super::delivery_gate_evidence::evaluate_workspace_command_receipt(
                                 team_id,
@@ -575,10 +578,18 @@ impl TeamCoordinator {
                                 workspace_validation.execute_registered(requirement, content);
                             (verdict, detail, subject_hashes, None)
                         };
-                    if let crate::plan::VerificationScopeV1::WorkspacePaths { relative_paths } =
-                        &requirement.scope
+                    let repairable_evidence = matches!(
+                        verdict,
+                        crate::plan::ValidationVerdictV1::Failed
+                            | crate::plan::ValidationVerdictV1::Unverified
+                    );
+                    if verdict != crate::plan::ValidationVerdictV1::Unsupported
+                        && (verdict != crate::plan::ValidationVerdictV1::Unverified
+                            || !subject_hashes.is_empty())
                     {
-                        if let Err(reason) =
+                        if let crate::plan::VerificationScopeV1::WorkspacePaths { relative_paths } =
+                            &requirement.scope
+                        {
                             super::delivery_gate_evidence::validate_workspace_receipt_snapshot(
                                 team_id,
                                 &step.id,
@@ -587,9 +598,11 @@ impl TeamCoordinator {
                                 &subject_hashes,
                                 &change_sets,
                             )
-                        {
-                            verdict = crate::plan::ValidationVerdictV1::Failed;
-                            detail = Some(reason);
+                            .map_err(|reason| {
+                                WorkSwarmError::Conflict(format!(
+                                    "验收证据与源码快照不一致，不能自动改写：{reason}"
+                                ))
+                            })?;
                         }
                     }
                     let arguments_sha256 =
@@ -635,6 +648,26 @@ impl TeamCoordinator {
                     }
                     store_validation_receipt(state, &step.id, &receipt);
                     validation_receipts.push(receipt);
+                    if requirement.required
+                        && repairable_evidence
+                        && requirement.validator_id == "workspace-command-success-v1"
+                        && matches!(
+                            verdict,
+                            crate::plan::ValidationVerdictV1::Failed
+                                | crate::plan::ValidationVerdictV1::Unverified
+                        )
+                    {
+                        repair_required = true;
+                        pending_delivery_repair.get_or_insert(WorkSwarmError::DeliveryRepair {
+                            step_id: step.id.clone(),
+                            attempt_id: attempt_id.to_string(),
+                            validator_id: requirement.validator_id.clone(),
+                            reason: detail.clone().unwrap_or_else(|| {
+                                "必须重新执行登记的行为测试并交付有效证据".into()
+                            }),
+                        });
+                        continue;
+                    }
                     if requirement.required && verdict != crate::plan::ValidationVerdictV1::Passed {
                         return Err(WorkSwarmError::Conflict(format!(
                             "任务 {} 的验收要求 {} 未通过或未验证：{}",
@@ -717,6 +750,9 @@ impl TeamCoordinator {
                         ..crate::completion::CompletionEvidence::default()
                     });
                 if completion_status != owo_agent_protocol::CompletionStatusV1::Accepted {
+                    if repair_required {
+                        continue;
+                    }
                     return Err(WorkSwarmError::Conflict(format!(
                         "任务 {} 的共享完成裁决没有接受该候选结果：{completion_status:?}",
                         step.id
@@ -819,6 +855,9 @@ impl TeamCoordinator {
             return Err(WorkSwarmError::Conflict(
                 "交付空间缺少 project_id，不能确认产物归属".to_string(),
             ));
+        }
+        if let Some(repair) = pending_delivery_repair {
+            return Err(repair);
         }
         Ok(DeliveryGateAcceptance {
             receipts: acceptance_receipts,
