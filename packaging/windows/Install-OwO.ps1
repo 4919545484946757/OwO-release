@@ -6,6 +6,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'Install-Prerequisites.ps1')
+Assert-OwOX64OperatingSystem
+$nativeSystem = Get-OwONativeSystemDirectory
+$nativePowerShell = Join-Path $nativeSystem 'WindowsPowerShell\v1.0\powershell.exe'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -16,7 +20,7 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
         $arguments += ' -InstallDirectory "' + $InstallDirectory.Replace('"', '""') + '"'
     }
     try {
-        $elevated = Start-Process -FilePath 'powershell.exe' -Verb RunAs `
+        $elevated = Start-Process -FilePath $nativePowerShell -Verb RunAs `
             -ArgumentList $arguments -Wait -PassThru
     } catch {
         throw 'OwO TSF registration requires administrator approval. UAC was cancelled or unavailable.'
@@ -31,28 +35,10 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 # diagnosis as the graphical setup wizard.
 $profile = Get-ItemProperty -LiteralPath 'HKCU:\Control Panel\International\User Profile' `
     -Name Languages -ErrorAction SilentlyContinue
-$registeredChinese = @($profile.Languages | Where-Object {
-    $_ -in @('zh-Hans-CN', 'zh-CN')
-}).Count -gt 0
-# Match the wizard's per-user registry fallback. Do not turn a failed cmdlet
-# into a misleading "language not installed" diagnosis.
-$languages = @()
-if (-not $registeredChinese) {
-    try { $languages = Get-WinUserLanguageList -ErrorAction Stop }
-    catch { throw "OwO language detection failed. Retry in the target user account: $($_.Exception.Message)" }
-}
-$chinese = $null
-# Windows PowerShell 5.1 returns WinUserLanguageList as one generic-list
-# object instead of enumerating its entries through the pipeline. Use an
-# explicit foreach so a list such as "zh-Hans-CN, en-US" is inspected one
-# language at a time.
-foreach ($language in $languages) {
-    if ($language.LanguageTag -in @('zh-Hans-CN', 'zh-CN')) {
-        $chinese = $language
-        break
-    }
-}
-if (-not $registeredChinese -and $null -eq $chinese) {
+$languageState = Get-OwOChineseLanguageState -RegistryTags $profile.Languages
+$languages = $languageState.Languages
+$chinese = $languageState.Chinese
+if (-not $languageState.Ready) {
     throw @'
 OwO requires the Windows "Chinese (Simplified, China)" language and basic typing support.
 Open Settings > Time & language > Language & region, add Chinese (Simplified, China),
@@ -241,7 +227,7 @@ if ($null -ne $oldProfileCheck -and (Test-Path -LiteralPath $oldProfileCheck -Pa
     }
 }
 if ($null -ne $oldTsf -and (Test-Path -LiteralPath $oldTsf -PathType Leaf)) {
-    $oldUnregister = Start-Process -FilePath "$env:SystemRoot\System32\regsvr32.exe" `
+    $oldUnregister = Start-Process -FilePath (Join-Path $nativeSystem 'regsvr32.exe') `
         -ArgumentList @('/u', '/s', ('"{0}"' -f $oldTsf)) `
         -WindowStyle Hidden -Wait -PassThru
     if ($oldUnregister.ExitCode -ne 0) {
@@ -261,7 +247,7 @@ if ($null -ne $oldX86Tsf -and (Test-Path -LiteralPath $oldX86Tsf -PathType Leaf)
 $tsf = Join-Path $installRoot 'bin\OwO.TSF.dll'
 $x86Tsf = Join-Path $installRoot 'bin\x86\OwO.TSF.dll'
 $profileCheck = Join-Path $installRoot 'bin\owo_tsf_profile_check.exe'
-$register = Start-Process -FilePath "$env:SystemRoot\System32\regsvr32.exe" `
+$register = Start-Process -FilePath (Join-Path $nativeSystem 'regsvr32.exe') `
     -ArgumentList @('/s', ('"{0}"' -f $tsf)) -WindowStyle Hidden -Wait -PassThru
 if ($register.ExitCode -ne 0) { throw "TSF registration failed: $($register.ExitCode)" }
 $x86Register = Start-Process -FilePath "$env:SystemRoot\SysWOW64\regsvr32.exe" `
@@ -273,7 +259,9 @@ if ($x86Register.ExitCode -ne 0) {
 if ($LASTEXITCODE -ne 0) { throw "OwO profile enable failed: $LASTEXITCODE" }
 
 $owoTip = '0804:{6D31C9B1-8978-4F49-89B4-66EB1E741591}{5D9F39C3-BDB4-453C-A7BA-B9EF82487629}'
-if ($chinese.InputMethodTips -notcontains $owoTip) {
+if ($null -eq $chinese) {
+    Write-Warning 'Chinese language readiness was verified through the user registry, but the writable language list is unavailable. Keeping existing language preferences; use Win+Space to select OwO.'
+} elseif ($chinese.InputMethodTips -notcontains $owoTip) {
     $chinese.InputMethodTips.Add($owoTip)
     Set-WinUserLanguageList $languages -Force -WarningAction SilentlyContinue
 }

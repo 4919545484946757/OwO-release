@@ -421,7 +421,7 @@ public sealed class SetupPage : Page
         _packageStatus.Severity = InfoBarSeverity.Informational;
         _packageStatus.Message = "正在验证安装包结构。";
         var required = new[] { "bin", "data", "model", "settings", "scripts", "LICENSES",
-            "scripts/Install-OwO.ps1", "README.zh-CN.md", "THIRD-PARTY-NOTICES.md",
+            "scripts/Install-OwO.ps1", "scripts/Install-Prerequisites.ps1", "README.zh-CN.md", "THIRD-PARTY-NOTICES.md",
             "Open-OwO-Settings.cmd", "Uninstall-OwO.cmd" };
         var missing = required.Where(item => !Directory.Exists(Path.Combine(_packageRoot, item)) &&
                                              !File.Exists(Path.Combine(_packageRoot, item))).ToArray();
@@ -457,6 +457,9 @@ public sealed class SetupPage : Page
         var reason = SetupPrerequisites.BlockingReason(_previewStage is not null,
             _checking, _languageReady, _packageReady, _consent.IsChecked == true,
             pathValid, pathError);
+        var architectureError = SetupPrerequisites.ArchitectureError(
+            System.Runtime.InteropServices.RuntimeInformation.OSArchitecture);
+        if (_previewStage is null && architectureError.Length != 0) reason = architectureError;
         _primary.IsEnabled = !_installing && reason.Length == 0;
         _availability.Text = reason.Length == 0 ? "已准备就绪，可以安装。" : reason;
     }

@@ -1,5 +1,11 @@
 using OwO_Settings;
 
+foreach (var architecture in Enum.GetValues<System.Runtime.InteropServices.Architecture>()) {
+    var supported = SetupPrerequisites.ArchitectureError(architecture).Length == 0;
+    if (supported != (architecture == System.Runtime.InteropServices.Architecture.X64))
+        throw new Exception("Installer must accept only x64 OS architecture");
+}
+
 if (!SetupPrerequisites.LanguageReady(0, "OWO_LANGUAGE_READY\r\n") ||
     SetupPrerequisites.LanguageReady(0, "") ||
     SetupPrerequisites.LanguageReady(2, "OWO_LANGUAGE_READY") ||

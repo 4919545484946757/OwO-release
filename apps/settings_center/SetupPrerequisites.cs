@@ -2,6 +2,9 @@ namespace OwO_Settings;
 
 internal static class SetupPrerequisites
 {
+    internal static string ArchitectureError(System.Runtime.InteropServices.Architecture architecture) =>
+        architecture == System.Runtime.InteropServices.Architecture.X64 ? "" :
+        "此安装包仅支持 x64 Windows，暂不支持 ARM64 或 32 位 Windows。";
     // Explicit marker + exit code: PowerShell nonterminating errors must never
     // look like a successful probe. Registry is the same per-user source used
     // by Windows language preferences, not the machine display language.

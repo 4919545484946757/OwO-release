@@ -8,11 +8,18 @@
 
 脚本安装后端采用相同的当前用户语言配置回退规则。检测异常会显示诊断，不伪装成“缺少语言包”。
 
+当前发行包仅支持原生 x64 Windows。Inno 安装入口使用 `x64os`，WinUI 使用 `RuntimeInformation.OSArchitecture` 检查操作系统架构，ZIP 安装脚本也在提权或复制文件前拒绝 ARM64、32 位 Windows。x64 Windows 下的 32 位应用仍使用包内 x86 TSF，并非取消这部分支持。
+
+脚本始终尝试读取可修改的用户语言列表。只有取得中文语言对象才修改 `InputMethodTips`；注册表回退仅能证明配置存在，不能用于生成可修改对象。回退时保留语言配置并提示用户，不对空对象调用 `Add()`。
+
+从 32 位进程启动时，提权使用 `Sysnative` 下的原生 Windows PowerShell，x64 TSF 注册/注销使用原生 `regsvr32`；x86 TSF 继续使用 `SysWOW64`。
+
 定向验证：
 
 ```powershell
 dotnet build apps/settings_center/OwO.Settings.csproj -c Release -p:Platform=x64 --no-restore
 dotnet run --project tests/settings_center/preferences_tests.csproj -c Release
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/settings_center/InstallerPrerequisitesTests.ps1
 ```
 
 手动验证：运行 `open-owo-installer.cmd`（不使用阶段预览参数），反复切换上一步/下一步，检查设置与可信确认是否保留；检查完成后，勾选可信应启用安装按钮。安装失败返回选项后可重试。阶段预览脚本只用于观察布局，不能用于验证实际安装按钮。

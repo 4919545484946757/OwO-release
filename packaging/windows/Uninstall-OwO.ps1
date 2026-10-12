@@ -2,13 +2,16 @@
 param([switch]$RemoveUserData)
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'Install-Prerequisites.ps1')
+$nativeSystem = Get-OwONativeSystemDirectory
+$nativePowerShell = Join-Path $nativeSystem 'WindowsPowerShell\v1.0\powershell.exe'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     $arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "' + $PSCommandPath + '"'
     if ($RemoveUserData) { $arguments += ' -RemoveUserData' }
     try {
-        $elevated = Start-Process -FilePath 'powershell.exe' -Verb RunAs `
+        $elevated = Start-Process -FilePath $nativePowerShell -Verb RunAs `
             -ArgumentList $arguments -Wait -PassThru
     } catch {
         throw 'OwO TSF unregistration requires administrator approval. UAC was cancelled or unavailable.'
@@ -81,7 +84,7 @@ if (Test-Path -LiteralPath $profileCheck) {
     }
 }
 if (Test-Path -LiteralPath $tsf) {
-    $unregister = Start-Process -FilePath "$env:SystemRoot\System32\regsvr32.exe" `
+    $unregister = Start-Process -FilePath (Join-Path $nativeSystem 'regsvr32.exe') `
         -ArgumentList @('/u', '/s', ('"{0}"' -f $tsf)) `
         -WindowStyle Hidden -Wait -PassThru
     if ($unregister.ExitCode -ne 0) {
