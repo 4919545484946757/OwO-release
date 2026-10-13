@@ -1,0 +1,7 @@
+[
+  {
+    "case": "inbox_crashed_resolve_restart",
+    "http": 409,
+    "error": "待办正在处理中，请稍后重试"
+  }
+]

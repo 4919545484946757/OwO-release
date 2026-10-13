@@ -1,0 +1,12 @@
+[
+  {
+    "case": "restore_junction_outside_workspace",
+    "http": 200,
+    "outside_workspace_file_changed": true,
+    "outside_path_still_within_audit_env": true
+  },
+  {
+    "case": "harness_error",
+    "error": "'gbk' codec can't decode byte 0xaa in position 300: illegal multibyte sequence"
+  }
+]

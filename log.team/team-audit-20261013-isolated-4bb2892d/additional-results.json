@@ -1,0 +1,27 @@
+[
+  {
+    "case": "inbox_claim_alice",
+    "http": 200
+  },
+  {
+    "case": "inbox_resolve_bob",
+    "http": 200,
+    "resolved": true,
+    "error": null
+  },
+  {
+    "case": "direct_review_pending_changeset",
+    "approval_blocked": true,
+    "http": 409,
+    "artifact_kind": "code",
+    "head": null
+  },
+  {
+    "case": "changeset_accept_reject_race",
+    "accept_http": 409,
+    "reject_http": 200,
+    "stored_status": "rejected",
+    "baseline_file_count": 1200,
+    "total_files": 1200
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "source_files": 460,
+  "rust_source_changed": [],
+  "git_status": " M agent-sdk/crates/owo-agent-perception/src/vision.rs\n?? env/\n",
+  "git_status_matches_start": true,
+  "original_code_modified_by_audit": false,
+  "new_downloads": 0,
+  "installed_exe": false,
+  "gui_verified": false,
+  "real_llm_verified": false
+}

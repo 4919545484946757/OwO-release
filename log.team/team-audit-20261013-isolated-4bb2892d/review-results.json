@@ -1,0 +1,32 @@
+[
+  {
+    "case": "review_self_baseline",
+    "http": 403,
+    "review_team": null,
+    "stored_reviewer": null,
+    "error": "生产者 m-researcher 不能批准自己的产物（需 Human 策略 self_review_allowed 授权或由他人评审）"
+  },
+  {
+    "case": "review_self_whitespace",
+    "http": 201,
+    "review_team": "team-9033d4aa",
+    "stored_reviewer": "m-researcher",
+    "error": null
+  },
+  {
+    "case": "review_cross_team",
+    "http": 201,
+    "review_team": "team-9ecec4e5",
+    "stored_reviewer": "user",
+    "error": null
+  },
+  {
+    "case": "replace_unknown_worker",
+    "http": 200,
+    "reply": {
+      "interrupted": false,
+      "status": "AwaitingHuman",
+      "team_id": "team-2a75ce76"
+    }
+  }
+]

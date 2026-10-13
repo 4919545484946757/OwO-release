@@ -109,3 +109,6 @@ tmp_path_keys.txt
 /agent-sdk/desktop/tauri/node_modules/
 # QA 截图产物（浏览器/Electron 自检生成，可再生）
 /agent-sdk/desktop/web/.qa-*.png
+
+# 个人文件
+/env

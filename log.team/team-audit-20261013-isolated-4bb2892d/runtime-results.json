@@ -1,0 +1,159 @@
+[
+  {
+    "case": "health",
+    "health": {
+      "healthy": true,
+      "version": "0.1.0",
+      "api_version": "0.7",
+      "auto_approve": false,
+      "build": {
+        "commit": "79fbc6f671915054796619505ca280743dfd10b1",
+        "dirty": true,
+        "built_at": "2026-10-12T15:22:02Z"
+      },
+      "pid": 13880,
+      "stage": "ready",
+      "build_id": "79fbc6f671915054796619505ca280743dfd10b1"
+    }
+  },
+  {
+    "case": "normal_echo_relay",
+    "status": "succeeded",
+    "tasks": [
+      {
+        "attempts": 1,
+        "depends_on": [],
+        "error": null,
+        "role": "writer",
+        "status": "Succeeded",
+        "task_id": "s-writer",
+        "worker": "m-writer"
+      },
+      {
+        "attempts": 1,
+        "depends_on": [
+          "s-writer"
+        ],
+        "error": null,
+        "role": "summarizer",
+        "status": "Succeeded",
+        "task_id": "s-summarizer",
+        "worker": "m-summarizer"
+      }
+    ]
+  },
+  {
+    "case": "human_before_dependency",
+    "http": 200,
+    "upstream": "Running",
+    "human": "Succeeded"
+  },
+  {
+    "case": "replace_human_echo",
+    "http": 200,
+    "status": "failed",
+    "tasks": [
+      {
+        "attempts": 1,
+        "depends_on": [],
+        "error": null,
+        "role": "writer",
+        "status": "Succeeded",
+        "task_id": "s-writer",
+        "worker": "m-writer"
+      },
+      {
+        "attempts": 0,
+        "depends_on": [
+          "s-writer"
+        ],
+        "error": "worker 未注册：m-human",
+        "role": "human",
+        "status": "Failed",
+        "task_id": "s-human",
+        "worker": "m-human"
+      },
+      {
+        "attempts": 0,
+        "depends_on": [
+          "s-human"
+        ],
+        "error": null,
+        "role": "summarizer",
+        "status": "Pending",
+        "task_id": "s-summarizer",
+        "worker": "m-summarizer"
+      }
+    ]
+  },
+  {
+    "case": "restart_human_state",
+    "status": "awaiting_human",
+    "interrupted": false
+  },
+  {
+    "case": "restart_human_continue",
+    "http": 409,
+    "reply": {
+      "error": "当前状态 AwaitingHuman 不可 continue（仅 Failed/Cancelled/Created/中断遗留）"
+    }
+  },
+  {
+    "case": "restart_human_submit",
+    "http": 200,
+    "status": "awaiting_human",
+    "tasks": [
+      {
+        "attempts": 1,
+        "depends_on": [],
+        "error": null,
+        "role": "writer",
+        "status": "Succeeded",
+        "task_id": "s-writer",
+        "worker": "m-writer"
+      },
+      {
+        "attempts": 1,
+        "depends_on": [
+          "s-writer"
+        ],
+        "error": null,
+        "role": "human",
+        "status": "Succeeded",
+        "task_id": "s-human",
+        "worker": "m-human"
+      },
+      {
+        "attempts": 0,
+        "depends_on": [
+          "s-human"
+        ],
+        "error": null,
+        "role": "summarizer",
+        "status": "Pending",
+        "task_id": "s-summarizer",
+        "worker": "m-summarizer"
+      }
+    ]
+  },
+  {
+    "case": "cancel_sleep_worker",
+    "status": "cancelled",
+    "tasks": [
+      {
+        "attempts": 1,
+        "depends_on": [],
+        "error": null,
+        "role": "writer",
+        "status": "Aborted",
+        "task_id": "s-writer",
+        "worker": "m-writer"
+      }
+    ]
+  },
+  {
+    "case": "normal_human_handoff",
+    "http": 200,
+    "status": "succeeded"
+  }
+]

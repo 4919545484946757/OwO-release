@@ -1,0 +1,15 @@
+[
+  {
+    "case": "pending_code_approved_head",
+    "approval_blocked": true,
+    "approved_head": "team-cc598140:code:v3"
+  },
+  {
+    "case": "changeset_race_0",
+    "accept_http": 200,
+    "reject_http": 409,
+    "stored_status": "accepted",
+    "baseline_file_count": 1200,
+    "total_files": 1200
+  }
+]

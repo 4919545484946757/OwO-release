@@ -1,0 +1,80 @@
+[
+  {
+    "case": "dynamic_graph_create",
+    "http": 202
+  },
+  {
+    "case": "dynamic_graph_run",
+    "status": "succeeded",
+    "tasks": [
+      {
+        "attempts": 1,
+        "depends_on": [],
+        "error": null,
+        "role": "lead",
+        "status": "Succeeded",
+        "task_id": "s-lead",
+        "worker": "m-lead"
+      },
+      {
+        "attempts": 1,
+        "depends_on": [
+          "s-task-b",
+          "s-w1"
+        ],
+        "error": null,
+        "role": "leader",
+        "status": "Succeeded",
+        "task_id": "s-leader",
+        "worker": "m-leader"
+      },
+      {
+        "attempts": 1,
+        "depends_on": [
+          "s-lead"
+        ],
+        "error": null,
+        "role": "w1",
+        "status": "Succeeded",
+        "task_id": "s-w1",
+        "worker": "m-w1"
+      },
+      {
+        "attempts": 1,
+        "depends_on": [
+          "s-w1"
+        ],
+        "error": null,
+        "role": "w1",
+        "status": "Succeeded",
+        "task_id": "s-task-b",
+        "worker": "m-w1"
+      }
+    ]
+  },
+  {
+    "case": "dynamic_worker_artifacts",
+    "artifacts": [
+      {
+        "id": "team-78804322:w1:v1",
+        "version": 1
+      },
+      {
+        "id": "team-78804322:w1:v2",
+        "version": 2
+      }
+    ]
+  },
+  {
+    "case": "dynamic_review_binding",
+    "http": 201,
+    "review_step": "s-w1",
+    "artifact_metadata_task": "s-task-b"
+  },
+  {
+    "case": "dynamic_rework_target",
+    "http": 201,
+    "target_step": "s-w1",
+    "reply": null
+  }
+]

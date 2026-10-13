@@ -1,0 +1,46 @@
+[
+  {
+    "case": "artifact_content",
+    "http": 200,
+    "hash_valid": true
+  },
+  {
+    "case": "read_surface",
+    "endpoint": "/teams/team-6d149de8/events?format=json",
+    "http": 200
+  },
+  {
+    "case": "read_surface",
+    "endpoint": "/teams/team-6d149de8/metrics",
+    "http": 200
+  },
+  {
+    "case": "read_surface",
+    "endpoint": "/teams/team-6d149de8/diagnostic",
+    "http": 200
+  },
+  {
+    "case": "read_surface",
+    "endpoint": "/projects/proj-team-6d149de8/delivery-manifest",
+    "http": 200
+  },
+  {
+    "case": "context_publish",
+    "http": 201,
+    "status": "candidate"
+  },
+  {
+    "case": "context_stale_revision",
+    "http": 409
+  },
+  {
+    "case": "template_adopt",
+    "http": 200
+  },
+  {
+    "case": "auto_reviewer_skip_gate",
+    "status": "failed",
+    "error": "交付验收未通过：状态冲突：任务 s-independent_reviewer 的运行期跳过没有得到允许或有效的宿主交付证据，不能作为已验收交付",
+    "reviewer_status": "Succeeded"
+  }
+]

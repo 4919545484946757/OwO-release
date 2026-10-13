@@ -1,0 +1,63 @@
+[
+  {
+    "case": "share_clean",
+    "http": 200,
+    "blocked": false,
+    "findings": [],
+    "error": null,
+    "escaped_file_exists": null
+  },
+  {
+    "case": "share_unknown_permission",
+    "http": 400,
+    "blocked": null,
+    "findings": null,
+    "error": "包解析失败：未授权权限：not-a-permission",
+    "escaped_file_exists": null
+  },
+  {
+    "case": "share_uppercase_danger",
+    "http": 200,
+    "blocked": false,
+    "findings": [],
+    "error": null,
+    "escaped_file_exists": null
+  },
+  {
+    "case": "share_id_escape",
+    "http": 200,
+    "blocked": false,
+    "findings": [],
+    "error": null,
+    "escaped_file_exists": true
+  },
+  {
+    "case": "share_same_version_A",
+    "http": 200,
+    "blocked": false,
+    "versions": [
+      {
+        "imported_at": "1791882645",
+        "sha256": "d3de1deb29288a5e",
+        "version": "1.0.0"
+      }
+    ]
+  },
+  {
+    "case": "share_same_version_B",
+    "http": 200,
+    "blocked": false,
+    "versions": [
+      {
+        "imported_at": "1791882645",
+        "sha256": "69700793906b28c7",
+        "version": "1.0.0"
+      }
+    ]
+  },
+  {
+    "case": "share_same_version_history",
+    "http": 200,
+    "count": 1
+  }
+]
