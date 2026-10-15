@@ -1,0 +1,16 @@
+{
+  "schema": "agent-ipc-v3.schema.json",
+  "fixtures": [
+    {"file": "fixtures/request.submit.valid.json", "kind": "request", "expect": "valid"},
+    {"file": "fixtures/request.select_slot_patch.valid.json", "kind": "request", "expect": "valid"},
+    {"file": "fixtures/request.cancel.valid.json", "kind": "request", "expect": "valid"},
+    {"file": "fixtures/response.agent_mode.valid.json", "kind": "response", "expect": "valid"},
+    {"file": "fixtures/response.error.valid.json", "kind": "response", "expect": "valid"},
+    {"file": "fixtures/request.unknown_field.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/request.missing_page.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/request.short_session.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/request.bad_request_id.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/response.high_risk_unconfirmed.invalid.json", "kind": "response", "expect": "invalid", "level": "semantic"},
+    {"file": "fixtures/response.duplicate_command.invalid.json", "kind": "response", "expect": "invalid", "level": "semantic"}
+  ]
+}

@@ -53,7 +53,10 @@ fn expect_respond(action: StateAction) -> AgentIpcResponse {
 
 fn expect_start_turn(
     action: StateAction,
-) -> (AgentIpcResponse, owo_intent_gateway::state::StartTurnRequest) {
+) -> (
+    AgentIpcResponse,
+    owo_intent_gateway::state::StartTurnRequest,
+) {
     match action {
         StateAction::StartTurn { immediate, turn } => (immediate, *turn),
         _ => panic!("期望 StartTurn，得到其它 StateAction"),

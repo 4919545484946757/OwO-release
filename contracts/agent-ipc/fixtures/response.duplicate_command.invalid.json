@@ -1,0 +1,66 @@
+{
+  "schema_version": 3,
+  "session_id": "0123456789abcdef0123456789abcdef",
+  "request_id": "req-120",
+  "message": "我找到了几个可选操作",
+  "commands": [
+    {
+      "id": "show-results",
+      "label": "显示搜索结果",
+      "high_risk": false,
+      "description": "显示已经找到的文件",
+      "category": "file.search",
+      "risk_level": "low",
+      "requires_confirmation": false,
+      "preview": "不会修改文件",
+      "enabled": true,
+      "disabled_reason": "",
+      "task_revision": 0,
+      "slot_updates": [],
+      "commit_task": false
+    },
+    {
+      "id": "show-results",
+      "label": "删除这些文件",
+      "high_risk": true,
+      "description": "删除选定文件",
+      "category": "file.delete",
+      "risk_level": "high",
+      "requires_confirmation": true,
+      "preview": "必须在 Agent 可信界面确认",
+      "enabled": true,
+      "disabled_reason": "",
+      "task_revision": 0,
+      "slot_updates": [],
+      "commit_task": false
+    }
+  ],
+  "executing_command": "",
+  "status": "agent_mode",
+  "page": 0,
+  "has_more": true,
+  "error_code": "",
+  "state_revision": 4,
+  "progress": 65,
+  "retry_after_ms": 150,
+  "can_cancel": true,
+  "can_continue_input": true,
+  "expires_at_ms": 1787830060000,
+  "error_message": "",
+  "retryable": false,
+  "capabilities": [
+    "protocol.negotiation",
+    "input.structured",
+    "context.entries",
+    "commands.risk",
+    "tasks.slots",
+    "tasks.incremental"
+  ],
+  "task": {
+    "intent": "",
+    "intent_ranges": [],
+    "slots": [],
+    "unconsumed_ranges": [],
+    "revision": 0
+  }
+}
