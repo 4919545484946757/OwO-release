@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::Notify;
 
 use crate::commands;
+use crate::intent;
 use crate::protocol::{
     Action, AgentIpcRequest, AgentIpcResponse, Command, SlotUpdate, Status, TaskDraft,
 };
@@ -96,6 +97,8 @@ pub struct StartTurnRequest {
     pub session_id: String,
     pub request: AgentIpcRequest,
     pub slot: Arc<PendingHandle>,
+    /// 已确定的提示词（任务提交时由草稿生成）；`None` 时 bridge 按请求组装。
+    pub prompt: Option<String>,
 }
 
 /// 状态机对请求的处理结果。
@@ -221,6 +224,9 @@ impl ImeState {
                     }
                     // done 但无结果（异常态）：按新 submit 继续。
                 }
+                if let Some(response) = self.propose_task(request, session) {
+                    return StateAction::Respond(response);
+                }
                 session.last_request = request.clone();
                 session.pending = Some(Arc::clone(&slot));
                 bump_revision(session)
@@ -230,11 +236,16 @@ impl ImeState {
                     last_request: request.clone(),
                     task: TaskDraft::default(),
                     state_revision: 0,
-                    pending: Some(Arc::clone(&slot)),
+                    pending: None,
                     commands: Vec::new(),
                     actions: HashMap::new(),
                     expires_at: Instant::now() + self.session_ttl,
                 };
+                if let Some(response) = self.propose_task(request, &mut session) {
+                    sessions.insert(request.session_id.clone(), session);
+                    return StateAction::Respond(response);
+                }
+                session.pending = Some(Arc::clone(&slot));
                 let revision = bump_revision(&mut session);
                 sessions.insert(request.session_id.clone(), session);
                 revision
@@ -249,6 +260,80 @@ impl ImeState {
                 session_id: request.session_id.clone(),
                 request: request.clone(),
                 slot,
+                prompt: None,
+            }),
+        }
+    }
+
+    /// submit 命中规则层意图时，直接给出任务草稿与“确认提交”候选，不发起回合。
+    fn propose_task(
+        &self,
+        request: &AgentIpcRequest,
+        session: &mut ImeSession,
+    ) -> Option<AgentIpcResponse> {
+        let parsed = intent::parse(request)?;
+        let mut task = parsed.task;
+        task.revision = session.task.revision + 1;
+        let summary = intent::describe(&task).unwrap_or_default();
+        session.last_request = request.clone();
+        session.task = task.clone();
+        let mut commit = commands::task_commit_command(task.revision);
+        commit.label = format!("确认：{summary}");
+        commit.preview = "只生成文字，不调用工具、不修改文件".to_string();
+        session.commands = vec![commit];
+        session.actions = HashMap::from([("task-commit".to_string(), CommandAction::CommitTask)]);
+        let mut response = commands::base_response(request, Status::AgentMode);
+        response.message = summary;
+        response.task = task;
+        response.commands = session.commands.clone();
+        response.can_cancel = true;
+        response.can_continue_input = true;
+        Some(self.finalize(session, response))
+    }
+
+    /// 提交任务草稿：校验版本后启动表达回合（提示词由草稿生成）。
+    fn commit_task(&self, request: &AgentIpcRequest, session: &mut ImeSession) -> StateAction {
+        if request.task_revision != session.task.revision {
+            let mut response = commands::error_response(
+                request,
+                "task_revision_mismatch",
+                "任务版本不匹配，请刷新候选",
+            );
+            response.task = session.task.clone();
+            return StateAction::Respond(self.finalize(session, response));
+        }
+        let Some(prompt) = intent::expression_prompt(&session.task) else {
+            let response = commands::error_response(
+                request,
+                "unsupported_task",
+                "当前任务类型不能在输入法内提交",
+            );
+            return StateAction::Respond(self.finalize(session, response));
+        };
+        if let Some(pending) = &session.pending {
+            if !pending.lock().done {
+                let mut thinking = commands::thinking_response(request, 10, 1500);
+                thinking.state_revision = session.state_revision;
+                return StateAction::Respond(thinking);
+            }
+        }
+        let slot = PendingHandle::new();
+        session.last_request = request.clone();
+        session.pending = Some(Arc::clone(&slot));
+        session.commands.clear();
+        session.actions.clear();
+        let mut immediate = commands::thinking_response(request, 10, 1500);
+        immediate.state_revision = bump_revision(session);
+        if let Some(summary) = intent::describe(&session.task) {
+            immediate.message = format!("正在处理（{summary}）");
+        }
+        StateAction::StartTurn {
+            immediate,
+            turn: Box::new(StartTurnRequest {
+                session_id: request.session_id.clone(),
+                request: request.clone(),
+                slot,
+                prompt: Some(prompt),
             }),
         }
     }
@@ -286,11 +371,11 @@ impl ImeState {
                     response.message = text.clone();
                     return StateAction::Respond(self.finalize(session, response));
                 }
-                // 打开界面 / 回滚 / 任务提交均需要 handler 侧真实 IO。
+                CommandAction::CommitTask => return self.commit_task(request, session),
+                // 打开界面 / 回滚需要 handler 侧真实 IO。
                 CommandAction::OpenConfirmUi { .. }
                 | CommandAction::OpenWorkbench
-                | CommandAction::RevertAll
-                | CommandAction::CommitTask => {
+                | CommandAction::RevertAll => {
                     return StateAction::RunCommand {
                         session_id: request.session_id.clone(),
                         action,

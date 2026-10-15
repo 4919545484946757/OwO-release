@@ -549,3 +549,74 @@ async fn missing_token_file_maps_to_error_without_public_endpoint() {
     assert_eq!(final_response.status, Status::Error);
     assert!(!mock.auth_token_called.load(Ordering::SeqCst));
 }
+
+#[tokio::test]
+async fn expression_task_draft_commit_runs_read_only_turn_with_fenced_prompt() {
+    let mock = MockServer::new(TurnMode::Complete);
+    let base_url = mock.serve().await;
+    let (_state, bridge) = spawn_bridge(&base_url);
+
+    let mut submit = request(Action::Submit, "req-1");
+    submit.user_input = "翻译成英文今天天气很好".to_string();
+    submit.input.raw_pinyin = "fanyichengyingwenjintiantianqihenhao".to_string();
+    submit.input.selected_text = submit.user_input.clone();
+    submit.input.natural_language = submit.user_input.clone();
+    submit.input.input_mode = "agent".to_string();
+    let draft = call(&bridge, &submit).await;
+    assert_eq!(
+        draft.status,
+        Status::AgentMode,
+        "规则层意图直接返回草稿：{draft:?}"
+    );
+    assert_eq!(draft.task.intent, "text.translate");
+    assert_eq!(draft.task.revision, 1);
+    assert_eq!(draft.commands.len(), 1);
+    assert!(draft.commands[0].commit_task);
+    assert_eq!(
+        mock.turn_attempts.load(Ordering::SeqCst),
+        0,
+        "草稿阶段不得发起回合"
+    );
+
+    // 旧版本提交被拒绝。
+    let mut stale = request(Action::Select, "req-2");
+    stale.command_id = "task-commit".to_string();
+    stale.task_revision = 0;
+    let rejected = call(&bridge, &stale).await;
+    assert_eq!(rejected.error_code, "task_revision_mismatch");
+
+    let mut commit = request(Action::Select, "req-3");
+    commit.command_id = "task-commit".to_string();
+    commit.task_revision = 1;
+    let started = call(&bridge, &commit).await;
+    assert_eq!(started.status, Status::Thinking);
+
+    let final_response = poll_until_final(&bridge, Duration::from_secs(10)).await;
+    assert_eq!(final_response.status, Status::AgentMode);
+    assert_eq!(final_response.commands[0].id, "insert-reply");
+    let body = mock.last_turn_body.lock().unwrap().clone().unwrap();
+    assert_eq!(body["read_only"], serde_json::json!(true));
+    let prompt = body["prompt"].as_str().unwrap();
+    assert!(
+        prompt.starts_with("把下面围栏中的文字翻译成英文。"),
+        "{prompt}"
+    );
+    assert!(
+        prompt.contains("<<<TEXT\n今天天气很好\nTEXT>>>"),
+        "{prompt}"
+    );
+}
+
+#[tokio::test]
+async fn non_intent_submit_still_starts_turn() {
+    let mock = MockServer::new(TurnMode::Complete);
+    let base_url = mock.serve().await;
+    let (_state, bridge) = spawn_bridge(&base_url);
+    let mut submit = request(Action::Submit, "req-1");
+    submit.input.selected_text = "帮我找文件".to_string();
+    submit.input.raw_pinyin = "bangwozhaowenjian".to_string();
+    assert_eq!(call(&bridge, &submit).await.status, Status::Thinking);
+    let final_response = poll_until_final(&bridge, Duration::from_secs(10)).await;
+    assert_eq!(final_response.status, Status::AgentMode);
+    assert_eq!(mock.turn_attempts.load(Ordering::SeqCst), 1);
+}

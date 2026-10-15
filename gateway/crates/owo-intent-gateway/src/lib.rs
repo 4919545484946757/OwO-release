@@ -5,7 +5,7 @@
 //! - [`frame`] / [`pipe`]：4 字节小端长度帧 + 命名管道服务端（E1.2，已完成）
 //! - [`commands`] / [`state`]：响应构造器 + 会话与任务状态机（E1.3，已完成）
 //! - [`sse`] / [`http`] / [`bridge`]：SSE 解析 + HTTP 回环 + turn 异步适配（E1.4）
-//! - 命令生成扩展：turn 结果 → 候选的完整映射（E1.5）
+//! - [`intent`]：规则层意图解析（改写/翻译/摘要/解释）→ 带拼音区间的任务草稿
 //!
 //! 协议规范：`OwO-release/docs/plugins/agent-ipc-integration.md` 与
 //! `OwO-release/docs/plugins/agent-ipc-v3.schema.json`；
@@ -15,6 +15,7 @@ pub mod bridge;
 pub mod commands;
 pub mod frame;
 pub mod http;
+pub mod intent;
 pub mod protocol;
 pub mod sse;
 pub mod state;

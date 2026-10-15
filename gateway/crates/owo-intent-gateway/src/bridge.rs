@@ -158,15 +158,11 @@ impl ImeBridge {
                     .complete_command(ime_session_id, request, response)
             }
             CommandAction::CommitTask => {
-                // E1.5：任务提交（reminder 等）走后续实现；当前明确告知。
+                // 状态机已转为 StartTurn；此处兜底（理论上不可达）。
                 self.state.complete_command(
                     ime_session_id,
                     request,
-                    commands::error_response(
-                        request,
-                        "not_implemented",
-                        "任务提交将在后续版本支持",
-                    ),
+                    commands::error_response(request, "internal", "任务提交路径异常"),
                 )
             }
             CommandAction::InsertReply { text } => {
@@ -270,7 +266,10 @@ async fn execute_turn(
 
     // 2. 发 turn（长流）。
     // 输入法通道本轮只开放表达类任务：一律只读回合（宿主策略层只放行只读工具，不可放宽）。
-    let prompt = compose_prompt(&turn.request);
+    let prompt = turn
+        .prompt
+        .clone()
+        .unwrap_or_else(|| compose_prompt(&turn.request));
     let response = client.turn_stream(&agent_session, &prompt, true).await?;
 
     // 3. 消费 SSE（select 取消信号）。
