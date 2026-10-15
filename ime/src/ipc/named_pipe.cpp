@@ -53,6 +53,13 @@ void record_agent_context(std::deque<agent::ContextEntry>& history,
                           agent::ContextEntry entry) {
     if (entry.context_id.empty() || entry.text.empty() ||
         entry.application.sensitive_input) return;
+    // Every stored fragment passes the PII filter before it can reach any Agent.
+    const auto filtered = agent::filter_sensitive_text(entry.text,
+                                                       agent::kMaximumAgentContextEntryBytes);
+    if (!filtered.ok || filtered.value.empty()) return;
+    entry.text = filtered.value;
+    entry.filtered = true;
+    entry.redacted = entry.redacted || filtered.redacted;
     const auto existing = std::find_if(history.begin(), history.end(), [&](const auto& value) {
         return value.context_id == entry.context_id;
     });
@@ -1318,8 +1325,13 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             entry.sequence = ++agent_context_sequence;
                             record_agent_context(agent_context_history, std::move(entry));
                         }
-                        agent_request.value.context_entries.assign(
-                            agent_context_history.begin(), agent_context_history.end());
+                        // Cross-application context is off: only fragments recorded in the
+                        // same executable as the current input position are forwarded.
+                        agent_request.value.context_entries.clear();
+                        for (const auto& entry : agent_context_history) {
+                            if (agent::context_entry_shareable(entry, agent_request.value.application))
+                                agent_request.value.context_entries.push_back(entry);
+                        }
                         for (auto& entry : agent_request.value.context_entries) {
                             entry.is_current = !agent_request.value.application.context_id.empty() &&
                                 entry.context_id == agent_request.value.application.context_id;

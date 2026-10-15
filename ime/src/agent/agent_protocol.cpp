@@ -577,6 +577,132 @@ bool luhn_number(const std::string_view digits) {
     return sum % 10 == 0;
 }
 
+bool ascii_digit(const char value) noexcept { return value >= '0' && value <= '9'; }
+
+// GB 11643 checksum for 18-character resident identity numbers.
+bool resident_id_number(const std::string_view value) {
+    if (value.size() != 18) return false;
+    constexpr std::array<int, 17> weights{7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2};
+    constexpr std::string_view checks = "10X98765432";
+    int sum = 0;
+    for (std::size_t index = 0; index < 17; ++index) {
+        if (!ascii_digit(value[index])) return false;
+        sum += (value[index] - '0') * weights[index];
+    }
+    const char last = value[17] == 'x' ? 'X' : value[17];
+    return checks[static_cast<std::size_t>(sum % 11)] == last;
+}
+
+bool mainland_mobile_number(const std::string_view value) {
+    return value.size() == 11 && value[0] == '1' && value[1] >= '3' && value[1] <= '9' &&
+           std::all_of(value.begin(), value.end(), ascii_digit);
+}
+
+bool email_local_byte(const unsigned char value) noexcept {
+    return std::isalnum(value) || value == '.' || value == '_' || value == '%' ||
+           value == '+' || value == '-';
+}
+
+bool email_domain_byte(const unsigned char value) noexcept {
+    return std::isalnum(value) || value == '.' || value == '-';
+}
+
+// Chinese secret labels are followed by an optional separator and the value. The value
+// ends at whitespace, ASCII separators or common full-width punctuation.
+void redact_labeled_secrets(std::string& output, bool& redacted) {
+    constexpr std::array<std::string_view, 11> labels{
+        "支付密码", "登录密码", "密码", "口令", "验证码", "校验码", "动态码",
+        "卡号", "身份证号", "身份证", "PIN"};
+    constexpr std::array<std::string_view, 7> separators{
+        "：", ":", "=", "是", "为", "＝", " "};
+    constexpr std::array<std::string_view, 6> terminators{
+        "，", "。", "；", "、", "）", "　"};
+    for (const auto label : labels) {
+        std::size_t found = 0;
+        while ((found = output.find(label, found)) != std::string::npos) {
+            auto begin = found + label.size();
+            bool advanced = true;
+            while (advanced && begin < output.size()) {
+                advanced = false;
+                for (const auto separator : separators) {
+                    if (output.compare(begin, separator.size(), separator) == 0) {
+                        begin += separator.size();
+                        advanced = true;
+                        break;
+                    }
+                }
+            }
+            // Without a separator only an immediate digit counts as a value, so prose such as
+            // "忘记密码怎么办" stays intact while "验证码123456" is still redacted.
+            const bool separated = begin != found + label.size();
+            if (!separated && (begin >= output.size() || !ascii_digit(output[begin]))) {
+                found = begin;
+                continue;
+            }
+            auto end = begin;
+            while (end < output.size()) {
+                const auto byte = static_cast<unsigned char>(output[end]);
+                if (std::isspace(byte) || byte == ',' || byte == ';' || byte == '&' ||
+                    byte == '.' || byte == ')') break;
+                bool stop = false;
+                for (const auto terminator : terminators)
+                    if (output.compare(end, terminator.size(), terminator) == 0) stop = true;
+                if (stop) break;
+                ++end;
+            }
+            // Values already replaced by a typed marker such as [ID_REDACTED] stay as they are.
+            if (end > begin && output[begin] != '[') {
+                output.replace(begin, end - begin, "[REDACTED]");
+                redacted = true;
+                found = begin + 10;
+            } else {
+                found = begin;
+            }
+        }
+    }
+}
+
+void redact_identifiers(std::string& output, bool& redacted) {
+    for (std::size_t begin = 0; begin < output.size();) {
+        if (!ascii_digit(output[begin]) || (begin != 0 && ascii_digit(output[begin - 1]))) {
+            ++begin;
+            continue;
+        }
+        auto end = begin;
+        while (end < output.size() && ascii_digit(output[end])) ++end;
+        if (end - begin == 17 && end < output.size() && (output[end] == 'X' || output[end] == 'x'))
+            ++end;
+        const auto run = std::string_view(output).substr(begin, end - begin);
+        const bool bounded = end == output.size() ||
+            !std::isalnum(static_cast<unsigned char>(output[end]));
+        std::string_view replacement;
+        if (bounded && resident_id_number(run)) replacement = "[ID_REDACTED]";
+        else if (bounded && mainland_mobile_number(run)) replacement = "[PHONE_REDACTED]";
+        else if (luhn_number(run)) replacement = "[PAYMENT_REDACTED]";
+        if (!replacement.empty()) {
+            output.replace(begin, run.size(), replacement);
+            redacted = true;
+            begin += replacement.size();
+        } else {
+            begin = end;
+        }
+    }
+    for (std::size_t at = output.find('@'); at != std::string::npos; at = output.find('@', at + 1)) {
+        auto begin = at;
+        while (begin != 0 && email_local_byte(static_cast<unsigned char>(output[begin - 1]))) --begin;
+        auto end = at + 1;
+        while (end < output.size() && email_domain_byte(static_cast<unsigned char>(output[end]))) ++end;
+        while (end > at + 1 && (output[end - 1] == '.' || output[end - 1] == '-')) --end;
+        const auto domain = std::string_view(output).substr(at + 1, end - at - 1);
+        const auto dot = domain.rfind('.');
+        if (begin == at || dot == std::string_view::npos || dot == 0 || domain.size() - dot < 3)
+            continue;
+        output.replace(begin, end - begin, "[EMAIL_REDACTED]");
+        redacted = true;
+        at = begin + 15;
+    }
+}
+
 }  // namespace
 
 const char* action_name(const Action action) noexcept {
@@ -1062,6 +1188,13 @@ ResponseDecodeResult decode_response(const std::string_view json) {
     return result;
 }
 
+bool context_entry_shareable(const ContextEntry& entry,
+                             const ApplicationContext& current) noexcept {
+    if (current.sensitive_input || entry.application.sensitive_input) return false;
+    if (!current.context_id.empty() && entry.context_id == current.context_id) return true;
+    return !current.executable.empty() && entry.application.executable == current.executable;
+}
+
 FilterResult filter_sensitive_text(const std::string_view utf8,
                                    const std::size_t maximum_bytes) {
     if (!valid_utf8(utf8)) return {false, {}, false, "sensitive filter received invalid UTF-8"};
@@ -1099,17 +1232,8 @@ FilterResult filter_sensitive_text(const std::string_view utf8,
             } else found = begin;
         }
     }
-    for (std::size_t begin = 0; begin < output.size();) {
-        if (!std::isdigit(static_cast<unsigned char>(output[begin]))) { ++begin; continue; }
-        auto end = begin;
-        while (end < output.size() && std::isdigit(static_cast<unsigned char>(output[end]))) ++end;
-        const auto digits = std::string_view(output).substr(begin, end - begin);
-        if (luhn_number(digits)) {
-            output.replace(begin, digits.size(), "[PAYMENT_REDACTED]");
-            redacted = true;
-            begin += 18;
-        } else begin = end;
-    }
+    redact_identifiers(output, redacted);
+    redact_labeled_secrets(output, redacted);
     return {true, std::move(output), redacted, {}};
 }
 

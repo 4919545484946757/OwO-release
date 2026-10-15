@@ -244,6 +244,7 @@ private:
     LONG references_{1};
     bool plugin_scheme_selected() const noexcept;
     bool plugin_context_allowed(ITfContext*);
+    void refresh_agent_context_safety(ITfContext*);
     bool plugin_context_is_current(ITfContext*) const;
     bool plugin_should_eat_key(ITfContext*, WPARAM, LPARAM);
     HRESULT handle_plugin_key(ITfContext*, WPARAM, LPARAM, BOOL*);
@@ -335,6 +336,7 @@ private:
     std::vector<std::uint64_t> candidate_groups_;
     std::string agent_session_id_;
     std::string agent_context_id_;
+    bool agent_context_sensitive_{true};
     agent::Status agent_status_{agent::Status::agent_mode};
     std::wstring agent_message_;
     std::wstring agent_executing_command_;

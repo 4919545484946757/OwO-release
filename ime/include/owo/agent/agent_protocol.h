@@ -201,6 +201,11 @@ struct FilterResult {
 [[nodiscard]] ResponseDecodeResult decode_response(std::string_view json);
 [[nodiscard]] FilterResult filter_sensitive_text(std::string_view utf8,
                                                  std::size_t maximum_bytes = 4096);
+// Cross-application context is off by default: an entry may be forwarded only when it was
+// recorded at the current input position or in the same executable. Sensitive targets
+// receive nothing.
+[[nodiscard]] bool context_entry_shareable(const ContextEntry& entry,
+                                           const ApplicationContext& current) noexcept;
 [[nodiscard]] const char* action_name(Action action) noexcept;
 [[nodiscard]] const char* status_name(Status status) noexcept;
 

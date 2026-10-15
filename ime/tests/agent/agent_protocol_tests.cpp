@@ -125,6 +125,42 @@ int main() {
         filtered.value.find("abc123") != std::string::npos ||
         filtered.value.find("4111111111111111") != std::string::npos) return 6;
     if (owo::agent::filter_sensitive_text(std::string("\xff", 1)).ok) return 7;
+    const auto chinese = owo::agent::filter_sensitive_text(
+        "我的密码：Abc#123，验证码654321。手机13812345678，"
+        "身份证11010519491231002X，邮箱 someone.name@example.com 卡号 6222020200112233446", 4096);
+    if (!chinese.ok || !chinese.redacted ||
+        chinese.value.find("Abc#123") != std::string::npos ||
+        chinese.value.find("654321") != std::string::npos ||
+        chinese.value.find("13812345678") != std::string::npos ||
+        chinese.value.find("11010519491231002X") != std::string::npos ||
+        chinese.value.find("someone.name@example.com") != std::string::npos ||
+        chinese.value.find("6222020200112233446") != std::string::npos ||
+        chinese.value.find("[PHONE_REDACTED]") == std::string::npos ||
+        chinese.value.find("[ID_REDACTED]") == std::string::npos ||
+        chinese.value.find("[EMAIL_REDACTED]") == std::string::npos) return 22;
+    const auto prose = owo::agent::filter_sensitive_text(
+        "忘记密码怎么办？订单号 20261016123456789 和版本 1.2.3 不应被改写", 4096);
+    if (!prose.ok || prose.redacted ||
+        prose.value != "忘记密码怎么办？订单号 20261016123456789 和版本 1.2.3 不应被改写") return 23;
+    const auto bad_checksum = owo::agent::filter_sensitive_text("编号110105194912310021", 4096);
+    if (!bad_checksum.ok || bad_checksum.value.find("[ID_REDACTED]") != std::string::npos) return 24;
+    {
+        owo::agent::ApplicationContext current{1, 2, "notepad.exe", "Notepad", "Edit", "ctx-a", false};
+        owo::agent::ContextEntry same_position{"ctx-a", current, "x", 1};
+        owo::agent::ContextEntry same_app{"ctx-b", current, "x", 2};
+        same_app.application.context_id = "ctx-b";
+        owo::agent::ContextEntry other_app{"ctx-c", {3, 4, "chat.exe", "Chat", "Edit", "ctx-c", false}, "x", 3};
+        if (!owo::agent::context_entry_shareable(same_position, current) ||
+            !owo::agent::context_entry_shareable(same_app, current) ||
+            owo::agent::context_entry_shareable(other_app, current)) return 25;
+        auto sensitive = current;
+        sensitive.sensitive_input = true;
+        if (owo::agent::context_entry_shareable(same_position, sensitive)) return 26;
+        auto anonymous = current;
+        anonymous.executable.clear();
+        anonymous.context_id = "ctx-z";
+        if (owo::agent::context_entry_shareable(same_app, anonymous)) return 27;
+    }
     const auto utf8_boundary = owo::agent::filter_sensitive_text("中文", 2);
     if (!utf8_boundary.ok || !utf8_boundary.redacted || !utf8_boundary.value.empty()) return 14;
     auto too_many_contexts = request;

@@ -119,11 +119,18 @@ std::wstring agent_status_label(const agent::Status status) {
     return L"错误";
 }
 
-agent::ApplicationContext current_agent_application(const std::string_view context_id) {
+// `scope_sensitive` comes from the TSF InputScope inspection of the focused context; any
+// result other than `allowed` (including unknown) must be passed as true.
+agent::ApplicationContext current_agent_application(const std::string_view context_id,
+                                                    const bool scope_sensitive) {
     agent::ApplicationContext result;
     result.context_id.assign(context_id);
+    result.sensitive_input = scope_sensitive;
     HWND window = GetForegroundWindow();
-    if (window == nullptr) return result;
+    if (window == nullptr) {
+        result.sensitive_input = true;
+        return result;
+    }
     DWORD process_id = 0;
     const DWORD thread_id = GetWindowThreadProcessId(window, &process_id);
     result.process_id = process_id;
@@ -152,8 +159,8 @@ agent::ApplicationContext current_agent_application(const std::string_view conte
             result.focus_window_class = utf8_from_wide(
                 std::wstring_view(focus_class, static_cast<std::size_t>(focus_length)));
         const auto style = static_cast<DWORD>(GetWindowLongPtrW(gui.hwndFocus, GWL_STYLE));
-        result.sensitive_input = (_wcsicmp(focus_class, L"Edit") == 0 &&
-                                  (style & ES_PASSWORD) != 0);
+        if (_wcsicmp(focus_class, L"Edit") == 0 && (style & ES_PASSWORD) != 0)
+            result.sensitive_input = true;
     }
     if (result.sensitive_input) {
         result.executable.clear();
@@ -1170,6 +1177,7 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
     *eaten = should_eat_key(key) ? TRUE : FALSE;
     if (!*eaten) return S_OK;
     if (context != nullptr) update_candidate_anchor(context);
+    refresh_agent_context_safety(context);
 
     if (unicode_palette_visible_) {
         const bool previous = key == VK_PRIOR || key == VK_OEM_4 ||
@@ -3213,14 +3221,16 @@ void TextService::queue_agent_action(const agent::Action action,
         request.input_details.correction_enabled = correction_enabled_;
     }
     if (action == agent::Action::submit) {
-        request.application = current_agent_application(agent_context_id_);
+        request.application = current_agent_application(agent_context_id_, agent_context_sensitive_);
         if (!request.application.sensitive_input) {
-            request.session_context = utf8_from_wide(recent_agent_context_);
+            const auto filtered = agent::filter_sensitive_text(
+                utf8_from_wide(recent_agent_context_), 4096);
+            if (filtered.ok) request.session_context = filtered.value;
             if (!request.session_context.empty()) {
                 request.context_entries.push_back({
                     agent_context_id_, request.application, request.session_context,
                     GetTickCount64(), "current_input", "owo_commit",
-                    current_unix_time_ms(), 1000, true});
+                    current_unix_time_ms(), 1000, true, true, filtered.redacted, false});
             }
         }
     }
@@ -3668,6 +3678,7 @@ void TextService::append_language_context(const std::wstring_view text) {
 
 void TextService::rotate_agent_context() {
     recent_agent_context_.clear();
+    agent_context_sensitive_ = true;
     const auto id = new_agent_session_id();
     agent_context_id_ = id.empty()
         ? "ctx-" + std::to_string(GetCurrentProcessId()) + "-" +
@@ -3678,7 +3689,7 @@ void TextService::rotate_agent_context() {
 void TextService::queue_agent_context(std::wstring text) {
     if (text.empty()) return;
     if (agent_context_id_.empty()) rotate_agent_context();
-    const auto application = current_agent_application(agent_context_id_);
+    const auto application = current_agent_application(agent_context_id_, agent_context_sensitive_);
     if (application.sensitive_input) return;
     std::lock_guard lock(request_mutex_);
     PendingRequest request;
@@ -5255,6 +5266,23 @@ bool TextService::plugin_context_is_current(ITfContext* context) const {
     const bool same = same_context(context, top);
     if (top) top->Release();
     return same;
+}
+
+void TextService::refresh_agent_context_safety(ITfContext* context) {
+    // Unknown, read-only, disabled and sensitive contexts all keep Agent context off.
+    agent_context_sensitive_ = true;
+    if (!context) return;
+    InputMethodContextSafety safety = InputMethodContextSafety::unknown;
+    auto* edit = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
+        safety = inspect_input_method_context(context, cookie);
+        return S_OK;
+    });
+    if (!edit) return;
+    HRESULT result = E_FAIL;
+    const auto request = context->RequestEditSession(client_id_, edit, TF_ES_SYNC | TF_ES_READ, &result);
+    edit->Release();
+    agent_context_sensitive_ = !(SUCCEEDED(request) && SUCCEEDED(result) &&
+                                 safety == InputMethodContextSafety::allowed);
 }
 
 bool TextService::plugin_context_allowed(ITfContext* context) {
