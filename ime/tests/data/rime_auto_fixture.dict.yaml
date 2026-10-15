@@ -1,0 +1,10 @@
+# Rime dictionary
+---
+name: owo_auto
+version: "1"
+sort: by_weight
+columns:
+  - text
+  - weight
+...
+一血	100

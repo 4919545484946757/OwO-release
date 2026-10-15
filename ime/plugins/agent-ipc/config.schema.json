@@ -1,0 +1,62 @@
+{
+  "title": "Agent IPC 连接器",
+  "description": "只连接本机第三方 Agent 命名管道。修改端点后请重新开始 Agent 会话。",
+  "type": "object",
+  "properties": {
+    "pipe_name": {
+      "type": "string",
+      "title": "第三方 Agent 管道",
+      "description": "必须是本机 \\\\.\\pipe\\ 下的固定命名管道。",
+      "default": "\\\\.\\pipe\\OwO.Agent.External.v1"
+    },
+    "timeout_ms": {
+      "type": "integer",
+      "title": "单次 IPC 超时（毫秒）",
+      "default": 10000,
+      "minimum": 500,
+      "maximum": 30000
+    },
+    "context_limit": {
+      "type": "integer",
+      "title": "上下文总量上限（字节）",
+      "description": "跨应用、跨输入位置保留的分段上下文总量；优先保留最新分段。",
+      "default": 32768,
+      "minimum": 0,
+      "maximum": 131072
+    },
+    "context_entry_limit": {
+      "type": "integer",
+      "title": "单个上下文分段上限（字节）",
+      "description": "每个应用输入位置最多发送的 UTF-8 文本量。",
+      "default": 8192,
+      "minimum": 256,
+      "maximum": 32768
+    },
+    "context_entry_count": {
+      "type": "integer",
+      "title": "上下文分段数量",
+      "description": "除当前输入位置外，最多发送多少个带应用标识的历史输入位置。",
+      "default": 16,
+      "minimum": 1,
+      "maximum": 32
+    },
+    "send_application_identity": {
+      "type": "boolean",
+      "title": "发送焦点应用基础信息",
+      "description": "包含上下文 ID、进程/线程 ID、可执行文件名、顶层窗口类和焦点控件类；不发送窗口标题。",
+      "default": true
+    },
+    "send_session_context": {
+      "type": "boolean",
+      "title": "发送必要局部上下文",
+      "description": "密码框或安全输入场景始终禁止发送。",
+      "default": true
+    },
+    "sensitive_filter_enabled": {
+      "type": "boolean",
+      "title": "敏感信息过滤",
+      "description": "必须保持开启；关闭时插件会拒绝运行而不是绕过过滤。",
+      "default": true
+    }
+  }
+}

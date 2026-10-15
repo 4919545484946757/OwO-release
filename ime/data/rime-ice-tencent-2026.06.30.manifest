@@ -1,0 +1,9 @@
+source_id=iDvel/rime-ice:cn_dicts/tencent.dict.yaml
+source_version=2026.06.30@6810e8916d160498620a16fef2135956fecbd485
+source_url=https://github.com/iDvel/rime-ice/blob/2026.06.30/cn_dicts/tencent.dict.yaml
+source_sha256=ba41355d14de4c75dab07064f1281d904a8cff58ee7a3df4035db6f5eb01abf3
+license=GPL-3.0-only
+source_format=rime-dict-yaml-auto
+pronunciation_source=iDvel/rime-ice:cn_dicts/8105.dict.yaml
+pronunciation_sha256=d2171643cd51452d6fee8092ec508c341ef5d45d2fa3b3eb301fdac490db530e
+importer=owo_lexicon_compiler-v1

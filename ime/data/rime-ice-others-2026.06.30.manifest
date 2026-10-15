@@ -1,0 +1,9 @@
+source_id=iDvel/rime-ice:cn_dicts/others.dict.yaml
+source_version=2026.06.30@6810e8916d160498620a16fef2135956fecbd485
+source_url=https://github.com/iDvel/rime-ice/blob/2026.06.30/cn_dicts/others.dict.yaml
+source_sha256=031d3c24693127768c6a9c77e8a848f4cd59d852187d4fde9d7ed8da2420b1d0
+license=GPL-3.0-only
+source_format=rime-dict-yaml-mixed
+pronunciation_source=iDvel/rime-ice:cn_dicts/8105.dict.yaml
+pronunciation_sha256=d2171643cd51452d6fee8092ec508c341ef5d45d2fa3b3eb301fdac490db530e
+importer=owo_lexicon_compiler-v1
