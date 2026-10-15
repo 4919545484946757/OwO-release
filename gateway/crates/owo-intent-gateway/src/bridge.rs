@@ -269,8 +269,9 @@ async fn execute_turn(
     };
 
     // 2. 发 turn（长流）。
+    // 输入法通道本轮只开放表达类任务：一律只读回合（宿主策略层只放行只读工具，不可放宽）。
     let prompt = compose_prompt(&turn.request);
-    let response = client.turn_stream(&agent_session, &prompt).await?;
+    let response = client.turn_stream(&agent_session, &prompt, true).await?;
 
     // 3. 消费 SSE（select 取消信号）。
     let mut accumulator = TurnAccumulator::default();

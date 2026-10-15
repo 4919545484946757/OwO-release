@@ -5,7 +5,8 @@
 //! - submit → 立即 thinking 回包（< 1s）→ poll 拿到最终结果与候选；
 //! - cancel → abort 被调用、会话清理；
 //! - turn_failed → error 映射；
-//! - 401 → token 刷新重试。
+//! - 401 → 重读 token 文件重试；
+//! - token 只来自 `<data_root>/auth/token`，不调用公开 `/auth/token`；回合带 `read_only: true`。
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -37,6 +38,9 @@ struct MockServer {
     has_diff: bool,
     abort_called: AtomicBool,
     turn_attempts: AtomicUsize,
+    auth_token_called: AtomicBool,
+    last_turn_body: std::sync::Mutex<Option<serde_json::Value>>,
+    last_bearer: std::sync::Mutex<Option<String>>,
 }
 
 impl MockServer {
@@ -47,6 +51,9 @@ impl MockServer {
             has_diff: false,
             abort_called: AtomicBool::new(false),
             turn_attempts: AtomicUsize::new(0),
+            auth_token_called: AtomicBool::new(false),
+            last_turn_body: std::sync::Mutex::new(None),
+            last_bearer: std::sync::Mutex::new(None),
         })
     }
 
@@ -69,8 +76,29 @@ impl MockServer {
     }
 }
 
-async fn auth_token() -> Json<serde_json::Value> {
-    Json(serde_json::json!({ "token": "test-token" }))
+async fn auth_token(State(mock): State<Arc<MockServer>>) -> Json<serde_json::Value> {
+    mock.auth_token_called.store(true, Ordering::SeqCst);
+    Json(serde_json::json!({ "token": "public-endpoint-token" }))
+}
+
+/// 每个测试独立的 data_root，写入 `auth/token`。
+fn temp_data_root(token: &str) -> std::path::PathBuf {
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
+    let root = std::env::temp_dir().join(format!(
+        "owo-gateway-test-{}-{}",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::SeqCst)
+    ));
+    std::fs::create_dir_all(root.join("auth")).unwrap();
+    std::fs::write(
+        root.join("auth").join("token"),
+        format!(
+            "{token}
+"
+        ),
+    )
+    .unwrap();
+    root
 }
 
 async fn health() -> Json<serde_json::Value> {
@@ -103,7 +131,16 @@ async fn revert() -> axum::http::StatusCode {
     axum::http::StatusCode::OK
 }
 
-async fn turn(State(mock): State<Arc<MockServer>>) -> Response {
+async fn turn(
+    State(mock): State<Arc<MockServer>>,
+    headers: axum::http::HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Response {
+    *mock.last_turn_body.lock().unwrap() = Some(body);
+    *mock.last_bearer.lock().unwrap() = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string);
     let attempt = mock.turn_attempts.fetch_add(1, Ordering::SeqCst);
     if mock.fail_first_turn_401 && attempt == 0 {
         return axum::http::StatusCode::UNAUTHORIZED.into_response();
@@ -233,7 +270,11 @@ async fn call(bridge: &ImeBridge, request: &AgentIpcRequest) -> AgentIpcResponse
 
 fn spawn_bridge(base_url: &str) -> (Arc<ImeState>, Arc<ImeBridge>) {
     let state = Arc::new(ImeState::new(Duration::from_secs(60)));
-    let client = Arc::new(OwoHttpClient::new(base_url));
+    let data_root = temp_data_root("file-token");
+    let client = Arc::new(OwoHttpClient::new(
+        base_url,
+        owo_intent_gateway::http::token_path(&data_root),
+    ));
     let bridge = ImeBridge::new(state.clone(), client, ".", base_url);
     (state, bridge)
 }
@@ -287,6 +328,23 @@ async fn submit_then_poll_returns_final_with_candidates() {
     assert_eq!(final_response.commands.len(), 1);
     assert_eq!(final_response.commands[0].id, "insert-reply");
     assert_eq!(final_response.commands[0].category, "text.insert");
+
+    // 凭据与回合约束。
+    assert!(
+        !mock.auth_token_called.load(Ordering::SeqCst),
+        "网关不得调用公开 /auth/token"
+    );
+    assert_eq!(
+        mock.last_bearer.lock().unwrap().as_deref(),
+        Some("Bearer file-token"),
+        "Bearer 必须来自 token 文件（已 trim）"
+    );
+    let body = mock.last_turn_body.lock().unwrap().clone().unwrap();
+    assert_eq!(
+        body["read_only"],
+        serde_json::json!(true),
+        "输入法回合必须只读"
+    );
 
     // select insert-reply → completed，文本回传。
     let mut select = request(Action::Select, "req-2");
@@ -449,4 +507,45 @@ async fn invalid_frame_returns_none() {
             .is_none(),
         "缺字段请求必须断连"
     );
+}
+
+#[test]
+fn daemon_descriptor_and_token_file_resolution() {
+    use owo_intent_gateway::http::{daemon_base_url, gateway_workspace, token_path};
+    let root = temp_data_root("  spaced-token \r\n");
+    assert!(daemon_base_url(&root).is_err(), "缺 daemon.json 必须报错");
+    std::fs::create_dir_all(root.join("runtime")).unwrap();
+    std::fs::write(
+        root.join("runtime").join("daemon.json"),
+        r#"{"pid":1,"port":48123,"api_version":"1","started_at":"2026-10-16T00:00:00Z"}"#,
+    )
+    .unwrap();
+    assert_eq!(daemon_base_url(&root).unwrap(), "http://127.0.0.1:48123");
+    assert_eq!(
+        gateway_workspace(&root),
+        root.join("gateway").join("workspace")
+    );
+    assert_eq!(token_path(&root), root.join("auth").join("token"));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[tokio::test]
+async fn missing_token_file_maps_to_error_without_public_endpoint() {
+    let mock = MockServer::new(TurnMode::Complete);
+    let base_url = mock.serve().await;
+    let state = Arc::new(ImeState::new(Duration::from_secs(60)));
+    let missing = std::env::temp_dir()
+        .join("owo-gateway-test-no-such-dir")
+        .join("token");
+    let client = Arc::new(OwoHttpClient::new(base_url.clone(), missing));
+    let bridge = ImeBridge::new(state, client, ".", base_url);
+    assert_eq!(
+        call(&bridge, &request(Action::Submit, "req-1"))
+            .await
+            .status,
+        Status::Thinking
+    );
+    let final_response = poll_until_final(&bridge, Duration::from_secs(10)).await;
+    assert_eq!(final_response.status, Status::Error);
+    assert!(!mock.auth_token_called.load(Ordering::SeqCst));
 }

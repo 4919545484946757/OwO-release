@@ -1,10 +1,11 @@
 //! agent-server HTTP 回环客户端（Bearer 鉴权 + 401 刷新重试一次）。
 //!
-//! 契约与 LingXi `crates/owo-bridge` 同源（openapi.json 冻结）：
-//! - `GET /auth/token` → `{token}`；token 懒加载 + 缓存；
-//! - 401 → 重新引导刷新一次（引擎重启轮换 token 场景）；
+//! - token 来源：Daemon 写入的 `<data_root>/auth/token`（用户级 ACL），懒加载 + 缓存；
+//!   不调用公开的 `GET /auth/token`（任何本机进程都能调用，不是本用户凭据边界）；
+//! - 401 → 重读 token 文件一次（引擎重启轮换 token 场景）；
 //! - turn 端点是长流：**不设全局请求超时**，仅连接超时 5s。
 
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use owo_agent_protocol::{CreateSessionRequest, FileDiff, SessionInfo, TurnRequest};
@@ -28,17 +29,71 @@ pub enum BridgeError {
     Json(#[from] serde_json::Error),
     #[error("协议异常：{0}")]
     Protocol(String),
+    #[error("读取 token 失败：{0}")]
+    Token(String),
+}
+
+/// 解析 Agent 数据根：`OWO_AGENT_DATA` → `%LOCALAPPDATA%\OwO\Agent` → `data/agent`
+/// （与 `owo-agent-client::discovery::resolve_data_root` 同一约定）。
+pub fn resolve_data_root() -> PathBuf {
+    std::env::var("OWO_AGENT_DATA")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var("LOCALAPPDATA")
+                .ok()
+                .map(|dir| PathBuf::from(dir).join("OwO").join("Agent"))
+        })
+        .unwrap_or_else(|| PathBuf::from("data/agent"))
+}
+
+/// token 文件路径：`<data_root>/auth/token`。
+pub fn token_path(data_root: &Path) -> PathBuf {
+    data_root.join("auth").join("token")
+}
+
+/// 网关会话专用的空工作区：`<data_root>/gateway/workspace`（不指向用户项目）。
+pub fn gateway_workspace(data_root: &Path) -> PathBuf {
+    data_root.join("gateway").join("workspace")
+}
+
+/// 从 `<data_root>/runtime/daemon.json` 读出回环地址 `http://127.0.0.1:<port>`。
+pub fn daemon_base_url(data_root: &Path) -> Result<String, BridgeError> {
+    let path = data_root.join("runtime").join("daemon.json");
+    let bytes = std::fs::read(&path)
+        .map_err(|error| BridgeError::Protocol(format!("{}（{error}）", path.display())))?;
+    let descriptor: owo_agent_protocol::DaemonDescriptor = serde_json::from_slice(&bytes)?;
+    if descriptor.port == 0 {
+        return Err(BridgeError::Protocol(format!(
+            "{} 端口为 0",
+            path.display()
+        )));
+    }
+    Ok(format!("http://127.0.0.1:{}", descriptor.port))
+}
+
+fn read_token_file(path: &Path) -> Result<String, BridgeError> {
+    let token = std::fs::read_to_string(path)
+        .map_err(|error| BridgeError::Token(format!("{}（{error}）", path.display())))?;
+    let token = token.trim().to_string();
+    if token.is_empty() {
+        return Err(BridgeError::Token(format!("{} 为空", path.display())));
+    }
+    Ok(token)
 }
 
 /// 回环 HTTP 客户端。
 pub struct OwoHttpClient {
     http: reqwest::Client,
     base_url: String,
+    token_file: PathBuf,
     token: tokio::sync::RwLock<Option<String>>,
 }
 
 impl OwoHttpClient {
-    pub fn new(base_url: impl Into<String>) -> Self {
+    /// `token_file` 一般为 [`token_path`]`(data_root)`。
+    pub fn new(base_url: impl Into<String>, token_file: impl Into<PathBuf>) -> Self {
         let http = reqwest::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
             // 不设全局 timeout：turn 端点是分钟级 SSE 长流。
@@ -47,6 +102,7 @@ impl OwoHttpClient {
         Self {
             http,
             base_url: base_url.into(),
+            token_file: token_file.into(),
             token: tokio::sync::RwLock::new(None),
         }
     }
@@ -58,22 +114,10 @@ impl OwoHttpClient {
     // ────────────────────────── 鉴权 ──────────────────────────
 
     async fn bootstrap_token(&self) -> Result<String, BridgeError> {
-        let response = self
-            .http
-            .get(format!("{}/auth/token", self.base_url))
-            .timeout(Duration::from_secs(5))
-            .send()
-            .await?;
-        if !response.status().is_success() {
-            return Err(status_error(response).await);
-        }
-        let value: serde_json::Value = response.json().await?;
-        value
-            .get("token")
-            .and_then(serde_json::Value::as_str)
-            .filter(|token| !token.is_empty())
-            .map(str::to_string)
-            .ok_or_else(|| BridgeError::Protocol("auth/token 响应缺少非空 token 字段".to_string()))
+        let path = self.token_file.clone();
+        tokio::task::spawn_blocking(move || read_token_file(&path))
+            .await
+            .map_err(|error| BridgeError::Token(error.to_string()))?
     }
 
     async fn auth_token(&self) -> Result<String, BridgeError> {
@@ -145,16 +189,19 @@ impl OwoHttpClient {
     // ────────────────────────── 回合 ──────────────────────────
 
     /// `POST /session/{id}/turn` → SSE 长流响应（不设总超时）。
+    ///
+    /// `read_only = true` 时宿主策略层只放行只读工具，且不能被会话权限放宽。
     pub async fn turn_stream(
         &self,
         session_id: &str,
         prompt: &str,
+        read_only: bool,
     ) -> Result<reqwest::Response, BridgeError> {
         let body = TurnRequest {
             model_connection: None,
             prompt: prompt.to_string(),
             attachments: Vec::new(),
-            read_only: None,
+            read_only: Some(read_only),
             turn_id: None,
         };
         let response = self
