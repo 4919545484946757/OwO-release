@@ -94,7 +94,7 @@ int main() {
         !learned_incomplete_candidates.front().user_lexicon)
         return fail("incomplete pinyin did not recall a learned user word");
     const auto learned_missing_syllable_candidates = learned_generator.generate(
-        schema.parse("zidingyi"));
+        schema.parse("zidingyi"), 32, false, {}, nullptr, {}, false, 0, true, 1);
     if (learned_missing_syllable_candidates.empty() ||
         learned_missing_syllable_candidates.front().text != "自定义词" ||
         learned_missing_syllable_candidates.front().match_kind !=
@@ -109,7 +109,7 @@ int main() {
                      [](const auto& value) { return value.text == "添加更多符号"; }))
         return fail("full learned phrase was not recalled");
     const auto learned_near_complete = learned_generator.generate(
-        schema.parse("tianjiagengduofu"));
+        schema.parse("tianjiagengduofu"), 32, false, {}, nullptr, {}, false, 0, true, 1);
     if (std::none_of(learned_near_complete.begin(), learned_near_complete.end(),
                      [](const auto& value) { return value.text == "添加更多符号"; }))
         return fail("one missing syllable no longer recalls a learned phrase");
