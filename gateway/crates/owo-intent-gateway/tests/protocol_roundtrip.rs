@@ -299,3 +299,104 @@ fn error_response_with_code_decodes() {
     assert_eq!(decoded.status, Status::Error);
     assert_eq!(decoded.error_code, "session_not_found");
 }
+
+// ─────────────── v4 command.effect（output.effects）───────────────
+
+fn with_effects_capability(mut response: AgentIpcResponse) -> AgentIpcResponse {
+    response
+        .capabilities
+        .push(CAPABILITY_OUTPUT_EFFECTS.to_string());
+    response
+}
+
+fn commit_effect() -> CommandEffect {
+    CommandEffect {
+        kind: EffectKind::CommitText,
+        text: "Hello".to_string(),
+        target_context_id: "ctx-current-01234567".to_string(),
+        selection_sha256: String::new(),
+    }
+}
+
+#[test]
+fn command_without_effect_keeps_v3_shape() {
+    let response = AgentIpcResponse::decode(OFFICIAL_RESPONSE.as_bytes()).unwrap();
+    assert!(response.commands.iter().all(|c| c.effect.is_none()));
+    let encoded = String::from_utf8(response.encode().unwrap()).unwrap();
+    assert!(
+        !encoded.contains("\"effect\""),
+        "无 effect 时不得输出该字段"
+    );
+}
+
+#[test]
+fn effect_roundtrip_when_negotiated() {
+    let mut response =
+        with_effects_capability(AgentIpcResponse::decode(OFFICIAL_RESPONSE.as_bytes()).unwrap());
+    response.commands[0].effect = Some(commit_effect());
+    let bytes = response.encode().expect("已协商时允许 effect");
+    let decoded = AgentIpcResponse::decode(&bytes).unwrap();
+    assert_eq!(decoded, response);
+}
+
+#[test]
+fn effect_requires_negotiated_capability() {
+    let mut response = AgentIpcResponse::decode(OFFICIAL_RESPONSE.as_bytes()).unwrap();
+    response.commands[0].effect = Some(commit_effect());
+    let error = response.encode().expect_err("未协商不得携带 effect");
+    assert!(
+        matches!(&error, ProtocolError::InvalidField { field, .. } if *field == "commands.effect")
+    );
+}
+
+#[test]
+fn replace_selection_requires_binding() {
+    let mut response =
+        with_effects_capability(AgentIpcResponse::decode(OFFICIAL_RESPONSE.as_bytes()).unwrap());
+    let mut effect = commit_effect();
+    effect.kind = EffectKind::ReplaceSelection;
+    response.commands[0].effect = Some(effect.clone());
+    assert!(response.encode().is_err(), "缺选区摘要必须拒绝");
+
+    effect.selection_sha256 = "A".repeat(64);
+    response.commands[0].effect = Some(effect.clone());
+    assert!(response.encode().is_err(), "摘要必须是小写十六进制");
+
+    effect.selection_sha256 = "a".repeat(64);
+    effect.target_context_id.clear();
+    response.commands[0].effect = Some(effect.clone());
+    assert!(response.encode().is_err(), "必须绑定上下文");
+
+    effect.target_context_id = "ctx-current-01234567".to_string();
+    response.commands[0].effect = Some(effect);
+    response.encode().expect("完整绑定应通过");
+}
+
+#[test]
+fn effect_text_and_digest_bounds() {
+    let mut response =
+        with_effects_capability(AgentIpcResponse::decode(OFFICIAL_RESPONSE.as_bytes()).unwrap());
+    let mut effect = commit_effect();
+    effect.text.clear();
+    response.commands[0].effect = Some(effect.clone());
+    assert!(response.encode().is_err(), "空文本必须拒绝");
+    effect.text = "x".to_string();
+    effect.selection_sha256 = "a".repeat(64);
+    response.commands[0].effect = Some(effect);
+    assert!(response.encode().is_err(), "commit_text 不得携带摘要");
+}
+
+#[test]
+fn effect_unknown_field_rejected() {
+    let json = OFFICIAL_RESPONSE
+        .replace(
+            r#""capabilities": ["protocol.negotiation","#,
+            r#""capabilities": ["output.effects", "protocol.negotiation","#,
+        )
+        .replacen(
+            r#""commit_task": false"#,
+            r#""commit_task": false, "effect": {"kind": "copy_text", "text": "x", "target_context_id": "", "selection_sha256": "", "extra": 1}"#,
+            1,
+        );
+    assert!(AgentIpcResponse::decode(json.as_bytes()).is_err());
+}

@@ -149,8 +149,29 @@
           "type": "array", "maxItems": 8,
           "items": { "$ref": "#/$defs/slot_update" }
         },
-        "commit_task": { "type": "boolean" }
+        "commit_task": { "type": "boolean" },
+        "effect": { "$ref": "#/$defs/command_effect" }
       }
+    },
+    "command_effect": {
+      "description": "v4 (output.effects): written locally by the IME after rechecking the target. Allowed only when the response capabilities contain output.effects.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "text", "target_context_id", "selection_sha256"],
+      "properties": {
+        "kind": { "enum": ["commit_text", "replace_selection", "copy_text"] },
+        "text": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "target_context_id": { "$ref": "#/$defs/token" },
+        "selection_sha256": { "type": "string", "pattern": "^([0-9a-f]{64})?$" }
+      },
+      "if": { "properties": { "kind": { "const": "replace_selection" } } },
+      "then": {
+        "properties": {
+          "target_context_id": { "minLength": 1 },
+          "selection_sha256": { "minLength": 64 }
+        }
+      },
+      "else": { "properties": { "selection_sha256": { "maxLength": 0 } } }
     },
     "request": {
       "type": "object",

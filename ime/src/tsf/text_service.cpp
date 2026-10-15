@@ -19,9 +19,11 @@
 #include <ctffunc.h>
 #include <olectl.h>
 #include <windowsx.h>
+#include <bcrypt.h>
 
 #include <algorithm>
 #include <charconv>
+#include <cstring>
 #include <cmath>
 #include <chrono>
 #include <iostream>
@@ -3194,7 +3196,8 @@ void TextService::queue_agent_action(const agent::Action action,
     request.capabilities = {"protocol.negotiation", "input.structured",
                             "context.entries", "context.privacy",
                             "commands.risk", "errors.structured", "state.progress",
-                            "tasks.slots", "tasks.incremental"};
+                            "tasks.slots", "tasks.incremental",
+                            agent::kAgentCapabilityOutputEffects};
     request.required_features = {"protocol.negotiation", "input.structured",
                                  "commands.risk", "errors.structured", "tasks.slots"};
     if (action == agent::Action::submit) {
@@ -3233,6 +3236,9 @@ void TextService::queue_agent_action(const agent::Action action,
                     current_unix_time_ms(), 1000, true, true, filtered.redacted, false});
             }
         }
+    } else if (action == agent::Action::select) {
+        // Identity only: lets effects produced by this turn bind to the current position.
+        request.application = current_agent_application(agent_context_id_, agent_context_sensitive_);
     }
     request.command_id = std::move(command_id);
     request.page = page;
@@ -3297,6 +3303,21 @@ bool TextService::select_agent_command(const std::size_t index) {
     if (index >= agent_commands_.size()) return false;
     const auto command = agent_commands_[index];
     if (command.high_risk) return false;
+    if (command.effect) {
+        if (apply_agent_effect(*command.effect)) {
+            cancel_agent_session();
+            clear_composition();
+            update_candidate_window();
+            return true;
+        }
+        std::wstring preview = wide_from_utf8(command.effect->text);
+        if (preview.size() > 200) preview = preview.substr(0, 199) + L"…";
+        agent_status_ = agent::Status::agent_mode;
+        agent_message_ = L"输入位置已变化或不可写，未写入。内容：" + preview;
+        agent_response_visible_ = true;
+        update_candidate_window();
+        return false;
+    }
     if ((command.commit_task || !command.slot_updates.empty()) &&
         (agent_task_.intent.empty() || command.task_revision != agent_task_.revision)) {
         agent_status_ = agent::Status::error;
@@ -3361,7 +3382,7 @@ void TextService::cancel_agent_session() {
     cancel.capabilities = {"protocol.negotiation", "input.structured",
                            "context.entries", "context.privacy", "commands.risk",
                            "errors.structured", "state.progress", "tasks.slots",
-                           "tasks.incremental"};
+                           "tasks.incremental", agent::kAgentCapabilityOutputEffects};
     cancel.required_features = {"protocol.negotiation", "errors.structured"};
     const auto encoded = agent::encode_request(cancel);
     if (!encoded.empty()) {
@@ -3378,6 +3399,7 @@ void TextService::cancel_agent_session() {
     agent_task_ = {};
     agent_request_pending_ = false;
     agent_response_visible_ = false;
+    agent_effects_negotiated_ = false;
     agent_message_.clear();
     agent_executing_command_.clear();
     agent_commands_.clear();
@@ -4211,6 +4233,9 @@ void TextService::handle_agent_result(AgentResult* raw_result) {
         result->response.state_revision < agent_state_revision_) return;
     agent_state_revision_ = std::max(
         agent_state_revision_, result->response.state_revision);
+    agent_effects_negotiated_ = std::find(
+        result->response.capabilities.begin(), result->response.capabilities.end(),
+        agent::kAgentCapabilityOutputEffects) != result->response.capabilities.end();
     agent_request_pending_ = result->response.status == agent::Status::thinking ||
                              result->response.status == agent::Status::executing ||
                              result->response.status == agent::Status::connecting ||
@@ -5241,6 +5266,73 @@ bool same_context(ITfContext* a, ITfContext* b) {
     if (left) left->Release(); if (right) right->Release();
     return same;
 }
+// Lowercase hex SHA-256 of UTF-8 text; empty on failure.
+std::string sha256_hex(const std::string_view data) {
+    BCRYPT_ALG_HANDLE algorithm = nullptr;
+    BCRYPT_HASH_HANDLE hash = nullptr;
+    unsigned char digest[32]{};
+    bool ok = data.size() <= std::numeric_limits<ULONG>::max() &&
+        BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) >= 0 &&
+        BCryptCreateHash(algorithm, &hash, nullptr, 0, nullptr, 0, 0) >= 0 &&
+        BCryptHashData(hash, reinterpret_cast<PUCHAR>(const_cast<char*>(data.data())),
+                       static_cast<ULONG>(data.size()), 0) >= 0 &&
+        BCryptFinishHash(hash, digest, sizeof(digest), 0) >= 0;
+    if (hash) BCryptDestroyHash(hash);
+    if (algorithm) BCryptCloseAlgorithmProvider(algorithm, 0);
+    if (!ok) return {};
+    constexpr char hex[] = "0123456789abcdef";
+    std::string output;
+    output.reserve(64);
+    for (const auto byte : digest) {
+        output.push_back(hex[byte >> 4]);
+        output.push_back(hex[byte & 0x0f]);
+    }
+    return output;
+}
+
+// Reads the selection text (bounded); nullopt when the selection cannot be read.
+std::optional<std::wstring> read_range_text(TfEditCookie cookie, ITfRange* range) {
+    constexpr std::size_t kMaximumSelection = 64 * 1024;
+    ITfRange* cursor = nullptr;
+    if (FAILED(range->Clone(&cursor)) || !cursor) return std::nullopt;
+    std::wstring text;
+    wchar_t buffer[256];
+    bool ok = true;
+    for (;;) {
+        ULONG fetched = 0;
+        if (FAILED(cursor->GetText(cookie, TF_TF_MOVESTART, buffer,
+                                   static_cast<ULONG>(std::size(buffer)), &fetched))) {
+            ok = false;
+            break;
+        }
+        if (fetched == 0) break;
+        text.append(buffer, fetched);
+        if (text.size() > kMaximumSelection) { ok = false; break; }
+    }
+    cursor->Release();
+    if (!ok) return std::nullopt;
+    return text;
+}
+
+bool write_clipboard_text(const std::wstring& text) {
+    if (!OpenClipboard(nullptr)) return false;
+    bool written = false;
+    if (EmptyClipboard()) {
+        const auto bytes = (text.size() + 1) * sizeof(wchar_t);
+        HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, bytes);
+        if (memory) {
+            if (void* target = GlobalLock(memory)) {
+                std::memcpy(target, text.c_str(), bytes);
+                GlobalUnlock(memory);
+                written = SetClipboardData(CF_UNICODETEXT, memory) != nullptr;
+            }
+            if (!written) GlobalFree(memory);
+        }
+    }
+    CloseClipboard();
+    return written;
+}
+
 bool scheme_selection_matches(ITfContext* context, TfEditCookie cookie, ITfRange* expected) {
     if (!expected) return true;
     TF_SELECTION selection{}; ULONG count{}; LONG start{}, end{};
@@ -5266,6 +5358,65 @@ bool TextService::plugin_context_is_current(ITfContext* context) const {
     const bool same = same_context(context, top);
     if (top) top->Release();
     return same;
+}
+
+bool TextService::apply_agent_effect(const agent::CommandEffect& effect) {
+    if (effect.kind == agent::EffectKind::copy_text) {
+        const agent::EffectTargetFacts facts{agent_effects_negotiated_, false, false, {}, {}};
+        return agent::decide_effect(effect, facts) == agent::EffectDecision::write &&
+               write_clipboard_text(wide_from_utf8(effect.text));
+    }
+    // Document writes must be bound to the input position that produced them.
+    if (effect.target_context_id.empty() || thread_manager_ == nullptr) return false;
+    ITfDocumentMgr* document = nullptr;
+    ITfContext* context = nullptr;
+    if (SUCCEEDED(thread_manager_->GetFocus(&document)) && document) {
+        (void)document->GetTop(&context);
+        document->Release();
+    }
+    if (!context) return false;
+    const std::wstring text = wide_from_utf8(effect.text);
+    const bool same_document = plugin_context_is_current(context);
+    bool written = false;
+    auto* edit = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
+        // Recheck everything inside the read/write session that performs the write.
+        agent::EffectTargetFacts facts;
+        facts.capability_negotiated = agent_effects_negotiated_;
+        facts.same_document = same_document;
+        facts.context_allowed =
+            inspect_input_method_context(context, cookie) == InputMethodContextSafety::allowed;
+        facts.current_context_id = agent_context_id_;
+        TF_SELECTION selection{};
+        ULONG fetched = 0;
+        HRESULT result = context->GetSelection(cookie, TF_DEFAULT_SELECTION, 1,
+                                               &selection, &fetched);
+        if (FAILED(result) || fetched != 1 || selection.range == nullptr) return S_OK;
+        if (effect.kind == agent::EffectKind::replace_selection) {
+            const auto current = read_range_text(cookie, selection.range);
+            if (current && !current->empty())
+                facts.selection_sha256 = sha256_hex(utf8_from_wide(*current));
+        }
+        if (agent::decide_effect(effect, facts) == agent::EffectDecision::write) {
+            result = selection.range->SetText(cookie, 0, text.data(),
+                                              static_cast<LONG>(text.size()));
+            if (SUCCEEDED(result)) {
+                selection.range->Collapse(cookie, TF_ANCHOR_END);
+                written = SUCCEEDED(context->SetSelection(cookie, 1, &selection));
+            }
+        }
+        selection.range->Release();
+        return S_OK;
+    });
+    if (edit) {
+        HRESULT session_result = E_FAIL;
+        const auto request = context->RequestEditSession(
+            client_id_, edit, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
+        edit->Release();
+        if (FAILED(request) || FAILED(session_result)) written = false;
+    }
+    context->Release();
+    if (written) append_language_context(text);
+    return written;
 }
 
 void TextService::refresh_agent_context_safety(ITfContext* context) {

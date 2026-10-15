@@ -176,6 +176,26 @@ OwO 对第三方 Agent 的识别依据是：用户明确配置的本机管道端
 
 高风险操作必须设为 `high_risk: true`。这类候选不会从输入法界面直接回传选择。Agent 可以返回一个低风险命令，用于“打开 Agent 自己的确认界面”；真正的删除、执行、账户、支付、凭据或系统更改必须在该可信界面中单独确认。
 
+## 原位回写（v4 `output.effects`）
+
+输入法在请求 `capabilities` 中声明 `output.effects` 后，响应 `capabilities` 也包含它时，候选命令才可以多一个 `effect` 字段；未协商时命令保持 v3 的 13 个字段，携带 `effect` 的响应会被拒绝。
+
+```json
+"effect": {
+  "kind": "replace_selection",
+  "text": "改写后的文字",
+  "target_context_id": "ctx-current-01234567",
+  "selection_sha256": "<选区 UTF-8 文本的 64 位小写十六进制 SHA-256>"
+}
+```
+
+- `commit_text`：在当前光标处上屏；`target_context_id` 必须是产生它的请求的 `application.context_id`，`selection_sha256` 为空。
+- `replace_selection`：替换当前选区；必须同时绑定 `target_context_id` 与 `selection_sha256`。
+- `copy_text`：只写剪贴板，不触碰文档。
+- `text` 为 1～16384 个字符。
+
+effect 由输入法在本地执行，Agent 不能借此执行任何其他操作。选中候选时，输入法在执行写入的同一个 `TF_ES_READWRITE` 编辑会话里复核：焦点上下文仍是当前文档、输入位置安全判定为 `allowed`、`context_id` 未变化；`replace_selection` 还要求当前选区摘要一致。任一不符只显示预览，不写入。敏感输入位置的响应不应携带 effect。
+
 ## 可逐段消耗拼音的任务候选
 
 Agent 可声明 `tasks.slots` 和 `tasks.incremental`，把候选表达为任务树上的补丁。所有范围均相对于去掉开头 `v` 后的原始 ASCII 拼音，采用从 0 开始、左闭右开 `[start, end)`；范围必须有效、互不重叠且不得超出原拼音。

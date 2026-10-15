@@ -4,8 +4,8 @@
 //! E1.5 在此基础上扩展 turn 结果 → 候选的完整映射。
 
 use crate::protocol::{
-    AgentIpcRequest, AgentIpcResponse, Command, RiskLevel, Status, TaskDraft,
-    AGENT_PROTOCOL_VERSION,
+    AgentIpcRequest, AgentIpcResponse, Command, CommandEffect, EffectKind, RiskLevel, Status,
+    TaskDraft, AGENT_PROTOCOL_VERSION, CAPABILITY_OUTPUT_EFFECTS, MAXIMUM_AGENT_EFFECT_TEXT_CHARS,
 };
 
 /// 响应骨架：回填 session_id / request_id / 协商能力，其余字段取默认值。
@@ -77,6 +77,32 @@ pub fn insert_reply_command(reply: &str) -> Command {
     command
 }
 
+/// 已协商 `output.effects` 时，给“插入回复”候选附上 `commit_text`：输入法选中后在原位上屏。
+///
+/// 回复超出 effect 文本上限时不附带（仍可在消息区查看全文）。
+pub fn attach_commit_effect(command: &mut Command, request: &AgentIpcRequest, text: &str) {
+    let negotiated = request
+        .capabilities
+        .iter()
+        .any(|c| c == CAPABILITY_OUTPUT_EFFECTS);
+    let length = text.chars().count();
+    // 敏感输入位置不给可写效果（输入法侧也会复核拒写）。
+    if !negotiated
+        || request.application.sensitive_input
+        || length == 0
+        || length > MAXIMUM_AGENT_EFFECT_TEXT_CHARS
+    {
+        return;
+    }
+    command.effect = Some(CommandEffect {
+        kind: EffectKind::CommitText,
+        text: text.to_string(),
+        target_context_id: request.application.context_id.clone(),
+        selection_sha256: String::new(),
+    });
+    command.preview = "选中后在当前光标处上屏；目标变化时只显示预览".to_string();
+}
+
 /// 按字符数截断（超长补省略号）。
 pub fn truncate_chars(text: &str, max_chars: usize) -> String {
     if max_chars == 0 {
@@ -106,6 +132,7 @@ pub fn command(id: &str, label: &str, category: &str, risk_level: RiskLevel) -> 
         task_revision: 0,
         slot_updates: Vec::new(),
         commit_task: false,
+        effect: None,
     }
 }
 

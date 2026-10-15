@@ -223,7 +223,8 @@ pub async fn run_turn_task(
     let mut candidate_commands: Vec<crate::protocol::Command> = Vec::new();
     let mut actions: HashMap<String, CommandAction> = HashMap::new();
     if let Some(text) = insert_text {
-        let command = commands::insert_reply_command(&text);
+        let mut command = commands::insert_reply_command(&text);
+        commands::attach_commit_effect(&mut command, &request, &text);
         actions.insert(command.id.clone(), CommandAction::InsertReply { text });
         candidate_commands.push(command);
     }

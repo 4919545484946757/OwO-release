@@ -48,7 +48,13 @@ pub const SUPPORTED_CAPABILITIES: &[&str] = &[
     "state.progress",
     "tasks.slots",
     "tasks.incremental",
+    CAPABILITY_OUTPUT_EFFECTS,
 ];
+
+/// v4 原位回写能力：只有请求声明它时，响应命令才可携带 `effect`。
+pub const CAPABILITY_OUTPUT_EFFECTS: &str = "output.effects";
+/// `effect.text` 上限（字符）。
+pub const MAXIMUM_AGENT_EFFECT_TEXT_CHARS: usize = 16384;
 
 // ────────────────────────────── 枚举 ──────────────────────────────
 
@@ -80,6 +86,30 @@ pub enum Status {
     Disconnected,
     Timeout,
     Error,
+}
+
+/// 命令副作用类型（v4，`output.effects`）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EffectKind {
+    /// 在当前光标处上屏。
+    CommitText,
+    /// 替换当前选区；绑定 `target_context_id` 与选区文本 SHA-256。
+    ReplaceSelection,
+    /// 只写剪贴板。
+    CopyText,
+}
+
+/// 选中候选时由输入法本地执行的写入动作。输入法写入前必须复核目标，不符时只展示预览。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CommandEffect {
+    pub kind: EffectKind,
+    pub text: String,
+    /// 请求时的 `application.context_id`；空串表示不绑定（`replace_selection` 必填）。
+    pub target_context_id: String,
+    /// 选区文本（UTF-8）的小写十六进制 SHA-256；仅 `replace_selection` 使用。
+    pub selection_sha256: String,
 }
 
 /// 命令风险级别。
@@ -153,6 +183,9 @@ pub struct Command {
     pub task_revision: u64,
     pub slot_updates: Vec<SlotUpdate>,
     pub commit_task: bool,
+    /// v4 写入动作；未协商 `output.effects` 时必须为 `None`（序列化时省略，保持 v3 形状）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effect: Option<CommandEffect>,
 }
 
 /// 当前输入位置的应用身份（不含窗口标题）。
@@ -412,6 +445,9 @@ fn check_command(command: &Command) -> Result<(), ProtocolError> {
     check_len(&command.preview, "command.preview", 2048, 0)?;
     check_len(&command.disabled_reason, "command.disabled_reason", 512, 0)?;
     check_slot_updates(&command.slot_updates)?;
+    if let Some(effect) = &command.effect {
+        check_effect(effect)?;
+    }
     // 风险字段不变量（协议最小接入验证第 15 条）：
     // risk_level = high 必须同时 high_risk=true 且 requires_confirmation=true。
     if matches!(command.risk_level, RiskLevel::High | RiskLevel::Critical)
@@ -421,6 +457,50 @@ fn check_command(command: &Command) -> Result<(), ProtocolError> {
             "command.risk_level",
             "高风险命令必须同时设置 high_risk=true 与 requires_confirmation=true",
         ));
+    }
+    Ok(())
+}
+
+fn check_effect(effect: &CommandEffect) -> Result<(), ProtocolError> {
+    check_len(
+        &effect.text,
+        "command.effect.text",
+        MAXIMUM_AGENT_EFFECT_TEXT_CHARS,
+        1,
+    )?;
+    check_token(
+        &effect.target_context_id,
+        "command.effect.target_context_id",
+        true,
+    )?;
+    let digest = &effect.selection_sha256;
+    match effect.kind {
+        EffectKind::ReplaceSelection => {
+            if effect.target_context_id.is_empty() {
+                return Err(invalid(
+                    "command.effect.target_context_id",
+                    "replace_selection 必须绑定目标上下文",
+                ));
+            }
+            if digest.len() != 64
+                || !digest
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return Err(invalid(
+                    "command.effect.selection_sha256",
+                    "必须是 64 位小写十六进制",
+                ));
+            }
+        }
+        EffectKind::CommitText | EffectKind::CopyText => {
+            if !digest.is_empty() {
+                return Err(invalid(
+                    "command.effect.selection_sha256",
+                    "只有 replace_selection 可以携带选区摘要",
+                ));
+            }
+        }
     }
     Ok(())
 }
@@ -575,6 +655,17 @@ impl AgentIpcResponse {
         }
         check_len(&self.error_message, "error_message", 4096, 0)?;
         check_unique_tokens(&self.capabilities, "capabilities", 32)?;
+        if self.commands.iter().any(|command| command.effect.is_some())
+            && !self
+                .capabilities
+                .iter()
+                .any(|c| c == CAPABILITY_OUTPUT_EFFECTS)
+        {
+            return Err(invalid(
+                "commands.effect",
+                "未协商 output.effects 时不能携带 effect",
+            ));
+        }
         check_task(&self.task)?;
         Ok(())
     }

@@ -328,6 +328,13 @@ async fn submit_then_poll_returns_final_with_candidates() {
     assert_eq!(final_response.commands.len(), 1);
     assert_eq!(final_response.commands[0].id, "insert-reply");
     assert_eq!(final_response.commands[0].category, "text.insert");
+    let effect = final_response.commands[0]
+        .effect
+        .as_ref()
+        .expect("已协商 output.effects 时插入回复携带 commit_text");
+    assert_eq!(effect.kind, EffectKind::CommitText);
+    assert!(effect.text.contains("已找到 3 个文件"));
+    assert!(effect.selection_sha256.is_empty());
 
     // 凭据与回合约束。
     assert!(
@@ -619,4 +626,27 @@ async fn non_intent_submit_still_starts_turn() {
     let final_response = poll_until_final(&bridge, Duration::from_secs(10)).await;
     assert_eq!(final_response.status, Status::AgentMode);
     assert_eq!(mock.turn_attempts.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn insert_reply_without_effects_capability_keeps_v3_shape() {
+    let mock = MockServer::new(TurnMode::Complete);
+    let base_url = mock.serve().await;
+    let (_state, bridge) = spawn_bridge(&base_url);
+
+    let mut submit = request(Action::Submit, "req-1");
+    submit
+        .capabilities
+        .retain(|capability| capability != CAPABILITY_OUTPUT_EFFECTS);
+    let immediate = call(&bridge, &submit).await;
+    assert_eq!(immediate.status, Status::Thinking);
+    let final_response = poll_until_final(&bridge, Duration::from_secs(10)).await;
+    assert_eq!(final_response.commands[0].id, "insert-reply");
+    assert!(final_response.commands[0].effect.is_none());
+    assert!(!final_response
+        .capabilities
+        .iter()
+        .any(|capability| capability == CAPABILITY_OUTPUT_EFFECTS));
+    let encoded = String::from_utf8(final_response.encode().unwrap()).unwrap();
+    assert!(!encoded.contains("\"effect\""));
 }

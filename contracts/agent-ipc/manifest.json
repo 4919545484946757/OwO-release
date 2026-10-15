@@ -11,6 +11,11 @@
     {"file": "fixtures/request.short_session.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
     {"file": "fixtures/request.bad_request_id.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
     {"file": "fixtures/response.high_risk_unconfirmed.invalid.json", "kind": "response", "expect": "invalid", "level": "semantic"},
-    {"file": "fixtures/response.duplicate_command.invalid.json", "kind": "response", "expect": "invalid", "level": "semantic"}
+    {"file": "fixtures/response.duplicate_command.invalid.json", "kind": "response", "expect": "invalid", "level": "semantic"},
+    {"file": "fixtures/response.commit_effect.valid.json", "kind": "response", "expect": "valid"},
+    {"file": "fixtures/response.replace_selection_effect.valid.json", "kind": "response", "expect": "valid"},
+    {"file": "fixtures/response.effect_unknown_kind.invalid.json", "kind": "response", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/response.replace_selection_unbound.invalid.json", "kind": "response", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/response.effect_without_capability.invalid.json", "kind": "response", "expect": "invalid", "level": "semantic"}
   ]
 }

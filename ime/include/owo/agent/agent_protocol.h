@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -11,6 +12,9 @@ inline constexpr std::uint32_t kAgentProtocolVersion = 3;
 inline constexpr std::uint32_t kMinimumAgentProtocolVersion = 2;
 inline constexpr std::size_t kMaximumAgentPayloadBytes = 256U * 1024U;
 inline constexpr std::size_t kMaximumAgentCommands = 64;
+// v4 in-place write-back. Commands may carry an effect only when both sides list it.
+inline constexpr const char* kAgentCapabilityOutputEffects = "output.effects";
+inline constexpr std::size_t kMaximumAgentEffectTextCodePoints = 16384;
 inline constexpr std::size_t kMaximumAgentContextEntries = 32;
 inline constexpr std::size_t kMaximumAgentContextEntryBytes = 32U * 1024U;
 inline constexpr std::size_t kMaximumAgentContextBytes = 128U * 1024U;
@@ -133,6 +137,19 @@ struct Request {
     bool operator==(const Request&) const = default;
 };
 
+enum class EffectKind { commit_text, replace_selection, copy_text };
+
+// Written locally by the IME after it rechecks the target; never executed by the Agent.
+struct CommandEffect {
+    EffectKind kind{EffectKind::commit_text};
+    std::string text;
+    // application.context_id of the originating request; required for replace_selection.
+    std::string target_context_id;
+    // Lowercase hex SHA-256 of the UTF-8 selection text; replace_selection only.
+    std::string selection_sha256;
+    bool operator==(const CommandEffect&) const = default;
+};
+
 struct Command {
     std::string id;
     std::string label;
@@ -147,6 +164,7 @@ struct Command {
     std::uint64_t task_revision{};
     std::vector<SlotUpdate> slot_updates;
     bool commit_task{};
+    std::optional<CommandEffect> effect;
     bool operator==(const Command&) const = default;
 };
 
@@ -206,6 +224,21 @@ struct FilterResult {
 // receive nothing.
 [[nodiscard]] bool context_entry_shareable(const ContextEntry& entry,
                                            const ApplicationContext& current) noexcept;
+// Facts gathered inside the TSF read/write edit session right before an effect is written.
+struct EffectTargetFacts {
+    bool capability_negotiated{};
+    bool same_document{};
+    bool context_allowed{};
+    std::string current_context_id;
+    std::string selection_sha256;
+};
+
+enum class EffectDecision { write, preview_only };
+
+// Every mismatch falls back to a preview; copy_text never touches the document.
+[[nodiscard]] EffectDecision decide_effect(const CommandEffect& effect,
+                                           const EffectTargetFacts& facts) noexcept;
+[[nodiscard]] const char* effect_kind_name(EffectKind kind) noexcept;
 [[nodiscard]] const char* action_name(Action action) noexcept;
 [[nodiscard]] const char* status_name(Status status) noexcept;
 

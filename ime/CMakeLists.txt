@@ -340,7 +340,7 @@ if(WIN32)
     target_compile_features(owo_tsf PRIVATE cxx_std_20)
     target_compile_definitions(owo_tsf PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
     target_link_libraries(owo_tsf PRIVATE owo_ipc owo_plugin owo_agent ole32 oleaut32 advapi32 uuid user32
-                                             gdi32 d2d1 dwrite dwmapi)
+                                             gdi32 d2d1 dwrite dwmapi bcrypt)
     set_target_properties(owo_tsf PROPERTIES OUTPUT_NAME "OwO.TSF")
     if(MSVC)
         target_compile_options(owo_tsf PRIVATE /W4 /permissive- /utf-8)

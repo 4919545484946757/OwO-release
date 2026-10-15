@@ -309,6 +309,32 @@ bool valid_text(const std::string_view value, const std::size_t maximum) {
     return value.size() <= maximum && valid_utf8(value);
 }
 
+std::optional<EffectKind> parse_effect_kind(const std::string_view value) {
+    if (value == "commit_text") return EffectKind::commit_text;
+    if (value == "replace_selection") return EffectKind::replace_selection;
+    if (value == "copy_text") return EffectKind::copy_text;
+    return std::nullopt;
+}
+
+bool lowercase_sha256(const std::string_view value) {
+    return value.size() == 64 && std::all_of(value.begin(), value.end(), [](const char c) {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+    });
+}
+
+bool valid_effect(const CommandEffect& effect) {
+    const auto code_points = std::count_if(effect.text.begin(), effect.text.end(), [](const char c) {
+        return (static_cast<unsigned char>(c) & 0xc0U) != 0x80U;
+    });
+    if (effect.text.empty() || !valid_utf8(effect.text) ||
+        static_cast<std::size_t>(code_points) > kMaximumAgentEffectTextCodePoints ||
+        !valid_optional_token(effect.target_context_id))
+        return false;
+    if (effect.kind == EffectKind::replace_selection)
+        return !effect.target_context_id.empty() && lowercase_sha256(effect.selection_sha256);
+    return effect.selection_sha256.empty();
+}
+
 bool valid_risk_level(const std::string_view value) {
     return value == "none" || value == "low" || value == "medium" ||
            value == "high" || value == "critical";
@@ -1014,6 +1040,9 @@ std::string encode_response(const Response& response) {
     const auto capabilities = encode_string_array(response.capabilities);
     const auto task = encode_task(response.task);
     if (capabilities.empty() || task.empty()) return {};
+    const bool effects_negotiated =
+        std::find(response.capabilities.begin(), response.capabilities.end(),
+                  kAgentCapabilityOutputEffects) != response.capabilities.end();
     std::string commands = "[";
     for (std::size_t index = 0; index < response.commands.size(); ++index) {
         const auto& command = response.commands[index];
@@ -1027,7 +1056,9 @@ std::string encode_response(const Response& response) {
             ((!command.enabled) && command.disabled_reason.empty()) || slot_updates.empty() ||
             ((!command.slot_updates.empty() || command.commit_task) &&
              command.task_revision == 0) ||
-            ((risk == "high" || risk == "critical") && !command.high_risk)) return {};
+            ((risk == "high" || risk == "critical") && !command.high_risk) ||
+            (command.effect && (!effects_negotiated || !valid_effect(*command.effect))))
+            return {};
         if (index != 0) commands += ',';
         commands += "{\"id\":\"" + escape(command.id) + "\",\"label\":\"" +
             escape(command.label) + "\",\"high_risk\":" +
@@ -1040,7 +1071,15 @@ std::string encode_response(const Response& response) {
             (command.enabled ? "true" : "false") + ",\"disabled_reason\":\"" +
             escape(command.disabled_reason) + "\",\"task_revision\":" +
             std::to_string(command.task_revision) + ",\"slot_updates\":" + slot_updates +
-            ",\"commit_task\":" + (command.commit_task ? "true" : "false") + "}";
+            ",\"commit_task\":" + (command.commit_task ? "true" : "false");
+        if (command.effect) {
+            const auto& effect = *command.effect;
+            commands += std::string(",\"effect\":{\"kind\":\"") +
+                effect_kind_name(effect.kind) + "\",\"text\":\"" + escape(effect.text) +
+                "\",\"target_context_id\":\"" + escape(effect.target_context_id) +
+                "\",\"selection_sha256\":\"" + escape(effect.selection_sha256) + "\"}";
+        }
+        commands += '}';
     }
     commands += ']';
     auto output = std::string("{\"schema_version\":3,\"session_id\":\"") +
@@ -1136,7 +1175,8 @@ ResponseDecodeResult decode_response(const std::string_view json) {
     std::unordered_set<std::string> command_ids;
     for (const auto& value : *commands) {
         const auto* item = std::get_if<Object>(&value);
-        if (item == nullptr || item->size() != (v3 ? 13U : 3U))
+        const bool has_effect = v3 && item != nullptr && item->contains("effect");
+        if (item == nullptr || item->size() != (v3 ? (has_effect ? 14U : 13U) : 3U))
             return {false, {}, "invalid agent command"};
         const auto* command_id = field<std::string>(*item, "id");
         const auto* label = field<std::string>(*item, "label");
@@ -1174,6 +1214,19 @@ ResponseDecodeResult decode_response(const std::string_view json) {
             parsed.task_revision = *task_revision;
             parsed.slot_updates = *parsed_updates;
             parsed.commit_task = *commit_task;
+            if (has_effect) {
+                const auto* effect = field<Object>(*item, "effect");
+                if (effect == nullptr || effect->size() != 4U)
+                    return {false, {}, "invalid agent command effect"};
+                const auto* kind = field<std::string>(*effect, "kind");
+                const auto* text = field<std::string>(*effect, "text");
+                const auto* target = field<std::string>(*effect, "target_context_id");
+                const auto* digest = field<std::string>(*effect, "selection_sha256");
+                const auto parsed_kind = kind ? parse_effect_kind(*kind) : std::nullopt;
+                if (!parsed_kind || text == nullptr || target == nullptr || digest == nullptr)
+                    return {false, {}, "invalid agent command effect"};
+                parsed.effect = CommandEffect{*parsed_kind, *text, *target, *digest};
+            }
             if (!valid_risk_level(parsed.risk_level) ||
                 ((parsed.risk_level == "high" || parsed.risk_level == "critical") &&
                  (!parsed.high_risk || !parsed.requires_confirmation)) ||
@@ -1186,6 +1239,29 @@ ResponseDecodeResult decode_response(const std::string_view json) {
         return {false, {}, "agent response bounds are invalid"};
     result.ok = true;
     return result;
+}
+
+const char* effect_kind_name(const EffectKind kind) noexcept {
+    switch (kind) {
+    case EffectKind::commit_text: return "commit_text";
+    case EffectKind::replace_selection: return "replace_selection";
+    case EffectKind::copy_text: return "copy_text";
+    }
+    return "commit_text";
+}
+
+EffectDecision decide_effect(const CommandEffect& effect,
+                             const EffectTargetFacts& facts) noexcept {
+    if (!facts.capability_negotiated || !valid_effect(effect)) return EffectDecision::preview_only;
+    if (effect.kind == EffectKind::copy_text) return EffectDecision::write;
+    // Document writes require a binding to the originating input position.
+    if (!facts.same_document || !facts.context_allowed || effect.target_context_id.empty() ||
+        effect.target_context_id != facts.current_context_id)
+        return EffectDecision::preview_only;
+    if (effect.kind == EffectKind::replace_selection &&
+        effect.selection_sha256 != facts.selection_sha256)
+        return EffectDecision::preview_only;
+    return EffectDecision::write;
 }
 
 bool context_entry_shareable(const ContextEntry& entry,

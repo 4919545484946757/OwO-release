@@ -161,6 +161,72 @@ int main() {
         anonymous.context_id = "ctx-z";
         if (owo::agent::context_entry_shareable(same_app, anonymous)) return 27;
     }
+    {
+        // v4 command.effect: present only when output.effects is negotiated.
+        auto effects = response;
+        effects.capabilities.push_back(owo::agent::kAgentCapabilityOutputEffects);
+        effects.commands.front().effect = owo::agent::CommandEffect{
+            owo::agent::EffectKind::commit_text, "Hello \"world\"", "ctx-1", ""};
+        const auto encoded = owo::agent::encode_response(effects);
+        const auto decoded = owo::agent::decode_response(encoded);
+        if (!decoded.ok || decoded.value != effects) return 30;
+        if (owo::agent::encode_response(response).find("\"effect\"") != std::string::npos)
+            return 31;
+        auto unnegotiated = effects;
+        unnegotiated.capabilities.pop_back();
+        if (!owo::agent::encode_response(unnegotiated).empty()) return 32;
+        auto replace = effects;
+        replace.commands.front().effect->kind = owo::agent::EffectKind::replace_selection;
+        if (!owo::agent::encode_response(replace).empty()) return 33;
+        replace.commands.front().effect->selection_sha256 = std::string(64, 'a');
+        if (owo::agent::encode_response(replace).empty()) return 33;
+        replace.commands.front().effect->target_context_id.clear();
+        if (!owo::agent::encode_response(replace).empty()) return 33;
+        auto extra = encoded;
+        const auto digest = extra.find("\"selection_sha256\":\"\"");
+        if (digest == std::string::npos) return 34;
+        extra.insert(digest, "\"extra\":1,");
+        if (owo::agent::decode_response(extra).ok) return 34;
+        auto bad_kind = encoded;
+        const auto kind = bad_kind.find("commit_text");
+        bad_kind.replace(kind, 11, "run_program");
+        if (owo::agent::decode_response(bad_kind).ok) return 34;
+
+        using owo::agent::EffectDecision;
+        const auto& commit = *effects.commands.front().effect;
+        owo::agent::EffectTargetFacts facts{true, true, true, "ctx-1", ""};
+        if (owo::agent::decide_effect(commit, facts) != EffectDecision::write) return 35;
+        auto moved = facts;
+        moved.current_context_id = "ctx-2";
+        if (owo::agent::decide_effect(commit, moved) != EffectDecision::preview_only) return 35;
+        auto unsafe = facts;
+        unsafe.context_allowed = false;
+        if (owo::agent::decide_effect(commit, unsafe) != EffectDecision::preview_only) return 35;
+        auto other_document = facts;
+        other_document.same_document = false;
+        if (owo::agent::decide_effect(commit, other_document) != EffectDecision::preview_only)
+            return 35;
+        auto unbound = commit;
+        unbound.target_context_id.clear();
+        auto blank = facts;
+        blank.current_context_id.clear();
+        if (owo::agent::decide_effect(unbound, blank) != EffectDecision::preview_only) return 35;
+        auto old_client = facts;
+        old_client.capability_negotiated = false;
+        if (owo::agent::decide_effect(commit, old_client) != EffectDecision::preview_only)
+            return 35;
+        owo::agent::CommandEffect selection_effect{
+            owo::agent::EffectKind::replace_selection, "x", "ctx-1", std::string(64, 'b')};
+        auto selected = facts;
+        selected.selection_sha256 = std::string(64, 'b');
+        if (owo::agent::decide_effect(selection_effect, selected) != EffectDecision::write)
+            return 36;
+        selected.selection_sha256 = std::string(64, 'c');
+        if (owo::agent::decide_effect(selection_effect, selected) != EffectDecision::preview_only)
+            return 36;
+        owo::agent::CommandEffect copy{owo::agent::EffectKind::copy_text, "x", "", ""};
+        if (owo::agent::decide_effect(copy, other_document) != EffectDecision::write) return 36;
+    }
     const auto utf8_boundary = owo::agent::filter_sensitive_text("中文", 2);
     if (!utf8_boundary.ok || !utf8_boundary.redacted || !utf8_boundary.value.empty()) return 14;
     auto too_many_contexts = request;

@@ -245,6 +245,8 @@ private:
     bool plugin_scheme_selected() const noexcept;
     bool plugin_context_allowed(ITfContext*);
     void refresh_agent_context_safety(ITfContext*);
+    // Returns true only when the effect was written (document or clipboard).
+    bool apply_agent_effect(const agent::CommandEffect& effect);
     bool plugin_context_is_current(ITfContext*) const;
     bool plugin_should_eat_key(ITfContext*, WPARAM, LPARAM);
     HRESULT handle_plugin_key(ITfContext*, WPARAM, LPARAM, BOOL*);
@@ -337,6 +339,7 @@ private:
     std::string agent_session_id_;
     std::string agent_context_id_;
     bool agent_context_sensitive_{true};
+    bool agent_effects_negotiated_{false};
     agent::Status agent_status_{agent::Status::agent_mode};
     std::wstring agent_message_;
     std::wstring agent_executing_command_;
