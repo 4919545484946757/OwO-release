@@ -74,7 +74,7 @@ cmake --build --preset windows-release
 .\scripts\package_release.ps1 -Version 0.2.3
 .\scripts\package_setup.ps1 -Version 0.2.3
 .\scripts\package_plugins.ps1
-.\scripts\package-agent-sdk.ps1 -Version 1.2.0
+.\scripts\package-agent-sdk.ps1 -Version 1.3.0
 ```
 
 `open-owo-installer.cmd` 会重新发布设置中心、在 `build\installer-preview` 生成临时完整安装暂存目录，并打开 WinUI 3 安装界面；它不会自动执行安装。

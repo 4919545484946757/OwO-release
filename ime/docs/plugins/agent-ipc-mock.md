@@ -16,7 +16,7 @@
 
 ## 首次准备
 
-1. 在设置中心安装 `org.owo.agent-ipc-1.2.0.owopkg`。
+1. 在设置中心安装 `org.owo.agent-ipc-1.3.0.owopkg`。
 2. 阅读 Agent IPC 权限与隐私说明，勾选明确同意后启用。
 3. 保持模拟 Agent 控制台运行。
 4. 在新的输入窗口中使用 OwO 输入法。
@@ -38,6 +38,8 @@ vbangwozhaowenjian
 2. `显示收到的应用上下文`：显示收到的程序名、窗口类和局部上下文；
 3. `模拟执行中状态`：先返回 `executing`，下一次轮询返回 `completed`；
 4. `模拟删除文件（高风险测试）`：标记为高风险，OwO 应拒绝在候选框直接选择。
+
+请求声明 `output.effects`（控制台 `output.effects=yes`）时，首页最前面还有三个 v4 回写验收候选：上屏测试文字（`commit_text`）、错投目标（绑定错误的 `context_id`，应只预览）、复制到剪贴板（`copy_text`）。验收步骤见 `docs/integration/工程文档.md` 第 4.1 节。
 
 下一页包含“模拟完成任务”和“模拟 Agent 错误”。按 Escape、删除开头 `v` 或关闭候选框时，控制台应收到相同 `session_id` 的 `cancel`。
 

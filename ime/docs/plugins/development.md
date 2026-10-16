@@ -200,7 +200,7 @@ cmake --build --preset windows-release
 版本，并使用户重新核对摘要和权限。Agent 连接器还可随参考协议与模拟服务一起打包：
 
 ```powershell
-.\scripts\package-agent-sdk.ps1 -Version 1.2.0
+.\scripts\package-agent-sdk.ps1 -Version 1.3.0
 ```
 
 ### Agent 类插件的边界

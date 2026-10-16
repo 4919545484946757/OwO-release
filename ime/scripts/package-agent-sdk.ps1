@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '1.2.0',
+    [string]$Version = '1.3.0',
     [string]$BuildDirectory,
     [string]$PluginPackage,
     [string]$OutputDirectory

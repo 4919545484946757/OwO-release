@@ -184,6 +184,39 @@ owo::agent::Response page_response(const owo::agent::Request& request) {
              true, "不会实际删除文件", true, ""},
         };
         response.has_more = true;
+        const bool effects = std::find(request.capabilities.begin(), request.capabilities.end(),
+                                       owo::agent::kAgentCapabilityOutputEffects) !=
+                             request.capabilities.end();
+        if (effects) {
+            // v4 acceptance: write-back candidates bound to the requesting input position.
+            response.capabilities.push_back(owo::agent::kAgentCapabilityOutputEffects);
+            const auto effect_command = [&](std::string id, std::string label,
+                                            owo::agent::EffectKind kind, std::string text,
+                                            std::string target) {
+                owo::agent::Command command;
+                command.id = std::move(id);
+                command.label = std::move(label);
+                command.description = "v4 原位回写验收";
+                command.category = "text.insert";
+                command.risk_level = "low";
+                command.preview = "选中后由输入法复核目标再写入";
+                command.effect = owo::agent::CommandEffect{kind, std::move(text),
+                                                           std::move(target), ""};
+                return command;
+            };
+            const auto& current = request.application.context_id;
+            response.commands.insert(response.commands.begin(), {
+                effect_command("effect-commit", "回写验收：上屏测试文字",
+                               owo::agent::EffectKind::commit_text,
+                               "【OwO 回写验收】" + request.user_input, current),
+                effect_command("effect-wrong-target", "回写验收：错投目标（应只预览）",
+                               owo::agent::EffectKind::commit_text,
+                               "【不应出现在文档里】", "ctx-wrong-target"),
+                effect_command("effect-copy", "回写验收：复制到剪贴板",
+                               owo::agent::EffectKind::copy_text,
+                               "【OwO 剪贴板验收】" + request.user_input, ""),
+            });
+        }
     } else {
         response.commands = {
             {"finish", "模拟完成任务", false, "返回完成状态", "debug.finish",
@@ -370,7 +403,13 @@ int wmain(const int argc, wchar_t** argv) {
                               << " context_id=" << request.application.context_id << '\n'
                               << "       context=" << request.session_context
                               << " command_id=" << request.command_id
-                              << " task_revision=" << request.task_revision << '\n';
+                              << " task_revision=" << request.task_revision << '\n'
+                              << "       output.effects=" <<
+                                     (std::find(request.capabilities.begin(),
+                                                request.capabilities.end(),
+                                                owo::agent::kAgentCapabilityOutputEffects) !=
+                                              request.capabilities.end() ? "yes" : "no")
+                              << " sensitive=" << request.application.sensitive_input << '\n';
                     for (const auto& update : request.slot_updates) {
                         std::cout << "       slot_update=" << update.slot_id
                                   << " value=" << update.value
@@ -442,7 +481,7 @@ int wmain(const int argc, wchar_t** argv) {
                 } else {
                     if (payload.find("\"schema_version\":1") != std::string::npos) {
                         std::cerr << "[拒绝] 收到 Agent 协议 v1 请求；请升级并重新授权 "
-                                     "OwO Agent IPC 连接器 1.2.0，然后重启 OwO。\n\n";
+                                     "OwO Agent IPC 连接器 1.3.0，然后重启 OwO。\n\n";
                     } else {
                         std::cerr << "[拒绝] " << decoded.diagnostic << "\n\n";
                     }

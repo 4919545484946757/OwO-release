@@ -1,6 +1,6 @@
 # OwO Agent IPC SDK 与可移植模拟 Agent
 
-SDK 与连接器版本：`1.2.0`（Agent 协议 v3，兼容读取 v2）
+SDK 与连接器版本：`1.3.0`（Agent 协议 v3，兼容读取 v2）
 
 协议 v3 还提供结构化任务草稿：候选可携带槽位补丁、任务版本以及槽位到原始拼音区间的映射。选择候选只更新对应槽位，不要求重新提交整条自然语言，也不会直接把候选文字上屏。
 
@@ -9,7 +9,7 @@ SDK 与连接器版本：`1.2.0`（Agent 协议 v3，兼容读取 v2）
 ## 快速测试
 
 1. 双击 `Start-Mock-Agent.cmd`，保持控制台打开。
-2. 如尚未安装连接器，在 OwO 设置中心安装 `connector/org.owo.agent-ipc-1.2.0.owopkg`。
+2. 如尚未安装连接器，在 OwO 设置中心安装 `connector/org.owo.agent-ipc-1.3.0.owopkg`。
 3. 阅读权限和隐私提示，明确同意后启用连接器。
 4. 确认插件管道为默认值 `\\.\pipe\OwO.Agent.External.v1`。
 5. 输入 `vbangwozhaowenjian`；完整选择拼音候选会自动发送，也可按 Enter 或 Space 显式发送。
