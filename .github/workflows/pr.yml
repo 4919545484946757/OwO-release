@@ -1,12 +1,12 @@
 # PR 工作流（agent-sdk）：每次 push 到 PR 时执行核心门禁
-# 触发：pull_request -> main，路径含 agent-sdk/**
+# 触发：pull_request -> main|master，路径含 agent-sdk/**
 # 平台矩阵：Windows 为主线（ci-gate 全量），Linux 仅编译门禁且只报告不阻断（continue-on-error）
 # 依赖锁定：clippy/test/check 一律带 --locked；最小 token 权限 contents: read；无发布、无密钥上传。
 name: CI - PR (agent-sdk)
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
     paths:
       - 'agent-sdk/**'
 
@@ -41,6 +41,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: './agent-sdk -> ./agent-sdk/target'
+
+      - name: ONNX Runtime 预构建（sha256 固定，首次下载进稳定缓存）
+        working-directory: agent-sdk
+        run: .\scripts\ci-gate.ps1 -Step ort-prime -EnsureOrt -LogDir "$env:RUNNER_TEMP\ci-logs"
 
       - name: Node.js 20（npm 锁 clients/ts）
         uses: actions/setup-node@v4
