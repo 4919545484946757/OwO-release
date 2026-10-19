@@ -70,6 +70,9 @@ pub struct AgentSubagentWorker {
     pub(super) write_allowed: Vec<PathBuf>,
     pub(super) coordinator: Arc<TeamCoordinator>,
     pub(super) session_store: Arc<dyn owo_agent_core::SessionStore>,
+    pub(super) external_approver: Arc<dyn owo_agent_core::permissions::Approver>,
+    /// 建队时勾选「允许按声明范围写入」后的预授权规则（None = 不预授权）。
+    pub(super) scoped_write_rule: Option<super::scoped_write_approver::ScopedWriteRule>,
     pub(super) parent_session_id: Option<String>,
     pub(super) team_id: String,
     pub(super) role: String,
@@ -133,7 +136,25 @@ impl Worker for AgentSubagentWorker {
                 }
             }
             if read_only {
+                // Workspace read-only does not forbid an explicitly selected external API.
+                // Keep its own approval path; never restore workspace mutation tools.
+                let external = profile
+                    .visible_tools
+                    .iter()
+                    .filter(|name| {
+                        !self.is_critic
+                            && (name.starts_with("mcp__")
+                                || matches!(name.as_str(), "web_fetch" | "web_search"))
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
                 *profile = profile.clone().restricted_to_read_only();
+                if !external.is_empty() {
+                    profile
+                        .visible_tools
+                        .retain(|name| name != "__owo_no_task_tool__");
+                    profile.visible_tools.extend(external);
+                }
             }
             profile.write_allowed_paths = if profile.read_only {
                 Vec::new()
@@ -216,7 +237,7 @@ impl Worker for AgentSubagentWorker {
         let allow_writes = !read_only && !task_has_no_write_scope;
         let workspace_approver;
         let fallback_approver = AutoApprover { allow: read_only };
-        let approver: &dyn owo_agent_core::permissions::Approver = match scope {
+        let scoped_approver: &dyn owo_agent_core::permissions::Approver = match scope {
             Some(s) => {
                 let allowed = if let Some(task_allowed) = &task_write_allowed {
                     task_allowed.clone()
@@ -234,6 +255,22 @@ impl Worker for AgentSubagentWorker {
             }
             None => &fallback_approver,
         };
+        let preauthorized_writes = self.scoped_write_rule.as_ref().map(|rule| {
+            rule.clone().for_scope(
+                &effective_write_allowed,
+                &self
+                    .workspace_scope
+                    .as_ref()
+                    .map(|scope| scope.root.clone())
+                    .unwrap_or_else(|| self.workspace.clone()),
+            )
+        });
+        let workflow_approver = WorkflowApprover {
+            scoped: scoped_approver,
+            external: self.external_approver.as_ref(),
+            preauthorized_writes,
+        };
+        let approver: &dyn owo_agent_core::permissions::Approver = &workflow_approver;
         // 中断标志（七期 · 二路）：优先团队取消桥共享标志（cancel → 即时置位，
         // run_turn 协作式中断）；None = 本地标志（行为退化为不可中断）。
         let local_abort = AtomicBool::new(false);
@@ -273,6 +310,7 @@ impl Worker for AgentSubagentWorker {
                     step_id: raw_step_id.clone(),
                 });
                 let mut extra_tools: Vec<Arc<dyn Tool>> = vec![context_tool, artifact_tool];
+                extra_tools.extend(self.agent.declared_workflow_tools(&task_profile.visible_tools)?);
                 let can_publish_context = task_context
                     .required_capabilities
                     .as_deref()
@@ -298,7 +336,39 @@ impl Worker for AgentSubagentWorker {
                 let event_step_id = raw_step_id.clone();
                 let event_task_id = assigned_task_id.clone().unwrap_or_else(|| raw_step_id.clone());
                 let event_attempt_id = task_context.attempt_id.clone();
+                let replay_store = Arc::clone(&self.session_store);
+                let replay_session_id = worker_session_id(
+                    &self.team_id,
+                    assigned_task_id.as_deref().unwrap_or(&raw_step_id),
+                    task_context.attempt_id.as_deref().unwrap_or("unbound"),
+                );
+                let replay_role = self.role.clone();
+                let replay_model = model.clone();
                 let event_sink: TurnEventSink = Arc::new(move |event| {
+                    let replay = match event {
+                        TurnEvent::ModelCall => Some(owo_agent_protocol::SseEvent::Progress {
+                            message: format!("{} · 模型 {} · 正在执行", replay_role, replay_model),
+                        }),
+                        TurnEvent::TokenDelta { delta } => Some(owo_agent_protocol::SseEvent::TokenDelta { delta: delta.clone() }),
+                        TurnEvent::Final { text } => Some(owo_agent_protocol::SseEvent::Final { text: text.clone() }),
+                        TurnEvent::ToolStart { id, tool, args_preview } => Some(owo_agent_protocol::SseEvent::ToolUse {
+                            id: id.clone(), tool: tool.clone(), args: serde_json::json!(args_preview),
+                        }),
+                        TurnEvent::ToolResult { id, tool, ok, error, preview, .. } => Some(owo_agent_protocol::SseEvent::ToolResult {
+                            id: id.clone(), tool: tool.clone(), ok: *ok, error: error.clone(), preview: preview.clone(),
+                        }),
+                        TurnEvent::PermissionRequest(request) => Some(owo_agent_protocol::SseEvent::Progress {
+                            message: format!("等待审批：{}", request.tool),
+                        }),
+                        TurnEvent::PlanUpdate { steps } => Some(owo_agent_protocol::SseEvent::PlanUpdate { steps: steps.clone() }),
+                        _ => None,
+                    };
+                    if let Some(payload) = replay {
+                        // The same store supplies ordinary chat replay; no parallel transcript database.
+                        if let Err(error) = replay_store.append_turn_event(&replay_session_id, &replay_role, &payload) {
+                            coordinator.record_runtime_event(&team_id, "team.conversation.failed", error.to_string());
+                        }
+                    }
                     if let TurnEvent::ToolResult {
                         command_receipt: Some(receipt),
                         ..
@@ -364,7 +434,21 @@ impl Worker for AgentSubagentWorker {
                     )),
                     parent_session_id: self.parent_session_id.clone(),
                 };
-                runner.run(&self.workspace, &prompt).await
+                let result = runner.run(&self.workspace, &prompt).await;
+                if let Err(error) = &result {
+                    let session_id = worker_session_id(
+                        &self.team_id,
+                        assigned_task_id.as_deref().unwrap_or(&raw_step_id),
+                        task_context.attempt_id.as_deref().unwrap_or("unbound"),
+                    );
+                    let _ = self.session_store.append_turn_event(
+                        &session_id, &self.role,
+                        &owo_agent_protocol::SseEvent::Progress {
+                            message: format!("节点执行失败：{error}"),
+                        },
+                    );
+                }
+                result
             }
             None => {
                 let runner = SubagentRunner {
@@ -389,6 +473,58 @@ impl Worker for AgentSubagentWorker {
     }
 }
 
+struct WorkflowApprover<'a> {
+    scoped: &'a dyn owo_agent_core::permissions::Approver,
+    external: &'a dyn owo_agent_core::permissions::Approver,
+    /// 用户自定义工作流：建队时勾选「允许节点按声明的范围写入」后的预授权规则。
+    ///
+    /// 团队运行没有交互式审批通道（`/approvals/pending` 里永远没有条目），
+    /// 范围内写入若还走询问就只有超时拒绝一条路——这正是"自定义工作流必然失败"
+    /// 的根因。预授权只覆盖该角色 `write_paths` 内的落盘工具，其余请求原样交给
+    /// 下面的 scoped/external 审批器（写范围外、命令、联网、MCP 都不放行）。
+    preauthorized_writes: Option<super::scoped_write_approver::ScopedWriteRule>,
+}
+#[async_trait]
+impl owo_agent_core::permissions::Approver for WorkflowApprover<'_> {
+    async fn decide(
+        &self,
+        request: &owo_agent_core::permissions::PermissionRequest,
+    ) -> owo_agent_core::permissions::Decision {
+        if let Some(rule) = self.preauthorized_writes.as_ref() {
+            if rule.is_scoped_write(request) {
+                return rule.authorize().0;
+            }
+        }
+        let external = request.tool.starts_with("mcp__")
+            || matches!(request.tool.as_str(), "web_fetch" | "web_search");
+        if external {
+            self.external.decide(request).await
+        } else {
+            self.scoped.decide(request).await
+        }
+    }
+    async fn decide_with_notification(
+        &self,
+        request: &owo_agent_core::permissions::PermissionRequest,
+        notify: &mut (dyn FnMut() + Send),
+    ) -> owo_agent_core::permissions::ApprovalOutcome {
+        if let Some(rule) = self.preauthorized_writes.as_ref() {
+            if rule.is_scoped_write(request) {
+                return rule.authorize().1;
+            }
+        }
+        let external = request.tool.starts_with("mcp__")
+            || matches!(request.tool.as_str(), "web_fetch" | "web_search");
+        if external {
+            self.external
+                .decide_with_notification(request, notify)
+                .await
+        } else {
+            self.scoped.decide_with_notification(request, notify).await
+        }
+    }
+}
+
 fn worker_session_id(team_id: &str, task_id: &str, attempt_id: &str) -> String {
     use sha2::{Digest, Sha256};
     let digest = Sha256::digest(format!("{team_id}\0{task_id}\0{attempt_id}").as_bytes());
@@ -396,7 +532,7 @@ fn worker_session_id(team_id: &str, task_id: &str, attempt_id: &str) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect::<String>();
-    format!("worker-{suffix}")
+    format!("{team_id}-worker-{suffix}")
 }
 
 fn safe_team_model_event(event: &TurnEvent, role: &str, step_id: &str) -> Option<String> {
@@ -496,8 +632,8 @@ mod team_context_scope_tests {
         assert_ne!(first, worker_session_id("team-a", "task-a", "attempt-2"));
         assert_ne!(first, worker_session_id("team-a", "task-b", "attempt-1"));
         assert_ne!(first, worker_session_id("team-b", "task-a", "attempt-1"));
-        assert!(first.starts_with("worker-"));
-        assert_eq!(first.len(), 71);
+        assert!(first.starts_with("team-a-worker-"));
+        assert_eq!(first.len(), "team-a-worker-".len() + 64);
     }
 
     fn resolved_task(value: &Value) -> ResolvedTaskContext {

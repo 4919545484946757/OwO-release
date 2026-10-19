@@ -57,7 +57,8 @@ pub struct BuiltinTemplateDescriptor {
 // 四类内置模板（固定 id：UI/模板选择直接引用）
 // ---------------------------------------------------------------------------
 
-/// 代码变更：代码分析 → 单写者实现 → 只读审查。
+/// 代码变更：代码分析 → 实现落盘 → 只读审查（本模板只有 implementer 负责写码；
+/// 自定义工作流可声明多个互不重叠写范围的写角色并行落盘）。
 pub const CODE_CHANGE_V1: &str = "code-change-v1";
 /// Compact current code-change topology: one writer followed by independent review.
 pub const CODE_CHANGE_V2: &str = "code-change-v2";
@@ -94,7 +95,8 @@ fn role(role: &str, depends_on: &[&str], handoff_contract: &str, verify: &str) -
         handoff_contract: Some(handoff_contract.to_string()),
         verify: Some(verify.to_string()),
         // 十一期：内置模板不写死模型/写范围（模型由服务端解析链决定；
-        // 写范围未声明 = 沿用工作区级单写者语义）。
+        // 写范围未声明 = 沿用工作区级写范围（与其他未声明写范围的写者互斥）；
+        // 声明 write_paths 的角色之间按范围仲裁，可并行落盘。
         model: None,
         write_paths: Vec::new(),
         capabilities: if crate::workswarm::is_review_role_name(role) {
@@ -106,12 +108,12 @@ fn role(role: &str, depends_on: &[&str], handoff_contract: &str, verify: &str) -
     }
 }
 
-/// 代码变更模板：分析（只读）→ 单写者实现 → 只读审查。
+/// 代码变更模板：分析（只读）→ 实现落盘（本模板的唯一写角色）→ 只读审查。
 /// Critic（reviewer）只提交评审结论，不得覆盖 implementer 交付物。
 fn code_change_v1() -> BuiltinTemplateDescriptor {
     let template = TeamTemplate {
         template_id: CODE_CHANGE_V1.to_string(),
-        name: "代码变更（分析 → 单写者实现 → 只读审查）".to_string(),
+        name: "代码变更（分析 → 实现落盘 → 只读审查）".to_string(),
         mode: TeamMode::Team,
         roles: vec![
             role(
@@ -123,7 +125,7 @@ fn code_change_v1() -> BuiltinTemplateDescriptor {
             role(
                 "implementer",
                 &["code_analyzer"],
-                "单写者：全队唯一允许产出代码改动的角色；依据分析报告输出完整变更（diff 或全文）与变更说明。",
+                "由本角色负责产出代码改动（该模板未声明 write_paths，写范围为工作区级）；依据分析报告输出完整变更（diff 或全文）与变更说明。多个写角色应各自声明 write_paths，范围不重叠即可并行。",
                 "non_empty",
             ),
             role(
@@ -187,13 +189,13 @@ fn code_change_v1() -> BuiltinTemplateDescriptor {
 fn code_change_v2() -> BuiltinTemplateDescriptor {
     let template = TeamTemplate {
         template_id: CODE_CHANGE_V2.to_string(),
-        name: "代码变更（单写者实现 → 独立审查）".to_string(),
+        name: "代码变更（实现 → 独立审查）".to_string(),
         mode: TeamMode::Team,
         roles: vec![
             role(
                 "implementer",
                 &[],
-                "全队唯一写者：检查相关源码、调用方和测试，完成用户要求的代码改动并真实写入工作区；交付变更摘要与实际验证结果。",
+                "负责落盘本模板的代码改动：检查相关源码、调用方和测试，完成用户要求的代码改动并真实写入工作区；交付变更摘要与实际验证结果。",
                 "non_empty",
             ),
             role(
@@ -235,7 +237,8 @@ fn code_change_v2() -> BuiltinTemplateDescriptor {
             "implementer 检查相关代码并交付真实工作区改动与验证结果".to_string(),
             "reviewer 对最终候选版本独立审查；问题由原实现者修复".to_string(),
         ],
-        tool_scope: "implementer 是唯一写者；reviewer 只读并提交版本绑定评审".to_string(),
+        tool_scope: "implementer 负责落盘（未声明写范围）；reviewer 只读并提交版本绑定评审"
+            .to_string(),
     }
 }
 
@@ -431,7 +434,7 @@ fn research_brief_v1() -> BuiltinTemplateDescriptor {
     }
 }
 
-/// 文档交付模板：起草 → 只读内容审查 → 最终版本（终稿唯一写者）。
+/// 文档交付模板：起草 → 只读内容审查 → 最终版本（终稿由 finalizer 落盘）。
 fn document_delivery_v1() -> BuiltinTemplateDescriptor {
     let template = TeamTemplate {
         template_id: DOCUMENT_DELIVERY_V1.to_string(),
@@ -453,7 +456,7 @@ fn document_delivery_v1() -> BuiltinTemplateDescriptor {
             role(
                 "finalizer",
                 &["content_reviewer"],
-                "最终版本唯一写者：吸收审查意见产出终稿（结构化 Markdown），并附修订说明。",
+                "负责终稿落盘：吸收审查意见产出终稿（结构化 Markdown），并附修订说明（只写本角色范围内的文件）。",
                 "non_empty",
             ),
         ],
@@ -667,7 +670,7 @@ pub fn prompt_sections_for(template_id: &str, role: &str) -> Option<RolePromptSe
         (CODE_CHANGE_V2, "implementer") => RolePromptSections {
             must_do: vec![
                 "先检查目标源码、直接调用方和相关测试，再独立完成实现；不要等待分析角色或要求用户重复提供仓库里已有的信息。".to_string(),
-                "你是全队唯一写者：用 write_file 将完整变更真实落盘，并运行任务允许的验证命令；Artifact 只写简明摘要和真实验证证据。".to_string(),
+                "由你负责把完整变更用 write_file 真实落盘，并运行任务允许的验证命令；Artifact 只写简明摘要和真实验证证据。若另有写角色，只改自己 write_paths 范围内的文件。".to_string(),
                 "优先满足明确需求与边界，不新增未要求的功能；如果验证失败，依据真实输出修复后再汇报。".to_string(),
             ],
             must_not_do: vec![
@@ -682,7 +685,7 @@ pub fn prompt_sections_for(template_id: &str, role: &str) -> Option<RolePromptSe
         },
         (CODE_CHANGE_V1, "implementer") => RolePromptSections {
             must_do: vec![
-                "依据上游分析产出完整变更：你是全队唯一写者，用 write_file 把最终文件内容真实写入允许路径内的文件。".to_string(),
+                "依据上游分析产出完整变更：用 write_file 把最终文件内容真实写入允许路径内的文件（只写自己范围内的文件）。".to_string(),
                 "artifact.content 只写变更说明、影响面与验证方式（不要把完整变更只放在 artifact 里而不落盘）。".to_string(),
             ],
             must_not_do: vec![
@@ -1076,7 +1079,7 @@ mod tests {
         assert!(contract.contains("JSON"), "{contract}");
         assert!(contract.contains("CSV"), "{contract}");
 
-        // 代码 v2 移除重复的分析阶段，保留唯一写者与独立审查。
+        // 代码 v2 移除重复的分析阶段，保留单一落盘角色与独立审查。
         let compact = descriptor(CODE_CHANGE_V2).unwrap();
         assert_eq!(compact.template.roles.len(), 2);
         assert_eq!(compact.template.roles[0].role, "implementer");
@@ -1092,7 +1095,7 @@ mod tests {
         );
         assert!(prompt_sections_for(CODE_CHANGE_V2, "implementer").is_some());
 
-        // 代码 v1 保留现有单写者与只读审查语义，已持久化团队不受影响。
+        // 代码 v1 保留现有落盘角色与只读审查语义，已持久化团队不受影响。
         let code = descriptor(CODE_CHANGE_V1).unwrap();
         let reviewer = code
             .template
@@ -1108,7 +1111,7 @@ mod tests {
         );
         assert!(
             !contract.contains("唯一允许产出代码"),
-            "唯一写者必须是 implementer 而非审查者：{contract}"
+            "落盘角色必须是 implementer 而非审查者：{contract}"
         );
     }
 
@@ -1278,12 +1281,12 @@ mod tests {
     }
 
     #[test]
-    fn code_template_sections_keep_single_writer_semantics() {
+    fn code_template_sections_keep_scoped_writer_semantics() {
         let implementer = prompt_sections_for(CODE_CHANGE_V1, "implementer").unwrap();
         assert!(implementer
             .must_do
             .iter()
-            .any(|l| l.contains("单写者") || l.contains("write_file")));
+            .any(|l| l.contains("落盘") || l.contains("write_file")));
         let reviewer = prompt_sections_for(CODE_CHANGE_V1, "reviewer").unwrap();
         assert!(
             reviewer

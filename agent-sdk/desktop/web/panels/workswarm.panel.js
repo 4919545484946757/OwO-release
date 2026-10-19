@@ -154,6 +154,10 @@
       conversationError: "",
       conversationRequest: null,
       conversationSeq: 0,
+      conversationReplay: {},
+      conversationCursors: {},
+      // 每个团队记住"只看哪个成员"（角色可自定义，恢复时按当时可用角色校验）。
+      conversationRoleByTeam: {},
       // —— 六期：工作区绑定 / 模板信息 / 输出契约失败原因 ——
       workspace: null, // workspaceFromTeam(team) 归一（root/read_only/write_paths/tree_depth）
       workspaceView: null, // 最近一次目录树/git-status 载荷（workspaceViewKind 标记类型）
@@ -1059,16 +1063,56 @@
     function paintTeamConversation() {
       var box = el("#ws-d-conversation-messages");
       if (!box) return;
-      box.innerHTML = render.teamConversationHtml(
+      var roleSelect = el("#ws-d-conversation-role");
+      var onlyRole = roleSelect ? roleSelect.value : "";
+      var opened = Array.from(box.querySelectorAll("details[data-event-key][open]")).map(function (node) { return node.getAttribute("data-event-key"); });
+      var scrollBox = box;
+      var scrollTop = scrollBox ? scrollBox.scrollTop : 0;
+      var atEnd = scrollBox && scrollBox.scrollHeight - scrollBox.clientHeight - scrollTop < 48;
+      var html = render.teamConversationHtml(
         state.handoffs,
         (state.team && state.team.members) || [],
         typeof win.renderMarkdown === "function" ? win.renderMarkdown : null,
-        state.conversationError
+        state.conversationError,
+        state.conversationReplay,
+        onlyRole
       );
+      if (box._conversationHtml === html) return;
+      box._conversationHtml = html;
+      box.innerHTML = html;
+      paintConversationRoles(roleSelect);
+      box.querySelectorAll("details[data-event-key]").forEach(function (node) {
+        node.open = opened.indexOf(node.getAttribute("data-event-key")) >= 0;
+      });
+      if (scrollBox) scrollBox.scrollTop = atEnd ? scrollBox.scrollHeight : scrollTop;
     }
 
-    // Show only persisted, server-redacted handoffs; the API does not retain private
-    // per-turn model messages, so this view must not imply a complete transcript.
+    /// 角色下拉只列当前回放里真正出现过的成员（不预设角色名，自定义工作流任意角色都适用）。
+    function paintConversationRoles(select) {
+      if (!select) return;
+      var helper = win.OwoWorkswarmRenderConversation;
+      var roles = helper && typeof helper.replayRoles === "function"
+        ? helper.replayRoles(state.conversationReplay)
+        : [];
+      var current = select.value || "";
+      var wanted = ["all"].concat(roles);
+      var existing = Array.prototype.map.call(select.options, function (option) { return option.value; });
+      if (existing.join("|") === wanted.join("|")) return;
+      select.innerHTML = wanted
+        .map(function (role) {
+          var label = role === "all" ? "全部成员" : role;
+          return '<option value="' + esc(role) + '">' + esc(label) + "</option>";
+        })
+        .join("");
+      var helper2 = win.OwoWorkswarmRenderConversation;
+      var remembered = helper2 && typeof helper2.pickConversationRole === "function"
+        ? helper2.pickConversationRole(state.conversationRoleByTeam[state.current], roles)
+        : "all";
+      var keep = wanted.indexOf(current) >= 0 ? current : remembered;
+      select.value = wanted.indexOf(keep) >= 0 ? keep : "all";
+    }
+
+    // Replay public member messages and tool events from the daemon session store.
     function loadTeamConversation(teamId, force) {
       var tid = String(teamId || state.current || "");
       if (!tid) return Promise.resolve(null);
@@ -1076,14 +1120,15 @@
       if (!force && state.handoffs !== null) return Promise.resolve(state.handoffs);
       var requestSeq = ++state.conversationSeq;
       var detailVersion = detailSeq;
-      state.handoffs = null;
       state.conversationError = "";
-      paintTeamConversation();
-      var request = H.get("/teams/" + encodeURIComponent(tid) + "/diagnostic")
+      var request = H.get("/teams/" + encodeURIComponent(tid) + "/conversation?cursors=" + encodeURIComponent(JSON.stringify(state.conversationCursors)))
         .then(function (d) {
           if (requestSeq !== state.conversationSeq || tid !== state.current || detailVersion !== detailSeq) return null;
           state.handoffs = Array.isArray(d && d.handoffs) ? d.handoffs : [];
+          state.conversationReplay = win.OwoWorkswarmRenderConversation.mergeReplay(state.conversationReplay, d.sessions || []);
+          state.conversationCursors = d.next_cursors || state.conversationCursors;
           state.conversationError = "";
+          if (d.has_more) setTimeout(function () { if (tid === state.current) loadTeamConversation(tid, true); }, 0);
           paintTeamConversation();
           return state.handoffs;
         })
@@ -2366,7 +2411,9 @@
       }
     }
 
+    var conversationTimer = null;
     function stopLive(note) {
+      if (conversationTimer) { clearInterval(conversationTimer); conversationTimer = null; }
       abortPollRequest();
       if (state.es) {
         try {
@@ -2422,6 +2469,7 @@
           paintAudit();
           if (isTerminalTeam(snap.status)) {
             state.cancelling = false; // 终态确认：清除"取消中"
+            loadTeamConversation(state.current, true);
             stopLive("已结束：团队进入终态（" + String(snap.status) + "）");
           }
         })
@@ -2501,7 +2549,8 @@
         paintInterrupted();
         if (isTerminalTeam(f.status)) {
           state.cancelling = false; // 终态确认：清除"取消中"
-          stopLive("已结束：团队进入终态（" + String(f.status) + "）");
+          loadTeamConversation(state.current, true);
+            stopLive("已结束：团队进入终态（" + String(f.status) + "）");
         }
       }
     }
@@ -2564,6 +2613,10 @@
 
     function connectEvents(teamId) {
       stopLive();
+      loadTeamConversation(teamId, true);
+      conversationTimer = setInterval(function () {
+        if (state.view === "detail" && state.current === teamId && !state.conversationRequest) loadTeamConversation(teamId, true);
+      }, 2000);
       state.pollNoteShown = false;
       // 首选 fetch 流式 SSE（可带 Bearer，progress/audit/state 实时推送）；
       // 不支持 ReadableStream 的环境退回裸 EventSource（大概率 401 → 轮询兜底）。
@@ -2595,8 +2648,8 @@
         '<option value="' + CUSTOM_WORKER + '"' + (plan.select === CUSTOM_WORKER ? " selected" : "") + ">自定义…</option>" +
         "</select>";
       return (
-        '<div class="owo-ws-role-row">' +
-        '<input class="owo-ws-role-name" aria-label="角色名称" placeholder="角色名称，如 planner" size="12" value="' + esc(role.role || "") + '">' +
+        '<div class="owo-ws-role-row" data-role-spec="' + esc(JSON.stringify(role)) + '">' +
+        '<input class="owo-ws-role-name" aria-label="角色名称" placeholder="任意角色名称，如 分镜导演" size="12" value="' + esc(role.role || "") + '">' +
         '<select class="owo-ws-role-assignee" aria-label="执行方">' +
         '<option value="agent"' + (role.assignee === "agent" ? " selected" : "") + ">Agent 执行</option>" +
         '<option value="human"' + (role.assignee === "human" ? " selected" : "") + ">人工承接</option>" +
@@ -2605,6 +2658,10 @@
         workerSel +
         '<input class="owo-ws-role-worker" aria-label="自定义 Worker 名称或用户 ID" placeholder="自定义 Worker 名称或用户 ID" size="18" value="' + esc(plan.custom || "") + '"' + (plan.select === CUSTOM_WORKER ? "" : " hidden") + ">" +
         '<input class="owo-ws-role-deps" aria-label="依赖的上游角色" placeholder="依赖的上游角色（逗号分隔）" size="16" value="' + esc((role.depends_on || []).join(",")) + '">' +
+        '<input class="owo-ws-role-model" aria-label="节点模型" placeholder="模型（留空跟随团队）" value="' + esc(role.model || "") + '">' +
+        '<input class="owo-ws-role-tools" aria-label="节点工具" placeholder="工具，逗号分隔；支持 mcp__服务__工具" value="' + esc((role.tools || []).join(",")) + '">' +
+        '<input class="owo-ws-role-paths" aria-label="输出路径范围" placeholder="输出目录，逗号分隔（独立目录可并行）" value="' + esc((role.write_paths || []).join(",")) + '">' +
+        '<textarea class="owo-ws-role-contract" aria-label="职责与交付契约" placeholder="自定义职责、输入和交付要求" rows="2">' + esc(role.handoff_contract || "") + '</textarea>' +
         '<button class="owo-ws-role-del" type="button" aria-label="删除角色" title="删除该角色">✕</button>' +
         "</div>"
       );
@@ -2635,6 +2692,11 @@
           workerSelected: selected,
           worker: worker,
           depsText: r.querySelector(".owo-ws-role-deps").value,
+          original: JSON.parse(r.getAttribute("data-role-spec") || "{}"),
+          model: r.querySelector(".owo-ws-role-model").value.trim(),
+          tools: r.querySelector(".owo-ws-role-tools").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean),
+          write_paths: r.querySelector(".owo-ws-role-paths").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean),
+          handoff_contract: r.querySelector(".owo-ws-role-contract").value.trim(),
         });
       }
       return out;
@@ -2654,12 +2716,11 @@
               return x.trim();
             })
             .filter(Boolean);
-          return {
-            role: r.role,
-            assignee: r.assignee,
-            worker: r.worker,
-            depends_on: deps,
-          };
+          return Object.assign({}, r.original, {
+            role: r.role, assignee: r.assignee, worker: r.worker, depends_on: deps,
+            model: r.model || null, tools: r.tools, write_paths: r.write_paths,
+            handoff_contract: r.handoff_contract || null,
+          });
         })
       );
     }
@@ -2748,7 +2809,9 @@
       var tplEl = el("#ws-template");
       var mode = modeEl ? modeEl.value : "team";
       var tpl = tplEl ? tplEl.value : "";
-      var body = { objective: objective, mode: mode };
+      var parallelEl = el("#ws-max-parallel");
+      var maxParallel = Math.max(1, Math.min(8, Number(parallelEl && parallelEl.value) || 4));
+      var body = { objective: objective, mode: mode, budget: { max_parallel: maxParallel } };
       // 五期：组队策略（auto 为缺省值；现服务端忽略未知字段，第一路落地后生效）
       var stratEl = el("#ws-strategy");
       var strategy = stratEl ? String(stratEl.value || "auto") : "auto";
@@ -2762,6 +2825,12 @@
       }
       var roles = collectRoles();
       if (roles.length) body.roles = roles;
+      var snapshot = H.snapshot ? H.snapshot() : {};
+      if (snapshot.workspace) {
+        body.workspace = { root: snapshot.workspace, read_only: !(el("#ws-allow-writes") && el("#ws-allow-writes").checked) };
+        var parent = (snapshot.sessions || []).find(function (s) { return s.id === snapshot.sessionId; });
+        if (parent && parent.workspace === snapshot.workspace) body.parent_session_id = parent.id;
+      }
       show("ws-create-result", "", "创建中…");
       return H.post("/teams", body)
         .then(function (d) {
@@ -2791,16 +2860,41 @@
         });
     }
 
+    function saveWorkflowFromRoles() {
+      var name = String((el("#ws-workflow-name") || {}).value || "").trim();
+      var roles = collectRoles();
+      var errors = roleRowErrors();
+      if (!name || !roles.length || errors.length) {
+        show("ws-create-result", "err", errors.join("；") || "请填写工作流名称和至少一个节点");
+        return null;
+      }
+      var template = {
+        template_id: "user-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
+        name: name, mode: "team", applicability: name,
+        description: String((el("#ws-obj") || {}).value || "").slice(0, 400),
+        roles: roles
+      };
+      return H.post("/workflows/user", template).then(function () {
+        show("ws-create-result", "ok", "已保存工作流：" + name + "。可在任务模板中复用，也可进入自定义工作流继续编辑。");
+        return loadCreateTemplates().then(function () {
+          var select = el("#ws-template");
+          if (select) select.value = template.template_id;
+        });
+      }).catch(function (error) {
+        show("ws-create-result", "err", explainError(error, "保存工作流"));
+      });
+    }
+
     function renderCreate() {
       return (
         '<div class="owo-ws-sec">' +
         '<h3>创建团队 <span class="hint">创建后立即启动运行</span></h3>' +
         '<label class="owo-ws-create-label" for="ws-obj">团队目标 <span class="hint">必填</span></label>' +
-        '<textarea id="ws-obj" rows="3" spellcheck="false" placeholder="例如：设计并实现一个文本 diff 的 CLI 工具，并给出单元测试"></textarea>' +
+        '<textarea id="ws-obj" rows="3" spellcheck="false" placeholder="例如：制作一段短片，由统筹拆解后让分镜、画面、配音并行生成，再合成验收"></textarea>' +
         '<div class="owo-ws-create-options">' +
         '<label class="owo-ws-create-field"><span>运行模式</span>' +
         '<select id="ws-mode">' +
-        '<option value="team">多 Agent 接力（规划、实现、评审）</option>' +
+        '<option value="team">多 Agent 协作（按自定义依赖并行）</option>' +
         '<option value="single">单 Agent 执行</option>' +
         '<option value="swarmflow">DAG 工作流（按角色依赖执行）</option>' +
         '</select></label>' +
@@ -2815,10 +2909,13 @@
         '<button id="ws-create-template-retry" class="owo-ws-mini" type="button" hidden>重试</button></span>' +
         '</label>' +
         '</div>' +
+        '<label class="owo-ws-create-field" for="ws-max-parallel"><span>同时执行的 Agent 数</span><input id="ws-max-parallel" type="number" min="1" max="8" value="4"></label>' +
         '<div id="ws-create-template-status" class="hint owo-ws-template-status" role="status" aria-live="polite"></div>' +
+        '<label class="owo-ws-inline"><input id="ws-allow-writes" type="checkbox">允许节点按声明的输出范围写入当前工作区</label>' +
         '<div id="ws-roles-block"><label class="owo-ws-create-label" for="ws-roles">角色规格 <span class="hint">可选；留空时使用当前模式的默认流程</span></label>' +
         '<div id="ws-roles" class="owo-ws-role-list"></div>' +
-        '<div class="owo-ws-inline owo-ws-create-role-actions"><button id="ws-role-add" class="owo-ws-mini" type="button">＋ 添加角色</button><span class="hint">DAG 模式可设置依赖；人工承接时请填写用户 ID。</span></div></div>' +
+        '<div class="owo-ws-inline owo-ws-create-role-actions"><button id="ws-role-add" class="owo-ws-mini" type="button">＋ 添加角色</button><span class="hint">角色任意命名；无依赖节点并行。按节点配置模型、MCP 工具和输出目录。</span></div></div>' +
+        '<div class="owo-ws-inline"><input id="ws-workflow-name" aria-label="工作流名称" placeholder="工作流名称（保存后可复用）"><button id="ws-workflow-save" type="button" class="owo-ws-mini">保存编排</button></div>' +
         '<div class="owo-ws-inline owo-ws-create-submit"><button id="ws-create-go" data-core-action class="primary" type="button">创建并启动</button><span class="hint">Agent 使用已连接的模型服务；echo、sleep、fail 可用于流程测试。</span></div>' +
         '<pre class="owo-ws-result sub" id="ws-create-result" role="status" aria-live="polite">—</pre>' +
         '</div>'
@@ -2878,6 +2975,7 @@
         tpl.onchange = function () {
           prefillFromTemplate(tpl.value);
         };
+      bindLockedButton(el("#ws-workflow-save"), saveWorkflowFromRoles, "保存中…");
       bindLockedButton(el("#ws-create-go"), doCreate, "创建中…");
       addRoleRow();
       var retryTemplates = el("#ws-create-template-retry");
@@ -3355,16 +3453,17 @@
         "</div>" +
         '<div id="ws-d-main" style="display:flex;flex-direction:column;gap:10px">' +
         '<pre class="owo-ws-result sub" id="ws-d-error"></pre>' +
+        '<details class="owo-ws-sec owo-ws-conversation" id="ws-d-conversation" open>' +
+        '<summary>团队对话与工作详情 <span class="hint">成员回复、工具参数与结果、工作计划；支持断线后回看</span></summary>' +
+        '<div class="owo-ws-inline"><label class="hint">只看成员 <select id="ws-d-conversation-role"><option value="all">全部成员</option></select></label></div>' +
+        '<div id="ws-d-conversation-messages" class="owo-ws-chat-wrap"><div class="hint">正在加载团队对话…</div></div>' +
+        '<button type="button" class="owo-ws-mini" id="ws-d-conversation-refresh">刷新对话</button>' +
+        "</details>" +
         '<section class="team-delivery" id="ws-d-delivery" aria-label="本次任务的生成文件"></section>' +
         '<div class="owo-ws-sec">' +
         '<h3>运行摘要 <span class="hint">状态 / 活动阶段 / 任务计数 / 失败步骤 / 尝试 / 产物</span></h3>' +
         '<div id="ws-d-summary" class="owo-ws-sumbox" aria-live="polite">' + stateBox("loading", "正在汇总运行状态…") + "</div>" +
         "</div>" +
-        '<details class="owo-ws-sec owo-ws-conversation" id="ws-d-conversation">' +
-        '<summary>团队交接对话 <span class="hint">按发送者查看已保存的交接消息；不代表完整内部对话记录</span></summary>' +
-        '<div id="ws-d-conversation-messages" class="owo-ws-chat-wrap"><div class="hint">展开后加载交接记录…</div></div>' +
-        '<button type="button" class="owo-ws-mini" id="ws-d-conversation-refresh">刷新交接消息</button>' +
-        "</details>" +
         '<div class="owo-ws-interrupted" id="ws-d-interrupted" role="alert">⚠ 运行已中断，可恢复' +
         '<span class="owo-ws-int-detail">检测到上次进程未正常收尾遗留的运行态：任务进度已保留，未自动重放任何写操作。可用「继续（continue）」恢复运行，或对失败/被中断节点点「重试此节点」。</span></div>' +
         '<div class="owo-ws-gate" id="ws-d-gate">⛔ 团队已进入终态：运行操作与人节点结果提交已停用（仍可查看任务、产物与审计）。</div>' +
@@ -3450,7 +3549,7 @@
         '<div id="ws-d-failures"></div>' +
         "</div>" +
         '<div class="owo-ws-sec">' +
-        '<h3>Worker 能力与执行详情 <span class="hint">七期：WorkerProfile 实际工具权限与调用预算 / 单写租约 / 文件变更与 diff；八期：ChangeSet 审批（接受/拒绝/撤销）</span></h3>' +
+        '<h3>Worker 能力与执行详情 <span class="hint">节点工具与预算 / 写范围冲突协调 / 文件变更与审批</span></h3>' +
         '<div id="ws-d-profiles"></div>' +
         '<div id="ws-d-lease"></div>' +
         '<div id="ws-d-changes"></div>' +
@@ -3487,7 +3586,7 @@
         var summary=win.document.createElement('summary');summary.textContent=label;details.appendChild(summary);groups[label]=details;
       });
       Array.from(main.children).forEach(function(section){
-        if(!section.classList.contains('owo-ws-sec'))return;
+        if(!section.classList.contains('owo-ws-sec') || section.id === 'ws-d-conversation')return;
         var heading=section.querySelector('h3,summary');
         var text=heading?heading.textContent:'';
         if(text.indexOf('运行摘要')===0){section.classList.add('team-progress');heading.firstChild.textContent='执行进度 ';return;}
@@ -3580,6 +3679,24 @@
       if (conversation) conversation.addEventListener("toggle", function () {
         if (conversation.open) loadTeamConversation(state.current, false);
       });
+      // 「查看该工作流」：跳到自定义工作流面板（那里有检查清单与一键修复）。
+      if (!root._owoWorkflowJumpBound) {
+        root._owoWorkflowJumpBound = true;
+        root.addEventListener("click", function (event) {
+          var button = event.target && event.target.closest
+            ? event.target.closest("[data-open-workflows]")
+            : null;
+          if (!button) return;
+          if (H && typeof H.openPanel === "function") H.openPanel("custom-workflows");
+        });
+      }
+      var conversationRole = el("#ws-d-conversation-role");
+      if (conversationRole) {
+        conversationRole.addEventListener("change", function () {
+          if (state.current) state.conversationRoleByTeam[state.current] = conversationRole.value;
+          paintTeamConversation();
+        });
+      }
       var conversationRefresh = el("#ws-d-conversation-refresh");
       if (conversationRefresh) conversationRefresh.onclick = function () {
         loadTeamConversation(state.current, true);
@@ -3635,6 +3752,8 @@
       state.interrupted = false;
       state.artifactCount = null;
       state.handoffs = null;
+      state.conversationReplay = {};
+      state.conversationCursors = {};
       state.conversationError = "";
       state.conversationRequest = null;
       state.conversationSeq += 1;
@@ -3842,6 +3961,7 @@
         '<button class="owo-ws-tab" data-view="create">创建团队</button>' +
         '<button class="owo-ws-tab" data-view="list">团队列表</button>' +
         '<button class="owo-ws-tab" data-view="templates">模板与提案</button>' +
+        '<button type="button" id="ws-custom-workflows">自定义 / AI 编排</button>' +
         "</div>" +
         '<div class="owo-ws-main" id="ws-main"></div>' +
         "</section>"
@@ -3865,6 +3985,10 @@
       var section = root.querySelector("section.owo-ws-panel");
       if (section) bindDelegates(section);
       bindTabs();
+      var customWorkflows = root.querySelector("#ws-custom-workflows");
+      if (customWorkflows) customWorkflows.onclick = function () {
+        if (H.openPanel) H.openPanel("custom-workflows");
+      };
       renderView();
     }
 

@@ -216,6 +216,27 @@ test("renderStatsRows：运行/成败/成功率/最近失败（HTML）", () => {
     "列表行应提供按运行证据改进的入口"
   );
 
+  const chipRows = panel.renderWorkflowRows({
+    templates: [
+      {
+        template: {
+          template_id: "needs-fix",
+          name: "待修流程",
+          roles: [
+            { role: "配音", assignee: "agent", tools: ["write_file"] },
+            { role: "剪辑", assignee: "agent", tools: ["write_file"] },
+          ],
+        },
+        origin: "user",
+        valid: true,
+        runs: 0,
+        attention: [],
+      },
+    ],
+  });
+  assert.match(chipRows, /待修 2 项/);
+  assert.match(chipRows, /缺少验证断言/);
+
   const rows = panel.renderWorkflowRows({
     templates: [
       {
@@ -241,6 +262,28 @@ test("renderStatsRows：运行/成败/成功率/最近失败（HTML）", () => {
     !/需要修复/.test(rows.slice(rows.indexOf("fresh"))),
     "未运行的流程不应显示告警"
   );
+
+  // 保存前检查清单：缺 verify 的角色会给出可点击修复入口。
+  const checklist = panel.renderChecklist({
+    template_id: "needs-fix",
+    roles: [
+      { role: "配音", assignee: "agent", tools: ["write_file"], write_paths: ["outputs"] },
+      // 另一个写角色没有写范围 → 清单应同时给出「补建议写目录」。
+      { role: "剪辑", assignee: "agent", tools: ["write_file"] },
+    ],
+  });
+  assert.match(checklist, /owo-wf-checklist/);
+  assert.match(checklist, /补 non_empty 验证/);
+  assert.match(checklist, /缺少验证断言/);
+  // 缺写范围也给一键修复入口。
+  assert.match(checklist, /补建议写目录/);
+  assert.match(checklist, /没有声明 write_paths/);
+
+  const clean = panel.renderChecklist({
+    template_id: "ok",
+    roles: [{ role: "写手", assignee: "agent", tools: ["write_file"], write_paths: ["outputs"], verify: "non_empty" }],
+  });
+  assert.equal(clean, "", "没有问题时不应显示清单");
 
   const preview = panel.renderDraftText({
     ok: true,

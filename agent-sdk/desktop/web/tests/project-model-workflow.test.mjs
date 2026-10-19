@@ -26,7 +26,7 @@ test("sidebar exposes project workspaces and Electron project creation", () => {
 });
 
 test("empty workspace is shown consistently instead of a fake local project", () => {
-  assert.match(index, /id="sidebarWorkspaceName">未选择项目</);
+  assert.match(index, /id="sidebarWorkspaceName" hidden>未选择项目</);
   assert.match(index, /id="composerProjectName">未选择项目</);
   assert.match(index, /当前工作区 <strong>未选择项目<\/strong>/);
   assert.match(app, /const currentName = current \?[^;]*: "未选择项目"/);

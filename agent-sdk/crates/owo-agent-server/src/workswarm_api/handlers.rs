@@ -57,6 +57,13 @@ struct CreateTeamHttpRequest {
     /// 已经确认过该工作流的能力面提示（社区来源 + 有风险时必须为 true）。
     #[serde(default)]
     acknowledge_risk: bool,
+    /// 用户自定义工作流：允许节点**按声明的 write_paths 范围**写入当前工作区。
+    ///
+    /// 团队运行没有交互式审批通道（无人值守），未勾选时范围内写入也会被写成拒绝，
+    /// 自定义工作流因此必然失败。勾选后只预授权"落在该角色 write_paths 内"的写
+    /// 操作：越界写、命令、联网、MCP 仍走原审批/拒绝路径。
+    #[serde(default)]
+    allow_scoped_writes: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -163,6 +170,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/teams", post(create_team).get(list_teams))
         .route("/teams/{id}", get(get_team))
         .route("/teams/{id}/tasks", get(get_team_tasks))
+        .route(
+            "/teams/{id}/conversation",
+            get(super::conversation::team_conversation),
+        )
         .route("/teams/{id}/events", get(team_events))
         .route("/teams/{id}/metrics", get(team_metrics))
         .route(
@@ -365,13 +376,26 @@ async fn create_team(
     } else {
         None
     };
+    let mut budget = req.budget.clone();
+    match budget.as_object_mut() {
+        Some(object) => {
+            // 预授权随队伍落到 TeamRun.budget（运行循环每次重建注册表都能读到）。
+            object.insert(
+                "allow_scoped_writes".to_string(),
+                serde_json::json!(req.allow_scoped_writes),
+            );
+        }
+        None => {
+            budget = serde_json::json!({ "allow_scoped_writes": req.allow_scoped_writes });
+        }
+    }
     let mut req = CreateTeamRequest {
         goal_id: req.goal_id,
         objective: req.objective,
         mode,
         template_id: req.template_id,
         roles: req.roles,
-        budget: req.budget,
+        budget,
         human_policy: req.human_policy,
         strategy,
         model: req.model,

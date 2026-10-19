@@ -2,6 +2,7 @@
 //!
 //! This module owns construction of the executable worker surface. The runtime loop
 //! consumes the completed registry and remains responsible for lifecycle transitions.
+use super::scoped_write_approver::ScopedWriteRule;
 use super::workers::*;
 use super::write_lease::{manager_for_workspace, WriteLease, WriteScope};
 use super::{project_workspace, workspace_change_tracker, workswarm_metrics};
@@ -53,6 +54,7 @@ fn inner_worker_for(
     team_id: &str,
     parent_session_id: Option<&str>,
     role: &str,
+    allow_scoped_writes: bool,
 ) -> Option<Arc<dyn Worker>> {
     match worker_name.map(str::trim).filter(|w| !w.is_empty()) {
         Some("echo") => Some(Arc::new(EchoWorker)),
@@ -64,6 +66,8 @@ fn inner_worker_for(
                 .map(|s| s.root.clone())
                 .unwrap_or_else(|| state.workspace.clone());
             let workspace_scope = scope.cloned();
+            let approver_root = workspace.clone();
+            let approver_scopes = write_allowed.clone();
             Some(Arc::new(AgentSubagentWorker {
                 agent: Arc::clone(&state.agent),
                 workspace,
@@ -77,6 +81,14 @@ fn inner_worker_for(
                 write_allowed,
                 coordinator: Arc::clone(coordinator),
                 session_store: Arc::clone(&state.store),
+                external_approver: Arc::new(crate::turn_api::ChannelApprover {
+                    pending: Arc::clone(&state.pending_approvals),
+                    pending_sessions: Arc::clone(&state.pending_approval_sessions),
+                    session_id: parent_session_id.unwrap_or(team_id).to_string(),
+                    abort: Arc::clone(cancel_flag),
+                }),
+                scoped_write_rule: allow_scoped_writes
+                    .then(|| ScopedWriteRule::new(true, approver_scopes, approver_root)),
                 parent_session_id: parent_session_id.map(str::to_string),
                 team_id: team_id.to_string(),
                 role: role.to_string(),
@@ -112,6 +124,18 @@ pub(super) async fn build_run_registry(
     cancel_flag: &Arc<AtomicBool>,
 ) -> Option<WorkerRegistry> {
     let meta = coordinator.load_run_meta(team_id).ok()?;
+    // 用户自定义工作流：建队时显式勾选「允许节点按声明的范围写入当前工作区」→
+    // 范围内写入预授权（越界写/命令/联网仍走内层审批）。缺省 false = 一切照旧。
+    let allow_scoped_writes = coordinator
+        .get_team_run(team_id)
+        .await
+        .ok()
+        .and_then(|run| {
+            run.budget
+                .get("allow_scoped_writes")
+                .and_then(|value| value.as_bool())
+        })
+        .unwrap_or(false);
     // 六期（第二路）：团队工作区绑定（cancel/retry/resume 后循环按迭代重读——
     // 绑定生命周期独立于运行状态，恢复后继续生效）。
     let scope = match project_workspace::load_binding_checked(coordinator.run_dir(), team_id) {
@@ -245,6 +269,7 @@ pub(super) async fn build_run_registry(
             team_id,
             parent_session_id.as_deref(),
             &r.role,
+            allow_scoped_writes,
         )?;
         // 追踪 + 租约只作用于写角色（读角色没有写工具不会改文件；并行读角色的
         // 快照窗口会误捕写角色的变更）。

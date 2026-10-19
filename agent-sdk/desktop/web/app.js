@@ -633,11 +633,33 @@ function messagesAtBottom() {
 }
 
 // 仅在「跟随底部」时滚动；force 用于用户主动点回到底部。
+//
+// 决策抽到 core/chat-scroll.js（纯函数，带 node 回归测试）：内容增长只改
+// scrollHeight、不触发 scroll 事件，所以"已经贴底"时要自动恢复跟随——否则上滑
+// 一次后所有输出都不再跟随（用户实测：得手动下拉）。另外 `#messages` 有
+// `scroll-behavior: smooth`，跟随滚动必须临时改瞬时，避免高频 delta 相互打断。
 function followScroll(force = false) {
   const box = $("messages");
   if (!box) return;
-  if (!force && !state.autoScroll) return;
+  const metrics = {
+    scrollHeight: box.scrollHeight,
+    scrollTop: box.scrollTop,
+    clientHeight: box.clientHeight,
+  };
+  const helper = window.OwoChatScroll;
+  const decision = helper && helper.decideScroll
+    ? helper.decideScroll({ ...metrics, autoScroll: state.autoScroll, force })
+    : { scroll: force || state.autoScroll, autoScroll: force || state.autoScroll };
+  if (!decision.scroll) {
+    updateScrollBottomBtn();
+    return;
+  }
+  state.autoScroll = decision.autoScroll;
+  const previousBehavior = box.style.scrollBehavior;
+  if (!force) box.style.scrollBehavior = "auto";
   box.scrollTop = box.scrollHeight;
+  if (!force) box.style.scrollBehavior = previousBehavior;
+  updateScrollBottomBtn();
 }
 
 function updateScrollBottomBtn() {
@@ -653,6 +675,24 @@ function initChatScroll() {
       state.autoScroll = messagesAtBottom();
       updateScrollBottomBtn();
     });
+    // 高度变化（图片/表格/工具块常在 delta 之后才定型）也要保持贴底：
+    // 只靠 token_delta 的时机滚动会漏掉这些迟到的布局变化。
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(() => {
+        if (state.autoScroll) followScroll();
+      });
+      observer.observe(box);
+      for (const child of box.children) observer.observe(child);
+      const watchViews = new MutationObserver((records) => {
+        for (const record of records) {
+          for (const node of record.addedNodes) {
+            if (node && node.nodeType === 1) observer.observe(node);
+          }
+        }
+        if (state.autoScroll) followScroll();
+      });
+      watchViews.observe(box, { childList: true });
+    }
   }
   const button = $("scrollBottomBtn");
   if (button) {
@@ -4118,7 +4158,7 @@ function recentWorkspaces() {
   try {
     const stored = JSON.parse(localStorage.getItem("owo.recentWorkspaces") || "[]");
     return Array.isArray(stored)
-      ? stored.filter((item) => typeof item === "string" && item.trim()).slice(0, 6)
+      ? stored.filter((item) => typeof item === "string" && item.trim()).slice(0, 50)
       : [];
   } catch (_) {
     return [];
@@ -4130,7 +4170,7 @@ function rememberWorkspace(target) {
   if (!value) return;
   const items = [value].concat(recentWorkspaces().filter(
     (item) => item.toLowerCase() !== value.toLowerCase()
-  )).slice(0, 6);
+  )).slice(0, 50);
   try {
     localStorage.setItem("owo.recentWorkspaces", JSON.stringify(items));
   } catch (_) {}

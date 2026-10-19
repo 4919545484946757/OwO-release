@@ -363,7 +363,14 @@
       var title = templateInfo && templateInfo.template_id === tid && templateInfo.title
         ? esc(String(templateInfo.title)) + "（" + esc(tid) + "）"
         : esc(tid);
-      return '<div><b>模板</b> ' + title + v + '<span class="hint">（固定角色/DAG/预算，保证可复现编队）</span></div>';
+      // 交付门禁/写权限失败时，用户需要回到工作流本身去修配置（检查清单 + 一键修复）。
+      // 这里给出直达入口，避免"报错在两处、修在哪不知道"。
+      return (
+        '<div><b>模板</b> ' + title + v +
+        '<span class="hint">（固定角色/DAG/预算，保证可复现编队）</span> ' +
+        '<button type="button" class="owo-ws-mini" data-core-action data-open-workflows="' +
+        esc(tid) + '" title="打开自定义工作流面板查看检查清单与一键修复">查看该工作流</button></div>'
+      );
     }
 
     // —— 自面板迁入：failureBadgeHtml ——
@@ -443,7 +450,7 @@
     // —— 自面板迁入：writeLeaseBox ——
     function writeLeaseBox(lease) {
       if (!lease || typeof lease !== "object") {
-        return '<div class="hint">当前无角色持有写租约（同一工作区同时只允许一个写角色）。</div>';
+        return '<div class="hint">独立输出范围可并行写入；范围重叠时协调执行。</div>';
       }
       var head =
         '<span class="owo-ws-badge st-running">写租约持有中</span>' +
@@ -811,8 +818,10 @@
     return convo.refPickerHtml({ esc: esc, short: short }, opts);
   }
 
-  function teamConversationHtml(handoffs, members, markdown, errorText) {
-    return convo.teamConversationHtml({ esc: esc, short: short }, handoffs, members, markdown, errorText);
+  function teamConversationHtml(handoffs, members, markdown, errorText, replay, onlyRole) {
+    var workerHtml = convo.workerConversationHtml({ esc: esc, short: short }, replay, markdown, onlyRole);
+    var handoffHtml = convo.teamConversationHtml({ esc: esc, short: short }, handoffs, members, markdown, errorText);
+    return workerHtml + (workerHtml ? '<details><summary>交接记录</summary>' + handoffHtml + '</details>' : handoffHtml);
   }
 
   var api = {

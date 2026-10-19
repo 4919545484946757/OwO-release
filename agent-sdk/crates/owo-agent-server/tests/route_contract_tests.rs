@@ -557,6 +557,7 @@ fn resource_404_ok(path: &str) -> bool {
             // R13 WorkSwarm（§8.5）：占位 id 指向不存在资源 → 404 由资源缺失产生，非路由缺失。
             | "/teams/{id}"
             | "/teams/{id}/tasks"
+            | "/teams/{id}/conversation"
             | "/teams/{id}/steer"
             | "/teams/{id}/events"
             | "/projects/{id}"

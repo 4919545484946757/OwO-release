@@ -117,9 +117,40 @@ impl WorkerProfile {
             .iter()
             .map(|path| path.trim().replace('\\', "/"))
             .collect();
-        // 用户自定义工作流：模板声明的角色工具面作为**上界**收窄（空 = 不声明）。
-        // 被剔除的声明不静默消失：记在画像里供诊断/测试断言。
-        profile.declared_tools_dropped = profile.apply_declared_tools(&spec.tools);
+        // An explicit tool surface defines capabilities; role names are display labels.
+        // Legacy templates without tools retain their historical defaults.
+        if !spec.tools.is_empty() && !spec.is_reviewer() {
+            profile = Self::for_declared_tools(&spec.tools, budget_calls);
+            profile.write_allowed_paths = spec.write_paths.clone();
+        } else {
+            profile.declared_tools_dropped = profile.apply_declared_tools(&spec.tools);
+        }
+        profile
+    }
+
+    /// Resolve an explicitly configured workflow node without a role-name allowlist.
+    /// This is a requested tool surface, never an approval or a parent-policy grant.
+    pub fn for_declared_tools(tools: &[String], budget_calls: usize) -> Self {
+        let mut profile = Self::for_role("reader", budget_calls);
+        profile.visible_tools = tools
+            .iter()
+            .map(|tool| tool.trim().to_string())
+            .filter(|tool| !tool.is_empty())
+            .collect();
+        profile.read_only = !profile.visible_tools.iter().any(|tool| {
+            matches!(
+                tool.as_str(),
+                "write_file" | "apply_patch" | "edit_file" | "multi_edit" | "run_command"
+            )
+        });
+        profile.can_run_command = profile
+            .visible_tools
+            .iter()
+            .any(|tool| tool == "run_command");
+        profile.can_use_browser = profile
+            .visible_tools
+            .iter()
+            .any(|tool| tool.starts_with("browser_"));
         profile
     }
 
@@ -600,7 +631,11 @@ impl WorkerProfile {
         if !self.can_run_command {
             lines.push("禁止执行命令（run_command 不在你的工具面）。".to_string());
         }
-        if !self.can_use_browser {
+        if !self.can_use_browser
+            && !self.visible_tools.iter().any(|name| {
+                name.starts_with("mcp__") || matches!(name.as_str(), "web_fetch" | "web_search")
+            })
+        {
             lines.push("禁止联网浏览（浏览器工具不在你的工具面）。".to_string());
         }
         lines
@@ -752,22 +787,37 @@ mod tests {
         assert!(untouched.apply_declared_tools(&[]).is_empty());
         assert_eq!(untouched.visible_tools, before);
 
-        // RoleSpec 路径：声明通过 for_team_role_spec 落到画像，并记录剔除项。
-        let mut spec = RoleSpec::agent("impl");
+        // RoleSpec 路径（自定义工作流）：显式声明**定义**节点的实际工具面，角色名不再
+        // 参与白名单。声明的 run_command 属于"用户请求的工具面"，不是授权——执行仍由
+        // 宿主 policy/审批与写范围裁决（节点运行在同一个 ToolHostService 之下）。
+        let mut spec = RoleSpec::agent("分镜导演");
         spec.tools = vec!["read_file".to_string(), "run_command".to_string()];
         let profile = WorkerProfile::for_team_role_spec(&spec, 4, false, None);
         assert!(profile.visible_tools.iter().any(|tool| tool == "read_file"));
         assert!(
-            !profile
-                .visible_tools
-                .iter()
-                .any(|tool| tool == "run_command"),
-            "普通写角色默认无命令能力，声明 run_command 不得凭空放权：{:?}",
+            profile.can_run_command,
+            "显式声明的命令工具应进入节点工具面：{:?}",
             profile.visible_tools
         );
-        assert_eq!(
-            profile.declared_tools_dropped,
-            vec!["run_command".to_string()]
+        assert!(
+            profile.declared_tools_dropped.is_empty(),
+            "{:?}",
+            profile.declared_tools_dropped
+        );
+
+        // 但评审边界不随自定义放宽：显式 review 角色声明写/命令工具一律剔除且保持只读。
+        let mut reviewer = RoleSpec::agent("质量检查");
+        reviewer.capabilities = vec!["review".to_string()];
+        reviewer.tools = vec!["write_file".to_string(), "run_command".to_string()];
+        let reviewer_profile = WorkerProfile::for_team_role_spec(&reviewer, 4, false, None);
+        assert!(reviewer_profile.read_only, "评审角色必须保持只读");
+        assert!(
+            reviewer_profile
+                .declared_tools_dropped
+                .iter()
+                .any(|tool| tool == "write_file"),
+            "{:?}",
+            reviewer_profile.declared_tools_dropped
         );
     }
 
@@ -1273,5 +1323,41 @@ mod tests {
         // 多条目：相交的留下，不相交的丢弃。
         let got = intersect_paths(&[src.clone(), docs.clone()], &[lib.clone(), docs.clone()]);
         assert_eq!(got, vec![lib.clone(), docs.clone()]);
+    }
+}
+
+#[cfg(test)]
+mod custom_workflow_tests {
+    use super::*;
+    #[test]
+    fn arbitrary_node_names_use_declared_capabilities() {
+        for name in ["分镜导演", "mesh_artist", "sound_designer"] {
+            let mut spec = crate::workswarm::RoleSpec::agent(name);
+            spec.tools = vec!["write_file".into(), "mcp__studio__render".into()];
+            spec.write_paths = vec!["outputs".into()];
+            let profile = WorkerProfile::for_team_role_spec(&spec, 6, false, None);
+            assert!(profile.is_writer());
+            assert_eq!(profile.visible_tools, spec.tools);
+            assert!(!profile.can_run_command);
+            assert_eq!(profile.write_allowed_paths, spec.write_paths);
+        }
+    }
+    #[test]
+    fn external_generation_does_not_claim_a_workspace_write_lease() {
+        let profile = WorkerProfile::for_declared_tools(&["mcp__audio__generate".into()], 6);
+        assert!(!profile.is_writer());
+        assert_eq!(
+            profile.visible_tools,
+            vec!["mcp__audio__generate".to_string()]
+        );
+    }
+    #[test]
+    fn explicit_review_capability_keeps_the_readonly_boundary() {
+        let mut spec = crate::workswarm::RoleSpec::agent("质量检查");
+        spec.capabilities = vec!["review".into()];
+        spec.tools = vec!["write_file".into()];
+        let profile = WorkerProfile::for_team_role_spec(&spec, 4, false, None);
+        assert!(profile.read_only);
+        assert_eq!(profile.declared_tools_dropped, spec.tools);
     }
 }

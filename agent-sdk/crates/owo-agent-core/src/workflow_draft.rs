@@ -24,10 +24,10 @@ pub const MAX_PREVIOUS_JSON_CHARS: usize = 12_000;
 /// 生成→校验必然报错"的来回：模型先按契约产出，宿主再校验并逐条回报。
 pub fn draft_system_prompt(max_roles: usize, available_tools: &[String]) -> String {
     let tools_hint = if available_tools.is_empty() {
-        "可用工具名：内置工具（如 read_file/write_file/edit_file/multi_edit/apply_patch/list_dir/search_files/grep/find_symbol/read_artifact/run_command/shell_output/web_fetch/web_search/todo/ask_user/git_status/git_diff/git_log…）或 MCP 命名空间形式 mcp__{server}__{tool}（server 段不含 __）。".to_string()
+        "可用工具名：节点内置工具 read_file/write_file/apply_patch/list_dir/search_files/run_command；web_fetch/web_search 和 MCP 工具必须已连接。MCP 命名空间形式 mcp__{server}__{tool}（server 段不含 __）。".to_string()
     } else {
         format!(
-            "可用工具名（只能从这里选，或使用 mcp__{{server}}__{{tool}} 形式）：{}",
+            "当前宿主可用工具名（节点仅支持作用域文件/命令工具、浏览器工具及已连接的 web/MCP 工具；不要假定其它父会话工具均已支持）：{}",
             available_tools.join(", ")
         )
     };
@@ -71,6 +71,10 @@ JSON 结构（TeamTemplate）：
 - 让边界清晰的角色承担不同阶段（分析 → 实现/生成 → 校验/评审），把交付契约写清楚；
 - 若任务需要人类确认或提供素材，用 assignee=human 的角色；
 - 面向"任意特定功能"：请按用户描述定制角色/步骤/工具，而不是套用通用模板。
+- 角色名完全自定义，不要求 planner/builder/critic 等内置名称。tools 显式声明实际能力，model 可按节点选择。
+- 可以安排主管理 Agent 先给出任务和交付契约，再让互不依赖的节点并行，最后汇总；不得强行把所有节点串成接力。
+- 图像、视频、3D、语音均可作为独立节点，调用用户已连接的 MCP API 工具；不得编造已连接服务、凭据或成功产物。缺服务时明确需要配置。
+- 多个写入节点各自声明输出目录（如 images/、video/、models/、audio/），不重叠范围可并行；同文件冲突才需协调。
 
 只输出 JSON。"#
     )

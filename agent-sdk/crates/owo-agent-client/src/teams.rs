@@ -17,6 +17,23 @@ impl AgentClient {
         template_id: Option<&str>,
         acknowledge_risk: bool,
     ) -> Result<serde_json::Value> {
+        self.create_team_with_scoped_writes(objective, mode, template_id, acknowledge_risk, false)
+            .await
+    }
+
+    /// 创建团队运行，并显式声明"允许节点按声明的 write_paths 范围写入工作区"。
+    ///
+    /// 团队运行没有交互式审批通道：不预授权时，连"落在自己声明范围内"的写也会被
+    /// 拒（自定义工作流因此必然失败）。预授权只覆盖范围内的落盘工具，越界写、
+    /// 命令、联网与 MCP 仍走原审批/拒绝路径。
+    pub async fn create_team_with_scoped_writes(
+        &self,
+        objective: &str,
+        mode: &str,
+        template_id: Option<&str>,
+        acknowledge_risk: bool,
+        allow_scoped_writes: bool,
+    ) -> Result<serde_json::Value> {
         self.post_json(
             "/teams",
             &serde_json::json!({
@@ -25,6 +42,7 @@ impl AgentClient {
                 "template_id": template_id,
                 // 社区来源 + 有风险面时服务端要求显式确认（宿主侧兜底）。
                 "acknowledge_risk": acknowledge_risk,
+                "allow_scoped_writes": allow_scoped_writes,
             }),
         )
         .await

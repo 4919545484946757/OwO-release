@@ -164,6 +164,8 @@ test("buildTeamCreateRequest：目标必填，带上模板 id 与 mode", () => {
       mode: "swarmflow",
       template_id: "a",
       acknowledge_risk: true,
+      // 团队运行没有交互审批通道：默认按声明范围预授权写入（面板复选框可关）。
+      allow_scoped_writes: true,
     },
   });
   assert.deepEqual(E2.buildTeamCreateRequest({ template_id: "a" }, "x").body, {
@@ -171,8 +173,105 @@ test("buildTeamCreateRequest：目标必填，带上模板 id 与 mode", () => {
     mode: "team",
     template_id: "a",
     acknowledge_risk: false,
+    allow_scoped_writes: true,
   });
+  // 显式 false = 用户取消勾选：不预授权（写节点会被拒，这是有意的默认 deny）。
+  assert.equal(
+    E2.buildTeamCreateRequest({ template_id: "a" }, "x", false, false).body.allow_scoped_writes,
+    false
+  );
   assert.equal(E2.buildTeamCreateRequest({ template_id: "a" }, "x", true).body.acknowledge_risk, true);
+});
+
+
+test("缺少验证断言的角色可被发现并一键补 non_empty", () => {
+  const template = {
+    template_id: "t",
+    roles: [
+      { role: "分镜导演", assignee: "agent", verify: "non_empty" },
+      { role: "配音", assignee: "agent" },
+      { role: "人工确认", assignee: "human" },
+      { role: "剪辑", assignee: "agent", verify: "   " },
+    ],
+  };
+  assert.deepEqual(E.missingVerifyRoles(template), ["配音", "剪辑"]);
+
+  const fixed = E.withDefaultVerify(template);
+  assert.deepEqual(
+    fixed.roles.map((role) => role.verify),
+    ["non_empty", "non_empty", undefined, "non_empty"]
+  );
+  // 不改入参（编辑器里的原文保持原样，用户可撤销）。
+  assert.equal(template.roles[1].verify, undefined);
+  // 已满足 → 无缺失。
+  assert.deepEqual(E.missingVerifyRoles(fixed), []);
+});
+
+
+test("保存前检查清单：缺 verify / 缺写范围 / 范围重叠 / 高风险工具 / 无角色", () => {
+  const codes = (list) => list.map((item) => item.code).sort();
+
+  const empty = E.preSaveChecklist({ roles: [] });
+  assert.deepEqual(codes(empty), ["no_roles"]);
+  assert.equal(empty[0].level, "block");
+
+  const messy = E.preSaveChecklist({
+    roles: [
+      { role: "分镜", assignee: "agent", tools: ["write_file"] },
+      { role: "配音", assignee: "agent", tools: ["write_file"], write_paths: ["outputs"] },
+      { role: "联网", assignee: "agent", tools: ["web_search"], verify: "non_empty" },
+    ],
+  });
+  assert.deepEqual(codes(messy), ["elevated_tools", "missing_verify", "missing_write_scope"]);
+  const verifyItem = messy.find((item) => item.code === "missing_verify");
+  assert.equal(verifyItem.fix, "verify");
+  assert.match(verifyItem.message, /分镜/);
+
+  // 范围重叠：两个写角色都声明 outputs 的子目录。
+  const overlap = E.preSaveChecklist({
+    roles: [
+      { role: "a", assignee: "agent", tools: ["write_file"], write_paths: ["outputs"], verify: "non_empty" },
+      { role: "b", assignee: "agent", tools: ["write_file"], write_paths: ["outputs/sub"], verify: "non_empty" },
+    ],
+  });
+  assert.ok(codes(overlap).includes("write_scope_overlap"));
+
+  // 只读工作流：提示不会落盘文件。
+  const readonly = E.preSaveChecklist({
+    roles: [{ role: "调研", assignee: "agent", tools: ["read_file"], verify: "non_empty" }],
+  });
+  assert.deepEqual(codes(readonly), ["no_writer"]);
+  assert.equal(readonly[0].level, "info");
+});
+
+
+test("缺写范围的写角色可一键补建议目录（按角色名生成，用户可改）", () => {
+  assert.equal(E.writeScopeSlug("storyboard", 0), "storyboard");
+  assert.equal(E.writeScopeSlug("Video Render", 0), "video-render");
+  assert.equal(E.writeScopeSlug("分镜导演", 2), "role-3");
+
+  const template = {
+    roles: [
+      { role: "Storyboard", assignee: "agent", tools: ["write_file"] },
+      { role: "分镜导演", assignee: "agent", tools: ["write_file"] },
+      { role: "调研", assignee: "agent", tools: ["read_file"] },
+      { role: "已声明", assignee: "agent", tools: ["write_file"], write_paths: ["outputs/keep"] },
+      { role: "人工", assignee: "human" },
+    ],
+  };
+  const fixed = E.withSuggestedWritePaths(template);
+  assert.equal(fixed.roles[0].write_paths[0], "outputs/storyboard");
+  assert.equal(fixed.roles[1].write_paths[0], "outputs/role-2");
+  assert.equal(fixed.roles[2].write_paths, undefined, "只读角色不补");
+  assert.deepEqual(fixed.roles[3].write_paths, ["outputs/keep"], "已有范围不改");
+  assert.equal(fixed.roles[4].write_paths, undefined, "人工节点不补");
+  // 不改入参。
+  assert.equal(template.roles[0].write_paths, undefined);
+  // 补完后清单里不再有 missing_write_scope。
+  assert.equal(
+    E.preSaveChecklist(fixed).filter((item) => item.code === "missing_write_scope").length,
+    0
+  );
 });
 
 test("describeTrajectory：每轮错误数/通过/未改善停止", () => {
@@ -310,6 +409,54 @@ test("describeStatsRow：成功率/时间/失败定位（无终态显示 —）"
   assert.equal(last.objective, "复现上次失败：改哪里");
   assert.equal(last.statusLabel, "失败");
   assert.match(last.hint, /沿用上次目标/);
+
+  // 保存前检查清单也进入列表描述：可修复项计数 + 明细。
+  const needsFix = E.describeWorkflow({
+    template: {
+      template_id: "needs-fix",
+      roles: [{ role: "配音", assignee: "agent", tools: ["write_file"] }],
+    },
+    origin: "user",
+    valid: true,
+  });
+  // 单写角色缺范围只是 info（不阻塞）；缺 verify 才是"待修"。
+  assert.equal(needsFix.checklistFixable, 1, "只有缺 verify 属于待修");
+  assert.deepEqual(
+    needsFix.checklist.filter((item) => item.level !== "info").map((item) => item.code),
+    ["missing_verify"]
+  );
+  // 两个写角色都缺范围 → 升级为 warn（并行会串行）→ 待修 2 项。
+  const twoWriters = E.describeWorkflow({
+    template: {
+      template_id: "two-writers",
+      roles: [
+        { role: "a", assignee: "agent", tools: ["write_file"] },
+        { role: "b", assignee: "agent", tools: ["write_file"] },
+      ],
+    },
+    origin: "user",
+    valid: true,
+  });
+  assert.equal(twoWriters.checklistFixable, 2, "一条缺 verify（合并列出两个角色）+ 一条写范围 warn");
+
+  const healthy = E.describeWorkflow({
+    template: {
+      template_id: "healthy",
+      roles: [
+        {
+          role: "写手",
+          assignee: "agent",
+          tools: ["write_file"],
+          write_paths: ["outputs/w"],
+          verify: "non_empty",
+        },
+      ],
+    },
+    origin: "user",
+    valid: true,
+  });
+  assert.equal(healthy.checklistFixable, 0);
+  assert.deepEqual(healthy.checklist, []);
 
   const listItem = E.describeWorkflow({
     template: { template_id: "broken", name: "坏流程", roles: [{}, {}] },

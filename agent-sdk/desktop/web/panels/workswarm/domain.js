@@ -221,6 +221,9 @@
       return r && String(r.role || "").trim();
     }).map(function (r) {
       var item = { role: String(r.role).trim(), assignee: r.assignee };
+      ["model", "tools", "write_paths", "handoff_contract", "capabilities", "extra_input", "verify"].forEach(function (key) {
+        if (r[key] !== undefined) item[key] = r[key];
+      });
       if (r.worker && r.workerSelected !== "agent") item.worker = r.worker;
       if (r.depends_on && r.depends_on.length) item.depends_on = r.depends_on;
       return item;

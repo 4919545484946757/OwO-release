@@ -457,9 +457,10 @@ mod tests {
                 "角色专属 Prompt 缺段 {section}：\n{prompt}"
             );
         }
-        // 模板段生效：implementer 的专属职责（唯一写者）与写角色护栏。
+        // 模板段生效：implementer 的落盘职责与写角色护栏（自定义工作流里允许多个
+        // 写角色按 write_paths 并行，因此断言"负责把变更落盘"而不是"全队唯一写者"）。
         assert!(
-            prompt.contains("唯一写者"),
+            prompt.contains("落盘") || prompt.contains("write_file"),
             "应包含模板角色专属职责：\n{prompt}"
         );
         assert!(prompt.contains("write_file"));

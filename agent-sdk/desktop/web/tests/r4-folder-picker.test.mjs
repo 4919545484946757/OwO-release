@@ -222,7 +222,7 @@ test("接线：工具页的工作区选择与引导页均走原生选择器，�
   assert.match(projectMenu, /data-project-action="create"[^\n]*actionDisabled/);
   assert.match(projectMenu, /data-project-action="switch"[^\n]*actionDisabled/);
   assert.match(projectMenu, /浏览器预览不能访问本地目录/);
-  assert.match(appDomainSource, /async function newSession\(\)[\s\S]*workspace,/, "新会话必须使用选定的工作区路径");
+  assert.match(appDomainSource, /async function newSession\(workspaceOverride\)[\s\S]*workspace,/, "新会话必须使用选定的工作区路径");
   assert.match(appSource, /\$\("workspace"\)\.addEventListener\("change", \(\) => \{[\s\S]*localStorage\.setItem\("owo\.workspace"/,
     "所选路径需持久为下次会话的默认值");
 

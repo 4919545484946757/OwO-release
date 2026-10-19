@@ -148,7 +148,13 @@ pub fn validate_workflow_template(template: &TeamTemplate) -> Vec<String> {
             }
         }
         // 评审角色不得声明写/执行类工具：运行期会按能力面剔除，与其静默剔除不如组队期报错。
-        if crate::workswarm::is_review_role(&role.role, &role.capabilities) {
+        if role
+            .capabilities
+            .iter()
+            .any(|cap| cap.eq_ignore_ascii_case("review"))
+            || (role.tools.is_empty()
+                && crate::workswarm::is_review_role(&role.role, &role.capabilities))
+        {
             for tool in &role.tools {
                 if is_write_or_exec_tool(tool.trim()) {
                     errors.push(format!(

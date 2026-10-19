@@ -1416,3 +1416,128 @@ async fn wall_budget_cancels_an_in_flight_phase_before_it_succeeds() {
         "late phase must not publish success: {final_state}"
     );
 }
+
+#[tokio::test]
+async fn conversation_replays_only_team_sessions_and_pages_by_cursor() {
+    use owo_agent_core::workswarm::{CreateTeamRequest, RoleSpec};
+    use owo_agent_protocol::{SseEvent, TeamMode};
+    let (state, _temp) = test_state().await;
+    let coordinator = state.workswarm.coordinator().unwrap();
+    let mut role = RoleSpec::agent("分镜导演");
+    role.worker = Some("echo".into());
+    let team = coordinator
+        .create_team_run(&CreateTeamRequest {
+            objective: "视频分镜".into(),
+            mode: TeamMode::Team,
+            roles: vec![role],
+            ..CreateTeamRequest::new("视频分镜", TeamMode::Team)
+        })
+        .await
+        .unwrap();
+    let mut session = state
+        .store
+        .create(&state.workspace, "test-model", None)
+        .unwrap();
+    session.id = format!("{}-worker-test", team.team_id);
+    state.store.save(&session).unwrap();
+    for i in 0..130 {
+        state
+            .store
+            .append_turn_event(
+                &session.id,
+                "分镜导演",
+                &SseEvent::TokenDelta {
+                    delta: format!("片段 {i}"),
+                },
+            )
+            .unwrap();
+    }
+    let mut foreign = state
+        .store
+        .create(&state.workspace, "test-model", None)
+        .unwrap();
+    foreign.id = "team-foreign-worker-test".into();
+    state.store.save(&foreign).unwrap();
+    state
+        .store
+        .append_turn_event(
+            &foreign.id,
+            "其他成员",
+            &SseEvent::Final {
+                text: "foreign secret".into(),
+            },
+        )
+        .unwrap();
+    let app = build_router(Arc::clone(&state));
+    let path = format!("/teams/{}/conversation", team.team_id);
+    let (status, page) = call(&state, &app, "GET", &path, None).await;
+    assert_eq!(status, 200);
+    assert_eq!(page["sessions"].as_array().unwrap().len(), 1);
+    assert_eq!(page["sessions"][0]["events"].as_array().unwrap().len(), 128);
+    assert_eq!(page["has_more"], true);
+    assert!(!page.to_string().contains("foreign secret"));
+    let cursors = serde_json::to_string(&page["next_cursors"]).unwrap();
+    let uri = format!(
+        "{path}?cursors={}",
+        cursors
+            .replace('{', "%7B")
+            .replace('}', "%7D")
+            .replace('"', "%22")
+            .replace(':', "%3A")
+    );
+    let (status, page) = call(&state, &app, "GET", &uri, None).await;
+    assert_eq!(status, 200);
+    assert_eq!(page["sessions"][0]["events"].as_array().unwrap().len(), 2);
+    assert_eq!(page["has_more"], false);
+    assert_eq!(
+        call(&state, &app, "GET", "/teams/not-found/conversation", None)
+            .await
+            .0,
+        404
+    );
+}
+
+#[tokio::test]
+async fn custom_workflow_preserves_media_roles_and_parallel_branches_without_inserting_reviewers() {
+    use owo_agent_core::workswarm::{CreateTeamRequest, RoleSpec};
+    use owo_agent_protocol::TeamMode;
+    let (state, _temp) = test_state().await;
+    let coordinator = state.workswarm.coordinator().unwrap();
+    let roles = vec![
+        RoleSpec {
+            role: "reviewer".into(),
+            assignee: "agent".into(),
+            tools: vec!["write_file".into()],
+            write_paths: vec!["images".into()],
+            model: Some("image-director".into()),
+            ..Default::default()
+        },
+        RoleSpec {
+            role: "配音与音效".into(),
+            assignee: "agent".into(),
+            tools: vec!["mcp__voice__generate".into()],
+            model: Some("audio-director".into()),
+            ..Default::default()
+        },
+    ];
+    let request = CreateTeamRequest {
+        roles,
+        budget: json!({"max_parallel":2}),
+        ..CreateTeamRequest::new("根据素材生成画面与配音", TeamMode::Team)
+    };
+    let team = coordinator.create_team_run(&request).await.unwrap();
+    let meta = coordinator.load_run_meta(&team.team_id).unwrap();
+    assert_eq!(
+        meta.roles.len(),
+        2,
+        "an explicit graph must not gain hidden roles"
+    );
+    assert_eq!(meta.roles[0].role, "reviewer", "role names are user labels");
+    assert!(
+        !meta.roles[0].is_reviewer(),
+        "explicit tools override legacy name inference"
+    );
+    assert_eq!(meta.roles[0].write_paths, vec!["images"]);
+    assert_eq!(meta.roles[1].tools, vec!["mcp__voice__generate"]);
+    assert!(meta.roles.iter().all(|role| role.depends_on.is_empty()));
+}

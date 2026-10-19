@@ -29,8 +29,8 @@ pub struct RoleSpec {
     /// 职责能力。review 控制只读与评审语义；未知能力不授予工具权限。
     pub capabilities: Vec<String>,
     /// 模板声明的角色工具白名单（用户自定义工作流）：空 = 沿用角色画像的缺省工具面；
-    /// 非空时作为**上界**收窄（见 [`crate::worker_profile::WorkerProfile::apply_declared_tools`]），
-    /// 绝不会因为声明而放宽到画像能力面之外。
+    /// 非空时按声明装配工具，不从角色名称推断能力；仍受宿主策略、审批与写范围限制。
+    /// 显式 review 能力保持只读。
     pub tools: Vec<String>,
 }
 
@@ -64,7 +64,9 @@ impl RoleSpec {
     }
 
     pub fn is_reviewer(&self) -> bool {
-        super::util::is_review_role(&self.role, &self.capabilities)
+        self.has_capability("review")
+            || (self.tools.is_empty()
+                && super::util::is_review_role(&self.role, &self.capabilities))
     }
 }
 
@@ -107,8 +109,9 @@ pub fn validate_role_write_paths_with_capabilities(
 
 impl From<TeamTemplateRole> for RoleSpec {
     fn from(r: TeamTemplateRole) -> Self {
-        let capabilities = if r.capabilities.is_empty() && super::util::is_review_role_name(&r.role)
-        {
+        let capabilities = if !r.tools.is_empty() && r.capabilities.is_empty() {
+            vec!["custom".to_string()]
+        } else if r.capabilities.is_empty() && super::util::is_review_role_name(&r.role) {
             vec!["review".to_string()]
         } else {
             r.capabilities

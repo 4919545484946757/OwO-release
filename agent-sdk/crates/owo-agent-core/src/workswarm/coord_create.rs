@@ -50,7 +50,7 @@ impl TeamCoordinator {
         // 保留模板是否由调用者显式选择；策略裁剪只能覆盖自动匹配模板，不能悄悄改写用户指定拓扑。
         let has_explicit_roles = !req.roles.is_empty();
         let has_explicit_template = req.mode != TeamMode::Single && req.template_id.is_some();
-        let (roles, template_id): (Vec<RoleSpec>, Option<String>) = if !req.roles.is_empty() {
+        let (mut roles, template_id): (Vec<RoleSpec>, Option<String>) = if !req.roles.is_empty() {
             if req.mode != TeamMode::Single {
                 if let Some(id) = &req.template_id {
                     self.templates
@@ -105,6 +105,12 @@ impl TeamCoordinator {
                 }
             }
         };
+
+        for role in &mut roles {
+            if !role.tools.is_empty() && role.capabilities.is_empty() {
+                role.capabilities.push("custom".to_string());
+            }
+        }
 
         // 约束：角色唯一；Agent 成员 ≤ max_agent_members；写路径合法（权限默认 deny）。
         let mut seen = std::collections::HashSet::new();
@@ -261,7 +267,7 @@ impl TeamCoordinator {
         bind_missing_strategy_budgets(&strategy_plan.roles, &specs, &mut budget_map);
         let mut adaptive_skips: Vec<crate::team_strategy::SkippedRole> = Vec::new();
         let mut adaptive_saved_calls = 0usize;
-        if specs.len() > 1 && req.roles.is_empty() {
+        if specs.len() > 1 && !has_explicit_roles && !has_explicit_template {
             let role_names: Vec<String> = specs.iter().map(|s| s.role.clone()).collect();
             let adaptive = crate::team_strategy::plan_adaptive_roles(
                 template_id.as_deref(),
@@ -328,7 +334,9 @@ impl TeamCoordinator {
         // Read-only teams and custom/human workers keep their declared topology; custom
         // source producers must declare their reviewer, and DeliveryGate still fails
         // closed for any source candidate without independent review evidence.
-        let auto_reviewer_allowed = should_add_auto_reviewer(req.mode, strategy_plan.is_single());
+        let auto_reviewer_allowed = !has_explicit_roles
+            && !has_explicit_template
+            && should_add_auto_reviewer(req.mode, strategy_plan.is_single());
         if auto_reviewer_allowed {
             if let Some(reviewer) = build_auto_reviewer_for_model_writers(&specs) {
                 let member_limit = req.max_agent_members.unwrap_or(self.max_agent_members);

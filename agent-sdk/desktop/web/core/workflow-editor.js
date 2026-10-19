@@ -155,7 +155,169 @@
   }
 
   /** 用这条工作流创建团队（POST /teams）：objective 必填，mode 缺省 team。 */
-  function buildTeamCreateRequest(template, objective, acknowledgeRisk) {
+  /// 没有验证断言的角色：团队交付门禁会因此判"结果保持未验证"并让团队失败。
+  /// 返回角色名列表（评审角色的只读语义不变，仍可只写 non_empty）。
+  function missingVerifyRoles(template) {
+    var roles = (template && Array.isArray(template.roles)) ? template.roles : [];
+    return roles
+      .filter(function (role) {
+        if (!role || role.assignee === "human") return false;
+        var verify = role.verify == null ? "" : String(role.verify).trim();
+        return !verify;
+      })
+      .map(function (role) {
+        return String(role.role || "(未命名角色)");
+      });
+  }
+
+  /// 给缺失角色补上 `verify: "non_empty"`，返回**新的**模板对象（不改入参）。
+  function withDefaultVerify(template) {
+    var copy = JSON.parse(JSON.stringify(template || {}));
+    (Array.isArray(copy.roles) ? copy.roles : []).forEach(function (role) {
+      if (!role || role.assignee === "human") return;
+      var verify = role.verify == null ? "" : String(role.verify).trim();
+      if (!verify) role.verify = "non_empty";
+    });
+    return copy;
+  }
+
+  /// 保存前检查清单：把"跑起来才会炸"的配置问题在保存前说清楚。
+  ///
+  /// 只做提示与一键修复入口，不替代服务端校验（真正的拒绝仍在服务端）。
+  /// 级别：block（服务端会拒）> warn（能存但运行必失败/易踩）> info（要知道）。
+  /// 角色名 → 目录片段（保留 ASCII 安全字符；中文等无法直译时退回 role-<序号>）。
+  /// 只用于**建议值**，用户可改；不参与服务端校验。
+  function writeScopeSlug(name, index) {
+    var raw = String(name == null ? "" : name).trim().toLowerCase();
+    var slug = raw.replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+    if (!slug) slug = "role-" + (Number(index) + 1);
+    return slug.slice(0, 40);
+  }
+
+  /// 给声明了写工具但没写 `write_paths` 的角色补建议目录 `outputs/<slug>`，
+  /// 返回**新的**模板对象（不改入参）。已有范围的角色不动。
+  function withSuggestedWritePaths(template) {
+    var copy = JSON.parse(JSON.stringify(template || {}));
+    (Array.isArray(copy.roles) ? copy.roles : []).forEach(function (role, index) {
+      if (!role || role.assignee === "human") return;
+      var tools = Array.isArray(role.tools) ? role.tools : [];
+      var hasWrite = tools.some(function (tool) {
+        return WRITE_TOOLS.indexOf(String(tool).trim()) >= 0;
+      });
+      if (!hasWrite) return;
+      var paths = (Array.isArray(role.write_paths) ? role.write_paths : [])
+        .map(function (path) {
+          return String(path).trim();
+        })
+        .filter(Boolean);
+      if (paths.length) return;
+      role.write_paths = ["outputs/" + writeScopeSlug(role.role, index)];
+    });
+    return copy;
+  }
+
+  function preSaveChecklist(template) {
+    var helper = arguments.length > 1 ? arguments[1] : null;
+    var roles = template && Array.isArray(template.roles) ? template.roles : [];
+    var items = [];
+    var missing = missingVerifyRoles(template);
+    if (missing.length) {
+      items.push({
+        level: "warn",
+        code: "missing_verify",
+        message:
+          "缺少验证断言，团队交付会被判\u201c未验证\u201d而失败：" + missing.join("\u3001"),
+        fix: "verify",
+      });
+    }
+    var writers = roles.filter(function (role) {
+      var tools = Array.isArray(role && role.tools) ? role.tools : [];
+      return tools.some(function (tool) {
+        return WRITE_TOOLS.indexOf(String(tool).trim()) >= 0;
+      });
+    });
+    var unScoped = writers
+      .filter(function (role) {
+        var paths = Array.isArray(role && role.write_paths) ? role.write_paths : [];
+        return !paths.filter(function (path) {
+          return String(path).trim();
+        }).length;
+      })
+      .map(function (role) {
+        return String((role && role.role) || "?");
+      });
+    if (unScoped.length) {
+      items.push({
+        level: writers.length > 1 ? "warn" : "info",
+        code: "missing_write_scope",
+        message:
+          (writers.length > 1
+            ? "多个写角色都没有声明 write_paths：会落到工作区级同一写范围，只能串行落盘（并行会互相等待）"
+            : "写了但未声明 write_paths：写范围为工作区级，建议声明具体目录便于并行与审计") +
+          "：" + unScoped.join("\u3001"),
+        fix: "write_scope",
+      });
+    }
+    if (writers.length > 1) {
+      var scoped = writers
+        .map(function (role) {
+          return (Array.isArray(role.write_paths) ? role.write_paths : []).map(function (path) {
+            return String(path).trim();
+          }).filter(Boolean);
+        })
+        .filter(function (paths) {
+          return paths.length;
+        });
+      var overlap = [];
+      for (var i = 0; i < scoped.length; i += 1) {
+        for (var j = i + 1; j < scoped.length; j += 1) {
+          scoped[i].forEach(function (left) {
+            scoped[j].forEach(function (right) {
+              if (left === right || left.indexOf(right + "/") === 0 || right.indexOf(left + "/") === 0) {
+                overlap.push(left + " ∩ " + right);
+              }
+            });
+          });
+        }
+      }
+      if (overlap.length) {
+        items.push({
+          level: "warn",
+          code: "write_scope_overlap",
+          message: "写范围重叠会串行等待，且容易互相覆盖：" + overlap.join("\u3001"),
+        });
+      }
+    }
+    var elevated = [];
+    roles.forEach(function (role) {
+      var tools = Array.isArray(role && role.tools) ? role.tools : [];
+      tools.forEach(function (tool) {
+        var name = String(tool).trim();
+        if (ELEVATED_TOOLS.indexOf(name) >= 0) elevated.push(String(role.role || "?") + ":" + name);
+        else if (name.indexOf("mcp__") === 0) elevated.push(String(role.role || "?") + ":" + name);
+      });
+    });
+    if (elevated.length) {
+      items.push({
+        level: "info",
+        code: "elevated_tools",
+        message: "含执行/联网/MCP 工具，运行时会走审批或产生外部依赖：" + elevated.join("\u3001"),
+      });
+    }
+    if (!roles.length) {
+      items.push({ level: "block", code: "no_roles", message: "没有角色：至少需要一个角色才能建队" });
+    }
+    if (!writers.length && roles.length) {
+      items.push({
+        level: "info",
+        code: "no_writer",
+        message: "没有任何写角色：交付物只会出现在 Artifact，不会落到工作区文件",
+      });
+    }
+    return items;
+  }
+
+  function buildTeamCreateRequest(template, objective, acknowledgeRisk, allowScopedWrites) {
     var text = String(objective == null ? "" : objective).trim();
     if (!text) return { ok: false, error: "请先填写这次要让团队达成的目标" };
     var id = template && template.template_id ? String(template.template_id).trim() : "";
@@ -170,6 +332,11 @@
         template_id: id,
         // 社区来源 + 有风险面时服务端要求显式确认；用户点过确认才为 true。
         acknowledge_risk: acknowledgeRisk === true,
+        // 「允许节点按声明的范围写入当前工作区」：团队运行没有交互式审批通道，
+        // 未勾选时范围内写入也会被拒 → 自定义工作流必然失败。
+        // 默认 true（与面板复选框一致）：团队运行没有交互审批通道，
+        // 不预授权时写节点只能等待超时被拒；显式传 false 才关闭。
+        allow_scoped_writes: allowScopedWrites !== false,
       },
     };
   }
@@ -485,6 +652,14 @@
       // 运行期告警（列表接口带出）：从未成功/高失败率/长期低成功率/最近失败。
       attention: item && Array.isArray(item.attention) ? item.attention.map(String) : [],
       runs: Number((item && item.runs) || 0),
+      // 保存前检查清单（缺 verify / 缺写范围 / 范围重叠 …）：列表行直接暴露待修项，
+      // 让"列表 → 详情 → 一键修复"成为闭环，而不是跑完才失败。
+      checklist: item && item.template ? preSaveChecklist(item.template) : [],
+      checklistFixable: (item && item.template ? preSaveChecklist(item.template) : []).filter(
+        function (entry) {
+          return entry.level !== "info";
+        }
+      ).length,
       tag: item && item.valid === false ? "校验未通过" : "可创建团队",
     };
   }
@@ -539,6 +714,11 @@
     describeLocalDiff: describeLocalDiff,
     describeWorkflow: describeWorkflow,
     describeLastRun: describeLastRun,
+    missingVerifyRoles: missingVerifyRoles,
+    preSaveChecklist: preSaveChecklist,
+    withSuggestedWritePaths: withSuggestedWritePaths,
+    writeScopeSlug: writeScopeSlug,
+    withDefaultVerify: withDefaultVerify,
     describeVerifyOutcome: describeVerifyOutcome,
     riskLabel: riskLabel,
     describeStatsRow: describeStatsRow,
@@ -562,6 +742,11 @@
       describeLocalDiff: describeLocalDiff,
       describeWorkflow: describeWorkflow,
       describeLastRun: describeLastRun,
+      missingVerifyRoles: missingVerifyRoles,
+      preSaveChecklist: preSaveChecklist,
+      withSuggestedWritePaths: withSuggestedWritePaths,
+      writeScopeSlug: writeScopeSlug,
+      withDefaultVerify: withDefaultVerify,
       describeVerifyOutcome: describeVerifyOutcome,
       riskLabel: riskLabel,
       describeStatsRow: describeStatsRow,

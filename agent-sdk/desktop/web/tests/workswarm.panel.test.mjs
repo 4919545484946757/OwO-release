@@ -1092,9 +1092,9 @@ test("七期 writeLeaseBox：持有/已释放/无租约三态", () => {
   assert.match(held, /自 .* 起持有/);
   const released = T.writeLeaseBox({ holder_role: "implementer", holder_step_id: "s-2", acquired_at_ms: 1700000000000, released_at_ms: 1700000001000 });
   assert.match(released, /已于 .* 释放/);
-  assert.match(T.writeLeaseBox(null), /当前无角色持有写租约/);
-  assert.match(T.writeLeaseBox(undefined), /当前无角色持有写租约/);
-  assert.match(T.writeLeaseBox("junk"), /当前无角色持有写租约/, "非对象容错");
+  assert.match(T.writeLeaseBox(null), /独立输出范围可并行写入/);
+  assert.match(T.writeLeaseBox(undefined), /独立输出范围可并行写入/);
+  assert.match(T.writeLeaseBox("junk"), /独立输出范围可并行写入/, "非对象容错");
 });
 
 test("七期 changesListHtml：变更行状态徽标 + ±行数 + diff 预览 + 空态", () => {
@@ -1603,7 +1603,7 @@ test("创建团队表单使用任务语言并提供可访问的状态入口", ()
   assert.match(html, /团队目标/);
   assert.match(html, /运行模式/);
   assert.match(html, /组队策略/);
-  assert.match(html, /多 Agent 接力/);
+  assert.match(html, /多 Agent 协作/);
   assert.match(html, /单 Agent 执行/);
   assert.match(html, /DAG 工作流/);
   assert.match(html, /ws-create-template-retry/);

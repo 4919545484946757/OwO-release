@@ -69,6 +69,7 @@
         '  <div class="owo-wf-toolbar">',
         '    <button type="button" class="owo-wf-refresh">刷新我的工作流</button>',
         '    <input class="owo-wf-objective" type="text" placeholder="本次目标（用下面任一条工作流建队时必填）">',
+        '    <label title="团队运行没有交互式审批通道：不勾选时，写节点等待审批直到超时被拒，工作流必然失败"><input class="owo-wf-allow-writes" type="checkbox" checked>允许节点按各自声明的 write_paths 写入当前工作区<span class="hint">（不勾选 = 写节点会被拒绝）</span></label>',
         '    <span class="owo-wf-meta hint"></span>',
         "  </div>",
         '  <ul class="owo-wf-list"></ul>',
@@ -149,6 +150,22 @@
             (row.riskLabel ? " · 风险 " + esc(row.riskLabel) : "") +
             (row.provenanceLabel ? " · " + esc(row.provenanceLabel) : "") +
             (row.runs ? " · 运行 " + row.runs + " 次" : "") +
+            (row.checklistFixable
+              ? ' · <span class="owo-wf-risk" title="' +
+                esc(
+                  row.checklist
+                    .filter(function (entry) {
+                      return entry.level !== "info";
+                    })
+                    .map(function (entry) {
+                      return entry.message;
+                    })
+                    .join("；")
+                ) +
+                '">待修 ' +
+                row.checklistFixable +
+                " 项</span>"
+              : "") +
             '</span> <button type="button" class="owo-wf-export">导出</button> <button type="button" class="owo-wf-delete">删除</button> <button type="button" class="owo-wf-improve" title="把这条件工作流的真实运行证据交给 AI，生成改进候选">按证据改进</button> <button type="button" class="owo-wf-rerun">再跑</button> <button type="button" class="owo-wf-run">建队</button>' +
             (row.attention.length
               ? '<div class="hint owo-wf-risk">⚠ 需要修复：' + esc(row.attention.join("；")) + "</div>"
@@ -352,6 +369,28 @@
       var meta = root.querySelector(".owo-wf-meta");
       if (meta) meta.textContent = message || "";
     }
+    /// 建队成功后把"看待办/看对话"变成一次点击（而不是让用户自己找面板）。
+    function setTeamJump(root, teamId) {
+      var meta = root.querySelector(".owo-wf-meta");
+      if (!meta || !teamId) return;
+      var existing = meta.querySelector(".owo-wf-open-team");
+      if (existing) existing.remove();
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "owo-wf-open-team";
+      button.textContent = "查看团队对话 →";
+      button.title = "打开团队协作面板，展开成员对话与工具调用";
+      button.addEventListener("click", function () {
+        var helper = H;
+        if (helper && typeof helper.openTeam === "function") {
+          helper.openTeam(teamId);
+        } else if (helper && typeof helper.openPanel === "function") {
+          helper.openPanel("workswarm");
+        }
+      });
+      meta.appendChild(document.createTextNode(" "));
+      meta.appendChild(button);
+    }
     function editorTemplate(root) {
       var helper = editor();
       if (!helper) throw new Error("工作流编辑器模块未加载");
@@ -388,12 +427,45 @@
       );
     }
 
+    /// 保存前检查清单（前端提示，不替代服务端校验）：缺 verify / 缺写范围 / 范围重叠 /
+    /// 高风险工具 / 没有角色 / 没有写角色。warn 项给一键修复入口。
+    function renderChecklist(template) {
+      var helper = editor();
+      var items = helper && helper.preSaveChecklist ? helper.preSaveChecklist(template) : [];
+      if (!items.length) return "";
+      var labels = { block: "必须修", warn: "建议修", info: "要知道" };
+      var body = items
+        .map(function (item) {
+          var lvl = labels[item.level] || "提示";
+          var fix = "";
+          if (item.fix === "verify") {
+            fix = ' <button type="button" class="owo-wf-fix-verify">补 non_empty 验证</button>';
+          } else if (item.fix === "write_scope") {
+            fix = ' <button type="button" class="owo-wf-fix-scope">补建议写目录</button>';
+          }
+          return (
+            '<li class="owo-wf-check owo-wf-check-' +
+            esc(item.level) +
+            '"><b>' +
+            esc(lvl) +
+            "</b> " +
+            esc(item.message) +
+            fix +
+            "</li>"
+          );
+        })
+        .join("");
+      return '<ul class="owo-wf-checklist">' + body + "</ul>";
+    }
+
     function showPreview(root, text, template) {
       var preview = root.querySelector(".owo-wf-preview");
       if (preview) preview.textContent = text || "";
       if (template) {
         var box = root.querySelector(".owo-wf-graph-box");
-        if (box) box.innerHTML = renderGraphSvg(template) + renderRoleRows(template);
+        if (box) {
+          box.innerHTML = renderGraphSvg(template) + renderChecklist(template) + renderRoleRows(template);
+        }
       }
     }
 
@@ -535,8 +607,30 @@
     }
 
     /// 建队（「建队」与「再跑」共用：能力面 block 拒绝、warn 需一次确认、带 acknowledge_risk）。
+    function attachWorkspaceContext(root, body) {
+      var snapshot = H.snapshot ? H.snapshot() : {};
+      if (snapshot.workspace) {
+        var allow = root.querySelector(".owo-wf-allow-writes");
+        body.workspace = { root: snapshot.workspace, read_only: !(allow && allow.checked) };
+        var parent = (snapshot.sessions || []).find(function (s) { return s.id === snapshot.sessionId; });
+        if (parent && parent.workspace === snapshot.workspace) body.parent_session_id = parent.id;
+      }
+      return body;
+    }
+
+    /// 建队前读取"允许按声明范围写入"复选框（缺省勾选：自定义工作流没有交互审批通道）。
+    function scopedWritesAllowed(root) {
+      var box = root.querySelector(".owo-wf-allow-writes");
+      return !box || box.checked;
+    }
+
     function createTeamFromRow(root, id, objective) {
-      var request = editor().buildTeamCreateRequest({ template_id: id, mode: "team" }, objective);
+      var request = editor().buildTeamCreateRequest(
+        { template_id: id, mode: "team" },
+        objective,
+        false,
+        scopedWritesAllowed(root)
+      );
       if (!request.ok) {
         setError(root, request.error);
         return;
@@ -563,10 +657,11 @@
       if (request.body) request.body.acknowledge_risk = true;
       setError(root, "");
       setMeta(root, "正在用 " + id + " 创建团队…");
-      H.post(request.path, request.body)
+      H.post(request.path, attachWorkspaceContext(root, request.body))
         .then(function (created) {
           var teamId = (created && (created.team_id || (created.team && created.team.team_id))) || "";
-          setMeta(root, "已创建团队 " + (teamId || "(未知 id)") + "：可在「团队协作」面板跟踪进度");
+          setMeta(root, "已创建团队 " + (teamId || "(未知 id)") + "：可就地查看成员对话");
+          setTeamJump(root, teamId);
         })
         .catch(function (error) {
           setError(root, "创建团队失败：" + H.friendlyError(error));
@@ -576,6 +671,7 @@
     function mount(root, helpers) {
       dispose();
       H = {
+        snapshot: helpers && helpers.snapshot,
         get: (helpers && helpers.get) || defaultGet,
         post: (helpers && helpers.post) || defaultPost,
         delete: (helpers && helpers.delete) || defaultDelete,
@@ -603,6 +699,35 @@
           showPreview(root, String(error.message || error));
         }
       });
+      // 一键补 verify：直接改编辑器文本并重新渲染（用户可继续手改）。
+      root.addEventListener("click", function (event) {
+        var button = event.target && event.target.closest
+          ? event.target.closest(".owo-wf-fix-verify")
+          : null;
+        if (!button) return;
+        var helper = editor();
+        var area = root.querySelector(".owo-wf-editor");
+        if (!helper || !area) return;
+        var parsed = helper.parseTemplate(area.value);
+        if (!parsed.ok) {
+          setError(root, parsed.error);
+          return;
+        }
+        var isScope = button.classList.contains("owo-wf-fix-scope");
+        var fixed = isScope
+          ? helper.withSuggestedWritePaths(parsed.template)
+          : helper.withDefaultVerify(parsed.template);
+        area.value = JSON.stringify(fixed, null, 2);
+        var preview = root.querySelector(".owo-wf-preview");
+        showPreview(root, preview ? preview.textContent : "", fixed);
+        setMeta(
+          root,
+          isScope
+            ? "已给缺写范围的写角色补上 outputs/<角色> 目录（可自行修改，记得点保存）"
+            : "已给缺失角色补上 verify: non_empty（记得点保存）"
+        );
+      });
+
       root.querySelector(".owo-wf-validate").addEventListener("click", function () {
         var template;
         try {
@@ -698,10 +823,11 @@
                     root,
                     "验证团队 " +
                       teamId +
-                      " 已创建：可在「团队协作」面板跟踪（对比基线 " +
+                      " 已创建（对比基线 " +
                       plan.previous_status +
-                      "）"
+                      "）：可就地查看成员对话"
                   );
+                  setTeamJump(root, teamId);
                   return refresh(root);
                 })
                 .catch(function (error) {
@@ -779,6 +905,7 @@
       renderWorkflowRows: renderWorkflowRows,
       renderReviewText: renderReviewText,
       renderDraftText: renderDraftText,
+      renderChecklist: renderChecklist,
       renderGraphSvg: renderGraphSvg,
       renderRoleRows: renderRoleRows,
       renderStatsRows: renderStatsRows,
@@ -787,6 +914,7 @@
         renderWorkflowRows: renderWorkflowRows,
         renderReviewText: renderReviewText,
         renderDraftText: renderDraftText,
+        renderChecklist: renderChecklist,
         renderGraphSvg: renderGraphSvg,
         renderRoleRows: renderRoleRows,
         renderStatsRows: renderStatsRows,

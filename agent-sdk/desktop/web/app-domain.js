@@ -558,6 +558,11 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
   // Codex 风格：一级按项目（工作区）分桶，fork 父子树留在组内。
   // 会话记录本就带 workspace 字段，之前只在列表里裸铺，多项目下无法分辨。
   const groups = new Map();
+  for (const workspace of [$("workspace").value.trim(), ...recentWorkspaces()]) {
+    if (workspace && !groups.has(workspace.toLowerCase())) {
+      groups.set(workspace.toLowerCase(), { workspace, roots: [] });
+    }
+  }
   for (const session of visible) {
     if (!isRoot(session)) continue;
     const workspace = String(session.workspace || "").trim();
@@ -588,6 +593,23 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
     count.className = "codex-group-count";
     count.textContent = String(group.roots.length);
     header.append(caret, label, count);
+    if (group.workspace) {
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "codex-project-new";
+      add.setAttribute("aria-label", "在 " + workspaceLabel(group.workspace) + " 新建对话");
+      add.title = "在此工作区新建对话";
+      add.textContent = "+";
+      add.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        add.disabled = true;
+        try { await newSession(group.workspace); }
+        catch (error) { showToast(friendlyError(error), "error"); }
+        finally { add.disabled = false; }
+      });
+      add.addEventListener("keydown", event => event.stopPropagation());
+      header.appendChild(add);
+    }
 
     const children = [];
     for (const session of group.roots) children.push(session);
@@ -963,8 +985,12 @@ async function refreshSessionContext(sessionId) {
   }
 }
 
-async function newSession() {
-  const workspace = $("workspace").value.trim();
+async function newSession(workspaceOverride) {
+  const workspace = typeof workspaceOverride === "string"
+    ? workspaceOverride.trim() : $("workspace").value.trim();
+  if (typeof workspaceOverride === "string" && workspace !== $("workspace").value.trim()) {
+    if (!await persistWorkspace(workspace)) return;
+  }
   if (!workspace) {
     const error = new Error("请先选择项目工作区，再新建会话");
     error.userFacing = true;
@@ -2695,7 +2721,7 @@ const PANEL_ORDER = [
 function panelHelpers() {
   return {
     baseUrl: API_BASE,
-    snapshot: () => ({ workspace: $("workspace")?.value || "", settings: state.settings || {}, sessions: state.sessionIndex || [], sessionsKnown: state.sessionsKnown === true }),
+    snapshot: () => ({ sessionId: state.sessionId, workspace: $("workspace")?.value || "", settings: state.settings || {}, sessions: state.sessionIndex || [], sessionsKnown: state.sessionsKnown === true }),
     openPanel: openPanelById,
     downloadArtifact: async id => {
       if (window.owo?.downloadArtifact) return window.owo.downloadArtifact(id);

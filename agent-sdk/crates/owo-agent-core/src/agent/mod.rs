@@ -1,4 +1,6 @@
 use crate::audit::AuditLog;
+mod workflow_tools;
+
 use crate::autoreview::{ReviewVerdict, Reviewer};
 use crate::context::{build_system_prompt, load_project_rules, load_project_rules_hierarchical};
 use crate::deadline::{DeadlineBudget, Phase, PhaseBudgets, PhaseTiming};

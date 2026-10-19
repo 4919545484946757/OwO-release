@@ -129,6 +129,9 @@ pub enum WorkflowAction {
     },
     /// 用这条工作流创建团队运行（有 warn 级能力面时需 --yes 确认）
     Run {
+        /// 允许节点按声明的 write_paths 范围写入当前工作区（团队运行没有交互审批通道）
+        #[arg(long, default_value_t = true)]
+        allow_scoped_writes: bool,
         id: String,
         #[arg(long)]
         objective: String,
@@ -144,6 +147,9 @@ pub enum WorkflowAction {
     },
     /// 沿用最近一次运行的目标再跑一次（失败复现；--objective 可覆盖）
     Rerun {
+        /// 允许节点按声明的 write_paths 范围写入当前工作区
+        #[arg(long, default_value_t = true)]
+        allow_scoped_writes: bool,
         id: String,
         /// 覆盖上次的目标（缺省沿用最近一次运行的 objective）
         #[arg(long)]
@@ -1015,7 +1021,13 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
                 objective
             );
             let created = client
-                .create_team(&objective, "team", Some(template_id.as_str()), true)
+                .create_team_with_scoped_writes(
+                    &objective,
+                    "team",
+                    Some(template_id.as_str()),
+                    true,
+                    true,
+                )
                 .await?;
             let team_id = created["team_id"]
                 .as_str()
@@ -1145,6 +1157,7 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
             yes,
             follow,
             follow_timeout,
+            allow_scoped_writes,
         } => {
             create_team_from_workflow(
                 &client,
@@ -1154,6 +1167,7 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
                 yes,
                 follow,
                 follow_timeout,
+                allow_scoped_writes,
             )
             .await
         }
@@ -1163,6 +1177,7 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
             yes,
             follow,
             follow_timeout,
+            allow_scoped_writes,
         } => {
             let last = client.workflow_last_run(&id).await?;
             let Some(last_run) = last["last_run"].as_object() else {
@@ -1206,6 +1221,7 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
                 yes,
                 follow,
                 follow_timeout,
+                allow_scoped_writes,
             )
             .await
         }
@@ -1227,6 +1243,7 @@ async fn create_team_from_workflow(
     yes: bool,
     follow: bool,
     follow_timeout: Option<u64>,
+    allow_scoped_writes: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let objective = objective.trim().to_string();
     if objective.is_empty() {
@@ -1275,7 +1292,15 @@ async fn create_team_from_workflow(
                 owo_agent_protocol::TeamMode::Swarmflow => "swarmflow",
                 owo_agent_protocol::TeamMode::Team => "team",
             };
-            let created = client.create_team(&objective, mode, Some(id), yes).await?;
+            let created = client
+                .create_team_with_scoped_writes(
+                    &objective,
+                    mode,
+                    Some(id),
+                    yes,
+                    allow_scoped_writes,
+                )
+                .await?;
             let team_id = created["team_id"]
                 .as_str()
                 .or_else(|| created["team"]["team_id"].as_str())

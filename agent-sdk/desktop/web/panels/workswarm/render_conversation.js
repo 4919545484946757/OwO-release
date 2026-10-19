@@ -121,7 +121,91 @@
       }).join("") + "</div>";
   }
 
+  function mergeReplay(previous, sessions) {
+    var map = Object.assign({}, previous || {});
+    (sessions || []).forEach(function (session) {
+      var old = map[session.session_id] || { role: session.role || "成员", events: [] };
+      var bySeq = {};
+      old.events.forEach(function (event) { bySeq[event.seq] = event; });
+      (session.events || []).forEach(function (event) { bySeq[event.seq] = event; });
+      map[session.session_id] = {
+        role: session.role || old.role,
+        events: Object.keys(bySeq).map(function (seq) { return bySeq[seq]; }).sort(function (a, b) { return a.seq - b.seq; }),
+      };
+    });
+    return map;
+  }
+
+  /// 成员对话（按时间合并所有角色）。`onlyRole` 非空时只渲染该角色——
+  /// 多节点并行时按角色过滤比按时间线硬读更清楚（用户反馈"看不出是谁在说"）。
+  function workerConversationHtml(ctx, replay, markdown, onlyRole) {
+    var esc = ctx.esc;
+    var rows = [];
+    var filterRole = String(onlyRole == null ? "" : onlyRole).trim();
+    Object.keys(replay || {}).forEach(function (sessionId) {
+      var session = replay[sessionId], pending = "", start = null;
+      if (filterRole && filterRole !== "all" && String(session.role || "") !== filterRole) return;
+      function textRow(text, event) {
+        if (!text) return;
+        rows.push({ time: event.created_at || "", seq: event.seq,
+          html: '<article class="owo-ws-chat-row"><div class="owo-ws-chat-avatar" aria-hidden="true">' + esc(session.role.slice(0, 1)) +
+          '</div><div class="owo-ws-chat-card"><header class="owo-ws-chat-head"><b>' + esc(session.role) +
+          '</b><time>' + esc(event.created_at || "") + '</time></header><div class="owo-ws-chat-body">' +
+          (typeof markdown === "function" ? markdown(text) : '<div class="md-p">' + esc(text).replace(/\n/g, "<br>") + "</div>") + "</div></div></article>" });
+      }
+      (session.events || []).forEach(function (event) {
+        var p = event.payload || {}, kind = p.type;
+        if (kind === "token_delta") { if (!start) start = event; pending += p.delta || ""; return; }
+        if (kind === "final") { textRow(p.text || pending, start || event); pending = ""; start = null; return; }
+        if (pending) { textRow(pending, start || event); pending = ""; start = null; }
+        if (kind === "tool_use" || kind === "tool_result") {
+          var isResult = kind === "tool_result";
+          var content = isResult ? (p.error || p.preview || "") : (typeof p.args === "string" ? p.args : JSON.stringify(p.args, null, 2));
+          rows.push({ time: event.created_at || "", seq: event.seq,
+            html: '<article class="owo-ws-chat-row"><div class="owo-ws-chat-avatar" aria-hidden="true">' + esc(session.role.slice(0, 1)) +
+            '</div><div class="owo-ws-chat-card"><b>' + esc(session.role) +
+            '</b><details class="owo-ws-tool-detail" data-event-key="' + esc(sessionId + ":" + event.seq) + '"><summary>' + esc(p.tool || "工具") + " · " +
+            (isResult ? (p.ok ? "已完成" : "失败") : "调用参数") +
+            '</summary><pre>' + esc(content) + "</pre></details></div></article>" });
+        } else if (kind === "progress") {
+          textRow(p.message, event);
+        } else if (kind === "plan_update") {
+          textRow("工作计划\n" + JSON.stringify(p.steps, null, 2), event);
+        }
+      });
+      if (pending) textRow(pending, start || {});
+    });
+    rows.sort(function (a, b) { return a.time.localeCompare(b.time) || a.seq - b.seq; });
+    return rows.map(function (row) { return row.html; }).join("");
+  }
+
+  /// 当前回放里出现过的角色（按出现顺序去重），供"只看某成员"下拉框。
+  function replayRoles(replay) {
+    var seen = {};
+    var roles = [];
+    Object.keys(replay || {}).forEach(function (sessionId) {
+      var role = String((replay[sessionId] || {}).role || "").trim();
+      if (role && !seen[role]) {
+        seen[role] = true;
+        roles.push(role);
+      }
+    });
+    return roles;
+  }
+
+  /// 解析"上次选的成员过滤"：只在该角色本次仍存在时沿用，否则回到 `all`。
+  /// 角色是用户自定义的（随时会改名/删角色），所以持久化值必须每次校验。
+  function pickConversationRole(saved, roles) {
+    var wanted = String(saved == null ? "" : saved).trim();
+    if (!wanted || wanted === "all") return "all";
+    return (Array.isArray(roles) ? roles : []).indexOf(wanted) >= 0 ? wanted : "all";
+  }
+
   var api = {
+    mergeReplay: mergeReplay,
+    replayRoles: replayRoles,
+    pickConversationRole: pickConversationRole,
+    workerConversationHtml: workerConversationHtml,
     refPickerHtml: refPickerHtml,
     teamConversationHtml: teamConversationHtml,
   };

@@ -106,7 +106,10 @@ impl ProfileSubagentRunner<'_> {
         prompt: &str,
     ) -> Result<ProfileSubagentRunReport, ProfileSubagentRunError> {
         let policy = self.parent_policy.for_workspace(workspace.to_path_buf())?;
-        let policy = if self.profile.read_only || self.is_critic {
+        let has_external_tools = self.profile.visible_tools.iter().any(|name| {
+            name.starts_with("mcp__") || matches!(name.as_str(), "web_fetch" | "web_search")
+        });
+        let policy = if self.is_critic || (self.profile.read_only && !has_external_tools) {
             policy.read_only_scope()
         } else {
             policy
@@ -114,6 +117,19 @@ impl ProfileSubagentRunner<'_> {
         let mut registry = self.profile.build_registry(self.write_allowed.clone());
         for tool in &self.extra_tools {
             registry.register_arc(Arc::clone(tool));
+        }
+        let registered = registry.specs();
+        let missing = self
+            .profile
+            .visible_tools
+            .iter()
+            .filter(|name| {
+                !name.starts_with("__owo_") && !registered.iter().any(|spec| spec.name == **name)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        if !missing.is_empty() {
+            return Err(format!("workflow tools unavailable: {}", missing.join(", ")).into());
         }
         let mut config = self.agent_config.clone().unwrap_or_else(|| AgentConfig {
             max_turns: self.profile.max_turns.min(PROFILE_MAX_TURNS_CAP),

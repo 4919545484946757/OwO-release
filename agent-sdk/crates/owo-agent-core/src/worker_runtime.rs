@@ -280,15 +280,30 @@ fn load_worker_session(
     parent_session_id: &Option<String>,
 ) -> Result<Session, WorkerRuntimeError> {
     let mut session = if let (Some(store), Some(session_id)) = (session_store, worker_session_id) {
-        if store
+        let legacy_id = session_id
+            .rsplit_once("-worker-")
+            .map(|(_, hash)| hash)
+            .filter(|hash| hash.len() == 64 && hash.bytes().all(|c| c.is_ascii_hexdigit()))
+            .map(|hash| format!("worker-{hash}"));
+        let load_id = if store
             .exists(session_id)
             .map_err(|error| format!("Worker 会话索引查询失败：{error}"))?
         {
+            Some(session_id.clone())
+        } else if let Some(legacy_id) = legacy_id {
+            store
+                .exists(&legacy_id)
+                .map_err(|error| format!("Worker 历史会话索引查询失败：{error}"))?
+                .then_some(legacy_id)
+        } else {
+            None
+        };
+        if let Some(load_id) = load_id {
             let loaded = store
-                .load(session_id)
+                .load(&load_id)
                 .map_err(|error| format!("Worker 会话 {session_id} 恢复失败：{error}"))?;
             if loaded.workspace != workspace
-                || loaded.id != *session_id
+                || loaded.id != load_id
                 || loaded.parent_id != *parent_session_id
             {
                 return Err(format!("Worker 会话 {session_id} 的工作区或父会话归属不匹配").into());
@@ -446,5 +461,42 @@ mod tests {
         assert_eq!(error.model_calls, 1);
         assert!(error.duration_ms >= 5);
         assert!(!error.usage_known);
+    }
+    #[test]
+    fn team_worker_identity_preserves_legacy_history_and_rejects_wrong_parent() {
+        let workspace = tempfile::tempdir().unwrap();
+        let store: Arc<dyn SessionStore> = Arc::new(
+            crate::sqlite_store::SqliteSessionStore::open(&workspace.path().join("index.db"))
+                .unwrap(),
+        );
+        let hash = "a".repeat(64);
+        let mut legacy = store.create(workspace.path(), "old-model", None).unwrap();
+        legacy.id = format!("worker-{hash}");
+        legacy.parent_id = Some("source-chat".into());
+        legacy.push(ChatMessage::user("previous task".into()));
+        store.save(&legacy).unwrap();
+        let restored = load_worker_session(
+            workspace.path(),
+            "new-model",
+            None,
+            &Some(Arc::clone(&store)),
+            &Some(format!("team-a-worker-{hash}")),
+            &Some("source-chat".into()),
+        )
+        .unwrap();
+        assert_eq!(restored.messages.len(), legacy.messages.len());
+        assert!(
+            store.exists(&legacy.id).unwrap(),
+            "original history must be retained"
+        );
+        assert!(load_worker_session(
+            workspace.path(),
+            "new-model",
+            None,
+            &Some(store),
+            &Some(format!("team-a-worker-{hash}")),
+            &Some("wrong-parent".into())
+        )
+        .is_err());
     }
 }

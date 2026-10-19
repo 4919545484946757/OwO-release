@@ -63,7 +63,7 @@
       </div>
       <button id="sidebarWorkspaceBtn" class="codex-workspace-switcher" type="button" title="切换或新建项目工作区" aria-haspopup="menu" aria-expanded="false">
         <span class="codex-workspace-icon" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2 4.4c0-.66.54-1.2 1.2-1.2h2.3l1.4 1.6h5.1c.66 0 1.2.54 1.2 1.2v5.7c0 .66-.54 1.2-1.2 1.2H3.2c-.66 0-1.2-.54-1.2-1.2V4.4z"/><path d="M2.2 6.2h11.5"/></svg></span>
-        <span class="codex-workspace-meta"><small>项目工作区</small><strong id="sidebarWorkspaceName">未选择项目</strong></span>
+        <span class="codex-workspace-meta"><strong>添加工作区</strong><span id="sidebarWorkspaceName" hidden>未选择项目</span></span>
         <svg class="codex-workspace-chevron" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 6.2 3.5 3.5 3.5-3.5"/></svg>
       </button>
       <button type="button" data-workbench-panel="project-launcher" class="primary workbench-create-task"><svg class="nav-icon" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3.2v9.6M3.2 8h9.6"/></svg><span>新任务</span></button>
@@ -92,7 +92,7 @@
           插件
         </button>
       </nav>
-      <div class="codex-sessions-heading"><span class="codex-sessions-head">最近会话</span><button id="newSession" class="codex-new-chat" type="button" title="新建空白会话">＋ 新对话</button><button id="sidebarSearchBtn" class="codex-icon-btn" type="button" title="搜索会话" aria-label="搜索会话">
+      <div class="codex-sessions-heading"><span class="codex-sessions-head">工作区</span><button id="newSession" class="codex-new-chat" type="button" title="新建空白会话">＋ 新对话</button><button id="sidebarSearchBtn" class="codex-icon-btn" type="button" title="搜索会话" aria-label="搜索会话">
           <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2 13.5 13.5"/></svg>
         </button></div>
       <input id="sessionSearch" class="codex-session-search" placeholder="搜索会话…" hidden>
@@ -1020,6 +1020,7 @@
   <script src="core/recovery.js"></script>
   <script src="core/workbench-refresh.js"></script>
   <script src="core/turn-sse.js"></script>
+  <script src="core/chat-scroll.js"></script>
   <script src="core/turn-recovery.js"></script>
   <script src="core/completion-record.js"></script>
   <script src="core/session-facts.js"></script>
