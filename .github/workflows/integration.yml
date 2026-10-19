@@ -60,7 +60,8 @@ jobs:
 
   ime:
     name: input method (Windows)
-    runs-on: windows-latest
+    # Match the VS 2022 generator; latest may move to a newer VS-only image.
+    runs-on: windows-2022
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
