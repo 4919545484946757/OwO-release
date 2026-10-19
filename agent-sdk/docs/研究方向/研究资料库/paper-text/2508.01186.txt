@@ -1,0 +1,291 @@
+A Survey on Agent Workflow – Status and Future
+Chaojia Yu
+School of Computer Science
+Sichuan University
+Chengdu, China
+yuchaojia82@gmail.com
+Zihan Cheng
+School of Computer Science
+Sichuan University
+Chengdu, China
+czh051228@gmail.com
+Hanwen Cui
+School of Computer Science
+Sichuan University
+Chengdu, China
+gmtd3328696811@gmail.com
+Yishuo Gao
+School of Computer Science
+Sichuan University
+Chengdu, China
+gaoyishuo1@gmail.com
+Zexu Luo
+School of Computer Science
+Sichuan University
+Chengdu, China
+luozexu535@gmail.com
+Yijin Wang
+School of Computer Science
+Sichuan University
+Chengdu, China
+2024141520284@stu.scu.edu.cn
+Hangbin Zheng
+School of Computer Science
+Sichuan University
+Chengdu, China
+zhenghangbin2006@gmail.com
+Yong Zhao*
+School of Computer Science
+Sichuan University
+Chengdu, China
+yong.zhao@scupi.cn
+*Corresponding author
+Abstract—In the age of large language models (LLMs),
+autonomous agents have emerged as a powerful paradigm for
+achieving general intelligence. These agents dynamically
+leverage tools, memory, and reasoning capabilities to
+accomplish user-defined goals. As agent systems grow in
+complexity, agent workflows—structured orchestration
+frameworks have become central to enabling scalable,
+controllable, and secure AI behaviors. This survey provides a
+comprehensive review of agent workflow systems, spanning
+academic frameworks and industrial implementations. We
+classify existing systems along two key dimensions: functional
+capabilities (e.g., planning, multi-agent collaboration,
+external API integration) and architectural features (e.g.,
+agent roles, orchestration flows, specification languages). By
+comparing over 20 representative systems, we highlight
+common patterns, potential technical challenges, and
+emerging trends. We further address concerns related to
+workflow optimization strategies and security. Finally, we
+outline open problems such as standardization, and multi-modal
+integration—offering insights for future research at the
+intersection of agent design, workflow infrastructure, and safe
+automation.
+Keywords—Agent Workflow, Specification, Orchestration,
+Standardization, LLM, Optimization, Security, MAS
+I. INTRODUCTION
+In the age of artificial intelligence, automation is no
+longer a mere engineering convenience but a shared
+aspiration. Building autonomous systems becomes an
+efficient path toward discovering the paradigm of
+intelligence.
+Among various efforts, the emergence of large language
+models (LLMs) has revolutionized natural language
+understanding and decision-making, demonstrating
+remarkable capabilities in reasoning, planning, and tool-use
+coordination.
+Researchers have begun exploring how to grant LLMs
+more autonomy in decision-making and task execution. For
+example, Auto-GPT is a product of an experimental project
+developed to make the use of GPT-4 autonomous [1].
+To solve a problem or make a decision, we naturally
+follow some order by planning in advance, then taking a
+sequence of actions to complete the task. In human
+cognition, it is natural to represent problem-solving as a
+step-by-step procedure—a workflow that clarifies “what
+happens next” in a structured manner. Equipped with the
+capability of agents, we have a big step from manually
+pre-defined workflow. However, as more agent workflows
+are introduced by major companies [2][3], the absence of
+a unified workflow framework is becoming increasingly
+clear. Individual agents—no matter how powerful—
+operate like isolated units, unable to cooperate effectively
+or adapt to dynamic requirements. In this context,
+workflow is not only a task execution tool but serves as
+the backbone of the emerging AI ecosystem, orchestrating
+agents across roles, capabilities, and modalities.
+Ultimately, the goal of agent workflow research is to
+enable agents to operate fully autonomous in real-world
+scenarios involving complex, multi-step task.
+This survey provides a systematic introduction to agent
+workflows and offers a comparative analysis of their
+capabilities, architectures, and underlying mechanisms. It
+aims to help readers understand the current status and
+future directions of agent workflows.
+The remainder of this survey is structured as follows.
+Section 2 reviews the background. Section 3 presents an
+overview of common frameworks of agent workflows,
+focusing on architecture, specification and workflow
+management mechanisms. Section 4 explores a
+comprehend comparison for current agent workflows.
+Section 5 lists several workflow-level optimization
+strategies. Section 6 highlights major application domains.
+Section 7, 8, 9 discuss security issues, limitations and
+future work, provide conclusion, respectively.
+
+Fig. 1. Overview of the Survey
+II. BACKGROUND
+A. Definition
+Agent: Agents are systems where LLMs dynamically
+direct their own processes and tool usage, maintaining
+control over how they accomplish tasks [4].
+The core features of agent is autonomy, interactivity
+and adaptability. A system can reasonably be regarded as
+an agent rather than a static LLM wrapper once we
+validate these features.
+Workflow: A workflow is a system for managing
+repetitive processes and tasks which occur in a particular
+order [4].
+A workflow can include operations such as asking the
+user for information, invoking tools, and responding to the
+user, which can be represented as a series of nodes or
+stages. One common way to represent and organize is to
+use a directed graph, the nodes represent distinct decision
+point, and the directed edges represent temporal or
+dependency relationships between nodes. To combine, the
+language model operates within an existing workflow by
+following a predefined process to accomplish tasks.
+B. Component of Agent
+An agent has two main parts: The brain (AI model),
+usually LLM, which is for reasoning, planning and
+reflection. The body of an agent refers to its built-in
+capabilities (e.g., memory) and external tools used to
+complete actions.
+C. Multi-agent System (MAS)
+Multi-agent systems (MAS) evolve from single-agent
+execution to collaborative interaction and ultimately to
+orchestrated work-flows. A single agent has simple
+attributes that can solve a particular inference task.
+However, complex problems require extensive
+collaboration and collective intelligence, which lead to
+Fig. 2. The World of Agent Workflow
+Multi-agent System. The core advantage of MAS lies in its
+distributed decision-making and problem-solving
+capabilities [6].
+D. Evolution of Agent Workflow
+The evolution of workflow can be divided into these
+four stages.
+i. Business Process Management
+ii. Data-driven Science and Research Workflow
+iii. Agent Workflow
+iv. Autonomous Pervasive
+The traditional non-AI framework is usually pre-
+defined with hard-coded rules, hints and tool chains. The
+workflow is supported by designing the script manually,
+following a particular tool orchestration. This includes
+business-centric automation, research prototypes for
+cognition.
+With the development of technology, agents are
+increasingly embedded into workflows to assist or
+automate decision-making. The agent workflow is defined
+as several agents follow the order to make a sequence of
+decisions, using available tools through interaction with
+the environment. To make sure LLM Agents follow an
+effective and reliable procedure to solve the given task,
+workflows are usually used to guide the working
+mechanism of agents [5]. To dealing with more
+complicated tasks, Thus we need to define complicated
+workflow.
+Ultimately, the target is to build agents that are truly
+autonomous—not following any pre-set instructions but
+only general prompts, just like “aware” of its own process.
+We call it auto-pervasive agents that continuously act,
+reason, and adapt within real-world environments.
+III. FRAMEWORK OF AGENT WORKFLOWS
+To achieve complicated workflow we must have a
+unified framework or paradigm.
+A. Multi-layer Architecture
+
+The typical agent workflow architecture includes 3
+layers.
+1) UI/UX: Provides the interface layer for users to
+interact with agents intuitively.
+2) Workflow Management: Coordinates the execution
+of tasks through structured processes, interacts with two
+other layers.
+3) Agent Collaboration: Enables multiple agents [7] to
+cooperate, communicate, and delegate subtasks to achieve
+complex goals collectively.
+B. Roles of Agent
+Multi-agent workflows assume diverse roles for agents
+based on the system’s needs and coordination strategies.
+Typical roles include:
+Planner: Responsible for decomposing tasks and
+assigning responsibilities (e.g., Commander in AutoGen2
+[8]).
+Executor: Carries out specific subtasks or tool calls
+(e.g., Coder).
+Parser/interpreter: interprets external data (e.g., input
+queries, file formats, code).
+Critic/Reviewer: evaluates results or provides feedback.
+Memory Manager, Communicator, etc.
+For example, in the context of simulating the
+operations of a school, appropriate roles would include
+teachers, students, and the principal.
+C. Specification
+Currently, AI agents developed by different vendors
+and research institutions often adopt disparate
+architectures, interface standards, communication
+protocols, and data formats, making it difficult for agents
+to interoperate directly. We urge to set a standardized
+specification and expect to solve the following questions
+like:
+a. In which form can we represent workflows precisely?
+b. How to control the behavior of LLMs effectively?
+1) Language
+ Prompt: Natural language instead of formal languages.
+This makes workflows highly flexible and human-
+readable, but also less standardized and harder to
+validate.
+ Modeling Workflow: Traditional formal workflow
+languages, such as BPML (Business Process Modeling
+Language) and XPDL (XML Process Definition
+Language). Business Process Execution Language for
+Web Services (BPEL4WS) [9][10].define task nodes,
+state transitions, and interface specifications to formally
+describe the structure and execution logic of a workflow.
+Swift [74], VDL [75] use a functional-flavored scripting
+language to concisely describe large scale scientific
+workflows.
+ Programming: python, etc.
+ Declarative configuration: YAML, JSON, etc.
+2) Tool: Tool-backed agents have the capability to
+execute external tools via code execution or function
+execution [3]. For Example, the systems have retrieval
+tools like vector search engines, web searcher,
+computation and reasoning tools like calculators, code
+interpreters, knowledge and query tools like databases,
+Q&A systems, APIs and function calling Interfaces like
+OpenAI function calling, toolbox Interface (e.g., AutoGPT
+ToolManager) [11]. This integration enables LLMs to
+access real-time knowledge and perform specialized
+operations [12].
+3) Protocol:
+General-purpose service Protocols: REST/HTTP that
+used in most agent tool calls and API wrapping.
+WebSocket, etc. for real-time, bidirectional
+communication. These protocols are based on function-
+calling.
+Agent-native Protocols:
+Model Context Protocol (MCP): an open protocol that
+enables seamless integration between LLM applications
+and external data sources and tools [28].
+Agent Network Protocol (ANP): an open source
+protocol for agent communication which aims to become
+the HTTP of the agentic web era. The vision is to define
+how agents connect with each other, building an open,
+secure, and efficient collaboration network for billions of
+intelligent agents.
+4) Interactive Pattern: This specification mainly
+discuss how agents perceive environmental information to
+acquire knowledge and experience.
+a. Interacting with environment. The components are
+environment, sensor, executor and effector, following
+the process of observation, action and feedback.
+b. Interacting with other human users. Mainly
+through dialogues, following the procedure of ”human-
+in-loop”.
+c. Interacting with self or other agents. These are
+discussed in the scope of reflection and MAS.
+The targets are presented in Fig. 1.
+D. Workflow Management
+Since workflow management is a broad topic, we
+present key taxonomies and important aspects here.
+Workflow Management System is a system that
+defines, creates and manages the execution of workflows
+through the use of software, running on one or more
+workflow engines, which is able to interpret the process
+definition, interact with workflow participants and, where
+required, invoke the use of tools and applications [10].
+1) Workflow Mode:

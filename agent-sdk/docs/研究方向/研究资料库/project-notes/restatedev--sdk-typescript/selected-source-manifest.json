@@ -1,0 +1,117 @@
+[
+  {
+    "path": "packages/libs/restate-sdk-gen/src/task.ts",
+    "sha256": "69687ed94c9ee476c971ca18ac7ba696b9a2a108c0dc962b54d60a497fc3fb58",
+    "bytes": 3213,
+    "symbols": [
+      "export interface Task<T> extends Future<T> {",
+      "export class InterruptedError extends Error {",
+      "export function makeTask<T>("
+    ]
+  },
+  {
+    "path": "packages/libs/restate-sdk/src/user_agent.ts",
+    "sha256": "9a3443e8abc6f51f9a49907c13daf6853d369afc82d7ddad115d3b3c447f6aa3",
+    "bytes": 501,
+    "symbols": [
+      "export const X_RESTATE_SERVER = `restate-sdk-typescript/${pkg.version}`;"
+    ]
+  },
+  {
+    "path": "packages/libs/restate-sdk-gen/src/scheduler.ts",
+    "sha256": "5faa6c0fdaa0855308a5e4f9be60f92bcaf2494976e8bfa4fb4fbbcd3f53028f",
+    "bytes": 22504,
+    "symbols": [
+      "export interface SchedulerOptions {",
+      "export class Scheduler implements SchedulerOps {"
+    ]
+  },
+  {
+    "path": "packages/libs/restate-sdk-gen/src/scheduler-types.ts",
+    "sha256": "f1fc869a22c1971c7437622b098025cfabe94aca95357627b75f2d58a33af198",
+    "bytes": 1421,
+    "symbols": []
+  },
+  {
+    "path": "sdk-shared-core-wasm-bindings/src/lib.rs",
+    "sha256": "ed9f5a69dbd8489f19c0ea2cdf989764821163bd4e06935677623d5fe002b553",
+    "bytes": 40341,
+    "symbols": [
+      "pub fn start() {",
+      "pub enum LogLevel {",
+      "pub enum WasmJournalMismatchBehavior {",
+      "pub struct MakeWebConsoleWriter {",
+      "pub struct ConsoleWriter {",
+      "pub fn set_log_level(level: LogLevel) {",
+      "pub enum WasmCommandType {",
+      "pub struct WasmHeader {",
+      "pub fn new(key: String, value: String) -> WasmHeader {",
+      "pub struct WasmResponseHead {",
+      "pub struct WasmFailureMetadata {",
+      "pub struct WasmFailure {"
+    ]
+  },
+  {
+    "path": "packages/libs/restate-sdk-gen/test-services/src/block-and-wait-workflow.ts",
+    "sha256": "3ca5adb3355ce38c382b9080c8cd5b315a119d042f3217f855383a89d314dc22",
+    "bytes": 1246,
+    "symbols": [
+      "export const blockAndWaitWorkflow = workflow({"
+    ]
+  },
+  {
+    "path": "packages/libs/restate-sdk/src/io.ts",
+    "sha256": "49e289f2b52e3af06925ec3e0f1ad23f1e8b4e05eb23046b2c113ac792a2f256",
+    "bytes": 2477,
+    "symbols": [
+      "export class InputPump {",
+      "export class OutputPump {"
+    ]
+  },
+  {
+    "path": "packages/libs/restate-sdk/src/node.ts",
+    "sha256": "ef9126d02d73a40dab73981ba04b117318c8cec104dc1675fe3d84dfd0a7bbce",
+    "bytes": 3590,
+    "symbols": [
+      "export function endpoint(): RestateEndpoint {",
+      "export interface NodeEndpointOptions extends EndpointOptions {",
+      "export function createEndpointHandler(options: NodeEndpointOptions) {",
+      "export interface ServeOptions extends EndpointOptions {",
+      "export function serve({ port, ...options }: ServeOptions) {"
+    ]
+  },
+  {
+    "path": "packages/libs/restate-sdk/src/fetch.ts",
+    "sha256": "40e52d7832a0cbc424d1d0b397aeb965c1c14fea6da182e80e553dbdd6ec02b6",
+    "bytes": 2399,
+    "symbols": [
+      "export function endpoint(): FetchEndpoint {",
+      "export interface FetchEndpointOptions extends EndpointOptions {",
+      "export function createEndpointHandler(options: FetchEndpointOptions) {"
+    ]
+  },
+  {
+    "path": "packages/libs/restate-sdk/src/hooks.ts",
+    "sha256": "7776c74ba364c2c059dbd0942b5e4fd2f74d29d0cf9771e891260b90e96b7021",
+    "bytes": 2768,
+    "symbols": [
+      "export interface Interceptor {",
+      "export interface Hooks {"
+    ]
+  },
+  {
+    "path": "packages/libs/restate-sdk/src/index.ts",
+    "sha256": "5d5f18d451a6951e3faded3ed9e06f115870e7d4fb6fc6e007f25a2eb108b0cb",
+    "bytes": 397,
+    "symbols": []
+  },
+  {
+    "path": "packages/libs/restate-sdk/src/lambda.ts",
+    "sha256": "43c58de127e2d0f72d925a02ae10407d2c9655294153ed16e744a95fa2d7b4f8",
+    "bytes": 1503,
+    "symbols": [
+      "export function endpoint(): LambdaEndpoint {",
+      "export function createEndpointHandler(options: EndpointOptions) {"
+    ]
+  }
+]

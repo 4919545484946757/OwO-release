@@ -1,0 +1,2965 @@
+{
+  "kept": [
+    {
+      "path": ".agents/skills/writing-release-notes/SKILL.md",
+      "bytes": 9438
+    },
+    {
+      "path": ".github/.internal_dspyai/internals/build-and-release.md",
+      "bytes": 4807
+    },
+    {
+      "path": ".github/.internal_dspyai/internals/release-checklist.md",
+      "bytes": 3801
+    },
+    {
+      "path": ".github/.internal_dspyai/pyproject.toml",
+      "bytes": 783
+    },
+    {
+      "path": ".github/.tmp/.generated-actions/run-pypi-publish-in-docker-container/action.yml",
+      "bytes": 1118
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "bytes": 976
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.yml",
+      "bytes": 882
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE/pull_request_template.md",
+      "bytes": 350
+    },
+    {
+      "path": ".github/dependabot.yml",
+      "bytes": 501
+    },
+    {
+      "path": ".github/workflow_scripts/install_testpypi_pkg.sh",
+      "bytes": 393
+    },
+    {
+      "path": ".github/workflows/build_and_release.yml",
+      "bytes": 13830
+    },
+    {
+      "path": ".github/workflows/build_utils/test_version.py",
+      "bytes": 2280
+    },
+    {
+      "path": ".github/workflows/dependency-range.yml",
+      "bytes": 3293
+    },
+    {
+      "path": ".github/workflows/docs-push.yml",
+      "bytes": 3138
+    },
+    {
+      "path": ".github/workflows/precommits_check.yml",
+      "bytes": 1647
+    },
+    {
+      "path": ".github/workflows/run_tests.yml",
+      "bytes": 12339
+    },
+    {
+      "path": ".github/workflows/vendored_lm15.yml",
+      "bytes": 1321
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "bytes": 701
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 7141
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1085
+    },
+    {
+      "path": "README.md",
+      "bytes": 4788
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 804
+    },
+    {
+      "path": "docs/README.md",
+      "bytes": 2761
+    },
+    {
+      "path": "docs/build.yml",
+      "bytes": 928
+    },
+    {
+      "path": "docs/docs/api/adapters/Adapter.md",
+      "bytes": 771
+    },
+    {
+      "path": "docs/docs/api/adapters/ChatAdapter.md",
+      "bytes": 899
+    },
+    {
+      "path": "docs/docs/api/adapters/JSONAdapter.md",
+      "bytes": 899
+    },
+    {
+      "path": "docs/docs/api/adapters/TwoStepAdapter.md",
+      "bytes": 785
+    },
+    {
+      "path": "docs/docs/api/adapters/XMLAdapter.md",
+      "bytes": 897
+    },
+    {
+      "path": "docs/docs/api/adapters/index.md",
+      "bytes": 271
+    },
+    {
+      "path": "docs/docs/api/evaluation/CompleteAndGrounded.md",
+      "bytes": 893
+    },
+    {
+      "path": "docs/docs/api/evaluation/Evaluate.md",
+      "bytes": 404
+    },
+    {
+      "path": "docs/docs/api/evaluation/EvaluationResult.md",
+      "bytes": 708
+    },
+    {
+      "path": "docs/docs/api/evaluation/SemanticF1.md",
+      "bytes": 875
+    },
+    {
+      "path": "docs/docs/api/evaluation/answer_exact_match.md",
+      "bytes": 402
+    },
+    {
+      "path": "docs/docs/api/evaluation/answer_passage_match.md",
+      "bytes": 406
+    },
+    {
+      "path": "docs/docs/api/evaluation/index.md",
+      "bytes": 361
+    },
+    {
+      "path": "docs/docs/api/experimental/Citations.md",
+      "bytes": 728
+    },
+    {
+      "path": "docs/docs/api/experimental/DecisionTypes.md",
+      "bytes": 14878
+    },
+    {
+      "path": "docs/docs/api/experimental/Document.md",
+      "bytes": 697
+    },
+    {
+      "path": "docs/docs/api/experimental/ReAnchor.md",
+      "bytes": 7248
+    },
+    {
+      "path": "docs/docs/api/experimental/index.md",
+      "bytes": 262
+    },
+    {
+      "path": "docs/docs/api/index.md",
+      "bytes": 154
+    },
+    {
+      "path": "docs/docs/api/models/BaseLM.md",
+      "bytes": 593
+    },
+    {
+      "path": "docs/docs/api/models/Embedder.md",
+      "bytes": 530
+    },
+    {
+      "path": "docs/docs/api/models/LM.md",
+      "bytes": 701
+    },
+    {
+      "path": "docs/docs/api/models/index.md",
+      "bytes": 173
+    },
+    {
+      "path": "docs/docs/api/modules/BestOfN.md",
+      "bytes": 851
+    },
+    {
+      "path": "docs/docs/api/modules/ChainOfThought.md",
+      "bytes": 888
+    },
+    {
+      "path": "docs/docs/api/modules/CodeAct.md",
+      "bytes": 3451
+    },
+    {
+      "path": "docs/docs/api/modules/Flex.md",
+      "bytes": 10656
+    },
+    {
+      "path": "docs/docs/api/modules/Module.md",
+      "bytes": 827
+    },
+    {
+      "path": "docs/docs/api/modules/MultiChainComparison.md",
+      "bytes": 877
+    },
+    {
+      "path": "docs/docs/api/modules/Parallel.md",
+      "bytes": 426
+    },
+    {
+      "path": "docs/docs/api/modules/Predict.md",
+      "bytes": 947
+    },
+    {
+      "path": "docs/docs/api/modules/ProgramOfThought.md",
+      "bytes": 1012
+    },
+    {
+      "path": "docs/docs/api/modules/RLM.md",
+      "bytes": 12344
+    },
+    {
+      "path": "docs/docs/api/modules/ReAct.md",
+      "bytes": 904
+    },
+    {
+      "path": "docs/docs/api/modules/ReActV2.md",
+      "bytes": 1502
+    },
+    {
+      "path": "docs/docs/api/modules/Refine.md",
+      "bytes": 849
+    },
+    {
+      "path": "docs/docs/api/modules/index.md",
+      "bytes": 463
+    },
+    {
+      "path": "docs/docs/api/optimizers/BetterTogether.md",
+      "bytes": 7842
+    },
+    {
+      "path": "docs/docs/api/optimizers/BootstrapFewShot.md",
+      "bytes": 444
+    },
+    {
+      "path": "docs/docs/api/optimizers/BootstrapFewShotWithRandomSearch.md",
+      "bytes": 476
+    },
+    {
+      "path": "docs/docs/api/optimizers/BootstrapFinetune.md",
+      "bytes": 506
+    },
+    {
+      "path": "docs/docs/api/optimizers/BootstrapRS.md",
+      "bytes": 434
+    },
+    {
+      "path": "docs/docs/api/optimizers/COPRO.md",
+      "bytes": 422
+    },
+    {
+      "path": "docs/docs/api/optimizers/Ensemble.md",
+      "bytes": 428
+    },
+    {
+      "path": "docs/docs/api/optimizers/GEPA/GEPA_Advanced.md",
+      "bytes": 26154
+    },
+    {
+      "path": "docs/docs/api/optimizers/GEPA/overview.md",
+      "bytes": 8395
+    },
+    {
+      "path": "docs/docs/api/optimizers/InferRules.md",
+      "bytes": 613
+    },
+    {
+      "path": "docs/docs/api/optimizers/KNN.md",
+      "bytes": 495
+    },
+    {
+      "path": "docs/docs/api/optimizers/KNNFewShot.md",
+      "bytes": 540
+    },
+    {
+      "path": "docs/docs/api/optimizers/LabeledFewShot.md",
+      "bytes": 440
+    },
+    {
+      "path": "docs/docs/api/optimizers/MIPROv2.md",
+      "bytes": 4205
+    },
+    {
+      "path": "docs/docs/api/optimizers/SIMBA.md",
+      "bytes": 1239
+    },
+    {
+      "path": "docs/docs/api/optimizers/index.md",
+      "bytes": 580
+    },
+    {
+      "path": "docs/docs/api/primitives/Audio.md",
+      "bytes": 761
+    },
+    {
+      "path": "docs/docs/api/primitives/Code.md",
+      "bytes": 663
+    },
+    {
+      "path": "docs/docs/api/primitives/Example.md",
+      "bytes": 587
+    },
+    {
+      "path": "docs/docs/api/primitives/History.md",
+      "bytes": 362
+    },
+    {
+      "path": "docs/docs/api/primitives/Image.md",
+      "bytes": 730
+    },
+    {
+      "path": "docs/docs/api/primitives/Prediction.md",
+      "bytes": 678
+    },
+    {
+      "path": "docs/docs/api/primitives/Tool.md",
+      "bytes": 780
+    },
+    {
+      "path": "docs/docs/api/primitives/ToolCalls.md",
+      "bytes": 702
+    },
+    {
+      "path": "docs/docs/api/primitives/index.md",
+      "bytes": 301
+    },
+    {
+      "path": "docs/docs/api/signatures/InputField.md",
+      "bytes": 368
+    },
+    {
+      "path": "docs/docs/api/signatures/OutputField.md",
+      "bytes": 370
+    },
+    {
+      "path": "docs/docs/api/signatures/Signature.md",
+      "bytes": 639
+    },
+    {
+      "path": "docs/docs/api/signatures/index.md",
+      "bytes": 209
+    },
+    {
+      "path": "docs/docs/api/tools/ColBERTv2.md",
+      "bytes": 406
+    },
+    {
+      "path": "docs/docs/api/tools/Embeddings.md",
+      "bytes": 623
+    },
+    {
+      "path": "docs/docs/api/tools/LocalInterpreter.md",
+      "bytes": 2331
+    },
+    {
+      "path": "docs/docs/api/tools/PythonInterpreter.md",
+      "bytes": 2238
+    },
+    {
+      "path": "docs/docs/api/tools/index.md",
+      "bytes": 253
+    },
+    {
+      "path": "docs/docs/api/utils/Errors.md",
+      "bytes": 2178
+    },
+    {
+      "path": "docs/docs/api/utils/StatusMessage.md",
+      "bytes": 394
+    },
+    {
+      "path": "docs/docs/api/utils/StatusMessageProvider.md",
+      "bytes": 661
+    },
+    {
+      "path": "docs/docs/api/utils/StreamListener.md",
+      "bytes": 478
+    },
+    {
+      "path": "docs/docs/api/utils/asyncify.md",
+      "bytes": 364
+    },
+    {
+      "path": "docs/docs/api/utils/configure.md",
+      "bytes": 3646
+    },
+    {
+      "path": "docs/docs/api/utils/configure_cache.md",
+      "bytes": 378
+    },
+    {
+      "path": "docs/docs/api/utils/context.md",
+      "bytes": 2936
+    },
+    {
+      "path": "docs/docs/api/utils/disable_litellm_logging.md",
+      "bytes": 394
+    },
+    {
+      "path": "docs/docs/api/utils/disable_logging.md",
+      "bytes": 378
+    },
+    {
+      "path": "docs/docs/api/utils/enable_litellm_logging.md",
+      "bytes": 392
+    },
+    {
+      "path": "docs/docs/api/utils/enable_logging.md",
+      "bytes": 376
+    },
+    {
+      "path": "docs/docs/api/utils/index.md",
+      "bytes": 649
+    },
+    {
+      "path": "docs/docs/api/utils/inspect_history.md",
+      "bytes": 378
+    },
+    {
+      "path": "docs/docs/api/utils/load.md",
+      "bytes": 356
+    },
+    {
+      "path": "docs/docs/api/utils/streamify.md",
+      "bytes": 366
+    },
+    {
+      "path": "docs/docs/cheatsheet.md",
+      "bytes": 15554
+    },
+    {
+      "path": "docs/docs/community/built-with-dspy.md",
+      "bytes": 9092
+    },
+    {
+      "path": "docs/docs/community/community-resources.md",
+      "bytes": 4365
+    },
+    {
+      "path": "docs/docs/community/how-to-contribute.md",
+      "bytes": 251
+    },
+    {
+      "path": "docs/docs/community/normalized-lm-api-migration.md",
+      "bytes": 20130
+    },
+    {
+      "path": "docs/docs/community/use-cases.md",
+      "bytes": 8801
+    },
+    {
+      "path": "docs/docs/deep-dive/data-handling/built-in-datasets.md",
+      "bytes": 5983
+    },
+    {
+      "path": "docs/docs/deep-dive/data-handling/examples.md",
+      "bytes": 3884
+    },
+    {
+      "path": "docs/docs/deep-dive/data-handling/loading-custom-data.md",
+      "bytes": 5655
+    },
+    {
+      "path": "docs/docs/diving-deeper/adapters.md",
+      "bytes": 15941
+    },
+    {
+      "path": "docs/docs/diving-deeper/bootstrap-fewshot-family.md",
+      "bytes": 11722
+    },
+    {
+      "path": "docs/docs/diving-deeper/built-in-module-variants.md",
+      "bytes": 14215
+    },
+    {
+      "path": "docs/docs/diving-deeper/choosing-an-optimizer.md",
+      "bytes": 13807
+    },
+    {
+      "path": "docs/docs/diving-deeper/flex.md",
+      "bytes": 15728
+    },
+    {
+      "path": "docs/docs/diving-deeper/gepa-in-depth.md",
+      "bytes": 13081
+    },
+    {
+      "path": "docs/docs/diving-deeper/metrics-and-evaluation.md",
+      "bytes": 11569
+    },
+    {
+      "path": "docs/docs/diving-deeper/modules.md",
+      "bytes": 11318
+    },
+    {
+      "path": "docs/docs/diving-deeper/react.md",
+      "bytes": 14048
+    },
+    {
+      "path": "docs/docs/diving-deeper/rlm.md",
+      "bytes": 12752
+    },
+    {
+      "path": "docs/docs/diving-deeper/saving-and-loading.md",
+      "bytes": 10314
+    },
+    {
+      "path": "docs/docs/diving-deeper/settings-and-context.md",
+      "bytes": 10377
+    },
+    {
+      "path": "docs/docs/diving-deeper/signatures-in-depth.md",
+      "bytes": 12404
+    },
+    {
+      "path": "docs/docs/diving-deeper/tools.md",
+      "bytes": 6957
+    },
+    {
+      "path": "docs/docs/faqs.md",
+      "bytes": 12867
+    },
+    {
+      "path": "docs/docs/getting-started/changing-modules.md",
+      "bytes": 1951
+    },
+    {
+      "path": "docs/docs/getting-started/class-based-signatures.md",
+      "bytes": 3993
+    },
+    {
+      "path": "docs/docs/getting-started/composing-modules.md",
+      "bytes": 7816
+    },
+    {
+      "path": "docs/docs/getting-started/expanding-signatures.md",
+      "bytes": 3694
+    },
+    {
+      "path": "docs/docs/getting-started/first-program.md",
+      "bytes": 4725
+    },
+    {
+      "path": "docs/docs/getting-started/gepa-optimization.md",
+      "bytes": 9970
+    },
+    {
+      "path": "docs/docs/getting-started/installation.md",
+      "bytes": 1843
+    },
+    {
+      "path": "docs/docs/getting-started/metrics.md",
+      "bytes": 5813
+    },
+    {
+      "path": "docs/docs/getting-started/program-dont-prompt.md",
+      "bytes": 1725
+    },
+    {
+      "path": "docs/docs/getting-started/react-and-tools.md",
+      "bytes": 5348
+    },
+    {
+      "path": "docs/docs/getting-started/saving-and-loading.md",
+      "bytes": 2267
+    },
+    {
+      "path": "docs/docs/getting-started/where-to-go-next.md",
+      "bytes": 1454
+    },
+    {
+      "path": "docs/docs/index.md",
+      "bytes": 57
+    },
+    {
+      "path": "docs/docs/js/hero-interactive.js",
+      "bytes": 9564
+    },
+    {
+      "path": "docs/docs/js/runllm-widget.js",
+      "bytes": 733
+    },
+    {
+      "path": "docs/docs/js/tutorial-nav.js",
+      "bytes": 2608
+    },
+    {
+      "path": "docs/docs/learn/evaluation/data.md",
+      "bytes": 5227
+    },
+    {
+      "path": "docs/docs/learn/evaluation/metrics.md",
+      "bytes": 6265
+    },
+    {
+      "path": "docs/docs/learn/evaluation/overview.md",
+      "bytes": 2153
+    },
+    {
+      "path": "docs/docs/learn/index.md",
+      "bytes": 1025
+    },
+    {
+      "path": "docs/docs/learn/optimization/optimizers.md",
+      "bytes": 16134
+    },
+    {
+      "path": "docs/docs/learn/optimization/overview.md",
+      "bytes": 2363
+    },
+    {
+      "path": "docs/docs/learn/programming/7-assertions.md",
+      "bytes": 14433
+    },
+    {
+      "path": "docs/docs/learn/programming/adapters.md",
+      "bytes": 11689
+    },
+    {
+      "path": "docs/docs/learn/programming/language_models.md",
+      "bytes": 15013
+    },
+    {
+      "path": "docs/docs/learn/programming/mcp.md",
+      "bytes": 6178
+    },
+    {
+      "path": "docs/docs/learn/programming/modules.md",
+      "bytes": 12280
+    },
+    {
+      "path": "docs/docs/learn/programming/overview.md",
+      "bytes": 2547
+    },
+    {
+      "path": "docs/docs/learn/programming/signatures.md",
+      "bytes": 11591
+    },
+    {
+      "path": "docs/docs/learn/programming/tools.md",
+      "bytes": 10653
+    },
+    {
+      "path": "docs/docs/production/index.md",
+      "bytes": 1540
+    },
+    {
+      "path": "docs/docs/roadmap.md",
+      "bytes": 15616
+    },
+    {
+      "path": "docs/docs/stylesheets/extra.css",
+      "bytes": 16383
+    },
+    {
+      "path": "docs/docs/stylesheets/home.css",
+      "bytes": 24941
+    },
+    {
+      "path": "docs/docs/tutorials/ai_text_game/index.md",
+      "bytes": 25502
+    },
+    {
+      "path": "docs/docs/tutorials/async/index.md",
+      "bytes": 5191
+    },
+    {
+      "path": "docs/docs/tutorials/build_ai_program/index.md",
+      "bytes": 3062
+    },
+    {
+      "path": "docs/docs/tutorials/cache/index.md",
+      "bytes": 13162
+    },
+    {
+      "path": "docs/docs/tutorials/classification/index.md",
+      "bytes": 289
+    },
+    {
+      "path": "docs/docs/tutorials/conversation_history/index.md",
+      "bytes": 7794
+    },
+    {
+      "path": "docs/docs/tutorials/core_development/index.md",
+      "bytes": 2617
+    },
+    {
+      "path": "docs/docs/tutorials/custom_lm_engines/index.md",
+      "bytes": 14753
+    },
+    {
+      "path": "docs/docs/tutorials/dataframe_rlm/cohort_analysis/dataframe.py",
+      "bytes": 3480
+    },
+    {
+      "path": "docs/docs/tutorials/dataframe_rlm/cohort_analysis/generate_cohort_data.py",
+      "bytes": 6963
+    },
+    {
+      "path": "docs/docs/tutorials/deployment/index.md",
+      "bytes": 9172
+    },
+    {
+      "path": "docs/docs/tutorials/email_extraction/index.md",
+      "bytes": 12324
+    },
+    {
+      "path": "docs/docs/tutorials/gepa_ai_program/index.md",
+      "bytes": 2309
+    },
+    {
+      "path": "docs/docs/tutorials/index.md",
+      "bytes": 3558
+    },
+    {
+      "path": "docs/docs/tutorials/jev_decisions/index.md",
+      "bytes": 13225
+    },
+    {
+      "path": "docs/docs/tutorials/llms_txt_generation/index.md",
+      "bytes": 10242
+    },
+    {
+      "path": "docs/docs/tutorials/mcp/index.md",
+      "bytes": 15053
+    },
+    {
+      "path": "docs/docs/tutorials/mem0_react_agent/index.md",
+      "bytes": 10443
+    },
+    {
+      "path": "docs/docs/tutorials/observability/index.md",
+      "bytes": 10214
+    },
+    {
+      "path": "docs/docs/tutorials/optimize_ai_program/index.md",
+      "bytes": 1567
+    },
+    {
+      "path": "docs/docs/tutorials/optimizer_tracking/index.md",
+      "bytes": 5170
+    },
+    {
+      "path": "docs/docs/tutorials/output_refinement/best-of-n-and-refine.md",
+      "bytes": 4572
+    },
+    {
+      "path": "docs/docs/tutorials/papillon/index.md",
+      "bytes": 548
+    },
+    {
+      "path": "docs/docs/tutorials/real_world_examples/index.md",
+      "bytes": 2150
+    },
+    {
+      "path": "docs/docs/tutorials/rl_ai_program/index.md",
+      "bytes": 1040
+    },
+    {
+      "path": "docs/docs/tutorials/sample_code_generation/index.md",
+      "bytes": 25979
+    },
+    {
+      "path": "docs/docs/tutorials/saving/index.md",
+      "bytes": 7388
+    },
+    {
+      "path": "docs/docs/tutorials/streaming/index.md",
+      "bytes": 18811
+    },
+    {
+      "path": "docs/docs/tutorials/yahoo_finance_react/index.md",
+      "bytes": 5680
+    },
+    {
+      "path": "docs/hooks/fetch_stats.py",
+      "bytes": 5558
+    },
+    {
+      "path": "docs/mkdocs.yml",
+      "bytes": 17330
+    },
+    {
+      "path": "docs/overrides/home.html",
+      "bytes": 28495
+    },
+    {
+      "path": "docs/overrides/main.html",
+      "bytes": 2511
+    },
+    {
+      "path": "docs/requirements.txt",
+      "bytes": 221
+    },
+    {
+      "path": "docs/scripts/build_docs.py",
+      "bytes": 11323
+    },
+    {
+      "path": "docs/scripts/generate_api_docs.py",
+      "bytes": 13767
+    },
+    {
+      "path": "docs/scripts/generate_api_summary.py",
+      "bytes": 4059
+    },
+    {
+      "path": "docs/scripts/publish_versioned_docs.py",
+      "bytes": 10044
+    },
+    {
+      "path": "docs/scripts/zensical_build.py",
+      "bytes": 20754
+    },
+    {
+      "path": "docs/vercel.json",
+      "bytes": 381
+    },
+    {
+      "path": "docs/versioning/README.md",
+      "bytes": 5894
+    },
+    {
+      "path": "docs/versioning/header.css",
+      "bytes": 2840
+    },
+    {
+      "path": "docs/versioning/header.js",
+      "bytes": 1664
+    },
+    {
+      "path": "dspy/__init__.py",
+      "bytes": 2313
+    },
+    {
+      "path": "dspy/__metadata__.py",
+      "bytes": 232
+    },
+    {
+      "path": "dspy/_vendor/UPDATING.md",
+      "bytes": 2485
+    },
+    {
+      "path": "dspy/_vendor/__init__.py",
+      "bytes": 349
+    },
+    {
+      "path": "dspy/_vendor/lm15-LICENSE",
+      "bytes": 1074
+    },
+    {
+      "path": "dspy/_vendor/lm15-provenance.txt",
+      "bytes": 213
+    },
+    {
+      "path": "dspy/_vendor/lm15/__init__.py",
+      "bytes": 11225
+    },
+    {
+      "path": "dspy/_vendor/lm15/_authlock.py",
+      "bytes": 14131
+    },
+    {
+      "path": "dspy/_vendor/lm15/_version.py",
+      "bytes": 107
+    },
+    {
+      "path": "dspy/_vendor/lm15/access.py",
+      "bytes": 34474
+    },
+    {
+      "path": "dspy/_vendor/lm15/adaptation.py",
+      "bytes": 8933
+    },
+    {
+      "path": "dspy/_vendor/lm15/auth.py",
+      "bytes": 36612
+    },
+    {
+      "path": "dspy/_vendor/lm15/authkit.py",
+      "bytes": 13942
+    },
+    {
+      "path": "dspy/_vendor/lm15/batch.py",
+      "bytes": 5424
+    },
+    {
+      "path": "dspy/_vendor/lm15/cloud/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "dspy/_vendor/lm15/cloud/chains.py",
+      "bytes": 72355
+    },
+    {
+      "path": "dspy/_vendor/lm15/cloud/hosts.py",
+      "bytes": 11167
+    },
+    {
+      "path": "dspy/_vendor/lm15/cloud/rs256.py",
+      "bytes": 8073
+    },
+    {
+      "path": "dspy/_vendor/lm15/cloud/sigv4.py",
+      "bytes": 5458
+    },
+    {
+      "path": "dspy/_vendor/lm15/compat.py",
+      "bytes": 61174
+    },
+    {
+      "path": "dspy/_vendor/lm15/credentials.py",
+      "bytes": 7321
+    },
+    {
+      "path": "dspy/_vendor/lm15/doctor.py",
+      "bytes": 17246
+    },
+    {
+      "path": "dspy/_vendor/lm15/errors.py",
+      "bytes": 23176
+    },
+    {
+      "path": "dspy/_vendor/lm15/features.py",
+      "bytes": 19031
+    },
+    {
+      "path": "dspy/_vendor/lm15/judgments.py",
+      "bytes": 12824
+    },
+    {
+      "path": "dspy/_vendor/lm15/live.py",
+      "bytes": 23530
+    },
+    {
+      "path": "dspy/_vendor/lm15/model_registry.py",
+      "bytes": 257
+    },
+    {
+      "path": "dspy/_vendor/lm15/models.py",
+      "bytes": 12549
+    },
+    {
+      "path": "dspy/_vendor/lm15/profiles.py",
+      "bytes": 10833
+    },
+    {
+      "path": "dspy/_vendor/lm15/protocols.py",
+      "bytes": 3572
+    },
+    {
+      "path": "dspy/_vendor/lm15/providers/__init__.py",
+      "bytes": 1136
+    },
+    {
+      "path": "dspy/_vendor/lm15/providers/anthropic.py",
+      "bytes": 63483
+    },
+    {
+      "path": "dspy/_vendor/lm15/providers/async_base.py",
+      "bytes": 48357
+    },
+    {
+      "path": "dspy/_vendor/lm15/providers/base.py",
+      "bytes": 65151
+    },
+    {
+      "path": "dspy/_vendor/lm15/providers/claude_code.py",
+      "bytes": 2566
+    },
+    {
+      "path": "dspy/_vendor/lm15/providers/common.py",
+      "bytes": 21435
+    },
+    {
+      "path": "dspy/_vendor/lm15/providers/gemini.py",
+      "bytes": 97120
+    },
+    {
+      "path": "dspy/_vendor/lm15/providers/openai.py",
+      "bytes": 105456
+    },
+    {
+      "path": "dspy/_vendor/lm15/providers/openai_chat.py",
+      "bytes": 117749
+    },
+    {
+      "path": "dspy/_vendor/lm15/providers/openai_codex.py",
+      "bytes": 2901
+    },
+    {
+      "path": "dspy/_vendor/lm15/providers/typesafe.py",
+      "bytes": 17499
+    },
+    {
+      "path": "dspy/_vendor/lm15/providers/xai.py",
+      "bytes": 15520
+    },
+    {
+      "path": "dspy/_vendor/lm15/rate_limits.py",
+      "bytes": 4334
+    },
+    {
+      "path": "dspy/_vendor/lm15/registry.py",
+      "bytes": 23402
+    },
+    {
+      "path": "dspy/_vendor/lm15/result.py",
+      "bytes": 46235
+    },
+    {
+      "path": "dspy/_vendor/lm15/router.py",
+      "bytes": 66710
+    },
+    {
+      "path": "dspy/_vendor/lm15/serde.py",
+      "bytes": 47939
+    },
+    {
+      "path": "dspy/_vendor/lm15/sse.py",
+      "bytes": 3112
+    },
+    {
+      "path": "dspy/_vendor/lm15/testing.py",
+      "bytes": 5483
+    },
+    {
+      "path": "dspy/_vendor/lm15/tools.py",
+      "bytes": 26781
+    },
+    {
+      "path": "dspy/_vendor/lm15/transports/__init__.py",
+      "bytes": 1322
+    },
+    {
+      "path": "dspy/_vendor/lm15/transports/_async.py",
+      "bytes": 24069
+    },
+    {
+      "path": "dspy/_vendor/lm15/transports/_exceptions.py",
+      "bytes": 1000
+    },
+    {
+      "path": "dspy/_vendor/lm15/transports/_fetch.py",
+      "bytes": 9224
+    },
+    {
+      "path": "dspy/_vendor/lm15/transports/_http11.py",
+      "bytes": 21774
+    },
+    {
+      "path": "dspy/_vendor/lm15/transports/_limits.py",
+      "bytes": 3277
+    },
+    {
+      "path": "dspy/_vendor/lm15/transports/_proxy.py",
+      "bytes": 3906
+    },
+    {
+      "path": "dspy/_vendor/lm15/transports/_ssl.py",
+      "bytes": 4279
+    },
+    {
+      "path": "dspy/_vendor/lm15/transports/_sync.py",
+      "bytes": 22262
+    },
+    {
+      "path": "dspy/_vendor/lm15/transports/_timeouts.py",
+      "bytes": 2105
+    },
+    {
+      "path": "dspy/_vendor/lm15/transports/_types.py",
+      "bytes": 5827
+    },
+    {
+      "path": "dspy/_vendor/lm15/transports/_url.py",
+      "bytes": 3412
+    },
+    {
+      "path": "dspy/_vendor/lm15/types.py",
+      "bytes": 134543
+    },
+    {
+      "path": "dspy/_vendor/lm15/vet.py",
+      "bytes": 39710
+    },
+    {
+      "path": "dspy/_vendor/lm15/video_jobs.py",
+      "bytes": 5326
+    },
+    {
+      "path": "dspy/adapters/__init__.py",
+      "bytes": 619
+    },
+    {
+      "path": "dspy/adapters/_legacy_type_markers.py",
+      "bytes": 2509
+    },
+    {
+      "path": "dspy/adapters/baml_adapter.py",
+      "bytes": 10937
+    },
+    {
+      "path": "dspy/adapters/base.py",
+      "bytes": 29784
+    },
+    {
+      "path": "dspy/adapters/chat_adapter.py",
+      "bytes": 12791
+    },
+    {
+      "path": "dspy/adapters/decision.py",
+      "bytes": 7104
+    },
+    {
+      "path": "dspy/adapters/decision_state.py",
+      "bytes": 10887
+    },
+    {
+      "path": "dspy/adapters/json_adapter.py",
+      "bytes": 12488
+    },
+    {
+      "path": "dspy/adapters/two_step_adapter.py",
+      "bytes": 9566
+    },
+    {
+      "path": "dspy/adapters/types/__init__.py",
+      "bytes": 507
+    },
+    {
+      "path": "dspy/adapters/types/audio.py",
+      "bytes": 8656
+    },
+    {
+      "path": "dspy/adapters/types/base_type.py",
+      "bytes": 7718
+    },
+    {
+      "path": "dspy/adapters/types/citation.py",
+      "bytes": 8046
+    },
+    {
+      "path": "dspy/adapters/types/code.py",
+      "bytes": 3837
+    },
+    {
+      "path": "dspy/adapters/types/decision.py",
+      "bytes": 10518
+    },
+    {
+      "path": "dspy/adapters/types/document.py",
+      "bytes": 4003
+    },
+    {
+      "path": "dspy/adapters/types/file.py",
+      "bytes": 7414
+    },
+    {
+      "path": "dspy/adapters/types/history.py",
+      "bytes": 2113
+    },
+    {
+      "path": "dspy/adapters/types/image.py",
+      "bytes": 11506
+    },
+    {
+      "path": "dspy/adapters/types/reasoning.py",
+      "bytes": 6231
+    },
+    {
+      "path": "dspy/adapters/types/tool.py",
+      "bytes": 22846
+    },
+    {
+      "path": "dspy/adapters/utils.py",
+      "bytes": 13137
+    },
+    {
+      "path": "dspy/adapters/xml_adapter.py",
+      "bytes": 11201
+    },
+    {
+      "path": "dspy/clients/__init__.py",
+      "bytes": 4080
+    },
+    {
+      "path": "dspy/clients/_deprecation.py",
+      "bytes": 3435
+    },
+    {
+      "path": "dspy/clients/_http.py",
+      "bytes": 907
+    },
+    {
+      "path": "dspy/clients/_litellm.py",
+      "bytes": 1730
+    },
+    {
+      "path": "dspy/clients/backend_selection.py",
+      "bytes": 4161
+    },
+    {
+      "path": "dspy/clients/base_lm.py",
+      "bytes": 16935
+    },
+    {
+      "path": "dspy/clients/cache.py",
+      "bytes": 12480
+    },
+    {
+      "path": "dspy/clients/call_context.py",
+      "bytes": 1308
+    },
+    {
+      "path": "dspy/clients/call_result.py",
+      "bytes": 8049
+    },
+    {
+      "path": "dspy/clients/capabilities.py",
+      "bytes": 9491
+    },
+    {
+      "path": "dspy/clients/costs.py",
+      "bytes": 5951
+    },
+    {
+      "path": "dspy/clients/databricks.py",
+      "bytes": 14546
+    },
+    {
+      "path": "dspy/clients/disk_serialization.py",
+      "bytes": 2964
+    },
+    {
+      "path": "dspy/clients/embedding.py",
+      "bytes": 7809
+    },
+    {
+      "path": "dspy/clients/engines/__init__.py",
+      "bytes": 681
+    },
+    {
+      "path": "dspy/clients/engines/base.py",
+      "bytes": 2173
+    },
+    {
+      "path": "dspy/clients/engines/dummy_engine.py",
+      "bytes": 3082
+    },
+    {
+      "path": "dspy/clients/engines/legacy_engine.py",
+      "bytes": 5044
+    },
+    {
+      "path": "dspy/clients/engines/lifecycle.py",
+      "bytes": 2066
+    },
+    {
+      "path": "dspy/clients/engines/litellm_engine.py",
+      "bytes": 12820
+    },
+    {
+      "path": "dspy/clients/engines/litellm_errors.py",
+      "bytes": 5493
+    },
+    {
+      "path": "dspy/clients/engines/lm15_engine.py",
+      "bytes": 8812
+    },
+    {
+      "path": "dspy/clients/engines/stream_guard.py",
+      "bytes": 2236
+    },
+    {
+      "path": "dspy/clients/engines/streaming.py",
+      "bytes": 2513
+    },
+    {
+      "path": "dspy/clients/errors.py",
+      "bytes": 4890
+    },
+    {
+      "path": "dspy/clients/execution.py",
+      "bytes": 36213
+    },
+    {
+      "path": "dspy/clients/legacy_outputs.py",
+      "bytes": 2998
+    },
+    {
+      "path": "dspy/clients/legacy_requests.py",
+      "bytes": 8159
+    },
+    {
+      "path": "dspy/clients/lm.py",
+      "bytes": 36124
+    },
+    {
+      "path": "dspy/clients/lm15_boundary.py",
+      "bytes": 4183
+    },
+    {
+      "path": "dspy/clients/lm_local.py",
+      "bytes": 15752
+    },
+    {
+      "path": "dspy/clients/model_metadata/LICENSE",
+      "bytes": 1419
+    },
+    {
+      "path": "dspy/clients/model_metadata/__init__.py",
+      "bytes": 6916
+    },
+    {
+      "path": "dspy/clients/model_metadata/provenance.json",
+      "bytes": 375
+    },
+    {
+      "path": "dspy/clients/openai.py",
+      "bytes": 8574
+    },
+    {
+      "path": "dspy/clients/provider.py",
+      "bytes": 10569
+    },
+    {
+      "path": "dspy/clients/typesafe.py",
+      "bytes": 6097
+    },
+    {
+      "path": "dspy/clients/utils_finetune.py",
+      "bytes": 5476
+    },
+    {
+      "path": "dspy/core/__init__.py",
+      "bytes": 142
+    },
+    {
+      "path": "dspy/core/types.py",
+      "bytes": 561
+    },
+    {
+      "path": "dspy/dsp/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "dspy/dsp/colbertv2.py",
+      "bytes": 8934
+    },
+    {
+      "path": "dspy/dsp/utils/__init__.py",
+      "bytes": 106
+    },
+    {
+      "path": "dspy/dsp/utils/dpr.py",
+      "bytes": 7283
+    },
+    {
+      "path": "dspy/dsp/utils/settings.py",
+      "bytes": 12061
+    },
+    {
+      "path": "dspy/dsp/utils/utils.py",
+      "bytes": 6689
+    },
+    {
+      "path": "dspy/evaluate/__init__.py",
+      "bytes": 417
+    },
+    {
+      "path": "dspy/evaluate/auto_evaluation.py",
+      "bytes": 5620
+    },
+    {
+      "path": "dspy/evaluate/evaluate.py",
+      "bytes": 15726
+    },
+    {
+      "path": "dspy/evaluate/metrics.py",
+      "bytes": 11629
+    },
+    {
+      "path": "dspy/experimental/__init__.py",
+      "bytes": 370
+    },
+    {
+      "path": "dspy/lm15.py",
+      "bytes": 9396
+    },
+    {
+      "path": "dspy/predict/__init__.py",
+      "bytes": 834
+    },
+    {
+      "path": "dspy/predict/aggregation.py",
+      "bytes": 1832
+    },
+    {
+      "path": "dspy/predict/avatar/__init__.py",
+      "bytes": 127
+    },
+    {
+      "path": "dspy/predict/avatar/avatar.py",
+      "bytes": 5399
+    },
+    {
+      "path": "dspy/predict/avatar/models.py",
+      "bytes": 658
+    },
+    {
+      "path": "dspy/predict/avatar/signatures.py",
+      "bytes": 828
+    },
+    {
+      "path": "dspy/predict/best_of_n.py",
+      "bytes": 3209
+    },
+    {
+      "path": "dspy/predict/chain_of_thought.py",
+      "bytes": 2224
+    },
+    {
+      "path": "dspy/predict/code_act.py",
+      "bytes": 7030
+    },
+    {
+      "path": "dspy/predict/flex/__init__.py",
+      "bytes": 60
+    },
+    {
+      "path": "dspy/predict/flex/bridge.py",
+      "bytes": 8985
+    },
+    {
+      "path": "dspy/predict/flex/ctx.py",
+      "bytes": 7628
+    },
+    {
+      "path": "dspy/predict/flex/flex.py",
+      "bytes": 7176
+    },
+    {
+      "path": "dspy/predict/flex/primitives_doc.py",
+      "bytes": 13228
+    },
+    {
+      "path": "dspy/predict/knn.py",
+      "bytes": 1975
+    },
+    {
+      "path": "dspy/predict/multi_chain_comparison.py",
+      "bytes": 1899
+    },
+    {
+      "path": "dspy/predict/parallel.py",
+      "bytes": 5209
+    },
+    {
+      "path": "dspy/predict/parameter.py",
+      "bytes": 26
+    },
+    {
+      "path": "dspy/predict/predict.py",
+      "bytes": 17551
+    },
+    {
+      "path": "dspy/predict/program_of_thought.py",
+      "bytes": 9602
+    },
+    {
+      "path": "dspy/predict/react.py",
+      "bytes": 11702
+    },
+    {
+      "path": "dspy/predict/react_v2.py",
+      "bytes": 16901
+    },
+    {
+      "path": "dspy/predict/refine.py",
+      "bytes": 9795
+    },
+    {
+      "path": "dspy/predict/retry.py",
+      "bytes": 3005
+    },
+    {
+      "path": "dspy/predict/rlm.py",
+      "bytes": 45498
+    },
+    {
+      "path": "dspy/primitives/__init__.py",
+      "bytes": 873
+    },
+    {
+      "path": "dspy/primitives/_facade_shim.py",
+      "bytes": 6419
+    },
+    {
+      "path": "dspy/primitives/base_module.py",
+      "bytes": 13151
+    },
+    {
+      "path": "dspy/primitives/code_interpreter.py",
+      "bytes": 8770
+    },
+    {
+      "path": "dspy/primitives/example.py",
+      "bytes": 12903
+    },
+    {
+      "path": "dspy/primitives/facade.py",
+      "bytes": 13564
+    },
+    {
+      "path": "dspy/primitives/local_interpreter.py",
+      "bytes": 14361
+    },
+    {
+      "path": "dspy/primitives/local_interpreter_worker.py",
+      "bytes": 9225
+    },
+    {
+      "path": "dspy/primitives/module.py",
+      "bytes": 13307
+    },
+    {
+      "path": "dspy/primitives/prediction.py",
+      "bytes": 6195
+    },
+    {
+      "path": "dspy/primitives/python_interpreter.py",
+      "bytes": 37856
+    },
+    {
+      "path": "dspy/primitives/repl_types.py",
+      "bytes": 5791
+    },
+    {
+      "path": "dspy/primitives/runner.js",
+      "bytes": 13959
+    },
+    {
+      "path": "dspy/primitives/sandbox_serializable.py",
+      "bytes": 4944
+    },
+    {
+      "path": "dspy/propose/__init__.py",
+      "bytes": 99
+    },
+    {
+      "path": "dspy/propose/dataset_summary_generator.py",
+      "bytes": 5056
+    },
+    {
+      "path": "dspy/propose/grounded_proposer.py",
+      "bytes": 16747
+    },
+    {
+      "path": "dspy/propose/propose_base.py",
+      "bytes": 241
+    },
+    {
+      "path": "dspy/propose/utils.py",
+      "bytes": 7311
+    },
+    {
+      "path": "dspy/retrievers/__init__.py",
+      "bytes": 180
+    },
+    {
+      "path": "dspy/retrievers/databricks_rm.py",
+      "bytes": 20552
+    },
+    {
+      "path": "dspy/retrievers/embeddings.py",
+      "bytes": 9601
+    },
+    {
+      "path": "dspy/retrievers/retrieve.py",
+      "bytes": 2039
+    },
+    {
+      "path": "dspy/retrievers/weaviate_rm.py",
+      "bytes": 5964
+    },
+    {
+      "path": "dspy/signatures/__init__.py",
+      "bytes": 450
+    },
+    {
+      "path": "dspy/signatures/field.py",
+      "bytes": 4548
+    },
+    {
+      "path": "dspy/signatures/signature.py",
+      "bytes": 34839
+    },
+    {
+      "path": "dspy/signatures/utils.py",
+      "bytes": 333
+    },
+    {
+      "path": "dspy/streaming/__init__.py",
+      "bytes": 419
+    },
+    {
+      "path": "dspy/streaming/messages.py",
+      "bytes": 5930
+    },
+    {
+      "path": "dspy/streaming/streamify.py",
+      "bytes": 13342
+    },
+    {
+      "path": "dspy/streaming/streaming_listener.py",
+      "bytes": 20757
+    },
+    {
+      "path": "dspy/teleprompt/__init__.py",
+      "bytes": 1911
+    },
+    {
+      "path": "dspy/teleprompt/avatar_optimizer.py",
+      "bytes": 8767
+    },
+    {
+      "path": "dspy/teleprompt/bettertogether.py",
+      "bytes": 29721
+    },
+    {
+      "path": "dspy/teleprompt/bootstrap.py",
+      "bytes": 12147
+    },
+    {
+      "path": "dspy/teleprompt/bootstrap_finetune.py",
+      "bytes": 14497
+    },
+    {
+      "path": "dspy/teleprompt/bootstrap_trace.py",
+      "bytes": 5916
+    },
+    {
+      "path": "dspy/teleprompt/copro_optimizer.py",
+      "bytes": 17453
+    },
+    {
+      "path": "dspy/teleprompt/ensemble.py",
+      "bytes": 1359
+    },
+    {
+      "path": "dspy/teleprompt/gepa/__init__.py",
+      "bytes": 160
+    },
+    {
+      "path": "dspy/teleprompt/gepa/gepa.py",
+      "bytes": 37993
+    },
+    {
+      "path": "dspy/teleprompt/gepa/gepa_flex_utils.py",
+      "bytes": 12133
+    },
+    {
+      "path": "dspy/teleprompt/gepa/gepa_utils.py",
+      "bytes": 21717
+    },
+    {
+      "path": "dspy/teleprompt/gepa/instruction_proposal.py",
+      "bytes": 35775
+    },
+    {
+      "path": "dspy/teleprompt/grpo.py",
+      "bytes": 38879
+    },
+    {
+      "path": "dspy/teleprompt/infer_rules.py",
+      "bytes": 6398
+    },
+    {
+      "path": "dspy/teleprompt/knn_fewshot.py",
+      "bytes": 2753
+    },
+    {
+      "path": "dspy/teleprompt/mipro_optimizer_v2.py",
+      "bytes": 34889
+    },
+    {
+      "path": "dspy/teleprompt/random_search.py",
+      "bytes": 7372
+    },
+    {
+      "path": "dspy/teleprompt/reanchor/__init__.py",
+      "bytes": 79
+    },
+    {
+      "path": "dspy/teleprompt/reanchor/calibrate.py",
+      "bytes": 16071
+    },
+    {
+      "path": "dspy/teleprompt/reanchor/reanchor.py",
+      "bytes": 4498
+    },
+    {
+      "path": "dspy/teleprompt/signature_opt.py",
+      "bytes": 2664
+    },
+    {
+      "path": "dspy/teleprompt/simba.py",
+      "bytes": 16690
+    },
+    {
+      "path": "dspy/teleprompt/simba_utils.py",
+      "bytes": 11007
+    },
+    {
+      "path": "dspy/teleprompt/teleprompt.py",
+      "bytes": 2958
+    },
+    {
+      "path": "dspy/teleprompt/teleprompt_optuna.py",
+      "bytes": 3591
+    },
+    {
+      "path": "dspy/teleprompt/utils.py",
+      "bytes": 15427
+    },
+    {
+      "path": "dspy/teleprompt/vanilla.py",
+      "bytes": 963
+    },
+    {
+      "path": "dspy/utils/__init__.py",
+      "bytes": 1164
+    },
+    {
+      "path": "dspy/utils/annotation.py",
+      "bytes": 2831
+    },
+    {
+      "path": "dspy/utils/asyncify.py",
+      "bytes": 2108
+    },
+    {
+      "path": "dspy/utils/caching.py",
+      "bytes": 683
+    },
+    {
+      "path": "dspy/utils/callback.py",
+      "bytes": 17000
+    },
+    {
+      "path": "dspy/utils/callback_context.py",
+      "bytes": 624
+    },
+    {
+      "path": "dspy/utils/constants.py",
+      "bytes": 130
+    },
+    {
+      "path": "dspy/utils/dummies.py",
+      "bytes": 7466
+    },
+    {
+      "path": "dspy/utils/exceptions.py",
+      "bytes": 11452
+    },
+    {
+      "path": "dspy/utils/hasher.py",
+      "bytes": 2120
+    },
+    {
+      "path": "dspy/utils/inspect_history.py",
+      "bytes": 5248
+    },
+    {
+      "path": "dspy/utils/langchain_tool.py",
+      "bytes": 1504
+    },
+    {
+      "path": "dspy/utils/lazy_import.py",
+      "bytes": 5806
+    },
+    {
+      "path": "dspy/utils/logging_utils.py",
+      "bytes": 2123
+    },
+    {
+      "path": "dspy/utils/magicattr.py",
+      "bytes": 4082
+    },
+    {
+      "path": "dspy/utils/mcp.py",
+      "bytes": 3281
+    },
+    {
+      "path": "dspy/utils/parallelizer.py",
+      "bytes": 10435
+    },
+    {
+      "path": "dspy/utils/pickle_by_value.py",
+      "bytes": 2301
+    },
+    {
+      "path": "dspy/utils/saving.py",
+      "bytes": 2178
+    },
+    {
+      "path": "dspy/utils/syncify.py",
+      "bytes": 1997
+    },
+    {
+      "path": "dspy/utils/unbatchify.py",
+      "bytes": 3693
+    },
+    {
+      "path": "dspy/utils/usage_tracker.py",
+      "bytes": 3910
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 6057
+    },
+    {
+      "path": "scripts/update_model_metadata.py",
+      "bytes": 1991
+    },
+    {
+      "path": "scripts/update_vendored_lm15.py",
+      "bytes": 7142
+    },
+    {
+      "path": "tests/README.md",
+      "bytes": 245
+    },
+    {
+      "path": "tests/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/adapters/conftest.py",
+      "bytes": 2099
+    },
+    {
+      "path": "tests/adapters/test_adapter_utils.py",
+      "bytes": 4856
+    },
+    {
+      "path": "tests/adapters/test_audio.py",
+      "bytes": 874
+    },
+    {
+      "path": "tests/adapters/test_baml_adapter.py",
+      "bytes": 25002
+    },
+    {
+      "path": "tests/adapters/test_base_type.py",
+      "bytes": 1575
+    },
+    {
+      "path": "tests/adapters/test_chat_adapter.py",
+      "bytes": 126215
+    },
+    {
+      "path": "tests/adapters/test_citation.py",
+      "bytes": 6174
+    },
+    {
+      "path": "tests/adapters/test_code.py",
+      "bytes": 1796
+    },
+    {
+      "path": "tests/adapters/test_decision_types.py",
+      "bytes": 23908
+    },
+    {
+      "path": "tests/adapters/test_document.py",
+      "bytes": 2097
+    },
+    {
+      "path": "tests/adapters/test_json_adapter.py",
+      "bytes": 70847
+    },
+    {
+      "path": "tests/adapters/test_reasoning.py",
+      "bytes": 3957
+    },
+    {
+      "path": "tests/adapters/test_resource_loading.py",
+      "bytes": 8431
+    },
+    {
+      "path": "tests/adapters/test_tool.py",
+      "bytes": 26544
+    },
+    {
+      "path": "tests/adapters/test_two_step_adapter.py",
+      "bytes": 9339
+    },
+    {
+      "path": "tests/adapters/test_xml_adapter.py",
+      "bytes": 37094
+    },
+    {
+      "path": "tests/callback/test_callback.py",
+      "bytes": 11344
+    },
+    {
+      "path": "tests/callback/test_interpreter_callback.py",
+      "bytes": 9979
+    },
+    {
+      "path": "tests/callback/test_optimizer_callback.py",
+      "bytes": 12725
+    },
+    {
+      "path": "tests/clients/test_backend_capabilities.py",
+      "bytes": 7730
+    },
+    {
+      "path": "tests/clients/test_cache.py",
+      "bytes": 18782
+    },
+    {
+      "path": "tests/clients/test_custom_engine_contract.py",
+      "bytes": 12600
+    },
+    {
+      "path": "tests/clients/test_databricks.py",
+      "bytes": 2984
+    },
+    {
+      "path": "tests/clients/test_disk_serialization.py",
+      "bytes": 13477
+    },
+    {
+      "path": "tests/clients/test_embedding.py",
+      "bytes": 6630
+    },
+    {
+      "path": "tests/clients/test_engine_errors.py",
+      "bytes": 15327
+    },
+    {
+      "path": "tests/clients/test_engine_failure_lifecycle.py",
+      "bytes": 20343
+    },
+    {
+      "path": "tests/clients/test_gauntlet_followups.py",
+      "bytes": 7710
+    },
+    {
+      "path": "tests/clients/test_inspect_global_history.py",
+      "bytes": 4051
+    },
+    {
+      "path": "tests/clients/test_lazy_litellm_import.py",
+      "bytes": 2406
+    },
+    {
+      "path": "tests/clients/test_legacy_lm_deprecation.py",
+      "bytes": 10325
+    },
+    {
+      "path": "tests/clients/test_lm.py",
+      "bytes": 61361
+    },
+    {
+      "path": "tests/clients/test_lm15_adaptations_and_timeouts.py",
+      "bytes": 12754
+    },
+    {
+      "path": "tests/clients/test_lm15_rc3_integration.py",
+      "bytes": 11227
+    },
+    {
+      "path": "tests/clients/test_lm_async_execution.py",
+      "bytes": 18695
+    },
+    {
+      "path": "tests/clients/test_lm_direct_live.py",
+      "bytes": 8291
+    },
+    {
+      "path": "tests/clients/test_lm_engine_compatibility_fixes.py",
+      "bytes": 4058
+    },
+    {
+      "path": "tests/clients/test_lm_engine_execution.py",
+      "bytes": 10844
+    },
+    {
+      "path": "tests/clients/test_lm_local.py",
+      "bytes": 3438
+    },
+    {
+      "path": "tests/clients/test_lm_message_deprecation.py",
+      "bytes": 14933
+    },
+    {
+      "path": "tests/clients/test_lm_migration_compatibility.py",
+      "bytes": 7182
+    },
+    {
+      "path": "tests/clients/test_lm_schema_conversion.py",
+      "bytes": 4704
+    },
+    {
+      "path": "tests/clients/test_native_metadata.py",
+      "bytes": 7429
+    },
+    {
+      "path": "tests/clients/test_prompt_cache.py",
+      "bytes": 7444
+    },
+    {
+      "path": "tests/clients/test_registered_providers.py",
+      "bytes": 25191
+    },
+    {
+      "path": "tests/clients/test_typesafe.py",
+      "bytes": 8804
+    },
+    {
+      "path": "tests/conftest.py",
+      "bytes": 5231
+    },
+    {
+      "path": "tests/core/test_types.py",
+      "bytes": 914
+    },
+    {
+      "path": "tests/docs/test_mkdocs_links.py",
+      "bytes": 1563
+    },
+    {
+      "path": "tests/docs/test_versioned_docs.py",
+      "bytes": 13778
+    },
+    {
+      "path": "tests/docs/test_zensical_build.py",
+      "bytes": 10316
+    },
+    {
+      "path": "tests/evaluate/test_auto_evaluation.py",
+      "bytes": 5828
+    },
+    {
+      "path": "tests/evaluate/test_evaluate.py",
+      "bytes": 15952
+    },
+    {
+      "path": "tests/evaluate/test_metrics.py",
+      "bytes": 955
+    },
+    {
+      "path": "tests/examples/test_baleen.py",
+      "bytes": 4604
+    },
+    {
+      "path": "tests/flex/_offstack_types.py",
+      "bytes": 875
+    },
+    {
+      "path": "tests/flex/test_flex_binding.py",
+      "bytes": 13728
+    },
+    {
+      "path": "tests/flex/test_flex_gepa.py",
+      "bytes": 26615
+    },
+    {
+      "path": "tests/flex/test_flex_gepa_seed.py",
+      "bytes": 2376
+    },
+    {
+      "path": "tests/flex/test_flex_interpreter.py",
+      "bytes": 42089
+    },
+    {
+      "path": "tests/flex/test_flex_output_types.py",
+      "bytes": 18783
+    },
+    {
+      "path": "tests/flex/test_tools.py",
+      "bytes": 12395
+    },
+    {
+      "path": "tests/metadata/test_metadata.py",
+      "bytes": 349
+    },
+    {
+      "path": "tests/mock_interpreter.py",
+      "bytes": 5364
+    },
+    {
+      "path": "tests/predict/test_aggregation.py",
+      "bytes": 1511
+    },
+    {
+      "path": "tests/predict/test_best_of_n.py",
+      "bytes": 2880
+    },
+    {
+      "path": "tests/predict/test_chain_of_thought.py",
+      "bytes": 3193
+    },
+    {
+      "path": "tests/predict/test_code_act.py",
+      "bytes": 10175
+    },
+    {
+      "path": "tests/predict/test_decision_live.py",
+      "bytes": 11651
+    },
+    {
+      "path": "tests/predict/test_decision_parameters.py",
+      "bytes": 23086
+    },
+    {
+      "path": "tests/predict/test_decision_prompts.py",
+      "bytes": 3587
+    },
+    {
+      "path": "tests/predict/test_knn.py",
+      "bytes": 2051
+    },
+    {
+      "path": "tests/predict/test_multi_chain_comparison.py",
+      "bytes": 1253
+    },
+    {
+      "path": "tests/predict/test_parallel.py",
+      "bytes": 8462
+    },
+    {
+      "path": "tests/predict/test_predict.py",
+      "bytes": 64739
+    },
+    {
+      "path": "tests/predict/test_predict_decisions.py",
+      "bytes": 17024
+    },
+    {
+      "path": "tests/predict/test_program_of_thought.py",
+      "bytes": 10472
+    },
+    {
+      "path": "tests/predict/test_react.py",
+      "bytes": 19563
+    },
+    {
+      "path": "tests/predict/test_react_v2.py",
+      "bytes": 19817
+    },
+    {
+      "path": "tests/predict/test_refine.py",
+      "bytes": 2855
+    },
+    {
+      "path": "tests/predict/test_retry.py",
+      "bytes": 3045
+    },
+    {
+      "path": "tests/predict/test_rlm.py",
+      "bytes": 91473
+    },
+    {
+      "path": "tests/primitives/test_base_module.py",
+      "bytes": 24414
+    },
+    {
+      "path": "tests/primitives/test_code_interpreter.py",
+      "bytes": 625
+    },
+    {
+      "path": "tests/primitives/test_dspy_interpreters_conformance.py",
+      "bytes": 3970
+    },
+    {
+      "path": "tests/primitives/test_example.py",
+      "bytes": 6086
+    },
+    {
+      "path": "tests/primitives/test_facade.py",
+      "bytes": 3862
+    },
+    {
+      "path": "tests/primitives/test_interpreter_factory_config.py",
+      "bytes": 8348
+    },
+    {
+      "path": "tests/primitives/test_local_interpreter.py",
+      "bytes": 12806
+    },
+    {
+      "path": "tests/primitives/test_module.py",
+      "bytes": 8563
+    },
+    {
+      "path": "tests/primitives/test_python_interpreter.py",
+      "bytes": 61745
+    },
+    {
+      "path": "tests/primitives/test_release_interpreter_robustness.py",
+      "bytes": 2160
+    },
+    {
+      "path": "tests/primitives/test_sandbox_serializable.py",
+      "bytes": 5079
+    },
+    {
+      "path": "tests/propose/test_grounded_proposer.py",
+      "bytes": 2067
+    },
+    {
+      "path": "tests/reliability/README.md",
+      "bytes": 5652
+    },
+    {
+      "path": "tests/reliability/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/reliability/complex_types/generated/test_many_types_1/program.py",
+      "bytes": 2947
+    },
+    {
+      "path": "tests/reliability/complex_types/generated/test_nesting_1/program.py",
+      "bytes": 2339
+    },
+    {
+      "path": "tests/reliability/complex_types/generated/test_nesting_2/program.py",
+      "bytes": 3180
+    },
+    {
+      "path": "tests/reliability/conftest.py",
+      "bytes": 2751
+    },
+    {
+      "path": "tests/reliability/generate/__init__.py",
+      "bytes": 1231
+    },
+    {
+      "path": "tests/reliability/generate/__main__.py",
+      "bytes": 1051
+    },
+    {
+      "path": "tests/reliability/generate/utils.py",
+      "bytes": 29350
+    },
+    {
+      "path": "tests/reliability/input_formats/generated/test_markdown_1/program.py",
+      "bytes": 1515
+    },
+    {
+      "path": "tests/reliability/test_generated.py",
+      "bytes": 409
+    },
+    {
+      "path": "tests/reliability/test_pydantic_models.py",
+      "bytes": 10011
+    },
+    {
+      "path": "tests/reliability/utils.py",
+      "bytes": 5549
+    },
+    {
+      "path": "tests/retrievers/test_colbertv2.py",
+      "bytes": 1588
+    },
+    {
+      "path": "tests/retrievers/test_embeddings.py",
+      "bytes": 5734
+    },
+    {
+      "path": "tests/signatures/test_adapter_file.py",
+      "bytes": 10034
+    },
+    {
+      "path": "tests/signatures/test_adapter_image.py",
+      "bytes": 21779
+    },
+    {
+      "path": "tests/signatures/test_custom_types.py",
+      "bytes": 5662
+    },
+    {
+      "path": "tests/signatures/test_signature.py",
+      "bytes": 23925
+    },
+    {
+      "path": "tests/streaming/test_react_v2_native_tool_stream.py",
+      "bytes": 4807
+    },
+    {
+      "path": "tests/streaming/test_streaming.py",
+      "bytes": 104763
+    },
+    {
+      "path": "tests/teleprompt/reanchor/conftest.py",
+      "bytes": 339
+    },
+    {
+      "path": "tests/teleprompt/reanchor/fakes.py",
+      "bytes": 2283
+    },
+    {
+      "path": "tests/teleprompt/reanchor/test_reanchor.py",
+      "bytes": 12530
+    },
+    {
+      "path": "tests/teleprompt/reanchor/test_reanchor_calibrate.py",
+      "bytes": 19327
+    },
+    {
+      "path": "tests/teleprompt/test_bettertogether.py",
+      "bytes": 33602
+    },
+    {
+      "path": "tests/teleprompt/test_bootstrap.py",
+      "bytes": 6578
+    },
+    {
+      "path": "tests/teleprompt/test_bootstrap_finetune.py",
+      "bytes": 4236
+    },
+    {
+      "path": "tests/teleprompt/test_bootstrap_trace.py",
+      "bytes": 5949
+    },
+    {
+      "path": "tests/teleprompt/test_copro_optimizer.py",
+      "bytes": 6965
+    },
+    {
+      "path": "tests/teleprompt/test_ensemble.py",
+      "bytes": 1910
+    },
+    {
+      "path": "tests/teleprompt/test_finetune.py",
+      "bytes": 7
+    },
+    {
+      "path": "tests/teleprompt/test_gepa.py",
+      "bytes": 42549
+    },
+    {
+      "path": "tests/teleprompt/test_gepa_builtin_instruction_proposer.py",
+      "bytes": 28912
+    },
+    {
+      "path": "tests/teleprompt/test_gepa_instruction_proposer.py",
+      "bytes": 14047
+    },
+    {
+      "path": "tests/teleprompt/test_grpo.py",
+      "bytes": 1911
+    },
+    {
+      "path": "tests/teleprompt/test_knn_fewshot.py",
+      "bytes": 2779
+    },
+    {
+      "path": "tests/teleprompt/test_random_search.py",
+      "bytes": 2785
+    },
+    {
+      "path": "tests/teleprompt/test_teleprompt.py",
+      "bytes": 513
+    },
+    {
+      "path": "tests/teleprompt/test_utils.py",
+      "bytes": 3368
+    },
+    {
+      "path": "tests/test_lm15_subtree_updater.py",
+      "bytes": 5487
+    },
+    {
+      "path": "tests/test_utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/test_utils/server/__init__.py",
+      "bytes": 3422
+    },
+    {
+      "path": "tests/test_utils/server/litellm_server.py",
+      "bytes": 3302
+    },
+    {
+      "path": "tests/test_vendored_lm15.py",
+      "bytes": 4587
+    },
+    {
+      "path": "tests/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/utils/resources/mcp_server.py",
+      "bytes": 1110
+    },
+    {
+      "path": "tests/utils/test_annotation.py",
+      "bytes": 3102
+    },
+    {
+      "path": "tests/utils/test_asyncify.py",
+      "bytes": 2007
+    },
+    {
+      "path": "tests/utils/test_caching.py",
+      "bytes": 1004
+    },
+    {
+      "path": "tests/utils/test_exceptions.py",
+      "bytes": 6081
+    },
+    {
+      "path": "tests/utils/test_langchain_tool.py",
+      "bytes": 1792
+    },
+    {
+      "path": "tests/utils/test_lazy_import.py",
+      "bytes": 5711
+    },
+    {
+      "path": "tests/utils/test_magicattr.py",
+      "bytes": 3209
+    },
+    {
+      "path": "tests/utils/test_mcp.py",
+      "bytes": 12344
+    },
+    {
+      "path": "tests/utils/test_parallelizer.py",
+      "bytes": 6220
+    },
+    {
+      "path": "tests/utils/test_parallelizer_interrupt.py",
+      "bytes": 888
+    },
+    {
+      "path": "tests/utils/test_saving.py",
+      "bytes": 6372
+    },
+    {
+      "path": "tests/utils/test_settings.py",
+      "bytes": 10465
+    },
+    {
+      "path": "tests/utils/test_syncify.py",
+      "bytes": 1869
+    },
+    {
+      "path": "tests/utils/test_unbatchify.py",
+      "bytes": 3209
+    },
+    {
+      "path": "tests/utils/test_usage_tracker.py",
+      "bytes": 19916
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".gitignore",
+      "bytes": 875
+    },
+    {
+      "path": "docs/.gitignore",
+      "bytes": 11
+    },
+    {
+      "path": "docs/Pipfile",
+      "bytes": 364
+    },
+    {
+      "path": "docs/Pipfile.lock",
+      "bytes": 225450
+    },
+    {
+      "path": "docs/docs/deep-dive/data-handling/img/data-loading.png",
+      "bytes": 65386
+    },
+    {
+      "path": "docs/docs/learn/figures/native_tool_call.png",
+      "bytes": 61179
+    },
+    {
+      "path": "docs/docs/learn/figures/teleprompter-classes.png",
+      "bytes": 209180
+    },
+    {
+      "path": "docs/docs/static/.nojekyll",
+      "bytes": 0
+    },
+    {
+      "path": "docs/docs/static/dspy-logo.svg",
+      "bytes": 4762
+    },
+    {
+      "path": "docs/docs/static/img/dspy_logo.png",
+      "bytes": 17160
+    },
+    {
+      "path": "docs/docs/static/img/logo.png",
+      "bytes": 2191
+    },
+    {
+      "path": "docs/docs/static/img/logos/aws.svg",
+      "bytes": 3474
+    },
+    {
+      "path": "docs/docs/static/img/logos/databricks-wordmark.svg",
+      "bytes": 4802
+    },
+    {
+      "path": "docs/docs/static/img/logos/databricks.svg",
+      "bytes": 422
+    },
+    {
+      "path": "docs/docs/static/img/logos/dropbox-wordmark.svg",
+      "bytes": 3916
+    },
+    {
+      "path": "docs/docs/static/img/logos/dropbox.svg",
+      "bytes": 336
+    },
+    {
+      "path": "docs/docs/static/img/logos/jetblue.svg",
+      "bytes": 6584
+    },
+    {
+      "path": "docs/docs/static/img/logos/microsoft-ai.svg",
+      "bytes": 1864
+    },
+    {
+      "path": "docs/docs/static/img/logos/nubank.svg",
+      "bytes": 756
+    },
+    {
+      "path": "docs/docs/static/img/logos/replit.svg",
+      "bytes": 341
+    },
+    {
+      "path": "docs/docs/static/img/logos/shopify-wordmark.svg",
+      "bytes": 2724
+    },
+    {
+      "path": "docs/docs/static/img/logos/shopify.svg",
+      "bytes": 1234
+    },
+    {
+      "path": "docs/docs/static/img/mlflow-tracing-rag.png",
+      "bytes": 76910
+    },
+    {
+      "path": "docs/docs/static/img/modular.png",
+      "bytes": 212852
+    },
+    {
+      "path": "docs/docs/static/img/optimize.png",
+      "bytes": 190438
+    },
+    {
+      "path": "docs/docs/static/img/undraw_docusaurus_mountain.svg",
+      "bytes": 31486
+    },
+    {
+      "path": "docs/docs/static/img/undraw_docusaurus_react.svg",
+      "bytes": 36002
+    },
+    {
+      "path": "docs/docs/static/img/undraw_docusaurus_tree.svg",
+      "bytes": 11887
+    },
+    {
+      "path": "docs/docs/static/img/universal_compatibility.png",
+      "bytes": 122126
+    },
+    {
+      "path": "docs/docs/tutorials/agents/index.ipynb",
+      "bytes": 103897
+    },
+    {
+      "path": "docs/docs/tutorials/agents/mlflow-tracing-agent.png",
+      "bytes": 89497
+    },
+    {
+      "path": "docs/docs/tutorials/audio/index.ipynb",
+      "bytes": 323784
+    },
+    {
+      "path": "docs/docs/tutorials/classification_finetuning/index.ipynb",
+      "bytes": 44977
+    },
+    {
+      "path": "docs/docs/tutorials/classification_finetuning/mlflow-tracing-classification.png",
+      "bytes": 75813
+    },
+    {
+      "path": "docs/docs/tutorials/custom_module/index.ipynb",
+      "bytes": 10235
+    },
+    {
+      "path": "docs/docs/tutorials/custom_module/mlflow-tracing-custom-module.png",
+      "bytes": 139555
+    },
+    {
+      "path": "docs/docs/tutorials/customer_service_agent/index.ipynb",
+      "bytes": 85697
+    },
+    {
+      "path": "docs/docs/tutorials/customer_service_agent/mlflow-tracing-customer-service-agent.png",
+      "bytes": 130215
+    },
+    {
+      "path": "docs/docs/tutorials/dataframe_rlm/cohort_analysis/cohort_analysis_demo.ipynb",
+      "bytes": 59290
+    },
+    {
+      "path": "docs/docs/tutorials/deployment/dspy_mlflow_ui.png",
+      "bytes": 156032
+    },
+    {
+      "path": "docs/docs/tutorials/email_extraction/mlflow-tracing-email-extraction.png",
+      "bytes": 159107
+    },
+    {
+      "path": "docs/docs/tutorials/entity_extraction/index.ipynb",
+      "bytes": 52017
+    },
+    {
+      "path": "docs/docs/tutorials/entity_extraction/mlflow-tracing-entity-extraction.png",
+      "bytes": 75813
+    },
+    {
+      "path": "docs/docs/tutorials/games/index.ipynb",
+      "bytes": 30938
+    },
+    {
+      "path": "docs/docs/tutorials/games/mlflow-tracing-agent.png",
+      "bytes": 89497
+    },
+    {
+      "path": "docs/docs/tutorials/gepa_aime/index.ipynb",
+      "bytes": 221702
+    },
+    {
+      "path": "docs/docs/tutorials/gepa_aime/mlflow-tracing-gepa-aime.png",
+      "bytes": 119631
+    },
+    {
+      "path": "docs/docs/tutorials/gepa_aime/mlflow-tracking-gepa-aime-optimization.png",
+      "bytes": 32805
+    },
+    {
+      "path": "docs/docs/tutorials/gepa_facilitysupportanalyzer/index.ipynb",
+      "bytes": 687411
+    },
+    {
+      "path": "docs/docs/tutorials/gepa_facilitysupportanalyzer/mlflow-tracing-gepa-support.png",
+      "bytes": 135241
+    },
+    {
+      "path": "docs/docs/tutorials/gepa_facilitysupportanalyzer/mlflow-tracking-gepa-support-optimization.png",
+      "bytes": 81984
+    },
+    {
+      "path": "docs/docs/tutorials/gepa_papillon/index.ipynb",
+      "bytes": 50172
+    },
+    {
+      "path": "docs/docs/tutorials/gepa_papillon/mlflow-tracing-gepa-papilon.png",
+      "bytes": 160726
+    },
+    {
+      "path": "docs/docs/tutorials/gepa_papillon/mlflow-tracking-gepa-papilon-optimization.png",
+      "bytes": 23449
+    },
+    {
+      "path": "docs/docs/tutorials/gepa_trusted_monitor/index.ipynb",
+      "bytes": 276600
+    },
+    {
+      "path": "docs/docs/tutorials/image_generation_prompting/index.ipynb",
+      "bytes": 4172837
+    },
+    {
+      "path": "docs/docs/tutorials/math/index.ipynb",
+      "bytes": 34497
+    },
+    {
+      "path": "docs/docs/tutorials/math/mlflow-tracing-math.png",
+      "bytes": 99707
+    },
+    {
+      "path": "docs/docs/tutorials/multihop_search/index.ipynb",
+      "bytes": 64204
+    },
+    {
+      "path": "docs/docs/tutorials/multihop_search/mlflow-tracing-multi-hop.png",
+      "bytes": 82122
+    },
+    {
+      "path": "docs/docs/tutorials/observability/mlflow_trace_ui.png",
+      "bytes": 59446
+    },
+    {
+      "path": "docs/docs/tutorials/observability/mlflow_trace_ui_navigation.gif",
+      "bytes": 8704325
+    },
+    {
+      "path": "docs/docs/tutorials/observability/mlflow_trace_view.png",
+      "bytes": 131293
+    },
+    {
+      "path": "docs/docs/tutorials/optimizer_tracking/child_run.png",
+      "bytes": 139165
+    },
+    {
+      "path": "docs/docs/tutorials/optimizer_tracking/experiment.png",
+      "bytes": 70465
+    },
+    {
+      "path": "docs/docs/tutorials/optimizer_tracking/parent_run.png",
+      "bytes": 135140
+    },
+    {
+      "path": "docs/docs/tutorials/program_of_thought/index.ipynb",
+      "bytes": 27279
+    },
+    {
+      "path": "docs/docs/tutorials/rag/index.ipynb",
+      "bytes": 72607
+    },
+    {
+      "path": "docs/docs/tutorials/rag/mlflow-tracing-rag.png",
+      "bytes": 73265
+    },
+    {
+      "path": "docs/docs/tutorials/rl_multihop/index.ipynb",
+      "bytes": 11833
+    },
+    {
+      "path": "docs/docs/tutorials/rl_papillon/index.ipynb",
+      "bytes": 13426
+    },
+    {
+      "path": "docs/docs/tutorials/tool_use/index.ipynb",
+      "bytes": 11158
+    },
+    {
+      "path": "dspy/_vendor/lm15/lm15-python2.code-workspace",
+      "bytes": 118
+    },
+    {
+      "path": "dspy/_vendor/lm15/py.typed",
+      "bytes": 0
+    },
+    {
+      "path": "dspy/clients/model_metadata/snapshot.json.gz",
+      "bytes": 141650
+    },
+    {
+      "path": "dspy/datasets/__init__.py",
+      "bytes": 344
+    },
+    {
+      "path": "dspy/datasets/alfworld/__init__.py",
+      "bytes": 53
+    },
+    {
+      "path": "dspy/datasets/alfworld/alfworld.py",
+      "bytes": 4482
+    },
+    {
+      "path": "dspy/datasets/alfworld/base_config.yml",
+      "bytes": 7740
+    },
+    {
+      "path": "dspy/datasets/colors.py",
+      "bytes": 3555
+    },
+    {
+      "path": "dspy/datasets/dataloader.py",
+      "bytes": 7350
+    },
+    {
+      "path": "dspy/datasets/dataset.py",
+      "bytes": 4795
+    },
+    {
+      "path": "dspy/datasets/gsm8k.py",
+      "bytes": 2401
+    },
+    {
+      "path": "dspy/datasets/hotpotqa.py",
+      "bytes": 3343
+    },
+    {
+      "path": "dspy/datasets/math.py",
+      "bytes": 1900
+    },
+    {
+      "path": "tests/clients/fixtures/lm_3_3_0/README.md",
+      "bytes": 3828
+    },
+    {
+      "path": "tests/clients/fixtures/lm_3_3_0/generate.py",
+      "bytes": 5661
+    },
+    {
+      "path": "tests/clients/fixtures/lm_3_3_0/manifest.json",
+      "bytes": 29186
+    },
+    {
+      "path": "tests/clients/fixtures/lm_3_3_0/reasoning_key_async.zip",
+      "bytes": 21208
+    },
+    {
+      "path": "tests/clients/fixtures/lm_3_3_0/reasoning_key_sync.zip",
+      "bytes": 21204
+    },
+    {
+      "path": "tests/clients/fixtures/lm_3_3_0/rich_n_async.zip",
+      "bytes": 21610
+    },
+    {
+      "path": "tests/clients/fixtures/lm_3_3_0/rich_n_sync.zip",
+      "bytes": 21611
+    },
+    {
+      "path": "tests/clients/fixtures/lm_3_3_0/text_async.zip",
+      "bytes": 21206
+    },
+    {
+      "path": "tests/clients/fixtures/lm_3_3_0/text_sync.zip",
+      "bytes": 21205
+    },
+    {
+      "path": "tests/datasets/test_dataset.py",
+      "bytes": 2347
+    },
+    {
+      "path": "uv.lock",
+      "bytes": 1125917
+    },
+    {
+      "path": "tests/predict/snapshots/decision_ChatAdapter.json",
+      "bytes": 10091,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/predict/snapshots/decision_JSONAdapter.json",
+      "bytes": 14846,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/predict/snapshots/rlm_python_interpreter_lm_request.json",
+      "bytes": 5498,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/primitives/resources/saved_program.json",
+      "bytes": 8304,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/reliability/complex_types/generated/test_many_types_1/inputs/input1.json",
+      "bytes": 1222,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/reliability/complex_types/generated/test_many_types_1/inputs/input2.json",
+      "bytes": 3236,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/reliability/complex_types/generated/test_many_types_1/schema.json",
+      "bytes": 4426,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/reliability/complex_types/generated/test_nesting_1/inputs/input1.json",
+      "bytes": 909,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/reliability/complex_types/generated/test_nesting_1/inputs/input2.json",
+      "bytes": 881,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/reliability/complex_types/generated/test_nesting_1/schema.json",
+      "bytes": 3111,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/reliability/complex_types/generated/test_nesting_2/inputs/input1.json",
+      "bytes": 1326,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/reliability/complex_types/generated/test_nesting_2/schema.json",
+      "bytes": 3901,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/reliability/input_formats/generated/test_markdown_1/inputs/input1.json",
+      "bytes": 2011,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/reliability/input_formats/generated/test_markdown_1/inputs/input2.json",
+      "bytes": 947,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/reliability/input_formats/generated/test_markdown_1/schema.json",
+      "bytes": 1071,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/reliability/reliability_conf.yaml",
+      "bytes": 2731,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/teleprompt/gepa_dummy_lm.json",
+      "bytes": 42032,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/teleprompt/gepa_dummy_lm_custom_component_selector_custom_instruction_proposer.json",
+      "bytes": 113088,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/test_utils/server/litellm_server_config.yaml",
+      "bytes": 559,
+      "reason": "experimental output or recorded response"
+    }
+  ]
+}

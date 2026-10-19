@@ -1,0 +1,127 @@
+[
+  {
+    "path": "strands-ts/src/multiagent/graph.ts",
+    "sha256": "2b81e803ef269d25d3cace359ed40f06fb6f8a0729c2271c0ccb85b6687c9cd8",
+    "bytes": 34718,
+    "symbols": [
+      "export interface GraphConfig {",
+      "export interface GraphOptions extends GraphConfig {",
+      "export class Graph implements MultiAgent {"
+    ]
+  },
+  {
+    "path": "strands-cli/src/tui/permissions/policy.ts",
+    "sha256": "e795a330cc6b7ccd26153b00f96e00104231a9c5cd14849c8aca7bbc95367b49",
+    "bytes": 8834,
+    "symbols": [
+      "export const DEFAULT_CEDAR_POLICIES = `",
+      "export class ToolPermissionBroker {",
+      "export class CedarPermissions extends InterventionHandler {",
+      "export function pathIsWithinWorkspace(value: unknown, workspace: string): boolean {"
+    ]
+  },
+  {
+    "path": "strands-py/src/strands/multiagent/graph.py",
+    "sha256": "10d9ea76bbda4c58577863b9c6e56bb6f973bfa5665ae3c15adda91d8c83f1cf",
+    "bytes": 66484,
+    "symbols": [
+      "class EdgeConditionWithContext(Protocol):",
+      "def __call__(self, state: \"GraphState\", *, invocation_state: dict[str, Any], **kwargs: Any) -> bool:",
+      "def _is_context_condition(condition: EdgeCondition) -> TypeGuard[EdgeConditionWithContext]:",
+      "class GraphState:",
+      "def should_continue(",
+      "class GraphResult(MultiAgentResult):",
+      "class GraphEdge:",
+      "def __hash__(self) -> int:",
+      "def should_traverse(self, state: GraphState, *, invocation_state: dict[str, Any]) -> bool:",
+      "def _check_is_context_condition(self, condition: EdgeCondition) -> TypeGuard[EdgeConditionWithContext]:",
+      "class GraphNode:",
+      "def __post_init__(self) -> None:"
+    ]
+  },
+  {
+    "path": "strands-ts/src/multiagent/__tests__/graph.test.ts",
+    "sha256": "04eda7a6b117b2a18a338af0124e13ef58cba35012b669618398683b862259c7",
+    "bytes": 32977,
+    "symbols": []
+  },
+  {
+    "path": "strands-py/src/strands/background_tasks/_runtime.py",
+    "sha256": "c04ea9f4dc306b7ec6c6883aa6cacaf6af3387217d1b36a337cdf0c46e94564f",
+    "bytes": 2221,
+    "symbols": [
+      "class _BackgroundTaskRuntime:",
+      "def __init__(self) -> None:",
+      "async def run(self, operation: Callable[[], _T | Awaitable[_T]]) -> _T:",
+      "def _ensure_started(self) -> asyncio.AbstractEventLoop:",
+      "def _run_loop(self) -> None:",
+      "async def _invoke(self, operation: Callable[[], _T | Awaitable[_T]]) -> _T:",
+      "def get_background_task_runtime() -> _BackgroundTaskRuntime:"
+    ]
+  },
+  {
+    "path": "strands-ts/src/agent/__tests__/agent.checkpoint.test.ts",
+    "sha256": "eea0de0072313ed51e39c11bce7e3f749331729f4b618797b7a46dc4e9beab1c",
+    "bytes": 9659,
+    "symbols": []
+  },
+  {
+    "path": "strands-ts/src/multiagent/__tests__/graph.tracer.test.ts",
+    "sha256": "2446d873fe1de51d856f35a2ac4b5bc9b93e838e34a7dff2e030531ec61f5250",
+    "bytes": 10421,
+    "symbols": []
+  },
+  {
+    "path": "strands-ts/src/multiagent/__tests__/graph.invocation-state.test.ts",
+    "sha256": "60384076bc2ebb3f8be05bdaddd672861013dca31b1daae6c2382887e529f162",
+    "bytes": 4372,
+    "symbols": []
+  },
+  {
+    "path": "harness-ts/src/agent.ts",
+    "sha256": "cdacfb5acf5ef3d299ae8de305b4db7ccf83bd02dabc8ea66034c24832581677",
+    "bytes": 23858,
+    "symbols": [
+      "export interface HarnessAgentOptions extends Omit<",
+      "export async function createHarness(options: HarnessAgentOptions = {}): Promise<Agent> {"
+    ]
+  },
+  {
+    "path": "harness-ts/src/memory.ts",
+    "sha256": "396b85ed56314c04b581cd03e16e257ba2098ff6cbcdd8d37232c5b3d41e1aad",
+    "bytes": 5904,
+    "symbols": [
+      "export interface ResolveMemoryOptions {",
+      "export async function resolveMemory(options: ResolveMemoryOptions = {}): Promise<MemoryManager> {"
+    ]
+  },
+  {
+    "path": "strands-py/src/strands/multiagent/a2a/executor.py",
+    "sha256": "0da177bad6d92491647770647168218748e21a600272d871b7198a0aa94f3fc8",
+    "bytes": 39466,
+    "symbols": [
+      "def _is_interrupt_resume(prompt: _AgentPrompt) -> bool:",
+      "def _jsonable(value: Any) -> Any:",
+      "class _StreamState:",
+      "class _ContextEntry:",
+      "class StrandsA2AExecutor(AgentExecutor):",
+      "def __init__(",
+      "def _capture_state(self, agent: SAAgent) -> Snapshot:",
+      "def _restore_state(self, agent: SAAgent, snapshot: Snapshot) -> None:",
+      "def _evict_excess_contexts(self) -> None:",
+      "async def _acquire_context_agent(self, context_id: str) -> tuple[SAAgent, asyncio.Lock]:",
+      "async def _run_with_context_agent(",
+      "async def _run_with_shared_agent("
+    ]
+  },
+  {
+    "path": "harness-ts/src/types/agent.ts",
+    "sha256": "f49fad59281c1c04f8a542243ba6f847e673ab926cd537ded2f50e2f8aaac9f0",
+    "bytes": 3977,
+    "symbols": [
+      "export interface WebFetchConfig {",
+      "export interface SessionConfig {",
+      "export interface MemoryConfig {"
+    ]
+  }
+]

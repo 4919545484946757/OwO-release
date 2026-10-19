@@ -1,0 +1,159 @@
+Preprint
+DSP Y: C OMPILING DECLARATIVE LANGUAGE
+MODEL CALLS INTO SELF -I MPROVING PIPELINES
+Omar Khattab,1 Arnav Singhvi,2
+Paridhi Maheshwari,4 Zhiyuan Zhang,1
+Keshav Santhanam,1 Sri Vardhamanan,6 Saiful Haq,6
+Ashutosh Sharma,6 Thomas T. Joshi,7 Hanna Moazam,8
+Heather Miller,3,9 Matei Zaharia,2 Christopher Potts1
+1Stanford University, 2UC Berkeley, 3Carnegie Mellon University,
+4Amazon Alexa AI, 5Dashworks Technologies, Inc.,
+6IIT Bombay, 7Calera Capital, 8Microsoft, 9Two Sigma Investments
+okhattab@cs.stanford.edu
+ABSTRACT
+The ML community is rapidly exploring techniques for prompting language mod-
+els (LMs) and for stacking them into pipelines that solve complex tasks. Un-
+fortunately, existing LM pipelines are typically implemented using hard-coded
+“prompt templates”, i.e. lengthy strings discovered via trial and error. Toward a
+more systematic approach for developing and optimizing LM pipelines, we intro-
+duce DSPy, a programming model that abstracts LM pipelines astext transforma-
+tion graphs, i.e. imperative computation graphs where LMs are invoked through
+declarative modules. DSPy modules are parameterized, meaning they can learn
+(by creating and collecting demonstrations) how to apply compositions of prompt-
+ing, finetuning, augmentation, and reasoning techniques. We design a compiler
+that will optimize any DSPy pipeline to maximize a given metric. We conduct
+two case studies, showing that succinct DSPy programs can express and optimize
+sophisticated LM pipelines that reason about math word problems, tackle multi-
+hop retrieval, answer complex questions, and control agent loops. Within minutes
+of compiling, a few lines of DSPy allow GPT-3.5 and llama2-13b-chat to self-
+bootstrap pipelines that outperform standard few-shot prompting (generally by
+over 25% and 65%, respectively) and pipelines with expert-created demonstra-
+tions (by up to 5–46% and 16–40%, respectively). On top of that, DSPy pro-
+grams compiled to open and relatively small LMs like 770M-parameter T5 and
+llama2-13b-chat are competitive with approaches that rely on expert-written
+prompt chains for proprietaryGPT-3.5.
+DSPy is available athttps://github.com/stanfordnlp/dspy.
+1 I NTRODUCTION
+Language models (LMs) are enabling researchers to build NLP systems at higher levels of abstrac-
+tion and with lower data requirements than ever before (Bommasani et al., 2021). This is fueling an
+exploding space of “prompting” techniques—and lightweight finetuning techniques—for adapting
+LMs to new tasks (Kojima et al., 2022), eliciting systematic reasoning from them (Wei et al., 2022;
+Wang et al., 2022b), andaugmenting them with retrieved sources (Guu et al., 2020; Lazaridou et al.,
+2022; Khattab et al., 2022) or with tools (Yao et al., 2022; Schick et al., 2023). Most of these tech-
+niques are explored in isolation, but interest has been growing in building multi-stage pipelines and
+agents that decompose complex tasks into more manageable calls to LMs in an effort to improve
+performance (Qi et al., 2019; Khattab et al., 2021a; Karpas et al., 2022; Dohan et al., 2022; Khot
+et al., 2022; Khattab et al., 2022; Chen et al., 2022; Pourreza & Rafiei, 2023; Shinn et al., 2023).
+Unfortunately, LMs are known to be sensitive to how they are prompted for each task, and this is
+exacerbated in pipelines where multiple LM calls have to interact effectively. As a result, the LM
+1
+arXiv:2310.03714v1  [cs.CL]  5 Oct 2023
+
+Preprint
+calls in existing LM pipelines and in popular developer frameworks are generally implemented using
+hard-coded ‘prompt templates’, that is, long strings of instructions and demonstrations that are hand
+crafted through manual trial and error. We argue that this approach, while pervasive, can be brittle
+and unscalable—conceptually akin to hand-tuning the weights for a classifier. A given string prompt
+might not generalize to different pipelines or across different LMs, data domains, or even inputs.
+Toward a more systematic approach to designing AI pipelines, we introduce theDSPy programming
+model.1 DSPy pushes building new LM pipelines away from manipulating free-form strings and
+closer to programming (composing modular operators to build text transformation graphs) where a
+compiler automatically generates optimized LM invocation strategies and prompts from a program.
+We draw inspiration from the consensus that emerged around neural network abstractions (Bergstra
+et al., 2013), where (1) many general-purpose layers can be modularly composed in any complex
+architecture and (2) the model weights can be trained using optimizers instead of being hand-tuned.
+To this end, we propose the DSPy programming model (Sec 3). We first translate string-based
+prompting techniques, including complex and task-dependent ones like Chain of Thought (Wei et al.,
+2022) and ReAct (Yao et al., 2022), into declarative modules that carrynatural-language typed sig-
+natures. DSPy modules are task-adaptive components—akin to neural network layers—that abstract
+any particular text transformation, like answering a question or summarizing a paper. We then pa-
+rameterize each module so that it can learn its desired behavior by iteratively bootstrapping useful
+demonstrations within the pipeline. Inspired directly by PyTorch abstractions (Paszke et al., 2019),
+DSPy modules are used via expressive define-by-run computational graphs. Pipelines are expressed
+by (1) declaring the modules needed and (2) using these modules in any logical control flow (e.g.,
+if statements,for loops, exceptions, etc.) to logically connect the modules.
+We then develop theDSPy compiler (Sec 4), which optimizes any DSPy program to improve quality
+or cost. The compiler inputs are the program, a few training inputs with optional labels, and a valida-
+tion metric. The compiler simulates versions of the program on the inputs and bootstraps example
+traces of each module for self-improvement, using them to construct effective few-shot prompts
+or finetuning small LMs for steps of the pipeline. Optimization in DSPy is highly modular: it is
+conducted by teleprompters,2 which are general-purpose optimization strategies that determine how
+the modules should learn from data. In this way, the compiler automatically maps the declarative
+modules to high-quality compositions of prompting, finetuning, reasoning, and augmentation.
+Programming models like DSPy could be assessed along many dimensions, but we focus on the role
+of expert-crafted prompts in shaping system performance. We are seeking to reduce or even remove
+their role through DSPy modules (e.g., versions of popular techniques like Chain of Thought) and
+teleprompters. We report on two expansive case studies: math word problems (GMS8K; Cobbe et al.
+2021) and multi-hop question answering (HotPotQA; Yang et al. 2018) with explorations of chain
+of thought, multi-chain reflection, multi-hop retrieval, retrieval-augmented question answering, and
+agent loops. Our evaluations use a number of different compiling strategies effectively and show
+that straightforward DSPy programs outperform systems using hand-crafted prompts, while also
+allowing our programs to use much smaller and hence more efficient LMs effectively.
+Overall, this work proposes the first programming model that translates prompting techniques into
+parameterized declarative modules and introduces an effective compiler with general optimiza-
+tion strategies (teleprompters) to optimize arbitrary pipelines of these modules. Our main contri-
+butions are empirical and algorithmic: with DSPy, we have found that we can implement very
+short programs that can bootstrap self-improving multi-stage NLP systems using LMs as small as
+llama2-13b-chat and T5-Large (770M parameters). Without hand-crafted prompts and within
+minutes to tens of minutes of compiling, compositions of DSPy modules can raise the quality of
+simple programs from 33% to 82% (Sec 6) and from 32% to 46% (Sec 7) for GPT-3.5 and, simi-
+larly, from 9% to 47% (Sec 6) and from 22% to 41% (Sec 7) forllama2-13b-chat.
+1DSPy is pronounced dee-ess-pie. It’s the second iteration of our earlier Demonstrate–Search–Predict
+framework (DSP; Khattab et al. 2022). This paper introduces the key concepts in DSPy. For more extensive and
+up-to-date documentation of the framework, we refer readers tohttps://github.com/stanfordnlp/dspy.
+2We derive the name tele-prompters from the notion of abstracting and automating the task of prompting,
+in particular, such that it happens at a distance, without manual intervention.
+2
+
+Preprint
+2 R ELATED WORK
+This work is inspired by the role that Torch (Collobert et al., 2002), Theano (Bergstra et al., 2010;
+2011; Al-Rfou et al., 2016), Chainer (Tokui et al., 2015), and others played in the development in
+deep learning by providing powerful abstractions. A similar transformation is emerging with higher-
+level pipelines of LMs, and we are seeking to offer a solid conceptual framework and programming
+abstractions for what we call foundation model programming. We draw on differentiable program-
+ming (Wang et al., 2018) but applied to LM calls rather than neural networks, and borrow syntactic
+elements from PyTorch (Paszke et al., 2019).
+In-context learning (McCann et al. 2018; Radford et al. 2018; Brown et al. 2020) is a key mechanism
+for foundation model programming. A growing body of work has revealed that, especially with
+instruction tuning (Ouyang et al., 2022), we can elicit sophisticated behavior via prompting (Wei
+et al., 2022; Wang et al., 2022b; Press et al., 2022; Yao et al., 2022; Khot et al., 2022; Madaan et al.,
+2023). Similarly, forms of weak supervision that would normally require task-specific (Khattab
+et al., 2021a;b) or hand-built (Ratner et al., 2016; Hancock et al., 2018) heuristics are now done by
+LMs (Wang et al., 2022b; Zelikman et al., 2022; Zhang et al., 2022; Shao et al., 2023).
+In-context learning methods now routinely invoke tools, leading to LM pipelines that use retrieval
+models (Chen et al., 2017; Lewis et al., 2020; Guu et al., 2020; Lazaridou et al., 2022; Izacard et al.,
+2022), multimodal foundation models, and more traditional tools like APIs (Nakano et al., 2021)
+and calculators. A number of toolkits have been developed to facilitate this, including LangChain
+(Chase, 2022), Semantic Kernel (Microsoft, 2023), LlamaIndex (Liu, 2022), and many other re-
+trieval and agent libraries. These toolkits provide pre-packaged chains and agents that connect
+LMs with numerous accessible tools. However, they suffer from the pervasive prompt engineering
+challenges we address in DSPy: they express task-specific behavior through hand-written prompt
+templates (for detailed discussion, see Appendix B).
+Researchers are starting to apply discrete optimization and RL to find effective prompts, generally
+for a single logical LM call (Guo et al., 2023; Pryzant et al., 2023; Huang et al., 2022; Yang et al.,
+2023). DSPy seeks to generalize this space: it offers a rich framework for optimizing arbitrary
+pipelines from high-level declarative signatures, by bootstrapping high-quality multi-stage demon-
+strations with constraints. In this framework, DSPy teleprompters may apply optimization using
+model selection techniques like cross-validation or, in principle, with sophisticated techniques in-
+volving RL and LM feedback (Hu et al., 2023; Zhao et al., 2023a; Shinn et al., 2023) or learned or
+Bayesian hyperparameter optimization methods (Bergstra et al., 2013; Akiba et al., 2019).
+The present paper seeks to motivate DSPy as a programming model and to report new empirical
+findings from applying the DSPy compiler. This is inspired by formative work by Bergstra et al.
+(2010; 2013), Paszke et al. (2019), and Wolf et al. (2020), who support their respective programming
+models with a mix of benchmark numbers and some qualitative measures. For the current paper, we
+focus on showing that DSPy and its compiler allow us to build outstanding LM systems without
+hand-crafted prompt strings, but instead from truly modular units, and that this opens up doors for
+systematically exploring a rich design space at a very high programmatic level of abstraction.
+3 T HE DSP Y PROGRAMMING MODEL
+We present DSPy, which treats LMs as abstract devices for text generation,3 and optimizes their us-
+age in arbitrary computational graphs. DSPy programs are expressed in Python: each program takes
+the task input (e.g., a question to answer or a paper to summarize) and returns the output (e.g., an
+answer or a summary) after a series of steps. DSPy contributes three abstractions toward automatic
+optimization: signatures, modules, and teleprompters. Signatures abstract the input/output behavior
+of a module; modules replace existing hand-prompting techniques and can be composed in arbitrary
+pipelines; and teleprompters optimize all modules in the pipeline to maximize a metric.
+3We assume access to one or more LMs, which consume a prompt string and return text completions. This
+may be a promptable LM capable of in-context learning (e.g., GPT-3.5 or Llama2-7b) or a smaller finetuneable
+LM (e.g., T5-base). An LM may be selected as the default; operations will use it unless configured otherwise.
+3

@@ -1,0 +1,120 @@
+[
+  {
+    "path": "packages/app/src/runtime/persistence/uuid.ts",
+    "sha256": "2c93d63a03d8344f6633ca4d7e75c44cf97f44f382356f01d6e371c98ab6e6a5",
+    "bytes": 362,
+    "symbols": [
+      "export function uuid() {"
+    ]
+  },
+  {
+    "path": "packages/app/src/runtime/persistence/base64.ts",
+    "sha256": "cbc821cfc6b826b41ba5406499d18b8af541f7735c37be68b913970ec9c54ce4",
+    "bytes": 211,
+    "symbols": [
+      "export function decode64(value: string | undefined) {"
+    ]
+  },
+  {
+    "path": "packages/app/src/runtime/persistence/drafts.ts",
+    "sha256": "d50ae22821a5d60402570cc114c9b2df66a70e47f18cb1ba8a76be60f50f11aa",
+    "bytes": 20818,
+    "symbols": [
+      "export const draftTextThreshold = 16 * 1024",
+      "export const draftTextChunk = 64 * 1024",
+      "export const retainedBlobGrace = 30_000",
+      "export function resolveBlobUrl(blob: { id: string; url?: string }) {",
+      "export async function createBlobReference(blob: Blob): Promise<BlobReference> {",
+      "export function createDraftStore(driver: Driver, options: { grace?: number } = {}): DraftStore {",
+      "export function createBrowserDraftStore(): DraftStore {",
+      "export async function blobDataUrl(blob: BlobReference, mime: string) {",
+      "export function createLegacyBlobReference(dataUrl: string): BlobReference {"
+    ]
+  },
+  {
+    "path": "packages/app/src/runtime/persistence/schema.ts",
+    "sha256": "4a0c0d1c0a38e95f6407a4eff6373bbef0b730d0f1dcdd3820de1071f81ab789",
+    "bytes": 5163,
+    "symbols": [
+      "export function migrate<S extends Schema.ConstraintCodec<object, unknown>>(",
+      "export function withInitial<S extends Schema.ConstraintCodec<object, unknown>>(",
+      "export function legacy<const Fields extends Schema.Struct.Fields>(fields: Fields) {",
+      "export function fallback<S extends Schema.ConstraintCodec<unknown, unknown>>(schema: S, value: () => S[\"Type\"]) {",
+      "export function optional<S extends Schema.ConstraintCodec<unknown, unknown>>(schema: S) {",
+      "export function struct<const Fields extends Schema.Struct.Fields>(fields: Fields) {",
+      "export function record<S extends Schema.ConstraintCodec<unknown, unknown>>(schema: S) {",
+      "export function array<S extends Schema.ConstraintCodec<unknown, unknown>>(schema: S) {"
+    ]
+  },
+  {
+    "path": "packages/app/src/runtime/server/persistence.ts",
+    "sha256": "a0134f0c23f903063870d440c152ad83d80dd8cebe27c79ad36414d69cb71469",
+    "bytes": 4615,
+    "symbols": [
+      "export const ServerKey = Schema.String.pipe(Schema.brand(\"ServerConnection.Key\"))",
+      "export const ServerHttpBase = Persistence.struct({",
+      "export const ServerHttp = Persistence.struct({",
+      "export function serverState(canonicalLocalServer: () => string | undefined = () => undefined) {",
+      "export const ModelState = Persistence.struct({",
+      "export const VcsState = Persistence.struct({",
+      "export const ProjectState = Persistence.struct({",
+      "export const IconState = Persistence.struct({"
+    ]
+  },
+  {
+    "path": "packages/app/src/runtime/persistence/persist.ts",
+    "sha256": "60c920677db17bae41a631d8f35a2d31962fddca7908a1dbd794771b481eafaa",
+    "bytes": 3881,
+    "symbols": [
+      "export const persistSaveDelay = 100",
+      "export function flushPersisted() {",
+      "export function persistStore<T extends object>(input: {"
+    ]
+  },
+  {
+    "path": "packages/app/src/runtime/persistence/storage.ts",
+    "sha256": "d23c3be1ab9c9e5e7ae67726c5c527b1a95d9aa5fc382a1c60901e5d7485d771",
+    "bytes": 22532,
+    "symbols": [
+      "export function draftPersistedKeys() {",
+      "export const Persist = {",
+      "export function removePersisted(",
+      "export function persisted<S extends Schema.ConstraintCodec<object, unknown>>("
+    ]
+  },
+  {
+    "path": "packages/app/src/runtime/persistence/equality.ts",
+    "sha256": "0e857394364dff17c799182b190dee6ea15ab9dcc6a8f292ac69437c357d225e",
+    "bytes": 226,
+    "symbols": [
+      "export function same<T>(a: readonly T[] | undefined, b: readonly T[] | undefined) {"
+    ]
+  },
+  {
+    "path": "packages/app/src/runtime/persistence/namespace.ts",
+    "sha256": "405e5428789a9aae42b4e99ddbfe6c462ab2b82c94126ed70669de070df8eae6",
+    "bytes": 6569,
+    "symbols": [
+      "export const namespaceFlushDelay = 100",
+      "export function createNamespaceStorage("
+    ]
+  },
+  {
+    "path": "packages/app/src/runtime/persistence/uuid.test.ts",
+    "sha256": "43a1d3709c1d25460fd04bc2e792827a204a1e9a09f49319b24e8847d4a28771",
+    "bytes": 2098,
+    "symbols": []
+  },
+  {
+    "path": "packages/app/src/runtime/persistence/drafts.test.ts",
+    "sha256": "f7a900d3749b3cddc5ff70ca686b4396d93147620826e2e59b10a19866a52235",
+    "bytes": 14607,
+    "symbols": []
+  },
+  {
+    "path": "packages/app/src/runtime/persistence/schema.test.ts",
+    "sha256": "96f23f6c561c016268718d0738c680a2c333715e602e9995515e54baaf3ea896",
+    "bytes": 8883,
+    "symbols": []
+  }
+]

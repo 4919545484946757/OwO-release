@@ -1,0 +1,5194 @@
+{
+  "kept": [
+    {
+      "path": ".env.example",
+      "bytes": 243
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "bytes": 999
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.yml",
+      "bytes": 681
+    },
+    {
+      "path": ".github/pull_request_template.md",
+      "bytes": 239
+    },
+    {
+      "path": ".github/workflows/deploy-report.yml",
+      "bytes": 2364
+    },
+    {
+      "path": ".github/workflows/lint.yml",
+      "bytes": 659
+    },
+    {
+      "path": ".github/workflows/publish.yml",
+      "bytes": 863
+    },
+    {
+      "path": ".github/workflows/test.yml",
+      "bytes": 805
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 905
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "bytes": 904
+    },
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 66103
+    },
+    {
+      "path": "CLAUDE.md",
+      "bytes": 665
+    },
+    {
+      "path": "README.md",
+      "bytes": 10535
+    },
+    {
+      "path": "dataset/.spec_audit_verdicts.json",
+      "bytes": 24224
+    },
+    {
+      "path": "dataset/README.md",
+      "bytes": 5931
+    },
+    {
+      "path": "dataset/SPEC_AUDIT.md",
+      "bytes": 66369
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/Dockerfile",
+      "bytes": 850
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/combined.patch",
+      "bytes": 17124
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/feature1/feature.md",
+      "bytes": 1675
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/feature1/feature.patch",
+      "bytes": 5048
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/feature1/tests.patch",
+      "bytes": 709
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/feature2/feature.md",
+      "bytes": 2082
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/feature2/feature.patch",
+      "bytes": 1990
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/feature2/tests.patch",
+      "bytes": 4585
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/feature3/feature.md",
+      "bytes": 5952
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/feature3/feature.patch",
+      "bytes": 10259
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/feature3/tests.patch",
+      "bytes": 8602
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/feature4/feature.md",
+      "bytes": 3888
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/feature4/feature.patch",
+      "bytes": 6720
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/feature4/tests.patch",
+      "bytes": 6149
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/run_tests.sh",
+      "bytes": 3951
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/runner.sh",
+      "bytes": 3087
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/setup.sh",
+      "bytes": 1260
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1371/test_features.sh",
+      "bytes": 3676
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/Dockerfile",
+      "bytes": 819
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/combined.patch",
+      "bytes": 2642
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature1/feature.md",
+      "bytes": 2841
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature1/feature.patch",
+      "bytes": 682
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature1/tests.patch",
+      "bytes": 2039
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature10/feature.md",
+      "bytes": 3569
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature10/feature.patch",
+      "bytes": 481
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature10/tests.patch",
+      "bytes": 2522
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature2/feature.md",
+      "bytes": 2582
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature2/feature.patch",
+      "bytes": 509
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature2/tests.patch",
+      "bytes": 1894
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature3/feature.md",
+      "bytes": 2919
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature3/feature.patch",
+      "bytes": 474
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature3/tests.patch",
+      "bytes": 2085
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature4/feature.md",
+      "bytes": 3036
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature4/feature.patch",
+      "bytes": 651
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature4/tests.patch",
+      "bytes": 2063
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature5/feature.md",
+      "bytes": 2911
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature5/feature.patch",
+      "bytes": 486
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature5/tests.patch",
+      "bytes": 1622
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature6/feature.md",
+      "bytes": 2457
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature6/feature.patch",
+      "bytes": 563
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature6/tests.patch",
+      "bytes": 2695
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature7/feature.md",
+      "bytes": 2657
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature7/feature.patch",
+      "bytes": 826
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature7/tests.patch",
+      "bytes": 2253
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature8/feature.md",
+      "bytes": 2934
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature8/feature.patch",
+      "bytes": 506
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature8/tests.patch",
+      "bytes": 2201
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature9/feature.md",
+      "bytes": 2762
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature9/feature.patch",
+      "bytes": 608
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/feature9/tests.patch",
+      "bytes": 2300
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/run_tests.sh",
+      "bytes": 3962
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/runner.sh",
+      "bytes": 2491
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/setup.sh",
+      "bytes": 1260
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1655/test_features.sh",
+      "bytes": 3700
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/Dockerfile",
+      "bytes": 1853
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/combined.patch",
+      "bytes": 23295
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature1/feature.md",
+      "bytes": 6926
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature1/feature.patch",
+      "bytes": 11414
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature1/tests.patch",
+      "bytes": 13025
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature2/feature.md",
+      "bytes": 6598
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature2/feature.patch",
+      "bytes": 3750
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature2/tests.patch",
+      "bytes": 10834
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature3/feature.md",
+      "bytes": 5242
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature3/feature.patch",
+      "bytes": 4228
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature3/tests.patch",
+      "bytes": 11108
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature4/feature.md",
+      "bytes": 4698
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature4/feature.patch",
+      "bytes": 1936
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature4/tests.patch",
+      "bytes": 5219
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature5/feature.md",
+      "bytes": 5176
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature5/feature.patch",
+      "bytes": 8021
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature5/tests.patch",
+      "bytes": 9583
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature6/feature.md",
+      "bytes": 5741
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature6/feature.patch",
+      "bytes": 3553
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature6/tests.patch",
+      "bytes": 6131
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature7/feature.md",
+      "bytes": 6573
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature7/feature.patch",
+      "bytes": 6573
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature7/tests.patch",
+      "bytes": 8832
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature8/feature.md",
+      "bytes": 4785
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature8/feature.patch",
+      "bytes": 7181
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/feature8/tests.patch",
+      "bytes": 8139
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/run_tests.sh",
+      "bytes": 4809
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/runner.sh",
+      "bytes": 3457
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/setup.sh",
+      "bytes": 2234
+    },
+    {
+      "path": "dataset/dottxt_ai_outlines_task/task1706/test_features.sh",
+      "bytes": 5598
+    },
+    {
+      "path": "dataset/dspy_task/task8394/Dockerfile",
+      "bytes": 1231
+    },
+    {
+      "path": "dataset/dspy_task/task8394/combined.patch",
+      "bytes": 21149
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature1/feature.md",
+      "bytes": 1700
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature1/feature.patch",
+      "bytes": 2326
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature1/tests.patch",
+      "bytes": 6754
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature2/feature.md",
+      "bytes": 4770
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature2/feature.patch",
+      "bytes": 9588
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature2/tests.patch",
+      "bytes": 19148
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature3/feature.md",
+      "bytes": 2634
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature3/feature.patch",
+      "bytes": 5248
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature3/tests.patch",
+      "bytes": 4071
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature4/feature.md",
+      "bytes": 3342
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature4/feature.patch",
+      "bytes": 8475
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature4/tests.patch",
+      "bytes": 6797
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature5/feature.md",
+      "bytes": 3831
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature5/feature.patch",
+      "bytes": 8932
+    },
+    {
+      "path": "dataset/dspy_task/task8394/feature5/tests.patch",
+      "bytes": 9619
+    },
+    {
+      "path": "dataset/dspy_task/task8394/run_tests.sh",
+      "bytes": 5770
+    },
+    {
+      "path": "dataset/dspy_task/task8394/runner.sh",
+      "bytes": 3604
+    },
+    {
+      "path": "dataset/dspy_task/task8394/setup.sh",
+      "bytes": 1308
+    },
+    {
+      "path": "dataset/dspy_task/task8563/Dockerfile",
+      "bytes": 1231
+    },
+    {
+      "path": "dataset/dspy_task/task8563/combined.patch",
+      "bytes": 20245
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature1/feature.md",
+      "bytes": 2141
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature1/feature.patch",
+      "bytes": 2988
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature1/tests.patch",
+      "bytes": 8721
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature2/feature.md",
+      "bytes": 2574
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature2/feature.patch",
+      "bytes": 6025
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature2/tests.patch",
+      "bytes": 4094
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature3/feature.md",
+      "bytes": 2704
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature3/feature.patch",
+      "bytes": 4338
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature3/tests.patch",
+      "bytes": 6233
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature4/feature.md",
+      "bytes": 3381
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature4/feature.patch",
+      "bytes": 2853
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature4/tests.patch",
+      "bytes": 8038
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature5/feature.md",
+      "bytes": 5355
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature5/feature.patch",
+      "bytes": 7743
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature5/tests.patch",
+      "bytes": 10541
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature6/feature.md",
+      "bytes": 2021
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature6/feature.patch",
+      "bytes": 3079
+    },
+    {
+      "path": "dataset/dspy_task/task8563/feature6/tests.patch",
+      "bytes": 6454
+    },
+    {
+      "path": "dataset/dspy_task/task8563/run_tests.sh",
+      "bytes": 5396
+    },
+    {
+      "path": "dataset/dspy_task/task8563/runner.sh",
+      "bytes": 3172
+    },
+    {
+      "path": "dataset/dspy_task/task8563/setup.sh",
+      "bytes": 1308
+    },
+    {
+      "path": "dataset/dspy_task/task8587/Dockerfile",
+      "bytes": 1231
+    },
+    {
+      "path": "dataset/dspy_task/task8587/combined.patch",
+      "bytes": 14336
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature1/feature.md",
+      "bytes": 2130
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature1/feature.patch",
+      "bytes": 1064
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature1/tests.patch",
+      "bytes": 1842
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature2/feature.md",
+      "bytes": 2074
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature2/feature.patch",
+      "bytes": 4254
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature2/tests.patch",
+      "bytes": 8561
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature3/feature.md",
+      "bytes": 2492
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature3/feature.patch",
+      "bytes": 6218
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature3/tests.patch",
+      "bytes": 8432
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature4/feature.md",
+      "bytes": 1800
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature4/feature.patch",
+      "bytes": 5731
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature4/tests.patch",
+      "bytes": 5536
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature5/feature.md",
+      "bytes": 3353
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature5/feature.patch",
+      "bytes": 5871
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature5/tests.patch",
+      "bytes": 15729
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature6/feature.md",
+      "bytes": 2537
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature6/feature.patch",
+      "bytes": 2862
+    },
+    {
+      "path": "dataset/dspy_task/task8587/feature6/tests.patch",
+      "bytes": 8594
+    },
+    {
+      "path": "dataset/dspy_task/task8587/run_tests.sh",
+      "bytes": 5366
+    },
+    {
+      "path": "dataset/dspy_task/task8587/runner.sh",
+      "bytes": 3140
+    },
+    {
+      "path": "dataset/dspy_task/task8587/setup.sh",
+      "bytes": 1308
+    },
+    {
+      "path": "dataset/dspy_task/task8635/Dockerfile",
+      "bytes": 1231
+    },
+    {
+      "path": "dataset/dspy_task/task8635/combined.patch",
+      "bytes": 16126
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature1/feature.md",
+      "bytes": 5223
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature1/feature.patch",
+      "bytes": 5730
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature1/tests.patch",
+      "bytes": 7975
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature2/feature.md",
+      "bytes": 1146
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature2/feature.patch",
+      "bytes": 1542
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature2/tests.patch",
+      "bytes": 5241
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature3/feature.md",
+      "bytes": 1343
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature3/feature.patch",
+      "bytes": 3206
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature3/tests.patch",
+      "bytes": 7257
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature4/feature.md",
+      "bytes": 1965
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature4/feature.patch",
+      "bytes": 5783
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature4/tests.patch",
+      "bytes": 5581
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature5/feature.md",
+      "bytes": 2119
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature5/feature.patch",
+      "bytes": 587
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature5/tests.patch",
+      "bytes": 5800
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature6/feature.md",
+      "bytes": 1953
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature6/feature.patch",
+      "bytes": 5822
+    },
+    {
+      "path": "dataset/dspy_task/task8635/feature6/tests.patch",
+      "bytes": 6037
+    },
+    {
+      "path": "dataset/dspy_task/task8635/run_tests.sh",
+      "bytes": 6057
+    },
+    {
+      "path": "dataset/dspy_task/task8635/runner.sh",
+      "bytes": 4375
+    },
+    {
+      "path": "dataset/dspy_task/task8635/setup.sh",
+      "bytes": 1219
+    },
+    {
+      "path": "dataset/go_chi_task/task26/Dockerfile",
+      "bytes": 1040
+    },
+    {
+      "path": "dataset/go_chi_task/task26/combined.patch",
+      "bytes": 13813
+    },
+    {
+      "path": "dataset/go_chi_task/task26/feature1/feature.md",
+      "bytes": 1669
+    },
+    {
+      "path": "dataset/go_chi_task/task26/feature1/feature.patch",
+      "bytes": 2313
+    },
+    {
+      "path": "dataset/go_chi_task/task26/feature1/tests.patch",
+      "bytes": 2307
+    },
+    {
+      "path": "dataset/go_chi_task/task26/feature2/feature.md",
+      "bytes": 2552
+    },
+    {
+      "path": "dataset/go_chi_task/task26/feature2/feature.patch",
+      "bytes": 2737
+    },
+    {
+      "path": "dataset/go_chi_task/task26/feature2/tests.patch",
+      "bytes": 1790
+    },
+    {
+      "path": "dataset/go_chi_task/task26/feature3/feature.md",
+      "bytes": 2235
+    },
+    {
+      "path": "dataset/go_chi_task/task26/feature3/feature.patch",
+      "bytes": 6729
+    },
+    {
+      "path": "dataset/go_chi_task/task26/feature3/tests.patch",
+      "bytes": 4711
+    },
+    {
+      "path": "dataset/go_chi_task/task26/feature4/feature.md",
+      "bytes": 1840
+    },
+    {
+      "path": "dataset/go_chi_task/task26/feature4/feature.patch",
+      "bytes": 5088
+    },
+    {
+      "path": "dataset/go_chi_task/task26/feature4/tests.patch",
+      "bytes": 1045
+    },
+    {
+      "path": "dataset/go_chi_task/task26/run_tests.sh",
+      "bytes": 2984
+    },
+    {
+      "path": "dataset/go_chi_task/task26/runner.sh",
+      "bytes": 4062
+    },
+    {
+      "path": "dataset/go_chi_task/task26/setup.sh",
+      "bytes": 691
+    },
+    {
+      "path": "dataset/go_chi_task/task26/test_all.sh",
+      "bytes": 1967
+    },
+    {
+      "path": "dataset/go_chi_task/task27/Dockerfile",
+      "bytes": 657
+    },
+    {
+      "path": "dataset/go_chi_task/task27/combined.patch",
+      "bytes": 2393
+    },
+    {
+      "path": "dataset/go_chi_task/task27/feature1/feature.md",
+      "bytes": 2142
+    },
+    {
+      "path": "dataset/go_chi_task/task27/feature1/feature.patch",
+      "bytes": 1435
+    },
+    {
+      "path": "dataset/go_chi_task/task27/feature1/tests.patch",
+      "bytes": 3807
+    },
+    {
+      "path": "dataset/go_chi_task/task27/feature2/feature.md",
+      "bytes": 790
+    },
+    {
+      "path": "dataset/go_chi_task/task27/feature2/feature.patch",
+      "bytes": 1942
+    },
+    {
+      "path": "dataset/go_chi_task/task27/feature2/tests.patch",
+      "bytes": 1105
+    },
+    {
+      "path": "dataset/go_chi_task/task27/feature3/feature.md",
+      "bytes": 753
+    },
+    {
+      "path": "dataset/go_chi_task/task27/feature3/feature.patch",
+      "bytes": 2383
+    },
+    {
+      "path": "dataset/go_chi_task/task27/feature3/tests.patch",
+      "bytes": 3456
+    },
+    {
+      "path": "dataset/go_chi_task/task27/feature4/feature.md",
+      "bytes": 616
+    },
+    {
+      "path": "dataset/go_chi_task/task27/feature4/feature.patch",
+      "bytes": 1539
+    },
+    {
+      "path": "dataset/go_chi_task/task27/feature4/tests.patch",
+      "bytes": 1384
+    },
+    {
+      "path": "dataset/go_chi_task/task27/run_tests.sh",
+      "bytes": 2984
+    },
+    {
+      "path": "dataset/go_chi_task/task27/runner.sh",
+      "bytes": 3896
+    },
+    {
+      "path": "dataset/go_chi_task/task27/setup.sh",
+      "bytes": 691
+    },
+    {
+      "path": "dataset/go_chi_task/task27/test_all.sh",
+      "bytes": 1778
+    },
+    {
+      "path": "dataset/go_chi_task/task56/Dockerfile",
+      "bytes": 657
+    },
+    {
+      "path": "dataset/go_chi_task/task56/combined.patch",
+      "bytes": 16048
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature1/feature.md",
+      "bytes": 3365
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature1/feature.patch",
+      "bytes": 6154
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature1/tests.patch",
+      "bytes": 5957
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature2/feature.md",
+      "bytes": 2637
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature2/feature.patch",
+      "bytes": 3673
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature2/tests.patch",
+      "bytes": 4109
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature3/feature.md",
+      "bytes": 2713
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature3/feature.patch",
+      "bytes": 5899
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature3/tests.patch",
+      "bytes": 1217
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature4/feature.md",
+      "bytes": 2704
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature4/feature.patch",
+      "bytes": 3400
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature4/test_report/test_report.md",
+      "bytes": 857
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature4/tests.patch",
+      "bytes": 3106
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature5/feature.md",
+      "bytes": 2768
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature5/feature.patch",
+      "bytes": 8091
+    },
+    {
+      "path": "dataset/go_chi_task/task56/feature5/tests.patch",
+      "bytes": 3248
+    },
+    {
+      "path": "dataset/go_chi_task/task56/run_tests.sh",
+      "bytes": 2984
+    },
+    {
+      "path": "dataset/go_chi_task/task56/runner.sh",
+      "bytes": 3836
+    },
+    {
+      "path": "dataset/go_chi_task/task56/setup.sh",
+      "bytes": 691
+    },
+    {
+      "path": "dataset/go_chi_task/task56/test_all.sh",
+      "bytes": 3205
+    },
+    {
+      "path": "dataset/gold_conflict_report.json",
+      "bytes": 198469
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/Dockerfile",
+      "bytes": 910
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/combined.patch",
+      "bytes": 6154
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature1/feature.md",
+      "bytes": 1395
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature1/feature.patch",
+      "bytes": 2877
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature1/tests.patch",
+      "bytes": 1926
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature2/feature.md",
+      "bytes": 1126
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature2/feature.patch",
+      "bytes": 1949
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature2/tests.patch",
+      "bytes": 1226
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature3/feature.md",
+      "bytes": 1335
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature3/feature.patch",
+      "bytes": 2510
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature3/tests.patch",
+      "bytes": 1531
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature4/feature.md",
+      "bytes": 906
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature4/feature.patch",
+      "bytes": 1460
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature4/tests.patch",
+      "bytes": 955
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature5/feature.md",
+      "bytes": 1302
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature5/feature.patch",
+      "bytes": 1106
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/feature5/tests.patch",
+      "bytes": 1922
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/run_tests.sh",
+      "bytes": 1959
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/runner.sh",
+      "bytes": 1784
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task3997/setup.sh",
+      "bytes": 1617
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/Dockerfile",
+      "bytes": 1610
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/combined.patch",
+      "bytes": 3333
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature1/feature.md",
+      "bytes": 1250
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature1/feature.patch",
+      "bytes": 842
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature1/tests.patch",
+      "bytes": 1172
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature2/feature.md",
+      "bytes": 1315
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature2/feature.patch",
+      "bytes": 1179
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature2/tests.patch",
+      "bytes": 852
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature3/feature.md",
+      "bytes": 918
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature3/feature.patch",
+      "bytes": 1099
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature3/tests.patch",
+      "bytes": 1192
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature4/feature.md",
+      "bytes": 1000
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature4/feature.patch",
+      "bytes": 1055
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature4/tests.patch",
+      "bytes": 937
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature5/feature.md",
+      "bytes": 1037
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature5/feature.patch",
+      "bytes": 1510
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature5/tests.patch",
+      "bytes": 822
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature6/feature.md",
+      "bytes": 696
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature6/feature.patch",
+      "bytes": 669
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/feature6/tests.patch",
+      "bytes": 1180
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/run_tests.sh",
+      "bytes": 1986
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/runner.sh",
+      "bytes": 3486
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task6252/setup.sh",
+      "bytes": 1633
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task7309/Dockerfile",
+      "bytes": 1223
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task7309/combined.patch",
+      "bytes": 4031
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task7309/feature1/feature.md",
+      "bytes": 1533
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task7309/feature1/feature.patch",
+      "bytes": 2625
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task7309/feature1/tests.patch",
+      "bytes": 875
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task7309/feature2/feature.md",
+      "bytes": 899
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task7309/feature2/feature.patch",
+      "bytes": 2714
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task7309/feature2/tests.patch",
+      "bytes": 2802
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task7309/run_tests.sh",
+      "bytes": 2004
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task7309/runner.sh",
+      "bytes": 3469
+    },
+    {
+      "path": "dataset/huggingface_datasets_task/task7309/setup.sh",
+      "bytes": 1610
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/Dockerfile",
+      "bytes": 831
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/combined.patch",
+      "bytes": 3608
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/feature1/feature.md",
+      "bytes": 1012
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/feature1/feature.patch",
+      "bytes": 1277
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/feature1/tests.patch",
+      "bytes": 2592
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/feature2/feature.md",
+      "bytes": 1505
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/feature2/feature.patch",
+      "bytes": 1146
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/feature2/tests.patch",
+      "bytes": 2790
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/feature3/feature.md",
+      "bytes": 1462
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/feature3/feature.patch",
+      "bytes": 2276
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/feature3/tests.patch",
+      "bytes": 3518
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/run_tests.sh",
+      "bytes": 1830
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/runner.sh",
+      "bytes": 1767
+    },
+    {
+      "path": "dataset/llama_index_task/task17070/setup.sh",
+      "bytes": 1662
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/Dockerfile",
+      "bytes": 822
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/combined.patch",
+      "bytes": 5317
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature1/feature.md",
+      "bytes": 972
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature1/feature.patch",
+      "bytes": 1006
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature1/tests.patch",
+      "bytes": 682
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature2/feature.md",
+      "bytes": 1753
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature2/feature.patch",
+      "bytes": 853
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature2/tests.patch",
+      "bytes": 853
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature3/feature.md",
+      "bytes": 1898
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature3/feature.patch",
+      "bytes": 2027
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature3/tests.patch",
+      "bytes": 955
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature4/feature.md",
+      "bytes": 2022
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature4/feature.patch",
+      "bytes": 2350
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature4/tests.patch",
+      "bytes": 1126
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature5/feature.md",
+      "bytes": 1542
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature5/feature.patch",
+      "bytes": 1524
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature5/tests.patch",
+      "bytes": 697
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature6/feature.md",
+      "bytes": 1705
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature6/feature.patch",
+      "bytes": 1515
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature6/tests.patch",
+      "bytes": 1064
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature7/feature.md",
+      "bytes": 2030
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature7/feature.patch",
+      "bytes": 855
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/feature7/tests.patch",
+      "bytes": 964
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/run_tests.sh",
+      "bytes": 1802
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/runner.sh",
+      "bytes": 2570
+    },
+    {
+      "path": "dataset/llama_index_task/task17244/setup.sh",
+      "bytes": 1652
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/Dockerfile",
+      "bytes": 837
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/combined.patch",
+      "bytes": 5959
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature1/feature.md",
+      "bytes": 995
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature1/feature.patch",
+      "bytes": 2656
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature1/tests.patch",
+      "bytes": 1709
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature2/feature.md",
+      "bytes": 927
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature2/feature.patch",
+      "bytes": 3772
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature2/tests.patch",
+      "bytes": 1800
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature3/feature.md",
+      "bytes": 833
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature3/feature.patch",
+      "bytes": 1872
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature3/tests.patch",
+      "bytes": 2044
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature4/feature.md",
+      "bytes": 2083
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature4/feature.patch",
+      "bytes": 1313
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature4/tests.patch",
+      "bytes": 1341
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature5/feature.md",
+      "bytes": 1532
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature5/feature.patch",
+      "bytes": 1334
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature5/tests.patch",
+      "bytes": 1202
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature6/feature.md",
+      "bytes": 1803
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature6/feature.patch",
+      "bytes": 863
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/feature6/tests.patch",
+      "bytes": 1430
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/run_tests.sh",
+      "bytes": 1832
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/runner.sh",
+      "bytes": 2646
+    },
+    {
+      "path": "dataset/llama_index_task/task18813/setup.sh",
+      "bytes": 1625
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/check_merge_conflicts.sh",
+      "bytes": 1392
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/Dockerfile",
+      "bytes": 832
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/combined.patch",
+      "bytes": 12318
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature1/feature.md",
+      "bytes": 1579
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature1/feature.patch",
+      "bytes": 3527
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature1/tests.patch",
+      "bytes": 1139
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature10/feature.md",
+      "bytes": 2082
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature10/feature.patch",
+      "bytes": 3601
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature10/tests.patch",
+      "bytes": 1041
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature2/feature.md",
+      "bytes": 1996
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature2/feature.patch",
+      "bytes": 6047
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature2/tests.patch",
+      "bytes": 987
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature3/feature.md",
+      "bytes": 1601
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature3/feature.patch",
+      "bytes": 3194
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature3/tests.patch",
+      "bytes": 981
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature4/feature.md",
+      "bytes": 1651
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature4/feature.patch",
+      "bytes": 5856
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature4/tests.patch",
+      "bytes": 723
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature5/feature.md",
+      "bytes": 1768
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature5/feature.patch",
+      "bytes": 3294
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature5/tests.patch",
+      "bytes": 868
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature6/feature.md",
+      "bytes": 2040
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature6/feature.patch",
+      "bytes": 2099
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature6/tests.patch",
+      "bytes": 1438
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature7/feature.md",
+      "bytes": 1446
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature7/feature.patch",
+      "bytes": 3592
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature7/tests.patch",
+      "bytes": 1025
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature8/feature.md",
+      "bytes": 1636
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature8/feature.patch",
+      "bytes": 4205
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature8/tests.patch",
+      "bytes": 664
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature9/feature.md",
+      "bytes": 1533
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature9/feature.patch",
+      "bytes": 3259
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/feature9/tests.patch",
+      "bytes": 845
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/run_tests.sh",
+      "bytes": 2313
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/runner.sh",
+      "bytes": 1516
+    },
+    {
+      "path": "dataset/openai_tiktoken_task/task0/setup.sh",
+      "bytes": 703
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/Dockerfile",
+      "bytes": 839
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/combined.patch",
+      "bytes": 17978
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature1/feature.md",
+      "bytes": 2000
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature1/feature.patch",
+      "bytes": 3658
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature1/tests.patch",
+      "bytes": 4725
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature10/feature.md",
+      "bytes": 1975
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature10/feature.patch",
+      "bytes": 2172
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature10/tests.patch",
+      "bytes": 4668
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature11/feature.md",
+      "bytes": 2687
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature11/feature.patch",
+      "bytes": 7001
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature11/tests.patch",
+      "bytes": 3827
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature12/feature.md",
+      "bytes": 2627
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature12/feature.patch",
+      "bytes": 2970
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature12/tests.patch",
+      "bytes": 4897
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature2/feature.md",
+      "bytes": 2328
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature2/feature.patch",
+      "bytes": 3906
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature2/tests.patch",
+      "bytes": 1877
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature3/feature.md",
+      "bytes": 2526
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature3/feature.patch",
+      "bytes": 2277
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature3/tests.patch",
+      "bytes": 4645
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature4/feature.md",
+      "bytes": 2785
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature4/feature.patch",
+      "bytes": 3043
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature4/tests.patch",
+      "bytes": 3017
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature5/feature.md",
+      "bytes": 2886
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature5/feature.patch",
+      "bytes": 7061
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature5/tests.patch",
+      "bytes": 12605
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature6/feature.md",
+      "bytes": 3152
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature6/feature.patch",
+      "bytes": 4453
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature6/tests.patch",
+      "bytes": 3998
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature7/feature.md",
+      "bytes": 2193
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature7/feature.patch",
+      "bytes": 2506
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature7/tests.patch",
+      "bytes": 5913
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature8/feature.md",
+      "bytes": 2216
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature8/feature.patch",
+      "bytes": 2924
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature8/tests.patch",
+      "bytes": 7652
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature9/feature.md",
+      "bytes": 2236
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature9/feature.patch",
+      "bytes": 4292
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/feature9/tests.patch",
+      "bytes": 7518
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/run_tests.sh",
+      "bytes": 2217
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/runner.sh",
+      "bytes": 1728
+    },
+    {
+      "path": "dataset/pallets_click_task/task2068/setup.sh",
+      "bytes": 1245
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/Dockerfile",
+      "bytes": 839
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/combined.patch",
+      "bytes": 20956
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature1/feature.md",
+      "bytes": 2015
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature1/feature.patch",
+      "bytes": 3608
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature1/tests.patch",
+      "bytes": 1370
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature2/feature.md",
+      "bytes": 2013
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature2/feature.patch",
+      "bytes": 3823
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature2/tests.patch",
+      "bytes": 7021
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature3/feature.md",
+      "bytes": 2043
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature3/feature.patch",
+      "bytes": 4302
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature3/tests.patch",
+      "bytes": 4141
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature4/feature.md",
+      "bytes": 2128
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature4/feature.patch",
+      "bytes": 4803
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature4/tests.patch",
+      "bytes": 5587
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature5/feature.md",
+      "bytes": 2316
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature5/feature.patch",
+      "bytes": 3529
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature5/tests.patch",
+      "bytes": 3624
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature6/feature.md",
+      "bytes": 3972
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature6/feature.patch",
+      "bytes": 4789
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature6/tests.patch",
+      "bytes": 11648
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature7/feature.md",
+      "bytes": 3596
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature7/feature.patch",
+      "bytes": 6142
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/feature7/tests.patch",
+      "bytes": 3600
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/run_tests.sh",
+      "bytes": 2249
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/runner.sh",
+      "bytes": 1760
+    },
+    {
+      "path": "dataset/pallets_click_task/task2800/setup.sh",
+      "bytes": 1774
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/Dockerfile",
+      "bytes": 839
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/combined.patch",
+      "bytes": 25915
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature1/feature.md",
+      "bytes": 2510
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature1/feature.patch",
+      "bytes": 5470
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature1/tests.patch",
+      "bytes": 11121
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature2/feature.md",
+      "bytes": 2154
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature2/feature.patch",
+      "bytes": 2268
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature2/tests.patch",
+      "bytes": 11943
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature3/feature.md",
+      "bytes": 2013
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature3/feature.patch",
+      "bytes": 4312
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature3/tests.patch",
+      "bytes": 7400
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature4/feature.md",
+      "bytes": 1915
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature4/feature.patch",
+      "bytes": 3510
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature4/tests.patch",
+      "bytes": 10817
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature5/feature.md",
+      "bytes": 2807
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature5/feature.patch",
+      "bytes": 4508
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature5/tests.patch",
+      "bytes": 12859
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature6/feature.md",
+      "bytes": 5058
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature6/feature.patch",
+      "bytes": 4726
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature6/tests.patch",
+      "bytes": 7888
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature7/feature.md",
+      "bytes": 3260
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature7/feature.patch",
+      "bytes": 2910
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature7/tests.patch",
+      "bytes": 18293
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature8/feature.md",
+      "bytes": 3890
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature8/feature.patch",
+      "bytes": 4491
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/feature8/tests.patch",
+      "bytes": 13824
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/run_tests.sh",
+      "bytes": 1984
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/runner.sh",
+      "bytes": 1799
+    },
+    {
+      "path": "dataset/pallets_click_task/task2956/setup.sh",
+      "bytes": 795
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/Dockerfile",
+      "bytes": 839
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/combined.patch",
+      "bytes": 9112
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature1/feature.md",
+      "bytes": 1643
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature1/feature.patch",
+      "bytes": 3297
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature1/tests.patch",
+      "bytes": 2012
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature10/feature.md",
+      "bytes": 3020
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature10/feature.patch",
+      "bytes": 4440
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature10/tests.patch",
+      "bytes": 18827
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature2/feature.md",
+      "bytes": 1627
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature2/feature.patch",
+      "bytes": 3846
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature2/tests.patch",
+      "bytes": 4351
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature3/feature.md",
+      "bytes": 1910
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature3/feature.patch",
+      "bytes": 5591
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature3/tests.patch",
+      "bytes": 3919
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature4/feature.md",
+      "bytes": 1784
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature4/feature.patch",
+      "bytes": 4114
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature4/tests.patch",
+      "bytes": 9727
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature5/feature.md",
+      "bytes": 1829
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature5/feature.patch",
+      "bytes": 5222
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature5/tests.patch",
+      "bytes": 10690
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature6/feature.md",
+      "bytes": 1798
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature6/feature.patch",
+      "bytes": 4264
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature6/tests.patch",
+      "bytes": 3342
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature7/feature.md",
+      "bytes": 2085
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature7/feature.patch",
+      "bytes": 3378
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature7/tests.patch",
+      "bytes": 9007
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature8/feature.md",
+      "bytes": 1694
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature8/feature.patch",
+      "bytes": 4802
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature8/tests.patch",
+      "bytes": 5533
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature9/feature.md",
+      "bytes": 3347
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature9/feature.patch",
+      "bytes": 6004
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/feature9/tests.patch",
+      "bytes": 23358
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/meta_tests.patch",
+      "bytes": 0
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/run_tests.sh",
+      "bytes": 3993
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/runner.sh",
+      "bytes": 1757
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1465/setup.sh",
+      "bytes": 1245
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/Dockerfile",
+      "bytes": 839
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/combined.patch",
+      "bytes": 39585
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature1/feature.md",
+      "bytes": 1774
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature1/feature.patch",
+      "bytes": 2769
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature1/tests.patch",
+      "bytes": 1647
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature10/feature.md",
+      "bytes": 4046
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature10/feature.patch",
+      "bytes": 2201
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature10/tests.patch",
+      "bytes": 5200
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature2/feature.md",
+      "bytes": 3334
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature2/feature.patch",
+      "bytes": 5735
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature2/tests.patch",
+      "bytes": 7820
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature3/feature.md",
+      "bytes": 5226
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature3/feature.patch",
+      "bytes": 10331
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature3/tests.patch",
+      "bytes": 12554
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature4/feature.md",
+      "bytes": 4652
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature4/feature.patch",
+      "bytes": 3018
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature4/tests.patch",
+      "bytes": 7154
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature5/feature.md",
+      "bytes": 4178
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature5/feature.patch",
+      "bytes": 3033
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature5/tests.patch",
+      "bytes": 6889
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature6/feature.md",
+      "bytes": 2782
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature6/feature.patch",
+      "bytes": 2688
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature6/tests.patch",
+      "bytes": 6508
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature7/feature.md",
+      "bytes": 4494
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature7/feature.patch",
+      "bytes": 5973
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature7/tests.patch",
+      "bytes": 8350
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature8/feature.md",
+      "bytes": 4392
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature8/feature.patch",
+      "bytes": 9282
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature8/tests.patch",
+      "bytes": 6928
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature9/feature.md",
+      "bytes": 4232
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature9/feature.patch",
+      "bytes": 4501
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/feature9/tests.patch",
+      "bytes": 10413
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/meta_tests.patch",
+      "bytes": 75528
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/run_tests.sh",
+      "bytes": 3961
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/runner.sh",
+      "bytes": 1725
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1559/setup.sh",
+      "bytes": 1245
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/Dockerfile",
+      "bytes": 839
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/combined.patch",
+      "bytes": 24006
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature1/feature.filtered.patch",
+      "bytes": 4125
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature1/feature.md",
+      "bytes": 3594
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature1/feature.patch",
+      "bytes": 4124
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature1/tests.patch",
+      "bytes": 5315
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature10/feature.md",
+      "bytes": 3161
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature10/feature.patch",
+      "bytes": 4399
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature10/tests.patch",
+      "bytes": 7358
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature2/feature.filtered.patch",
+      "bytes": 906
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature2/feature.md",
+      "bytes": 3232
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature2/feature.patch",
+      "bytes": 905
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature2/tests.patch",
+      "bytes": 3366
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature3/feature.md",
+      "bytes": 3111
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature3/feature.patch",
+      "bytes": 1592
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature3/tests.patch",
+      "bytes": 5412
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature4/feature.md",
+      "bytes": 4195
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature4/feature.patch",
+      "bytes": 3202
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature4/tests.patch",
+      "bytes": 5788
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature5/feature.md",
+      "bytes": 4016
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature5/feature.patch",
+      "bytes": 2295
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature5/tests.patch",
+      "bytes": 7115
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature6/feature.md",
+      "bytes": 4836
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature6/feature.patch",
+      "bytes": 4591
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature6/tests.patch",
+      "bytes": 7623
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature7/feature.md",
+      "bytes": 2846
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature7/feature.patch",
+      "bytes": 894
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature7/tests.patch",
+      "bytes": 8287
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature8/feature.md",
+      "bytes": 6592
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature8/feature.patch",
+      "bytes": 7721
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature8/tests.patch",
+      "bytes": 8497
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature9/feature.md",
+      "bytes": 3783
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature9/feature.patch",
+      "bytes": 7269
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/feature9/tests.patch",
+      "bytes": 9531
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/run_tests.sh",
+      "bytes": 3953
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/runner.sh",
+      "bytes": 1728
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/setup.sh",
+      "bytes": 1245
+    },
+    {
+      "path": "dataset/pallets_jinja_task/task1621/test_features.sh",
+      "bytes": 4459
+    },
+    {
+      "path": "dataset/pillow_task/task25/Dockerfile",
+      "bytes": 868
+    },
+    {
+      "path": "dataset/pillow_task/task25/combined.patch",
+      "bytes": 4904
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature1/feature.md",
+      "bytes": 2192
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature1/feature.patch",
+      "bytes": 648
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature1/tests.patch",
+      "bytes": 709
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature2/feature.md",
+      "bytes": 2071
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature2/feature.patch",
+      "bytes": 1640
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature2/tests.patch",
+      "bytes": 1128
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature3/feature.md",
+      "bytes": 1638
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature3/feature.patch",
+      "bytes": 1654
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature3/tests.patch",
+      "bytes": 1560
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature4/feature.md",
+      "bytes": 1865
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature4/feature.patch",
+      "bytes": 1840
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature4/tests.patch",
+      "bytes": 2771
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature5/feature.md",
+      "bytes": 1283
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature5/feature.patch",
+      "bytes": 2336
+    },
+    {
+      "path": "dataset/pillow_task/task25/feature5/tests.patch",
+      "bytes": 2458
+    },
+    {
+      "path": "dataset/pillow_task/task25/run_tests.sh",
+      "bytes": 2723
+    },
+    {
+      "path": "dataset/pillow_task/task25/runner.sh",
+      "bytes": 1288
+    },
+    {
+      "path": "dataset/pillow_task/task25/setup.sh",
+      "bytes": 712
+    },
+    {
+      "path": "dataset/pillow_task/task25/test_features.sh",
+      "bytes": 1492
+    },
+    {
+      "path": "dataset/pillow_task/task290/Dockerfile",
+      "bytes": 868
+    },
+    {
+      "path": "dataset/pillow_task/task290/combined.patch",
+      "bytes": 9616
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature1/feature.md",
+      "bytes": 1576
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature1/feature.patch",
+      "bytes": 551
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature1/tests.patch",
+      "bytes": 558
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature2/feature.md",
+      "bytes": 1564
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature2/feature.patch",
+      "bytes": 3815
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature2/tests.patch",
+      "bytes": 1997
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature3/feature.md",
+      "bytes": 1325
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature3/feature.patch",
+      "bytes": 6258
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature3/tests.patch",
+      "bytes": 2580
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature4/feature.md",
+      "bytes": 1615
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature4/feature.patch",
+      "bytes": 4556
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature4/tests.patch",
+      "bytes": 2513
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature5/feature.md",
+      "bytes": 1865
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature5/feature.patch",
+      "bytes": 5218
+    },
+    {
+      "path": "dataset/pillow_task/task290/feature5/tests.patch",
+      "bytes": 3116
+    },
+    {
+      "path": "dataset/pillow_task/task290/run_tests.sh",
+      "bytes": 2872
+    },
+    {
+      "path": "dataset/pillow_task/task290/runner.sh",
+      "bytes": 1604
+    },
+    {
+      "path": "dataset/pillow_task/task290/setup.sh",
+      "bytes": 713
+    },
+    {
+      "path": "dataset/pillow_task/task290/test_features.sh",
+      "bytes": 1496
+    },
+    {
+      "path": "dataset/pillow_task/task68/Dockerfile",
+      "bytes": 868
+    },
+    {
+      "path": "dataset/pillow_task/task68/combined.patch",
+      "bytes": 11483
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature1/feature.md",
+      "bytes": 1656
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature1/feature.patch",
+      "bytes": 1233
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature1/tests.patch",
+      "bytes": 755
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature2/feature.md",
+      "bytes": 1510
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature2/feature.patch",
+      "bytes": 3724
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature2/tests.patch",
+      "bytes": 1851
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature3/feature.md",
+      "bytes": 1674
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature3/feature.patch",
+      "bytes": 3014
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature3/tests.patch",
+      "bytes": 2226
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature4/feature.md",
+      "bytes": 1663
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature4/feature.patch",
+      "bytes": 3330
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature4/tests.patch",
+      "bytes": 2859
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature5/feature.md",
+      "bytes": 1692
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature5/feature.patch",
+      "bytes": 4566
+    },
+    {
+      "path": "dataset/pillow_task/task68/feature5/tests.patch",
+      "bytes": 2640
+    },
+    {
+      "path": "dataset/pillow_task/task68/run_tests.sh",
+      "bytes": 2866
+    },
+    {
+      "path": "dataset/pillow_task/task68/runner.sh",
+      "bytes": 1598
+    },
+    {
+      "path": "dataset/pillow_task/task68/setup.sh",
+      "bytes": 712
+    },
+    {
+      "path": "dataset/pillow_task/task68/test_features.sh",
+      "bytes": 1493
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/Dockerfile",
+      "bytes": 855
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/combined.patch",
+      "bytes": 7489
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature1/feature.md",
+      "bytes": 1766
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature1/feature.patch",
+      "bytes": 1450
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature1/tests.patch",
+      "bytes": 2157
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature2/feature.md",
+      "bytes": 2623
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature2/feature.patch",
+      "bytes": 3567
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature2/tests.patch",
+      "bytes": 5477
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature3/feature.md",
+      "bytes": 2856
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature3/feature.patch",
+      "bytes": 2877
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature3/tests.patch",
+      "bytes": 4523
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature4/feature.md",
+      "bytes": 2176
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature4/feature.patch",
+      "bytes": 4028
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature4/tests.patch",
+      "bytes": 3521
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature5/feature.md",
+      "bytes": 2976
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature5/feature.patch",
+      "bytes": 5322
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature5/tests.patch",
+      "bytes": 4893
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature6/feature.md",
+      "bytes": 3662
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature6/feature.patch",
+      "bytes": 7956
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/feature6/tests.patch",
+      "bytes": 3359
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/run_tests.sh",
+      "bytes": 2176
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/runner.sh",
+      "bytes": 1319
+    },
+    {
+      "path": "dataset/react_hook_form_task/task153/setup.sh",
+      "bytes": 743
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/Dockerfile",
+      "bytes": 1139
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/combined.patch",
+      "bytes": 5945
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature1/feature.md",
+      "bytes": 2107
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature1/feature.patch",
+      "bytes": 1269
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature1/tests.patch",
+      "bytes": 1405
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature2/feature.md",
+      "bytes": 2121
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature2/feature.patch",
+      "bytes": 3262
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature2/tests.patch",
+      "bytes": 3441
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature3/feature.md",
+      "bytes": 1937
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature3/feature.patch",
+      "bytes": 2637
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature3/tests.patch",
+      "bytes": 3332
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature4/feature.md",
+      "bytes": 2547
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature4/feature.patch",
+      "bytes": 4460
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature4/tests.patch",
+      "bytes": 4830
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature5/feature.md",
+      "bytes": 1512
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature5/feature.patch",
+      "bytes": 2096
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/feature5/tests.patch",
+      "bytes": 5197
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/run_tests.sh",
+      "bytes": 2268
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/runner.sh",
+      "bytes": 1301
+    },
+    {
+      "path": "dataset/react_hook_form_task/task85/setup.sh",
+      "bytes": 742
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/Dockerfile",
+      "bytes": 851
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/combined.patch",
+      "bytes": 26695
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature1/feature.md",
+      "bytes": 2878
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature1/feature.patch",
+      "bytes": 3594
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature1/tests.patch",
+      "bytes": 2477
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature2/feature.md",
+      "bytes": 2328
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature2/feature.patch",
+      "bytes": 3106
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature2/tests.patch",
+      "bytes": 4361
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature3/feature.md",
+      "bytes": 2293
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature3/feature.patch",
+      "bytes": 2522
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature3/tests.patch",
+      "bytes": 3000
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature4/feature.md",
+      "bytes": 2580
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature4/feature.patch",
+      "bytes": 3558
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature4/tests.patch",
+      "bytes": 4721
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature5/feature.md",
+      "bytes": 3504
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature5/feature.patch",
+      "bytes": 3777
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature5/tests.patch",
+      "bytes": 4907
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature6/feature.md",
+      "bytes": 2127
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature6/feature.patch",
+      "bytes": 5383
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature6/tests.patch",
+      "bytes": 8474
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature7/feature.md",
+      "bytes": 2219
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature7/feature.patch",
+      "bytes": 2748
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature7/tests.patch",
+      "bytes": 5581
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature8/feature.md",
+      "bytes": 2514
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature8/feature.patch",
+      "bytes": 2259
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature8/tests.patch",
+      "bytes": 4003
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature9/feature.md",
+      "bytes": 2397
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature9/feature.patch",
+      "bytes": 4688
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/feature9/tests.patch",
+      "bytes": 5312
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/run_tests.sh",
+      "bytes": 2216
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/runner.sh",
+      "bytes": 1727
+    },
+    {
+      "path": "dataset/samuelcolvin_dirty_equals_task/task43/setup.sh",
+      "bytes": 1520
+    },
+    {
+      "path": "dataset/subsets/all.json",
+      "bytes": 33068
+    },
+    {
+      "path": "dataset/subsets/core.json",
+      "bytes": 2003
+    },
+    {
+      "path": "dataset/subsets/flash.json",
+      "bytes": 4412
+    },
+    {
+      "path": "dataset/subsets/flash_10.json",
+      "bytes": 2187
+    },
+    {
+      "path": "dataset/subsets/lite.json",
+      "bytes": 7254
+    },
+    {
+      "path": "dataset/subsets/team3_250.json",
+      "bytes": 17716
+    },
+    {
+      "path": "dataset/subsets/team3_all.json",
+      "bytes": 53410
+    },
+    {
+      "path": "dataset/typst_task/task6554/Dockerfile",
+      "bytes": 983
+    },
+    {
+      "path": "dataset/typst_task/task6554/combined.patch",
+      "bytes": 15201
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature1/feature.md",
+      "bytes": 1367
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature1/feature.patch",
+      "bytes": 3731
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature1/tests.patch",
+      "bytes": 581
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature10/feature.md",
+      "bytes": 1676
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature10/feature.patch",
+      "bytes": 3178
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature10/tests.patch",
+      "bytes": 929
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature2/feature.md",
+      "bytes": 1550
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature2/feature.patch",
+      "bytes": 2206
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature2/tests.patch",
+      "bytes": 970
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature3/feature.md",
+      "bytes": 1424
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature3/feature.patch",
+      "bytes": 1745
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature3/tests.patch",
+      "bytes": 817
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature4/feature.md",
+      "bytes": 1706
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature4/feature.patch",
+      "bytes": 2704
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature4/tests.patch",
+      "bytes": 941
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature5/feature.md",
+      "bytes": 1855
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature5/feature.patch",
+      "bytes": 3518
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature5/tests.patch",
+      "bytes": 1027
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature6/feature.md",
+      "bytes": 1739
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature6/feature.patch",
+      "bytes": 2733
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature6/tests.patch",
+      "bytes": 1630
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature7/feature.md",
+      "bytes": 1967
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature7/feature.patch",
+      "bytes": 3687
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature7/tests.patch",
+      "bytes": 1019
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature8/feature.md",
+      "bytes": 1848
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature8/feature.patch",
+      "bytes": 2666
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature8/tests.patch",
+      "bytes": 776
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature9/feature.md",
+      "bytes": 1414
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature9/feature.patch",
+      "bytes": 1937
+    },
+    {
+      "path": "dataset/typst_task/task6554/feature9/tests.patch",
+      "bytes": 695
+    },
+    {
+      "path": "dataset/typst_task/task6554/run_tests.sh",
+      "bytes": 6053
+    },
+    {
+      "path": "dataset/typst_task/task6554/runner.sh",
+      "bytes": 4070
+    },
+    {
+      "path": "dataset/typst_task/task6554/setup.sh",
+      "bytes": 1094
+    },
+    {
+      "path": "docs/BENCHMARK_RESULTS.md",
+      "bytes": 5112
+    },
+    {
+      "path": "docs/GCP_SETUP.md",
+      "bytes": 13000
+    },
+    {
+      "path": "docs/QWEN_LOCAL.md",
+      "bytes": 4415
+    },
+    {
+      "path": "docs/team_harness_ablation_data/core_ablation.csv",
+      "bytes": 546
+    },
+    {
+      "path": "docs/team_harness_ablation_data/flash_ablation.csv",
+      "bytes": 632
+    },
+    {
+      "path": "docs/team_harness_ablation_report.html",
+      "bytes": 9789
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 5856
+    },
+    {
+      "path": "scripts/build_gcp_vm_image.sh",
+      "bytes": 5250
+    },
+    {
+      "path": "scripts/check_combined.py",
+      "bytes": 5853
+    },
+    {
+      "path": "scripts/check_gold_conflicts.py",
+      "bytes": 11187
+    },
+    {
+      "path": "scripts/check_gradeable.py",
+      "bytes": 9190
+    },
+    {
+      "path": "scripts/gen_ablation_report.py",
+      "bytes": 12190
+    },
+    {
+      "path": "scripts/generate_core_subset.py",
+      "bytes": 6865
+    },
+    {
+      "path": "scripts/rebuild_task_images.sh",
+      "bytes": 3975
+    },
+    {
+      "path": "scripts/run_benchmark.sh",
+      "bytes": 734
+    },
+    {
+      "path": "scripts/run_team_ablation.py",
+      "bytes": 5522
+    },
+    {
+      "path": "scripts/spec_audit_status.py",
+      "bytes": 2434
+    },
+    {
+      "path": "scripts/spec_audit_survey.py",
+      "bytes": 3628
+    },
+    {
+      "path": "scripts/test_model.py",
+      "bytes": 1692
+    },
+    {
+      "path": "scripts/upload_dataset_to_hf.py",
+      "bytes": 1949
+    },
+    {
+      "path": "src/cooperbench/__about__.py",
+      "bytes": 67
+    },
+    {
+      "path": "src/cooperbench/__init__.py",
+      "bytes": 734
+    },
+    {
+      "path": "src/cooperbench/agents/README.md",
+      "bytes": 7042
+    },
+    {
+      "path": "src/cooperbench/agents/__init__.py",
+      "bytes": 4004
+    },
+    {
+      "path": "src/cooperbench/agents/_azure.py",
+      "bytes": 2315
+    },
+    {
+      "path": "src/cooperbench/agents/_coop/__init__.py",
+      "bytes": 1239
+    },
+    {
+      "path": "src/cooperbench/agents/_coop/coop_msg.py",
+      "bytes": 4516
+    },
+    {
+      "path": "src/cooperbench/agents/_coop/install_snippet.sh",
+      "bytes": 814
+    },
+    {
+      "path": "src/cooperbench/agents/_coop/prompt.py",
+      "bytes": 6222
+    },
+    {
+      "path": "src/cooperbench/agents/_coop/runtime.py",
+      "bytes": 6342
+    },
+    {
+      "path": "src/cooperbench/agents/claude_code/__init__.py",
+      "bytes": 43
+    },
+    {
+      "path": "src/cooperbench/agents/claude_code/adapter.py",
+      "bytes": 23998
+    },
+    {
+      "path": "src/cooperbench/agents/claude_code/parsers.py",
+      "bytes": 5820
+    },
+    {
+      "path": "src/cooperbench/agents/claude_code/setup.sh",
+      "bytes": 1158
+    },
+    {
+      "path": "src/cooperbench/agents/codex/__init__.py",
+      "bytes": 48
+    },
+    {
+      "path": "src/cooperbench/agents/codex/adapter.py",
+      "bytes": 22392
+    },
+    {
+      "path": "src/cooperbench/agents/codex/parsers.py",
+      "bytes": 6056
+    },
+    {
+      "path": "src/cooperbench/agents/codex/setup.sh",
+      "bytes": 1721
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/__init__.py",
+      "bytes": 2755
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/adapter.py",
+      "bytes": 12903
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/agents/__init__.py",
+      "bytes": 51
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/agents/default.py",
+      "bytes": 30459
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/config/__init__.py",
+      "bytes": 1868
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/config/coop.yaml",
+      "bytes": 9790
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/config/solo.yaml",
+      "bytes": 5097
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/connectors/__init__.py",
+      "bytes": 556
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/connectors/gh_shim.sh",
+      "bytes": 6908
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/connectors/git.py",
+      "bytes": 13656
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/connectors/git_servers/__init__.py",
+      "bytes": 3016
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/connectors/git_servers/base.py",
+      "bytes": 619
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/connectors/git_servers/docker.py",
+      "bytes": 6611
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/connectors/git_servers/gcp.py",
+      "bytes": 18255
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/connectors/git_servers/modal.py",
+      "bytes": 4363
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/connectors/messaging.py",
+      "bytes": 9178
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/environments/__init__.py",
+      "bytes": 57
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/environments/docker.py",
+      "bytes": 6947
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/environments/modal.py",
+      "bytes": 11496
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/exceptions.py",
+      "bytes": 619
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/models/__init__.py",
+      "bytes": 1000
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/models/litellm_model.py",
+      "bytes": 14097
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/models/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/models/utils/actions_toolcall.py",
+      "bytes": 4766
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/models/utils/anthropic_utils.py",
+      "bytes": 1189
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/models/utils/cache_control.py",
+      "bytes": 2365
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/models/utils/openai_multimodal.py",
+      "bytes": 1865
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/models/utils/retry.py",
+      "bytes": 860
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/utils/log.py",
+      "bytes": 1011
+    },
+    {
+      "path": "src/cooperbench/agents/mini_swe_agent_v2/utils/serialize.py",
+      "bytes": 938
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/LICENSE",
+      "bytes": 1069
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/README.md",
+      "bytes": 18307
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/VERSION",
+      "bytes": 507
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/__init__.py",
+      "bytes": 164
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/adapter.py",
+      "bytes": 37521
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/connectors/__init__.py",
+      "bytes": 560
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/connectors/git_server.py",
+      "bytes": 6196
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/connectors/redis_server.py",
+      "bytes": 5173
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/docker/.gitignore",
+      "bytes": 16
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/docker/Dockerfile.agent-server",
+      "bytes": 2308
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/docker/build_agent_image.sh",
+      "bytes": 3119
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/docker/build_all_images.sh",
+      "bytes": 3717
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/docker/check_build_status.sh",
+      "bytes": 1684
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/__init__.py",
+      "bytes": 2589
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/__init__.py",
+      "bytes": 137
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/agent.py",
+      "bytes": 31020
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/base.py",
+      "bytes": 19313
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/in_context_learning_example.j2",
+      "bytes": 5512
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/in_context_learning_example_suffix.j2",
+      "bytes": 164
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/model_specific/anthropic_claude.j2",
+      "bytes": 380
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/model_specific/google_gemini.j2",
+      "bytes": 220
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/model_specific/openai_gpt/gpt-5-codex.j2",
+      "bytes": 312
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/model_specific/openai_gpt/gpt-5.j2",
+      "bytes": 467
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/security_policy.j2",
+      "bytes": 994
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/security_risk_assessment.j2",
+      "bytes": 1196
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/self_documentation.j2",
+      "bytes": 1063
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/system_prompt.j2",
+      "bytes": 9339
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/system_prompt_interactive.j2",
+      "bytes": 1388
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/system_prompt_long_horizon.j2",
+      "bytes": 2995
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/system_prompt_planning.j2",
+      "bytes": 2935
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/prompts/system_prompt_tech_philosophy.j2",
+      "bytes": 5005
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/agent/utils.py",
+      "bytes": 8274
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/README.md",
+      "bytes": 1251
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/__init__.py",
+      "bytes": 609
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/agent_context.py",
+      "bytes": 12425
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/condenser/__init__.py",
+      "bytes": 568
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/condenser/base.py",
+      "bytes": 5869
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/condenser/llm_summarizing_condenser.py",
+      "bytes": 9836
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/condenser/no_op_condenser.py",
+      "bytes": 474
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/condenser/pipeline_condenser.py",
+      "bytes": 2145
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/condenser/prompts/summarizing_prompt.j2",
+      "bytes": 2081
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/condenser/utils.py",
+      "bytes": 5599
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/prompts/__init__.py",
+      "bytes": 104
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/prompts/prompt.py",
+      "bytes": 3724
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/prompts/templates/ask_agent_template.j2",
+      "bytes": 212
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/prompts/templates/skill_knowledge_info.j2",
+      "bytes": 423
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/prompts/templates/system_message_suffix.j2",
+      "bytes": 2608
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/skills/__init__.py",
+      "bytes": 938
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/skills/exceptions.py",
+      "bytes": 305
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/skills/skill.py",
+      "bytes": 36473
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/skills/trigger.py",
+      "bytes": 756
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/skills/types.py",
+      "bytes": 1813
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/skills/utils.py",
+      "bytes": 11870
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/context/view.py",
+      "bytes": 19757
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/__init__.py",
+      "bytes": 1509
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/base.py",
+      "bytes": 9143
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/conversation.py",
+      "bytes": 6509
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/conversation_stats.py",
+      "bytes": 3038
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/event_store.py",
+      "bytes": 8003
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/events_list_base.py",
+      "bytes": 505
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/exceptions.py",
+      "bytes": 2351
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/fifo_lock.py",
+      "bytes": 4270
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/impl/__init__.py",
+      "bytes": 220
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/impl/local_conversation.py",
+      "bytes": 39885
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/impl/remote_conversation.py",
+      "bytes": 44092
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/persistence_const.py",
+      "bytes": 218
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/response_utils.py",
+      "bytes": 1548
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/secret_registry.py",
+      "bytes": 4446
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/serialization_diff.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/state.py",
+      "bytes": 17587
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/stuck_detector.py",
+      "bytes": 11673
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/title_utils.py",
+      "bytes": 7063
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/types.py",
+      "bytes": 1507
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/visualizer/__init__.py",
+      "bytes": 275
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/visualizer/base.py",
+      "bytes": 3198
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/conversation/visualizer/default.py",
+      "bytes": 11885
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/critic/__init__.py",
+      "bytes": 372
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/critic/base.py",
+      "bytes": 1158
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/critic/impl/__init__.py",
+      "bytes": 403
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/critic/impl/agent_finished.py",
+      "bytes": 2938
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/critic/impl/api/__init__.py",
+      "bytes": 375
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/critic/impl/api/chat_template.py",
+      "bytes": 7564
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/critic/impl/api/client.py",
+      "bytes": 10980
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/critic/impl/api/critic.py",
+      "bytes": 3437
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/critic/impl/api/taxonomy.py",
+      "bytes": 6440
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/critic/impl/empty_patch.py",
+      "bytes": 1566
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/critic/impl/pass_critic.py",
+      "bytes": 1239
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/critic/result.py",
+      "bytes": 5129
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/__init__.py",
+      "bytes": 1141
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/base.py",
+      "bytes": 5568
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/condenser.py",
+      "bytes": 4681
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/conversation_error.py",
+      "bytes": 1392
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/conversation_state.py",
+      "bytes": 3650
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/llm_completion_log.py",
+      "bytes": 1232
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/llm_convertible/__init__.py",
+      "bytes": 553
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/llm_convertible/action.py",
+      "bytes": 6680
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/llm_convertible/message.py",
+      "bytes": 5413
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/llm_convertible/observation.py",
+      "bytes": 5045
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/llm_convertible/system.py",
+      "bytes": 2332
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/token.py",
+      "bytes": 497
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/types.py",
+      "bytes": 271
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/event/user_action.py",
+      "bytes": 661
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/git/cached_repo.py",
+      "bytes": 16312
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/git/exceptions.py",
+      "bytes": 991
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/git/git_changes.py",
+      "bytes": 8339
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/git/git_diff.py",
+      "bytes": 3820
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/git/models.py",
+      "bytes": 349
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/git/utils.py",
+      "bytes": 10691
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/hooks/__init__.py",
+      "bytes": 949
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/hooks/config.py",
+      "bytes": 10932
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/hooks/conversation_hooks.py",
+      "bytes": 10629
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/hooks/executor.py",
+      "bytes": 5060
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/hooks/manager.py",
+      "bytes": 5864
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/hooks/types.py",
+      "bytes": 1066
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/io/__init__.py",
+      "bytes": 165
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/io/base.py",
+      "bytes": 2958
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/io/cache.py",
+      "bytes": 2908
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/io/local.py",
+      "bytes": 5189
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/io/memory.py",
+      "bytes": 2793
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/__init__.py",
+      "bytes": 1206
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/exceptions/__init__.py",
+      "bytes": 1144
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/exceptions/classifier.py",
+      "bytes": 1456
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/exceptions/mapping.py",
+      "bytes": 1656
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/exceptions/types.py",
+      "bytes": 2781
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/llm.py",
+      "bytes": 45808
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/llm_registry.py",
+      "bytes": 3530
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/llm_response.py",
+      "bytes": 1988
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/message.py",
+      "bytes": 27085
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/mixins/fn_call_converter.py",
+      "bytes": 48528
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/mixins/non_native_fc.py",
+      "bytes": 3408
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/options/__init__.py",
+      "bytes": 54
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/options/chat_options.py",
+      "bytes": 3784
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/options/common.py",
+      "bytes": 580
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/options/responses_options.py",
+      "bytes": 2302
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/router/__init__.py",
+      "bytes": 261
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/router/base.py",
+      "bytes": 4678
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/router/impl/multimodal.py",
+      "bytes": 3034
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/router/impl/random.py",
+      "bytes": 656
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/streaming.py",
+      "bytes": 214
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/utils/metrics.py",
+      "bytes": 11592
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/utils/model_features.py",
+      "bytes": 6295
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/utils/model_info.py",
+      "bytes": 2628
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/utils/model_prompt_spec.py",
+      "bytes": 2587
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/utils/retry_mixin.py",
+      "bytes": 4765
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/utils/telemetry.py",
+      "bytes": 15533
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/utils/unverified_models.py",
+      "bytes": 4797
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/llm/utils/verified_models.py",
+      "bytes": 1462
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/logger/__init__.py",
+      "bytes": 330
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/logger/logger.py",
+      "bytes": 6511
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/logger/rolling.py",
+      "bytes": 3440
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/mcp/__init__.py",
+      "bytes": 588
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/mcp/client.py",
+      "bytes": 3754
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/mcp/definition.py",
+      "bytes": 3424
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/mcp/exceptions.py",
+      "bytes": 448
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/mcp/tool.py",
+      "bytes": 10380
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/mcp/utils.py",
+      "bytes": 3081
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/observability/__init__.py",
+      "bytes": 122
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/observability/laminar.py",
+      "bytes": 5110
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/observability/utils.py",
+      "bytes": 576
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/plugin/__init__.py",
+      "bytes": 1252
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/plugin/fetch.py",
+      "bytes": 11263
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/plugin/loader.py",
+      "bytes": 3767
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/plugin/plugin.py",
+      "bytes": 17851
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/plugin/types.py",
+      "bytes": 28628
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/py.typed",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/secret/__init__.py",
+      "bytes": 348
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/secret/secrets.py",
+      "bytes": 3281
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/security/__init__.py",
+      "bytes": 89
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/security/analyzer.py",
+      "bytes": 3994
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/security/confirmation_policy.py",
+      "bytes": 2145
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/security/llm_analyzer.py",
+      "bytes": 1108
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/security/risk.py",
+      "bytes": 3497
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/tool/__init__.py",
+      "bytes": 765
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/tool/builtins/__init__.py",
+      "bytes": 911
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/tool/builtins/finish.py",
+      "bytes": 3166
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/tool/builtins/think.py",
+      "bytes": 4080
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/tool/registry.py",
+      "bytes": 6272
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/tool/schema.py",
+      "bytes": 9660
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/tool/spec.py",
+      "bytes": 1221
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/tool/tool.py",
+      "bytes": 19687
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/__init__.py",
+      "bytes": 504
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/async_executor.py",
+      "bytes": 3408
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/async_utils.py",
+      "bytes": 2394
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/cipher.py",
+      "bytes": 2363
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/command.py",
+      "bytes": 3238
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/deprecation.py",
+      "bytes": 5114
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/github.py",
+      "bytes": 1638
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/json.py",
+      "bytes": 1384
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/models.py",
+      "bytes": 10728
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/paging.py",
+      "bytes": 1987
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/pydantic_diff.py",
+      "bytes": 2732
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/pydantic_secrets.py",
+      "bytes": 2186
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/truncate.py",
+      "bytes": 4390
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/utils/visualize.py",
+      "bytes": 2004
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/workspace/__init__.py",
+      "bytes": 401
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/workspace/base.py",
+      "bytes": 5366
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/workspace/local.py",
+      "bytes": 6825
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/workspace/models.py",
+      "bytes": 1304
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/workspace/remote/__init__.py",
+      "bytes": 114
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/workspace/remote/async_remote_workspace.py",
+      "bytes": 5608
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/workspace/remote/base.py",
+      "bytes": 6152
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/workspace/remote/remote_workspace_mixin.py",
+      "bytes": 10963
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/openhands/sdk/workspace/workspace.py",
+      "bytes": 1296
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-sdk/pyproject.toml",
+      "bytes": 1069
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/__init__.py",
+      "bytes": 495
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/apply_patch/__init__.py",
+      "bytes": 70
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/apply_patch/core.py",
+      "bytes": 16565
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/apply_patch/definition.py",
+      "bytes": 6374
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/browser_use/__init__.py",
+      "bytes": 1547
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/browser_use/definition.py",
+      "bytes": 23723
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/browser_use/impl.py",
+      "bytes": 16164
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/browser_use/impl_windows.py",
+      "bytes": 2587
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/browser_use/logging_fix.py",
+      "bytes": 1885
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/browser_use/server.py",
+      "bytes": 7720
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/collaboration/__init__.py",
+      "bytes": 369
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/collaboration/messaging.py",
+      "bytes": 11670
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/delegate/__init__.py",
+      "bytes": 511
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/delegate/definition.py",
+      "bytes": 3827
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/delegate/impl.py",
+      "bytes": 11966
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/delegate/registration.py",
+      "bytes": 3981
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/delegate/templates/delegate_tool_description.j2",
+      "bytes": 1580
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/delegate/visualizer.py",
+      "bytes": 8991
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/__init__.py",
+      "bytes": 337
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/definition.py",
+      "bytes": 9985
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/editor.py",
+      "bytes": 27261
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/exceptions.py",
+      "bytes": 1490
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/impl.py",
+      "bytes": 3589
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/utils/config.py",
+      "bytes": 67
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/utils/constants.py",
+      "bytes": 1013
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/utils/diff.py",
+      "bytes": 4637
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/utils/encoding.py",
+      "bytes": 4815
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/utils/file_cache.py",
+      "bytes": 5624
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/utils/history.py",
+      "bytes": 4626
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/file_editor/utils/shell.py",
+      "bytes": 2251
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/__init__.py",
+      "bytes": 2351
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/edit/__init__.py",
+      "bytes": 279
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/edit/definition.py",
+      "bytes": 5822
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/edit/impl.py",
+      "bytes": 6498
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/list_directory/__init__.py",
+      "bytes": 403
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/list_directory/definition.py",
+      "bytes": 6136
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/list_directory/impl.py",
+      "bytes": 5724
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/read_file/__init__.py",
+      "bytes": 321
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/read_file/definition.py",
+      "bytes": 4544
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/read_file/impl.py",
+      "bytes": 5161
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/write_file/__init__.py",
+      "bytes": 331
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/write_file/definition.py",
+      "bytes": 4546
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/gemini/write_file/impl.py",
+      "bytes": 3003
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/glob/__init__.py",
+      "bytes": 265
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/glob/definition.py",
+      "bytes": 3743
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/glob/impl.py",
+      "bytes": 10200
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/grep/__init__.py",
+      "bytes": 299
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/grep/definition.py",
+      "bytes": 3970
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/grep/impl.py",
+      "bytes": 8647
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/planning_file_editor/__init__.py",
+      "bytes": 197
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/planning_file_editor/definition.py",
+      "bytes": 3927
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/planning_file_editor/impl.py",
+      "bytes": 2218
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/preset/__init__.py",
+      "bytes": 913
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/preset/default.py",
+      "bytes": 9113
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/preset/gemini.py",
+      "bytes": 3136
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/preset/gpt5.py",
+      "bytes": 2615
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/preset/planning.py",
+      "bytes": 5303
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/py.typed",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/task_tracker/__init__.py",
+      "bytes": 302
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/task_tracker/_team_init_override.py",
+      "bytes": 977
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/task_tracker/coop_definition.py",
+      "bytes": 13048
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/task_tracker/definition.py",
+      "bytes": 15772
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/README.md",
+      "bytes": 4416
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/__init__.py",
+      "bytes": 657
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/constants.py",
+      "bytes": 1091
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/definition.py",
+      "bytes": 13711
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/impl.py",
+      "bytes": 7378
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/metadata.py",
+      "bytes": 3593
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/terminal/__init__.py",
+      "bytes": 665
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/terminal/factory.py",
+      "bytes": 4475
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/terminal/interface.py",
+      "bytes": 6854
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/terminal/subprocess_terminal.py",
+      "bytes": 16269
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/terminal/terminal_session.py",
+      "bytes": 20187
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/terminal/tmux_terminal.py",
+      "bytes": 6187
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/terminal/utils/command.py",
+      "bytes": 5434
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/tom_consult/__init__.py",
+      "bytes": 581
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/tom_consult/definition.py",
+      "bytes": 8254
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/tom_consult/executor.py",
+      "bytes": 16656
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/utils/__init__.py",
+      "bytes": 1253
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/openhands/tools/utils/timeout.py",
+      "bytes": 399
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-tools/pyproject.toml",
+      "bytes": 961
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/openhands/workspace/__init__.py",
+      "bytes": 1030
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/openhands/workspace/apptainer/README.md",
+      "bytes": 5641
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/openhands/workspace/apptainer/__init__.py",
+      "bytes": 120
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/openhands/workspace/apptainer/workspace.py",
+      "bytes": 13981
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/openhands/workspace/cloud/__init__.py",
+      "bytes": 136
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/openhands/workspace/cloud/workspace.py",
+      "bytes": 12891
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/openhands/workspace/docker/__init__.py",
+      "bytes": 539
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/openhands/workspace/docker/dev_workspace.py",
+      "bytes": 3993
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/openhands/workspace/docker/workspace.py",
+      "bytes": 14460
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/openhands/workspace/py.typed",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/openhands/workspace/remote_api/__init__.py",
+      "bytes": 122
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/openhands/workspace/remote_api/workspace.py",
+      "bytes": 15631
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/openhands-workspace/pyproject.toml",
+      "bytes": 773
+    },
+    {
+      "path": "src/cooperbench/agents/openhands_agent_sdk/utils.py",
+      "bytes": 3205
+    },
+    {
+      "path": "src/cooperbench/agents/pricing.py",
+      "bytes": 2163
+    },
+    {
+      "path": "src/cooperbench/agents/registry.py",
+      "bytes": 2761
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/LICENSE",
+      "bytes": 1308
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/__init__.py",
+      "bytes": 1644
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/adapter.py",
+      "bytes": 17042
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/agent/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/agent/action_sampler.py",
+      "bytes": 12182
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/agent/agents.py",
+      "bytes": 61870
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/agent/history_processors.py",
+      "bytes": 14889
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/agent/hooks/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/agent/hooks/abstract.py",
+      "bytes": 4214
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/agent/models.py",
+      "bytes": 37496
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/agent/problem_statement.py",
+      "bytes": 10984
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/agent/reviewer.py",
+      "bytes": 25973
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/config/coop.yaml",
+      "bytes": 4624
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/config/default.yaml",
+      "bytes": 3242
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/connectors/__init__.py",
+      "bytes": 144
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/connectors/git.py",
+      "bytes": 3178
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/environment/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/environment/hooks/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/environment/hooks/abstract.py",
+      "bytes": 1892
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/environment/repo.py",
+      "bytes": 8172
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/environment/swe_env.py",
+      "bytes": 11079
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/exceptions.py",
+      "bytes": 1597
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tooling/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tooling/bundle.py",
+      "bytes": 1846
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tooling/commands.py",
+      "bytes": 8148
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tooling/parsing.py",
+      "bytes": 25139
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tooling/tools.py",
+      "bytes": 16873
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tooling/utils.py",
+      "bytes": 4066
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/edit_anthropic/bin/_state_anthropic",
+      "bytes": 361
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/edit_anthropic/bin/str_replace_editor",
+      "bytes": 29746
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/edit_anthropic/config.yaml",
+      "bytes": 3399
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/edit_anthropic/install.sh",
+      "bytes": 159
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/messaging/bin/send_message",
+      "bytes": 237
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/messaging/config.yaml",
+      "bytes": 422
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/registry/bin/_read_env",
+      "bytes": 246
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/registry/bin/_write_env",
+      "bytes": 228
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/registry/config.yaml",
+      "bytes": 9
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/registry/install.sh",
+      "bytes": 195
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/registry/lib/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/registry/lib/registry.py",
+      "bytes": 2038
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/review_on_submit_m/README.md",
+      "bytes": 197
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/review_on_submit_m/bin/submit",
+      "bytes": 1714
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/review_on_submit_m/config.yaml",
+      "bytes": 200
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/tools/review_on_submit_m/install.sh",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/types.py",
+      "bytes": 2808
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/utils/config.py",
+      "bytes": 2731
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/utils/github.py",
+      "bytes": 3908
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/utils/jinja_warnings.py",
+      "bytes": 530
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/utils/log.py",
+      "bytes": 6436
+    },
+    {
+      "path": "src/cooperbench/agents/swe_agent/utils/patch_formatter.py",
+      "bytes": 6249
+    },
+    {
+      "path": "src/cooperbench/cli.py",
+      "bytes": 13828
+    },
+    {
+      "path": "src/cooperbench/config.py",
+      "bytes": 15002
+    },
+    {
+      "path": "src/cooperbench/dataset.py",
+      "bytes": 1470
+    },
+    {
+      "path": "src/cooperbench/eval/__init__.py",
+      "bytes": 379
+    },
+    {
+      "path": "src/cooperbench/eval/backends/__init__.py",
+      "bytes": 1727
+    },
+    {
+      "path": "src/cooperbench/eval/backends/base.py",
+      "bytes": 1394
+    },
+    {
+      "path": "src/cooperbench/eval/backends/docker.py",
+      "bytes": 3630
+    },
+    {
+      "path": "src/cooperbench/eval/backends/gcp.py",
+      "bytes": 38285
+    },
+    {
+      "path": "src/cooperbench/eval/backends/modal.py",
+      "bytes": 2448
+    },
+    {
+      "path": "src/cooperbench/eval/evaluate.py",
+      "bytes": 18555
+    },
+    {
+      "path": "src/cooperbench/eval/runs.py",
+      "bytes": 5322
+    },
+    {
+      "path": "src/cooperbench/eval/sandbox.py",
+      "bytes": 28475
+    },
+    {
+      "path": "src/cooperbench/generation/prompt.py",
+      "bytes": 12302
+    },
+    {
+      "path": "src/cooperbench/infra/__init__.py",
+      "bytes": 137
+    },
+    {
+      "path": "src/cooperbench/infra/redis.py",
+      "bytes": 1363
+    },
+    {
+      "path": "src/cooperbench/py.typed",
+      "bytes": 0
+    },
+    {
+      "path": "src/cooperbench/runner/__init__.py",
+      "bytes": 179
+    },
+    {
+      "path": "src/cooperbench/runner/coop.py",
+      "bytes": 15444
+    },
+    {
+      "path": "src/cooperbench/runner/core.py",
+      "bytes": 26653
+    },
+    {
+      "path": "src/cooperbench/runner/solo.py",
+      "bytes": 7592
+    },
+    {
+      "path": "src/cooperbench/runner/tasks.py",
+      "bytes": 4628
+    },
+    {
+      "path": "src/cooperbench/runner/team.py",
+      "bytes": 17699
+    },
+    {
+      "path": "src/cooperbench/team_harness/__init__.py",
+      "bytes": 12360
+    },
+    {
+      "path": "src/cooperbench/team_harness/coop_task.py",
+      "bytes": 12516
+    },
+    {
+      "path": "src/cooperbench/team_harness/fs_mirror.py",
+      "bytes": 3211
+    },
+    {
+      "path": "src/cooperbench/team_harness/install_snippet.sh",
+      "bytes": 848
+    },
+    {
+      "path": "src/cooperbench/team_harness/loop_refresh.py",
+      "bytes": 4870
+    },
+    {
+      "path": "src/cooperbench/team_harness/mcp_server.py",
+      "bytes": 6967
+    },
+    {
+      "path": "src/cooperbench/team_harness/metrics.py",
+      "bytes": 2185
+    },
+    {
+      "path": "src/cooperbench/team_harness/prompt.py",
+      "bytes": 8969
+    },
+    {
+      "path": "src/cooperbench/team_harness/protocol.py",
+      "bytes": 6584
+    },
+    {
+      "path": "src/cooperbench/team_harness/runtime.py",
+      "bytes": 1689
+    },
+    {
+      "path": "src/cooperbench/team_harness/task_list.py",
+      "bytes": 8939
+    },
+    {
+      "path": "src/cooperbench/utils.py",
+      "bytes": 5436
+    },
+    {
+      "path": "tests/__init__.py",
+      "bytes": 30
+    },
+    {
+      "path": "tests/agents/__init__.py",
+      "bytes": 43
+    },
+    {
+      "path": "tests/agents/claude_code/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/agents/claude_code/test_adapter.py",
+      "bytes": 20553
+    },
+    {
+      "path": "tests/agents/claude_code/test_parsers.py",
+      "bytes": 8771
+    },
+    {
+      "path": "tests/agents/codex/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/agents/codex/test_adapter.py",
+      "bytes": 16723
+    },
+    {
+      "path": "tests/agents/codex/test_parsers.py",
+      "bytes": 6991
+    },
+    {
+      "path": "tests/agents/mini_swe_agent_v2/__init__.py",
+      "bytes": 61
+    },
+    {
+      "path": "tests/agents/mini_swe_agent_v2/connectors/__init__.py",
+      "bytes": 72
+    },
+    {
+      "path": "tests/agents/mini_swe_agent_v2/connectors/test_messaging.py",
+      "bytes": 7520
+    },
+    {
+      "path": "tests/agents/mini_swe_agent_v2/test_gh_shim.py",
+      "bytes": 21077
+    },
+    {
+      "path": "tests/agents/mini_swe_agent_v2/test_litellm_model.py",
+      "bytes": 2528
+    },
+    {
+      "path": "tests/agents/mini_swe_agent_v2/test_peer_exit_agent.py",
+      "bytes": 7013
+    },
+    {
+      "path": "tests/agents/test_azure.py",
+      "bytes": 2575
+    },
+    {
+      "path": "tests/agents/test_registry.py",
+      "bytes": 7817
+    },
+    {
+      "path": "tests/agents/test_team_wiring.py",
+      "bytes": 12797
+    },
+    {
+      "path": "tests/conftest.py",
+      "bytes": 4306
+    },
+    {
+      "path": "tests/eval/__init__.py",
+      "bytes": 42
+    },
+    {
+      "path": "tests/eval/test_evaluate.py",
+      "bytes": 1637
+    },
+    {
+      "path": "tests/eval/test_runs.py",
+      "bytes": 10402
+    },
+    {
+      "path": "tests/eval/test_sandbox.py",
+      "bytes": 13650
+    },
+    {
+      "path": "tests/eval/test_sandbox_filter.py",
+      "bytes": 1774
+    },
+    {
+      "path": "tests/integration/__init__.py",
+      "bytes": 352
+    },
+    {
+      "path": "tests/integration/eval/__init__.py",
+      "bytes": 54
+    },
+    {
+      "path": "tests/integration/eval/test_evaluate.py",
+      "bytes": 5462
+    },
+    {
+      "path": "tests/integration/eval/test_gcp_backend.py",
+      "bytes": 11590
+    },
+    {
+      "path": "tests/integration/eval/test_sandbox.py",
+      "bytes": 7561
+    },
+    {
+      "path": "tests/integration/runner/__init__.py",
+      "bytes": 56
+    },
+    {
+      "path": "tests/integration/runner/test_core.py",
+      "bytes": 4532
+    },
+    {
+      "path": "tests/integration/test_docker_git.py",
+      "bytes": 8357
+    },
+    {
+      "path": "tests/integration/test_gcp_environment.py",
+      "bytes": 6133
+    },
+    {
+      "path": "tests/integration/test_gcp_git.py",
+      "bytes": 5687
+    },
+    {
+      "path": "tests/integration/test_git.py",
+      "bytes": 8088
+    },
+    {
+      "path": "tests/runner/__init__.py",
+      "bytes": 44
+    },
+    {
+      "path": "tests/runner/test_coop.py",
+      "bytes": 4328
+    },
+    {
+      "path": "tests/runner/test_core.py",
+      "bytes": 3191
+    },
+    {
+      "path": "tests/runner/test_tasks.py",
+      "bytes": 11640
+    },
+    {
+      "path": "tests/runner/test_team.py",
+      "bytes": 11195
+    },
+    {
+      "path": "tests/team_harness/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/team_harness/test_fs_mirror.py",
+      "bytes": 5233
+    },
+    {
+      "path": "tests/team_harness/test_loop_refresh.py",
+      "bytes": 4682
+    },
+    {
+      "path": "tests/team_harness/test_mcp_server.py",
+      "bytes": 5603
+    },
+    {
+      "path": "tests/team_harness/test_metrics.py",
+      "bytes": 3021
+    },
+    {
+      "path": "tests/team_harness/test_prompt.py",
+      "bytes": 7522
+    },
+    {
+      "path": "tests/team_harness/test_protocol.py",
+      "bytes": 4247
+    },
+    {
+      "path": "tests/team_harness/test_runtime.py",
+      "bytes": 2054
+    },
+    {
+      "path": "tests/team_harness/test_session.py",
+      "bytes": 8972
+    },
+    {
+      "path": "tests/team_harness/test_task_list.py",
+      "bytes": 8500
+    },
+    {
+      "path": "tests/test_cli.py",
+      "bytes": 3580
+    },
+    {
+      "path": "tests/test_package.py",
+      "bytes": 4607
+    },
+    {
+      "path": "tests/test_smoke.py",
+      "bytes": 3161
+    },
+    {
+      "path": "tests/test_utils.py",
+      "bytes": 7972
+    },
+    {
+      "path": "uv.lock",
+      "bytes": 914122
+    }
+  ],
+  "omitted": [],
+  "scope": "prior batch source snapshot"
+}

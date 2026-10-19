@@ -1,0 +1,175 @@
+[
+  {
+    "path": "tasks/base.py",
+    "sha256": "da8274e64c99c52b74b84b76496040d8f5e0dbc6125a6a99bd4c2773ad7159a2",
+    "bytes": 7663,
+    "symbols": [
+      "class TaskModule(ABC):",
+      "def get_docker_image(self):",
+      "def get_work_dir(self):",
+      "def get_workspace_config(self):",
+      "def load_task_data(self):",
+      "def setup_workspace(self, workspace):",
+      "def evaluate(self, workspace):",
+      "def get_prompt_format_args(self, config):",
+      "def post_load_task_data(self):",
+      "def get_scan_log_kwargs(self, config):",
+      "def build_analysis_from_state(self):",
+      "def check_existing_delegation(self, events, extract_fn):"
+    ]
+  },
+  {
+    "path": "core/subagent.py",
+    "sha256": "8b51dc23a1270ca72d40ce846e9e6e46efac2952a98012214f7fc0cbdc5468db",
+    "bytes": 37244,
+    "symbols": [
+      "class SubAgentRunner:",
+      "def __init__(",
+      "def log(self, message):",
+      "def can_accept_more_tasks(self):",
+      "def update_task(self, new_subagent):",
+      "def setup(self):",
+      "def create_result(self):",
+      "def build_first_round_prompt(self):",
+      "def build_followup_prompt(self):",
+      "def run(self):",
+      "async def run_async(self):",
+      "def get_commit_info(self):"
+    ]
+  },
+  {
+    "path": "tasks/commit0.py",
+    "sha256": "17cdbd74f63e75ff5a976159040fdade58b14afaafb80edabc03c115d0a968fe",
+    "bytes": 20872,
+    "symbols": [
+      "class Commit0Config:",
+      "class Commit0Task(TaskModule):",
+      "def __init__(self, config):",
+      "def get_docker_image(self):",
+      "def get_work_dir(self):",
+      "def get_workspace_config(self):",
+      "def load_task_data(self):",
+      "def setup_workspace(self, workspace):",
+      "def evaluate(self, workspace):",
+      "def get_prompt_format_args(self, config):",
+      "def get_scan_log_kwargs(self, config):",
+      "def build_subagent(self, engineer_id, primary_task, all_tasks):"
+    ]
+  },
+  {
+    "path": "tasks/__init__.py",
+    "sha256": "4fdd3536684b7de921ccfc8ddfae563da19577da7bdeee24d0435fb23d89d154",
+    "bytes": 245,
+    "symbols": []
+  },
+  {
+    "path": "tasks/paperbench.py",
+    "sha256": "1909ad67e9c505c6108f6322da1917c0a5dbe971d334ae773b984be2bbca5f16",
+    "bytes": 26505,
+    "symbols": [
+      "class PaperbenchConfig:",
+      "class PaperbenchTask(TaskModule):",
+      "def __init__(self, config):",
+      "def get_docker_image(self):",
+      "def get_work_dir(self):",
+      "def get_workspace_config(self):",
+      "def load_task_data(self):",
+      "def setup_workspace(self, workspace):",
+      "def upload_paper_tarball(self, workspace):",
+      "def evaluate(self, workspace):",
+      "def get_prompt_format_args(self, config):",
+      "def post_load_task_data(self):"
+    ]
+  },
+  {
+    "path": "judge/judge_runner.py",
+    "sha256": "2d3a4dec60f472467daa61dacb5ef5e64b43fdbba9027b3100f24b92e2d11d75",
+    "bytes": 4565,
+    "symbols": [
+      "def run(",
+      "async def _run():"
+    ]
+  },
+  {
+    "path": "config.py",
+    "sha256": "84073396730fb69de4cb4d65cfcfa40028165072e4065279b31b51513b1754f6",
+    "bytes": 7888,
+    "symbols": [
+      "class WorkflowConfig:",
+      "class PaperInfo:",
+      "def to_dict(self):",
+      "class TaskNode:",
+      "def to_dict(self):",
+      "def is_leaf(self):",
+      "def get_leaf_nodes(self):",
+      "def from_dict(cls, data):",
+      "class AnalysisResult:",
+      "class SubAgentTask:",
+      "class DelegationPlan:",
+      "class SubAgent:"
+    ]
+  },
+  {
+    "path": "run_infer.py",
+    "sha256": "263473d4c2cdb55db3a46b2dd31c70737d1731e13d68276c45002d39ad755d9d",
+    "bytes": 34883,
+    "symbols": [
+      "async def run_workflow_inner(task, workflow_config, task_module, multi_agent=True, **kwargs):",
+      "async def run_workflow(task, workflow_config, task_module, multi_agent=True, **kwargs):",
+      "def main(task=\"commit0\", model=None, multi_agent=True,"
+    ]
+  },
+  {
+    "path": "core/utils.py",
+    "sha256": "8ed36a174b703185e45e4e74b85793e471301f5951bb500e7e4b924553cc8942",
+    "bytes": 49369,
+    "symbols": [
+      "class PanelVisualizer(ConversationVisualizerBase):",
+      "def __init__(self, highlight_regex=None, skip_user_messages=False):",
+      "def on_event(self, event):",
+      "def apply_highlighting(self, text):",
+      "def format_metrics_subtitle(self):",
+      "def abbr(n):",
+      "def create_event_panel(self, event):",
+      "class OutputLogger:",
+      "def __init__(self, output_dir):",
+      "def log(self, agent_id, message):",
+      "def get_agent_log_file(self, agent_id):",
+      "def log_event("
+    ]
+  },
+  {
+    "path": "core/manager.py",
+    "sha256": "caa2c135a44431cc9ed261e008fd0863a47c7307e1c76b6527348da4bb516f83",
+    "bytes": 48604,
+    "symbols": [
+      "class Manager:",
+      "def __init__(",
+      "def log(self, message):",
+      "def save_events(self, phase, event_start_idx=0):",
+      "def setup_workspace(self):",
+      "def setup(self, mode=\"multi_agent\"):",
+      "def run_single_agent(self):",
+      "def scan_and_analyze(self):",
+      "def delegate_tasks(self):",
+      "def onboard_subagents(self):",
+      "def stash_if_dirty(self):",
+      "def unstash(self):"
+    ]
+  },
+  {
+    "path": "core/patches.py",
+    "sha256": "ced6fb0ceeea624f2c55794779d2b1a27d82e7d6e75bc4b1b98bdc1d2b770d9d",
+    "bytes": 745,
+    "symbols": [
+      "def patched_convert(self, content, role):",
+      "def patched_model_dump(self, **kwargs):"
+    ]
+  },
+  {
+    "path": "core/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "symbols": []
+  }
+]

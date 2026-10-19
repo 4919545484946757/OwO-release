@@ -1,0 +1,146 @@
+AgentScope: A Flexible yet Robust Multi-Agent Platform
+Dawei Gao†, Zitao Li†, Xuchen Pan∗, Weirui Kuang∗, Zhijian Ma∗, Bingchen Qian∗,
+Fei Wei∗, Wenhao Zhang∗, Yuexiang Xie∗, Daoyuan Chen∗,
+Liuyi Yao, Hongyi Peng, Zeyu Zhang, Lin Zhu, Chen Cheng, Hongzhu Shi,
+Yaliang Li‡, Bolin Ding‡, Jingren Zhou
+Alibaba Group
+Abstract
+With the rapid advancement of Large Language Models (LLMs), significant progress has been made
+in multi-agent applications. However, the complexities in coordinating agents’ cooperation and LLMs’
+erratic performance pose notable challenges in developing robust and efficient multi-agent applications.
+To tackle these challenges, we proposeAgentScope, a developer-centric multi-agent platform with
+message exchange as its core communication mechanism. The abundant syntactic tools, built-in agents
+and service functions, user-friendly interfaces for application demonstration and utility monitor, zero-code
+programming workstation, and automatic prompt tuning mechanism significantly lower the barriers to
+both development and deployment. Towards robust and flexible multi-agent application, AgentScope
+provides both built-in and customizable fault tolerance mechanisms. At the same time, it is also armed
+with system-level support for managing and utilizing multi-modal data, tools, and external knowledge.
+Additionally, we design an actor-based distribution framework, enabling easy conversion between local and
+distributed deployments and automatic parallel optimization without extra effort. With these features,
+AgentScope empowers developers to build applications that fully realize the potential of intelligent agents.
+We have released AgentScope athttps://github.com/modelscope/agentscope, and hope AgentScope
+invites wider participation and innovation in this fast-moving field.
+1 Introduction
+Multi-agent systems, as upgraded extensions of single-agent systems, require collaborative efforts from multiple
+agents working in concert (Wang et al., 2023; Xi et al., 2023). With the advancement of Large Language
+Models (LLMs) (Ouyang et al., 2022; OpenAI, 2023; Touvron et al., 2023a,b), multi-agent applications have
+made great progress in both research and industrial communities, including software engineering (Hong et al.,
+2023), society simulation (Park et al., 2023), and intelligent assistant (Wu et al., 2023; AutoGPT-Team,
+2023). Although significant progress has been made in multi-agent scenarios, there are still major challenges
+remaining in multi-agent application development.
+Developing a multi-agent application is more complex than creating a single-agent one.Unlike single-agent
+setups where an agent solely interacts with users, the development in the multi-agent scenario requires careful
+creation and management of multiple models and agents (Wang et al., 2023; Xi et al., 2023), which poses high
+requirements for both versatility and handiness for a platform. In particular, the following aspects feature the
+challenges: 1) Agents involved in a multi-agent application can specialize at different functions via different
+initial configurations; 2) A multi-agent application may require agents to be executed in a standardized
+operating procedure (SOP) or a more dynamic workflow; 3)The communication pattern between agents can
+be varying from one-to-one or broadcasting (e.g., a discussion group of agents). As a result, developers expect
+a handy platform that can provide concise and clear programming patterns when taking care of all the aspects
+above, accelerating and facilitating the development cycle. Achieving versatility and handiness simultaneously
+†Co-first authors.
+∗Equal contribution.
+‡Corresponding authors, email address: {yaliang.li, bolin.ding}@alibaba-inc.com
+1
+arXiv:2402.14034v2  [cs.MA]  20 May 2024
+
+requires careful design and taking trade-offs, and it remains a persistent goal for all multi-agent platform
+designs.
+Aberrations are tinderboxs in a multi-agent system.Although LLMs have advanced rapidly, they still
+struggle with issues like hallucination (Rawte et al., 2023; Zhang et al., 2023b) and inadequate instruction-
+following (Fu et al., 2019; Zhang et al., 2023a). Besides, an agent can be equipped with various tools, but
+those tools introduce additional uncertainties (e.g., accessibility to a database or the search engine). From
+the perspective of multi-agent system robustness, any unexpected error or response can propagate to the
+whole system, causing a series of cascading effects if not handled properly. Thus, it is crucial for multi-agent
+applications to autonomously detect and handle unexpected responses from LLMs. While LLMs may assist in
+identifying and managing these errors, it remains a challenge to determine whether they can resolve errors on
+their own and to automatically provide the necessary information for error correction. Consequently, designing
+fault-tolerant that incorporate LLMs is a key challenge in the development of multi-agent applications.
+Supporting agents with multi-modal data, tools, and external knowledge is highly systematic.Besides
+generating answers with LLMs, agents are expected to be more versatile, including generating and handling
+multi-modal data (Su et al., 2023; Betker et al., 2023), preparing and invoking functions as tools (Yao
+et al., 2023; Shen et al., 2024), managing external knowledge banks, and using the retrieved knowledge for
+augmentation generation (Lewis et al., 2020a). However, integrating these functionalities in multi-agent
+applications requires a comprehensive and systematic approach. Supporting multi-modal content is a complex
+endeavor, necessitating considerations for data storage, presentation, user interaction, message transmission,
+and communication. Tool utilization of agents requires unifying the function calling pattern and output
+parsing, prompting to instruct LLMs, and designing reasoning mechanisms to ensure the tasks can be
+accomplished step by step. As for external knowledge, beyond the retrieval-augmented generation (RAG)
+techniques, we need to consider how to efficiently share and manage the knowledge in multi-agent scenarios
+while leaving enough flexibility for retrieval strategies. While some existing works investigate how those
+techniques individually work within specialized agent systems, general platform-level programming interfaces
+remain absent.
+Distributed applications bring extra programming difficulties and system design challenges.An industrial-
+oriented scenario for multi-agent applications is that the agents are owned by different organizations and
+run on different machines because the agents are equipped with unique private knowledge or patented tools.
+Developing such applications usually requires the developers to have professional knowledge of distributed
+system programming and optimization in the design phase. Besides, distributed applications usually require
+a great extra effort in the development and testing, especially when debugging and diagnosing issues spread
+across distributed processes or agents. Moreover, integrating advanced features like multi-modal data
+processing poses additional challenges in a distributed setting, when the agents require different time to
+accomplish the sub-tasks or the generated contents are very heterogeneous. Poor distributed system design
+can result in excessive communication overhead between agents. Therefore, building distributed multi-agent
+applications requires the large efforts of experienced developers and a high barrier for beginners to migrate
+their prototypes to a distributed style for optimal efficiency.
+To tackle the aforementioned challenges, we introduceAgentScope, a novel multi-agent platform
+designed for developers with varying levels of expertise. AgentScope is well-designed with a message exchange
+communication mechanism that embodies great usability, robustness, and efficiency. We underscore the
+salient features of AgentScope as follows:
+Exceptional Usability for Developers. AgentScope is designed with a fundamental emphasis on ease
+of use, particularly for developers with varying levels of expertise. By implementing a procedure-oriented
+message exchange mechanism, AgentScope ensures a smooth learning curve on multi-agent application
+development. To alleviate the programming burdens, AgentScope offers an extensive suite of syntactic
+utilities, including various pipelines and an information-sharing mechanism. Besides programming with our
+framework, we also improve usability by providing azero-code drag-and-drop programming workstation, which
+can enable those with limited Python programming experience to build their own applications with little
+effort. Compared with building the skeleton of the application, prompt tuning can be a more time-consuming
+stage in multi-agent application development. In AgentScope, we equip our agents with a set ofautomatic
+prompt tuningmechanisms to relieve such burden. Coupled with rich built-in resources and integrated user
+interaction modules, AgentScope makes building a multi-agent application much more enjoyable than ever.
+Robust Fault Tolerance for Diverse LLMs and APIs. As the scale and scope of models and APIs
+2
+
+expand, a robust fault-tolerance mechanism in multi-agent applications becomes paramount. AgentScope
+integrates a comprehensive service-level retry mechanism to maintain API reliability. AgentScope is equipped
+with a set of rule-based correction tools to handle some obvious formatting problems in the responses of LLMs.
+Moreover, AgentScope offers customizable fault tolerance configurations, enabling developers to tailor their
+own fault tolerance mechanism through parameters likeparse_func, fault_handler, and max_retries.
+While admittedly, not all the errors can be handled by the aforementioned mechanism, we propose a logging
+system with customized features for multi-agent applications as the last safeguard for AgentScope.
+Extensive Compatibility for Multi-Modal, Tools, and External Knowledge. With the remarkable
+progress of large-scale multi-modal models, AgentScope supports multi-modal data (e.g., texts, images, audio,
+and videos) in dialog conversation, message transmission, and data storage. Specifically, AgentScope decouples
+multi-modal data transmission from storage and employsa lazy loading strategyby providing a unified URL-
+based attribute in messages. During message transmission, AgentScope only attaches a URL to the message,
+and the multi-modal data is loaded only when necessary, such as when being rendered in web UI or invoked
+by model wrappers. For tool usage, AgentScope provides a component, calledservice toolkit, as a one-step
+solution for tool usage, including function preprocessing, prompt engineering, reasoning, and response parsing
+with fault-tolerance features. To support efficient external knowledge usage, AgentScope provides end-to-end,
+highly configurable, and sharable knowledge processing modules for retrieval-augmented generation (RAG),
+from data preprocessing to customizable retrieval.
+Optimized Efficiency for Distributed Multi-Agent Operations. Recognizing the vital importance of
+distributed deployment, AgentScope introduces an actor-based distributed mechanism that enables centralized
+programming of complex distributed workflows, and automatic parallel optimization. Particularly, the
+workflows for local and distributed deployments is a exactly the same one, indicating negligible overhead when
+migrating applications between centralized and distributed environments. With such a distribution framework,
+AgentScope empowers developers to concentrate on the application design rather than implementation details.
+Summary To summarize, AgentScope, a novel multi-agent platform proposed for flexibility and robustness,
+includes the following advanced features:
+1. AgentScope provides a procedure-oriented message exchange mechanism with a set of syntactic features
+to facilitate multi-agent programming, a zero-code drag-and-drop programming workstation, and a set
+of automatic prompt tuning mechanisms.
+2. The fault tolerance designs of AgentScope enable developers to handle errors elegantly for their
+applications.
+3. The support for the multi-modal applications reduces the overheads of heterogeneous data generation
+and transmission. The service toolkit component facilitates the tool usage of agents in AgentScope, and
+the knowledge processing modules provide a flexible solution for agents to handle different information.
+4. The actor-based distributed mode of AgentScope can help develop efficient and reliable distributed
+multi-agent applications seamlessly.
+Roadmap Inthefollowingsections, wenavigatethroughthecorecomponentsandcapabilitiesofAgentScope,
+showcasing its role in advancing the development and deployment of multi-agent applications. Section 2
+provides an overview, while Section 3 focuses on the user experience. Section 4 introduces the fault tolerance
+mechanism in AgentScope. Sections 5, 6, and 7 cover the multi-modal support, tool usage, and retrieval-
+augmented generation modules in AgentScope. Section 8 presents our platform’s support for distributed
+multi-agent applications. Use cases are presented in Section 9, related work is summarized in Section 10, and
+concluding thoughts are recorded in Section 11.
+3

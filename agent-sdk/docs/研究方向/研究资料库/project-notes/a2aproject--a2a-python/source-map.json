@@ -1,0 +1,1457 @@
+{
+  "kept": [
+    {
+      "path": ".agents/skills/mistake-reflection/SKILL.md",
+      "bytes": 4891
+    },
+    {
+      "path": ".gemini/config.yaml",
+      "bytes": 81
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug-report.yml",
+      "bytes": 1172
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature-request.yml",
+      "bytes": 1545
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "bytes": 948
+    },
+    {
+      "path": ".github/actions/spelling/advice.md",
+      "bytes": 1390
+    },
+    {
+      "path": ".github/actions/spelling/allow.txt",
+      "bytes": 1268
+    },
+    {
+      "path": ".github/actions/spelling/excludes.txt",
+      "bytes": 1200
+    },
+    {
+      "path": ".github/actions/spelling/patterns.txt",
+      "bytes": 27
+    },
+    {
+      "path": ".github/conventional-commit-lint.yaml",
+      "bytes": 42
+    },
+    {
+      "path": ".github/dependabot.yml",
+      "bytes": 684
+    },
+    {
+      "path": ".github/workflows/acts-nightly.yaml",
+      "bytes": 2932
+    },
+    {
+      "path": ".github/workflows/acts.yaml",
+      "bytes": 2256
+    },
+    {
+      "path": ".github/workflows/auto-assign-new-issues.yaml",
+      "bytes": 684
+    },
+    {
+      "path": ".github/workflows/conventional-commits.yml",
+      "bytes": 541
+    },
+    {
+      "path": ".github/workflows/coverage-comment.yaml",
+      "bytes": 6872
+    },
+    {
+      "path": ".github/workflows/install-smoke.yml",
+      "bytes": 1207
+    },
+    {
+      "path": ".github/workflows/itk.yaml",
+      "bytes": 1499
+    },
+    {
+      "path": ".github/workflows/linter.yaml",
+      "bytes": 2578
+    },
+    {
+      "path": ".github/workflows/nightly.yaml",
+      "bytes": 1701
+    },
+    {
+      "path": ".github/workflows/python-publish.yml",
+      "bytes": 2448
+    },
+    {
+      "path": ".github/workflows/release-please.yml",
+      "bytes": 435
+    },
+    {
+      "path": ".github/workflows/release-pr-approvals.yml",
+      "bytes": 3613
+    },
+    {
+      "path": ".github/workflows/run-tck.yaml",
+      "bytes": 3265
+    },
+    {
+      "path": ".github/workflows/security.yaml",
+      "bytes": 403
+    },
+    {
+      "path": ".github/workflows/spelling.yaml",
+      "bytes": 3461
+    },
+    {
+      "path": ".github/workflows/stale.yaml",
+      "bytes": 2086
+    },
+    {
+      "path": ".github/workflows/unit-tests.yml",
+      "bytes": 4713
+    },
+    {
+      "path": ".jscpd.json",
+      "bytes": 225
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "bytes": 1946
+    },
+    {
+      "path": ".release-please-manifest.json",
+      "bytes": 19
+    },
+    {
+      "path": ".vscode/extensions.json",
+      "bytes": 89
+    },
+    {
+      "path": ".vscode/launch.json",
+      "bytes": 1259
+    },
+    {
+      "path": ".vscode/settings.json",
+      "bytes": 585
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 1740
+    },
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 82360
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "bytes": 4624
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 1443
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 11358
+    },
+    {
+      "path": "README.md",
+      "bytes": 5941
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 280
+    },
+    {
+      "path": "acts/sut-behaviors.yaml",
+      "bytes": 3467
+    },
+    {
+      "path": "buf.compat.gen.yaml",
+      "bytes": 331
+    },
+    {
+      "path": "buf.gen.yaml",
+      "bytes": 910
+    },
+    {
+      "path": "docs/ai/coding_conventions.md",
+      "bytes": 604
+    },
+    {
+      "path": "docs/ai/evidence_rules.md",
+      "bytes": 1014
+    },
+    {
+      "path": "docs/ai/mandatory_checks.md",
+      "bytes": 372
+    },
+    {
+      "path": "docs/migrations/v1_0/README.md",
+      "bytes": 26458
+    },
+    {
+      "path": "docs/migrations/v1_0/database/README.md",
+      "bytes": 1210
+    },
+    {
+      "path": "docs/migrations/v1_0/database/simple_migration.md",
+      "bytes": 2387
+    },
+    {
+      "path": "docs/migrations/v1_0/database/zero_downtime.md",
+      "bytes": 5328
+    },
+    {
+      "path": "itk/README.md",
+      "bytes": 1867
+    },
+    {
+      "path": "itk/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "itk/acts_behaviors.py",
+      "bytes": 13351
+    },
+    {
+      "path": "itk/acts_client_parse.py",
+      "bytes": 9880
+    },
+    {
+      "path": "itk/main.py",
+      "bytes": 31004
+    },
+    {
+      "path": "itk/pyproject.toml",
+      "bytes": 579
+    },
+    {
+      "path": "itk/run_itk.sh",
+      "bytes": 1679
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 11658
+    },
+    {
+      "path": "release-please-config.json",
+      "bytes": 146
+    },
+    {
+      "path": "samples/README.md",
+      "bytes": 3831
+    },
+    {
+      "path": "samples/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "samples/agent_card_signing.py",
+      "bytes": 18376
+    },
+    {
+      "path": "samples/cli.py",
+      "bytes": 4315
+    },
+    {
+      "path": "samples/clustermode/README.md",
+      "bytes": 2511
+    },
+    {
+      "path": "samples/clustermode/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "samples/clustermode/cluster_common.py",
+      "bytes": 5870
+    },
+    {
+      "path": "samples/clustermode/exercise.py",
+      "bytes": 7546
+    },
+    {
+      "path": "samples/clustermode/run_cluster.py",
+      "bytes": 2781
+    },
+    {
+      "path": "samples/clustermode/server.py",
+      "bytes": 2517
+    },
+    {
+      "path": "samples/hello_world_agent.py",
+      "bytes": 8590
+    },
+    {
+      "path": "scripts/docker-compose.test.yml",
+      "bytes": 647
+    },
+    {
+      "path": "scripts/format.sh",
+      "bytes": 2600
+    },
+    {
+      "path": "scripts/gen_proto.sh",
+      "bytes": 1221
+    },
+    {
+      "path": "scripts/gen_proto_compat.sh",
+      "bytes": 599
+    },
+    {
+      "path": "scripts/lint.sh",
+      "bytes": 1436
+    },
+    {
+      "path": "scripts/run_db_tests.sh",
+      "bytes": 2849
+    },
+    {
+      "path": "scripts/test_install_smoke.sh",
+      "bytes": 3268
+    },
+    {
+      "path": "src/a2a/__init__.py",
+      "bytes": 26
+    },
+    {
+      "path": "src/a2a/_base.py",
+      "bytes": 1266
+    },
+    {
+      "path": "src/a2a/a2a_db_cli.py",
+      "bytes": 5402
+    },
+    {
+      "path": "src/a2a/alembic.ini",
+      "bytes": 528
+    },
+    {
+      "path": "src/a2a/auth/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/a2a/auth/user.py",
+      "bytes": 788
+    },
+    {
+      "path": "src/a2a/client/__init__.py",
+      "bytes": 1018
+    },
+    {
+      "path": "src/a2a/client/auth/__init__.py",
+      "bytes": 330
+    },
+    {
+      "path": "src/a2a/client/auth/credentials.py",
+      "bytes": 1697
+    },
+    {
+      "path": "src/a2a/client/auth/interceptor.py",
+      "bytes": 3806
+    },
+    {
+      "path": "src/a2a/client/base_client.py",
+      "bytes": 15952
+    },
+    {
+      "path": "src/a2a/client/card_resolver.py",
+      "bytes": 8212
+    },
+    {
+      "path": "src/a2a/client/client.py",
+      "bytes": 7131
+    },
+    {
+      "path": "src/a2a/client/client_factory.py",
+      "bytes": 15537
+    },
+    {
+      "path": "src/a2a/client/errors.py",
+      "bytes": 537
+    },
+    {
+      "path": "src/a2a/client/interceptors.py",
+      "bytes": 1257
+    },
+    {
+      "path": "src/a2a/client/optionals.py",
+      "bytes": 662
+    },
+    {
+      "path": "src/a2a/client/service_parameters.py",
+      "bytes": 2045
+    },
+    {
+      "path": "src/a2a/client/transports/__init__.py",
+      "bytes": 427
+    },
+    {
+      "path": "src/a2a/client/transports/base.py",
+      "bytes": 4369
+    },
+    {
+      "path": "src/a2a/client/transports/grpc.py",
+      "bytes": 10769
+    },
+    {
+      "path": "src/a2a/client/transports/http_helpers.py",
+      "bytes": 7075
+    },
+    {
+      "path": "src/a2a/client/transports/jsonrpc.py",
+      "bytes": 13471
+    },
+    {
+      "path": "src/a2a/client/transports/rest.py",
+      "bytes": 13272
+    },
+    {
+      "path": "src/a2a/client/transports/tenant_decorator.py",
+      "bytes": 5800
+    },
+    {
+      "path": "src/a2a/compat/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/a2a/compat/v0_3/README.md",
+      "bytes": 2587
+    },
+    {
+      "path": "src/a2a/compat/v0_3/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/a2a/compat/v0_3/a2a_v0_3.proto",
+      "bytes": 27877
+    },
+    {
+      "path": "src/a2a/compat/v0_3/a2a_v0_3_pb2.py",
+      "bytes": 28409
+    },
+    {
+      "path": "src/a2a/compat/v0_3/a2a_v0_3_pb2_grpc.py",
+      "bytes": 21292
+    },
+    {
+      "path": "src/a2a/compat/v0_3/buf.yaml",
+      "bytes": 54
+    },
+    {
+      "path": "src/a2a/compat/v0_3/context_builders.py",
+      "bytes": 2509
+    },
+    {
+      "path": "src/a2a/compat/v0_3/conversions.py",
+      "bytes": 50121
+    },
+    {
+      "path": "src/a2a/compat/v0_3/extension_headers.py",
+      "bytes": 1005
+    },
+    {
+      "path": "src/a2a/compat/v0_3/grpc_handler.py",
+      "bytes": 13405
+    },
+    {
+      "path": "src/a2a/compat/v0_3/grpc_transport.py",
+      "bytes": 13164
+    },
+    {
+      "path": "src/a2a/compat/v0_3/jsonrpc_adapter.py",
+      "bytes": 10743
+    },
+    {
+      "path": "src/a2a/compat/v0_3/jsonrpc_transport.py",
+      "bytes": 17014
+    },
+    {
+      "path": "src/a2a/compat/v0_3/model_conversions.py",
+      "bytes": 3006
+    },
+    {
+      "path": "src/a2a/compat/v0_3/proto_utils.py",
+      "bytes": 39800
+    },
+    {
+      "path": "src/a2a/compat/v0_3/request_handler.py",
+      "bytes": 6747
+    },
+    {
+      "path": "src/a2a/compat/v0_3/rest_adapter.py",
+      "bytes": 5651
+    },
+    {
+      "path": "src/a2a/compat/v0_3/rest_handler.py",
+      "bytes": 10069
+    },
+    {
+      "path": "src/a2a/compat/v0_3/rest_transport.py",
+      "bytes": 15186
+    },
+    {
+      "path": "src/a2a/compat/v0_3/types.py",
+      "bytes": 54997
+    },
+    {
+      "path": "src/a2a/compat/v0_3/versions.py",
+      "bytes": 579
+    },
+    {
+      "path": "src/a2a/extensions/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/a2a/extensions/common.py",
+      "bytes": 748
+    },
+    {
+      "path": "src/a2a/helpers/__init__.py",
+      "bytes": 1562
+    },
+    {
+      "path": "src/a2a/helpers/agent_card.py",
+      "bytes": 2480
+    },
+    {
+      "path": "src/a2a/helpers/proto_helpers.py",
+      "bytes": 17528
+    },
+    {
+      "path": "src/a2a/migrations/README.md",
+      "bytes": 4558
+    },
+    {
+      "path": "src/a2a/migrations/__init__.py",
+      "bytes": 38
+    },
+    {
+      "path": "src/a2a/migrations/env.py",
+      "bytes": 3746
+    },
+    {
+      "path": "src/a2a/migrations/migration_utils.py",
+      "bytes": 3084
+    },
+    {
+      "path": "src/a2a/migrations/versions/38ce57e08137_add_column_protocol_version.py",
+      "bytes": 2395
+    },
+    {
+      "path": "src/a2a/migrations/versions/6419d2d130f6_add_columns_owner_last_updated.py",
+      "bytes": 3273
+    },
+    {
+      "path": "src/a2a/migrations/versions/__init__.py",
+      "bytes": 54
+    },
+    {
+      "path": "src/a2a/migrations/versions/b5e3d1c8a2f7_add_task_version_and_task_events.py",
+      "bytes": 3282
+    },
+    {
+      "path": "src/a2a/server/__init__.py",
+      "bytes": 60
+    },
+    {
+      "path": "src/a2a/server/agent_execution/__init__.py",
+      "bytes": 521
+    },
+    {
+      "path": "src/a2a/server/agent_execution/active_task.py",
+      "bytes": 40822
+    },
+    {
+      "path": "src/a2a/server/agent_execution/active_task_registry.py",
+      "bytes": 6651
+    },
+    {
+      "path": "src/a2a/server/agent_execution/agent_executor.py",
+      "bytes": 4173
+    },
+    {
+      "path": "src/a2a/server/agent_execution/context.py",
+      "bytes": 7077
+    },
+    {
+      "path": "src/a2a/server/agent_execution/request_context_builder.py",
+      "bytes": 587
+    },
+    {
+      "path": "src/a2a/server/agent_execution/simple_request_context_builder.py",
+      "bytes": 3487
+    },
+    {
+      "path": "src/a2a/server/cluster/__init__.py",
+      "bytes": 1849
+    },
+    {
+      "path": "src/a2a/server/cluster/database_event_stream.py",
+      "bytes": 6529
+    },
+    {
+      "path": "src/a2a/server/cluster/database_task_store.py",
+      "bytes": 13929
+    },
+    {
+      "path": "src/a2a/server/cluster/event_stream.py",
+      "bytes": 967
+    },
+    {
+      "path": "src/a2a/server/cluster/task_store.py",
+      "bytes": 4300
+    },
+    {
+      "path": "src/a2a/server/cluster/version.py",
+      "bytes": 1902
+    },
+    {
+      "path": "src/a2a/server/context.py",
+      "bytes": 687
+    },
+    {
+      "path": "src/a2a/server/events/__init__.py",
+      "bytes": 551
+    },
+    {
+      "path": "src/a2a/server/events/event_consumer.py",
+      "bytes": 4926
+    },
+    {
+      "path": "src/a2a/server/events/event_queue.py",
+      "bytes": 7811
+    },
+    {
+      "path": "src/a2a/server/events/event_queue_v2.py",
+      "bytes": 19087
+    },
+    {
+      "path": "src/a2a/server/events/in_memory_queue_manager.py",
+      "bytes": 2922
+    },
+    {
+      "path": "src/a2a/server/events/queue_manager.py",
+      "bytes": 1255
+    },
+    {
+      "path": "src/a2a/server/id_generator.py",
+      "bytes": 685
+    },
+    {
+      "path": "src/a2a/server/jsonrpc_models.py",
+      "bytes": 1591
+    },
+    {
+      "path": "src/a2a/server/models.py",
+      "bytes": 9288
+    },
+    {
+      "path": "src/a2a/server/owner_resolver.py",
+      "bytes": 350
+    },
+    {
+      "path": "src/a2a/server/request_handlers/__init__.py",
+      "bytes": 1632
+    },
+    {
+      "path": "src/a2a/server/request_handlers/default_request_handler.py",
+      "bytes": 27378
+    },
+    {
+      "path": "src/a2a/server/request_handlers/default_request_handler_v2.py",
+      "bytes": 25487
+    },
+    {
+      "path": "src/a2a/server/request_handlers/grpc_handler.py",
+      "bytes": 15199
+    },
+    {
+      "path": "src/a2a/server/request_handlers/request_handler.py",
+      "bytes": 13828
+    },
+    {
+      "path": "src/a2a/server/request_handlers/response_helpers.py",
+      "bytes": 6151
+    },
+    {
+      "path": "src/a2a/server/routes/__init__.py",
+      "bytes": 606
+    },
+    {
+      "path": "src/a2a/server/routes/_jsonrpc_schema.py",
+      "bytes": 3076
+    },
+    {
+      "path": "src/a2a/server/routes/_proto_schema.py",
+      "bytes": 7363
+    },
+    {
+      "path": "src/a2a/server/routes/agent_card_routes.py",
+      "bytes": 4965
+    },
+    {
+      "path": "src/a2a/server/routes/common.py",
+      "bytes": 4317
+    },
+    {
+      "path": "src/a2a/server/routes/fastapi_routes.py",
+      "bytes": 5998
+    },
+    {
+      "path": "src/a2a/server/routes/jsonrpc_dispatcher.py",
+      "bytes": 23700
+    },
+    {
+      "path": "src/a2a/server/routes/jsonrpc_routes.py",
+      "bytes": 2524
+    },
+    {
+      "path": "src/a2a/server/routes/rest_dispatcher.py",
+      "bytes": 14991
+    },
+    {
+      "path": "src/a2a/server/routes/rest_routes.py",
+      "bytes": 4404
+    },
+    {
+      "path": "src/a2a/server/tasks/__init__.py",
+      "bytes": 2831
+    },
+    {
+      "path": "src/a2a/server/tasks/base_push_notification_sender.py",
+      "bytes": 5980
+    },
+    {
+      "path": "src/a2a/server/tasks/copying_task_store.py",
+      "bytes": 1946
+    },
+    {
+      "path": "src/a2a/server/tasks/database_push_notification_config_store.py",
+      "bytes": 15781
+    },
+    {
+      "path": "src/a2a/server/tasks/database_task_store.py",
+      "bytes": 15622
+    },
+    {
+      "path": "src/a2a/server/tasks/inmemory_push_notification_config_store.py",
+      "bytes": 5609
+    },
+    {
+      "path": "src/a2a/server/tasks/inmemory_task_store.py",
+      "bytes": 9256
+    },
+    {
+      "path": "src/a2a/server/tasks/push_notification_config_store.py",
+      "bytes": 3727
+    },
+    {
+      "path": "src/a2a/server/tasks/push_notification_sender.py",
+      "bytes": 720
+    },
+    {
+      "path": "src/a2a/server/tasks/result_aggregator.py",
+      "bytes": 8399
+    },
+    {
+      "path": "src/a2a/server/tasks/task_manager.py",
+      "bytes": 15186
+    },
+    {
+      "path": "src/a2a/server/tasks/task_store.py",
+      "bytes": 972
+    },
+    {
+      "path": "src/a2a/server/tasks/task_updater.py",
+      "bytes": 8373
+    },
+    {
+      "path": "src/a2a/types/__init__.py",
+      "bytes": 3713
+    },
+    {
+      "path": "src/a2a/types/a2a_pb2.py",
+      "bytes": 42896
+    },
+    {
+      "path": "src/a2a/types/a2a_pb2_grpc.py",
+      "bytes": 20956
+    },
+    {
+      "path": "src/a2a/utils/__init__.py",
+      "bytes": 391
+    },
+    {
+      "path": "src/a2a/utils/_async_queue_compat.py",
+      "bytes": 852
+    },
+    {
+      "path": "src/a2a/utils/_jcs.py",
+      "bytes": 8092
+    },
+    {
+      "path": "src/a2a/utils/constants.py",
+      "bytes": 776
+    },
+    {
+      "path": "src/a2a/utils/error_handlers.py",
+      "bytes": 7395
+    },
+    {
+      "path": "src/a2a/utils/errors.py",
+      "bytes": 5650
+    },
+    {
+      "path": "src/a2a/utils/grpc_status.py",
+      "bytes": 2174
+    },
+    {
+      "path": "src/a2a/utils/input_mode_validator.py",
+      "bytes": 1675
+    },
+    {
+      "path": "src/a2a/utils/json_utils.py",
+      "bytes": 705
+    },
+    {
+      "path": "src/a2a/utils/proto_utils.py",
+      "bytes": 12712
+    },
+    {
+      "path": "src/a2a/utils/push_url_validator.py",
+      "bytes": 2795
+    },
+    {
+      "path": "src/a2a/utils/signing.py",
+      "bytes": 7638
+    },
+    {
+      "path": "src/a2a/utils/task.py",
+      "bytes": 5756
+    },
+    {
+      "path": "src/a2a/utils/telemetry.py",
+      "bytes": 13686
+    },
+    {
+      "path": "src/a2a/utils/version_validator.py",
+      "bytes": 4907
+    },
+    {
+      "path": "tck/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tck/sut_agent.py",
+      "bytes": 7931
+    },
+    {
+      "path": "tck/sut_agent_with_vertex_task_store.py",
+      "bytes": 1339
+    },
+    {
+      "path": "tests/README.md",
+      "bytes": 1670
+    },
+    {
+      "path": "tests/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/auth/test_user.py",
+      "bytes": 684
+    },
+    {
+      "path": "tests/client/test_auth_interceptor.py",
+      "bytes": 11027
+    },
+    {
+      "path": "tests/client/test_base_client.py",
+      "bytes": 9433
+    },
+    {
+      "path": "tests/client/test_base_client_interceptors.py",
+      "bytes": 7552
+    },
+    {
+      "path": "tests/client/test_card_resolver.py",
+      "bytes": 45095
+    },
+    {
+      "path": "tests/client/test_client_factory.py",
+      "bytes": 14584
+    },
+    {
+      "path": "tests/client/test_client_factory_grpc.py",
+      "bytes": 5601
+    },
+    {
+      "path": "tests/client/test_errors.py",
+      "bytes": 833
+    },
+    {
+      "path": "tests/client/test_optionals.py",
+      "bytes": 486
+    },
+    {
+      "path": "tests/client/test_service_parameters.py",
+      "bytes": 1729
+    },
+    {
+      "path": "tests/client/transports/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/client/transports/test_grpc_client.py",
+      "bytes": 21256
+    },
+    {
+      "path": "tests/client/transports/test_http_helpers.py",
+      "bytes": 1725
+    },
+    {
+      "path": "tests/client/transports/test_jsonrpc_client.py",
+      "bytes": 27348
+    },
+    {
+      "path": "tests/client/transports/test_rest_client.py",
+      "bytes": 25771
+    },
+    {
+      "path": "tests/client/transports/test_tenant_decorator.py",
+      "bytes": 4332
+    },
+    {
+      "path": "tests/compat/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/compat/v0_3/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/compat/v0_3/test_context_builders.py",
+      "bytes": 5001
+    },
+    {
+      "path": "tests/compat/v0_3/test_conversions.py",
+      "bytes": 67480
+    },
+    {
+      "path": "tests/compat/v0_3/test_extension_headers.py",
+      "bytes": 982
+    },
+    {
+      "path": "tests/compat/v0_3/test_grpc_handler.py",
+      "bytes": 15866
+    },
+    {
+      "path": "tests/compat/v0_3/test_grpc_transport.py",
+      "bytes": 2063
+    },
+    {
+      "path": "tests/compat/v0_3/test_jsonrpc_app_compat.py",
+      "bytes": 4999
+    },
+    {
+      "path": "tests/compat/v0_3/test_jsonrpc_transport.py",
+      "bytes": 17357
+    },
+    {
+      "path": "tests/compat/v0_3/test_proto_utils.py",
+      "bytes": 29478
+    },
+    {
+      "path": "tests/compat/v0_3/test_request_handler.py",
+      "bytes": 11484
+    },
+    {
+      "path": "tests/compat/v0_3/test_rest_handler.py",
+      "bytes": 11533
+    },
+    {
+      "path": "tests/compat/v0_3/test_rest_routes_compat.py",
+      "bytes": 8285
+    },
+    {
+      "path": "tests/compat/v0_3/test_rest_transport.py",
+      "bytes": 21533
+    },
+    {
+      "path": "tests/compat/v0_3/test_versions.py",
+      "bytes": 595
+    },
+    {
+      "path": "tests/extensions/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/extensions/test_common.py",
+      "bytes": 2141
+    },
+    {
+      "path": "tests/helpers/test_agent_card_display.py",
+      "bytes": 7054
+    },
+    {
+      "path": "tests/helpers/test_proto_helpers.py",
+      "bytes": 17900
+    },
+    {
+      "path": "tests/install_smoke/README.md",
+      "bytes": 1433
+    },
+    {
+      "path": "tests/install_smoke/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/install_smoke/__main__.py",
+      "bytes": 4182
+    },
+    {
+      "path": "tests/install_smoke/runtime/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/install_smoke/runtime/base_send_message.py",
+      "bytes": 3067
+    },
+    {
+      "path": "tests/integration/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/integration/cross_version/client_server/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/integration/cross_version/client_server/client_0_3.py",
+      "bytes": 9082
+    },
+    {
+      "path": "tests/integration/cross_version/client_server/client_1_0.py",
+      "bytes": 11266
+    },
+    {
+      "path": "tests/integration/cross_version/client_server/server_0_3.py",
+      "bytes": 7877
+    },
+    {
+      "path": "tests/integration/cross_version/client_server/server_1_0.py",
+      "bytes": 8001
+    },
+    {
+      "path": "tests/integration/cross_version/client_server/server_common.py",
+      "bytes": 1623
+    },
+    {
+      "path": "tests/integration/cross_version/client_server/test_client_server.py",
+      "bytes": 7055
+    },
+    {
+      "path": "tests/integration/cross_version/test_cross_version_card_validation.py",
+      "bytes": 6807
+    },
+    {
+      "path": "tests/integration/cross_version/validate_agent_cards_030.py",
+      "bytes": 5010
+    },
+    {
+      "path": "tests/integration/push_notifications/__init__.py",
+      "bytes": 110
+    },
+    {
+      "path": "tests/integration/push_notifications/agent_app.py",
+      "bytes": 7836
+    },
+    {
+      "path": "tests/integration/push_notifications/notifications_app.py",
+      "bytes": 2899
+    },
+    {
+      "path": "tests/integration/push_notifications/test_default_push_notification_support.py",
+      "bytes": 19027
+    },
+    {
+      "path": "tests/integration/push_notifications/utils.py",
+      "bytes": 1712
+    },
+    {
+      "path": "tests/integration/test_agent_card.py",
+      "bytes": 4670
+    },
+    {
+      "path": "tests/integration/test_agent_card_signing_smoke.py",
+      "bytes": 1916
+    },
+    {
+      "path": "tests/integration/test_client_server_integration.py",
+      "bytes": 41448
+    },
+    {
+      "path": "tests/integration/test_copying_observability.py",
+      "bytes": 6245
+    },
+    {
+      "path": "tests/integration/test_end_to_end.py",
+      "bytes": 24949
+    },
+    {
+      "path": "tests/integration/test_multiserver.py",
+      "bytes": 19593
+    },
+    {
+      "path": "tests/integration/test_samples_smoke.py",
+      "bytes": 3949
+    },
+    {
+      "path": "tests/integration/test_scenarios.py",
+      "bytes": 78123
+    },
+    {
+      "path": "tests/integration/test_stream_generator_cleanup.py",
+      "bytes": 3967
+    },
+    {
+      "path": "tests/integration/test_tenant.py",
+      "bytes": 9091
+    },
+    {
+      "path": "tests/integration/test_version_header.py",
+      "bytes": 6826
+    },
+    {
+      "path": "tests/migrations/test_a2a_db_cli.py",
+      "bytes": 4444
+    },
+    {
+      "path": "tests/migrations/test_env.py",
+      "bytes": 4474
+    },
+    {
+      "path": "tests/migrations/versions/test_migration_6419d2d130f6.py",
+      "bytes": 9367
+    },
+    {
+      "path": "tests/migrations/versions/test_migration_b5e3d1c8a2f7.py",
+      "bytes": 5233
+    },
+    {
+      "path": "tests/pyproject.toml",
+      "bytes": 239
+    },
+    {
+      "path": "tests/server/agent_execution/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/server/agent_execution/test_active_task.py",
+      "bytes": 41125
+    },
+    {
+      "path": "tests/server/agent_execution/test_active_task_registry.py",
+      "bytes": 5094
+    },
+    {
+      "path": "tests/server/agent_execution/test_context.py",
+      "bytes": 13335
+    },
+    {
+      "path": "tests/server/agent_execution/test_simple_request_context_builder.py",
+      "bytes": 13374
+    },
+    {
+      "path": "tests/server/cluster/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/server/cluster/conftest.py",
+      "bytes": 14093
+    },
+    {
+      "path": "tests/server/cluster/test_cancel_multireplica.py",
+      "bytes": 6846
+    },
+    {
+      "path": "tests/server/cluster/test_database_event_stream.py",
+      "bytes": 9294
+    },
+    {
+      "path": "tests/server/cluster/test_database_versioned_task_store.py",
+      "bytes": 24547
+    },
+    {
+      "path": "tests/server/cluster/test_handler_wiring.py",
+      "bytes": 5499
+    },
+    {
+      "path": "tests/server/cluster/test_send_multireplica.py",
+      "bytes": 5883
+    },
+    {
+      "path": "tests/server/cluster/test_subscribe_multireplica.py",
+      "bytes": 4653
+    },
+    {
+      "path": "tests/server/cluster/test_task_store_adapter.py",
+      "bytes": 4539
+    },
+    {
+      "path": "tests/server/cluster/test_version.py",
+      "bytes": 3631
+    },
+    {
+      "path": "tests/server/events/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/server/events/test_event_consumer.py",
+      "bytes": 17335
+    },
+    {
+      "path": "tests/server/events/test_event_queue.py",
+      "bytes": 17442
+    },
+    {
+      "path": "tests/server/events/test_event_queue_v2.py",
+      "bytes": 33844
+    },
+    {
+      "path": "tests/server/events/test_inmemory_queue_manager.py",
+      "bytes": 6137
+    },
+    {
+      "path": "tests/server/request_handlers/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/server/request_handlers/test_default_request_handler.py",
+      "bytes": 119125
+    },
+    {
+      "path": "tests/server/request_handlers/test_default_request_handler_v2.py",
+      "bytes": 95588
+    },
+    {
+      "path": "tests/server/request_handlers/test_grpc_handler.py",
+      "bytes": 25100
+    },
+    {
+      "path": "tests/server/request_handlers/test_response_helpers.py",
+      "bytes": 16742
+    },
+    {
+      "path": "tests/server/routes/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/server/routes/test_agent_card_routes.py",
+      "bytes": 9686
+    },
+    {
+      "path": "tests/server/routes/test_common.py",
+      "bytes": 7700
+    },
+    {
+      "path": "tests/server/routes/test_fastapi_routes.py",
+      "bytes": 5951
+    },
+    {
+      "path": "tests/server/routes/test_jsonrpc_dispatcher.py",
+      "bytes": 26155
+    },
+    {
+      "path": "tests/server/routes/test_jsonrpc_routes.py",
+      "bytes": 2725
+    },
+    {
+      "path": "tests/server/routes/test_jsonrpc_schema.py",
+      "bytes": 1971
+    },
+    {
+      "path": "tests/server/routes/test_proto_schema.py",
+      "bytes": 6995
+    },
+    {
+      "path": "tests/server/routes/test_rest_dispatcher.py",
+      "bytes": 13060
+    },
+    {
+      "path": "tests/server/routes/test_rest_routes.py",
+      "bytes": 5549
+    },
+    {
+      "path": "tests/server/tasks/test_copying_task_store.py",
+      "bytes": 4245
+    },
+    {
+      "path": "tests/server/tasks/test_database_push_notification_config_store.py",
+      "bytes": 32834
+    },
+    {
+      "path": "tests/server/tasks/test_database_task_store.py",
+      "bytes": 37077
+    },
+    {
+      "path": "tests/server/tasks/test_id_generator.py",
+      "bytes": 4287
+    },
+    {
+      "path": "tests/server/tasks/test_inmemory_push_notifications.py",
+      "bytes": 25664
+    },
+    {
+      "path": "tests/server/tasks/test_inmemory_task_store.py",
+      "bytes": 20261
+    },
+    {
+      "path": "tests/server/tasks/test_push_notification_sender.py",
+      "bytes": 16943
+    },
+    {
+      "path": "tests/server/tasks/test_result_aggregator.py",
+      "bytes": 19587
+    },
+    {
+      "path": "tests/server/tasks/test_task_manager.py",
+      "bytes": 14991
+    },
+    {
+      "path": "tests/server/tasks/test_task_updater.py",
+      "bytes": 20976
+    },
+    {
+      "path": "tests/server/test_cross_event_loop_locks.py",
+      "bytes": 8804
+    },
+    {
+      "path": "tests/server/test_integration.py",
+      "bytes": 29417
+    },
+    {
+      "path": "tests/server/test_models.py",
+      "bytes": 1519
+    },
+    {
+      "path": "tests/server/test_owner_resolver.py",
+      "bytes": 882
+    },
+    {
+      "path": "tests/test_types.py",
+      "bytes": 16314
+    },
+    {
+      "path": "tests/utils/test_constants.py",
+      "bytes": 691
+    },
+    {
+      "path": "tests/utils/test_error_handlers.py",
+      "bytes": 7491
+    },
+    {
+      "path": "tests/utils/test_grpc_status.py",
+      "bytes": 4670
+    },
+    {
+      "path": "tests/utils/test_input_mode_validator.py",
+      "bytes": 3966
+    },
+    {
+      "path": "tests/utils/test_jcs.py",
+      "bytes": 21848
+    },
+    {
+      "path": "tests/utils/test_json_utils.py",
+      "bytes": 787
+    },
+    {
+      "path": "tests/utils/test_proto_utils.py",
+      "bytes": 14411
+    },
+    {
+      "path": "tests/utils/test_signing.py",
+      "bytes": 9949
+    },
+    {
+      "path": "tests/utils/test_signing_interop.py",
+      "bytes": 2617
+    },
+    {
+      "path": "tests/utils/test_task.py",
+      "bytes": 4745
+    },
+    {
+      "path": "tests/utils/test_telemetry.py",
+      "bytes": 9928
+    },
+    {
+      "path": "tests/utils/test_version_validation.py",
+      "bytes": 5181
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".git-blame-ignore-revs",
+      "bytes": 1238
+    },
+    {
+      "path": ".github/CODEOWNERS",
+      "bytes": 312
+    },
+    {
+      "path": ".github/actions/spelling/line_forbidden.patterns",
+      "bytes": 6893
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 369
+    },
+    {
+      "path": ".python-version",
+      "bytes": 5
+    },
+    {
+      "path": "src/a2a/compat/v0_3/a2a_v0_3_pb2.pyi",
+      "bytes": 28850
+    },
+    {
+      "path": "src/a2a/compat/v0_3/buf.lock",
+      "bytes": 282
+    },
+    {
+      "path": "src/a2a/migrations/script.py.mako",
+      "bytes": 874
+    },
+    {
+      "path": "src/a2a/py.typed",
+      "bytes": 0
+    },
+    {
+      "path": "src/a2a/types/a2a_pb2.pyi",
+      "bytes": 31892
+    },
+    {
+      "path": "uv.lock",
+      "bytes": 398434
+    },
+    {
+      "path": "tests/utils/jcs_depth_vectors.json",
+      "bytes": 13051,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/utils/jcs_vectors.json",
+      "bytes": 30660,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/utils/signing_interop_vectors.json",
+      "bytes": 12523,
+      "reason": "experimental output or recorded response"
+    }
+  ]
+}

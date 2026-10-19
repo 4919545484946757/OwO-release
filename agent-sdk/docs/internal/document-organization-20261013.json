@@ -1,0 +1,178 @@
+{
+  "date": "2026-10-13",
+  "moved": [
+    {
+      "from": "工程代码结构说明.md",
+      "to": "architecture/工程代码结构说明.md",
+      "reason": "架构入口；源码职责快照"
+    },
+    {
+      "from": "ARCH-MICROKERNEL.md",
+      "to": "architecture/ARCH-MICROKERNEL.md",
+      "reason": "拆分边界与实施台账；保留设计依据"
+    },
+    {
+      "from": "AUDIT-MICROKERNEL-2026-09-20.md",
+      "to": "reports/archive/2026-09/AUDIT-MICROKERNEL-2026-09-20.md",
+      "reason": "9 月审计快照；不代表当前状态"
+    },
+    {
+      "from": "ci.md",
+      "to": "guides/ci.md",
+      "reason": "开发使用说明"
+    },
+    {
+      "from": "model-config.md",
+      "to": "guides/model-config.md",
+      "reason": "模型配置使用说明；配置口径需按源码核对"
+    },
+    {
+      "from": "Team架构综合审查与改造方案-2026-10-06.md",
+      "to": "plans/team/Team架构综合审查与改造方案-2026-10-06.md",
+      "reason": "较新的 Team 架构方案；实施与测试结论按正文"
+    },
+    {
+      "from": "Team引擎架构重构方案-2026-10-02.md",
+      "to": "plans/archive/2026-10/Team引擎架构重构方案-2026-10-02.md",
+      "reason": "早期重构设计参考；保留完整论证"
+    },
+    {
+      "from": "CLI-team-自动并行与共享上下文-优化方案-2026-10-02.md",
+      "to": "plans/archive/2026-10/CLI-team-自动并行与共享上下文-优化方案-2026-10-02.md",
+      "reason": "10 月初源码诊断；共享上下文建议仍供参考"
+    },
+    {
+      "from": "Agent 能力发展方案.md",
+      "to": "plans/archive/2026-09/Agent 能力发展方案.md",
+      "reason": "9 月产品设想与状态快照"
+    },
+    {
+      "from": "ROADMAP-PARITY.md",
+      "to": "plans/archive/2026-09/ROADMAP-PARITY.md",
+      "reason": "9 月对标路线草案"
+    },
+    {
+      "from": "效能核心改造方案.md",
+      "to": "plans/archive/2026-09/效能核心改造方案.md",
+      "reason": "9 月实施稿；不自动认定所有步骤已落地"
+    },
+    {
+      "from": "桌宠功能审核与接入规划.md",
+      "to": "plans/product/桌宠功能审核与接入规划.md",
+      "reason": "含 10 月交互口径；保留产品设计参考"
+    },
+    {
+      "from": "Agent任务执行可靠性审查与优化方案-2026-10-10.md",
+      "to": "reports/reliability/Agent任务执行可靠性审查与优化方案-2026-10-10.md",
+      "reason": "10 月 Electron 可靠性审查"
+    },
+    {
+      "from": "项目非桌面链路与CLI进度审查及优化方案-2026-10-10.md",
+      "to": "reports/reliability/项目非桌面链路与CLI进度审查及优化方案-2026-10-10.md",
+      "reason": "同基线非桌面链路审查"
+    },
+    {
+      "from": "主要问题修复进展与验收计划-2026-10-10.md",
+      "to": "reports/reliability/主要问题修复进展与验收计划-2026-10-10.md",
+      "reason": "试用包阶段性修复与验收状态"
+    },
+    {
+      "from": "reports/Team速度与交付质量问题解决报告-2026-10-05.md",
+      "to": "reports/team/Team速度与交付质量问题解决报告-2026-10-05.md",
+      "reason": "Team 专项报告"
+    },
+    {
+      "from": "reports/Team速度与交付质量问题解决报告-2026-10-08-实测.md",
+      "to": "reports/team/Team速度与交付质量问题解决报告-2026-10-08-实测.md",
+      "reason": "Team 专项实测记录"
+    },
+    {
+      "from": "reports/自定义模型连接修复记录-2026-10-10.md",
+      "to": "reports/reliability/自定义模型连接修复记录-2026-10-10.md",
+      "reason": "配置修复记录"
+    },
+    {
+      "from": "reports/engine-sync-report-2026-10-01.md",
+      "to": "reports/archive/2026-10/engine-sync-report-2026-10-01.md",
+      "reason": "历史合并记录"
+    },
+    {
+      "from": "reports/code-review-2026-10-02.md",
+      "to": "reports/archive/2026-10/code-review-2026-10-02.md",
+      "reason": "历史代码审查快照"
+    },
+    {
+      "from": "reports/strategy-review-2026-10-02.md",
+      "to": "reports/archive/2026-10/strategy-review-2026-10-02.md",
+      "reason": "历史战略审查快照"
+    },
+    {
+      "from": "reports/SECURITY_UPDATE_SUMMARY.md",
+      "to": "reports/archive/undated/SECURITY_UPDATE_SUMMARY.md",
+      "reason": "未注明可复核基线的历史安全更新摘要"
+    },
+    {
+      "from": "reports/storage_crypto_refactor_summary.md",
+      "to": "reports/archive/undated/storage_crypto_refactor_summary.md",
+      "reason": "历史存储改造摘要"
+    },
+    {
+      "from": "reports/v1-r0-closeout.md",
+      "to": "reports/archive/baselines/v1-r0-closeout.md",
+      "reason": "8 月 V1 验收记录；不作为新版本证明"
+    },
+    {
+      "from": "reports/v1-r1-baseline-first-run.md",
+      "to": "reports/archive/baselines/v1-r1-baseline-first-run.md",
+      "reason": "早期首次运行基线"
+    },
+    {
+      "from": "reports/v1-r1-live-baseline.md",
+      "to": "reports/archive/baselines/v1-r1-live-baseline.md",
+      "reason": "早期真实模型基线"
+    }
+  ],
+  "rewritten_documents": [
+    "adr/ADR-001-tool-safety-kernel.md",
+    "adr/ADR-002-perception-kernel.md",
+    "adr/ADR-003-desktop-shell-merge.md",
+    "reports/reliability/Agent任务执行可靠性审查与优化方案-2026-10-10.md",
+    "architecture/ARCH-MICROKERNEL.md",
+    "plans/archive/2026-10/CLI-team-自动并行与共享上下文-优化方案-2026-10-02.md",
+    "README.md",
+    "reports/archive/README.md",
+    "reports/archive/2026-10/engine-sync-report-2026-10-01.md",
+    "reports/README.md",
+    "reports/team/Team速度与交付质量问题解决报告-2026-10-05.md",
+    "reports/archive/baselines/v1-r0-closeout.md",
+    "plans/archive/2026-09/ROADMAP-PARITY.md",
+    "architecture/工程代码结构说明.md",
+    "研究方向/Agent发展方向与设计建议.md",
+    "研究方向/研究资料库/README.md",
+    "研究方向/论文与GitHub项目调研.md",
+    "reports/reliability/项目非桌面链路与CLI进度审查及优化方案-2026-10-10.md"
+  ],
+  "updated_external_markdown": [
+    "builGoal\\Agent-SDK-CLI优先-Codex式拆分-Electron前端-施工文档-2026-09-24.md",
+    "builGoal\\Agent-SDK-后续任务实施指南-2026-09-18.md"
+  ],
+  "resolved_existing_relative_links": [],
+  "unresolved_preexisting_links": [
+    {
+      "document": "项目非桌面链路与CLI进度审查及优化方案-2026-10-10.md",
+      "target": "qa/evidence/project-wide-audit-20261010/README.md"
+    },
+    {
+      "document": "项目非桌面链路与CLI进度审查及优化方案-2026-10-10.md",
+      "target": "qa/evidence/project-wide-audit-20261010/inspection-results.json"
+    },
+    {
+      "document": "项目非桌面链路与CLI进度审查及优化方案-2026-10-10.md",
+      "target": "qa/evidence/project-wide-audit-20261010/source-manifest.json"
+    },
+    {
+      "document": "项目非桌面链路与CLI进度审查及优化方案-2026-10-10.md",
+      "target": "qa/evidence/project-wide-audit-20261010/typescript-syntax.json"
+    }
+  ]
+}

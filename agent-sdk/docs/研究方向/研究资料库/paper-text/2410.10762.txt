@@ -1,0 +1,216 @@
+Published as a conference paper at ICLR 2025
+AF LOW:
+AUTOMATING AGENTIC WORKFLOW GENERATION
+Jiayi Zhang1,2∗, Jinyu Xiang1∗, Zhaoyang Yu3, Fengwei Teng3, Xiong-Hui Chen4,
+Jiaqi Chen5, Mingchen Zhuge6, Xin Cheng3, Sirui Hong1, Jinlin Wang1, Bingnan Zheng5,
+Bang Liu7, Yuyu Luo2,8†, Chenglin Wu1†
+1DeepWisdom, 2The Hong Kong University of Science and Technology (Guangzhou),
+3Renmin University of China, 4Nanjing University, 5Fudan University,
+6King Abdullah University of Science and Technology, 7Universit´e de Montr´eal & Mila,
+8The Hong Kong University of Science and Technology
+ABSTRACT
+Large language models (LLMs) have demonstrated remarkable potential in solv-
+ing complex tasks across diverse domains, typically by employing agentic work-
+flows that follow detailed instructions and operational sequences. However, con-
+structing these workflows requires significant human effort, limiting scalability
+and generalizability. Recent research has sought to automate the generation and
+optimization of these workflows, but existing methods still rely on initial man-
+ual setup and fall short of achieving fully automated and effective workflow gen-
+eration. To address this challenge, we reformulate workflow optimization as a
+search problem over code-represented workflows, where LLM-invoking nodes
+are connected by edges. We introduce AF LOW, an automated framework that
+efficiently explores this space using Monte Carlo Tree Search, iteratively refin-
+ing workflows through code modification, tree-structured experience, and execu-
+tion feedback. Empirical evaluations across six benchmark datasets demonstrate
+AFLOW’s efficacy, yielding a 5.7% average improvement over state-of-the-art
+baselines. Furthermore, AF LOW enables smaller models to outperform GPT-4o
+on specific tasks at 4.55% of its inference cost in dollars. The code is available at
+https://github.com/FoundationAgents/AFlow.
+1 I NTRODUCTION
+Large Language Models (LLMs) have emerged as powerful tools for solving complex tasks across
+various domains, including code generation, data analysis, decision-making, and question answer-
+ing (Liu et al., 2024; Li et al., 2024a; Zhu et al., 2024; Xie et al., 2024b; Sun et al., 2024; Wang et al.,
+2024b; Song et al., 2023; Xie et al., 2024a; Zhong et al., 2024a). However, the rapid advancement
+of LLMs heavily relies on manually designed agentic workflows – structured sequences of LLM
+invocations accompanied by detailed instructions. Designing and refining these workflows requires
+significant human effort, which limits the scalability and adaptability of LLMs to new, complex
+domains and hinders their ability to transfer skills across diverse tasks (Tang et al., 2024).
+Recent efforts have focused on automating the discovery of effective agentic workflows to reduce
+the reliance on human intervention (Khattab et al., 2024; Y¨uksekg¨on¨ul et al., 2024; Liu et al., 2023;
+Hu et al., 2024). Despite these advancements, full automation has not been achieved. For instance,
+Khattab et al. (2024) requires manual workflow setup before automated prompt optimization. Simi-
+larly, methods proposed by Y¨uksekg¨on¨ul et al. (2024) and Zhuge et al. (2024) fail to capture the full
+diversity of workflows necessary for a wide range of tasks (Yu et al., 2023; Yang et al., 2024b; Sun
+et al., 2023), as their optimization objectives struggle to represent the breadth of possible workflows.
+The inability to effectively model diverse workflow structures within these automated systems lim-
+its their utility and impact. ADAS (Hu et al., 2024) represents workflows using code, achieving a
+∗These authors contributed equally to this work.
+†Corresponding authors: Yuyu Luo (E-mail:yuyuluo@hkust-gz.edu.cn), Chenglin Wu (E-mail: alexan-
+derwu@deepwisdom.ai)
+1
+arXiv:2410.10762v4  [cs.AI]  15 Apr 2025
+
+Published as a conference paper at ICLR 2025
+Performance
+30
+40
+50
+60
+70
+80
+90
+100
+HotpotQA DROP HumanEval MBPP GSM8K Math
+Benchmark
+IO
+CoT
+CoT SC
+MedPrompt
+MultiPersona
+Self Refine
+ADAS
+Ours
+68.1
+67.9
+68.9
+68.3
+69.2
+60.8
+64.5
+73.5
+68.3
+78.5
+78.8
+78.0
+74.4
+70.2
+76.6
+80.6
+87.0
+88.6
+91.6
+91.6
+89.3
+87.8
+82.4
+94.7
+71.8
+71.8
+73.6
+73.6
+73.6
+69.8
+53.4
+83.4
+92.7
+92.4
+92.7
+90.0
+92.8
+89.6
+90.8
+93.5
+48.6
+48.8
+50.4
+50.0
+50.8
+46.1
+35.4
+56.2
+Figure 1: Performance comparison with other methods. To assess the method’s performance,
+we employ various metrics across different datasets: solve rate for Math and GSM8K, F1 score
+for HotpotQA and DROP, and pass@1 for HumanEval and MBPP. Our AFLOW (highlighted in yel-
+low) consistently outperforms all automated workflow optimization and manually designed methods
+across all six benchmarks.
+relatively complete representation. However, due to the efficiency limitations of its linear heuris-
+tic search algorithm, ADAS struggles to generate effective workflows within a limited number of
+iterations. This highlights the need for more effective techniques to represent and automate the
+generation of agentic workflows, which would accelerate the application of LLMs across domains.
+In response to these challenges, we introduce an innovative framework for automatically generating
+agentic workflows. Our key idea is to model the workflow as a series of interconnected LLM-
+invoking nodes, where each node represents an LLM action and the edges define the logic, depen-
+dencies, and flow between these actions. This structure transforms the workflow into a vast search
+space, encompassing a wide variety of potential configurations. Our goal is to efficiently navigate
+this space, automatically generating optimized workflows that maximize task performance while
+minimizing human intervention.
+However, the diversity and complexity of tasks present significant challenges. Specifically, each task
+can have different requirements, operations, and dependencies, which makes it difficult to represent
+them in a unified yet flexible manner (Chen et al., 2021; Cobbe et al., 2021; Yang et al., 2018; Luo
+et al., 2018). Furthermore, the search space for possible workflows, comprising an immense number
+of code structures and node configurations, is virtually boundless, creating an additional challenge
+for efficient exploration and optimization.
+To address these challenges, we propose AFLOW, a Monte Carlo Tree Search (MCTS)-based frame-
+work designed to systematically explore and discover optimal agentic workflows. AF LOW repre-
+sents workflows as flexible nodes connected by code-based edges, which encapsulate possible rela-
+tionships such as logical flows, conditions, and dependencies. These edges allow the workflow to be
+modeled as a graph (Zhuge et al., 2024) or network (Liu et al., 2023), offering a powerful structure
+for capturing complex interactions between LLM invocations.
+To enhance the search process and improve efficiency, AFLOW introduces a novel concept of opera-
+tors – predefined, reusable combinations of nodes representing common agentic operations (e.g., En-
+semble, Review & Revise). These operators serve as foundational building blocks for constructing
+workflows and are integrated into the search space, ensuring that the exploration process leverages
+known patterns of effective agentic operations.
+AFLOW employs the MCTS algorithm to navigate this infinite search space. The framework’s work-
+flow optimization process incorporates several key innovations: a soft mixed-probability selection
+mechanism for node exploration, LLM-driven node expansion to introduce new possibilities, execu-
+tion evaluation to assess workflow performance, and backpropagation of experience to refine future
+search iterations. This combination of techniques ensures that AF LOW efficiently discovers work-
+flows that adapt to the complexity of diverse tasks while reducing reliance on manual intervention.
+We make the following key contributions: (1) Problem Formulation: We formalize the work-
+flow optimization problem, generalizing prior approaches as specific cases. This provides a unified
+framework for future research at both the node and workflow optimization levels. (2) AF LOW:
+2
+
+Published as a conference paper at ICLR 2025
+We introduce AF LOW, an MCTS-based method that automatically discovers effective workflows
+across multiple domains with minimal human intervention. (3) Extensive Evaluation: We eval-
+uate AF LOW on six benchmark datasets: HumanEval, MBPP, MATH, GSM8K, HotPotQA, and
+DROP. AFLOW outperforms manually designed methods by 5.7% and surpasses existing automated
+approaches by 19.5%. Notably, workflows generated by AF LOW enable smaller LLMs to outper-
+form larger models, offering better cost-performance efficiency, with significant implications for
+real-world applications.
+2 R ELATED WORK
+Agentic Workflow Agentic workflow and autonomous agents (Zhuge et al., 2023; Hong et al.,
+2024a; Zhang et al., 2024c; Wang et al., 2023) represent two distinct paradigms of LLM application.
+The former completes tasks statically through predefined processes with multiple LLM invocations,
+while the latter solves problems dynamically through flexible autonomous decision-making. Com-
+pared to autonomous agents that require specific actions and decision patterns designed for the en-
+vironment, agentic workflows can be constructed based on existing human domain experience and
+iterative refinement, offering higher potential for automated construction.
+Agentic workflows can be broadly categorized into general and domain-specific types. General
+workflows emphasize universal problem-solving approaches, such as (Wei et al., 2022; Wang et al.,
+2022; Madaan et al., 2023; Wang et al., 2024a). Domain-specific workflows focus on building
+effective processes to solve domain-specific problems, such as code generation (Hong et al., 2024b;
+Ridnik et al., 2024; Zhong et al., 2024a), data analysis (Xie et al., 2024b; Ye et al., 2024; Li et al.,
+2024a; Zhou et al., 2023), mathematics (Zhong et al., 2024b; Xu et al., 2024), question answering
+(Nori et al., 2023; Zhou et al., 2024a). Existing work has manually discovered numerous effective
+agentic workflows, but it’s challenging to exhaust various tasks across different domains, further
+highlighting the importance of automated workflow generation and optimization.
+Automated Agentic Optimization Recent work aims to automate the design of agentic work-
+flows, categorized into three types: automated prompt optimization, hyperparameter optimization,
+and automated workflow optimization. Prompt optimization (Fernando et al., 2024; Y ¨uksekg¨on¨ul
+et al., 2024; Yang et al., 2024a; Khattab et al., 2024) uses LLMs to optimize prompts within fixed
+workflows. Hyperparameter optimization (Saad-Falcon et al., 2024) focuses on optimizing prede-
+fined parameters. While these approaches improve performance, they are limited in generalization
+to new tasks and often require moderate human effort for task-specific designs.
+Automated workflow optimization (Li et al., 2024b; Zhou et al., 2024b; Zhuge et al., 2024; Hu
+et al., 2024) aims to optimize entire workflow structures, offering more potential for fully automated
+generation. Recent works explore diverse representations and methods. GPTSwarm (Zhuge et al.,
+2024) uses graph structures with reinforcement learning, but struggles to represent workflows with
+conditional states due to graph structure limitations. ADAS (Hu et al., 2024) utilizes code structures
+to represent workflows and stores historical workflows in a linear list structure, aligning closely with
+our goals. However, it is constrained by the efficiency of its search algorithm as it relies on overly
+simplistic representations of experiences in the searching process, making it challenging to discover
+effective workflows.
+AFLOW also uses code to represent workflows, but goes further by providing a more fundamen-
+tal structure called named node. This structure encompasses various LLM invocation parameters,
+allowing for more detailed workflow representation. We also introduce operators that implement
+predefined node combination functions. Simultaneously, AF LOW employs a specially designed
+MCTS algorithm for automated workflow optimization, leveraging the tree-structured experience
+and execution feedback to efficiently discover effective workflows.
+3 P RELIMINARY
+In this section, we will first formulate the automated agentic workflows generation problem in Sec-
+tion 3.1 and then discuss design considerations of our AF LOW in Section 3.2. For the core concept
+of this section, we provide an example explanation in Figure 2.
+3

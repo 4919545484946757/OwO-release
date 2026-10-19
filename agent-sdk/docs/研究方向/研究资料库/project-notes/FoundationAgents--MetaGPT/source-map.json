@@ -1,0 +1,5045 @@
+{
+  "kept": [
+    {
+      "path": ".devcontainer/README.md",
+      "bytes": 3380
+    },
+    {
+      "path": ".devcontainer/devcontainer.json",
+      "bytes": 909
+    },
+    {
+      "path": ".devcontainer/docker-compose.yaml",
+      "bytes": 686
+    },
+    {
+      "path": ".devcontainer/postCreateCommand.sh",
+      "bytes": 264
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yaml",
+      "bytes": 183
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/request_new_features.md",
+      "bytes": 643
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/show_me_the_bug.md",
+      "bytes": 1179
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "bytes": 494
+    },
+    {
+      "path": ".github/workflows/build-package.yaml",
+      "bytes": 888
+    },
+    {
+      "path": ".github/workflows/fulltest.yaml",
+      "bytes": 3072
+    },
+    {
+      "path": ".github/workflows/pre-commit.yaml",
+      "bytes": 606
+    },
+    {
+      "path": ".github/workflows/stale.yaml",
+      "bytes": 791
+    },
+    {
+      "path": ".github/workflows/unittest.yaml",
+      "bytes": 1702
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "bytes": 638
+    },
+    {
+      "path": "Dockerfile",
+      "bytes": 982
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1072
+    },
+    {
+      "path": "README.md",
+      "bytes": 8215
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 322
+    },
+    {
+      "path": "config/config2.example.yaml",
+      "bytes": 4740
+    },
+    {
+      "path": "config/config2.yaml",
+      "bytes": 457
+    },
+    {
+      "path": "config/examples/anthropic-claude-3-5-sonnet.yaml",
+      "bytes": 174
+    },
+    {
+      "path": "config/examples/aws-bedrock.yaml",
+      "bytes": 292
+    },
+    {
+      "path": "config/examples/google-gemini.yaml",
+      "bytes": 73
+    },
+    {
+      "path": "config/examples/groq-llama3-70b.yaml",
+      "bytes": 251
+    },
+    {
+      "path": "config/examples/huoshan_ark.yaml",
+      "bytes": 171
+    },
+    {
+      "path": "config/examples/llamaapi-Llama-3.3-70B-Instruct.yaml",
+      "bytes": 186
+    },
+    {
+      "path": "config/examples/llamaapi-Llama-3.3-8B-Instruct.yaml",
+      "bytes": 185
+    },
+    {
+      "path": "config/examples/llamaapi-Llama-4-Scout-17B-16E-Instruct-FP8.yaml",
+      "bytes": 198
+    },
+    {
+      "path": "config/examples/llamaapi-llama-4-Maverick-17B-128E-Instruct-FP8.yaml",
+      "bytes": 202
+    },
+    {
+      "path": "config/examples/openai-gpt-3.5-turbo.yaml",
+      "bytes": 127
+    },
+    {
+      "path": "config/examples/openai-gpt-4-turbo.yaml",
+      "bytes": 126
+    },
+    {
+      "path": "config/examples/openrouter-llama3-70b-instruct.yaml",
+      "bytes": 137
+    },
+    {
+      "path": "config/examples/spark_lite.yaml",
+      "bytes": 446
+    },
+    {
+      "path": "config/puppeteer-config.json",
+      "bytes": 72
+    },
+    {
+      "path": "config/vault.example.yaml",
+      "bytes": 1635
+    },
+    {
+      "path": "docs/.well-known/ai-plugin.json",
+      "bytes": 990
+    },
+    {
+      "path": "docs/.well-known/metagpt_oas3_api.yaml",
+      "bytes": 11753
+    },
+    {
+      "path": "docs/.well-known/openapi.yaml",
+      "bytes": 779
+    },
+    {
+      "path": "docs/.well-known/skills.yaml",
+      "bytes": 5874
+    },
+    {
+      "path": "docs/ACADEMIC_WORK.md",
+      "bytes": 3286
+    },
+    {
+      "path": "docs/FAQ-EN.md",
+      "bytes": 8624
+    },
+    {
+      "path": "docs/NEWS.md",
+      "bytes": 2076
+    },
+    {
+      "path": "docs/README_CN.md",
+      "bytes": 6366
+    },
+    {
+      "path": "docs/README_FR.md",
+      "bytes": 11569
+    },
+    {
+      "path": "docs/README_JA.md",
+      "bytes": 13341
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "bytes": 4518
+    },
+    {
+      "path": "docs/install/cli_install.md",
+      "bytes": 3786
+    },
+    {
+      "path": "docs/install/cli_install_cn.md",
+      "bytes": 2343
+    },
+    {
+      "path": "docs/install/docker_install.md",
+      "bytes": 1551
+    },
+    {
+      "path": "docs/install/docker_install_cn.md",
+      "bytes": 1489
+    },
+    {
+      "path": "docs/scripts/coverage.sh",
+      "bytes": 141
+    },
+    {
+      "path": "docs/scripts/get_all_classes_and_funcs.sh",
+      "bytes": 157
+    },
+    {
+      "path": "docs/tutorial/usage.md",
+      "bytes": 7911
+    },
+    {
+      "path": "docs/tutorial/usage_cn.md",
+      "bytes": 7815
+    },
+    {
+      "path": "examples/aflow/README.md",
+      "bytes": 5775
+    },
+    {
+      "path": "examples/aflow/config2.example.yaml",
+      "bytes": 341
+    },
+    {
+      "path": "examples/aflow/optimize.py",
+      "bytes": 4688
+    },
+    {
+      "path": "examples/agent_creator.py",
+      "bytes": 3096
+    },
+    {
+      "path": "examples/android_assistant/requirements.txt",
+      "bytes": 38
+    },
+    {
+      "path": "examples/android_assistant/run_assistant.py",
+      "bytes": 2750
+    },
+    {
+      "path": "examples/build_customized_agent.py",
+      "bytes": 3051
+    },
+    {
+      "path": "examples/build_customized_multi_agents.py",
+      "bytes": 3658
+    },
+    {
+      "path": "examples/cr.py",
+      "bytes": 430
+    },
+    {
+      "path": "examples/dalle_gpt4v_agent.py",
+      "bytes": 2650
+    },
+    {
+      "path": "examples/data/exp_pool/engineer_exps.json",
+      "bytes": 12411
+    },
+    {
+      "path": "examples/data/exp_pool/team_leader_exps.json",
+      "bytes": 17924
+    },
+    {
+      "path": "examples/data/rag/travel.txt",
+      "bytes": 20
+    },
+    {
+      "path": "examples/data/rag/writer.txt",
+      "bytes": 12318
+    },
+    {
+      "path": "examples/data/rag_bm/RGB_En/answer.json",
+      "bytes": 415465
+    },
+    {
+      "path": "examples/data/rag_bm/RGB_En/documents.txt",
+      "bytes": 710111
+    },
+    {
+      "path": "examples/data/rag_bm/dataset_info.json",
+      "bytes": 323
+    },
+    {
+      "path": "examples/data/rag_bm/simplified_CRUD/answer.json",
+      "bytes": 13205
+    },
+    {
+      "path": "examples/data/rag_bm/simplified_CRUD/documents.txt",
+      "bytes": 199797
+    },
+    {
+      "path": "examples/data/rag_bm/simplified_RGB/answer.json",
+      "bytes": 7661
+    },
+    {
+      "path": "examples/data/rag_bm/simplified_RGB/documents.txt",
+      "bytes": 333926
+    },
+    {
+      "path": "examples/data/search_kb/example.json",
+      "bytes": 284
+    },
+    {
+      "path": "examples/debate.py",
+      "bytes": 3812
+    },
+    {
+      "path": "examples/debate_simple.py",
+      "bytes": 1116
+    },
+    {
+      "path": "examples/di/InfiAgent-DABench/DABench.py",
+      "bytes": 22502
+    },
+    {
+      "path": "examples/di/InfiAgent-DABench/README.md",
+      "bytes": 1453
+    },
+    {
+      "path": "examples/di/InfiAgent-DABench/run_InfiAgent-DABench.py",
+      "bytes": 3268
+    },
+    {
+      "path": "examples/di/InfiAgent-DABench/run_InfiAgent-DABench_all.py",
+      "bytes": 1197
+    },
+    {
+      "path": "examples/di/InfiAgent-DABench/run_InfiAgent-DABench_single.py",
+      "bytes": 607
+    },
+    {
+      "path": "examples/di/README.md",
+      "bytes": 31951
+    },
+    {
+      "path": "examples/di/arxiv_reader.py",
+      "bytes": 832
+    },
+    {
+      "path": "examples/di/atomization_capacity_plan.py",
+      "bytes": 2389
+    },
+    {
+      "path": "examples/di/automated_planning_of_tasks.py",
+      "bytes": 650
+    },
+    {
+      "path": "examples/di/crawl_webpage.py",
+      "bytes": 1735
+    },
+    {
+      "path": "examples/di/custom_tool.py",
+      "bytes": 754
+    },
+    {
+      "path": "examples/di/data_analyst_write_code.py",
+      "bytes": 1369
+    },
+    {
+      "path": "examples/di/data_visualization.py",
+      "bytes": 456
+    },
+    {
+      "path": "examples/di/email_summary.py",
+      "bytes": 1315
+    },
+    {
+      "path": "examples/di/fix_github_issue.py",
+      "bytes": 1365
+    },
+    {
+      "path": "examples/di/imitate_webpage.py",
+      "bytes": 698
+    },
+    {
+      "path": "examples/di/interacting_with_human.py",
+      "bytes": 1187
+    },
+    {
+      "path": "examples/di/machine_learning.py",
+      "bytes": 1118
+    },
+    {
+      "path": "examples/di/machine_learning_with_tools.py",
+      "bytes": 756
+    },
+    {
+      "path": "examples/di/ocr_receipt.py",
+      "bytes": 853
+    },
+    {
+      "path": "examples/di/requirements_prompt.py",
+      "bytes": 13214
+    },
+    {
+      "path": "examples/di/rm_image_background.py",
+      "bytes": 599
+    },
+    {
+      "path": "examples/di/run_flask.py",
+      "bytes": 623
+    },
+    {
+      "path": "examples/di/run_ml_benchmark.py",
+      "bytes": 869
+    },
+    {
+      "path": "examples/di/run_open_ended_tasks.py",
+      "bytes": 887
+    },
+    {
+      "path": "examples/di/sd_tool_usage.py",
+      "bytes": 564
+    },
+    {
+      "path": "examples/di/software_company.py",
+      "bytes": 1040
+    },
+    {
+      "path": "examples/di/solve_math_problems.py",
+      "bytes": 470
+    },
+    {
+      "path": "examples/di/use_browser.py",
+      "bytes": 1107
+    },
+    {
+      "path": "examples/di/use_github_repo.py",
+      "bytes": 679
+    },
+    {
+      "path": "examples/exp_pool/README.md",
+      "bytes": 735
+    },
+    {
+      "path": "examples/exp_pool/decorator.py",
+      "bytes": 608
+    },
+    {
+      "path": "examples/exp_pool/init_exp_pool.py",
+      "bytes": 2652
+    },
+    {
+      "path": "examples/exp_pool/load_exps_from_log.py",
+      "bytes": 2110
+    },
+    {
+      "path": "examples/exp_pool/manager.py",
+      "bytes": 873
+    },
+    {
+      "path": "examples/exp_pool/scorer.py",
+      "bytes": 1386
+    },
+    {
+      "path": "examples/hello_world.py",
+      "bytes": 1466
+    },
+    {
+      "path": "examples/invoice_ocr.py",
+      "bytes": 896
+    },
+    {
+      "path": "examples/llm_vision.py",
+      "bytes": 729
+    },
+    {
+      "path": "examples/mgx_write_project_framework.py",
+      "bytes": 4223
+    },
+    {
+      "path": "examples/ping.py",
+      "bytes": 596
+    },
+    {
+      "path": "examples/rag/omniparse.py",
+      "bytes": 1910
+    },
+    {
+      "path": "examples/rag/rag_bm.py",
+      "bytes": 10733
+    },
+    {
+      "path": "examples/rag/rag_pipeline.py",
+      "bytes": 7881
+    },
+    {
+      "path": "examples/rag/rag_search.py",
+      "bytes": 491
+    },
+    {
+      "path": "examples/research.py",
+      "bytes": 339
+    },
+    {
+      "path": "examples/search_enhanced_qa.py",
+      "bytes": 764
+    },
+    {
+      "path": "examples/search_google.py",
+      "bytes": 328
+    },
+    {
+      "path": "examples/search_with_specific_engine.py",
+      "bytes": 492
+    },
+    {
+      "path": "examples/sela/README.md",
+      "bytes": 801
+    },
+    {
+      "path": "examples/serialize_model.py",
+      "bytes": 778
+    },
+    {
+      "path": "examples/spo/README.md",
+      "bytes": 6817
+    },
+    {
+      "path": "examples/spo/config2.example.yaml",
+      "bytes": 744
+    },
+    {
+      "path": "examples/spo/optimize.py",
+      "bytes": 1996
+    },
+    {
+      "path": "examples/stanford_town/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "examples/stanford_town/requirements.txt",
+      "bytes": 0
+    },
+    {
+      "path": "examples/stanford_town/run_st_game.py",
+      "bytes": 3027
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/environment/0.json",
+      "bytes": 245
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Isabella Rodriguez/bootstrap_memory/associative_memory/embeddings.json",
+      "bytes": 2
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Isabella Rodriguez/bootstrap_memory/associative_memory/kw_strength.json",
+      "bytes": 53
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Isabella Rodriguez/bootstrap_memory/associative_memory/nodes.json",
+      "bytes": 2
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Isabella Rodriguez/bootstrap_memory/scratch.json",
+      "bytes": 1966
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Isabella Rodriguez/bootstrap_memory/spatial_memory.json",
+      "bytes": 1371
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Klaus Mueller/bootstrap_memory/associative_memory/embeddings.json",
+      "bytes": 2
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Klaus Mueller/bootstrap_memory/associative_memory/kw_strength.json",
+      "bytes": 53
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Klaus Mueller/bootstrap_memory/associative_memory/nodes.json",
+      "bytes": 2
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Klaus Mueller/bootstrap_memory/scratch.json",
+      "bytes": 1771
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Klaus Mueller/bootstrap_memory/spatial_memory.json",
+      "bytes": 1777
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Maria Lopez/bootstrap_memory/associative_memory/embeddings.json",
+      "bytes": 2
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Maria Lopez/bootstrap_memory/associative_memory/kw_strength.json",
+      "bytes": 53
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Maria Lopez/bootstrap_memory/associative_memory/nodes.json",
+      "bytes": 2
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Maria Lopez/bootstrap_memory/scratch.json",
+      "bytes": 1839
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/personas/Maria Lopez/bootstrap_memory/spatial_memory.json",
+      "bytes": 1793
+    },
+    {
+      "path": "examples/stanford_town/storage/base_the_ville_isabella_maria_klaus/reverie/meta.json",
+      "bytes": 302
+    },
+    {
+      "path": "examples/stream_output_via_api.py",
+      "bytes": 3237
+    },
+    {
+      "path": "examples/ui_with_chainlit/README.md",
+      "bytes": 1004
+    },
+    {
+      "path": "examples/ui_with_chainlit/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "examples/ui_with_chainlit/app.py",
+      "bytes": 2345
+    },
+    {
+      "path": "examples/ui_with_chainlit/init_setup.py",
+      "bytes": 2288
+    },
+    {
+      "path": "examples/use_off_the_shelf_agent.py",
+      "bytes": 778
+    },
+    {
+      "path": "examples/werewolf_game/evals/eval.py",
+      "bytes": 9131
+    },
+    {
+      "path": "examples/werewolf_game/evals/utils.py",
+      "bytes": 4608
+    },
+    {
+      "path": "examples/werewolf_game/start_game.py",
+      "bytes": 1825
+    },
+    {
+      "path": "examples/write_design.py",
+      "bytes": 609
+    },
+    {
+      "path": "examples/write_game_code.py",
+      "bytes": 1281
+    },
+    {
+      "path": "examples/write_novel.py",
+      "bytes": 2218
+    },
+    {
+      "path": "examples/write_tutorial.py",
+      "bytes": 409
+    },
+    {
+      "path": "metagpt/__init__.py",
+      "bytes": 173
+    },
+    {
+      "path": "metagpt/_compat.py",
+      "bytes": 846
+    },
+    {
+      "path": "metagpt/actions/__init__.py",
+      "bytes": 1942
+    },
+    {
+      "path": "metagpt/actions/action.py",
+      "bytes": 3833
+    },
+    {
+      "path": "metagpt/actions/action_graph.py",
+      "bytes": 1324
+    },
+    {
+      "path": "metagpt/actions/action_node.py",
+      "bytes": 33746
+    },
+    {
+      "path": "metagpt/actions/action_outcls_registry.py",
+      "bytes": 1460
+    },
+    {
+      "path": "metagpt/actions/action_output.py",
+      "bytes": 371
+    },
+    {
+      "path": "metagpt/actions/add_requirement.py",
+      "bytes": 264
+    },
+    {
+      "path": "metagpt/actions/analyze_requirements.py",
+      "bytes": 2843
+    },
+    {
+      "path": "metagpt/actions/debug_error.py",
+      "bytes": 2777
+    },
+    {
+      "path": "metagpt/actions/design_api.py",
+      "bytes": 14145
+    },
+    {
+      "path": "metagpt/actions/design_api_an.py",
+      "bytes": 4415
+    },
+    {
+      "path": "metagpt/actions/design_api_review.py",
+      "bytes": 754
+    },
+    {
+      "path": "metagpt/actions/di/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/actions/di/ask_review.py",
+      "bytes": 2498
+    },
+    {
+      "path": "metagpt/actions/di/execute_nb_code.py",
+      "bytes": 12878
+    },
+    {
+      "path": "metagpt/actions/di/run_command.py",
+      "bytes": 121
+    },
+    {
+      "path": "metagpt/actions/di/write_analysis_code.py",
+      "bytes": 2552
+    },
+    {
+      "path": "metagpt/actions/di/write_plan.py",
+      "bytes": 3275
+    },
+    {
+      "path": "metagpt/actions/execute_task.py",
+      "bytes": 352
+    },
+    {
+      "path": "metagpt/actions/extract_readme.py",
+      "bytes": 4768
+    },
+    {
+      "path": "metagpt/actions/fix_bug.py",
+      "bytes": 243
+    },
+    {
+      "path": "metagpt/actions/generate_questions.py",
+      "bytes": 891
+    },
+    {
+      "path": "metagpt/actions/import_repo.py",
+      "bytes": 9614
+    },
+    {
+      "path": "metagpt/actions/invoice_ocr.py",
+      "bytes": 6397
+    },
+    {
+      "path": "metagpt/actions/prepare_documents.py",
+      "bytes": 3727
+    },
+    {
+      "path": "metagpt/actions/prepare_interview.py",
+      "bytes": 849
+    },
+    {
+      "path": "metagpt/actions/project_management.py",
+      "bytes": 9793
+    },
+    {
+      "path": "metagpt/actions/project_management_an.py",
+      "bytes": 4679
+    },
+    {
+      "path": "metagpt/actions/rebuild_class_view.py",
+      "bytes": 9974
+    },
+    {
+      "path": "metagpt/actions/rebuild_sequence_view.py",
+      "bytes": 25741
+    },
+    {
+      "path": "metagpt/actions/requirement_analysis/__init__.py",
+      "bytes": 363
+    },
+    {
+      "path": "metagpt/actions/requirement_analysis/evaluate_action.py",
+      "bytes": 2430
+    },
+    {
+      "path": "metagpt/actions/requirement_analysis/framework/__init__.py",
+      "bytes": 3022
+    },
+    {
+      "path": "metagpt/actions/requirement_analysis/framework/evaluate_framework.py",
+      "bytes": 5051
+    },
+    {
+      "path": "metagpt/actions/requirement_analysis/framework/write_framework.py",
+      "bytes": 6682
+    },
+    {
+      "path": "metagpt/actions/requirement_analysis/requirement/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/actions/requirement_analysis/requirement/pic2txt.py",
+      "bytes": 5368
+    },
+    {
+      "path": "metagpt/actions/requirement_analysis/trd/__init__.py",
+      "bytes": 656
+    },
+    {
+      "path": "metagpt/actions/requirement_analysis/trd/compress_external_interfaces.py",
+      "bytes": 2341
+    },
+    {
+      "path": "metagpt/actions/requirement_analysis/trd/detect_interaction.py",
+      "bytes": 4802
+    },
+    {
+      "path": "metagpt/actions/requirement_analysis/trd/evaluate_trd.py",
+      "bytes": 7032
+    },
+    {
+      "path": "metagpt/actions/requirement_analysis/trd/write_trd.py",
+      "bytes": 15594
+    },
+    {
+      "path": "metagpt/actions/research.py",
+      "bytes": 13836
+    },
+    {
+      "path": "metagpt/actions/run_code.py",
+      "bytes": 6991
+    },
+    {
+      "path": "metagpt/actions/search_and_summarize.py",
+      "bytes": 5452
+    },
+    {
+      "path": "metagpt/actions/search_enhanced_qa.py",
+      "bytes": 11061
+    },
+    {
+      "path": "metagpt/actions/skill_action.py",
+      "bytes": 4032
+    },
+    {
+      "path": "metagpt/actions/summarize_code.py",
+      "bytes": 3520
+    },
+    {
+      "path": "metagpt/actions/talk_action.py",
+      "bytes": 6527
+    },
+    {
+      "path": "metagpt/actions/write_code.py",
+      "bytes": 10544
+    },
+    {
+      "path": "metagpt/actions/write_code_an_draft.py",
+      "bytes": 18005
+    },
+    {
+      "path": "metagpt/actions/write_code_plan_and_change_an.py",
+      "bytes": 8041
+    },
+    {
+      "path": "metagpt/actions/write_code_review.py",
+      "bytes": 12651
+    },
+    {
+      "path": "metagpt/actions/write_docstring.py",
+      "bytes": 6392
+    },
+    {
+      "path": "metagpt/actions/write_prd.py",
+      "bytes": 15233
+    },
+    {
+      "path": "metagpt/actions/write_prd_an.py",
+      "bytes": 7906
+    },
+    {
+      "path": "metagpt/actions/write_prd_review.py",
+      "bytes": 800
+    },
+    {
+      "path": "metagpt/actions/write_review.py",
+      "bytes": 1112
+    },
+    {
+      "path": "metagpt/actions/write_teaching_plan.py",
+      "bytes": 7380
+    },
+    {
+      "path": "metagpt/actions/write_test.py",
+      "bytes": 3695
+    },
+    {
+      "path": "metagpt/actions/write_tutorial.py",
+      "bytes": 2002
+    },
+    {
+      "path": "metagpt/base/__init__.py",
+      "bytes": 149
+    },
+    {
+      "path": "metagpt/base/base_env.py",
+      "bytes": 1313
+    },
+    {
+      "path": "metagpt/base/base_env_space.py",
+      "bytes": 836
+    },
+    {
+      "path": "metagpt/base/base_role.py",
+      "bytes": 1085
+    },
+    {
+      "path": "metagpt/base/base_serialization.py",
+      "bytes": 2792
+    },
+    {
+      "path": "metagpt/config2.py",
+      "bytes": 6050
+    },
+    {
+      "path": "metagpt/configs/__init__.py",
+      "bytes": 126
+    },
+    {
+      "path": "metagpt/configs/browser_config.py",
+      "bytes": 884
+    },
+    {
+      "path": "metagpt/configs/compress_msg_config.py",
+      "bytes": 1083
+    },
+    {
+      "path": "metagpt/configs/embedding_config.py",
+      "bytes": 1228
+    },
+    {
+      "path": "metagpt/configs/exp_pool_config.py",
+      "bytes": 1085
+    },
+    {
+      "path": "metagpt/configs/llm_config.py",
+      "bytes": 4435
+    },
+    {
+      "path": "metagpt/configs/mermaid_config.py",
+      "bytes": 474
+    },
+    {
+      "path": "metagpt/configs/models_config.py",
+      "bytes": 3505
+    },
+    {
+      "path": "metagpt/configs/omniparse_config.py",
+      "bytes": 151
+    },
+    {
+      "path": "metagpt/configs/redis_config.py",
+      "bytes": 549
+    },
+    {
+      "path": "metagpt/configs/role_custom_config.py",
+      "bytes": 407
+    },
+    {
+      "path": "metagpt/configs/role_zero_config.py",
+      "bytes": 640
+    },
+    {
+      "path": "metagpt/configs/s3_config.py",
+      "bytes": 305
+    },
+    {
+      "path": "metagpt/configs/search_config.py",
+      "bytes": 942
+    },
+    {
+      "path": "metagpt/configs/workspace_config.py",
+      "bytes": 1012
+    },
+    {
+      "path": "metagpt/const.py",
+      "bytes": 4831
+    },
+    {
+      "path": "metagpt/context.py",
+      "bytes": 3982
+    },
+    {
+      "path": "metagpt/context_mixin.py",
+      "bytes": 3481
+    },
+    {
+      "path": "metagpt/document.py",
+      "bytes": 8323
+    },
+    {
+      "path": "metagpt/document_store/__init__.py",
+      "bytes": 212
+    },
+    {
+      "path": "metagpt/document_store/base_store.py",
+      "bytes": 1462
+    },
+    {
+      "path": "metagpt/document_store/chromadb_store.py",
+      "bytes": 1796
+    },
+    {
+      "path": "metagpt/document_store/faiss_store.py",
+      "bytes": 3935
+    },
+    {
+      "path": "metagpt/document_store/lancedb_store.py",
+      "bytes": 2930
+    },
+    {
+      "path": "metagpt/document_store/milvus_store.py",
+      "bytes": 3187
+    },
+    {
+      "path": "metagpt/document_store/qdrant_store.py",
+      "bytes": 3734
+    },
+    {
+      "path": "metagpt/environment/README.md",
+      "bytes": 1627
+    },
+    {
+      "path": "metagpt/environment/__init__.py",
+      "bytes": 481
+    },
+    {
+      "path": "metagpt/environment/android/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/environment/android/android_env.py",
+      "bytes": 532
+    },
+    {
+      "path": "metagpt/environment/android/android_ext_env.py",
+      "bytes": 15489
+    },
+    {
+      "path": "metagpt/environment/android/const.py",
+      "bytes": 114
+    },
+    {
+      "path": "metagpt/environment/android/env_space.py",
+      "bytes": 2838
+    },
+    {
+      "path": "metagpt/environment/android/grounding_dino_config.py",
+      "bytes": 1006
+    },
+    {
+      "path": "metagpt/environment/android/text_icon_localization.py",
+      "bytes": 12310
+    },
+    {
+      "path": "metagpt/environment/api/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/environment/api/env_api.py",
+      "bytes": 1832
+    },
+    {
+      "path": "metagpt/environment/base_env.py",
+      "bytes": 9145
+    },
+    {
+      "path": "metagpt/environment/mgx/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/environment/mgx/mgx_env.py",
+      "bytes": 4962
+    },
+    {
+      "path": "metagpt/environment/minecraft/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/environment/minecraft/const.py",
+      "bytes": 1056
+    },
+    {
+      "path": "metagpt/environment/minecraft/minecraft_env.py",
+      "bytes": 16289
+    },
+    {
+      "path": "metagpt/environment/minecraft/minecraft_ext_env.py",
+      "bytes": 7095
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/.prettierrc.json",
+      "bytes": 22
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/index.js",
+      "bytes": 13449
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/lib/observation/base.js",
+      "bytes": 1136
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/lib/observation/chests.js",
+      "bytes": 868
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/lib/observation/inventory.js",
+      "bytes": 881
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/lib/observation/onChat.js",
+      "bytes": 593
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/lib/observation/onError.js",
+      "bytes": 495
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/lib/observation/onSave.js",
+      "bytes": 503
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/lib/observation/status.js",
+      "bytes": 3467
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/lib/observation/voxels.js",
+      "bytes": 1783
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/lib/skillLoader.js",
+      "bytes": 2283
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/lib/utils.js",
+      "bytes": 717
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/LICENSE",
+      "bytes": 1070
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/README.md",
+      "bytes": 3756
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/_config.yml",
+      "bytes": 26
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/docs/api.md",
+      "bytes": 2575
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/examples/collector.js",
+      "bytes": 1603
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/examples/oreMiner.js",
+      "bytes": 1463
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/examples/storageBot.js",
+      "bytes": 3338
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/package.json",
+      "bytes": 1097
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/src/BlockVeins.ts",
+      "bytes": 1054
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/src/CollectBlock.ts",
+      "bytes": 16178
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/src/Inventory.ts",
+      "bytes": 3163
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/src/Targets.ts",
+      "bytes": 1332
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/src/TaskQueue.ts",
+      "bytes": 1659
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/src/TemporarySubscriber.ts",
+      "bytes": 840
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/src/Util.ts",
+      "bytes": 302
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/src/index.ts",
+      "bytes": 753
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/tsconfig.json",
+      "bytes": 5791
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/package.json",
+      "bytes": 1109
+    },
+    {
+      "path": "metagpt/environment/minecraft/process_monitor.py",
+      "bytes": 2443
+    },
+    {
+      "path": "metagpt/environment/software/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/environment/software/software_env.py",
+      "bytes": 205
+    },
+    {
+      "path": "metagpt/environment/stanford_town/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/environment/stanford_town/env_space.py",
+      "bytes": 3736
+    },
+    {
+      "path": "metagpt/environment/stanford_town/stanford_town_env.py",
+      "bytes": 286
+    },
+    {
+      "path": "metagpt/environment/stanford_town/stanford_town_ext_env.py",
+      "bytes": 17640
+    },
+    {
+      "path": "metagpt/environment/werewolf/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/environment/werewolf/const.py",
+      "bytes": 5220
+    },
+    {
+      "path": "metagpt/environment/werewolf/env_space.py",
+      "bytes": 2320
+    },
+    {
+      "path": "metagpt/environment/werewolf/werewolf_env.py",
+      "bytes": 1585
+    },
+    {
+      "path": "metagpt/environment/werewolf/werewolf_ext_env.py",
+      "bytes": 14297
+    },
+    {
+      "path": "metagpt/exp_pool/__init__.py",
+      "bytes": 175
+    },
+    {
+      "path": "metagpt/exp_pool/context_builders/__init__.py",
+      "bytes": 337
+    },
+    {
+      "path": "metagpt/exp_pool/context_builders/action_node.py",
+      "bytes": 704
+    },
+    {
+      "path": "metagpt/exp_pool/context_builders/base.py",
+      "bytes": 1317
+    },
+    {
+      "path": "metagpt/exp_pool/context_builders/role_zero.py",
+      "bytes": 1260
+    },
+    {
+      "path": "metagpt/exp_pool/context_builders/simple.py",
+      "bytes": 479
+    },
+    {
+      "path": "metagpt/exp_pool/decorator.py",
+      "bytes": 8780
+    },
+    {
+      "path": "metagpt/exp_pool/manager.py",
+      "bytes": 8013
+    },
+    {
+      "path": "metagpt/exp_pool/perfect_judges/__init__.py",
+      "bytes": 218
+    },
+    {
+      "path": "metagpt/exp_pool/perfect_judges/base.py",
+      "bytes": 620
+    },
+    {
+      "path": "metagpt/exp_pool/perfect_judges/simple.py",
+      "bytes": 949
+    },
+    {
+      "path": "metagpt/exp_pool/schema.py",
+      "bytes": 2296
+    },
+    {
+      "path": "metagpt/exp_pool/scorers/__init__.py",
+      "bytes": 173
+    },
+    {
+      "path": "metagpt/exp_pool/scorers/base.py",
+      "bytes": 399
+    },
+    {
+      "path": "metagpt/exp_pool/scorers/simple.py",
+      "bytes": 1907
+    },
+    {
+      "path": "metagpt/exp_pool/serializers/__init__.py",
+      "bytes": 392
+    },
+    {
+      "path": "metagpt/exp_pool/serializers/action_node.py",
+      "bytes": 1176
+    },
+    {
+      "path": "metagpt/exp_pool/serializers/base.py",
+      "bytes": 931
+    },
+    {
+      "path": "metagpt/exp_pool/serializers/role_zero.py",
+      "bytes": 1765
+    },
+    {
+      "path": "metagpt/exp_pool/serializers/simple.py",
+      "bytes": 594
+    },
+    {
+      "path": "metagpt/ext/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/ext/aflow/benchmark/README.md",
+      "bytes": 1101
+    },
+    {
+      "path": "metagpt/ext/aflow/benchmark/benchmark.py",
+      "bytes": 3825
+    },
+    {
+      "path": "metagpt/ext/aflow/benchmark/drop.py",
+      "bytes": 3128
+    },
+    {
+      "path": "metagpt/ext/aflow/benchmark/gsm8k.py",
+      "bytes": 2270
+    },
+    {
+      "path": "metagpt/ext/aflow/benchmark/hotpotqa.py",
+      "bytes": 3057
+    },
+    {
+      "path": "metagpt/ext/aflow/benchmark/humaneval.py",
+      "bytes": 6148
+    },
+    {
+      "path": "metagpt/ext/aflow/benchmark/math.py",
+      "bytes": 4467
+    },
+    {
+      "path": "metagpt/ext/aflow/benchmark/mbpp.py",
+      "bytes": 4421
+    },
+    {
+      "path": "metagpt/ext/aflow/benchmark/utils.py",
+      "bytes": 1578
+    },
+    {
+      "path": "metagpt/ext/aflow/data/download_data.py",
+      "bytes": 2672
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/evaluator.py",
+      "bytes": 2792
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/interface.py",
+      "bytes": 3003
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/operator.py",
+      "bytes": 13588
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/operator_an.py",
+      "bytes": 1965
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/optimized/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/optimizer.py",
+      "bytes": 7979
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/optimizer_utils/convergence_utils.py",
+      "bytes": 5814
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/optimizer_utils/data_utils.py",
+      "bytes": 4988
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/optimizer_utils/evaluation_utils.py",
+      "bytes": 2475
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/optimizer_utils/experience_utils.py",
+      "bytes": 4583
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/optimizer_utils/graph_utils.py",
+      "bytes": 4821
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/prompts/optimize_prompt.py",
+      "bytes": 5062
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/prompts/prompt.py",
+      "bytes": 4432
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/utils.py",
+      "bytes": 3619
+    },
+    {
+      "path": "metagpt/ext/aflow/scripts/workflow.py",
+      "bytes": 771
+    },
+    {
+      "path": "metagpt/ext/android_assistant/README.md",
+      "bytes": 7816
+    },
+    {
+      "path": "metagpt/ext/android_assistant/README_CN.md",
+      "bytes": 6803
+    },
+    {
+      "path": "metagpt/ext/android_assistant/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/ext/android_assistant/actions/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/ext/android_assistant/actions/manual_record.py",
+      "bytes": 7607
+    },
+    {
+      "path": "metagpt/ext/android_assistant/actions/parse_record.py",
+      "bytes": 6441
+    },
+    {
+      "path": "metagpt/ext/android_assistant/actions/parse_record_an.py",
+      "bytes": 920
+    },
+    {
+      "path": "metagpt/ext/android_assistant/actions/screenshot_parse.py",
+      "bytes": 8744
+    },
+    {
+      "path": "metagpt/ext/android_assistant/actions/screenshot_parse_an.py",
+      "bytes": 1567
+    },
+    {
+      "path": "metagpt/ext/android_assistant/actions/self_learn_and_reflect.py",
+      "bytes": 10393
+    },
+    {
+      "path": "metagpt/ext/android_assistant/actions/self_learn_reflect_an.py",
+      "bytes": 659
+    },
+    {
+      "path": "metagpt/ext/android_assistant/prompts/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/ext/android_assistant/prompts/assistant_prompt.py",
+      "bytes": 11701
+    },
+    {
+      "path": "metagpt/ext/android_assistant/prompts/operation_prompt.py",
+      "bytes": 4244
+    },
+    {
+      "path": "metagpt/ext/android_assistant/roles/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/ext/android_assistant/roles/android_assistant.py",
+      "bytes": 6288
+    },
+    {
+      "path": "metagpt/ext/android_assistant/utils/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/ext/android_assistant/utils/schema.py",
+      "bytes": 3753
+    },
+    {
+      "path": "metagpt/ext/android_assistant/utils/utils.py",
+      "bytes": 12413
+    },
+    {
+      "path": "metagpt/ext/cr/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/ext/cr/actions/__init__.py",
+      "bytes": 1
+    },
+    {
+      "path": "metagpt/ext/cr/actions/code_review.py",
+      "bytes": 10520
+    },
+    {
+      "path": "metagpt/ext/cr/actions/modify_code.py",
+      "bytes": 4643
+    },
+    {
+      "path": "metagpt/ext/cr/points.json",
+      "bytes": 67727
+    },
+    {
+      "path": "metagpt/ext/cr/points_cn.json",
+      "bytes": 86592
+    },
+    {
+      "path": "metagpt/ext/cr/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/ext/cr/utils/cleaner.py",
+      "bytes": 2276
+    },
+    {
+      "path": "metagpt/ext/cr/utils/schema.py",
+      "bytes": 976
+    },
+    {
+      "path": "metagpt/ext/sela/README.md",
+      "bytes": 3568
+    },
+    {
+      "path": "metagpt/ext/sela/data.yaml",
+      "bytes": 180
+    },
+    {
+      "path": "metagpt/ext/sela/data/custom_task.py",
+      "bytes": 2551
+    },
+    {
+      "path": "metagpt/ext/sela/data/dataset.py",
+      "bytes": 15341
+    },
+    {
+      "path": "metagpt/ext/sela/data/hf_data.py",
+      "bytes": 4889
+    },
+    {
+      "path": "metagpt/ext/sela/datasets.yaml",
+      "bytes": 11306
+    },
+    {
+      "path": "metagpt/ext/sela/evaluation/evaluation.py",
+      "bytes": 1810
+    },
+    {
+      "path": "metagpt/ext/sela/evaluation/visualize_mcts.py",
+      "bytes": 5786
+    },
+    {
+      "path": "metagpt/ext/sela/experimenter.py",
+      "bytes": 7429
+    },
+    {
+      "path": "metagpt/ext/sela/insights/fixed_insights.json",
+      "bytes": 820
+    },
+    {
+      "path": "metagpt/ext/sela/insights/instruction_generator.py",
+      "bytes": 6427
+    },
+    {
+      "path": "metagpt/ext/sela/insights/solution_designer.py",
+      "bytes": 5398
+    },
+    {
+      "path": "metagpt/ext/sela/requirements.txt",
+      "bytes": 73
+    },
+    {
+      "path": "metagpt/ext/sela/run_experiment.py",
+      "bytes": 4005
+    },
+    {
+      "path": "metagpt/ext/sela/runner/README.md",
+      "bytes": 3469
+    },
+    {
+      "path": "metagpt/ext/sela/runner/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/ext/sela/runner/aide.py",
+      "bytes": 1110
+    },
+    {
+      "path": "metagpt/ext/sela/runner/autogluon.py",
+      "bytes": 5656
+    },
+    {
+      "path": "metagpt/ext/sela/runner/autosklearn.py",
+      "bytes": 3387
+    },
+    {
+      "path": "metagpt/ext/sela/runner/custom.py",
+      "bytes": 2393
+    },
+    {
+      "path": "metagpt/ext/sela/runner/mcts.py",
+      "bytes": 3336
+    },
+    {
+      "path": "metagpt/ext/sela/runner/mle_bench/instructions.py",
+      "bytes": 5087
+    },
+    {
+      "path": "metagpt/ext/sela/runner/random_search.py",
+      "bytes": 2384
+    },
+    {
+      "path": "metagpt/ext/sela/runner/runner.py",
+      "bytes": 5174
+    },
+    {
+      "path": "metagpt/ext/sela/scripts/run_cls.sh",
+      "bytes": 531
+    },
+    {
+      "path": "metagpt/ext/sela/scripts/run_cls_mod.sh",
+      "bytes": 386
+    },
+    {
+      "path": "metagpt/ext/sela/scripts/run_reg.sh",
+      "bytes": 461
+    },
+    {
+      "path": "metagpt/ext/sela/scripts/visualize_experiment.py",
+      "bytes": 860
+    },
+    {
+      "path": "metagpt/ext/sela/search/search_algorithm.py",
+      "bytes": 1215
+    },
+    {
+      "path": "metagpt/ext/sela/search/tree_search.py",
+      "bytes": 19606
+    },
+    {
+      "path": "metagpt/ext/sela/utils.py",
+      "bytes": 3986
+    },
+    {
+      "path": "metagpt/ext/spo/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/ext/spo/app.py",
+      "bytes": 11871
+    },
+    {
+      "path": "metagpt/ext/spo/components/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/ext/spo/components/evaluator.py",
+      "bytes": 2274
+    },
+    {
+      "path": "metagpt/ext/spo/components/optimizer.py",
+      "bytes": 5326
+    },
+    {
+      "path": "metagpt/ext/spo/prompts/evaluate_prompt.py",
+      "bytes": 534
+    },
+    {
+      "path": "metagpt/ext/spo/prompts/optimize_prompt.py",
+      "bytes": 1128
+    },
+    {
+      "path": "metagpt/ext/spo/settings/Navigate.yaml",
+      "bytes": 1603
+    },
+    {
+      "path": "metagpt/ext/spo/settings/Poem.yaml",
+      "bytes": 374
+    },
+    {
+      "path": "metagpt/ext/spo/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/ext/spo/utils/data_utils.py",
+      "bytes": 3439
+    },
+    {
+      "path": "metagpt/ext/spo/utils/evaluation_utils.py",
+      "bytes": 2350
+    },
+    {
+      "path": "metagpt/ext/spo/utils/llm_client.py",
+      "bytes": 3657
+    },
+    {
+      "path": "metagpt/ext/spo/utils/load.py",
+      "bytes": 1214
+    },
+    {
+      "path": "metagpt/ext/spo/utils/prompt_utils.py",
+      "bytes": 1245
+    },
+    {
+      "path": "metagpt/ext/stanford_town/README.md",
+      "bytes": 2650
+    },
+    {
+      "path": "metagpt/ext/stanford_town/README_CN.md",
+      "bytes": 2464
+    },
+    {
+      "path": "metagpt/ext/stanford_town/__init__.py",
+      "bytes": 82
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/agent_chat_sum_rel.py",
+      "bytes": 1508
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/decide_to_talk.py",
+      "bytes": 4012
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/dummy_action.py",
+      "bytes": 510
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/gen_action_details.py",
+      "bytes": 15613
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/gen_daily_schedule.py",
+      "bytes": 2264
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/gen_hourly_schedule.py",
+      "bytes": 6987
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/gen_iter_chat_utt.py",
+      "bytes": 4682
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/inner_voice_action.py",
+      "bytes": 1237
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/new_decomp_schedule.py",
+      "bytes": 5348
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/run_reflect_action.py",
+      "bytes": 10693
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/st_action.py",
+      "bytes": 4847
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/summarize_conv.py",
+      "bytes": 1741
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/task_decomp.py",
+      "bytes": 6940
+    },
+    {
+      "path": "metagpt/ext/stanford_town/actions/wake_up.py",
+      "bytes": 1332
+    },
+    {
+      "path": "metagpt/ext/stanford_town/memory/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/ext/stanford_town/memory/agent_memory.py",
+      "bytes": 14136
+    },
+    {
+      "path": "metagpt/ext/stanford_town/memory/retrieve.py",
+      "bytes": 5719
+    },
+    {
+      "path": "metagpt/ext/stanford_town/memory/scratch.py",
+      "bytes": 13304
+    },
+    {
+      "path": "metagpt/ext/stanford_town/memory/spatial_memory.py",
+      "bytes": 4260
+    },
+    {
+      "path": "metagpt/ext/stanford_town/plan/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/ext/stanford_town/plan/converse.py",
+      "bytes": 4066
+    },
+    {
+      "path": "metagpt/ext/stanford_town/plan/st_plan.py",
+      "bytes": 29323
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/__init__.py",
+      "bytes": 89
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/action_location_object_vMar11.txt",
+      "bytes": 1450
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/action_location_sector_v1.txt",
+      "bytes": 2110
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/action_object_v2.txt",
+      "bytes": 1127
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/daily_planning_v6.txt",
+      "bytes": 487
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/decide_to_talk_v2.txt",
+      "bytes": 508
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/generate_event_triple_v1.txt",
+      "bytes": 845
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/generate_focal_pt_v1.txt",
+      "bytes": 312
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/generate_hourly_schedule_v2.txt",
+      "bytes": 367
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/generate_obj_event_v1.txt",
+      "bytes": 506
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/generate_pronunciatio_v1.txt",
+      "bytes": 240
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/insight_and_evidence_v1.txt",
+      "bytes": 435
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/iterative_convo_v1.txt",
+      "bytes": 1110
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/memo_on_convo_v1.txt",
+      "bytes": 394
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/new_decomp_schedule_v1.txt",
+      "bytes": 739
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/planning_thought_on_convo_v1.txt",
+      "bytes": 411
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/poignancy_action_v1.txt",
+      "bytes": 499
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/poignancy_chat_v1.txt",
+      "bytes": 524
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/poignancy_event_v1.txt",
+      "bytes": 499
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/poignancy_thought_v1.txt",
+      "bytes": 543
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/summarize_chat_relationship_v2.txt",
+      "bytes": 354
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/summarize_conversation_v1.txt",
+      "bytes": 228
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/task_decomp_v3.txt",
+      "bytes": 2584
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/wake_up_hour_v1.txt",
+      "bytes": 238
+    },
+    {
+      "path": "metagpt/ext/stanford_town/prompts/whisper_inner_thought_v1.txt",
+      "bytes": 249
+    },
+    {
+      "path": "metagpt/ext/stanford_town/reflect/__init__.py",
+      "bytes": 76
+    },
+    {
+      "path": "metagpt/ext/stanford_town/reflect/reflect.py",
+      "bytes": 8612
+    },
+    {
+      "path": "metagpt/ext/stanford_town/roles/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/ext/stanford_town/roles/st_role.py",
+      "bytes": 27145
+    },
+    {
+      "path": "metagpt/ext/stanford_town/stanford_town.py",
+      "bytes": 1540
+    },
+    {
+      "path": "metagpt/ext/stanford_town/utils/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/ext/stanford_town/utils/const.py",
+      "bytes": 452
+    },
+    {
+      "path": "metagpt/ext/stanford_town/utils/mg_ga_transform.py",
+      "bytes": 2735
+    },
+    {
+      "path": "metagpt/ext/stanford_town/utils/utils.py",
+      "bytes": 6965
+    },
+    {
+      "path": "metagpt/ext/werewolf/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/ext/werewolf/actions/__init__.py",
+      "bytes": 867
+    },
+    {
+      "path": "metagpt/ext/werewolf/actions/common_actions.py",
+      "bytes": 12763
+    },
+    {
+      "path": "metagpt/ext/werewolf/actions/experience_operation.py",
+      "bytes": 6357
+    },
+    {
+      "path": "metagpt/ext/werewolf/actions/guard_actions.py",
+      "bytes": 195
+    },
+    {
+      "path": "metagpt/ext/werewolf/actions/moderator_actions.py",
+      "bytes": 1614
+    },
+    {
+      "path": "metagpt/ext/werewolf/actions/seer_actions.py",
+      "bytes": 134
+    },
+    {
+      "path": "metagpt/ext/werewolf/actions/werewolf_actions.py",
+      "bytes": 649
+    },
+    {
+      "path": "metagpt/ext/werewolf/actions/witch_actions.py",
+      "bytes": 1942
+    },
+    {
+      "path": "metagpt/ext/werewolf/roles/__init__.py",
+      "bytes": 534
+    },
+    {
+      "path": "metagpt/ext/werewolf/roles/base_player.py",
+      "bytes": 7110
+    },
+    {
+      "path": "metagpt/ext/werewolf/roles/guard.py",
+      "bytes": 272
+    },
+    {
+      "path": "metagpt/ext/werewolf/roles/human_player.py",
+      "bytes": 1533
+    },
+    {
+      "path": "metagpt/ext/werewolf/roles/moderator.py",
+      "bytes": 10933
+    },
+    {
+      "path": "metagpt/ext/werewolf/roles/seer.py",
+      "bytes": 268
+    },
+    {
+      "path": "metagpt/ext/werewolf/roles/villager.py",
+      "bytes": 272
+    },
+    {
+      "path": "metagpt/ext/werewolf/roles/werewolf.py",
+      "bytes": 602
+    },
+    {
+      "path": "metagpt/ext/werewolf/roles/witch.py",
+      "bytes": 1477
+    },
+    {
+      "path": "metagpt/ext/werewolf/schema.py",
+      "bytes": 817
+    },
+    {
+      "path": "metagpt/ext/werewolf/werewolf_game.py",
+      "bytes": 986
+    },
+    {
+      "path": "metagpt/learn/__init__.py",
+      "bytes": 356
+    },
+    {
+      "path": "metagpt/learn/google_search.py",
+      "bytes": 551
+    },
+    {
+      "path": "metagpt/learn/skill_loader.py",
+      "bytes": 2631
+    },
+    {
+      "path": "metagpt/learn/text_to_embedding.py",
+      "bytes": 1152
+    },
+    {
+      "path": "metagpt/learn/text_to_image.py",
+      "bytes": 1717
+    },
+    {
+      "path": "metagpt/learn/text_to_speech.py",
+      "bytes": 3798
+    },
+    {
+      "path": "metagpt/llm.py",
+      "bytes": 576
+    },
+    {
+      "path": "metagpt/logs.py",
+      "bytes": 3990
+    },
+    {
+      "path": "metagpt/management/__init__.py",
+      "bytes": 127
+    },
+    {
+      "path": "metagpt/management/skill_manager.py",
+      "bytes": 2351
+    },
+    {
+      "path": "metagpt/memory/__init__.py",
+      "bytes": 284
+    },
+    {
+      "path": "metagpt/memory/brain_memory.py",
+      "bytes": 12482
+    },
+    {
+      "path": "metagpt/memory/longterm_memory.py",
+      "bytes": 2865
+    },
+    {
+      "path": "metagpt/memory/memory.py",
+      "bytes": 4192
+    },
+    {
+      "path": "metagpt/memory/memory_storage.py",
+      "bytes": 2827
+    },
+    {
+      "path": "metagpt/memory/role_zero_memory.py",
+      "bytes": 7167
+    },
+    {
+      "path": "metagpt/prompts/__init__.py",
+      "bytes": 127
+    },
+    {
+      "path": "metagpt/prompts/di/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/prompts/di/architect.py",
+      "bytes": 4568
+    },
+    {
+      "path": "metagpt/prompts/di/data_analyst.py",
+      "bytes": 1650
+    },
+    {
+      "path": "metagpt/prompts/di/engineer2.py",
+      "bytes": 9099
+    },
+    {
+      "path": "metagpt/prompts/di/role_zero.py",
+      "bytes": 12832
+    },
+    {
+      "path": "metagpt/prompts/di/swe_agent.py",
+      "bytes": 14050
+    },
+    {
+      "path": "metagpt/prompts/di/team_leader.py",
+      "bytes": 6453
+    },
+    {
+      "path": "metagpt/prompts/di/write_analysis_code.py",
+      "bytes": 4094
+    },
+    {
+      "path": "metagpt/prompts/generate_skill.md",
+      "bytes": 2261
+    },
+    {
+      "path": "metagpt/prompts/invoice_ocr.py",
+      "bytes": 1314
+    },
+    {
+      "path": "metagpt/prompts/metagpt_sample.py",
+      "bytes": 2308
+    },
+    {
+      "path": "metagpt/prompts/product_manager.py",
+      "bytes": 6101
+    },
+    {
+      "path": "metagpt/prompts/sales.py",
+      "bytes": 4818
+    },
+    {
+      "path": "metagpt/prompts/summarize.py",
+      "bytes": 5406
+    },
+    {
+      "path": "metagpt/prompts/task_type.py",
+      "bytes": 4689
+    },
+    {
+      "path": "metagpt/prompts/tutorial_assistant.py",
+      "bytes": 1844
+    },
+    {
+      "path": "metagpt/provider/__init__.py",
+      "bytes": 1169
+    },
+    {
+      "path": "metagpt/provider/anthropic_api.py",
+      "bytes": 3839
+    },
+    {
+      "path": "metagpt/provider/ark_api.py",
+      "bytes": 4077
+    },
+    {
+      "path": "metagpt/provider/azure_openai_api.py",
+      "bytes": 1476
+    },
+    {
+      "path": "metagpt/provider/base_llm.py",
+      "bytes": 18571
+    },
+    {
+      "path": "metagpt/provider/bedrock/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/provider/bedrock/base_provider.py",
+      "bytes": 1324
+    },
+    {
+      "path": "metagpt/provider/bedrock/bedrock_provider.py",
+      "bytes": 8996
+    },
+    {
+      "path": "metagpt/provider/bedrock/utils.py",
+      "bytes": 5641
+    },
+    {
+      "path": "metagpt/provider/bedrock_api.py",
+      "bytes": 7255
+    },
+    {
+      "path": "metagpt/provider/constant.py",
+      "bytes": 1581
+    },
+    {
+      "path": "metagpt/provider/dashscope_api.py",
+      "bytes": 8272
+    },
+    {
+      "path": "metagpt/provider/general_api_base.py",
+      "bytes": 18389
+    },
+    {
+      "path": "metagpt/provider/general_api_requestor.py",
+      "bytes": 4954
+    },
+    {
+      "path": "metagpt/provider/google_gemini_api.py",
+      "bytes": 7324
+    },
+    {
+      "path": "metagpt/provider/human_provider.py",
+      "bytes": 1979
+    },
+    {
+      "path": "metagpt/provider/llm_provider_registry.py",
+      "bytes": 1330
+    },
+    {
+      "path": "metagpt/provider/metagpt_api.py",
+      "bytes": 744
+    },
+    {
+      "path": "metagpt/provider/ollama_api.py",
+      "bytes": 11641
+    },
+    {
+      "path": "metagpt/provider/openai_api.py",
+      "bytes": 13888
+    },
+    {
+      "path": "metagpt/provider/openrouter_reasoning.py",
+      "bytes": 3624
+    },
+    {
+      "path": "metagpt/provider/postprocess/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/provider/postprocess/base_postprocess_plugin.py",
+      "bytes": 2984
+    },
+    {
+      "path": "metagpt/provider/postprocess/llm_output_postprocess.py",
+      "bytes": 695
+    },
+    {
+      "path": "metagpt/provider/qianfan_api.py",
+      "bytes": 6459
+    },
+    {
+      "path": "metagpt/provider/spark_api.py",
+      "bytes": 3630
+    },
+    {
+      "path": "metagpt/provider/zhipuai/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "metagpt/provider/zhipuai/async_sse_client.py",
+      "bytes": 1083
+    },
+    {
+      "path": "metagpt/provider/zhipuai/zhipu_model_api.py",
+      "bytes": 2240
+    },
+    {
+      "path": "metagpt/provider/zhipuai_api.py",
+      "bytes": 3363
+    },
+    {
+      "path": "metagpt/rag/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/rag/benchmark/__init__.py",
+      "bytes": 80
+    },
+    {
+      "path": "metagpt/rag/benchmark/base.py",
+      "bytes": 7440
+    },
+    {
+      "path": "metagpt/rag/engines/__init__.py",
+      "bytes": 165
+    },
+    {
+      "path": "metagpt/rag/engines/flare.py",
+      "bytes": 299
+    },
+    {
+      "path": "metagpt/rag/engines/simple.py",
+      "bytes": 15643
+    },
+    {
+      "path": "metagpt/rag/factories/__init__.py",
+      "bytes": 387
+    },
+    {
+      "path": "metagpt/rag/factories/base.py",
+      "bytes": 2065
+    },
+    {
+      "path": "metagpt/rag/factories/embedding.py",
+      "bytes": 4202
+    },
+    {
+      "path": "metagpt/rag/factories/index.py",
+      "bytes": 3520
+    },
+    {
+      "path": "metagpt/rag/factories/llm.py",
+      "bytes": 2694
+    },
+    {
+      "path": "metagpt/rag/factories/ranker.py",
+      "bytes": 3244
+    },
+    {
+      "path": "metagpt/rag/factories/retriever.py",
+      "bytes": 6473
+    },
+    {
+      "path": "metagpt/rag/interface.py",
+      "bytes": 540
+    },
+    {
+      "path": "metagpt/rag/parsers/__init__.py",
+      "bytes": 77
+    },
+    {
+      "path": "metagpt/rag/parsers/omniparse.py",
+      "bytes": 4844
+    },
+    {
+      "path": "metagpt/rag/prompts/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/rag/prompts/default_prompts.py",
+      "bytes": 1326
+    },
+    {
+      "path": "metagpt/rag/rankers/__init__.py",
+      "bytes": 19
+    },
+    {
+      "path": "metagpt/rag/rankers/base.py",
+      "bytes": 505
+    },
+    {
+      "path": "metagpt/rag/rankers/object_ranker.py",
+      "bytes": 1813
+    },
+    {
+      "path": "metagpt/rag/retrievers/__init__.py",
+      "bytes": 135
+    },
+    {
+      "path": "metagpt/rag/retrievers/base.py",
+      "bytes": 2089
+    },
+    {
+      "path": "metagpt/rag/retrievers/bm25_retriever.py",
+      "bytes": 2258
+    },
+    {
+      "path": "metagpt/rag/retrievers/chroma_retriever.py",
+      "bytes": 1031
+    },
+    {
+      "path": "metagpt/rag/retrievers/es_retriever.py",
+      "bytes": 546
+    },
+    {
+      "path": "metagpt/rag/retrievers/faiss_retriever.py",
+      "bytes": 501
+    },
+    {
+      "path": "metagpt/rag/retrievers/hybrid_retriever.py",
+      "bytes": 1640
+    },
+    {
+      "path": "metagpt/rag/schema.py",
+      "bytes": 10412
+    },
+    {
+      "path": "metagpt/repo_parser.py",
+      "bytes": 35487
+    },
+    {
+      "path": "metagpt/roles/__init__.py",
+      "bytes": 860
+    },
+    {
+      "path": "metagpt/roles/architect.py",
+      "bytes": 2020
+    },
+    {
+      "path": "metagpt/roles/assistant.py",
+      "bytes": 5969
+    },
+    {
+      "path": "metagpt/roles/customer_service.py",
+      "bytes": 1456
+    },
+    {
+      "path": "metagpt/roles/di/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "metagpt/roles/di/data_analyst.py",
+      "bytes": 6473
+    },
+    {
+      "path": "metagpt/roles/di/data_interpreter.py",
+      "bytes": 7413
+    },
+    {
+      "path": "metagpt/roles/di/engineer2.py",
+      "bytes": 7116
+    },
+    {
+      "path": "metagpt/roles/di/role_zero.py",
+      "bytes": 21427
+    },
+    {
+      "path": "metagpt/roles/di/swe_agent.py",
+      "bytes": 2903
+    },
+    {
+      "path": "metagpt/roles/di/team_leader.py",
+      "bytes": 3832
+    },
+    {
+      "path": "metagpt/roles/engineer.py",
+      "bytes": 24718
+    },
+    {
+      "path": "metagpt/roles/invoice_ocr_assistant.py",
+      "bytes": 3641
+    },
+    {
+      "path": "metagpt/roles/product_manager.py",
+      "bytes": 2536
+    },
+    {
+      "path": "metagpt/roles/project_manager.py",
+      "bytes": 1788
+    },
+    {
+      "path": "metagpt/roles/prompt.py",
+      "bytes": 10360
+    },
+    {
+      "path": "metagpt/roles/qa_engineer.py",
+      "bytes": 10747
+    },
+    {
+      "path": "metagpt/roles/researcher.py",
+      "bytes": 4708
+    },
+    {
+      "path": "metagpt/roles/role.py",
+      "bytes": 25036
+    },
+    {
+      "path": "metagpt/roles/sales.py",
+      "bytes": 1541
+    },
+    {
+      "path": "metagpt/roles/searcher.py",
+      "bytes": 2469
+    },
+    {
+      "path": "metagpt/roles/teacher.py",
+      "bytes": 4106
+    },
+    {
+      "path": "metagpt/roles/tutorial_assistant.py",
+      "bytes": 3458
+    },
+    {
+      "path": "metagpt/schema.py",
+      "bytes": 33148
+    },
+    {
+      "path": "metagpt/skills/SummarizeSkill/MakeAbstractReadable/config.json",
+      "bytes": 285
+    },
+    {
+      "path": "metagpt/skills/SummarizeSkill/MakeAbstractReadable/skprompt.txt",
+      "bytes": 121
+    },
+    {
+      "path": "metagpt/skills/SummarizeSkill/Notegen/config.json",
+      "bytes": 275
+    },
+    {
+      "path": "metagpt/skills/SummarizeSkill/Notegen/skprompt.txt",
+      "bytes": 753
+    },
+    {
+      "path": "metagpt/skills/SummarizeSkill/Summarize/config.json",
+      "bytes": 406
+    },
+    {
+      "path": "metagpt/skills/SummarizeSkill/Summarize/skprompt.txt",
+      "bytes": 332
+    },
+    {
+      "path": "metagpt/skills/SummarizeSkill/Topics/config.json",
+      "bytes": 279
+    },
+    {
+      "path": "metagpt/skills/SummarizeSkill/Topics/skprompt.txt",
+      "bytes": 791
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/Acronym/config.json",
+      "bytes": 259
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/Acronym/skprompt.txt",
+      "bytes": 1098
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/AcronymGenerator/config.json",
+      "bytes": 359
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/AcronymGenerator/skprompt.txt",
+      "bytes": 3397
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/AcronymReverse/config.json",
+      "bytes": 341
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/AcronymReverse/skprompt.txt",
+      "bytes": 849
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/Brainstorm/config.json",
+      "bytes": 470
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/Brainstorm/skprompt.txt",
+      "bytes": 200
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/EmailGen/config.json",
+      "bytes": 251
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/EmailGen/skprompt.txt",
+      "bytes": 540
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/EmailTo/config.json",
+      "bytes": 272
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/EmailTo/skprompt.txt",
+      "bytes": 638
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/EnglishImprover/config.json",
+      "bytes": 249
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/EnglishImprover/skprompt.txt",
+      "bytes": 571
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/NovelChapter/config.json",
+      "bytes": 853
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/NovelChapter/skprompt.txt",
+      "bytes": 248
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/NovelChapterWithNotes/config.json",
+      "bytes": 971
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/NovelChapterWithNotes/skprompt.txt",
+      "bytes": 356
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/NovelOutline/config.json",
+      "bytes": 734
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/NovelOutline/skprompt.txt",
+      "bytes": 423
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/Rewrite/config.json",
+      "bytes": 274
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/Rewrite/skprompt.txt",
+      "bytes": 152
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/ShortPoem/config.json",
+      "bytes": 431
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/ShortPoem/skprompt.txt",
+      "bytes": 142
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/StoryGen/config.json",
+      "bytes": 277
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/StoryGen/skprompt.txt",
+      "bytes": 210
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/TellMeMore/config.json",
+      "bytes": 249
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/TellMeMore/skprompt.txt",
+      "bytes": 332
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/Translate/config.json",
+      "bytes": 305
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/Translate/skprompt.txt",
+      "bytes": 110
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/TwoSentenceSummary/config.json",
+      "bytes": 253
+    },
+    {
+      "path": "metagpt/skills/WriterSkill/TwoSentenceSummary/skprompt.txt",
+      "bytes": 91
+    },
+    {
+      "path": "metagpt/software_company.py",
+      "bytes": 5350
+    },
+    {
+      "path": "metagpt/startup.py",
+      "bytes": 270
+    },
+    {
+      "path": "metagpt/strategy/__init__.py",
+      "bytes": 115
+    },
+    {
+      "path": "metagpt/strategy/base.py",
+      "bytes": 3429
+    },
+    {
+      "path": "metagpt/strategy/experience_retriever.py",
+      "bytes": 47784
+    },
+    {
+      "path": "metagpt/strategy/planner.py",
+      "bytes": 7408
+    },
+    {
+      "path": "metagpt/strategy/search_space.py",
+      "bytes": 452
+    },
+    {
+      "path": "metagpt/strategy/solver.py",
+      "bytes": 1921
+    },
+    {
+      "path": "metagpt/strategy/task_type.py",
+      "bytes": 2701
+    },
+    {
+      "path": "metagpt/strategy/thinking_command.py",
+      "bytes": 5260
+    },
+    {
+      "path": "metagpt/strategy/tot.py",
+      "bytes": 10007
+    },
+    {
+      "path": "metagpt/strategy/tot_schema.py",
+      "bytes": 772
+    },
+    {
+      "path": "metagpt/subscription.py",
+      "bytes": 3299
+    },
+    {
+      "path": "metagpt/team.py",
+      "bytes": 4844
+    },
+    {
+      "path": "metagpt/tools/__init__.py",
+      "bytes": 573
+    },
+    {
+      "path": "metagpt/tools/azure_tts.py",
+      "bytes": 4790
+    },
+    {
+      "path": "metagpt/tools/iflytek_tts.py",
+      "bytes": 5404
+    },
+    {
+      "path": "metagpt/tools/libs/__init__.py",
+      "bytes": 789
+    },
+    {
+      "path": "metagpt/tools/libs/browser.py",
+      "bytes": 7951
+    },
+    {
+      "path": "metagpt/tools/libs/cr.py",
+      "bytes": 4595
+    },
+    {
+      "path": "metagpt/tools/libs/data_preprocess.py",
+      "bytes": 7417
+    },
+    {
+      "path": "metagpt/tools/libs/deployer.py",
+      "bytes": 935
+    },
+    {
+      "path": "metagpt/tools/libs/editor.py",
+      "bytes": 47129
+    },
+    {
+      "path": "metagpt/tools/libs/email_login.py",
+      "bytes": 2017
+    },
+    {
+      "path": "metagpt/tools/libs/env.py",
+      "bytes": 5037
+    },
+    {
+      "path": "metagpt/tools/libs/feature_engineering.py",
+      "bytes": 14873
+    },
+    {
+      "path": "metagpt/tools/libs/git.py",
+      "bytes": 4822
+    },
+    {
+      "path": "metagpt/tools/libs/gpt_v_generator.py",
+      "bytes": 4649
+    },
+    {
+      "path": "metagpt/tools/libs/image_getter.py",
+      "bytes": 3560
+    },
+    {
+      "path": "metagpt/tools/libs/index_repo.py",
+      "bytes": 19041
+    },
+    {
+      "path": "metagpt/tools/libs/linter.py",
+      "bytes": 6759
+    },
+    {
+      "path": "metagpt/tools/libs/sd_engine.py",
+      "bytes": 6408
+    },
+    {
+      "path": "metagpt/tools/libs/shell.py",
+      "bytes": 2316
+    },
+    {
+      "path": "metagpt/tools/libs/software_development.py",
+      "bytes": 9963
+    },
+    {
+      "path": "metagpt/tools/libs/terminal.py",
+      "bytes": 12296
+    },
+    {
+      "path": "metagpt/tools/libs/web_scraping.py",
+      "bytes": 2120
+    },
+    {
+      "path": "metagpt/tools/metagpt_oas3_api_svc.py",
+      "bytes": 837
+    },
+    {
+      "path": "metagpt/tools/metagpt_text_to_image.py",
+      "bytes": 3011
+    },
+    {
+      "path": "metagpt/tools/moderation.py",
+      "bytes": 1259
+    },
+    {
+      "path": "metagpt/tools/openai_text_to_embedding.py",
+      "bytes": 3242
+    },
+    {
+      "path": "metagpt/tools/openai_text_to_image.py",
+      "bytes": 2161
+    },
+    {
+      "path": "metagpt/tools/openapi_v3_hello.py",
+      "bytes": 850
+    },
+    {
+      "path": "metagpt/tools/prompt_writer.py",
+      "bytes": 5146
+    },
+    {
+      "path": "metagpt/tools/search_engine.py",
+      "bytes": 5548
+    },
+    {
+      "path": "metagpt/tools/search_engine_bing.py",
+      "bytes": 3539
+    },
+    {
+      "path": "metagpt/tools/search_engine_ddg.py",
+      "bytes": 2636
+    },
+    {
+      "path": "metagpt/tools/search_engine_googleapi.py",
+      "bytes": 4781
+    },
+    {
+      "path": "metagpt/tools/search_engine_meilisearch.py",
+      "bytes": 1175
+    },
+    {
+      "path": "metagpt/tools/search_engine_serpapi.py",
+      "bytes": 4590
+    },
+    {
+      "path": "metagpt/tools/search_engine_serper.py",
+      "bytes": 4799
+    },
+    {
+      "path": "metagpt/tools/swe_agent_commands/__init__.py",
+      "bytes": 315
+    },
+    {
+      "path": "metagpt/tools/swe_agent_commands/_setup_default_env.sh",
+      "bytes": 645
+    },
+    {
+      "path": "metagpt/tools/swe_agent_commands/_split_string.py",
+      "bytes": 515
+    },
+    {
+      "path": "metagpt/tools/swe_agent_commands/defaults.sh",
+      "bytes": 5879
+    },
+    {
+      "path": "metagpt/tools/swe_agent_commands/edit_linting.sh",
+      "bytes": 6060
+    },
+    {
+      "path": "metagpt/tools/swe_agent_commands/search.sh",
+      "bytes": 8738
+    },
+    {
+      "path": "metagpt/tools/swe_agent_commands/setup_default.sh",
+      "bytes": 878
+    },
+    {
+      "path": "metagpt/tools/swe_agent_commands/swe_agent_utils.py",
+      "bytes": 1164
+    },
+    {
+      "path": "metagpt/tools/tool_convert.py",
+      "bytes": 5602
+    },
+    {
+      "path": "metagpt/tools/tool_data_type.py",
+      "bytes": 203
+    },
+    {
+      "path": "metagpt/tools/tool_recommend.py",
+      "bytes": 9540
+    },
+    {
+      "path": "metagpt/tools/tool_registry.py",
+      "bytes": 6717
+    },
+    {
+      "path": "metagpt/tools/translator.py",
+      "bytes": 666
+    },
+    {
+      "path": "metagpt/tools/ut_writer.py",
+      "bytes": 10878
+    },
+    {
+      "path": "metagpt/tools/web_browser_engine.py",
+      "bytes": 5106
+    },
+    {
+      "path": "metagpt/tools/web_browser_engine_playwright.py",
+      "bytes": 5439
+    },
+    {
+      "path": "metagpt/tools/web_browser_engine_selenium.py",
+      "bytes": 5641
+    },
+    {
+      "path": "metagpt/utils/__init__.py",
+      "bytes": 513
+    },
+    {
+      "path": "metagpt/utils/a11y_tree.py",
+      "bytes": 10904
+    },
+    {
+      "path": "metagpt/utils/ahttp_client.py",
+      "bytes": 1462
+    },
+    {
+      "path": "metagpt/utils/async_helper.py",
+      "bytes": 1023
+    },
+    {
+      "path": "metagpt/utils/common.py",
+      "bytes": 43014
+    },
+    {
+      "path": "metagpt/utils/cost_manager.py",
+      "bytes": 5272
+    },
+    {
+      "path": "metagpt/utils/custom_decoder.py",
+      "bytes": 11393
+    },
+    {
+      "path": "metagpt/utils/dependency_file.py",
+      "bytes": 3296
+    },
+    {
+      "path": "metagpt/utils/di_graph_repository.py",
+      "bytes": 6410
+    },
+    {
+      "path": "metagpt/utils/embedding.py",
+      "bytes": 536
+    },
+    {
+      "path": "metagpt/utils/exceptions.py",
+      "bytes": 1866
+    },
+    {
+      "path": "metagpt/utils/file.py",
+      "bytes": 7573
+    },
+    {
+      "path": "metagpt/utils/file_repository.py",
+      "bytes": 9123
+    },
+    {
+      "path": "metagpt/utils/git_repository.py",
+      "bytes": 26416
+    },
+    {
+      "path": "metagpt/utils/graph_repository.py",
+      "bytes": 16261
+    },
+    {
+      "path": "metagpt/utils/highlight.py",
+      "bytes": 851
+    },
+    {
+      "path": "metagpt/utils/human_interaction.py",
+      "bytes": 4092
+    },
+    {
+      "path": "metagpt/utils/json_to_markdown.py",
+      "bytes": 1355
+    },
+    {
+      "path": "metagpt/utils/make_sk_kernel.py",
+      "bytes": 845
+    },
+    {
+      "path": "metagpt/utils/mermaid.py",
+      "bytes": 5580
+    },
+    {
+      "path": "metagpt/utils/mmdc_ink.py",
+      "bytes": 1942
+    },
+    {
+      "path": "metagpt/utils/mmdc_playwright.py",
+      "bytes": 5327
+    },
+    {
+      "path": "metagpt/utils/mmdc_pyppeteer.py",
+      "bytes": 5294
+    },
+    {
+      "path": "metagpt/utils/omniparse_client.py",
+      "bytes": 9199
+    },
+    {
+      "path": "metagpt/utils/parse_docstring.py",
+      "bytes": 1128
+    },
+    {
+      "path": "metagpt/utils/parse_html.py",
+      "bytes": 2309
+    },
+    {
+      "path": "metagpt/utils/project_repo.py",
+      "bytes": 6330
+    },
+    {
+      "path": "metagpt/utils/proxy_env.py",
+      "bytes": 511
+    },
+    {
+      "path": "metagpt/utils/pycst.py",
+      "bytes": 5673
+    },
+    {
+      "path": "metagpt/utils/read_document.py",
+      "bytes": 529
+    },
+    {
+      "path": "metagpt/utils/recovery_util.py",
+      "bytes": 1775
+    },
+    {
+      "path": "metagpt/utils/redis.py",
+      "bytes": 1790
+    },
+    {
+      "path": "metagpt/utils/reflection.py",
+      "bytes": 639
+    },
+    {
+      "path": "metagpt/utils/repair_llm_raw_output.py",
+      "bytes": 15432
+    },
+    {
+      "path": "metagpt/utils/repo_to_markdown.py",
+      "bytes": 4886
+    },
+    {
+      "path": "metagpt/utils/report.py",
+      "bytes": 11588
+    },
+    {
+      "path": "metagpt/utils/role_zero_utils.py",
+      "bytes": 7886
+    },
+    {
+      "path": "metagpt/utils/s3.py",
+      "bytes": 6058
+    },
+    {
+      "path": "metagpt/utils/sanitize.py",
+      "bytes": 6160
+    },
+    {
+      "path": "metagpt/utils/save_code.py",
+      "bytes": 1403
+    },
+    {
+      "path": "metagpt/utils/serialize.py",
+      "bytes": 2721
+    },
+    {
+      "path": "metagpt/utils/singleton.py",
+      "bytes": 532
+    },
+    {
+      "path": "metagpt/utils/special_tokens.py",
+      "bytes": 198
+    },
+    {
+      "path": "metagpt/utils/stream_pipe.py",
+      "bytes": 1241
+    },
+    {
+      "path": "metagpt/utils/text.py",
+      "bytes": 4037
+    },
+    {
+      "path": "metagpt/utils/token_counter.py",
+      "bytes": 28034
+    },
+    {
+      "path": "metagpt/utils/tree.py",
+      "bytes": 4189
+    },
+    {
+      "path": "metagpt/utils/visual_graph_repo.py",
+      "bytes": 6087
+    },
+    {
+      "path": "metagpt/utils/yaml_model.py",
+      "bytes": 1483
+    },
+    {
+      "path": "pytest.ini",
+      "bytes": 8888
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 2194
+    },
+    {
+      "path": "ruff.toml",
+      "bytes": 1010
+    },
+    {
+      "path": "setup.py",
+      "bytes": 3812
+    },
+    {
+      "path": "tests/__init__.py",
+      "bytes": 127
+    },
+    {
+      "path": "tests/conftest.py",
+      "bytes": 9338
+    },
+    {
+      "path": "tests/data/code/js/1.js",
+      "bytes": 1295
+    },
+    {
+      "path": "tests/data/code/python/1.py",
+      "bytes": 2544
+    },
+    {
+      "path": "tests/data/demo_project/game.py",
+      "bytes": 3011
+    },
+    {
+      "path": "tests/data/incremental_dev_project/mock.py",
+      "bytes": 23649
+    },
+    {
+      "path": "tests/data/incremental_dev_project/readme.md",
+      "bytes": 165
+    },
+    {
+      "path": "tests/data/output_parser/1.md",
+      "bytes": 1195
+    },
+    {
+      "path": "tests/data/output_parser/2.md",
+      "bytes": 1693
+    },
+    {
+      "path": "tests/data/output_parser/3.md",
+      "bytes": 1241
+    },
+    {
+      "path": "tests/data/tools/test_script_for_file_manager.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/data/ui/1b.png.html",
+      "bytes": 5299
+    },
+    {
+      "path": "tests/metagpt/__init__.py",
+      "bytes": 127
+    },
+    {
+      "path": "tests/metagpt/actions/__init__.py",
+      "bytes": 127
+    },
+    {
+      "path": "tests/metagpt/actions/di/test_ask_review.py",
+      "bytes": 359
+    },
+    {
+      "path": "tests/metagpt/actions/di/test_execute_nb_code.py",
+      "bytes": 3727
+    },
+    {
+      "path": "tests/metagpt/actions/di/test_write_analysis_code.py",
+      "bytes": 5018
+    },
+    {
+      "path": "tests/metagpt/actions/di/test_write_plan.py",
+      "bytes": 863
+    },
+    {
+      "path": "tests/metagpt/actions/mock_json.py",
+      "bytes": 7102
+    },
+    {
+      "path": "tests/metagpt/actions/mock_markdown.py",
+      "bytes": 19501
+    },
+    {
+      "path": "tests/metagpt/actions/requirement_analysis/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/metagpt/actions/requirement_analysis/requirement/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/metagpt/actions/requirement_analysis/requirement/test_pic2txt.py",
+      "bytes": 754
+    },
+    {
+      "path": "tests/metagpt/actions/test_action.py",
+      "bytes": 1094
+    },
+    {
+      "path": "tests/metagpt/actions/test_action_multi_llm.py",
+      "bytes": 1465
+    },
+    {
+      "path": "tests/metagpt/actions/test_action_node.py",
+      "bytes": 13879
+    },
+    {
+      "path": "tests/metagpt/actions/test_action_outcls_registry.py",
+      "bytes": 1823
+    },
+    {
+      "path": "tests/metagpt/actions/test_debug_error.py",
+      "bytes": 4913
+    },
+    {
+      "path": "tests/metagpt/actions/test_design_api.py",
+      "bytes": 3945
+    },
+    {
+      "path": "tests/metagpt/actions/test_design_api_an.py",
+      "bytes": 1526
+    },
+    {
+      "path": "tests/metagpt/actions/test_design_api_review.py",
+      "bytes": 1225
+    },
+    {
+      "path": "tests/metagpt/actions/test_extract_readme.py",
+      "bytes": 600
+    },
+    {
+      "path": "tests/metagpt/actions/test_fix_bug.py",
+      "bytes": 321
+    },
+    {
+      "path": "tests/metagpt/actions/test_generate_questions.py",
+      "bytes": 632
+    },
+    {
+      "path": "tests/metagpt/actions/test_import_repo.py",
+      "bytes": 823
+    },
+    {
+      "path": "tests/metagpt/actions/test_invoice_ocr.py",
+      "bytes": 2109
+    },
+    {
+      "path": "tests/metagpt/actions/test_prepare_documents.py",
+      "bytes": 762
+    },
+    {
+      "path": "tests/metagpt/actions/test_prepare_interview.py",
+      "bytes": 560
+    },
+    {
+      "path": "tests/metagpt/actions/test_project_management.py",
+      "bytes": 2281
+    },
+    {
+      "path": "tests/metagpt/actions/test_project_management_an.py",
+      "bytes": 2226
+    },
+    {
+      "path": "tests/metagpt/actions/test_rebuild_class_view.py",
+      "bytes": 2096
+    },
+    {
+      "path": "tests/metagpt/actions/test_rebuild_sequence_view.py",
+      "bytes": 2496
+    },
+    {
+      "path": "tests/metagpt/actions/test_research.py",
+      "bytes": 4212
+    },
+    {
+      "path": "tests/metagpt/actions/test_run_code.py",
+      "bytes": 1849
+    },
+    {
+      "path": "tests/metagpt/actions/test_skill_action.py",
+      "bytes": 3435
+    },
+    {
+      "path": "tests/metagpt/actions/test_summarize_code.py",
+      "bytes": 14665
+    },
+    {
+      "path": "tests/metagpt/actions/test_talk_action.py",
+      "bytes": 1405
+    },
+    {
+      "path": "tests/metagpt/actions/test_write_code.py",
+      "bytes": 6017
+    },
+    {
+      "path": "tests/metagpt/actions/test_write_code_plan_and_change_an.py",
+      "bytes": 3676
+    },
+    {
+      "path": "tests/metagpt/actions/test_write_code_review.py",
+      "bytes": 1732
+    },
+    {
+      "path": "tests/metagpt/actions/test_write_docstring.py",
+      "bytes": 916
+    },
+    {
+      "path": "tests/metagpt/actions/test_write_prd.py",
+      "bytes": 4062
+    },
+    {
+      "path": "tests/metagpt/actions/test_write_prd_an.py",
+      "bytes": 1527
+    },
+    {
+      "path": "tests/metagpt/actions/test_write_prd_review.py",
+      "bytes": 1276
+    },
+    {
+      "path": "tests/metagpt/actions/test_write_review.py",
+      "bytes": 1977
+    },
+    {
+      "path": "tests/metagpt/actions/test_write_teaching_plan.py",
+      "bytes": 675
+    },
+    {
+      "path": "tests/metagpt/actions/test_write_test.py",
+      "bytes": 1864
+    },
+    {
+      "path": "tests/metagpt/actions/test_write_tutorial.py",
+      "bytes": 1277
+    },
+    {
+      "path": "tests/metagpt/configs/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/metagpt/configs/test_models_config.py",
+      "bytes": 1234
+    },
+    {
+      "path": "tests/metagpt/document_store/__init__.py",
+      "bytes": 127
+    },
+    {
+      "path": "tests/metagpt/document_store/test_chromadb_store.py",
+      "bytes": 922
+    },
+    {
+      "path": "tests/metagpt/document_store/test_document.py",
+      "bytes": 944
+    },
+    {
+      "path": "tests/metagpt/document_store/test_faiss_store.py",
+      "bytes": 2429
+    },
+    {
+      "path": "tests/metagpt/document_store/test_lancedb_store.py",
+      "bytes": 993
+    },
+    {
+      "path": "tests/metagpt/document_store/test_milvus_store.py",
+      "bytes": 609
+    },
+    {
+      "path": "tests/metagpt/document_store/test_qdrant_store.py",
+      "bytes": 3029
+    },
+    {
+      "path": "tests/metagpt/environment/android_env/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/environment/android_env/test_android_ext_env.py",
+      "bytes": 2469
+    },
+    {
+      "path": "tests/metagpt/environment/api/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/environment/api/test_env_api.py",
+      "bytes": 312
+    },
+    {
+      "path": "tests/metagpt/environment/mgx_env/run_mgx_env.py",
+      "bytes": 10548
+    },
+    {
+      "path": "tests/metagpt/environment/minecraft_env/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/environment/minecraft_env/test_minecraft_ext_env.py",
+      "bytes": 485
+    },
+    {
+      "path": "tests/metagpt/environment/stanford_town_env/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/environment/stanford_town_env/test_stanford_town_ext_env.py",
+      "bytes": 2255
+    },
+    {
+      "path": "tests/metagpt/environment/test_base_env.py",
+      "bytes": 1878
+    },
+    {
+      "path": "tests/metagpt/environment/werewolf_env/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/environment/werewolf_env/test_werewolf_ext_env.py",
+      "bytes": 2441
+    },
+    {
+      "path": "tests/metagpt/exp_pool/test_context_builders/test_base_context_builder.py",
+      "bytes": 1004
+    },
+    {
+      "path": "tests/metagpt/exp_pool/test_context_builders/test_rolezero_context_builder.py",
+      "bytes": 2275
+    },
+    {
+      "path": "tests/metagpt/exp_pool/test_context_builders/test_simple_context_builder.py",
+      "bytes": 1704
+    },
+    {
+      "path": "tests/metagpt/exp_pool/test_decorator.py",
+      "bytes": 8099
+    },
+    {
+      "path": "tests/metagpt/exp_pool/test_manager.py",
+      "bytes": 6383
+    },
+    {
+      "path": "tests/metagpt/exp_pool/test_perfect_judges/test_simple_perfect_judge.py",
+      "bytes": 1787
+    },
+    {
+      "path": "tests/metagpt/exp_pool/test_scorers/test_simple_scorer.py",
+      "bytes": 2267
+    },
+    {
+      "path": "tests/metagpt/exp_pool/test_serializers/test_action_node.py",
+      "bytes": 1207
+    },
+    {
+      "path": "tests/metagpt/exp_pool/test_serializers/test_role_zero.py",
+      "bytes": 1899
+    },
+    {
+      "path": "tests/metagpt/exp_pool/test_serializers/test_simple.py",
+      "bytes": 1994
+    },
+    {
+      "path": "tests/metagpt/ext/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/ext/android_assistant/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/ext/android_assistant/test_an.py",
+      "bytes": 3302
+    },
+    {
+      "path": "tests/metagpt/ext/android_assistant/test_parse_record.py",
+      "bytes": 952
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/actions/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/actions/test_gen_action_details.py",
+      "bytes": 2633
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/actions/test_summarize_conv.py",
+      "bytes": 436
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/memory/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/memory/test_agent_memory.py",
+      "bytes": 3606
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/memory/test_basic_memory.py",
+      "bytes": 1688
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/memory/test_spatial_memory.py",
+      "bytes": 590
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/plan/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/plan/test_conversation.py",
+      "bytes": 2110
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/plan/test_st_plan.py",
+      "bytes": 776
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/roles/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/roles/test_st_role.py",
+      "bytes": 794
+    },
+    {
+      "path": "tests/metagpt/ext/stanford_town/test_reflect.py",
+      "bytes": 3790
+    },
+    {
+      "path": "tests/metagpt/ext/werewolf/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/ext/werewolf/actions/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/ext/werewolf/actions/test_experience_operation.py",
+      "bytes": 5990
+    },
+    {
+      "path": "tests/metagpt/learn/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/metagpt/learn/test_google_search.py",
+      "bytes": 540
+    },
+    {
+      "path": "tests/metagpt/learn/test_skill_loader.py",
+      "bytes": 1557
+    },
+    {
+      "path": "tests/metagpt/learn/test_text_to_embedding.py",
+      "bytes": 1109
+    },
+    {
+      "path": "tests/metagpt/learn/test_text_to_image.py",
+      "bytes": 1940
+    },
+    {
+      "path": "tests/metagpt/learn/test_text_to_speech.py",
+      "bytes": 2372
+    },
+    {
+      "path": "tests/metagpt/management/__init__.py",
+      "bytes": 126
+    },
+    {
+      "path": "tests/metagpt/management/test_skill_manager.py",
+      "bytes": 1029
+    },
+    {
+      "path": "tests/metagpt/memory/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/memory/mock_text_embed.py",
+      "bytes": 1485
+    },
+    {
+      "path": "tests/metagpt/memory/test_brain_memory.py",
+      "bytes": 1903
+    },
+    {
+      "path": "tests/metagpt/memory/test_longterm_memory.py",
+      "bytes": 1920
+    },
+    {
+      "path": "tests/metagpt/memory/test_memory.py",
+      "bytes": 1549
+    },
+    {
+      "path": "tests/metagpt/memory/test_memory_storage.py",
+      "bytes": 4130
+    },
+    {
+      "path": "tests/metagpt/memory/test_role_zero_memory.py",
+      "bytes": 6528
+    },
+    {
+      "path": "tests/metagpt/provider/__init__.py",
+      "bytes": 126
+    },
+    {
+      "path": "tests/metagpt/provider/conftest.py",
+      "bytes": 263
+    },
+    {
+      "path": "tests/metagpt/provider/mock_llm_config.py",
+      "bytes": 1783
+    },
+    {
+      "path": "tests/metagpt/provider/postprocess/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/provider/postprocess/test_base_postprocess_plugin.py",
+      "bytes": 665
+    },
+    {
+      "path": "tests/metagpt/provider/postprocess/test_llm_output_postprocess.py",
+      "bytes": 415
+    },
+    {
+      "path": "tests/metagpt/provider/req_resp_const.py",
+      "bytes": 9793
+    },
+    {
+      "path": "tests/metagpt/provider/test_anthropic_api.py",
+      "bytes": 1367
+    },
+    {
+      "path": "tests/metagpt/provider/test_ark.py",
+      "bytes": 2700
+    },
+    {
+      "path": "tests/metagpt/provider/test_azure_llm.py",
+      "bytes": 357
+    },
+    {
+      "path": "tests/metagpt/provider/test_base_llm.py",
+      "bytes": 6877
+    },
+    {
+      "path": "tests/metagpt/provider/test_bedrock_api.py",
+      "bytes": 4648
+    },
+    {
+      "path": "tests/metagpt/provider/test_dashscope_api.py",
+      "bytes": 1983
+    },
+    {
+      "path": "tests/metagpt/provider/test_general_api_base.py",
+      "bytes": 4225
+    },
+    {
+      "path": "tests/metagpt/provider/test_general_api_requestor.py",
+      "bytes": 903
+    },
+    {
+      "path": "tests/metagpt/provider/test_google_gemini_api.py",
+      "bytes": 2611
+    },
+    {
+      "path": "tests/metagpt/provider/test_human_provider.py",
+      "bytes": 878
+    },
+    {
+      "path": "tests/metagpt/provider/test_metagpt_llm.py",
+      "bytes": 370
+    },
+    {
+      "path": "tests/metagpt/provider/test_ollama_api.py",
+      "bytes": 1809
+    },
+    {
+      "path": "tests/metagpt/provider/test_openai.py",
+      "bytes": 8364
+    },
+    {
+      "path": "tests/metagpt/provider/test_qianfan_api.py",
+      "bytes": 1708
+    },
+    {
+      "path": "tests/metagpt/provider/test_spark_api.py",
+      "bytes": 1693
+    },
+    {
+      "path": "tests/metagpt/provider/test_zhipuai_api.py",
+      "bytes": 1994
+    },
+    {
+      "path": "tests/metagpt/provider/zhipuai/__init__.py",
+      "bytes": 58
+    },
+    {
+      "path": "tests/metagpt/provider/zhipuai/test_async_sse_client.py",
+      "bytes": 736
+    },
+    {
+      "path": "tests/metagpt/provider/zhipuai/test_zhipu_model_api.py",
+      "bytes": 1163
+    },
+    {
+      "path": "tests/metagpt/rag/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/metagpt/rag/engines/test_simple.py",
+      "bytes": 10842
+    },
+    {
+      "path": "tests/metagpt/rag/factories/test_base.py",
+      "bytes": 4007
+    },
+    {
+      "path": "tests/metagpt/rag/factories/test_embedding.py",
+      "bytes": 3585
+    },
+    {
+      "path": "tests/metagpt/rag/factories/test_index.py",
+      "bytes": 2971
+    },
+    {
+      "path": "tests/metagpt/rag/factories/test_llm.py",
+      "bytes": 2330
+    },
+    {
+      "path": "tests/metagpt/rag/factories/test_ranker.py",
+      "bytes": 2355
+    },
+    {
+      "path": "tests/metagpt/rag/factories/test_retriever.py",
+      "bytes": 5868
+    },
+    {
+      "path": "tests/metagpt/rag/parser/test_omniparse.py",
+      "bytes": 4324
+    },
+    {
+      "path": "tests/metagpt/rag/rankers/test_base_ranker.py",
+      "bytes": 850
+    },
+    {
+      "path": "tests/metagpt/rag/rankers/test_object_ranker.py",
+      "bytes": 3276
+    },
+    {
+      "path": "tests/metagpt/rag/retrievers/test_base_retriever.py",
+      "bytes": 619
+    },
+    {
+      "path": "tests/metagpt/rag/retrievers/test_bm25_retriever.py",
+      "bytes": 1358
+    },
+    {
+      "path": "tests/metagpt/rag/retrievers/test_chroma_retriever.py",
+      "bytes": 600
+    },
+    {
+      "path": "tests/metagpt/rag/retrievers/test_es_retriever.py",
+      "bytes": 617
+    },
+    {
+      "path": "tests/metagpt/rag/retrievers/test_faiss_retriever.py",
+      "bytes": 755
+    },
+    {
+      "path": "tests/metagpt/rag/retrievers/test_hybrid_retriever.py",
+      "bytes": 2165
+    },
+    {
+      "path": "tests/metagpt/rag/test_large_pdf.py",
+      "bytes": 1747
+    },
+    {
+      "path": "tests/metagpt/roles/__init__.py",
+      "bytes": 127
+    },
+    {
+      "path": "tests/metagpt/roles/di/run_architect.py",
+      "bytes": 2980
+    },
+    {
+      "path": "tests/metagpt/roles/di/run_data_analyst.py",
+      "bytes": 3165
+    },
+    {
+      "path": "tests/metagpt/roles/di/run_engineer2.py",
+      "bytes": 11844
+    },
+    {
+      "path": "tests/metagpt/roles/di/run_product_manager.py",
+      "bytes": 4468
+    },
+    {
+      "path": "tests/metagpt/roles/di/run_project_manager.py",
+      "bytes": 4834
+    },
+    {
+      "path": "tests/metagpt/roles/di/run_swe_agent_for_benchmark.py",
+      "bytes": 9265
+    },
+    {
+      "path": "tests/metagpt/roles/di/run_swe_agent_open_source_issue.py",
+      "bytes": 1857
+    },
+    {
+      "path": "tests/metagpt/roles/di/test_data_analyst.py",
+      "bytes": 2937
+    },
+    {
+      "path": "tests/metagpt/roles/di/test_data_interpreter.py",
+      "bytes": 1408
+    },
+    {
+      "path": "tests/metagpt/roles/di/test_role_zero.py",
+      "bytes": 1121
+    },
+    {
+      "path": "tests/metagpt/roles/di/test_routing.py",
+      "bytes": 6862
+    },
+    {
+      "path": "tests/metagpt/roles/di/test_swe_agent.py",
+      "bytes": 1242
+    },
+    {
+      "path": "tests/metagpt/roles/di/test_team_leader.py",
+      "bytes": 11745
+    },
+    {
+      "path": "tests/metagpt/roles/mock.py",
+      "bytes": 11906
+    },
+    {
+      "path": "tests/metagpt/roles/test_architect.py",
+      "bytes": 1398
+    },
+    {
+      "path": "tests/metagpt/roles/test_assistant.py",
+      "bytes": 4437
+    },
+    {
+      "path": "tests/metagpt/roles/test_engineer.py",
+      "bytes": 5374
+    },
+    {
+      "path": "tests/metagpt/roles/test_invoice_ocr_assistant.py",
+      "bytes": 2118
+    },
+    {
+      "path": "tests/metagpt/roles/test_product_manager.py",
+      "bytes": 1531
+    },
+    {
+      "path": "tests/metagpt/roles/test_project_manager.py",
+      "bytes": 472
+    },
+    {
+      "path": "tests/metagpt/roles/test_qa_engineer.py",
+      "bytes": 1960
+    },
+    {
+      "path": "tests/metagpt/roles/test_researcher.py",
+      "bytes": 2589
+    },
+    {
+      "path": "tests/metagpt/roles/test_role.py",
+      "bytes": 877
+    },
+    {
+      "path": "tests/metagpt/roles/test_teacher.py",
+      "bytes": 4942
+    },
+    {
+      "path": "tests/metagpt/roles/test_tutorial_assistant.py",
+      "bytes": 781
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/__init__.py",
+      "bytes": 116
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_action.py",
+      "bytes": 806
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_architect.py",
+      "bytes": 843
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_environment.py",
+      "bytes": 3284
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_memory.py",
+      "bytes": 2536
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_polymorphic.py",
+      "bytes": 2223
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_prepare_interview.py",
+      "bytes": 570
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_product_manager.py",
+      "bytes": 714
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_project_manager.py",
+      "bytes": 877
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_reasearcher.py",
+      "bytes": 642
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_role.py",
+      "bytes": 3523
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_schema.py",
+      "bytes": 4525
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_serdeser_base.py",
+      "bytes": 3047
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_team.py",
+      "bytes": 4820
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_tutorial_assistant.py",
+      "bytes": 613
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_write_code.py",
+      "bytes": 1013
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_write_code_review.py",
+      "bytes": 956
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_write_design.py",
+      "bytes": 1019
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_write_docstring.py",
+      "bytes": 1114
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_write_prd.py",
+      "bytes": 686
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_write_review.py",
+      "bytes": 2166
+    },
+    {
+      "path": "tests/metagpt/serialize_deserialize/test_write_tutorial.py",
+      "bytes": 1603
+    },
+    {
+      "path": "tests/metagpt/strategy/__init__.py",
+      "bytes": 128
+    },
+    {
+      "path": "tests/metagpt/strategy/examples/__init__.py",
+      "bytes": 115
+    },
+    {
+      "path": "tests/metagpt/strategy/examples/test_creative_writing.py",
+      "bytes": 2552
+    },
+    {
+      "path": "tests/metagpt/strategy/examples/test_game24.py",
+      "bytes": 2020
+    },
+    {
+      "path": "tests/metagpt/strategy/prompt_templates/__init__.py",
+      "bytes": 115
+    },
+    {
+      "path": "tests/metagpt/strategy/prompt_templates/creative_writing.py",
+      "bytes": 1001
+    },
+    {
+      "path": "tests/metagpt/strategy/prompt_templates/game24.py",
+      "bytes": 3034
+    },
+    {
+      "path": "tests/metagpt/strategy/test_planner.py",
+      "bytes": 1114
+    },
+    {
+      "path": "tests/metagpt/strategy/test_solver.py",
+      "bytes": 1464
+    },
+    {
+      "path": "tests/metagpt/test_config.py",
+      "bytes": 563
+    },
+    {
+      "path": "tests/metagpt/test_context.py",
+      "bytes": 1663
+    },
+    {
+      "path": "tests/metagpt/test_context_mixin.py",
+      "bytes": 4138
+    },
+    {
+      "path": "tests/metagpt/test_document.py",
+      "bytes": 878
+    },
+    {
+      "path": "tests/metagpt/test_environment.py",
+      "bytes": 4772
+    },
+    {
+      "path": "tests/metagpt/test_incremental_dev.py",
+      "bytes": 9027
+    },
+    {
+      "path": "tests/metagpt/test_llm.py",
+      "bytes": 759
+    },
+    {
+      "path": "tests/metagpt/test_message.py",
+      "bytes": 781
+    },
+    {
+      "path": "tests/metagpt/test_prompt.py",
+      "bytes": 12082
+    },
+    {
+      "path": "tests/metagpt/test_repo_parser.py",
+      "bytes": 8297
+    },
+    {
+      "path": "tests/metagpt/test_reporter.py",
+      "bytes": 6765
+    },
+    {
+      "path": "tests/metagpt/test_role.py",
+      "bytes": 5000
+    },
+    {
+      "path": "tests/metagpt/test_schema.py",
+      "bytes": 16419
+    },
+    {
+      "path": "tests/metagpt/test_software_company.py",
+      "bytes": 1118
+    },
+    {
+      "path": "tests/metagpt/test_subscription.py",
+      "bytes": 2682
+    },
+    {
+      "path": "tests/metagpt/test_team.py",
+      "bytes": 280
+    },
+    {
+      "path": "tests/metagpt/tools/__init__.py",
+      "bytes": 127
+    },
+    {
+      "path": "tests/metagpt/tools/libs/__init__.py",
+      "bytes": 136
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_browser.py",
+      "bytes": 4267
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_cr.py",
+      "bytes": 2865
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_data_preprocess.py",
+      "bytes": 2830
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_editor.py",
+      "bytes": 25782
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_email_login.py",
+      "bytes": 282
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_env.py",
+      "bytes": 2111
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_feature_engineering.py",
+      "bytes": 5446
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_git.py",
+      "bytes": 4259
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_gpt_v_generator.py",
+      "bytes": 3066
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_image_getter.py",
+      "bytes": 1505
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_index_repo.py",
+      "bytes": 1761
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_linter.py",
+      "bytes": 2111
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_sd_engine.py",
+      "bytes": 1896
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_shell.py",
+      "bytes": 673
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_software_development.py",
+      "bytes": 570
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_terminal.py",
+      "bytes": 606
+    },
+    {
+      "path": "tests/metagpt/tools/libs/test_web_scraping.py",
+      "bytes": 495
+    },
+    {
+      "path": "tests/metagpt/tools/test_azure_tts.py",
+      "bytes": 2205
+    },
+    {
+      "path": "tests/metagpt/tools/test_iflytek_tts.py",
+      "bytes": 1075
+    },
+    {
+      "path": "tests/metagpt/tools/test_metagpt_oas3_api_svc.py",
+      "bytes": 1019
+    },
+    {
+      "path": "tests/metagpt/tools/test_metagpt_text_to_image.py",
+      "bytes": 886
+    },
+    {
+      "path": "tests/metagpt/tools/test_moderation.py",
+      "bytes": 1001
+    },
+    {
+      "path": "tests/metagpt/tools/test_openai_text_to_embedding.py",
+      "bytes": 1280
+    },
+    {
+      "path": "tests/metagpt/tools/test_openai_text_to_image.py",
+      "bytes": 1566
+    },
+    {
+      "path": "tests/metagpt/tools/test_openapi_v3_hello.py",
+      "bytes": 1003
+    },
+    {
+      "path": "tests/metagpt/tools/test_prompt_writer.py",
+      "bytes": 1725
+    },
+    {
+      "path": "tests/metagpt/tools/test_search_engine.py",
+      "bytes": 2937
+    },
+    {
+      "path": "tests/metagpt/tools/test_search_engine_meilisearch.py",
+      "bytes": 2032
+    },
+    {
+      "path": "tests/metagpt/tools/test_summarize.py",
+      "bytes": 10649
+    },
+    {
+      "path": "tests/metagpt/tools/test_tool_convert.py",
+      "bytes": 9816
+    },
+    {
+      "path": "tests/metagpt/tools/test_tool_recommend.py",
+      "bytes": 2762
+    },
+    {
+      "path": "tests/metagpt/tools/test_tool_registry.py",
+      "bytes": 2370
+    },
+    {
+      "path": "tests/metagpt/tools/test_translate.py",
+      "bytes": 638
+    },
+    {
+      "path": "tests/metagpt/tools/test_ut_writer.py",
+      "bytes": 3135
+    },
+    {
+      "path": "tests/metagpt/tools/test_web_browser_engine.py",
+      "bytes": 986
+    },
+    {
+      "path": "tests/metagpt/tools/test_web_browser_engine_playwright.py",
+      "bytes": 1494
+    },
+    {
+      "path": "tests/metagpt/tools/test_web_browser_engine_selenium.py",
+      "bytes": 1790
+    },
+    {
+      "path": "tests/metagpt/utils/__init__.py",
+      "bytes": 127
+    },
+    {
+      "path": "tests/metagpt/utils/test_ahttp_client.py",
+      "bytes": 812
+    },
+    {
+      "path": "tests/metagpt/utils/test_code_parser.py",
+      "bytes": 3826
+    },
+    {
+      "path": "tests/metagpt/utils/test_common.py",
+      "bytes": 8319
+    },
+    {
+      "path": "tests/metagpt/utils/test_cost_manager.py",
+      "bytes": 1038
+    },
+    {
+      "path": "tests/metagpt/utils/test_custom_decoder.py",
+      "bytes": 2947
+    },
+    {
+      "path": "tests/metagpt/utils/test_dependency_file.py",
+      "bytes": 1958
+    },
+    {
+      "path": "tests/metagpt/utils/test_di_graph_repository.py",
+      "bytes": 2686
+    },
+    {
+      "path": "tests/metagpt/utils/test_file.py",
+      "bytes": 1064
+    },
+    {
+      "path": "tests/metagpt/utils/test_file_repository.py",
+      "bytes": 2021
+    },
+    {
+      "path": "tests/metagpt/utils/test_git_repository.py",
+      "bytes": 3517
+    },
+    {
+      "path": "tests/metagpt/utils/test_human_interaction.py",
+      "bytes": 1981
+    },
+    {
+      "path": "tests/metagpt/utils/test_json_to_markdown.py",
+      "bytes": 1216
+    },
+    {
+      "path": "tests/metagpt/utils/test_mermaid.py",
+      "bytes": 1408
+    },
+    {
+      "path": "tests/metagpt/utils/test_output_parser.py",
+      "bytes": 8000
+    },
+    {
+      "path": "tests/metagpt/utils/test_parse_html.py",
+      "bytes": 2093
+    },
+    {
+      "path": "tests/metagpt/utils/test_project_repo.py",
+      "bytes": 2082
+    },
+    {
+      "path": "tests/metagpt/utils/test_pycst.py",
+      "bytes": 2802
+    },
+    {
+      "path": "tests/metagpt/utils/test_read_docx.py",
+      "bytes": 554
+    },
+    {
+      "path": "tests/metagpt/utils/test_redis.py",
+      "bytes": 950
+    },
+    {
+      "path": "tests/metagpt/utils/test_repair_llm_raw_output.py",
+      "bytes": 19407
+    },
+    {
+      "path": "tests/metagpt/utils/test_repo_to_markdown.py",
+      "bytes": 696
+    },
+    {
+      "path": "tests/metagpt/utils/test_s3.py",
+      "bytes": 2391
+    },
+    {
+      "path": "tests/metagpt/utils/test_save_code.py",
+      "bytes": 1723
+    },
+    {
+      "path": "tests/metagpt/utils/test_serialize.py",
+      "bytes": 2146
+    },
+    {
+      "path": "tests/metagpt/utils/test_session.py",
+      "bytes": 215
+    },
+    {
+      "path": "tests/metagpt/utils/test_text.py",
+      "bytes": 2850
+    },
+    {
+      "path": "tests/metagpt/utils/test_token_counter.py",
+      "bytes": 1999
+    },
+    {
+      "path": "tests/metagpt/utils/test_tree.py",
+      "bytes": 1725
+    },
+    {
+      "path": "tests/metagpt/utils/test_visual_graph_repo.py",
+      "bytes": 1633
+    },
+    {
+      "path": "tests/mock/mock_aiohttp.py",
+      "bytes": 1890
+    },
+    {
+      "path": "tests/mock/mock_curl_cffi.py",
+      "bytes": 802
+    },
+    {
+      "path": "tests/mock/mock_httplib2.py",
+      "bytes": 968
+    },
+    {
+      "path": "tests/mock/mock_llm.py",
+      "bytes": 5448
+    },
+    {
+      "path": "tests/scripts/run_install_deps.sh",
+      "bytes": 128
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".coveragerc",
+      "bytes": 140
+    },
+    {
+      "path": ".dockerignore",
+      "bytes": 46
+    },
+    {
+      "path": ".gitattributes",
+      "bytes": 793
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 2901
+    },
+    {
+      "path": "MANIFEST.in",
+      "bytes": 182
+    },
+    {
+      "path": "docs/.agent-store-config.yaml.example",
+      "bytes": 395
+    },
+    {
+      "path": "docs/.pylintrc",
+      "bytes": 21336
+    },
+    {
+      "path": "docs/resources/MetaGPT-new-log-v2.png",
+      "bytes": 29844
+    },
+    {
+      "path": "docs/resources/MetaGPT-new-log.png",
+      "bytes": 62057
+    },
+    {
+      "path": "docs/resources/aflow/AFLOW-experiment.jpg",
+      "bytes": 309742
+    },
+    {
+      "path": "docs/resources/aflow/AFLOW-method.jpg",
+      "bytes": 910478
+    },
+    {
+      "path": "docs/resources/aflow/AFLOW-performance.jpg",
+      "bytes": 555317
+    },
+    {
+      "path": "docs/resources/software_company_cd.jpeg",
+      "bytes": 148574
+    },
+    {
+      "path": "docs/resources/software_company_sd.jpeg",
+      "bytes": 187157
+    },
+    {
+      "path": "docs/resources/spo/SPO-closed_task_figure.png",
+      "bytes": 94909
+    },
+    {
+      "path": "docs/resources/spo/SPO-closed_task_table.png",
+      "bytes": 204886
+    },
+    {
+      "path": "docs/resources/spo/SPO-logo.png",
+      "bytes": 1520489
+    },
+    {
+      "path": "docs/resources/spo/SPO-method.png",
+      "bytes": 301076
+    },
+    {
+      "path": "docs/resources/spo/SPO-open_ended_task_figure.png",
+      "bytes": 274393
+    },
+    {
+      "path": "docs/resources/workspace/content_rec_sys/resources/competitive_analysis.pdf",
+      "bytes": 45254
+    },
+    {
+      "path": "docs/resources/workspace/content_rec_sys/resources/competitive_analysis.png",
+      "bytes": 38690
+    },
+    {
+      "path": "docs/resources/workspace/content_rec_sys/resources/competitive_analysis.svg",
+      "bytes": 5762
+    },
+    {
+      "path": "docs/resources/workspace/content_rec_sys/resources/data_api_design.pdf",
+      "bytes": 63596
+    },
+    {
+      "path": "docs/resources/workspace/content_rec_sys/resources/data_api_design.png",
+      "bytes": 176981
+    },
+    {
+      "path": "docs/resources/workspace/content_rec_sys/resources/data_api_design.svg",
+      "bytes": 44125
+    },
+    {
+      "path": "docs/resources/workspace/content_rec_sys/resources/seq_flow.pdf",
+      "bytes": 32738
+    },
+    {
+      "path": "docs/resources/workspace/content_rec_sys/resources/seq_flow.png",
+      "bytes": 81772
+    },
+    {
+      "path": "docs/resources/workspace/content_rec_sys/resources/seq_flow.svg",
+      "bytes": 31275
+    },
+    {
+      "path": "docs/resources/workspace/llmops_framework/resources/competitive_analysis.pdf",
+      "bytes": 46377
+    },
+    {
+      "path": "docs/resources/workspace/llmops_framework/resources/competitive_analysis.png",
+      "bytes": 41353
+    },
+    {
+      "path": "docs/resources/workspace/llmops_framework/resources/competitive_analysis.svg",
+      "bytes": 5753
+    },
+    {
+      "path": "docs/resources/workspace/llmops_framework/resources/data_api_design.pdf",
+      "bytes": 52778
+    },
+    {
+      "path": "docs/resources/workspace/llmops_framework/resources/data_api_design.png",
+      "bytes": 146766
+    },
+    {
+      "path": "docs/resources/workspace/llmops_framework/resources/data_api_design.svg",
+      "bytes": 27651
+    },
+    {
+      "path": "docs/resources/workspace/llmops_framework/resources/seq_flow.pdf",
+      "bytes": 32155
+    },
+    {
+      "path": "docs/resources/workspace/llmops_framework/resources/seq_flow.png",
+      "bytes": 116168
+    },
+    {
+      "path": "docs/resources/workspace/llmops_framework/resources/seq_flow.svg",
+      "bytes": 30864
+    },
+    {
+      "path": "docs/resources/workspace/match3_puzzle_game/resources/competitive_analysis.pdf",
+      "bytes": 46431
+    },
+    {
+      "path": "docs/resources/workspace/match3_puzzle_game/resources/competitive_analysis.png",
+      "bytes": 41991
+    },
+    {
+      "path": "docs/resources/workspace/match3_puzzle_game/resources/competitive_analysis.svg",
+      "bytes": 5813
+    },
+    {
+      "path": "docs/resources/workspace/match3_puzzle_game/resources/data_api_design.pdf",
+      "bytes": 59618
+    },
+    {
+      "path": "docs/resources/workspace/match3_puzzle_game/resources/data_api_design.png",
+      "bytes": 135590
+    },
+    {
+      "path": "docs/resources/workspace/match3_puzzle_game/resources/data_api_design.svg",
+      "bytes": 41172
+    },
+    {
+      "path": "docs/resources/workspace/match3_puzzle_game/resources/seq_flow.pdf",
+      "bytes": 73841
+    },
+    {
+      "path": "docs/resources/workspace/match3_puzzle_game/resources/seq_flow.png",
+      "bytes": 119441
+    },
+    {
+      "path": "docs/resources/workspace/match3_puzzle_game/resources/seq_flow.svg",
+      "bytes": 35429
+    },
+    {
+      "path": "docs/resources/workspace/minimalist_pomodoro_timer/resources/competitive_analysis.pdf",
+      "bytes": 41772
+    },
+    {
+      "path": "docs/resources/workspace/minimalist_pomodoro_timer/resources/competitive_analysis.png",
+      "bytes": 36569
+    },
+    {
+      "path": "docs/resources/workspace/minimalist_pomodoro_timer/resources/competitive_analysis.svg",
+      "bytes": 5241
+    },
+    {
+      "path": "docs/resources/workspace/minimalist_pomodoro_timer/resources/data_api_design.pdf",
+      "bytes": 23919
+    },
+    {
+      "path": "docs/resources/workspace/minimalist_pomodoro_timer/resources/data_api_design.png",
+      "bytes": 32219
+    },
+    {
+      "path": "docs/resources/workspace/minimalist_pomodoro_timer/resources/data_api_design.svg",
+      "bytes": 9660
+    },
+    {
+      "path": "docs/resources/workspace/minimalist_pomodoro_timer/resources/seq_flow.pdf",
+      "bytes": 26620
+    },
+    {
+      "path": "docs/resources/workspace/minimalist_pomodoro_timer/resources/seq_flow.png",
+      "bytes": 70721
+    },
+    {
+      "path": "docs/resources/workspace/minimalist_pomodoro_timer/resources/seq_flow.svg",
+      "bytes": 25425
+    },
+    {
+      "path": "docs/resources/workspace/pyrogue/resources/competitive_analysis.pdf",
+      "bytes": 46174
+    },
+    {
+      "path": "docs/resources/workspace/pyrogue/resources/competitive_analysis.png",
+      "bytes": 45696
+    },
+    {
+      "path": "docs/resources/workspace/pyrogue/resources/competitive_analysis.svg",
+      "bytes": 5836
+    },
+    {
+      "path": "docs/resources/workspace/pyrogue/resources/data_api_design.pdf",
+      "bytes": 45219
+    },
+    {
+      "path": "docs/resources/workspace/pyrogue/resources/data_api_design.png",
+      "bytes": 187750
+    },
+    {
+      "path": "docs/resources/workspace/pyrogue/resources/data_api_design.svg",
+      "bytes": 34404
+    },
+    {
+      "path": "docs/resources/workspace/pyrogue/resources/seq_flow.pdf",
+      "bytes": 37367
+    },
+    {
+      "path": "docs/resources/workspace/pyrogue/resources/seq_flow.png",
+      "bytes": 135782
+    },
+    {
+      "path": "docs/resources/workspace/pyrogue/resources/seq_flow.svg",
+      "bytes": 32590
+    },
+    {
+      "path": "docs/resources/workspace/search_algorithm_framework/resources/competitive_analysis.pdf",
+      "bytes": 45595
+    },
+    {
+      "path": "docs/resources/workspace/search_algorithm_framework/resources/competitive_analysis.png",
+      "bytes": 42339
+    },
+    {
+      "path": "docs/resources/workspace/search_algorithm_framework/resources/competitive_analysis.svg",
+      "bytes": 5846
+    },
+    {
+      "path": "docs/resources/workspace/search_algorithm_framework/resources/data_api_design.pdf",
+      "bytes": 36689
+    },
+    {
+      "path": "docs/resources/workspace/search_algorithm_framework/resources/data_api_design.png",
+      "bytes": 73335
+    },
+    {
+      "path": "docs/resources/workspace/search_algorithm_framework/resources/data_api_design.svg",
+      "bytes": 23300
+    },
+    {
+      "path": "docs/resources/workspace/search_algorithm_framework/resources/seq_flow.pdf",
+      "bytes": 32411
+    },
+    {
+      "path": "docs/resources/workspace/search_algorithm_framework/resources/seq_flow.png",
+      "bytes": 127135
+    },
+    {
+      "path": "docs/resources/workspace/search_algorithm_framework/resources/seq_flow.svg",
+      "bytes": 31079
+    },
+    {
+      "path": "examples/data/di/dog.jpg",
+      "bytes": 15016
+    },
+    {
+      "path": "examples/data/di/receipt_shopping.jpg",
+      "bytes": 33408
+    },
+    {
+      "path": "examples/data/omniparse/test01.docx",
+      "bytes": 48
+    },
+    {
+      "path": "examples/data/omniparse/test02.pdf",
+      "bytes": 36416
+    },
+    {
+      "path": "examples/data/omniparse/test03.mp4",
+      "bytes": 134250
+    },
+    {
+      "path": "examples/data/omniparse/test04.mp3",
+      "bytes": 50616
+    },
+    {
+      "path": "examples/data/search_kb/example.xlsx",
+      "bytes": 9092
+    },
+    {
+      "path": "examples/stanford_town/storage/.gitignore",
+      "bytes": 54
+    },
+    {
+      "path": "examples/ui_with_chainlit/.gitignore",
+      "bytes": 29
+    },
+    {
+      "path": "examples/ui_with_chainlit/public/2048.jpg",
+      "bytes": 27808
+    },
+    {
+      "path": "examples/ui_with_chainlit/public/MetaGPT-new-log.jpg",
+      "bytes": 91027
+    },
+    {
+      "path": "examples/ui_with_chainlit/public/blackjack.jpg",
+      "bytes": 59009
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/.gitignore",
+      "bytes": 5
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/.prettierignore",
+      "bytes": 34
+    },
+    {
+      "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/.gitignore",
+      "bytes": 1634
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/agent_history_init_n25.csv",
+      "bytes": 17709
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/agent_history_init_n3.csv",
+      "bytes": 1114
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/matrix/maze/arena_maze.csv",
+      "bytes": 51978
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/matrix/maze/collision_maze.csv",
+      "bytes": 50254
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/matrix/maze/game_object_maze.csv",
+      "bytes": 44718
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/matrix/maze/sector_maze.csv",
+      "bytes": 56334
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/matrix/maze/spawning_location_maze.csv",
+      "bytes": 42158
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/matrix/maze_meta_info.json",
+      "bytes": 117
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/matrix/special_blocks/arena_blocks.csv",
+      "bytes": 3597
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/matrix/special_blocks/game_object_blocks.csv",
+      "bytes": 1830
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/matrix/special_blocks/sector_blocks.csv",
+      "bytes": 787
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/matrix/special_blocks/spawning_location_blocks.csv",
+      "bytes": 2683
+    },
+    {
+      "path": "metagpt/ext/stanford_town/static_dirs/assets/the_ville/matrix/special_blocks/world_blocks.csv",
+      "bytes": 16
+    },
+    {
+      "path": "metagpt/tools/swe_agent_commands/_split_string",
+      "bytes": 515
+    },
+    {
+      "path": "metagpt/utils/index.html",
+      "bytes": 5650154
+    },
+    {
+      "path": "tests/data/andriod_assistant/.gitignore",
+      "bytes": 23
+    },
+    {
+      "path": "tests/data/andriod_assistant/demo_Contacts/labeled_screenshots/0_labeled.png",
+      "bytes": 626099
+    },
+    {
+      "path": "tests/data/andriod_assistant/demo_Contacts/labeled_screenshots/1_labeled.png",
+      "bytes": 859953
+    },
+    {
+      "path": "tests/data/audio/hello.mp3",
+      "bytes": 31391
+    },
+    {
+      "path": "tests/data/docx_for_test.docx",
+      "bytes": 13660
+    },
+    {
+      "path": "tests/data/graph_db/networkx.class_view.json",
+      "bytes": 4678362
+    },
+    {
+      "path": "tests/data/graph_db/networkx.sequence_view.json",
+      "bytes": 4797936
+    },
+    {
+      "path": "tests/data/incremental_dev_project/Gomoku.zip",
+      "bytes": 25572
+    },
+    {
+      "path": "tests/data/incremental_dev_project/dice_simulator_new.zip",
+      "bytes": 16549
+    },
+    {
+      "path": "tests/data/incremental_dev_project/number_guessing_game.zip",
+      "bytes": 14844
+    },
+    {
+      "path": "tests/data/incremental_dev_project/pygame_2048.zip",
+      "bytes": 20066
+    },
+    {
+      "path": "tests/data/incremental_dev_project/simple_add_calculator.zip",
+      "bytes": 14831
+    },
+    {
+      "path": "tests/data/incremental_dev_project/snake_game.zip",
+      "bytes": 19020
+    },
+    {
+      "path": "tests/data/incremental_dev_project/word_cloud.zip",
+      "bytes": 12368
+    },
+    {
+      "path": "tests/data/invoices/invoice-1.pdf",
+      "bytes": 233023
+    },
+    {
+      "path": "tests/data/invoices/invoice-2.png",
+      "bytes": 475053
+    },
+    {
+      "path": "tests/data/invoices/invoice-3.jpg",
+      "bytes": 477487
+    },
+    {
+      "path": "tests/data/invoices/invoice-4.zip",
+      "bytes": 1068590
+    },
+    {
+      "path": "tests/data/movie/trailer.mp4",
+      "bytes": 4372373
+    },
+    {
+      "path": "tests/data/rsp_cache.json",
+      "bytes": 1658842
+    },
+    {
+      "path": "tests/config2.yaml",
+      "bytes": 473,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/andriod_assistant/demo_Contacts/record.txt",
+      "bytes": 85,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/andriod_assistant/demo_Contacts/task_desc.txt",
+      "bytes": 78,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/config/config2.yaml",
+      "bytes": 1551,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/config/config2_multi_llm.yaml",
+      "bytes": 1552,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/demo_project/code_summaries.json",
+      "bytes": 360,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/demo_project/dependencies.json",
+      "bytes": 920,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/demo_project/prd.json",
+      "bytes": 1736,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/demo_project/system_design.json",
+      "bytes": 1237,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/demo_project/tasks.json",
+      "bytes": 567,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/demo_project/test_game.py.json",
+      "bytes": 1794,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/mermaid_rsp_cache.json",
+      "bytes": 228942,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/openai/embedding.json",
+      "bytes": 21188,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/search/serpapi-metagpt-4.json",
+      "bytes": 15361,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/search/serpapi-metagpt-8.json",
+      "bytes": 21688,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/search/serper-metagpt-6.json",
+      "bytes": 4447,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/search/serper-metagpt-8.json",
+      "bytes": 5264,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/search_rsp_cache.json",
+      "bytes": 741430,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/data/ut_writer/yft_swaggerApi.json",
+      "bytes": 66602,
+      "reason": "experimental output or recorded response"
+    }
+  ]
+}

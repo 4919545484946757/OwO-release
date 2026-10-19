@@ -1,0 +1,1175 @@
+{
+  "kept": [
+    {
+      "path": ".devcontainer/devcontainer.json",
+      "bytes": 1641
+    },
+    {
+      "path": ".github/codeql/codeql-config.yml",
+      "bytes": 53
+    },
+    {
+      "path": ".github/dependabot.yml",
+      "bytes": 1004
+    },
+    {
+      "path": ".github/instructions/fetch-mcp-doc.instructions.md",
+      "bytes": 2422
+    },
+    {
+      "path": ".github/labeler.yml",
+      "bytes": 1693
+    },
+    {
+      "path": ".github/workflows/auto-label-pr.yml",
+      "bytes": 762
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 16992
+    },
+    {
+      "path": ".github/workflows/codeql.yml",
+      "bytes": 1038
+    },
+    {
+      "path": ".github/workflows/conformance.yml",
+      "bytes": 4863
+    },
+    {
+      "path": ".github/workflows/release-plz.yml",
+      "bytes": 2529
+    },
+    {
+      "path": ".github/workflows/scorecard.yml",
+      "bytes": 1488
+    },
+    {
+      "path": ".github/workflows/stale.yml",
+      "bytes": 1399
+    },
+    {
+      "path": ".github/workflows/triage.yml",
+      "bytes": 23209
+    },
+    {
+      "path": "Cargo.toml",
+      "bytes": 842
+    },
+    {
+      "path": "DEPENDENCY_POLICY.md",
+      "bytes": 3051
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 12227
+    },
+    {
+      "path": "README.md",
+      "bytes": 68391
+    },
+    {
+      "path": "ROADMAP.md",
+      "bytes": 6293
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 764
+    },
+    {
+      "path": "VERSIONING.md",
+      "bytes": 3143
+    },
+    {
+      "path": "client-metadata.json",
+      "bytes": 337
+    },
+    {
+      "path": "clippy.toml",
+      "bytes": 62
+    },
+    {
+      "path": "conformance/Cargo.toml",
+      "bytes": 943
+    },
+    {
+      "path": "conformance/expected-failures-extensions.yaml",
+      "bytes": 1007
+    },
+    {
+      "path": "conformance/src/bin/client.rs",
+      "bytes": 46860
+    },
+    {
+      "path": "conformance/src/bin/server.rs",
+      "bytes": 71813
+    },
+    {
+      "path": "crates/rmcp-macros/CHANGELOG.md",
+      "bytes": 20702
+    },
+    {
+      "path": "crates/rmcp-macros/Cargo.toml",
+      "bytes": 578
+    },
+    {
+      "path": "crates/rmcp-macros/README.md",
+      "bytes": 2802
+    },
+    {
+      "path": "crates/rmcp-macros/src/common.rs",
+      "bytes": 3102
+    },
+    {
+      "path": "crates/rmcp-macros/src/lib.rs",
+      "bytes": 11878
+    },
+    {
+      "path": "crates/rmcp-macros/src/prompt.rs",
+      "bytes": 9762
+    },
+    {
+      "path": "crates/rmcp-macros/src/prompt_handler.rs",
+      "bytes": 5616
+    },
+    {
+      "path": "crates/rmcp-macros/src/prompt_router.rs",
+      "bytes": 3615
+    },
+    {
+      "path": "crates/rmcp-macros/src/tool.rs",
+      "bytes": 14653
+    },
+    {
+      "path": "crates/rmcp-macros/src/tool_handler.rs",
+      "bytes": 5705
+    },
+    {
+      "path": "crates/rmcp-macros/src/tool_router.rs",
+      "bytes": 7454
+    },
+    {
+      "path": "crates/rmcp/CHANGELOG.md",
+      "bytes": 65412
+    },
+    {
+      "path": "crates/rmcp/Cargo.toml",
+      "bytes": 13565
+    },
+    {
+      "path": "crates/rmcp/README.md",
+      "bytes": 3382
+    },
+    {
+      "path": "crates/rmcp/build.rs",
+      "bytes": 858
+    },
+    {
+      "path": "crates/rmcp/src/error.rs",
+      "bytes": 2599
+    },
+    {
+      "path": "crates/rmcp/src/handler.rs",
+      "bytes": 86
+    },
+    {
+      "path": "crates/rmcp/src/handler/client.rs",
+      "bytes": 16235
+    },
+    {
+      "path": "crates/rmcp/src/handler/client/progress.rs",
+      "bytes": 3173
+    },
+    {
+      "path": "crates/rmcp/src/handler/server.rs",
+      "bytes": 37340
+    },
+    {
+      "path": "crates/rmcp/src/handler/server/common.rs",
+      "bytes": 13356
+    },
+    {
+      "path": "crates/rmcp/src/handler/server/prompt.rs",
+      "bytes": 13710
+    },
+    {
+      "path": "crates/rmcp/src/handler/server/resource.rs",
+      "bytes": 1
+    },
+    {
+      "path": "crates/rmcp/src/handler/server/router.rs",
+      "bytes": 7752
+    },
+    {
+      "path": "crates/rmcp/src/handler/server/router/prompt.rs",
+      "bytes": 5450
+    },
+    {
+      "path": "crates/rmcp/src/handler/server/router/tool.rs",
+      "bytes": 22888
+    },
+    {
+      "path": "crates/rmcp/src/handler/server/router/tool/tool_traits.rs",
+      "bytes": 10785
+    },
+    {
+      "path": "crates/rmcp/src/handler/server/tool.rs",
+      "bytes": 13965
+    },
+    {
+      "path": "crates/rmcp/src/handler/server/tool_name_validation.rs",
+      "bytes": 8075
+    },
+    {
+      "path": "crates/rmcp/src/handler/server/wrapper.rs",
+      "bytes": 66
+    },
+    {
+      "path": "crates/rmcp/src/handler/server/wrapper/json.rs",
+      "bytes": 1429
+    },
+    {
+      "path": "crates/rmcp/src/handler/server/wrapper/parameters.rs",
+      "bytes": 2032
+    },
+    {
+      "path": "crates/rmcp/src/lib.rs",
+      "bytes": 1344
+    },
+    {
+      "path": "crates/rmcp/src/model.rs",
+      "bytes": 200653
+    },
+    {
+      "path": "crates/rmcp/src/model/annotated.rs",
+      "bytes": 4074
+    },
+    {
+      "path": "crates/rmcp/src/model/capabilities.rs",
+      "bytes": 25586
+    },
+    {
+      "path": "crates/rmcp/src/model/content.rs",
+      "bytes": 15045
+    },
+    {
+      "path": "crates/rmcp/src/model/elicitation_schema.rs",
+      "bytes": 78189
+    },
+    {
+      "path": "crates/rmcp/src/model/extension.rs",
+      "bytes": 9728
+    },
+    {
+      "path": "crates/rmcp/src/model/meta.rs",
+      "bytes": 29376
+    },
+    {
+      "path": "crates/rmcp/src/model/mrtr.rs",
+      "bytes": 20026
+    },
+    {
+      "path": "crates/rmcp/src/model/prompt.rs",
+      "bytes": 11253
+    },
+    {
+      "path": "crates/rmcp/src/model/request_state.rs",
+      "bytes": 55371
+    },
+    {
+      "path": "crates/rmcp/src/model/resource.rs",
+      "bytes": 10600
+    },
+    {
+      "path": "crates/rmcp/src/model/serde_impl.rs",
+      "bytes": 35002
+    },
+    {
+      "path": "crates/rmcp/src/model/task.rs",
+      "bytes": 19474
+    },
+    {
+      "path": "crates/rmcp/src/model/tool.rs",
+      "bytes": 8239
+    },
+    {
+      "path": "crates/rmcp/src/service.rs",
+      "bytes": 75128
+    },
+    {
+      "path": "crates/rmcp/src/service/client.rs",
+      "bytes": 103759
+    },
+    {
+      "path": "crates/rmcp/src/service/client/cache.rs",
+      "bytes": 14262
+    },
+    {
+      "path": "crates/rmcp/src/service/server.rs",
+      "bytes": 54627
+    },
+    {
+      "path": "crates/rmcp/src/service/tower.rs",
+      "bytes": 1445
+    },
+    {
+      "path": "crates/rmcp/src/task_manager.rs",
+      "bytes": 39036
+    },
+    {
+      "path": "crates/rmcp/src/transport.rs",
+      "bytes": 11044
+    },
+    {
+      "path": "crates/rmcp/src/transport/async_rw.rs",
+      "bytes": 28821
+    },
+    {
+      "path": "crates/rmcp/src/transport/auth.rs",
+      "bytes": 372431
+    },
+    {
+      "path": "crates/rmcp/src/transport/auth/enterprise.rs",
+      "bytes": 28961
+    },
+    {
+      "path": "crates/rmcp/src/transport/auth/enterprise_tests.rs",
+      "bytes": 44987
+    },
+    {
+      "path": "crates/rmcp/src/transport/child_process.rs",
+      "bytes": 10311
+    },
+    {
+      "path": "crates/rmcp/src/transport/common.rs",
+      "bytes": 660
+    },
+    {
+      "path": "crates/rmcp/src/transport/common/auth.rs",
+      "bytes": 81
+    },
+    {
+      "path": "crates/rmcp/src/transport/common/auth/streamable_http_client.rs",
+      "bytes": 14265
+    },
+    {
+      "path": "crates/rmcp/src/transport/common/client_side_sse.rs",
+      "bytes": 31289
+    },
+    {
+      "path": "crates/rmcp/src/transport/common/http_header.rs",
+      "bytes": 4783
+    },
+    {
+      "path": "crates/rmcp/src/transport/common/mcp_headers.rs",
+      "bytes": 24952
+    },
+    {
+      "path": "crates/rmcp/src/transport/common/reqwest.rs",
+      "bytes": 89
+    },
+    {
+      "path": "crates/rmcp/src/transport/common/reqwest/streamable_http_client.rs",
+      "bytes": 24748
+    },
+    {
+      "path": "crates/rmcp/src/transport/common/server_side_http.rs",
+      "bytes": 12899
+    },
+    {
+      "path": "crates/rmcp/src/transport/common/unix_socket.rs",
+      "bytes": 22685
+    },
+    {
+      "path": "crates/rmcp/src/transport/io.rs",
+      "bytes": 201
+    },
+    {
+      "path": "crates/rmcp/src/transport/sink_stream.rs",
+      "bytes": 2388
+    },
+    {
+      "path": "crates/rmcp/src/transport/streamable_http_client.rs",
+      "bytes": 105770
+    },
+    {
+      "path": "crates/rmcp/src/transport/streamable_http_server.rs",
+      "bytes": 348
+    },
+    {
+      "path": "crates/rmcp/src/transport/streamable_http_server/session.rs",
+      "bytes": 6811
+    },
+    {
+      "path": "crates/rmcp/src/transport/streamable_http_server/session/local.rs",
+      "bytes": 51914
+    },
+    {
+      "path": "crates/rmcp/src/transport/streamable_http_server/session/never.rs",
+      "bytes": 3831
+    },
+    {
+      "path": "crates/rmcp/src/transport/streamable_http_server/session/store.rs",
+      "bytes": 4788
+    },
+    {
+      "path": "crates/rmcp/src/transport/streamable_http_server/tower.rs",
+      "bytes": 98041
+    },
+    {
+      "path": "crates/rmcp/src/transport/worker.rs",
+      "bytes": 19274
+    },
+    {
+      "path": "crates/rmcp/src/transport/ws.rs",
+      "bytes": 51
+    },
+    {
+      "path": "crates/rmcp/tests/common/calculator.rs",
+      "bytes": 1537
+    },
+    {
+      "path": "crates/rmcp/tests/common/handlers.rs",
+      "bytes": 6358
+    },
+    {
+      "path": "crates/rmcp/tests/common/mod.rs",
+      "bytes": 38
+    },
+    {
+      "path": "crates/rmcp/tests/test_auth_error_classification.rs",
+      "bytes": 2824
+    },
+    {
+      "path": "crates/rmcp/tests/test_cache_hints.rs",
+      "bytes": 3358
+    },
+    {
+      "path": "crates/rmcp/tests/test_cancelled_response.rs",
+      "bytes": 20963
+    },
+    {
+      "path": "crates/rmcp/tests/test_client_credentials.rs",
+      "bytes": 8372
+    },
+    {
+      "path": "crates/rmcp/tests/test_client_initialization.rs",
+      "bytes": 5613
+    },
+    {
+      "path": "crates/rmcp/tests/test_client_lifecycle_modes.rs",
+      "bytes": 29009
+    },
+    {
+      "path": "crates/rmcp/tests/test_close_connection.rs",
+      "bytes": 4076
+    },
+    {
+      "path": "crates/rmcp/tests/test_completion.rs",
+      "bytes": 7003
+    },
+    {
+      "path": "crates/rmcp/tests/test_complex_schema.rs",
+      "bytes": 2378
+    },
+    {
+      "path": "crates/rmcp/tests/test_custom_headers.rs",
+      "bytes": 48177
+    },
+    {
+      "path": "crates/rmcp/tests/test_custom_request.rs",
+      "bytes": 6297
+    },
+    {
+      "path": "crates/rmcp/tests/test_deserialization.rs",
+      "bytes": 14913
+    },
+    {
+      "path": "crates/rmcp/tests/test_discover_http_client_startup.rs",
+      "bytes": 11974
+    },
+    {
+      "path": "crates/rmcp/tests/test_elicitation.rs",
+      "bytes": 70460
+    },
+    {
+      "path": "crates/rmcp/tests/test_embedded_resource_meta.rs",
+      "bytes": 3566
+    },
+    {
+      "path": "crates/rmcp/tests/test_handler_cache_hints.rs",
+      "bytes": 8876
+    },
+    {
+      "path": "crates/rmcp/tests/test_handler_wrappers.rs",
+      "bytes": 973
+    },
+    {
+      "path": "crates/rmcp/tests/test_inflight_response_drain.rs",
+      "bytes": 7722
+    },
+    {
+      "path": "crates/rmcp/tests/test_json_schema_detection.rs",
+      "bytes": 5835
+    },
+    {
+      "path": "crates/rmcp/tests/test_list_tools_result.rs",
+      "bytes": 1523
+    },
+    {
+      "path": "crates/rmcp/tests/test_live_oauth_refresh.rs",
+      "bytes": 8069
+    },
+    {
+      "path": "crates/rmcp/tests/test_local_client_handler.rs",
+      "bytes": 324
+    },
+    {
+      "path": "crates/rmcp/tests/test_logging.rs",
+      "bytes": 10633
+    },
+    {
+      "path": "crates/rmcp/tests/test_message_protocol.rs",
+      "bytes": 12994
+    },
+    {
+      "path": "crates/rmcp/tests/test_message_schema.rs",
+      "bytes": 5923
+    },
+    {
+      "path": "crates/rmcp/tests/test_meta_helpers.rs",
+      "bytes": 3347
+    },
+    {
+      "path": "crates/rmcp/tests/test_mrtr_behavior.rs",
+      "bytes": 25579
+    },
+    {
+      "path": "crates/rmcp/tests/test_notification.rs",
+      "bytes": 7524
+    },
+    {
+      "path": "crates/rmcp/tests/test_progress_subscriber.rs",
+      "bytes": 3881
+    },
+    {
+      "path": "crates/rmcp/tests/test_prompt_handler.rs",
+      "bytes": 4090
+    },
+    {
+      "path": "crates/rmcp/tests/test_prompt_macro_annotations.rs",
+      "bytes": 8204
+    },
+    {
+      "path": "crates/rmcp/tests/test_prompt_macros.rs",
+      "bytes": 11677
+    },
+    {
+      "path": "crates/rmcp/tests/test_prompt_routers.rs",
+      "bytes": 4372
+    },
+    {
+      "path": "crates/rmcp/tests/test_protocol_version_negotiation.rs",
+      "bytes": 10604
+    },
+    {
+      "path": "crates/rmcp/tests/test_request_timeout_progress.rs",
+      "bytes": 6176
+    },
+    {
+      "path": "crates/rmcp/tests/test_resource_link.rs",
+      "bytes": 3127
+    },
+    {
+      "path": "crates/rmcp/tests/test_resource_link_integration.rs",
+      "bytes": 4604
+    },
+    {
+      "path": "crates/rmcp/tests/test_resource_not_found_version.rs",
+      "bytes": 3106
+    },
+    {
+      "path": "crates/rmcp/tests/test_result_type_version.rs",
+      "bytes": 2944
+    },
+    {
+      "path": "crates/rmcp/tests/test_result_type_wire.rs",
+      "bytes": 6286
+    },
+    {
+      "path": "crates/rmcp/tests/test_sampling.rs",
+      "bytes": 22787
+    },
+    {
+      "path": "crates/rmcp/tests/test_sep_2260_request_association.rs",
+      "bytes": 9664
+    },
+    {
+      "path": "crates/rmcp/tests/test_sep_2260_stream_enforcement.rs",
+      "bytes": 11325
+    },
+    {
+      "path": "crates/rmcp/tests/test_sep_2260_stream_routing.rs",
+      "bytes": 5663
+    },
+    {
+      "path": "crates/rmcp/tests/test_server_discover.rs",
+      "bytes": 7964
+    },
+    {
+      "path": "crates/rmcp/tests/test_server_discover_client.rs",
+      "bytes": 2270
+    },
+    {
+      "path": "crates/rmcp/tests/test_server_discover_http.rs",
+      "bytes": 11879
+    },
+    {
+      "path": "crates/rmcp/tests/test_server_initialization.rs",
+      "bytes": 23194
+    },
+    {
+      "path": "crates/rmcp/tests/test_sse_concurrent_streams.rs",
+      "bytes": 27800
+    },
+    {
+      "path": "crates/rmcp/tests/test_stateless_protocol_version.rs",
+      "bytes": 7579
+    },
+    {
+      "path": "crates/rmcp/tests/test_stateless_server_requests.rs",
+      "bytes": 10882
+    },
+    {
+      "path": "crates/rmcp/tests/test_stdio_response_concurrency.rs",
+      "bytes": 6046
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_4xx_error_body.rs",
+      "bytes": 4975
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_client_concurrency.rs",
+      "bytes": 42660
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_connection_reuse.rs",
+      "bytes": 3948
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_disconnect_cancel.rs",
+      "bytes": 6890
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_empty_2xx_notification.rs",
+      "bytes": 1469
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_event_store.rs",
+      "bytes": 12954
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_get_stream_auth_challenge.rs",
+      "bytes": 3864
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_idle_timeout_log.rs",
+      "bytes": 7947
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_init_timeout.rs",
+      "bytes": 2073
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_json_response.rs",
+      "bytes": 12819
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_malformed_json_request.rs",
+      "bytes": 6762
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_priming.rs",
+      "bytes": 18063
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_protocol_version.rs",
+      "bytes": 32223
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_session_isolation.rs",
+      "bytes": 5931
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_session_store.rs",
+      "bytes": 16794
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_stale_session.rs",
+      "bytes": 16272
+    },
+    {
+      "path": "crates/rmcp/tests/test_streamable_http_standard_headers.rs",
+      "bytes": 12117
+    },
+    {
+      "path": "crates/rmcp/tests/test_structured_output.rs",
+      "bytes": 15143
+    },
+    {
+      "path": "crates/rmcp/tests/test_subscriptions.rs",
+      "bytes": 22211
+    },
+    {
+      "path": "crates/rmcp/tests/test_subscriptions_model.rs",
+      "bytes": 8943
+    },
+    {
+      "path": "crates/rmcp/tests/test_subscriptions_streamable_http.rs",
+      "bytes": 10551
+    },
+    {
+      "path": "crates/rmcp/tests/test_task.rs",
+      "bytes": 14383
+    },
+    {
+      "path": "crates/rmcp/tests/test_tool_builder_methods.rs",
+      "bytes": 3484
+    },
+    {
+      "path": "crates/rmcp/tests/test_tool_disable_notification.rs",
+      "bytes": 5550
+    },
+    {
+      "path": "crates/rmcp/tests/test_tool_handler.rs",
+      "bytes": 1
+    },
+    {
+      "path": "crates/rmcp/tests/test_tool_macro_annotations.rs",
+      "bytes": 1510
+    },
+    {
+      "path": "crates/rmcp/tests/test_tool_macros.rs",
+      "bytes": 17763
+    },
+    {
+      "path": "crates/rmcp/tests/test_tool_result_meta.rs",
+      "bytes": 1400
+    },
+    {
+      "path": "crates/rmcp/tests/test_tool_routers.rs",
+      "bytes": 11923
+    },
+    {
+      "path": "crates/rmcp/tests/test_trace_context.rs",
+      "bytes": 2882
+    },
+    {
+      "path": "crates/rmcp/tests/test_unix_socket_transport.rs",
+      "bytes": 11751
+    },
+    {
+      "path": "crates/rmcp/tests/test_with_js.rs",
+      "bytes": 4694
+    },
+    {
+      "path": "crates/rmcp/tests/test_with_js/client.js",
+      "bytes": 763
+    },
+    {
+      "path": "crates/rmcp/tests/test_with_js/server.js",
+      "bytes": 736
+    },
+    {
+      "path": "crates/rmcp/tests/test_with_js/streamable_client.js",
+      "bytes": 773
+    },
+    {
+      "path": "crates/rmcp/tests/test_with_js/streamable_server.js",
+      "bytes": 2884
+    },
+    {
+      "path": "crates/rmcp/tests/test_with_python.rs",
+      "bytes": 2253
+    },
+    {
+      "path": "crates/rmcp/tests/test_with_python/client.py",
+      "bytes": 775
+    },
+    {
+      "path": "crates/rmcp/tests/test_with_python/pyproject.toml",
+      "bytes": 278
+    },
+    {
+      "path": "crates/rmcp/tests/test_with_python/server.py",
+      "bytes": 418
+    },
+    {
+      "path": "docs/CONTRIBUTE.MD",
+      "bytes": 3166
+    },
+    {
+      "path": "docs/DEVCONTAINER.md",
+      "bytes": 2586
+    },
+    {
+      "path": "docs/OAUTH_SUPPORT.md",
+      "bytes": 21314
+    },
+    {
+      "path": "examples/README.md",
+      "bytes": 1876
+    },
+    {
+      "path": "examples/clients/Cargo.toml",
+      "bytes": 1415
+    },
+    {
+      "path": "examples/clients/README.md",
+      "bytes": 5724
+    },
+    {
+      "path": "examples/clients/src/auth/callback.html",
+      "bytes": 2491
+    },
+    {
+      "path": "examples/clients/src/auth/client_credentials.rs",
+      "bytes": 3090
+    },
+    {
+      "path": "examples/clients/src/auth/oauth_client.rs",
+      "bytes": 11424
+    },
+    {
+      "path": "examples/clients/src/collection.rs",
+      "bytes": 2040
+    },
+    {
+      "path": "examples/clients/src/everything_stdio.rs",
+      "bytes": 2964
+    },
+    {
+      "path": "examples/clients/src/git_stdio.rs",
+      "bytes": 1715
+    },
+    {
+      "path": "examples/clients/src/progress_client.rs",
+      "bytes": 9766
+    },
+    {
+      "path": "examples/clients/src/sampling_stdio.rs",
+      "bytes": 4025
+    },
+    {
+      "path": "examples/clients/src/streamable_http.rs",
+      "bytes": 1709
+    },
+    {
+      "path": "examples/clients/src/subscriptions_streamhttp.rs",
+      "bytes": 1532
+    },
+    {
+      "path": "examples/clients/src/task_stdio.rs",
+      "bytes": 4473
+    },
+    {
+      "path": "examples/servers/Cargo.toml",
+      "bytes": 2707
+    },
+    {
+      "path": "examples/servers/README.md",
+      "bytes": 6959
+    },
+    {
+      "path": "examples/servers/src/calculator_stdio.rs",
+      "bytes": 869
+    },
+    {
+      "path": "examples/servers/src/cimd_auth_streamhttp.rs",
+      "bytes": 16401
+    },
+    {
+      "path": "examples/servers/src/common/calculator.rs",
+      "bytes": 989
+    },
+    {
+      "path": "examples/servers/src/common/counter.rs",
+      "bytes": 12672
+    },
+    {
+      "path": "examples/servers/src/common/generic_service.rs",
+      "bytes": 1723
+    },
+    {
+      "path": "examples/servers/src/common/mod.rs",
+      "bytes": 104
+    },
+    {
+      "path": "examples/servers/src/common/progress_demo.rs",
+      "bytes": 4416
+    },
+    {
+      "path": "examples/servers/src/common/task_demo.rs",
+      "bytes": 5507
+    },
+    {
+      "path": "examples/servers/src/completion_stdio.rs",
+      "bytes": 17321
+    },
+    {
+      "path": "examples/servers/src/complex_auth_streamhttp.rs",
+      "bytes": 23568
+    },
+    {
+      "path": "examples/servers/src/counter_hyper_streamable_http.rs",
+      "bytes": 1034
+    },
+    {
+      "path": "examples/servers/src/counter_stdio.rs",
+      "bytes": 834
+    },
+    {
+      "path": "examples/servers/src/counter_streamhttp.rs",
+      "bytes": 1268
+    },
+    {
+      "path": "examples/servers/src/elicitation_enum_inference.rs",
+      "bytes": 6408
+    },
+    {
+      "path": "examples/servers/src/elicitation_stdio.rs",
+      "bytes": 5727
+    },
+    {
+      "path": "examples/servers/src/html/mcp_oauth_index.html",
+      "bytes": 2683
+    },
+    {
+      "path": "examples/servers/src/memory_stdio.rs",
+      "bytes": 500
+    },
+    {
+      "path": "examples/servers/src/mrtr.rs",
+      "bytes": 11951
+    },
+    {
+      "path": "examples/servers/src/progress_demo.rs",
+      "bytes": 2947
+    },
+    {
+      "path": "examples/servers/src/prompt_stdio.rs",
+      "bytes": 13958
+    },
+    {
+      "path": "examples/servers/src/sampling_stdio.rs",
+      "bytes": 5096
+    },
+    {
+      "path": "examples/servers/src/simple_auth_streamhttp.rs",
+      "bytes": 5406
+    },
+    {
+      "path": "examples/servers/src/structured_output.rs",
+      "bytes": 4904
+    },
+    {
+      "path": "examples/servers/src/subscriptions_streamhttp.rs",
+      "bytes": 2750
+    },
+    {
+      "path": "examples/servers/src/task_stdio.rs",
+      "bytes": 801
+    },
+    {
+      "path": "examples/servers/templates/mcp_oauth_authorize.html",
+      "bytes": 3032
+    },
+    {
+      "path": "examples/simple-chat-client/Cargo.toml",
+      "bytes": 544
+    },
+    {
+      "path": "examples/simple-chat-client/README.md",
+      "bytes": 951
+    },
+    {
+      "path": "examples/simple-chat-client/src/bin/simple_chat.rs",
+      "bytes": 4483
+    },
+    {
+      "path": "examples/simple-chat-client/src/chat.rs",
+      "bytes": 6261
+    },
+    {
+      "path": "examples/simple-chat-client/src/client.rs",
+      "bytes": 2018
+    },
+    {
+      "path": "examples/simple-chat-client/src/config.rs",
+      "bytes": 2764
+    },
+    {
+      "path": "examples/simple-chat-client/src/config.toml",
+      "bytes": 226
+    },
+    {
+      "path": "examples/simple-chat-client/src/error.rs",
+      "bytes": 439
+    },
+    {
+      "path": "examples/simple-chat-client/src/lib.rs",
+      "bytes": 90
+    },
+    {
+      "path": "examples/simple-chat-client/src/model.rs",
+      "bytes": 2387
+    },
+    {
+      "path": "examples/simple-chat-client/src/tool.rs",
+      "bytes": 3605
+    },
+    {
+      "path": "examples/transport/Cargo.toml",
+      "bytes": 1454
+    },
+    {
+      "path": "examples/transport/src/common/calculator.rs",
+      "bytes": 1111
+    },
+    {
+      "path": "examples/transport/src/common/mod.rs",
+      "bytes": 20
+    },
+    {
+      "path": "examples/transport/src/http_upgrade.rs",
+      "bytes": 2434
+    },
+    {
+      "path": "examples/transport/src/named-pipe.rs",
+      "bytes": 2601
+    },
+    {
+      "path": "examples/transport/src/tcp.rs",
+      "bytes": 900
+    },
+    {
+      "path": "examples/transport/src/unix_socket.rs",
+      "bytes": 2786
+    },
+    {
+      "path": "examples/transport/src/websocket.rs",
+      "bytes": 5203
+    },
+    {
+      "path": "examples/wasi/Cargo.toml",
+      "bytes": 790
+    },
+    {
+      "path": "examples/wasi/README.md",
+      "bytes": 385
+    },
+    {
+      "path": "examples/wasi/config.toml",
+      "bytes": 32
+    },
+    {
+      "path": "examples/wasi/src/calculator.rs",
+      "bytes": 1012
+    },
+    {
+      "path": "examples/wasi/src/lib.rs",
+      "bytes": 3493
+    },
+    {
+      "path": "release-plz.toml",
+      "bytes": 179
+    },
+    {
+      "path": "rust-toolchain.toml",
+      "bytes": 107
+    },
+    {
+      "path": "rustfmt.toml",
+      "bytes": 327
+    },
+    {
+      "path": "scripts/keycloak-oauth-fixture.sh",
+      "bytes": 2555
+    },
+    {
+      "path": "typos.toml",
+      "bytes": 232
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".githooks/pre-commit",
+      "bytes": 78
+    },
+    {
+      "path": ".github/CODEOWNERS",
+      "bytes": 33
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 914
+    },
+    {
+      "path": "crates/rmcp/tests/test_with_js/.gitignore",
+      "bytes": 31
+    },
+    {
+      "path": "crates/rmcp/tests/test_with_python/.gitignore",
+      "bytes": 188
+    },
+    {
+      "path": "justfile",
+      "bytes": 787
+    },
+    {
+      "path": "conformance/results/2026-02-25-rust-sdk-assessment.md",
+      "bytes": 14669,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "conformance/results/2026-02-25-rust-sdk-remediation.md",
+      "bytes": 4273,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "crates/rmcp/tests/test_deserialization/tool_list_result.json",
+      "bytes": 835,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "crates/rmcp/tests/test_list_tools_result/list_tools_result.json",
+      "bytes": 1553,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "crates/rmcp/tests/test_message_schema/client_json_rpc_message_schema.json",
+      "bytes": 67263,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "crates/rmcp/tests/test_message_schema/client_json_rpc_message_schema_current.json",
+      "bytes": 67263,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "crates/rmcp/tests/test_message_schema/server_json_rpc_message_schema.json",
+      "bytes": 119691,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "crates/rmcp/tests/test_message_schema/server_json_rpc_message_schema_current.json",
+      "bytes": 119225,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "crates/rmcp/tests/test_with_js/package.json",
+      "bytes": 355,
+      "reason": "experimental output or recorded response"
+    }
+  ]
+}

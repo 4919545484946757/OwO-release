@@ -1,0 +1,169 @@
+Effective Strategies for
+Asynchronous Software Engineering Agents
+Jiayi Geng1 Graham Neubig1
+1Carnegie Mellon University, Language Technologies Institute
+{ogeng, gneubig}@cs.cmu.edu
+https://github.com/JiayiGeng/CAID
+Abstract
+AI agents have become increasingly capable at isolated software engineering (SWE) tasks such as resolving
+issues on Github. Yet long-horizon tasks involving multiple interdependent subtasks still pose challenges
+both with respect to accuracy, and with respect to timely completion. A natural approach to solving these
+long-horizon tasks in a timely manner is asynchronous multi-agent collaboration, where multiple agents
+work on different parts of the task at the same time. But effective application of multi-agent systems has
+proven surprisingly difficult: concurrent edits by multiple agents interfere with each other, dependencies
+are difficult to synchronize, and combining partial progress into a coherent whole is challenging. On
+the other hand, human developers have long relied on mature collaboration infrastructure to manage
+these challenges in large software projects. Inspired by these collaboration primitives, we introduce
+Centralized Asynchronous Isolated Delegation (CAID), a structured multi-agent coordination paradigm
+grounded in three core SWE primitives: centralized task delegation, asynchronous execution, and isolated
+workspaces. CAID constructs dependency-aware task plans through a central manager, executes subtasks
+concurrently in isolated workspaces, and consolidates progress via structured integration with executable
+test-based verification. In empirical evaluation, we find that CAID improves accuracy over single-agent
+baselines by 25.6% absolute on paper reproduction tasks (PaperBench) and 14.7% on Python library
+development tasks (Commit0). Through systematic analysis, we find that branch-and-merge is a central
+coordination mechanism for multi-agent collaboration, and that SWE primitives such asgit worktree,
+git commit, andgit mergeenable it to be realized in a reliable and executable manner.
+Dependency-Aware 
+Task Delegation
+Manager
+Engineer 1
+Task
+Executable
+Implementation
+Self-Verification
+git commit
+Engineer 2
+Task
+Executable
+Implementation
+Self-Verification
+git commit
+Asynchronous Execution in Isolated Workspace
+Engineer 3
+Task
+Executable
+Implementation
+Self-Verification
+git commit
+Final Review 
+& Integration
+git merge
+Assign Next Tasks
+by manager
+Manager
+Figure 1:Overview of CAID Workflow.The Manager explores the SWE tasks, builds a dependency graph to
+decompose tasks into parallelizable groups, and creates isolated git worktrees for every onboarded engineer. In
+the asynchronous loop, engineers independently implement, self-verify, and make a commit. Upon any engineer’s
+completion, the Manager merges to main and dynamically updates the task delegation plan before reassigning the
+next task. After the asynchronous loop, the manager does a final review before submitting the final product.
+1
+arXiv:2603.21489v2  [cs.CL]  8 Jul 2026
+
+SWE Primitive Coordination Mechanism Role in CAID
+Dependency graph Scheduling constraints Dependency order determines safe task delegation
+git worktreeWorkspace isolation Each agent works in an independent worktree
+git commit/git pullrequest Structured signaling Agents report completion by making the commits
+git mergeOutput integration Completed changes are merged into the main
+Merge conflict resolution Conflict handling Engineer resolves integration conflicts by themselves
+Code review Verification Engineer does the self-verification
+asyncioparallel execution Concurrent execution Multiple agents run concurrently
+Event loop +awaitCoordination cycle Await completion→integrate→reassign tasks
+git reset−−hard HEADState synchronization Worktrees sync to latest integrated state
+Table 1:Mapping between concrete SWE primitives and multi-agent coordination mechanisms in CAID.Each
+primitive serves as an operational building block for isolation, delegation, asynchronous execution, and integration.
+1 Introduction
+As LLM-based software engineering agents improve, we have come to expect more of them. Whereas fixing isolated
+github issues on real-world repositories was a major challenge a few years ago [Jimenez et al., 2023, Yang et al.,
+2024, Wang et al., 2024], we are now asking agents to build large apps from scratch [Zhao et al., 2024] or implement
+entire research papers [Starace et al., 2025]. One method for performing this implementation is tasking a single
+agent with a large task, and hoping that it can execute on it from start to finish. While task-completion horizons of
+agents continue to grow rapidly [Kwa et al., 2025], these systems are still limited in the scope of tasks they can
+perform reliably, and a single agent performing a large task also takes significant wall-clock time. To this end, in
+this paper, we study the question:“how can multiple agents be coordinated to asynchronously collaborate over a
+shared artifact in an effective way?”
+While much research has focused on coordinating multiple agents, ranging from role-based pipelines that mirror
+human software engineering teams [Hong et al., 2023, Qian et al., 2024a], to hierarchical managers that decompose
+and delegate subtasks [Benkovich and Valkov, 2026], to include verification mechanisms in multi-agent systems
+[Venkataramani et al., 2026], and to automated searches over communication topologies [Zhang et al., 2025a]—most
+of these approaches primarily address how tasks are decomposed and allocated across agents. However, the core
+challenges ofasynchronousmulti-agent collaboration over shared artifacts remain unsolved. Agents operating in
+this setting face a myriad of challenges such as locally reasonably but globally consistent edits [Khatua et al., 2026],
+lack of shared state [Cemri et al., 2025], and late discovery of any conflicts [Cognition AI, 2025].
+Human software engineering teams face these coordination failures routinely, and they have developed a mature
+infrastructure to mitigate them. Developers work in isolated copies of the repository (e.g., viagit worktrees),
+so parallel edits do not overwrite one another. When changes are ready, version-control integration protocols (e.g.,
+merge-based workflows) consolidate contributions and conflicts explicitly, rather than allowing silent interference.
+Test suites verify each change automatically, so correctness does not rely solely on any single developer’s judgment.
+With this in mind, we build CAID (Figure 1), a multi-agent system grounded in SWE primitives, in which a
+manager agent dynamically decomposes and delegates tasks to multiple engineer agents who execute concurrently in
+isolated workspaces. In particular, each engineer operates in its owngit worktree, a fully isolated workspace
+with a versioned copy of the repository and when an engineer finishes, its changes are integrated back through
+git merge. As in human software teams, each engineer is responsible not only for implementation, but also
+for executable self-verification and conflict resolution at commit time. Communication between the manager and
+engineers uses structuredJSON instructions and git commits rather than free-form dialog, avoiding the inter-agent
+misalignment that has been identified as the primary failure mode in multi-agent systems [Cemri et al., 2025]. We
+provide further details on the design of CAID in section 2.
+We evaluate CAID on two long-horizon, complex software engineering tasks that provide a natural testbed for
+shared-artifactcollaboration. Specifically, we use Commit0 [Zhao et al., 2024], which requires agents to implement
+Python libraries from scratch (e.g., tinydb,minitorch,jinja), and on PaperBench [Starace et al., 2025],
+where agents reproduce a conference paper. Together, these benchmarks allow us to evaluate CAID with the lens of
+branch-and-merge coordination in long-horizon multi-agent software engineering. Based on these experiments, we
+show that CAID consistently improves the performance of Commit0 and PaperBench across multiple models.
+2 Branch-and-Merge Multi-Agent Coordination with SWE Primitives
+CAID’s coordination architecture is based on SWE primitives, which support operations such as task decomposition,
+isolated development, integration, and verification. In Table 1, we associate concrete SWE primitives (e.g.,git
+
+worktree,git merge, dependency graphs, and test suites) and their corresponding coordination roles in CAID.
+CAID consists of task specification and dependency modeling (subsection 2.1), dependency-aware task delegation
+(subsection 2.2), workspace isolation and integration (subsection 2.3), structured communication with asynchronous
+execution (subsection 2.4), and self-verification with termination control (subsection 2.5).
+2.1 Task Specification and Dependency Graph
+To perform multi-agent delegation, we need to split the overall task into ordered sub-tasks. In our preliminary
+experience, allowing agents to split tasks arbitrarily causes them to miss important parts as they proceed. Therefore,
+to proceed with task delegation in a structured way, we instead have the manager create a dependency graph of the
+repository to organize the work to be done. The repository structure is represented as a directed graph G= (V, E) ,
+where each node v∈V corresponds to a unit of work and each directed edge (vi, vj)∈E indicates that vj
+depends on vi. Let Ct⊆V denote the set of units that have been completed and successfully integrated into
+the main branch at round t. A unit vj is eligible for delegation only if all its dependencies have been satisfied:
+Readyt(vj)⇐⇒ ∀(v i, vj)∈E, v i∈C t. At each round, the manager selects executable units from the ready
+set{v∈V|Ready t(v)} and converts them into task assignments. Depending on the task, the unit of work and
+dependency analysis method is defined differently. In subsection 3.1, we describe these definitions for Commit0 and
+PaperBench respectively. Although granularity differs across benchmarks, in both settings the manager constructs a
+dependency structure before delegating, and engineers are assigned tasks only after it is established.
+2.2 Dependency-Aware Task Delegation
+We prompt (see Appendix A.1 and A.2) the manager to convert the dependency structure from Section 2.1 into small
+executable task units assigned to each engineer. The manager splits implementation work into at most N major task
+groups, where N is the maximum number of parallel engineers, activating up to N engineers whose dependencies
+are satisfied (not all N are necessarily activated). Files with strong or circular dependencies are grouped together
+and assigned to the same engineer to reduce cross-agent coordination.
+At each delegation step, the manager selects next tasks with top priority from the major task group, prioritized
+based on tasks that enable earlier test execution, expose more evaluation signals, or lie closer to the upstream end
+of the dependency chain. We suggest to the manager that engineers typically start with simpler functions before
+moving on to more complex ones. The manager dynamically updates dependency state after an engineer merges
+code and decides whether to assign the next task or keep the engineer idle. We define one round as a complete
+cycle of delegation, implementation, and dependency update. The process continues until no executable task groups
+remain or execution limits are reached.
+2.3 Workspace Isolation and Integration
+We usegit worktree to ensure that each engineer modifies files only within its workspace, which is always
+derived from the main branch. Before delegation, we ask the manager to set up the repository in an executable
+state, including preparing the runtime environment, organizing entry points, or adding minimal function stubs when
+required by the task. These preparatory changes are committed to the main branch so that all subsequent engineer
+branches are created from a consistent base state. Certain shared files, such as package initialization files (e.g.,
+__init__.py), are marked as restricted, and engineers are explicitly instructed not to commit changes to them.
+Worktrees are deleted after all assigned tasks are completed or when the engineer reaches the predefined iteration
+limit. Integration is performed through standard git commit andgit merge operations. After completing
+implementation and self-verification, an engineer submits a commit from its branch. The manager attempts to merge
+this branch into the main branch. If a merge conflict occurs, the engineer who produced the conflicting commit is
+responsible for resolving it. To solve the conflict, we ask the engineer to pull the latest main branch into its worktree,
+resolve conflicts locally, and resubmit the updated commit. As a result, the main branch remains the single source
+of integrated state throughout execution. We observe that this branch-based isolation, combined with explicit merge
+responsibilities, prevents parallel development from corrupting the shared codebase.
+2.4 Communication and Asynchronous Execution
+We use a structured JSON protocol as the communication interface between the manager and the engineer agents.
+When delegated the task, the manager outputs a JSON specification that defines task assignments, file paths, target
+functions, and dependency information to ensure that the task boundaries, responsibilities, and outputs are explicitly
+defined and can be programmatically validated. We provide the details in Appendix A.1.
+The execution is organized around an asynchronous manager-controlled event loop. Once tasks are delegated,
+each engineer operates as an independent coroutine. Engineers invoke language model calls, modify code in their
+worktrees, and execute verification commands such as running tests. These operations are executed concurrently up
+to a predefined maximum number of active engineers. The manager listens for completion signals and dynamically

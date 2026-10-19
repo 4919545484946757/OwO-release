@@ -1,0 +1,173 @@
+Published as a conference paper at ICLR 2024
+SWE- BENCH : C AN LANGUAGE MODELS RESOLVE
+REAL -WORLD GITHUB ISSUES ?
+Carlos E. Jimenez* 1,2 John Yang* 1,2 Alexander Wettig1,2
+Shunyu Yao1,2 Kexin Pei3 Ofir Press1,2 Karthik Narasimhan1,2
+1Princeton University 2Princeton Language and Intelligence 3University of Chicago
+ABSTRACT
+Language models have outpaced our ability to evaluate them effectively, but for
+their future development it is essential to study the frontier of their capabilities.
+We find real-world software engineering to be a rich, sustainable, and challenging
+testbed for evaluating the next generation of language models. To this end, we in-
+troduce SWE-bench, an evaluation framework consisting of 2,294 software engi-
+neering problems drawn from real GitHub issues and corresponding pull requests
+across 12 popular Python repositories. Given a codebase along with a description
+of an issue to be resolved, a language model is tasked with editing the codebase
+to address the issue. Resolving issues in SWE-bench frequently requires under-
+standing and coordinating changes across multiple functions, classes, and even
+files simultaneously, calling for models to interact with execution environments,
+process extremely long contexts and perform complex reasoning that goes far be-
+yond traditional code generation tasks. Our evaluations show that both state-of-
+the-art proprietary models and our fine-tuned model SWE-Llama can resolve only
+the simplest issues. The best-performing model, Claude 2, is able to solve a mere
+1.96% of the issues. Advances on SWE-bench represent steps towards LMs that
+are more practical, intelligent, and autonomous.
+1 I NTRODUCTION
+Language models (LMs) are rapidly being deployed in commercial products such as chatbots and
+coding assistants. At the same time, existing benchmarks have become saturated (Kiela et al., 2021;
+Ott et al., 2022) and fail to capture the frontier of what state-of-the-art LMs can and cannot do. There
+is a need for challenging benchmarks that more accurately reflect real-world applications of LMs to
+help shape their future development and usage (Srivastava et al., 2023).
+euclidean_diff
+matrix_transform
+dstack_struct_col
+vstack_struct_col
+join_struct_col
+Pre PR Post PR Tests
+Unit Tests
+data leak in GBDT due to warm
+start (This is about the non-
+histogram-based version of...
+Issue
+Codebase
+sklearn/
+examples/ setup.cfg
+setup.pyREADME.rst
+reqs.txt
+Language Model
+Generated  PR
+sklearn
+gradient_boosting.py
+utils
+helper.py
++20  -12
+Figure 1: SWE-bench sources task instances from real-world Python repositories by connecting
+GitHub issues to merged pull request solutions that resolve related tests. Provided with the issue
+text and a codebase snapshot, models generate a patch that is evaluated against real tests.
+Building a good benchmark is difficult since tasks must be challenging enough to stump existing
+models, but model predictions must also be easy to verify (Mart ´ınez-Plumed et al., 2021). Coding
+∗Equal contribution. Correspondence to carlosej@princeton.edu, johnby@stanford.edu.
+Data, code, and leaderboard at swebench.com
+1
+arXiv:2310.06770v3  [cs.CL]  11 Nov 2024
+
+Published as a conference paper at ICLR 2024
+tasks are appealing as they pose challenging problems to LMs yet generated solutions can be easily
+verified by running unit tests. However, existing coding benchmarks, such as HumanEval (Chen
+et al., 2021), mostly involve self-contained problems that can be solved in a few lines of code.
+In the real world, software engineering is not as simple. Fixing a bug might involve navigating a
+large repository, understanding the interplay between functions in different files, or spotting a small
+error in convoluted code. Inspired by this, we introduce SWE-bench, a benchmark that evaluates
+LMs in a realistic software engineering setting. As shown in Figure 1, models are tasked to resolve
+issues (typically a bug report or a feature request) submitted to popular GitHub repositories. Each
+task requires generating a patch describing changes to apply to the existing codebase. The revised
+codebase is then evaluated using the repository’s testing framework.
+SWE-bench offers several advantages over existing LM programming benchmarks. These include, a
+realistic setting that utilizes user-submitted issues and solutions, diverse inputs featuring unique code
+problems from 12 repositories, a robust framework for execution-based evaluation, and the ability
+to continuously update the benchmark with new instances, requiring minimal human intervention.
+We evaluate multiple state-of-the-art LMs on SWE-bench and find that they fail to solve all except
+the simplest issues. Using a BM25 retriever, Claude 2 is only able to resolve 1.96% of the issues.
+In addition to SWE-bench our contributions include the release of a training dataset, SWE-bench-
+train, which is essential for advancing open model development in this challenging domain. This
+dataset comprises a collection of 19,000 non-testing task instances derived from 37 repositories.
+Utilizing SWE-bench-train, we release two fine-tuned models, SWE-Llama 7b and 13b, based on
+the CodeLlama (Rozi `ere et al., 2023) model. We find that in some settings SWE-Llama 13b is
+competitive with Claude 2 and is capable of processing contexts exceeding 100,000 tokens.
+2 SWE- BENCH
+SWE-bench is a benchmark featuring GitHub issues from popular repositories that report bugs or
+request new features, and pull requests that make changes to the repository to resolve these issues.
+The task is to generate a pull request that addresses a given issue and passes tests related to the issue.
+2.1 B ENCHMARK CONSTRUCTION
+GitHub is a rich data source for software development, but repositories, issues, and pull requests can
+be noisy, ad-hoc, or poorly documented or maintained. To find high-quality task instances at scale,
+we use a 3-stage pipeline as follows.
+Resolves an issue
+Contributes tests
+✓ 
+✓ 
+Attribute Filter21 Scrape PRs
+12 popular repositories
+>90% Python Code
+3
+Installs successfully
+PR passes all tests
+✓
+✓
+Execution Filter
+Figure 2: SWE-bench task instances are created from merged pull requests that resolve an issue,
+contributes tests, and install successfully.
+Stage I: Repo selection and data scraping . We start by collecting pull requests (PRs) from 12
+popular open-source Python repositories on GitHub, producing about ∼ 90,000 PRs in total. We
+focus on popular repositories as they tend be better maintained, have clear contributor guidelines,
+and have better test coverage. Each PR has an associated codebase specified by it’s base commit.
+Stage II: Attribute-based filtering. We create candidate tasks by selecting themerged PRs that (1)
+resolve a GitHub issue and (2) make changes to the test files of the repository, which indicates that
+the user likely contributed tests to check whether the issue has been resolved.
+Stage III: Execution-based filtering. For each candidate task, we apply the PR’s test content, and
+log the associated test results before and after the PR’s other content is applied. We filter out task
+instances without at least one test where its status changes from a fail to pass (henceforth referred
+to as fail-to-pass test). We also filter out instances that result in installation or runtime errors.
+2
+
+Published as a conference paper at ICLR 2024
+Through these stages of filtering, the original 90,000 PRs are filtered down to the 2,294 task in-
+stances which comprise SWE-bench. A final breakdown of these task instances across repositories
+is presented in Figure 3, and Table 1 highlights the key features of SWE-bench task instances. We
+highlight that the codebases are large with thousands of files, and the reference pull requests often
+make changes to multiple files at once. Technical details about SWE-bench’s construction pipeline
+are discussed in Appendix A. Additional dataset statistics are in Appendix A.5.
+2.2 T ASK FORMULATION
+Model input. A model is given an issue text description and a complete codebase. The model is
+then tasked to make an edit to the codebase to resolve the issue. In practice, we represent edits as
+patch files, which specify which lines in the codebase to modify in order to resolve the issue.
+Evaluation metrics. To evaluate a proposed solution, we apply the generated patch, using unix’s
+patch program, to the codebase and then execute the unit and system tests associated with the
+task instance. If the patch applies successfully and all of these tests pass we consider the proposed
+solution to have successfully resolved the issue. The metric for our benchmark is the percentage of
+task instances that are resolved. Additional technical details in Appendix A.4.
+2.3 F EATURES OF SWE- BENCH
+Traditional benchmarks in NLP typically involve only short input and output sequences and consider
+somewhat “contrived” problems created specifically for the benchmark. In contrast, SWE-bench’s
+realistic construction setting imbues the dataset with unique properties, which we discuss below.
+Real-world software engineering tasks . Since each task instance in SWE-bench consists of a
+large and complex codebase and a description of a relevant issue, solving SWE-bench requires
+demonstrating sophisticated skills and knowledge possessed by experienced software engineers but
+are not commonly evaluated in traditional code generation benchmarks.
+Continually updatable. Our collection process can be easily applied to any Python repository on
+GitHub and requires minimal human intervention. Therefore, we can extend SWE-bench with a
+continual supply of new task instances and evaluate LMs on issues created after their training date,
+which ensures that the solution was not included in their training corpus.
+Diverse long inputs. Issue descriptions are typically long and detailed (195 words on average), and
+codebases regularly contain many thousands of files. Solving SWE-bench requires identifying the
+relatively small number of lines that need to be edited to solve an issue amongst a sea of context.
+Robust evaluation. For each task instance, there is at least one fail-to-pass test which was used
+to test the reference solution, and 40% of instances have at least two fail-to-pass tests. These tests
+evaluate whether the model addressed the problem in the issue. In addition, a median of51 additional
+tests run to check whether prior functionality is properly maintained.
+Cross-context code editing. Unlike prior settings that may constrain edit scope to an individ-
+ual function or class (e.g., Chen et al., 2021; Cassano et al., 2022) or provide cloze-style fill-in
+blanks (e.g., Lu et al., 2021; Fried et al., 2023), SWE-bench does not provide such explicit guid-
+ance. Rather than merely having to produce a short code snippet, our benchmark challenges models
+to generate revisions in multiple locations of a large codebase. SWE-bench’s reference solutions
+average editing 1.7 files, 3.0 functions, and 32.8 lines (added or removed).
+Wide scope for possible solutions. The task of repository-scale code editing can serve as a level
+playing field to compare approaches ranging from retrieval and long-context models to decision-
+making agents, which could reason and act in code. SWE-bench also allows creative freedom, as
+models can generate novel solutions that may deviate from the reference PR.
+2.4 SWE- BENCH LITE
+Evaluating LMs on SWE-bench can be time-consuming and, depending on the model, require a
+costly amount of compute or API credits. Given that initial performance returns as presented in
+Section 5 are quite low, SWE-bench’s difficulty makes it useful for gauging LM progress in the long
+term, but potentially intimidating for initial systems that attempt to make progress in the short term.
+3

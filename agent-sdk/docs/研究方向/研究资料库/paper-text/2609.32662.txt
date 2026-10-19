@@ -1,0 +1,204 @@
+AsynCodeBench
+ASYNCODEBENCH: BENCHMARKING
+COLLABORATION OFASYNCHRONOUSMULTI-AGENT
+SYSTEMS INSOFTWAREENGINEERING
+Kaituo Zhang
+University of Houston
+Zhen Xiong
+New York University
+Zhimeng Jiang
+Texas A&M University
+Mingyu Zhong
+University of Houston
+Zhouyuan Yuan
+UCSD
+Zhecheng Li
+UCSD
+Bowen Lin
+University of Houston
+Chia-Yuan Chang
+Texas A&M University
+Mingzhi Hu
+Worcester Polytechnic Institute
+Huazheng Wang
+Oregon State University
+Ying Lin
+University of Houston
+ABSTRACT
+Multi-agent coding has emerged as an increasingly active direction in software
+engineering, where complex development tasks are decomposed across multiple
+specialized agents working on different parts of the problem. Despite the shift
+from individual problem solving to distributed collaboration, multi-agent sys-
+tems still lack a direct measure of collaboration and are largely evaluated through
+task-level outcomes inherited from single-agent coding, conflating individual cod-
+ing capability with cross-agent coordination. We introduceAsynCodeBench, a
+dependency-centric benchmark for asynchronous multi-agent software engineer-
+ing that represents each task with an explicit dependency graph and executable
+Dependency Checkers. Through this dependency-tracking process, we propose
+two complementary measures:A synchronous D ependency P ass R ate(ADPR),
+which measures how many cross-agent dependencies are ultimately satisfied, and
+Dependency Resolution Step (DRS), which measures when each dependency first
+becomes satisfied during execution. AsynCodeBench comprises 19 tasks from
+real-world repositories, exposing 52 directed dependencies as explicit units for
+evaluating cross-agent collaboration. Experiments across model families, scales,
+and generations reveal a clear gap between coding and collaboration capability:
+improvements in coding performance do not necessarily translate into stronger
+collaboration, and task-level metrics can diverge substantially from dependency-
+level collaboration measures. Dependency-trajectory analysis further reveals that
+successful coordination often emerges not gradually, but through concentrated
+bursts in which many dependencies become resolved over a short portion of the
+execution trajectory, a pattern we term a hopping window. These findings po-
+sition dependency dynamics as a useful lens for understanding and interpreting
+collaboration behavior in asynchronous multi-agent software engineering.
+/githubgithub.com/KaituoZhang/AsynCodeBench🔗AsynCodeBench.org
+1 INTRODUCTION
+Large language model agents have rapidly expanded from code generation to repository-level soft-
+ware engineering, where they can modify files, execute tests, and iteratively repair implementa-
+tions (Jimenez et al., 2024; Yang et al., 2024a). Multi-agent software development has conse-
+quently emerged as an active direction, with systems such as ChatDev, MetaGPT, RTADev, CAID,
+1
+arXiv:2609.32662v1  [cs.SE]  26 Sep 2026
+
+AsynCodeBench
+and CodeTeam distributing planning, implementation, testing, and coordination across specialized
+agents (Qian et al., 2024; Hong et al., 2024; Liu et al., 2025; Wang et al., 2026; Geng & Neubig,
+2026). Recent work has also begun to study interaction and coordination more explicitly, includ-
+ing recovery from out-of-sync states and corrective interaction during coding (Guo et al., 2025; Wu
+et al., 2026). Yet multi-agent software engineering introduces a capability beyond solving the task
+itself: agents must coordinate their independently produced work. Strong performance in single-
+agent coding therefore does not necessarily imply effective collaboration in a multi-agent setting.
+Evaluation, however, remains largely focused on final task outcomes. Repository-level benchmarks
+such as SWE-bench assess the final implementation through executable tests (Jimenez et al., 2024),
+while multi-agent coding systems often report gains using the same end-task metrics over single-
+agent baselines (Geng & Neubig, 2026; Wang et al., 2026). These comparisons show whether
+multi-agent execution performs better, but do not directly measure collaboration: final scores con-
+flate individual coding ability with cross-agent coordination and may hide unresolved dependencies
+across independently implemented components.
+We therefore use cross-component software dependencies as a lens for collaboration and introduce
+AsynCodeBench, a dependency-centric benchmark for asynchronous multi-agent software engi-
+neering. Unlike existing evaluations that characterize collaboration through final task outcomes or
+isolated interaction behaviors, AsynCodeBench makes cross-agent dependency resolution observ-
+able throughout execution. We introduce Asynchronous Dependency Pass Rate (ADPR) to capture
+dependency resolution and Dependency Resolution Step (DRS) to capture resolution timing, en-
+abling collaboration to be evaluated both by its outcome and by how it develops over time.
+Our study provides a dependency-centric view of collaboration in multi-agent software engineering,
+separating collaboration capability from conventional coding performance and making its evolution
+observable throughout execution. Using AsynCodeBench, we find that multi-agent execution is not
+uniformly stronger than single-agent execution, and that within the evaluated Qwen family, stronger
+single-agent coding performance does not improve all aspects of collaboration. Dependency tra-
+jectories further reveal a recurringhoppingphenomenon, where substantial dependency resolution
+is often established through concentrated phases whose timing varies across models and execution
+protocols. Finally, dependency-aware evaluation can lead to different quality–cost assessments from
+conventional test-based metrics. These findings highlight collaboration as a distinct capability that
+cannot be fully characterized by final coding outcomes alone.
+2 RELATEDWORK
+2.1 REPOSITORY-LEVELCODINGAGENTS ANDBENCHMARKS
+Repository-level coding benchmarks have emerged to bridge the gap between closed-form code
+generation and real software engineering, where solving a task requires reasoning over an existing
+codebase rather than completing an isolated function (Ding et al., 2023; Liu et al., 2024; Jimenez
+et al., 2024). This setting preserves challenges that are largely abstracted away by function-level
+evaluation, including cross-file reasoning, software dependencies, execution feedback, and consis-
+tency across interacting changes (Gautam et al., 2025; Li et al., 2025; Deng et al., 2025; Le et al.,
+2026; Ding et al., 2026). To retain these challenges, benchmark construction has increasingly relied
+on real repositories and development artifacts together with executable validation, preserving much
+of the surrounding software context encountered in practice (Jimenez et al., 2024; Li et al., 2025;
+Pan et al., 2025; Miserendino et al., 2025; Badertdinov et al., 2025; Vergopoulos et al., 2025). This
+repository-grounded paradigm has since expanded across software ecosystems and toward increas-
+ingly broad and long-horizon development tasks, ranging from feature and library implementation to
+software evolution and repository-scale transformation (Yang et al., 2024b; Zan et al., 2025; Rashid
+et al., 2025; Zhao et al., 2024; Yang et al., 2025; Badertdinov et al., 2026; Le et al., 2026; Hong
+et al., 2026). Yet as the tasks themselves have become more realistic and extended over time, their
+evaluation still largely reduces execution to final task completion, leaving intermediate progress and
+failure dynamics comparatively under-characterized.
+2
+
+AsynCodeBench
+2.2 MULTI-AGENTSOFTWAREENGINEERING
+Multi-agent software engineering has rapidly expanded from role-based workflows toward
+repository-scale collaboration, with increasingly sophisticated mechanisms for specialization, dele-
+gation, integration, and concurrent execution (Qian et al., 2024; Hong et al., 2024; Liu et al., 2025;
+Wang et al., 2026; Oliveira et al., 2026; Costa, 2026; Kumar et al., 2026). Despite this shift, evalua-
+tion still largely inherits a single-agent perspective, judging multi-agent systems by end-task perfor-
+mance or gains over single-agent baselines rather than measuring collaboration itself (Khatua et al.,
+2026; Donato et al., 2026; Destefanis & Aste, 2026). Recent work has begun to expose this gap
+through failure analysis, out-of-sync recovery, role-separated coordination, distributed communica-
+tion, and interactive coding (Cemri et al., 2025; Guo et al., 2025; Kim et al., 2026; Zhang et al.,
+2026b; Wu et al., 2026). AsynCodeBench goes further by tracing the dependencies that must be re-
+solved across independently implemented components, revealing failed handoffs and coordination
+dynamics that can remain hidden behind final task performance.
+3 BENCHMARKCONSTRUCTION
+3.1 PROBLEMDEFINITION
+Multi-agent software engineering often decomposes a coding task across multiple agents, each re-
+sponsible for a different implementation unit. We refer to collaboration asasynchronouswhen
+these agents proceed independently without necessarily waiting for dependent agents to complete
+or propagate their updates. When dependencies exist across their subproblems, this execution
+parser.py api.py
+schema.py tests.py
+Execution results(outcome-only)
+<parser.py> Passed
+<api.py> Failed
+<tests.py> Failed
+<schema.py> Passed
+Outcome-only evaluation:
+Only know the task failed
+Update parser 
+for feature 
+extraction
+Adapt api / 
+tests to 
+parser
+commit abc1234 
+parser.py 
+updated
+api.py / tests.py 
+still depend on 
+old parser
+𝒕𝒊
+𝒕𝒋
+𝒕𝒌
+Asynchronous collaboration 
+failed on dependent tasks
+Multi-file and Multi-agent coding task Dependent and asynchronous process
+working…
+Still using 
+the old 
+dependency
+Updated
+Failed
+Agent A Agent B
+Dependency 
+matters
+Figure 1: A small illustration of the existing gap.
+pattern can create coordination failures: a
+downstream agent may continue working with
+incomplete or outdated upstream behavior,
+causing the independently produced implemen-
+tations to become inconsistent when they are
+integrated. We refer to failures arising from
+this interaction between asynchronous execu-
+tion and software dependencies as theasyn-
+chronous coordination problemstudied in
+AsynCodeBench. A key difficulty is that
+these failures are often hidden by traditional
+outcome-only evaluation, since dependencies
+across agents’ subproblems are typically im-
+plicit and not explicitly tracked. As illustrated
+in Figure 1, the evaluator may identify failed
+components without revealing the stale depen-
+dency between agents that produced them. This
+makes it difficult to determine whether the failure reflects limitations in individual coding capability
+or in multi-agent collaboration.
+The key question is therefore whether dependencies between agents’ implementations are correctly
+maintained during collaboration, rather than only whether the final repository succeeds. In Asyn-
+CodeBench, a dependency exists when the correctness of code assigned to one agent depends
+on code implemented by another, such as a required function, interface, data structure, or shared
+state. We make these dependencies explicit through task-specific dependency graphs, evaluate them
+with executable Dependency Checkers, and track them across integration checkpoints to determine
+whether and when they are resolved.
+3.2 DEPENDENCYGRAPH ANDEXECUTABLECHECKERS
+We operationalize asynchronous coordination through four benchmark components,
+B= (R,G,C,E),
+whereBdenotes AsynCodeBench,Rthe repository and target coding task,Gthe task-specific
+dependency graph,Cthe executable Dependency Checkers defined over the dependencies inG, and
+Ethe benchmark evaluation.
+3

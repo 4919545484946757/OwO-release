@@ -1,0 +1,132 @@
+[
+  [
+    "工程代码结构说明.md",
+    "architecture/工程代码结构说明.md",
+    "架构入口；源码职责快照"
+  ],
+  [
+    "ARCH-MICROKERNEL.md",
+    "architecture/ARCH-MICROKERNEL.md",
+    "拆分边界与实施台账；保留设计依据"
+  ],
+  [
+    "AUDIT-MICROKERNEL-2026-09-20.md",
+    "reports/archive/2026-09/AUDIT-MICROKERNEL-2026-09-20.md",
+    "9 月审计快照；不代表当前状态"
+  ],
+  [
+    "ci.md",
+    "guides/ci.md",
+    "开发使用说明"
+  ],
+  [
+    "model-config.md",
+    "guides/model-config.md",
+    "模型配置使用说明；配置口径需按源码核对"
+  ],
+  [
+    "Team架构综合审查与改造方案-2026-10-06.md",
+    "plans/team/Team架构综合审查与改造方案-2026-10-06.md",
+    "较新的 Team 架构方案；实施与测试结论按正文"
+  ],
+  [
+    "Team引擎架构重构方案-2026-10-02.md",
+    "plans/archive/2026-10/Team引擎架构重构方案-2026-10-02.md",
+    "早期重构设计参考；保留完整论证"
+  ],
+  [
+    "CLI-team-自动并行与共享上下文-优化方案-2026-10-02.md",
+    "plans/archive/2026-10/CLI-team-自动并行与共享上下文-优化方案-2026-10-02.md",
+    "10 月初源码诊断；共享上下文建议仍供参考"
+  ],
+  [
+    "Agent 能力发展方案.md",
+    "plans/archive/2026-09/Agent 能力发展方案.md",
+    "9 月产品设想与状态快照"
+  ],
+  [
+    "ROADMAP-PARITY.md",
+    "plans/archive/2026-09/ROADMAP-PARITY.md",
+    "9 月对标路线草案"
+  ],
+  [
+    "效能核心改造方案.md",
+    "plans/archive/2026-09/效能核心改造方案.md",
+    "9 月实施稿；不自动认定所有步骤已落地"
+  ],
+  [
+    "桌宠功能审核与接入规划.md",
+    "plans/product/桌宠功能审核与接入规划.md",
+    "含 10 月交互口径；保留产品设计参考"
+  ],
+  [
+    "Agent任务执行可靠性审查与优化方案-2026-10-10.md",
+    "reports/reliability/Agent任务执行可靠性审查与优化方案-2026-10-10.md",
+    "10 月 Electron 可靠性审查"
+  ],
+  [
+    "项目非桌面链路与CLI进度审查及优化方案-2026-10-10.md",
+    "reports/reliability/项目非桌面链路与CLI进度审查及优化方案-2026-10-10.md",
+    "同基线非桌面链路审查"
+  ],
+  [
+    "主要问题修复进展与验收计划-2026-10-10.md",
+    "reports/reliability/主要问题修复进展与验收计划-2026-10-10.md",
+    "试用包阶段性修复与验收状态"
+  ],
+  [
+    "reports/Team速度与交付质量问题解决报告-2026-10-05.md",
+    "reports/team/Team速度与交付质量问题解决报告-2026-10-05.md",
+    "Team 专项报告"
+  ],
+  [
+    "reports/Team速度与交付质量问题解决报告-2026-10-08-实测.md",
+    "reports/team/Team速度与交付质量问题解决报告-2026-10-08-实测.md",
+    "Team 专项实测记录"
+  ],
+  [
+    "reports/自定义模型连接修复记录-2026-10-10.md",
+    "reports/reliability/自定义模型连接修复记录-2026-10-10.md",
+    "配置修复记录"
+  ],
+  [
+    "reports/engine-sync-report-2026-10-01.md",
+    "reports/archive/2026-10/engine-sync-report-2026-10-01.md",
+    "历史合并记录"
+  ],
+  [
+    "reports/code-review-2026-10-02.md",
+    "reports/archive/2026-10/code-review-2026-10-02.md",
+    "历史代码审查快照"
+  ],
+  [
+    "reports/strategy-review-2026-10-02.md",
+    "reports/archive/2026-10/strategy-review-2026-10-02.md",
+    "历史战略审查快照"
+  ],
+  [
+    "reports/SECURITY_UPDATE_SUMMARY.md",
+    "reports/archive/undated/SECURITY_UPDATE_SUMMARY.md",
+    "未注明可复核基线的历史安全更新摘要"
+  ],
+  [
+    "reports/storage_crypto_refactor_summary.md",
+    "reports/archive/undated/storage_crypto_refactor_summary.md",
+    "历史存储改造摘要"
+  ],
+  [
+    "reports/v1-r0-closeout.md",
+    "reports/archive/baselines/v1-r0-closeout.md",
+    "8 月 V1 验收记录；不作为新版本证明"
+  ],
+  [
+    "reports/v1-r1-baseline-first-run.md",
+    "reports/archive/baselines/v1-r1-baseline-first-run.md",
+    "早期首次运行基线"
+  ],
+  [
+    "reports/v1-r1-live-baseline.md",
+    "reports/archive/baselines/v1-r1-live-baseline.md",
+    "早期真实模型基线"
+  ]
+]

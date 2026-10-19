@@ -1,0 +1,98 @@
+[
+  {
+    "path": "src/evaluate_prompted_agent.py",
+    "sha256": "9a866bdec0c7da0abed9c0288b0f49404e62e77b8b2b623684d743ca87dbe4ae",
+    "bytes": 6421,
+    "symbols": [
+      "def predict_one_case(system_prompt, user_prompt, params, item, model_class, tool_dict, step_2=False):",
+      "def main(params):"
+    ]
+  },
+  {
+    "path": "src/evaluate_finetuned_agent.py",
+    "sha256": "3dfd02b5f663ca39b4eb22669ebb0b639a81e38fc7eed63f6a65501a27478cce",
+    "bytes": 5271,
+    "symbols": [
+      "class Function(BaseModel):",
+      "class ChatCompletionMessageToolCall(BaseModel):",
+      "class FunctionCall(BaseModel):",
+      "class ChatCompletionMessage(BaseModel):",
+      "def predict_one_case(system_prompt, user_prompt, params, item, tool_dict, step_2=False):",
+      "def main(params):"
+    ]
+  },
+  {
+    "path": "src/prompts/agent_prompts.py",
+    "sha256": "f0249e434c46a9944dab9797edee4cd41e4fc6fceb48b8b8004585a7a4866037",
+    "bytes": 9414,
+    "symbols": []
+  },
+  {
+    "path": "src/utils.py",
+    "sha256": "ab21487f92cb14840d69dded17f176ceaa60690469e8cf9b141f87d3f9795d06",
+    "bytes": 7341,
+    "symbols": [
+      "def get_score(output_files):",
+      "def transform_tool_format_gpt(tool):",
+      "def get_tool_dict(gpt_format=False):",
+      "def extract_content(text):",
+      "def get_simulated_attacker_tool_response(attacker_tool, attacker_tool_parameters, tool_dict):",
+      "def get_response_text(data, anchor):"
+    ]
+  },
+  {
+    "path": "src/models.py",
+    "sha256": "5d48592c29ee6d3535d1c5f3d2b9de3eea67690eba2a1e7e71e8ec7357fb7900",
+    "bytes": 4403,
+    "symbols": [
+      "class BaseModel:",
+      "def __init__(self):",
+      "def prepare_input(self, sys_prompt,  user_prompt_filled):",
+      "def call_model(self, model_input):",
+      "class ClaudeModel(BaseModel):",
+      "def __init__(self, params):",
+      "def prepare_input(self, sys_prompt, user_prompt_filled):",
+      "def call_model(self, model_input):",
+      "class GPTModel(BaseModel):",
+      "def __init__(self, params):",
+      "def prepare_input(self, sys_prompt, user_prompt_filled):",
+      "def call_model(self, model_input):"
+    ]
+  },
+  {
+    "path": "src/params.py",
+    "sha256": "9ff2221b2bc8dca98ddb1ae987b2617b30e9b86fa95af9d59629e05e4e0da0f1",
+    "bytes": 1605,
+    "symbols": [
+      "def define_arguments_prompted(parser):",
+      "def define_arguments_finetuned(parser):",
+      "def parse_arguments(agent_type=None):"
+    ]
+  },
+  {
+    "path": "src/output_parsing.py",
+    "sha256": "b841348cdbc5b87c781bed4a592d375d02d51769ac2435cf2e7e69c08a03937b",
+    "bytes": 9662,
+    "symbols": [
+      "def output_parser(paragraph):",
+      "def truncate_at_marker(text, marker=\"[/INST]\"):",
+      "def detect_overly_long_sequences(text):",
+      "def detect_repetitive_language(text, n_gram = 8, n_rep = 10):",
+      "def evaluate_output_prompted(output, target_tool, attacker_tools, user_tool, attacker_instruction, word_num=500):",
+      "def evaluate_output_finetuned(output, target_tool, user_tool, tool_calls):",
+      "def find_leaf_files(directory):"
+    ]
+  },
+  {
+    "path": "src/prompts/prompt_template.py",
+    "sha256": "370dfcde5cc3bcb6ebaa7825e90fb7ea7902e641f70a5a658a23306ba5058c9e",
+    "bytes": 15024,
+    "symbols": []
+  },
+  {
+    "path": "src/prompts/generation_prompts.py",
+    "sha256": "912d3f77008f3798f832f86df08a4a0fe93ad5be35358f44b379e33a255474f3",
+    "bytes": 19261,
+    "symbols": []
+  }
+]

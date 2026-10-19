@@ -1,0 +1,175 @@
+AutoGen: Enabling Next-Gen LLM
+Applications via Multi-Agent Conversation
+Qingyun Wu†, Gagan Bansal∗, Jieyu Zhang±, Yiran Wu†, Beibin Li∗
+Erkang Zhu∗, Li Jiang∗, Xiaoyun Zhang∗, Shaokun Zhang†, Jiale Liu∓
+Ahmed Awadallah∗, Ryen W. White∗, Doug Burger∗, Chi Wang∗1
+∗Microsoft Research,†Pennsylvania State University
+±University of Washington,∓Xidian University
+Agent Customization
+Conversable agent
+Flexible Conversation Patterns
+…
+ …
+…
+…
+…
+…
+ …
+Hierarchical chatJoint chat
+Multi-Agent Conversations
+…
+Execute the 
+following code…
+Got it! Here is the 
+revised code …
+No, please plot % 
+change!
+Plot a chart of 
+META and TESLA 
+stock price change 
+YTD.
+Output:
+$
+Month
+Output:
+%
+Month
+Error package 
+yfinanceis not 
+installed
+Sorry! Please first 
+pip install yfinance
+and then execute 
+the code
+Installing…
+Example Agent Chat
+Figure 1: AutoGen enables diverse LLM-based applications using multi-agent conversations. (Left)
+AutoGen agents are conversable, customizable, and can be based on LLMs, tools, humans, or even
+a combination of them. (Top-middle) Agents can converse to solve tasks. (Right) They can form
+a chat, potentially with humans in the loop. (Bottom-middle) The framework supports flexible
+conversation patterns.
+Abstract
+AutoGen2 is an open-source framework that allows developers to build LLM ap-
+plications via multiple agents that can converse with each other to accomplish
+tasks. AutoGen agents are customizable, conversable, and can operate in vari-
+ous modes that employ combinations of LLMs, human inputs, and tools. Using
+AutoGen, developers can also flexibly define agent interaction behaviors. Both
+natural language and computer code can be used to program flexible conversation
+patterns for different applications. AutoGen serves as a generic framework for
+building diverse applications of various complexities and LLM capacities. Em-
+pirical studies demonstrate the effectiveness of the framework in many example
+applications, with domains ranging from mathematics, coding, question answer-
+ing, operations research, online decision-making, entertainment, etc.
+1Corresponding author. Email: auto-gen@outlook.com
+2https://github.com/microsoft/autogen
+arXiv:2308.08155v2  [cs.AI]  3 Oct 2023
+
+1 Introduction
+Large language models (LLMs) are becoming a crucial building block in developing powerfulagents
+that utilize LLMs for reasoning, tool usage, and adapting to new observations (Yao et al., 2022; Xi
+et al., 2023; Wang et al., 2023b) in many real-world tasks. Given the expanding tasks that could
+benefit from LLMs and the growing task complexity, an intuitive approach to scale up the power of
+agents is to use multiple agents that cooperate. Prior work suggests that multiple agents can help
+encourage divergent thinking (Liang et al., 2023), improve factuality and reasoning (Du et al., 2023),
+and provide validation (Wu et al., 2023). In light of the intuition and early evidence of promise, it is
+intriguing to ask the following question:how can we facilitate the development of LLM applications
+that could span a broad spectrum of domains and complexities based on the multi-agent approach?
+Our insight is to use multi-agent conversations to achieve it. There are at least three reasons con-
+firming its general feasibility and utility thanks to recent advances in LLMs: First, because chat-
+optimized LLMs (e.g., GPT-4) show the ability to incorporate feedback, LLM agents can cooperate
+through conversations with each other or human(s), e.g., a dialog where agents provide and seek rea-
+soning, observations, critiques, and validation. Second, because a single LLM can exhibit a broad
+range of capabilities (especially when configured with the correct prompt and inference settings),
+conversations between differently configured agents can help combine these broad LLM capabilities
+in a modular and complementary manner. Third, LLMs have demonstrated ability to solve complex
+tasks when the tasks are broken into simpler subtasks. Multi-agent conversations can enable this
+partitioning and integration in an intuitive manner. How can we leverage the above insights and
+support different applications with the common requirement of coordinating multiple agents, poten-
+tially backed by LLMs, humans, or tools exhibiting different capacities? We desire a multi-agent
+conversation framework with generic abstraction and effective implementation that has the flexibil-
+ity to satisfy different application needs. Achieving this requires addressing two critical questions:
+(1) How can we design individual agents that are capable, reusable, customizable, and effective in
+multi-agent collaboration? (2) How can we develop a straightforward, unified interface that can
+accommodate a wide range of agent conversation patterns? In practice, applications of varying
+complexities may need distinct sets of agents with specific capabilities, and may require different
+conversation patterns, such as single- or multi-turn dialogs, different human involvement modes, and
+static vs. dynamic conversation. Moreover, developers may prefer the flexibility to program agent
+interactions in natural language or code. Failing to adequately address these two questions would
+limit the framework’s scope of applicability and generality.
+While there is contemporaneous exploration of multi-agent approaches, 3 we present AutoGen, a
+generalized multi-agent conversation framework (Figure 1), based on the following new concepts.
+1 Customizable and conversable agents. AutoGen uses a generic design of agents that can lever-
+age LLMs, human inputs, tools, or a combination of them. The result is that developers can
+easily and quickly create agents with different roles (e.g., agents to write code, execute code,
+wire in human feedback, validate outputs, etc.) by selecting and configuring a subset of built-in
+capabilities. The agent’s backend can also be readily extended to allow more custom behaviors.
+To make these agents suitable for multi-agent conversation, every agent is made conversable –
+they can receive, react, and respond to messages. When configured properly, an agent can hold
+multiple turns of conversations with other agents autonomously or solicit human inputs at cer-
+tain rounds, enabling human agency and automation. The conversable agent design leverages the
+strong capability of the most advanced LLMs in taking feedback and making progress via chat
+and also allows combining capabilities of LLMs in a modular fashion. (Section 2.1)
+2 Conversation programming. A fundamental insight of AutoGen is to simplify and unify com-
+plex LLM application workflows as multi-agent conversations. So AutoGen adopts a program-
+ming paradigm centered around these inter-agent conversations. We refer to this paradigm as
+conversation programming, which streamlines the development of intricate applications via two
+primary steps: (1) defining a set of conversable agents with specific capabilities and roles (as
+described above); (2) programming the interaction behavior between agents via conversation-
+centric computation and control. Both steps can be achieved via a fusion of natural and pro-
+gramming languages to build applications with a wide range of conversation patterns and agent
+behaviors. AutoGen provides ready-to-use implementations and also allows easy extension and
+experimentation for both steps. (Section 2.2)
+3We refer to Appendix A for a detailed discussion.
+2
+
+AutoGen also provides a collection of multi-agent applications created using conversable agents
+and conversation programming. These applications demonstrate how AutoGen can easily support
+applications of various complexities and LLMs of various capabilities. Moreover, we perform both
+evaluation on benchmarks and a pilot study of new applications. The results show thatAutoGen can
+help achieve outstanding performance on many tasks, and enable innovative ways of using LLMs,
+while reducing development effort. (Section 3 and Appendix D)
+2 The AutoGen Framework
+To reduce the effort required for developers to create complex LLM applications across various do-
+mains, a core design principle of AutoGen is to streamline and consolidate multi-agent workflows
+using multi-agent conversations. This approach also aims to maximize the reusability of imple-
+mented agents. This section introduces the two key concepts of AutoGen: conversable agents and
+conversation programming.
+2.1 Conversable Agents
+In AutoGen, a conversable agent is an entity with a specific role that can pass messages to send and
+receive information to and from other conversable agents, e.g., to start or continue a conversation. It
+maintains its internal context based on sent and received messages and can be configured to possess
+a set of capabilities, e.g., enabled by LLMs, tools, or human input, etc. The agents can act according
+to programmed behavior patterns described next.
+Agent capabilities powered by LLMs, humans, and tools. Since an agent’s capabilities directly
+influence how it processes and responds to messages,AutoGen allows flexibility to endow its agents
+with various capabilities. AutoGen supports many common composable capabilities for agents,
+including 1) LLMs. LLM-backed agents exploit many capabilities of advanced LLMs such as role
+playing, implicit state inference and progress making conditioned on conversation history, providing
+feedback, adapting from feedback, and coding. These capabilities can be combined in different ways
+via novel prompting techniques 4 to increase an agent’s skill and autonomy. AutoGen also offers
+enhanced LLM inference features such as result caching, error handling, message templating, etc.,
+via an enhanced LLM inference layer. 2) Humans. Human involvement is desired or even essential
+in many LLM applications. AutoGen lets a human participate in agent conversation via human-
+backed agents, which could solicit human inputs at certain rounds of a conversation depending on
+the agent configuration. The default user proxy agent allows configurable human involvement levels
+and patterns, e.g., frequency and conditions for requesting human input including the option for
+humans to skip providing input. 3) Tools. Tool-backed agents have the capability to execute tools
+via code execution or function execution. For example, the default user proxy agent in AutoGen is
+able to execute code suggested by LLMs, or make LLM-suggested function calls.
+Agent customization and cooperation. Based on application-specific needs, each agent can be
+configured to have a mix of basic back-end types to display complex behavior in multi-agent con-
+versations. AutoGen allows easy creation of agents with specialized capabilities and roles by reusing
+or extending the built-in agents. The yellow-shaded area of Figure 2 provides a sketch of the built-in
+agents in AutoGen. The ConversableAgent class is the highest-level agent abstraction and, by
+default, can use LLMs, humans, and tools. The AssistantAgent and UserProxyAgent are two
+pre-configured ConversableAgent subclasses, each representing a common usage mode, i.e., act-
+ing as an AI assistant (backed by LLMs) and acting as a human proxy to solicit human input or
+execute code/function calls (backed by humans and/or tools).
+In the example on the right-hand side of Figure 1, an LLM-backed assistant agent and a tool- and
+human-backed user proxy agent are deployed together to tackle a task. Here, the assistant agent
+generates a solution with the help of LLMs and passes the solution to the user proxy agent. Then,
+the user proxy agent solicits human inputs or executes the assistant’s code and passes the results as
+feedback back to the assistant.
+4Appendix C presents an example of such novel prompting techniques which empowers the default LLM-
+backed assistant agent in AutoGen to converse with other agents in multi-step problem solving.
+3

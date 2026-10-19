@@ -1,0 +1,432 @@
+{
+  "checked_at": "2026-10-13",
+  "scope": "maintained docs and new research cards; excludes untouched reference draft, third-party READMEs, raw evidence snapshots, downloaded source documentation",
+  "pdf_count": 48,
+  "zip_count": 41,
+  "checksum_entries": 89,
+  "selected_source_files": 477,
+  "markdown_files_checked": 162,
+  "local_links_checked": 1448,
+  "broken_links": [],
+  "utf8_valid_count": 162,
+  "checksum_match": true,
+  "pdf_results": [
+    {
+      "file": "papers/2210.03629.pdf",
+      "pages": 33,
+      "valid": true
+    },
+    {
+      "file": "papers/2302.04761.pdf",
+      "pages": 17,
+      "valid": true
+    },
+    {
+      "file": "papers/2303.11366.pdf",
+      "pages": 19,
+      "valid": true
+    },
+    {
+      "file": "papers/2303.17760.pdf",
+      "pages": 77,
+      "valid": true
+    },
+    {
+      "file": "papers/2304.03442.pdf",
+      "pages": 22,
+      "valid": true
+    },
+    {
+      "file": "papers/2307.07924.pdf",
+      "pages": 13,
+      "valid": true
+    },
+    {
+      "file": "papers/2307.13854.pdf",
+      "pages": 22,
+      "valid": true
+    },
+    {
+      "file": "papers/2308.00352.pdf",
+      "pages": 29,
+      "valid": true
+    },
+    {
+      "file": "papers/2308.03688.pdf",
+      "pages": 58,
+      "valid": true
+    },
+    {
+      "file": "papers/2308.08155.pdf",
+      "pages": 43,
+      "valid": true
+    },
+    {
+      "file": "papers/2308.10848.pdf",
+      "pages": 39,
+      "valid": true
+    },
+    {
+      "file": "papers/2308.11432.pdf",
+      "pages": 42,
+      "valid": true
+    },
+    {
+      "file": "papers/2309.02427.pdf",
+      "pages": 32,
+      "valid": true
+    },
+    {
+      "file": "papers/2309.07864.pdf",
+      "pages": 86,
+      "valid": true
+    },
+    {
+      "file": "papers/2310.02170.pdf",
+      "pages": 30,
+      "valid": true
+    },
+    {
+      "file": "papers/2310.03714.pdf",
+      "pages": 32,
+      "valid": true
+    },
+    {
+      "file": "papers/2310.06770.pdf",
+      "pages": 52,
+      "valid": true
+    },
+    {
+      "file": "papers/2310.08560.pdf",
+      "pages": 13,
+      "valid": true
+    },
+    {
+      "file": "papers/2401.13178.pdf",
+      "pages": 38,
+      "valid": true
+    },
+    {
+      "file": "papers/2402.01680.pdf",
+      "pages": 15,
+      "valid": true
+    },
+    {
+      "file": "papers/2402.14034.pdf",
+      "pages": 37,
+      "valid": true
+    },
+    {
+      "file": "papers/2403.02691.pdf",
+      "pages": 36,
+      "valid": true
+    },
+    {
+      "file": "papers/2404.07972.pdf",
+      "pages": 51,
+      "valid": true
+    },
+    {
+      "file": "papers/2405.15793.pdf",
+      "pages": 118,
+      "valid": true
+    },
+    {
+      "file": "papers/2406.12045.pdf",
+      "pages": 50,
+      "valid": true
+    },
+    {
+      "file": "papers/2406.13352.pdf",
+      "pages": 26,
+      "valid": true
+    },
+    {
+      "file": "papers/2407.01489.pdf",
+      "pages": 25,
+      "valid": true
+    },
+    {
+      "file": "papers/2407.16741.pdf",
+      "pages": 38,
+      "valid": true
+    },
+    {
+      "file": "papers/2408.02479.pdf",
+      "pages": 50,
+      "valid": true
+    },
+    {
+      "file": "papers/2408.08435.pdf",
+      "pages": 34,
+      "valid": true
+    },
+    {
+      "file": "papers/2410.10762.pdf",
+      "pages": 38,
+      "valid": true
+    },
+    {
+      "file": "papers/2502.12110.pdf",
+      "pages": 28,
+      "valid": true
+    },
+    {
+      "file": "papers/2503.13657.pdf",
+      "pages": 47,
+      "valid": true
+    },
+    {
+      "file": "papers/2504.19413.pdf",
+      "pages": 23,
+      "valid": true
+    },
+    {
+      "file": "papers/2506.07982.pdf",
+      "pages": 47,
+      "valid": true
+    },
+    {
+      "file": "papers/2508.01186.pdf",
+      "pages": 12,
+      "valid": true
+    },
+    {
+      "file": "papers/2512.08296.pdf",
+      "pages": 44,
+      "valid": true
+    },
+    {
+      "file": "papers/2601.22037.pdf",
+      "pages": 17,
+      "valid": true
+    },
+    {
+      "file": "papers/2602.19320.pdf",
+      "pages": 19,
+      "valid": true
+    },
+    {
+      "file": "papers/2603.21489.pdf",
+      "pages": 22,
+      "valid": true
+    },
+    {
+      "file": "papers/2605.01604.pdf",
+      "pages": 12,
+      "valid": true
+    },
+    {
+      "file": "papers/2605.20563.pdf",
+      "pages": 19,
+      "valid": true
+    },
+    {
+      "file": "papers/2608.11965.pdf",
+      "pages": 45,
+      "valid": true
+    },
+    {
+      "file": "papers/2608.23740.pdf",
+      "pages": 26,
+      "valid": true
+    },
+    {
+      "file": "papers/2608.28490.pdf",
+      "pages": 72,
+      "valid": true
+    },
+    {
+      "file": "papers/2609.32662.pdf",
+      "pages": 30,
+      "valid": true
+    },
+    {
+      "file": "papers/2610.03448.pdf",
+      "pages": 12,
+      "valid": true
+    },
+    {
+      "file": "papers/LIPIcs.ESEM.2026.18.pdf",
+      "pages": 20,
+      "valid": true
+    }
+  ],
+  "zip_results": [
+    {
+      "repository": "0xPlaygrounds/rig",
+      "valid": true
+    },
+    {
+      "repository": "a2aproject/a2a-python",
+      "valid": true
+    },
+    {
+      "repository": "agentscope-ai/agentscope",
+      "valid": true
+    },
+    {
+      "repository": "agno-agi/agno",
+      "valid": true
+    },
+    {
+      "repository": "Aider-AI/aider",
+      "valid": true
+    },
+    {
+      "repository": "anomalyco/opencode",
+      "valid": true
+    },
+    {
+      "repository": "camel-ai/camel",
+      "valid": true
+    },
+    {
+      "repository": "cooperbench/CooperBench",
+      "valid": true
+    },
+    {
+      "repository": "crewAIInc/crewAI",
+      "valid": true
+    },
+    {
+      "repository": "ethz-spylab/agentdojo",
+      "valid": true
+    },
+    {
+      "repository": "FoundationAgents/AFlow",
+      "valid": true
+    },
+    {
+      "repository": "FoundationAgents/MetaGPT",
+      "valid": true
+    },
+    {
+      "repository": "google/adk-python",
+      "valid": true
+    },
+    {
+      "repository": "hasenoz/PASC",
+      "valid": true
+    },
+    {
+      "repository": "huggingface/smolagents",
+      "valid": true
+    },
+    {
+      "repository": "JiayiGeng/CAID",
+      "valid": true
+    },
+    {
+      "repository": "langchain-ai/langgraph",
+      "valid": true
+    },
+    {
+      "repository": "langgenius/dify",
+      "valid": true
+    },
+    {
+      "repository": "lastmile-ai/mcp-agent",
+      "valid": true
+    },
+    {
+      "repository": "letta-ai/letta",
+      "valid": true
+    },
+    {
+      "repository": "letta-ai/letta-code",
+      "valid": true
+    },
+    {
+      "repository": "mem0ai/mem0",
+      "valid": true
+    },
+    {
+      "repository": "microsoft/agent-framework",
+      "valid": true
+    },
+    {
+      "repository": "microsoft/autogen",
+      "valid": true
+    },
+    {
+      "repository": "modelcontextprotocol/rust-sdk",
+      "valid": true
+    },
+    {
+      "repository": "n8n-io/n8n",
+      "valid": true
+    },
+    {
+      "repository": "OpenBMB/ChatDev",
+      "valid": true
+    },
+    {
+      "repository": "OpenHands/OpenHands",
+      "valid": true
+    },
+    {
+      "repository": "PrefectHQ/prefect",
+      "valid": true
+    },
+    {
+      "repository": "pydantic/pydantic-ai",
+      "valid": true
+    },
+    {
+      "repository": "restatedev/sdk-typescript",
+      "valid": true
+    },
+    {
+      "repository": "ShengranHu/ADAS",
+      "valid": true
+    },
+    {
+      "repository": "sierra-research/tau-bench",
+      "valid": true
+    },
+    {
+      "repository": "stanfordnlp/dspy",
+      "valid": true
+    },
+    {
+      "repository": "strands-agents/harness-sdk",
+      "valid": true
+    },
+    {
+      "repository": "SWE-agent/SWE-agent",
+      "valid": true
+    },
+    {
+      "repository": "SWE-bench/SWE-bench",
+      "valid": true
+    },
+    {
+      "repository": "temporalio/sdk-python",
+      "valid": true
+    },
+    {
+      "repository": "THUDM/AgentBench",
+      "valid": true
+    },
+    {
+      "repository": "uiuc-kang-lab/InjecAgent",
+      "valid": true
+    },
+    {
+      "repository": "xlang-ai/OSWorld",
+      "valid": true
+    }
+  ],
+  "errors": [],
+  "status": "passed",
+  "not_run": [
+    "Rust build/tests",
+    "downloaded project installation/execution",
+    "paper experiment reproduction",
+    "cloud model evaluation"
+  ],
+  "git_diff_check_exit_code": 0,
+  "git_diff_note": "only CRLF/LF normalization warnings",
+  "self_link_recheck": "validation.json generated, referenced paths now exist"
+}

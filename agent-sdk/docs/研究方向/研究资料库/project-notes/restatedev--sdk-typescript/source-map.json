@@ -1,0 +1,1756 @@
+{
+  "kept": [
+    {
+      "path": ".changeset/README.md",
+      "bytes": 240
+    },
+    {
+      "path": ".changeset/config.json",
+      "bytes": 470
+    },
+    {
+      "path": ".claude/skills/add-config-option/SKILL.md",
+      "bytes": 2506
+    },
+    {
+      "path": ".claude/skills/add-e2e-test/SKILL.md",
+      "bytes": 3645
+    },
+    {
+      "path": ".claude/skills/run-sdk-tests/SKILL.md",
+      "bytes": 2995
+    },
+    {
+      "path": ".claude/skills/update-sdk-test-contracts/SKILL.md",
+      "bytes": 6330
+    },
+    {
+      "path": ".github/cla.yml",
+      "bytes": 232
+    },
+    {
+      "path": ".github/workflows/_test-bun-template.yml",
+      "bytes": 2782
+    },
+    {
+      "path": ".github/workflows/_test-cloudflare-template.yml",
+      "bytes": 2993
+    },
+    {
+      "path": ".github/workflows/_test-deno-template.yml",
+      "bytes": 2897
+    },
+    {
+      "path": ".github/workflows/_test-lambda-template.yml",
+      "bytes": 6765
+    },
+    {
+      "path": ".github/workflows/_test-node-template.yml",
+      "bytes": 2669
+    },
+    {
+      "path": ".github/workflows/_test-vercel-template.yml",
+      "bytes": 2735
+    },
+    {
+      "path": ".github/workflows/compatibility.yaml",
+      "bytes": 658
+    },
+    {
+      "path": ".github/workflows/docker.yml",
+      "bytes": 2935
+    },
+    {
+      "path": ".github/workflows/integration-fetch.yaml",
+      "bytes": 5351
+    },
+    {
+      "path": ".github/workflows/integration-gen.yaml",
+      "bytes": 5999
+    },
+    {
+      "path": ".github/workflows/integration.yaml",
+      "bytes": 5965
+    },
+    {
+      "path": ".github/workflows/release-docs.yml",
+      "bytes": 1370
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "bytes": 5183
+    },
+    {
+      "path": ".github/workflows/test.yml",
+      "bytes": 3284
+    },
+    {
+      "path": ".tools/build-core.sh",
+      "bytes": 385
+    },
+    {
+      "path": ".tools/run-sdk-tests.sh",
+      "bytes": 2973
+    },
+    {
+      "path": ".tools/wasm_inline.js",
+      "bytes": 2226
+    },
+    {
+      "path": ".vscode/settings.json",
+      "bytes": 419
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 9502
+    },
+    {
+      "path": "CLAUDE.md",
+      "bytes": 9
+    },
+    {
+      "path": "DEVELOPMENT.md",
+      "bytes": 10054
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1167
+    },
+    {
+      "path": "README.md",
+      "bytes": 3847
+    },
+    {
+      "path": "api-extractor.base.json",
+      "bytes": 1038
+    },
+    {
+      "path": "eslint.config.js",
+      "bytes": 3174
+    },
+    {
+      "path": "package.json",
+      "bytes": 2759
+    },
+    {
+      "path": "packages/examples/bun/package.json",
+      "bytes": 756
+    },
+    {
+      "path": "packages/examples/bun/src/index.ts",
+      "bytes": 791
+    },
+    {
+      "path": "packages/examples/bun/tsconfig.build.json",
+      "bytes": 149
+    },
+    {
+      "path": "packages/examples/bun/tsconfig.json",
+      "bytes": 120
+    },
+    {
+      "path": "packages/examples/cloudflare/package.json",
+      "bytes": 791
+    },
+    {
+      "path": "packages/examples/cloudflare/src/index.ts",
+      "bytes": 813
+    },
+    {
+      "path": "packages/examples/cloudflare/tsconfig.build.json",
+      "bytes": 149
+    },
+    {
+      "path": "packages/examples/cloudflare/tsconfig.json",
+      "bytes": 120
+    },
+    {
+      "path": "packages/examples/cloudflare/wrangler.toml",
+      "bytes": 617
+    },
+    {
+      "path": "packages/examples/deno/deno.json",
+      "bytes": 452
+    },
+    {
+      "path": "packages/examples/deno/package.json",
+      "bytes": 563
+    },
+    {
+      "path": "packages/examples/deno/src/index.ts",
+      "bytes": 925
+    },
+    {
+      "path": "packages/examples/deno/tsconfig.build.json",
+      "bytes": 149
+    },
+    {
+      "path": "packages/examples/deno/tsconfig.json",
+      "bytes": 120
+    },
+    {
+      "path": "packages/examples/lambda/bin/lambda-ts-cdk.ts",
+      "bytes": 672
+    },
+    {
+      "path": "packages/examples/lambda/cdk.json",
+      "bytes": 2920
+    },
+    {
+      "path": "packages/examples/lambda/package.json",
+      "bytes": 899
+    },
+    {
+      "path": "packages/examples/lambda/src/index.ts",
+      "bytes": 1108
+    },
+    {
+      "path": "packages/examples/lambda/src/lambda-ts-cdk-stack.ts",
+      "bytes": 2476
+    },
+    {
+      "path": "packages/examples/lambda/tsconfig.build.json",
+      "bytes": 149
+    },
+    {
+      "path": "packages/examples/lambda/tsconfig.json",
+      "bytes": 132
+    },
+    {
+      "path": "packages/examples/lambda/tsdown.config.ts",
+      "bytes": 363
+    },
+    {
+      "path": "packages/examples/node/package.json",
+      "bytes": 1964
+    },
+    {
+      "path": "packages/examples/node/src/greeter.ts",
+      "bytes": 671
+    },
+    {
+      "path": "packages/examples/node/src/greeter_http1.ts",
+      "bytes": 918
+    },
+    {
+      "path": "packages/examples/node/src/greeter_with_hooks.ts",
+      "bytes": 1930
+    },
+    {
+      "path": "packages/examples/node/src/greeter_with_options.ts",
+      "bytes": 1520
+    },
+    {
+      "path": "packages/examples/node/src/iface_greeter.ts",
+      "bytes": 1732
+    },
+    {
+      "path": "packages/examples/node/src/ingress_client.ts",
+      "bytes": 5332
+    },
+    {
+      "path": "packages/examples/node/src/object.ts",
+      "bytes": 2074
+    },
+    {
+      "path": "packages/examples/node/src/preview_serde.ts",
+      "bytes": 3097
+    },
+    {
+      "path": "packages/examples/node/src/signals.ts",
+      "bytes": 1796
+    },
+    {
+      "path": "packages/examples/node/src/workflow.ts",
+      "bytes": 3868
+    },
+    {
+      "path": "packages/examples/node/src/workflow_client.ts",
+      "bytes": 1887
+    },
+    {
+      "path": "packages/examples/node/src/zod_greeter.ts",
+      "bytes": 1092
+    },
+    {
+      "path": "packages/examples/node/test/hello.test.ts",
+      "bytes": 1232
+    },
+    {
+      "path": "packages/examples/node/test/http1.test.ts",
+      "bytes": 3247
+    },
+    {
+      "path": "packages/examples/node/test/testcontainers.test.ts",
+      "bytes": 8134
+    },
+    {
+      "path": "packages/examples/node/tsconfig.build.json",
+      "bytes": 149
+    },
+    {
+      "path": "packages/examples/node/tsconfig.json",
+      "bytes": 120
+    },
+    {
+      "path": "packages/examples/otel/package.json",
+      "bytes": 1118
+    },
+    {
+      "path": "packages/examples/otel/src/app.ts",
+      "bytes": 2197
+    },
+    {
+      "path": "packages/examples/otel/tsconfig.json",
+      "bytes": 120
+    },
+    {
+      "path": "packages/examples/vercel/next-env.d.ts",
+      "bytes": 247
+    },
+    {
+      "path": "packages/examples/vercel/next.config.ts",
+      "bytes": 195
+    },
+    {
+      "path": "packages/examples/vercel/package.json",
+      "bytes": 724
+    },
+    {
+      "path": "packages/examples/vercel/src/app/restate/[[...services]]/route.ts",
+      "bytes": 353
+    },
+    {
+      "path": "packages/examples/vercel/src/restate/greeter.ts",
+      "bytes": 640
+    },
+    {
+      "path": "packages/examples/vercel/tsconfig.build.json",
+      "bytes": 149
+    },
+    {
+      "path": "packages/examples/vercel/tsconfig.json",
+      "bytes": 351
+    },
+    {
+      "path": "packages/examples/vercel/vercel.json",
+      "bytes": 82
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/CHANGELOG.md",
+      "bytes": 13654
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/README.md",
+      "bytes": 2220
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/api-extractor.json",
+      "bytes": 115
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/buf.yaml",
+      "bytes": 105
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/package.json",
+      "bytes": 1584
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/src/api.ts",
+      "bytes": 24192
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/src/index.ts",
+      "bytes": 1235
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/src/ingress.ts",
+      "bytes": 25010
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/src/retry.test.ts",
+      "bytes": 22443
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/src/retry.ts",
+      "bytes": 6386
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/tsconfig.build.json",
+      "bytes": 263
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/tsconfig.json",
+      "bytes": 120
+    },
+    {
+      "path": "packages/libs/restate-sdk-clients/tsdown.config.ts",
+      "bytes": 296
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/CHANGELOG.md",
+      "bytes": 12632
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/api-extractor.fetch.json",
+      "bytes": 115
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/api-extractor.json",
+      "bytes": 115
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/package.json",
+      "bytes": 1722
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/patch_sdk_cf_workers.sh",
+      "bytes": 393
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/patches/fetch.js",
+      "bytes": 2477
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/patches/sdk_shared_core_wasm_bindings.js",
+      "bytes": 886
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/patches/vm/sdk_shared_core_wasm_bindings.d.ts",
+      "bytes": 7540
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/patches/vm/sdk_shared_core_wasm_bindings.js",
+      "bytes": 469
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/patches/vm/sdk_shared_core_wasm_bindings_bg.js",
+      "bytes": 53036
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/patches/vm/sdk_shared_core_wasm_bindings_bg.wasm.d.ts",
+      "bytes": 7690
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/src/fetch.ts",
+      "bytes": 47
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/src/index.ts",
+      "bytes": 41
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/tsconfig.build.json",
+      "bytes": 335
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/tsconfig.json",
+      "bytes": 120
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/CHANGELOG.md",
+      "bytes": 9569
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/README.md",
+      "bytes": 1002
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/api-extractor.json",
+      "bytes": 115
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/package.json",
+      "bytes": 1528
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/src/core.ts",
+      "bytes": 3476
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/src/duration.ts",
+      "bytes": 1063
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/src/entry_codec.ts",
+      "bytes": 1265
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/src/index.ts",
+      "bytes": 1641
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/src/interface.ts",
+      "bytes": 11096
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/src/serde_api.ts",
+      "bytes": 9994
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/src/standard_schema.ts",
+      "bytes": 6342
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/tsconfig.build.json",
+      "bytes": 172
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/tsconfig.json",
+      "bytes": 120
+    },
+    {
+      "path": "packages/libs/restate-sdk-core/tsdown.config.ts",
+      "bytes": 250
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/BENCHMARKS.md",
+      "bytes": 5349
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/CHANGELOG.md",
+      "bytes": 15824
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/DESIGN.md",
+      "bytes": 34630
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/README.md",
+      "bytes": 11654
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/api-extractor.json",
+      "bytes": 115
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/bench/_helpers.ts",
+      "bytes": 1689
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/bench/baseline.bench.ts",
+      "bytes": 1359
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/bench/combinators.bench.ts",
+      "bytes": 1969
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/bench/scheduler.bench.ts",
+      "bytes": 1253
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/bench/spawn.bench.ts",
+      "bytes": 1455
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/e2e/abandon.e2e.test.ts",
+      "bytes": 4093
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/e2e/channels.e2e.test.ts",
+      "bytes": 5189
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/e2e/concurrency.e2e.test.ts",
+      "bytes": 5424
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/e2e/context.e2e.test.ts",
+      "bytes": 5370
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/e2e/interrupt.e2e.test.ts",
+      "bytes": 15799
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/e2e/polling.e2e.test.ts",
+      "bytes": 6165
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/e2e/saga.e2e.test.ts",
+      "bytes": 5121
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/e2e/signal-sharing.e2e.test.ts",
+      "bytes": 8619
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/e2e/state.e2e.test.ts",
+      "bytes": 4721
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/e2e/terminal-errors.e2e.test.ts",
+      "bytes": 3784
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/e2e/transient-errors.e2e.test.ts",
+      "bytes": 5190
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/01-basics.ts",
+      "bytes": 3530
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/02-spawn.ts",
+      "bytes": 4483
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/03-timeout.ts",
+      "bytes": 1673
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/04-retry.ts",
+      "bytes": 1901
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/05-saga.ts",
+      "bytes": 1912
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/06-cancel.ts",
+      "bytes": 8078
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/07-state.ts",
+      "bytes": 1949
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/08-clients.ts",
+      "bytes": 4315
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/09-workflows.ts",
+      "bytes": 2607
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/10-ifaces.ts",
+      "bytes": 3004
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/11-serdes.ts",
+      "bytes": 1309
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/12-context.ts",
+      "bytes": 2685
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/13-ingress.ts",
+      "bytes": 4417
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/14-scopes.ts",
+      "bytes": 4472
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/fakes.ts",
+      "bytes": 5190
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/examples/tutorial/src/server.ts",
+      "bytes": 2937
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/guide.md",
+      "bytes": 29934
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/package.json",
+      "bytes": 2113
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/abort.ts",
+      "bytes": 1778
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/awaitable.ts",
+      "bytes": 2902
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/channel.ts",
+      "bytes": 4179
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/clients.ts",
+      "bytes": 5575
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/context.ts",
+      "bytes": 6827
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/current.ts",
+      "bytes": 3012
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/default-lib.ts",
+      "bytes": 2455
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/define.ts",
+      "bytes": 12205
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/durable-promise.ts",
+      "bytes": 1349
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/fiber.ts",
+      "bytes": 20704
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/free.ts",
+      "bytes": 10271
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/future.ts",
+      "bytes": 7272
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/index.ts",
+      "bytes": 3847
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/ingress.ts",
+      "bytes": 7044
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/interface.ts",
+      "bytes": 5326
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/internal-operations.ts",
+      "bytes": 2912
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/internal.ts",
+      "bytes": 927
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/invocation-reference.ts",
+      "bytes": 2125
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/operation.ts",
+      "bytes": 3844
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/restate-operations.ts",
+      "bytes": 28054
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/scheduler-types.ts",
+      "bytes": 1421
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/scheduler.ts",
+      "bytes": 22504
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/state.ts",
+      "bytes": 5736
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/src/task.ts",
+      "bytes": 3213
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/Dockerfile",
+      "bytes": 1746
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/exclusions.yaml",
+      "bytes": 605
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/awakeable-holder.ts",
+      "bytes": 1144
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/block-and-wait-workflow.ts",
+      "bytes": 1246
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/cancel-test.ts",
+      "bytes": 2253
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/counter.ts",
+      "bytes": 1358
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/failing.ts",
+      "bytes": 3137
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/interpreter.ts",
+      "bytes": 10779
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/kill-test.ts",
+      "bytes": 1231
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/list-object.ts",
+      "bytes": 1034
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/map-object.ts",
+      "bytes": 1117
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/non-determinism.ts",
+      "bytes": 1977
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/proxy.ts",
+      "bytes": 3031
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/server.ts",
+      "bytes": 2713
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/test-utils.ts",
+      "bytes": 1900
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/src/vo-command-interpreter.ts",
+      "bytes": 8891
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/abort-signal.test.ts",
+      "bytes": 24539
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/adversarial.test.ts",
+      "bytes": 9224
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/all-settled.test.ts",
+      "bytes": 4051
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/all.test.ts",
+      "bytes": 4830
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/any.test.ts",
+      "bytes": 4689
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/basic.test.ts",
+      "bytes": 4492
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/cancellation.test.ts",
+      "bytes": 11306
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/channel.test.ts",
+      "bytes": 12447
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/clients-scope.test.ts",
+      "bytes": 6328
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/context.test.ts",
+      "bytes": 12930
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/cross-routine.test.ts",
+      "bytes": 6306
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/edge-cases.test.ts",
+      "bytes": 11332
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/future.test.ts",
+      "bytes": 6032
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/interface.test.ts",
+      "bytes": 1342
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/interrupt.test.ts",
+      "bytes": 58971
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/mixed-deep.test.ts",
+      "bytes": 18068
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/mixing-select.test.ts",
+      "bytes": 8327
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/mixing.test.ts",
+      "bytes": 16350
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/observability.test.ts",
+      "bytes": 15537
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/on-main-exit.test.ts",
+      "bytes": 7738
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/race.test.ts",
+      "bytes": 5709
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/run-name.test.ts",
+      "bytes": 3591
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/run-wrap.test.ts",
+      "bytes": 13591
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/scheduler.test.ts",
+      "bytes": 10182
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/select.test.ts",
+      "bytes": 7011
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/spawn.test.ts",
+      "bytes": 5651
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/stress.test.ts",
+      "bytes": 5930
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/test-promise.ts",
+      "bytes": 9763
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/won-flag.test.ts",
+      "bytes": 6797
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test/workflow-patterns.test.ts",
+      "bytes": 10598
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/tsconfig.build.json",
+      "bytes": 414
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/tsconfig.json",
+      "bytes": 226
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/tsdown.config.ts",
+      "bytes": 658
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/vitest.config.ts",
+      "bytes": 555
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/vitest.e2e.config.ts",
+      "bytes": 553
+    },
+    {
+      "path": "packages/libs/restate-sdk-opentelemetry/CHANGELOG.md",
+      "bytes": 9248
+    },
+    {
+      "path": "packages/libs/restate-sdk-opentelemetry/README.md",
+      "bytes": 1201
+    },
+    {
+      "path": "packages/libs/restate-sdk-opentelemetry/api-extractor.json",
+      "bytes": 115
+    },
+    {
+      "path": "packages/libs/restate-sdk-opentelemetry/package.json",
+      "bytes": 2081
+    },
+    {
+      "path": "packages/libs/restate-sdk-opentelemetry/src/index.ts",
+      "bytes": 495
+    },
+    {
+      "path": "packages/libs/restate-sdk-opentelemetry/src/opentelemetry.ts",
+      "bytes": 8234
+    },
+    {
+      "path": "packages/libs/restate-sdk-opentelemetry/test/opentelemetry.test.ts",
+      "bytes": 9883
+    },
+    {
+      "path": "packages/libs/restate-sdk-opentelemetry/tsconfig.build.json",
+      "bytes": 172
+    },
+    {
+      "path": "packages/libs/restate-sdk-opentelemetry/tsconfig.json",
+      "bytes": 133
+    },
+    {
+      "path": "packages/libs/restate-sdk-opentelemetry/tsdown.config.ts",
+      "bytes": 368
+    },
+    {
+      "path": "packages/libs/restate-sdk-testcontainers/CHANGELOG.md",
+      "bytes": 14142
+    },
+    {
+      "path": "packages/libs/restate-sdk-testcontainers/README.md",
+      "bytes": 1941
+    },
+    {
+      "path": "packages/libs/restate-sdk-testcontainers/api-extractor.json",
+      "bytes": 115
+    },
+    {
+      "path": "packages/libs/restate-sdk-testcontainers/package.json",
+      "bytes": 1705
+    },
+    {
+      "path": "packages/libs/restate-sdk-testcontainers/src/index.ts",
+      "bytes": 1200
+    },
+    {
+      "path": "packages/libs/restate-sdk-testcontainers/src/restate_test_environment.ts",
+      "bytes": 16934
+    },
+    {
+      "path": "packages/libs/restate-sdk-testcontainers/tsconfig.build.json",
+      "bytes": 330
+    },
+    {
+      "path": "packages/libs/restate-sdk-testcontainers/tsconfig.json",
+      "bytes": 120
+    },
+    {
+      "path": "packages/libs/restate-sdk-testcontainers/tsdown.config.ts",
+      "bytes": 288
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/CHANGELOG.md",
+      "bytes": 5925
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/README.md",
+      "bytes": 14307
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/api-extractor.json",
+      "bytes": 115
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/package.json",
+      "bytes": 1762
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/src/backoff.ts",
+      "bytes": 1513
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/src/connect.ts",
+      "bytes": 16404
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/src/connection.ts",
+      "bytes": 35625
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/src/draining.ts",
+      "bytes": 2372
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/src/forwarded.ts",
+      "bytes": 2226
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/src/handshake.ts",
+      "bytes": 7006
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/src/index.ts",
+      "bytes": 1218
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/src/options.ts",
+      "bytes": 15867
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/src/supervisor.ts",
+      "bytes": 11400
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/src/targets.ts",
+      "bytes": 6656
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/src/types.ts",
+      "bytes": 16840
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/src/util.ts",
+      "bytes": 2347
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/test/connect.test.ts",
+      "bytes": 16157
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/test/fake-cloud.ts",
+      "bytes": 9028
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/test/forwarded.test.ts",
+      "bytes": 2066
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/test/identity.ts",
+      "bytes": 2336
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/test/multihome.test.ts",
+      "bytes": 13658
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/test/options.test.ts",
+      "bytes": 17250
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/test/resilience.test.ts",
+      "bytes": 22258
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/test/shutdown.test.ts",
+      "bytes": 18976
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/test/targets.test.ts",
+      "bytes": 4849
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/tsconfig.build.json",
+      "bytes": 172
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/tsconfig.json",
+      "bytes": 133
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/tsdown.config.ts",
+      "bytes": 288
+    },
+    {
+      "path": "packages/libs/restate-sdk-zod/CHANGELOG.md",
+      "bytes": 9568
+    },
+    {
+      "path": "packages/libs/restate-sdk-zod/README.md",
+      "bytes": 2476
+    },
+    {
+      "path": "packages/libs/restate-sdk-zod/api-extractor.json",
+      "bytes": 115
+    },
+    {
+      "path": "packages/libs/restate-sdk-zod/package.json",
+      "bytes": 1663
+    },
+    {
+      "path": "packages/libs/restate-sdk-zod/src/index.ts",
+      "bytes": 455
+    },
+    {
+      "path": "packages/libs/restate-sdk-zod/src/serde_api.ts",
+      "bytes": 2920
+    },
+    {
+      "path": "packages/libs/restate-sdk-zod/test/serde_api.test.ts",
+      "bytes": 2960
+    },
+    {
+      "path": "packages/libs/restate-sdk-zod/tsconfig.build.json",
+      "bytes": 263
+    },
+    {
+      "path": "packages/libs/restate-sdk-zod/tsconfig.json",
+      "bytes": 120
+    },
+    {
+      "path": "packages/libs/restate-sdk-zod/tsdown.config.ts",
+      "bytes": 265
+    },
+    {
+      "path": "packages/libs/restate-sdk/CHANGELOG.md",
+      "bytes": 13581
+    },
+    {
+      "path": "packages/libs/restate-sdk/README.md",
+      "bytes": 3236
+    },
+    {
+      "path": "packages/libs/restate-sdk/api-extractor.fetch.json",
+      "bytes": 115
+    },
+    {
+      "path": "packages/libs/restate-sdk/api-extractor.json",
+      "bytes": 115
+    },
+    {
+      "path": "packages/libs/restate-sdk/api-extractor.lambda.json",
+      "bytes": 116
+    },
+    {
+      "path": "packages/libs/restate-sdk/api-extractor.node.json",
+      "bytes": 114
+    },
+    {
+      "path": "packages/libs/restate-sdk/package.json",
+      "bytes": 2294
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/common_api.ts",
+      "bytes": 4104
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/context.ts",
+      "bytes": 38021
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/context_impl.ts",
+      "bytes": 39500
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint.ts",
+      "bytes": 7810
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/components.ts",
+      "bytes": 18467
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/discovery.ts",
+      "bytes": 5413
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/endpoint.ts",
+      "bytes": 8656
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/fetch_endpoint.ts",
+      "bytes": 3122
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/handlers/core_logging.ts",
+      "bytes": 3101
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/handlers/discovery.ts",
+      "bytes": 4306
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/handlers/fetch.ts",
+      "bytes": 2816
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/handlers/generic.ts",
+      "bytes": 27278
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/handlers/lambda.ts",
+      "bytes": 6030
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/handlers/preview.ts",
+      "bytes": 4289
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/handlers/types.ts",
+      "bytes": 1475
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/handlers/utils.ts",
+      "bytes": 3026
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/handlers/vm/sdk_shared_core_wasm_bindings.d.ts",
+      "bytes": 7607
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/lambda_endpoint.ts",
+      "bytes": 2876
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/node_endpoint.ts",
+      "bytes": 8404
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/types.ts",
+      "bytes": 2405
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/withOptions.ts",
+      "bytes": 981
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/error_sanitization.ts",
+      "bytes": 1423
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/fetch.ts",
+      "bytes": 2399
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/hooks.ts",
+      "bytes": 2768
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/index.ts",
+      "bytes": 397
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/internal.ts",
+      "bytes": 6987
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/io.ts",
+      "bytes": 2477
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/lambda.ts",
+      "bytes": 1503
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/logging/console_logger_transport.ts",
+      "bytes": 3338
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/logging/logger.ts",
+      "bytes": 2869
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/logging/logger_transport.ts",
+      "bytes": 1818
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/node.ts",
+      "bytes": 3590
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/promises.ts",
+      "bytes": 19096
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/types/errors.ts",
+      "bytes": 6685
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/types/interface.ts",
+      "bytes": 6408
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/types/rpc.ts",
+      "bytes": 53341
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/user_agent.ts",
+      "bytes": 501
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/utils/external_progress_channel.ts",
+      "bytes": 1492
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/utils/rand.ts",
+      "bytes": 4224
+    },
+    {
+      "path": "packages/libs/restate-sdk/test/interface.test.ts",
+      "bytes": 12277
+    },
+    {
+      "path": "packages/libs/restate-sdk/test/node_endpoint_lifecycle.test.ts",
+      "bytes": 21793
+    },
+    {
+      "path": "packages/libs/restate-sdk/test/service_bind.test.ts",
+      "bytes": 5866
+    },
+    {
+      "path": "packages/libs/restate-sdk/test/testutils.ts",
+      "bytes": 1333
+    },
+    {
+      "path": "packages/libs/restate-sdk/test/utils.test.ts",
+      "bytes": 2962
+    },
+    {
+      "path": "packages/libs/restate-sdk/tsconfig.build.json",
+      "bytes": 263
+    },
+    {
+      "path": "packages/libs/restate-sdk/tsconfig.json",
+      "bytes": 120
+    },
+    {
+      "path": "packages/libs/restate-sdk/tsdown.config.ts",
+      "bytes": 519
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/Dockerfile",
+      "bytes": 559
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/README.md",
+      "bytes": 1281
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/app.ts",
+      "bytes": 3984
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/awakeable_holder.ts",
+      "bytes": 1274
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/cancel_test.ts",
+      "bytes": 2266
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/counter.ts",
+      "bytes": 1312
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/event_handler.ts",
+      "bytes": 853
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/explicit_cancellation.ts",
+      "bytes": 5969
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/failing.ts",
+      "bytes": 3920
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/fetch_endpoint.ts",
+      "bytes": 3963
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/hooks.ts",
+      "bytes": 37997
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/ingress_default_serde.ts",
+      "bytes": 5421
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/interpreter/commands.ts",
+      "bytes": 3052
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/interpreter/entry_point.ts",
+      "bytes": 1115
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/interpreter/interpreter.ts",
+      "bytes": 9427
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/interpreter/services.ts",
+      "bytes": 2863
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/kill.ts",
+      "bytes": 1163
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/list.ts",
+      "bytes": 1079
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/map.ts",
+      "bytes": 2743
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/memory_leak.ts",
+      "bytes": 11623
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/non_determinism.ts",
+      "bytes": 2284
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/preview_serdes.ts",
+      "bytes": 4233
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/promise_combinators.ts",
+      "bytes": 9565
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/proxy.ts",
+      "bytes": 2546
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/services.ts",
+      "bytes": 1485
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/side_effect.ts",
+      "bytes": 804
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/signals.ts",
+      "bytes": 4847
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/test_utils.ts",
+      "bytes": 2486
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/virtual_object_command_interpreter.ts",
+      "bytes": 8471
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/src/workflow.ts",
+      "bytes": 1192
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/test/explicit_cancellation.test.ts",
+      "bytes": 3496
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/test/hooks.test.ts",
+      "bytes": 45829
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/test/hooks_utils.ts",
+      "bytes": 8293
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/test/ingress_default_serde.test.ts",
+      "bytes": 7630
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/test/memory_leak.test.ts",
+      "bytes": 12020
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/test/memory_leak_utils.ts",
+      "bytes": 8665
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/test/preview_serdes.test.ts",
+      "bytes": 10352
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/test/promise_combinators.test.ts",
+      "bytes": 6746
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/test/signals.test.ts",
+      "bytes": 6944
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/test/utils.ts",
+      "bytes": 914
+    },
+    {
+      "path": "plopfile.js",
+      "bytes": 17985
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "bytes": 1464
+    },
+    {
+      "path": "scripts/generate-example-configs.mjs",
+      "bytes": 6888
+    },
+    {
+      "path": "scripts/get-lib-packages.mjs",
+      "bytes": 1115
+    },
+    {
+      "path": "scripts/test-repo-with-plop.sh",
+      "bytes": 12489
+    },
+    {
+      "path": "sdk-shared-core-wasm-bindings/Cargo.toml",
+      "bytes": 1052
+    },
+    {
+      "path": "sdk-shared-core-wasm-bindings/README.md",
+      "bytes": 167
+    },
+    {
+      "path": "sdk-shared-core-wasm-bindings/rust-toolchain.toml",
+      "bytes": 86
+    },
+    {
+      "path": "sdk-shared-core-wasm-bindings/src/lib.rs",
+      "bytes": 40341
+    },
+    {
+      "path": "tsconfig.base.json",
+      "bytes": 612
+    },
+    {
+      "path": "tsconfig.json",
+      "bytes": 2617
+    },
+    {
+      "path": "turbo.json",
+      "bytes": 1065
+    },
+    {
+      "path": "typedoc.json",
+      "bytes": 584
+    },
+    {
+      "path": "vitest.config.ts",
+      "bytes": 2034
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".api/.gitkeep",
+      "bytes": 0
+    },
+    {
+      "path": ".dockerignore",
+      "bytes": 126
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 342
+    },
+    {
+      "path": ".prettierignore",
+      "bytes": 302
+    },
+    {
+      "path": ".prettierrc",
+      "bytes": 29
+    },
+    {
+      "path": ".templates/README.md.hbs",
+      "bytes": 218
+    },
+    {
+      "path": ".templates/api-extractor.json.hbs",
+      "bytes": 115
+    },
+    {
+      "path": ".templates/index.ts.hbs",
+      "bytes": 649
+    },
+    {
+      "path": ".templates/package.json.hbs",
+      "bytes": 2882
+    },
+    {
+      "path": ".templates/tsconfig.build.json.hbs",
+      "bytes": 389
+    },
+    {
+      "path": ".templates/tsconfig.json.hbs",
+      "bytes": 461
+    },
+    {
+      "path": ".templates/tsconfig.test.json.hbs",
+      "bytes": 182
+    },
+    {
+      "path": ".templates/tsdown.config.ts.hbs",
+      "bytes": 345
+    },
+    {
+      "path": "packages/examples/deno/deno.lock",
+      "bytes": 1124
+    },
+    {
+      "path": "packages/libs/restate-sdk-cloudflare-workers/patches/vm/sdk_shared_core_wasm_bindings_bg.wasm",
+      "bytes": 1680000
+    },
+    {
+      "path": "packages/libs/restate-sdk-gen/test-services/.env",
+      "bytes": 21
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/test/fixtures/cert.pem",
+      "bytes": 1029
+    },
+    {
+      "path": "packages/libs/restate-sdk-tunnel/test/fixtures/key.pem",
+      "bytes": 1704
+    },
+    {
+      "path": "packages/libs/restate-sdk/src/endpoint/handlers/vm/sdk_shared_core_wasm_bindings.js",
+      "bytes": 2294786
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/.env",
+      "bytes": 21
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/.gitignore",
+      "bytes": 209
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "bytes": 298653
+    },
+    {
+      "path": "sdk-shared-core-wasm-bindings/.gitignore",
+      "bytes": 43
+    },
+    {
+      "path": "sdk-shared-core-wasm-bindings/Cargo.lock",
+      "bytes": 27152
+    },
+    {
+      "path": "test/fixtures/request-signing/private.pem",
+      "bytes": 119
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/custom_tests.yaml",
+      "bytes": 107,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/custom_tests_fetch.yaml",
+      "bytes": 115,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/exclusions.yaml",
+      "bytes": 15,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/package.json",
+      "bytes": 1339,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/tsconfig.json",
+      "bytes": 120,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "packages/tests/restate-e2e-services/tsconfig.test.json",
+      "bytes": 323,
+      "reason": "experimental output or recorded response"
+    }
+  ]
+}

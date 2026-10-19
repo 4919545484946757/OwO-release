@@ -1,0 +1,10 @@
+{
+  "full_name": "SWE-bench/SWE-bench",
+  "default_branch": "main",
+  "sha": "02e7a74ffd0b707aab73d203fe87bdc7c76afc8e",
+  "license": null,
+  "description": null,
+  "archived": null,
+  "pushed_at": null,
+  "identity_source": "git ls-remote public HEAD"
+}

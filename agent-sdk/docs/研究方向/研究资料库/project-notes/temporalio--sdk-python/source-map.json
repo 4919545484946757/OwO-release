@@ -1,0 +1,2791 @@
+{
+  "kept": [
+    {
+      "path": ".github/actions/alpine-package-smoke/action.yml",
+      "bytes": 2725
+    },
+    {
+      "path": ".github/actions/release-smoke-package/action.yml",
+      "bytes": 1386
+    },
+    {
+      "path": ".github/dependabot.yml",
+      "bytes": 342
+    },
+    {
+      "path": ".github/scripts/cloud_namespace.py",
+      "bytes": 3656
+    },
+    {
+      "path": ".github/scripts/install_release_package.py",
+      "bytes": 2358
+    },
+    {
+      "path": ".github/scripts/release_smoke_package.py",
+      "bytes": 1651
+    },
+    {
+      "path": ".github/scripts/release_verify.py",
+      "bytes": 5565
+    },
+    {
+      "path": ".github/workflows/changelog.yml",
+      "bytes": 380
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 16163
+    },
+    {
+      "path": ".github/workflows/nightly.yml",
+      "bytes": 168
+    },
+    {
+      "path": ".github/workflows/release-publish.yml",
+      "bytes": 12530
+    },
+    {
+      "path": ".github/workflows/run-bench.yml",
+      "bytes": 3397
+    },
+    {
+      "path": ".github/workflows/sdk-sentinel-pr-responder.yml",
+      "bytes": 2346
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 6428
+    },
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 22173
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 7348
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1108
+    },
+    {
+      "path": "README.md",
+      "bytes": 106294
+    },
+    {
+      "path": "changelog/README.md",
+      "bytes": 4310
+    },
+    {
+      "path": "changelog/added/chuckling-chameleon.md",
+      "bytes": 147
+    },
+    {
+      "path": "changelog/added/dancing-otter.md",
+      "bytes": 409
+    },
+    {
+      "path": "changelog/added/lignicolous-luisa.md",
+      "bytes": 312
+    },
+    {
+      "path": "changelog/added/spiraling-sparrow.md",
+      "bytes": 167
+    },
+    {
+      "path": "changelog/breaking-changes/bumbling-bumblebee.md",
+      "bytes": 118
+    },
+    {
+      "path": "changelog/breaking-changes/cartwheeling-cupcake.md",
+      "bytes": 106
+    },
+    {
+      "path": "changelog/breaking-changes/sauntering-salamander.md",
+      "bytes": 465
+    },
+    {
+      "path": "changelog/breaking-changes/sleepy-unicorn.md",
+      "bytes": 468
+    },
+    {
+      "path": "changelog/breaking-changes/tap-dancing-turtle.md",
+      "bytes": 408
+    },
+    {
+      "path": "changelog/breaking-changes/waltzing-walrus.md",
+      "bytes": 104
+    },
+    {
+      "path": "changelog/changed/dancing-marshmallow.md",
+      "bytes": 170
+    },
+    {
+      "path": "changelog/fixed/bouncing-badger.md",
+      "bytes": 314
+    },
+    {
+      "path": "changelog/fixed/byssoid-ismael.md",
+      "bytes": 290
+    },
+    {
+      "path": "changelog/fixed/cheerful-chinchilla.md",
+      "bytes": 183
+    },
+    {
+      "path": "changelog/fixed/context-free-capybara.md",
+      "bytes": 161
+    },
+    {
+      "path": "changelog/fixed/giggling-teapot.md",
+      "bytes": 148
+    },
+    {
+      "path": "changelog/fixed/juggling-jellyfish.md",
+      "bytes": 136
+    },
+    {
+      "path": "changelog/fixed/moonwalking-muffin.md",
+      "bytes": 288
+    },
+    {
+      "path": "changelog/fixed/polka-dot-penguin.md",
+      "bytes": 438
+    },
+    {
+      "path": "changelog/fixed/prancing-puffin.md",
+      "bytes": 133
+    },
+    {
+      "path": "changelog/fixed/relay-racing-raccoon.md",
+      "bytes": 261
+    },
+    {
+      "path": "changelog/fixed/sheepish-sandbox-otter.md",
+      "bytes": 204
+    },
+    {
+      "path": "changelog/fixed/skipping-squirrel.md",
+      "bytes": 143
+    },
+    {
+      "path": "changelog/fixed/somersaulting-sloth.md",
+      "bytes": 111
+    },
+    {
+      "path": "changelog/fixed/tiptoeing-tortoise.md",
+      "bytes": 186
+    },
+    {
+      "path": "changelog/fixed/unflappable-flamingo.md",
+      "bytes": 152
+    },
+    {
+      "path": "changelog/fixed/whistling-wombat.md",
+      "bytes": 220
+    },
+    {
+      "path": "changelog/fixed/wobbling-teacup.md",
+      "bytes": 219
+    },
+    {
+      "path": "changelog/security/mischievous-mongoose.md",
+      "bytes": 139
+    },
+    {
+      "path": "changelog/stabilized/serene-salamander.md",
+      "bytes": 55
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 10091
+    },
+    {
+      "path": "scripts/__init__.py",
+      "bytes": 33
+    },
+    {
+      "path": "scripts/_proto/Dockerfile",
+      "bytes": 451
+    },
+    {
+      "path": "scripts/_proto/grpc/health/v1/health.proto",
+      "bytes": 2479
+    },
+    {
+      "path": "scripts/_proto/temporal/api/common/v1/grpc_status.proto",
+      "bytes": 342
+    },
+    {
+      "path": "scripts/changelog.py",
+      "bytes": 1564
+    },
+    {
+      "path": "scripts/cibuildwheel_before_all_linux.sh",
+      "bytes": 350
+    },
+    {
+      "path": "scripts/cibuildwheel_before_build_linux.sh",
+      "bytes": 122
+    },
+    {
+      "path": "scripts/gen_bridge_client.py",
+      "bytes": 8201
+    },
+    {
+      "path": "scripts/gen_docs.py",
+      "bytes": 396
+    },
+    {
+      "path": "scripts/gen_nexus_system_api.py",
+      "bytes": 5111
+    },
+    {
+      "path": "scripts/gen_payload_visitor.py",
+      "bytes": 17715
+    },
+    {
+      "path": "scripts/gen_protos.py",
+      "bytes": 9205
+    },
+    {
+      "path": "scripts/gen_protos_docker.py",
+      "bytes": 888
+    },
+    {
+      "path": "scripts/prepare_release.py",
+      "bytes": 6900
+    },
+    {
+      "path": "scripts/run_bench.py",
+      "bytes": 4730
+    },
+    {
+      "path": "scripts/update_core.py",
+      "bytes": 2425
+    },
+    {
+      "path": "temporalio/__init__.py",
+      "bytes": 908
+    },
+    {
+      "path": "temporalio/activity.py",
+      "bytes": 22335
+    },
+    {
+      "path": "temporalio/api/__init__.py",
+      "bytes": 36
+    },
+    {
+      "path": "temporalio/api/activity/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/activity/v1/__init__.py",
+      "bytes": 308
+    },
+    {
+      "path": "temporalio/api/activity/v1/message_pb2.py",
+      "bytes": 11788
+    },
+    {
+      "path": "temporalio/api/batch/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/batch/v1/__init__.py",
+      "bytes": 1030
+    },
+    {
+      "path": "temporalio/api/batch/v1/message_pb2.py",
+      "bytes": 15144
+    },
+    {
+      "path": "temporalio/api/callback/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/callback/v1/__init__.py",
+      "bytes": 73
+    },
+    {
+      "path": "temporalio/api/callback/v1/message_pb2.py",
+      "bytes": 2944
+    },
+    {
+      "path": "temporalio/api/cloud/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/account/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/account/v1/__init__.py",
+      "bytes": 256
+    },
+    {
+      "path": "temporalio/api/cloud/account/v1/message_pb2.py",
+      "bytes": 6455
+    },
+    {
+      "path": "temporalio/api/cloud/auditlog/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/auditlog/v1/__init__.py",
+      "bytes": 95
+    },
+    {
+      "path": "temporalio/api/cloud/auditlog/v1/message_pb2.py",
+      "bytes": 3075
+    },
+    {
+      "path": "temporalio/api/cloud/billing/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/billing/v1/__init__.py",
+      "bytes": 119
+    },
+    {
+      "path": "temporalio/api/cloud/billing/v1/message_pb2.py",
+      "bytes": 5800
+    },
+    {
+      "path": "temporalio/api/cloud/cloudservice/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/cloudservice/v1/__init__.py",
+      "bytes": 10343
+    },
+    {
+      "path": "temporalio/api/cloud/cloudservice/v1/request_response_pb2.py",
+      "bytes": 130183
+    },
+    {
+      "path": "temporalio/api/cloud/cloudservice/v1/request_response_pb2_grpc.py",
+      "bytes": 159
+    },
+    {
+      "path": "temporalio/api/cloud/cloudservice/v1/service_pb2.py",
+      "bytes": 74235
+    },
+    {
+      "path": "temporalio/api/cloud/cloudservice/v1/service_pb2_grpc.py",
+      "bytes": 160437
+    },
+    {
+      "path": "temporalio/api/cloud/connectivityrule/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/connectivityrule/v1/__init__.py",
+      "bytes": 262
+    },
+    {
+      "path": "temporalio/api/cloud/connectivityrule/v1/message_pb2.py",
+      "bytes": 5029
+    },
+    {
+      "path": "temporalio/api/cloud/identity/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/identity/v1/__init__.py",
+      "bytes": 1056
+    },
+    {
+      "path": "temporalio/api/cloud/identity/v1/message_pb2.py",
+      "bytes": 25482
+    },
+    {
+      "path": "temporalio/api/cloud/namespace/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/namespace/v1/__init__.py",
+      "bytes": 908
+    },
+    {
+      "path": "temporalio/api/cloud/namespace/v1/message_pb2.py",
+      "bytes": 37144
+    },
+    {
+      "path": "temporalio/api/cloud/nexus/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/nexus/v1/__init__.py",
+      "bytes": 334
+    },
+    {
+      "path": "temporalio/api/cloud/nexus/v1/message_pb2.py",
+      "bytes": 6551
+    },
+    {
+      "path": "temporalio/api/cloud/operation/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/operation/v1/__init__.py",
+      "bytes": 77
+    },
+    {
+      "path": "temporalio/api/cloud/operation/v1/message_pb2.py",
+      "bytes": 3361
+    },
+    {
+      "path": "temporalio/api/cloud/region/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/region/v1/__init__.py",
+      "bytes": 61
+    },
+    {
+      "path": "temporalio/api/cloud/region/v1/message_pb2.py",
+      "bytes": 2498
+    },
+    {
+      "path": "temporalio/api/cloud/resource/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/resource/v1/__init__.py",
+      "bytes": 75
+    },
+    {
+      "path": "temporalio/api/cloud/resource/v1/message_pb2.py",
+      "bytes": 2378
+    },
+    {
+      "path": "temporalio/api/cloud/sink/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/sink/v1/__init__.py",
+      "bytes": 147
+    },
+    {
+      "path": "temporalio/api/cloud/sink/v1/message_pb2.py",
+      "bytes": 3738
+    },
+    {
+      "path": "temporalio/api/cloud/usage/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cloud/usage/v1/__init__.py",
+      "bytes": 264
+    },
+    {
+      "path": "temporalio/api/cloud/usage/v1/message_pb2.py",
+      "bytes": 5354
+    },
+    {
+      "path": "temporalio/api/cluster/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/cluster/v1/__init__.py",
+      "bytes": 286
+    },
+    {
+      "path": "temporalio/api/cluster/v1/message_pb2.py",
+      "bytes": 5854
+    },
+    {
+      "path": "temporalio/api/cluster/v1/message_pb2_grpc.py",
+      "bytes": 159
+    },
+    {
+      "path": "temporalio/api/command/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/command/v1/__init__.py",
+      "bytes": 1670
+    },
+    {
+      "path": "temporalio/api/command/v1/message_pb2.py",
+      "bytes": 29585
+    },
+    {
+      "path": "temporalio/api/common/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/common/v1/__init__.py",
+      "bytes": 1160
+    },
+    {
+      "path": "temporalio/api/common/v1/grpc_status_pb2.py",
+      "bytes": 1544
+    },
+    {
+      "path": "temporalio/api/common/v1/message_pb2.py",
+      "bytes": 34380
+    },
+    {
+      "path": "temporalio/api/compute/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/compute/v1/__init__.py",
+      "bytes": 479
+    },
+    {
+      "path": "temporalio/api/compute/v1/config_pb2.py",
+      "bytes": 7824
+    },
+    {
+      "path": "temporalio/api/compute/v1/provider_pb2.py",
+      "bytes": 2047
+    },
+    {
+      "path": "temporalio/api/compute/v1/scaler_pb2.py",
+      "bytes": 1974
+    },
+    {
+      "path": "temporalio/api/dependencies/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/dependencies/nexusannotations/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/dependencies/nexusannotations/v1/__init__.py",
+      "bytes": 119
+    },
+    {
+      "path": "temporalio/api/dependencies/nexusannotations/v1/options_pb2.py",
+      "bytes": 2953
+    },
+    {
+      "path": "temporalio/api/dependencies/protoc_gen_openapiv2/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/dependencies/protoc_gen_openapiv2/options/__init__.py",
+      "bytes": 686
+    },
+    {
+      "path": "temporalio/api/dependencies/protoc_gen_openapiv2/options/annotations_pb2.py",
+      "bytes": 3479
+    },
+    {
+      "path": "temporalio/api/dependencies/protoc_gen_openapiv2/options/openapiv2_pb2.py",
+      "bytes": 35962
+    },
+    {
+      "path": "temporalio/api/deployment/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/deployment/v1/__init__.py",
+      "bytes": 712
+    },
+    {
+      "path": "temporalio/api/deployment/v1/message_pb2.py",
+      "bytes": 23014
+    },
+    {
+      "path": "temporalio/api/enums/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/enums/v1/__init__.py",
+      "bytes": 4056
+    },
+    {
+      "path": "temporalio/api/enums/v1/activity_pb2.py",
+      "bytes": 3596
+    },
+    {
+      "path": "temporalio/api/enums/v1/batch_operation_pb2.py",
+      "bytes": 5367
+    },
+    {
+      "path": "temporalio/api/enums/v1/command_type_pb2.py",
+      "bytes": 3255
+    },
+    {
+      "path": "temporalio/api/enums/v1/common_pb2.py",
+      "bytes": 7976
+    },
+    {
+      "path": "temporalio/api/enums/v1/deployment_pb2.py",
+      "bytes": 4138
+    },
+    {
+      "path": "temporalio/api/enums/v1/event_type_pb2.py",
+      "bytes": 7777
+    },
+    {
+      "path": "temporalio/api/enums/v1/failed_cause_pb2.py",
+      "bytes": 13089
+    },
+    {
+      "path": "temporalio/api/enums/v1/namespace_pb2.py",
+      "bytes": 2748
+    },
+    {
+      "path": "temporalio/api/enums/v1/nexus_pb2.py",
+      "bytes": 5160
+    },
+    {
+      "path": "temporalio/api/enums/v1/query_pb2.py",
+      "bytes": 2354
+    },
+    {
+      "path": "temporalio/api/enums/v1/reset_pb2.py",
+      "bytes": 3281
+    },
+    {
+      "path": "temporalio/api/enums/v1/schedule_pb2.py",
+      "bytes": 2150
+    },
+    {
+      "path": "temporalio/api/enums/v1/task_queue_pb2.py",
+      "bytes": 5391
+    },
+    {
+      "path": "temporalio/api/enums/v1/time_skipping_pb2.py",
+      "bytes": 2011
+    },
+    {
+      "path": "temporalio/api/enums/v1/update_pb2.py",
+      "bytes": 2660
+    },
+    {
+      "path": "temporalio/api/enums/v1/workflow_pb2.py",
+      "bytes": 11196
+    },
+    {
+      "path": "temporalio/api/errordetails/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/errordetails/v1/__init__.py",
+      "bytes": 1460
+    },
+    {
+      "path": "temporalio/api/errordetails/v1/message_pb2.py",
+      "bytes": 18378
+    },
+    {
+      "path": "temporalio/api/export/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/export/v1/__init__.py",
+      "bytes": 129
+    },
+    {
+      "path": "temporalio/api/export/v1/message_pb2.py",
+      "bytes": 2616
+    },
+    {
+      "path": "temporalio/api/failure/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/failure/v1/__init__.py",
+      "bytes": 728
+    },
+    {
+      "path": "temporalio/api/failure/v1/message_pb2.py",
+      "bytes": 12810
+    },
+    {
+      "path": "temporalio/api/filter/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/filter/v1/__init__.py",
+      "bytes": 236
+    },
+    {
+      "path": "temporalio/api/filter/v1/message_pb2.py",
+      "bytes": 4028
+    },
+    {
+      "path": "temporalio/api/history/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/history/v1/__init__.py",
+      "bytes": 6068
+    },
+    {
+      "path": "temporalio/api/history/v1/message_pb2.py",
+      "bytes": 100679
+    },
+    {
+      "path": "temporalio/api/interaction/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/interaction/v1/__init__.py",
+      "bytes": 129
+    },
+    {
+      "path": "temporalio/api/interaction/v1/message_pb2.py",
+      "bytes": 4390
+    },
+    {
+      "path": "temporalio/api/namespace/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/namespace/v1/__init__.py",
+      "bytes": 300
+    },
+    {
+      "path": "temporalio/api/namespace/v1/message_pb2.py",
+      "bytes": 12818
+    },
+    {
+      "path": "temporalio/api/nexus/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/nexus/v1/__init__.py",
+      "bytes": 834
+    },
+    {
+      "path": "temporalio/api/nexus/v1/message_pb2.py",
+      "bytes": 25778
+    },
+    {
+      "path": "temporalio/api/nexusoperation/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/nexusoperation/v1/__init__.py",
+      "bytes": 117
+    },
+    {
+      "path": "temporalio/api/nexusoperation/v1/message_pb2.py",
+      "bytes": 4385
+    },
+    {
+      "path": "temporalio/api/nexusservices/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/nexusservices/workerservice/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/nexusservices/workerservice/v1/__init__.py",
+      "bytes": 158
+    },
+    {
+      "path": "temporalio/api/nexusservices/workerservice/v1/request_response_pb2.py",
+      "bytes": 3094
+    },
+    {
+      "path": "temporalio/api/nexusservices/workerservice/v1/request_response_pb2_grpc.py",
+      "bytes": 159
+    },
+    {
+      "path": "temporalio/api/notificationservice/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/notificationservice/v1/__init__.py",
+      "bytes": 138
+    },
+    {
+      "path": "temporalio/api/notificationservice/v1/request_response_pb2.py",
+      "bytes": 3145
+    },
+    {
+      "path": "temporalio/api/notificationservice/v1/request_response_pb2_grpc.py",
+      "bytes": 159
+    },
+    {
+      "path": "temporalio/api/operatorservice/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/operatorservice/v1/__init__.py",
+      "bytes": 2077
+    },
+    {
+      "path": "temporalio/api/operatorservice/v1/request_response_pb2.py",
+      "bytes": 25932
+    },
+    {
+      "path": "temporalio/api/operatorservice/v1/request_response_pb2_grpc.py",
+      "bytes": 159
+    },
+    {
+      "path": "temporalio/api/operatorservice/v1/service_pb2.py",
+      "bytes": 6143
+    },
+    {
+      "path": "temporalio/api/operatorservice/v1/service_pb2_grpc.py",
+      "bytes": 28717
+    },
+    {
+      "path": "temporalio/api/protocol/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/protocol/v1/__init__.py",
+      "bytes": 63
+    },
+    {
+      "path": "temporalio/api/protocol/v1/message_pb2.py",
+      "bytes": 2038
+    },
+    {
+      "path": "temporalio/api/protometa/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/protometa/v1/__init__.py",
+      "bytes": 99
+    },
+    {
+      "path": "temporalio/api/protometa/v1/annotations_pb2.py",
+      "bytes": 2413
+    },
+    {
+      "path": "temporalio/api/query/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/query/v1/__init__.py",
+      "bytes": 159
+    },
+    {
+      "path": "temporalio/api/query/v1/message_pb2.py",
+      "bytes": 3945
+    },
+    {
+      "path": "temporalio/api/replication/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/replication/v1/__init__.py",
+      "bytes": 214
+    },
+    {
+      "path": "temporalio/api/replication/v1/message_pb2.py",
+      "bytes": 3992
+    },
+    {
+      "path": "temporalio/api/rules/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/rules/v1/__init__.py",
+      "bytes": 161
+    },
+    {
+      "path": "temporalio/api/rules/v1/message_pb2.py",
+      "bytes": 5333
+    },
+    {
+      "path": "temporalio/api/schedule/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/schedule/v1/__init__.py",
+      "bytes": 732
+    },
+    {
+      "path": "temporalio/api/schedule/v1/message_pb2.py",
+      "bytes": 16561
+    },
+    {
+      "path": "temporalio/api/sdk/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/sdk/v1/__init__.py",
+      "bytes": 909
+    },
+    {
+      "path": "temporalio/api/sdk/v1/enhanced_stack_trace_pb2.py",
+      "bytes": 5678
+    },
+    {
+      "path": "temporalio/api/sdk/v1/event_group_marker_pb2.py",
+      "bytes": 4446
+    },
+    {
+      "path": "temporalio/api/sdk/v1/external_storage_pb2.py",
+      "bytes": 2967
+    },
+    {
+      "path": "temporalio/api/sdk/v1/task_complete_metadata_pb2.py",
+      "bytes": 2062
+    },
+    {
+      "path": "temporalio/api/sdk/v1/user_metadata_pb2.py",
+      "bytes": 1986
+    },
+    {
+      "path": "temporalio/api/sdk/v1/worker_config_pb2.py",
+      "bytes": 3729
+    },
+    {
+      "path": "temporalio/api/sdk/v1/workflow_metadata_pb2.py",
+      "bytes": 3553
+    },
+    {
+      "path": "temporalio/api/taskqueue/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/taskqueue/v1/__init__.py",
+      "bytes": 1452
+    },
+    {
+      "path": "temporalio/api/taskqueue/v1/message_pb2.py",
+      "bytes": 25052
+    },
+    {
+      "path": "temporalio/api/testservice/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/testservice/v1/__init__.py",
+      "bytes": 814
+    },
+    {
+      "path": "temporalio/api/testservice/v1/request_response_pb2.py",
+      "bytes": 6609
+    },
+    {
+      "path": "temporalio/api/testservice/v1/request_response_pb2_grpc.py",
+      "bytes": 159
+    },
+    {
+      "path": "temporalio/api/testservice/v1/service_pb2.py",
+      "bytes": 2533
+    },
+    {
+      "path": "temporalio/api/testservice/v1/service_pb2_grpc.py",
+      "bytes": 14986
+    },
+    {
+      "path": "temporalio/api/update/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/update/v1/__init__.py",
+      "bytes": 308
+    },
+    {
+      "path": "temporalio/api/update/v1/message_pb2.py",
+      "bytes": 7499
+    },
+    {
+      "path": "temporalio/api/version/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/version/v1/__init__.py",
+      "bytes": 123
+    },
+    {
+      "path": "temporalio/api/version/v1/message_pb2.py",
+      "bytes": 3538
+    },
+    {
+      "path": "temporalio/api/worker/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/worker/v1/__init__.py",
+      "bytes": 624
+    },
+    {
+      "path": "temporalio/api/worker/v1/message_pb2.py",
+      "bytes": 21212
+    },
+    {
+      "path": "temporalio/api/workflow/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/workflow/v1/__init__.py",
+      "bytes": 1238
+    },
+    {
+      "path": "temporalio/api/workflow/v1/message_pb2.py",
+      "bytes": 42421
+    },
+    {
+      "path": "temporalio/api/workflowservice/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/api/workflowservice/v1/__init__.py",
+      "bytes": 18987
+    },
+    {
+      "path": "temporalio/api/workflowservice/v1/request_response_pb2.py",
+      "bytes": 302314
+    },
+    {
+      "path": "temporalio/api/workflowservice/v1/request_response_pb2_grpc.py",
+      "bytes": 159
+    },
+    {
+      "path": "temporalio/api/workflowservice/v1/service_pb2.py",
+      "bytes": 93408
+    },
+    {
+      "path": "temporalio/api/workflowservice/v1/service_pb2_grpc.py",
+      "bytes": 296630
+    },
+    {
+      "path": "temporalio/bridge/Cargo.toml",
+      "bytes": 3390
+    },
+    {
+      "path": "temporalio/bridge/__init__.py",
+      "bytes": 122
+    },
+    {
+      "path": "temporalio/bridge/_visitor.py",
+      "bytes": 27146
+    },
+    {
+      "path": "temporalio/bridge/_visitor_functions.py",
+      "bytes": 4125
+    },
+    {
+      "path": "temporalio/bridge/client.py",
+      "bytes": 4781
+    },
+    {
+      "path": "temporalio/bridge/metric.py",
+      "bytes": 5126
+    },
+    {
+      "path": "temporalio/bridge/proto/__init__.py",
+      "bytes": 385
+    },
+    {
+      "path": "temporalio/bridge/proto/activity_result/__init__.py",
+      "bytes": 396
+    },
+    {
+      "path": "temporalio/bridge/proto/activity_result/activity_result_pb2.py",
+      "bytes": 7523
+    },
+    {
+      "path": "temporalio/bridge/proto/activity_task/__init__.py",
+      "bytes": 260
+    },
+    {
+      "path": "temporalio/bridge/proto/activity_task/activity_task_pb2.py",
+      "bytes": 7189
+    },
+    {
+      "path": "temporalio/bridge/proto/bridge/__init__.py",
+      "bytes": 1435
+    },
+    {
+      "path": "temporalio/bridge/proto/bridge/bridge_pb2.py",
+      "bytes": 33733
+    },
+    {
+      "path": "temporalio/bridge/proto/child_workflow/__init__.py",
+      "bytes": 407
+    },
+    {
+      "path": "temporalio/bridge/proto/child_workflow/child_workflow_pb2.py",
+      "bytes": 6390
+    },
+    {
+      "path": "temporalio/bridge/proto/common/__init__.py",
+      "bytes": 275
+    },
+    {
+      "path": "temporalio/bridge/proto/common/common_pb2.py",
+      "bytes": 3823
+    },
+    {
+      "path": "temporalio/bridge/proto/core_interface_pb2.py",
+      "bytes": 8059
+    },
+    {
+      "path": "temporalio/bridge/proto/core_interface_pb2_grpc.py",
+      "bytes": 159
+    },
+    {
+      "path": "temporalio/bridge/proto/external_data/__init__.py",
+      "bytes": 145
+    },
+    {
+      "path": "temporalio/bridge/proto/external_data/external_data_pb2.py",
+      "bytes": 3026
+    },
+    {
+      "path": "temporalio/bridge/proto/health/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "temporalio/bridge/proto/health/v1/__init__.py",
+      "bytes": 132
+    },
+    {
+      "path": "temporalio/bridge/proto/health/v1/health_pb2.py",
+      "bytes": 3058
+    },
+    {
+      "path": "temporalio/bridge/proto/nexus/__init__.py",
+      "bytes": 354
+    },
+    {
+      "path": "temporalio/bridge/proto/nexus/nexus_pb2.py",
+      "bytes": 6457
+    },
+    {
+      "path": "temporalio/bridge/proto/workflow_activation/__init__.py",
+      "bytes": 1300
+    },
+    {
+      "path": "temporalio/bridge/proto/workflow_activation/workflow_activation_pb2.py",
+      "bytes": 28441
+    },
+    {
+      "path": "temporalio/bridge/proto/workflow_commands/__init__.py",
+      "bytes": 1486
+    },
+    {
+      "path": "temporalio/bridge/proto/workflow_commands/workflow_commands_pb2.py",
+      "bytes": 37122
+    },
+    {
+      "path": "temporalio/bridge/proto/workflow_completion/__init__.py",
+      "bytes": 165
+    },
+    {
+      "path": "temporalio/bridge/proto/workflow_completion/workflow_completion_pb2.py",
+      "bytes": 4446
+    },
+    {
+      "path": "temporalio/bridge/runtime.py",
+      "bytes": 4218
+    },
+    {
+      "path": "temporalio/bridge/services_generated.py",
+      "bytes": 161177
+    },
+    {
+      "path": "temporalio/bridge/src/client.rs",
+      "bytes": 16971
+    },
+    {
+      "path": "temporalio/bridge/src/client_rpc_generated.rs",
+      "bytes": 69520
+    },
+    {
+      "path": "temporalio/bridge/src/envconfig.rs",
+      "bytes": 6039
+    },
+    {
+      "path": "temporalio/bridge/src/lib.rs",
+      "bytes": 4729
+    },
+    {
+      "path": "temporalio/bridge/src/metric.rs",
+      "bytes": 12903
+    },
+    {
+      "path": "temporalio/bridge/src/runtime.rs",
+      "bytes": 15719
+    },
+    {
+      "path": "temporalio/bridge/src/testing.rs",
+      "bytes": 5611
+    },
+    {
+      "path": "temporalio/bridge/src/worker.rs",
+      "bytes": 34361
+    },
+    {
+      "path": "temporalio/bridge/testing.py",
+      "bytes": 2450
+    },
+    {
+      "path": "temporalio/bridge/worker.py",
+      "bytes": 12028
+    },
+    {
+      "path": "temporalio/client/__init__.py",
+      "bytes": 10915
+    },
+    {
+      "path": "temporalio/client/_activity.py",
+      "bytes": 47908
+    },
+    {
+      "path": "temporalio/client/_callback.py",
+      "bytes": 103
+    },
+    {
+      "path": "temporalio/client/_client.py",
+      "bytes": 131073
+    },
+    {
+      "path": "temporalio/client/_cloud.py",
+      "bytes": 7623
+    },
+    {
+      "path": "temporalio/client/_exceptions.py",
+      "bytes": 4413
+    },
+    {
+      "path": "temporalio/client/_helpers.py",
+      "bytes": 7099
+    },
+    {
+      "path": "temporalio/client/_impl.py",
+      "bytes": 74376
+    },
+    {
+      "path": "temporalio/client/_interceptor.py",
+      "bytes": 30650
+    },
+    {
+      "path": "temporalio/client/_nexus.py",
+      "bytes": 52353
+    },
+    {
+      "path": "temporalio/client/_plugin.py",
+      "bytes": 2476
+    },
+    {
+      "path": "temporalio/client/_schedule.py",
+      "bytes": 55669
+    },
+    {
+      "path": "temporalio/client/_worker_versioning.py",
+      "bytes": 10117
+    },
+    {
+      "path": "temporalio/client/_workflow.py",
+      "bytes": 74042
+    },
+    {
+      "path": "temporalio/common.py",
+      "bytes": 51489
+    },
+    {
+      "path": "temporalio/contrib/__init__.py",
+      "bytes": 57
+    },
+    {
+      "path": "temporalio/contrib/aws/__init__.py",
+      "bytes": 41
+    },
+    {
+      "path": "temporalio/contrib/aws/lambda_worker/README.md",
+      "bytes": 4423
+    },
+    {
+      "path": "temporalio/contrib/aws/lambda_worker/__init__.py",
+      "bytes": 1876
+    },
+    {
+      "path": "temporalio/contrib/aws/lambda_worker/_configure.py",
+      "bytes": 2911
+    },
+    {
+      "path": "temporalio/contrib/aws/lambda_worker/_defaults.py",
+      "bytes": 3305
+    },
+    {
+      "path": "temporalio/contrib/aws/lambda_worker/_run_worker.py",
+      "bytes": 15050
+    },
+    {
+      "path": "temporalio/contrib/aws/lambda_worker/otel.py",
+      "bytes": 8316
+    },
+    {
+      "path": "temporalio/contrib/aws/s3driver/README.md",
+      "bytes": 5694
+    },
+    {
+      "path": "temporalio/contrib/aws/s3driver/__init__.py",
+      "bytes": 317
+    },
+    {
+      "path": "temporalio/contrib/aws/s3driver/_client.py",
+      "bytes": 1425
+    },
+    {
+      "path": "temporalio/contrib/aws/s3driver/_driver.py",
+      "bytes": 9970
+    },
+    {
+      "path": "temporalio/contrib/aws/s3driver/aioboto3.py",
+      "bytes": 2915
+    },
+    {
+      "path": "temporalio/contrib/deepagents/README.md",
+      "bytes": 1057
+    },
+    {
+      "path": "temporalio/contrib/deepagents/__init__.py",
+      "bytes": 475
+    },
+    {
+      "path": "temporalio/contrib/deepagents/testing.py",
+      "bytes": 307
+    },
+    {
+      "path": "temporalio/contrib/deepagents/workflow.py",
+      "bytes": 198
+    },
+    {
+      "path": "temporalio/contrib/gcp/__init__.py",
+      "bytes": 55
+    },
+    {
+      "path": "temporalio/contrib/gcp/cloud_run/__init__.py",
+      "bytes": 50
+    },
+    {
+      "path": "temporalio/contrib/gcp/cloud_run/id/README.md",
+      "bytes": 3165
+    },
+    {
+      "path": "temporalio/contrib/gcp/cloud_run/id/__init__.py",
+      "bytes": 1226
+    },
+    {
+      "path": "temporalio/contrib/gcp/cloud_run/id/_cloud_run_id_plugin.py",
+      "bytes": 4268
+    },
+    {
+      "path": "temporalio/contrib/gcp/cloud_run/id/_metadata.py",
+      "bytes": 4101
+    },
+    {
+      "path": "temporalio/contrib/gcp/cloud_run/opentelemetry/README.md",
+      "bytes": 6780
+    },
+    {
+      "path": "temporalio/contrib/gcp/cloud_run/opentelemetry/__init__.py",
+      "bytes": 1112
+    },
+    {
+      "path": "temporalio/contrib/gcp/cloud_run/opentelemetry/_opentelemetry.py",
+      "bytes": 13731
+    },
+    {
+      "path": "temporalio/contrib/google_adk_agents/README.md",
+      "bytes": 1061
+    },
+    {
+      "path": "temporalio/contrib/google_adk_agents/__init__.py",
+      "bytes": 458
+    },
+    {
+      "path": "temporalio/contrib/google_adk_agents/workflow.py",
+      "bytes": 198
+    },
+    {
+      "path": "temporalio/contrib/google_genai/README.md",
+      "bytes": 1080
+    },
+    {
+      "path": "temporalio/contrib/google_genai/__init__.py",
+      "bytes": 484
+    },
+    {
+      "path": "temporalio/contrib/google_genai/testing.py",
+      "bytes": 313
+    },
+    {
+      "path": "temporalio/contrib/google_genai/workflow.py",
+      "bytes": 202
+    },
+    {
+      "path": "temporalio/contrib/langgraph/README.md",
+      "bytes": 1042
+    },
+    {
+      "path": "temporalio/contrib/langgraph/__init__.py",
+      "bytes": 389
+    },
+    {
+      "path": "temporalio/contrib/langsmith/README.md",
+      "bytes": 1042
+    },
+    {
+      "path": "temporalio/contrib/langsmith/__init__.py",
+      "bytes": 389
+    },
+    {
+      "path": "temporalio/contrib/openai_agents/README.md",
+      "bytes": 1079
+    },
+    {
+      "path": "temporalio/contrib/openai_agents/__init__.py",
+      "bytes": 489
+    },
+    {
+      "path": "temporalio/contrib/openai_agents/testing.py",
+      "bytes": 316
+    },
+    {
+      "path": "temporalio/contrib/openai_agents/workflow.py",
+      "bytes": 204
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/README.md",
+      "bytes": 12794
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/__init__.py",
+      "bytes": 1436
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/_context.py",
+      "bytes": 2051
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/_id_generator.py",
+      "bytes": 2401
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/_interceptor.py",
+      "bytes": 34664
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/_logger_provider.py",
+      "bytes": 5446
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/_meter_provider.py",
+      "bytes": 9976
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/_metrics_exporter.py",
+      "bytes": 11556
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/_otel_interceptor.py",
+      "bytes": 22507
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/_plugin.py",
+      "bytes": 2127
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/_serverless.py",
+      "bytes": 5086
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/_tracer_provider.py",
+      "bytes": 10224
+    },
+    {
+      "path": "temporalio/contrib/opentelemetry/workflow.py",
+      "bytes": 1833
+    },
+    {
+      "path": "temporalio/contrib/pydantic.py",
+      "bytes": 7243
+    },
+    {
+      "path": "temporalio/contrib/strands/README.md",
+      "bytes": 1093
+    },
+    {
+      "path": "temporalio/contrib/strands/__init__.py",
+      "bytes": 478
+    },
+    {
+      "path": "temporalio/contrib/strands/workflow.py",
+      "bytes": 206
+    },
+    {
+      "path": "temporalio/contrib/workflow_streams/README.md",
+      "bytes": 1721
+    },
+    {
+      "path": "temporalio/contrib/workflow_streams/__init__.py",
+      "bytes": 1257
+    },
+    {
+      "path": "temporalio/contrib/workflow_streams/_client.py",
+      "bytes": 30245
+    },
+    {
+      "path": "temporalio/contrib/workflow_streams/_stream.py",
+      "bytes": 19647
+    },
+    {
+      "path": "temporalio/contrib/workflow_streams/_topic_handle.py",
+      "bytes": 5603
+    },
+    {
+      "path": "temporalio/contrib/workflow_streams/_types.py",
+      "bytes": 5672
+    },
+    {
+      "path": "temporalio/converter/__init__.py",
+      "bytes": 3147
+    },
+    {
+      "path": "temporalio/converter/_data_converter.py",
+      "bytes": 14097
+    },
+    {
+      "path": "temporalio/converter/_extstore.py",
+      "bytes": 22719
+    },
+    {
+      "path": "temporalio/converter/_failure_converter.py",
+      "bytes": 20972
+    },
+    {
+      "path": "temporalio/converter/_payload_codec.py",
+      "bytes": 4455
+    },
+    {
+      "path": "temporalio/converter/_payload_converter.py",
+      "bytes": 41550
+    },
+    {
+      "path": "temporalio/converter/_payload_validation_error.py",
+      "bytes": 795
+    },
+    {
+      "path": "temporalio/converter/_search_attributes.py",
+      "bytes": 7861
+    },
+    {
+      "path": "temporalio/converter/_serialization_context.py",
+      "bytes": 5772
+    },
+    {
+      "path": "temporalio/envconfig.py",
+      "bytes": 15433
+    },
+    {
+      "path": "temporalio/exceptions.py",
+      "bytes": 15565
+    },
+    {
+      "path": "temporalio/nexus/__init__.py",
+      "bytes": 1486
+    },
+    {
+      "path": "temporalio/nexus/_decorators.py",
+      "bytes": 7245
+    },
+    {
+      "path": "temporalio/nexus/_link_conversion.py",
+      "bytes": 18125
+    },
+    {
+      "path": "temporalio/nexus/_operation_context.py",
+      "bytes": 37080
+    },
+    {
+      "path": "temporalio/nexus/_operation_handlers.py",
+      "bytes": 10860
+    },
+    {
+      "path": "temporalio/nexus/_temporal_client.py",
+      "bytes": 34368
+    },
+    {
+      "path": "temporalio/nexus/_token.py",
+      "bytes": 8985
+    },
+    {
+      "path": "temporalio/nexus/_util.py",
+      "bytes": 6802
+    },
+    {
+      "path": "temporalio/nexus/system/__init__.py",
+      "bytes": 7009
+    },
+    {
+      "path": "temporalio/nexus/system/_support.py",
+      "bytes": 8361
+    },
+    {
+      "path": "temporalio/nexus/system/workflow_service/__init__.py",
+      "bytes": 1382
+    },
+    {
+      "path": "temporalio/nexus/system/workflow_service/_system_nexus_interceptor.py",
+      "bytes": 3452
+    },
+    {
+      "path": "temporalio/nexus/system/workflow_service/models.py",
+      "bytes": 13327
+    },
+    {
+      "path": "temporalio/nexus/system/workflow_service/operations/__init__.py",
+      "bytes": 79
+    },
+    {
+      "path": "temporalio/nexus/system/workflow_service/operations/signal_with_start_workflow.py",
+      "bytes": 27937
+    },
+    {
+      "path": "temporalio/nexus/system/workflow_service/services.py",
+      "bytes": 648
+    },
+    {
+      "path": "temporalio/plugin.py",
+      "bytes": 10864
+    },
+    {
+      "path": "temporalio/runtime.py",
+      "bytes": 29957
+    },
+    {
+      "path": "temporalio/service.py",
+      "bytes": 19320
+    },
+    {
+      "path": "temporalio/testing/__init__.py",
+      "bytes": 207
+    },
+    {
+      "path": "temporalio/testing/_activity.py",
+      "bytes": 9058
+    },
+    {
+      "path": "temporalio/testing/_workflow.py",
+      "bytes": 27687
+    },
+    {
+      "path": "temporalio/types.py",
+      "bytes": 4480
+    },
+    {
+      "path": "temporalio/worker/__init__.py",
+      "bytes": 3367
+    },
+    {
+      "path": "temporalio/worker/_activity.py",
+      "bytes": 49580
+    },
+    {
+      "path": "temporalio/worker/_command_aware_visitor.py",
+      "bytes": 8147
+    },
+    {
+      "path": "temporalio/worker/_debugger.py",
+      "bytes": 6761
+    },
+    {
+      "path": "temporalio/worker/_interceptor.py",
+      "bytes": 20020
+    },
+    {
+      "path": "temporalio/worker/_nexus.py",
+      "bytes": 33270
+    },
+    {
+      "path": "temporalio/worker/_plugin.py",
+      "bytes": 3318
+    },
+    {
+      "path": "temporalio/worker/_replayer.py",
+      "bytes": 19715
+    },
+    {
+      "path": "temporalio/worker/_tuning.py",
+      "bytes": 16919
+    },
+    {
+      "path": "temporalio/worker/_worker.py",
+      "bytes": 59628
+    },
+    {
+      "path": "temporalio/worker/_workflow.py",
+      "bytes": 42021
+    },
+    {
+      "path": "temporalio/worker/_workflow_instance.py",
+      "bytes": 174073
+    },
+    {
+      "path": "temporalio/worker/workflow_sandbox/__init__.py",
+      "bytes": 2552
+    },
+    {
+      "path": "temporalio/worker/workflow_sandbox/_importer.py",
+      "bytes": 22750
+    },
+    {
+      "path": "temporalio/worker/workflow_sandbox/_in_sandbox.py",
+      "bytes": 4040
+    },
+    {
+      "path": "temporalio/worker/workflow_sandbox/_restrictions.py",
+      "bytes": 47589
+    },
+    {
+      "path": "temporalio/worker/workflow_sandbox/_runner.py",
+      "bytes": 9781
+    },
+    {
+      "path": "temporalio/workflow/__init__.py",
+      "bytes": 7976
+    },
+    {
+      "path": "temporalio/workflow/_activities.py",
+      "bytes": 85170
+    },
+    {
+      "path": "temporalio/workflow/_asyncio.py",
+      "bytes": 5648
+    },
+    {
+      "path": "temporalio/workflow/_context.py",
+      "bytes": 34932
+    },
+    {
+      "path": "temporalio/workflow/_definition.py",
+      "bytes": 19351
+    },
+    {
+      "path": "temporalio/workflow/_event_groups.py",
+      "bytes": 8471
+    },
+    {
+      "path": "temporalio/workflow/_exceptions.py",
+      "bytes": 5375
+    },
+    {
+      "path": "temporalio/workflow/_handlers.py",
+      "bytes": 20120
+    },
+    {
+      "path": "temporalio/workflow/_nexus.py",
+      "bytes": 22186
+    },
+    {
+      "path": "temporalio/workflow/_sandbox.py",
+      "bytes": 12086
+    },
+    {
+      "path": "temporalio/workflow/_workflow_ops.py",
+      "bytes": 41633
+    },
+    {
+      "path": "tests/__init__.py",
+      "bytes": 59
+    },
+    {
+      "path": "tests/api/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/api/test_grpc_stub.py",
+      "bytes": 10749
+    },
+    {
+      "path": "tests/bridge/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/bridge/test_runtime.py",
+      "bytes": 897
+    },
+    {
+      "path": "tests/conftest.py",
+      "bytes": 13013
+    },
+    {
+      "path": "tests/contrib/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/contrib/aws/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/contrib/aws/lambda_worker/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/contrib/aws/lambda_worker/test_lambda_worker.py",
+      "bytes": 24917
+    },
+    {
+      "path": "tests/contrib/aws/lambda_worker/test_otel.py",
+      "bytes": 6164
+    },
+    {
+      "path": "tests/contrib/aws/s3driver/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/contrib/aws/s3driver/conftest.py",
+      "bytes": 1917
+    },
+    {
+      "path": "tests/contrib/aws/s3driver/test_s3driver.py",
+      "bytes": 39330
+    },
+    {
+      "path": "tests/contrib/aws/s3driver/test_s3driver_worker.py",
+      "bytes": 20833
+    },
+    {
+      "path": "tests/contrib/aws/s3driver/workflows.py",
+      "bytes": 6714
+    },
+    {
+      "path": "tests/contrib/gcp/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/contrib/gcp/cloud_run/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/contrib/gcp/cloud_run/id/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/contrib/gcp/cloud_run/id/test_cloud_run_id_plugin.py",
+      "bytes": 4190
+    },
+    {
+      "path": "tests/contrib/gcp/cloud_run/id/test_metadata.py",
+      "bytes": 7409
+    },
+    {
+      "path": "tests/contrib/gcp/cloud_run/opentelemetry/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/contrib/gcp/cloud_run/opentelemetry/test_opentelemetry.py",
+      "bytes": 11461
+    },
+    {
+      "path": "tests/contrib/opentelemetry/test_logger_provider.py",
+      "bytes": 6423
+    },
+    {
+      "path": "tests/contrib/opentelemetry/test_meter_provider.py",
+      "bytes": 13534
+    },
+    {
+      "path": "tests/contrib/opentelemetry/test_metrics_exporter.py",
+      "bytes": 7232
+    },
+    {
+      "path": "tests/contrib/opentelemetry/test_opentelemetry.py",
+      "bytes": 46373
+    },
+    {
+      "path": "tests/contrib/opentelemetry/test_opentelemetry_plugin.py",
+      "bytes": 26677
+    },
+    {
+      "path": "tests/contrib/opentelemetry/test_serverless.py",
+      "bytes": 6015
+    },
+    {
+      "path": "tests/contrib/opentelemetry/test_tracer_provider.py",
+      "bytes": 2240
+    },
+    {
+      "path": "tests/contrib/opentelemetry/test_wrapper_abc_drift.py",
+      "bytes": 4246
+    },
+    {
+      "path": "tests/contrib/pydantic/activities.py",
+      "bytes": 654
+    },
+    {
+      "path": "tests/contrib/pydantic/models.py",
+      "bytes": 14454
+    },
+    {
+      "path": "tests/contrib/pydantic/models_2.py",
+      "bytes": 7559
+    },
+    {
+      "path": "tests/contrib/pydantic/test_pydantic.py",
+      "bytes": 18734
+    },
+    {
+      "path": "tests/contrib/pydantic/workflows.py",
+      "bytes": 4767
+    },
+    {
+      "path": "tests/contrib/workflow_streams/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/contrib/workflow_streams/test_payload_roundtrip.py",
+      "bytes": 4652
+    },
+    {
+      "path": "tests/contrib/workflow_streams/test_workflow_streams.py",
+      "bytes": 107330
+    },
+    {
+      "path": "tests/helpers/__init__.py",
+      "bytes": 17972
+    },
+    {
+      "path": "tests/helpers/cache_eviction.py",
+      "bytes": 2209
+    },
+    {
+      "path": "tests/helpers/external_coroutine.py",
+      "bytes": 496
+    },
+    {
+      "path": "tests/helpers/external_stack_trace.py",
+      "bytes": 1625
+    },
+    {
+      "path": "tests/helpers/fork.py",
+      "bytes": 2403
+    },
+    {
+      "path": "tests/helpers/metrics.py",
+      "bytes": 1046
+    },
+    {
+      "path": "tests/helpers/nexus.py",
+      "bytes": 3218
+    },
+    {
+      "path": "tests/helpers/trace.py",
+      "bytes": 3728
+    },
+    {
+      "path": "tests/helpers/worker.py",
+      "bytes": 8545
+    },
+    {
+      "path": "tests/nexus/test_dynamic_creation_of_user_handler_classes.py",
+      "bytes": 2954
+    },
+    {
+      "path": "tests/nexus/test_handler_interface_implementation.py",
+      "bytes": 2324
+    },
+    {
+      "path": "tests/nexus/test_handler_operation_definitions.py",
+      "bytes": 6430
+    },
+    {
+      "path": "tests/nexus/test_link_conversion.py",
+      "bytes": 17808
+    },
+    {
+      "path": "tests/nexus/test_link_propagation.py",
+      "bytes": 33151
+    },
+    {
+      "path": "tests/nexus/test_nexus_client_updates.py",
+      "bytes": 3254
+    },
+    {
+      "path": "tests/nexus/test_nexus_type_errors.py",
+      "bytes": 33110
+    },
+    {
+      "path": "tests/nexus/test_nexus_worker_shutdown.py",
+      "bytes": 12668
+    },
+    {
+      "path": "tests/nexus/test_operation_token.py",
+      "bytes": 8548
+    },
+    {
+      "path": "tests/nexus/test_signal_link_propagation_e2e.py",
+      "bytes": 22588
+    },
+    {
+      "path": "tests/nexus/test_standalone_operations.py",
+      "bytes": 39806
+    },
+    {
+      "path": "tests/nexus/test_temporal_extstore.py",
+      "bytes": 9175
+    },
+    {
+      "path": "tests/nexus/test_temporal_operation.py",
+      "bytes": 65127
+    },
+    {
+      "path": "tests/nexus/test_temporal_system_nexus.py",
+      "bytes": 36792
+    },
+    {
+      "path": "tests/nexus/test_use_existing_conflict_policy.py",
+      "bytes": 3737
+    },
+    {
+      "path": "tests/nexus/test_workflow_caller.py",
+      "bytes": 82726
+    },
+    {
+      "path": "tests/nexus/test_workflow_caller_cancellation_types.py",
+      "bytes": 19595
+    },
+    {
+      "path": "tests/nexus/test_workflow_caller_cancellation_types_when_cancel_handler_fails.py",
+      "bytes": 15290
+    },
+    {
+      "path": "tests/nexus/test_workflow_caller_error_chains.py",
+      "bytes": 22717
+    },
+    {
+      "path": "tests/nexus/test_workflow_caller_errors.py",
+      "bytes": 38364
+    },
+    {
+      "path": "tests/nexus/test_workflow_run_operation.py",
+      "bytes": 7474
+    },
+    {
+      "path": "tests/test_activity.py",
+      "bytes": 46076
+    },
+    {
+      "path": "tests/test_activity_operator_commands.py",
+      "bytes": 13830
+    },
+    {
+      "path": "tests/test_activity_operator_commands_interceptor.py",
+      "bytes": 3991
+    },
+    {
+      "path": "tests/test_activity_operator_commands_requests.py",
+      "bytes": 7218
+    },
+    {
+      "path": "tests/test_activity_type_errors.py",
+      "bytes": 14931
+    },
+    {
+      "path": "tests/test_client.py",
+      "bytes": 61917
+    },
+    {
+      "path": "tests/test_client_exports.py",
+      "bytes": 5634
+    },
+    {
+      "path": "tests/test_client_type_errors.py",
+      "bytes": 8843
+    },
+    {
+      "path": "tests/test_cloud.py",
+      "bytes": 837
+    },
+    {
+      "path": "tests/test_common.py",
+      "bytes": 4999
+    },
+    {
+      "path": "tests/test_contrib.py",
+      "bytes": 3280
+    },
+    {
+      "path": "tests/test_converter.py",
+      "bytes": 42611
+    },
+    {
+      "path": "tests/test_envconfig.py",
+      "bytes": 41213
+    },
+    {
+      "path": "tests/test_extstore.py",
+      "bytes": 32749
+    },
+    {
+      "path": "tests/test_plugins.py",
+      "bytes": 21436
+    },
+    {
+      "path": "tests/test_prepare_release.py",
+      "bytes": 10905
+    },
+    {
+      "path": "tests/test_runtime.py",
+      "bytes": 15882
+    },
+    {
+      "path": "tests/test_serialization_context.py",
+      "bytes": 86471
+    },
+    {
+      "path": "tests/test_service.py",
+      "bytes": 12469
+    },
+    {
+      "path": "tests/test_tls.py",
+      "bytes": 8280
+    },
+    {
+      "path": "tests/test_type_errors.py",
+      "bytes": 6174
+    },
+    {
+      "path": "tests/test_update_core.py",
+      "bytes": 3390
+    },
+    {
+      "path": "tests/test_workflow.py",
+      "bytes": 17268
+    },
+    {
+      "path": "tests/test_workflow_exports.py",
+      "bytes": 5041
+    },
+    {
+      "path": "tests/testing/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/testing/test_activity.py",
+      "bytes": 6843
+    },
+    {
+      "path": "tests/testing/test_workflow.py",
+      "bytes": 11909
+    },
+    {
+      "path": "tests/worker/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/worker/test_activity.py",
+      "bytes": 70540
+    },
+    {
+      "path": "tests/worker/test_breakpoint_hang.py",
+      "bytes": 8181
+    },
+    {
+      "path": "tests/worker/test_child_workflow_versioning.py",
+      "bytes": 10079
+    },
+    {
+      "path": "tests/worker/test_command_aware_visitor.py",
+      "bytes": 4358
+    },
+    {
+      "path": "tests/worker/test_event_groups.py",
+      "bytes": 67314
+    },
+    {
+      "path": "tests/worker/test_extstore.py",
+      "bytes": 49163
+    },
+    {
+      "path": "tests/worker/test_interceptor.py",
+      "bytes": 15887
+    },
+    {
+      "path": "tests/worker/test_payload_size_limits.py",
+      "bytes": 9811
+    },
+    {
+      "path": "tests/worker/test_replayer.py",
+      "bytes": 21539
+    },
+    {
+      "path": "tests/worker/test_update_with_start.py",
+      "bytes": 48016
+    },
+    {
+      "path": "tests/worker/test_visitor.py",
+      "bytes": 19453
+    },
+    {
+      "path": "tests/worker/test_worker.py",
+      "bytes": 70521
+    },
+    {
+      "path": "tests/worker/test_workflow.py",
+      "bytes": 372905
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/test_importer.py",
+      "bytes": 14610
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/test_restrictions.py",
+      "bytes": 4355
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/test_runner.py",
+      "bytes": 24979
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/testmodules/__init__.py",
+      "bytes": 670
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/testmodules/invalid_module.py",
+      "bytes": 13
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/testmodules/invalid_module_members.py",
+      "bytes": 43
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/testmodules/lazy_module.py",
+      "bytes": 57
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/testmodules/lazy_module_interceptor.py",
+      "bytes": 57
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/testmodules/module_calling_invalid.py",
+      "bytes": 45
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/testmodules/passthrough_module.py",
+      "bytes": 31
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/testmodules/proto/__init__.py",
+      "bytes": 77
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/testmodules/proto/proto_message.proto",
+      "bytes": 183
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/testmodules/proto/proto_message_pb2.py",
+      "bytes": 1598
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/testmodules/stateful_module.py",
+      "bytes": 31
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".gitattributes",
+      "bytes": 25
+    },
+    {
+      "path": ".github/CODEOWNERS",
+      "bytes": 652
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 310
+    },
+    {
+      "path": ".gitmodules",
+      "bytes": 108
+    },
+    {
+      "path": "scripts/_img/favicon.ico",
+      "bytes": 108763
+    },
+    {
+      "path": "scripts/_proto/Dockerfile.dockerignore",
+      "bytes": 172
+    },
+    {
+      "path": "temporalio/api/activity/v1/message_pb2.pyi",
+      "bytes": 32191
+    },
+    {
+      "path": "temporalio/api/batch/v1/message_pb2.pyi",
+      "bytes": 24510
+    },
+    {
+      "path": "temporalio/api/callback/v1/message_pb2.pyi",
+      "bytes": 4521
+    },
+    {
+      "path": "temporalio/api/cloud/account/v1/message_pb2.pyi",
+      "bytes": 10293
+    },
+    {
+      "path": "temporalio/api/cloud/auditlog/v1/message_pb2.pyi",
+      "bytes": 4233
+    },
+    {
+      "path": "temporalio/api/cloud/billing/v1/message_pb2.pyi",
+      "bytes": 11387
+    },
+    {
+      "path": "temporalio/api/cloud/cloudservice/v1/request_response_pb2.pyi",
+      "bytes": 160002
+    },
+    {
+      "path": "temporalio/api/cloud/cloudservice/v1/request_response_pb2_grpc.pyi",
+      "bytes": 76
+    },
+    {
+      "path": "temporalio/api/cloud/cloudservice/v1/service_pb2.pyi",
+      "bytes": 166
+    },
+    {
+      "path": "temporalio/api/cloud/cloudservice/v1/service_pb2_grpc.pyi",
+      "bytes": 49585
+    },
+    {
+      "path": "temporalio/api/cloud/connectivityrule/v1/message_pb2.pyi",
+      "bytes": 6302
+    },
+    {
+      "path": "temporalio/api/cloud/identity/v1/message_pb2.pyi",
+      "bytes": 49457
+    },
+    {
+      "path": "temporalio/api/cloud/namespace/v1/message_pb2.pyi",
+      "bytes": 63016
+    },
+    {
+      "path": "temporalio/api/cloud/nexus/v1/message_pb2.pyi",
+      "bytes": 9673
+    },
+    {
+      "path": "temporalio/api/cloud/operation/v1/message_pb2.pyi",
+      "bytes": 5816
+    },
+    {
+      "path": "temporalio/api/cloud/region/v1/message_pb2.pyi",
+      "bytes": 3183
+    },
+    {
+      "path": "temporalio/api/cloud/resource/v1/message_pb2.pyi",
+      "bytes": 3500
+    },
+    {
+      "path": "temporalio/api/cloud/sink/v1/message_pb2.pyi",
+      "bytes": 5174
+    },
+    {
+      "path": "temporalio/api/cloud/usage/v1/message_pb2.pyi",
+      "bytes": 6947
+    },
+    {
+      "path": "temporalio/api/cluster/v1/message_pb2.pyi",
+      "bytes": 11760
+    },
+    {
+      "path": "temporalio/api/cluster/v1/message_pb2_grpc.pyi",
+      "bytes": 1185
+    },
+    {
+      "path": "temporalio/api/command/v1/message_pb2.pyi",
+      "bytes": 56701
+    },
+    {
+      "path": "temporalio/api/common/v1/grpc_status_pb2.pyi",
+      "bytes": 1464
+    },
+    {
+      "path": "temporalio/api/common/v1/message_pb2.pyi",
+      "bytes": 63437
+    },
+    {
+      "path": "temporalio/api/compute/v1/config_pb2.pyi",
+      "bytes": 8940
+    },
+    {
+      "path": "temporalio/api/compute/v1/provider_pb2.pyi",
+      "bytes": 2359
+    },
+    {
+      "path": "temporalio/api/compute/v1/scaler_pb2.pyi",
+      "bytes": 1829
+    },
+    {
+      "path": "temporalio/api/dependencies/nexusannotations/v1/options_pb2.pyi",
+      "bytes": 2544
+    },
+    {
+      "path": "temporalio/api/dependencies/protoc_gen_openapiv2/options/annotations_pb2.pyi",
+      "bytes": 3200
+    },
+    {
+      "path": "temporalio/api/dependencies/protoc_gen_openapiv2/options/openapiv2_pb2.pyi",
+      "bytes": 73897
+    },
+    {
+      "path": "temporalio/api/deployment/v1/message_pb2.pyi",
+      "bytes": 48570
+    },
+    {
+      "path": "temporalio/api/enums/v1/activity_pb2.pyi",
+      "bytes": 9808
+    },
+    {
+      "path": "temporalio/api/enums/v1/batch_operation_pb2.pyi",
+      "bytes": 5738
+    },
+    {
+      "path": "temporalio/api/enums/v1/command_type_pb2.pyi",
+      "bytes": 3490
+    },
+    {
+      "path": "temporalio/api/enums/v1/common_pb2.pyi",
+      "bytes": 15887
+    },
+    {
+      "path": "temporalio/api/enums/v1/deployment_pb2.pyi",
+      "bytes": 14573
+    },
+    {
+      "path": "temporalio/api/enums/v1/event_type_pb2.pyi",
+      "bytes": 23239
+    },
+    {
+      "path": "temporalio/api/enums/v1/failed_cause_pb2.pyi",
+      "bytes": 28853
+    },
+    {
+      "path": "temporalio/api/enums/v1/namespace_pb2.pyi",
+      "bytes": 3067
+    },
+    {
+      "path": "temporalio/api/enums/v1/nexus_pb2.pyi",
+      "bytes": 11664
+    },
+    {
+      "path": "temporalio/api/enums/v1/query_pb2.pyi",
+      "bytes": 2876
+    },
+    {
+      "path": "temporalio/api/enums/v1/reset_pb2.pyi",
+      "bytes": 5210
+    },
+    {
+      "path": "temporalio/api/enums/v1/schedule_pb2.pyi",
+      "bytes": 4537
+    },
+    {
+      "path": "temporalio/api/enums/v1/task_queue_pb2.pyi",
+      "bytes": 14998
+    },
+    {
+      "path": "temporalio/api/enums/v1/time_skipping_pb2.pyi",
+      "bytes": 3428
+    },
+    {
+      "path": "temporalio/api/enums/v1/update_pb2.pyi",
+      "bytes": 5436
+    },
+    {
+      "path": "temporalio/api/enums/v1/workflow_pb2.pyi",
+      "bytes": 31352
+    },
+    {
+      "path": "temporalio/api/errordetails/v1/message_pb2.pyi",
+      "bytes": 17653
+    },
+    {
+      "path": "temporalio/api/export/v1/message_pb2.pyi",
+      "bytes": 1904
+    },
+    {
+      "path": "temporalio/api/failure/v1/message_pb2.pyi",
+      "bytes": 20884
+    },
+    {
+      "path": "temporalio/api/filter/v1/message_pb2.pyi",
+      "bytes": 3025
+    },
+    {
+      "path": "temporalio/api/history/v1/message_pb2.pyi",
+      "bytes": 221098
+    },
+    {
+      "path": "temporalio/api/interaction/v1/message_pb2.pyi",
+      "bytes": 7174
+    },
+    {
+      "path": "temporalio/api/namespace/v1/message_pb2.pyi",
+      "bytes": 20852
+    },
+    {
+      "path": "temporalio/api/nexus/v1/message_pb2.pyi",
+      "bytes": 48282
+    },
+    {
+      "path": "temporalio/api/nexusoperation/v1/message_pb2.pyi",
+      "bytes": 4216
+    },
+    {
+      "path": "temporalio/api/nexusservices/workerservice/v1/request_response_pb2.pyi",
+      "bytes": 2233
+    },
+    {
+      "path": "temporalio/api/nexusservices/workerservice/v1/request_response_pb2_grpc.pyi",
+      "bytes": 76
+    },
+    {
+      "path": "temporalio/api/notificationservice/v1/request_response_pb2.pyi",
+      "bytes": 3149
+    },
+    {
+      "path": "temporalio/api/notificationservice/v1/request_response_pb2_grpc.pyi",
+      "bytes": 76
+    },
+    {
+      "path": "temporalio/api/operatorservice/v1/request_response_pb2.pyi",
+      "bytes": 24374
+    },
+    {
+      "path": "temporalio/api/operatorservice/v1/request_response_pb2_grpc.pyi",
+      "bytes": 76
+    },
+    {
+      "path": "temporalio/api/operatorservice/v1/service_pb2.pyi",
+      "bytes": 166
+    },
+    {
+      "path": "temporalio/api/operatorservice/v1/service_pb2_grpc.pyi",
+      "bytes": 12372
+    },
+    {
+      "path": "temporalio/api/protocol/v1/message_pb2.pyi",
+      "bytes": 2550
+    },
+    {
+      "path": "temporalio/api/protometa/v1/annotations_pb2.pyi",
+      "bytes": 2066
+    },
+    {
+      "path": "temporalio/api/query/v1/message_pb2.pyi",
+      "bytes": 4646
+    },
+    {
+      "path": "temporalio/api/replication/v1/message_pb2.pyi",
+      "bytes": 3993
+    },
+    {
+      "path": "temporalio/api/rules/v1/message_pb2.pyi",
+      "bytes": 7751
+    },
+    {
+      "path": "temporalio/api/schedule/v1/message_pb2.pyi",
+      "bytes": 41914
+    },
+    {
+      "path": "temporalio/api/sdk/v1/enhanced_stack_trace_pb2.pyi",
+      "bytes": 7383
+    },
+    {
+      "path": "temporalio/api/sdk/v1/event_group_marker_pb2.pyi",
+      "bytes": 5445
+    },
+    {
+      "path": "temporalio/api/sdk/v1/external_storage_pb2.pyi",
+      "bytes": 2183
+    },
+    {
+      "path": "temporalio/api/sdk/v1/task_complete_metadata_pb2.pyi",
+      "bytes": 4015
+    },
+    {
+      "path": "temporalio/api/sdk/v1/user_metadata_pb2.pyi",
+      "bytes": 2062
+    },
+    {
+      "path": "temporalio/api/sdk/v1/worker_config_pb2.pyi",
+      "bytes": 3998
+    },
+    {
+      "path": "temporalio/api/sdk/v1/workflow_metadata_pb2.pyi",
+      "bytes": 4992
+    },
+    {
+      "path": "temporalio/api/taskqueue/v1/message_pb2.pyi",
+      "bytes": 42483
+    },
+    {
+      "path": "temporalio/api/testservice/v1/request_response_pb2.pyi",
+      "bytes": 4611
+    },
+    {
+      "path": "temporalio/api/testservice/v1/request_response_pb2_grpc.pyi",
+      "bytes": 1185
+    },
+    {
+      "path": "temporalio/api/testservice/v1/service_pb2.pyi",
+      "bytes": 1275
+    },
+    {
+      "path": "temporalio/api/testservice/v1/service_pb2_grpc.pyi",
+      "bytes": 9068
+    },
+    {
+      "path": "temporalio/api/update/v1/message_pb2.pyi",
+      "bytes": 11799
+    },
+    {
+      "path": "temporalio/api/version/v1/message_pb2.pyi",
+      "bytes": 4127
+    },
+    {
+      "path": "temporalio/api/worker/v1/message_pb2.pyi",
+      "bytes": 45203
+    },
+    {
+      "path": "temporalio/api/workflow/v1/message_pb2.pyi",
+      "bytes": 101605
+    },
+    {
+      "path": "temporalio/api/workflowservice/v1/request_response_pb2.pyi",
+      "bytes": 510332
+    },
+    {
+      "path": "temporalio/api/workflowservice/v1/request_response_pb2_grpc.pyi",
+      "bytes": 76
+    },
+    {
+      "path": "temporalio/api/workflowservice/v1/service_pb2.pyi",
+      "bytes": 166
+    },
+    {
+      "path": "temporalio/api/workflowservice/v1/service_pb2_grpc.pyi",
+      "bytes": 147913
+    },
+    {
+      "path": "temporalio/bridge/Cargo.lock",
+      "bytes": 91760
+    },
+    {
+      "path": "temporalio/bridge/proto/activity_result/activity_result_pb2.pyi",
+      "bytes": 12684
+    },
+    {
+      "path": "temporalio/bridge/proto/activity_task/activity_task_pb2.pyi",
+      "bytes": 14534
+    },
+    {
+      "path": "temporalio/bridge/proto/bridge/bridge_pb2.pyi",
+      "bytes": 35591
+    },
+    {
+      "path": "temporalio/bridge/proto/child_workflow/child_workflow_pb2.pyi",
+      "bytes": 9666
+    },
+    {
+      "path": "temporalio/bridge/proto/common/common_pb2.pyi",
+      "bytes": 6146
+    },
+    {
+      "path": "temporalio/bridge/proto/core_interface_pb2.pyi",
+      "bytes": 6597
+    },
+    {
+      "path": "temporalio/bridge/proto/core_interface_pb2_grpc.pyi",
+      "bytes": 76
+    },
+    {
+      "path": "temporalio/bridge/proto/external_data/external_data_pb2.pyi",
+      "bytes": 5258
+    },
+    {
+      "path": "temporalio/bridge/proto/health/v1/health_pb2.pyi",
+      "bytes": 2548
+    },
+    {
+      "path": "temporalio/bridge/proto/nexus/nexus_pb2.pyi",
+      "bytes": 12667
+    },
+    {
+      "path": "temporalio/bridge/proto/workflow_activation/workflow_activation_pb2.pyi",
+      "bytes": 60773
+    },
+    {
+      "path": "temporalio/bridge/proto/workflow_commands/workflow_commands_pb2.pyi",
+      "bytes": 73671
+    },
+    {
+      "path": "temporalio/bridge/proto/workflow_completion/workflow_completion_pb2.pyi",
+      "bytes": 6334
+    },
+    {
+      "path": "temporalio/py.typed",
+      "bytes": 0
+    },
+    {
+      "path": "tests/worker/workflow_sandbox/testmodules/proto/proto_message_pb2.pyi",
+      "bytes": 1040
+    },
+    {
+      "path": "uv.lock",
+      "bytes": 1032746
+    },
+    {
+      "path": "tests/worker/test_replayer_command_reordering_backward_compatibility.json",
+      "bytes": 3297,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/worker/test_replayer_complete_history.json",
+      "bytes": 4277,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/worker/test_replayer_event_tracing.json",
+      "bytes": 14303,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/worker/test_replayer_event_tracing_alternate.json",
+      "bytes": 7750,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/worker/test_replayer_event_tracing_double_sig_at_start.json",
+      "bytes": 12700,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/worker/test_replayer_event_tracing_double_sig_at_start_single_batch.json",
+      "bytes": 13168,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/worker/test_replayer_event_tracing_single_batch.json",
+      "bytes": 14652,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/worker/test_replayer_nondeterministic_history.json",
+      "bytes": 4285,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "tests/worker/test_replayer_swallowed_activity_cancellation.json",
+      "bytes": 27357,
+      "reason": "experimental output or recorded response"
+    }
+  ]
+}

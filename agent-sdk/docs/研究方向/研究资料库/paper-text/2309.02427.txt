@@ -1,0 +1,143 @@
+Published in Transactions on Machine Learning Research (02/2024)
+Cognitive Architectures for Language Agents
+Theodore R. Sumers∗ Shunyu Yao∗ Karthik Narasimhan Thomas L. Griffiths
+Princeton University
+{sumers, shunyuy, karthikn, tomg}@princeton.edu
+Reviewed on OpenReview: https: // openreview. net/ forum? id= 1i6ZCvflQJ
+Abstract
+Recent efforts have augmented large language models (LLMs) with external resources (e.g.,
+the Internet) or internal control flows (e.g., prompt chaining) for tasks requiring grounding
+or reasoning, leading to a new class oflanguage agents. While these agents have achieved
+substantial empirical success, we lack a framework to organize existing agents and plan future
+developments. In this paper, we draw on the rich history of cognitive science and symbolic
+artificial intelligence to propose Cognitive Architectures for Language Agents (CoALA).
+CoALA describes a language agent with modular memory components, a structured action
+space to interact with internal memory and external environments, and a generalized decision-
+making process to choose actions. We use CoALA toretrospectivelysurvey and organize
+a large body of recent work, andprospectivelyidentify actionable directions towards more
+capable agents. Taken together, CoALA contextualizes today’s language agents within the
+broader history of AI and outlines a path towards language-based general intelligence.
+1 Introduction
+Language agents(Weng, 2023; Wang et al., 2023b; Xi et al., 2023; Yao and Narasimhan, 2023) are an emerging
+class of artifical intelligence (AI) systems that use large language models (LLMs; Vaswani et al., 2017; Brown
+et al., 2020; Devlin et al., 2019; OpenAI, 2023a) to interact with the world. They apply the latest advances
+in LLMs to the existing field of agent design (Russell and Norvig, 2013). Intriguingly, this synthesis offers
+benefits for both fields. On one hand, LLMs possess limited knowledge and reasoning capabilities. Language
+agents mitigate these issues by connecting LLMs to internal memory and environments, grounding them to
+existing knowledge or external observations. On the other hand, traditional agents often require handcrafted
+rules (Wilkins, 2014) or reinforcement learning (Sutton and Barto, 2018), making generalization to new
+environments challenging (Lake et al., 2016). Language agents leverage commonsense priors present in LLMs
+to adapt to novel tasks, reducing the dependence on human annotation or trial-and-error learning.
+While the earliest agents used LLMs to directly select or generate actions (Figure 1B; Ahn et al., 2022;
+Huang et al., 2022b), more recent agents additionally use them to reason (Yao et al., 2022b), plan (Hao et al.,
+2023; Yao et al., 2023), and manage long-term memory (Park et al., 2023; Wang et al., 2023a) to improve
+decision-making. This latest generation ofcognitive language agents use remarkably sophisticated internal
+processes (Figure 1C). Today, however, individual works use custom terminology to describe these processes
+(such as ‘tool use’, ‘grounding’, ‘actions’), making it difficult to compare different agents, understand how
+they are evolving over time, or build new agents with clean and consistent abstractions.
+In order to establish a conceptual framework organizing these efforts, we draw parallels with two ideas
+from the history of computing and artificial intelligence (AI):production systemsand cognitive architectures.
+Production systems generate a set of outcomes by iteratively applying rules (Newell and Simon, 1972).
+They originated as string manipulation systems – an analog of the problem that LLMs solve – and were
+subsequently adopted by the AI community to define systems capable of complex, hierarchically structured
+∗Equal contribution, order decided by coin flip. Each person reserves the right to list their name first. A CoALA-based repo
+of recent work on language agents:https://github.com/ysymyth/awesome-language-agents.
+1
+arXiv:2309.02427v3  [cs.AI]  15 Mar 2024
+
+Published in Transactions on Machine Learning Research (02/2024)
+Input Output
+Observations Actions
+LLM
+Language Agent
+Observations
+Environment
+Memory
+Retrieval Learning
+Reasoning
+Actions
+Environment
+Cognitive Language Agent
+/gid00034 /gid00036
+/gid00035
+Figure 1: Different uses of large language models (LLMs).A: In natural language processing (NLP), an LLM
+takes text as input and outputs text.B: Language agents(Ahn et al., 2022; Huang et al., 2022c) place the
+LLM in a direct feedback loop with the external environment by transforming observations into text and
+using the LLM to choose actions.C: Cognitive language agents (Yao et al., 2022b; Shinn et al., 2023; Wang
+et al., 2023a) additionally use the LLM to manage the agent’s internal state via processes such as learning
+and reasoning. In this work, we propose a blueprint to structure such agents.
+behaviors (Newell et al., 1989). To do so, they were incorporated into cognitive architectures that specified
+control flow for selecting, applying, and even generating new productions (Laird et al., 1987; Laird, 2022;
+Kotseruba and Tsotsos, 2020). We suggest a meaningful analogy between production systems and LLMs: just
+as productions indicate possible ways to modify strings, LLMs define a distribution over changes or additions
+to text. This further suggests that controls from cognitive architectures used with production systems might
+be equally applicable to transform LLMs into language agents.
+Thus, we propose Cognitive Architectures for Language Agents (CoALA), a conceptual framework to
+characterize and design general purpose language agents. CoALA organizes agents along three key dimensions:
+their information storage(divided into working and long-term memories); theiraction space(divided into
+internal and external actions); and theirdecision-making procedure(which is structured as an interactive
+loop with planning and execution). Through these three concepts (memory, action, and decision-making),
+we show CoALA can neatly express a large body of existing agents and identify underexplored directions
+to develop new ones. Notably, while several recent papers propose conceptual architectures for general
+intelligence (LeCun, 2022; McClelland et al., 2019) or empirically survey language models and agents (Mialon
+et al., 2023; Weng, 2023; Wang et al., 2023b), this paper combines elements of both: we propose a theoretical
+framework and use it to organize diverse empirical work. This grounds our theory to existing practices and
+allows us to identify both short-term and long-term directions for future work.
+The plan for the rest of the paper is as follows. We first introduce production systems and cognitive
+architectures (Section 2) and show how these recent developments in LLMs and language agents recapitulate
+these historical ideas (Section 3). Motivated by these parallels, Section 4 introduces the CoALA framework
+and uses it to survey existing language agents. Section 5 provides a deeper case study of several prominent
+agents. Section 6 suggests actionable steps to construct future language agents, while Section 7 highlights
+open questions in the broader arc of cognitive science and AI. Finally, Section 8 concludes. Readers interested
+in applied agent design may prioritize Sections 4-6.
+2
+
+Published in Transactions on Machine Learning Research (02/2024)
+2 Background: From Strings to Symbolic AGI
+We first introduce production systems and cognitive architectures, providing a historical perspective on
+cognitive science and artificial intelligence: beginning with theories of logic and computation (Post, 1943),
+and ending with attempts to build symbolic artificial general intelligence (Newell et al., 1989). We then
+briefly introduce language models and language agents. Section 3 will connect these ideas, drawing parallels
+between production systems and language models.
+2.1 Production systems for string manipulation
+In the first half of the twentieth century, a significant line of intellectual work led to the reduction of
+mathematics (Whitehead and Russell, 1997) and computation (Church, 1932; Turing et al., 1936) to symbolic
+manipulation. Production systems are one such formalism. Intuitively, production systems consist of a set
+of rules, each specifying a precondition and an action. When the precondition is met, the action can be
+taken. The idea originates in efforts to characterize the limits of computation. Post (1943) proposed thinking
+about arbitrary logical systems in these terms, where formulas are expressed as strings and the conclusions
+they license are identified by production rules (as one string “produces” another). This formulation was
+subsequently shown to be equivalent to a simpler string rewriting system. In such a system, we specify rules
+of the form
+X Y Z → X W Z
+indicating that the stringXY Z can be rewritten to the stringXW Z. String rewriting plays a significant
+role in the theory of formal languages, in the form of Chomsky’s phrase structure grammar (Chomsky, 1956).
+2.2 Control flow: From strings to algorithms
+By itself, a production system simply characterizes the set of strings that can be generated from a starting point.
+However, they can be used to specify algorithms if we imposecontrol flowto determine which productions are
+executed. For example, Markov algorithms are production systems with a priority ordering (Markov, 1954).
+The following algorithm implements division-with-remainder by converting a number written as strokes| into
+the form Q∗ R, where Q is the quotient of division by 5 andR is the remainder:
+∗||||| → |∗
+∗
+•
+− → ∗
+→ ∗
+where the priority order runs from top to bottom, productions are applied to the first substring matching
+their preconditions when moving from left to right (including the empty substring, in the last production),
+and
+•
+− →indicates the algorithm halts after executing the rule. The first rule effectively “subtracts” five if
+possible; the second handles the termination condition when no more subtraction is possible; and the third
+handles the empty substring input case. For example, given the input 11, this would yield the sequence of
+productions∗|||||||||||→|∗||||||→||∗|
+•
+− →||∗|which is interpreted as 2 remainder 1. Simple productions can
+result in complex behavior – Markov algorithms can be shown to be Turing complete.
+2.3 Cognitive architectures: From algorithms to agents
+Production systems were popularized in the AI community by Allen Newell, who was looking for a formalism
+to capture human problem solving (Newell, 1967; Newell and Simon, 1972). Productions were generalized
+beyond string rewriting to logical operations:preconditionsthat could be checked against the agent’s goals
+and world state, andactions that should be taken if the preconditions were satisfied. In their landmark book
+Human Problem Solving(Newell and Simon, 1972), Allen Newell and Herbert Simon gave the example of a
+3

@@ -1,0 +1,145 @@
+[
+  {
+    "path": "src/cooperbench/runner/tasks.py",
+    "sha256": "ae7568550f44ed1ebf0908d2f054c529b0fb83b6fb4a18e10329f52e8fb6cafe",
+    "bytes": 4628,
+    "symbols": [
+      "def load_subset(subset_name: str, dataset_dir: Path | str | None = None) -> dict:",
+      "def discover_tasks("
+    ]
+  },
+  {
+    "path": "src/cooperbench/agents/_coop/runtime.py",
+    "sha256": "f295d417fdcdb1de0227c92dc5efed3affa52bc01b5af3f6709d4bdda1fff506",
+    "bytes": 6342,
+    "symbols": [
+      "def rewrite_comm_url_for_container(url: str | None) -> str | None:",
+      "def build_git_setup_command(*, agent_id: str, server_url: str) -> str:",
+      "def parse_sent_messages_log(text: str) -> list[dict[str, Any]]:",
+      "class ContainerEnv(Protocol):",
+      "def execute(self, action: dict, cwd: str = \"\", *, timeout: int | None = None) -> dict[str, Any]: ...",
+      "def cleanup(self) -> None: ...",
+      "def build_environment(",
+      "def write_file_in_container(env: ContainerEnv, path: str, content: str) -> dict[str, Any]:",
+      "def read_file_from_container(env: ContainerEnv, path: str) -> str:",
+      "def normalize_patch(text: str) -> str:"
+    ]
+  },
+  {
+    "path": "src/cooperbench/runner/coop.py",
+    "sha256": "519102b19f00ed214b0a8808177a90c34d1392748f417ba38ad53518775383b9",
+    "bytes": 15444,
+    "symbols": [
+      "def _message_timestamp_key(msg: dict) -> float:",
+      "def execute_coop(",
+      "def run_thread(agent_id: str, feature_id: int):",
+      "def _spawn_agent(",
+      "def _extract_conversation(results: dict, agents: list[str]) -> list[dict]:"
+    ]
+  },
+  {
+    "path": "src/cooperbench/runner/core.py",
+    "sha256": "75d2282a460cc255d46e176e1af4dc2830aa8466e63f95d9cc4f2038f9eadce8",
+    "bytes": 26653,
+    "symbols": [
+      "def run(",
+      "def execute_task(task_info):",
+      "def _print_header(",
+      "def _save_config(",
+      "def _build_run_info(",
+      "def _process_eval_result(eval_result: dict | None, task_info: dict) -> tuple | None:",
+      "def _print_single_result(result: dict, task: dict, is_solo: bool) -> None:",
+      "def _run_with_progress(",
+      "def _save_summary(",
+      "def _print_summary(",
+      "def fmt_time(seconds: float) -> str:"
+    ]
+  },
+  {
+    "path": "src/cooperbench/runner/solo.py",
+    "sha256": "8012a70b8eea932ff1b38203f622d077e75a6423b9fa3c99e34226a9b2241b8c",
+    "bytes": 7592,
+    "symbols": [
+      "def execute_solo(",
+      "def _spawn_solo_agent("
+    ]
+  },
+  {
+    "path": "src/cooperbench/runner/team.py",
+    "sha256": "91d5cdf96364de0d505ded0f1a41bfa2f1311ca6739f8b36818bfda88025f78d",
+    "bytes": 17699,
+    "symbols": [
+      "def _redis_client(url: str) -> redis.Redis:",
+      "def execute_team(  # noqa: PLR0915  (long but linear; refactor lands in a follow-up)",
+      "def run_thread(agent_id: str, feature_id: int, role: str):",
+      "def _spawn_team_agent(",
+      "def run_id_from_url(task_list_url: str) -> str | None:"
+    ]
+  },
+  {
+    "path": "src/cooperbench/agents/_azure.py",
+    "sha256": "343357c7aa3e81cce1828883887b23d22f34c21e999e31accbc42c46dd901bfa",
+    "bytes": 2315,
+    "symbols": [
+      "def resolve_azure_config() -> dict[str, str] | None:",
+      "def azure_deployment_name(model_name: str) -> str:",
+      "def azure_litellm_model(model_name: str) -> str:"
+    ]
+  },
+  {
+    "path": "src/cooperbench/eval/evaluate.py",
+    "sha256": "23432d299b974880a555a13af78352b4519601ce824d80b4f637a1232db65df8",
+    "bytes": 18555,
+    "symbols": [
+      "def evaluate(",
+      "def eval_run(run_info: dict) -> dict | None:",
+      "def _run_gcp_batch(",
+      "def on_progress(status: str, completed: int, total: int):",
+      "def _evaluate_single(",
+      "def _run_with_progress(runs: list, eval_run, concurrency: int) -> tuple:",
+      "def _save_summary(",
+      "def _print_summary(passed: int, failed: int, errors: int, skipped: int, total: int) -> None:"
+    ]
+  },
+  {
+    "path": "src/cooperbench/agents/pricing.py",
+    "sha256": "c1dcad082dbaaf463e6e3ddc9d31c28ffd7ab172e5cfac79ce5813fb6f658be6",
+    "bytes": 2163,
+    "symbols": [
+      "def compute_fallback_cost("
+    ]
+  },
+  {
+    "path": "src/cooperbench/agents/__init__.py",
+    "sha256": "fc5081ba47ca183144507d9e3a68f094e8a425dd88edf48c0f26aa4a09d28dff",
+    "bytes": 4004,
+    "symbols": [
+      "class AgentResult:",
+      "class AgentRunner(Protocol):",
+      "def run(",
+      "def get_agent_shorthand(agent_name: str) -> str:"
+    ]
+  },
+  {
+    "path": "src/cooperbench/agents/registry.py",
+    "sha256": "f9bb45d02658906e633f61733b5f7431245dee69f5155992a5d87d2c688a447d",
+    "bytes": 2761,
+    "symbols": [
+      "class MyAgentRunner:",
+      "def run(self, task, image, **kwargs) -> AgentResult:",
+      "def register(name: str):",
+      "class MiniSweAgentRunner:",
+      "def run(self, task, image, **kwargs) -> AgentResult:",
+      "def decorator(cls):",
+      "def get_runner(name: str, **kwargs: Any) -> \"AgentRunner\":",
+      "def list_agents() -> list[str]:",
+      "def _auto_register():"
+    ]
+  },
+  {
+    "path": "src/cooperbench/runner/__init__.py",
+    "sha256": "d6d5ec7bbd7a28c5120b95b3667b0fcfd16330fd5914df0c117316ab26e781f5",
+    "bytes": 179,
+    "symbols": []
+  }
+]

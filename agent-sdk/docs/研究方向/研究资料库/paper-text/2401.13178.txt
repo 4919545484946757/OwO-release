@@ -1,0 +1,234 @@
+AgentBoard: An Analytical Evaluation Board of
+Multi-turn LLM Agents
+Chang Ma∗♠ Junlei Zhang∗♢∆ Zhihao Zhu∗♡ Cheng Yang∗♣
+Yujiu Yang♣ Yaohui Jin♡ Zhenzhong Lan∆ Lingpeng Kong♠ Junxian He⋆
+♠The University of Hong Kong ♢Zhejiang University ♡Shanghai Jiao Tong University
+♣Tsinghua University ∆ Westlake University ⋆HKUST
+llmagentboard@gmail.com
+Abstract
+Evaluating Large Language Models (LLMs) as general-purpose agents is essential
+for understanding their capabilities and facilitating their integration into practical
+applications. However, the evaluation process presents substantial challenges. A
+primary obstacle is the benchmarking of agent performance across diverse sce-
+narios within a unified framework, especially in maintaining partially-observable
+environments and ensuring multi-round interactions. Moreover, current evaluation
+frameworks mostly focus on the final success rate, revealing few insights during
+the process and failing to provide a deep understanding of the model abilities. To
+address these challenges, we introduce AGENT BOARD , a pioneering comprehen-
+sive benchmark and accompanied open-source evaluation framework tailored to
+analytical evaluation of LLM agents. AGENT BOARD offers a fine-grained progress
+rate metric that captures incremental advancements as well as a comprehensive
+evaluation toolkit that features easy assessment of agents for multi-faceted anal-
+ysis. This not only sheds light on the capabilities and limitations of LLM agents
+but also propels the interpretability of their performance to the forefront. Ulti-
+mately, AGENT BOARD serves as a step towards demystifying agent behaviors and
+accelerating the development of stronger LLM agents.1
+1 Introduction
+General-purpose agents that can autonomously perceive and act in various environments are consid-
+ered significant milestones in Artificial Intelligence (Russell and Norvig, 2005). Recent advancements
+in large language models (OpenAI, 2023; Touvron et al., 2023) have demonstrated emergent agent
+abilities that enable them to understand diverse environments and perform step-by-step planning
+through multi-round interactions (Yao et al., 2023; Song et al., 2023). These advanced abilities
+contribute to the potential of LLMs to act as generalist agents for real-world problem-solving.
+A comprehensive evaluation of LLM agents is crucial for the progression of this emerging field.
+To start, task diversity is necessary to cover various agent tasks such as embodied, web, and tool
+agents. Additionally, multi-round interaction is critical to mimic realistic scenarios, in contrast to the
+single-round tasks commonly adopted in existing benchmarks (Xu et al., 2023b; Lin and Chen, 2023;
+Qin et al., 2023a). Furthermore, evaluating agents in partially-observable environments, where they
+must actively explore to understand their surroundings, is essential for practical assessments. This
+differs from the “synthetic” agent tasks (Wang et al., 2023b) derived from conventional benchmarks
+in fully-observable environments, such as MMLU (Lanham et al., 2023) and GSM8K (Cobbe et al.,
+2021). However, existing agent benchmarks fail to satisfy all of these criteria.
+∗Equal Contribution.
+1Code and data are available at https://github.com/hkust-nlp/AgentBoard
+38th Conference on Neural Information Processing Systems (NeurIPS 2024) Track on Datasets and Benchmarks.
+arXiv:2401.13178v2  [cs.CL]  23 Dec 2024
+
+、
+Analysis
+Goal: Find the exitofthemaze
+…
+Agent
+Moveforward!
+Environment
+Oops! Thereisnoroadin front of you. 
+Please choose another action.
+Progress Rate
+0.25 Interaction
+Task
+AgentBoard
+Partially-Observable
+EnvironmentProgress
+1 Multi-round
+Interaction
+Task
+ Analysis
+1
+Web
+WebShop
+WebArena
+Tool
+Query
+Operation
+Game
+Jericho
+PDDL
+EmbodiedAI
+AlfWorld
+ScienceWorld
+BabyAI
+0
+20
+40
+60
+80
+0 5 10 15 20
+GPT -4 Cu rrent  Run
+0
+10
+20
+30
+40
+50
+All Easy Ha rd
+Success Rate vs    Progress Rate
+GPT- 4
+Claude 2
+GPT- 3.5-T urb o
+Cur r ent Ru n
+Memory
+PlanningSpatial 
+Navigation
+Grounding World
+Modeling
+Self-Reflection
+Sub-skill Score Leaderboard0 20 40 60 80
+Cu rrent  Run
+Cl aud e2
+GPT -3. 5-T urb o
+GPT -4
+Succe ss R ate Progress Rate
+10
+20
+30
+40
+50
+Current Run
+GPT-3.5-Turbo
+Claude2
+GPT-4
+GPT-4
+Claude2
+GPT-3.5-Turbo
+Current Run
+Progress RateSuccess Rate
+Current Run
+222
+ProgressRatew.r.t.Step
+333
+Figure 1: The illustrative overview of AGENT BOARD . AGENT BOARD consists of a 9 diverse tasks. Agents
+interact in multi-rounds with partially-observable environments to achieve each subgoal. Furthermore, AGENT-
+BOARD provides an open-source analytical evaluation framework, as shown in the figure.
+Moreover, the inherent complexity in agent tasks characterized by multi-round interactions distin-
+guishes them significantly from other language tasks. Due to this complexity, there is a pressing need
+to delve into the details and gain a deeper understanding of how models function during the process.
+Nonetheless, most current evaluations predominantly rely on the final success rate as their metric,
+which provides limited insights into these intricate processes (Liu et al., 2023a; Wang et al., 2023b;
+Yao et al., 2023; Liu et al., 2023b; Mialon et al., 2023). This simplified evaluation is particularly
+inadequate in challenging environments where most models demonstrate nearly zero success rates,
+consequently blurring finer distinctions and obscuring underlying mechanisms (Liu et al., 2023a).
+To address these issues, we introduce AGENT BOARD , a benchmark designed for multi-turn LLM
+agents, complemented by an analytical evaluation board for detailed model assessment beyond final
+success rates. AGENT BOARD encompasses a diverse set of 9 unique tasks and 1013 exemplary
+environments, covering a range from embodied AI and game agents to web and tool agents. Each
+environment, whether newly created or adapted from pre-existing ones, is carefully crafted and
+authenticated by humans to ensure multi-round and partially observable characteristics in a unified
+manner. Notably, we have defined or manually annotated subgoals for each data sample, introducing
+a unified progress rate metric to track the agents’ detailed advancements. As we will demonstrate in
+§4.2, this metric uncovers significant progress made by models that would otherwise appear trivial
+due to negligible differences in success rates.
+Along with the benchmark, we develop the AGENT BOARD evaluation framework as an open-source
+toolkit that features an analytical web panel to examine various dimensions of agent abilities through
+interactive visualization. The toolkit offers a unified interface, providing users with easy access and
+effortless customization options. As shown in Figure 1, the AGENT BOARD toolkit currently supports
+analysis and visualization on fine-grained progress rates tracking, performance breakdown for hard
+and easy examples, detailed performance across various sub-skills, long-range interaction assessment,
+grounding accuracy, and trajectory. This detailed evaluation is crucial for acknowledging the progress
+of LLM agents and for guiding the development of more robust LLM agent models. The comparison
+between AGENT BOARD and previous works is shown in Table 1.
+We evaluated a range of proprietary and open-weight LLM agents usingAGENT BOARD , obtaining
+insights into the current landscape of LLMs as agents. Key findings include: (1) GPT-4, unsurprisingly,
+outperforms all other models by exhibiting extensive proficiency across distinct agentic abilities
+with Llama3 (Touvron et al., 2023) and DeepSeek LLM (DeepSeek-AI et al., 2024) taking the
+lead; (2) Strong LLM agents are characterized by their capability for multi-turn interaction with the
+environment, an ability that is notably lacking in most open-weight models; (3) Emergent agentic
+abilities are strongly dependent on basic abilities like grounding, world modeling, and self-reflection.
+Current proprietary models typically demonstrate comprehensive agentic abilities, while open-weight
+LLMs show varying deficiencies. Through AGENT BOARD , we highlight the importance of analytic
+evaluation of LLM agents. The detailed evaluations provided by AGENT BOARD and its open-source
+toolkit are expected to significantly contribute to the further development of LLM agents.
+2
+
+Table 1: AGENT BOARD differs from other LLM benchmarks by providing a comprehensive framework that
+integrates all four guiding principles within its evaluation system.‡Notably, AgentBench entails both single and
+multi-round tasks, with mainly the former differentiating open-sourced models.§The GAIA benchmark focuses
+solely on question answering tasks.†MINT benchmark primarily includes fully-observable environments tasks
+derived from conventional evaluations such as HumanEval and GSM8K.
+Benchmarks Task Diversity Multi-round
+Interaction
+Partially-Observable
+Environments
+Fine-grained
+Progress Metrics
+Analytical
+Evaluation
+AgentBench (Liu et al., 2023a) ✔ ✗ ‡ ✔ ✗ ✗
+GAIA (Mialon et al., 2023) ✗§ ✔ ✔ ✗ ✗
+MINT (Wang et al., 2023b) ✔ ✔ ✗ † ✗ ✗
+API-Bank (Li et al., 2023) ✗ ✔ ✔ ✗ ✗
+ToolEval (Qin et al., 2023b) ✗ ✔ ✔ ✗ ✗
+LLM-Eval (Lin and Chen, 2023) ✔ ✗ ✗ ✗ ✗
+AGENT BOARD ✔ ✔ ✔ ✔ ✔
+2 A GENT BOARD – Overview
+AGENT BOARD is a unified, open-source benchmark for evaluating LLM agents that adheres to
+five key principles: task diversity, multi-round interaction, partially-observable environments, fine-
+grained metrics, and analytical evaluation, as shown in Table 1. Our commitment to these principles
+manifests in three key areas:
+• Task Diversity and Uniformity, where we carefully curate nine diverse environments across four sce-
+narios, ensuring they require multi-round interactions, are fully text-based and primarily partially-
+observable. This contrasts with many existing LLM agent benchmarks, which are often solvable
+in a single round, derived from fully-observable tasks like MMLU, or focus on a specific type of
+task, as demonstrated in Table 1. Compared to AgentBench (Liu et al., 2023a), in particular, our
+choice of tasks makes AGENT BOARD planning-heavier, where the results on AGENT BOARD well-
+correlates with the scores on traditional reasoning and coding benchmarks, while the AgentBench
+scores strongly correlated with scores on the knowledge test MMLU, as illustrated in Ruan et al.
+(2024). We elaborate on the choice of tasks and their adaptation in §3.
+• Fine-grained Progress Rate, where AGENT BOARD is the first to propose a fine-grained progress
+rate metric tracking the intermediate progress of different agents. This metric distinguishes our
+benchmark in tracking minimal improvement in LLM agent performances. Such a capability is
+crucial in current endeavors to develop stronger open-weight LLMs, providing detailed insights that
+are essential for incremental advancements in agent capabilities. We provide detailed introduction
+for this metric and its annotation process in §2.2.
+• Comprehensive Analysis, where AGENT BOARD is the first LLM Agent benchmark to expand
+metrics beyond mere success rate and scores to include detailed analyses. As illustrated in Figure 1,
+such a comprehensive evaluation includes (1) fine-grained progress rates tracking different agents,
+(2) grounding accuracy, (3) performance breakdown for hard and easy examples, (4) long-range
+interactions, (5) analyses of performance across various sub-skills, and (6) trajectory with friendly
+visualization. We elaborate these analyses in our experiments at §4. Additionally, AGENT BOARD
+provides an web interface2 through Wandb dashboard that offers interactive visualizations of these
+analyses during evaluation. We perform a case study on the panel in §5.
+2.1 A Unified Multi-Round Reflex Agent
+Preliminaries: An LLM agent receives textual world descriptions, chooses a text action, and gets
+feedback detailing state changes and any action errors. Interaction with these environments can be
+modeled as a special case of Partially Observable Markov Decision Processes (POMDPs) defined by
+tuple⟨g,S,A,O,T⟩ , with goalg, state spaceS, valid actions spaceA, observation space (including
+environment feedback)O, transition functionT :S×A→S . An agent with policy π makes
+prediction at time stept based on goalg and memorymt ={oj,a j,o j+1,a j+1,...o t}, 0≤j <t,
+which is a sequence of actions and observations. This trajectory of the agentτ = [s0,a 0,s 1,a 1,...s t]
+is formulated by policy and environmental state transitions, such as
+pπ(τ) =p(s0)
+TY
+t=0
+π(at|g,st,mt)T (st+1|st,at) (1)
+2An example of the panel is public here.
+3

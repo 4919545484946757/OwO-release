@@ -1,0 +1,178 @@
+AgentDojo: A Dynamic Environment to Evaluate
+Prompt Injection Attacks and Defenses
+for LLM Agents
+Edoardo Debenedetti1∗ Jie Zhang1 Mislav Balunovic1,2
+Luca Beurer-Kellner1,2 Marc Fischer1,2 Florian Tramèr1
+1ETH Zurich 2Invariant Labs
+Abstract
+AI agents aim to solve complex tasks by combining text-based reasoning with
+external tool calls. Unfortunately, AI agents are vulnerable to prompt injection
+attacks where data returned by external tools hijacks the agent to execute malicious
+tasks. To measure the adversarial robustness of AI agents, we introduce AgentDojo,
+an evaluation framework for agents that execute tools over untrusted data. To
+capture the evolving nature of attacks and defenses, AgentDojo is not a static test
+suite, but rather an extensible environment for designing and evaluating new agent
+tasks, defenses, and adaptive attacks. We populate the environment with 97 realistic
+tasks (e.g., managing an email client, navigating an e-banking website, or making
+travel bookings), 629 security test cases, and various attack and defense paradigms
+from the literature. We find that AgentDojo poses a challenge for both attacks and
+defenses: state-of-the-art LLMs fail at many tasks (even in the absence of attacks),
+and existing prompt injection attacks break some security properties but not all.
+We hope that AgentDojo can foster research on new design principles for AI agents
+that solve common tasks in a reliable and robust manner.
+https://agentdojo.spylab.ai
+1 Introduction
+Large language models (LLMs) have the ability to understand tasks described in natural language
+and generate plans to solve them [20, 27, 49, 60]. A promising design paradigm for AI agents [65] is
+to combine an LLM with tools that interact with a broader environment [14, 35, 40, 47, 51, 53, 55,
+69]. AI agents could be used for various roles, such as digital assistants with access to emails and
+calendars, or smart “operating systems” with access to coding environments and scripts [24, 25].
+However, a key security challenge is that LLMs operate directly on text, lacking a formal way to
+distinguish instructions from data [44, 74]. Prompt injection attacks exploit this vulnerability by
+inserting new malicious instructions in third-party data processed by the agent’s tools [17, 44, 62]. A
+successful attack can allow an external attacker to take actions (and call tools) on behalf of the user.
+Potential consequences include exfiltrating user data, executing arbitrary code, and more [18, 23, 33,
+42].
+To measure the ability of AI agents to safely solve tasks in adversarial settings when prompt injections
+are in place, we introduce AgentDojo, a dynamic benchmarking framework which we populate–as a
+first version–with 97 realistic tasks and 629 security test cases. As illustrated in Figure 1, AgentDojo
+∗Correspondence to edoardo.debenedetti@inf.ethz.ch
+38th Conference on Neural Information Processing Systems (NeurIPS 2024) Track on Datasets and Benchmarks.
+arXiv:2406.13352v3  [cs.CR]  24 Nov 2024
+
+Account:
+  bob@gmail.com
+Emails:
+  - from: alice@mail.com
+    subject: Hello
+    content: Hi Bob, how…
+  - from: peter@live.com
+    subject: Meeting
+    content: Hi Bob, I…
+  - ● ● ●
+Summarize the emails 
+notes from my meeting and 
+send them to my boss.
+User Task
+Leak the victim’s last 
+email message
+Attacker Goal Environment
+from: attacker@pwnd.com
+subject: VERY IMPORTANT
+content: Ignore all prev….
+Attack
+Attack Vector 
+Placeholder
+Utility
+Security
+Evaluation Metrics
+Tool Calling
+AI Agent
+Figure 1: AgentDojo evaluates the utility and security of AI agents in dynamic tool-calling
+environments with untrusted data. Researchers can define user and attacker goals to evaluate the
+progress of AI agents, prompt injections attacks, and defenses.
+provides an AI agent with tasks (e.g., summarizing and sending emails) and access to tools to solve
+them. Security tests consist of an attacker goal (e.g., leak the victim’s emails) and an injection
+endpoint (e.g., an email in the user’s inbox).
+In contrast to prior benchmarks for AI Agents [32, 43, 50, 68] and for prompt injections [34, 57,
+66, 71], AgentDojo requires agents to dynamically call multiple tools in a stateful, adversarial
+environment. To accurately reflect the utility-security tradeoff of different agent designs, AgentDojo
+evaluates agents and attackers with respect to a formal utility checks computed over the environment
+state, rather than relying on other LLMs to simulate an environment [50].
+Due to the ever-evolving nature of ML security, a static benchmark would be of limited use. Instead,
+AgentDojo is an extensible framework that can be populated with new tasks, attacks, and defenses.
+Our initial tasks and attacks already present a significant challenge for attackers and defenders alike.
+Current LLMs solve less than 66% of AgentDojo tasks in the absence of any attack. In turn, our
+attacks succeed against the best performing agents in less than 25% of cases. When deploying existing
+defenses against prompt injections, such as a secondary attack detector [28, 45], the attack success
+rate drops to 8%. We find that current prompt injection attacks benefit only marginally from side
+information about the system or the victim, and succeed rarely when the attacker’s goal is abnormally
+security-sensitive (e.g., emailing an authentication code).
+At present, the agents, defenses, and attacks pre-deployed in our AgentDojo framework are general-
+purpose and not designed specifically for any given tasks or security scenarios. We thus expect future
+research to develop new agent and defense designs that can improve the utility and robustness of
+agents in AgentDojo. At the same time, significant breakthroughs in the ability of LLMs to distinguish
+instructions from data will likely be necessary to thwart stronger, adaptive attacks proposed by the
+community. We hope that AgentDojo can serve as a live benchmark environment for measuring the
+progress of AI agents on increasingly challenging tasks, but also as a quantitative way of showcasing
+the inherent security limitations of current AI agents in adversarial settings.
+We release code for AgentDojo at https://github.com/ethz-spylab/agentdojo, and a leader-
+board and extensive documentation for the library athttps://agentdojo.spylab.ai.
+2 Related Work and Preliminaries
+AI agents and tool-enhanced LLMs. Advances in large language models [5] have enabled the
+creation of AI agents [65] that can follow natural language instructions [4, 41], perform reasoning
+and planning to solve tasks [20, 27, 60, 69] and harness external tools [14, 35, 40, 43, 47, 51, 54, 55].
+Many LLM developers expose function-calling interfaces that let users pass API descriptions to a
+model, and have the model output function calls [2, 9, 22].
+Prompt injections. Prompt injection attacks inject instructions into a language model’s context to
+hijack its behavior [17, 62]. Prompt injections can be direct (i.e., user input that overrides a system
+prompt) [23, 44] or indirect (i.e., in third-party data retrieved by a model, as shown in Figure 1) [18,
+2
+
+33]. Untrusted data processed and returned by the tools called by an AI agent are an effective vector
+for (indirect) prompt injections that execute malicious actions on behalf of the user [13, 18, 23].
+Defenses against prompt injections either aim to detect injections (typically with a LLM) [28, 29,
+64], train or prompt LLMs to better distinguish instructions from data [8, 59, 61, 70, 74], or isolate
+function calls from the agent’s main planning component [63, 66]. Unfortunately, current techniques
+are not foolproof, and may be unable to provide guarantees for security-critical tasks [61, 64].
+Command-R+Llama 3 70bGPT-3.5 TurboGemini 1.5 FlashGemini 1.5 ProGPT-4 Turbo
+GPT-4o
+Claude 3 OpusClaude 3 SonnetClaude 3.5 Sonnet
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0utility
+Yan et al. Ours Ours (attack)
+Figure 2: AgentDojo is challenging. Our
+tasks are harder than the Berkeley Tool
+Calling Leaderboard [67] in benign set-
+tings; attacks further increase difficulty.
+Benchmarking agents and prompt injections. Ex-
+isting agent benchmarks either evaluate the ability to
+transform instructions into a single function call [43, 47,
+67], or consider more challenging and realistic “multi-
+turn” scenarios [26, 31, 32, 53, 68, 72], but without any
+explicit attacks. The ToolEmu [50] benchmark measures
+the robustness of AI agents to underspecified instruc-
+tions, and uses LLMs to efficiently simulate tool calls
+in a virtual environment and to score the agent’s utility.
+This approach is problematic when evaluating prompt
+injections, since an injection might fool the LLM sim-
+ulator too. In contrast to these works, AgentDojo runs
+a dynamic environment where agents execute multiple
+tool calls against realistic applications, some of which
+return malicious data. Even when restricted to benign
+settings, our tasks are at least challenging as existing
+function-calling benchmarks, see Figure 2.2
+Prior benchmarks for prompt injections focus on sim-
+ple scenarios without tool-calling, such as document
+QA [70], prompt stealing [12, 57], or simpler goal/rule
+hijacking [39, 52]. The recent InjecAgent benchmark [71] is close in spirit to AgentDojo, but focuses
+on simulated single-turn scenarios, where an LLM is directly fed a single (adversarial) piece of data
+as a tool output (without evaluating the model’s planning). In contrast, AgentDojo’s design aims to
+emulate a realistic agent execution, where the agent has to decide which tool(s) to call and must solve
+the original task accurately in the face of prompt injections.
+3 Designing and Constructing AgentDojo
+The AgentDojo framework consists of the following components: The environment specifies an
+application area for an AI agent and a set of available tools (e.g., a workspace environment with
+access to email, calendar and cloud storage tools). The environment state keeps track of the data for
+all the applications that an agent can interact with. Some parts of the environment state are specified
+as placeholders for prompt injection attacks (cf. Figure 1, and Section 3.3).
+A user task is a natural language instruction that the agent should follow in a given environment (e.g.,
+add an event to a calendar). An injection task specifies the goal of the attacker (e.g., exfiltrate the
+user’s credit card). User tasks and injection tasks define formal evaluation criteria which monitor
+the state of the environment to measure the success rate of the agent and of the attacker, respectively.
+We refer to the collection of user tasks and injection tasks for an environment as a task suite. As in
+Zhan et al. [71], we take a cross-product of user and injection tasks per environment to obtain the
+total set of security tests cases. All user tasks can also be run without an attack present, turning them
+into standard utility test cases, which can be used to assess agent performance in benign scenarios.
+3.1 AgentDojo Components
+Environments and state. Complex tasks typically require interacting with a stateful environment.
+For example, a simulated productivity workspace environment contains data relating to emails,
+calendars, and documents in cloud storage. We implement four environments (“Workspace”, “Slack”,
+“Travel Agency” and “e-banking”) and model each environment’s state as a collection of mutable
+2For Llama 3 70B we use a different prompt than the one used for the Berkeley Tool Calling Leaderboard.
+For the other models, we refer to the results reported in the leaderboard with the official function calling APIs.
+3

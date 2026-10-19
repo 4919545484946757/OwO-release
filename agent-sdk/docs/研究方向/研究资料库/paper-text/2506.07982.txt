@@ -1,0 +1,204 @@
+arXiv:2506.07982v1  [cs.AI]  9 Jun 2025
+τ 2-Bench: Evaluating Conversational Agents in a
+Dual-Control Environment
+Victor Barres∗
+Sierra
+victor@sierra.ai
+Honghua Dong∗†
+Sierra & University of Toronto & Vector Institute
+honghuad@cs.toronto.edu
+Soham Ray
+Sierra
+soham@sierra.ai
+Xujie Si
+University of Toronto & Vector Institute
+six@cs.toronto.edu
+Karthik Narasimhan
+Sierra
+karthik@sierra.ai
+Abstract
+Existing benchmarks for conversational AI agents simulate single-control environ-
+ments, where only the AI agent can use tools to interact with the world, while the
+user remains a passive information provider. This differs from real-world scenarios
+like technical support, where users need to actively participate in modifying the
+state of the (shared) world. In order to address this gap, we introduce τ 2-bench,
+with four key contributions: 1) A novel Telecom dual-control domain modeled as
+a Dec-POMDP, where both agent and user make use of tools to act in a shared,
+dynamic environment that tests both agent coordination and communication, 2)
+A compositional task generator that programmatically creates diverse, verifiable
+tasks from atomic components, ensuring domain coverage and controlled com-
+plexity, 3) A reliable user simulator tightly coupled with the environment, whose
+behavior is constrained by tools and observable states, improving simulation fi-
+delity, 4) fine-grained analysis of agent performance through multiple ablations
+including separating errors arising from reasoning vs communication/coordination.
+In particular, our experiments show significant performance drops when agents
+shift from no-user to dual-control, highlighting the challenges of guiding users.
+Overall,τ 2-bench provides a controlled testbed for agents that must both reason
+effectively and guide user actions.1
+1 Introduction
+Existing benchmarks for conversational AI agents are designed to test their abilities to communicate
+effectively with a user and perform the right sequence of actions to solve tasks [26, 14, 23, 19]. These
+benchmarks are inherently single-control environments, where the AI agent is able to interact with
+the world but the (simulated) user is limited to providing information about preferences and goals.
+Inτ-bench [26] for example, the retail and airline domains test the agent’s ability to solve
+constraint satisfaction tasks, where constraints stem from a combination of a domain policy that the
+agent must follow and the user’s cognitive state including beliefs, goals and preferences.
+In such settings, the user’s understanding of the agent’s environment (including the set of actions
+the agent can take) is provided through carefully crafted natural language instructions that help
+ensure a single, solvable path for the constraint satisfaction problem. While this enables easier task
+*Equal contribution.
+†Work done during internship.
+1Code and data are available at: https://github.com/sierra-research/tau2-bench.
+Preprint. Under review.
+
+World
+Agent
+DB
+User
+DB
+Agent
+T ools
+User
+T ools
+User Instruction 
+You mobile data is not working 
+properly. It is very slow. You want 
+to fix it and get excellent internet 
+speed on your phone. 
+…
+Agent Domain Policy 
+The current time is 2025-02-25 
+12:08:00 EST. 
+As a telecom agent, you can help 
+users with technical support. 
+…
+ Agent
+User
+[device] 
+sim_card_status = "active" 
+airplane_mode = false 
+battery_level = 80 
+data_enabled = true 
+…
+[[customers]] 
+customer_id = "C1001" 
+full_name = "John Smith" 
+date_of_birth = "1985-06-15" 
+phone_number = “555-123-2002" 
+…
+@is_tool(ToolType.WRITE) 
+def toggle_airplane_mode() -> str: 
+“"" 
+Turns Airplane Mode ON or 
+OFF. When ON, it disconnects 
+all wireless communications 
+including cellular, Wi-Fi, 
+and Bluetooth. 
+””” 
+...
+@is_tool(ToolType.READ) 
+def get_customer_by_id( 
+customer_id: str) -> Customer: 
+“"" 
+Retrieves a customer 
+directly by their unique ID. 
+“"" 
+...
+Figure 1: Supporting dual-control environment inτ 2-bench. The agent have access to a set of tools
+that interact with a database, and is tasked with resolving the user’s request via Tool-Agent-User
+(TAU) interactions while adhering to the domain policy. To test real-world scenarios, the user is
+simulated by another AI agent given a scenario-based instruction and a set of tools that interact with
+its own database. The simulated user can be regarded as handling an easier version of the TAU
+interaction in a dual format (Tool-User-Agent), where it only need to follow instructions but does not
+need to reason about solutions for the task.
+specification, the user can only perceive the agent’s actions through communication and reason about
+the environment state solely based on the initial instructions. This is quite different from real-world
+scenarios like technical customer support, where the user has to actively participate in taking some
+actions to diagnose and solve problems when asked to do so, such asrestarting their phone or turning
+off airplane mode.
+In order to capture this additional real-world complexity, we introduceτ 2-bench with a dual-control
+environment, where (LLM-simulated) users can take actions and call tools in addition to commu-
+nicating with the agent. The dual-control model provides a few advantages in improving the user
+simulation, such as selective information hiding, non-verbal manipulation of the environment, and
+easier specification of the user’s task or scenario, especially in cases where the structured format of
+tools is preferred to unstructured natural language.
+The primary challenge in a dual-control setup lies in granting the user simulator meaningful agency
+via tools while maintaining the "complexity asymmetry" between the agent and the user simulator –
+that is, making sure the user’s affordances are limited and the user still requires support from the agent
+in order to solve issues. While tools for the user simulator could disrupt this balance by increasing its
+capabilities, we find that carefully designing the tools can help constrain user behavior, leading to
+more reliable simulations. We achieve this by ensuring user tools yield only human-readable outputs,
+limiting user planning to reactive tool use based on agent requests, and tightly constraining user
+behavior through the environment. This results in a controlled testbed for agents that must both think
+and effectively guide a user to take the right actions.
+Overall,τ 2-bench makes four key contributions:
+Telecom dual-control domain. We introduce a novel dual-control telecom domain within τ 2-
+bench, where, unlike previous benchmarks, both the AI agent and the user possess distinct tools to
+observe, act upon, and verify the state of a shared, dynamic environment. This is formalized using a
+Decentralized Partially Observable Markov Decision Process (Dec-POMDP) [15]. This dual-control
+setup is designed to accurately represent real-world collaborative scenarios and exposes crucial agent
+coordination and communication challenges absent from evaluations where users have limited agency.
+Experiments show state-of-the-art LLMs struggle significantly in this domain (e.g., passˆ1 of 34%
+for gpt-4.1 [16], 42% for o4-mini [17], and 49% for claude-3.7-sonnet [2] on new tasks).
+Compositional task generator.τ 2-bench incorporates a programmatic task generator that automati-
+cally composes a vast and diverse set of verifiable tasks from a small set of atomic base scenarios
+(defined by initialization, solution, and assertion functions). This method ensures provable correctness
+of tasks, provides complete domain coverage, allows for explicit control over task complexity (e.g.,
+by number of solution steps or issue type), and removes the manual effort and potential brittleness
+associated with hand-crafted task suites.
+2
+
+Reliable user simulator. We enhance the reliability of the user simulation by tightly coupling
+the user simulator to the environment. User behavior is constrained by the available tools and the
+observable state of the environment, leading to more predictable and consistent interactions. This
+approach significantly alleviates the need for complex natural language prompting to guide the user
+simulator and results in substantially higher reliability (e.g., the telecom domain’s user simulator
+shows a 16% error rate with 6% critical errors, compared to 40% error rate with 12% critical errors
+in the retail domain fromτ-bench).
+Fine-grained diagnosis of agent failures. τ 2-bench enables a decomposed diagnosis of agent
+performance by evaluating task success in different modes: (i) a fully autonomous mode (“no-user
+mode”), where the agent controls all tools, isolating its reasoning capabilities, and (ii) the standard
+dual-control mode, which introduces communication and coordination requirements. Our findings
+reveal a substantial performance decrease (around 20% pass ˆ 1) when agents must shift from
+autonomous operation to guiding a user. This clearly distinguishes pure reasoning failures from those
+arising from communication and decentralized control, pinpointing the latter as a critical bottleneck
+for current agents.
+2 Related Work
+Benchmarks for Conversational AI Agents. Following a long line of research into language
+agents [25, 27, 10, 13, 21], LLM tool use [24, 20, 9], and task-oriented dialog [5, 4, 1, 22, 6, 7, 8],
+τ-bench [26] is a recently introduced benchmark to measure the reliability of language agents in
+multi-turn task-oriented conversations such as customer service workflows, while respecting domain
+rules. Each task inτ-bench instantiates a live conversation between a user simulator and the language
+agent, with tasks spread across two domains –retail and airline. To quantify reliability the paper
+introduces passˆk metrics: the fraction of k independent runs that succeed.
+Several follow-ups toτ-bench have explored variations of the basic setup. FlowBench [23] isolates
+the planning step of tool-using agents by injecting explicit workflow knowledge into the prompt,
+using natural language, python-like pseudocode or mermaid flowcharts. IntellAgent [12] provides
+an evaluation pipeline to programmatically build synthetic test suites from structured policy graphs
+that encode domain rules and their co-occurrence statistics. IntellAgent explicitly uses τ-bench as an
+external gold standard, reporting a high Spearman correlation between the two score distributions,
+and acts as a fast, synthetic proxy task. APIGen-MT [19] explores the idea of fine-tuning tool-calling
+agents for τ-bench. They generate data by creating conversation blueprints which are sequences
+of tool calls that depend on each other, followed by simulating conversational traces based on each
+blueprint. ToolSandbox [14] focuses on creating stateful tools in order to evaluate agent progress in a
+more fine-grained manner.
+Our work extends theτ-bench paradigm and generalizes it to allow for both the user and agent to
+have state-changing abilities (via tool calls) over a shared world. As demonstrated in the results,
+this allows us to build more complex domains to test conversational agents, while also providing the
+opportunity for fine-grained analysis of agent failure points that can be improved upon.
+User Simulation for Conversational Agents. The reliability of user simulation has been a key
+concern for benchmarks like τ-bench [26]. While most efforts have focused on introducing su-
+pervision for the user simulator, for instance, by using a generic LLM to generate or validate user
+responses [19], less attention has been paid to the possibility of using the environment itself to
+constrain and shape user simulator behavior for increased reliability, a core tenet of our approach.
+This concern has been extensively studied in the context of task-oriented dialogue systems, with early
+work by [18] providing a comprehensive survey of metrics for evaluating user simulations. More
+recently, [11] has demonstrated how LLMs can be effectively used as user-agents for evaluating
+task-oriented dialogue systems, showing that careful prompting and state tracking can lead to more
+reliable and context-aware user simulations.
+Multi-Agent Benchmarks. Our work is also related to efforts to build multi-agent frameworks
+and evaluate them [28]. While we can consider the user and the agent in our paper as forming a
+multi-agent system, the key difference in our case is that the final evaluation still focuses on the
+agent’s ability to elicit the right information from the user and perform the correct actions to solve
+the task. This introduces an inherent asymmetry between the agent and the user; our focus is not
+3

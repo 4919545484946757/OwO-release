@@ -1,0 +1,205 @@
+[
+  {
+    "path": "src/smolagents/memory.py",
+    "sha256": "8089d5162069158bd548673b52fc4c2d15b91146ae29d503903cfde8f913418a",
+    "bytes": 12341,
+    "symbols": [
+      "class ToolCall:",
+      "def dict(self):",
+      "class MemoryStep:",
+      "def dict(self):",
+      "def to_messages(self, summary_mode: bool = False) -> list[ChatMessage]:",
+      "class ActionStep(MemoryStep):",
+      "def dict(self):",
+      "def to_messages(self, summary_mode: bool = False) -> list[ChatMessage]:",
+      "class PlanningStep(MemoryStep):",
+      "def dict(self):",
+      "def to_messages(self, summary_mode: bool = False) -> list[ChatMessage]:",
+      "class TaskStep(MemoryStep):"
+    ]
+  },
+  {
+    "path": "src/smolagents/remote_executors.py",
+    "sha256": "d14480b4dc512605df941594bd37e08aa19a92c18913775e9af7c71d5c209ab9",
+    "bytes": 44941,
+    "symbols": [
+      "class RemotePythonExecutor(PythonExecutor):",
+      "def __init__(",
+      "def run_code_raise_errors(self, code: str) -> CodeOutput:",
+      "def send_tools(self, tools: dict[str, Tool]):",
+      "def send_variables(self, variables: dict[str, Any]):",
+      "def __call__(self, code_action: str) -> CodeOutput:",
+      "def install_packages(self, additional_imports: list[str]):",
+      "def _patch_final_answer_with_exception(self, final_answer_tool: FinalAnswerTool):",
+      "class _FinalAnswerTool(final_answer_tool.__class__):",
+      "def forward(self, *args, **kwargs) -> Any:",
+      "class SerializationError(Exception):",
+      "def _to_json_safe(obj):"
+    ]
+  },
+  {
+    "path": "src/smolagents/local_python_executor.py",
+    "sha256": "41859e622bae8ad85ed861b7abef12b02f9106133a273c2f4d8a1e37a743d1ca",
+    "bytes": 68159,
+    "symbols": [
+      "class InterpreterError(ValueError):",
+      "def custom_print(*args):",
+      "def nodunder_getattr(obj, name, default=None):",
+      "def check_safer_result(result: Any, static_tools: dict[str, Callable] = None, authorized_imports: list[str] = None):",
+      "def safer_eval(func: Callable):",
+      "def _check_return(",
+      "def safer_func(",
+      "def _check_return(*args, **kwargs):",
+      "class PrintContainer:",
+      "def __init__(self):",
+      "def append(self, text):",
+      "def __iadd__(self, other):"
+    ]
+  },
+  {
+    "path": "src/smolagents/cli.py",
+    "sha256": "c7cd04f6312242fbdb16917c48b9b5a672cb5a0652f9553c718b68dd3e2b5d62",
+    "bytes": 9658,
+    "symbols": [
+      "def parse_arguments():",
+      "def interactive_mode():",
+      "def load_model(",
+      "def run_smolagent(",
+      "def main() -> None:"
+    ]
+  },
+  {
+    "path": "src/smolagents/tools.py",
+    "sha256": "0f7395444c1efa48d0995efacf07bc6b68e5bad75a4312b509604eb447aff5e8",
+    "bytes": 59873,
+    "symbols": [
+      "def validate_after_init(cls):",
+      "def new_init(self, *args, **kwargs):",
+      "class BaseTool(ABC):",
+      "def __call__(self, *args, **kwargs) -> Any:",
+      "class Tool(BaseTool):",
+      "def __init__(self, *args, **kwargs):",
+      "def __init_subclass__(cls, **kwargs):",
+      "def validate_arguments(self):",
+      "def forward(self, *args, **kwargs):",
+      "def __call__(self, *args, sanitize_inputs_outputs: bool = False, **kwargs):",
+      "def setup(self):",
+      "def to_code_prompt(self) -> str:"
+    ]
+  },
+  {
+    "path": "src/smolagents/utils.py",
+    "sha256": "19263b4d418d5b69e3dfc3d0789aa2dc58ba6902bed2b0f9296b15057a837dc6",
+    "bytes": 21240,
+    "symbols": [
+      "def _is_package_available(package_name: str) -> bool:",
+      "def sanitize_for_rich(value) -> str:",
+      "class AgentError(Exception):",
+      "def __init__(self, message, logger: \"AgentLogger\"):",
+      "def dict(self) -> dict[str, str]:",
+      "class AgentParsingError(AgentError):",
+      "class AgentExecutionError(AgentError):",
+      "class AgentMaxStepsError(AgentError):",
+      "class AgentToolCallError(AgentExecutionError):",
+      "class AgentToolExecutionError(AgentExecutionError):",
+      "class AgentGenerationError(AgentError):",
+      "def make_json_serializable(obj: Any) -> Any:"
+    ]
+  },
+  {
+    "path": "src/smolagents/agents.py",
+    "sha256": "da0da2e258c346e28d97b3584dfe58dcd203fc20fbde6c6533e333f9b1a06352",
+    "bytes": 80780,
+    "symbols": [
+      "def populate_template(template: str, variables: dict[str, Any]) -> str:",
+      "class ActionOutput:",
+      "class ToolOutput:",
+      "class PlanningPromptTemplate(TypedDict):",
+      "class ManagedAgentPromptTemplate(TypedDict):",
+      "class FinalAnswerPromptTemplate(TypedDict):",
+      "class PromptTemplates(TypedDict):",
+      "class RunResult:",
+      "def __init__(self, output=None, state=None, steps=None, token_usage=None, timing=None, messages=None):",
+      "def messages(self):",
+      "def dict(self):",
+      "class MultiStepAgent(ABC):"
+    ]
+  },
+  {
+    "path": "src/smolagents/models.py",
+    "sha256": "e3510666f0a36d1d09d25d9d9f2e9cb0e0c09edc47ed599b0e52445bddf146e7",
+    "bytes": 86054,
+    "symbols": [
+      "def get_dict_from_nested_dataclasses(obj, ignore_key=None):",
+      "def convert(obj):",
+      "def remove_content_after_stop_sequences(content: str | None, stop_sequences: list[str] | None) -> str | None:",
+      "class ChatMessageToolCallFunction:",
+      "class ChatMessageToolCall:",
+      "def __str__(self) -> str:",
+      "class MessageRole(str, Enum):",
+      "def roles(cls):",
+      "class ChatMessage:",
+      "def __post_init__(self) -> None:",
+      "def model_dump_json(self):",
+      "def from_dict(cls, data: dict, raw: Any | None = None, token_usage: TokenUsage | None = None) -> \"ChatMessage\":"
+    ]
+  },
+  {
+    "path": "src/smolagents/__init__.py",
+    "sha256": "efac0cfd51f49d083a25297eb4cad6c498d28616f615095cf1c154c49b963254",
+    "bytes": 1107,
+    "symbols": []
+  },
+  {
+    "path": "src/smolagents/gradio_ui.py",
+    "sha256": "a3e601768f58523f59ee85e4770bab94b8ad1180184fa2c6b79a7234662d3590",
+    "bytes": 19092,
+    "symbols": [
+      "def get_step_footnote_content(step_log: ActionStep | PlanningStep, step_name: str) -> str:",
+      "def _clean_model_output(model_output: str) -> str:",
+      "def _format_code_content(content: str) -> str:",
+      "def _process_action_step(step_log: ActionStep, skip_model_outputs: bool = False) -> Generator:",
+      "def _process_planning_step(step_log: PlanningStep, skip_model_outputs: bool = False) -> Generator:",
+      "def _process_final_answer_step(step_log: FinalAnswerStep) -> Generator:",
+      "def pull_messages_from_step(step_log: ActionStep | PlanningStep | FinalAnswerStep, skip_model_outputs: bool = False):",
+      "def stream_to_gradio(",
+      "class GradioUI:",
+      "def __init__(self, agent: MultiStepAgent, file_upload_folder: str | None = None, reset_agent_memory: bool = False):",
+      "def _save_uploaded_file(self, file_path: str) -> str:",
+      "def upload_file(self, file, file_uploads_log: list, allowed_file_types: list | None = None):"
+    ]
+  },
+  {
+    "path": "src/smolagents/mcp_client.py",
+    "sha256": "ec0041193c0ea16100f0d911aab12ff92ccb165eb27aebee76550855836f8603",
+    "bytes": 7123,
+    "symbols": [
+      "class MCPClient:",
+      "def __init__(",
+      "def connect(self):",
+      "def disconnect(",
+      "def get_tools(self) -> list[Tool]:",
+      "def __enter__(self) -> list[Tool]:",
+      "def __exit__("
+    ]
+  },
+  {
+    "path": "src/smolagents/monitoring.py",
+    "sha256": "bce3de91526054e0f6f0b795ecca4e374dac5166aa66514d3b621ac4394659fa",
+    "bytes": 9716,
+    "symbols": [
+      "class TokenUsage:",
+      "def __post_init__(self):",
+      "def dict(self):",
+      "class Timing:",
+      "def duration(self):",
+      "def dict(self):",
+      "def __repr__(self) -> str:",
+      "class Monitor:",
+      "def __init__(self, tracked_model, logger):",
+      "def get_total_token_counts(self) -> TokenUsage:",
+      "def reset(self):",
+      "def update_metrics(self, step_log):"
+    ]
+  }
+]

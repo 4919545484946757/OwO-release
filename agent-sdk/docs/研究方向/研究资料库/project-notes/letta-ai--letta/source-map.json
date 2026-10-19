@@ -1,0 +1,54 @@
+{
+  "kept": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "bytes": 451
+    },
+    {
+      "path": ".github/workflows/issue-guard.yml",
+      "bytes": 9833
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 3236
+    },
+    {
+      "path": "AI_POLICY.md",
+      "bytes": 3588
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 398
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 10759
+    },
+    {
+      "path": "PRIVACY.md",
+      "bytes": 21160
+    },
+    {
+      "path": "README.md",
+      "bytes": 1574
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 1432
+    },
+    {
+      "path": "TERMS.md",
+      "bytes": 7075
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".github/TRUSTED_CONTRIBUTORS",
+      "bytes": 441
+    },
+    {
+      "path": "CITATION.cff",
+      "bytes": 676
+    }
+  ]
+}

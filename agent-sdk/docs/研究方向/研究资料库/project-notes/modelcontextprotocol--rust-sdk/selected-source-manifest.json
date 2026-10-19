@@ -1,0 +1,156 @@
+[
+  {
+    "path": "crates/rmcp/src/service.rs",
+    "sha256": "c7f2fa2f3793b1be8032faf53c8c6d5692b073c65540cd3a2d1a054d0454d1b4",
+    "bytes": 75128,
+    "symbols": [
+      "pub trait MaybeSend: Send + Sync {}",
+      "pub trait MaybeSend {}",
+      "pub trait MaybeSendFuture: Send {}",
+      "pub trait MaybeSendFuture {}",
+      "pub enum ServiceError {",
+      "pub trait ServiceRole: std::fmt::Debug + Send + Sync + 'static + Copy + Clone {",
+      "pub enum PeerRequestAssociation {",
+      "pub(crate) fn uses_legacy_lifecycle(",
+      "pub(crate) fn peer_request_association<Req: crate::model::GetExtensions, V>(",
+      "pub(crate) fn in_request_handler_scope() -> bool {",
+      "pub struct OriginatingRequestId(pub RequestId);",
+      "pub enum InboundStreamOrigin {"
+    ]
+  },
+  {
+    "path": "crates/rmcp/src/task_manager.rs",
+    "sha256": "814e43d227380982cf076005047141991f08931a1f2226f0eee72390fd9f2529",
+    "bytes": 39036,
+    "symbols": [
+      "pub fn current_timestamp() -> String {",
+      "pub struct TaskContext {",
+      "pub fn task_id(&self) -> &str {",
+      "pub async fn request_input(",
+      "pub fn set_status_message(&self, message: impl Into<String>) {",
+      "pub fn is_cancel_requested(&self) -> bool {",
+      "pub async fn cancelled(&self) {",
+      "pub enum TaskExit {",
+      "pub struct TaskOptions {",
+      "pub fn new() -> Self {",
+      "pub fn with_ttl_ms(mut self, ttl_ms: impl Into<Option<u64>>) -> Self {",
+      "pub fn with_poll_interval_ms(mut self, poll_interval_ms: u64) -> Self {"
+    ]
+  },
+  {
+    "path": "crates/rmcp/src/model/task.rs",
+    "sha256": "28f5f256ce73d733d7536d20abe900e3b0f6533425b23e9ee797c10e08f66858",
+    "bytes": 19474,
+    "symbols": [
+      "pub enum TaskStatus {",
+      "pub fn is_terminal(&self) -> bool {",
+      "pub struct Task {",
+      "pub fn new(",
+      "pub fn with_status_message(mut self, status_message: impl Into<String>) -> Self {",
+      "pub fn with_ttl_ms(mut self, ttl_ms: u64) -> Self {",
+      "pub fn with_poll_interval_ms(mut self, poll_interval_ms: u64) -> Self {",
+      "pub enum TaskPayload {",
+      "pub fn status(&self) -> TaskStatus {",
+      "pub struct DetailedTask {",
+      "pub fn new(mut task: Task, payload: TaskPayload) -> Self {",
+      "pub fn status(&self) -> TaskStatus {"
+    ]
+  },
+  {
+    "path": "crates/rmcp/src/lib.rs",
+    "sha256": "075c3bf5ccd74441c182da6cd3cf44943d7a5cb6009c1b5e30dc63fee44e4846",
+    "bytes": 1344,
+    "symbols": []
+  },
+  {
+    "path": "crates/rmcp/src/error.rs",
+    "sha256": "240e197f7a463e848202cc4883ec033c94a20a47d86201b28c9dc80a4d25818a",
+    "bytes": 2599,
+    "symbols": [
+      "pub(crate) struct ErrorChain<'a>(pub(crate) &'a (dyn std::error::Error + 'static));",
+      "pub enum RmcpError {",
+      "pub fn transport_creation<T: 'static>("
+    ]
+  },
+  {
+    "path": "crates/rmcp/src/model.rs",
+    "sha256": "1568942f116c8ca37ac81a2b5e18edc7e9fa08082186fd8827897b1bf84136a6",
+    "bytes": 200653,
+    "symbols": [
+      "pub fn object(value: serde_json::Value) -> JsonObject {",
+      "pub struct EmptyObject {}",
+      "pub trait ConstString: Default {",
+      "pub struct $name;",
+      "pub struct ProtocolVersion(Cow<'static, str>);",
+      "pub fn as_str(&self) -> &str {",
+      "pub fn has_initialize(&self) -> bool {",
+      "pub fn known_up_to(max: &Self) -> &'static [Self] {",
+      "pub enum NumberOrString {",
+      "pub fn into_json_value(self) -> Value {",
+      "pub(crate) fn numeric_string_value(&self) -> Option<i64> {",
+      "pub(crate) fn matches_response_id(&self, response_id: &Self) -> bool {"
+    ]
+  },
+  {
+    "path": "crates/rmcp/src/handler.rs",
+    "sha256": "dc1087d79c9566009906a26162321096ab77aea17499dfabcbb49964aba5b9ed",
+    "bytes": 86,
+    "symbols": []
+  },
+  {
+    "path": "crates/rmcp/src/transport.rs",
+    "sha256": "14912b2656b8a7972915a1337c4b9d2031e1c27abfadc0ceb64d395935ae5092",
+    "bytes": 11044,
+    "symbols": [
+      "pub trait Transport<R>: Send",
+      "pub trait IntoTransport<R, E, A>: Send + 'static",
+      "pub enum TransportAdapterIdentity {}",
+      "pub struct OneshotTransport<R>",
+      "pub fn new(",
+      "pub struct DynamicTransportError {",
+      "pub fn new<T: Transport<R> + 'static, R: ServiceRole>(e: T::Error) -> Self {",
+      "pub fn from_parts(",
+      "pub(crate) fn is_authorization_required(&self) -> bool {",
+      "pub fn downcast<T: Transport<R> + 'static, R: ServiceRole>(self) -> Result<T::Error, Self> {",
+      "pub fn is<T: Transport<R> + 'static, R: ServiceRole>(&self) -> bool {"
+    ]
+  },
+  {
+    "path": "conformance/src/bin/client.rs",
+    "sha256": "d40f611ab6d408940528aa3893c16cc7d71dd712a3b794af4e8c84c58b829301",
+    "bytes": 46860,
+    "symbols": []
+  },
+  {
+    "path": "conformance/src/bin/server.rs",
+    "sha256": "145b79b33b8f90de480a243da494f3c541564e61c3c5489dce5427a7a7be392e",
+    "bytes": 71813,
+    "symbols": []
+  },
+  {
+    "path": "crates/rmcp-macros/src/lib.rs",
+    "sha256": "8209f86d6d955040e64ed906cc58e69bb561fbcbf6352afaa119e0ae93185651",
+    "bytes": 11878,
+    "symbols": [
+      "pub fn tool(attr: TokenStream, input: TokenStream) -> TokenStream {",
+      "pub fn tool_router(attr: TokenStream, input: TokenStream) -> TokenStream {",
+      "pub fn tool_handler(attr: TokenStream, input: TokenStream) -> TokenStream {",
+      "pub fn prompt(attr: TokenStream, input: TokenStream) -> TokenStream {",
+      "pub fn prompt_router(attr: TokenStream, input: TokenStream) -> TokenStream {",
+      "pub fn prompt_handler(attr: TokenStream, input: TokenStream) -> TokenStream {"
+    ]
+  },
+  {
+    "path": "crates/rmcp-macros/src/tool.rs",
+    "sha256": "335ff19fae9c002d7b2b790af34ce44c8b7fbf0335bb5fd781988dbb9e2d7099",
+    "bytes": 14653,
+    "symbols": [
+      "pub struct ToolAttribute {",
+      "pub struct ResolvedToolAttribute {",
+      "pub fn into_fn(self, fn_ident: Ident) -> syn::Result<ImplItemFn> {",
+      "pub fn #fn_ident() -> rmcp::model::Tool {",
+      "pub struct ToolAnnotationsAttribute {",
+      "pub fn tool(attr: TokenStream, input: TokenStream) -> syn::Result<TokenStream> {"
+    ]
+  }
+]

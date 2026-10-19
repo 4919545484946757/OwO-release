@@ -1,0 +1,153 @@
+Published as a conference paper at COLM 2024
+A Dynamic LLM-Powered Agent Network
+for Task-Oriented Agent Collaboration
+Zijun Liu1∗, Yanzhe Zhang2, Peng Li3, Yang Liu1,3,4, Diyi Yang5
+1Dept. of Comp. Sci. & Tech., Institute for AI, Tsinghua University, Beijing, China
+2Georgia Institute of Technology, Georgia, USA
+3Institute for AI Industry Research (AIR), Tsinghua University, Beijing, China
+4Jiangsu Collaborative Innovation Center for Language Competence, Jiangsu, China
+5Stanford University, California, USA
+liuzijun20@mails.tsinghua.edu.cn, diyiy@stanford.edu
+Abstract
+Recent studies show that collaborating multiple large language model
+(LLM) powered agents is a promising way for task solving. However, cur-
+rent approaches are constrained by using a fixed number of agents and
+static communication structures. In this work, we propose automatically
+selecting a team of agents from candidates to collaborate in a dynamic
+communication structure toward different tasks and domains. Specifically,
+we build a framework named Dynamic LLM-Powered Agent Network
+(DyLAN) for LLM-powered agent collaboration, operating a two-stage
+paradigm: (1) Team Optimization and (2) Task Solving. During the first
+stage, we utilize an agent selection algorithm, based on an unsupervised
+metric called Agent Importance Score, enabling the selection of best agents
+according to their contributions in a preliminary trial, oriented to the given
+task. Then, in the second stage, the selected agents collaborate dynami-
+cally according to the query. Empirically, we demonstrate that DyLAN
+outperforms strong baselines in code generation, decision-making, general
+reasoning, and arithmetic reasoning tasks with moderate computational
+cost. On specific subjects in MMLU, selecting a team of agents in the team
+optimization stage improves accuracy by up to 25.0% in DyLAN.1
+Figure 1: DyLAN adopts a two-stage paradigm. Agents communicate in a structure of
+the temporal feed-forward network (T-FFN). At the “Team Optimization” stage, DyLAN
+performs agent selection for the most contributory agents in a primary collaboration, oriented
+to tasks or domains. The selected agents then collaborate dynamically for an answer on the
+given query at the “Task Solving” stage.
+∗Work done when the first author was a UGVR visiting student at Stanford University.
+1Code is available at https://github.com/SALT-NLP/DyLAN.
+1
+arXiv:2310.02170v2  [cs.CL]  15 Nov 2024
+
+Published as a conference paper at COLM 2024
+1 Introduction
+Large Language Model (LLM) agents (Richards & et al., 2023; Nakajima, 2023; Reworkd,
+2023) have demonstrated promising performance on various tasks, ranging from reason-
+ing (Yao et al., 2023), code generation (Shinn et al., 2023) to embodied tasks such as video
+gaming (Wang et al., 2023a) and autopilot systems (Jin et al., 2023). Given the impracticality
+of a single agent managing all these tasks efficiently, recent research has shifted towards
+multi-agent collaborations, yielding significant advancements (Li et al., 2023; Du et al., 2023;
+Wang et al., 2023c; Jiang et al., 2023; Shinn et al., 2023; Chen et al., 2024; Wu et al., 2023).
+As an analogy to human society, how human teams function may provide valuable insights
+for developing more effective multi-agent collaboration systems. For instance, recent studies
+have demonstrated that certain effective communication structures, derived from human
+society, also play a positive role in multi-agent collaborations (Yin et al., 2023; Chen et al.,
+2024). In addition to communication structures, another notable characteristic of human
+teams is that they would optimize team members according to the given task. Take medical
+consultations as an example. Collaborations in dynamic structures are evident when the
+composition of the team changes within the procedure of consultation, as some doctors may
+become less relevant in major as the conversation goes deeper and “leave” the consultation,
+leading to corresponding changes in the communication structure. Team optimization is
+often observed in the varying initial composition of doctors for consultations with different
+diseases, influenced by changes in the related medical fields and the contribution of each
+doctor. These characteristics prompt an important question: Does a dynamically changing
+team of agents benefit LLM-powered agent collaborations similarly?
+However, the question is not well-addressed yet. While various communication structures
+have been studied for different tasks, such as debating for reasoning (Du et al., 2023; Liang
+et al., 2023; Xiong et al., 2023) and self-collaboration for coding (Dong et al., 2023; Qian
+et al., 2023a;b), these communication structures do not alter members in the agent team
+and remain fixed throughout the collaboration. It indicates that task-oriented dynamic
+selections in agents are not thoroughly explored in current research. Furthermore, in the
+context of agent teams, most existing studies opt for hand-crafting agents from human
+priors (Liu et al., 2023; Nakajima, 2023; Hong et al., 2024; Shinn et al., 2023; Li et al., 2023)
+or employ an LLM to generate them (Wang et al., 2023c; Chen et al., 2023b; Christianos
+et al., 2023). These approaches generally predefine agents without further validation of
+the collaboration process. This leads to static agent teams or rebuilding teams without
+principled verification (Chen et al., 2024). Challenges still remain for optimization methods.
+As a first attempt towards addressing the above question, we introduce a novel framework
+named Dynamic LLM-Powered Agent Network (DyLAN). DyLAN conceptualizes multi-
+agent collaboration using temporal feed-forward networks (T-FFNs). In this formulation,
+each communication step of the agents corresponds to a network layer, with nodes rep-
+resenting the agents involved at that step and edges indicating communications between
+agents, for incorporating dynamic agent teams agnostically. DyLAN functions in two stages
+to incorporate task-oriented agent collaborations (Figure 1). The first stage is termed Team
+Optimization, where we select top contributory agents unsupervisedly among the initial
+team of candidates according to the task query, based on their individual contributions.
+We propose a forward-backward message passing algorithm on the T-FFN termed agent
+selection in Section 3.4, inspired by the back-propagation algorithm (Rumelhart et al., 1986)
+and neuron importance scores (Yu et al., 2018). This algorithm measures the contribution
+of each agent at the first stage with an unsupervised metric named Agent Importance Score.
+The most contributory agents form a smaller team to collaborate at the second stage —
+Task Solving, thereby minimizing the impact of less effective agents on the final answer.
+Specifically, the collaboration begins with a team of agents, and an LLM-powered ranker
+in the middle dynamically deactivates low-performing agents (i.e., agent team reformation),
+thus expanding the T-FFN, integrating dynamic communication structures into DyLAN
+(Section 3.3.2). Incorporating agent selection, DyLAN effectively identifies and coordinates a
+task-oriented team of agents in a principled way. Extensive experiments demonstrate that
+DyLAN outperforms strong baselines in various tasks, including code generation, decision-
+making, general reasoning, and arithmetic reasoning. Notably, agent selection in DyLAN has
+2
+
+Published as a conference paper at COLM 2024
+improved accuracy by up to 25.0% in certain subjects of the MMLU dataset (Hendrycks
+et al., 2021a), underlining the significance of dynamic agent teams.
+In summary, our contributions are threefold:
+• We introduce a novel framework named DyLAN for task-oriented agent collabo-
+ration in two stages with agent selection, marking a significant advancement in the
+study of dynamic agent teams.
+• DyLAN innovatively formulates agent collaborations in temporal feed-forward
+networks with agent team reformation , enhancing its adaptability and reducing
+dependence on human preconceptions.
+• Empirical results demonstrate the superior accuracy, efficiency, and stability of
+DyLAN across various tasks, underscoring the need for dynamic agent teams.
+2 Related Work
+Team Optimization of LLM-Powered Agents The construction of agent teams is the essen-
+tial and initial step for LLM-powered agent collaboration. TPTU (Ruan et al., 2023) and
+Chameleon (Lu et al., 2023) decompose tasks to choose or create tools accordingly. Recent
+studies also use LLMs to generate a fixed number of role prompts for agents in response
+to a task query (Wang et al., 2023c; Suzgun & Tauman Kalai, 2024), or for each round of
+discussion (Chen et al., 2024). However, manual prompts require careful design, which is
+impractical for adaptation on each task or domain, and prompting LLMs with predefined
+or generated descriptions may not result in the desired abilities of the agents without verifi-
+cation. Therefore, posteriorly selecting a team of agents based on their actual behaviors in
+the collaboration according to the task becomes essential. While team optimization for LLM
+agents is a relatively new area, human-team optimization has been studied for a long time.
+For instance, Liu et al. (2015) show that skill contribution is essential for selecting crowd
+workers to solve outsourced tasks efficiently. Based on peer rating, researchers have devel-
+oped an algorithm for managing online workers in an optimal organization (Lykourentzou
+et al., 2022). Drawing inspirations, we introduce an unsupervised algorithm to select a team
+of agents by quantifying their contributions based on peer ratings in Section 3.4.
+Communication Structures in LLM-Powered Agent Collaboration Collaboration between
+multiple LLM agents has demonstrated strong performance on various tasks in recent years
+and has emerged as a promising approach to enhance the capabilities of individual LLMs.
+To enable collaborations between multiple agents, recent studies have developed different
+communication structures and assigned agents in pre-defined architecture. For instance,
+researchers have found taking multiple LLM instances to debate for a fixed number of
+rounds can boost their factuality and reasoning capacities (Du et al., 2023; Liang et al., 2023;
+Xiong et al., 2023). To aggregate multiple LLM responses, LLM-Blender (Jiang et al., 2023)
+calls different LLMs in one round and uses pairwise ranking to combine the top responses.
+It has also been shown effective in distributing workloads to LLMs and concatenating their
+answers, thus producing better results (Ning et al., 2024; Suzgun & Tauman Kalai, 2024;
+Qiao et al., 2024). It is worth noting that existing studies (Hao et al., 2023; Zhang et al., 2023b)
+have tried organizing LLM instances into linear layers, but they mainly studied supervised
+learning in context space and LLM evaluation, respectively, not the scenario in which we
+are interested. However, running LLMs in a static architecture may limit the performance
+and generalization. On specific reasoning tasks, adopting a dynamic directed acyclic graph
+structure for LLMs has been shown effective (Zhang et al., 2023).Also, recent studies (Yin
+et al., 2023; Chen et al., 2024; Zhang et al., 2023a; Zhuge et al., 2024) have demonstrated that
+optimal communication structures vary with tasks and compositions of agents. Aligned
+with the findings, we propose a structure that adjusts dynamically based on selecting agents
+according to the tasks and the construction of the agent team in Section 3.3.2.
+Evaluation of the Contribution of LLM-Powered Agents It is non-trivial to evaluate the
+contribution of each LLM agent in a multi-agent system, especially when they communicate
+over multiple rounds. In the single-round setting, existing methods use LLMs heavily
+for evaluation. To overcome the over confidence of LLMs (Xiong et al., 2024), pairwise
+3

@@ -1,0 +1,200 @@
+Front. Comput. Sci., 2025, 0(0): 1–42
+https://doi.org/10.1007/s11704-024-40231-1
+REVIEW ARTICLE
+A Survey on Large Language Model based Autonomous
+Agents
+Lei Wang, Chen Ma*, Xueyang Feng*, Zeyu Zhang, Hao Yang, Jingsen Zhang,
+Zhi-Yuan Chen, Jiakai Tang, Xu Chen(B), Yankai Lin(B), Wayne Xin Zhao,
+Zhewei Wei, Ji-Rong Wen
+Gaoling School of Artificial Intelligence, Renmin University of China, Beijing, 100872, China
+© Higher Education Press 2025
+Abstract Autonomous agents have long been a
+research focus in academic and industry commu-
+nities. Previous research often focuses on training
+agents with limited knowledge within isolated envi-
+ronments, which diverges significantly from human
+learning processes, and makes the agents hard to
+achieve human-like decisions. Recently, through
+the acquisition of vast amounts of web knowledge,
+large language models (LLMs) have shown poten-
+tial in human-level intelligence, leading to a surge in
+research on LLM-based autonomous agents. In this
+paper, we present a comprehensive survey of these
+studies, delivering a systematic review of LLM-
+based autonomous agents from a holistic perspec-
+tive. We first discuss the construction of LLM-based
+autonomous agents, proposing a unified framework
+that encompasses much of previous work. Then, we
+present an overview of the diverse applications of
+LLM-based autonomous agents in social science,
+natural science, and engineering. Finally, we delve
+into the evaluation strategies commonly used for
+LLM-based autonomous agents. Based on the pre-
+vious studies, we also present several challenges
+and future directions in this field.
+Keywords Autonomous agent, Large language
+model, Human-level intelligence
+1 Introduction
+“An autonomous agent is a system situated within and a
+part of an environment that senses that environment and
+acts on it, over time, in pursuit of its own agenda and so
+as to effect what it senses in the future. ”
+Franklin and Graesser (1997)
+Autonomous agents have long been recognized
+as a promising approach to achieving artificial gen-
+eral intelligence (AGI), which is expected to ac-
+Received month dd, yyyy; accepted month dd, yyyy
+E-mail: xu.chen@ruc.edu.cn;yankailin@ruc.edu.cn
+*Both authors contribute equally to this paper.
+arXiv:2308.11432v7  [cs.AI]  2 Mar 2025
+
+2 Front. Comput. Sci., 2025, 0(0): 1–42
+2021-1 2022-1 2023-2 2023-4 2023-6 2023-8
+Time（Year-Month）
+NumberofPapers（cumulated）
+WebGPT
+2021-12
+Generative Agent2023-4
+Vo yag er 2023-5
+ToolBench 2023-7
+AgentSims 2023-8
+Tool Agent
+Simulation Agent
+General Agent
+Embodied Agent
+TALM2022-5
+HuggingGPT2023-3
+Game Agent
+Co T 2022-1
+Web Agent
+WebShop2022-7
+InnerMonologue2022-7
+DEPS2023-2
+Toolformer2023-2
+AutoGPT2023-3
+Assistant Agent
+AgentGPT2023-4
+ RecAg en t 2023-6
+GITM2023-5
+ToT2023-5
+MIND2WEB2023-6
+CO-LLM 2023-7
+ChatDev 2023-7
+Fig. 1 Illustration of the growth trend in the field of LLM-based autonomous agents. We present the cumulative number of
+papers published from January 2021 to August 2023. We assign di fferent colors to represent various agent categories. For
+example, a game agent aims to simulate a game-player, while a tool agent mainly focuses on tool using. For each time period,
+we provide a curated list of studies with diverse agent categories.
+complish tasks through self-directed planning and
+actions. In previous studies, the agents are assumed
+to act based on simple and heuristic policy func-
+tions, and learned in isolated and restricted envi-
+ronments [1 –6]. Such assumptions significantly
+differs from the human learning process, since the
+human mind is highly complex and individuals can
+learn from a much wider variety of environments.
+Because of these gaps, the agents obtained from
+previous studies are usually far from replicating
+human-level decision processes, especially in un-
+constrained, open-domain settings.
+In recent years, large language models (LLMs)
+have achieved notable successes, demonstrating
+significant potential to achieve human-like intel-
+ligence [5–10]. This capability arises from lever-
+aging comprehensive training datasets alongside a
+substantial number of model parameters. Build-
+ing upon this capability, there has been a growing
+research area that employs LLMs as central con-
+trollers to construct autonomous agents to obtain
+human-like decision-making capabilities [11–17].
+Compared to reinforcement learning, LLM-based
+agents possess more comprehensive internal world
+knowledge, enabling them to perform informed ac-
+tions even without training on specific domain data.
+Furthermore, LLM-based agents can offer natural
+language interfaces for human interaction, provid-
+ing greater flexibility and enhanced explainability.
+Along this direction, researchers have developed
+numerous promising models (see Figure 1 for an
+overview), where the key idea is to equip LLMs
+with human capabilities such as memory and plan-
+ning to make them behave like humans and com-
+plete various tasks e ffectively. Previously, these
+models were proposed independently, with limited
+efforts made to summarize and compare them holis-
+tically. However, we believe that a systematic sum-
+
+Lei Wang et al. A Survey on Large Language Model based Autonomous Agents 3
+mary of this rapidly developing field is of great
+significance for a comprehensive understanding of
+it and is beneficial in inspiring future research.
+In this paper, we conduct a comprehensive sur-
+vey of the field of LLM-based autonomous agents.
+We organize our survey around three key aspects:
+construction, application, and evaluation of LLM-
+based autonomous agents. For agent construction,
+we focus on two problems, that is, (1) how to design
+the agent architecture to better leverage LLMs, and
+(2) how to inspire and enhance the agent capabil-
+ity to complete different tasks. Intuitively, the first
+problem aims to build the hardware fundamentals
+for the agent, while the second problem focuses on
+providing the agent with software resources. For the
+first problem, we present a unified agent framework,
+which can encompass most of the previous studies.
+For the second problem, we provide a summary on
+the commonly-used strategies for agents’ capability
+acquisition. In addition to discussing agent con-
+struction, we also provide a systematic overview of
+the applications of LLM-based autonomous agents
+in social science, natural science, and engineering.
+Finally, we delve into the strategies for evaluating
+LLM-based autonomous agents, focusing on both
+subjective and objective strategies.
+In summary, this survey conducts a systematic
+review and establishes comprehensive taxonomies
+for existing studies in the burgeoning field of LLM-
+based autonomous agents. Our focus encompasses
+three primary areas: the construction of agents, their
+applications, and methods of evaluation. Drawing
+from a wealth of previous studies, we identify var-
+ious challenges in this field and discuss potential
+future directions. We expect that our survey can pro-
+vide newcomers of LLM-based autonomous agents
+with a comprehensive background knowledge, and
+also encourage further groundbreaking studies.
+2 LLM-based Autonomous Agent Con-
+struction
+LLM-based autonomous agents are expected to ef-
+fectively perform diverse tasks by leveraging the
+human-like capabilities of LLMs. In order to achieve
+this goal, there are two significant aspects: (1) which
+architecture should be designed to better use LLMs
+and (2) given the designed architecture, how to en-
+able the agent to acquire capabilities for accomplish-
+ing specific tasks. Within the context of architec-
+ture design, we contribute a systematic synthesis of
+existing research, culminating in a comprehensive
+unified framework. As for the second aspect, we
+summarize the strategies for agent capability acqui-
+sition based on whether they fine-tune the LLMs.
+Comparing LLM-based autonomous agents to tradi-
+tional machine learning, architecture design is anal-
+ogous to defining the network structure, while capa-
+bility acquisition resembles the process of learning
+network parameters. In the following sections, we
+explore these two aspects in greater detail.
+2.1 Agent Architecture Design
+Recent advancements in LLMs have demonstrated
+their great potential to accomplish a wide range
+of tasks in the form of question-answering (QA).
+However, building autonomous agents is far from
+QA, since they need to fulfill specific roles and
+autonomously perceive and learn from the environ-
+ment to evolve themselves like humans. To bridge
+the gap between traditional LLMs and autonomous
+agents, a crucial aspect is to design rational agent
+architectures to assist LLMs in maximizing their ca-
+pabilities. Along this direction, previous work has
+developed a number of modules to enhance LLMs.
+In this section, we propose a unified framework to
+summarize these modules. Specifically, the overall

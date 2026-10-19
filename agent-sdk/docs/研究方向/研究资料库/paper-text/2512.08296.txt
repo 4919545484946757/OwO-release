@@ -1,0 +1,156 @@
+Towards a Science of Scaling Agent Systems
+Yubin Kim1,3,†, Ken Gu1, Chanwoo Park3, Chunjong Park2, Samuel Schmidgall2, A. Ali Heydari1, Yao Yan1,
+Zhihan Zhang1, Yuchen Zhuang2, Yun Liu1, Mark Malhotra1, Paul Pu Liang3, Hae Won Park3, Yuzhe Yang1,
+Xuhai Xu1, Yilun Du1, Shwetak Patel1, Tim Althoff1, Daniel McDuff1,† and Xin Liu1,†
+1Google Research,2Google DeepMind,3Massachusetts Institute of Technology,†Corresponding Author
+Agents, language model-based systems capable of reasoning, planning, and acting are widely adopted
+in real-world tasks, yet how their performance changes as these systems scale across key dimensions
+remains underexplored. We introduce quantitativescaling principlesfor agent systems as a predictive
+model, capturing how performance varies with coordination, model capability, and measurable system
+andtaskfactors. Across260configurationsspanningsixagenticbenchmarks, fivecanonicalarchitectures
+(Single-Agent and four Multi-Agent: Independent, Centralized, Decentralized, Hybrid), and three LLM
+families, we perform controlled evaluations standardizing tools, prompts, and compute to isolate
+architectural effects. The resulting model achieves a cross-validated𝑅2=0.373across all six benchmarks
+(𝑅2=0.413with a task-grounded capability metric). We identify a robust capability-saturation effect and
+additional patterns: (1) a coordination yields diminishing returns once single-agent baselines exceed
+certain performance; (2) tool-heavy tasks appear to incur multi-agent overhead; and (3) architectures
+without centralized verification tend to propagate errors more than those with centralized coordination.
+Relative performance change compared to single-agent baseline ranges from+80.8%on decomposable
+financial reasoning to−70.0%on sequential planning, demonstrating that architecture-task alignment
+determines collaborative success. The framework identifies the best-performing architecture for 87%
+of held-out configurations and shows consistent relative architecture preferences on unseen frontier
+models. Agent effectiveness depends on alignment between coordination and task structure, and that
+mismatched coordination degrades the performance.
+GPT-5
+nano
+GPT-5
+mini
+GPT-5
+Gemini
+2.0 Flash
+Gemini
+2.5 Flash
+Gemini
+2.5 Pro
+Sonnet 
+3.7
+Sonnet 
+4.0
+Sonnet 
+4.5
++12.3%
+-7.2%
+-4.6%
+Performance (%)
+IntelligenceIndex IntelligenceIndex IntelligenceIndex
+Figure 1| Agent Scaling across model intelligence and system topologies.Average performance
+(%) across the six agentic benchmarks improves consistently with increasing modelIntelligence
+Index(see Appendix A) across three LLM families (OpenAI, Google, and Anthropic) under five
+agent architectures. Single Agent System (SAS) serves as reference trajectories, while Multi Agent
+System (MAS) variants (Centralized, Decentralized, Independent, and Hybrid) reveal distinct scaling
+behaviors (see Table 2 for architecture comparisons). All percentage deltas annotated in the figure
+indicate relative performance change of the best-performing MAS variant compared to the SAS
+baseline at the same Intelligence Index.
+Corresponding author(s): ybkim95@mit.edu; dmduff@google.com; xliucs@google.com
+©2026 Google. All rights reserved
+arXiv:2512.08296v3  [cs.AI]  8 Apr 2026
+
+Towards a Science of Scaling Agent Systems
+1. Introduction
+Agents[1], languagemodel-drivensystemsthatoperatethroughiterativecyclesofreasoning, planning,
+and acting, adapting their behavior based on environmental or tool-generated feedback, have achieved
+strong performance in diverse applications, from code generation [2, 3], web browsing [4, 5], medical
+decision-making [6–8], finance [9], sustainability [10], to scientific discovery [11, 12]. As tasks
+becomemorecomplexandrequirelong-horizonenvironmentalinteraction, multi-agentsystems(MAS)
+have gained attention as a way to support task decomposition, parallel exploration, and verification.
+At the same time, concurrent works question whether multi-agent coordination outperforms single-
+agent systems (SAS), leaving the conditions under which MAS provides genuine benefits remain
+underexplored [13–18]. Despite rapid adoption, there remains no principled quantitative framework
+for predicting when adding agents improves performance and when it instead introduces coordination
+costs that degrade it. This gap leaves practitioners relying on heuristics, hindering both the emergence
+of a science of agent systems and, critically for real-world deployment, the ability to determine when
+multi-agent coordination provides genuine value over simpler single-agent alternatives.
+To determine when multi-agent coordination provides benefit, we first establish which task
+categories require agentic capabilities. A necessary prerequisite is distinguishing betweenagenticand
+non-agenticevaluationparadigms. ExpandingfromtheAgenticBenchmarkChecklist(ABC)introduced
+in [19], we characterizeagentic tasksas those requiring: (i) sustained multi-step interactions with
+an external environment, (ii) iterative information gathering under partial observability, and (iii)
+adaptive strategy refinement based on environmental feedback.
+These characteristics differentiate tasks like web browsing [4], financial trading [9], software
+engineering [20], and interactive planning [21] from traditional static benchmarks, tasks solvable
+through single-shot reasoning without environmental feedback, which lack external environments,
+are fully observed, or require identical solution strategies [22, 23]. This distinction matters because,
+while recent agentic benchmarks have emerged (e.g., SWE-Bench [20], 𝜏2-Bench [24], Terminal-
+Bench [25]),multi-agent system evaluationshave been conducted predominantly on non-agentic tasks,
+potentially providing misleading guidance about when collaboration provides value. This distinction
+is practically consequential: while LLMs achieve high accuracy on isolated code generation tasks like
+HumanEval [26], real-world deployment requires agentic capabilities such as iterative debugging,
+repository navigation, and adaptive strategy refinement as exemplified by interactive coding assistants
+(e.g., Cursor, Copilot Workspace). Multi-agent systems that show monotonic improvement with team
+size on static benchmarks (reaching 89% on HumanEval with five agents) exhibit fundamentally
+different scaling behavior when evaluated on tasks requiring sustained environmental interaction,
+where coordination overhead and error propagation dynamics dominate.
+At its core, this distinction reflects a trade-off between context integration and diversity [27, 28].
+Single-agent systems maximize context integration by maintaining a unified memory stream in which
+all reasoning steps share full access to prior history, enabling effectively constant-time access to global
+context. In contrast, multi-agent systems impose intrinsic information fragmentation [13]: while
+parallel agents enable diverse exploration, they incur an unavoidablecoordination taxin which the
+global context must be compressed into inter-agent messages. This lossy communication increases
+synchronization overhead and cognitive load [29], fundamentally altering the scaling behavior of
+collaboration.
+The underlying dynamics explain this discrepancy: on agentic tasks, coordination overhead scales
+with interaction depth, agents operate on progressively divergent world states, and errors cascade
+through execution chains rather than being corrected through voting. Recent work has identified cases
+where single strong models match or exceed multi-agent systems [16], yet the evaluation literature
+provides limited guidance onwhat factorsdetermine collaborative success, whether semantic diversity
+2
+
+Towards a Science of Scaling Agent Systems
+predicts team performance, how architectural choices shape coordination costs, or whether agents
+can detect and correct failures in extended interactions.
+The problem is further compounded by rapid progress in frontier model capabilities. As base
+LLMs gain extended context windows, sophisticated tool use, and improved self-reflection, the unique
+value proposition of multi-agent collaboration becomes unclear. The answer likely depends on task
+characteristics and architectural choices that remain to be systematically quantified.
+Two key challenges hinder progress toward principled multi-agent design.First, existing MAS
+evaluationscomparearchitecturesusingdifferentprompts, tools, orcomputationalbudgets, conflating
+architectural effects with implementation choices and precluding clean causal attribution.Second,
+evaluations focus exclusively on final accuracy metrics without examining process dynamics such as
+coordination overhead, error propagation, and information flow that determine whether collaboration
+succeeds or fails. We know from human team performance [30, 31] that team effectiveness depends
+on composition, coordination mechanisms, and member differentiation. Yet we lack comparable
+empirical understanding of how these principles translate to artificial agents, leaving practitioners
+without quantitative guidance for architecture selection.
+Toaddressthesechallenges, wepresentacontrolledevaluationestablishingtheprinciplesforagent
+coordination. Our experimental design isolates architectural effects by controlling for implementation
+confounds which maintains identical task prompts, tools, and computational budgets across all
+configurations, while systematically varying only coordination structure and model capability. We
+evaluate five canonical architectures: Single Agent System (SAS) and four Multi-Agent variants
+(Independent, Centralized, Decentralized, Hybrid) instantiated across three major LLM families
+(OpenAI, Google, Anthropic) sampling models at varying capability tiers as quantified by an aggregate
+Intelligence Index (see Appendix A), on six agentic benchmarks: (1) web browsing (BrowseComp-
+Plus [32]), (2) financial analysis (Finance-Agent [33]), (3) game planning (PlanCraft [21]), (4)
+realistic workplace tasks (Workbench [34]), (5) software engineering (SWE-bench Verified [20]),
+and (6) terminal tasks (Terminal-Bench [25]). Across𝑁=260controlled configurations with matched
+compute, we derive a scaling principle across tested domains quantifying how performance emerges
+from empirically measured coordination properties.
+In contrast to prior claims that “more agents is all you need”, our evaluation reveals that the
+effectiveness of multi-agent systems is governed by quantifiable trade-offs between architectural
+properties and task characteristics. We establish a predictive framework using a mixed-effects
+regression model with empirical coordination metrics: efficiency (success/overhead ratio), error
+amplification factors, message density and redundancy as predictors, achieving cross-validated
+𝑅2=0.373across all six benchmarks (𝑅2=0.413with a task-grounded capability metric), without
+dataset-specific parameters. Critically, this framework generalizes beyond the fitted configurations
+in a restricted sense, where it predicts the best-performing architecture for 87% of held-out task
+configurations, indicating relative architecture selection is more stable than absolute cross-domain
+performance prediction.
+Our analysis identifies three scaling patterns. First, atool-coordination trade-off( 𝛽=−0.096,
+𝑝=0.002): tool-heavy tasks (e.g., 16-tool business workflows) suffer from multi-agent coordination
+overhead, with efficiency penalties compounding as environmental complexity increases. Second, a
+capability ceiling(𝛽=−0.236, 𝑝=0.004): tasks where single-agent performance already exceeds 45%
+accuracy experience negative returns from additional agents, as coordination costs exceed diminishing
+improvement potential. Third, we observearchitecture-dependent error amplification. Independent
+systems amplify trace-level errors17.2× throughunchecked error propagation, where individual
+mistakes cascade to the final output. Centralized coordination, however, contains this to4.4× by
+enforcingvalidation bottlenecksthat intercept errors before aggregation. Performance spans+80.8%
+3

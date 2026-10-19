@@ -1,0 +1,2722 @@
+{
+  "kept": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "bytes": 1852
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "bytes": 303
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.yml",
+      "bytes": 718
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/question.yml",
+      "bytes": 541
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "bytes": 644
+    },
+    {
+      "path": ".github/workflows/deploy-docs.yml",
+      "bytes": 1332
+    },
+    {
+      "path": ".github/workflows/pytest.yaml",
+      "bytes": 1663
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "bytes": 249
+    },
+    {
+      "path": "CHANGELOG.md",
+      "bytes": 12526
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1159
+    },
+    {
+      "path": "README.md",
+      "bytes": 13302
+    },
+    {
+      "path": "codecov.yml",
+      "bytes": 399
+    },
+    {
+      "path": "docs/README.md",
+      "bytes": 1616
+    },
+    {
+      "path": "docs/api/harness.md",
+      "bytes": 190
+    },
+    {
+      "path": "docs/api/inference.md",
+      "bytes": 194
+    },
+    {
+      "path": "docs/blog/index.md",
+      "bytes": 8
+    },
+    {
+      "path": "docs/css/custom.css",
+      "bytes": 702
+    },
+    {
+      "path": "docs/css/mkdocstrings.css",
+      "bytes": 666
+    },
+    {
+      "path": "docs/faq.md",
+      "bytes": 5539
+    },
+    {
+      "path": "docs/guides/create_rag_datasets.md",
+      "bytes": 3443
+    },
+    {
+      "path": "docs/guides/datasets.md",
+      "bytes": 3210
+    },
+    {
+      "path": "docs/guides/docker_setup.md",
+      "bytes": 5440
+    },
+    {
+      "path": "docs/guides/evaluation.md",
+      "bytes": 6869
+    },
+    {
+      "path": "docs/guides/quickstart.md",
+      "bytes": 2871
+    },
+    {
+      "path": "docs/index.md",
+      "bytes": 6562
+    },
+    {
+      "path": "docs/installation.md",
+      "bytes": 2030
+    },
+    {
+      "path": "docs/other_languages/README_CN.md",
+      "bytes": 7661
+    },
+    {
+      "path": "docs/other_languages/README_JP.md",
+      "bytes": 8922
+    },
+    {
+      "path": "docs/other_languages/README_TW.md",
+      "bytes": 7676
+    },
+    {
+      "path": "docs/reference/cli.md",
+      "bytes": 9934
+    },
+    {
+      "path": "docs/reference/harness.md",
+      "bytes": 7806
+    },
+    {
+      "path": "docs/reference/inference.md",
+      "bytes": 4897
+    },
+    {
+      "path": "mkdocs.yml",
+      "bytes": 2958
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 2816
+    },
+    {
+      "path": "swebench/__init__.py",
+      "bytes": 2490
+    },
+    {
+      "path": "swebench/cli/__init__.py",
+      "bytes": 40
+    },
+    {
+      "path": "swebench/cli/_datasets.py",
+      "bytes": 1004
+    },
+    {
+      "path": "swebench/cli/cli.py",
+      "bytes": 2254
+    },
+    {
+      "path": "swebench/cli/dataset.py",
+      "bytes": 5837
+    },
+    {
+      "path": "swebench/cli/evaluate.py",
+      "bytes": 4629
+    },
+    {
+      "path": "swebench/cli/images.py",
+      "bytes": 6656
+    },
+    {
+      "path": "swebench/cli/infer.py",
+      "bytes": 3629
+    },
+    {
+      "path": "swebench/cli/submit.py",
+      "bytes": 17664
+    },
+    {
+      "path": "swebench/collect/README.md",
+      "bytes": 4931
+    },
+    {
+      "path": "swebench/collect/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "swebench/collect/build_dataset.py",
+      "bytes": 6817
+    },
+    {
+      "path": "swebench/collect/build_dataset_ft.py",
+      "bytes": 2677
+    },
+    {
+      "path": "swebench/collect/cleanup/delete_gh_workflows.py",
+      "bytes": 1745
+    },
+    {
+      "path": "swebench/collect/cleanup/remove_envs.py",
+      "bytes": 3196
+    },
+    {
+      "path": "swebench/collect/get_tasks_pipeline.py",
+      "bytes": 5540
+    },
+    {
+      "path": "swebench/collect/get_top_pypi.py",
+      "bytes": 3690
+    },
+    {
+      "path": "swebench/collect/make_lite/README.md",
+      "bytes": 1320
+    },
+    {
+      "path": "swebench/collect/make_lite/criteria.py",
+      "bytes": 5157
+    },
+    {
+      "path": "swebench/collect/make_lite/make_lite.py",
+      "bytes": 2425
+    },
+    {
+      "path": "swebench/collect/make_repo/call_make_repo.py",
+      "bytes": 444
+    },
+    {
+      "path": "swebench/collect/make_repo/make_repo.sh",
+      "bytes": 3877
+    },
+    {
+      "path": "swebench/collect/print_pulls.py",
+      "bytes": 4172
+    },
+    {
+      "path": "swebench/collect/run_build_dataset_ft.sh",
+      "bytes": 265
+    },
+    {
+      "path": "swebench/collect/run_get_tasks_pipeline.sh",
+      "bytes": 353
+    },
+    {
+      "path": "swebench/collect/utils.py",
+      "bytes": 14934
+    },
+    {
+      "path": "swebench/harness/__init__.py",
+      "bytes": 272
+    },
+    {
+      "path": "swebench/harness/constants/__init__.py",
+      "bytes": 2182
+    },
+    {
+      "path": "swebench/harness/docker_utils.py",
+      "bytes": 6161
+    },
+    {
+      "path": "swebench/harness/grading.py",
+      "bytes": 14144
+    },
+    {
+      "path": "swebench/harness/infra_failure.py",
+      "bytes": 2840
+    },
+    {
+      "path": "swebench/harness/log_parsers/__init__.py",
+      "bytes": 4436
+    },
+    {
+      "path": "swebench/harness/log_parsers/c.py",
+      "bytes": 4375
+    },
+    {
+      "path": "swebench/harness/log_parsers/go.py",
+      "bytes": 1248
+    },
+    {
+      "path": "swebench/harness/log_parsers/java.py",
+      "bytes": 5815
+    },
+    {
+      "path": "swebench/harness/log_parsers/javascript.py",
+      "bytes": 30686
+    },
+    {
+      "path": "swebench/harness/log_parsers/php.py",
+      "bytes": 1452
+    },
+    {
+      "path": "swebench/harness/log_parsers/python.py",
+      "bytes": 11801
+    },
+    {
+      "path": "swebench/harness/log_parsers/ruby.py",
+      "bytes": 3589
+    },
+    {
+      "path": "swebench/harness/log_parsers/rust.py",
+      "bytes": 1053
+    },
+    {
+      "path": "swebench/harness/modal_eval/__init__.py",
+      "bytes": 231
+    },
+    {
+      "path": "swebench/harness/modal_eval/run_evaluation_modal.py",
+      "bytes": 16548
+    },
+    {
+      "path": "swebench/harness/modal_eval/run_evaluation_modal_entrypoint.py",
+      "bytes": 4199
+    },
+    {
+      "path": "swebench/harness/modal_eval/utils.py",
+      "bytes": 524
+    },
+    {
+      "path": "swebench/harness/remove_containers.py",
+      "bytes": 2068
+    },
+    {
+      "path": "swebench/harness/reporting.py",
+      "bytes": 6972
+    },
+    {
+      "path": "swebench/harness/run_evaluation.py",
+      "bytes": 31442
+    },
+    {
+      "path": "swebench/harness/utils.py",
+      "bytes": 9794
+    },
+    {
+      "path": "swebench/image_builder/__init__.py",
+      "bytes": 756
+    },
+    {
+      "path": "swebench/image_builder/constants/__init__.py",
+      "bytes": 630
+    },
+    {
+      "path": "swebench/image_builder/docker_build.py",
+      "bytes": 6221
+    },
+    {
+      "path": "swebench/image_builder/docker_utils.py",
+      "bytes": 2963
+    },
+    {
+      "path": "swebench/image_builder/image_spec.py",
+      "bytes": 3967
+    },
+    {
+      "path": "swebench/image_builder/prepare_images.py",
+      "bytes": 6919
+    },
+    {
+      "path": "swebench/inference/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "swebench/inference/codellama_device_maps.json",
+      "bytes": 4543
+    },
+    {
+      "path": "swebench/inference/llamao/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "swebench/inference/llamao/distributed_attention.py",
+      "bytes": 2625
+    },
+    {
+      "path": "swebench/inference/llamao/modeling_flash_llama.py",
+      "bytes": 40228
+    },
+    {
+      "path": "swebench/inference/make_datasets/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "swebench/inference/make_datasets/bm25_retrieval.py",
+      "bytes": 18830
+    },
+    {
+      "path": "swebench/inference/make_datasets/create_instance.py",
+      "bytes": 17019
+    },
+    {
+      "path": "swebench/inference/make_datasets/create_text_dataset.py",
+      "bytes": 10885
+    },
+    {
+      "path": "swebench/inference/make_datasets/eval_retrieval.py",
+      "bytes": 2614
+    },
+    {
+      "path": "swebench/inference/make_datasets/tokenize_dataset.py",
+      "bytes": 7854
+    },
+    {
+      "path": "swebench/inference/make_datasets/utils.py",
+      "bytes": 10644
+    },
+    {
+      "path": "swebench/inference/mini_swe_agent.py",
+      "bytes": 3976
+    },
+    {
+      "path": "swebench/inference/run_api.py",
+      "bytes": 26181
+    },
+    {
+      "path": "swebench/inference/run_live.py",
+      "bytes": 10348
+    },
+    {
+      "path": "swebench/inference/run_llama.py",
+      "bytes": 16420
+    },
+    {
+      "path": "swebench/inference/usage.py",
+      "bytes": 1743
+    },
+    {
+      "path": "swebench/logger.py",
+      "bytes": 2517
+    },
+    {
+      "path": "swebench/resources/__init__.py",
+      "bytes": 34
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/12907/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/13033/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/13236/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/13398/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/13453/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/13579/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/13977/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/14096/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/14182/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/14309/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/14365/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/14369/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/14508/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/14539/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/14598/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/14995/environment.yml",
+      "bytes": 1388
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/7166/environment.yml",
+      "bytes": 1741
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/7336/environment.yml",
+      "bytes": 1741
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/7606/environment.yml",
+      "bytes": 1741
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/7671/environment.yml",
+      "bytes": 1741
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/8707/environment.yml",
+      "bytes": 2280
+    },
+    {
+      "path": "swebench/resources/swebench-og/astropy__astropy/8872/environment.yml",
+      "bytes": 2280
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/10097/environment.yml",
+      "bytes": 1231
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/10554/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/10880/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/10914/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/10973/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/10999/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11066/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11087/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11095/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11099/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11119/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11133/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11138/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11141/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11149/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11163/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11179/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11206/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11211/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11239/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11265/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11276/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11292/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11299/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11333/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11400/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11433/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11451/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11477/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11490/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11532/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11551/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11555/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11603/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11728/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11734/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11740/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11749/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11790/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11815/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11820/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11848/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11880/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11885/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11951/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11964/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/11999/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12039/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12050/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12125/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12143/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12155/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12193/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12209/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12262/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12273/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12276/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12304/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12308/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12325/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12406/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12419/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12663/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12708/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12713/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12741/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12754/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12774/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12858/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/12965/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13012/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13023/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13028/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13033/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13089/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13109/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13112/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13121/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13128/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13158/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13195/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13212/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13279/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13297/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13315/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13343/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13344/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13346/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13363/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13401/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13406/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13410/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13417/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13449/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13512/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13513/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13516/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13551/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13568/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13569/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13590/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13658/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13670/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13741/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13786/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13794/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13807/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13809/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13810/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13820/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13821/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13837/environment.yml",
+      "bytes": 1775
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13925/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13933/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/13964/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14007/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14011/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14017/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14034/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14053/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14089/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14122/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14140/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14155/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14170/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14238/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14311/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14315/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14349/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14351/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14373/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14376/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14404/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14434/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14493/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14500/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14534/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14539/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14559/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14580/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14608/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14631/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14672/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14725/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14752/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14765/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14771/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14787/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14792/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14855/environment.yml",
+      "bytes": 1959
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14915/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/14999/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15022/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15037/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15098/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15103/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15104/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15127/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15128/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15161/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15252/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15268/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15277/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15278/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15280/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15315/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15368/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15375/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15380/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15382/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15467/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15499/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15503/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15525/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15554/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15561/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15563/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15569/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15572/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15629/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15695/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15731/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15732/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15741/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15814/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15851/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15863/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15916/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15930/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15957/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15973/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/15987/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16032/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16082/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16100/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16116/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16136/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16139/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16145/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16255/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16256/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16263/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16315/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16333/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16429/environment.yml",
+      "bytes": 2112
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16454/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16485/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16493/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16502/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16527/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16560/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16569/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16595/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16612/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16631/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16642/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16661/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16662/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16667/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16801/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16819/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16877/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16899/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16901/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16938/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/16950/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/17029/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/17084/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/17087/environment.yml",
+      "bytes": 2072
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/7530/environment.yml",
+      "bytes": 1206
+    },
+    {
+      "path": "swebench/resources/swebench-og/django__django/9296/environment.yml",
+      "bytes": 1617
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/13989/environment.yml",
+      "bytes": 1705
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/14623/environment.yml",
+      "bytes": 1605
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/20488/environment.yml",
+      "bytes": 3842
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/20676/environment.yml",
+      "bytes": 3842
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/20826/environment.yml",
+      "bytes": 3842
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/20859/environment.yml",
+      "bytes": 3842
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/21568/environment.yml",
+      "bytes": 3842
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/22719/environment.yml",
+      "bytes": 10596
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/22865/environment.yml",
+      "bytes": 11086
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/22871/environment.yml",
+      "bytes": 11086
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/23299/environment.yml",
+      "bytes": 11086
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/23314/environment.yml",
+      "bytes": 11086
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/23412/environment.yml",
+      "bytes": 11086
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/23476/environment.yml",
+      "bytes": 11086
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/24026/environment.yml",
+      "bytes": 11263
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/24149/environment.yml",
+      "bytes": 11263
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/24177/environment.yml",
+      "bytes": 11263
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/24570/environment.yml",
+      "bytes": 11263
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/24627/environment.yml",
+      "bytes": 11263
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/24637/environment.yml",
+      "bytes": 11263
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/24870/environment.yml",
+      "bytes": 11263
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/24970/environment.yml",
+      "bytes": 11263
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/25122/environment.yml",
+      "bytes": 11263
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/25287/environment.yml",
+      "bytes": 11398
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/25311/environment.yml",
+      "bytes": 11398
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/25332/environment.yml",
+      "bytes": 10997
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/25479/environment.yml",
+      "bytes": 11398
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/25775/environment.yml",
+      "bytes": 11398
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/25960/environment.yml",
+      "bytes": 11398
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/26113/environment.yml",
+      "bytes": 11398
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/26208/environment.yml",
+      "bytes": 11398
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/26291/environment.yml",
+      "bytes": 11398
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/26342/environment.yml",
+      "bytes": 11398
+    },
+    {
+      "path": "swebench/resources/swebench-og/matplotlib__matplotlib/26466/environment.yml",
+      "bytes": 11398
+    },
+    {
+      "path": "swebench/resources/swebench-og/mwaskom__seaborn/3069/environment.yml",
+      "bytes": 1803
+    },
+    {
+      "path": "swebench/resources/swebench-og/mwaskom__seaborn/3187/environment.yml",
+      "bytes": 2024
+    },
+    {
+      "path": "swebench/resources/swebench-og/pallets__flask/5014/environment.yml",
+      "bytes": 2437
+    },
+    {
+      "path": "swebench/resources/swebench-og/psf__requests/1142/environment.yml",
+      "bytes": 917
+    },
+    {
+      "path": "swebench/resources/swebench-og/psf__requests/1724/environment.yml",
+      "bytes": 917
+    },
+    {
+      "path": "swebench/resources/swebench-og/psf__requests/1766/environment.yml",
+      "bytes": 917
+    },
+    {
+      "path": "swebench/resources/swebench-og/psf__requests/1921/environment.yml",
+      "bytes": 917
+    },
+    {
+      "path": "swebench/resources/swebench-og/psf__requests/2317/environment.yml",
+      "bytes": 917
+    },
+    {
+      "path": "swebench/resources/swebench-og/psf__requests/2931/environment.yml",
+      "bytes": 917
+    },
+    {
+      "path": "swebench/resources/swebench-og/psf__requests/5414/environment.yml",
+      "bytes": 1023
+    },
+    {
+      "path": "swebench/resources/swebench-og/psf__requests/6028/environment.yml",
+      "bytes": 1023
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/2905/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/3095/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/3151/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/3305/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/3677/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/3993/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/4075/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/4094/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/4356/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/4629/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/4687/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/4695/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/4966/environment.yml",
+      "bytes": 10712
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/6461/environment.yml",
+      "bytes": 8997
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/6599/environment.yml",
+      "bytes": 9242
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/6721/environment.yml",
+      "bytes": 9199
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/6744/environment.yml",
+      "bytes": 9199
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/6938/environment.yml",
+      "bytes": 9199
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/6992/environment.yml",
+      "bytes": 9199
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/7229/environment.yml",
+      "bytes": 9107
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/7233/environment.yml",
+      "bytes": 9107
+    },
+    {
+      "path": "swebench/resources/swebench-og/pydata__xarray/7393/environment.yml",
+      "bytes": 9107
+    },
+    {
+      "path": "swebench/resources/swebench-og/pylint-dev__pylint/4551/environment.yml",
+      "bytes": 2199
+    },
+    {
+      "path": "swebench/resources/swebench-og/pylint-dev__pylint/4604/environment.yml",
+      "bytes": 2199
+    },
+    {
+      "path": "swebench/resources/swebench-og/pylint-dev__pylint/4661/environment.yml",
+      "bytes": 2176
+    },
+    {
+      "path": "swebench/resources/swebench-og/pylint-dev__pylint/4970/environment.yml",
+      "bytes": 2176
+    },
+    {
+      "path": "swebench/resources/swebench-og/pylint-dev__pylint/6386/environment.yml",
+      "bytes": 2308
+    },
+    {
+      "path": "swebench/resources/swebench-og/pylint-dev__pylint/6528/environment.yml",
+      "bytes": 2308
+    },
+    {
+      "path": "swebench/resources/swebench-og/pylint-dev__pylint/6903/environment.yml",
+      "bytes": 2446
+    },
+    {
+      "path": "swebench/resources/swebench-og/pylint-dev__pylint/7080/environment.yml",
+      "bytes": 2446
+    },
+    {
+      "path": "swebench/resources/swebench-og/pylint-dev__pylint/7277/environment.yml",
+      "bytes": 2447
+    },
+    {
+      "path": "swebench/resources/swebench-og/pylint-dev__pylint/8898/environment.yml",
+      "bytes": 2023
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/10051/environment.yml",
+      "bytes": 849
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/10081/environment.yml",
+      "bytes": 849
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/10356/environment.yml",
+      "bytes": 879
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/5262/environment.yml",
+      "bytes": 871
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/5631/environment.yml",
+      "bytes": 940
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/5787/environment.yml",
+      "bytes": 885
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/5809/environment.yml",
+      "bytes": 960
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/5840/environment.yml",
+      "bytes": 885
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/6197/environment.yml",
+      "bytes": 885
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/6202/environment.yml",
+      "bytes": 885
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/7205/environment.yml",
+      "bytes": 858
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/7236/environment.yml",
+      "bytes": 858
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/7324/environment.yml",
+      "bytes": 859
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/7432/environment.yml",
+      "bytes": 880
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/7490/environment.yml",
+      "bytes": 880
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/7521/environment.yml",
+      "bytes": 880
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/7571/environment.yml",
+      "bytes": 880
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/7982/environment.yml",
+      "bytes": 849
+    },
+    {
+      "path": "swebench/resources/swebench-og/pytest-dev__pytest/8399/environment.yml",
+      "bytes": 849
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/10297/environment.yml",
+      "bytes": 2524
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/10844/environment.yml",
+      "bytes": 2524
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/10908/environment.yml",
+      "bytes": 2524
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/11310/environment.yml",
+      "bytes": 2524
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/11578/environment.yml",
+      "bytes": 2527
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/12585/environment.yml",
+      "bytes": 2524
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/12682/environment.yml",
+      "bytes": 2555
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/12973/environment.yml",
+      "bytes": 2524
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/13124/environment.yml",
+      "bytes": 2524
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/13135/environment.yml",
+      "bytes": 2524
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/13142/environment.yml",
+      "bytes": 2524
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/13328/environment.yml",
+      "bytes": 2524
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/13439/environment.yml",
+      "bytes": 2524
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/13496/environment.yml",
+      "bytes": 2524
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/13779/environment.yml",
+      "bytes": 2555
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/14053/environment.yml",
+      "bytes": 2555
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/14087/environment.yml",
+      "bytes": 2555
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/14141/environment.yml",
+      "bytes": 2555
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/14496/environment.yml",
+      "bytes": 2555
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/14629/environment.yml",
+      "bytes": 2555
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/14710/environment.yml",
+      "bytes": 2555
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/14894/environment.yml",
+      "bytes": 2555
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/14983/environment.yml",
+      "bytes": 2555
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/15100/environment.yml",
+      "bytes": 2555
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/25102/environment.yml",
+      "bytes": 3754
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/25232/environment.yml",
+      "bytes": 3754
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/25747/environment.yml",
+      "bytes": 3525
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/25931/environment.yml",
+      "bytes": 3754
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/25973/environment.yml",
+      "bytes": 3754
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/26194/environment.yml",
+      "bytes": 3754
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/26323/environment.yml",
+      "bytes": 3754
+    },
+    {
+      "path": "swebench/resources/swebench-og/scikit-learn__scikit-learn/9288/environment.yml",
+      "bytes": 2555
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/10323/environment.yml",
+      "bytes": 1645
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/10435/environment.yml",
+      "bytes": 1595
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/10449/environment.yml",
+      "bytes": 1595
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/10466/environment.yml",
+      "bytes": 1595
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/10614/environment.yml",
+      "bytes": 1595
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/10673/environment.yml",
+      "bytes": 1593
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/11445/environment.yml",
+      "bytes": 1595
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/11510/environment.yml",
+      "bytes": 1595
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/7440/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/7454/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/7462/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/7590/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/7748/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/7757/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/7889/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/7910/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/7985/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8035/environment.yml",
+      "bytes": 1619
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8056/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8120/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8265/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8269/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8459/environment.yml",
+      "bytes": 1616
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8475/environment.yml",
+      "bytes": 1619
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8548/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8551/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8593/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8595/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8621/environment.yml",
+      "bytes": 1594
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8638/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/8721/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9229/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9230/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9258/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9281/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9320/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9367/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9461/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9591/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9602/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9658/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9673/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9698/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sphinx-doc__sphinx/9711/environment.yml",
+      "bytes": 1591
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/11618/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/12096/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/12419/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/12481/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/12489/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13031/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13091/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13372/environment.yml",
+      "bytes": 920
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13480/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13551/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13615/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13647/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13757/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13798/environment.yml",
+      "bytes": 920
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13852/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13877/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13878/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/13974/environment.yml",
+      "bytes": 920
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/14248/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/14531/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/14711/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/14976/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/15017/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/15345/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/15349/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/15599/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/15809/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/15875/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/15976/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/16450/environment.yml",
+      "bytes": 920
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/16597/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/16766/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/16792/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/16886/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/17139/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/17318/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/17630/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/17655/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/18189/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/18199/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/18211/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/18698/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/18763/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/19040/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/19346/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/19495/environment.yml",
+      "bytes": 920
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/19637/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/19783/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/19954/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/20154/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/20428/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/20438/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/20590/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/20801/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/20916/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/21379/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/21596/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/21612/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/21847/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/21930/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/22080/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/22456/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/22714/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/22914/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/23262/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/23413/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/23534/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/23824/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/23950/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/24066/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/24213/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/24443/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/24539/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/24562/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/resources/swebench-og/sympy__sympy/24661/environment.yml",
+      "bytes": 919
+    },
+    {
+      "path": "swebench/submit/__init__.py",
+      "bytes": 401
+    },
+    {
+      "path": "swebench/submit/_git.py",
+      "bytes": 3225
+    },
+    {
+      "path": "swebench/submit/hf.py",
+      "bytes": 4105
+    },
+    {
+      "path": "swebench/submit/package.py",
+      "bytes": 19422
+    },
+    {
+      "path": "swebench/submit/publish.py",
+      "bytes": 6390
+    },
+    {
+      "path": "swebench/submit/register.py",
+      "bytes": 7830
+    },
+    {
+      "path": "swebench/submit/verify.py",
+      "bytes": 6727
+    },
+    {
+      "path": "swebench/task/__init__.py",
+      "bytes": 292
+    },
+    {
+      "path": "swebench/task/checks.py",
+      "bytes": 8377
+    },
+    {
+      "path": "swebench/task/publish.py",
+      "bytes": 9757
+    },
+    {
+      "path": "swebench/task/repo.py",
+      "bytes": 8366
+    },
+    {
+      "path": "swebench/types.py",
+      "bytes": 1178
+    },
+    {
+      "path": "swebench/utils.py",
+      "bytes": 1425
+    },
+    {
+      "path": "tests/test_cli.py",
+      "bytes": 719
+    },
+    {
+      "path": "tests/test_collect_cli.py",
+      "bytes": 1738
+    },
+    {
+      "path": "tests/test_collect_issue_refs.py",
+      "bytes": 1354
+    },
+    {
+      "path": "tests/test_docker_exec_stream.py",
+      "bytes": 1840
+    },
+    {
+      "path": "tests/test_evaluation.py",
+      "bytes": 821
+    },
+    {
+      "path": "tests/test_gold_patch_source.py",
+      "bytes": 2284
+    },
+    {
+      "path": "tests/test_grading_marker_fallback.py",
+      "bytes": 5057
+    },
+    {
+      "path": "tests/test_grading_skipped.py",
+      "bytes": 2009
+    },
+    {
+      "path": "tests/test_grading_spoofed_output.py",
+      "bytes": 6600
+    },
+    {
+      "path": "tests/test_grading_truncated_ids.py",
+      "bytes": 3979
+    },
+    {
+      "path": "tests/test_harness_utils.py",
+      "bytes": 430
+    },
+    {
+      "path": "tests/test_infer_command.py",
+      "bytes": 4960
+    },
+    {
+      "path": "tests/test_inference_litellm.py",
+      "bytes": 5341
+    },
+    {
+      "path": "tests/test_inference_usage.py",
+      "bytes": 1526
+    },
+    {
+      "path": "tests/test_infra_failure.py",
+      "bytes": 4613
+    },
+    {
+      "path": "tests/test_log_parsers_java.py",
+      "bytes": 3562
+    },
+    {
+      "path": "tests/test_log_parsers_javascript.py",
+      "bytes": 1824
+    },
+    {
+      "path": "tests/test_log_parsers_pytest_v2.py",
+      "bytes": 1666
+    },
+    {
+      "path": "tests/test_log_parsers_python.py",
+      "bytes": 1214
+    },
+    {
+      "path": "tests/test_log_parsers_skip_summary.py",
+      "bytes": 1504
+    },
+    {
+      "path": "tests/test_modal_task_repo.py",
+      "bytes": 900
+    },
+    {
+      "path": "tests/test_public_api.py",
+      "bytes": 1249
+    },
+    {
+      "path": "tests/test_reporting.py",
+      "bytes": 2180
+    },
+    {
+      "path": "tests/test_run_metadata.py",
+      "bytes": 1496
+    },
+    {
+      "path": "tests/test_submit_flow.py",
+      "bytes": 15896
+    },
+    {
+      "path": "tests/test_submit_hf.py",
+      "bytes": 5538
+    },
+    {
+      "path": "tests/test_submit_package.py",
+      "bytes": 13229
+    },
+    {
+      "path": "tests/test_task_publish.py",
+      "bytes": 8587
+    },
+    {
+      "path": "tests/test_task_repo.py",
+      "bytes": 6810
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".gitignore",
+      "bytes": 3277
+    },
+    {
+      "path": "docs/assets/build_deploy.sh",
+      "bytes": 164
+    },
+    {
+      "path": "docs/assets/collection.md",
+      "bytes": 6902
+    },
+    {
+      "path": "docs/assets/evaluation.md",
+      "bytes": 2932
+    },
+    {
+      "path": "docs/assets/figures/collection.png",
+      "bytes": 62174
+    },
+    {
+      "path": "docs/assets/figures/evaluation.png",
+      "bytes": 109181
+    },
+    {
+      "path": "docs/assets/figures/swellama_banner.svg",
+      "bytes": 50295
+    },
+    {
+      "path": "docs/assets/figures/swellama_banner_nobg.svg",
+      "bytes": 50241
+    },
+    {
+      "path": "docs/assets/figures/teaser.png",
+      "bytes": 187185
+    },
+    {
+      "path": "docs/assets/figures/validation.png",
+      "bytes": 80797
+    },
+    {
+      "path": "docs/assets/icons/mini-swe-agent-banner.svg",
+      "bytes": 15901
+    },
+    {
+      "path": "docs/assets/swellama.svg",
+      "bytes": 44573
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__axum-1119.Cargo.lock",
+      "bytes": 59744
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__axum-1730.Cargo.lock",
+      "bytes": 61305
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__axum-1934.Cargo.lock",
+      "bytes": 123916
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__axum-2096.Cargo.lock",
+      "bytes": 124035
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__axum-682.Cargo.lock",
+      "bytes": 101204
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__axum-691.Cargo.lock",
+      "bytes": 101204
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__axum-734.Cargo.lock",
+      "bytes": 108998
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__tokio-4384.Cargo.lock",
+      "bytes": 43465
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__tokio-4867.Cargo.lock",
+      "bytes": 42736
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__tokio-4898.Cargo.lock",
+      "bytes": 42736
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__tokio-6551.Cargo.lock",
+      "bytes": 47040
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__tokio-6603.Cargo.lock",
+      "bytes": 47040
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__tokio-6724.Cargo.lock",
+      "bytes": 47274
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__tokio-6752.Cargo.lock",
+      "bytes": 47274
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__tokio-6838.Cargo.lock",
+      "bytes": 47274
+    },
+    {
+      "path": "swebench/harness/constants/fixtures/tokio-rs__tokio-7139.Cargo.lock",
+      "bytes": 50234
+    },
+    {
+      "path": "tests/test_data/pvlib.jsonl",
+      "bytes": 17877
+    },
+    {
+      "path": "uv.lock",
+      "bytes": 972635
+    }
+  ]
+}

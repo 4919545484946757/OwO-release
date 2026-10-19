@@ -1,0 +1,746 @@
+{
+  "kept": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.md",
+      "bytes": 1385
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/doc_improvement.md",
+      "bytes": 1042
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.md",
+      "bytes": 1249
+    },
+    {
+      "path": ".github/dependabot.yml",
+      "bytes": 205
+    },
+    {
+      "path": ".github/workflows/build_documentation.yml",
+      "bytes": 739
+    },
+    {
+      "path": ".github/workflows/build_pr_documentation.yml",
+      "bytes": 672
+    },
+    {
+      "path": ".github/workflows/quality.yml",
+      "bytes": 850
+    },
+    {
+      "path": ".github/workflows/tests.yml",
+      "bytes": 981
+    },
+    {
+      "path": ".github/workflows/trufflehog.yml",
+      "bytes": 418
+    },
+    {
+      "path": ".github/workflows/upload_pr_documentation.yml",
+      "bytes": 427
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "bytes": 302
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 157
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "bytes": 5488
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 7636
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 11357
+    },
+    {
+      "path": "Makefile",
+      "bytes": 326
+    },
+    {
+      "path": "README.md",
+      "bytes": 14137
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 7376
+    },
+    {
+      "path": "docs/README.md",
+      "bytes": 10844
+    },
+    {
+      "path": "docs/source/en/_config.py",
+      "bytes": 488
+    },
+    {
+      "path": "docs/source/en/_toctree.yml",
+      "bytes": 1815
+    },
+    {
+      "path": "docs/source/en/conceptual_guides/intro_agents.md",
+      "bytes": 8909
+    },
+    {
+      "path": "docs/source/en/conceptual_guides/react.md",
+      "bytes": 2777
+    },
+    {
+      "path": "docs/source/en/examples/async_agent.md",
+      "bytes": 2779
+    },
+    {
+      "path": "docs/source/en/examples/multiagents.md",
+      "bytes": 6590
+    },
+    {
+      "path": "docs/source/en/examples/plan_customization.md",
+      "bytes": 3915
+    },
+    {
+      "path": "docs/source/en/examples/rag.md",
+      "bytes": 9359
+    },
+    {
+      "path": "docs/source/en/examples/text_to_sql.md",
+      "bytes": 6546
+    },
+    {
+      "path": "docs/source/en/examples/using_different_models.md",
+      "bytes": 4102
+    },
+    {
+      "path": "docs/source/en/examples/web_browser.md",
+      "bytes": 6828
+    },
+    {
+      "path": "docs/source/en/guided_tour.md",
+      "bytes": 31259
+    },
+    {
+      "path": "docs/source/en/index.md",
+      "bytes": 6377
+    },
+    {
+      "path": "docs/source/en/installation.md",
+      "bytes": 6997
+    },
+    {
+      "path": "docs/source/en/reference/agents.md",
+      "bytes": 1545
+    },
+    {
+      "path": "docs/source/en/reference/default_tools.md",
+      "bytes": 2186
+    },
+    {
+      "path": "docs/source/en/reference/models.md",
+      "bytes": 9646
+    },
+    {
+      "path": "docs/source/en/reference/python_executors.md",
+      "bytes": 1137
+    },
+    {
+      "path": "docs/source/en/reference/tools.md",
+      "bytes": 1746
+    },
+    {
+      "path": "docs/source/en/tutorials/building_good_agents.md",
+      "bytes": 26350
+    },
+    {
+      "path": "docs/source/en/tutorials/inspect_runs.md",
+      "bytes": 7827
+    },
+    {
+      "path": "docs/source/en/tutorials/memory.md",
+      "bytes": 4854
+    },
+    {
+      "path": "docs/source/en/tutorials/secure_code_execution.md",
+      "bytes": 21219
+    },
+    {
+      "path": "docs/source/en/tutorials/tools.md",
+      "bytes": 18645
+    },
+    {
+      "path": "docs/source/es/_config.py",
+      "bytes": 488
+    },
+    {
+      "path": "docs/source/es/_toctree.yml",
+      "bytes": 1813
+    },
+    {
+      "path": "docs/source/es/index.md",
+      "bytes": 7191
+    },
+    {
+      "path": "docs/source/es/installation.md",
+      "bytes": 7628
+    },
+    {
+      "path": "docs/source/hi/_config.py",
+      "bytes": 488
+    },
+    {
+      "path": "docs/source/hi/_toctree.yml",
+      "bytes": 1629
+    },
+    {
+      "path": "docs/source/hi/conceptual_guides/intro_agents.md",
+      "bytes": 19528
+    },
+    {
+      "path": "docs/source/hi/conceptual_guides/react.md",
+      "bytes": 2922
+    },
+    {
+      "path": "docs/source/hi/examples/multiagents.md",
+      "bytes": 11000
+    },
+    {
+      "path": "docs/source/hi/examples/rag.md",
+      "bytes": 13838
+    },
+    {
+      "path": "docs/source/hi/examples/text_to_sql.md",
+      "bytes": 9822
+    },
+    {
+      "path": "docs/source/hi/guided_tour.md",
+      "bytes": 31936
+    },
+    {
+      "path": "docs/source/hi/index.md",
+      "bytes": 5056
+    },
+    {
+      "path": "docs/source/hi/reference/agents.md",
+      "bytes": 8237
+    },
+    {
+      "path": "docs/source/hi/reference/tools.md",
+      "bytes": 3844
+    },
+    {
+      "path": "docs/source/hi/tutorials/building_good_agents.md",
+      "bytes": 34816
+    },
+    {
+      "path": "docs/source/hi/tutorials/inspect_runs.md",
+      "bytes": 6204
+    },
+    {
+      "path": "docs/source/hi/tutorials/secure_code_execution.md",
+      "bytes": 9766
+    },
+    {
+      "path": "docs/source/hi/tutorials/tools.md",
+      "bytes": 19940
+    },
+    {
+      "path": "docs/source/ko/_config.py",
+      "bytes": 488
+    },
+    {
+      "path": "docs/source/ko/_toctree.yml",
+      "bytes": 1869
+    },
+    {
+      "path": "docs/source/ko/conceptual_guides/react.md",
+      "bytes": 3452
+    },
+    {
+      "path": "docs/source/ko/examples/async_agent.md",
+      "bytes": 3378
+    },
+    {
+      "path": "docs/source/ko/examples/multiagents.md",
+      "bytes": 7541
+    },
+    {
+      "path": "docs/source/ko/examples/plan_customization.md",
+      "bytes": 5097
+    },
+    {
+      "path": "docs/source/ko/examples/rag.md",
+      "bytes": 11101
+    },
+    {
+      "path": "docs/source/ko/examples/text_to_sql.md",
+      "bytes": 7461
+    },
+    {
+      "path": "docs/source/ko/examples/using_different_models.md",
+      "bytes": 4797
+    },
+    {
+      "path": "docs/source/ko/examples/web_browser.md",
+      "bytes": 7297
+    },
+    {
+      "path": "docs/source/ko/guided_tour.md",
+      "bytes": 33165
+    },
+    {
+      "path": "docs/source/ko/index.md",
+      "bytes": 7148
+    },
+    {
+      "path": "docs/source/ko/installation.md",
+      "bytes": 7813
+    },
+    {
+      "path": "docs/source/ko/reference/agents.md",
+      "bytes": 2654
+    },
+    {
+      "path": "docs/source/ko/reference/models.md",
+      "bytes": 10958
+    },
+    {
+      "path": "docs/source/ko/reference/tools.md",
+      "bytes": 2411
+    },
+    {
+      "path": "docs/source/ko/tutorials/building_good_agents.md",
+      "bytes": 27981
+    },
+    {
+      "path": "docs/source/ko/tutorials/inspect_runs.md",
+      "bytes": 7981
+    },
+    {
+      "path": "docs/source/ko/tutorials/memory.md",
+      "bytes": 5821
+    },
+    {
+      "path": "docs/source/zh/_config.py",
+      "bytes": 488
+    },
+    {
+      "path": "docs/source/zh/_toctree.yml",
+      "bytes": 1277
+    },
+    {
+      "path": "docs/source/zh/conceptual_guides/intro_agents.md",
+      "bytes": 8052
+    },
+    {
+      "path": "docs/source/zh/conceptual_guides/react.md",
+      "bytes": 1570
+    },
+    {
+      "path": "docs/source/zh/examples/multiagents.md",
+      "bytes": 6908
+    },
+    {
+      "path": "docs/source/zh/examples/rag.md",
+      "bytes": 6858
+    },
+    {
+      "path": "docs/source/zh/examples/text_to_sql.md",
+      "bytes": 6136
+    },
+    {
+      "path": "docs/source/zh/examples/web_browser.md",
+      "bytes": 6755
+    },
+    {
+      "path": "docs/source/zh/guided_tour.md",
+      "bytes": 21216
+    },
+    {
+      "path": "docs/source/zh/index.md",
+      "bytes": 3002
+    },
+    {
+      "path": "docs/source/zh/reference/agents.md",
+      "bytes": 1472
+    },
+    {
+      "path": "docs/source/zh/reference/models.md",
+      "bytes": 5272
+    },
+    {
+      "path": "docs/source/zh/reference/tools.md",
+      "bytes": 1985
+    },
+    {
+      "path": "docs/source/zh/tutorials/building_good_agents.md",
+      "bytes": 23800
+    },
+    {
+      "path": "docs/source/zh/tutorials/inspect_runs.md",
+      "bytes": 6442
+    },
+    {
+      "path": "docs/source/zh/tutorials/memory.md",
+      "bytes": 4671
+    },
+    {
+      "path": "docs/source/zh/tutorials/secure_code_execution.md",
+      "bytes": 4099
+    },
+    {
+      "path": "docs/source/zh/tutorials/tools.md",
+      "bytes": 9529
+    },
+    {
+      "path": "e2b.toml",
+      "bytes": 569
+    },
+    {
+      "path": "examples/agent_from_any_llm.py",
+      "bytes": 2260
+    },
+    {
+      "path": "examples/async_agent/README.md",
+      "bytes": 1897
+    },
+    {
+      "path": "examples/async_agent/main.py",
+      "bytes": 1422
+    },
+    {
+      "path": "examples/async_agent/requirements.txt",
+      "bytes": 35
+    },
+    {
+      "path": "examples/gradio_ui.py",
+      "bytes": 503
+    },
+    {
+      "path": "examples/inspect_multiagent_run.py",
+      "bytes": 1023
+    },
+    {
+      "path": "examples/multi_llm_agent.py",
+      "bytes": 1488
+    },
+    {
+      "path": "examples/multiple_tools.py",
+      "bytes": 8529
+    },
+    {
+      "path": "examples/open_deep_research/README.md",
+      "bytes": 2518
+    },
+    {
+      "path": "examples/open_deep_research/app.py",
+      "bytes": 167
+    },
+    {
+      "path": "examples/open_deep_research/requirements.txt",
+      "bytes": 710
+    },
+    {
+      "path": "examples/open_deep_research/run.py",
+      "bytes": 3874
+    },
+    {
+      "path": "examples/open_deep_research/run_gaia.py",
+      "bytes": 11944
+    },
+    {
+      "path": "examples/open_deep_research/scripts/cookies.py",
+      "bytes": 23304
+    },
+    {
+      "path": "examples/open_deep_research/scripts/gaia_scorer.py",
+      "bytes": 3827
+    },
+    {
+      "path": "examples/open_deep_research/scripts/mdconvert.py",
+      "bytes": 36705
+    },
+    {
+      "path": "examples/open_deep_research/scripts/reformulator.py",
+      "bytes": 4430
+    },
+    {
+      "path": "examples/open_deep_research/scripts/run_agents.py",
+      "bytes": 3738
+    },
+    {
+      "path": "examples/open_deep_research/scripts/text_inspector_tool.py",
+      "bytes": 4687
+    },
+    {
+      "path": "examples/open_deep_research/scripts/text_web_browser.py",
+      "bytes": 23353
+    },
+    {
+      "path": "examples/open_deep_research/scripts/visual_qa.py",
+      "bytes": 6107
+    },
+    {
+      "path": "examples/plan_customization/README.md",
+      "bytes": 4353
+    },
+    {
+      "path": "examples/plan_customization/plan_customization.py",
+      "bytes": 5835
+    },
+    {
+      "path": "examples/rag.py",
+      "bytes": 2245
+    },
+    {
+      "path": "examples/rag_using_chromadb.py",
+      "bytes": 4049
+    },
+    {
+      "path": "examples/sandboxed_execution.py",
+      "bytes": 1171
+    },
+    {
+      "path": "examples/server/README.md",
+      "bytes": 2467
+    },
+    {
+      "path": "examples/server/main.py",
+      "bytes": 6517
+    },
+    {
+      "path": "examples/smolagents_benchmark/run.py",
+      "bytes": 8366
+    },
+    {
+      "path": "examples/structured_output_tool.py",
+      "bytes": 2373
+    },
+    {
+      "path": "examples/text_to_sql.py",
+      "bytes": 2175
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 2981
+    },
+    {
+      "path": "src/smolagents/__init__.py",
+      "bytes": 1107
+    },
+    {
+      "path": "src/smolagents/_function_type_hints_utils.py",
+      "bytes": 16007
+    },
+    {
+      "path": "src/smolagents/agent_types.py",
+      "bytes": 9215
+    },
+    {
+      "path": "src/smolagents/agents.py",
+      "bytes": 80780
+    },
+    {
+      "path": "src/smolagents/cli.py",
+      "bytes": 9658
+    },
+    {
+      "path": "src/smolagents/default_tools.py",
+      "bytes": 25804
+    },
+    {
+      "path": "src/smolagents/gradio_ui.py",
+      "bytes": 19092
+    },
+    {
+      "path": "src/smolagents/local_python_executor.py",
+      "bytes": 68159
+    },
+    {
+      "path": "src/smolagents/mcp_client.py",
+      "bytes": 7123
+    },
+    {
+      "path": "src/smolagents/memory.py",
+      "bytes": 12341
+    },
+    {
+      "path": "src/smolagents/models.py",
+      "bytes": 86054
+    },
+    {
+      "path": "src/smolagents/monitoring.py",
+      "bytes": 9716
+    },
+    {
+      "path": "src/smolagents/prompts/code_agent.yaml",
+      "bytes": 17052
+    },
+    {
+      "path": "src/smolagents/prompts/structured_code_agent.yaml",
+      "bytes": 15103
+    },
+    {
+      "path": "src/smolagents/prompts/toolcalling_agent.yaml",
+      "bytes": 10279
+    },
+    {
+      "path": "src/smolagents/remote_executors.py",
+      "bytes": 44941
+    },
+    {
+      "path": "src/smolagents/serialization.py",
+      "bytes": 21194
+    },
+    {
+      "path": "src/smolagents/tool_validation.py",
+      "bytes": 10699
+    },
+    {
+      "path": "src/smolagents/tools.py",
+      "bytes": 59873
+    },
+    {
+      "path": "src/smolagents/utils.py",
+      "bytes": 21240
+    },
+    {
+      "path": "src/smolagents/vision_web_browser.py",
+      "bytes": 8700
+    },
+    {
+      "path": "tests/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/conftest.py",
+      "bytes": 735
+    },
+    {
+      "path": "tests/test_agents.py",
+      "bytes": 106339
+    },
+    {
+      "path": "tests/test_all_docs.py",
+      "bytes": 6342
+    },
+    {
+      "path": "tests/test_cli.py",
+      "bytes": 5029
+    },
+    {
+      "path": "tests/test_default_tools.py",
+      "bytes": 9817
+    },
+    {
+      "path": "tests/test_final_answer.py",
+      "bytes": 1870
+    },
+    {
+      "path": "tests/test_function_type_hints_utils.py",
+      "bytes": 16686
+    },
+    {
+      "path": "tests/test_gradio_ui.py",
+      "bytes": 16229
+    },
+    {
+      "path": "tests/test_import.py",
+      "bytes": 1052
+    },
+    {
+      "path": "tests/test_local_python_executor.py",
+      "bytes": 110030
+    },
+    {
+      "path": "tests/test_mcp_client.py",
+      "bytes": 5121
+    },
+    {
+      "path": "tests/test_memory.py",
+      "bytes": 10000
+    },
+    {
+      "path": "tests/test_models.py",
+      "bytes": 46440
+    },
+    {
+      "path": "tests/test_monitoring.py",
+      "bytes": 8314
+    },
+    {
+      "path": "tests/test_remote_executors.py",
+      "bytes": 23787
+    },
+    {
+      "path": "tests/test_search.py",
+      "bytes": 1108
+    },
+    {
+      "path": "tests/test_serialization.py",
+      "bytes": 31599
+    },
+    {
+      "path": "tests/test_telemetry.py",
+      "bytes": 3250
+    },
+    {
+      "path": "tests/test_tool_validation.py",
+      "bytes": 5530
+    },
+    {
+      "path": "tests/test_tools.py",
+      "bytes": 41261
+    },
+    {
+      "path": "tests/test_types.py",
+      "bytes": 3745
+    },
+    {
+      "path": "tests/test_utils.py",
+      "bytes": 16057
+    },
+    {
+      "path": "tests/test_vision_web_browser.py",
+      "bytes": 5196
+    },
+    {
+      "path": "tests/utils/markers.py",
+      "bytes": 985
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".gitignore",
+      "bytes": 1438
+    },
+    {
+      "path": "examples/open_deep_research/analysis.ipynb",
+      "bytes": 13131
+    },
+    {
+      "path": "examples/open_deep_research/visual_vs_text_browser.ipynb",
+      "bytes": 11008
+    },
+    {
+      "path": "examples/smolagents_benchmark/score.ipynb",
+      "bytes": 14780
+    },
+    {
+      "path": "tests/data/000000039769.png",
+      "bytes": 694498
+    },
+    {
+      "path": "tests/fixtures/agents.py",
+      "bytes": 5219
+    },
+    {
+      "path": "tests/fixtures/tools.py",
+      "bytes": 4355
+    }
+  ]
+}

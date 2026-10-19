@@ -1,0 +1,183 @@
+[
+  {
+    "path": "scripts/optimizer.py",
+    "sha256": "26cc9ac8f99177ed670c75fd6a265294c1dbaf1518e41f383eaf1d980b3968e5",
+    "bytes": 10217,
+    "symbols": [
+      "class GraphOptimize(BaseModel):",
+      "class Optimizer:",
+      "def __init__(",
+      "def optimize(self, mode: OptimizerType = \"Graph\"):",
+      "async def _optimize_graph(self):",
+      "def _extract_fields_from_response(self, response: str) -> Dict[str, str]:",
+      "async def test(self):"
+    ]
+  },
+  {
+    "path": "scripts/workflow.py",
+    "sha256": "947535de89ad2b0a209c91612d3a8bd78c0ee0d8e609bac0fb4c2e7a0ccbe496",
+    "bytes": 634,
+    "symbols": [
+      "class Workflow:",
+      "def __init__(",
+      "async def __call__(self, problem: str):"
+    ]
+  },
+  {
+    "path": "scripts/optimizer_utils/graph_utils.py",
+    "sha256": "8155699387123b1655712300bdb741c6a534401ddb37d2ca927e422107b7178d",
+    "bytes": 4807,
+    "symbols": [
+      "class GraphUtils:",
+      "def __init__(self, root_path: str):",
+      "def create_round_directory(self, graph_path: str, round_number: int) -> str:",
+      "def load_graph(self, round_number: int, workflows_path: str):",
+      "def read_graph_files(self, round_number: int, workflows_path: str):",
+      "def extract_solve_graph(self, graph_load: str) -> List[str]:",
+      "def load_operators_description(self, operators: List[str]) -> str:",
+      "def _load_operator_description(self, id: int, operator_name: str, file_path: str) -> str:",
+      "def create_graph_optimize_prompt(",
+      "async def get_graph_optimize_response(self, graph_optimize_node):",
+      "def write_graph_files(self, directory: str, response: dict, round_number: int, dataset: str):"
+    ]
+  },
+  {
+    "path": "scripts/utils/lcb_runner.py",
+    "sha256": "2eb02806a204ce7db1c507a6ae5f8ab2f82593eae67e14f5d126e6a266a182ed",
+    "bytes": 18856,
+    "symbols": [
+      "def truncatefn(s, length=300):",
+      "class CODE_TYPE(Enum):",
+      "class TimeoutException(Exception):",
+      "def timeout_handler(signum, frame):",
+      "class Capturing(list):",
+      "def __enter__(self):",
+      "def __exit__(self, *args):",
+      "class MockStdinWithBuffer:",
+      "def __init__(self, inputs: str):",
+      "def read(self, *args):",
+      "def readline(self, *args):",
+      "def readlines(self, *args):"
+    ]
+  },
+  {
+    "path": "scripts/optimizer_utils/data_utils.py",
+    "sha256": "7db8befbc1ffd6fd41d2889077d692c56ea8d6de367a4d1c955c715c2f66e49c",
+    "bytes": 6103,
+    "symbols": [
+      "class DataUtils:",
+      "def __init__(self, root_path: str):",
+      "def load_results(self, path: str) -> list:",
+      "def get_top_rounds(self, sample: int, path: Optional[str] = None, mode: str = \"Graph\") -> List[Dict]:",
+      "def select_round(self, items: List[Dict]) -> Dict:",
+      "def _compute_probabilities(",
+      "def load_log(self, cur_round: int, path: Optional[str] = None, mode: str = \"Graph\") -> str:",
+      "def get_results_file_path(self, graph_path: str) -> str:",
+      "def create_result_data(",
+      "def save_results(self, json_file_path: str, data: list) -> None:",
+      "def _load_scores(self, path: Optional[str] = None, mode: str = \"Graph\") -> List[Dict]:"
+    ]
+  },
+  {
+    "path": "scripts/optimizer_utils/evaluation_utils.py",
+    "sha256": "de5807e97e9a6a6203ee1a94c754d18c580af2546340129ad4f681ca1d8b0048",
+    "bytes": 2454,
+    "symbols": [
+      "class EvaluationUtils:",
+      "def __init__(self, root_path: str):",
+      "async def evaluate_initial_round(self, optimizer, graph_path, directory, validation_n, data):",
+      "async def evaluate_graph(self, optimizer, directory, validation_n, data, initial=False):",
+      "async def evaluate_graph_test(self, optimizer, directory, is_test=True):"
+    ]
+  },
+  {
+    "path": "scripts/optimizer_utils/experience_utils.py",
+    "sha256": "b0fc7e5a93bb92efb154f241d7eb819bdf70fd1cf7754b3d849593eafd7daf9f",
+    "bytes": 4582,
+    "symbols": [
+      "class ExperienceUtils:",
+      "def __init__(self, root_path: str):",
+      "def load_experience(self, path=None, mode: str = \"Graph\"):",
+      "def format_experience(self, processed_experience, sample_round):",
+      "def check_modification(self, processed_experience, modification, sample_round):",
+      "def create_experience_data(self, sample, modification):",
+      "def update_experience(self, directory, experience, avg_score):"
+    ]
+  },
+  {
+    "path": "scripts/optimizer_utils/convergence_utils.py",
+    "sha256": "92ee8974198cdafb43e695500c668373de7c222f1d7501e8b737b15504247661",
+    "bytes": 5814,
+    "symbols": [
+      "class ConvergenceUtils:",
+      "def __init__(self, root_path):",
+      "def load_data(self, root_path):",
+      "def process_rounds(self):",
+      "def calculate_avg_and_std(self):",
+      "def check_convergence(self, top_k=3, z=0, consecutive_rounds=5):",
+      "def print_results(self):"
+    ]
+  },
+  {
+    "path": "run.py",
+    "sha256": "ac106a27bc83d6022f349fc363fcc591b889cea01f02345c0c9370fc9f236873",
+    "bytes": 4808,
+    "symbols": [
+      "class ExperimentConfig:",
+      "def __init__(self, dataset: str, question_type: str, operators: List[str]):",
+      "def parse_args():"
+    ]
+  },
+  {
+    "path": "run_baseline.py",
+    "sha256": "ca36b7c62f4a4594743f626cd2a3ece2609113fe9fdf8a26c9a9743cecf397c2",
+    "bytes": 3810,
+    "symbols": [
+      "class PoWorkflow(Workflow):",
+      "def __init__(",
+      "async def __call__(self, problem: str):",
+      "class ModelWorkflow(Workflow):",
+      "def __init__(",
+      "async def __call__(self, problem: str, entry_point: str, question_id: str = \"\"):",
+      "async def main():"
+    ]
+  },
+  {
+    "path": "scripts/logs.py",
+    "sha256": "41c56b3574645a4e8d6cbbc0e26acab065516108b1e48b6c2204b9a44d6a3598",
+    "bytes": 7782,
+    "symbols": [
+      "class Colors:",
+      "class LogLevel(Enum):",
+      "class SimpleLogger:",
+      "def __init__(",
+      "def _log(self, level: LogLevel, message: str) -> None:",
+      "def debug(self, message: str) -> None:",
+      "def info(self, message: str) -> None:",
+      "def warning(self, message: str) -> None:",
+      "def error(self, message: str) -> None:",
+      "def critical(self, message: str) -> None:",
+      "def __del__(self):",
+      "def test_logger():"
+    ]
+  },
+  {
+    "path": "benchmarks/amc.py",
+    "sha256": "a88037b6811e489b2417aa6edeed39d57e1f9d8f0115d9ed61481a1bddfff320",
+    "bytes": 7265,
+    "symbols": [
+      "class AMCBenchmark(BaseBenchmark):",
+      "def __init__(self, name: str, file_path: str, log_path: str):",
+      "def extract_model_answer(self, text: str) -> str:",
+      "def calculate_score(self, expected_output: str, prediction: str) -> Tuple[int, str]:",
+      "def math_equal(self, prediction: Any, reference: Any) -> bool:",
+      "def sort_terms(expr):",
+      "def symbolic_equal(self, a: str, b: str) -> bool:",
+      "def _parse(s):",
+      "def parse_digits(self, num):",
+      "def is_digit(self, num):",
+      "def get_function_code(self, func):",
+      "async def _generate_output(self, graph, input_text):"
+    ]
+  }
+]

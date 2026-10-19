@@ -1,0 +1,102 @@
+{
+  "kept": [
+    {
+      "path": "README.md",
+      "bytes": 4586
+    },
+    {
+      "path": "data/test_cases_dh_base.json",
+      "bytes": 672918
+    },
+    {
+      "path": "data/test_cases_dh_enhanced.json",
+      "bytes": 721878
+    },
+    {
+      "path": "data/test_cases_ds_base.json",
+      "bytes": 765370
+    },
+    {
+      "path": "data/test_cases_ds_enhanced.json",
+      "bytes": 817594
+    },
+    {
+      "path": "data/tools.json",
+      "bytes": 541498
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 35
+    },
+    {
+      "path": "src/evaluate_finetuned_agent.py",
+      "bytes": 5271
+    },
+    {
+      "path": "src/evaluate_prompted_agent.py",
+      "bytes": 6421
+    },
+    {
+      "path": "src/models.py",
+      "bytes": 4403
+    },
+    {
+      "path": "src/output_parsing.py",
+      "bytes": 9662
+    },
+    {
+      "path": "src/params.py",
+      "bytes": 1605
+    },
+    {
+      "path": "src/prompts/agent_prompts.py",
+      "bytes": 9414
+    },
+    {
+      "path": "src/prompts/generation_prompts.py",
+      "bytes": 19261
+    },
+    {
+      "path": "src/prompts/prompt_template.py",
+      "bytes": 15024
+    },
+    {
+      "path": "src/utils.py",
+      "bytes": 7341
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".gitignore",
+      "bytes": 25
+    },
+    {
+      "path": "LICENCE",
+      "bytes": 1066
+    },
+    {
+      "path": "asset/overview.pdf",
+      "bytes": 887229
+    },
+    {
+      "path": "asset/overview.png",
+      "bytes": 495178
+    },
+    {
+      "path": "data/attacker_cases_dh.jsonl",
+      "bytes": 10937
+    },
+    {
+      "path": "data/attacker_cases_ds.jsonl",
+      "bytes": 13209
+    },
+    {
+      "path": "data/attacker_simulated_responses.json",
+      "bytes": 1359580
+    },
+    {
+      "path": "data/user_cases.jsonl",
+      "bytes": 10924
+    }
+  ]
+}

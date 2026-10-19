@@ -1,0 +1,295 @@
+Evaluating Agentic AI in the Wild: Failure Modes, Drift
+Patterns, and a Production Evaluation Framework
+Mukund Pandey
+Independent Researcher
+Abstract
+Existing evaluation frameworks for
+large language models — including
+HELM [ 5], MT-Bench [ 12], Agent-
+Bench [7], and BIG-bench [10] — are
+designed for controlled, single-session,
+lab-scale settings. They do not address
+the evaluation challenges that emerge
+when agentic AI systems operate con-
+tinuously in production: compounding
+decision errors, tool failure cascades,
+non-deterministic output drift, and
+the absence of ground truth for long-
+horizon tasks. This paper makes three
+contributions. First, we present a
+taxonomy of seven failure modes
+unique to production agentic systems,
+each grounded in observations from
+systems operating at billion-event scale.
+Second, we demonstrate empirically
+where standard metrics — ROUGE
+[6], BERTScore [ 11], accuracy/AUC,
+and the agentic benchmarks above
+— fail to detect each failure mode.
+Third, we proposePAEF(Production
+Agentic Evaluation Framework), a
+five-dimension evaluation framework
+with an open-source reference imple-
+mentation, designed for continuous
+evaluation on production traffic rather
+than episodic benchmark runs. Our
+analysis shows that standard metrics
+fail to detect four of the seven failure
+modes entirely and detect three others
+only after a lag of multiple evaluation
+cycles.
+1 Introduction
+1.1 The Evaluation Gap
+The evaluation of large language models has
+matured rapidly. HELM [5] introduced holistic
+evaluation across 42 scenarios. BIG-bench [10]
+broadened coverage to 204 tasks. MT-Bench
+[12] introduced multi-turn conversation evalu-
+ation with GPT-4 as judge. AgentBench [ 7]
+extended evaluation to agentic task completion
+across eight environments. These frameworks
+represent significant progress in understanding
+model capabilities under controlled conditions.
+Production deployment reveals a different prob-
+lem class entirely.
+When an agentic system makes ten thousand ac-
+cess decisions per hour, the failure modes are
+not dramatic. They are gradual, systematic, and
+invisible to the metrics teams are most likely to
+be monitoring. A model can achieve AUC 0.87
+and precision@k within acceptable range while
+simultaneously producing decisions that are in-
+ternally coherent but systematically wrong for
+a specific user cohort. A tool-augmented agent
+can maintain a low error rate while silently de-
+grading its decision quality through stale cached
+inputs. An engagement-optimised system can
+improve its proxy metric for weeks while its
+true objective — sustained user value — quietly
+erodes.
+Standard evaluation frameworks were not de-
+signed to catch these failure modes. They were
+designed to measurecapability, notreliability;
+to score models, not monitor systems; to evalu-
+ate episodes, not observe continuous operation.
+1.2 What Production Changes
+Three properties of production agentic systems
+create evaluation challenges that lab benchmarks
+cannot address.
+Sequential decisions with compounding
+errors..Production agents make decisions in
+chains, where each decision depends on prior
+outputs. An incorrect early decision propagates
+and amplifies through subsequent steps — each
+adding derived evidence that makes the output
+appear internally coherent while being system-
+atically wrong. Episodic benchmarks evaluate
+decisions in isolation; they cannot observe
+propagation.
+Continuous operation with temporal drift..
+Production systems operate indefinitely. Out-
+put distributions shift as model weights update,
+prompt templates change, and data distributions
+1
+arXiv:2605.01604v1  [cs.AI]  2 May 2026
+
+evolve. A single benchmark score is a point-in-
+time snapshot. Production systems require con-
+tinuous monitoring of output distribution health
+— drift detection, not just accuracy measurement.
+Instrumented environments with real conse-
+quences..Production systems operate on real
+users with real consequences. The cost of a
+wrong decision is not a benchmark penalty point
+— it is a denied access request, a missed content
+recommendation, a misdirected audit narrative.
+This raises the failure threshold: correctness is
+necessary but not sufficient. Explainability, con-
+sistency, and reliability become first-class re-
+quirements.
+1.3 Contributions
+This paper makes the following contributions:
+1. Ataxonomy of seven production agentic
+failure modes(Section 3), each with a
+formal definition, a production-grounded
+example, and an analysis of why existing
+metrics fail to detect it.
+2. Anempirical analysis of metric gaps
+(Section 4), showing which standard met-
+rics detect which failure modes and where
+the blind spots lie.
+3. PAEF: Production Agentic Evalua-
+tion Framework (Section 5), a five-
+dimension evaluation framework de-
+signed for continuous production
+monitoring, with a reference imple-
+mentation open-sourced at https://
+github.com/mukund1985/llm-
+eval-toolkit.
+4. Experimental validation(Section 6) on
+public benchmarks demonstrating the de-
+tection gaps of standard metrics and the
+coverage of PAEF.
+2 Background and Related Work
+2.1 LLM Evaluation Frameworks
+HELM [5] provides comprehensive evaluation
+across 42 scenarios and seven metrics including
+accuracy, calibration, robustness, fairness, bias,
+toxicity, and efficiency. Its primary limitation
+for production evaluation is a static, single-turn
+design: it measures capability at a point in time,
+not system behaviour over continuous operation.
+BIG-bench [10] evaluates models on 204 tasks
+designed to probe capabilities beyond stan-
+dard benchmarks. Like HELM, BIG-bench is
+episodic and does not model sequential decision-
+making, tool dependencies, or temporal drift.
+MT-Bench [12] introduces multi-turn conversa-
+tion evaluation using GPT-4 as a judge, address-
+ing the limitation of single-turn evaluation. MT-
+Bench does not model production constraints
+— latency budgets, tool availability, continuous
+operation — and does not evaluate output distri-
+bution health over time.
+ROUGE [ 6] and BERTScore [ 11] measure
+reference-based output similarity. Both fail in
+open-ended agentic contexts where correct out-
+puts are not deterministic, and where the failure
+modes of interest — distribution collapse, cross-
+surface consistency, explanation decoupling —
+are invisible to reference matching.
+2.2 Agentic Evaluation Frameworks
+AgentBench [7] evaluates LLM agents across
+eight environments including operating sys-
+tem, database, knowledge graph, digital card
+game, house-holding, web shopping, and web
+browsing. AgentBench represents the state
+of the art in agentic evaluation but assumes
+controlled, single-session, lab-scale execution:
+tool availability is guaranteed, evaluation is
+episodic, there is no temporal component.
+WebArena [13] evaluates agents on realistic web
+navigation tasks using functional correctness.
+Scope is bounded to web interactions; there is
+no tool failure injection and no drift detection.
+SWE-bench [3] evaluates agents on real GitHub
+issues, testing the ability to generate patches that
+pass test suites. It is domain-specific, single-
+episode, and has no production monitoring com-
+ponent.
+The key limitation of all existing agentic evalu-
+ation frameworks is that evaluation isepisodic,
+not continuous. They measure whether an agent
+completes a task correctly in a controlled envi-
+ronment. They do not measure whether a sys-
+tem remains reliable, consistent, and correctly
+aligned over time in production.
+2.3 Drift Detection in ML Systems
+Drift detection for traditional ML systems is
+well-studied. Evidently AI [2], Arize, and Why-
+Labs provide data drift and concept drift detec-
+tion for tabular and structured inputs. These
+2
+
+frameworks operate on input feature distribu-
+tions and model output distributions for classifi-
+cation and regression tasks.
+Their application to agentic systems is limited:
+they assume structured inputs and scalar out-
+puts. Agentic systems produce natural language
+outputs, make sequential decisions, and operate
+on tool-dependent inputs that are not amenable
+to standard distributional tests. Our work ex-
+tends drift detection concepts to agentic output
+sequences, building on ROUGE-based drift de-
+scriptors as a foundation [6].
+2.4 Explainability and Attribution
+Post-hoc attribution methods including SHAP
+[8] and LIME [ 9] are widely used to explain
+model decisions in production settings, particu-
+larly in regulated industries. These methods are
+known to produce unreliable attributions under
+feature correlation and feature crosses.
+The consequence in production agentic systems
+is more severe than the attribution literature ac-
+knowledges: a correct decision paired with an in-
+correct explanation creates misleading audit nar-
+ratives, misdirects debugging, and may violate
+regulatory requirements for model explainabil-
+ity. We formalise this as Explanation-Decision
+Decoupling (FM-5) and propose a perturbation
+consistency check as a detection method.
+2.5 AI Alignment and Reward Specification
+The problem of systems optimising for proxy
+goals rather than true objectives is well-studied
+in the alignment literature: Goodhart’s Law, re-
+ward hacking [1], and specification gaming [4].
+Our contribution is a production-grounded in-
+stance of this failure mode (FM-7: Proxy Goal
+Convergence) and a practical detection method
+based on multi-objective monitoring and coun-
+terfactual evaluation — accessible to production
+ML teams without requiring alignment research
+expertise.
+3 Taxonomy of Production Agentic
+Failure Modes
+We present seven failure modes observed in pro-
+duction agentic systems. For each we provide a
+formal definition, a production-grounded exam-
+ple from systems operating atO(109) events per
+day, and an analysis of why existing evaluation
+metrics fail to detect it.
+FM-1 — Cascading Decision Error (Coher-
+ence Illusion)..Definition.An incorrect early
+decision in a multi-step pipeline propagates
+through subsequent steps, each of which adds
+derived evidence that makes the overall output
+appear internally coherent — while being
+systematically wrong for a specific input cohort.
+Production observation.In a multi-step entity
+resolution and enrichment pipeline, Step 1
+resolved a client identity from partial at-
+tributes with high confidence but selected a
+near-duplicate entity. Every downstream step as-
+sumed the resolution was correct: Step 2 fetched
+the wrong profile, Step 3 applied risk rules to
+that profile, and produced a fully coherent but
+entirely incorrect output. Each individual step
+passed its own validation checks. The failure
+was systematic — affecting a reproducible
+cohort of inputs with ambiguous near-duplicate
+matches — and took several days to detect
+via edge-case spikes in downstream decision
+distributions.
+Why standard metrics miss it.Each step is locally
+correct given its input. Aggregate accuracy is
+unaffected because the failure is cohort-specific.
+Only downstream distribution analysis surfaces
+the failure. No existing benchmark models un-
+certainty propagation across pipeline steps.
+The coherence illusion.The dangerous property
+of this failure mode is that internal consistency
+increaseswith each step: the system accumu-
+lates derived evidence that reinforces the original
+error. A human reviewer examining any single
+step would conclude the system is functioning
+correctly.
+FM-2 — Silent Degradation via Availabili-
+ty-Truth Decoupling..Definition.When a tool
+degrades gracefully — returning schema-valid
+responses from stale cache or partial defaults
+rather than failing explicitly — downstream
+logic proceeds with incomplete data, producing
+decisions that appear correct but are based on
+missing information. The system optimises
+for availability without guaranteeing truth, and
+failure looks like success.
+Production observation.In a tool-augmented
+retrieval and action pipeline, an upstream profile
+service began timing out intermittently. Rather
+than surfacing explicit failures, the system fell
+back to cached or defaulted values — returning
+responses that were structurally valid but miss-
+ing critical fields. Downstream eligibility logic
+assumed inputs were complete and applied de-
+3

@@ -1,0 +1,120 @@
+[
+  {
+    "path": "src/agentscope/state/_task.py",
+    "sha256": "bbd50fc288c3584812cb8b22d14c79794866768352d3c20cbf73b7b31024ecba",
+    "bytes": 967,
+    "symbols": [
+      "class Task(BaseModel):"
+    ]
+  },
+  {
+    "path": "src/agentscope/permission/_rule.py",
+    "sha256": "e52409882d9464c54bfa4f9c56a94bdad2f0a9e32e315ac84b6e3ede35a58bd5",
+    "bytes": 1213,
+    "symbols": [
+      "class PermissionRule(BaseModel):"
+    ]
+  },
+  {
+    "path": "src/agentscope/permission/_types.py",
+    "sha256": "cdc9d544d600a1b375bd2942eb5ecd3b9b3df91bcf0909007711366cfa40ef3f",
+    "bytes": 6452,
+    "symbols": [
+      "class PermissionMode(Enum):",
+      "class PermissionBehavior(Enum):"
+    ]
+  },
+  {
+    "path": "src/agentscope/permission/_engine.py",
+    "sha256": "9142e0ecf173542a197562b802879e4e84491436ec3f17a691e11ebc9a0654c7",
+    "bytes": 33924,
+    "symbols": [
+      "class PermissionEngine:",
+      "def __init__(",
+      "def add_rule(self, rule: PermissionRule) -> None:",
+      "async def check_permission(",
+      "async def _check_default(",
+      "async def _check_explore(",
+      "async def _check_accept_edits(",
+      "async def _check_bypass(",
+      "async def _check_dont_ask(",
+      "def _convert_ask_to_deny(",
+      "def _is_safety_ask(decision: PermissionDecision) -> bool:",
+      "async def _check_read_only_fast_path("
+    ]
+  },
+  {
+    "path": "src/agentscope/permission/__init__.py",
+    "sha256": "3dc31ced74ccda31d0d2d6cd916253a6b4768fb12820899a02a77777f62d3ba1",
+    "bytes": 511,
+    "symbols": []
+  },
+  {
+    "path": "src/agentscope/permission/_context.py",
+    "sha256": "7d1d09dfc6a5ef62a8a75a03d185ddbc1352b5c37b1f5eab73d31989d2ad1bba",
+    "bytes": 1513,
+    "symbols": [
+      "class AdditionalWorkingDirectory(BaseModel):",
+      "class PermissionContext(BaseModel):"
+    ]
+  },
+  {
+    "path": "src/agentscope/permission/_decision.py",
+    "sha256": "500de4ea9840ea35c64a701d3df657d2662d23976e573f9ccbb1e8e6d059bfce",
+    "bytes": 2762,
+    "symbols": [
+      "class PermissionDecision:"
+    ]
+  },
+  {
+    "path": "src/agentscope/app/access/_policy.py",
+    "sha256": "f63506c7a4957d194e09e290e15505e1fe369fa14189eada35ab38e3c6012f71",
+    "bytes": 5327,
+    "symbols": [
+      "class ResourceKind(StrEnum):",
+      "class ResourcePermission(StrEnum):",
+      "class ResourceRef(BaseModel):",
+      "class ResourceAccessPolicyBase(ABC):",
+      "async def list_accessible(",
+      "async def can_edit(",
+      "class DenyAllResourceAccessPolicy(ResourceAccessPolicyBase):",
+      "async def list_accessible("
+    ]
+  },
+  {
+    "path": "src/agentscope/tool/_task/__init__.py",
+    "sha256": "8109a25985e1143259e70a7a4462a4ca2f8c7f427547f487677755b310948af2",
+    "bytes": 282,
+    "symbols": []
+  },
+  {
+    "path": "src/agentscope/tool/_task/_get_task.py",
+    "sha256": "eaa8c73e3deedf99d78f38285816646f432cc236c86100dde71a9115ec58fae5",
+    "bytes": 3011,
+    "symbols": [
+      "class _TaskGetParams(BaseModel):",
+      "class TaskGet(_TaskToolBase):",
+      "async def call("
+    ]
+  },
+  {
+    "path": "src/agentscope/tool/_task/_list_task.py",
+    "sha256": "6c6521b98099b9101fb43b403799401e9fb22f13e6f4f68758f5d0b64e3c1337",
+    "bytes": 2703,
+    "symbols": [
+      "class _TaskListParams(ParamsBase):",
+      "class TaskList(_TaskToolBase):",
+      "async def call(self, _agent_state: AgentState) -> ToolChunk:"
+    ]
+  },
+  {
+    "path": "src/agentscope/tool/_task/_create_task.py",
+    "sha256": "f44b48b5e2251d7507b9bb4cd6e68312095753a41f552284858e19847a7f8a80",
+    "bytes": 4637,
+    "symbols": [
+      "class _TaskCreateParams(BaseModel):",
+      "class TaskCreate(_TaskToolBase):",
+      "async def call("
+    ]
+  }
+]

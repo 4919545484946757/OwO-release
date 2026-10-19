@@ -1,0 +1,2775 @@
+{
+  "kept": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/issue.yml",
+      "bytes": 703
+    },
+    {
+      "path": ".github/workflows/check_pypi_version.yml",
+      "bytes": 3182
+    },
+    {
+      "path": ".github/workflows/docker-build-test.yml",
+      "bytes": 2246
+    },
+    {
+      "path": ".github/workflows/docker-release.yml",
+      "bytes": 1357
+    },
+    {
+      "path": ".github/workflows/issues.yml",
+      "bytes": 735
+    },
+    {
+      "path": ".github/workflows/pages.yml",
+      "bytes": 2464
+    },
+    {
+      "path": ".github/workflows/pre-commit.yml",
+      "bytes": 1509
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "bytes": 718
+    },
+    {
+      "path": ".github/workflows/ubuntu-tests.yml",
+      "bytes": 1199
+    },
+    {
+      "path": ".github/workflows/windows-tests.yml",
+      "bytes": 1084
+    },
+    {
+      "path": ".github/workflows/windows_check_pypi_version.yml",
+      "bytes": 3485
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "bytes": 602
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 7863
+    },
+    {
+      "path": "HISTORY.md",
+      "bytes": 77044
+    },
+    {
+      "path": "LICENSE.txt",
+      "bytes": 11358
+    },
+    {
+      "path": "README.md",
+      "bytes": 12406
+    },
+    {
+      "path": "aider/__init__.py",
+      "bytes": 496
+    },
+    {
+      "path": "aider/__main__.py",
+      "bytes": 62
+    },
+    {
+      "path": "aider/analytics.py",
+      "bytes": 7507
+    },
+    {
+      "path": "aider/args.py",
+      "bytes": 30298
+    },
+    {
+      "path": "aider/args_formatter.py",
+      "bytes": 6369
+    },
+    {
+      "path": "aider/coders/__init__.py",
+      "bytes": 1038
+    },
+    {
+      "path": "aider/coders/architect_coder.py",
+      "bytes": 1622
+    },
+    {
+      "path": "aider/coders/architect_prompts.py",
+      "bytes": 1469
+    },
+    {
+      "path": "aider/coders/ask_coder.py",
+      "bytes": 210
+    },
+    {
+      "path": "aider/coders/ask_prompts.py",
+      "bytes": 1395
+    },
+    {
+      "path": "aider/coders/base_coder.py",
+      "bytes": 86302
+    },
+    {
+      "path": "aider/coders/base_prompts.py",
+      "bytes": 2384
+    },
+    {
+      "path": "aider/coders/chat_chunks.py",
+      "bytes": 1981
+    },
+    {
+      "path": "aider/coders/context_coder.py",
+      "bytes": 1571
+    },
+    {
+      "path": "aider/coders/context_prompts.py",
+      "bytes": 3082
+    },
+    {
+      "path": "aider/coders/editblock_coder.py",
+      "bytes": 19616
+    },
+    {
+      "path": "aider/coders/editblock_fenced_coder.py",
+      "bytes": 346
+    },
+    {
+      "path": "aider/coders/editblock_fenced_prompts.py",
+      "bytes": 4415
+    },
+    {
+      "path": "aider/coders/editblock_func_coder.py",
+      "bytes": 5317
+    },
+    {
+      "path": "aider/coders/editblock_func_prompts.py",
+      "bytes": 886
+    },
+    {
+      "path": "aider/coders/editblock_prompts.py",
+      "bytes": 5723
+    },
+    {
+      "path": "aider/coders/editor_diff_fenced_coder.py",
+      "bytes": 338
+    },
+    {
+      "path": "aider/coders/editor_diff_fenced_prompts.py",
+      "bytes": 272
+    },
+    {
+      "path": "aider/coders/editor_editblock_coder.py",
+      "bytes": 306
+    },
+    {
+      "path": "aider/coders/editor_editblock_prompts.py",
+      "bytes": 547
+    },
+    {
+      "path": "aider/coders/editor_whole_coder.py",
+      "bytes": 301
+    },
+    {
+      "path": "aider/coders/editor_whole_prompts.py",
+      "bytes": 279
+    },
+    {
+      "path": "aider/coders/help_coder.py",
+      "bytes": 355
+    },
+    {
+      "path": "aider/coders/help_prompts.py",
+      "bytes": 1524
+    },
+    {
+      "path": "aider/coders/patch_coder.py",
+      "bytes": 30288
+    },
+    {
+      "path": "aider/coders/patch_prompts.py",
+      "bytes": 6012
+    },
+    {
+      "path": "aider/coders/search_replace.py",
+      "bytes": 19813
+    },
+    {
+      "path": "aider/coders/shell.py",
+      "bytes": 1801
+    },
+    {
+      "path": "aider/coders/single_wholefile_func_coder.py",
+      "bytes": 2967
+    },
+    {
+      "path": "aider/coders/single_wholefile_func_prompts.py",
+      "bytes": 867
+    },
+    {
+      "path": "aider/coders/udiff_coder.py",
+      "bytes": 11041
+    },
+    {
+      "path": "aider/coders/udiff_prompts.py",
+      "bytes": 3320
+    },
+    {
+      "path": "aider/coders/udiff_simple.py",
+      "bytes": 452
+    },
+    {
+      "path": "aider/coders/udiff_simple_prompts.py",
+      "bytes": 888
+    },
+    {
+      "path": "aider/coders/wholefile_coder.py",
+      "bytes": 5131
+    },
+    {
+      "path": "aider/coders/wholefile_func_coder.py",
+      "bytes": 4249
+    },
+    {
+      "path": "aider/coders/wholefile_func_prompts.py",
+      "bytes": 868
+    },
+    {
+      "path": "aider/coders/wholefile_prompts.py",
+      "bytes": 1869
+    },
+    {
+      "path": "aider/commands.py",
+      "bytes": 62230
+    },
+    {
+      "path": "aider/copypaste.py",
+      "bytes": 2095
+    },
+    {
+      "path": "aider/deprecated.py",
+      "bytes": 4277
+    },
+    {
+      "path": "aider/diffs.py",
+      "bytes": 3028
+    },
+    {
+      "path": "aider/dump.py",
+      "bytes": 653
+    },
+    {
+      "path": "aider/editor.py",
+      "bytes": 4364
+    },
+    {
+      "path": "aider/exceptions.py",
+      "bytes": 4218
+    },
+    {
+      "path": "aider/format_settings.py",
+      "bytes": 1041
+    },
+    {
+      "path": "aider/gui.py",
+      "bytes": 17573
+    },
+    {
+      "path": "aider/help.py",
+      "bytes": 4434
+    },
+    {
+      "path": "aider/help_pats.py",
+      "bytes": 376
+    },
+    {
+      "path": "aider/history.py",
+      "bytes": 4769
+    },
+    {
+      "path": "aider/io.py",
+      "bytes": 42853
+    },
+    {
+      "path": "aider/linter.py",
+      "bytes": 7998
+    },
+    {
+      "path": "aider/llm.py",
+      "bytes": 1103
+    },
+    {
+      "path": "aider/main.py",
+      "bytes": 43965
+    },
+    {
+      "path": "aider/mdstream.py",
+      "bytes": 7594
+    },
+    {
+      "path": "aider/models.py",
+      "bytes": 46342
+    },
+    {
+      "path": "aider/onboarding.py",
+      "bytes": 16105
+    },
+    {
+      "path": "aider/openrouter.py",
+      "bytes": 4641
+    },
+    {
+      "path": "aider/prompts.py",
+      "bytes": 2354
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/README.md",
+      "bytes": 291
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/README.md",
+      "bytes": 2610
+    },
+    {
+      "path": "aider/reasoning_tags.py",
+      "bytes": 2288
+    },
+    {
+      "path": "aider/repo.py",
+      "bytes": 22954
+    },
+    {
+      "path": "aider/repomap.py",
+      "bytes": 27306
+    },
+    {
+      "path": "aider/report.py",
+      "bytes": 5899
+    },
+    {
+      "path": "aider/resources/__init__.py",
+      "bytes": 142
+    },
+    {
+      "path": "aider/resources/model-metadata.json",
+      "bytes": 28342
+    },
+    {
+      "path": "aider/resources/model-settings.yml",
+      "bytes": 86370
+    },
+    {
+      "path": "aider/run_cmd.py",
+      "bytes": 4223
+    },
+    {
+      "path": "aider/scrape.py",
+      "bytes": 8325
+    },
+    {
+      "path": "aider/sendchat.py",
+      "bytes": 1854
+    },
+    {
+      "path": "aider/special.py",
+      "bytes": 4415
+    },
+    {
+      "path": "aider/urls.py",
+      "bytes": 1122
+    },
+    {
+      "path": "aider/utils.py",
+      "bytes": 9151
+    },
+    {
+      "path": "aider/versioncheck.py",
+      "bytes": 2977
+    },
+    {
+      "path": "aider/voice.py",
+      "bytes": 6150
+    },
+    {
+      "path": "aider/waiting.py",
+      "bytes": 7646
+    },
+    {
+      "path": "aider/watch.py",
+      "bytes": 10641
+    },
+    {
+      "path": "aider/watch_prompts.py",
+      "bytes": 556
+    },
+    {
+      "path": "aider/website/HISTORY.md",
+      "bytes": 77470
+    },
+    {
+      "path": "aider/website/_config.yml",
+      "bytes": 1223
+    },
+    {
+      "path": "aider/website/_data/architect.yml",
+      "bytes": 12253
+    },
+    {
+      "path": "aider/website/_data/blame.yml",
+      "bytes": 127447
+    },
+    {
+      "path": "aider/website/_data/code-in-json.yml",
+      "bytes": 24557
+    },
+    {
+      "path": "aider/website/_data/deepseek-down.yml",
+      "bytes": 3194
+    },
+    {
+      "path": "aider/website/_data/edit_leaderboard.yml",
+      "bytes": 56178
+    },
+    {
+      "path": "aider/website/_data/o1_polyglot_leaderboard.yml",
+      "bytes": 6299
+    },
+    {
+      "path": "aider/website/_data/o1_results.yml",
+      "bytes": 4619
+    },
+    {
+      "path": "aider/website/_data/polyglot_leaderboard.yml",
+      "bytes": 45725
+    },
+    {
+      "path": "aider/website/_data/quant.yml",
+      "bytes": 8821
+    },
+    {
+      "path": "aider/website/_data/qwen3_leaderboard.yml",
+      "bytes": 7123
+    },
+    {
+      "path": "aider/website/_data/qwq.yml",
+      "bytes": 4587
+    },
+    {
+      "path": "aider/website/_data/r1_architect.yml",
+      "bytes": 3113
+    },
+    {
+      "path": "aider/website/_data/refactor_leaderboard.yml",
+      "bytes": 7441
+    },
+    {
+      "path": "aider/website/_data/sonnet-fine.yml",
+      "bytes": 12232
+    },
+    {
+      "path": "aider/website/_includes/blame.md",
+      "bytes": 5377
+    },
+    {
+      "path": "aider/website/_includes/code-in-json-benchmark.js",
+      "bytes": 5516
+    },
+    {
+      "path": "aider/website/_includes/code-in-json-syntax.js",
+      "bytes": 4546
+    },
+    {
+      "path": "aider/website/_includes/footer_custom.html",
+      "bytes": 0
+    },
+    {
+      "path": "aider/website/_includes/get-started.md",
+      "bytes": 435
+    },
+    {
+      "path": "aider/website/_includes/head_custom.html",
+      "bytes": 6637
+    },
+    {
+      "path": "aider/website/_includes/help-tip.md",
+      "bytes": 164
+    },
+    {
+      "path": "aider/website/_includes/help.md",
+      "bytes": 618
+    },
+    {
+      "path": "aider/website/_includes/install.md",
+      "bytes": 63
+    },
+    {
+      "path": "aider/website/_includes/keys.md",
+      "bytes": 137
+    },
+    {
+      "path": "aider/website/_includes/leaderboard.js",
+      "bytes": 8578
+    },
+    {
+      "path": "aider/website/_includes/leaderboard_graph.html",
+      "bytes": 6091
+    },
+    {
+      "path": "aider/website/_includes/leaderboard_table.js",
+      "bytes": 21832
+    },
+    {
+      "path": "aider/website/_includes/model-warnings.md",
+      "bytes": 1943
+    },
+    {
+      "path": "aider/website/_includes/multi-line.md",
+      "bytes": 1305
+    },
+    {
+      "path": "aider/website/_includes/nav_footer_custom.html",
+      "bytes": 230
+    },
+    {
+      "path": "aider/website/_includes/python-m-aider.md",
+      "bytes": 182
+    },
+    {
+      "path": "aider/website/_includes/quant-chart.js",
+      "bytes": 2342
+    },
+    {
+      "path": "aider/website/_includes/qwq-chart.js",
+      "bytes": 3731
+    },
+    {
+      "path": "aider/website/_includes/recording.css",
+      "bytes": 5290
+    },
+    {
+      "path": "aider/website/_includes/recording.js",
+      "bytes": 14364
+    },
+    {
+      "path": "aider/website/_includes/recording.md",
+      "bytes": 939
+    },
+    {
+      "path": "aider/website/_includes/replit-pipx.md",
+      "bytes": 289
+    },
+    {
+      "path": "aider/website/_includes/works-best.md",
+      "bytes": 191
+    },
+    {
+      "path": "aider/website/_layouts/redirect.html",
+      "bytes": 392
+    },
+    {
+      "path": "aider/website/_posts/2023-05-25-ctags.md",
+      "bytes": 16
+    },
+    {
+      "path": "aider/website/_posts/2023-07-02-benchmarks.md",
+      "bytes": 21
+    },
+    {
+      "path": "aider/website/_posts/2023-10-22-repomap.md",
+      "bytes": 12025
+    },
+    {
+      "path": "aider/website/_posts/2023-11-06-benchmarks-1106.md",
+      "bytes": 26
+    },
+    {
+      "path": "aider/website/_posts/2023-11-06-benchmarks-speed-1106.md",
+      "bytes": 32
+    },
+    {
+      "path": "aider/website/_posts/2023-12-21-unified-diffs.md",
+      "bytes": 24
+    },
+    {
+      "path": "aider/website/_posts/2024-01-25-benchmarks-0125.md",
+      "bytes": 26
+    },
+    {
+      "path": "aider/website/_posts/2024-03-08-claude-3.md",
+      "bytes": 4563
+    },
+    {
+      "path": "aider/website/_posts/2024-04-09-gpt-4-turbo.md",
+      "bytes": 2999
+    },
+    {
+      "path": "aider/website/_posts/2024-05-02-browser.md",
+      "bytes": 1393
+    },
+    {
+      "path": "aider/website/_posts/2024-05-13-models-over-time.md",
+      "bytes": 10857
+    },
+    {
+      "path": "aider/website/_posts/2024-05-22-draft.md",
+      "bytes": 249
+    },
+    {
+      "path": "aider/website/_posts/2024-05-22-linting.md",
+      "bytes": 5115
+    },
+    {
+      "path": "aider/website/_posts/2024-05-22-swe-bench-lite.md",
+      "bytes": 19077
+    },
+    {
+      "path": "aider/website/_posts/2024-05-24-self-assembly.md",
+      "bytes": 2840
+    },
+    {
+      "path": "aider/website/_posts/2024-06-02-main-swe-bench.md",
+      "bytes": 12228
+    },
+    {
+      "path": "aider/website/_posts/2024-07-01-sonnet-not-lazy.md",
+      "bytes": 4731
+    },
+    {
+      "path": "aider/website/_posts/2024-07-25-new-models.md",
+      "bytes": 3074
+    },
+    {
+      "path": "aider/website/_posts/2024-08-14-code-in-json.md",
+      "bytes": 8812
+    },
+    {
+      "path": "aider/website/_posts/2024-08-26-sonnet-seems-fine.md",
+      "bytes": 5123
+    },
+    {
+      "path": "aider/website/_posts/2024-09-12-o1.md",
+      "bytes": 3648
+    },
+    {
+      "path": "aider/website/_posts/2024-09-26-architect.md",
+      "bytes": 14717
+    },
+    {
+      "path": "aider/website/_posts/2024-11-21-quantization.md",
+      "bytes": 8074
+    },
+    {
+      "path": "aider/website/_posts/2024-12-03-qwq.md",
+      "bytes": 5227
+    },
+    {
+      "path": "aider/website/_posts/2024-12-21-polyglot.md",
+      "bytes": 7031
+    },
+    {
+      "path": "aider/website/_posts/2025-01-15-uv.md",
+      "bytes": 3608
+    },
+    {
+      "path": "aider/website/_posts/2025-01-24-r1-sonnet.md",
+      "bytes": 4486
+    },
+    {
+      "path": "aider/website/_posts/2025-01-28-deepseek-down.md",
+      "bytes": 8379
+    },
+    {
+      "path": "aider/website/_posts/2025-05-07-gemini-cost.md",
+      "bytes": 6367
+    },
+    {
+      "path": "aider/website/_posts/2025-05-08-qwen3.md",
+      "bytes": 14421
+    },
+    {
+      "path": "aider/website/blog/index.html",
+      "bytes": 973
+    },
+    {
+      "path": "aider/website/docs/benchmarks-0125.md",
+      "bytes": 2190
+    },
+    {
+      "path": "aider/website/docs/benchmarks-1106.md",
+      "bytes": 4876
+    },
+    {
+      "path": "aider/website/docs/benchmarks-speed-1106.md",
+      "bytes": 2779
+    },
+    {
+      "path": "aider/website/docs/benchmarks.md",
+      "bytes": 14966
+    },
+    {
+      "path": "aider/website/docs/config.md",
+      "bytes": 749
+    },
+    {
+      "path": "aider/website/docs/config/adv-model-settings.md",
+      "bytes": 88400
+    },
+    {
+      "path": "aider/website/docs/config/aider_conf.md",
+      "bytes": 15133
+    },
+    {
+      "path": "aider/website/docs/config/api-keys.md",
+      "bytes": 2046
+    },
+    {
+      "path": "aider/website/docs/config/dotenv.md",
+      "bytes": 14692
+    },
+    {
+      "path": "aider/website/docs/config/editor.md",
+      "bytes": 2611
+    },
+    {
+      "path": "aider/website/docs/config/model-aliases.md",
+      "bytes": 3615
+    },
+    {
+      "path": "aider/website/docs/config/options.md",
+      "bytes": 27427
+    },
+    {
+      "path": "aider/website/docs/config/reasoning.md",
+      "bytes": 7131
+    },
+    {
+      "path": "aider/website/docs/ctags.md",
+      "bytes": 10600
+    },
+    {
+      "path": "aider/website/docs/faq.md",
+      "bytes": 14030
+    },
+    {
+      "path": "aider/website/docs/git.md",
+      "bytes": 3758
+    },
+    {
+      "path": "aider/website/docs/index.md",
+      "bytes": 1819
+    },
+    {
+      "path": "aider/website/docs/install.md",
+      "bytes": 2882
+    },
+    {
+      "path": "aider/website/docs/install/codespaces.md",
+      "bytes": 783
+    },
+    {
+      "path": "aider/website/docs/install/docker.md",
+      "bytes": 2094
+    },
+    {
+      "path": "aider/website/docs/install/optional.md",
+      "bytes": 3405
+    },
+    {
+      "path": "aider/website/docs/install/replit.md",
+      "bytes": 86
+    },
+    {
+      "path": "aider/website/docs/languages.md",
+      "bytes": 16610
+    },
+    {
+      "path": "aider/website/docs/leaderboards/by-release-date.md",
+      "bytes": 242
+    },
+    {
+      "path": "aider/website/docs/leaderboards/contrib.md",
+      "bytes": 427
+    },
+    {
+      "path": "aider/website/docs/leaderboards/edit.md",
+      "bytes": 5189
+    },
+    {
+      "path": "aider/website/docs/leaderboards/index.md",
+      "bytes": 12389
+    },
+    {
+      "path": "aider/website/docs/leaderboards/notes.md",
+      "bytes": 1734
+    },
+    {
+      "path": "aider/website/docs/leaderboards/refactor.md",
+      "bytes": 3220
+    },
+    {
+      "path": "aider/website/docs/legal/contributor-agreement.md",
+      "bytes": 6064
+    },
+    {
+      "path": "aider/website/docs/legal/privacy.md",
+      "bytes": 8340
+    },
+    {
+      "path": "aider/website/docs/llms.md",
+      "bytes": 1562
+    },
+    {
+      "path": "aider/website/docs/llms/anthropic.md",
+      "bytes": 2158
+    },
+    {
+      "path": "aider/website/docs/llms/azure.md",
+      "bytes": 1443
+    },
+    {
+      "path": "aider/website/docs/llms/bedrock.md",
+      "bytes": 4368
+    },
+    {
+      "path": "aider/website/docs/llms/cohere.md",
+      "bytes": 694
+    },
+    {
+      "path": "aider/website/docs/llms/deepseek.md",
+      "bytes": 735
+    },
+    {
+      "path": "aider/website/docs/llms/gemini.md",
+      "bytes": 700
+    },
+    {
+      "path": "aider/website/docs/llms/github.md",
+      "bytes": 2386
+    },
+    {
+      "path": "aider/website/docs/llms/groq.md",
+      "bytes": 699
+    },
+    {
+      "path": "aider/website/docs/llms/lm-studio.md",
+      "bytes": 1144
+    },
+    {
+      "path": "aider/website/docs/llms/ollama.md",
+      "bytes": 2013
+    },
+    {
+      "path": "aider/website/docs/llms/openai-compat.md",
+      "bytes": 821
+    },
+    {
+      "path": "aider/website/docs/llms/openai.md",
+      "bytes": 1519
+    },
+    {
+      "path": "aider/website/docs/llms/openrouter.md",
+      "bytes": 2248
+    },
+    {
+      "path": "aider/website/docs/llms/other.md",
+      "bytes": 2718
+    },
+    {
+      "path": "aider/website/docs/llms/vertex.md",
+      "bytes": 1493
+    },
+    {
+      "path": "aider/website/docs/llms/warnings.md",
+      "bytes": 103
+    },
+    {
+      "path": "aider/website/docs/llms/xai.md",
+      "bytes": 961
+    },
+    {
+      "path": "aider/website/docs/more-info.md",
+      "bytes": 124
+    },
+    {
+      "path": "aider/website/docs/more/analytics.md",
+      "bytes": 3933
+    },
+    {
+      "path": "aider/website/docs/more/edit-formats.md",
+      "bytes": 3067
+    },
+    {
+      "path": "aider/website/docs/more/infinite-output.md",
+      "bytes": 9154
+    },
+    {
+      "path": "aider/website/docs/repomap.md",
+      "bytes": 3900
+    },
+    {
+      "path": "aider/website/docs/scripting.md",
+      "bytes": 3123
+    },
+    {
+      "path": "aider/website/docs/troubleshooting.md",
+      "bytes": 218
+    },
+    {
+      "path": "aider/website/docs/troubleshooting/aider-not-found.md",
+      "bytes": 704
+    },
+    {
+      "path": "aider/website/docs/troubleshooting/edit-errors.md",
+      "bytes": 2960
+    },
+    {
+      "path": "aider/website/docs/troubleshooting/imports.md",
+      "bytes": 1983
+    },
+    {
+      "path": "aider/website/docs/troubleshooting/models-and-keys.md",
+      "bytes": 1807
+    },
+    {
+      "path": "aider/website/docs/troubleshooting/support.md",
+      "bytes": 3247
+    },
+    {
+      "path": "aider/website/docs/troubleshooting/token-limits.md",
+      "bytes": 2968
+    },
+    {
+      "path": "aider/website/docs/troubleshooting/warnings.md",
+      "bytes": 134
+    },
+    {
+      "path": "aider/website/docs/unified-diffs.md",
+      "bytes": 15885
+    },
+    {
+      "path": "aider/website/docs/usage.md",
+      "bytes": 2563
+    },
+    {
+      "path": "aider/website/docs/usage/browser.md",
+      "bytes": 1505
+    },
+    {
+      "path": "aider/website/docs/usage/caching.md",
+      "bytes": 1439
+    },
+    {
+      "path": "aider/website/docs/usage/commands.md",
+      "bytes": 6202
+    },
+    {
+      "path": "aider/website/docs/usage/conventions.md",
+      "bytes": 3239
+    },
+    {
+      "path": "aider/website/docs/usage/copypaste.md",
+      "bytes": 4834
+    },
+    {
+      "path": "aider/website/docs/usage/images-urls.md",
+      "bytes": 1453
+    },
+    {
+      "path": "aider/website/docs/usage/lint-test.md",
+      "bytes": 3359
+    },
+    {
+      "path": "aider/website/docs/usage/modes.md",
+      "bytes": 6733
+    },
+    {
+      "path": "aider/website/docs/usage/not-code.md",
+      "bytes": 3411
+    },
+    {
+      "path": "aider/website/docs/usage/notifications.md",
+      "bytes": 2196
+    },
+    {
+      "path": "aider/website/docs/usage/tips.md",
+      "bytes": 3324
+    },
+    {
+      "path": "aider/website/docs/usage/tutorials.md",
+      "bytes": 2223
+    },
+    {
+      "path": "aider/website/docs/usage/voice.md",
+      "bytes": 3452
+    },
+    {
+      "path": "aider/website/docs/usage/watch.md",
+      "bytes": 7940
+    },
+    {
+      "path": "aider/website/examples/2048-game.md",
+      "bytes": 3543
+    },
+    {
+      "path": "aider/website/examples/README.md",
+      "bytes": 3610
+    },
+    {
+      "path": "aider/website/examples/add-test.md",
+      "bytes": 7391
+    },
+    {
+      "path": "aider/website/examples/asciinema.md",
+      "bytes": 1223
+    },
+    {
+      "path": "aider/website/examples/census.md",
+      "bytes": 12186
+    },
+    {
+      "path": "aider/website/examples/chat-transcript-css.md",
+      "bytes": 10837
+    },
+    {
+      "path": "aider/website/examples/complex-change.md",
+      "bytes": 16298
+    },
+    {
+      "path": "aider/website/examples/css-exercises.md",
+      "bytes": 3115
+    },
+    {
+      "path": "aider/website/examples/hello-world-flask.md",
+      "bytes": 3502
+    },
+    {
+      "path": "aider/website/examples/hello.md",
+      "bytes": 558
+    },
+    {
+      "path": "aider/website/examples/no-color.md",
+      "bytes": 5656
+    },
+    {
+      "path": "aider/website/examples/pong.md",
+      "bytes": 9223
+    },
+    {
+      "path": "aider/website/examples/semantic-search-replace.md",
+      "bytes": 1946
+    },
+    {
+      "path": "aider/website/examples/update-docs.md",
+      "bytes": 2926
+    },
+    {
+      "path": "aider/website/index.html",
+      "bytes": 30653
+    },
+    {
+      "path": "aider/website/install.ps1",
+      "bytes": 19648
+    },
+    {
+      "path": "aider/website/install.sh",
+      "bytes": 57501
+    },
+    {
+      "path": "aider/website/share/index.md",
+      "bytes": 3172
+    },
+    {
+      "path": "benchmark/Dockerfile",
+      "bytes": 1842
+    },
+    {
+      "path": "benchmark/README.md",
+      "bytes": 5933
+    },
+    {
+      "path": "benchmark/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "benchmark/benchmark.py",
+      "bytes": 34621
+    },
+    {
+      "path": "benchmark/clone-exercism.sh",
+      "bytes": 493
+    },
+    {
+      "path": "benchmark/cpp-test.sh",
+      "bytes": 155
+    },
+    {
+      "path": "benchmark/docker.sh",
+      "bytes": 545
+    },
+    {
+      "path": "benchmark/docker_build.sh",
+      "bytes": 110
+    },
+    {
+      "path": "benchmark/install-docker-ubuntu.sh",
+      "bytes": 1705
+    },
+    {
+      "path": "benchmark/npm-test.sh",
+      "bytes": 271
+    },
+    {
+      "path": "benchmark/over_time.py",
+      "bytes": 5346
+    },
+    {
+      "path": "benchmark/plot.sh",
+      "bytes": 1227
+    },
+    {
+      "path": "benchmark/plots.py",
+      "bytes": 11425
+    },
+    {
+      "path": "benchmark/problem_stats.py",
+      "bytes": 13538
+    },
+    {
+      "path": "benchmark/prompts.py",
+      "bytes": 473
+    },
+    {
+      "path": "benchmark/refactor_tools.py",
+      "bytes": 6467
+    },
+    {
+      "path": "benchmark/rsync.sh",
+      "bytes": 916
+    },
+    {
+      "path": "benchmark/rungrid.py",
+      "bytes": 1354
+    },
+    {
+      "path": "benchmark/swe-bench-lite.txt",
+      "bytes": 163
+    },
+    {
+      "path": "benchmark/swe-bench.txt",
+      "bytes": 209
+    },
+    {
+      "path": "benchmark/swe_bench.py",
+      "bytes": 3621
+    },
+    {
+      "path": "benchmark/test_benchmark.py",
+      "bytes": 1535
+    },
+    {
+      "path": "docker/Dockerfile",
+      "bytes": 2563
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 1580
+    },
+    {
+      "path": "pytest.ini",
+      "bytes": 194
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 12329
+    },
+    {
+      "path": "requirements/common-constraints.txt",
+      "bytes": 13370
+    },
+    {
+      "path": "requirements/requirements-browser.txt",
+      "bytes": 3734
+    },
+    {
+      "path": "requirements/requirements-dev.txt",
+      "bytes": 8065
+    },
+    {
+      "path": "requirements/requirements-help.txt",
+      "bytes": 9398
+    },
+    {
+      "path": "requirements/requirements-playwright.txt",
+      "bytes": 649
+    },
+    {
+      "path": "scripts/30k-image.py",
+      "bytes": 8967
+    },
+    {
+      "path": "scripts/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "scripts/blame.py",
+      "bytes": 10066
+    },
+    {
+      "path": "scripts/clean_metadata.py",
+      "bytes": 10188
+    },
+    {
+      "path": "scripts/dl_icons.py",
+      "bytes": 1390
+    },
+    {
+      "path": "scripts/history_prompts.py",
+      "bytes": 1356
+    },
+    {
+      "path": "scripts/homepage.py",
+      "bytes": 23561
+    },
+    {
+      "path": "scripts/issues.py",
+      "bytes": 17667
+    },
+    {
+      "path": "scripts/jekyll_build.sh",
+      "bytes": 100
+    },
+    {
+      "path": "scripts/jekyll_run.sh",
+      "bytes": 453
+    },
+    {
+      "path": "scripts/logo_svg.py",
+      "bytes": 5616
+    },
+    {
+      "path": "scripts/my_models.py",
+      "bytes": 3258
+    },
+    {
+      "path": "scripts/pip-compile.sh",
+      "bytes": 1304
+    },
+    {
+      "path": "scripts/recording_audio.py",
+      "bytes": 11641
+    },
+    {
+      "path": "scripts/redact-cast.py",
+      "bytes": 1696
+    },
+    {
+      "path": "scripts/tmux_record.sh",
+      "bytes": 531
+    },
+    {
+      "path": "scripts/tsl_pack_langs.py",
+      "bytes": 4486
+    },
+    {
+      "path": "scripts/update-blame.sh",
+      "bytes": 220
+    },
+    {
+      "path": "scripts/update-docs.sh",
+      "bytes": 1006
+    },
+    {
+      "path": "scripts/update-history.py",
+      "bytes": 4804
+    },
+    {
+      "path": "scripts/versionbump.py",
+      "bytes": 5952
+    },
+    {
+      "path": "scripts/yank-old-versions.py",
+      "bytes": 1684
+    },
+    {
+      "path": "tests/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/basic/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/basic/test_analytics.py",
+      "bytes": 4440
+    },
+    {
+      "path": "tests/basic/test_aws_credentials.py",
+      "bytes": 6956
+    },
+    {
+      "path": "tests/basic/test_coder.py",
+      "bytes": 55504
+    },
+    {
+      "path": "tests/basic/test_commands.py",
+      "bytes": 90081
+    },
+    {
+      "path": "tests/basic/test_deprecated.py",
+      "bytes": 5200
+    },
+    {
+      "path": "tests/basic/test_editblock.py",
+      "bytes": 17579
+    },
+    {
+      "path": "tests/basic/test_editor.py",
+      "bytes": 5103
+    },
+    {
+      "path": "tests/basic/test_exceptions.py",
+      "bytes": 3301
+    },
+    {
+      "path": "tests/basic/test_find_or_blocks.py",
+      "bytes": 3915
+    },
+    {
+      "path": "tests/basic/test_history.py",
+      "bytes": 4349
+    },
+    {
+      "path": "tests/basic/test_io.py",
+      "bytes": 24607
+    },
+    {
+      "path": "tests/basic/test_linter.py",
+      "bytes": 3063
+    },
+    {
+      "path": "tests/basic/test_main.py",
+      "bytes": 62437
+    },
+    {
+      "path": "tests/basic/test_model_info_manager.py",
+      "bytes": 3173
+    },
+    {
+      "path": "tests/basic/test_models.py",
+      "bytes": 22037
+    },
+    {
+      "path": "tests/basic/test_onboarding.py",
+      "bytes": 19872
+    },
+    {
+      "path": "tests/basic/test_openrouter.py",
+      "bytes": 2338
+    },
+    {
+      "path": "tests/basic/test_reasoning.py",
+      "bytes": 26048
+    },
+    {
+      "path": "tests/basic/test_repo.py",
+      "bytes": 29480
+    },
+    {
+      "path": "tests/basic/test_repomap.py",
+      "bytes": 18820
+    },
+    {
+      "path": "tests/basic/test_run_cmd.py",
+      "bytes": 238
+    },
+    {
+      "path": "tests/basic/test_sanity_check_repo.py",
+      "bytes": 5890
+    },
+    {
+      "path": "tests/basic/test_scripting.py",
+      "bytes": 1335
+    },
+    {
+      "path": "tests/basic/test_sendchat.py",
+      "bytes": 6178
+    },
+    {
+      "path": "tests/basic/test_special.py",
+      "bytes": 1937
+    },
+    {
+      "path": "tests/basic/test_ssl_verification.py",
+      "bytes": 3250
+    },
+    {
+      "path": "tests/basic/test_udiff.py",
+      "bytes": 3170
+    },
+    {
+      "path": "tests/basic/test_urls.py",
+      "bytes": 410
+    },
+    {
+      "path": "tests/basic/test_utils.py",
+      "bytes": 410
+    },
+    {
+      "path": "tests/basic/test_voice.py",
+      "bytes": 3243
+    },
+    {
+      "path": "tests/basic/test_watch.py",
+      "bytes": 5991
+    },
+    {
+      "path": "tests/basic/test_wholefile.py",
+      "bytes": 12313
+    },
+    {
+      "path": "tests/browser/test_browser.py",
+      "bytes": 895
+    },
+    {
+      "path": "tests/help/test_help.py",
+      "bytes": 5286
+    },
+    {
+      "path": "tests/scrape/test_playwright_disable.py",
+      "bytes": 4209
+    },
+    {
+      "path": "tests/scrape/test_scrape.py",
+      "bytes": 6444
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".dockerignore",
+      "bytes": 61
+    },
+    {
+      "path": ".flake8",
+      "bytes": 50
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 239
+    },
+    {
+      "path": "CNAME",
+      "bytes": 10
+    },
+    {
+      "path": "MANIFEST.in",
+      "bytes": 588
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/arduino-tags.scm",
+      "bytes": 177
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/bash-tags.scm",
+      "bytes": 249
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/c-tags.scm",
+      "bytes": 461
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/chatito-tags.scm",
+      "bytes": 338
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/clojure-tags.scm",
+      "bytes": 194
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/commonlisp-tags.scm",
+      "bytes": 4713
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/cpp-tags.scm",
+      "bytes": 809
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/csharp-tags.scm",
+      "bytes": 1162
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/d-tags.scm",
+      "bytes": 1420
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/dart-tags.scm",
+      "bytes": 2267
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/elisp-tags.scm",
+      "bytes": 246
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/elixir-tags.scm",
+      "bytes": 1682
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/elm-tags.scm",
+      "bytes": 953
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/gleam-tags.scm",
+      "bytes": 1416
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/go-tags.scm",
+      "bytes": 1339
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/java-tags.scm",
+      "bytes": 624
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/javascript-tags.scm",
+      "bytes": 2306
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/lua-tags.scm",
+      "bytes": 945
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/matlab-tags.scm",
+      "bytes": 309
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/ocaml-tags.scm",
+      "bytes": 2695
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/ocaml_interface-tags.scm",
+      "bytes": 2009
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/pony-tags.scm",
+      "bytes": 2191
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/properties-tags.scm",
+      "bytes": 135
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/python-tags.scm",
+      "bytes": 437
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/r-tags.scm",
+      "bytes": 461
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/racket-tags.scm",
+      "bytes": 224
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/ruby-tags.scm",
+      "bytes": 1290
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/rust-tags.scm",
+      "bytes": 1451
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/solidity-tags.scm",
+      "bytes": 1395
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/swift-tags.scm",
+      "bytes": 1439
+    },
+    {
+      "path": "aider/queries/tree-sitter-language-pack/udev-tags.scm",
+      "bytes": 417
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/bash-tags.scm",
+      "bytes": 249
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/c-tags.scm",
+      "bytes": 461
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/c_sharp-tags.scm",
+      "bytes": 1025
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/cpp-tags.scm",
+      "bytes": 803
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/dart-tags.scm",
+      "bytes": 2251
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/elisp-tags.scm",
+      "bytes": 332
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/elixir-tags.scm",
+      "bytes": 1605
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/elm-tags.scm",
+      "bytes": 951
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/fortran-tags.scm",
+      "bytes": 419
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/go-tags.scm",
+      "bytes": 848
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/haskell-tags.scm",
+      "bytes": 143
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/hcl-tags.scm",
+      "bytes": 2137
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/java-tags.scm",
+      "bytes": 627
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/javascript-tags.scm",
+      "bytes": 2251
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/julia-tags.scm",
+      "bytes": 1719
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/kotlin-tags.scm",
+      "bytes": 632
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/matlab-tags.scm",
+      "bytes": 309
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/ocaml-tags.scm",
+      "bytes": 2695
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/ocaml_interface-tags.scm",
+      "bytes": 2009
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/php-tags.scm",
+      "bytes": 714
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/python-tags.scm",
+      "bytes": 325
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/ql-tags.scm",
+      "bytes": 707
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/ruby-tags.scm",
+      "bytes": 1290
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/rust-tags.scm",
+      "bytes": 1451
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/scala-tags.scm",
+      "bytes": 1761
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/typescript-tags.scm",
+      "bytes": 1253
+    },
+    {
+      "path": "aider/queries/tree-sitter-languages/zig-tags.scm",
+      "bytes": 124
+    },
+    {
+      "path": "aider/website/Gemfile",
+      "bytes": 196
+    },
+    {
+      "path": "aider/website/_sass/custom/custom.scss",
+      "bytes": 1957
+    },
+    {
+      "path": "aider/website/assets/2024-03-07-claude-3.jpg",
+      "bytes": 34457
+    },
+    {
+      "path": "aider/website/assets/2024-03-07-claude-3.svg",
+      "bytes": 56002
+    },
+    {
+      "path": "aider/website/assets/2024-04-09-gpt-4-turbo-laziness.jpg",
+      "bytes": 19685
+    },
+    {
+      "path": "aider/website/assets/2024-04-09-gpt-4-turbo-laziness.svg",
+      "bytes": 37886
+    },
+    {
+      "path": "aider/website/assets/2024-04-09-gpt-4-turbo.jpg",
+      "bytes": 25398
+    },
+    {
+      "path": "aider/website/assets/2024-04-09-gpt-4-turbo.svg",
+      "bytes": 46104
+    },
+    {
+      "path": "aider/website/assets/2024-07-new-models.jpg",
+      "bytes": 149486
+    },
+    {
+      "path": "aider/website/assets/2025-05-08-qwen3.jpg",
+      "bytes": 226001
+    },
+    {
+      "path": "aider/website/assets/Glass_TTY_VT220.ttf",
+      "bytes": 88228
+    },
+    {
+      "path": "aider/website/assets/aider-browser-social.mp4",
+      "bytes": 12945046
+    },
+    {
+      "path": "aider/website/assets/aider-square.jpg",
+      "bytes": 194472
+    },
+    {
+      "path": "aider/website/assets/aider.jpg",
+      "bytes": 399224
+    },
+    {
+      "path": "aider/website/assets/architect.jpg",
+      "bytes": 344882
+    },
+    {
+      "path": "aider/website/assets/asciinema/asciinema-player.css",
+      "bytes": 43948
+    },
+    {
+      "path": "aider/website/assets/asciinema/asciinema-player.min.js",
+      "bytes": 193531
+    },
+    {
+      "path": "aider/website/assets/audio/auto-accept-architect/00-01.mp3",
+      "bytes": 22700
+    },
+    {
+      "path": "aider/website/assets/audio/auto-accept-architect/00-11.mp3",
+      "bytes": 7916
+    },
+    {
+      "path": "aider/website/assets/audio/auto-accept-architect/00-40.mp3",
+      "bytes": 14444
+    },
+    {
+      "path": "aider/website/assets/audio/auto-accept-architect/00-48.mp3",
+      "bytes": 11084
+    },
+    {
+      "path": "aider/website/assets/audio/auto-accept-architect/01-00.mp3",
+      "bytes": 7340
+    },
+    {
+      "path": "aider/website/assets/audio/auto-accept-architect/01-28.mp3",
+      "bytes": 13004
+    },
+    {
+      "path": "aider/website/assets/audio/auto-accept-architect/01-42.mp3",
+      "bytes": 21644
+    },
+    {
+      "path": "aider/website/assets/audio/auto-accept-architect/02-00.mp3",
+      "bytes": 10124
+    },
+    {
+      "path": "aider/website/assets/audio/auto-accept-architect/02-05.mp3",
+      "bytes": 2636
+    },
+    {
+      "path": "aider/website/assets/audio/auto-accept-architect/metadata.json",
+      "bytes": 590
+    },
+    {
+      "path": "aider/website/assets/audio/dont-drop-original-read-files/00-01.mp3",
+      "bytes": 24332
+    },
+    {
+      "path": "aider/website/assets/audio/dont-drop-original-read-files/00-10.mp3",
+      "bytes": 20972
+    },
+    {
+      "path": "aider/website/assets/audio/dont-drop-original-read-files/00-20.mp3",
+      "bytes": 10796
+    },
+    {
+      "path": "aider/website/assets/audio/dont-drop-original-read-files/01-20.mp3",
+      "bytes": 7052
+    },
+    {
+      "path": "aider/website/assets/audio/dont-drop-original-read-files/01-30.mp3",
+      "bytes": 15404
+    },
+    {
+      "path": "aider/website/assets/audio/dont-drop-original-read-files/01-45.mp3",
+      "bytes": 8012
+    },
+    {
+      "path": "aider/website/assets/audio/dont-drop-original-read-files/02-10.mp3",
+      "bytes": 19340
+    },
+    {
+      "path": "aider/website/assets/audio/dont-drop-original-read-files/02-19.mp3",
+      "bytes": 9932
+    },
+    {
+      "path": "aider/website/assets/audio/dont-drop-original-read-files/02-50.mp3",
+      "bytes": 8780
+    },
+    {
+      "path": "aider/website/assets/audio/dont-drop-original-read-files/metadata.json",
+      "bytes": 644
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/00-01.mp3",
+      "bytes": 64652
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/00-25.mp3",
+      "bytes": 44876
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/01-30.mp3",
+      "bytes": 12908
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/01-45.mp3",
+      "bytes": 13964
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/02-00.mp3",
+      "bytes": 30764
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/03-00.mp3",
+      "bytes": 28172
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/03-45.mp3",
+      "bytes": 51404
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/04-45.mp3",
+      "bytes": 20300
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/05-00.mp3",
+      "bytes": 17708
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/05-10.mp3",
+      "bytes": 13196
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/06-00.mp3",
+      "bytes": 49388
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/07-43.mp3",
+      "bytes": 18188
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/09-20.mp3",
+      "bytes": 18956
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/10-20.mp3",
+      "bytes": 8684
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/10-41.mp3",
+      "bytes": 21452
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/10-55.mp3",
+      "bytes": 10796
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/11-28.mp3",
+      "bytes": 27212
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/12-00.mp3",
+      "bytes": 10412
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/12-32.mp3",
+      "bytes": 19724
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/12-48.mp3",
+      "bytes": 8972
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/13-00.mp3",
+      "bytes": 14636
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/14-30.mp3",
+      "bytes": 38732
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/14-45.mp3",
+      "bytes": 9644
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/14-59.mp3",
+      "bytes": 11948
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/15-09.mp3",
+      "bytes": 21164
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/15-34.mp3",
+      "bytes": 11372
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/15-44.mp3",
+      "bytes": 14924
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/16-04.mp3",
+      "bytes": 10796
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/16-14.mp3",
+      "bytes": 13388
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/16-29.mp3",
+      "bytes": 20204
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/16-47.mp3",
+      "bytes": 5804
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/16-55.mp3",
+      "bytes": 28844
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/17-59.mp3",
+      "bytes": 10412
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/18-35.mp3",
+      "bytes": 15020
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/19-44.mp3",
+      "bytes": 18572
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/19-54.mp3",
+      "bytes": 9068
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/20-25.mp3",
+      "bytes": 10412
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/20-55.mp3",
+      "bytes": 12236
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/21-10.mp3",
+      "bytes": 15980
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/22-32.mp3",
+      "bytes": 10700
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/24-25.mp3",
+      "bytes": 15596
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/24-56.mp3",
+      "bytes": 12620
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/25-35.mp3",
+      "bytes": 9356
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/26-20.mp3",
+      "bytes": 2828
+    },
+    {
+      "path": "aider/website/assets/audio/model-accepts-settings/metadata.json",
+      "bytes": 4072
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/00-01.mp3",
+      "bytes": 18764
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/00-10.mp3",
+      "bytes": 13100
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/01-00.mp3",
+      "bytes": 11564
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/01-10.mp3",
+      "bytes": 12236
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/01-29.mp3",
+      "bytes": 6284
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/01-45.mp3",
+      "bytes": 29996
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/02-05.mp3",
+      "bytes": 13196
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/03-37.mp3",
+      "bytes": 13772
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/04-19.mp3",
+      "bytes": 12332
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/05-02.mp3",
+      "bytes": 10124
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/05-55.mp3",
+      "bytes": 21260
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/06-12.mp3",
+      "bytes": 10508
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/06-30.mp3",
+      "bytes": 19532
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/09-02.mp3",
+      "bytes": 16172
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/09-45.mp3",
+      "bytes": 22220
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/10-15.mp3",
+      "bytes": 21452
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/11-15.mp3",
+      "bytes": 18956
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/12-00.mp3",
+      "bytes": 9068
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/13-00.mp3",
+      "bytes": 19532
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/14-00.mp3",
+      "bytes": 6956
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/16-07.mp3",
+      "bytes": 9932
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/16-16.mp3",
+      "bytes": 10508
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/16-33.mp3",
+      "bytes": 27884
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/17-01.mp3",
+      "bytes": 16076
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/17-12.mp3",
+      "bytes": 22796
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/19-04.mp3",
+      "bytes": 13388
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/19-28.mp3",
+      "bytes": 15404
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/20-20.mp3",
+      "bytes": 9836
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/20-50.mp3",
+      "bytes": 5324
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/21-30.mp3",
+      "bytes": 10220
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/24-39.mp3",
+      "bytes": 14060
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/26-55.mp3",
+      "bytes": 23948
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/27-10.mp3",
+      "bytes": 16076
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/27-19.mp3",
+      "bytes": 32684
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/27-50.mp3",
+      "bytes": 17612
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/28-12.mp3",
+      "bytes": 11276
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/28-52.mp3",
+      "bytes": 18188
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/29-27.mp3",
+      "bytes": 20876
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/30-25.mp3",
+      "bytes": 16172
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/30-37.mp3",
+      "bytes": 20012
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/31-52.mp3",
+      "bytes": 8108
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/32-27.mp3",
+      "bytes": 15788
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/32-36.mp3",
+      "bytes": 16844
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/32-42.mp3",
+      "bytes": 19820
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/32-54.mp3",
+      "bytes": 18572
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/33-05.mp3",
+      "bytes": 17132
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/33-20.mp3",
+      "bytes": 6764
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/34-10.mp3",
+      "bytes": 6572
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/35-00.mp3",
+      "bytes": 36428
+    },
+    {
+      "path": "aider/website/assets/audio/tree-sitter-language-pack/metadata.json",
+      "bytes": 3954
+    },
+    {
+      "path": "aider/website/assets/azure-deployment.png",
+      "bytes": 266096
+    },
+    {
+      "path": "aider/website/assets/benchmarks-0125.jpg",
+      "bytes": 22129
+    },
+    {
+      "path": "aider/website/assets/benchmarks-0125.svg",
+      "bytes": 39298
+    },
+    {
+      "path": "aider/website/assets/benchmarks-1106.jpg",
+      "bytes": 31405
+    },
+    {
+      "path": "aider/website/assets/benchmarks-1106.svg",
+      "bytes": 55076
+    },
+    {
+      "path": "aider/website/assets/benchmarks-speed-1106.jpg",
+      "bytes": 25984
+    },
+    {
+      "path": "aider/website/assets/benchmarks-speed-1106.svg",
+      "bytes": 48157
+    },
+    {
+      "path": "aider/website/assets/benchmarks-udiff.jpg",
+      "bytes": 147076
+    },
+    {
+      "path": "aider/website/assets/benchmarks-udiff.svg",
+      "bytes": 45258
+    },
+    {
+      "path": "aider/website/assets/benchmarks.jpg",
+      "bytes": 33907
+    },
+    {
+      "path": "aider/website/assets/benchmarks.svg",
+      "bytes": 59882
+    },
+    {
+      "path": "aider/website/assets/blame.jpg",
+      "bytes": 161825
+    },
+    {
+      "path": "aider/website/assets/browser.jpg",
+      "bytes": 406561
+    },
+    {
+      "path": "aider/website/assets/code-in-json.jpg",
+      "bytes": 161674
+    },
+    {
+      "path": "aider/website/assets/codespaces.jpg",
+      "bytes": 139383
+    },
+    {
+      "path": "aider/website/assets/codespaces.mp4",
+      "bytes": 1793301
+    },
+    {
+      "path": "aider/website/assets/copypaste.jpg",
+      "bytes": 321735
+    },
+    {
+      "path": "aider/website/assets/copypaste.mp4",
+      "bytes": 13679407
+    },
+    {
+      "path": "aider/website/assets/figure.png",
+      "bytes": 28964
+    },
+    {
+      "path": "aider/website/assets/home.css",
+      "bytes": 18294
+    },
+    {
+      "path": "aider/website/assets/icons/android-chrome-192x192.png",
+      "bytes": 29475
+    },
+    {
+      "path": "aider/website/assets/icons/android-chrome-384x384.png",
+      "bytes": 93930
+    },
+    {
+      "path": "aider/website/assets/icons/apple-touch-icon.png",
+      "bytes": 26544
+    },
+    {
+      "path": "aider/website/assets/icons/brain.svg",
+      "bytes": 2268
+    },
+    {
+      "path": "aider/website/assets/icons/browserconfig.xml",
+      "bytes": 259
+    },
+    {
+      "path": "aider/website/assets/icons/check-all.svg",
+      "bytes": 253
+    },
+    {
+      "path": "aider/website/assets/icons/code-tags.svg",
+      "bytes": 216
+    },
+    {
+      "path": "aider/website/assets/icons/content-copy.svg",
+      "bytes": 239
+    },
+    {
+      "path": "aider/website/assets/icons/favicon-16x16.png",
+      "bytes": 1212
+    },
+    {
+      "path": "aider/website/assets/icons/favicon-32x32.png",
+      "bytes": 1891
+    },
+    {
+      "path": "aider/website/assets/icons/favicon.ico",
+      "bytes": 15086
+    },
+    {
+      "path": "aider/website/assets/icons/image-multiple.svg",
+      "bytes": 259
+    },
+    {
+      "path": "aider/website/assets/icons/map-outline.svg",
+      "bytes": 400
+    },
+    {
+      "path": "aider/website/assets/icons/microphone.svg",
+      "bytes": 296
+    },
+    {
+      "path": "aider/website/assets/icons/monitor.svg",
+      "bytes": 233
+    },
+    {
+      "path": "aider/website/assets/icons/mstile-150x150.png",
+      "bytes": 18392
+    },
+    {
+      "path": "aider/website/assets/icons/safari-pinned-tab.svg",
+      "bytes": 1841
+    },
+    {
+      "path": "aider/website/assets/icons/site.webmanifest",
+      "bytes": 452
+    },
+    {
+      "path": "aider/website/assets/icons/source-branch.svg",
+      "bytes": 681
+    },
+    {
+      "path": "aider/website/assets/install.jpg",
+      "bytes": 142382
+    },
+    {
+      "path": "aider/website/assets/install.mp4",
+      "bytes": 7740091
+    },
+    {
+      "path": "aider/website/assets/leaderboard.jpg",
+      "bytes": 150361
+    },
+    {
+      "path": "aider/website/assets/linting.jpg",
+      "bytes": 157899
+    },
+    {
+      "path": "aider/website/assets/llms.jpg",
+      "bytes": 113227
+    },
+    {
+      "path": "aider/website/assets/logo.svg",
+      "bytes": 5742
+    },
+    {
+      "path": "aider/website/assets/models-over-time.png",
+      "bytes": 105527
+    },
+    {
+      "path": "aider/website/assets/models-over-time.svg",
+      "bytes": 60095
+    },
+    {
+      "path": "aider/website/assets/o1-polyglot.jpg",
+      "bytes": 160589
+    },
+    {
+      "path": "aider/website/assets/prompt-caching.jpg",
+      "bytes": 314766
+    },
+    {
+      "path": "aider/website/assets/quantization.jpg",
+      "bytes": 151649
+    },
+    {
+      "path": "aider/website/assets/qwq.jpg",
+      "bytes": 117885
+    },
+    {
+      "path": "aider/website/assets/r1-sonnet-sota.jpg",
+      "bytes": 126758
+    },
+    {
+      "path": "aider/website/assets/recordings.jpg",
+      "bytes": 220815
+    },
+    {
+      "path": "aider/website/assets/robot-ast.png",
+      "bytes": 686936
+    },
+    {
+      "path": "aider/website/assets/robot-flowchart.png",
+      "bytes": 716411
+    },
+    {
+      "path": "aider/website/assets/sample-analytics.jsonl",
+      "bytes": 155010
+    },
+    {
+      "path": "aider/website/assets/sample.aider.conf.yml",
+      "bytes": 13864
+    },
+    {
+      "path": "aider/website/assets/sample.env",
+      "bytes": 13675
+    },
+    {
+      "path": "aider/website/assets/screencast.svg",
+      "bytes": 118106
+    },
+    {
+      "path": "aider/website/assets/screenshot.png",
+      "bytes": 166103
+    },
+    {
+      "path": "aider/website/assets/self-assembly.jpg",
+      "bytes": 166032
+    },
+    {
+      "path": "aider/website/assets/shell-cmds-small.mp4",
+      "bytes": 10547819
+    },
+    {
+      "path": "aider/website/assets/shell-cmds.jpg",
+      "bytes": 531265
+    },
+    {
+      "path": "aider/website/assets/sonnet-not-lazy.jpg",
+      "bytes": 214104
+    },
+    {
+      "path": "aider/website/assets/sonnet-seems-fine.jpg",
+      "bytes": 150910
+    },
+    {
+      "path": "aider/website/assets/swe_bench.jpg",
+      "bytes": 43436
+    },
+    {
+      "path": "aider/website/assets/swe_bench.svg",
+      "bytes": 59635
+    },
+    {
+      "path": "aider/website/assets/swe_bench_lite.jpg",
+      "bytes": 39368
+    },
+    {
+      "path": "aider/website/assets/swe_bench_lite.svg",
+      "bytes": 54496
+    },
+    {
+      "path": "aider/website/assets/thinking.jpg",
+      "bytes": 348914
+    },
+    {
+      "path": "aider/website/assets/udiffs.jpg",
+      "bytes": 85462
+    },
+    {
+      "path": "aider/website/assets/watch.jpg",
+      "bytes": 209071
+    },
+    {
+      "path": "aider/website/assets/watch.mp4",
+      "bytes": 11339864
+    },
+    {
+      "path": "requirements/pydub.in",
+      "bytes": 103
+    },
+    {
+      "path": "requirements/python-compat.in",
+      "bytes": 422
+    },
+    {
+      "path": "requirements/requirements-browser.in",
+      "bytes": 10
+    },
+    {
+      "path": "requirements/requirements-dev.in",
+      "bytes": 317
+    },
+    {
+      "path": "requirements/requirements-help.in",
+      "bytes": 455
+    },
+    {
+      "path": "requirements/requirements-playwright.in",
+      "bytes": 11
+    },
+    {
+      "path": "requirements/requirements.in",
+      "bytes": 998
+    },
+    {
+      "path": "requirements/tree-sitter.in",
+      "bytes": 96
+    },
+    {
+      "path": "scripts/Dockerfile.jekyll",
+      "bytes": 579
+    },
+    {
+      "path": "tests/fixtures/chat-history-search-replace-gold.txt",
+      "bytes": 987911
+    },
+    {
+      "path": "tests/fixtures/chat-history.md",
+      "bytes": 4153283
+    },
+    {
+      "path": "tests/fixtures/languages/arduino/test.ino",
+      "bytes": 429
+    },
+    {
+      "path": "tests/fixtures/languages/bash/test.sh",
+      "bytes": 181
+    },
+    {
+      "path": "tests/fixtures/languages/c/test.c",
+      "bytes": 345
+    },
+    {
+      "path": "tests/fixtures/languages/chatito/test.chatito",
+      "bytes": 277
+    },
+    {
+      "path": "tests/fixtures/languages/clojure/test.clj",
+      "bytes": 101
+    },
+    {
+      "path": "tests/fixtures/languages/commonlisp/test.lisp",
+      "bytes": 523
+    },
+    {
+      "path": "tests/fixtures/languages/cpp/test.cpp",
+      "bytes": 97
+    },
+    {
+      "path": "tests/fixtures/languages/csharp/test.cs",
+      "bytes": 964
+    },
+    {
+      "path": "tests/fixtures/languages/d/test.d",
+      "bytes": 416
+    },
+    {
+      "path": "tests/fixtures/languages/dart/test.dart",
+      "bytes": 369
+    },
+    {
+      "path": "tests/fixtures/languages/elisp/test.el",
+      "bytes": 653
+    },
+    {
+      "path": "tests/fixtures/languages/elixir/test.ex",
+      "bytes": 83
+    },
+    {
+      "path": "tests/fixtures/languages/elm/test.elm",
+      "bytes": 1033
+    },
+    {
+      "path": "tests/fixtures/languages/gleam/test.gleam",
+      "bytes": 137
+    },
+    {
+      "path": "tests/fixtures/languages/go/test.go",
+      "bytes": 772
+    },
+    {
+      "path": "tests/fixtures/languages/haskell/test.hs",
+      "bytes": 98
+    },
+    {
+      "path": "tests/fixtures/languages/hcl/test.tf",
+      "bytes": 1076
+    },
+    {
+      "path": "tests/fixtures/languages/java/test.java",
+      "bytes": 369
+    },
+    {
+      "path": "tests/fixtures/languages/javascript/test.js",
+      "bytes": 440
+    },
+    {
+      "path": "tests/fixtures/languages/kotlin/test.kt",
+      "bytes": 302
+    },
+    {
+      "path": "tests/fixtures/languages/lua/test.lua",
+      "bytes": 462
+    },
+    {
+      "path": "tests/fixtures/languages/matlab/test.m",
+      "bytes": 1015
+    },
+    {
+      "path": "tests/fixtures/languages/ocaml/test.ml",
+      "bytes": 368
+    },
+    {
+      "path": "tests/fixtures/languages/ocaml_interface/test.mli",
+      "bytes": 229
+    },
+    {
+      "path": "tests/fixtures/languages/php/test.php",
+      "bytes": 61
+    },
+    {
+      "path": "tests/fixtures/languages/pony/test.pony",
+      "bytes": 183
+    },
+    {
+      "path": "tests/fixtures/languages/properties/test.properties",
+      "bytes": 290
+    },
+    {
+      "path": "tests/fixtures/languages/python/test.py",
+      "bytes": 680
+    },
+    {
+      "path": "tests/fixtures/languages/ql/test.ql",
+      "bytes": 50
+    },
+    {
+      "path": "tests/fixtures/languages/r/test.r",
+      "bytes": 395
+    },
+    {
+      "path": "tests/fixtures/languages/racket/test.rkt",
+      "bytes": 144
+    },
+    {
+      "path": "tests/fixtures/languages/ruby/test.rb",
+      "bytes": 45
+    },
+    {
+      "path": "tests/fixtures/languages/rust/test.rs",
+      "bytes": 632
+    },
+    {
+      "path": "tests/fixtures/languages/scala/test.scala",
+      "bytes": 1280
+    },
+    {
+      "path": "tests/fixtures/languages/solidity/test.sol",
+      "bytes": 451
+    },
+    {
+      "path": "tests/fixtures/languages/swift/test.swift",
+      "bytes": 312
+    },
+    {
+      "path": "tests/fixtures/languages/tsx/test.tsx",
+      "bytes": 733
+    },
+    {
+      "path": "tests/fixtures/languages/typescript/test.ts",
+      "bytes": 75
+    },
+    {
+      "path": "tests/fixtures/languages/udev/test.rules",
+      "bytes": 545
+    },
+    {
+      "path": "tests/fixtures/languages/zig/test.zig",
+      "bytes": 197
+    },
+    {
+      "path": "tests/fixtures/sample-code-base-repo-map.txt",
+      "bytes": 1276
+    },
+    {
+      "path": "tests/fixtures/sample-code-base/sample.js",
+      "bytes": 1356
+    },
+    {
+      "path": "tests/fixtures/sample-code-base/sample.py",
+      "bytes": 1722
+    },
+    {
+      "path": "tests/fixtures/watch.js",
+      "bytes": 633
+    },
+    {
+      "path": "tests/fixtures/watch.lisp",
+      "bytes": 445
+    },
+    {
+      "path": "tests/fixtures/watch.py",
+      "bytes": 368
+    },
+    {
+      "path": "tests/fixtures/watch_question.js",
+      "bytes": 225
+    },
+    {
+      "path": "aider/website/docs/recordings/auto-accept-architect.md",
+      "bytes": 1131,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "aider/website/docs/recordings/dont-drop-original-read-files.md",
+      "bytes": 1196,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "aider/website/docs/recordings/index.md",
+      "bytes": 639,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "aider/website/docs/recordings/model-accepts-settings.md",
+      "bytes": 4476,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "aider/website/docs/recordings/tree-sitter-language-pack.md",
+      "bytes": 4361,
+      "reason": "experimental output or recorded response"
+    }
+  ]
+}

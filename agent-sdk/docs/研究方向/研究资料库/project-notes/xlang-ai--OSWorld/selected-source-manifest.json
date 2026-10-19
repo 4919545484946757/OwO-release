@@ -1,0 +1,166 @@
+[
+  {
+    "path": "mm_agents/uipath/memory.py",
+    "sha256": "1d157d09de93a55be4607d08664c7c2c1c06a49fddfbd028f30c4330eed0e9de",
+    "bytes": 5293,
+    "symbols": [
+      "class EnumMemoryOperationType(str, Enum):",
+      "class MemoryOperation(object):",
+      "def __init__(",
+      "def from_dict(data: dict) -> \"MemoryOperation\":",
+      "class ShortTermMemoryManager:",
+      "async def get_updated_memory(",
+      "def extract_memory_operations(self, memory_response: str | None) -> list[MemoryOperation]:"
+    ]
+  },
+  {
+    "path": "mm_agents/pointer/task_logger.py",
+    "sha256": "ab46f68131abbd49a18a5083273e324773b086b5df9d2d6469f7decbdd0ced92",
+    "bytes": 3677,
+    "symbols": [
+      "class _AgentLoggerAdapter(logging.LoggerAdapter):",
+      "def process(self, msg, kwargs):  # type: ignore[override]",
+      "class _DefaultAgentFilter(logging.Filter):",
+      "def filter(self, record: logging.LogRecord) -> bool:",
+      "def setup_task_logger(",
+      "def get_agent_logger(agent_name: str) -> _AgentLoggerAdapter:",
+      "def save_screenshot(screenshot_b64: str, step_idx: int) -> str:",
+      "def save_screenshot_bytes(png_bytes: bytes, label: str = \"screenshot\") -> str:",
+      "def log_agent_api_call("
+    ]
+  },
+  {
+    "path": "mm_agents/dart_gui/task_loader.py",
+    "sha256": "9a76794cca7b9445b3a5de7040a79b96b54cdeca1311ffeeee08904313eb029f",
+    "bytes": 6500,
+    "symbols": [
+      "class TaskLoader:",
+      "def __init__(self, task_cfg: DictConfig, storage_root):",
+      "def poll_for_tasks(self) -> List[Dict]:",
+      "def _maybe_refresh_dataset_bak(self):",
+      "def _maybe_refresh_dataset(self):",
+      "def _find_latest_json(self) -> Optional[Path]:",
+      "def _calc_sha1(fp: Path, chunk_size=2<<20) -> str:",
+      "class TaskInfo:",
+      "def to_dict(self):",
+      "def build_task(raw: Dict, osworld_root: Path, use_call_user: bool = False) -> TaskInfo:"
+    ]
+  },
+  {
+    "path": "mm_agents/pointer/agent_executor.py",
+    "sha256": "5fd5cb69b3aa770492f9e73d1309ccc986a87f8673db4e4d2d8a8c0d78d7895d",
+    "bytes": 25587,
+    "symbols": [
+      "def _handle_run_python(executor: Executor, inp: dict) -> tuple[str | None, ToolResult]:",
+      "def _handle_run_bash(executor: Executor, inp: dict) -> tuple[str | None, ToolResult]:",
+      "def _handle_read_file(executor: Executor, inp: dict) -> tuple[str | None, ToolResult]:",
+      "def _handle_write_file(executor: Executor, inp: dict) -> tuple[str | None, ToolResult]:",
+      "def _handle_install_package(executor: Executor, inp: dict) -> tuple[str | None, ToolResult]:",
+      "def _handle_run_background(executor: Executor, inp: dict) -> tuple[str | None, ToolResult]:",
+      "def _scale_xy(coordinate: list[int] | tuple[int, int], resize_factor: tuple[float, float]) -> tuple[int, int]:",
+      "def _handle_click(executor: Executor, inp: dict) -> tuple[str | None, ToolResult]:",
+      "def _handle_type(executor: Executor, inp: dict) -> tuple[str | None, ToolResult]:",
+      "def _handle_scroll(executor: Executor, inp: dict) -> tuple[str | None, ToolResult]:",
+      "def _handle_drag_and_drop(executor: Executor, inp: dict) -> tuple[str | None, ToolResult]:",
+      "def _handle_hotkey(executor: Executor, inp: dict) -> tuple[str | None, ToolResult]:"
+    ]
+  },
+  {
+    "path": "mm_agents/aworldguiagent/workflow.py",
+    "sha256": "ce298635cb4829986e7a2033daeb322533a5499b762db6c7b89368bb22c0862e",
+    "bytes": 8587,
+    "symbols": [
+      "class Worker:",
+      "def __init__(",
+      "def reset(self):",
+      "def generate_next_action("
+    ]
+  },
+  {
+    "path": "mm_agents/vlaa_gui/memory/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "symbols": []
+  },
+  {
+    "path": "mm_agents/coact/autogen/graph_utils.py",
+    "sha256": "d9d7c6507642085eb6f6f874bcc2bd58c5c85fe662fa27fd35b742d0a15cbb0e",
+    "bytes": 7904,
+    "symbols": [
+      "def has_self_loops(allowed_speaker_transitions: dict[str, list[Agent]]) -> bool:",
+      "def check_graph_validity(",
+      "def invert_disallowed_to_allowed(",
+      "def visualize_speaker_transitions_dict("
+    ]
+  },
+  {
+    "path": "mm_agents/os_symphony/memory/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "symbols": []
+  },
+  {
+    "path": "mm_agents/maestro/maestro/new_executor.py",
+    "sha256": "dbd98fc2d56c0c116734f8fc209551f5c32fc1ef03dcf8e0f37d6da1727006ee",
+    "bytes": 25547,
+    "symbols": [
+      "class NewExecutor:",
+      "def __init__(self, global_state: NewGlobalState, hardware_interface: HardwareInterface, env_controller: Optional[DesktopEnv] = None):",
+      "def _run_code_blocks(self, code_blocks: List[Tuple[str, str]]) -> Tuple[bool, str, Optional[str]]:",
+      "def _run_hardware_action(self, action: Dict[str, Any]) -> Tuple[bool, Optional[str], Optional[Image.Image]]:",
+      "def execute_command(self, command: CommandData) -> Dict[str, Any]:",
+      "def execute_current_action(self) -> Dict[str, Any]:",
+      "def _execute_code_blocks(self, code_blocks: List[Tuple[str, str]], subtask_id: str, command_id: Optional[str] = None) -> Dict[str, Any]:",
+      "def _extract_code_blocks(self, text: str) -> List[Tuple[str, str]]:",
+      "def _execute_action(self, subtask_id: str, action: Dict[str, Any], command_id: Optional[str] = None) -> Dict[str, Any]:",
+      "def _record_execution_result(self, subtask_id: str, success: bool, error_message: Optional[str], execution_time: float):",
+      "def _create_execution_result(self, success: bool, error_message: Optional[str] = None, execution_time: float = 0.0, action: Optional[Dict[str, Any]] = None) -> ",
+      "def get_execution_status(self) -> Dict[str, Any]:"
+    ]
+  },
+  {
+    "path": "mm_agents/coact/autogen/runtime_logging.py",
+    "sha256": "c82999383bf0a9847dd66f255f74384a83dc63e0cae3c345e26e7a08fe8e9b77",
+    "bytes": 4692,
+    "symbols": [
+      "def start(",
+      "def log_chat_completion(",
+      "def log_new_agent(agent: ConversableAgent, init_args: dict[str, Any]) -> None:",
+      "def log_event(source: str | Agent, name: str, **kwargs: dict[str, Any]) -> None:",
+      "def log_function_use(agent: str | Agent, function: F, args: dict[str, Any], returns: any):",
+      "def log_new_wrapper(wrapper: OpenAIWrapper, init_args: dict[str, LLMConfig | list[LLMConfig]]) -> None:",
+      "def log_new_client(",
+      "def stop() -> None:",
+      "def get_connection() -> None | sqlite3.Connection:",
+      "def logging_enabled() -> bool:"
+    ]
+  },
+  {
+    "path": "mm_agents/autoglm/prompt/procedural_memory.py",
+    "sha256": "8791bbbdca9363d0f907ac372b64777ad83e58a713020972de2419f2e68d59f9",
+    "bytes": 8301,
+    "symbols": [
+      "def generate_func(json_data):",
+      "class Prompt:",
+      "def construct_procedural_memory(agent_class, app_name=None, client_password=\"password\"):",
+      "def {attr_name}{signature}:"
+    ]
+  },
+  {
+    "path": "mm_agents/os_symphony/agents/memoryer_agent.py",
+    "sha256": "2ec4a320397112adfa639f69a9fa390e2e046bac7f0805766f2edc9a985b5e5a",
+    "bytes": 17011,
+    "symbols": [
+      "class StepBehavior:",
+      "def __init__(self, is_milestone: bool, gen_output: str, summary: str, obs: Dict, action_dict: Dict):",
+      "def _update_phash_ssim(self, history: List):",
+      "class ReflectionMemoryAgent:",
+      "def __init__(self, engine_params: Dict):",
+      "def reset(self):",
+      "def add_instruction(self, instruction):",
+      "def _update_trajectory(self, step_behavior):",
+      "def _summarize_step_behavior(",
+      "def get_reflection("
+    ]
+  }
+]

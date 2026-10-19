@@ -1,0 +1,108 @@
+[
+  {
+    "path": "tau_bench/agents/base.py",
+    "sha256": "d9c5b6e76048777db644039b40aba76ea1d57694d9604d1df2571947450308d1",
+    "bytes": 336,
+    "symbols": [
+      "class Agent(abc.ABC):",
+      "def solve("
+    ]
+  },
+  {
+    "path": "tau_bench/agents/__init__.py",
+    "sha256": "48747a78fd49944aaef6f540269b5b77e558b8b996cb0f7210b80317769bc032",
+    "bytes": 19,
+    "symbols": []
+  },
+  {
+    "path": "tau_bench/agents/few_shot_agent.py",
+    "sha256": "7e57348ad6a18a4de4d6ba75a6dfa1f6de4442f7f90b17127e26574ef348b612",
+    "bytes": 3950,
+    "symbols": [
+      "class FewShotToolCallingAgent(Agent):",
+      "def __init__(",
+      "def solve(",
+      "def message_to_action("
+    ]
+  },
+  {
+    "path": "tau_bench/agents/chat_react_agent.py",
+    "sha256": "c545fe77d51a24d0595e719d6bd234f1342a33477f507bc72a29545c04193cb9",
+    "bytes": 6731,
+    "symbols": [
+      "class ChatReActAgent(Agent):",
+      "def __init__(",
+      "def generate_next_step(",
+      "def solve("
+    ]
+  },
+  {
+    "path": "tau_bench/agents/tool_calling_agent.py",
+    "sha256": "2d4a02ccd14cb6bdbbeafde49d5d682690625875feb6c9506f903bf98b0792f8",
+    "bytes": 3252,
+    "symbols": [
+      "class ToolCallingAgent(Agent):",
+      "def __init__(",
+      "def solve(",
+      "def message_to_action("
+    ]
+  },
+  {
+    "path": "run.py",
+    "sha256": "777fa6c1191215364131e701cc6d1ec684bc1fd5bc69b9240e19224ac0c03863",
+    "bytes": 3251,
+    "symbols": [
+      "def parse_args() -> RunConfig:",
+      "def main():"
+    ]
+  },
+  {
+    "path": "setup.py",
+    "sha256": "e7d62c0ec936ef64301f5219a61f01acd3a472c1a442f5bfd55f592afefdd4fc",
+    "bytes": 524,
+    "symbols": []
+  },
+  {
+    "path": "auto_error_identification.py",
+    "sha256": "9b1b3526b21c65fbc45536d496b930319c3a8fe8b85dd9d009f2917e360b6806",
+    "bytes": 13062,
+    "symbols": [
+      "def get_args() -> argparse.Namespace:",
+      "class OriginalResult(BaseModel):",
+      "class FaultAuthor(Enum):",
+      "class FaultAssignmentResult(BaseModel):",
+      "def model_dump(self) -> Dict[str, Any]:",
+      "class FaultType(Enum):",
+      "class FaultTypeResult(BaseModel):",
+      "def model_dump(self) -> Dict[str, Any]:",
+      "class GradingStrategy(Enum):",
+      "def context_description(grading_strategy: GradingStrategy) -> str:",
+      "def display_traj(traj: List[Dict[str, Any]]) -> str:",
+      "def display_actions(actions: List[Action]) -> str:"
+    ]
+  },
+  {
+    "path": "tau_bench/envs/retail/tasks.py",
+    "sha256": "11f2da9e3f05998736f95cf4e9943724603d95a6929d7f95024d7b000afa8bc5",
+    "bytes": 178995,
+    "symbols": []
+  },
+  {
+    "path": "tau_bench/envs/airline/tasks.py",
+    "sha256": "5db940002a4b103eb7409f6425e91dd9090d35d7f9abbcdd3f10bc0358535c31",
+    "bytes": 72697,
+    "symbols": []
+  },
+  {
+    "path": "tau_bench/envs/retail/tasks_dev.py",
+    "sha256": "87dfe578d0271e7b0b5dfb40621a5c0dcc0e8452a75b8f3f8d1dcf0abac4ff14",
+    "bytes": 19326,
+    "symbols": []
+  },
+  {
+    "path": "tau_bench/envs/retail/tasks_test.py",
+    "sha256": "6f09468923c6cfb6162e94fe659264d6aee70816c18d51278fb4a581db7765a4",
+    "bytes": 169476,
+    "symbols": []
+  }
+]

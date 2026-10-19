@@ -1,0 +1,189 @@
+[
+  {
+    "path": "src/google/adk/cli/agent_graph.py",
+    "sha256": "72043bc72a75b2478b6ae08baaf3ef6a454e2dfbf57bf6901658e82941b5e00c",
+    "bytes": 10870,
+    "symbols": [
+      "async def build_graph(",
+      "def get_node_name(tool_or_agent: Union[BaseAgent, BaseTool]) -> str:",
+      "def get_node_caption(tool_or_agent: Union[BaseAgent, BaseTool]) -> str:",
+      "def get_node_shape(tool_or_agent: Union[BaseAgent, BaseTool]) -> str:",
+      "def should_build_agent_cluster(",
+      "async def build_cluster(",
+      "async def draw_node(tool_or_agent: Union[BaseAgent, BaseTool]) -> None:",
+      "def draw_edge(from_name: str, to_name: str) -> None:",
+      "async def get_agent_graph("
+    ]
+  },
+  {
+    "path": "src/google/adk/workflow/_graph.py",
+    "sha256": "1514520a58919cee5a48f3b48f96da4edf2fdbc3bd035d4dd04c8be2309d1181",
+    "bytes": 6157,
+    "symbols": [
+      "class Edge(BaseModel):",
+      "class Graph(BaseModel):",
+      "def from_edge_items(cls, edge_items: list[EdgeItem]) -> Graph:",
+      "def model_post_init(self, context: Any) -> None:",
+      "def get_next_pending_nodes(",
+      "def validate_graph(self) -> None:"
+    ]
+  },
+  {
+    "path": "src/google/adk/cli/agent_test_runner.py",
+    "sha256": "25999c7b3625d4b476202ddf63d9bcac7c1c9982a82e22466a6f91e7d418dc33",
+    "bytes": 32445,
+    "symbols": [
+      "def get_test_files(",
+      "class MockModel(BaseLlm):",
+      "def create(cls, contents: list[types.Content]):",
+      "def supported_models(cls) -> list[str]:",
+      "async def generate_content_async(",
+      "class InMemoryRunner:",
+      "def __init__(self, root_agent=None, app=None):",
+      "def session(self):",
+      "def run(self, new_message) -> list[AdkEvent]:",
+      "def normalize_events(events, is_json=False):",
+      "def make_sort_key(d):",
+      "def _make_nodes_sequential(obj, visited=None):"
+    ]
+  },
+  {
+    "path": "src/google/adk/workflow/_node_runner.py",
+    "sha256": "c79073aaa9a30e298152487d6e85e412339081721761abb5f2f2a518b058c9c9",
+    "bytes": 17542,
+    "symbols": [
+      "def _has_non_output_content(event: Event) -> bool:",
+      "class NodeRunner:",
+      "def __init__(",
+      "def run_id(self) -> str:",
+      "async def run(",
+      "def _reset_dynamic_children_for_retry(self, ctx: Context) -> None:",
+      "async def _attempt_retry(self, e: Exception, attempt_count: int) -> bool:",
+      "def _create_child_context(",
+      "async def _execute_node(",
+      "async def _run_node_loop(self, ctx: Context, node_input: Any) -> None:",
+      "async def _run_node_loop_with_timeout(",
+      "def _track_event_in_context(self, event: Event, ctx: Context) -> None:"
+    ]
+  },
+  {
+    "path": "src/google/adk/agents/langgraph_agent.py",
+    "sha256": "737d228b69d22765a7699db9c540d2722b0cd6af353cb3a98a6968e50de3910a",
+    "bytes": 6572,
+    "symbols": [
+      "def _get_thread_id(app_name: str, user_id: str, session_id: str) -> str:",
+      "def _get_last_human_messages(",
+      "class LangGraphAgent(BaseAgent):",
+      "async def _run_async_impl(",
+      "def _get_messages(",
+      "def _get_conversation_with_agent("
+    ]
+  },
+  {
+    "path": "src/google/adk/workflow/_llm_agent_wrapper.py",
+    "sha256": "498ab25f14a79311dc54ed0f517fafa85f747bdf73c8c3f6684e79c1d18463cb",
+    "bytes": 21629,
+    "symbols": [
+      "def _extract_finish_task_fc(event: Event) -> types.FunctionCall | None:",
+      "def _extract_task_delegation_fcs(",
+      "def _event_has_eager_tool_calls(",
+      "async def _drain_pending_tool_response_events(",
+      "def _find_unresolved_task_delegations(",
+      "def _agent_tools(agent: LlmAgent) -> list[ToolUnion]:",
+      "def _find_finish_task_tool(agent: LlmAgent) -> ToolUnion | None:",
+      "def _safe_canonical_tools_dict(agent: LlmAgent) -> dict[str, ToolUnion]:",
+      "async def _dispatch_task_fc(",
+      "def _synthesize_task_fr_event(fc: types.FunctionCall, output: Any) -> Event:",
+      "def _effective_llm_agent_mode(agent: LlmAgent) -> str:",
+      "def prepare_llm_agent_context(agent: LlmAgent, ctx: Context) -> Context:"
+    ]
+  },
+  {
+    "path": "src/google/adk/workflow/_node_runner_utils.py",
+    "sha256": "1257dc15788ae842537d1e02bed3ae8fe6f43a7934d4b2df3d1c597d4406a1c3",
+    "bytes": 16118,
+    "symbols": [
+      "async def run_node_async(",
+      "async def _run() -> AsyncGenerator[Event, None]:",
+      "async def _drive_root_node() -> None:"
+    ]
+  },
+  {
+    "path": "src/google/adk/optimization/agent_optimizer.py",
+    "sha256": "6f4f7598c383173f7ed5b172090cbbc2d8b334b7e0baa04bd864a174dadfac28",
+    "bytes": 1640,
+    "symbols": [
+      "class AgentOptimizer(ABC, Generic[SamplingResultT, AgentWithScoresT]):",
+      "async def optimize("
+    ]
+  },
+  {
+    "path": "src/google/adk/workflow/_dynamic_node_scheduler.py",
+    "sha256": "30bb9ee35603b47cec8f0e36b7fac7dacc9ec7819129e5e810ff9250cab360c4",
+    "bytes": 28065,
+    "symbols": [
+      "class DynamicNodeRun:",
+      "class DynamicNodeState:",
+      "def next_run_id(self, node_name: str, parent_path: str = '') -> str:",
+      "def reset_for_retry(self, parent_path: str) -> None:",
+      "def get_dynamic_tasks(self) -> list[asyncio.Task[Context]]:",
+      "class DynamicNodeScheduler:",
+      "def __init__(",
+      "async def __call__(",
+      "async def _execute_step(",
+      "async def _check_existing_run(",
+      "def _rehydrate_from_events(self, ctx: Context, node_path: str) -> None:",
+      "async def _run_node_internal("
+    ]
+  },
+  {
+    "path": "src/google/adk/optimization/gepa_root_agent_optimizer.py",
+    "sha256": "e073cdf4d4eabb24b77969a2e460ed425e9a399bdda1fa5b4955c8add1ad2962",
+    "bytes": 17164,
+    "symbols": [
+      "class GEPARootAgentOptimizerConfig(BaseModel):",
+      "class GEPARootAgentOptimizerResult(OptimizerResult[AgentWithScores]):",
+      "def _update_skill_toolset(",
+      "def _create_agent_from_candidate(",
+      "def _create_agent_gepa_adapter_class() -> type[Any]:",
+      "class _AgentGEPAAdapter(  # type: ignore[misc]",
+      "def __init__(",
+      "def evaluate(",
+      "def make_reflective_dataset(",
+      "def propose_new_texts(",
+      "class GEPARootAgentOptimizer(",
+      "def __init__("
+    ]
+  },
+  {
+    "path": "src/google/adk/optimization/gepa_root_agent_prompt_optimizer.py",
+    "sha256": "dbc15f4dbe9d841af43babf04218047d3d89914460433ba5eee768cdd08a7d31",
+    "bytes": 10814,
+    "symbols": [
+      "class GEPARootAgentPromptOptimizerConfig(BaseModel):",
+      "class GEPARootAgentPromptOptimizerResult(OptimizerResult[AgentWithScores]):",
+      "def _create_agent_gepa_adapter_class() -> type[Any]:",
+      "class _AgentGEPAAdapter(  # type: ignore[misc]",
+      "def __init__(",
+      "def evaluate(",
+      "def make_reflective_dataset(",
+      "class GEPARootAgentPromptOptimizer(",
+      "def __init__(",
+      "async def optimize(",
+      "def reflection_lm(prompt: GEPAPrompt) -> str:",
+      "def run_gepa() -> GEPAResult[dict[str, Any], int]:"
+    ]
+  },
+  {
+    "path": "src/google/adk/code_executors/agent_engine_sandbox_code_executor.py",
+    "sha256": "ba3a54197dad940715ff07aca47bab7edff05b228738d970c0f0c9b1cfc10337",
+    "bytes": 11385,
+    "symbols": [
+      "class AgentEngineSandboxCodeExecutor(BaseCodeExecutor):",
+      "def __init__(",
+      "def execute_code(",
+      "def _get_api_client(self) -> agentplatform.Client:",
+      "def _get_project_id_and_location_from_resource_name("
+    ]
+  }
+]

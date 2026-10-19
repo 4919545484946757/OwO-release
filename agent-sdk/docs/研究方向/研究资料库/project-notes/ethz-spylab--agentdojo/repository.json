@@ -1,0 +1,10 @@
+{
+  "full_name": "ethz-spylab/agentdojo",
+  "default_branch": "main",
+  "sha": "089ed468cf3ed0322acc66b0211f26d9d90dbf60",
+  "license": null,
+  "description": null,
+  "archived": null,
+  "pushed_at": null,
+  "identity_source": "git ls-remote public HEAD"
+}

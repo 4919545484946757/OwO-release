@@ -4,7 +4,7 @@
 * 日期：2026-09-20
 * 相关：指南 §2.2 / §3（`ocr.rs`、`onnx_ocr.rs`、`stt.rs`、`accessibility.rs`、`vision.rs` → Perception Worker）、
   §9 A3（Perception Worker 是独立 workspace）、§10（资源红线：普通 Agent 改动不得触发 ONNX 编译）、
-  `docs/ARCH-MICROKERNEL.md` §16（M14 候选）、ADR-001（Tool-Safety 的环处置）
+  `docs/architecture/ARCH-MICROKERNEL.md` §16（M14 候选）、ADR-001（Tool-Safety 的环处置）
 
 ---
 

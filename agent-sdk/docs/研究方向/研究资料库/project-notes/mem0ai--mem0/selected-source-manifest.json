@@ -1,0 +1,101 @@
+[
+  {
+    "path": "integrations/pi-agent-plugin/src/memory/tools.ts",
+    "sha256": "ff97deeebcc3f223466d175c9113febe97a9fa80eb7d4f24d25a417c14bceed1",
+    "bytes": 8692,
+    "symbols": [
+      "export function buildToolExecute(",
+      "export function registerMemoryTool("
+    ]
+  },
+  {
+    "path": "integrations/pi-agent-plugin/src/memory/scoping.ts",
+    "sha256": "40f9309a6983eb5c76573c62d20c9d4572e7285cb6cbaea150371a4aad822b8b",
+    "bytes": 1105,
+    "symbols": [
+      "export function detectAppId(cwd: string): string {",
+      "export function detectRunId(sessionFile: string | undefined): string {",
+      "export function resolveSearchFilters(",
+      "export function resolveAddParams("
+    ]
+  },
+  {
+    "path": "integrations/pi-agent-plugin/src/memory/formatting.ts",
+    "sha256": "ca781acf46d73ab6e90d1912b3064316f510ceab3af95d66dcee3fcefdedd049",
+    "bytes": 241,
+    "symbols": []
+  },
+  {
+    "path": "integrations/pi-agent-plugin/src/memory/scoping.test.ts",
+    "sha256": "89b267840d2ad216bac62fd056af194aafe1eeceaf7f4cfbb736f38187a620a2",
+    "bytes": 2864,
+    "symbols": []
+  },
+  {
+    "path": "cli/node/src/agent-detect.ts",
+    "sha256": "45b1c427d92ff2ebe82c6e51438af30acd465981b811c6d7c2729425e5e7b140",
+    "bytes": 1222,
+    "symbols": [
+      "export function detectAgentCaller(): string | null {"
+    ]
+  },
+  {
+    "path": "integrations/pi-agent-plugin/src/entry.ts",
+    "sha256": "b3ce0cd5a61b24bb60fa81ddcd4789080641fa94269054d3d83459ad8cbee9a1",
+    "bytes": 3889,
+    "symbols": [
+      "export function resolveUserId(configUserId: string): string {"
+    ]
+  },
+  {
+    "path": "integrations/pi-agent-plugin/src/index.ts",
+    "sha256": "955edd5d919beeea31842562c2b24419a23fcc07a5dbd321adaada52a41d4557",
+    "bytes": 847,
+    "symbols": []
+  },
+  {
+    "path": "integrations/pi-agent-plugin/src/types.ts",
+    "sha256": "56f85e6770dffc4b4c80798d484cea6698456ae38da912e8f55067ac52a84b9e",
+    "bytes": 1209,
+    "symbols": [
+      "export interface Mem0Config {",
+      "export interface ScopeContext {",
+      "export interface CustomCategory {",
+      "export const DEFAULT_CUSTOM_CATEGORIES: CustomCategory[] = ["
+    ]
+  },
+  {
+    "path": "integrations/pi-agent-plugin/src/prompt.ts",
+    "sha256": "689b654662f44e2a1216cb9fdf61ad347b63aa902d476514bc94b42dc103a413",
+    "bytes": 857,
+    "symbols": [
+      "export const MEMORY_POLICY = `<mem0-memory-policy>"
+    ]
+  },
+  {
+    "path": "integrations/pi-agent-plugin/src/commands.ts",
+    "sha256": "b2b168f9e0f15ff54c91c4cfa1c7e0f9b78812d2451463ebd25a52a3a6b6fcad",
+    "bytes": 9514,
+    "symbols": [
+      "export function registerCommands("
+    ]
+  },
+  {
+    "path": "integrations/pi-agent-plugin/src/telemetry.ts",
+    "sha256": "5db5f15843ae90db0039e60ab8f953611468e4381fb8267cb52955b8c1f3ae5c",
+    "bytes": 3066,
+    "symbols": [
+      "export function captureEvent(",
+      "export function captureToolEvent(",
+      "export function captureCommandEvent(",
+      "export function _getEventQueue(): Record<string, unknown>[] {",
+      "export function _resetForTesting(): void {"
+    ]
+  },
+  {
+    "path": "integrations/pi-agent-plugin/src/entry.test.ts",
+    "sha256": "a7515e0ea5ddf0d24f0e02015818ac4b65c1d30f5394a0ffb22ece722e3437f7",
+    "bytes": 2089,
+    "symbols": []
+  }
+]

@@ -1,0 +1,202 @@
+[
+  {
+    "path": "_transfer_math/evaluate_gpqa.py",
+    "sha256": "bdbc855002837e10af1133f8b651a0ed69c6129688ea0622923c6858dca9cc09",
+    "bytes": 9705,
+    "symbols": [
+      "def get_json_response_from_gpt(",
+      "def get_json_response_from_gpt_reflect(",
+      "class LLMAgentBase():",
+      "def __init__(self, output_fields: list, agent_name: str,",
+      "def generate_prompt(self, input_infos, instruction) -> str:",
+      "def query(self, input_infos: list, instruction, iteration_idx=-1) -> dict:",
+      "def __repr__(self):",
+      "def __call__(self, input_infos: list, instruction, iteration_idx=-1):",
+      "class AgentSystem():",
+      "def __init__(self) -> None:",
+      "def evaluate(args):",
+      "def evaluate_forward_fn(args, forward_str):"
+    ]
+  },
+  {
+    "path": "_transfer_math/evaluate_mmlu.py",
+    "sha256": "6544cfa5d341d5cf1cd12e797d0643f7c216ad4c4150880fe43ef33b35055dd9",
+    "bytes": 9784,
+    "symbols": [
+      "def get_json_response_from_gpt(",
+      "def get_json_response_from_gpt_reflect(",
+      "class LLMAgentBase():",
+      "def __init__(self, output_fields: list, agent_name: str,",
+      "def generate_prompt(self, input_infos, instruction) -> str:",
+      "def query(self, input_infos: list, instruction, iteration_idx=-1) -> dict:",
+      "def __repr__(self):",
+      "def __call__(self, input_infos: list, instruction, iteration_idx=-1):",
+      "class AgentSystem():",
+      "def __init__(self) -> None:",
+      "def evaluate(args):",
+      "def evaluate_forward_fn(args, forward_str):"
+    ]
+  },
+  {
+    "path": "_arc/utils.py",
+    "sha256": "4cd764fcae3df036f25f397d4c86a11fefa9b711eda61eee800e7ab1afd79392",
+    "bytes": 6350,
+    "symbols": [
+      "def random_id(length=4):",
+      "def file_to_string(filepath):",
+      "def list_to_string(list_2d):",
+      "def format_arc_data(arc_data, direct=False):",
+      "def get_percentage_match(arr1, arr2):",
+      "def eval_algo(solve_fn, arc_data, soft_eval=False):",
+      "def eval_solution(output, arc_data, soft_eval=False):",
+      "def bootstrap_confidence_interval(data, num_bootstrap_samples=100000, confidence_level=0.95):"
+    ]
+  },
+  {
+    "path": "_arc/search.py",
+    "sha256": "bee294342dc70774818c144e073b773a582ec545f44ac83244a2a131bebb1fa1",
+    "bytes": 18057,
+    "symbols": [
+      "def get_json_response_from_gpt(",
+      "def get_json_response_from_gpt_reflect(",
+      "class LLMAgentBase():",
+      "def __init__(self, output_fields: list, agent_name: str,",
+      "def generate_prompt(self, input_infos, instruction) -> str:",
+      "def query(self, input_infos: list, instruction, iteration_idx=-1) -> dict:",
+      "def __repr__(self):",
+      "def __call__(self, input_infos: list, instruction, iteration_idx=-1):",
+      "class AgentSystem():",
+      "def __init__(self, examples, test_iuput) -> None:",
+      "def run_examples_and_get_feedback(self, code):",
+      "def get_test_output_from_code(self, code):"
+    ]
+  },
+  {
+    "path": "_drop/utils.py",
+    "sha256": "a44914ed0d12949dc12ce9089c23a819de7cda1ddd7089de339c5607def1e678",
+    "bytes": 10391,
+    "symbols": [
+      "def _remove_articles(text: str) -> str:",
+      "def _white_space_fix(text: str) -> str:",
+      "def _remove_punc(text: str) -> str:",
+      "def _lower(text: str) -> str:",
+      "def _tokenize(text: str) -> List[str]:",
+      "def _normalize_answer(text: str) -> str:",
+      "def _is_number(text: str) -> bool:",
+      "def _normalize_number(text: str) -> str:",
+      "def _answer_to_bags(",
+      "def _align_bags(predicted: List[Set[str]], gold: List[Set[str]]) -> List[float]:",
+      "def _compute_f1(predicted_bag: Set[str], gold_bag: Set[str]) -> float:",
+      "def _match_numbers_if_present(gold_bag: Set[str], predicted_bag: Set[str]) -> bool:"
+    ]
+  },
+  {
+    "path": "_gpqa/utils.py",
+    "sha256": "3438ce5872bdfa9fa768d4b5267700a5563fb261e1eb9f2cdefbd1c2957b88ee",
+    "bytes": 3216,
+    "symbols": [
+      "def random_id(length=4):",
+      "def load_questions(path: str, seed: int) -> List[Example]:",
+      "def shuffle_choices_and_create_example(row) -> Example:",
+      "def bootstrap_confidence_interval(data, num_bootstrap_samples=100000, confidence_level=0.95):"
+    ]
+  },
+  {
+    "path": "_mgsm/utils.py",
+    "sha256": "b294dc54f685fe14704154356da47b69bda7c254b8a1e06c4297d3169379ba2c",
+    "bytes": 4471,
+    "symbols": [
+      "def score_mgsm(target: str, prediction: str) -> bool:",
+      "def get_lang_examples(lang: str) -> list[dict[str, str]]:",
+      "def get_all_examples() -> list[dict[str, str]]:",
+      "def random_id(length=4):",
+      "def bootstrap_confidence_interval(data, num_bootstrap_samples=100000, confidence_level=0.95):"
+    ]
+  },
+  {
+    "path": "_mmlu/utils.py",
+    "sha256": "179d20ab07b4e2d4a08a2e001cd9ce9e09602d79b5e743d3425ece1ea6bd2146",
+    "bytes": 2685,
+    "symbols": [
+      "def format_multichoice_question(row):",
+      "def random_id(length=4):",
+      "def bootstrap_confidence_interval(data, num_bootstrap_samples=100000, confidence_level=0.95):"
+    ]
+  },
+  {
+    "path": "_drop/search.py",
+    "sha256": "2541df225858917255afb5ae7947eb2c58f6239e7af1287600179e9a70f0de44",
+    "bytes": 14057,
+    "symbols": [
+      "def get_json_response_from_gpt(",
+      "def get_json_response_from_gpt_reflect(",
+      "class LLMAgentBase():",
+      "def __init__(self, output_fields: list, agent_name: str,",
+      "def generate_prompt(self, input_infos, instruction) -> str:",
+      "def query(self, input_infos: list, instruction, iteration_idx=-1) -> dict:",
+      "def __repr__(self):",
+      "def __call__(self, input_infos: list, instruction, iteration_idx=-1):",
+      "class AgentSystem():",
+      "def __init__(self) -> None:",
+      "def search(args):",
+      "def evaluate(args):"
+    ]
+  },
+  {
+    "path": "_gpqa/search.py",
+    "sha256": "ff3dd9dac40791db3fb583820e93524af2c924583315c80b781f49d8ae85d745",
+    "bytes": 14804,
+    "symbols": [
+      "def get_json_response_from_gpt(",
+      "def get_json_response_from_gpt_reflect(",
+      "class LLMAgentBase():",
+      "def __init__(self, output_fields: list, agent_name: str,",
+      "def generate_prompt(self, input_infos, instruction) -> str:",
+      "def query(self, input_infos: list, instruction, iteration_idx=-1) -> dict:",
+      "def __repr__(self):",
+      "def __call__(self, input_infos: list, instruction, iteration_idx=-1):",
+      "class AgentSystem():",
+      "def __init__(self) -> None:",
+      "def search(args):",
+      "def evaluate(args):"
+    ]
+  },
+  {
+    "path": "_mgsm/search.py",
+    "sha256": "1d75318e452e1cdca455d9cd073749b9b43e3c49d2f00d85a1faa9d10585e920",
+    "bytes": 13922,
+    "symbols": [
+      "def get_json_response_from_gpt(",
+      "def get_json_response_from_gpt_reflect(",
+      "class LLMAgentBase():",
+      "def __init__(self, output_fields: list, agent_name: str,",
+      "def generate_prompt(self, input_infos, instruction) -> str:",
+      "def query(self, input_infos: list, instruction, iteration_idx=-1) -> dict:",
+      "def __repr__(self):",
+      "def __call__(self, input_infos: list, instruction, iteration_idx=-1):",
+      "class AgentSystem():",
+      "def __init__(self) -> None:",
+      "def search(args):",
+      "def evaluate(args):"
+    ]
+  },
+  {
+    "path": "_mmlu/search.py",
+    "sha256": "749503b4454f97e105eed7e96fb5d402ef26fd0905b80f91a5d29a6045957228",
+    "bytes": 15008,
+    "symbols": [
+      "def get_json_response_from_gpt(",
+      "def get_json_response_from_gpt_reflect(",
+      "class LLMAgentBase():",
+      "def __init__(self, output_fields: list, agent_name: str,",
+      "def generate_prompt(self, input_infos, instruction) -> str:",
+      "def query(self, input_infos: list, instruction, iteration_idx=-1) -> dict:",
+      "def __repr__(self):",
+      "def __call__(self, input_infos: list, instruction, iteration_idx=-1):",
+      "class AgentSystem():",
+      "def __init__(self) -> None:",
+      "def search(args):",
+      "def evaluate(args):"
+    ]
+  }
+]

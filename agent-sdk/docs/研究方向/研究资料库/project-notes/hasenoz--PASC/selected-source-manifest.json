@@ -1,0 +1,130 @@
+[
+  {
+    "path": "mini-swe-agent/src/minisweagent/__init__.py",
+    "sha256": "99bf4f281a6c2be53828f7b1f2db00aa89dd0cd1c49b3635a4c8f3337f40c37e",
+    "bytes": 2540,
+    "symbols": [
+      "class Model(Protocol):",
+      "def query(self, messages: list[dict[str, str]], **kwargs) -> dict: ...",
+      "def query_text(self, messages: list[dict[str, Any]], **kwargs) -> str: ...",
+      "def format_message(self, **kwargs) -> dict: ...",
+      "def format_observation_messages(",
+      "def get_template_vars(self, **kwargs) -> dict[str, Any]: ...",
+      "def serialize(self) -> dict: ...",
+      "class Environment(Protocol):",
+      "def execute(self, action: dict, cwd: str = \"\") -> dict[str, Any]: ...",
+      "def get_template_vars(self, **kwargs) -> dict[str, Any]: ...",
+      "def serialize(self) -> dict: ...",
+      "class Agent(Protocol):"
+    ]
+  },
+  {
+    "path": "mini-swe-agent/src/minisweagent/__main__.py",
+    "sha256": "27b54640592c949586c6a07547a5ffe05be5a88a6bc94cbe71a20379214efdd4",
+    "bytes": 201,
+    "symbols": []
+  },
+  {
+    "path": "mini-swe-agent/src/minisweagent/exceptions.py",
+    "sha256": "463853a51c66b6e9d65b8190cbdb6ef6dc9b458cd52902c0bd9e49cdabd09d19",
+    "bytes": 641,
+    "symbols": [
+      "class InterruptAgentFlow(Exception):",
+      "def __init__(self, *messages: dict):",
+      "class Submitted(InterruptAgentFlow):",
+      "class LimitsExceeded(InterruptAgentFlow):",
+      "class UserInterruption(InterruptAgentFlow):",
+      "class FormatError(InterruptAgentFlow):"
+    ]
+  },
+  {
+    "path": "mini-swe-agent/src/minisweagent/run/mini.py",
+    "sha256": "5d8725bc30ee629f665c3d41cad899d2a663034f64e870081c44d5ec4487fc26",
+    "bytes": 4976,
+    "symbols": [
+      "def main("
+    ]
+  },
+  {
+    "path": "mini-swe-agent/src/minisweagent/utils/log.py",
+    "sha256": "c1b4b50139ac05b874235cd271ef76144ba03a8e1c6dcf426264648a5c9a246e",
+    "bytes": 1032,
+    "symbols": [
+      "def _setup_root_logger() -> None:",
+      "def add_file_handler(path: Path | str, level: int = logging.DEBUG, *, print_path: bool = True) -> None:"
+    ]
+  },
+  {
+    "path": "mini-swe-agent/src/minisweagent/run/__init__.py",
+    "sha256": "1831018ac50faf760e3d1f537efbee333c4b0f91f7684adecb7f50ba633cd3d0",
+    "bytes": 39,
+    "symbols": []
+  },
+  {
+    "path": "mini-swe-agent/src/minisweagent/agents/default.py",
+    "sha256": "2493e4870f753f639f59b139e154cdac0c8cec13c027d2050c2ddd0174310dea",
+    "bytes": 6516,
+    "symbols": [
+      "class AgentConfig(BaseModel):",
+      "class DefaultAgent:",
+      "def __init__(self, model: Model, env: Environment, *, config_class: type = AgentConfig, **kwargs):",
+      "def get_template_vars(self, **kwargs) -> dict:",
+      "def _render_template(self, template: str) -> str:",
+      "def add_messages(self, *messages: dict) -> list[dict]:",
+      "def handle_uncaught_exception(self, e: Exception) -> list[dict]:",
+      "def run(self, task: str = \"\", **kwargs) -> dict:",
+      "def step(self) -> list[dict]:",
+      "def query(self) -> dict:",
+      "def execute_actions(self, message: dict) -> list[dict]:",
+      "def serialize(self, *extra_dicts) -> dict:"
+    ]
+  },
+  {
+    "path": "mini-swe-agent/src/minisweagent/utils/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "symbols": []
+  },
+  {
+    "path": "mini-swe-agent/src/minisweagent/agents/__init__.py",
+    "sha256": "cd1e66733ede628a6c7c15534554a814d41977e397989b18b9e8d8ac95458073",
+    "bytes": 1008,
+    "symbols": [
+      "def get_agent_class(spec: str) -> type[Agent]:",
+      "def get_agent(model: Model, env: Environment, config: dict, *, default_type: str = \"\") -> Agent:"
+    ]
+  },
+  {
+    "path": "mini-swe-agent/src/minisweagent/config/__init__.py",
+    "sha256": "64d6c9fda3e87b6483f8a48650c3a2b55b8f9cb04c136028b4321bb50980e79b",
+    "bytes": 1930,
+    "symbols": [
+      "def get_config_path(config_spec: str | Path) -> Path:",
+      "def _key_value_spec_to_nested_dict(config_spec: str) -> dict:",
+      "def get_config_from_spec(config_spec: str | Path) -> dict:"
+    ]
+  },
+  {
+    "path": "mini-swe-agent/src/minisweagent/models/__init__.py",
+    "sha256": "82ceb60b7e187a2ad2cb71a6d09a120485a92d8e063295b344cee897b6d8bd7f",
+    "bytes": 4728,
+    "symbols": [
+      "class GlobalModelStats:",
+      "def __init__(self):",
+      "def add(self, cost: float) -> None:",
+      "def cost(self) -> float:",
+      "def n_calls(self) -> int:",
+      "def get_model(input_model_name: str | None = None, config: dict | None = None) -> Model:",
+      "def get_model_name(input_model_name: str | None = None, config: dict | None = None) -> str:",
+      "def get_model_class(model_name: str, model_class: str = \"\") -> type:"
+    ]
+  },
+  {
+    "path": "mini-swe-agent/src/minisweagent/run/hello_world.py",
+    "sha256": "6225547ca2a63937509a6960ee26f8bd89ad53c39ca35803c96ebd032e30969a",
+    "bytes": 1199,
+    "symbols": [
+      "def main("
+    ]
+  }
+]

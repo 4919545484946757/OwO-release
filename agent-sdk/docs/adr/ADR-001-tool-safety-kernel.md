@@ -4,7 +4,7 @@
 > 日期：2026-09-19
 > 依据：`builGoal/Agent-SDK-后续任务实施指南-2026-09-18.md` §2.2（受信执行内核）、
 > §2.4（不可拆散的事务边界）、§9 A4（抽取 Tool Host）、§13（Tool Host 权限不可绕过）；
-> 事实基线：`docs/ARCH-MICROKERNEL.md` §5.1 的 SCC 分析。
+> 事实基线：`docs/architecture/ARCH-MICROKERNEL.md` §5.1 的 SCC 分析。
 > 前置：M0（`owo-agent-kernel`）、M1（`devtools/product-eval` + `eval-facade`）、
 > M2（`owo-agent-extensions`）均已完成并验收。
 
@@ -19,7 +19,7 @@
 
 ## 1. 背景与问题
 
-`docs/ARCH-MICROKERNEL.md` §5.1 用 Tarjan 强连通分量把 `owo-agent-core` 的 76 个模块
+`docs/architecture/ARCH-MICROKERNEL.md` §5.1 用 Tarjan 强连通分量把 `owo-agent-core` 的 76 个模块
 压成 46 个分量。结论是：**M0/M1/M2 已经把 core 里所有"零入边 + 零出边"的模块切完了**
 （M2 切走最后 5 个，4,493 行）。此后每一步都必须做**依赖倒置或整组搬迁**，不能再指望
 "搬文件 + re-export"零代价推进。
@@ -169,7 +169,7 @@ M3 的实际教训应写进 §4 的复用清单：
 
 ### 7.3 额外发现（有价值，值得记）
 
-`docs/ARCH-MICROKERNEL.md` §5.1 的分量清单把 `[8] audit_chain + sandbox` 记为"零出边
+`docs/architecture/ARCH-MICROKERNEL.md` §5.1 的分量清单把 `[8] audit_chain + sandbox` 记为"零出边
 （对 core）"，但更精确的事实是：`sandbox` 的 Windows 部分是**裸 FFI**
 （`extern "system"` + `#[link(name = "kernel32"/"advapi32"/"ntdll")]`），
 **完全不使用 `windows` / `windows-sys` crate**。这意味着新 crate 的依赖闭包只有

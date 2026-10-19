@@ -1,0 +1,173 @@
+[
+  {
+    "path": "camel/agents/task_agent.py",
+    "sha256": "c312a19da973dfd4ef1f4e8a201f995f320f2e668151f7da7b1cb738688a5ae0",
+    "bytes": 14654,
+    "symbols": [
+      "class TaskSpecifyAgent(ChatAgent):",
+      "def __init__(",
+      "def run(",
+      "class TaskPlannerAgent(ChatAgent):",
+      "def __init__(",
+      "def run(",
+      "class TaskCreationAgent(ChatAgent):",
+      "def __init__(",
+      "def run(",
+      "class TaskPrioritizationAgent(ChatAgent):",
+      "def __init__(",
+      "def run("
+    ]
+  },
+  {
+    "path": "camel/agents/knowledge_graph_agent.py",
+    "sha256": "96dbd19f11fd24ae59993d4a2fe9c42298c5b345e758f93161e25d51a1e748e0",
+    "bytes": 9663,
+    "symbols": [
+      "class KnowledgeGraphAgent(ChatAgent):",
+      "def __init__(",
+      "def run(",
+      "def _validate_node(self, node: Node) -> bool:",
+      "def _validate_relationship(self, relationship: Relationship) -> bool:",
+      "def _parse_graph_elements(self, input_string: str) -> GraphElement:"
+    ]
+  },
+  {
+    "path": "camel/societies/workforce/workflow_memory_manager.py",
+    "sha256": "16f8bcbaf607101c72d8648cbf5baee7bc868c7027d2e16d6cdb9ae6f40acd74",
+    "bytes": 68031,
+    "symbols": [
+      "class WorkflowSelectionMethod(Enum):",
+      "class WorkflowMemoryManager:",
+      "def __init__(",
+      "def _get_context_utility(self) -> ContextUtility:",
+      "def _extract_existing_workflow_metadata(",
+      "def _try_role_based_loading(",
+      "def _try_session_based_loading(",
+      "def _session_based_smart_loading(",
+      "def _session_based_pattern_loading(",
+      "def load_workflows(",
+      "def load_workflows_by_role(",
+      "def save_workflow("
+    ]
+  },
+  {
+    "path": "profiling/chatagent_overhead.py",
+    "sha256": "7e572db1e66d8e7e9f364c31d204a3e68b72ebd512f3092de8ce810edc5a9c21",
+    "bytes": 9489,
+    "symbols": [
+      "class JokeResponse(BaseModel):",
+      "def run_single_benchmark(",
+      "def timed_create(*args, **kwargs):",
+      "def timed_parse(*args, **kwargs):",
+      "def make_timed_func(orig):",
+      "def timed_func(*args, **kwargs):",
+      "def main():"
+    ]
+  },
+  {
+    "path": "camel/tasks/task.py",
+    "sha256": "8a5e5f436d4d19d39f8b769528726f87063c03af4af609d93264fed1d4029361",
+    "bytes": 25767,
+    "symbols": [
+      "class TaskValidationMode(Enum):",
+      "def validate_task_content(",
+      "def is_task_result_insufficient(task: \"Task\") -> bool:",
+      "def parse_response(",
+      "class TaskState(str, Enum):",
+      "def states(cls):",
+      "class Task(BaseModel):",
+      "def __repr__(self) -> str:",
+      "def from_message(cls, message: BaseMessage) -> \"Task\":",
+      "def to_message():",
+      "def reset(self):",
+      "def update_result(self, result: str):"
+    ]
+  },
+  {
+    "path": "camel/agents/base.py",
+    "sha256": "91f0ab7cd4680f92fd688341b4127124c27133aff10d476919fe407d23dd6eec",
+    "bytes": 1124,
+    "symbols": [
+      "class BaseAgent(ABC):",
+      "def reset(self, *args: Any, **kwargs: Any) -> Any:",
+      "def step(self, *args: Any, **kwargs: Any) -> Any:"
+    ]
+  },
+  {
+    "path": "apps/agents/agents.py",
+    "sha256": "08f60def239a241abf3e983026a0b26f0627f66a583bc7f321ff81a87c4a6a47",
+    "bytes": 20208,
+    "symbols": [
+      "class State(BaseModel):",
+      "def empty(cls) -> 'State':",
+      "def construct_inplace(",
+      "def parse_arguments():",
+      "def load_roles(path: str) -> List[str]:",
+      "def cleanup_on_launch(state: State) -> Tuple[State, ChatBotHistory, Dict]:",
+      "def role_playing_start(",
+      "def role_playing_chat_init(",
+      "def role_playing_chat_cont(",
+      "def stop_session(state: State) -> Tuple[State, Dict, Dict]:",
+      "def construct_ui(blocks, api_key: Optional[str] = None) -> None:",
+      "def change_society(society_name: str) -> Tuple[Dict, Dict, str]:"
+    ]
+  },
+  {
+    "path": "camel/runtimes/api.py",
+    "sha256": "a72941ff7f823a9ac30453b865d96add94444616d4bbce9a543b270e888d725f",
+    "bytes": 5446,
+    "symbols": [
+      "async def health_check():",
+      "async def general_exception_handler(request: Request, exc: Exception):",
+      "def make_endpoint(tool):",
+      "def run_tool(data: Dict):",
+      "async def endpoint(data: Dict):"
+    ]
+  },
+  {
+    "path": "camel/agents/_types.py",
+    "sha256": "00db15eb09c1fcf1be6847152547d7c27a8df723931e3016703947d435436a10",
+    "bytes": 1603,
+    "symbols": [
+      "class ToolCallRequest(BaseModel):",
+      "class ModelResponse(BaseModel):"
+    ]
+  },
+  {
+    "path": "camel/agents/_utils.py",
+    "sha256": "7a5a30f0b797bbcb843438bb45742081d37e8df3810e36874d0f5297558143be",
+    "bytes": 7514,
+    "symbols": [
+      "def build_default_summary_prompt(conversation_text: str) -> str:",
+      "def generate_tool_prompt(tool_schema_list: List[Dict[str, Any]]) -> str:",
+      "def extract_tool_call(",
+      "def safe_model_dump(obj) -> Dict[str, Any]:",
+      "def convert_to_function_tool(",
+      "def convert_to_schema(",
+      "def get_info_dict(",
+      "def handle_logprobs(choice: Choice) -> Optional[List[Dict[str, Any]]]:"
+    ]
+  },
+  {
+    "path": "camel/runtimes/base.py",
+    "sha256": "09c2a47dce3c76e775126d46c5b79597bd13df7eaa701418ac574429d3314161",
+    "bytes": 2505,
+    "symbols": [
+      "class BaseRuntime(ABC):",
+      "def __init__(self):",
+      "def add(",
+      "def reset(self, *args: Any, **kwargs: Any) -> Any:",
+      "def cleanup(self) -> None:",
+      "def stop(self) -> \"BaseRuntime\":",
+      "def __enter__(self) -> \"BaseRuntime\":",
+      "def __exit__(",
+      "def get_tools(self) -> List[FunctionTool]:"
+    ]
+  },
+  {
+    "path": "camel/tasks/__init__.py",
+    "sha256": "4447bff45e44e257f426cf1b6ee177ecfa67bbacbfbb11a820b792b3f15119f4",
+    "bytes": 906,
+    "symbols": []
+  }
+]

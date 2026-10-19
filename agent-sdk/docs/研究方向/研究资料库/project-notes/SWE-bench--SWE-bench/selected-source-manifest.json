@@ -1,0 +1,138 @@
+[
+  {
+    "path": "swebench/task/repo.py",
+    "sha256": "3d473d52decec6e6f67f8ff0ad36347ae5626309d8f67c35574002f03a715894",
+    "bytes": 8366,
+    "symbols": [
+      "class UnknownDataset(KeyError):",
+      "def __str__(self) -> str:  # KeyError quotes its message otherwise",
+      "class _Dumper(yaml.SafeDumper):",
+      "def _represent_str(dumper: yaml.SafeDumper, data: str):",
+      "def dump_yaml(data: dict) -> str:",
+      "def load_yaml(path: Path) -> dict:",
+      "def _read(path: Path) -> str:",
+      "def tasks_root(repo_path: str | Path) -> Path:",
+      "def task_dirs(repo_path: str | Path) -> list[Path]:",
+      "def dump_tests(tests: dict) -> str:",
+      "def load_task(task_dir: str | Path) -> dict:",
+      "def load_task_repo("
+    ]
+  },
+  {
+    "path": "swebench/task/checks.py",
+    "sha256": "61d206e2a0d9c36b788fcfdbe2547bed40923936f2a6734fbcb229204cdbc7bc",
+    "bytes": 8377,
+    "symbols": [
+      "class Problem:",
+      "def __str__(self) -> str:",
+      "def errors(problems: list[Problem]) -> list[Problem]:",
+      "def expected_image(instance_id: str, namespace: str = \"swebench\") -> str:",
+      "def _check_task(",
+      "def check_task_repo(repo_path: str | Path, fix: bool = False) -> list[Problem]:"
+    ]
+  },
+  {
+    "path": "swebench/cli/evaluate.py",
+    "sha256": "0f076f6d3b173ab0b7ca4ee334646ba39364da220864475a81f9d3a0d4c6a83b",
+    "bytes": 4629,
+    "symbols": [
+      "def eval_command(",
+      "def report_command("
+    ]
+  },
+  {
+    "path": "swebench/task/publish.py",
+    "sha256": "e26a17b1366e9fb44ea201a8c2759e0a7de4670da63bce5df206b2ad0ff5af5b",
+    "bytes": 9757,
+    "symbols": [
+      "class CheckFailed(RuntimeError):",
+      "def guard(repo_path: str | Path) -> None:",
+      "def _rows_for_split(instances: list[dict]) -> list[dict]:",
+      "def _align_columns(by_split: dict[str, list[dict]]) -> dict[str, list[dict]]:",
+      "def compile_datasets(",
+      "def _write_split(frame, path: Path) -> None:",
+      "def write_parquets(",
+      "def eval_config(repo_path: str | Path, dataset: str) -> Path | None:",
+      "def diff_against_hub(",
+      "def push_dataset(",
+      "def _images_for(",
+      "def push_images("
+    ]
+  },
+  {
+    "path": "swebench/task/__init__.py",
+    "sha256": "63c9699663a9974aaf54a01d1cff66e627e3f4a749f634da83d1e0ee01555fc4",
+    "bytes": 292,
+    "symbols": []
+  },
+  {
+    "path": "swebench/inference/mini_swe_agent.py",
+    "sha256": "b577a13178be8748009e0b95d4e226ae7ca06dd546d8661f43ca9623bbf13bb3",
+    "bytes": 3976,
+    "symbols": [
+      "class InferenceError(RuntimeError):",
+      "def _probe(python: str, expr: str) -> Optional[str]:",
+      "def is_available(python: Optional[str] = None) -> bool:",
+      "def default_config(python: Optional[str] = None) -> Path:",
+      "def build_command(",
+      "def run(cmd: list[str], cwd: Optional[Path] = None) -> int:"
+    ]
+  },
+  {
+    "path": "swebench/collect/get_tasks_pipeline.py",
+    "sha256": "0c8cef1d04620095f8f448b391f205dd2c3fc43c3f78ff93480e11fdaf44c2a9",
+    "bytes": 5540,
+    "symbols": [
+      "def split_instances(input_list: list, n: int) -> list:",
+      "def construct_data_files(data: dict):",
+      "def main("
+    ]
+  },
+  {
+    "path": "swebench/collect/cleanup/delete_gh_workflows.py",
+    "sha256": "ba755459ca40c43c11ccc94dbb7a792ac9b7a4d78e30e772789c716d0607a4ff",
+    "bytes": 1745,
+    "symbols": [
+      "def main(repo_url):"
+    ]
+  },
+  {
+    "path": "swebench/types.py",
+    "sha256": "558b6e7193306c304f9847a8a83dcab6a03ee333f6d51e61152e8821f89e0725",
+    "bytes": 1178,
+    "symbols": [
+      "class SWEbenchInstance(TypedDict):",
+      "class TestSpec:",
+      "def eval_script(self):"
+    ]
+  },
+  {
+    "path": "swebench/utils.py",
+    "sha256": "9888a97bded2df810c466a5c660e71105780cefd1cb8c42d7f7833f2af7ee016",
+    "bytes": 1425,
+    "symbols": [
+      "def _get_log_objects(logger):",
+      "def generate_heredoc_delimiter(content: str) -> str:",
+      "def get_modified_files(patch: str) -> list[str]:",
+      "def ansi_escape(text: str) -> str:"
+    ]
+  },
+  {
+    "path": "swebench/logger.py",
+    "sha256": "c0286d3de68cfa1ff8b816211840e3ba698dda463e0de6f73eef9ea8fe26cde8",
+    "bytes": 2517,
+    "symbols": [
+      "def setup_logger(",
+      "def close_logger(logger):"
+    ]
+  },
+  {
+    "path": "swebench/__init__.py",
+    "sha256": "39f6961d946aefd41c0ceb23ea4f910e5c3cf4a28a415efc1d9fd958f96efd8c",
+    "bytes": 2490,
+    "symbols": [
+      "def __getattr__(name: str):",
+      "def __dir__():"
+    ]
+  }
+]

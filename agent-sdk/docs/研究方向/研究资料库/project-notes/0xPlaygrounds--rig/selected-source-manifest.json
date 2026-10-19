@@ -1,0 +1,160 @@
+[
+  {
+    "path": "crates/rig-agent/src/agent/builder.rs",
+    "sha256": "688e93188082d78b221ffbe8131429938f6529dfd17575b210702136b67a5f12",
+    "bytes": 34398,
+    "symbols": [
+      "pub struct NoToolConfig;",
+      "pub struct WithToolServerHandle {",
+      "pub struct WithBuilderTools(ToolServer);",
+      "pub struct AgentBuilder<ToolState = NoToolConfig> {",
+      "pub fn name(mut self, name: impl Into<String>) -> Self {",
+      "pub fn description(mut self, description: impl Into<String>) -> Self {",
+      "pub fn preamble(mut self, preamble: impl Into<String>) -> Self {",
+      "pub fn without_preamble(mut self) -> Self {",
+      "pub fn append_preamble(mut self, doc: &str) -> Self {",
+      "pub fn context(mut self, doc: impl Into<String>) -> Self {",
+      "pub fn dynamic_context<I, F>(mut self, samples: usize, index: I) -> Self",
+      "pub fn dynamic_context_handler("
+    ]
+  },
+  {
+    "path": "crates/rig-agent/src/run/mod.rs",
+    "sha256": "faf6bb03e2adec97ab97eaeca3de5ebf1bf69858ed0c7894853596d73f717469",
+    "bytes": 77976,
+    "symbols": [
+      "pub enum AgentRunStep {",
+      "pub struct ModelTurn {",
+      "pub fn from_response(resp: &CompletionResponse, prepared: &prepare::PreparedRequest) -> Self {",
+      "pub fn from_policy(resp: &CompletionResponse, policy: TurnPolicy) -> Self {",
+      "pub fn new(",
+      "pub fn with_identity(",
+      "pub fn with_finish_reason(mut self, finish_reason: Option<FinishReason>) -> Self {",
+      "pub enum ModelTurnOutcome {",
+      "pub struct AgentRun {",
+      "pub struct RunEntry {",
+      "pub struct TurnTools {",
+      "pub fn contains(&self, tool_name: &str) -> bool {"
+    ]
+  },
+  {
+    "path": "crates/rig-agent/src/run/policy.rs",
+    "sha256": "476621c5d08db8cc4b5147026eb545479ed09b56b565dab524363fbdc80639dc",
+    "bytes": 13116,
+    "symbols": [
+      "pub enum InvalidToolCallReason {",
+      "pub fn malformed_arguments(raw: &str) -> Self {",
+      "pub(crate) fn arguments_parse_error(raw: &str) -> String {",
+      "pub struct InvalidToolCallContext {",
+      "pub struct TurnPolicy {",
+      "pub fn new(",
+      "pub(crate) fn resolve(",
+      "pub fn executable(&self) -> &BTreeSet<String> {",
+      "pub fn allowed(&self) -> &BTreeSet<String> {",
+      "pub fn tool_choice(&self) -> Option<&ToolChoice> {",
+      "pub fn output_tool(&self) -> Option<&str> {",
+      "pub fn forbids_calls(&self) -> bool {"
+    ]
+  },
+  {
+    "path": "crates/rig-agent/src/run/calls.rs",
+    "sha256": "3365056fb6723b3360ca8a3ba7ca7a0851aebccd468e675bca596c41fc01a048",
+    "bytes": 5242,
+    "symbols": [
+      "pub enum PendingToolCall {",
+      "pub struct ExecCall {",
+      "pub fn id(&self) -> &CallId {",
+      "pub fn name(&self) -> &ToolName {",
+      "pub fn tool_call(&self) -> &ToolCall {",
+      "pub fn arguments(&self) -> serde_json::Value {",
+      "pub fn answer(self, result: ToolResult) -> ToolAnswer {",
+      "pub struct MalformedCall {",
+      "pub fn id(&self) -> &CallId {",
+      "pub fn name(&self) -> &ToolName {",
+      "pub fn raw_arguments(&self) -> &str {",
+      "pub(crate) fn tool_call(&self) -> &ToolCall {"
+    ]
+  },
+  {
+    "path": "crates/rig-agent/src/agent/runner.rs",
+    "sha256": "47e91caa49ced65e97285f4462a51fdcdb4f03f3be84e5d308c7288d9e0602f0",
+    "bytes": 36227,
+    "symbols": [
+      "pub struct AgentRunner<O = ()> {",
+      "pub(crate) enum RunOrigin {",
+      "pub(crate) fn from_agent(agent: &Agent, prompt: impl Into<Message>) -> Self {",
+      "pub(crate) fn resuming(agent: &Agent, run: AgentRun) -> Self {",
+      "pub(crate) fn output_tool(",
+      "pub fn unhandled_invalid_tool_call(mut self, policy: UnhandledInvalidToolCall) -> Self {",
+      "pub fn add_hook<H>(mut self, hook: H) -> Self",
+      "pub fn max_turns(mut self, max_turns: usize) -> Self {",
+      "pub fn using_model(mut self, label: impl Into<ModelRef>) -> Self {",
+      "pub fn using_model_value(",
+      "pub fn tool_context(mut self, context: ToolContext) -> Self {",
+      "pub fn history<I, T>(mut self, history: I) -> Self"
+    ]
+  },
+  {
+    "path": "xtask/src/bevy.rs",
+    "sha256": "38fb25f59eb19cda65d2f6b942208bc76a6c2cf7d2ad8c0f3e648e9367001cb1",
+    "bytes": 2524,
+    "symbols": [
+      "pub(crate) enum Error {",
+      "pub(crate) fn check(metadata: &Value) -> Result<(), Error> {"
+    ]
+  },
+  {
+    "path": "xtask/src/main.rs",
+    "sha256": "3cbab319f2656d3a5e3c9b324fb07d81c8373b50ecdb9c266fd6d7d0aeb08a5c",
+    "bytes": 4292,
+    "symbols": []
+  },
+  {
+    "path": "xtask/src/wires.rs",
+    "sha256": "1214a97d01907c3e235d64ad83b4643ec65bb5b90e4a8b50977b19c765c07028",
+    "bytes": 11526,
+    "symbols": [
+      "pub(crate) fn check(workspace: &Path) -> Result<(), String> {"
+    ]
+  },
+  {
+    "path": "xtask/src/verify.rs",
+    "sha256": "052928d0d150f508362eddeaf982abe92cd3cfcc9f3554c991b9dab70aa76c3a",
+    "bytes": 4741,
+    "symbols": [
+      "pub(crate) enum Error {",
+      "pub(crate) fn run(root: &Path, args: Vec<String>) -> Result<()> {"
+    ]
+  },
+  {
+    "path": "xtask/src/catalog.rs",
+    "sha256": "4bae3026474c9135b605212f26a7d9882b0b4bc6e0ef8a8de9a7262fee5169e1",
+    "bytes": 29977,
+    "symbols": [
+      "pub(crate) fn run(root: &Path, args: Vec<String>) -> Result<(), String> {",
+      "pub(crate) fn rfc3339(time: SystemTime) -> Result<String, String> {",
+      "pub(crate) fn is_rfc3339_utc(text: &str) -> bool {",
+      "pub(crate) fn generate(models_dev: &Value, review: &Value) -> Result<Rows, String> {",
+      "pub(crate) fn render(rows: &Rows) -> String {"
+    ]
+  },
+  {
+    "path": "xtask/src/support.rs",
+    "sha256": "a0a96b3443f2e90f2ed1f873031fe1537cd49371c1d558dad14a6ca40fc5095a",
+    "bytes": 1897,
+    "symbols": [
+      "pub(crate) fn files_under(dir: &Path, extension: Option<&str>) -> Result<Vec<PathBuf>, String> {",
+      "pub(crate) fn output(dir: &Path, program: &str, args: &[&str]) -> Result<String, String> {"
+    ]
+  },
+  {
+    "path": "xtask/src/cassette.rs",
+    "sha256": "fec29be0e82c31ad3abfaa0972dca68fb03b8ead067c537b10ac2e88812193fd",
+    "bytes": 5437,
+    "symbols": [
+      "pub(crate) fn attempt_root(root: &Path) -> PathBuf {",
+      "pub(crate) fn run(root: &Path, args: Vec<String>) -> Result<(), String> {",
+      "pub(crate) fn cleanup(root: &Path, args: &[String]) -> Result<(), String> {"
+    ]
+  }
+]

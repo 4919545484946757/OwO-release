@@ -1,0 +1,96 @@
+The Rise and Potential of Large Language Model
+Based Agents: A Survey
+Zhiheng Xi∗†, Wenxiang Chen∗, Xin Guo∗, Wei He∗, Yiwen Ding∗, Boyang Hong∗,
+Ming Zhang∗, Junzhe Wang∗, Senjie Jin∗, Enyu Zhou∗,
+Rui Zheng, Xiaoran Fan, Xiao Wang, Limao Xiong, Yuhao Zhou, Weiran Wang,
+Changhao Jiang, Yicheng Zou, Xiangyang Liu, Zhangyue Yin,
+Shihan Dou, Rongxiang Weng, Wensen Cheng,
+Qi Zhang†, Wenjuan Qin, Yongyan Zheng, Xipeng Qiu, Xuanjing Huang and Tao Gui†
+Fudan NLP Group
+Abstract
+For a long time, humanity has pursued artificial intelligence (AI) equivalent to or
+surpassing the human level, with AI agents considered a promising vehicle for
+this pursuit. AI agents are artificial entities that sense their environment, make
+decisions, and take actions. Many efforts have been made to develop intelligent
+agents, but they mainly focus on advancement in algorithms or training strategies
+to enhance specific capabilities or performance on particular tasks. Actually, what
+the community lacks is a general and powerful model to serve as a starting point
+for designing AI agents that can adapt to diverse scenarios. Due to the versatile
+capabilities they demonstrate, large language models (LLMs) are regarded as
+potential sparks for Artificial General Intelligence (AGI), offering hope for building
+general AI agents. Many researchers have leveraged LLMs as the foundation to
+build AI agents and have achieved significant progress. In this paper, we perform
+a comprehensive survey on LLM-based agents. We start by tracing the concept
+of agents from its philosophical origins to its development in AI, and explain
+why LLMs are suitable foundations for agents. Building upon this, we present
+a general framework for LLM-based agents, comprising three main components:
+brain, perception, and action, and the framework can be tailored for different
+applications. Subsequently, we explore the extensive applications of LLM-based
+agents in three aspects: single-agent scenarios, multi-agent scenarios, and human-
+agent cooperation. Following this, we delve into agent societies, exploring the
+behavior and personality of LLM-based agents, the social phenomena that emerge
+from an agent society, and the insights they offer for human society. Finally, we
+discuss several key topics and open problems within the field. A repository for the
+related papers at https://github.com/WooooDyy/LLM-Agent-Paper-List.
+† Correspondence to: zhxi22@m.fudan.edu.cn, {qz, tgui}@fudan.edu.cn
+∗ Equal Contribution.
+arXiv:2309.07864v3  [cs.AI]  19 Sep 2023
+
+Contents
+1 Introduction 4
+2 Background 6
+2.1 Origin of AI Agent . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+2.2 Technological Trends in Agent Research . . . . . . . . . . . . . . . . . . . . . . . 7
+2.3 Why is LLM suitable as the primary component of an Agent’s brain? . . . . . . . . 9
+3 The Birth of An Agent: Construction of LLM-based Agents 10
+3.1 Brain . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 11
+3.1.1 Natural Language Interaction . . . . . . . . . . . . . . . . . . . . . . . . 12
+3.1.2 Knowledge . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 13
+3.1.3 Memory . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+3.1.4 Reasoning and Planning . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+3.1.5 Transferability and Generalization . . . . . . . . . . . . . . . . . . . . . . 16
+3.2 Perception . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+3.2.1 Textual Input . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+3.2.2 Visual Input . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+3.2.3 Auditory Input . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+3.2.4 Other Input . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+3.3 Action . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+3.3.1 Textual Output . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+3.3.2 Tool Using . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+3.3.3 Embodied Action . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21
+4 Agents in Practice: Harnessing AI for Good 24
+4.1 General Ability of Single Agent . . . . . . . . . . . . . . . . . . . . . . . . . . . 25
+4.1.1 Task-oriented Deployment . . . . . . . . . . . . . . . . . . . . . . . . . . 25
+4.1.2 Innovation-oriented Deployment . . . . . . . . . . . . . . . . . . . . . . . 27
+4.1.3 Lifecycle-oriented Deployment . . . . . . . . . . . . . . . . . . . . . . . 27
+4.2 Coordinating Potential of Multiple Agents . . . . . . . . . . . . . . . . . . . . . . 28
+4.2.1 Cooperative Interaction for Complementarity . . . . . . . . . . . . . . . . 28
+4.2.2 Adversarial Interaction for Advancement . . . . . . . . . . . . . . . . . . 30
+4.3 Interactive Engagement between Human and Agent . . . . . . . . . . . . . . . . . 30
+4.3.1 Instructor-Executor Paradigm . . . . . . . . . . . . . . . . . . . . . . . . 31
+4.3.2 Equal Partnership Paradigm . . . . . . . . . . . . . . . . . . . . . . . . . 32
+5 Agent Society: From Individuality to Sociality 33
+5.1 Behavior and Personality of LLM-based Agents . . . . . . . . . . . . . . . . . . . 34
+5.1.1 Social Behavior . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 34
+2
+
+5.1.2 Personality . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 36
+5.2 Environment for Agent Society . . . . . . . . . . . . . . . . . . . . . . . . . . . . 36
+5.2.1 Text-based Environment . . . . . . . . . . . . . . . . . . . . . . . . . . . 37
+5.2.2 Virtual Sandbox Environment . . . . . . . . . . . . . . . . . . . . . . . . 37
+5.2.3 Physical Environment . . . . . . . . . . . . . . . . . . . . . . . . . . . . 37
+5.3 Society Simulation with LLM-based Agents . . . . . . . . . . . . . . . . . . . . . 38
+5.3.1 Key Properties and Mechanism of Agent Society . . . . . . . . . . . . . . 38
+5.3.2 Insights from Agent Society . . . . . . . . . . . . . . . . . . . . . . . . . 39
+5.3.3 Ethical and Social Risks in Agent Society . . . . . . . . . . . . . . . . . . 40
+6 Discussion 41
+6.1 Mutual Benefits between LLM Research and Agent Research . . . . . . . . . . . . 41
+6.2 Evaluation for LLM-based Agents . . . . . . . . . . . . . . . . . . . . . . . . . . 42
+6.3 Security, Trustworthiness and Other Potential Risks of LLM-based Agents . . . . . 44
+6.3.1 Adversarial Robustness . . . . . . . . . . . . . . . . . . . . . . . . . . . . 44
+6.3.2 Trustworthiness . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 44
+6.3.3 Other Potential Risks . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 45
+6.4 Scaling Up the Number of Agents . . . . . . . . . . . . . . . . . . . . . . . . . . 45
+6.5 Open Problems . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 46
+7 Conclusion 48
+3

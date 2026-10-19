@@ -1,0 +1,4754 @@
+{
+  "kept": [
+    {
+      "path": ".gemini/styleguide.md",
+      "bytes": 2928
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "bytes": 2141
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "bytes": 496
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "bytes": 1026
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "bytes": 3189
+    },
+    {
+      "path": ".github/scripts/update_news.py",
+      "bytes": 4747
+    },
+    {
+      "path": ".github/workflows/claim-expiry.yml",
+      "bytes": 4931
+    },
+    {
+      "path": ".github/workflows/github-monitor.yml",
+      "bytes": 2526
+    },
+    {
+      "path": ".github/workflows/issue-claim.yml",
+      "bytes": 11116
+    },
+    {
+      "path": ".github/workflows/issue-triage.yml",
+      "bytes": 8646
+    },
+    {
+      "path": ".github/workflows/k8s-workspace.yml",
+      "bytes": 2678
+    },
+    {
+      "path": ".github/workflows/pr-review-relay.yml",
+      "bytes": 634
+    },
+    {
+      "path": ".github/workflows/pr-state-labels.yml",
+      "bytes": 7889
+    },
+    {
+      "path": ".github/workflows/pr-title-check.yml",
+      "bytes": 1629
+    },
+    {
+      "path": ".github/workflows/pre-commit.yml",
+      "bytes": 598
+    },
+    {
+      "path": ".github/workflows/publish-pypi.yml",
+      "bytes": 1174
+    },
+    {
+      "path": ".github/workflows/stale.yml",
+      "bytes": 1257
+    },
+    {
+      "path": ".github/workflows/unittest.yml",
+      "bytes": 975
+    },
+    {
+      "path": ".github/workflows/update_news.yml",
+      "bytes": 988
+    },
+    {
+      "path": ".github/workflows/web-ui.yml",
+      "bytes": 995
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "bytes": 3172
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 17194
+    },
+    {
+      "path": "CONTRIBUTING_zh.md",
+      "bytes": 14551
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 20637
+    },
+    {
+      "path": "README.md",
+      "bytes": 14755
+    },
+    {
+      "path": "README_zh.md",
+      "bytes": 14598
+    },
+    {
+      "path": "docs/NEWS.md",
+      "bytes": 5242
+    },
+    {
+      "path": "docs/NEWS_zh.md",
+      "bytes": 5289
+    },
+    {
+      "path": "docs/changelog.md",
+      "bytes": 3130
+    },
+    {
+      "path": "docs/roadmap.md",
+      "bytes": 4878
+    },
+    {
+      "path": "examples/a2a/README.md",
+      "bytes": 5104
+    },
+    {
+      "path": "examples/a2a/client.py",
+      "bytes": 1373
+    },
+    {
+      "path": "examples/a2a/server.py",
+      "bytes": 6414
+    },
+    {
+      "path": "examples/agent_service/README.md",
+      "bytes": 2029
+    },
+    {
+      "path": "examples/agent_service/main.py",
+      "bytes": 6012
+    },
+    {
+      "path": "examples/console/README.md",
+      "bytes": 2236
+    },
+    {
+      "path": "examples/console/main.py",
+      "bytes": 3125
+    },
+    {
+      "path": "examples/long_term_memory/agentic_memory/README.md",
+      "bytes": 2630
+    },
+    {
+      "path": "examples/long_term_memory/agentic_memory/main.py",
+      "bytes": 8113
+    },
+    {
+      "path": "examples/long_term_memory/mem0/README.md",
+      "bytes": 14986
+    },
+    {
+      "path": "examples/long_term_memory/mem0/oss_demo.py",
+      "bytes": 13149
+    },
+    {
+      "path": "examples/long_term_memory/reme/README.md",
+      "bytes": 8007
+    },
+    {
+      "path": "examples/long_term_memory/reme/reme_demo.py",
+      "bytes": 13990
+    },
+    {
+      "path": "examples/pipeline/goal/README.md",
+      "bytes": 1527
+    },
+    {
+      "path": "examples/pipeline/goal/goal_pipeline.py",
+      "bytes": 2441
+    },
+    {
+      "path": "examples/rag/README.md",
+      "bytes": 9590
+    },
+    {
+      "path": "examples/rag/index_and_search.py",
+      "bytes": 6496
+    },
+    {
+      "path": "examples/rag/integrate_with_agent.py",
+      "bytes": 7023
+    },
+    {
+      "path": "examples/realtime/README.md",
+      "bytes": 4629
+    },
+    {
+      "path": "examples/realtime/local_mic.py",
+      "bytes": 3182
+    },
+    {
+      "path": "examples/tui/README.md",
+      "bytes": 6067
+    },
+    {
+      "path": "examples/tui/main.py",
+      "bytes": 1827
+    },
+    {
+      "path": "examples/web_ui/backend/package.json",
+      "bytes": 452
+    },
+    {
+      "path": "examples/web_ui/backend/src/index.ts",
+      "bytes": 326
+    },
+    {
+      "path": "examples/web_ui/backend/tsconfig.json",
+      "bytes": 340
+    },
+    {
+      "path": "examples/web_ui/frontend/README.md",
+      "bytes": 2258
+    },
+    {
+      "path": "examples/web_ui/frontend/components.json",
+      "bytes": 483
+    },
+    {
+      "path": "examples/web_ui/frontend/eslint.config.js",
+      "bytes": 1375
+    },
+    {
+      "path": "examples/web_ui/frontend/index.html",
+      "bytes": 682
+    },
+    {
+      "path": "examples/web_ui/frontend/package.json",
+      "bytes": 2010
+    },
+    {
+      "path": "examples/web_ui/frontend/src/App.tsx",
+      "bytes": 3217
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/agent.ts",
+      "bytes": 721
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/channel.ts",
+      "bytes": 1760
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/chat.ts",
+      "bytes": 857
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/client.ts",
+      "bytes": 5022
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/credential.ts",
+      "bytes": 721
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/health.ts",
+      "bytes": 569
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/hub.ts",
+      "bytes": 2843
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/index.ts",
+      "bytes": 645
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/knowledgeBase.ts",
+      "bytes": 9878
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/mcp.ts",
+      "bytes": 879
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/model.ts",
+      "bytes": 694
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/realtime.ts",
+      "bytes": 476
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/schedule.ts",
+      "bytes": 723
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/session.ts",
+      "bytes": 4731
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/skill.ts",
+      "bytes": 823
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/types.ts",
+      "bytes": 41038
+    },
+    {
+      "path": "examples/web_ui/frontend/src/api/workspace.ts",
+      "bytes": 5912
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/badge/InputTypeBadges.tsx",
+      "bytes": 2393
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/badge/StatusBadge.tsx",
+      "bytes": 1342
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/ASMessageBubble.tsx",
+      "bytes": 23326
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/ChatContent.tsx",
+      "bytes": 12065
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/ConfirmCard.tsx",
+      "bytes": 6480
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/FlipCard.tsx",
+      "bytes": 949
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/SubagentHitlCard.tsx",
+      "bytes": 1862
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/TextInput.tsx",
+      "bytes": 19059
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/tool-renderers/BashRenderer.tsx",
+      "bytes": 1668
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/tool-renderers/DefaultRenderer.tsx",
+      "bytes": 2579
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/tool-renderers/DiffPreview.tsx",
+      "bytes": 7349
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/tool-renderers/EditRenderer.tsx",
+      "bytes": 3441
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/tool-renderers/GlobRenderer.tsx",
+      "bytes": 741
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/tool-renderers/GrepRenderer.tsx",
+      "bytes": 741
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/tool-renderers/ReadRenderer.tsx",
+      "bytes": 2940
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/tool-renderers/TaskCreateRenderer.tsx",
+      "bytes": 1321
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/tool-renderers/WriteRenderer.tsx",
+      "bytes": 2106
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/tool-renderers/_shared.tsx",
+      "bytes": 7800
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/tool-renderers/index.tsx",
+      "bytes": 2061
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/chat/tool-renderers/types.ts",
+      "bytes": 1378
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/AddMCPDialog.tsx",
+      "bytes": 7596
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/AddSkillDialog.tsx",
+      "bytes": 10314
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/AgentDialog.tsx",
+      "bytes": 3988
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/CreateCredentialDialog.tsx",
+      "bytes": 4336
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/CreateKnowledgeBaseDialog.tsx",
+      "bytes": 10869
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/DeleteDialog.tsx",
+      "bytes": 1671
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/EditAgentDialog.tsx",
+      "bytes": 4514
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/EditCredentialDialog.tsx",
+      "bytes": 3763
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/EditKnowledgeBaseDialog.tsx",
+      "bytes": 4988
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/InstallMCPDialog.tsx",
+      "bytes": 4737
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/MCPConfigForm.tsx",
+      "bytes": 4865
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/RenameSessionDialog.tsx",
+      "bytes": 2254
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/dialog/WorkingDirectoryDialog.tsx",
+      "bytes": 11793
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/drawer/KnowledgeSearchDrawer.tsx",
+      "bytes": 5701
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/drawer/ResourceDetailDrawer.tsx",
+      "bytes": 5643
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/error/RouteError.tsx",
+      "bytes": 2141
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/form/AgentFormFields.tsx",
+      "bytes": 5396
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/form/SchemaForm.tsx",
+      "bytes": 7457
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/hub/LoadMore.tsx",
+      "bytes": 1576
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/hub/ResourcePanel.tsx",
+      "bytes": 2489
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/knowledge/DocumentDetailDrawer.tsx",
+      "bytes": 10944
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/knowledge/KnowledgeDocumentsPanel.tsx",
+      "bytes": 16861
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/layout/AppLayout.tsx",
+      "bytes": 430
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/layout/AppSidebar.tsx",
+      "bytes": 5594
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/markdown/index.tsx",
+      "bytes": 681
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/panel/KnowledgeBasePanel.tsx",
+      "bytes": 4768
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/panel/McpPanel.tsx",
+      "bytes": 8555
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/panel/PanelDock.tsx",
+      "bytes": 6021
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/panel/PanelEmpty.tsx",
+      "bytes": 1389
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/panel/PermissionPanel.tsx",
+      "bytes": 7129
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/panel/SkillPanel.tsx",
+      "bytes": 6087
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/panel/TaskPanel.tsx",
+      "bytes": 4992
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/panel/TeamPanel.tsx",
+      "bytes": 4070
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/popover/KnowledgeBaseParametersPopover.tsx",
+      "bytes": 8922
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/popover/ModelParametersPopover.tsx",
+      "bytes": 25020
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/select/AgentSelect.tsx",
+      "bytes": 3713
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/select/ChunkerSelect.tsx",
+      "bytes": 1925
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/select/DimensionSelect.tsx",
+      "bytes": 2030
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/select/EmbeddingSelect.tsx",
+      "bytes": 4540
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/select/LlmSelect.tsx",
+      "bytes": 4937
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/select/PermissionModeSelect.tsx",
+      "bytes": 2422
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/select/RealtimeModelSelect.tsx",
+      "bytes": 4215
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/select/TimezoneSelect.tsx",
+      "bytes": 2627
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/tour/ChatTourController.tsx",
+      "bytes": 2479
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/tour/TourCard.tsx",
+      "bytes": 2020
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/tour/chatTourSteps.ts",
+      "bytes": 1383
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/alert.tsx",
+      "bytes": 1935
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/attachment.tsx",
+      "bytes": 5685
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/avatar.tsx",
+      "bytes": 1011
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/badge.tsx",
+      "bytes": 1775
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/bubble.tsx",
+      "bytes": 4473
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/button-group.tsx",
+      "bytes": 2242
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/button.tsx",
+      "bytes": 3710
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/calendar.tsx",
+      "bytes": 7415
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/card.tsx",
+      "bytes": 2475
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/checkbox.tsx",
+      "bytes": 1332
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/collapsible.tsx",
+      "bytes": 727
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/dialog.tsx",
+      "bytes": 3885
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/drawer.tsx",
+      "bytes": 4194
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/dropdown-menu.tsx",
+      "bytes": 8443
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/empty.tsx",
+      "bytes": 2217
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/field.tsx",
+      "bytes": 5565
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/input-group.tsx",
+      "bytes": 4899
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/input.tsx",
+      "bytes": 944
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/item.tsx",
+      "bytes": 4428
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/kbd.tsx",
+      "bytes": 801
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/label.tsx",
+      "bytes": 568
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/marker.tsx",
+      "bytes": 1752
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/message-scroller.tsx",
+      "bytes": 3905
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/message.tsx",
+      "bytes": 2082
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/popover.tsx",
+      "bytes": 2240
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/progress.tsx",
+      "bytes": 689
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/resizable.tsx",
+      "bytes": 1651
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/select.tsx",
+      "bytes": 6383
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/separator.tsx",
+      "bytes": 615
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/sheet.tsx",
+      "bytes": 4268
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/sidebar.tsx",
+      "bytes": 19968
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/skeleton.tsx",
+      "bytes": 263
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/sonner.tsx",
+      "bytes": 1020
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/spinner.tsx",
+      "bytes": 316
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/switch.tsx",
+      "bytes": 1692
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/table.tsx",
+      "bytes": 2167
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/tabs.tsx",
+      "bytes": 3413
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/textarea.tsx",
+      "bytes": 821
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/toggle.tsx",
+      "bytes": 1734
+    },
+    {
+      "path": "examples/web_ui/frontend/src/components/ui/tooltip.tsx",
+      "bytes": 2041
+    },
+    {
+      "path": "examples/web_ui/frontend/src/context/AudioContext.tsx",
+      "bytes": 2743
+    },
+    {
+      "path": "examples/web_ui/frontend/src/context/UploadContext.tsx",
+      "bytes": 12164
+    },
+    {
+      "path": "examples/web_ui/frontend/src/context/uploadTypes.ts",
+      "bytes": 1550
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/use-mobile.ts",
+      "bytes": 557
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useAgentSchema.ts",
+      "bytes": 599
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useAgents.ts",
+      "bytes": 1611
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useAvailableModels.ts",
+      "bytes": 2058
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useAvailableRealtimeModels.ts",
+      "bytes": 1633
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useAvailableTTSModels.ts",
+      "bytes": 1676
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useChannels.ts",
+      "bytes": 1582
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useChat.ts",
+      "bytes": 1127
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useChunkers.ts",
+      "bytes": 906
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useCredentials.ts",
+      "bytes": 2300
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useDocumentStatusPolling.ts",
+      "bytes": 4462
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useKbEmbeddingModels.ts",
+      "bytes": 1224
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useKnowledgeBaseMiddlewareSchema.ts",
+      "bytes": 1887
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useKnowledgeBases.ts",
+      "bytes": 2931
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useKnowledgeDocuments.ts",
+      "bytes": 1887
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useKnowledgeSupportedContentTypes.ts",
+      "bytes": 2049
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useMCPHubCards.ts",
+      "bytes": 3781
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useMCPHubs.ts",
+      "bytes": 771
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useMCPs.ts",
+      "bytes": 1299
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useMessages.ts",
+      "bytes": 22407
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useModels.ts",
+      "bytes": 875
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useRealtimeVoice.ts",
+      "bytes": 2144
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useResourceDrawer.ts",
+      "bytes": 1534
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useSchedules.ts",
+      "bytes": 1697
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useSessions.ts",
+      "bytes": 3672
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useSkillHubCards.ts",
+      "bytes": 3793
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useSkillHubs.ts",
+      "bytes": 675
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useSkills.ts",
+      "bytes": 1137
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useWorkspace.ts",
+      "bytes": 4328
+    },
+    {
+      "path": "examples/web_ui/frontend/src/hooks/useWorkspaceStatus.ts",
+      "bytes": 2371
+    },
+    {
+      "path": "examples/web_ui/frontend/src/i18n/index.ts",
+      "bytes": 586
+    },
+    {
+      "path": "examples/web_ui/frontend/src/i18n/locales/en.json",
+      "bytes": 30018
+    },
+    {
+      "path": "examples/web_ui/frontend/src/i18n/locales/zh.json",
+      "bytes": 29463
+    },
+    {
+      "path": "examples/web_ui/frontend/src/i18n/useI18n.ts",
+      "bytes": 161
+    },
+    {
+      "path": "examples/web_ui/frontend/src/index.css",
+      "bytes": 7322
+    },
+    {
+      "path": "examples/web_ui/frontend/src/lib/api-error.ts",
+      "bytes": 1015
+    },
+    {
+      "path": "examples/web_ui/frontend/src/lib/browserWebRTCTransport.ts",
+      "bytes": 11748
+    },
+    {
+      "path": "examples/web_ui/frontend/src/lib/next-navigation-shim.ts",
+      "bytes": 968
+    },
+    {
+      "path": "examples/web_ui/frontend/src/lib/query-client.ts",
+      "bytes": 1166
+    },
+    {
+      "path": "examples/web_ui/frontend/src/lib/utils.ts",
+      "bytes": 168
+    },
+    {
+      "path": "examples/web_ui/frontend/src/main.tsx",
+      "bytes": 354
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/channel/bindings-editor.tsx",
+      "bytes": 5488
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/channel/channel-detail-panel.tsx",
+      "bytes": 9099
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/channel/channel-form.tsx",
+      "bytes": 12032
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/channel/channel-status.tsx",
+      "bytes": 1327
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/channel/create-channel-dialog.tsx",
+      "bytes": 3698
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/channel/credential-binding-panel.tsx",
+      "bytes": 4406
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/channel/edit-channel-dialog.tsx",
+      "bytes": 2988
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/channel/index.tsx",
+      "bytes": 11021
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/channel/type-avatar.tsx",
+      "bytes": 687
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/chat/ChatViewport.tsx",
+      "bytes": 36480
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/chat/index.tsx",
+      "bytes": 21188
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/credential/index.tsx",
+      "bytes": 22741
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/knowledge/index.tsx",
+      "bytes": 12415
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/mcp/index.tsx",
+      "bytes": 19981
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/schedule/calendar-tab-page.tsx",
+      "bytes": 10282
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/schedule/create-schedule-dialog.tsx",
+      "bytes": 9960
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/schedule/empty-state.tsx",
+      "bytes": 1092
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/schedule/event.tsx",
+      "bytes": 206
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/schedule/index.tsx",
+      "bytes": 4790
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/schedule/list-tab-page.tsx",
+      "bytes": 3934
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/schedule/schedule-card.tsx",
+      "bytes": 1825
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/schedule/schedule-detail-drawer.tsx",
+      "bytes": 6433
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/schedule/schedule-utils.ts",
+      "bytes": 1459
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/setup/index.tsx",
+      "bytes": 5402
+    },
+    {
+      "path": "examples/web_ui/frontend/src/pages/skill/index.tsx",
+      "bytes": 18591
+    },
+    {
+      "path": "examples/web_ui/frontend/src/types/unidiff.d.ts",
+      "bytes": 352
+    },
+    {
+      "path": "examples/web_ui/frontend/src/utils/common.ts",
+      "bytes": 5369
+    },
+    {
+      "path": "examples/web_ui/frontend/src/utils/platform.ts",
+      "bytes": 934
+    },
+    {
+      "path": "examples/web_ui/frontend/src/utils/streamingAudio.ts",
+      "bytes": 12543
+    },
+    {
+      "path": "examples/web_ui/frontend/src/vite-env.d.ts",
+      "bytes": 88
+    },
+    {
+      "path": "examples/web_ui/frontend/tsconfig.app.json",
+      "bytes": 713
+    },
+    {
+      "path": "examples/web_ui/frontend/tsconfig.json",
+      "bytes": 188
+    },
+    {
+      "path": "examples/web_ui/frontend/tsconfig.node.json",
+      "bytes": 554
+    },
+    {
+      "path": "examples/web_ui/frontend/vite.config.ts",
+      "bytes": 539
+    },
+    {
+      "path": "examples/web_ui/package.json",
+      "bytes": 1010
+    },
+    {
+      "path": "examples/web_ui/pnpm-workspace.yaml",
+      "bytes": 347
+    },
+    {
+      "path": "examples/workspace/apple-container-workspace.md",
+      "bytes": 3742
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 7835
+    },
+    {
+      "path": "scripts/claim_intent.py",
+      "bytes": 3870
+    },
+    {
+      "path": "scripts/issue_triage.py",
+      "bytes": 17850
+    },
+    {
+      "path": "scripts/model_examples/README.md",
+      "bytes": 8916
+    },
+    {
+      "path": "scripts/model_examples/_utils.py",
+      "bytes": 3935
+    },
+    {
+      "path": "scripts/model_examples/anthropic_call.py",
+      "bytes": 5462
+    },
+    {
+      "path": "scripts/model_examples/anthropic_multiagent.py",
+      "bytes": 2967
+    },
+    {
+      "path": "scripts/model_examples/anthropic_multiagent_multimodal.py",
+      "bytes": 2905
+    },
+    {
+      "path": "scripts/model_examples/anthropic_multimodal.py",
+      "bytes": 4005
+    },
+    {
+      "path": "scripts/model_examples/dashscope_call.py",
+      "bytes": 5361
+    },
+    {
+      "path": "scripts/model_examples/dashscope_multiagent.py",
+      "bytes": 2893
+    },
+    {
+      "path": "scripts/model_examples/dashscope_multiagent_multimodal.py",
+      "bytes": 2838
+    },
+    {
+      "path": "scripts/model_examples/dashscope_multimodal.py",
+      "bytes": 5956
+    },
+    {
+      "path": "scripts/model_examples/deepseek_call.py",
+      "bytes": 5609
+    },
+    {
+      "path": "scripts/model_examples/deepseek_multiagent.py",
+      "bytes": 2897
+    },
+    {
+      "path": "scripts/model_examples/gemini_call.py",
+      "bytes": 5412
+    },
+    {
+      "path": "scripts/model_examples/gemini_multiagent.py",
+      "bytes": 2932
+    },
+    {
+      "path": "scripts/model_examples/gemini_multiagent_multimodal.py",
+      "bytes": 2666
+    },
+    {
+      "path": "scripts/model_examples/gemini_multimodal.py",
+      "bytes": 3868
+    },
+    {
+      "path": "scripts/model_examples/minimax_call.py",
+      "bytes": 5402
+    },
+    {
+      "path": "scripts/model_examples/minimax_multiagent.py",
+      "bytes": 2963
+    },
+    {
+      "path": "scripts/model_examples/minimax_multiagent_multimodal.py",
+      "bytes": 2813
+    },
+    {
+      "path": "scripts/model_examples/minimax_multimodal.py",
+      "bytes": 4594
+    },
+    {
+      "path": "scripts/model_examples/moonshot_call.py",
+      "bytes": 5100
+    },
+    {
+      "path": "scripts/model_examples/moonshot_multiagent.py",
+      "bytes": 2874
+    },
+    {
+      "path": "scripts/model_examples/moonshot_multiagent_multimodal.py",
+      "bytes": 2626
+    },
+    {
+      "path": "scripts/model_examples/moonshot_multimodal.py",
+      "bytes": 3699
+    },
+    {
+      "path": "scripts/model_examples/ollama_call.py",
+      "bytes": 5337
+    },
+    {
+      "path": "scripts/model_examples/ollama_multiagent.py",
+      "bytes": 2695
+    },
+    {
+      "path": "scripts/model_examples/ollama_multiagent_multimodal.py",
+      "bytes": 2515
+    },
+    {
+      "path": "scripts/model_examples/ollama_multimodal.py",
+      "bytes": 3540
+    },
+    {
+      "path": "scripts/model_examples/openai_chat_call.py",
+      "bytes": 5408
+    },
+    {
+      "path": "scripts/model_examples/openai_chat_multiagent.py",
+      "bytes": 2789
+    },
+    {
+      "path": "scripts/model_examples/openai_chat_multiagent_multimodal.py",
+      "bytes": 2536
+    },
+    {
+      "path": "scripts/model_examples/openai_chat_multimodal.py",
+      "bytes": 5207
+    },
+    {
+      "path": "scripts/model_examples/openai_response_call.py",
+      "bytes": 5812
+    },
+    {
+      "path": "scripts/model_examples/openai_response_multiagent.py",
+      "bytes": 2850
+    },
+    {
+      "path": "scripts/model_examples/openai_response_multiagent_multimodal.py",
+      "bytes": 2569
+    },
+    {
+      "path": "scripts/model_examples/openai_response_multimodal.py",
+      "bytes": 3660
+    },
+    {
+      "path": "scripts/model_examples/run_tests.py",
+      "bytes": 18450
+    },
+    {
+      "path": "scripts/model_examples/volcengine_call.py",
+      "bytes": 4380
+    },
+    {
+      "path": "scripts/model_examples/volcengine_multiagent.py",
+      "bytes": 1568
+    },
+    {
+      "path": "scripts/model_examples/xai_call.py",
+      "bytes": 5551
+    },
+    {
+      "path": "scripts/model_examples/xai_multiagent.py",
+      "bytes": 2806
+    },
+    {
+      "path": "scripts/model_examples/xai_multiagent_multimodal.py",
+      "bytes": 2575
+    },
+    {
+      "path": "scripts/model_examples/xai_multimodal.py",
+      "bytes": 3687
+    },
+    {
+      "path": "src/agentscope/__init__.py",
+      "bytes": 440
+    },
+    {
+      "path": "src/agentscope/_logging.py",
+      "bytes": 1223
+    },
+    {
+      "path": "src/agentscope/_utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/agentscope/_utils/_audio.py",
+      "bytes": 3979
+    },
+    {
+      "path": "src/agentscope/_utils/_common.py",
+      "bytes": 13944
+    },
+    {
+      "path": "src/agentscope/_utils/_mixin.py",
+      "bytes": 733
+    },
+    {
+      "path": "src/agentscope/_version.py",
+      "bytes": 84
+    },
+    {
+      "path": "src/agentscope/agent/__init__.py",
+      "bytes": 450
+    },
+    {
+      "path": "src/agentscope/agent/_a2a_agent.py",
+      "bytes": 24002
+    },
+    {
+      "path": "src/agentscope/agent/_agent.py",
+      "bytes": 156519
+    },
+    {
+      "path": "src/agentscope/agent/_config.py",
+      "bytes": 17062
+    },
+    {
+      "path": "src/agentscope/agent/_realtime/__init__.py",
+      "bytes": 226
+    },
+    {
+      "path": "src/agentscope/agent/_realtime/_agent.py",
+      "bytes": 48461
+    },
+    {
+      "path": "src/agentscope/agent/_realtime/_aggregator.py",
+      "bytes": 2541
+    },
+    {
+      "path": "src/agentscope/agent/_realtime/_metrics.py",
+      "bytes": 2024
+    },
+    {
+      "path": "src/agentscope/agent/_structured_output_tool.py",
+      "bytes": 6160
+    },
+    {
+      "path": "src/agentscope/agent/_utils.py",
+      "bytes": 1687
+    },
+    {
+      "path": "src/agentscope/app/__init__.py",
+      "bytes": 281
+    },
+    {
+      "path": "src/agentscope/app/_app.py",
+      "bytes": 21307
+    },
+    {
+      "path": "src/agentscope/app/_bus_ops.py",
+      "bytes": 12409
+    },
+    {
+      "path": "src/agentscope/app/_lifespan.py",
+      "bytes": 13081
+    },
+    {
+      "path": "src/agentscope/app/_manager/__init__.py",
+      "bytes": 508
+    },
+    {
+      "path": "src/agentscope/app/_manager/_background_task_manager.py",
+      "bytes": 15217
+    },
+    {
+      "path": "src/agentscope/app/_manager/_cancel_dispatcher.py",
+      "bytes": 9898
+    },
+    {
+      "path": "src/agentscope/app/_manager/_chat_run_registry.py",
+      "bytes": 4800
+    },
+    {
+      "path": "src/agentscope/app/_manager/_scheduler/__init__.py",
+      "bytes": 153
+    },
+    {
+      "path": "src/agentscope/app/_manager/_scheduler/_scheduler_manager.py",
+      "bytes": 23867
+    },
+    {
+      "path": "src/agentscope/app/_manager/_scheduler/_tools/__init__.py",
+      "bytes": 330
+    },
+    {
+      "path": "src/agentscope/app/_manager/_scheduler/_tools/_schedule_create.py",
+      "bytes": 9155
+    },
+    {
+      "path": "src/agentscope/app/_manager/_scheduler/_tools/_schedule_delete.py",
+      "bytes": 5429
+    },
+    {
+      "path": "src/agentscope/app/_manager/_scheduler/_tools/_schedule_list.py",
+      "bytes": 3904
+    },
+    {
+      "path": "src/agentscope/app/_manager/_scheduler/_tools/_schedule_view.py",
+      "bytes": 4440
+    },
+    {
+      "path": "src/agentscope/app/_manager/_wakeup_dispatcher.py",
+      "bytes": 15300
+    },
+    {
+      "path": "src/agentscope/app/_router/__init__.py",
+      "bytes": 1067
+    },
+    {
+      "path": "src/agentscope/app/_router/_agent.py",
+      "bytes": 11795
+    },
+    {
+      "path": "src/agentscope/app/_router/_channel.py",
+      "bytes": 12375
+    },
+    {
+      "path": "src/agentscope/app/_router/_chat.py",
+      "bytes": 6226
+    },
+    {
+      "path": "src/agentscope/app/_router/_credential.py",
+      "bytes": 6654
+    },
+    {
+      "path": "src/agentscope/app/_router/_embedding_model.py",
+      "bytes": 1800
+    },
+    {
+      "path": "src/agentscope/app/_router/_health.py",
+      "bytes": 3324
+    },
+    {
+      "path": "src/agentscope/app/_router/_hub.py",
+      "bytes": 9561
+    },
+    {
+      "path": "src/agentscope/app/_router/_knowledge_base.py",
+      "bytes": 34028
+    },
+    {
+      "path": "src/agentscope/app/_router/_mcp.py",
+      "bytes": 5338
+    },
+    {
+      "path": "src/agentscope/app/_router/_model.py",
+      "bytes": 1158
+    },
+    {
+      "path": "src/agentscope/app/_router/_realtime.py",
+      "bytes": 9620
+    },
+    {
+      "path": "src/agentscope/app/_router/_schedule.py",
+      "bytes": 8894
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/__init__.py",
+      "bytes": 5594
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_agent.py",
+      "bytes": 5534
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_channel.py",
+      "bytes": 2754
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_chat.py",
+      "bytes": 1164
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_credential.py",
+      "bytes": 1182
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_embedding_model.py",
+      "bytes": 658
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_health.py",
+      "bytes": 783
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_hub.py",
+      "bytes": 550
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_hub_mcp.py",
+      "bytes": 3970
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_hub_skill.py",
+      "bytes": 2456
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_knowledge_base.py",
+      "bytes": 11967
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_mcp.py",
+      "bytes": 3673
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_model.py",
+      "bytes": 568
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_realtime.py",
+      "bytes": 1373
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_schedule.py",
+      "bytes": 3430
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_session.py",
+      "bytes": 10240
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_sop.py",
+      "bytes": 2003
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_tts_model.py",
+      "bytes": 602
+    },
+    {
+      "path": "src/agentscope/app/_router/_schema/_workspace.py",
+      "bytes": 3597
+    },
+    {
+      "path": "src/agentscope/app/_router/_session.py",
+      "bytes": 34651
+    },
+    {
+      "path": "src/agentscope/app/_router/_skill.py",
+      "bytes": 2111
+    },
+    {
+      "path": "src/agentscope/app/_router/_sop.py",
+      "bytes": 12456
+    },
+    {
+      "path": "src/agentscope/app/_router/_tts_model.py",
+      "bytes": 1195
+    },
+    {
+      "path": "src/agentscope/app/_router/_workspace.py",
+      "bytes": 19801
+    },
+    {
+      "path": "src/agentscope/app/_service/__init__.py",
+      "bytes": 1913
+    },
+    {
+      "path": "src/agentscope/app/_service/_access.py",
+      "bytes": 21519
+    },
+    {
+      "path": "src/agentscope/app/_service/_channel.py",
+      "bytes": 8373
+    },
+    {
+      "path": "src/agentscope/app/_service/_chat.py",
+      "bytes": 72327
+    },
+    {
+      "path": "src/agentscope/app/_service/_credential_binding.py",
+      "bytes": 13253
+    },
+    {
+      "path": "src/agentscope/app/_service/_download_token.py",
+      "bytes": 4276
+    },
+    {
+      "path": "src/agentscope/app/_service/_embedding.py",
+      "bytes": 4119
+    },
+    {
+      "path": "src/agentscope/app/_service/_errors.py",
+      "bytes": 6191
+    },
+    {
+      "path": "src/agentscope/app/_service/_index_sweeper.py",
+      "bytes": 5613
+    },
+    {
+      "path": "src/agentscope/app/_service/_index_task_consumer.py",
+      "bytes": 8134
+    },
+    {
+      "path": "src/agentscope/app/_service/_index_worker.py",
+      "bytes": 24263
+    },
+    {
+      "path": "src/agentscope/app/_service/_knowledge_base.py",
+      "bytes": 33767
+    },
+    {
+      "path": "src/agentscope/app/_service/_mcp_render.py",
+      "bytes": 5085
+    },
+    {
+      "path": "src/agentscope/app/_service/_model.py",
+      "bytes": 4175
+    },
+    {
+      "path": "src/agentscope/app/_service/_projectors/__init__.py",
+      "bytes": 376
+    },
+    {
+      "path": "src/agentscope/app/_service/_projectors/_subagent_hitl.py",
+      "bytes": 10395
+    },
+    {
+      "path": "src/agentscope/app/_service/_realtime.py",
+      "bytes": 7058
+    },
+    {
+      "path": "src/agentscope/app/_service/_session.py",
+      "bytes": 29778
+    },
+    {
+      "path": "src/agentscope/app/_service/_session_projection.py",
+      "bytes": 6711
+    },
+    {
+      "path": "src/agentscope/app/_service/_sop.py",
+      "bytes": 22248
+    },
+    {
+      "path": "src/agentscope/app/_service/_toolkit.py",
+      "bytes": 10955
+    },
+    {
+      "path": "src/agentscope/app/_service/_tts_model.py",
+      "bytes": 1926
+    },
+    {
+      "path": "src/agentscope/app/_service/_webrtc_audio_transport.py",
+      "bytes": 14910
+    },
+    {
+      "path": "src/agentscope/app/_service/_webrtc_session.py",
+      "bytes": 11921
+    },
+    {
+      "path": "src/agentscope/app/_service/_workspace.py",
+      "bytes": 23045
+    },
+    {
+      "path": "src/agentscope/app/_tool/__init__.py",
+      "bytes": 2142
+    },
+    {
+      "path": "src/agentscope/app/_tool/_agent_create.py",
+      "bytes": 20636
+    },
+    {
+      "path": "src/agentscope/app/_tool/_agent_invite.py",
+      "bytes": 22930
+    },
+    {
+      "path": "src/agentscope/app/_tool/_constants.py",
+      "bytes": 811
+    },
+    {
+      "path": "src/agentscope/app/_tool/_sop_submit.py",
+      "bytes": 8198
+    },
+    {
+      "path": "src/agentscope/app/_tool/_team_create.py",
+      "bytes": 5246
+    },
+    {
+      "path": "src/agentscope/app/_tool/_team_delete.py",
+      "bytes": 3276
+    },
+    {
+      "path": "src/agentscope/app/_tool/_team_say.py",
+      "bytes": 11640
+    },
+    {
+      "path": "src/agentscope/app/_tool/_team_tool_base.py",
+      "bytes": 5385
+    },
+    {
+      "path": "src/agentscope/app/_types.py",
+      "bytes": 8265
+    },
+    {
+      "path": "src/agentscope/app/access/__init__.py",
+      "bytes": 622
+    },
+    {
+      "path": "src/agentscope/app/access/_policy.py",
+      "bytes": 5327
+    },
+    {
+      "path": "src/agentscope/app/channel/__init__.py",
+      "bytes": 1458
+    },
+    {
+      "path": "src/agentscope/app/channel/_base.py",
+      "bytes": 22987
+    },
+    {
+      "path": "src/agentscope/app/channel/_clients.py",
+      "bytes": 8785
+    },
+    {
+      "path": "src/agentscope/app/channel/_credential_binding.py",
+      "bytes": 3891
+    },
+    {
+      "path": "src/agentscope/app/channel/_decision.py",
+      "bytes": 3215
+    },
+    {
+      "path": "src/agentscope/app/channel/_dingtalk/__init__.py",
+      "bytes": 118
+    },
+    {
+      "path": "src/agentscope/app/channel/_dingtalk/_card.py",
+      "bytes": 9661
+    },
+    {
+      "path": "src/agentscope/app/channel/_dingtalk/_channel.py",
+      "bytes": 48788
+    },
+    {
+      "path": "src/agentscope/app/channel/_dingtalk/_openapi.py",
+      "bytes": 31390
+    },
+    {
+      "path": "src/agentscope/app/channel/_dingtalk/_tools/__init__.py",
+      "bytes": 388
+    },
+    {
+      "path": "src/agentscope/app/channel/_dingtalk/_tools/_base.py",
+      "bytes": 2630
+    },
+    {
+      "path": "src/agentscope/app/channel/_dingtalk/_tools/_list_conversations.py",
+      "bytes": 2097
+    },
+    {
+      "path": "src/agentscope/app/channel/_dingtalk/_tools/_list_users.py",
+      "bytes": 2388
+    },
+    {
+      "path": "src/agentscope/app/channel/_dingtalk/_tools/_send_file.py",
+      "bytes": 2047
+    },
+    {
+      "path": "src/agentscope/app/channel/_dingtalk/_tools/_send_image.py",
+      "bytes": 1975
+    },
+    {
+      "path": "src/agentscope/app/channel/_dingtalk/_tools/_send_message.py",
+      "bytes": 1479
+    },
+    {
+      "path": "src/agentscope/app/channel/_discord/__init__.py",
+      "bytes": 114
+    },
+    {
+      "path": "src/agentscope/app/channel/_discord/_channel.py",
+      "bytes": 20147
+    },
+    {
+      "path": "src/agentscope/app/channel/_dispatcher.py",
+      "bytes": 9326
+    },
+    {
+      "path": "src/agentscope/app/channel/_errors.py",
+      "bytes": 785
+    },
+    {
+      "path": "src/agentscope/app/channel/_feishu/__init__.py",
+      "bytes": 118
+    },
+    {
+      "path": "src/agentscope/app/channel/_feishu/_card_templates.py",
+      "bytes": 6762
+    },
+    {
+      "path": "src/agentscope/app/channel/_feishu/_channel.py",
+      "bytes": 48907
+    },
+    {
+      "path": "src/agentscope/app/channel/_feishu/_credential_binding.py",
+      "bytes": 4467
+    },
+    {
+      "path": "src/agentscope/app/channel/_feishu/_tools/__init__.py",
+      "bytes": 639
+    },
+    {
+      "path": "src/agentscope/app/channel/_feishu/_tools/_base.py",
+      "bytes": 2607
+    },
+    {
+      "path": "src/agentscope/app/channel/_feishu/_tools/_list_chat_members.py",
+      "bytes": 1788
+    },
+    {
+      "path": "src/agentscope/app/channel/_feishu/_tools/_list_chats.py",
+      "bytes": 1948
+    },
+    {
+      "path": "src/agentscope/app/channel/_feishu/_tools/_send_file.py",
+      "bytes": 2640
+    },
+    {
+      "path": "src/agentscope/app/channel/_feishu/_tools/_send_image.py",
+      "bytes": 2483
+    },
+    {
+      "path": "src/agentscope/app/channel/_feishu/_tools/_send_message.py",
+      "bytes": 2123
+    },
+    {
+      "path": "src/agentscope/app/channel/_gateway.py",
+      "bytes": 13090
+    },
+    {
+      "path": "src/agentscope/app/channel/_registry.py",
+      "bytes": 5948
+    },
+    {
+      "path": "src/agentscope/app/channel/_routing.py",
+      "bytes": 2685
+    },
+    {
+      "path": "src/agentscope/app/channel/_stream.py",
+      "bytes": 4216
+    },
+    {
+      "path": "src/agentscope/app/channel/_tools/__init__.py",
+      "bytes": 316
+    },
+    {
+      "path": "src/agentscope/app/channel/_tools/_base.py",
+      "bytes": 1769
+    },
+    {
+      "path": "src/agentscope/app/channel/_tools/_list_wiki_nodes.py",
+      "bytes": 2705
+    },
+    {
+      "path": "src/agentscope/app/channel/_tools/_list_wiki_spaces.py",
+      "bytes": 2450
+    },
+    {
+      "path": "src/agentscope/app/channel/_tools/_read_wiki_document.py",
+      "bytes": 2894
+    },
+    {
+      "path": "src/agentscope/app/channel/worker/__init__.py",
+      "bytes": 5421
+    },
+    {
+      "path": "src/agentscope/app/deps.py",
+      "bytes": 13955
+    },
+    {
+      "path": "src/agentscope/app/hub/__init__.py",
+      "bytes": 573
+    },
+    {
+      "path": "src/agentscope/app/hub/_base.py",
+      "bytes": 2437
+    },
+    {
+      "path": "src/agentscope/app/hub/_error.py",
+      "bytes": 1066
+    },
+    {
+      "path": "src/agentscope/app/hub/_mcp/__init__.py",
+      "bytes": 245
+    },
+    {
+      "path": "src/agentscope/app/hub/_mcp/_base.py",
+      "bytes": 2110
+    },
+    {
+      "path": "src/agentscope/app/hub/_mcp/_card.py",
+      "bytes": 5754
+    },
+    {
+      "path": "src/agentscope/app/hub/_mcp/_github_hub.py",
+      "bytes": 16033
+    },
+    {
+      "path": "src/agentscope/app/hub/_skill/__init__.py",
+      "bytes": 291
+    },
+    {
+      "path": "src/agentscope/app/hub/_skill/_base.py",
+      "bytes": 4036
+    },
+    {
+      "path": "src/agentscope/app/hub/_skill/_card.py",
+      "bytes": 4195
+    },
+    {
+      "path": "src/agentscope/app/hub/_skill/_claw_hub.py",
+      "bytes": 23258
+    },
+    {
+      "path": "src/agentscope/app/message_bus/__init__.py",
+      "bytes": 372
+    },
+    {
+      "path": "src/agentscope/app/message_bus/_base.py",
+      "bytes": 31059
+    },
+    {
+      "path": "src/agentscope/app/message_bus/_in_memory_message_bus.py",
+      "bytes": 17493
+    },
+    {
+      "path": "src/agentscope/app/message_bus/_keys.py",
+      "bytes": 16047
+    },
+    {
+      "path": "src/agentscope/app/message_bus/_redis_message_bus.py",
+      "bytes": 24979
+    },
+    {
+      "path": "src/agentscope/app/middleware/__init__.py",
+      "bytes": 632
+    },
+    {
+      "path": "src/agentscope/app/middleware/_inbox_middleware.py",
+      "bytes": 4887
+    },
+    {
+      "path": "src/agentscope/app/middleware/_protocol/__init__.py",
+      "bytes": 230
+    },
+    {
+      "path": "src/agentscope/app/middleware/_protocol/_agui.py",
+      "bytes": 9561
+    },
+    {
+      "path": "src/agentscope/app/middleware/_protocol/_base.py",
+      "bytes": 8167
+    },
+    {
+      "path": "src/agentscope/app/middleware/_sop_step_middleware.py",
+      "bytes": 5645
+    },
+    {
+      "path": "src/agentscope/app/middleware/_state_change_middleware.py",
+      "bytes": 6951
+    },
+    {
+      "path": "src/agentscope/app/middleware/_team_member_middleware.py",
+      "bytes": 8492
+    },
+    {
+      "path": "src/agentscope/app/middleware/_tool_offload_middleware.py",
+      "bytes": 15030
+    },
+    {
+      "path": "src/agentscope/app/rag/__init__.py",
+      "bytes": 2707
+    },
+    {
+      "path": "src/agentscope/app/rag/blob_store/__init__.py",
+      "bytes": 284
+    },
+    {
+      "path": "src/agentscope/app/rag/blob_store/_base.py",
+      "bytes": 6853
+    },
+    {
+      "path": "src/agentscope/app/rag/blob_store/_local.py",
+      "bytes": 5537
+    },
+    {
+      "path": "src/agentscope/app/rag/blob_store/_s3.py",
+      "bytes": 12230
+    },
+    {
+      "path": "src/agentscope/app/rag/index_worker/__init__.py",
+      "bytes": 7909
+    },
+    {
+      "path": "src/agentscope/app/rag/index_worker/__main__.py",
+      "bytes": 3593
+    },
+    {
+      "path": "src/agentscope/app/rag/knowledge_base_manager/__init__.py",
+      "bytes": 982
+    },
+    {
+      "path": "src/agentscope/app/rag/knowledge_base_manager/_base.py",
+      "bytes": 10408
+    },
+    {
+      "path": "src/agentscope/app/rag/knowledge_base_manager/_collection_per_kb.py",
+      "bytes": 7656
+    },
+    {
+      "path": "src/agentscope/app/rag/knowledge_base_manager/_dimension_policy.py",
+      "bytes": 5712
+    },
+    {
+      "path": "src/agentscope/app/rag/knowledge_base_manager/_errors.py",
+      "bytes": 1914
+    },
+    {
+      "path": "src/agentscope/app/storage/__init__.py",
+      "bytes": 3420
+    },
+    {
+      "path": "src/agentscope/app/storage/_base.py",
+      "bytes": 44219
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/__init__.py",
+      "bytes": 2319
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_agent.py",
+      "bytes": 7018
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_base.py",
+      "bytes": 596
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_channel.py",
+      "bytes": 6328
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_credential.py",
+      "bytes": 374
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_knowledge_base.py",
+      "bytes": 5263
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_knowledge_document.py",
+      "bytes": 7648
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_mcp.py",
+      "bytes": 3504
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_schedule.py",
+      "bytes": 3175
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_session.py",
+      "bytes": 15987
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_skill.py",
+      "bytes": 2574
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_sop.py",
+      "bytes": 4913
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_team.py",
+      "bytes": 4397
+    },
+    {
+      "path": "src/agentscope/app/storage/_model/_user.py",
+      "bytes": 151
+    },
+    {
+      "path": "src/agentscope/app/storage/_redis_storage.py",
+      "bytes": 91896
+    },
+    {
+      "path": "src/agentscope/app/storage/_sql/__init__.py",
+      "bytes": 435
+    },
+    {
+      "path": "src/agentscope/app/storage/_sql/_alembic/alembic.ini",
+      "bytes": 1101
+    },
+    {
+      "path": "src/agentscope/app/storage/_sql/_alembic/env.py",
+      "bytes": 3073
+    },
+    {
+      "path": "src/agentscope/app/storage/_sql/_alembic/versions/0001_initial.py",
+      "bytes": 14115
+    },
+    {
+      "path": "src/agentscope/app/storage/_sql/_alembic/versions/0002_mcps_skills.py",
+      "bytes": 2099
+    },
+    {
+      "path": "src/agentscope/app/storage/_sql/_alembic/versions/0003_channels.py",
+      "bytes": 2256
+    },
+    {
+      "path": "src/agentscope/app/storage/_sql/_alembic/versions/0004_sops.py",
+      "bytes": 3202
+    },
+    {
+      "path": "src/agentscope/app/storage/_sql/_mappers.py",
+      "bytes": 5142
+    },
+    {
+      "path": "src/agentscope/app/storage/_sql/_storage.py",
+      "bytes": 79303
+    },
+    {
+      "path": "src/agentscope/app/storage/_sql/_tables.py",
+      "bytes": 13888
+    },
+    {
+      "path": "src/agentscope/app/storage/_utils.py",
+      "bytes": 5769
+    },
+    {
+      "path": "src/agentscope/app/workspace_manager/__init__.py",
+      "bytes": 1107
+    },
+    {
+      "path": "src/agentscope/app/workspace_manager/_applecontainer_workspace_manager.py",
+      "bytes": 10655
+    },
+    {
+      "path": "src/agentscope/app/workspace_manager/_base.py",
+      "bytes": 7410
+    },
+    {
+      "path": "src/agentscope/app/workspace_manager/_bubblewrap_workspace_manager.py",
+      "bytes": 9533
+    },
+    {
+      "path": "src/agentscope/app/workspace_manager/_daytona_workspace_manager.py",
+      "bytes": 13567
+    },
+    {
+      "path": "src/agentscope/app/workspace_manager/_docker_workspace_manager.py",
+      "bytes": 19099
+    },
+    {
+      "path": "src/agentscope/app/workspace_manager/_e2b_workspace_manager.py",
+      "bytes": 19033
+    },
+    {
+      "path": "src/agentscope/app/workspace_manager/_k8s_workspace_manager.py",
+      "bytes": 13132
+    },
+    {
+      "path": "src/agentscope/app/workspace_manager/_local_workspace_manager.py",
+      "bytes": 7500
+    },
+    {
+      "path": "src/agentscope/app/workspace_manager/_opensandbox_workspace_manager.py",
+      "bytes": 14412
+    },
+    {
+      "path": "src/agentscope/app/workspace_manager/_prewarm.py",
+      "bytes": 9184
+    },
+    {
+      "path": "src/agentscope/asr/__init__.py",
+      "bytes": 317
+    },
+    {
+      "path": "src/agentscope/asr/_asr_base.py",
+      "bytes": 8189
+    },
+    {
+      "path": "src/agentscope/asr/_asr_model_card.py",
+      "bytes": 2050
+    },
+    {
+      "path": "src/agentscope/asr/_asr_response.py",
+      "bytes": 1141
+    },
+    {
+      "path": "src/agentscope/asr/_openai/__init__.py",
+      "bytes": 129
+    },
+    {
+      "path": "src/agentscope/asr/_openai/_model.py",
+      "bytes": 2253
+    },
+    {
+      "path": "src/agentscope/asr/_openai/_models/gpt-4o-mini-transcribe.yaml",
+      "bytes": 159
+    },
+    {
+      "path": "src/agentscope/asr/_openai/_models/gpt-4o-transcribe.yaml",
+      "bytes": 149
+    },
+    {
+      "path": "src/agentscope/classifier/__init__.py",
+      "bytes": 863
+    },
+    {
+      "path": "src/agentscope/classifier/_base.py",
+      "bytes": 1848
+    },
+    {
+      "path": "src/agentscope/classifier/_jev/__init__.py",
+      "bytes": 139
+    },
+    {
+      "path": "src/agentscope/classifier/_jev/_model.py",
+      "bytes": 5661
+    },
+    {
+      "path": "src/agentscope/classifier/_openai/__init__.py",
+      "bytes": 149
+    },
+    {
+      "path": "src/agentscope/classifier/_openai/_model.py",
+      "bytes": 8068
+    },
+    {
+      "path": "src/agentscope/classifier/_question.py",
+      "bytes": 1973
+    },
+    {
+      "path": "src/agentscope/classifier/_response.py",
+      "bytes": 3274
+    },
+    {
+      "path": "src/agentscope/classifier/_usage.py",
+      "bytes": 758
+    },
+    {
+      "path": "src/agentscope/console/__init__.py",
+      "bytes": 766
+    },
+    {
+      "path": "src/agentscope/console/_console.py",
+      "bytes": 5890
+    },
+    {
+      "path": "src/agentscope/console/_renderer.py",
+      "bytes": 15446
+    },
+    {
+      "path": "src/agentscope/credential/__init__.py",
+      "bytes": 915
+    },
+    {
+      "path": "src/agentscope/credential/_anthropic.py",
+      "bytes": 988
+    },
+    {
+      "path": "src/agentscope/credential/_base.py",
+      "bytes": 4373
+    },
+    {
+      "path": "src/agentscope/credential/_dashscope.py",
+      "bytes": 2267
+    },
+    {
+      "path": "src/agentscope/credential/_deepseek.py",
+      "bytes": 1033
+    },
+    {
+      "path": "src/agentscope/credential/_factory.py",
+      "bytes": 3784
+    },
+    {
+      "path": "src/agentscope/credential/_gemini.py",
+      "bytes": 1633
+    },
+    {
+      "path": "src/agentscope/credential/_minimax.py",
+      "bytes": 1145
+    },
+    {
+      "path": "src/agentscope/credential/_moonshot.py",
+      "bytes": 1050
+    },
+    {
+      "path": "src/agentscope/credential/_ollama.py",
+      "bytes": 1215
+    },
+    {
+      "path": "src/agentscope/credential/_openai.py",
+      "bytes": 2270
+    },
+    {
+      "path": "src/agentscope/credential/_typesafe.py",
+      "bytes": 1017
+    },
+    {
+      "path": "src/agentscope/credential/_volcengine.py",
+      "bytes": 1090
+    },
+    {
+      "path": "src/agentscope/credential/_xai.py",
+      "bytes": 1324
+    },
+    {
+      "path": "src/agentscope/embedding/__init__.py",
+      "bytes": 809
+    },
+    {
+      "path": "src/agentscope/embedding/_cache_base.py",
+      "bytes": 1800
+    },
+    {
+      "path": "src/agentscope/embedding/_dashscope/__init__.py",
+      "bytes": 158
+    },
+    {
+      "path": "src/agentscope/embedding/_dashscope/_model.py",
+      "bytes": 18224
+    },
+    {
+      "path": "src/agentscope/embedding/_dashscope/_models/multimodal-embedding-v1.yaml",
+      "bytes": 228
+    },
+    {
+      "path": "src/agentscope/embedding/_dashscope/_models/qwen2.5-vl-embedding.yaml",
+      "bytes": 313
+    },
+    {
+      "path": "src/agentscope/embedding/_dashscope/_models/qwen3-vl-embedding.yaml",
+      "bytes": 326
+    },
+    {
+      "path": "src/agentscope/embedding/_dashscope/_models/text-embedding-v3.yaml",
+      "bytes": 227
+    },
+    {
+      "path": "src/agentscope/embedding/_dashscope/_models/text-embedding-v4.yaml",
+      "bytes": 239
+    },
+    {
+      "path": "src/agentscope/embedding/_dashscope/_models/tongyi-embedding-vision-flash.yaml",
+      "bytes": 346
+    },
+    {
+      "path": "src/agentscope/embedding/_dashscope/_models/tongyi-embedding-vision-plus.yaml",
+      "bytes": 352
+    },
+    {
+      "path": "src/agentscope/embedding/_embedding_base.py",
+      "bytes": 16991
+    },
+    {
+      "path": "src/agentscope/embedding/_embedding_model_card.py",
+      "bytes": 6195
+    },
+    {
+      "path": "src/agentscope/embedding/_embedding_response.py",
+      "bytes": 1119
+    },
+    {
+      "path": "src/agentscope/embedding/_embedding_usage.py",
+      "bytes": 579
+    },
+    {
+      "path": "src/agentscope/embedding/_file_cache.py",
+      "bytes": 8591
+    },
+    {
+      "path": "src/agentscope/embedding/_gemini/__init__.py",
+      "bytes": 149
+    },
+    {
+      "path": "src/agentscope/embedding/_gemini/_model.py",
+      "bytes": 16366
+    },
+    {
+      "path": "src/agentscope/embedding/_gemini/_models/gemini-embedding-001.yaml",
+      "bytes": 235
+    },
+    {
+      "path": "src/agentscope/embedding/_gemini/_models/gemini-embedding-2.yaml",
+      "bytes": 308
+    },
+    {
+      "path": "src/agentscope/embedding/_ollama/__init__.py",
+      "bytes": 149
+    },
+    {
+      "path": "src/agentscope/embedding/_ollama/_model.py",
+      "bytes": 5217
+    },
+    {
+      "path": "src/agentscope/embedding/_openai/__init__.py",
+      "bytes": 149
+    },
+    {
+      "path": "src/agentscope/embedding/_openai/_model.py",
+      "bytes": 6766
+    },
+    {
+      "path": "src/agentscope/embedding/_openai/_models/text-embedding-3-large.yaml",
+      "bytes": 240
+    },
+    {
+      "path": "src/agentscope/embedding/_openai/_models/text-embedding-3-small.yaml",
+      "bytes": 234
+    },
+    {
+      "path": "src/agentscope/event/__init__.py",
+      "bytes": 1828
+    },
+    {
+      "path": "src/agentscope/event/_event.py",
+      "bytes": 18900
+    },
+    {
+      "path": "src/agentscope/exception/__init__.py",
+      "bytes": 535
+    },
+    {
+      "path": "src/agentscope/exception/_base.py",
+      "bytes": 922
+    },
+    {
+      "path": "src/agentscope/exception/_model.py",
+      "bytes": 381
+    },
+    {
+      "path": "src/agentscope/exception/_tool.py",
+      "bytes": 595
+    },
+    {
+      "path": "src/agentscope/formatter/__init__.py",
+      "bytes": 1900
+    },
+    {
+      "path": "src/agentscope/formatter/_anthropic_formatter.py",
+      "bytes": 20873
+    },
+    {
+      "path": "src/agentscope/formatter/_dashscope_formatter.py",
+      "bytes": 20982
+    },
+    {
+      "path": "src/agentscope/formatter/_deepseek_formatter.py",
+      "bytes": 14362
+    },
+    {
+      "path": "src/agentscope/formatter/_formatter_base.py",
+      "bytes": 8265
+    },
+    {
+      "path": "src/agentscope/formatter/_gemini_formatter.py",
+      "bytes": 15822
+    },
+    {
+      "path": "src/agentscope/formatter/_minimax_formatter.py",
+      "bytes": 2062
+    },
+    {
+      "path": "src/agentscope/formatter/_moonshot_formatter.py",
+      "bytes": 17311
+    },
+    {
+      "path": "src/agentscope/formatter/_ollama_formatter.py",
+      "bytes": 17893
+    },
+    {
+      "path": "src/agentscope/formatter/_openai_formatter.py",
+      "bytes": 20146
+    },
+    {
+      "path": "src/agentscope/formatter/_openai_response_formatter.py",
+      "bytes": 20472
+    },
+    {
+      "path": "src/agentscope/formatter/_volcengine_formatter.py",
+      "bytes": 15022
+    },
+    {
+      "path": "src/agentscope/formatter/_xai_formatter.py",
+      "bytes": 19099
+    },
+    {
+      "path": "src/agentscope/mcp/__init__.py",
+      "bytes": 280
+    },
+    {
+      "path": "src/agentscope/mcp/_config.py",
+      "bytes": 1656
+    },
+    {
+      "path": "src/agentscope/mcp/_mcp_client.py",
+      "bytes": 20222
+    },
+    {
+      "path": "src/agentscope/message/__init__.py",
+      "bytes": 705
+    },
+    {
+      "path": "src/agentscope/message/_base.py",
+      "bytes": 27045
+    },
+    {
+      "path": "src/agentscope/message/_block.py",
+      "bytes": 8418
+    },
+    {
+      "path": "src/agentscope/middleware/__init__.py",
+      "bytes": 713
+    },
+    {
+      "path": "src/agentscope/middleware/_base.py",
+      "bytes": 11166
+    },
+    {
+      "path": "src/agentscope/middleware/_budget.py",
+      "bytes": 9261
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/__init__.py",
+      "bytes": 294
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/_agentic_memory/__init__.py",
+      "bytes": 160
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/_agentic_memory/_middleware.py",
+      "bytes": 38011
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/_mem0/__init__.py",
+      "bytes": 142
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/_mem0/_agentscope_adapter.py",
+      "bytes": 16680
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/_mem0/_middleware.py",
+      "bytes": 29178
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/_mem0/_tools.py",
+      "bytes": 9354
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/_mem0/_utils.py",
+      "bytes": 2474
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/_reme/__init__.py",
+      "bytes": 546
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/_reme/_config.py",
+      "bytes": 12812
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/_reme/_middleware.py",
+      "bytes": 23387
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/_reme/_tools.py",
+      "bytes": 5996
+    },
+    {
+      "path": "src/agentscope/middleware/_longterm_memory/_reme/_utils.py",
+      "bytes": 3297
+    },
+    {
+      "path": "src/agentscope/middleware/_model_router.py",
+      "bytes": 5874
+    },
+    {
+      "path": "src/agentscope/middleware/_rag.py",
+      "bytes": 38976
+    },
+    {
+      "path": "src/agentscope/middleware/_tracing/__init__.py",
+      "bytes": 152
+    },
+    {
+      "path": "src/agentscope/middleware/_tracing/_attributes.py",
+      "bytes": 6798
+    },
+    {
+      "path": "src/agentscope/middleware/_tracing/_converter.py",
+      "bytes": 3504
+    },
+    {
+      "path": "src/agentscope/middleware/_tracing/_extractor.py",
+      "bytes": 20959
+    },
+    {
+      "path": "src/agentscope/middleware/_tracing/_setup.py",
+      "bytes": 471
+    },
+    {
+      "path": "src/agentscope/middleware/_tracing/_trace.py",
+      "bytes": 12705
+    },
+    {
+      "path": "src/agentscope/middleware/_tracing/_utils.py",
+      "bytes": 1784
+    },
+    {
+      "path": "src/agentscope/middleware/_tts_middleware.py",
+      "bytes": 6889
+    },
+    {
+      "path": "src/agentscope/model/__init__.py",
+      "bytes": 1087
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/__init__.py",
+      "bytes": 190
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/_model.py",
+      "bytes": 24882
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/_models/claude-fable-5-1.yaml",
+      "bytes": 838
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/_models/claude-fable-5.yaml",
+      "bytes": 834
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/_models/claude-haiku-4-5.yaml",
+      "bytes": 653
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/_models/claude-opus-4-5.yaml",
+      "bytes": 766
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/_models/claude-opus-4-6.yaml",
+      "bytes": 831
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/_models/claude-opus-4-7.yaml",
+      "bytes": 844
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/_models/claude-opus-4-8.yaml",
+      "bytes": 844
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/_models/claude-opus-5.yaml",
+      "bytes": 840
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/_models/claude-sonnet-4-5.yaml",
+      "bytes": 656
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/_models/claude-sonnet-4-6.yaml",
+      "bytes": 835
+    },
+    {
+      "path": "src/agentscope/model/_anthropic/_models/claude-sonnet-5.yaml",
+      "bytes": 844
+    },
+    {
+      "path": "src/agentscope/model/_base.py",
+      "bytes": 28874
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/__init__.py",
+      "bytes": 186
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_model.py",
+      "bytes": 20981
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/deepseek-v4-pro.yaml",
+      "bytes": 402
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/deepseek-v4.1-flash.yaml",
+      "bytes": 580
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/glm-5.2.yaml",
+      "bytes": 386
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/glm-5.3.yaml",
+      "bytes": 468
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen-flash.yaml",
+      "bytes": 417
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen-long.yaml",
+      "bytes": 396
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen-plus.yaml",
+      "bytes": 388
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen3.5-flash.yaml",
+      "bytes": 618
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen3.5-omni-plus.yaml",
+      "bytes": 597
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen3.5-plus.yaml",
+      "bytes": 523
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen3.6-flash.yaml",
+      "bytes": 619
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen3.6-max-preview.yaml",
+      "bytes": 407
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen3.6-plus.yaml",
+      "bytes": 523
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen3.7-flash.yaml",
+      "bytes": 621
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen3.7-max.yaml",
+      "bytes": 393
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen3.7-plus.yaml",
+      "bytes": 523
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen3.8-flash.yaml",
+      "bytes": 636
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen3.8-max.yaml",
+      "bytes": 632
+    },
+    {
+      "path": "src/agentscope/model/_dashscope/_models/qwen3.8-omni-flash.yaml",
+      "bytes": 499
+    },
+    {
+      "path": "src/agentscope/model/_deepseek/__init__.py",
+      "bytes": 185
+    },
+    {
+      "path": "src/agentscope/model/_deepseek/_model.py",
+      "bytes": 16084
+    },
+    {
+      "path": "src/agentscope/model/_deepseek/_models/deepseek-chat.yaml",
+      "bytes": 251
+    },
+    {
+      "path": "src/agentscope/model/_deepseek/_models/deepseek-flash.yaml",
+      "bytes": 328
+    },
+    {
+      "path": "src/agentscope/model/_deepseek/_models/deepseek-reasoner.yaml",
+      "bytes": 286
+    },
+    {
+      "path": "src/agentscope/model/_deepseek/_models/deepseek-v4-flash.yaml",
+      "bytes": 276
+    },
+    {
+      "path": "src/agentscope/model/_deepseek/_models/deepseek-v4-pro.yaml",
+      "bytes": 272
+    },
+    {
+      "path": "src/agentscope/model/_gemini/__init__.py",
+      "bytes": 182
+    },
+    {
+      "path": "src/agentscope/model/_gemini/_model.py",
+      "bytes": 22398
+    },
+    {
+      "path": "src/agentscope/model/_gemini/_models/gemini-2.5-flash-lite.yaml",
+      "bytes": 375
+    },
+    {
+      "path": "src/agentscope/model/_gemini/_models/gemini-2.5-flash.yaml",
+      "bytes": 392
+    },
+    {
+      "path": "src/agentscope/model/_gemini/_models/gemini-2.5-pro.yaml",
+      "bytes": 388
+    },
+    {
+      "path": "src/agentscope/model/_gemini/_models/gemini-3-flash-preview.yaml",
+      "bytes": 377
+    },
+    {
+      "path": "src/agentscope/model/_gemini/_models/gemini-3.1-flash-lite.yaml",
+      "bytes": 375
+    },
+    {
+      "path": "src/agentscope/model/_gemini/_models/gemini-3.1-pro-preview.yaml",
+      "bytes": 377
+    },
+    {
+      "path": "src/agentscope/model/_gemini/_models/gemini-3.5-flash-lite.yaml",
+      "bytes": 375
+    },
+    {
+      "path": "src/agentscope/model/_gemini/_models/gemini-3.5-flash.yaml",
+      "bytes": 365
+    },
+    {
+      "path": "src/agentscope/model/_gemini/_models/gemini-3.6-flash.yaml",
+      "bytes": 365
+    },
+    {
+      "path": "src/agentscope/model/_gemini/_models/gemini-3.7-flash.yaml",
+      "bytes": 365
+    },
+    {
+      "path": "src/agentscope/model/_gemini/_models/gemini-3.8-flash.yaml",
+      "bytes": 365
+    },
+    {
+      "path": "src/agentscope/model/_minimax/__init__.py",
+      "bytes": 136
+    },
+    {
+      "path": "src/agentscope/model/_minimax/_model.py",
+      "bytes": 3425
+    },
+    {
+      "path": "src/agentscope/model/_minimax/_models/MiniMax-M2.7-highspeed.yaml",
+      "bytes": 284
+    },
+    {
+      "path": "src/agentscope/model/_minimax/_models/MiniMax-M2.7.yaml",
+      "bytes": 264
+    },
+    {
+      "path": "src/agentscope/model/_minimax/_models/MiniMax-M3.yaml",
+      "bytes": 375
+    },
+    {
+      "path": "src/agentscope/model/_model_card.py",
+      "bytes": 5422
+    },
+    {
+      "path": "src/agentscope/model/_model_response.py",
+      "bytes": 13372
+    },
+    {
+      "path": "src/agentscope/model/_model_usage.py",
+      "bytes": 967
+    },
+    {
+      "path": "src/agentscope/model/_moonshot/__init__.py",
+      "bytes": 142
+    },
+    {
+      "path": "src/agentscope/model/_moonshot/_model.py",
+      "bytes": 16484
+    },
+    {
+      "path": "src/agentscope/model/_moonshot/_models/kimi-k2.5.yaml",
+      "bytes": 393
+    },
+    {
+      "path": "src/agentscope/model/_moonshot/_models/kimi-k2.6.yaml",
+      "bytes": 430
+    },
+    {
+      "path": "src/agentscope/model/_moonshot/_models/kimi-k2.7-code-highspeed.yaml",
+      "bytes": 641
+    },
+    {
+      "path": "src/agentscope/model/_moonshot/_models/kimi-k2.7-code.yaml",
+      "bytes": 621
+    },
+    {
+      "path": "src/agentscope/model/_moonshot/_models/kimi-k3.yaml",
+      "bytes": 430
+    },
+    {
+      "path": "src/agentscope/model/_moonshot/_models/moonshot-v1-128k.yaml",
+      "bytes": 302
+    },
+    {
+      "path": "src/agentscope/model/_moonshot/_models/moonshot-v1-32k.yaml",
+      "bytes": 297
+    },
+    {
+      "path": "src/agentscope/model/_moonshot/_models/moonshot-v1-8k.yaml",
+      "bytes": 292
+    },
+    {
+      "path": "src/agentscope/model/_ollama/__init__.py",
+      "bytes": 175
+    },
+    {
+      "path": "src/agentscope/model/_ollama/_model.py",
+      "bytes": 12328
+    },
+    {
+      "path": "src/agentscope/model/_ollama/_models/deepseek-r1-14b.yaml",
+      "bytes": 240
+    },
+    {
+      "path": "src/agentscope/model/_ollama/_models/gemma4.yaml",
+      "bytes": 285
+    },
+    {
+      "path": "src/agentscope/model/_ollama/_models/llama3.2-3b.yaml",
+      "bytes": 206
+    },
+    {
+      "path": "src/agentscope/model/_ollama/_models/llama4.yaml",
+      "bytes": 298
+    },
+    {
+      "path": "src/agentscope/model/_ollama/_models/phi4-mini.yaml",
+      "bytes": 202
+    },
+    {
+      "path": "src/agentscope/model/_ollama/_models/qwen3-14b.yaml",
+      "bytes": 227
+    },
+    {
+      "path": "src/agentscope/model/_ollama/_models/qwen3-8b.yaml",
+      "bytes": 225
+    },
+    {
+      "path": "src/agentscope/model/_ollama/_models/qwen3.5-9b.yaml",
+      "bytes": 227
+    },
+    {
+      "path": "src/agentscope/model/_ollama/_models/qwen3.8-27b.yaml",
+      "bytes": 286
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/__init__.py",
+      "bytes": 146
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_model.py",
+      "bytes": 24623
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/gpt-4.1-mini.yaml",
+      "bytes": 518
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/gpt-4.1-nano.yaml",
+      "bytes": 559
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/gpt-4.1.yaml",
+      "bytes": 471
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/gpt-4o-mini.yaml",
+      "bytes": 515
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/gpt-4o.yaml",
+      "bytes": 505
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/gpt-5.4.yaml",
+      "bytes": 473
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/gpt-5.5.yaml",
+      "bytes": 510
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/gpt-5.6-luna.yaml",
+      "bytes": 634
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/gpt-5.6-sol.yaml",
+      "bytes": 632
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/gpt-5.6-terra.yaml",
+      "bytes": 636
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/gpt-6-astra.yaml",
+      "bytes": 632
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/gpt-audio-mini.yaml",
+      "bytes": 520
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/o3.yaml",
+      "bytes": 494
+    },
+    {
+      "path": "src/agentscope/model/_openai_chat/_models/o4-mini.yaml",
+      "bytes": 504
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/__init__.py",
+      "bytes": 147
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_model.py",
+      "bytes": 24265
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/gpt-4.1-mini.yaml",
+      "bytes": 361
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/gpt-4.1-nano.yaml",
+      "bytes": 402
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/gpt-4.1.yaml",
+      "bytes": 351
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/gpt-4o-mini.yaml",
+      "bytes": 358
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/gpt-4o.yaml",
+      "bytes": 348
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/gpt-5.4.yaml",
+      "bytes": 333
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/gpt-5.5.yaml",
+      "bytes": 353
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/gpt-5.6-luna.yaml",
+      "bytes": 477
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/gpt-5.6-sol.yaml",
+      "bytes": 475
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/gpt-5.6-terra.yaml",
+      "bytes": 479
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/gpt-6-astra.yaml",
+      "bytes": 475
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/o3.yaml",
+      "bytes": 412
+    },
+    {
+      "path": "src/agentscope/model/_openai_response/_models/o4-mini.yaml",
+      "bytes": 422
+    },
+    {
+      "path": "src/agentscope/model/_utils.py",
+      "bytes": 9906
+    },
+    {
+      "path": "src/agentscope/model/_volcengine/__init__.py",
+      "bytes": 199
+    },
+    {
+      "path": "src/agentscope/model/_volcengine/_model.py",
+      "bytes": 16383
+    },
+    {
+      "path": "src/agentscope/model/_volcengine/_models/doubao-seed-2-1-pro-260628.yaml",
+      "bytes": 435
+    },
+    {
+      "path": "src/agentscope/model/_volcengine/_models/doubao-seed-2-1-pro-260915.yaml",
+      "bytes": 446
+    },
+    {
+      "path": "src/agentscope/model/_volcengine/_models/doubao-seed-2-1-turbo-260628.yaml",
+      "bytes": 441
+    },
+    {
+      "path": "src/agentscope/model/_xai/__init__.py",
+      "bytes": 160
+    },
+    {
+      "path": "src/agentscope/model/_xai/_model.py",
+      "bytes": 16472
+    },
+    {
+      "path": "src/agentscope/model/_xai/_models/grok-3-fast.yaml",
+      "bytes": 267
+    },
+    {
+      "path": "src/agentscope/model/_xai/_models/grok-3-mini.yaml",
+      "bytes": 238
+    },
+    {
+      "path": "src/agentscope/model/_xai/_models/grok-3.yaml",
+      "bytes": 257
+    },
+    {
+      "path": "src/agentscope/model/_xai/_models/grok-4.20-0309-non-reasoning.yaml",
+      "bytes": 536
+    },
+    {
+      "path": "src/agentscope/model/_xai/_models/grok-4.20-0309-reasoning.yaml",
+      "bytes": 407
+    },
+    {
+      "path": "src/agentscope/model/_xai/_models/grok-4.20-multi-agent-0309.yaml",
+      "bytes": 411
+    },
+    {
+      "path": "src/agentscope/model/_xai/_models/grok-4.3.yaml",
+      "bytes": 409
+    },
+    {
+      "path": "src/agentscope/model/_xai/_models/grok-4.5.yaml",
+      "bytes": 408
+    },
+    {
+      "path": "src/agentscope/model/_xai/_models/grok-4.6.yaml",
+      "bytes": 408
+    },
+    {
+      "path": "src/agentscope/model/_xai/_models/grok-build-0.1.yaml",
+      "bytes": 391
+    },
+    {
+      "path": "src/agentscope/permission/__init__.py",
+      "bytes": 511
+    },
+    {
+      "path": "src/agentscope/permission/_context.py",
+      "bytes": 1513
+    },
+    {
+      "path": "src/agentscope/permission/_decision.py",
+      "bytes": 2762
+    },
+    {
+      "path": "src/agentscope/permission/_engine.py",
+      "bytes": 33924
+    },
+    {
+      "path": "src/agentscope/permission/_rule.py",
+      "bytes": 1213
+    },
+    {
+      "path": "src/agentscope/permission/_types.py",
+      "bytes": 6452
+    },
+    {
+      "path": "src/agentscope/pipeline/__init__.py",
+      "bytes": 279
+    },
+    {
+      "path": "src/agentscope/pipeline/_base.py",
+      "bytes": 884
+    },
+    {
+      "path": "src/agentscope/pipeline/_goal_pipeline.py",
+      "bytes": 12903
+    },
+    {
+      "path": "src/agentscope/pipeline/_team_pipeline.py",
+      "bytes": 16193
+    },
+    {
+      "path": "src/agentscope/rag/__init__.py",
+      "bytes": 975
+    },
+    {
+      "path": "src/agentscope/rag/_chunker/__init__.py",
+      "bytes": 231
+    },
+    {
+      "path": "src/agentscope/rag/_chunker/_approx_token_chunker.py",
+      "bytes": 8200
+    },
+    {
+      "path": "src/agentscope/rag/_chunker/_base.py",
+      "bytes": 3504
+    },
+    {
+      "path": "src/agentscope/rag/_document.py",
+      "bytes": 3876
+    },
+    {
+      "path": "src/agentscope/rag/_knowledge.py",
+      "bytes": 16719
+    },
+    {
+      "path": "src/agentscope/rag/_parser/__init__.py",
+      "bytes": 441
+    },
+    {
+      "path": "src/agentscope/rag/_parser/_base.py",
+      "bytes": 4804
+    },
+    {
+      "path": "src/agentscope/rag/_parser/_excel.py",
+      "bytes": 19202
+    },
+    {
+      "path": "src/agentscope/rag/_parser/_image.py",
+      "bytes": 2690
+    },
+    {
+      "path": "src/agentscope/rag/_parser/_pdf.py",
+      "bytes": 3174
+    },
+    {
+      "path": "src/agentscope/rag/_parser/_ppt.py",
+      "bytes": 14116
+    },
+    {
+      "path": "src/agentscope/rag/_parser/_text.py",
+      "bytes": 3973
+    },
+    {
+      "path": "src/agentscope/rag/_parser/_utils.py",
+      "bytes": 4105
+    },
+    {
+      "path": "src/agentscope/rag/_parser/_word.py",
+      "bytes": 15082
+    },
+    {
+      "path": "src/agentscope/rag/_vdb/__init__.py",
+      "bytes": 538
+    },
+    {
+      "path": "src/agentscope/rag/_vdb/_elasticsearch.py",
+      "bytes": 14646
+    },
+    {
+      "path": "src/agentscope/rag/_vdb/_milvus_lite.py",
+      "bytes": 19422
+    },
+    {
+      "path": "src/agentscope/rag/_vdb/_mongodb.py",
+      "bytes": 17703
+    },
+    {
+      "path": "src/agentscope/rag/_vdb/_qdrant.py",
+      "bytes": 18163
+    },
+    {
+      "path": "src/agentscope/rag/_vdb/_vector_store.py",
+      "bytes": 13253
+    },
+    {
+      "path": "src/agentscope/realtime/__init__.py",
+      "bytes": 1901
+    },
+    {
+      "path": "src/agentscope/realtime/_base.py",
+      "bytes": 8576
+    },
+    {
+      "path": "src/agentscope/realtime/_dashscope/__init__.py",
+      "bytes": 227
+    },
+    {
+      "path": "src/agentscope/realtime/_dashscope/_audio_model.py",
+      "bytes": 9344
+    },
+    {
+      "path": "src/agentscope/realtime/_dashscope/_audio_models/qwen-audio-3.0-realtime-flash.yaml",
+      "bytes": 612
+    },
+    {
+      "path": "src/agentscope/realtime/_dashscope/_audio_models/qwen-audio-3.0-realtime-plus.yaml",
+      "bytes": 610
+    },
+    {
+      "path": "src/agentscope/realtime/_dashscope/_audio_models/qwen-audio-3.1-realtime-plus.yaml",
+      "bytes": 726
+    },
+    {
+      "path": "src/agentscope/realtime/_dashscope/_model.py",
+      "bytes": 16440
+    },
+    {
+      "path": "src/agentscope/realtime/_dashscope/_models/qwen-omni-turbo-realtime.yaml",
+      "bytes": 592
+    },
+    {
+      "path": "src/agentscope/realtime/_dashscope/_models/qwen3-omni-flash-realtime.yaml",
+      "bytes": 578
+    },
+    {
+      "path": "src/agentscope/realtime/_dashscope/_models/qwen3.5-omni-flash-realtime.yaml",
+      "bytes": 544
+    },
+    {
+      "path": "src/agentscope/realtime/_dashscope/_models/qwen3.5-omni-plus-realtime.yaml",
+      "bytes": 543
+    },
+    {
+      "path": "src/agentscope/realtime/_dashscope/_models/qwen3.8-omni-flash-realtime.yaml",
+      "bytes": 486
+    },
+    {
+      "path": "src/agentscope/realtime/_events.py",
+      "bytes": 1958
+    },
+    {
+      "path": "src/agentscope/realtime/_gemini/__init__.py",
+      "bytes": 133
+    },
+    {
+      "path": "src/agentscope/realtime/_gemini/_model.py",
+      "bytes": 18425
+    },
+    {
+      "path": "src/agentscope/realtime/_gemini/_models/gemini-2.5-flash-native-audio-preview-12-2025.yaml",
+      "bytes": 917
+    },
+    {
+      "path": "src/agentscope/realtime/_gemini/_models/gemini-3.1-flash-live-preview.yaml",
+      "bytes": 893
+    },
+    {
+      "path": "src/agentscope/realtime/_model_card.py",
+      "bytes": 4446
+    },
+    {
+      "path": "src/agentscope/realtime/_openai/__init__.py",
+      "bytes": 132
+    },
+    {
+      "path": "src/agentscope/realtime/_openai/_model.py",
+      "bytes": 15896
+    },
+    {
+      "path": "src/agentscope/realtime/_openai/_models/gpt-realtime-1.5.yaml",
+      "bytes": 299
+    },
+    {
+      "path": "src/agentscope/realtime/_openai/_models/gpt-realtime-2.1-mini.yaml",
+      "bytes": 310
+    },
+    {
+      "path": "src/agentscope/realtime/_openai/_models/gpt-realtime-2.1.yaml",
+      "bytes": 300
+    },
+    {
+      "path": "src/agentscope/realtime/_openai/_models/gpt-realtime-2.yaml",
+      "bytes": 296
+    },
+    {
+      "path": "src/agentscope/realtime/_playout.py",
+      "bytes": 621
+    },
+    {
+      "path": "src/agentscope/realtime/_transport/__init__.py",
+      "bytes": 394
+    },
+    {
+      "path": "src/agentscope/realtime/_transport/_base.py",
+      "bytes": 3235
+    },
+    {
+      "path": "src/agentscope/realtime/_transport/_local.py",
+      "bytes": 7908
+    },
+    {
+      "path": "src/agentscope/realtime/_vad.py",
+      "bytes": 1669
+    },
+    {
+      "path": "src/agentscope/realtime/_xai/__init__.py",
+      "bytes": 124
+    },
+    {
+      "path": "src/agentscope/realtime/_xai/_model.py",
+      "bytes": 14049
+    },
+    {
+      "path": "src/agentscope/realtime/_xai/_models/grok-voice-latest.yaml",
+      "bytes": 398
+    },
+    {
+      "path": "src/agentscope/realtime/_xai/_models/grok-voice-think-fast-2.0.yaml",
+      "bytes": 412
+    },
+    {
+      "path": "src/agentscope/skill/__init__.py",
+      "bytes": 233
+    },
+    {
+      "path": "src/agentscope/skill/_base.py",
+      "bytes": 735
+    },
+    {
+      "path": "src/agentscope/skill/_local_loader.py",
+      "bytes": 5813
+    },
+    {
+      "path": "src/agentscope/sop/__init__.py",
+      "bytes": 842
+    },
+    {
+      "path": "src/agentscope/sop/_engine.py",
+      "bytes": 6203
+    },
+    {
+      "path": "src/agentscope/sop/_schema.py",
+      "bytes": 14436
+    },
+    {
+      "path": "src/agentscope/sop/_state.py",
+      "bytes": 5126
+    },
+    {
+      "path": "src/agentscope/state/__init__.py",
+      "bytes": 327
+    },
+    {
+      "path": "src/agentscope/state/_a2a_state.py",
+      "bytes": 622
+    },
+    {
+      "path": "src/agentscope/state/_state.py",
+      "bytes": 14379
+    },
+    {
+      "path": "src/agentscope/state/_task.py",
+      "bytes": 967
+    },
+    {
+      "path": "src/agentscope/tool/__init__.py",
+      "bytes": 1303
+    },
+    {
+      "path": "src/agentscope/tool/_adapters.py",
+      "bytes": 15149
+    },
+    {
+      "path": "src/agentscope/tool/_base.py",
+      "bytes": 18724
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/__init__.py",
+      "bytes": 773
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_ask_user.py",
+      "bytes": 8084
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_backend.py",
+      "bytes": 38693
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_bash.py",
+      "bytes": 31442
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_bash_parser.py",
+      "bytes": 31159
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_edit.py",
+      "bytes": 16477
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_glob.py",
+      "bytes": 12902
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_grep.py",
+      "bytes": 16970
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_meta.py",
+      "bytes": 5534
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_powershell.py",
+      "bytes": 10081
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_read.py",
+      "bytes": 20903
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_scripts/__init__.py",
+      "bytes": 396
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_scripts/_glob_helper.py",
+      "bytes": 7193
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_skill.py",
+      "bytes": 4029
+    },
+    {
+      "path": "src/agentscope/tool/_builtin/_write.py",
+      "bytes": 13072
+    },
+    {
+      "path": "src/agentscope/tool/_constants.py",
+      "bytes": 3307
+    },
+    {
+      "path": "src/agentscope/tool/_response.py",
+      "bytes": 6682
+    },
+    {
+      "path": "src/agentscope/tool/_task/__init__.py",
+      "bytes": 282
+    },
+    {
+      "path": "src/agentscope/tool/_task/_create_task.py",
+      "bytes": 4637
+    },
+    {
+      "path": "src/agentscope/tool/_task/_get_task.py",
+      "bytes": 3011
+    },
+    {
+      "path": "src/agentscope/tool/_task/_list_task.py",
+      "bytes": 2703
+    },
+    {
+      "path": "src/agentscope/tool/_task/_task_tool_base.py",
+      "bytes": 945
+    },
+    {
+      "path": "src/agentscope/tool/_task/_update_task.py",
+      "bytes": 9842
+    },
+    {
+      "path": "src/agentscope/tool/_tool_group.py",
+      "bytes": 4080
+    },
+    {
+      "path": "src/agentscope/tool/_toolkit.py",
+      "bytes": 25072
+    },
+    {
+      "path": "src/agentscope/tool/_types.py",
+      "bytes": 7609
+    },
+    {
+      "path": "src/agentscope/tool/_utils.py",
+      "bytes": 6140
+    },
+    {
+      "path": "src/agentscope/tts/__init__.py",
+      "bytes": 617
+    },
+    {
+      "path": "src/agentscope/tts/_dashscope/__init__.py",
+      "bytes": 314
+    },
+    {
+      "path": "src/agentscope/tts/_dashscope/_cosyvoice_model.py",
+      "bytes": 13726
+    },
+    {
+      "path": "src/agentscope/tts/_dashscope/_cosyvoice_models/cosyvoice-v3-flash.yaml",
+      "bytes": 383
+    },
+    {
+      "path": "src/agentscope/tts/_dashscope/_cosyvoice_models/cosyvoice-v3-plus.yaml",
+      "bytes": 259
+    },
+    {
+      "path": "src/agentscope/tts/_dashscope/_cosyvoice_utils.py",
+      "bytes": 5691
+    },
+    {
+      "path": "src/agentscope/tts/_dashscope/_model.py",
+      "bytes": 9126
+    },
+    {
+      "path": "src/agentscope/tts/_dashscope/_models/qwen3-tts-flash-realtime.yaml",
+      "bytes": 301
+    },
+    {
+      "path": "src/agentscope/tts/_dashscope/_models/qwen3-tts-flash.yaml",
+      "bytes": 268
+    },
+    {
+      "path": "src/agentscope/tts/_dashscope/_realtime_model.py",
+      "bytes": 16665
+    },
+    {
+      "path": "src/agentscope/tts/_gemini/__init__.py",
+      "bytes": 126
+    },
+    {
+      "path": "src/agentscope/tts/_gemini/_model.py",
+      "bytes": 11886
+    },
+    {
+      "path": "src/agentscope/tts/_gemini/_models/gemini-2.5-flash-preview-tts.yaml",
+      "bytes": 625
+    },
+    {
+      "path": "src/agentscope/tts/_gemini/_models/gemini-2.5-pro-preview-tts.yaml",
+      "bytes": 621
+    },
+    {
+      "path": "src/agentscope/tts/_openai/__init__.py",
+      "bytes": 126
+    },
+    {
+      "path": "src/agentscope/tts/_openai/_model.py",
+      "bytes": 8296
+    },
+    {
+      "path": "src/agentscope/tts/_openai/_models/gpt-4o-mini-tts.yaml",
+      "bytes": 399
+    },
+    {
+      "path": "src/agentscope/tts/_openai/_models/tts-1-hd.yaml",
+      "bytes": 532
+    },
+    {
+      "path": "src/agentscope/tts/_openai/_models/tts-1.yaml",
+      "bytes": 523
+    },
+    {
+      "path": "src/agentscope/tts/_tts_base.py",
+      "bytes": 7356
+    },
+    {
+      "path": "src/agentscope/tts/_tts_model_card.py",
+      "bytes": 4148
+    },
+    {
+      "path": "src/agentscope/tts/_tts_response.py",
+      "bytes": 1736
+    },
+    {
+      "path": "src/agentscope/tui/__init__.py",
+      "bytes": 494
+    },
+    {
+      "path": "src/agentscope/tui/_ask_user.py",
+      "bytes": 17330
+    },
+    {
+      "path": "src/agentscope/tui/_chat.py",
+      "bytes": 21734
+    },
+    {
+      "path": "src/agentscope/tui/_launcher.py",
+      "bytes": 13078
+    },
+    {
+      "path": "src/agentscope/tui/_messages.py",
+      "bytes": 30147
+    },
+    {
+      "path": "src/agentscope/types/__init__.py",
+      "bytes": 496
+    },
+    {
+      "path": "src/agentscope/types/_hook.py",
+      "bytes": 427
+    },
+    {
+      "path": "src/agentscope/types/_json.py",
+      "bytes": 303
+    },
+    {
+      "path": "src/agentscope/types/_object.py",
+      "bytes": 111
+    },
+    {
+      "path": "src/agentscope/types/_reply.py",
+      "bytes": 1790
+    },
+    {
+      "path": "src/agentscope/workspace/__init__.py",
+      "bytes": 995
+    },
+    {
+      "path": "src/agentscope/workspace/_applecontainer/__init__.py",
+      "bytes": 616
+    },
+    {
+      "path": "src/agentscope/workspace/_applecontainer/_applecontainer_backend.py",
+      "bytes": 7288
+    },
+    {
+      "path": "src/agentscope/workspace/_applecontainer/_applecontainer_workspace.py",
+      "bytes": 19734
+    },
+    {
+      "path": "src/agentscope/workspace/_applecontainer/_constants.py",
+      "bytes": 887
+    },
+    {
+      "path": "src/agentscope/workspace/_base.py",
+      "bytes": 60525
+    },
+    {
+      "path": "src/agentscope/workspace/_bubblewrap/__init__.py",
+      "bytes": 222
+    },
+    {
+      "path": "src/agentscope/workspace/_bubblewrap/_bubblewrap_backend.py",
+      "bytes": 21462
+    },
+    {
+      "path": "src/agentscope/workspace/_bubblewrap/_bubblewrap_workspace.py",
+      "bytes": 26156
+    },
+    {
+      "path": "src/agentscope/workspace/_bubblewrap/_constants.py",
+      "bytes": 503
+    },
+    {
+      "path": "src/agentscope/workspace/_daytona/__init__.py",
+      "bytes": 399
+    },
+    {
+      "path": "src/agentscope/workspace/_daytona/_constants.py",
+      "bytes": 1357
+    },
+    {
+      "path": "src/agentscope/workspace/_daytona/_daytona_backend.py",
+      "bytes": 6121
+    },
+    {
+      "path": "src/agentscope/workspace/_daytona/_daytona_workspace.py",
+      "bytes": 20746
+    },
+    {
+      "path": "src/agentscope/workspace/_docker/__init__.py",
+      "bytes": 476
+    },
+    {
+      "path": "src/agentscope/workspace/_docker/_docker_backend.py",
+      "bytes": 6709
+    },
+    {
+      "path": "src/agentscope/workspace/_docker/_docker_workspace.py",
+      "bytes": 13306
+    },
+    {
+      "path": "src/agentscope/workspace/_docker/_make_dockerfile.py",
+      "bytes": 7368
+    },
+    {
+      "path": "src/agentscope/workspace/_e2b/__init__.py",
+      "bytes": 348
+    },
+    {
+      "path": "src/agentscope/workspace/_e2b/_constants.py",
+      "bytes": 1062
+    },
+    {
+      "path": "src/agentscope/workspace/_e2b/_e2b_backend.py",
+      "bytes": 5852
+    },
+    {
+      "path": "src/agentscope/workspace/_e2b/_e2b_workspace.py",
+      "bytes": 15501
+    },
+    {
+      "path": "src/agentscope/workspace/_gateway_client.py",
+      "bytes": 32191
+    },
+    {
+      "path": "src/agentscope/workspace/_gateway_shim.py",
+      "bytes": 3260
+    },
+    {
+      "path": "src/agentscope/workspace/_k8s/__init__.py",
+      "bytes": 379
+    },
+    {
+      "path": "src/agentscope/workspace/_k8s/_constants.py",
+      "bytes": 1514
+    },
+    {
+      "path": "src/agentscope/workspace/_k8s/_k8s_backend.py",
+      "bytes": 14682
+    },
+    {
+      "path": "src/agentscope/workspace/_k8s/_k8s_workspace.py",
+      "bytes": 23762
+    },
+    {
+      "path": "src/agentscope/workspace/_local_workspace.py",
+      "bytes": 35808
+    },
+    {
+      "path": "src/agentscope/workspace/_mcp_gateway/__init__.py",
+      "bytes": 433
+    },
+    {
+      "path": "src/agentscope/workspace/_mcp_gateway/__main__.py",
+      "bytes": 373
+    },
+    {
+      "path": "src/agentscope/workspace/_mcp_gateway/_mcp_gateway_app.py",
+      "bytes": 9414
+    },
+    {
+      "path": "src/agentscope/workspace/_offload_protocol.py",
+      "bytes": 1567
+    },
+    {
+      "path": "src/agentscope/workspace/_opensandbox/__init__.py",
+      "bytes": 411
+    },
+    {
+      "path": "src/agentscope/workspace/_opensandbox/_constants.py",
+      "bytes": 1946
+    },
+    {
+      "path": "src/agentscope/workspace/_opensandbox/_opensandbox_backend.py",
+      "bytes": 10045
+    },
+    {
+      "path": "src/agentscope/workspace/_opensandbox/_opensandbox_workspace.py",
+      "bytes": 16236
+    },
+    {
+      "path": "src/agentscope/workspace/_sandboxed_base.py",
+      "bytes": 19734
+    },
+    {
+      "path": "src/agentscope/workspace/_utils.py",
+      "bytes": 6327
+    },
+    {
+      "path": "tests/_daytona_live_utils.py",
+      "bytes": 1634
+    },
+    {
+      "path": "tests/a2a_agent_e2e_test.py",
+      "bytes": 7376
+    },
+    {
+      "path": "tests/a2a_agent_test.py",
+      "bytes": 32519
+    },
+    {
+      "path": "tests/agent_basic_test.py",
+      "bytes": 74756
+    },
+    {
+      "path": "tests/agent_config_grouping_test.py",
+      "bytes": 12452
+    },
+    {
+      "path": "tests/agent_injection_test.py",
+      "bytes": 24147
+    },
+    {
+      "path": "tests/agent_interrupt_test.py",
+      "bytes": 37683
+    },
+    {
+      "path": "tests/agent_structured_output_test.py",
+      "bytes": 23390
+    },
+    {
+      "path": "tests/agui_protocol_test.py",
+      "bytes": 26869
+    },
+    {
+      "path": "tests/app_lifespan_dedicated_test.py",
+      "bytes": 11175
+    },
+    {
+      "path": "tests/app_sop_router_test.py",
+      "bytes": 13805
+    },
+    {
+      "path": "tests/app_sop_service_test.py",
+      "bytes": 31050
+    },
+    {
+      "path": "tests/ask_user_tool_test.py",
+      "bytes": 5169
+    },
+    {
+      "path": "tests/asr_openai_test.py",
+      "bytes": 17053
+    },
+    {
+      "path": "tests/backend_applecontainer_test.py",
+      "bytes": 17730
+    },
+    {
+      "path": "tests/backend_bubblewrap_test.py",
+      "bytes": 22682
+    },
+    {
+      "path": "tests/backend_daytona_test.py",
+      "bytes": 8895
+    },
+    {
+      "path": "tests/backend_docker_test.py",
+      "bytes": 9156
+    },
+    {
+      "path": "tests/backend_e2b_test.py",
+      "bytes": 6824
+    },
+    {
+      "path": "tests/backend_local_test.py",
+      "bytes": 18066
+    },
+    {
+      "path": "tests/backend_opensandbox_test.py",
+      "bytes": 7806
+    },
+    {
+      "path": "tests/blob_store_s3_test.py",
+      "bytes": 6390
+    },
+    {
+      "path": "tests/builtin_bash_test.py",
+      "bytes": 21214
+    },
+    {
+      "path": "tests/builtin_edit_test.py",
+      "bytes": 8609
+    },
+    {
+      "path": "tests/builtin_file_cache_backend_test.py",
+      "bytes": 5491
+    },
+    {
+      "path": "tests/builtin_file_cache_test.py",
+      "bytes": 20438
+    },
+    {
+      "path": "tests/builtin_glob_test.py",
+      "bytes": 13425
+    },
+    {
+      "path": "tests/builtin_grep_test.py",
+      "bytes": 11668
+    },
+    {
+      "path": "tests/builtin_powershell_test.py",
+      "bytes": 12343
+    },
+    {
+      "path": "tests/builtin_read_test.py",
+      "bytes": 24722
+    },
+    {
+      "path": "tests/builtin_write_test.py",
+      "bytes": 8247
+    },
+    {
+      "path": "tests/channel_clients_test.py",
+      "bytes": 13154
+    },
+    {
+      "path": "tests/channel_credential_binding_test.py",
+      "bytes": 13883
+    },
+    {
+      "path": "tests/channel_dingtalk_test.py",
+      "bytes": 67067
+    },
+    {
+      "path": "tests/channel_feishu_credential_binding_test.py",
+      "bytes": 5879
+    },
+    {
+      "path": "tests/channel_gateway_test.py",
+      "bytes": 25721
+    },
+    {
+      "path": "tests/channel_routing_test.py",
+      "bytes": 6001
+    },
+    {
+      "path": "tests/channel_stream_test.py",
+      "bytes": 7213
+    },
+    {
+      "path": "tests/channel_worker_test.py",
+      "bytes": 4595
+    },
+    {
+      "path": "tests/classifier_jev_test.py",
+      "bytes": 7276
+    },
+    {
+      "path": "tests/classifier_openai_test.py",
+      "bytes": 11328
+    },
+    {
+      "path": "tests/classifier_test.py",
+      "bytes": 3939
+    },
+    {
+      "path": "tests/compress_context_test.py",
+      "bytes": 104341
+    },
+    {
+      "path": "tests/compress_tool_result_test.py",
+      "bytes": 20612
+    },
+    {
+      "path": "tests/console_renderer_test.py",
+      "bytes": 10956
+    },
+    {
+      "path": "tests/console_test.py",
+      "bytes": 2719
+    },
+    {
+      "path": "tests/embedding_dashscope_test.py",
+      "bytes": 9797
+    },
+    {
+      "path": "tests/embedding_file_cache_test.py",
+      "bytes": 8414
+    },
+    {
+      "path": "tests/embedding_gemini_test.py",
+      "bytes": 6759
+    },
+    {
+      "path": "tests/embedding_ollama_test.py",
+      "bytes": 7425
+    },
+    {
+      "path": "tests/embedding_openai_test.py",
+      "bytes": 8885
+    },
+    {
+      "path": "tests/event_test.py",
+      "bytes": 2814
+    },
+    {
+      "path": "tests/event_to_message_test.py",
+      "bytes": 34131
+    },
+    {
+      "path": "tests/formatter_anthropic_test.py",
+      "bytes": 46257
+    },
+    {
+      "path": "tests/formatter_dashscope_test.py",
+      "bytes": 43817
+    },
+    {
+      "path": "tests/formatter_deepseek_test.py",
+      "bytes": 24893
+    },
+    {
+      "path": "tests/formatter_gemini_test.py",
+      "bytes": 32061
+    },
+    {
+      "path": "tests/formatter_moonshot_test.py",
+      "bytes": 34512
+    },
+    {
+      "path": "tests/formatter_ollama_test.py",
+      "bytes": 27163
+    },
+    {
+      "path": "tests/formatter_openai_chat_test.py",
+      "bytes": 35471
+    },
+    {
+      "path": "tests/formatter_openai_response_test.py",
+      "bytes": 35251
+    },
+    {
+      "path": "tests/formatter_openai_response_tool_result_test.py",
+      "bytes": 8199
+    },
+    {
+      "path": "tests/formatter_volcengine_test.py",
+      "bytes": 28456
+    },
+    {
+      "path": "tests/formatter_xai_test.py",
+      "bytes": 31553
+    },
+    {
+      "path": "tests/health_router_test.py",
+      "bytes": 4309
+    },
+    {
+      "path": "tests/hitl_external_execution_test.py",
+      "bytes": 52873
+    },
+    {
+      "path": "tests/hitl_mixed_test.py",
+      "bytes": 41447
+    },
+    {
+      "path": "tests/hitl_user_confirmation_test.py",
+      "bytes": 66228
+    },
+    {
+      "path": "tests/hub_card_test.py",
+      "bytes": 3085
+    },
+    {
+      "path": "tests/hub_claw_test.py",
+      "bytes": 8576
+    },
+    {
+      "path": "tests/hub_github_test.py",
+      "bytes": 10308
+    },
+    {
+      "path": "tests/hub_router_test.py",
+      "bytes": 31202
+    },
+    {
+      "path": "tests/id_factory_test.py",
+      "bytes": 4313
+    },
+    {
+      "path": "tests/in_memory_message_bus_test.py",
+      "bytes": 21529
+    },
+    {
+      "path": "tests/index_worker_content_type_test.py",
+      "bytes": 5135
+    },
+    {
+      "path": "tests/index_worker_lease_test.py",
+      "bytes": 8882
+    },
+    {
+      "path": "tests/index_worker_main_test.py",
+      "bytes": 1084
+    },
+    {
+      "path": "tests/issue_triage_test.py",
+      "bytes": 9303
+    },
+    {
+      "path": "tests/mcp_client_reconnect_test.py",
+      "bytes": 10114
+    },
+    {
+      "path": "tests/mcp_rename_test.py",
+      "bytes": 4275
+    },
+    {
+      "path": "tests/mcp_runtime_headers_test.py",
+      "bytes": 19541
+    },
+    {
+      "path": "tests/mcp_sse_client_test.py",
+      "bytes": 13736
+    },
+    {
+      "path": "tests/mcp_streamable_http_client_test.py",
+      "bytes": 4392
+    },
+    {
+      "path": "tests/mem0_agentscope_adapter_test.py",
+      "bytes": 17464
+    },
+    {
+      "path": "tests/mem0_middleware_test.py",
+      "bytes": 34312
+    },
+    {
+      "path": "tests/message_test.py",
+      "bytes": 12939
+    },
+    {
+      "path": "tests/middleware_background_acting_test.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/middleware_budget_test.py",
+      "bytes": 21980
+    },
+    {
+      "path": "tests/middleware_filesystem_memory_test.py",
+      "bytes": 27012
+    },
+    {
+      "path": "tests/middleware_model_router_test.py",
+      "bytes": 13691
+    },
+    {
+      "path": "tests/middleware_rag_test.py",
+      "bytes": 39473
+    },
+    {
+      "path": "tests/middleware_test.py",
+      "bytes": 69003
+    },
+    {
+      "path": "tests/mixin_test.py",
+      "bytes": 1367
+    },
+    {
+      "path": "tests/model_anthropic_test.py",
+      "bytes": 39590
+    },
+    {
+      "path": "tests/model_base_test.py",
+      "bytes": 50651
+    },
+    {
+      "path": "tests/model_count_tokens_test.py",
+      "bytes": 2617
+    },
+    {
+      "path": "tests/model_dashscope_test.py",
+      "bytes": 23676
+    },
+    {
+      "path": "tests/model_deepseek_test.py",
+      "bytes": 24188
+    },
+    {
+      "path": "tests/model_gemini_test.py",
+      "bytes": 40069
+    },
+    {
+      "path": "tests/model_minimax_test.py",
+      "bytes": 6062
+    },
+    {
+      "path": "tests/model_moonshot_test.py",
+      "bytes": 20261
+    },
+    {
+      "path": "tests/model_ollama_test.py",
+      "bytes": 16745
+    },
+    {
+      "path": "tests/model_openai_chat_test.py",
+      "bytes": 31102
+    },
+    {
+      "path": "tests/model_openai_response_test.py",
+      "bytes": 56832
+    },
+    {
+      "path": "tests/model_response_test.py",
+      "bytes": 16644
+    },
+    {
+      "path": "tests/model_volcengine_test.py",
+      "bytes": 28946
+    },
+    {
+      "path": "tests/model_xai_test.py",
+      "bytes": 22614
+    },
+    {
+      "path": "tests/permission_bash_parser_test.py",
+      "bytes": 58119
+    },
+    {
+      "path": "tests/permission_engine_test.py",
+      "bytes": 30467
+    },
+    {
+      "path": "tests/permission_mode_test.py",
+      "bytes": 40091
+    },
+    {
+      "path": "tests/pipeline_goal_test.py",
+      "bytes": 14208
+    },
+    {
+      "path": "tests/pipeline_team_cleanup_test.py",
+      "bytes": 4810
+    },
+    {
+      "path": "tests/pipeline_team_test.py",
+      "bytes": 40029
+    },
+    {
+      "path": "tests/rag_chunker_approx_token_test.py",
+      "bytes": 9044
+    },
+    {
+      "path": "tests/rag_parser_test.py",
+      "bytes": 89651
+    },
+    {
+      "path": "tests/rag_vdb_elasticsearch_test.py",
+      "bytes": 13118
+    },
+    {
+      "path": "tests/rag_vdb_milvus_lite_test.py",
+      "bytes": 19563
+    },
+    {
+      "path": "tests/rag_vdb_mongodb_test.py",
+      "bytes": 25727
+    },
+    {
+      "path": "tests/rag_vdb_qdrant_test.py",
+      "bytes": 23670
+    },
+    {
+      "path": "tests/realtime_agent_test.py",
+      "bytes": 81884
+    },
+    {
+      "path": "tests/realtime_aggregator_test.py",
+      "bytes": 1905
+    },
+    {
+      "path": "tests/realtime_dashscope_test.py",
+      "bytes": 39840
+    },
+    {
+      "path": "tests/realtime_gemini_test.py",
+      "bytes": 18889
+    },
+    {
+      "path": "tests/realtime_local_transport_test.py",
+      "bytes": 5998
+    },
+    {
+      "path": "tests/realtime_openai_test.py",
+      "bytes": 19579
+    },
+    {
+      "path": "tests/realtime_reconnect_test.py",
+      "bytes": 5410
+    },
+    {
+      "path": "tests/realtime_service_test.py",
+      "bytes": 9825
+    },
+    {
+      "path": "tests/realtime_xai_test.py",
+      "bytes": 14629
+    },
+    {
+      "path": "tests/reme_middleware_test.py",
+      "bytes": 47004
+    },
+    {
+      "path": "tests/resource_access_policy_test.py",
+      "bytes": 15809
+    },
+    {
+      "path": "tests/schedule_router_test.py",
+      "bytes": 13406
+    },
+    {
+      "path": "tests/service_agent_interrupt_test.py",
+      "bytes": 9394
+    },
+    {
+      "path": "tests/service_cancel_dispatcher_test.py",
+      "bytes": 17196
+    },
+    {
+      "path": "tests/service_chat_channel_delivery_test.py",
+      "bytes": 12207
+    },
+    {
+      "path": "tests/service_chat_locking_test.py",
+      "bytes": 10073
+    },
+    {
+      "path": "tests/service_chat_middleware_factory_test.py",
+      "bytes": 3146
+    },
+    {
+      "path": "tests/service_chat_run_context_test.py",
+      "bytes": 6732
+    },
+    {
+      "path": "tests/service_classify_error_test.py",
+      "bytes": 6039
+    },
+    {
+      "path": "tests/service_enqueue_index_task_test.py",
+      "bytes": 5265
+    },
+    {
+      "path": "tests/service_git_status_parse_test.py",
+      "bytes": 9071
+    },
+    {
+      "path": "tests/service_inbox_handoff_test.py",
+      "bytes": 6832
+    },
+    {
+      "path": "tests/service_inbox_middleware_test.py",
+      "bytes": 16304
+    },
+    {
+      "path": "tests/service_index_task_consumer_test.py",
+      "bytes": 13712
+    },
+    {
+      "path": "tests/service_knowledge_base_detail_test.py",
+      "bytes": 29650
+    },
+    {
+      "path": "tests/service_knowledge_base_upload_test.py",
+      "bytes": 17130
+    },
+    {
+      "path": "tests/service_mcp_render_test.py",
+      "bytes": 8001
+    },
+    {
+      "path": "tests/service_message_bus_test.py",
+      "bytes": 28031
+    },
+    {
+      "path": "tests/service_model_test.py",
+      "bytes": 1754
+    },
+    {
+      "path": "tests/service_scheduler_test.py",
+      "bytes": 18990
+    },
+    {
+      "path": "tests/service_subagent_hitl_projector_test.py",
+      "bytes": 12478
+    },
+    {
+      "path": "tests/service_team_failure_report_test.py",
+      "bytes": 17481
+    },
+    {
+      "path": "tests/service_team_tools_test.py",
+      "bytes": 73251
+    },
+    {
+      "path": "tests/service_toolkit_test.py",
+      "bytes": 13737
+    },
+    {
+      "path": "tests/service_wakeup_dispatcher_test.py",
+      "bytes": 17631
+    },
+    {
+      "path": "tests/service_workspace_files_test.py",
+      "bytes": 21675
+    },
+    {
+      "path": "tests/service_workspace_status_test.py",
+      "bytes": 10591
+    },
+    {
+      "path": "tests/session_auto_naming_test.py",
+      "bytes": 14073
+    },
+    {
+      "path": "tests/session_config_patch_test.py",
+      "bytes": 13599
+    },
+    {
+      "path": "tests/session_event_stream_test.py",
+      "bytes": 2569
+    },
+    {
+      "path": "tests/skill_loader_test.py",
+      "bytes": 10731
+    },
+    {
+      "path": "tests/sop_engine_test.py",
+      "bytes": 22430
+    },
+    {
+      "path": "tests/sop_step_middleware_test.py",
+      "bytes": 7759
+    },
+    {
+      "path": "tests/storage_redis_knowledge_base_test.py",
+      "bytes": 4098
+    },
+    {
+      "path": "tests/storage_redis_test.py",
+      "bytes": 73760
+    },
+    {
+      "path": "tests/storage_sql_test.py",
+      "bytes": 69931
+    },
+    {
+      "path": "tests/task_tool_test.py",
+      "bytes": 36976
+    },
+    {
+      "path": "tests/team_member_middleware_test.py",
+      "bytes": 10892
+    },
+    {
+      "path": "tests/test_e2e_api.py",
+      "bytes": 10123
+    },
+    {
+      "path": "tests/test_e2e_docker_mcp.py",
+      "bytes": 8213
+    },
+    {
+      "path": "tests/test_e2e_e2b_mcp.py",
+      "bytes": 5660
+    },
+    {
+      "path": "tests/test_template.py",
+      "bytes": 430
+    },
+    {
+      "path": "tests/tool_argument_repair_test.py",
+      "bytes": 13341
+    },
+    {
+      "path": "tests/tool_group_ownership_test.py",
+      "bytes": 3524
+    },
+    {
+      "path": "tests/tool_lazy_annotations_test.py",
+      "bytes": 4507
+    },
+    {
+      "path": "tests/tool_middleware_test.py",
+      "bytes": 11871
+    },
+    {
+      "path": "tests/tool_offload_middleware_test.py",
+      "bytes": 13697
+    },
+    {
+      "path": "tests/toolkit_skill_test.py",
+      "bytes": 14292
+    },
+    {
+      "path": "tests/toolkit_task_test.py",
+      "bytes": 39317
+    },
+    {
+      "path": "tests/toolkit_test.py",
+      "bytes": 57039
+    },
+    {
+      "path": "tests/tracing_test.py",
+      "bytes": 36098
+    },
+    {
+      "path": "tests/tts_dashscope_test.py",
+      "bytes": 64706
+    },
+    {
+      "path": "tests/tts_gemini_test.py",
+      "bytes": 6552
+    },
+    {
+      "path": "tests/tts_middleware_test.py",
+      "bytes": 14282
+    },
+    {
+      "path": "tests/tts_openai_test.py",
+      "bytes": 10446
+    },
+    {
+      "path": "tests/tui_test.py",
+      "bytes": 66609
+    },
+    {
+      "path": "tests/utils.py",
+      "bytes": 6180
+    },
+    {
+      "path": "tests/webrtc_audio_transport_test.py",
+      "bytes": 48505
+    },
+    {
+      "path": "tests/workspace_applecontainer_test.py",
+      "bytes": 17281
+    },
+    {
+      "path": "tests/workspace_bubblewrap_test.py",
+      "bytes": 46637
+    },
+    {
+      "path": "tests/workspace_daytona_test.py",
+      "bytes": 62480
+    },
+    {
+      "path": "tests/workspace_docker_build_test.py",
+      "bytes": 996
+    },
+    {
+      "path": "tests/workspace_docker_test.py",
+      "bytes": 29765
+    },
+    {
+      "path": "tests/workspace_e2b_test.py",
+      "bytes": 2647
+    },
+    {
+      "path": "tests/workspace_k8s_test.py",
+      "bytes": 15871
+    },
+    {
+      "path": "tests/workspace_local_test.py",
+      "bytes": 77149
+    },
+    {
+      "path": "tests/workspace_manager_applecontainer_test.py",
+      "bytes": 7636
+    },
+    {
+      "path": "tests/workspace_manager_daytona_test.py",
+      "bytes": 7806
+    },
+    {
+      "path": "tests/workspace_manager_docker_test.py",
+      "bytes": 7187
+    },
+    {
+      "path": "tests/workspace_manager_e2b_test.py",
+      "bytes": 5551
+    },
+    {
+      "path": "tests/workspace_manager_local_test.py",
+      "bytes": 1959
+    },
+    {
+      "path": "tests/workspace_opensandbox_test.py",
+      "bytes": 2504
+    },
+    {
+      "path": "tests/workspace_prewarm_test.py",
+      "bytes": 11862
+    },
+    {
+      "path": "tests/workspace_skill_archive_test.py",
+      "bytes": 11656
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".gitignore",
+      "bytes": 2511
+    },
+    {
+      "path": "assets/dingtalk/tool_approval_card.json",
+      "bytes": 128025
+    },
+    {
+      "path": "assets/images/agentscope.png",
+      "bytes": 1712727
+    },
+    {
+      "path": "assets/images/bg_tool.gif",
+      "bytes": 286509
+    },
+    {
+      "path": "assets/images/dingtalk_qr_code.png",
+      "bytes": 94295
+    },
+    {
+      "path": "assets/images/permission_bypass.gif",
+      "bytes": 683204
+    },
+    {
+      "path": "assets/images/task.gif",
+      "bytes": 1686547
+    },
+    {
+      "path": "assets/images/team.gif",
+      "bytes": 1338298
+    },
+    {
+      "path": "examples/web_ui/.gitignore",
+      "bytes": 356
+    },
+    {
+      "path": "examples/web_ui/.husky/pre-commit",
+      "bytes": 16
+    },
+    {
+      "path": "examples/web_ui/.prettierignore",
+      "bytes": 268
+    },
+    {
+      "path": "examples/web_ui/.prettierrc",
+      "bytes": 170
+    },
+    {
+      "path": "examples/web_ui/frontend/public/agentscope.svg",
+      "bytes": 3619
+    },
+    {
+      "path": "examples/web_ui/frontend/src/assets/images/agentscope.svg",
+      "bytes": 3619
+    },
+    {
+      "path": "examples/web_ui/frontend/src/assets/images/agentscope_mono.svg",
+      "bytes": 3841
+    },
+    {
+      "path": "examples/web_ui/frontend/src/assets/images/line-corner.svg",
+      "bytes": 191
+    },
+    {
+      "path": "examples/web_ui/frontend/src/assets/images/line-vertical.svg",
+      "bytes": 184
+    },
+    {
+      "path": "examples/web_ui/frontend/src/assets/images/mcp.svg",
+      "bytes": 753
+    },
+    {
+      "path": "examples/web_ui/pnpm-lock.yaml",
+      "bytes": 381011
+    },
+    {
+      "path": "scripts/model_examples/test.jpeg",
+      "bytes": 496395
+    },
+    {
+      "path": "src/agentscope/app/storage/_sql/_alembic/script.py.mako",
+      "bytes": 636
+    },
+    {
+      "path": "src/agentscope/py.typed",
+      "bytes": 0
+    },
+    {
+      "path": "src/agentscope/workspace/_docker/Dockerfile.node_copy.template",
+      "bytes": 298
+    },
+    {
+      "path": "src/agentscope/workspace/_docker/Dockerfile.node_from.template",
+      "bytes": 43
+    },
+    {
+      "path": "src/agentscope/workspace/_docker/Dockerfile.template",
+      "bytes": 2616
+    },
+    {
+      "path": "tests/docker/k8s_workspace_test.Dockerfile",
+      "bytes": 2744
+    }
+  ]
+}

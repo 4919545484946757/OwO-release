@@ -1,0 +1,260 @@
+Large Language Model based Multi-Agents: A Survey of Progress and Challenges
+Taicheng Guo1 , Xiuying Chen2 , Yaqi Wang3∗ , Ruidi Chang , Shichao Pei4 ,
+Nitesh V . Chawla1 , Olaf Wiest1 , Xiangliang Zhang1†
+1University of Notre Dame, 2King Abdullah University of Science and Technology
+3Southern University of Science and Technology, 4University of Massachusetts Boston
+{tguo2, nchawla, owiest, xzhang33}@nd.edu, xiuying.chen@kaust.edu.sa, ywang84@nd.edu,
+ruidic@alumni.cmu.edu, shichao.pei@umb.edu
+Abstract
+Large Language Models (LLMs) have achieved re-
+markable success across a wide array of tasks.
+Due to the impressive planning and reasoning abil-
+ities of LLMs, they have been used as autonomous
+agents to do many tasks automatically. Recently,
+based on the development of using one LLM as a
+single planning or decision-making agent, LLM-
+based multi-agent systems have achieved consid-
+erable progress in complex problem-solving and
+world simulation. To provide the community with
+an overview of this dynamic field, we present this
+survey to offer an in-depth discussion on the essen-
+tial aspects of multi-agent systems based on LLMs,
+as well as the challenges. Our goal is for readers to
+gain substantial insights on the following questions:
+What domains and environments do LLM-based
+multi-agents simulate? How are these agents pro-
+filed and how do they communicate? What mech-
+anisms contribute to the growth of agents’ capaci-
+ties? For those interested in delving into this field
+of study, we also summarize the commonly used
+datasets or benchmarks for them to have convenient
+access. To keep researchers updated on the latest
+studies, we maintain an open-source GitHub repos-
+itory, dedicated to outlining the research on LLM-
+based multi-agent systems.
+1 Introduction
+Large Language Models (LLMs) have recently shown re-
+markable potential in reaching a level of reasoning and plan-
+ning capabilities comparable to humans. This ability ex-
+actly aligns with the expectations of humans for autonomous
+agents that can perceive the surroundings, make decisions,
+and take actions in response [Xi et al., 2023; Wooldridge and
+Jennings, 1995; Russell and Norvig, 2009; Guo et al., 2023;
+Liang et al., 2023]. Hence, LLM-based agent has been stud-
+ied and rapidly developed to understand and generate human-
+like instructions, facilitating sophisticated interactions and
+∗This work was done when Yaqi was visiting students at the Uni-
+versity of Notre Dame.
+†Corresponding author.
+decision-making in a wide range of contexts [Yao et al. ,
+2023; Shinn et al., 2023; Li et al., 2023d ]. Timely survey
+papers systematically summarize the progress of LLM-based
+agents, as seen in works [Xi et al., 2023; Wanget al., 2023b].
+Based on the inspiring capabilities of the single LLM-
+based agent, LLM-based Multi-Agents have been proposed
+to leverage the collective intelligence and specialized pro-
+files and skills of multiple agents. Compared to systems us-
+ing a single LLM-powered agent, multi-agent systems offer
+advanced capabilities by 1) specializing LLMs into various
+distinct agents, each with different capabilities, and 2) en-
+abling interactions among these diverse agents to simulate
+complex real-world environments effectively. In this context,
+multiple autonomous agents collaboratively engage in plan-
+ning, discussions, and decision-making, mirroring the co-
+operative nature of human group work in problem-solving
+tasks. This approach capitalizes on the communicative ca-
+pabilities of LLMs, leveraging their ability to generate text
+for communication and respond to textual inputs. Further-
+more, it exploits LLMs’ extensive knowledge across vari-
+ous domains and their latent potential to specialize in spe-
+cific tasks. Recent research has demonstrated promising re-
+sults in utilizing LLM-based multi-agents for solving vari-
+ous tasks, such as software development [Hong et al., 2023;
+Qian et al., 2023], multi-robot systems [Mandi et al., 2023;
+Zhang et al., 2023c ], society simulation [Park et al., 2023;
+Park et al. , 2022 ], policy simulation [Xiao et al. , 2023;
+Hua et al. , 2023 ], and game simulation [Xu et al. , 2023c;
+Wang et al., 2023c ]. Due to the nature of interdisciplinary
+study in this field, it has attracted a diverse range of re-
+searchers, expanding beyond AI experts to include those from
+social science, psychology, and policy research. The vol-
+ume of research papers is rapidly increasing, as shown in
+Fig. 1 (inspired by the design in [Gao et al., 2023b]), thus
+broadening the impact of LLM-based Multi-Agent research.
+Nonetheless, earlier efforts were undertaken independently,
+resulting in an absence of a systematic review to summarize
+them, establish comprehensive blueprint of this field, and ex-
+amine future research challenges. This underscores the sig-
+nificance of our work and serves as the motivation behind pre-
+senting this survey paper, dedicated to the research on LLM-
+based multi-agent systems.
+We expect that our survey can make significant contribu-
+tions to both the research and development of LLMs and to
+arXiv:2402.01680v2  [cs.CL]  19 Apr 2024
+
+Figure 1: The rising trend in the research field of LLM-based Multi-Agents. For Problem Solving and World Simulation, we categorize
+current work into several categories and count the number of papers of different types at 3-month intervals. The number at each leaf node
+denotes the count of papers within that category.
+a wider range of interdisciplinary studies employing LLMs.
+Readers will gain a comprehensive overview of LLM-based
+Multi-Agent (LLM-MA) systems, grasp the fundamental
+concepts involved in establishing multi-agent systems based
+on LLMs, and catch the latest research trends and applica-
+tions in this dynamic field. We recognize that this field is in
+its early stages and is rapidly evolving with fresh methodolo-
+gies and applications. To provide a sustainable resource com-
+plementing our survey paper, we maintain an open-source
+GitHub repository1. We hope that our survey will inspire fur-
+ther exploration and innovation in this field, as well as appli-
+cations across a wide array of research disciplines.
+To assist individuals from various backgrounds in under-
+standing LLM-MA techniques and to complement existing
+surveys by tackling unresolved questions, we have organized
+our survey paper in the following manner. After laying out
+the background knowledge in Section 2, we address a piv-
+otal question: How are LLM-MA systems aligned with the
+collaborative task-solving environment? To answer this, we
+present a comprehensive schema for positioning, differenti-
+ating, and connecting various aspects of LLM-MA systems
+in Section 3. We delve into this question by discussing: 1)
+the agents-environment interface, which details how agents
+interact with the task environment; 2) agent profiling, which
+explains how an agent is characterized by an LLM to behave
+1https://github.com/taichengguo/LLM MultiAgents Survey Papers
+in specific ways; 3) agent communication, which examines
+how agents exchange messages and collaborate; and 4)agent
+capability acquisition, which explores how agents develop
+their abilities to effectively solve problems. An additional
+perspective for reviewing studies about LLM-MA is their ap-
+plication. In Section 4, we categorize current applications
+into two primary streams: multi-agents for problem-solving
+and multi-agents for world simulation. To guide individuals
+in identifying appropriate tools and resources , we present
+open-source implementation frameworks for studying LLM-
+MA, as well as the usable datasets and benchmarks in Sec-
+tion 5 . Based on the previous summary, we open the dis-
+cussion for future research challenges and opportunities in
+Section 6. The conclusions are summarized in Section 7.
+2 Background
+2.1 Single-Agent Systems Powered LLMs
+We introduce the background by first outlining the capabili-
+ties of a single-agent system based on LLMs, following the
+discussion presented in [Weng, 2023].
+Decision-making Thought: This term denotes the capabil-
+ity of LLM-based agents, guided by prompts, to break down
+complex tasks into smaller subgoals[Khot et al., 2023], think
+through each part methodically (sometimes exploring mul-
+tiple paths) [Yao et al. , 2023 ], and learn from past experi-
+ences [Shinn et al., 2023] to perform better decision-making
+
+on complex tasks. This capability enhances the autonomy
+of a single LLM-based agent and bolsters its effectiveness in
+problem-solving.
+Tool-use: LLM-based agents’ tool-use capability allows
+them to leverage external tools and resources to accom-
+plish tasks, enhancing their functional capabilities and oper-
+ate more effectively in diverse and dynamic environments[Li
+et al., 2023d; Ruan et al., 2023; Gao et al., 2023b].
+Memory: This ability refers to the capability of LLM-
+based agent for conducting in-context learning [Dong et al.,
+2023a] as short memory or external vector database[Lewis et
+al., 2021] as long memory to preserve and retrieve informa-
+tion over prolonged periods[Wang et al., 2023b]. This ability
+enables a single LLM-based agent to maintain contextual co-
+herence and enhance learning from interactions.
+2.2 Single-Agent VS. Multi-Agent Systems
+Single-Agent systems empowered by LLMs have shown in-
+spiring cognitive abilities [Sumers et al. , 2023 ]. The con-
+struction of such systems concentrates on formulating their
+internal mechanisms and interactions with the external en-
+vironment. Conversely, LLM-MA systems emphasize di-
+verse agent profiles, inter-agent interactions, and collective
+decision-making processes. From this perspective, more dy-
+namic and complex tasks can be tackled by the collaboration
+of multiple autonomous agents, each of which is equipped
+with unique strategies and behaviors, and engaged in com-
+munication with one another.
+3 Dissecting LLM-MA Systems: Interface,
+Profiling, Communication, and Capabilities
+In this section, we delve into the intricacies of LLM-MA sys-
+tems, where multiple autonomous agents engage in collabo-
+rative activities akin to human group dynamics in problem-
+solving scenarios. A critical inquiry we address is how
+these LLM-MA systems are aligned to their operational envi-
+ronments and the collective objectives they are designed to
+achieve. To shed light on this, we present the general ar-
+chitecture of these systems in Fig. 2. Our analysis dissects
+the operational framework of these systems, focusing on four
+key aspects: the agents-environment interface, agent profil-
+ing, agent communication, and agent capability acquisition.
+3.1 Agents-Environment Interface
+The operational environments defines the specific contexts or
+settings in which the LLM-MA systems are deployed and
+interact. For example, these environments can be like soft-
+ware development [Hong et al., 2023], gaming [Mao et al.,
+2023], and various other domains such as financial markets
+[Li et al., 2023g] or even social behavior modeling [Park et
+al., 2023 ]. The LLM-based agents perceive and act within
+the environment, which in turn influences their behavior and
+decision making. For example, in the Werewolf Game simu-
+lation, the sandbox environment sets the game’s framework,
+including transitions from day to night, discussion periods,
+voting mechanics, and reward rules. Agents, such as were-
+wolves and the Seer, perform specific actions like killing or
+checking roles. Following these actions, agents receive feed-
+back from the environment, informing them of the game’s
+current state. This information guides the agents in adjust-
+ing their strategies over time, responding to the evolving
+gameplay and interactions with other agents. The Agents-
+Environment Interface refers to the way in which agents in-
+teract with and perceive the environment. It’s through this
+interface that agents understand their surroundings, make de-
+cisions, and learn from the outcomes of their actions. We
+categorize the current interfaces in LLM-MA systems into
+three types, Sandbox, Physcial, and None, as detailed in Ta-
+ble 1. The Sandbox refers to a simulated or virtual environ-
+ment built by human where agents can interact more freely
+and experiment with various actions and strategies. This kind
+of interface is widely used in software development (code
+interpreter as simulated environment) [Hong et al. , 2023 ],
+gaming (using game rules as simulated environment) [Mao
+et al., 2023], etc. The Physical is a real-world environment
+where agents interact with physical entities and obey real-
+world physics and constraints. In physical space, agents nor-
+mally need to take actions that can have direct physical out-
+comes. For example, in tasks such as sweeping the floor,
+making sandwiches, packing groceries, and arranging cab-
+inets, robotic agents are required to perform actions itera-
+tively, observe the physical environment, and continuously
+refine their actions [Mandi et al., 2023]. Lastly, None refers
+to scenarios where there is no specific external environment,
+and agents do not interact with any environment. For exam-
+ple, many applications [Du et al., 2023; Xiong et al., 2023;
+Chan et al., 2023 ] utilize multiple agents to debate a ques-
+tion to reach a consensus. These applications primarily focus
+on communication among agents and do not depend on the
+external environment.
+3.2 Agents Profiling
+In LLM-MA systems, agents are defined by their traits, ac-
+tions, and skills, which are tailored to meet specific goals.
+Across various systems, agents assume distinct roles, each
+with comprehensive descriptions encompassing characteris-
+tics, capabilities, behaviors, and constraints. For instance,
+in gaming environments, agents might be profiled as players
+with varying roles and skills, each contributing differently to
+the game’s objectives. In software development, agents could
+take on the roles of product managers and engineers, each
+with responsibilities and expertise that guide the development
+process. Similarly, in a debating platform, agents might be
+designated as proponents, opponents, or judges, each with
+unique functions and strategies to fulfill their roles effectively.
+These profiles are crucial for defining the agents’ interactions
+and effectiveness within their respective environments. Table
+1 lists the agent Profiles in recent LLM-MA works.
+Regarding the Agent Profiling Methods , we categorized
+them into three types: Pre-defined, Model-Generated , and
+Data-Derived. In the Pre-defined cases, agent profiles are
+explicitly defined by the system designers. The Model-
+Generated method creates agent profiles by models, e.g.,
+large language models. The Data-Derived method involves
+constructing agent profiles based on pre-existing datasets.

@@ -1,0 +1,159 @@
+[
+  {
+    "path": "temporalio/workflow/_activities.py",
+    "sha256": "1aaa2ce887c0d819d37d23078c93f61e6894325caa5a4ba0d6baf9ce2b097ee8",
+    "bytes": 85170,
+    "symbols": [
+      "class _AsyncioTask(asyncio.Task[AnyType]):",
+      "class _AsyncioTask(Generic[AnyType], asyncio.Task):",
+      "class ActivityHandle(_AsyncioTask[ReturnType]):  # type: ignore[type-var]",
+      "class ActivityCancellationType(IntEnum):",
+      "class ActivityConfig(TypedDict, total=False):",
+      "def start_activity(",
+      "def start_activity(",
+      "def start_activity(",
+      "def start_activity(",
+      "def start_activity(",
+      "def start_activity(",
+      "def start_activity("
+    ]
+  },
+  {
+    "path": "temporalio/worker/_workflow_instance.py",
+    "sha256": "e96b52839c3ecc1d1fa2f55ca4712d77f9f145067b36f2f91df5b784551d315a",
+    "bytes": 174073,
+    "symbols": [
+      "async def _shield_await(fut: asyncio.Future[Any]) -> Any:",
+      "class WorkflowRunner(ABC):",
+      "def prepare_workflow(self, defn: temporalio.workflow._Definition) -> None:",
+      "def create_instance(self, det: WorkflowInstanceDetails) -> WorkflowInstance:",
+      "def set_worker_level_failure_exception_types(",
+      "class PatchActivationInput:",
+      "class WorkflowInstanceDetails:",
+      "class WorkflowInstance(ABC):",
+      "def activate(",
+      "def get_serialization_context(",
+      "def get_external_store_context(",
+      "def get_info(self) -> temporalio.workflow.Info:"
+    ]
+  },
+  {
+    "path": "temporalio/workflow/__init__.py",
+    "sha256": "315bf703a7fb599779578234b4ecb100648e128528facce259bb817664fde42f",
+    "bytes": 7976,
+    "symbols": []
+  },
+  {
+    "path": "temporalio/bridge/src/runtime.rs",
+    "sha256": "e9353f8e97090e9deefe28d597ce3122a97134be4c6b2a536333b6ce42d3ddda",
+    "bytes": 15719,
+    "symbols": [
+      "pub struct RuntimeRef {",
+      "pub(crate) struct Runtime {",
+      "pub struct TelemetryConfig {",
+      "pub struct LoggingConfig {",
+      "pub struct BufferedLogEntry {",
+      "pub struct MetricsConfig {",
+      "pub struct OpenTelemetryConfig {",
+      "pub struct PrometheusConfig {",
+      "pub struct RuntimeOptions {",
+      "pub fn init_runtime(options: RuntimeOptions) -> PyResult<RuntimeRef> {",
+      "pub fn raise_in_thread(",
+      "pub fn future_into_py<'a, F, T>(&self, py: Python<'a>, fut: F) -> PyResult<Bound<'a, PyAny>>"
+    ]
+  },
+  {
+    "path": "temporalio/contrib/deepagents/workflow.py",
+    "sha256": "b1778b680a517067edc833c8f33c941937ed6cd1cd01f734758cf72361eb0f51",
+    "bytes": 198,
+    "symbols": []
+  },
+  {
+    "path": "temporalio/contrib/openai_agents/workflow.py",
+    "sha256": "a48c408e5e2ad980dd72f73b86e4328e289485bd3f9eeb41abdf647a567d7bbf",
+    "bytes": 204,
+    "symbols": []
+  },
+  {
+    "path": "temporalio/worker/workflow_sandbox/_runner.py",
+    "sha256": "1e423bb483df6dc14b44e4f0fd4d700d38bac85c44b9980c3d641359727eec67",
+    "bytes": 9781,
+    "symbols": [
+      "class SandboxedWorkflowRunner(WorkflowRunner):",
+      "def prepare_workflow(self, defn: temporalio.workflow._Definition) -> None:",
+      "def create_instance(self, det: WorkflowInstanceDetails) -> WorkflowInstance:",
+      "def set_worker_level_failure_exception_types(",
+      "class _Instance(WorkflowInstance):",
+      "def __init__(",
+      "def _workflow_module_name(self) -> str:",
+      "def _create_instance(self) -> None:",
+      "def activate(",
+      "def _run_code(self, code: str, **extra_globals: Any) -> None:",
+      "def get_info(self) -> temporalio.workflow.Info:",
+      "def get_thread_id(self) -> int | None:"
+    ]
+  },
+  {
+    "path": "temporalio/contrib/google_adk_agents/workflow.py",
+    "sha256": "2b1b4743a948cfadd750700cfbdc0e4de7791a377d84a2ec2da42bba0a874aaa",
+    "bytes": 198,
+    "symbols": []
+  },
+  {
+    "path": "temporalio/runtime.py",
+    "sha256": "a7ed468aa58b4bd1dd8afd9b30dc9ccdefadd3b225e99478c7a7e8440098ed2b",
+    "bytes": 29957,
+    "symbols": [
+      "class _RuntimeRef:",
+      "def __init__(",
+      "def default(self) -> Runtime:",
+      "def prevent_default(self):",
+      "def set_default(",
+      "class Runtime:",
+      "def default(cls) -> Runtime:",
+      "def prevent_default(cls):",
+      "def set_default(runtime: Runtime, *, error_if_already_set: bool = True) -> None:",
+      "def __init__(",
+      "def metric_meter(self) -> temporalio.common.MetricMeter:",
+      "class TelemetryFilter:"
+    ]
+  },
+  {
+    "path": "temporalio/bridge/src/lib.rs",
+    "sha256": "395f6e95f6a1a8b9c019816d654a31bed51532a44831e9d163eba881452e6a46",
+    "bytes": 4729,
+    "symbols": []
+  },
+  {
+    "path": "temporalio/bridge/src/client.rs",
+    "sha256": "ab3ea05643b9e015f27d45fe83afbead020725ccd0cc7120d701c0ed783d806e",
+    "bytes": 16971,
+    "symbols": [
+      "pub struct ClientRef {",
+      "pub struct ClientConfig {",
+      "pub(crate) struct RpcCall {",
+      "pub fn connect_client<'a>(",
+      "pub(crate) fn rpc_req<P: prost::Message + Default>(call: RpcCall) -> PyResult<tonic::Request<P>> {",
+      "pub(crate) fn rpc_resp<P>(res: Result<tonic::Response<P>, tonic::Status>) -> PyResult<Vec<u8>>"
+    ]
+  },
+  {
+    "path": "temporalio/bridge/src/metric.rs",
+    "sha256": "36a07512243ad2293b794582578e02ccfccecee8a2ca1460d8e799114d467362",
+    "bytes": 12903,
+    "symbols": [
+      "pub struct MetricMeterRef {",
+      "pub struct MetricAttributesRef {",
+      "pub struct MetricCounterRef {",
+      "pub struct MetricHistogramRef {",
+      "pub struct MetricHistogramFloatRef {",
+      "pub struct MetricHistogramDurationRef {",
+      "pub struct MetricGaugeRef {",
+      "pub struct MetricGaugeFloatRef {",
+      "pub fn new_metric_meter(runtime_ref: &runtime::RuntimeRef) -> Option<MetricMeterRef> {",
+      "pub struct BufferedMetricUpdate {",
+      "pub enum BufferedMetricUpdateValue {",
+      "pub struct BufferedMetric {"
+    ]
+  }
+]

@@ -1,0 +1,307 @@
+Optimizing Agentic Workflows using Meta-tools
+Sami Abuzakuk 1 Anne-Marie Kermarrec 1 Rishi Sharma 1 Rasmus Moorits Veski1 Martijn de Vos1
+Abstract
+Agentic AI enables large language models
+(LLMs) to dynamically reason, plan, and inter-
+act with tools to solve complex tasks. How-
+ever, agentic workflows often require many iter-
+ative reasoning steps and tool invocations, lead-
+ing to significant operational expense, end-to-
+end latency and failures due to hallucinations.
+This work introduces Agent Workflow Optimiza-
+tion (AWO), a framework that identifies and
+optimizes redundant tool execution patterns to
+improve the efficiency and robustness of agen-
+tic workflows. AWO analyzes existing work-
+flow traces to discover recurring sequences of
+tool calls and transforms them intometa-tools,
+which are deterministic, composite tools that
+bundle multiple agent actions into a single in-
+vocation. Meta-tools bypass unnecessary inter-
+mediate LLM reasoning steps and reduce opera-
+tional cost while also shortening execution paths,
+leading to fewer failures. Experiments on two
+agentic AI benchmarks show that AWO reduces
+the number of LLM calls up to 11.9% while also
+increasing the task success rate by up to 4.2 per-
+cent points.
+1. Introduction
+Agentic AI has emerged as a powerful paradigm for solving
+complex, open-ended tasks with minimal human interven-
+tion (Acharya et al., 2025). By combining large language
+models (LLMs) with the ability to call tools, store mem-
+ory, and perform iterative reasoning, agentic systems can
+dynamically plan and adapt while interacting with external
+environments. This flexibility allows LLM agents to exe-
+cute a wide variety of workflows and solve user tasks,e.g.,
+making bookings across multiple services or managing per-
+sonal finances, without requiring developers to explicitly
+program deterministic control flows in advance. Because
+1EPFL, Switzerland. Correspondence to: Sami Abuza-
+kuk<sami.abuzakuk@epfl.ch>, Rasmus Moorits Veski<ras-
+mus.veski@epfl.ch>.
+Preprint. February 3, 2026.
+of their flexibility, LLM agents are being integrated across
+an increasing number of domains, such as software engi-
+neering (He et al., 2025), web-based task automation (Ning
+et al., 2025), and customer support (Wang et al., 2025).
+To enable such flexibility, LLM agents can access a set
+of pre-definedtools, each exposing a specific capability
+of the system. For example, developers can build tools to
+send emails, write to files, or search the web. In practice,
+these tools typically correspond to existing API endpoints
+of services that allow agents to retrieve information, mod-
+ify state, or interact with external services (Schick et al.,
+2023; Ning et al., 2025; Wu et al., 2024b). To solve a task,
+the LLM outputs code that invokes particular tools with the
+required parameters.
+However, deploying LLM agents comes at a significant op-
+erational cost, introducing substantial overhead in both la-
+tency and resource consumption. Tool-calling agents in-
+voke an LLM multiple times per task to plan, reason, re-
+vise, and recover from intermediate failures (Yao et al.,
+2023b). Each reasoning step incurs inference cost and con-
+tributes to end-to-end latency, which can be prohibitive in
+user-facing applications. This is particularly true if solv-
+ing a task requires the execution of many tool calls in se-
+quence, as is the case when interacting with fine-grained
+APIs. For example, creating a Spotify playlist and pop-
+ulating it using the web API requires multiple sequential
+requests (authorization, playlist creation, and playlist item
+addition). While agentic systems that work with such fine-
+grained tools end up being more flexible, the inherent non-
+determinism of LLMs can lead agents to explore redundant
+or suboptimal actions, particularly in multi-step tasks, fur-
+ther increasing computational costs and execution time. As
+agentic systems are deployed in increasingly complex envi-
+ronments and integrated into production workflows, these
+costs become a primary barrier to adoption, scalability and
+reliability (Zhang et al., 2025).
+Examining common agentic workflows, we observed that
+they often exhibit highly regular structure, particularly in
+their early stages. We executed the tasks in APPWORLD,
+a public agentic AI benchmark (Trivedi et al., 2024), and
+captured the trajectories that the agents follow. In Figure 1,
+we present the lower bound of the number of tasks where
+the agents follow the same trajectory per step. For exam-
+1
+arXiv:2601.22037v2  [cs.AI]  2 Feb 2026
+
+Optimizing Agentic Workflows using Meta-tools
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+0
+5
+10
+15
+20
+25
+30
+35 33.3
+25.0
+16.7 16.7
+14.3
+7.1
+5.3
+3.2 2.2 1.8 1.4 1.3 1.2 1.2 1.0
+Step
+Tasks with equivalent trajectories (in %)
+Figure 1.Percentage of tasks where agents have equivalent tra-
+jectories at a given step in APPWORLD(lower bound).
+ple, after 5 steps, at least 14.3% of the tasks being com-
+pleted by the agent followed an equivalent trajectory. We
+attribute this duplication to the fact that the set of exposed
+tools is typically not designed with agentic usage in mind.
+Therefore, identifying and deduplicating LLM effort across
+tasks has significant potential in reducing the operational
+overhead of running agentic systems.
+In this paper, we introduceAgent Workflow Optimization
+AWO, a generic framework for improving the efficiency,
+utility, and runtime cost of agentic systems. AWO works
+by identifying and coalescing structural tool calls in trajec-
+tories, directly reducing the number of LLM calls in the
+agentic workflows. AWO provides the means to analyze
+tool call trajectories and detect recurring sequences of tool
+invocations that correspond to routine sub-tasks, and com-
+piles these sequences intometa-tools. These meta-tools en-
+capsulate common multi-step behaviors into single callable
+operations, allowing agents to bypass intermediate reason-
+ing while retaining the ability to flexibly compose work-
+flows at a higher level. In this way, AWO reduces infer-
+ence cost and latency without sacrificing the generality that
+makes agentic systems effective.
+We evaluate the effectiveness of AWO using two rep-
+resentative agentic AI benchmarks, covering both API-
+driven application workflows and interactive web-based
+tasks. Across these settings, we analyze large collections of
+execution traces generated by state-of-the-art LLM agents
+and identify recurring tool invocation patterns that can be
+compiled into meta-tools. Our results show that integrat-
+ing meta-tools substantially reduces the number of LLM
+reasoning steps and tool calls required to complete tasks,
+yielding reductions of LLM calls up to 11.9%. In addition,
+we observe that AWO improves the task success rates by
+up to 4.2 percentage points, indicating that reducing redun-
+dancy not only improves system’s efficiency but can also
+enhance the effectiveness of the agents.
+In summary, our contributions are as follows:
+• We introduce AWO, a novel framework for detect-
+ing redundant patterns in an agentic workflow through
+merging agentic executions (Section 3). This allows
+for the creation ofmeta-toolsremoving unecessary
+reasoning steps, reducing the number of tokens used,
+and hence, costs when operating agentic AI.
+• We thoroughly evaluate AWO on a diverse set of
+agentic workflows, demonstrating its effectiveness in
+reducing token usage up to 11.9% and improving task
+success rate by 4.2 percent points (Section 5).
+• We release AWO as an open-source framework 1, en-
+abling reproducibility, community collaboration, and
+motivating further research advancement in optimiza-
+tion agents.
+2. Background and Motivation
+We first describe the technical underpinning of agentic AI,
+explain workflows and trajectories, and then illustrate us-
+ing an example how existing workflows can be made more
+efficient by coalescing tool calls.
+2.1. Agentic AI and ReAct
+Agentic AI refers to systems in which an LLM is used as a
+decision-making component that can autonomously pursue
+goals through interaction with an external environment. An
+agent maintains an internal state, such as task context, in-
+termediate results, or memory, and dynamically selects ac-
+tions to execute based on this state. These actions typically
+take the form of tool invocations, which may query exter-
+nal information sources, modify persistent state, or trigger
+side effects in downstream systems.
+A common realization of agentic AI is the ReAct (Reason-
+ing and Acting) loop, in which an agent interleaves internal
+reasoning with external actions (Yao et al., 2023b). In this
+1Removed for double-blind review
+User
+User Prompt
+Please summarize
+these meeting
+notes and email it
+to our CEO.
+Large
+Language Model Tools
+Reasoning
+Environment
+Action
+Call
+Result
+Observation
+Input
+Response
+1
+2
+3
+4
+LLM Agent
+Figure 2.The ReAct Loop. The agent interleaves reasoning with
+external execution (“Action”), creating a step-by-step workflow.
+2
+
+Optimizing Agentic Workflows using Meta-tools
+search_employeeSend a copy of Alice's
+passport to HR.
+User Prompts
+Summarize the latest
+performance review of Bob
+and add it to his proﬁle.
+get_document get_address send_email
+reason
+search_employee get_document add_to_profile
+reason
+Is Alice's passport already in
+her proﬁle? reason
+get_employee_and_document
+meta-tool
+ create meta-tool to avoid costly LLM calls
+get_profile
+Our work
+Duplication
+Standard Agentic AI
+1
+2
+3
+Figure 3. (top)Two distinct user prompts (in blue) and the associated workflow, including LLM reasoning and tool calling. User
+prompts, while different from a surface-level, might share sequences of tool calls. Our framework leverages this property to create
+meta-tools, reducing the number of costly LLM calls.
+paradigm, the LLM alternates between generating natural-
+language reasoning steps that reflect its current plan or hy-
+pothesis, and invoking tools that act on the environment.
+We show the ReAct loop and components of the LLM agent
+in Figure 2. A user prompt is provided to an LLM and the
+LLM reasons about it. It may then decide to call tools,
+which modify the environment. The outcome of each tool
+invocation is returned to the agent as an observation, which
+is then incorporated into subsequent reasoning. This iter-
+ative process continues until the agent determines that the
+task has been completed. We refer to this continuous cycle
+as theagent workflow. The ReAct loop enables agents to
+decompose complex tasks into smaller steps, recover from
+intermediate errors, and adapt their strategy based on ob-
+servations by coupling reasoning with action and feedback.
+2.2. Tools
+Tools are the primary interface through which an LLM
+agent interacts with its environment. Conceptually, a tool
+exposes some capability of the underlying system, such
+as querying an external service, retrieving information, or
+modifying a persistent state. In agentic AI implementa-
+tions, each tool has a unique name, a natural-language de-
+scription that informs the LLM on when to invoke it, and
+a structured schema describing its input arguments and re-
+turn values. At runtime, the agent does not execute tools
+directly. Instead, the LLM produces a structured output in-
+dicating the selected tool and the corresponding arguments,
+which is parsed and executed by the system. As shown in
+Figure 2, the execution result is then returned to the agent
+as an observation and incorporated into subsequent reason-
+ing steps.
+2.3. Duplication in Tool Calls Across Prompts
+To motivate our work, we show in Figure 3 different user
+prompts and the corresponding tool calls and LLM reason-
+ing steps. Our example assumes an agentic system in a
+company that is made available to company employees.
+The agentic system has access to a set of tools that en-
+ables the agent to search for employees, fetch documents,
+manage employee profiles, and send emails. A prompt in
+this setting could be ”Send a copy of Alice’s passport to
+HR”. To solve this task, an LLM agent could first call
+theSEARCH EMPLOYEEfunction to obtain the employee
+identifier of Alice and then get her passport by calling the
+GET DOCUMENTfunction. To send the passport to HR, the
+agent can leverage theGET ADDRESSandSEND EMAIL
+tools. Between tool calls, we invoke the LLM with either
+the user prompt or the output of the last tool call, which is
+a compute-intensive and costly operation.
+Another prompt, for example, ”Summarize the latest per-
+formance review of Bob and add it to his profile” might
+use initially the same two tools as the first prompt, al-
+though with different arguments. While our example is
+hypothetical, such tool call duplication actually occurs in
+real-world agentic workloads. As highlighted by Figure 1,
+agents regularly enter equivalent states implying that the
+agents called identical tools or a set of tools leading to the
+same consequence. Therefore, we can identify shared se-
+quences of tool calls across prompts and replace this se-
+quence with a singlemeta-tool. We show such a meta-
+tool in purple in Figure 3 for a third prompt ”Is alice’s
+passport already in her profile?”. This meta-tool, named
+GET EMPLOYEE AND DOCUMENT, combines the func-
+tionality of theSEARCH EMPLOYEEandGET DOCUMENT
+tool calls and avoids the intermediary LLM step.
+Based on the above insight, our work focusses on the fol-
+lowing research question:How can we automatically iden-
+tify and exploit recurring tool-invocation patterns in agen-
+tic execution traces in order to reduce reasoning overhead,
+latency, and cost without sacrificing task generality?
+3. Design of AWO
+We now describe the workflow of the AWO framework,
+which steps are visualized in Figure 4. Agents frequently
+exhibit convergent patterns where the they repeat identical
+sequences of thoughts and tool calls to solve recurrent sub-
+problems. Essentially, AWO first analyses existing agen-
+tic workflows to identify these redundant sub-sequences
+3

@@ -1,0 +1,160 @@
+[
+  {
+    "path": "src/agentdojo/base_tasks.py",
+    "sha256": "08d3a4646d1a250968045b0f933803335650a4ed04c9d2387b17d08b1e0427c5",
+    "bytes": 6880,
+    "symbols": [
+      "class TaskDifficulty(enum.Enum):",
+      "class BaseUserTask(abc.ABC, Generic[Env]):",
+      "def init_environment(environment: Env) -> Env:",
+      "def ground_truth(self, pre_environment: Env) -> list[FunctionCall]:",
+      "def utility(",
+      "def utility_from_traces(",
+      "class BaseInjectionTask(abc.ABC, Generic[Env]):",
+      "def ground_truth(self, pre_environment: Env) -> list[FunctionCall]:",
+      "def security(self, model_output: str, pre_environment: Env, post_environment: Env) -> bool:",
+      "def security_from_traces("
+    ]
+  },
+  {
+    "path": "src/agentdojo/functions_runtime.py",
+    "sha256": "3c67f71eb8a7f15d2a15fe9595d84218c5e6868d95fd71d1cef679cd2192d0f7",
+    "bytes": 12627,
+    "symbols": [
+      "class TaskEnvironment(BaseModel):",
+      "class EmptyEnv(TaskEnvironment):",
+      "class Depends:",
+      "def extract_dep_from_env(self, env: BaseModel) -> BaseModel:",
+      "def __repr__(self) -> str:",
+      "class FunctionCall(BaseModel):",
+      "class Function(BaseModel, Generic[P, T]):",
+      "def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:",
+      "def _get_dependencies(function: Callable[P, T]) -> dict[str, Depends]:",
+      "def make_function(function: Callable[P, T]) -> Function:",
+      "def _parse_args(",
+      "class ToolNotFoundError(Exception):"
+    ]
+  },
+  {
+    "path": "src/agentdojo/task_suite/__init__.py",
+    "sha256": "6821364aecf7c72451e36fde92974188e221e71b19936659795d9ff771718406",
+    "bytes": 374,
+    "symbols": []
+  },
+  {
+    "path": "src/agentdojo/task_suite/task_suite.py",
+    "sha256": "2e69da06f7e150dd6d238c53a74845b56eebeb224e07f694e1051a6e0c6a2bc1",
+    "bytes": 19818,
+    "symbols": [
+      "class InjectionVector(BaseModel):",
+      "def get_version_compatible_items(",
+      "def messages_to_dict(messages: Sequence[ChatMessage]) -> list[dict[str, str]]:",
+      "def transform(msg: ChatMessage):",
+      "def functions_stack_trace_from_messages(",
+      "def model_output_from_messages(",
+      "def read_suite_file(suite_name: str, file: str, suite_data_path: Path | None) -> str:",
+      "def validate_injections(injections: dict[str, str], injection_vector_defaults: dict[str, str]):",
+      "class TaskSuite(Generic[Env]):",
+      "def __init__(",
+      "def get_new_version(self, benchmark_version: BenchmarkVersion) -> Self:",
+      "def load_and_inject_default_environment(self, injections: dict[str, str]) -> Env:"
+    ]
+  },
+  {
+    "path": "src/agentdojo/task_suite/load_suites.py",
+    "sha256": "e9c97813ed8295f25526733df044e9adf8ba18567eaeec3455591c4fbc1caa12",
+    "bytes": 3143,
+    "symbols": [
+      "def register_suite(suite: TaskSuite, version: str) -> None:",
+      "def get_suites(benchmark_version: str) -> dict[str, TaskSuite]:",
+      "def get_suite(benchmark_version: str, suite_name: str) -> TaskSuite:"
+    ]
+  },
+  {
+    "path": "src/agentdojo/task_suite/task_combinators.py",
+    "sha256": "a225f427c006b2fd814df86c47225ce9193d51857e3f14e69c8a56ee49116df1",
+    "bytes": 3526,
+    "symbols": [
+      "class TaskCombinator(Generic[TASK, ENV]):",
+      "def __init__(self, task_suite: \"TaskSuite\"):",
+      "def create_combined_task(",
+      "def update_combined_task(",
+      "def _create_combined_task(",
+      "class NewCombinedTask(task_type):",
+      "def ground_truth(self, pre_environment: ENV) -> list[FunctionCall]:",
+      "def utility(",
+      "def utility_from_traces("
+    ]
+  },
+  {
+    "path": "src/agentdojo/types.py",
+    "sha256": "207b688794d5e214099c00b0dff3a03429f8f3632fcbbdafeac291dc190fbfca",
+    "bytes": 3490,
+    "symbols": [
+      "class TextContentBlock(TypedDict, total=False):",
+      "class ThinkingContentBlock(TypedDict, total=False):",
+      "class RedactedThinkingContentBlock(TypedDict, total=False):",
+      "def text_content_block_from_string(content: str) -> TextContentBlock:",
+      "class ChatUserMessage(TypedDict, total=False):",
+      "class ChatAssistantMessage(TypedDict, total=False):",
+      "class ChatToolResultMessage(TypedDict, total=False):",
+      "class ChatSystemMessage(TypedDict, total=False):",
+      "def get_text_content_as_str(content_blocks: list[MessageContentBlock]) -> str:"
+    ]
+  },
+  {
+    "path": "src/agentdojo/models.py",
+    "sha256": "004bbe91e78660418de9426fa79b3c8862e0b02ab20bb480de5c60679122aea5",
+    "bytes": 5008,
+    "symbols": [
+      "class ModelsEnum(StrEnum):"
+    ]
+  },
+  {
+    "path": "src/agentdojo/logging.py",
+    "sha256": "74d46f7ff3e3eb45b1fae7a025ca0f0dcc4b2e125533927748728c81ae02ce50",
+    "bytes": 10004,
+    "symbols": [
+      "class Logger:",
+      "def __enter__(self):",
+      "def __exit__(self, exc_type, exc_value, traceback):",
+      "def get():",
+      "class NullLogger(Logger):",
+      "def __enter__(self):",
+      "def __exit__(self, exc_type, exc_value, traceback):",
+      "def log(self, *args, **kwargs):",
+      "def log_error(self, *args, **kwargs):",
+      "def assistant(text):",
+      "def tool(text):",
+      "def user(text):"
+    ]
+  },
+  {
+    "path": "src/agentdojo/strenum.py",
+    "sha256": "ac76fd07924a27fc42c33e626c77ed93ea48e9f7d4effc1548b8b908b166737f",
+    "bytes": 280,
+    "symbols": [
+      "class StrEnum(str, enum.Enum):",
+      "def __str__(self) -> str:",
+      "def __repr__(self) -> str:"
+    ]
+  },
+  {
+    "path": "src/agentdojo/__init__.py",
+    "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "bytes": 1,
+    "symbols": []
+  },
+  {
+    "path": "src/agentdojo/ast_utils.py",
+    "sha256": "89799be22b4775764ed48c924cbbb5d91af50c8589fea761275cfc185ab9cd7f",
+    "bytes": 3400,
+    "symbols": [
+      "class ASTParsingError(Exception): ...",
+      "def create_python_function_from_tool_call(func_call_dict: FunctionCall) -> str:",
+      "def parse_arg_value(arg_value: ast.expr | None) -> FunctionCallArgTypes:",
+      "def parse_tool_call_from_ast(call: ast.expr) -> FunctionCall:",
+      "def parse_tool_calls_from_python_function(model_output: str) -> list[FunctionCall]:"
+    ]
+  }
+]

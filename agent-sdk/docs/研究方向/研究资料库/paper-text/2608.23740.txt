@@ -1,0 +1,223 @@
+AgentRoom: Concurrent Multi-Agent Coding
+in a CRDT-Backed Shared Workspace
+Seonglae Cho∗
+Holistic AI
+Donghyun Lee
+University of California, Berkeley
+https://seongland.com/article/agentroom
+Abstract
+Concurrent multi-agent coding promises division of labor across modules, robust-
+ness through redundancy, and parallel exploration at the natural granularity of
+multi-file projects. Realtime collaborative editing protocols solve this coordination
+problem for human teams via Conflict-free Replicated Data Types (CRDTs), but
+the LLMs underneath generate one token at a time and existing multi-agent coding
+systems inherit this serial limit: they either sequence agents through phase handoffs
+or pool independent samples without coordination, and a single agent abandons
+up to half of hard tasks with a one-file stub-and-exit.AgentRoomis a realtime
+collaborative editing protocol for concurrent coding agents. Its runtime layer
+exposes file-level claim, status, and broadcast as MCP tools on a CRDT-merged
+shared filesystem. Five frontier coding-CLI models ran four backend coding tasks,
+with cross-language checks in Python DevBench and Rust+axum. For CLI-stable
+models, AgentRoom with 2 agents abandons fewer tasks than Solo and has less
+run-to-run variation. At matched-compute, one positive mean LLM-judge contrast
+puts AgentRoom over parallel-merge. The other contrast, a bundle probe, puts full
+AgentRoom above each partial case: an ordering rather than a percentage split.
+Coordination, not parallelism or CRDT-merge, bears the load.
+1 Introduction
+Multi-agent coding systems [Qian et al., 2024, Hong et al., 2024, Nguyen et al., 2024, Huang et al.,
+2024, Ishibashi and Nishimura, 2024, Pan et al., 2026, Islam et al., 2025, Peng et al., 2026, Zhu
+et al., 2025, Wu et al., 2023, Wang et al., 2025, Park et al., 2023, Chen et al., 2023, Shinn et al.,
+2023, Ashrafi et al., 2025, Grötschla et al., 2025, Shafin et al., 2025] predominantly use sequential
+turn-taking: design→ implement→ review, each agent waiting for the previous. Implicit concurrent
+coordination via CRDTs has been explored [Pugachev, 2025] but with mixed results (21% speedup /
+39% slowdown across tasks). Whetherexplicitcoordination on a CRDT-merged shared workspace
+can outperform both the sequential and the implicit-CRDT alternatives at matched compute is the
+question we address.
+System. AgentRoomis astate-management roomfor concurrent coding agents: a structured runtime
+object with file-level claim semantics, an append-only broadcast log, and each agent’s status, exposed
+to agents as a small set of Model Context Protocol (MCP) tools ( room_claim, room_release,
+room_state, room_broadcast, room_read) on top of a CRDT-merged shared filesystem [Shapiro
+et al., 2011, Jahns, 2024, Automerge Project, 2023].Comparison.AgentRoom uses a different
+coordination paradigm from CodeCRDT [Pugachev, 2025], which infers coordination implicitly
+and pre-assigns outliner and implementer roles: it replaces both with an explicit room and an
+advisory protocol (Section 2.3), without role pre-assignment or orchestrated handoffs. We make this
+comparison at matched compute in Section 4: the agents stay the same, but we combine them in
+different ways.
+∗Correspondence:sungle3737@gmail.com
+Preprint.
+arXiv:2608.23740v1  [cs.AI]  24 Aug 2026
+
+ChatDev Parallel
+merge
+Solo Shared
+only
+noMCP
+(+collab)
+AgentRoom
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8Quality
+0.333
+n=6
+0.456
+n=12
+0.544
+n=32
+0.575
+n=11
+0.588
+n=7
+0.669
+n=14
+Figure 1: T4 six-condition coordination ablation:
+AgentRoom is the top condition, while concurrency
+without coordination (parallel-merge) and sequential
+hand-off (ChatDev-style) fall below the single-agent
+baseline.
+Finding.We find that two agents in an Agen-
+tRoomsuppress the lone-agent “stub-and-
+exit” failure mode(the agent emits a one-
+file source skeleton and exits early, judging
+the task too hard): across all 12 model×task
+strata, the pooled Cochran-Mantel-Haenszel
+(CMH) estimate puts Solo’s odds of aban-
+donment at 13.7 times AgentRoom’s (95%
+CI [3.9,48] , p<10 −5, Tarone homogeneity
+p=0.92). Solo’s abandonment odds exceed
+AgentRoom’s in every stratum with events
+(odds ratio above 1).Contrasts.Figure 6
+in Section 4.1 breaks the results down by
+model and task. At matched compute, Agen-
+tRoom has a +0.213 mean-quality advantage
+over parallel-merge on the continuous LLM-
+judge composite (Welchp=0.003, both Son-
+net, structurally bias-immune; Figure 1). A
+substrate-only bundle probe (Appendix B.13) supports the mean ordering shared-only< prompt-only
+< AgentRoom, with the larger observed step at the MCP coordination layer; atn=7 the interval on
+that step spans zero, so we read the split qualitatively.
+2 Method
+2.1 AgentRoom: a CRDT-backed shared workspace
+CRDT-connected AgentRoom
+char-level merge  ·  file-level claims
+A
+Agent A
+B
+Agent B
+C
+Agent C
+MCP server
+claim · release · broadcast · state · read
+Figure 2: AgentRoom architecture: N cod-
+ing agents share a workspace mediated by a
+CRDT; the MCP server exposes claim, release,
+broadcast,state,read.
+AgentRoom is a single integrated primitive (Fig-
+ure 2): a CRDT-mediated shared filesystemW
+withN concurrent agents plus a coordination
+interface. We co-designed the three components
+below, and we do not ablate them separately.
+Shared Workspace + CRDT.All N agents ex-
+ecute inW, and any file one agent writes is im-
+mediately visible to the others. pycrdt (the Yrs
+port [Jahns, 2024] of Y .js) merges concurrent
+writes within ∆crdt=2 s at the character level,
+and we add a brace/paren-balance sanity check
+(Figure 3).
+Coordination Interface.Agents access
+room state through MCP server tools:
+room_claim(path) atomically assigns file
+ownership and rejects if another agent already
+holds the path; room_broadcast/read maintain an append-only JSONL message log;room_state
+exposes peer state; the interface enforces ownership at the state-management layer rather than relying
+on agent intelligence to parse text claims; this is the key distinction from chat-only multi-agent
+coordination (§4.6).
+2.2 Formal model: collision rate and coordination layer
+Objects.Let A={a 1,...,a N} be the agents,F the file set, andWt the workspace state at time
+t.What SEC does and does not buy.What does the substrate guarantee? An op-based sequence
+CRDT [Shapiro et al., 2011, Roh et al., 2011, Kleppmann and Beresford, 2017] underlies the substrate,
+stamping edits with Lamport timestamps [Lamport, 1978] and satisfyingstrong eventual consistency
+(SEC); SEC eliminates data loss under concurrent edits but is a property over byte-level merge, not
+semantic compatibility: two agents inserting incompatible function signatures at the same character
+offset both survive in the merged file and break compilation downstream.Where the algebra lives.
+Appendix A.1 carries the full edit-set algebra and the SEC formalisation.
+2
+
+agent α    t = 87 s
+Claiming transfer(amount,from,to). Posting
+skeleton now, extend if you need more args.
+agent β    t = 130 s
+Reading your transfer; appending idemKey for
+replay safety. Same line, char-level merge.
+agent α    t = 160 s
+Saw your idemKey, thanks. Adding the
+amount-guard early-return on the next line.
+agent β    t = 190 s
+Inserting idem-set check after your guard,
+before the audit call. Calling createTxn
+helper.
+agent β    t = 220 s
+Adding audit.log + idemSeen.add. Closing
+function with return; done from my side.
+agent α    t = 250 s
+Final pass: closing brace + types refresh. All
+6 insertions co-exist; no CRDT conflict.
+function transfer(amount, from, to, idemKey) { α @ 87s  +  β @ 130s  +  α @ 250s
+  if (amount <= 0) throw new Error('invalid'); α @ 160s
+  if (idemSeen.has(idemKey)) return prior(idemKey); β @ 190s
+  const txn = createTxn(amount, from, to); β @ 195s
+  audit.log('transfer', { txn }); β @ 220s
+  idemSeen.add(idemKey); β @ 220s
+  return txn; α @ 245s
+} α @ 250s
+agent α agent β char-level CRDT: both authors' insertions co-exist on line 1
+Figure 3: Real-time CRDT merge during a single T4 Sonnet AgentRoom×2 run. The MCP-mediated
+chat (left) drives concurrent character-level edits in the shared file (right); bothα’s andβ’s insertions
+co-exist on the same line via the Yrs CRDT, with no byte-level conflict raised in this run. Per-message
+Bezier leaders link each chat broadcast to the code line it talks about.
+Coordination layer.Let Ct ⊆ F×A be the active claims and Lt the append-only message
+log. The room exposes three MCP tools: claim(f) atomically mapsA×F→{OK,CONFLICT} ,
+broadcast(m) appendsm toLt, and state() returns (Ct,L [t−τ,t]) whereτ is a recent-log time
+window.Mutual exclusion.How strong is the lock? claim is atomic and providesmutual ex-
+clusion under cooperation—∀f,∀t:
+{i: (f,i)∈C t}
+≤1 . Following Chubby-style advisory
+locking [Burrows, 2006], we enforce at the prompt layer rather than in the kernel; SEC still preserves
+the bytes of an agent that writes without claiming, and the room log surfaces the violation for the
+cross-agent bug-fix pattern (Appendix C).
+Why is the substrate alone insufficient? Collision rate.Even under pairwise-independent per-agent
+policies (a lower bound; shared task/workspace bias makes the true rate higher), the probability that
+any two ofNagents target the same file from a candidate pool of sizeK t is
+pcollision(N,Kt) = 1−
+N−1Y
+k=0
+
+1− k
+Kt
+
+,(1)
+which comes to≈0.20 at ourN=2,Kt≈5 operating point.What a collision costs.SEC merges
+colliding edits at the byte level but not at the intent level, so collisions typically break compilation or
+tests; theclaimprimitive drives this rate to zero atO(1)per-edit cost.
+Information density (motivational).Why should coordination help at all? Appendix A.2 gives
+an information-theoretic motivation for why coordinated concurrent edits should beat sequential
+edits at fixed compute: treating patches as random variables over the rubric-coverage space, the
+per-step joint information across agents scales near-linearly inN when claims keep the joint entropy
+from collapsing. We present this as motivation for the bundle component probe rather than a formal
+proof. It is per-step motivation only, not a claim that end-task quality scales inN; the demonstrated
+operating point isN=2, and quality declines beyond it (§4.5).
+2.3 Collaboration Protocol
+Workflow.Agents receive an advisory six-step workflow: (1)readroom state before writing; (2)
+claimeach file they plan to create; (3) on a claim conflict,reviseand pick a different file; (4)writethe
+claimed files; (5)pollfor updates between subtasks; (6)reportcompletion by broadcast.
+Rules in practice.The protocol has two standing rules. The room rejects claims for files already
+held by another agent. The prompt tells agents to read existing files before writing and to import
+from teammates’ code. The protocol is advisory at the prompt layer; agents typically deviate when a
+teammate stalls, an informative pattern documented in Appendix C. Despite this imperfect adherence,
+we find that AgentRoom outperforms the no-coordination condition.
+3

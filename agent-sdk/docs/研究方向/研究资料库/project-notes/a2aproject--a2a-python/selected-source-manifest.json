@@ -1,0 +1,173 @@
+[
+  {
+    "path": "src/a2a/server/tasks/inmemory_task_store.py",
+    "sha256": "73622f0b86384fb730987569ebf7e6e770427318fe758dfa36b6721c5e673e9a",
+    "bytes": 9256,
+    "symbols": [
+      "def _list_sort_key(task: Task) -> tuple[bool, int, str]:",
+      "def _cursor_for(task: Task) -> ListTasksCursor:",
+      "class _InMemoryTaskStoreImpl(TaskStore):",
+      "def __init__(",
+      "def _get_owner_tasks(self, owner: str) -> dict[str, Task]:",
+      "async def save(self, task: Task, context: ServerCallContext) -> None:",
+      "async def get(",
+      "async def list(",
+      "def _legacy_start_index(tasks: Sequence[Task], page_token: str) -> int:",
+      "async def delete(self, task_id: str, context: ServerCallContext) -> None:",
+      "class InMemoryTaskStore(TaskStore):",
+      "def __init__("
+    ]
+  },
+  {
+    "path": "src/a2a/server/agent_execution/active_task.py",
+    "sha256": "7128fbfc2a63645702af9e13670a9777106d7aec06ee7164aa70f884fc82097d",
+    "bytes": 40822,
+    "symbols": [
+      "class _RequestStarted:",
+      "def __init__(self, request_id: uuid.UUID, request_context: RequestContext):",
+      "class _RequestCompleted:",
+      "def __init__(self, request_id: uuid.UUID):",
+      "class EventConsumer:",
+      "def __init__(self, active_task: ActiveTask) -> None:",
+      "async def run(self) -> None:",
+      "async def _write_failed_status(self) -> Task | None:",
+      "async def _process_event(self, event: Event) -> None:",
+      "async def _process_event_inner(self, event: Event) -> None:",
+      "def _handle_message_event(self, event: Message) -> None:",
+      "async def _handle_task_event("
+    ]
+  },
+  {
+    "path": "src/a2a/server/agent_execution/agent_executor.py",
+    "sha256": "d5609ff0487616e83c0d632080822757dff48b36fc4f29af1fcc604e3e5aa936",
+    "bytes": 4173,
+    "symbols": [
+      "class AgentExecutor(ABC):",
+      "async def execute(",
+      "async def cancel("
+    ]
+  },
+  {
+    "path": "src/a2a/server/agent_execution/active_task_registry.py",
+    "sha256": "f7992a509253ae290fab902c152352213af70fc24ec1709ce46a367bf1fe82a9",
+    "bytes": 6651,
+    "symbols": [
+      "class ActiveTaskRegistry:",
+      "def __init__(",
+      "async def get_or_create(",
+      "def _on_active_task_cleanup(self, active_task: ActiveTask) -> None:",
+      "async def _remove_task(self, task_id: str) -> None:",
+      "async def get(self, task_id: str) -> ActiveTask | None:",
+      "async def aclose(self) -> None:"
+    ]
+  },
+  {
+    "path": "src/a2a/server/tasks/inmemory_push_notification_config_store.py",
+    "sha256": "4ad9d878e4f323329c639563294869fd2057c2f6c12122a83e2dbbbf0922591e",
+    "bytes": 5609,
+    "symbols": [
+      "class InMemoryPushNotificationConfigStore(PushNotificationConfigStore):",
+      "def __init__(",
+      "def _get_owner_push_notification_infos(",
+      "async def set_info(",
+      "async def get_info(",
+      "async def get_info_for_dispatch(",
+      "async def delete_info("
+    ]
+  },
+  {
+    "path": "src/a2a/utils/task.py",
+    "sha256": "938a5984e80703c0849bb8deefdc2ca97ab81c57e4c55567f2b0bbc925a27b98",
+    "bytes": 5756,
+    "symbols": [
+      "class HistoryLengthConfig(Protocol):",
+      "def HasField(self, field_name: Literal['history_length']) -> bool:  # noqa: N802 -- Protobuf generated code",
+      "def validate_history_length(config: HistoryLengthConfig | None) -> None:",
+      "def apply_history_length(",
+      "def validate_page_size(page_size: int) -> None:",
+      "def encode_page_token(task_id: str) -> str:",
+      "def decode_page_token(page_token: str) -> str:",
+      "class ListTasksCursor:",
+      "def sort_key(self) -> tuple[bool, int, str]:",
+      "def encode_list_tasks_cursor(cursor: ListTasksCursor) -> str:",
+      "def decode_list_tasks_cursor(page_token: str) -> ListTasksCursor | None:"
+    ]
+  },
+  {
+    "path": "src/a2a/helpers/agent_card.py",
+    "sha256": "133fe7aeae20a55cc5fdbe267f8edc5d298091ccf8fd20da397ea2cc43810823",
+    "bytes": 2480,
+    "symbols": [
+      "def display_agent_card(card: AgentCard) -> None:"
+    ]
+  },
+  {
+    "path": "tck/sut_agent_with_vertex_task_store.py",
+    "sha256": "4610e2404f2449ebc1e0ad372507314385b13c7f79bf780a7c8cc1c2a39a7528",
+    "bytes": 1339,
+    "symbols": [
+      "def main() -> None:"
+    ]
+  },
+  {
+    "path": "src/a2a/server/tasks/__init__.py",
+    "sha256": "6c753dba031b7db2f1d1c653531039f1ca7561aeccf4594e56e03c77e5c4af28",
+    "bytes": 2831,
+    "symbols": [
+      "class DatabaseTaskStore:",
+      "def __init__(self, *args, **kwargs):",
+      "class DatabasePushNotificationConfigStore:",
+      "def __init__(self, *args, **kwargs):"
+    ]
+  },
+  {
+    "path": "src/a2a/server/tasks/task_store.py",
+    "sha256": "e274b94337d23ff6cfe63276fb945589aef1dd99bd1c80849648e7d55437d729",
+    "bytes": 972,
+    "symbols": [
+      "class TaskStore(ABC):",
+      "async def save(self, task: Task, context: ServerCallContext) -> None:",
+      "async def get(",
+      "async def list(",
+      "async def delete(self, task_id: str, context: ServerCallContext) -> None:"
+    ]
+  },
+  {
+    "path": "src/a2a/server/cluster/task_store.py",
+    "sha256": "c75dcb36d081526f7a809552dc7bc31630cc5211af9353a634db0c7cbd3173ed",
+    "bytes": 4300,
+    "symbols": [
+      "class StoredTask:",
+      "class ConcurrentTaskModificationError(Exception):",
+      "def __init__(self, task_id: str) -> None:",
+      "class VersionedTaskStore(ABC):",
+      "async def save(",
+      "async def get(",
+      "async def list(",
+      "async def delete(self, task_id: str, context: ServerCallContext) -> None:",
+      "class LegacyTaskStoreAdapter(VersionedTaskStore):",
+      "def __init__(self, store: TaskStore) -> None:",
+      "def store(self) -> TaskStore:",
+      "async def save("
+    ]
+  },
+  {
+    "path": "src/a2a/server/tasks/task_manager.py",
+    "sha256": "fae8ea37c727d44dc41048646fd5030c685228f5ab876920637959d9f61a40a1",
+    "bytes": 15186,
+    "symbols": [
+      "def append_artifact_to_task(task: Task, event: TaskArtifactUpdateEvent) -> None:",
+      "class TaskManager:",
+      "def __init__(",
+      "def invalidate(self) -> None:",
+      "def current_version(self) -> TaskVersion:",
+      "async def get_task(self) -> Task | None:",
+      "async def save_task_event(",
+      "async def ensure_task_id(self, task_id: str, context_id: str) -> Task:",
+      "async def ensure_task(",
+      "async def process(self, event: Event) -> Event:",
+      "def _init_task_obj(self, task_id: str, context_id: str) -> Task:",
+      "async def _save_task(self, task: Task) -> None:"
+    ]
+  }
+]

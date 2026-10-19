@@ -1,0 +1,170 @@
+[
+  {
+    "path": "dspy/evaluate/metrics.py",
+    "sha256": "6ff0660bb2620b6f69cfa6fa3ad40fae00a73e9d5db8fe5c061375bc91afe7ab",
+    "bytes": 11629,
+    "symbols": [
+      "def EM(prediction, answers_list):  # noqa: N802",
+      "def F1(prediction, answers_list):  # noqa: N802",
+      "def HotPotF1(prediction, answers_list):  # noqa: N802",
+      "def normalize_text(s):",
+      "def remove_articles(text):",
+      "def white_space_fix(text):",
+      "def remove_punc(text):",
+      "def lower(text):",
+      "def em_score(prediction, ground_truth):",
+      "def f1_score(prediction, ground_truth):",
+      "def hotpot_f1_score(prediction, ground_truth):",
+      "def precision_score(prediction, ground_truth):"
+    ]
+  },
+  {
+    "path": "dspy/evaluate/__init__.py",
+    "sha256": "61e9ee8422fe9a94de1a16e84ebcc698072be22a8b3d581c0bf1a39e15b1c410",
+    "bytes": 417,
+    "symbols": []
+  },
+  {
+    "path": "dspy/evaluate/evaluate.py",
+    "sha256": "311a988e5684fbcd0302b5a990b67c3205d18d3138a8a4c5a280fe5d0a1f60fa",
+    "bytes": 15726,
+    "symbols": [
+      "def display(obj: Any):",
+      "def HTML(x: str) -> str:  # noqa: N802",
+      "class EvaluationResult(Prediction):",
+      "def __init__(self, score: float, results: list[tuple[\"dspy.Example\", \"dspy.Example\", Any]]):",
+      "def __repr__(self):",
+      "class Evaluate:",
+      "def __init__(",
+      "def __call__(",
+      "def process_item(example):",
+      "def _prepare_results_output(",
+      "def _construct_result_table(",
+      "def _display_result_table(self, result_df: \"pd.DataFrame\", display_table: bool | int, metric_name: str):"
+    ]
+  },
+  {
+    "path": "dspy/primitives/runner.js",
+    "sha256": "5ffdf49fb433beb91d7645ad219525aafbd51dc231dc73386e273b4a7edfdbc9",
+    "bytes": 13959,
+    "symbols": [
+      "def last_exception_args():",
+      "class _DSPyFinalOutput(BaseException):",
+      "def SUBMIT(output):",
+      "def ${toolName}(${signature}):",
+      "def SUBMIT(output):",
+      "def SUBMIT(${sigParts.join(', ')}):"
+    ]
+  },
+  {
+    "path": "dspy/evaluate/auto_evaluation.py",
+    "sha256": "fc902532e25c243161a351e0765c61140eda06128845320259e833a378838339",
+    "bytes": 5620,
+    "symbols": [
+      "class SemanticRecallPrecision(Signature):",
+      "class DecompositionalSemanticRecallPrecision(Signature):",
+      "def f1_score(precision, recall):",
+      "class SemanticF1(Module):",
+      "def __init__(self, threshold=0.66, decompositional=False):",
+      "def forward(self, example, pred, trace=None):",
+      "class AnswerCompleteness(Signature):",
+      "class AnswerGroundedness(Signature):",
+      "class CompleteAndGrounded(Module):",
+      "def __init__(self, threshold=0.66):",
+      "def forward(self, example, pred, trace=None):"
+    ]
+  },
+  {
+    "path": "dspy/teleprompt/copro_optimizer.py",
+    "sha256": "7542956486c9d4ef68cfb34371e1dd3f0f5a730234bc34344ee81d762ccdde9b",
+    "bytes": 17453,
+    "symbols": [
+      "class BasicGenerateInstruction(Signature):",
+      "class GenerateInstructionGivenAttempts(dspy.Signature):",
+      "class COPRO(Teleprompter):",
+      "def __init__(",
+      "def _check_candidates_equal(self, candidate1, candidate2):",
+      "def _drop_duplicates(self, candidates):",
+      "def _print_signature(self, predictor):",
+      "def _get_signature(self, predictor):",
+      "def _set_signature(self, predictor, updated_signature):",
+      "def compile(self, student, *, trainset, eval_kwargs=None):"
+    ]
+  },
+  {
+    "path": "dspy/teleprompt/avatar_optimizer.py",
+    "sha256": "f13a8b305f48bf5424d019aae403c2e2cabc752089dd2f356e137673f4bf95b6",
+    "bytes": 8767,
+    "symbols": [
+      "class EvalResult(BaseModel):",
+      "class Comparator(dspy.Signature):",
+      "class FeedbackBasedInstruction(dspy.Signature):",
+      "class AvatarOptimizer(Teleprompter):",
+      "def __init__(",
+      "def process_example(self, actor, example, return_outputs):",
+      "def thread_safe_evaluator(self, devset, actor, return_outputs=False, num_threads=None):",
+      "def _get_pos_neg_results(",
+      "def compile(self, student, *, trainset):"
+    ]
+  },
+  {
+    "path": "dspy/teleprompt/mipro_optimizer_v2.py",
+    "sha256": "6bf7632836d3a54ab0da3f38a8f1963813472312e9c0e3f2ff19b4377af407f3",
+    "bytes": 34889,
+    "symbols": [
+      "def _import_optuna():",
+      "class MIPROv2(Teleprompter):",
+      "def __init__(",
+      "def compile(",
+      "def _set_random_seeds(self, seed):",
+      "def _set_num_trials_from_num_candidates(self, program, zeroshot_opt, num_candidates):",
+      "def _set_hyperparams_from_run_mode(",
+      "def _set_and_validate_datasets(self, trainset: list, valset: list | None):",
+      "def _print_auto_run_settings(",
+      "def _estimate_lm_calls(",
+      "def _bootstrap_fewshot_examples(",
+      "def _propose_instructions("
+    ]
+  },
+  {
+    "path": "dspy/lm15.py",
+    "sha256": "a37695a0b417f68d582d9202d329de65adbc3e510d24431a8faab053487e26b7",
+    "bytes": 9396,
+    "symbols": [
+      "class ModelSupport:",
+      "def __post_init__(self) -> None:",
+      "def over(self, other: \"ModelSupport | None\") -> \"ModelSupport\":",
+      "class RegisteredProvider:",
+      "def id(self) -> str:",
+      "def support_for(self, model: str) -> ModelSupport:",
+      "def register_provider(",
+      "def unregister_provider(provider: str) -> None:",
+      "def registered_providers() -> tuple[RegisteredProvider, ...]:",
+      "def _definitions(bindings) -> tuple[ProviderDefinition, ...]:",
+      "def _binding_for(bindings, provider: str) -> RegisteredProvider | None:"
+    ]
+  },
+  {
+    "path": "dspy/__init__.py",
+    "sha256": "920ab364ea5a74d6c412888aefc48379269d159da31e1670d112390c5a9a006b",
+    "bytes": 2313,
+    "symbols": [
+      "def __getattr__(name):"
+    ]
+  },
+  {
+    "path": "dspy/__metadata__.py",
+    "sha256": "18b857e16d1cc8d79927311b0c4e6e2ae26dc9cf33d0efabfcc741c72cf51b0a",
+    "bytes": 232,
+    "symbols": []
+  },
+  {
+    "path": "scripts/update_vendored_lm15.py",
+    "sha256": "613ba055ba20c92ba11456407d569242d4ab6f241d5a23a4ce9a5b170ad83842",
+    "bytes": 7142,
+    "symbols": [
+      "def git(*args: str, cwd: Path = REPO_ROOT) -> str:",
+      "def main() -> int:"
+    ]
+  }
+]

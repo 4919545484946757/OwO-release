@@ -1,0 +1,98 @@
+{
+  "kept": [
+    {
+      "path": ".gitignore",
+      "bytes": 3459
+    },
+    {
+      "path": "README.md",
+      "bytes": 6146
+    },
+    {
+      "path": "config.py",
+      "bytes": 7888
+    },
+    {
+      "path": "core/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "core/manager.py",
+      "bytes": 48604
+    },
+    {
+      "path": "core/patches.py",
+      "bytes": 745
+    },
+    {
+      "path": "core/subagent.py",
+      "bytes": 37244
+    },
+    {
+      "path": "core/utils.py",
+      "bytes": 49369
+    },
+    {
+      "path": "judge/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "judge/judge_runner.py",
+      "bytes": 4565
+    },
+    {
+      "path": "prompts/commit0.yaml",
+      "bytes": 20492
+    },
+    {
+      "path": "prompts/paperbench.yaml",
+      "bytes": 30657
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 930
+    },
+    {
+      "path": "run_infer.py",
+      "bytes": 34883
+    },
+    {
+      "path": "scripts/run_multi.sh",
+      "bytes": 3382
+    },
+    {
+      "path": "scripts/run_single.sh",
+      "bytes": 2571
+    },
+    {
+      "path": "tasks/__init__.py",
+      "bytes": 245
+    },
+    {
+      "path": "tasks/base.py",
+      "bytes": 7663
+    },
+    {
+      "path": "tasks/commit0.py",
+      "bytes": 20872
+    },
+    {
+      "path": "tasks/hooks/pre-commit",
+      "bytes": 697
+    },
+    {
+      "path": "tasks/paperbench.py",
+      "bytes": 26505
+    },
+    {
+      "path": "teaser/multi-agent-teaser.png",
+      "bytes": 2185087
+    },
+    {
+      "path": "uv.lock",
+      "bytes": 1050317
+    }
+  ],
+  "omitted": [],
+  "scope": "prior batch source snapshot"
+}

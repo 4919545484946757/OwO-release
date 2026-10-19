@@ -1,0 +1,188 @@
+[
+  {
+    "path": "src/pydantic_clai2/pydantic_clai2/runtime/tasks.py",
+    "sha256": "5780fc3818c7a6aca0ad020e30f79449d245b7c19c6b0494b599b5040daba374",
+    "bytes": 12831,
+    "symbols": [
+      "def specialists() -> dict[str, SubAgent[object]]:",
+      "def task_tree(records: Sequence[DelegationTask]) -> list[tuple[int, DelegationTask]]:",
+      "def visit(record: DelegationTask, depth: int) -> None:",
+      "def task_row(event: AgentStreamEvent) -> Text | None:",
+      "class Tasks:",
+      "def __init__(",
+      "def records(self) -> tuple[DelegationTask, ...]:",
+      "async def observe(self, update: DelegationTaskEvent) -> None:",
+      "def focused(self) -> Status | None:",
+      "def _waited_on(self, record: DelegationTask) -> bool:",
+      "def _foreground_tasks(self) -> list[DelegationTask]:",
+      "def promote(self) -> str:"
+    ]
+  },
+  {
+    "path": "src/pydantic_ai_harness/pydantic_ai_harness/subagents/_tasks.py",
+    "sha256": "e2bb46d0ba4208ff6b40f5716988f0e2654d91249f89a22c73481e49971e2bc3",
+    "bytes": 22445,
+    "symbols": [
+      "class DelegationTask:",
+      "def report(self) -> SystemPromptPart:",
+      "class DelegationTaskEvent:",
+      "class DelegationTasks:",
+      "def __init__(",
+      "def current() -> DelegationTasks | None:",
+      "def child_id() -> str | None:",
+      "def bind(self) -> Generator[None]:",
+      "async def opened(self) -> AsyncGenerator[DelegationTasks]:",
+      "def persistence_capabilities(self) -> list[AbstractCapability[object]]:",
+      "async def notify(",
+      "async def save(self, record: DelegationTask) -> None:"
+    ]
+  },
+  {
+    "path": "src/pydantic_clai2/pydantic_clai2/runtime/agent_instrumentation.py",
+    "sha256": "76ef2223e7b02ce07b094502f3eeeb19417cbfaf3b7f90005cc462cde8c14d6b",
+    "bytes": 2407,
+    "symbols": [
+      "class _Claims:",
+      "def current() -> InstrumentationSettings | bool:",
+      "def tracer() -> Tracer | None:",
+      "def claim(settings: InstrumentationSettings) -> None:",
+      "def release(settings: InstrumentationSettings) -> None:"
+    ]
+  },
+  {
+    "path": "pydantic_ai_slim/pydantic_ai/_agent_graph.py",
+    "sha256": "2903da5d99d87b01cbc9441eeffb5e93a0f606b9e86b6994b455da3b47339a64",
+    "bytes": 162581,
+    "symbols": [
+      "def set_agent_graph_sleep(sleep_func: AgentGraphSleepFunc) -> Generator[None]:",
+      "async def durable_sleep(seconds: float) -> None:",
+      "async def _agent_graph_sleep(delay: float) -> None:",
+      "async def _with_event_stream_buffer(",
+      "async def _cancel_task(task: Task[Any]) -> None:",
+      "def _context_changes(before: Context, after: Context) -> list[tuple[ContextVar[Any], Any]]:",
+      "def _apply_context_changes(changes: Sequence[tuple[ContextVar[Any], Any]]) -> None:",
+      "async def _resolve_interrupted_stream_state(",
+      "def resolve_conversation_id(",
+      "def resolve_conversation(",
+      "def resolve_run_id(",
+      "class GraphAgentState:"
+    ]
+  },
+  {
+    "path": "src/pydantic_clai2/pydantic_clai2/mcp/_runtime.py",
+    "sha256": "f0fcb27701c2f93344128a1f18f49ce49535c6a39daaef9dfb678274f84868b3",
+    "bytes": 15487,
+    "symbols": [
+      "class ServerEntry:",
+      "def origin(self) -> tuple[Source, Path | None, str]:",
+      "class _Connection:",
+      "def _shape(server: Server) -> Server:",
+      "class MCPServers:",
+      "def __init__(self, store: MCPStore, plugin_servers: Servers | None = None) -> None:",
+      "def entries(self) -> list[ServerEntry]:",
+      "def get(self, name: str) -> ServerEntry:",
+      "def enabled(self, entry: ServerEntry) -> bool:",
+      "def state(self, entry: ServerEntry) -> State:",
+      "def problem(self, entry: ServerEntry) -> str | None:",
+      "def uptime(self, entry: ServerEntry) -> float | None:"
+    ]
+  },
+  {
+    "path": "src/pydantic_clai2/pydantic_clai2/runtime/forks.py",
+    "sha256": "1039ac08296fed3ebec888809f7d30c84f812000aef7eed5554159b28133270a",
+    "bytes": 17339,
+    "symbols": [
+      "class ForkRecord:",
+      "def tag(self) -> str:",
+      "async def _ignore(event: HostEvent) -> None:",
+      "def _activity_style(activity: str) -> str:",
+      "def parse_fork_args(text: str) -> tuple[str | None, str]:",
+      "class Forks(Generic[DepsT, OutputT]):",
+      "def __init__(",
+      "def records(self) -> tuple[ForkRecord, ...]:",
+      "async def busy(self) -> AsyncGenerator[None]:",
+      "async def quiet(self) -> AsyncGenerator[None]:",
+      "def _release(self) -> None:",
+      "def _notify(self, text: str, style: str) -> None:"
+    ]
+  },
+  {
+    "path": "src/pydantic_clai2/pydantic_clai2/runtime/launch.py",
+    "sha256": "b4646b5a56186fa7c23eccd353c29939cca57ad0500eb86fc7ba0065d529a356",
+    "bytes": 1143,
+    "symbols": [
+      "def launch_session_id(*, resume: str | None, session_id: str | None, fork: bool) -> str | None:"
+    ]
+  },
+  {
+    "path": "src/pydantic_clai2/pydantic_clai2/cli/agent_import.py",
+    "sha256": "ee8199cca62fd8bfc4cb4b5f03ebc1f3bc9b4091c0d544aff2d53c28cc0c506f",
+    "bytes": 1786,
+    "symbols": [
+      "def import_agent(path: str) -> AbstractAgent[None, object]:"
+    ]
+  },
+  {
+    "path": "src/pydantic_clai2/pydantic_clai2/runtime/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "symbols": []
+  },
+  {
+    "path": "src/pydantic_clai2/pydantic_clai2/runtime/_session.py",
+    "sha256": "3deab6cb6771b184f8ba36a14dd85f007bebab512f793b7a6da2d1263791e3a2",
+    "bytes": 37104,
+    "symbols": [
+      "def current_session_id() -> str | None:",
+      "def session_context(session_id: str) -> Generator[None]:",
+      "def _supports_local_workspace() -> bool:",
+      "def _supplies_workspace(plugins: Sequence[AgentCapability[DepsT]], *, include_dynamic: bool = True) -> bool:",
+      "def _overrides_get_workspace(leaf: AbstractCapability[DepsT], *, include_dynamic: bool) -> bool:",
+      "class _LocalFallback(LocalWorkspace[DepsT]):",
+      "def get_workspace(self, ctx: RunContext[DepsT], *, ref: WorkspaceRef | None) -> WorkspaceBackend | None:",
+      "def _requested_model(ctx: RunContext[DepsT]) -> str:",
+      "class ModelDefaults(AbstractCapability[DepsT]):",
+      "def get_ordering(self) -> CapabilityOrdering:",
+      "def get_model_settings(self) -> Callable[[RunContext[DepsT]], ModelSettings]:",
+      "class SessionModels(ResolveModelId[DepsT]):"
+    ]
+  },
+  {
+    "path": "src/pydantic_clai2/pydantic_clai2/runtime/sessions.py",
+    "sha256": "063127253f10d9d0f14249d9b8e8cf4a3e57e473b3501c5c3da4ac4700661c57",
+    "bytes": 12675,
+    "symbols": [
+      "class Sessions(Generic[DepsT, OutputT]):",
+      "def __init__(",
+      "async def resume(self, conversation_id: str, *, allow_other_workspace: bool = False) -> str:",
+      "async def show_resumed(self) -> None:",
+      "async def named(self, conversation_id: str, title: str) -> None:",
+      "async def generate(self, prompt: str) -> NamingResult | None:",
+      "async def usage(self, *, console: Console) -> str:",
+      "async def start(",
+      "def chosen(self) -> bool:",
+      "async def import_session(self, source: ImportSource, native_id: str) -> str:",
+      "async def command(self, args: list[str]) -> str:",
+      "async def browse(self, source: ImportSource | None) -> str:"
+    ]
+  },
+  {
+    "path": "src/pydantic_clai2/pydantic_clai2/runtime/reloading.py",
+    "sha256": "777c792a7f48268955073d4757e85d7d979bfb75f487ef9b56ae8143101d0bc2",
+    "bytes": 9054,
+    "symbols": [
+      "class _Unknown:",
+      "class _Imports(ast.NodeVisitor):",
+      "def __init__(self, *, package: str, name: str) -> None:",
+      "def visit_Import(self, node: ast.Import) -> None:",
+      "def visit_ImportFrom(self, node: ast.ImportFrom) -> None:",
+      "def visit_FunctionDef(self, node: ast.FunctionDef) -> None:",
+      "def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:",
+      "def visit_ClassDef(self, node: ast.ClassDef) -> None:",
+      "def _forget(self, name: str) -> None:",
+      "def _forget_target(self, target: ast.expr) -> None:",
+      "def visit_Assign(self, node: ast.Assign) -> None:",
+      "def visit_AnnAssign(self, node: ast.AnnAssign) -> None:"
+    ]
+  }
+]

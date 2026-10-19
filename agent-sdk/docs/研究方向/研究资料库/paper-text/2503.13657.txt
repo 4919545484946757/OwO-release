@@ -1,0 +1,168 @@
+Why Do Multi-Agent LLM Systems Fail?
+Mert Cemri1∗ Melissa Z. Pan1∗ Shuyi Yang2∗ Lakshya A Agrawal1 Bhavya Chopra1
+Rishabh Tiwari1 Kurt Keutzer1 Aditya Parameswaran1 Dan Klein1
+Kannan Ramchandran1 Matei Zaharia1 Joseph E. Gonzalez1 Ion Stoica1
+1UC Berkeley 2Intesa Sanpaolo *Equal Contribution
+Abstract
+Despite enthusiasm for Multi-Agent LLM Systems (MAS), their performance
+gains on popular benchmarks are often minimal. This gap highlights a critical
+need for a principled understanding of why MAS fail. Addressing this question
+requires systematic identification and analysis of failure patterns. We introduce
+MAST-Data, a comprehensive dataset of 1600+ annotated traces collected across
+7 popular MAS frameworks. MAST-Data is the first multi-agent system dataset
+to outline the failure dynamics in MAS for guiding the development of better
+future systems. To enable systematic classification of failures for MAST-Data,
+we build the firstMulti-AgentSystem FailureTaxonomy ( MAST). We develop
+MAST through rigorous analysis of 150 traces, guided closely by expert human
+annotators and validated by high inter-annotator agreement ( κ= 0.88 ). This
+process identifies 14 unique modes, clustered into 3 categories: (i) system design
+issues, (ii) inter-agent misalignment, and (iii) task verification. To enable scalable
+annotation, we develop an LLM-as-a-Judge pipeline with high agreement with
+human annotations. We leverage MAST and MAST-Data to analyze failure patterns
+across models (GPT4, Claude 3, Qwen2.5, CodeLlama) and tasks (coding, math,
+general agent), demonstrating opportunities for improvement through better MAS
+design. Our analysis provides insights revealing that identified failures require
+more sophisticated solutions, highlighting a clear roadmap for future research. We
+publicly release our comprehensive dataset (MAST-Data), the MAST, and our LLM
+annotator to facilitate widespread research and development in MAS.1 2
+“Happy families are all alike; each unhappy family is unhappy in its own way. ”(Tolstoy [1])
+“Successful systems all work alike; each failing system has its own problems. ”(Berkeley’25)
+1 Introduction
+Recently, Large Language Model (LLM) based agentic systems have gained significant attention
+in the AI community [ 2–4]. Building on this characteristic, multi-agent systems are increasingly
+explored in various domains, such as software engineering, drug discoveries, scientific simulations,
+and general-purpose agents [ 5–11]. In this study, we define an LLM-basedagentas an artificial
+entity with prompt specifications (initial state), conversation trace (state), and ability to interact with
+the environments such as tool usage (action). Amulti-agent system(MAS) is then defined as a
+collection of agents designed to interact through orchestration, enabling collective intelligence. MAS
+are structured to coordinate efforts, enabling task decomposition, performance parallelization, context
+isolation, specialized model ensembling, and diverse reasoning discussions [12–17].
+Despite the increasing adoption of MAS, their performance gains often remain minimal compared
+to single-agent frameworks [18] or simple baselines like best-of-N sampling [ 19]. Our empirical
+1https://github.com/multi-agent-systems-failure-taxonomy/MAST
+2https://huggingface.co/datasets/mcemri/MAST-Data
+39th Conference on Neural Information Processing Systems (NeurIPS 2025) Track on Datasets and Benchmarks.
+arXiv:2503.13657v3  [cs.AI]  26 Oct 2025
+
+Failure Categories
+Task Verification
+System Design 
+Issues
+Inter-Agent 
+Misalignment
+1.1 Disobey Task Specification
+2.6 Reasoning-Action Mismatch 
+1.3 Step Repetition
+2.4 Information Withholding
+2.5 Ignored Other Agent’s Input
+3.1  Premature Termination
+3.2 No or Incomplete Verification 
+3.3 Incorrect Verification 
+2.2 Fail to Ask for Clarification
+1.4 Loss of Conversation History
+2.1 Conversation Reset
+2.3 Task Derailment
+1.2 Disobey Role Specification 
+1.5 Unaware of Termination Conditions
+(15.7%)
+(1.50%)
+(13.2%)
+(8.20%)
+(6.20%)
+(9.10%)
+(1.90%) 
+(2.80%)
+(12.4%)
+(6.80%)
+(0.80%)
+(7.40%)
+(11.8%)
+44.2%
+32.3%
+23.5%
+(2.20%)
+Pre Execution Execution Post Execution
+Inter-Agent Conversation Stages
+Failure Modes
+Figure 1: MAST: ATaxonomy of MAS Failure Modes. The inter-agent conversation stages indicate
+when a failure typically occurs within the end-to-end MAS execution pipeline. A failure mode
+spanning multiple stages signifies that the underlying issue can manifest or have implications across
+these different phases of operation. The percentages shown represent the prevalence of each failure
+mode and category as observed in our analysis of 1642 MAS execution traces. Detailed definitions
+for each failure mode and illustrative examples are available in Appendix A.
+analysis reveals 41% to 86.7% failure rate on 7 state-of-the-art (SOTA) open-source MAS detailed in
+Figure 5 (Appendix B). Furthermore, there is no clear consensus on how to build robust and reliable
+MAS. This motivates the fundamental question we address:Why do MAS fail?
+To address this question and systematically understand MAS failures, we introduce MAST-Data, a
+comprehensive, high-quality collection of 1642 annotated execution traces. We define failures as
+instances where the MAS does not achieve its intended task objectives. As shown in Table 1, we
+collect traces from 7 popular MAS frameworks run with two main model families (GPT-4 series and
+Claude series), covering tasks such as coding, math problem-solving, and general agent functionalities.
+Alongside MAST-Data, we also release MAST-Data-human, a smaller dataset featuring 21 traces
+annotated by three human experts each during our inter-annotator agreement studies. We create
+MAST-Data to outline failure dynamics in MAS and to guide the development of better future systems.
+Systematically annotating failures in diverse MAS for a large-scale dataset like MAST-Data presents
+challenges unique to MAS: the difficulty in verifying ground truth for root cause detection and the
+absence of standardized failure definitions. To mitigate these challenges in creating MAST-Data,
+we first develop theMulti-AgentSystem FailureTaxonomy ( MAST), illustrated in Figure 1. We
+build MAST using Grounded Theory [20] from a close analysis of over 150 MAS execution traces
+(each averaging over 15,000 lines of text). This analysis spans a subset of five open-source MAS
+frameworks and involves six expert human annotators. To ensure generalizable definitions inMAST
+for labeling MAST-Data, three annotators independently and iteratively labeled a total of 15 traces
+until achieving high inter-annotator agreement (κ = 0.88). This comprehensive analysis results in
+14 distinct failure modes, clustered into 3 categories. While MAST serves as a foundational first step
+towards unifying the understanding of MAS failures, we do not claim it covers every potential failure
+pattern. To enable scalable annotation for the fullMAST-Data, we then develop an LLM-as-a-judge
+pipeline (which we term the LLM annotator) [21] using OpenAI’s o1 model. We calibrate the LLM
+annotator to achieve high agreement with human expert annotations ( κ = 0.77), and additionally
+validated applicability on two additional unseen MAS and benchmarks (κ= 0.79).
+To demonstrate MAST’s practical usage, our case studies (Appendix H) highlight its role in guiding
+MAS development, and in Section C we describe how to use theMAST easily as a python library using
+pip install agentdash . For example, the CPO agent in ChatDev can exhibit ‘Failure Mode 1.2 -
+Disobey Role Specification’ by terminating conversation without the CEO agent’s consensus. We
+2
+
+demonstrate that a straightforward system workflow adjustment ensuring the CEO had the final say
+contributed to a +9.4% increase in overall task success rate. While such MAST-guided interventions
+demonstrate improvements, achieving robust MAS reliability often requires more than isolated fixes,
+pointing towards the need for more complex solutions and fundamental MAS redesigns.
+Table 1: MAST-Data configuration details. HE: Human Evaluated (Task completions rates are
+checked by humans), HA: Human Annotated (Failure modes are annotated by humans), LA: LLM
+Annotated (Failure modes are annotated by LLM-as-a-Judge).
+MAS Benchmark LLM Annotation Trace #
+ChatDev ProgramDev GPT-4o HE, HA, LA 30
+MetaGPT ProgramDev GPT-4o HE, HA, LA 30
+HyperAgent SWE-Bench Lite Claude-3.7-Sonnet HE, HA, LA 30
+AppWorld Test-C GPT-4o HE, HA, LA 30
+AG2 (MathChat) GSM-Plus GPT-4 HE, HA, LA 30
+Magentic-One GAIA GPT-4o HE, HA, LA 30
+OpenManus ProgramDev GPT-4o HE, HA, LA 30
+ChatDev ProgramDev-v2 GPT-4o LA 100
+MetaGPT ProgramDev-v2 GPT-4o LA 100
+MetaGPT ProgramDev-v2 Claude-3.7-Sonnet LA 100
+ChatDev ProgramDev-v2 Qwen2.5-Coder-32B-Instruct LA 100
+MetaGPT ProgramDev-v2 Qwen2.5-Coder-32B-Instruct LA 100
+ChatDev ProgramDev-v2 CodeLlama-7b-Instruct-hf LA 100
+MetaGPT ProgramDev-v2 CodeLlama-7b-Instruct-hf LA 100
+AG2 (MathChat) OlympiadBench GPT-4o HE, LA 206
+AG2 (MathChat) GSMPlus Claude-3.7-Sonnet HE, LA 193
+AG2 (MathChat) MMLU GPT-4o-mini HE, LA 168
+Magentic-One GAIA GPT-4o HE, LA 165
+These findings suggest MAST reflects fundamental design challenges inherent in current MAS, not
+just artifacts of specific MAS implementation. By systematically defining failures, MAST serves as
+a framework to guide failure diagnosis and opens concrete research problems for the community.
+We have released our traces and annotations and open-sourced the LLM annotator pipeline to foster
+research in the design of more robust and reliable MAS.
+The contributions of this paper are as follows:
+• We introduce andopen-source MAST-Data, the first large-scale MAS failure dataset with consistent
+annotations from 7 MAS and four model families. And MAST-Data-human, a detailed inter-
+annotator study results with human labels. Together serve to facilitate research into MAS failures.
+• We introduce MAST, the first empirically groundedtaxonomy of MAS failures, providing a
+structured framework for defining, understanding and annotating failures.
+• We develop a scalable LLM-as-a-judgeannotation pipelineintegrated with MAST for efficiently
+annotating MAST-Data and enabling analysis of MAS performance, diagnosis of failure modes,
+and understanding of failure breakdowns.
+• We demonstrate throughcase studiesthat failures identified by MAST often stem from system design
+issues, not just LLM limitations or simple prompt following, and require more than superficial
+fixes, thereby highlighting the need for structural MAS redesigns.
+3

@@ -1,0 +1,162 @@
+AGENTLESS
+ :
+Demystifying LLM-based Software Engineering Agents
+Chunqiu Steven Xia∗ Yinlin Deng∗ Soren Dunn Lingming Zhang
+University of Illinois Urbana-Champaign
+{chunqiu2, yinlind2, sorend2, lingming }@illinois.edu
+Abstract
+Recent advancements in large language models (LLMs) have significantly
+advanced the automation of software development tasks, including code
+synthesis, program repair, and test generation. More recently, researchers
+and industry practitioners have developed various autonomous LLM
+agents to perform end-to-end software development tasks. These agents are
+equipped with the ability to use tools, run commands, observe feedback
+from the environment, and plan for future actions. However, the complexity
+of these agent-based approaches, together with the limited abilities of
+current LLMs, raises the following question: Do we really have to employ
+complex autonomous software agents? To attempt to answer this question,
+we build AGENTLESS – an agentless approach to automatically resolve
+software development issues. Compared to the verbose and complex setup
+of agent-based approaches, AGENTLESS employs a simplistic three-phase
+process of localization, repair, and patch validation, without letting the
+LLM decide future actions or operate with complex tools. Our results
+on the popular SWE-bench Lite benchmark show that surprisingly the
+simplistic AGENTLESS is able to achieve both the highest performance
+(32.00%, 96 correct fixes) and low cost ($0.70) compared with all existing
+open-source software agents! In fact, AGENTLESS has already been adopted
+by OpenAI as the go-to approach to showcase the real-world coding performance
+of both GPT-4o and the new OpenAI o1 models . Furthermore, we manually
+classified the problems in SWE-bench Lite and found problems with exact
+ground truth patches or insufficient/misleading issue descriptions. As
+such, we construct SWE-bench Lite-S by excluding such problematic issues
+to perform more rigorous evaluation and comparison. Our work highlights
+the currently overlooked potential of a simplistic, cost-effective technique
+in autonomous software development. We hope AGENTLESS will help reset
+the baseline, starting point, and horizon for autonomous software agents,
+and inspire future work along this crucial direction. We have open-sourced
+AGENTLESS at: https://github.com/OpenAutoCoder/Agentless
+1 Introduction
+Large language models (LLMs) have become the go-to default choice for code gener-
+ation [31, 28, 53, 89]. State-of-the-art LLMs like GPT-4 [ 71] and Claude 3.5 Sonnet [ 26]
+have demonstrated their prowess in being able to synthesize code snippets based on
+given user description. However, compared to the main evaluation setting of simple,
+self-contained problems, applying LLMs on repository-level software engineering tasks
+has been understudied. Software engineering tasks like feature addition, program repair,
+and test generation require an in-depth understanding of not only information within files,
+containing thousands of lines of code, but also repository-level dependencies across files.
+∗Contributed equally with author ordering decided byNigiri.
+1
+arXiv:2407.01489v2  [cs.SE]  29 Oct 2024
+
+Recently, to address the gap and evaluate the ability of tools to automatically solve
+real-world software engineering problems, the popular SWE-bench [ 44] benchmark has
+been developed. In SWE-bench, each problem consists of a real-world GitHub issue
+description and the corresponding Python repository. The task is to modify the repository
+to resolve the issue, either fixing a bug or introducing a new feature. Recently, the authors
+have published a subset of the benchmark – SWE-bench Lite [ 23] (300 problems) that
+performs further filtering and focuses on bug fixing issues.
+To solve the challenging real-world software development problems from SWE-bench,
+inspired by the Devin AI Software Engineer [ 7], there has been a significant body
+of work from both academia and industry focusing on developing agent-based ap-
+proaches [108, 37, 101, 30, 64, 29]. While there is not a fixed definition for agent-based
+approaches, they generally equip LLMs with a set of tools and allow agents to iteratively and
+autonomously perform actions, observe feedback, and plan future steps [56]. Example tools
+can include the ability to open/write/create files, search for code lines, run tests, and execute
+shell commands. In each attempt to solve a problem, agent-based approaches will have
+multiple turns, where each turn consists of performing an action. Subsequent turns depend
+on previous actions and the feedback information the agent receives from the environment.
+At first glance, agent-based approaches appear to be a natural and straightforward way
+to tackle software development tasks. After all, human developers also perform similar
+actions and use feedback to plan future steps. However, the disparity between human and
+current LLM abilities leads to the following limitations of agent-based approaches:
+• Complex tool usage/design. To utilize tools, current agent-based approaches apply an
+abstraction layer between the agent and the environment. Examples are mapping real
+actions to API calls so that agents can use tools by outputting an API call instruction. How-
+ever, such abstractions and API call specifications require careful design of input/output
+formats and can easily lead to incorrect or imprecise tool design/usage, especially for
+more complex action spaces. Given the iterative nature of agent-based approaches, where
+current action/plan depends on previous turns, incorrectly or imprecisely defining/using
+a tool can both reduce performance and incur additional cost in wasted LLM queries.
+• Lack of control in decision planning. In addition to using tools, current agent-based
+approaches also delegate the decision-making process to the agents, allowing them to
+decide when and what action to perform. The agents decide the current action to take
+based on previous actions taken and the feedback provided by the environment, often
+with minimal checks to ensure the action taken make sense. Due to the large possible
+action space and feedback response, it can be extremely easy for autonomous agents
+to become confused and perform sub-optimal explorations. Furthermore, to solve an
+issue, an agent can take upwards of 30 or 40 turns, which makes it extremely difficult to
+both understand the decisions made by the agents and also debug the exact turns where
+an incorrect decision is made.
+• Limited ability to self-reflect. Existing agents struggle with the capability to perform
+self-reflection [69, 41]. That is to say they tend to take all information/feedback and do not
+know how to filter out or correct irrelevant, incorrect, or misleading information [84, 107].
+The limited ability to self-reflect means that an incorrect step can be easily amplified and
+negatively affect all future decisions made by the agent.
+In this paper, we advocate that instead of rushing to develop increasingly complex LLM
+agent-based approaches and tools for software development (which can also be non-trivial
+to use or replicate due to the fully autonomous setup), we should first take a step back
+and ask the following introspective question: Do we really have to employ complex autonomous
+software agents?
+Our work. We set out to answer this important question by building AGENTLESS – an
+agentless approach to automatically resolve software development issues. To solve each
+issue, AGENTLESS follows a simple three phase process: localization, repair, and patch
+validation. In the localization process, AGENTLESS employs a hierarchical process to
+first localize the fault to specific files, then to relevant classes or functions, and finally to
+fine-grained edit locations. AGENTLESS ’s localization process make uses of both LLM-based
+localization as well classic information-retrieval-based localization idea [109]. To perform
+2
+
+repair, AGENTLESS takes the localized edit locations and generates multiple candidate
+patches in a simple diff format. At the same time, AGENTLESS generates reproduction
+tests that can reproduce the original error and help with candidate patch selection. Finally,
+AGENTLESS re-ranks all remaining patches and selects one to submit in order to fix the issue.
+While AGENTLESS leverages LLMs to perform each detailed task, unlike prior complex
+agent-based tools, AGENTLESS does not allow LLMs to autonomously decide future actions or
+operate with any complex tools. Our deliberate choice to avoid using agents not only allows
+AGENTLESS to have a simplistic and straightforward design that is easy to understand, but
+also helps avoid the above-mentioned limitations of LLM agents in software development.
+We evaluate AGENTLESS on the popular SWE-bench Lite [23] benchmark and demonstrate
+that AGENTLESS not only achieves the highest performance (32.00%) among all open-source
+approaches, but also does so at a fraction of the cost!
+Furthermore, we performed a fine-grained manual analysis on the SWE-bench Lite dataset
+and classified all its problems into different categories across dimensions like problem
+description, ground truth patch, and bug location information. Surprisingly, we observed
+that SWE-bench Lite contains problems with exact ground truth patch in the description
+(4.3%), problems with missing critical information needed to solve the issue (10.0%), and
+problems that include misleading solutions in the issue description (5.0%). Recognizing
+these issues, we built SWE-bench Lite-S, which removes such problematic problems, and
+serves as a more rigorous benchmark to evaluate the ability to solve real-world software
+development challenges. Overall, in an era focused on achieving top placements on
+leaderboards, our work highlights the overlooked potential of a simplistic, cost-effective
+technique in autonomous software development. We hope AGENTLESS will help reset the
+baseline, starting point, and horizon for autonomous software agents, and inspire future
+work along this crucial direction.
+Contributions. In this work, we make the following contributions:
+• An agentless approach. We propose AGENTLESS , an agentless approach to automatically
+solve software development problems. AGENTLESS leverages LLM-empowered
+prompting-based and embedding-based retrieval to perform hierarchical localization.
+During repair, AGENTLESS samples multiple candidate patches in a simple diff format
+for efficient patch generation. AGENTLESS then generates reproduction tests to verify
+that the issue has been resolved. Finally, AGENTLESS leverages both regression tests and
+generated reproduction tests to select the final submission patch.
+• Extensive evaluation. We evaluate AGENTLESS on the popular SWE-bench Lite dataset
+comparing against state-of-the-art agent-based approaches. Our results demonstrates
+that AGENTLESS is able to achieve higher performance (32.00%, 96 correct fixes) than
+all open-source approaches, with comparably low cost as well. This shows the previously
+overlooked potential of a simplistic technique in autonomous software development.
+Additionally, AGENTLESS has already been adopted by OpenAI as the go-to approach to showcase
+the real-world coding performance of GPT-4o [34] as well as the new o1 model family [74] We
+further perform a rigorous ablation study to understand the effectiveness of different
+components of AGENTLESS on the final performance.
+• SWE-bench Lite-S benchmark. We performed manual classifications on the problems in
+the popular SWE-bench Lite dataset. We found that there are problematic problems with
+unclear, misleading issue descriptions, as well as problems that contain exact ground
+truth patches. To address these issues, we constructed a filtered dataset of SWE-bench
+Lite-S that excludes such problematic issues, enabling more rigorous evaluation and
+comparison. This has also been confirmed recently by OpenAI, which acknowledged
+our benchmark and released SWE-bench Verified [34] along the same direction.
+2 Background and Related Work
+2.1 Agent-based Software Engineering
+With the emergence and popularity of agent-based frameworks [92], recently researchers
+and industry practitioners have begun developing agent-based approaches to solve
+3

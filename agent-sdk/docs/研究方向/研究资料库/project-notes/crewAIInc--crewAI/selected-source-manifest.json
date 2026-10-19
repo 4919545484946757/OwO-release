@@ -1,0 +1,182 @@
+[
+  {
+    "path": "lib/crewai/src/crewai/flow/flow.py",
+    "sha256": "7b586e9b8f85e65455d0b3f577b75167ff18a55bf177ff3aaeb2516a4e5c1cfb",
+    "bytes": 1310,
+    "symbols": [
+      "class Flow(_ConversationalMixin, RuntimeFlow[T]):"
+    ]
+  },
+  {
+    "path": "lib/crewai/src/crewai/flow/persistence/sqlite.py",
+    "sha256": "c3191b9d26da4791da9efb7213bb07668318086bbb34af60a403021995d1aa3e",
+    "bytes": 11261,
+    "symbols": [
+      "def _json_default(obj: Any) -> Any:",
+      "class SQLiteFlowPersistence(FlowPersistence):",
+      "def __init__(self, db_path: str | None = None, /, **kwargs: Any) -> None:",
+      "def _setup(self) -> Self:",
+      "def init_db(self) -> None:",
+      "def _create_schema(self) -> None:",
+      "def _save_state_sql(",
+      "def _to_state_dict(state_data: dict[str, Any] | BaseModel) -> dict[str, Any]:",
+      "def save_state(",
+      "def load_state(self, flow_uuid: str) -> dict[str, Any] | None:",
+      "def save_pending_feedback(",
+      "def load_pending_feedback("
+    ]
+  },
+  {
+    "path": "lib/crewai/src/crewai/crew.py",
+    "sha256": "6b2a6b9e91a4afebaa739ee9ab22ccfaf8fdf31ceb4c495250efcb23de7725ff",
+    "bytes": 97215,
+    "symbols": [
+      "def get_supported_content_types(provider: str, api: str | None = None) -> list[str]:",
+      "def _resolve_agents(value: Any, info: Any) -> Any:",
+      "class Crew(FlowTrackable, BaseModel):",
+      "def _drop_unresolvable_callbacks(cls, value: Any) -> Any:",
+      "def from_checkpoint(cls, config: CheckpointConfig) -> Crew:",
+      "def fork(",
+      "def _restore_runtime(self) -> None:",
+      "def _rebind_memory_views(self) -> None:",
+      "def _ensure(view: Any) -> None:",
+      "def _restore_event_scope(self) -> None:",
+      "def _deny_user_set_id(cls, v: UUID4 | None, info: Any) -> UUID4 | None:",
+      "def check_config_type("
+    ]
+  },
+  {
+    "path": "lib/crewai/src/crewai/agents/crew_agent_executor.py",
+    "sha256": "687618a271feb2ea339b4165b8d519dc8e22ac8b1a927926aaac07261f206173",
+    "bytes": 63209,
+    "symbols": [
+      "class CrewAgentExecutor(BaseAgentExecutor):",
+      "def __init__(self, **kwargs: Any) -> None:",
+      "def use_stop_words(self) -> bool:",
+      "def _append_history(self, inputs: dict[str, Any]) -> None:",
+      "def _append_trailing(self, inputs: dict[str, Any]) -> None:",
+      "def _setup_messages(self, inputs: dict[str, Any]) -> None:",
+      "def invoke(self, inputs: dict[str, Any]) -> dict[str, Any]:",
+      "def _inject_multimodal_files(self, inputs: dict[str, Any] | None = None) -> None:",
+      "async def _ainject_multimodal_files(",
+      "def _invoke_loop(self) -> AgentFinish:",
+      "def _invoke_loop_react(self) -> AgentFinish:",
+      "def _append_text_tool_calling_fallback_message(self) -> None:"
+    ]
+  },
+  {
+    "path": "lib/crewai/src/crewai/task.py",
+    "sha256": "c51620d9fefb5defd5ed935bce5a070a019c0403ac2ed3849161d6bb8978aa83",
+    "bytes": 60186,
+    "symbols": [
+      "def get_supported_content_types(provider: str, api: str | None = None) -> list[str]:",
+      "def _serialize_model_class(v: type[BaseModel] | None) -> dict[str, Any] | None:",
+      "def _deserialize_model_class(v: Any) -> type[BaseModel] | None:",
+      "class Task(BaseModel):",
+      "def validate_guardrail_function(",
+      "def process_model_config(cls, values: dict[str, Any]) -> dict[str, Any]:",
+      "def validate_required_fields(self) -> Self:",
+      "def ensure_guardrail_is_callable(self) -> Task:",
+      "def ensure_guardrails_is_list_of_callables(self) -> Task:",
+      "def _deny_user_set_id(cls, v: UUID4 | None, info: Any) -> UUID4 | None:",
+      "def _normalize_input_files(cls, v: dict[str, Any]) -> dict[str, Any]:",
+      "def output_file_validation(cls, value: str | None) -> str | None:"
+    ]
+  },
+  {
+    "path": "lib/crewai/src/crewai/agent/core.py",
+    "sha256": "bcc2774ccf8f8d715a526251716cdb5a7fcdc2f639aaa8120f345d3e1f46511d",
+    "bytes": 87580,
+    "symbols": [
+      "def _is_resuming_agent_executor(",
+      "def _validate_executor_class(value: Any) -> Any:",
+      "def _serialize_executor_class(value: Any) -> str:",
+      "def _request_index(carried: list[LLMMessage]) -> int:",
+      "def _carries_payload(message: LLMMessage) -> bool:",
+      "class Agent(BaseAgent):",
+      "def validate_from_repository(cls, v: Any) -> dict[str, Any] | None | Any:",
+      "def post_init_setup(self) -> Self:",
+      "def planning_enabled(self) -> bool:",
+      "def _llm_for_copy(self) -> Any:",
+      "def interpolate_inputs(self, inputs: dict[str, Any]) -> None:",
+      "def _resolved_overlay(self, declared: BaseLLM | None) -> BaseLLM | None:"
+    ]
+  },
+  {
+    "path": "lib/crewai/src/crewai/memory/types.py",
+    "sha256": "84a6df4286a77778046fc6fc6e5b60cab86d01f225d0bf08a8815e8f01306b2c",
+    "bytes": 13024,
+    "symbols": [
+      "class MemoryRecord(BaseModel):",
+      "class MemoryMatch(BaseModel):",
+      "def format(self) -> str:",
+      "class ScopeInfo(BaseModel):",
+      "class MemoryConfig(BaseModel):",
+      "def embed_text(embedder: Any, text: str) -> list[float]:",
+      "def embed_texts(embedder: Any, texts: list[str]) -> list[list[float]]:",
+      "def compute_composite_score("
+    ]
+  },
+  {
+    "path": "lib/crewai/src/crewai/flow/persistence/base.py",
+    "sha256": "e7a4667852401b70d09dfbbe3ae3098bfd10c947febf25e74e910c733b0e88c7",
+    "bytes": 3922,
+    "symbols": [
+      "class FlowPersistence(BaseModel, ABC):",
+      "def __init_subclass__(cls, **kwargs: Any) -> None:",
+      "def init_db(self) -> None:",
+      "def save_state(",
+      "def load_state(self, flow_uuid: str) -> dict[str, Any] | None:",
+      "def save_pending_feedback(",
+      "def load_pending_feedback(",
+      "def clear_pending_feedback(self, flow_uuid: str) -> None:"
+    ]
+  },
+  {
+    "path": "lib/crewai/src/crewai/agents/agent_builder/base_agent.py",
+    "sha256": "2c5f6bb66c620acf08f720a29faa17d9f9ed9f37b03621955f7c93a2f22ce67c",
+    "bytes": 32517,
+    "symbols": [
+      "def _validate_crew_ref(value: Any) -> Any:",
+      "def _serialize_crew_ref(value: Any) -> str | None:",
+      "def _validate_llm_ref(value: Any) -> Any:",
+      "def _resolve_agent(value: Any, info: Any) -> Any:",
+      "def _validate_executor_ref(value: Any) -> Any:",
+      "def _serialize_executor_ref(value: Any) -> dict[str, Any] | None:",
+      "def _serialize_llm_ref(value: Any) -> dict[str, Any] | None:",
+      "class BaseAgent(BaseModel, ABC, metaclass=AgentMeta):",
+      "def from_checkpoint(cls, config: CheckpointConfig) -> Self:",
+      "def fork(cls, config: CheckpointConfig, branch: str | None = None) -> Self:",
+      "def _restore_runtime(self, state: RuntimeState) -> None:",
+      "def _rebind_memory_view(self) -> None:"
+    ]
+  },
+  {
+    "path": "lib/crewai/src/crewai/tools/agent_tools/ask_question_tool.py",
+    "sha256": "68a0cdc361abc39857ef7a3f50abb6231bf3267095672b4e8bf801c77929ff8e",
+    "bytes": 850,
+    "symbols": [
+      "class AskQuestionToolSchema(BaseModel):",
+      "class AskQuestionTool(BaseAgentTool):",
+      "def _run("
+    ]
+  },
+  {
+    "path": "lib/crewai/src/crewai/tools/agent_tools/delegate_work_tool.py",
+    "sha256": "997ee1a9a5e69a8be543197a7e11869034d68457f9ed6a51556e610204fcd69a",
+    "bytes": 860,
+    "symbols": [
+      "class DelegateWorkToolSchema(BaseModel):",
+      "class DelegateWorkTool(BaseAgentTool):",
+      "def _run("
+    ]
+  },
+  {
+    "path": "lib/crewai/src/crewai/process.py",
+    "sha256": "fae2439b635b702a85a109725495eef7ec4d390661bf06a2dba96e1ebe4abe1e",
+    "bytes": 249,
+    "symbols": [
+      "class Process(str, Enum):"
+    ]
+  }
+]

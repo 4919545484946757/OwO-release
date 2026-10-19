@@ -1,0 +1,293 @@
+Anatomy of Agentic Memory: Taxonomy and Empirical Analysis of
+Evaluation and System Limitations
+Dongming Jiangα, Yi Liα, Songtao Weiα, Jinxin Yangα, Ayushi Kishoreβ, Alysa Zhaoγ, Dingyi Kangα,
+Xu Huα, Feng Chenα, Qiannan Liβ and Bingzhe Liα,∗
+αUniversity of Texas at Dallas βUniversity of California, Davis γTexas A&M University
+{dongming.jiang, yi.li3, songtao.wei, jinxin.yang, dingyi.kang, xu.hu, feng.chen, bingzhe.li}@utdallas.edu
+{aykishore, qnli}@ucdavis.edu; alysazhao111@tamu.edu
+∗Corresponding author/githubGitHub Repo
+Abstract
+Agentic memory systems enable large language
+model (LLM) agents to maintain state across
+long interactions, supporting long-horizon rea-
+soning and personalization beyond fixed con-
+text windows. Despite rapid architectural de-
+velopment, the empirical foundations of these
+systems remain fragile: existing benchmarks
+are often underscaled, evaluation metrics are
+misaligned with semantic utility, performance
+varies significantly across backbone models,
+and system-level costs are frequently over-
+looked. This survey presents a structured anal-
+ysis of agentic memory from both architectural
+and system perspectives. We first introduce
+a concise taxonomy of Memory-Augmented
+Generation (MAG) systems based on four
+memory structures. Then, we analyze key
+pain points limiting current systems, includ-
+ing benchmark saturation effects, metric valid-
+ity and judge sensitivity, backbone-dependent
+accuracy, and the latency and throughput over-
+head introduced by memory maintenance. By
+connecting the memory structure to empirical
+limitations, this survey clarifies why current
+agentic memory systems often underperform
+their theoretical promise and outlines directions
+for more reliable evaluation and scalable sys-
+tem design. To facilitate future research, we
+maintain an open-source repository of surveyed
+papers, benchmarks, and resources.1
+1 Introduction
+Large language model (LLM) agents are increas-
+ingly expected to operate over long time hori-
+zons, maintaining user preferences, accumulating
+task-relevant knowledge, etc. (Brown et al., 2020;
+Achiam et al., 2023; Wei et al., 2022). How-
+ever, fixed context windows fundamentally limit
+1https://github.com/FredJiang0324/
+Anatomy-of-Agentic-Memory . Given the rapid evo-
+lution of research in agentic memory, we may have
+inadvertently overlooked some relevant studies. We welcome
+you to suggest missing papers by emailing us or opening an
+issue on our GitHub repository.
+their ability to retain and manipulate persistent
+state (Brown et al., 2020; Beltagy et al., 2020;
+Liu et al., 2024; Press et al., 2021). To address
+this constraint, Memory-Augmented Generation
+(MAG) extends memory beyond the prompt, en-
+abling agents to store, retrieve, and update infor-
+mation across interactions (Xu et al., 2025c; Nan
+et al., 2025; Chhikara et al., 2025; Jiang et al.,
+2026a; Liu et al., 2026). While this paradigm has
+rapidly evolved from lightweight semantic stores to
+entity-centric, reflective, and hierarchical designs,
+empirical understanding remains limited: reported
+gains are inconsistent across benchmarks, highly
+backbone-dependent, and lack principled guidance
+on evaluation and system-level cost.
+These challenges stem in part from underspec-
+ified design trade-offs and inadequate evaluation.
+Benchmarks are often underscaled relative to mod-
+ern context windows, metrics emphasize surface
+overlap over semantic utility, and system-level
+costs such as latency and throughput degradation
+are rarely measured. As a result, complex mem-
+ory systems are frequently tested in settings where
+simpler full-context or retrieval baselines suffice,
+obscuring their true benefits and limitations.
+In this paper, we provide a structured analysis
+of agentic memory systems from both architec-
+tural and empirical perspectives. 1) We introduce
+a concise taxonomy of Memory-Augmented Gen-
+eration organized around four memory structures:
+Lightweight Semantic, Entity-Centric and Person-
+alized, Episodic and Reflective, and Structured and
+Hierarchical. Defined by how memory is orga-
+nized and manipulated, this taxonomy establishes a
+principled basis for analyzing system behavior. 2)
+Building on this framework, we identify key bottle-
+necks limiting reliability and scalability, including
+benchmark saturation, metric misalignment (e.g.,
+F1 vs. semantic correctness), prompt sensitivity in
+LLM-as-a-judge evaluation, backbone dependence,
+and system-level costs such as retrieval latency,
+arXiv:2602.19320v2  [cs.CL]  20 May 2026
+
+Table 1: Comparison with related surveys on memory for LLM-based agents. ✓ indicates the topic is systematically
+discussed; (✓) indicates partial or brief coverage; × indicates the topic is not addressed.
+Survey Taxonomy Focus
+Memory Mgmt.
+& Policy
+Benchmark
+Saturation
+Metric
+Validity
+Backbone
+Sensitivity
+System Cost
+& Latency
+The AI Hippocampus(Jia et al., 2026) Brain-inspired: implicit, explicit, agentic (✓) × × × ×
+Memory in the Age of AI Agents(Hu et al., 2025) Forms–functions–dynamics (✓) × × × ×
+Toward Efficient Agents(Yang et al., 2026c) Efficiency-focused: memory, tool learning, planning ✓× × ×✓
+Rethinking Memory Mechanisms(Huang et al., 2026) Substrate–cognition–subject ✓(✓) × × ×
+From Storage to Experience(Luo et al., 2026) Evolutionary: storage–reflection–experience (✓) × × × ×
+Graph-based Agent Memory(Yang et al., 2026a) Graph-oriented lifecycle ✓(✓) × × ×
+Taxonomy and Empirical Analysis (Ours) Structural + Empirical analysis ✓ ✓ ✓ ✓ ✓
+update overhead, and throughput degradation.
+By linking memory structures to empirical lim-
+itations, this survey clarifies why current agentic
+memory systems often fall short of their theoretical
+promise. Rather than advocating a single “best”
+design, we provide a diagnostic framework to ex-
+plain when specific memory structures are effective,
+when they fail, and what trade-offs they entail. Our
+analysis offers guidance for designing more robust
+benchmarks, more reliable evaluation protocols,
+and more scalable agentic memory systems.
+Difference from other surveys:While existing
+surveys (Jia et al., 2026; Hu et al., 2025; Yang et al.,
+2026c,a; Luo et al., 2026; Huang et al., 2026) pri-
+marily operate at thetheoreticallevel by catalogu-
+ing architectures, defining conceptual taxonomies,
+and drawing cognitive science analogies, our sur-
+vey bridges the gapfrom theory to practice. Our
+taxonomy is structure-oriented, not only discussing
+various memory structure designs, but also high-
+lighting the memory management frameworks and
+optimization strategies. In addition, we provide
+comprehensive evaluations across multiple bench-
+marks. Specifically, we conduct systematic analy-
+ses of agentic memory systems on benchmark sat-
+uration, metric validity, backbone sensitivity, and
+maintenance overhead, overlooked in prior surveys
+yet critical for understanding why current MAG
+systems often fall short of their theoretical promise.
+A detailed comparison is presented in Table 1.
+2 Background
+Agentic memory extends retrieval-based genera-
+tion by introducing persistent, writable memory
+that evolves across interactions, enabling an LLM
+agent to store, update, and reuse information over
+time. Formally, at step t, the agent conditions on
+observationsot and an external memory stateMt:
+yt∼f θ
+
+ϕ(ot,st)⊕ψ(M t;qt)
+
+,(1)
+where yt denotes the output, st additional agent
+state, andψ(Mt;qt) retrieves memory given query
+qt. The operator ⊕ represents integration (e.g.,
+prompt concatenation or structured fusion). Cru-
+cially, memory affects behavior through the explicit
+retrieval termψ(Mt;qt)rather than updates toθ.
+Two coupled processes are operated in agentic
+memory: inference-time recall and memory up-
+date. At each step, the agent retrieves relevant
+information from an external memory store to con-
+dition its decision, and subsequently writes, up-
+dates, or consolidates memory to maintain a useful
+long-term state. Unlike parametric learning, this
+mechanism influences behavior through explicit
+read–write operations over an evolving memory
+state rather than by modifying model weights. A
+formalization of these operations including query
+generation, utility-aware retrieval, and memory ac-
+tions such as store, summarize, link, and delete is
+provided in Appendix B.
+3 Taxonomy of Agentic Memory
+We introduce a concise taxonomy of Memory-
+Augmented Generation organized around four
+memory structures: Lightweight Semantic, Entity-
+Centric and Personalized, Episodic and Reflective,
+and Structured and Hierarchical. Each category is
+further split into subcategories as shown in Figure 1
+in Appendix A.
+3.1 Lightweight Semantic Memory
+Lightweight Semantic Memory is the simplest and
+most widely used form of MAG, where memory
+consists of independent textual units embedded in
+a vector space and retrieved via top-ksimilarity
+
+search. Entries are typically append-only or mini-
+mally filtered, with no explicit structural relations
+between them.
+RL-Optimized Semantic Compression:These
+schemes treat memory as a fixed-size semantic
+store and apply RL to optimize how information is
+compressed, retained, or overwritten under context
+constraints (Wang et al., 2025b; Yan et al., 2025;
+Yuan et al., 2025). Memory remains largely un-
+structured and textual, with learning focused on
+efficient content selection. For example, MemA-
+gent (Yu et al., 2025) trains a latent token-level
+memory using multi-conversation RL to manage
+ultra-long contexts, while MemSearcher (Yuan
+et al., 2025) formulates multi-turn search and mem-
+ory updates as an end-to-end RL problem, iter-
+atively compressing semantic memory to enable
+scalable multi-hop reasoning without relying on
+full dialogue history.
+Heuristic / Prompt-Optimized:These approaches
+manage memory through prompt design or heuris-
+tic rewriting with a flat, compressed textual sum-
+mary of prior steps generated via engineered in-
+structions, reducing context length but remaining
+unstructured. Similar prompt-driven compression
+strategies appear in prior work (Zhao et al., 2025;
+Wu and Li, 2025; Liu et al., 2026; Li et al., 2026b).
+For example, ACON (Kang et al., 2025c) learns
+natural-language compression guidelines to selec-
+tively summarize long interaction histories, reduc-
+ing context by up to 54% without RL or fine-tuning,
+while CISM (Liu et al., 2025c) condenses each
+reasoning and action step into compact semantic
+representations to enable long-horizon execution
+under context constraints without explicit external
+memory retrieval.
+Context Window Management:This category
+manages the model’s working context within a sin-
+gle task, without accumulating memory across ses-
+sions. Prior interactions are folded, summarized,
+or reorganized to fit within a bounded window, pri-
+oritizing local reasoning efficiency over long-term
+storage or reuse (Zhu et al., 2025; Sakib et al.,
+2025). For example, AgentFold (Ye et al., 2025)
+treats context as a dynamic workspace and learns
+multi-scale folding operations to condense long tra-
+jectories, while Context-Folding Agent (Sun et al.,
+2025b) trains an RL-based policy that branches
+sub-tasks and compresses completed segments.
+Token-Level Semantic Memory:This category
+encodes memory at the token level using dedicated
+memory tokens or compressed latent panels. These
+representations primarily capture semantic content,
+aiming to improve long-context handling with min-
+imal overhead (Wu et al., 2025b; Zhang et al.,
+2025c; Yang et al., 2024b). Memory entries are
+independent and inexpensive to store or retrieve,
+making them suitable for short- to medium-horizon
+recall, but limited for precise state tracking or long-
+term reasoning. For example, MemGen (Zhang
+et al., 2025c) augments a frozen LLM with on-
+demand latent token memory via an RL-trained trig-
+ger and LoRA-based weaving, while TokMem (Wu
+et al., 2025b) replaces lengthy procedural prompts
+with trainable memory tokens to enable constant-
+size context management and scalable skill reuse.
+3.2 Entity-Centric and Personalized Memory
+Entity-centric and personalized memory organizes
+information around explicit entities such as users,
+tasks, or preferences, using structured records or
+attribute–value pairs. A predefined schema governs
+how information is stored, updated, and retrieved.
+Entity-Centric Memory:Entity-centric mem-
+ory organizes information around explicit entities
+and their attributes, maintaining structured, persis-
+tent records rather than raw dialogue (Modarressi
+et al., 2023; Liu et al., 2021, 2025a). For exam-
+ple, A-MEM (Xu et al., 2025c) builds intercon-
+nected knowledge notes with structured attributes
+and LLM-generated links; Memory-R1 (Yan et al.,
+2025) formulates entity memory management as
+an RL problem over a persistent entity–fact bank.
+Personalized Memory:Personalized memory
+maintains persistent user profiles that integrate
+short- and long-term preferences to support
+adaptive, identity-consistent behavior across ses-
+sions (Zhong et al., 2024; Li et al., 2025a; Kwon
+et al., 2025; Liu et al., 2025a; Mao et al., 2026;
+Su et al., 2026). For example, PAMU (Sun
+et al., 2025a) combines sliding windows with
+moving averages to track evolving preferences,
+EgoMem (Yao et al., 2025) constructs lifelong mul-
+timodal profiles with conflict-aware updates, and
+MemOrb (Huang et al., 2025a) stores compact re-
+flective memories for continual improvement.
+3.3 Episodic and Reflective Memory
+Episodic and reflective memory adds temporal ab-
+straction by organizing interactions into episodes
+or higher-level summaries. These systems period-
+ically consolidate experience through summariza-
+tion or reflection, producing compact representa-
+tions of salient events over time.

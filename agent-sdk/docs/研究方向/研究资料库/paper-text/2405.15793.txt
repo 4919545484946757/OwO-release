@@ -1,0 +1,162 @@
+SWE-agent: Agent-Computer Interfaces Enable
+Automated Software Engineering
+John Yang∗ Carlos E. Jimenez∗ Alexander Wettig Kilian Lieret
+Shunyu Yao Karthik Narasimhan Ofir Press
+Princeton Language and Intelligence, Princeton University
+Abstract
+Language model (LM) agents are increasingly being used to automate complicated
+tasks in digital environments. Just as humans benefit from powerful software
+applications, such as integrated development environments, for complex tasks like
+software engineering, we posit that LM agents represent a new category of end
+users with their own needs and abilities, and would benefit from specially-built
+interfaces to the software they use. We investigate how interface design affects the
+performance of language model agents. As a result of this exploration, we introduce
+SWE-agent: a system that facilitates LM agents to autonomously use computers to
+solve software engineering tasks. SWE-agent’s custom agent-computer interface
+(ACI) significantly enhances an agent’s ability to create and edit code files, navigate
+entire repositories, and execute tests and other programs. We evaluate SWE-agent
+on SWE-bench and HumanEvalFix, achieving state-of-the-art performance on both
+with a pass@1 rate of 12.5% and 87.7%, respectively, far exceeding the previous
+state-of-the-art achieved with non-interactive LMs. Finally, we provide insight on
+how the design of the ACI can impact agents’ behavior and performance.
+1 Introduction
+Recent work has demonstrated the efficacy of LM agents for code generation with execution feed-
+back [39]. However, applying agents to more complex code tasks like software engineering remains
+unexplored. To solve programming tasks, LM agents are typically designed to use existing applica-
+tions, such as the Linux shell or Python interpreter [53, 57, 59]. However, to perform more complex
+programming tasks such as software engineering [20], human engineers benefit from sophisticated ap-
+plications like VSCode with powerful tools and extensions. Inspired by human-computer interaction
+(HCI) studies on the efficacy of user interfaces for humans [7], we investigate whether LM agents
+could similarly benefit from better-designed interfaces for performing software engineering tasks.
+SWE-agent
+Filesystem
+sklearn/
+examples/
+README.rst
+Terminal
+Computer
+LM Agent
+Agent-Computer Interface
+Navigate repo 
+View files
+LM-friendly commands
+Search files
+Edit lines
+LM-friendly
+environment feedback
+Figure 1: SWE-agent is an LM interacting with a computer through an agent-computer interface
+(ACI), which includes the commands the agent uses and the format of the feedback from the computer.
+∗Equal contribution. Correspondence tojohnby@stanford.edu,carlosej@princeton.edu.
+Data, code, and leaderboard at swe-agent.com
+38th Conference on Neural Information Processing Systems (NeurIPS 2024).
+arXiv:2405.15793v3  [cs.SE]  11 Nov 2024
+
+Consider the simple setting of an agent interacting directly with a Linux shell [59]. In practice, we
+find that LM agents can struggle to reliably take actions in this environment. For example, it fails to
+provide simple commands to edit a small file segment, and does not provide any feedback if the user
+makes an invalid edit. These deficits substantially hamper performance, motivating the need for an
+agent-computer interface (ACI), i.e., an abstraction layer between the LM agent and computer, to
+enhance the LM agent’s abilities in computer environments (Figure 1).
+From this effort, we introduce SWE-agent, an agent composed of an LM and ACI, that can interact
+with a computer to solve challenging real-world software engineering problems, such as those
+proposed in SWE-bench [20]. In contrast to the Linux Shell’s granular, highly configurable action
+space, SWE-agent’s ACI instead offers a small set of simple actions for viewing, searching through
+and editing files. The ACI uses guardrails to prevent common mistakes, and an agent receives specific,
+concise feedback about a command’s effects at every turn. We show that ACIs tailored specifically
+for LMs outperform existing user interfaces (UIs) designed for human users, such as the Linux shell.
+Using GPT-4 Turbo as a base LM, SWE-agent solves 12.47% of the 2,294 SWE-bench test tasks,
+substantially outperforming the previous best resolve rate of 3.8% by a non-interactive, retrieval-
+augmented system [20]. We perform an ablation study on a subset of 300 SWE-bench test instances
+(SWE-bench Lite) to analyze our ACI design choices. The results show that SWE-agent solves 10.7
+percentage points more instances than the baseline agent, which uses only the default Linux shell.
+Although our ACI was developed for GPT-4 Turbo, we show that it is portable to a different LM;
+SWE-agent with Claude 3 Opus can solve 10.5% of the benchmark tasks.
+Our contributions are twofold. First, we introduce the concept of the agent-computer interface (ACI)
+and demonstrate how careful ACI design can substantially improve LM agent performance without
+modifying the underlying LM’s weights. Second, we build, evaluate, and open-source SWE-agent, a
+system that provides LMs an ACI for solving real-world software engineering tasks. Unlike prior
+works that independently explore the merits of tool use, prompting techniques, and code execution
+in interactive settings, our approach unifies these factors within the ACI framework. We show that
+crafting LM-centric interactive components has meaningful effects on downstream task performance.
+2 The Agent-Computer Interface
+An LM acts as an agent when it interacts with an environment by iteratively taking actions and
+receiving feedback [42, 62]. Typically, the environment has hard constraints, as in robotics, where
+agents control actuators in the physical world. On the other hand, digital environments can be molded
+by abstractions in the form of application programming interfaces and user interfaces for software and
+humans respectively. Naturally, existing interfaces have been designed with one of these users in mind.
+We argue that LM agents represent a new category of end user, with their own needs and abilities.
+We refer to the interface LM agents use to interact with computers as the agent-computer interface
+(ACI). Figure 2 illustrates how ACIs provide LM agents with important functionality to interface
+with computers, similar to how code editors also help humans use computers more effectively.
+LM Agent
+Computer
+Code Search
+File Viewer
+File Editor
+ACI
+Computer
+UI
+Human
+Figure 2: Specialized applications like IDEs (e.g., VSCode, PyCharm) make scientists and software
+engineers more efficient and effective at computer tasks. Similarly, ACI design aims to create a
+suitable interface that makes LM agents more effective at digital work such as software engineering.
+Disparities in humans’ and LMs’ abilities and limitations motivates different interface design guide-
+lines. For instance, the current generation of LMs lack the visual understanding abilities to directly
+operate GUI-based applications with rich visual components and signals. However, many of the
+features provided by these applications, such as syntax checking and navigation tools, could be useful
+to LM agents if they were presented in a suitable manner. Additionally, humans can flexibly ignore
+unnecessary information, whereas all content has a fixed cost in memory and computation for LMs
+2
+
+and distracting context can harm performance [27]. Therefore, LM agents may be more effective at
+interacting with computers when provided an interface that was built informed by these differences.
+Ultimately, a well-designed ACI should help the LM agent understand the state of the application
+given previous changes, manage history to avoid unnecessary context from prior observations, and
+provide actions that models can use efficiently and reliably. The ACI specifies both the commands
+available to the LM and how the environment state is communicated back to the LM. It also tracks
+the history of all previous commands and observations and, at each step, manages how these should
+be formatted and combined with high-level instructions into a single input for the LM.
+In this paper, we assume a fixed LM and focus on designing the ACI to improve its performance.
+This means that we shape the actions, their documentation, and environment feedback to complement
+an LM’s limitations and abilities. We draw inspiration from the field of HCI, where user studies
+elicit insights about how compatible different interfaces are with respect to human intuition and
+performance [7]. We use two approaches to enhance performance on a development set: (1) manually
+inspect agent behavior to identify difficulties and propose improvements, and (2) run a grid search to
+select the best ACI configuration.
+Taking these two actions resulted in several insights about design principles that seem especially
+important for building effective ACIs:
+1. Actions should be simple and easy to understand for agents. Many bash commands have
+documentation that includes dozens of options. Simple commands with a few options and concise
+documentation are easier for agents to use, reducing the need for demonstrations or fine-tuning.
+This is a defining principle for all SWE-agent commands that we describe in Section 3.
+2. Actions should be compact and efficient. Important operations (e.g., file navigation, editing)
+should be consolidated into as few actions as possible. Efficient actions help agents make
+meaningful progress towards a goal in a single step. A poor design would therefore have many
+simple actions that must be composed across multiple turns for a higher order operation to take
+effect. We show this idea in action in the Editing and Search interface analyses in Section 5.1.
+3. Environment feedback should be informative but concise. High quality feedback should
+provide the agent with substantive information about the current environment state (and the effect
+of the agent’s recent actions) without unnecessary details. For instance, when editing a file,
+updating the agent about revised content is helpful. Figures 3a, 3b and Table 3 show this.
+4. Guardrails mitigate error propagation and hasten recovery.Like humans, LMs make mistakes
+when editing or searching and can struggle to recover from these errors. Building in guardrails,
+such as a code syntax checker that automatically detects mistakes, can help agents recognize and
+quickly correct errors. We show the effect of editing guardrails in Table 3.
+Analysis and ablation studies in Section 5 demonstrate how alternative ACIs affect LM performance.
+Our studies shows how these principles appear recurrently across actions, feedback, and workflows.
+3 SWE-agent: Designing an ACI for Software Engineering
+Here we describe how SWE-agent provides an ACI for LMs to act as software engineering agents,
+enabling them to effectively search, navigate, edit, and execute code commands. The ACI com-
+prises several principal components, including search/navigation, file viewer, file editor, and context
+management. At each step, SWE-agent generates a thought and a command, then incorporates the
+feedback from the command’s execution in the environment (ReAct; Yao et al.[62]). Built atop the
+Linux shell, SWE-agent also allows access to common Linux commands and utilities when needed.
+Search and navigation. Navigating codebases requires finding the relevant file and content. A
+common strategy to do this involves looking up terms that might be useful, e.g., files, functions,
+or class definitions mentioned in an issue. We introduce the special commands find_file,
+search_file, and search_dir, which output a summary of search results when searching
+for filenames and strings within files or directories. Figure 10 shows examples of these search
+result formats. The find_file command searches for filenames in the repository, while the
+search_file and search_dir locates strings in a file(s) of a subdirectory. Our interface
+encourages efficient searches by suppressing verbose results. The search commands return at most 50
+3

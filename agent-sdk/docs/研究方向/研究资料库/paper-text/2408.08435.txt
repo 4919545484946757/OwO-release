@@ -1,0 +1,196 @@
+Published as a conference paper at ICLR 2025
+AUTOMATED DESIGN OF AGENTIC SYSTEMS
+Shengran Hu1,2, Cong Lu1,2, Jeff Clune1,2,3
+1University of British Columbia, 2Vector Institute, 3Canada CIFAR AI Chair
+{srhu,conglu}@cs.ubc.ca, jclune@gmail.com
+ABSTRACT
+Researchers are investing substantial effort in developing powerful general-
+purpose agents, wherein Foundation Models are used as modules within agen-
+tic systems (e.g. Chain-of-Thought, Self-Reflection, Toolformer). However, the
+history of machine learning teaches us that hand-designed solutions are eventu-
+ally replaced by learned solutions. We describe a newly forming research area,
+Automated Design of Agentic Systems (ADAS), which aims toautomatically cre-
+ate powerful agentic system designs, including inventing novel building blocks
+and/or combining them in new ways. We further demonstrate that there is an un-
+explored yet promising approach within ADAS where agents can be defined in
+code and new agents can be automatically discovered by a meta agent program-
+ming ever better ones in code. Given that most programming languages are Turing
+Complete, this approach theoretically enables the learning of any possible agentic
+system: including novel prompts, tool use, workflows, and combinations thereof.
+We present a simple yet effective algorithm named Meta Agent Search to demon-
+strate this idea, where a meta agent iteratively programs interesting new agents
+based on an ever-growing archive of previous discoveries. Through extensive ex-
+periments across multiple domains including coding, science, and math, we show
+that our algorithm can progressively invent agents with novel designs that greatly
+outperform state-of-the-art hand-designed agents. Importantly, we consistently
+observe the surprising result that agents invented by Meta Agent Search maintain
+superior performance even when transferred across domains and models, demon-
+strating their robustness and generality. Provided we develop it safely, our work
+illustrates the potential of an exciting new research direction toward automatically
+designing ever-more powerful agentic systems to benefit humanity. All code is
+open-sourced at https://github.com/ShengranHu/ADAS.
+1 I NTRODUCTION
+Foundation Models (FMs) such as GPT (OpenAI, 2024; 2022) and Claude (Anthropic, 2024b) are
+quickly being adopted as powerful general-purpose agents for agentic tasks that need flexible rea-
+soning and planning (Wang et al., 2024). Despite recent advancements in FMs, solving problems re-
+liably often requires an agent to be a compound agentic system with multiple components instead of
+a monolithic model query (Zaharia et al., 2024; Rockt¨aschel, 2024). Additionally, to enable agents to
+solve complex real-world tasks, they often need access to external tools such as search engines, code
+execution, and database queries. As a result, many effective building blocks of agentic systems have
+been proposed, such as chain-of-thought planning and reasoning (Wei et al., 2022; Yao et al., 2023;
+Hu & Clune, 2024), memory structures (Zhang et al., 2024c; Lewis et al., 2020), tool use (Schick
+et al., 2023; Qu et al., 2024), and self-reflection (Madaan et al., 2024; Shinn et al., 2023). Although
+these agents have already seen significant success across various applications (Wang et al., 2024),
+developing these building blocks and combining them into complex agentic systems often requires
+domain-specific manual tuning and substantial effort from both researchers and engineers.
+However, the history of machine learning reveals a recurring theme: manually created artifacts be-
+come replaced by learned, more efficient solutions (Clune, 2019) over time as we get more compute
+and data (Sutton, 2019). An early example is from computer vision, where hand-designed features
+like HOG (Dalal & Triggs, 2005) were eventually replaced by learned features from Convolutional
+Neural Networks (CNNs, Krizhevsky et al. (2012)). More recently, AutoML methods (Hutter et al.,
+1
+arXiv:2408.08435v2  [cs.AI]  2 Mar 2025
+
+Published as a conference paper at ICLR 2025
+Summary and motivation: “Based on 
+the insights from previous agents … ” ,
+Name: “Divide and Conquer Agent” ,
+Code: “def forward(Task):
+ ……
+ return Answer”
+Meta Agent
+Next interesting agent
+Agent Archive Test performance on tasksInput
+Refine until novel 
+and error-free
+Examples of Discovered Agents
+Multi-step Peer Review Agent
+Experts
+Answers
+Reviewers
+T ask
+Verified Multimodal Agent
+T ask
+Visual 
+Paradigm
+Verifier
+Verified 
+Paradigm
+Visual 
+Analyzer
+COT
+Answer
+T ask Sub-problem 
+Divisionsub
+sub
+sub
+sub
+sub
+Experts
+Answers
+Ensemble
+Answer
+Divide and Conquer Agent
+Reviews
+and add to archive
+New Agent
+…
+Figure 1: Overview of the proposed algorithm Meta Agent Search and examples of discovered
+agents. In our algorithm, we instruct the “meta” agent to iteratively program new agents, test their
+performance on tasks, add them to an archive of discovered agents, and use this archive to inform the
+meta agent in subsequent iterations. We show three example agents across our runs, with all names
+generated by the meta agent. The detailed code of example agents can be found in Appendix G.
+2019) and AI-Generating Algorithms (AI-GAs, Clune (2019)) have also demonstrated the superior-
+ity of learned AI systems compared to hand-designed AI systems. For example, the current best-
+performing CNN models come from Neural Architecture Search (Elsken et al., 2019; Shen et al.,
+2023) instead of manual design; in LLM alignment, learned loss functions (Lu et al., 2024a) out-
+perform most hand-designed ones such as DPO (Rafailov et al., 2024); The AI Scientist (Lu et al.,
+2024b) demonstrates an automated research pipeline, including the development of novel ML algo-
+rithms; and an endless number of robotics learning environments can be automatically generated in
+works like OMNI-EPIC (Faldor et al., 2024), which demonstrate surprising creativity in generated
+environments and allow more efficient environment creation than the manual approach (see more
+examples in Section 5). Therefore, in this paper, we propose a new research question: Can we
+automate the design of agentic systems?
+To explore the above research question, we describe a newly forming research area we call
+Automated Design of Agentic Systems (ADAS), which aims to automatically invent novel build-
+ing blocks and design powerful agentic systems (Section 2). We argue that ADAS may prove to
+be the fastest path to developing powerful agents, and show initial evidence that learned agents can
+greatly outperform hand-designed agents. Considering the tremendous number of building blocks
+yet to be discovered in agentic systems (Section 5), it would take a long time for our research com-
+munity to discover them all. Even if we successfully discover most of the useful building blocks,
+combining them into effective agentic systems for massive real-world applications would still be
+challenging and time-consuming, given the many different ways the building blocks can combine
+and interact with each other. In contrast, with ADAS, the building blocks and agents can be learned
+in an automated fashion. ADAS may not only potentially save human effort in developing powerful
+agents but also could be a faster path to more effective solutions than manual design.
+Although a few existing works can be considered as ADAS methods, most of them focus only on
+designing prompts (Yang et al., 2024; Fernando et al., 2024), greatly limiting their ability to invent
+flexible design patterns in agents (Section 5). In this paper, we show that there is an unexplored
+yet promising approach to ADAS where we can define the entire agentic system in code and new
+agents can be automatically discovered by a “meta” agent programming ever better ones in code.
+Given that most programming languages, such as Python, which we use in this paper, are Turing
+Complete (Boyer & Moore, 1983; Ladha, 2024), searching within a code space theoretically enables
+an ADAS algorithm to discover any possible agentic systems, including all components such as
+2
+
+Published as a conference paper at ICLR 2025
+prompts, tool use, workflows, and more. Furthermore, with recent FMs being increasingly proficient
+in coding, we can use FMs as meta agents to create new agents in code for ADAS, enabling novel
+agents to be programmed in an automated manner.
+Following the aforementioned ideas, we present Meta Agent Search in this paper as one of the first
+algorithms in ADAS that enables complete design in code space (Figure 1). The core concept of
+Meta Agent Search is to instruct a meta agent to iteratively create interestingly new agents, evaluate
+them, add them to an archive that stores discovered agents, and use this archive to help the meta agent
+in subsequent iterations create yet more interestingly new agents. Similar to existing open-endedness
+algorithms that leverage human notions of interestingness (Zhang et al., 2024a; Lu et al., 2024c),
+we encourage the meta agent to explore interesting (e.g., novel or worthwhile) agents. To validate
+the proposed approach, we evaluate the proposed Meta Agent Search on: (1) the challenging ARC
+logic puzzle task (Chollet, 2019) that aims to test the general intelligence of an AI system, (2) four
+popular benchmarks on reading comprehension, math, science questions, and multi-task problem
+solving, and (3) the transferability of discovered agents to held-out domains and models (Section 4).
+Our experiments show that the discovered agents substantially outperform state-of-the-art hand-
+designed baselines. For instance, our agents improve F1 scores on reading comprehension tasks
+in DROP (Dua et al., 2019) by 13.6/100 and accuracy rates on math tasks in MGSM (Shi et al.,
+2023) by 14.4%. Additionally, they improve accuracy over baselines by 25.9% and 13.2% on
+GSM8K (Cobbe et al., 2021) and GSM-Hard (Gao et al., 2023) math tasks, respectively,after trans-
+ferring across domains. The promising performance of our algorithm over hand-designed solutions
+illustrates the potential of ADAS in automating the design of agentic systems. Furthermore, the
+experiments demonstrate that the discovered agents not only perform well when transferring across
+similar domains but also exhibit strong performance when transferring across dissimilar domains,
+such as from mathematics to reading comprehension. This highlights the robustness and transfer-
+ability of the agentic systems discovered by Meta Agent Search. In conclusion, our work opens up
+many exciting research directions and encourages further studies (Section 6).
+2 A UTOMATED DESIGN OF AGENTIC SYSTEMS (ADAS)
+Search Space
+E.g. Agents defined by code
+Search Algorithm
+E.g. LLM defines agents using code
+Evaluation Function
+E.g. Accuracy on the task
+Where is the 
+capital of Canada
+Ottawa
+Sample
+New Agent
+Evaluate the 
+Objectives
+Agent
+……
+1 + 1 = ?
+LLM
+Figure 2: The three key components of Automated Design of Agentic Systems (ADAS). The
+search space determines which agentic systems can be represented in ADAS. The search algorithm
+specifies how the ADAS method explores the search space. The evaluation function defines how to
+evaluate a candidate agent on target objectives such as performance.
+At the time of writing, the community has not reached a consensus on the definitions or terminolo-
+gies of agents. Here, by agents we refer to agentic systems that involve Foundation Models (FMs) as
+modules in the workflow to solve tasks by planning, using tools, and carrying out multiple, iterative
+steps of processing (Chase, 2024; Ng, 2024). In this paper, we describe a newly forming research
+area Automated Design of Agentic Systems (ADAS). Similar to research areas in AI-GAs (Clune,
+2019) and AutoML (Hutter et al., 2019), such as Neural Architecture Search (Elsken et al., 2019), we
+formulate ADAS as an optimization process and identify three key components of ADAS algorithms
+(Figure 2).
+Formulation
+Automated Design of Agentic Systems (ADAS) involves using a search algorithm to dis-
+cover agentic systems across a search space that optimize an evaluation function.
+3

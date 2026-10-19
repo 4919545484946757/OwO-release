@@ -1,0 +1,298 @@
+# Copyright 2026 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from __future__ import annotations
+
+import json
+import logging
+import mimetypes
+import os
+import re
+import threading
+from typing import Any
+from typing import cast
+from typing import TYPE_CHECKING
+import warnings
+
+from pydantic import PrivateAttr
+from typing_extensions import override
+
+from ..agents.invocation_context import InvocationContext
+from .base_code_executor import BaseCodeExecutor
+from .code_execution_utils import CodeExecutionInput
+from .code_execution_utils import CodeExecutionResult
+from .code_execution_utils import File
+from .code_executor_context import _CONTEXT_KEY
+
+logger = logging.getLogger('google_adk.' + __name__)
+
+if TYPE_CHECKING:
+  import agentplatform
+
+
+class AgentEngineSandboxCodeExecutor(BaseCodeExecutor):
+  """A code executor that uses Agent Engine Code Execution Sandbox to execute code.
+
+  Attributes:
+    sandbox_resource_name: If set, load the existing resource name of the code
+      interpreter extension instead of creating a new one. Format:
+      projects/123/locations/us-central1/reasoningEngines/456/sandboxEnvironments/789
+    agent_engine_resource_name: The resource name of the agent engine to use
+      to create the code execution sandbox. Format:
+      projects/123/locations/us-central1/reasoningEngines/456
+  """
+
+  sandbox_resource_name: str | None = None
+
+  agent_engine_resource_name: str | None = None
+  _agent_engine_creation_lock: threading.Lock | None = None
+  _project_id: str | None = PrivateAttr(default=None)
+  _location: str = PrivateAttr(default='us-central1')
+
+  def __init__(
+      self,
+      sandbox_resource_name: str | None = None,
+      agent_engine_resource_name: str | None = None,
+      **data: object,
+  ) -> None:
+    """Initializes the AgentEngineSandboxCodeExecutor.
+
+    Args:
+      sandbox_resource_name: If set, load the existing resource name of code
+        execution sandbox, if not set, create a new one. Format:
+        projects/123/locations/us-central1/reasoningEngines/456/
+        sandboxEnvironments/789
+      agent_engine_resource_name: The resource name of the agent engine to use
+        to create the code execution sandbox. If not set, a new Agent Engine
+        will be created automatically. Format:
+        projects/123/locations/us-central1/reasoningEngines/456, when both
+        sandbox_resource_name and agent_engine_resource_name are set,
+        agent_engine_resource_name will be ignored.
+      **data: Additional keyword arguments to be passed to the base class.
+    """
+    super().__init__(**data)
+    self._agent_engine_creation_lock = threading.Lock()
+    sandbox_resource_name_pattern = r'^projects/([a-zA-Z0-9-_]+)/locations/([a-zA-Z0-9-_]+)/reasoningEngines/(\d+)/sandboxEnvironments/(\d+)$'
+    agent_engine_resource_name_pattern = r'^projects/([a-zA-Z0-9-_]+)/locations/([a-zA-Z0-9-_]+)/reasoningEngines/(\d+)$'
+
+    # Case 1: sandbox_resource_name is provided.
+    if sandbox_resource_name is not None:
+      msg = (
+          f'Using a static sandbox_resource_name ({sandbox_resource_name}) on'
+          ' shared agent definitions may cause state leak across user sessions.'
+          ' To avoid state leakage in multi-tenant applications, omit'
+          ' sandbox_resource_name; the executor then either auto-creates a'
+          ' sandbox per session, or reuses the one named by'
+          " invocation_context.session.state['sandbox_name'] if you set it."
+      )
+      logger.warning(msg)
+      warnings.warn(msg, UserWarning, stacklevel=2)
+      self._project_id, self._location = (
+          self._get_project_id_and_location_from_resource_name(
+              sandbox_resource_name, sandbox_resource_name_pattern
+          )
+      )
+      self.sandbox_resource_name = sandbox_resource_name
+
+    # Case 2: Agent Engine resource name is not provided.
+    elif agent_engine_resource_name is None:
+      # The Agent Engine will be auto-created lazily within execute_code().
+      self._project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
+      self._location = os.environ.get('GOOGLE_CLOUD_LOCATION', 'us-central1')
+      self.agent_engine_resource_name = None
+
+    # Case 3: Use the provided agent_engine_resource_name.
+    else:
+      self._project_id, self._location = (
+          self._get_project_id_and_location_from_resource_name(
+              agent_engine_resource_name,
+              agent_engine_resource_name_pattern,
+          )
+      )
+      self.agent_engine_resource_name = agent_engine_resource_name
+
+  @override
+  def execute_code(
+      self,
+      invocation_context: InvocationContext,
+      code_execution_input: CodeExecutionInput,
+  ) -> CodeExecutionResult:
+    if (
+        self.sandbox_resource_name is None
+        and self.agent_engine_resource_name is None
+    ):
+      assert self._agent_engine_creation_lock is not None
+      with self._agent_engine_creation_lock:
+        if self.agent_engine_resource_name is None:
+          logger.info(
+              'No Agent Engine resource name provided. Creating a new one...'
+          )
+          try:
+            # Create a default Agent Engine.
+            created_engine = self._get_api_client().runtimes.create()
+            self.agent_engine_resource_name = cast(
+                str, created_engine.api_resource.name
+            )
+            logger.info(
+                'Created Agent Engine: %s', self.agent_engine_resource_name
+            )
+          except Exception as e:
+            logger.error('Failed to auto-create Agent Engine: %s', e)
+            raise
+    # default to the sandbox resource name if set.
+    sandbox_name = self.sandbox_resource_name
+    if self.sandbox_resource_name is None:
+      from google.api_core import exceptions
+      from google.genai import errors as genai_errors
+
+      from ..dependencies._agentplatform import agentplatform
+
+      types = agentplatform.types
+
+      # use sandbox name stored in session if available.
+      sandbox_name = cast(
+          'str | None',
+          invocation_context.session.state.get('sandbox_name', None),
+      )
+      if sandbox_name is None:
+        exec_ctx = invocation_context.session.state.get(_CONTEXT_KEY, {})
+        if isinstance(exec_ctx, dict):
+          sandbox_name = exec_ctx.get('sandbox_name') or None
+          if sandbox_name:
+            invocation_context.session.state['sandbox_name'] = sandbox_name
+      create_new_sandbox = False
+      if sandbox_name is None:
+        create_new_sandbox = True
+      else:
+        # Check if the sandbox is still running OR already expired due to ttl.
+        try:
+          sandbox = self._get_api_client().sandboxes.get(name=sandbox_name)
+          if sandbox is None or sandbox.state != 'STATE_RUNNING':
+            create_new_sandbox = True
+        except exceptions.NotFound:
+          create_new_sandbox = True
+        except genai_errors.ClientError as exc:
+          if exc.code == 404:
+            create_new_sandbox = True
+          else:
+            raise
+
+      if create_new_sandbox:
+        # Create a new sandbox and assign it to sandbox_name.
+        operation = self._get_api_client().sandboxes.create(
+            spec={'code_execution_environment': {}},
+            name=self.agent_engine_resource_name,
+            config=types.CreateRuntimeSandboxConfig(
+                # VertexAiSessionService has a default TTL of 1 year, so we set
+                # the sandbox TTL to 1 year as well. For the current code
+                # execution sandbox, if it hasn't been used for 14 days, the
+                # state will be lost.
+                display_name='default_sandbox',
+                ttl='31536000s',
+            ),
+        )
+        sandbox_name = cast(str, operation.response.name)
+
+      invocation_context.session.state['sandbox_name'] = sandbox_name
+      # Must mutate in-place so CodeExecutorContext._context reference aliasing is preserved.
+      exec_ctx = invocation_context.session.state.setdefault(_CONTEXT_KEY, {})
+      exec_ctx['sandbox_name'] = sandbox_name
+
+    # Execute the code.
+    input_data: dict[str, object] = {
+        'code': code_execution_input.code,
+    }
+    if code_execution_input.input_files:
+      input_data['files'] = [
+          {
+              'name': f.name,
+              'content': f.content,
+              'mime_type': f.mime_type,
+          }
+          for f in code_execution_input.input_files
+      ]
+
+    code_execution_response = self._get_api_client().sandboxes.execute_code(
+        name=sandbox_name,
+        input_data=input_data,
+    )
+    logger.debug('Executed code:\n```\n%s\n```', code_execution_input.code)
+    saved_files = []
+    stdout = ''
+    stderr = ''
+    for output in code_execution_response.outputs:
+      if output.mime_type == 'application/json' and (
+          output.metadata is None
+          or output.metadata.attributes is None
+          or 'file_name' not in output.metadata.attributes
+      ):
+        json_output_data: dict[str, Any] = json.loads(
+            output.data.decode('utf-8')
+        )
+        stdout = json_output_data.get('msg_out', '')
+        stderr = json_output_data.get('msg_err', '')
+      else:
+        file_name = ''
+        if (
+            output.metadata is not None
+            and output.metadata.attributes is not None
+        ):
+          raw_file_name = output.metadata.attributes.get('file_name', b'')
+          if isinstance(raw_file_name, bytes):
+            file_name = raw_file_name.decode('utf-8')
+          elif isinstance(raw_file_name, str):
+            file_name = raw_file_name
+        mime_type = output.mime_type
+        if not mime_type:
+          mime_type, _ = mimetypes.guess_type(file_name)
+        saved_files.append(
+            File(
+                name=file_name,
+                content=output.data,
+                mime_type=mime_type or 'application/octet-stream',
+            )
+        )
+
+    # Collect the final result.
+    return CodeExecutionResult(
+        stdout=stdout,
+        stderr=stderr,
+        output_files=saved_files,
+    )
+
+  def _get_api_client(self) -> agentplatform.Client:
+    """Instantiates an API client for the given project and location.
+
+    It needs to be instantiated inside each request so that the event loop
+    management can be properly propagated.
+
+    Returns:
+      An API client for the given project and location.
+    """
+    from ..dependencies._agentplatform import agentplatform
+
+    return agentplatform.Client(
+        project=self._project_id, location=self._location
+    )
+
+  def _get_project_id_and_location_from_resource_name(
+      self, resource_name: str, pattern: str
+  ) -> tuple[str, str]:
+    """Extracts the project ID and location from the resource name."""
+    match = re.fullmatch(pattern, resource_name)
+
+    if not match:
+      raise ValueError(f'resource name {resource_name} is not valid.')
+
+    return match.groups()[0], match.groups()[1]

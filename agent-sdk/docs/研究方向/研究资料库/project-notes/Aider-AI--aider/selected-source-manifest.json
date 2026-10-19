@@ -1,0 +1,176 @@
+[
+  {
+    "path": "aider/io.py",
+    "sha256": "7f62a79c8202f2a3793410bac4c983e417fb886513b90faf0e0579d5bb7d047b",
+    "bytes": 42853,
+    "symbols": [
+      "def ensure_hash_prefix(color):",
+      "def restore_multiline(func):",
+      "def wrapper(self, *args, **kwargs):",
+      "class CommandCompletionException(Exception):",
+      "class ConfirmGroup:",
+      "def __init__(self, items=None):",
+      "class AutoCompleter(Completer):",
+      "def __init__(",
+      "def tokenize(self):",
+      "def get_command_completions(self, document, complete_event, text, words):",
+      "def get_completions(self, document, complete_event):",
+      "class InputOutput:"
+    ]
+  },
+  {
+    "path": "aider/gui.py",
+    "sha256": "2671ef962d494c2187020b0e67c1e401638a005c669e06f2be264825e62f8ecc",
+    "bytes": 17573,
+    "symbols": [
+      "class CaptureIO(InputOutput):",
+      "def tool_output(self, msg, log_only=False):",
+      "def tool_error(self, msg):",
+      "def tool_warning(self, msg):",
+      "def get_captured_lines(self):",
+      "def search(text=None):",
+      "class State:",
+      "def init(self, key, val=None):",
+      "def get_state():",
+      "def get_coder():",
+      "class GUI:",
+      "def announce(self):"
+    ]
+  },
+  {
+    "path": "aider/llm.py",
+    "sha256": "7c609e98fd57f4c070ac37ec4ca189ff5b31fb22b3dc3ca83afc5960e92f19a9",
+    "bytes": 1103,
+    "symbols": [
+      "class LazyLiteLLM:",
+      "def __getattr__(self, name):",
+      "def _load_litellm(self):"
+    ]
+  },
+  {
+    "path": "aider/args.py",
+    "sha256": "bc38cb83d33435f7cfd8dc160cd4b1b3aeb607590334997e5ff90c26f0d41270",
+    "bytes": 30298,
+    "symbols": [
+      "def resolve_aiderignore_path(path_str, git_root=None):",
+      "def default_env_file(git_root):",
+      "def get_parser(default_config_files, git_root):",
+      "def get_md_help():",
+      "def get_sample_yaml():",
+      "def get_sample_dotenv():",
+      "def main():"
+    ]
+  },
+  {
+    "path": "aider/dump.py",
+    "sha256": "fa76969c64dcd3e9407bff775b1053a6e9cf45fccd9542bb439ce05cea6b1df0",
+    "bytes": 653,
+    "symbols": [
+      "def cvt(s):",
+      "def dump(*vals):"
+    ]
+  },
+  {
+    "path": "aider/help.py",
+    "sha256": "43c292d06d3921c93662c55eb698fd94094d1f75a32531e0dedf2c7f9670942d",
+    "bytes": 4434,
+    "symbols": [
+      "def install_help_extra(io):",
+      "def get_package_files():",
+      "def fname_to_url(filepath):",
+      "def get_index():",
+      "class Help:",
+      "def __init__(self):",
+      "def ask(self, question):"
+    ]
+  },
+  {
+    "path": "aider/main.py",
+    "sha256": "a93787156610c3f03cdcc0c9c096a7140dfa208986bd739b64a745533bee9c71",
+    "bytes": 43965,
+    "symbols": [
+      "def check_config_files_for_yes(config_files):",
+      "def get_git_root():",
+      "def guessed_wrong_repo(io, git_root, fnames, git_dname):",
+      "def make_new_repo(git_root, io):",
+      "def setup_git(git_root, io):",
+      "def check_gitignore(git_root, io, ask=True):",
+      "def check_streamlit_install(io):",
+      "def write_streamlit_credentials():",
+      "def launch_gui(args):",
+      "def parse_lint_cmds(lint_cmds, io):",
+      "def generate_search_path_list(default_file, git_root, command_line_file):",
+      "def register_models(git_root, model_settings_fname, io, verbose=False):"
+    ]
+  },
+  {
+    "path": "aider/repo.py",
+    "sha256": "a49343d63d3faa684003f9e59306215e6f3d77b7b944a71b88b132e0c78c5df0",
+    "bytes": 22954,
+    "symbols": [
+      "def set_git_env(var_name, value, original_value):",
+      "class GitRepo:",
+      "def __init__(",
+      "def commit(self, fnames=None, context=None, message=None, aider_edits=False, coder=None):",
+      "def get_rel_repo_dir(self):",
+      "def get_commit_message(self, diffs, context, user_language=None):",
+      "def get_diffs(self, fnames=None):",
+      "def diff_commits(self, pretty, from_commit, to_commit):",
+      "def get_tracked_files(self):",
+      "def normalize_path(self, path):",
+      "def refresh_aider_ignore(self):",
+      "def git_ignored_file(self, path):"
+    ]
+  },
+  {
+    "path": "aider/urls.py",
+    "sha256": "5b438be296a14886406925073ef9fd28f3756889171399c029c8b330acb810a8",
+    "bytes": 1122,
+    "symbols": []
+  },
+  {
+    "path": "aider/diffs.py",
+    "sha256": "cbafebc4829edc53c222c572fd14641dda1f82e60e85806bd8ecadaf902a8c72",
+    "bytes": 3028,
+    "symbols": [
+      "def main():",
+      "def create_progress_bar(percentage):",
+      "def assert_newlines(lines):",
+      "def diff_partial_update(lines_orig, lines_updated, final=False, fname=None):",
+      "def find_last_non_deleted(lines_orig, lines_updated):"
+    ]
+  },
+  {
+    "path": "aider/utils.py",
+    "sha256": "cf706e83faf72bc29bc54405741246ad96e995db0afefe20f11fc75b59ef8ae7",
+    "bytes": 9151,
+    "symbols": [
+      "class IgnorantTemporaryDirectory:",
+      "def __init__(self):",
+      "def __enter__(self):",
+      "def __exit__(self, exc_type, exc_val, exc_tb):",
+      "def cleanup(self):",
+      "def __getattr__(self, item):",
+      "class ChdirTemporaryDirectory(IgnorantTemporaryDirectory):",
+      "def __init__(self):",
+      "def __enter__(self):",
+      "def __exit__(self, exc_type, exc_val, exc_tb):",
+      "class GitTemporaryDirectory(ChdirTemporaryDirectory):",
+      "def __enter__(self):"
+    ]
+  },
+  {
+    "path": "aider/voice.py",
+    "sha256": "24a57e219ed9c0bef522d7d7e783a624eccf4aae593e51ad78122e9cd7149025",
+    "bytes": 6150,
+    "symbols": [
+      "class SoundDeviceError(Exception):",
+      "class Voice:",
+      "def __init__(self, audio_format=\"wav\", device_name=None):",
+      "def callback(self, indata, frames, time, status):",
+      "def get_prompt(self):",
+      "def record_and_transcribe(self, history=None, language=None):",
+      "def raw_record_and_transcribe(self, history, language):"
+    ]
+  }
+]

@@ -1,0 +1,115 @@
+[
+  {
+    "path": "packages/core/src/execution-engine/workflow-execute.ts",
+    "sha256": "5ed950edec4b45158d92f54388018564c59008ff34bfedc970c9666a81065a76",
+    "bytes": 105000,
+    "symbols": [
+      "export class WorkflowExecute {"
+    ]
+  },
+  {
+    "path": "packages/cli/src/active-workflow-manager.ts",
+    "sha256": "d0545720758ebb2dd0bb68e293d799faab26a43c255887d5fd944268c8be67ea",
+    "bytes": 39796,
+    "symbols": [
+      "export class ActiveWorkflowManager {"
+    ]
+  },
+  {
+    "path": "packages/@n8n/agents/src/runtime/memory/scoped-memory-task-runner.ts",
+    "sha256": "f71a4fe48f8b4766657d3b78229db19a949f3d092deb0de39528283384476c06",
+    "bytes": 8830,
+    "symbols": [
+      "export interface ScopedMemoryTaskDescriptor {",
+      "export interface ScopedMemoryTaskInfo extends ScopedMemoryTaskDescriptor {",
+      "export interface ScopedMemoryTaskHandle<T> extends ScopedMemoryTaskDescriptor {",
+      "export interface ScopedMemoryTaskError extends ScopedMemoryTaskDescriptor {",
+      "export interface ScopedMemoryTaskRunnerOptions {",
+      "export class ScopedMemoryTaskRunner {"
+    ]
+  },
+  {
+    "path": "packages/@n8n/agents/src/runtime/__tests__/scoped-memory-task-runner.test.ts",
+    "sha256": "4d51ccefad25c22cce1f0e458ab9040909fe859ada92ffc0c2c4b5c9587abe3b",
+    "bytes": 14241,
+    "symbols": []
+  },
+  {
+    "path": "packages/@n8n/task-runner-python/src/task_executor.py",
+    "sha256": "b0dfdef344b55bda42f12e8c0c69b39543c0e8e0d1d844b9408dc0fcd1f61a57",
+    "bytes": 21571,
+    "symbols": [
+      "class FormatGuardTransformer(ast.NodeTransformer):",
+      "def visit_Call(self, node: ast.Call) -> ast.AST:",
+      "def _validate_format_template(template: str) -> None:",
+      "def _validate_field_expression(expr: str) -> None:",
+      "def _resolve_template_arg(method_name: str, receiver, args):",
+      "def _safe_format_impl(method_name: str, receiver, /, *args, **kwargs):",
+      "class TaskExecutor:",
+      "def create_process(",
+      "def execute_process(",
+      "def stop_process(process: ForkServerProcess | None):",
+      "def _all_items(",
+      "def _per_item("
+    ]
+  },
+  {
+    "path": "packages/@n8n/ai-workflow-builder.ee/src/multi-agent-workflow-subgraphs.ts",
+    "sha256": "5290f24cb3b2013c3422aa0bd39bb1c85587b702dcb72af55d2268ce62744d8a",
+    "bytes": 18326,
+    "symbols": [
+      "export interface MultiAgentSubgraphConfig {",
+      "export function createMultiAgentWorkflowWithSubgraphs(config: MultiAgentSubgraphConfig) {"
+    ]
+  },
+  {
+    "path": "packages/@n8n/instance-ai/src/runtime/memory-task-registry.ts",
+    "sha256": "e5fbffb7dad4fc1ff32bd7bb828c10cddf15502811f4f8c462fa6f04756f0c08",
+    "bytes": 1442,
+    "symbols": [
+      "export class MemoryTaskRegistry {"
+    ]
+  },
+  {
+    "path": "packages/cli/src/modules/agents/agent-checkpoint-pruning.task.ts",
+    "sha256": "6800cdd24975f2d1f51bff7afa2fb313ca26a25c60a32780d6e2443a9d3e9af1",
+    "bytes": 1661,
+    "symbols": [
+      "export class AgentCheckpointPruningTask implements SystemTask {"
+    ]
+  },
+  {
+    "path": "packages/@n8n/task-runner-python/src/errors/task_runtime_error.py",
+    "sha256": "d371e62597872ce4fbcb84d0d49b0a9d6ecbd453533b5f3ab5788fc81f8ac8a2",
+    "bytes": 540,
+    "symbols": [
+      "class TaskRuntimeError(Exception):",
+      "def __init__(self, task_error_info: \"TaskErrorInfo\"):"
+    ]
+  },
+  {
+    "path": "packages/cli/src/scheduling/system-tasks/in-memory-system-task-runner.ts",
+    "sha256": "fe1809c2e118f5ce8c1a93c2e6a555f8914eb2d029f8f0490e382374ac1b61f9",
+    "bytes": 7350,
+    "symbols": [
+      "export class InMemorySystemTaskRunner {"
+    ]
+  },
+  {
+    "path": "packages/cli/src/workflow-runner.ts",
+    "sha256": "0d754dd7e70a962d5bcdfc3e9651f71d8ba77433fddbc04f0a9b7d9d7b8db60e",
+    "bytes": 33942,
+    "symbols": [
+      "export class WorkflowRunner {"
+    ]
+  },
+  {
+    "path": "packages/workflow/src/trimmed-task-data.ts",
+    "sha256": "872a599463ea4ed4b12733e43b2f248350b5c228bc96e2665c334267b094ccbc",
+    "bytes": 908,
+    "symbols": [
+      "export function isTrimmedNodeExecutionData(data: INodeExecutionData[] | null | undefined): boolean {",
+      "export function getTrimmedPinDataNodeNames(pinData: IPinData | undefined): string[] {"
+    ]
+  }
+]

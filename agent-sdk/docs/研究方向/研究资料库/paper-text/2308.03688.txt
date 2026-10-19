@@ -1,0 +1,260 @@
+Published as a conference paper at ICLR 2024
+AGENTBENCH: EVALUATINGLLMS ASAGENTS
+Xiao Liu1,*, Hao Yu1,*,†, Hanchen Zhang1,*, Yifan Xu1, Xuanyu Lei1, Hanyu Lai1, Yu Gu2,†,
+Hangliang Ding1, Kaiwen Men1, Kejuan Yang1, Shudan Zhang1, Xiang Deng2, Aohan Zeng1,
+Zhengxiao Du1, Chenhui Zhang1, Sheng Shen3, Tianjun Zhang3, Yu Su2, Huan Sun2,
+Minlie Huang1, Yuxiao Dong1,‡, Jie Tang1,‡
+1Tsinghua University, 2The Ohio State University, 3UC Berkeley
+ABSTRACT
+The potential of Large Language Model (LLM) as agents has been widely acknowl-
+edged recently. Thus, there is an urgent need to quantitativelyevaluate LLMs as
+agentson challenging tasks in interactive environments. We present AGENTBENCH,
+a multi-dimensional benchmark that consists of 8 distinct environments to assess
+LLM-as-Agent’s reasoning and decision-making abilities. Our extensive test over
+29 API-based and open-sourced (OSS) LLMs shows that, while top commercial
+LLMs present a strong ability of acting as agents in complex environments, there
+is a significant disparity in performance between them and many OSS competitors
+that are no larger than 70B. We identify the typical reasons of failures in environ-
+ments and LLMs, showing that poor long-term reasoning, decision-making, and
+instruction following abilities are the main obstacles for developing usable LLM
+agents. Improving instruction following and training on high quality multi-round
+alignment data could improve agent performance. And different from existing
+assumptions, training on code present ambivalent impacts on different agent tasks.
+Datasets, environments, and an integrated evaluation package for AGENTBENCH
+are released athttps://github.com/THUDM/AgentBench.
+Operating System
+Database
+Knowledge
+Graph
+Digital
+Card Game
+Lateral Thinking Puzzle
+House-holding
+Web
+Shopping
+Web
+Browsing
+gpt-4 (0613)
+claude-3 (opus)
+glm-4
+codellama-34b-instruct
+vicuna-13b-v1.5
+llama-2-70b
+(a) Typical LLMs’ AgentBench performance (rela-
+tive) against the best in each environment.
+0 1 2 3 4
+AgentBench Overall Score
+gpt-4
+claude-3
+glm-4
+claude-2
+claude
+gpt-3.5-turbo
+text-davinci-003
+claude-instant
+chat-bison-001
+text-davinci-002
+codellama-34b
+vicuna-13b
+llama-2-70b
+llama-2-13b
+......
+dolly-12b
+chatglm-6b
+oasst-12b
+API-based
+Commercial
+LLMs
+OSS LLMs
+4.01
+3.11
+2.89
+2.49
+2.44
+2.32
+1.71
+1.60
+1.39
+1.25
+0.96
+0.93
+0.78
+0.77
+0.14
+0.11
+0.03
+Avg:2.32Avg:0.51
+(b) Overall scores of AgentBench across 8 environ-
+ments. Dashed lines for two LLM types’ average.
+Figure 1: An overview of LLMs on AGENTBENCH. While LLMs begin to manifest their proficiency
+in LLM-as-Agent, gaps between models and the distance toward practical usability are significant.
+1 INTRODUCTION
+Intelligent agents and autonomous entities (Searle, 1970; Maes, 1994; Wooldridge & Jennings, 1995)
+that are capable of decision-making and action execution in particular environments have been key
+concepts of artificial intelligence (AI) historically. Notwithstanding substantial advancements in deep
+learning algorithms applied in both computer vision and natural language processing (NLP), their
+potential for developing efficient and practically usable assisting agents remains largely unexplored.
+*XL and HY and HZ are lead authors that contributed equally. Email: {shawliu9,longinyh,
+zhanghanchen77}@gmail.com
+‡Corresponding authors: YD and JT. Email:{yuxiaod,jietang}@tsinghua.edu.cn
+†Work done when HY , YG visited Tsinghua University.
+1
+arXiv:2308.03688v3  [cs.AI]  4 Oct 2025
+
+Published as a conference paper at ICLR 2024
+Database
+(On an Ubuntu bash terminal)
+Recursively set all ﬁles in the directory to 
+read-only, except those of mine.
+(Given Freebase APIs)
+What musical instruments do Minnesota-
+born Nobel Prize winners play?
+(On the GUI of Aquawar)
+This is a two-player battle game, you are a 
+player with four pet ﬁsh cards ……
+A man walked into a restaurant, ordered a bowl 
+of turtle soup, and after ﬁnishing it, he 
+committed suicide. Why did he do that?
+(In the middle of a kitchen in a simulator)
+Please put a pan on the dinning table.
+(On the oﬃcial website of an airline)
+Book the cheapest ﬂight from Beijing to Los 
+Angeles in the last week of July.
+LLM-as-Agent
+Agent
+Environ
+Interaction
+Large 
+Language 
+Models
+Operating
+System
+Knowledge
+Graph
+ Digital Card
+Game
+Lateral Think
+-ing Puzzles 
+House
+Holding
+Web
+Browsing
+Interactive
+Environments
+Web
+Shopping
+Real-world Challenges 8 Distinct Environments
+-ment
+（Given MySQL APIs and existed tables)
+Grade students over 60 as PASS in the table.
+Figure 2: AGENTBENCHis the first systematic benchmark to evaluate LLM-as-Agent on a wide array
+of real-world challenges and 8 distinct environments. In total, 29 LLMs are examined in this edition.
+The advent of Large Language Models (LLMs) (Brown et al., 2020; Chowdhery et al., 2022; Touvron
+et al., 2023), such as GPT-4 (OpenAI, 2023), has brought plenty of new opportunities to this realm.
+Through extensive alignment training (Ouyang et al., 2022; Wei et al., 2022a; Sanh et al., 2022), LLMs
+have not only mastered traditional NLP tasks but also showcased an impressive ability to comprehend
+human intent and execute instructions. This has spurred the development of various LLM-based
+applications for autonomous goal completion (like AutoGPT (Richards, 2023), BabyAGI (Nakajima,
+2023), AgentGPT (age, 2023)) as well as LLM agents situated in social and game contexts (Park
+et al., 2023; Wang et al., 2023b; Zhu et al., 2023), sparking substantial public interest and discussions.
+Despite these advancements, the lack of a systematic and standard benchmark to evaluate LLM-as-
+Agent presents a critical challenge. Historically, text-based game environments (Osborne et al., 2022;
+Côté et al., 2019; Hausknecht et al., 2020; Urbanek et al., 2019) have been employed for language
+agent evaluation. But they often suffer from the limitation of closed, discrete action spaces, as well
+as their primarily narrow focus on models’ commonsense grounding. More recently, attempts on
+embodied agents (Reed et al., 2022; Huang et al., 2022; Ahn et al., 2022; Li et al., 2022a) have
+employed complicated multi-modal simulators based on games (Küttler et al., 2020; Fan et al., 2022),
+GUI (Shi et al., 2017; Toyama et al., 2021), and indoor scenes (Shen et al., 2021; Srivastava et al.,
+2022). However, these simulators, despite their complexity, do not accurately reflect the practical use
+cases of LLMs, and their multi-modal nature creates a hurdle for the urgent evaluation of existing
+text-only LLMs. Finally, most benchmarks now for agents focus on single environments and thus fail
+to provide a comprehensive overview of LLMs across diverse application scenarios.
+To address these challenges, we introduce AGENTBENCH, a multi-dimensional benchmark designed
+to evaluate LLM-as-Agent across a spectrum of different environments. AGENTBENCHencompasses
+eight distinct environments (Cf. Figure 4, five out of eight are created for the first time), which could
+be categorized into three types of groundings:
+•Code:Operating System, Database, Knowledge Graph (Anonymous, 2023)
+•Game:Digital Card Game, Lateral Thinking Puzzles, House-Holding (Shridhar et al., 2020b)
+•Web:Web Shopping (Yao et al., 2022), Web Browsing (Deng et al., 2023)
+All datasets, whether newly created or adapted from existing ones, are meticulously designed and
+reformulated to simulate interactive environments where text-only LLMs can operate as autonomous
+agents. AGENTBENCHthus systematically evaluate an LLM’s core abilities, including following in-
+structions (Ouyang et al., 2022), coding (Chen et al., 2021), knowledge acquisition (Joshi et al., 2017;
+Talmor et al., 2019), logical reasoning (Srivastava et al., 2023), and commonsense grounding (Shridhar
+et al., 2020a). It serves as an ideal testbed for both LLM and agent evaluation.
+In addition, we develop a unified evaluation toolkit for LLMs to operate on diverse customized agent
+tasks, thus enabling a comprehensive benchmarking of the LLM-as-Agent ability of 29 different
+LLMs on AGENTBENCH, including both API-based and OSS models. Our results reveal that top-tier
+models like GPT-4 are capable of handling a wide array of real-world tasks, indicating the potential
+for developing a potent, continuously learning agent. However, we also note a significant performance
+gap between these top-tier models and their OSS competitors. Despite the recent success of OSS
+LLMs and their competitive scores on several benchmarks (Li et al., 2023; Chen et al., 2021; Cobbe
+2
+
+Published as a conference paper at ICLR 2024
+Table 1: AGENTBENCHevaluates 29 API-based or OSS LLMs on LLM-as-Agent challenges. Models
+annotated with * are evaluated after task weights are computed.
+Model #Size Form Ver. Creator Model #Size Form Ver. Creator
+gpt-4(OpenAI, 2023) N/A api 0613 dolly-12b(Conover et al., 2023) 12B open v2 Databricks
+gpt-3.5-turbo(OpenAI, 2022) N/A api 0613 llama2-70b(Touvron et al., 2023) 70B open chat
+text-davinci-003(Ouyang et al., 2022) N/A api - llama2-13b(Touvron et al., 2023) 13B open chat
+text-davinci-002(Ouyang et al., 2022) N/A api -
+OpenAI
+llama2-7b(Touvron et al., 2023) 7B open chat
+Meta
+claude-3* (Anthropic, 2024) N/A api opus guanaco-65b(Dettmers et al., 2023) 65B open -
+claude-2(Anthropic, 2023b) N/A api - guanaco-33b(Dettmers et al., 2023) 33B open - Meta
+claude(Anthropic, 2023a) N/A api v1.3 vicuna-33b(Chiang et al., 2023) 33B open v1.3
+claude-instant(Anthropic, 2023a) N/A api v1.1
+Anthropic
+vicuna-13b(Chiang et al., 2023) 13B open v1.5
+chat-bison-001(Anil et al., 2023) N/A api - Google vicuna-7b(Chiang et al., 2023) 7B open v1.5
+LMSYS
+glm-4* (Zeng et al., 2022; Du et al., 2022) N/A api - openchat-13b(Wang et al., 2023a) 13B open v3.2 Tsinghua
+chatglm-6b(Zeng et al., 2022; Du et al., 2022) 6B open v1.1 wizardlm-30b(Xu et al., 2023) 30B open v1.0
+codegeex2-6b(Zheng et al., 2023) 6B open -
+Tsinghua
+& Zhipu wizardlm-13b(Xu et al., 2023) 13B open v1.0 Microsoft
+codellama-34b(Rozière et al., 2023) 34B open instruct koala-13b(Geng et al., 2023) 13B open - UCB
+codellama-13b(Rozière et al., 2023) 13B open instruct oasst-12b(LAION, 2023) 12B open sft-4 LAION
+codellama-7b(Rozière et al., 2023) 7B open instruct
+Meta
+et al., 2021), their performance on the challenging AGENTBENCHtasks lags considerably. This
+underscores the necessity for additional efforts to enhance the learning abilities of OSS LLMs.
+We identify portions of agent task failures in different environments and LLMs, unveiling the
+insufficient abilities of long-term reasoning, decision-making, and instruction following in existing
+LLMs. Comparisons between different LLMs manifest that a proper strategy of introducing code
+training can help improve LLM-as-Agent. Alignment training over high-quality data (e.g., data
+generated bygpt-4) could also help improve LLM agents. In summary, our contributions are:
+• We introduce the concept of evaluating LLMs as agents and present AGENTBENCH, a compre-
+hensive benchmark to standardize the evaluation. It defines eight distinct environments of 3 types
+based on real-world scenarios, offering a practical testbed for LLMs’ wide array of capabilities.
+• We perform a thorough evaluation of 29 different LLMs using AGENTBENCH, uncovering a
+significant performance gap between leading API-based commercial LLMs and many OSS models
+that are no larger than 70B. We also quantitatively analyze the reasons for failures in existing
+LLM agents and highlight directions for improvement, such as improving instruction following,
+higher-quality alignment data. Also, we show that code training could be a double-edged sword,
+which improves some agent tasks while harms other.
+• To facilitate the evaluation of LLM-as-Agent, we have introduced an integrated toolkit grounded
+in the Server-Client architecture, focusing on modular and scalable design principles. This enables
+easy customization of model assessments for any LLMs using the HTTP protocol. Complemented
+by its associated datasets and environments, this toolkit is now openly accessible to the broader
+research community.
+2 LLM-AS-AGENT: DEFINITION ANDPRELIMINARY
+Here, we formalize the terms for describing the evaluation of LLMs as agents and the necessary
+preliminary knowledge for using LLMs in the context of agent evaluation.
+Definition: Interactive Evaluation of LLM-as-Agent.The interactive evaluation of LLM-as-Agent
+could be regarded as a Partially Observable Markov Decision Process (S,A,T,R,U,O ), which
+comprises state spaceS, action spaceA, transition functionT:S×A→S , reward assigning
+functionR, task instruction spaceU, and observation spaceO. Here, we denote an LLM agent asM.
+Chain-of-Thought (CoT) and Other Reasoning Strategies.Since LLM-as-Agent requires LLMs’
+strong reasoning ability, CoT (Wei et al., 2022b), which has been considered a de facto strategy
+in related evaluation together with actions (Yao et al., 2023b), is also adopted in AGENTBENCH.
+Despite many improved strategies proposed later, such as introducing ensemble (Wang et al., 2023c),
+reflection (Shinn et al., 2023), and search (Yao et al., 2023a), we evaluate LLMs with the most
+primitive CoT in AGENTBENCH. Without multiple trials, repeated generations, or complicated
+strategies, CoT is the easiest, cheapest, and most common way for people to deploy LLM agents.
+Typical Types of Finish Reasons.Despite LLMs’ capabilities, we show in AGENTBENCHthat even
+the strongestgpt-4is not qualified as a practically usable agent. We identify and categorize finish
+reasons of LLM agents on AGENTBENCHtasks into five typical types:
+3

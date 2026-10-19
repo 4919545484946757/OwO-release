@@ -1,0 +1,51 @@
+[
+  {
+    "name": "CAID",
+    "repository": "https://github.com/JiayiGeng/CAID",
+    "branch": "main",
+    "commit": "f364d9e95727c2e2ba3dbf23f2d6de52c5f3d5fa",
+    "archive": "CAID-f364d9e95727.zip",
+    "bytes": 2470627,
+    "sha256": "69760cc06eb3c31c694b5f2bc953b11eadc275cbff4930d23a6966c77062c3e5",
+    "license_spdx": null,
+    "description": "Code repo for paper: Effective Strategies for Asynchronous Software Engineering Agents",
+    "download_url": "https://api.github.com/repos/JiayiGeng/CAID/zipball/f364d9e95727c2e2ba3dbf23f2d6de52c5f3d5fa"
+  },
+  {
+    "name": "PASC",
+    "repository": "https://github.com/hasenoz/PASC",
+    "branch": "main",
+    "commit": "ae1ee633e91cdf3716bb6bfc809a54df0977486e",
+    "archive": "PASC-source-ae1ee633e91c.zip",
+    "bytes": 289749,
+    "sha256": "4f5f6448cf37f1b4a56401d637a6d76fc6886d963ad7733e91fb32ab6980c229",
+    "license_spdx": "MIT",
+    "description": "Replication package for \"Coordinating Agents on a Shared Git Workspace: An Empirical Study of Action-Space Observation for Agentic Software Engineering\". Includes the PASC system source, per-configuration predictions and evaluation outputs on SWE-Bench Pro, and the analysis scripts that produce the paper's tables.",
+    "download_url": "https://api.github.com/repos/hasenoz/PASC/zipball/ae1ee633e91cdf3716bb6bfc809a54df0977486e",
+    "included_scope": "source, documentation, analysis scripts; excludes FINAL_results/"
+  },
+  {
+    "name": "CooperBench",
+    "repository": "https://github.com/cooperbench/CooperBench",
+    "branch": "main",
+    "commit": "63b9d44d9f39a02fccf5bf0052db48a917a011fd",
+    "archive": "CooperBench-63b9d44d9f39.zip",
+    "bytes": 2565283,
+    "sha256": "252f1032eb619b11a3abf508642b75b7aca7208330e449e63413e4b74e82ea89",
+    "license_spdx": null,
+    "description": "A benchmark for evaluating how well AI coding agents can cooperate on software engineering tasks with potential conflicts.",
+    "download_url": "https://api.github.com/repos/cooperbench/CooperBench/zipball/63b9d44d9f39a02fccf5bf0052db48a917a011fd"
+  },
+  {
+    "name": "AutoGen",
+    "repository": "https://github.com/microsoft/autogen",
+    "branch": "main",
+    "commit": "027ecf0a379bcc1d09956d46d12d44a3ad9cee14",
+    "archive": "AutoGen-027ecf0a379b.zip",
+    "bytes": 24074800,
+    "sha256": "4d101cfdb18d885d73711047eb2766daeab2a5a7b4a664abf6e54f6cadb0c13f",
+    "license_spdx": "CC-BY-4.0",
+    "description": "A programming framework for agentic AI",
+    "download_url": "https://api.github.com/repos/microsoft/autogen/zipball/027ecf0a379bcc1d09956d46d12d44a3ad9cee14"
+  }
+]

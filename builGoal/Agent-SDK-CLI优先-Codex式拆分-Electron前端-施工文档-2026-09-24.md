@@ -6,7 +6,7 @@
 - 依据（事实优先级从高到低）：
   1. 当前源码 + 真实构建/运行证据；
   2. 本文件；
-  3. `agent-sdk/docs/ROADMAP-PARITY.md`、`agent-sdk/docs/ARCH-MICROKERNEL.md`；
+  3. `agent-sdk/docs/plans/archive/2026-09/ROADMAP-PARITY.md`、`agent-sdk/docs/architecture/ARCH-MICROKERNEL.md`；
   4. `builGoal/Agent-SDK-后续任务实施指南-2026-09-18.md`（下称“指南”）、
      `builGoal/技术文档-AI智能体输入法.md`（v0.6）。
 
@@ -76,7 +76,7 @@
 ### 1.3 “像 codex 一个 crate 一个文件”的正确理解
 
 用户的真实诉求是**大文件太难维护，要拆小**。但本仓库已有一份经实测确立的拆分判据
-（`docs/ARCH-MICROKERNEL.md` §0）：**按事务边界拆，不按文件大小拆**。并且 M0–M15 已完成
+（`docs/architecture/ARCH-MICROKERNEL.md` §0）：**按事务边界拆，不按文件大小拆**。并且 M0–M15 已完成
 16 步微内核拆分，`core` 已从 64,701 行降到约 36,787 行。
 
 所以本次拆分的正确形态是两条并行：

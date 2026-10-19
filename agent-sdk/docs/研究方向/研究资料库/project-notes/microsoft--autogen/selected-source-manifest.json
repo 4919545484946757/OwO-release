@@ -1,0 +1,111 @@
+[
+  {
+    "path": "python/packages/autogen-agentchat/src/autogen_agentchat/tools/_task_runner_tool.py",
+    "sha256": "b22b75bdccabf861d3eb8e1c8e169b464802fb4baf473e3fd2b145ea0f213110",
+    "bytes": 2861,
+    "symbols": [
+      "class TaskRunnerToolArgs(BaseModel):",
+      "class TaskRunnerTool(BaseStreamTool[TaskRunnerToolArgs, BaseAgentEvent | BaseChatMessage, TaskResult], ABC):",
+      "def __init__(",
+      "async def run(self, args: TaskRunnerToolArgs, cancellation_token: CancellationToken) -> TaskResult:",
+      "async def run_stream(",
+      "def return_value_as_string(self, value: TaskResult) -> str:",
+      "async def save_state_json(self) -> Mapping[str, Any]:",
+      "async def load_state_json(self, state: Mapping[str, Any]) -> None:"
+    ]
+  },
+  {
+    "path": "dotnet/src/Microsoft.AutoGen/Contracts/IAgentRuntime.cs",
+    "sha256": "69b56d5084f568560b4a02a78834bd37ba13bbc6950182a913e93faddd21e838",
+    "bytes": 7478,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.AutoGen/Core.Grpc/GrpcAgentRuntime.cs",
+    "sha256": "d158fb2efd087b7144f38ad4f4388a5d886accd0d4b3633c9b33933db2f2b2bd",
+    "bytes": 18118,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.AutoGen/Core/AgentRuntimeExtensions.cs",
+    "sha256": "85249fe6aeb33c2ba448ccec94e429c875c288ac730ad42cce41a63eff135581",
+    "bytes": 5101,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.AutoGen/Core.Grpc/IAgentRuntimeExtensions.cs",
+    "sha256": "a3b45cc57c12fe501fe74336e3df5d26afdc7aa2479bdca8ab3e83f0bdb6e539",
+    "bytes": 4573,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.AutoGen/AgentChat/Abstractions/Tasks.cs",
+    "sha256": "a90ae7278b693611a815b6a2b9a3fb5ad2a8969e445af8e2d0115aa9d0db70cd",
+    "bytes": 4768,
+    "symbols": []
+  },
+  {
+    "path": "python/packages/autogen-core/src/autogen_core/_agent_runtime.py",
+    "sha256": "9875a85f113303bdba8e9643dfcedfa62b208aa6d4a3b48b31f05cffdd0bef45",
+    "bytes": 10633,
+    "symbols": [
+      "class AgentRuntime(Protocol):",
+      "async def send_message(",
+      "async def publish_message(",
+      "async def register_factory(",
+      "class MyMessage:",
+      "class MyAgent(RoutedAgent):",
+      "def __init__(self) -> None:",
+      "async def handler(self, message: UserMessage, context: MessageContext) -> None:",
+      "async def my_agent_factory():",
+      "async def main() -> None:",
+      "async def register_agent_instance(",
+      "class MyMessage:"
+    ]
+  },
+  {
+    "path": "python/samples/task_centric_memory/chat_with_teachable_agent.py",
+    "sha256": "b9df81ff840746275c2e5960a136d043b9a9523602b797eae92cc316a19e9e78",
+    "bytes": 1559,
+    "symbols": [
+      "async def main():"
+    ]
+  },
+  {
+    "path": "python/packages/autogen-core/src/autogen_core/_single_threaded_agent_runtime.py",
+    "sha256": "b7579b335e10af51b5dcb06b76dee2e41ae2ed44c2046693c822b7ef617eac52",
+    "bytes": 43830,
+    "symbols": [
+      "class PublishMessageEnvelope:",
+      "class SendMessageEnvelope:",
+      "class ResponseMessageEnvelope:",
+      "class RunContext:",
+      "def __init__(self, runtime: SingleThreadedAgentRuntime) -> None:",
+      "async def _run(self) -> None:",
+      "async def stop(self) -> None:",
+      "async def stop_when_idle(self) -> None:",
+      "async def stop_when(self, condition: Callable[[], bool], check_period: float = 1.0) -> None:",
+      "async def check_condition() -> None:",
+      "def _warn_if_none(value: Any, handler_name: str) -> None:",
+      "class SingleThreadedAgentRuntime(AgentRuntime):"
+    ]
+  },
+  {
+    "path": "dotnet/src/Microsoft.AutoGen/RuntimeGateway.Grpc/Abstractions/AgentsRegistryState.cs",
+    "sha256": "2158f4fadc697840495bd613cb981d846318924c19bcdcc5dffe1a2db14c0cfa",
+    "bytes": 1615,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.AutoGen/RuntimeGateway.Grpc/Services/AgentWorkerHostingExtensions.cs",
+    "sha256": "ccc3fffb00cf4000122b7be39a05d2d90ce8839c57fdee44c64f4b7f716f577e",
+    "bytes": 1066,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/AutoGen.Gemini/GeminiChatAgent.cs",
+    "sha256": "e9c37e59712ee6c565fe3750d6c4ccc45d9ed3cb06979ddd4f39d2aaad1afee3",
+    "bytes": 10499,
+    "symbols": []
+  }
+]

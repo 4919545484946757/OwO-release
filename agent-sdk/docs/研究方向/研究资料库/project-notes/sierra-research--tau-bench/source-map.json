@@ -1,0 +1,458 @@
+{
+  "kept": [
+    {
+      "path": "LICENSE",
+      "bytes": 1063
+    },
+    {
+      "path": "README.md",
+      "bytes": 8447
+    },
+    {
+      "path": "auto_error_identification.py",
+      "bytes": 13062
+    },
+    {
+      "path": "run.py",
+      "bytes": 3251
+    },
+    {
+      "path": "setup.py",
+      "bytes": 524
+    },
+    {
+      "path": "tau_bench/__init__.py",
+      "bytes": 112
+    },
+    {
+      "path": "tau_bench/agents/__init__.py",
+      "bytes": 19
+    },
+    {
+      "path": "tau_bench/agents/base.py",
+      "bytes": 336
+    },
+    {
+      "path": "tau_bench/agents/chat_react_agent.py",
+      "bytes": 6731
+    },
+    {
+      "path": "tau_bench/agents/few_shot_agent.py",
+      "bytes": 3950
+    },
+    {
+      "path": "tau_bench/agents/tool_calling_agent.py",
+      "bytes": 3252
+    },
+    {
+      "path": "tau_bench/envs/__init__.py",
+      "bytes": 1073
+    },
+    {
+      "path": "tau_bench/envs/airline/__init__.py",
+      "bytes": 104
+    },
+    {
+      "path": "tau_bench/envs/airline/data/__init__.py",
+      "bytes": 564
+    },
+    {
+      "path": "tau_bench/envs/airline/data/users.json",
+      "bytes": 595947
+    },
+    {
+      "path": "tau_bench/envs/airline/env.py",
+      "bytes": 1234
+    },
+    {
+      "path": "tau_bench/envs/airline/rules.py",
+      "bytes": 31
+    },
+    {
+      "path": "tau_bench/envs/airline/tasks.py",
+      "bytes": 72697
+    },
+    {
+      "path": "tau_bench/envs/airline/tasks_test.py",
+      "bytes": 67250
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/__init__.py",
+      "bytes": 1088
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/book_reservation.py",
+      "bytes": 10282
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/calculate.py",
+      "bytes": 1266
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/cancel_reservation.py",
+      "bytes": 1528
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/get_reservation_details.py",
+      "bytes": 1082
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/get_user_details.py",
+      "bytes": 1028
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/list_all_airports.py",
+      "bytes": 1633
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/search_direct_flight.py",
+      "bytes": 2014
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/search_onestop_flight.py",
+      "bytes": 3240
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/send_certificate.py",
+      "bytes": 1765
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/think.py",
+      "bytes": 980
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/transfer_to_human_agents.py",
+      "bytes": 1144
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/update_reservation_baggages.py",
+      "bytes": 3268
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/update_reservation_flights.py",
+      "bytes": 6070
+    },
+    {
+      "path": "tau_bench/envs/airline/tools/update_reservation_passengers.py",
+      "bytes": 2712
+    },
+    {
+      "path": "tau_bench/envs/airline/wiki.md",
+      "bytes": 6155
+    },
+    {
+      "path": "tau_bench/envs/airline/wiki.py",
+      "bytes": 151
+    },
+    {
+      "path": "tau_bench/envs/base.py",
+      "bytes": 5688
+    },
+    {
+      "path": "tau_bench/envs/retail/__init__.py",
+      "bytes": 101
+    },
+    {
+      "path": "tau_bench/envs/retail/data/__init__.py",
+      "bytes": 544
+    },
+    {
+      "path": "tau_bench/envs/retail/data/products.json",
+      "bytes": 172258
+    },
+    {
+      "path": "tau_bench/envs/retail/data/readme.md",
+      "bytes": 1420
+    },
+    {
+      "path": "tau_bench/envs/retail/data/users.json",
+      "bytes": 322932
+    },
+    {
+      "path": "tau_bench/envs/retail/env.py",
+      "bytes": 1445
+    },
+    {
+      "path": "tau_bench/envs/retail/rules.py",
+      "bytes": 970
+    },
+    {
+      "path": "tau_bench/envs/retail/tasks.py",
+      "bytes": 178995
+    },
+    {
+      "path": "tau_bench/envs/retail/tasks_dev.py",
+      "bytes": 19326
+    },
+    {
+      "path": "tau_bench/envs/retail/tasks_test.py",
+      "bytes": 169476
+    },
+    {
+      "path": "tau_bench/envs/retail/tasks_train.py",
+      "bytes": 471974
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/__init__.py",
+      "bytes": 1302
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/calculate.py",
+      "bytes": 1324
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/cancel_pending_order.py",
+      "bytes": 3320
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/exchange_delivered_order_items.py",
+      "bytes": 5370
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/find_user_id_by_email.py",
+      "bytes": 1132
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/find_user_id_by_name_zip.py",
+      "bytes": 2013
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/get_order_details.py",
+      "bytes": 1087
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/get_product_details.py",
+      "bytes": 1104
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/get_user_details.py",
+      "bytes": 1021
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/list_all_product_types.py",
+      "bytes": 1035
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/modify_pending_order_address.py",
+      "bytes": 3212
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/modify_pending_order_items.py",
+      "bytes": 5707
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/modify_pending_order_payment.py",
+      "bytes": 4364
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/modify_user_address.py",
+      "bytes": 2920
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/return_delivered_order_items.py",
+      "bytes": 3632
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/think.py",
+      "bytes": 1160
+    },
+    {
+      "path": "tau_bench/envs/retail/tools/transfer_to_human_agents.py",
+      "bytes": 1200
+    },
+    {
+      "path": "tau_bench/envs/retail/wiki.md",
+      "bytes": 5718
+    },
+    {
+      "path": "tau_bench/envs/retail/wiki.py",
+      "bytes": 151
+    },
+    {
+      "path": "tau_bench/envs/tool.py",
+      "bytes": 233
+    },
+    {
+      "path": "tau_bench/envs/user.py",
+      "bytes": 13515
+    },
+    {
+      "path": "tau_bench/model_utils/__init__.py",
+      "bytes": 3203
+    },
+    {
+      "path": "tau_bench/model_utils/api/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tau_bench/model_utils/api/_model_methods.py",
+      "bytes": 120
+    },
+    {
+      "path": "tau_bench/model_utils/api/api.py",
+      "bytes": 15432
+    },
+    {
+      "path": "tau_bench/model_utils/api/cache.py",
+      "bytes": 2655
+    },
+    {
+      "path": "tau_bench/model_utils/api/datapoint.py",
+      "bytes": 9514
+    },
+    {
+      "path": "tau_bench/model_utils/api/exception.py",
+      "bytes": 2042
+    },
+    {
+      "path": "tau_bench/model_utils/api/logging.py",
+      "bytes": 2692
+    },
+    {
+      "path": "tau_bench/model_utils/api/router.py",
+      "bytes": 3536
+    },
+    {
+      "path": "tau_bench/model_utils/api/sample.py",
+      "bytes": 8204
+    },
+    {
+      "path": "tau_bench/model_utils/api/tokens.py",
+      "bytes": 3047
+    },
+    {
+      "path": "tau_bench/model_utils/api/types.py",
+      "bytes": 52
+    },
+    {
+      "path": "tau_bench/model_utils/args.py",
+      "bytes": 369
+    },
+    {
+      "path": "tau_bench/model_utils/func_tools/__init__.py",
+      "bytes": 129
+    },
+    {
+      "path": "tau_bench/model_utils/func_tools/filter.py",
+      "bytes": 457
+    },
+    {
+      "path": "tau_bench/model_utils/func_tools/map.py",
+      "bytes": 593
+    },
+    {
+      "path": "tau_bench/model_utils/model/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tau_bench/model_utils/model/anyscale.py",
+      "bytes": 3229
+    },
+    {
+      "path": "tau_bench/model_utils/model/chat.py",
+      "bytes": 21999
+    },
+    {
+      "path": "tau_bench/model_utils/model/claude.py",
+      "bytes": 5102
+    },
+    {
+      "path": "tau_bench/model_utils/model/completion.py",
+      "bytes": 18672
+    },
+    {
+      "path": "tau_bench/model_utils/model/exception.py",
+      "bytes": 522
+    },
+    {
+      "path": "tau_bench/model_utils/model/general_model.py",
+      "bytes": 5541
+    },
+    {
+      "path": "tau_bench/model_utils/model/mistral.py",
+      "bytes": 3170
+    },
+    {
+      "path": "tau_bench/model_utils/model/model.py",
+      "bytes": 3154
+    },
+    {
+      "path": "tau_bench/model_utils/model/openai.py",
+      "bytes": 4133
+    },
+    {
+      "path": "tau_bench/model_utils/model/outlines_completion.py",
+      "bytes": 1186
+    },
+    {
+      "path": "tau_bench/model_utils/model/utils.py",
+      "bytes": 4250
+    },
+    {
+      "path": "tau_bench/model_utils/model/vllm_chat.py",
+      "bytes": 4759
+    },
+    {
+      "path": "tau_bench/model_utils/model/vllm_completion.py",
+      "bytes": 4467
+    },
+    {
+      "path": "tau_bench/model_utils/model/vllm_utils.py",
+      "bytes": 980
+    },
+    {
+      "path": "tau_bench/run.py",
+      "bytes": 7640
+    },
+    {
+      "path": "tau_bench/types.py",
+      "bytes": 1823
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".gitignore",
+      "bytes": 109
+    },
+    {
+      "path": "MANIFEST.in",
+      "bytes": 68
+    },
+    {
+      "path": "few_shot_data/MockAirlineDomainEnv-few_shot.jsonl",
+      "bytes": 129793
+    },
+    {
+      "path": "few_shot_data/MockRetailDomainEnv-few_shot.jsonl",
+      "bytes": 632679
+    },
+    {
+      "path": "historical_trajectories/gpt-4o-airline.json",
+      "bytes": 4114038
+    },
+    {
+      "path": "historical_trajectories/gpt-4o-retail.json",
+      "bytes": 10813408
+    },
+    {
+      "path": "historical_trajectories/sonnet-35-new-airline.json",
+      "bytes": 10888682
+    },
+    {
+      "path": "historical_trajectories/sonnet-35-new-retail.json",
+      "bytes": 26544890
+    },
+    {
+      "path": "tau_bench/envs/airline/data/flights.json",
+      "bytes": 2114218
+    },
+    {
+      "path": "tau_bench/envs/airline/data/reservations.json",
+      "bytes": 2325594
+    },
+    {
+      "path": "tau_bench/envs/retail/data/orders.json",
+      "bytes": 1810945
+    }
+  ]
+}

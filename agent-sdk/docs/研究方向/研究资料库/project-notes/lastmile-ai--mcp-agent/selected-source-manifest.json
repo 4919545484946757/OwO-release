@@ -1,0 +1,193 @@
+[
+  {
+    "path": "src/mcp_agent/executor/workflow_task.py",
+    "sha256": "d391f785f2472f11c82189488a094ab99f09144d788cd572c75253524f240dc1",
+    "bytes": 2980,
+    "symbols": [
+      "class GlobalWorkflowTaskRegistry:",
+      "def __new__(cls):",
+      "def register_task(self, func: Callable, metadata: Dict[str, Any]):",
+      "def get_all_tasks(self) -> List[tuple]:",
+      "def clear(self):",
+      "def workflow_task(",
+      "def decorator(target: Callable[..., R]) -> Callable[..., R]:"
+    ]
+  },
+  {
+    "path": "src/mcp_agent/workflows/deep_orchestrator/task_executor.py",
+    "sha256": "3efaf6b80f69e3a7e22858c9f28f6b7892bede66d5e0f0a0f7eb494200792daa",
+    "bytes": 12376,
+    "symbols": [
+      "class TaskExecutor:",
+      "def __init__(",
+      "def set_budget_callback(self, update_budget_tokens: Callable[[int], None]):",
+      "async def execute_step(",
+      "async def execute_task(",
+      "async def _execute_task_once(",
+      "async def _get_or_create_agent(self, task: Task) -> Agent:",
+      "async def _create_dynamic_agent(self, task: Task) -> Agent:"
+    ]
+  },
+  {
+    "path": "src/mcp_agent/executor/workflow.py",
+    "sha256": "3be3d74a403d14d6f1878daa4f6f1d57cd999d999fd3199dcedc9aef7c088c34",
+    "bytes": 32863,
+    "symbols": [
+      "class WorkflowState(BaseModel):",
+      "def record_error(self, error: Exception) -> None:",
+      "class WorkflowResult(BaseModel, Generic[T]):",
+      "class WorkflowExecution(BaseModel):",
+      "class Workflow(ABC, Generic[T], ContextDependent):",
+      "def __init__(",
+      "def executor(self):",
+      "def id(self) -> str | None:",
+      "def run_id(self) -> str | None:",
+      "async def create(",
+      "async def run(self, *args, **kwargs) -> \"WorkflowResult[T]\":",
+      "async def _cancel_task(self):"
+    ]
+  },
+  {
+    "path": "src/mcp_agent/executor/task_registry.py",
+    "sha256": "541bfd1e360be32d284d0665b3e7b80f46544b51aefdc30b75c9cc37ede14719",
+    "bytes": 1407,
+    "symbols": [
+      "class ActivityRegistry:",
+      "def __init__(self):",
+      "def register(",
+      "def get_activity(self, name: str) -> Callable:",
+      "def get_metadata(self, name: str) -> Dict[str, Any]:",
+      "def list_activities(self) -> List[str]:",
+      "def is_registered(self, name: str) -> bool:"
+    ]
+  },
+  {
+    "path": "src/mcp_agent/executor/workflow_signal.py",
+    "sha256": "9403c70df16a2a3eefd1029ce53f73baafe3a819a3dc7bbc0ef47ccdd692e102",
+    "bytes": 14091,
+    "symbols": [
+      "class Signal(BaseModel, Generic[SignalValueT]):",
+      "class SignalRegistration(BaseModel):",
+      "class SignalHandler(Protocol, Generic[SignalValueT]):",
+      "async def signal(self, signal: Signal[SignalValueT]) -> None:",
+      "async def wait_for_signal(",
+      "def on_signal(self, signal_name: str) -> Callable:",
+      "async def handle_approval(value: str):",
+      "class PendingSignal(BaseModel):",
+      "class _Record(Generic[SignalValueT]):",
+      "class SignalMailbox(Generic[SignalValueT]):",
+      "def __init__(self) -> None:",
+      "def push(self, name: str, value: SignalValueT) -> None:"
+    ]
+  },
+  {
+    "path": "src/mcp_agent/executor/workflow_registry.py",
+    "sha256": "6f86c40de6a6cec6f3617d71ead6c75b36a3dc19bb391cc70e1b74921c80f61b",
+    "bytes": 11111,
+    "symbols": [
+      "class WorkflowRunsPage(BaseModel):",
+      "class WorkflowRegistry(ABC):",
+      "def __init__(self):",
+      "async def register(",
+      "async def unregister(self, run_id: str, workflow_id: str | None = None) -> None:",
+      "async def get_workflow(",
+      "async def resume_workflow(",
+      "async def cancel_workflow(",
+      "async def get_workflow_status(",
+      "async def list_workflow_statuses(",
+      "async def list_workflows(self) -> List[\"Workflow\"]:",
+      "class InMemoryWorkflowRegistry(WorkflowRegistry):"
+    ]
+  },
+  {
+    "path": "src/mcp_agent/executor/temporal/workflow_signal.py",
+    "sha256": "6ac9c85bea6fb8fd091ed3713c1ab02000abfd60ce0cc2890a184aaf066cb6a4",
+    "bytes": 7709,
+    "symbols": [
+      "class TemporalSignalHandler(BaseSignalHandler[SignalValueT]):",
+      "def __init__(self, executor: Optional[\"TemporalExecutor\"] = None) -> None:",
+      "def attach_to_workflow(self, wf_instance: \"Workflow\") -> None:",
+      "async def wait_for_signal(",
+      "def on_signal(self, signal_name: str):",
+      "def decorator(user_cb: Callable[[Signal[SignalValueT]], Any]):",
+      "async def signal(self, signal: Signal[SignalValueT]) -> None:",
+      "def validate_signal(self, signal):"
+    ]
+  },
+  {
+    "path": "src/mcp_agent/workflows/deep_orchestrator/memory.py",
+    "sha256": "547d9006d01d8e3d169479fdfe938188f48c20cfa89a8c0ee99b3eaf00e2bb1b",
+    "bytes": 10272,
+    "symbols": [
+      "class WorkspaceMemory:",
+      "def __init__(",
+      "def save_artifact(",
+      "def get_artifact(self, name: str) -> Optional[str]:",
+      "def add_knowledge(self, item: KnowledgeItem) -> None:",
+      "def get_relevant_knowledge(",
+      "def get_knowledge_summary(self, limit: int = 10) -> str:",
+      "def add_task_result(self, result: TaskResult) -> None:",
+      "def estimate_context_size(self) -> int:",
+      "def trim_for_context(self, max_tokens: int = 50000) -> int:",
+      "def get_scratchpad_path(self) -> Optional[Path]:",
+      "def clear(self) -> None:"
+    ]
+  },
+  {
+    "path": "src/mcp_agent/workflows/deep_orchestrator/policy.py",
+    "sha256": "b125836b26a936c511bbc1edd694ff3766d57d430cd9e8688e4c689bbc6309e8",
+    "bytes": 6713,
+    "symbols": [
+      "class PolicyEngine:",
+      "def __init__(",
+      "def decide_action(",
+      "def record_success(self) -> None:",
+      "def record_failure(self) -> None:",
+      "def get_failure_rate(self) -> float:",
+      "def should_retry_task(self, retry_count: int, max_retries: int = 3) -> bool:",
+      "def get_status_summary(self) -> str:",
+      "def reset(self) -> None:"
+    ]
+  },
+  {
+    "path": "src/mcp_agent/executor/temporal/workflow_registry.py",
+    "sha256": "0e86afa5ce63845065a2698ed7b364c051ddae690607e2d98dc7d75d1e9bab23",
+    "bytes": 18335,
+    "symbols": [
+      "class TemporalWorkflowRegistry(WorkflowRegistry):",
+      "def __init__(self, executor: \"TemporalExecutor\"):",
+      "async def register(",
+      "async def unregister(self, run_id: str, workflow_id: str | None = None) -> None:",
+      "async def get_workflow(",
+      "async def resume_workflow(",
+      "async def cancel_workflow(",
+      "async def get_workflow_status(",
+      "async def list_workflow_statuses(",
+      "def _to_timestamp(dt: datetime | None):",
+      "async def list_workflows(self) -> List[\"Workflow\"]:",
+      "async def _get_temporal_workflow_status("
+    ]
+  },
+  {
+    "path": "src/mcp_agent/executor/temporal/interactive_workflow.py",
+    "sha256": "33a85594cd83a4e6b4ea75e59b68ab3c5ebd63f7ed58bd4c7634c94f1519cc43",
+    "bytes": 2665,
+    "symbols": [
+      "class HumanResponse:",
+      "class InteractiveWorkflow(Workflow[T], Generic[T]):",
+      "class MyWorkflow(InteractiveWorkflow):",
+      "async def run(self, input: str) -> WorkflowResult[str]:",
+      "def __init__(self, *args, **kwargs) -> None:",
+      "def get_human_input_request(self) -> str:",
+      "async def provide_human_input(self, input: HumanResponse) -> None:",
+      "def create_input_callback(self) -> callable:",
+      "async def input_callback(request: HumanInputRequest) -> HumanInputResponse:"
+    ]
+  },
+  {
+    "path": "src/mcp_agent/workflows/evaluator_optimizer/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0,
+    "symbols": []
+  }
+]

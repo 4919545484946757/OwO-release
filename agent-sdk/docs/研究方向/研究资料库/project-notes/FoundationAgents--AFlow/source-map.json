@@ -1,0 +1,426 @@
+{
+  "kept": [
+    {
+      "path": "LICENSE",
+      "bytes": 1073
+    },
+    {
+      "path": "README.md",
+      "bytes": 6285
+    },
+    {
+      "path": "benchmarks/README.md",
+      "bytes": 1084
+    },
+    {
+      "path": "benchmarks/amc.py",
+      "bytes": 7265
+    },
+    {
+      "path": "benchmarks/bbh.py",
+      "bytes": 2216
+    },
+    {
+      "path": "benchmarks/benchmark.py",
+      "bytes": 4418
+    },
+    {
+      "path": "benchmarks/drop.py",
+      "bytes": 3111
+    },
+    {
+      "path": "benchmarks/gpqa.py",
+      "bytes": 2220
+    },
+    {
+      "path": "benchmarks/gsm8k.py",
+      "bytes": 2253
+    },
+    {
+      "path": "benchmarks/hotpotqa.py",
+      "bytes": 3040
+    },
+    {
+      "path": "benchmarks/humaneval.py",
+      "bytes": 6131
+    },
+    {
+      "path": "benchmarks/liar.py",
+      "bytes": 2312
+    },
+    {
+      "path": "benchmarks/livecodebench.py",
+      "bytes": 13101
+    },
+    {
+      "path": "benchmarks/math.py",
+      "bytes": 4450
+    },
+    {
+      "path": "benchmarks/mbpp.py",
+      "bytes": 4406
+    },
+    {
+      "path": "benchmarks/utils.py",
+      "bytes": 1578
+    },
+    {
+      "path": "benchmarks/wsc.py",
+      "bytes": 2216
+    },
+    {
+      "path": "config/config2.example.yaml",
+      "bytes": 323
+    },
+    {
+      "path": "data/download_data.py",
+      "bytes": 4638
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 513
+    },
+    {
+      "path": "run.py",
+      "bytes": 4808
+    },
+    {
+      "path": "run_baseline.py",
+      "bytes": 3810
+    },
+    {
+      "path": "scripts/async_llm.py",
+      "bytes": 10558
+    },
+    {
+      "path": "scripts/evaluator.py",
+      "bytes": 2776
+    },
+    {
+      "path": "scripts/formatter.py",
+      "bytes": 8782
+    },
+    {
+      "path": "scripts/interface.py",
+      "bytes": 2945
+    },
+    {
+      "path": "scripts/logs.py",
+      "bytes": 7782
+    },
+    {
+      "path": "scripts/operator_an.py",
+      "bytes": 1965
+    },
+    {
+      "path": "scripts/operators.py",
+      "bytes": 15497
+    },
+    {
+      "path": "scripts/optimizer.py",
+      "bytes": 10217
+    },
+    {
+      "path": "scripts/optimizer_utils/convergence_utils.py",
+      "bytes": 5814
+    },
+    {
+      "path": "scripts/optimizer_utils/data_utils.py",
+      "bytes": 6103
+    },
+    {
+      "path": "scripts/optimizer_utils/evaluation_utils.py",
+      "bytes": 2454
+    },
+    {
+      "path": "scripts/optimizer_utils/experience_utils.py",
+      "bytes": 4582
+    },
+    {
+      "path": "scripts/optimizer_utils/graph_utils.py",
+      "bytes": 4807
+    },
+    {
+      "path": "scripts/prompts/optimize_prompt.py",
+      "bytes": 5031
+    },
+    {
+      "path": "scripts/prompts/prompt.py",
+      "bytes": 4432
+    },
+    {
+      "path": "scripts/utils/code.py",
+      "bytes": 3972
+    },
+    {
+      "path": "scripts/utils/common.py",
+      "bytes": 876
+    },
+    {
+      "path": "scripts/utils/lcb_runner.py",
+      "bytes": 18856
+    },
+    {
+      "path": "scripts/utils/sanitize.py",
+      "bytes": 7355
+    },
+    {
+      "path": "scripts/workflow.py",
+      "bytes": 634
+    },
+    {
+      "path": "workspace/DROP/workflows/processed_experience.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/DROP/workflows/round_1/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/DROP/workflows/round_1/graph.py",
+      "bytes": 789
+    },
+    {
+      "path": "workspace/DROP/workflows/round_1/log.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/DROP/workflows/round_1/prompt.py",
+      "bytes": 42
+    },
+    {
+      "path": "workspace/DROP/workflows/template/op_prompt.py",
+      "bytes": 902
+    },
+    {
+      "path": "workspace/DROP/workflows/template/operator.json",
+      "bytes": 850
+    },
+    {
+      "path": "workspace/DROP/workflows/template/operator.py",
+      "bytes": 2226
+    },
+    {
+      "path": "workspace/DROP/workflows/template/operator_an.py",
+      "bytes": 701
+    },
+    {
+      "path": "workspace/GSM8K/workflows/processed_experience.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/GSM8K/workflows/results.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/GSM8K/workflows/round_1/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/GSM8K/workflows/round_1/graph.py",
+      "bytes": 791
+    },
+    {
+      "path": "workspace/GSM8K/workflows/round_1/log.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/GSM8K/workflows/round_1/prompt.py",
+      "bytes": 42
+    },
+    {
+      "path": "workspace/GSM8K/workflows/template/op_prompt.py",
+      "bytes": 1754
+    },
+    {
+      "path": "workspace/GSM8K/workflows/template/operator.json",
+      "bytes": 976
+    },
+    {
+      "path": "workspace/GSM8K/workflows/template/operator.py",
+      "bytes": 5576
+    },
+    {
+      "path": "workspace/GSM8K/workflows/template/operator_an.py",
+      "bytes": 530
+    },
+    {
+      "path": "workspace/HotpotQA/workflows/processed_experience.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/HotpotQA/workflows/results.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/HotpotQA/workflows/round_1/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/HotpotQA/workflows/round_1/graph.py",
+      "bytes": 797
+    },
+    {
+      "path": "workspace/HotpotQA/workflows/round_1/log.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/HotpotQA/workflows/round_1/prompt.py",
+      "bytes": 42
+    },
+    {
+      "path": "workspace/HotpotQA/workflows/template/op_prompt.py",
+      "bytes": 902
+    },
+    {
+      "path": "workspace/HotpotQA/workflows/template/operator.json",
+      "bytes": 850
+    },
+    {
+      "path": "workspace/HotpotQA/workflows/template/operator.py",
+      "bytes": 2234
+    },
+    {
+      "path": "workspace/HotpotQA/workflows/template/operator_an.py",
+      "bytes": 701
+    },
+    {
+      "path": "workspace/HumanEval/workflows/processed_experience.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/HumanEval/workflows/results.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/HumanEval/workflows/round_1/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/HumanEval/workflows/round_1/graph.py",
+      "bytes": 1213
+    },
+    {
+      "path": "workspace/HumanEval/workflows/round_1/log.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/HumanEval/workflows/round_1/prompt.py",
+      "bytes": 42
+    },
+    {
+      "path": "workspace/HumanEval/workflows/template/op_prompt.py",
+      "bytes": 1145
+    },
+    {
+      "path": "workspace/HumanEval/workflows/template/operator.json",
+      "bytes": 1262
+    },
+    {
+      "path": "workspace/HumanEval/workflows/template/operator.py",
+      "bytes": 5652
+    },
+    {
+      "path": "workspace/HumanEval/workflows/template/operator_an.py",
+      "bytes": 681
+    },
+    {
+      "path": "workspace/MATH/workflows/processed_experience.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/MATH/workflows/results.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/MATH/workflows/round_1/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/MATH/workflows/round_1/graph.py",
+      "bytes": 789
+    },
+    {
+      "path": "workspace/MATH/workflows/round_1/log.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/MATH/workflows/round_1/prompt.py",
+      "bytes": 42
+    },
+    {
+      "path": "workspace/MATH/workflows/template/op_prompt.py",
+      "bytes": 1754
+    },
+    {
+      "path": "workspace/MATH/workflows/template/operator.json",
+      "bytes": 976
+    },
+    {
+      "path": "workspace/MATH/workflows/template/operator.py",
+      "bytes": 5574
+    },
+    {
+      "path": "workspace/MATH/workflows/template/operator_an.py",
+      "bytes": 530
+    },
+    {
+      "path": "workspace/MBPP/workflows/processed_experience.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/MBPP/workflows/results.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/MBPP/workflows/round_1/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/MBPP/workflows/round_1/graph.py",
+      "bytes": 1202
+    },
+    {
+      "path": "workspace/MBPP/workflows/round_1/log.json",
+      "bytes": 0
+    },
+    {
+      "path": "workspace/MBPP/workflows/round_1/prompt.py",
+      "bytes": 42
+    },
+    {
+      "path": "workspace/MBPP/workflows/template/op_prompt.py",
+      "bytes": 1145
+    },
+    {
+      "path": "workspace/MBPP/workflows/template/operator.json",
+      "bytes": 1262
+    },
+    {
+      "path": "workspace/MBPP/workflows/template/operator.py",
+      "bytes": 5637
+    },
+    {
+      "path": "workspace/MBPP/workflows/template/operator_an.py",
+      "bytes": 681
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".gitignore",
+      "bytes": 97
+    },
+    {
+      "path": "assets/AFLOW-experiment.jpg",
+      "bytes": 309742
+    },
+    {
+      "path": "assets/AFLOW-method.jpg",
+      "bytes": 910478
+    },
+    {
+      "path": "assets/AFLOW-performance.jpg",
+      "bytes": 555317
+    }
+  ]
+}

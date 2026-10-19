@@ -3,7 +3,7 @@
 - **状态**：已批准（方案 A，Electron 壳吸收 Tauri）· **S1–S5 全部实施完成**（2026-10-02）
 - **决策**：合并后 UI 以 web 工作台为准（用户 2026-10-02 确认）——壳加载核心服务托管的同一份 `desktop/web` 文件，与浏览器/旧 Tauri 壳所见一致
 - **日期**：2026-10-02
-- **背景审查**：`docs/reports/code-review-2026-10-02.md`（A1/B2/C8 项）
+- **背景审查**：`docs/reports/archive/2026-10/code-review-2026-10-02.md`（A1/B2/C8 项）
 
 ---
 
@@ -206,7 +206,7 @@ NSIS/更新章节、P1 描述全部改为 Electron 表述；CI 门禁已含 elec
 
 真实成因是合并提交 `2d23cd2`（"工作台 UI 对齐上游 be6298f"）一次性改动 app.js 6,909 行 / index.html 1,282 行 / style.css 3,503 行，**覆盖了本土功能层**：`a18ce87` 版 app.js 含 `needsSetup`/`renderSetupGuide` 共 7 处，当前版本 0 处。
 
-已单独立项为审查报告的 **A0（P0）**，恢复方案见 `docs/reports/code-review-2026-10-02.md` §5 的 Phase 0.5。**不混入 ADR-003 提交**——这是两件事：换壳（已完成）与修合并回归（待做）。
+已单独立项为审查报告的 **A0（P0）**，恢复方案见 `docs/reports/archive/2026-10/code-review-2026-10-02.md` §5 的 Phase 0.5。**不混入 ADR-003 提交**——这是两件事：换壳（已完成）与修合并回归（待做）。
 
 ### 8.3 复核教训
 

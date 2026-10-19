@@ -1,0 +1,168 @@
+[
+  {
+    "path": "dify-agent/src/dify_agent/runtime/runner.py",
+    "sha256": "3e0732f5d0c5c224459194a72eca61c8e54f2ece6d6d4119be3c46d622c3c194",
+    "bytes": 15125,
+    "symbols": [
+      "class _HasAccumulatedUsage(Protocol):",
+      "def accumulated_usage(self) -> LLMUsage | None: ...",
+      "class AgentRunValidationError(ValueError):",
+      "def _run_failed_error_payload(exc: Exception) -> tuple[str, RunFailureType | None, str | None]:",
+      "def _extract_agent_message_delta(event: AgentStreamEvent) -> str | None:",
+      "class RunSuccessOutcome:",
+      "class AgentRunRunner:",
+      "def __init__(",
+      "def terminal_session_snapshot(self) -> SessionSnapshot | None:",
+      "def terminal_usage(self) -> AgentRunUsage | None:",
+      "async def run(self) -> None:",
+      "async def _run_agent(self) -> RunSuccessOutcome:"
+    ]
+  },
+  {
+    "path": "dify-agent/src/dify_agent/runtime/run_scheduler.py",
+    "sha256": "74924d789a1cb3dedc309e34de676b4887097e14e91ed365b071dfaa84581db3",
+    "bytes": 15278,
+    "symbols": [
+      "class SchedulerStoppingError(RuntimeError):",
+      "class RunCancellationConflictError(RuntimeError):",
+      "class RunStore(RunEventSink, Protocol):",
+      "async def create_run(self) -> RunRecord:",
+      "async def request_cancellation(self, run_id: str, request: CancelRunRequest) -> RunStatus:",
+      "async def get_cancellation_intent(self, run_id: str) -> RunCancellationIntent | None:",
+      "async def wait_for_cancellation(self, run_id: str) -> RunCancellationIntent:",
+      "async def finalize_cancellation(",
+      "class RunnableRun(Protocol):",
+      "def terminal_session_snapshot(self) -> SessionSnapshot | None:",
+      "def terminal_usage(self) -> AgentRunUsage | None:",
+      "async def run(self) -> None:"
+    ]
+  },
+  {
+    "path": "dify-agent/src/dify_agent/runtime/command_runner.py",
+    "sha256": "4784391dd9525cb5e46d069cb51c5ed2a2b49dd5ba079c627b30361e81cca506",
+    "bytes": 3674,
+    "symbols": [
+      "async def execute_complete_with_commands(",
+      "def _remaining_time(deadline: float) -> float:"
+    ]
+  },
+  {
+    "path": "dify-agent/src/shellctl/shared/runtime.py",
+    "sha256": "93dbede4abdd26d245032bde7d9cda4b4062da983131789dfbdf5b502ba86c5c",
+    "bytes": 2663,
+    "symbols": [
+      "def utc_now() -> datetime:",
+      "def format_timestamp(value: datetime | None = None) -> str:",
+      "def parse_timestamp(value: str) -> datetime:",
+      "def is_terminal_status(status: JobStatusName) -> bool:",
+      "def generate_job_id(*, now: datetime | None = None) -> str:",
+      "def job_session_name(job_id: str) -> str:",
+      "def job_pane_target(job_id: str) -> str:",
+      "def default_state_dir() -> Path:",
+      "def default_runtime_dir(state_dir: Path | None = None) -> Path:"
+    ]
+  },
+  {
+    "path": "dify-agent/src/dify_agent/runtime/context.py",
+    "sha256": "4a324bbabbee9579a1422228eea423f7acd7eab8afa72d20078c771573490885",
+    "bytes": 1814,
+    "symbols": [
+      "class LayerData(TypedDict):",
+      "class Services:",
+      "class RunResources:",
+      "class Deps:"
+    ]
+  },
+  {
+    "path": "dify-agent/src/dify_agent/runtime/modules.py",
+    "sha256": "cb4858741f563cf7978244a7fad8c2a16af628ac3f6a082ab6ea5c1ddcb20096",
+    "bytes": 6328,
+    "symbols": [
+      "def load_modules(",
+      "def create_modules(",
+      "def snapshot_modules(deps: Deps, *, registry: Mapping[str, ModuleType] = REGISTRY) -> SessionSnapshot:"
+    ]
+  },
+  {
+    "path": "dify-agent/src/dify_agent/runtime/compaction.py",
+    "sha256": "531bd4ebd6247a87936d200dbf7a789590fff91444de722f6c8fd1204b9d4766",
+    "bytes": 1797,
+    "symbols": [
+      "def build_compaction_capability("
+    ]
+  },
+  {
+    "path": "dify-agent/src/dify_agent/runtime/event_sink.py",
+    "sha256": "06e7c67edb7a5465f2b852885cba67ffddd7eb3ff7e8992bfc5f6a387b9f5044",
+    "bytes": 6399,
+    "symbols": [
+      "class RunFinalizationResult:",
+      "class RunEventSink(Protocol):",
+      "async def append_event(self, event: NonTerminalRunEvent) -> str:",
+      "async def finalize_run(self, event: TerminalRunEvent) -> RunFinalizationResult:",
+      "class InMemoryRunEventSink:",
+      "def __init__(self) -> None:",
+      "async def append_event(self, event: NonTerminalRunEvent) -> str:",
+      "async def finalize_run(self, event: TerminalRunEvent) -> RunFinalizationResult:",
+      "def terminal_event_status_fields(",
+      "async def emit_run_event(",
+      "async def emit_run_started(sink: RunEventSink, *, run_id: str) -> str:",
+      "async def emit_pydantic_ai_event("
+    ]
+  },
+  {
+    "path": "dify-agent/src/dify_agent/runtime_backend/e2b.py",
+    "sha256": "0a5143e146d82d1f50a172520891b7ac0cd6100d1820bffb6b8162080d3529c7",
+    "bytes": 18758,
+    "symbols": [
+      "class _E2BControlPlaneNotFoundError(RuntimeError):",
+      "class _E2BControlPlaneCapacityExhaustedError(RuntimeError):",
+      "class _E2BFileEntry(Protocol):",
+      "class _E2BFileSystem(Protocol):",
+      "async def make_dir(self, path: str) -> bool: ...",
+      "async def exists(self, path: str) -> bool: ...",
+      "async def list(self, path: str) -> list[_E2BFileEntry]: ...",
+      "async def remove(self, path: str) -> None: ...",
+      "class _E2BSnapshotInfo(Protocol):",
+      "class _E2BSandbox(Protocol):",
+      "def get_host(self, port: int) -> str: ...",
+      "async def pause(self, *, mode: Literal[\"full\"]) -> bool: ..."
+    ]
+  },
+  {
+    "path": "dify-agent/src/dify_agent/runtime/cancellation.py",
+    "sha256": "31b6cc7476abd8e71ccb621332b04b1f9c74e4c67b3121cff50861adb0a53d35",
+    "bytes": 488,
+    "symbols": [
+      "class RunCancellationIntent(BaseModel):"
+    ]
+  },
+  {
+    "path": "dify-agent/src/dify_agent/runtime/agent_factory.py",
+    "sha256": "6ebbdf9ba80f9abb886169934d6188e1c8566590bcb97e78adaabc32cfb52315",
+    "bytes": 1334,
+    "symbols": [
+      "def create_agent(",
+      "def normalize_user_input(user_prompts: Sequence[UserContent]) -> str | Sequence[UserContent]:"
+    ]
+  },
+  {
+    "path": "dify-agent/src/dify_agent/runtime/observability.py",
+    "sha256": "c9279032066d27e7078d9d382427751007d48c95781640e581b0a0eb0dbd1b71",
+    "bytes": 10262,
+    "symbols": [
+      "def dify_run_attributes(execution_context: DifyExecutionContextLayerConfig) -> tuple[tuple[str, str], ...]:",
+      "class IsolatedTracerProvider(TracerProvider):",
+      "def get_tracer(",
+      "class _IsolatedTracer(Tracer):",
+      "def _parent_context(self, context: Context | None) -> Context | None:",
+      "def start_span(",
+      "def start_as_current_span(",
+      "class RunScopedTracerProvider(TracerProvider):",
+      "def get_tracer(",
+      "class _RunScopedTracer(Tracer):",
+      "def _run_attributes(self, attributes: Attributes) -> Attributes:",
+      "def start_span("
+    ]
+  }
+]

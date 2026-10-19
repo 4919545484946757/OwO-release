@@ -1,0 +1,169 @@
+[
+  {
+    "path": "sweagent/run/hooks/swe_bench_evaluate.py",
+    "sha256": "fee6974a1ddf7280635f4d71f049e0217df33f6a0a936454e0c725853949e72d",
+    "bytes": 4874,
+    "symbols": [
+      "class SweBenchEvaluate(RunHook):",
+      "def __init__(self, output_dir: Path, subset: str, split: str, continuous_submission_every: int = 0) -> None:",
+      "def run_id(self) -> str:",
+      "def _get_sb_call(self, preds_path: Path, submit_only: bool = False) -> list[str]:",
+      "def check_running_calls(self) -> None:",
+      "def on_instance_completed(self, *, result: AgentRunResult):",
+      "def move_sb_cli_report(self) -> None:",
+      "def on_end(self) -> None:"
+    ]
+  },
+  {
+    "path": "sweagent/types.py",
+    "sha256": "6f09305a7a303e6c2cedf46adb94700e0a7ade116905bfcf82a7fba932db27d1",
+    "bytes": 2808,
+    "symbols": [
+      "class StepOutput(BaseModel):",
+      "def to_template_format_dict(self) -> dict[str, str | int | float | bool | None]:",
+      "class TrajectoryStep(TypedDict):",
+      "class _HistoryItem(TypedDict):",
+      "class HistoryItem(_HistoryItem, total=False):",
+      "class AgentInfo(TypedDict, total=False):",
+      "class AgentRunResult(BaseModel):"
+    ]
+  },
+  {
+    "path": "sweagent/__init__.py",
+    "sha256": "bb04dbc835dbea03326b2a5920064ddd39d254401d9db24eb982e36e40bfd0cc",
+    "bytes": 3605,
+    "symbols": [
+      "def get_agent_commit_hash() -> str:",
+      "def get_rex_commit_hash() -> str:",
+      "def get_rex_version() -> str:",
+      "def get_agent_version_info() -> str:",
+      "def impose_rex_lower_bound() -> None:"
+    ]
+  },
+  {
+    "path": "sweagent/__main__.py",
+    "sha256": "fc4943bcd139c3821b40442ebfef6d595b0fdf43e9dd1b536e5017dec1b54790",
+    "bytes": 73,
+    "symbols": []
+  },
+  {
+    "path": "sweagent/exceptions.py",
+    "sha256": "07697edfa6c1de118eb9fd59f2917a6312b55ab8dae9c7cd7c699d6d352ff695",
+    "bytes": 1597,
+    "symbols": [
+      "class FormatError(Exception):",
+      "class FunctionCallingFormatError(FormatError):",
+      "def __init__(",
+      "class ContextWindowExceededError(Exception):",
+      "class CostLimitExceededError(Exception):",
+      "class InstanceCostLimitExceededError(CostLimitExceededError):",
+      "class TotalCostLimitExceededError(CostLimitExceededError):",
+      "class InstanceCallLimitExceededError(CostLimitExceededError):",
+      "class ContentPolicyViolationError(Exception):",
+      "class ModelConfigurationError(Exception):"
+    ]
+  },
+  {
+    "path": "sweagent/run/run.py",
+    "sha256": "f4d50e37528f6a737f514bc888ea7efac25cdbb61bc1f6e6371546f6ef886e79",
+    "bytes": 5327,
+    "symbols": [
+      "def get_cli():",
+      "def main(args: list[str] | None = None):"
+    ]
+  },
+  {
+    "path": "sweagent/utils/log.py",
+    "sha256": "81640fea3207f0c6058ed9a814e0d10021e94a650bbb3895b6923d88428861e6",
+    "bytes": 6436,
+    "symbols": [
+      "def _interpret_level(level: int | str | None, *, default=logging.DEBUG) -> int:",
+      "def register_thread_name(name: str) -> None:",
+      "class _RichHandlerWithEmoji(RichHandler):",
+      "def __init__(self, emoji: str, *args, **kwargs):",
+      "def get_level_text(self, record: logging.LogRecord) -> Text:",
+      "def get_logger(name: str, *, emoji: str = \"\") -> logging.Logger:",
+      "def add_file_handler(",
+      "def remove_file_handler(id_: str) -> None:",
+      "def _add_logger_name_to_stream_handler(logger: logging.Logger) -> None:",
+      "def add_logger_names_to_stream_handlers() -> None:",
+      "def set_stream_handler_levels(level: int) -> None:"
+    ]
+  },
+  {
+    "path": "sweagent/run/common.py",
+    "sha256": "b62220fbcb77d3a791f373e738602a231b32ae132767ec1a80957eebaae2462a",
+    "bytes": 15254,
+    "symbols": [
+      "def _shorten_strings(data, *, max_length=30):",
+      "class AutoCorrectSuggestion:",
+      "def __init__(",
+      "def show(self, args: list[str]) -> bool:",
+      "def format(self) -> str:",
+      "class ConfigHelper:",
+      "def _get_type_name(self, item: Any, full: bool = False):",
+      "def _get_value_help_string(self, item: Any, description: str | None):",
+      "def get_help(self, config_type: type[BaseSettings]) -> str:",
+      "def _nested_dict():",
+      "def _parse_args_to_nested_dict(args):",
+      "class BasicCLI:"
+    ]
+  },
+  {
+    "path": "sweagent/tools/tools.py",
+    "sha256": "6a5b9ca0b4b7bbc60364fb832a478fad7c7c41a0d91cb0718c9ad523120e9a70",
+    "bytes": 16743,
+    "symbols": [
+      "class ToolFilterConfig(BaseModel):",
+      "class ToolConfig(BaseModel):",
+      "def use_function_calling(self) -> bool:",
+      "def state_commands(self) -> list[str]:",
+      "def commands(self) -> list[Command]:",
+      "def tools(self) -> list[dict]:",
+      "def model_post_init(self, __context):",
+      "class ToolHandler:",
+      "def __init__(self, tools: ToolConfig):",
+      "def from_config(cls, config: ToolConfig) -> Self:",
+      "def install(self, env: SWEEnv) -> None:",
+      "def reset(self, env: SWEEnv) -> None:"
+    ]
+  },
+  {
+    "path": "sweagent/tools/utils.py",
+    "sha256": "7e6925fd0db11f617d0d994ff63a1e0f0983053a2ed455ede2f279f00852b74f",
+    "bytes": 4044,
+    "symbols": [
+      "def _guard_multiline_input(action: str, match_fct: Callable[[str], re.Match | None]) -> str:",
+      "def _should_quote(value: Any, command: Command) -> bool:",
+      "def get_signature(cmd):",
+      "def generate_command_docs("
+    ]
+  },
+  {
+    "path": "sweagent/utils/files.py",
+    "sha256": "b9615bd4b5f0591f0cf601d3a7338dbe50d849c9d837447e4c2023967bdd4c0b",
+    "bytes": 812,
+    "symbols": [
+      "def load_file(path: Path | str | None) -> Any:"
+    ]
+  },
+  {
+    "path": "sweagent/agent/agents.py",
+    "sha256": "d6cdf7ac66a6509ceba08e3541b856f0734acf79f9a485ed8a6e2c72f0d211a8",
+    "bytes": 55804,
+    "symbols": [
+      "class TemplateConfig(BaseModel):",
+      "def model_post_init(self, __context):",
+      "def validate_template_jinja_syntax(self) -> Self:",
+      "def warnings(self) -> Self:",
+      "class DefaultAgentConfig(BaseModel):",
+      "class ShellAgentConfig(BaseModel):",
+      "class RetryAgentConfig(BaseModel):",
+      "class _BlockedActionError(Exception):",
+      "class _RetryWithOutput(Exception):",
+      "class _RetryWithoutOutput(Exception):",
+      "class _ExitForfeit(Exception):",
+      "class _TotalExecutionTimeExceeded(Exception):"
+    ]
+  }
+]

@@ -1,0 +1,197 @@
+Preprint
+AGENT VERSE : F ACILITATING MULTI-AGENT COLLAB -
+ORATION AND EXPLORING EMERGENT BEHAVIORS
+Weize Chen1∗, Yusheng Su1∗, Jingwei Zuo 1, Cheng Yang3B, Chenfei Yuan1,
+Chi-Min Chan1, Heyang Yu1, Yaxi Lu1, Yi-Hsin Hung2, Chen Qian1, Yujia Qin1,
+Xin Cong1, Ruobing Xie4, Zhiyuan Liu1B, Maosong Sun1, Jie Zhou4
+1 Department of Computer Science and Technology, Tsinghua University
+2 School of Economics and Management, Tsinghua University
+3 School of Computer Science, Beijing University of Posts and Telecommunications
+4 Pattern Recognition Center, WeChat AI, Tencent Inc.
+chenwz21@mails.tsinghua.edu.cn, yushengsu.thu@gmail.com
+ABSTRACT
+Autonomous agents empowered by Large Language Models (LLMs) have under-
+gone significant improvements, enabling them to generalize across a broad spec-
+trum of tasks. However, in real-world scenarios, cooperation among individuals is
+often required to enhance the efficiency and effectiveness of task accomplishment.
+Hence, inspired by human group dynamics, we propose a multi-agent framework
+AGENT VERSE that can effectively orchestrate a collaborative group of expert agents
+as a greater-than-the-sum-of-its-parts system. Our experiments demonstrate that
+AGENT VERSE can proficiently deploy multi-agent groups that outperform a single
+agent. Extensive experiments on text understanding, reasoning, coding, tool utiliza-
+tion, and embodied AI confirm the effectiveness of AGENT VERSE . Moreover, our
+analysis of agent interactions within AGENT VERSE reveals the emergence of spe-
+cific collaborative behaviors, contributing to heightened group efficiency. Our code
+has been released at https://github.com/OpenBMB/AgentVerse/.
+1 I NTRODUCTION
+The pursuit of creating intelligent and autonomous agents that can seamlessly assist humans and
+operate in real-world settings has been a foundational goal in artificial intelligence (Wooldridge
+& Jennings, 1995; Minsky, 1988; Bubeck et al., 2023). The recent advance of Large Language
+Models (LLMs) (OpenAI, 2023a; Anil et al., 2023; Touvron et al., 2023b) has created newfound
+avenues in this domain. These LLMs, especially GPT-4 (OpenAI, 2023a), are particularly adept
+in comprehending human intent and executing commands. They have demonstrated remarkable
+proficiency in domains such as language understanding, vision (OpenAI, 2023b), and coding (Bubeck
+et al., 2023). By harnessing the power of LLMs, autonomous agents can make more nuanced
+decisions and perform actions with an unprecedented degree of autonomy (Zhou et al., 2023). Agents
+like AutoGPT (Richards & et al., 2023), BabyAGI (Nakajima, 2023), and AgentGPT (Reworkd,
+2023), are inspiring examples. Furthermore, recent research has endowed autonomous agents with
+more human-analogous cognitive mechanisms, spanning from reflection (Yao et al., 2023b; Shinn
+et al., 2023), task decomposition (Wei et al., 2022b; Yao et al., 2023a), and tool utilization (Schick
+et al., 2023b; Qin et al., 2023a;b; Qian et al., 2023b). These advancements edge us closer to realizing
+the concept of artificial general intelligence (AGI) (Goertzel & Pennachin, 2007; Clune, 2019) that
+can generalize across a broader range of tasks.
+However, complex real-world tasks often require cooperation among individuals to achieve better
+effectiveness. Throughout history, numerous studies have delved into methods for enhancing col-
+laboration among humans to improve work efficiency and effectiveness (Woolley et al., 2010; Fehr
+& G¨achter, 2000). More recently, with the evolution of autonomous agents towards AGI, extensive
+research conceptualizes the assemblies of agents as a society or group (Li et al., 2023), and focuses
+on exploring the potential of their cooperation. For example, Park et al. (2023) found emergent
+∗The first two authors contributed equally. B Corresponding author.
+1
+arXiv:2308.10848v3  [cs.CL]  23 Oct 2023
+
+Preprint
+!
+ ==  
+"
+ 
+#
+ Expert Recruitment
+$
+Collaborative Decision-Making
+⚙
+Action Execution
+Build 
+!
+ &
+'
+  
+(
+)
+ *
++
+Goal 
+Goal
+!
+Outcome
+"
+,
+ Evaluation
+New State
+New State
+Group
+?
+Reward 
+Feedback
+: Architect
+Round 1
+: Designer
+: Engineer New State
+ : Engineer New State
+: Logger
+: Worker
+"
+: EngineerNew State
+: Worker
+: Designer
+!
+Round 2 Round 3
+✨
+ $
+ .
+ /
+ ✨
+Group
+???
+Actions:
+Agents:
+x N rounds
+x M turns
+Figure 1: An illustration of the AGENT VERSE .
+social behaviors in multi-agent life simulation. Du et al. (2023); Wang et al. (2023b); Zhang et al.
+(2023a); Qian et al. (2023a); Chan et al. (2023) also underscored the enhanced decision-making of
+collaborating agents during collaborative problem-solving. However, a limitation in these studies
+is their narrow focus on specific and limited tasks, leaving the generalizability of their findings
+uncertain. An additional constraint is their static approach to agent collaboration, where agents’ roles
+and capabilities remain rigid, hindering adaptability.
+To address this problem, we introduce AGENT VERSE . This general multi-agent framework simulates
+the problem-solving procedures of human groups, and allows for dynamic adjustment of group
+members based on current progress. Specifically, AGENT VERSE splits the problem-solving process
+into four pivotal stages as shown in Figure 1: (1) Expert Recruitment: Determine and adjust the
+agent group’s composition based on the ongoing problem-solving progression. (2) Collaborative
+Decision-Making: Engage the selected agents in joint discussions to devise problem-solving strategies.
+(3) Action Execution: Agents interact with their environment to implement the devised actions. (4)
+Evaluation - Assess the differences between the current state and desired outcomes. If the current
+state is unsatisfactory, feedback is given to the next iteration for further refinement.
+We conduct extensive experiments and case studies in diverse aspects including text understanding,
+reasoning, coding, tool utilization and embodied AI to show the effectiveness of AGENT VERSE .
+Additionally, we highlight the social behaviors that emerge from the multi-agent collaboration, and
+discuss their advantages and potential risks. In summary, our contributions are:
+• Inspired by the collaborative process of a human team, we proposeAGENT VERSE as an effective
+framework for promoting collaboration among multiple agents in problem-solving.
+• We conduct extensive experiments to show thatAGENT VERSE effectively improve the agents’
+understanding, reasoning, coding, tool utilizing capabilities and their potential in embodied AI.
+• In the multi-agent collaboration, especially within tool utilization and Minecraft game playing,
+agents manifest certain emergent behaviors. For example, (1) volunteer behaviors, characterized
+by agents offering assistance to peers, thus improving team efficiency; (2) conformity behaviors,
+where agents adjust their deviated behaviors to align with the common goal under the critics from
+others; (3) destructive behaviors, occasionally leading to undesired and detrimental outcomes.
+2 A GENT VERSE FRAMEWORK
+A problem-solving process is a sequence of iterative stages within a human group (Bransford & Stein,
+1993). Initially, the group assesses the difference between the current state and the desired goal,
+dynamically adjusting its composition to enhance collaboration in decision-making, and subsequently
+2
+
+Preprint
+executing well-informed actions. In order to enhance the effectiveness of an autonomous multi-agent
+group in achieving their goals, we simulate the problem-solving processes of a human group to
+propose the AGENT VERSE framework, which is composed of four crucial stages: Expert Recruit-
+ment, Collaborative Decision-Making, Action Execution, and Evaluation, as shown in Figure 1.
+The entire process can be modeled as a Markov decision process (MDP), characterized as a tuple
+(S,A,T ,R,G). This encompasses the autonomous agent and environment state spaceS, solution
+and action spaceA, transition functionT :S×A→S , reward functionR, and goal spaceG.
+2.1 E XPERT RECRUITMENT
+Expert Recruitment stage determines the composition of a multi-agent group, playing an important
+role in deciding the upper bounds of the group’s capabilities. Empirical evidence suggests that
+diversity within human groups introduces varied viewpoints, enhancing the group’s performance
+across different tasks (Woolley et al., 2015; Phillips & O’Reilly, 1998). Parallel findings from recent
+research suggest that designating specific roles for autonomous agents, similar to recruiting experts
+to form a group, can augment their efficacy (Li et al., 2023; Salewski et al., 2023; Qian et al., 2023a).
+Current methodologies for assigning role descriptions to autonomous agents predominantly involve
+manual assignment, necessitating prior knowledge and understanding of the task. Consequently, the
+scalability remains ambiguous, especially in the face of diverse and intricate problem contexts.
+In view of this, AGENT VERSE automates expert recruitment to make agent configuration more
+scalable. For a given goal g∈G , a particular agent Mr is prompted as the ”recruiter”, similar to
+a human resource manager. Instead of relying on pre-defined expert descriptions, Mr dynamically
+generates a set of expert descriptions based on g. The different agents prompted with these different
+expert descriptions then form an expert group M = Mr(g) on the given goal g. Notably, the
+composition of a multi-agent group will be dynamically adjusted based on feedback from the
+evaluation stage (Section 2.4). This allows AGENT VERSE to employ the most suitable group based
+on the current state to make better decisions in future rounds.
+2.2 C OLLABORATIVE DECISION -MAKING
+This stage engages expert agents in collaborative decision-making. To facilitate effective decision-
+making, previous research has investigated the impact of different communication structures among
+agents (Chan et al., 2023; Zhang et al., 2023b; Wu et al., 2023). We focus on two typical communica-
+tion structures: horizontal structure and vertical structure, respectively.
+Horizontal Structure (
+ ) In this democratic structure, each agent, denoted as mi∈M ,
+shares and refines its decision ami. The group’s collective decision, A = f ({ami}i)∈A , emerges
+as an integration of individual agents’ decisions using a function f, which might involve techniques
+like summarization or ensemble. This structure is especially effective in scenarios like consulting and
+tool using.
+V ertical Structure (
+ ) Conversely, vertical structure has a clear division of roles. An agent,
+termed the solver m∗, proposes an initial decision a∗
+0. Other agents, as reviewers, provide feedback
+on this proposal, prompting iterative refinements by the solver until a consensus is reached among
+reviewers or a set number of iterations is exhausted. The final decision A is given as A = a∗
+k∈A ,
+with k indicating the number of refinements. Vertical structure is preferable for tasks like math
+problem-solving and software development, where only one refined decision is required.
+2.3 A CTION EXECUTION
+In the decision-making stage, agents collaboratively contribute to a group decision A containing
+actions that need to be executed in the current environment. Within the action execution stage, agents
+then execute the collectively-decided actions in the environment. Depending on the implementation,
+some agents might not perform any execution. As a result of these actions, the state of the environment
+transitions from sold to snew =T (sold, A).
+3

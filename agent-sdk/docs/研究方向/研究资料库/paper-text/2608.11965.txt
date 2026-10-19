@@ -1,0 +1,134 @@
+Noname manuscript No.
+(will be inserted by the editor)
+Developing LLM-based Multi-Agent Systems in
+Software Engineering: A Mixed-Method Experience
+Report
+Mariama Celi Serafim De Oliveira·
+Motunrayo Osatohanmen Ibiyo·Marco
+Gianrusso·Claudio Di Sipio·Davide
+Di Ruscio·Phuong T. Nguyen
+Received: date / Accepted: date
+AbstractThe proliferation of Generative Artificial Intelligence (Gen AI)
+powered by large language models (LLMs) has transformed the software
+development process, introducing new paradigms for code generation,
+debugging, testing, and maintenance. While early applications focused on
+leveraging single, independent LLMs to assist developers with isolated
+tasks, recent advances have shifted toward multi-agent systems (MAS)
+that orchestrate multiple LLM-based agents working collaboratively toward
+common objectives. Despite their promising potential, using MAS encompasses
+a set of challenges for developers who have to carefully select the right
+technology, devise proper coordination rules, and design specific roles for
+the involved agents. In this paper, by means of a mixed-method study, we
+Mariama Celi Serafim De Oliveira
+DISIM, University of L’Aquila, 67100 L’Aquila, Italy
+˚Abo Akademi University, 20500 Turku, Finland
+E-mail: mariamaceli.serafimdeoliveira@student.univaq.it
+Motunrayo Osatohanmen Ibiyo
+DISIM, University of L’Aquila, 67100 L’Aquila, Italy
+˚Abo Akademi University, 20500 Turku, Finland
+E-mail: motunrayoosatohanmen.ibiyo@student.univaq.it
+Marco Gianrusso
+DISIM, University of L’Aquila, 67100 L’Aquila, Italy
+E-mail: marco.gianrusso@univaq.it
+Claudio Di Sipio
+Johannes Kepler University, 4040 Linz, Austria
+E-mail: claudio.di sipio@jku.at
+BDavide Di Ruscio
+DISIM, University of L’Aquila, 67100 L’Aquila, Italy
+E-mail: davide.diruscio@univaq.it
+Phuong T. Nguyen
+DISIM, University of L’Aquila, 67100 L’Aquila, Italy
+E-mail: phuong.nguyen@univaq.it
+arXiv:2608.11965v1  [cs.SE]  12 Aug 2026
+
+2 Mariama Celi Serafim De Oliveira et al.
+provide a comprehensive overview of the existing tools and frameworks for
+implementing MAS in software engineering. First, we conducted a quantitative
+analysis of the most relevant open source MAS frameworks by evaluating their
+documentation, features, and capabilities from the developers’ perspective.
+Second, we performed a qualitative evaluation of a subset of the selected
+frameworks by implementing a common use case, i.e., the summarization
+of GitHub README.MD files. Our findings demonstrate that the selected
+frameworks provide a good coverage in terms of fundamental components of
+MAS, even though advanced features such as telemetry of agents are still
+missing. In addition, the empirical evaluation shows that there is no significant
+difference in terms of ROUGE scores considering the summarization task,
+while the time taken to complete the task varies significantly across the
+frameworks, suggesting that some frameworks are more suitable for rapid
+prototyping than others. Finally, we provide a set of lessons learned and
+challenges that can help researchers and practitioners to select a suitable MAS
+framework according to their needs.
+Keywordsmulti-agent AI systems, large language models, software
+engineering, mixed methods, experience report
+1 Introduction
+The usage of large language models (LLMs) is pushing the boundaries of the
+automated software engineering, as different solutions are in place to support
+the whole development lifecycle, e.g., from the requirement engineering (Wei
+2024) to code development (Mastropaolo et al. 2021; Bucaioni et al. 2024). In
+this respect, these cutting-edge models contribute in defining a new software
+development paradigm, called AIware, in which LLMs are used as AI agents,
+being able to support developers in their daily tasks (Cogo et al. 2024).
+Although advanced LLMs outperform traditional approaches across many
+tasks, recent research reveals significant limitations that undermine the
+quality of their generated output. These limitations include:(i)catastrophic
+forgetting (Wang and Yin 2026), in which where models lose previously learned
+knowledge when trained on new data;(ii)hallucinations (Lavrinovics et al.
+2025; Huang et al. 2025; Zhang et al. 2025), i.e., generating plausible but
+factually incorrect or nonsensical content;(iii)privacy concerns (Kibriya
+et al. 2024; Berini et al. 2026), i.e., potential leakage of sensitive training
+data; and(iv)limited reasoning capabilities for complex, multi-step problems.
+To overcome these limitations, LLM-based multi-agent systems (MAS) have
+emerged as a novel methodology to orchestrate, manage, and evaluate a set
+of AI agents for specific applications (He et al. 2025; Li et al. 2024a). This
+transition represents a paradigm shift from monolithic LLM applications to
+the AgentWare paradigm, in which multiple LLMs are connected and work
+collaboratively to solve common tasks. By distributing responsibilities across
+specialized agents, MAS can leverage the strengths of individual models while
+mitigating their weaknesses through collaboration, verification, and iterative
+
+Developing LLM-based MAS in SE: A Mixed-Method Experience Report 3
+refinement. The adoption of LLM-based agents has accelerated rapidly in
+recent years (Hou et al. 2024), with applications spanning diverse domains
+including software development, scientific research, and autonomous systems.
+However, despite the proliferation of MAS frameworks and implementations
+in Software Engineering (SE), a systematic and detailed comparison of
+their capabilities, performance, and suitability for specific SE tasks remains
+notably absent. This gap is particularly critical given the diversity of
+SE activities–ranging from code generation and debugging to requirements
+analysis and architectural design–each with distinct characteristics and quality
+requirements. Understanding how different MAS architectures perform across
+these varied tasks is essential for both researchers developing new agent
+systems and practitioners seeking to adopt these technologies effectively.
+In this paper, we adopteda mixed-method approach(Molina-Azor´ ın 2016;
+Di Penta and Tamburri 2017; Seaman et al. 2025) with both qualitative and
+quantitative results to provide a comprehensive overview of the existing MAS
+frameworks, focusing on their capabilities and features. In particular, we first
+selected 20 existing frameworks from GitHub and other sources. Then, we
+elicited the most popular and categorize them into two categories, i.e., low-
+code and high-code frameworks, according to the level of abstraction they
+provide. We then analyzed the documentation and technical features of the
+selected frameworks, focusing on their capabilities to support the development
+of MAS. Finally, we conducted an empirical evaluation based on a common
+scenario, i.e., the summarization of GitHub README files, to assess the
+usability and effectiveness of the selected frameworks in practice. Our findings
+demonstrate that the elicited frameworks offers a good coverage in terms
+of fundamental components of MAS, i.e., coordination rules, specification
+of roles and behaviors, and message handling. However, advanced features
+such as benchmarking, monitoring, and human-in-the-loop integration are
+still missing. On top of the obtained results, we delivered a set of lessons
+learned that can help researchers and practitioners to select the proper MAS
+framework according to their needs.
+We aim to answer the following research questions (RQs).
+– RQ 1:To what extent do existing frameworks cover MAS foundational
+concepts?To elicit the most advanced ones, we conducted a qualitative
+analysis using both the available documentation and previous studies.
+– RQ 2:What are the main characteristics of the considered MAS
+frameworks?Based on the identified frameworks, we performed an in-depth
+evaluation using a template-based approach. In particular, we focused on
+practical aspects that are relevant for developers, from the installation to
+the agent orchestration.
+– RQ 3:How well can popular frameworks support the summarization of
+GitHub README.MD files?Once we selected the four most representative
+frameworks, we performed a quantitative analysis to evaluate their
+performance in a common use case, i.e., the summarization of GitHub
+README.MD files.

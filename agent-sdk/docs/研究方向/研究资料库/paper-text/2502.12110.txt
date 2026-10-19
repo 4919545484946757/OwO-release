@@ -1,0 +1,213 @@
+A-Mem: Agentic Memory for LLM Agents
+Wujiang Xu1, Zujie Liang2, Kai Mei1, Hang Gao1, Juntao Tan1, Yongfeng Zhang1,3
+1Rutgers University 2Independent Researcher 3AIOS Foundation
+wujiang.xu@rutgers.edu
+Abstract
+While large language model (LLM) agents can effectively use external tools for
+complex real-world tasks, they require memory systems to leverage historical
+experiences. Current memory systems enable basic storage and retrieval but lack
+sophisticated memory organization, despite recent attempts to incorporate graph
+databases. Moreover, these systems’ fixed operations and structures limit their
+adaptability across diverse tasks. To address this limitation, this paper proposes
+a novel agentic memory system for LLM agents that can dynamically organize
+memories in an agentic way. Following the basic principles of the Zettelkasten
+method, we designed our memory system to create interconnected knowledge
+networks through dynamic indexing and linking. When a new memory is added, we
+generate a comprehensive note containing multiple structured attributes, including
+contextual descriptions, keywords, and tags. The system then analyzes historical
+memories to identify relevant connections, establishing links where meaningful
+similarities exist. Additionally, this process enables memory evolution – as new
+memories are integrated, they can trigger updates to the contextual representations
+and attributes of existing historical memories, allowing the memory network to
+continuously refine its understanding. Our approach combines the structured
+organization principles of Zettelkasten with the flexibility of agent-driven decision
+making, allowing for more adaptive and context-aware memory management.
+Empirical experiments on six foundation models show superior improvement
+against existing SOTA baselines.
+Code for Benchmark Evaluation:
+https://github.com/WujiangXu/AgenticMemory
+Code for Production-ready Agentic Memory:
+https://github.com/WujiangXu/A-mem-sys
+1 Introduction
+Large Language Model (LLM) agents have demonstrated remarkable capabilities in various tasks,
+with recent advances enabling them to interact with environments, execute tasks, and make decisions
+autonomously [23, 33, 7]. They integrate LLMs with external tools and delicate workflows to improve
+reasoning and planning abilities. Though LLM agent has strong reasoning performance, it still needs
+a memory system to provide long-term interaction ability with the external environment [35].
+Existing memory systems [25, 39, 28, 21] for LLM agents provide basic memory storage functionality.
+These systems require agent developers to predefine memory storage structures, specify storage
+points within the workflow, and establish retrieval timing. Meanwhile, to improve structured memory
+organization, Mem0 [8], following the principles of RAG [9, 18, 30], incorporates graph databases for
+storage and retrieval processes. While graph databases provide structured organization for memory
+systems, their reliance on predefined schemas and relationships fundamentally limits their adaptability.
+This limitation manifests clearly in practical scenarios - when an agent learns a novel mathematical
+solution, current systems can only categorize and link this information within their preset framework,
+Preprint.
+arXiv:2502.12110v11  [cs.CL]  8 Oct 2025
+
+LLM Agents Memory
+Read
+Write
+Interaction
+Environment
+(a)Traditional memory system.
+LLM Agents Agentic Memory
+Read
+Write
+Interaction
+Environment (b)Our proposed agentic memory.
+Figure 1:Traditional memory systems require predefined memory access patterns specified in the workflow,
+limiting their adaptability to diverse scenarios. Contrastly, our A-MEMenhances the flexibility of LLM agents
+by enabling dynamic memory operations.
+unable to forge innovative connections or develop new organizational patterns as knowledge evolves.
+Such rigid structures, coupled with fixed agent workflows, severely restrict these systems’ ability
+to generalize across new environments and maintain effectiveness in long-term interactions. The
+challenge becomes increasingly critical as LLM agents tackle more complex, open-ended tasks,
+where flexible knowledge organization and continuous adaptation are essential. Therefore,how to
+design a flexible and universal memory system that supports LLM agents’ long-term interactions
+remains a crucial challenge.
+In this paper, we introduce a novel agentic memory system, named as A-MEM, for LLM agents that
+enables dynamic memory structuring without relying on static, predetermined memory operations.
+Our approach draws inspiration from the Zettelkasten method [ 15, 1], a sophisticated knowledge
+management system that creates interconnected information networks through atomic notes and
+flexible linking mechanisms. Our system introduces an agentic memory architecture that enables
+autonomous and flexible memory management for LLM agents. For each new memory, we construct
+comprehensive notes, which integrates multiple representations: structured textual attributes including
+several attributes and embedding vectors for similarity matching. Then A-MEManalyzes the historical
+memory repository to establish meaningful connections based on semantic similarities and shared
+attributes. This integration process not only creates new links but also enables dynamic evolution
+when new memories are incorporated, they can trigger updates to the contextual representations of
+existing memories, allowing the entire memories to continuously refine and deepen its understanding
+over time. The contributions are summarized as:
+• We present A-MEM, an agentic memory system for LLM agents that enables autonomous generation
+of contextual descriptions, dynamic establishment of memory connections, and intelligent evolution
+of existing memories based on new experiences. This system equips LLM agents with long-term
+interaction capabilities without requiring predetermined memory operations.
+•We design an agentic memory update mechanism where new memories automatically trigger two
+key operations: link generation and memory evolution. Link generation automatically establishes
+connections between memories by identifying shared attributes and similar contextual descriptions.
+Memory evolution enables existing memories to dynamically adapt as new experiences are analyzed,
+leading to the emergence of higher-order patterns and attributes.
+• We conduct comprehensive evaluations of our system using a long-term conversational dataset, com-
+paring performance across six foundation models using six distinct evaluation metrics, demonstrating
+significant improvements. Moreover, we provide T-SNE visualizations to illustrate the structured
+organization of our agentic memory system.
+2 Related Work
+2.1 Memory for LLM Agents
+Prior works on LLM agent memory systems have explored various mechanisms for memory man-
+agement and utilization [ 23, 21, 8, 39]. Some approaches complete interaction storage, which
+maintains comprehensive historical records through dense retrieval models [39] or read-write memory
+structures [24]. Moreover, MemGPT [ 25] leverages cache-like architectures to prioritize recent
+information. Similarly, SCM [ 32] proposes a Self-Controlled Memory framework that enhances
+LLMs’ capability to maintain long-term memory through a memory stream and controller mechanism.
+However, these approaches face significant limitations in handling diverse real-world tasks. While
+they can provide basic memory functionality, their operations are typically constrained by predefined
+structures and fixed workflows. These constraints stem from their reliance on rigid operational
+2
+
+LLM Agents
+Interaction
+Environment
+Write
+……
+LLM
+The cache system works 
+great, but we're seeing high 
+memory usage in 
+production. Can we modify 
+it to implement an LRU 
+eviction policy?
+Can you help me implement a 
+custom cache system for my 
+web application? I need it to 
+handle both memory and disk 
+storage. 
+Note
+LLM
+Note Construction
+…
+…
+…
+…
+Box1 Boxi
+Link Generation
+Conversation 1 Conversation 2
+Note
+……
+……
+ ……
+Memory
+Boxj Boxn
+Retrieve
+mj
+Top-k
+……
+Boxn+1
+……
+Boxn+2
+Store
+Memory Evolution
+……
+Boxn+1
+……
+Boxn+2
+Action
+Evolve
+LLM
+Memory Retrieval
+Query
+Text
+Model
+Retrieve
+……
+Top-k
+1st
+LLM Agents
+Note Attributes:
+Timestamp
+Content
+Context
+Keywords
+Tags
+Embedding
+Query 
+Embedding
+Relative 
+Memory
+Figure 2:Our A-MEMarchitecture comprises three integral parts in memory storage. During note construction,
+the system processes new interaction memories and stores them as notes with multiple attributes. The link
+generation process first retrieves the most relevant historical memories and then employs an LLM to determine
+whether connections should be established between them. The concept of a ’box’ describes that related memories
+become interconnected through their similar contextual descriptions, analogous to the Zettelkasten method.
+However, our approach allows individual memories to exist simultaneously within multiple different boxes.
+During the memory retrieval stage, we extract query embeddings using a text encoding model and search the
+memory database for relevant matches. When related memory is retrieved, similar memories that are linked
+within the same box are also automatically accessed.
+patterns, particularly in memory writing and retrieval processes. Such inflexibility leads to poor
+generalization in new environments and limited effectiveness in long-term interactions. Therefore, de-
+signing a flexible and universal memory system that supports agents’ long-term interactions remains
+a crucial challenge.
+2.2 Retrieval-Augmented Generation
+Retrieval-Augmented Generation (RAG) has emerged as a powerful approach to enhance LLMs
+by incorporating external knowledge sources [ 18, 6, 10]. The standard RAG [ 37, 34] process
+involves indexing documents into chunks, retrieving relevant chunks based on semantic similarity, and
+augmenting the LLM’s prompt with this retrieved context for generation. Advanced RAG systems [20,
+12] have evolved to include sophisticated pre-retrieval and post-retrieval optimizations. Building
+upon these foundations, recent researches has introduced agentic RAG systems that demonstrate
+more autonomous and adaptive behaviors in the retrieval process. These systems can dynamically
+determine when and what to retrieve [4, 14], generate hypothetical responses to guide retrieval, and
+iteratively refine their search strategies based on intermediate results [31, 29].
+However, while agentic RAG approaches demonstrate agency in the retrieval phase by autonomously
+deciding when and what to retrieve [ 4, 14, 38], our agentic memory system exhibits agency at a
+more fundamental level through the autonomous evolution of its memory structure. Inspired by
+the Zettelkasten method, our system allows memories to actively generate their own contextual
+descriptions, form meaningful connections with related memories, and evolve both their content and
+relationships as new experiences emerge. This fundamental distinction in agency between retrieval
+versus storage and evolution distinguishes our approach from agentic RAG systems, which maintain
+static knowledge bases despite their sophisticated retrieval mechanisms.
+3 Methodolodgy
+Our proposed agentic memory system draws inspiration from the Zettelkasten method, implementing
+a dynamic and self-evolving memory system that enables LLM agents to maintain long-term memory
+without predetermined operations. The system’s design emphasizes atomic note-taking, flexible
+linking mechanisms, and continuous evolution of knowledge structures.
+3

@@ -1,0 +1,158 @@
+CAMEL: Communicative Agents for “Mind”
+Exploration of Large Language Model Society
+https://www.camel-ai.org
+Guohao Li∗ Hasan Abed Al Kader Hammoud* Hani Itani* Dmitrii Khizbullin
+Bernard Ghanem
+King Abdullah University of Science and Technology (KAUST)
+Abstract
+The rapid advancement of chat-based language models has led to remarkable
+progress in complex task-solving. However, their success heavily relies on human
+input to guide the conversation, which can be challenging and time-consuming.
+This paper explores the potential of building scalable techniques to facilitate au-
+tonomous cooperation among communicative agents, and provides insight into
+their “cognitive” processes. To address the challenges of achieving autonomous
+cooperation, we propose a novel communicative agent framework named role-
+playing . Our approach involves using inception prompting to guide chat agents
+toward task completion while maintaining consistency with human intentions. We
+showcase how role-playing can be used to generate conversational data for studying
+the behaviors and capabilities of a society of agents, providing a valuable resource
+for investigating conversational language models. In particular, we conduct com-
+prehensive studies on instruction-following cooperation in multi-agent settings.
+Our contributions include introducing a novel communicative agent framework,
+offering a scalable approach for studying the cooperative behaviors and capabili-
+ties of multi-agent systems, and open-sourcing our library to support research on
+communicative agents and beyond: https://github.com/camel-ai/camel.
+1 Introduction
+“What magical trick makes us intelligent? The trick is that there is no trick. The power of intelligence
+stems from our vast diversity, not from any single, perfect principle. ”
+- Marvin Minsky, The Society of Mind, p. 308
+Confronted with the complexities of real-world tasks, solving them often requires multiple steps.
+The rapid progress of chat-based large-scale language models (LLMs) has yielded remarkable
+achievements in complex task-solving [82, 84, 116, 89, 5, 10, 122, 13]. Nevertheless, it is worth
+noting that their success is heavily reliant on human input to guide the conversation in the right
+direction. This reliance necessitates users to provide relevant and precise prompts based on their
+intentions and the chat agent’s feedback. This can be challenging, time-consuming, and sometimes
+impossible. Crafting effective prompts often demands a deep understanding and expertise of a
+particular domain of knowledge. Consider an individual who lacks trading expertise; they would find
+it difficult to create suitable prompts for directing a chat agent to develop a trading application. This
+predicament is raising a crucial question: can we replace human intervention with an autonomous
+communicative agent capable of steering the conversation toward task completion with minimal
+human supervision? To tackle this issue, it is crucial to conduct more research exploring the potential,
+∗Equal contribution
+37th Conference on Neural Information Processing Systems (NeurIPS 2023).
+arXiv:2303.17760v2  [cs.AI]  2 Nov 2023
+
+capabilities, and limitations of communicative agents that operate entirely on their own to complete
+tasks. Understanding how multiple agents interact with each other is important for anticipating the
+future of artificial intelligence. The dynamics of collaborating or competing agents play a key role in
+determining the success of AI systems [6, 26, 27, 84, 99, 9, 10].
+This paper explores the potential of building scalable techniques to facilitate autonomous cooperation
+among communicative agents and provide insight into their “cognitive” processes. Several challenges
+arise when asking a society of agents to autonomously cooperate on completing tasks. Examples we
+encountered in our preliminary analysis include role flipping, assistant repeating instructions, flake
+replies, and infinite loop of messages. Therefore, it is critical to investigate ways to align these models
+with human intentions and to explore means enabling their effective cooperation. To address these
+issues, we propose a novel cooperative agent framework named role-playing to automate cooperation
+between communicative agents. Specifically, our proposed approach involves using role-playing with
+inception prompting to autonomously guide the communicative agents toward task completion. Only
+a preliminary idea is needed from human to guide the conversations toward complex task-solving.
+Our library, which we make publicly available, provides modular functionality, and includes imple-
+mentations of different agents, examples of well-crafted prompts, and data explorers. We hope our
+library serves as a ground for future research in various areas such as multi-agent systems, cooperative
+AI, game theory simulations, social analysis, AI ethics, AI alignment, and beyond.
+In addition, our role-playing method provides a highly scalable way to generate conversational
+data for studying the behaviors and capabilities of chat agents. We showcase how role-playing
+can be used to let chat agents communicate with each other for task completion and record their
+conversations for behavior analysis and capability understanding. In particular, we consider two
+cooperative scenarios of role-playing and generate two large conversational, task-oriented, and
+instruction-following datasets: AI Society and Code. We also use our framework to collect two single-
+turn question-answer datasets, Math and Science, for LLM ability emergence study. Furthermore,
+we generate a Misalignment dataset that is a simulation of possible malicious applications which
+demonstrate the potential risks of an unaligned autonomous agent system. The datasets offer a
+valuable resource for investigating conversational language models, enabling them to comprehend
+and react to human language more effectively. Furthermore, our role-playing offers a scalable
+method of creating conversational instruction-following data, which can potentially enhance the
+development of more advanced language models. We show that solutions derived from our role-
+playing framework outperform those generated in a single shot by gpt-3.5-turbo [82] in both
+GPT4 and human evaluations. We also study knowledge emergence in LLMs by fine-tuning LLaMA
+[117] on progressively growing datasets generated through our framework. Additionally, we evaluate
+our code generation capabilities through benchmarking our final model on HumanEval [ 18] and
+HumanEval+ [69].
+Contributions. Our contributions are fourfold: (1) We introduce a novel cooperative agent framework,
+role-playing , that allows communicative agents to collaborate autonomously toward completing
+tasks while requiring minimal human intervention; (2) Our framework offers a scalable approach
+for studying the cooperative behaviors and capabilities of multi-agent systems. It illuminates the
+challenges of achieving autonomous cooperation, and provides strategies for addressing them. We
+showcase the potential power of multi-agent collaboration for complex-task solving; (3) We demon-
+strate the significant emergence of LLM training abilities by utilizing the datasets we have collected
+from simulating four distinct agent collaboration scenarios; (4) We have open-sourced our library,
+containing implementations of various agents, data generation pipelines, data analysis tools, and
+collected datasets, to support research on communicative agents and beyond.
+2 Related Work
+Communicative Agents. Communication between agents has been studied for a long time [ 76,
+77]. There are many ways to facilitate communication between agents, and with agents [ 29, 90,
+97]. Among these, natural language is considered the most natural form of communication [ 97].
+By enabling agents to function as communicators themselves, they become capable of solving
+complex tasks [113, 85, 72, 3, 30, 111, 79, 41, 28, 102, 80, 106, 35, 49, 2, 51, 1, 55, 50, 65, 92].
+Communication between AI agents can occur in a competitive setting [115, 108] or a cooperative
+setting [40, 27, 11, 137, 70]. Cooperative AI refers to artificial intelligence systems that are designed
+to work together with humans and other AI systems to achieve common goals [24, 125]. Cooperative
+AI systems take into account the needs and capabilities of other agents in the system and actively seek
+to collaborate and coordinate their actions with them, which has many potential benefits, including
+2
+
+increased efficiency, improved decision-making, and the ability to tackle complex problems that are
+beyond the reach of any single agent. However, designing effective cooperative AI systems is still an
+active area of research, as it requires addressing a range of technical, ethical, and social challenges
+[27]. Our work enables communicative agents to engage in a conversation and cooperate with each
+other to solve assigned tasks. The agents, each assigned a distinct role, are expected to apply their
+expertise and knowledge to solve their common task.
+Instructional LLMs and Prompt Engineering. LLMs are trained on diverse text data and excel
+in text completion, with various downstream NLP applications [ 12, 22, 47, 131, 117]. However,
+InstructGPT suggests that LLMs may not align with user intent, proposing reinforcement learning
+from human feedback (RLHF) [ 23] and Instruction Fine-Tuning (IFT) [ 121] to improve LLMs’
+relevance and appropriateness to user instructions. Special types of instruction or prompting methods
+, such as Chain-of-Thought (CoT) [123], zero-shot-CoT [61], and ReAct [126], have recently been
+developed to enhance the performance of LLMs on reasoning, arithmetic and decision making
+tasks [134, 118, 52, 73, 31, 103, 43, 64, 132, 46, 133, 105, 128, 25, 81, 109]. These techniques
+underpin the impressive capabilities of recent dialogue LLMs [ 106, 116, 36, 9, 82, 13], which
+aim to simulate human-like conversations and provide personalized and interactive experiences for
+users, exhibiting the behavior of conversational AI agents [ 33]. However, generating instruction
+datasets is a crucial challenge in building instruct-based LLMs, with existing datasets ranging
+from crowdsourced to generated. Hand-crafted instruction instances are available in [ 120], while
+leveraging previously crowdsourced NLP datasets is a less labor-intensive curation approach [121,
+71, 78, 53]. LLMs have been explored for data generation in [ 101, 63, 68, 114], and Self-Instruct
+[119] proposes a semi-automated process for instruction instance generation. Unnatural-Instruction
+[48] collects instruction instances by prompting a language model with only three seed examples and
+paraphrasing the generated instances to expand the dataset. There is also a large chunk of work that has
+proposed methods for automatic dataset creation [67, 57, 19, 75, 20, 98, 59, 96, 129, 62, 130, 86, 8].
+Another important challenge is prompt engineering. The quality of the prompt used to guide LLMs
+significantly affects its performance [91, 12, 66]. While LMs pre-trained on large data can implicitly
+learn tasks with few-shot prompting, hand-crafted prompts may not always suffice. Automated
+prompt generation methods have been proposed, such as gradient-guided search [104], mining-based
+and paraphrasing-based techniques [54], a meta-prompt [93], and automatic instruction selection and
+generation [136]. In this work, we introduce a conversational LLM auto-prompting method called
+Inception Prompting, which enables agents to prompt each other to solve tasks through Role-Playing.
+The AI user continuously provides instructions to the AI assistant for task-solving. This enables us to
+save the streaming instruction-solution pairs and create diverse, instructional, conversational, and
+task-oriented datasets. These datasets can be used to analyze the behavior and capabilities of LLMs
+and for future research for fine-tuning LLMs with conversational instructions.
+AI Alignment. AI alignment is a field that aims to ensure that AI systems adhere to their intended
+goals, interests, and values, as envisioned by their designers [4, 39, 110, 32, 38, 74, 10]. The first
+attempt at AI alignment was made through the "Three Laws of Robotics," which was introduced
+by Isaac Asimov in his science fiction stories [ 6]. Developing aligned AI systems is crucial for
+achieving desired objectives while avoiding unintended consequences. Research in AI alignment
+focuses on discouraging AI models from producing false, offensive, deceptive, or manipulative
+information that could result in various harms [56, 112, 42, 37]. Achieving a high level of alignment
+requires researchers to grapple with complex ethical, philosophical, and technical issues. We conduct
+extensive experiments to study different role-playing situations, which probe the alignment of LLMs.
+3 Methodology
+In this paper, we focus on studying communicative agents under cooperative settings where they
+share common interests. In particular, we study the assistant-user scenario, where a preliminary
+idea is given at the start. Agents will conceptualize the idea into a specific task and complete it
+autonomously through conversations.
+3.1 Role-playing Framework
+“What’s the most resilient parasite? An Idea. A single idea from the human mind can build cities. An
+idea can transform the world and rewrite all the rules. Which is why I have to steal it. ”
+- Dom Cobb, Inception
+3

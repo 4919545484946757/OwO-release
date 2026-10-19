@@ -1,0 +1,204 @@
+Published as a conference paper at ICLR 2025
+OPEN HANDS : A N OPEN PLATFORM FOR
+AI S OFTWARE DEVELOPERS AS GENERALIST AGENTS
+Xingyao Wang1,10, Boxuan Li2, Yufan Song2, Frank F. Xu2, Xiangru Tang3,
+Mingchen Zhuge6, Jiayi Pan4, Yueqi Song2, Bowen Li, Jaskirat Singh7,
+Hoang H. Tran8, Fuqiang Li, Ren Ma, Mingzhang Zheng, Bill Qian3, Yanjun Shao3,
+Niklas Muennighoff 5, Yizhe Zhang, Binyuan Hui9, Junyang Lin9,
+Robert Brennan10, Hao Peng1, Heng Ji1, Graham Neubig2,10
+1UIUC 2CMU 3Yale 4UC Berkeley 5Contextual AI 6KAUST 7ANU
+8HCMUT 9Alibaba 10All Hands AI
+xingyao6@illinois.edu, gneubig@cs.cmu.edu
+ABSTRACT
+Software is one of the most powerful tools that we humans have at our disposal;
+it allows a skilled programmer to interact with the world in complex and pro-
+found ways. At the same time, thanks to improvements in large language models
+(LLMs), there has also been a rapid development in AI agents that interact with
+and affect change in their surrounding environments. In this paper, we introduce
+OpenHands (f.k.a. OpenDevin), a platform for the development of powerful and
+flexible AI agents that interact with the world in similar ways to those of a human
+developer: by writing code, interacting with a command line, and browsing the
+web. We describe how the platform allows for the implementation of new agents,
+safe interaction with sandboxed environments for code execution, coordination
+between multiple agents, and incorporation of evaluation benchmarks. Based on
+our currently incorporated benchmarks, we perform an evaluation of agents over
+15 challenging tasks, including software engineering (e.g., SWE-BENCH ) and web
+browsing (e.g., WEBARENA ), among others. Released under the permissive MIT
+license, OpenHands is a community project spanning academia and industry with
+more than 2.1K contributions from over 188 contributors.
+Code https://github.com/All-Hands-AI/OpenHands
+Slack http://bit.ly/OpenHands-Slack
+1 I NTRODUCTION
+Powered by large language models (LLMs; OpenAI 2024b; Team et al. 2023; Jiang et al. 2024;
+Chang et al. 2024), user-facing AI systems (such as ChatGPT) have become increasingly capable
+of performing complex tasks such as accurately responding to user queries, solving math problems,
+and generating code. In particular, AI agents, systems that can perceive and act upon the external
+environment, have recently received ever-increasing research focus. They are moving towards
+performing complex tasks such as developing software (Jimenez et al., 2024), navigating real-world
+websites (Zhou et al., 2023a), doing household chores (Ahn et al., 2022), or even performing scientific
+research (Boiko et al., 2023; Tang et al., 2024a).
+As AI agents become capable of tackling complex problems, their development and evaluation have
+also become challenging. There are numerous recent efforts in creating open-source frameworks that
+facilitate the development of agents (Hong et al., 2023; Chen et al., 2024; Wu et al., 2023). These
+agent frameworks generally include: 1) interfaces through which agents interact with the world
+(such as JSON-based function calls or code execution), 2) environments in which agents operate,
+and 3) interaction mechanisms for human-agent or agent-agent communication. These frameworks
+streamline and ease the development process in various ways (Tab. 1, §C).
+When designing AI agents, we can also consider how human interacts with the world. The most
+powerful way in which humans currently interact with the world is through software – software
+1
+arXiv:2407.16741v3  [cs.SE]  18 Apr 2025
+
+Published as a conference paper at ICLR 2025
+Figure 1: OpenHands User Interface (UI, §D) allows users to view files, check executed bash
+commands/Python code, observe the agent’s browser activity, and directly interact with the agent.
+powers every aspect of our life, supporting everything from the logistics for basic needs to the
+advancement of science, technology, and AI itself. Given the power of software, as well as the
+existing tooling around its efficient development, use, and deployment, it provides the ideal interface
+for AI agents to interact with the world in complex ways. However, building agents that can effectively
+develop software comes with its own unique challenges. How can we enable agents to effectively
+create and modify code in complex software systems? How can we provide them with tools to gather
+information on-the-fly to debug problems or gather task-requisite information? How can we ensure
+that development is safe and avoids negative side effects on the users’ systems?
+In this paper, we introduce OpenHands (f.k.a. OpenDevin), a community-driven platform designed for
+the development of generalist and specialist AI agents that interact with the world through software.1
+It features:
+(1) An interaction mechanism which allows user interfaces, agents, and environments to interact
+through an event stream architecture that is powerful and flexible (§2.1).
+(2) A runtime environment that consists of a docker-sandboxed operating system with a bash shell,
+a web browser, and IPython server that the agents can interact with (§2.2).
+(3) An interface allowing the agent to interact with the environment in a manner similar to actual
+software engineers (§2.3). We provide the capability for agents to a) create and edit complex
+software, b) execute arbitrary code in the sandbox, and c) browse websites to collect information.
+(4) Multi-agent delegation, allowing multiple specialized agents to work together (§2.4).
+(5) Evaluation framework, facilitating the evaluation of agents across a wide range of tasks (§4).
+Importantly, OpenHands is not just a conceptual framework, but it also includes a comprehensive
+and immediately usable implementation of agents, environments, and evaluations. As of this writing,
+OpenHands includes an agent hub with over 10 implemented agents (§3), including a strong generalist
+agent implemented based on the CodeAct architecture (Wang et al., 2024a), with additions for web
+browsing (ServiceNow) and code editing specialists (Yang et al., 2024). Interaction with users is
+implemented through a chat-based user interface that visualizes the agent’s current actions and allows
+1While initially inspired by AI software engineer Devin (Cognition.ai), OpenHands has quickly evolved to
+support much wider range of applications beyond software engineering through diverse community contributions.
+2
+
+Published as a conference paper at ICLR 2025
+Agent
+produce new action
+[1] Message (source=user)
+Can you create a list of numbers from 1 to 10, and 
+create a web page to display them at port 5000?
+[2] IPythonRunCellAction (source=agent)
+Sure! Let me create a file first:
+<execute_ipython>
+
+</execute_ipython>
+Event History
+[Past Action(s) & Observation(s)]
+[3] IPythonRunCellObservation
+[File: /workspace/app.py (1 lines total)]
+1|
+[File app.py created.]
+[4] IPythonRunCellAction (source=agent)
+I  will write the P ython code for starting a ser v er .
+<execute_ipython>
+
+</execute_ipython>
+Ac tion
+EDITED_CODE=\ "\"\"[Omitted for Brevity]\"\"\"
+edit_file(start= 1, end= 1, content=EDITED_CODE)
+create_file( 'app.py' )
+[ 5 ] IPythonRunCellObservation
+[... Omitted for Brevity ...]
+4|@app.route('/')
+5|def index():
+6|    numbers = list(range(1, 11))
+7|    return str(numbers)
+[... Omitted for Brevity ...] [File updated.]
+[ 6 ] C md RunAction (source=agent)
+I  ha v e created a P ython file ` app . py `  that will 
+display a list of numbers from 1 to 10 when you run 
+it .  Let me run the ser v er for you:
+<execute_bash>
+python3 app.py > server.log 2>&1 &
+cat server.log
+</execute_bash>
+[7] CmdRun Observation
+[1] 1 24
+*  S erving Flas k  app 'app '
+ *  D ebug mode :  of f
+WARNING:  T his is a development server. D o not 
+use it in a production deployment. U se a 
+production WSGI  server instead .
+ *  R unning on http : //1 2 7. 0 . 0 .1 : 5 000
+P ress CTRL+C  to q uit
+[ 8 ] Br o ws eInte ra cti v eAction (source=agent)
+T he ser v er is running on port 5000 with PI D  1 24 .  Let 
+me browse to the page at http :// 1 27 . 0 . 0 . 1 : 500 0
+<execute_browse>
+goto("http://127.0.0.1:5000")
+</execute_browse>
+ [ 9 ] BrowserO u tp u tObservation
+ [1, 2 , 3 , 4, 5, 6, 7, 8 , 9 , 1 0 ]
+D oc k er Sa nd b o x
+I nte rac t iv e Py t ho n 
+(IPy t ho n )  S e rv e r
+Bash  Sh e ll
+Brows e r
+Playwright Chromium
+Ob serv a tion
+w h ere e a c h  Action  e x ecu ti on 
+l e a d s  t o a n Observation
+E v ent S t r e a m:  List[Action_1, 
+Observation_1, Action_2, ...]
+Agent :  Event History -> Action
+Ru nt i m e :  Action -> Observation
+A b s t rac t io n
+where all Action-Observation(s) are tracked
+E v ent S t r e a m Agent Ru nt i m eU s e r  I nte r f ac e
+C o mm a nd L i ne
+W e b  UI
+I D E  P l u g i n s
+[...]
+Mu l t i - t u r n  
+U s e r - Agen t
+I nte rac t io n
+O pen H a nd s -m ai n tai ne d
+Action Execution API
+Ac tion
+O pen H a nd s  a u t o m ati c all y  i n stall  
+“action execution API”  i n t o u s er -
+pro v i ded a r bit r a r y  doc k er i m a g e s
+Figure 2: OpenHands consists of 3 main components: 1) Agent abstraction where community can
+contribute different implementation of agents (§2.1) into agenthub (§3); 2) Event stream for tracking
+history of actions and observations; 3) Runtime to execute all actions into observations (§2.2).
+for real-time feedback (Fig. 1, §D). Furthermore, the evaluation framework currently supports 15
+benchmarks, which we use to evaluate our agents (§4).
+Released under a permissive MIT license allowing commercial use, OpenHands is poised to support
+a diverse array of research and real-world applications across academia and industry. OpenHands
+has gained significant traction, with 32K GitHub stars and more than 2.1K contributions from over
+188 contributors. We envision OpenHands as a catalyst for future research innovations and diverse
+applications driven by a broad community of practitioners.
+2 O PEN HANDS ARCHITECTURE
+We next describe using OpenHands in detail. In particular, we discuss 1) how to define and implement
+an agent (§2.1), 2) how each action execution leads to an observation (§2.2), 3) how to reliably
+manage and extend commonly used skills for agents (§2.3), and 4) how to compose multiple agents
+together for task solving (§2.4). Fig. 2 provides an overview.
+2.1 A GENT DEFINITION AND IMPLEMENTATION
+An agent can perceive the state of the environment (e.g., prior actions and observations) and produce
+an action for execution while solving a user-specified task.
+The State and Event Stream. In OpenHands, the state is a data structure that encapsulates all
+relevant information for the agent’s execution. A key component of this state is the event stream,
+which is a chronological collection of past actions and observations, including the agent’s own
+actions and user interactions (e.g., instructions, feedback). In addition to the event stream, the state
+incorporates auxiliary information for agent’s operation, such as the accumulative cost of LLM calls,
+metadata to track multi-agent delegation (§2.4), and other execution-related parameters.
+Actions. Inspired by CodeAct (Wang et al., 2024a), OpenHands connects an agent with
+the environment through a core set of general actions. Actions IPythonRunCellAction
+and CmdRunAction enable the agent to execute arbitrary Python code and bash com-
+mands inside the sandbox environment ( e.g., a securely isolated Linux operating system).
+BrowserInteractiveAction enables interaction with a web browser with a domain-specific
+language for browsing introduced by BrowserGym (Drouin et al., 2024). These actions were chosen
+to provide a comprehensive yet flexible set of primitives covering most tasks performed by human
+software engineers and analysts. The action space based on programming languages (PL) is powerful
+3

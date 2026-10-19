@@ -1,0 +1,156 @@
+Preprint, May 2026
+Multi-agent Collaboration with State Management
+Mengyang Liu1,2, Taozhi Chen3, Zhenhua Xu4, Xue Jiang4, Yihong Dong4
+1 Shanghai Jiaotong University 2 Cortices AI 3 Emory University
+4 Peking University
+{mengyangliu912, chentaozhi313, EthanDongyh}@gmail.com
+Abstract
+Recent advances in multi-agent systems have shown great potential for solving
+complex tasks. However, when multiple agents edit a shared codebase concur-
+rently, their changes can silently conflict and inconsistent views lead to integration
+failures. Existing multi-agent systems address this through workspace isolation
+(e.g., one git worktree per agent), but this defers conflict resolution to a post-hoc
+merge step where recovery is expensive. In this paper, we propose STORM, i.e.,
+STate-ORiented Management for multi-agent collaboration. Specifically, STORM
+manages agent states by mediating their interactions with the shared workspace,
+ensuring that each agent operates on a consistent view of the codebase and that
+conflicting edits are detected and resolved at write time. We evaluate STORM
+on Commit0 and PaperBench across multiple LLMs. STORM outperforms the
+git-worktree-based multi-agent baseline by +18.7 on Commit0-Lite and +1.4 on
+PaperBench, while achieving comparable or better cost efficiency. Combined with
+single-agent runs, STORM reaches highest scores of 87.6 and 78.2 on the two
+benchmarks respectively, suggesting that explicit state management is a more ef-
+fective foundation for multi-agent collaboration than workspace isolation. STORM
+can also be plugged into any multi-agent system seamlessly.1.
+1 Introduction
+Multiple LLM agents working in parallel can solve tasks that are too large for any single agent to
+finish within its iteration budget (Dong et al., 2024; Qian et al., 2024; Hong et al., 2024; Geng and
+Neubig, 2026; Qu et al., 2026). In software engineering, agents can implement different modules
+concurrently; in scientific research, they parallelize experimental setups. But running agents in
+parallel on a shared workspace raises a question: when one agent edits a file, how do we know that
+its assumptions about the rest of the codebase are still valid?
+We treat this as a state management problem. An agent interacts with its workspace through file reads
+and writes. When it modifies a file, its reasoning depends not just on that file but on context from
+other files it has read (dependencies, interfaces, specifications). The edit is only safe when those
+context files have not changed since the agent last read them. This is a local consistency requirement:
+the agent does not need a frozen snapshot of the entire workspace, just assurance that the specific
+files informing its current edit are up to date.
+Existing multi-agent systems mostly avoid this problem by giving each agent its own workspace (e.g.,
+a git worktree) and merging afterward (Geng and Neubig, 2026; Qu et al., 2026; Qin and Xu, 2026).
+Isolation prevents interference during editing but pushes all conflict resolution to the merge step, after
+agents have already committed to potentially incompatible designs. Textual merge conflicts are easy
+to spot; semantic conflicts, where both sides compile individually but break when combined, are
+harder, and current tooling cannot resolve them automatically.
+In this paper, we propose STORM (STate-ORiented Management), a state management framework
+for multi-agent collaboration. STORM mediates each agent’s file reads and writes. Before accepting
+a write, it checks whether the agent’s view of the target file and its context dependencies is still
+1Our code is available athttps://github.com/dreamyang-liu/STORM
+1
+arXiv:2605.20563v1  [cs.MA]  19 May 2026
+
+Preprint, May 2026
+current. If another agent has modified any of those files in the interim, the write is rejected and the
+agent receives the updated content so it can retry from a correct baseline.
+Our main contributions can be attributed as:
+1. A formulation of multi-agent state management as file-level context consistency: an agent’s
+write is valid only if the target file and its read dependencies have not been modified since
+the agent last observed them.
+2. STORM, an architecture-agnostic state management framework for multi-agent collabora-
+tion that enforces local state consistency at write time, detecting conflicts immediately and
+enabling agents to retry from a correct baseline without workspace isolation.
+3. Empirical validation on Commit0-Lite(Zhao et al., 2025) and PaperBench(Starace et al.,
+2025) with Sonnet 4.6. On Commit0-Lite, STORM achieves 82.5% macro pass rate and
+46.2% weighted pass rate, outperforming single-agent (66.4% / 20.7%) and GitWorktree
+(63.8% / 24.6%) and we observe similar gain on Deepseek and Qwen model. On PaperBench,
+STORM scores 74.1 vs. 72.7 (GitWorktree) and 68.7 (single-agent).
+2 STORM
+Mainstream multi-agent systems give each agent its own git worktree (Geng and Neubig, 2026; Qu
+et al., 2026; Qin and Xu, 2026) so that agents cannot interfere with each other while working. The
+cost is paid later: once agents finish their individual task, their branches must be merged back together.
+If two agents edit the same file, or made incompatible design choices about a shared interface, the
+merge fails. Worse, because each agent worked in isolation without seeing what others were doing,
+these conflicts tend to compound. Agent A writes a helper assuming a certain signature; Agent B
+changes that signature in its own branch; code that depends on both is now broken in a way that
+neither branch exhibits alone.
+We avoid this by putting all agents in the same workspace. The key insight is that an agent does
+not need a globally consistent view of the entire repository to produce a correct edit. It only needs
+the files it has actually read to remain unchanged while it reasons. We call this propertylocal state
+consistencyand formalize it in Section 2.1. In practice, even with disjoint task assignments, agents
+sometimes need to edit the same file (e.g., two agents each implementing different functions in a
+shared module). Most of their edits do not interact, but at the boundaries where they do, agents need
+a way to exchange information. STORM addresses this with two mechanisms:write-time conflict
+control(Section 2.2), which rejects a write whenever the agent’s local view has gone stale and lets it
+retry with fresh context, andintent annotations(Section 2.3), structured comments that agents leave
+in the code so that when another agent reads the same file, it can see not just the raw code but the
+intent behind it, enabling coordination at these shared boundaries without explicit messaging.
+2.1 Local State Consistency
+An LLM agent does not need a frozen snapshot of the entire workspace to produce a correct edit. It
+only needs the files it has actually read to remain unchanged while it reasons. We formalize this as
+local state consistency.
+Workspace and agents.Let the workspace be a set of versioned files W={(f,v f )|f∈F} ,
+wherevf∈N is the current version of filef. A manager agentM decomposes a taskT into sub-tasks
+{τ1,...,τ k}and assigns each to an engineer agenta i together with aprimary file setF i⊆F:
+M:T−→ {(τ i,F i,a i)}k
+i=1,whereF i∩F j =∅fori̸=j.(1)
+The disjoint assignment reduces but does not eliminate conflicts: agents may still read or edit files
+outside their primary set (e.g., a shared utility or a common import).
+Agent local state.As agent ai works onτi, it accumulates aread snapshot Si recording every file
+it has observed and the version at observation time:
+Si ={(g,v obs
+g )|a i has readg}.(2)
+2
+
+Preprint, May 2026
+Whenai issues a write to filef producing new contentc′, its generation depends only onSi, the local
+context the LLM has seen, not on the full workspace state. This is the key asymmetry we exploit:
+correctness requires consistency ofS i, not ofW.
+In practice, each task τi requires accessing (reading or modifying) a set of files Ai⊆F that may
+extend beyond the assignedFi. When two agents’ access sets overlap (Ai∩A j̸=∅ ), the shared files
+form a boundary where conflicts may arise. STORM only needs to coordinate at these boundaries,
+leaving the non-overlapping majority of work fully parallel.
+Write validity.A write (ai,f,c ′) isvalidif and only if the agent’s local state is still consistent with
+the current workspace:
+∀(g,v obs
+g )∈S i :v obs
+g =v cur
+g .(3)
+That is, no file that ai has read has been modified since its observation. A valid write is applied
+atomically:v f←v f + 1and the content offis updated toc ′.
+Conflict.A write isconflictingwhen Eq. 3 is violated. Two cases arise:
+• Direct conflict: the target file itself was updated (vobs
+f <v cur
+f ), meaning another agent wrote
+tofconcurrently.
+• Stale dependency: a dependency file g̸=f was updated (vobs
+g < vcur
+g ), meaning ai’s
+reasoning may rest on outdated context.
+In both cases, STORM rejects the write and returns the current state, enablingai to refreshSi and
+retry from a correct baseline. Section 2.2 details the mechanism.
+Figure 1 shows the architecture. A single manager agent reads the repository, partitions work into
+sub-tasks scoped to disjoint file sets, assigns each to an engineer, reviews diffs after engineers
+finish, runs tests, and commits accepted changes. Only the manager commits. Each engineer
+receives a scoped task (e.g., “implement all functions in tensor_ops.py”) and accesses the
+workspace only through the STORM-mediated file_editor. Engineers do not communicate
+directly; coordination happens through the shared codebase and intent annotations (Section 2.3).
+2.2 Write-time Conflict Control
+STORM enforces the validity condition in Eq. 3 via a mechanism inspired by optimistic concurrency
+control (Kung and Robinson, 1981). The key observation is that in a well-decomposed task, most
+concurrent edits touch different files; the system lets all operations proceed without blocking and
+only intervenes when a conflict actually occurs.
+Implementation.Each file maintains a monotonically increasing version counter ( vf , starting at
+1). Every file_editor read returns the content together with vf ; every write must declare the
+expected version. The STORM layer validates the write against Eq. 3 by comparing the agent’s full
+read snapshotSi to the current workspace state. If validation passes, the write is applied atomically
+(vf←v f + 1). If it fails, the write is rejected.
+Rejection payload.On rejection, STORM returns: (1) the current content of the target file, (2) a
+unified diff showing what changed since the agent’s last read (for direct conflicts), and (3) a list of
+stale dependencies with their version deltas. This gives the LLM enough context to re-plan from the
+current baseline without needing to re-read every file.
+Reservation.After a rejection, a short reservation is granted to the rejected agent on the target file.
+This prevents repeated alternating conflicts where two agents each invalidate the other in a tight loop.
+2.3 Intent annotations
+Version tracking catches file-level conflicts but not semantic ones. Two agents might implement
+the same helper with different signatures, or make incompatible assumptions about a shared data
+structure. To reduce this, engineers annotate their code with structured intent comments:
+3

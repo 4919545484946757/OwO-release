@@ -1,0 +1,160 @@
+[
+  {
+    "path": "metagpt/ext/stanford_town/memory/agent_memory.py",
+    "sha256": "d0ccb066bfa032934e7da591f5ebb2fc51114f6a2ffbd5e91e54ac42f8f6bd5f",
+    "bytes": 14136,
+    "symbols": [
+      "class BasicMemory(Message):",
+      "def check_values(cls, values):",
+      "def transform_time_field(self, time_field: Optional[datetime]) -> str:",
+      "def summary(self):",
+      "def save_to_dict(self) -> dict:",
+      "class AgentMemory(Memory):",
+      "def set_mem_path(self, memory_saved: Path):",
+      "def save(self, memory_saved: Path):",
+      "def load(self, memory_saved: Path):",
+      "def add(self, memory_basic: BasicMemory):",
+      "def add_chat(",
+      "def add_thought(self, created, expiration, s, p, o, content, keywords, poignancy, embedding_pair, filling):"
+    ]
+  },
+  {
+    "path": "metagpt/environment/minecraft/mineflayer/mineflayer-collectblock/src/TaskQueue.ts",
+    "sha256": "d4b428f924c7f5c07f7c6a13fee72c15f65e6b682ad1cf5d3f3dae0283851498",
+    "bytes": 1659,
+    "symbols": [
+      "export class TaskQueue {"
+    ]
+  },
+  {
+    "path": "metagpt/memory/memory.py",
+    "sha256": "a49c5cf8369e43ef2ac5addefd7e02a5f68e8a90030ed73439b95aff96dbf7ff",
+    "bytes": 4192,
+    "symbols": [
+      "class Memory(BaseModel):",
+      "def add(self, message: Message):",
+      "def add_batch(self, messages: Iterable[Message]):",
+      "def get_by_role(self, role: str) -> list[Message]:",
+      "def get_by_content(self, content: str) -> list[Message]:",
+      "def delete_newest(self) -> \"Message\":",
+      "def delete(self, message: Message):",
+      "def clear(self):",
+      "def count(self) -> int:",
+      "def try_remember(self, keyword: str) -> list[Message]:",
+      "def get(self, k=0) -> list[Message]:",
+      "def find_news(self, observed: list[Message], k=0) -> list[Message]:"
+    ]
+  },
+  {
+    "path": "metagpt/memory/__init__.py",
+    "sha256": "b8d674f63fc013f95cf86119683b991f1ee8fdfded5f59c4b523ffdb48772169",
+    "bytes": 284,
+    "symbols": []
+  },
+  {
+    "path": "metagpt/prompts/task_type.py",
+    "sha256": "8852e73c43e8583bd50992d3ea0280a8881462dc779ed9454b7a919bad90748f",
+    "bytes": 4689,
+    "symbols": []
+  },
+  {
+    "path": "metagpt/strategy/task_type.py",
+    "sha256": "b2c467e6cb842035d042604b1a8c42a2a5fe0cfc1a7d64308e7fd4ade81e33fd",
+    "bytes": 2701,
+    "symbols": [
+      "class TaskTypeDef(BaseModel):",
+      "class TaskType(Enum):",
+      "def type_name(self):",
+      "def get_type(cls, type_name):"
+    ]
+  },
+  {
+    "path": "metagpt/memory/brain_memory.py",
+    "sha256": "a5d7dc4c07907993edf17455ef47102b34a50c6a0df7e40ed966af81382e434c",
+    "bytes": 12482,
+    "symbols": [
+      "class BrainMemory(BaseModel):",
+      "def set_default_config(cls, config):",
+      "class Config:",
+      "def add_talk(self, msg: Message):",
+      "def add_answer(self, msg: Message):",
+      "def get_knowledge(self) -> str:",
+      "async def loads(self, redis_key: str) -> \"BrainMemory\":",
+      "async def dumps(self, redis_key: str, timeout_sec: int = 30 * 60):",
+      "def to_redis_key(prefix: str, user_id: str, chat_id: str):",
+      "async def set_history_summary(self, history_summary, redis_key):",
+      "def add_history(self, msg: Message):",
+      "def exists(self, text) -> bool:"
+    ]
+  },
+  {
+    "path": "metagpt/actions/action_graph.py",
+    "sha256": "3b7f1a1e2b167d9dedf11c0d107604a9777abd4573f9c73bb07f641491a91af3",
+    "bytes": 1324,
+    "symbols": [
+      "class ActionGraph:",
+      "def __init__(self):",
+      "def add_node(self, node):",
+      "def add_edge(self, from_node: \"ActionNode\", to_node: \"ActionNode\"):",
+      "def topological_sort(self):",
+      "def visit(k):"
+    ]
+  },
+  {
+    "path": "metagpt/actions/execute_task.py",
+    "sha256": "14ce488170a913b01a9d579f16d5419b2ad5541a4cb4843c3996d9705ef92909",
+    "bytes": 352,
+    "symbols": [
+      "class ExecuteTask(Action):",
+      "async def run(self, *args, **kwargs):"
+    ]
+  },
+  {
+    "path": "metagpt/memory/memory_storage.py",
+    "sha256": "f1cd15fa6518fcf08f08d37ddaa9aa8dd8e0e45a265500a9eec9a1035abee1c3",
+    "bytes": 2827,
+    "symbols": [
+      "class MemoryStorage(object):",
+      "def __init__(self, mem_ttl: int = MEM_TTL, embedding: BaseEmbedding = None):",
+      "def is_initialized(self) -> bool:",
+      "def recover_memory(self, role_id: str) -> list[Message]:",
+      "def add(self, message: Message) -> bool:",
+      "async def search_similar(self, message: Message, k=4) -> list[Message]:",
+      "def clean(self):",
+      "def persist(self):"
+    ]
+  },
+  {
+    "path": "metagpt/memory/longterm_memory.py",
+    "sha256": "ad7d2e99ed64171752c9bd73d2166c825f60737592cf7554f814efb72f8e6962",
+    "bytes": 2865,
+    "symbols": [
+      "class LongTermMemory(Memory):",
+      "def recover_memory(self, role_id: str, rc: RoleContext):",
+      "def add(self, message: Message):",
+      "async def find_news(self, observed: list[Message], k=0) -> list[Message]:",
+      "def persist(self):",
+      "def delete(self, message: Message):",
+      "def clear(self):"
+    ]
+  },
+  {
+    "path": "metagpt/utils/graph_repository.py",
+    "sha256": "cadb7bb0caed6fde648a69c003fc98fdc6387c932d9d1b1f5238e592271e2249",
+    "bytes": 16261,
+    "symbols": [
+      "class GraphKeyword:",
+      "class SPO(BaseModel):",
+      "class GraphRepository(ABC):",
+      "def __init__(self, name: str, **kwargs):",
+      "async def insert(self, subject: str, predicate: str, object_: str):",
+      "async def select(self, subject: str = None, predicate: str = None, object_: str = None) -> List[SPO]:",
+      "async def delete(self, subject: str = None, predicate: str = None, object_: str = None) -> int:",
+      "async def save(self):",
+      "def name(self) -> str:",
+      "async def update_graph_db_with_file_info(graph_db: \"GraphRepository\", file_info: RepoFileInfo):",
+      "async def update_graph_db_with_class_views(graph_db: \"GraphRepository\", class_views: List[DotClassInfo]):",
+      "class property, class detail, method, composition, and aggregation."
+    ]
+  }
+]

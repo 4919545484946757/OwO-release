@@ -1,0 +1,126 @@
+LLM-Based Agents for Software and Systems Security: Approaches, Applications,
+and Assessment
+JINGJING NIE,University at Buffalo, SUNY, USA
+JIAWEI GUO∗,University at Buffalo, SUNY, USA
+KRISHNA MEDA,University at Buffalo, SUNY, USA
+HAIPENG CAI,University at Buffalo, SUNY, USA
+Software and systems security workflows are typically procedural: analysts inspect heterogeneous artifacts, form hypotheses, invoke
+tools, interpret outputs, and revise plans. Large language model (LLM)-based agents, which can plan, use tools, retain state, and revise
+actions across multi-step workflows, are being rapidly adopted to automate this work. Given the consequences of delegating security
+decisions to autonomous systems, understanding how such agents are built, used, and assessed is crucial. Yet to this date, there remains
+a lack of systematic understanding of what has been done and how far we are in this field: the term “agent” is applied inconsistently,
+applications differ sharply in risk, and assessment protocols are often incomparable. To gain a comprehensive and coherent view of
+this area hence inform relevant future research, this paper provides a systematic literature review of the (1) technical approaches,
+including agent architecture, perception, memory, reasoning and planning, action space, orchestration, and self-improvement, (2)
+applications, with respect to the security tasks served, and (3) assessment, including the datasets, outcome and trajectory metrics,
+safety measures, and baselines considered, over the peer-reviewed literature spanning the emergence of this area (2023–2026). Our
+synthesis reveals a field that has built agents able to act but not yet agents whose authority is bounded or whose behavior is auditable.
+In addition to knowledge systematization, we also extend our insights into the limitations of and challenges faced by current approach,
+application, and assessment designs, which shed light on potentially promising future research directions.
+CCS Concepts:•Security and privacy→Software security engineering.
+Additional Key Words and Phrases: LLM-based agents, agentic AI, software security, systems security, cybersecurity, systematic
+literature review, benchmarks, assessment
+ACM Reference Format:
+Jingjing Nie, Jiawei Guo, Krishna Meda, and Haipeng Cai. 2026. LLM-Based Agents for Software and Systems Security: Approaches,
+Applications, and Assessment. 1, 1 (August 2026), 72 pages. https://doi.org/10.1145/nnnnnnn.nnnnnnn
+1 Introduction
+Software and systems security increasingly depends on reasoning across heterogeneous artifacts: source code,
+binaries, configurations, logs, vulnerability reports, execution traces, network services, tickets, and human-written
+policies. Security work is also intrinsically procedural. Analysts rarely solve a task by producing one answer in isolation;
+∗Equal contribution to the first author.
+Authors’ Contact Information: Jingjing Nie, jnie5@buffalo.edu, University at Buffalo, SUNY, Buffalo, New York, USA; Jiawei Guo, jiaweigu@buffalo.edu,
+University at Buffalo, SUNY, Buffalo, New York, USA; Krishna Meda, krishnamohanmeda@gmail.com, University at Buffalo, SUNY, Buffalo, New York,
+USA; Haipeng Cai, haipengc@buffalo.edu, University at Buffalo, SUNY, Buffalo, New York, USA.
+Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are not
+made or distributed for profit or commercial advantage and that copies bear this notice and the full citation on the first page. Copyrights for components
+of this work owned by others than ACM must be honored. Abstracting with credit is permitted. To copy otherwise, or republish, to post on servers or to
+redistribute to lists, requires prior specific permission and/or a fee. Request permissions from permissions@acm.org.
+©2026 ACM.
+Manuscript submitted to ACM
+Manuscript submitted to ACM 1
+arXiv:2608.28490v1  [cs.CR]  28 Aug 2026
+
+2 Nie et al.
+they inspect evidence, form hypotheses, call tools, interpret outputs, revise plans, and communicate findings. This
+makes security a natural but demanding setting for large language models (LLMs). Modern LLMs can interpret code
+and natural language, but many security tasks require more than text generation. They require systems that can plan,
+use tools, maintain task state, and act over multi-step workflows.
+LLM-based agents provide one response to this need. In the broader AI literature, agentic LLM systems have been
+developed to interleave reasoning and action, invoke external tools, and operate over interactive environments [78, 107].
+In software engineering, benchmarks such as SWE-bench show that realistic tasks often require repository-level context,
+environment interaction, and iterative repair rather than isolated code completion [43]. These characteristics are even
+more notable in security. A vulnerability-analysis agent may need to inspect a repository, trace a data flow, query a
+vulnerability database, run a proof of concept, and explain exploitability. A penetration-testing agent may need to
+perform reconnaissance, choose tools, interpret command output, and adapt to failed attempts. A repair agent may
+need to localize a defect, synthesize a patch, run tests, and preserve functionality. A Security Operations Center (SOC)
+agent may need to correlate alerts, enrich evidence, reduce hallucination, and produce analyst-facing narratives.
+Recent research reflects this shift from LLMs as answer generators to LLMs as operational security agents. Systems
+such asPentestGPT[ 22] and BountyBench [112] explore agentic workflows for penetration testing and offensive
+security. CVE-Bench [117] assesses agents in executable vulnerability environments.RepoAudit[ 31] studies repository-
+level vulnerability auditing, whilePatchAgent[ 109] targets vulnerability repair.Cognitive SOC[ 84] illustrates
+how multi-agent designs can support evidence-grounded security operations. These examples show the breadth of
+current work: LLM-based agents are being applied to vulnerability detection, exploit development, red teaming, fuzzing,
+malware analysis, reverse engineering, incident response, and access-control assessment, among many others.
+At the same time, the rise of LLM-based security agents introduces new scientific and practical challenges. First, the
+term “agent” is used inconsistently. Some papers describe a single tool-using LLM as an agent; others build multi-agent
+systems with planners, executors, critics, memory, retrieval, and policy layers. Second, security applications differ
+sharply in risk. An agent that summarizes alerts has a different safety profile from one that executes exploits, scans
+internet-facing assets, patches production code, or changes access-control policies. Third, assessment is difficult. Final
+task success is important, but it does not show whether an agent used evidence faithfully, stayed within scope, avoided
+hallucinations, respected tool permissions, or consumed a practical amount of time and money.
+These issues make the literature hard to interpret without systematic organization. Existing papers vary in their
+architectures, autonomy levels, memory designs, tool interfaces, security targets, datasets, baselines, and reported metrics.
+Some focus on end-to-end offensive workflows; others on repository auditing, patching, SOC support, cyber-defense
+simulation, or benchmark construction. Some assess agents against real-world systems or executable environments,
+while others use synthetic tasks, curated datasets, or restricted artifacts. Yet to this date, there remains a lack of
+systematic understanding of what has been done and how far we are in this field. Without a shared taxonomy, it is
+difficult to compare how agents are built, determine which security tasks they serve and which remain underexplored,
+or judge whether reported results are reproducible, safe, and comparable across studies.
+To address this gap, we systematically review 100 peer-reviewed papers on LLM-based agents for software and
+systems security, published from January 2023 through March 2026—a window that spans the entire history of this
+emerging area, since the capable LLMs that serve as these agents’ underlying models only emerged at the end of 2022.
+We organize the literature along three dimensions:Approachcaptures agent architecture, perception, memory, reasoning
+and planning, action space, orchestration, and self-improvement;Applicationcaptures the security tasks served; and
+Assessmentcaptures datasets, outcome and trajectory metrics, safety measures, baselines, and experimental protocols.
+Manuscript submitted to ACM
+
+LLM-Based Agents for Software and Systems Security: Approaches, Applications, and Assessment 3
+This survey makes three main contributions:
+• We provide an extensive literature search and selection protocol that yields a corpus of 100 peer-reviewed papers
+spanning the emergence of this area.
+• We derive and apply a taxonomy characterizing the surveyed literature across Approach, Application, and Assess-
+ment, enabling structured comparison of agent designs, security tasks, datasets, metrics, and baselines.
+• We synthesize the findings into a central observation—that the field has built agents able to act, but not yet agents
+whose authority is bounded or whose behavior is auditable—and extend it into the limitations of and challenges
+facing current designs, pointing to future directions in evidence-centered architecture, risk-aware autonomy,
+realistic and reproducible benchmarks, trajectory-level assessment, and accountable human-agent collaboration.
+Paper organization. The rest of the paper is organized as follows. Section 2 provides background concepts used in
+the survey. Section 3 summarizes the survey methodology, and Section 4 describes the literature search and selection
+process. Section 5 presents the taxonomy derivation. Section 6 maps the surveyed papers to the taxonomy and analyzes
+the results for Approach, Application, and Assessment. Section 7 discusses limitations, challenges, and future research
+directions. Section 8 discusses threats to validity, and Section 9 concludes the paper.
+2 Background and Related Work
+This section provides essential background on LLM-based agents and software/systems security, followed by a
+discussion of related surveys.
+2.1 LLM-Based Agents
+A large language model (LLM) is a neural network trained on large-scale text corpora that can generate, interpret,
+and reason over natural language and code [114]. Foundation-scale LLMs—including GPT [67], Claude [7], Gemini [27],
+and open-weight models such as LLaMA [ 90] and DeepSeek [ 21]—have demonstrated broad capabilities in code
+understanding, program repair, and security reasoning when used with appropriate prompting strategies.
+An LLM-based agent extends a standalone LLM into a task-oriented system that can perceive its environment, reason
+about observations, plan multi-step actions, invoke external tools, and learn from feedback [93]. Whereas a bare LLM
+processes a single prompt and returns a single response, an agent operates in a loop: it observes the current state (e.g.,
+tool output, code context, alert data), selects an action (e.g., run a scanner, query a knowledge base, generate a patch),
+executes that action, and then reasons over the result to decide its next step. This observe-reason-act cycle may repeat
+over many iterations before the agent produces a final output.
+Several components distinguish agents from standalone LLM usage:
+Agent architecture.An agent may be a single autonomous entity or a coordinated team of multiple agents. Single-agent
+designs handle the entire task loop in one model, while multi-agent designs decompose the task across specialised
+agents that communicate through message passing, shared memory, or hierarchical delegation.
+Memory.Agents maintain state across steps through in-context working memory (the current prompt window),
+external short-term memory (e.g., an exploration trace stored outside the context), and long-term or persistent memory
+(e.g., a vector database of prior findings, a knowledge graph of discovered assets). Memory enables continuity: an agent
+can remember what it has already scanned, which hypotheses failed, and what evidence supports a current finding.
+Perception.Perception concerns how raw artifacts—source code, binary disassembly, execution traces, log entries,
+network packets, alert records—are transformed into reasoning-ready context for the LLM. Common mechanisms
+Manuscript submitted to ACM

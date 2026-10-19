@@ -1,0 +1,966 @@
+{
+  "kept": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug-report---assistance-request.md",
+      "bytes": 630
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature-request.md",
+      "bytes": 477
+    },
+    {
+      "path": ".github/workflows/lite-configs.yml",
+      "bytes": 522
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 11357
+    },
+    {
+      "path": "README.md",
+      "bytes": 11704
+    },
+    {
+      "path": "configs/agents/api_agents.yaml",
+      "bytes": 548
+    },
+    {
+      "path": "configs/agents/fs_agent.yaml",
+      "bytes": 431
+    },
+    {
+      "path": "configs/agents/openai-chat.yaml",
+      "bytes": 366
+    },
+    {
+      "path": "configs/agents/openai-text.yaml",
+      "bytes": 349
+    },
+    {
+      "path": "configs/assignments/default.yaml",
+      "bytes": 328
+    },
+    {
+      "path": "configs/assignments/definition.yaml",
+      "bytes": 271
+    },
+    {
+      "path": "configs/assignments/lite.yaml",
+      "bytes": 394
+    },
+    {
+      "path": "configs/assignments/test_avalon.yaml",
+      "bytes": 311
+    },
+    {
+      "path": "configs/start_task.yaml",
+      "bytes": 84
+    },
+    {
+      "path": "configs/start_task_lite.yaml",
+      "bytes": 391
+    },
+    {
+      "path": "configs/tasks/alfworld.yaml",
+      "bytes": 919
+    },
+    {
+      "path": "configs/tasks/avalon.yaml",
+      "bytes": 464
+    },
+    {
+      "path": "configs/tasks/card_game.yaml",
+      "bytes": 282
+    },
+    {
+      "path": "configs/tasks/dbbench.yaml",
+      "bytes": 1478
+    },
+    {
+      "path": "configs/tasks/kg.yaml",
+      "bytes": 938
+    },
+    {
+      "path": "configs/tasks/ltp.yaml",
+      "bytes": 375
+    },
+    {
+      "path": "configs/tasks/mind2web.yaml",
+      "bytes": 859
+    },
+    {
+      "path": "configs/tasks/os.yaml",
+      "bytes": 3278
+    },
+    {
+      "path": "configs/tasks/task_assembly.yaml",
+      "bytes": 239
+    },
+    {
+      "path": "configs/tasks/webshop.yaml",
+      "bytes": 1113
+    },
+    {
+      "path": "data/alfworld/dev.json",
+      "bytes": 2644
+    },
+    {
+      "path": "data/alfworld/new_std.json",
+      "bytes": 14011
+    },
+    {
+      "path": "data/alfworld/standard.json",
+      "bytes": 6391
+    },
+    {
+      "path": "data/alfworld/train_valid.json",
+      "bytes": 373390
+    },
+    {
+      "path": "data/avalon/dev.json",
+      "bytes": 2862
+    },
+    {
+      "path": "data/knowledgegraph/dev.json",
+      "bytes": 24729
+    },
+    {
+      "path": "data/knowledgegraph/std.json",
+      "bytes": 225896
+    },
+    {
+      "path": "data/mind2web/prompt/llm_prompt.json",
+      "bytes": 4898
+    },
+    {
+      "path": "data/mind2web/prompt/llm_prompt_cot.json",
+      "bytes": 5153
+    },
+    {
+      "path": "data/os_interaction/data/1/stock.json",
+      "bytes": 5462
+    },
+    {
+      "path": "data/os_interaction/data/2/environment.json",
+      "bytes": 3181
+    },
+    {
+      "path": "data/os_interaction/data/3/ac.json",
+      "bytes": 2979
+    },
+    {
+      "path": "data/os_interaction/data/4/N11.json",
+      "bytes": 628
+    },
+    {
+      "path": "data/os_interaction/data/4/N225.json",
+      "bytes": 589
+    },
+    {
+      "path": "data/os_interaction/data/4/N37.json",
+      "bytes": 417
+    },
+    {
+      "path": "data/os_interaction/data/4/N4.json",
+      "bytes": 381
+    },
+    {
+      "path": "data/os_interaction/data/4/N41.json",
+      "bytes": 2155
+    },
+    {
+      "path": "data/os_interaction/data/4/Q09.json",
+      "bytes": 703
+    },
+    {
+      "path": "data/os_interaction/data/4/Q19.json",
+      "bytes": 575
+    },
+    {
+      "path": "data/os_interaction/data/4/Q30.json",
+      "bytes": 4523
+    },
+    {
+      "path": "data/os_interaction/data/4/Q47.json",
+      "bytes": 1419
+    },
+    {
+      "path": "data/os_interaction/data/4/Q49.json",
+      "bytes": 948
+    },
+    {
+      "path": "data/os_interaction/data/5/new.json",
+      "bytes": 7076
+    },
+    {
+      "path": "data/os_interaction/data/6-backup.json",
+      "bytes": 5775
+    },
+    {
+      "path": "data/os_interaction/data/6/new.json",
+      "bytes": 6091
+    },
+    {
+      "path": "data/os_interaction/data/7/bootstrap.json",
+      "bytes": 160447
+    },
+    {
+      "path": "data/os_interaction/data/dev.json",
+      "bytes": 16209
+    },
+    {
+      "path": "data/os_interaction/scripts/1/check/1.sh",
+      "bytes": 785
+    },
+    {
+      "path": "data/os_interaction/scripts/1/check/containing.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/1/check/in.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/1/check/integer-match.py",
+      "bytes": 69
+    },
+    {
+      "path": "data/os_interaction/scripts/1/check/size-match.py",
+      "bytes": 694
+    },
+    {
+      "path": "data/os_interaction/scripts/1/check/string-match.py",
+      "bytes": 181
+    },
+    {
+      "path": "data/os_interaction/scripts/1/example/1.sh",
+      "bytes": 455
+    },
+    {
+      "path": "data/os_interaction/scripts/1/init/gen_words.sh",
+      "bytes": 296
+    },
+    {
+      "path": "data/os_interaction/scripts/1/init/install_nettools.sh",
+      "bytes": 81
+    },
+    {
+      "path": "data/os_interaction/scripts/1/init/nested_folders.sh",
+      "bytes": 469
+    },
+    {
+      "path": "data/os_interaction/scripts/1/init/stock-log.sh",
+      "bytes": 473
+    },
+    {
+      "path": "data/os_interaction/scripts/2/check/1.sh",
+      "bytes": 785
+    },
+    {
+      "path": "data/os_interaction/scripts/2/check/containing.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/2/check/in.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/2/check/integer-match.py",
+      "bytes": 92
+    },
+    {
+      "path": "data/os_interaction/scripts/2/check/size-match.py",
+      "bytes": 694
+    },
+    {
+      "path": "data/os_interaction/scripts/2/check/string-match.py",
+      "bytes": 181
+    },
+    {
+      "path": "data/os_interaction/scripts/2/example/1.sh",
+      "bytes": 455
+    },
+    {
+      "path": "data/os_interaction/scripts/2/init/gen_words.sh",
+      "bytes": 296
+    },
+    {
+      "path": "data/os_interaction/scripts/2/init/install_nettools.sh",
+      "bytes": 81
+    },
+    {
+      "path": "data/os_interaction/scripts/2/init/nested_folders.sh",
+      "bytes": 469
+    },
+    {
+      "path": "data/os_interaction/scripts/2/init/stock-log.sh",
+      "bytes": 473
+    },
+    {
+      "path": "data/os_interaction/scripts/3/check/1.sh",
+      "bytes": 785
+    },
+    {
+      "path": "data/os_interaction/scripts/3/check/containing.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/3/check/in.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/3/check/integer-match.py",
+      "bytes": 69
+    },
+    {
+      "path": "data/os_interaction/scripts/3/check/size-match.py",
+      "bytes": 694
+    },
+    {
+      "path": "data/os_interaction/scripts/3/check/string-match.py",
+      "bytes": 181
+    },
+    {
+      "path": "data/os_interaction/scripts/3/example/1.sh",
+      "bytes": 455
+    },
+    {
+      "path": "data/os_interaction/scripts/3/init/gen_words.sh",
+      "bytes": 296
+    },
+    {
+      "path": "data/os_interaction/scripts/3/init/install_nettools.sh",
+      "bytes": 81
+    },
+    {
+      "path": "data/os_interaction/scripts/3/init/nested_folders.sh",
+      "bytes": 469
+    },
+    {
+      "path": "data/os_interaction/scripts/3/init/stock-log.sh",
+      "bytes": 473
+    },
+    {
+      "path": "data/os_interaction/scripts/4/check/1.sh",
+      "bytes": 785
+    },
+    {
+      "path": "data/os_interaction/scripts/4/check/containing.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/4/check/in.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/4/check/integer-match.py",
+      "bytes": 69
+    },
+    {
+      "path": "data/os_interaction/scripts/4/check/size-match.py",
+      "bytes": 694
+    },
+    {
+      "path": "data/os_interaction/scripts/4/check/string-match.py",
+      "bytes": 181
+    },
+    {
+      "path": "data/os_interaction/scripts/4/example/1.sh",
+      "bytes": 455
+    },
+    {
+      "path": "data/os_interaction/scripts/4/init/gen_words.sh",
+      "bytes": 296
+    },
+    {
+      "path": "data/os_interaction/scripts/4/init/install_nettools.sh",
+      "bytes": 81
+    },
+    {
+      "path": "data/os_interaction/scripts/4/init/nested_folders.sh",
+      "bytes": 469
+    },
+    {
+      "path": "data/os_interaction/scripts/4/init/stock-log.sh",
+      "bytes": 473
+    },
+    {
+      "path": "data/os_interaction/scripts/5/check/containing.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/5/check/in.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/5/check/integer-match.py",
+      "bytes": 69
+    },
+    {
+      "path": "data/os_interaction/scripts/5/check/size-match.py",
+      "bytes": 694
+    },
+    {
+      "path": "data/os_interaction/scripts/5/check/string-match.py",
+      "bytes": 181
+    },
+    {
+      "path": "data/os_interaction/scripts/5/checking/0.sh",
+      "bytes": 1943
+    },
+    {
+      "path": "data/os_interaction/scripts/5/checking/1.sh",
+      "bytes": 785
+    },
+    {
+      "path": "data/os_interaction/scripts/5/checking/2.sh",
+      "bytes": 386
+    },
+    {
+      "path": "data/os_interaction/scripts/5/example/0.sh",
+      "bytes": 98
+    },
+    {
+      "path": "data/os_interaction/scripts/5/example/1.sh",
+      "bytes": 455
+    },
+    {
+      "path": "data/os_interaction/scripts/5/example/2.sh",
+      "bytes": 106
+    },
+    {
+      "path": "data/os_interaction/scripts/5/file.json",
+      "bytes": 7377
+    },
+    {
+      "path": "data/os_interaction/scripts/5/init/1.sh",
+      "bytes": 0
+    },
+    {
+      "path": "data/os_interaction/scripts/5/new.json",
+      "bytes": 7220
+    },
+    {
+      "path": "data/os_interaction/scripts/5/prompt.md",
+      "bytes": 2878
+    },
+    {
+      "path": "data/os_interaction/scripts/6/collecting.py",
+      "bytes": 829
+    },
+    {
+      "path": "data/os_interaction/scripts/6/new.json",
+      "bytes": 6742
+    },
+    {
+      "path": "data/os_interaction/scripts/6/permission.json",
+      "bytes": 8925
+    },
+    {
+      "path": "data/os_interaction/scripts/6/stackoverflow/spider.py",
+      "bytes": 673
+    },
+    {
+      "path": "data/os_interaction/scripts/7/check/1.sh",
+      "bytes": 785
+    },
+    {
+      "path": "data/os_interaction/scripts/7/check/containing.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/7/check/in.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/7/check/integer-match.py",
+      "bytes": 69
+    },
+    {
+      "path": "data/os_interaction/scripts/7/check/size-match.py",
+      "bytes": 694
+    },
+    {
+      "path": "data/os_interaction/scripts/7/check/string-match.py",
+      "bytes": 181
+    },
+    {
+      "path": "data/os_interaction/scripts/7/example/1.sh",
+      "bytes": 455
+    },
+    {
+      "path": "data/os_interaction/scripts/7/init/gen_words.sh",
+      "bytes": 296
+    },
+    {
+      "path": "data/os_interaction/scripts/7/init/install_nettools.sh",
+      "bytes": 81
+    },
+    {
+      "path": "data/os_interaction/scripts/7/init/nested_folders.sh",
+      "bytes": 469
+    },
+    {
+      "path": "data/os_interaction/scripts/7/init/stock-log.sh",
+      "bytes": 473
+    },
+    {
+      "path": "data/os_interaction/scripts/dev/check/0.sh",
+      "bytes": 1115
+    },
+    {
+      "path": "data/os_interaction/scripts/dev/check/containing.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/dev/check/in.py",
+      "bytes": 206
+    },
+    {
+      "path": "data/os_interaction/scripts/dev/check/integer-match.py",
+      "bytes": 69
+    },
+    {
+      "path": "data/os_interaction/scripts/dev/check/size-match.py",
+      "bytes": 694
+    },
+    {
+      "path": "data/os_interaction/scripts/dev/check/string-match.py",
+      "bytes": 181
+    },
+    {
+      "path": "data/os_interaction/scripts/dev/example/0.sh",
+      "bytes": 98
+    },
+    {
+      "path": "data/os_interaction/scripts/dev/init/stock-log.sh",
+      "bytes": 473
+    },
+    {
+      "path": "docs/Config_cn.md",
+      "bytes": 3996
+    },
+    {
+      "path": "docs/Config_en.md",
+      "bytes": 4529
+    },
+    {
+      "path": "docs/Entrance_cn.md",
+      "bytes": 4060
+    },
+    {
+      "path": "docs/Entrance_en.md",
+      "bytes": 4583
+    },
+    {
+      "path": "docs/Extension_cn.md",
+      "bytes": 5515
+    },
+    {
+      "path": "docs/Extension_en.md",
+      "bytes": 5953
+    },
+    {
+      "path": "docs/Introduction_cn.md",
+      "bytes": 10226
+    },
+    {
+      "path": "docs/Introduction_en.md",
+      "bytes": 11740
+    },
+    {
+      "path": "extra/docker-compose.yml",
+      "bytes": 2132
+    },
+    {
+      "path": "extra/freebase-entrypoint.sh",
+      "bytes": 74
+    },
+    {
+      "path": "extra/worker-entrypoint.sh",
+      "bytes": 98
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 302
+    },
+    {
+      "path": "scripts/validate_lite_configs.py",
+      "bytes": 3724
+    },
+    {
+      "path": "src/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/analysis.py",
+      "bytes": 15134
+    },
+    {
+      "path": "src/assigner.py",
+      "bytes": 15955
+    },
+    {
+      "path": "src/client/__init__.py",
+      "bytes": 82
+    },
+    {
+      "path": "src/client/agent.py",
+      "bytes": 189
+    },
+    {
+      "path": "src/client/agent_test.py",
+      "bytes": 1429
+    },
+    {
+      "path": "src/client/agents/__init__.py",
+      "bytes": 77
+    },
+    {
+      "path": "src/client/agents/claude_agent.py",
+      "bytes": 1416
+    },
+    {
+      "path": "src/client/agents/fastchat_client.py",
+      "bytes": 6607
+    },
+    {
+      "path": "src/client/agents/http_agent.py",
+      "bytes": 6665
+    },
+    {
+      "path": "src/client/agents/test_agent.py",
+      "bytes": 307
+    },
+    {
+      "path": "src/client/task.py",
+      "bytes": 5879
+    },
+    {
+      "path": "src/configs.py",
+      "bytes": 4788
+    },
+    {
+      "path": "src/server/tasks/alfworld/Dockerfile",
+      "bytes": 2428
+    },
+    {
+      "path": "src/server/tasks/alfworld/__init__.py",
+      "bytes": 27
+    },
+    {
+      "path": "src/server/tasks/alfworld/configs/base_config.yaml",
+      "bytes": 7741
+    },
+    {
+      "path": "src/server/tasks/alfworld/environment.py",
+      "bytes": 1805
+    },
+    {
+      "path": "src/server/tasks/alfworld/prompts/alfworld_multiturn.json",
+      "bytes": 57778
+    },
+    {
+      "path": "src/server/tasks/alfworld/prompts/alfworld_multiturn_cot.json",
+      "bytes": 5174
+    },
+    {
+      "path": "src/server/tasks/alfworld/prompts/alfworld_multiturn_new.json",
+      "bytes": 37926
+    },
+    {
+      "path": "src/server/tasks/alfworld/prompts/alfworld_multiturn_plan_first.json",
+      "bytes": 34679
+    },
+    {
+      "path": "src/server/tasks/alfworld/prompts/alfworld_multiturn_pure.json",
+      "bytes": 35089
+    },
+    {
+      "path": "src/server/tasks/alfworld/prompts/alfworld_multiturn_react.json",
+      "bytes": 35659
+    },
+    {
+      "path": "src/server/tasks/alfworld/prompts/alfworld_singleturn.json",
+      "bytes": 51028
+    },
+    {
+      "path": "src/server/tasks/alfworld/task.py",
+      "bytes": 9895
+    },
+    {
+      "path": "src/server/tasks/alfworld/utils.py",
+      "bytes": 1666
+    },
+    {
+      "path": "src/server/tasks/dbbench/Dockerfile",
+      "bytes": 647
+    },
+    {
+      "path": "src/server/tasks/dbbench/__init__.py",
+      "bytes": 30
+    },
+    {
+      "path": "src/server/tasks/dbbench/environment.py",
+      "bytes": 2402
+    },
+    {
+      "path": "src/server/tasks/dbbench/interaction.py",
+      "bytes": 10914
+    },
+    {
+      "path": "src/server/tasks/dbbench/requirements.txt",
+      "bytes": 28
+    },
+    {
+      "path": "src/server/tasks/dbbench/result_processor.py",
+      "bytes": 11634
+    },
+    {
+      "path": "src/server/tasks/dbbench/task.py",
+      "bytes": 14156
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/Dockerfile",
+      "bytes": 681
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/__init__.py",
+      "bytes": 33
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/api.py",
+      "bytes": 8413
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/const.py",
+      "bytes": 12736
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/environment.py",
+      "bytes": 1005
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/requirements.txt",
+      "bytes": 30
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/task.py",
+      "bytes": 10720
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/utils/logic_form_util.py",
+      "bytes": 37877
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/utils/semparse_util.py",
+      "bytes": 1697
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/utils/sparql_executer.py",
+      "bytes": 12337
+    },
+    {
+      "path": "src/server/tasks/os_interaction/Dockerfile",
+      "bytes": 501
+    },
+    {
+      "path": "src/server/tasks/os_interaction/__init__.py",
+      "bytes": 32
+    },
+    {
+      "path": "src/server/tasks/os_interaction/environment.py",
+      "bytes": 1261
+    },
+    {
+      "path": "src/server/tasks/os_interaction/task.py",
+      "bytes": 29200
+    },
+    {
+      "path": "src/server/tasks/webshop/Dockerfile",
+      "bytes": 2324
+    },
+    {
+      "path": "src/server/tasks/webshop/__init__.py",
+      "bytes": 25
+    },
+    {
+      "path": "src/server/tasks/webshop/requirements.txt",
+      "bytes": 264
+    },
+    {
+      "path": "src/server/tasks/webshop/task.py",
+      "bytes": 8210
+    },
+    {
+      "path": "src/typings/__init__.py",
+      "bytes": 137
+    },
+    {
+      "path": "src/typings/config.py",
+      "bytes": 5607
+    },
+    {
+      "path": "src/typings/exception.py",
+      "bytes": 1704
+    },
+    {
+      "path": "src/typings/general.py",
+      "bytes": 1298
+    },
+    {
+      "path": "src/typings/output.py",
+      "bytes": 1197
+    },
+    {
+      "path": "src/typings/request.py",
+      "bytes": 762
+    },
+    {
+      "path": "src/typings/status.py",
+      "bytes": 577
+    },
+    {
+      "path": "src/utils/__init__.py",
+      "bytes": 80
+    },
+    {
+      "path": "src/utils/max_flow.py",
+      "bytes": 3847
+    },
+    {
+      "path": "src/utils/others.py",
+      "bytes": 2066
+    },
+    {
+      "path": "src/utils/rules.py",
+      "bytes": 1102
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".gitignore",
+      "bytes": 218
+    },
+    {
+      "path": "assets/agentbench.png",
+      "bytes": 6300806
+    },
+    {
+      "path": "assets/architecture.png",
+      "bytes": 59619
+    },
+    {
+      "path": "assets/cover.jpg",
+      "bytes": 533559
+    },
+    {
+      "path": "assets/fc_leaderboard.png",
+      "bytes": 307193
+    },
+    {
+      "path": "assets/intro.png",
+      "bytes": 116587
+    },
+    {
+      "path": "assets/leaderboard.png",
+      "bytes": 167050
+    },
+    {
+      "path": "assets/logo.png",
+      "bytes": 32848
+    },
+    {
+      "path": "assets/statistics.png",
+      "bytes": 81705
+    },
+    {
+      "path": "data/alfworld/logic/alfred.pddl",
+      "bytes": 17067
+    },
+    {
+      "path": "data/alfworld/logic/alfred.twl2",
+      "bytes": 12154
+    },
+    {
+      "path": "data/dbbench/db_out_new.jsonl",
+      "bytes": 16108186
+    },
+    {
+      "path": "data/dbbench/dev.jsonl",
+      "bytes": 188018
+    },
+    {
+      "path": "data/dbbench/extend_std.json",
+      "bytes": 8408724
+    },
+    {
+      "path": "data/dbbench/standard.jsonl",
+      "bytes": 910356
+    },
+    {
+      "path": "data/knowledgegraph/kg_rl_all.json",
+      "bytes": 1883664
+    },
+    {
+      "path": "data/lateralthinkingpuzzle/dev.xlsx",
+      "bytes": 17219
+    },
+    {
+      "path": "data/lateralthinkingpuzzle/standard.xlsx",
+      "bytes": 29891
+    },
+    {
+      "path": "data/lateralthinkingpuzzle_zh/dev.xlsx",
+      "bytes": 16121
+    },
+    {
+      "path": "data/lateralthinkingpuzzle_zh/standard.xlsx",
+      "bytes": 26669
+    },
+    {
+      "path": "data/os_interaction/res/dockerfiles/default",
+      "bytes": 270
+    },
+    {
+      "path": "data/os_interaction/res/dockerfiles/packages",
+      "bytes": 292
+    },
+    {
+      "path": "data/os_interaction/res/dockerfiles/ubuntu",
+      "bytes": 65
+    },
+    {
+      "path": "data/os_interaction/scripts/6/collected.json",
+      "bytes": 1379677
+    },
+    {
+      "path": "data/os_interaction/train_0317/training.json",
+      "bytes": 1664159
+    },
+    {
+      "path": "extra/freebase.Dockerfile",
+      "bytes": 731
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/ontology/fb_roles",
+      "bytes": 1902419
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/ontology/fb_types",
+      "bytes": 1363296
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/ontology/reverse_properties",
+      "bytes": 911623
+    },
+    {
+      "path": "src/server/tasks/knowledgegraph/ontology/vocab.json",
+      "bytes": 1137427
+    },
+    {
+      "path": "src/server/tasks/webshop/webshop.patch",
+      "bytes": 4925
+    }
+  ]
+}

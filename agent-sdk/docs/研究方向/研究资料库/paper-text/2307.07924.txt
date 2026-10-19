@@ -1,0 +1,281 @@
+ChatDev: Communicative Agents for Software Development
+Chen Qian⋆ Wei Liu⋆ Hongzhang Liu♠ Nuo Chen⋆ Yufan Dang⋆
+Jiahao Li⋆ Cheng Yang♣ Weize Chen⋆ Yusheng Su⋆ Xin Cong⋆
+Juyuan Xu⋆ Dahai Li♦ Zhiyuan Liu⋆B Maosong Sun⋆B
+⋆Tsinghua University ♠The University of Sydney ♣BUPT ♦Modelbest Inc.
+qianc62@gmail.com liuzy@tsinghua.edu.cn sms@tsinghua.edu.cn
+Abstract
+Software development is a complex task that
+necessitates cooperation among multiple mem-
+bers with diverse skills. Numerous studies used
+deep learning to improve specific phases in a
+waterfall model, such as design, coding, and
+testing. However, the deep learning model
+in each phase requires unique designs, lead-
+ing to technical inconsistencies across various
+phases, which results in a fragmented and in-
+effective development process. In this paper,
+we introduce ChatDev, a chat-powered soft-
+ware development framework in which special-
+ized agents driven by large language models
+(LLMs) are guided in what to communicate
+(via chat chain) and how to communicate (via
+communicative dehallucination). These agents
+actively contribute to the design, coding, and
+testing phases through unified language-based
+communication, with solutions derived from
+their multi-turn dialogues. We found their uti-
+lization of natural language is advantageous
+for system design, and communicating in pro-
+gramming language proves helpful in debug-
+ging. This paradigm demonstrates how linguis-
+tic communication facilitates multi-agent col-
+laboration, establishing language as a unify-
+ing bridge for autonomous task-solving among
+LLM agents. The code and data are available
+at https://github.com/OpenBMB/ChatDev.
+1 Introduction
+Large language models (LLMs) have led to sub-
+stantial transformations due to their ability to ef-
+fortlessly integrate extensive knowledge expressed
+in language (Brown et al., 2020; Bubeck et al.,
+2023), combined with their strong capacity for role-
+playing within designated roles (Park et al., 2023;
+Hua et al., 2023; Chen et al., 2023b). This ad-
+vancement eliminates the need for model-specific
+designs and delivers impressive performance in
+B: Corresponding Author.
+main()
+Docs
+Codes
+Software
+Develop a 
+Gomoku game
+Figure 1: ChatDev, a :::chat-powered software
+:::development framework, integrates LLM agents with
+various social roles, working autonomously to develop
+comprehensive solutions via multi-agent collaboration.
+diverse downstream applications. Furthermore,
+autonomous agents (Richards, 2023; Zhou et al.,
+2023a) have gained attention for enhancing the ca-
+pabilities of LLMs with advanced features such as
+context-aware memory (Sumers et al., 2023), multi-
+step planning (Liu et al., 2023), and strategic tool
+using (Schick et al., 2023).
+Software development is a complex task that ne-
+cessitates cooperation among multiple members
+with diverse skills (e.g., architects, programmers,
+and testers) (Basili, 1989; Sawyer and Guinan,
+1998). This entails extensive communication
+among different roles to understand and analyze
+requirements through natural language, while also
+encompassing development and debugging using
+programming languages (Ernst, 2017; Banker et al.,
+1998). Numerous studies use deep learning to im-
+prove specific phases of the waterfall model in soft-
+ware development, such as design, coding, and test-
+ing (Pudlitz et al., 2019; Martín and Abran, 2015;
+arXiv:2307.07924v5  [cs.SE]  5 Jun 2024
+
+Gao et al., 2019; Wang et al., 2016). Due to these
+technical inconsistencies, methods employed in
+different phases remain isolated until now. Every
+phase, from data collection and labeling to model
+training and inference, requires its unique designs,
+leading to a fragmented and less efficient devel-
+opment process in the field (Freeman et al., 2001;
+Ernst, 2017; Winkler et al., 2020).
+Motivated by the expert-like potential of au-
+tonomous agents, we aim to establish language as a
+unifying bridge—utilizing multiple LLM-powered
+agents with specialized roles for cooperative soft-
+ware development through language-based com-
+munication across different phases; solutions in
+different phases are derived from their multi-turn
+dialogues, whether dealing with text or code. Nev-
+ertheless, due to the tendency of LLM hallucina-
+tions (Dhuliawala et al., 2023; Zhang et al., 2023b),
+the strategy of generating software through com-
+municative agents could lead to the non-trivial chal-
+lenge of coding hallucinations, which involves the
+generation of source code that is incomplete, unex-
+ecutable, or inaccurate, ultimately failing to fulfill
+the intended requirements (Agnihotri and Chug,
+2020). The frequent occurrence of coding halluci-
+nation in turn reflects the constrained autonomy of
+agents in task completion, inevitably demanding
+additional manual intervention and thereby hinder-
+ing the immediate usability and reliability of the
+generated software (Ji et al., 2023).
+In this paper, we propose ChatDev (see Figure 1),
+a :::chat-powered software-:::development framework
+integrating multiple "software agents" for active
+involvement in three core phases of the software
+lifecycle: design, coding, and testing. Technically,
+ChatDev uses a chat chain to divide each phase
+into smaller subtasks further, enabling agents’
+multi-turn communications to cooperatively pro-
+pose and develop solutions ( e.g., creative ideas
+or source code). The chain-structured workflow
+guides agents on what to communicate, foster-
+ing cooperation and smoothly linking natural- and
+programming-language subtasks to propel problem-
+solving. Additionally, to minimize coding halluci-
+nations, ChatDev includes an communicative de-
+hallucination mechanism, enabling agents to ac-
+tively request more specific details before giving
+direct responses. The communication pattern in-
+structs agents on how to communicate, enabling
+precise information exchange for effective solu-
+tion optimization while reducing coding hallucina-
+tions. We built a comprehensive dataset containing
+software requirement descriptions and conducted
+comprehensive analyses. The results indicate that
+ChatDev notably improves the quality of software,
+leading to improved completeness, executability,
+and better consistency with requirements. Further
+investigations reveal that natural-language com-
+munications contribute to comprehensive system
+design, while programming-language communica-
+tions drive software optimization. In summary, the
+proposed paradigm demonstrates how linguistic
+communication facilitates multi-agent collabora-
+tion, establishing language as a unifying bridge for
+autonomous task-solving among LLM agents.
+2 Related Work
+Trained on vast datasets to comprehend and ma-
+nipulate billions of parameters, LLMs have be-
+come pivotal in natural language processing due
+to their seamless integration of extensive knowl-
+edge (Brown et al., 2020; Bubeck et al., 2023;
+Vaswani et al., 2017; Radford et al.; Touvron et al.,
+2023; Wei et al., 2022a; Shanahan et al., 2023;
+Chen et al., 2021; Brants et al., 2007; Chen et al.,
+2021; Ouyang et al., 2022; Yang et al., 2023a;
+Qin et al., 2023b; Kaplan et al., 2020). Further-
+more, LLMs have demonstrated strong role-playing
+abilities (Li et al., 2023a; Park et al., 2023; Hua
+et al., 2023; Chan et al., 2023; Zhou et al., 2023b;
+Chen et al., 2023b,a; Cohen et al., 2023; Li et al.,
+2023b). Recent progress, particularly in the field
+of autonomous agents (Zhou et al., 2023a; Wang
+et al., 2023a; Park et al., 2023; Wang et al., 2023e;
+Richards, 2023; Osika, 2023; Wang et al., 2023d),
+is largely attributed to the foundational advances
+in LLMs. These agents utilize the robust capa-
+bilities of LLMs, displaying remarkable skills in
+memory (Park et al., 2023; Sumers et al., 2023),
+planning (Chen et al., 2023b; Liu et al., 2023) and
+tool use (Schick et al., 2023; Cai et al., 2023; Qin
+et al., 2023a; Ruan et al., 2023; Yang et al., 2023b),
+enabling them to reason in complex scenarios (Wei
+et al., 2022b; Zhao et al., 2023; Zhou et al., 2023a;
+Ma et al., 2023; Zhang et al., 2023a; Wang et al.,
+2023b; Ding et al., 2023; Weng, 2023).
+Software development is a multifaceted and in-
+tricate process that requires the cooperation of mul-
+tiple experts from various fields (Yilmaz et al.,
+2012; Acuna et al., 2006; Basili, 1989; Sawyer
+and Guinan, 1998; Banker et al., 1998; France
+and Rumpe, 2007), encompassing the require-
+ment analysis and system design in natural lan-
+
+{ideas} {code} {code} {code}{task} {code}
+Instructor
+Assistant
+Phases
+CEO
+CTO
+CTO
+Programmer
+CTO
+Programmer
+Reviewer
+Programmer
+Tester
+Programmer
+Subtasks
+Design
+ Coding
+ Testing
+Design
+Chat Chain
+Coding
+ Code 
+Complete
+Code 
+Review
+ Testing
+Figure 2: Upon receiving a preliminary task requirement ( e.g., “develop a Gomoku game ”), these software
+agents engage in multi-turn communication and perform instruction-following along a chain-structured workflow,
+collaborating to execute a series of subtasks autonomously to craft a comprehensive solution.
+guages (Pudlitz et al., 2019; Martín and Abran,
+2015; Nahar et al., 2022), along with system de-
+velopment and debugging in programming lan-
+guages (Gao et al., 2019; Wang et al., 2016; Wan
+et al., 2022). Numerous studies employ the wa-
+terfall model, a particular software development
+life cycle, to segment the process into discrete
+phases ( e.g., design, coding, testing) and apply
+deep learning to improve the effectiveness of cer-
+tain phases (Winkler et al., 2020; Ezzini et al., 2022;
+Thaller et al., 2019; Zhao et al., 2021; Nijkamp
+et al., 2023; Wan et al., 2018; Wang et al., 2021).
+3 ChatDev
+We introduce ChatDev, a ::::chat-powered software-
+:::development framework that integrates multiple
+"software agents" with various social roles ( e.g.,
+requirements analysts, professional programmers
+and test engineers) collaborating in the core phases
+of the software life cycle, see Figure 1. Technically,
+to facilitate cooperative communication, ChatDev
+introduces chat chain to further break down each
+phase into smaller and manageable subtasks, which
+guides multi-turn communications between differ-
+ent roles to propose and validate solutions for each
+subtask. In addition, to alleviate unexpected hallu-
+cinations, a communicative pattern named commu-
+nicative dehallucination is devised, wherein agents
+request more detailed information before respond-
+ing directly and then continue the next round of
+communication based on these details.
+3.1 Chat Chain
+Although LLMs show a good understanding of nat-
+ural and programming languages, efficiently trans-
+forming textual requirements into functional soft-
+ware in a single step remains a significant challenge.
+ChatDev thus adopts the core principles of the wa-
+terfall model, using a chat chain (C) with sequential
+phases (P), each comprising sequential subtasks
+(T ). Specifically, ChatDev segments the software
+development process into three sequential phases:
+design, coding, and testing. The coding phase is
+further subdivided into subtasks of code writing
+and completion, and the testing phase is segmented
+into code review (static testing) and system testing
+(dynamic testing), as illustrated in Figure 2. In
+every subtask, two agents, each with their own spe-
+cialized roles (e.g., a reviewer skilled at identifying
+endless loops and a programmer adept in GUI de-
+sign), perform the functions of an instructor ( I)
+and an assistant (A). The instructor agent initiates
+instructions, instructing (→) the discourse toward
+the completion of the subtask, while the assistant
+agent adheres to these instructions and responds
+with (;) appropriate solutions. They engage in
+a multi-turn dialogue ( C), working cooperatively
+until they achieve consensus, extracting (τ) solu-
+tions that can range from the text (e.g., defining a
+software function point) to code (e.g., creating the
+initial version of source code), ultimately leading
+to the completion of the subtask. The entire task-
+solving process along the agentic workflow can be
+formulated as:
+C =⟨P 1,P 2,..., P |C|⟩
+P i =⟨T 1,T 2,..., T |P i|⟩
+T j =τ
+ 
+C(I,A)
+
+C(I,A) =⟨I→A ,A ;I⟩ ⟲
+(1)

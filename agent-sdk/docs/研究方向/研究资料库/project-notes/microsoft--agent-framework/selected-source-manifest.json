@@ -1,0 +1,74 @@
+[
+  {
+    "path": "dotnet/src/Microsoft.Agents.AI.Workflows/Checkpointing/ExecutorInfo.cs",
+    "sha256": "5dd3d5870241e133982f5d80a7b2f88508326364f5c481bbb1b5168d9c081e14",
+    "bytes": 638,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.Agents.AI.Workflows/Checkpointing/ExecutorIdentityConverter.cs",
+    "sha256": "6fd8bd881737a43532714f54cdf5d74423795af7bc2ff7d4416f4d87b9e77729",
+    "bytes": 1259,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.Agents.AI.Workflows/Checkpointing/InMemoryCheckpointManager.cs",
+    "sha256": "024fd98b0ad6da74331f0b613c83c34a66dc66444a1a29bf902823d6225049ac",
+    "bytes": 2343,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.Agents.AI.Workflows/Checkpointing/WorkflowInfoOutputExecutorsConverter.cs",
+    "sha256": "a0e2d064a959ec4b4f9bf4f3b0748eb57913a9122bd3de6e8af0316283e4e936",
+    "bytes": 4165,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.Agents.AI.Workflows/Executor.cs",
+    "sha256": "76c6773d8c8f40bedeefbd45cf854fb519fbdfe0715a00abb0c3235f1c05897a",
+    "bytes": 20002,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.Agents.AI.Workflows/ExecutorEvent.cs",
+    "sha256": "b1315a2e8069da0d080bde6b068dd0d19eade3661b66c00f74102aa8fa9de552",
+    "bytes": 985,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.Agents.AI.Workflows/CheckpointInfo.cs",
+    "sha256": "6ca5e0cd74f7cedaf7417c5a3cbe3af10f39b9c0dc2b29f55d7640be8aea10b8",
+    "bytes": 1991,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.Agents.AI.Workflows/ExecutorConfig.cs",
+    "sha256": "1e62d8b5d446d718ef9ed27265841c9df03ccb0044575386a9cffa40bfec488a",
+    "bytes": 1239,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.Agents.AI.Workflows/ExecutorBinding.cs",
+    "sha256": "c96dfe0e0f7e592c998881ddd168fc0aca4bb3cb5a30e0b05d711802e22e3ff1",
+    "bytes": 5423,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.Agents.AI.Workflows/ExecutorOptions.cs",
+    "sha256": "ec4aa9f06f4ed2a004799a24c01f6366843b61167b64e7114bc96d714e3ac76d",
+    "bytes": 870,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.Agents.AI.Workflows/FunctionExecutor.cs",
+    "sha256": "a9095fac3b41ccd5dae58df0c5fd2868a0728a745cfe32e140663038f853e5f3",
+    "bytes": 9489,
+    "symbols": []
+  },
+  {
+    "path": "dotnet/src/Microsoft.Agents.AI.Workflows/StatefulExecutor.cs",
+    "sha256": "88f60a8596d52f21cf16cbbd30b6969a13473fd3be52af4bab0f7f4c1e448a4e",
+    "bytes": 11544,
+    "symbols": []
+  }
+]

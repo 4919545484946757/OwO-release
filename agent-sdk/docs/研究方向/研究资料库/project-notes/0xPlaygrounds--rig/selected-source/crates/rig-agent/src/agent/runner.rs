@@ -1,0 +1,849 @@
+//! Hook-aware execution of [`AgentRun`] with per-run overrides, completion
+//! requests, tools, and conversation memory.
+//!
+//! ```rust,no_run
+//! # use rig_agent::Agent;
+//! # async fn example(agent: Agent) -> Result<(), Box<dyn std::error::Error>> {
+//! let response = agent
+//!     .prompt("What is 2 + 2?")
+//!     .max_turns(3)
+//!     .run()
+//!     .await?;
+//! println!("{}", response.output());
+//! # Ok(())
+//! # }
+//! ```
+
+use std::sync::{Arc, Mutex};
+
+use futures::StreamExt;
+use tracing_futures::Instrument;
+
+use super::{
+    completion::{Agent, AgentConfig},
+    engine::{DriveItem, UnaryTurnSource, drive_agent},
+    hook::{AgentHook, HookContext, RunSettled, SettledOutcome, StepEventKind},
+    run::{AgentRun, response::PromptResponse, spec::UnhandledInvalidToolCall},
+    telemetry::acquire_agent_span,
+};
+use rig_core::error::ProviderError;
+use rig_core::{completion::ModelRef, message::ToolChoice};
+
+use crate::{
+    completion::{Document, Message, PromptError, Usage},
+    tool::{ToolContext, server::ToolServerHandle},
+};
+
+use super::UNKNOWN_AGENT_NAME;
+
+/// A hook-aware driver over [`AgentRun`].
+///
+/// Construct one with [`Agent::prompt`] (a fresh run) or [`Agent::resume`]
+/// (a persisted one), attach hooks with [`add_hook`](Self::add_hook), then
+/// call [`run`](Self::run) (blocking), [`stream`](Self::stream)
+/// (incremental) or [`run_channel`](Self::run_channel) (a future plus an
+/// event feed). Hooks are held in a [`HookStack`](super::hook::HookStack), an ordered,
+/// runtime-composable list; `run()` and `stream()` share the same loop and fire
+/// the same events, so they behave identically apart from the streamed delta
+/// events the medium adds.
+///
+/// `O` is what `.await` recovers: `()` for the raw [`PromptResponse`], or a
+/// [`TypedOutput`](super::TypedOutput) for a [`TypedRun`](super::TypedRun).
+#[derive(Clone)]
+#[must_use = "a run does nothing until awaited or driven"]
+pub struct AgentRunner<O = ()> {
+    /// Run-local configuration; overrides never mutate the source agent.
+    pub(crate) config: AgentConfig,
+    /// Where the run starts: a prompt ([`Agent::prompt`]) or a persisted
+    /// run to continue ([`Agent::resume`]).
+    pub(crate) origin: RunOrigin,
+    pub(crate) chat_history: Option<Vec<Message>>,
+    pub(crate) max_invalid_tool_call_retries: usize,
+    pub(crate) max_consecutive_malformed_tool_calls: Option<usize>,
+    pub(crate) tool_server_handle: ToolServerHandle,
+    /// Typed context cloned freshly for every tool dispatch.
+    pub(crate) tool_context: ToolContext,
+    pub(crate) output_tool_name: Option<String>,
+    pub(crate) output_tool_description: Option<String>,
+    pub(crate) augment_output_preamble: bool,
+    pub(crate) unhandled_invalid_tool_call: UnhandledInvalidToolCall,
+    pub(crate) concurrency: usize,
+    pub(crate) error_usage: Option<Arc<Mutex<Usage>>>,
+    pub(crate) output: O,
+}
+
+/// Where a run starts. A prompt builds a fresh [`AgentRun`] (after any
+/// memory load); a persisted run is continued as it is, so neither a prompt
+/// nor a history nor a memory load applies to it.
+#[derive(Clone)]
+pub(crate) enum RunOrigin {
+    Prompt(Message),
+    Resume(AgentRun),
+}
+
+/// The `(history_override, memory_handle)` pair resolved for one run by
+/// [`AgentRunner::resolve_history_and_memory`].
+pub(crate) type HistoryAndMemory = (
+    Option<Vec<Message>>,
+    Option<(crate::bus::MemoryHandle, rig_core::id::ConversationId)>,
+);
+
+impl AgentRunner {
+    /// Build a runner from an agent, seeding it with the agent's default hook
+    /// stack. The one construction site behind [`Agent::prompt`] and the
+    /// typed and extractor runs.
+    pub(crate) fn from_agent(agent: &Agent, prompt: impl Into<Message>) -> Self {
+        Self::new(agent, RunOrigin::Prompt(prompt.into()))
+    }
+
+    /// Build a runner that continues `run` ([`Agent::resume`]).
+    pub(crate) fn resuming(agent: &Agent, run: AgentRun) -> Self {
+        Self::new(agent, RunOrigin::Resume(run))
+    }
+
+    fn new(agent: &Agent, origin: RunOrigin) -> Self {
+        Self {
+            config: agent.config.clone(),
+            origin,
+            chat_history: None,
+            max_invalid_tool_call_retries: 0,
+            max_consecutive_malformed_tool_calls: None,
+            tool_server_handle: agent.tool_server_handle.clone(),
+            tool_context: ToolContext::new(),
+            output_tool_name: None,
+            output_tool_description: None,
+            augment_output_preamble: true,
+            unhandled_invalid_tool_call: UnhandledInvalidToolCall::Fail,
+            concurrency: 1,
+            error_usage: None,
+            output: (),
+        }
+    }
+
+    /// Configure the synthetic tool used by an internal Tool-output flow.
+    pub(crate) fn output_tool(
+        mut self,
+        name: impl Into<String>,
+        description: impl Into<String>,
+        augment_preamble: bool,
+    ) -> Self {
+        self.output_tool_name = Some(name.into());
+        self.output_tool_description = Some(description.into());
+        self.augment_output_preamble = augment_preamble;
+        self
+    }
+
+    /// Set the policy for invalid tool calls that no hook resolves. A resumed
+    /// run keeps the policy it persisted.
+    pub fn unhandled_invalid_tool_call(mut self, policy: UnhandledInvalidToolCall) -> Self {
+        self.unhandled_invalid_tool_call = policy;
+        self
+    }
+}
+
+impl<O> AgentRunner<O> {
+    /// Append a hook to the stack (on top of any the agent already carries).
+    /// Hooks run in registration order; how their results compose is
+    /// event-dependent (model selections and `ToolCall`/`ToolResult` rewrites
+    /// chain, `CompletionCall` request patches accumulate and merge, while
+    /// model-turn steering and observe-only/recovery events use their
+    /// event-specific terminal action). See the [`hook`](crate::agent::hook)
+    /// module docs.
+    pub fn add_hook<H>(mut self, hook: H) -> Self
+    where
+        H: AgentHook + 'static,
+    {
+        self.config.hooks.push(hook);
+        self
+    }
+
+    /// Set the total model-call budget, including the initial call and every
+    /// retry or continuation. Zero emits no model calls; one permits only the
+    /// initial call. Exceeding the budget returns [`PromptError::MaxTurns`],
+    /// which a typed run wraps in
+    /// [`StructuredOutputError::Prompt`](crate::completion::StructuredOutputError::Prompt).
+    pub fn max_turns(mut self, max_turns: usize) -> Self {
+        self.config.max_turns = max_turns;
+        self
+    }
+
+    /// Set the default model candidate for this run.
+    ///
+    /// This does not suppress registered model-selection hooks, which may
+    /// replace the candidate before each model call (including retries).
+    /// Append an unconditional selecting hook last when the run must always
+    /// use one model.
+    pub fn using_model(mut self, label: impl Into<ModelRef>) -> Self {
+        self.config.model_key = self.config.bus.model_key(label.into().as_str());
+        self.config.anonymous_model = None;
+        self
+    }
+
+    /// Register `model` on the agent's bus under a generated label and use
+    /// it as this run's default. The registration is scoped to this runner
+    /// and the run it produces: it leaves the bus when they drop.
+    pub fn using_model_value(
+        mut self,
+        model: impl Into<rig_core::DynModel<rig_core::operation::Completion>>,
+    ) -> Self {
+        let anonymous = self.config.bus.register_anonymous_model(model);
+        self.config.model_key = anonymous.key().clone();
+        self.config.anonymous_model = Some(anonymous);
+        self
+    }
+
+    /// Set the typed context cloned for every tool dispatch in this run.
+    pub fn tool_context(mut self, context: ToolContext) -> Self {
+        self.tool_context = context;
+        self
+    }
+
+    /// Set the chat history preceding the prompt. Passing explicit history
+    /// bypasses conversation memory for this run.
+    pub fn history<I, T>(mut self, history: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<Message>,
+    {
+        self.chat_history = Some(history.into_iter().map(Into::into).collect());
+        self
+    }
+
+    /// Override the agent preamble for this run.
+    pub fn preamble(mut self, preamble: impl Into<String>) -> Self {
+        self.config.preamble = Some(preamble.into());
+        self
+    }
+
+    /// Remove the agent's configured preamble for this run.
+    pub fn without_preamble(mut self) -> Self {
+        self.config.preamble = None;
+        self
+    }
+
+    /// Append one static context document for this run.
+    pub fn document(mut self, document: Document) -> Self {
+        self.config.static_context.push(document);
+        self
+    }
+
+    /// Append static context documents for this run.
+    pub fn documents(mut self, documents: impl IntoIterator<Item = Document>) -> Self {
+        self.config.static_context.extend(documents);
+        self
+    }
+
+    /// Override the model temperature for this run.
+    pub fn temperature(mut self, temperature: f64) -> Self {
+        self.config.temperature = Some(temperature);
+        self
+    }
+
+    /// Remove the agent's configured temperature for this run.
+    pub fn without_temperature(mut self) -> Self {
+        self.config.temperature = None;
+        self
+    }
+
+    /// Override the maximum completion token count for this run.
+    pub fn max_tokens(mut self, max_tokens: u64) -> Self {
+        self.config.max_tokens = Some(max_tokens);
+        self
+    }
+
+    /// Remove the agent's configured maximum token count for this run.
+    pub fn without_max_tokens(mut self) -> Self {
+        self.config.max_tokens = None;
+        self
+    }
+
+    /// Shallow-merge object fields into the provider-specific parameters for
+    /// this run. Later fields win. A non-object baseline is replaced by the
+    /// supplied object. A later completion-call hook patch has final
+    /// precedence: object values shallow-merge, while a non-object on either
+    /// side causes wholesale replacement by the hook value.
+    pub fn merge_additional_params(
+        mut self,
+        params: serde_json::Map<String, serde_json::Value>,
+    ) -> Self {
+        let params = serde_json::Value::Object(params);
+        self.config.additional_params = Some(match self.config.additional_params.take() {
+            Some(baseline) if baseline.is_object() => crate::json_utils::merge(baseline, params),
+            _ => params,
+        });
+        self
+    }
+
+    /// Replace all provider-specific parameters for this run. A later
+    /// completion-call hook patch has final precedence: object values
+    /// shallow-merge, while a non-object on either side causes wholesale
+    /// replacement by the hook value.
+    pub fn replace_additional_params(mut self, params: serde_json::Value) -> Self {
+        self.config.additional_params = Some(params);
+        self
+    }
+
+    /// Remove the agent's configured provider-specific parameters for this run.
+    /// A later completion-call hook may still supply its own parameters.
+    pub fn without_additional_params(mut self) -> Self {
+        self.config.additional_params = None;
+        self
+    }
+
+    /// Overlay `options` on the agent's generation options for this run:
+    /// each field `options` sets wins, every other field keeps the agent's
+    /// ([`GenerationOptions::overlay`](rig_core::completion::GenerationOptions::overlay)).
+    /// A policy `options` sets wins too, so a run can restore
+    /// [`OnUnsupported::Error`](rig_core::completion::OnUnsupported::Error)
+    /// over an agent's `Ignore`.
+    ///
+    /// Calls apply in order: this overlays only the fields `options` sets,
+    /// so it wins over a shortcut such as [`Self::seed`] called before it
+    /// for those fields, and a shortcut called after it sets its one field
+    /// on top.
+    pub fn options(mut self, options: rig_core::completion::GenerationOptions) -> Self {
+        self.config.options = self.config.options.clone().overlay(&options);
+        self
+    }
+
+    /// Set the reasoning level or budget in this run's generation options, as
+    /// [`GenerationOptions::reasoning`](rig_core::completion::GenerationOptions::reasoning) does,
+    /// keeping its other fields. See
+    /// [`Self::options`] for the order of calls.
+    pub fn reasoning(mut self, reasoning: impl Into<rig_core::completion::Reasoning>) -> Self {
+        self.config.options = std::mem::take(&mut self.config.options).reasoning(reasoning);
+        self
+    }
+
+    /// Set the cache retention in this run's generation options, as
+    /// [`GenerationOptions::cache`](rig_core::completion::GenerationOptions::cache) does,
+    /// keeping its other fields. See
+    /// [`Self::options`] for the order of calls.
+    pub fn cache(mut self, cache: rig_core::completion::CacheRetention) -> Self {
+        self.config.options = std::mem::take(&mut self.config.options).cache(cache);
+        self
+    }
+
+    /// Set the service tier in this run's generation options, as
+    /// [`GenerationOptions::service_tier`](rig_core::completion::GenerationOptions::service_tier) does,
+    /// keeping its other fields. See
+    /// [`Self::options`] for the order of calls.
+    pub fn service_tier(mut self, tier: rig_core::completion::ServiceTier) -> Self {
+        self.config.options = std::mem::take(&mut self.config.options).service_tier(tier);
+        self
+    }
+
+    /// Set the answer verbosity in this run's generation options, as
+    /// [`GenerationOptions::verbosity`](rig_core::completion::GenerationOptions::verbosity) does,
+    /// keeping its other fields. See
+    /// [`Self::options`] for the order of calls.
+    pub fn verbosity(mut self, verbosity: rig_core::completion::Verbosity) -> Self {
+        self.config.options = std::mem::take(&mut self.config.options).verbosity(verbosity);
+        self
+    }
+
+    /// Set whether the model may call several tools in one turn in this run's generation options, as
+    /// [`GenerationOptions::parallel_tool_calls`](rig_core::completion::GenerationOptions::parallel_tool_calls) does,
+    /// keeping its other fields. See
+    /// [`Self::options`] for the order of calls.
+    pub fn parallel_tool_calls(mut self, parallel: bool) -> Self {
+        self.config.options =
+            std::mem::take(&mut self.config.options).parallel_tool_calls(parallel);
+        self
+    }
+
+    /// Set the nucleus sampling probability mass in this run's generation options, as
+    /// [`GenerationOptions::top_p`](rig_core::completion::GenerationOptions::top_p) does,
+    /// keeping its other fields. See
+    /// [`Self::options`] for the order of calls.
+    pub fn top_p(mut self, top_p: f64) -> Self {
+        self.config.options = std::mem::take(&mut self.config.options).top_p(top_p);
+        self
+    }
+
+    /// Set the sampling seed in this run's generation options, as
+    /// [`GenerationOptions::seed`](rig_core::completion::GenerationOptions::seed) does,
+    /// keeping its other fields. See
+    /// [`Self::options`] for the order of calls.
+    pub fn seed(mut self, seed: u64) -> Self {
+        self.config.options = std::mem::take(&mut self.config.options).seed(seed);
+        self
+    }
+
+    /// Set the stop sequences in this run's generation options, keeping its
+    /// other fields: the same as
+    /// `.options(GenerationOptions::new().stop(stop))`. As with that overlay,
+    /// an empty list means "not set" and keeps the agent's stop sequences;
+    /// it does not clear them. See [`Self::options`] for the order of calls.
+    pub fn stop<S: Into<String>>(self, stop: impl IntoIterator<Item = S>) -> Self {
+        self.options(rig_core::completion::GenerationOptions::new().stop(stop))
+    }
+
+    /// Set what happens to an option the wire or model cannot honour in this run's generation options, as
+    /// [`GenerationOptions::on_unsupported`](rig_core::completion::GenerationOptions::on_unsupported) does,
+    /// keeping its other fields. See
+    /// [`Self::options`] for the order of calls.
+    pub fn on_unsupported(mut self, policy: rig_core::completion::OnUnsupported) -> Self {
+        self.config.options = std::mem::take(&mut self.config.options).on_unsupported(policy);
+        self
+    }
+
+    /// Overlay `options` on the agent's provider options for this run: each
+    /// provider entry `options` holds replaces the agent's, every other
+    /// entry keeps the agent's
+    /// ([`ProviderOptions::overlay`](rig_core::completion::ProviderOptions::overlay)).
+    ///
+    /// Unlike [`AgentBuilder::provider_options`](crate::agent::AgentBuilder::provider_options),
+    /// it merges rather than replaces, so calls apply in order without
+    /// loss: an entry set by an earlier [`Self::provider_option`] is kept
+    /// unless `options` holds an entry for the same provider, and a later
+    /// [`Self::provider_option`] replaces its provider's entry on top.
+    pub fn provider_options(mut self, options: rig_core::completion::ProviderOptions) -> Self {
+        self.config.provider_options = self.config.provider_options.clone().overlay(&options);
+        self
+    }
+
+    /// Store `options` as the entry of their provider
+    /// ([`ExtensionOptions::Ext`](rig_core::completion::ExtensionOptions::Ext))
+    /// for this run, in place of the agent's entry for that provider; every
+    /// other entry keeps the agent's. The same as
+    /// `.provider_options(ProviderOptions::new().set(options))`, so options
+    /// that write no field hold no entry and keep the agent's entry for
+    /// that provider. Options that do not serialize fail each request's
+    /// encode. See [`Self::provider_options`] for the order of calls. A
+    /// third-party provider reusing a built-in options type needs
+    /// [`ProviderOptions::with::<P>`](rig_core::completion::ProviderOptions::with)
+    /// and [`Self::provider_options`]: this stores under the built-in key.
+    pub fn provider_option<E: rig_core::completion::ExtensionOptions>(self, options: E) -> Self {
+        self.provider_options(rig_core::completion::ProviderOptions::new().set(options))
+    }
+
+    /// Override the tool-choice policy for this run.
+    pub fn tool_choice(mut self, tool_choice: ToolChoice) -> Self {
+        self.config.tool_choice = Some(tool_choice);
+        self
+    }
+
+    /// Remove the agent's configured tool-choice policy for this run.
+    pub fn without_tool_choice(mut self) -> Self {
+        self.config.tool_choice = None;
+        self
+    }
+
+    /// Opt in or out of recording sensitive request, response, and tool content
+    /// on GenAI telemetry spans for this run.
+    ///
+    /// Defaults to the agent's setting, which defaults to `false`. Enabling this
+    /// can expose prompts, retrieved context, tool results, model responses, and
+    /// other sensitive or high-cardinality data through OpenTelemetry span
+    /// attributes, which can increase observability backend storage and query
+    /// costs. Only enable it when content telemetry is acceptable for this run.
+    /// Structural metadata and token usage remain available when disabled.
+    pub fn record_content_telemetry(mut self, enabled: bool) -> Self {
+        self.config.record_telemetry_content = enabled;
+        self
+    }
+
+    /// Accept finish reasons outside the normalized vocabulary
+    /// ([`FinishReason::Other`](rig_core::completion::FinishReason::Other))
+    /// as a normal stop, for this run. Off by default: such a turn fails the run,
+    /// and history replay leaves it out. When on, the turn succeeds, its
+    /// tool calls run, and it replays.
+    ///
+    /// `Other` also holds genuine failures, such as Gemini's
+    /// `MALFORMED_FUNCTION_CALL` and `RECITATION` or Bedrock's
+    /// `malformed_tool_use`, so tool calls from a malformed reply may run.
+    /// Filtered content still fails the turn.
+    pub fn accept_unknown_finish_reasons(mut self, accept: bool) -> Self {
+        self.config.accept_unknown_finish_reasons = accept;
+        self
+    }
+
+    /// Limit concurrent tool calls in awaited and streamed runs. Defaults to one;
+    /// zero is clamped to one. Sequential execution follows call order and stops
+    /// at the first terminating error; concurrent hooks and side effects may interleave.
+    /// Committed history always retains call order.
+    ///
+    /// Streams emit model tool calls when the turn commits. Execution confirmations
+    /// and results appear in call order only after the whole batch succeeds;
+    /// execution confirmations exclude calls whose bodies did not run.
+    pub fn tool_concurrency(mut self, concurrency: usize) -> Self {
+        self.concurrency = concurrency.max(1);
+        self
+    }
+
+    /// Set the conversation id used to load and persist memory for this run.
+    ///
+    /// With a memory backend configured, the run loads the conversation
+    /// before its first model call (a load failure fails the run with
+    /// [`PromptError::Memory`] before any completion) and appends its
+    /// `messages` once it finishes. The append is acknowledged on the
+    /// response's [`memory_append`](PromptResponse::memory_append): a
+    /// failed append does not invalidate the answer and does not prove that no
+    /// write occurred. Explicit
+    /// [`history`](Self::history) bypasses both.
+    pub fn conversation(mut self, id: impl Into<rig_core::id::ConversationId>) -> Self {
+        self.config.conversation_id = Some(id.into());
+        self
+    }
+
+    /// Disable conversation memory for this run (no load, no save).
+    pub fn without_memory(mut self) -> Self {
+        self.config.memory_key = None;
+        self.config.conversation_id = None;
+        self
+    }
+
+    /// Set the retry budget for invalid tool-call recovery. Invalid tool-call
+    /// retries also consume the total model-call budget.
+    pub fn max_invalid_tool_call_retries(mut self, retries: usize) -> Self {
+        self.max_invalid_tool_call_retries = retries;
+        self
+    }
+
+    /// Set how many consecutive turns may call a tool with arguments that are
+    /// not a JSON object. Each such call is answered with feedback, or as the
+    /// invalid-call hook decides; a turn whose calls all parse resets the
+    /// count. Past the limit the run fails. `None`, the default, sets no
+    /// limit. A resumed run keeps the limit it persisted.
+    pub fn max_consecutive_malformed_tool_calls(mut self, limit: impl Into<Option<usize>>) -> Self {
+        self.max_consecutive_malformed_tool_calls = limit.into();
+        self
+    }
+
+    /// This runner recovering `output` instead, and the output it replaced.
+    pub(crate) fn replace_output<P>(self, output: P) -> (AgentRunner<P>, O) {
+        let Self {
+            config,
+            origin,
+            chat_history,
+            max_invalid_tool_call_retries,
+            max_consecutive_malformed_tool_calls,
+            tool_server_handle,
+            tool_context,
+            output_tool_name,
+            output_tool_description,
+            augment_output_preamble,
+            unhandled_invalid_tool_call,
+            concurrency,
+            error_usage,
+            output: replaced,
+        } = self;
+        let runner = AgentRunner {
+            config,
+            origin,
+            chat_history,
+            max_invalid_tool_call_retries,
+            max_consecutive_malformed_tool_calls,
+            tool_server_handle,
+            tool_context,
+            output_tool_name,
+            output_tool_description,
+            augment_output_preamble,
+            unhandled_invalid_tool_call,
+            concurrency,
+            error_usage,
+            output,
+        };
+        (runner, replaced)
+    }
+
+    pub(crate) fn agent_name_or_default(&self) -> &str {
+        self.config.name.as_deref().unwrap_or(UNKNOWN_AGENT_NAME)
+    }
+
+    /// The [`AgentRun`] this runner drives: the persisted run it continues,
+    /// or a fresh one from its prompt and configuration. `history_override`
+    /// replaces the configured chat history (e.g. with memory-loaded
+    /// history) and applies only to a fresh run. The one construction site,
+    /// so the blocking and streaming drivers configure runs identically.
+    pub(crate) fn build_run(&self, history_override: Option<Vec<Message>>) -> AgentRun {
+        let prompt = match &self.origin {
+            RunOrigin::Resume(run) => return run.clone(),
+            RunOrigin::Prompt(prompt) => prompt.clone(),
+        };
+        let spec = crate::run::spec::RunSpec {
+            max_turns: Some(self.config.max_turns),
+            max_invalid_tool_call_retries: self.max_invalid_tool_call_retries,
+            max_consecutive_malformed_tool_calls: self.max_consecutive_malformed_tool_calls,
+            unhandled_invalid_tool_call: self.unhandled_invalid_tool_call,
+            output_schema: self
+                .config
+                .output_schema
+                .as_ref()
+                .map(|schema| schema.as_value().clone()),
+            ..crate::run::spec::RunSpec::new()
+        };
+        let run = AgentRun::from_spec(
+            &spec,
+            prompt,
+            history_override.or_else(|| self.chat_history.clone()),
+        );
+        match &self.output_tool_name {
+            Some(name) => run.with_output_tool_name(name.clone()),
+            None => run,
+        }
+    }
+}
+
+impl AgentRunner {
+    /// [`run_under`](Self::run_under) that also reports the usage a failed
+    /// run consumed; `ambient` is the span the typed run was started in.
+    pub(crate) async fn run_with_error_usage(
+        mut self,
+        ambient: tracing::Span,
+    ) -> (Result<PromptResponse, PromptError>, Usage) {
+        let usage = Arc::new(Mutex::new(Usage::default()));
+        self.error_usage = Some(usage.clone());
+        let result = self.run_under(ambient).await;
+        let observed = result.as_ref().map_or_else(
+            |_| {
+                *usage
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+            },
+            |response| response.usage,
+        );
+        (result, observed)
+    }
+
+    /// Open the per-run agent span, recording the prompt when content
+    /// telemetry is enabled. Shared by the blocking and streaming surfaces.
+    pub(crate) fn open_agent_span(&self, ambient: tracing::Span) -> (tracing::Span, bool) {
+        let (agent_span, created_agent_span) = acquire_agent_span(
+            ambient,
+            self.agent_name_or_default(),
+            self.config.preamble.as_deref(),
+            self.config.record_telemetry_content,
+        );
+
+        // A resumed run's prompt is inside its state: the span records none.
+        if self.config.record_telemetry_content
+            && let RunOrigin::Prompt(prompt) = &self.origin
+            && let Some(text) = prompt.rag_text()
+        {
+            agent_span.record("gen_ai.prompt", text);
+        }
+
+        (agent_span, created_agent_span)
+    }
+
+    /// Resolve the history override and memory handle for this run.
+    ///
+    /// When the caller passes explicit history, memory is fully bypassed
+    /// (no load AND no save). Otherwise, if a memory backend and conversation
+    /// id are both configured, prior history is loaded. Each surface adapts a
+    /// load failure to its own error channel.
+    /// The memory a resumed run appends to: the run carries its history, so
+    /// nothing is loaded, but the messages it adds are appended once, at its
+    /// end, to the conversation the runner names.
+    pub(crate) fn resumed_memory(&self) -> Result<HistoryAndMemory, rig_core::memory::MemoryError> {
+        match (self.config.memory_handle(), &self.config.conversation_id) {
+            (Some(memory), Some(id)) => {
+                let memory = memory.map_err(|report| {
+                    rig_core::memory::MemoryError::Internal(report.to_string())
+                })?;
+                Ok((None, Some((memory, id.clone()))))
+            }
+            _ => Ok((None, None)),
+        }
+    }
+
+    pub(crate) async fn resolve_history_and_memory(
+        &self,
+        hook_ctx: &HookContext,
+    ) -> Result<HistoryAndMemory, rig_core::memory::MemoryError> {
+        match &self.chat_history {
+            Some(_) => Ok((None, None)),
+            None => match (self.config.memory_handle(), &self.config.conversation_id) {
+                (Some(memory), Some(id)) => {
+                    let memory = memory.map_err(|report| {
+                        rig_core::memory::MemoryError::Internal(report.to_string())
+                    })?;
+                    // The load is a `Memory` dispatch at the boundary:
+                    // observe-only for hooks unless one opts in.
+                    let loaded = crate::agent::engine::dispatch_effect(
+                        self,
+                        hook_ctx,
+                        memory.key(),
+                        rig_core::effect::EffectKind::Memory {
+                            op: rig_core::effect::MemoryOp::Load {
+                                conversation: id.clone(),
+                            },
+                        },
+                    )
+                    .await
+                    .and_then(|outcome| match outcome {
+                        rig_core::effect::Outcome::Memory(
+                            rig_core::effect::MemoryOutcome::Loaded { messages },
+                        ) => Ok(messages),
+                        other => Err(crate::agent::engine::wrong_outcome("loaded memory", &other)),
+                    })
+                    .map_err(memory_error_from_report)?;
+                    Ok((Some(loaded), Some((memory, id.clone()))))
+                }
+                _ => Ok((None, None)),
+            },
+        }
+    }
+
+    /// The run-scoped hook context: minted once per run, before the memory
+    /// load (a dispatch too), shared by every hook event.
+    pub(crate) fn hook_context(&self, is_streaming: bool) -> HookContext {
+        HookContext::new(
+            is_streaming,
+            self.config.name.clone(),
+            Some(self.config.bus.dispatcher().clone()),
+        )
+    }
+
+    /// Drive the agent loop to completion, returning the aggregated
+    /// [`PromptResponse`]. Hooks fire at every observable point; the first hook
+    /// to terminate cancels the run. The run belongs to the span this method
+    /// (or `.await`) was called in, wherever the future is polled.
+    pub fn run(
+        self,
+    ) -> impl Future<Output = Result<PromptResponse, PromptError>> + rig_core::wasm_compat::WasmCompatSend
+    {
+        // Like `stream()`: the run belongs to the span it was started in,
+        // not to whichever task first polls the future.
+        let ambient = tracing::Span::current();
+        let run_under = ambient.clone();
+        async move { self.run_under(run_under).await }.instrument(ambient)
+    }
+
+    async fn run_under(self, ambient: tracing::Span) -> Result<PromptResponse, PromptError> {
+        let (agent_span, created_agent_span) = self.open_agent_span(ambient);
+        let bus = self.config.bus.clone();
+        let hook_ctx = self.hook_context(false);
+        // Resumed history is authoritative and loads nothing; the messages
+        // the run adds are appended at its end, once.
+        let (history_override, memory_handle) = match &self.origin {
+            RunOrigin::Resume(_) => match self.resumed_memory() {
+                Ok(resolved) => resolved,
+                Err(err) => return Err(err.into()),
+            },
+            RunOrigin::Prompt(_) => {
+                // A memory load is a dispatch too: drive the bus while resolving.
+                let resolve = self.resolve_history_and_memory(&hook_ctx);
+                futures::pin_mut!(resolve);
+                let mut driven = bus.drive(futures::stream::once(resolve));
+                match driven.next().await {
+                    Some(Ok(resolved)) => resolved,
+                    // A run that never reached the engine still settles:
+                    // the load failure is its ending.
+                    Some(Err(err)) => {
+                        if self.config.hooks.observes(StepEventKind::RunSettled) {
+                            let reason = err.to_string();
+                            self.config
+                                .hooks
+                                .on_run_settled(
+                                    &hook_ctx,
+                                    RunSettled {
+                                        outcome: SettledOutcome::Error(&reason),
+                                        messages: None,
+                                    },
+                                )
+                                .await;
+                        }
+                        return Err(err.into());
+                    }
+                    None => (None, None),
+                }
+            }
+        };
+        let run = self.build_run(history_override);
+
+        // Instrument the fold under the captured agent span, not the poller's span.
+        let record_telemetry_content = self.config.record_telemetry_content;
+        let driver = drive_agent(
+            self,
+            UnaryTurnSource::new(record_telemetry_content),
+            run,
+            agent_span.clone(),
+            created_agent_span,
+            memory_handle,
+            hook_ctx,
+        );
+        let driver = bus.drive(Box::pin(driver));
+        let fold = async move {
+            futures::pin_mut!(driver);
+            let mut response = None;
+            while let Some(item) = driver.next().await {
+                match item {
+                    Ok(DriveItem::Done(done)) => response = Some(done),
+                    Ok(DriveItem::Surfaced(_) | DriveItem::Projected(_)) => {}
+                    Err(err) => {
+                        // Drain through termination so engine teardown completes
+                        // rather than being dropped at the error yield.
+                        while driver.next().await.is_some() {}
+                        return Err(err);
+                    }
+                }
+            }
+            response.ok_or_else(|| {
+                PromptError::Provider(ProviderError::Response(
+                    "agent run ended without producing a final response".to_string(),
+                ))
+            })
+        };
+        fold.instrument(agent_span).await
+    }
+}
+
+/// `.await`ing a runner is [`run`](AgentRunner::run).
+impl std::future::IntoFuture for AgentRunner {
+    type Output = Result<PromptResponse, PromptError>;
+    type IntoFuture = rig_core::wasm_compat::WasmBoxedFuture<'static, Self::Output>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        Box::pin(self.run())
+    }
+}
+
+#[cfg(test)]
+mod empty_turn_tests;
+#[cfg(test)]
+mod entry_tests;
+#[cfg(test)]
+mod ignore_tests;
+#[cfg(test)]
+mod settled_tests;
+#[cfg(test)]
+mod tests;
+
+#[cfg(test)]
+pub(crate) mod prompt_tests;
+
+/// A memory report back into the memory error the run surface names.
+pub(crate) fn memory_error_from_report(
+    report: rig_core::error::ErrorReport,
+) -> rig_core::memory::MemoryError {
+    match report.kind {
+        rig_core::error::ErrorKind::MemoryPolicy => {
+            rig_core::memory::MemoryError::Policy(report.message)
+        }
+        rig_core::error::ErrorKind::MemoryBackend => {
+            rig_core::memory::MemoryError::Backend(Box::new(report))
+        }
+        // Layer denials are memory-policy failures, not backend faults.
+        rig_core::error::ErrorKind::Denied => rig_core::memory::MemoryError::Policy(report.message),
+        rig_core::error::ErrorKind::Http
+        | rig_core::error::ErrorKind::Json
+        | rig_core::error::ErrorKind::Url
+        | rig_core::error::ErrorKind::Request
+        | rig_core::error::ErrorKind::Response
+        | rig_core::error::ErrorKind::Provider
+        | rig_core::error::ErrorKind::ProviderResponse
+        | rig_core::error::ErrorKind::Tool(_)
+        | rig_core::error::ErrorKind::Internal
+        | rig_core::error::ErrorKind::Cancelled
+        | rig_core::error::ErrorKind::Timeout
+        | rig_core::error::ErrorKind::BusClosed
+        | rig_core::error::ErrorKind::HandlerUnavailable
+        | rig_core::error::ErrorKind::Divergence
+        | rig_core::error::ErrorKind::Other => {
+            rig_core::memory::MemoryError::Internal(report.to_string())
+        }
+    }
+}

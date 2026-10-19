@@ -1,0 +1,359 @@
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 1
+From LLMs to LLM-based Agents for Software
+Engineering: A Survey of Current, Challenges and
+Future
+Haolin Jin, Linghan Huang, Haipeng Cai, Jun Yan, Bo Li, Huaming Chen
+Abstract—With the rise of large language models (LLMs),
+researchers are increasingly exploring their applications in var-
+ious vertical domains, such as software engineering. LLMs have
+achieved remarkable success in areas including code generation
+and vulnerability detection. However, they also exhibit numerous
+limitations and shortcomings. LLM-based agents, a novel tech-
+nology with the potential for Artificial General Intelligence (AGI),
+combine LLMs as the core for decision-making and action-taking,
+addressing some of the inherent limitations of LLMs such as lack
+of autonomy and self-improvement. Despite numerous studies
+and surveys exploring the possibility of using LLMs in software
+engineering, it lacks a clear distinction between LLMs and LLM-
+based agents. It is still in its early stage for a unified standard
+and benchmarking to qualify an LLM solution as an LLM-based
+agent in its domain. In this survey, we broadly investigate the
+current practice and solutions for LLMs and LLM-based agents
+for software engineering. In particular we summarise six key
+topics: requirement engineering, code generation, autonomous
+decision-making, software design, test generation, and software
+maintenance. We review and differentiate the work of LLMs
+and LLM-based agents from these six topics, examining their
+differences and similarities in tasks, benchmarks, and evaluation
+metrics. Finally, we discuss the models and benchmarks used,
+providing a comprehensive analysis of their applications and
+effectiveness in software engineering. We anticipate this work
+will shed some lights on pushing the boundaries of LLM-based
+agents in software engineering for future research.
+Index Terms —Large Language Models, LLM-based Agents,
+Software Engineering, Benchmark, Software Security, AI System
+Development
+I. I NTRODUCTION
+S
+OFTW ARE engineering (SE) has seen its booming re-
+search and development with the aid of artificial intel-
+ligence techniques. Traditional approaches leveraging neural
+networks and machine learning have facilitated various SE
+topics such as bug detection, code synthesis, and requirements
+analysis [1], [2]. However, they often present limitations, in-
+cluding the need for exclusive feature engineering, scalability
+issues, and the adaptability across diverse codebases. The
+rise of Large Language Models (LLMs) has embarked on
+new solutions and findings in this landscape. LLMs, such
+Haolin Jin, Linghan Huang and Huaming Chen are with the School of
+Electrical and Computer Engineering, The University of Sydney, Sydney,
+2006, Australia. (email: huaming.chen@sydney.edu.au)
+Haipeng Cai is with the Department of Computer Science and Engineering
+at University at Buffalo, SUNY , USA
+Jun Yan is with the School of Computing and Information Technology at
+University of Wollongong, Australia
+Bo Li is with the Computer Science Department at the University of
+Chicago, US
+as GPT [3] and Codex [4], have demonstrated remarkable
+capabilities in handling downstream tasks in SE, including
+code generation, debugging, and documentation. These models
+leverage vast amounts of training data to generate human-like
+text, offering unprecedented levels of fluency and coherence.
+Studies have shown that LLMs can enhance productivity in
+software projects by providing intelligent code suggestions,
+automating repetitive tasks, even generating entire code snip-
+pets from natural language descriptions [5].
+Despite their potential, there are significant challenges in
+applying LLMs to SE. One major issue is their limited context
+length [6], which restricts the model’s ability to comprehend
+and manage extensive codebases, making it challenging to
+maintain coherence over prolonged interactions. Hallucina-
+tions is another main concern, where the model generates code
+that appears plausible but is actually incorrect or nonsensi-
+cal [7], potentially introducing bugs or vulnerabilities if not
+carefully reviewed by experienced developers. Additionally,
+the inability of LLMs to use external tools restricts their access
+to real-time data and prevent them from performing tasks
+outside their training scope. It diminishes their effectiveness in
+dynamic environments. These limitations significantly impact
+the application of LLMs in SE, and also highlight the need
+for expert developeers to critically refine and validate LLM-
+generated code for accuracy and security [8]. In complex
+projects, the static nature of LLMs can hinder their ability
+to adapt to changing requirements or efficiently incorporate
+new information. Moreover, LLMs typically cannot interact
+with external tools or databases, further limits their utility in
+dynamic and evolving SE contexts.
+To address these challenges, LLM-based agents have
+emerged [9], [10], combining the strengths of LLMs with
+external tools and resources to enable more dynamic and
+autonomous operations. These agents leverage recent advance-
+ments in AI, such as Retrieval-Augmented Generation (RAG)
+and tool utilization, to perform more complex and contextually
+aware tasks [11]. For instance, OpenAI’s Codex has been
+integrated into GitHub Copilot [12], enabling real-time code
+suggestions and completion within development environments.
+Unlike static LLMs, LLM-based agents can perform a wide
+range of tasks, such as autonomously debugging code by
+identifying and fixing errors, proactively refactoring code to
+enhance efficiency or readability, and generating adaptive test
+cases that evolve alongside the codebase. These features make
+LLM-based agents a powerful tool for SE, capable of handling
+more complex and dynamic workflows than traditional LLMs.
+arXiv:2408.02479v2  [cs.SE]  13 Apr 2025
+
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 2
+2020 2021 2022 2023 2024
+Year
+0
+10
+20
+30
+40Number of Papers
+1 1
+6
+36
+31
+0 0
+1
+20
+42
+Trend of LLMs and LLM-based Agent Papers (2020 2024)
+LLMs
+LLM-based Agents
+FIG. 1: N UMBER OF PAPERS COLLECTED ON LLM S AND LLM-
+BASED AGENTS FROM 2020 TO 2024.
+Historically, AI agents focused on autonomous actions
+based on predefined rules or learning from interactions [13],
+[14]. The integration of LLMs has presented new opportuni-
+ties in this area, providing the language understanding and
+generative capabilities needed for more sophisticated agent
+behaviors. [10] shows that LLM-based agents are capable
+of autonomous reasoning and decision-making, achieving the
+third and fourth levels of WS (World Scope) [15], which
+outlines the progression from natural language processing
+(NLP) to general AI. In software engineering, LLM-based
+agents show promise in areas such as autonomous debugging,
+code refactoring, and adaptive test generation, demonstrating
+capabilities that approach artificial general intelligence(AGI).
+In this work, we present, to the best of our knowledge, a first
+survey outlining the integration and transformation of LLMs
+to LLM-based agents in the domain of SE. Our survey covers
+six key themes in SE:
+1) Requirement Engineering and Documentation : Cap-
+turing, analyzing, and documenting software require-
+ments, as well as generating user manuals and technical
+documentation.
+2) Code Generation and Software Development : Au-
+tomating code generation, assisting in the development
+lifecycle, refactoring code, and providing intelligent code
+recommendations.
+3) Autonomous Learning and Decision Making : High-
+lighting the capabilities of LLM-based agents in au-
+tonomous learning, decision-making, and adaptive plan-
+ning within SE contexts.
+4) Software Design and Evaluation: Contributing to design
+processes, architecture validation, performance evalua-
+tion, and code quality assessment.
+5) Software Test Generation : Generating, optimizing, and
+maintaining software tests, including unit tests, integra-
+tion tests, and system tests.
+6) Software Security & Maintenance : Enhancing security
+protocols, facilitating maintenance tasks, and aiding in
+vulnerability detection and patching.
+In detail, we aim to address following research questions:
+• RQ1: What are the state-of-the-art techniques and prac-
+tices in LLMs and LLM-based agents for SE? (Sec-
+Security & MaintenanceCode Gen & DevelopmentRequirement Eng & DocDesign & Evaluation
+T est Generation
+Autonomous Learn & Decision
+0
+5
+10
+15
+20Number of Papers
+17
+16
+20
+8
+9
+6
+13
+20
+6
+9
+6
+23
+Paper Distribution Across Software Engineering Domains
+LLMs
+LLM-based Agents
+FIG. 2: P APER DISTRIBUTION .
+tion IV- IX)
+• RQ2: What are the key differences in task performance
+between LLMs and LLM-based agents in SE applica-
+tions? (Sections IV- IX)
+• RQ3: Which benchmark datasets and evaluation metrics
+are most commonly used for assessing the performance of
+LLMs and LLM-based agents in SE tasks? (Section IV-
+IX and Section X)
+• RQ4: What are the predominant experimental models
+employed when utilizing LLMs in SE? (Section X)
+II. EXISTING S URVEYS AND THE SURVEY
+STRUCTURE
+A. Existing Works
+In recent years, large language models have been primarily
+applied to help programmers generate code and fix bugs.
+These models understand and complete code or text based
+on the user’s input, leveraging their training data and reason-
+ing capabilities. In previous survey papers, such as Angela
+Fan’s research [8], there has not been much elaboration on
+requirement engineering. As mentioned in the paper, software
+engineers are generally reluctant to rely on LLMs for higher-
+level design goals. However, with LLMs achieving remarkable
+improvements in contextual analysis and reasoning abilities
+through various methods like prompt engineering and Chain-
+of-Thought (COT) [16], their applications in requirement
+engineering are gradually increasing. Table I summarizes
+and categorizes the tasks in software engineering. Since the
+collection primarily focuses on the latter half of 2023 and
+before December 2024, and some papers address multiple
+tasks, the table reflects the number of tasks after accounting
+for overlaps.
+While other works have surveyed LLMs applications in
+some SE tasks [8], [17], [18], they lack a wider coverage of the
+general SE area to incorporate recent research developments.
+More importantly, a focus of LLMs is the main contributions
+of these works, but there is no distinguish the capabilities
+between LLMs and LLM-based agents. We summarize the
+difference between our work and others in Table II, this sur-
+vey addresses these limitations by distinctly analyzing LLMs
+and LLM-based agents applications across six SE domains,
+
+JOURNAL OF LATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 3
+TABLE I: D ISTRIBUTION OF SE TASKS
+Category LLMs LLM-based agents Total
+Requirement
+Engineering and
+Documentation
+Requirement Classification and Extraction (4)
+Requirement Generation and Description (6)
+Requirements Satisfaction Assessment (1)
+Specification Generation (5)
+Quality Evaluation (3)
+Ambiguity Detection (2)
+Generation of Semi-structured Documents (1)
+Generate safety requirements (1)
+Automatically generating use cases based on
+high-level requirements (1)
+Requirements Satisfaction Assessment (1)
+Automated User Story Quality Enhancement (3)
+28
+Code Generation
+and
+software
+development
+Code Generation Debugging (3)
+Code Evaluation (2)
+Implement HTTP server (1)
+Enhancing Code Generation Capabilities (5)
+Specialized Code Generation (3)
+Human Feedback Preference Simulation (1)
+Automating the Software Development Process (5)
+Large-Scale Code and Document Generation (2)
+Tool and External API Usage (4)
+Multi-Agent Collaboration and Code Refine (6)
+Improving Code Generation Quality (3)
+35
+Autonomous
+Learning
+and Decision
+Making
+Multi-LLMs Decision-Making (1)
+Creativity Evaluation (1)
+Self-Identify and Correct Code (1)
+Judge Chatbot Response (1)
+Mimics Human Scientific Debugging (1)
+Deliberate Problem Solving(1)
+Collaborative Decision-Making and Multi-Agent
+Systems (6)
+Autonomous Reasoning and Decision-Making (12)
+Learning and Adaptation Through Feedback (4)
+Simulation and Evaluation of Human-like
+Behaviors (2)
+30
+Software Design
+and Evaluation
+Creative Capabilities Evaluation (1)
+Performance in SE Tasks (1)
+Educational Utility and Assessment (1)
+Efficiency Optimization (2)
+Automation of Software Engineering Processes (3)
+Enhancing Problem Solving and Reasoning (4)
+Integration and Management of AI Models and
+Tools (3)
+Optimization and Efficiency Improvement (2)
+Performance Assessment in Dynamic Environments
+(2)
+19
+Software Test
+Generation
+Bug Reproduction and Debugging (2)
+Security Test (2)
+Test Coverage (3)
+Test-Informed Code Generation (1)
+Universal Fuzzing (1)
+Multi-agent Collaborative Test Generation (3)
+Autonomous Testing and Conversational Interfaces
+(3)
+15
+Software Security
+&
+Maintainance
+Vulnerability Detection (7)
+Vulnerability Repair (2)
+Program Repair (5)
+Robustness Testing (1)
+Requirements Analysis (1)
+Fuzzing (1)
+Duplicate Entry (1)
+Code Generation and Debugging (4)
+Penetration Testing and Security Assessment (2)
+Program Analysis and Debugging (1)
+Autonomous Software Development and
+Maintenance (6)
+Debugging and Fault Localization (4)
+Vulnerability Detection and Penetration
+Testing (3)
+Smart Contract Auditing and Repair (2)
+Safety and Risk Analysis (2)
+Adaptive and Communicative Agents (1)
+43
+providing a thorough and up-to-date review. From previous
+research, it is evident that the performance of LLMs in
+various applications and tasks heavily depends on the model’s
+inherent capabilities [10]. More importantly, earlier surveys
+often present findings from papers spanning in a wide range
+of publication dates, leading to significant content disparities
+for LLMs in different SE tasks. For instance, research in
+requirement engineering was relatively nascent, resulting in
+sparse content in this area in previous surveys. The recent rise
+of LLM-based agents, with their enhanced capabilities and
+autonomy, fills these gaps. By focusing on the latest researches
+and clearly differentiating between LLMs and LLM-based
+agents, our survey provides a thorough and in-depth overview
+of how these technologies are applied and new opportunities
+they bring to SE.
+In summary, we have collected a total of 139 papers directly
+relevant to this topic, covering the six SE domains men-
+tioned earlier as shown in Figure.1. Our analysis distinguishes
+between LLM and LLM-based agent contributions, offering
+a comparative overview and addressing the limitations of
+previous surveys. Considering the novelty nature of the LLM-
+based agents field and the lack of standardized benchmarks,
+this work seeks to offer a detailed review that can guide future
+research and provide a clearer view of the potential of these
+technologies in SE.
+B. Methodology
+By following previous research efforts [8], [17], [21], we
+collected relevant papers from DBLP and arXiv, focusing on
+publications from the latter half of 2023 to December 2024.

@@ -1,0 +1,1644 @@
+{
+  "kept": [
+    {
+      "path": ".devcontainer/README.md",
+      "bytes": 100
+    },
+    {
+      "path": ".devcontainer/bashrc_epilog.sh",
+      "bytes": 518
+    },
+    {
+      "path": ".devcontainer/devcontainer.json",
+      "bytes": 656
+    },
+    {
+      "path": ".devcontainer/oncreate.sh",
+      "bytes": 245
+    },
+    {
+      "path": ".devcontainer/postcreate.sh",
+      "bytes": 66
+    },
+    {
+      "path": ".devcontainer/sample_keys.cfg",
+      "bytes": 812
+    },
+    {
+      "path": ".github/CODE_OF_CONDUCT.md",
+      "bytes": 5489
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "bytes": 3010
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "bytes": 266
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.yml",
+      "bytes": 718
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/question.yml",
+      "bytes": 783
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "bytes": 578
+    },
+    {
+      "path": ".github/dependabot.yml",
+      "bytes": 163
+    },
+    {
+      "path": ".github/workflows/build-docs.yaml",
+      "bytes": 1488
+    },
+    {
+      "path": ".github/workflows/check-links-periodic.yaml",
+      "bytes": 393
+    },
+    {
+      "path": ".github/workflows/check-links-pr.yaml",
+      "bytes": 361
+    },
+    {
+      "path": ".github/workflows/pytest.yaml",
+      "bytes": 2009
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "bytes": 1000
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 1049
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1147
+    },
+    {
+      "path": "README.md",
+      "bytes": 8158
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 217
+    },
+    {
+      "path": "codecov.yml",
+      "bytes": 399
+    },
+    {
+      "path": "config/README.md",
+      "bytes": 910
+    },
+    {
+      "path": "config/bash_only.yaml",
+      "bytes": 7710
+    },
+    {
+      "path": "config/benchmarks/250212_sweagent_heavy_sbl.yaml",
+      "bytes": 7780
+    },
+    {
+      "path": "config/benchmarks/250225_anthropic_filemap_simple_review.yaml",
+      "bytes": 3625
+    },
+    {
+      "path": "config/benchmarks/250522_anthropic_filemap_simple_review.yaml",
+      "bytes": 3866
+    },
+    {
+      "path": "config/benchmarks/250526_anthropic_filemap_simple_review_sbl.yaml",
+      "bytes": 3945
+    },
+    {
+      "path": "config/benchmarks/anthropic_filemap_multilingual.yaml",
+      "bytes": 3289
+    },
+    {
+      "path": "config/coding_challenge.yaml",
+      "bytes": 5966
+    },
+    {
+      "path": "config/default.yaml",
+      "bytes": 3242
+    },
+    {
+      "path": "config/default_backticks.yaml",
+      "bytes": 3240
+    },
+    {
+      "path": "config/default_mm_no_images.yaml",
+      "bytes": 4147
+    },
+    {
+      "path": "config/default_mm_with_images.yaml",
+      "bytes": 4256
+    },
+    {
+      "path": "config/demo/default.yaml",
+      "bytes": 3499
+    },
+    {
+      "path": "config/demo/no_instructions.yaml",
+      "bytes": 2452
+    },
+    {
+      "path": "config/demo/only_bash.yaml",
+      "bytes": 2413
+    },
+    {
+      "path": "config/exotic/default_shell.yaml",
+      "bytes": 2152
+    },
+    {
+      "path": "config/exotic/windowed_replace.yaml",
+      "bytes": 7306
+    },
+    {
+      "path": "config/exotic/windowed_replace_late_repro.yaml",
+      "bytes": 7379
+    },
+    {
+      "path": "config/human/human.yaml",
+      "bytes": 478
+    },
+    {
+      "path": "config/human/human_demo.yaml",
+      "bytes": 1404
+    },
+    {
+      "path": "config/sweagent_0_7/07.yaml",
+      "bytes": 6559
+    },
+    {
+      "path": "config/sweagent_0_7/07_fcalling.yaml",
+      "bytes": 6661
+    },
+    {
+      "path": "config/sweagent_0_7/07_from_url.yaml",
+      "bytes": 6906
+    },
+    {
+      "path": "config/sweagent_0_7/07_thought_action.yaml",
+      "bytes": 6665
+    },
+    {
+      "path": "config/sweagent_0_7/07_thought_action_xml.yaml",
+      "bytes": 6373
+    },
+    {
+      "path": "docs/README.md",
+      "bytes": 444
+    },
+    {
+      "path": "docs/_footer.md",
+      "bytes": 763
+    },
+    {
+      "path": "docs/background/aci.md",
+      "bytes": 1769
+    },
+    {
+      "path": "docs/background/architecture.md",
+      "bytes": 1803
+    },
+    {
+      "path": "docs/background/index.md",
+      "bytes": 5021
+    },
+    {
+      "path": "docs/config/config.md",
+      "bytes": 3127
+    },
+    {
+      "path": "docs/config/demonstrations.md",
+      "bytes": 2868
+    },
+    {
+      "path": "docs/config/env.md",
+      "bytes": 1311
+    },
+    {
+      "path": "docs/config/environments.md",
+      "bytes": 891
+    },
+    {
+      "path": "docs/config/index.md",
+      "bytes": 9
+    },
+    {
+      "path": "docs/config/models.md",
+      "bytes": 5467
+    },
+    {
+      "path": "docs/config/templates.md",
+      "bytes": 1060
+    },
+    {
+      "path": "docs/config/tools.md",
+      "bytes": 2203
+    },
+    {
+      "path": "docs/dev/contribute.md",
+      "bytes": 4552
+    },
+    {
+      "path": "docs/dev/formatting_conflicts.md",
+      "bytes": 2648
+    },
+    {
+      "path": "docs/dev/vscode_launch.json",
+      "bytes": 416
+    },
+    {
+      "path": "docs/dev/vscode_settings.json",
+      "bytes": 288
+    },
+    {
+      "path": "docs/faq.md",
+      "bytes": 2960
+    },
+    {
+      "path": "docs/index.md",
+      "bytes": 4044
+    },
+    {
+      "path": "docs/installation/changelog.md",
+      "bytes": 30191
+    },
+    {
+      "path": "docs/installation/codespaces.md",
+      "bytes": 735
+    },
+    {
+      "path": "docs/installation/index.md",
+      "bytes": 1155
+    },
+    {
+      "path": "docs/installation/keys.md",
+      "bytes": 7820
+    },
+    {
+      "path": "docs/installation/migration.md",
+      "bytes": 3567
+    },
+    {
+      "path": "docs/installation/source.md",
+      "bytes": 2321
+    },
+    {
+      "path": "docs/installation/tips.md",
+      "bytes": 1441
+    },
+    {
+      "path": "docs/overrides/main.html",
+      "bytes": 4084
+    },
+    {
+      "path": "docs/reference/agent.md",
+      "bytes": 320
+    },
+    {
+      "path": "docs/reference/agent_config.md",
+      "bytes": 1004
+    },
+    {
+      "path": "docs/reference/batch_instances.md",
+      "bytes": 322
+    },
+    {
+      "path": "docs/reference/bundle_config.md",
+      "bytes": 362
+    },
+    {
+      "path": "docs/reference/env.md",
+      "bytes": 368
+    },
+    {
+      "path": "docs/reference/env_config.md",
+      "bytes": 272
+    },
+    {
+      "path": "docs/reference/exceptions.md",
+      "bytes": 139
+    },
+    {
+      "path": "docs/reference/history_processor_config.md",
+      "bytes": 659
+    },
+    {
+      "path": "docs/reference/index.md",
+      "bytes": 280
+    },
+    {
+      "path": "docs/reference/model_config.md",
+      "bytes": 1387
+    },
+    {
+      "path": "docs/reference/parsers.md",
+      "bytes": 219
+    },
+    {
+      "path": "docs/reference/problem_statements.md",
+      "bytes": 1573
+    },
+    {
+      "path": "docs/reference/repo.md",
+      "bytes": 1148
+    },
+    {
+      "path": "docs/reference/run_batch_config.md",
+      "bytes": 173
+    },
+    {
+      "path": "docs/reference/run_single_config.md",
+      "bytes": 212
+    },
+    {
+      "path": "docs/reference/template_config.md",
+      "bytes": 264
+    },
+    {
+      "path": "docs/reference/tools_config.md",
+      "bytes": 396
+    },
+    {
+      "path": "docs/usage/adding_custom_tools.md",
+      "bytes": 8624
+    },
+    {
+      "path": "docs/usage/batch_mode.md",
+      "bytes": 9695
+    },
+    {
+      "path": "docs/usage/cl_tutorial.md",
+      "bytes": 12112
+    },
+    {
+      "path": "docs/usage/cli.md",
+      "bytes": 1354
+    },
+    {
+      "path": "docs/usage/coding_challenges.md",
+      "bytes": 6148
+    },
+    {
+      "path": "docs/usage/competitive_runs.md",
+      "bytes": 3949
+    },
+    {
+      "path": "docs/usage/containers_sentinel.sh",
+      "bytes": 908
+    },
+    {
+      "path": "docs/usage/hello_world.md",
+      "bytes": 4538
+    },
+    {
+      "path": "docs/usage/hello_world_output.txt",
+      "bytes": 48820
+    },
+    {
+      "path": "docs/usage/index.md",
+      "bytes": 1668
+    },
+    {
+      "path": "docs/usage/inspector.md",
+      "bytes": 2925
+    },
+    {
+      "path": "docs/usage/leetcode_example.md",
+      "bytes": 604
+    },
+    {
+      "path": "docs/usage/memory_sentinel.py",
+      "bytes": 4324
+    },
+    {
+      "path": "docs/usage/multimodal.md",
+      "bytes": 4301
+    },
+    {
+      "path": "docs/usage/trajectories.md",
+      "bytes": 4789
+    },
+    {
+      "path": "docs/usage/union_type_error.txt",
+      "bytes": 5219
+    },
+    {
+      "path": "docs/usage/whats_next.md",
+      "bytes": 550
+    },
+    {
+      "path": "mkdocs.yml",
+      "bytes": 6036
+    },
+    {
+      "path": "mlc_config.json",
+      "bytes": 785
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 6487
+    },
+    {
+      "path": "sweagent/__init__.py",
+      "bytes": 3605
+    },
+    {
+      "path": "sweagent/__main__.py",
+      "bytes": 73
+    },
+    {
+      "path": "sweagent/agent/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "sweagent/agent/action_sampler.py",
+      "bytes": 12060
+    },
+    {
+      "path": "sweagent/agent/agents.py",
+      "bytes": 55804
+    },
+    {
+      "path": "sweagent/agent/extra/shell_agent.py",
+      "bytes": 4528
+    },
+    {
+      "path": "sweagent/agent/history_processors.py",
+      "bytes": 14869
+    },
+    {
+      "path": "sweagent/agent/hooks/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "sweagent/agent/hooks/abstract.py",
+      "bytes": 4064
+    },
+    {
+      "path": "sweagent/agent/hooks/status.py",
+      "bytes": 1163
+    },
+    {
+      "path": "sweagent/agent/models.py",
+      "bytes": 37757
+    },
+    {
+      "path": "sweagent/agent/problem_statement.py",
+      "bytes": 11064
+    },
+    {
+      "path": "sweagent/agent/reviewer.py",
+      "bytes": 25829
+    },
+    {
+      "path": "sweagent/environment/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "sweagent/environment/hooks/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "sweagent/environment/hooks/abstract.py",
+      "bytes": 1872
+    },
+    {
+      "path": "sweagent/environment/hooks/status.py",
+      "bytes": 835
+    },
+    {
+      "path": "sweagent/environment/repo.py",
+      "bytes": 9519
+    },
+    {
+      "path": "sweagent/environment/swe_env.py",
+      "bytes": 10989
+    },
+    {
+      "path": "sweagent/exceptions.py",
+      "bytes": 1597
+    },
+    {
+      "path": "sweagent/inspector/README.md",
+      "bytes": 300
+    },
+    {
+      "path": "sweagent/inspector/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "sweagent/inspector/fileViewer.js",
+      "bytes": 10968
+    },
+    {
+      "path": "sweagent/inspector/index.html",
+      "bytes": 1103
+    },
+    {
+      "path": "sweagent/inspector/server.py",
+      "bytes": 13033
+    },
+    {
+      "path": "sweagent/inspector/static.py",
+      "bytes": 6211
+    },
+    {
+      "path": "sweagent/inspector/style.css",
+      "bytes": 9035
+    },
+    {
+      "path": "sweagent/run/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "sweagent/run/_progress.py",
+      "bytes": 6112
+    },
+    {
+      "path": "sweagent/run/batch_instances.py",
+      "bytes": 18161
+    },
+    {
+      "path": "sweagent/run/common.py",
+      "bytes": 15254
+    },
+    {
+      "path": "sweagent/run/compare_runs.py",
+      "bytes": 4495
+    },
+    {
+      "path": "sweagent/run/extract_pred.py",
+      "bytes": 682
+    },
+    {
+      "path": "sweagent/run/hooks/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "sweagent/run/hooks/abstract.py",
+      "bytes": 1990
+    },
+    {
+      "path": "sweagent/run/hooks/apply_patch.py",
+      "bytes": 4506
+    },
+    {
+      "path": "sweagent/run/hooks/open_pr.py",
+      "bytes": 9369
+    },
+    {
+      "path": "sweagent/run/hooks/swe_bench_evaluate.py",
+      "bytes": 4874
+    },
+    {
+      "path": "sweagent/run/inspector_cli.py",
+      "bytes": 17744
+    },
+    {
+      "path": "sweagent/run/merge_predictions.py",
+      "bytes": 2245
+    },
+    {
+      "path": "sweagent/run/quick_stats.py",
+      "bytes": 3040
+    },
+    {
+      "path": "sweagent/run/remove_unfinished.py",
+      "bytes": 2161
+    },
+    {
+      "path": "sweagent/run/rich_test.py",
+      "bytes": 2930
+    },
+    {
+      "path": "sweagent/run/run.py",
+      "bytes": 5327
+    },
+    {
+      "path": "sweagent/run/run_batch.py",
+      "bytes": 19644
+    },
+    {
+      "path": "sweagent/run/run_replay.py",
+      "bytes": 8407
+    },
+    {
+      "path": "sweagent/run/run_shell.py",
+      "bytes": 5610
+    },
+    {
+      "path": "sweagent/run/run_single.py",
+      "bytes": 9182
+    },
+    {
+      "path": "sweagent/run/run_traj_to_demo.py",
+      "bytes": 3607
+    },
+    {
+      "path": "sweagent/tools/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "sweagent/tools/bundle.py",
+      "bytes": 1804
+    },
+    {
+      "path": "sweagent/tools/commands.py",
+      "bytes": 8233
+    },
+    {
+      "path": "sweagent/tools/parsing.py",
+      "bytes": 25145
+    },
+    {
+      "path": "sweagent/tools/tools.py",
+      "bytes": 16743
+    },
+    {
+      "path": "sweagent/tools/utils.py",
+      "bytes": 4044
+    },
+    {
+      "path": "sweagent/types.py",
+      "bytes": 2808
+    },
+    {
+      "path": "sweagent/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "sweagent/utils/config.py",
+      "bytes": 2691
+    },
+    {
+      "path": "sweagent/utils/files.py",
+      "bytes": 812
+    },
+    {
+      "path": "sweagent/utils/github.py",
+      "bytes": 5218
+    },
+    {
+      "path": "sweagent/utils/jinja_warnings.py",
+      "bytes": 510
+    },
+    {
+      "path": "sweagent/utils/log.py",
+      "bytes": 6436
+    },
+    {
+      "path": "sweagent/utils/patch_formatter.py",
+      "bytes": 6249
+    },
+    {
+      "path": "sweagent/utils/serialization.py",
+      "bytes": 1447
+    },
+    {
+      "path": "tests/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/conftest.py",
+      "bytes": 3544
+    },
+    {
+      "path": "tests/test_agent.py",
+      "bytes": 10366
+    },
+    {
+      "path": "tests/test_batch_instance.py",
+      "bytes": 3080
+    },
+    {
+      "path": "tests/test_commands/_interactive_dummy.py",
+      "bytes": 795
+    },
+    {
+      "path": "tests/test_commands/interactive_dummy_wrapper.sh",
+      "bytes": 477
+    },
+    {
+      "path": "tests/test_env.py",
+      "bytes": 1845
+    },
+    {
+      "path": "tests/test_env_utils.py",
+      "bytes": 3340
+    },
+    {
+      "path": "tests/test_history_processors.py",
+      "bytes": 1437
+    },
+    {
+      "path": "tests/test_models.py",
+      "bytes": 3986
+    },
+    {
+      "path": "tests/test_packaging.py",
+      "bytes": 130
+    },
+    {
+      "path": "tests/test_parsing.py",
+      "bytes": 4415
+    },
+    {
+      "path": "tests/test_problem_statement_multimodal.py",
+      "bytes": 6360
+    },
+    {
+      "path": "tests/test_quick_stats.py",
+      "bytes": 1408
+    },
+    {
+      "path": "tests/test_run.py",
+      "bytes": 968
+    },
+    {
+      "path": "tests/test_run_batch.py",
+      "bytes": 3034
+    },
+    {
+      "path": "tests/test_run_hooks.py",
+      "bytes": 6795
+    },
+    {
+      "path": "tests/test_run_replay.py",
+      "bytes": 856
+    },
+    {
+      "path": "tests/test_run_single.py",
+      "bytes": 4174
+    },
+    {
+      "path": "tests/test_swesmith.py",
+      "bytes": 8101
+    },
+    {
+      "path": "tests/test_tools_command_parsing.py",
+      "bytes": 7235
+    },
+    {
+      "path": "tests/test_utils.py",
+      "bytes": 491
+    },
+    {
+      "path": "tests/tools/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/tools/conftest.py",
+      "bytes": 301
+    },
+    {
+      "path": "tests/tools/test_default_utils.py",
+      "bytes": 4316
+    },
+    {
+      "path": "tests/tools/test_edit_replace.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/tools/test_split_string.py",
+      "bytes": 2536
+    },
+    {
+      "path": "tests/utils.py",
+      "bytes": 1116
+    },
+    {
+      "path": "tools/diff_state/config.yaml",
+      "bytes": 44
+    },
+    {
+      "path": "tools/edit_anthropic/config.yaml",
+      "bytes": 3399
+    },
+    {
+      "path": "tools/edit_anthropic/install.sh",
+      "bytes": 159
+    },
+    {
+      "path": "tools/filemap/config.yaml",
+      "bytes": 295
+    },
+    {
+      "path": "tools/filemap/install.sh",
+      "bytes": 69
+    },
+    {
+      "path": "tools/forfeit/config.yaml",
+      "bytes": 148
+    },
+    {
+      "path": "tools/image_tools/config.yaml",
+      "bytes": 239
+    },
+    {
+      "path": "tools/multilingual_setup/config.yaml",
+      "bytes": 9
+    },
+    {
+      "path": "tools/multilingual_setup/install.sh",
+      "bytes": 1632
+    },
+    {
+      "path": "tools/registry/config.yaml",
+      "bytes": 9
+    },
+    {
+      "path": "tools/registry/install.sh",
+      "bytes": 195
+    },
+    {
+      "path": "tools/registry/lib/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tools/registry/lib/registry.py",
+      "bytes": 2071
+    },
+    {
+      "path": "tools/review_on_submit_m/README.md",
+      "bytes": 197
+    },
+    {
+      "path": "tools/review_on_submit_m/config.yaml",
+      "bytes": 200
+    },
+    {
+      "path": "tools/review_on_submit_m/install.sh",
+      "bytes": 0
+    },
+    {
+      "path": "tools/search/config.yaml",
+      "bytes": 1511
+    },
+    {
+      "path": "tools/search/install.sh",
+      "bytes": 86
+    },
+    {
+      "path": "tools/submit/config.yaml",
+      "bytes": 101
+    },
+    {
+      "path": "tools/web_browser/config.yaml",
+      "bytes": 4566
+    },
+    {
+      "path": "tools/web_browser/install.sh",
+      "bytes": 750
+    },
+    {
+      "path": "tools/web_browser/lib/browser_manager.py",
+      "bytes": 12491
+    },
+    {
+      "path": "tools/web_browser/lib/web_browser_config.py",
+      "bytes": 1327
+    },
+    {
+      "path": "tools/web_browser/lib/web_browser_utils.py",
+      "bytes": 4209
+    },
+    {
+      "path": "tools/web_browser/test_console.html",
+      "bytes": 130
+    },
+    {
+      "path": "tools/windowed/config.yaml",
+      "bytes": 1271
+    },
+    {
+      "path": "tools/windowed/install.sh",
+      "bytes": 482
+    },
+    {
+      "path": "tools/windowed/lib/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tools/windowed/lib/flake8_utils.py",
+      "bytes": 5845
+    },
+    {
+      "path": "tools/windowed/lib/windowed_file.py",
+      "bytes": 11628
+    },
+    {
+      "path": "tools/windowed_edit_linting/config.yaml",
+      "bytes": 1134
+    },
+    {
+      "path": "tools/windowed_edit_linting/install.sh",
+      "bytes": 143
+    },
+    {
+      "path": "tools/windowed_edit_replace/config.yaml",
+      "bytes": 2182
+    },
+    {
+      "path": "tools/windowed_edit_replace/install.sh",
+      "bytes": 143
+    },
+    {
+      "path": "tools/windowed_edit_rewrite/config.yaml",
+      "bytes": 279
+    },
+    {
+      "path": "tools/windowed_edit_rewrite/install.sh",
+      "bytes": 143
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".cursor/rules/general.mdc",
+      "bytes": 422
+    },
+    {
+      "path": ".cursor/rules/project-overview.mdc",
+      "bytes": 1137
+    },
+    {
+      "path": ".env.example",
+      "bytes": 322
+    },
+    {
+      "path": ".git-blame-ignore-revs",
+      "bytes": 309
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 2832
+    },
+    {
+      "path": "assets/batch_animated.gif",
+      "bytes": 1053435
+    },
+    {
+      "path": "assets/swe-agent-banner-dark.svg",
+      "bytes": 41155
+    },
+    {
+      "path": "assets/swe-agent-banner-light.svg",
+      "bytes": 41137
+    },
+    {
+      "path": "assets/swe-agent-banner.png",
+      "bytes": 180563
+    },
+    {
+      "path": "assets/swe-agent-banner.svg",
+      "bytes": 40977
+    },
+    {
+      "path": "assets/swe-agent-hand.png",
+      "bytes": 15627
+    },
+    {
+      "path": "assets/swe-agent-hand.svg",
+      "bytes": 19665
+    },
+    {
+      "path": "assets/warning.png",
+      "bytes": 6687473
+    },
+    {
+      "path": "docs/CNAME",
+      "bytes": 14
+    },
+    {
+      "path": "docs/assets/architecture.png",
+      "bytes": 421727
+    },
+    {
+      "path": "docs/assets/batch_animated.gif",
+      "bytes": 1053435
+    },
+    {
+      "path": "docs/assets/bubbles.css",
+      "bytes": 1335
+    },
+    {
+      "path": "docs/assets/custom.css",
+      "bytes": 695
+    },
+    {
+      "path": "docs/assets/favicon.ico",
+      "bytes": 32038
+    },
+    {
+      "path": "docs/assets/image_theme.css",
+      "bytes": 217
+    },
+    {
+      "path": "docs/assets/inspector_1.png",
+      "bytes": 304580
+    },
+    {
+      "path": "docs/assets/inspector_2.png",
+      "bytes": 279142
+    },
+    {
+      "path": "docs/assets/js/sh-annotation.js",
+      "bytes": 455
+    },
+    {
+      "path": "docs/assets/mini_logo.svg",
+      "bytes": 10762
+    },
+    {
+      "path": "docs/assets/mini_logo_text_below.svg",
+      "bytes": 11759
+    },
+    {
+      "path": "docs/assets/mkdocstrings.css",
+      "bytes": 639
+    },
+    {
+      "path": "docs/assets/navigation_cards.css",
+      "bytes": 741
+    },
+    {
+      "path": "docs/assets/open_port_default.png",
+      "bytes": 93061
+    },
+    {
+      "path": "docs/assets/open_port_in_browser.png",
+      "bytes": 47571
+    },
+    {
+      "path": "docs/assets/readme_assets",
+      "bytes": 12
+    },
+    {
+      "path": "docs/assets/sbcli_logo.svg",
+      "bytes": 5738
+    },
+    {
+      "path": "docs/assets/sbcli_logo_text_below.svg",
+      "bytes": 35734
+    },
+    {
+      "path": "docs/assets/swe-agent.svg",
+      "bytes": 19331
+    },
+    {
+      "path": "docs/assets/sweagent_logo_text_below.svg",
+      "bytes": 29708
+    },
+    {
+      "path": "docs/assets/swebench_logo.png",
+      "bytes": 67285
+    },
+    {
+      "path": "docs/assets/swebench_logo_text_below.svg",
+      "bytes": 36334
+    },
+    {
+      "path": "docs/assets/swerex_logo.svg",
+      "bytes": 35649
+    },
+    {
+      "path": "docs/assets/swerex_logo_text_below.svg",
+      "bytes": 26642
+    },
+    {
+      "path": "docs/assets/swesmith_logo.png",
+      "bytes": 196401
+    },
+    {
+      "path": "docs/assets/swesmith_logo_text_below.svg",
+      "bytes": 130948
+    },
+    {
+      "path": "docs/assets/template_workflow.png",
+      "bytes": 279073
+    },
+    {
+      "path": "docs/usage/coding_challenge_output.log",
+      "bytes": 52788
+    },
+    {
+      "path": "sweagent/inspector/favicon.ico",
+      "bytes": 270622
+    },
+    {
+      "path": "sweagent/inspector/icons/computer.png",
+      "bytes": 14072
+    },
+    {
+      "path": "sweagent/inspector/icons/edit_icon.svg",
+      "bytes": 1161
+    },
+    {
+      "path": "sweagent/inspector/icons/swe-agent-logo-50.png",
+      "bytes": 2496
+    },
+    {
+      "path": "sweagent/inspector/icons/swellama_blue.png",
+      "bytes": 35806
+    },
+    {
+      "path": "sweagent/inspector/icons/swellama_brown.png",
+      "bytes": 36413
+    },
+    {
+      "path": "sweagent/inspector/icons/swellama_grey.png",
+      "bytes": 35059
+    },
+    {
+      "path": "sweagent/inspector/icons/swellama_tan.png",
+      "bytes": 33605
+    },
+    {
+      "path": "tests/test_data/config_files/dummy_interactive.yaml",
+      "bytes": 1634
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/crypto/Katy/Dockerfile",
+      "bytes": 502
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/crypto/Katy/README.md",
+      "bytes": 710
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/crypto/Katy/challenge.json",
+      "bytes": 887
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/crypto/Katy/customrandom.c",
+      "bytes": 963
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/crypto/Katy/docker-compose.yml",
+      "bytes": 211
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/crypto/Katy/release",
+      "bytes": 8360
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/crypto/Katy/server",
+      "bytes": 8360
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/crypto/Katy/solver.py",
+      "bytes": 290
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/forensics/flash/README.md",
+      "bytes": 257
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/forensics/flash/challenge.json",
+      "bytes": 253
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/forensics/flash/flash_c8429a430278283c0e571baebca3d139.zip",
+      "bytes": 21260965
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/misc/networking_1/README.md",
+      "bytes": 165
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/misc/networking_1/challenge.json",
+      "bytes": 183
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/misc/networking_1/networking.pcap",
+      "bytes": 4570
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/pwn/warmup/Dockerfile",
+      "bytes": 756
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/pwn/warmup/README.md",
+      "bytes": 184
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/pwn/warmup/challenge.json",
+      "bytes": 334
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/pwn/warmup/docker-compose.yml",
+      "bytes": 210
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/pwn/warmup/flag.txt",
+      "bytes": 29
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/pwn/warmup/warmup",
+      "bytes": 6304
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/pwn/warmup/warmup.c",
+      "bytes": 367
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/pwn/warmup/warmup.py",
+      "bytes": 180
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/rev/rock/README.md",
+      "bytes": 159
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/rev/rock/challenge.json",
+      "bytes": 197
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/rev/rock/rock",
+      "bytes": 14744
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/rev/rock/rock.cpp",
+      "bytes": 2747
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/rev/rock/solution.cpp",
+      "bytes": 658
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/rev/rock/test_solver/solution.py",
+      "bytes": 251
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/rev/rock/test_solver/test.sh",
+      "bytes": 231
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/web/i_got_id_demo/000-default.conf",
+      "bytes": 371
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/web/i_got_id_demo/Dockerfile",
+      "bytes": 466
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/web/i_got_id_demo/cgi/file.pl",
+      "bytes": 827
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/web/i_got_id_demo/cgi/forms.pl",
+      "bytes": 922
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/web/i_got_id_demo/cgi/hello.pl",
+      "bytes": 127
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/web/i_got_id_demo/challenge.json",
+      "bytes": 263
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/web/i_got_id_demo/docker-compose.yml",
+      "bytes": 210
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/web/i_got_id_demo/flag",
+      "bytes": 31
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/web/i_got_id_demo/index.html",
+      "bytes": 293
+    },
+    {
+      "path": "tests/test_data/data_sources/ctf/web/i_got_id_demo/solution.txt",
+      "bytes": 105
+    },
+    {
+      "path": "tests/test_data/data_sources/debug_20240322.json",
+      "bytes": 60245
+    },
+    {
+      "path": "tests/test_data/data_sources/expert_instances.yaml",
+      "bytes": 338
+    },
+    {
+      "path": "tests/test_data/data_sources/human_eval.json",
+      "bytes": 4567
+    },
+    {
+      "path": "tests/test_data/data_sources/simple_instances.yaml",
+      "bytes": 101
+    },
+    {
+      "path": "tests/test_data/data_sources/simple_instances_long.yaml",
+      "bytes": 911
+    },
+    {
+      "path": "tests/test_data/data_sources/swe-bench-dev-easy.json",
+      "bytes": 75277
+    },
+    {
+      "path": "tests/test_data/data_sources/swe-bench-dev-easy_first_only.json",
+      "bytes": 28849
+    },
+    {
+      "path": "tests/test_data/data_sources/swe-bench-lite-test.json",
+      "bytes": 45555
+    },
+    {
+      "path": "tests/test_data/trajectories/gpt4__swe-agent-test-repo__default_from_url__t-0.00__p-0.95__c-3.00__install-1/6e44b9__sweagenttestrepo-1c2844.traj",
+      "bytes": 30693
+    },
+    {
+      "path": "tests/test_data/trajectories/gpt4__swe-agent-test-repo__default_from_url__t-0.00__p-0.95__c-3.00__install-1/solution_missing_colon.py",
+      "bytes": 265
+    },
+    {
+      "path": "tests/test_data/trajectories/gpt4__swe-agent__test-repo__default_from_url__t-0.00__p-0.95__c-3.00__install-1/args.yaml",
+      "bytes": 30488
+    },
+    {
+      "path": "tests/test_data/trajectories/gpt4__swe-agent__test-repo__default_from_url__t-0.00__p-0.95__c-3.00__install-1/swe-agent__test-repo-i1.traj",
+      "bytes": 51540
+    },
+    {
+      "path": "tests/test_data/trajectories/gpt4__swe-bench-dev-easy_first_only__default__t-0.00__p-0.95__c-3.00__install-1/all_preds.jsonl",
+      "bytes": 990
+    },
+    {
+      "path": "tests/test_data/trajectories/gpt4__swe-bench-dev-easy_first_only__default__t-0.00__p-0.95__c-3.00__install-1/args.yaml",
+      "bytes": 30378
+    },
+    {
+      "path": "tests/test_data/trajectories/gpt4__swe-bench-dev-easy_first_only__default__t-0.00__p-0.95__c-3.00__install-1/patches/pydicom__pydicom-1458.patch",
+      "bytes": 802
+    },
+    {
+      "path": "tests/test_data/trajectories/gpt4__swe-bench-dev-easy_first_only__default__t-0.00__p-0.95__c-3.00__install-1/pydicom__pydicom-1458.traj",
+      "bytes": 104975
+    },
+    {
+      "path": "tools/diff_state/bin/_state_diff_state",
+      "bytes": 1134
+    },
+    {
+      "path": "tools/edit_anthropic/bin/_state_anthropic",
+      "bytes": 361
+    },
+    {
+      "path": "tools/edit_anthropic/bin/str_replace_editor",
+      "bytes": 30279
+    },
+    {
+      "path": "tools/filemap/bin/filemap",
+      "bytes": 1722
+    },
+    {
+      "path": "tools/forfeit/bin/exit_forfeit",
+      "bytes": 62
+    },
+    {
+      "path": "tools/image_tools/bin/view_image",
+      "bytes": 1035
+    },
+    {
+      "path": "tools/multilingual_setup/bin/do_nothing",
+      "bytes": 116
+    },
+    {
+      "path": "tools/registry/bin/_read_env",
+      "bytes": 246
+    },
+    {
+      "path": "tools/registry/bin/_write_env",
+      "bytes": 228
+    },
+    {
+      "path": "tools/review_on_submit_m/bin/submit",
+      "bytes": 1714
+    },
+    {
+      "path": "tools/search/bin/find_file",
+      "bytes": 828
+    },
+    {
+      "path": "tools/search/bin/search_dir",
+      "bytes": 1341
+    },
+    {
+      "path": "tools/search/bin/search_file",
+      "bytes": 2157
+    },
+    {
+      "path": "tools/submit/bin/submit",
+      "bytes": 309
+    },
+    {
+      "path": "tools/web_browser/bin/click_mouse",
+      "bytes": 1138
+    },
+    {
+      "path": "tools/web_browser/bin/close_site",
+      "bytes": 678
+    },
+    {
+      "path": "tools/web_browser/bin/double_click_mouse",
+      "bytes": 1014
+    },
+    {
+      "path": "tools/web_browser/bin/drag_mouse",
+      "bytes": 1279
+    },
+    {
+      "path": "tools/web_browser/bin/execute_script_on_page",
+      "bytes": 1071
+    },
+    {
+      "path": "tools/web_browser/bin/get_console_output",
+      "bytes": 1586
+    },
+    {
+      "path": "tools/web_browser/bin/move_mouse",
+      "bytes": 974
+    },
+    {
+      "path": "tools/web_browser/bin/navigate_back",
+      "bytes": 852
+    },
+    {
+      "path": "tools/web_browser/bin/navigate_forward",
+      "bytes": 864
+    },
+    {
+      "path": "tools/web_browser/bin/open_site",
+      "bytes": 1023
+    },
+    {
+      "path": "tools/web_browser/bin/press_keys_on_page",
+      "bytes": 1287
+    },
+    {
+      "path": "tools/web_browser/bin/reload_page",
+      "bytes": 848
+    },
+    {
+      "path": "tools/web_browser/bin/run_web_browser_server",
+      "bytes": 14252
+    },
+    {
+      "path": "tools/web_browser/bin/screenshot_site",
+      "bytes": 1040
+    },
+    {
+      "path": "tools/web_browser/bin/scroll_on_page",
+      "bytes": 1208
+    },
+    {
+      "path": "tools/web_browser/bin/set_browser_window_size",
+      "bytes": 1195
+    },
+    {
+      "path": "tools/web_browser/bin/type_text",
+      "bytes": 993
+    },
+    {
+      "path": "tools/web_browser/bin/wait_time",
+      "bytes": 1002
+    },
+    {
+      "path": "tools/windowed/bin/_state",
+      "bytes": 570
+    },
+    {
+      "path": "tools/windowed/bin/create",
+      "bytes": 580
+    },
+    {
+      "path": "tools/windowed/bin/goto",
+      "bytes": 870
+    },
+    {
+      "path": "tools/windowed/bin/open",
+      "bytes": 1633
+    },
+    {
+      "path": "tools/windowed/bin/scroll_down",
+      "bytes": 203
+    },
+    {
+      "path": "tools/windowed/bin/scroll_up",
+      "bytes": 205
+    },
+    {
+      "path": "tools/windowed_edit_linting/bin/edit",
+      "bytes": 4074
+    },
+    {
+      "path": "tools/windowed_edit_replace/bin/edit",
+      "bytes": 6327
+    },
+    {
+      "path": "tools/windowed_edit_replace/bin/insert",
+      "bytes": 2516
+    },
+    {
+      "path": "tools/windowed_edit_rewrite/bin/edit",
+      "bytes": 2249
+    },
+    {
+      "path": "trajectories/demonstrations/ctf/crypto/BabyEncryption.traj",
+      "bytes": 50065
+    },
+    {
+      "path": "trajectories/demonstrations/ctf/crypto/BabyTimeCapsule.traj",
+      "bytes": 60470
+    },
+    {
+      "path": "trajectories/demonstrations/ctf/crypto/eps.traj",
+      "bytes": 40018
+    },
+    {
+      "path": "trajectories/demonstrations/ctf/crypto/katy.traj",
+      "bytes": 65291
+    },
+    {
+      "path": "trajectories/demonstrations/ctf/forensics/flash.traj",
+      "bytes": 63748
+    },
+    {
+      "path": "trajectories/demonstrations/ctf/misc/networking_1.traj",
+      "bytes": 19147
+    },
+    {
+      "path": "trajectories/demonstrations/ctf/pwn/warmup.traj",
+      "bytes": 29936
+    },
+    {
+      "path": "trajectories/demonstrations/ctf/rev/rock.traj",
+      "bytes": 53544
+    },
+    {
+      "path": "trajectories/demonstrations/ctf/web/i_got_id_demo.traj",
+      "bytes": 109540
+    },
+    {
+      "path": "trajectories/demonstrations/function_calling_simple.traj",
+      "bytes": 11640
+    },
+    {
+      "path": "trajectories/demonstrations/human_thought__swe-bench-HumanEvalFix-python__lcb__t-0.00__p-0.95__c-4.00__install-0/humanevalfix-python-0.traj",
+      "bytes": 22114
+    },
+    {
+      "path": "trajectories/demonstrations/replay__marshmallow-code__marshmallow-1867__default__t-0.20__p-0.95__c-2.00__install-1___install_from_source/marshmallow-code__marshmallow-1867.traj",
+      "bytes": 81519
+    },
+    {
+      "path": "trajectories/demonstrations/replay__marshmallow-code__marshmallow-1867__default_sys-env_cursors_window100__t-0.20__p-0.95__c-2.00__install-1/marshmallow-code__marshmallow-1867.traj",
+      "bytes": 84100
+    },
+    {
+      "path": "trajectories/demonstrations/replay__marshmallow-code__marshmallow-1867__default_sys-env_window100__t-0.20__p-0.95__c-2.00__install-1/marshmallow-code__marshmallow-1867.traj",
+      "bytes": 68250
+    },
+    {
+      "path": "trajectories/demonstrations/replay__marshmallow-code__marshmallow-1867__function_calling__install-1/marshmallow-code__marshmallow-1867.traj",
+      "bytes": 100262
+    },
+    {
+      "path": "trajectories/demonstrations/replay__marshmallow-code__marshmallow-1867__function_calling_replace__install-1/marshmallow-code__marshmallow-1867.traj",
+      "bytes": 100547
+    },
+    {
+      "path": "trajectories/demonstrations/replay__marshmallow-code__marshmallow-1867__function_calling_replace_from_source/marshmallow-code__marshmallow-1867.traj",
+      "bytes": 391467
+    },
+    {
+      "path": "trajectories/demonstrations/replay__marshmallow-code__marshmallow-1867__xml_sys-env_cursors_window100__t-0.20__p-0.95__c-2.00__install-1/marshmallow-code__marshmallow-1867.traj",
+      "bytes": 84328
+    },
+    {
+      "path": "trajectories/demonstrations/replay__marshmallow-code__marshmallow-1867__xml_sys-env_window100__t-0.20__p-0.95__c-2.00__install-1/marshmallow-code__marshmallow-1867.traj",
+      "bytes": 67875
+    },
+    {
+      "path": "trajectories/README.md",
+      "bytes": 291,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "trajectories/demonstrations/str_replace_anthropic_demo.yaml",
+      "bytes": 18108,
+      "reason": "experimental output or recorded response"
+    }
+  ]
+}

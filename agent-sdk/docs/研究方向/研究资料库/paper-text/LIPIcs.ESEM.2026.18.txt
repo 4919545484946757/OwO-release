@@ -1,0 +1,149 @@
+Coordinating Agents on a Shared Git Workspace:
+An Empirical Study of Action-Space Observation
+for Agentic Software Engineering
+Hasen Özaytürk ✉
+Istanbul Technical University, İstanbul, Türkiye
+Feza Buzluca ✉
+Istanbul Technical University, İstanbul, Türkiye
+Abstract
+Background. Multi-agent approaches to Large Language Model (LLM)-based agentic software
+engineering, specifically in automated program repair and issue resolution, have converged on
+architectural patterns that favour isolation: role specialisation, task decomposition in isolated
+worktrees, or best-of-N with external selection. Collaboration of homogeneous agents on a single
+task in a shared Git workspace remains understudied, and is actively discouraged in production
+guidance due to file-level write collisions.
+Aims. We investigate whether a shared-workspace configuration can be made viable and effective
+for autonomous bug fixing and patch production through action-space coordination – a paradigm in
+which agents observe one another’s commits, lifecycle transitions, and recent test or error outputs
+rather than exchanging natural-language messages.
+Method. We propose PASC (Peer-aware Action-Space Coordination), a layer in which two ho-
+mogeneous LLM agents share a single Docker container and Git tree. Each agent’s effects are
+auto-committed under its identity, and each next observation is prepended with a structured
+peer-activity block. The final submission is the team patch derived from the shared history.
+Results. We evaluatedPASCon the full Python subset of SWE-Bench Pro using two independently-
+developed LLMs, against an isolated single-agent baseline and a “silent” two-agent baseline without
+the peer-activity feed. PASC delivers a statistically significant lift over the single-agent baseline
+on both models. Crucially, the silent baseline is statistically equivalent to the single-agent one,
+confirming that the gain stems from action-space coordination rather than parallelism.PASC also
+outperforms a deployable federated alternative in which agents share the peer-activity feed but
+work in isolated worktrees. Relative to the silent baseline,PASC reduces cost per resolved task by
+∼20% and destructive concurrent edits by∼47%. Preliminary observations indicate that beyond
+two agents, active interference increases several-fold, suggesting that larger populations will require
+supplementary coordination mechanisms.
+Conclusions. A shared-workspace configuration of homogeneous agents coordinated through action-
+space observation improves effectiveness over an isolated single-agent baseline, and does so more
+economically than a comparable multi-agent baseline without peer awareness.
+2012 ACM Subject Classification Software and its engineering→ Software maintenance tools;
+Computing methodologies→ Multi-agent systems; Software and its engineering→ Software testing
+and debugging
+Keywords and phrasesMulti-agent systems, agentic software engineering, large language model
+agents, shared workspace coordination, SWE-Bench Pro, empirical software engineering
+Digital Object Identifier10.4230/LIPIcs.ESEM.2026.18
+Category Technical Track Paper
+Supplementary Material
+Software (Replication Package): https://doi.org/10.5281/zenodo.20276750
+Software (Development Repository): https://github.com/hasenoz/PASC [29]
+archived at swh:1:dir:f44739f72961a5fb3ed2c5f4c8b2d88faf946f81
+Funding Supported by the Research Fund of Istanbul Technical University. Project Number: 48456.
+© Hasen Özaytürk and Feza Buzluca;
+licensed under Creative Commons License CC-BY 4.0
+20th International Symposium on Empirical Software Engineering and Measurement (ESEM 2026).
+Editors: Robert Feldt, Maria Paasivaara, Daniel Mendez, Stefan Wagner, and Marvin Muñoz Barón;
+Article No.18; pp.18:1–18:20
+Leibniz International Proceedings in Informatics
+Schloss Dagstuhl – Leibniz-Zentrum für Informatik, Dagstuhl Publishing, Germany
+
+18:2 Coordinating Agents on a Shared Git Workspace
+1 Introduction
+Issue resolution, bug fixing, and patch production are core software-engineering activities
+that have traditionally relied on individual developer effort or coordinated team workflows
+mediated by version control. The recent emergence of LLM-based autonomous agents has
+introduced a new class of contributor to these workflows, capable of reading issue descriptions,
+exploring codebases, and producing patches. Agentic software engineering is the discipline
+that studies how these activities are carried out by such agents. Its systems take several
+forms. A single agent may be responsible for the entire task, several agents may work on one
+task together, or the task may be split among agents by subtask or by role. The aim of this
+study is to test a configuration that has received little attention: two agents of the same
+kind work on one task in one shared workspace, with no manager assigning subtasks and no
+selector choosing between their patches, and with each agent kept aware of its peer’s actions
+as they happen. This configuration is evaluated against a single agent, against two agents
+that share the workspace without that awareness, and against two agents that receive it but
+work in separate worktrees. All four are evaluated on the full Python subset of SWE-Bench
+Pro [11], a contamination-resistant benchmark of long-horizon, multi-file issue-resolution
+tasks.
+Single-agent scaffolds such as SWE-agent [38] resolve a substantial fraction of GitHub
+issues on SWE-Bench [17] and SWE-Bench Verified [25]. Multi-agent extensions for autonom-
+ous program repair are a natural lever for further progress, and the research community
+has explored them extensively. Most published systems fall into one of a few architectural
+patterns. Role-specialised frameworks assign distinct agents to roles such as project manager,
+architect, developer, and tester [30, 16, 24, 2]. Task-decomposition systems route subtasks to
+agents operating in isolated git worktrees [15]. Best-of-N approaches run independent agents
+in parallel and reconcile their outputs through an external selector or re-ranker [39, 34].
+Sequential trajectory replay runs one agent to completion and feeds its trajectory to the
+next [19]. Production tools converge on worktree-isolated parallelism, placing each agent in
+its own worktree with a separate task [9, 4, 5]. Production guidance actively discourages the
+shared workspace on mechanistic grounds: git itself refuses to check out the same branch
+in two worktrees [5], a rule designed to prevent index and working-tree corruption, and
+practitioner reports cite shared-file collisions as the principal failure mode of co-located
+agents [4].
+We argue that the standard objections to a shared-workspace configuration are problems
+of communication rather than architecture. Prior multi-agent systems that target the same
+task either communicate through natural-language messages [30, 16] or do not communicate
+during execution at all [39, 15]; both routes pay an architectural price (role heterogeneity,
+central managers, or external selectors). We instead make agents communicate through
+their actions, and we place them on one tree rather than in separate worktrees. After each
+step, each agent’s bash-command effects auto-commit to a shared git tree under the agent’s
+identity, and the next observation each agent sees contains a structured digest of what its
+peer has just done: which files were changed, what tests passed or failed, whether the peer
+has submitted or appears stuck. The agents do not exchange natural-language messages.
+This paper makes the following contributions:
+1. We identify a comparatively understudied point in the multi-agent software-engineering
+design space (Section 2) and buildPASCas a coordination layer on top of an existing
+single-agent framework [32] (Section 3).
+
+H. Özaytürk and F. Buzluca 18:3
+2. We evaluate PASC on the full Python subset of SWE-Bench Pro [11] under two
+independently-developed open-weight LLMs (MiniMax-M2.7 and DeepSeek-V4-Pro),
+with three independent runs per configuration. On both models the system delivers
+a statistically detectable improvement over the isolated single-agent baseline, and a
+∼20% reduction in cost per resolved instance over the multi-agent baseline without peer
+awareness (Sections 5.1 and 5.4).
+3. We isolate the source of the lift through a controlled comparison against a two-agent
+shared-workspace baseline that disables the peer-activity render (silent). Equivalence
+testing rules out the parallelism explanation:silent is statistically equivalent tosingle.
+The lift is attributable to the peer-activity feed (Section 5.2).
+4. We isolate the contribution of workspace topology through a controlled federated compar-
+ison in which two agents share the same peer-activity feed but work in isolated worktrees
+rather than a shared tree. The shared-tree configuration outperforms the deployable
+federated alternative, and holds up even when that alternative is scored on whichever
+of its two patches happens to be correct – a non-deployable upper bound that requires
+perfect external selection (Section 5.3).
+5. Weprovidequantitativediagnosticsonshared-workspacebehaviour. Thepeer-activityfeed
+reduces destructive co-edits across both LLMs (Section 5.5), and preliminary observations
+on N∈{ 2, 3, 5} characterise where the current coordination layer plateaus and what an
+additional mechanism for larger agent populations would need to address (Section 5.6).
+2 Related Work
+We organise related work along the five families introduced in Section 1, then turn to
+single-agent baselines on SWE-Bench-style benchmarks, the use of git as a coordination
+substrate, the literature on inter-agent communication, and coordination findings from
+pre-LLM collaborative software development.
+2.1 Multi-Agent LLM Systems for Software Engineering
+Role-specialised systems. ChatDev [30], MetaGPT [16], AgileCoder [24], and SWE-
+Search [2] instantiate multi-agent systems in which agents are heterogeneous by construction.
+The pattern recurs at smaller task scales: Melo et al. [21] apply a sequential four-agent
+pipeline of role-specialised small language models to method-level test-smell refactoring.
+AutoGen [36] provides a general orchestration framework for heterogeneous agents. None of
+these systems addresses the case in which two agents of the same role collaborate on the
+same task; the collaboration mechanism is always role differentiation.
+Task-decomposition systems with isolated worktrees.The closest published neighbour
+to PASC is the CAID paradigm of Geng and Neubig [15]. Both systems use git as the
+coordination substrate and reach the conclusion that branch-and-merge is the right primitive.
+The remaining design choices distinguish the two on three axes. First, CAID introduces a
+central manager that constructs a dependency-aware plan and delegates subtasks;PASC
+has no central manager. Second, CAID assigns each engineer agent its own isolated git
+worktree so that concurrent edits cannot interfere;PASC places both agents in a single
+shared worktree. Third, CAID’s parallelism comes from decomposition (each agent works on
+a different subtask);PASC’s agents work on the same task end-to-end. Where CAID asks
+how to make isolation work better through a centralised planner and test-based integration,
+PASCasks whether isolation is necessary at all.
+ESEM 2026

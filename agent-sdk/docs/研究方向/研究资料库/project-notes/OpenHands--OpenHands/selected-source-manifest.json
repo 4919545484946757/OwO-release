@@ -1,0 +1,124 @@
+[
+  {
+    "path": "src/api/runtime-service/agent-server-runtime-service.ts",
+    "sha256": "ba7761824d133bbc5c0d8bf36a00bebd6e114267714da6881dd17178ef3ae4fc",
+    "bytes": 3376,
+    "symbols": [
+      "export interface CommandResult {",
+      "class AgentServerRuntimeService {"
+    ]
+  },
+  {
+    "path": "src/ui/typography.tsx",
+    "sha256": "3dafeb7fc4e660c40ec06517534d94b8b87323b3bdc49bec87f70624f4dea8d1",
+    "bytes": 2692,
+    "symbols": [
+      "export function Typography({",
+      "export function H1({",
+      "export function H2({",
+      "export function H3({",
+      "export function Text({",
+      "export function CodeBlock({",
+      "export function Paragraph({"
+    ]
+  },
+  {
+    "path": "src/stores/agent-store.ts",
+    "sha256": "66f86f66fc2d69509ac2a7d3d59231ab211defe44840fa1578007d0f902cb6a7",
+    "bytes": 543,
+    "symbols": [
+      "export const useAgentStore = create<AgentStore>((set) => ({"
+    ]
+  },
+  {
+    "path": "src/types/agent-state.tsx",
+    "sha256": "c327390c380c21c053ce42248e0f44b40da9c7ad3b9d827aa801fb1683937148",
+    "bytes": 676,
+    "symbols": [
+      "export const RUNTIME_STARTING_STATES = [AgentState.INIT, AgentState.LOADING];",
+      "export const RUNTIME_INACTIVE_STATES = ["
+    ]
+  },
+  {
+    "path": "src/hooks/use-task-list.ts",
+    "sha256": "58bdaade6dd531211a253201546d0724aafbf88687a864082818a6d75c80e7a2",
+    "bytes": 1425,
+    "symbols": [
+      "export interface TaskListItem {",
+      "export function useTaskList() {"
+    ]
+  },
+  {
+    "path": "src/types/runtime-status.ts",
+    "sha256": "24ad0a216e60d5cb8bb0bc47d8ea0d30b7ddfe7a826a17e1f31c0123d9ef9e34",
+    "bytes": 642,
+    "symbols": []
+  },
+  {
+    "path": "src/api/agent-server-home.ts",
+    "sha256": "ba27e449d9f18c4fd5d4831f9d7acebb850f550a9adde58f016e6fca29d5b2b9",
+    "bytes": 4399,
+    "symbols": [
+      "export async function getAgentServerHomeDir(",
+      "export function clearAgentServerHomeDirCache(): void {",
+      "export async function resolveAbsoluteAgentServerPath("
+    ]
+  },
+  {
+    "path": "src/hooks/use-agent-state.ts",
+    "sha256": "174e691ed994392889955f445792affc306e3e37e311a70d0b32591d86a586d8",
+    "bytes": 3848,
+    "symbols": [
+      "export interface UseAgentStateResult {",
+      "export function useAgentState(conversationId?: string): UseAgentStateResult {",
+      "export interface UsePlanningAgentStateResult {",
+      "export function usePlanningAgentState(): UsePlanningAgentStateResult {"
+    ]
+  },
+  {
+    "path": "src/routes/task-list-tab.tsx",
+    "sha256": "4d605e8bb8f6427c85880c07399085b3af44d0baf1d41c00edfcd1bb507ba8f9",
+    "bytes": 1218,
+    "symbols": []
+  },
+  {
+    "path": "src/routes/agent-settings.tsx",
+    "sha256": "8649956a5973ca9183fb071189c0c463b859fc7d1cb2f1328dcd2ffa002848c4",
+    "bytes": 52886,
+    "symbols": [
+      "export const handle = { hideTitle: true };",
+      "export function readSystemPromptSeed(",
+      "export interface AgentProfileFieldsInput {",
+      "export function buildAgentProfileFields(",
+      "export interface AgentSettingsSaveControl {",
+      "export function AgentSettingsScreen({"
+    ]
+  },
+  {
+    "path": "src/api/agent-server-config.ts",
+    "sha256": "2f12c311e36b8623f2d9446d2d583356e71071baa0556a1a7c05fd3f17ed3177",
+    "bytes": 9369,
+    "symbols": [
+      "export const DEFAULT_WORKING_DIR = \"workspace/project\";",
+      "export interface AgentServerFormDefaults {",
+      "export function getCookieAuthCloudHost(): string | null {",
+      "export function getBakedSessionApiKey(): string | null {",
+      "export function getAgentServerFormDefaults(): AgentServerFormDefaults {",
+      "export function getLockedCloudHost(): string | null {",
+      "export function isSameCloudHost(",
+      "export function getLockedCloudAuthMode(): LockedCloudAuthMode {",
+      "export function getAgentServerBaseUrl(): string | null {",
+      "export function getAgentServerSessionApiKey(): string | null {",
+      "export function getAgentServerWorkingDir(): string {",
+      "export function buildConversationWorkingDir(conversationId: string): string {"
+    ]
+  },
+  {
+    "path": "src/utils/agent-state-emoji.ts",
+    "sha256": "96d7bdee19740d0aeddd4512cf0d6a7e2aee76fa655a4406a81d48a17690855e",
+    "bytes": 1011,
+    "symbols": [
+      "export function getAgentStateEmoji("
+    ]
+  }
+]

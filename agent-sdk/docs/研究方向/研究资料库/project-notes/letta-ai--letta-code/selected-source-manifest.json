@@ -1,0 +1,131 @@
+[
+  {
+    "path": "src/agent/memory.ts",
+    "sha256": "69091e54edee542996c9aa4614a13ddf66f748e2c1c4a871464a659317b69da4",
+    "bytes": 3120,
+    "symbols": [
+      "export const MEMORY_BLOCK_LABELS = [\"persona\", \"human\"] as const;",
+      "export function parseMdxFrontmatter(content: string): {",
+      "export async function getDefaultMemoryBlocks(): Promise<CreateBlock[]> {"
+    ]
+  },
+  {
+    "path": "src/agent/memory-conflict-repair.ts",
+    "sha256": "d45b77562bb6954e3d265a804803de32d424f6faf31b0c5940bc8ed109d9589e",
+    "bytes": 7506,
+    "symbols": [
+      "export async function claimMemoryConflictRepair(",
+      "export async function completeMemoryConflictRepair(",
+      "export async function clearMemoryConflictRepair("
+    ]
+  },
+  {
+    "path": "src/agent/memory-constraints.ts",
+    "sha256": "590958b1fb1ef18938bfe4f81d17850cf309ecab5a4f65c7f4ba79d7205e6692",
+    "bytes": 8402,
+    "symbols": [
+      "export const MEMORY_CONSTRAINTS_VALIDATOR_NAME = \"letta-memory-constraints.cjs\";",
+      "export const MEMORY_CONSTRAINTS_UPDATE_ENV = \"LETTA_MEMORY_CONSTRAINTS_UPDATE\";",
+      "export const MEMORY_CONSTRAINTS_VALIDATOR_SCRIPT = String.raw`\"use strict\";"
+    ]
+  },
+  {
+    "path": "src/agent/memory-runtime.ts",
+    "sha256": "54ff0262bd947aa865f9e47cedba8c98b34bdc3d2b56aeae19749f8e9be9159b",
+    "bytes": 945,
+    "symbols": [
+      "export function isActiveMemfsEnabled(agentId: string): boolean {",
+      "export function getActiveMemoryDirectory(agentId: string): string | undefined {",
+      "export function isLocalMemfsActive(): boolean {"
+    ]
+  },
+  {
+    "path": "src/permissions/agent-memory-prefixes.ts",
+    "sha256": "82e09ab8c438e10644de787bbea069b1315e6cc4313116c4cad091b4f6b3e98b",
+    "bytes": 753,
+    "symbols": [
+      "export function getAllowedMemoryPrefixes(agentId: string): string[] {"
+    ]
+  },
+  {
+    "path": "src/agent/memory-git-hooks.runtime.test.ts",
+    "sha256": "357590302ce8d8cefc4e50c66c3623d65777a91d0c6598f3eeac7b3ec2cfbe97",
+    "bytes": 4171,
+    "symbols": []
+  },
+  {
+    "path": "src/agent/memory-git.ts",
+    "sha256": "3e83d9ce002a963a93efff1f2a376186796d2b383b920cf12d7e30ed46489d0c",
+    "bytes": 58752,
+    "symbols": [
+      "export interface MemoryCommitAuthor {",
+      "export interface CommitMemoryWriteParams {",
+      "export interface CommitMemoryWriteResult {",
+      "export function getAgentRootDir(agentId: string): string {",
+      "export function getMemoryRepoDir(agentId: string): string {",
+      "export function normalizeCredentialBaseUrl(serverUrl: string): string {",
+      "export function redactGitAuthInText(value: string): string {",
+      "export function isMemfsRemoteUrlForAgent(",
+      "export function isRepairableMemfsRemoteUrl(",
+      "export function getGitRemoteUrl(agentId: string, baseUrl?: string): string {",
+      "export function getRepositoryRemoteUrl(",
+      "export function getRepositoryMountDir("
+    ]
+  },
+  {
+    "path": "src/agent/memory-auth.ts",
+    "sha256": "571932de6a830adc676868f34793555e2de88870d0d7167ecd391f5904fbb4ad",
+    "bytes": 609,
+    "symbols": [
+      "export async function getAuthToken(): Promise<string> {"
+    ]
+  },
+  {
+    "path": "src/agent/memory-format.ts",
+    "sha256": "d06c0d5eb4a206ac35a2f673910782ef3c846155405aa443d315dbaf3ef77a47",
+    "bytes": 1278,
+    "symbols": [
+      "export function detectMemoryFormat(",
+      "export function isCoreMemoryPath(",
+      "export function isProjectedMemoryPath("
+    ]
+  },
+  {
+    "path": "src/agent/memory-git-dir.ts",
+    "sha256": "101e8c4e459015b3459dcf18dc378e58ff5f3136d1a28e3aaa2c3d9371c5f9bb",
+    "bytes": 644,
+    "symbols": [
+      "export async function getMemoryGitDir(memoryDir: string): Promise<string> {"
+    ]
+  },
+  {
+    "path": "src/agent/memory-scanner.ts",
+    "sha256": "06f166dce519b0ba59643865b3aefef3c0466fa641ee6eb40924b46d77cd67c8",
+    "bytes": 2963,
+    "symbols": [
+      "export interface TreeNode {",
+      "export function scanMemoryFilesystem(memoryRoot: string): TreeNode[] {",
+      "export function getFileNodes(nodes: TreeNode[]): TreeNode[] {",
+      "export function readFileContent(fullPath: string): string {"
+    ]
+  },
+  {
+    "path": "src/agent/memory-worktree.ts",
+    "sha256": "5ec3f50a36dcffbe4318042db0420fb45966de129bf24e146d9f7559e3ce708d",
+    "bytes": 21669,
+    "symbols": [
+      "export interface ReflectionMemoryWorktree {",
+      "export interface CreateReflectionMemoryWorktreeOptions {",
+      "export async function createReflectionMemoryWorktree(",
+      "export interface ReflectionMemoryScope {",
+      "export function buildReflectionMemoryScope(",
+      "export function buildReflectionIntegrationMemoryScope(",
+      "export interface ReflectionMemoryWorktreeFinalizeResult {",
+      "export function reflectionIntegrationConsumesTranscript(",
+      "export function reflectionIntegrationShouldRecompile(",
+      "export async function reflectionMemoryParentHasChanges(",
+      "export interface ReflectionMemoryWorktreeState {",
+      "export async function inspectReflectionMemoryWorktree("
+    ]
+  }
+]

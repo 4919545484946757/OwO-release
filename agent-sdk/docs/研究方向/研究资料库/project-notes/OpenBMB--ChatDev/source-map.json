@@ -1,0 +1,2458 @@
+{
+  "kept": [
+    {
+      "path": ".agents/skills/greeting-demo/SKILL.md",
+      "bytes": 624
+    },
+    {
+      "path": ".agents/skills/python-scratchpad/SKILL.md",
+      "bytes": 1438
+    },
+    {
+      "path": ".agents/skills/python-scratchpad/references/examples.md",
+      "bytes": 704
+    },
+    {
+      "path": ".agents/skills/rest-api-caller/SKILL.md",
+      "bytes": 1775
+    },
+    {
+      "path": ".agents/skills/rest-api-caller/references/examples.md",
+      "bytes": 932
+    },
+    {
+      "path": ".github/workflows/validate-yamls.yml",
+      "bytes": 1699
+    },
+    {
+      "path": "Dockerfile",
+      "bytes": 1869
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 11337
+    },
+    {
+      "path": "Makefile",
+      "bytes": 2112
+    },
+    {
+      "path": "README-zh.md",
+      "bytes": 23428
+    },
+    {
+      "path": "README.md",
+      "bytes": 24370
+    },
+    {
+      "path": "check/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "check/check.py",
+      "bytes": 4139
+    },
+    {
+      "path": "check/check_workflow.py",
+      "bytes": 5898
+    },
+    {
+      "path": "check/check_yaml.py",
+      "bytes": 1594
+    },
+    {
+      "path": "compose.yml",
+      "bytes": 623
+    },
+    {
+      "path": "docs/user_guide/en/attachments.md",
+      "bytes": 4441
+    },
+    {
+      "path": "docs/user_guide/en/config_schema_contract.md",
+      "bytes": 4148
+    },
+    {
+      "path": "docs/user_guide/en/dynamic_execution.md",
+      "bytes": 8128
+    },
+    {
+      "path": "docs/user_guide/en/execution_logic.md",
+      "bytes": 8341
+    },
+    {
+      "path": "docs/user_guide/en/field_specs.md",
+      "bytes": 3900
+    },
+    {
+      "path": "docs/user_guide/en/index.md",
+      "bytes": 4807
+    },
+    {
+      "path": "docs/user_guide/en/modules/memory.md",
+      "bytes": 8215
+    },
+    {
+      "path": "docs/user_guide/en/modules/thinking.md",
+      "bytes": 4626
+    },
+    {
+      "path": "docs/user_guide/en/modules/tooling/README.md",
+      "bytes": 2761
+    },
+    {
+      "path": "docs/user_guide/en/modules/tooling/function.md",
+      "bytes": 4024
+    },
+    {
+      "path": "docs/user_guide/en/modules/tooling/function_catalog.md",
+      "bytes": 5632
+    },
+    {
+      "path": "docs/user_guide/en/modules/tooling/mcp.md",
+      "bytes": 3614
+    },
+    {
+      "path": "docs/user_guide/en/nodes/agent.md",
+      "bytes": 6379
+    },
+    {
+      "path": "docs/user_guide/en/nodes/human.md",
+      "bytes": 3223
+    },
+    {
+      "path": "docs/user_guide/en/nodes/literal.md",
+      "bytes": 3298
+    },
+    {
+      "path": "docs/user_guide/en/nodes/loop_counter.md",
+      "bytes": 5595
+    },
+    {
+      "path": "docs/user_guide/en/nodes/loop_timer.md",
+      "bytes": 5906
+    },
+    {
+      "path": "docs/user_guide/en/nodes/passthrough.md",
+      "bytes": 5192
+    },
+    {
+      "path": "docs/user_guide/en/nodes/python.md",
+      "bytes": 2689
+    },
+    {
+      "path": "docs/user_guide/en/nodes/subgraph.md",
+      "bytes": 4018
+    },
+    {
+      "path": "docs/user_guide/en/web_ui_guide.md",
+      "bytes": 2995
+    },
+    {
+      "path": "docs/user_guide/en/workflow_authoring.md",
+      "bytes": 13361
+    },
+    {
+      "path": "docs/user_guide/en/ws_frontend_logic.md",
+      "bytes": 7907
+    },
+    {
+      "path": "docs/user_guide/zh/attachments.md",
+      "bytes": 4470
+    },
+    {
+      "path": "docs/user_guide/zh/config_schema_contract.md",
+      "bytes": 3831
+    },
+    {
+      "path": "docs/user_guide/zh/dynamic_execution.md",
+      "bytes": 7527
+    },
+    {
+      "path": "docs/user_guide/zh/execution_logic.md",
+      "bytes": 7282
+    },
+    {
+      "path": "docs/user_guide/zh/field_specs.md",
+      "bytes": 4022
+    },
+    {
+      "path": "docs/user_guide/zh/index.md",
+      "bytes": 4634
+    },
+    {
+      "path": "docs/user_guide/zh/modules/memory.md",
+      "bytes": 8145
+    },
+    {
+      "path": "docs/user_guide/zh/modules/thinking.md",
+      "bytes": 4110
+    },
+    {
+      "path": "docs/user_guide/zh/modules/tooling/README.md",
+      "bytes": 2543
+    },
+    {
+      "path": "docs/user_guide/zh/modules/tooling/function.md",
+      "bytes": 4345
+    },
+    {
+      "path": "docs/user_guide/zh/modules/tooling/function_catalog.md",
+      "bytes": 5248
+    },
+    {
+      "path": "docs/user_guide/zh/modules/tooling/mcp.md",
+      "bytes": 3859
+    },
+    {
+      "path": "docs/user_guide/zh/nodes/agent.md",
+      "bytes": 5999
+    },
+    {
+      "path": "docs/user_guide/zh/nodes/human.md",
+      "bytes": 2758
+    },
+    {
+      "path": "docs/user_guide/zh/nodes/literal.md",
+      "bytes": 3021
+    },
+    {
+      "path": "docs/user_guide/zh/nodes/loop_counter.md",
+      "bytes": 4967
+    },
+    {
+      "path": "docs/user_guide/zh/nodes/passthrough.md",
+      "bytes": 4767
+    },
+    {
+      "path": "docs/user_guide/zh/nodes/python.md",
+      "bytes": 2434
+    },
+    {
+      "path": "docs/user_guide/zh/nodes/subgraph.md",
+      "bytes": 3680
+    },
+    {
+      "path": "docs/user_guide/zh/web_ui_guide.md",
+      "bytes": 2821
+    },
+    {
+      "path": "docs/user_guide/zh/workflow_authoring.md",
+      "bytes": 12837
+    },
+    {
+      "path": "entity/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "entity/config_loader.py",
+      "bytes": 1305
+    },
+    {
+      "path": "entity/configs/__init__.py",
+      "bytes": 1765
+    },
+    {
+      "path": "entity/configs/base.py",
+      "bytes": 8682
+    },
+    {
+      "path": "entity/configs/dynamic_base.py",
+      "bytes": 14984
+    },
+    {
+      "path": "entity/configs/edge/__init__.py",
+      "bytes": 427
+    },
+    {
+      "path": "entity/configs/edge/dynamic_edge_config.py",
+      "bytes": 6282
+    },
+    {
+      "path": "entity/configs/edge/edge.py",
+      "bytes": 6040
+    },
+    {
+      "path": "entity/configs/edge/edge_condition.py",
+      "bytes": 10996
+    },
+    {
+      "path": "entity/configs/edge/edge_processor.py",
+      "bytes": 11792
+    },
+    {
+      "path": "entity/configs/graph.py",
+      "bytes": 12376
+    },
+    {
+      "path": "entity/configs/node/__init__.py",
+      "bytes": 551
+    },
+    {
+      "path": "entity/configs/node/agent.py",
+      "bytes": 22152
+    },
+    {
+      "path": "entity/configs/node/human.py",
+      "bytes": 909
+    },
+    {
+      "path": "entity/configs/node/literal.py",
+      "bytes": 2406
+    },
+    {
+      "path": "entity/configs/node/loop_counter.py",
+      "bytes": 2569
+    },
+    {
+      "path": "entity/configs/node/loop_timer.py",
+      "bytes": 4546
+    },
+    {
+      "path": "entity/configs/node/memory.py",
+      "bytes": 19104
+    },
+    {
+      "path": "entity/configs/node/node.py",
+      "bytes": 18172
+    },
+    {
+      "path": "entity/configs/node/passthrough.py",
+      "bytes": 1089
+    },
+    {
+      "path": "entity/configs/node/python_runner.py",
+      "bytes": 3349
+    },
+    {
+      "path": "entity/configs/node/skills.py",
+      "bytes": 5942
+    },
+    {
+      "path": "entity/configs/node/subgraph.py",
+      "bytes": 9702
+    },
+    {
+      "path": "entity/configs/node/thinking.py",
+      "bytes": 3250
+    },
+    {
+      "path": "entity/configs/node/tooling.py",
+      "bytes": 24363
+    },
+    {
+      "path": "entity/enum_options.py",
+      "bytes": 2912
+    },
+    {
+      "path": "entity/enums.py",
+      "bytes": 2173
+    },
+    {
+      "path": "entity/graph_config.py",
+      "bytes": 2840
+    },
+    {
+      "path": "entity/messages.py",
+      "bytes": 14693
+    },
+    {
+      "path": "entity/tool_spec.py",
+      "bytes": 999
+    },
+    {
+      "path": "frontend/Dockerfile",
+      "bytes": 474
+    },
+    {
+      "path": "frontend/eslint.config.js",
+      "bytes": 356
+    },
+    {
+      "path": "frontend/index.html",
+      "bytes": 337
+    },
+    {
+      "path": "frontend/package.json",
+      "bytes": 770
+    },
+    {
+      "path": "frontend/public/design_0.4.0.yaml",
+      "bytes": 9715
+    },
+    {
+      "path": "frontend/public/tutorial-en.md",
+      "bytes": 30161
+    },
+    {
+      "path": "frontend/public/tutorial-zh.md",
+      "bytes": 31006
+    },
+    {
+      "path": "frontend/src/count_lines.py",
+      "bytes": 1533
+    },
+    {
+      "path": "frontend/src/i18n.js",
+      "bytes": 497
+    },
+    {
+      "path": "frontend/src/locales/en.json",
+      "bytes": 21279
+    },
+    {
+      "path": "frontend/src/locales/zh.json",
+      "bytes": 23410
+    },
+    {
+      "path": "frontend/src/main.js",
+      "bytes": 224
+    },
+    {
+      "path": "frontend/src/router/index.js",
+      "bytes": 1149
+    },
+    {
+      "path": "frontend/src/style.css",
+      "bytes": 1082
+    },
+    {
+      "path": "frontend/src/utils/apiFunctions.js",
+      "bytes": 13140
+    },
+    {
+      "path": "frontend/src/utils/colorUtils.js",
+      "bytes": 4364
+    },
+    {
+      "path": "frontend/src/utils/configStore.js",
+      "bytes": 625
+    },
+    {
+      "path": "frontend/src/utils/formUtils.js",
+      "bytes": 3043
+    },
+    {
+      "path": "frontend/src/utils/helpContent.js",
+      "bytes": 6893
+    },
+    {
+      "path": "frontend/src/utils/spriteFetcher.js",
+      "bytes": 2801
+    },
+    {
+      "path": "frontend/src/utils/vueflow.css",
+      "bytes": 2933
+    },
+    {
+      "path": "frontend/src/utils/yamlFunctions.js",
+      "bytes": 918
+    },
+    {
+      "path": "frontend/vite.config.js",
+      "bytes": 558
+    },
+    {
+      "path": "functions/edge/conditions.py",
+      "bytes": 1535
+    },
+    {
+      "path": "functions/edge_processor/transformers.py",
+      "bytes": 4573
+    },
+    {
+      "path": "functions/function_calling/code_executor.py",
+      "bytes": 2078
+    },
+    {
+      "path": "functions/function_calling/deep_research.py",
+      "bytes": 22180
+    },
+    {
+      "path": "functions/function_calling/file.py",
+      "bytes": 37221
+    },
+    {
+      "path": "functions/function_calling/user.py",
+      "bytes": 741
+    },
+    {
+      "path": "functions/function_calling/utils.py",
+      "bytes": 822
+    },
+    {
+      "path": "functions/function_calling/uv_related.py",
+      "bytes": 10561
+    },
+    {
+      "path": "functions/function_calling/video.py",
+      "bytes": 2618
+    },
+    {
+      "path": "functions/function_calling/weather.py",
+      "bytes": 788
+    },
+    {
+      "path": "functions/function_calling/web.py",
+      "bytes": 6565
+    },
+    {
+      "path": "mcp_example/mcp_server.py",
+      "bytes": 641
+    },
+    {
+      "path": "package.json",
+      "bytes": 57
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 1455
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 358
+    },
+    {
+      "path": "run.py",
+      "bytes": 3803
+    },
+    {
+      "path": "runtime/__init__.py",
+      "bytes": 143
+    },
+    {
+      "path": "runtime/bootstrap/__init__.py",
+      "bytes": 48
+    },
+    {
+      "path": "runtime/bootstrap/schema.py",
+      "bytes": 772
+    },
+    {
+      "path": "runtime/edge/__init__.py",
+      "bytes": 25
+    },
+    {
+      "path": "runtime/edge/conditions/__init__.py",
+      "bytes": 267
+    },
+    {
+      "path": "runtime/edge/conditions/base.py",
+      "bytes": 8475
+    },
+    {
+      "path": "runtime/edge/conditions/builtin_types.py",
+      "bytes": 850
+    },
+    {
+      "path": "runtime/edge/conditions/function_manager.py",
+      "bytes": 2418
+    },
+    {
+      "path": "runtime/edge/conditions/keyword_manager.py",
+      "bytes": 2668
+    },
+    {
+      "path": "runtime/edge/conditions/registry.py",
+      "bytes": 3188
+    },
+    {
+      "path": "runtime/edge/processors/__init__.py",
+      "bytes": 260
+    },
+    {
+      "path": "runtime/edge/processors/base.py",
+      "bytes": 1390
+    },
+    {
+      "path": "runtime/edge/processors/builtin_types.py",
+      "bytes": 766
+    },
+    {
+      "path": "runtime/edge/processors/function_processor.py",
+      "bytes": 2801
+    },
+    {
+      "path": "runtime/edge/processors/regex_processor.py",
+      "bytes": 3035
+    },
+    {
+      "path": "runtime/edge/processors/registry.py",
+      "bytes": 2732
+    },
+    {
+      "path": "runtime/node/__init__.py",
+      "bytes": 45
+    },
+    {
+      "path": "runtime/node/agent/__init__.py",
+      "bytes": 113
+    },
+    {
+      "path": "runtime/node/agent/memory/__init__.py",
+      "bytes": 168
+    },
+    {
+      "path": "runtime/node/agent/memory/blackboard_memory.py",
+      "bytes": 3277
+    },
+    {
+      "path": "runtime/node/agent/memory/builtin_stores.py",
+      "bytes": 1683
+    },
+    {
+      "path": "runtime/node/agent/memory/embedding.py",
+      "bytes": 7247
+    },
+    {
+      "path": "runtime/node/agent/memory/file_memory.py",
+      "bytes": 16272
+    },
+    {
+      "path": "runtime/node/agent/memory/mem0_memory.py",
+      "bytes": 7379
+    },
+    {
+      "path": "runtime/node/agent/memory/memory_base.py",
+      "bytes": 10948
+    },
+    {
+      "path": "runtime/node/agent/memory/registry.py",
+      "bytes": 2122
+    },
+    {
+      "path": "runtime/node/agent/memory/simple_memory.py",
+      "bytes": 11467
+    },
+    {
+      "path": "runtime/node/agent/providers/__init__.py",
+      "bytes": 166
+    },
+    {
+      "path": "runtime/node/agent/providers/base.py",
+      "bytes": 3498
+    },
+    {
+      "path": "runtime/node/agent/providers/builtin_providers.py",
+      "bytes": 745
+    },
+    {
+      "path": "runtime/node/agent/providers/gemini_provider.py",
+      "bytes": 32374
+    },
+    {
+      "path": "runtime/node/agent/providers/openai_provider.py",
+      "bytes": 32297
+    },
+    {
+      "path": "runtime/node/agent/providers/response.py",
+      "bytes": 1280
+    },
+    {
+      "path": "runtime/node/agent/skills/__init__.py",
+      "bytes": 207
+    },
+    {
+      "path": "runtime/node/agent/skills/manager.py",
+      "bytes": 11987
+    },
+    {
+      "path": "runtime/node/agent/thinking/__init__.py",
+      "bytes": 215
+    },
+    {
+      "path": "runtime/node/agent/thinking/builtin_thinking.py",
+      "bytes": 1014
+    },
+    {
+      "path": "runtime/node/agent/thinking/registry.py",
+      "bytes": 1991
+    },
+    {
+      "path": "runtime/node/agent/thinking/self_reflection.py",
+      "bytes": 1968
+    },
+    {
+      "path": "runtime/node/agent/thinking/thinking_manager.py",
+      "bytes": 3542
+    },
+    {
+      "path": "runtime/node/agent/tool/__init__.py",
+      "bytes": 71
+    },
+    {
+      "path": "runtime/node/agent/tool/tool_manager.py",
+      "bytes": 21122
+    },
+    {
+      "path": "runtime/node/builtin_nodes.py",
+      "bytes": 3904
+    },
+    {
+      "path": "runtime/node/executor/__init__.py",
+      "bytes": 706
+    },
+    {
+      "path": "runtime/node/executor/agent_executor.py",
+      "bytes": 52823
+    },
+    {
+      "path": "runtime/node/executor/base.py",
+      "bytes": 5341
+    },
+    {
+      "path": "runtime/node/executor/factory.py",
+      "bytes": 1950
+    },
+    {
+      "path": "runtime/node/executor/human_executor.py",
+      "bytes": 1782
+    },
+    {
+      "path": "runtime/node/executor/literal_executor.py",
+      "bytes": 898
+    },
+    {
+      "path": "runtime/node/executor/loop_counter_executor.py",
+      "bytes": 1824
+    },
+    {
+      "path": "runtime/node/executor/loop_timer_executor.py",
+      "bytes": 5446
+    },
+    {
+      "path": "runtime/node/executor/passthrough_executor.py",
+      "bytes": 1418
+    },
+    {
+      "path": "runtime/node/executor/python_executor.py",
+      "bytes": 6930
+    },
+    {
+      "path": "runtime/node/executor/subgraph_executor.py",
+      "bytes": 3475
+    },
+    {
+      "path": "runtime/node/registry.py",
+      "bytes": 2500
+    },
+    {
+      "path": "runtime/node/splitter.py",
+      "bytes": 9578
+    },
+    {
+      "path": "runtime/sdk.py",
+      "bytes": 4528
+    },
+    {
+      "path": "schema_registry/__init__.py",
+      "bytes": 1657
+    },
+    {
+      "path": "schema_registry/registry.py",
+      "bytes": 9116
+    },
+    {
+      "path": "server/__init__.py",
+      "bytes": 47
+    },
+    {
+      "path": "server/app.py",
+      "bytes": 210
+    },
+    {
+      "path": "server/bootstrap.py",
+      "bytes": 853
+    },
+    {
+      "path": "server/config_schema_router.py",
+      "bytes": 2157
+    },
+    {
+      "path": "server/models.py",
+      "bytes": 1060
+    },
+    {
+      "path": "server/routes/__init__.py",
+      "bytes": 426
+    },
+    {
+      "path": "server/routes/artifacts.py",
+      "bytes": 3721
+    },
+    {
+      "path": "server/routes/batch.py",
+      "bytes": 1787
+    },
+    {
+      "path": "server/routes/execute.py",
+      "bytes": 1851
+    },
+    {
+      "path": "server/routes/execute_sync.py",
+      "bytes": 9065
+    },
+    {
+      "path": "server/routes/health.py",
+      "bytes": 481
+    },
+    {
+      "path": "server/routes/sessions.py",
+      "bytes": 3070
+    },
+    {
+      "path": "server/routes/tools.py",
+      "bytes": 2367
+    },
+    {
+      "path": "server/routes/uploads.py",
+      "bytes": 1624
+    },
+    {
+      "path": "server/routes/vuegraphs.py",
+      "bytes": 1734
+    },
+    {
+      "path": "server/routes/websocket.py",
+      "bytes": 581
+    },
+    {
+      "path": "server/routes/workflows.py",
+      "bytes": 12909
+    },
+    {
+      "path": "server/services/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "server/services/artifact_dispatcher.py",
+      "bytes": 2451
+    },
+    {
+      "path": "server/services/artifact_events.py",
+      "bytes": 5949
+    },
+    {
+      "path": "server/services/attachment_service.py",
+      "bytes": 5302
+    },
+    {
+      "path": "server/services/batch_parser.py",
+      "bytes": 5925
+    },
+    {
+      "path": "server/services/batch_run_service.py",
+      "bytes": 9099
+    },
+    {
+      "path": "server/services/message_handler.py",
+      "bytes": 3674
+    },
+    {
+      "path": "server/services/prompt_channel.py",
+      "bytes": 4369
+    },
+    {
+      "path": "server/services/session_execution.py",
+      "bytes": 6272
+    },
+    {
+      "path": "server/services/session_store.py",
+      "bytes": 5617
+    },
+    {
+      "path": "server/services/vuegraphs_storage.py",
+      "bytes": 1961
+    },
+    {
+      "path": "server/services/websocket_executor.py",
+      "bytes": 2797
+    },
+    {
+      "path": "server/services/websocket_logger.py",
+      "bytes": 1212
+    },
+    {
+      "path": "server/services/websocket_manager.py",
+      "bytes": 10195
+    },
+    {
+      "path": "server/services/workflow_run_service.py",
+      "bytes": 11285
+    },
+    {
+      "path": "server/services/workflow_storage.py",
+      "bytes": 6966
+    },
+    {
+      "path": "server/settings.py",
+      "bytes": 140
+    },
+    {
+      "path": "server/state.py",
+      "bytes": 1154
+    },
+    {
+      "path": "server_main.py",
+      "bytes": 5046
+    },
+    {
+      "path": "tests/test_attachment_upload_filename.py",
+      "bytes": 2728
+    },
+    {
+      "path": "tests/test_mem0_memory.py",
+      "bytes": 16528
+    },
+    {
+      "path": "tests/test_memory_embedding_consistency.py",
+      "bytes": 5353
+    },
+    {
+      "path": "tests/test_server_main_reload.py",
+      "bytes": 7876
+    },
+    {
+      "path": "tests/test_websocket_send_message_sync.py",
+      "bytes": 8090
+    },
+    {
+      "path": "tools/__init__.py",
+      "bytes": 45
+    },
+    {
+      "path": "tools/export_design_template.py",
+      "bytes": 8748
+    },
+    {
+      "path": "tools/sync_vuegraphs.py",
+      "bytes": 1961
+    },
+    {
+      "path": "tools/validate_all_yamls.py",
+      "bytes": 3062
+    },
+    {
+      "path": "utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "utils/attachments.py",
+      "bytes": 12183
+    },
+    {
+      "path": "utils/env_loader.py",
+      "bytes": 1075
+    },
+    {
+      "path": "utils/error_handler.py",
+      "bytes": 5376
+    },
+    {
+      "path": "utils/exceptions.py",
+      "bytes": 4374
+    },
+    {
+      "path": "utils/function_catalog.py",
+      "bytes": 11757
+    },
+    {
+      "path": "utils/function_manager.py",
+      "bytes": 5372
+    },
+    {
+      "path": "utils/human_prompt.py",
+      "bytes": 5208
+    },
+    {
+      "path": "utils/io_utils.py",
+      "bytes": 186
+    },
+    {
+      "path": "utils/log_manager.py",
+      "bytes": 8985
+    },
+    {
+      "path": "utils/logger.py",
+      "bytes": 18823
+    },
+    {
+      "path": "utils/middleware.py",
+      "bytes": 4543
+    },
+    {
+      "path": "utils/registry.py",
+      "bytes": 2396
+    },
+    {
+      "path": "utils/schema_exporter.py",
+      "bytes": 4783
+    },
+    {
+      "path": "utils/strs.py",
+      "bytes": 210
+    },
+    {
+      "path": "utils/structured_logger.py",
+      "bytes": 7761
+    },
+    {
+      "path": "utils/task_input.py",
+      "bytes": 2106
+    },
+    {
+      "path": "utils/token_tracker.py",
+      "bytes": 5918
+    },
+    {
+      "path": "utils/vars_resolver.py",
+      "bytes": 3793
+    },
+    {
+      "path": "utils/workspace_scanner.py",
+      "bytes": 2150
+    },
+    {
+      "path": "workflow/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "workflow/cycle_manager.py",
+      "bytes": 8585
+    },
+    {
+      "path": "workflow/executor/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "workflow/executor/cycle_executor.py",
+      "bytes": 23455
+    },
+    {
+      "path": "workflow/executor/dag_executor.py",
+      "bytes": 1914
+    },
+    {
+      "path": "workflow/executor/dynamic_edge_executor.py",
+      "bytes": 15310
+    },
+    {
+      "path": "workflow/executor/parallel_executor.py",
+      "bytes": 4906
+    },
+    {
+      "path": "workflow/executor/resource_manager.py",
+      "bytes": 2808
+    },
+    {
+      "path": "workflow/graph.py",
+      "bytes": 38204
+    },
+    {
+      "path": "workflow/graph_context.py",
+      "bytes": 5541
+    },
+    {
+      "path": "workflow/graph_manager.py",
+      "bytes": 14923
+    },
+    {
+      "path": "workflow/hooks/__init__.py",
+      "bytes": 181
+    },
+    {
+      "path": "workflow/hooks/workspace_artifact.py",
+      "bytes": 9388
+    },
+    {
+      "path": "workflow/runtime/__init__.py",
+      "bytes": 464
+    },
+    {
+      "path": "workflow/runtime/execution_strategy.py",
+      "bytes": 4950
+    },
+    {
+      "path": "workflow/runtime/result_archiver.py",
+      "bytes": 1099
+    },
+    {
+      "path": "workflow/runtime/runtime_builder.py",
+      "bytes": 2339
+    },
+    {
+      "path": "workflow/runtime/runtime_context.py",
+      "bytes": 1021
+    },
+    {
+      "path": "workflow/subgraph_loader.py",
+      "bytes": 2667
+    },
+    {
+      "path": "workflow/topology_builder.py",
+      "bytes": 7658
+    },
+    {
+      "path": "yaml_instance/ChatDev_v1.yaml",
+      "bytes": 38183
+    },
+    {
+      "path": "yaml_instance/GameDev_with_manager.yaml",
+      "bytes": 36285
+    },
+    {
+      "path": "yaml_instance/MACNet_Node_sub.yaml",
+      "bytes": 4593
+    },
+    {
+      "path": "yaml_instance/MACNet_optimize_sub.yaml",
+      "bytes": 11633
+    },
+    {
+      "path": "yaml_instance/MACNet_v1.yaml",
+      "bytes": 4727
+    },
+    {
+      "path": "yaml_instance/blender_3d_builder_hub.yaml",
+      "bytes": 17154
+    },
+    {
+      "path": "yaml_instance/blender_3d_builder_hub_auto_human.yaml",
+      "bytes": 17844
+    },
+    {
+      "path": "yaml_instance/blender_3d_builder_simple.yaml",
+      "bytes": 16604
+    },
+    {
+      "path": "yaml_instance/blender_scientific_illustration_image_gen.yaml",
+      "bytes": 17739
+    },
+    {
+      "path": "yaml_instance/blender_scientific_illustration_with_human.yaml",
+      "bytes": 15664
+    },
+    {
+      "path": "yaml_instance/data_visualization_basic.yaml",
+      "bytes": 11040
+    },
+    {
+      "path": "yaml_instance/data_visualization_enhanced_v2.yaml",
+      "bytes": 21480
+    },
+    {
+      "path": "yaml_instance/data_visualization_enhanced_v3.yaml",
+      "bytes": 15204
+    },
+    {
+      "path": "yaml_instance/deep_research_executor_sub.yaml",
+      "bytes": 9702
+    },
+    {
+      "path": "yaml_instance/deep_research_v1.yaml",
+      "bytes": 22761
+    },
+    {
+      "path": "yaml_instance/demo_code.yaml",
+      "bytes": 353
+    },
+    {
+      "path": "yaml_instance/demo_context_reset.yaml",
+      "bytes": 2118
+    },
+    {
+      "path": "yaml_instance/demo_dynamic.yaml",
+      "bytes": 5134
+    },
+    {
+      "path": "yaml_instance/demo_dynamic_tree.yaml",
+      "bytes": 19947
+    },
+    {
+      "path": "yaml_instance/demo_edge_transform.yaml",
+      "bytes": 1073
+    },
+    {
+      "path": "yaml_instance/demo_file_memory.yaml",
+      "bytes": 1376
+    },
+    {
+      "path": "yaml_instance/demo_function_call.yaml",
+      "bytes": 1940
+    },
+    {
+      "path": "yaml_instance/demo_human.yaml",
+      "bytes": 1478
+    },
+    {
+      "path": "yaml_instance/demo_improved_memory.yaml",
+      "bytes": 1329
+    },
+    {
+      "path": "yaml_instance/demo_loop_counter.yaml",
+      "bytes": 1445
+    },
+    {
+      "path": "yaml_instance/demo_loop_timer.yaml",
+      "bytes": 2161
+    },
+    {
+      "path": "yaml_instance/demo_majority_voting.yaml",
+      "bytes": 983
+    },
+    {
+      "path": "yaml_instance/demo_mcp.yaml",
+      "bytes": 1956
+    },
+    {
+      "path": "yaml_instance/demo_mem0_memory.yaml",
+      "bytes": 1257
+    },
+    {
+      "path": "yaml_instance/demo_simple_memory.yaml",
+      "bytes": 2241
+    },
+    {
+      "path": "yaml_instance/demo_sub_graph.yaml",
+      "bytes": 2018
+    },
+    {
+      "path": "yaml_instance/demo_sub_graph_path.yaml",
+      "bytes": 1237
+    },
+    {
+      "path": "yaml_instance/general_problem_solving_team.yaml",
+      "bytes": 10630
+    },
+    {
+      "path": "yaml_instance/net_example.yaml",
+      "bytes": 3514
+    },
+    {
+      "path": "yaml_instance/net_example_en.yaml",
+      "bytes": 3523
+    },
+    {
+      "path": "yaml_instance/react.yaml",
+      "bytes": 2609
+    },
+    {
+      "path": "yaml_instance/reflexion_product.yaml",
+      "bytes": 2576
+    },
+    {
+      "path": "yaml_instance/skills.yaml",
+      "bytes": 1070
+    },
+    {
+      "path": "yaml_instance/spring_3d.yaml",
+      "bytes": 10176
+    },
+    {
+      "path": "yaml_instance/spring_text_image.yaml",
+      "bytes": 7550
+    },
+    {
+      "path": "yaml_instance/spring_text_image_EN.yaml",
+      "bytes": 8203
+    },
+    {
+      "path": "yaml_instance/subgraphs/article_discuss.yaml",
+      "bytes": 2443
+    },
+    {
+      "path": "yaml_instance/subgraphs/react_agent.yaml",
+      "bytes": 4038
+    },
+    {
+      "path": "yaml_instance/subgraphs/reflexion_loop.yaml",
+      "bytes": 3879
+    },
+    {
+      "path": "yaml_instance/teach_video.yaml",
+      "bytes": 14276
+    },
+    {
+      "path": "yaml_template/design.yaml",
+      "bytes": 10233
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".dockerignore",
+      "bytes": 212
+    },
+    {
+      "path": ".env.docker",
+      "bytes": 292
+    },
+    {
+      "path": ".env.example",
+      "bytes": 978
+    },
+    {
+      "path": ".gitattributes",
+      "bytes": 66
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 229
+    },
+    {
+      "path": "assets/CommandDash.png",
+      "bytes": 125684
+    },
+    {
+      "path": "assets/Human_intro.png",
+      "bytes": 322100
+    },
+    {
+      "path": "assets/agentverse.png",
+      "bytes": 1477547
+    },
+    {
+      "path": "assets/appcopilot.png",
+      "bytes": 529978
+    },
+    {
+      "path": "assets/cases/3d_generation/3d.gif",
+      "bytes": 16618723
+    },
+    {
+      "path": "assets/cases/data_analysis/data_analysis.gif",
+      "bytes": 5877524
+    },
+    {
+      "path": "assets/cases/deep_research/deep_research.gif",
+      "bytes": 2508555
+    },
+    {
+      "path": "assets/cases/game_development/game.gif",
+      "bytes": 15212750
+    },
+    {
+      "path": "assets/cases/video_generation/video.gif",
+      "bytes": 16196364
+    },
+    {
+      "path": "assets/docker.png",
+      "bytes": 248978
+    },
+    {
+      "path": "assets/ebook.png",
+      "bytes": 2360430
+    },
+    {
+      "path": "assets/ecl.png",
+      "bytes": 657442
+    },
+    {
+      "path": "assets/github.png",
+      "bytes": 67511
+    },
+    {
+      "path": "assets/ier.png",
+      "bytes": 202628
+    },
+    {
+      "path": "assets/increment.png",
+      "bytes": 312545
+    },
+    {
+      "path": "assets/intro.png",
+      "bytes": 3528728
+    },
+    {
+      "path": "assets/launch.gif",
+      "bytes": 4308132
+    },
+    {
+      "path": "assets/macnet.png",
+      "bytes": 1487106
+    },
+    {
+      "path": "assets/modelbest.png",
+      "bytes": 9338
+    },
+    {
+      "path": "assets/puppeteer.png",
+      "bytes": 384437
+    },
+    {
+      "path": "assets/repoagent.png",
+      "bytes": 332839
+    },
+    {
+      "path": "assets/saas.png",
+      "bytes": 956503
+    },
+    {
+      "path": "assets/teachmaster.png",
+      "bytes": 334161
+    },
+    {
+      "path": "assets/thunlp.png",
+      "bytes": 52798
+    },
+    {
+      "path": "assets/tutorial-en.png",
+      "bytes": 1803166
+    },
+    {
+      "path": "assets/workflow.gif",
+      "bytes": 1072251
+    },
+    {
+      "path": "frontend/.dockerignore",
+      "bytes": 185
+    },
+    {
+      "path": "frontend/.gitignore",
+      "bytes": 253
+    },
+    {
+      "path": "frontend/package-lock.json",
+      "bytes": 103411
+    },
+    {
+      "path": "frontend/public/media/agent_node_config.png",
+      "bytes": 235268
+    },
+    {
+      "path": "frontend/public/media/agent_toolig_config.png",
+      "bytes": 219453
+    },
+    {
+      "path": "frontend/public/media/agent_tooling_function_config.png",
+      "bytes": 304558
+    },
+    {
+      "path": "frontend/public/media/agent_tooling_mcp_local.png",
+      "bytes": 170451
+    },
+    {
+      "path": "frontend/public/media/agent_tooling_mcp_remote.png",
+      "bytes": 299913
+    },
+    {
+      "path": "frontend/public/media/complex_run.gif",
+      "bytes": 5627531
+    },
+    {
+      "path": "frontend/public/media/condition_edge_1.gif",
+      "bytes": 2597662
+    },
+    {
+      "path": "frontend/public/media/condition_edge_2.gif",
+      "bytes": 9311461
+    },
+    {
+      "path": "frontend/public/media/config_graph.gif",
+      "bytes": 4206351
+    },
+    {
+      "path": "frontend/public/media/context_window.gif",
+      "bytes": 3267052
+    },
+    {
+      "path": "frontend/public/media/create_edge.gif",
+      "bytes": 2142080
+    },
+    {
+      "path": "frontend/public/media/create_node.gif",
+      "bytes": 3423780
+    },
+    {
+      "path": "frontend/public/media/dynamic_map.png",
+      "bytes": 41438
+    },
+    {
+      "path": "frontend/public/media/dynamic_tree.png",
+      "bytes": 57941
+    },
+    {
+      "path": "frontend/public/media/dynamic_tree_split.png",
+      "bytes": 37734
+    },
+    {
+      "path": "frontend/public/media/edge_condition_function.png",
+      "bytes": 34497
+    },
+    {
+      "path": "frontend/public/media/edge_condition_keyword.png",
+      "bytes": 62775
+    },
+    {
+      "path": "frontend/public/media/edge_transform_regex.png",
+      "bytes": 99752
+    },
+    {
+      "path": "frontend/public/media/execution_flow.png",
+      "bytes": 324868
+    },
+    {
+      "path": "frontend/public/media/graph_create.gif",
+      "bytes": 1205766
+    },
+    {
+      "path": "frontend/public/media/human.png",
+      "bytes": 72434
+    },
+    {
+      "path": "frontend/public/media/human_node.gif",
+      "bytes": 3685523
+    },
+    {
+      "path": "frontend/public/media/literal.png",
+      "bytes": 130365
+    },
+    {
+      "path": "frontend/public/media/logo.png",
+      "bytes": 3595533
+    },
+    {
+      "path": "frontend/public/media/loop_counter.png",
+      "bytes": 81805
+    },
+    {
+      "path": "frontend/public/media/memory_global_embedding.png",
+      "bytes": 63851
+    },
+    {
+      "path": "frontend/public/media/memory_global_simple.png",
+      "bytes": 191844
+    },
+    {
+      "path": "frontend/public/media/memory_graph.png",
+      "bytes": 67369
+    },
+    {
+      "path": "frontend/public/media/memory_node.png",
+      "bytes": 85339
+    },
+    {
+      "path": "frontend/public/media/memory_node_select.png",
+      "bytes": 146646
+    },
+    {
+      "path": "frontend/public/media/passthrough.png",
+      "bytes": 56351
+    },
+    {
+      "path": "frontend/public/media/python.png",
+      "bytes": 91728
+    },
+    {
+      "path": "frontend/public/media/run.gif",
+      "bytes": 5265509
+    },
+    {
+      "path": "frontend/public/media/start_node.gif",
+      "bytes": 3320589
+    },
+    {
+      "path": "frontend/public/sprites/1-D-1.png",
+      "bytes": 87989
+    },
+    {
+      "path": "frontend/public/sprites/1-D-2.png",
+      "bytes": 85581
+    },
+    {
+      "path": "frontend/public/sprites/1-D-3.png",
+      "bytes": 82725
+    },
+    {
+      "path": "frontend/public/sprites/1-L-1.png",
+      "bytes": 59800
+    },
+    {
+      "path": "frontend/public/sprites/1-L-2.png",
+      "bytes": 70643
+    },
+    {
+      "path": "frontend/public/sprites/1-L-3.png",
+      "bytes": 71305
+    },
+    {
+      "path": "frontend/public/sprites/1-R-1.png",
+      "bytes": 65275
+    },
+    {
+      "path": "frontend/public/sprites/1-R-2.png",
+      "bytes": 73014
+    },
+    {
+      "path": "frontend/public/sprites/1-R-3.png",
+      "bytes": 74266
+    },
+    {
+      "path": "frontend/public/sprites/1-U-1.png",
+      "bytes": 77054
+    },
+    {
+      "path": "frontend/public/sprites/1-U-2.png",
+      "bytes": 79408
+    },
+    {
+      "path": "frontend/public/sprites/1-U-3.png",
+      "bytes": 78008
+    },
+    {
+      "path": "frontend/public/sprites/10-D-1.png",
+      "bytes": 72462
+    },
+    {
+      "path": "frontend/public/sprites/10-D-2.png",
+      "bytes": 74060
+    },
+    {
+      "path": "frontend/public/sprites/10-D-3.png",
+      "bytes": 78398
+    },
+    {
+      "path": "frontend/public/sprites/10-L-1.png",
+      "bytes": 65746
+    },
+    {
+      "path": "frontend/public/sprites/10-L-2.png",
+      "bytes": 65319
+    },
+    {
+      "path": "frontend/public/sprites/10-L-3.png",
+      "bytes": 61594
+    },
+    {
+      "path": "frontend/public/sprites/10-R-1.png",
+      "bytes": 67008
+    },
+    {
+      "path": "frontend/public/sprites/10-R-2.png",
+      "bytes": 66639
+    },
+    {
+      "path": "frontend/public/sprites/10-R-3.png",
+      "bytes": 66034
+    },
+    {
+      "path": "frontend/public/sprites/10-U-1.png",
+      "bytes": 70422
+    },
+    {
+      "path": "frontend/public/sprites/10-U-2.png",
+      "bytes": 66821
+    },
+    {
+      "path": "frontend/public/sprites/10-U-3.png",
+      "bytes": 67322
+    },
+    {
+      "path": "frontend/public/sprites/11-D-1.png",
+      "bytes": 86239
+    },
+    {
+      "path": "frontend/public/sprites/11-D-2.png",
+      "bytes": 70421
+    },
+    {
+      "path": "frontend/public/sprites/11-D-3.png",
+      "bytes": 82126
+    },
+    {
+      "path": "frontend/public/sprites/11-L-1.png",
+      "bytes": 63010
+    },
+    {
+      "path": "frontend/public/sprites/11-L-2.png",
+      "bytes": 78128
+    },
+    {
+      "path": "frontend/public/sprites/11-L-3.png",
+      "bytes": 78181
+    },
+    {
+      "path": "frontend/public/sprites/11-R-1.png",
+      "bytes": 65969
+    },
+    {
+      "path": "frontend/public/sprites/11-R-2.png",
+      "bytes": 72428
+    },
+    {
+      "path": "frontend/public/sprites/11-R-3.png",
+      "bytes": 73395
+    },
+    {
+      "path": "frontend/public/sprites/11-U-1.png",
+      "bytes": 103245
+    },
+    {
+      "path": "frontend/public/sprites/11-U-2.png",
+      "bytes": 74273
+    },
+    {
+      "path": "frontend/public/sprites/11-U-3.png",
+      "bytes": 94310
+    },
+    {
+      "path": "frontend/public/sprites/12-D-1.png",
+      "bytes": 100704
+    },
+    {
+      "path": "frontend/public/sprites/12-D-2.png",
+      "bytes": 91838
+    },
+    {
+      "path": "frontend/public/sprites/12-D-3.png",
+      "bytes": 104244
+    },
+    {
+      "path": "frontend/public/sprites/12-L-1.png",
+      "bytes": 80497
+    },
+    {
+      "path": "frontend/public/sprites/12-L-2.png",
+      "bytes": 79426
+    },
+    {
+      "path": "frontend/public/sprites/12-L-3.png",
+      "bytes": 90179
+    },
+    {
+      "path": "frontend/public/sprites/12-R-1.png",
+      "bytes": 75203
+    },
+    {
+      "path": "frontend/public/sprites/12-R-2.png",
+      "bytes": 78994
+    },
+    {
+      "path": "frontend/public/sprites/12-R-3.png",
+      "bytes": 90070
+    },
+    {
+      "path": "frontend/public/sprites/12-U-1.png",
+      "bytes": 88379
+    },
+    {
+      "path": "frontend/public/sprites/12-U-2.png",
+      "bytes": 86431
+    },
+    {
+      "path": "frontend/public/sprites/12-U-3.png",
+      "bytes": 94643
+    },
+    {
+      "path": "frontend/public/sprites/2-D-1.png",
+      "bytes": 51690
+    },
+    {
+      "path": "frontend/public/sprites/2-D-2.png",
+      "bytes": 84376
+    },
+    {
+      "path": "frontend/public/sprites/2-D-3.png",
+      "bytes": 83274
+    },
+    {
+      "path": "frontend/public/sprites/2-L-1.png",
+      "bytes": 42631
+    },
+    {
+      "path": "frontend/public/sprites/2-L-2.png",
+      "bytes": 48149
+    },
+    {
+      "path": "frontend/public/sprites/2-L-3.png",
+      "bytes": 46744
+    },
+    {
+      "path": "frontend/public/sprites/2-R-1.png",
+      "bytes": 108170
+    },
+    {
+      "path": "frontend/public/sprites/2-R-2.png",
+      "bytes": 116904
+    },
+    {
+      "path": "frontend/public/sprites/2-R-3.png",
+      "bytes": 122080
+    },
+    {
+      "path": "frontend/public/sprites/2-U-1.png",
+      "bytes": 89650
+    },
+    {
+      "path": "frontend/public/sprites/2-U-2.png",
+      "bytes": 83929
+    },
+    {
+      "path": "frontend/public/sprites/2-U-3.png",
+      "bytes": 83564
+    },
+    {
+      "path": "frontend/public/sprites/3-D-1.png",
+      "bytes": 79165
+    },
+    {
+      "path": "frontend/public/sprites/3-D-2.png",
+      "bytes": 70317
+    },
+    {
+      "path": "frontend/public/sprites/3-D-3.png",
+      "bytes": 70442
+    },
+    {
+      "path": "frontend/public/sprites/3-L-1.png",
+      "bytes": 61510
+    },
+    {
+      "path": "frontend/public/sprites/3-L-2.png",
+      "bytes": 68863
+    },
+    {
+      "path": "frontend/public/sprites/3-L-3.png",
+      "bytes": 67623
+    },
+    {
+      "path": "frontend/public/sprites/3-R-1.png",
+      "bytes": 61844
+    },
+    {
+      "path": "frontend/public/sprites/3-R-2.png",
+      "bytes": 68512
+    },
+    {
+      "path": "frontend/public/sprites/3-R-3.png",
+      "bytes": 68955
+    },
+    {
+      "path": "frontend/public/sprites/3-U-1.png",
+      "bytes": 61072
+    },
+    {
+      "path": "frontend/public/sprites/3-U-2.png",
+      "bytes": 60449
+    },
+    {
+      "path": "frontend/public/sprites/3-U-3.png",
+      "bytes": 58519
+    },
+    {
+      "path": "frontend/public/sprites/4-D-1.png",
+      "bytes": 107541
+    },
+    {
+      "path": "frontend/public/sprites/4-D-2.png",
+      "bytes": 102801
+    },
+    {
+      "path": "frontend/public/sprites/4-D-3.png",
+      "bytes": 102713
+    },
+    {
+      "path": "frontend/public/sprites/4-L-1.png",
+      "bytes": 72638
+    },
+    {
+      "path": "frontend/public/sprites/4-L-2.png",
+      "bytes": 98907
+    },
+    {
+      "path": "frontend/public/sprites/4-L-3.png",
+      "bytes": 96692
+    },
+    {
+      "path": "frontend/public/sprites/4-R-1.png",
+      "bytes": 85383
+    },
+    {
+      "path": "frontend/public/sprites/4-R-2.png",
+      "bytes": 95154
+    },
+    {
+      "path": "frontend/public/sprites/4-R-3.png",
+      "bytes": 98500
+    },
+    {
+      "path": "frontend/public/sprites/4-U-1.png",
+      "bytes": 93961
+    },
+    {
+      "path": "frontend/public/sprites/4-U-2.png",
+      "bytes": 104553
+    },
+    {
+      "path": "frontend/public/sprites/4-U-3.png",
+      "bytes": 109801
+    },
+    {
+      "path": "frontend/public/sprites/5-D-1.png",
+      "bytes": 195578
+    },
+    {
+      "path": "frontend/public/sprites/5-D-2.png",
+      "bytes": 178926
+    },
+    {
+      "path": "frontend/public/sprites/5-D-3.png",
+      "bytes": 177637
+    },
+    {
+      "path": "frontend/public/sprites/5-L-1.png",
+      "bytes": 145182
+    },
+    {
+      "path": "frontend/public/sprites/5-L-2.png",
+      "bytes": 156367
+    },
+    {
+      "path": "frontend/public/sprites/5-L-3.png",
+      "bytes": 157550
+    },
+    {
+      "path": "frontend/public/sprites/5-R-1.png",
+      "bytes": 147179
+    },
+    {
+      "path": "frontend/public/sprites/5-R-2.png",
+      "bytes": 158863
+    },
+    {
+      "path": "frontend/public/sprites/5-R-3.png",
+      "bytes": 158521
+    },
+    {
+      "path": "frontend/public/sprites/5-U-1.png",
+      "bytes": 195812
+    },
+    {
+      "path": "frontend/public/sprites/5-U-2.png",
+      "bytes": 180793
+    },
+    {
+      "path": "frontend/public/sprites/5-U-3.png",
+      "bytes": 167452
+    },
+    {
+      "path": "frontend/public/sprites/6-D-1.png",
+      "bytes": 166312
+    },
+    {
+      "path": "frontend/public/sprites/6-D-2.png",
+      "bytes": 153387
+    },
+    {
+      "path": "frontend/public/sprites/6-D-3.png",
+      "bytes": 148202
+    },
+    {
+      "path": "frontend/public/sprites/6-L-1.png",
+      "bytes": 107428
+    },
+    {
+      "path": "frontend/public/sprites/6-L-2.png",
+      "bytes": 121002
+    },
+    {
+      "path": "frontend/public/sprites/6-L-3.png",
+      "bytes": 122264
+    },
+    {
+      "path": "frontend/public/sprites/6-R-1.png",
+      "bytes": 103816
+    },
+    {
+      "path": "frontend/public/sprites/6-R-2.png",
+      "bytes": 117899
+    },
+    {
+      "path": "frontend/public/sprites/6-R-3.png",
+      "bytes": 119738
+    },
+    {
+      "path": "frontend/public/sprites/6-U-1.png",
+      "bytes": 140288
+    },
+    {
+      "path": "frontend/public/sprites/6-U-2.png",
+      "bytes": 121379
+    },
+    {
+      "path": "frontend/public/sprites/6-U-3.png",
+      "bytes": 125632
+    },
+    {
+      "path": "frontend/public/sprites/7-D-1.png",
+      "bytes": 145343
+    },
+    {
+      "path": "frontend/public/sprites/7-D-2.png",
+      "bytes": 133947
+    },
+    {
+      "path": "frontend/public/sprites/7-D-3.png",
+      "bytes": 136133
+    },
+    {
+      "path": "frontend/public/sprites/7-L-1.png",
+      "bytes": 102297
+    },
+    {
+      "path": "frontend/public/sprites/7-L-2.png",
+      "bytes": 111324
+    },
+    {
+      "path": "frontend/public/sprites/7-L-3.png",
+      "bytes": 113126
+    },
+    {
+      "path": "frontend/public/sprites/7-R-1.png",
+      "bytes": 95158
+    },
+    {
+      "path": "frontend/public/sprites/7-R-2.png",
+      "bytes": 115610
+    },
+    {
+      "path": "frontend/public/sprites/7-R-3.png",
+      "bytes": 116554
+    },
+    {
+      "path": "frontend/public/sprites/7-U-1.png",
+      "bytes": 139404
+    },
+    {
+      "path": "frontend/public/sprites/7-U-2.png",
+      "bytes": 126906
+    },
+    {
+      "path": "frontend/public/sprites/7-U-3.png",
+      "bytes": 131397
+    },
+    {
+      "path": "frontend/public/sprites/8-D-1.png",
+      "bytes": 127259
+    },
+    {
+      "path": "frontend/public/sprites/8-D-2.png",
+      "bytes": 132052
+    },
+    {
+      "path": "frontend/public/sprites/8-D-3.png",
+      "bytes": 132792
+    },
+    {
+      "path": "frontend/public/sprites/8-L-1.png",
+      "bytes": 103762
+    },
+    {
+      "path": "frontend/public/sprites/8-L-2.png",
+      "bytes": 113153
+    },
+    {
+      "path": "frontend/public/sprites/8-L-3.png",
+      "bytes": 113983
+    },
+    {
+      "path": "frontend/public/sprites/8-R-1.png",
+      "bytes": 106166
+    },
+    {
+      "path": "frontend/public/sprites/8-R-2.png",
+      "bytes": 115928
+    },
+    {
+      "path": "frontend/public/sprites/8-R-3.png",
+      "bytes": 115933
+    },
+    {
+      "path": "frontend/public/sprites/8-U-1.png",
+      "bytes": 124143
+    },
+    {
+      "path": "frontend/public/sprites/8-U-2.png",
+      "bytes": 117208
+    },
+    {
+      "path": "frontend/public/sprites/8-U-3.png",
+      "bytes": 114943
+    },
+    {
+      "path": "frontend/public/sprites/9-D-1.png",
+      "bytes": 100241
+    },
+    {
+      "path": "frontend/public/sprites/9-D-2.png",
+      "bytes": 84086
+    },
+    {
+      "path": "frontend/public/sprites/9-D-3.png",
+      "bytes": 94256
+    },
+    {
+      "path": "frontend/public/sprites/9-L-1.png",
+      "bytes": 70577
+    },
+    {
+      "path": "frontend/public/sprites/9-L-2.png",
+      "bytes": 80828
+    },
+    {
+      "path": "frontend/public/sprites/9-L-3.png",
+      "bytes": 72476
+    },
+    {
+      "path": "frontend/public/sprites/9-R-1.png",
+      "bytes": 72362
+    },
+    {
+      "path": "frontend/public/sprites/9-R-2.png",
+      "bytes": 71913
+    },
+    {
+      "path": "frontend/public/sprites/9-R-3.png",
+      "bytes": 77527
+    },
+    {
+      "path": "frontend/public/sprites/9-U-1.png",
+      "bytes": 84959
+    },
+    {
+      "path": "frontend/public/sprites/9-U-2.png",
+      "bytes": 73912
+    },
+    {
+      "path": "frontend/public/sprites/9-U-3.png",
+      "bytes": 85877
+    },
+    {
+      "path": "frontend/public/vite.svg",
+      "bytes": 1497
+    },
+    {
+      "path": "frontend/src/App.vue",
+      "bytes": 1002
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts.css",
+      "bytes": 163
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/Inter-Italic-VariableFont_opsz,wght.ttf",
+      "bytes": 904532
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/Inter-VariableFont_opsz,wght.ttf",
+      "bytes": 874708
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/OFL.txt",
+      "bytes": 4377
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/README.txt",
+      "bytes": 3894
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-Black.ttf",
+      "bytes": 344820
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-BlackItalic.ttf",
+      "bytes": 348712
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-Bold.ttf",
+      "bytes": 344152
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-BoldItalic.ttf",
+      "bytes": 348184
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-ExtraBold.ttf",
+      "bytes": 345008
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-ExtraBoldItalic.ttf",
+      "bytes": 349064
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-ExtraLight.ttf",
+      "bytes": 343532
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-ExtraLightItalic.ttf",
+      "bytes": 347452
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-Italic.ttf",
+      "bytes": 346480
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-Light.ttf",
+      "bytes": 343704
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-LightItalic.ttf",
+      "bytes": 347316
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-Medium.ttf",
+      "bytes": 343200
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-MediumItalic.ttf",
+      "bytes": 346884
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-Regular.ttf",
+      "bytes": 342680
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-SemiBold.ttf",
+      "bytes": 343828
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-SemiBoldItalic.ttf",
+      "bytes": 347760
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-Thin.ttf",
+      "bytes": 343088
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_18pt-ThinItalic.ttf",
+      "bytes": 346916
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-Black.ttf",
+      "bytes": 344764
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-BlackItalic.ttf",
+      "bytes": 348612
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-Bold.ttf",
+      "bytes": 344032
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-BoldItalic.ttf",
+      "bytes": 347948
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-ExtraBold.ttf",
+      "bytes": 344800
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-ExtraBoldItalic.ttf",
+      "bytes": 348896
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-ExtraLight.ttf",
+      "bytes": 343516
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-ExtraLightItalic.ttf",
+      "bytes": 347352
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-Italic.ttf",
+      "bytes": 346580
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-Light.ttf",
+      "bytes": 343440
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-LightItalic.ttf",
+      "bytes": 347300
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-Medium.ttf",
+      "bytes": 342936
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-MediumItalic.ttf",
+      "bytes": 347000
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-Regular.ttf",
+      "bytes": 342732
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-SemiBold.ttf",
+      "bytes": 343640
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-SemiBoldItalic.ttf",
+      "bytes": 347616
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-Thin.ttf",
+      "bytes": 342944
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_24pt-ThinItalic.ttf",
+      "bytes": 346976
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-Black.ttf",
+      "bytes": 344676
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-BlackItalic.ttf",
+      "bytes": 348608
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-Bold.ttf",
+      "bytes": 343972
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-BoldItalic.ttf",
+      "bytes": 348088
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-ExtraBold.ttf",
+      "bytes": 344692
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-ExtraBoldItalic.ttf",
+      "bytes": 348944
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-ExtraLight.ttf",
+      "bytes": 343184
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-ExtraLightItalic.ttf",
+      "bytes": 347268
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-Italic.ttf",
+      "bytes": 346528
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-Light.ttf",
+      "bytes": 343092
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-LightItalic.ttf",
+      "bytes": 347092
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-Medium.ttf",
+      "bytes": 342808
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-MediumItalic.ttf",
+      "bytes": 346900
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-Regular.ttf",
+      "bytes": 342484
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-SemiBold.ttf",
+      "bytes": 343244
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-SemiBoldItalic.ttf",
+      "bytes": 347380
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-Thin.ttf",
+      "bytes": 342904
+    },
+    {
+      "path": "frontend/src/assets/styles/fonts/Inter/static/Inter_28pt-ThinItalic.ttf",
+      "bytes": 346980
+    },
+    {
+      "path": "frontend/src/assets/styles/markdown.css",
+      "bytes": 1906
+    },
+    {
+      "path": "frontend/src/assets/vue.svg",
+      "bytes": 496
+    },
+    {
+      "path": "frontend/src/components/CollapsibleMessage.vue",
+      "bytes": 6293
+    },
+    {
+      "path": "frontend/src/components/DynamicFormField.vue",
+      "bytes": 45012
+    },
+    {
+      "path": "frontend/src/components/FormGenerator.vue",
+      "bytes": 75846
+    },
+    {
+      "path": "frontend/src/components/InlineConfigRenderer.vue",
+      "bytes": 5721
+    },
+    {
+      "path": "frontend/src/components/RichTooltip.vue",
+      "bytes": 8389
+    },
+    {
+      "path": "frontend/src/components/SettingsModal.vue",
+      "bytes": 5563
+    },
+    {
+      "path": "frontend/src/components/Sidebar.vue",
+      "bytes": 5835
+    },
+    {
+      "path": "frontend/src/components/StartNode.vue",
+      "bytes": 2319
+    },
+    {
+      "path": "frontend/src/components/WorkflowEdge.vue",
+      "bytes": 21255
+    },
+    {
+      "path": "frontend/src/components/WorkflowNode.vue",
+      "bytes": 5083
+    },
+    {
+      "path": "frontend/src/pages/BatchRunView.vue",
+      "bytes": 66271
+    },
+    {
+      "path": "frontend/src/pages/HomeView.vue",
+      "bytes": 6712
+    },
+    {
+      "path": "frontend/src/pages/LaunchView.vue",
+      "bytes": 98797
+    },
+    {
+      "path": "frontend/src/pages/TutorialView.vue",
+      "bytes": 10786
+    },
+    {
+      "path": "frontend/src/pages/WorkflowList.vue",
+      "bytes": 11610
+    },
+    {
+      "path": "frontend/src/pages/WorkflowView.vue",
+      "bytes": 70292
+    },
+    {
+      "path": "frontend/src/pages/WorkflowWorkbench.vue",
+      "bytes": 5620
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 1251
+    },
+    {
+      "path": "uv.lock",
+      "bytes": 222679
+    }
+  ]
+}

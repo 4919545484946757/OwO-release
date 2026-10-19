@@ -1,0 +1,296 @@
+MemGPT: Towards LLMs as Operating Systems
+Charles Packer 1 Sarah Wooders 1 Kevin Lin 1
+Vivian Fang 1 Shishir G. Patil 1 Ion Stoica 1 Joseph E. Gonzalez 1
+Abstract
+Large language models (LLMs) have revolution-
+ized AI, but are constrained by limited context
+windows, hindering their utility in tasks like ex-
+tended conversations and document analysis. To
+enable using context beyond limited context win-
+dows, we propose virtual context management, a
+technique drawing inspiration from hierarchical
+memory systems in traditional operating systems
+which provide the illusion of an extended vir-
+tual memory via paging between physical mem-
+ory and disk. Using this technique, we introduce
+MemGPT (MemoryGPT), a system that intelli-
+gently manages different storage tiers in order
+to effectively provide extended context within
+the LLM’s limited context window. We evalu-
+ate our OS-inspired design in two domains where
+the limited context windows of modern LLMs
+severely handicaps their performance: document
+analysis, where MemGPT is able to analyze
+large documents that far exceed the underly-
+ing LLM’s context window, and multi-session
+chat, where MemGPT can create conversational
+agents that remember, reflect, and evolve dynam-
+ically through long-term interactions with their
+users. We release MemGPT code and data for
+our experiments at https://research.memgpt.ai.
+1. Introduction
+In recent years, large language models (LLMs) and their
+underlying transformer architecture (Vaswani et al., 2017;
+Devlin et al., 2018; Brown et al., 2020; Ouyang et al., 2022)
+have become the cornerstone of conversational AI and have
+led to a wide array of consumer and enterprise applications.
+Despite these advances, the limited fixed-length context
+windows used by LLMs significantly hinders their appli-
+cability to long conversations or reasoning about long doc-
+uments. For example, the most widely used open-source
+1University of California, Berkeley. Correspondence to:
+Charles Packer <cpacker@berkeley.edu>.
+LLMs can only support a few dozen back-and-forth mes-
+sages or reason about a short document before exceeding
+their maximum input length (Touvron et al., 2023).
+Directly extending the context length of transformers in-
+curs a quadratic increase in computational time and mem-
+ory cost due to the transformer architecture’s self-attention
+mechanism, making the design of new long-context archi-
+tectures a pressing research challenge (Dai et al., 2019; Ki-
+taev et al., 2020; Beltagy et al., 2020). While developing
+longer models is an active area of research (Dong et al.,
+2023), even if we could overcome the computational chal-
+lenges of context scaling, recent research shows that long-
+context models struggle to utilize additional context effec-
+tively (Liu et al., 2023a). As consequence, given the con-
+siderable resources needed to train state-of-the-art LLMs
+and diminishing returns of context scaling, there is a criti-
+cal need for alternative techniques to support long context.
+In this paper, we study how to provide the illusion of an
+infinite context while continuing to use fixed-context mod-
+els. Our approach borrows from the idea of virtual memory
+paging that was developed to enable applications to work
+on datasets that far exceed the available memory by pag-
+ing data between main memory and disk. We leverage the
+recent progress in function calling abilities of LLM agents
+(Schick et al., 2023; Liu et al., 2023b) to design MemGPT,
+an OS-inspired LLM system for virtual context manage-
+ment. Using function calls, LLM agents can read and write
+to external data sources, modify their own context, and
+choose when to return responses to the user.
+These capabilities allow LLMs to effective “page” in and
+out information between context windows (analogous to
+“main memory” in operating systems) and external storage,
+similar to hierarchical memory in traditional OSes. In ad-
+dition, function calls can be leveraged to manage control
+flow between context management, response generation,
+and user interactions. This allows for an agent to choose
+to iteratively modify what is in its context for a single task,
+thereby more effectively utilizing its limited context.
+In MemGPT, we treat context windows as a constrained
+memory resource, and design a memory hiearchy for LLMs
+analogous to memory tiers used in traditional OSes (Patter-
+son et al., 1988). Applications in traditional OSes interact
+1
+arXiv:2310.08560v2  [cs.AI]  12 Feb 2024
+
+MemGPT: Towards LLMs as Operating Systems
+working_context.replace(
+  “Boyfriend named James”,
+  “Ex-boyfriend named James”
+)
+Sorry to hear that - hope you’re OK 💔
+actually james and i broke up
+How’s James doing? Any special plans today?
+working_context.append(“Birthday is February 7”)
+Oh wow, happy birthday! 🎂
+fun my bf james baked me a birthday cake
+How was your day today?
+February 7
+working_context.append(“Boyfriend named James”)
+System Alert: Memory Pressure
+yeah we went to six ﬂags!
+Did you do anything else to celebrate your birthday? 😊
+February 7
+Showing 3 of 3 results (page 1/1):
+   [01/24/2024] “lol yeah six ﬂags”,
+   [01/14/2024] “i love six ﬂags been like 100 times”,
+   [10/12/2023] “james and I actually ﬁrst met at six ﬂags”
+Did you go with James? It’s so cute how both met there!
+February 14
+recall_storage.search(“six flags”)
+Figure 1. MemGPT (left) writes data to persistent memory after
+it receives a system alert about limited context space.
+with virtual memory , which provides an illusion of there
+being more memory resources than are actually available
+in physical (i.e., main) memory by the OS paging over-
+flow data to disk and retrieving data (via a page fault) back
+into memory when accessed by applications. To provide a
+similar illusion of longer context length (analogous to vir-
+tual memory), we allow the LLM to manage what is placed
+in its own context (analogous to physical memory) via an
+‘LLM OS’, which we call MemGPT. MemGPT enables the
+LLM to retrieve relevant historical data missing from what
+is placed in-context, and also evict less relevant data from
+context and into external storage systems. Figure 3 illus-
+trates the components of MemGPT.
+The combined use of a memory-hierarchy, OS functions
+and event-based control flow allow MemGPT to handle
+unbounded context using LLMs that have finite context
+windows. To demonstrate the utility of our new OS-
+inspired LLM system, we evaluate MemGPT on two do-
+mains where the performance of existing LLMs is severely
+limited by finite context: document analysis, where the
+length of standard text files can quickly exceed the input ca-
+pacity of modern LLMs, and conversational agents, where
+LLMs bound by limited conversation windows lack context
+awareness, persona consistency, and long-term memory
+during extended conversations. In both settings, MemGPT
+is able to overcome the limitations of finite context to out-
+perform existing LLM-based approaches.
+2. MemGPT (MemoryGPT)
+MemGPT’s OS-inspired multi-level memory architecture
+delineates between two primary memory types: main con-
+text (analogous to main memory/physical memory/RAM)
+and external context (analogous to disk memory/disk stor-
+age). Main context consists of the LLM prompt tokens—
+anything in main context is considered in-context and can
+be accessed by the LLM processor during inference. Exter-
+nal context refers to any information that is held outside of
+the LLMs fixed context window. This out-of-context data
+working_context.replace(
+  “Boyfriend named James”,
+  “Ex-boyfriend named James”
+)
+Sorry to hear that - hope you’re OK 💔
+actually james and i broke up
+How’s James doing? Any special plans today?
+working_context.append(“Birthday is February 7”)
+Oh wow, happy birthday! 🎂
+fun my bf james baked me a birthday cake
+How was your day today?
+February 7
+working_context.append(“Boyfriend named James”)
+System Alert: Memory Pressure
+yeah we went to six ﬂags!
+Did you do anything else to celebrate your birthday? 😊
+February 7
+Showing 3 of 3 results (page 1/1):
+   [01/24/2024] “lol yeah six ﬂags”,
+   [01/14/2024] “i love six ﬂags been like 100 times”,
+   [10/12/2023] “james and I actually ﬁrst met at six ﬂags”
+Did you go with James? It’s so cute how both met there!
+February 14
+recall_storage.search(“six flags”)
+Figure 2. MemGPT (left) can search out-of-context data to bring
+relevant information into the current context window.
+must always be explicitly moved into main context in order
+for it to be passed to the LLM processor during inference.
+MemGPT provides function calls that the LLM processor
+to manage its own memory without any user intervention.
+2.1. Main context (prompt tokens)
+The prompt tokens in MemGPT are split into three con-
+tiguous sections: the system instructions, working con-
+text, and FIFO Queue. The system instructions are read-
+only (static) and contain information on the MemGPT con-
+trol flow, the intended usage of the different memory lev-
+els, and instructions on how to use the MemGPT functions
+(e.g. how to retrieve out-of-context data). Working con-
+text is a fixed-size read/write block of unstructured text,
+writeable only via MemGPT function calls. In conversa-
+tional settings, working context is intended to be used to
+store key facts, preferences, and other important informa-
+tion about the user and the persona the agent is adopting,
+allowing the agent to converse fluently with the user. The
+FIFO queue stores a rolling history of messages, including
+messages between the agent and user, as well as system
+messages (e.g. memory warnings) and function call inputs
+and outputs. The first index in the FIFO queue stores a sys-
+tem message containing a recursive summary of messages
+that have been evicted from the queue.
+2.2. Queue Manager
+The queue manager manages messages in recall storage
+and the FIFO queue. When a new message is received by
+the system, the queue manager appends the incoming mes-
+sages to the FIFO queue, concatenates the prompt tokens
+and triggers the LLM inference to generate LLM output
+(the completion tokens). The queue manager writes both
+the incoming message and the generated LLM output to re-
+call storage (the MemGPT message database). When mes-
+sages in recall storage are retrieved via a MemGPT func-
+tion call, the queue manager appends them to the back of
+2
+
+MemGPT: Towards LLMs as Operating Systems
+System Instructions Working Context Output Buﬀer
+Read-Only (static)
+MemGPT System Prompt
+Read-Write
+Write via Functions
+Read-Write
+Write via Queue Manager
+LLM Finite Context Window (e.g. 8k tokens)
+FIFO Queue
+Recall Storage
+Read via Functions
+Write via Queue Manager
+Read via Functions
+Write via Functions
+Prompt Tokens Completion Tokens
+Function Executor Queue ManagerArchival Storage
+Figure 3. In MemGPT, a fixed-context LLM processor is augmented with a hierarchical memory system and functions that let it manage
+its own memory. The LLM’s prompt tokens (inputs), or main context, consist of the system instructions, working context, and a FIFO
+queue. The LLM completion tokens (outputs) are interpreted as function calls by the function executor. MemGPT uses functions to
+move data between main context and external context (the archival and recall storage databases). The LLM can request immediate
+follow-up LLM inference to chain function calls together by generating a special keyword argument ( request heartbeat=true)
+in its output; function chaining is what allows MemGPT to perform multi-step retrieval to answer user queries.
+the queue to reinsert them into the LLM’s context window.
+The queue manager is also responsible for controlling con-
+text overflow via a queue eviction policy. When the prompt
+tokens exceed the ‘warning token count‘ of the underly-
+ing LLM’s context window (e.g. 70% of the context win-
+dow), the queue manager inserts a system message into the
+queue warning the LLM of an impending queue eviction
+(a ‘memory pressure‘ warning) to allow the LLM to use
+MemGPT functions to store important information con-
+tained in the FIFO queue to working context or archival
+storage (a read/write database storing arbitrary length text
+objects). When the prompt tokens exceed the ‘flush token
+count’ (e.g. 100% of the context window), the queue man-
+ager flushes the queue to free up space in the context win-
+dow: the queue manager evicts a specific count of messages
+(e.g. 50% of the context window), generates a new recur-
+sive summary using the existing recursive summary and
+evicted messages. Once the queue is flushed, the evicted
+messages are no longer in-context and immediately view-
+able to the LLM, however they are stored indefinitely in
+recall storage and readable via MemGPT function calls.
+2.3. Function executor (handling of completion tokens)
+MemGPT orchestrates data movement between main con-
+text and external context via function calls that are gener-
+ated by the LLM processor. Memory edits and retrieval
+are entirely self-directed: MemGPT autonomously updates
+and searches through its own memory based on the cur-
+rent context. For instance, it can decide when to move
+items between contexts (e.g. when the conversation his-
+tory is becoming too long, as show in Figure 1) and modify
+its main context to better reflect its evolving understand-
+ing of its current objectives and responsibilities (as shown
+in Figure 3). We implement self-directed editing and re-
+trieval by providing explicit instructions within the system
+instructions that guide the LLM on how to interact with
+the MemGPT memory systems. These instructions com-
+prise two main components: (1) a detailed description of
+the memory hierarchy and their respective utilities, and (2)
+a function schema (complete with their natural language
+descriptions) that the system can call to access or modify
+its memory.
+During each inference cycle, LLM processor takes main
+context (concatenated into a single string) as input, and
+generates an output string. This output string is parsed by
+MemGPT to ensure correctness, and if the parser validates
+the function arguments the function is executed. The re-
+sults, including any runtime errors that occur (e.g. trying to
+add to main context when it is already at maximum capac-
+ity), are then fed back to the processor by MemGPT. This
+feedback loop enables the system to learn from its actions
+and adjust its behavior accordingly. Awareness of context
+limits is a key aspect in making the self-editing mechanism
+work effectively, to this end MemGPT prompts the proces-
+sor with warnings regarding token limitations to guide its
+memory management decisions. Additionally, our memory
+retrieval mechanisms are designed to be cognizant of these
+token constraints and implement pagination to prevent re-
+trieval calls from overflowing the context window.
+3

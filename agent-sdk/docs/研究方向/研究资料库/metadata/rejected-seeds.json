@@ -1,0 +1,147 @@
+[
+  {
+    "id": "2308.08155",
+    "topic": "多Agent协作",
+    "lesson": "角色和标准操作流程驱动软件生产，结构化交接。",
+    "limits": "角色流水线不能自动保证并发效率和集成正确。",
+    "source_url": "https://arxiv.org/abs/2308.08155",
+    "collected_at": "2026-10-13T13:59:41.051636+00:00",
+    "title": "AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation",
+    "authors": [
+      "Wu, Qingyun",
+      "Bansal, Gagan",
+      "Zhang, Jieyu",
+      "Wu, Yiran",
+      "Li, Beibin",
+      "Zhu, Erkang",
+      "Jiang, Li",
+      "Zhang, Xiaoyun",
+      "Zhang, Shaokun",
+      "Liu, Jiale",
+      "Awadallah, Ahmed Hassan",
+      "White, Ryen W",
+      "Burger, Doug",
+      "Wang, Chi"
+    ],
+    "submitted": [
+      "2023/08/16"
+    ],
+    "abstract_url": "https://arxiv.org/abs/2308.08155",
+    "status": "failed",
+    "error": "seed/title mismatch: AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation"
+  },
+  {
+    "id": "2308.08157",
+    "topic": "多Agent协作",
+    "lesson": "可编程多 Agent 会话及工具执行组织。",
+    "limits": "历史论文对应版本可能与当前源码不同。",
+    "source_url": "https://arxiv.org/abs/2308.08157",
+    "collected_at": "2026-10-13T14:01:02.353328+00:00",
+    "title": "Learning to Generate Semantic Layouts for Higher Text-Image Correspondence in Text-to-Image Synthesis",
+    "authors": [
+      "Park, Minho",
+      "Yun, Jooyeol",
+      "Choi, Seunghwan",
+      "Choo, Jaegul"
+    ],
+    "submitted": [
+      "2023/08/16"
+    ],
+    "abstract_url": "https://arxiv.org/abs/2308.08157",
+    "status": "failed",
+    "error": "seed/title mismatch: Learning to Generate Semantic Layouts for Higher Text-Image Correspondence in Text-to-Image Synthesis"
+  },
+  {
+    "id": "2401.13178",
+    "topic": "自动化环境",
+    "lesson": "真实计算机桌面任务与交互评测。",
+    "limits": "视觉/桌面评测依赖平台、分辨率及环境状态。",
+    "source_url": "https://arxiv.org/abs/2401.13178",
+    "collected_at": "2026-10-13T14:06:52.960051+00:00",
+    "title": "AgentBoard: An Analytical Evaluation Board of Multi-turn LLM Agents",
+    "authors": [
+      "Ma, Chang",
+      "Zhang, Junlei",
+      "Zhu, Zhihao",
+      "Yang, Cheng",
+      "Yang, Yujiu",
+      "Jin, Yaohui",
+      "Lan, Zhenzhong",
+      "Kong, Lingpeng",
+      "He, Junxian"
+    ],
+    "submitted": [
+      "2024/01/24"
+    ],
+    "abstract_url": "https://arxiv.org/abs/2401.13178",
+    "status": "failed",
+    "error": "seed/title mismatch: AgentBoard: An Analytical Evaluation Board of Multi-turn LLM Agents"
+  },
+  {
+    "id": "2403.03129",
+    "topic": "安全治理",
+    "lesson": "工具型 Agent 间接注入的评估。",
+    "limits": "离线攻击成功率需与真实工具输出误报一起衡量。",
+    "source_url": "https://arxiv.org/abs/2403.03129",
+    "collected_at": "2026-10-13T14:07:22.112418+00:00",
+    "title": "CoGenesis: A Framework Collaborating Large and Small Language Models for Secure Context-Aware Instruction Following",
+    "authors": [
+      "Zhang, Kaiyan",
+      "Wang, Jianyu",
+      "Hua, Ermo",
+      "Qi, Biqing",
+      "Ding, Ning",
+      "Zhou, Bowen"
+    ],
+    "submitted": [
+      "2024/03/05"
+    ],
+    "abstract_url": "https://arxiv.org/abs/2403.03129",
+    "status": "failed",
+    "error": "seed/title mismatch: CoGenesis: A Framework Collaborating Large and Small Language Models for Secure Context-Aware Instruction Following"
+  },
+  {
+    "id": "2406.12045",
+    "topic": "安全治理",
+    "lesson": "工具返回中的间接提示注入与防御测试。",
+    "limits": "攻击集合有限；权限宿主仍需独立约束。",
+    "source_url": "https://arxiv.org/abs/2406.12045",
+    "collected_at": "2026-10-13T14:06:53.821086+00:00",
+    "title": "$\\tau$-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains",
+    "authors": [
+      "Yao, Shunyu",
+      "Shinn, Noah",
+      "Razavi, Pedram",
+      "Narasimhan, Karthik"
+    ],
+    "submitted": [
+      "2024/06/17"
+    ],
+    "abstract_url": "https://arxiv.org/abs/2406.12045",
+    "status": "failed",
+    "error": "seed/title mismatch: $\\tau$-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains"
+  },
+  {
+    "id": "2406.13352",
+    "topic": "自动化环境",
+    "lesson": "工具、用户与策略交互的任务基准。",
+    "limits": "API/领域特定，应对照最终状态及策略遵守。",
+    "source_url": "https://arxiv.org/abs/2406.13352",
+    "collected_at": "2026-10-13T14:06:54.739340+00:00",
+    "title": "AgentDojo: A Dynamic Environment to Evaluate Prompt Injection Attacks and Defenses for LLM Agents",
+    "authors": [
+      "Debenedetti, Edoardo",
+      "Zhang, Jie",
+      "Balunović, Mislav",
+      "Beurer-Kellner, Luca",
+      "Fischer, Marc",
+      "Tramèr, Florian"
+    ],
+    "submitted": [
+      "2024/06/19"
+    ],
+    "abstract_url": "https://arxiv.org/abs/2406.13352",
+    "status": "failed",
+    "error": "seed/title mismatch: AgentDojo: A Dynamic Environment to Evaluate Prompt Injection Attacks and Defenses for LLM Agents"
+  }
+]

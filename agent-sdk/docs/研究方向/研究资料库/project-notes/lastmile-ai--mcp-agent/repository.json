@@ -1,0 +1,10 @@
+{
+  "full_name": "lastmile-ai/mcp-agent",
+  "default_branch": "main",
+  "sha": "f62d849350816588b1c6294e7914bbe4d8b84072",
+  "license": null,
+  "description": null,
+  "archived": null,
+  "pushed_at": null,
+  "identity_source": "git ls-remote public HEAD"
+}

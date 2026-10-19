@@ -1,0 +1,4712 @@
+{
+  "kept": [
+    {
+      "path": ".github/release-drafter.yml",
+      "bytes": 384
+    },
+    {
+      "path": ".github/workflows/checks.yml",
+      "bytes": 1469
+    },
+    {
+      "path": ".github/workflows/create-tag.yml",
+      "bytes": 1202
+    },
+    {
+      "path": ".github/workflows/main-checks.yml",
+      "bytes": 160
+    },
+    {
+      "path": ".github/workflows/pr-checks.yml",
+      "bytes": 105
+    },
+    {
+      "path": ".github/workflows/publish-pypi.yml",
+      "bytes": 1190
+    },
+    {
+      "path": ".github/workflows/release-drafter.yml",
+      "bytes": 898
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "bytes": 223
+    },
+    {
+      "path": ".vscode/extensions.json",
+      "bytes": 74
+    },
+    {
+      "path": ".vscode/launch.json",
+      "bytes": 675
+    },
+    {
+      "path": ".vscode/settings.json",
+      "bytes": 536
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 4937
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 11357
+    },
+    {
+      "path": "LLMS.txt",
+      "bytes": 314457
+    },
+    {
+      "path": "Makefile",
+      "bytes": 1046
+    },
+    {
+      "path": "README.md",
+      "bytes": 35207
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 664
+    },
+    {
+      "path": "docs/README.md",
+      "bytes": 324
+    },
+    {
+      "path": "docs/css/style.css",
+      "bytes": 499
+    },
+    {
+      "path": "docs/css/version-badge.css",
+      "bytes": 637
+    },
+    {
+      "path": "docs/docs.json",
+      "bytes": 6717
+    },
+    {
+      "path": "docs/oauth_support_design.md",
+      "bytes": 7262
+    },
+    {
+      "path": "docs/streaming_guide.md",
+      "bytes": 13204
+    },
+    {
+      "path": "examples/basic/agent_factory/README.md",
+      "bytes": 14455
+    },
+    {
+      "path": "examples/basic/agent_factory/agents.yaml",
+      "bytes": 359
+    },
+    {
+      "path": "examples/basic/agent_factory/auto_loaded_subagents.py",
+      "bytes": 1121
+    },
+    {
+      "path": "examples/basic/agent_factory/load_and_route.py",
+      "bytes": 946
+    },
+    {
+      "path": "examples/basic/agent_factory/main.py",
+      "bytes": 1185
+    },
+    {
+      "path": "examples/basic/agent_factory/mcp_agent.config.yaml",
+      "bytes": 1365
+    },
+    {
+      "path": "examples/basic/agent_factory/orchestrator_demo.py",
+      "bytes": 1273
+    },
+    {
+      "path": "examples/basic/agent_factory/parallel_demo.py",
+      "bytes": 1439
+    },
+    {
+      "path": "examples/basic/agent_factory/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/basic/agent_factory/run_worker.py",
+      "bytes": 489
+    },
+    {
+      "path": "examples/basic/functions/README.md",
+      "bytes": 3048
+    },
+    {
+      "path": "examples/basic/functions/main.py",
+      "bytes": 1971
+    },
+    {
+      "path": "examples/basic/functions/mcp_agent.config.yaml",
+      "bytes": 501
+    },
+    {
+      "path": "examples/basic/functions/requirements.txt",
+      "bytes": 116
+    },
+    {
+      "path": "examples/basic/mcp_basic_agent/README.md",
+      "bytes": 4070
+    },
+    {
+      "path": "examples/basic/mcp_basic_agent/main.py",
+      "bytes": 6222
+    },
+    {
+      "path": "examples/basic/mcp_basic_agent/mcp_agent.config.yaml",
+      "bytes": 699
+    },
+    {
+      "path": "examples/basic/mcp_basic_agent/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/basic/mcp_hello_world/README.md",
+      "bytes": 1635
+    },
+    {
+      "path": "examples/basic/mcp_hello_world/main.py",
+      "bytes": 2696
+    },
+    {
+      "path": "examples/basic/mcp_hello_world/mcp_agent.config.yaml",
+      "bytes": 331
+    },
+    {
+      "path": "examples/basic/mcp_hello_world/requirements.txt",
+      "bytes": 152
+    },
+    {
+      "path": "examples/basic/mcp_model_selector/README.md",
+      "bytes": 3592
+    },
+    {
+      "path": "examples/basic/mcp_model_selector/interactive.py",
+      "bytes": 10316
+    },
+    {
+      "path": "examples/basic/mcp_model_selector/main.py",
+      "bytes": 8160
+    },
+    {
+      "path": "examples/basic/mcp_model_selector/mcp_agent.config.yaml",
+      "bytes": 301
+    },
+    {
+      "path": "examples/basic/mcp_model_selector/requirements.txt",
+      "bytes": 163
+    },
+    {
+      "path": "examples/basic/mcp_server_aggregator/README.md",
+      "bytes": 2927
+    },
+    {
+      "path": "examples/basic/mcp_server_aggregator/main.py",
+      "bytes": 5188
+    },
+    {
+      "path": "examples/basic/mcp_server_aggregator/mcp_agent.config.yaml",
+      "bytes": 306
+    },
+    {
+      "path": "examples/basic/mcp_server_aggregator/requirements.txt",
+      "bytes": 152
+    },
+    {
+      "path": "examples/basic/mcp_tool_filter/README.md",
+      "bytes": 3332
+    },
+    {
+      "path": "examples/basic/mcp_tool_filter/main.py",
+      "bytes": 7730
+    },
+    {
+      "path": "examples/basic/mcp_tool_filter/mcp_agent.config.yaml",
+      "bytes": 650
+    },
+    {
+      "path": "examples/basic/mcp_tool_filter/quickstart.py",
+      "bytes": 1531
+    },
+    {
+      "path": "examples/basic/mcp_tool_filter/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/basic/oauth_basic_agent/README.md",
+      "bytes": 1272
+    },
+    {
+      "path": "examples/basic/oauth_basic_agent/main.py",
+      "bytes": 5218
+    },
+    {
+      "path": "examples/basic/oauth_basic_agent/mcp_agent.config.yaml",
+      "bytes": 904
+    },
+    {
+      "path": "examples/basic/oauth_basic_agent/requirements.txt",
+      "bytes": 13
+    },
+    {
+      "path": "examples/basic/streaming_demo/README.md",
+      "bytes": 5139
+    },
+    {
+      "path": "examples/basic/streaming_demo/main.py",
+      "bytes": 9910
+    },
+    {
+      "path": "examples/basic/streaming_demo/mcp_agent.config.yaml",
+      "bytes": 332
+    },
+    {
+      "path": "examples/basic/streaming_demo/requirements.txt",
+      "bytes": 103
+    },
+    {
+      "path": "examples/basic/token_counter/README.md",
+      "bytes": 5540
+    },
+    {
+      "path": "examples/basic/token_counter/main.py",
+      "bytes": 9097
+    },
+    {
+      "path": "examples/basic/token_counter/mcp_agent.config.yaml",
+      "bytes": 739
+    },
+    {
+      "path": "examples/basic/token_counter/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/cloud/README.md",
+      "bytes": 171
+    },
+    {
+      "path": "examples/cloud/agent_factory/README.md",
+      "bytes": 2759
+    },
+    {
+      "path": "examples/cloud/agent_factory/agents.yaml",
+      "bytes": 786
+    },
+    {
+      "path": "examples/cloud/agent_factory/custom_tasks.py",
+      "bytes": 2705
+    },
+    {
+      "path": "examples/cloud/agent_factory/main.py",
+      "bytes": 2355
+    },
+    {
+      "path": "examples/cloud/agent_factory/mcp_agent.config.yaml",
+      "bytes": 1027
+    },
+    {
+      "path": "examples/cloud/agent_factory/requirements.txt",
+      "bytes": 109
+    },
+    {
+      "path": "examples/cloud/agent_factory/run_worker.py",
+      "bytes": 497
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/README.md",
+      "bytes": 7726
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/main.py",
+      "bytes": 6192
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/mcp_agent.config.yaml",
+      "bytes": 51
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/requirements.txt",
+      "bytes": 104
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/README.md",
+      "bytes": 369
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/package.json",
+      "bytes": 936
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/public/index.html",
+      "bytes": 472
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/src/components/App.css",
+      "bytes": 1105
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/src/components/App.tsx",
+      "bytes": 953
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/src/components/Coin.css",
+      "bytes": 1089
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/src/components/Coin.tsx",
+      "bytes": 846
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/src/index.css",
+      "bytes": 366
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/src/index.tsx",
+      "bytes": 447
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/src/utils/dev-openai-global.ts",
+      "bytes": 1805
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/src/utils/hooks/use-openai-global.ts",
+      "bytes": 882
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/src/utils/hooks/use-theme.ts",
+      "bytes": 174
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/src/utils/hooks/use-widget-state.ts",
+      "bytes": 1460
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/src/utils/types.ts",
+      "bytes": 2338
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/tsconfig.json",
+      "bytes": 523
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/README.md",
+      "bytes": 7519
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/main.py",
+      "bytes": 10909
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/mcp_agent.config.yaml",
+      "bytes": 49
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/requirements.txt",
+      "bytes": 37
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/README.md",
+      "bytes": 369
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/package.json",
+      "bytes": 933
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/public/index.html",
+      "bytes": 466
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/components/App.css",
+      "bytes": 1105
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/components/App.tsx",
+      "bytes": 1648
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/components/Timer.css",
+      "bytes": 2092
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/components/Timer.tsx",
+      "bytes": 5624
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/components/ui/button.tsx",
+      "bytes": 1527
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/components/ui/card.tsx",
+      "bytes": 1197
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/index.css",
+      "bytes": 366
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/index.tsx",
+      "bytes": 447
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/utils/dev-openai-global.ts",
+      "bytes": 1805
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/utils/hooks/use-openai-global.ts",
+      "bytes": 882
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/utils/hooks/use-theme.ts",
+      "bytes": 174
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/utils/hooks/use-widget-state.ts",
+      "bytes": 1460
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/src/utils/types.ts",
+      "bytes": 2420
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/tsconfig.json",
+      "bytes": 523
+    },
+    {
+      "path": "examples/cloud/hello_world/README.md",
+      "bytes": 3201
+    },
+    {
+      "path": "examples/cloud/hello_world/main.py",
+      "bytes": 1191
+    },
+    {
+      "path": "examples/cloud/hello_world/mcp_agent.config.yaml",
+      "bytes": 125
+    },
+    {
+      "path": "examples/cloud/hello_world/requirements.txt",
+      "bytes": 100
+    },
+    {
+      "path": "examples/cloud/mcp/README.md",
+      "bytes": 6392
+    },
+    {
+      "path": "examples/cloud/mcp/main.py",
+      "bytes": 14820
+    },
+    {
+      "path": "examples/cloud/mcp/mcp_agent.config.yaml",
+      "bytes": 517
+    },
+    {
+      "path": "examples/cloud/mcp/requirements.txt",
+      "bytes": 116
+    },
+    {
+      "path": "examples/cloud/mcp/short_story.md",
+      "bytes": 1180
+    },
+    {
+      "path": "examples/cloud/observability/README.md",
+      "bytes": 5641
+    },
+    {
+      "path": "examples/cloud/observability/main.py",
+      "bytes": 4749
+    },
+    {
+      "path": "examples/cloud/observability/mcp_agent.config.yaml",
+      "bytes": 272
+    },
+    {
+      "path": "examples/cloud/observability/requirements.txt",
+      "bytes": 160
+    },
+    {
+      "path": "examples/cloud/temporal/README.md",
+      "bytes": 7592
+    },
+    {
+      "path": "examples/cloud/temporal/main.py",
+      "bytes": 10769
+    },
+    {
+      "path": "examples/cloud/temporal/mcp_agent.config.yaml",
+      "bytes": 1397
+    },
+    {
+      "path": "examples/cloud/temporal/requirements.txt",
+      "bytes": 171
+    },
+    {
+      "path": "examples/cloud/temporal/temporal_worker.py",
+      "bytes": 788
+    },
+    {
+      "path": "examples/crewai/README.md",
+      "bytes": 1280
+    },
+    {
+      "path": "examples/crewai/main.py",
+      "bytes": 1320
+    },
+    {
+      "path": "examples/crewai/mcp_agent.config.yaml",
+      "bytes": 519
+    },
+    {
+      "path": "examples/crewai/requirements.txt",
+      "bytes": 170
+    },
+    {
+      "path": "examples/human_input/temporal/README.md",
+      "bytes": 3162
+    },
+    {
+      "path": "examples/human_input/temporal/client.py",
+      "bytes": 8736
+    },
+    {
+      "path": "examples/human_input/temporal/main.py",
+      "bytes": 2829
+    },
+    {
+      "path": "examples/human_input/temporal/mcp_agent.config.yaml",
+      "bytes": 736
+    },
+    {
+      "path": "examples/human_input/temporal/requirements.txt",
+      "bytes": 118
+    },
+    {
+      "path": "examples/human_input/temporal/worker.py",
+      "bytes": 788
+    },
+    {
+      "path": "examples/langchain/README.md",
+      "bytes": 1158
+    },
+    {
+      "path": "examples/langchain/main.py",
+      "bytes": 1226
+    },
+    {
+      "path": "examples/langchain/mcp_agent.config.yaml",
+      "bytes": 519
+    },
+    {
+      "path": "examples/langchain/requirements.txt",
+      "bytes": 176
+    },
+    {
+      "path": "examples/lm_studio/README.md",
+      "bytes": 3414
+    },
+    {
+      "path": "examples/lm_studio/main.py",
+      "bytes": 5170
+    },
+    {
+      "path": "examples/lm_studio/mcp_agent.config.yaml",
+      "bytes": 516
+    },
+    {
+      "path": "examples/lm_studio/requirements.txt",
+      "bytes": 157
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/README.md",
+      "bytes": 1510
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/cloud/README.md",
+      "bytes": 712
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/cloud/main.py",
+      "bytes": 1447
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/cloud/mcp_agent.config.yaml",
+      "bytes": 464
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/cloud/requirements.txt",
+      "bytes": 107
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/demo_server.py",
+      "bytes": 1187
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/main.py",
+      "bytes": 1310
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/mcp_agent.config.yaml",
+      "bytes": 619
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/requirements.txt",
+      "bytes": 166
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/temporal/client.py",
+      "bytes": 12131
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/temporal/main.py",
+      "bytes": 3979
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/temporal/mcp_agent.config.yaml",
+      "bytes": 736
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/temporal/requirements.txt",
+      "bytes": 118
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/temporal/worker.py",
+      "bytes": 788
+    },
+    {
+      "path": "examples/mcp/mcp_prompts_and_resources/README.md",
+      "bytes": 3838
+    },
+    {
+      "path": "examples/mcp/mcp_prompts_and_resources/demo_server.py",
+      "bytes": 1709
+    },
+    {
+      "path": "examples/mcp/mcp_prompts_and_resources/main.py",
+      "bytes": 2684
+    },
+    {
+      "path": "examples/mcp/mcp_prompts_and_resources/mcp_agent.config.yaml",
+      "bytes": 656
+    },
+    {
+      "path": "examples/mcp/mcp_prompts_and_resources/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/mcp/mcp_roots/main.py",
+      "bytes": 2701
+    },
+    {
+      "path": "examples/mcp/mcp_roots/mcp_agent.config.yaml",
+      "bytes": 1006
+    },
+    {
+      "path": "examples/mcp/mcp_roots/requirements.txt",
+      "bytes": 214
+    },
+    {
+      "path": "examples/mcp/mcp_roots/root_test_server.py",
+      "bytes": 224
+    },
+    {
+      "path": "examples/mcp/mcp_sse/README.md",
+      "bytes": 1128
+    },
+    {
+      "path": "examples/mcp/mcp_sse/main.py",
+      "bytes": 897
+    },
+    {
+      "path": "examples/mcp/mcp_sse/mcp_agent.config.yaml",
+      "bytes": 348
+    },
+    {
+      "path": "examples/mcp/mcp_sse/server.py",
+      "bytes": 2294
+    },
+    {
+      "path": "examples/mcp/mcp_sse_with_headers/README.md",
+      "bytes": 1203
+    },
+    {
+      "path": "examples/mcp/mcp_sse_with_headers/main.py",
+      "bytes": 1439
+    },
+    {
+      "path": "examples/mcp/mcp_sse_with_headers/mcp_agent.config.yaml",
+      "bytes": 720
+    },
+    {
+      "path": "examples/mcp/mcp_sse_with_headers/requirements.txt",
+      "bytes": 159
+    },
+    {
+      "path": "examples/mcp/mcp_streamable_http/README.md",
+      "bytes": 1205
+    },
+    {
+      "path": "examples/mcp/mcp_streamable_http/main.py",
+      "bytes": 1401
+    },
+    {
+      "path": "examples/mcp/mcp_streamable_http/mcp_agent.config.yaml",
+      "bytes": 715
+    },
+    {
+      "path": "examples/mcp/mcp_streamable_http/requirements.txt",
+      "bytes": 165
+    },
+    {
+      "path": "examples/mcp/mcp_streamable_http/stateless_server.py",
+      "bytes": 4528
+    },
+    {
+      "path": "examples/mcp/mcp_websockets/README.md",
+      "bytes": 1808
+    },
+    {
+      "path": "examples/mcp/mcp_websockets/main.py",
+      "bytes": 1705
+    },
+    {
+      "path": "examples/mcp/mcp_websockets/mcp_agent.config.yaml",
+      "bytes": 1102
+    },
+    {
+      "path": "examples/mcp/mcp_websockets/requirements.txt",
+      "bytes": 159
+    },
+    {
+      "path": "examples/mcp_agent_server/README.md",
+      "bytes": 6960
+    },
+    {
+      "path": "examples/mcp_agent_server/asyncio/README.md",
+      "bytes": 15224
+    },
+    {
+      "path": "examples/mcp_agent_server/asyncio/client.py",
+      "bytes": 19433
+    },
+    {
+      "path": "examples/mcp_agent_server/asyncio/main.py",
+      "bytes": 19920
+    },
+    {
+      "path": "examples/mcp_agent_server/asyncio/mcp_agent.config.yaml",
+      "bytes": 493
+    },
+    {
+      "path": "examples/mcp_agent_server/asyncio/nested_elicitation_server.py",
+      "bytes": 1085
+    },
+    {
+      "path": "examples/mcp_agent_server/asyncio/nested_sampling_server.py",
+      "bytes": 1381
+    },
+    {
+      "path": "examples/mcp_agent_server/asyncio/requirements.txt",
+      "bytes": 121
+    },
+    {
+      "path": "examples/mcp_agent_server/asyncio/short_story.md",
+      "bytes": 1180
+    },
+    {
+      "path": "examples/mcp_agent_server/context_isolation/README.md",
+      "bytes": 2272
+    },
+    {
+      "path": "examples/mcp_agent_server/context_isolation/clients.py",
+      "bytes": 3548
+    },
+    {
+      "path": "examples/mcp_agent_server/context_isolation/mcp_agent.config.yaml",
+      "bytes": 146
+    },
+    {
+      "path": "examples/mcp_agent_server/context_isolation/requirements.txt",
+      "bytes": 163
+    },
+    {
+      "path": "examples/mcp_agent_server/context_isolation/server.py",
+      "bytes": 1104
+    },
+    {
+      "path": "examples/mcp_agent_server/temporal/README.md",
+      "bytes": 10931
+    },
+    {
+      "path": "examples/mcp_agent_server/temporal/basic_agent_server_worker.py",
+      "bytes": 788
+    },
+    {
+      "path": "examples/mcp_agent_server/temporal/client.py",
+      "bytes": 18021
+    },
+    {
+      "path": "examples/mcp_agent_server/temporal/main.py",
+      "bytes": 15610
+    },
+    {
+      "path": "examples/mcp_agent_server/temporal/mcp_agent.config.yaml",
+      "bytes": 1460
+    },
+    {
+      "path": "examples/mcp_agent_server/temporal/nested_elicitation_server.py",
+      "bytes": 771
+    },
+    {
+      "path": "examples/mcp_agent_server/temporal/nested_sampling_server.py",
+      "bytes": 1282
+    },
+    {
+      "path": "examples/mcp_agent_server/temporal/requirements.txt",
+      "bytes": 171
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_azure_agent/README.md",
+      "bytes": 1856
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_azure_agent/main.py",
+      "bytes": 2285
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_azure_agent/mcp_agent.config.yaml",
+      "bytes": 580
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_bedrock_agent/README.md",
+      "bytes": 1747
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_bedrock_agent/main.py",
+      "bytes": 2184
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_bedrock_agent/mcp_agent.config.yaml",
+      "bytes": 564
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_google_agent/README.md",
+      "bytes": 1871
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_google_agent/main.py",
+      "bytes": 2507
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_google_agent/mcp_agent.config.yaml",
+      "bytes": 553
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_google_agent/requirements.txt",
+      "bytes": 165
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_ollama_agent/README.md",
+      "bytes": 1157
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_ollama_agent/main.py",
+      "bytes": 2426
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_ollama_agent/mcp_agent.config.yaml",
+      "bytes": 480
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_ollama_agent/requirements.txt",
+      "bytes": 159
+    },
+    {
+      "path": "examples/multithread/main.py",
+      "bytes": 3939
+    },
+    {
+      "path": "examples/multithread/mcp_agent.config.yaml",
+      "bytes": 756
+    },
+    {
+      "path": "examples/multithread/requirements.txt",
+      "bytes": 171
+    },
+    {
+      "path": "examples/multithread/word_count.py",
+      "bytes": 288
+    },
+    {
+      "path": "examples/oauth/README.md",
+      "bytes": 1295
+    },
+    {
+      "path": "examples/oauth/interactive_tool/README.md",
+      "bytes": 2340
+    },
+    {
+      "path": "examples/oauth/interactive_tool/client.py",
+      "bytes": 3349
+    },
+    {
+      "path": "examples/oauth/interactive_tool/server.py",
+      "bytes": 5157
+    },
+    {
+      "path": "examples/oauth/pre_authorize/README.md",
+      "bytes": 1664
+    },
+    {
+      "path": "examples/oauth/pre_authorize/client.py",
+      "bytes": 8249
+    },
+    {
+      "path": "examples/oauth/pre_authorize/main.py",
+      "bytes": 4741
+    },
+    {
+      "path": "examples/oauth/pre_authorize/mcp_agent.config.yaml",
+      "bytes": 759
+    },
+    {
+      "path": "examples/oauth/pre_authorize/worker.py",
+      "bytes": 788
+    },
+    {
+      "path": "examples/oauth/protected_by_oauth/README.md",
+      "bytes": 2398
+    },
+    {
+      "path": "examples/oauth/protected_by_oauth/main.py",
+      "bytes": 3068
+    },
+    {
+      "path": "examples/oauth/protected_by_oauth/registration.py",
+      "bytes": 2023
+    },
+    {
+      "path": "examples/temporal/README.md",
+      "bytes": 6256
+    },
+    {
+      "path": "examples/temporal/basic.py",
+      "bytes": 2026
+    },
+    {
+      "path": "examples/temporal/evaluator_optimizer.py",
+      "bytes": 4610
+    },
+    {
+      "path": "examples/temporal/graded_report.md",
+      "bytes": 3014
+    },
+    {
+      "path": "examples/temporal/interactive.py",
+      "bytes": 2352
+    },
+    {
+      "path": "examples/temporal/main.py",
+      "bytes": 136
+    },
+    {
+      "path": "examples/temporal/mcp_agent.config.yaml",
+      "bytes": 1336
+    },
+    {
+      "path": "examples/temporal/orchestrator.py",
+      "bytes": 4403
+    },
+    {
+      "path": "examples/temporal/parallel.py",
+      "bytes": 8266
+    },
+    {
+      "path": "examples/temporal/requirements.txt",
+      "bytes": 178
+    },
+    {
+      "path": "examples/temporal/router.py",
+      "bytes": 5865
+    },
+    {
+      "path": "examples/temporal/run_worker.py",
+      "bytes": 818
+    },
+    {
+      "path": "examples/temporal/short_story.md",
+      "bytes": 1237
+    },
+    {
+      "path": "examples/temporal/workflows.py",
+      "bytes": 338
+    },
+    {
+      "path": "examples/tracing/agent/README.md",
+      "bytes": 789
+    },
+    {
+      "path": "examples/tracing/agent/main.py",
+      "bytes": 4328
+    },
+    {
+      "path": "examples/tracing/agent/mcp_agent.config.yaml",
+      "bytes": 891
+    },
+    {
+      "path": "examples/tracing/agent/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/tracing/langfuse/README.md",
+      "bytes": 2108
+    },
+    {
+      "path": "examples/tracing/langfuse/main.py",
+      "bytes": 4328
+    },
+    {
+      "path": "examples/tracing/langfuse/mcp_agent.config.yaml",
+      "bytes": 1032
+    },
+    {
+      "path": "examples/tracing/langfuse/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/tracing/llm/README.md",
+      "bytes": 881
+    },
+    {
+      "path": "examples/tracing/llm/main.py",
+      "bytes": 5410
+    },
+    {
+      "path": "examples/tracing/llm/mcp_agent.config.yaml",
+      "bytes": 889
+    },
+    {
+      "path": "examples/tracing/llm/requirements.txt",
+      "bytes": 204
+    },
+    {
+      "path": "examples/tracing/mcp/README.md",
+      "bytes": 1882
+    },
+    {
+      "path": "examples/tracing/mcp/main.py",
+      "bytes": 1002
+    },
+    {
+      "path": "examples/tracing/mcp/mcp_agent.config.yaml",
+      "bytes": 485
+    },
+    {
+      "path": "examples/tracing/mcp/requirements.txt",
+      "bytes": 204
+    },
+    {
+      "path": "examples/tracing/mcp/server.py",
+      "bytes": 3339
+    },
+    {
+      "path": "examples/tracing/temporal/README.md",
+      "bytes": 2053
+    },
+    {
+      "path": "examples/tracing/temporal/basic.py",
+      "bytes": 1893
+    },
+    {
+      "path": "examples/tracing/temporal/main.py",
+      "bytes": 143
+    },
+    {
+      "path": "examples/tracing/temporal/mcp_agent.config.yaml",
+      "bytes": 1488
+    },
+    {
+      "path": "examples/tracing/temporal/requirements.txt",
+      "bytes": 179
+    },
+    {
+      "path": "examples/tracing/temporal/run_worker.py",
+      "bytes": 818
+    },
+    {
+      "path": "examples/tracing/temporal/workflows.py",
+      "bytes": 47
+    },
+    {
+      "path": "examples/usecases/fastapi_websocket/README.md",
+      "bytes": 6549
+    },
+    {
+      "path": "examples/usecases/fastapi_websocket/main.py",
+      "bytes": 6474
+    },
+    {
+      "path": "examples/usecases/fastapi_websocket/mcp_agent.config.yaml",
+      "bytes": 568
+    },
+    {
+      "path": "examples/usecases/fastapi_websocket/requirements.txt",
+      "bytes": 277
+    },
+    {
+      "path": "examples/usecases/fastapi_websocket/session_manager.py",
+      "bytes": 7197
+    },
+    {
+      "path": "examples/usecases/fastapi_websocket/websocket_client_async.py",
+      "bytes": 5392
+    },
+    {
+      "path": "examples/usecases/marimo_mcp_basic_agent/README.md",
+      "bytes": 1915
+    },
+    {
+      "path": "examples/usecases/marimo_mcp_basic_agent/mcp_agent.config.yaml",
+      "bytes": 700
+    },
+    {
+      "path": "examples/usecases/marimo_mcp_basic_agent/notebook.py",
+      "bytes": 2389
+    },
+    {
+      "path": "examples/usecases/mcp_basic_slack_agent/README.md",
+      "bytes": 5801
+    },
+    {
+      "path": "examples/usecases/mcp_basic_slack_agent/main.py",
+      "bytes": 1966
+    },
+    {
+      "path": "examples/usecases/mcp_basic_slack_agent/mcp_agent.config.yaml",
+      "bytes": 640
+    },
+    {
+      "path": "examples/usecases/mcp_basic_slack_agent/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/usecases/mcp_browser_agent/README.md",
+      "bytes": 3060
+    },
+    {
+      "path": "examples/usecases/mcp_browser_agent/browser_agent.py",
+      "bytes": 11386
+    },
+    {
+      "path": "examples/usecases/mcp_browser_agent/mcp_agent.config.yaml",
+      "bytes": 467
+    },
+    {
+      "path": "examples/usecases/mcp_browser_agent/pyproject.toml",
+      "bytes": 212
+    },
+    {
+      "path": "examples/usecases/mcp_financial_analyzer/README.md",
+      "bytes": 4048
+    },
+    {
+      "path": "examples/usecases/mcp_financial_analyzer/main.py",
+      "bytes": 18663
+    },
+    {
+      "path": "examples/usecases/mcp_financial_analyzer/mcp_agent.config.yaml",
+      "bytes": 604
+    },
+    {
+      "path": "examples/usecases/mcp_financial_analyzer/requirements.txt",
+      "bytes": 27
+    },
+    {
+      "path": "examples/usecases/mcp_financial_analyzer/sample_report.md",
+      "bytes": 5377
+    },
+    {
+      "path": "examples/usecases/mcp_github_to_slack_agent/README.md",
+      "bytes": 5909
+    },
+    {
+      "path": "examples/usecases/mcp_github_to_slack_agent/main.py",
+      "bytes": 4740
+    },
+    {
+      "path": "examples/usecases/mcp_github_to_slack_agent/mcp_agent.config.yaml",
+      "bytes": 987
+    },
+    {
+      "path": "examples/usecases/mcp_github_to_slack_agent/requirements.txt",
+      "bytes": 64
+    },
+    {
+      "path": "examples/usecases/mcp_instagram_gift_advisor/README.md",
+      "bytes": 4528
+    },
+    {
+      "path": "examples/usecases/mcp_instagram_gift_advisor/main.py",
+      "bytes": 8745
+    },
+    {
+      "path": "examples/usecases/mcp_instagram_gift_advisor/mcp_agent.config.yaml",
+      "bytes": 1065
+    },
+    {
+      "path": "examples/usecases/mcp_instagram_gift_advisor/requirements.txt",
+      "bytes": 9
+    },
+    {
+      "path": "examples/usecases/mcp_marketing_assistant_agent/README.md",
+      "bytes": 4177
+    },
+    {
+      "path": "examples/usecases/mcp_marketing_assistant_agent/company_config.yaml",
+      "bytes": 2827
+    },
+    {
+      "path": "examples/usecases/mcp_marketing_assistant_agent/company_docs/brand_guidelines.md",
+      "bytes": 1060
+    },
+    {
+      "path": "examples/usecases/mcp_marketing_assistant_agent/company_docs/company_overview.md",
+      "bytes": 812
+    },
+    {
+      "path": "examples/usecases/mcp_marketing_assistant_agent/company_docs/team_bio.md",
+      "bytes": 639
+    },
+    {
+      "path": "examples/usecases/mcp_marketing_assistant_agent/main.py",
+      "bytes": 14580
+    },
+    {
+      "path": "examples/usecases/mcp_marketing_assistant_agent/mcp_agent.config.yaml",
+      "bytes": 1122
+    },
+    {
+      "path": "examples/usecases/mcp_marketing_assistant_agent/posts/linkedin_content_20250725_163333.md",
+      "bytes": 3934
+    },
+    {
+      "path": "examples/usecases/mcp_marketing_assistant_agent/pyproject.toml",
+      "bytes": 401
+    },
+    {
+      "path": "examples/usecases/mcp_playwright_agent/README.md",
+      "bytes": 1532
+    },
+    {
+      "path": "examples/usecases/mcp_playwright_agent/main.py",
+      "bytes": 5350
+    },
+    {
+      "path": "examples/usecases/mcp_playwright_agent/mcp_agent.config.yaml",
+      "bytes": 702
+    },
+    {
+      "path": "examples/usecases/mcp_playwright_agent/pyproject.toml",
+      "bytes": 179
+    },
+    {
+      "path": "examples/usecases/mcp_realtor_agent/README.md",
+      "bytes": 9825
+    },
+    {
+      "path": "examples/usecases/mcp_realtor_agent/main.py",
+      "bytes": 17412
+    },
+    {
+      "path": "examples/usecases/mcp_realtor_agent/mcp_agent.config.yaml",
+      "bytes": 1110
+    },
+    {
+      "path": "examples/usecases/mcp_realtor_agent/property_reports/austin_tx_property_report_20250715_120601.md",
+      "bytes": 4165
+    },
+    {
+      "path": "examples/usecases/mcp_realtor_agent/property_reports/san_fransisco_ca_property_report_20250715_175448.md",
+      "bytes": 3679
+    },
+    {
+      "path": "examples/usecases/mcp_realtor_agent/pyproject.toml",
+      "bytes": 163
+    },
+    {
+      "path": "examples/usecases/mcp_realtor_agent/rentspider_server.py",
+      "bytes": 16400
+    },
+    {
+      "path": "examples/usecases/mcp_researcher/README.md",
+      "bytes": 2349
+    },
+    {
+      "path": "examples/usecases/mcp_researcher/main.py",
+      "bytes": 3303
+    },
+    {
+      "path": "examples/usecases/mcp_researcher/mcp_agent.config.yaml",
+      "bytes": 957
+    },
+    {
+      "path": "examples/usecases/mcp_researcher/requirements.txt",
+      "bytes": 221
+    },
+    {
+      "path": "examples/usecases/mcp_supabase_migration_agent/README.md",
+      "bytes": 7085
+    },
+    {
+      "path": "examples/usecases/mcp_supabase_migration_agent/main.py",
+      "bytes": 5936
+    },
+    {
+      "path": "examples/usecases/mcp_supabase_migration_agent/mcp_agent.config.yaml",
+      "bytes": 636
+    },
+    {
+      "path": "examples/usecases/mcp_supabase_migration_agent/requirements.txt",
+      "bytes": 49
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/CLAUDE.md",
+      "bytes": 13737
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/LOST_IN_CONVERSATION.md",
+      "bytes": 165269
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/README.md",
+      "bytes": 7973
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/main.py",
+      "bytes": 16223
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/mcp_agent.config.yaml",
+      "bytes": 1174
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/requirements.txt",
+      "bytes": 186
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/models/__init__.py",
+      "bytes": 14
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/models/conversation_models.py",
+      "bytes": 8094
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/tasks/__init__.py",
+      "bytes": 23
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/tasks/llm_evaluators.py",
+      "bytes": 15834
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/tasks/quality_control.py",
+      "bytes": 11511
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/tasks/task_functions.py",
+      "bytes": 33597
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/tasks/task_registry.py",
+      "bytes": 479
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/utils/__init__.py",
+      "bytes": 20
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/utils/config.py",
+      "bytes": 1176
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/utils/log_formatter.py",
+      "bytes": 6851
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/utils/logging.py",
+      "bytes": 1399
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/utils/logging_config.py",
+      "bytes": 2494
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/utils/progress_reporter.py",
+      "bytes": 5254
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/utils/readable_output.py",
+      "bytes": 8161
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/utils/test_runner.py",
+      "bytes": 11216
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/workflows/__init__.py",
+      "bytes": 27
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/src/workflows/conversation_workflow.py",
+      "bytes": 11409
+    },
+    {
+      "path": "examples/usecases/reliable_conversation/test_basic.py",
+      "bytes": 19222
+    },
+    {
+      "path": "examples/usecases/streamlit_mcp_basic_agent/README.md",
+      "bytes": 1926
+    },
+    {
+      "path": "examples/usecases/streamlit_mcp_basic_agent/main.py",
+      "bytes": 3841
+    },
+    {
+      "path": "examples/usecases/streamlit_mcp_basic_agent/mcp_agent.config.yaml",
+      "bytes": 575
+    },
+    {
+      "path": "examples/usecases/streamlit_mcp_basic_agent/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/usecases/streamlit_mcp_rag_agent/README.md",
+      "bytes": 1749
+    },
+    {
+      "path": "examples/usecases/streamlit_mcp_rag_agent/agent_state.py",
+      "bytes": 1346
+    },
+    {
+      "path": "examples/usecases/streamlit_mcp_rag_agent/main.py",
+      "bytes": 7045
+    },
+    {
+      "path": "examples/usecases/streamlit_mcp_rag_agent/mcp_agent.config.yaml",
+      "bytes": 659
+    },
+    {
+      "path": "examples/usecases/streamlit_mcp_rag_agent/requirements.txt",
+      "bytes": 194
+    },
+    {
+      "path": "examples/workflows/workflow_deep_orchestrator/README.md",
+      "bytes": 6776
+    },
+    {
+      "path": "examples/workflows/workflow_deep_orchestrator/graded_report.md",
+      "bytes": 3252
+    },
+    {
+      "path": "examples/workflows/workflow_deep_orchestrator/main.py",
+      "bytes": 24359
+    },
+    {
+      "path": "examples/workflows/workflow_deep_orchestrator/mcp_agent.config.yaml",
+      "bytes": 982
+    },
+    {
+      "path": "examples/workflows/workflow_deep_orchestrator/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/workflows/workflow_deep_orchestrator/short_story.md",
+      "bytes": 1183
+    },
+    {
+      "path": "examples/workflows/workflow_evaluator_optimizer/README.md",
+      "bytes": 6488
+    },
+    {
+      "path": "examples/workflows/workflow_evaluator_optimizer/main.py",
+      "bytes": 4399
+    },
+    {
+      "path": "examples/workflows/workflow_evaluator_optimizer/mcp_agent.config.yaml",
+      "bytes": 1734
+    },
+    {
+      "path": "examples/workflows/workflow_evaluator_optimizer/requirements.txt",
+      "bytes": 215
+    },
+    {
+      "path": "examples/workflows/workflow_intent_classifier/README.md",
+      "bytes": 3041
+    },
+    {
+      "path": "examples/workflows/workflow_intent_classifier/main.py",
+      "bytes": 2867
+    },
+    {
+      "path": "examples/workflows/workflow_intent_classifier/mcp_agent.config.yaml",
+      "bytes": 677
+    },
+    {
+      "path": "examples/workflows/workflow_intent_classifier/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/workflows/workflow_orchestrator_worker/README.md",
+      "bytes": 3843
+    },
+    {
+      "path": "examples/workflows/workflow_orchestrator_worker/graded_report.md",
+      "bytes": 3553
+    },
+    {
+      "path": "examples/workflows/workflow_orchestrator_worker/main.py",
+      "bytes": 11068
+    },
+    {
+      "path": "examples/workflows/workflow_orchestrator_worker/mcp_agent.config.yaml",
+      "bytes": 761
+    },
+    {
+      "path": "examples/workflows/workflow_orchestrator_worker/reports/graded_report.md",
+      "bytes": 2727
+    },
+    {
+      "path": "examples/workflows/workflow_orchestrator_worker/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/workflows/workflow_orchestrator_worker/short_story.md",
+      "bytes": 1183
+    },
+    {
+      "path": "examples/workflows/workflow_parallel/README.md",
+      "bytes": 2532
+    },
+    {
+      "path": "examples/workflows/workflow_parallel/main.py",
+      "bytes": 4126
+    },
+    {
+      "path": "examples/workflows/workflow_parallel/mcp_agent.config.yaml",
+      "bytes": 710
+    },
+    {
+      "path": "examples/workflows/workflow_parallel/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/workflows/workflow_router/README.md",
+      "bytes": 2811
+    },
+    {
+      "path": "examples/workflows/workflow_router/main.py",
+      "bytes": 5440
+    },
+    {
+      "path": "examples/workflows/workflow_router/mcp_agent.config.yaml",
+      "bytes": 667
+    },
+    {
+      "path": "examples/workflows/workflow_router/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "examples/workflows/workflow_swarm/README.md",
+      "bytes": 1867
+    },
+    {
+      "path": "examples/workflows/workflow_swarm/main.py",
+      "bytes": 9607
+    },
+    {
+      "path": "examples/workflows/workflow_swarm/mcp_agent.config.yaml",
+      "bytes": 543
+    },
+    {
+      "path": "examples/workflows/workflow_swarm/policies/flight_cancellation_policy.md",
+      "bytes": 791
+    },
+    {
+      "path": "examples/workflows/workflow_swarm/policies/flight_change_policy.md",
+      "bytes": 777
+    },
+    {
+      "path": "examples/workflows/workflow_swarm/policies/lost_baggage_policy.md",
+      "bytes": 457
+    },
+    {
+      "path": "examples/workflows/workflow_swarm/requirements.txt",
+      "bytes": 169
+    },
+    {
+      "path": "gallery.md",
+      "bytes": 8137
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 2719
+    },
+    {
+      "path": "schema/mcp-agent.config.schema.json",
+      "bytes": 52526
+    },
+    {
+      "path": "scripts/event_replay.py",
+      "bytes": 1872
+    },
+    {
+      "path": "scripts/event_summary.py",
+      "bytes": 4299
+    },
+    {
+      "path": "scripts/event_viewer.py",
+      "bytes": 8194
+    },
+    {
+      "path": "scripts/format.py",
+      "bytes": 1055
+    },
+    {
+      "path": "scripts/gen_llm_benchmarks.py",
+      "bytes": 20537
+    },
+    {
+      "path": "scripts/gen_schema.py",
+      "bytes": 9271
+    },
+    {
+      "path": "scripts/lint.py",
+      "bytes": 1203
+    },
+    {
+      "path": "scripts/log_trimmer.py",
+      "bytes": 1202
+    },
+    {
+      "path": "scripts/promptify.py",
+      "bytes": 19446
+    },
+    {
+      "path": "scripts/rich_progress_test.py",
+      "bytes": 3127
+    },
+    {
+      "path": "src/mcp_agent/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/agents/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/agents/agent.py",
+      "bytes": 62274
+    },
+    {
+      "path": "src/mcp_agent/agents/agent_spec.py",
+      "bytes": 1210
+    },
+    {
+      "path": "src/mcp_agent/app.py",
+      "bytes": 53889
+    },
+    {
+      "path": "src/mcp_agent/cli/README.md",
+      "bytes": 3398
+    },
+    {
+      "path": "src/mcp_agent/cli/__init__.py",
+      "bytes": 35
+    },
+    {
+      "path": "src/mcp_agent/cli/__main__.py",
+      "bytes": 1189
+    },
+    {
+      "path": "src/mcp_agent/cli/auth/__init__.py",
+      "bytes": 411
+    },
+    {
+      "path": "src/mcp_agent/cli/auth/constants.py",
+      "bytes": 421
+    },
+    {
+      "path": "src/mcp_agent/cli/auth/main.py",
+      "bytes": 3499
+    },
+    {
+      "path": "src/mcp_agent/cli/auth/models.py",
+      "bytes": 1825
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/__init__.py",
+      "bytes": 42
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/__init__.py",
+      "bytes": 413
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/app/__init__.py",
+      "bytes": 210
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/app/delete/__init__.py",
+      "bytes": 90
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/app/delete/main.py",
+      "bytes": 4443
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/app/status/__init__.py",
+      "bytes": 98
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/app/status/main.py",
+      "bytes": 11954
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/app/workflows/__init__.py",
+      "bytes": 109
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/app/workflows/main.py",
+      "bytes": 6069
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/apps/__init__.py",
+      "bytes": 135
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/apps/list/__init__.py",
+      "bytes": 87
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/apps/list/main.py",
+      "bytes": 7768
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/apps/update/__init__.py",
+      "bytes": 102
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/apps/update/main.py",
+      "bytes": 4407
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/auth/__init__.py",
+      "bytes": 168
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/auth/login/__init__.py",
+      "bytes": 83
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/auth/login/constants.py",
+      "bytes": 182
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/auth/login/main.py",
+      "bytes": 4871
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/auth/logout/__init__.py",
+      "bytes": 86
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/auth/logout/main.py",
+      "bytes": 928
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/auth/whoami/__init__.py",
+      "bytes": 86
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/auth/whoami/main.py",
+      "bytes": 2043
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/configure/__init__.py",
+      "bytes": 103
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/configure/main.py",
+      "bytes": 11452
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/deploy/__init__.py",
+      "bytes": 100
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/deploy/bundle_utils.py",
+      "bytes": 2756
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/deploy/constants.py",
+      "bytes": 355
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/deploy/main.py",
+      "bytes": 23520
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/deploy/materialize.py",
+      "bytes": 12344
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/deploy/settings.py",
+      "bytes": 1279
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/deploy/validation.py",
+      "bytes": 3041
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/deploy/wrangler_wrapper.py",
+      "bytes": 16684
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/env/__init__.py",
+      "bytes": 97
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/env/main.py",
+      "bytes": 14091
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/logger/__init__.py",
+      "bytes": 220
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/logger/configure/__init__.py",
+      "bytes": 104
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/logger/configure/main.py",
+      "bytes": 5202
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/logger/tail/__init__.py",
+      "bytes": 81
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/logger/tail/main.py",
+      "bytes": 17278
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/servers/__init__.py",
+      "bytes": 252
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/servers/delete/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/servers/delete/main.py",
+      "bytes": 2577
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/servers/describe/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/servers/describe/main.py",
+      "bytes": 5567
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/servers/list/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/servers/list/main.py",
+      "bytes": 15940
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/utils.py",
+      "bytes": 5616
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/workflows/__init__.py",
+      "bytes": 401
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/workflows/cancel/__init__.py",
+      "bytes": 113
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/workflows/cancel/main.py",
+      "bytes": 3520
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/workflows/describe/__init__.py",
+      "bytes": 119
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/workflows/describe/main.py",
+      "bytes": 7288
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/workflows/list/__init__.py",
+      "bytes": 100
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/workflows/list/main.py",
+      "bytes": 3934
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/workflows/resume/__init__.py",
+      "bytes": 164
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/workflows/resume/main.py",
+      "bytes": 6529
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/workflows/utils.py",
+      "bytes": 5762
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/main.py",
+      "bytes": 6614
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/__init__.py",
+      "bytes": 627
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/build.py",
+      "bytes": 16638
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/chat.py",
+      "bytes": 34204
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/check.py",
+      "bytes": 3048
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/config.py",
+      "bytes": 24809
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/configure.py",
+      "bytes": 5025
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/dev.py",
+      "bytes": 4415
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/doctor.py",
+      "bytes": 14374
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/go.py",
+      "bytes": 13227
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/init.py",
+      "bytes": 19929
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/install.py",
+      "bytes": 19119
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/invoke.py",
+      "bytes": 4168
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/keys.py",
+      "bytes": 22792
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/logs.py",
+      "bytes": 9836
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/models.py",
+      "bytes": 3483
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/serve.py",
+      "bytes": 19485
+    },
+    {
+      "path": "src/mcp_agent/cli/commands/server.py",
+      "bytes": 38954
+    },
+    {
+      "path": "src/mcp_agent/cli/config/__init__.py",
+      "bytes": 102
+    },
+    {
+      "path": "src/mcp_agent/cli/config/settings.py",
+      "bytes": 1050
+    },
+    {
+      "path": "src/mcp_agent/cli/core/__init__.py",
+      "bytes": 39
+    },
+    {
+      "path": "src/mcp_agent/cli/core/api_client.py",
+      "bytes": 4397
+    },
+    {
+      "path": "src/mcp_agent/cli/core/constants.py",
+      "bytes": 1691
+    },
+    {
+      "path": "src/mcp_agent/cli/core/utils.py",
+      "bytes": 5694
+    },
+    {
+      "path": "src/mcp_agent/cli/exceptions.py",
+      "bytes": 354
+    },
+    {
+      "path": "src/mcp_agent/cli/main.py",
+      "bytes": 6444
+    },
+    {
+      "path": "src/mcp_agent/cli/main_bootstrap.py",
+      "bytes": 822
+    },
+    {
+      "path": "src/mcp_agent/cli/mcp_app/__init__.py",
+      "bytes": 231
+    },
+    {
+      "path": "src/mcp_agent/cli/mcp_app/api_client.py",
+      "bytes": 26569
+    },
+    {
+      "path": "src/mcp_agent/cli/mcp_app/mcp_client.py",
+      "bytes": 16986
+    },
+    {
+      "path": "src/mcp_agent/cli/mcp_app/mock_client.py",
+      "bytes": 8510
+    },
+    {
+      "path": "src/mcp_agent/cli/secrets/__init__.py",
+      "bytes": 301
+    },
+    {
+      "path": "src/mcp_agent/cli/secrets/api_client.py",
+      "bytes": 6524
+    },
+    {
+      "path": "src/mcp_agent/cli/secrets/mock_client.py",
+      "bytes": 4571
+    },
+    {
+      "path": "src/mcp_agent/cli/secrets/processor.py",
+      "bytes": 28457
+    },
+    {
+      "path": "src/mcp_agent/cli/secrets/resolver.py",
+      "bytes": 6754
+    },
+    {
+      "path": "src/mcp_agent/cli/secrets/yaml_tags.py",
+      "bytes": 3913
+    },
+    {
+      "path": "src/mcp_agent/cli/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/cli/utils/display.py",
+      "bytes": 5740
+    },
+    {
+      "path": "src/mcp_agent/cli/utils/git_utils.py",
+      "bytes": 7209
+    },
+    {
+      "path": "src/mcp_agent/cli/utils/importers.py",
+      "bytes": 2574
+    },
+    {
+      "path": "src/mcp_agent/cli/utils/retry.py",
+      "bytes": 4931
+    },
+    {
+      "path": "src/mcp_agent/cli/utils/typer_utils.py",
+      "bytes": 1170
+    },
+    {
+      "path": "src/mcp_agent/cli/utils/url_parser.py",
+      "bytes": 3161
+    },
+    {
+      "path": "src/mcp_agent/cli/utils/ux.py",
+      "bytes": 9383
+    },
+    {
+      "path": "src/mcp_agent/cli/utils/version_check.py",
+      "bytes": 4360
+    },
+    {
+      "path": "src/mcp_agent/cli/workflows/__init__.py",
+      "bytes": 200
+    },
+    {
+      "path": "src/mcp_agent/cli/workflows/api_client.py",
+      "bytes": 1376
+    },
+    {
+      "path": "src/mcp_agent/config.py",
+      "bytes": 53554
+    },
+    {
+      "path": "src/mcp_agent/console.py",
+      "bytes": 813
+    },
+    {
+      "path": "src/mcp_agent/core/context.py",
+      "bytes": 20763
+    },
+    {
+      "path": "src/mcp_agent/core/context_dependent.py",
+      "bytes": 1456
+    },
+    {
+      "path": "src/mcp_agent/core/exceptions.py",
+      "bytes": 2215
+    },
+    {
+      "path": "src/mcp_agent/core/request_context.py",
+      "bytes": 1095
+    },
+    {
+      "path": "src/mcp_agent/data/artificial_analysis_llm_benchmarks.json",
+      "bytes": 331416
+    },
+    {
+      "path": "src/mcp_agent/data/examples/basic/agent_factory/agents.yaml",
+      "bytes": 236
+    },
+    {
+      "path": "src/mcp_agent/data/examples/basic/mcp_basic_agent/mcp_agent.config.yaml",
+      "bytes": 755
+    },
+    {
+      "path": "src/mcp_agent/data/examples/basic/token_counter/mcp_agent.config.yaml",
+      "bytes": 634
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/agent_factory/README.md",
+      "bytes": 2759
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/agent_factory/agents.yaml",
+      "bytes": 749
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/agent_factory/custom_tasks.py",
+      "bytes": 2705
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/agent_factory/main.py",
+      "bytes": 2123
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/agent_factory/mcp_agent.config.yaml",
+      "bytes": 799
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/agent_factory/requirements.txt",
+      "bytes": 109
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/agent_factory/run_worker.py",
+      "bytes": 497
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/README.md",
+      "bytes": 7726
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/main.py",
+      "bytes": 6192
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/mcp_agent.config.yaml",
+      "bytes": 169
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/README.md",
+      "bytes": 369
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/package.json",
+      "bytes": 936
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/public/index.html",
+      "bytes": 472
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/src/components/App.css",
+      "bytes": 1105
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/src/components/App.tsx",
+      "bytes": 953
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/src/components/Coin.css",
+      "bytes": 1089
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/src/components/Coin.tsx",
+      "bytes": 846
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/src/index.css",
+      "bytes": 366
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/src/index.tsx",
+      "bytes": 447
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/src/utils/dev-openai-global.ts",
+      "bytes": 1805
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/src/utils/hooks/use-openai-global.ts",
+      "bytes": 882
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/src/utils/hooks/use-theme.ts",
+      "bytes": 174
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/src/utils/hooks/use-widget-state.ts",
+      "bytes": 1460
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/src/utils/types.ts",
+      "bytes": 2338
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/tsconfig.json",
+      "bytes": 523
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/hello_world/README.md",
+      "bytes": 3201
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/hello_world/main.py",
+      "bytes": 1191
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/hello_world/mcp_agent.config.yaml",
+      "bytes": 191
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/mcp/README.md",
+      "bytes": 6201
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/mcp/main.py",
+      "bytes": 14820
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/mcp/mcp_agent.config.yaml",
+      "bytes": 611
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/mcp/short_story.md",
+      "bytes": 1180
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/temporal/README.md",
+      "bytes": 7570
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/temporal/main.py",
+      "bytes": 10769
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/temporal/mcp_agent.config.yaml",
+      "bytes": 1413
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/temporal/temporal_worker.py",
+      "bytes": 788
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/asyncio/README.md",
+      "bytes": 15224
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/asyncio/client.py",
+      "bytes": 19433
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/asyncio/main.py",
+      "bytes": 19920
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/asyncio/mcp_agent.config.yaml",
+      "bytes": 611
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/asyncio/nested_elicitation_server.py",
+      "bytes": 1085
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/asyncio/nested_sampling_server.py",
+      "bytes": 1381
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/asyncio/requirements.txt",
+      "bytes": 39
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/asyncio/short_story.md",
+      "bytes": 1180
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/elicitation/README.md",
+      "bytes": 768
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/elicitation/client.py",
+      "bytes": 2469
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/elicitation/server.py",
+      "bytes": 2892
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/notifications/README.md",
+      "bytes": 730
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/notifications/client.py",
+      "bytes": 2258
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/notifications/server.py",
+      "bytes": 1922
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/reference/README.md",
+      "bytes": 1703
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/reference/client.py",
+      "bytes": 3864
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/reference/server.py",
+      "bytes": 6330
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/sampling/README.md",
+      "bytes": 620
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/sampling/client.py",
+      "bytes": 2139
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/sampling/server.py",
+      "bytes": 1652
+    },
+    {
+      "path": "src/mcp_agent/data/examples/usecases/mcp_financial_analyzer/README.md",
+      "bytes": 4048
+    },
+    {
+      "path": "src/mcp_agent/data/examples/usecases/mcp_financial_analyzer/main.py",
+      "bytes": 18663
+    },
+    {
+      "path": "src/mcp_agent/data/examples/usecases/mcp_financial_analyzer/mcp_agent.config.yaml",
+      "bytes": 660
+    },
+    {
+      "path": "src/mcp_agent/data/examples/usecases/mcp_financial_analyzer/sample_report.md",
+      "bytes": 5377
+    },
+    {
+      "path": "src/mcp_agent/data/examples/usecases/mcp_researcher/README.md",
+      "bytes": 2349
+    },
+    {
+      "path": "src/mcp_agent/data/examples/usecases/mcp_researcher/main.py",
+      "bytes": 3303
+    },
+    {
+      "path": "src/mcp_agent/data/examples/usecases/mcp_researcher/mcp_agent.config.yaml",
+      "bytes": 1020
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_deep_orchestrator/README.md",
+      "bytes": 6776
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_deep_orchestrator/graded_report.md",
+      "bytes": 3252
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_deep_orchestrator/main.py",
+      "bytes": 24359
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_deep_orchestrator/mcp_agent.config.yaml",
+      "bytes": 1045
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_deep_orchestrator/short_story.md",
+      "bytes": 1183
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_evaluator_optimizer/README.md",
+      "bytes": 6488
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_evaluator_optimizer/main.py",
+      "bytes": 4399
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_evaluator_optimizer/mcp_agent.config.yaml",
+      "bytes": 1797
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_intent_classifier/README.md",
+      "bytes": 3041
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_intent_classifier/main.py",
+      "bytes": 2867
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_intent_classifier/mcp_agent.config.yaml",
+      "bytes": 740
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_orchestrator_worker/README.md",
+      "bytes": 3843
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_orchestrator_worker/graded_report.md",
+      "bytes": 3553
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_orchestrator_worker/main.py",
+      "bytes": 11068
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_orchestrator_worker/mcp_agent.config.yaml",
+      "bytes": 824
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_orchestrator_worker/reports/graded_report.md",
+      "bytes": 2727
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_orchestrator_worker/short_story.md",
+      "bytes": 1183
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_parallel/README.md",
+      "bytes": 2532
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_parallel/main.py",
+      "bytes": 4126
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_parallel/mcp_agent.config.yaml",
+      "bytes": 773
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_router/README.md",
+      "bytes": 2811
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_router/main.py",
+      "bytes": 5440
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_router/mcp_agent.config.yaml",
+      "bytes": 730
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_swarm/README.md",
+      "bytes": 1867
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_swarm/main.py",
+      "bytes": 9607
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_swarm/mcp_agent.config.yaml",
+      "bytes": 606
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_swarm/policies/flight_cancellation_policy.md",
+      "bytes": 791
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_swarm/policies/flight_change_policy.md",
+      "bytes": 777
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_swarm/policies/lost_baggage_policy.md",
+      "bytes": 457
+    },
+    {
+      "path": "src/mcp_agent/data/templates/README_basic.md",
+      "bytes": 4397
+    },
+    {
+      "path": "src/mcp_agent/data/templates/README_factory.md",
+      "bytes": 4062
+    },
+    {
+      "path": "src/mcp_agent/data/templates/README_server.md",
+      "bytes": 6056
+    },
+    {
+      "path": "src/mcp_agent/data/templates/agent_basic.py",
+      "bytes": 1515
+    },
+    {
+      "path": "src/mcp_agent/data/templates/agent_factory.py",
+      "bytes": 1216
+    },
+    {
+      "path": "src/mcp_agent/data/templates/agent_factory_run_worker.py",
+      "bytes": 554
+    },
+    {
+      "path": "src/mcp_agent/data/templates/agent_notebook.py",
+      "bytes": 2937
+    },
+    {
+      "path": "src/mcp_agent/data/templates/agent_streamlit.py",
+      "bytes": 2681
+    },
+    {
+      "path": "src/mcp_agent/data/templates/agents.yaml",
+      "bytes": 2069
+    },
+    {
+      "path": "src/mcp_agent/data/templates/basic_agent.py",
+      "bytes": 5877
+    },
+    {
+      "path": "src/mcp_agent/data/templates/basic_agent_server.py",
+      "bytes": 7824
+    },
+    {
+      "path": "src/mcp_agent/data/templates/config_basic.yaml",
+      "bytes": 344
+    },
+    {
+      "path": "src/mcp_agent/data/templates/config_claude.yaml",
+      "bytes": 824
+    },
+    {
+      "path": "src/mcp_agent/data/templates/config_server.yaml",
+      "bytes": 774
+    },
+    {
+      "path": "src/mcp_agent/data/templates/mcp_agent.config.yaml",
+      "bytes": 2400
+    },
+    {
+      "path": "src/mcp_agent/data/templates/secrets.yaml",
+      "bytes": 1095
+    },
+    {
+      "path": "src/mcp_agent/data/templates/secrets_basic.yaml",
+      "bytes": 127
+    },
+    {
+      "path": "src/mcp_agent/data/templates/token_counter.py",
+      "bytes": 9097
+    },
+    {
+      "path": "src/mcp_agent/elicitation/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/elicitation/handler.py",
+      "bytes": 6371
+    },
+    {
+      "path": "src/mcp_agent/elicitation/types.py",
+      "bytes": 1281
+    },
+    {
+      "path": "src/mcp_agent/eval/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/executor/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/executor/decorator_registry.py",
+      "bytes": 7006
+    },
+    {
+      "path": "src/mcp_agent/executor/errors.py",
+      "bytes": 3259
+    },
+    {
+      "path": "src/mcp_agent/executor/executor.py",
+      "bytes": 13634
+    },
+    {
+      "path": "src/mcp_agent/executor/signal_registry.py",
+      "bytes": 1052
+    },
+    {
+      "path": "src/mcp_agent/executor/task_registry.py",
+      "bytes": 1407
+    },
+    {
+      "path": "src/mcp_agent/executor/temporal/__init__.py",
+      "bytes": 24663
+    },
+    {
+      "path": "src/mcp_agent/executor/temporal/interactive_workflow.py",
+      "bytes": 2665
+    },
+    {
+      "path": "src/mcp_agent/executor/temporal/interceptor.py",
+      "bytes": 7691
+    },
+    {
+      "path": "src/mcp_agent/executor/temporal/session_proxy.py",
+      "bytes": 16708
+    },
+    {
+      "path": "src/mcp_agent/executor/temporal/system_activities.py",
+      "bytes": 3490
+    },
+    {
+      "path": "src/mcp_agent/executor/temporal/temporal_context.py",
+      "bytes": 1416
+    },
+    {
+      "path": "src/mcp_agent/executor/temporal/workflow_registry.py",
+      "bytes": 18335
+    },
+    {
+      "path": "src/mcp_agent/executor/temporal/workflow_signal.py",
+      "bytes": 7709
+    },
+    {
+      "path": "src/mcp_agent/executor/workflow.py",
+      "bytes": 32863
+    },
+    {
+      "path": "src/mcp_agent/executor/workflow_registry.py",
+      "bytes": 11111
+    },
+    {
+      "path": "src/mcp_agent/executor/workflow_signal.py",
+      "bytes": 14091
+    },
+    {
+      "path": "src/mcp_agent/executor/workflow_task.py",
+      "bytes": 2980
+    },
+    {
+      "path": "src/mcp_agent/human_input/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/human_input/console_handler.py",
+      "bytes": 3778
+    },
+    {
+      "path": "src/mcp_agent/human_input/elicitation_handler.py",
+      "bytes": 4244
+    },
+    {
+      "path": "src/mcp_agent/human_input/types.py",
+      "bytes": 1433
+    },
+    {
+      "path": "src/mcp_agent/logging/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/logging/event_progress.py",
+      "bytes": 2919
+    },
+    {
+      "path": "src/mcp_agent/logging/events.py",
+      "bytes": 3668
+    },
+    {
+      "path": "src/mcp_agent/logging/json_serializer.py",
+      "bytes": 6137
+    },
+    {
+      "path": "src/mcp_agent/logging/listeners.py",
+      "bytes": 10648
+    },
+    {
+      "path": "src/mcp_agent/logging/logger.py",
+      "bytes": 21733
+    },
+    {
+      "path": "src/mcp_agent/logging/progress_display.py",
+      "bytes": 1050
+    },
+    {
+      "path": "src/mcp_agent/logging/rich_progress.py",
+      "bytes": 8636
+    },
+    {
+      "path": "src/mcp_agent/logging/token_progress_display.py",
+      "bytes": 4791
+    },
+    {
+      "path": "src/mcp_agent/logging/transport.py",
+      "bytes": 24014
+    },
+    {
+      "path": "src/mcp_agent/mcp/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/mcp/client_proxy.py",
+      "bytes": 8997
+    },
+    {
+      "path": "src/mcp_agent/mcp/gen_client.py",
+      "bytes": 3465
+    },
+    {
+      "path": "src/mcp_agent/mcp/mcp_agent_client_session.py",
+      "bytes": 17941
+    },
+    {
+      "path": "src/mcp_agent/mcp/mcp_aggregator.py",
+      "bytes": 59505
+    },
+    {
+      "path": "src/mcp_agent/mcp/mcp_connection_manager.py",
+      "bytes": 25951
+    },
+    {
+      "path": "src/mcp_agent/mcp/mcp_server_registry.py",
+      "bytes": 17024
+    },
+    {
+      "path": "src/mcp_agent/mcp/sampling_handler.py",
+      "bytes": 10232
+    },
+    {
+      "path": "src/mcp_agent/mcp/stdio_transport.py",
+      "bytes": 4621
+    },
+    {
+      "path": "src/mcp_agent/oauth/__init__.py",
+      "bytes": 367
+    },
+    {
+      "path": "src/mcp_agent/oauth/access_token.py",
+      "bytes": 3899
+    },
+    {
+      "path": "src/mcp_agent/oauth/callbacks.py",
+      "bytes": 3070
+    },
+    {
+      "path": "src/mcp_agent/oauth/errors.py",
+      "bytes": 620
+    },
+    {
+      "path": "src/mcp_agent/oauth/flow.py",
+      "bytes": 18901
+    },
+    {
+      "path": "src/mcp_agent/oauth/http/__init__.py",
+      "bytes": 107
+    },
+    {
+      "path": "src/mcp_agent/oauth/http/auth.py",
+      "bytes": 3194
+    },
+    {
+      "path": "src/mcp_agent/oauth/identity.py",
+      "bytes": 1979
+    },
+    {
+      "path": "src/mcp_agent/oauth/manager.py",
+      "bytes": 30642
+    },
+    {
+      "path": "src/mcp_agent/oauth/metadata.py",
+      "bytes": 3277
+    },
+    {
+      "path": "src/mcp_agent/oauth/pkce.py",
+      "bytes": 847
+    },
+    {
+      "path": "src/mcp_agent/oauth/records.py",
+      "bytes": 1423
+    },
+    {
+      "path": "src/mcp_agent/oauth/store/__init__.py",
+      "bytes": 481
+    },
+    {
+      "path": "src/mcp_agent/oauth/store/base.py",
+      "bytes": 861
+    },
+    {
+      "path": "src/mcp_agent/oauth/store/in_memory.py",
+      "bytes": 890
+    },
+    {
+      "path": "src/mcp_agent/oauth/store/redis.py",
+      "bytes": 2121
+    },
+    {
+      "path": "src/mcp_agent/server/app_server.py",
+      "bytes": 129806
+    },
+    {
+      "path": "src/mcp_agent/server/app_server_types.py",
+      "bytes": 1576
+    },
+    {
+      "path": "src/mcp_agent/server/token_verifier.py",
+      "bytes": 10112
+    },
+    {
+      "path": "src/mcp_agent/server/tool_adapter.py",
+      "bytes": 6600
+    },
+    {
+      "path": "src/mcp_agent/telemetry/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/telemetry/usage_tracking.py",
+      "bytes": 501
+    },
+    {
+      "path": "src/mcp_agent/tools/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/tools/crewai_tool.py",
+      "bytes": 4904
+    },
+    {
+      "path": "src/mcp_agent/tools/langchain_tool.py",
+      "bytes": 2870
+    },
+    {
+      "path": "src/mcp_agent/tracing/file_span_exporter.py",
+      "bytes": 2666
+    },
+    {
+      "path": "src/mcp_agent/tracing/semconv.py",
+      "bytes": 7426
+    },
+    {
+      "path": "src/mcp_agent/tracing/telemetry.py",
+      "bytes": 7318
+    },
+    {
+      "path": "src/mcp_agent/tracing/token_counter.py",
+      "bytes": 74719
+    },
+    {
+      "path": "src/mcp_agent/tracing/token_tracking_decorator.py",
+      "bytes": 3967
+    },
+    {
+      "path": "src/mcp_agent/tracing/tracer.py",
+      "bytes": 11477
+    },
+    {
+      "path": "src/mcp_agent/utils/common.py",
+      "bytes": 1494
+    },
+    {
+      "path": "src/mcp_agent/utils/content_utils.py",
+      "bytes": 3391
+    },
+    {
+      "path": "src/mcp_agent/utils/mime_utils.py",
+      "bytes": 2473
+    },
+    {
+      "path": "src/mcp_agent/utils/prompt_message_multipart.py",
+      "bytes": 4435
+    },
+    {
+      "path": "src/mcp_agent/utils/pydantic_type_serializer.py",
+      "bytes": 34623
+    },
+    {
+      "path": "src/mcp_agent/utils/resource_utils.py",
+      "bytes": 6562
+    },
+    {
+      "path": "src/mcp_agent/utils/tool_filter.py",
+      "bytes": 9189
+    },
+    {
+      "path": "src/mcp_agent/workflows/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/README.md",
+      "bytes": 12203
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/budget.py",
+      "bytes": 4775
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/cache.py",
+      "bytes": 2138
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/config.py",
+      "bytes": 6122
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/context_builder.py",
+      "bytes": 24861
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/knowledge.py",
+      "bytes": 5944
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/memory.py",
+      "bytes": 10272
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/models.py",
+      "bytes": 8622
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/orchestrator.py",
+      "bytes": 29558
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/plan_verifier.py",
+      "bytes": 9013
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/policy.py",
+      "bytes": 6713
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/prompts.py",
+      "bytes": 23832
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/queue.py",
+      "bytes": 8037
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/task_executor.py",
+      "bytes": 12376
+    },
+    {
+      "path": "src/mcp_agent/workflows/deep_orchestrator/utils.py",
+      "bytes": 1553
+    },
+    {
+      "path": "src/mcp_agent/workflows/embedding/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/workflows/embedding/embedding_base.py",
+      "bytes": 1686
+    },
+    {
+      "path": "src/mcp_agent/workflows/embedding/embedding_cohere.py",
+      "bytes": 2623
+    },
+    {
+      "path": "src/mcp_agent/workflows/embedding/embedding_openai.py",
+      "bytes": 2619
+    },
+    {
+      "path": "src/mcp_agent/workflows/evaluator_optimizer/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/workflows/evaluator_optimizer/evaluator_optimizer.py",
+      "bytes": 18824
+    },
+    {
+      "path": "src/mcp_agent/workflows/factory.py",
+      "bytes": 38500
+    },
+    {
+      "path": "src/mcp_agent/workflows/intent_classifier/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/workflows/intent_classifier/intent_classifier_base.py",
+      "bytes": 4302
+    },
+    {
+      "path": "src/mcp_agent/workflows/intent_classifier/intent_classifier_embedding.py",
+      "bytes": 6021
+    },
+    {
+      "path": "src/mcp_agent/workflows/intent_classifier/intent_classifier_embedding_cohere.py",
+      "bytes": 1545
+    },
+    {
+      "path": "src/mcp_agent/workflows/intent_classifier/intent_classifier_embedding_openai.py",
+      "bytes": 1545
+    },
+    {
+      "path": "src/mcp_agent/workflows/intent_classifier/intent_classifier_llm.py",
+      "bytes": 10509
+    },
+    {
+      "path": "src/mcp_agent/workflows/intent_classifier/intent_classifier_llm_anthropic.py",
+      "bytes": 2472
+    },
+    {
+      "path": "src/mcp_agent/workflows/intent_classifier/intent_classifier_llm_openai.py",
+      "bytes": 2442
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/augmented_llm.py",
+      "bytes": 34951
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/augmented_llm_anthropic.py",
+      "bytes": 60206
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/augmented_llm_azure.py",
+      "bytes": 33756
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/augmented_llm_bedrock.py",
+      "bytes": 37294
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/augmented_llm_google.py",
+      "bytes": 27663
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/augmented_llm_lm_studio.py",
+      "bytes": 2676
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/augmented_llm_ollama.py",
+      "bytes": 4747
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/augmented_llm_openai.py",
+      "bytes": 50925
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/llm_selector.py",
+      "bytes": 17857
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/multipart_converter_anthropic.py",
+      "bytes": 18744
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/multipart_converter_azure.py",
+      "bytes": 12800
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/multipart_converter_bedrock.py",
+      "bytes": 10949
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/multipart_converter_google.py",
+      "bytes": 12755
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/multipart_converter_openai.py",
+      "bytes": 17486
+    },
+    {
+      "path": "src/mcp_agent/workflows/llm/streaming_events.py",
+      "bytes": 4899
+    },
+    {
+      "path": "src/mcp_agent/workflows/orchestrator/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/workflows/orchestrator/orchestrator.py",
+      "bytes": 28095
+    },
+    {
+      "path": "src/mcp_agent/workflows/orchestrator/orchestrator_models.py",
+      "bytes": 4513
+    },
+    {
+      "path": "src/mcp_agent/workflows/orchestrator/orchestrator_prompts.py",
+      "bytes": 4034
+    },
+    {
+      "path": "src/mcp_agent/workflows/parallel/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/workflows/parallel/fan_in.py",
+      "bytes": 16353
+    },
+    {
+      "path": "src/mcp_agent/workflows/parallel/fan_out.py",
+      "bytes": 9712
+    },
+    {
+      "path": "src/mcp_agent/workflows/parallel/parallel_llm.py",
+      "bytes": 11510
+    },
+    {
+      "path": "src/mcp_agent/workflows/router/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/workflows/router/router_base.py",
+      "bytes": 10413
+    },
+    {
+      "path": "src/mcp_agent/workflows/router/router_embedding.py",
+      "bytes": 8097
+    },
+    {
+      "path": "src/mcp_agent/workflows/router/router_embedding_cohere.py",
+      "bytes": 1980
+    },
+    {
+      "path": "src/mcp_agent/workflows/router/router_embedding_openai.py",
+      "bytes": 2073
+    },
+    {
+      "path": "src/mcp_agent/workflows/router/router_llm.py",
+      "bytes": 21349
+    },
+    {
+      "path": "src/mcp_agent/workflows/router/router_llm_anthropic.py",
+      "bytes": 2335
+    },
+    {
+      "path": "src/mcp_agent/workflows/router/router_llm_openai.py",
+      "bytes": 2278
+    },
+    {
+      "path": "src/mcp_agent/workflows/swarm/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/workflows/swarm/swarm.py",
+      "bytes": 11274
+    },
+    {
+      "path": "src/mcp_agent/workflows/swarm/swarm_anthropic.py",
+      "bytes": 1709
+    },
+    {
+      "path": "src/mcp_agent/workflows/swarm/swarm_openai.py",
+      "bytes": 1681
+    },
+    {
+      "path": "tests/agents/conftest.py",
+      "bytes": 758
+    },
+    {
+      "path": "tests/agents/test_agent.py",
+      "bytes": 27875
+    },
+    {
+      "path": "tests/agents/test_agent_tasks_concurrency.py",
+      "bytes": 4738
+    },
+    {
+      "path": "tests/agents/test_agent_tasks_isolation.py",
+      "bytes": 667
+    },
+    {
+      "path": "tests/app/test_dotenv_loading.py",
+      "bytes": 1561
+    },
+    {
+      "path": "tests/cli/__init__.py",
+      "bytes": 38
+    },
+    {
+      "path": "tests/cli/cloud/test_env_pull_helpers.py",
+      "bytes": 1289
+    },
+    {
+      "path": "tests/cli/cloud/test_materialize.py",
+      "bytes": 14066
+    },
+    {
+      "path": "tests/cli/commands/__init__.py",
+      "bytes": 21
+    },
+    {
+      "path": "tests/cli/commands/test_app_delete.py",
+      "bytes": 4162
+    },
+    {
+      "path": "tests/cli/commands/test_app_status.py",
+      "bytes": 5164
+    },
+    {
+      "path": "tests/cli/commands/test_app_workflows.py",
+      "bytes": 5322
+    },
+    {
+      "path": "tests/cli/commands/test_apps_update.py",
+      "bytes": 3713
+    },
+    {
+      "path": "tests/cli/commands/test_configure.py",
+      "bytes": 13949
+    },
+    {
+      "path": "tests/cli/commands/test_deploy_command.py",
+      "bytes": 33021
+    },
+    {
+      "path": "tests/cli/commands/test_install.py",
+      "bytes": 19220
+    },
+    {
+      "path": "tests/cli/commands/test_wrangler_wrapper.py",
+      "bytes": 48062
+    },
+    {
+      "path": "tests/cli/conftest.py",
+      "bytes": 2113
+    },
+    {
+      "path": "tests/cli/secrets/__init__.py",
+      "bytes": 21
+    },
+    {
+      "path": "tests/cli/secrets/test_api_client.py",
+      "bytes": 12061
+    },
+    {
+      "path": "tests/cli/secrets/test_api_client_deploy.py",
+      "bytes": 7725
+    },
+    {
+      "path": "tests/cli/secrets/test_api_client_type.py",
+      "bytes": 2691
+    },
+    {
+      "path": "tests/cli/secrets/test_resolver.py",
+      "bytes": 22224
+    },
+    {
+      "path": "tests/cli/secrets/test_secrets_transform.py",
+      "bytes": 17870
+    },
+    {
+      "path": "tests/cli/secrets/test_yaml_tags.py",
+      "bytes": 4676
+    },
+    {
+      "path": "tests/cli/secrets/test_yaml_tags_unified.py",
+      "bytes": 13057
+    },
+    {
+      "path": "tests/cli/test_api_key_rename.py",
+      "bytes": 2252
+    },
+    {
+      "path": "tests/cli/test_deploy_validation.py",
+      "bytes": 9329
+    },
+    {
+      "path": "tests/cli/utils/__init__.py",
+      "bytes": 35
+    },
+    {
+      "path": "tests/cli/utils/jwt_generator.py",
+      "bytes": 6625
+    },
+    {
+      "path": "tests/config/test_env_settings.py",
+      "bytes": 464
+    },
+    {
+      "path": "tests/core/test_context.py",
+      "bytes": 3182
+    },
+    {
+      "path": "tests/core/test_context_isolation.py",
+      "bytes": 1652
+    },
+    {
+      "path": "tests/executor/temporal/test_execution_id_and_interceptor.py",
+      "bytes": 3425
+    },
+    {
+      "path": "tests/executor/temporal/test_signal_handler.py",
+      "bytes": 3678
+    },
+    {
+      "path": "tests/executor/temporal/test_temporal_executor.py",
+      "bytes": 10978
+    },
+    {
+      "path": "tests/executor/temporal/test_workflow_registry.py",
+      "bytes": 9366
+    },
+    {
+      "path": "tests/executor/test_errors.py",
+      "bytes": 1623
+    },
+    {
+      "path": "tests/executor/test_inmemory_workflow_registry.py",
+      "bytes": 8393
+    },
+    {
+      "path": "tests/executor/test_temporal_session_proxy.py",
+      "bytes": 2124
+    },
+    {
+      "path": "tests/executor/test_workflow.py",
+      "bytes": 15086
+    },
+    {
+      "path": "tests/executor/test_workflow_signal.py",
+      "bytes": 18865
+    },
+    {
+      "path": "tests/human_input/test_elicitation_handler.py",
+      "bytes": 6089
+    },
+    {
+      "path": "tests/human_input/test_elicitation_session.py",
+      "bytes": 1201
+    },
+    {
+      "path": "tests/integration/test_multithread_smoke.py",
+      "bytes": 2547
+    },
+    {
+      "path": "tests/logging/test_request_context_logging.py",
+      "bytes": 122
+    },
+    {
+      "path": "tests/logging/test_request_scoping.py",
+      "bytes": 6976
+    },
+    {
+      "path": "tests/logging/test_upstream_logging.py",
+      "bytes": 2401
+    },
+    {
+      "path": "tests/mcp/test_connection_manager_concurrency.py",
+      "bytes": 1700
+    },
+    {
+      "path": "tests/mcp/test_connection_manager_lifecycle.py",
+      "bytes": 613
+    },
+    {
+      "path": "tests/mcp/test_mcp_aggregator.py",
+      "bytes": 43390
+    },
+    {
+      "path": "tests/mcp/test_mcp_connection_manager.py",
+      "bytes": 6138
+    },
+    {
+      "path": "tests/server/test_app_server.py",
+      "bytes": 15223
+    },
+    {
+      "path": "tests/server/test_app_server_memo.py",
+      "bytes": 3924
+    },
+    {
+      "path": "tests/server/test_app_server_workflow_schema.py",
+      "bytes": 2042
+    },
+    {
+      "path": "tests/server/test_tool_decorators.py",
+      "bytes": 17198
+    },
+    {
+      "path": "tests/test_app.py",
+      "bytes": 28388
+    },
+    {
+      "path": "tests/test_app_server_identity.py",
+      "bytes": 3370
+    },
+    {
+      "path": "tests/test_app_session.py",
+      "bytes": 311
+    },
+    {
+      "path": "tests/test_audience_validation.py",
+      "bytes": 8886
+    },
+    {
+      "path": "tests/test_config_exporters.py",
+      "bytes": 22038
+    },
+    {
+      "path": "tests/test_oauth_utils.py",
+      "bytes": 9394
+    },
+    {
+      "path": "tests/test_token_manager.py",
+      "bytes": 5167
+    },
+    {
+      "path": "tests/test_token_verifier.py",
+      "bytes": 33058
+    },
+    {
+      "path": "tests/test_tracing_configure.py",
+      "bytes": 3435
+    },
+    {
+      "path": "tests/test_tracing_isolation.py",
+      "bytes": 19732
+    },
+    {
+      "path": "tests/test_version_check.py",
+      "bytes": 3003
+    },
+    {
+      "path": "tests/tools/test_crewai_tool.py",
+      "bytes": 12895
+    },
+    {
+      "path": "tests/tools/test_langchain_tool.py",
+      "bytes": 15437
+    },
+    {
+      "path": "tests/tracing/test_token_counter.py",
+      "bytes": 33509
+    },
+    {
+      "path": "tests/tracing/test_token_counter_concurrency.py",
+      "bytes": 3525
+    },
+    {
+      "path": "tests/tracing/test_token_integration_convenience.py",
+      "bytes": 6012
+    },
+    {
+      "path": "tests/utils/test_config_env_aliases.py",
+      "bytes": 9728
+    },
+    {
+      "path": "tests/utils/test_config_preload.py",
+      "bytes": 18386
+    },
+    {
+      "path": "tests/utils/test_content_utils.py",
+      "bytes": 5629
+    },
+    {
+      "path": "tests/utils/test_mime_utils.py",
+      "bytes": 4299
+    },
+    {
+      "path": "tests/utils/test_multipart_converter_anthropic.py",
+      "bytes": 11311
+    },
+    {
+      "path": "tests/utils/test_multipart_converter_azure.py",
+      "bytes": 11788
+    },
+    {
+      "path": "tests/utils/test_multipart_converter_bedrock.py",
+      "bytes": 14493
+    },
+    {
+      "path": "tests/utils/test_multipart_converter_google.py",
+      "bytes": 20893
+    },
+    {
+      "path": "tests/utils/test_multipart_converter_openai.py",
+      "bytes": 14113
+    },
+    {
+      "path": "tests/utils/test_prompt_message_multipart.py",
+      "bytes": 7158
+    },
+    {
+      "path": "tests/utils/test_pydantic_type_serializer.py",
+      "bytes": 8750
+    },
+    {
+      "path": "tests/utils/test_resource_utils.py",
+      "bytes": 9810
+    },
+    {
+      "path": "tests/workflows/deep_orchestrator/conftest.py",
+      "bytes": 1003
+    },
+    {
+      "path": "tests/workflows/deep_orchestrator/test_deep_orchestrator.py",
+      "bytes": 25631
+    },
+    {
+      "path": "tests/workflows/deep_orchestrator/test_deep_orchestrator_integration.py",
+      "bytes": 27700
+    },
+    {
+      "path": "tests/workflows/deep_orchestrator/test_queue.py",
+      "bytes": 21431
+    },
+    {
+      "path": "tests/workflows/evaluator_optimizer/test_evaluator_optimizer.py",
+      "bytes": 10225
+    },
+    {
+      "path": "tests/workflows/intent_classifier/README.md",
+      "bytes": 2031
+    },
+    {
+      "path": "tests/workflows/intent_classifier/conftest.py",
+      "bytes": 2448
+    },
+    {
+      "path": "tests/workflows/intent_classifier/test_intent_classifier_embedding_cohere.py",
+      "bytes": 10733
+    },
+    {
+      "path": "tests/workflows/intent_classifier/test_intent_classifier_embedding_openai.py",
+      "bytes": 10733
+    },
+    {
+      "path": "tests/workflows/intent_classifier/test_intent_classifier_llm_anthropic.py",
+      "bytes": 18855
+    },
+    {
+      "path": "tests/workflows/intent_classifier/test_intent_classifier_llm_openai.py",
+      "bytes": 17917
+    },
+    {
+      "path": "tests/workflows/llm/README.md",
+      "bytes": 2375
+    },
+    {
+      "path": "tests/workflows/llm/conftest.py",
+      "bytes": 1067
+    },
+    {
+      "path": "tests/workflows/llm/test_anthropic_streaming.py",
+      "bytes": 14287
+    },
+    {
+      "path": "tests/workflows/llm/test_augmented_llm_anthropic.py",
+      "bytes": 40741
+    },
+    {
+      "path": "tests/workflows/llm/test_augmented_llm_azure.py",
+      "bytes": 44536
+    },
+    {
+      "path": "tests/workflows/llm/test_augmented_llm_bedrock.py",
+      "bytes": 28806
+    },
+    {
+      "path": "tests/workflows/llm/test_augmented_llm_google.py",
+      "bytes": 33161
+    },
+    {
+      "path": "tests/workflows/llm/test_augmented_llm_lm_studio.py",
+      "bytes": 4679
+    },
+    {
+      "path": "tests/workflows/llm/test_augmented_llm_ollama.py",
+      "bytes": 8248
+    },
+    {
+      "path": "tests/workflows/llm/test_augmented_llm_openai.py",
+      "bytes": 30478
+    },
+    {
+      "path": "tests/workflows/llm/test_bedrock_streaming.py",
+      "bytes": 15296
+    },
+    {
+      "path": "tests/workflows/llm/test_request_params_tool_filter.py",
+      "bytes": 28011
+    },
+    {
+      "path": "tests/workflows/llm/test_streaming_events.py",
+      "bytes": 10061
+    },
+    {
+      "path": "tests/workflows/orchestrator/__init__.py",
+      "bytes": 57
+    },
+    {
+      "path": "tests/workflows/orchestrator/conftest.py",
+      "bytes": 4121
+    },
+    {
+      "path": "tests/workflows/orchestrator/test_orchestrator.py",
+      "bytes": 19949
+    },
+    {
+      "path": "tests/workflows/orchestrator/test_orchestrator_integration.py",
+      "bytes": 13157
+    },
+    {
+      "path": "tests/workflows/orchestrator/test_orchestrator_models.py",
+      "bytes": 9080
+    },
+    {
+      "path": "tests/workflows/orchestrator/test_orchestrator_overrides.py",
+      "bytes": 24196
+    },
+    {
+      "path": "tests/workflows/orchestrator/test_orchestrator_prompts.py",
+      "bytes": 4879
+    },
+    {
+      "path": "tests/workflows/orchestrator/test_orchestrator_token_counting.py",
+      "bytes": 23595
+    },
+    {
+      "path": "tests/workflows/parallel/conftest.py",
+      "bytes": 1118
+    },
+    {
+      "path": "tests/workflows/parallel/test_fan_in.py",
+      "bytes": 20736
+    },
+    {
+      "path": "tests/workflows/parallel/test_fan_out.py",
+      "bytes": 19946
+    },
+    {
+      "path": "tests/workflows/parallel/test_parallel_llm.py",
+      "bytes": 14720
+    },
+    {
+      "path": "tests/workflows/parallel/test_parallel_llm_token_counting.py",
+      "bytes": 19270
+    },
+    {
+      "path": "tests/workflows/router/__init__.py",
+      "bytes": 107
+    },
+    {
+      "path": "tests/workflows/router/conftest.py",
+      "bytes": 4673
+    },
+    {
+      "path": "tests/workflows/router/test_router_base.py",
+      "bytes": 12100
+    },
+    {
+      "path": "tests/workflows/router/test_router_embedding.py",
+      "bytes": 18446
+    },
+    {
+      "path": "tests/workflows/router/test_router_embedding_cohere.py",
+      "bytes": 10360
+    },
+    {
+      "path": "tests/workflows/router/test_router_embedding_openai.py",
+      "bytes": 10402
+    },
+    {
+      "path": "tests/workflows/router/test_router_llm.py",
+      "bytes": 22574
+    },
+    {
+      "path": "tests/workflows/router/test_router_llm_anthropic.py",
+      "bytes": 10417
+    },
+    {
+      "path": "tests/workflows/router/test_router_llm_openai.py",
+      "bytes": 10212
+    },
+    {
+      "path": "tests/workflows/router/test_router_token_counting.py",
+      "bytes": 19897
+    },
+    {
+      "path": "tests/workflows/swarm/__init__.py",
+      "bytes": 42
+    },
+    {
+      "path": "tests/workflows/swarm/conftest.py",
+      "bytes": 2638
+    },
+    {
+      "path": "tests/workflows/swarm/test_swarm.py",
+      "bytes": 18310
+    },
+    {
+      "path": "tests/workflows/swarm/test_swarm_anthropic.py",
+      "bytes": 8188
+    },
+    {
+      "path": "tests/workflows/swarm/test_swarm_openai.py",
+      "bytes": 7966
+    },
+    {
+      "path": "tests/workflows/test_agentspec_loader.py",
+      "bytes": 9493
+    },
+    {
+      "path": "tests/workflows/test_llm_provider_errors.py",
+      "bytes": 2353
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".gitignore",
+      "bytes": 3732
+    },
+    {
+      "path": ".prettierignore",
+      "bytes": 5
+    },
+    {
+      "path": ".python-version",
+      "bytes": 5
+    },
+    {
+      "path": "docs/advanced/composition.mdx",
+      "bytes": 43654
+    },
+    {
+      "path": "docs/advanced/monitoring.mdx",
+      "bytes": 70612
+    },
+    {
+      "path": "docs/advanced/temporal.mdx",
+      "bytes": 41596
+    },
+    {
+      "path": "docs/cloud/authentication/deployment-auth.mdx",
+      "bytes": 4244
+    },
+    {
+      "path": "docs/cloud/authentication/external-mcp-auth.mdx",
+      "bytes": 4361
+    },
+    {
+      "path": "docs/cloud/authentication/overview.mdx",
+      "bytes": 3921
+    },
+    {
+      "path": "docs/cloud/deployment-quickstart.mdx",
+      "bytes": 4313
+    },
+    {
+      "path": "docs/cloud/mcp-agent-cloud/deploy-mcp-server.mdx",
+      "bytes": 6654
+    },
+    {
+      "path": "docs/cloud/mcp-agent-cloud/long-running-tools.mdx",
+      "bytes": 7138
+    },
+    {
+      "path": "docs/cloud/mcp-agent-cloud/manage-secrets.mdx",
+      "bytes": 9859
+    },
+    {
+      "path": "docs/cloud/mcp-agent-cloud/overview.mdx",
+      "bytes": 7019
+    },
+    {
+      "path": "docs/cloud/mcp-agent-cloud/use-deployed-server.mdx",
+      "bytes": 6231
+    },
+    {
+      "path": "docs/cloud/observability.mdx",
+      "bytes": 4987
+    },
+    {
+      "path": "docs/cloud/overview.mdx",
+      "bytes": 5243
+    },
+    {
+      "path": "docs/cloud/use-cases/build-chatgpt-apps.mdx",
+      "bytes": 6475
+    },
+    {
+      "path": "docs/cloud/use-cases/deploy-agents.mdx",
+      "bytes": 5982
+    },
+    {
+      "path": "docs/cloud/use-cases/deploy-chatgpt-apps.mdx",
+      "bytes": 5659
+    },
+    {
+      "path": "docs/cloud/use-cases/deploy-mcp-servers.mdx",
+      "bytes": 3055
+    },
+    {
+      "path": "docs/concepts/agents.mdx",
+      "bytes": 8860
+    },
+    {
+      "path": "docs/concepts/augmented-llms.mdx",
+      "bytes": 13552
+    },
+    {
+      "path": "docs/concepts/elicitation.mdx",
+      "bytes": 4149
+    },
+    {
+      "path": "docs/concepts/execution-engines.mdx",
+      "bytes": 5052
+    },
+    {
+      "path": "docs/concepts/mcp-primitives.mdx",
+      "bytes": 10778
+    },
+    {
+      "path": "docs/concepts/mcp-servers.mdx",
+      "bytes": 12619
+    },
+    {
+      "path": "docs/concepts/workflows.mdx",
+      "bytes": 16116
+    },
+    {
+      "path": "docs/configuration.mdx",
+      "bytes": 32903
+    },
+    {
+      "path": "docs/favicon.png",
+      "bytes": 3958
+    },
+    {
+      "path": "docs/get-started/cloud.mdx",
+      "bytes": 6516
+    },
+    {
+      "path": "docs/get-started/install.mdx",
+      "bytes": 3279
+    },
+    {
+      "path": "docs/get-started/quickstart.mdx",
+      "bytes": 4930
+    },
+    {
+      "path": "docs/get-started/welcome.mdx",
+      "bytes": 3477
+    },
+    {
+      "path": "docs/images/evaluator-optimizer-workflow.png",
+      "bytes": 213030
+    },
+    {
+      "path": "docs/images/orchestrator-workflow.png",
+      "bytes": 218983
+    },
+    {
+      "path": "docs/images/parallel-workflow.png",
+      "bytes": 198090
+    },
+    {
+      "path": "docs/images/router-workflow.png",
+      "bytes": 200772
+    },
+    {
+      "path": "docs/images/swarm-workflow.png",
+      "bytes": 95796
+    },
+    {
+      "path": "docs/logo/mcp-agent-logo.png",
+      "bytes": 16648
+    },
+    {
+      "path": "docs/logo/mcp-agent.png",
+      "bytes": 40242
+    },
+    {
+      "path": "docs/logo/phetch.gif",
+      "bytes": 5277
+    },
+    {
+      "path": "docs/mcp-agent-sdk/advanced/authentication.mdx",
+      "bytes": 5077
+    },
+    {
+      "path": "docs/mcp-agent-sdk/advanced/composition.mdx",
+      "bytes": 43654
+    },
+    {
+      "path": "docs/mcp-agent-sdk/advanced/durable-agents.mdx",
+      "bytes": 11334
+    },
+    {
+      "path": "docs/mcp-agent-sdk/advanced/logging.mdx",
+      "bytes": 5147
+    },
+    {
+      "path": "docs/mcp-agent-sdk/advanced/observability.mdx",
+      "bytes": 8046
+    },
+    {
+      "path": "docs/mcp-agent-sdk/advanced/pause-and-resume.mdx",
+      "bytes": 585
+    },
+    {
+      "path": "docs/mcp-agent-sdk/core-components/agents.mdx",
+      "bytes": 10357
+    },
+    {
+      "path": "docs/mcp-agent-sdk/core-components/augmented-llm.mdx",
+      "bytes": 13564
+    },
+    {
+      "path": "docs/mcp-agent-sdk/core-components/configuring-your-application.mdx",
+      "bytes": 8813
+    },
+    {
+      "path": "docs/mcp-agent-sdk/core-components/connecting-to-mcp-servers.mdx",
+      "bytes": 7121
+    },
+    {
+      "path": "docs/mcp-agent-sdk/core-components/execution-engine.mdx",
+      "bytes": 6294
+    },
+    {
+      "path": "docs/mcp-agent-sdk/core-components/mcp-servers.mdx",
+      "bytes": 12632
+    },
+    {
+      "path": "docs/mcp-agent-sdk/core-components/mcpapp.mdx",
+      "bytes": 8586
+    },
+    {
+      "path": "docs/mcp-agent-sdk/core-components/specify-secrets.mdx",
+      "bytes": 4825
+    },
+    {
+      "path": "docs/mcp-agent-sdk/core-components/workflows.mdx",
+      "bytes": 14758
+    },
+    {
+      "path": "docs/mcp-agent-sdk/effective-patterns/build-your-own.mdx",
+      "bytes": 8408
+    },
+    {
+      "path": "docs/mcp-agent-sdk/effective-patterns/deep-research.mdx",
+      "bytes": 9666
+    },
+    {
+      "path": "docs/mcp-agent-sdk/effective-patterns/evaluator-optimizer.mdx",
+      "bytes": 6118
+    },
+    {
+      "path": "docs/mcp-agent-sdk/effective-patterns/intent-classifier.mdx",
+      "bytes": 6023
+    },
+    {
+      "path": "docs/mcp-agent-sdk/effective-patterns/map-reduce.mdx",
+      "bytes": 6345
+    },
+    {
+      "path": "docs/mcp-agent-sdk/effective-patterns/overview.mdx",
+      "bytes": 5847
+    },
+    {
+      "path": "docs/mcp-agent-sdk/effective-patterns/planner.mdx",
+      "bytes": 6630
+    },
+    {
+      "path": "docs/mcp-agent-sdk/effective-patterns/router.mdx",
+      "bytes": 6014
+    },
+    {
+      "path": "docs/mcp-agent-sdk/effective-patterns/swarm.mdx",
+      "bytes": 14881
+    },
+    {
+      "path": "docs/mcp-agent-sdk/mcp/agent-as-mcp-server.mdx",
+      "bytes": 7486
+    },
+    {
+      "path": "docs/mcp-agent-sdk/mcp/overview.mdx",
+      "bytes": 10417
+    },
+    {
+      "path": "docs/mcp-agent-sdk/mcp/server-authentication.mdx",
+      "bytes": 7468
+    },
+    {
+      "path": "docs/mcp-agent-sdk/overview.mdx",
+      "bytes": 8971
+    },
+    {
+      "path": "docs/mcp/overview.mdx",
+      "bytes": 5977
+    },
+    {
+      "path": "docs/openai/deploy.mdx",
+      "bytes": 4086
+    },
+    {
+      "path": "docs/reference/cli.mdx",
+      "bytes": 13989
+    },
+    {
+      "path": "docs/reference/configuration.mdx",
+      "bytes": 12950
+    },
+    {
+      "path": "docs/reference/decorators.mdx",
+      "bytes": 8346
+    },
+    {
+      "path": "docs/roadmap.mdx",
+      "bytes": 8233
+    },
+    {
+      "path": "docs/snippets/version-badge.mdx",
+      "bytes": 147
+    },
+    {
+      "path": "docs/test-evaluate/agent-evaluation.mdx",
+      "bytes": 4034
+    },
+    {
+      "path": "docs/test-evaluate/mcp-eval.mdx",
+      "bytes": 5659
+    },
+    {
+      "path": "docs/test-evaluate/server-evaluation.mdx",
+      "bytes": 3339
+    },
+    {
+      "path": "docs/workflows/deep-orchestrator.mdx",
+      "bytes": 20109
+    },
+    {
+      "path": "docs/workflows/evaluator-optimizer.mdx",
+      "bytes": 4308
+    },
+    {
+      "path": "docs/workflows/intent-classifier.mdx",
+      "bytes": 3059
+    },
+    {
+      "path": "docs/workflows/orchestrator.mdx",
+      "bytes": 13328
+    },
+    {
+      "path": "docs/workflows/overview.mdx",
+      "bytes": 1826
+    },
+    {
+      "path": "docs/workflows/parallel.mdx",
+      "bytes": 7550
+    },
+    {
+      "path": "docs/workflows/router.mdx",
+      "bytes": 11027
+    },
+    {
+      "path": "docs/workflows/swarm.mdx",
+      "bytes": 14862
+    },
+    {
+      "path": "examples/basic/agent_factory/mcp_agent.secrets.yaml.example",
+      "bytes": 283
+    },
+    {
+      "path": "examples/basic/functions/mcp_agent.secrets.yaml.example",
+      "bytes": 89
+    },
+    {
+      "path": "examples/basic/mcp_basic_agent/.env.example",
+      "bytes": 519
+    },
+    {
+      "path": "examples/basic/mcp_basic_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 675
+    },
+    {
+      "path": "examples/basic/mcp_hello_world/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/basic/mcp_tool_filter/mcp_agent.secrets.yaml.example",
+      "bytes": 160
+    },
+    {
+      "path": "examples/basic/oauth_basic_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 366
+    },
+    {
+      "path": "examples/basic/streaming_demo/mcp_agent.secrets.yaml.example",
+      "bytes": 286
+    },
+    {
+      "path": "examples/basic/token_counter/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/cloud/agent_factory/mcp_agent.secrets.yaml.example",
+      "bytes": 41
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/.gitignore",
+      "bytes": 310
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/basic_app/web/yarn.lock",
+      "bytes": 460619
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/.gitignore",
+      "bytes": 310
+    },
+    {
+      "path": "examples/cloud/chatgpt_apps/timer/web/yarn.lock",
+      "bytes": 460619
+    },
+    {
+      "path": "examples/cloud/mcp/mcp_agent.secrets.yaml.example",
+      "bytes": 38
+    },
+    {
+      "path": "examples/cloud/observability/mcp_agent.secrets.yaml.example",
+      "bytes": 570
+    },
+    {
+      "path": "examples/cloud/temporal/mcp_agent.secrets.yaml.example",
+      "bytes": 38
+    },
+    {
+      "path": "examples/crewai/.env.example",
+      "bytes": 25
+    },
+    {
+      "path": "examples/crewai/mcp_agent.secrets.yaml.example",
+      "bytes": 85
+    },
+    {
+      "path": "examples/human_input/temporal/mcp_agent.secrets.yaml.example",
+      "bytes": 133
+    },
+    {
+      "path": "examples/langchain/.env.example",
+      "bytes": 25
+    },
+    {
+      "path": "examples/langchain/mcp_agent.secrets.yaml.example",
+      "bytes": 86
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/cloud/mcp_agent.secrets.yaml.example",
+      "bytes": 127
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/mcp_agent.secrets.yaml.example",
+      "bytes": 127
+    },
+    {
+      "path": "examples/mcp/mcp_elicitation/temporal/mcp_agent.secrets.yaml.example",
+      "bytes": 133
+    },
+    {
+      "path": "examples/mcp/mcp_prompts_and_resources/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/mcp/mcp_roots/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/01_Data_Processed.csv",
+      "bytes": 1026973
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/3d_accelerometer_by_exercise.png",
+      "bytes": 1328955
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/accelerometer_time_series.png",
+      "bytes": 1456516
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/exercise_and_weight_distribution.png",
+      "bytes": 230663
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/exercise_by_day.png",
+      "bytes": 228261
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/exercise_by_participant.png",
+      "bytes": 180126
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/exercise_repetition_patterns.png",
+      "bytes": 1058932
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/exercise_signatures_radar.png",
+      "bytes": 742198
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/gyroscope_time_series.png",
+      "bytes": 1764332
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/participant_exercise_patterns.png",
+      "bytes": 198935
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/sensor_correlation_heatmap.png",
+      "bytes": 348522
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/sensor_distribution_by_category.png",
+      "bytes": 558753
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/sensor_patterns_by_category.png",
+      "bytes": 357958
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/sensor_patterns_by_exercise.png",
+      "bytes": 364457
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/plots/weight_category_comparison.png",
+      "bytes": 987157
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/1_exercise_distribution.png",
+      "bytes": 123874
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/2_sensor_patterns_by_exercise.png",
+      "bytes": 322862
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/3_heavy_vs_medium_radar.png",
+      "bytes": 1909565
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/4_pca_clustering.png",
+      "bytes": 1253178
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/4b_pca_feature_importance.png",
+      "bytes": 114726
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/5_time_series_patterns.png",
+      "bytes": 2668070
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/6_participant_distribution.png",
+      "bytes": 99514
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/6b_participant_sensor_heatmap.png",
+      "bytes": 190605
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/7_exercise_variability.png",
+      "bytes": 240046
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/7b_sensor_distributions.png",
+      "bytes": 1070296
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/8_heavy_vs_medium_boxplots.png",
+      "bytes": 937595
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/8b_heavy_medium_percent_diff.png",
+      "bytes": 219338
+    },
+    {
+      "path": "examples/mcp/mcp_roots/test_data/visualizations/key_insights.md",
+      "bytes": 2245
+    },
+    {
+      "path": "examples/mcp/mcp_sse/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/mcp/mcp_sse_with_headers/mcp_agent.secrets.yaml.example",
+      "bytes": 88
+    },
+    {
+      "path": "examples/mcp/mcp_streamable_http/mcp_agent.secrets.yaml.example",
+      "bytes": 88
+    },
+    {
+      "path": "examples/mcp/mcp_websockets/mcp_agent.secrets.yaml.example",
+      "bytes": 217
+    },
+    {
+      "path": "examples/mcp_agent_server/asyncio/mcp_agent.secrets.yaml.example",
+      "bytes": 86
+    },
+    {
+      "path": "examples/mcp_agent_server/temporal/mag.png",
+      "bytes": 8986
+    },
+    {
+      "path": "examples/mcp_agent_server/temporal/mcp_agent.secrets.yaml.example",
+      "bytes": 38
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_azure_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 223
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_bedrock_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 200
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_google_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 118
+    },
+    {
+      "path": "examples/model_providers/mcp_basic_ollama_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/multithread/mcp_agent.secrets.yaml.example",
+      "bytes": 132
+    },
+    {
+      "path": "examples/oauth/pre_authorize/mcp_agent.secrets.yaml.example",
+      "bytes": 334
+    },
+    {
+      "path": "examples/temporal/mcp_agent.secrets.yaml.example",
+      "bytes": 86
+    },
+    {
+      "path": "examples/tracing/agent/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/tracing/langfuse/mcp_agent.secrets.yaml.example",
+      "bytes": 425
+    },
+    {
+      "path": "examples/tracing/llm/mcp_agent.secrets.yaml.example",
+      "bytes": 393
+    },
+    {
+      "path": "examples/tracing/mcp/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/tracing/temporal/mcp_agent.secrets.yaml.example",
+      "bytes": 86
+    },
+    {
+      "path": "examples/usecases/fastapi_websocket/mcp_agent.secrets.yaml.example",
+      "bytes": 297
+    },
+    {
+      "path": "examples/usecases/marimo_mcp_basic_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/usecases/mcp_basic_slack_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 250
+    },
+    {
+      "path": "examples/usecases/mcp_browser_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/usecases/mcp_financial_analyzer/mcp_agent.secrets.yaml.example",
+      "bytes": 207
+    },
+    {
+      "path": "examples/usecases/mcp_github_to_slack_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 508
+    },
+    {
+      "path": "examples/usecases/mcp_instagram_gift_advisor/mcp_agent.secrets.yaml.example",
+      "bytes": 872
+    },
+    {
+      "path": "examples/usecases/mcp_marketing_assistant_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 51
+    },
+    {
+      "path": "examples/usecases/mcp_playwright_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 89
+    },
+    {
+      "path": "examples/usecases/mcp_researcher/mcp_agent.secrets.yaml.example",
+      "bytes": 208
+    },
+    {
+      "path": "examples/usecases/mcp_supabase_migration_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 362
+    },
+    {
+      "path": "examples/usecases/streamlit_mcp_basic_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/usecases/streamlit_mcp_rag_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 88
+    },
+    {
+      "path": "examples/workflows/workflow_deep_orchestrator/mcp_agent.secrets.yaml.example",
+      "bytes": 203
+    },
+    {
+      "path": "examples/workflows/workflow_evaluator_optimizer/mcp_agent.secrets.yaml.example",
+      "bytes": 502
+    },
+    {
+      "path": "examples/workflows/workflow_intent_classifier/mcp_agent.secrets.yaml.example",
+      "bytes": 89
+    },
+    {
+      "path": "examples/workflows/workflow_orchestrator_worker/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/workflows/workflow_parallel/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/workflows/workflow_router/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "examples/workflows/workflow_swarm/mcp_agent.secrets.yaml.example",
+      "bytes": 130
+    },
+    {
+      "path": "logs/marketing-20251022_200928.jsonl",
+      "bytes": 288
+    },
+    {
+      "path": "src/mcp_agent/data/examples/basic/mcp_basic_agent/mcp_agent.secrets.yaml.example",
+      "bytes": 972
+    },
+    {
+      "path": "src/mcp_agent/data/examples/basic/token_counter/mcp_agent.secrets.yaml.example",
+      "bytes": 308
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/agent_factory/mcp_agent.secrets.yaml.example",
+      "bytes": 41
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/.gitignore",
+      "bytes": 310
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/chatgpt_app/web/yarn.lock",
+      "bytes": 460619
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/mcp/mcp_agent.secrets.yaml.example",
+      "bytes": 38
+    },
+    {
+      "path": "src/mcp_agent/data/examples/cloud/temporal/mcp_agent.secrets.yaml.example",
+      "bytes": 38
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/asyncio/logs/mcp-agent.jsonl",
+      "bytes": 4624
+    },
+    {
+      "path": "src/mcp_agent/data/examples/mcp_agent_server/asyncio/mcp_agent.secrets.yaml.example",
+      "bytes": 86
+    },
+    {
+      "path": "src/mcp_agent/data/examples/usecases/mcp_financial_analyzer/mcp_agent.secrets.yaml.example",
+      "bytes": 207
+    },
+    {
+      "path": "src/mcp_agent/data/examples/usecases/mcp_researcher/mcp_agent.secrets.yaml.example",
+      "bytes": 271
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_deep_orchestrator/mcp_agent.secrets.yaml.example",
+      "bytes": 203
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_evaluator_optimizer/mcp_agent.secrets.yaml.example",
+      "bytes": 565
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_intent_classifier/mcp_agent.secrets.yaml.example",
+      "bytes": 152
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_orchestrator_worker/mcp_agent.secrets.yaml.example",
+      "bytes": 193
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_parallel/mcp_agent.secrets.yaml.example",
+      "bytes": 193
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_router/mcp_agent.secrets.yaml.example",
+      "bytes": 193
+    },
+    {
+      "path": "src/mcp_agent/data/examples/workflows/workflow_swarm/mcp_agent.secrets.yaml.example",
+      "bytes": 193
+    },
+    {
+      "path": "src/mcp_agent/data/phetch.png",
+      "bytes": 4596
+    },
+    {
+      "path": "src/mcp_agent/data/templates/gitignore.template",
+      "bytes": 886
+    },
+    {
+      "path": "src/mcp_agent/py.typed",
+      "bytes": 0
+    },
+    {
+      "path": "src/mcp_agent/tracing/__init__",
+      "bytes": 0
+    },
+    {
+      "path": "tests/cli/fixtures/__init__.py",
+      "bytes": 21
+    },
+    {
+      "path": "tests/cli/fixtures/api_test_utils.py",
+      "bytes": 10765
+    },
+    {
+      "path": "tests/cli/fixtures/bedrock_config.yaml",
+      "bytes": 385
+    },
+    {
+      "path": "tests/cli/fixtures/docker-compose-test.yml",
+      "bytes": 1192
+    },
+    {
+      "path": "tests/cli/fixtures/example_config.yaml",
+      "bytes": 317
+    },
+    {
+      "path": "tests/cli/fixtures/example_secrets.yaml",
+      "bytes": 533
+    },
+    {
+      "path": "tests/cli/fixtures/mock_secrets_client.py",
+      "bytes": 4155
+    },
+    {
+      "path": "tests/cli/fixtures/multi_provider_config.yaml",
+      "bytes": 575
+    },
+    {
+      "path": "tests/cli/fixtures/realistic_mcp_agent.config.yaml",
+      "bytes": 1214
+    },
+    {
+      "path": "tests/cli/fixtures/realistic_mcp_configs/advanced_agent/mcp_agent.config.yaml",
+      "bytes": 892
+    },
+    {
+      "path": "tests/cli/fixtures/realistic_mcp_configs/basic_agent/mcp_agent.config.yaml",
+      "bytes": 702
+    },
+    {
+      "path": "tests/cli/fixtures/realistic_mcp_configs/complex_integrations/mcp_agent.config.yaml",
+      "bytes": 1030
+    },
+    {
+      "path": "tests/cli/fixtures/service_integration_config.yaml",
+      "bytes": 1120
+    },
+    {
+      "path": "tests/cli/fixtures/test_constants.py",
+      "bytes": 1331
+    },
+    {
+      "path": "tests/cli/fixtures/test_deploy.sh",
+      "bytes": 679
+    },
+    {
+      "path": "tests/cli/fixtures/test_secrets.yaml",
+      "bytes": 77
+    },
+    {
+      "path": "tests/cli/fixtures/test_secrets_deploy.sh",
+      "bytes": 766
+    },
+    {
+      "path": "uv.lock",
+      "bytes": 850931
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/workflows/runs/__init__.py",
+      "bytes": 108,
+      "reason": "experimental output or recorded response"
+    },
+    {
+      "path": "src/mcp_agent/cli/cloud/commands/workflows/runs/main.py",
+      "bytes": 6066,
+      "reason": "experimental output or recorded response"
+    }
+  ]
+}

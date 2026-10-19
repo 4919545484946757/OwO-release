@@ -1,0 +1,182 @@
+Published as a conference paper at ICLR 2024
+WEBARENA : A R EALISTIC WEB ENVIRONMENT FOR
+BUILDING AUTONOMOUS AGENTS
+Shuyan Zhou∗ Frank F. Xu∗
+Hao Zhu† Xuhui Zhou† Robert Lo† Abishek Sridhar† Xianyi Cheng
+Tianyue Ou Yonatan Bisk Daniel Fried Uri Alon Graham Neubig
+Carnegie Mellon University
+{shuyanzh, fangzhex, gneubig}@cs.cmu.edu
+ABSTRACT
+With advances in generative AI, there is now potential for autonomous agents
+to manage daily tasks via natural language commands. However, current agents
+are primarily created and tested in simplified synthetic environments, leading to
+a disconnect with real-world scenarios. In this paper, we build an environment
+for language-guided agents that is highly realistic and reproducible. Specifically,
+we focus on agents that perform tasks on the web, and create an environment
+with fully functional websites from four common domains: e-commerce, social
+forum discussions, collaborative software development, and content management.
+Our environment is enriched with tools ( e.g., a map) and external knowledge
+bases (e.g., user manuals) to encourage human-like task-solving. Building upon
+our environment, we release a set of benchmark tasks focusing on evaluating the
+functional correctness of task completions. The tasks in our benchmark are diverse,
+long-horizon, and designed to emulate tasks that humans routinely perform on the
+internet. We experiment with several baseline agents, integrating recent techniques
+such as reasoning before acting. The results demonstrate that solving complex
+tasks is challenging: our best GPT-4 -based agent only achieves an end-to-end
+task success rate of 14.41%, significantly lower than the human performance of
+78.24%. These results highlight the need for further development of robust agents,
+that current state-of-the-art large language models are far from perfect performance
+in these real-life tasks, and thatWebArena can be used to measure such progress.
+Our code, data, environment reproduction resources, and video demonstrations are
+publicly available athttps://webarena.dev/.
+1 I NTRODUCTION
+Autonomous agents that perform everyday tasks via human natural language commands could
+significantly augment human capabilities, improve efficiency, and increase accessibility. Nonetheless,
+to fully leverage the power of autonomous agents, it is crucial to understand their behavior within an
+environment that is both authentic and reproducible. This will allow measurement of the ability of
+agents on tasks that human users care about in a fair and consistent manner.
+Current environments for evaluate agents tend to over-simplify real-world situations. As a result, the
+functionality of many environments is a limited version of their real-world counterparts, leading to
+a lack of task diversity (Shi et al., 2017; Anderson et al., 2018; Gordon et al., 2018; Misra et al.,
+2016; Shridhar et al., 2020; 2021; Yao et al., 2022a). In addition, these simplifications often lower
+the complexity of tasks as compared to their execution in the real world (Puig et al., 2018; Shridhar
+et al., 2020; Yao et al., 2022a). Finally, some environments are presented as a static resource (Shi
+et al., 2017; Deng et al., 2023) where agents are confined to accessing only those states that were
+previously cached during data collection, thus limiting the breadth and diversity of exploration.
+For evaluation, many environments focus on comparing the textual surface form of the predicted
+∗Lead contributors.
+†Equal contribution.
+1
+arXiv:2307.13854v4  [cs.AI]  16 Apr 2024
+
+Published as a conference paper at ICLR 2024
+Tell me how much I spent on 
+food purchase in March 2023
+15
+WebArena Environment
+”
+”
+“
+“Create a ‘NolanFans' repo, 
+listing Nolan's Oscar-winning 
+ﬁlms in a README ﬁle
+Action
+Feedback
+AI Agent
+Tool Sites
+ Knowledge resources
+Web applications from popular domains
+check_repo 
+check_readme 
+check_answer
+Functional 
+Success
+Functional 
+Failure
+Figure 1:WebArena is a standalone, self-hostable web environment for building autonomous agents.
+WebArena creates websites from four popular categories with functionality and data mimicking
+their real-world equivalents. To emulate human problem-solving,WebArena also embeds tools and
+knowledge resources as independent websites.WebArena introduces a benchmark on interpreting
+high-level realistic natural language command to concrete web-based interactions. We provide
+validators to programmatically validate the functional correctness of each task.
+action sequences with reference action sequences, disregarding the functional correctness of the
+executions and possible alternative solutions (Puig et al., 2018; Jernite et al., 2019; Xu et al., 2021; Li
+et al., 2020; Deng et al., 2023). These limitations often result in a discrepancy between simulated
+environments and the real world, and can potentially impact the generalizability of AI agents to
+successfully understand, adapt, and operate within complex real-world situations.
+We introduceWebArena, a realistic and reproducible web environment designed to facilitate the
+development of autonomous agents capable of executing tasks (§2). An overview of WebArena
+is in Figure 1. Our environment comprises four fully operational, self-hosted web applications,
+each representing a distinct domain prevalent on the internet: online shopping, discussion forums,
+collaborative development, and business content management. Furthermore,WebArena incorporates
+several utility tools, such as map, calculator, and scratchpad, to best support possible human-like task
+executions. Lastly,WebArena is complemented by an extensive collection of documentation and
+knowledge bases that vary from general resources like English Wikipedia to more domain-specific
+references, such as manuals for using the integrated development tool (Fan et al., 2022). The content
+populating these websites is extracted from their real-world counterparts, preserving the authenticity
+of the content served on each platform. We deliver the hosting services using Docker containers with
+gym-APIs (Brockman et al., 2016), ensuring both the usability and the reproducibility ofWebArena.
+Along with WebArena, we release a ready-to-use benchmark with 812 long-horizon web-based
+tasks (§3). Each task is described as a high-level natural language intent, emulating the abstract
+language usage patterns typically employed by humans (Bisk et al., 2019). Two example intents
+are shown in the upper left of Figure 1. We focus on evaluating the functional correctness of these
+tasks, i.e., does the result of the execution actually achieve the desired goal (§3.2). For instance,
+to evaluate the example in Figure 2, our evaluation method verifies the concrete contents in the
+designated repository. This evaluation is not only more reliable (Zhong et al., 2017; Chen et al., 2021;
+Wang et al., 2022) than comparing the textual surface-form action sequences (Puig et al., 2018; Deng
+et al., 2023) but also accommodate a range of potential valid paths to achieve the same goal, which is
+a ubiquitous phenomenon in sufficiently complex tasks.
+We use this benchmark to evaluate several agents that can follow NL command and perform web-
+based tasks (§4). These agents are implemented in a few-shot in-context learning fashion with
+powerful large language models (LLMs) such as GPT-4 and PALM-2 . Experiment results show that
+the best GPT-4 agent performance is somewhat limited, with an end-to-end task success rate of only
+14.41%, while the human performance is 78.24%. We hypothesize that the limited performance of
+current LLMs stems from a lack of crucial capabilities such as active exploration and failure recovery
+to successfully perform complex tasks (§5.1). These outcomes underscore the necessity for further
+development towards robust and effective agents (LeCun, 2022) inWebArena.
+2 WEBARENA : W EBSITES AS AN ENVIRONMENT FOR AUTONOMOUS AGENTS
+Our goal is to create a realistic and reproducible web environment. We achieve reproducibility by
+making the environment standalone, without relying on live websites. This circumvents technical
+2
+
+Published as a conference paper at ICLR 2024
+Search for museums  
+in Pittsburgh
+webarena.wikipedia.com
+Search for each art 
+museum on the Map
+webarena.openstreetmap.com
+Record the optimized 
+results to the repo
+webarena.gitlab.com
+…
+Create an efficient itinerary to visit all of Pittsburgh's art museums with minimal driving distance 
+starting from Schenley Park. Log the order in my “awesome-northeast-us-travel” repository
+“
+”
+Figure 2: A high-level task that can be fully executed inWebArena. Success requires sophisticated,
+long-term planning and reasoning. To accomplish the goal (top), an agent needs to (1) find Pittsburgh
+art museums on Wikipedia, (2) identify their locations on a map (while optimizing the itinerary), and
+(3) update the README file in the appropriate repository with the planned route.
+challenges such as bots being subject to CAPTCHAs, unpredictable content modifications, and
+configuration changes, which obstruct a fair comparison across different systems over time. We
+achieve realism by using open-source libraries that underlie many in-use sites from several popular
+categories and importing data to our environment from their real-world counterparts.
+2.1 C ONTROLLING AGENTS THROUGH HIGH -LEVEL NATURAL LANGUAGE
+TheWebArena environment is denoted asE=⟨S,A,O,T⟩ with state spaceS, action spaceA (§2.4)
+and observation spaceO (§2.3). The transition function T :S×A−→S is deterministic, and
+it is defined by the underlying implementation of each website in the environment. Given a task
+described as a natural language intent i, an agent issues an action at∈A based on intent i, the
+current observation ot∈O , the action history at−1
+1 and the observation history ot−1
+1 . Consequently,
+the action results in a new state st+1∈S and its corresponding observation ot+1∈O . We propose
+a reward function r(aT
+1 , sT
+1 ) to measure the success of a task execution, where aT
+1 represents the
+sequence of actions from start to the end time step T , and sT
+1 denotes all intermediate states. This
+reward function assesses if state transitions align with the expectations of the intents. For example,
+with an intent to place an order, it verifies whether an order has been placed. Additionally, it evaluates
+the accuracy of the agent’s actions, such as checking the correctness of the predicted answer.
+2.2 W EBSITE SELECTION
+To decide which categories of websites to use, we first analyzed approximately 200 examples from the
+authors’ actual web browser histories. Each author delved into their browsing histories, summarizing
+the goal of particular segments of their browser session. Based on this, we classified the visited
+websites into abstract categories. We then identified the four most salient categories and implemented
+one instance per category based on this analysis: (1) E-commerce platforms supporting online
+shopping activities (e.g., Amazon, eBay), (2) social forum platforms for opinion exchanges ( e.g.,
+Reddit, StackExchange), (3) collaborative development platforms for software development (e.g.,
+GitLab), and (4) content management systems (CMS) that manage the creation and revision of the
+digital content (e.g., online store management).
+In addition to these platforms, we selected three utility-style tools that are frequently used in web-
+based tasks: (1) a map for navigation and searching for information about points of interest (POIs)
+such as institutions or locations (2) a calculator, and (3) a scratchpad for taking notes. As information-
+seeking and knowledge acquisition are critical in web-based tasks, we also incorporated various
+knowledge resources intoWebArena. These resources range from general information hubs, such
+as the English Wikipedia, to more specialized knowledge bases, such as the website user manuals.
+Implementation We leveraged open-source libraries relevant to each category to build our own
+versions of an E-commerce website (OneStopShop), GitLab, Reddit, an online store content manage-
+ment system (CMS), a map, and an English Wikipedia. Then we imported sampled data from their
+3

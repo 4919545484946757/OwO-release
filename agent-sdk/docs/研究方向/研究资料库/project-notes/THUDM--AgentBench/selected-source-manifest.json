@@ -1,0 +1,147 @@
+[
+  {
+    "path": "src/server/tasks/knowledgegraph/api.py",
+    "sha256": "8be7c4d09baa73e319d24d35132cce19a57c490085cebd4826560b701b3bf9d6",
+    "bytes": 8413,
+    "symbols": [
+      "class Variable:",
+      "def __init__(self, type, program):",
+      "def __hash__(self) -> int:",
+      "def __eq__(self, __value: object) -> bool:",
+      "def __repr__(self) -> str:",
+      "class API:",
+      "def __init__(self, sparql_executor: SparqlExecuter, task_id: int = 0):",
+      "def final_execute(self, variable: Variable):",
+      "def get_relations(self, variable: Union[Variable, str]):",
+      "def get_neighbors(self, variable: Union[Variable, str], relation: str):",
+      "def intersection(self, variable1: Variable, variable2: Variable):",
+      "def union(self, variable1: Variable, variable2: Variable):"
+    ]
+  },
+  {
+    "path": "src/server/tasks/knowledgegraph/task.py",
+    "sha256": "92992b5444c80a8a33eda66b200659d65dbf4e0ae05db018d1a45331da8ba910",
+    "bytes": 10720,
+    "symbols": [
+      "class KnowledgeGraph(Task):",
+      "def __init__(self,",
+      "def get_indices(self) -> List[SampleIndex]:",
+      "async def start_sample(self, index: SampleIndex, session: Session) -> TaskSampleExecutionResult:",
+      "def sync_start_sample(self, index: SampleIndex, session: Session) -> TaskSampleExecutionResult:",
+      "def _calculate_f1(predict_answer, gold_answer):"
+    ]
+  },
+  {
+    "path": "src/server/tasks/knowledgegraph/const.py",
+    "sha256": "2453f2edefdf93441e5352906bb51d519a8edc0c135eb632491c6194d2673828",
+    "bytes": 12736,
+    "symbols": []
+  },
+  {
+    "path": "src/server/tasks/knowledgegraph/__init__.py",
+    "sha256": "6b5f2cbe236531a2cceab878540677481050c38aebdc09a72b0fe8ce49b41969",
+    "bytes": 33,
+    "symbols": []
+  },
+  {
+    "path": "src/server/tasks/knowledgegraph/environment.py",
+    "sha256": "ce9646d9819f9685912158734bf507973ca9fc90f76605d44d70f6995fe0e33a",
+    "bytes": 1005,
+    "symbols": [
+      "class KnowledgeGraphEnvironmentDelegation(EnvironmentDelegation):",
+      "def __init__(self, database_file: Optional[str] = None):",
+      "def get_subtypes(self) -> List[str]:",
+      "def get_service_port(self, subtype: str) -> Optional[Union[int, List[int]]]:",
+      "def get_reuse_limit(self, subtype: str) -> int:",
+      "def get_concurrency_limit(self, subtype: str) -> int:",
+      "async def create_docker_container(self, attrs: dict, subtype: str) -> dict:"
+    ]
+  },
+  {
+    "path": "src/client/task.py",
+    "sha256": "7495eacdd0732bd23f73a8778431370a1afd1802b504866edc9c4ee4fb6f4623",
+    "bytes": 5879,
+    "symbols": [
+      "class TaskError(enum.Enum):",
+      "class TaskClient:",
+      "def __init__(",
+      "def get_indices(self) -> List[SampleIndex]:",
+      "def get_concurrency(self) -> int:",
+      "def run_sample(self, index: SampleIndex, agent: AgentClient) -> TaskClientOutput:",
+      "def calculate_overall(self, results: List[TaskOutput]) -> JSONSerializable:"
+    ]
+  },
+  {
+    "path": "src/client/agent.py",
+    "sha256": "a015989b9859ab7525ffbd688a35e70f7a7491e8d903235ae3b18b0f9d3db13b",
+    "bytes": 189,
+    "symbols": [
+      "class AgentClient:",
+      "def __init__(self, *args, **kwargs):",
+      "def inference(self, history: List[dict]) -> str:"
+    ]
+  },
+  {
+    "path": "src/client/agent_test.py",
+    "sha256": "ab04a9a4393a8132abad98be6b1b1f6cac04b6baa91a2485c7ed0584395ff5c9",
+    "bytes": 1429,
+    "symbols": [
+      "def parse_args():",
+      "def interaction(agent: AgentClient):"
+    ]
+  },
+  {
+    "path": "src/server/tasks/knowledgegraph/utils/semparse_util.py",
+    "sha256": "2f085f0ba85825ccbe72a4e45770775de3e614b5cafde78e2c85a97c0921313d",
+    "bytes": 1697,
+    "symbols": [
+      "def lisp_to_nested_expression(lisp_string: str) -> List:",
+      "def expression_to_lisp(expression) -> str:",
+      "def get_nesting_level(expression) -> int:"
+    ]
+  },
+  {
+    "path": "src/server/tasks/knowledgegraph/utils/logic_form_util.py",
+    "sha256": "9faf760673d9cf89ce8d90b5ed3d031e304c3a7d4e1118a437488a6f11ff34bd",
+    "bytes": 37877,
+    "symbols": [
+      "def get_answer_type(query: str):",
+      "def get_symbol_type(symbol: str) -> int:",
+      "def same_logical_form(form1: str, form2: str) -> bool:",
+      "def node_match(n1, n2):",
+      "def multi_edge_match(e1, e2):",
+      "def logical_form_to_graph(expression: List) -> nx.MultiGraph:",
+      "def _get_graph(",
+      "def graph_to_logical_form(G, start, count: bool = False):",
+      "def get_end_num(G, s):",
+      "def set_visited(G, s, e, relation):",
+      "def binary_nesting(function: str, elements: List[str], types_along_path=None) -> str:",
+      "def count_function(G, start):"
+    ]
+  },
+  {
+    "path": "src/server/tasks/knowledgegraph/utils/sparql_executer.py",
+    "sha256": "2856e0008d0b8f4bd27e7bb81cafb64c6fd2a385da2cd8975c7a6af6f57973e8",
+    "bytes": 12337,
+    "symbols": [
+      "class SparqlExecuter:",
+      "def __init__(self, url: Union[str, None]=None):",
+      "def execute_query(self, query: str) -> List[str]:",
+      "def execute_unary(self, type: str) -> List[str]:",
+      "def execute_binary(self, relation: str) -> List[Tuple[str, str]]:",
+      "def is_intersectant(self, derivation1: tuple, derivation2: str):",
+      "def entity_type_connected(self, entity: str, type: str):",
+      "def entity_type_connected_2hop(self, entity: str, type: str):",
+      "def get_in_attributes(self, value: str):",
+      "def get_in_relations(self, entity: str):",
+      "def get_in_entities(self, entity: str, relation: str):",
+      "def get_out_relations(self, entity: str):"
+    ]
+  },
+  {
+    "path": "src/client/agents/__init__.py",
+    "sha256": "02adc45ad60de404474f71bf7e51a0af41861cd772497dd221784b2915747c66",
+    "bytes": 77,
+    "symbols": []
+  }
+]

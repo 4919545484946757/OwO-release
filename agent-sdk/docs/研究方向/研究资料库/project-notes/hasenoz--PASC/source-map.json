@@ -1,0 +1,466 @@
+{
+  "kept": [
+    {
+      "path": ".gitignore",
+      "bytes": 215
+    },
+    {
+      "path": "CITATION.cff",
+      "bytes": 2134
+    },
+    {
+      "path": "FINAL_analysis_scripts/README.md",
+      "bytes": 2651
+    },
+    {
+      "path": "FINAL_analysis_scripts/advanced_stats.py",
+      "bytes": 13779
+    },
+    {
+      "path": "FINAL_analysis_scripts/analyze_nagent.py",
+      "bytes": 8218
+    },
+    {
+      "path": "FINAL_analysis_scripts/analyze_silent_vs_pasc.py",
+      "bytes": 7646
+    },
+    {
+      "path": "FINAL_analysis_scripts/destructive_thrash.py",
+      "bytes": 11357
+    },
+    {
+      "path": "FINAL_analysis_scripts/destructive_thrash_nagent.py",
+      "bytes": 6953
+    },
+    {
+      "path": "FINAL_analysis_scripts/nagent_thrash.json",
+      "bytes": 239379
+    },
+    {
+      "path": "FINAL_analysis_scripts/significance.py",
+      "bytes": 5052
+    },
+    {
+      "path": "FINAL_analysis_scripts/silent_vs_pasc_thrash.json",
+      "bytes": 683207
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1090
+    },
+    {
+      "path": "README.md",
+      "bytes": 21694
+    },
+    {
+      "path": "THIRD_PARTY_LICENSES/NOTICE.md",
+      "bytes": 2221
+    },
+    {
+      "path": "THIRD_PARTY_LICENSES/mini-swe-agent.LICENSE",
+      "bytes": 1114
+    },
+    {
+      "path": "mini-swe-agent/LICENSE.md",
+      "bytes": 1114
+    },
+    {
+      "path": "mini-swe-agent/README.md",
+      "bytes": 11250
+    },
+    {
+      "path": "mini-swe-agent/pyproject.toml",
+      "bytes": 7513
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/__init__.py",
+      "bytes": 2540
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/__main__.py",
+      "bytes": 201
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/agents/README.md",
+      "bytes": 199
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/agents/__init__.py",
+      "bytes": 1008
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/agents/default.py",
+      "bytes": 6516
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/agents/interactive.py",
+      "bytes": 9313
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/agents/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/agents/utils/prompt_user.py",
+      "bytes": 772
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/README.md",
+      "bytes": 258
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/__init__.py",
+      "bytes": 1930
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/__init__.py",
+      "bytes": 53
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/swebench.yaml",
+      "bytes": 7218
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/swebench_backticks.yaml",
+      "bytes": 8987
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/swebench_modal.yaml",
+      "bytes": 1484
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/swebench_xml.yaml",
+      "bytes": 9116
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/swebench_xml_dialogue.yaml",
+      "bytes": 10573
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/swebench_xml_gitops.yaml",
+      "bytes": 12107
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/swebench_xml_gitops_federated.yaml",
+      "bytes": 14571
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/swebench_xml_gitops_lean.yaml",
+      "bytes": 10909
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/swebench_xml_gitops_npeer.yaml",
+      "bytes": 12404
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/swebench_xml_gitops_npeer.yaml_Zone - Copy.Identifier",
+      "bytes": 25
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/swebench_xml_gitops_silent.yaml",
+      "bytes": 10467
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/benchmarks/swebench_xml_typed_envelope.yaml",
+      "bytes": 17625
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/default.yaml",
+      "bytes": 5604
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/inspector.tcss",
+      "bytes": 536
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/mini.yaml",
+      "bytes": 4957
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/config/mini_textbased.yaml",
+      "bytes": 5471
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/environments/README.md",
+      "bytes": 578
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/environments/__init__.py",
+      "bytes": 1467
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/environments/docker.py",
+      "bytes": 6588
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/environments/extra/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/environments/extra/bubblewrap.py",
+      "bytes": 5371
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/environments/extra/contree.py",
+      "bytes": 5933
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/environments/extra/swerex_docker.py",
+      "bytes": 3278
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/environments/extra/swerex_modal.py",
+      "bytes": 5161
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/environments/local.py",
+      "bytes": 3097
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/environments/singularity.py",
+      "bytes": 5684
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/exceptions.py",
+      "bytes": 641
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/README.md",
+      "bytes": 297
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/__init__.py",
+      "bytes": 4728
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/anthropic_sdk_model.py",
+      "bytes": 6566
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/extra/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/extra/roulette.py",
+      "bytes": 2211
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/litellm_model.py",
+      "bytes": 8335
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/litellm_response_model.py",
+      "bytes": 4709
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/litellm_textbased_model.py",
+      "bytes": 2052
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/minimax_model.py",
+      "bytes": 11257
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/openrouter_model.py",
+      "bytes": 9649
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/openrouter_response_model.py",
+      "bytes": 7210
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/openrouter_textbased_model.py",
+      "bytes": 3177
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/portkey_model.py",
+      "bytes": 10851
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/portkey_response_model.py",
+      "bytes": 7964
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/requesty_model.py",
+      "bytes": 9123
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/test_models.py",
+      "bytes": 13229
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/utils/actions_text.py",
+      "bytes": 2356
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/utils/actions_toolcall.py",
+      "bytes": 3814
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/utils/actions_toolcall_response.py",
+      "bytes": 4442
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/utils/anthropic_utils.py",
+      "bytes": 1217
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/utils/cache_control.py",
+      "bytes": 2432
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/utils/content_string.py",
+      "bytes": 3015
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/utils/openai_multimodal.py",
+      "bytes": 1915
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/models/utils/retry.py",
+      "bytes": 885
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/py.typed",
+      "bytes": 0
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/README.md",
+      "bytes": 303
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/__init__.py",
+      "bytes": 39
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/benchmarks/__init__.py",
+      "bytes": 67
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/benchmarks/swebench.py",
+      "bytes": 14601
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/benchmarks/swebench_single.py",
+      "bytes": 4752
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/benchmarks/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/benchmarks/utils/batch_progress.py",
+      "bytes": 6986
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/extra/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/hello_world.py",
+      "bytes": 1199
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/mini.py",
+      "bytes": 4976
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/utilities/__init__.py",
+      "bytes": 80
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/utilities/config.py",
+      "bytes": 4379
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/utilities/inspector.py",
+      "bytes": 10528
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/run/utilities/mini_extra.py",
+      "bytes": 1644
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/utils/log.py",
+      "bytes": 1032
+    },
+    {
+      "path": "mini-swe-agent/src/minisweagent/utils/serialize.py",
+      "bytes": 967
+    },
+    {
+      "path": "pasc/__init__.py",
+      "bytes": 116
+    },
+    {
+      "path": "pasc/bootstrap.py",
+      "bytes": 400
+    },
+    {
+      "path": "pasc/gitops/__init__.py",
+      "bytes": 714
+    },
+    {
+      "path": "pasc/gitops/agent.py",
+      "bytes": 19303
+    },
+    {
+      "path": "pasc/gitops/commit_tracker.py",
+      "bytes": 2855
+    },
+    {
+      "path": "pasc/gitops/git_ops.py",
+      "bytes": 7181
+    },
+    {
+      "path": "pasc/gitops/orchestrator.py",
+      "bytes": 19970
+    },
+    {
+      "path": "pasc/gitops/output_digest.py",
+      "bytes": 8085
+    },
+    {
+      "path": "pasc/gitops/peer_activity.py",
+      "bytes": 6498
+    },
+    {
+      "path": "pasc/gitops/run_state.py",
+      "bytes": 3985
+    },
+    {
+      "path": "pasc/gitops/shared_environment.py",
+      "bytes": 1949
+    },
+    {
+      "path": "pasc/gitops/workspace.py",
+      "bytes": 14432
+    },
+    {
+      "path": "pasc/shared.py",
+      "bytes": 5541
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 213
+    },
+    {
+      "path": "run_batch_gitops.py",
+      "bytes": 11727
+    },
+    {
+      "path": "run_gitops.py",
+      "bytes": 2816
+    }
+  ],
+  "omitted": [],
+  "scope": "source, documentation, analysis scripts; excludes FINAL_results/"
+}

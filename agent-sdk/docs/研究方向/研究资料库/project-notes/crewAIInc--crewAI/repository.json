@@ -1,0 +1,10 @@
+{
+  "full_name": "crewAIInc/crewAI",
+  "default_branch": "main",
+  "sha": "c0eda9f53889fb38d0352e2c9a738c653ab811b3",
+  "license": null,
+  "description": null,
+  "archived": null,
+  "pushed_at": null,
+  "identity_source": "git ls-remote public HEAD"
+}

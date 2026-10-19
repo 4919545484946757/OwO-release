@@ -1,0 +1,7358 @@
+{
+  "kept": [
+    {
+      "path": ".agents/plugins/marketplace.json",
+      "bytes": 375
+    },
+    {
+      "path": ".claude-plugin/marketplace.json",
+      "bytes": 387
+    },
+    {
+      "path": ".codex-plugin/marketplace.json",
+      "bytes": 375
+    },
+    {
+      "path": ".cursor-plugin/marketplace.json",
+      "bytes": 382
+    },
+    {
+      "path": ".github/AGENTS.md",
+      "bytes": 19893
+    },
+    {
+      "path": ".github/CLAUDE.md",
+      "bytes": 9
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "bytes": 2216
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "bytes": 490
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/documentation_issue.yml",
+      "bytes": 946
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.yml",
+      "bytes": 1362
+    },
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "bytes": 1544
+    },
+    {
+      "path": ".github/advanced-issue-labeler.yml",
+      "bytes": 412
+    },
+    {
+      "path": ".github/component-keywords.json",
+      "bytes": 1493
+    },
+    {
+      "path": ".github/labeler.yml",
+      "bytes": 1288
+    },
+    {
+      "path": ".github/scripts/infer-component-labels.js",
+      "bytes": 1184
+    },
+    {
+      "path": ".github/scripts/infer-component-labels.test.js",
+      "bytes": 13641
+    },
+    {
+      "path": ".github/scripts/pr-gate-docs-exemption.test.js",
+      "bytes": 2257
+    },
+    {
+      "path": ".github/scripts/vouch-decision.test.js",
+      "bytes": 4994
+    },
+    {
+      "path": ".github/workflows/agent-plugins-python-checks.yml",
+      "bytes": 3461
+    },
+    {
+      "path": ".github/workflows/agent-plugins-typescript-checks.yml",
+      "bytes": 1186
+    },
+    {
+      "path": ".github/workflows/cd.yml",
+      "bytes": 1815
+    },
+    {
+      "path": ".github/workflows/ci-gate.yml",
+      "bytes": 10316
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 4370
+    },
+    {
+      "path": ".github/workflows/cli-node-cd.yml",
+      "bytes": 1706
+    },
+    {
+      "path": ".github/workflows/cli-node-ci.yml",
+      "bytes": 2350
+    },
+    {
+      "path": ".github/workflows/cli-python-cd.yml",
+      "bytes": 1332
+    },
+    {
+      "path": ".github/workflows/cli-python-ci.yml",
+      "bytes": 1881
+    },
+    {
+      "path": ".github/workflows/deepseek-plugin-cd.yml",
+      "bytes": 1786
+    },
+    {
+      "path": ".github/workflows/deepseek-plugin-checks.yml",
+      "bytes": 2399
+    },
+    {
+      "path": ".github/workflows/docs-llms-txt-check.yml",
+      "bytes": 1724
+    },
+    {
+      "path": ".github/workflows/issue-labeler.yml",
+      "bytes": 2191
+    },
+    {
+      "path": ".github/workflows/mem0-strands-cd.yml",
+      "bytes": 1597
+    },
+    {
+      "path": ".github/workflows/mem0-strands-checks.yml",
+      "bytes": 2198
+    },
+    {
+      "path": ".github/workflows/n8n-nodes-mem0-cd.yml",
+      "bytes": 1788
+    },
+    {
+      "path": ".github/workflows/n8n-nodes-mem0-checks.yml",
+      "bytes": 2640
+    },
+    {
+      "path": ".github/workflows/openclaw-cd.yml",
+      "bytes": 1747
+    },
+    {
+      "path": ".github/workflows/openclaw-checks.yml",
+      "bytes": 2619
+    },
+    {
+      "path": ".github/workflows/opencode-plugin-cd.yml",
+      "bytes": 1674
+    },
+    {
+      "path": ".github/workflows/opencode-plugin-checks.yml",
+      "bytes": 1039
+    },
+    {
+      "path": ".github/workflows/pi-agent-plugin-cd.yml",
+      "bytes": 1765
+    },
+    {
+      "path": ".github/workflows/pi-agent-plugin-checks.yml",
+      "bytes": 2399
+    },
+    {
+      "path": ".github/workflows/pr-gate.yml",
+      "bytes": 9114
+    },
+    {
+      "path": ".github/workflows/pr-labeler.yml",
+      "bytes": 2050
+    },
+    {
+      "path": ".github/workflows/release.yml",
+      "bytes": 2984
+    },
+    {
+      "path": ".github/workflows/stale.yml",
+      "bytes": 1694
+    },
+    {
+      "path": ".github/workflows/ts-sdk-cd.yml",
+      "bytes": 1678
+    },
+    {
+      "path": ".github/workflows/ts-sdk-ci.yml",
+      "bytes": 4384
+    },
+    {
+      "path": ".github/workflows/vercel-ai-cd.yml",
+      "bytes": 1775
+    },
+    {
+      "path": ".github/workflows/vouch-check-pr.yml",
+      "bytes": 2143
+    },
+    {
+      "path": ".github/workflows/vouch-manage-by-issue.yml",
+      "bytes": 1233
+    },
+    {
+      "path": ".github/workflows/zapier-mem0-cd.yml",
+      "bytes": 1111
+    },
+    {
+      "path": ".github/workflows/zapier-mem0-checks.yml",
+      "bytes": 1464
+    },
+    {
+      "path": ".kimi-plugin/marketplace.json",
+      "bytes": 432
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "bytes": 314
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 11997
+    },
+    {
+      "path": "CLAUDE.md",
+      "bytes": 9
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "bytes": 8437
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "bytes": 11543
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 11349
+    },
+    {
+      "path": "LLM.md",
+      "bytes": 37334
+    },
+    {
+      "path": "Makefile",
+      "bytes": 1009
+    },
+    {
+      "path": "README.md",
+      "bytes": 11914
+    },
+    {
+      "path": "SECURITY.md",
+      "bytes": 2280
+    },
+    {
+      "path": "cli/README.md",
+      "bytes": 4445
+    },
+    {
+      "path": "cli/cli-spec.json",
+      "bytes": 25832
+    },
+    {
+      "path": "cli/node/AGENTS.md",
+      "bytes": 1228
+    },
+    {
+      "path": "cli/node/CLAUDE.md",
+      "bytes": 9
+    },
+    {
+      "path": "cli/node/README.md",
+      "bytes": 9115
+    },
+    {
+      "path": "cli/node/development.md",
+      "bytes": 1461
+    },
+    {
+      "path": "cli/node/package.json",
+      "bytes": 1372
+    },
+    {
+      "path": "cli/node/pnpm-workspace.yaml",
+      "bytes": 255
+    },
+    {
+      "path": "cli/node/src/agent-detect.ts",
+      "bytes": 1222
+    },
+    {
+      "path": "cli/node/src/backend/base.ts",
+      "bytes": 3042
+    },
+    {
+      "path": "cli/node/src/backend/index.ts",
+      "bytes": 258
+    },
+    {
+      "path": "cli/node/src/backend/platform.ts",
+      "bytes": 12608
+    },
+    {
+      "path": "cli/node/src/branding.ts",
+      "bytes": 6114
+    },
+    {
+      "path": "cli/node/src/commands/agent-mode.ts",
+      "bytes": 8518
+    },
+    {
+      "path": "cli/node/src/commands/agent-rush.ts",
+      "bytes": 4357
+    },
+    {
+      "path": "cli/node/src/commands/config.ts",
+      "bytes": 2832
+    },
+    {
+      "path": "cli/node/src/commands/entities.ts",
+      "bytes": 4232
+    },
+    {
+      "path": "cli/node/src/commands/events.ts",
+      "bytes": 4698
+    },
+    {
+      "path": "cli/node/src/commands/identify.ts",
+      "bytes": 2045
+    },
+    {
+      "path": "cli/node/src/commands/init.ts",
+      "bytes": 17761
+    },
+    {
+      "path": "cli/node/src/commands/memory.ts",
+      "bytes": 18233
+    },
+    {
+      "path": "cli/node/src/commands/utils.ts",
+      "bytes": 3964
+    },
+    {
+      "path": "cli/node/src/commands/whoami.ts",
+      "bytes": 627
+    },
+    {
+      "path": "cli/node/src/config.ts",
+      "bytes": 7056
+    },
+    {
+      "path": "cli/node/src/globals.d.ts",
+      "bytes": 145
+    },
+    {
+      "path": "cli/node/src/help.ts",
+      "bytes": 12032
+    },
+    {
+      "path": "cli/node/src/index.ts",
+      "bytes": 33403
+    },
+    {
+      "path": "cli/node/src/output.ts",
+      "bytes": 11268
+    },
+    {
+      "path": "cli/node/src/plugin-sync.ts",
+      "bytes": 3725
+    },
+    {
+      "path": "cli/node/src/state.ts",
+      "bytes": 1313
+    },
+    {
+      "path": "cli/node/src/telemetry.ts",
+      "bytes": 4591
+    },
+    {
+      "path": "cli/node/src/version.ts",
+      "bytes": 494
+    },
+    {
+      "path": "cli/node/telemetry-sender.cjs",
+      "bytes": 3812
+    },
+    {
+      "path": "cli/node/tests/agent-mode.test.ts",
+      "bytes": 4732
+    },
+    {
+      "path": "cli/node/tests/branding.test.ts",
+      "bytes": 2225
+    },
+    {
+      "path": "cli/node/tests/cli-integration.test.ts",
+      "bytes": 5452
+    },
+    {
+      "path": "cli/node/tests/commands.test.ts",
+      "bytes": 19801
+    },
+    {
+      "path": "cli/node/tests/config.test.ts",
+      "bytes": 2955
+    },
+    {
+      "path": "cli/node/tests/init-internals.test.ts",
+      "bytes": 6374
+    },
+    {
+      "path": "cli/node/tests/option-parity.test.ts",
+      "bytes": 5070
+    },
+    {
+      "path": "cli/node/tests/output.test.ts",
+      "bytes": 6526
+    },
+    {
+      "path": "cli/node/tests/platform-backend.test.ts",
+      "bytes": 8404
+    },
+    {
+      "path": "cli/node/tests/setup.ts",
+      "bytes": 3086
+    },
+    {
+      "path": "cli/node/tests/telemetry.test.ts",
+      "bytes": 1838
+    },
+    {
+      "path": "cli/node/tsconfig.json",
+      "bytes": 441
+    },
+    {
+      "path": "cli/node/tsup.config.ts",
+      "bytes": 348
+    },
+    {
+      "path": "cli/node/vitest.config.ts",
+      "bytes": 525
+    },
+    {
+      "path": "cli/python/AGENTS.md",
+      "bytes": 1456
+    },
+    {
+      "path": "cli/python/CLAUDE.md",
+      "bytes": 9
+    },
+    {
+      "path": "cli/python/Makefile",
+      "bytes": 884
+    },
+    {
+      "path": "cli/python/README.md",
+      "bytes": 9518
+    },
+    {
+      "path": "cli/python/development.md",
+      "bytes": 2299
+    },
+    {
+      "path": "cli/python/pyproject.toml",
+      "bytes": 1930
+    },
+    {
+      "path": "cli/python/src/mem0_cli/__init__.py",
+      "bytes": 97
+    },
+    {
+      "path": "cli/python/src/mem0_cli/__main__.py",
+      "bytes": 86
+    },
+    {
+      "path": "cli/python/src/mem0_cli/agent_detect.py",
+      "bytes": 1438
+    },
+    {
+      "path": "cli/python/src/mem0_cli/app.py",
+      "bytes": 52859
+    },
+    {
+      "path": "cli/python/src/mem0_cli/backend/__init__.py",
+      "bytes": 140
+    },
+    {
+      "path": "cli/python/src/mem0_cli/backend/base.py",
+      "bytes": 3424
+    },
+    {
+      "path": "cli/python/src/mem0_cli/backend/platform.py",
+      "bytes": 14537
+    },
+    {
+      "path": "cli/python/src/mem0_cli/branding.py",
+      "bytes": 5717
+    },
+    {
+      "path": "cli/python/src/mem0_cli/commands/__init__.py",
+      "bytes": 27
+    },
+    {
+      "path": "cli/python/src/mem0_cli/commands/agent_mode_cmd.py",
+      "bytes": 9259
+    },
+    {
+      "path": "cli/python/src/mem0_cli/commands/agent_rush_cmd.py",
+      "bytes": 4602
+    },
+    {
+      "path": "cli/python/src/mem0_cli/commands/config_cmd.py",
+      "bytes": 3857
+    },
+    {
+      "path": "cli/python/src/mem0_cli/commands/entities.py",
+      "bytes": 4992
+    },
+    {
+      "path": "cli/python/src/mem0_cli/commands/events_cmd.py",
+      "bytes": 5526
+    },
+    {
+      "path": "cli/python/src/mem0_cli/commands/identify_cmd.py",
+      "bytes": 2385
+    },
+    {
+      "path": "cli/python/src/mem0_cli/commands/init_cmd.py",
+      "bytes": 21508
+    },
+    {
+      "path": "cli/python/src/mem0_cli/commands/memory.py",
+      "bytes": 21668
+    },
+    {
+      "path": "cli/python/src/mem0_cli/commands/utils.py",
+      "bytes": 4794
+    },
+    {
+      "path": "cli/python/src/mem0_cli/commands/whoami_cmd.py",
+      "bytes": 810
+    },
+    {
+      "path": "cli/python/src/mem0_cli/config.py",
+      "bytes": 7835
+    },
+    {
+      "path": "cli/python/src/mem0_cli/output.py",
+      "bytes": 12753
+    },
+    {
+      "path": "cli/python/src/mem0_cli/plugin_sync.py",
+      "bytes": 4242
+    },
+    {
+      "path": "cli/python/src/mem0_cli/state.py",
+      "bytes": 1104
+    },
+    {
+      "path": "cli/python/src/mem0_cli/telemetry.py",
+      "bytes": 5268
+    },
+    {
+      "path": "cli/python/src/mem0_cli/telemetry_sender.py",
+      "bytes": 3741
+    },
+    {
+      "path": "cli/python/tests/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "cli/python/tests/conftest.py",
+      "bytes": 4458
+    },
+    {
+      "path": "cli/python/tests/test_agent_mode.py",
+      "bytes": 5751
+    },
+    {
+      "path": "cli/python/tests/test_branding.py",
+      "bytes": 1660
+    },
+    {
+      "path": "cli/python/tests/test_cli_integration.py",
+      "bytes": 10082
+    },
+    {
+      "path": "cli/python/tests/test_commands.py",
+      "bytes": 56522
+    },
+    {
+      "path": "cli/python/tests/test_config.py",
+      "bytes": 6429
+    },
+    {
+      "path": "cli/python/tests/test_init_internals.py",
+      "bytes": 7672
+    },
+    {
+      "path": "cli/python/tests/test_option_parity.py",
+      "bytes": 4190
+    },
+    {
+      "path": "cli/python/tests/test_output.py",
+      "bytes": 9825
+    },
+    {
+      "path": "cli/python/tests/test_platform_backend.py",
+      "bytes": 1752
+    },
+    {
+      "path": "cli/python/tests/test_platform_backend_options.py",
+      "bytes": 5034
+    },
+    {
+      "path": "cli/python/tests/test_platform_backend_paths.py",
+      "bytes": 1263
+    },
+    {
+      "path": "cli/python/tests/test_telemetry.py",
+      "bytes": 2170
+    },
+    {
+      "path": "docs/AGENTS.md",
+      "bytes": 1877
+    },
+    {
+      "path": "docs/CLAUDE.md",
+      "bytes": 9
+    },
+    {
+      "path": "docs/README.md",
+      "bytes": 957
+    },
+    {
+      "path": "docs/docs.json",
+      "bytes": 54164
+    },
+    {
+      "path": "docs/llms.txt",
+      "bytes": 44454
+    },
+    {
+      "path": "docs/openapi.json",
+      "bytes": 339707
+    },
+    {
+      "path": "examples/mem0-demo/app/api/chat/route.ts",
+      "bytes": 4458
+    },
+    {
+      "path": "examples/mem0-demo/app/assistant.tsx",
+      "bytes": 3889
+    },
+    {
+      "path": "examples/mem0-demo/app/globals.css",
+      "bytes": 1807
+    },
+    {
+      "path": "examples/mem0-demo/app/layout.tsx",
+      "bytes": 798
+    },
+    {
+      "path": "examples/mem0-demo/app/page.tsx",
+      "bytes": 102
+    },
+    {
+      "path": "examples/mem0-demo/components.json",
+      "bytes": 441
+    },
+    {
+      "path": "examples/mem0-demo/components/assistant-ui/markdown-text.tsx",
+      "bytes": 4910
+    },
+    {
+      "path": "examples/mem0-demo/components/assistant-ui/memory-indicator.tsx",
+      "bytes": 3494
+    },
+    {
+      "path": "examples/mem0-demo/components/assistant-ui/memory-ui.tsx",
+      "bytes": 2071
+    },
+    {
+      "path": "examples/mem0-demo/components/assistant-ui/theme-aware-logo.tsx",
+      "bytes": 999
+    },
+    {
+      "path": "examples/mem0-demo/components/assistant-ui/thread-list.tsx",
+      "bytes": 5259
+    },
+    {
+      "path": "examples/mem0-demo/components/assistant-ui/thread.tsx",
+      "bytes": 21993
+    },
+    {
+      "path": "examples/mem0-demo/components/assistant-ui/tooltip-icon-button.tsx",
+      "bytes": 1094
+    },
+    {
+      "path": "examples/mem0-demo/components/mem0/github-button.tsx",
+      "bytes": 1460
+    },
+    {
+      "path": "examples/mem0-demo/components/mem0/markdown.css",
+      "bytes": 2107
+    },
+    {
+      "path": "examples/mem0-demo/components/mem0/markdown.tsx",
+      "bytes": 7293
+    },
+    {
+      "path": "examples/mem0-demo/components/mem0/theme-aware-logo.tsx",
+      "bytes": 963
+    },
+    {
+      "path": "examples/mem0-demo/components/ui/alert-dialog.tsx",
+      "bytes": 4433
+    },
+    {
+      "path": "examples/mem0-demo/components/ui/avatar.tsx",
+      "bytes": 1419
+    },
+    {
+      "path": "examples/mem0-demo/components/ui/badge.tsx",
+      "bytes": 1140
+    },
+    {
+      "path": "examples/mem0-demo/components/ui/button.tsx",
+      "bytes": 1902
+    },
+    {
+      "path": "examples/mem0-demo/components/ui/popover.tsx",
+      "bytes": 1306
+    },
+    {
+      "path": "examples/mem0-demo/components/ui/scroll-area.tsx",
+      "bytes": 1666
+    },
+    {
+      "path": "examples/mem0-demo/components/ui/tooltip.tsx",
+      "bytes": 1217
+    },
+    {
+      "path": "examples/mem0-demo/eslint.config.mjs",
+      "bytes": 393
+    },
+    {
+      "path": "examples/mem0-demo/lib/utils.ts",
+      "bytes": 166
+    },
+    {
+      "path": "examples/mem0-demo/next-env.d.ts",
+      "bytes": 211
+    },
+    {
+      "path": "examples/mem0-demo/next.config.ts",
+      "bytes": 133
+    },
+    {
+      "path": "examples/mem0-demo/package.json",
+      "bytes": 1617
+    },
+    {
+      "path": "examples/mem0-demo/postcss.config.mjs",
+      "bytes": 135
+    },
+    {
+      "path": "examples/mem0-demo/tailwind.config.ts",
+      "bytes": 1642
+    },
+    {
+      "path": "examples/mem0-demo/tsconfig.json",
+      "bytes": 598
+    },
+    {
+      "path": "examples/misc/diet_assistant_voice_cartesia.py",
+      "bytes": 4792
+    },
+    {
+      "path": "examples/misc/fitness_checker.py",
+      "bytes": 6173
+    },
+    {
+      "path": "examples/misc/healthcare_assistant_google_adk.py",
+      "bytes": 7465
+    },
+    {
+      "path": "examples/misc/movie_recommendation_grok3.py",
+      "bytes": 3045
+    },
+    {
+      "path": "examples/misc/multillm_memory.py",
+      "bytes": 6133
+    },
+    {
+      "path": "examples/misc/personal_assistant_agno.py",
+      "bytes": 3581
+    },
+    {
+      "path": "examples/misc/personalized_search.py",
+      "bytes": 9140
+    },
+    {
+      "path": "examples/misc/strands_agent_aws_elasticache_neptune.py",
+      "bytes": 16270
+    },
+    {
+      "path": "examples/misc/study_buddy.py",
+      "bytes": 2892
+    },
+    {
+      "path": "examples/misc/test.py",
+      "bytes": 2906
+    },
+    {
+      "path": "examples/misc/vllm_example.py",
+      "bytes": 4674
+    },
+    {
+      "path": "examples/misc/voice_assistant_elevenlabs.py",
+      "bytes": 8769
+    },
+    {
+      "path": "examples/multiagents/llamaindex_learning_system.py",
+      "bytes": 8203
+    },
+    {
+      "path": "examples/multimodal-demo/components.json",
+      "bytes": 415
+    },
+    {
+      "path": "examples/multimodal-demo/eslint.config.js",
+      "bytes": 734
+    },
+    {
+      "path": "examples/multimodal-demo/index.html",
+      "bytes": 378
+    },
+    {
+      "path": "examples/multimodal-demo/package.json",
+      "bytes": 1646
+    },
+    {
+      "path": "examples/multimodal-demo/postcss.config.js",
+      "bytes": 80
+    },
+    {
+      "path": "examples/multimodal-demo/src/App.tsx",
+      "bytes": 113
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/api-settings-popup.tsx",
+      "bytes": 3847
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/chevron-toggle.tsx",
+      "bytes": 1066
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/header.tsx",
+      "bytes": 2711
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/input-area.tsx",
+      "bytes": 3656
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/memories.tsx",
+      "bytes": 2592
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/messages.tsx",
+      "bytes": 3732
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/ui/avatar.tsx",
+      "bytes": 1420
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/ui/badge.tsx",
+      "bytes": 1141
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/ui/button.tsx",
+      "bytes": 1903
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/ui/card.tsx",
+      "bytes": 1848
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/ui/dialog.tsx",
+      "bytes": 3863
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/ui/input.tsx",
+      "bytes": 823
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/ui/label.tsx",
+      "bytes": 711
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/ui/scroll-area.tsx",
+      "bytes": 1643
+    },
+    {
+      "path": "examples/multimodal-demo/src/components/ui/select.tsx",
+      "bytes": 5652
+    },
+    {
+      "path": "examples/multimodal-demo/src/constants/messages.ts",
+      "bytes": 856
+    },
+    {
+      "path": "examples/multimodal-demo/src/contexts/GlobalContext.tsx",
+      "bytes": 2642
+    },
+    {
+      "path": "examples/multimodal-demo/src/hooks/useAuth.ts",
+      "bytes": 1941
+    },
+    {
+      "path": "examples/multimodal-demo/src/hooks/useChat.ts",
+      "bytes": 6839
+    },
+    {
+      "path": "examples/multimodal-demo/src/hooks/useFileHandler.ts",
+      "bytes": 1208
+    },
+    {
+      "path": "examples/multimodal-demo/src/index.css",
+      "bytes": 2150
+    },
+    {
+      "path": "examples/multimodal-demo/src/libs/utils.ts",
+      "bytes": 166
+    },
+    {
+      "path": "examples/multimodal-demo/src/main.tsx",
+      "bytes": 230
+    },
+    {
+      "path": "examples/multimodal-demo/src/page.tsx",
+      "bytes": 245
+    },
+    {
+      "path": "examples/multimodal-demo/src/pages/home.tsx",
+      "bytes": 1241
+    },
+    {
+      "path": "examples/multimodal-demo/src/types.ts",
+      "bytes": 383
+    },
+    {
+      "path": "examples/multimodal-demo/src/utils/fileUtils.ts",
+      "bytes": 547
+    },
+    {
+      "path": "examples/multimodal-demo/src/vite-env.d.ts",
+      "bytes": 38
+    },
+    {
+      "path": "examples/multimodal-demo/tailwind.config.js",
+      "bytes": 1797
+    },
+    {
+      "path": "examples/multimodal-demo/tsconfig.app.json",
+      "bytes": 748
+    },
+    {
+      "path": "examples/multimodal-demo/tsconfig.json",
+      "bytes": 213
+    },
+    {
+      "path": "examples/multimodal-demo/tsconfig.node.json",
+      "bytes": 593
+    },
+    {
+      "path": "examples/multimodal-demo/useChat.ts",
+      "bytes": 6839
+    },
+    {
+      "path": "examples/multimodal-demo/vite.config.ts",
+      "bytes": 263
+    },
+    {
+      "path": "examples/nemoclaw/install-mem0-plugin.sh",
+      "bytes": 18206
+    },
+    {
+      "path": "examples/nemoclaw/quickstart.md",
+      "bytes": 9351
+    },
+    {
+      "path": "examples/nemoclaw/setup-mem0-nemoclaw.sh",
+      "bytes": 35118
+    },
+    {
+      "path": "examples/notebooks/helper/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "examples/notebooks/helper/mem0_teachability.py",
+      "bytes": 7393
+    },
+    {
+      "path": "examples/openai-inbuilt-tools/index.js",
+      "bytes": 2724
+    },
+    {
+      "path": "examples/openai-inbuilt-tools/package.json",
+      "bytes": 532
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/components.json",
+      "bytes": 415
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/eslint.config.js",
+      "bytes": 734
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/index.html",
+      "bytes": 378
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/package.json",
+      "bytes": 1752
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/postcss.config.js",
+      "bytes": 80
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/App.tsx",
+      "bytes": 113
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/api-settings-popup.tsx",
+      "bytes": 3847
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/chevron-toggle.tsx",
+      "bytes": 1066
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/header.tsx",
+      "bytes": 2711
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/input-area.tsx",
+      "bytes": 3656
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/memories.tsx",
+      "bytes": 2592
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/messages.tsx",
+      "bytes": 3732
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/ui/avatar.tsx",
+      "bytes": 1420
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/ui/badge.tsx",
+      "bytes": 1141
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/ui/button.tsx",
+      "bytes": 1903
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/ui/card.tsx",
+      "bytes": 1848
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/ui/dialog.tsx",
+      "bytes": 3863
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/ui/input.tsx",
+      "bytes": 823
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/ui/label.tsx",
+      "bytes": 711
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/ui/scroll-area.tsx",
+      "bytes": 1643
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/components/ui/select.tsx",
+      "bytes": 5652
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/constants/messages.ts",
+      "bytes": 856
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/contexts/GlobalContext.tsx",
+      "bytes": 2642
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/hooks/useAuth.ts",
+      "bytes": 1941
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/hooks/useChat.ts",
+      "bytes": 4631
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/hooks/useFileHandler.ts",
+      "bytes": 1208
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/index.css",
+      "bytes": 2150
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/libs/utils.ts",
+      "bytes": 166
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/main.tsx",
+      "bytes": 230
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/page.tsx",
+      "bytes": 245
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/pages/home.tsx",
+      "bytes": 1241
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/types.ts",
+      "bytes": 383
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/utils/fileUtils.ts",
+      "bytes": 547
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/vite-env.d.ts",
+      "bytes": 38
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/tailwind.config.js",
+      "bytes": 1797
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/tsconfig.app.json",
+      "bytes": 748
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/tsconfig.json",
+      "bytes": 213
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/tsconfig.node.json",
+      "bytes": 593
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/vite.config.ts",
+      "bytes": 263
+    },
+    {
+      "path": "examples/yt-assistant-chrome/README.md",
+      "bytes": 2608
+    },
+    {
+      "path": "examples/yt-assistant-chrome/manifest.json",
+      "bytes": 1121
+    },
+    {
+      "path": "examples/yt-assistant-chrome/package.json",
+      "bytes": 766
+    },
+    {
+      "path": "examples/yt-assistant-chrome/public/options.html",
+      "bytes": 6385
+    },
+    {
+      "path": "examples/yt-assistant-chrome/public/popup.html",
+      "bytes": 6023
+    },
+    {
+      "path": "examples/yt-assistant-chrome/src/background.js",
+      "bytes": 7720
+    },
+    {
+      "path": "examples/yt-assistant-chrome/src/content.js",
+      "bytes": 22247
+    },
+    {
+      "path": "examples/yt-assistant-chrome/src/options.js",
+      "bytes": 12249
+    },
+    {
+      "path": "examples/yt-assistant-chrome/src/popup.js",
+      "bytes": 7842
+    },
+    {
+      "path": "examples/yt-assistant-chrome/styles/content.css",
+      "bytes": 9833
+    },
+    {
+      "path": "examples/yt-assistant-chrome/styles/options.css",
+      "bytes": 11105
+    },
+    {
+      "path": "examples/yt-assistant-chrome/styles/popup.css",
+      "bytes": 4584
+    },
+    {
+      "path": "examples/yt-assistant-chrome/webpack.config.js",
+      "bytes": 754
+    },
+    {
+      "path": "integrations/AGENTS.md",
+      "bytes": 7809
+    },
+    {
+      "path": "integrations/CLAUDE.md",
+      "bytes": 9
+    },
+    {
+      "path": "integrations/agent-plugin-core/README.md",
+      "bytes": 8989
+    },
+    {
+      "path": "integrations/agent-plugin-core/conformance/artifacts.py",
+      "bytes": 2175
+    },
+    {
+      "path": "integrations/agent-plugin-core/conformance/run.py",
+      "bytes": 10768
+    },
+    {
+      "path": "integrations/agent-plugin-core/python/flush_worker.py",
+      "bytes": 3415
+    },
+    {
+      "path": "integrations/agent-plugin-core/python/hook_runner.py",
+      "bytes": 13176
+    },
+    {
+      "path": "integrations/agent-plugin-core/python/mcp_server.py",
+      "bytes": 7883
+    },
+    {
+      "path": "integrations/agent-plugin-core/python/memory_cli.py",
+      "bytes": 5348
+    },
+    {
+      "path": "integrations/agent-plugin-core/python/memory_core.py",
+      "bytes": 96253
+    },
+    {
+      "path": "integrations/agent-plugin-core/python/telemetry.py",
+      "bytes": 39456
+    },
+    {
+      "path": "integrations/agent-plugin-core/requirements-dev.txt",
+      "bytes": 52
+    },
+    {
+      "path": "integrations/agent-plugin-core/tests/test_build.py",
+      "bytes": 6697
+    },
+    {
+      "path": "integrations/agent-plugin-core/tests/test_conformance.py",
+      "bytes": 5681
+    },
+    {
+      "path": "integrations/agent-plugin-core/tests/test_spool_delivery.py",
+      "bytes": 17885
+    },
+    {
+      "path": "integrations/agent-plugin-core/tests/test_subagents.py",
+      "bytes": 4462
+    },
+    {
+      "path": "integrations/agent-plugin-core/tests/test_uninitialised_identity.py",
+      "bytes": 10417
+    },
+    {
+      "path": "integrations/agent-plugin-core/tests/test_validate.py",
+      "bytes": 3373
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/package.json",
+      "bytes": 282
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/src/formatting.ts",
+      "bytes": 2786
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/src/identity.ts",
+      "bytes": 1145
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/src/lifecycle.ts",
+      "bytes": 5837
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/src/prompts.ts",
+      "bytes": 737
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/src/scoping.ts",
+      "bytes": 1698
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/src/telemetry.ts",
+      "bytes": 10363
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/tests/formatting.test.ts",
+      "bytes": 1520
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/tests/identity.test.ts",
+      "bytes": 955
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/tests/lifecycle.test.ts",
+      "bytes": 4330
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/tests/prompts.test.ts",
+      "bytes": 1168
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/tests/scoping.test.ts",
+      "bytes": 2065
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/tests/telemetry.test.ts",
+      "bytes": 13154
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/tsconfig.json",
+      "bytes": 247
+    },
+    {
+      "path": "integrations/antigravity-plugin/core/_harness_id.py",
+      "bytes": 489
+    },
+    {
+      "path": "integrations/antigravity-plugin/core/flush_worker.py",
+      "bytes": 3415
+    },
+    {
+      "path": "integrations/antigravity-plugin/core/hook_runner.py",
+      "bytes": 13176
+    },
+    {
+      "path": "integrations/antigravity-plugin/core/mcp_server.py",
+      "bytes": 7883
+    },
+    {
+      "path": "integrations/antigravity-plugin/core/memory_cli.py",
+      "bytes": 5348
+    },
+    {
+      "path": "integrations/antigravity-plugin/core/memory_core.py",
+      "bytes": 96253
+    },
+    {
+      "path": "integrations/antigravity-plugin/core/telemetry.py",
+      "bytes": 39456
+    },
+    {
+      "path": "integrations/antigravity-plugin/hooks.json",
+      "bytes": 451
+    },
+    {
+      "path": "integrations/antigravity-plugin/hooks/adapter.py",
+      "bytes": 6151
+    },
+    {
+      "path": "integrations/antigravity-plugin/mcp_config.json",
+      "bytes": 113
+    },
+    {
+      "path": "integrations/antigravity-plugin/plugin-build.json",
+      "bytes": 351
+    },
+    {
+      "path": "integrations/antigravity-plugin/plugin.json",
+      "bytes": 165
+    },
+    {
+      "path": "integrations/antigravity-plugin/skills/forget/SKILL.md",
+      "bytes": 1064
+    },
+    {
+      "path": "integrations/antigravity-plugin/skills/pause/SKILL.md",
+      "bytes": 772
+    },
+    {
+      "path": "integrations/antigravity-plugin/skills/remember/SKILL.md",
+      "bytes": 978
+    },
+    {
+      "path": "integrations/antigravity-plugin/skills/resume/SKILL.md",
+      "bytes": 476
+    },
+    {
+      "path": "integrations/antigravity-plugin/skills/search/SKILL.md",
+      "bytes": 1352
+    },
+    {
+      "path": "integrations/antigravity-plugin/skills/status/SKILL.md",
+      "bytes": 1179
+    },
+    {
+      "path": "integrations/antigravity-plugin/tests/test_antigravity.py",
+      "bytes": 5450
+    },
+    {
+      "path": "integrations/claude-code-plugin/.claude-plugin/plugin.json",
+      "bytes": 1829
+    },
+    {
+      "path": "integrations/claude-code-plugin/.mcp.json",
+      "bytes": 211
+    },
+    {
+      "path": "integrations/claude-code-plugin/README.md",
+      "bytes": 12077
+    },
+    {
+      "path": "integrations/claude-code-plugin/adapters/claude/hook.py",
+      "bytes": 1660
+    },
+    {
+      "path": "integrations/claude-code-plugin/adapters/claude/transcript.py",
+      "bytes": 13086
+    },
+    {
+      "path": "integrations/claude-code-plugin/agents/sidekick.md",
+      "bytes": 3998
+    },
+    {
+      "path": "integrations/claude-code-plugin/core/_harness_id.py",
+      "bytes": 489
+    },
+    {
+      "path": "integrations/claude-code-plugin/core/flush_worker.py",
+      "bytes": 3415
+    },
+    {
+      "path": "integrations/claude-code-plugin/core/hook_runner.py",
+      "bytes": 13176
+    },
+    {
+      "path": "integrations/claude-code-plugin/core/mcp_server.py",
+      "bytes": 7883
+    },
+    {
+      "path": "integrations/claude-code-plugin/core/memory_cli.py",
+      "bytes": 5348
+    },
+    {
+      "path": "integrations/claude-code-plugin/core/memory_core.py",
+      "bytes": 96253
+    },
+    {
+      "path": "integrations/claude-code-plugin/core/telemetry.py",
+      "bytes": 39456
+    },
+    {
+      "path": "integrations/claude-code-plugin/hooks/hooks.json",
+      "bytes": 3100
+    },
+    {
+      "path": "integrations/claude-code-plugin/plugin-build.json",
+      "bytes": 555
+    },
+    {
+      "path": "integrations/claude-code-plugin/skills/forget/SKILL.md",
+      "bytes": 1100
+    },
+    {
+      "path": "integrations/claude-code-plugin/skills/pause/SKILL.md",
+      "bytes": 808
+    },
+    {
+      "path": "integrations/claude-code-plugin/skills/remember/SKILL.md",
+      "bytes": 978
+    },
+    {
+      "path": "integrations/claude-code-plugin/skills/resume/SKILL.md",
+      "bytes": 512
+    },
+    {
+      "path": "integrations/claude-code-plugin/skills/search/SKILL.md",
+      "bytes": 1352
+    },
+    {
+      "path": "integrations/claude-code-plugin/skills/status/SKILL.md",
+      "bytes": 1251
+    },
+    {
+      "path": "integrations/claude-code-plugin/tests/conftest.py",
+      "bytes": 610
+    },
+    {
+      "path": "integrations/claude-code-plugin/tests/integration/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "integrations/claude-code-plugin/tests/integration/test_live_scoping.py",
+      "bytes": 10936
+    },
+    {
+      "path": "integrations/claude-code-plugin/tests/test_claude_build.py",
+      "bytes": 1576
+    },
+    {
+      "path": "integrations/claude-code-plugin/tests/test_memory_core.py",
+      "bytes": 163366
+    },
+    {
+      "path": "integrations/claude-code-plugin/tests/test_telemetry.py",
+      "bytes": 20667
+    },
+    {
+      "path": "integrations/codex-plugin/.codex-plugin/plugin.json",
+      "bytes": 489
+    },
+    {
+      "path": "integrations/codex-plugin/.mcp.json",
+      "bytes": 369
+    },
+    {
+      "path": "integrations/codex-plugin/core/_harness_id.py",
+      "bytes": 471
+    },
+    {
+      "path": "integrations/codex-plugin/core/flush_worker.py",
+      "bytes": 3415
+    },
+    {
+      "path": "integrations/codex-plugin/core/hook_runner.py",
+      "bytes": 13176
+    },
+    {
+      "path": "integrations/codex-plugin/core/mcp_server.py",
+      "bytes": 7883
+    },
+    {
+      "path": "integrations/codex-plugin/core/memory_cli.py",
+      "bytes": 5348
+    },
+    {
+      "path": "integrations/codex-plugin/core/memory_core.py",
+      "bytes": 96253
+    },
+    {
+      "path": "integrations/codex-plugin/core/telemetry.py",
+      "bytes": 39456
+    },
+    {
+      "path": "integrations/codex-plugin/hooks/adapter.py",
+      "bytes": 2003
+    },
+    {
+      "path": "integrations/codex-plugin/hooks/hooks.json",
+      "bytes": 2020
+    },
+    {
+      "path": "integrations/codex-plugin/plugin-build.json",
+      "bytes": 397
+    },
+    {
+      "path": "integrations/codex-plugin/skills/forget/SKILL.md",
+      "bytes": 1080
+    },
+    {
+      "path": "integrations/codex-plugin/skills/pause/SKILL.md",
+      "bytes": 788
+    },
+    {
+      "path": "integrations/codex-plugin/skills/remember/SKILL.md",
+      "bytes": 978
+    },
+    {
+      "path": "integrations/codex-plugin/skills/resume/SKILL.md",
+      "bytes": 492
+    },
+    {
+      "path": "integrations/codex-plugin/skills/search/SKILL.md",
+      "bytes": 1346
+    },
+    {
+      "path": "integrations/codex-plugin/skills/status/SKILL.md",
+      "bytes": 1211
+    },
+    {
+      "path": "integrations/codex-plugin/tests/test_codex.py",
+      "bytes": 4365
+    },
+    {
+      "path": "integrations/cursor-plugin/.cursor-plugin/plugin.json",
+      "bytes": 1251
+    },
+    {
+      "path": "integrations/cursor-plugin/core/_harness_id.py",
+      "bytes": 474
+    },
+    {
+      "path": "integrations/cursor-plugin/core/flush_worker.py",
+      "bytes": 3415
+    },
+    {
+      "path": "integrations/cursor-plugin/core/hook_runner.py",
+      "bytes": 13176
+    },
+    {
+      "path": "integrations/cursor-plugin/core/mcp_server.py",
+      "bytes": 7883
+    },
+    {
+      "path": "integrations/cursor-plugin/core/memory_cli.py",
+      "bytes": 5348
+    },
+    {
+      "path": "integrations/cursor-plugin/core/memory_core.py",
+      "bytes": 96253
+    },
+    {
+      "path": "integrations/cursor-plugin/core/telemetry.py",
+      "bytes": 39456
+    },
+    {
+      "path": "integrations/cursor-plugin/hooks/adapter.py",
+      "bytes": 3493
+    },
+    {
+      "path": "integrations/cursor-plugin/hooks/hooks.json",
+      "bytes": 1201
+    },
+    {
+      "path": "integrations/cursor-plugin/mcp.json",
+      "bytes": 456
+    },
+    {
+      "path": "integrations/cursor-plugin/plugin-build.json",
+      "bytes": 369
+    },
+    {
+      "path": "integrations/cursor-plugin/skills/forget/SKILL.md",
+      "bytes": 1054
+    },
+    {
+      "path": "integrations/cursor-plugin/skills/pause/SKILL.md",
+      "bytes": 762
+    },
+    {
+      "path": "integrations/cursor-plugin/skills/remember/SKILL.md",
+      "bytes": 978
+    },
+    {
+      "path": "integrations/cursor-plugin/skills/resume/SKILL.md",
+      "bytes": 466
+    },
+    {
+      "path": "integrations/cursor-plugin/skills/search/SKILL.md",
+      "bytes": 1347
+    },
+    {
+      "path": "integrations/cursor-plugin/skills/status/SKILL.md",
+      "bytes": 1159
+    },
+    {
+      "path": "integrations/cursor-plugin/tests/test_adapter.py",
+      "bytes": 2789
+    },
+    {
+      "path": "integrations/deepseek-plugin/LICENSE",
+      "bytes": 11349
+    },
+    {
+      "path": "integrations/deepseek-plugin/README.md",
+      "bytes": 5419
+    },
+    {
+      "path": "integrations/deepseek-plugin/cordis.example.yml",
+      "bytes": 858
+    },
+    {
+      "path": "integrations/deepseek-plugin/package.json",
+      "bytes": 1556
+    },
+    {
+      "path": "integrations/deepseek-plugin/src/formatting.ts",
+      "bytes": 235
+    },
+    {
+      "path": "integrations/deepseek-plugin/src/index.ts",
+      "bytes": 11699
+    },
+    {
+      "path": "integrations/deepseek-plugin/src/output.ts",
+      "bytes": 130
+    },
+    {
+      "path": "integrations/deepseek-plugin/src/scoping.ts",
+      "bytes": 244
+    },
+    {
+      "path": "integrations/deepseek-plugin/src/telemetry.ts",
+      "bytes": 2788
+    },
+    {
+      "path": "integrations/deepseek-plugin/tests/apply.test.ts",
+      "bytes": 9340
+    },
+    {
+      "path": "integrations/deepseek-plugin/tests/formatting.test.ts",
+      "bytes": 2456
+    },
+    {
+      "path": "integrations/deepseek-plugin/tests/output.test.ts",
+      "bytes": 1260
+    },
+    {
+      "path": "integrations/deepseek-plugin/tests/scoping.test.ts",
+      "bytes": 1719
+    },
+    {
+      "path": "integrations/deepseek-plugin/tests/telemetry.test.ts",
+      "bytes": 8104
+    },
+    {
+      "path": "integrations/deepseek-plugin/tsconfig.json",
+      "bytes": 527
+    },
+    {
+      "path": "integrations/deepseek-plugin/tsup.config.ts",
+      "bytes": 356
+    },
+    {
+      "path": "integrations/hermes-plugin-mem0/LICENSE",
+      "bytes": 12805
+    },
+    {
+      "path": "integrations/hermes-plugin-mem0/README.md",
+      "bytes": 9232
+    },
+    {
+      "path": "integrations/hermes-plugin-mem0/__init__.py",
+      "bytes": 27401
+    },
+    {
+      "path": "integrations/hermes-plugin-mem0/_backend.py",
+      "bytes": 17016
+    },
+    {
+      "path": "integrations/hermes-plugin-mem0/_openai_llm.py",
+      "bytes": 3612
+    },
+    {
+      "path": "integrations/hermes-plugin-mem0/_oss_providers.py",
+      "bytes": 2936
+    },
+    {
+      "path": "integrations/hermes-plugin-mem0/_setup.py",
+      "bytes": 30108
+    },
+    {
+      "path": "integrations/hermes-plugin-mem0/plugin.yaml",
+      "bytes": 207
+    },
+    {
+      "path": "integrations/hermes-plugin-mem0/pyproject.toml",
+      "bytes": 619
+    },
+    {
+      "path": "integrations/hermes-plugin-mem0/tests/smoke_hermes.py",
+      "bytes": 8973
+    },
+    {
+      "path": "integrations/hermes-plugin-mem0/tests/test_plugin.py",
+      "bytes": 14060
+    },
+    {
+      "path": "integrations/kimi-plugin/core/_harness_id.py",
+      "bytes": 468
+    },
+    {
+      "path": "integrations/kimi-plugin/core/flush_worker.py",
+      "bytes": 3415
+    },
+    {
+      "path": "integrations/kimi-plugin/core/hook_runner.py",
+      "bytes": 13176
+    },
+    {
+      "path": "integrations/kimi-plugin/core/mcp_server.py",
+      "bytes": 7883
+    },
+    {
+      "path": "integrations/kimi-plugin/core/memory_cli.py",
+      "bytes": 5348
+    },
+    {
+      "path": "integrations/kimi-plugin/core/memory_core.py",
+      "bytes": 96253
+    },
+    {
+      "path": "integrations/kimi-plugin/core/telemetry.py",
+      "bytes": 39456
+    },
+    {
+      "path": "integrations/kimi-plugin/hooks/adapter.py",
+      "bytes": 4922
+    },
+    {
+      "path": "integrations/kimi-plugin/kimi.plugin.json",
+      "bytes": 1346
+    },
+    {
+      "path": "integrations/kimi-plugin/plugin-build.json",
+      "bytes": 269
+    },
+    {
+      "path": "integrations/kimi-plugin/skills/forget/SKILL.md",
+      "bytes": 1050
+    },
+    {
+      "path": "integrations/kimi-plugin/skills/pause/SKILL.md",
+      "bytes": 758
+    },
+    {
+      "path": "integrations/kimi-plugin/skills/remember/SKILL.md",
+      "bytes": 978
+    },
+    {
+      "path": "integrations/kimi-plugin/skills/resume/SKILL.md",
+      "bytes": 462
+    },
+    {
+      "path": "integrations/kimi-plugin/skills/search/SKILL.md",
+      "bytes": 1345
+    },
+    {
+      "path": "integrations/kimi-plugin/skills/status/SKILL.md",
+      "bytes": 1151
+    },
+    {
+      "path": "integrations/kimi-plugin/tests/test_kimi.py",
+      "bytes": 5044
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/core/_harness_id.py",
+      "bytes": 480
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/core/mcp_server.py",
+      "bytes": 7883
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/core/memory_cli.py",
+      "bytes": 5348
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/core/memory_core.py",
+      "bytes": 96253
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/core/telemetry.py",
+      "bytes": 39456
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/mcp.json",
+      "bytes": 237
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/plugin.json",
+      "bytes": 499
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/skills/forget/SKILL.md",
+      "bytes": 1022
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/skills/pause/SKILL.md",
+      "bytes": 730
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/skills/remember/SKILL.md",
+      "bytes": 947
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/skills/resume/SKILL.md",
+      "bytes": 434
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/skills/search/SKILL.md",
+      "bytes": 1204
+    },
+    {
+      "path": "integrations/mem0-agent-plugin/skills/status/SKILL.md",
+      "bytes": 1125
+    },
+    {
+      "path": "integrations/mem0-strands/LICENSE",
+      "bytes": 11349
+    },
+    {
+      "path": "integrations/mem0-strands/NOTICE",
+      "bytes": 320
+    },
+    {
+      "path": "integrations/mem0-strands/README.md",
+      "bytes": 4774
+    },
+    {
+      "path": "integrations/mem0-strands/python/README.md",
+      "bytes": 1126
+    },
+    {
+      "path": "integrations/mem0-strands/python/pyproject.toml",
+      "bytes": 2299
+    },
+    {
+      "path": "integrations/mem0-strands/python/src/mem0_strands/__init__.py",
+      "bytes": 979
+    },
+    {
+      "path": "integrations/mem0-strands/python/src/mem0_strands/client.py",
+      "bytes": 7629
+    },
+    {
+      "path": "integrations/mem0-strands/python/src/mem0_strands/store.py",
+      "bytes": 12320
+    },
+    {
+      "path": "integrations/mem0-strands/python/src/mem0_strands/telemetry.py",
+      "bytes": 2527
+    },
+    {
+      "path": "integrations/mem0-strands/python/tests/conftest.py",
+      "bytes": 256
+    },
+    {
+      "path": "integrations/mem0-strands/python/tests/test_client.py",
+      "bytes": 7310
+    },
+    {
+      "path": "integrations/mem0-strands/python/tests/test_store.py",
+      "bytes": 8886
+    },
+    {
+      "path": "integrations/mem0-strands/python/tests/test_telemetry.py",
+      "bytes": 6161
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/.eslintrc.js",
+      "bytes": 1568
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/.prettierrc.js",
+      "bytes": 149
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/LICENSE",
+      "bytes": 1077
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/README.md",
+      "bytes": 3612
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/credentials/Mem0Api.credentials.ts",
+      "bytes": 1374
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/gulpfile.js",
+      "bytes": 669
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/index.js",
+      "bytes": 135
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/jest.config.js",
+      "bytes": 356
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/nodes/Mem0/Mem0.node.json",
+      "bytes": 364
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/nodes/Mem0/Mem0.node.ts",
+      "bytes": 19663
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/package.json",
+      "bytes": 2087
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/test/Mem0.node.test.ts",
+      "bytes": 6869
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/tsconfig.json",
+      "bytes": 747
+    },
+    {
+      "path": "integrations/openclaw/LICENSE",
+      "bytes": 11349
+    },
+    {
+      "path": "integrations/openclaw/Makefile",
+      "bytes": 7426
+    },
+    {
+      "path": "integrations/openclaw/README.md",
+      "bytes": 15870
+    },
+    {
+      "path": "integrations/openclaw/backend/base.ts",
+      "bytes": 2483
+    },
+    {
+      "path": "integrations/openclaw/backend/index.ts",
+      "bytes": 237
+    },
+    {
+      "path": "integrations/openclaw/backend/platform.ts",
+      "bytes": 10367
+    },
+    {
+      "path": "integrations/openclaw/cli/commands.ts",
+      "bytes": 72495
+    },
+    {
+      "path": "integrations/openclaw/cli/config-file.ts",
+      "bytes": 8486
+    },
+    {
+      "path": "integrations/openclaw/cli/json-helpers.ts",
+      "bytes": 922
+    },
+    {
+      "path": "integrations/openclaw/cli/oss-wizard.ts",
+      "bytes": 8800
+    },
+    {
+      "path": "integrations/openclaw/config.ts",
+      "bytes": 11684
+    },
+    {
+      "path": "integrations/openclaw/filtering.ts",
+      "bytes": 7772
+    },
+    {
+      "path": "integrations/openclaw/fs-safe.ts",
+      "bytes": 1166
+    },
+    {
+      "path": "integrations/openclaw/index.test.ts",
+      "bytes": 21965
+    },
+    {
+      "path": "integrations/openclaw/index.ts",
+      "bytes": 33129
+    },
+    {
+      "path": "integrations/openclaw/isolation.ts",
+      "bytes": 3585
+    },
+    {
+      "path": "integrations/openclaw/openclaw-plugin-sdk.d.ts",
+      "bytes": 2351
+    },
+    {
+      "path": "integrations/openclaw/openclaw.plugin.json",
+      "bytes": 10111
+    },
+    {
+      "path": "integrations/openclaw/package.json",
+      "bytes": 1884
+    },
+    {
+      "path": "integrations/openclaw/pnpm-workspace.yaml",
+      "bytes": 685
+    },
+    {
+      "path": "integrations/openclaw/providers.ts",
+      "bytes": 21908
+    },
+    {
+      "path": "integrations/openclaw/public-artifacts.ts",
+      "bytes": 3306
+    },
+    {
+      "path": "integrations/openclaw/recall.ts",
+      "bytes": 9316
+    },
+    {
+      "path": "integrations/openclaw/scripts/configure.py",
+      "bytes": 2229
+    },
+    {
+      "path": "integrations/openclaw/skill-loader.test.ts",
+      "bytes": 6411
+    },
+    {
+      "path": "integrations/openclaw/skill-loader.ts",
+      "bytes": 24897
+    },
+    {
+      "path": "integrations/openclaw/skills/memory-triage/SKILL.md",
+      "bytes": 20379
+    },
+    {
+      "path": "integrations/openclaw/skills/memory-triage/domains/companion.md",
+      "bytes": 3495
+    },
+    {
+      "path": "integrations/openclaw/skills/memory-triage/recall-protocol.md",
+      "bytes": 10169
+    },
+    {
+      "path": "integrations/openclaw/sqlite-resilience.test.ts",
+      "bytes": 26009
+    },
+    {
+      "path": "integrations/openclaw/telemetry.ts",
+      "bytes": 5876
+    },
+    {
+      "path": "integrations/openclaw/test-shims/plugin-entry.ts",
+      "bytes": 187
+    },
+    {
+      "path": "integrations/openclaw/test-shims/plugin-sdk.ts",
+      "bytes": 744
+    },
+    {
+      "path": "integrations/openclaw/tests/backend-platform.test.ts",
+      "bytes": 11896
+    },
+    {
+      "path": "integrations/openclaw/tests/cli-commands.test.ts",
+      "bytes": 54655
+    },
+    {
+      "path": "integrations/openclaw/tests/config-file.test.ts",
+      "bytes": 8390
+    },
+    {
+      "path": "integrations/openclaw/tests/config.test.ts",
+      "bytes": 17664
+    },
+    {
+      "path": "integrations/openclaw/tests/filtering.test.ts",
+      "bytes": 3494
+    },
+    {
+      "path": "integrations/openclaw/tests/fs-safe.test.ts",
+      "bytes": 1045
+    },
+    {
+      "path": "integrations/openclaw/tests/json-helpers.test.ts",
+      "bytes": 2088
+    },
+    {
+      "path": "integrations/openclaw/tests/oss-wizard.test.ts",
+      "bytes": 8646
+    },
+    {
+      "path": "integrations/openclaw/tests/providers.test.ts",
+      "bytes": 11338
+    },
+    {
+      "path": "integrations/openclaw/tests/telemetry.test.ts",
+      "bytes": 5061
+    },
+    {
+      "path": "integrations/openclaw/tests/tools.test.ts",
+      "bytes": 28485
+    },
+    {
+      "path": "integrations/openclaw/tools/index.ts",
+      "bytes": 1987
+    },
+    {
+      "path": "integrations/openclaw/tools/memory-add.ts",
+      "bytes": 6030
+    },
+    {
+      "path": "integrations/openclaw/tools/memory-delete.ts",
+      "bytes": 4294
+    },
+    {
+      "path": "integrations/openclaw/tools/memory-event-list.ts",
+      "bytes": 2491
+    },
+    {
+      "path": "integrations/openclaw/tools/memory-event-status.ts",
+      "bytes": 2763
+    },
+    {
+      "path": "integrations/openclaw/tools/memory-get.ts",
+      "bytes": 1338
+    },
+    {
+      "path": "integrations/openclaw/tools/memory-list.ts",
+      "bytes": 3122
+    },
+    {
+      "path": "integrations/openclaw/tools/memory-search.ts",
+      "bytes": 4150
+    },
+    {
+      "path": "integrations/openclaw/tools/memory-update.ts",
+      "bytes": 1776
+    },
+    {
+      "path": "integrations/openclaw/tsconfig.json",
+      "bytes": 824
+    },
+    {
+      "path": "integrations/openclaw/tsup.config.ts",
+      "bytes": 470
+    },
+    {
+      "path": "integrations/openclaw/types.ts",
+      "bytes": 3820
+    },
+    {
+      "path": "integrations/openclaw/vitest.config.ts",
+      "bytes": 611
+    },
+    {
+      "path": "integrations/opencode-plugin/LICENSE",
+      "bytes": 11349
+    },
+    {
+      "path": "integrations/opencode-plugin/README.md",
+      "bytes": 5763
+    },
+    {
+      "path": "integrations/opencode-plugin/api-key.test.ts",
+      "bytes": 5664
+    },
+    {
+      "path": "integrations/opencode-plugin/api-key.ts",
+      "bytes": 939
+    },
+    {
+      "path": "integrations/opencode-plugin/index.d.ts",
+      "bytes": 113
+    },
+    {
+      "path": "integrations/opencode-plugin/opencode-mem0.ts",
+      "bytes": 36058
+    },
+    {
+      "path": "integrations/opencode-plugin/opencode-skills/mem0-context-loader/SKILL.md",
+      "bytes": 1544
+    },
+    {
+      "path": "integrations/opencode-plugin/opencode-skills/mem0-forget/SKILL.md",
+      "bytes": 2658
+    },
+    {
+      "path": "integrations/opencode-plugin/opencode-skills/mem0-remember/SKILL.md",
+      "bytes": 2241
+    },
+    {
+      "path": "integrations/opencode-plugin/opencode-skills/mem0-scope/SKILL.md",
+      "bytes": 4564
+    },
+    {
+      "path": "integrations/opencode-plugin/opencode-skills/mem0-search/SKILL.md",
+      "bytes": 2012
+    },
+    {
+      "path": "integrations/opencode-plugin/opencode-skills/mem0-status/SKILL.md",
+      "bytes": 6088
+    },
+    {
+      "path": "integrations/opencode-plugin/opencode-skills/mem0-tour/SKILL.md",
+      "bytes": 6574
+    },
+    {
+      "path": "integrations/opencode-plugin/package.json",
+      "bytes": 1563
+    },
+    {
+      "path": "integrations/opencode-plugin/project.test.ts",
+      "bytes": 1080
+    },
+    {
+      "path": "integrations/opencode-plugin/project.ts",
+      "bytes": 90
+    },
+    {
+      "path": "integrations/opencode-plugin/scope.test.ts",
+      "bytes": 2267
+    },
+    {
+      "path": "integrations/opencode-plugin/scope.ts",
+      "bytes": 1288
+    },
+    {
+      "path": "integrations/opencode-plugin/telemetry.test.ts",
+      "bytes": 5265
+    },
+    {
+      "path": "integrations/opencode-plugin/telemetry.ts",
+      "bytes": 2939
+    },
+    {
+      "path": "integrations/opencode-plugin/tsconfig.json",
+      "bytes": 509
+    },
+    {
+      "path": "integrations/pi-agent-plugin/LICENSE",
+      "bytes": 11349
+    },
+    {
+      "path": "integrations/pi-agent-plugin/README.md",
+      "bytes": 6419
+    },
+    {
+      "path": "integrations/pi-agent-plugin/package.json",
+      "bytes": 1949
+    },
+    {
+      "path": "integrations/pi-agent-plugin/pnpm-workspace.yaml",
+      "bytes": 415
+    },
+    {
+      "path": "integrations/pi-agent-plugin/skills/context-loader/SKILL.md",
+      "bytes": 1172
+    },
+    {
+      "path": "integrations/pi-agent-plugin/skills/forget/SKILL.md",
+      "bytes": 1440
+    },
+    {
+      "path": "integrations/pi-agent-plugin/skills/remember/SKILL.md",
+      "bytes": 1641
+    },
+    {
+      "path": "integrations/pi-agent-plugin/skills/search/SKILL.md",
+      "bytes": 1207
+    },
+    {
+      "path": "integrations/pi-agent-plugin/skills/status/SKILL.md",
+      "bytes": 2616
+    },
+    {
+      "path": "integrations/pi-agent-plugin/skills/tour/SKILL.md",
+      "bytes": 2619
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/attribution.test.ts",
+      "bytes": 3504
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/attribution.ts",
+      "bytes": 2414
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/capture/index.ts",
+      "bytes": 1606
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/commands.test.ts",
+      "bytes": 12297
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/commands.ts",
+      "bytes": 9514
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/config/index.ts",
+      "bytes": 1036
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/entry.test.ts",
+      "bytes": 2089
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/entry.ts",
+      "bytes": 3889
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/index.ts",
+      "bytes": 847
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/memory/formatting.ts",
+      "bytes": 241
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/memory/scoping.test.ts",
+      "bytes": 2864
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/memory/scoping.ts",
+      "bytes": 1105
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/memory/tools.ts",
+      "bytes": 8692
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/prompt.ts",
+      "bytes": 857
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/telemetry.test.ts",
+      "bytes": 1744
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/telemetry.ts",
+      "bytes": 3066
+    },
+    {
+      "path": "integrations/pi-agent-plugin/src/types.ts",
+      "bytes": 1209
+    },
+    {
+      "path": "integrations/pi-agent-plugin/tests/capture.test.ts",
+      "bytes": 2610
+    },
+    {
+      "path": "integrations/pi-agent-plugin/tests/config.test.ts",
+      "bytes": 1809
+    },
+    {
+      "path": "integrations/pi-agent-plugin/tests/formatting.test.ts",
+      "bytes": 1529
+    },
+    {
+      "path": "integrations/pi-agent-plugin/tests/scoping.test.ts",
+      "bytes": 1402
+    },
+    {
+      "path": "integrations/pi-agent-plugin/tests/telemetry.test.ts",
+      "bytes": 4013
+    },
+    {
+      "path": "integrations/pi-agent-plugin/tests/tools.test.ts",
+      "bytes": 3257
+    },
+    {
+      "path": "integrations/pi-agent-plugin/tsconfig.json",
+      "bytes": 609
+    },
+    {
+      "path": "integrations/pi-agent-plugin/tsup.config.ts",
+      "bytes": 305
+    },
+    {
+      "path": "integrations/pi-agent-plugin/vitest.config.ts",
+      "bytes": 115
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/README.md",
+      "bytes": 7151
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/config/test-config.ts",
+      "bytes": 2610
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/jest.config.js",
+      "bytes": 113
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/nodemon.json",
+      "bytes": 88
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/package.json",
+      "bytes": 2619
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/pnpm-workspace.yaml",
+      "bytes": 545
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/src/index.ts",
+      "bytes": 333
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/src/mem0-facade.ts",
+      "bytes": 1100
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/src/mem0-generic-language-model.ts",
+      "bytes": 5628
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/src/mem0-provider-selector.ts",
+      "bytes": 1216
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/src/mem0-provider.ts",
+      "bytes": 3721
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/src/mem0-types.ts",
+      "bytes": 1147
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/src/mem0-utils.ts",
+      "bytes": 17304
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/src/provider-response-provider.ts",
+      "bytes": 3743
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/src/stream-utils.ts",
+      "bytes": 866
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/teardown.ts",
+      "bytes": 369
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/generate-output.test.ts",
+      "bytes": 2842
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/mem0-provider-tests/mem0-cohere.test.ts",
+      "bytes": 1568
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/mem0-provider-tests/mem0-google.test.ts",
+      "bytes": 1506
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/mem0-provider-tests/mem0-groq.test.ts",
+      "bytes": 1555
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/mem0-provider-tests/mem0-openai-structured-ouput.test.ts",
+      "bytes": 4228
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/mem0-provider-tests/mem0-openai.test.ts",
+      "bytes": 1461
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/mem0-provider-tests/mem0_anthropic.test.ts",
+      "bytes": 1609
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/mem0-toolcalls.test.ts",
+      "bytes": 3434
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/memory-core.test.ts",
+      "bytes": 2452
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/text-properties.test.ts",
+      "bytes": 2160
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/utils-test/anthropic-integration.test.ts",
+      "bytes": 1885
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/utils-test/cohere-integration.test.ts",
+      "bytes": 1746
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/utils-test/google-integration.test.ts",
+      "bytes": 1735
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/utils-test/groq-integration.test.ts",
+      "bytes": 1725
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/utils-test/openai-integration.test.ts",
+      "bytes": 1700
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tests/v3-provider-contract.test.ts",
+      "bytes": 16286
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tsconfig.json",
+      "bytes": 838
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/tsup.config.ts",
+      "bytes": 515
+    },
+    {
+      "path": "integrations/zapier-mem0/LICENSE",
+      "bytes": 11349
+    },
+    {
+      "path": "integrations/zapier-mem0/README.md",
+      "bytes": 1894
+    },
+    {
+      "path": "integrations/zapier-mem0/index.js",
+      "bytes": 207
+    },
+    {
+      "path": "integrations/zapier-mem0/package.json",
+      "bytes": 1612
+    },
+    {
+      "path": "integrations/zapier-mem0/pnpm-workspace.yaml",
+      "bytes": 283
+    },
+    {
+      "path": "integrations/zapier-mem0/src/authentication.ts",
+      "bytes": 1045
+    },
+    {
+      "path": "integrations/zapier-mem0/src/creates/add_memory.ts",
+      "bytes": 5987
+    },
+    {
+      "path": "integrations/zapier-mem0/src/creates/delete_memory.ts",
+      "bytes": 768
+    },
+    {
+      "path": "integrations/zapier-mem0/src/index.ts",
+      "bytes": 792
+    },
+    {
+      "path": "integrations/zapier-mem0/src/middleware.ts",
+      "bytes": 1801
+    },
+    {
+      "path": "integrations/zapier-mem0/src/searches/get_memories.ts",
+      "bytes": 1409
+    },
+    {
+      "path": "integrations/zapier-mem0/src/searches/search_memories.ts",
+      "bytes": 1208
+    },
+    {
+      "path": "integrations/zapier-mem0/src/types.ts",
+      "bytes": 988
+    },
+    {
+      "path": "integrations/zapier-mem0/test/mem0.test.ts",
+      "bytes": 3197
+    },
+    {
+      "path": "integrations/zapier-mem0/test/setup.ts",
+      "bytes": 220
+    },
+    {
+      "path": "integrations/zapier-mem0/test/unit.test.ts",
+      "bytes": 6818
+    },
+    {
+      "path": "integrations/zapier-mem0/tsconfig.json",
+      "bytes": 455
+    },
+    {
+      "path": "marketplace.json",
+      "bytes": 436
+    },
+    {
+      "path": "mem0-ts/AGENTS.md",
+      "bytes": 2072
+    },
+    {
+      "path": "mem0-ts/CLAUDE.md",
+      "bytes": 9
+    },
+    {
+      "path": "mem0-ts/README.md",
+      "bytes": 2571
+    },
+    {
+      "path": "mem0-ts/jest.config.js",
+      "bytes": 723
+    },
+    {
+      "path": "mem0-ts/jest.integration.config.js",
+      "bytes": 401
+    },
+    {
+      "path": "mem0-ts/jest.setup.ts",
+      "bytes": 91
+    },
+    {
+      "path": "mem0-ts/package.json",
+      "bytes": 8404
+    },
+    {
+      "path": "mem0-ts/pnpm-workspace.yaml",
+      "bytes": 1550
+    },
+    {
+      "path": "mem0-ts/src/client/config.ts",
+      "bytes": 4748
+    },
+    {
+      "path": "mem0-ts/src/client/index.ts",
+      "bytes": 1226
+    },
+    {
+      "path": "mem0-ts/src/client/mem0.ts",
+      "bytes": 33615
+    },
+    {
+      "path": "mem0-ts/src/client/mem0.types.ts",
+      "bytes": 9379
+    },
+    {
+      "path": "mem0-ts/src/client/telemetry.ts",
+      "bytes": 3958
+    },
+    {
+      "path": "mem0-ts/src/client/telemetry.types.ts",
+      "bytes": 654
+    },
+    {
+      "path": "mem0-ts/src/client/tests/helpers.ts",
+      "bytes": 5149
+    },
+    {
+      "path": "mem0-ts/src/client/tests/integration/batch.test.ts",
+      "bytes": 1803
+    },
+    {
+      "path": "mem0-ts/src/client/tests/integration/crud.test.ts",
+      "bytes": 9236
+    },
+    {
+      "path": "mem0-ts/src/client/tests/integration/global-setup.ts",
+      "bytes": 1101
+    },
+    {
+      "path": "mem0-ts/src/client/tests/integration/global-teardown.ts",
+      "bytes": 734
+    },
+    {
+      "path": "mem0-ts/src/client/tests/integration/helpers.ts",
+      "bytes": 6616
+    },
+    {
+      "path": "mem0-ts/src/client/tests/integration/initialization.test.ts",
+      "bytes": 1822
+    },
+    {
+      "path": "mem0-ts/src/client/tests/integration/management.test.ts",
+      "bytes": 7830
+    },
+    {
+      "path": "mem0-ts/src/client/tests/integration/search.test.ts",
+      "bytes": 4520
+    },
+    {
+      "path": "mem0-ts/src/client/tests/memoryClient.batch.test.ts",
+      "bytes": 3845
+    },
+    {
+      "path": "mem0-ts/src/client/tests/memoryClient.crud.test.ts",
+      "bytes": 15622
+    },
+    {
+      "path": "mem0-ts/src/client/tests/memoryClient.entityGuards.test.ts",
+      "bytes": 7104
+    },
+    {
+      "path": "mem0-ts/src/client/tests/memoryClient.exports.test.ts",
+      "bytes": 1552
+    },
+    {
+      "path": "mem0-ts/src/client/tests/memoryClient.identity.test.ts",
+      "bytes": 8064
+    },
+    {
+      "path": "mem0-ts/src/client/tests/memoryClient.init.test.ts",
+      "bytes": 6870
+    },
+    {
+      "path": "mem0-ts/src/client/tests/memoryClient.profiles.test.ts",
+      "bytes": 11541
+    },
+    {
+      "path": "mem0-ts/src/client/tests/memoryClient.project.test.ts",
+      "bytes": 9709
+    },
+    {
+      "path": "mem0-ts/src/client/tests/memoryClient.search.test.ts",
+      "bytes": 14152
+    },
+    {
+      "path": "mem0-ts/src/client/tests/memoryClient.users.test.ts",
+      "bytes": 3740
+    },
+    {
+      "path": "mem0-ts/src/client/tests/memoryClient.webhooks.test.ts",
+      "bytes": 6418
+    },
+    {
+      "path": "mem0-ts/src/client/tests/setup.ts",
+      "bytes": 2228
+    },
+    {
+      "path": "mem0-ts/src/client/tests/telemetry-aliasing.test.ts",
+      "bytes": 14058
+    },
+    {
+      "path": "mem0-ts/src/client/tests/utils.test.ts",
+      "bytes": 4515
+    },
+    {
+      "path": "mem0-ts/src/client/utils.ts",
+      "bytes": 2940
+    },
+    {
+      "path": "mem0-ts/src/common/exceptions.test.ts",
+      "bytes": 7785
+    },
+    {
+      "path": "mem0-ts/src/common/exceptions.ts",
+      "bytes": 5925
+    },
+    {
+      "path": "mem0-ts/src/community/package.json",
+      "bytes": 2142
+    },
+    {
+      "path": "mem0-ts/src/community/src/index.ts",
+      "bytes": 42
+    },
+    {
+      "path": "mem0-ts/src/community/src/integrations/langchain/index.ts",
+      "bytes": 24
+    },
+    {
+      "path": "mem0-ts/src/community/src/integrations/langchain/mem0.ts",
+      "bytes": 8930
+    },
+    {
+      "path": "mem0-ts/src/community/tsconfig.json",
+      "bytes": 530
+    },
+    {
+      "path": "mem0-ts/src/global.d.ts",
+      "bytes": 264
+    },
+    {
+      "path": "mem0-ts/src/oss/README.md",
+      "bytes": 5100
+    },
+    {
+      "path": "mem0-ts/src/oss/examples/basic.ts",
+      "bytes": 8182
+    },
+    {
+      "path": "mem0-ts/src/oss/examples/llms/mistral-example.ts",
+      "bytes": 2246
+    },
+    {
+      "path": "mem0-ts/src/oss/examples/local-llms.ts",
+      "bytes": 2180
+    },
+    {
+      "path": "mem0-ts/src/oss/examples/utils/test-utils.ts",
+      "bytes": 2914
+    },
+    {
+      "path": "mem0-ts/src/oss/examples/vector-stores/azure-ai-search.ts",
+      "bytes": 1646
+    },
+    {
+      "path": "mem0-ts/src/oss/examples/vector-stores/index.ts",
+      "bytes": 1548
+    },
+    {
+      "path": "mem0-ts/src/oss/examples/vector-stores/memory.ts",
+      "bytes": 822
+    },
+    {
+      "path": "mem0-ts/src/oss/examples/vector-stores/pgvector.ts",
+      "bytes": 1290
+    },
+    {
+      "path": "mem0-ts/src/oss/examples/vector-stores/qdrant.ts",
+      "bytes": 1260
+    },
+    {
+      "path": "mem0-ts/src/oss/examples/vector-stores/redis.ts",
+      "bytes": 1099
+    },
+    {
+      "path": "mem0-ts/src/oss/examples/vector-stores/supabase.ts",
+      "bytes": 1206
+    },
+    {
+      "path": "mem0-ts/src/oss/package.json",
+      "bytes": 1325
+    },
+    {
+      "path": "mem0-ts/src/oss/src/config/defaults.ts",
+      "bytes": 731
+    },
+    {
+      "path": "mem0-ts/src/oss/src/config/manager.ts",
+      "bytes": 9666
+    },
+    {
+      "path": "mem0-ts/src/oss/src/embeddings/aws_bedrock.ts",
+      "bytes": 9894
+    },
+    {
+      "path": "mem0-ts/src/oss/src/embeddings/azure.ts",
+      "bytes": 1922
+    },
+    {
+      "path": "mem0-ts/src/oss/src/embeddings/base.ts",
+      "bytes": 238
+    },
+    {
+      "path": "mem0-ts/src/oss/src/embeddings/fastembed.ts",
+      "bytes": 3095
+    },
+    {
+      "path": "mem0-ts/src/oss/src/embeddings/google.ts",
+      "bytes": 1619
+    },
+    {
+      "path": "mem0-ts/src/oss/src/embeddings/huggingface.ts",
+      "bytes": 2582
+    },
+    {
+      "path": "mem0-ts/src/oss/src/embeddings/langchain.ts",
+      "bytes": 1931
+    },
+    {
+      "path": "mem0-ts/src/oss/src/embeddings/lmstudio.ts",
+      "bytes": 1842
+    },
+    {
+      "path": "mem0-ts/src/oss/src/embeddings/ollama.ts",
+      "bytes": 2621
+    },
+    {
+      "path": "mem0-ts/src/oss/src/embeddings/openai.ts",
+      "bytes": 1749
+    },
+    {
+      "path": "mem0-ts/src/oss/src/embeddings/together.ts",
+      "bytes": 989
+    },
+    {
+      "path": "mem0-ts/src/oss/src/embeddings/vertexai.ts",
+      "bytes": 8265
+    },
+    {
+      "path": "mem0-ts/src/oss/src/index.ts",
+      "bytes": 2326
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/anthropic.ts",
+      "bytes": 4000
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/aws_bedrock.ts",
+      "bytes": 9953
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/azure.ts",
+      "bytes": 2298
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/base.ts",
+      "bytes": 413
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/deepseek.ts",
+      "bytes": 1250
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/google.ts",
+      "bytes": 3264
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/groq.ts",
+      "bytes": 1992
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/langchain.ts",
+      "bytes": 6894
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/litellm.ts",
+      "bytes": 1146
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/lmstudio.ts",
+      "bytes": 1298
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/minimax.ts",
+      "bytes": 1244
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/mistral.ts",
+      "bytes": 3442
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/ollama.ts",
+      "bytes": 3313
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/openai.ts",
+      "bytes": 2116
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/openai_structured.ts",
+      "bytes": 2449
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/sarvam.ts",
+      "bytes": 1621
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/together.ts",
+      "bytes": 1259
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/vllm.ts",
+      "bytes": 1463
+    },
+    {
+      "path": "mem0-ts/src/oss/src/llms/xai.ts",
+      "bytes": 1571
+    },
+    {
+      "path": "mem0-ts/src/oss/src/memory/index.ts",
+      "bytes": 70149
+    },
+    {
+      "path": "mem0-ts/src/oss/src/memory/memory.types.ts",
+      "bytes": 1680
+    },
+    {
+      "path": "mem0-ts/src/oss/src/prompts/index.ts",
+      "bytes": 56092
+    },
+    {
+      "path": "mem0-ts/src/oss/src/rerankers/base.ts",
+      "bytes": 634
+    },
+    {
+      "path": "mem0-ts/src/oss/src/rerankers/cohere.test.ts",
+      "bytes": 4280
+    },
+    {
+      "path": "mem0-ts/src/oss/src/rerankers/cohere.ts",
+      "bytes": 2608
+    },
+    {
+      "path": "mem0-ts/src/oss/src/rerankers/cross_encoder.test.ts",
+      "bytes": 6472
+    },
+    {
+      "path": "mem0-ts/src/oss/src/rerankers/cross_encoder.ts",
+      "bytes": 3265
+    },
+    {
+      "path": "mem0-ts/src/oss/src/rerankers/llm.test.ts",
+      "bytes": 6522
+    },
+    {
+      "path": "mem0-ts/src/oss/src/rerankers/llm.ts",
+      "bytes": 2774
+    },
+    {
+      "path": "mem0-ts/src/oss/src/rerankers/zeroentropy.test.ts",
+      "bytes": 4104
+    },
+    {
+      "path": "mem0-ts/src/oss/src/rerankers/zeroentropy.ts",
+      "bytes": 2523
+    },
+    {
+      "path": "mem0-ts/src/oss/src/storage/DummyHistoryManager.ts",
+      "bytes": 454
+    },
+    {
+      "path": "mem0-ts/src/oss/src/storage/MemoryHistoryManager.ts",
+      "bytes": 1469
+    },
+    {
+      "path": "mem0-ts/src/oss/src/storage/SQLiteManager.ts",
+      "bytes": 4484
+    },
+    {
+      "path": "mem0-ts/src/oss/src/storage/SupabaseHistoryManager.ts",
+      "bytes": 3747
+    },
+    {
+      "path": "mem0-ts/src/oss/src/storage/base.ts",
+      "bytes": 979
+    },
+    {
+      "path": "mem0-ts/src/oss/src/storage/index.ts",
+      "bytes": 178
+    },
+    {
+      "path": "mem0-ts/src/oss/src/tests/aws_bedrock.test.ts",
+      "bytes": 8905
+    },
+    {
+      "path": "mem0-ts/src/oss/src/tests/better-sqlite3-migration.test.ts",
+      "bytes": 11313
+    },
+    {
+      "path": "mem0-ts/src/oss/src/tests/chroma.test.ts",
+      "bytes": 15154
+    },
+    {
+      "path": "mem0-ts/src/oss/src/tests/milvus.test.ts",
+      "bytes": 20452
+    },
+    {
+      "path": "mem0-ts/src/oss/src/tests/mongodb.test.ts",
+      "bytes": 11216
+    },
+    {
+      "path": "mem0-ts/src/oss/src/tests/pinecone.test.ts",
+      "bytes": 16656
+    },
+    {
+      "path": "mem0-ts/src/oss/src/tests/sqlite-backward-compat.test.ts",
+      "bytes": 13221
+    },
+    {
+      "path": "mem0-ts/src/oss/src/tests/sqlite-path-resolution.test.ts",
+      "bytes": 9947
+    },
+    {
+      "path": "mem0-ts/src/oss/src/tests/vector_stores/turbopuffer.test.ts",
+      "bytes": 13905
+    },
+    {
+      "path": "mem0-ts/src/oss/src/tests/vllm.test.ts",
+      "bytes": 2894
+    },
+    {
+      "path": "mem0-ts/src/oss/src/types/index.ts",
+      "bytes": 7449
+    },
+    {
+      "path": "mem0-ts/src/oss/src/types/valkey.ts",
+      "bytes": 335
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/bm25.ts",
+      "bytes": 1745
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/casing.ts",
+      "bytes": 647
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/entity_extraction.ts",
+      "bytes": 19664
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/expiration.ts",
+      "bytes": 1768
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/factory.test.ts",
+      "bytes": 3262
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/factory.ts",
+      "bytes": 11006
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/lemmatization.ts",
+      "bytes": 5208
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/load_peer.ts",
+      "bytes": 288
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/logger.ts",
+      "bytes": 467
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/memory.ts",
+      "bytes": 1425
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/notices.ts",
+      "bytes": 41738
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/oss_notices_config.json",
+      "bytes": 844
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/scoring.ts",
+      "bytes": 4591
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/sqlite.ts",
+      "bytes": 401
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/telemetry.ts",
+      "bytes": 4661
+    },
+    {
+      "path": "mem0-ts/src/oss/src/utils/telemetry.types.ts",
+      "bytes": 767
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/azure_ai_search.ts",
+      "bytes": 18547
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/azure_mysql.ts",
+      "bytes": 10915
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/baidu.ts",
+      "bytes": 18530
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/base.ts",
+      "bytes": 896
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/cassandra.ts",
+      "bytes": 17042
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/chroma.ts",
+      "bytes": 12784
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/databricks.ts",
+      "bytes": 48039
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/elasticsearch.ts",
+      "bytes": 10219
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/langchain.ts",
+      "bytes": 8672
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/memory.ts",
+      "bytes": 14124
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/milvus.ts",
+      "bytes": 17821
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/mongodb.ts",
+      "bytes": 15131
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/neptune_analytics.ts",
+      "bytes": 30026
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/opensearch.ts",
+      "bytes": 17935
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/oracledb.ts",
+      "bytes": 22221
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/pgvector.ts",
+      "bytes": 16180
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/pinecone.ts",
+      "bytes": 11387
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/qdrant.ts",
+      "bytes": 20361
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/redis.ts",
+      "bytes": 20338
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/s3_vectors.ts",
+      "bytes": 24925
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/supabase.ts",
+      "bytes": 12214
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/turbopuffer.ts",
+      "bytes": 9993
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/upstash_vector.ts",
+      "bytes": 7247
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/valkey.ts",
+      "bytes": 16855
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/vectorize.ts",
+      "bytes": 13285
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/vertex_ai_vector_search.ts",
+      "bytes": 10090
+    },
+    {
+      "path": "mem0-ts/src/oss/src/vector_stores/weaviate.ts",
+      "bytes": 6669
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/anthropic-llm.test.ts",
+      "bytes": 10455
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/aws-bedrock-embedder.test.ts",
+      "bytes": 19090
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/azure-embedder.test.ts",
+      "bytes": 5394
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/baidu.test.ts",
+      "bytes": 20924
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/cassandra.unit.test.ts",
+      "bytes": 2167
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/config-manager.test.ts",
+      "bytes": 30982
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/deepseek.test.ts",
+      "bytes": 3346
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/dimension-autodetect.test.ts",
+      "bytes": 18761
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/elasticsearch.unit.test.ts",
+      "bytes": 14300
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/entity-extraction.test.ts",
+      "bytes": 1661
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/extract-json.test.ts",
+      "bytes": 8341
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/factory.unit.test.ts",
+      "bytes": 12893
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/fastembed-embedder.test.ts",
+      "bytes": 3571
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/google-embedder.test.ts",
+      "bytes": 4473
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/google-llm.test.ts",
+      "bytes": 7824
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/huggingface-embedder.test.ts",
+      "bytes": 4837
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/litellm.test.ts",
+      "bytes": 3422
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/lmstudio-embedder.test.ts",
+      "bytes": 2395
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/lmstudio-llm.test.ts",
+      "bytes": 3096
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/memory.add-filters-isolation.test.ts",
+      "bytes": 3586
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/memory.add.test.ts",
+      "bytes": 10873
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/memory.crud.test.ts",
+      "bytes": 29192
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/memory.embedding-action.test.ts",
+      "bytes": 3760
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/memory.entity-boost.test.ts",
+      "bytes": 8680
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/memory.init.test.ts",
+      "bytes": 4044
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/memory.llm-error.test.ts",
+      "bytes": 2985
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/memory.prototype-key-embedding.test.ts",
+      "bytes": 3392
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/memory.rerank.test.ts",
+      "bytes": 5481
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/memory.validation.test.ts",
+      "bytes": 11831
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/minimax.test.ts",
+      "bytes": 4504
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/missing-optional-peers.test.ts",
+      "bytes": 1173
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/notices.decay-feature.test.ts",
+      "bytes": 10099
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/notices.decay-usage.test.ts",
+      "bytes": 15350
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/notices.first-run.test.ts",
+      "bytes": 12411
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/notices.foundation.test.ts",
+      "bytes": 8786
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/notices.performance-slow-query.test.ts",
+      "bytes": 13637
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/notices.scale-threshold.test.ts",
+      "bytes": 13619
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/notices.temporal-feature.test.ts",
+      "bytes": 13689
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/notices.temporal-usage.test.ts",
+      "bytes": 17111
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/ollama-embedder.test.ts",
+      "bytes": 3372
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/openai-embedder.test.ts",
+      "bytes": 5139
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/openai-llm.test.ts",
+      "bytes": 3546
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/openai-structured-llm.test.ts",
+      "bytes": 1448
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/opensearch.unit.test.ts",
+      "bytes": 6406
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/optional-peers.test.ts",
+      "bytes": 2759
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/oracledb.unit.test.ts",
+      "bytes": 15568
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/pgvector.filters.test.ts",
+      "bytes": 8083
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/pgvector.unit.test.ts",
+      "bytes": 6200
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/qdrant-keyword-search.test.ts",
+      "bytes": 19602
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/qdrant-url-port.test.ts",
+      "bytes": 5655
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/redis.filter-expr.test.ts",
+      "bytes": 1132
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/redis.unit.test.ts",
+      "bytes": 6336
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/remove-code-blocks.test.ts",
+      "bytes": 3225
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/sarvam.test.ts",
+      "bytes": 4469
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/scoring.test.ts",
+      "bytes": 1704
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/session-scope.unit.test.ts",
+      "bytes": 5081
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/storage.unit.test.ts",
+      "bytes": 7228
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/telemetry-sampling.test.ts",
+      "bytes": 8733
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/together-embedder.test.ts",
+      "bytes": 4038
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/together.test.ts",
+      "bytes": 3253
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/tsup-externals.test.ts",
+      "bytes": 1957
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/turbopuffer.score.test.ts",
+      "bytes": 2406
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/turbopuffer.unit.test.ts",
+      "bytes": 2920
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/upstash_vector.unit.test.ts",
+      "bytes": 4951
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/valkey.test.ts",
+      "bytes": 11647
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/vector-store.unit.test.ts",
+      "bytes": 5848
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/vector-stores-compat.test.ts",
+      "bytes": 180747
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/vertex-ai-vector-search.test.ts",
+      "bytes": 7668
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/vertexai-embedder.test.ts",
+      "bytes": 7748
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/vertexai-protobuf.test.ts",
+      "bytes": 4718
+    },
+    {
+      "path": "mem0-ts/src/oss/tests/xai.test.ts",
+      "bytes": 4406
+    },
+    {
+      "path": "mem0-ts/src/oss/tsconfig.json",
+      "bytes": 379
+    },
+    {
+      "path": "mem0-ts/tsconfig.json",
+      "bytes": 872
+    },
+    {
+      "path": "mem0-ts/tsconfig.test.json",
+      "bytes": 231
+    },
+    {
+      "path": "mem0-ts/tsup.config.ts",
+      "bytes": 1413
+    },
+    {
+      "path": "mem0/AGENTS.md",
+      "bytes": 4600
+    },
+    {
+      "path": "mem0/CLAUDE.md",
+      "bytes": 9
+    },
+    {
+      "path": "mem0/__init__.py",
+      "bytes": 205
+    },
+    {
+      "path": "mem0/client/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mem0/client/main.py",
+      "bytes": 93023
+    },
+    {
+      "path": "mem0/client/project.py",
+      "bytes": 32041
+    },
+    {
+      "path": "mem0/client/types.py",
+      "bytes": 6104
+    },
+    {
+      "path": "mem0/client/utils.py",
+      "bytes": 3910
+    },
+    {
+      "path": "mem0/configs/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mem0/configs/base.py",
+      "bytes": 3275
+    },
+    {
+      "path": "mem0/configs/embeddings/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mem0/configs/embeddings/base.py",
+      "bytes": 5192
+    },
+    {
+      "path": "mem0/configs/enums.py",
+      "bytes": 151
+    },
+    {
+      "path": "mem0/configs/llms/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mem0/configs/llms/anthropic.py",
+      "bytes": 2245
+    },
+    {
+      "path": "mem0/configs/llms/aws_bedrock.py",
+      "bytes": 7221
+    },
+    {
+      "path": "mem0/configs/llms/azure.py",
+      "bytes": 2693
+    },
+    {
+      "path": "mem0/configs/llms/base.py",
+      "bytes": 3941
+    },
+    {
+      "path": "mem0/configs/llms/deepseek.py",
+      "bytes": 1962
+    },
+    {
+      "path": "mem0/configs/llms/gemini.py",
+      "bytes": 2521
+    },
+    {
+      "path": "mem0/configs/llms/lmstudio.py",
+      "bytes": 2221
+    },
+    {
+      "path": "mem0/configs/llms/minimax.py",
+      "bytes": 1949
+    },
+    {
+      "path": "mem0/configs/llms/ollama.py",
+      "bytes": 1932
+    },
+    {
+      "path": "mem0/configs/llms/openai.py",
+      "bytes": 3974
+    },
+    {
+      "path": "mem0/configs/llms/vllm.py",
+      "bytes": 1976
+    },
+    {
+      "path": "mem0/configs/llms/xai.py",
+      "bytes": 1882
+    },
+    {
+      "path": "mem0/configs/prompts.py",
+      "bytes": 64064
+    },
+    {
+      "path": "mem0/configs/rerankers/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mem0/configs/rerankers/base.py",
+      "bytes": 843
+    },
+    {
+      "path": "mem0/configs/rerankers/cohere.py",
+      "bytes": 653
+    },
+    {
+      "path": "mem0/configs/rerankers/config.py",
+      "bytes": 405
+    },
+    {
+      "path": "mem0/configs/rerankers/huggingface.py",
+      "bytes": 835
+    },
+    {
+      "path": "mem0/configs/rerankers/llm.py",
+      "bytes": 1843
+    },
+    {
+      "path": "mem0/configs/rerankers/sentence_transformer.py",
+      "bytes": 808
+    },
+    {
+      "path": "mem0/configs/rerankers/zero_entropy.py",
+      "bytes": 921
+    },
+    {
+      "path": "mem0/configs/vector_stores/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mem0/configs/vector_stores/azure_ai_search.py",
+      "bytes": 2549
+    },
+    {
+      "path": "mem0/configs/vector_stores/azure_mysql.py",
+      "bytes": 4153
+    },
+    {
+      "path": "mem0/configs/vector_stores/baidu.py",
+      "bytes": 1271
+    },
+    {
+      "path": "mem0/configs/vector_stores/cassandra.py",
+      "bytes": 2952
+    },
+    {
+      "path": "mem0/configs/vector_stores/chroma.py",
+      "bytes": 2684
+    },
+    {
+      "path": "mem0/configs/vector_stores/databricks.py",
+      "bytes": 3308
+    },
+    {
+      "path": "mem0/configs/vector_stores/elasticsearch.py",
+      "bytes": 3361
+    },
+    {
+      "path": "mem0/configs/vector_stores/faiss.py",
+      "bytes": 1709
+    },
+    {
+      "path": "mem0/configs/vector_stores/langchain.py",
+      "bytes": 1181
+    },
+    {
+      "path": "mem0/configs/vector_stores/milvus.py",
+      "bytes": 1499
+    },
+    {
+      "path": "mem0/configs/vector_stores/mongodb.py",
+      "bytes": 1185
+    },
+    {
+      "path": "mem0/configs/vector_stores/neptune.py",
+      "bytes": 1578
+    },
+    {
+      "path": "mem0/configs/vector_stores/opensearch.py",
+      "bytes": 2439
+    },
+    {
+      "path": "mem0/configs/vector_stores/oracledb.py",
+      "bytes": 4744
+    },
+    {
+      "path": "mem0/configs/vector_stores/pgvector.py",
+      "bytes": 3090
+    },
+    {
+      "path": "mem0/configs/vector_stores/pinecone.py",
+      "bytes": 2802
+    },
+    {
+      "path": "mem0/configs/vector_stores/qdrant.py",
+      "bytes": 2391
+    },
+    {
+      "path": "mem0/configs/vector_stores/redis.py",
+      "bytes": 376
+    },
+    {
+      "path": "mem0/configs/vector_stores/s3_vectors.py",
+      "bytes": 1218
+    },
+    {
+      "path": "mem0/configs/vector_stores/supabase.py",
+      "bytes": 1780
+    },
+    {
+      "path": "mem0/configs/vector_stores/turbopuffer.py",
+      "bytes": 1927
+    },
+    {
+      "path": "mem0/configs/vector_stores/upstash_vector.py",
+      "bytes": 1762
+    },
+    {
+      "path": "mem0/configs/vector_stores/valkey.py",
+      "bytes": 1597
+    },
+    {
+      "path": "mem0/configs/vector_stores/vertex_ai_vector_search.py",
+      "bytes": 1434
+    },
+    {
+      "path": "mem0/configs/vector_stores/weaviate.py",
+      "bytes": 1588
+    },
+    {
+      "path": "mem0/embeddings/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mem0/embeddings/aws_bedrock.py",
+      "bytes": 4241
+    },
+    {
+      "path": "mem0/embeddings/azure_openai.py",
+      "bytes": 3265
+    },
+    {
+      "path": "mem0/embeddings/base.py",
+      "bytes": 1608
+    },
+    {
+      "path": "mem0/embeddings/configs.py",
+      "bytes": 906
+    },
+    {
+      "path": "mem0/embeddings/fastembed.py",
+      "bytes": 1297
+    },
+    {
+      "path": "mem0/embeddings/gemini.py",
+      "bytes": 2346
+    },
+    {
+      "path": "mem0/embeddings/huggingface.py",
+      "bytes": 2981
+    },
+    {
+      "path": "mem0/embeddings/langchain.py",
+      "bytes": 1237
+    },
+    {
+      "path": "mem0/embeddings/lmstudio.py",
+      "bytes": 1883
+    },
+    {
+      "path": "mem0/embeddings/mock.py",
+      "bytes": 365
+    },
+    {
+      "path": "mem0/embeddings/ollama.py",
+      "bytes": 2550
+    },
+    {
+      "path": "mem0/embeddings/openai.py",
+      "bytes": 3274
+    },
+    {
+      "path": "mem0/embeddings/together.py",
+      "bytes": 1724
+    },
+    {
+      "path": "mem0/embeddings/vertexai.py",
+      "bytes": 3985
+    },
+    {
+      "path": "mem0/exceptions.py",
+      "bytes": 16855
+    },
+    {
+      "path": "mem0/llms/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mem0/llms/anthropic.py",
+      "bytes": 6140
+    },
+    {
+      "path": "mem0/llms/aws_bedrock.py",
+      "bytes": 30789
+    },
+    {
+      "path": "mem0/llms/azure_openai.py",
+      "bytes": 6565
+    },
+    {
+      "path": "mem0/llms/azure_openai_structured.py",
+      "bytes": 6184
+    },
+    {
+      "path": "mem0/llms/base.py",
+      "bytes": 6213
+    },
+    {
+      "path": "mem0/llms/configs.py",
+      "bytes": 1020
+    },
+    {
+      "path": "mem0/llms/deepseek.py",
+      "bytes": 3930
+    },
+    {
+      "path": "mem0/llms/gemini.py",
+      "bytes": 8458
+    },
+    {
+      "path": "mem0/llms/groq.py",
+      "bytes": 4420
+    },
+    {
+      "path": "mem0/llms/langchain.py",
+      "bytes": 3381
+    },
+    {
+      "path": "mem0/llms/litellm.py",
+      "bytes": 3278
+    },
+    {
+      "path": "mem0/llms/lmstudio.py",
+      "bytes": 4139
+    },
+    {
+      "path": "mem0/llms/minimax.py",
+      "bytes": 3962
+    },
+    {
+      "path": "mem0/llms/ollama.py",
+      "bytes": 5260
+    },
+    {
+      "path": "mem0/llms/openai.py",
+      "bytes": 5804
+    },
+    {
+      "path": "mem0/llms/openai_structured.py",
+      "bytes": 1640
+    },
+    {
+      "path": "mem0/llms/sarvam.py",
+      "bytes": 3674
+    },
+    {
+      "path": "mem0/llms/together.py",
+      "bytes": 3288
+    },
+    {
+      "path": "mem0/llms/vllm.py",
+      "bytes": 3836
+    },
+    {
+      "path": "mem0/llms/xai.py",
+      "bytes": 4007
+    },
+    {
+      "path": "mem0/memory/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mem0/memory/base.py",
+      "bytes": 1315
+    },
+    {
+      "path": "mem0/memory/main.py",
+      "bytes": 169881
+    },
+    {
+      "path": "mem0/memory/notices.py",
+      "bytes": 54881
+    },
+    {
+      "path": "mem0/memory/oss_notices_config.json",
+      "bytes": 844
+    },
+    {
+      "path": "mem0/memory/setup.py",
+      "bytes": 5320
+    },
+    {
+      "path": "mem0/memory/storage.py",
+      "bytes": 12886
+    },
+    {
+      "path": "mem0/memory/telemetry.py",
+      "bytes": 9024
+    },
+    {
+      "path": "mem0/memory/utils.py",
+      "bytes": 11156
+    },
+    {
+      "path": "mem0/proxy/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mem0/proxy/main.py",
+      "bytes": 7004
+    },
+    {
+      "path": "mem0/reranker/__init__.py",
+      "bytes": 522
+    },
+    {
+      "path": "mem0/reranker/base.py",
+      "bytes": 687
+    },
+    {
+      "path": "mem0/reranker/cohere_reranker.py",
+      "bytes": 3250
+    },
+    {
+      "path": "mem0/reranker/huggingface_reranker.py",
+      "bytes": 6626
+    },
+    {
+      "path": "mem0/reranker/llm_reranker.py",
+      "bytes": 7120
+    },
+    {
+      "path": "mem0/reranker/sentence_transformer_reranker.py",
+      "bytes": 4690
+    },
+    {
+      "path": "mem0/reranker/zero_entropy_reranker.py",
+      "bytes": 3747
+    },
+    {
+      "path": "mem0/utils/entity_extraction.py",
+      "bytes": 21278
+    },
+    {
+      "path": "mem0/utils/factory.py",
+      "bytes": 12514
+    },
+    {
+      "path": "mem0/utils/gcp_auth.py",
+      "bytes": 6394
+    },
+    {
+      "path": "mem0/utils/http.py",
+      "bytes": 450
+    },
+    {
+      "path": "mem0/utils/lemmatization.py",
+      "bytes": 1435
+    },
+    {
+      "path": "mem0/utils/scoring.py",
+      "bytes": 4401
+    },
+    {
+      "path": "mem0/utils/spacy_models.py",
+      "bytes": 2724
+    },
+    {
+      "path": "mem0/vector_stores/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "mem0/vector_stores/azure_ai_search.py",
+      "bytes": 16867
+    },
+    {
+      "path": "mem0/vector_stores/azure_mysql.py",
+      "bytes": 20888
+    },
+    {
+      "path": "mem0/vector_stores/baidu.py",
+      "bytes": 15108
+    },
+    {
+      "path": "mem0/vector_stores/base.py",
+      "bytes": 3228
+    },
+    {
+      "path": "mem0/vector_stores/cassandra.py",
+      "bytes": 17491
+    },
+    {
+      "path": "mem0/vector_stores/chroma.py",
+      "bytes": 13420
+    },
+    {
+      "path": "mem0/vector_stores/configs.py",
+      "bytes": 2538
+    },
+    {
+      "path": "mem0/vector_stores/databricks.py",
+      "bytes": 37941
+    },
+    {
+      "path": "mem0/vector_stores/elasticsearch.py",
+      "bytes": 11369
+    },
+    {
+      "path": "mem0/vector_stores/faiss.py",
+      "bytes": 22418
+    },
+    {
+      "path": "mem0/vector_stores/langchain.py",
+      "bytes": 7636
+    },
+    {
+      "path": "mem0/vector_stores/milvus.py",
+      "bytes": 14802
+    },
+    {
+      "path": "mem0/vector_stores/mongodb.py",
+      "bytes": 17206
+    },
+    {
+      "path": "mem0/vector_stores/neptune_analytics.py",
+      "bytes": 19049
+    },
+    {
+      "path": "mem0/vector_stores/opensearch.py",
+      "bytes": 16354
+    },
+    {
+      "path": "mem0/vector_stores/oracledb.py",
+      "bytes": 21452
+    },
+    {
+      "path": "mem0/vector_stores/pgvector.py",
+      "bytes": 21595
+    },
+    {
+      "path": "mem0/vector_stores/pinecone.py",
+      "bytes": 15157
+    },
+    {
+      "path": "mem0/vector_stores/qdrant.py",
+      "bytes": 25105
+    },
+    {
+      "path": "mem0/vector_stores/redis.py",
+      "bytes": 14028
+    },
+    {
+      "path": "mem0/vector_stores/s3_vectors.py",
+      "bytes": 8855
+    },
+    {
+      "path": "mem0/vector_stores/supabase.py",
+      "bytes": 9160
+    },
+    {
+      "path": "mem0/vector_stores/turbopuffer.py",
+      "bytes": 11974
+    },
+    {
+      "path": "mem0/vector_stores/upstash_vector.py",
+      "bytes": 11343
+    },
+    {
+      "path": "mem0/vector_stores/valkey.py",
+      "bytes": 31020
+    },
+    {
+      "path": "mem0/vector_stores/vertex_ai_vector_search.py",
+      "bytes": 25780
+    },
+    {
+      "path": "mem0/vector_stores/weaviate.py",
+      "bytes": 14484
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 3394
+    },
+    {
+      "path": "scripts/check-llms-txt-coverage.py",
+      "bytes": 4830
+    },
+    {
+      "path": "scripts/llms-txt-ignore.txt",
+      "bytes": 444
+    },
+    {
+      "path": "scripts/oss-to-platform-migrate.sh",
+      "bytes": 43609
+    },
+    {
+      "path": "server/AGENTS.md",
+      "bytes": 1113
+    },
+    {
+      "path": "server/CLAUDE.md",
+      "bytes": 9
+    },
+    {
+      "path": "server/Dockerfile",
+      "bytes": 240
+    },
+    {
+      "path": "server/Makefile",
+      "bytes": 2219
+    },
+    {
+      "path": "server/README.md",
+      "bytes": 8486
+    },
+    {
+      "path": "server/alembic.ini",
+      "bytes": 603
+    },
+    {
+      "path": "server/alembic/env.py",
+      "bytes": 1269
+    },
+    {
+      "path": "server/alembic/versions/001_create_users_and_api_keys.py",
+      "bytes": 1753
+    },
+    {
+      "path": "server/alembic/versions/002_create_request_logs.py",
+      "bytes": 1126
+    },
+    {
+      "path": "server/alembic/versions/003_create_settings.py",
+      "bytes": 688
+    },
+    {
+      "path": "server/alembic/versions/004_unique_admin_role.py",
+      "bytes": 653
+    },
+    {
+      "path": "server/alembic/versions/005_refresh_token_jtis.py",
+      "bytes": 1182
+    },
+    {
+      "path": "server/alembic/versions/006_request_logs_brin.py",
+      "bytes": 731
+    },
+    {
+      "path": "server/auth.py",
+      "bytes": 7966
+    },
+    {
+      "path": "server/dashboard/.eslintrc.json",
+      "bytes": 42
+    },
+    {
+      "path": "server/dashboard/Dockerfile",
+      "bytes": 1328
+    },
+    {
+      "path": "server/dashboard/components.json",
+      "bytes": 349
+    },
+    {
+      "path": "server/dashboard/entrypoint.sh",
+      "bytes": 671
+    },
+    {
+      "path": "server/dashboard/next.config.mjs",
+      "bytes": 943
+    },
+    {
+      "path": "server/dashboard/package.json",
+      "bytes": 2629
+    },
+    {
+      "path": "server/dashboard/pnpm-workspace.yaml",
+      "bytes": 503
+    },
+    {
+      "path": "server/dashboard/postcss.config.js",
+      "bytes": 83
+    },
+    {
+      "path": "server/dashboard/src/app/(auth)/layout.tsx",
+      "bytes": 1043
+    },
+    {
+      "path": "server/dashboard/src/app/(auth)/login/login-form.tsx",
+      "bytes": 8471
+    },
+    {
+      "path": "server/dashboard/src/app/(auth)/login/page.tsx",
+      "bytes": 196
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/clientLayout.tsx",
+      "bytes": 1473
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard-client-layout.tsx",
+      "bytes": 1390
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/analytics/page.tsx",
+      "bytes": 1774
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/api-keys/page.tsx",
+      "bytes": 7710
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/categories/page.tsx",
+      "bytes": 1045
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/components/main-nav.tsx",
+      "bytes": 8696
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/components/nav-wrapper.tsx",
+      "bytes": 6869
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/configuration/page.tsx",
+      "bytes": 7603
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/entities/page.tsx",
+      "bytes": 3908
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/export/page.tsx",
+      "bytes": 1911
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/layout.tsx",
+      "bytes": 1239
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/memories/page.tsx",
+      "bytes": 9569
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/requests/page.tsx",
+      "bytes": 8431
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/settings/page.tsx",
+      "bytes": 6990
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/dashboard/webhooks/page.tsx",
+      "bytes": 1734
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/fonts.tsx",
+      "bytes": 1769
+    },
+    {
+      "path": "server/dashboard/src/app/(root)/layout.tsx",
+      "bytes": 376
+    },
+    {
+      "path": "server/dashboard/src/app/api/auth/refresh/route.ts",
+      "bytes": 2047
+    },
+    {
+      "path": "server/dashboard/src/app/api/health/route.ts",
+      "bytes": 170
+    },
+    {
+      "path": "server/dashboard/src/app/setup/layout.tsx",
+      "bytes": 1001
+    },
+    {
+      "path": "server/dashboard/src/app/setup/page.tsx",
+      "bytes": 27435
+    },
+    {
+      "path": "server/dashboard/src/components/misc/copy-button.tsx",
+      "bytes": 858
+    },
+    {
+      "path": "server/dashboard/src/components/misc/spinner.tsx",
+      "bytes": 303
+    },
+    {
+      "path": "server/dashboard/src/components/misc/theme-aware-logo.tsx",
+      "bytes": 715
+    },
+    {
+      "path": "server/dashboard/src/components/misc/truncated-text.tsx",
+      "bytes": 1101
+    },
+    {
+      "path": "server/dashboard/src/components/self-hosted/empty-state.tsx",
+      "bytes": 1000
+    },
+    {
+      "path": "server/dashboard/src/components/self-hosted/locked-page.tsx",
+      "bytes": 1852
+    },
+    {
+      "path": "server/dashboard/src/components/self-hosted/upgrade-banner.tsx",
+      "bytes": 1749
+    },
+    {
+      "path": "server/dashboard/src/components/shared/data-table.tsx",
+      "bytes": 7476
+    },
+    {
+      "path": "server/dashboard/src/components/shared/event-badge.tsx",
+      "bytes": 2081
+    },
+    {
+      "path": "server/dashboard/src/components/shared/table-skeleton.tsx",
+      "bytes": 1269
+    },
+    {
+      "path": "server/dashboard/src/components/theme-provider.tsx",
+      "bytes": 296
+    },
+    {
+      "path": "server/dashboard/src/components/ui/accordion.tsx",
+      "bytes": 2035
+    },
+    {
+      "path": "server/dashboard/src/components/ui/alert-dialog.tsx",
+      "bytes": 4476
+    },
+    {
+      "path": "server/dashboard/src/components/ui/alert.tsx",
+      "bytes": 1623
+    },
+    {
+      "path": "server/dashboard/src/components/ui/avatar.tsx",
+      "bytes": 1432
+    },
+    {
+      "path": "server/dashboard/src/components/ui/badge.tsx",
+      "bytes": 1151
+    },
+    {
+      "path": "server/dashboard/src/components/ui/button.tsx",
+      "bytes": 3112
+    },
+    {
+      "path": "server/dashboard/src/components/ui/calendar.tsx",
+      "bytes": 2900
+    },
+    {
+      "path": "server/dashboard/src/components/ui/card.tsx",
+      "bytes": 1942
+    },
+    {
+      "path": "server/dashboard/src/components/ui/categories-display.tsx",
+      "bytes": 4627
+    },
+    {
+      "path": "server/dashboard/src/components/ui/checkbox.tsx",
+      "bytes": 1077
+    },
+    {
+      "path": "server/dashboard/src/components/ui/collapsible.tsx",
+      "bytes": 367
+    },
+    {
+      "path": "server/dashboard/src/components/ui/command.tsx",
+      "bytes": 4907
+    },
+    {
+      "path": "server/dashboard/src/components/ui/delete-confirmation-modal.tsx",
+      "bytes": 2006
+    },
+    {
+      "path": "server/dashboard/src/components/ui/dialog.tsx",
+      "bytes": 4065
+    },
+    {
+      "path": "server/dashboard/src/components/ui/drawer.tsx",
+      "bytes": 3058
+    },
+    {
+      "path": "server/dashboard/src/components/ui/dropdown-menu.tsx",
+      "bytes": 7456
+    },
+    {
+      "path": "server/dashboard/src/components/ui/form.tsx",
+      "bytes": 4151
+    },
+    {
+      "path": "server/dashboard/src/components/ui/hover-card.tsx",
+      "bytes": 1208
+    },
+    {
+      "path": "server/dashboard/src/components/ui/input.tsx",
+      "bytes": 567
+    },
+    {
+      "path": "server/dashboard/src/components/ui/label.tsx",
+      "bytes": 734
+    },
+    {
+      "path": "server/dashboard/src/components/ui/linearProgress.tsx",
+      "bytes": 814
+    },
+    {
+      "path": "server/dashboard/src/components/ui/pagination.tsx",
+      "bytes": 3292
+    },
+    {
+      "path": "server/dashboard/src/components/ui/popover.tsx",
+      "bytes": 1342
+    },
+    {
+      "path": "server/dashboard/src/components/ui/progress.tsx",
+      "bytes": 912
+    },
+    {
+      "path": "server/dashboard/src/components/ui/radio-group.tsx",
+      "bytes": 1459
+    },
+    {
+      "path": "server/dashboard/src/components/ui/scroll-area.tsx",
+      "bytes": 1820
+    },
+    {
+      "path": "server/dashboard/src/components/ui/select.tsx",
+      "bytes": 6431
+    },
+    {
+      "path": "server/dashboard/src/components/ui/separator.tsx",
+      "bytes": 780
+    },
+    {
+      "path": "server/dashboard/src/components/ui/sheet.tsx",
+      "bytes": 4351
+    },
+    {
+      "path": "server/dashboard/src/components/ui/sidebar.tsx",
+      "bytes": 7592
+    },
+    {
+      "path": "server/dashboard/src/components/ui/skeleton.tsx",
+      "bytes": 269
+    },
+    {
+      "path": "server/dashboard/src/components/ui/slider.tsx",
+      "bytes": 1081
+    },
+    {
+      "path": "server/dashboard/src/components/ui/sonner.tsx",
+      "bytes": 1426
+    },
+    {
+      "path": "server/dashboard/src/components/ui/switch.tsx",
+      "bytes": 1184
+    },
+    {
+      "path": "server/dashboard/src/components/ui/table.tsx",
+      "bytes": 2914
+    },
+    {
+      "path": "server/dashboard/src/components/ui/tableLoader.tsx",
+      "bytes": 531
+    },
+    {
+      "path": "server/dashboard/src/components/ui/tabs.tsx",
+      "bytes": 1919
+    },
+    {
+      "path": "server/dashboard/src/components/ui/textarea.tsx",
+      "bytes": 1654
+    },
+    {
+      "path": "server/dashboard/src/components/ui/theme-toggle.tsx",
+      "bytes": 1254
+    },
+    {
+      "path": "server/dashboard/src/components/ui/toast.tsx",
+      "bytes": 4913
+    },
+    {
+      "path": "server/dashboard/src/components/ui/tooltip.tsx",
+      "bytes": 1559
+    },
+    {
+      "path": "server/dashboard/src/components/ui/typography.tsx",
+      "bytes": 1893
+    },
+    {
+      "path": "server/dashboard/src/components/ui/use-toast.ts",
+      "bytes": 1307
+    },
+    {
+      "path": "server/dashboard/src/constants/index.ts",
+      "bytes": 33
+    },
+    {
+      "path": "server/dashboard/src/constants/ui-components.ts",
+      "bytes": 1981
+    },
+    {
+      "path": "server/dashboard/src/hooks/use-api-query.ts",
+      "bytes": 1432
+    },
+    {
+      "path": "server/dashboard/src/hooks/use-auth.ts",
+      "bytes": 158
+    },
+    {
+      "path": "server/dashboard/src/hooks/useDebounce.ts",
+      "bytes": 402
+    },
+    {
+      "path": "server/dashboard/src/lib/auth.tsx",
+      "bytes": 3376
+    },
+    {
+      "path": "server/dashboard/src/lib/error-message.ts",
+      "bytes": 619
+    },
+    {
+      "path": "server/dashboard/src/lib/server-api-url.ts",
+      "bytes": 165
+    },
+    {
+      "path": "server/dashboard/src/lib/utils.ts",
+      "bytes": 390
+    },
+    {
+      "path": "server/dashboard/src/lib/validators.ts",
+      "bytes": 124
+    },
+    {
+      "path": "server/dashboard/src/middleware.ts",
+      "bytes": 1862
+    },
+    {
+      "path": "server/dashboard/src/store/reducers/layoutReducer.ts",
+      "bytes": 596
+    },
+    {
+      "path": "server/dashboard/src/store/rootReducer.ts",
+      "bytes": 196
+    },
+    {
+      "path": "server/dashboard/src/store/store.ts",
+      "bytes": 283
+    },
+    {
+      "path": "server/dashboard/src/styles/animations.css",
+      "bytes": 685
+    },
+    {
+      "path": "server/dashboard/src/styles/globals.css",
+      "bytes": 17098
+    },
+    {
+      "path": "server/dashboard/src/types/api.ts",
+      "bytes": 786
+    },
+    {
+      "path": "server/dashboard/src/types/imurmurhash.d.ts",
+      "bytes": 273
+    },
+    {
+      "path": "server/dashboard/src/types/ui-components.ts",
+      "bytes": 379
+    },
+    {
+      "path": "server/dashboard/src/utils/api-endpoints.ts",
+      "bytes": 958
+    },
+    {
+      "path": "server/dashboard/src/utils/api.ts",
+      "bytes": 2782
+    },
+    {
+      "path": "server/dashboard/src/utils/helpers.ts",
+      "bytes": 160
+    },
+    {
+      "path": "server/dashboard/src/utils/self-hosted-config.ts",
+      "bytes": 845
+    },
+    {
+      "path": "server/dashboard/tailwind.config.ts",
+      "bytes": 11933
+    },
+    {
+      "path": "server/dashboard/tsconfig.json",
+      "bytes": 633
+    },
+    {
+      "path": "server/db.py",
+      "bytes": 858
+    },
+    {
+      "path": "server/docker-compose.yaml",
+      "bytes": 1949
+    },
+    {
+      "path": "server/errors.py",
+      "bytes": 3618
+    },
+    {
+      "path": "server/init-db.sh",
+      "bytes": 362
+    },
+    {
+      "path": "server/main.py",
+      "bytes": 22215
+    },
+    {
+      "path": "server/models.py",
+      "bytes": 2878
+    },
+    {
+      "path": "server/rate_limit.py",
+      "bytes": 120
+    },
+    {
+      "path": "server/requirements.txt",
+      "bytes": 672
+    },
+    {
+      "path": "server/routers/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "server/routers/api_keys.py",
+      "bytes": 2668
+    },
+    {
+      "path": "server/routers/auth.py",
+      "bytes": 6771
+    },
+    {
+      "path": "server/routers/entities.py",
+      "bytes": 2756
+    },
+    {
+      "path": "server/routers/requests.py",
+      "bytes": 1064
+    },
+    {
+      "path": "server/schemas.py",
+      "bytes": 84
+    },
+    {
+      "path": "server/scripts/prune_request_logs.py",
+      "bytes": 1111
+    },
+    {
+      "path": "server/scripts/reset_admin_password.py",
+      "bytes": 1066
+    },
+    {
+      "path": "server/scripts/seed.sh",
+      "bytes": 3569
+    },
+    {
+      "path": "server/server_state.py",
+      "bytes": 3160
+    },
+    {
+      "path": "server/telemetry.py",
+      "bytes": 4213
+    },
+    {
+      "path": "skills/AGENTS.md",
+      "bytes": 4950
+    },
+    {
+      "path": "skills/CLAUDE.md",
+      "bytes": 9
+    },
+    {
+      "path": "skills/README.md",
+      "bytes": 2931
+    },
+    {
+      "path": "skills/mem0-cli/LICENSE",
+      "bytes": 10705
+    },
+    {
+      "path": "skills/mem0-cli/README.md",
+      "bytes": 3730
+    },
+    {
+      "path": "skills/mem0-cli/SKILL.md",
+      "bytes": 8039
+    },
+    {
+      "path": "skills/mem0-cli/references/command-reference.md",
+      "bytes": 32499
+    },
+    {
+      "path": "skills/mem0-cli/references/configuration.md",
+      "bytes": 10087
+    },
+    {
+      "path": "skills/mem0-cli/references/workflows.md",
+      "bytes": 10882
+    },
+    {
+      "path": "skills/mem0-integrate/LICENSE",
+      "bytes": 10705
+    },
+    {
+      "path": "skills/mem0-integrate/README.md",
+      "bytes": 3551
+    },
+    {
+      "path": "skills/mem0-integrate/SKILL.md",
+      "bytes": 13120
+    },
+    {
+      "path": "skills/mem0-integrate/references/pipeline.md",
+      "bytes": 16805
+    },
+    {
+      "path": "skills/mem0-integrate/references/subagent-prompts.md",
+      "bytes": 3077
+    },
+    {
+      "path": "skills/mem0-oss-to-platform/LICENSE",
+      "bytes": 10705
+    },
+    {
+      "path": "skills/mem0-oss-to-platform/README.md",
+      "bytes": 3222
+    },
+    {
+      "path": "skills/mem0-oss-to-platform/SKILL.md",
+      "bytes": 8763
+    },
+    {
+      "path": "skills/mem0-oss-to-platform/references/api-mapping.md",
+      "bytes": 11789
+    },
+    {
+      "path": "skills/mem0-oss-to-platform/references/gotchas.md",
+      "bytes": 7465
+    },
+    {
+      "path": "skills/mem0-oss-to-platform/references/plan-template.md",
+      "bytes": 3757
+    },
+    {
+      "path": "skills/mem0-test-integration/LICENSE",
+      "bytes": 10705
+    },
+    {
+      "path": "skills/mem0-test-integration/README.md",
+      "bytes": 3349
+    },
+    {
+      "path": "skills/mem0-test-integration/SKILL.md",
+      "bytes": 18321
+    },
+    {
+      "path": "skills/mem0-vercel-ai-sdk/LICENSE",
+      "bytes": 10705
+    },
+    {
+      "path": "skills/mem0-vercel-ai-sdk/README.md",
+      "bytes": 3241
+    },
+    {
+      "path": "skills/mem0-vercel-ai-sdk/SKILL.md",
+      "bytes": 9178
+    },
+    {
+      "path": "skills/mem0-vercel-ai-sdk/references/memory-utilities.md",
+      "bytes": 11394
+    },
+    {
+      "path": "skills/mem0-vercel-ai-sdk/references/provider-api.md",
+      "bytes": 10230
+    },
+    {
+      "path": "skills/mem0-vercel-ai-sdk/references/usage-patterns.md",
+      "bytes": 10671
+    },
+    {
+      "path": "skills/mem0/LICENSE",
+      "bytes": 10705
+    },
+    {
+      "path": "skills/mem0/README.md",
+      "bytes": 3452
+    },
+    {
+      "path": "skills/mem0/SKILL.md",
+      "bytes": 8801
+    },
+    {
+      "path": "skills/mem0/client/differences.md",
+      "bytes": 5534
+    },
+    {
+      "path": "skills/mem0/client/node.md",
+      "bytes": 20544
+    },
+    {
+      "path": "skills/mem0/client/python.md",
+      "bytes": 17312
+    },
+    {
+      "path": "skills/mem0/references/api-reference.md",
+      "bytes": 7607
+    },
+    {
+      "path": "skills/mem0/references/architecture.md",
+      "bytes": 12488
+    },
+    {
+      "path": "skills/mem0/references/features.md",
+      "bytes": 12944
+    },
+    {
+      "path": "skills/mem0/references/integration-patterns.md",
+      "bytes": 13428
+    },
+    {
+      "path": "skills/mem0/references/quickstart.md",
+      "bytes": 3210
+    },
+    {
+      "path": "skills/mem0/references/sdk-guide.md",
+      "bytes": 10957
+    },
+    {
+      "path": "skills/mem0/references/use-cases.md",
+      "bytes": 23127
+    },
+    {
+      "path": "skills/mem0/scripts/mem0_doc_search.py",
+      "bytes": 8141
+    },
+    {
+      "path": "tests/AGENTS.md",
+      "bytes": 1007
+    },
+    {
+      "path": "tests/CLAUDE.md",
+      "bytes": 9
+    },
+    {
+      "path": "tests/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/configs/test_prompts.py",
+      "bytes": 1660
+    },
+    {
+      "path": "tests/embeddings/test_aws_bedrock_embeddings.py",
+      "bytes": 4247
+    },
+    {
+      "path": "tests/embeddings/test_azure_openai_embeddings.py",
+      "bytes": 7505
+    },
+    {
+      "path": "tests/embeddings/test_fastembed_embeddings.py",
+      "bytes": 1578
+    },
+    {
+      "path": "tests/embeddings/test_gemini_embeddings.py",
+      "bytes": 3905
+    },
+    {
+      "path": "tests/embeddings/test_huggingface_embeddings.py",
+      "bytes": 7810
+    },
+    {
+      "path": "tests/embeddings/test_langchain_embeddings.py",
+      "bytes": 1882
+    },
+    {
+      "path": "tests/embeddings/test_lm_studio_embeddings.py",
+      "bytes": 3201
+    },
+    {
+      "path": "tests/embeddings/test_ollama_embeddings.py",
+      "bytes": 4316
+    },
+    {
+      "path": "tests/embeddings/test_openai_embeddings.py",
+      "bytes": 5648
+    },
+    {
+      "path": "tests/embeddings/test_together_embeddings.py",
+      "bytes": 3400
+    },
+    {
+      "path": "tests/embeddings/test_vertexai_embeddings.py",
+      "bytes": 10692
+    },
+    {
+      "path": "tests/llms/test_anthropic.py",
+      "bytes": 8766
+    },
+    {
+      "path": "tests/llms/test_aws_bedrock.py",
+      "bytes": 23028
+    },
+    {
+      "path": "tests/llms/test_azure_openai.py",
+      "bytes": 18060
+    },
+    {
+      "path": "tests/llms/test_azure_openai_structured.py",
+      "bytes": 12868
+    },
+    {
+      "path": "tests/llms/test_deepseek.py",
+      "bytes": 5903
+    },
+    {
+      "path": "tests/llms/test_gemini.py",
+      "bytes": 12993
+    },
+    {
+      "path": "tests/llms/test_groq.py",
+      "bytes": 7270
+    },
+    {
+      "path": "tests/llms/test_langchain.py",
+      "bytes": 5362
+    },
+    {
+      "path": "tests/llms/test_litellm.py",
+      "bytes": 5391
+    },
+    {
+      "path": "tests/llms/test_lm_studio.py",
+      "bytes": 2470
+    },
+    {
+      "path": "tests/llms/test_minimax.py",
+      "bytes": 6838
+    },
+    {
+      "path": "tests/llms/test_ollama.py",
+      "bytes": 5179
+    },
+    {
+      "path": "tests/llms/test_openai.py",
+      "bytes": 18619
+    },
+    {
+      "path": "tests/llms/test_openai_structured.py",
+      "bytes": 2446
+    },
+    {
+      "path": "tests/llms/test_sarvam.py",
+      "bytes": 1731
+    },
+    {
+      "path": "tests/llms/test_together.py",
+      "bytes": 3952
+    },
+    {
+      "path": "tests/llms/test_vllm.py",
+      "bytes": 11390
+    },
+    {
+      "path": "tests/llms/test_xai.py",
+      "bytes": 7872
+    },
+    {
+      "path": "tests/memory/test_decay_feature_notice.py",
+      "bytes": 2257
+    },
+    {
+      "path": "tests/memory/test_decay_usage_notice.py",
+      "bytes": 9920
+    },
+    {
+      "path": "tests/memory/test_json_prompt_fix.py",
+      "bytes": 8491
+    },
+    {
+      "path": "tests/memory/test_main.py",
+      "bytes": 58031
+    },
+    {
+      "path": "tests/memory/test_memory_utils.py",
+      "bytes": 9047
+    },
+    {
+      "path": "tests/memory/test_notices.py",
+      "bytes": 60210
+    },
+    {
+      "path": "tests/memory/test_performance_slow_query_notice.py",
+      "bytes": 17341
+    },
+    {
+      "path": "tests/memory/test_safe_deepcopy_config.py",
+      "bytes": 11510
+    },
+    {
+      "path": "tests/memory/test_session_scope.py",
+      "bytes": 5533
+    },
+    {
+      "path": "tests/memory/test_storage.py",
+      "bytes": 11475
+    },
+    {
+      "path": "tests/memory/test_temporal_feature_notice.py",
+      "bytes": 3431
+    },
+    {
+      "path": "tests/memory/test_temporal_usage_notice.py",
+      "bytes": 7862
+    },
+    {
+      "path": "tests/rerankers/conftest.py",
+      "bytes": 1589
+    },
+    {
+      "path": "tests/rerankers/test_huggingface_reranker_normalize.py",
+      "bytes": 1991
+    },
+    {
+      "path": "tests/rerankers/test_llm_reranker_config.py",
+      "bytes": 2521
+    },
+    {
+      "path": "tests/rerankers/test_llm_reranker_nested_config.py",
+      "bytes": 5477
+    },
+    {
+      "path": "tests/rerankers/test_llm_reranker_rerank.py",
+      "bytes": 5189
+    },
+    {
+      "path": "tests/rerankers/test_reranker_failure_logging.py",
+      "bytes": 1333
+    },
+    {
+      "path": "tests/rerankers/test_reranker_fallback_no_mutation.py",
+      "bytes": 3324
+    },
+    {
+      "path": "tests/rerankers/test_reranker_fallback_topk.py",
+      "bytes": 2595
+    },
+    {
+      "path": "tests/rerankers/test_reranker_public_exports.py",
+      "bytes": 1182
+    },
+    {
+      "path": "tests/test_api_keys_router.py",
+      "bytes": 2387
+    },
+    {
+      "path": "tests/test_chatty_llm_parsing.py",
+      "bytes": 8572
+    },
+    {
+      "path": "tests/test_client.py",
+      "bytes": 27727
+    },
+    {
+      "path": "tests/test_client_entity_guards.py",
+      "bytes": 7928
+    },
+    {
+      "path": "tests/test_client_feedback.py",
+      "bytes": 2250
+    },
+    {
+      "path": "tests/test_client_profiles.py",
+      "bytes": 11232
+    },
+    {
+      "path": "tests/test_client_surface_headers.py",
+      "bytes": 2432
+    },
+    {
+      "path": "tests/test_client_utils.py",
+      "bytes": 2077
+    },
+    {
+      "path": "tests/test_http_client_proxies.py",
+      "bytes": 1498
+    },
+    {
+      "path": "tests/test_main.py",
+      "bytes": 24924
+    },
+    {
+      "path": "tests/test_memory.py",
+      "bytes": 69275
+    },
+    {
+      "path": "tests/test_memory_integration.py",
+      "bytes": 6806
+    },
+    {
+      "path": "tests/test_oss_to_platform_migrate.py",
+      "bytes": 31444
+    },
+    {
+      "path": "tests/test_project.py",
+      "bytes": 5485
+    },
+    {
+      "path": "tests/test_proxy.py",
+      "bytes": 6832
+    },
+    {
+      "path": "tests/test_server_auth.py",
+      "bytes": 19281
+    },
+    {
+      "path": "tests/test_server_params.py",
+      "bytes": 33134
+    },
+    {
+      "path": "tests/test_telemetry.py",
+      "bytes": 22843
+    },
+    {
+      "path": "tests/test_telemetry_aliasing.py",
+      "bytes": 17780
+    },
+    {
+      "path": "tests/test_telemetry_sampling.py",
+      "bytes": 11029
+    },
+    {
+      "path": "tests/utils/__init__.py",
+      "bytes": 0
+    },
+    {
+      "path": "tests/utils/test_entity_extraction.py",
+      "bytes": 5854
+    },
+    {
+      "path": "tests/utils/test_factory.py",
+      "bytes": 2213
+    },
+    {
+      "path": "tests/utils/test_lemmatization.py",
+      "bytes": 2349
+    },
+    {
+      "path": "tests/utils/test_scoring.py",
+      "bytes": 6225
+    },
+    {
+      "path": "tests/vector_stores/test_azure_ai_search.py",
+      "bytes": 27538
+    },
+    {
+      "path": "tests/vector_stores/test_azure_mysql.py",
+      "bytes": 10275
+    },
+    {
+      "path": "tests/vector_stores/test_baidu.py",
+      "bytes": 10636
+    },
+    {
+      "path": "tests/vector_stores/test_cassandra.py",
+      "bytes": 9471
+    },
+    {
+      "path": "tests/vector_stores/test_chroma.py",
+      "bytes": 14950
+    },
+    {
+      "path": "tests/vector_stores/test_databricks.py",
+      "bytes": 45242
+    },
+    {
+      "path": "tests/vector_stores/test_e2e_threshold.py",
+      "bytes": 16495
+    },
+    {
+      "path": "tests/vector_stores/test_elasticsearch.py",
+      "bytes": 16305
+    },
+    {
+      "path": "tests/vector_stores/test_faiss.py",
+      "bytes": 30124
+    },
+    {
+      "path": "tests/vector_stores/test_langchain_vector_store.py",
+      "bytes": 12077
+    },
+    {
+      "path": "tests/vector_stores/test_milvus.py",
+      "bytes": 16402
+    },
+    {
+      "path": "tests/vector_stores/test_mongodb.py",
+      "bytes": 16068
+    },
+    {
+      "path": "tests/vector_stores/test_neptune_analytics.py",
+      "bytes": 13618
+    },
+    {
+      "path": "tests/vector_stores/test_opensearch.py",
+      "bytes": 30807
+    },
+    {
+      "path": "tests/vector_stores/test_oracledb.py",
+      "bytes": 36375
+    },
+    {
+      "path": "tests/vector_stores/test_pgvector.py",
+      "bytes": 101997
+    },
+    {
+      "path": "tests/vector_stores/test_pinecone.py",
+      "bytes": 9034
+    },
+    {
+      "path": "tests/vector_stores/test_qdrant.py",
+      "bytes": 46205
+    },
+    {
+      "path": "tests/vector_stores/test_qdrant_config.py",
+      "bytes": 958
+    },
+    {
+      "path": "tests/vector_stores/test_redis.py",
+      "bytes": 8391
+    },
+    {
+      "path": "tests/vector_stores/test_s3_vectors.py",
+      "bytes": 10178
+    },
+    {
+      "path": "tests/vector_stores/test_score_normalization.py",
+      "bytes": 16202
+    },
+    {
+      "path": "tests/vector_stores/test_supabase.py",
+      "bytes": 7424
+    },
+    {
+      "path": "tests/vector_stores/test_turbopuffer.py",
+      "bytes": 30109
+    },
+    {
+      "path": "tests/vector_stores/test_upstash_vector.py",
+      "bytes": 15731
+    },
+    {
+      "path": "tests/vector_stores/test_valkey.py",
+      "bytes": 40311
+    },
+    {
+      "path": "tests/vector_stores/test_vertex_ai_vector_search.py",
+      "bytes": 7554
+    },
+    {
+      "path": "tests/vector_stores/test_weaviate.py",
+      "bytes": 9583
+    }
+  ],
+  "omitted": [
+    {
+      "path": ".github/VOUCHED.td",
+      "bytes": 6727
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 3729
+    },
+    {
+      "path": ".gitmodules",
+      "bytes": 110
+    },
+    {
+      "path": "cli/node/pnpm-lock.yaml",
+      "bytes": 51833
+    },
+    {
+      "path": "docs/_snippets/async-memory-add.mdx",
+      "bytes": 214
+    },
+    {
+      "path": "docs/_snippets/blank-notif.mdx",
+      "bytes": 0
+    },
+    {
+      "path": "docs/_snippets/get-help.mdx",
+      "bytes": 404
+    },
+    {
+      "path": "docs/_snippets/star-on-github.mdx",
+      "bytes": 741
+    },
+    {
+      "path": "docs/api-reference.mdx",
+      "bytes": 3841
+    },
+    {
+      "path": "docs/api-reference/dream/dream-preview.mdx",
+      "bytes": 218
+    },
+    {
+      "path": "docs/api-reference/dream/get-dream-activity.mdx",
+      "bytes": 218
+    },
+    {
+      "path": "docs/api-reference/dream/get-dream-config.mdx",
+      "bytes": 226
+    },
+    {
+      "path": "docs/api-reference/dream/get-dream-memory-sources.mdx",
+      "bytes": 245
+    },
+    {
+      "path": "docs/api-reference/dream/get-dream-run-memories.mdx",
+      "bytes": 234
+    },
+    {
+      "path": "docs/api-reference/dream/get-dream-runs.mdx",
+      "bytes": 211
+    },
+    {
+      "path": "docs/api-reference/dream/get-dream-stats.mdx",
+      "bytes": 207
+    },
+    {
+      "path": "docs/api-reference/dream/update-dream-config.mdx",
+      "bytes": 235
+    },
+    {
+      "path": "docs/api-reference/entities/delete-user.mdx",
+      "bytes": 192
+    },
+    {
+      "path": "docs/api-reference/entities/get-users.mdx",
+      "bytes": 157
+    },
+    {
+      "path": "docs/api-reference/events/get-event.mdx",
+      "bytes": 641
+    },
+    {
+      "path": "docs/api-reference/events/get-events.mdx",
+      "bytes": 465
+    },
+    {
+      "path": "docs/api-reference/memory/add-memories.mdx",
+      "bytes": 3293
+    },
+    {
+      "path": "docs/api-reference/memory/batch-delete.mdx",
+      "bytes": 168
+    },
+    {
+      "path": "docs/api-reference/memory/batch-update.mdx",
+      "bytes": 161
+    },
+    {
+      "path": "docs/api-reference/memory/create-memory-export.mdx",
+      "bytes": 581
+    },
+    {
+      "path": "docs/api-reference/memory/delete-memories.mdx",
+      "bytes": 179
+    },
+    {
+      "path": "docs/api-reference/memory/delete-memory.mdx",
+      "bytes": 227
+    },
+    {
+      "path": "docs/api-reference/memory/feedback.mdx",
+      "bytes": 171
+    },
+    {
+      "path": "docs/api-reference/memory/get-memories.mdx",
+      "bytes": 2233
+    },
+    {
+      "path": "docs/api-reference/memory/get-memory-export.mdx",
+      "bytes": 419
+    },
+    {
+      "path": "docs/api-reference/memory/get-memory.mdx",
+      "bytes": 177
+    },
+    {
+      "path": "docs/api-reference/memory/history-memory.mdx",
+      "bytes": 186
+    },
+    {
+      "path": "docs/api-reference/memory/search-memories.mdx",
+      "bytes": 3265
+    },
+    {
+      "path": "docs/api-reference/memory/update-memory.mdx",
+      "bytes": 581
+    },
+    {
+      "path": "docs/api-reference/organization/add-org-member.mdx",
+      "bytes": 451
+    },
+    {
+      "path": "docs/api-reference/organization/create-org.mdx",
+      "bytes": 191
+    },
+    {
+      "path": "docs/api-reference/organization/delete-org.mdx",
+      "bytes": 192
+    },
+    {
+      "path": "docs/api-reference/organization/get-org-members.mdx",
+      "bytes": 245
+    },
+    {
+      "path": "docs/api-reference/organization/get-org.mdx",
+      "bytes": 199
+    },
+    {
+      "path": "docs/api-reference/organization/get-orgs.mdx",
+      "bytes": 185
+    },
+    {
+      "path": "docs/api-reference/organization/remove-org-member.mdx",
+      "bytes": 213
+    },
+    {
+      "path": "docs/api-reference/organization/update-org-member.mdx",
+      "bytes": 221
+    },
+    {
+      "path": "docs/api-reference/organizations-projects.mdx",
+      "bytes": 6035
+    },
+    {
+      "path": "docs/api-reference/profiles/generate-profiles.mdx",
+      "bytes": 162
+    },
+    {
+      "path": "docs/api-reference/profiles/get-profile-job.mdx",
+      "bytes": 152
+    },
+    {
+      "path": "docs/api-reference/profiles/get-profile-settings.mdx",
+      "bytes": 181
+    },
+    {
+      "path": "docs/api-reference/profiles/get-profile.mdx",
+      "bytes": 208
+    },
+    {
+      "path": "docs/api-reference/profiles/update-profile-settings.mdx",
+      "bytes": 200
+    },
+    {
+      "path": "docs/api-reference/project/add-project-member.mdx",
+      "bytes": 447
+    },
+    {
+      "path": "docs/api-reference/project/create-project.mdx",
+      "bytes": 200
+    },
+    {
+      "path": "docs/api-reference/project/delete-project.mdx",
+      "bytes": 212
+    },
+    {
+      "path": "docs/api-reference/project/get-project-members.mdx",
+      "bytes": 257
+    },
+    {
+      "path": "docs/api-reference/project/get-project.mdx",
+      "bytes": 213
+    },
+    {
+      "path": "docs/api-reference/project/get-projects.mdx",
+      "bytes": 203
+    },
+    {
+      "path": "docs/api-reference/project/remove-project-member.mdx",
+      "bytes": 240
+    },
+    {
+      "path": "docs/api-reference/project/update-project-member.mdx",
+      "bytes": 232
+    },
+    {
+      "path": "docs/api-reference/project/update-project.mdx",
+      "bytes": 222
+    },
+    {
+      "path": "docs/api-reference/webhook/create-webhook.mdx",
+      "bytes": 193
+    },
+    {
+      "path": "docs/api-reference/webhook/delete-webhook.mdx",
+      "bytes": 182
+    },
+    {
+      "path": "docs/api-reference/webhook/get-webhook.mdx",
+      "bytes": 182
+    },
+    {
+      "path": "docs/api-reference/webhook/update-webhook.mdx",
+      "bytes": 189
+    },
+    {
+      "path": "docs/changelog/highlights.mdx",
+      "bytes": 19355
+    },
+    {
+      "path": "docs/changelog/platform.mdx",
+      "bytes": 7804
+    },
+    {
+      "path": "docs/changelog/sdk.mdx",
+      "bytes": 233278
+    },
+    {
+      "path": "docs/components/embedders/config.mdx",
+      "bytes": 3831
+    },
+    {
+      "path": "docs/components/embedders/models/aws-bedrock.mdx",
+      "bytes": 6184
+    },
+    {
+      "path": "docs/components/embedders/models/azure-openai.mdx",
+      "bytes": 5327
+    },
+    {
+      "path": "docs/components/embedders/models/fastembed.mdx",
+      "bytes": 3768
+    },
+    {
+      "path": "docs/components/embedders/models/google-ai.mdx",
+      "bytes": 3358
+    },
+    {
+      "path": "docs/components/embedders/models/huggingface.mdx",
+      "bytes": 3638
+    },
+    {
+      "path": "docs/components/embedders/models/langchain.mdx",
+      "bytes": 5745
+    },
+    {
+      "path": "docs/components/embedders/models/lmstudio.mdx",
+      "bytes": 1442
+    },
+    {
+      "path": "docs/components/embedders/models/ollama.mdx",
+      "bytes": 2533
+    },
+    {
+      "path": "docs/components/embedders/models/openai.mdx",
+      "bytes": 2152
+    },
+    {
+      "path": "docs/components/embedders/models/together.mdx",
+      "bytes": 3315
+    },
+    {
+      "path": "docs/components/embedders/models/vertexai.mdx",
+      "bytes": 7279
+    },
+    {
+      "path": "docs/components/embedders/overview.mdx",
+      "bytes": 2421
+    },
+    {
+      "path": "docs/components/llms/config.mdx",
+      "bytes": 6594
+    },
+    {
+      "path": "docs/components/llms/models/anthropic.mdx",
+      "bytes": 2213
+    },
+    {
+      "path": "docs/components/llms/models/aws-bedrock.mdx",
+      "bytes": 4944
+    },
+    {
+      "path": "docs/components/llms/models/azure-openai.mdx",
+      "bytes": 6293
+    },
+    {
+      "path": "docs/components/llms/models/deepseek.mdx",
+      "bytes": 2686
+    },
+    {
+      "path": "docs/components/llms/models/google-ai.mdx",
+      "bytes": 2858
+    },
+    {
+      "path": "docs/components/llms/models/groq.mdx",
+      "bytes": 2433
+    },
+    {
+      "path": "docs/components/llms/models/langchain.mdx",
+      "bytes": 3778
+    },
+    {
+      "path": "docs/components/llms/models/litellm.mdx",
+      "bytes": 2671
+    },
+    {
+      "path": "docs/components/llms/models/lmstudio.mdx",
+      "bytes": 3031
+    },
+    {
+      "path": "docs/components/llms/models/minimax.mdx",
+      "bytes": 2956
+    },
+    {
+      "path": "docs/components/llms/models/mistral-ai.mdx",
+      "bytes": 2319
+    },
+    {
+      "path": "docs/components/llms/models/ollama.mdx",
+      "bytes": 2149
+    },
+    {
+      "path": "docs/components/llms/models/openai.mdx",
+      "bytes": 3102
+    },
+    {
+      "path": "docs/components/llms/models/sarvam.mdx",
+      "bytes": 3476
+    },
+    {
+      "path": "docs/components/llms/models/together.mdx",
+      "bytes": 2965
+    },
+    {
+      "path": "docs/components/llms/models/vllm.mdx",
+      "bytes": 4563
+    },
+    {
+      "path": "docs/components/llms/models/xAI.mdx",
+      "bytes": 2606
+    },
+    {
+      "path": "docs/components/llms/overview.mdx",
+      "bytes": 3821
+    },
+    {
+      "path": "docs/components/rerankers/config.mdx",
+      "bytes": 6724
+    },
+    {
+      "path": "docs/components/rerankers/custom-prompts.mdx",
+      "bytes": 5444
+    },
+    {
+      "path": "docs/components/rerankers/models/cohere.mdx",
+      "bytes": 4705
+    },
+    {
+      "path": "docs/components/rerankers/models/huggingface.mdx",
+      "bytes": 8840
+    },
+    {
+      "path": "docs/components/rerankers/models/llm-reranker.mdx",
+      "bytes": 13563
+    },
+    {
+      "path": "docs/components/rerankers/models/sentence-transformer.mdx",
+      "bytes": 5923
+    },
+    {
+      "path": "docs/components/rerankers/models/zero-entropy.mdx",
+      "bytes": 3949
+    },
+    {
+      "path": "docs/components/rerankers/optimization.mdx",
+      "bytes": 7877
+    },
+    {
+      "path": "docs/components/rerankers/overview.mdx",
+      "bytes": 3658
+    },
+    {
+      "path": "docs/components/vectordbs/config.mdx",
+      "bytes": 5088
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/azure-mysql.mdx",
+      "bytes": 4192
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/azure.mdx",
+      "bytes": 8459
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/baidu.mdx",
+      "bytes": 4593
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/cassandra.mdx",
+      "bytes": 8126
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/chroma.mdx",
+      "bytes": 4135
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/databricks.mdx",
+      "bytes": 8610
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/elasticsearch.mdx",
+      "bytes": 6402
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/faiss.mdx",
+      "bytes": 3182
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/langchain.mdx",
+      "bytes": 4249
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/milvus.mdx",
+      "bytes": 3409
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/mongodb.mdx",
+      "bytes": 3342
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/neon.mdx",
+      "bytes": 5341
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/neptune-analytics.mdx",
+      "bytes": 5119
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/opensearch.mdx",
+      "bytes": 6421
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/oracledb.mdx",
+      "bytes": 8114
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/pgvector.mdx",
+      "bytes": 7050
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/pinecone.mdx",
+      "bytes": 7438
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/qdrant.mdx",
+      "bytes": 4248
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/redis.mdx",
+      "bytes": 3045
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/s3-vectors.mdx",
+      "bytes": 4568
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/supabase.mdx",
+      "bytes": 7449
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/turbopuffer.mdx",
+      "bytes": 4078
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/upstash-vector.mdx",
+      "bytes": 3641
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/valkey.mdx",
+      "bytes": 4455
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/vectorize.mdx",
+      "bytes": 1633
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/vertex-ai.mdx",
+      "bytes": 4011
+    },
+    {
+      "path": "docs/components/vectordbs/dbs/weaviate.mdx",
+      "bytes": 3350
+    },
+    {
+      "path": "docs/components/vectordbs/overview.mdx",
+      "bytes": 4127
+    },
+    {
+      "path": "docs/contributing/development.mdx",
+      "bytes": 7342
+    },
+    {
+      "path": "docs/contributing/documentation.mdx",
+      "bytes": 1036
+    },
+    {
+      "path": "docs/cookbooks/companions/ai-tutor.mdx",
+      "bytes": 4294
+    },
+    {
+      "path": "docs/cookbooks/companions/local-companion-ollama.mdx",
+      "bytes": 3042
+    },
+    {
+      "path": "docs/cookbooks/companions/nodejs-companion.mdx",
+      "bytes": 4618
+    },
+    {
+      "path": "docs/cookbooks/companions/quickstart-demo.mdx",
+      "bytes": 2990
+    },
+    {
+      "path": "docs/cookbooks/companions/travel-assistant.mdx",
+      "bytes": 6892
+    },
+    {
+      "path": "docs/cookbooks/companions/voice-companion-openai.mdx",
+      "bytes": 18055
+    },
+    {
+      "path": "docs/cookbooks/companions/youtube-research.mdx",
+      "bytes": 3198
+    },
+    {
+      "path": "docs/cookbooks/essentials/building-ai-companion.mdx",
+      "bytes": 26845
+    },
+    {
+      "path": "docs/cookbooks/essentials/entity-partitioning-playbook.mdx",
+      "bytes": 9658
+    },
+    {
+      "path": "docs/cookbooks/essentials/exporting-memories.mdx",
+      "bytes": 7182
+    },
+    {
+      "path": "docs/cookbooks/essentials/tagging-and-organizing-memories.mdx",
+      "bytes": 8143
+    },
+    {
+      "path": "docs/cookbooks/frameworks/eliza-os-character.mdx",
+      "bytes": 2534
+    },
+    {
+      "path": "docs/cookbooks/frameworks/gemini-3-with-mem0-mcp.mdx",
+      "bytes": 8447
+    },
+    {
+      "path": "docs/cookbooks/frameworks/llamaindex-multiagent.mdx",
+      "bytes": 14053
+    },
+    {
+      "path": "docs/cookbooks/frameworks/llamaindex-react.mdx",
+      "bytes": 6212
+    },
+    {
+      "path": "docs/cookbooks/frameworks/multimodal-retrieval.mdx",
+      "bytes": 2438
+    },
+    {
+      "path": "docs/cookbooks/integrations/agents-sdk-tool.mdx",
+      "bytes": 6688
+    },
+    {
+      "path": "docs/cookbooks/integrations/aws-bedrock.mdx",
+      "bytes": 3884
+    },
+    {
+      "path": "docs/cookbooks/integrations/healthcare-google-adk.mdx",
+      "bytes": 10024
+    },
+    {
+      "path": "docs/cookbooks/integrations/mastra-agent.mdx",
+      "bytes": 4407
+    },
+    {
+      "path": "docs/cookbooks/integrations/openai-tool-calls.mdx",
+      "bytes": 9679
+    },
+    {
+      "path": "docs/cookbooks/integrations/supabase.mdx",
+      "bytes": 17492
+    },
+    {
+      "path": "docs/cookbooks/integrations/tavily-search.mdx",
+      "bytes": 7979
+    },
+    {
+      "path": "docs/cookbooks/operations/content-writing.mdx",
+      "bytes": 10407
+    },
+    {
+      "path": "docs/cookbooks/operations/deep-research.mdx",
+      "bytes": 2508
+    },
+    {
+      "path": "docs/cookbooks/operations/email-automation.mdx",
+      "bytes": 13196
+    },
+    {
+      "path": "docs/cookbooks/operations/support-inbox.mdx",
+      "bytes": 4193
+    },
+    {
+      "path": "docs/cookbooks/operations/team-task-agent.mdx",
+      "bytes": 4751
+    },
+    {
+      "path": "docs/cookbooks/overview.mdx",
+      "bytes": 10501
+    },
+    {
+      "path": "docs/core-concepts/how-it-works.mdx",
+      "bytes": 5956
+    },
+    {
+      "path": "docs/core-concepts/memory-evaluation.mdx",
+      "bytes": 17184
+    },
+    {
+      "path": "docs/core-concepts/memory-operations/add.mdx",
+      "bytes": 8600
+    },
+    {
+      "path": "docs/core-concepts/memory-operations/delete.mdx",
+      "bytes": 7654
+    },
+    {
+      "path": "docs/core-concepts/memory-operations/search.mdx",
+      "bytes": 9190
+    },
+    {
+      "path": "docs/core-concepts/memory-operations/update.mdx",
+      "bytes": 6554
+    },
+    {
+      "path": "docs/favicon.ico",
+      "bytes": 5603
+    },
+    {
+      "path": "docs/favicon.svg",
+      "bytes": 5054
+    },
+    {
+      "path": "docs/images/banner-sm.png",
+      "bytes": 141899
+    },
+    {
+      "path": "docs/images/dify-mem0-integration.png",
+      "bytes": 297129
+    },
+    {
+      "path": "docs/images/docs thumbnails/dark/API.png",
+      "bytes": 60045
+    },
+    {
+      "path": "docs/images/docs thumbnails/dark/Cookbooks.png",
+      "bytes": 93180
+    },
+    {
+      "path": "docs/images/docs thumbnails/dark/mem0-cli.png",
+      "bytes": 392002
+    },
+    {
+      "path": "docs/images/docs thumbnails/dark/mem0-integrations.png",
+      "bytes": 74755
+    },
+    {
+      "path": "docs/images/docs thumbnails/dark/mem0-platform.png",
+      "bytes": 227005
+    },
+    {
+      "path": "docs/images/docs thumbnails/dark/mem0-plugins.png",
+      "bytes": 429201
+    },
+    {
+      "path": "docs/images/docs thumbnails/dark/mem0_open_source.png",
+      "bytes": 31996
+    },
+    {
+      "path": "docs/images/docs thumbnails/light/API.png",
+      "bytes": 49349
+    },
+    {
+      "path": "docs/images/docs thumbnails/light/Cookbooks.png",
+      "bytes": 77005
+    },
+    {
+      "path": "docs/images/docs thumbnails/light/mem0-cli.png",
+      "bytes": 350902
+    },
+    {
+      "path": "docs/images/docs thumbnails/light/mem0-integrations.png",
+      "bytes": 92789
+    },
+    {
+      "path": "docs/images/docs thumbnails/light/mem0-platform.png",
+      "bytes": 132821
+    },
+    {
+      "path": "docs/images/docs thumbnails/light/mem0-plugins.png",
+      "bytes": 357071
+    },
+    {
+      "path": "docs/images/docs thumbnails/light/mem0_open_source.png",
+      "bytes": 32066
+    },
+    {
+      "path": "docs/images/graph-platform.png",
+      "bytes": 73900
+    },
+    {
+      "path": "docs/images/hero-dark.svg",
+      "bytes": 13266
+    },
+    {
+      "path": "docs/images/hero-light.svg",
+      "bytes": 13266
+    },
+    {
+      "path": "docs/images/mem0-bg.png",
+      "bytes": 578885
+    },
+    {
+      "path": "docs/images/memory-agent-stack.png",
+      "bytes": 188557
+    },
+    {
+      "path": "docs/images/memory-extraction.png",
+      "bytes": 200774
+    },
+    {
+      "path": "docs/images/memory-scoping-venn.svg",
+      "bytes": 4940
+    },
+    {
+      "path": "docs/images/openclaw-architecture.png",
+      "bytes": 288414
+    },
+    {
+      "path": "docs/images/platform/activity.png",
+      "bytes": 1137025
+    },
+    {
+      "path": "docs/images/platform/api-key.png",
+      "bytes": 228883
+    },
+    {
+      "path": "docs/images/playground/pg-add-memory.png",
+      "bytes": 181945
+    },
+    {
+      "path": "docs/images/playground/pg-retrieve-memory.png",
+      "bytes": 199091
+    },
+    {
+      "path": "docs/images/plugin-sequence.svg",
+      "bytes": 10192
+    },
+    {
+      "path": "docs/images/provider-icons/agno.svg",
+      "bytes": 3262
+    },
+    {
+      "path": "docs/images/provider-icons/anthropic.svg",
+      "bytes": 363
+    },
+    {
+      "path": "docs/images/provider-icons/autogen.svg",
+      "bytes": 325
+    },
+    {
+      "path": "docs/images/provider-icons/aws-color.svg",
+      "bytes": 3240
+    },
+    {
+      "path": "docs/images/provider-icons/azure-color.svg",
+      "bytes": 1621
+    },
+    {
+      "path": "docs/images/provider-icons/bedrock-color.svg",
+      "bytes": 2270
+    },
+    {
+      "path": "docs/images/provider-icons/camel.svg",
+      "bytes": 1254
+    },
+    {
+      "path": "docs/images/provider-icons/chroma.svg",
+      "bytes": 373
+    },
+    {
+      "path": "docs/images/provider-icons/cohere.svg",
+      "bytes": 719
+    },
+    {
+      "path": "docs/images/provider-icons/crewai.svg",
+      "bytes": 1910
+    },
+    {
+      "path": "docs/images/provider-icons/databricks.svg",
+      "bytes": 437
+    },
+    {
+      "path": "docs/images/provider-icons/deepseek-color.svg",
+      "bytes": 2164
+    },
+    {
+      "path": "docs/images/provider-icons/dify.svg",
+      "bytes": 506
+    },
+    {
+      "path": "docs/images/provider-icons/elasticsearch.svg",
+      "bytes": 492
+    },
+    {
+      "path": "docs/images/provider-icons/elevenlabs.svg",
+      "bytes": 231
+    },
+    {
+      "path": "docs/images/provider-icons/google-color.svg",
+      "bytes": 920
+    },
+    {
+      "path": "docs/images/provider-icons/groq.svg",
+      "bytes": 563
+    },
+    {
+      "path": "docs/images/provider-icons/hermes.svg",
+      "bytes": 19786
+    },
+    {
+      "path": "docs/images/provider-icons/huggingface.svg",
+      "bytes": 3042
+    },
+    {
+      "path": "docs/images/provider-icons/langchain-color.svg",
+      "bytes": 532
+    },
+    {
+      "path": "docs/images/provider-icons/langchain.svg",
+      "bytes": 552
+    },
+    {
+      "path": "docs/images/provider-icons/livekit.svg",
+      "bytes": 323
+    },
+    {
+      "path": "docs/images/provider-icons/llamaindex.svg",
+      "bytes": 1543
+    },
+    {
+      "path": "docs/images/provider-icons/lmstudio.svg",
+      "bytes": 1248
+    },
+    {
+      "path": "docs/images/provider-icons/mastra.svg",
+      "bytes": 2166
+    },
+    {
+      "path": "docs/images/provider-icons/milvus.svg",
+      "bytes": 1453
+    },
+    {
+      "path": "docs/images/provider-icons/minimax-color.svg",
+      "bytes": 1570
+    },
+    {
+      "path": "docs/images/provider-icons/mistral-color.svg",
+      "bytes": 658
+    },
+    {
+      "path": "docs/images/provider-icons/mongodb.svg",
+      "bytes": 542
+    },
+    {
+      "path": "docs/images/provider-icons/ollama.svg",
+      "bytes": 3285
+    },
+    {
+      "path": "docs/images/provider-icons/openai.svg",
+      "bytes": 1682
+    },
+    {
+      "path": "docs/images/provider-icons/openclaw.svg",
+      "bytes": 3571
+    },
+    {
+      "path": "docs/images/provider-icons/opensearch.svg",
+      "bytes": 875
+    },
+    {
+      "path": "docs/images/provider-icons/oracle.svg",
+      "bytes": 427
+    },
+    {
+      "path": "docs/images/provider-icons/pinecone.svg",
+      "bytes": 1746
+    },
+    {
+      "path": "docs/images/provider-icons/pipecat.svg",
+      "bytes": 1134
+    },
+    {
+      "path": "docs/images/provider-icons/postgresql.svg",
+      "bytes": 5220
+    },
+    {
+      "path": "docs/images/provider-icons/qdrant.svg",
+      "bytes": 275
+    },
+    {
+      "path": "docs/images/provider-icons/raycast.svg",
+      "bytes": 537
+    },
+    {
+      "path": "docs/images/provider-icons/redis.svg",
+      "bytes": 753
+    },
+    {
+      "path": "docs/images/provider-icons/sarvam.svg",
+      "bytes": 23492
+    },
+    {
+      "path": "docs/images/provider-icons/supabase.svg",
+      "bytes": 318
+    },
+    {
+      "path": "docs/images/provider-icons/together-color.svg",
+      "bytes": 582
+    },
+    {
+      "path": "docs/images/provider-icons/turbopuffer.svg",
+      "bytes": 8834
+    },
+    {
+      "path": "docs/images/provider-icons/upstash.svg",
+      "bytes": 829
+    },
+    {
+      "path": "docs/images/provider-icons/valkey.svg",
+      "bytes": 5407
+    },
+    {
+      "path": "docs/images/provider-icons/vercel.svg",
+      "bytes": 144
+    },
+    {
+      "path": "docs/images/provider-icons/vertexai.svg",
+      "bytes": 2046
+    },
+    {
+      "path": "docs/images/provider-icons/xai.svg",
+      "bytes": 367
+    },
+    {
+      "path": "docs/images/provider-icons/zeroentropy.svg",
+      "bytes": 555
+    },
+    {
+      "path": "docs/images/rest-api-server.png",
+      "bytes": 112520
+    },
+    {
+      "path": "docs/images/stateless-vs-stateful-agent-2.png",
+      "bytes": 291544
+    },
+    {
+      "path": "docs/images/stateless-vs-stateful-agent.png",
+      "bytes": 199869
+    },
+    {
+      "path": "docs/integrations.mdx",
+      "bytes": 10579
+    },
+    {
+      "path": "docs/integrations/agentops.mdx",
+      "bytes": 6465
+    },
+    {
+      "path": "docs/integrations/agno.mdx",
+      "bytes": 6942
+    },
+    {
+      "path": "docs/integrations/antigravity.mdx",
+      "bytes": 5842
+    },
+    {
+      "path": "docs/integrations/autogen.mdx",
+      "bytes": 5038
+    },
+    {
+      "path": "docs/integrations/aws-bedrock.mdx",
+      "bytes": 3883
+    },
+    {
+      "path": "docs/integrations/camel-ai.mdx",
+      "bytes": 3856
+    },
+    {
+      "path": "docs/integrations/chatdev.mdx",
+      "bytes": 10249
+    },
+    {
+      "path": "docs/integrations/claude-ai.mdx",
+      "bytes": 4524
+    },
+    {
+      "path": "docs/integrations/claude-code.mdx",
+      "bytes": 13083
+    },
+    {
+      "path": "docs/integrations/codex.mdx",
+      "bytes": 9388
+    },
+    {
+      "path": "docs/integrations/crewai.mdx",
+      "bytes": 6798
+    },
+    {
+      "path": "docs/integrations/cursor.mdx",
+      "bytes": 7045
+    },
+    {
+      "path": "docs/integrations/deepseek-plugin.mdx",
+      "bytes": 6442
+    },
+    {
+      "path": "docs/integrations/dify.mdx",
+      "bytes": 2163
+    },
+    {
+      "path": "docs/integrations/elevenlabs.mdx",
+      "bytes": 15079
+    },
+    {
+      "path": "docs/integrations/flowise.mdx",
+      "bytes": 3926
+    },
+    {
+      "path": "docs/integrations/google-ai-adk.mdx",
+      "bytes": 12880
+    },
+    {
+      "path": "docs/integrations/hermes.mdx",
+      "bytes": 16492
+    },
+    {
+      "path": "docs/integrations/kimi.mdx",
+      "bytes": 4779
+    },
+    {
+      "path": "docs/integrations/langchain-tools.mdx",
+      "bytes": 8957
+    },
+    {
+      "path": "docs/integrations/langchain.mdx",
+      "bytes": 5882
+    },
+    {
+      "path": "docs/integrations/langgraph.mdx",
+      "bytes": 5757
+    },
+    {
+      "path": "docs/integrations/livekit.mdx",
+      "bytes": 8945
+    },
+    {
+      "path": "docs/integrations/llama-index.mdx",
+      "bytes": 5926
+    },
+    {
+      "path": "docs/integrations/mastra.mdx",
+      "bytes": 4815
+    },
+    {
+      "path": "docs/integrations/n8n.mdx",
+      "bytes": 8188
+    },
+    {
+      "path": "docs/integrations/openai-agents-sdk.mdx",
+      "bytes": 7897
+    },
+    {
+      "path": "docs/integrations/openclaw.mdx",
+      "bytes": 19405
+    },
+    {
+      "path": "docs/integrations/opencode.mdx",
+      "bytes": 7211
+    },
+    {
+      "path": "docs/integrations/pi-agent.mdx",
+      "bytes": 7515
+    },
+    {
+      "path": "docs/integrations/pipecat.mdx",
+      "bytes": 7251
+    },
+    {
+      "path": "docs/integrations/raycast.mdx",
+      "bytes": 1965
+    },
+    {
+      "path": "docs/integrations/respan.mdx",
+      "bytes": 4353
+    },
+    {
+      "path": "docs/integrations/strands.mdx",
+      "bytes": 2931
+    },
+    {
+      "path": "docs/integrations/vercel-ai-sdk.mdx",
+      "bytes": 11824
+    },
+    {
+      "path": "docs/integrations/vercel.mdx",
+      "bytes": 4779
+    },
+    {
+      "path": "docs/integrations/zapier.mdx",
+      "bytes": 7072
+    },
+    {
+      "path": "docs/introduction.mdx",
+      "bytes": 7869
+    },
+    {
+      "path": "docs/logo/dark.svg",
+      "bytes": 11434
+    },
+    {
+      "path": "docs/logo/favicon.svg",
+      "bytes": 5054
+    },
+    {
+      "path": "docs/logo/light.svg",
+      "bytes": 11477
+    },
+    {
+      "path": "docs/logo/mem0 logo.svg",
+      "bytes": 12865
+    },
+    {
+      "path": "docs/migration/oss-to-platform.mdx",
+      "bytes": 14124
+    },
+    {
+      "path": "docs/migration/oss-v2-to-v3.mdx",
+      "bytes": 23412
+    },
+    {
+      "path": "docs/migration/platform-v2-to-v3.mdx",
+      "bytes": 15589
+    },
+    {
+      "path": "docs/migration/server-pgvector-upgrade.mdx",
+      "bytes": 4221
+    },
+    {
+      "path": "docs/open-source/configuration.mdx",
+      "bytes": 6017
+    },
+    {
+      "path": "docs/open-source/features/async-memory.mdx",
+      "bytes": 14227
+    },
+    {
+      "path": "docs/open-source/features/custom-instructions.mdx",
+      "bytes": 6697
+    },
+    {
+      "path": "docs/open-source/features/metadata-filtering.mdx",
+      "bytes": 14562
+    },
+    {
+      "path": "docs/open-source/features/multimodal-support.mdx",
+      "bytes": 9543
+    },
+    {
+      "path": "docs/open-source/features/openai-compatibility.mdx",
+      "bytes": 4981
+    },
+    {
+      "path": "docs/open-source/features/overview.mdx",
+      "bytes": 2427
+    },
+    {
+      "path": "docs/open-source/features/reranker-search.mdx",
+      "bytes": 16340
+    },
+    {
+      "path": "docs/open-source/features/rest-api.mdx",
+      "bytes": 12672
+    },
+    {
+      "path": "docs/open-source/node-quickstart.mdx",
+      "bytes": 3261
+    },
+    {
+      "path": "docs/open-source/overview.mdx",
+      "bytes": 2984
+    },
+    {
+      "path": "docs/open-source/python-quickstart.mdx",
+      "bytes": 2479
+    },
+    {
+      "path": "docs/open-source/setup.mdx",
+      "bytes": 9958
+    },
+    {
+      "path": "docs/platform/advanced-memory-operations.mdx",
+      "bytes": 5019
+    },
+    {
+      "path": "docs/platform/agent-signup.mdx",
+      "bytes": 4702
+    },
+    {
+      "path": "docs/platform/cli.mdx",
+      "bytes": 17733
+    },
+    {
+      "path": "docs/platform/contribute.mdx",
+      "bytes": 4622
+    },
+    {
+      "path": "docs/platform/copilot.mdx",
+      "bytes": 13301
+    },
+    {
+      "path": "docs/platform/faqs.mdx",
+      "bytes": 10607
+    },
+    {
+      "path": "docs/platform/features/advanced-retrieval.mdx",
+      "bytes": 6171
+    },
+    {
+      "path": "docs/platform/features/async-client.mdx",
+      "bytes": 4292
+    },
+    {
+      "path": "docs/platform/features/custom-categories.mdx",
+      "bytes": 13868
+    },
+    {
+      "path": "docs/platform/features/custom-instructions.mdx",
+      "bytes": 12645
+    },
+    {
+      "path": "docs/platform/features/direct-import.mdx",
+      "bytes": 3828
+    },
+    {
+      "path": "docs/platform/features/dream.mdx",
+      "bytes": 13168
+    },
+    {
+      "path": "docs/platform/features/entity-scoped-memory.mdx",
+      "bytes": 9366
+    },
+    {
+      "path": "docs/platform/features/feedback-mechanism.mdx",
+      "bytes": 6508
+    },
+    {
+      "path": "docs/platform/features/graph-memory.mdx",
+      "bytes": 7002
+    },
+    {
+      "path": "docs/platform/features/group-chat.mdx",
+      "bytes": 9182
+    },
+    {
+      "path": "docs/platform/features/memory-decay.mdx",
+      "bytes": 10476
+    },
+    {
+      "path": "docs/platform/features/memory-expiration.mdx",
+      "bytes": 8438
+    },
+    {
+      "path": "docs/platform/features/memory-export.mdx",
+      "bytes": 7435
+    },
+    {
+      "path": "docs/platform/features/multimodal-support.mdx",
+      "bytes": 7614
+    },
+    {
+      "path": "docs/platform/features/temporal-reasoning.mdx",
+      "bytes": 2623
+    },
+    {
+      "path": "docs/platform/features/timestamp.mdx",
+      "bytes": 4185
+    },
+    {
+      "path": "docs/platform/features/user-profiles.mdx",
+      "bytes": 14698
+    },
+    {
+      "path": "docs/platform/features/v2-memory-filters.mdx",
+      "bytes": 16355
+    },
+    {
+      "path": "docs/platform/features/webhooks.mdx",
+      "bytes": 5662
+    },
+    {
+      "path": "docs/platform/mem0-mcp.mdx",
+      "bytes": 9652
+    },
+    {
+      "path": "docs/platform/overview.mdx",
+      "bytes": 2637
+    },
+    {
+      "path": "docs/platform/platform-vs-oss.mdx",
+      "bytes": 8802
+    },
+    {
+      "path": "docs/platform/quickstart.mdx",
+      "bytes": 6028
+    },
+    {
+      "path": "docs/templates/api_reference_template.mdx",
+      "bytes": 7246
+    },
+    {
+      "path": "docs/templates/concept_guide_template.mdx",
+      "bytes": 5820
+    },
+    {
+      "path": "docs/templates/cookbook_template.mdx",
+      "bytes": 7227
+    },
+    {
+      "path": "docs/templates/feature_guide_template.mdx",
+      "bytes": 8137
+    },
+    {
+      "path": "docs/templates/integration_guide_template.mdx",
+      "bytes": 8079
+    },
+    {
+      "path": "docs/templates/migration_guide_template.mdx",
+      "bytes": 7215
+    },
+    {
+      "path": "docs/templates/operation_guide_template.mdx",
+      "bytes": 6880
+    },
+    {
+      "path": "docs/templates/parameters_reference_template.mdx",
+      "bytes": 7346
+    },
+    {
+      "path": "docs/templates/quickstart_template.mdx",
+      "bytes": 8381
+    },
+    {
+      "path": "docs/templates/release_notes_template.mdx",
+      "bytes": 5968
+    },
+    {
+      "path": "docs/templates/section_overview_template.mdx",
+      "bytes": 6309
+    },
+    {
+      "path": "docs/templates/troubleshooting_playbook_template.mdx",
+      "bytes": 5770
+    },
+    {
+      "path": "docs/vibecoding.mdx",
+      "bytes": 6213
+    },
+    {
+      "path": "examples/graph-db-demo/alice-memories.png",
+      "bytes": 68811
+    },
+    {
+      "path": "examples/graph-db-demo/kuzu-example.ipynb",
+      "bytes": 10810
+    },
+    {
+      "path": "examples/graph-db-demo/memgraph-example.ipynb",
+      "bytes": 5613
+    },
+    {
+      "path": "examples/graph-db-demo/neo4j-example.ipynb",
+      "bytes": 6013
+    },
+    {
+      "path": "examples/graph-db-demo/neptune-db-example.ipynb",
+      "bytes": 15705
+    },
+    {
+      "path": "examples/graph-db-demo/neptune-example-visualization-1.png",
+      "bytes": 38294
+    },
+    {
+      "path": "examples/graph-db-demo/neptune-example-visualization-2.png",
+      "bytes": 143435
+    },
+    {
+      "path": "examples/graph-db-demo/neptune-example-visualization-3.png",
+      "bytes": 141690
+    },
+    {
+      "path": "examples/graph-db-demo/neptune-example-visualization-4.png",
+      "bytes": 214290
+    },
+    {
+      "path": "examples/graph-db-demo/neptune-example.ipynb",
+      "bytes": 14696
+    },
+    {
+      "path": "examples/mem0-demo/.env.example",
+      "bytes": 65
+    },
+    {
+      "path": "examples/mem0-demo/.gitignore",
+      "bytes": 31
+    },
+    {
+      "path": "examples/mem0-demo/app/favicon.ico",
+      "bytes": 4286
+    },
+    {
+      "path": "examples/mem0-demo/images/assistant-ui-dark.svg",
+      "bytes": 371
+    },
+    {
+      "path": "examples/mem0-demo/images/assistant-ui.svg",
+      "bytes": 378
+    },
+    {
+      "path": "examples/mem0-demo/images/dark.svg",
+      "bytes": 13266
+    },
+    {
+      "path": "examples/mem0-demo/images/light.svg",
+      "bytes": 13266
+    },
+    {
+      "path": "examples/mem0-demo/public/file.svg",
+      "bytes": 391
+    },
+    {
+      "path": "examples/mem0-demo/public/globe.svg",
+      "bytes": 1035
+    },
+    {
+      "path": "examples/mem0-demo/public/next.svg",
+      "bytes": 1375
+    },
+    {
+      "path": "examples/mem0-demo/public/vercel.svg",
+      "bytes": 128
+    },
+    {
+      "path": "examples/mem0-demo/public/window.svg",
+      "bytes": 385
+    },
+    {
+      "path": "examples/multimodal-demo/.gitattributes",
+      "bytes": 66
+    },
+    {
+      "path": "examples/multimodal-demo/.gitignore",
+      "bytes": 299
+    },
+    {
+      "path": "examples/multimodal-demo/public/mem0_logo.jpeg",
+      "bytes": 8607
+    },
+    {
+      "path": "examples/multimodal-demo/src/assets/mem0_logo.jpeg",
+      "bytes": 8607
+    },
+    {
+      "path": "examples/multimodal-demo/src/assets/react.svg",
+      "bytes": 4126
+    },
+    {
+      "path": "examples/multimodal-demo/src/assets/user.jpg",
+      "bytes": 15547
+    },
+    {
+      "path": "examples/nemoclaw/troubleshooting-guide.pdf",
+      "bytes": 349779
+    },
+    {
+      "path": "examples/notebooks/customer-support-chatbot.ipynb",
+      "bytes": 9586
+    },
+    {
+      "path": "examples/notebooks/mem0-autogen.ipynb",
+      "bytes": 59576
+    },
+    {
+      "path": "examples/notebooks/user-profiles.ipynb",
+      "bytes": 34280
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/.gitattributes",
+      "bytes": 66
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/.gitignore",
+      "bytes": 299
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/public/mem0_logo.jpeg",
+      "bytes": 8607
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/assets/mem0_logo.jpeg",
+      "bytes": 8607
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/assets/react.svg",
+      "bytes": 4126
+    },
+    {
+      "path": "examples/vercel-ai-sdk-chat-app/src/assets/user.jpg",
+      "bytes": 15547
+    },
+    {
+      "path": "examples/yt-assistant-chrome/.gitignore",
+      "bytes": 41
+    },
+    {
+      "path": "examples/yt-assistant-chrome/assets/dark.svg",
+      "bytes": 13265
+    },
+    {
+      "path": "integrations/agent-plugin-core/build/__init__.py",
+      "bytes": 60
+    },
+    {
+      "path": "integrations/agent-plugin-core/build/build.py",
+      "bytes": 11631
+    },
+    {
+      "path": "integrations/agent-plugin-core/build/schemas/mcp.schema.json",
+      "bytes": 3116
+    },
+    {
+      "path": "integrations/agent-plugin-core/build/schemas/plugin.schema.json",
+      "bytes": 1673
+    },
+    {
+      "path": "integrations/agent-plugin-core/build/validate.py",
+      "bytes": 2635
+    },
+    {
+      "path": "integrations/agent-plugin-core/skills/forget/SKILL.md.tmpl",
+      "bytes": 1075
+    },
+    {
+      "path": "integrations/agent-plugin-core/skills/pause/SKILL.md.tmpl",
+      "bytes": 783
+    },
+    {
+      "path": "integrations/agent-plugin-core/skills/remember/SKILL.md.tmpl",
+      "bytes": 978
+    },
+    {
+      "path": "integrations/agent-plugin-core/skills/resume/SKILL.md.tmpl",
+      "bytes": 487
+    },
+    {
+      "path": "integrations/agent-plugin-core/skills/search/SKILL.md.tmpl",
+      "bytes": 1357
+    },
+    {
+      "path": "integrations/agent-plugin-core/skills/status/SKILL.md.tmpl",
+      "bytes": 1201
+    },
+    {
+      "path": "integrations/agent-plugin-core/typescript/pnpm-lock.yaml",
+      "bytes": 912
+    },
+    {
+      "path": "integrations/deepseek-plugin/.npmrc",
+      "bytes": 444
+    },
+    {
+      "path": "integrations/deepseek-plugin/pnpm-lock.yaml",
+      "bytes": 69480
+    },
+    {
+      "path": "integrations/hermes-plugin-mem0/.gitignore",
+      "bytes": 26
+    },
+    {
+      "path": "integrations/mem0-strands/.gitignore",
+      "bytes": 142
+    },
+    {
+      "path": "integrations/mem0-strands/python/src/mem0_strands/py.typed",
+      "bytes": 0
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/.gitignore",
+      "bytes": 83
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/credentials/mem0.svg",
+      "bytes": 12865
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/nodes/Mem0/mem0.svg",
+      "bytes": 12865
+    },
+    {
+      "path": "integrations/n8n-nodes-mem0/pnpm-lock.yaml",
+      "bytes": 160221
+    },
+    {
+      "path": "integrations/openclaw/.gitignore",
+      "bytes": 56
+    },
+    {
+      "path": "integrations/openclaw/.npmrc",
+      "bytes": 60
+    },
+    {
+      "path": "integrations/openclaw/pnpm-lock.yaml",
+      "bytes": 135046
+    },
+    {
+      "path": "integrations/opencode-plugin/bun.lock",
+      "bytes": 75427
+    },
+    {
+      "path": "integrations/pi-agent-plugin/pnpm-lock.yaml",
+      "bytes": 161701
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/.gitattributes",
+      "bytes": 66
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/.gitignore",
+      "bytes": 118
+    },
+    {
+      "path": "integrations/vercel-ai-sdk/pnpm-lock.yaml",
+      "bytes": 126389
+    },
+    {
+      "path": "integrations/zapier-mem0/.gitignore",
+      "bytes": 89
+    },
+    {
+      "path": "integrations/zapier-mem0/pnpm-lock.yaml",
+      "bytes": 103143
+    },
+    {
+      "path": "mem0-ts/.gitignore",
+      "bytes": 47
+    },
+    {
+      "path": "mem0-ts/.prettierignore",
+      "bytes": 45
+    },
+    {
+      "path": "mem0-ts/patches/tar@7.5.22.patch",
+      "bytes": 67330
+    },
+    {
+      "path": "mem0-ts/pnpm-lock.yaml",
+      "bytes": 342021
+    },
+    {
+      "path": "mem0-ts/src/community/.prettierignore",
+      "bytes": 292
+    },
+    {
+      "path": "mem0-ts/src/oss/.env.example",
+      "bytes": 854
+    },
+    {
+      "path": "mem0-ts/src/oss/.gitignore",
+      "bytes": 195
+    },
+    {
+      "path": "mem0-ts/tests/.gitkeep",
+      "bytes": 0
+    },
+    {
+      "path": "poetry.lock",
+      "bytes": 914252
+    },
+    {
+      "path": "server/.env.example",
+      "bytes": 1109
+    },
+    {
+      "path": "server/alembic/script.py.mako",
+      "bytes": 635
+    },
+    {
+      "path": "server/dashboard/.dockerignore",
+      "bytes": 58
+    },
+    {
+      "path": "server/dashboard/.env.example",
+      "bytes": 112
+    },
+    {
+      "path": "server/dashboard/.gitignore",
+      "bytes": 424
+    },
+    {
+      "path": "server/dashboard/pnpm-lock.yaml",
+      "bytes": 228248
+    },
+    {
+      "path": "server/dashboard/public/android-chrome-192x192.png",
+      "bytes": 32624
+    },
+    {
+      "path": "server/dashboard/public/android-chrome-512x512.png",
+      "bytes": 135937
+    },
+    {
+      "path": "server/dashboard/public/apple-touch-icon.png",
+      "bytes": 29344
+    },
+    {
+      "path": "server/dashboard/public/favicon-16x16.png",
+      "bytes": 808
+    },
+    {
+      "path": "server/dashboard/public/favicon-32x32.png",
+      "bytes": 2260
+    },
+    {
+      "path": "server/dashboard/public/favicon.ico",
+      "bytes": 15406
+    },
+    {
+      "path": "server/dashboard/public/fonts/DMMono-Italic.ttf",
+      "bytes": 50524
+    },
+    {
+      "path": "server/dashboard/public/fonts/DMMono-Light.ttf",
+      "bytes": 48832
+    },
+    {
+      "path": "server/dashboard/public/fonts/DMMono-LightItalic.ttf",
+      "bytes": 50852
+    },
+    {
+      "path": "server/dashboard/public/fonts/DMMono-Medium.ttf",
+      "bytes": 49444
+    },
+    {
+      "path": "server/dashboard/public/fonts/DMMono-MediumItalic.ttf",
+      "bytes": 51684
+    },
+    {
+      "path": "server/dashboard/public/fonts/DMMono-Regular.ttf",
+      "bytes": 48852
+    },
+    {
+      "path": "server/dashboard/public/fonts/Fustat-VariableFont_wght.ttf",
+      "bytes": 171724
+    },
+    {
+      "path": "server/dashboard/public/fonts/InterVariable-Italic.woff2",
+      "bytes": 387976
+    },
+    {
+      "path": "server/dashboard/public/fonts/InterVariable.woff2",
+      "bytes": 352240
+    },
+    {
+      "path": "server/dashboard/public/fonts/RobotoMono-Bold.ttf",
+      "bytes": 87392
+    },
+    {
+      "path": "server/dashboard/public/fonts/RobotoMono-Regular.ttf",
+      "bytes": 87236
+    },
+    {
+      "path": "server/dashboard/public/images/dark.svg",
+      "bytes": 13266
+    },
+    {
+      "path": "server/dashboard/public/images/dither.svg",
+      "bytes": 1530886
+    },
+    {
+      "path": "server/dashboard/public/images/light.svg",
+      "bytes": 13266
+    },
+    {
+      "path": "server/dashboard/public/images/logos/aws.svg",
+      "bytes": 6063
+    },
+    {
+      "path": "server/dashboard/public/images/logos/logo-dark.png",
+      "bytes": 1977
+    },
+    {
+      "path": "server/dashboard/public/images/logos/logo-light.png",
+      "bytes": 800
+    },
+    {
+      "path": "server/dashboard/public/images/logos/nvidia.svg",
+      "bytes": 2618
+    },
+    {
+      "path": "server/dashboard/public/images/micheal.png",
+      "bytes": 2849
+    },
+    {
+      "path": "server/dashboard/public/images/no-memories-dark.svg",
+      "bytes": 1913301
+    },
+    {
+      "path": "server/dashboard/public/images/no-memories.svg",
+      "bytes": 1954359
+    },
+    {
+      "path": "server/dashboard/public/images/no-requests-dark.svg",
+      "bytes": 1909173
+    },
+    {
+      "path": "server/dashboard/public/images/no-requests.svg",
+      "bytes": 1950233
+    },
+    {
+      "path": "server/dashboard/public/images/success-banner.png",
+      "bytes": 43016
+    },
+    {
+      "path": "server/dashboard/public/images/vercel.png",
+      "bytes": 1907
+    },
+    {
+      "path": "server/dashboard/public/mem0-animation.mp4",
+      "bytes": 2909214
+    },
+    {
+      "path": "server/dashboard/public/site.webmanifest",
+      "bytes": 360
+    },
+    {
+      "path": "server/dashboard/src/app/favicon.ico",
+      "bytes": 15406
+    },
+    {
+      "path": "server/dev.Dockerfile",
+      "bytes": 582
+    }
+  ]
+}

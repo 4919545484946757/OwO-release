@@ -1,0 +1,10 @@
+{
+  "full_name": "stanfordnlp/dspy",
+  "default_branch": "main",
+  "sha": "099982b3c3eec9fc4ec4796d49915af42367a253",
+  "license": null,
+  "description": null,
+  "archived": null,
+  "pushed_at": null,
+  "identity_source": "git ls-remote public HEAD"
+}

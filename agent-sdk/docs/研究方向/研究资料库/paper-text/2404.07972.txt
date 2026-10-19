@@ -1,0 +1,163 @@
+OSW ORLD : Benchmarking Multimodal Agents for
+Open-Ended Tasks in Real Computer Environments
+Tianbao Xie♠ Danyang Zhang♠ Jixuan Chen♠ Xiaochuan Li♠ Siheng Zhao♠
+Ruisheng Cao♠ Toh Jing Hua♠ Zhoujun Cheng♠ Dongchan Shin♠ Fangyu Lei♠ Yitao Liu♠
+Yiheng Xu♠ Shuyan Zhou♣ Silvio Savarese♡ Caiming Xiong♡ Victor Zhong♢ Tao Yu♠
+♠The University of Hong Kong ♣CMU ♡Salesforce Research ♢University of Waterloo
+Abstract
+Autonomous agents that accomplish complex computer tasks with minimal human
+interventions have the potential to transform human-computer interaction, signif-
+icantly enhancing accessibility and productivity. However, existing benchmarks
+either lack an interactive environment or are limited to environments specific to
+certain applications or domains, failing to reflect the diverse and complex na-
+ture of real-world computer use, thereby limiting the scope of tasks and agent
+scalability. To address this issue, we introduce OSW ORLD , the first-of-its-kind
+scalable, real computer environment for multimodal agents, supporting task setup,
+execution-based evaluation, and interactive learning across various operating sys-
+tems such as Ubuntu, Windows, and macOS. OSW ORLD can serve as a unified,
+integrated computer environment for assessing open-ended computer tasks that
+involve arbitrary applications. Building upon OSW ORLD , we create a benchmark
+of 369 computer tasks involving real web and desktop apps in open domains, OS
+file I/O, and workflows spanning multiple applications. Each task example is
+derived from real-world computer use cases and includes a detailed initial state
+setup configuration and a custom execution-based evaluation script for reliable,
+reproducible evaluation. Extensive evaluation of state-of-the-art LLM/VLM-based
+agents on OSW ORLD reveals significant deficiencies in their ability to serve as
+computer assistants. While humans can accomplish over 72.36% of the tasks, the
+best model achieves only 12.24% success, primarily struggling with GUI grounding
+and operational knowledge. Comprehensive analysis using OSW ORLD provides
+valuable insights for developing multimodal generalist agents that were not possible
+with previous benchmarks. Our code, environment, baseline models, and data are
+publicly available at https://os-world.github.io.
+1 Introduction
+Humans interact with computers to perform essential tasks in the digital realm, including web brows-
+ing, video editing, file management, data analysis, and software development. These task workflows
+often involve multiple applications through graphical user interfaces (GUI) and command line inter-
+faces (CLI). Autonomous digital agents, powered by advancements in large vision-language models
+(VLMs), have the potential to revolutionize how we interact with computer environments [28, 44, 1].
+By following high-level natural language instructions, these agents can make digital interactions
+more accessible and vastly increase human productivity. However, a major challenge in developing
+such multimodal agents is the absence of a benchmark based on a real interactive environment that
+covers the diversity and complexity of real-world computer use across various operating systems,
+interfaces, and applications, consequently restricting task scope and agent scalability.
+Previous benchmarks provide datasets of demonstrations without executable environments [9, 40,
+21]. Their non-execution-based evaluation assumes a single solution for each task and wrongfully
+penalizes alternative correct solutions. These benchmarks also miss opportunities for essential
+Preprint. Under review.
+arXiv:2404.07972v2  [cs.AI]  30 May 2024
+
+Task Instruction
+(See examples above)
+input Agent
+(e.g., GPT-4V)
+a11y-tree
+screenshot
+keyboardmouse
+Action
+Observation
+input
+predict
+OSWorld Environment
+InterfacesOS
+Task instruction 2: ...some details about snake game omitted… Could you help me tweak the code so the snake can actually eat the food?
+Task instruction 1: Update the bookkeeping sheet with my recent transactions over the past few days in the provided folder.
+Arbitrary Apps
+Task Initial State Setup Config
+task initial env state setup
+Final State
+get env state
+Execution-based 
+Evaluation
+Virtual Machine(s)
+Figure 1: OSW ORLD is a first-of-its-kind scalable, real computer environmentfor multimodal agents,
+supporting task setup, execution-based evaluation, and interactive learning across operating systems.
+It can serve as a unified environment for evaluating open-ended computer tasks that involve arbitrary
+apps (e.g., task examples in the above Fig). We also create a benchmark of 369 real-world computer
+tasks in OSW ORLD with reliable, reproducible setup and evaluation scripts.
+agent development methods like interactive learning and real-world exploration. Building realistic
+interactive environments is a major challenge in developing multimodal agents. Prior work that
+introduce executable environments simplify the observation and action spaces of human-computer
+interaction and limit task scope within specific applications or domains, such as web navigation in
+a few domains [44, 30, 58, 66], coding [57] and the combination [32, 54, 34]. Agents developed in
+these restricted environments cannot comprehensively cover computer tasks, lacking the support of
+evaluating tasks in complex, real-world scenarios that require navigating between applications and
+interfaces in open domains (task examples in e.g., Fig. 1).
+To address this gap, we introduceOSW ORLD , the first-of-its-kind scalable, real computer environment
+designed for the development of multimodal agents capable of executing a wide range of real
+computer tasks beyond isolated interfaces and applications. This executable environment allows
+free-form raw keyboard and mouse control of real computer applications and supports initial task
+state configuration, execution-based evaluation, and interactive learning across mainstream operating
+systems (e.g., Ubuntu, Windows, macOS). As shown in Fig. 1, OSW ORLD enables evaluation
+of open-ended computer tasks that involve arbitrary applications, ranging from image viewing to
+software functionality integration and programming. Thus, OSW ORLD can serve as a unified,
+real computer environment that allows users to define their agent tasks without the need to build
+application/domain-specific simulated environments.
+Building upon OSW ORLD , we create a benchmark with 369 real-world computer tasks that involve
+widely-used web and desktop apps in open domains, OS file I/O, and multi-app workflows through
+both GUI and CLI. Each task example is based on real-world computer use cases experienced by real
+users and often requires interactions with multiple applications and interfaces. To ensure reliable,
+reproducible assessment within the OSW ORLD environment, 9 authors with computer science
+backgrounds carefully annotate each example with an initial state setup configuration to simulate
+human work in progress and a custom execution-based evaluation script to verify task completion.
+Our benchmark has a total of 134 unique evaluation functions, which are orders of magnitude larger
+than prior work [66], showcasing the complexity, diversity, and evaluation challenges of tasks in our
+benchmark. The human performance study indicates that task examples from OSW ORLD are more
+time-consuming and challenging compared to those in prior work.
+We extensively evaluate state-of-the-art LLM and VLM-based agent baselines, including the GPT-4V
+series [39], the Gemini series [ 49, 41], the Claude-3 Opus [ 3] and the Qwen-Max [ 5], as well as
+Mixtral [19], Llama-3 [35] and CogAgent [17] from the open-source community. The performance
+of these experiments ranges from 0.99% to 12.24%, with subsets of applications even reaching 0%,
+2
+
+for workflow tasks that involve cooperation from multiple apps, the highest performance of the
+baseline agent is only 6.57%. This indicates that current LLMs and VLMs are far from capable of
+serving as computer assistants (§4.2). Results also show that while additional knowledge such as the
+accessibility tree and Set-of-Mark (§4.1) can be helpful, it can also lead to potential misguidance and
+varies across models. We also observe performance changes in these agents compared to consistent
+human performance across different types of computer tasks. Analysis reveals that VLM-based
+agents struggle to ground on screenshots to predict precise coordinates for actions, tend to predict
+repetitive actions, are unable to handle noise from unexpected application windows and exhibit limited
+knowledge of basic GUI interactions and domain-specific features of apps (§5.2, §5.4). Feeding
+higher resolution and more trajectory history can help improve the performance by even doubling
+while requiring longer context length and efficient modeling (§5.2). We open-source OSW ORLD
+environment and benchmark, including environment initial state setup, reliable evaluation scripts,
+documentation, and our implementation of baseline models to promote research towards the goal of
+generalist capable computer agents 1. Future work can focus on enhancing VLM GUI grounding
+abilities, including interaction commonsense knowledge, higher-resolution support, and coordinates
+accuracy for more robust GUI interactions. Additionally, efforts can be made to improve agent
+architectures to better handle complex computer tasks through exploration, memory, and reflection.
+2 OSW ORLD Environment
+In this section, we will introduce the task definition of autonomous agents, the components and
+implementation of the OSW ORLD environment, and the supported observation and action spaces.
+2.1 Task Definition
+An autonomous digital agent task can be formalized as a partially observable Markov decision
+process (POMDP) (S,O,A,T ,R) with state spaceS, observation spaceO (§2.3, including natural
+languageI), action space A (§2.4), transition function T :S×A→S , and reward function
+R :S×A→ R. Given current observation ot∈O (a natural language instruction observation and a
+screenshot observation (e.g., computer screenshot), accessibility (a11y) tree, or their combination
+according to facilities available), an agent generates executable action at∈A (e.g., clicking on the
+certain pixel of the screen — .click(300, 540, button=‘right’) , press key combination —
+.hotkey(‘ctrl’, ‘alt’, ‘t’) ), which results in a new state st+1∈S (e.g., current Desktop
+environment) and a new partial observation ot+1∈O (e.g., current screenshot). The interaction loop
+repeats until an action that marks termination (DONE or FAIL, see Sec. 2.4) is generated or the agent
+reaches the max number of steps (e.g., 15 in our experiments). In this version of OSW ORLD , we
+implement an execution-based reward functionR :S×A→ [0, 1] (§2.2.3). The reward function
+awards a value of 1 or a positive decimal under 1 at the final step if the state transitions meet the
+expectations of the task objective (i.e., the goal is successfully achieved or partially achieved), or if
+the agent accurately predicts failure for an infeasible task. In all other scenarios, it returns 0.
+2.2 Real Computer Environment Infrastructure
+OSW ORLD is an executable and controllable environment that supports task initialization, execution-
+based evaluation, and interactive agent learning in a range ofreal operating systems (e.g., Ubuntu,
+Windows, macOS) using virtual machine techniques, shown in the middle and right of Fig. 2.
+Virtual machine offers a safe isolated environment and prevents the agent resulting in irreversible
+damaging effect on the real host machine. The snapshot feature also enables efficient reset of
+the virtual environment. The environment is configured through a config file (shown in the left
+of Fig. 2) for interface initialization during the initialization phase (including downloading files,
+opening software, adjusting interface layout) (§2.2.2, highlighted with red in Fig. 2), post-processing
+during the evaluation phase (activating certain windows, saving some files for easy retrieval of
+information, highlighted with orange), and acquiring files and information for evaluation (such as
+the final spreadsheet file for spreadsheet tasks, cookies for Chrome tasks, highlighted with yellow in
+Fig. 2), as well as the evaluation functions and parameters used (§2.2.3, highlighted with green in
+Fig. 2). See App. A.1 for more details.
+1https://os-world.github.io
+3
