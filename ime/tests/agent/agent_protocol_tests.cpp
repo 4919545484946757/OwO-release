@@ -23,6 +23,31 @@ int main() {
          "前一个应用中的上下文", 1},
         {"ctx-notepad-1", request.application, "当前输入位置的上下文", 2},
     };
+    auto document_selection = request;
+    document_selection.capabilities.push_back(owo::agent::kAgentCapabilityInputSelection);
+    document_selection.selection = owo::agent::SelectionSummary{"合成选区", std::string(64, 'a'), false};
+    const auto selection_wire = owo::agent::encode_request(document_selection);
+    const auto selection_roundtrip = owo::agent::decode_request(selection_wire);
+    if (!selection_roundtrip.ok || selection_roundtrip.value != document_selection) return 80;
+    if (!owo::agent::encode_request_v2(document_selection).empty()) return 81;
+    const auto poll = owo::agent::make_poll_request(document_selection, 1);
+    const auto polled = owo::agent::decode_request(owo::agent::encode_request(poll));
+    if (!polled.ok || polled.value.application != document_selection.application ||
+        polled.value.selection != document_selection.selection ||
+        polled.value.capabilities != document_selection.capabilities ||
+        polled.value.action != owo::agent::Action::poll ||
+        polled.value.parent_request_id != document_selection.request_id ||
+        polled.value.request_id == document_selection.request_id ||
+        !polled.value.user_input.empty() || !polled.value.session_context.empty() ||
+        !polled.value.context_entries.empty()) return 90;
+    if (owo::agent::make_poll_request(document_selection, 2).idempotency_key ==
+        poll.idempotency_key) return 91;
+
+    document_selection.application.sensitive_input = true;
+    if (!owo::agent::encode_request(document_selection).empty()) return 82;
+    document_selection.application.sensitive_input = false;
+    document_selection.selection->text = std::string(1001, 'a');
+    if (!owo::agent::encode_request(document_selection).empty()) return 83;
     const auto encoded_request = owo::agent::encode_request(request);
     const auto decoded_request = owo::agent::decode_request(encoded_request);
     if (!decoded_request.ok || decoded_request.value != request) return 1;

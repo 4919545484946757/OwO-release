@@ -2,31 +2,23 @@
 //!
 //! 数据流：管道请求 → [`ImeState::dispatch`]（纯状态决策）→
 //! - `Respond`：直接回包；
-//! - `StartTurn`：spawn 本模块的 [`run_turn_task`]（HTTP 回环 + SSE 消费），
+//! - `StartTurn`：spawn 本模块的 [`run_turn_task`]（HTTP 无工具表达路由），
 //!   先把 `thinking` 立即回包；turn 完成后经 `complete_turn` 写入槽位；
 //! - `RunCommand`：执行真实动作（回滚 / 打开可信界面 / 任务提交）。
 //!
-//! 取消：`slot.cancelled()` 触发 → `POST /abort` → 继续消费流至多 30s 宽限，
-//! 然后强制结束并回写取消响应。
+//! Cancellation drops the HTTP request and prevents late output from being published.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use futures::StreamExt;
-use owo_agent_protocol::SseEvent;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info, warn};
 
 use crate::commands;
 use crate::http::{BridgeError, OwoHttpClient};
 use crate::protocol::{AgentIpcRequest, AgentIpcResponse, Status};
-use crate::sse::{SseFrame, SseParser};
-use crate::state::{
-    CommandAction, ImeState, PendingHandle, PermissionNotice, StartTurnRequest, StateAction,
-};
+use crate::state::{CommandAction, ImeState, PermissionNotice, StartTurnRequest, StateAction};
 
-/// 取消后的流消费宽限期（之后强制结束）。
-const CANCEL_GRACE: std::time::Duration = std::time::Duration::from_secs(30);
 /// 最终消息字符上限（协议 `message` maxLength 16384）。
 const MESSAGE_LIMIT: usize = 16_000;
 
@@ -150,10 +142,10 @@ impl ImeBridge {
             }
             CommandAction::OpenWorkbench => {
                 let url = self.web_url.clone();
-                info!(%url, "打开 Agent 工作台（diff 审阅）");
+                info!(%url, "打开 Agent 工作台");
                 open_in_browser(&url);
                 let mut response = commands::base_response(request, Status::Completed);
-                response.message = format!("已在 Agent 工作台打开改动明细（{url}）");
+                response.message = format!("已打开 Agent 工作台，请在其中继续处理任务（{url}）");
                 self.state
                     .complete_command(ime_session_id, request, response)
             }
@@ -188,126 +180,47 @@ pub async fn run_turn_task(
     let request = turn.request.clone();
 
     let outcome = execute_turn(&client, &sessions, &workspace, &turn).await;
-    let (mut final_response, insert_text, diff_count) = match outcome {
-        Ok((accumulator, agent_session)) => {
-            let (mut response, insert_text) = build_final_response(&request, &accumulator);
-            // 改动审阅候选：只有成功回合才拉 diff。
-            let diff_count = if response.status == Status::AgentMode {
-                match client.diff(&agent_session).await {
-                    Ok(diffs) if !diffs.is_empty() => Some(diffs.len()),
-                    _ => None,
-                }
-            } else {
-                None
-            };
-            if let Some(count) = diff_count {
-                response.message = format!("{}（本次改动 {count} 个文件）", response.message);
-            }
-            (response, insert_text, diff_count)
-        }
-        Err(error) => {
-            warn!(%error, session = %ime_session_id, "IME turn 执行失败");
+    let (mut final_response, insert_text) = match outcome {
+        Ok(accumulator) => build_final_response(&request, &accumulator),
+        Err(_) => {
+            warn!(session = %ime_session_id, "IME expression request failed; acceptance may be unknown");
             (
                 commands::error_response(
                     &request,
-                    "agent_error",
-                    format!("Agent 执行失败：{error}"),
+                    "expression_failed",
+                    "表达请求失败，上游受理状态可能未知；不会自动重发，请在 Agent 界面检查",
                 ),
-                None,
                 None,
             )
         }
     };
-
-    // 构建候选列表与动作表（响应携带 + 状态机注册）；再写回完成结果。
-    let mut candidate_commands: Vec<crate::protocol::Command> = Vec::new();
-    let mut actions: HashMap<String, CommandAction> = HashMap::new();
+    let mut actions = HashMap::new();
     if let Some(text) = insert_text {
         let mut command = commands::insert_reply_command(&text);
         commands::attach_commit_effect(&mut command, &request, &text);
         actions.insert(command.id.clone(), CommandAction::InsertReply { text });
-        candidate_commands.push(command);
+        final_response.commands = vec![command];
     }
-    if let Some(count) = diff_count {
-        let view = commands::view_diff_command(count);
-        actions.insert(view.id.clone(), CommandAction::OpenWorkbench);
-        candidate_commands.push(view);
-        let revert = commands::revert_command();
-        actions.insert(revert.id.clone(), CommandAction::RevertAll);
-        candidate_commands.push(revert);
-    }
-    if !candidate_commands.is_empty() {
-        final_response.commands = candidate_commands.clone();
-        state.set_commands(&ime_session_id, candidate_commands, actions);
-    }
-    let _ = state.complete_turn(&ime_session_id, final_response);
+    let _ = state.complete_expression(&ime_session_id, &turn.slot, final_response, actions);
 }
 
-/// 执行一个 turn：会话准备 → SSE 消费（含取消）→ 累积结果。
-///
-/// 返回 `(累积器, agent 会话 ID)`（会话 ID 供后续 diff/revert 使用）。
+/// Execute one stateless expression request; cancellation discards its response.
 async fn execute_turn(
     client: &OwoHttpClient,
-    sessions: &Mutex<HashMap<String, String>>,
-    workspace: &str,
+    _sessions: &Mutex<HashMap<String, String>>,
+    _workspace: &str,
     turn: &StartTurnRequest,
-) -> Result<(TurnAccumulator, String), BridgeError> {
-    // 1. agent 会话（一次创建、会话内复用）。
-    let agent_session = {
-        let mut map = sessions.lock().await;
-        match map.get(&turn.session_id) {
-            Some(session) => session.clone(),
-            None => {
-                let session = client.create_session(workspace).await?;
-                map.insert(turn.session_id.clone(), session.id.clone());
-                session.id
-            }
-        }
-    };
-
-    // 2. 发 turn（长流）。
-    // 输入法通道本轮只开放表达类任务：一律只读回合（宿主策略层只放行只读工具，不可放宽）。
+) -> Result<TurnAccumulator, BridgeError> {
     let prompt = turn
         .prompt
-        .clone()
-        .unwrap_or_else(|| compose_prompt(&turn.request));
-    let response = client.turn_stream(&agent_session, &prompt, true).await?;
-
-    // 3. 消费 SSE（select 取消信号）。
-    let mut accumulator = TurnAccumulator::default();
-    let mut parser = SseParser::new();
-    let mut stream = response.bytes_stream();
-    let mut cancel_deadline: Option<tokio::time::Instant> = None;
-
-    loop {
-        tokio::select! {
-            _ = turn.slot.cancelled(), if !accumulator.cancelled => {
-                accumulator.cancelled = true;
-                info!(session = %agent_session, "IME 取消：发送 abort");
-                if let Err(error) = client.abort(&agent_session).await {
-                    warn!(%error, "abort 调用失败");
-                }
-                cancel_deadline = Some(tokio::time::Instant::now() + CANCEL_GRACE);
-            }
-            _ = tokio::time::sleep_until(
-                cancel_deadline.unwrap_or_else(tokio::time::Instant::now)
-            ), if cancel_deadline.is_some() => {
-                warn!(session = %agent_session, "取消宽限期已过，强制结束流");
-                break;
-            }
-            chunk = stream.next() => {
-                let Some(chunk) = chunk else { break };
-                let bytes = chunk?;
-                for frame in parser.push(&bytes) {
-                    apply_frame(&frame, &mut accumulator, &turn.slot);
-                }
-            }
-        }
-    }
-    for frame in parser.finish() {
-        apply_frame(&frame, &mut accumulator, &turn.slot);
-    }
-    Ok((accumulator, agent_session))
+        .as_deref()
+        .ok_or_else(|| BridgeError::Protocol("non-expression input must open Agent UI".into()))?;
+    let accumulator = tokio::select! {
+        biased;
+        _ = turn.slot.cancelled() => TurnAccumulator { cancelled: true, ..Default::default() },
+        result = client.expression(prompt) => TurnAccumulator { final_text: result?, ..Default::default() },
+    };
+    Ok(accumulator)
 }
 
 /// turn 过程累积器。
@@ -318,46 +231,6 @@ pub struct TurnAccumulator {
     pub tools_used: usize,
     pub permission: Option<PermissionNotice>,
     pub cancelled: bool,
-}
-
-/// 处理一个 SSE 帧（`data` 为 `SseEvent` tagged JSON）。
-fn apply_frame(frame: &SseFrame, accumulator: &mut TurnAccumulator, slot: &Arc<PendingHandle>) {
-    let Ok(event) = serde_json::from_str::<SseEvent>(&frame.data) else {
-        debug!(event = %frame.event, "忽略无法解析的 SSE 帧");
-        return;
-    };
-    match event {
-        SseEvent::Final { text } => {
-            accumulator.final_text = text;
-        }
-        SseEvent::TurnFailed { message, .. } => {
-            accumulator.failed = Some(message);
-        }
-        SseEvent::PermissionRequest {
-            request_id,
-            tool,
-            reason,
-            ..
-        } => {
-            accumulator.permission = Some(PermissionNotice {
-                request_id,
-                tool,
-                reason,
-            });
-        }
-        SseEvent::ToolUse { .. } => {
-            accumulator.tools_used += 1;
-        }
-        SseEvent::ToolResult { .. } => {
-            // 审批已响应（放行或拒绝）后工具才会产生结果：清除等待态。
-            accumulator.permission = None;
-        }
-        _ => {}
-    }
-    // 同步进槽位（poll 可见审批等待与进度）。
-    let mut guard = slot.lock();
-    guard.permission_waiting = accumulator.permission.clone();
-    guard.tools_used = accumulator.tools_used;
 }
 
 /// 由累积器构造最终 IME 响应。
@@ -499,6 +372,7 @@ mod tests {
             },
             session_context: "附近的输入上下文".to_string(),
             context_entries: vec![],
+            selection: None,
             command_id: String::new(),
             page: 0,
             task_revision: 0,

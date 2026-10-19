@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use tokio::net::windows::named_pipe::{NamedPipeServer, ServerOptions};
 use tokio::sync::watch;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::frame::{self, FrameError};
 
@@ -85,31 +85,22 @@ pub async fn run_pipe_server(
     mut shutdown: watch::Receiver<bool>,
 ) -> Result<(), PipeError> {
     validate_pipe_name(pipe_name)?;
+    let expected_peer = Arc::new(crate::peer::current_process_identity()?);
     let security = PipeSecurity::current_user().map_err(PipeError::Security)?;
+    // Claim the endpoint exclusively. A live pre-existing instance is not a
+    // recoverable stale file: never join it by relaxing FIRST_PIPE_INSTANCE.
+    let mut security = security;
+    let mut server = create_instance(pipe_name, &mut security, true)?;
     info!(
         pipe = pipe_name,
         timeout_ms = op_timeout.as_millis() as u64,
         "IME Agent 管道服务启动"
     );
 
-    let mut first_instance = true;
-    let mut security = security;
     loop {
         if *shutdown.borrow() {
             break;
         }
-
-        let server = match create_instance(pipe_name, &mut security, first_instance) {
-            Ok(server) => server,
-            Err(error) if first_instance => {
-                // 首次带 FILE_FLAG_FIRST_PIPE_INSTANCE 失败：多半是上一次异常退出残留了
-                // 同名实例。降级重试一次（对齐 mock 行为）并给出警告。
-                warn!(%error, "管道首实例创建失败（可能有残留实例），降级重试");
-                create_instance(pipe_name, &mut security, false)?
-            }
-            Err(error) => return Err(PipeError::Io(error)),
-        };
-        first_instance = false;
 
         tokio::select! {
             result = server.connect() => {
@@ -118,10 +109,16 @@ pub async fn run_pipe_server(
             _ = shutdown.changed() => break,
         }
 
+        // Create the next listener while this connected handle still owns the
+        // name. Even an immediately disconnecting client cannot leave a gap
+        // between instances in which another process claims the endpoint.
+        let next = create_instance(pipe_name, &mut security, false)?;
+        let connected = std::mem::replace(&mut server, next);
         let handler = Arc::clone(&handler);
         let timeout = op_timeout;
+        let expected_peer = Arc::clone(&expected_peer);
         tokio::spawn(async move {
-            if let Err(error) = serve_connection(server, handler, timeout).await {
+            if let Err(error) = serve_connection(connected, handler, timeout, expected_peer).await {
                 debug!(%error, "IME 管道连接结束");
             }
         });
@@ -137,6 +134,7 @@ fn create_instance(
 ) -> std::io::Result<NamedPipeServer> {
     let mut options = ServerOptions::new();
     options.first_pipe_instance(first_instance);
+    options.reject_remote_clients(true);
     // Safety: `security` 的 SECURITY_ATTRIBUTES 在本调用期间有效；
     // CreateNamedPipeW 只在调用期间读取安全描述符（随后复制进内核对象）。
     unsafe { options.create_with_security_attributes_raw(pipe_name, security.attributes_ptr()) }
@@ -147,7 +145,11 @@ async fn serve_connection(
     mut server: NamedPipeServer,
     handler: Arc<dyn FrameHandler>,
     timeout: Duration,
+    expected_peer: Arc<crate::peer::ProcessIdentity>,
 ) -> Result<(), PipeError> {
+    // Kernel PID/process token only; never trust a PID or SID in request JSON.
+    // Verify before reading a frame; errors close this connection, not the server.
+    crate::peer::verify_connected_client(&server, &expected_peer)?;
     let exchange = async {
         let payload = frame::read_frame(&mut server).await?;
         if let Some(response) = handler.handle(payload).await {
@@ -308,5 +310,68 @@ mod tests {
         let security = PipeSecurity::current_user().expect("当前用户 ACL 必须可构造");
         assert!(!security.descriptor.is_null());
         drop(security); // 触发 LocalFree，不得崩溃
+    }
+
+    struct CountHandler(std::sync::atomic::AtomicUsize);
+    #[async_trait::async_trait]
+    impl FrameHandler for CountHandler {
+        async fn handle(&self, payload: Vec<u8>) -> Option<Vec<u8>> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Some(payload)
+        }
+    }
+
+    #[tokio::test]
+    async fn wrong_user_session_or_logon_never_reads_request_or_calls_handler() {
+        use tokio::net::windows::named_pipe::ClientOptions;
+        for case in 0..3 {
+            let name = format!(r"\\.\pipe\owo-peer-denied-{}-{case}", std::process::id());
+            let mut security = PipeSecurity::current_user().unwrap();
+            let server = create_instance(&name, &mut security, true).unwrap();
+            let mut client = ClientOptions::new().open(&name).unwrap();
+            server.connect().await.unwrap();
+            let mut expected = crate::peer::current_process_identity().unwrap();
+            match case {
+                0 => expected.user_sid.push(0),
+                1 => expected.session_id ^= 1,
+                _ => expected.authentication_id.0 ^= 1,
+            }
+            let handler = Arc::new(CountHandler(std::sync::atomic::AtomicUsize::new(0)));
+            // Send no frame: rejection must precede both body read and handler.
+            let outcome = tokio::time::timeout(
+                Duration::from_secs(1),
+                serve_connection(
+                    server,
+                    handler.clone(),
+                    Duration::from_secs(10),
+                    Arc::new(expected),
+                ),
+            )
+            .await
+            .expect("peer rejection must not wait for a frame");
+            assert!(
+                matches!(outcome, Err(PipeError::Io(ref e)) if e.kind() == std::io::ErrorKind::PermissionDenied)
+            );
+            assert_eq!(handler.0.load(std::sync::atomic::Ordering::SeqCst), 0);
+            assert!(crate::frame::read_frame(&mut client).await.is_err());
+        }
+    }
+
+    #[tokio::test]
+    async fn unavailable_peer_identity_never_falls_back_to_acl() {
+        let name = format!(r"\\.\pipe\owo-peer-unavailable-{}", std::process::id());
+        let mut security = PipeSecurity::current_user().unwrap();
+        let server = create_instance(&name, &mut security, true).unwrap();
+        // No connected client: kernel metadata cannot identify an authorized peer.
+        let expected = Arc::new(crate::peer::current_process_identity().unwrap());
+        let handler = Arc::new(CountHandler(std::sync::atomic::AtomicUsize::new(0)));
+        let result = tokio::time::timeout(
+            Duration::from_secs(1),
+            serve_connection(server, handler.clone(), Duration::from_secs(10), expected),
+        )
+        .await
+        .expect("identity lookup failure must precede any frame read");
+        assert!(matches!(result, Err(PipeError::Io(_))));
+        assert_eq!(handler.0.load(std::sync::atomic::Ordering::SeqCst), 0);
     }
 }

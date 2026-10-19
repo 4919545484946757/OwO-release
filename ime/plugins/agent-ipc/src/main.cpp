@@ -206,6 +206,12 @@ owo::plugin::PluginMessage process_request(const owo::plugin::PluginMessage& inv
         return invoke_response(invocation, owo::plugin::PluginStatus::invalid_request, {},
                                "invalid structured Agent request");
     auto request = decoded.value;
+    if (request.application.sensitive_input && request.action != owo::agent::Action::cancel) {
+        const auto response = error_response(request, owo::agent::Status::error,
+            "sensitive_input", "敏感或未知输入框不可调用 Agent");
+        return invoke_response(invocation, owo::plugin::PluginStatus::success,
+                               owo::agent::encode_response(response));
+    }
     if (!settings.sensitive_filter_enabled) {
         const auto response = error_response(request, owo::agent::Status::error,
             "filter_disabled", "敏感信息过滤已关闭，插件拒绝发送请求");
@@ -235,6 +241,18 @@ owo::plugin::PluginMessage process_request(const owo::plugin::PluginMessage& inv
             "filter_failed", "结构化输入过滤失败，请求未发送");
         return invoke_response(invocation, owo::plugin::PluginStatus::success,
                                owo::agent::encode_response(response));
+    }
+    if (request.selection) {
+        const auto filtered = owo::agent::filter_sensitive_text(
+            request.selection->text, request.selection->text.size());
+        if (!filtered.ok) {
+            const auto response = error_response(request, owo::agent::Status::error,
+                "filter_failed", "选区过滤失败，请求未发送");
+            return invoke_response(invocation, owo::plugin::PluginStatus::success,
+                                   owo::agent::encode_response(response));
+        }
+        request.selection->text = filtered.value;
+        request.selection->redacted = request.selection->redacted || filtered.redacted;
     }
     for (auto& update : request.slot_updates) {
         if (!filter_input_field(update.value, 4096)) {
@@ -428,6 +446,11 @@ int run(const Arguments& arguments) {
                 auto cancel = *active_agent_request;
                 cancel.action = owo::agent::Action::cancel;
                 cancel.user_input.clear();
+                cancel.input_details = {};
+                cancel.selection.reset();
+                cancel.session_context.clear();
+                cancel.context_entries.clear();
+                cancel.slot_updates.clear();
                 cancel.command_id.clear();
                 cancel.parent_request_id = cancel.request_id;
                 cancel.request_id += ".cancel";

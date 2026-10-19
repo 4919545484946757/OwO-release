@@ -15,10 +15,12 @@ struct InputMethodContextFacts {
     bool scope_known{};
     bool sensitive_scope{};
 };
+// InputScope numeric metadata only; never inspect the contents of a PIN field.
+[[nodiscard]] bool sensitive_input_scope(LONG scope) noexcept;
 [[nodiscard]] InputMethodContextSafety evaluate_input_method_context(const InputMethodContextFacts&) noexcept;
 // Call only from a trusted TSF read/edit session with its own cookie. Reads metadata,
 // never text, phrases, selection contents, clipboard or surrounding context.
-[[nodiscard]] InputMethodContextSafety inspect_input_method_context(ITfContext*, TfEditCookie);
+[[nodiscard]] InputMethodContextSafety inspect_input_method_context(ITfContext*, TfEditCookie, InputMethodContextFacts* observed = nullptr);
 
 struct InputMethodWriteFacts {
     std::uint64_t expected_generation{}, current_generation{};

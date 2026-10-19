@@ -186,3 +186,58 @@ async fn shutdown_stops_server() {
     }
     assert!(!connected, "shutdown 后不得再接受连接");
 }
+
+#[tokio::test]
+async fn occupied_pipe_name_is_rejected_without_joining_existing_server() {
+    use tokio::net::windows::named_pipe::ServerOptions;
+    let name = unique_pipe("occupied");
+    let occupied = ServerOptions::new()
+        .first_pipe_instance(true)
+        .create(&name)
+        .unwrap();
+    let handler = Arc::new(EchoHandler {
+        handled: AtomicUsize::new(0),
+    });
+    // Keep this sender alive so shutdown is not an alternate reason to return.
+    let (shutdown_tx, shutdown) = watch::channel(false);
+    let result = tokio::time::timeout(
+        Duration::from_millis(500),
+        run_pipe_server(&name, Duration::from_secs(1), handler.clone(), shutdown),
+    )
+    .await
+    .expect("occupied endpoint must reject immediately, not start serving");
+    assert!(matches!(
+        result,
+        Err(owo_intent_gateway::pipe::PipeError::Io(_))
+    ));
+    assert_eq!(handler.handled.load(Ordering::SeqCst), 0);
+    drop(shutdown_tx);
+    drop(occupied);
+}
+
+#[tokio::test]
+async fn endpoint_remains_owned_between_fast_reconnecting_clients() {
+    use tokio::net::windows::named_pipe::ServerOptions;
+    let name = unique_pipe("continuous-ownership");
+    let handler = Arc::new(EchoHandler {
+        handled: AtomicUsize::new(0),
+    });
+    let shutdown = spawn_server(&name, Duration::from_secs(1), handler.clone());
+    for i in 0..20 {
+        let mut client = connect(&name).await;
+        write_frame(&mut client, b"owned").await.unwrap();
+        assert_eq!(read_frame(&mut client).await.unwrap(), b"owned");
+        drop(client);
+        // Yield to let the just-completed connection release its handle.
+        tokio::task::yield_now().await;
+        assert!(
+            ServerOptions::new()
+                .first_pipe_instance(true)
+                .create(&name)
+                .is_err(),
+            "endpoint lost ownership after connection {i}"
+        );
+    }
+    assert_eq!(handler.handled.load(Ordering::SeqCst), 20);
+    shutdown.send(true).unwrap();
+}

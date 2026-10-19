@@ -1283,15 +1283,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 agent_request.value, decoded_response.value);
                             if (decoded_response.value.status == agent::Status::thinking ||
                                 decoded_response.value.status == agent::Status::executing) {
-                                agent::Request external_poll;
-                                external_poll.action = agent::Action::poll;
-                                external_poll.session_id = agent_request.value.session_id;
+                                auto external_poll = agent::make_poll_request(
+                                    agent_request.value, decoded_response.value.state_revision + 1);
                                 external_poll.page = decoded_response.value.page;
-                                external_poll.request_id = agent_request.value.request_id + ".poll." +
-                                    std::to_string(decoded_response.value.state_revision + 1);
-                                external_poll.parent_request_id = agent_request.value.request_id;
-                                external_poll.idempotency_key = external_poll.request_id;
-                                external_poll.capabilities = agent_request.value.capabilities;
                                 PendingAgentRequest pending;
                                 pending.created = std::chrono::steady_clock::now();
                                 core::PluginExecutionRequest invocation;

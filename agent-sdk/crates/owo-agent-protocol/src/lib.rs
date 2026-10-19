@@ -1224,3 +1224,16 @@ pub fn canonical_turn_id(value: &str) -> Option<String> {
     }
     Some(value.to_ascii_lowercase())
 }
+
+/// Stateless, tool-free text request. Unknown capability fields are rejected.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExpressionRequest {
+    pub prompt: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExpressionResponse {
+    pub text: String,
+}

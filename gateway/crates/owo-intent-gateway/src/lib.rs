@@ -16,10 +16,13 @@ pub mod commands;
 pub mod frame;
 pub mod http;
 pub mod intent;
+pub mod pairing;
 pub mod protocol;
 pub mod sse;
 pub mod state;
 
+#[cfg(windows)]
+pub mod peer;
 #[cfg(windows)]
 pub mod pipe;
 

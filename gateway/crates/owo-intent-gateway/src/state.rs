@@ -2,10 +2,10 @@
 //!
 //! 分层设计：本模块是**纯同步决策核心**（无 IO、无 async），
 //! 需要网络/子进程侧写的动作（启动 turn、回滚文件等）以 [`StateAction`] 委托给
-//! handler/bridge 层执行，完成后回调 `complete_turn` / `complete_command`。
+//! handler/bridge 层执行，完成后回调 `complete_expression` / `complete_command`。
 //!
 //! 关键语义（与 mock 对齐）：
-//! - 幂等：`idempotency_key` 命中缓存 → 原样返回缓存响应（仅更新 `request_id`）；
+//! - 幂等：同键须绑定同一请求（仅允许 `request_id` 改变），再返回缓存响应；
 //! - `state_revision` 单调递增（非缓存响应每次 +1；会话不存在时从 1 起）；
 //! - 槽位补丁校验 `task_revision` 与锁定状态（`task_revision_mismatch` / `slot_locked`）。
 
@@ -106,7 +106,7 @@ pub enum StateAction {
     /// 立即响应（已含 state_revision）。
     Respond(AgentIpcResponse),
     /// 启动 turn：先发回 `immediate` 响应，bridge 用 `turn.request` 跑任务，
-    /// 完成后调用 [`ImeState::complete_turn`] 写回最终响应。
+    /// 完成后调用 [`ImeState::complete_expression`] 写回最终响应。
     StartTurn {
         immediate: AgentIpcResponse,
         turn: Box<StartTurnRequest>,
@@ -118,7 +118,32 @@ pub enum StateAction {
     },
 }
 
+struct CachedResponse {
+    request: AgentIpcRequest,
+    response: AgentIpcResponse,
+}
+
+fn same_retry(original: &AgentIpcRequest, retry: &AgentIpcRequest) -> bool {
+    let mut normalized = retry.clone();
+    normalized.request_id.clone_from(&original.request_id);
+    original == &normalized
+}
+
+fn idempotency_conflict(request: &AgentIpcRequest) -> StateAction {
+    StateAction::Respond(commands::error_response(
+        request,
+        "idempotency_conflict",
+        "幂等键已绑定其他请求，请使用新的幂等键",
+    ))
+}
+
 struct ImeSession {
+    // Only the currently displayed draft; discarded on edits/confirmation.
+    draft_retry: Option<CachedResponse>,
+    // Only the latest accepted edit of that draft.
+    patch_retry: Option<CachedResponse>,
+    // Actual accepted execution request, distinct from the Submit-shaped model origin.
+    execution_request: Option<AgentIpcRequest>,
     last_request: AgentIpcRequest,
     task: TaskDraft,
     state_revision: u64,
@@ -131,7 +156,7 @@ struct ImeSession {
 /// 输入法会话状态机。
 pub struct ImeState {
     sessions: Mutex<HashMap<String, ImeSession>>,
-    idempotency: Mutex<HashMap<String, AgentIpcResponse>>,
+    idempotency: Mutex<HashMap<String, CachedResponse>>,
     session_ttl: Duration,
 }
 
@@ -164,7 +189,17 @@ impl ImeState {
     /// 惰性 GC：移除过期会话与过期幂等缓存。
     pub fn gc(&self) {
         let now = Instant::now();
-        lock(&self.sessions).retain(|_, session| session.expires_at > now);
+        lock(&self.sessions).retain(|_, session| {
+            if session.expires_at > now {
+                return true;
+            }
+            // The HTTP task owns another Arc: dropping the session does not
+            // cancel its wait. Revoke it before discarding the origin/cache.
+            if let Some(pending) = &session.pending {
+                pending.request_cancel();
+            }
+            false
+        });
         // 幂等缓存随会话生命周期：仅保留仍活跃会话的键前缀。
         let sessions = lock(&self.sessions);
         lock(&self.idempotency).retain(|key, _| {
@@ -176,13 +211,94 @@ impl ImeState {
     /// 处理一个请求（纯状态决策）。
     pub fn dispatch(&self, request: &AgentIpcRequest) -> StateAction {
         self.gc();
+        if request.application.sensitive_input && request.action != Action::Cancel {
+            lock(&self.idempotency)
+                .retain(|key, _| !key.starts_with(&format!("{}:", request.session_id)));
+            if let Some(session) = lock(&self.sessions).remove(&request.session_id) {
+                if let Some(pending) = session.pending {
+                    pending.request_cancel();
+                }
+            }
+            return StateAction::Respond(commands::error_response(
+                request,
+                "sensitive_input",
+                "敏感或未知输入框不可调用 Agent",
+            ));
+        }
 
-        // 幂等：同 (session_id, idempotency_key) 命中缓存 → 原样返回。
-        if !request.idempotency_key.is_empty() {
+        // Reject a changed target before replaying any cached result. The original
+        // selection and output capability cannot be replaced by a later select/poll.
+        if request.action != Action::Cancel {
+            let mut sessions = lock(&self.sessions);
+            let mismatch = sessions.get(&request.session_id).is_some_and(|session| {
+                let origin = &session.last_request;
+                origin.application != request.application
+                    || origin.selection != request.selection
+                    || ["input.selection", "output.effects"].iter().any(|cap| {
+                        origin.capabilities.iter().any(|c| c == cap)
+                            != request.capabilities.iter().any(|c| c == cap)
+                    })
+            });
+            if mismatch {
+                if let Some(session) = sessions.remove(&request.session_id) {
+                    if let Some(pending) = session.pending {
+                        pending.request_cancel();
+                    }
+                }
+                lock(&self.idempotency)
+                    .retain(|key, _| !key.starts_with(&format!("{}:", request.session_id)));
+                return StateAction::Respond(commands::error_response(
+                    request,
+                    "target_changed",
+                    "输入位置或原选区已变化，请重新开始",
+                ));
+            }
+        } else {
+            lock(&self.idempotency)
+                .retain(|key, _| !key.starts_with(&format!("{}:", request.session_id)));
+        }
+
+        // Check the actual confirmation payload before observing pending or cached
+        // work. The model origin deliberately remains Submit-shaped and is not
+        // an adequate identity for the Select that authorized execution.
+        if request.action != Action::Cancel && !request.idempotency_key.is_empty() {
+            let sessions = lock(&self.sessions);
+            if let Some(session) = sessions.get(&request.session_id) {
+                for draft in [session.draft_retry.as_ref(), session.patch_retry.as_ref()]
+                    .into_iter()
+                    .flatten()
+                {
+                    if draft.request.idempotency_key == request.idempotency_key {
+                        if !same_retry(&draft.request, request) {
+                            return idempotency_conflict(request);
+                        }
+                        let mut response = draft.response.clone();
+                        response.request_id = request.request_id.clone();
+                        return StateAction::Respond(response);
+                    }
+                }
+                if let Some(original) = &session.execution_request {
+                    if original.idempotency_key == request.idempotency_key {
+                        if !same_retry(original, request) {
+                            return idempotency_conflict(request);
+                        }
+                        if session.pending.as_ref().is_some_and(|p| !p.lock().done) {
+                            let mut thinking = commands::thinking_response(request, 10, 1500);
+                            thinking.state_revision = session.state_revision;
+                            return StateAction::Respond(thinking);
+                        }
+                    }
+                }
+            }
+            let cache = lock(&self.idempotency);
             let scoped = format!("{}:{}", request.session_id, request.idempotency_key);
-            if let Some(mut cached) = lock(&self.idempotency).get(&scoped).cloned() {
-                cached.request_id = request.request_id.clone();
-                return StateAction::Respond(cached);
+            if let Some(cached) = cache.get(&scoped) {
+                if !same_retry(&cached.request, request) {
+                    return idempotency_conflict(request);
+                }
+                let mut response = cached.response.clone();
+                response.request_id = request.request_id.clone();
+                return StateAction::Respond(response);
             }
         }
 
@@ -197,13 +313,82 @@ impl ImeState {
 
     // ────────────────────────── 各动作处理 ──────────────────────────
 
+    /// Explicitly edited input starts a new draft, rather than observing an old
+    /// request. Keep identical submissions idempotent, but revoke old results
+    /// before they can be delivered under the new request id.
+    fn supersede_changed_input(&self, request: &AgentIpcRequest, session: &mut ImeSession) {
+        if session.last_request.user_input == request.user_input
+            && session.last_request.input == request.input
+        {
+            return;
+        }
+        self.revoke_execution(request, session);
+        session.draft_retry = None;
+        session.patch_retry = None;
+        session.commands.clear();
+        session.actions.clear();
+    }
+
+    /// Accepting a new draft revokes both in-flight work and completed caches.
+    /// Call only after validating the edit, so rejected edits preserve the task.
+    fn revoke_execution(&self, request: &AgentIpcRequest, session: &mut ImeSession) {
+        if let Some(pending) = session.pending.take() {
+            pending.request_cancel();
+        }
+        session.execution_request = None;
+        lock(&self.idempotency)
+            .retain(|key, _| !key.starts_with(&format!("{}:", request.session_id)));
+    }
+
     fn handle_submit(&self, request: &AgentIpcRequest) -> StateAction {
+        if intent::parse(request).is_none() {
+            let mut sessions = lock(&self.sessions);
+            let session = sessions
+                .entry(request.session_id.clone())
+                .or_insert_with(|| ImeSession {
+                    draft_retry: None,
+                    patch_retry: None,
+                    execution_request: None,
+                    last_request: request.clone(),
+                    task: TaskDraft::default(),
+                    state_revision: 0,
+                    pending: None,
+                    commands: Vec::new(),
+                    actions: HashMap::new(),
+                    expires_at: Instant::now() + self.session_ttl,
+                });
+            self.supersede_changed_input(request, session);
+            if let Some(pending) = session.pending.take() {
+                pending.request_cancel();
+            }
+            let mut command = commands::command(
+                "open-agent",
+                "在 Agent 工作台继续",
+                "agent.open",
+                crate::protocol::RiskLevel::None,
+            );
+            command.id = "open-agent".into();
+            command.label = "在 Agent 工作台继续".into();
+            command.preview = "此任务由 Agent 界面处理，不生成输入候选".into();
+            session.commands = vec![command];
+            session.actions = HashMap::from([("open-agent".into(), CommandAction::OpenWorkbench)]);
+            session.task = TaskDraft::default();
+            session.last_request = request.clone();
+            session.expires_at = Instant::now() + self.session_ttl;
+            let mut response = commands::base_response(request, Status::AgentMode);
+            response.message = "请在 Agent 工作台处理此任务".into();
+            response.commands = session.commands.clone();
+            response.can_cancel = true;
+            return StateAction::Respond(self.finalize(session, response));
+        }
+
         let slot = PendingHandle::new();
         let mut sessions = lock(&self.sessions);
 
         let state_revision = match sessions.get_mut(&request.session_id) {
             Some(session) => {
                 session.expires_at = Instant::now() + self.session_ttl;
+                self.supersede_changed_input(request, session);
                 if let Some(pending) = session.pending.clone() {
                     let mut slot_guard = pending.lock();
                     if !slot_guard.done {
@@ -228,11 +413,15 @@ impl ImeState {
                     return StateAction::Respond(response);
                 }
                 session.last_request = request.clone();
+                session.execution_request = Some(request.clone());
                 session.pending = Some(Arc::clone(&slot));
                 bump_revision(session)
             }
             None => {
                 let mut session = ImeSession {
+                    draft_retry: None,
+                    patch_retry: None,
+                    execution_request: None,
                     last_request: request.clone(),
                     task: TaskDraft::default(),
                     state_revision: 0,
@@ -245,6 +434,7 @@ impl ImeState {
                     sessions.insert(request.session_id.clone(), session);
                     return StateAction::Respond(response);
                 }
+                session.execution_request = Some(request.clone());
                 session.pending = Some(Arc::clone(&slot));
                 let revision = bump_revision(&mut session);
                 sessions.insert(request.session_id.clone(), session);
@@ -275,6 +465,7 @@ impl ImeState {
         let mut task = parsed.task;
         task.revision = session.task.revision + 1;
         let summary = intent::describe(&task).unwrap_or_default();
+        self.revoke_execution(request, session);
         session.last_request = request.clone();
         session.task = task.clone();
         let mut commit = commands::task_commit_command(task.revision);
@@ -288,7 +479,13 @@ impl ImeState {
         response.commands = session.commands.clone();
         response.can_cancel = true;
         response.can_continue_input = true;
-        Some(self.finalize(session, response))
+        let response = self.finalize(session, response);
+        session.patch_retry = None;
+        session.draft_retry = Some(CachedResponse {
+            request: request.clone(),
+            response: response.clone(),
+        });
+        Some(response)
     }
 
     /// 提交任务草稿：校验版本后启动表达回合（提示词由草稿生成）。
@@ -318,7 +515,14 @@ impl ImeState {
             }
         }
         let slot = PendingHandle::new();
-        session.last_request = request.clone();
+        let mut origin = session.last_request.clone();
+        origin.request_id = request.request_id.clone();
+        origin.parent_request_id = request.parent_request_id.clone();
+        origin.idempotency_key = request.idempotency_key.clone();
+        session.draft_retry = None;
+        session.patch_retry = None;
+        session.execution_request = Some(request.clone());
+        session.last_request = origin.clone();
         session.pending = Some(Arc::clone(&slot));
         session.commands.clear();
         session.actions.clear();
@@ -331,7 +535,7 @@ impl ImeState {
             immediate,
             turn: Box::new(StartTurnRequest {
                 session_id: request.session_id.clone(),
-                request: request.clone(),
+                request: origin,
                 slot,
                 prompt: Some(prompt),
             }),
@@ -503,13 +707,12 @@ impl ImeState {
             response.task = session.task.clone();
             return self.finalize(session, response);
         }
+        // Validate against a staged copy, including sequential locks for repeated
+        // slot ids. A later rejection must not publish earlier updates under the
+        // unchanged revision or invalidate the original confirmation snapshot.
+        let mut slots = session.task.slots.clone();
         for update in &request.slot_updates {
-            let Some(slot) = session
-                .task
-                .slots
-                .iter_mut()
-                .find(|slot| slot.id == update.slot_id)
-            else {
+            let Some(slot) = slots.iter_mut().find(|slot| slot.id == update.slot_id) else {
                 continue; // 未知槽位忽略（mock 语义）
             };
             if slot.locked && slot.value != update.value {
@@ -520,6 +723,10 @@ impl ImeState {
             }
             apply_update(slot, update);
         }
+        self.revoke_execution(request, session);
+        session.draft_retry = None;
+        session.patch_retry = None;
+        session.task.slots = slots;
         session.task.revision += 1;
         session.commands = vec![commands::task_commit_command(session.task.revision)];
         session.actions = HashMap::from([("task-commit".to_string(), CommandAction::CommitTask)]);
@@ -528,33 +735,56 @@ impl ImeState {
         response.message = "任务草稿已更新，请确认提交".to_string();
         response.task = session.task.clone();
         response.commands = session.commands.clone();
-        self.finalize(session, response)
+        let response = self.finalize(session, response);
+        session.patch_retry = Some(CachedResponse {
+            request: request.clone(),
+            response: response.clone(),
+        });
+        response
     }
 
     // ────────────────────────── 完成回调 ──────────────────────────
 
-    /// bridge 的 turn 任务完成后调用：写回槽位、递增 revision、写幂等缓存。
-    ///
-    /// 会话已被取消/GC 时返回 `None`（结果被丢弃）。
-    pub fn complete_turn(
+    /// Complete only the execution identified by the original pending handle.
+    /// Cancelled, superseded or expired executions cannot replace current state.
+    pub fn complete_expression(
         &self,
         session_id: &str,
+        expected: &Arc<PendingHandle>,
         mut response: AgentIpcResponse,
+        actions: HashMap<String, CommandAction>,
     ) -> Option<AgentIpcResponse> {
         let mut sessions = lock(&self.sessions);
         let session = sessions.get_mut(session_id)?;
+        if !session
+            .pending
+            .as_ref()
+            .is_some_and(|pending| Arc::ptr_eq(pending, expected))
+        {
+            return None;
+        }
         response.state_revision = bump_revision(session);
-        if let Some(pending) = session.pending.clone() {
-            let mut slot = pending.lock();
-            slot.done = true;
-            slot.response = Some(response.clone());
-        }
-        // 幂等缓存（key = 原 submit 的 idempotency_key）。
-        if !session.last_request.idempotency_key.is_empty() {
-            let scoped = format!("{}:{}", session_id, session.last_request.idempotency_key);
-            lock(&self.idempotency).insert(scoped, response.clone());
-        }
+        session.commands = response.commands.clone();
+        session.actions = actions;
+        let mut slot = expected.lock();
+        slot.done = true;
+        slot.response = Some(response.clone());
+        self.cache_execution(session_id, session, &response);
         Some(response)
+    }
+
+    fn cache_execution(&self, session_id: &str, session: &ImeSession, response: &AgentIpcResponse) {
+        if let Some(request) = &session.execution_request {
+            if !request.idempotency_key.is_empty() {
+                lock(&self.idempotency).insert(
+                    format!("{}:{}", session_id, request.idempotency_key),
+                    CachedResponse {
+                        request: request.clone(),
+                        response: response.clone(),
+                    },
+                );
+            }
+        }
     }
 
     /// 命令动作（回滚/提交等）完成后调用：递增 revision 并写缓存。
@@ -572,7 +802,13 @@ impl ImeState {
         }
         if !request.idempotency_key.is_empty() {
             let scoped = format!("{}:{}", session_id, request.idempotency_key);
-            lock(&self.idempotency).insert(scoped, response.clone());
+            lock(&self.idempotency).insert(
+                scoped,
+                CachedResponse {
+                    request: request.clone(),
+                    response: response.clone(),
+                },
+            );
         }
         response
     }
@@ -586,6 +822,8 @@ impl ImeState {
     ) {
         let mut sessions = lock(&self.sessions);
         if let Some(session) = sessions.get_mut(session_id) {
+            session.draft_retry = None;
+            session.patch_retry = None;
             session.commands = commands;
             session.actions = actions;
         }
@@ -602,6 +840,8 @@ impl ImeState {
     pub fn set_task(&self, session_id: &str, task: TaskDraft) {
         let mut sessions = lock(&self.sessions);
         if let Some(session) = sessions.get_mut(session_id) {
+            session.draft_retry = None;
+            session.patch_retry = None;
             session.task = task;
         }
     }

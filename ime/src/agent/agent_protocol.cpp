@@ -762,6 +762,7 @@ const char* status_name(const Status status) noexcept {
 }
 
 std::string encode_request_v2(const Request& request) {
+    if (request.selection) return {};
     if (!session_id(request.session_id) || request.user_input.size() > 4096 ||
         request.session_context.size() > kMaximumAgentContextEntryBytes ||
         request.context_entries.size() > kMaximumAgentContextEntries ||
@@ -815,6 +816,21 @@ std::string encode_request(const Request& request) {
         !valid_optional_token(request.parent_request_id) ||
         !token(request.idempotency_key) ||
         (!request.command_id.empty() && !token(request.command_id))) return {};
+    std::string selection_json;
+    if (request.selection) {
+        const auto& selected = *request.selection;
+        const auto points = std::count_if(selected.text.begin(), selected.text.end(),
+            [](unsigned char c) { return (c & 0xc0U) != 0x80U; });
+        if (selected.text.empty() || selected.text.size() > 4096 || points > 1000 ||
+            !valid_utf8(selected.text) || !lowercase_sha256(selected.sha256) ||
+            selected.text.find_first_not_of(" \t\r\n") == std::string::npos ||
+            request.application.sensitive_input || request.application.context_id.empty() ||
+            std::find(request.capabilities.begin(), request.capabilities.end(),
+                      kAgentCapabilityInputSelection) == request.capabilities.end()) return {};
+        selection_json = ",\"selection\":{\"text\":\"" + escape(selected.text) +
+            "\",\"sha256\":\"" + selected.sha256 + "\",\"redacted\":" +
+            (selected.redacted ? "true" : "false") + "}";
+    }
     if (request.action == Action::submit && request.user_input.empty()) return {};
     if (request.action == Action::select && request.command_id.empty()) return {};
     if (!request.slot_updates.empty() && request.task_revision == 0) return {};
@@ -871,7 +887,7 @@ std::string encode_request(const Request& request) {
         ",\"command_id\":\"" + escape(request.command_id) +
         "\",\"page\":" + std::to_string(request.page) +
         ",\"task_revision\":" + std::to_string(request.task_revision) +
-        ",\"slot_updates\":" + slot_updates + "}";
+        ",\"slot_updates\":" + slot_updates + selection_json + "}";
     return output.size() <= kMaximumAgentPayloadBytes ? output : std::string{};
 }
 
@@ -888,7 +904,8 @@ RequestDecodeResult decode_request(const std::string_view json) {
     if (version == nullptr || (*version != 2 && *version != 3))
         return {false, {}, "unsupported agent request version"};
     const bool v3 = *version == 3;
-    if (object->size() != (v3 ? 19U : 9U))
+    const bool has_selection = object->find("selection") != object->end();
+    if (object->size() != (v3 ? 19U + (has_selection ? 1U : 0U) : 9U))
         return {false, {}, "agent request fields mismatch"};
     const auto* action = field<std::string>(*object, "action");
     const auto* id = field<std::string>(*object, "session_id");
@@ -950,6 +967,16 @@ RequestDecodeResult decode_request(const std::string_view json) {
         result.value.input_details = *parsed_details;
         result.value.task_revision = *task_revision;
         result.value.slot_updates = *parsed_updates;
+        if (has_selection) {
+            const auto* selected = field<Object>(*object, "selection");
+            if (!selected || selected->size() != 3)
+                return {false, {}, "selection fields are invalid"};
+            const auto* text = field<std::string>(*selected, "text");
+            const auto* digest = field<std::string>(*selected, "sha256");
+            const auto* redacted = field<bool>(*selected, "redacted");
+            if (!text || !digest || !redacted) return {false, {}, "selection type is invalid"};
+            result.value.selection = SelectionSummary{*text, *digest, *redacted};
+        }
     } else {
         result.value.input_details.raw_pinyin = result.value.user_input;
         result.value.input_details.natural_language = result.value.user_input;
@@ -1311,6 +1338,19 @@ FilterResult filter_sensitive_text(const std::string_view utf8,
     redact_identifiers(output, redacted);
     redact_labeled_secrets(output, redacted);
     return {true, std::move(output), redacted, {}};
+}
+
+Request make_poll_request(const Request& origin, const std::uint64_t sequence) {
+    Request poll;
+    poll.action = Action::poll;
+    poll.session_id = origin.session_id;
+    poll.request_id = origin.request_id + ".ui-poll." + std::to_string(sequence);
+    poll.parent_request_id = origin.request_id;
+    poll.idempotency_key = poll.request_id;
+    poll.capabilities = origin.capabilities;
+    poll.application = origin.application;
+    poll.selection = origin.selection;
+    return poll;
 }
 
 }  // namespace owo::agent

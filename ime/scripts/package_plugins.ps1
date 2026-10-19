@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$PluginRoot,
     [string]$OutputDirectory,
@@ -62,8 +62,13 @@ foreach ($directory in Get-ChildItem -LiteralPath $plugins -Directory | Sort-Obj
     }
     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
     if (Test-Path -LiteralPath $package) { Remove-Item -LiteralPath $package -Force }
-    Compress-Archive -Path (Join-Path $packageSource '*') -DestinationPath $temporary `
-        -CompressionLevel NoCompression
+    # Compress-Archive (PS 5.1) writes backslash entry names, which the
+    # installer's safe_package_path rejects. Python's zipfile uses '/'.
+    & python -X utf8 (Join-Path $PSScriptRoot 'package_plugin_zip.py') `
+        $packageSource $temporary
+    if ($LASTEXITCODE -ne 0) {
+        throw "plugin zip packaging failed: $LASTEXITCODE"
+    }
     Move-Item -LiteralPath $temporary -Destination $package
     if ($null -ne $staging -and (Test-Path -LiteralPath $staging)) {
         Remove-Item -LiteralPath $staging -Recurse -Force

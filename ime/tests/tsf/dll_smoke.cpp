@@ -47,10 +47,13 @@ int wmain(int argc, wchar_t** argv) {
     ITfThreadFocusSink* focus_sink = nullptr;
     const HRESULT focus_result = service->QueryInterface(IID_PPV_ARGS(&focus_sink));
     if (SUCCEEDED(focus_result)) focus_sink->Release();
+    ITfTextEditSink* edit_sink = nullptr;
+    const HRESULT edit_result = service->QueryInterface(IID_PPV_ARGS(&edit_sink));
+    if (SUCCEEDED(edit_result)) edit_sink->Release();
     service->Release();
     const HRESULT unload_result = can_unload_now();
     FreeLibrary(module);
-    return SUCCEEDED(result) && SUCCEEDED(manager_result) && SUCCEEDED(focus_result) &&
+    return SUCCEEDED(result) && SUCCEEDED(manager_result) && SUCCEEDED(focus_result) && SUCCEEDED(edit_result) &&
                    unload_result == S_OK
                ? 0
                : 7;

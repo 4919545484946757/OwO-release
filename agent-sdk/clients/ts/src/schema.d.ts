@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/expression": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stateless bounded text; no tools, hooks, MCP, workspace or history
+         * @description Requires a single loopback Host (localhost, 127.0.0.1 or [::1]). Browser Origin, when present, must be a plain allowed desktop/development origin. Forwarded headers do not grant trust. Native callers may omit Origin; Bearer authentication is still required. This does not implement IME pairing.
+         */
+        post: operations["expression"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/activity": {
         parameters: {
             query?: never;
@@ -4917,6 +4937,83 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    expression: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    prompt: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Expression text */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        text: string;
+                    };
+                };
+            };
+            /** @description Invalid input */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bearer authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid or duplicate Host/Origin; rejected before provider execution */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid structure or unknown fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Provider failed or invalid output */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 60 second timeout */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     activityList: {
         parameters: {
             query?: never;

@@ -1,6 +1,10 @@
 #include "text_service.h"
 #include "owo/tsf/input_method_context.h"
+#include "owo/tsf/agent_writeback.h"
+#include "owo/tsf/clipboard_write.h"
+#include "owo/tsf/diagnostics.h"
 #include "owo/tsf/candidate_window_order.h"
+#include "owo/tsf/candidate_anchor.h"
 #include <functional>
 #include "owo/tsf/language_context.h"
 
@@ -590,17 +594,26 @@ public:
         ULONG fetched = 0;
         HRESULT result = context_->GetSelection(cookie, TF_DEFAULT_SELECTION, 1,
                                                 &selection, &fetched);
+        trace_tsf_event("caret.selection", result, static_cast<HRESULT>(fetched));
         if (FAILED(result) || fetched != 1 || selection.range == nullptr) return result;
         ITfContextView* view = nullptr;
         result = context_->GetActiveView(&view);
+        trace_tsf_event("caret.view", result);
         if (SUCCEEDED(result)) {
             RECT bounds{};
             BOOL clipped = FALSE;
             result = view->GetTextExt(cookie, selection.range, &bounds, &clipped);
+            trace_tsf_event("caret.extent", result, clipped);
             if (SUCCEEDED(result)) {
-                anchor_->x = bounds.left;
-                anchor_->y = bounds.bottom;
-                *valid_ = true;
+                trace_tsf_event("caret.left_top", bounds.left, bounds.top);
+                trace_tsf_event("caret.right_bottom", bounds.right, bounds.bottom);
+                if (candidate_text_extent_usable(bounds)) {
+                    anchor_->x = bounds.left;
+                    anchor_->y = bounds.bottom;
+                    *valid_ = true;
+                } else {
+                    trace_tsf_event("caret.invalid_extent", E_FAIL);
+                }
             }
             view->Release();
         }
@@ -866,6 +879,8 @@ HRESULT TextService::QueryInterface(REFIID iid, void** object) {
         *object = static_cast<ITfThreadMgrEventSink*>(this);
     } else if (iid == IID_ITfThreadFocusSink) {
         *object = static_cast<ITfThreadFocusSink*>(this);
+    } else if (iid == IID_ITfTextEditSink) {
+        *object = static_cast<ITfTextEditSink*>(this);
     } else if (iid == IID_ITfCompartmentEventSink) {
         *object = static_cast<ITfCompartmentEventSink*>(this);
     } else {
@@ -1016,6 +1031,8 @@ HRESULT TextService::OnInitDocumentMgr(ITfDocumentMgr*) {
 }
 
 HRESULT TextService::OnUninitDocumentMgr(ITfDocumentMgr*) {
+    if (is_agent_mode()) cancel_agent_session();
+    reset_agent_origin();
     // Retire experimental results even if a host omits a separate focus-loss callback.
     if (plugin_scheme_selected()) clear_composition();
     else reset_plugin_input();
@@ -1291,6 +1308,8 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         const bool caps_lock = (GetKeyState(VK_CAPITAL) & 1) != 0;
         const wchar_t base = shift != caps_lock ? L'A' : L'a';
         const wchar_t character = static_cast<wchar_t>(base + (key - 'A'));
+        if (character == L'v' && input_buffer_.empty() && staged_candidates_.empty())
+            (void)capture_agent_origin(context);
         insert_at_pinyin_cursor(input_buffer_, segmented_input_, input_cursor_,
                                 character);
         // Keep the last confirmed segmentation visible until the new parse and
@@ -1337,6 +1356,16 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         return commit_text(context, *punctuation);
     } else if (key == VK_BACK) {
         const bool was_agent_mode = is_agent_mode();
+        // Local opt-in diagnostics: state bits/counts only, never input text.
+        trace_tsf_event("edit.backspace.state",
+            static_cast<HRESULT>(static_cast<unsigned>(was_agent_mode) | (agent_request_pending_ << 1) |
+                (agent_response_visible_ << 2) | (agent_request_submitted_ << 3) |
+                (!agent_session_id_.empty() << 4)),
+            static_cast<HRESULT>(input_buffer_.size()));
+        trace_tsf_event("edit.backspace.cursor", static_cast<HRESULT>(input_cursor_),
+            static_cast<HRESULT>(staged_cursor_));
+        trace_tsf_event("edit.backspace.staged", static_cast<HRESULT>(staged_candidates_.size()),
+            static_cast<HRESULT>(agent_last_submitted_pinyin_.size()));
         if (was_agent_mode && (agent_request_pending_ || agent_response_visible_) &&
             !agent_last_submitted_pinyin_.empty()) {
             const std::wstring restored_pinyin =
@@ -2096,11 +2125,10 @@ void TextService::maintain_candidate_window_order() noexcept {
         return;
     }
     const HWND host = GetForegroundWindow();
-    DWORD process = 0;
-    if (host) GetWindowThreadProcessId(host, &process);
-    // Never raise an old composition over another application's input window.
+    // A foreground frame may embed an editor from this process. Require its
+    // actual focused descendant, not merely a matching executable or owner.
     // A null foreground HWND is transient during activation; wait for TSF focus.
-    if (!foreground_focus_ || (host && process != GetCurrentProcessId())) {
+    if (!foreground_focus_ || (host && !candidate_host_has_process_focus(host))) {
         hide_candidate_windows();
         return;
     }
@@ -3174,6 +3202,18 @@ void TextService::queue_agent_action(const agent::Action action,
                                      const std::uint32_t page,
                                      const std::uint64_t task_revision,
                                      std::vector<agent::SlotUpdate> slot_updates) {
+    if (action != agent::Action::cancel && !agent_origin_valid_) {
+        trace_tsf_event("origin.action_denied", E_ACCESSDENIED);
+        const bool safety_blocked = agent_origin_safety_blocked_;
+        cancel_agent_session();
+        agent_status_ = agent::Status::error;
+        agent_message_ = safety_blocked
+            ? L"当前输入框未通过安全属性检查，暂不支持 Agent，请改用 Agent 界面"
+            : L"输入位置已变化或无法安全读取，请重新选择文字后开始";
+        agent_response_visible_ = true;
+        update_candidate_window();
+        return;
+    }
     if (agent_session_id_.empty()) {
         agent_session_id_ = new_agent_session_id();
         agent_last_request_id_.clear();
@@ -3197,7 +3237,8 @@ void TextService::queue_agent_action(const agent::Action action,
                             "context.entries", "context.privacy",
                             "commands.risk", "errors.structured", "state.progress",
                             "tasks.slots", "tasks.incremental",
-                            agent::kAgentCapabilityOutputEffects};
+                            agent::kAgentCapabilityOutputEffects,
+                            agent::kAgentCapabilityInputSelection};
     request.required_features = {"protocol.negotiation", "input.structured",
                                  "commands.risk", "errors.structured", "tasks.slots"};
     if (action == agent::Action::submit) {
@@ -3240,6 +3281,8 @@ void TextService::queue_agent_action(const agent::Action action,
         // Identity only: lets effects produced by this turn bind to the current position.
         request.application = current_agent_application(agent_context_id_, agent_context_sensitive_);
     }
+    request.application = current_agent_application(agent_context_id_, agent_context_sensitive_);
+    request.selection = agent_origin_selection_;
     request.command_id = std::move(command_id);
     request.page = page;
     request.task_revision = task_revision != 0 ? task_revision : agent_task_.revision;
@@ -3304,7 +3347,8 @@ bool TextService::select_agent_command(const std::size_t index) {
     const auto command = agent_commands_[index];
     if (command.high_risk) return false;
     if (command.effect) {
-        if (apply_agent_effect(*command.effect)) {
+        const auto outcome = apply_agent_effect(*command.effect);
+        if (outcome == NativeWriteResult::completed) {
             cancel_agent_session();
             clear_composition();
             update_candidate_window();
@@ -3313,7 +3357,25 @@ bool TextService::select_agent_command(const std::size_t index) {
         std::wstring preview = wide_from_utf8(command.effect->text);
         if (preview.size() > 200) preview = preview.substr(0, 199) + L"…";
         agent_status_ = agent::Status::agent_mode;
-        agent_message_ = L"输入位置已变化或不可写，未写入。内容：" + preview;
+        const bool copy_failed = command.effect->kind == agent::EffectKind::copy_text;
+        agent_message_ = copy_failed
+            ? (outcome == NativeWriteResult::uncertain
+                ? L"复制未完成，剪贴板内容可能已改变；结果仍保留，可重试。内容："
+                : L"复制未完成，未修改剪贴板；结果仍保留，可稍后重试。内容：") + preview
+            : outcome == NativeWriteResult::unsupported
+                ? L"当前输入框暂不支持这类文本的原位替换，原文未改。内容：" + preview
+                : L"无法确认写入或目标已失效，请检查原文，勿重复操作。内容：" + preview;
+        agent_commands_.clear();
+        candidates_.clear(); candidate_consumed_.clear(); candidate_groups_.clear();
+        candidate_page_ = 0; has_more_candidates_ = false;
+        const auto copy = copy_failed && agent_effects_negotiated_
+            ? std::optional<agent::Command>(command)
+            : native_writeback_copy_option(outcome, *command.effect, agent_effects_negotiated_);
+        if (copy) {
+            agent_commands_.push_back(*copy);
+            candidates_.push_back(wide_from_utf8(copy->label));
+            candidate_consumed_.push_back(1); candidate_groups_.push_back(0);
+        }
         agent_response_visible_ = true;
         update_candidate_window();
         return false;
@@ -3371,6 +3433,7 @@ bool TextService::select_agent_command(const std::size_t index) {
 }
 
 void TextService::cancel_agent_session() {
+    reset_agent_origin();
     if (agent_session_id_.empty()) return;
     agent::Request cancel;
     cancel.action = agent::Action::cancel;
@@ -3382,7 +3445,8 @@ void TextService::cancel_agent_session() {
     cancel.capabilities = {"protocol.negotiation", "input.structured",
                            "context.entries", "context.privacy", "commands.risk",
                            "errors.structured", "state.progress", "tasks.slots",
-                           "tasks.incremental", agent::kAgentCapabilityOutputEffects};
+                           "tasks.incremental", agent::kAgentCapabilityOutputEffects,
+                           agent::kAgentCapabilityInputSelection};
     cancel.required_features = {"protocol.negotiation", "errors.structured"};
     const auto encoded = agent::encode_request(cancel);
     if (!encoded.empty()) {
@@ -3806,6 +3870,7 @@ void TextService::worker_loop(const std::stop_token stop_token) {
             auto result = std::make_unique<AgentResult>();
             result->request_id = request.request_id;
             result->generation = request.generation;
+            result->transport_failure = true;
             result->response = {original.value.session_id, utf8_from_wide(detail), {}, {},
                                 status, 0, false, "ipc_error"};
             if (PostMessageW(message_window_, kAgentReady, 0,
@@ -3883,7 +3948,7 @@ void TextService::worker_loop(const std::stop_token stop_token) {
                 continue;
             }
             std::uint64_t poll_revision = 0;
-            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(75);
             while ((current.value.status == agent::Status::connecting ||
                     current.value.status == agent::Status::submitting ||
                     current.value.status == agent::Status::thinking ||
@@ -3907,14 +3972,7 @@ void TextService::worker_loop(const std::stop_token stop_token) {
                                 return pending_request_.has_value();
                             })) break;
                 }
-                agent::Request poll;
-                poll.action = agent::Action::poll;
-                poll.session_id = original.value.session_id;
-                poll.request_id = original.value.request_id + ".ui-poll." +
-                    std::to_string(++poll_revision);
-                poll.parent_request_id = original.value.request_id;
-                poll.idempotency_key = poll.request_id;
-                poll.capabilities = original.value.capabilities;
+                const auto poll = agent::make_poll_request(original.value, ++poll_revision);
                 const protocol::Message poll_message{
                     protocol::MessageType::agent_request, request.request_id,
                     request.generation, agent::encode_request(poll)};
@@ -3939,6 +3997,14 @@ void TextService::worker_loop(const std::stop_token stop_token) {
                     current.ok = false;
                     break;
                 }
+            }
+            if (current.ok && std::chrono::steady_clock::now() >= deadline &&
+                (current.value.status == agent::Status::connecting ||
+                 current.value.status == agent::Status::submitting ||
+                 current.value.status == agent::Status::thinking ||
+                 current.value.status == agent::Status::executing)) {
+                post_agent_failure(L"Agent request timed out; no automatic retry");
+                current.ok = false;
             }
             if (current.ok && !stop_token.stop_requested()) {
                 auto result = std::make_unique<AgentResult>();
@@ -4229,7 +4295,7 @@ void TextService::handle_agent_result(AgentResult* raw_result) {
         result->request_id != active_candidate_request_id_ ||
         agent_session_id_.empty() ||
         result->response.session_id != agent_session_id_) return;
-    if (result->response.schema_version >= 3 &&
+    if (!result->transport_failure && result->response.schema_version >= 3 &&
         result->response.state_revision < agent_state_revision_) return;
     agent_state_revision_ = std::max(
         agent_state_revision_, result->response.state_revision);
@@ -4840,16 +4906,21 @@ void TextService::clear_deferred_punctuation() noexcept {
 }
 
 void TextService::update_candidate_anchor(ITfContext* context) {
+    candidate_anchor_valid_ = false; // A failed read must not reuse another caret's anchor.
     auto* session = new (std::nothrow)
         CaretEditSession(context, &candidate_anchor_, &candidate_anchor_valid_);
     if (session == nullptr) return;
     HRESULT session_result = E_FAIL;
-    context->RequestEditSession(client_id_, session, TF_ES_SYNC | TF_ES_READ,
+    const auto request = context->RequestEditSession(client_id_, session, TF_ES_SYNC | TF_ES_READ,
                                 &session_result);
+    trace_tsf_event("caret.request", request, session_result);
     session->Release();
 }
 
 void TextService::clear_composition() {
+    trace_tsf_event("edit.clear", static_cast<HRESULT>(context_generation_),
+        static_cast<HRESULT>(static_cast<unsigned>(agent_request_pending_) | (agent_response_visible_ << 1)));
+    reset_agent_origin();
     reset_plugin_input();
     ++context_generation_;
     latest_candidate_request_id_.store(0, std::memory_order_release);
@@ -5314,25 +5385,6 @@ std::optional<std::wstring> read_range_text(TfEditCookie cookie, ITfRange* range
     return text;
 }
 
-bool write_clipboard_text(const std::wstring& text) {
-    if (!OpenClipboard(nullptr)) return false;
-    bool written = false;
-    if (EmptyClipboard()) {
-        const auto bytes = (text.size() + 1) * sizeof(wchar_t);
-        HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, bytes);
-        if (memory) {
-            if (void* target = GlobalLock(memory)) {
-                std::memcpy(target, text.c_str(), bytes);
-                GlobalUnlock(memory);
-                written = SetClipboardData(CF_UNICODETEXT, memory) != nullptr;
-            }
-            if (!written) GlobalFree(memory);
-        }
-    }
-    CloseClipboard();
-    return written;
-}
-
 bool scheme_selection_matches(ITfContext* context, TfEditCookie cookie, ITfRange* expected) {
     if (!expected) return true;
     TF_SELECTION selection{}; ULONG count{}; LONG start{}, end{};
@@ -5343,6 +5395,114 @@ bool scheme_selection_matches(ITfContext* context, TfEditCookie cookie, ITfRange
     if (selection.range) selection.range->Release();
     return same;
 }
+}
+
+void TextService::reset_agent_origin() noexcept {
+    agent_origin_valid_ = false;
+    agent_origin_safety_blocked_ = false;
+    agent_origin_selection_.reset();
+    agent_origin_sha256_.clear();
+    if (agent_origin_source_ && agent_edit_sink_cookie_ != TF_INVALID_COOKIE)
+        (void)agent_origin_source_->UnadviseSink(agent_edit_sink_cookie_);
+    agent_edit_sink_cookie_ = TF_INVALID_COOKIE;
+    release_interface(agent_origin_source_);
+    release_interface(agent_origin_range_);
+    release_interface(agent_origin_context_);
+}
+
+bool TextService::capture_agent_origin(ITfContext* context) {
+    reset_agent_origin();
+    rotate_agent_context();
+    if (!plugin_context_is_current(context)) { trace_tsf_event("origin.not_current", E_FAIL); return false; }
+    bool safety_blocked = false;
+    auto* edit = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
+        InputMethodContextFacts observed;
+        const auto safety = inspect_input_method_context(context, cookie, &observed);
+        const unsigned facts = static_cast<unsigned>(observed.status_known) | (observed.compartments_known << 1) |
+            (observed.scope_known << 2) | (observed.disabled << 3) |
+            (observed.empty_context << 4) | (observed.read_only << 5) |
+            (observed.loading << 6) | (observed.sensitive_scope << 7);
+        trace_tsf_event("origin.safety", static_cast<HRESULT>(safety), static_cast<HRESULT>(facts));
+        if (safety != InputMethodContextSafety::allowed) {
+            safety_blocked = true;
+            return E_ACCESSDENIED;
+        }
+        TF_SELECTION selections[2]{};
+        ULONG count = 0;
+        const auto read = context->GetSelection(cookie, TF_DEFAULT_SELECTION, 2, selections, &count);
+        trace_tsf_event("origin.selection", read, static_cast<HRESULT>(count));
+        bool ok = SUCCEEDED(read) && count == 1 && selections[0].range;
+        if (ok) {
+            const auto raw = read_range_text(cookie, selections[0].range);
+            ok = raw.has_value();
+            trace_tsf_event("origin.read", ok ? S_OK : E_FAIL);
+            if (ok) {
+                const auto utf8 = utf8_from_wide(*raw);
+                const auto points = std::count_if(utf8.begin(), utf8.end(),
+                    [](unsigned char c) { return (c & 0xc0U) != 0x80U; });
+                ok = utf8.size() <= 4096 && points <= 1000;
+                agent_origin_sha256_ = ok ? sha256_hex(utf8) : std::string{};
+                ok = ok && !agent_origin_sha256_.empty();
+                if (ok && !raw->empty()) {
+                    // Bound before filtering: never transform a silently truncated source.
+                    const auto filtered = agent::filter_sensitive_text(utf8, utf8.size());
+                    ok = filtered.ok && !filtered.value.empty() && filtered.value.size() <= 4096 &&
+                        std::count_if(filtered.value.begin(), filtered.value.end(),
+                            [](unsigned char c) { return (c & 0xc0U) != 0x80U; }) <= 1000;
+                    if (ok) agent_origin_selection_ = agent::SelectionSummary{
+                        filtered.value, agent_origin_sha256_, filtered.redacted};
+                }
+                if (ok) ok = SUCCEEDED(selections[0].range->Clone(&agent_origin_range_)) && agent_origin_range_;
+            }
+        }
+        for (auto& selection : selections) if (selection.range) selection.range->Release();
+        return ok ? S_OK : E_FAIL;
+    });
+    HRESULT captured = E_FAIL;
+    const auto request = edit ? context->RequestEditSession(
+        client_id_, edit, TF_ES_SYNC | TF_ES_READ, &captured) : E_FAIL;
+    if (edit) edit->Release();
+    trace_tsf_event("origin.request", request, captured);
+    if (FAILED(request) || FAILED(captured)) {
+        reset_agent_origin();
+        agent_origin_safety_blocked_ = safety_blocked;
+        return false;
+    }
+    context->AddRef();
+    agent_origin_context_ = context;
+    if (FAILED(context->QueryInterface(IID_PPV_ARGS(&agent_origin_source_))) ||
+        FAILED(agent_origin_source_->AdviseSink(IID_ITfTextEditSink,
+            static_cast<ITfTextEditSink*>(this), &agent_edit_sink_cookie_))) {
+        reset_agent_origin(); return false;
+    }
+    trace_tsf_event("origin.captured");
+    agent_origin_valid_ = true;
+    agent_context_sensitive_ = false;
+    return true;
+}
+
+HRESULT TextService::OnEndEdit(ITfContext* context, TfEditCookie, ITfEditRecord* record) {
+    if (!agent_origin_valid_ || !same_context(context, agent_origin_context_)) return S_OK;
+    BOOL selection_changed = TRUE;
+    IEnumTfRanges* updates = nullptr;
+    bool changed = !record || FAILED(record->GetSelectionStatus(&selection_changed)) || selection_changed;
+    if (!changed) {
+        changed = FAILED(record->GetTextAndPropertyUpdates(TF_GTP_INCL_TEXT, nullptr, 0, &updates)) || !updates;
+        if (updates) {
+            ITfRange* range = nullptr;
+            ULONG count = 0;
+            const auto next = updates->Next(1, &range, &count);
+            changed = changed || FAILED(next) || count != 0;
+            if (range) range->Release();
+            updates->Release();
+        }
+    }
+    // Invalidation is permanent even if the caret/text later returns to its old value.
+    if (changed) {
+        trace_tsf_event("origin.invalidated", S_OK, selection_changed);
+        agent_origin_valid_ = false;
+    }
+    return S_OK;
 }
 
 bool TextService::plugin_scheme_selected() const noexcept {
@@ -5360,63 +5520,76 @@ bool TextService::plugin_context_is_current(ITfContext* context) const {
     return same;
 }
 
-bool TextService::apply_agent_effect(const agent::CommandEffect& effect) {
+NativeWriteResult TextService::apply_agent_effect(const agent::CommandEffect& effect) {
     if (effect.kind == agent::EffectKind::copy_text) {
         const agent::EffectTargetFacts facts{agent_effects_negotiated_, false, false, {}, {}};
-        return agent::decide_effect(effect, facts) == agent::EffectDecision::write &&
-               write_clipboard_text(wide_from_utf8(effect.text));
+        if (agent::decide_effect(effect, facts) != agent::EffectDecision::write)
+            return NativeWriteResult::rejected;
+        switch (write_clipboard_text(message_window_, wide_from_utf8(effect.text))) {
+        case ClipboardWriteResult::completed: return NativeWriteResult::completed;
+        case ClipboardWriteResult::unchanged: return NativeWriteResult::rejected;
+        case ClipboardWriteResult::uncertain: return NativeWriteResult::uncertain;
+        }
+        return NativeWriteResult::uncertain;
     }
-    // Document writes must be bound to the input position that produced them.
-    if (effect.target_context_id.empty() || thread_manager_ == nullptr) return false;
-    ITfDocumentMgr* document = nullptr;
-    ITfContext* context = nullptr;
-    if (SUCCEEDED(thread_manager_->GetFocus(&document)) && document) {
-        (void)document->GetTop(&context);
-        document->Release();
-    }
-    if (!context) return false;
+    // The immutable TSF capture, not just the current context, identifies the target.
+    if (!agent_origin_valid_ || !agent_origin_context_ || !agent_origin_range_ ||
+        effect.target_context_id.empty() || effect.target_context_id != agent_context_id_ ||
+        !plugin_context_is_current(agent_origin_context_) ||
+        (agent_origin_selection_.has_value() != (effect.kind == agent::EffectKind::replace_selection))) return NativeWriteResult::rejected;
+    ITfContext* context = agent_origin_context_;
+    context->AddRef();
     const std::wstring text = wide_from_utf8(effect.text);
-    const bool same_document = plugin_context_is_current(context);
     bool written = false;
+    auto outcome = NativeWriteResult::rejected;
     auto* edit = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
-        // Recheck everything inside the read/write session that performs the write.
         agent::EffectTargetFacts facts;
         facts.capability_negotiated = agent_effects_negotiated_;
-        facts.same_document = same_document;
-        facts.context_allowed =
-            inspect_input_method_context(context, cookie) == InputMethodContextSafety::allowed;
+        facts.same_document = agent_origin_valid_ && same_context(context, agent_origin_context_) &&
+            plugin_context_is_current(context) && scheme_selection_matches(context, cookie, agent_origin_range_);
+        facts.context_allowed = inspect_input_method_context(context, cookie) == InputMethodContextSafety::allowed;
         facts.current_context_id = agent_context_id_;
-        TF_SELECTION selection{};
+        TF_SELECTION selections[2]{};
         ULONG fetched = 0;
-        HRESULT result = context->GetSelection(cookie, TF_DEFAULT_SELECTION, 1,
-                                               &selection, &fetched);
-        if (FAILED(result) || fetched != 1 || selection.range == nullptr) return S_OK;
-        if (effect.kind == agent::EffectKind::replace_selection) {
-            const auto current = read_range_text(cookie, selection.range);
-            if (current && !current->empty())
-                facts.selection_sha256 = sha256_hex(utf8_from_wide(*current));
-        }
-        if (agent::decide_effect(effect, facts) == agent::EffectDecision::write) {
-            result = selection.range->SetText(cookie, 0, text.data(),
-                                              static_cast<LONG>(text.size()));
-            if (SUCCEEDED(result)) {
-                selection.range->Collapse(cookie, TF_ANCHOR_END);
-                written = SUCCEEDED(context->SetSelection(cookie, 1, &selection));
+        const auto result = context->GetSelection(cookie, TF_DEFAULT_SELECTION, 2, selections, &fetched);
+        if (SUCCEEDED(result) && fetched == 1 && selections[0].range) {
+            const auto current = read_range_text(cookie, selections[0].range);
+            const auto digest = current ? sha256_hex(utf8_from_wide(*current)) : std::string{};
+            facts.same_document = facts.same_document && !digest.empty() && digest == agent_origin_sha256_;
+            if (effect.kind == agent::EffectKind::replace_selection) facts.selection_sha256 = digest;
+            const auto decision = agent::decide_effect(effect, facts);
+            if (decision != agent::EffectDecision::write)
+                std::clog << "[agent-writeback] effect denied: decision=" << static_cast<int>(decision)
+                          << " same_document=" << facts.same_document
+                          << " context_allowed=" << facts.context_allowed << '\n';
+            if (decision == agent::EffectDecision::write) {
+                agent_origin_valid_ = false; // Consume before any write; never replay an attempted effect.
+                const auto native = replace_richedit_selection(
+                    context, cookie, selections[0].range, *current, text);
+                outcome = native;
+                if (native == NativeWriteResult::completed) {
+                    written = true;
+                } else if (native == NativeWriteResult::not_applicable &&
+                           SUCCEEDED(selections[0].range->SetText(
+                               cookie, 0, text.data(), static_cast<LONG>(text.size())))) {
+                    outcome = NativeWriteResult::completed;
+                    written = true; // A caret failure must never permit a second write.
+                    (void)selections[0].range->Collapse(cookie, TF_ANCHOR_END);
+                    (void)context->SetSelection(cookie, 1, selections);
+                }
             }
         }
-        selection.range->Release();
+        for (auto& selection : selections) if (selection.range) selection.range->Release();
         return S_OK;
     });
     if (edit) {
         HRESULT session_result = E_FAIL;
-        const auto request = context->RequestEditSession(
-            client_id_, edit, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
+        (void)context->RequestEditSession(client_id_, edit, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
         edit->Release();
-        if (FAILED(request) || FAILED(session_result)) written = false;
     }
     context->Release();
     if (written) append_language_context(text);
-    return written;
+    return outcome;
 }
 
 void TextService::refresh_agent_context_safety(ITfContext* context) {

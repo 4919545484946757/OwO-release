@@ -83,6 +83,27 @@ fn read_token_file(path: &Path) -> Result<String, BridgeError> {
     Ok(token)
 }
 
+/// Validate the parsed authority before reading credentials or making any request.
+/// Pin localhost to IPv4 loopback rather than trusting local DNS/hosts resolution.
+fn validate_daemon_url(value: &str) -> Result<String, BridgeError> {
+    let invalid =
+        || BridgeError::Protocol("Daemon URL must be a plain HTTP loopback origin".into());
+    let mut url = reqwest::Url::parse(value).map_err(|_| invalid())?;
+    if url.scheme() != "http"
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || !matches!(url.host_str(), Some("127.0.0.1" | "localhost"))
+        || url.port_or_known_default() == Some(0)
+        || url.path() != "/"
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err(invalid());
+    }
+    url.set_host(Some("127.0.0.1")).map_err(|_| invalid())?;
+    Ok(url.as_str().trim_end_matches('/').to_string())
+}
+
 /// 回环 HTTP 客户端。
 pub struct OwoHttpClient {
     http: reqwest::Client,
@@ -93,18 +114,25 @@ pub struct OwoHttpClient {
 
 impl OwoHttpClient {
     /// `token_file` 一般为 [`token_path`]`(data_root)`。
-    pub fn new(base_url: impl Into<String>, token_file: impl Into<PathBuf>) -> Self {
+    pub fn new(
+        base_url: impl Into<String>,
+        token_file: impl Into<PathBuf>,
+    ) -> Result<Self, BridgeError> {
+        let base_url = validate_daemon_url(&base_url.into())?;
         let http = reqwest::Client::builder()
+            // Daemon traffic and bearer credentials must never traverse an HTTP proxy.
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(CONNECT_TIMEOUT)
             // 不设全局 timeout：turn 端点是分钟级 SSE 长流。
             .build()
-            .expect("reqwest client 构造失败");
-        Self {
+            .map_err(BridgeError::Http)?;
+        Ok(Self {
             http,
-            base_url: base_url.into(),
+            base_url,
             token_file: token_file.into(),
             token: tokio::sync::RwLock::new(None),
-        }
+        })
     }
 
     pub fn base_url(&self) -> &str {
@@ -187,6 +215,36 @@ impl OwoHttpClient {
     }
 
     // ────────────────────────── 回合 ──────────────────────────
+
+    pub async fn expression(&self, prompt: &str) -> Result<String, BridgeError> {
+        let body = owo_agent_protocol::ExpressionRequest {
+            prompt: prompt.into(),
+        };
+        let response = self
+            .authed(|http, token| {
+                http.post(format!("{}/expression", self.base_url))
+                    .bearer_auth(token)
+                    .timeout(Duration::from_secs(65))
+                    .json(&body)
+            })
+            .await?;
+        if !response.status().is_success() {
+            return Err(status_error(response).await);
+        }
+        let mut response = response;
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await? {
+            if bytes.len() + chunk.len() > 32 * 1024 {
+                return Err(BridgeError::Protocol("expression output too large".into()));
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let result: owo_agent_protocol::ExpressionResponse = serde_json::from_slice(&bytes)?;
+        if result.text.trim().is_empty() || result.text.chars().count() > 4096 {
+            return Err(BridgeError::Protocol("invalid expression output".into()));
+        }
+        Ok(result.text)
+    }
 
     /// `POST /session/{id}/turn` → SSE 长流响应（不设总超时）。
     ///
@@ -301,4 +359,99 @@ async fn status_error(response: reqwest::Response) -> BridgeError {
         .take(ERROR_BODY_LIMIT)
         .collect();
     BridgeError::Status { status, body }
+}
+
+#[cfg(test)]
+mod origin_tests {
+    use super::*;
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+
+    #[test]
+    fn rejects_authority_bypass_and_non_origin_urls_without_echoing_input() {
+        for value in [
+            "http://localhost:80@evil.example",
+            "http://127.0.0.1:80@evil.example",
+            "http://user:fixture-secret@localhost:9000",
+            "http://localhost.evil.example:9000",
+            "https://127.0.0.1:9000",
+            "http://127.0.0.1:0",
+            "http://127.0.0.1:9000/expression",
+            "http://127.0.0.1:9000/?token=fixture-secret",
+            "http://127.0.0.1:9000/#fixture-secret",
+            "not a URL",
+        ] {
+            let error = OwoHttpClient::new(value, "unused")
+                .err()
+                .expect("must reject");
+            assert!(!error.to_string().contains("fixture-secret"));
+        }
+        assert_eq!(
+            reqwest::Url::parse("http://localhost:80@evil.example")
+                .unwrap()
+                .host_str(),
+            Some("evil.example")
+        );
+    }
+
+    #[test]
+    fn accepts_origin_and_pins_localhost_without_dns() {
+        for (value, expected) in [
+            ("http://localhost:9000/", "http://127.0.0.1:9000"),
+            ("http://127.0.0.1:9000", "http://127.0.0.1:9000"),
+            ("http://localhost", "http://127.0.0.1"),
+        ] {
+            assert_eq!(
+                OwoHttpClient::new(value, "unused").unwrap().base_url(),
+                expected
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn redirects_never_replay_expression_even_on_same_origin() {
+        use axum::{
+            http::{header::LOCATION, StatusCode},
+            routing::any,
+            Router,
+        };
+        for status in [301, 302, 303, 307, 308] {
+            let sink = Arc::new(AtomicUsize::new(0));
+            let sink_count = sink.clone();
+            let app = Router::new()
+                .route(
+                    "/expression",
+                    any(move || async move {
+                        (StatusCode::from_u16(status).unwrap(), [(LOCATION, "/sink")])
+                    }),
+                )
+                .route(
+                    "/sink",
+                    any(move || {
+                        let count = sink_count.clone();
+                        async move {
+                            count.fetch_add(1, Ordering::SeqCst);
+                            StatusCode::INTERNAL_SERVER_ERROR
+                        }
+                    }),
+                );
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let client = OwoHttpClient::new(
+                format!("http://{}", listener.local_addr().unwrap()),
+                "unused",
+            )
+            .unwrap();
+            // Synthetic credential only; no token file or model is accessed.
+            *client.token.write().await = Some("synthetic-origin-test".into());
+            let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+            let result = client.expression("synthetic expression").await;
+            server.abort();
+            assert!(
+                matches!(result, Err(BridgeError::Status { status: actual, .. }) if actual == status)
+            );
+            assert_eq!(sink.load(Ordering::SeqCst), 0);
+        }
+    }
 }

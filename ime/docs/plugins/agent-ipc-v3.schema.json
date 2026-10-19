@@ -173,6 +173,16 @@
       },
       "else": { "properties": { "selection_sha256": { "maxLength": 0 } } }
     },
+    "selectionSummary": {
+      "description": "input.selection: filtered document text; digest binds the original UTF-8 text. Maximum 4096 bytes is additionally enforced by both runtimes.",
+      "type": "object", "additionalProperties": false,
+      "required": ["text", "sha256", "redacted"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 1000, "pattern": "\\S" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "redacted": { "type": "boolean" }
+      }
+    },
     "request": {
       "type": "object",
       "additionalProperties": false,
@@ -206,6 +216,7 @@
           "type": "array", "maxItems": 32,
           "items": { "$ref": "#/$defs/context" }
         },
+        "selection": { "$ref": "#/$defs/selectionSummary" },
         "command_id": { "$ref": "#/$defs/token" },
         "page": { "type": "integer", "minimum": 0, "maximum": 1000 },
         "task_revision": { "type": "integer", "minimum": 0 },
@@ -213,7 +224,14 @@
           "type": "array", "maxItems": 8,
           "items": { "$ref": "#/$defs/slot_update" }
         }
-      }
+      },
+      "allOf": [{
+        "if": { "required": ["selection"] },
+        "then": { "properties": {
+          "capabilities": { "contains": { "const": "input.selection" } },
+          "application": { "properties": { "sensitive_input": { "const": false }, "context_id": { "minLength": 1 } } }
+        } }
+      }]
     },
     "response": {
       "type": "object",

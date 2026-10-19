@@ -14,6 +14,7 @@ inline constexpr std::size_t kMaximumAgentPayloadBytes = 256U * 1024U;
 inline constexpr std::size_t kMaximumAgentCommands = 64;
 // v4 in-place write-back. Commands may carry an effect only when both sides list it.
 inline constexpr const char* kAgentCapabilityOutputEffects = "output.effects";
+inline constexpr const char* kAgentCapabilityInputSelection = "input.selection";
 inline constexpr std::size_t kMaximumAgentEffectTextCodePoints = 16384;
 inline constexpr std::size_t kMaximumAgentContextEntries = 32;
 inline constexpr std::size_t kMaximumAgentContextEntryBytes = 32U * 1024U;
@@ -114,6 +115,14 @@ struct SlotUpdate {
     bool operator==(const SlotUpdate&) const = default;
 };
 
+// Selected document text is distinct from input_details.selected_text (the command).
+struct SelectionSummary {
+    std::string text;
+    std::string sha256;
+    bool redacted{};
+    bool operator==(const SelectionSummary&) const = default;
+};
+
 struct Request {
     Action action{Action::submit};
     std::string session_id;
@@ -121,6 +130,7 @@ struct Request {
     ApplicationContext application;
     std::string session_context;
     std::vector<ContextEntry> context_entries;
+    std::optional<SelectionSummary> selection;
     std::string command_id;
     std::uint32_t page{};
     InputPayload input_details;
@@ -211,6 +221,8 @@ struct FilterResult {
     std::string diagnostic;
 };
 
+// Status requests retain the origin binding without resending task/context payloads.
+[[nodiscard]] Request make_poll_request(const Request& origin, std::uint64_t sequence);
 [[nodiscard]] std::string encode_request(const Request& request);
 [[nodiscard]] std::string encode_request_v2(const Request& request);
 [[nodiscard]] RequestDecodeResult decode_request(std::string_view json);

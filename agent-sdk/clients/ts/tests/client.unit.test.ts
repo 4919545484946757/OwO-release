@@ -1021,3 +1021,36 @@ test("R3 契约（/diagnostics/requests：ledger 六字段白名单 + 三桶聚�
     "三桶必须恰好覆盖窗口内记录",
   );
 });
+
+test("expression uses only the authenticated bounded route and propagates cancellation", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  const signal = controller.signal;
+  globalThis.fetch = async (input, init) => {
+    assert.equal(String(input), "http://127.0.0.1:4096/expression");
+    assert.equal(init?.signal, signal);
+    assert.equal(new Headers(init?.headers).get("authorization"), "Bearer fixture");
+    assert.deepEqual(JSON.parse(String(init?.body)), { prompt: "改写你好" });
+    return new Response(JSON.stringify({ text: "您好" }), { status: 200 });
+  };
+  try {
+    const client = createClient({ baseUrl: "http://127.0.0.1:4096/", headers: { authorization: "Bearer fixture" } });
+    assert.deepEqual(await client.expression({ prompt: "改写你好" }, signal), { text: "您好" });
+    globalThis.fetch = async () => new Response(JSON.stringify({ text: "中".repeat(4097) }));
+    await assert.rejects(client.expression({ prompt: "改写你好" }), /Invalid expression/);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+
+test("expression does not retry a source rejection", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return new Response("expression/invalid_source", { status: 403 });
+  };
+  try {
+    await assert.rejects(createClient({ baseUrl: "http://127.0.0.1:4096" }).expression({ prompt: "synthetic" }), /403/);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});

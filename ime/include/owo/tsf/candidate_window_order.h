@@ -5,6 +5,30 @@
 
 namespace owo::tsf {
 
+// Embedded editors may run in a different process from their foreground frame
+// (for example WPS). Only the actually focused descendant may keep its candidate
+// visible; a process relationship or an owned popup is not sufficient.
+inline bool candidate_host_contains_process_focus(
+    HWND host, HWND focus, DWORD process) noexcept {
+    if (!host || !focus || !process || GetAncestor(focus, GA_ROOT) != host)
+        return false;
+    DWORD focused_process = 0;
+    GetWindowThreadProcessId(focus, &focused_process);
+    return focused_process == process;
+}
+
+inline bool candidate_host_has_process_focus(HWND host) noexcept {
+    if (!host) return false;
+    DWORD process = 0;
+    const DWORD thread = GetWindowThreadProcessId(host, &process);
+    if (!thread) return false;
+    if (process == GetCurrentProcessId()) return true;
+    GUITHREADINFO info{sizeof(info)};
+    return GetGUIThreadInfo(thread, &info) &&
+        candidate_host_contains_process_focus(host, info.hwndFocus,
+                                             GetCurrentProcessId());
+}
+
 // An owned popup follows its input host, but must never activate that host.
 inline void bind_candidate_owner(HWND candidate, HWND shadow, HWND host) noexcept {
     if (!host || host == candidate || host == shadow) return;

@@ -112,3 +112,6 @@ tmp_path_keys.txt
 
 # 个人文件
 /env/.work-logs/
+
+# Local integration runs, transcripts and binaries; never part of delivery.
+/.work-logs/

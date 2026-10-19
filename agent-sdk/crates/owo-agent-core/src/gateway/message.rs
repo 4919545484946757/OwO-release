@@ -220,6 +220,11 @@ pub struct ObservedModelOutput {
 
 #[async_trait]
 pub trait ModelProvider: Send + Sync {
+    /// Dedicated bounded text request. Providers must opt in; never fall back to an Agent turn.
+    async fn complete_expression(&self, _messages: &[ChatMessage]) -> Result<String, String> {
+        Err("provider/expression_unsupported".into())
+    }
+
     async fn complete(
         &self,
         messages: &[ChatMessage],

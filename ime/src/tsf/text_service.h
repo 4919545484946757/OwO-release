@@ -31,6 +31,7 @@ struct IDWriteTextFormat;
 namespace owo::tsf {
 
 class LanguageBarItem;
+enum class NativeWriteResult;
 
 inline constexpr CLSID kTextServiceClsid{
     0x6d31c9b1, 0x8978, 0x4f49, {0x89, 0xb4, 0x66, 0xeb, 0x1e, 0x74, 0x15, 0x91}};
@@ -44,7 +45,8 @@ class TextService final : public ITfTextInputProcessorEx,
                           public ITfKeyEventSink,
                           public ITfThreadMgrEventSink,
                           public ITfThreadFocusSink,
-                          public ITfCompartmentEventSink {
+                          public ITfCompartmentEventSink,
+                          public ITfTextEditSink {
 public:
     TextService() noexcept;
 
@@ -90,6 +92,8 @@ public:
     HRESULT STDMETHODCALLTYPE OnKillThreadFocus() override;
 
     HRESULT STDMETHODCALLTYPE OnChange(REFGUID guid) override;
+    HRESULT STDMETHODCALLTYPE OnEndEdit(ITfContext* context, TfEditCookie cookie,
+                                         ITfEditRecord* record) override;
 
 private:
     friend class LanguageBarItem;
@@ -113,6 +117,7 @@ private:
         std::uint64_t request_id{};
         std::uint64_t generation{};
         agent::Response response;
+        bool transport_failure{};
     };
     struct PendingRequest {
         std::uint8_t type{};
@@ -246,7 +251,9 @@ private:
     bool plugin_context_allowed(ITfContext*);
     void refresh_agent_context_safety(ITfContext*);
     // Returns true only when the effect was written (document or clipboard).
-    bool apply_agent_effect(const agent::CommandEffect& effect);
+    NativeWriteResult apply_agent_effect(const agent::CommandEffect& effect);
+    bool capture_agent_origin(ITfContext* context);
+    void reset_agent_origin() noexcept;
     bool plugin_context_is_current(ITfContext*) const;
     bool plugin_should_eat_key(ITfContext*, WPARAM, LPARAM);
     HRESULT handle_plugin_key(ITfContext*, WPARAM, LPARAM, BOOL*);
@@ -340,6 +347,14 @@ private:
     std::string agent_context_id_;
     bool agent_context_sensitive_{true};
     bool agent_effects_negotiated_{false};
+    ITfContext* agent_origin_context_{nullptr};
+    ITfRange* agent_origin_range_{nullptr};
+    ITfSource* agent_origin_source_{nullptr};
+    DWORD agent_edit_sink_cookie_{TF_INVALID_COOKIE};
+    bool agent_origin_valid_{false};
+    bool agent_origin_safety_blocked_{false};
+    std::string agent_origin_sha256_;
+    std::optional<agent::SelectionSummary> agent_origin_selection_;
     agent::Status agent_status_{agent::Status::agent_mode};
     std::wstring agent_message_;
     std::wstring agent_executing_command_;

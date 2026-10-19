@@ -95,12 +95,25 @@ pub fn attach_commit_effect(command: &mut Command, request: &AgentIpcRequest, te
         return;
     }
     command.effect = Some(CommandEffect {
-        kind: EffectKind::CommitText,
+        kind: if request.selection.is_some() {
+            EffectKind::ReplaceSelection
+        } else {
+            EffectKind::CommitText
+        },
         text: text.to_string(),
         target_context_id: request.application.context_id.clone(),
-        selection_sha256: String::new(),
+        selection_sha256: request
+            .selection
+            .as_ref()
+            .map(|s| s.sha256.clone())
+            .unwrap_or_default(),
     });
-    command.preview = "选中后在当前光标处上屏；目标变化时只显示预览".to_string();
+    if request.selection.is_some() {
+        command.label = format!("替换选区：{}", truncate_chars(text, 30));
+        command.preview = "预览后确认替换原选区；位置或原文变化时拒绝写入".to_string();
+    } else {
+        command.preview = "选中后在当前光标处上屏；目标变化时只显示预览".to_string();
+    }
 }
 
 /// 按字符数截断（超长补省略号）。

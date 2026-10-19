@@ -288,6 +288,7 @@ fn request(
     let mut builder = Request::builder()
         .method(Method::from_bytes(method.as_bytes()).unwrap())
         .uri(path)
+        .header(header::HOST, "127.0.0.1:4096")
         .header(
             header::AUTHORIZATION,
             format!("Bearer {}", state.auth_token.token()),
@@ -3829,3 +3830,214 @@ fn desktop_credentials_and_durable_session_facts_are_documented() {
 
 #[path = "desktop_six_item_contract_tests.rs"]
 mod desktop_six_item_contracts;
+
+struct ExpressionProbe(String);
+#[async_trait::async_trait]
+impl owo_agent_core::gateway::ModelProvider for ExpressionProbe {
+    async fn complete(
+        &self,
+        _: &[owo_agent_core::ChatMessage],
+        _: &[owo_agent_core::ToolSpec],
+    ) -> Result<owo_agent_core::ModelOutput, String> {
+        panic!("expression must never use generic completion or Agent loop");
+    }
+    async fn complete_expression(
+        &self,
+        messages: &[owo_agent_core::ChatMessage],
+    ) -> Result<String, String> {
+        assert_eq!(messages.len(), 2, "no workspace or conversation context");
+        assert_eq!(messages[0].role, "system");
+        assert_eq!(messages[1].role, "user");
+        Ok(self.0.clone())
+    }
+}
+
+#[tokio::test]
+async fn expression_is_authenticated_stateless_and_bounded() {
+    let _guard = STATE_ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await;
+    std::env::remove_var("OWO_API_RPM_GLOBAL");
+    let temp = tempfile::tempdir().unwrap();
+    let ws = temp.path().join("ws");
+    std::fs::create_dir_all(&ws).unwrap();
+    let agent = Agent::new(
+        Arc::new(ExpressionProbe("改写结果".into())),
+        ToolRegistry::new(),
+        Policy::new(&ws),
+        Default::default(),
+    );
+    let store = SqliteSessionStore::open(&ws.join("index.db")).unwrap();
+    let state = Arc::new(owo_agent_server::AppState::new(
+        agent,
+        store,
+        ws.join("traces"),
+        temp.path().into(),
+        ws,
+    ));
+    let app = build_router(state.clone());
+    let response = app
+        .clone()
+        .oneshot(anonymous_request(
+            "POST",
+            "/expression",
+            Some(r#"{"prompt":"改写文字"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    for (body, expected) in [
+        (r#"{"prompt":" "}"#, 400),
+        (r#"{"prompt":"改写文字","tools":["read_file"]}"#, 422),
+        (r#"{"prompt":"改写文字","workspace":"."}"#, 422),
+        (r#"{"prompt":"改写文字"}"#, 200),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(request(&state, "POST", "/expression", Some(body)))
+            .await
+            .unwrap();
+        assert_eq!(response.status().as_u16(), expected);
+        if expected == 200 {
+            let bytes = axum::body::to_bytes(response.into_body(), 32768)
+                .await
+                .unwrap();
+            assert_eq!(
+                serde_json::from_slice::<serde_json::Value>(&bytes).unwrap()["text"],
+                "改写结果"
+            );
+        }
+    }
+    // Preserve desktop callers and all accepted loopback Host forms.
+    for host in ["localhost:4096", "127.0.0.1:4096", "[::1]:4096"] {
+        let mut req = request(
+            &state,
+            "POST",
+            "/expression",
+            Some(r#"{"prompt":"synthetic"}"#),
+        );
+        req.headers_mut().insert("host", host.parse().unwrap());
+        req.headers_mut()
+            .insert("origin", "tauri://localhost".parse().unwrap());
+        assert_eq!(
+            app.clone().oneshot(req).await.unwrap().status().as_u16(),
+            200
+        );
+    }
+    let body = serde_json::json!({"prompt":"中".repeat(8193)}).to_string();
+    assert_eq!(
+        app.oneshot(request(&state, "POST", "/expression", Some(&body)))
+            .await
+            .unwrap()
+            .status()
+            .as_u16(),
+        400
+    );
+    assert!(
+        state.sessions.lock().unwrap().is_empty(),
+        "expression must not create a session"
+    );
+    assert_eq!(state.shutdown_gate.active_turns(), 0);
+}
+
+#[tokio::test]
+async fn expression_rejects_oversized_provider_output() {
+    let temp = tempfile::tempdir().unwrap();
+    let ws = temp.path().join("ws");
+    std::fs::create_dir_all(&ws).unwrap();
+    let provider = ExpressionProbe("中".repeat(4097));
+    let agent = Agent::new(
+        Arc::new(provider),
+        ToolRegistry::new(),
+        Policy::new(&ws),
+        Default::default(),
+    );
+    let store = SqliteSessionStore::open(&ws.join("index.db")).unwrap();
+    let state = Arc::new(owo_agent_server::AppState::new(
+        agent,
+        store,
+        ws.join("traces"),
+        temp.path().into(),
+        ws,
+    ));
+    let response = build_router(state.clone())
+        .oneshot(request(
+            &state,
+            "POST",
+            "/expression",
+            Some(r#"{"prompt":"hi"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 502);
+    assert_eq!(state.shutdown_gate.active_turns(), 0);
+}
+
+#[tokio::test]
+async fn expression_rejects_invalid_host_or_origin_before_provider() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(state.clone());
+    // IdleProvider fails expression by default; any accepted source would reach 502.
+    for (host, origin) in [
+        (None, None),
+        (Some("evil.example"), None),
+        (Some("localhost:80@evil.example"), None),
+        (Some("localhost:0"), None),
+        (Some("localhost/path"), None),
+        (Some("127.0.0.1:4096"), Some("https://evil.example")),
+        (
+            Some("127.0.0.1:4096"),
+            Some("http://localhost:80@evil.example"),
+        ),
+        (Some("127.0.0.1:4096"), Some("http://localhost/path")),
+        (
+            Some("127.0.0.1:4096"),
+            Some("http://localhost?secret=synthetic"),
+        ),
+        (Some("127.0.0.1:4096"), Some("null")),
+    ] {
+        let mut req = request(
+            &state,
+            "POST",
+            "/expression",
+            Some(r#"{"prompt":"synthetic"}"#),
+        );
+        req.headers_mut().remove("host");
+        if let Some(host) = host {
+            req.headers_mut().insert("host", host.parse().unwrap());
+        }
+        if let Some(origin) = origin {
+            req.headers_mut().insert("origin", origin.parse().unwrap());
+        }
+        // A claimed forwarding chain must not authorize a remote Host.
+        req.headers_mut()
+            .insert("x-forwarded-host", "localhost".parse().unwrap());
+        let response = app.clone().oneshot(req).await.unwrap();
+        assert_eq!(response.status().as_u16(), 403);
+        let body = axum::body::to_bytes(response.into_body(), 1024)
+            .await
+            .unwrap();
+        assert_eq!(body.as_ref(), b"expression/invalid_source");
+    }
+    for header in ["host", "origin"] {
+        let mut req = request(
+            &state,
+            "POST",
+            "/expression",
+            Some(r#"{"prompt":"synthetic"}"#),
+        );
+        if header == "origin" {
+            req.headers_mut()
+                .insert("origin", "http://localhost".parse().unwrap());
+        }
+        req.headers_mut()
+            .append(header, "http://localhost".parse().unwrap());
+        assert_eq!(
+            app.clone().oneshot(req).await.unwrap().status().as_u16(),
+            403
+        );
+    }
+    assert_eq!(state.shutdown_gate.active_turns(), 0);
+    assert!(state.sessions.lock().unwrap().is_empty());
+}

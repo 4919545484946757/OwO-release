@@ -29,11 +29,7 @@ async fn main() -> std::process::ExitCode {
 
     let data_root = resolve_data_root();
     let base_url = match std::env::var("OWO_GATEWAY_DAEMON_URL") {
-        Ok(url) if is_loopback_url(&url) => url.trim_end_matches('/').to_string(),
-        Ok(_) => {
-            tracing::error!("OWO_GATEWAY_DAEMON_URL 只允许回环地址");
-            return std::process::ExitCode::from(2);
-        }
+        Ok(url) => url,
         Err(_) => match daemon_base_url(&data_root) {
             Ok(url) => url,
             Err(error) => {
@@ -49,7 +45,14 @@ async fn main() -> std::process::ExitCode {
     }
 
     let state = Arc::new(ImeState::new(DEFAULT_SESSION_TTL));
-    let client = Arc::new(OwoHttpClient::new(base_url.clone(), token_path(&data_root)));
+    let client = match OwoHttpClient::new(base_url, token_path(&data_root)) {
+        Ok(client) => Arc::new(client),
+        Err(error) => {
+            tracing::error!(%error, "Invalid Daemon origin");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let base_url = client.base_url().to_string();
     let bridge = ImeBridge::new(
         state.clone(),
         client,
@@ -86,13 +89,6 @@ async fn main() -> std::process::ExitCode {
             std::process::ExitCode::FAILURE
         }
     }
-}
-
-#[cfg(windows)]
-fn is_loopback_url(url: &str) -> bool {
-    let rest = url.strip_prefix("http://").unwrap_or("");
-    let host = rest.split(['/', ':']).next().unwrap_or("");
-    matches!(host, "127.0.0.1" | "localhost")
 }
 
 #[cfg(not(windows))]

@@ -471,6 +471,21 @@ impl ResilientProvider {
 
 #[async_trait]
 impl ModelProvider for ResilientProvider {
+    async fn complete_expression(&self, messages: &[ChatMessage]) -> Result<String, String> {
+        let permit = self
+            .breaker
+            .acquire_request()
+            .ok_or_else(|| "provider/circuit_open".to_string())?;
+        // Expressions have one provider attempt, never retry or use fallback providers.
+        let result = self.primary.complete_expression(messages).await;
+        if result.is_ok() {
+            permit.success();
+        } else {
+            permit.failure();
+        }
+        result
+    }
+
     async fn complete(
         &self,
         messages: &[ChatMessage],
@@ -876,6 +891,10 @@ impl DeferredProvider {
 
 #[async_trait]
 impl ModelProvider for DeferredProvider {
+    async fn complete_expression(&self, messages: &[ChatMessage]) -> Result<String, String> {
+        self.resolve()?.complete_expression(messages).await
+    }
+
     async fn complete(
         &self,
         messages: &[ChatMessage],

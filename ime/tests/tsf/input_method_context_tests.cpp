@@ -1,5 +1,6 @@
 #include "owo/tsf/input_method_context.h"
 #include <iostream>
+#include <inputscope.h>
 int main() {
     using namespace owo::tsf;
     int failures{};
@@ -14,6 +15,21 @@ int main() {
         if (n == 1) missing.compartments_known = false;
         if (n == 2) missing.scope_known = false;
         check(evaluate_input_method_context(missing) == InputMethodContextSafety::unknown, "missing metadata cannot authorize");
+    }
+    for (const auto scope : {IS_PASSWORD, IS_NUMERIC_PASSWORD, IS_NUMERIC_PIN,
+                             IS_ALPHANUMERIC_PIN, IS_ALPHANUMERIC_PIN_SET, IS_PRIVATE}) {
+        auto pin = f;
+        pin.sensitive_scope = sensitive_input_scope(scope);
+        check(evaluate_input_method_context(pin) == InputMethodContextSafety::sensitive,
+            "password/PIN/private metadata must block collection and writes");
+        std::cout << "sensitive_scope=" << static_cast<LONG>(scope)
+                  << " blocked=" << pin.sensitive_scope << "\n";
+    }
+    for (const auto scope : {IS_DEFAULT, IS_TEXT, IS_CHAT}) {
+        auto ordinary = f;
+        ordinary.sensitive_scope = sensitive_input_scope(scope);
+        check(evaluate_input_method_context(ordinary) == InputMethodContextSafety::allowed,
+            "ordinary known scope remains usable");
     }
     f.sensitive_scope = true;
     check(evaluate_input_method_context(f) == InputMethodContextSafety::sensitive, "sensitive scope blocked");

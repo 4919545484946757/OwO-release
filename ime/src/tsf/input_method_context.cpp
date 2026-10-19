@@ -1,10 +1,16 @@
 #include "owo/tsf/input_method_context.h"
+#include "owo/tsf/diagnostics.h"
 #include <initguid.h>
 #include <inputscope.h>
 #include <wrl/client.h>
 
 namespace owo::tsf {
 using Microsoft::WRL::ComPtr;
+bool sensitive_input_scope(LONG scope) noexcept {
+    return scope == IS_PASSWORD || scope == IS_NUMERIC_PASSWORD ||
+        scope == IS_NUMERIC_PIN || scope == IS_ALPHANUMERIC_PIN ||
+        scope == IS_ALPHANUMERIC_PIN_SET || scope == IS_PRIVATE;
+}
 InputMethodContextSafety evaluate_input_method_context(const InputMethodContextFacts& f) noexcept {
     if (f.sensitive_scope) return InputMethodContextSafety::sensitive;
     if (f.disabled || f.empty_context) return InputMethodContextSafety::disabled;
@@ -23,9 +29,13 @@ bool flag(ITfCompartmentMgr* manager, REFGUID id, bool& value) {
     VariantClear(&result); return known;
 }
 }
-InputMethodContextSafety inspect_input_method_context(ITfContext* context, TfEditCookie cookie) {
+InputMethodContextSafety inspect_input_method_context(ITfContext* context, TfEditCookie cookie, InputMethodContextFacts* observed) {
     if (!context) return InputMethodContextSafety::unknown;
     InputMethodContextFacts facts;
+    const auto finish = [&] {
+        if (observed) *observed = facts;
+        return evaluate_input_method_context(facts);
+    };
     TF_STATUS status{};
     facts.status_known = SUCCEEDED(context->GetStatus(&status));
     if (facts.status_known) {
@@ -37,33 +47,38 @@ InputMethodContextSafety inspect_input_method_context(ITfContext* context, TfEdi
         facts.compartments_known = flag(manager.Get(), GUID_COMPARTMENT_KEYBOARD_DISABLED, facts.disabled) &&
             flag(manager.Get(), GUID_COMPARTMENT_EMPTYCONTEXT, facts.empty_context);
     if (facts.disabled || facts.empty_context || facts.read_only || facts.loading)
-        return evaluate_input_method_context(facts);
+        return finish();
     TF_SELECTION selection{}; ULONG count{};
     if (FAILED(context->GetSelection(cookie, TF_DEFAULT_SELECTION, 1, &selection, &count)) ||
         count != 1 || !selection.range) {
         if (selection.range) selection.range->Release();
-        return evaluate_input_method_context(facts);
+        return finish();
     }
     ComPtr<ITfRange> range; range.Attach(selection.range);
     ComPtr<ITfReadOnlyProperty> property;
-    if (FAILED(context->GetAppProperty(GUID_PROP_INPUTSCOPE, &property)) || !property)
-        return evaluate_input_method_context(facts);
+    const auto property_result = context->GetAppProperty(GUID_PROP_INPUTSCOPE, &property);
+    trace_tsf_event("scope.property", property_result, property ? 1 : 0);
+    if (FAILED(property_result) || !property) return finish();
     VARIANT value; VariantInit(&value);
     ComPtr<ITfInputScope> scope;
     const auto hr = property->GetValue(cookie, range.Get(), &value);
-    if (SUCCEEDED(hr) && value.vt == VT_UNKNOWN && value.punkVal)
-        (void)value.punkVal->QueryInterface(IID_PPV_ARGS(&scope));
+    trace_tsf_event("scope.value", hr, value.vt);
+    if (SUCCEEDED(hr) && value.vt == VT_UNKNOWN && value.punkVal) {
+        const auto query = value.punkVal->QueryInterface(IID_PPV_ARGS(&scope));
+        trace_tsf_event("scope.interface", query);
+    }
     VariantClear(&value);
-    if (!scope) return evaluate_input_method_context(facts);
+    if (!scope) return finish();
     InputScope* scopes{}; UINT size{};
-    if (SUCCEEDED(scope->GetInputScopes(&scopes, &size)) && scopes && size && size <= 128) {
+    const auto scopes_result = scope->GetInputScopes(&scopes, &size);
+    trace_tsf_event("scope.list", scopes_result, static_cast<HRESULT>(size));
+    if (SUCCEEDED(scopes_result) && scopes && size && size <= 128) {
         facts.scope_known = true;
         for (UINT n = 0; n < size; ++n) {
-            if (scopes[n] == IS_PASSWORD || scopes[n] == IS_NUMERIC_PASSWORD || scopes[n] == IS_NUMERIC_PIN ||
-                scopes[n] == IS_PRIVATE) facts.sensitive_scope = true;
+            if (sensitive_input_scope(scopes[n])) facts.sensitive_scope = true;
         }
     }
     CoTaskMemFree(scopes);
-    return evaluate_input_method_context(facts);
+    return finish();
 }
 } // namespace owo::tsf

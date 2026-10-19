@@ -49,10 +49,12 @@ pub const SUPPORTED_CAPABILITIES: &[&str] = &[
     "tasks.slots",
     "tasks.incremental",
     CAPABILITY_OUTPUT_EFFECTS,
+    CAPABILITY_INPUT_SELECTION,
 ];
 
 /// v4 原位回写能力：只有请求声明它时，响应命令才可携带 `effect`。
 pub const CAPABILITY_OUTPUT_EFFECTS: &str = "output.effects";
+pub const CAPABILITY_INPUT_SELECTION: &str = "input.selection";
 /// `effect.text` 上限（字符）。
 pub const MAXIMUM_AGENT_EFFECT_TEXT_CHARS: usize = 16384;
 
@@ -253,6 +255,22 @@ pub struct ContextEntry {
     pub privacy: PrivacyFlags,
 }
 
+/// Filtered selection data plus a digest of the original, unfiltered UTF-8 text.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SelectionSummary {
+    pub text: String,
+    pub sha256: String,
+    pub redacted: bool,
+}
+
+fn deserialize_selection<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<SelectionSummary>, D::Error> {
+    // Absence is compatible with v3; explicit null is not a selection summary.
+    SelectionSummary::deserialize(deserializer).map(Some)
+}
+
 /// 管道请求（一问一答，每次连接一个请求）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -272,6 +290,12 @@ pub struct AgentIpcRequest {
     pub application: ApplicationView,
     pub session_context: String,
     pub context_entries: Vec<ContextEntry>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_selection"
+    )]
+    pub selection: Option<SelectionSummary>,
     pub command_id: String,
     pub page: u32,
     pub task_revision: u64,
@@ -569,6 +593,28 @@ impl AgentIpcRequest {
         )?;
         check_token(&self.input.input_mode, "input.input_mode", true)?;
         check_application(&self.application)?;
+        if let Some(selection) = &self.selection {
+            if !self
+                .capabilities
+                .iter()
+                .any(|c| c == CAPABILITY_INPUT_SELECTION)
+                || self.application.sensitive_input
+                || self.application.context_id.is_empty()
+                || selection.text.trim().is_empty()
+                || selection.text.len() > 4096
+                || selection.text.chars().count() > 1000
+                || selection.sha256.len() != 64
+                || !selection
+                    .sha256
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                return Err(invalid(
+                    "selection",
+                    "invalid or unnegotiated selection summary",
+                ));
+            }
+        }
         check_len(&self.session_context, "session_context", 32768, 0)?;
         if self.context_entries.len() > MAXIMUM_AGENT_CONTEXT_ENTRIES {
             return Err(invalid("context_entries", "数量超过 32"));
