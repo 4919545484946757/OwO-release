@@ -111,4 +111,7 @@ tmp_path_keys.txt
 /agent-sdk/desktop/web/.qa-*.png
 
 # 个人文件
-/env
+/env/.work-logs/
+
+# Local integration runs, transcripts and binaries; never part of delivery.
+/.work-logs/

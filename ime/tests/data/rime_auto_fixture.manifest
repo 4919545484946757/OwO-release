@@ -1,0 +1,7 @@
+source_id=owo-rime-auto-test-fixture
+source_version=1
+source_sha256=f0fac2708b4916e333a6be170f1a1b5c70962c1269b947bd7a20257af6131c30
+license=GPL-3.0-only
+source_format=rime-dict-yaml-auto
+pronunciation_source=owo-rime-pronunciation-test-fixture
+pronunciation_sha256=2a529c2cbbea5787787556a3cf60c1c5a747241b29a0b65a12ca910876b73354

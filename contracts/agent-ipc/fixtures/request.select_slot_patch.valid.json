@@ -1,0 +1,86 @@
+{
+  "schema_version": 3,
+  "action": "select",
+  "session_id": "0123456789abcdef0123456789abcdef",
+  "request_id": "req-120",
+  "parent_request_id": "",
+  "idempotency_key": "req-120",
+  "capabilities": [
+    "protocol.negotiation",
+    "input.structured",
+    "context.entries",
+    "commands.risk",
+    "tasks.slots",
+    "tasks.incremental"
+  ],
+  "protocol_min": 2,
+  "protocol_max": 3,
+  "required_features": [
+    "protocol.negotiation",
+    "input.structured",
+    "commands.risk",
+    "tasks.slots"
+  ],
+  "user_input": "bangwozhaowenjian",
+  "input": {
+    "raw_pinyin": "bangwozhaowenjian",
+    "segmented_pinyin": "bang'wo'zhao'wen'jian",
+    "selected_text": "帮我找文件",
+    "pending_pinyin": "",
+    "natural_language": "帮我找文件",
+    "input_mode": "agent",
+    "correction_enabled": true
+  },
+  "application": {
+    "process_id": 4242,
+    "thread_id": 8120,
+    "executable": "notepad.exe",
+    "window_class": "Notepad",
+    "focus_window_class": "RichEditD2DPT",
+    "context_id": "ctx-current-01234567",
+    "sensitive_input": false
+  },
+  "session_context": "当前输入位置的近期上下文",
+  "context_entries": [
+    {
+      "context_id": "ctx-editor-89abcdef",
+      "application": {
+        "process_id": 3000,
+        "thread_id": 3001,
+        "executable": "editor.exe",
+        "window_class": "EditorWindow",
+        "focus_window_class": "TextBox",
+        "context_id": "ctx-editor-89abcdef",
+        "sensitive_input": false
+      },
+      "text": "上一输入位置由 OwO 上屏的有限片段",
+      "sequence": 17,
+      "context_type": "committed_text",
+      "source": "owo_commit",
+      "created_at_ms": 1787830000000,
+      "relevance_milli": 800,
+      "is_current": false,
+      "privacy": {
+        "filtered": true,
+        "redacted": false,
+        "truncated": false
+      }
+    }
+  ],
+  "command_id": "time-tomorrow-3",
+  "page": 0,
+  "task_revision": 1,
+  "slot_updates": [
+    {
+      "slot_id": "time",
+      "value": "明天3点",
+      "consumed_ranges": [
+        {
+          "start": 0,
+          "end": 8
+        }
+      ],
+      "lock": true
+    }
+  ]
+}

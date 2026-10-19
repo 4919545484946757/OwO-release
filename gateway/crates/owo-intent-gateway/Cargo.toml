@@ -1,0 +1,32 @@
+[package]
+name = "owo-intent-gateway"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "OwO 意图网关：输入法 Agent IPC v3/v4 命名管道服务与 Daemon 适配"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+reqwest.workspace = true
+futures = "0.3"
+sha2 = "0.10.9"
+owo-agent-protocol.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+tokio-stream = { version = "0.1", features = ["sync", "time"] }
+
+[target.'cfg(windows)'.dependencies]
+async-trait.workspace = true
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_Threading",
+    "Win32_System_Pipes",
+] }

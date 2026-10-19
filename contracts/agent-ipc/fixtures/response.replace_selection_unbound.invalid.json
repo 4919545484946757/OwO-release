@@ -1,0 +1,58 @@
+{
+  "schema_version": 3,
+  "session_id": "0123456789abcdef0123456789abcdef",
+  "request_id": "req-120",
+  "message": "我找到了几个可选操作",
+  "commands": [
+    {
+      "id": "insert-reply",
+      "label": "插入回复：Hello",
+      "high_risk": false,
+      "description": "显示已经找到的文件",
+      "category": "text.insert",
+      "risk_level": "low",
+      "requires_confirmation": false,
+      "preview": "选中后在当前光标处上屏",
+      "enabled": true,
+      "disabled_reason": "",
+      "task_revision": 0,
+      "slot_updates": [],
+      "commit_task": false,
+      "effect": {
+        "kind": "replace_selection",
+        "text": "改写后的文字",
+        "target_context_id": "ctx-current-01234567",
+        "selection_sha256": ""
+      }
+    }
+  ],
+  "executing_command": "",
+  "status": "agent_mode",
+  "page": 0,
+  "has_more": true,
+  "error_code": "",
+  "state_revision": 4,
+  "progress": 65,
+  "retry_after_ms": 150,
+  "can_cancel": true,
+  "can_continue_input": true,
+  "expires_at_ms": 1787830060000,
+  "error_message": "",
+  "retryable": false,
+  "capabilities": [
+    "protocol.negotiation",
+    "input.structured",
+    "context.entries",
+    "commands.risk",
+    "tasks.slots",
+    "tasks.incremental",
+    "output.effects"
+  ],
+  "task": {
+    "intent": "",
+    "intent_ranges": [],
+    "slots": [],
+    "unconsumed_ranges": [],
+    "revision": 0
+  }
+}

@@ -1,0 +1,10 @@
+# Rime dictionary
+# encoding: utf-8
+---
+name: owo_test
+version: "1"
+sort: by_weight
+...
+你好	ni hao	1000
+你号	ni hao
+西安	xi an	900

@@ -1,0 +1,5 @@
+source_id=owo-rime-test-fixture
+source_version=1
+source_sha256=9d0065161396de824e4f8c3826264904ac884f4b40354b19b471b81bbdca3f17
+license=GPL-3.0-only
+source_format=rime-dict-yaml

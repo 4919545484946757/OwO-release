@@ -42,6 +42,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     // 否则会被那个按行扫描的提取器当成一条真实路由，实测让契约测试报出假漏登记。）
     let session_detail = get(session_api::get_session).delete(session_api::delete_session);
     let protected = Router::new()
+        .route("/expression", post(expression_api::expression))
         .route("/audit", get(audit_api::audit_list))
         .route("/session", post(session_api::create_session))
         .route("/session/{id}", session_detail)

@@ -257,6 +257,7 @@ impl OpenAiCompatibleProvider {
         url: &str,
         body: &serde_json::Value,
         stream: bool,
+        allow_fallback: bool,
     ) -> Result<reqwest::Response, String> {
         let mut last_error = String::new();
         let attempts: Vec<(&str, &reqwest::Client)> = {
@@ -282,7 +283,10 @@ impl OpenAiCompatibleProvider {
             }
             list
         };
-        for (label, client) in attempts {
+        for (label, client) in attempts
+            .into_iter()
+            .take(if allow_fallback { 2 } else { 1 })
+        {
             let mut request = client.post(url).json(body);
             if !stream {
                 request = request.timeout(self.request_timeout());
@@ -534,6 +538,16 @@ fn max_output_tokens_for_model(model: &str) -> u64 {
 
 #[async_trait]
 impl ModelProvider for OpenAiCompatibleProvider {
+    async fn complete_expression(&self, messages: &[ChatMessage]) -> Result<String, String> {
+        let result = self.complete_once(None, messages, &[], Some(1024)).await?;
+        match result.output {
+            ModelOutput::Text(text) if !text.trim().is_empty() && text.chars().count() <= 4096 => {
+                Ok(text)
+            }
+            _ => Err("provider/expression_invalid_output".into()),
+        }
+    }
+
     async fn complete(
         &self,
         messages: &[ChatMessage],
@@ -559,100 +573,7 @@ impl ModelProvider for OpenAiCompatibleProvider {
         messages: &[ChatMessage],
         tools: &[ToolSpec],
     ) -> Result<ObservedModelOutput, String> {
-        let started = std::time::Instant::now();
-        if !self.cloud_enabled() {
-            return Err("云端模型已禁用（数据出境开关关闭）".to_string());
-        }
-        if let Some(reason) = self.usage_budget_check() {
-            return Err(reason);
-        }
-        let body = self.request_body(model, messages, tools, false);
-        ensure_request_body_size(&body)?;
-        let request_model = body
-            .get("model")
-            .and_then(Value::as_str)
-            .map(str::to_string);
-        let url = self.request_url();
-        let response = self.post_chat(&url, &body, false).await?;
-        let request_id = ["x-request-id", "request-id", "openai-request-id"]
-            .iter()
-            .find_map(|name| response.headers().get(*name))
-            .and_then(|value| value.to_str().ok())
-            .map(str::to_string);
-        // 非流式响应也设硬上限：异常端点/代理返回超大 body 时不能整块读进内存。
-        let max_bytes = max_non_stream_response_bytes();
-        let mut bytes: Vec<u8> = Vec::with_capacity(64 * 1024);
-        let mut oversized = false;
-        let mut stream = response.bytes_stream();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|e| format!("读取模型响应失败：{e}"))?;
-            if bytes.len() + chunk.len() > max_bytes {
-                oversized = true;
-                break;
-            }
-            bytes.extend_from_slice(&chunk);
-        }
-        if oversized {
-            return Err(format!(
-                "模型响应超过上限（{max_bytes} bytes），已拒绝解析；可用 OWO_MODEL_MAX_RESPONSE_BYTES 调整"
-            ));
-        }
-        let payload: Value =
-            serde_json::from_slice(&bytes).map_err(|e| format!("模型响应解析失败：{e}"))?;
-        let usage_value = payload.get("usage");
-        self.record_usage(usage_value.unwrap_or(&Value::Null));
-        let usage = usage_value
-            .filter(|value| {
-                let has_prompt = value
-                    .get("prompt_tokens")
-                    .or_else(|| value.get("prompt_eval_count"))
-                    .and_then(Value::as_u64)
-                    .is_some();
-                let has_completion = value
-                    .get("completion_tokens")
-                    .or_else(|| value.get("eval_count"))
-                    .and_then(Value::as_u64)
-                    .is_some();
-                has_prompt && has_completion
-            })
-            .map(parse_usage_value);
-        let response_model = payload
-            .get("model")
-            .and_then(Value::as_str)
-            .map(str::to_string);
-        let message = payload
-            .pointer("/choices/0/message")
-            .ok_or_else(|| "响应缺少 choices[0].message".to_string())?;
-        // 非流式同样要拒绝截断输出：finish_reason=length 时 content/tool_calls 都可能是
-        // 半截内容，静默当最终答案会把"被截断的 JSON/补丁"带进后续流程。
-        if payload
-            .pointer("/choices/0/finish_reason")
-            .and_then(Value::as_str)
-            == Some("length")
-        {
-            return Err("模型输出达到 max_tokens 上限（finish_reason=length），请提高 OWO_MODEL_MAX_OUTPUT_TOKENS 或缩小单次任务".to_string());
-        }
-        let content = message
-            .get("content")
-            .and_then(Value::as_str)
-            .map(str::to_string);
-        let tool_calls = parse_tool_calls(message, tools)?;
-        let output = if let Some(tool_calls) = tool_calls {
-            ModelOutput::ToolCalls(tool_calls)
-        } else if let Some(content) = content {
-            ModelOutput::Text(content)
-        } else {
-            return Err("模型响应既无文本也无工具调用".to_string());
-        };
-        Ok(ObservedModelOutput {
-            output,
-            metadata: ModelCallMetadata {
-                request_id,
-                model: response_model.or(request_model),
-                usage,
-                latency_ms: Some(started.elapsed().as_millis() as u64),
-            },
-        })
+        self.complete_once(model, messages, tools, None).await
     }
 
     async fn complete_stream(
@@ -908,7 +829,7 @@ impl OpenAiCompatibleProvider {
             .get("model")
             .and_then(Value::as_str)
             .map(str::to_string);
-        let response = self.post_chat(&url, &body, true).await?;
+        let response = self.post_chat(&url, &body, true, true).await?;
         let request_id = ["x-request-id", "request-id", "openai-request-id"]
             .iter()
             .find_map(|name| response.headers().get(*name))
@@ -1116,5 +1037,121 @@ mod stream_wait_contract_tests {
         let result = result.expect("DONE must not require EOF").unwrap();
         assert!(matches!(result.output, ModelOutput::Text(ref text) if text == "ok"));
         assert!(!chunks.is_empty());
+    }
+}
+
+impl OpenAiCompatibleProvider {
+    async fn complete_once(
+        &self,
+        model: Option<&str>,
+        messages: &[ChatMessage],
+        tools: &[ToolSpec],
+        output_cap: Option<u64>,
+    ) -> Result<ObservedModelOutput, String> {
+        let started = std::time::Instant::now();
+        if !self.cloud_enabled() {
+            return Err("云端模型已禁用（数据出境开关关闭）".to_string());
+        }
+        if let Some(reason) = self.usage_budget_check() {
+            return Err(reason);
+        }
+        let body = match output_cap {
+            Some(cap) => {
+                self.request_body_with_options(model, messages, tools, false, Some(cap), false)
+            }
+            None => self.request_body(model, messages, tools, false),
+        };
+        ensure_request_body_size(&body)?;
+        let request_model = body
+            .get("model")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let url = self.request_url();
+        let response = self
+            .post_chat(&url, &body, false, output_cap.is_none())
+            .await?;
+        let request_id = ["x-request-id", "request-id", "openai-request-id"]
+            .iter()
+            .find_map(|name| response.headers().get(*name))
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_string);
+        // 非流式响应也设硬上限：异常端点/代理返回超大 body 时不能整块读进内存。
+        let max_bytes = if output_cap.is_some() {
+            64 * 1024
+        } else {
+            max_non_stream_response_bytes()
+        };
+        let mut bytes: Vec<u8> = Vec::with_capacity(64 * 1024);
+        let mut oversized = false;
+        let mut stream = response.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|e| format!("读取模型响应失败：{e}"))?;
+            if bytes.len() + chunk.len() > max_bytes {
+                oversized = true;
+                break;
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        if oversized {
+            return Err(format!(
+                "模型响应超过上限（{max_bytes} bytes），已拒绝解析；可用 OWO_MODEL_MAX_RESPONSE_BYTES 调整"
+            ));
+        }
+        let payload: Value =
+            serde_json::from_slice(&bytes).map_err(|e| format!("模型响应解析失败：{e}"))?;
+        let usage_value = payload.get("usage");
+        self.record_usage(usage_value.unwrap_or(&Value::Null));
+        let usage = usage_value
+            .filter(|value| {
+                let has_prompt = value
+                    .get("prompt_tokens")
+                    .or_else(|| value.get("prompt_eval_count"))
+                    .and_then(Value::as_u64)
+                    .is_some();
+                let has_completion = value
+                    .get("completion_tokens")
+                    .or_else(|| value.get("eval_count"))
+                    .and_then(Value::as_u64)
+                    .is_some();
+                has_prompt && has_completion
+            })
+            .map(parse_usage_value);
+        let response_model = payload
+            .get("model")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let message = payload
+            .pointer("/choices/0/message")
+            .ok_or_else(|| "响应缺少 choices[0].message".to_string())?;
+        // 非流式同样要拒绝截断输出：finish_reason=length 时 content/tool_calls 都可能是
+        // 半截内容，静默当最终答案会把"被截断的 JSON/补丁"带进后续流程。
+        if payload
+            .pointer("/choices/0/finish_reason")
+            .and_then(Value::as_str)
+            == Some("length")
+        {
+            return Err("模型输出达到 max_tokens 上限（finish_reason=length），请提高 OWO_MODEL_MAX_OUTPUT_TOKENS 或缩小单次任务".to_string());
+        }
+        let content = message
+            .get("content")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let tool_calls = parse_tool_calls(message, tools)?;
+        let output = if let Some(tool_calls) = tool_calls {
+            ModelOutput::ToolCalls(tool_calls)
+        } else if let Some(content) = content {
+            ModelOutput::Text(content)
+        } else {
+            return Err("模型响应既无文本也无工具调用".to_string());
+        };
+        Ok(ObservedModelOutput {
+            output,
+            metadata: ModelCallMetadata {
+                request_id,
+                model: response_model.or(request_model),
+                usage,
+                latency_ms: Some(started.elapsed().as_millis() as u64),
+            },
+        })
     }
 }

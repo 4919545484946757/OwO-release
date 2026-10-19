@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://owo.local/schemas/agent-ipc-v3.schema.json",
+  "title": "OwO Agent IPC protocol v3",
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/response" }
+  ],
+  "$defs": {
+    "token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]*$",
+      "maxLength": 128
+    },
+    "required_token": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "application": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["process_id", "thread_id", "executable", "window_class",
+                   "focus_window_class", "context_id", "sensitive_input"],
+      "properties": {
+        "process_id": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "thread_id": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "executable": { "type": "string", "maxLength": 260 },
+        "window_class": { "type": "string", "maxLength": 128 },
+        "focus_window_class": { "type": "string", "maxLength": 128 },
+        "context_id": { "$ref": "#/$defs/token" },
+        "sensitive_input": { "type": "boolean" }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_pinyin", "segmented_pinyin", "selected_text", "pending_pinyin",
+                   "natural_language", "input_mode", "correction_enabled"],
+      "properties": {
+        "raw_pinyin": { "type": "string", "maxLength": 4096 },
+        "segmented_pinyin": { "type": "string", "maxLength": 8192 },
+        "selected_text": { "type": "string", "maxLength": 16384 },
+        "pending_pinyin": { "type": "string", "maxLength": 4096 },
+        "natural_language": { "type": "string", "maxLength": 16384 },
+        "input_mode": { "$ref": "#/$defs/token" },
+        "correction_enabled": { "type": "boolean" }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["context_id", "application", "text", "sequence", "context_type",
+                   "source", "created_at_ms", "relevance_milli", "is_current", "privacy"],
+      "properties": {
+        "context_id": { "$ref": "#/$defs/required_token" },
+        "application": { "$ref": "#/$defs/application" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "context_type": { "$ref": "#/$defs/token" },
+        "source": { "$ref": "#/$defs/token" },
+        "created_at_ms": { "type": "integer", "minimum": 0 },
+        "relevance_milli": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "is_current": { "type": "boolean" },
+        "privacy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["filtered", "redacted", "truncated"],
+          "properties": {
+            "filtered": { "type": "boolean" },
+            "redacted": { "type": "boolean" },
+            "truncated": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "pinyin_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "integer", "minimum": 0, "maximum": 4095 },
+        "end": { "type": "integer", "minimum": 1, "maximum": 4096 }
+      }
+    },
+    "ranges": {
+      "type": "array", "maxItems": 32,
+      "items": { "$ref": "#/$defs/pinyin_range" }
+    },
+    "slot_update": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slot_id", "value", "consumed_ranges", "lock"],
+      "properties": {
+        "slot_id": { "$ref": "#/$defs/required_token" },
+        "value": { "type": "string", "maxLength": 4096 },
+        "consumed_ranges": { "$ref": "#/$defs/ranges" },
+        "lock": { "type": "boolean" }
+      }
+    },
+    "task_slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "value", "source_ranges", "locked", "confidence_milli"],
+      "properties": {
+        "id": { "$ref": "#/$defs/required_token" },
+        "label": { "type": "string", "maxLength": 256 },
+        "value": { "type": "string", "maxLength": 4096 },
+        "source_ranges": { "$ref": "#/$defs/ranges" },
+        "locked": { "type": "boolean" },
+        "confidence_milli": { "type": "integer", "minimum": 0, "maximum": 1000 }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intent", "intent_ranges", "slots", "unconsumed_ranges", "revision"],
+      "properties": {
+        "intent": { "$ref": "#/$defs/token" },
+        "intent_ranges": { "$ref": "#/$defs/ranges" },
+        "slots": {
+          "type": "array", "maxItems": 16,
+          "items": { "$ref": "#/$defs/task_slot" }
+        },
+        "unconsumed_ranges": { "$ref": "#/$defs/ranges" },
+        "revision": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "high_risk", "description", "category", "risk_level",
+                   "requires_confirmation", "preview", "enabled", "disabled_reason",
+                   "task_revision", "slot_updates", "commit_task"],
+      "properties": {
+        "id": { "$ref": "#/$defs/required_token" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "high_risk": { "type": "boolean" },
+        "description": { "type": "string", "maxLength": 2048 },
+        "category": { "$ref": "#/$defs/token" },
+        "risk_level": { "enum": ["none", "low", "medium", "high", "critical"] },
+        "requires_confirmation": { "type": "boolean" },
+        "preview": { "type": "string", "maxLength": 2048 },
+        "enabled": { "type": "boolean" },
+        "disabled_reason": { "type": "string", "maxLength": 512 },
+        "task_revision": { "type": "integer", "minimum": 0 },
+        "slot_updates": {
+          "type": "array", "maxItems": 8,
+          "items": { "$ref": "#/$defs/slot_update" }
+        },
+        "commit_task": { "type": "boolean" },
+        "effect": { "$ref": "#/$defs/command_effect" }
+      }
+    },
+    "command_effect": {
+      "description": "v4 (output.effects): written locally by the IME after rechecking the target. Allowed only when the response capabilities contain output.effects.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "text", "target_context_id", "selection_sha256"],
+      "properties": {
+        "kind": { "enum": ["commit_text", "replace_selection", "copy_text"] },
+        "text": { "type": "string", "minLength": 1, "maxLength": 16384 },
+        "target_context_id": { "$ref": "#/$defs/token" },
+        "selection_sha256": { "type": "string", "pattern": "^([0-9a-f]{64})?$" }
+      },
+      "if": { "properties": { "kind": { "const": "replace_selection" } } },
+      "then": {
+        "properties": {
+          "target_context_id": { "minLength": 1 },
+          "selection_sha256": { "minLength": 64 }
+        }
+      },
+      "else": { "properties": { "selection_sha256": { "maxLength": 0 } } }
+    },
+    "selectionSummary": {
+      "description": "input.selection: filtered document text; digest binds the original UTF-8 text. Maximum 4096 bytes is additionally enforced by both runtimes.",
+      "type": "object", "additionalProperties": false,
+      "required": ["text", "sha256", "redacted"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "maxLength": 1000, "pattern": "\\S" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "redacted": { "type": "boolean" }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "action", "session_id", "request_id",
+                   "parent_request_id", "idempotency_key", "capabilities", "user_input",
+                   "protocol_min", "protocol_max", "required_features", "input",
+                   "application", "session_context", "context_entries",
+                   "command_id", "page", "task_revision", "slot_updates"],
+      "properties": {
+        "schema_version": { "const": 3 },
+        "action": { "enum": ["submit", "select", "page", "cancel", "poll"] },
+        "session_id": { "type": "string", "minLength": 16, "maxLength": 64 },
+        "request_id": { "$ref": "#/$defs/required_token" },
+        "parent_request_id": { "$ref": "#/$defs/token" },
+        "idempotency_key": { "$ref": "#/$defs/required_token" },
+        "capabilities": {
+          "type": "array", "maxItems": 32, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/token" }
+        },
+        "protocol_min": { "type": "integer", "minimum": 2, "maximum": 3 },
+        "protocol_max": { "type": "integer", "minimum": 2, "maximum": 3 },
+        "required_features": {
+          "type": "array", "maxItems": 16, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/required_token" }
+        },
+        "user_input": { "type": "string", "maxLength": 4096 },
+        "input": { "$ref": "#/$defs/input" },
+        "application": { "$ref": "#/$defs/application" },
+        "session_context": { "type": "string", "maxLength": 32768 },
+        "context_entries": {
+          "type": "array", "maxItems": 32,
+          "items": { "$ref": "#/$defs/context" }
+        },
+        "selection": { "$ref": "#/$defs/selectionSummary" },
+        "command_id": { "$ref": "#/$defs/token" },
+        "page": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "task_revision": { "type": "integer", "minimum": 0 },
+        "slot_updates": {
+          "type": "array", "maxItems": 8,
+          "items": { "$ref": "#/$defs/slot_update" }
+        }
+      },
+      "allOf": [{
+        "if": { "required": ["selection"] },
+        "then": { "properties": {
+          "capabilities": { "contains": { "const": "input.selection" } },
+          "application": { "properties": { "sensitive_input": { "const": false }, "context_id": { "minLength": 1 } } }
+        } }
+      }]
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "session_id", "request_id", "message", "commands",
+                   "executing_command", "status", "page", "has_more", "error_code",
+                   "state_revision", "progress", "retry_after_ms", "can_cancel",
+                   "can_continue_input", "expires_at_ms", "error_message", "retryable",
+                   "capabilities", "task"],
+      "properties": {
+        "schema_version": { "const": 3 },
+        "session_id": { "type": "string", "minLength": 16, "maxLength": 64 },
+        "request_id": { "$ref": "#/$defs/required_token" },
+        "message": { "type": "string", "maxLength": 16384 },
+        "commands": {
+          "type": "array", "maxItems": 64,
+          "items": { "$ref": "#/$defs/command" }
+        },
+        "executing_command": { "type": "string", "maxLength": 4096 },
+        "status": {
+          "enum": ["connecting", "agent_mode", "submitting", "thinking",
+                   "waiting_for_user", "executing", "waiting_for_confirmation",
+                   "cancelling", "cancelled", "completed", "disconnected", "timeout", "error"]
+        },
+        "page": { "type": "integer", "minimum": 0, "maximum": 1000 },
+        "has_more": { "type": "boolean" },
+        "error_code": { "$ref": "#/$defs/token" },
+        "state_revision": { "type": "integer", "minimum": 0 },
+        "progress": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "retry_after_ms": { "type": "integer", "minimum": 0, "maximum": 300000 },
+        "can_cancel": { "type": "boolean" },
+        "can_continue_input": { "type": "boolean" },
+        "expires_at_ms": { "type": "integer", "minimum": 0 },
+        "error_message": { "type": "string", "maxLength": 4096 },
+        "retryable": { "type": "boolean" },
+        "capabilities": {
+          "type": "array", "maxItems": 32, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/token" }
+        },
+        "task": { "$ref": "#/$defs/task" }
+      }
+    }
+  }
+}

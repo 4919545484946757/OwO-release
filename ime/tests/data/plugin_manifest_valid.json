@@ -1,0 +1,11 @@
+{
+  "id":"owo.plugin.example",
+  "name":"Example",
+  "version":"1.0.0",
+  "api_version":1,
+  "runtime":"process",
+  "entry":"bin/example.exe",
+  "permissions":[],
+  "network":false,
+  "config_schema":"config.schema.json"
+}

@@ -1,0 +1,22 @@
+# 意图网关：独立 Cargo workspace。
+# 依赖方向：gateway → agent-sdk 协议 crate；agent-sdk 不反向依赖任何输入法/网关代码。
+[workspace]
+resolver = "2"
+members = ["crates/owo-intent-gateway"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+thiserror = "2"
+reqwest = { version = "0.12", default-features = false, features = ["json", "default-tls", "stream"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+axum = "0.8"
+owo-agent-protocol = { path = "../agent-sdk/crates/owo-agent-protocol" }

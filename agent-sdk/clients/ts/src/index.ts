@@ -52,6 +52,8 @@ export type ApiClient = ReturnType<typeof createFetchClient<paths>> & {
     input: { id: string; prompt: string; read_only?: boolean; turn_id?: string; model_connection?: components["schemas"]["CustomModelConnection"] },
     stream: TurnStreamOptions,
   ): Promise<TurnCompletion>;
+  /** Local loopback server only; browser supplies Host/Origin. A 403 source rejection is not retried. */
+  expression(input: { prompt: string }, signal?: AbortSignal): Promise<{ text: string }>;
   /** 便捷方法：健康检查。 */
   health(): Promise<boolean>;
 };
@@ -73,6 +75,19 @@ export function createClient(options: ClientOptions): ApiClient {
     },
   };
   client.use(auth);
+  const expression = async (input: { prompt: string }, signal?: AbortSignal) => {
+    const response = await fetch(`${baseUrl}/expression`, {
+      method: "POST", headers: { ...options.headers, "content-type": "application/json" },
+      body: JSON.stringify(input), signal,
+    });
+    if (!response.ok) throw new Error(`Expression failed: ${response.status}`);
+    const result = await response.json() as { text: string };
+    if (typeof result.text !== "string" || [...result.text].length > 4096 || !result.text.trim()) {
+      throw new Error("Invalid expression response");
+    }
+    return result;
+  };
+  Object.assign(client, { expression });
 
   const api = client as ApiClient;
 

@@ -1,0 +1,28 @@
+{
+  "schema": "agent-ipc-v3.schema.json",
+  "fixtures": [
+    {"file": "fixtures/request.submit.valid.json", "kind": "request", "expect": "valid"},
+    {"file": "fixtures/request.select_slot_patch.valid.json", "kind": "request", "expect": "valid"},
+    {"file": "fixtures/request.cancel.valid.json", "kind": "request", "expect": "valid"},
+    {"file": "fixtures/response.agent_mode.valid.json", "kind": "response", "expect": "valid"},
+    {"file": "fixtures/response.error.valid.json", "kind": "response", "expect": "valid"},
+    {"file": "fixtures/request.unknown_field.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/request.missing_page.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/request.short_session.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/request.bad_request_id.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/response.high_risk_unconfirmed.invalid.json", "kind": "response", "expect": "invalid", "level": "semantic"},
+    {"file": "fixtures/response.duplicate_command.invalid.json", "kind": "response", "expect": "invalid", "level": "semantic"},
+    {"file": "fixtures/response.commit_effect.valid.json", "kind": "response", "expect": "valid"},
+    {"file": "fixtures/response.replace_selection_effect.valid.json", "kind": "response", "expect": "valid"},
+    {"file": "fixtures/response.effect_unknown_kind.invalid.json", "kind": "response", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/response.replace_selection_unbound.invalid.json", "kind": "response", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/response.effect_without_capability.invalid.json", "kind": "response", "expect": "invalid", "level": "semantic"},
+    {"file": "fixtures/request.selection.valid.json", "kind": "request", "expect": "valid"},
+    {"file": "fixtures/request.selection_bad_hash.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/request.selection_null.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/request.selection_sensitive.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/request.selection_no_capability.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/request.selection_unbound.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"},
+    {"file": "fixtures/request.selection_unknown_field.invalid.json", "kind": "request", "expect": "invalid", "level": "schema"}
+  ]
+}

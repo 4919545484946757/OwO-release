@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "OwO.Settings (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "OwO.Settings (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

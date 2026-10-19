@@ -47,6 +47,7 @@ mod eval_api;
 mod eval_gate;
 /// 可靠事件流集线器（§3.1：公开给契约测试发布续传事件用；路由在 build_router 挂载）。
 pub mod event_stream;
+mod expression_api;
 mod fleet_api;
 mod fs_api;
 mod goal_api;

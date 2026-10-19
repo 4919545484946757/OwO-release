@@ -1,0 +1,7 @@
+tests/data/*.tsv text eol=lf
+tests/data/*.manifest text eol=lf
+tests/data/model_vocab_fixture.txt text eol=lf
+tests/data/model_fixture.onnx binary
+tests/data/*.yaml text eol=lf
+tests/data/*.jsonl text eol=lf
+tests/data/*.json text eol=lf

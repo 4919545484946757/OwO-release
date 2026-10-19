@@ -1,0 +1,7 @@
+source_id=iDvel/rime-ice:cn_dicts/ext.dict.yaml
+source_version=2026.06.30@6810e8916d160498620a16fef2135956fecbd485
+source_url=https://github.com/iDvel/rime-ice/blob/2026.06.30/cn_dicts/ext.dict.yaml
+source_sha256=6316d2ae6a0931ff1f4cf96bfa167ad92dd76c4219d7a639e663980b16edf9f0
+license=GPL-3.0-only
+source_format=rime-dict-yaml
+importer=owo_lexicon_compiler-v1
