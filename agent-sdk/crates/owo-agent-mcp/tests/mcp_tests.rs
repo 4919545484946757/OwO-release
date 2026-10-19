@@ -45,6 +45,16 @@ impl ModelProvider for ScriptedProvider {
     }
 }
 
+/// 审查 N5：MCP 工具注册名是命名空间 mcp__{server}__{tool}（与 core 单一来源同源），
+/// 测试不得再断言旧的 {server}_{tool} 拼接名。
+fn mcp_name(server: &str, tool: &str) -> String {
+    owo_agent_core::tools::mcp_tool_full_name(server, tool)
+}
+
+fn mcp_prefix(server: &str) -> String {
+    owo_agent_core::tools::mcp_tool_prefix(server)
+}
+
 fn scripted_tool_call(name: &str, args: serde_json::Value) -> Arc<dyn ModelProvider> {
     Arc::new(ScriptedProvider {
         outputs: Mutex::new(
@@ -141,7 +151,7 @@ async fn mcp_tools_are_registered_and_callable() {
         std::env::temp_dir().join(format!("owo-mcp-registry-test-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&workspace).unwrap();
     let agent = Agent::new(
-        scripted_tool_call("test_echo", json!({ "text": "ok" })),
+        scripted_tool_call(&mcp_name("test", "echo"), json!({ "text": "ok" })),
         ToolRegistry::empty(),
         Policy::new(&workspace),
         AgentConfig::default(),
@@ -150,7 +160,7 @@ async fn mcp_tools_are_registered_and_callable() {
     assert!(agent
         .visible_tool_specs()
         .iter()
-        .any(|spec| spec.name == "test_echo"));
+        .any(|spec| spec.name == mcp_name("test", "echo")));
 
     let mut session = Session::new(&workspace, "mock".to_string(), None);
     let outcome = agent
@@ -166,11 +176,12 @@ async fn mcp_tools_are_registered_and_callable() {
     assert_eq!(outcome.final_text.as_deref(), Some("工具调用完成"));
     assert!(outcome.events.iter().any(|event| matches!(
         event,
-        owo_agent_core::TurnEvent::ToolResult { tool, ok: true, .. } if tool == "test_echo"
+        owo_agent_core::TurnEvent::ToolResult { tool, ok: true, .. } if *tool == mcp_name("test", "echo")
     )));
     let audit = agent.audit_log();
     assert!(audit.lock().unwrap().entries.iter().any(|entry| {
-        entry.tool.as_deref() == Some("test_echo") && entry.approved == Some(true)
+        entry.tool.as_deref() == Some(mcp_name("test", "echo").as_str())
+            && entry.approved == Some(true)
     }));
     let _ = agent.shutdown_all_mcp().await;
     let _ = std::fs::remove_dir_all(&workspace);
@@ -315,7 +326,9 @@ async fn agent_hot_register_mcp_tools_after_construction() {
         .into_iter()
         .map(|spec| spec.name)
         .collect();
-    assert!(!before.iter().any(|name| name.starts_with("test_echo")));
+    assert!(!before
+        .iter()
+        .any(|name| name.starts_with(&mcp_prefix("test"))));
 
     // 构造后热注册（关键：&self，无需重建 Agent）。
     let client = Arc::new(tokio::sync::Mutex::new(
@@ -329,18 +342,20 @@ async fn agent_hot_register_mcp_tools_after_construction() {
         .into_iter()
         .map(|spec| spec.name)
         .collect();
-    assert!(after.iter().any(|name| name == "test_echo"));
+    assert!(after.iter().any(|name| *name == mcp_name("test", "echo")));
 
     // 前缀撤销（热卸载）：注册表移除 + 禁用前缀。
-    let removed = agent.remove_tools_prefix("test_");
+    let removed = agent.remove_tools_prefix(&mcp_prefix("test"));
     assert!(removed > 0);
-    agent.set_tool_prefix_enabled("test_", false);
+    agent.set_tool_prefix_enabled(&mcp_prefix("test"), false);
     let final_specs: Vec<String> = agent
         .visible_tool_specs()
         .into_iter()
         .map(|spec| spec.name)
         .collect();
-    assert!(!final_specs.iter().any(|name| name.starts_with("test_")));
+    assert!(!final_specs
+        .iter()
+        .any(|name| name.starts_with(&mcp_prefix("test"))));
     let _ = std::fs::remove_dir_all(&workspace);
 }
 
@@ -369,7 +384,9 @@ async fn agent_process_kill_unloads_mcp_server() {
         .iter()
         .map(|spec| spec.name.clone())
         .collect();
-    assert!(visible.iter().any(|name| name.starts_with("kill-test_")));
+    assert!(visible
+        .iter()
+        .any(|name| name.starts_with(&mcp_prefix("kill-test"))));
 
     // 进程级卸载：子进程被 kill，工具从注册表移除。
     let killed = agent.shutdown_mcp_server("kill-test").await.unwrap();
@@ -381,7 +398,9 @@ async fn agent_process_kill_unloads_mcp_server() {
         .map(|spec| spec.name.clone())
         .collect();
     assert!(
-        !after.iter().any(|name| name.starts_with("kill-test_")),
+        !after
+            .iter()
+            .any(|name| name.starts_with(&mcp_prefix("kill-test"))),
         "卸载后工具应从注册表移除"
     );
 
@@ -482,7 +501,7 @@ async fn mcp_large_schema_is_compacted_and_full_schema_available() {
     let visible = registry
         .specs()
         .into_iter()
-        .find(|spec| spec.name == "big-server_big_tool")
+        .find(|spec| spec.name == mcp_name("big-server", "big_tool"))
         .expect("工具应注册");
     assert!(
         owo_agent_core::tools::schema_bytes(&visible.input_schema) <= 2048,
@@ -490,7 +509,7 @@ async fn mcp_large_schema_is_compacted_and_full_schema_available() {
     );
     assert!(visible.description.contains("schema 已压缩"));
     let full = registry
-        .full_schema("big-server_big_tool")
+        .full_schema(&mcp_name("big-server", "big_tool"))
         .expect("完整 schema 应保留");
     assert_eq!(full["properties"]["filters"]["description"], "过滤条件");
     let _ = client.lock().await.shutdown().await;
@@ -521,14 +540,16 @@ async fn mcp_small_schema_kept_as_is_and_no_full_copy() {
     let visible = registry
         .specs()
         .into_iter()
-        .find(|spec| spec.name == "small-server_small_tool")
+        .find(|spec| spec.name == mcp_name("small-server", "small_tool"))
         .expect("工具应注册");
     assert_eq!(visible.input_schema, small);
     assert!(
         !visible.description.contains("schema 已压缩"),
         "小 schema 不应标记压缩"
     );
-    assert!(registry.full_schema("small-server_small_tool").is_none());
+    assert!(registry
+        .full_schema(&mcp_name("small-server", "small_tool"))
+        .is_none());
     let _ = client.lock().await.shutdown().await;
 }
 
@@ -553,7 +574,7 @@ async fn mcp_compacted_tool_still_callable() {
     std::fs::create_dir_all(&workspace).unwrap();
     // 压缩 schema 保留 enum 校验：调用参数必须满足 `enum: ["a","b"]`。
     let agent = Agent::new(
-        scripted_tool_call("comp-test_echo", json!({ "text": "a" })),
+        scripted_tool_call(&mcp_name("comp-test", "echo"), json!({ "text": "a" })),
         ToolRegistry::empty(),
         Policy::new(&workspace),
         AgentConfig::default(),
@@ -571,7 +592,7 @@ async fn mcp_compacted_tool_still_callable() {
     let visible = agent
         .visible_tool_specs()
         .into_iter()
-        .find(|spec| spec.name == "comp-test_echo")
+        .find(|spec| spec.name == mcp_name("comp-test", "echo"))
         .expect("压缩后工具仍注册");
     assert!(visible.description.contains("schema 已压缩"));
     assert!(owo_agent_core::tools::schema_bytes(&visible.input_schema) <= 2048);
@@ -590,7 +611,7 @@ async fn mcp_compacted_tool_still_callable() {
     assert_eq!(outcome.final_text.as_deref(), Some("工具调用完成"));
     assert!(outcome.events.iter().any(|event| matches!(
         event,
-        owo_agent_core::TurnEvent::ToolResult { tool, ok: true, .. } if tool == "comp-test_echo"
+        owo_agent_core::TurnEvent::ToolResult { tool, ok: true, .. } if *tool == mcp_name("comp-test", "echo")
     )));
     let audit = agent.audit_log();
     let receipt = audit
@@ -599,7 +620,8 @@ async fn mcp_compacted_tool_still_callable() {
         .entries
         .iter()
         .find(|entry| {
-            entry.event == "tool_receipt" && entry.tool.as_deref() == Some("comp-test_echo")
+            entry.event == "tool_receipt"
+                && entry.tool.as_deref() == Some(mcp_name("comp-test", "echo").as_str())
         })
         .cloned()
         .expect("MCP 工具经 Agent 入口执行必须留下 tool_receipt");
@@ -672,21 +694,26 @@ async fn mcp_resources_and_prompts_roundtrip_and_tools() {
     let specs = registry.specs();
     let resource_spec = specs
         .iter()
-        .find(|spec| spec.name == "test_read_resource")
+        .find(|spec| spec.name == mcp_name("test", "read_resource"))
         .expect("资源工具应注册");
     assert!(
         resource_spec.description.contains("file:///readme.md"),
         "目录应进描述：{}",
         resource_spec.description
     );
-    assert!(specs.iter().any(|spec| spec.name == "test_get_prompt"));
+    assert!(specs
+        .iter()
+        .any(|spec| spec.name == mcp_name("test", "get_prompt")));
 
     // 经 Agent 回合实际调用资源工具（capability 由权限策略签发）。
     let workspace = std::env::temp_dir().join(format!("owo-mcp-extras-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&workspace).unwrap();
     let mut session = Session::new(&workspace, "mock", None);
     let agent = Agent::new(
-        scripted_tool_call("test_read_resource", json!({ "uri": "file:///readme.md" })),
+        scripted_tool_call(
+            &mcp_name("test", "read_resource"),
+            json!({ "uri": "file:///readme.md" }),
+        ),
         registry,
         Policy::new(&workspace),
         AgentConfig::default(),
@@ -705,7 +732,7 @@ async fn mcp_resources_and_prompts_roundtrip_and_tools() {
         matches!(
             event,
             owo_agent_core::TurnEvent::ToolResult { tool, ok: true, preview: Some(preview), .. }
-                if tool == "test_read_resource" && preview.contains("欢迎")
+                if *tool == mcp_name("test", "read_resource") && preview.contains("欢迎")
         )
     });
     assert!(called, "资源工具结果应回传 contents：{:?}", outcome.events);
@@ -735,15 +762,19 @@ async fn agent_connect_registers_mcp_extras_tools() {
         .map(|spec| spec.name.clone())
         .collect();
     assert!(
-        visible.iter().any(|name| name == "test_echo"),
+        visible.iter().any(|name| *name == mcp_name("test", "echo")),
         "{visible:?}"
     );
     assert!(
-        visible.iter().any(|name| name == "test_read_resource"),
+        visible
+            .iter()
+            .any(|name| *name == mcp_name("test", "read_resource")),
         "{visible:?}"
     );
     assert!(
-        visible.iter().any(|name| name == "test_get_prompt"),
+        visible
+            .iter()
+            .any(|name| *name == mcp_name("test", "get_prompt")),
         "{visible:?}"
     );
     agent.shutdown_mcp_server("test").await.unwrap();

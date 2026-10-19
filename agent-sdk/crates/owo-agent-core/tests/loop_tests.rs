@@ -354,18 +354,16 @@ async fn read_write_finish_closed_loop() {
 #[tokio::test]
 async fn hot_disabled_plugin_tool_prefix_is_hidden_and_blocked() {
     let workspace = temp_workspace("hot-plugin-disable");
+    // 审查 N5：MCP 工具命名空间 `mcp__{server}__{tool}`。
+    let tool_name = owo_agent_core::tools::mcp_tool_full_name("owo.plugin.translate", "translate");
     let provider = ScriptedProvider::new(vec![
-        call(
-            "c1",
-            "owo_plugin_translate_translate",
-            json!({ "text": "hello", "target": "zh" }),
-        ),
+        call("c1", &tool_name, json!({ "text": "hello", "target": "zh" })),
         ModelOutput::Text("done".to_string()),
     ]);
     let agent = build_agent(&workspace, provider);
     let prefix = owo_agent_core::tools::mcp_tool_prefix("owo.plugin.translate");
     agent.set_tool_prefix_enabled(&prefix, false);
-    assert!(agent.tool_disabled("owo_plugin_translate_translate"));
+    assert!(agent.tool_disabled(&tool_name));
     assert!(!agent.tool_disabled("read_file"));
 
     let mut session = Session::new(&workspace, "mock".to_string(), None);
@@ -395,7 +393,7 @@ async fn hot_disabled_plugin_tool_prefix_is_hidden_and_blocked() {
 
     // 重新启用后同一前缀不再被拦截。
     agent.set_tool_prefix_enabled(&prefix, true);
-    assert!(!agent.tool_disabled("owo_plugin_translate_translate"));
+    assert!(!agent.tool_disabled(&tool_name));
 }
 
 #[tokio::test]
@@ -917,8 +915,8 @@ async fn direct_subagent_invocation_returns_result() {
 async fn direct_general_subagent_uses_workspace_scoped_approver() {
     let workspace = temp_workspace("general-subagent-workspace-scope");
     // 直呼通用子代理没有可回传的审批通道 → 工作区范围审批器：
-    // 工作区内写/执行放行（否则 producer 角色"跑完什么都没改"），
-    // 工作区外写一律拒绝。
+    // 工作区内写放行（否则 producer 角色"跑完什么都没改"），
+    // 工作区外写一律拒绝；命令执行需显式 allow_commands=true（用户已同意）。
     let outside = workspace
         .parent()
         .unwrap()
@@ -945,7 +943,13 @@ async fn direct_general_subagent_uses_workspace_scoped_approver() {
     let agent = build_agent(&workspace, provider);
 
     let text = agent
-        .run_subagent(&workspace, "mock", "写入 inside.txt 并尝试越界写", false)
+        .run_subagent_with_options(
+            &workspace,
+            "mock",
+            "写入 inside.txt 并尝试越界写",
+            false,
+            true,
+        )
         .await
         .unwrap();
 

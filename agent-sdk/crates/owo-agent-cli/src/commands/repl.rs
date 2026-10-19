@@ -83,30 +83,53 @@ impl Repl {
         let model = resolve_model(args.model, settings.model.as_deref());
         let read_only = args.agent == "plan" || settings.read_only;
         let root = ensure_data_root(args.data_dir, &workspace);
+        // 审查 N1：工作区信任门（与 serve/桌面同一数据面 `trust.json`）。
+        let trust = owo_agent_core::trust::TrustStore::new(root.clone()).status(&workspace);
+        let trust_gated = !trust.trusted && trust.gated;
+        if trust_gated {
+            eprintln!(
+                "⚠ 工作区未信任：跳过工作区 hooks/插件/MCP/白名单（受限模式）。\n  原因：{}\n  确认可信后用桌面端或 POST /workspace/trust 授权。",
+                trust.reasons.join("；")
+            );
+        }
         let store = SqliteSessionStore::open(&root.join("index.db"))?;
         let mut mcp_configs = load_mcp_configs(&root);
-        for server in settings.mcp_servers.clone() {
-            if !mcp_configs.iter().any(|config| config.name == server.name) {
-                mcp_configs.push(server);
+        if !trust_gated {
+            for server in settings.mcp_servers.clone() {
+                if !mcp_configs.iter().any(|config| config.name == server.name) {
+                    mcp_configs.push(server);
+                }
             }
         }
         let discovered_plugins = discover_plugins(&workspace, &root);
         let plugin_state =
             owo_agent_core::PluginStateStore::new(Some(root.join("plugin_state.json")));
-        let enabled_plugins =
-            owo_agent_core::plugin::discover_enabled_plugins(&workspace, &root, &plugin_state);
+        let enabled_plugins = if trust_gated {
+            Vec::new()
+        } else {
+            owo_agent_core::plugin::discover_enabled_plugins(&workspace, &root, &plugin_state)
+        };
         merge_plugin_mcp(&enabled_plugins, &mut mcp_configs);
         let plugins: Vec<PluginManifest> = discovered_plugins
             .into_iter()
             .map(|(_, manifest)| manifest)
             .collect();
         let mcp_clients = connect_mcp_clients(&mcp_configs).await;
-        let _ = install_builtin_packages(&builtin_skills_root(), &root);
+        match install_builtin_packages(&builtin_skills_root(), &root, env!("CARGO_PKG_VERSION")) {
+            Ok(report) => {
+                for (name, reason) in &report.skipped {
+                    eprintln!("内置技能 {name} 未安装：{reason}");
+                }
+            }
+            Err(error) => eprintln!("内置技能安装失败：{error}"),
+        }
         let mut skills = SkillRegistry::discover(&workspace, &root);
         apply_disabled_skills(&mut skills, &settings);
         let mut whitelist = Whitelist::default();
-        for entry in settings.whitelist.clone() {
-            whitelist.upsert(entry);
+        if !trust_gated {
+            for entry in settings.whitelist.clone() {
+                whitelist.upsert(entry);
+            }
         }
         let proactive = ProactiveEngine::new(settings.proactive.clone());
         let agent = Arc::new(build_agent_with_mcp(
@@ -117,10 +140,13 @@ impl Repl {
             &skills,
             &settings.deny_commands,
         )?);
-        // A2-1：本地 REPL 装载 settings.json 的 hooks（与 server 同一出口）。
-        agent.set_hooks(owo_agent_core::hooks::HookManager::from_configs(
-            &settings.hooks,
-        ));
+        // A2-1：本地 REPL 装载 settings.json 的 hooks（与 server 同一出口）；
+        // 未信任工作区跳过（审查 N1）。
+        if !trust_gated {
+            agent.set_hooks(owo_agent_core::hooks::HookManager::from_configs(
+                &settings.hooks,
+            ));
+        }
         // §11：--no-approval 弃用告警（兼容期显式映射 + 高风险提示）。
         if args.no_approval {
             eprintln!(
@@ -247,11 +273,16 @@ impl Repl {
 
     async fn handle_line(&mut self, line: &str) -> Result<bool, Box<dyn std::error::Error>> {
         if let Some(query) = line.strip_prefix("@explore ") {
-            self.run_at_subagent(query, true).await?;
+            self.run_at_subagent(query, true, false).await?;
             return Ok(false);
         }
         if let Some(task) = line.strip_prefix("@subagent ") {
-            self.run_at_subagent(task, false).await?;
+            // 命令执行显式 opt-in：`@subagent --allow-commands <任务>`（缺省拒绝）。
+            let (allow_commands, task) = match task.strip_prefix("--allow-commands ") {
+                Some(rest) => (true, rest),
+                None => (false, task),
+            };
+            self.run_at_subagent(task, false, allow_commands).await?;
             return Ok(false);
         }
         if let Some(command) = line.strip_prefix('/') {
@@ -380,7 +411,13 @@ impl Repl {
                 } else {
                     println!("{}", "本会话「总是允许」的工具：".bold());
                     for tool in tools {
-                        println!("  • {tool}");
+                        // 与审批卡同口径：MCP/插件工具给可读名（注册名仍可见，便于核对）。
+                        let label = crate::ui_output::tool_display_name(&tool);
+                        if label == tool {
+                            println!("  • {tool}");
+                        } else {
+                            println!("  • {label}（{tool}）");
+                        }
                     }
                     println!("（/approvals clear 清除）");
                 }

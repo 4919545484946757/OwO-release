@@ -1,6 +1,6 @@
 use crate::audit::AuditLog;
 use crate::autoreview::{ReviewVerdict, Reviewer};
-use crate::context::{build_system_prompt, load_project_rules};
+use crate::context::{build_system_prompt, load_project_rules, load_project_rules_hierarchical};
 use crate::deadline::{DeadlineBudget, Phase, PhaseBudgets, PhaseTiming};
 use crate::error::AgentError;
 use crate::gateway::{
@@ -466,6 +466,10 @@ impl Agent {
     }
 
     /// 直呼子代理（CLI `@explore` / `@subagent`）：独立子会话执行，返回最终文本。
+    ///
+    /// **命令执行默认拒绝**：无交互审批通道时 Execute/Inject 必须在
+    /// [`Self::run_subagent_with_options`] 显式 opt-in，避免仓库文件/网页里的
+    /// 注入内容诱导子代理执行命令。
     pub async fn run_subagent(
         &self,
         workspace: &std::path::Path,
@@ -473,16 +477,35 @@ impl Agent {
         prompt: &str,
         read_only: bool,
     ) -> Result<String, AgentError> {
+        self.run_subagent_with_options(workspace, model, prompt, read_only, false)
+            .await
+    }
+
+    /// 直呼子代理（带命令执行开关）。
+    ///
+    /// - `read_only=true`：读恒放行，写/执行/注入一律拒绝；
+    /// - `read_only=false, allow_commands=false`：仅工作区内写入放行，命令执行拒绝；
+    /// - `read_only=false, allow_commands=true`：工作区内写/执行放行（调用方必须
+    ///   已获得用户显式同意，如桌面端"允许执行命令"复选框、CLI `--allow-commands`、
+    ///   workflow plan 的 `allow_commands: true`）。
+    ///
+    /// 越界写与越界命令仍由工作区范围审批器拒绝，危险命令片段仍由 [`Policy`] 拦截。
+    pub async fn run_subagent_with_options(
+        &self,
+        workspace: &std::path::Path,
+        model: &str,
+        prompt: &str,
+        read_only: bool,
+        allow_commands: bool,
+    ) -> Result<String, AgentError> {
         let abort = std::sync::atomic::AtomicBool::new(false);
         // 直呼子代理没有可回传到客户端的审批通道（goal/plan 后台 worker、
-        // POST /subagent）：改用工作区范围审批器——读恒放行；写/执行仅在
-        // **工作区内**放行，越界一律拒绝；只读模式拒绝全部写/执行。
-        // 旧实现用 `AutoApprover { allow: read_only }`，导致 producer 角色的
-        // 写/执行被一律拒绝（子代理"跑完了但什么都没改"），或阻塞在永远
-        // 到不了的审批上直到超时。
+        // POST /subagent）：改用工作区范围审批器——读恒放行；写仅在**工作区内**
+        // 放行，越界一律拒绝；命令执行只有显式 opt-in 才放行（见方法文档）。
         let approver = crate::permissions::WorkspaceApprover {
             workspace: workspace.to_path_buf(),
             allow_writes: !read_only,
+            allow_execute: !read_only && allow_commands,
         };
         let runner = SubagentRunner {
             provider: Arc::clone(&self.provider),

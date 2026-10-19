@@ -24,4 +24,22 @@ impl AgentClient {
         )
         .await
     }
+
+    /// `/workspace/trust`：工作区信任状态（审查 N1：未信任时不加载 hooks/插件/权限放宽）。
+    ///
+    /// 返回 `trusted/changed/gated/reasons/fingerprint` 等字段，语义由服务端定义。
+    pub async fn workspace_trust(&self) -> Result<Value> {
+        self.get_json("/workspace/trust").await
+    }
+
+    /// `POST /workspace/trust`：授予（`true`）或撤销（`false`）工作区信任。
+    ///
+    /// 授予后服务端即时应用工作区 hooks/权限/白名单；插件 MCP 需重启核心。
+    pub async fn set_workspace_trust(&self, trusted: bool) -> Result<Value> {
+        self.post_json(
+            "/workspace/trust",
+            &serde_json::json!({ "trusted": trusted }),
+        )
+        .await
+    }
 }

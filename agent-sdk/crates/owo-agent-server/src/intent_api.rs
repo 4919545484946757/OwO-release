@@ -275,6 +275,27 @@ fn demo_workflow_definition(name: &str) -> WorkflowDefinition {
     }
 }
 
+/// 工作流名净化（审查 N14）：名称来自自然语言的引号片段，可能含 `../` 或绝对
+/// 路径分隔符；只允许安全字符集，join 之前先收敛，防目录穿越。
+fn sanitize_workflow_name(raw: &str) -> Result<String, (StatusCode, Json<Value>)> {
+    let safe: String = raw
+        .trim()
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+        .collect();
+    if safe.is_empty()
+        || safe.len() > 64
+        || safe.contains("..")
+        || safe.starts_with('.')
+        || safe.ends_with('.')
+    {
+        return Err(bad_request(
+            "工作流名称非法（仅允许字母/数字/-/_/.，不得含 .. 或以 . 开头/结尾）",
+        ));
+    }
+    Ok(safe)
+}
+
 async fn route_action(
     state: &AppState,
     intent: &ParsedIntent,
@@ -286,6 +307,7 @@ async fn route_action(
                 .get("workflow")
                 .cloned()
                 .unwrap_or_else(|| "demo".to_string());
+            let name = sanitize_workflow_name(&name)?;
             let work_root = state.data_root.join("intent-workflows").join(&name);
             std::fs::create_dir_all(&work_root)
                 .map_err(|e| bad_request(&format!("创建工作目录失败：{e}")))?;

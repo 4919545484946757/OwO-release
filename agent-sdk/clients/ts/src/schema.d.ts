@@ -3386,6 +3386,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/session/{id}/goal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sessionGoal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/session/{id}/hunks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sessionHunks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/session/{id}/hunks/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sessionHunksApply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/session/{id}/model": {
         parameters: {
             query?: never;
@@ -3780,6 +3828,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["subagentRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/symbols": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["symbolsSearch"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4532,6 +4596,22 @@ export interface paths {
         get: operations["previewWorkspaceTree"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspace/trust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["workspaceTrustGet"];
+        put?: never;
+        post: operations["workspaceTrustSet"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10898,6 +10978,80 @@ export interface operations {
             };
         };
     };
+    sessionGoal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description session goal state: objective/iterations/done */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sessionHunks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description per-hunk review view: files[{path,kind,hunks[{index,old_start,old_lines,new_start,new_lines}]}] */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sessionHunksApply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description applied: accepted/rejected indices + remaining hunk count */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 文件内容已被改动（与快照写后内容不一致），拒绝覆盖 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 序号越界 / accept 与 reject 同时给出 / 缺少选择 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     sessionSetModel: {
         parameters: {
             query?: never;
@@ -11493,8 +11647,14 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
+                    /**
+                     * @description read_only=false 时是否放行工作区内命令执行；缺省拒绝（无审批通道 fail-closed）
+                     * @default false
+                     */
+                    allow_commands?: boolean;
                     model?: string;
                     prompt: string;
+                    /** @description 缺省 true（只读探索）；false 为通用子代理（工作区内写入放行） */
                     read_only?: boolean;
                 };
             };
@@ -11502,6 +11662,38 @@ export interface operations {
         responses: {
             /** @description subagent execution result */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    symbolsSearch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description symbol definitions: results[{path,line,kind,name,signature}], scanned_files/skipped_files/truncated; optional query params: query (required), kind, path (workspace-relative), max_results, session_id (scan that session's workspace instead of the daemon workspace) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 缺少 query 或 path 越出工作区 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description session_id 不存在或扫描目录不存在 */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12854,6 +13046,48 @@ export interface operations {
             };
             /** @description root 缺失/非绝对路径/目录不存在/非目录 */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workspaceTrustGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description workspace trust status: trusted/changed/gated/reasons/fingerprint (N1 restricted mode) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workspaceTrustSet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    trusted: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description trust granted or revoked; workspace hooks/permissions apply immediately, plugin MCP loads on next core start */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

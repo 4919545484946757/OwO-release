@@ -53,7 +53,12 @@ impl Agent {
         // 新回合代表从当前历史继续发展，旧的 rewind/undo 分支不能再恢复。
         session.redo_stack.clear();
         session.message_redo_stack.clear();
-        let rules = load_project_rules(&session.workspace);
+        // 指令文件按目录层级发现（根 → 进程 cwd，Codex 同级语义）：越靠近工作目录的
+        // AGENTS.md/CLAUDE.md 越具体；cwd 不在工作区内时退化为仅根目录。
+        let rules = match std::env::current_dir() {
+            Ok(cwd) => load_project_rules_hierarchical(&session.workspace, &cwd),
+            Err(_) => load_project_rules(&session.workspace),
+        };
         let mut system = build_system_prompt(session.system_prompt.as_deref(), &rules);
         if !self.skills.list_enabled().is_empty() {
             let mut catalog = vec!["可用技能（通过 use_skill 工具按名调用）：".to_string()];
@@ -670,10 +675,10 @@ impl Agent {
                                 // 独立审批模型先于打扰用户（Auto-review）。
                                 let approval_started = std::time::Instant::now();
                                 let verdict = if let Some(reviewer) = &self.reviewer {
-                                    let context = session
-                                        .messages
-                                        .last()
-                                        .and_then(|message| message.content.clone());
+                                    // 审批上下文必须是**本回合用户原始指令**（审查 N9：
+                                    // 此前取 `session.messages.last()`，那是上一轮历史，
+                                    // 审批模型看不到本轮意图；长度由 reviewer 侧截断）。
+                                    let context = Some(prompt.to_string());
                                     reviewer.review(&request, context.as_deref()).await
                                 } else {
                                     ReviewVerdict::Unknown
@@ -1148,20 +1153,25 @@ impl Agent {
                         let content = match (&self.artifact_store, raw_content != truncated) {
                             // §9.3：完整结果入 CAS，模型拿「指针+预览」而非盲截断；
                             // MIME/大小/截断原因/ref 一并携带（hash 即 CAS ref）。
+                            // 预览同样必须过注入净化（审查 N8：此前大结果分支绕过
+                            // sanitize_tool_result，>50k 字符即可夹带注入文本）。
                             (Some(store), true) => match store.put(raw_content.as_bytes()) {
-                                Ok(hash) => serde_json::json!({
-                                    "artifact": {
-                                        "ref": hash,
-                                        "mime": "text/plain",
-                                        "size_bytes": raw_content.len(),
-                                        "truncation_reason": format!(
-                                            "工具结果超过 {} 字符上限，完整内容已存 artifact，可按 ref 取回",
-                                            MAX_TOOL_RESULT_CHARS
-                                        ),
-                                        "preview": truncated,
-                                    }
-                                })
-                                .to_string(),
+                                Ok(hash) => {
+                                    let safe_preview = sanitize_tool_result(&call.name, &truncated);
+                                    serde_json::json!({
+                                        "artifact": {
+                                            "ref": hash,
+                                            "mime": "text/plain",
+                                            "size_bytes": raw_content.len(),
+                                            "truncation_reason": format!(
+                                                "工具结果超过 {} 字符上限，完整内容已存 artifact：用 read_artifact(ref=<下面 artifact.ref>) 分页读取",
+                                                MAX_TOOL_RESULT_CHARS
+                                            ),
+                                            "preview": safe_preview,
+                                        }
+                                    })
+                                    .to_string()
+                                }
                                 Err(_) => sanitize_tool_result(&call.name, &truncated),
                             },
                             _ => sanitize_tool_result(&call.name, &truncated),

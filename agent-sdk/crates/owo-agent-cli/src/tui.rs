@@ -23,6 +23,7 @@ use std::sync::Arc;
 use std::time::Duration;
 #[path = "tui/keys.rs"]
 mod keys;
+mod reasoning;
 use keys::*;
 
 #[derive(clap::Args)]
@@ -172,6 +173,8 @@ struct TuiApp {
     scroll: usize,
     running: bool,
     status: String,
+    /// 思考通道指示器：状态栏显示"思考中 + 字数 + 尾部预览"（正文流不被打断）。
+    reasoning: reasoning::ReasoningIndicator,
     should_exit: bool,
     abort: Arc<AtomicBool>,
     theme: Theme,
@@ -212,6 +215,7 @@ impl TuiApp {
             scroll: 0,
             running: false,
             status: "就绪".to_string(),
+            reasoning: reasoning::ReasoningIndicator::default(),
             should_exit: false,
             abort: Arc::new(AtomicBool::new(false)),
             theme: theme(theme_name),
@@ -1095,6 +1099,12 @@ impl TuiApp {
     fn push_event(&mut self, event: SseEvent) {
         match event {
             SseEvent::TokenDelta { delta } => {
+                // 正文开始：把思考指示器收起成一句小结（并让状态栏回到"生成中"），
+                // 避免状态栏与回答流抢注意力。
+                if let Some(note) = self.reasoning.settle() {
+                    self.push_line(note, dim());
+                    self.status = "生成中…".to_string();
+                }
                 self.streaming.push_str(&delta);
             }
             SseEvent::Final { .. } => {}
@@ -1153,14 +1163,21 @@ impl TuiApp {
                     owo_agent_protocol::CompletionStatusV1::Aborted => " · 已取消",
                 };
                 self.push_line(format!("  ✘ 回合失败：{message}{status}"), red());
+                self.reasoning.reset();
                 if let Some(summary) =
                     crate::ui_output::completion_record_summary(completion_record.as_ref())
                 {
                     self.push_line(format!("    {summary}"), dim());
                 }
             }
-            // 思考通道（取优合并自远端 engine）：TUI 折叠（不打断回答流）。
-            SseEvent::ReasoningDelta { .. } => {}
+            // 思考通道（取优合并自远端 engine）：TUI 不打断回答流，但状态栏必须
+            // 看得见"模型在思考"（行式 REPL 是暗色实时流；TUI 折叠为一行指示器）。
+            SseEvent::ReasoningDelta { delta } => {
+                let text = self.reasoning.push(&delta);
+                if !text.is_empty() {
+                    self.status = text;
+                }
+            }
             // 计划更新（todo 工具）：清空流后提示步骤数。
             SseEvent::PlanUpdate { steps } => {
                 self.flush_streaming();
@@ -1192,6 +1209,8 @@ impl TuiApp {
                     ),
                     cyan(),
                 );
+                // 回合终态：思考指示器复位（下一回合重新计数）。
+                self.reasoning.reset();
                 if let Some(summary) =
                     crate::ui_output::completion_record_summary(completion_record.as_ref())
                 {
@@ -1392,6 +1411,37 @@ mod tests {
             .enable_all()
             .build()
             .unwrap()
+    }
+
+    #[test]
+    fn reasoning_deltas_surface_in_status_bar_and_settle_into_a_note() {
+        let mut app = test_app();
+        app.push_event(SseEvent::ReasoningDelta {
+            delta: "先看文件".to_string(),
+        });
+        assert!(app.status.contains("思考中"), "{}", app.status);
+        assert!(app.status.contains("4 字"), "{}", app.status);
+
+        app.push_event(SseEvent::ReasoningDelta {
+            delta: "\n再跑测试".to_string(),
+        });
+        assert!(app.status.contains("8 字"), "{}", app.status);
+        assert!(!app.status.contains('\n'), "状态栏必须单行：{}", app.status);
+
+        // 正文开始：指示器收起为一句小结，状态栏不再停留在"思考中"。
+        app.push_event(SseEvent::TokenDelta {
+            delta: "答案".to_string(),
+        });
+        assert_eq!(app.streaming, "答案");
+        assert!(
+            app.transcript
+                .iter()
+                .any(|(text, _)| text.contains("思考 8 字")),
+            "{:?}",
+            app.transcript
+        );
+        assert!(!app.status.contains("思考中"), "{}", app.status);
+        assert_eq!(app.status, "生成中…");
     }
 
     #[test]

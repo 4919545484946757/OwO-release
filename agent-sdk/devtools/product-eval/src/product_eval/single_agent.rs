@@ -1063,7 +1063,7 @@ fn is_denial(error: &str) -> bool {
         "command_denied:",
         "command_timeout:",
         "路径越界",
-        "命令命中危险黑名单",
+        "命令命中危险",
         "工具已被禁用",
     ];
     denied_prefixes

@@ -4,6 +4,6 @@
   "version": "1.0.0",
   "description": "自动化浏览器：导航/表单/截图/网页测试",
   "permissions": ["network:fetch", "browser:control"],
-  "min_app_version": "0.4.0",
+  "min_app_version": "0.1.0",
   "tools": ["read_file", "write_file", "run_command"]
 }

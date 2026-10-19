@@ -3,7 +3,7 @@
 //! 仅承载团队相关纯逻辑与终端渲染；调用方通过 `use team::*;` 保持原名称。
 use colored::Colorize;
 
-pub(super) fn team_status(detail: &serde_json::Value) -> String {
+pub(crate) fn team_status(detail: &serde_json::Value) -> String {
     detail
         .get("team")
         .and_then(|team| team.get("status"))
@@ -12,7 +12,7 @@ pub(super) fn team_status(detail: &serde_json::Value) -> String {
         .to_string()
 }
 
-pub(super) fn team_status_is_terminal(status: &str) -> bool {
+pub(crate) fn team_status_is_terminal(status: &str) -> bool {
     ["succeeded", "failed", "cancelled", "canceled"]
         .iter()
         .any(|terminal| status.eq_ignore_ascii_case(terminal))
@@ -110,7 +110,7 @@ fn team_audit_field(detail: &str, key: &str) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
-pub(super) fn team_audit_summary(event: &serde_json::Value) -> Option<String> {
+pub(crate) fn team_audit_summary(event: &serde_json::Value) -> Option<String> {
     let name = event.get("event")?.as_str()?;
     let detail = event
         .get("detail")

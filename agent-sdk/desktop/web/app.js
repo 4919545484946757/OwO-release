@@ -842,6 +842,20 @@ function toolLabel(tool) {
   const name = String(tool || "").trim();
   if (!name) return "工具";
   if (TOOL_LABELS[name]) return TOOL_LABELS[name];
+  // 审查 N5：MCP 工具注册名是命名空间 `mcp__{server}__{tool}`（防外部 server 顶替
+  // 内置工具名）。展示层去掉命名空间前缀，按「MCP · 服务器 · 工具」分层，避免
+  // 审批卡/时间线出现 `mcp__owo_plugin_translate__translate` 这种噪声。
+  if (name.startsWith("mcp__")) {
+    const rest = name.slice(5);
+    const split = rest.indexOf("__");
+    if (split > 0) {
+      const server = rest.slice(0, split);
+      const remote = rest.slice(split + 2);
+      return remote && remote !== server ? `MCP · ${server} · ${remote}` : `MCP · ${server}`;
+    }
+    return `MCP · ${rest}`;
+  }
+  // 旧命名（历史会话里仍会出现，保持可读）。
   if (name.startsWith("mcp_")) return `MCP · ${name.slice(4)}`;
   if (name.startsWith("owo_plugin_")) return `插件 · ${name.slice(11)}`;
   return name;
@@ -4460,6 +4474,7 @@ const workspaceFolderPicker = window.OwoFolderPicker.attach(
       localStorage.setItem("owo.workspace", workspace);
       rememberWorkspace(workspace);
       syncProjectChip();
+      refreshWorkspaceTrust();
       showToast("工作区已切换；当前会话仍保留原工作区", "ok");
     },
     onError(message) {
@@ -4519,6 +4534,63 @@ function syncProjectChip() {
   const emptyWorkspaceButton = $("emptyStateWorkspaceBtn");
   if (emptyWorkspaceButton) emptyWorkspaceButton.hidden = !needsWorkspace;
 }
+
+// 审查 N1：工作区信任（GET/POST /workspace/trust）。未信任时后端会跳过
+// hooks / 插件 MCP / 权限放宽 / 白名单；这里把状态与"将加载什么"讲清楚，
+// 避免用户把"配置没生效"误判成功能坏了。
+async function refreshWorkspaceTrust() {
+  const hint = $("workspaceTrustHint");
+  const button = $("workspaceTrustBtn");
+  if (!hint || !button) return;
+  try {
+    const status = await api("/workspace/trust");
+    const reasons = Array.isArray(status.reasons) ? status.reasons : [];
+    if (status.trusted) {
+      hint.textContent = status.gated_at_start
+        ? "已信任。hooks/权限已即时生效；插件 MCP 子进程需重启核心后加载。"
+        : "已信任这份配置。";
+      button.textContent = "撤销信任";
+      button.classList.remove("primary");
+    } else if (status.gated) {
+      hint.textContent =
+        (status.changed ? "配置内容已变化，需要重新确认。" : "未信任：已跳过工作区 hooks / 插件 MCP / 权限放宽。") +
+        (reasons.length ? " 待加载：" + reasons.join("；") : "");
+      button.textContent = "信任此工作区";
+      button.classList.add("primary");
+    } else {
+      hint.textContent = "该工作区没有会自动执行的配置（无需确认）。";
+      button.textContent = "信任此工作区";
+      button.classList.add("primary");
+    }
+    button.dataset.trusted = status.trusted ? "1" : "";
+    button.disabled = false;
+  } catch (error) {
+    hint.textContent = "无法读取信任状态：" + friendlyError(error);
+    button.disabled = true;
+  }
+}
+
+async function toggleWorkspaceTrust() {
+  const button = $("workspaceTrustBtn");
+  if (!button) return;
+  const trusted = button.dataset.trusted !== "1";
+  button.disabled = true;
+  try {
+    await api("/workspace/trust", {
+      method: "POST",
+      body: JSON.stringify({ trusted }),
+    });
+    showToast(
+      trusted ? "已信任此工作区（hooks/权限即时生效，插件需重启核心）" : "已撤销信任（hooks 已停用）",
+      trusted ? "ok" : "warn",
+    );
+    await refreshWorkspaceTrust();
+  } catch (error) {
+    showToast("信任操作失败：" + friendlyError(error), "error");
+  } finally {
+    button.disabled = false;
+  }
+}
 $("workspace").addEventListener("change", () => {
   const workspace = $("workspace").value.trim();
   if (workspace) {
@@ -4526,7 +4598,10 @@ $("workspace").addEventListener("change", () => {
     rememberWorkspace(workspace);
   }
   syncProjectChip();
+  refreshWorkspaceTrust();
 });
+$("workspaceTrustRefreshBtn")?.addEventListener("click", () => refreshWorkspaceTrust());
+$("workspaceTrustBtn")?.addEventListener("click", () => toggleWorkspaceTrust());
 $("newSession").addEventListener("click", () => {
   newSession().catch((error) =>
     error && error.userFacing
@@ -4904,6 +4979,7 @@ async function boot() {
   // A8-3：桌面桌宠开关状态来自引擎（每 15 秒刷新，跟随桌面端侧的改动）。
   await hydrateShell();
   await restoreLastSession();
+  refreshWorkspaceTrust();
   shellHydrated = true;
   // 初始深链要等服务水合/恢复完成再打开，避免面板请求早于授权与 ready。
   applyDeepLink();

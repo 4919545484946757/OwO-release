@@ -51,14 +51,19 @@ async fn wait_for_command_abort(abort: Option<&std::sync::atomic::AtomicBool>) {
     }
 }
 
-fn read_log_tail(path: &std::path::Path, max_bytes: u64) -> Result<Vec<u8>, std::io::Error> {
+/// 读取日志尾部：返回 `(字节, 文件总长度)`。
+///
+/// 同时给出总长度，调用方才能机器可读地判断"这是全部输出"还是"只是尾部窗口"——
+/// 只看尾部却不说明，模型会把 32KB 尾巴当成完整日志（本仓库其它读取类工具都带
+/// `truncated`/`total_*` 字段）。
+fn read_log_tail(path: &std::path::Path, max_bytes: u64) -> Result<(Vec<u8>, u64), std::io::Error> {
     use std::io::{Read, Seek, SeekFrom};
     let mut file = std::fs::File::open(path)?;
     let length = file.metadata()?.len();
     file.seek(SeekFrom::Start(length.saturating_sub(max_bytes)))?;
     let mut bytes = Vec::with_capacity(length.min(max_bytes) as usize);
     file.take(max_bytes).read_to_end(&mut bytes)?;
-    Ok(bytes)
+    Ok((bytes, length))
 }
 
 /// 后台 shell 记录（`run_command background=true` 产生）。
@@ -79,13 +84,19 @@ fn background_shells() -> &'static Mutex<HashMap<String, BackgroundShell>> {
 /// `shell_output`：读取后台 shell 的累积输出与状态。
 pub(super) struct ShellOutputTool;
 
+/// 后台 shell 输出只回读最后这么多字节（避免长跑日志吃满上下文）；
+/// 响应里的 `truncated`/`total_bytes` 会说明是否还有更早的输出。
+pub(super) const TAIL_WINDOW_BYTES: u64 = 32 * 1024;
+
 #[async_trait]
 impl Tool for ShellOutputTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "shell_output".into(),
-            description: "查看后台 shell 的输出与状态（shell_id 来自 run_command background=true）"
-                .into(),
+            description:
+                "查看后台 shell 的输出与状态（shell_id 来自 run_command background=true）；\
+                          日志很长时只返回最后 32KB 并标记 truncated"
+                    .into(),
             input_schema: json!({
                 "type": "object",
                 "properties": { "shell_id": { "type": "string" } },
@@ -103,19 +114,25 @@ impl Tool for ShellOutputTool {
             .get(&shell_id)
             .cloned()
             .ok_or_else(|| format!("未知 shell_id：{shell_id}"))?;
-        let tail = read_log_tail(&shell.log_path, 32 * 1024)
+        let tail = read_log_tail(&shell.log_path, TAIL_WINDOW_BYTES)
             .map_err(|error| format!("executor/log_read_failed: {error}"))?;
         let done = shell.done.load(std::sync::atomic::Ordering::Relaxed);
         let exit_code = *shell
             .exit_code
             .lock()
             .map_err(|_| "后台 shell 状态锁中毒".to_string())?;
+        let (bytes, total_bytes) = tail;
         Ok(json!({
             "shell_id": shell_id,
             "running": !done,
             "exit_code": exit_code,
             "log_path": shell.log_path.display().to_string(),
-            "output": decode_process_output(&tail),
+            "output": decode_process_output(&bytes),
+            // 尾部窗口语义要显式：total_bytes > returned_bytes 时模型才知道前面还有输出。
+            "returned_bytes": bytes.len(),
+            "total_bytes": total_bytes,
+            "tail_window_bytes": TAIL_WINDOW_BYTES,
+            "truncated": total_bytes > bytes.len() as u64,
         }))
     }
 }
@@ -217,12 +234,15 @@ impl Tool for RunCommandTool {
         // `cmd /C <外部命令>` 至少占 2 个 Job 进程（cmd + 子进程）；默认 limit=1 会
         // 直接报 "Not enough quota"。放宽到 16，仍能兜住进程炸弹。
         policy.active_process_limit = Some(16);
-        // 命令文本（cmd /C <command> 的命令体）同样过 deny 检查；用词级检查避免
-        // `format(x)`、`--format=json` 这类正常参数被整串子串误杀。
-        if let Some(fragment) =
-            crate::sandbox::SandboxCommand::deny_hit_in_command(&command, &policy.deny_programs)
+        // 命令文本（cmd /C <command> 的命令体）走结构化危险命令匹配（审查 N4）：
+        // 覆盖 `rm -r -f`、`git  push`、`git -c … push`、`r^d /s`、`powershell -enc`
+        // 等旧子串黑名单的绕过变体；自定义 deny 片段与沙箱 deny_programs 一并生效。
+        let mut deny_fragments = ctx.policy.deny_fragments();
+        deny_fragments.extend(policy.deny_programs.iter().cloned());
+        if let Some(pattern) =
+            crate::command_guard::dangerous_command_match(&command, &deny_fragments)
         {
-            return Err(format!("命令命中危险黑名单片段：{fragment}"));
+            return Err(format!("命令命中危险模式：{pattern}"));
         }
         let mut sandbox_command = crate::sandbox::SandboxCommand::new("cmd", policy.clone())
             .with_args(vec!["/C".to_string(), command.to_string()])
@@ -369,5 +389,39 @@ impl Tool for RunCommandTool {
             "stdout": decode_process_output(&output.stdout),
             "stderr": decode_process_output(&output.stderr),
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_log_tail;
+    use std::io::Write;
+
+    /// 尾窗读取必须同时给出总长度，调用方才能机器可读地判断是否被截断。
+    #[test]
+    fn log_tail_reports_total_length_for_truncation_awareness() {
+        let dir = std::env::temp_dir().join(format!("owo-log-tail-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("shell.log");
+
+        std::fs::write(&path, b"short").unwrap();
+        let (bytes, total) = read_log_tail(&path, 32 * 1024).unwrap();
+        assert_eq!(bytes, b"short");
+        assert_eq!(
+            total, 5,
+            "小日志：total == returned，调用方判 truncated=false"
+        );
+
+        let big: Vec<u8> = (0..40_000u32).map(|index| (index % 251) as u8).collect();
+        {
+            let mut file = std::fs::File::create(&path).unwrap();
+            file.write_all(&big).unwrap();
+        }
+        let (bytes, total) = read_log_tail(&path, 32 * 1024).unwrap();
+        assert_eq!(total, big.len() as u64, "total 必须是文件真实长度");
+        assert_eq!(bytes.len(), 32 * 1024, "只回读尾部窗口");
+        assert!(total > bytes.len() as u64, "长日志必须能被判定为已截断");
+        assert_eq!(&bytes[..], &big[big.len() - 32 * 1024..], "读的是最后 32KB");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

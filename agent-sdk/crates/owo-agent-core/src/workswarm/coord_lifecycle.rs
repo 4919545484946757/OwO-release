@@ -583,6 +583,7 @@ impl TeamCoordinator {
                 model: r.model.clone(),
                 write_paths: r.write_paths.clone(),
                 capabilities: r.capabilities.clone(),
+                tools: Vec::new(),
             })
             .collect();
         let template = TeamTemplate {
@@ -593,6 +594,10 @@ impl TeamCoordinator {
             applicability: preview(&state.goal.objective, 200),
             source_team_id: Some(team_id.to_string()),
             created_at: now_ts(),
+            origin: None,
+            description: None,
+            version: None,
+            tags: Vec::new(),
         };
         TeamTemplateProposal {
             proposal_id: format!("prop-{}", &uuid::Uuid::new_v4().to_string()[..8]),

@@ -65,6 +65,82 @@ const path = require("node:path");
 const os = require("node:os");
 const http = require("node:http");
 const crypto = require("node:crypto");
+
+// ---------- IPC 信任门与导航锁（审查 N16：Electron 纵深防御） ----------
+//
+// 威胁：主窗口一旦被导航到外部页面（链接、window.location、被注入的脚本），
+// 那个页面就继承了 preload 暴露的特权桥（config:write、shell:invoke、
+// artifact 下载、配对密钥…）。contextIsolation/nodeIntegration 只是"别让页面拿到
+// Node"，不解决"页面是谁加载的"。这里在注册任何 handler 之前统一包裹
+// `ipcMain.handle`：只接受来自本应用窗口主 frame、且来源为本地页面（壳启动页
+// data: 或核心回环 http://127.0.0.1）的请求；其余一律拒绝。
+//
+// 用一个 WeakSet 记录"本进程创建过的窗口 webContents"：外部页面即使被某种方式
+// 放进窗口，也拿不到其它窗口的 sender 身份，且来源 origin 校验会再拦一层。
+
+const trustedWindows = new WeakSet();
+
+function isLoopbackOrBootUrl(raw) {
+  let url = null;
+  try {
+    url = new URL(String(raw || ""));
+  } catch {
+    return false;
+  }
+  // 壳自生成的启动页（data:）只在主窗口主 frame 使用；页面自身发起的 data: 导航
+  // 已被下面的导航锁拦住。
+  if (url.protocol === "data:") return true;
+  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+  return url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1";
+}
+
+function isTrustedIpcSender(event) {
+  const contents = event && event.sender;
+  if (!contents || !trustedWindows.has(contents)) return false;
+  const frame = event.senderFrame;
+  if (!frame || frame !== contents.mainFrame) return false;
+  return isLoopbackOrBootUrl(frame.url);
+}
+
+let ipcGuardInstalled = false;
+function installIpcSenderGuard() {
+  if (ipcGuardInstalled) return;
+  ipcGuardInstalled = true;
+  const original = ipcMain.handle.bind(ipcMain);
+  ipcMain.handle = (channel, listener) =>
+    original(channel, (event, ...args) => {
+      if (!isTrustedIpcSender(event)) {
+        console.warn(`[ipc] 拒绝非受信来源：${channel}`);
+        throw new Error(`ipc/untrusted_sender: ${channel}`);
+      }
+      return listener(event, ...args);
+    });
+}
+
+/** 锁定窗口导航：只允许本地页面；外链交给系统浏览器。 */
+function lockNavigation(win) {
+  if (!win || win.isDestroyed()) return;
+  const guard = (event, targetUrl) => {
+    if (isLoopbackOrBootUrl(targetUrl)) return;
+    event.preventDefault();
+    let target = null;
+    try {
+      target = new URL(String(targetUrl || ""));
+    } catch {
+      target = null;
+    }
+    if (target && (target.protocol === "http:" || target.protocol === "https:")) {
+      shell.openExternal(target.href).catch(() => {});
+    }
+  };
+  win.webContents.on("will-navigate", guard);
+  win.webContents.on("will-redirect", guard);
+}
+
+// 模块加载即装上（幂等）：必须早于 pet-task-confirmation / pet-feed 等模块的
+// `ipcMain.handle` 注册，否则那些 handler 不在守卫内。
+installIpcSenderGuard();
+
 const supervision = require("./core-supervision.js");
 const shellCommands = require("./shell-commands.js");
 const { configuredWorkspacePath } = require("./workspace-state.js");
@@ -787,6 +863,8 @@ function notifyState() {
 // ---------- 窗口 ----------
 
 function createWindow() {
+  // IPC 信任门必须在任何窗口创建/任何 handler 注册之前装好（幂等）。
+  installIpcSenderGuard();
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 880,
@@ -807,6 +885,8 @@ function createWindow() {
   });
   // 彻底移除默认菜单（含 Alt 唤出）。必须在 createWindow 早期调用。
   Menu.setApplicationMenu(null);
+  trustedWindows.add(mainWindow.webContents);
+  lockNavigation(mainWindow);
   // ADR-003：先给占位页，core ready 后由 notifyState 导航到核心托管的工作台。
   mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(bootPage(coreState))}`);
   bootShown = true;
@@ -927,6 +1007,8 @@ function createPetWindow(port) {
   });
   // 页面内的链接/新窗口一律不外开：桌宠不是浏览器。
   petWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  trustedWindows.add(petWindow.webContents);
+  lockNavigation(petWindow);
   // 关闭桌宠 = 隐藏（与工作台同语义），真正的退出走托盘。
   petWindow.on("close", (event) => {
     if (!app.isQuitting) {
@@ -978,6 +1060,8 @@ function ensureAgentPets(ref) {
     const saved=prefs[role],position=saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y)?clampToWorkArea(saved.x,saved.y):clampToWorkArea(origin.x-index*PET_SIZE.width,origin.y);
     const w=new BrowserWindow({...PET_SIZE,...position,show:false,frame:false,transparent:true,backgroundColor:'#00000000',resizable:false,movable:false,skipTaskbar:true,alwaysOnTop:true,hasShadow:false,webPreferences:{preload:path.join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});
     agentPetWindows.set(role,w);prefs[role]={...prefs[role],skin};
+    trustedWindows.add(w.webContents);
+    lockNavigation(w);
     w.webContents.setWindowOpenHandler(()=>({action:'deny'}));
     w.on('close',event=>{if(!app.isQuitting){event.preventDefault();void setPetDesired(false);}});
     w.on('closed',()=>agentPetWindows.delete(role));

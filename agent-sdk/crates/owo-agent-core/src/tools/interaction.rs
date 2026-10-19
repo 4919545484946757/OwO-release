@@ -74,12 +74,18 @@ impl Tool for AskUserTool {
 
 pub(super) struct UseSkillTool;
 
+/// 技能指令回灌上限：技能来自工作区目录（`.agents/skills/*/SKILL.md`），属于外部内容，
+/// 一份超长 SKILL.md 就能把回合上下文挤满；超限时截断并给出分页路径。
+pub(super) const MAX_SKILL_CHARS: usize = 24_000;
+
 #[async_trait]
 impl Tool for UseSkillTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "use_skill".into(),
-            description: "读取已加载技能（SKILL.md）的完整指令并按其流程执行；名称可通过 /skills 或技能清单查看".into(),
+            description: "读取已加载技能（SKILL.md）的完整指令并按其流程执行；名称可通过 /skills 或技能清单查看。\
+                          指令超过 24k 字符会截断并给出可继续读取的文件路径"
+                .into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -109,12 +115,41 @@ impl Tool for UseSkillTool {
                 "未找到技能或技能已禁用：{name}；可用技能：{available}"
             ));
         };
-        let task = args.get("task").and_then(Value::as_str).unwrap_or_default();
+        let task = args
+            .get("task")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let total_chars = skill.instructions.chars().count();
+        let truncated = total_chars > MAX_SKILL_CHARS;
+        let instructions: String = if truncated {
+            skill.instructions.chars().take(MAX_SKILL_CHARS).collect()
+        } else {
+            skill.instructions.clone()
+        };
+        // 相对路径优先（read_file 以会话工作区为基座解析）；技能若来自数据根则保持绝对路径。
+        let path = skill
+            .path
+            .strip_prefix(ctx.workspace)
+            .unwrap_or(&skill.path)
+            .to_string_lossy()
+            .replace('\\', "/");
         Ok(json!({
             "skill": skill.name,
             "description": skill.description,
             "task": task,
-            "instructions": skill.instructions,
+            "instructions": instructions,
+            "instructions_path": path,
+            "total_chars": total_chars,
+            "truncated": truncated,
+            "note": if truncated {
+                format!(
+                    "技能指令过长（{total_chars} 字符），已截断到 {MAX_SKILL_CHARS} 字符；\
+                     继续读取用 read_file(path=\"{path}\", offset={MAX_SKILL_CHARS})"
+                )
+            } else {
+                String::new()
+            },
         }))
     }
 }

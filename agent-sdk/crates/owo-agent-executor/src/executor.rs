@@ -478,12 +478,38 @@ impl UiActionSource for WindowsUiaSource {
         {
             AnchorTarget::Element(element) => {
                 unsafe {
-                    let _ = element.SetFocus();
+                    element
+                        .SetFocus()
+                        .map_err(|error| format!("聚焦失败，已拒绝盲打：{error}"))?;
+                    // 焦点校验（审查 N12）：SetFocus 可能因窗口未激活/UIA 拒绝而
+                    // 实际未生效；不看焦点就 SendInput，文字会打进当时的前台窗口
+                    // （最坏情况是聊天框并回车发送）。
+                    let focused = element
+                        .CurrentHasKeyboardFocus()
+                        .map(|value| value.as_bool())
+                        .unwrap_or(false);
+                    if !focused {
+                        return Err(
+                            "焦点校验失败：目标控件未获得键盘焦点，已拒绝输入（防止误打到其他窗口）"
+                                .to_string(),
+                        );
+                    }
                 }
                 send_unicode(text)
             }
             AnchorTarget::Point(x, y) => {
+                // 像素锚点同样要校验归属：点击落点的窗口必须在点击后成为前台窗口，
+                // 否则拒绝输入（审查 N12 的焦点 TOCTOU）。
+                let expected = root_window_at_point(*x, *y);
                 click_at_screen(*x, *y)?;
+                if let Some(expected) = expected {
+                    let foreground = foreground_root_window();
+                    if foreground != Some(expected) {
+                        return Err(format!(
+                            "点击后前台窗口与目标窗口不一致（目标 {expected:?}，前台 {foreground:?}），已拒绝输入"
+                        ));
+                    }
+                }
                 send_unicode(text)
             }
         }
@@ -641,6 +667,35 @@ unsafe fn click_element(
         Err("SendInput 鼠标注入失败".to_string())
     } else {
         Ok(())
+    }
+}
+
+/// 点击坐标所在窗口的顶层 HWND（审查 N12：输入前校验目标窗口归属）。
+#[cfg(target_os = "windows")]
+fn root_window_at_point(x: i32, y: i32) -> Option<windows::Win32::Foundation::HWND> {
+    use windows::Win32::Foundation::POINT;
+    use windows::Win32::UI::WindowsAndMessaging::{GetAncestor, WindowFromPoint, GA_ROOT};
+    unsafe {
+        let hwnd = WindowFromPoint(POINT { x, y });
+        if hwnd.0.is_null() {
+            return None;
+        }
+        let root = GetAncestor(hwnd, GA_ROOT);
+        Some(if root.0.is_null() { hwnd } else { root })
+    }
+}
+
+/// 当前前台窗口的顶层 HWND。
+#[cfg(target_os = "windows")]
+fn foreground_root_window() -> Option<windows::Win32::Foundation::HWND> {
+    use windows::Win32::UI::WindowsAndMessaging::{GetAncestor, GetForegroundWindow, GA_ROOT};
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.0.is_null() {
+            return None;
+        }
+        let root = GetAncestor(hwnd, GA_ROOT);
+        Some(if root.0.is_null() { hwnd } else { root })
     }
 }
 

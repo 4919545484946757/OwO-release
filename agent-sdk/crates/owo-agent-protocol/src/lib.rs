@@ -588,8 +588,12 @@ fn default_project_status() -> ProjectSpaceStatus {
 /// 团队模板中的角色定义（角色组合 + 依赖 + 交付契约，不含历史敏感上下文）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamTemplateRole {
+    /// 宽松反序列化：缺失字段按空串处理，由 `user_workflow` 校验器给出可读原因
+    ///（AI 生成与社区包导入不该因为少一个字段就得到 serde 解析错误）。
+    #[serde(default)]
     pub role: String,
     /// 承担者种类：`agent` | `human` | `worker`。
+    #[serde(default)]
     pub assignee: String,
     /// 建议 worker 名（agent 角色默认 `agent` 模型驱动；其余为内置 worker 名）。
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -598,10 +602,10 @@ pub struct TeamTemplateRole {
     #[serde(default)]
     pub depends_on: Vec<String>,
     /// 交接契约（下游期望的产物格式/语义）。
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handoff_contract: Option<String>,
     /// 验证断言（`non_empty` / `contains:<text>` / `equals:<text>`）。
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verify: Option<String>,
     /// 角色模型（十一期 additive）：None = 服务端缺省解析链
     /// （`input.model` 未注入时回退 `OWO_AGENT_MODEL` → 内置缺省）。
@@ -614,6 +618,10 @@ pub struct TeamTemplateRole {
     /// 职责能力（例如 review）；缺失时由旧角色名兼容推导。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub capabilities: Vec<String>,
+    /// 角色可见工具白名单（用户自定义工作流）：空 = 沿用角色运行档默认可见集。
+    /// 元素必须是内置工具名（策略矩阵认得）或 `mcp__{server}__{tool}` 命名空间形式。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tools: Vec<String>,
 }
 
 /// 团队模板：已验证的角色组合、Swarmflow 与适用条件（§6.1）。
@@ -622,16 +630,74 @@ pub struct TeamTemplateRole {
 /// 不复制历史敏感上下文。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamTemplate {
+    /// 宽松反序列化（AI 生成/社区包常见缺字段）：缺失交给 `user_workflow` 校验器
+    /// 逐条报告，而不是在 serde 层就失败。
+    #[serde(default)]
     pub template_id: String,
+    #[serde(default)]
     pub name: String,
+    /// 缺省 `team`（多角色工作流最常见形态；single 由校验器检查角色数）。
+    #[serde(default = "default_team_mode")]
     pub mode: TeamMode,
+    #[serde(default)]
     pub roles: Vec<TeamTemplateRole>,
     /// 适用条件描述（模板优先匹配的语义依据）。
+    #[serde(default)]
     pub applicability: String,
     /// 模板来源团队（溯源）。
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_team_id: Option<String>,
+    #[serde(default)]
     pub created_at: String,
+    /// 来源：`user`（用户自定义）/ `community`（导入的社区包）/ None（内置或历史记录）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+    /// 人类可读描述（用户自定义/社区工作流用于列表与分享）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// 版本号（社区包演进用；缺省视为 1.0.0）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    /// 标签（检索/分类；不参与权限判定）。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+}
+
+/// 角色默认值（新字段扩展时保持旧字面量可用：`..Default::default()`）。
+impl Default for TeamTemplateRole {
+    fn default() -> Self {
+        Self {
+            role: String::new(),
+            assignee: "agent".to_string(),
+            worker: None,
+            depends_on: Vec::new(),
+            handoff_contract: None,
+            verify: None,
+            model: None,
+            write_paths: Vec::new(),
+            capabilities: Vec::new(),
+            tools: Vec::new(),
+        }
+    }
+}
+
+/// 模板默认值（同上）。
+impl Default for TeamTemplate {
+    fn default() -> Self {
+        Self {
+            template_id: String::new(),
+            name: String::new(),
+            mode: TeamMode::Team,
+            roles: Vec::new(),
+            applicability: String::new(),
+            source_team_id: None,
+            created_at: String::new(),
+            origin: None,
+            description: None,
+            version: None,
+            tags: Vec::new(),
+        }
+    }
 }
 
 /// 团队模板提案状态。
@@ -693,6 +759,32 @@ pub struct SessionInfo {
     pub parent_id: Option<String>,
     #[serde(default)]
     pub fork_point: Option<usize>,
+    /// 会话级目标模式状态（`/goal`）；`None` = 未设定。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goal: Option<SessionGoalV1>,
+}
+
+/// 会话级目标模式状态（与 core `SessionGoal` 同构；线格式契约）。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct SessionGoalV1 {
+    pub objective: String,
+    #[serde(default)]
+    pub iterations: usize,
+    #[serde(default)]
+    pub done: bool,
+    #[serde(default)]
+    pub updated_at: String,
+    /// `user`（用户 `/goal` 设定）或 `model`（`goal_request` 工具登记，待宿主接管）。
+    #[serde(default = "default_goal_origin")]
+    pub origin: String,
+}
+
+fn default_goal_origin() -> String {
+    "user".to_string()
+}
+
+fn default_team_mode() -> TeamMode {
+    TeamMode::Team
 }
 
 /// Restricted names for desktop-managed custom credentials. No arbitrary environment lookup.

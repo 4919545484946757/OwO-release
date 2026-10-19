@@ -75,7 +75,9 @@ test("late file-change responses cannot expose another session's revert action",
   const list={innerHTML:""};
   const revert={disabled:false};
   const fn=read("app-domain.js").match(/async function refreshDiff\(sessionId\) \{[\s\S]*?\n\}/)[0];
-  const refresh=runInNewContext(fn+"\nrefreshDiff;",{state,sessionDiffRefreshGeneration:0,$:id=>id==="diffList"?list:revert,api:path=>path.includes("/old/")?old:Promise.resolve([])});
+  // renderHunkActions（逐 hunk 审阅）是 refreshDiff 的新依赖：本测试只关心
+  // "迟到的响应不得暴露别的会话的 revert"，故在沙箱里注入空实现。
+  const refresh=runInNewContext(fn+"\nrefreshDiff;",{state,sessionDiffRefreshGeneration:0,$:id=>id==="diffList"?list:revert,api:path=>path.includes("/old/")?old:Promise.resolve([]),renderHunkActions:async()=>{}});
   const waiting=refresh("old");state.sessionId="new";await refresh("new");
   release([{path:"old.txt",before:"before",after:"after"}]);await waiting;
   assert.equal(revert.disabled,true);assert.match(list.innerHTML,/没有文件改动/);assert.ok(!list.innerHTML.includes("old.txt"));

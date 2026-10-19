@@ -291,25 +291,6 @@ pub fn render_event_jsonl<T: serde::Serialize>(event: &T) -> String {
     json!({ "type": "turn_event", "event": event }).to_string()
 }
 
-/// jsonl：最终结果行（字段集即协议契约）。
-pub fn render_final_result_jsonl(
-    text: Option<&str>,
-    steps: usize,
-    diff_paths: &[String],
-    trace_path: Option<&str>,
-    audit_count: usize,
-) -> String {
-    json!({
-        "type": "turn_result",
-        "steps": steps,
-        "final_text": text,
-        "diffs": diff_paths,
-        "trace_path": trace_path,
-        "audit_count": audit_count,
-    })
-    .to_string()
-}
-
 /// jsonl：错误行。
 pub fn render_error_jsonl(message: &str) -> String {
     json!({ "type": "error", "message": message }).to_string()
@@ -359,13 +340,46 @@ pub(crate) struct PermissionCard<'a> {
 }
 
 /// 渲染审批卡：让用户看清"批准的是什么"（工具/等级/原因/风险/影响/参数）。
+/// 工具名展示：MCP 命名空间 `mcp__{server}__{tool}` → `MCP · server · tool`（审查 N5）。
+///
+/// 审批卡/授权清单是用户"批准谁"的地方：直接摊开 `mcp__owo_plugin_translate__translate`
+/// 既难读也难核对；这里给出分层可读名，调用方同时保留原始注册名以便排查。
+/// 非法/旧格式（历史会话与 trace 里的 `mcp_*`、`owo_plugin_*`）同样降级为可读文本。
+pub(crate) fn tool_display_name(tool: &str) -> String {
+    let trimmed = tool.trim();
+    if let Some(rest) = trimmed.strip_prefix("mcp__") {
+        return match rest.split_once("__") {
+            Some((server, remote)) if !remote.is_empty() && remote != server => {
+                format!("MCP · {server} · {remote}")
+            }
+            Some((server, _)) => format!("MCP · {server}"),
+            None => format!("MCP · {rest}"),
+        };
+    }
+    if let Some(rest) = trimmed.strip_prefix("mcp_") {
+        return format!("MCP · {rest}");
+    }
+    if let Some(rest) = trimmed.strip_prefix("owo_plugin_") {
+        return format!("插件 · {rest}");
+    }
+    trimmed.to_string()
+}
+
 pub(crate) fn print_permission_card(card: &PermissionCard<'_>) {
-    println!(
-        "  {} {} 请求 {} 权限",
-        "审批".yellow(),
-        card.tool,
-        card.level.unwrap_or("unknown")
-    );
+    let label = tool_display_name(card.tool);
+    let level = card.level.unwrap_or("unknown");
+    if label == card.tool {
+        println!("  {} {} 请求 {} 权限", "审批".yellow(), card.tool, level);
+    } else {
+        // 外部工具：可读名在前、注册名在后（审批必须对得上实际工具）。
+        println!(
+            "  {} {}（{}） 请求 {} 权限",
+            "审批".yellow(),
+            label,
+            card.tool,
+            level
+        );
+    }
     if !card.reason.trim().is_empty() {
         println!("    原因：{}", card.reason);
     }
@@ -725,6 +739,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn tool_display_name_renders_mcp_namespace_and_legacy_forms() {
+        // 内置工具原样返回（调用方据此决定是否再附注册名）。
+        assert_eq!(tool_display_name("read_file"), "read_file");
+        assert_eq!(tool_display_name("  run_command "), "run_command");
+        // 审查 N5 的命名空间：审批卡显示分层可读名。
+        assert_eq!(
+            tool_display_name("mcp__owo_plugin_translate__translate"),
+            "MCP · owo_plugin_translate · translate"
+        );
+        assert_eq!(tool_display_name("mcp__git__status"), "MCP · git · status");
+        // 只有 server 段（资源/提示类工具没有 `__tool`）时不留空尾段。
+        assert_eq!(
+            tool_display_name("mcp__owo_plugin_demo__"),
+            "MCP · owo_plugin_demo"
+        );
+        assert_eq!(tool_display_name("mcp__solo"), "MCP · solo");
+        // 历史会话/旧 trace 里的旧前缀仍可读。
+        assert_eq!(tool_display_name("mcp_demo_lookup"), "MCP · demo_lookup");
+        assert_eq!(
+            tool_display_name("owo_plugin_translate_translate"),
+            "插件 · translate_translate"
+        );
+    }
+
+    #[test]
     fn question_answer_accepts_numbered_options_or_nonempty_free_text() {
         let options = vec!["继续".to_string(), "停止".to_string()];
         assert_eq!(
@@ -771,34 +810,6 @@ mod tests {
         assert_eq!(value["type"], "turn_event");
         assert!(value["event"].is_object(), "应包裹原始事件");
         assert_eq!(value["event"]["type"], "progress");
-    }
-
-    #[test]
-    fn jsonl_turn_result_line_fields_are_stable() {
-        let line = render_final_result_jsonl(
-            Some("完成"),
-            3,
-            &["src/main.rs".to_string()],
-            Some("trace.json"),
-            7,
-        );
-        let value: serde_json::Value = serde_json::from_str(&line).expect("应为合法 JSON");
-        assert_eq!(value["type"], "turn_result");
-        assert_eq!(value["steps"], 3);
-        assert_eq!(value["final_text"], "完成");
-        assert_eq!(value["diffs"], serde_json::json!(["src/main.rs"]));
-        assert_eq!(value["trace_path"], "trace.json");
-        assert_eq!(value["audit_count"], 7);
-    }
-
-    #[test]
-    fn jsonl_turn_result_line_allows_null_fields() {
-        let value: serde_json::Value =
-            serde_json::from_str(&render_final_result_jsonl(None, 0, &[], None, 0))
-                .expect("应为合法 JSON");
-        assert!(value["final_text"].is_null());
-        assert!(value["trace_path"].is_null());
-        assert_eq!(value["diffs"], serde_json::json!([]));
     }
 
     #[test]

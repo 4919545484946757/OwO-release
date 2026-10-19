@@ -28,6 +28,10 @@ pub struct RoleSpec {
     pub write_paths: Vec<String>,
     /// 职责能力。review 控制只读与评审语义；未知能力不授予工具权限。
     pub capabilities: Vec<String>,
+    /// 模板声明的角色工具白名单（用户自定义工作流）：空 = 沿用角色画像的缺省工具面；
+    /// 非空时作为**上界**收窄（见 [`crate::worker_profile::WorkerProfile::apply_declared_tools`]），
+    /// 绝不会因为声明而放宽到画像能力面之外。
+    pub tools: Vec<String>,
 }
 
 impl RoleSpec {
@@ -49,6 +53,7 @@ impl RoleSpec {
             model: None,
             write_paths: Vec::new(),
             capabilities,
+            tools: Vec::new(),
         }
     }
 
@@ -119,6 +124,7 @@ impl From<TeamTemplateRole> for RoleSpec {
             model: r.model,
             write_paths: r.write_paths,
             capabilities,
+            tools: r.tools,
         }
     }
 }

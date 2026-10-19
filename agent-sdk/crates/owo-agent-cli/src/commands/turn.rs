@@ -29,6 +29,12 @@ pub(crate) struct TurnArgs {
     /// 自动允许所有审批（仅测试用；等价 --permissions trusted）
     #[arg(long)]
     no_approval: bool,
+    /// 在指定会话里执行本回合（续接历史；与 --continue 互斥）
+    #[arg(long, conflicts_with = "continuation")]
+    session: Option<String>,
+    /// 续接本工作区最近更新的会话（对标 `codex exec resume --last`）
+    #[arg(long = "continue", alias = "last")]
+    continuation: bool,
     /// 数据根（缺省用户级数据目录）；用于发现/启动共享 Daemon。
     #[arg(long)]
     data_dir: Option<PathBuf>,
@@ -96,9 +102,51 @@ pub(crate) async fn run_turn(
     let workspace_str = workspace.to_string_lossy().to_string();
     let root = ensure_data_root(args.data_dir.clone(), &workspace);
     let client = ensure_daemon_client(&root, &workspace).await?;
-    let session = client
-        .create_session_with_model(&workspace_str, args.model.clone())
-        .await?;
+    // 会话选择（对标 `codex exec resume`）：显式 --session 优先；--continue 取本工作区
+    // 最近更新的未归档会话；都不给才新建。续接语义必须显式，避免把历史悄悄接进来。
+    let resumed = match (args.session.as_deref(), args.continuation) {
+        (Some(id), _) => Some(client.get_session(id).await.map_err(|error| {
+            format!("会话不可用：{id}（{error}）；用 `owo-agent turn` 新建或检查会话 ID")
+        })?),
+        (None, true) => {
+            let sessions = client.list_sessions().await?;
+            match crate::support::latest_session_for_workspace(&sessions, &workspace) {
+                Some(session) => Some(session.clone()),
+                None => {
+                    return Err(format!(
+                    "该工作区没有可续接的会话（{}）：先运行一次 `owo-agent turn --prompt <任务>`",
+                    workspace.display()
+                )
+                    .into())
+                }
+            }
+        }
+        (None, false) => None,
+    };
+    let session = match resumed {
+        Some(session) => {
+            if !crate::support::session_matches_workspace(&session, &workspace) {
+                return Err(format!(
+                    "会话 {} 属于另一个工作区（{}）；请改用 `--workspace` 指向该工作区",
+                    session.id, session.workspace
+                )
+                .into());
+            }
+            if !matches!(output, OutputMode::Jsonl) {
+                eprintln!(
+                    "续接会话：{}（{}）",
+                    session.id,
+                    session.title.clone().unwrap_or_default()
+                );
+            }
+            session
+        }
+        None => {
+            client
+                .create_session_with_model(&workspace_str, args.model.clone())
+                .await?
+        }
+    };
 
     // Ctrl+C → 取消运行中的回合（贯穿网络与 Daemon 侧 abort 标志）。
     let invocation_id = uuid::Uuid::new_v4().to_string();

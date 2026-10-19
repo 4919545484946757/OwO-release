@@ -1513,6 +1513,7 @@ fn blocking_hook(event: &str, matcher: Option<&str>, reason: &str) -> crate::hoo
         event: event.to_string(),
         matcher: matcher.map(str::to_string),
         command,
+        fail_mode: None,
     }
 }
 

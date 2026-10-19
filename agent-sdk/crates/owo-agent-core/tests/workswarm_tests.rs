@@ -545,6 +545,7 @@ fn human_relay_roles() -> Vec<RoleSpec> {
         model: None,
         write_paths: Vec::new(),
         capabilities: Vec::new(),
+        tools: Vec::new(),
     };
     approver.extra_input = Value::Null;
     let mut leader = RoleSpec::agent("leader");
@@ -1186,6 +1187,7 @@ async fn swarmflow_requires_versioned_template() {
                 model: None,
                 write_paths: Vec::new(),
                 capabilities: Vec::new(),
+                tools: Vec::new(),
             },
             owo_agent_protocol::TeamTemplateRole {
                 role: "builder".into(),
@@ -1197,11 +1199,16 @@ async fn swarmflow_requires_versioned_template() {
                 model: None,
                 write_paths: Vec::new(),
                 capabilities: Vec::new(),
+                tools: Vec::new(),
             },
         ],
         applicability: OBJECTIVE.into(),
         source_team_id: None,
         created_at: chrono::Utc::now().to_rfc3339(),
+        origin: None,
+        description: None,
+        version: None,
+        tags: Vec::new(),
     };
     h.coordinator.templates().save_template(&tpl).unwrap();
     let req = CreateTeamRequest {

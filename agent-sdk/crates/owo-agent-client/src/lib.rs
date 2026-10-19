@@ -17,9 +17,13 @@ pub mod diagnostics;
 pub mod discovery;
 pub mod events;
 pub mod http;
+pub mod mcp;
+pub mod session_goal;
 pub mod sessions;
 pub mod sse;
+pub mod teams;
 pub mod turns;
+pub mod workflows;
 
 mod error;
 

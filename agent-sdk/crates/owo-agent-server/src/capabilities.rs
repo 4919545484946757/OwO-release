@@ -89,9 +89,66 @@ const E_SESSION_ENTRYPOINTS: &[Entrypoint] = &[
         target: "owo-agent-cli",
         label: "命令行会话",
     },
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent sessions [--json] [--all] [--limit N]",
+        label: "会话列表（标出 turn --continue 会续接的会话）",
+    },
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent turn --continue|--session <id>",
+        label: "非交互续接会话（对标 codex exec resume）",
+    },
+];
+
+const E_WORKFLOW_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "cli",
+        target:
+            "owo-agent workflow list|show|validate|review|create|delete|draft|adopt|export|import",
+        label: "自定义工作流全链路（validate/review 离线，其余经 Daemon）",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "GET/POST /workflows/user + POST /workflows/user/validate",
+        label: "用户工作流 CRUD 与校验（权限面仍由策略与审批决定）",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "POST /workflows/draft （以及 /workflows/draft/{id}/adopt）",
+        label: "AI 生成候选工作流：只提案不启用，人工采纳才进注册表",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "POST /workflows/user/{id}/export 与 /workflows/import(/review)",
+        label: "社区包分享：sha256 校验 + 能力面评审门禁（block 即拒绝落盘）",
+    },
+];
+
+const E_REVIEW_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent review [--path <文件>] [--accept/--reject <序号|all>] [--json]",
+        label: "逐 hunk 审阅工作树改动（离线，依赖 git）",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "GET /session/{id}/hunks",
+        label: "会话改动的逐 hunk 视图（含 conflicts: 已被用户改动的文件）",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "POST /session/{id}/hunks/apply",
+        label: "按序号接受/拒绝 hunk 并写回（用户改过文件 → 409 拒绝覆盖）",
+    },
 ];
 
 const E_MCP_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent mcp list|get|add|remove",
+        label: "命令行管理（有核心时热连接，否则写配置下次启动生效）",
+    },
     Entrypoint {
         kind: "http",
         target: "GET /mcp",
@@ -182,8 +239,51 @@ const E_DIAG_ENTRYPOINTS: &[Entrypoint] = &[
     },
 ];
 
+const E_TRUST_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "http",
+        target: "GET /workspace/trust",
+        label: "查看工作区信任状态",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "POST /workspace/trust",
+        label: "信任/撤销信任",
+    },
+    Entrypoint {
+        kind: "cli",
+        target: "owo-agent trust",
+        label: "命令行信任管理",
+    },
+    Entrypoint {
+        kind: "ui",
+        target: "工作区页 · 工作区信任",
+        label: "桌面端信任按钮",
+    },
+];
+
 /// 功能目录注册表（§8.3 单一来源）。新增能力：在此追加条目 + 同步路由契约测试。
 pub static CAPABILITIES: &[CapabilityDescriptor] = &[
+    CapabilityDescriptor {
+        id: CapabilityId("workflows.custom"),
+        user_name: "用户自定义多 Agent 工作流",
+        summary: "用角色/依赖/工具/交付契约描述任意特定功能的工作流：本地校验与能力面评审、AI 生成候选、社区包导入导出",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_WORKFLOW_ENTRYPOINTS,
+        required_effects: &[ToolEffectClass::Read, ToolEffectClass::Write],
+        advanced: false,
+        dependencies: &[],
+    },
+    CapabilityDescriptor {
+        id: CapabilityId("changes.review"),
+        user_name: "逐 hunk 变更审阅",
+        summary: "按 hunk 审阅工作树相对 HEAD 的改动，可单独接受/拒绝（拒绝即还原该段，便于回灌模型改法）",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_REVIEW_ENTRYPOINTS,
+        required_effects: &[ToolEffectClass::Read, ToolEffectClass::Write],
+        advanced: false,
+        dependencies: &[],
+    },
     CapabilityDescriptor {
         id: CapabilityId("sessions.turns"),
         user_name: "会话与回合",
@@ -250,6 +350,16 @@ pub static CAPABILITIES: &[CapabilityDescriptor] = &[
         summary: "服务健康、运行状态与用量诊断信息汇总",
         maturity: CapabilityMaturity::Beta,
         entrypoints: E_DIAG_ENTRYPOINTS,
+        required_effects: &[ToolEffectClass::Read],
+        advanced: false,
+        dependencies: &[],
+    },
+    CapabilityDescriptor {
+        id: CapabilityId("workspace.trust"),
+        user_name: "工作区信任",
+        summary: "未信任的工作区不加载 hooks/插件 MCP/权限放宽/白名单（受限模式），显式信任后生效",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_TRUST_ENTRYPOINTS,
         required_effects: &[ToolEffectClass::Read],
         advanced: false,
         dependencies: &[],

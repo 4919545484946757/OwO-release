@@ -70,6 +70,9 @@ pub(crate) mod change_set_api;
 pub mod workswarm_metrics;
 
 mod dto;
+
+// 统计模块等兄弟模块需要读取团队审计尾部（同源实现，避免复制）。
+pub(crate) use dto::audit_tail;
 mod handlers;
 mod registry_builder;
 mod runtime;

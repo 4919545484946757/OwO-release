@@ -50,6 +50,55 @@ pub fn compact_schema(schema: &Value) -> Value {
     strip_annotations(schema)
 }
 
+/// 解析候选路径：存在的路径直接 canonicalize（跟随重解析点）；不存在的路径对
+/// **最近已存在祖先** canonicalize，再把剩余段逐段接上，`..` 在剩余段中就地消解。
+///
+/// 安全动机（审查 N6）：旧实现 `candidate.canonicalize().unwrap_or(candidate)`
+/// 对不存在的路径保留未规范化文本，`C:\ws\..\evil.txt` 会被 `starts_with(C:\ws)`
+/// 判成"工作区内"（组件比较只看前缀），而 Win32 打开文件时把 `..` 消解到工作区外，
+/// 于是 `apply_patch`/`write_file` 能在工作区外落盘。必须先消解 `..` 再比较。
+pub(crate) fn canonical_candidate(path: &Path) -> PathBuf {
+    let components: Vec<std::path::Component> = path.components().collect();
+    for split in (1..=components.len()).rev() {
+        let mut base = PathBuf::new();
+        for component in &components[..split] {
+            base.push(component.as_os_str());
+        }
+        if !base.exists() {
+            continue;
+        }
+        if let Ok(canonical) = base.canonicalize() {
+            let mut result = strip_verbatim_prefix(&canonical);
+            for component in &components[split..] {
+                match component {
+                    std::path::Component::ParentDir => {
+                        result.pop();
+                    }
+                    std::path::Component::CurDir => {}
+                    other => result.push(other.as_os_str()),
+                }
+            }
+            return result;
+        }
+    }
+    // 连一个存在前缀都没有（如工作区尚不存在）：纯词法消解 `..` 兜底。
+    lexical_normalize(path)
+}
+
+fn lexical_normalize(path: &Path) -> PathBuf {
+    let mut result = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::ParentDir => {
+                result.pop();
+            }
+            std::path::Component::CurDir => {}
+            other => result.push(other.as_os_str()),
+        }
+    }
+    result
+}
+
 /// 以会话工作区为基座解析相对路径，并做策略工作区越界检查。
 pub(crate) fn resolve_session_path(ctx: &ToolContext, path: &str) -> Result<PathBuf, String> {
     let base = ctx
@@ -63,7 +112,7 @@ pub(crate) fn resolve_session_path(ctx: &ToolContext, path: &str) -> Result<Path
     } else {
         base.join(path)
     };
-    let candidate = candidate.canonicalize().unwrap_or(candidate);
+    let candidate = canonical_candidate(&candidate);
     // 越界边界取**本会话的工作区**，不是 `Policy` 的工作区。
     //
     // 两者的来源不同：`ctx.workspace` 来自 `session.workspace`（每个会话都可以在 UI

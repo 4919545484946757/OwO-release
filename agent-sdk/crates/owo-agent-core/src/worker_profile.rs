@@ -67,6 +67,9 @@ pub struct WorkerProfile {
     /// Host-enforced timeout for the task's registered behavior command.
     #[serde(default)]
     pub verification_timeout_ms: Option<u64>,
+    /// 模板声明了但被画像能力面剔除的工具名（诊断：声明与实际工具面不一致时可见）。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub declared_tools_dropped: Vec<String>,
 }
 
 impl WorkerProfile {
@@ -114,6 +117,9 @@ impl WorkerProfile {
             .iter()
             .map(|path| path.trim().replace('\\', "/"))
             .collect();
+        // 用户自定义工作流：模板声明的角色工具面作为**上界**收窄（空 = 不声明）。
+        // 被剔除的声明不静默消失：记在画像里供诊断/测试断言。
+        profile.declared_tools_dropped = profile.apply_declared_tools(&spec.tools);
         profile
     }
 
@@ -214,6 +220,7 @@ impl WorkerProfile {
                 can_use_browser: true,
                 can_run_command: false,
                 verification_timeout_ms: None,
+                declared_tools_dropped: Vec::new(),
             }
         } else if is_implementer {
             Self {
@@ -236,6 +243,7 @@ impl WorkerProfile {
                 can_use_browser: false,
                 can_run_command: true,
                 verification_timeout_ms: None,
+                declared_tools_dropped: Vec::new(),
             }
         } else {
             Self {
@@ -249,6 +257,7 @@ impl WorkerProfile {
                 can_use_browser: false,
                 can_run_command: false,
                 verification_timeout_ms: None,
+                declared_tools_dropped: Vec::new(),
             }
         }
     }
@@ -478,6 +487,59 @@ impl WorkerProfile {
             .collect()
     }
 
+    /// 应用模板声明的角色工具面（用户自定义工作流）——**只收窄，不放宽**。
+    ///
+    /// - `declared` 为空：不声明，保持画像缺省工具面（返回值空）；
+    /// - 否则实际可见面 = `declared ∩ 画像本可暴露的面`：只读评审角色即使声明
+    ///   `run_command` 也拿不到；不在能力面内的声明被剔除并**返回**（调用方/测试可断言，
+    ///   运行期记入 [`Self::declared_tools_dropped`]）；
+    /// - 全部声明都不在能力面内时，可见面置为"无任务工具"哨兵：宁可什么都不给，
+    ///   也不退回"不过滤"（那会凭空放大权限）。
+    pub fn apply_declared_tools(&mut self, declared: &[String]) -> Vec<String> {
+        if declared.is_empty() {
+            return Vec::new();
+        }
+        let surface = self.base_registry_names();
+        let mut kept: Vec<String> = Vec::new();
+        let mut dropped: Vec<String> = Vec::new();
+        for tool in declared {
+            let tool = tool.trim();
+            if tool.is_empty() {
+                continue;
+            }
+            if surface.iter().any(|name| name == tool) {
+                if !kept.iter().any(|name| name == tool) {
+                    kept.push(tool.to_string());
+                }
+            } else if !dropped.iter().any(|name| name == tool) {
+                dropped.push(tool.to_string());
+            }
+        }
+        self.visible_tools = if kept.is_empty() {
+            vec!["__owo_no_task_tool__".to_string()]
+        } else {
+            kept
+        };
+        dropped
+    }
+
+    /// 画像在**未按 `visible_tools` 裁剪**时能暴露的工具名（能力面上界）。
+    fn base_registry_names(&self) -> Vec<String> {
+        let mut registry = ToolRegistry::empty();
+        registry.register_file_read_tools();
+        if !self.read_only {
+            registry.register_whitelist_write_file(Vec::new());
+            registry.register_whitelist_apply_patch(Vec::new());
+        }
+        if self.can_run_command {
+            registry.register_run_command();
+        }
+        if self.can_use_browser {
+            registry.register_browser_tools();
+        }
+        registry.specs().into_iter().map(|spec| spec.name).collect()
+    }
+
     /// 按画像装配工具注册表：注册表面即权限边界。
     ///
     /// - `write_allowed`：最终写白名单（角色 ∩ 团队绑定，见 [`intersect_paths`]；
@@ -643,6 +705,72 @@ pub use runner::{ProfileSubagentRunError, ProfileSubagentRunReport, ProfileSubag
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn declared_tools_narrow_the_face_but_never_widen_it() {
+        use crate::workswarm::RoleSpec;
+
+        // 写角色：声明 read_file + write_file + run_command 之外的未知工具 → 只保留能力面内的。
+        let mut writer = WorkerProfile::for_team_role("impl", &[], 4, true, false);
+        let dropped = writer.apply_declared_tools(&[
+            "read_file".to_string(),
+            "write_file".to_string(),
+            "web_search".to_string(),
+        ]);
+        assert!(writer.visible_tools.iter().any(|tool| tool == "read_file"));
+        assert!(writer.visible_tools.iter().any(|tool| tool == "write_file"));
+        assert_eq!(
+            dropped,
+            vec!["web_search".to_string()],
+            "能力面外声明应被剔除并报出"
+        );
+
+        // 只读评审角色：声明 run_command/write_file 也拿不到（只收窄不放宽）。
+        let mut reviewer =
+            WorkerProfile::for_team_role("reviewer", &["review".to_string()], 4, false, false);
+        let dropped = reviewer.apply_declared_tools(&[
+            "read_file".to_string(),
+            "run_command".to_string(),
+            "write_file".to_string(),
+        ]);
+        assert_eq!(reviewer.visible_tools, vec!["read_file".to_string()]);
+        assert!(dropped.contains(&"run_command".to_string()), "{dropped:?}");
+        assert!(dropped.contains(&"write_file".to_string()), "{dropped:?}");
+
+        // 声明全部不在能力面内 → 无任务工具哨兵（不退回"不过滤"）。
+        let mut hopeless =
+            WorkerProfile::for_team_role("reviewer", &["review".to_string()], 4, false, false);
+        let dropped = hopeless.apply_declared_tools(&["run_command".to_string()]);
+        assert_eq!(
+            hopeless.visible_tools,
+            vec!["__owo_no_task_tool__".to_string()]
+        );
+        assert_eq!(dropped, vec!["run_command".to_string()]);
+
+        // 空声明 = 不声明，画像不变。
+        let mut untouched = WorkerProfile::for_team_role("impl", &[], 4, true, false);
+        let before = untouched.visible_tools.clone();
+        assert!(untouched.apply_declared_tools(&[]).is_empty());
+        assert_eq!(untouched.visible_tools, before);
+
+        // RoleSpec 路径：声明通过 for_team_role_spec 落到画像，并记录剔除项。
+        let mut spec = RoleSpec::agent("impl");
+        spec.tools = vec!["read_file".to_string(), "run_command".to_string()];
+        let profile = WorkerProfile::for_team_role_spec(&spec, 4, false, None);
+        assert!(profile.visible_tools.iter().any(|tool| tool == "read_file"));
+        assert!(
+            !profile
+                .visible_tools
+                .iter()
+                .any(|tool| tool == "run_command"),
+            "普通写角色默认无命令能力，声明 run_command 不得凭空放权：{:?}",
+            profile.visible_tools
+        );
+        assert_eq!(
+            profile.declared_tools_dropped,
+            vec!["run_command".to_string()]
+        );
+    }
+
     use super::*;
 
     fn tool_names(registry: &ToolRegistry) -> Vec<String> {
@@ -1112,6 +1240,7 @@ mod tests {
             can_use_browser: false,
             can_run_command: false,
             verification_timeout_ms: None,
+            declared_tools_dropped: Vec::new(),
         };
         assert!(empty.prompt_guard_lines()[0].contains("未声明"));
     }

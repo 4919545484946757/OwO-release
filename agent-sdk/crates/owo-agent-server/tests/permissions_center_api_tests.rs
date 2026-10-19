@@ -170,6 +170,14 @@ async fn legacy_destructive_grant_is_visible_but_marked_inactive() {
 #[tokio::test]
 async fn approval_actions_persist_only_read_grants_and_keep_inject_one_shot() {
     let (state, temp) = test_state().await;
+    // 契约前置：审批响应会按 session_id 取会话工作区来绑定 Grant（§5.4）；这里必须
+    // 先落一个真实会话，否则 `load_session` 直接 404，这条契约测试只会空转（实测：
+    // 未建会话时首个断言就是 404，后面的 Grant 语义一条都没被验证）。
+    {
+        let mut session = owo_agent_core::Session::new(&state.workspace, "mock", None);
+        session.id = "session-p3".to_string();
+        state.store.save(&session).unwrap();
+    }
     for (scope, allow, expected_grant_scope) in [
         (Some("once"), true, None),
         (Some("task"), true, Some("task")),

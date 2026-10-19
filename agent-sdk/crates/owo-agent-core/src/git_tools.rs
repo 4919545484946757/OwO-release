@@ -21,13 +21,23 @@ const LOG_MAX_CHARS: usize = 10_000;
 const STATUS_MAX_CHARS: usize = 10_000;
 
 fn truncate_chars(text: &str, max: usize) -> String {
-    if text.chars().count() <= max {
-        return text.to_string();
+    bounded_text(text, max).0
+}
+
+/// 截断并返回 `(文本, 是否截断, 原字符数)`。
+///
+/// 机器可读的 `truncated` 很关键：只把提示写进正文时，模型（和评测的完成度判定）
+/// 无法可靠区分"改动就这么大"和"被截断了"——本仓库其它读取类工具都返回该字段。
+fn bounded_text(text: &str, max: usize) -> (String, bool, usize) {
+    let total = text.chars().count();
+    if total <= max {
+        return (text.to_string(), false, total);
     }
     let head: String = text.chars().take(max).collect();
-    format!(
-        "{head}\n\n[输出已截断（原 {} 字符）。可用更细的过滤参数分次查看]",
-        text.chars().count()
+    (
+        format!("{head}\n\n[输出已截断（原 {total} 字符）。可用更细的过滤参数分次查看]"),
+        true,
+        total,
     )
 }
 
@@ -71,22 +81,36 @@ async fn git_status_impl(workspace: &Path, args: Value) -> Result<Value, String>
     }
     let stdout = run_git(workspace, &command, 20).await?;
     let lines: Vec<&str> = stdout.lines().collect();
+    let (status, truncated, total_chars) = bounded_text(&stdout, STATUS_MAX_CHARS);
     Ok(json!({
         "branch": lines.first().copied().unwrap_or_default().strip_prefix("## ").unwrap_or_default(),
         "changes": lines.len().saturating_sub(1),
-        "status": truncate_chars(&stdout, STATUS_MAX_CHARS),
+        "status": status,
+        "truncated": truncated,
+        "total_chars": total_chars,
     }))
 }
 
 async fn git_diff_impl(workspace: &Path, args: Value) -> Result<Value, String> {
     let staged = args.get("staged").and_then(Value::as_bool).unwrap_or(false);
+    // `stat_only`：改动很大时先看"改了哪些文件、各多少行"，再决定是否读补丁。
+    // 只读一次 diff 全文在很多仓库里就是几十万字符，先看 --stat 是标准工作流。
+    let stat_only = args
+        .get("stat_only")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let context_lines = args
         .get("context_lines")
         .and_then(Value::as_u64)
         .unwrap_or(3)
         .clamp(0, 10);
     let path = args.get("path").and_then(Value::as_str);
-    let mut command = vec!["diff".to_string(), format!("-U{context_lines}")];
+    let mut command = vec!["diff".to_string()];
+    if stat_only {
+        command.push("--stat".to_string());
+    } else {
+        command.push(format!("-U{context_lines}"));
+    }
     if staged {
         command.push("--cached".to_string());
     }
@@ -99,14 +123,39 @@ async fn git_diff_impl(workspace: &Path, args: Value) -> Result<Value, String> {
     if stdout.trim().is_empty() {
         return Ok(json!({
             "empty": true,
+            "staged": staged,
             "diff": "",
+            "stat": "",
+            "truncated": false,
+            "total_chars": 0,
             "hint": if staged { "暂存区无改动（staged）。工作区改动用 staged=false 查看" } else { "工作区相对 HEAD 无未暂存改动" },
+        }));
+    }
+    let (body, truncated, total_chars) = bounded_text(&stdout, DIFF_MAX_CHARS);
+    if stat_only {
+        let files = stdout.lines().filter(|line| line.contains('|')).count();
+        return Ok(json!({
+            "empty": false,
+            "staged": staged,
+            "stat": body,
+            "files": files,
+            "patch_omitted": true,
+            "truncated": truncated,
+            "total_chars": total_chars,
+            "hint": "这是 --stat 概览；要看具体补丁用 stat_only=false，并可用 path 过滤单文件",
         }));
     }
     Ok(json!({
         "empty": false,
         "staged": staged,
-        "diff": truncate_chars(&stdout, DIFF_MAX_CHARS),
+        "diff": body,
+        "truncated": truncated,
+        "total_chars": total_chars,
+        "hint": if truncated {
+            "补丁被截断：用 path 过滤单文件，或调小 context_lines 分次查看"
+        } else {
+            ""
+        },
     }))
 }
 
@@ -126,9 +175,12 @@ async fn git_log_impl(workspace: &Path, args: Value) -> Result<Value, String> {
         command.push(&path_owned);
     }
     let stdout = run_git(workspace, &command, 20).await?;
+    let (log, truncated, total_chars) = bounded_text(&stdout, LOG_MAX_CHARS);
     Ok(json!({
         "commits": stdout.lines().count(),
-        "log": truncate_chars(&stdout, LOG_MAX_CHARS),
+        "log": log,
+        "truncated": truncated,
+        "total_chars": total_chars,
     }))
 }
 
@@ -182,14 +234,16 @@ readonly_git_tool!(
 readonly_git_tool!(
     GitDiffTool,
     "git_diff",
-    "查看未提交改动的 diff（工作区 vs HEAD；staged=true 看暂存区 vs HEAD）。可按文件过滤。只读、免审批。",
+    "查看未提交改动的 diff（工作区 vs HEAD；staged=true 看暂存区 vs HEAD）。可按文件过滤；\
+     改动大时先用 stat_only=true 看 --stat 概览。只读、免审批。",
     git_diff_impl,
     json!({
         "type": "object",
         "properties": {
             "staged": { "type": "boolean", "description": "查看暂存区改动（默认 false = 工作区）" },
             "path": { "type": "string", "description": "仅查看该文件的改动" },
-            "context_lines": { "type": "integer", "description": "上下文行数（默认 3，最大 10）" }
+            "context_lines": { "type": "integer", "description": "上下文行数（默认 3，最大 10）" },
+            "stat_only": { "type": "boolean", "description": "只看 --stat 概览（改了哪些文件各多少行），默认 false 返回完整补丁" }
         }
     })
 );
@@ -285,9 +339,23 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(diff["empty"], false);
+        assert_eq!(diff["truncated"], false, "小改动不应报截断：{diff}");
         let body = diff["diff"].as_str().unwrap();
         assert!(body.contains("+line-2 改"), "{body}");
         assert!(body.contains("-line-2"), "{body}");
+
+        // stat_only：只给 --stat 概览，不返回补丁正文。
+        let stat = git_diff_impl(&workspace, json!({ "stat_only": true }))
+            .await
+            .unwrap();
+        assert_eq!(stat["patch_omitted"], true, "{stat}");
+        assert_eq!(stat["files"], 1, "应统计到 1 个改动文件：{stat}");
+        let stat_text = stat["stat"].as_str().unwrap();
+        assert!(stat_text.contains("a.txt"), "{stat_text}");
+        assert!(
+            !stat_text.contains("+line-2 改"),
+            "stat 模式不应包含补丁正文：{stat_text}"
+        );
 
         // staged=true：未暂存时提示。
         let staged = git_diff_impl(&workspace, json!({ "staged": true }))
@@ -295,6 +363,46 @@ mod tests {
             .unwrap();
         assert_eq!(staged["empty"], true);
         assert!(staged["hint"].as_str().unwrap().contains("暂存"));
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    #[tokio::test]
+    async fn git_diff_reports_truncation_with_continuation_hint() {
+        if !git_available() {
+            println!("跳过：环境无 git");
+            return;
+        }
+        let workspace = init_repo("diff-truncate").await;
+        // 制造超过 DIFF_MAX_CHARS(20k) 的补丁：单文件 1200 行改写。
+        let big: String = (0..1200)
+            .map(|index| format!("line-{index}-changed-long-content\n"))
+            .collect();
+        std::fs::write(workspace.join("a.txt"), big).unwrap();
+        let diff = git_diff_impl(&workspace, json!({ "path": "a.txt" }))
+            .await
+            .unwrap();
+        assert_eq!(
+            diff["truncated"], true,
+            "超过 20k 字符的补丁必须机器可读地标记截断：{}",
+            diff["total_chars"]
+        );
+        assert!(
+            diff["total_chars"].as_u64().unwrap_or(0) > 20_000,
+            "total_chars 应给出真实原始长度：{diff}"
+        );
+        let hint = diff["hint"].as_str().unwrap_or_default();
+        assert!(
+            hint.contains("path") || hint.contains("context_lines"),
+            "{hint}"
+        );
+        // 续读路径：按文件过滤 + 更小上下文后可以拿到未截断的补丁头部。
+        let scoped = git_diff_impl(&workspace, json!({ "path": "a.txt", "context_lines": 0 }))
+            .await
+            .unwrap();
+        assert!(
+            scoped["diff"].as_str().unwrap().contains("line-0"),
+            "{scoped}"
+        );
         let _ = std::fs::remove_dir_all(&workspace);
     }
 

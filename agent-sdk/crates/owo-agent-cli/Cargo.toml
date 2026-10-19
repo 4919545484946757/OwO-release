@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 owo-agent-core.workspace = true
+base64.workspace = true
 # `owo-agent product-eval` 子命令的评测面经门面引入（core 自身不持有评测面，见
 # crates/owo-agent-eval-facade/Cargo.toml 的环依赖说明）。
 owo-agent-eval-facade.workspace = true

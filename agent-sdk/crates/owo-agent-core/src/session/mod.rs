@@ -1,9 +1,11 @@
+mod goal;
 mod model;
 mod store;
 
 #[cfg(test)]
 mod tests;
 
+pub use goal::*;
 pub use model::*;
 pub use store::*;
 
