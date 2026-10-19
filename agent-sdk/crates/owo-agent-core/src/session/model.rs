@@ -112,6 +112,9 @@ pub struct Session {
     /// 会话级任务清单（`todo` 工具维护；整表替换语义）。
     #[serde(default)]
     pub todos: Vec<TodoItem>,
+    /// 会话级目标模式状态（`/goal`）；状态与迁移见 [`super::goal`]。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub goal: Option<super::SessionGoal>,
 }
 
 /// 任务清单条目（`todo` 工具写入，CLI `/todo` 渲染）。
@@ -156,6 +159,7 @@ impl Session {
             pinned: false,
             model_override: None,
             todos: Vec::new(),
+            goal: None,
         }
     }
 
@@ -553,6 +557,8 @@ impl Session {
             model_override: self.model_override.clone(),
             // 任务清单随 fork 继承（继续同一任务）。
             todos: self.todos.clone(),
+            // 分支继承父会话的当前目标与进度（继续推进同一目标）。
+            goal: self.goal.clone(),
         }
     }
 

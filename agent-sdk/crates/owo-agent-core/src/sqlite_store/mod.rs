@@ -198,8 +198,8 @@ impl SqliteSessionStore {
                  redo_json, message_redo_json, title, archived, pinned, model_override,
                  validation_receipts_json, single_verification_plan_json,
                  single_verification_plan_input_sha256, single_verification_plan_turn_id,
-                 single_review_issues_json, completion_record_json
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)
+                 single_review_issues_json, completion_record_json, goal_json
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
              ON CONFLICT(id) DO UPDATE SET
                  workspace=excluded.workspace,
                  model=excluded.model,
@@ -221,7 +221,8 @@ impl SqliteSessionStore {
                  single_verification_plan_input_sha256=excluded.single_verification_plan_input_sha256,
                  single_verification_plan_turn_id=excluded.single_verification_plan_turn_id,
                  single_review_issues_json=excluded.single_review_issues_json,
-                 completion_record_json=excluded.completion_record_json",
+                 completion_record_json=excluded.completion_record_json,
+                 goal_json=excluded.goal_json",
             params![
                 session.id,
                 session.workspace.to_string_lossy(),
@@ -246,6 +247,7 @@ impl SqliteSessionStore {
                 session.single_verification_plan_turn_id,
                 serde_json::to_string(&session.single_review_issues).map_err(json_error)?,
                 session.completion_record.as_ref().map(serde_json::to_string).transpose().map_err(json_error)?,
+                session.goal.as_ref().map(serde_json::to_string).transpose().map_err(json_error)?,
             ],
         )
         .map_err(sqlite_error)?;
@@ -260,7 +262,7 @@ impl SqliteSessionStore {
                         redo_json, message_redo_json, title, archived, pinned, model_override,
                         validation_receipts_json, single_verification_plan_json,
                         single_verification_plan_input_sha256, single_verification_plan_turn_id,
-                        single_review_issues_json, completion_record_json
+                        single_review_issues_json, completion_record_json, goal_json
                  FROM sessions WHERE id = ?1",
                 [id],
                 |row| {
@@ -288,6 +290,7 @@ impl SqliteSessionStore {
                         row.get::<_, Option<String>>(20)?,
                         row.get::<_, String>(21)?,
                         row.get::<_, Option<String>>(22)?,
+                        row.get::<_, Option<String>>(23)?,
                     ))
                 },
             )
@@ -336,6 +339,13 @@ impl SqliteSessionStore {
             model_override: row.16,
             // 任务清单暂不落库（会话内存态）；需要跨重启保留时再补列迁移。
             todos: Vec::new(),
+            // 目标模式状态落库（migration v10）：重开进程 /resume 后目标与进度不丢。
+            goal: row
+                .23
+                .as_deref()
+                .map(serde_json::from_str)
+                .transpose()
+                .map_err(json_error)?,
         })
     }
 }
@@ -945,6 +955,45 @@ mod tests {
         let _ = std::fs::remove_file(format!("{}-shm", path.display()));
     }
 
+    /// 目标模式状态（migration v10）往返：持久化后重开库仍在，旧库旧行按 None 加载。
+    #[test]
+    fn goal_roundtrip_survives_reopen_and_legacy_rows() {
+        let path =
+            std::env::temp_dir().join(format!("owo-sqlite-goal-{}.db", uuid::Uuid::new_v4()));
+        let store = SqliteSessionStore::open(&path).unwrap();
+        let mut session = store.create(Path::new("."), "mock", None).unwrap();
+        assert!(session.goal.is_none(), "新会话默认无目标");
+
+        session.set_goal("把目标持久化到会话");
+        session.advance_goal();
+        store.save(&session).unwrap();
+        drop(store);
+
+        let reopened = SqliteSessionStore::open(&path).unwrap();
+        let loaded = reopened.load(&session.id).unwrap();
+        let goal = loaded.goal.as_ref().expect("目标应随会话落库");
+        assert_eq!(goal.objective, "把目标持久化到会话");
+        assert_eq!(goal.iterations, 1);
+        assert!(!goal.done);
+
+        // 完成后再次往返：done 与轮次都保留。
+        let mut loaded = loaded;
+        loaded.complete_goal();
+        reopened.save(&loaded).unwrap();
+        let after = reopened.load(&session.id).unwrap();
+        assert!(after.goal.as_ref().unwrap().done);
+
+        // 清除后落 NULL：重开库不复活旧目标。
+        let mut cleared = after;
+        cleared.clear_goal();
+        reopened.save(&cleared).unwrap();
+        assert!(reopened.load(&session.id).unwrap().goal.is_none());
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(format!("{}-wal", path.display()));
+        let _ = std::fs::remove_file(format!("{}-shm", path.display()));
+    }
+
     /// M4.2：`model_override` 列往返（含重开库）；覆盖不改变展示模型。
     #[test]
     fn model_override_roundtrip_survives_reopen() {
@@ -999,20 +1048,20 @@ mod tests {
         let path =
             std::env::temp_dir().join(format!("owo-sqlite-migrate-{}.db", uuid::Uuid::new_v4()));
         let store = SqliteSessionStore::open(&path).unwrap();
-        assert_eq!(store.migration_status().schema_version, 9);
+        assert_eq!(store.migration_status().schema_version, 10);
         assert!(store.migration_status().pending.is_empty());
         assert!(!store.is_read_only());
         drop(store);
         // 再次打开：无新迁移应用，schema_version 保持。
         let reopened = SqliteSessionStore::open(&path).unwrap();
-        assert_eq!(reopened.migration_status().schema_version, 9);
+        assert_eq!(reopened.migration_status().schema_version, 10);
         assert!(reopened.migration_status().applied.is_empty());
         assert!(!reopened.is_read_only());
         let conn = Connection::open(&path).unwrap();
         let version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 9);
+        assert_eq!(version, 10);
         let _ = std::fs::remove_file(&path);
         let _ = std::fs::remove_file(format!("{}-wal", path.display()));
         let _ = std::fs::remove_file(format!("{}-shm", path.display()));
@@ -1054,6 +1103,7 @@ mod tests {
                 "v7: session VerificationPlan 回合身份绑定",
                 "v8: session Single review issues 持久化",
                 "v9: session Single completion record 持久化",
+                "v10: session 目标模式状态持久化（/goal）",
             ]
         );
         let mut session = store.create(Path::new("."), "mock", None).unwrap();

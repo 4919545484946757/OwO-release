@@ -373,25 +373,49 @@ impl PermissionSpec {
     }
 }
 
-/// 把一次权限请求归到 §4.5.3 的维度；归不进去（UI 注入类）返回 `None`，
-/// 由既有档位/审批链处理——本模块不接管第四类动作。
+/// 把一次权限请求归到 §4.5.3 的维度；归不进去（UI 注入 / 编排 / 提问类）返回
+/// `None`，由既有档位/审批链处理——本模块不接管第四类动作。
+///
+/// 覆盖范围必须与内置工具注册表同步：所有会碰文件、命令、网络的内置工具都要
+/// 归到对应维度，否则 `spec{filesystem=workspace_read}` 这类"只读承诺"会被
+/// `edit_file` / `apply_patch` / `web_fetch` 绕过（审查 N7）。
+/// 编排类（`explore` / `subagent` / `fan_out_subagents`）与交互类（`todo` /
+/// `ask_user` / `use_skill` / `verification_plan`）不在这里收敛：它们各自有
+/// 子会话策略/审批链，且拆分子会话维度会重复计权。
 pub fn dimension_of(request: &PermissionRequest) -> Option<&'static str> {
     let tool = request.tool.as_str();
     if tool.starts_with("browser_")
+        || tool.starts_with("http_")
         || matches!(
             tool,
-            "web_search" | "http_get" | "http_post" | "fetch_url" | "download_file"
+            "web_fetch" | "web_search" | "http_get" | "http_post" | "fetch_url" | "download_file"
         )
     {
         return Some("network");
     }
-    if tool == "run_command" || tool.starts_with("shell.") || tool.starts_with("command:") {
+    if matches!(tool, "run_command" | "shell_output" | "kill_shell")
+        || tool.starts_with("shell.")
+        || tool.starts_with("command:")
+    {
         return Some("command");
     }
     if matches!(
         tool,
-        "read_file" | "write_file" | "list_dir" | "search_files" | "delete_file" | "move_file"
-    ) {
+        "read_file"
+            | "write_file"
+            | "edit_file"
+            | "multi_edit"
+            | "apply_patch"
+            | "list_dir"
+            | "search_files"
+            | "grep"
+            | "find_symbol"
+            | "read_artifact"
+            | "read_image"
+            | "delete_file"
+            | "move_file"
+    ) || tool.starts_with("git_")
+    {
         return Some("filesystem");
     }
     None
@@ -506,6 +530,58 @@ mod tests {
         assert_eq!(
             readonly_fs.extra_denial(&request("write_file", Level::Write)),
             Some(Decision::Deny)
+        );
+    }
+
+    #[test]
+    fn extra_denial_covers_edit_patch_network_and_command_surface() {
+        // 审查 N7：edit_file / multi_edit / apply_patch 必须归入 filesystem，
+        // web_fetch 必须归入 network；否则"只读/数据不出境"承诺会被绕过。
+        let readonly_fs = spec(
+            FilesystemScope::WorkspaceRead,
+            RuleScope::Unrestricted,
+            RuleScope::Unrestricted,
+        );
+        for tool in ["edit_file", "multi_edit", "apply_patch"] {
+            assert_eq!(
+                readonly_fs.extra_denial(&request(tool, Level::Write)),
+                Some(Decision::Deny),
+                "{tool} 属于 filesystem 写，只读档必须拒绝"
+            );
+        }
+        let denied_network = spec(
+            FilesystemScope::WorkspaceWrite,
+            RuleScope::Unrestricted,
+            RuleScope::Deny,
+        );
+        assert_eq!(
+            denied_network.extra_denial(&request("web_fetch", Level::Execute)),
+            Some(Decision::Deny),
+            "web_fetch 属于 network，网络 Deny 必须拒绝"
+        );
+        let denied_command = spec(
+            FilesystemScope::WorkspaceWrite,
+            RuleScope::Deny,
+            RuleScope::Unrestricted,
+        );
+        for tool in ["kill_shell", "shell_output"] {
+            assert_eq!(
+                denied_command.extra_denial(&request(tool, Level::Read)),
+                Some(Decision::Deny),
+                "{tool} 属于 command，命令 Deny 必须拒绝"
+            );
+        }
+        assert_eq!(
+            dimension_of(&request("grep", Level::Read)),
+            Some("filesystem")
+        );
+        assert_eq!(
+            dimension_of(&request("git_status", Level::Read)),
+            Some("filesystem")
+        );
+        assert_eq!(
+            dimension_of(&request("read_image", Level::Read)),
+            Some("filesystem")
         );
     }
 

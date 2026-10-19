@@ -4,7 +4,7 @@
 //! 会话/回合/权限/工具/审计全部由 Daemon 持有，CLI 只消费事件流。这是"唯一运行时"
 //! 在交互路径上的第一步；`--local` 保留旧实现用于命令迁移期的功能对照。
 //!
-//! 已迁移命令：help/exit/new/sessions/resume/model/diff/undo/revert/rewind/redo/fork/
+//! 已迁移命令：help/exit/new/sessions/symbols/resume/model/diff/hunks/undo/revert/rewind/redo/fork/
 //! rename/archive/pin/abort/status/audit/skills/permissions/settings/traces/plan/build/clear。
 //! 其余命令在 daemon 模式下给出明确提示（`--local` 使用旧 REPL）。
 
@@ -20,8 +20,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 #[path = "repl_daemon/team.rs"]
-mod team;
-use team::*;
+pub(crate) mod team;
+pub(crate) use team::*;
 
 const GRANT_REVOKE_PATH: &str = "/permissions/grants/revoke";
 
@@ -55,6 +55,7 @@ pub(crate) async fn run(
             || matches!(permissions, crate::ui_output::PermissionsProfile::Trusted),
         abort: Arc::new(AtomicBool::new(false)),
         goal: None,
+        hinted_goal: None,
         team_id: None,
     };
     println!(
@@ -83,6 +84,8 @@ struct DaemonRepl {
     no_approval: bool,
     abort: Arc<AtomicBool>,
     goal: Option<crate::support::GoalState>,
+    /// 已提示过的"模型登记目标"（同一目标只提示一次）。
+    hinted_goal: Option<String>,
     /// 当前团队（`/team` 目标；status/steer/diff 缺省作用于它）。
     team_id: Option<String>,
 }
@@ -194,6 +197,10 @@ impl DaemonRepl {
                 println!("{}", "已切换到 build 模式".green());
             }
             "diff" => self.show_diff().await?,
+            // 逐 hunk 审阅（服务端 /hunks 与 /hunks/apply；与 CLI `review --session` 同源）。
+            "hunks" => self.handle_hunks(parts).await?,
+            // 符号级检索（服务端 /symbols；与 find_symbol 工具、CLI `symbols` 同内核）。
+            "symbols" => self.handle_symbols(parts).await?,
             "undo" | "revert" => self.revert().await?,
             "rewind" => {
                 let keep = parts.next().ok_or("用法：/rewind <保留消息数>")?;
@@ -212,6 +219,7 @@ impl DaemonRepl {
                 println!("已请求中止当前回合");
             }
             "status" => self.show_status(),
+            "trust" => self.handle_trust(parts.next()).await?,
             "audit" => self.print_json("审计", "/audit").await,
             "skills" => match parts.next() {
                 Some("health") => self.print_json("技能健康", "/skills/health").await,
@@ -319,6 +327,8 @@ impl DaemonRepl {
             .await?;
         println!("{} {}", "新会话：".green(), session.id);
         self.session = Some(session.id);
+        // 新会话没有目标（旧目标不跨会话残留）。
+        self.goal = None;
         Ok(())
     }
 
@@ -347,7 +357,33 @@ impl DaemonRepl {
         self.workspace = workspace;
         self.model = Some(session.model);
         self.session = Some(session.id);
+        // 目标状态随会话落库（migration v10）：恢复后不丢目标与已推进轮次。
+        self.goal = session.goal.map(|goal| crate::support::GoalState {
+            objective: goal.objective,
+            iterations: goal.iterations,
+            done: goal.done,
+        });
+        if let Some(goal) = self.goal.as_ref() {
+            println!(
+                "{} {}（{}/{}，{}）",
+                "已恢复目标：".yellow(),
+                goal.objective,
+                goal.iterations,
+                crate::support::goal_iteration_label(crate::support::goal_max_iterations()),
+                if goal.done { "已完成" } else { "推进中" }
+            );
+        }
         Ok(())
+    }
+
+    /// 目标状态写入会话（daemon 为权威）：失败只告警，不打断本地目标循环。
+    async fn persist_goal(&self, action: &str, objective: Option<&str>) {
+        let Some(id) = self.session.clone() else {
+            return;
+        };
+        if let Err(error) = self.client.session_goal(&id, action, objective).await {
+            eprintln!("（目标状态未写入会话：{error}）");
+        }
     }
 
     async fn current_session(&mut self) -> Result<String, Box<dyn std::error::Error>> {
@@ -400,6 +436,12 @@ impl DaemonRepl {
         let child = self.client.session_fork(&id, index).await?;
         println!("{} {}", "子会话：".green(), child.id);
         self.session = Some(child.id);
+        // 分支继承父目标（core fork 语义）；本地状态与之一致。
+        self.goal = child.goal.map(|goal| crate::support::GoalState {
+            objective: goal.objective,
+            iterations: goal.iterations,
+            done: goal.done,
+        });
         Ok(())
     }
 
@@ -623,8 +665,256 @@ impl DaemonRepl {
         );
     }
 
+    /// `/trust [status|grant|revoke]`：查看/切换工作区信任（审查 N1）。
+    ///
+    /// 未信任的工作区不会加载 hooks / 插件 MCP / 权限放宽 / 白名单（受限模式）。
+    /// 授予是**显式用户动作**，与桌面端信任按钮、`owo-agent trust` 子命令、
+    /// `GET/POST /workspace/trust` 共用数据根里的同一份记录。
+    async fn handle_trust(&self, action: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
+        let status = match action.unwrap_or("status") {
+            "status" => self.client.workspace_trust().await?,
+            "grant" | "trust" => self.client.set_workspace_trust(true).await?,
+            "revoke" => self.client.set_workspace_trust(false).await?,
+            other => {
+                println!("未知子命令：{other}（用法：/trust [status|grant|revoke]）");
+                return Ok(());
+            }
+        };
+        let trusted = status
+            .get("trusted")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+        let gated = status
+            .get("gated")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+        println!(
+            "工作区：{}",
+            status
+                .get("workspace")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("-")
+        );
+        if trusted {
+            println!("信任：{}", "已信任".green());
+        } else if gated {
+            println!("信任：{}", "未信任（受限模式）".yellow());
+        } else {
+            println!("信任：未信任（该工作区没有会自动执行的配置，无需确认）");
+        }
+        if let Some(reasons) = status.get("reasons").and_then(serde_json::Value::as_array) {
+            for reason in reasons {
+                if let Some(text) = reason.as_str() {
+                    println!("  - {text}");
+                }
+            }
+        }
+        if status
+            .get("changed")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false)
+        {
+            println!(
+                "{}",
+                "注意：配置内容已变化，需要重新确认（/trust grant）".yellow()
+            );
+        }
+        if let Some(note) = status.get("note").and_then(serde_json::Value::as_str) {
+            if !note.is_empty() {
+                println!("{note}");
+            }
+        }
+        Ok(())
+    }
+
     async fn run_turn(&mut self, prompt: &str) -> Result<(), Box<dyn std::error::Error>> {
-        self.run_turn_capture(prompt).await.map(|_| ())
+        let result = self.run_turn_capture(prompt).await?;
+        let _ = result;
+        // 模型可能经 goal_request 登记了长任务：回合结束后提示用户是否交给宿主循环。
+        self.notice_model_goal().await;
+        Ok(())
+    }
+
+    /// `/hunks [--path <文件>] [--accept <序号|all>] [--reject <序号|all>]`：
+    /// 会话内逐 hunk 审阅（服务端 `/session/{id}/hunks[/apply]`）。
+    async fn handle_hunks(
+        &mut self,
+        mut parts: std::str::SplitWhitespace<'_>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut path: Option<String> = None;
+        let mut accept: Option<String> = None;
+        let mut reject: Option<String> = None;
+        while let Some(token) = parts.next() {
+            match token {
+                "--path" | "-p" => path = parts.next().map(str::to_string),
+                "--accept" | "-a" => accept = parts.next().map(str::to_string),
+                "--reject" | "-r" => reject = parts.next().map(str::to_string),
+                other => {
+                    return Err(format!(
+                        "未知参数：{other}（用法：/hunks [--path <文件>] [--accept <序号|all>] [--reject <序号|all>]）"
+                    )
+                    .into())
+                }
+            }
+        }
+        let id = self.current_session().await?;
+        // `all` 需要先知道该文件的 hunk 数（服务端视图是唯一真相）。
+        let expand = |spec: &str,
+                      view: Option<&serde_json::Value>,
+                      path: &str|
+         -> Result<Vec<usize>, String> {
+            if spec.trim().eq_ignore_ascii_case("all") {
+                let total = view
+                    .and_then(|view| crate::support::hunk_count_for_path(view, path))
+                    .ok_or_else(|| format!("会话改动里没有该文件：{path}"))?;
+                return Ok((0..total).collect());
+            }
+            crate::support::parse_hunk_indices(spec)
+        };
+        match (path, accept, reject) {
+            (None, None, None) => {
+                let view = self
+                    .client
+                    .get_json::<serde_json::Value>(&format!("/session/{id}/hunks"))
+                    .await?;
+                println!("{}", crate::support::render_hunks_view(&id, &view));
+            }
+            (None, _, _) => {
+                return Err("应用 hunk 需要 --path（一次审阅一个文件，避免误写）".into())
+            }
+            (Some(path), Some(spec), None) => {
+                let needs_view = spec.trim().eq_ignore_ascii_case("all");
+                let view = if needs_view {
+                    Some(
+                        self.client
+                            .get_json::<serde_json::Value>(&format!("/session/{id}/hunks"))
+                            .await?,
+                    )
+                } else {
+                    None
+                };
+                let indices = expand(&spec, view.as_ref(), &path)?;
+                let applied = self
+                    .client
+                    .post_json::<_, serde_json::Value>(
+                        &format!("/session/{id}/hunks/apply"),
+                        &serde_json::json!({ "path": path, "accept": indices }),
+                    )
+                    .await?;
+                println!("{}", crate::support::render_hunks_apply(&applied));
+            }
+            (Some(path), None, Some(spec)) => {
+                let needs_view = spec.trim().eq_ignore_ascii_case("all");
+                let view = if needs_view {
+                    Some(
+                        self.client
+                            .get_json::<serde_json::Value>(&format!("/session/{id}/hunks"))
+                            .await?,
+                    )
+                } else {
+                    None
+                };
+                let indices = expand(&spec, view.as_ref(), &path)?;
+                let applied = self
+                    .client
+                    .post_json::<_, serde_json::Value>(
+                        &format!("/session/{id}/hunks/apply"),
+                        &serde_json::json!({ "path": path, "reject": indices }),
+                    )
+                    .await?;
+                println!("{}", crate::support::render_hunks_apply(&applied));
+            }
+            (Some(_), Some(_), Some(_)) => return Err("--accept 与 --reject 不能同时使用".into()),
+            (Some(_), None, None) => {
+                return Err("需要 --accept 或 --reject（只列清单时不带这两个参数）".into())
+            }
+        }
+        Ok(())
+    }
+
+    /// `/symbols <名字> [--kind <种类>] [--path <子目录>] [--max <N>]`：
+    /// 符号级检索（服务端 `/symbols`；与 `find_symbol` 工具同内核）。
+    async fn handle_symbols(
+        &mut self,
+        mut parts: std::str::SplitWhitespace<'_>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut query: Option<String> = None;
+        let mut kind: Option<String> = None;
+        let mut path: Option<String> = None;
+        let mut max_results: Option<String> = None;
+        while let Some(token) = parts.next() {
+            match token {
+                "--kind" | "-k" => kind = parts.next().map(str::to_string),
+                "--path" | "-p" => path = parts.next().map(str::to_string),
+                "--max" | "--max-results" => max_results = parts.next().map(str::to_string),
+                other => {
+                    if query.is_some() {
+                        return Err(format!(
+                            "只能给一个查询词（多余：{other}）；用法：/symbols <名字> [--kind <种类>] [--path <子目录>] [--max <N>]"
+                        )
+                        .into());
+                    }
+                    query = Some(other.to_string());
+                }
+            }
+        }
+        let query =
+            query.ok_or("用法：/symbols <名字> [--kind <种类>] [--path <子目录>] [--max <N>]")?;
+        let mut uri = format!(
+            "/symbols?query={}",
+            crate::support::encode_query_component(&query)
+        );
+        if let Some(kind) = kind.as_deref() {
+            uri.push_str(&format!(
+                "&kind={}",
+                crate::support::encode_query_component(kind)
+            ));
+        }
+        if let Some(path) = path.as_deref() {
+            uri.push_str(&format!(
+                "&path={}",
+                crate::support::encode_query_component(path)
+            ));
+        }
+        if let Some(max) = max_results.as_deref() {
+            // 非数字直接由服务端 400 报错，不在这里吞掉。
+            uri.push_str(&format!("&max_results={max}"));
+        }
+        let value = self
+            .client
+            .get_json::<serde_json::Value>(&uri)
+            .await
+            .map_err(|error| format!("符号检索失败（{error}）"))?;
+        println!("{}", crate::support::render_symbol_report(&value));
+        Ok(())
+    }
+
+    /// 模型登记的目标（origin=model）只提示一次：`/goal run` 交给宿主循环接管。
+    async fn notice_model_goal(&mut self) {
+        if self.goal.is_some() {
+            return; // 本地循环已在推进目标。
+        }
+        let Some(id) = self.session.clone() else {
+            return;
+        };
+        let Ok(session) = self.client.get_session(&id).await else {
+            return;
+        };
+        let Some(goal) = session.goal else {
+            return;
+        };
+        if goal.done || goal.origin != "model" {
+            return;
+        }
+        if self.hinted_goal.as_deref() == Some(goal.objective.as_str()) {
+            return;
+        }
+        self.hinted_goal = Some(goal.objective.clone());
+        println!(
+            "{} 模型请求接管长任务：{}\n  用 /goal run 由宿主循环推进；/goal clear 忽略",
+            "◈".yellow(),
+            goal.objective
+        );
     }
 
     /// 执行一回合并返回最终文本与宿主完成状态（`/goal` 据此闭合任务）。
@@ -753,9 +1043,7 @@ impl DaemonRepl {
 
     /// `/goal [目标|status|clear]`：目标模式——模型标记完成且宿主裁决允许交付时才停止。
     async fn handle_goal(&mut self, arg: &str) -> Result<(), Box<dyn std::error::Error>> {
-        use crate::support::{
-            goal_continue_prompt, goal_first_prompt, goal_max_iterations, GoalState,
-        };
+        use crate::support::{goal_max_iterations, GoalState};
         match arg {
             "" | "status" => {
                 match &self.goal {
@@ -772,8 +1060,41 @@ impl DaemonRepl {
             }
             "clear" | "stop" => {
                 self.goal = None;
+                self.persist_goal("clear", None).await;
                 println!("{}", "已清除目标".green());
                 Ok(())
+            }
+            "run" | "start" => {
+                // 接管已有目标（用户设定的，或模型经 goal_request 登记的）。
+                let objective = match self.goal.as_ref() {
+                    Some(goal) if !goal.done => goal.objective.clone(),
+                    _ => {
+                        let id = self.current_session().await?;
+                        match self
+                            .client
+                            .get_session(&id)
+                            .await
+                            .ok()
+                            .and_then(|session| session.goal)
+                            .filter(|goal| !goal.done)
+                        {
+                            Some(goal) => goal.objective,
+                            None => {
+                                println!(
+                                    "（没有可推进的目标；用法：/goal <目标描述>，或等模型用 goal_request 登记）"
+                                );
+                                return Ok(());
+                            }
+                        }
+                    }
+                };
+                self.goal = Some(GoalState {
+                    objective: objective.clone(),
+                    iterations: self.goal.as_ref().map(|goal| goal.iterations).unwrap_or(0),
+                    done: false,
+                });
+                println!("{}", format!("接管目标：{objective}").green());
+                self.run_goal_loop(&objective).await
             }
             objective => {
                 let max = goal_max_iterations();
@@ -782,81 +1103,91 @@ impl DaemonRepl {
                     iterations: 0,
                     done: false,
                 });
+                // 目标落在当前会话上（跨进程 /resume 不丢）：先确保会话存在再写入。
+                self.current_session().await?;
+                self.persist_goal("set", Some(objective)).await;
                 println!(
                     "{}（轮次上限：{}；/goal clear 停止）",
                     format!("目标已设定：{objective}").green(),
                     crate::support::goal_iteration_label(max)
                 );
-                let mut previous_status = None;
-                loop {
-                    if self.abort.load(Ordering::Relaxed) {
-                        println!("{}", "（目标推进已中止）".yellow());
-                        break;
-                    }
-                    let Some(goal) = self.goal.as_ref() else {
-                        break;
-                    };
-                    if goal.done {
-                        break;
-                    }
-                    if crate::support::goal_iteration_limit_reached(goal.iterations, max) {
-                        println!(
-                            "{}",
-                            format!("已达最大迭代 {max}，目标未标记完成（/goal status 查看）")
-                                .yellow()
-                        );
-                        break;
-                    }
-                    let iteration = goal.iterations + 1;
-                    let prompt = if iteration == 1 {
-                        goal_first_prompt(objective)
-                    } else if let Some(status) = previous_status {
-                        crate::support::goal_continue_prompt_after_status(
-                            objective, iteration, status,
-                        )
-                    } else {
-                        goal_continue_prompt(objective, iteration)
-                    };
-                    let limit = crate::support::goal_iteration_label(max);
-                    println!("{}", format!("── 目标推进 {iteration}/{limit} ──").bold());
-                    let turn = self.run_turn_capture(&prompt).await?;
-                    if let Some(goal) = self.goal.as_mut() {
-                        goal.iterations = iteration;
-                    }
-                    if turn.failed {
-                        println!(
-                            "{} 回合失败，目标未完成（/goal status 查看；修复问题后可重新提交）",
-                            "!".red()
-                        );
-                        break;
-                    }
-                    if turn.completion_status == owo_agent_protocol::CompletionStatusV1::Aborted {
-                        println!("{} 目标推进已中止", "!".yellow());
-                        break;
-                    }
-                    if crate::support::goal_claim_is_accepted(&turn) {
-                        if let Some(goal) = self.goal.as_mut() {
-                            goal.done = true;
-                        }
-                        println!("{} 目标完成（第 {iteration} 轮）", "✓".green());
-                        break;
-                    }
-                    if turn
-                        .final_text
-                        .as_deref()
-                        .is_some_and(crate::support::goal_is_done)
-                    {
-                        println!(
-                            "{} 模型报告完成，但宿主状态为 {:?}，继续推进验收",
-                            "!".yellow(),
-                            turn.completion_status
-                        );
-                    }
-                    previous_status = Some(turn.completion_status);
-                }
-                Ok(())
+                self.run_goal_loop(objective).await
             }
         }
+    }
+
+    /// 目标推进循环：模型标记完成且宿主裁决允许交付时才停止（`/goal <目标>` 与
+    /// `/goal run` 共用；轮次上限由 `goal_max_iterations` 决定）。
+    async fn run_goal_loop(&mut self, objective: &str) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::support::{goal_continue_prompt, goal_first_prompt, goal_max_iterations};
+        let max = goal_max_iterations();
+        let mut previous_status = None;
+        loop {
+            if self.abort.load(Ordering::Relaxed) {
+                println!("{}", "（目标推进已中止）".yellow());
+                break;
+            }
+            let Some(goal) = self.goal.as_ref() else {
+                break;
+            };
+            if goal.done {
+                break;
+            }
+            if crate::support::goal_iteration_limit_reached(goal.iterations, max) {
+                println!(
+                    "{}",
+                    format!("已达最大迭代 {max}，目标未标记完成（/goal status 查看）").yellow()
+                );
+                break;
+            }
+            let iteration = goal.iterations + 1;
+            let prompt = if iteration == 1 {
+                goal_first_prompt(objective)
+            } else if let Some(status) = previous_status {
+                crate::support::goal_continue_prompt_after_status(objective, iteration, status)
+            } else {
+                goal_continue_prompt(objective, iteration)
+            };
+            let limit = crate::support::goal_iteration_label(max);
+            println!("{}", format!("── 目标推进 {iteration}/{limit} ──").bold());
+            let turn = self.run_turn_capture(&prompt).await?;
+            if let Some(goal) = self.goal.as_mut() {
+                goal.iterations = iteration;
+            }
+            self.persist_goal("advance", None).await;
+            if turn.failed {
+                println!(
+                    "{} 回合失败，目标未完成（/goal status 查看；修复问题后可重新提交）",
+                    "!".red()
+                );
+                break;
+            }
+            if turn.completion_status == owo_agent_protocol::CompletionStatusV1::Aborted {
+                println!("{} 目标推进已中止", "!".yellow());
+                break;
+            }
+            if crate::support::goal_claim_is_accepted(&turn) {
+                if let Some(goal) = self.goal.as_mut() {
+                    goal.done = true;
+                }
+                self.persist_goal("done", None).await;
+                println!("{} 目标完成（第 {iteration} 轮）", "✓".green());
+                break;
+            }
+            if turn
+                .final_text
+                .as_deref()
+                .is_some_and(crate::support::goal_is_done)
+            {
+                println!(
+                    "{} 模型报告完成，但宿主状态为 {:?}，继续推进验收",
+                    "!".yellow(),
+                    turn.completion_status
+                );
+            }
+            previous_status = Some(turn.completion_status);
+        }
+        Ok(())
     }
 
     /// `/team ...`：WorkSwarm 多 agent 团队——创建即后台跑，CLI 实时跟踪进度，
@@ -1608,6 +1939,8 @@ fn print_help() {
     println!("  /model [名称]      查看/切换模型");
     println!("  /plan | /build     切换只读 / 执行模式");
     println!("  /diff              查看本次会话文件改动");
+    println!("  /hunks [--path <文件>] [--accept|--reject <序号|all>]  逐 hunk 审阅/接受/拒绝（写盘前 409 校验）");
+    println!("  /symbols <名字> [--kind <种类>] [--path <子目录>] [--max <N>]  符号级检索（函数/类/结构体定义）");
     println!("  /undo | /revert    回滚本次会话全部写操作");
     println!("  /rewind <n>        回退会话历史到保留 n 条消息");
     println!("  /redo              恢复最近一次 rewind");
@@ -1616,6 +1949,7 @@ fn print_help() {
     println!("  /archive | /pin    归档 / 置顶当前会话");
     println!("  /abort             中止当前回合");
     println!("  /status            查看工作区/模型/会话状态");
+    println!("  /trust [status|grant|revoke]  查看/授予/撤销工作区信任（未信任=受限模式，不加载 hooks/插件/权限放宽）");
     println!(
         "  /permissions [status] 查看档位与授权；set <档位> 切换；revoke <授权ID> 撤销单条授权"
     );

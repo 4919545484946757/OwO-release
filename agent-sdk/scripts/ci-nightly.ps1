@@ -29,6 +29,18 @@ $script:ciStepFilter = ""
 $root = Get-CiRepoRoot
 if (-not $LogDir) { $LogDir = Join-Path $env:TEMP ("owo-ci-nightly-" + [guid]::NewGuid().ToString("N")) }
 
+# §7.2：ONNX Runtime 统一解析入口（与 ci-gate 同源）。nightly 含 release 全量构建，
+# 缺 ORT 会在链接阶段以 LNK1120 失败/触发 ort-sys 静默下载；CI 允许下载并校验
+# （sha256 固定）进稳定缓存，本地保持保守（探测失败立即报错）。
+. (Join-Path $PSScriptRoot "resolve-ort.ps1")
+$ciEnsureOrt = ($env:CI -eq 'true')
+try {
+    $null = Resolve-OwoOrtEnv -EnsureOrt:$ciEnsureOrt -NoDownload:(-not $ciEnsureOrt) -Quiet
+} catch {
+    Write-Host "[ci] ONNX Runtime 解析失败：$($_.Exception.Message)" -ForegroundColor Red
+    exit 2
+}
+
 # §2.4 资源红线前置门：nightly 含 release 全量构建（红线 2 → strict 档），
 # 启动前必须过内存门与构建空闲门；越线直接以非零退出收口，不允许边卡机器边跑。
 try {

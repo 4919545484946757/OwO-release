@@ -23,6 +23,17 @@ $root = Get-CiRepoRoot
 if (-not $LogDir) { $LogDir = Join-Path $env:TEMP ("owo-ci-weekly-" + [guid]::NewGuid().ToString("N")) }
 if (-not $Binary) { $Binary = Join-Path $root "target\debug\owo-agent.exe" }
 
+# §7.2：ONNX Runtime 统一解析入口（与 ci-gate 同源）：weekly 也会编译/运行核心，
+# CI 允许下载校验进稳定缓存，本地保守探测。
+. (Join-Path $PSScriptRoot "resolve-ort.ps1")
+$ciEnsureOrt = ($env:CI -eq 'true')
+try {
+    $null = Resolve-OwoOrtEnv -EnsureOrt:$ciEnsureOrt -NoDownload:(-not $ciEnsureOrt) -Quiet
+} catch {
+    Write-Host "[ci] ONNX Runtime 解析失败：$($_.Exception.Message)" -ForegroundColor Red
+    exit 2
+}
+
 function Test-CiServerReady {
     param([int]$Port)
     if ($Port -le 0) { return $false }

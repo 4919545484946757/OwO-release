@@ -68,6 +68,20 @@ pub struct HookConfig {
     pub matcher: Option<String>,
     /// 经系统 shell 执行的命令；事件上下文 JSON 从 stdin 传入。
     pub command: String,
+    /// 失败模式：`open`（缺省，兼容旧配置——启动失败/超时/非 0、2 退出不阻断）
+    /// 或 `closed`（把 hook 当安全闸：任一失败都阻断并说明原因，审查 N1 第 6 条）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fail_mode: Option<String>,
+}
+
+impl HookConfig {
+    /// 失败时是否阻断（`fail_mode=closed`；缺省 open 保持既有行为）。
+    pub fn fail_closed(&self) -> bool {
+        self.fail_mode
+            .as_deref()
+            .map(|mode| mode.trim().eq_ignore_ascii_case("closed"))
+            .unwrap_or(false)
+    }
 }
 
 /// hooks 执行结果。
@@ -144,6 +158,17 @@ fn glob_suffix_match(pattern: &str, value: &str) -> bool {
     }
 }
 
+/// 失败处理：`fail_mode=closed` 的 hook 进入阻断（stderr 回喂模型），
+/// 缺省 open 只记日志（兼容旧配置，避免把通知类 hook 的偶发失败变成硬阻断）。
+fn on_hook_failure(config: &HookConfig, reason: String) -> HookOutcome {
+    tracing::warn!("{reason}（{}）", config.command);
+    if config.fail_closed() {
+        HookOutcome::Blocked(format!("{reason}（hook fail_mode=closed）"))
+    } else {
+        HookOutcome::Proceed
+    }
+}
+
 /// 执行单条 hook：shell 包装、stdin 传 JSON、10s 超时、exit 2 = 阻断。
 async fn run_one(config: &HookConfig, payload: &Value) -> HookOutcome {
     let body = serde_json::to_string(payload).unwrap_or_else(|_| "{}".to_string());
@@ -168,8 +193,7 @@ async fn run_one(config: &HookConfig, payload: &Value) -> HookOutcome {
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(error) => {
-            tracing::warn!("hook 启动失败（{}）：{error}", config.command);
-            return HookOutcome::Proceed;
+            return on_hook_failure(config, format!("hook 启动失败：{error}"));
         }
     };
     // stdin 先写完再等结果，避免命令读 stdin 与我们等退出互锁。
@@ -181,12 +205,10 @@ async fn run_one(config: &HookConfig, payload: &Value) -> HookOutcome {
     let output = match tokio::time::timeout(HOOK_TIMEOUT, child.wait_with_output()).await {
         Ok(Ok(output)) => output,
         Ok(Err(error)) => {
-            tracing::warn!("hook 执行失败（{}）：{error}", config.command);
-            return HookOutcome::Proceed;
+            return on_hook_failure(config, format!("hook 执行失败：{error}"));
         }
         Err(_) => {
-            tracing::warn!("hook 超时（{}，>{HOOK_TIMEOUT:?}）", config.command);
-            return HookOutcome::Proceed;
+            return on_hook_failure(config, format!("hook 超时（>{HOOK_TIMEOUT:?}）"));
         }
     };
     let stderr = crate::tools::decode_process_output(&output.stderr)
@@ -200,12 +222,13 @@ async fn run_one(config: &HookConfig, payload: &Value) -> HookOutcome {
             stderr
         }),
         code => {
-            tracing::warn!(
-                "hook 非零退出（{}，code={:?}）：{stderr}",
-                config.command,
-                code
-            );
-            HookOutcome::Proceed
+            let reason = format!("hook 非零退出（code={code:?}）：{stderr}");
+            if config.fail_closed() {
+                on_hook_failure(config, reason)
+            } else {
+                tracing::warn!("{}（{}）", reason, config.command);
+                HookOutcome::Proceed
+            }
         }
     }
 }
@@ -220,6 +243,16 @@ mod tests {
             event: event.to_string(),
             matcher: matcher.map(str::to_string),
             command: command.to_string(),
+            fail_mode: None,
+        }
+    }
+
+    fn closed_config(event: &str, command: &str) -> HookConfig {
+        HookConfig {
+            event: event.to_string(),
+            matcher: None,
+            command: command.to_string(),
+            fail_mode: Some("closed".to_string()),
         }
     }
 
@@ -273,6 +306,29 @@ mod tests {
             .run(HookEvent::PreToolUse, &json!({ "tool": "read_file" }))
             .await;
         assert_eq!(outcome, HookOutcome::Proceed);
+    }
+
+    #[tokio::test]
+    async fn fail_mode_closed_turns_failures_into_blocks() {
+        // 审查 N1 第 6 条：hook 作为安全闸时必须可 fail-closed（缺省 open 保持兼容）。
+        let warn = if cfg!(windows) { "exit /b 1" } else { "exit 1" };
+        let manager = HookManager::from_configs(&[closed_config("pre_tool_use", warn)]);
+        let outcome = manager
+            .run(HookEvent::PreToolUse, &json!({ "tool": "run_command" }))
+            .await;
+        match outcome {
+            HookOutcome::Blocked(message) => {
+                assert!(message.contains("fail_mode=closed"), "{message}");
+            }
+            other => panic!("fail_mode=closed 下非零退出必须阻断：{other:?}"),
+        }
+        // exit 2 语义不因 fail_mode 改变。
+        let block = if cfg!(windows) { "exit /b 2" } else { "exit 2" };
+        let manager = HookManager::from_configs(&[closed_config("pre_tool_use", block)]);
+        let outcome = manager
+            .run(HookEvent::PreToolUse, &json!({ "tool": "read_file" }))
+            .await;
+        assert!(matches!(outcome, HookOutcome::Blocked(_)));
     }
 
     #[tokio::test]

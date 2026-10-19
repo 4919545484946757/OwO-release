@@ -28,7 +28,7 @@ use ui_output::{OutputMode, PermissionsProfile};
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
-    /// §11：输出模式（human|plain|jsonl）；plain/jsonl 支持 turn、capabilities。
+    /// §11：输出模式（human|plain|jsonl）；plain/jsonl 支持 turn、capabilities、trust。
     #[arg(long, value_enum, global = true, default_value = "human")]
     output: OutputMode,
     /// §11：权限档案（default|read-only|trusted），支持 turn、默认 REPL 与 TUI。
@@ -66,6 +66,8 @@ enum Commands {
     Cloud(commands::cloud::CloudArgs),
     /// 插件市场治理（M4b：catalog/check/install/update/uninstall/verify；本地离线模式）
     Plugin(commands::plugins::PluginArgs),
+    /// MCP 服务器管理（对标 Codex `codex mcp`：list/get/add/remove；有核心则热连接）
+    Mcp(commands::mcp::McpArgs),
     /// 审计链校验/导出（R6 audit_chain：verify 检出篡改，export 输出可离线校验的导出文件）
     Audit(commands::audit::AuditArgs),
     /// 数据备份（R9：zip 打包 index.db/settings/notes/skills/workflows，复用服务端备份逻辑）
@@ -74,6 +76,16 @@ enum Commands {
     Doctor(commands::doctor::DoctorArgs),
     /// 受控 worker 子进程运维（A1：demo 演示真实子进程闭环）
     Worker(commands::worker::WorkerArgs),
+    /// 工作区信任（N1：status/grant/revoke，未信任时不加载 hooks/插件/权限放宽）
+    Trust(commands::trust::TrustArgs),
+    /// 用户自定义多 Agent 工作流（团队模板的用户/社区通道：校验/CRUD/AI 草稿/社区包）
+    Workflow(commands::workflow::WorkflowArgs),
+    /// 逐 hunk 审阅工作区改动（G13：列出 hunk，按序号接受/拒绝）
+    Review(commands::review::ReviewArgs),
+    /// 列出会话（对标 Codex `codex resume` 选择器；标出 --continue 会选中的会话）
+    Sessions(commands::sessions::SessionsArgs),
+    /// 符号级检索（G14：按名字定位函数/结构体/类等定义；离线只读）
+    Symbols(commands::symbols::SymbolsArgs),
     /// 功能目录（§8.3）：列出产品能力、成熟度与用户入口（UI/CLI/诊断页共同来源）
     Capabilities,
 }
@@ -132,11 +144,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(Commands::Bench(args)) => run_async(commands::bench::run_bench(args))?,
         Some(Commands::Cloud(args)) => run_async(commands::cloud::run_cloud(args))?,
         Some(Commands::Plugin(args)) => commands::plugins::run_plugin(args)?,
+        Some(Commands::Mcp(args)) => commands::mcp::run_mcp_cmd(args)?,
         Some(Commands::Audit(args)) => commands::audit::run_audit_cmd(args)?,
         Some(Commands::Backup(args)) => commands::backup::run_backup_cmd(args)?,
         Some(Commands::Doctor(args)) => run_async(commands::doctor::run_doctor_cmd(args))?,
         Some(Commands::Capabilities) => commands::capabilities::run_capabilities_cmd(cli.output)?,
         Some(Commands::Worker(args)) => run_async(commands::worker::run_worker_cmd(args))?,
+        Some(Commands::Trust(args)) => commands::trust::run_trust_cmd(args, cli.output)?,
+        Some(Commands::Workflow(args)) => commands::workflow::run_workflow_cmd(args)?,
+        Some(Commands::Review(args)) => commands::review::run_review_cmd(args)?,
+        Some(Commands::Sessions(args)) => commands::sessions::run_sessions_cmd(args)?,
+        Some(Commands::Symbols(args)) => commands::symbols::run_symbols_cmd(args)?,
     }
     Ok(())
 }
@@ -215,11 +233,12 @@ fn validate_cli_options(cli: &Cli) -> Result<(), Box<dyn std::error::Error>> {
     if !matches!(cli.output, OutputMode::Human)
         && !matches!(
             cli.command.as_ref(),
-            Some(Commands::Turn(_)) | Some(Commands::Capabilities)
+            Some(Commands::Turn(_)) | Some(Commands::Capabilities) | Some(Commands::Trust(_))
         )
     {
         return Err(
-            "plain/jsonl 当前仅支持 turn 和 capabilities；该命令不支持机器输出，已拒绝执行".into(),
+            "plain/jsonl 当前仅支持 turn、capabilities 和 trust；该命令不支持机器输出，已拒绝执行"
+                .into(),
         );
     }
     if !matches!(cli.permissions, PermissionsProfile::Default) {
@@ -268,9 +287,44 @@ mod cli_options_contract_tests {
                 "--prompt",
                 "fixture",
             ],
+            vec!["owo-agent", "--output", "jsonl", "trust", "--status"],
         ] {
             let cli = Cli::try_parse_from(arguments).unwrap();
             assert!(validate_cli_options(&cli).is_ok());
+        }
+    }
+
+    #[test]
+    fn turn_session_flags_are_explicit_and_mutually_exclusive() {
+        // 续接必须显式：--session 与 --continue 不能同时给（避免"续哪个"含糊）。
+        assert!(Cli::try_parse_from([
+            "owo-agent",
+            "turn",
+            "--prompt",
+            "fixture",
+            "--session",
+            "sess-1",
+            "--continue",
+        ])
+        .is_err());
+
+        // 默认（新建会话）与两种续接方式都能正常解析。
+        for arguments in [
+            vec!["owo-agent", "turn", "--prompt", "fixture"],
+            vec![
+                "owo-agent",
+                "turn",
+                "--prompt",
+                "fixture",
+                "--session",
+                "sess-1",
+            ],
+            vec!["owo-agent", "turn", "--prompt", "fixture", "--continue"],
+            vec!["owo-agent", "turn", "--prompt", "fixture", "--last"],
+        ] {
+            let cli = Cli::try_parse_from(arguments).unwrap();
+            assert!(validate_cli_options(&cli).is_ok());
+            assert!(matches!(cli.command, Some(Commands::Turn(_))));
         }
     }
 }

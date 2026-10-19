@@ -152,6 +152,14 @@
           </div>
           <p class="sub" id="workspacePickerHint">工作区选择由 Electron 桌面端管理。</p>
         </div>
+        <div class="tool-field">
+          <label>工作区信任</label>
+          <p class="sub" id="workspaceTrustHint">正在读取信任状态…</p>
+          <div class="tool-actions tool-actions-end">
+            <button type="button" id="workspaceTrustRefreshBtn">刷新状态</button>
+            <button type="button" id="workspaceTrustBtn" class="primary" disabled>信任此工作区</button>
+          </div>
+        </div>
       </div>
     </section>
     <section class="tool-card" data-group="workspace">
@@ -224,7 +232,8 @@
             <label for="subagentMode">运行模式</label>
             <select id="subagentMode">
               <option value="read_only">只读探索（explore）</option>
-              <option value="full">通用子代理（subagent）</option>
+              <option value="full">通用子代理（subagent，仅工作区内写入）</option>
+              <option value="full_commands">通用子代理 + 命令执行（有安全风险）</option>
             </select>
           </div>
         </div>
@@ -997,6 +1006,7 @@
   <script src="panels/fleet.panel.js"></script>
   <script src="panels/about.panel.js"></script>
   <script src="panels/capabilities.panel.js"></script>
+  <script src="panels/workflows.panel.js"></script>
   <script src="panels/action-center.panel.js"></script>
   <script src="panels/project-history.panel.js"></script>
   <script src="panels/project-launcher.panel.js"></script>
@@ -1028,6 +1038,9 @@
   <script src="core/notification-sound.js"></script>
   <script src="core/core-action-availability.js"></script>
   <script src="core/markdown.js"></script>
+  <script src="core/hunk-review.js"></script>
+  <script src="core/symbol-search.js"></script>
+  <script src="core/workflow-editor.js"></script>
   <script src="app-domain.js"></script>
   <script src="app.js"></script>
 </body>

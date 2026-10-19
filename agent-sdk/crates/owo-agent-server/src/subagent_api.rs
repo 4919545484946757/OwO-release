@@ -19,10 +19,20 @@ use owo_agent_server::AppState;
 pub(super) struct SubagentRunRequest {
     prompt: String,
     /// true 为只读探索模式（对齐 CLI `@explore`）；false 为通用子代理（对齐 `@subagent`）。
-    #[serde(default)]
+    ///
+    /// 缺省从"通用"改为"只读"：调用方忘传字段时 fail-closed，避免非只读子代理
+    /// 在无审批通道的情况下执行命令（审查 N3）。
+    #[serde(default = "default_read_only")]
     read_only: bool,
+    /// `read_only=false` 时是否放行工作区内命令执行；缺省 false（必须显式 opt-in）。
+    #[serde(default)]
+    allow_commands: bool,
     #[serde(default)]
     model: Option<String>,
+}
+
+fn default_read_only() -> bool {
+    true
 }
 
 /// M4.2 子代理模型解析：显式请求 > fast 档（`OWO_MODEL_FAST`）> 空串（自动 =
@@ -60,10 +70,23 @@ pub(super) async fn subagent_run(
     let (wire_model, display_model) = resolve_subagent_model(request.model);
     let agent = Arc::clone(&state.agent);
     let text = agent
-        .run_subagent(&workspace, &wire_model, &request.prompt, request.read_only)
+        .run_subagent_with_options(
+            &workspace,
+            &wire_model,
+            &request.prompt,
+            request.read_only,
+            request.allow_commands,
+        )
         .await
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
     let duration_ms = started.elapsed().as_millis() as u64;
+    let mode = if request.read_only {
+        "只读探索"
+    } else if request.allow_commands {
+        "通用（含命令）"
+    } else {
+        "通用"
+    };
     if let Ok(mut audit) = state.agent.audit_log().lock() {
         audit.record(
             "subagent",
@@ -72,11 +95,7 @@ pub(super) async fn subagent_run(
             Some(true),
             format!(
                 "{}子代理完成（{}ms）：{}",
-                if request.read_only {
-                    "只读探索"
-                } else {
-                    "通用"
-                },
+                mode,
                 duration_ms,
                 request.prompt.chars().take(120).collect::<String>()
             ),
@@ -85,6 +104,7 @@ pub(super) async fn subagent_run(
     Ok(Json(json!({
         "ok": true,
         "read_only": request.read_only,
+        "allow_commands": request.allow_commands && !request.read_only,
         "model": display_model,
         "duration_ms": duration_ms,
         "text": text,

@@ -77,6 +77,8 @@ pub use routes::build_router;
 pub mod request_ledger_api;
 mod schemas_api;
 mod session_api;
+mod session_goal_api;
+mod session_hunks_api;
 mod settings_api;
 pub mod shutdown;
 mod skills_api;
@@ -84,13 +86,19 @@ mod slo;
 #[doc(hidden)]
 pub mod sse;
 mod subagent_api;
+mod symbols_api;
 mod team_api;
 mod team_template_catalog_api;
 mod traces_api;
 mod turn_api;
 mod usage;
+mod user_workflows_api;
 mod whitelist_api;
 mod workflow_api;
+mod workflow_draft_api;
+mod workflow_stats_api;
+mod workflows_share_api;
+mod workspace_trust_api;
 mod workswarm_api;
 
 /// R1 测试装配面：集成测试需要用独立 TempDir 数据根构造 DesktopWorld 运行态
@@ -209,6 +217,10 @@ pub struct AppState {
     >,
     /// 提问归属会话（应答路由校验用）。
     pub pending_question_sessions: Arc<Mutex<HashMap<String, String>>>,
+    /// 工作区信任存储（审查 N1；数据根 `trust.json`，不经工作区文件自授权）。
+    pub trust_store: Arc<owo_agent_core::trust::TrustStore>,
+    /// 启动时是否因未信任而进入受限模式（跳过 hooks/权限放宽/白名单）。
+    pub workspace_trust_gated: bool,
 }
 
 impl AppState {
@@ -229,7 +241,23 @@ impl AppState {
     ) -> Self {
         // V1 四期（第三路）：评审闭环库路径（在 data_root 被 struct 字面量 move 前取好）。
         let workswarm_db_root = data_root.join("workswarm");
-        let settings = owo_agent_core::Settings::load(&workspace);
+        // 审查 N1：工作区信任门。工作区里有 hooks / 工作区插件 / mcp_servers /
+        // 放宽权限档位 / 白名单，且没有信任记录时，一律不加载这些"配置即代码"
+        // 内容（受限模式）；用户经 GET/POST /workspace/trust 或保存设置页显式确认。
+        let trust_store = Arc::new(owo_agent_core::trust::TrustStore::new(data_root.clone()));
+        let trust_status = trust_store.status(&workspace);
+        let workspace_trust_gated = !trust_status.trusted && trust_status.gated;
+        let mut settings = owo_agent_core::Settings::load(&workspace);
+        if workspace_trust_gated {
+            settings.permission_profile = None;
+            settings.permission_spec = None;
+            settings.hooks.clear();
+            settings.whitelist.clear();
+            tracing::warn!(
+                "工作区未信任，已跳过工作区配置（hooks/插件 MCP/权限放宽/白名单）：{}",
+                trust_status.reasons.join("；")
+            );
+        }
         settings.apply_usage_env();
         settings.apply_reasoning_env();
         // R8：用量预算接线（Agent 4 交付 usage）——单价/预算从环境变量注入，turn 入口硬熔断。
@@ -284,6 +312,21 @@ impl AppState {
         agent.set_hooks(owo_agent_core::hooks::HookManager::from_configs(
             &settings.hooks,
         ));
+        // 审查 N1：受限模式进入审计（谁在何时因何被跳过，之后可查询/追溯）。
+        if workspace_trust_gated {
+            if let Ok(mut audit) = agent.audit_log().lock() {
+                audit.record(
+                    "workspace_trust",
+                    "gated",
+                    None,
+                    Some(false),
+                    format!(
+                        "未信任工作区：跳过 hooks/插件 MCP/权限放宽/白名单（{}）",
+                        trust_status.reasons.join("；")
+                    ),
+                );
+            }
+        }
         // X03/R3（§8.2）：本地 API bearer token **每次启动换发**并覆盖写盘（+ ACL）；
         // 写盘失败降级为内存 token。旧代际 bearer 因此在新进程上必然 401。
         let auth_token = Arc::new(auth_token::AuthToken::mint_for_boot(&data_root));
@@ -388,6 +431,8 @@ impl AppState {
             // ask_user（取优合并自远端 engine）。
             pending_questions: Arc::new(Mutex::new(HashMap::new())),
             pending_question_sessions: Arc::new(Mutex::new(HashMap::new())),
+            trust_store,
+            workspace_trust_gated,
         }
     }
 }
@@ -403,6 +448,52 @@ async fn no_store_middleware(
         axum::http::HeaderValue::from_static("no-store, no-cache, must-revalidate"),
     );
     response
+}
+
+/// N11：`Host` 头校验（DNS rebinding 防护）。
+///
+/// 服务只监听 127.0.0.1；恶意网页可用「攻击者域名」经 DNS rebinding 把浏览器请求
+/// 打到本机 API（拿到 `/auth/token` 后即可控制 Daemon）。这里只放行回环主机名
+/// （`localhost` / `127.0.0.1` / `[::1]`，任意端口）与桌面壳的 `tauri.localhost`；
+/// 其余返回 421。缺 Host 头（服务端直连测试 / HTTP/1.0）不在本层拦截——
+/// 各端点仍有 bearer 鉴权与配对密钥。
+async fn host_guard_middleware(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    if let Some(host) = request
+        .headers()
+        .get(axum::http::header::HOST)
+        .and_then(|value| value.to_str().ok())
+    {
+        if !host_is_allowed(host) {
+            return axum::response::IntoResponse::into_response((
+                axum::http::StatusCode::MISDIRECTED_REQUEST,
+                axum::Json(serde_json::json!({
+                    "error": "Host 不受信任（仅允许回环地址）",
+                    "code": "http/untrusted_host",
+                })),
+            ));
+        }
+    }
+    next.run(request).await
+}
+
+/// Host 白名单判定：去端口（含 IPv6 `[::1]:port`）后整词比较。
+fn host_is_allowed(host: &str) -> bool {
+    let host = host.trim();
+    let hostname = if let Some(stripped) = host.strip_prefix('[') {
+        match stripped.split_once(']') {
+            Some((name, _)) => name,
+            None => return false,
+        }
+    } else {
+        host.split(':').next().unwrap_or(host)
+    };
+    matches!(
+        hostname.to_ascii_lowercase().as_str(),
+        "localhost" | "127.0.0.1" | "::1" | "tauri.localhost"
+    )
 }
 
 /// R8/R9：trace_id 请求贯穿——从 `X-Trace-Id` 头继承（不合法则生成），回填响应头，

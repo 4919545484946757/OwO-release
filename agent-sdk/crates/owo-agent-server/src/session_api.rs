@@ -41,6 +41,8 @@ pub(super) fn to_session_info(session: &Session) -> SessionInfo {
         pinned: session.pinned,
         parent_id: session.parent_id.clone(),
         fork_point: session.fork_point,
+        // 目标状态映射归 `session_goal_api` 所有（一个功能一个文件）。
+        goal: owo_agent_server::session_goal_api::goal_to_wire(session),
     }
 }
 
@@ -154,6 +156,7 @@ pub(super) async fn create_session(
         .map_err(poison)?
         .insert(session.id.clone(), session.clone());
     let title = session.display_title();
+    let goal = owo_agent_server::session_goal_api::goal_to_wire(&session);
     owo_agent_server::event_stream::hub()
         .publish_invalidate(owo_agent_server::event_stream::InvalidateDomain::Sessions);
     Ok(Json(SessionInfo {
@@ -167,6 +170,7 @@ pub(super) async fn create_session(
         pinned: session.pinned,
         parent_id: session.parent_id,
         fork_point: session.fork_point,
+        goal,
     }))
 }
 
@@ -197,6 +201,8 @@ pub(super) async fn get_session(
         "parent_id": session.parent_id,
         "fork_point": session.fork_point,
         "todos": session.todos,
+        // 目标模式状态：客户端 `/resume` 据此恢复目标与已推进轮次。
+        "goal": owo_agent_server::session_goal_api::goal_to_wire(&session),
         "messages": session.messages,
     })))
 }
@@ -691,7 +697,12 @@ pub(super) async fn session_context(
     let session = load_session(&state, &id)?;
     let messages: Vec<owo_agent_core::ChatMessage> = session.messages.clone();
     let estimated = owo_agent_core::estimate_tokens(&messages);
-    let rules = owo_agent_core::context::load_project_rules(&session.workspace);
+    // 与回合注入同源：层级规则（根 → 进程 cwd）——诊断必须反映实际注入内容，
+    // 且列出每一份来源文件（层级发现后"哪几份规则生效"要可解释）。
+    let cwd = std::env::current_dir().unwrap_or_else(|_| session.workspace.clone());
+    let rule_files =
+        owo_agent_core::context::collect_instruction_files(&session.workspace, Some(&cwd));
+    let rules = owo_agent_core::context::render_instruction_files(&rule_files);
     let config = state.agent.config();
     let mut last_compaction: Option<String> = None;
     // 反向找最近的压缩摘要（system 消息以"历史摘要"开头）。
@@ -715,6 +726,15 @@ pub(super) async fn session_context(
         "over_budget": estimated > config.token_budget,
         "rules_injected": !rules.is_empty(),
         "rules_chars": rules.chars().count(),
+        "rules_files": rule_files
+            .iter()
+            .map(|file| json!({
+                "label": file.label,
+                "scope": file.scope,
+                "chars": file.content.chars().count(),
+                "truncated": file.truncated,
+            }))
+            .collect::<Vec<_>>(),
         "last_compaction": last_compaction,
     })))
 }
@@ -760,7 +780,6 @@ pub(super) async fn compact_session(
 }
 
 /// ask_user 应答路由（取优合并自远端 engine）：把用户答案送回挂起中的回合。
-///
 /// 与审批响应同策略：request_id（question_id）为 uuid v4 且服务仅监听本机，
 /// 会话归属只做软校验；提问不存在/已回答一律 404（幂等拒绝重复提交）。
 pub(super) async fn respond_question(

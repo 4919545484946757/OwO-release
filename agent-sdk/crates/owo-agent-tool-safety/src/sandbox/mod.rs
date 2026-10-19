@@ -1188,3 +1188,77 @@ mod command_line_tests {
         assert!(!is_cmd_switch("-Command"));
     }
 }
+
+/// 受限令牌路径的真实进程验证（审查 N2）。
+///
+/// 现有测试都走 `spawn_plain`（`require_isolation=JobOnly` + 真实探测多数机器
+/// AppContainer 不可用），受限令牌/容器路径**从未被真实执行覆盖**：那里曾把
+/// `EXTENDED_STARTUPINFO_PRESENT` 填进 `STARTUPINFO.dwFlags`、不设
+/// `STARTF_USESTDHANDLES`、不传 cwd/env、也不把属性列表挂上 `lpAttributeList`。
+/// 这里用合成能力（只声明 Low IL）确定性地走受限令牌路径，断言 stdout/cwd/env
+/// 全部按普通路径语义生效。
+#[cfg(all(test, target_os = "windows"))]
+mod windows_isolation_spawn_tests {
+    use super::*;
+
+    fn restricted_policy() -> SandboxPolicy {
+        SandboxPolicy {
+            name: "lowil-test".to_string(),
+            workspace: None,
+            file_scope: FileScope::WorkspacePlusReadonlySystem,
+            network_policy: NetworkPolicy::Loopback,
+            cpu_ms: Some(30_000),
+            mem_mb: None,
+            ttl_secs: Some(60),
+            require_isolation: IsolationLevel::LowIntegrity,
+            allow_degraded: false,
+            ..SandboxPolicy::default()
+        }
+    }
+
+    #[test]
+    fn low_integrity_spawn_captures_stdout_cwd_and_env() {
+        // 用真实探测结果驱动：`probe_low_integrity` 已含端到端输出捕获自测，
+        // 报告不可用时（例如匿名管道句柄无法继承进 Low 子进程）显式跳过，
+        // 不假装通过——能力报告与真实行为保持一致正是审查 N2 的要求。
+        let support = probe_platform_support();
+        if !support.low_integrity {
+            eprintln!("SKIP: 受限令牌路径不可用（{}），显式跳过", support.reason);
+            return;
+        }
+        let Some(executor) = win::WindowsSandboxExecutor::detect(&support) else {
+            eprintln!("SKIP: Job 不可用，受限令牌路径测试显式跳过");
+            return;
+        };
+        let mut manager = SandboxManager::new(Box::new(executor), support);
+        let workspace =
+            std::env::temp_dir().join(format!("owo-sandbox-lowil-{}", std::process::id()));
+        std::fs::create_dir_all(&workspace).expect("创建测试工作目录");
+        let mut command = SandboxCommand::new("cmd", restricted_policy()).with_args(vec![
+            "/C".to_string(),
+            "echo probe=%OWO_SANDBOX_LOWIL% & cd".to_string(),
+        ]);
+        command.cwd = Some(workspace.clone());
+        command.env = vec![("OWO_SANDBOX_LOWIL".to_string(), "lowil-env".to_string())];
+        let mut process = manager.spawn(&command).expect("受限令牌 spawn 应成功");
+        let info = process.wait_output().expect("等待输出应成功");
+        let stdout = String::from_utf8_lossy(&info.stdout);
+        let stderr = String::from_utf8_lossy(&info.stderr);
+        assert_eq!(
+            info.exit_code, 0,
+            "受限令牌命令应成功：stdout={stdout:?} stderr={stderr:?}"
+        );
+        assert!(
+            stdout.contains("probe=lowil-env"),
+            "受限令牌路径必须捕获 stdout（STARTF_USESTDHANDLES）且 env 覆盖生效：{stdout:?}"
+        );
+        let expected = workspace
+            .canonicalize()
+            .unwrap_or_else(|_| workspace.clone());
+        assert!(
+            stdout.contains(&expected.to_string_lossy().to_string()),
+            "cwd 必须生效（lpCurrentDirectory，期望 {expected:?}）：{stdout:?}"
+        );
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+}

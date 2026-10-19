@@ -51,6 +51,7 @@ pub mod team_prompt;
 pub mod team_strategy;
 pub mod tools;
 pub mod trace;
+pub mod trust;
 pub mod verification;
 pub mod worker_pool;
 /// 角色画像（七期 · 二路）：模板角色 → 工具面/只读/写白名单/回合上限/浏览器/命令，
@@ -166,6 +167,49 @@ pub use owo_agent_workswarm::{project_space_store, team_benefit, workswarm_outpu
 // ---------------------------------------------------------------------------
 pub use owo_agent_mcp::mcp;
 
+// MCP 服务器命名规则（本 crate 自有模块）：CLI `owo-agent mcp` 与服务端
+// `/mcp/add` 共用，避免两处各写一套校验而漂移。
+mod mcp_name;
+pub use mcp_name::{validate_mcp_server_name, MAX_MCP_SERVER_NAME_CHARS};
+
+// 逐 hunk 变更审阅（本 crate 自有模块）：纯函数，审阅列表与部分应用共用同一分段。
+mod diff_hunks;
+pub use diff_hunks::{
+    apply_hunks, diff_hunks, hunk_modified_lines, hunk_original_lines, DiffHunk, MAX_LCS_CELLS,
+};
+
+// 会话变更的逐 hunk 审阅视图（服务端 /session/{id}/hunks 与各客户端共用）。
+mod change_review;
+pub use change_review::{
+    disk_matches_expected_after, resolve_review_path, review_files, review_snapshot, ReviewFile,
+};
+
+// 符号级检索内核（find_symbol 工具 / CLI `owo-agent symbols` / 服务端 `/symbols` 共用）。
+mod symbol_scan;
+pub use symbol_scan::{
+    find_symbols, is_noise_dir_name, SymbolDefinition, SymbolScan, SymbolScanStats,
+    DEFAULT_SYMBOL_RESULTS, MAX_SYMBOL_RESULTS,
+};
+
+// 用户自定义工作流（团队模板）校验与规范化：UI/CLI/AI 生成共用同一份规则。
+pub mod user_workflow;
+
+// AI 生成工作流草稿的提示词与 JSON 抽取（纯函数）。
+pub mod workflow_draft;
+
+// 社区工作流导入溯源（导入时间/sha256/当时发现数）。
+pub mod community_provenance;
+
+// 工作流版本对比（社区包更新审阅）：纯函数。
+pub mod workflow_diff;
+pub use user_workflow::{
+    review_workflow_template, role_health, slugify_template_id, validate_template_id,
+    validate_tool_name, validate_verify_assertion, validate_workflow_template, validate_write_path,
+    workflow_attention, workflow_health, workflow_review_blocked, RoleHealth, WorkflowFinding,
+    WorkflowHealth, WorkflowRunSummary, MAX_DESCRIPTION_CHARS, MAX_NAME_CHARS, MAX_ROLES,
+    MAX_ROLE_TOOLS,
+};
+
 // ---------------------------------------------------------------------------
 // 记忆/观察/学习内核（M11）兼容层：memory / observe / learn 已下沉到独立 crate
 // `owo-agent-memory`，并把它唯一的域配置 `ProactiveSettings` 一起带走
@@ -195,7 +239,9 @@ pub use owo_agent_memory::{learn, memory, observe, share_skill};
 // 入边（agent / tools / subagent / autoreview / settings + server 的 permissions_center_api
 // 与集成测试）全部由下面的别名模块满足，调用方零改动。
 // ---------------------------------------------------------------------------
-pub use owo_agent_policy::{grant_store, mcp_health, permission_spec, permissions, tool_effects};
+pub use owo_agent_policy::{
+    command_guard, grant_store, mcp_health, permission_spec, permissions, tool_effects,
+};
 
 // ---------------------------------------------------------------------------
 // 感知内核（M14，ADR-002）兼容层：accessibility / ocr / onnx_ocr / paddle_ocr / stt /
@@ -299,7 +345,9 @@ pub use computer_use::{
     desktop_type_gated, run_approved_task, run_approved_task_on, scan_ui_sensitive,
     sim_base_url_configured, task_gate_check, SimTaskSurface, TaskGoal, TaskReport, TaskSurface,
 };
-pub use context::load_project_rules;
+pub use context::{
+    collect_instruction_files, load_project_rules, load_project_rules_hierarchical, InstructionFile,
+};
 pub use credentials::{
     scan_json_for_secrets, windows_credential_manager, ApiKeyRef, CredentialError,
     CredentialResolver, CredentialStore, MemoryCredentialStore, ProviderConfig, UnavailableStore,
@@ -421,14 +469,15 @@ pub use scene::{
     merge_sources, text_hash, ElementRelation, EntityState, Evidence, EvidenceSource, GraphElement,
     SceneGraph, WindowState,
 };
-pub use session::{JsonSessionStore, Session, SessionStore, TurnEventRecord};
+pub use session::{JsonSessionStore, Session, SessionGoal, SessionStore, TurnEventRecord};
 pub use settings::{EgressSettings, Settings, TeamSettings};
 pub use share::{export_html, export_markdown};
 pub use share_skill::{export_flow_skill_package, import_flow_skill_package};
 pub use skill::{Skill, SkillRegistry};
 pub use skill_pack::{
-    discover_builtin_packages, install_builtin_packages, validate_skill_package,
-    BuiltinSkillManifest, SkillPackageInfo,
+    discover_builtin_packages, install_builtin_packages, safe_skill_dir_name,
+    skill_min_app_version_met, validate_skill_package, validate_skill_package_for_app,
+    BuiltinSkillManifest, SkillInstallReport, SkillPackageInfo,
 };
 pub use sqlite_store::SqliteSessionStore;
 #[cfg(feature = "stt")]

@@ -53,8 +53,7 @@ impl TeamTemplateRegistry {
         out
     }
 
-    /// 模板优先匹配（§6.1）：同形态模板中，适用条件任一关键词命中 objective 即命中；
-    /// S0 采用简单子串启发（关键词 = applicability 按分隔符切段，长度 ≥2）。
+    /// 模板优先匹配（§6.1）：同形态模板中，适用条件任一关键词命中 objective 即命中； S0 采用简单子串启发（关键词 = applicability 按分隔符切段，长度 ≥2）。
     pub fn find_match(&self, mode: TeamMode, objective: &str) -> Option<TeamTemplate> {
         let objective_lower = objective.to_lowercase();
         let templates = self.list_templates();
@@ -113,6 +112,29 @@ impl TeamTemplateRegistry {
         }
         out.sort_by(|a, b| b.created_at.cmp(&a.created_at));
         out
+    }
+
+    /// 删除模板：返回 `Ok(true)` 表示确实删掉了一个（`Ok(false)` = 本来就不存在）。
+    ///
+    /// 只负责文件删除；"内置模板不得删除"的策略由调用方（HTTP/CLI）判定——
+    /// 注册表本身无法区分来源，`origin` 是模板数据的一部分。
+    pub fn delete_template(&self, id: &str) -> std::io::Result<bool> {
+        // 防穿越：id 直接进文件名，必须拒绝分隔符与 `..`。
+        if id.trim().is_empty()
+            || id.contains("..")
+            || id.contains(['/', '\\', ':', '*', '?', '"', '<', '>', '|'])
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("非法模板 id：{id}"),
+            ));
+        }
+        let path = self.dir.join("templates").join(format!("{id}.json"));
+        match std::fs::remove_file(path) {
+            Ok(()) => Ok(true),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(error),
+        }
     }
 
     /// 采纳提案 → 进入模板注册表（幂等；已采纳直接返回模板；已拒绝报错）。

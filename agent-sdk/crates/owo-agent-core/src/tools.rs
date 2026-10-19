@@ -139,6 +139,9 @@ impl ToolRegistry {
         registry.register_builtin(ListDirTool);
         registry.register_builtin(SearchFilesTool);
         registry.register_builtin(GrepTool);
+        // 超大工具结果落盘后的 ref 必须有工具可取回（否则 artifact 指针是死路）。
+        registry.register_builtin(ReadArtifactTool);
+        registry.register_builtin(FindSymbolTool);
         registry.register_builtin(crate::git_tools::GitStatusTool);
         registry.register_builtin(crate::git_tools::GitDiffTool);
         registry.register_builtin(crate::git_tools::GitLogTool);
@@ -146,6 +149,7 @@ impl ToolRegistry {
         registry.register_builtin(ShellOutputTool);
         registry.register_builtin(KillShellTool);
         registry.register_builtin(TodoTool);
+        registry.register_builtin(GoalRequestTool);
         registry.register_builtin(SingleVerificationPlanTool);
         registry.register_builtin(WebFetchTool);
         registry.register_builtin(WebSearchTool);
@@ -181,6 +185,8 @@ impl ToolRegistry {
         registry.register_builtin(ListDirTool);
         registry.register_builtin(SearchFilesTool);
         registry.register_builtin(GrepTool);
+        registry.register_builtin(ReadArtifactTool);
+        registry.register_builtin(FindSymbolTool);
         registry.register_builtin(crate::git_tools::GitStatusTool);
         registry.register_builtin(crate::git_tools::GitDiffTool);
         registry.register_builtin(crate::git_tools::GitLogTool);
@@ -373,11 +379,7 @@ impl ToolRegistry {
     ) {
         let budget = schema_budget_bytes();
         for tool in tools {
-            let full_name = format!(
-                "{}_{}",
-                sanitize_tool_name(server_name),
-                sanitize_tool_name(&tool.name)
-            );
+            let full_name = mcp_tool_full_name(server_name, &tool.name);
             let (input_schema, full_schema) = if schema_bytes(&tool.input_schema) > budget {
                 let full = tool.input_schema.clone();
                 (compact_schema(&tool.input_schema), Some(full))
@@ -425,7 +427,7 @@ impl ToolRegistry {
     }
 
     /// A2-2：把 MCP 服务器的 resources/prompts 注册为**泛化工具**——
-    /// 每服务器至多 2 个（`{server}_read_resource` / `{server}_get_prompt`），
+    /// 每服务器至多 2 个（`mcp__{server}__read_resource` / `mcp__{server}__get_prompt`），
     /// 逐资源/逐模板开工具会撑爆工具表；目录摘要放在描述里供模型选 URI/模板名。
     /// 副作用按「未声明注解的 MCP 工具」登记（Execute，deny-by-default），
     /// 不因名字里带 read 就自动降级。
@@ -436,7 +438,7 @@ impl ToolRegistry {
         resources: Vec<McpResource>,
         prompts: Vec<McpPrompt>,
     ) {
-        let prefix = sanitize_tool_name(server_name);
+        let prefix = mcp_tool_prefix(server_name);
         if !resources.is_empty() {
             let catalog: Vec<String> = resources
                 .iter()
@@ -449,7 +451,7 @@ impl ToolRegistry {
                     }
                 })
                 .collect();
-            let full_name = format!("{prefix}_read_resource");
+            let full_name = format!("{prefix}read_resource");
             let effect =
                 crate::tool_effects::register_mcp_effect(server_name, "read_resource", None, false);
             self.register_arc(Arc::new(McpResourceAdapter {
@@ -479,7 +481,7 @@ impl ToolRegistry {
                 .take(12)
                 .map(|prompt| prompt.name.clone())
                 .collect();
-            let full_name = format!("{prefix}_get_prompt");
+            let full_name = format!("{prefix}get_prompt");
             let effect =
                 crate::tool_effects::register_mcp_effect(server_name, "get_prompt", None, false);
             self.register_arc(Arc::new(McpPromptAdapter {
@@ -525,12 +527,19 @@ impl ToolRegistry {
 /// 工具名规范化函数已随策略内核下沉到 `owo-agent-policy`（M12）：
 /// 它同时是权限/效应判定的输入（`effect_class_for` 按名字查表、MCP 前缀按名字生成），
 /// 两条消费链必须共用同一份命名规则，否则会出现"登记名"与"执行名"漂移。
-/// 这里保持 `pub(crate)` 可用性不变（原来的可见性就是 `pub(crate)`）。
+/// 命名空间助手 [`mcp_tool_prefix`] / [`mcp_tool_full_name`] 也统一走这里。
+#[cfg(test)]
 pub(crate) use owo_agent_policy::tool_names::sanitize_tool_name;
 
-/// MCP 工具注册前缀（`{server}_{tool}` 命名空间）：如 `owo_plugin_owo-translate_`。
+/// MCP 工具注册前缀（审查 N5）：`mcp__{server}__`（如 `mcp__owo_plugin_translate__`），
+/// 命名空间保证内置工具名不可被外部 server 顶替。
 pub fn mcp_tool_prefix(server_name: &str) -> String {
-    format!("{}_", sanitize_tool_name(server_name))
+    owo_agent_policy::tool_names::mcp_tool_prefix(server_name)
+}
+
+/// MCP 工具完整注册名（注册表与效应表同源）。
+pub fn mcp_tool_full_name(server_name: &str, tool_name: &str) -> String {
+    owo_agent_policy::tool_names::mcp_tool_full_name(server_name, tool_name)
 }
 
 impl Default for ToolRegistry {
@@ -555,7 +564,11 @@ use workspace_edit::{
 
 #[path = "tools/workspace_read.rs"]
 mod workspace_read;
-use workspace_read::{GrepTool, ListDirTool, SearchFilesTool};
+use workspace_read::{GrepTool, ListDirTool, ReadArtifactTool, SearchFilesTool};
+
+#[path = "tools/find_symbol.rs"]
+mod find_symbol;
+use find_symbol::FindSymbolTool;
 
 #[path = "tools/delegation.rs"]
 mod delegation;
@@ -573,6 +586,10 @@ use verification_tool::SingleVerificationPlanTool;
 #[path = "tools/todo.rs"]
 mod todo;
 use todo::TodoTool;
+
+#[path = "tools/goal_request.rs"]
+mod goal_request;
+use goal_request::GoalRequestTool;
 
 #[path = "tools/interaction.rs"]
 mod interaction;
@@ -886,6 +903,21 @@ mod tests {
         if context.policy.profile() != crate::permissions::PermissionProfile::Unrestricted {
             assert!(escaped.is_err(), "跳出会话工作区的路径必须仍被拒绝");
         }
+        // 4) 审查 N6：不存在的路径也必须先消解 `..` 再比对——
+        //    `nested/../../escape.txt` 的词法落点在工作区外，不得因"文件不存在"
+        //    而绕过（旧实现 starts_with 会误判为工作区内）。
+        let hidden_escape = resolve_session_path(&context, "nested/../../owo-hidden-escape.txt");
+        if context.policy.profile() != crate::permissions::PermissionProfile::Unrestricted {
+            assert!(
+                hidden_escape.is_err(),
+                "含 `..` 的不存在路径必须被拒绝：{hidden_escape:?}"
+            );
+        }
+        // 5) 工作区内的 `..` 归位（`nested/../note-in-root.txt`）仍应放行。
+        assert!(
+            resolve_session_path(&context, "nested/../note-in-root.txt").is_ok(),
+            "工作区内的 `..` 归位不得误杀"
+        );
 
         drop(context);
         let _ = std::fs::remove_dir_all(root);
@@ -1115,13 +1147,24 @@ mod tests {
 
     #[test]
     fn mcp_tool_prefix_sanitizes_plugin_id() {
+        // 审查 N5：`mcp__{server}__` 命名空间，内置名不可能被外部 server 顶替。
         assert_eq!(
             mcp_tool_prefix("owo.plugin.translate"),
-            "owo_plugin_translate_"
+            "mcp__owo_plugin_translate__"
         );
         assert_eq!(
             mcp_tool_prefix("owo-plugin-clipboard"),
-            "owo-plugin-clipboard_"
+            "mcp__owo-plugin-clipboard__"
+        );
+        assert_eq!(
+            mcp_tool_full_name("read", "file"),
+            "mcp__read__file",
+            "server=read + tool=file 不得再注册成内置 read_file"
+        );
+        assert_eq!(
+            mcp_tool_full_name("git", "status"),
+            "mcp__git__status",
+            "server=git 卸载时不得连带删除内置 git_status"
         );
     }
 
@@ -1691,6 +1734,8 @@ mod tests {
                 "list_dir",
                 "search_files",
                 "grep",
+                "read_artifact",
+                "find_symbol",
                 "git_status",
                 "git_diff",
                 "git_log",
@@ -1698,6 +1743,7 @@ mod tests {
                 "shell_output",
                 "kill_shell",
                 "todo",
+                "goal_request",
                 "verification_plan",
                 "web_fetch",
                 "web_search",
@@ -1797,14 +1843,279 @@ mod tests {
         std::fs::write(workspace.join("node_modules").join("notes.js"), "x").unwrap();
         std::fs::write(workspace.join("target").join("notes.rs"), "x").unwrap();
 
-        let mut matches = fallback_search_files(&workspace, "note");
+        let mut matches = fallback_search_files(&workspace, "note", 100);
         matches.sort();
         assert_eq!(
             matches,
             vec!["a/Note.md".to_string(), "b_notes.txt".to_string()],
             "兜底搜索应大小写不敏感且跳过 .git/node_modules/target"
         );
-        assert!(fallback_search_files(&workspace, "zzz-not-there").is_empty());
+        assert!(fallback_search_files(&workspace, "zzz-not-there", 100).is_empty());
+        // 上限参数必须真实生效（不再硬编码 200）。
+        std::fs::write(workspace.join("c_note.txt"), "x").unwrap();
+        assert_eq!(fallback_search_files(&workspace, "note", 1).len(), 1);
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    #[tokio::test]
+    async fn list_dir_sorts_marks_noise_and_reports_truncation() {
+        let workspace = std::env::temp_dir().join(format!("owo-list-dir-{}", uuid::Uuid::new_v4()));
+        for dir in ["src", ".git", "target"] {
+            std::fs::create_dir_all(workspace.join(dir)).unwrap();
+        }
+        std::fs::write(workspace.join("README.md"), "x").unwrap();
+        std::fs::write(workspace.join("zeta.txt"), "x").unwrap();
+        let policy = crate::Policy::new(&workspace);
+        let audit = Arc::new(Mutex::new(crate::AuditLog::default()));
+        let skills = crate::SkillRegistry::default();
+        let elements = Arc::new(Mutex::new(crate::ElementRegistry::new()));
+        let mut session = Session::new(&workspace, "mock", None);
+        let mut context = ToolContext {
+            workspace: &workspace,
+            policy: &policy,
+            session: &mut session,
+            audit: &audit,
+            subagent: None,
+            skills: &skills,
+            elements: &elements,
+            fanout: None,
+            abort: None,
+            questioner: None,
+        };
+        let listing = ListDirTool
+            .run(&mut context, json!({ "path": "." }))
+            .await
+            .unwrap();
+        let entries = listing["entries"].as_array().unwrap();
+        let names: Vec<&str> = entries
+            .iter()
+            .map(|entry| entry["name"].as_str().unwrap_or_default())
+            .collect();
+        assert_eq!(
+            names,
+            vec![".git", "src", "target", "README.md", "zeta.txt"],
+            "目录在前、名字大小写不敏感升序（文件系统原始顺序不稳定）：{listing}"
+        );
+        let git = entries
+            .iter()
+            .find(|entry| entry["name"] == ".git")
+            .expect(".git 条目应存在");
+        assert_eq!(
+            git["noise"],
+            json!(true),
+            "噪声目录要标记，模型可据此不再下钻"
+        );
+        assert_eq!(listing["count"], json!(5));
+        assert_eq!(listing["truncated"], json!(false));
+
+        let capped = ListDirTool
+            .run(&mut context, json!({ "path": ".", "max_entries": 2 }))
+            .await
+            .unwrap();
+        assert_eq!(capped["count"], json!(2), "上限必须生效");
+        assert_eq!(capped["truncated"], json!(true), "超大目录必须显式报告截断");
+        drop(context);
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    #[tokio::test]
+    async fn read_artifact_pages_by_ref_and_rejects_unsafe_refs() {
+        let workspace =
+            std::env::temp_dir().join(format!("owo-read-artifact-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&workspace).unwrap();
+        let dir = workspace.join(".owo").join("artifacts");
+        let store = crate::CasStore::new(dir.clone()).expect("CAS 初始化");
+        let content = (0..5_000)
+            .map(|index| format!("line-{index}\n"))
+            .collect::<String>();
+        let hash = store.put(content.as_bytes()).expect("artifact 落盘");
+        let policy = crate::Policy::new(&workspace);
+        let audit = Arc::new(Mutex::new(crate::AuditLog::default()));
+        let skills = crate::SkillRegistry::default();
+        let elements = Arc::new(Mutex::new(crate::ElementRegistry::new()));
+        let mut session = Session::new(&workspace, "mock", None);
+        let mut context = ToolContext {
+            workspace: &workspace,
+            policy: &policy,
+            session: &mut session,
+            audit: &audit,
+            subagent: None,
+            skills: &skills,
+            elements: &elements,
+            fanout: None,
+            abort: None,
+            questioner: None,
+        };
+        // 带 `sha256:` 前缀也应被接受，并按字符分页返回 next_offset。
+        let first = ReadArtifactTool
+            .run(
+                &mut context,
+                json!({ "ref": format!("sha256:{hash}"), "max_chars": 100 }),
+            )
+            .await
+            .unwrap();
+        assert_eq!(first["ref"], json!(format!("sha256:{hash}")));
+        assert_eq!(first["returned_chars"], json!(100));
+        assert_eq!(first["offset"], json!(0));
+        assert_eq!(first["truncated"], json!(true));
+        let next_offset = first["next_offset"].as_u64().expect("应有续读偏移");
+        assert_eq!(next_offset, 100);
+        assert!(
+            first["text"].as_str().unwrap().starts_with("line-0\n"),
+            "分页必须从 offset 开始：{first}"
+        );
+        assert_eq!(
+            first["total_chars"].as_u64().unwrap(),
+            content.chars().count() as u64
+        );
+
+        let second = ReadArtifactTool
+            .run(
+                &mut context,
+                json!({ "ref": hash, "offset": next_offset, "max_chars": 50 }),
+            )
+            .await
+            .unwrap();
+        assert_eq!(second["offset"], json!(100));
+        assert_eq!(second["returned_chars"], json!(50));
+
+        // 越界/非法 ref 必须被拒绝：CasStore 直接用 ref 拼文件名，`../` 会越出目录。
+        for bad in ["../../secret", "abc", "zzzz", ""] {
+            let error = ReadArtifactTool
+                .run(&mut context, json!({ "ref": bad }))
+                .await
+                .expect_err("非法 ref 必须拒绝");
+            assert!(
+                error.contains("64 位十六进制") || error.contains("ref"),
+                "错误信息要指明 ref 形态：{error}"
+            );
+        }
+        let missing = ReadArtifactTool
+            .run(&mut context, json!({ "ref": "0".repeat(64) }))
+            .await
+            .expect_err("不存在的 ref 必须报错");
+        assert!(missing.contains("不存在"), "{missing}");
+        drop(context);
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    #[tokio::test]
+    async fn todo_rejects_oversized_plans_and_overlong_items() {
+        let workspace = std::env::temp_dir().join(format!("owo-todo-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&workspace).unwrap();
+        let policy = crate::Policy::new(&workspace);
+        let audit = Arc::new(Mutex::new(crate::AuditLog::default()));
+        let skills = crate::SkillRegistry::default();
+        let elements = Arc::new(Mutex::new(crate::ElementRegistry::new()));
+        let mut session = Session::new(&workspace, "mock", None);
+        let mut context = ToolContext {
+            workspace: &workspace,
+            policy: &policy,
+            session: &mut session,
+            audit: &audit,
+            subagent: None,
+            skills: &skills,
+            elements: &elements,
+            fanout: None,
+            abort: None,
+            questioner: None,
+        };
+
+        let ok = TodoTool
+            .run(
+                &mut context,
+                json!({ "todos": [{ "content": "只列关键步骤", "status": "pending" }] }),
+            )
+            .await
+            .unwrap();
+        assert_eq!(ok["todos"].as_array().unwrap().len(), 1);
+
+        // 超量整表：必须拒绝并给出上限，避免一次写入把上下文/会话库撑爆。
+        let too_many: Vec<Value> = (0..51)
+            .map(|index| json!({ "content": format!("步骤 {index}"), "status": "pending" }))
+            .collect();
+        let error = TodoTool
+            .run(&mut context, json!({ "todos": too_many }))
+            .await
+            .expect_err("超过 50 条必须拒绝");
+        assert!(error.contains("50"), "{error}");
+        assert_eq!(
+            context.session.todos.len(),
+            1,
+            "被拒绝的写入不得改动会话里的清单"
+        );
+
+        let overlong = "很长的内容".repeat(60);
+        let error = TodoTool
+            .run(
+                &mut context,
+                json!({ "todos": [{ "content": overlong, "status": "pending" }] }),
+            )
+            .await
+            .expect_err("单条过长必须拒绝");
+        assert!(error.contains("200"), "{error}");
+        assert_eq!(context.session.todos.len(), 1);
+        drop(context);
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    #[tokio::test]
+    async fn use_skill_bounds_long_instructions_and_points_to_the_file() {
+        let workspace = std::env::temp_dir().join(format!("owo-skill-{}", uuid::Uuid::new_v4()));
+        let skill_dir = workspace.join(".agents").join("skills").join("huge");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        let long_body = "步骤说明\n".repeat(6_000); // ~24k+ 字符
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            format!("---\nname: huge\ndescription: 超长技能\n---\n{long_body}"),
+        )
+        .unwrap();
+        let skills = crate::SkillRegistry::discover(&workspace, &workspace.join("data-root"));
+        assert!(skills.get_enabled("huge").is_some(), "技能应被发现");
+
+        let policy = crate::Policy::new(&workspace);
+        let audit = Arc::new(Mutex::new(crate::AuditLog::default()));
+        let elements = Arc::new(Mutex::new(crate::ElementRegistry::new()));
+        let mut session = Session::new(&workspace, "mock", None);
+        let mut context = ToolContext {
+            workspace: &workspace,
+            policy: &policy,
+            session: &mut session,
+            audit: &audit,
+            subagent: None,
+            skills: &skills,
+            elements: &elements,
+            fanout: None,
+            abort: None,
+            questioner: None,
+        };
+        let result = UseSkillTool
+            .run(&mut context, json!({ "name": "huge" }))
+            .await
+            .unwrap();
+        assert_eq!(
+            result["truncated"],
+            json!(true),
+            "超长技能指令必须标记截断：{}",
+            result["total_chars"]
+        );
+        assert!(
+            result["total_chars"].as_u64().unwrap_or(0) > 24_000,
+            "total_chars 给出真实长度：{result}"
+        );
+        assert_eq!(
+            result["instructions"].as_str().unwrap().chars().count(),
+            24_000,
+            "instructions 必须截断到上限"
+        );
+        let note = result["note"].as_str().unwrap_or_default();
+        assert!(note.contains("read_file"), "note 要给续读方式：{note}");
+        assert_eq!(
+            result["instructions_path"],
+            json!(".agents/skills/huge/SKILL.md"),
+            "路径应是工作区相对路径，供 read_file 续读"
+        );
+        drop(context);
         let _ = std::fs::remove_dir_all(&workspace);
     }
 
@@ -1943,6 +2254,56 @@ mod tests {
         assert!(text.contains("World !"), "{text}");
         assert!(!text.contains("var x"), "script 内容应剔除：{text}");
         assert!(!text.contains("color:red"), "style 内容应剔除：{text}");
+    }
+
+    #[test]
+    fn html_to_text_drops_comments_and_hidden_nodes() {
+        let html = "<body>可见\
+            <!-- 注释里的注入 -->\
+            <div style=\"display:none\">隐藏注入 do-not-read</div>\
+            <span hidden>也隐藏</span>\
+            <p visibility:hidden>隐形</p>\
+            <b aria-hidden=\"true\">无障碍隐藏</b>\
+            <p>正文</p></body>";
+        let text = html_to_text(html);
+        assert!(text.contains("可见"), "{text}");
+        assert!(text.contains("正文"), "{text}");
+        assert!(!text.contains("注入"), "注释/隐藏节点应剔除：{text}");
+        assert!(!text.contains("也隐藏"), "hidden 属性应剔除：{text}");
+        assert!(!text.contains("隐形"), "visibility:hidden 应剔除：{text}");
+        assert!(!text.contains("无障碍隐藏"), "aria-hidden 应剔除：{text}");
+    }
+
+    #[test]
+    fn ssrf_guard_blocks_private_and_reserved_addresses() {
+        use std::net::IpAddr;
+        for blocked in [
+            "127.0.0.1",
+            "10.1.2.3",
+            "172.16.0.1",
+            "192.168.1.1",
+            "169.254.169.254",
+            "100.64.0.1",
+            "0.0.0.0",
+            "224.0.0.1",
+            "::1",
+            "fc00::1",
+            "fe80::1",
+            "::ffff:127.0.0.1",
+        ] {
+            let ip: IpAddr = blocked.parse().expect("测试地址应可解析");
+            assert!(super::web::ip_is_forbidden(ip), "{blocked} 应被 SSRF 拦截");
+        }
+        for allowed in ["8.8.8.8", "1.1.1.1", "2606:4700:4700::1111"] {
+            let ip: IpAddr = allowed.parse().expect("测试地址应可解析");
+            assert!(!super::web::ip_is_forbidden(ip), "{allowed} 不应被拦截");
+        }
+        let local = reqwest::Url::parse("http://127.0.0.1:8080/admin").unwrap();
+        assert!(super::web::validate_fetch_target(&local).is_err());
+        let public = reqwest::Url::parse("https://example.com/").unwrap();
+        assert!(super::web::validate_fetch_target(&public).is_ok());
+        let bad_scheme = reqwest::Url::parse("ftp://example.com/x").unwrap();
+        assert!(super::web::validate_fetch_target(&bad_scheme).is_err());
     }
 
     #[test]

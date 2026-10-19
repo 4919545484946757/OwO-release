@@ -28,6 +28,25 @@ pub fn sanitize_tool_name(name: &str) -> String {
         .collect()
 }
 
+/// MCP 工具命名空间（审查 N5）：`mcp__{server}__{tool}`。
+///
+/// 旧命名 `{server}_{tool}` 里的 server 名可以顶替内置工具：server `read` + tool `file`
+/// 会注册成 `read_file` 覆盖内置工具，而注入过滤按名字信任 `read_file`，顶替后的输出
+/// 就绕过了来源判断（更别说 `remove_prefix("git_")` 会连带删掉内置 `git_status`）。
+/// 加 `mcp__` 前缀 + `__` 分隔后，内置名保留字不可能被 MCP 命中。
+pub fn mcp_tool_prefix(server_name: &str) -> String {
+    format!("mcp__{}__", sanitize_tool_name(server_name))
+}
+
+/// MCP 工具完整注册名：`mcp__{server}__{tool}`（注册表与效应表同源）。
+pub fn mcp_tool_full_name(server_name: &str, tool_name: &str) -> String {
+    format!(
+        "{}{}",
+        mcp_tool_prefix(server_name),
+        sanitize_tool_name(tool_name)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

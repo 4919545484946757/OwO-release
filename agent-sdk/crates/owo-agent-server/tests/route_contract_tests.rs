@@ -342,10 +342,31 @@ fn sample_body(path: &str) -> Option<&'static str> {
         // 「测试连接」无请求体（端点取自配置），但要走同一个 sample_body 查表面，
         // 缺这一条会被 reachable 测试当成"没有样例体的新路由"而跳过断言。
         "/settings/provider-test" => Some(r#"{}"#),
+        "/workspace/trust" => Some(r#"{"trusted":true}"#),
         "/memory/mine-skill" => {
             Some(r#"{"name":"t","target_apps":[],"sensitivity":"low","description":"d"}"#)
         }
         "/skills/{name}/enabled" => Some(r#"{"enabled":false}"#),
+        // `/goal` 会话级目标状态：默认 action=set 且 objective 必填（可达性测试要 200）。
+        "/session/{id}/goal" => Some(r#"{"action":"set","objective":"契约测试目标"}"#),
+        // 逐 hunk 审阅的应用：缺 accept/reject 会 422，可达性测试只要求路由存在与请求体可解析。
+        "/session/{id}/hunks/apply" => Some(r#"{"path":"fixture.txt","accept":[0]}"#),
+        // 用户自定义工作流：非法配置会 422（可达性测试接受 4xx，这里给"能解析"的最小体）。
+        "/workflows/user" => Some(
+            r#"{"template_id":"contract-test","name":"契约测试","mode":"team","roles":[],"applicability":"契约","created_at":""}"#,
+        ),
+        "/workflows/user/validate" => Some(
+            r#"{"template_id":"contract-test","name":"契约测试","mode":"team","roles":[],"applicability":"契约","created_at":""}"#,
+        ),
+        // 草稿生成会调用模型（契约测试 provider 返回错误 → 502；可达性只要求非 404/405）。
+        "/workflows/draft" => Some(r#"{"description":"契约测试工作流"}"#),
+        // 收敛接口同样会调用模型（契约测试 provider 报错 → 502，可达性只要求非 404/405）。
+        "/workflows/draft/converge" => Some(r#"{"description":"契约测试收敛","max_rounds":2}"#),
+        "/workflows/draft/{id}/verify" => Some(r#"{"team_id":"team-missing"}"#),
+        // 社区共享：导出（未知 id → 404）、导入/评审（非法 base64 → 422）。
+        "/workflows/user/{id}/export" => Some(r#"{}"#),
+        "/workflows/import/review" => Some(r#"{"package_b64":"not-base64"}"#),
+        "/workflows/import" => Some(r#"{"package_b64":"not-base64"}"#),
         "/computer-use/task" => Some(r#"{"target_app":"notepad","description":"d"}"#),
         "/computer-use/task/{id}/{action}" => Some(r#"{"reason":"r"}"#),
         "/computer-use/sensitive-check" => Some(r#"{"name":"PasswordBox"}"#),
@@ -505,6 +526,12 @@ fn resource_404_ok(path: &str) -> bool {
             | "/goal/{id}/runs"
             | "/workflow/{name}"
             | "/workflow/{name}/run"
+            // 用户自定义工作流：删除不存在的模板按契约 404。
+            | "/workflows/user/{id}"
+            | "/workflows/draft/{id}"
+            | "/workflows/draft/{id}/verify"
+            | "/workflows/draft/{id}/adopt"
+            | "/workflows/user/{id}/export"
             | "/workflow/{name}/runs"
             | "/workflow/run/{run_id}"
             | "/workflow/run/{run_id}/abort"
@@ -1938,6 +1965,12 @@ async fn v05_routes_are_registered_not_404_via_real_http() {
         "/traces",
         "/memory/observations",
         "/memory/recall?q=t&top_k=3",
+        "/symbols?query=main",
+        "/workflows/user",
+        "/workflows/draft",
+        "/workflows/provenance",
+        "/workflows/stats",
+        "/workflows/user/contract-test/last-run",
         "/openapi.json",
         "/auth/token",
     ];
@@ -3979,23 +4012,25 @@ async fn expression_rejects_invalid_host_or_origin_before_provider() {
     let (state, _temp) = test_state().await;
     let app = build_router(state.clone());
     // IdleProvider fails expression by default; any accepted source would reach 502.
-    for (host, origin) in [
-        (None, None),
-        (Some("evil.example"), None),
-        (Some("localhost:80@evil.example"), None),
-        (Some("localhost:0"), None),
-        (Some("localhost/path"), None),
-        (Some("127.0.0.1:4096"), Some("https://evil.example")),
+    for (host, origin, expected_status) in [
+        (None, None, 403),
+        (Some("evil.example"), None, 421),
+        (Some("localhost:80@evil.example"), None, 403),
+        (Some("localhost:0"), None, 403),
+        (Some("localhost/path"), None, 421),
+        (Some("127.0.0.1:4096"), Some("https://evil.example"), 403),
         (
             Some("127.0.0.1:4096"),
             Some("http://localhost:80@evil.example"),
+            403,
         ),
-        (Some("127.0.0.1:4096"), Some("http://localhost/path")),
+        (Some("127.0.0.1:4096"), Some("http://localhost/path"), 403),
         (
             Some("127.0.0.1:4096"),
             Some("http://localhost?secret=synthetic"),
+            403,
         ),
-        (Some("127.0.0.1:4096"), Some("null")),
+        (Some("127.0.0.1:4096"), Some("null"), 403),
     ] {
         let mut req = request(
             &state,
@@ -4014,11 +4049,20 @@ async fn expression_rejects_invalid_host_or_origin_before_provider() {
         req.headers_mut()
             .insert("x-forwarded-host", "localhost".parse().unwrap());
         let response = app.clone().oneshot(req).await.unwrap();
-        assert_eq!(response.status().as_u16(), 403);
+        assert_eq!(
+            response.status().as_u16(),
+            expected_status,
+            "host={host:?}, origin={origin:?}"
+        );
         let body = axum::body::to_bytes(response.into_body(), 1024)
             .await
             .unwrap();
-        assert_eq!(body.as_ref(), b"expression/invalid_source");
+        if expected_status == 421 {
+            let error: serde_json::Value = serde_json::from_slice(&body).unwrap();
+            assert_eq!(error["code"], "http/untrusted_host");
+        } else {
+            assert_eq!(body.as_ref(), b"expression/invalid_source");
+        }
     }
     for header in ["host", "origin"] {
         let mut req = request(

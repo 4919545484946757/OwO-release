@@ -436,10 +436,13 @@ pub(super) struct SkillVerifyRequest {
 }
 
 pub(super) async fn skill_verify(Json(request): Json<SkillVerifyRequest>) -> Json<Value> {
-    match owo_agent_core::validate_skill_package(&request.path) {
+    // 与安装同源：结构 + 名字安全 + `min_app_version` 门禁（宿主版本=本进程版本）。
+    match owo_agent_core::validate_skill_package_for_app(&request.path, env!("CARGO_PKG_VERSION")) {
         Ok(info) => Json(json!({
             "ok": true,
             "name": info.name,
+            "version": info.version,
+            "min_app_version": info.min_app_version,
             "permissions": info.permissions,
             "has_tests": info.has_tests,
         })),

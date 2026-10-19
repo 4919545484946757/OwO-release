@@ -140,6 +140,16 @@ impl AgentClient {
         Self::decode(response).await
     }
 
+    /// DELETE 并解码响应（资源删除类端点，如用户工作流/草稿）。
+    pub async fn delete_json<T: DeserializeOwned>(&self, path: &str) -> Result<T> {
+        let response = self
+            .request(reqwest::Method::DELETE, path)
+            .send()
+            .await
+            .map_err(|error| ClientError::Transport(error.to_string()))?;
+        Self::decode(response).await
+    }
+
     /// 发起长期 GET 流（如团队事件 SSE）；关闭请求级超时，由调用方控制生命周期。
     pub(crate) fn get_stream(&self, path: &str) -> reqwest::RequestBuilder {
         self.stream_request(reqwest::Method::GET, path)

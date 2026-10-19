@@ -93,10 +93,10 @@ pub(super) async fn mcp_add(
     State(state): State<Arc<AppState>>,
     Json(request): Json<McpAddRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let name = request.name.trim().to_string();
-    if name.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, "缺少名称 name".to_string()));
-    }
+    // 名字规则与 CLI `owo-agent mcp` 共用唯一实现：`__` 会破坏
+    // `mcp__{server}__{tool}` 命名空间反解，空白/路径字符会污染配置与审计。
+    let name = owo_agent_core::validate_mcp_server_name(&request.name)
+        .map_err(|reason| (StatusCode::BAD_REQUEST, reason))?;
     let config = owo_agent_core::McpServerConfig {
         name: name.clone(),
         transport: request.transport.clone(),

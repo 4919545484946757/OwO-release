@@ -1786,11 +1786,105 @@ async function refreshDiff(sessionId) {
     }
     $("revertBtn").disabled = diffs.length === 0;
     if (!diffs.length) list.innerHTML = '<li class="sub">本次会话没有文件改动。文字结果保留在对话中。</li>';
+    // G13：逐 hunk 审阅（服务端 /session/{id}/hunks + /hunks/apply）。
+    // 失败不影响上面的整份 diff 视图（旧行为保持可用）。
+    await renderHunkActions(sessionId, generation, list);
   } catch (_) {
     if (generation !== sessionDiffRefreshGeneration || sessionId !== state.sessionId) return;
     list.innerHTML = '<li class="sub">暂时无法读取文件变化，请稍后重新打开会话。</li>';
   }
 }
+
+// 逐 hunk 审阅行：把 `/session/{id}/hunks` 视图渲染成"接受全部 / 拒绝全部"操作。
+// 逐条序号应用仍走同一路由（此处只暴露最常见的整文件操作，避免误点单条 hunk）。
+async function renderHunkActions(sessionId, generation, list) {
+  const review = window.OwoHunkReview;
+  if (!review || !list || !list.isConnected) return;
+  let view;
+  try {
+    view = await api("/session/" + encodeURIComponent(sessionId) + "/hunks");
+  } catch (_) {
+    return;
+  }
+  if (generation !== sessionDiffRefreshGeneration || sessionId !== state.sessionId) return;
+  let rows;
+  try {
+    rows = review.buildRows(view);
+  } catch (_) {
+    return;
+  }
+  for (const row of rows) {
+    if (!row.reviewable) continue;
+    const item = document.createElement("li");
+    item.className = "diff-item hunk-review";
+    item.dataset.path = row.path;
+    const title = document.createElement("div");
+    title.className = "file-change-kind";
+    title.textContent = row.path + " · " + row.hunks.length + " 个 hunk";
+    title.title = row.hunks.map((hunk) => hunk.label).join("\n");
+    const status = document.createElement("span");
+    status.className = "sub hunk-review-status";
+    item.append(title);
+    if (row.conflict) {
+      status.textContent = "文件已被改动，逐 hunk 应用会被拒绝（409）";
+    } else {
+      const accept = document.createElement("button");
+      accept.type = "button";
+      accept.textContent = "接受全部";
+      accept.addEventListener("click", () => applyHunksForFile(row.path, "accept", row.hunks.length, status));
+      const reject = document.createElement("button");
+      reject.type = "button";
+      reject.textContent = "拒绝全部";
+      reject.addEventListener("click", () => applyHunksForFile(row.path, "reject", row.hunks.length, status));
+      item.append(accept, reject);
+      status.textContent = "可逐 hunk 处理（拒绝即还原为写前内容）";
+    }
+    item.append(status);
+    list.appendChild(item);
+  }
+}
+
+// 应用某个文件的全部 hunk（accept/reject），并在原地回显服务端结果。
+async function applyHunksForFile(path, side, total, status) {
+  const review = window.OwoHunkReview;
+  const sessionId = state.sessionId;
+  if (!review || !sessionId) return;
+  const built = review.applyBody(path, side, Array.from({ length: total }, (_, index) => index));
+  if (!built.ok) {
+    if (status) status.textContent = built.error;
+    return;
+  }
+  if (status) status.textContent = side === "accept" ? "正在接受…" : "正在还原…";
+  try {
+    const result = await api("/session/" + encodeURIComponent(sessionId) + "/hunks/apply", {
+      method: "POST",
+      body: JSON.stringify(built.body),
+    });
+    if (status) status.textContent = review.summarizeApply(result);
+    await refreshDiff(sessionId);
+  } catch (error) {
+    const message = error && error.status === 409
+      ? "文件已被改动，未写盘（请先处理该文件的编辑）"
+      : "逐 hunk 应用失败" + (error && error.status ? "（" + error.status + "）" : "");
+    if (status) status.textContent = message;
+  }
+}
+
+// 符号检索入口（桌面）：默认落在**当前会话打开的项目**上（session_id），
+// Daemon 自己的工作区未必是被打开的项目。面板/控制台都可用 window.owoSymbolSearch。
+async function searchSymbols(query, options) {
+  const search = window.OwoSymbolSearch;
+  if (!search) return { ok: false, error: "符号检索模块未加载" };
+  const built = search.buildQueryUri(query, Object.assign({ sessionId: state.sessionId }, options || {}));
+  if (!built.ok) return { ok: false, error: built.error };
+  try {
+    const payload = await api(built.uri);
+    return { ok: true, uri: built.uri, payload: payload, rows: search.buildRows(payload), summary: search.summarize(payload) };
+  } catch (error) {
+    return { ok: false, error: "符号检索失败：" + String(error && error.message ? error.message : error) };
+  }
+}
+window.owoSymbolSearch = searchSymbols;
 
 // 生成行级 diff 文本（统一格式，参照 git diff 风格）。
 function diffText(diff) {
@@ -2218,7 +2312,10 @@ async function runSubagent() {
     addMessage("system", "请输入子代理任务");
     return;
   }
-  const readOnly = $("subagentMode").value === "read_only";
+  const mode = $("subagentMode").value;
+  const readOnly = mode === "read_only";
+  // 命令执行需显式选择"通用子代理 + 命令执行"：无审批通道的子代理默认拒绝执行命令。
+  const allowCommands = mode === "full_commands";
   const button = $("subagentRunBtn");
   const box = $("subagentResult");
   button.disabled = true;
@@ -2228,11 +2325,16 @@ async function runSubagent() {
   try {
     const result = await api("/subagent/run", {
       method: "POST",
-      body: JSON.stringify({ prompt, read_only: readOnly }),
+      body: JSON.stringify({ prompt, read_only: readOnly, allow_commands: allowCommands }),
     });
+    const modeTag = result.read_only
+      ? "只读探索"
+      : result.allow_commands
+        ? "通用子代理 + 命令执行"
+        : "通用子代理";
     box.innerHTML =
       '<div class="owo-result-head">' +
-      `<span class="owo-tag ${result.read_only ? "" : "warn"}">${result.read_only ? "只读探索" : "通用子代理"}</span>` +
+      `<span class="owo-tag ${result.read_only || !result.allow_commands ? "" : "warn"}">${modeTag}</span>` +
       `<span class="owo-tag">${((result.duration_ms || 0) / 1000).toFixed(1)}s</span>` +
       "</div>" +
       `<div class="owo-result-body">${renderMarkdown(result.text || "（无汇报）")}</div>`;
@@ -2571,6 +2673,7 @@ const PANEL_ORDER = [
   "automations",
   "plugin-market",
   "workflow",
+  "custom-workflows",
   "goal",
   "team",
   "eval",

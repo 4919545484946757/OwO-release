@@ -25,6 +25,7 @@
 //! 本 crate 刻意不依赖 `owo-agent-kernel` / `owo-agent-contracts`：策略判定是
 //! 纯逻辑 + serde + 哈希 + 授权凭证文件，不需要内核原语，依赖面越小越好。
 
+pub mod command_guard;
 pub mod grant_store;
 pub mod mcp_health;
 pub mod permission_spec;
@@ -33,6 +34,7 @@ pub mod tool_effects;
 pub mod tool_names;
 
 // 迁移期约定（与 M0–M11 一致）：用 glob 再导出，让公共面等价性由编译器证明。
+pub use command_guard::*;
 pub use grant_store::*;
 pub use mcp_health::*;
 pub use permission_spec::*;

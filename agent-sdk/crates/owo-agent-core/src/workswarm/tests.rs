@@ -138,6 +138,10 @@ fn template_adopt_is_idempotent_and_reject_blocks() {
         applicability: "浏览器 任务".into(),
         source_team_id: Some("team-x".into()),
         created_at: now_ts(),
+        origin: None,
+        description: None,
+        version: None,
+        tags: Vec::new(),
     };
     let proposal = TeamTemplateProposal {
         proposal_id: "prop-x".into(),

@@ -54,6 +54,9 @@ struct CreateTeamHttpRequest {
     /// 当前 REPL 父会话；服务端验证工作区后自行生成 CoreSpec。
     #[serde(default)]
     parent_session_id: Option<String>,
+    /// 已经确认过该工作流的能力面提示（社区来源 + 有风险时必须为 true）。
+    #[serde(default)]
+    acknowledge_risk: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -256,6 +259,39 @@ async fn create_team(
             }
         },
     };
+    // 社区工作流治理：来源为 community 且带风险面（执行/联网/MCP/任意写/人工节点）时，
+    // 必须由调用方显式确认（UI 确认框 / CLI --yes / API acknowledge_risk）。
+    // 这是宿主侧兜底：即使客户端跳过了提示，也不会在未确认的情况下把社区配置跑起来。
+    if let Some(template_id) = req.template_id.as_deref() {
+        let registry = owo_agent_core::workswarm::TeamTemplateRegistry::new(
+            state.data_root.join("workswarm").join("templates"),
+        );
+        if let Some(template) = registry.get_template(template_id) {
+            if template.origin.as_deref() == Some("community") {
+                let health = owo_agent_core::workflow_health(&template);
+                let findings = owo_agent_core::review_workflow_template(&template);
+                let warnings = findings
+                    .iter()
+                    .filter(|finding| finding.level == "warn")
+                    .count();
+                if !req.acknowledge_risk && (health.risk_level == "high" || warnings > 0) {
+                    return Err((
+                        StatusCode::CONFLICT,
+                        Json(json!({
+                            "error": format!(
+                                "社区工作流 {template_id} 带 {warnings} 条能力面提示（风险 {}）；确认后加 acknowledge_risk=true 重试",
+                                health.risk_level
+                            ),
+                            "risk_level": health.risk_level,
+                            "warnings": warnings,
+                            "findings": findings,
+                        })),
+                    ));
+                }
+            }
+        }
+    }
+
     // 六期（第二路）：工作区绑定先校验（不依赖团队存在；路径非法 → 400，不建队）。
     let workspace_binding = match &req.workspace {
         Some(spec) => Some(

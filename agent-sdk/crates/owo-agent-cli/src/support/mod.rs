@@ -832,8 +832,16 @@ pub(crate) fn new_repl_editor() -> rustyline::Result<ReplEditor> {
 }
 
 mod goal;
+mod hunk_report;
+mod query_encode;
+mod session_select;
+mod symbol_report;
 
 pub(crate) use goal::*;
+pub(crate) use hunk_report::*;
+pub(crate) use query_encode::*;
+pub(crate) use session_select::*;
+pub(crate) use symbol_report::*;
 
 #[cfg(test)]
 mod repl_completion_tests {

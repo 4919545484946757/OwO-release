@@ -16,6 +16,17 @@ pub type Handle = *mut c_void;
 pub type SIZE_T = usize;
 pub type ULONG_PTR = usize;
 pub type PSID = *mut c_void;
+pub type PSECURITY_DESCRIPTOR = *mut c_void;
+
+/// SDDL 版本（`ConvertStringSecurityDescriptorToSecurityDescriptorW` 的 revision）。
+pub const SDDL_REVISION_1: DWORD = 1;
+/// 管道安全描述符：DACL 放行所有人 + 强制标签 Low（no-write-up）。
+///
+/// 低完整性子进程要向父进程的管道写 stdout/stderr：对象若带默认（继承父进程的
+/// Medium）标签，Low 进程的写入会被 MAC 直接拒绝，表现为**命令 exit 0 但输出全空**
+/// （审查 N2 实测）。给管道显式打 Low 标签后 Low 进程可以写，父进程（Medium）
+/// 写/读属于 write-down/read-down，不受 no-write-up 限制。
+pub const PIPE_SECURITY_SDDL: &str = "D:(A;;GA;;;WD)S:(ML;;NW;;;LW)";
 
 pub const TRUE: BOOL = 1;
 pub const FALSE: BOOL = 0;
@@ -43,6 +54,19 @@ pub const SECURITY_MANDATORY_LOW_RID: DWORD = 0x1000;
 // 进程/线程属性（AppContainer）
 pub const EXTENDED_STARTUPINFO_PRESENT: DWORD = 0x0008_0000;
 pub const PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES: ULONG_PTR = 0x0002_0009;
+
+// STARTUPINFO / CreateProcess 标志与文件访问常量（审查 N2：受限令牌路径要真正
+// 用上管道句柄、cwd 与环境块，否则子进程既拿不到 stdout 也看不到 cwd/env）。
+/// `STARTUPINFO.dwFlags`：hStdInput/hStdOutput/hStdError 有效（必须设，否则
+/// CreateProcess 忽略这些句柄，受限路径会丢 stdout）。
+pub const STARTF_USESTDHANDLES: DWORD = 0x0000_0100;
+/// CreateProcess 标志：lpEnvironment 是 Unicode 环境块。
+pub const CREATE_UNICODE_ENVIRONMENT: DWORD = 0x0000_0400;
+pub const GENERIC_READ: DWORD = 0x8000_0000;
+pub const FILE_SHARE_READ: DWORD = 0x0000_0001;
+pub const FILE_SHARE_WRITE: DWORD = 0x0000_0002;
+pub const OPEN_EXISTING: DWORD = 3;
+pub const INVALID_HANDLE_VALUE: Handle = -1isize as Handle;
 
 // 访问权限
 pub const PROCESS_ALL_ACCESS: DWORD = 0x001F_0FFF;
@@ -76,6 +100,15 @@ extern "system" {
         lp_pipe_attributes: *const c_void,
         n_size: DWORD,
     ) -> BOOL;
+    fn CreateFileW(
+        lp_file_name: *const u16,
+        dw_desired_access: DWORD,
+        dw_share_mode: DWORD,
+        lp_security_attributes: *const c_void,
+        dw_creation_disposition: DWORD,
+        dw_flags_and_attributes: DWORD,
+        h_template_file: *mut c_void,
+    ) -> Handle;
     fn CreateProcessW(
         lp_application_name: *const u16,
         lp_command_line: *mut u16,
@@ -117,10 +150,17 @@ extern "system" {
     fn LoadLibraryW(lp_file_name: *const u16) -> Handle;
     fn GetProcAddress(h_module: Handle, lp_proc_name: *const c_char) -> *mut c_void;
     fn TerminateProcess(h_process: Handle, u_exit_code: u32) -> BOOL;
+    fn LocalFree(h_mem: *mut c_void) -> *mut c_void;
 }
 
 #[link(name = "advapi32")]
 extern "system" {
+    fn ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        string_security_descriptor: *const u16,
+        string_sd_revision: DWORD,
+        security_descriptor: *mut PSECURITY_DESCRIPTOR,
+        security_descriptor_size: *mut DWORD,
+    ) -> BOOL;
     fn OpenProcessToken(
         process_handle: Handle,
         desired_access: DWORD,
@@ -244,6 +284,7 @@ pub struct STARTUPINFOEXW {
 }
 
 #[repr(C)]
+#[derive(Debug, Clone, Copy)]
 pub struct SID_AND_ATTRIBUTES {
     pub sid: PSID,
     pub attributes: DWORD,
@@ -425,21 +466,55 @@ pub fn probe_app_container() -> (bool, String) {
     )
 }
 
-/// 低完整性标签（20 字节 SYSTEM_MANDATORY_LABEL_ACE）。
-fn low_integrity_label() -> SYSTEM_MANDATORY_LABEL_ACE {
-    SYSTEM_MANDATORY_LABEL_ACE {
-        header: ACE_HEADER {
-            ace_type: SYSTEM_MANDATORY_LABEL_ACE_TYPE,
-            ace_flags: 0,
-            ace_size: std::mem::size_of::<SYSTEM_MANDATORY_LABEL_ACE>() as u16,
-        },
-        mask: 0,
-        sid_start: SID_MINIMAL {
-            revision: 1,
-            sub_authority_count: 1,
-            identifier_authority: [0, 0, 0, 0, 0, 16],
-            sub_authority: [SECURITY_MANDATORY_LOW_RID],
-        },
+/// `SE_GROUP_INTEGRITY`：TOKEN_MANDATORY_LABEL.Label.Attributes 的必需取值。
+pub const SE_GROUP_INTEGRITY: DWORD = 0x0000_0020;
+
+/// 低完整性标签 SID：`S-1-16-4096`（`SECURITY_MANDATORY_LOW_RID`）。
+///
+/// 审查 N2 第 1 点：旧实现把 `SYSTEM_MANDATORY_LABEL_ACE`（ACE 布局，掩码语义也
+/// 不对）直接传给 `SetTokenInformation(TokenIntegrityLevel)`，系统返回 998 /
+/// 1299，低完整性令牌**永远探测不到**，受限令牌路径静默降级为 Job-only。
+///
+/// 关键实现约束（实测得出，勿改回去）：
+/// 1. 长度 = `sizeof(TOKEN_MANDATORY_LABEL) + GetSidLengthRequired(1)` = 28；
+/// 2. SID **不能**用 `&mut self` 里的指针字段持有——结构体按值返回时指针会指向
+///    已失效的栈帧，系统校验失败（1299）。指针必须在调用点从仍然存活的 SID
+///    数组现取（[`Self::token_label`]）；
+/// 3. SID 用 `[u32; 3]` 存放，保证 4 字节对齐。
+pub struct LowIntegrityLabel {
+    sid: [u32; 3],
+}
+
+impl LowIntegrityLabel {
+    /// `sizeof(TOKEN_MANDATORY_LABEL) + 12`（SID 1 个子权威）。
+    pub const LEN: DWORD = 28;
+
+    pub fn new() -> Self {
+        let mut label = Self { sid: [0; 3] };
+        let bytes = label.sid.as_mut_ptr() as *mut u8;
+        unsafe {
+            *bytes = 1; // SID revision
+            *bytes.add(1) = 1; // sub-authority count
+            std::ptr::copy_nonoverlapping([0u8, 0, 0, 0, 0, 16].as_ptr(), bytes.add(2), 6);
+            std::ptr::copy_nonoverlapping(
+                SECURITY_MANDATORY_LOW_RID.to_le_bytes().as_ptr(),
+                bytes.add(8),
+                4,
+            );
+        }
+        label
+    }
+
+    /// 生成指向本对象 SID 的 `TOKEN_MANDATORY_LABEL`（指针在此处现取，随对象存活）。
+    pub fn token_label(&mut self) -> SID_AND_ATTRIBUTES {
+        SID_AND_ATTRIBUTES {
+            sid: self.sid.as_mut_ptr() as PSID,
+            attributes: SE_GROUP_INTEGRITY,
+        }
+    }
+
+    pub fn len(&self) -> DWORD {
+        Self::LEN
     }
 }
 
@@ -471,23 +546,84 @@ pub fn probe_low_integrity() -> (bool, String) {
             format!("DuplicateTokenEx 失败（错误 {}）", last_error()),
         );
     }
-    let label = low_integrity_label();
+    let mut label = LowIntegrityLabel::new();
+    let token_label = label.token_label();
     let set_ok = unsafe {
         SetTokenInformation(
             duplicate,
             TOKEN_INTEGRITY_LEVEL,
-            &label as *const SYSTEM_MANDATORY_LABEL_ACE as *const c_void,
-            std::mem::size_of::<SYSTEM_MANDATORY_LABEL_ACE>() as DWORD,
+            &token_label as *const SID_AND_ATTRIBUTES as *const c_void,
+            label.len(),
         )
     };
-    close_handle(duplicate);
     if set_ok == FALSE {
+        close_handle(duplicate);
         return (
             false,
             format!("SetTokenInformation(Low IL) 失败（错误 {}）", last_error()),
         );
     }
-    (true, "低完整性令牌可用".to_string())
+    // 端到端自测：受限令牌路径必须能捕获子进程输出。只测"令牌能标 Low"不够——
+    // 若管道句柄无法继承进 Low 子进程，命令会 exit 0 但 stdout/stderr 全空，
+    // 比"没有隔离"更危险（结果静默丢失）。自测不过就诚实报告不可用，
+    // 让调用方回落到 Job-only 路径（审查 N2：能力报告必须与真实行为一致）。
+    let capture = verify_low_integrity_capture();
+    close_handle(duplicate);
+    match capture {
+        Ok(()) => (
+            true,
+            "低完整性令牌可用（受限路径端到端输出捕获通过）".to_string(),
+        ),
+        Err(reason) => (false, reason),
+    }
+}
+
+/// 低完整性自测：走**与管理器完全相同的代码路径**（`SandboxManager::spawn` →
+/// `create_process` → 受限令牌）跑一条最小命令，确认输出可被捕获。
+///
+/// 为什么必须走管理器路径：只测"令牌能标 Low"或直接调 `create_process_with_token`
+/// 都不足以证明可用——真实路径上的管道继承/句柄 MAC 校验可能失败，表现为
+/// **命令 exit 0 但 stdout/stderr 全空**，比"没有隔离"更危险（结果静默丢失）。
+fn verify_low_integrity_capture() -> Result<(), String> {
+    let support = PlatformSupport {
+        os: "windows".to_string(),
+        app_container: false,
+        job_object: true,
+        low_integrity: true,
+        reason: "low-integrity self-test".to_string(),
+    };
+    let executor = WindowsSandboxExecutor::detect(&support)
+        .ok_or_else(|| "低完整性自测：Job 执行器不可用".to_string())?;
+    let mut manager = SandboxManager::new(Box::new(executor), support);
+    let policy = SandboxPolicy {
+        name: "low-integrity-probe".to_string(),
+        workspace: None,
+        file_scope: FileScope::WorkspacePlusReadonlySystem,
+        network_policy: NetworkPolicy::Loopback,
+        cpu_ms: Some(10_000),
+        mem_mb: None,
+        ttl_secs: Some(30),
+        require_isolation: IsolationLevel::LowIntegrity,
+        allow_degraded: false,
+        ..SandboxPolicy::default()
+    };
+    let command = SandboxCommand::new("cmd", policy)
+        .with_args(vec!["/C".to_string(), "echo owo-lowil-probe".to_string()]);
+    let mut process = manager
+        .spawn(&command)
+        .map_err(|error| format!("低完整性自测创建失败：{error}"))?;
+    let info = process
+        .wait_output()
+        .map_err(|error| format!("低完整性自测等待失败：{error}"))?;
+    let stdout = String::from_utf8_lossy(&info.stdout);
+    if !stdout.contains("owo-lowil-probe") {
+        return Err(format!(
+            "低完整性令牌可用但受限路径无法捕获输出（exit={}，stdout={stdout:?}）；\
+             保持 Job-only 以免命令结果静默丢失",
+            info.exit_code
+        ));
+    }
+    Ok(())
 }
 
 /// Windows 真实能力探测。
@@ -693,13 +829,14 @@ impl WindowsSandboxExecutor {
                 last_error()
             )));
         }
-        let label = low_integrity_label();
+        let mut label = LowIntegrityLabel::new();
+        let token_label = label.token_label();
         let set_ok = unsafe {
             SetTokenInformation(
                 primary,
                 TOKEN_INTEGRITY_LEVEL,
-                &label as *const SYSTEM_MANDATORY_LABEL_ACE as *const c_void,
-                std::mem::size_of::<SYSTEM_MANDATORY_LABEL_ACE>() as DWORD,
+                &token_label as *const SID_AND_ATTRIBUTES as *const c_void,
+                label.len(),
             )
         };
         if set_ok == FALSE {
@@ -709,20 +846,20 @@ impl WindowsSandboxExecutor {
                 last_error()
             )));
         }
-        let (pi, pipes) = create_process_with_token(command, job, |startup, cmdline, pi| {
+        let (pi, pipes) = create_process_with_token(command, job, |context| {
             let result = unsafe {
                 CreateProcessAsUserW(
                     primary,
                     std::ptr::null(),
-                    cmdline,
+                    context.command_line(),
                     std::ptr::null(),
                     std::ptr::null(),
                     TRUE,
-                    0,
-                    std::ptr::null(),
-                    std::ptr::null(),
-                    &mut startup.startup_info as *mut STARTUPINFOW as *mut c_void,
-                    pi,
+                    context.creation_flags(),
+                    context.environment(),
+                    context.current_directory(),
+                    context.startup_info_ptr(),
+                    context.process_information(),
                 )
             };
             if result == FALSE {
@@ -778,7 +915,7 @@ impl WindowsSandboxExecutor {
             capability_count: attrs.len() as DWORD,
             reserved: 0,
         };
-        let (pi, pipes) = create_process_with_token(command, job, move |startup, cmdline, pi| {
+        let (pi, pipes) = create_process_with_token(command, job, move |context| {
             let mut size: SIZE_T = 0;
             let size_ok =
                 unsafe { InitializeProcThreadAttributeList(std::ptr::null_mut(), 1, 0, &mut size) };
@@ -815,18 +952,20 @@ impl WindowsSandboxExecutor {
                     last_error()
                 )));
             }
+            // 把属性列表挂上 STARTUPINFOEXW：不挂等于建了列表却不用，进程不会进容器。
+            context.set_attribute_list(list);
             let result = unsafe {
                 CreateProcessW(
                     std::ptr::null(),
-                    cmdline,
+                    context.command_line(),
                     std::ptr::null(),
                     std::ptr::null(),
                     TRUE,
-                    0,
-                    std::ptr::null(),
-                    std::ptr::null(),
-                    &mut startup.startup_info as *mut STARTUPINFOW as *mut c_void,
-                    pi,
+                    context.creation_flags(),
+                    context.environment(),
+                    context.current_directory(),
+                    context.startup_info_ptr(),
+                    context.process_information(),
                 )
             };
             // 属性列表仅需存活到 CreateProcessW 返回。
@@ -853,6 +992,120 @@ impl WindowsSandboxExecutor {
     }
 }
 
+/// 受限令牌 / AppContainer 创建路径共享的 `CreateProcess` 参数。
+///
+/// 审查 N2 修复的四个 Win32 坑：
+/// 1. `STARTUPINFOEXW` 必须通过 `dwCreationFlags=EXTENDED_STARTUPINFO_PRESENT`
+///    声明，否则系统按 `STARTUPINFOW` 解释，`lpAttributeList`（AppContainer
+///    安全能力）被**静默忽略**——进程根本没进容器却报告已隔离；
+/// 2. 设了 `hStdOutput/hStdError` 就必须设 `STARTF_USESTDHANDLES`，否则管道句柄
+///    被忽略，受限路径的命令输出全部丢失；
+/// 3. `lpCurrentDirectory` / `lpEnvironment` 以前恒为 null：cwd 与 env 覆盖被
+///    丢掉（命令跑在守护进程目录、看不到注入的环境变量）；
+/// 4. stdin 以前没有句柄：命令读 stdin 会拿到无效句柄而报错，这里统一接 `NUL`。
+struct CreateProcessContext {
+    startup: *mut STARTUPINFOEXW,
+    command_line: *mut u16,
+    environment: *const c_void,
+    current_directory: *const u16,
+    creation_flags: DWORD,
+    process_information: *mut PROCESS_INFORMATION,
+}
+
+impl CreateProcessContext {
+    fn command_line(&self) -> *mut u16 {
+        self.command_line
+    }
+
+    fn environment(&self) -> *const c_void {
+        self.environment
+    }
+
+    fn current_directory(&self) -> *const u16 {
+        self.current_directory
+    }
+
+    fn creation_flags(&self) -> DWORD {
+        self.creation_flags
+    }
+
+    fn startup_info_ptr(&self) -> *mut c_void {
+        self.startup as *mut c_void
+    }
+
+    fn process_information(&self) -> *mut PROCESS_INFORMATION {
+        self.process_information
+    }
+
+    /// AppContainer 路径：把属性列表挂到 STARTUPINFOEXW（否则能力被忽略）。
+    fn set_attribute_list(&mut self, list: *mut c_void) {
+        unsafe {
+            (*self.startup).lp_attribute_list = list;
+        }
+    }
+}
+
+/// 打开 `NUL` 作为 stdin：让命令读 stdin 时立即 EOF，而不是继承到无效句柄。
+///
+/// 注意必须是**可继承**句柄：`STARTF_USESTDHANDLES` 的三个句柄都要能被子进程继承，
+/// 否则受限令牌路径下子进程拿到无效句柄、输出全部丢失（实测 stdout 为空）。
+fn null_device_handle() -> Result<Handle, SandboxError> {
+    let name = to_wide("NUL");
+    // 同样带 Low 强制标签：低完整性子进程要继承这个句柄，对象标签必须允许 Low 访问。
+    let descriptor = low_integrity_pipe_descriptor();
+    let attributes = SECURITY_ATTRIBUTES {
+        n_length: std::mem::size_of::<SECURITY_ATTRIBUTES>() as DWORD,
+        lp_security_descriptor: descriptor,
+        b_inherit_handle: TRUE,
+    };
+    let handle = unsafe {
+        CreateFileW(
+            name.as_ptr(),
+            GENERIC_READ,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            &attributes as *const SECURITY_ATTRIBUTES as *const c_void,
+            OPEN_EXISTING,
+            0,
+            std::ptr::null_mut(),
+        )
+    };
+    if !descriptor.is_null() {
+        unsafe {
+            LocalFree(descriptor);
+        }
+    }
+    if handle == INVALID_HANDLE_VALUE || handle.is_null() {
+        return Err(SandboxError::Spawn(format!(
+            "打开 NUL 设备失败（错误 {}）",
+            last_error()
+        )));
+    }
+    Ok(handle)
+}
+
+/// 构造 CreateProcess 的 Unicode 环境块（`K=V\0…\0\0`，按键排序）。
+///
+/// 合并父进程环境与 `command.env` 覆盖项；键名含 `=` 或为空会被 Windows 截断，直接跳过。
+fn environment_block(overrides: &[(String, String)]) -> Vec<u16> {
+    use std::collections::BTreeMap;
+    let mut vars: BTreeMap<String, String> = std::env::vars().collect();
+    for (key, value) in overrides {
+        vars.insert(key.clone(), value.clone());
+    }
+    let mut block: Vec<u16> = Vec::new();
+    for (key, value) in vars {
+        if key.is_empty() || key.contains('=') {
+            continue;
+        }
+        block.extend(format!("{key}={value}").encode_utf16());
+        block.push(0);
+    }
+    // 环境块必须以双 NUL 结尾（空环境也要两个 NUL）。
+    block.push(0);
+    block.push(0);
+    block
+}
+
 /// 统一进程创建：管道 + STARTUPINFOEX + Job 挂接。
 /// `create` 闭包负责调用 CreateProcessW 族并填充 `PROCESS_INFORMATION`。
 fn create_process_with_token<F>(
@@ -861,21 +1114,53 @@ fn create_process_with_token<F>(
     create: F,
 ) -> Result<(PROCESS_INFORMATION, PipePair), SandboxError>
 where
-    F: FnOnce(&mut STARTUPINFOEXW, *mut u16, *mut PROCESS_INFORMATION) -> Result<(), SandboxError>,
+    F: FnOnce(&mut CreateProcessContext) -> Result<(), SandboxError>,
 {
     let pipes = PipePair::create()
-        .map_err(|error| SandboxError::Spawn(format!("CreatePipe 失败：{}", error)))?;
+        .map_err(|error| SandboxError::Spawn(format!("CreatePipe 失败：{error}")))?;
+    let stdin_handle = match null_device_handle() {
+        Ok(handle) => handle,
+        Err(error) => {
+            close_handle(pipes.read_stdout);
+            close_handle(pipes.read_stderr);
+            close_handle(pipes.write_stdout);
+            close_handle(pipes.write_stderr);
+            return Err(error);
+        }
+    };
     let mut startup: STARTUPINFOEXW = unsafe { std::mem::zeroed() };
     startup.startup_info.cb = std::mem::size_of::<STARTUPINFOEXW>() as DWORD;
-    startup.startup_info.dw_flags = EXTENDED_STARTUPINFO_PRESENT;
+    // 关键：句柄有效必须声明 STARTF_USESTDHANDLES（旧代码误把创建标志
+    // EXTENDED_STARTUPINFO_PRESENT 填进 dwFlags，等于没声明任何句柄）。
+    startup.startup_info.dw_flags = STARTF_USESTDHANDLES;
+    startup.startup_info.h_std_input = stdin_handle;
     startup.startup_info.h_std_output = pipes.write_stdout;
     startup.startup_info.h_std_error = pipes.write_stderr;
     let mut cmdline = command_line(&command.program, &command.args);
+    let env = environment_block(&command.env);
+    let cwd = command
+        .cwd
+        .as_ref()
+        .map(|path| to_wide(&path.to_string_lossy()));
     let mut pi: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
-    create(&mut startup, cmdline.as_mut_ptr(), &mut pi)?;
-    // 子进程已创建：关闭父侧写端副本。
+    let mut context = CreateProcessContext {
+        startup: &mut startup as *mut _,
+        command_line: cmdline.as_mut_ptr(),
+        environment: env.as_ptr() as *const c_void,
+        current_directory: cwd
+            .as_ref()
+            .map_or(std::ptr::null(), |value| value.as_ptr()),
+        // EXTENDED_STARTUPINFO_PRESENT 是**创建标志**：没有它 STARTUPINFOEXW 的
+        // 属性列表按 STARTUPINFOW 解释被忽略（AppContainer 静默失效）。
+        creation_flags: EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+        process_information: &mut pi as *mut _,
+    };
+    let creation = create(&mut context);
+    close_handle(stdin_handle);
+    // 子进程已创建（或失败）：关闭父侧写端副本。
     close_handle(pipes.write_stdout);
     close_handle(pipes.write_stderr);
+    creation?;
     if pi.h_process.is_null() {
         return Err(SandboxError::Spawn(
             "CreateProcessW 未返回进程句柄".to_string(),
@@ -953,9 +1238,12 @@ impl PipePair {
         let mut write_stdout: Handle = std::ptr::null_mut();
         let mut read_stderr: Handle = std::ptr::null_mut();
         let mut write_stderr: Handle = std::ptr::null_mut();
+        // 强制标签 Low 的安全描述符：低完整性子进程必须能写管道（见 PIPE_SECURITY_SDDL）。
+        // 取不到描述符时退回默认属性（等价旧行为，不阻断创建）。
+        let descriptor = low_integrity_pipe_descriptor();
         let attrs = SECURITY_ATTRIBUTES {
             n_length: std::mem::size_of::<SECURITY_ATTRIBUTES>() as DWORD,
-            lp_security_descriptor: std::ptr::null_mut(),
+            lp_security_descriptor: descriptor,
             b_inherit_handle: TRUE,
         };
         let ok1 = unsafe {
@@ -974,6 +1262,11 @@ impl PipePair {
                 0,
             )
         };
+        if !descriptor.is_null() {
+            unsafe {
+                LocalFree(descriptor);
+            }
+        }
         if ok1 == FALSE || ok2 == FALSE {
             close_handle(read_stdout);
             close_handle(write_stdout);
@@ -981,6 +1274,8 @@ impl PipePair {
             close_handle(write_stderr);
             return Err(std::io::Error::last_os_error());
         }
+        // 低完整性子进程要继承这四个句柄：管道在创建时已带 Low 强制标签
+        // （见 low_integrity_pipe_descriptor / PIPE_SECURITY_SDDL）。
         Ok(Self {
             read_stdout,
             read_stderr,
@@ -988,6 +1283,24 @@ impl PipePair {
             write_stderr,
         })
     }
+}
+
+/// 构造带 Low 强制标签的管道安全描述符；失败返回 null（调用方走默认属性）。
+fn low_integrity_pipe_descriptor() -> PSECURITY_DESCRIPTOR {
+    let sddl = to_wide(PIPE_SECURITY_SDDL);
+    let mut descriptor: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
+    let ok = unsafe {
+        ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            sddl.as_ptr(),
+            SDDL_REVISION_1,
+            &mut descriptor,
+            std::ptr::null_mut(),
+        )
+    };
+    if ok == FALSE || descriptor.is_null() {
+        return std::ptr::null_mut();
+    }
+    descriptor
 }
 
 impl Drop for PipePair {
@@ -1267,6 +1580,168 @@ impl SandboxExecutor for WindowsSandboxExecutor {
     }
 }
 
+#[cfg(test)]
+mod integrity_label_probe_tests {
+    use super::*;
+
+    /// 低完整性标签必须能被系统接受：旧实现（ACE 结构 / 悬空 SID 指针）返回
+    /// 998/1299，导致受限令牌路径静默降级（审查 N2）。
+    #[test]
+    fn low_integrity_label_is_accepted_by_set_token_information() {
+        let current = unsafe { GetCurrentProcess() };
+        let mut token: Handle = std::ptr::null_mut();
+        if unsafe { OpenProcessToken(current, TOKEN_DUPLICATE, &mut token) } == FALSE {
+            eprintln!("SKIP: OpenProcessToken 失败（错误 {}）", last_error());
+            return;
+        }
+        let mut primary: Handle = std::ptr::null_mut();
+        let duplicated = unsafe {
+            DuplicateTokenEx(
+                token,
+                MAXIMUM_ALLOWED,
+                std::ptr::null(),
+                SECURITY_IMPERSONATION,
+                TOKEN_PRIMARY,
+                &mut primary,
+            )
+        };
+        close_handle(token);
+        if duplicated == FALSE || primary.is_null() {
+            eprintln!("SKIP: DuplicateTokenEx 失败（错误 {}）", last_error());
+            return;
+        }
+        let mut label = LowIntegrityLabel::new();
+        let token_label = label.token_label();
+        let accepted = unsafe {
+            SetTokenInformation(
+                primary,
+                TOKEN_INTEGRITY_LEVEL,
+                &token_label as *const SID_AND_ATTRIBUTES as *const c_void,
+                label.len(),
+            )
+        };
+        let error = last_error();
+        close_handle(primary);
+        assert_eq!(
+            accepted, TRUE,
+            "低完整性标签应被接受（错误 {error}）；旧实现 998/1299 会静默降级为 Job-only"
+        );
+        assert_eq!(
+            LowIntegrityLabel::LEN,
+            28,
+            "长度必须为 TOKEN_MANDATORY_LABEL + SID(12)"
+        );
+    }
+}
+
+#[cfg(test)]
+mod token_spawn_plumbing_tests {
+    use super::*;
+
+    fn duplicate_primary_token() -> Handle {
+        let current = unsafe { GetCurrentProcess() };
+        let mut token: Handle = std::ptr::null_mut();
+        unsafe { OpenProcessToken(current, TOKEN_DUPLICATE, &mut token) };
+        let mut primary: Handle = std::ptr::null_mut();
+        unsafe {
+            DuplicateTokenEx(
+                token,
+                MAXIMUM_ALLOWED,
+                std::ptr::null(),
+                SECURITY_IMPERSONATION,
+                TOKEN_PRIMARY,
+                &mut primary,
+            );
+        }
+        close_handle(token);
+        primary
+    }
+
+    fn probe_command() -> SandboxCommand {
+        SandboxCommand {
+            program: "cmd".to_string(),
+            args: vec![
+                "/C".to_string(),
+                "echo out-token & echo err-token 1>&2".to_string(),
+            ],
+            policy: SandboxPolicy {
+                name: "plumbing".to_string(),
+                workspace: None,
+                file_scope: FileScope::WorkspacePlusReadonlySystem,
+                network_policy: NetworkPolicy::Loopback,
+                cpu_ms: Some(30_000),
+                ttl_secs: Some(60),
+                require_isolation: IsolationLevel::JobOnly,
+                ..SandboxPolicy::default()
+            },
+            cwd: None,
+            env: Vec::new(),
+        }
+    }
+
+    /// 受限令牌共享的创建助手必须真正让子进程继承管道句柄。
+    #[test]
+    fn create_process_with_token_inherits_pipes() {
+        let command = probe_command();
+        let Some(job) = create_job(&command.policy) else {
+            eprintln!("SKIP: Job 创建失败");
+            return;
+        };
+        let token = duplicate_primary_token();
+        let created = create_process_with_token(&command, job, |context| {
+            let result = unsafe {
+                CreateProcessAsUserW(
+                    token,
+                    std::ptr::null(),
+                    context.command_line(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    TRUE,
+                    context.creation_flags(),
+                    context.environment(),
+                    context.current_directory(),
+                    context.startup_info_ptr(),
+                    context.process_information(),
+                )
+            };
+            if result == FALSE {
+                Err(SandboxError::Spawn(format!(
+                    "CreateProcessAsUserW 失败（错误 {}）",
+                    last_error()
+                )))
+            } else {
+                Ok(())
+            }
+        });
+        close_handle(token);
+        match created {
+            Ok((pi, pipes)) => {
+                let mut child = OsChild::OsChild {
+                    pi,
+                    stdout_read: pipes.read_stdout,
+                    stderr_read: pipes.read_stderr,
+                };
+                let info = child.wait().expect("等待应成功");
+                let stdout = String::from_utf8_lossy(&info.stdout);
+                let stderr = String::from_utf8_lossy(&info.stderr);
+                eprintln!(
+                    "plumbing exit={} stdout={stdout:?} stderr={stderr:?}",
+                    info.exit_code
+                );
+                assert!(
+                    stdout.contains("out-token"),
+                    "受限令牌路径必须捕获 stdout：stdout={stdout:?} stderr={stderr:?}"
+                );
+                assert!(
+                    stderr.contains("err-token"),
+                    "受限令牌路径必须捕获 stderr：stderr={stderr:?}"
+                );
+            }
+            Err(error) => panic!("受限令牌创建失败：{error}"),
+        }
+    }
+}
+
 /// 结构布局断言（与 Windows SDK 一致；防 ABI 漂移）。
 pub(crate) fn assert_struct_layouts() -> bool {
     let mut ok = true;
@@ -1275,6 +1750,10 @@ pub(crate) fn assert_struct_layouts() -> bool {
         ok &= std::mem::size_of::<JOBOBJECT_BASIC_LIMIT_INFORMATION>() == 64;
         ok &= std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() == 144;
         ok &= std::mem::size_of::<SYSTEM_MANDATORY_LABEL_ACE>() == 20;
+        // TOKEN_MANDATORY_LABEL(16) + SID(12)：结构体因指针对齐补到 32，
+        // 但 SetTokenInformation 的长度按 API 公式是 28（见 LowIntegrityLabel::len）。
+        ok &= std::mem::size_of::<SID_AND_ATTRIBUTES>() == 16;
+        ok &= (std::mem::size_of::<SID_AND_ATTRIBUTES>() + 12) == 28;
         ok &= std::mem::size_of::<STARTUPINFOW>() == 104;
         ok &= std::mem::size_of::<STARTUPINFOEXW>() == 112;
         ok &= std::mem::size_of::<CREDENTIALW>() == 80;

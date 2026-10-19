@@ -891,17 +891,20 @@ impl Repl {
         &mut self,
         prompt: &str,
         read_only: bool,
+        allow_commands: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let workspace = self.workspace.clone();
         let model = self.model.clone();
         let agent = Arc::clone(&self.agent);
         let text = agent
-            .run_subagent(&workspace, &model, prompt, read_only)
+            .run_subagent_with_options(&workspace, &model, prompt, read_only, allow_commands)
             .await?;
         println!(
             "{} {}",
             if read_only {
                 "探索结果：".cyan()
+            } else if allow_commands {
+                "子代理结果（含命令执行）：".green()
             } else {
                 "子代理结果：".green()
             },

@@ -111,11 +111,7 @@ pub fn register_mcp_effect(
     host_verified_readonly: bool,
 ) -> ToolEffect {
     ensure_builtin_seeded();
-    let full_name = format!(
-        "{}_{}",
-        crate::tool_names::sanitize_tool_name(server_name),
-        crate::tool_names::sanitize_tool_name(tool_name)
-    );
+    let full_name = crate::tool_names::mcp_tool_full_name(server_name, tool_name);
     let (class, risk_note) = classify_mcp_annotations(annotations, host_verified_readonly);
     let effect = ToolEffect {
         tool: full_name,
@@ -193,11 +189,7 @@ static TRUSTED_READONLY: RwLock<BTreeMap<String, String>> = RwLock::new(BTreeMap
 
 /// 声明某 MCP 工具为宿主验证的可信只读（并记录当时的 schema hash 指纹）。
 pub fn declare_trusted_readonly(server_name: &str, tool_name: &str, schema_hash: &str) {
-    let full_name = format!(
-        "{}_{}",
-        crate::tool_names::sanitize_tool_name(server_name),
-        crate::tool_names::sanitize_tool_name(tool_name)
-    );
+    let full_name = crate::tool_names::mcp_tool_full_name(server_name, tool_name);
     TRUSTED_READONLY
         .write()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -215,11 +207,7 @@ pub fn schema_fingerprint(input_schema: &Value) -> String {
 /// 宿主是否已声明该工具可信只读，且声明时的 schema hash 与当前一致
 /// （schema/版本变化 → 失效）。未声明或 hash 不一致 → false。
 pub fn is_trusted_readonly(server_name: &str, tool_name: &str, schema_hash: &str) -> bool {
-    let full_name = format!(
-        "{}_{}",
-        crate::tool_names::sanitize_tool_name(server_name),
-        crate::tool_names::sanitize_tool_name(tool_name)
-    );
+    let full_name = crate::tool_names::mcp_tool_full_name(server_name, tool_name);
     TRUSTED_READONLY
         .read()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -314,11 +302,13 @@ pub fn classify_mcp_annotations(
 /// 内置工具矩阵（与原 `Policy::level_for` 完全一致；未知工具返回 None）。
 pub fn builtin_class_for(tool: &str) -> Option<EffectClass> {
     let class = match tool {
-        "read_file" | "list_dir" | "search_files" | "grep" | "read_image" | "shell_output"
-        | "kill_shell" | "todo" | "verification_plan" | "git_status" | "git_diff" | "git_log"
-        | "ask_user" => EffectClass::Read,
+        "read_file" | "list_dir" | "search_files" | "grep" | "read_artifact" | "read_image"
+        | "find_symbol" | "shell_output" | "todo" | "verification_plan" | "git_status"
+        | "git_diff" | "git_log" | "ask_user" => EffectClass::Read,
         "write_file" | "edit_file" | "multi_edit" | "apply_patch" => EffectClass::Write,
-        "run_command" | "web_fetch" | "web_search" => EffectClass::Execute,
+        // kill_shell 终止进程（不可逆副作用），不得归为 Read：只读档在旧矩阵里会把
+        // 它当宿主验证只读自动放行（审查记录的低危项）。
+        "run_command" | "kill_shell" | "web_fetch" | "web_search" => EffectClass::Execute,
         "text.inject" | "clipboard" => EffectClass::Inject,
         "screen_ocr"
         | "desktop_window_ocr"
@@ -347,9 +337,11 @@ fn builtin_effects() -> Vec<(&'static str, EffectClass)> {
         ("list_dir", EffectClass::Read),
         ("search_files", EffectClass::Read),
         ("grep", EffectClass::Read),
+        ("read_artifact", EffectClass::Read),
         ("read_image", EffectClass::Read),
+        ("find_symbol", EffectClass::Read),
         ("shell_output", EffectClass::Read),
-        ("kill_shell", EffectClass::Read),
+        ("kill_shell", EffectClass::Execute),
         ("todo", EffectClass::Read),
         ("verification_plan", EffectClass::Read),
         ("edit_file", EffectClass::Write),
@@ -410,6 +402,7 @@ mod tests {
         assert_eq!(effect_class_for("browser_snapshot"), EffectClass::Read);
         assert_eq!(effect_class_for("text.inject"), EffectClass::Inject);
         assert_eq!(effect_class_for("grep"), EffectClass::Read);
+        assert_eq!(effect_class_for("read_artifact"), EffectClass::Read);
         assert_eq!(effect_class_for("apply_patch"), EffectClass::Write);
         assert_eq!(effect_class_for("multi_edit"), EffectClass::Write);
         assert_eq!(effect_class_for("git_status"), EffectClass::Read);
@@ -423,8 +416,8 @@ mod tests {
             .filter(|effect| effect.source == "builtin")
             .count();
         assert_eq!(
-            builtin, 48,
-            "内置矩阵应完整播种 48 个工具（含 multi_edit / git 只读 / ask_user / verification_plan）"
+            builtin, 50,
+            "内置矩阵应完整播种 50 个工具（含 multi_edit / read_artifact / find_symbol / git 只读 / ask_user / verification_plan）"
         );
     }
 
@@ -531,7 +524,9 @@ mod tests {
         assert_eq!(effect.class, EffectClass::Read);
         assert!(effect.host_verified_readonly);
         assert_eq!(
-            effect_for(&format!("{}_{}", server, tool)).unwrap().class,
+            effect_for(&crate::tool_names::mcp_tool_full_name(&server, tool))
+                .unwrap()
+                .class,
             EffectClass::Read
         );
 
@@ -554,7 +549,7 @@ mod tests {
         assert!(!effect.host_verified_readonly);
 
         // 撤销声明（前缀）：count 归零。
-        revoke_trusted_readonly_prefix(&format!("{}_", server));
+        revoke_trusted_readonly_prefix(&crate::tool_names::mcp_tool_prefix(&server));
         assert_eq!(trusted_readonly_count(), 0);
         assert!(!is_trusted_readonly(&server, tool, &hash));
     }
@@ -569,13 +564,13 @@ mod tests {
             false,
         );
         // sanitize_tool_name 保留连字符（模型 API 允许 `-`），前缀名与注册名同源。
-        let full = format!("{}_query", server);
+        let full = crate::tool_names::mcp_tool_full_name(&server, "query");
         assert_eq!(effect.tool, full);
         assert_eq!(effect.class, EffectClass::Execute);
         assert_eq!(effect.source, format!("mcp:{server}"));
         assert!(!effect.host_verified_readonly);
         assert!(effect_for(&full).is_some());
-        let removed = remove_prefix(&format!("{}_", server));
+        let removed = remove_prefix(&crate::tool_names::mcp_tool_prefix(&server));
         assert_eq!(removed, 1);
         assert!(effect_for(&full).is_none());
         assert_eq!(trusted_readonly_count(), 0);
@@ -591,9 +586,9 @@ mod tests {
         let second =
             register_mcp_effect(&server, tool, Some(&json!({ "readOnlyHint": true })), false);
         assert_eq!(second.class, EffectClass::Execute);
-        let full = format!("{}_{}", server, tool);
+        let full = crate::tool_names::mcp_tool_full_name(&server, tool);
         assert_eq!(effect_for(&full).unwrap().class, EffectClass::Execute);
-        remove_prefix(&format!("{}_", server));
+        remove_prefix(&crate::tool_names::mcp_tool_prefix(&server));
     }
 
     #[test]

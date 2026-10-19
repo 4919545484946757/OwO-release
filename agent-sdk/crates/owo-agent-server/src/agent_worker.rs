@@ -53,10 +53,15 @@ impl Worker for AgentWorker {
             .get("read_only")
             .and_then(Value::as_bool)
             .unwrap_or(true);
+        // 命令执行必须由 plan 显式声明（缺省拒绝）；只读时忽略该字段。
+        let allow_commands = input
+            .get("allow_commands")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         let model = Self::resolve_model(input);
         let output = self
             .agent
-            .run_subagent(&self.workspace, &model, prompt, read_only)
+            .run_subagent_with_options(&self.workspace, &model, prompt, read_only, allow_commands)
             .await
             .map_err(|e| format!("agent 子代理执行失败：{e}"))?;
         Ok(output)

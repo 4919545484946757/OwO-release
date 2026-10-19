@@ -195,6 +195,83 @@ fn route(method: &str, path: &str, headers: &str) -> (u16, &'static str, Vec<u8>
     if method == "GET" && path.starts_with("/sessions") {
         return (200, "application/json", b"[]".to_vec());
     }
+    if method == "GET" && path == "/workspace/trust" {
+        // 审查 N1：工作区信任状态（未信任 + 受限模式 + 危险配置清单）。
+        return (
+            200,
+            "application/json",
+            r#"{"workspace":"/ws","trusted":false,"gated":true,"changed":false,"reasons":["settings.hooks：1 条"],"note":"未信任：已跳过工作区 hooks"}"#
+                .as_bytes()
+                .to_vec(),
+        );
+    }
+    if method == "POST" && path == "/workspace/trust" {
+        return (
+            200,
+            "application/json",
+            r#"{"ok":true,"trusted":true,"gated":false,"changed":false,"reasons":[],"note":"已信任"}"#
+                .as_bytes()
+                .to_vec(),
+        );
+    }
+    if method == "POST" && path.starts_with("/session/") && path.ends_with("/goal") {
+        let body = if path.contains("goal-clear") {
+            r#"{"session_id":"sess-1","action":"clear","goal":null}"#
+        } else {
+            r#"{"session_id":"sess-1","action":"set","goal":{"objective":"契约目标","iterations":0,"done":false,"updated_at":"2026-10-18T00:00:00Z"}}"#
+        };
+        return (200, "application/json", body.as_bytes().to_vec());
+    }
+    if method == "GET" && path == "/mcp" {
+        // CLI `owo-agent mcp list` 的在线路径。
+        return (
+            200,
+            "application/json",
+            r#"{"servers":[{"name":"translate","transport":"stdio","command":"python","args":["server.py"],"connected":true}],"total":1}"#
+                .as_bytes()
+                .to_vec(),
+        );
+    }
+    if method == "POST" && path == "/mcp/add" {
+        return (
+            200,
+            "application/json",
+            r#"{"ok":true,"name":"translate","connected":true,"tools":2}"#
+                .as_bytes()
+                .to_vec(),
+        );
+    }
+    if method == "POST" && path == "/mcp/remove" {
+        return (
+            200,
+            "application/json",
+            r#"{"ok":true,"name":"translate"}"#.as_bytes().to_vec(),
+        );
+    }
+    if method == "POST" && path == "/teams" {
+        // `owo-agent workflow run` 的建队路径（202 + 成员）。
+        return (
+            202,
+            "application/json",
+            r#"{"team_id":"team-1","mode":"team","members":[{"role":"plan","assignee":"agent"}]}"#
+                .as_bytes()
+                .to_vec(),
+        );
+    }
+    if method == "GET" && path == "/teams/team-1" {
+        return (
+            200,
+            "application/json",
+            r#"{"team_id":"team-1","status":"running"}"#.as_bytes().to_vec(),
+        );
+    }
+    if method == "POST" && path == "/teams/team-1/steer" {
+        return (
+            200,
+            "application/json",
+            r#"{"ok":true,"command":"cancel"}"#.as_bytes().to_vec(),
+        );
+    }
     if method == "POST" && path.starts_with("/session/") && path.ends_with("/turn") {
         let body = concat!(
             "event: progress\ndata: {\"type\":\"progress\",\"message\":\"模型调用\",\"v\":1}\n\n",
@@ -499,6 +576,98 @@ async fn client_reports_interrupted_turn_after_replaying_partial_output() {
     assert!(
         matches!(result, Err(owo_agent_client::ClientError::Protocol(message)) if message.contains("中断"))
     );
+}
+
+#[tokio::test]
+async fn workspace_trust_round_trips_against_fake_daemon() {
+    // 客户端/路由配对守卫：路径或方法写错时（例如漏了 /workspace 前缀）这里立刻失败。
+    let base_url = spawn_fake_daemon().await;
+    let client = AgentClient::new(ClientConfig::new(base_url, Some("test-token".to_string())))
+        .expect("client");
+
+    let status = client.workspace_trust().await.expect("trust status");
+    assert_eq!(status["trusted"], serde_json::json!(false));
+    assert_eq!(status["gated"], serde_json::json!(true));
+    assert_eq!(
+        status["reasons"][0],
+        serde_json::json!("settings.hooks：1 条")
+    );
+
+    let granted = client.set_workspace_trust(true).await.expect("grant trust");
+    assert_eq!(granted["ok"], serde_json::json!(true));
+    assert_eq!(granted["trusted"], serde_json::json!(true));
+}
+
+#[tokio::test]
+async fn session_goal_round_trips_against_fake_daemon() {
+    // 客户端/路由配对守卫：/session/{id}/goal 的路径与方法写错时这里立刻失败。
+    let base_url = spawn_fake_daemon().await;
+    let client = AgentClient::new(ClientConfig::new(base_url, Some("test-token".to_string())))
+        .expect("client");
+
+    let set = client
+        .session_goal("sess-1", "set", Some("契约目标"))
+        .await
+        .expect("set goal");
+    assert_eq!(set["action"], serde_json::json!("set"));
+    assert_eq!(set["goal"]["objective"], serde_json::json!("契约目标"));
+    assert_eq!(set["goal"]["iterations"], serde_json::json!(0));
+
+    let cleared = client
+        .session_goal("goal-clear", "clear", None)
+        .await
+        .expect("clear goal");
+    assert!(cleared["goal"].is_null());
+}
+
+#[tokio::test]
+async fn team_create_status_cancel_round_trip_against_fake_daemon() {
+    // `owo-agent workflow run` 的客户端/路由配对守卫。
+    let base_url = spawn_fake_daemon().await;
+    let client = AgentClient::new(ClientConfig::new(base_url, Some("test-token".to_string())))
+        .expect("client");
+
+    let created = client
+        .create_team("用工作流建队", "team", Some("video-recreate"), true)
+        .await
+        .expect("create team");
+    assert_eq!(created["team_id"], serde_json::json!("team-1"));
+    assert_eq!(created["members"].as_array().unwrap().len(), 1);
+
+    let status = client.get_team("team-1").await.expect("get team");
+    assert_eq!(status["status"], serde_json::json!("running"));
+
+    let cancelled = client.cancel_team("team-1").await.expect("cancel team");
+    assert_eq!(cancelled["ok"], serde_json::json!(true));
+}
+
+#[tokio::test]
+async fn mcp_management_round_trips_against_fake_daemon() {
+    // 客户端/路由配对守卫：/mcp、/mcp/add、/mcp/remove 的路径与方法写错时立刻失败。
+    let base_url = spawn_fake_daemon().await;
+    let client = AgentClient::new(ClientConfig::new(base_url, Some("test-token".to_string())))
+        .expect("client");
+
+    let listed = client.mcp_list().await.expect("mcp list");
+    assert_eq!(listed["total"], serde_json::json!(1));
+    assert_eq!(listed["servers"][0]["name"], serde_json::json!("translate"));
+
+    let added = client
+        .mcp_add(
+            "translate",
+            "stdio",
+            "python",
+            &["server.py".to_string()],
+            None,
+        )
+        .await
+        .expect("mcp add");
+    assert_eq!(added["ok"], serde_json::json!(true));
+    assert_eq!(added["connected"], serde_json::json!(true));
+    assert_eq!(added["tools"], serde_json::json!(2));
+
+    let removed = client.mcp_remove("translate").await.expect("mcp remove");
+    assert_eq!(removed["name"], serde_json::json!("translate"));
 }
 
 #[tokio::test]

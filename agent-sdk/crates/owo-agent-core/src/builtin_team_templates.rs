@@ -102,6 +102,7 @@ fn role(role: &str, depends_on: &[&str], handoff_contract: &str, verify: &str) -
         } else {
             Vec::new()
         },
+        tools: Vec::new(),
     }
 }
 
@@ -135,6 +136,11 @@ fn code_change_v1() -> BuiltinTemplateDescriptor {
         applicability: "代码 修改 修复 重构 bug 实现 feature patch 变更 函数 接口".to_string(),
         source_team_id: None,
         created_at: AUTHORED_AT.to_string(),
+        // 内置模板不声明用户/社区元数据与角色工具白名单（沿用运行档默认）。
+        origin: None,
+        description: None,
+        version: None,
+        tags: Vec::new(),
     };
     BuiltinTemplateDescriptor {
         budget_calls_per_role: vec![
@@ -200,6 +206,10 @@ fn code_change_v2() -> BuiltinTemplateDescriptor {
         applicability: "代码 修改 修复 重构 bug 实现 feature patch 变更 函数 接口".to_string(),
         source_team_id: None,
         created_at: "2026-10-08T00:00:00+00:00".to_string(),
+        origin: None,
+        description: None,
+        version: None,
+        tags: Vec::new(),
     };
     BuiltinTemplateDescriptor {
         template,
@@ -306,6 +316,11 @@ fn fullstack_web_v1() -> BuiltinTemplateDescriptor {
         applicability: "全栈 网站 web frontend backend 前端 后端 博客 应用 monorepo".to_string(),
         source_team_id: None,
         created_at: AUTHORED_AT.to_string(),
+        // 内置模板不声明用户/社区元数据与角色工具白名单（沿用运行档默认）。
+        origin: None,
+        description: None,
+        version: None,
+        tags: Vec::new(),
     };
     BuiltinTemplateDescriptor {
         budget_calls_per_role: vec![
@@ -369,6 +384,11 @@ fn research_brief_v1() -> BuiltinTemplateDescriptor {
         applicability: "研究 调研 对比 评估 选型 分析 证据 综述 背景".to_string(),
         source_team_id: None,
         created_at: AUTHORED_AT.to_string(),
+        // 内置模板不声明用户/社区元数据与角色工具白名单（沿用运行档默认）。
+        origin: None,
+        description: None,
+        version: None,
+        tags: Vec::new(),
     };
     BuiltinTemplateDescriptor {
         budget_calls_per_role: vec![
@@ -440,6 +460,11 @@ fn document_delivery_v1() -> BuiltinTemplateDescriptor {
         applicability: "文档 方案 说明 教程 指南 报告 综述 撰写 起草 编写".to_string(),
         source_team_id: None,
         created_at: AUTHORED_AT.to_string(),
+        // 内置模板不声明用户/社区元数据与角色工具白名单（沿用运行档默认）。
+        origin: None,
+        description: None,
+        version: None,
+        tags: Vec::new(),
     };
     BuiltinTemplateDescriptor {
         budget_calls_per_role: vec![
@@ -508,6 +533,11 @@ fn structured_extract_v1() -> BuiltinTemplateDescriptor {
         applicability: "抽取 提取 结构化 json csv 表格 字段 schema 解析 清洗".to_string(),
         source_team_id: None,
         created_at: AUTHORED_AT.to_string(),
+        // 内置模板不声明用户/社区元数据与角色工具白名单（沿用运行档默认）。
+        origin: None,
+        description: None,
+        version: None,
+        tags: Vec::new(),
     };
     BuiltinTemplateDescriptor {
         budget_calls_per_role: vec![

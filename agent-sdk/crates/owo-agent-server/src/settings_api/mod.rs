@@ -652,6 +652,11 @@ pub(super) async fn settings_update(
     settings
         .save(&state.workspace)
         .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+    // 审查 N1：用户经设置页显式保存 = 对该工作区配置的显式信任。否则"保存 hooks
+    // 成功、重启后却不加载"会变成无法解释的行为（受限模式）。
+    if let Err(error) = state.trust_store.trust(&state.workspace) {
+        tracing::warn!("写入工作区信任记录失败（本次设置仍已保存）：{error}");
+    }
     settings.apply_usage_env();
     settings.apply_reasoning_env();
     // §13 批次六：遥测开关即时生效（默认关；与 cli serve 启动应用同一出口）。

@@ -4,6 +4,6 @@
   "version": "1.0.0",
   "description": "读取/生成/表单/渲染校验 PDF",
   "permissions": ["files:read", "files:write"],
-  "min_app_version": "0.4.0",
+  "min_app_version": "0.1.0",
   "tools": ["read_file", "write_file", "run_command"]
 }

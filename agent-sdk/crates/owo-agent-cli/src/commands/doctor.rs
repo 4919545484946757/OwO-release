@@ -16,6 +16,14 @@ pub(crate) struct DoctorArgs {
     #[arg(long)]
     workspace: Option<PathBuf>,
 }
+/// 诊断项级别：warn 只提示（不影响退出码），fail 才计入失败。
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CheckLevel {
+    Ok,
+    Warn,
+    Fail,
+}
+
 /// `owo-agent doctor`：逐项环境诊断，输出 [ok]/[warn]/[fail] 清单；任一 fail 非零退出。
 pub(crate) async fn run_doctor_cmd(args: DoctorArgs) -> Result<(), Box<dyn std::error::Error>> {
     let workspace = args
@@ -39,7 +47,7 @@ pub(crate) async fn run_doctor_cmd(args: DoctorArgs) -> Result<(), Box<dyn std::
         }
     };
     let mut failures = 0usize;
-    let mut checks: Vec<(&str, bool, String)> = Vec::new();
+    let mut checks: Vec<(&'static str, CheckLevel, String)> = Vec::new();
 
     // 0) 构建身份（§7.1：与 /health、--version、release manifest 同构，
     //    单一来源 owo_build_info::identity()）。正常编译必然可解析；报
@@ -47,19 +55,43 @@ pub(crate) async fn run_doctor_cmd(args: DoctorArgs) -> Result<(), Box<dyn std::
     //    产物——正是发布链要在现场抓的错误。
     let identity = owo_build_info::identity();
     let identity_ok = identity.commit != "unknown" && !identity.commit.is_empty();
-    checks.push(("构建身份", identity_ok, identity.oneline()));
+    checks.push((
+        "构建身份",
+        if identity_ok {
+            CheckLevel::Ok
+        } else {
+            CheckLevel::Fail
+        },
+        identity.oneline(),
+    ));
 
     // 1) 数据目录与关键存储文件。
     let storage_ok = data_root.is_dir() || std::fs::create_dir_all(&data_root).is_ok();
-    checks.push(("数据目录", storage_ok, data_root.display().to_string()));
+    checks.push((
+        "数据目录",
+        if storage_ok {
+            CheckLevel::Ok
+        } else {
+            CheckLevel::Fail
+        },
+        data_root.display().to_string(),
+    ));
     let index_db = data_root.join("index.db");
     if index_db.exists() {
         let openable = owo_agent_core::sqlite_store::SqliteSessionStore::open(&index_db).is_ok();
-        checks.push(("SQLite index.db", openable, index_db.display().to_string()));
+        checks.push((
+            "SQLite index.db",
+            if openable {
+                CheckLevel::Ok
+            } else {
+                CheckLevel::Fail
+            },
+            index_db.display().to_string(),
+        ));
     } else {
         checks.push((
             "SQLite index.db",
-            true,
+            CheckLevel::Ok,
             "未初始化（首次运行自动创建）".to_string(),
         ));
     }
@@ -67,14 +99,18 @@ pub(crate) async fn run_doctor_cmd(args: DoctorArgs) -> Result<(), Box<dyn std::
     // 2) 模型凭据与端点（缺省不视为失败，仅提示）。
     match std::env::var("OPENAI_API_KEY") {
         Ok(value) if !value.trim().is_empty() => {
-            checks.push(("OPENAI_API_KEY", true, "已配置".to_string()));
+            checks.push(("OPENAI_API_KEY", CheckLevel::Ok, "已配置".to_string()));
         }
         _ => {
             let base_url = std::env::var("OPENAI_BASE_URL").unwrap_or_default();
             let local = base_url.contains("127.0.0.1") || base_url.contains("localhost");
             checks.push((
                 "OPENAI_API_KEY",
-                local,
+                if local {
+                    CheckLevel::Ok
+                } else {
+                    CheckLevel::Fail
+                },
                 if local {
                     "本地端点免凭据".to_string()
                 } else {
@@ -95,7 +131,11 @@ pub(crate) async fn run_doctor_cmd(args: DoctorArgs) -> Result<(), Box<dyn std::
             Err(_) => gateway_note.push_str(&format!("{name}={default}（默认） ")),
         }
     }
-    checks.push(("模型网关韧性", true, gateway_note.trim().to_string()));
+    checks.push((
+        "模型网关韧性",
+        CheckLevel::Ok,
+        gateway_note.trim().to_string(),
+    ));
 
     // 4) 服务健康（serve 冒烟：可选项）。
     match std::env::var("OWO_DOCTOR_SERVE_PORT") {
@@ -110,17 +150,29 @@ pub(crate) async fn run_doctor_cmd(args: DoctorArgs) -> Result<(), Box<dyn std::
                 .await;
             match response {
                 Ok(resp) => {
-                    checks.push(("本地服务 /health", resp.status().is_success(), url));
+                    checks.push((
+                        "本地服务 /health",
+                        if resp.status().is_success() {
+                            CheckLevel::Ok
+                        } else {
+                            CheckLevel::Fail
+                        },
+                        url,
+                    ));
                 }
                 Err(error) => {
-                    checks.push(("本地服务 /health", false, format!("{url}（{error}）")));
+                    checks.push((
+                        "本地服务 /health",
+                        CheckLevel::Fail,
+                        format!("{url}（{error}）"),
+                    ));
                 }
             }
         }
         Err(_) => {
             checks.push((
                 "本地服务 /health",
-                true,
+                CheckLevel::Ok,
                 "跳过（设置 OWO_DOCTOR_SERVE_PORT 启用）".to_string(),
             ));
         }
@@ -129,12 +181,46 @@ pub(crate) async fn run_doctor_cmd(args: DoctorArgs) -> Result<(), Box<dyn std::
     // 5) 备份目录可写（release 产物路径）。
     let backups = data_root.join("backups");
     let backups_ok = backups.is_dir() || std::fs::create_dir_all(&backups).is_ok();
-    checks.push(("备份目录", backups_ok, backups.display().to_string()));
+    checks.push((
+        "备份目录",
+        if backups_ok {
+            CheckLevel::Ok
+        } else {
+            CheckLevel::Fail
+        },
+        backups.display().to_string(),
+    ));
 
-    for (name, ok, note) in &checks {
-        let mark = if *ok { "[ok]  " } else { "[fail]" };
+    // 6) 工作区信任（审查 N1）：有 hooks/插件等"配置即代码"且未信任 → 受限模式。
+    //    受限是安全的显式状态而非故障：记 warn，不影响退出码。
+    let trust = owo_agent_core::trust::TrustStore::new(data_root.clone()).status(&workspace);
+    let fingerprint = &trust.fingerprint[..trust.fingerprint.len().min(16)];
+    let (trust_level, trust_note) = if trust.trusted {
+        (CheckLevel::Ok, format!("已信任（指纹 {fingerprint}）"))
+    } else if trust.gated {
+        (
+            CheckLevel::Warn,
+            format!(
+                "未信任（受限模式，hooks/插件/权限放宽不加载）：{}；用 `owo-agent trust` 或桌面端信任",
+                trust.reasons.join("；")
+            ),
+        )
+    } else {
+        (
+            CheckLevel::Ok,
+            "未信任（该工作区没有会自动执行的配置，无需确认）".to_string(),
+        )
+    };
+    checks.push(("工作区信任", trust_level, trust_note));
+
+    for (name, level, note) in &checks {
+        let mark = match level {
+            CheckLevel::Ok => "[ok]  ",
+            CheckLevel::Warn => "[warn]",
+            CheckLevel::Fail => "[fail]",
+        };
         println!("{mark} {name}：{note}");
-        if !*ok {
+        if *level == CheckLevel::Fail {
             failures += 1;
         }
     }

@@ -311,15 +311,22 @@ impl Approver for AutoApprover {
 /// - `Read` 恒放行（文件/命令路径已被 [`Policy`] 限制在工作区内）；
 /// - `Write` 仅当 `allow_writes` 且目标路径在工作区内（绝对/相对路径都支持，
 ///   `\\?\` 前缀已剥离）——越界写一律拒绝；
-/// - `Execute` / `Inject` 仅当 `allow_writes`（危险命令片段仍由 [`Policy`] 黑名单
-///   拦截，`Inject` 级锚点熔断不经过审批层）。
+/// - `Execute` / `Inject` 仅当 `allow_writes` **且 `allow_execute`**（显式 opt-in，
+///   见 [`WorkspaceApprover::allow_execute`]）。
 ///
 /// 注意：本审批器**不放宽** [`Policy`] 的判定——它只处理策略层已经判为"需要询问"
 /// 的请求，且永远不放行工作区外的写入。
 pub struct WorkspaceApprover {
     pub workspace: PathBuf,
-    /// 是否允许工作区内的写/执行（`false` = 只读子代理）。
+    /// 是否允许工作区内的写（`false` = 只读子代理）。
     pub allow_writes: bool,
+    /// 是否允许工作区内的命令执行/注入（**显式 opt-in，默认应设 false**）。
+    ///
+    /// 无交互审批通道的后台子代理里，读到的仓库文件/网页输出都可能带注入——
+    /// 若默认放行 Execute，等于把"命令执行"交给不可信内容诱导的模型。因此
+    /// 只有调用方明确声明"本次运行的用户已同意执行命令"时才置 true；
+    /// 有审批通道的正常回合不经过本审批器。
+    pub allow_execute: bool,
 }
 
 impl WorkspaceApprover {
@@ -387,7 +394,7 @@ impl Approver for WorkspaceApprover {
                 }
             }
             Level::Execute | Level::Inject => {
-                if self.allow_writes {
+                if self.allow_writes && self.allow_execute {
                     Decision::Allow
                 } else {
                     Decision::Deny
@@ -701,7 +708,10 @@ impl Policy {
             .unwrap_or_else(|| crate::tool_effects::effect_class_for(tool))
             .into();
         let reason = match tool {
-            "read_file" | "write_file" => {
+            // 审查 N6：路径边界检查不能只覆盖 read_file/write_file——edit_file/
+            // multi_edit 同样是单 path 参数的写入工具，漏检会让"越界在 evaluate
+            // 阶段拒绝"的承诺失效。apply_patch 的多目标在工具内逐条解析校验。
+            "read_file" | "write_file" | "edit_file" | "multi_edit" => {
                 let path = args.get("path").and_then(Value::as_str).unwrap_or_default();
                 match self.resolve_within_workspace(path) {
                     Ok(_) => format!("{level} 文件操作（工作区内）", level = level.label()),
@@ -720,15 +730,10 @@ impl Policy {
                     .get("command")
                     .and_then(Value::as_str)
                     .unwrap_or_default();
-                let lower = command.to_lowercase();
-                let denied = self
-                    .deny_fragments()
-                    .iter()
-                    .any(|frag| lower.contains(frag));
-                if denied {
-                    "拒绝：命令命中危险模式".to_string()
-                } else {
-                    format!("执行命令：{command}")
+                match crate::command_guard::dangerous_command_match(command, &self.deny_fragments())
+                {
+                    Some(pattern) => format!("拒绝：命令命中危险模式（{pattern}）"),
+                    None => format!("执行命令：{command}"),
                 }
             }
             _ => format!("工具 {tool} 需要审批"),
@@ -890,10 +895,15 @@ mod tests {
     // WorkspaceApprover：无交互通道（后台/嵌套子代理）的工作区范围审批
     // -----------------------------------------------------------------------
 
-    fn workspace_approver(workspace: &Path, allow_writes: bool) -> WorkspaceApprover {
+    fn workspace_approver(
+        workspace: &Path,
+        allow_writes: bool,
+        allow_execute: bool,
+    ) -> WorkspaceApprover {
         WorkspaceApprover {
             workspace: workspace.to_path_buf(),
             allow_writes,
+            allow_execute,
         }
     }
 
@@ -906,7 +916,7 @@ mod tests {
         let workspace =
             std::env::temp_dir().join(format!("owo-ws-approver-{}", std::process::id()));
         std::fs::create_dir_all(&workspace).unwrap();
-        let approver = workspace_approver(&workspace, true);
+        let approver = workspace_approver(&workspace, true, true);
         assert_eq!(
             approver
                 .decide(&request(Level::Read, json!({ "path": "a.txt" })))
@@ -936,7 +946,38 @@ mod tests {
                 .decide(&request(Level::Execute, json!({ "command": "echo hi" })))
                 .await,
             Decision::Allow,
-            "允许写时执行放行（危险片段仍由 Policy 黑名单拦截）"
+            "显式 opt-in 执行时放行（危险片段仍由 Policy 黑名单拦截）"
+        );
+        let _ = std::fs::remove_dir_all(&workspace);
+    }
+
+    #[tokio::test]
+    async fn workspace_approver_denies_execute_without_explicit_optin() {
+        let workspace =
+            std::env::temp_dir().join(format!("owo-ws-approver-exec-{}", std::process::id()));
+        std::fs::create_dir_all(&workspace).unwrap();
+        // 允许写但未显式允许执行：文件写放行，命令执行拒绝（防注入诱导执行）。
+        let approver = workspace_approver(&workspace, true, false);
+        assert_eq!(
+            approver
+                .decide(&request(Level::Write, json!({ "path": "a.txt" })))
+                .await,
+            Decision::Allow,
+            "工作区内写不受执行开关影响"
+        );
+        assert_eq!(
+            approver
+                .decide(&request(Level::Execute, json!({ "command": "echo hi" })))
+                .await,
+            Decision::Deny,
+            "未显式 opt-in 时执行必须拒绝"
+        );
+        assert_eq!(
+            approver
+                .decide(&request(Level::Inject, json!({ "command": "echo hi" })))
+                .await,
+            Decision::Deny,
+            "注入级同样 fail-closed"
         );
         let _ = std::fs::remove_dir_all(&workspace);
     }
@@ -946,7 +987,7 @@ mod tests {
         let workspace =
             std::env::temp_dir().join(format!("owo-ws-approver-deny-{}", std::process::id()));
         std::fs::create_dir_all(&workspace).unwrap();
-        let approver = workspace_approver(&workspace, true);
+        let approver = workspace_approver(&workspace, true, true);
         let outside = workspace.parent().unwrap().join("owo-outside.txt");
         assert_eq!(
             approver
@@ -973,7 +1014,7 @@ mod tests {
             "无 path 参数的写级请求（多文件补丁）保守拒绝"
         );
 
-        let read_only = workspace_approver(&workspace, false);
+        let read_only = workspace_approver(&workspace, false, false);
         assert_eq!(
             read_only
                 .decide(&request(Level::Write, json!({ "path": "a.txt" })))

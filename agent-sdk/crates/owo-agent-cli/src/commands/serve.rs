@@ -54,13 +54,33 @@ pub(crate) async fn run_serve(args: ServeArgs) -> Result<(), Box<dyn std::error:
         ensure_data_root(None, &workspace)
     };
     let plugin_state = owo_agent_core::PluginStateStore::new(Some(root.join("plugin_state.json")));
-    let plugins =
-        owo_agent_core::plugin::discover_enabled_plugins(&workspace, &root, &plugin_state);
+    // 审查 N1：工作区信任门。未信任的工作区不加载插件（插件 manifest 可自带命令/
+    // MCP，会在启动时拉起子进程）——信任经桌面端弹窗/`POST /workspace/trust`/设置页保存。
+    let trust = owo_agent_core::trust::TrustStore::new(root.clone()).status(&workspace);
+    let trust_gated = !trust.trusted && trust.gated;
+    if trust_gated {
+        tracing::warn!(
+            "工作区未信任，跳过工作区插件加载：{}",
+            trust.reasons.join("；")
+        );
+    }
+    let plugins = if trust_gated {
+        Vec::new()
+    } else {
+        owo_agent_core::plugin::discover_enabled_plugins(&workspace, &root, &plugin_state)
+    };
     let mut mcp_configs = load_mcp_configs(&root);
     merge_plugin_mcp(&plugins, &mut mcp_configs);
     // MCP 是可选扩展，握手不能占用 Daemon 的 ready 关键路径。
     // 成功后通过 Agent 的线程安全注册表热挂工具；服务仍先对本地客户端可用。
-    let _ = install_builtin_packages(&builtin_skills_root(), &root);
+    match install_builtin_packages(&builtin_skills_root(), &root, env!("CARGO_PKG_VERSION")) {
+        Ok(report) => {
+            for (name, reason) in &report.skipped {
+                tracing::warn!("内置技能 {name} 未安装：{reason}");
+            }
+        }
+        Err(error) => tracing::warn!("内置技能安装失败：{error}"),
+    }
     let mut skills = SkillRegistry::discover(&workspace, &root);
     apply_disabled_skills(&mut skills, &settings);
     let agent = build_agent_with_mcp_serve(

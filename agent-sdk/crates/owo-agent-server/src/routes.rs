@@ -73,6 +73,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         )
         .route("/session/{id}/abort", post(session_api::abort_turn))
         .route("/session/{id}/diff", get(session_api::diff))
+        .route("/session/{id}/hunks", get(session_hunks_api::session_hunks))
+        .route(
+            "/session/{id}/hunks/apply",
+            post(session_hunks_api::session_hunks_apply),
+        )
         .route("/session/{id}/revert", post(session_api::revert))
         .route("/session/{id}/fork", post(session_api::fork_session))
         .route("/session/{id}/rewind", post(session_api::rewind_session))
@@ -241,6 +246,14 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/settings/provider-test",
             post(settings_api::settings_provider_test),
         )
+        // 审查 N1：工作区信任（受限模式状态 + 显式信任/撤销）。
+        .route(
+            "/workspace/trust",
+            get(workspace_trust_api::workspace_trust_get)
+                .post(workspace_trust_api::workspace_trust_set),
+        )
+        // 符号级检索（G14）：与 find_symbol 工具 / CLI `owo-agent symbols` 同内核，只读。
+        .route("/symbols", get(symbols_api::symbols))
         // §5.3/§5.4 权限档位与授权记忆管理（UI/CLI 统一入口）。
         .route(
             "/permissions",
@@ -264,6 +277,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/whitelist/manage", post(whitelist_api::whitelist_manage))
         .route("/session/{id}/context", get(session_api::session_context))
         .route("/session/{id}/compact", post(session_api::compact_session))
+        .route("/session/{id}/goal", post(session_goal_api::session_goal))
         .route("/skills/health", get(skills_api::skills_health))
         .route(
             "/skills/health/{name}/reset",
@@ -348,6 +362,14 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .merge(team_template_catalog_api::team_template_catalog_router(
             state.clone(),
         ))
+        // 用户自定义工作流（团队模板的用户/社区通道：校验 + CRUD）。
+        .merge(user_workflows_api::user_workflows_router(state.clone()))
+        // AI 生成工作流草稿（自然语言 → 候选配置 → 校验 → 人工采纳）。
+        .merge(workflow_draft_api::workflow_draft_router(state.clone()))
+        // 工作流社区共享（导出/导入前评审/导入门禁）。
+        .merge(workflows_share_api::workflows_share_router(state.clone()))
+        // 工作流使用统计（只读聚合：运行次数与成败）。
+        .merge(workflow_stats_api::workflow_stats_router(state.clone()))
         // R1（§8.5）：DesktopWorld/WorldModel 闭环 /desktop-envs/*、/world-model/*、
         // /transitions/*、/datasets/*、/model-candidates/*（desktop_world_api 模块内
         // DesktopWorldHub 单例 + ControllerLease token+epoch 围栏；与 /desktop/* 计算机
@@ -401,6 +423,8 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             state.clone(),
             trace_id_middleware,
         ))
+        // N11：Host 白名单（DNS rebinding 防护）——在任何业务处理之前拒绝。
+        .layer(axum::middleware::from_fn(host_guard_middleware))
         // R10：弃用策略——命中 DEPRECATED_ROUTES 附加 Deprecation 头。
         .layer(axum::middleware::from_fn(deprecation_middleware))
         .fallback_service(ServeDir::new(desktop_web_dir()))
