@@ -1,4 +1,5 @@
 #include "owo/engine/candidate_generator.h"
+#include "owo/engine/user_lexicon_alignment.h"
 #include "owo/engine/candidate_scoring.h"
 
 #include <algorithm>
@@ -650,12 +651,22 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         if (exact_path != parsed.paths.end()) {
             const auto learned_entries = user_frequency_->lookup(
                 lookup_input, search_limit);
-            const auto learned_segments = source_segments(parsed, *exact_path);
-            std::vector<std::string> learned_syllables;
-            learned_syllables.reserve(exact_path->syllables.size());
-            for (const auto& syllable : exact_path->syllables)
-                learned_syllables.push_back(syllable.text);
             for (const auto& entry : learned_entries) {
+                // Old prefix-completion selections may have left a long word
+                // bound to a short exact spelling. Ignore that alias without
+                // deleting user data. Check every exact segmentation so a
+                // legitimate ambiguous spelling such as xian -> xi'an survives.
+                const auto learned_path = std::find_if(
+                    parsed.paths.begin(), parsed.paths.end(), [&](const ParsePath& path) {
+                        return path.match_kind == InputMatchKind::exact &&
+                               user_word_matches_source_path(parsed, path, entry.text);
+                    });
+                if (learned_path == parsed.paths.end()) continue;
+                const auto learned_segments = source_segments(parsed, *learned_path);
+                std::vector<std::string> learned_syllables;
+                learned_syllables.reserve(learned_path->syllables.size());
+                for (const auto& syllable : learned_path->syllables)
+                    learned_syllables.push_back(syllable.text);
                 auto score = 12'000 + candidate_unigram_score(entry.count) +
                              user_frequency_->score(entry.text) +
                              user_frequency_->contextual_score(lookup_input,

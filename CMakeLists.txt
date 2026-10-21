@@ -713,6 +713,14 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME owo.engine.local_corrections COMMAND owo_local_correction_tests)
 
+    add_executable(owo_user_lexicon_alignment_tests tests/engine/user_lexicon_alignment_tests.cpp)
+    target_link_libraries(owo_user_lexicon_alignment_tests PRIVATE owo_engine)
+    target_compile_features(owo_user_lexicon_alignment_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_user_lexicon_alignment_tests PRIVATE /W4 /permissive- /utf-8)
+    endif()
+    add_test(NAME owo.engine.user_lexicon_alignment COMMAND owo_user_lexicon_alignment_tests)
+
     add_executable(owo_candidate_scheduler_tests
         tests/engine/candidate_scheduler_tests.cpp)
     target_link_libraries(owo_candidate_scheduler_tests PRIVATE owo_engine)

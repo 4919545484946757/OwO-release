@@ -11,6 +11,7 @@
 #include "owo/engine/full_pinyin_schema.h"
 #include "owo/engine/lexicon.h"
 #include "owo/engine/user_frequency.h"
+#include "owo/engine/user_lexicon_alignment.h"
 
 #include "owo/protocol/messages.h"
 
@@ -2033,10 +2034,27 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 response.text = "commit_ack";
                 if (user_frequency != nullptr && user_learning_enabled &&
                     !decoded.message.text.empty()) {
-                    const auto feedback = full_pinyin_scheme
+                    auto feedback = full_pinyin_scheme
                         ? full_pinyin_schema.parse(decoded.message.input, 1, false)
                         : exact_code_schema.parse(decoded.message.input, 1);
-                    if (feedback.valid)
+                    const auto has_aligned_source = [&] {
+                        return feedback.valid && std::any_of(
+                            feedback.paths.begin(), feedback.paths.end(), [&](const auto& path) {
+                                return engine::user_word_matches_source_path(
+                                    feedback, path, decoded.message.text);
+                            });
+                    };
+                    bool aligned_source = has_aligned_source();
+                    // Most commits fit the first path. Only inspect alternate
+                    // segmentations on a mismatch (e.g. xian -> xi'an).
+                    if (full_pinyin_scheme && !aligned_source) {
+                        feedback = full_pinyin_schema.parse(decoded.message.input, 32, false);
+                        aligned_source = has_aligned_source();
+                    }
+                    // Keep global usage evidence for a selected completion,
+                    // but never promote its short typed prefix to an exact
+                    // user-word spelling. Code-based schemes remain unrestricted.
+                    if (aligned_source)
                         user_frequency->record(decoded.message.context,
                                                feedback.normalized_input,
                                                decoded.message.text);

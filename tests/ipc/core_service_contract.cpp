@@ -279,13 +279,51 @@ int main() {
     const auto ranged = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request,
                     107, 8, "wo'ai'shi'jie"});
+    owo::protocol::Message full_phrase_commit{
+        owo::protocol::MessageType::candidate_committed, 224, 8, "修复该问题"};
+    full_phrase_commit.input = "xiufugaiwenti";
+    const auto full_phrase_ack = send_request(pipe_name, full_phrase_commit);
+    auto completion_commit = full_phrase_commit;
+    completion_commit.request_id = 225;
+    completion_commit.input = "xiufu";
+    completion_commit.context = "请";
+    const auto completion_ack = send_request(pipe_name, completion_commit);
+    const auto short_phrase_candidates = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request, 226, 8, "xiufu"});
+    const auto full_phrase_candidates = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request, 227, 8, "xiufugaiwenti"});
+    const auto near_phrase_candidates = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request, 228, 8, "xiufugaiwent"});
+    auto ambiguous_word_commit = full_phrase_commit;
+    ambiguous_word_commit.request_id = 229;
+    ambiguous_word_commit.input = "xian";
+    ambiguous_word_commit.text = "西安";
+    const auto ambiguous_word_ack = send_request(pipe_name, ambiguous_word_commit);
     const auto shutdown = send_request(pipe_name, {owo::protocol::MessageType::shutdown_request, 103, 9, {}});
     server.join();
     std::filesystem::remove(path, ignored);
     owo::engine::UserFrequencyStore persisted;
     const auto persisted_result = persisted.load(user_path);
+    const auto has_phrase = [](const auto& response) {
+        return response.validation && std::find(response.message.candidates.begin(),
+            response.message.candidates.end(), "修复该问题") != response.message.candidates.end();
+    };
+    const bool completion_learning_ok = full_phrase_ack.validation && completion_ack.validation &&
+        full_phrase_ack.message.type == owo::protocol::MessageType::acknowledgement &&
+        completion_ack.message.type == owo::protocol::MessageType::acknowledgement &&
+        short_phrase_candidates.validation && !has_phrase(short_phrase_candidates) &&
+        has_phrase(full_phrase_candidates) && has_phrase(near_phrase_candidates) &&
+        persisted_result.success && persisted.count("修复该问题") == 2 &&
+        persisted.contextual_count("xiufugaiwenti", "修复该问题") == 1 &&
+        persisted.contextual_count("xiufu", "修复该问题") == 0 &&
+        persisted.language_context_score("请", "xiufu", "修复该问题") == 0 &&
+        ambiguous_word_ack.validation && persisted.contextual_count("xian", "西安") == 1;
     std::filesystem::remove(user_path, ignored);
     std::filesystem::remove(user_path.wstring() + L".bak", ignored);
+    if (!completion_learning_ok) {
+        std::cerr << "completion feedback polluted exact user-word learning\n";
+        return 5;
+    }
     if (!invalid_request_identity_ok) {
         std::cerr << "invalid request response did not preserve request identity\n";
         return 4;
