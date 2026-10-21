@@ -55,13 +55,14 @@ $preferredInstallRoot = if ([string]::IsNullOrWhiteSpace($InstallDirectory)) {
 } else {
     [IO.Path]::GetFullPath($InstallDirectory)
 }
-$programRoot = [IO.Path]::GetFullPath((Split-Path -Parent $preferredInstallRoot))
 $volumeRoot = [IO.Path]::GetPathRoot($preferredInstallRoot)
 if ([string]::Equals($preferredInstallRoot.TrimEnd([IO.Path]::DirectorySeparatorChar),
         $volumeRoot.TrimEnd([IO.Path]::DirectorySeparatorChar),
         [StringComparison]::OrdinalIgnoreCase)) {
     throw 'Refusing to install OwO into a filesystem root.'
 }
+$preferredInstallRoot = $preferredInstallRoot.TrimEnd('\', '/')
+$programRoot = [IO.Path]::GetFullPath((Split-Path -Parent $preferredInstallRoot))
 $normalizedPackageRoot = $packageRoot.TrimEnd([IO.Path]::DirectorySeparatorChar)
 $normalizedInstallRoot = $preferredInstallRoot.TrimEnd([IO.Path]::DirectorySeparatorChar)
 if ($normalizedInstallRoot.Equals($normalizedPackageRoot, [StringComparison]::OrdinalIgnoreCase) -or
@@ -97,26 +98,21 @@ if (-not [string]::IsNullOrWhiteSpace($registeredInstallRoot)) {
 # in arbitrary text-input clients after unregistration, and Windows correctly
 # rejects replacing a mapped image. Stage this reinstall side-by-side, switch
 # registration, then retire the previous instance asynchronously.
-$installRoot = $preferredInstallRoot
-if (Test-Path -LiteralPath $installRoot) {
-    $existingFiles = @(Get-ChildItem -LiteralPath $installRoot -Force -ErrorAction Stop)
-    $isExistingOwO = (Test-Path -LiteralPath (Join-Path $installRoot 'bin\OwO.TSF.dll') -PathType Leaf) -and
-        (Test-Path -LiteralPath (Join-Path $installRoot 'scripts\Uninstall-OwO.ps1') -PathType Leaf)
-    if ($isExistingOwO) {
-        $instance = Get-Date -Format 'yyyyMMddHHmmss'
-        $instance += '-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
-        $directoryName = [IO.Path]::GetFileName($installRoot.TrimEnd([IO.Path]::DirectorySeparatorChar))
-        $installRoot = [IO.Path]::GetFullPath((Join-Path $programRoot "$directoryName-$instance"))
-    } elseif ($existingFiles.Count -ne 0) {
-        throw 'The selected installation directory is not empty and is not an OwO installation.'
-    }
+$targetPlan = Get-OwOInstallationTarget -PreferredRoot $preferredInstallRoot -PackageRoot $packageRoot
+$installRoot = $targetPlan.InstallRoot
+if ($targetPlan.ExistingKind -eq 'Incomplete') {
+    Write-Warning "A previous incomplete OwO installation was found and preserved: $preferredInstallRoot"
 }
+Write-Output "OwO installation destination: $installRoot"
 if (-not $installRoot.StartsWith($programRoot + [IO.Path]::DirectorySeparatorChar,
         [StringComparison]::OrdinalIgnoreCase)) {
     throw 'Refusing an installation path outside its selected parent directory.'
 }
 
 [void](New-Item -ItemType Directory -Path $installRoot -Force)
+$installMarker = Join-Path $installRoot '.owo-install-state.json'
+$installState = [ordered]@{ application = 'OwO.InputMethod'; schema = 1; state = 'copying'; version = $version }
+[IO.File]::WriteAllText($installMarker, ($installState | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
 foreach ($directory in @('bin', 'data', 'model', 'settings', 'scripts', 'LICENSES')) {
     $source = Join-Path $packageRoot $directory
     if (-not (Test-Path -LiteralPath $source)) { throw "Package directory is missing: $directory" }
@@ -355,4 +351,6 @@ if ($null -ne $previousInstallRoot -and
     Start-Process -FilePath 'powershell.exe' -ArgumentList $cleanupArguments `
         -WindowStyle Hidden | Out-Null
 }
+$installState.state = 'completed'
+[IO.File]::WriteAllText($installMarker, ($installState | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
 Write-Output "OwO Input Method $version installed: $installRoot"

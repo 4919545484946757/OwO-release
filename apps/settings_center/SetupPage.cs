@@ -288,7 +288,7 @@ public sealed partial class SetupPage : Page
         location.Children.Add(_browseDirectory);
         installation.Children.Add(location);
         installation.Children.Add(new TextBlock {
-            Text = "浏览时会在所选文件夹下创建 OwO 目录。也可直接填写完整路径；目标应为空文件夹或已有的 OwO 安装目录。",
+            Text = "浏览时会在所选文件夹下创建 OwO 目录，也可填写完整路径。已有安装或可验证的失败残留会改用新的同级目录，不覆盖原文件；其他非空目录不能使用。",
             TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7
         });
         body.Children.Add(Card(installation));

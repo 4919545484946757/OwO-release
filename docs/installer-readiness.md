@@ -14,12 +14,15 @@
 
 从 32 位进程启动时，提权使用 `Sysnative` 下的原生 Windows PowerShell，x64 TSF 注册/注销使用原生 `regsvr32`；x86 TSF 继续使用 `SysWOW64`。
 
+安装复制前写入 `.owo-install-state.json`，成功后标记完成。重试遇到完整 OwO 安装、有效状态标记或与当前包 TSF/Core 二进制哈希相符的旧版失败残留时，使用全新的同级目录，不覆盖或删除残留目录。缺少卸载脚本的残留不会作为旧安装清理目标；无关的非空目录、无法核验的残留、文件路径或链接目录仍拒绝安装。日志记录实际安装位置。
+
 定向验证：
 
 ```powershell
 dotnet build apps/settings_center/OwO.Settings.csproj -c Release -p:Platform=x64 --no-restore
 dotnet run --project tests/settings_center/preferences_tests.csproj -c Release
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/settings_center/InstallerPrerequisitesTests.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/settings_center/InstallerDirectoryTests.ps1
 ```
 
 手动验证：运行 `open-owo-installer.cmd`（不使用阶段预览参数），反复切换上一步/下一步，检查设置与可信确认是否保留；检查完成后，勾选可信应启用安装按钮。安装失败返回选项后可重试。阶段预览脚本只用于观察布局，不能用于验证实际安装按钮。
