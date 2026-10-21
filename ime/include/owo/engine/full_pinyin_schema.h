@@ -25,6 +25,11 @@ public:
                                     std::size_t max_paths = 32) const override;
     [[nodiscard]] ParseResult parse(std::string_view input, std::size_t max_paths,
                                     bool correction_enabled) const;
+    // Cheap bounded test: can the reading be segmented into exact syllables
+    // (a trailing unfinished syllable allowed)? It intentionally ignores
+    // abbreviation and correction recovery, so callers can decide whether a
+    // full parse is worth its cost before paying for it.
+    [[nodiscard]] bool is_plausible_reading(std::string_view input) const;
     [[nodiscard]] ParseResult parse(std::string_view input, std::size_t max_paths,
                                     bool correction_enabled,
                                     FullPinyinParseMetrics* metrics,

@@ -183,6 +183,32 @@ bool substitution_allowed(const char expected, const char actual) {
     return left && right && std::abs(left->row - right->row) <= 1 &&
            std::abs(left->column - right->column) <= 2;
 }
+// O(1) membership and prefix tests for the plausibility sweep. They are built
+// once from the same table the parser uses, including the keyboard spellings
+// canonical_complete_syllable() accepts.
+bool is_known_syllable(const std::string_view value) {
+    static const auto table = [] {
+        std::unordered_set<std::string_view> result;
+        result.reserve(512);
+        for (const auto syllable : kSyllables) result.insert(syllable);
+        result.insert("lue");
+        result.insert("nue");
+        result.insert("v");
+        return result;
+    }();
+    return table.contains(value);
+}
+
+bool is_known_prefix(const std::string_view value) {
+    static const auto table = [] {
+        std::unordered_set<std::string_view> result;
+        for (const auto syllable : kSyllables)
+            for (std::size_t size = 1; size < syllable.size(); ++size)
+                result.insert(syllable.substr(0, size));
+        return result;
+    }();
+    return table.contains(value);
+}
 
 const std::vector<std::string_view>& syllable_prefix_matches(
     const std::string_view prefix) {
@@ -799,6 +825,43 @@ ParseResult FullPinyinSchema::parse_incremental(
 ParseResult FullPinyinSchema::parse(const std::string_view input,
                                     const std::size_t max_paths) const {
     return parse(input, max_paths, true);
+}
+
+bool FullPinyinSchema::is_plausible_reading(const std::string_view input) const {
+    if (input.empty() || input.size() > 256) return false;
+    std::size_t position = 0;
+    while (position < input.size()) {
+        const auto separator = input.find('\'', position);
+        const auto end = separator == std::string_view::npos ? input.size() : separator;
+        const auto chunk = input.substr(position, end - position);
+        if (chunk.empty()) return false;
+        // A linear reachability sweep over at most six source bytes per
+        // syllable boundary. Unlike parse(), it never enumerates paths, so the
+        // cost stays proportional to the reading length.
+        std::vector<char> reachable(chunk.size() + 1, 0);
+        reachable[0] = 1;
+        for (std::size_t offset = 0; offset < chunk.size(); ++offset) {
+            if (reachable[offset] == 0) continue;
+            const auto maximum = std::min<std::size_t>(6, chunk.size() - offset);
+            for (std::size_t length = 1; length <= maximum; ++length) {
+                if (is_known_syllable(chunk.substr(offset, length)))
+                    reachable[offset + length] = 1;
+            }
+        }
+        bool plausible = reachable[chunk.size()] != 0;
+        const bool final_chunk = separator == std::string_view::npos;
+        for (std::size_t offset = 1; offset < chunk.size() && !plausible; ++offset) {
+            if (reachable[offset] == 0) continue;
+            // An unfinished syllable is only meaningful as the trailing part of
+            // the whole reading; an explicit apostrophe demands complete ones.
+            if (!final_chunk) break;
+            if (is_known_prefix(chunk.substr(offset))) plausible = true;
+        }
+        if (!plausible) return false;
+        if (separator == std::string_view::npos) break;
+        position = separator + 1;
+    }
+    return true;
 }
 
 ParseResult FullPinyinSchema::parse(const std::string_view input,

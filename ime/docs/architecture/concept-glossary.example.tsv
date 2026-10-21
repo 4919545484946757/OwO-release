@@ -1,0 +1,7 @@
+# OwO 输入法项目术语表示例
+# 格式：term<TAB>reading<TAB>cue1,cue2[,cue3][<TAB>说明]
+# 用法：owo_core_service.exe --concept-glossary <此文件路径>
+# 说明：cue 是“描述”的拼音（只取字母，忽略空格与大小写）；整段预编辑与该拼音完全相同时给出术语候选。
+#       传入术语表会替换内置起步表；文件解析失败时核心服务记录警告并继续使用内置表。
+幂等	mideng	chongfuzhixing,chongfuzhixingjieguobubian	重复执行结果不变
+死锁	sisuo	huxiangdengdai	互相等待

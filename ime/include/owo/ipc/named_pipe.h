@@ -8,6 +8,7 @@
 #include <string_view>
 
 namespace owo::engine {
+class ConceptTable;
 class Lexicon;
 class UserFrequencyStore;
 }
@@ -81,6 +82,14 @@ private:
                                   const wchar_t* model_pipe_name,
                                   const config::ConfigMonitor* config_monitor,
                                   core::PluginExecutor* plugin_executor = nullptr);
+/// 同上，并传入项目术语表（替换内置起步表）。术语表在服务退出前必须保持有效。
+[[nodiscard]] int run_core_server(const wchar_t* pipe_name,
+                                  const engine::Lexicon& lexicon,
+                                  engine::UserFrequencyStore* user_frequency,
+                                  const wchar_t* model_pipe_name,
+                                  const config::ConfigMonitor* config_monitor,
+                                  core::PluginExecutor* plugin_executor,
+                                  const engine::ConceptTable* concept_table);
 
 /// 运行 ModelHost v1 串行服务循环。后端在服务退出前必须保持有效。
 [[nodiscard]] int run_model_server(const wchar_t* pipe_name, model::IModelBackend& backend);

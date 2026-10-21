@@ -5,6 +5,7 @@
 #include "owo/plugin/candidate_theme.h"
 #include "owo/plugin/unicode_palette.h"
 #include "owo/tsf/input_method_session.h"
+#include "owo/tsf/key_routing.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -235,6 +236,11 @@ private:
     void update_candidate_anchor(ITfContext* context);
     void clear_composition();
     [[nodiscard]] bool should_eat_key(WPARAM key) const noexcept;
+    // Routes a digit key against the current composition state. Candidate
+    // selection keeps priority; a digit after a reading character that does not
+    // select a candidate joins the composition so modeless mixed input stays in
+    // the preedit.
+    [[nodiscard]] owo::tsf::DigitKeyAction digit_key_action(WPARAM key) const noexcept;
     [[nodiscard]] std::optional<std::wstring> chinese_punctuation_for_key(
         WPARAM key, bool advance_quote_state = false);
     HRESULT commit_candidate(ITfContext* context, std::size_t index,

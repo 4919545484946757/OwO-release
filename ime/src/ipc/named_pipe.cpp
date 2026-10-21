@@ -10,6 +10,7 @@
 #include "owo/engine/exact_code_schema.h"
 #include "owo/engine/full_pinyin_schema.h"
 #include "owo/engine/lexicon.h"
+#include "owo/engine/unified_input.h"
 #include "owo/engine/user_frequency.h"
 
 #include "owo/protocol/messages.h"
@@ -601,6 +602,28 @@ std::string_view utf8_suffix(const std::string_view text,
     return text.substr(boundaries[boundaries.size() - 1 - count]);
 }
 
+// ADR-0025 defines candidate consumption as ASCII input bytes, which is what
+// the TSF removes from its UTF-16 preedit. The two coincide for pinyin input;
+// for non-ASCII preedits (pasted text or plugin schemes) the UTF-8 prefix must
+// be converted to UTF-16 code units so the TSF can still commit the candidate.
+std::uint64_t consumed_code_units(const std::string_view input,
+                                  const std::uint64_t consumed_bytes) {
+    const auto limit = static_cast<std::size_t>(
+        std::min<std::uint64_t>(consumed_bytes, input.size()));
+    std::uint64_t units = 0;
+    for (std::size_t index = 0; index < limit;) {
+        const auto lead = static_cast<unsigned char>(input[index]);
+        std::size_t size = 1;
+        if ((lead & 0xE0U) == 0xC0U) size = 2;
+        else if ((lead & 0xF0U) == 0xE0U) size = 3;
+        else if ((lead & 0xF8U) == 0xF0U) size = 4;
+        size = std::min(size, limit - index);
+        units += size == 4 ? 2 : 1;
+        index += size;
+    }
+    return units;
+}
+
 struct ContextualLexiconMatch {
     std::string candidate;
     std::size_t combined_syllables{};
@@ -1105,7 +1128,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     engine::UserFrequencyStore* user_frequency,
                     const wchar_t* model_pipe_name,
                     const config::ConfigMonitor* config_monitor,
-                    core::PluginExecutor* plugin_executor) {
+                    core::PluginExecutor* plugin_executor,
+                    const engine::ConceptTable* concept_table) {
     const engine::FullPinyinSchema full_pinyin_schema;
     const engine::ExactCodeSchema exact_code_schema;
     const engine::CandidateGenerator generator(lexicon, nullptr, user_frequency);
@@ -1221,6 +1245,12 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 ? runtime_config->user_lexicon_completion_max_syllables : 1U;
             const bool candidate_partition_enabled = runtime_config == nullptr ||
                 runtime_config->candidate_partition_enabled;
+            const bool smart_candidates_enabled = runtime_config == nullptr ||
+                runtime_config->smart_candidates_enabled;
+            const bool expressive_candidates_enabled = runtime_config == nullptr ||
+                runtime_config->expressive_candidates_enabled;
+            const bool concept_candidates_enabled = runtime_config == nullptr ||
+                runtime_config->concept_candidates_enabled;
             if (decoded.message.type == protocol::MessageType::shutdown_request) {
                 std::clog << R"({"process":"core_service","module":"lifecycle","level":"info","event_id":"shutdown_requested"})"
                           << '\n';
@@ -1569,6 +1599,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     bool incremental_reused = false;
                     bool refinement_parse_reused = false;
                     bool candidate_pool_exhausted = false;
+                    bool unified_candidates_merged = false;
+                    engine::UnifiedCandidateBreakdown unified_breakdown;
                     if (cached) {
                         parsed = std::move(cached->parsed);
                         candidates = std::move(cached->candidates);
@@ -1749,6 +1781,38 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             contextual_preferences, candidates);
                     }
                     full_input_bytes = parsed.normalized_input.size();
+                    // Modeless unified input. The pinyin parser owns pure
+                    // pinyin; mixed or Latin preedit content used to produce an
+                    // empty bar and could only be committed raw. Add
+                    // whole-input literal, structural, expressive, and concept
+                    // candidates without disturbing dictionary ranking.
+                    if (!cache_hit && full_pinyin_scheme && !cancelled() &&
+                        !decoded.message.text.empty() &&
+                        decoded.message.text.size() <=
+                            engine::kUnifiedInputMaximumBytes) {
+                        engine::UnifiedCandidateOptions unified_options;
+                        unified_options.limit = result_limit;
+                        unified_options.concept_table = concept_table;
+                        unified_options.include_rule_candidates =
+                            smart_candidates_enabled;
+                        unified_options.include_expressive =
+                            expressive_candidates_enabled;
+                        unified_options.include_combinations =
+                            expressive_candidates_enabled;
+                        unified_options.include_concepts =
+                            concept_candidates_enabled;
+                        auto unified = engine::generate_unified_candidates(
+                            full_pinyin_schema, lexicon, decoded.message.text,
+                            nullptr, user_frequency, unified_options,
+                            &unified_breakdown);
+                        if (!unified.empty()) {
+                            engine::merge_unified_candidates(
+                                candidates, std::move(unified));
+                            unified_candidates_merged = true;
+                            full_input_bytes = std::max(
+                                full_input_bytes, decoded.message.text.size());
+                        }
+                    }
                     if (partitioned_layout && !cache_hit && !cancelled()) {
                         const auto model_begin = std::find_if(
                             candidates.begin(), candidates.end(),
@@ -1836,9 +1900,20 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     // abbreviation/correction paths may generate candidates, but
                     // must not rewrite xing+b as xin+g+b or xing+ba+f as xing+baf.
                     if (!request_cancelled) {
-                        const auto candidate_segments = candidates.empty()
-                                                            ? std::vector<std::string>{}
-                                                            : candidates.front().source_segments;
+                        std::vector<std::string> candidate_segments;
+                        if (unified_candidates_merged) {
+                            // Unified extras carry no pinyin segmentation, so
+                            // preview the first candidate that still does.
+                            const auto segmented = std::find_if(
+                                candidates.begin(), candidates.end(),
+                                [](const engine::Candidate& candidate) {
+                                    return !candidate.source_segments.empty();
+                                });
+                            if (segmented != candidates.end())
+                                candidate_segments = segmented->source_segments;
+                        } else if (!candidates.empty()) {
+                            candidate_segments = candidates.front().source_segments;
+                        }
                         response.syllables = preferred_source_segmentation(
                             parsed, candidate_segments, decoded.message.correction_enabled);
                         if (response.syllables.empty())
@@ -1850,10 +1925,13 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         response.candidate_groups.reserve(end - begin);
                         const auto append_candidate = [
                             &response, &candidates, partitioned_layout,
-                            full_input_bytes](const std::size_t index) {
+                            full_input_bytes,
+                            &decoded](const std::size_t index) {
                             response.candidates.push_back(candidates[index].text);
                             response.candidate_consumed.push_back(
-                                candidates[index].consumed_input_bytes);
+                                consumed_code_units(
+                                    decoded.message.text,
+                                    candidates[index].consumed_input_bytes));
                             if (partitioned_layout)
                                 response.candidate_groups.push_back(candidate_group(
                                     candidates[index], full_input_bytes));
@@ -1896,6 +1974,16 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         << (incremental_reused ? "true" : "false")
                         << R"(,"refinement_parse_reused":)"
                         << (refinement_parse_reused ? "true" : "false")
+                        << R"(,"unified":{"decoded":)" << unified_breakdown.decoded
+                        << R"(,"literal":)" << unified_breakdown.literal
+                        << R"(,"rules":)" << unified_breakdown.rules
+                        << R"(,"expressive":)" << unified_breakdown.expressive
+                        << R"(,"combinations":)" << unified_breakdown.combinations
+                        << R"(,"concepts":)" << unified_breakdown.concepts << "}"
+                        << R"(,"concept_glossary_entries":)"
+                        << (concept_table != nullptr
+                                ? concept_table->entries().size()
+                                : engine::builtin_concept_table().entries().size())
                         << "}\n";
                 }
                 // Transitional compatibility for the P1 TSF consumer. It is removed when
@@ -2059,9 +2147,18 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
 
 int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     engine::UserFrequencyStore* user_frequency,
+                    const wchar_t* model_pipe_name,
+                    const config::ConfigMonitor* config_monitor,
+                    core::PluginExecutor* plugin_executor) {
+    return run_core_server(pipe_name, lexicon, user_frequency, model_pipe_name,
+                           config_monitor, plugin_executor, nullptr);
+}
+
+int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
+                    engine::UserFrequencyStore* user_frequency,
                     const wchar_t* model_pipe_name) {
     return run_core_server(pipe_name, lexicon, user_frequency, model_pipe_name,
-                           nullptr, nullptr);
+                           nullptr, nullptr, nullptr);
 }
 
 int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,

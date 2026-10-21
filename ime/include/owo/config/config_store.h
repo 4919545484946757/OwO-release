@@ -8,7 +8,7 @@
 
 namespace owo::config {
 
-inline constexpr std::uint32_t kConfigSchemaVersion = 15;
+inline constexpr std::uint32_t kConfigSchemaVersion = 16;
 
 // Append-only bit order: each physical ASCII punctuation has its own preference.
 inline constexpr std::string_view kChinesePunctuationSources = ",.<>?;:[]{}\\|-_+=`~'\"()!$^";
@@ -28,6 +28,11 @@ struct AppConfig {
     std::uint32_t candidate_wrap_length{12};
     bool candidate_partition_enabled{true};
     bool candidate_immediate_commit_enabled{true};
+    // Assistive candidate families. The modeless unified input itself (mixed
+    // preedit, tone digits, literal fallback) is not gated by these switches.
+    bool smart_candidates_enabled{true};
+    bool expressive_candidates_enabled{true};
+    bool concept_candidates_enabled{true};
     bool focus_loss_commit_enabled{false};
     bool user_learning_enabled{true};
     std::uint32_t user_learning_sensitivity{10};

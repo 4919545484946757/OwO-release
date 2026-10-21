@@ -1,5 +1,6 @@
 #include "owo/ipc/named_pipe.h"
 #include "owo/engine/binary_lexicon.h"
+#include "owo/engine/concept_candidates.h"
 #include "owo/engine/user_frequency.h"
 #include "owo/protocol/messages.h"
 
@@ -100,9 +101,22 @@ int main() {
     const auto loaded = lexicon.load(path);
     owo::engine::UserFrequencyStore user_frequency;
     if (!written.success || !loaded.success || !user_frequency.load(user_path).success) return 2;
+    // A project glossary extends the built-in starter table in this test so
+    // both the shipped cues and a project cue travel through the same pipe.
+    auto glossary_entries = owo::engine::builtin_concept_table().entries();
+    owo::engine::ConceptEntry project_entry;
+    project_entry.term = "项目术语";
+    project_entry.term_reading = "xiangmushuyu";
+    project_entry.cue_readings = {"xiangmucue"};
+    project_entry.cue_text = "项目内说法";
+    glossary_entries.push_back(std::move(project_entry));
+    const owo::engine::ConceptTable project_glossary(std::move(glossary_entries));
     std::atomic<int> server_exit{-1};
-    std::jthread server([&server_exit, &lexicon, &user_frequency, &pipe_name] {
-        server_exit = owo::ipc::run_core_server(pipe_name.c_str(), lexicon, &user_frequency);
+    std::jthread server([&server_exit, &lexicon, &user_frequency, &pipe_name,
+                         &project_glossary] {
+        server_exit = owo::ipc::run_core_server(pipe_name.c_str(), lexicon,
+                                                &user_frequency, nullptr, nullptr,
+                                                nullptr, &project_glossary);
     });
     owo::ipc::PersistentPipeClient persistent(pipe_name);
     const auto first = owo::protocol::decode_message(persistent.exchange(
@@ -231,6 +245,93 @@ int main() {
     const auto ranged = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request,
                     107, 8, "wo'ai'shi'jie"});
+    // Modeless unified input: tone digits, mixed Latin/symbol content, and
+    // expressive keys become whole-input candidates through the live pipe.
+    const auto toned_pinyin = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    130, 8, "ni3hao3"});
+    const auto mixed_literal = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    131, 8, "baidu.com"});
+    const auto expressive = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    132, 8, "leisi"});
+    const auto concept_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    133, 8, "chongfuzhixing"});
+    const bool concept_ok =
+        concept_request.validation &&
+        std::find(concept_request.message.candidates.begin(),
+                  concept_request.message.candidates.end(), "幂等") !=
+            concept_request.message.candidates.end();
+    const auto number_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    134, 8, "1234"});
+    const auto glossary_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    135, 8, "xiangmucue"});
+    const auto width_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    136, 8, "ＡＢＣ１２３"});
+    const auto date_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    137, 8, "2026-10-19"});
+    const auto concept_prefix_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    138, 8, "chongfuzh"});
+    const bool concept_prefix_ok =
+        concept_prefix_request.validation &&
+        std::find(concept_prefix_request.message.candidates.begin(),
+                  concept_prefix_request.message.candidates.end(), "幂等") !=
+            concept_prefix_request.message.candidates.end();
+    const auto symbol_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    139, 8, "x!=y"});
+    const auto formula_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    140, 8, "=1+2"});
+    const auto social_expressive_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    141, 8, "ganbei"});
+    // The TSF now lets a tone digit join the preedit, so these are the states a
+    // user actually reaches while typing ni3hao3.
+    const auto tone_first_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    142, 8, "ni3"});
+    const auto tone_syllable_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    143, 8, "ni3hao"});
+    const auto duration_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    144, 8, "90min"});
+    const auto latin_intent_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    145, 8, "API"});
+    const auto date_range_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    146, 8, "2026-10-19~2026-10-25"});
+    const auto chinese_date_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    147, 8, "2026年1月5日"});
+    const auto concept_with_suffix_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    148, 8, "chongfuzhixing123"});
+    const auto chinese_number_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    149, 8, "一千二百三十四"});
+    // The TSF now joins any digit beyond the candidate list, so a mixed digit
+    // suffix reaches the unified layer.
+    const auto digit_suffix_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    150, 8, "nihao6"});
+    const auto compact_date_request = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request,
+                    151, 8, "20261019"});
+    const bool glossary_ok =
+        glossary_request.validation &&
+        std::find(glossary_request.message.candidates.begin(),
+                  glossary_request.message.candidates.end(), "项目术语") !=
+            glossary_request.message.candidates.end();
     const auto shutdown = send_request(pipe_name, {owo::protocol::MessageType::shutdown_request, 103, 9, {}});
     server.join();
     std::filesystem::remove(path, ignored);
@@ -412,6 +513,112 @@ int main() {
             std::vector<std::string>{"wo", "ai", "shi", "jie"} ||
         ranged.message.candidate_consumed !=
             std::vector<std::uint64_t>{13, 5, 2} ||
+        !toned_pinyin.validation ||
+        toned_pinyin.message.candidates !=
+            std::vector<std::string>{"你号", "你好", "ni3hao3"} ||
+        toned_pinyin.message.candidate_consumed !=
+            std::vector<std::uint64_t>{7, 7, 7} ||
+        !mixed_literal.validation ||
+        mixed_literal.message.candidates !=
+            std::vector<std::string>{"baidu.com"} ||
+        mixed_literal.message.candidate_consumed !=
+            std::vector<std::uint64_t>{9} ||
+        !expressive.validation ||
+        expressive.message.candidates !=
+            std::vector<std::string>{"(￣o￣) zZ", "😩"} ||
+        expressive.message.candidate_consumed !=
+            std::vector<std::uint64_t>{5, 5} ||
+        !concept_ok ||
+        !number_request.validation ||
+        number_request.message.candidates !=
+            std::vector<std::string>{"一千二百三十四", "壹仟贰佰叁拾肆", "1234"} ||
+        number_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{4, 4, 4} ||
+        !glossary_ok ||
+        !width_request.validation ||
+        width_request.message.candidates !=
+            std::vector<std::string>{"ABC123", "ＡＢＣ１２３"} ||
+        // UTF-8 bytes are converted to UTF-16 code units for the TSF.
+        width_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{6, 6} ||
+        !date_request.validation ||
+        date_request.message.candidates !=
+            std::vector<std::string>{"2026年10月19日",
+                                     "2026年10月19日 星期一",
+                                     "2026-10-19"} ||
+        date_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{10, 10, 10} ||
+        !concept_prefix_ok ||
+        !symbol_request.validation ||
+        symbol_request.message.candidates !=
+            std::vector<std::string>{"x≠y", "x!=y"} ||
+        symbol_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{4, 4} ||
+        !formula_request.validation ||
+        formula_request.message.candidates !=
+            std::vector<std::string>{"=1+2=3", "=1+2"} ||
+        formula_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{4, 4} ||
+        !social_expressive_request.validation ||
+        social_expressive_request.message.candidates !=
+            std::vector<std::string>{"( ゜- ゜)つロ", "🍻"} ||
+        social_expressive_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{6, 6} ||
+        !tone_first_request.validation ||
+        tone_first_request.message.candidates != std::vector<std::string>{"ni3"} ||
+        tone_first_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{3} ||
+        !tone_syllable_request.validation ||
+        tone_syllable_request.message.candidates !=
+            std::vector<std::string>{"你号", "你好", "ni3hao"} ||
+        tone_syllable_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{6, 6, 6} ||
+        !duration_request.validation ||
+        duration_request.message.candidates !=
+            std::vector<std::string>{"1小时30分", "90min"} ||
+        duration_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{5, 5} ||
+        !latin_intent_request.validation ||
+        latin_intent_request.message.candidates !=
+            std::vector<std::string>{"API"} ||
+        latin_intent_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{3} ||
+        !date_range_request.validation ||
+        date_range_request.message.candidates !=
+            std::vector<std::string>{"2026年10月19日 至 2026年10月25日",
+                                     "2026-10-19~2026-10-25"} ||
+        date_range_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{21, 21} ||
+        !chinese_date_request.validation ||
+        chinese_date_request.message.candidates !=
+            std::vector<std::string>{"2026-01-05",
+                                     "2026年1月5日 星期一",
+                                     "2026年1月5日"} ||
+        // Non-ASCII preedits report UTF-16 code units (one per character here).
+        chinese_date_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{9, 9, 9} ||
+        !concept_with_suffix_request.validation ||
+        concept_with_suffix_request.message.candidates !=
+            std::vector<std::string>{"chongfuzhixing123"} ||
+        concept_with_suffix_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{17} ||
+        !chinese_number_request.validation ||
+        chinese_number_request.message.candidates !=
+            std::vector<std::string>{"1234", "一千二百三十四"} ||
+        chinese_number_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{7, 7} ||
+        !digit_suffix_request.validation ||
+        digit_suffix_request.message.candidates !=
+            std::vector<std::string>{"你号6", "你好6", "nihao6"} ||
+        digit_suffix_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{6, 6, 6} ||
+        !compact_date_request.validation ||
+        compact_date_request.message.candidates !=
+            std::vector<std::string>{"2026-10-19",
+                                     "2026年10月19日 星期一",
+                                     "20261019"} ||
+        compact_date_request.message.candidate_consumed !=
+            std::vector<std::uint64_t>{8, 8, 8} ||
         !persisted_result.success || persisted.count("你号") != 5 ||
         !shutdown.validation || shutdown.message.type != owo::protocol::MessageType::acknowledgement ||
         shutdown.message.text != "shutdown_ack" ||
@@ -441,6 +648,9 @@ int main() {
         dump("first-page", first_page);
         dump("second-page", second_page);
         dump("expanded", expanded);
+        dump("toned-pinyin", toned_pinyin);
+        dump("mixed-literal", mixed_literal);
+        dump("expressive", expressive);
         std::cerr << "in-process core service contract failed\n";
         return 1;
     }

@@ -67,12 +67,16 @@ add_library(owo_engine STATIC
     src/engine/candidate_scoring.cpp
     src/engine/composition_candidate_provider.cpp
     src/engine/candidate_scheduler.cpp
+    src/engine/concept_candidates.cpp
+    src/engine/expressive_candidates.cpp
     src/engine/full_pinyin_schema.cpp
     src/engine/exact_code_schema.cpp
     src/engine/input_method_provider.cpp
     src/engine/input_method_composition.cpp
     src/engine/lexicon_candidate_provider.cpp
     src/engine/parse_candidate_sources.cpp
+    src/engine/smart_candidates.cpp
+    src/engine/unified_input.cpp
     src/engine/lexicon.cpp
     src/engine/language_model.cpp
     src/engine/user_frequency.cpp
@@ -332,6 +336,7 @@ if(WIN32)
     add_library(owo_tsf SHARED
         src/tsf/owo_tsf.def
         src/tsf/dll_main.cpp
+        src/tsf/key_routing.cpp
         src/tsf/pinyin_cursor.cpp
         src/tsf/text_service.cpp
         src/tsf/agent_writeback.cpp
@@ -416,6 +421,23 @@ if(MSVC)
     target_compile_options(owo_parse_shadow_benchmark PRIVATE /W4 /permissive- /utf-8)
 else()
     target_compile_options(owo_parse_shadow_benchmark PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+add_executable(owo_unified_candidate_benchmark
+    benchmarks/unified_candidate_benchmark.cpp)
+target_link_libraries(owo_unified_candidate_benchmark PRIVATE owo_engine)
+target_compile_features(owo_unified_candidate_benchmark PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_options(owo_unified_candidate_benchmark PRIVATE /W4 /permissive- /utf-8)
+else()
+    target_compile_options(owo_unified_candidate_benchmark PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+if(BUILD_TESTING)
+    # The benchmark also asserts that every sample still returns its expected
+    # candidate, so it doubles as a cross-family output regression test.
+    add_test(NAME owo.engine.unified_candidate_benchmark
+             COMMAND owo_unified_candidate_benchmark)
+    set_tests_properties(owo.engine.unified_candidate_benchmark PROPERTIES TIMEOUT 120)
 endif()
 
 if(BUILD_TESTING)
@@ -731,6 +753,48 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME owo.engine.candidate_scheduler COMMAND owo_candidate_scheduler_tests)
 
+    add_executable(owo_unified_input_tests tests/engine/unified_input_tests.cpp)
+    target_link_libraries(owo_unified_input_tests PRIVATE owo_engine)
+    target_compile_features(owo_unified_input_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_unified_input_tests PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(owo_unified_input_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME owo.engine.unified_input COMMAND owo_unified_input_tests)
+
+    add_executable(owo_smart_candidates_tests tests/engine/smart_candidates_tests.cpp)
+    target_link_libraries(owo_smart_candidates_tests PRIVATE owo_engine)
+    target_compile_features(owo_smart_candidates_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_smart_candidates_tests PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(owo_smart_candidates_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME owo.engine.smart_candidates COMMAND owo_smart_candidates_tests)
+
+    add_executable(owo_expressive_candidates_tests
+        tests/engine/expressive_candidates_tests.cpp)
+    target_link_libraries(owo_expressive_candidates_tests PRIVATE owo_engine)
+    target_compile_features(owo_expressive_candidates_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_expressive_candidates_tests PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(owo_expressive_candidates_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME owo.engine.expressive_candidates COMMAND owo_expressive_candidates_tests)
+
+    add_executable(owo_concept_candidates_tests
+        tests/engine/concept_candidates_tests.cpp)
+    target_link_libraries(owo_concept_candidates_tests PRIVATE owo_engine)
+    target_compile_features(owo_concept_candidates_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_concept_candidates_tests PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(owo_concept_candidates_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME owo.engine.concept_candidates COMMAND owo_concept_candidates_tests)
+
     add_executable(owo_contextual_candidate_order_tests
         tests/ipc/contextual_candidate_order_tests.cpp)
     target_include_directories(owo_contextual_candidate_order_tests PRIVATE include)
@@ -903,6 +967,16 @@ if(BUILD_TESTING)
         endif()
         add_test(NAME owo.tsf.pinyin_cursor COMMAND owo_pinyin_cursor_tests)
 
+        add_executable(owo_key_routing_tests
+            tests/tsf/key_routing_tests.cpp
+            src/tsf/key_routing.cpp)
+        target_include_directories(owo_key_routing_tests PRIVATE include)
+        target_compile_features(owo_key_routing_tests PRIVATE cxx_std_20)
+        if(MSVC)
+            target_compile_options(owo_key_routing_tests PRIVATE /W4 /permissive- /utf-8)
+        endif()
+        add_test(NAME owo.tsf.key_routing COMMAND owo_key_routing_tests)
+
         add_executable(owo_ipc_integration tests/ipc/core_service_integration.cpp)
         target_link_libraries(owo_ipc_integration PRIVATE owo_ipc)
         target_compile_features(owo_ipc_integration PRIVATE cxx_std_20)
@@ -938,5 +1012,14 @@ if(BUILD_TESTING)
         add_test(NAME owo.ipc.core_config_contract COMMAND owo_core_config_contract
                  ${CMAKE_CURRENT_BINARY_DIR}/core-config-contract)
         set_tests_properties(owo.ipc.core_config_contract PROPERTIES TIMEOUT 15)
+        add_executable(owo_candidate_toggle_tests tests/ipc/candidate_toggle_tests.cpp)
+        target_link_libraries(owo_candidate_toggle_tests PRIVATE owo_ipc)
+        target_compile_features(owo_candidate_toggle_tests PRIVATE cxx_std_20)
+        target_compile_definitions(owo_candidate_toggle_tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+        if(MSVC)
+            target_compile_options(owo_candidate_toggle_tests PRIVATE /W4 /permissive- /utf-8)
+        endif()
+        add_test(NAME owo.ipc.candidate_toggles COMMAND owo_candidate_toggle_tests)
+        set_tests_properties(owo.ipc.candidate_toggles PROPERTIES TIMEOUT 20)
     endif()
 endif()

@@ -30,11 +30,55 @@ int main(const int argc, char** argv) {
     punctuation.chinese_punctuation_mask = 0x80000000;
     if (owo::config::validate_config(punctuation).ok) return 54;
     auto version_fourteen = owo::config::serialize_config(owo::config::AppConfig{});
-    version_fourteen.replace(0, std::string("schema_version=15").size(), "schema_version=14");
+    const auto erase_field = [](std::string& text, const std::string_view key) {
+        const auto begin = text.find(key);
+        if (begin == std::string::npos) return false;
+        text.erase(begin, text.find('\n', begin) - begin + 1);
+        return true;
+    };
+    version_fourteen.replace(0, std::string("schema_version=16").size(), "schema_version=14");
     const auto mask_begin = version_fourteen.find("chinese_punctuation_mask=");
     version_fourteen.erase(mask_begin, version_fourteen.find('\n', mask_begin) - mask_begin + 1);
+    // v14 predates the assistive candidate switches.
+    for (const auto key : {"smart_candidates_enabled=",
+                           "expressive_candidates_enabled=",
+                           "concept_candidates_enabled="})
+        if (!erase_field(version_fourteen, key)) return 56;
     const auto migrated = owo::config::parse_config(version_fourteen);
     if (!migrated.ok || migrated.value.chinese_punctuation_mask != owo::config::kChinesePunctuationAll) return 55;
+    if (!migrated.value.smart_candidates_enabled ||
+        !migrated.value.expressive_candidates_enabled ||
+        !migrated.value.concept_candidates_enabled) return 56;
+    // v15 predates the assistive switches as well; they must default to on.
+    auto version_fifteen = version_fourteen;
+    version_fifteen.replace(version_fifteen.find("schema_version=14"),
+                            std::string("schema_version=14").size(),
+                            "schema_version=15");
+    version_fifteen += "chinese_punctuation_mask=" +
+                       std::to_string(owo::config::kChinesePunctuationAll) + "\n";
+    const auto version_fifteen_result = owo::config::parse_config(version_fifteen);
+    if (!version_fifteen_result.ok ||
+        !version_fifteen_result.value.smart_candidates_enabled ||
+        !version_fifteen_result.value.expressive_candidates_enabled ||
+        !version_fifteen_result.value.concept_candidates_enabled)
+        return 57;
+    auto disabled = owo::config::AppConfig{};
+    disabled.smart_candidates_enabled = false;
+    disabled.expressive_candidates_enabled = false;
+    disabled.concept_candidates_enabled = false;
+    const auto disabled_roundtrip =
+        owo::config::parse_config(owo::config::serialize_config(disabled));
+    if (!disabled_roundtrip.ok || disabled_roundtrip.value != disabled)
+        return 58;
+    auto invalid_assistive = owo::config::serialize_config(owo::config::AppConfig{});
+    invalid_assistive.replace(
+        invalid_assistive.find("smart_candidates_enabled=true"),
+        std::string("smart_candidates_enabled=true").size(),
+        "smart_candidates_enabled=maybe");
+    if (owo::config::parse_config(invalid_assistive).ok) return 59;
+    auto missing_assistive = owo::config::serialize_config(owo::config::AppConfig{});
+    if (!erase_field(missing_assistive, "concept_candidates_enabled=")) return 60;
+    if (owo::config::parse_config(missing_assistive).ok) return 61;
     std::error_code error;
     std::filesystem::remove_all(root, error);
     std::filesystem::create_directories(root, error);
@@ -52,6 +96,9 @@ int main(const int argc, char** argv) {
     changed.candidate_wrap_length = 18;
     changed.candidate_partition_enabled = false;
     changed.candidate_immediate_commit_enabled = false;
+    changed.smart_candidates_enabled = false;
+    changed.expressive_candidates_enabled = false;
+    changed.concept_candidates_enabled = false;
     changed.focus_loss_commit_enabled = true;
     changed.user_learning_enabled = false;
     changed.user_learning_sensitivity = 9;
@@ -141,8 +188,7 @@ int main(const int argc, char** argv) {
 
     const auto legacy = owo::config::parse_config(
         "schema_version=1\ncandidate_page_size=6\nuser_learning_enabled=false\n"
-        "model_ranking_enabled=true\nmodel_timeout_ms=75\n");
-    if (!legacy.ok || legacy.value.candidate_page_size != 6 ||
+        "model_ranking_enabled=true\nmodel_timeout_ms=75\n");    if (!legacy.ok || legacy.value.candidate_page_size != 6 ||
         legacy.value.correction_shortcuts != std::vector<std::string>{"Ctrl+Q"} ||
         legacy.value.language_shortcuts != std::vector<std::string>{"Ctrl+Space"} ||
         legacy.value.raw_input_shortcuts != std::vector<std::string>{"Enter"} ||

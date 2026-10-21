@@ -1176,9 +1176,18 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
     if (key == VK_SPACE)
         return is_agent_mode() || candidate_request_pending_ || !candidates_.empty() ||
                (!staged_candidates_.empty() && input_buffer_.empty());
-    return key >= '1' && key <= '9' &&
-           (candidate_request_pending_ ||
-            static_cast<std::size_t>(key - '1') < candidates_.size());
+    return digit_key_action(key) != owo::tsf::DigitKeyAction::pass_through;
+}
+
+owo::tsf::DigitKeyAction TextService::digit_key_action(const WPARAM key) const noexcept {
+    owo::tsf::DigitKeyState state;
+    state.request_pending = candidate_request_pending_;
+    state.has_composition = has_composition();
+    state.candidate_count = candidates_.size();
+    const auto cursor = std::min(input_cursor_, input_buffer_.size());
+    state.previous_character =
+        cursor > 0 && !input_buffer_.empty() ? input_buffer_[cursor - 1] : 0;
+    return owo::tsf::route_digit_key(state, static_cast<wchar_t>(key));
 }
 
 HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) {
@@ -1332,6 +1341,20 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         if (left_separator || right_separator) return S_OK;
         insert_at_pinyin_cursor(input_buffer_, segmented_input_, input_cursor_,
                                 L'\'');
+        candidate_page_ = 0;
+        has_more_candidates_ = false;
+        candidates_expanded_ = false;
+        ++context_generation_;
+        queue_candidate_request();
+    } else if (digit_key_action(key) == owo::tsf::DigitKeyAction::join_composition) {
+        // Digits that do not select a candidate join the preedit instead of
+        // leaking into the document: 1-5 become tone digits in the engine,
+        // other digits make up mixed input.
+        if (staged_cursor_ < staged_candidates_.size())
+            restore_staged_suffix(staged_cursor_);
+        if (input_buffer_.size() >= kMaximumPinyinInputLength) return S_OK;
+        insert_at_pinyin_cursor(input_buffer_, segmented_input_, input_cursor_,
+                                static_cast<wchar_t>(key));
         candidate_page_ = 0;
         has_more_candidates_ = false;
         candidates_expanded_ = false;

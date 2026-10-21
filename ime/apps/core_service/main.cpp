@@ -4,11 +4,15 @@
 #include "owo/config/config_paths.h"
 #include "owo/core/plugin_executor.h"
 #include "owo/engine/binary_lexicon.h"
+#include "owo/engine/concept_candidates.h"
 #include "owo/engine/user_frequency.h"
 
 #include <iostream>
 #include <memory>
 #include <chrono>
+#include <cstdlib>
+#include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -26,6 +30,7 @@ int wmain(int argc, wchar_t** argv) {
     const wchar_t* model_pipe_name = nullptr;
     const wchar_t* config_path = nullptr;
     const wchar_t* plugin_store_path = nullptr;
+    const wchar_t* concept_glossary_path = nullptr;
     bool config_disabled = false;
     // Listener alone grants nothing. Every open still requires explicit package-bound authorization.
     bool experimental_input_schemes = true;
@@ -53,6 +58,9 @@ int wmain(int argc, wchar_t** argv) {
             index += 2;
         } else if (option == L"--plugin-store") {
             plugin_store_path = argv[index + 1];
+            index += 2;
+        } else if (option == L"--concept-glossary") {
+            concept_glossary_path = argv[index + 1];
             index += 2;
         }
         else return 2;
@@ -108,6 +116,50 @@ int wmain(int argc, wchar_t** argv) {
         config_monitor_ptr = &config_monitor;
         startup_log("config_loaded", phase_started);
     }
+    // Glossary resolution order: explicit flag, environment, then the
+    // well-known data file. A missing file simply keeps the built-in starter
+    // glossary, so the input method always starts.
+    std::wstring concept_glossary_storage;
+    if (concept_glossary_path == nullptr) {
+        std::size_t required = 0;
+        if (_wgetenv_s(&required, nullptr, 0, L"OWO_CONCEPT_GLOSSARY") == 0 &&
+            required > 1) {
+            std::wstring value(required, L'\0');
+            if (_wgetenv_s(&required, value.data(), value.size(),
+                           L"OWO_CONCEPT_GLOSSARY") == 0) {
+                value.resize(required > 0 ? required - 1 : 0);
+                concept_glossary_storage = std::move(value);
+                concept_glossary_path = concept_glossary_storage.c_str();
+            }
+        }
+    }
+    if (concept_glossary_path == nullptr && !data_root.empty()) {
+        const auto candidate = data_root / L"data" / L"concept-glossary.tsv";
+        std::error_code ignored;
+        if (std::filesystem::is_regular_file(candidate, ignored)) {
+            concept_glossary_storage = candidate.wstring();
+            concept_glossary_path = concept_glossary_storage.c_str();
+        }
+    }
+    // A project glossary replaces the built-in starter table; a broken file is
+    // reported and ignored so the input method always starts.
+    std::optional<owo::engine::ConceptTable> concept_table;
+    if (concept_glossary_path != nullptr) {
+        const auto phase_started = std::chrono::steady_clock::now();
+        const auto loaded = owo::engine::load_concept_table(concept_glossary_path);
+        if (!loaded.table) {
+            std::cerr << "concept_glossary_load_failed: " << loaded.error << '\n';
+            std::clog << R"({"process":"core_service","module":"concept","level":"warn","event_id":"concept_glossary_rejected"})"
+                      << '\n';
+        } else {
+            concept_table = std::move(*loaded.table);
+            startup_log("concept_glossary_loaded", phase_started);
+            std::clog << R"({"process":"core_service","module":"concept","level":"info","event_id":"concept_glossary_ready","entries":)"
+                      << concept_table->entries().size() << "}\n";
+        }
+    }
+    const auto concept_table_ptr =
+        concept_table ? &*concept_table : nullptr;
     owo::engine::UserFrequencyStore user_frequency;
     owo::engine::UserFrequencyStore* user_frequency_ptr = nullptr;
     if (user_frequency_path != nullptr) {
@@ -132,7 +184,8 @@ int wmain(int argc, wchar_t** argv) {
         startup_log("core_initialized", process_started);
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, lexicon,
                                          user_frequency_ptr, model_pipe_name,
-                                         config_monitor_ptr, &plugin_executor);
+                                         config_monitor_ptr, &plugin_executor,
+                                         concept_table_ptr);
     }
     if (user_frequency_ptr != nullptr) {
         const owo::engine::MemoryLexicon fallback({
@@ -140,7 +193,8 @@ int wmain(int argc, wchar_t** argv) {
             {{"xian"}, "先", 800}, {{"xian"}, "线", 700}, {{"xi", "an"}, "西安", 900}});
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, fallback,
                                          user_frequency_ptr, model_pipe_name,
-                                         config_monitor_ptr, &plugin_executor);
+                                         config_monitor_ptr, &plugin_executor,
+                                         concept_table_ptr);
     }
     if (model_pipe_name != nullptr) {
         const owo::engine::MemoryLexicon fallback({
@@ -148,7 +202,7 @@ int wmain(int argc, wchar_t** argv) {
             {{"xian"}, "先", 800}, {{"xian"}, "线", 700}, {{"xi", "an"}, "西安", 900}});
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, fallback, nullptr,
                                          model_pipe_name, config_monitor_ptr,
-                                         &plugin_executor);
+                                         &plugin_executor, concept_table_ptr);
     }
     if (config_monitor_ptr != nullptr) {
         const owo::engine::MemoryLexicon fallback({
@@ -156,11 +210,12 @@ int wmain(int argc, wchar_t** argv) {
             {{"xian"}, "先", 800}, {{"xian"}, "线", 700}, {{"xi", "an"}, "西安", 900}});
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, fallback, nullptr,
                                          nullptr, config_monitor_ptr,
-                                         &plugin_executor);
+                                         &plugin_executor, concept_table_ptr);
     }
     const owo::engine::MemoryLexicon fallback({
         {{"ni", "hao"}, "你好", 1000}, {{"ni", "hao"}, "你号", 50},
         {{"xian"}, "先", 800}, {{"xian"}, "线", 700}, {{"xi", "an"}, "西安", 900}});
     return owo::ipc::run_core_server(owo::ipc::kCorePipeName, fallback, nullptr,
-                                     nullptr, nullptr, &plugin_executor);
+                                     nullptr, nullptr, &plugin_executor,
+                                     concept_table_ptr);
 }

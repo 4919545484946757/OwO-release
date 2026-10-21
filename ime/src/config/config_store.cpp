@@ -310,6 +310,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
     constexpr std::string_view input_scheme_required[]{"input_scheme"};
     constexpr std::string_view user_completion_required[]{
         "user_lexicon_completion_enabled", "user_lexicon_completion_max_syllables"};
+    constexpr std::string_view assistive_required[]{"smart_candidates_enabled",
+        "expressive_candidates_enabled", "concept_candidates_enabled"};
     const auto expected_size = std::size(base_required) +
                                (version >= 2 ? std::size(shortcut_required) : 0) +
                                (version >= 3 ? std::size(wrap_required) : 0) +
@@ -322,7 +324,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 12 ? std::size(text_navigation_required) : 0) +
                                (version >= 13 ? std::size(input_scheme_required) : 0) +
                                (version >= 14 ? std::size(user_completion_required) : 0) +
-                               (version >= 15 ? 1 : 0);
+                               (version >= 15 ? 1 : 0) +
+                               (version >= 16 ? std::size(assistive_required) : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -359,6 +362,9 @@ ConfigParseResult parse_config(const std::string_view utf8) {
     if (version >= 13 && !fields.contains("input_scheme"))
         return {false, {}, "configuration fields are missing or unknown"};
     if (version >= 14) for (const auto key : user_completion_required)
+        if (!fields.contains(std::string(key)))
+            return {false, {}, "configuration fields are missing or unknown"};
+    if (version >= 16) for (const auto key : assistive_required)
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
@@ -443,6 +449,15 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                         value.text_navigation_select_enabled))
             return {false, {}, "configuration field type is invalid"};
     }
+    if (version >= 16) {
+        if (!parse_bool(fields["smart_candidates_enabled"],
+                        value.smart_candidates_enabled) ||
+            !parse_bool(fields["expressive_candidates_enabled"],
+                        value.expressive_candidates_enabled) ||
+            !parse_bool(fields["concept_candidates_enabled"],
+                        value.concept_candidates_enabled))
+            return {false, {}, "configuration field type is invalid"};
+    }
     if (version >= 5) {
         if (!parse_bool(fields["cursor_left_shortcut_enabled"],
                         value.cursor_left_shortcut_enabled) ||
@@ -524,6 +539,12 @@ std::string serialize_config(const AppConfig& value) {
                (value.user_lexicon_completion_enabled ? std::string("true") : "false") +
            "\nuser_lexicon_completion_max_syllables=" +
                std::to_string(value.user_lexicon_completion_max_syllables) +
+           "\nsmart_candidates_enabled=" +
+               (value.smart_candidates_enabled ? std::string("true") : "false") +
+           "\nexpressive_candidates_enabled=" +
+               (value.expressive_candidates_enabled ? std::string("true") : "false") +
+           "\nconcept_candidates_enabled=" +
+               (value.concept_candidates_enabled ? std::string("true") : "false") +
            "\nmodel_ranking_enabled=" + (value.model_ranking_enabled ? std::string("true") : "false") +
            "\nmodel_timeout_ms=" + std::to_string(value.model_timeout_ms) +
            "\ncorrection_shortcut_enabled=" +
