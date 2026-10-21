@@ -83,6 +83,10 @@ int main() {
         {{"he"}, "和", 5000}, {{"he"}, "合", 4000},
         {{"he"}, "盒", 3900}, {{"he"}, "喝", 3800},
         {{"gong", "neng"}, "功能", 1700},
+        {{"gong", "neng", "kai", "guan"}, "功能开关", 5000},
+        {{"kai", "guan"}, "开馆", 1000000},
+        {{"kai", "gan"}, "开干", 1000000},
+        {{"kai", "gua"}, "开挂", 1000000},
         {{"hai", "chan"}, "海产", 1000000},
         {{"hai", "cha"}, "还差", 500000},
         {{"na", "xie"}, "哪些", 500000},
@@ -153,6 +157,25 @@ int main() {
         corrected_second_syllable.message.candidates.front() == "功能" &&
         corrected_second_syllable.message.syllables ==
             std::vector<std::string>{"gong", "nneg"};
+    owo::protocol::Message local_correction_request{
+        owo::protocol::MessageType::candidate_request, 194, 8, "gongnnegkaiguan"};
+    local_correction_request.defer_expensive_candidates = true;
+    const auto local_base = send_request(pipe_name, local_correction_request);
+    local_correction_request.defer_expensive_candidates = false;
+    const auto local_corrected = send_request(pipe_name, local_correction_request);
+    local_correction_request.correction_enabled = false;
+    const auto local_strict = send_request(pipe_name, local_correction_request);
+    const bool local_correction_ok = local_base.validation &&
+        local_base.message.candidate_refinement_pending &&
+        local_corrected.validation && !local_corrected.message.candidate_refinement_pending &&
+        !local_corrected.message.candidates.empty() &&
+        local_corrected.message.candidates.front() == "功能开关" &&
+        local_corrected.message.syllables == std::vector<std::string>{"gong", "nneg", "kai", "guan"} &&
+        !local_corrected.message.candidate_consumed.empty() &&
+        local_corrected.message.candidate_consumed.front() == 15 &&
+        local_strict.validation && !local_strict.message.correction_enabled &&
+        std::find(local_strict.message.candidates.begin(), local_strict.message.candidates.end(),
+                  "功能开关") == local_strict.message.candidates.end();
     const auto ambiguous_short = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request, 190, 8, "haichanaxie"});
     owo::protocol::Message explicit_boundary_request{owo::protocol::MessageType::candidate_request, 191, 8, "hai'chan'a'xie"};
@@ -269,6 +292,10 @@ int main() {
     }
     if (!corrected_second_syllable_ok) {
         std::cerr << "second-syllable correction contract failed\n";
+        return 5;
+    }
+    if (!local_correction_ok) {
+        std::cerr << "local correction refinement, preview or disabled-mode contract failed\n";
         return 5;
     }
     const bool abbreviation_partition_order_ok =

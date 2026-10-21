@@ -524,7 +524,7 @@ void append_corrected_paths(const std::string_view normalized,
     const auto prune_states = [beam_width](std::vector<CorrectionState>& states) {
         std::stable_sort(states.begin(), states.end(), [](const auto& left, const auto& right) {
             if (left.edit_count != right.edit_count)
-                return left.edit_count > right.edit_count;
+                return left.edit_count < right.edit_count;
             // Prefer a long exact prefix. It avoids spending the limited edit
             // budget on plausible early syllables before reaching the actual
             // local typos later in a sentence.
@@ -579,12 +579,48 @@ void append_corrected_paths(const std::string_view normalized,
     }
     auto& completed = chart.back();
     prune_states(completed);
+    std::array<std::vector<CorrectionState*>, 3> edit_groups;
     for (auto& state : completed) {
         if (state.edit_count == 0 ||
             state.path.syllables.size() > exclusive_syllable_limit)
             continue;
-        paths.push_back(std::move(state.path));
-        if (paths.size() >= max_paths) break;
+        edit_groups[state.edit_count].push_back(&state);
+    }
+    // Within the two-edit bucket, reserve representatives of distinct first
+    // repair positions before taking more variants of the same suffix. A
+    // later repair is preferable, but it must not exclude an earlier real
+    // typo merely because that suffix admits many one-letter substitutions.
+    auto& two_edits = edit_groups[2];
+    struct PositionRank { CorrectionState* state; std::size_t rank; };
+    std::vector<PositionRank> position_ranks;
+    std::vector<std::size_t> position_counts(normalized.size() + 1);
+    std::size_t syllable_count = 0;
+    for (auto* state : two_edits) {
+        if (syllable_count != state->path.syllables.size()) {
+            syllable_count = state->path.syllables.size();
+            std::fill(position_counts.begin(), position_counts.end(), 0);
+        }
+        position_ranks.push_back({state, position_counts[state->first_edit_offset]++});
+    }
+    std::stable_sort(position_ranks.begin(), position_ranks.end(), [](const auto& left, const auto& right) {
+        if (left.state->path.syllables.size() != right.state->path.syllables.size())
+            return left.state->path.syllables.size() < right.state->path.syllables.size();
+        return left.rank < right.rank;
+    });
+    two_edits.clear();
+    for (const auto& entry : position_ranks) two_edits.push_back(entry.state);
+    // Preserve the smallest repair first without allowing either edit bucket
+    // to consume the whole public budget. In particular a one-edit typo in
+    // the middle of an otherwise exact sentence must not be displaced by
+    // two-edit variants that also change its already-correct suffix.
+    for (std::size_t rank = 0; paths.size() < max_paths; ++rank) {
+        bool emitted = false;
+        for (std::size_t edits = 1; edits < edit_groups.size() && paths.size() < max_paths; ++edits) {
+            if (rank >= edit_groups[edits].size()) continue;
+            paths.push_back(std::move(edit_groups[edits][rank]->path));
+            emitted = true;
+        }
+        if (!emitted) break;
     }
 }
 

@@ -1444,6 +1444,28 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         return score_less(left, right);
     };
     std::sort(full.begin(), full.end(), sentence_less);
+    // Prefer a whole-dictionary correction over generated
+    // character/phrase permutations of that same repaired reading. Such
+    // permutations otherwise enter the sentence partition ahead of the
+    // complete word, undoing the minimal-edit repair during layout. Corpus
+    // frequencies of multiple fragments are not comparable to one whole word.
+    std::vector<Candidate> corrected_words;
+    for (const auto& candidate : full) {
+        if (candidate.match_kind == InputMatchKind::corrected &&
+            candidate.segment_count == 1 && candidate.syllables.size() >= 3 &&
+            utf8_character_count(candidate.text) == candidate.syllables.size())
+            corrected_words.push_back(candidate);
+    }
+    if (!corrected_words.empty()) {
+        std::erase_if(full, [&corrected_words](const Candidate& candidate) {
+            return candidate.match_kind == InputMatchKind::corrected &&
+                candidate.segment_count > 1 && !candidate.user_lexicon &&
+                std::any_of(corrected_words.begin(), corrected_words.end(), [&](const auto& word) {
+                    return word.syllables == candidate.syllables &&
+                           word.source_segments == candidate.source_segments;
+                });
+        });
+    }
     std::vector<Candidate> model_seeds;
     if (include_model_alternatives && !full.empty() &&
         full.front().syllables.size() >= 3) {

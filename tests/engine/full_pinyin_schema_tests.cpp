@@ -193,6 +193,19 @@ int main() {
     if (!contains_path(schema.parse("gongnneg", 16), {"gong", "neng"},
                        owo::engine::InputMatchKind::corrected))
         return fail("second-syllable transposition correction failed");
+    for (const auto input : {"gongnnegkaiguan", "gongnegnkaiguan", "gongnnegkaiguna"}) {
+        for (const auto budget : {8U, 16U, 32U}) {
+            if (!contains_path(schema.parse(input, budget), {"gong", "neng", "kai", "guan"},
+                               owo::engine::InputMatchKind::corrected)) {
+                std::cerr << input << " budget=" << budget << '\n';
+                return fail("local sentence repair was crowded out by extra-edit variants");
+            }
+            const auto strict = schema.parse(input, budget, false);
+            if (std::any_of(strict.paths.begin(), strict.paths.end(), [](const auto& path) {
+                return path.match_kind == owo::engine::InputMatchKind::corrected;
+            })) return fail("disabled sentence correction produced repaired paths");
+        }
+    }
     if (contains_path(schema.parse("niaho", 32, false), {"ni", "hao"},
                       owo::engine::InputMatchKind::corrected))
         return fail("disabled correction still produced a corrected path");
