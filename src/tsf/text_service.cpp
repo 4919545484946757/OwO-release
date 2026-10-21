@@ -47,6 +47,7 @@ constexpr UINT kAltCodeFinished = WM_APP + 4;
 constexpr UINT kAgentReady = WM_APP + 5;
 constexpr UINT_PTR kPluginInputTimer = 0x4f57;
 constexpr UINT_PTR kCandidateWindowOrderTimer = 0x4f58;
+constexpr UINT_PTR kCandidateMotionTimer = 0x4f59;
 constexpr UINT kPluginCommitReady = WM_APP + 6;
 constexpr float kCandidateWindowMinWidthDip = 240.0F;
 constexpr float kCandidateWindowMaxWidthDip = 1400.0F;
@@ -1540,18 +1541,18 @@ HRESULT TextService::initialize_rendering() {
     }
 
     result = dwrite_factory_->CreateTextFormat(
-        L"Microsoft YaHei UI", nullptr, DWRITE_FONT_WEIGHT_SEMI_BOLD,
+        L"Microsoft YaHei UI", nullptr, DWRITE_FONT_WEIGHT_NORMAL,
         DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 15.0F, L"zh-CN",
         &input_text_format_);
     if (SUCCEEDED(result)) {
         result = dwrite_factory_->CreateTextFormat(
             L"Microsoft YaHei UI", nullptr, DWRITE_FONT_WEIGHT_NORMAL,
-            DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 15.0F, L"zh-CN",
+            DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 16.0F, L"zh-CN",
             &candidate_text_format_);
     }
     if (SUCCEEDED(result)) {
         result = dwrite_factory_->CreateTextFormat(
-            L"Microsoft YaHei UI", nullptr, DWRITE_FONT_WEIGHT_SEMI_BOLD,
+            L"Segoe UI Variable Text", nullptr, DWRITE_FONT_WEIGHT_NORMAL,
             DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 11.0F, L"zh-CN",
             &label_text_format_);
     }
@@ -1567,6 +1568,7 @@ HRESULT TextService::initialize_rendering() {
     label_text_format_->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
     label_text_format_->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
     label_text_format_->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+    refresh_candidate_motion_preferences();
     return S_OK;
 }
 
@@ -2046,6 +2048,11 @@ bool TextService::prepare_blurred_candidate_background() noexcept {
 
 bool TextService::present_candidate_surface() noexcept {
     if (candidate_window_ == nullptr || layered_surface_dc_ == nullptr) return false;
+#if defined(OWO_CANDIDATE_RENDER_PREVIEW)
+    // The synthetic preview exports only our DIB. Never capture or show the
+    // desktop, activate TSF, or connect to the user's running Core in this tool.
+    if (candidate_preview_only_) return true;
+#endif
     POINT destination = candidate_present_position_;
     if (!candidate_present_geometry_valid_) {
         RECT window_bounds{};
@@ -2077,6 +2084,7 @@ bool TextService::present_candidate_surface() noexcept {
                         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE |
                             SWP_NOOWNERZORDER | SWP_SHOWWINDOW) != FALSE;
     if (shown && message_window_) SetTimer(message_window_, kCandidateWindowOrderTimer, 100, nullptr);
+    if (shown) schedule_candidate_motion();
     return shown;
 }
 
@@ -2257,9 +2265,146 @@ void TextService::update_candidate_shadow() noexcept {
 
 void TextService::hide_candidate_windows() noexcept {
     if (message_window_) KillTimer(message_window_, kCandidateWindowOrderTimer);
+    if (message_window_) KillTimer(message_window_, kCandidateMotionTimer);
+    candidate_motion_timer_running_ = false;
+    candidate_interactions_.clear();
+    candidate_emphasis_motion_.reset(1.0F);
+    candidate_disclosure_motion_.reset(candidates_expanded_ ? 1.0F : 0.0F);
     if (candidate_window_ != nullptr) ShowWindow(candidate_window_, SW_HIDE);
     if (candidate_shadow_window_ != nullptr) ShowWindow(candidate_shadow_window_, SW_HIDE);
     blurred_candidate_background_.clear();
+}
+
+void TextService::refresh_candidate_motion_preferences() noexcept {
+    BOOL client_animation = TRUE;
+    SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &client_animation, 0);
+    HIGHCONTRASTW contrast{sizeof(contrast)};
+    SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(contrast), &contrast, 0);
+    candidate_motion_enabled_ = client_animation != FALSE &&
+        (contrast.dwFlags & HCF_HIGHCONTRASTON) == 0 &&
+        GetSystemMetrics(SM_REMOTESESSION) == 0;
+    if (!candidate_motion_enabled_) {
+        candidate_interactions_.clear();
+        candidate_emphasis_motion_.reset(1.0F);
+        candidate_disclosure_motion_.reset(candidates_expanded_ ? 1.0F : 0.0F);
+        if (message_window_) KillTimer(message_window_, kCandidateMotionTimer);
+        candidate_motion_timer_running_ = false;
+    }
+}
+
+void TextService::schedule_candidate_motion() noexcept {
+    const bool active = candidate_motion_enabled_ && (candidate_emphasis_motion_.active() ||
+        candidate_disclosure_motion_.active() || std::any_of(
+        candidate_interactions_.begin(), candidate_interactions_.end(), [](const auto& state) {
+            return state.hover.active() || state.press.active();
+        }));
+    if (!active) {
+        if (candidate_motion_timer_running_ && message_window_)
+            KillTimer(message_window_, kCandidateMotionTimer);
+        candidate_motion_timer_running_ = false;
+        return;
+    }
+    if (!candidate_motion_timer_running_ && message_window_)
+        candidate_motion_timer_running_ =
+            SetTimer(message_window_, kCandidateMotionTimer, candidate_motion_interval_ms_, nullptr) != 0;
+}
+
+void TextService::animate_candidate_frame() {
+    if (!candidate_window_ || !IsWindowVisible(candidate_window_) || !foreground_focus_) {
+        if (message_window_) KillTimer(message_window_, kCandidateMotionTimer);
+        candidate_motion_timer_running_ = false;
+        candidate_interactions_.clear();
+        return;
+    }
+    const auto started = GetTickCount64();
+    static_cast<void>(candidate_emphasis_motion_.update(started));
+    static_cast<void>(candidate_disclosure_motion_.update(started));
+    for (auto& state : candidate_interactions_) {
+        static_cast<void>(state.hover.update(started));
+        static_cast<void>(state.press.update(started));
+    }
+    // Retired rows and buttons must not keep a timer alive after a page or
+    // layout change. This is a bounded visual cache, never input state.
+    std::erase_if(candidate_interactions_, [this](const auto& state) {
+        return std::none_of(hit_regions_.begin(), hit_regions_.end(), [&](const auto& region) {
+            return region.target == state.target;
+        }) || (!state.hover.active() && !state.press.active() &&
+               state.hover.value() == 0.0F && state.press.value() == 0.0F);
+    });
+    if (!render_candidate_window()) {
+        if (message_window_) KillTimer(message_window_, kCandidateMotionTimer);
+        candidate_motion_timer_running_ = false;
+        return;
+    }
+    ValidateRect(candidate_window_, nullptr);
+    // No high-resolution system timer and no animation thread in the TSF
+    // host. Fall back to 30 fps if a layered frame is expensive on this PC.
+    const UINT interval = GetTickCount64() - started > 10 ? 33U : candidate_motion_interval_ms_;
+    if (interval != candidate_motion_interval_ms_) {
+        candidate_motion_interval_ms_ = interval;
+        if (message_window_) KillTimer(message_window_, kCandidateMotionTimer);
+        candidate_motion_timer_running_ = false;
+    }
+    schedule_candidate_motion();
+}
+
+void TextService::draw_candidate_interaction(const D2D1_RECT_F& bounds, const HitTarget target,
+                                             const bool selected, const bool outlined,
+                                             const bool enabled) {
+    const bool hovered = enabled && hovered_target_ && *hovered_target_ == target;
+    const bool pressed = enabled && pressed_target_ && *pressed_target_ == target;
+    auto state = std::find_if(candidate_interactions_.begin(), candidate_interactions_.end(),
+                             [target](const auto& item) { return item.target == target; });
+    if (state == candidate_interactions_.end() && (hovered || pressed)) {
+        if (candidate_interactions_.size() >= 128) candidate_interactions_.erase(candidate_interactions_.begin());
+        candidate_interactions_.push_back({target, CandidateMotion{}, CandidateMotion{}});
+        state = candidate_interactions_.end() - 1;
+    }
+    float hover = hovered ? 1.0F : 0.0F;
+    float press = pressed ? 1.0F : 0.0F;
+    if (state != candidate_interactions_.end()) {
+        const auto now = GetTickCount64();
+        state->hover.retarget(hover, now, 140, candidate_motion_enabled_);
+        state->press.retarget(press, now, 80, candidate_motion_enabled_);
+        hover = state->hover.value();
+        press = state->press.value();
+    }
+    const float inset = press * 0.8F;
+    const D2D1_ROUNDED_RECT surface{
+        D2D1::RectF(bounds.left + inset, bounds.top + inset,
+                    bounds.right - inset, bounds.bottom - inset),
+        target.kind == HitKind::unicode_item ? 0.0F : 7.0F,
+        target.kind == HitKind::unicode_item ? 0.0F : 7.0F};
+    if (selected) {
+        highlight_brush_->SetOpacity(target.kind == HitKind::candidate
+                                        ? candidate_emphasis_motion_.value() : 1.0F);
+        render_target_->FillRoundedRectangle(surface, highlight_brush_);
+        highlight_brush_->SetOpacity(1.0F);
+    }
+    if (hover > 0.0F || press > 0.0F) {
+        highlight_brush_->SetOpacity(std::max(hover, press));
+        render_target_->FillRoundedRectangle(surface, highlight_brush_);
+        highlight_brush_->SetOpacity(1.0F);
+    }
+    if (outlined || selected) {
+        border_brush_->SetOpacity(enabled ? 0.85F : 0.4F);
+        render_target_->DrawRoundedRectangle(surface, border_brush_, 1.0F);
+        border_brush_->SetOpacity(1.0F);
+    }
+    // Unicode cells intentionally remain a borderless dense square grid.
+    if (hover > 0.0F && target.kind != HitKind::unicode_item) {
+        accent_brush_->SetOpacity(hover * 0.7F);
+        render_target_->DrawRoundedRectangle(surface, accent_brush_, 1.0F);
+        accent_brush_->SetOpacity(1.0F);
+    }
+    if (selected && target.kind == HitKind::candidate) {
+        accent_brush_->SetOpacity(0.85F);
+        const float middle = (bounds.top + bounds.bottom) * 0.5F;
+        render_target_->FillRoundedRectangle(
+            {D2D1::RectF(bounds.left + 1.0F, middle - 7.0F,
+                        bounds.left + 3.0F, middle + 7.0F), 1.0F, 1.0F}, accent_brush_);
+        accent_brush_->SetOpacity(1.0F);
+    }
 }
 
 bool TextService::render_candidate_window() {
@@ -2381,17 +2526,13 @@ bool TextService::render_candidate_window() {
                                          const HitTarget target) {
             hit_regions_.push_back({dip_rect_to_pixels(bounds, dpi), target});
         };
-        const auto draw_pill = [this, &target_matches, &add_hit, mode_accent_brush,
-                                mode_border_brush, mode_highlight_brush](
+        const auto draw_pill = [this, &target_matches, &add_hit, mode_accent_brush](
                                    const D2D1_RECT_F bounds, const HitTarget target,
                                    const std::wstring_view label, const bool selected,
                                    const bool enabled = true) {
             const bool hovered = enabled && target_matches(hovered_target_, target);
             const bool pressed = enabled && target_matches(pressed_target_, target);
-            const D2D1_ROUNDED_RECT pill{bounds, 7.0F, 7.0F};
-            if (selected || hovered || pressed)
-                render_target_->FillRoundedRectangle(pill, mode_highlight_brush);
-            render_target_->DrawRoundedRectangle(pill, mode_border_brush, 1.0F);
+            draw_candidate_interaction(bounds, target, selected, true, enabled);
             render_target_->DrawTextW(
                 label.data(), static_cast<UINT32>(label.size()), label_text_format_,
                 bounds, enabled ? (hovered || pressed ? mode_accent_brush : text_brush_)
@@ -2493,8 +2634,7 @@ bool TextService::render_candidate_window() {
             const HitTarget target{HitKind::unicode_item, index};
             const bool hovered = target_matches(hovered_target_, target);
             const bool pressed = target_matches(pressed_target_, target);
-            if (hovered || pressed)
-                render_target_->FillRectangle(bounds, mode_highlight_brush);
+            draw_candidate_interaction(bounds, target);
             const auto glyph = unicode_scalar(category.items[index].codepoint);
             render_target_->DrawTextW(
                 glyph.data(), static_cast<UINT32>(glyph.size()),
@@ -2663,10 +2803,7 @@ bool TextService::render_candidate_window() {
             size.width - kHorizontalPaddingDip, kHeaderHeightDip - 5.0F);
         const bool hovered = hovered_target_.has_value() && *hovered_target_ == target;
         const bool pressed = pressed_target_.has_value() && *pressed_target_ == target;
-        const D2D1_ROUNDED_RECT button{bounds, 7.0F, 7.0F};
-        if (hovered || pressed)
-            render_target_->FillRoundedRectangle(button, mode_highlight_brush);
-        render_target_->DrawRoundedRectangle(button, mode_border_brush, 1.0F);
+        draw_candidate_interaction(bounds, target, false, true);
         constexpr std::wstring_view label = L"Ω";
         render_target_->DrawTextW(
             label.data(), static_cast<UINT32>(label.size()), label_text_format_,
@@ -2688,25 +2825,20 @@ bool TextService::render_candidate_window() {
     };
     const auto wrap_length = std::max<std::size_t>(
         1, static_cast<std::size_t>(shortcut_config_.candidate_wrap_length));
-    const auto draw_candidate = [this, &target_matches, &add_hit_region, wrap_length,
-                                 mode_accent_brush, mode_border_brush,
-                                 mode_highlight_brush, candidate_number_brush](
+    const auto draw_candidate = [this, &add_hit_region, wrap_length,
+                                 mode_border_brush, candidate_number_brush](
                                     const D2D1_RECT_F bounds, const std::size_t index) {
         const HitTarget target{HitKind::candidate, index};
-        const D2D1_ROUNDED_RECT pill{bounds, 7.0F, 7.0F};
-        const bool hovered = target_matches(hovered_target_, target);
-        const bool pressed = target_matches(pressed_target_, target);
-        if (index == 0 || hovered || pressed)
-            render_target_->FillRoundedRectangle(pill, mode_highlight_brush);
-        if (hovered || pressed)
-            render_target_->DrawRoundedRectangle(pill, mode_accent_brush, 1.0F);
+        draw_candidate_interaction(bounds, target, index == 0);
 
         const float badge_center = (bounds.top + bounds.bottom) * 0.5F;
         const D2D1_ROUNDED_RECT badge{
             D2D1::RectF(bounds.left + 6.0F, badge_center - 11.0F,
                         bounds.left + 26.0F, badge_center + 11.0F),
             5.0F, 5.0F};
+        mode_border_brush->SetOpacity(index == 0 ? 0.9F : 0.5F);
         render_target_->FillRoundedRectangle(badge, mode_border_brush);
+        mode_border_brush->SetOpacity(1.0F);
         const std::wstring label = std::to_wstring(index + 1);
         render_target_->DrawTextW(label.data(), static_cast<UINT32>(label.size()),
                                   label_text_format_, badge.rect, candidate_number_brush,
@@ -2762,8 +2894,8 @@ bool TextService::render_candidate_window() {
                 if (boundary) {
                     x += kCandidateGroupGapDip * 0.5F;
                     render_target_->DrawLine(
-                        D2D1::Point2F(x, top + 3.0F),
-                        D2D1::Point2F(x, top + row_height - 3.0F),
+                        D2D1::Point2F(x, top + row_height * 0.5F - 7.0F),
+                        D2D1::Point2F(x, top + row_height * 0.5F + 7.0F),
                         divider_brush_, 1.0F);
                     x += kCandidateGroupGapDip * 0.5F;
                 } else {
@@ -2827,22 +2959,39 @@ bool TextService::render_candidate_window() {
         draw_candidate_row(0, candidates_.size(), content_top, row_height);
     }
 
-    const auto draw_button = [this, &target_matches, &add_hit_region,
-                              mode_accent_brush, mode_border_brush,
-                              mode_highlight_brush](
+    const auto draw_button = [this, &target_matches, &add_hit_region, mode_accent_brush](
                                  const D2D1_RECT_F bounds, const HitTarget target,
                                  const std::wstring_view label, const bool enabled) {
-        const D2D1_ROUNDED_RECT button{bounds, 7.0F, 7.0F};
         const bool hovered = enabled && target_matches(hovered_target_, target);
         const bool pressed = enabled && target_matches(pressed_target_, target);
-        if (hovered || pressed)
-            render_target_->FillRoundedRectangle(button, mode_highlight_brush);
-        render_target_->DrawRoundedRectangle(button, mode_border_brush, 1.0F);
-        render_target_->DrawTextW(
-            label.data(), static_cast<UINT32>(label.size()), label_text_format_, bounds,
-            enabled ? (hovered || pressed ? mode_accent_brush : text_brush_)
-                    : secondary_text_brush_,
-            D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        draw_candidate_interaction(bounds, target, false, true, enabled);
+        auto* glyph_brush = enabled
+            ? (hovered || pressed ? mode_accent_brush : text_brush_) : secondary_text_brush_;
+        const float center_x = (bounds.left + bounds.right) * 0.5F;
+        const float center_y = (bounds.top + bounds.bottom) * 0.5F;
+        if (target.kind == HitKind::previous_page || target.kind == HitKind::next_page) {
+            const float direction = target.kind == HitKind::previous_page ? -1.0F : 1.0F;
+            const auto tip = D2D1::Point2F(center_x + direction * 2.0F, center_y);
+            render_target_->DrawLine(D2D1::Point2F(center_x - direction * 2.0F, center_y - 4.0F),
+                                     tip, glyph_brush, 1.6F);
+            render_target_->DrawLine(tip,
+                D2D1::Point2F(center_x - direction * 2.0F, center_y + 4.0F), glyph_brush, 1.6F);
+        } else {
+            candidate_disclosure_motion_.retarget(candidates_expanded_ ? 1.0F : 0.0F,
+                GetTickCount64(), 160, candidate_motion_enabled_);
+            const float angle = candidate_disclosure_motion_.value() * 3.14159265F;
+            const float icon_x = bounds.left + 10.0F;
+            const auto rotate = [angle, icon_x, center_y](const float x, const float y) {
+                return D2D1::Point2F(icon_x + x * std::cos(angle) - y * std::sin(angle),
+                                     center_y + x * std::sin(angle) + y * std::cos(angle));
+            };
+            render_target_->DrawLine(rotate(-3.0F, -1.5F), rotate(0.0F, 1.5F), glyph_brush, 1.4F);
+            render_target_->DrawLine(rotate(0.0F, 1.5F), rotate(3.0F, -1.5F), glyph_brush, 1.4F);
+            render_target_->DrawTextW(
+                label.data(), static_cast<UINT32>(label.size()), label_text_format_,
+                D2D1::RectF(bounds.left + 17.0F, bounds.top, bounds.right - 2.0F, bounds.bottom),
+                glyph_brush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        }
         if (enabled) add_hit_region(bounds, target);
     };
 
@@ -2901,6 +3050,14 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     }
     if (message == WM_TIMER && wparam == kCandidateWindowOrderTimer && service != nullptr) {
         service->maintain_candidate_window_order(); return 0;
+    }
+    if (message == WM_TIMER && wparam == kCandidateMotionTimer && service != nullptr) {
+        service->animate_candidate_frame(); return 0;
+    }
+    if (message == WM_SETTINGCHANGE && service != nullptr) {
+        service->refresh_candidate_motion_preferences();
+        if (service->candidate_window_ && IsWindowVisible(service->candidate_window_))
+            InvalidateRect(service->candidate_window_, nullptr, FALSE);
     }
     if (message == kPluginCommitReady && service != nullptr) {
         service->finish_plugin_input_on_ui(); return 0;
@@ -4260,6 +4417,14 @@ void TextService::update_candidate_window() {
         hide_candidate_windows();
         return;
     }
+    if (!IsWindowVisible(candidate_window_) || candidate_visual_page_ != candidate_page_ ||
+        candidate_visual_expanded_ != candidates_expanded_) {
+        if (!IsWindowVisible(candidate_window_)) candidate_motion_interval_ms_ = 16;
+        candidate_emphasis_motion_.reset(candidate_motion_enabled_ ? 0.55F : 1.0F);
+        candidate_emphasis_motion_.retarget(1.0F, GetTickCount64(), 140, candidate_motion_enabled_);
+    }
+    candidate_visual_page_ = candidate_page_;
+    candidate_visual_expanded_ = candidates_expanded_;
     POINT position = candidate_anchor_;
     if (!candidate_anchor_valid_) GetCursorPos(&position);
     const UINT dpi = std::max(GetDpiForWindow(candidate_window_), 96U);
