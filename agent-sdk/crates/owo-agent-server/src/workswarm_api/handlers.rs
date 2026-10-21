@@ -59,9 +59,8 @@ struct CreateTeamHttpRequest {
     acknowledge_risk: bool,
     /// 用户自定义工作流：允许节点**按声明的 write_paths 范围**写入当前工作区。
     ///
-    /// 团队运行没有交互式审批通道（无人值守），未勾选时范围内写入也会被写成拒绝，
-    /// 自定义工作流因此必然失败。勾选后只预授权"落在该角色 write_paths 内"的写
-    /// 操作：越界写、命令、联网、MCP 仍走原审批/拒绝路径。
+    /// 勾选后仅预授权落在角色 write_paths 内的文件写入。未预授权操作继续由
+    /// 宿主策略和审批通道决定；越界写、命令、联网、MCP 不会因此获得授权。
     #[serde(default)]
     allow_scoped_writes: bool,
 }
@@ -438,7 +437,7 @@ async fn create_team(
         })?;
         bound_workspace = true;
     }
-    // 后台运行循环（单写者：阶段边界串行化；人节点等待 = 门闩）。
+    // 后台运行循环（阶段边界串行调度；同一就绪批次内可并行执行节点，人节点等待 = 门闩）。
     tokio::spawn(run_team_loop(state, coordinator, team_id.clone()));
     Ok((
         StatusCode::ACCEPTED,
@@ -500,7 +499,7 @@ fn apply_team_settings(req: &mut CreateTeamRequest, settings: &owo_agent_core::S
 
     let config_parallel = team.parallel.filter(|writers| (2..=8).contains(writers));
     if !req.parallel
-        && (config_parallel.is_some() || req.roles.iter().any(|role| role.role == "lead"))
+        && (config_parallel.is_some() || req.roles.iter().any(|role| role.is_orchestrator()))
     {
         req.parallel = true;
         applied = true;

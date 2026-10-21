@@ -9334,6 +9334,29 @@
                     "required": [
                       "root"
                     ]
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "Default model for agent nodes; roles[].model overrides this value."
+                  },
+                  "parallel": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable the legacy lead/writer dynamic-assignment preset; custom DAG branches run according to dependencies and budget.max_parallel."
+                  },
+                  "max_agent_members": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Optional explicit agent membership limit. Explicit roles/templates retain their node count when omitted."
+                  },
+                  "acknowledge_risk": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "allow_scoped_writes": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Preauthorize file writes only within each node's declared write_paths; does not authorize commands, network or MCP operations."
                   }
                 },
                 "required": [
@@ -9901,6 +9924,33 @@
           },
           "409": {
             "description": "stale expected_revision"
+          }
+        }
+      }
+    },
+    "/teams/{id}/conversation": {
+      "get": {
+        "operationId": "workswarmConversation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursors",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded public worker events, next_cursors, has_more and handoffs"
           }
         }
       }

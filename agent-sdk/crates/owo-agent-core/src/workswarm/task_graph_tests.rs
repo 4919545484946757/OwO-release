@@ -210,6 +210,50 @@ mod parallel_assignment_validation_tests {
     }
 
     #[test]
+    fn custom_named_task_workers_can_receive_declared_media_tools() {
+        const MEDIA_TOOL: &str = "mcp__media__video_generate";
+        let mut director = RoleSpec::agent("短片总导演");
+        director.capabilities = vec!["orchestrator".to_string()];
+        let mut video_worker = RoleSpec::agent("镜头生成师");
+        video_worker.capabilities = vec!["task_worker".to_string()];
+        video_worker.tools = vec![MEDIA_TOOL.to_string()];
+        let mut caption_worker = RoleSpec::agent("字幕制作人");
+        caption_worker.capabilities = vec!["task_worker".to_string()];
+        caption_worker.tools = vec!["read_file".to_string()];
+        let roles = vec![director, video_worker, caption_worker];
+
+        assert!(should_enable_parallel_assignment(false, &roles));
+        let graph = validate_parallel_subtasks(
+            &roles,
+            &[serde_json::json!({
+                "task_id": "generate-shot",
+                "task": "按分镜生成视频片段",
+                "acceptance": "视频片段已生成",
+                "write_paths": [],
+                "required_capabilities": [MEDIA_TOOL]
+            })],
+            false,
+        )
+        .expect("custom media tool is declared by a user-named task worker");
+        assert_eq!(graph.tasks[0].worker, "镜头生成师");
+
+        let wrong_worker = validate_parallel_subtasks(
+            &roles,
+            &[serde_json::json!({
+                "task_id": "misrouted-shot",
+                "worker": "字幕制作人",
+                "task": "生成视频片段",
+                "acceptance": "视频片段已生成",
+                "write_paths": [],
+                "required_capabilities": [MEDIA_TOOL]
+            })],
+            false,
+        )
+        .expect_err("an explicit worker without the declared tool must be rejected");
+        assert!(wrong_worker.contains("outside that node's declared tool surface"));
+    }
+
+    #[test]
     fn integration_waits_for_every_task_even_when_one_worker_has_multiple_tasks() {
         let contract_prep = StepSpec::new("s-contract-prep", "m-contract-prep");
         let coordinator = StepSpec::new("s-coordinator", "m-coordinator");

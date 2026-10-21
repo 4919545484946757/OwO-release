@@ -144,39 +144,88 @@
     var filterRole = String(onlyRole == null ? "" : onlyRole).trim();
     Object.keys(replay || {}).forEach(function (sessionId) {
       var session = replay[sessionId], pending = "", start = null;
-      if (filterRole && filterRole !== "all" && String(session.role || "") !== filterRole) return;
+      var role = String((session && session.role) || "成员");
+      var toolRows = Object.create(null);
+      if (filterRole && filterRole !== "all" && role !== filterRole) return;
       function textRow(text, event) {
         if (!text) return;
-        rows.push({ time: event.created_at || "", seq: event.seq,
-          html: '<article class="owo-ws-chat-row"><div class="owo-ws-chat-avatar" aria-hidden="true">' + esc(session.role.slice(0, 1)) +
-          '</div><div class="owo-ws-chat-card"><header class="owo-ws-chat-head"><b>' + esc(session.role) +
+        event = event || {};
+        rows.push({ time: event.created_at || "", seq: Number(event.seq) || 0,
+          html: '<article class="owo-ws-chat-row"><div class="owo-ws-chat-avatar" aria-hidden="true">' + esc(role.slice(0, 1)) +
+          '</div><div class="owo-ws-chat-card"><header class="owo-ws-chat-head"><b>' + esc(role) +
           '</b><time>' + esc(event.created_at || "") + '</time></header><div class="owo-ws-chat-body">' +
           (typeof markdown === "function" ? markdown(text) : '<div class="md-p">' + esc(text).replace(/\n/g, "<br>") + "</div>") + "</div></div></article>" });
+      }
+      function flushPending(event) {
+        if (pending) textRow(pending, start || event || {});
+        pending = "";
+        start = null;
       }
       (session.events || []).forEach(function (event) {
         var p = event.payload || {}, kind = p.type;
         if (kind === "token_delta") { if (!start) start = event; pending += p.delta || ""; return; }
         if (kind === "final") { textRow(p.text || pending, start || event); pending = ""; start = null; return; }
-        if (pending) { textRow(pending, start || event); pending = ""; start = null; }
-        if (kind === "tool_use" || kind === "tool_result") {
-          var isResult = kind === "tool_result";
-          var content = isResult ? (p.error || p.preview || "") : (typeof p.args === "string" ? p.args : JSON.stringify(p.args, null, 2));
-          rows.push({ time: event.created_at || "", seq: event.seq,
-            html: '<article class="owo-ws-chat-row"><div class="owo-ws-chat-avatar" aria-hidden="true">' + esc(session.role.slice(0, 1)) +
-            '</div><div class="owo-ws-chat-card"><b>' + esc(session.role) +
-            '</b><details class="owo-ws-tool-detail" data-event-key="' + esc(sessionId + ":" + event.seq) + '"><summary>' + esc(p.tool || "工具") + " · " +
-            (isResult ? (p.ok ? "已完成" : "失败") : "调用参数") +
-            '</summary><pre>' + esc(content) + "</pre></details></div></article>" });
+        flushPending(event);
+        if (kind === "tool_use") {
+          var toolRow = {
+            time: event.created_at || "", seq: Number(event.seq) || 0, role: role,
+            sessionId: sessionId, eventKey: sessionId + ":" + (Number(event.seq) || 0), id: String(p.id || ""), tool: String(p.tool || "工具"),
+            args: typeof p.args === "string" ? p.args : JSON.stringify(p.args, null, 2),
+            result: null,
+          };
+          rows.push(toolRow);
+          if (toolRow.id) toolRows[toolRow.id] = toolRow;
+        } else if (kind === "tool_result") {
+          var resultRow = p.id ? toolRows[String(p.id)] : null;
+          if (!resultRow) {
+            resultRow = {
+              time: event.created_at || "", seq: Number(event.seq) || 0, role: role,
+              sessionId: sessionId, eventKey: sessionId + ":" + (Number(event.seq) || 0), id: String(p.id || ""), tool: String(p.tool || "工具"),
+              args: "", result: null,
+            };
+            rows.push(resultRow);
+          }
+          resultRow.result = {
+            ok: p.ok === true, error: String(p.error || ""),
+            preview: String(p.preview || ""), time: event.created_at || "",
+          };
         } else if (kind === "progress") {
           textRow(p.message, event);
         } else if (kind === "plan_update") {
           textRow("工作计划\n" + JSON.stringify(p.steps, null, 2), event);
         }
       });
-      if (pending) textRow(pending, start || {});
+      flushPending();
     });
     rows.sort(function (a, b) { return a.time.localeCompare(b.time) || a.seq - b.seq; });
-    return rows.map(function (row) { return row.html; }).join("");
+    var toolCalls = rows.filter(function (row) { return !!row.tool; });
+    var toolFailures = toolCalls.filter(function (row) { return row.result && !row.result.ok; }).length;
+    var toolRunning = toolCalls.filter(function (row) { return !row.result; }).length;
+    var summary = toolCalls.length
+      ? '<div class="owo-ws-chat-tools-summary hint">已执行 ' + toolCalls.length + ' 个工具' +
+        (toolFailures ? ' · ' + toolFailures + ' 个失败' : '') +
+        (toolRunning ? ' · ' + toolRunning + ' 个进行中' : '') + '</div>'
+      : "";
+    return summary + rows.map(function (row) {
+      if (row.html) return row.html;
+      var result = row.result;
+      var state = !result ? "进行中" : (result.ok ? "已完成" : "失败");
+      var stateClass = !result ? "rv-warn" : (result.ok ? "rv-ok" : "rv-bad");
+      var detail = '<div class="owo-ws-tool-parts">';
+      if (row.args) detail += '<section><b>参数</b><pre>' + esc(row.args) + "</pre></section>";
+      if (result) {
+        var resultText = result.error || result.preview || (result.ok ? "工具已完成，没有可展示的文本预览。" : "工具失败，服务端没有返回错误详情。");
+        detail += '<section><b>' + (result.ok ? "结果" : "失败详情") + "</b><pre>" + esc(resultText) + "</pre></section>";
+      } else {
+        detail += '<div class="hint">等待工具返回结果。</div>';
+      }
+      detail += "</div>";
+      return '<article class="owo-ws-chat-row"><div class="owo-ws-chat-avatar" aria-hidden="true">' + esc(row.role.slice(0, 1)) +
+        '</div><div class="owo-ws-chat-card"><header class="owo-ws-chat-head"><b>' + esc(row.role) +
+        '</b><time>' + esc(row.time || "") + '</time></header><details class="owo-ws-tool-detail" data-event-key="' +
+        esc(row.eventKey) + '"><summary><b>' + esc(row.tool) + "</b> · <span class=\"owo-ws-badge " +
+        stateClass + "\">" + state + "</span></summary>" + detail + "</details></div></article>";
+    }).join("");
   }
 
   /// 当前回放里出现过的角色（按出现顺序去重），供"只看某成员"下拉框。

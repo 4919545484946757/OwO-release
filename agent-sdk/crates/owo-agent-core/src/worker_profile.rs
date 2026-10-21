@@ -105,7 +105,7 @@ impl WorkerProfile {
             &spec.capabilities,
             budget_calls,
             !spec.write_paths.is_empty(),
-            parallel && is_parallel_writer_name(&spec.role),
+            parallel && (is_parallel_writer_name(&spec.role) || spec.has_capability("task_worker")),
         );
         if template_id == Some(crate::builtin_team_templates::FULLSTACK_WEB_V1)
             && matches!(spec.role.as_str(), "w1" | "w2")
@@ -1051,6 +1051,26 @@ mod tests {
         empty.apply_task_capability_scope(&empty_task, true);
         assert_eq!(empty.visible_tools, vec!["__owo_no_task_tool__"]);
         assert!(!empty.can_run_command);
+    }
+
+    #[test]
+    fn task_graph_capability_scope_keeps_a_declared_media_tool() {
+        const MEDIA_TOOL: &str = "mcp__media__video_generate";
+        let mut profile = WorkerProfile::for_declared_tools(&[MEDIA_TOOL.to_string()], 4);
+        let task = crate::task_context::ResolvedTaskContext {
+            origin: crate::task_context::TaskContextOrigin::TaskGraph,
+            required_capabilities: Some(vec![MEDIA_TOOL.to_string()]),
+            ..Default::default()
+        };
+
+        profile.apply_task_capability_scope(&task, true);
+
+        assert_eq!(profile.visible_tools, vec![MEDIA_TOOL.to_string()]);
+        assert!(
+            profile.read_only,
+            "media generation does not grant file writes"
+        );
+        assert!(!profile.can_run_command);
     }
 
     #[test]

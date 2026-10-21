@@ -810,12 +810,12 @@
             var out = root.querySelector(".owo-wf-draft-out");
             if (out && window.confirm("采纳成功。现在用同一个目标再跑一次做前后对比？")) {
               setMeta(root, "验证运行（沿用基线目标）：" + plan.objective);
-              H.post("/teams", {
+              H.post("/teams", attachWorkspaceContext(root, {
                 objective: plan.objective,
                 mode: "team",
                 template_id: adopted.template ? adopted.template.template_id : plan.adopted_template_id,
                 acknowledge_risk: true,
-              })
+              }))
                 .then(function (created) {
                   var teamId =
                     (created && (created.team_id || (created.team && created.team.team_id))) || "";

@@ -1541,3 +1541,51 @@ async fn custom_workflow_preserves_media_roles_and_parallel_branches_without_ins
     assert_eq!(meta.roles[1].tools, vec!["mcp__voice__generate"]);
     assert!(meta.roles.iter().all(|role| role.depends_on.is_empty()));
 }
+
+#[tokio::test]
+async fn saved_custom_workflow_membership_is_not_the_legacy_default_limit() {
+    use owo_agent_core::workswarm::CreateTeamRequest;
+    use owo_agent_protocol::{TeamMode, TeamTemplate, TeamTemplateRole};
+    let (state, _temp) = test_state().await;
+    let coordinator = state.workswarm.coordinator().unwrap();
+    let template = TeamTemplate {
+        template_id: "multimedia-seven".into(),
+        name: "多媒体并行制作".into(),
+        roles: (0..7)
+            .map(|index| TeamTemplateRole {
+                role: format!("媒体节点-{index}"),
+                worker: Some("echo".into()),
+                tools: vec!["mcp__media__generate".into()],
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    };
+    coordinator.templates().save_template(&template).unwrap();
+    let mut request = CreateTeamRequest {
+        template_id: Some(template.template_id),
+        budget: json!({"max_parallel":2}),
+        ..CreateTeamRequest::new("多媒体独立分支制作", TeamMode::Team)
+    };
+    let team = coordinator.create_team_run(&request).await.unwrap();
+    let meta = coordinator.load_run_meta(&team.team_id).unwrap();
+    assert_eq!(
+        meta.roles.len(),
+        7,
+        "saved graph must retain every declared node"
+    );
+    request.max_agent_members = Some(6);
+    let error = coordinator.create_team_run(&request).await.unwrap_err();
+    assert!(error.to_string().contains("7 > 6"), "{error}");
+    let mut direct = request.clone();
+    direct.template_id = None;
+    direct.roles = meta.roles;
+    for role in &mut direct.roles {
+        role.assignee.clear();
+    }
+    let error = coordinator.create_team_run(&direct).await.unwrap_err();
+    assert!(
+        error.to_string().contains("7 > 6"),
+        "default agent assignees count: {error}"
+    );
+}

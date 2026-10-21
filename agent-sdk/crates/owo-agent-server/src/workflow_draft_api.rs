@@ -20,13 +20,14 @@ use owo_agent_core::gateway::{ChatMessage, ModelOutput};
 use owo_agent_core::user_workflow::{validate_workflow_template, MAX_NAME_CHARS, MAX_ROLES};
 use owo_agent_core::workflow_draft::{
     draft_repair_prompt, draft_system_prompt, draft_user_prompt_with_evidence, extract_json_object,
-    render_run_evidence, WorkflowRunEvidence, MAX_DRAFT_DESCRIPTION_CHARS,
+    render_run_evidence, WorkflowDraftTool, WorkflowRunEvidence, MAX_DRAFT_DESCRIPTION_CHARS,
 };
 use owo_agent_core::workswarm::TeamTemplateRegistry;
 use owo_agent_protocol::TeamTemplate;
 use owo_agent_server::AppState;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -46,6 +47,7 @@ struct ConvergeRequest {
     constraints: Option<String>,
     #[serde(default)]
     max_roles: Option<usize>,
+    /// 可用工具白名单；省略时使用当前启用的 Agent/MCP 工具。
     #[serde(default)]
     tools: Option<Vec<String>>,
     /// 轮次上限（缺省 3，硬顶 5）——防止无限烧模型。
@@ -57,6 +59,61 @@ struct ConvergeRequest {
 }
 
 const MAX_CONVERGE_ROUNDS: usize = 5;
+
+/// Build the tool vocabulary used by AI workflow drafting from the same live registry
+/// that workflow workers proxy at runtime. Explicit caller lists remain authoritative.
+fn resolve_draft_tools(state: &AppState, requested: Option<Vec<String>>) -> Vec<WorkflowDraftTool> {
+    let live_specs = state.agent.visible_tool_specs();
+    let descriptions = live_specs
+        .iter()
+        .map(|spec| {
+            let description = spec
+                .description
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                .chars()
+                .take(240)
+                .collect::<String>();
+            (spec.name.clone(), description)
+        })
+        .collect::<BTreeMap<_, _>>();
+    let names = if let Some(requested) = requested {
+        requested
+            .into_iter()
+            .map(|name| name.trim().to_string())
+            .filter(|name| !name.is_empty())
+            .collect::<std::collections::BTreeSet<_>>()
+    } else {
+        let mut names = [
+            "read_file",
+            "write_file",
+            "apply_patch",
+            "list_dir",
+            "search_files",
+            "run_command",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect::<std::collections::BTreeSet<_>>();
+        names.extend(live_specs.into_iter().map(|spec| spec.name).filter(|name| {
+            name.starts_with("mcp__")
+                || name.starts_with("browser_")
+                || matches!(name.as_str(), "web_fetch" | "web_search")
+        }));
+        names
+    };
+    names
+        .into_iter()
+        .map(|name| WorkflowDraftTool {
+            description: descriptions
+                .get(&name)
+                .filter(|description| !description.is_empty())
+                .cloned(),
+            name,
+        })
+        .collect()
+}
 
 #[derive(Debug, Default, Deserialize)]
 struct VerifyOutcomeRequest {
@@ -84,7 +141,7 @@ struct DraftRequest {
     /// 角色数上限（默认 8，硬顶 [`MAX_ROLES`]）。
     #[serde(default)]
     max_roles: Option<usize>,
-    /// 可用工具白名单（可选；给出后提示词只允许这些工具）。
+    /// 可用工具白名单（可选；省略时从当前启用的 Agent/MCP 工具生成）。
     #[serde(default)]
     tools: Option<Vec<String>>,
     /// 基于既有草稿迭代（草稿 id）。
@@ -424,7 +481,7 @@ async fn create_draft(
         .map(render_run_evidence)
         .filter(|block| !block.is_empty());
     let max_roles = request.max_roles.unwrap_or(8).clamp(1, MAX_ROLES);
-    let tools = request.tools.clone().unwrap_or_default();
+    let tools = resolve_draft_tools(&state, request.tools);
 
     let messages = vec![
         ChatMessage::system(draft_system_prompt(max_roles, &tools)),
@@ -559,7 +616,7 @@ async fn generate_round(
     previous: Option<&TeamTemplate>,
     errors: &[String],
     max_roles: usize,
-    tools: &[String],
+    tools: &[WorkflowDraftTool],
     evidence: Option<&WorkflowRunEvidence>,
 ) -> Result<(TeamTemplate, Vec<String>), (StatusCode, Json<Value>)> {
     let user_prompt = match previous {
@@ -641,7 +698,7 @@ async fn converge_draft(
         .map(render_run_evidence)
         .filter(|block| !block.is_empty());
     let max_roles = request.max_roles.unwrap_or(8).clamp(1, MAX_ROLES);
-    let tools = request.tools.clone().unwrap_or_default();
+    let tools = resolve_draft_tools(&state, request.tools);
     let max_rounds = request
         .max_rounds
         .unwrap_or(3)

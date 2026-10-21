@@ -55,11 +55,15 @@ impl TeamCoordinator {
                     .iter()
                     .any(|step| step.input.get("assigned_task_id").is_some());
             let lead_already_succeeded = state.plan.steps.iter().any(|step| {
-                worker_role(&step.worker).as_deref() == Some("lead")
-                    && state
-                        .records
-                        .get(&step.id)
-                        .is_some_and(|record| record.status == StepStatus::Succeeded)
+                worker_role(&step.worker).is_some_and(|worker_role| {
+                    meta.roles
+                        .iter()
+                        .find(|role| role.role == worker_role)
+                        .is_some_and(RoleSpec::is_orchestrator)
+                }) && state
+                    .records
+                    .get(&step.id)
+                    .is_some_and(|record| record.status == StepStatus::Succeeded)
             });
             if parallel_assignment_missing && lead_already_succeeded {
                 if let Err(error) = self.apply_parallel_assignment(team_id, &mut state, &mut meta) {
@@ -257,9 +261,14 @@ impl TeamCoordinator {
                     .steps
                     .iter()
                     .any(|step| step.input.get("assigned_task_id").is_some())
-                && agent_steps
-                    .iter()
-                    .any(|step| worker_role(&step.worker).as_deref() == Some("lead"));
+                && agent_steps.iter().any(|step| {
+                    worker_role(&step.worker).is_some_and(|worker_role| {
+                        meta.roles
+                            .iter()
+                            .find(|role| role.role == worker_role)
+                            .is_some_and(RoleSpec::is_orchestrator)
+                    })
+                });
             let sub_ids = super::phase_subplan::phase_subplan_step_ids(
                 &state,
                 &meta,

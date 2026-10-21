@@ -166,7 +166,7 @@
       templateInfo: null, // {template_id, version, title}（目录懒加载解析版本）
       // —— 七期：Worker 能力 / 写租约 / 文件变更（详情字段缺失时全部容错为空） ——
       workerProfiles: [], // WorkerProfile[]：visible_tools/read_only/max_turns/write_allowed_paths/...
-      writeLease: null, // 单写租约（null=未持有；released_at_ms 非空=已释放）
+      writeLease: null, // 路径写租约（null=未持有；released_at_ms 非空=已释放）
       changes: [], // 工作区文件变更 [{path,state,diff?,added_lines?,deleted_lines?}]
       changesRemote: null, // 二路 changes 端点归一视图（changesRemoteView）；null=未拉取/404 容错
       // —— 八期：ChangeSet 审批闭环（二路交接；端点未上线时全部容错为空态） ——
@@ -1180,8 +1180,8 @@
     // WorkerProfile 表：角色 × 实际工具权限 × 调用预算（max_turns）。全字段容错。
     // Worker 能力表（迁入 render.js）（模块化拆分后不再内联，见 panels/workswarm/render.js）
 
-    // 单写租约状态盒：write_lease 归一后传入（null=未持有；released_at_ms 非空=已释放）。
-    // 单写租约状态盒（迁入 render.js）（模块化拆分后不再内联，见 panels/workswarm/render.js）
+    // 路径写租约状态盒：write_lease 归一后传入（null=未持有；released_at_ms 非空=已释放）。
+    // 路径写租约状态盒（迁入 render.js）（模块化拆分后不再内联，见 panels/workswarm/render.js）
 
     // 文件变更列表 + diff 预览（changes[].state: added|modified|deleted；白名单外变更
     // 服务端会判 scope_violation，不会出现在成功登记的变更集中）。
@@ -2659,6 +2659,7 @@
         '<input class="owo-ws-role-worker" aria-label="自定义 Worker 名称或用户 ID" placeholder="自定义 Worker 名称或用户 ID" size="18" value="' + esc(plan.custom || "") + '"' + (plan.select === CUSTOM_WORKER ? "" : " hidden") + ">" +
         '<input class="owo-ws-role-deps" aria-label="依赖的上游角色" placeholder="依赖的上游角色（逗号分隔）" size="16" value="' + esc((role.depends_on || []).join(",")) + '">' +
         '<input class="owo-ws-role-model" aria-label="节点模型" placeholder="模型（留空跟随团队）" value="' + esc(role.model || "") + '">' +
+        '<input class="owo-ws-role-capabilities" aria-label="节点能力标签" placeholder="能力标签，如 orchestrator、task_worker、integrator、review" value="' + esc((role.capabilities || []).join(", ")) + '">' +
         '<input class="owo-ws-role-tools" aria-label="节点工具" placeholder="工具，逗号分隔；支持 mcp__服务__工具" value="' + esc((role.tools || []).join(",")) + '">' +
         '<input class="owo-ws-role-paths" aria-label="输出路径范围" placeholder="输出目录，逗号分隔（独立目录可并行）" value="' + esc((role.write_paths || []).join(",")) + '">' +
         '<textarea class="owo-ws-role-contract" aria-label="职责与交付契约" placeholder="自定义职责、输入和交付要求" rows="2">' + esc(role.handoff_contract || "") + '</textarea>' +
@@ -2694,6 +2695,7 @@
           depsText: r.querySelector(".owo-ws-role-deps").value,
           original: JSON.parse(r.getAttribute("data-role-spec") || "{}"),
           model: r.querySelector(".owo-ws-role-model").value.trim(),
+          capabilities: r.querySelector(".owo-ws-role-capabilities").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean),
           tools: r.querySelector(".owo-ws-role-tools").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean),
           write_paths: r.querySelector(".owo-ws-role-paths").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean),
           handoff_contract: r.querySelector(".owo-ws-role-contract").value.trim(),
@@ -2718,7 +2720,7 @@
             .filter(Boolean);
           return Object.assign({}, r.original, {
             role: r.role, assignee: r.assignee, worker: r.worker, depends_on: deps,
-            model: r.model || null, tools: r.tools, write_paths: r.write_paths,
+            model: r.model || null, capabilities: r.capabilities, tools: r.tools, write_paths: r.write_paths,
             handoff_contract: r.handoff_contract || null,
           });
         })
@@ -3680,9 +3682,9 @@
         if (conversation.open) loadTeamConversation(state.current, false);
       });
       // 「查看该工作流」：跳到自定义工作流面板（那里有检查清单与一键修复）。
-      if (!root._owoWorkflowJumpBound) {
-        root._owoWorkflowJumpBound = true;
-        root.addEventListener("click", function (event) {
+      if (rootEl && !rootEl._owoWorkflowJumpBound) {
+        rootEl._owoWorkflowJumpBound = true;
+        rootEl.addEventListener("click", function (event) {
           var button = event.target && event.target.closest
             ? event.target.closest("[data-open-workflows]")
             : null;
@@ -3942,7 +3944,7 @@
       ".owo-ws-badge.rv-ok{background:var(--green-soft,rgba(20,133,90,.11));color:var(--green,#14855a);}" +
       ".owo-ws-badge.rv-warn{background:var(--yellow-soft,rgba(199,138,26,.13));color:var(--yellow,#a06a04);}" +
       ".owo-ws-badge.rv-bad{background:var(--red-soft,rgba(207,63,53,.1));color:var(--red,#cd3f35);}" +
-      // 七期：单写租约状态盒
+      // 七期：路径写租约状态盒
       ".owo-ws-lease{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;min-width:0;}" +
       // 七期：文件变更列表 + diff 预览（复用 .owo-ws-diff 的差异配色）
       ".owo-ws-chg-list{display:flex;flex-direction:column;gap:4px;margin-top:4px;min-width:0;}" +

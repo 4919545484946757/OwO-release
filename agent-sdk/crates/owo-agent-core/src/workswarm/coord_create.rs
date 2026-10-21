@@ -122,7 +122,7 @@ impl TeamCoordinator {
             if !seen.insert(r.role.clone()) {
                 return Err(WorkSwarmError::Validation(format!("角色重复：{}", r.role)));
             }
-            if r.assignee == "agent" {
+            if r.assignee.is_empty() || r.assignee == "agent" {
                 agent_count += 1;
             }
             super::roles::validate_role_write_paths_with_capabilities(
@@ -132,10 +132,18 @@ impl TeamCoordinator {
             )
             .map_err(WorkSwarmError::Validation)?;
         }
-        if agent_count > req.max_agent_members.unwrap_or(self.max_agent_members) {
+        // An explicitly chosen graph defines its membership. The legacy default
+        // limit only sizes automatically assembled teams; an explicit caller limit
+        // still applies, independently of the scheduler's max_parallel budget.
+        let default_member_limit = if has_explicit_roles || has_explicit_template {
+            agent_count
+        } else {
+            self.max_agent_members
+        };
+        let member_limit = req.max_agent_members.unwrap_or(default_member_limit);
+        if agent_count > member_limit {
             return Err(WorkSwarmError::Validation(format!(
-                "动态团队 Agent 成员超过上限（{agent_count} > {}）",
-                req.max_agent_members.unwrap_or(self.max_agent_members)
+                "动态团队 Agent 成员超过上限（{agent_count} > {member_limit}）"
             )));
         }
         // swarmflow 且显式给了非模板角色 → 仍允许（模板角色 + 补充），此处不额外限制。
@@ -403,6 +411,28 @@ impl TeamCoordinator {
         }
         let strategy_mode = strategy_plan.mode.clone();
 
+        let parallel_assignment = should_enable_parallel_assignment(req.parallel, &specs);
+        if parallel_assignment {
+            for role in &mut specs {
+                if role.is_orchestrator()
+                    && !role
+                        .handoff_contract
+                        .as_deref()
+                        .is_some_and(|contract| contract.contains("TaskGraphV1"))
+                {
+                    let existing = role.handoff_contract.take().unwrap_or_default();
+                    role.handoff_contract = Some(if existing.trim().is_empty() {
+                        super::task_graph::TASK_GRAPH_ORCHESTRATOR_CONTRACT.to_string()
+                    } else {
+                        format!(
+                            "{existing}\n\n{}",
+                            super::task_graph::TASK_GRAPH_ORCHESTRATOR_CONTRACT
+                        )
+                    });
+                }
+            }
+        }
+
         // 成员（agent/human/worker 运行时绑定）。
         let mut members = Vec::new();
         for spec in &specs {
@@ -465,7 +495,13 @@ impl TeamCoordinator {
                 obj.insert("objective".to_string(), json!(objective));
                 obj.insert(
                     "_workswarm".to_string(),
-                    json!({ "team_id": team_id, "member_id": member_id, "step_id": step_id }),
+                    json!({
+                        "team_id": team_id,
+                        "member_id": member_id,
+                        "step_id": step_id,
+                        "role_capabilities": spec.capabilities,
+                        "role_is_integrator": spec.is_integrator(),
+                    }),
                 );
                 // 十一期：模型解析——角色显式 model 优先，否则团队统一模型
                 // （`req.model`，来自请求或 `<workspace>/settings.json` 的 team 段）；
@@ -590,10 +626,7 @@ impl TeamCoordinator {
             ),
         );
 
-        // A selected template may introduce lead only after the server has
-        // expanded its role list. Derive dynamic assignment from the resolved roles too.
-        let parallel_assignment = should_enable_parallel_assignment(req.parallel, &specs);
-
+        // Parallel assignment follows the resolved role capabilities.
         // 运行元数据（correlation + 角色规格 sidecar）。
         RunMeta {
             team_id: team_id.clone(),

@@ -7,8 +7,10 @@ use serde_json::Value;
 
 /// Validate a bounded DAG separately from worker capacity, then bind omitted workers.
 pub(super) fn is_independent_reviewer_role(role: &RoleSpec) -> bool {
+    // 并行写角色（w1/w2…，或声明 task_worker 能力）即使带 review 能力也不能充当
+    // 独立评审：它自己就在改动被评审的产物，独立性不成立。
     role.is_reviewer()
-        && role.role != "lead"
+        && !role.is_orchestrator()
         && role.role != "leader"
         && !is_parallel_writer_name(&role.role)
 }
@@ -25,10 +27,14 @@ pub(super) fn host_manifest_can_replace_integration(
 }
 
 pub(super) fn should_enable_parallel_assignment(explicit: bool, roles: &[RoleSpec]) -> bool {
-    explicit || roles.iter().any(|role| role.role == "lead")
+    // 显式请求优先；否则只有"有编排者 + 有可派发的任务工人"才自动启用，
+    // 避免纯评审/单角色团队被误判为并行。
+    explicit
+        || (roles.iter().any(RoleSpec::is_orchestrator)
+            && roles.iter().any(super::task_graph::is_parallel_task_worker))
 }
 
-/// Rebind fixed integration steps to every dynamic task, including additional tasks
+/// Rebind configured integrator and reviewer steps to every dynamic task, including additional tasks
 /// assigned to a worker whose first task reuses the legacy s-wN step ID.
 pub(super) fn bind_dynamic_follow_up_dependencies(
     steps: &mut [StepSpec],
@@ -39,22 +45,27 @@ pub(super) fn bind_dynamic_follow_up_dependencies(
         .iter()
         .map(|step| step.id.clone())
         .collect::<std::collections::BTreeSet<_>>();
+    let is_integrator = |step: &StepSpec| {
+        worker_role(&step.worker).is_some_and(|role| {
+            role == "leader"
+                || role == "project_integrator"
+                || step
+                    .input
+                    .get("_workswarm")
+                    .and_then(|meta| meta.get("role_is_integrator"))
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+        })
+    };
     let integration_step_ids = steps
         .iter()
-        .filter(|step| {
-            worker_role(&step.worker)
-                .is_some_and(|role| matches!(role.as_str(), "leader" | "project_integrator"))
-        })
+        .filter(|step| is_integrator(step))
         .map(|step| step.id.clone())
         .collect::<Vec<_>>();
     for step in steps {
-        let role = worker_role(&step.worker);
-        let Some(role) = role.as_deref() else {
-            continue;
-        };
         let is_scheduled_reviewer = scheduled_reviewer_step_ids.contains(&step.id);
-        let is_integrator = matches!(role, "leader" | "project_integrator");
-        if is_scheduled_reviewer || is_integrator {
+        let step_is_integrator = is_integrator(step);
+        if is_scheduled_reviewer || step_is_integrator {
             // Review the integrated source snapshot: validators wait for every dynamic
             // task and every integration step. Integrators consume candidate artifacts
             // without waiting for review, so the final review cannot precede later edits.
@@ -63,7 +74,8 @@ pub(super) fn bind_dynamic_follow_up_dependencies(
                 .iter()
                 .filter(|dependency| {
                     available_step_ids.contains(*dependency)
-                        && !(is_integrator && scheduled_reviewer_step_ids.contains(*dependency))
+                        && !(step_is_integrator
+                            && scheduled_reviewer_step_ids.contains(*dependency))
                 })
                 .cloned()
                 .collect::<Vec<_>>();

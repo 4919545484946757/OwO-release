@@ -34,13 +34,13 @@
 //!
 //! 七期（第二路）权限接线：`build_run_registry` 按角色画像（`WorkerProfile`）装配
 //! 每个角色的工具注册表（注册表面即权限边界，模板 `budget_calls_per_role` → 真实
-//! `max_turns`）；写角色经单写租约互斥，执行前后 git 快照 → 变更摘要/diff ref 落盘
+//! `max_turns`）；写角色使用写范围租约管理并发，执行前后 git 快照 → 变更摘要/diff ref 落盘
 //! （子模块 [`workspace_change_tracker`]；白名单越界 → `scope_violation` 步骤失败）；
 //! 团队取消令牌经桥接任务置位共享 abort 标志，运行中 Worker 协作即时中断。
 //!
 //! 十一期（二路）并行开发接线：角色可声明 `model`（每角色独立模型）与 `write_paths`
 //! （角色写范围）——写范围互不重叠的写角色经 [`write_lease`] 范围租约**并发落盘**，
-//! 未声明范围的写角色保持原单写者语义（全局互斥）；范围归属过滤避免并发窗口把
+//! 未声明范围的写角色使用工作区根目录租约（保守互斥）；范围归属过滤避免并发窗口把
 //! 其他写者的变更误判为本步骤越界（见 [`workers::TrackedRoleWorker`]）。
 //!
 //! S0 边界：产物经 CAS ref 传递（大对象不进响应体）；agent 角色经

@@ -977,10 +977,19 @@ impl Agent {
                             }
                             index = end;
                         } else {
-                            // —— 串行执行单个调用（与原实现逐字等价）——
+                            // —— 串行执行单个调用与宿主拒绝终态——
                             let call = &calls[index];
-                            let result = if let Some(guard) = prepared[index].guard_error.clone() {
-                                // 宿主执行前拦截：不执行，回灌 schema/hook/循环保护原因供模型修复。
+                            let blocked = prepared[index].guard_error.clone().or_else(|| {
+                                if self.tool_disabled(&call.name) {
+                                    Some(format!("工具已被禁用（插件热卸载）：{}", call.name))
+                                } else if prepared[index].approval.is_none() {
+                                    Some(format!("permission denied: {}", prepared[index].reason))
+                                } else {
+                                    None
+                                }
+                            });
+                            let result = if let Some(guard) = blocked {
+                                // 未执行也必须结束 UI 中的审批/工具状态；不发 ToolStart 或执行收据。
                                 emit(
                                     &mut events,
                                     &event_cell,
@@ -995,9 +1004,7 @@ impl Agent {
                                     },
                                 );
                                 Err(guard)
-                            } else if self.tool_disabled(&call.name) {
-                                Err(format!("工具已被禁用（插件热卸载）：{}", call.name))
-                            } else if prepared[index].approval.is_some() {
+                            } else {
                                 let workspace = session.workspace.clone();
                                 let capability_context = ToolCapabilityContext::for_workspace(
                                     &workspace,
@@ -1130,8 +1137,6 @@ impl Agent {
                                     }
                                 }
                                 outcome
-                            } else {
-                                Err(format!("permission denied: {}", prepared[index].reason))
                             };
                             results.push(result);
                             index += 1;

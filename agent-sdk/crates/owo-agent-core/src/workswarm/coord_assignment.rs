@@ -1,13 +1,13 @@
 //! Apply a validated task graph to persistent worker slots. No model or tool execution.
 use super::task_graph::{
     assign_task_model_call_budgets, bind_dynamic_follow_up_dependencies,
-    is_independent_reviewer_role, is_parallel_writer_name, parse_parallel_subtasks,
+    is_independent_reviewer_role, is_parallel_task_worker, parse_parallel_subtasks,
     validate_parallel_subtasks, validate_task_requirement_coverage,
 };
 use super::*;
 
 impl TeamCoordinator {
-    /// Validate the lead candidate before publishing it. Uses exactly the same
+    /// Validate the orchestrator candidate before publishing it. Uses exactly the same
     /// host schema, coverage, scopes and budget placement as final assignment.
     pub(super) fn validate_parallel_candidate(
         &self,
@@ -39,12 +39,12 @@ impl TeamCoordinator {
     }
     /// 十一期：并行开发的任务主动分配（幂等）。
     ///
-    /// 运行条件：`RunMeta.parallel` 为真，且 **lead 步骤已成功**且产物可解析为
+    /// 运行条件：`RunMeta.parallel` 为真，且 **编排步骤已成功**且产物可解析为
     /// TaskGraphV1（兼容旧 subtasks 数组、围栏与前后缀文本）。先校验任务字段、依赖
     /// DAG、任务数量和写范围，再绑定到有限 worker 槽位；同一槽位内的任务顺序串行。
     /// 动态步骤保留任务 ID、验收、验证、引用和能力需求，写路径权限不超出已有授权。
     ///
-    /// 无变化不落盘、不重复审计；lead 产物不可解析时保持 writer 原有权限（缺省
+    /// 无变化不落盘、不重复审计；编排产物不可解析时保持 writer 原有权限（缺省
     /// 只读），并记 `team.parallel_assign_skip` 审计——绝不因调度信息缺失而放宽权限。
     pub(super) fn apply_parallel_assignment(
         &self,
@@ -68,7 +68,14 @@ impl TeamCoordinator {
             .plan
             .steps
             .iter()
-            .find(|s| worker_role(&s.worker).as_deref() == Some("lead"))
+            .find(|step| {
+                worker_role(&step.worker).is_some_and(|worker_role| {
+                    meta.roles
+                        .iter()
+                        .find(|role| role.role == worker_role)
+                        .is_some_and(RoleSpec::is_orchestrator)
+                })
+            })
             .map(|step| step.id.clone())
         else {
             return Ok(());
@@ -108,7 +115,7 @@ impl TeamCoordinator {
         let writers: Vec<String> = meta
             .roles
             .iter()
-            .filter(|role| is_parallel_writer_name(&role.role))
+            .filter(|role| is_parallel_task_worker(role))
             .map(|role| role.role.clone())
             .collect();
         let original_inputs: std::collections::BTreeMap<String, Value> = writers
@@ -284,7 +291,7 @@ impl TeamCoordinator {
         for role in meta
             .roles
             .iter_mut()
-            .filter(|role| is_parallel_writer_name(&role.role))
+            .filter(|role| is_parallel_task_worker(role))
         {
             let mut paths = scope_union.remove(&role.role).unwrap_or_default();
             paths.sort();

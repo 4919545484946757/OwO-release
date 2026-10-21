@@ -188,7 +188,11 @@ impl Worker for RoleWorker {
             .mark_phase_step_running(&self.team_id, &step_id);
         let plan_epoch = self.coordinator.current_execution_epoch(&self.team_id);
         let mut out = self.inner.run(&enriched).await?;
-        if self.role == "lead" {
+        if self.role == "lead"
+            || effective_capabilities
+                .iter()
+                .any(|capability| capability.eq_ignore_ascii_case("orchestrator"))
+        {
             // One semantic correction per worker invocation. Both calls go through
             // the same metered, scoped inner worker; GoalRunner retry budgets remain.
             for correction in 0..=1 {

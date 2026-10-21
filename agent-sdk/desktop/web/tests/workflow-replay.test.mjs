@@ -72,3 +72,14 @@ test("custom workflow editing round-trips model, tools, paths and delivery requi
  write_paths:["models"],handoff_contract:"交付 glb",capabilities:["custom"],verify:"non_empty"};
  assert.deepEqual(D.sanitizeRoles([role])[0],role);
 });
+
+test("denied tools render their terminal failure without a tool-use event", () => {
+ const replay=C.mergeReplay({},[{session_id:"s",role:"视频制作",events:[
+  row(1,{type:"tool_result",id:"denied",tool:"mcp__video__generate",ok:false,
+   error:"permission denied: approval declined",command_receipt:null})
+ ]}]);
+ const html=R.teamConversationHtml([],[],null,"",replay);
+ assert.match(html,/mcp__video__generate<\/b> · <span class="owo-ws-badge rv-bad">失败<\/span>/);
+ assert.match(html,/permission denied: approval declined/);
+ assert.doesNotMatch(html,/调用参数|已完成/);
+});

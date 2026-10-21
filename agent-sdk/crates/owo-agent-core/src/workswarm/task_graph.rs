@@ -2,14 +2,41 @@
 use super::RoleSpec;
 use serde_json::Value;
 
-/// `w<数字>`（并行 writer 角色名；lead/leader 不在其列）。
+/// 显式声明 task_worker 能力的 Agent 节点；旧 wN 槽位仍兼容。
 #[derive(Debug)]
 pub(super) struct TaskGraphV1 {
     pub(super) version: u32,
     pub(super) tasks: Vec<ParallelTaskAssignment>,
 }
 
+// TaskGraph executor membership comes from configured tools and scope, not a
+// fixed role-name allowlist. Legacy wN slots remain readable.
+pub(super) fn is_parallel_task_worker(role: &RoleSpec) -> bool {
+    matches!(role.assignee.as_str(), "agent" | "worker")
+        && !role.is_reviewer()
+        && !role.is_orchestrator()
+        && (is_parallel_writer_name(&role.role) || role.has_capability("task_worker"))
+}
+
+pub(super) const TASK_GRAPH_ORCHESTRATOR_CONTRACT: &str = r#"你是本工作流的编排 Agent。先理解用户目标，再把确实可以并行的独立工作拆给已配置的 Agent 节点；节点按其职责、工具和模型选择，角色名由用户自定义；任务执行节点标记 task_worker 能力。请输出 WorkerOutputV1，artifact.content 为 TaskGraphV1 JSON：{"version":1,"tasks":[{"task_id":"...","worker":"已配置的 task_worker 节点名","task":"...","acceptance":"...","depends_on":[],"requirement_quotes":["用户原文中的对应要求"],"read_refs":[],"write_paths":[],"contract_refs":[],"required_capabilities":[],"estimated_effort":1,"verification":"non_empty","risk":"normal","priority":50}]}。任务数为 1 到 128；worker 可省略以便宿主在 task_worker 节点间均衡分配；只为真实依赖设置 depends_on；同一写路径的任务必须建立依赖顺序。required_capabilities 必须使用对应 task_worker 节点 tools 中声明的精确工具名（内置文件/命令能力沿用现有工具面）；隐式分配只会选择声明了所需工具的节点。写入范围必须同时落在节点声明范围内；非工作区工具调用仍须遵守节点工具声明、宿主策略和审批。代码修改任务必须请求 run_command 并声明宿主已登记的行为验证计划；媒体生成等外部服务任务可用 non_empty 验证产物，不要伪造服务调用。显式用户验收项须逐字引用并分配给对应任务；高风险任务需要独立只读评审节点；需要收尾汇总时将该节点标记 integrator。没有必要时避免拆分，所有任务都必须可追踪到交付物与验收证据。"#;
+
 const MIN_TASK_MODEL_CALLS_PER_ATTEMPT: usize = 4;
+const TASK_GRAPH_SCOPED_CAPABILITIES: &[&str] = &[
+    "read_file",
+    "list_dir",
+    "search_files",
+    "write_file",
+    "apply_patch",
+    "run_command",
+];
+
+fn role_supports_task_capabilities(role: &RoleSpec, capabilities: &[String]) -> bool {
+    capabilities.iter().all(|capability| {
+        role.tools.iter().any(|tool| tool == capability)
+            || (role.tools.is_empty()
+                && TASK_GRAPH_SCOPED_CAPABILITIES.contains(&capability.as_str()))
+    })
+}
 
 /// Assign a bounded per-attempt request budget from host role limits and task effort.
 /// One request is reserved for WorkerOutputV1 correction; effort only raises the cap,
@@ -116,10 +143,10 @@ pub(super) fn validate_parallel_subtasks(
 ) -> Result<TaskGraphV1, String> {
     let writers: Vec<&RoleSpec> = roles
         .iter()
-        .filter(|role| is_parallel_writer_name(&role.role))
+        .filter(|role| is_parallel_task_worker(role))
         .collect();
     if writers.is_empty() {
-        return Err("RunMeta contains no parallel writer roles".into());
+        return Err("RunMeta contains no eligible task_worker roles".into());
     }
     if subtasks.is_empty() || subtasks.len() > 128 {
         return Err(format!(
@@ -255,25 +282,23 @@ pub(super) fn validate_parallel_subtasks(
         let read_refs = string_refs("read_refs")?;
         let contract_refs = string_refs("contract_refs")?;
         let required_capabilities = string_refs("required_capabilities")?;
-        const TASK_CAPABILITIES: &[&str] = &[
-            "read_file",
-            "list_dir",
-            "search_files",
-            "write_file",
-            "apply_patch",
-            "run_command",
-        ];
         if required_capabilities.len() > 8 {
             return Err(format!(
                 "task {task_id} has more than 8 required capabilities"
             ));
         }
-        if let Some(unsupported) = required_capabilities
+        for capability in &required_capabilities {
+            crate::user_workflow::validate_tool_name(capability).map_err(|error| {
+                format!("task {task_id} has invalid required capability {capability}: {error}")
+            })?;
+        }
+        if !writers
             .iter()
-            .find(|cap| !TASK_CAPABILITIES.contains(&cap.as_str()))
+            .any(|role| role_supports_task_capabilities(role, &required_capabilities))
         {
             return Err(format!(
-                "task {task_id} requires unsupported scoped capability {unsupported}"
+                "task {task_id} requires tools not declared by any task_worker node: {}",
+                required_capabilities.join(", ")
             ));
         }
         if versioned
@@ -539,15 +564,23 @@ pub(super) fn validate_parallel_subtasks(
             ))
     });
     for index in implicit_indices {
+        let task = &tasks[index];
         let worker = writers
             .iter()
+            .filter(|role| role_supports_task_capabilities(role, &task.required_capabilities))
             .min_by_key(|role| {
                 (
                     assigned_effort.get(&role.role).copied().unwrap_or(0),
                     role.role.as_str(),
                 )
             })
-            .expect("writer roles are non-empty")
+            .ok_or_else(|| {
+                format!(
+                    "task {} has no task_worker node with the required declared tools: {}",
+                    task.task_id,
+                    task.required_capabilities.join(", ")
+                )
+            })?
             .role
             .clone();
         let task = &mut tasks[index];
@@ -560,6 +593,14 @@ pub(super) fn validate_parallel_subtasks(
             .iter()
             .find(|role| role.role == task.worker)
             .expect("all tasks are assigned to a writer");
+        if !role_supports_task_capabilities(role, &task.required_capabilities) {
+            return Err(format!(
+                "task {} assigned to {} requires tools outside that node's declared tool surface: {}",
+                task.task_id,
+                task.worker,
+                task.required_capabilities.join(", ")
+            ));
+        }
         super::roles::validate_role_write_paths(&task.worker, &task.effective_paths)?;
         if !role.write_paths.is_empty() {
             for path in &task.effective_paths {

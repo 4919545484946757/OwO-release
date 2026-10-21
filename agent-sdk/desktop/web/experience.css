@@ -978,10 +978,9 @@ body.dark-theme .toast { background: #e8edea; color: #111615; }
 .question-options button { text-align: left; justify-content: flex-start; }
 
 /* Custom workflow node editor and workspace navigation. */
-/* Composer：紧凑的悬浮输入条（对标 ChatGPT/Codex）——输入框本身矮、整条窄，
-   多行时随内容长高（上限 32vh）；页面其余部分因此不再被输入框挤占。 */
+/* Reserve useful writing space; keep the surrounding controls compact. */
 #chatForm, body.dark-theme #chatForm {
-  width: min(720px, calc(100% - 32px));
+  width: min(1100px, calc(100% - 32px));
   gap: 2px;
   padding: 6px 10px 6px;
   margin-bottom: 10px;
@@ -989,30 +988,28 @@ body.dark-theme .toast { background: #e8edea; color: #111615; }
   box-shadow: 0 10px 30px rgb(0 0 0 / 12%);
 }
 #chatForm #prompt, #chatForm textarea {
-  min-height: 24px;
-  max-height: 32vh;
+  min-height: 112px;
+  max-height: 42vh;
   padding: 6px 4px;
-  resize: none;
+  resize: vertical;
   font-size: 14.5px;
   line-height: 1.6;
 }
 #chatForm .prompt-toolbar { min-height: 30px; }
 #promptTools button, .prompt-tools button { height: 28px; padding: 0 8px; }
 #sendBtn, #stopBtn { height: 30px; min-width: 30px; padding: 0 10px; border-radius: 15px; }
-/* 悬浮感：输入条压在会话内容之上（sticky 贴底），半透明+模糊，
-   配合 #messages 的底部留白，滚动到底时内容不会被挡住。 */
+/* Keep the composer in layout flow so its full height never covers messages. */
 #chatForm, body.dark-theme #chatForm {
   position: sticky;
   bottom: 10px;
   z-index: 6;
-  margin-top: -84px;
+  margin-top: 0;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(10px) saturate(120%);
   -webkit-backdrop-filter: blur(10px) saturate(120%);
 }
-/* 会话尾部留白：最后一条消息与悬浮输入条之间保留可视间隔，
-   避免"内容被输入框挡住"的错觉（滚到底部时仍有 breathing room）。 */
-#messages { padding-bottom: max(96px, calc(env(safe-area-inset-bottom, 0px) + 88px)); scroll-padding-bottom: 96px; }
+/* Leave a small gap after the last message. */
+#messages { padding-bottom: max(24px, env(safe-area-inset-bottom, 0px)); scroll-padding-bottom: 24px; }
 #contextBar { font-size: 10px; }
 .codex-sessions li.codex-session-group { display: flex; align-items: center; gap: 6px; min-height: 32px; }
 .codex-session-group .codex-group-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -1034,9 +1031,10 @@ body.dark-theme .toast { background: #e8edea; color: #111615; }
 .owo-ws-tool-detail pre { white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; }
 @media (max-width: 700px) {
   #chatForm, body.dark-theme #chatForm { width: calc(100% - 12px); margin-bottom: 6px; border-radius: 18px; }
-  #chatForm #prompt, #chatForm textarea { min-height: 22px; max-height: 26vh; }
+  #chatForm #prompt, #chatForm textarea { min-height: 96px; max-height: 36vh; }
   .owo-ws-role-row { grid-template-columns: 1fr; }
-  #messages { padding-bottom: 84px; scroll-padding-bottom: 84px; }
+  #messages { padding-bottom: 24px; scroll-padding-bottom: 24px; }
 }
 
 #toastRoot { width: min(480px, calc(100vw - 32px)); }
+#toastRoot .toast { max-width: 100%; box-sizing: border-box; overflow-wrap: anywhere; }

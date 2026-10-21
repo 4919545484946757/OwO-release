@@ -367,7 +367,7 @@
       // 这里给出直达入口，避免"报错在两处、修在哪不知道"。
       return (
         '<div><b>模板</b> ' + title + v +
-        '<span class="hint">（固定角色/DAG/预算，保证可复现编队）</span> ' +
+        '<span class="hint">（按保存的自定义节点、依赖与预算组队）</span> ' +
         '<button type="button" class="owo-ws-mini" data-core-action data-open-workflows="' +
         esc(tid) + '" title="打开自定义工作流面板查看检查清单与一键修复">查看该工作流</button></div>'
       );

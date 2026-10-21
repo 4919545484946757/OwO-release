@@ -4,10 +4,11 @@
 //! 覆盖 生成→列表→详情→采纳→丢弃 全链路，以及三类失败：
 //! 无 JSON、JSON 结构不符、校验不过（采纳被拒且不落盘）。
 
+use async_trait::async_trait;
 use owo_agent_core::gateway::ModelProvider;
 use owo_agent_core::permissions::Policy;
 use owo_agent_core::sqlite_store::SqliteSessionStore;
-use owo_agent_core::tools::ToolRegistry;
+use owo_agent_core::tools::{Tool, ToolContext, ToolRegistry};
 use owo_agent_core::{Agent, ChatMessage, ModelOutput, ToolSpec};
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
@@ -18,6 +19,7 @@ struct ScriptedProvider {
     replies: Mutex<Vec<String>>,
     /// 最后一次用户消息（断言修复提示词带上校验错误）。
     last_user: Mutex<String>,
+    last_system: Mutex<String>,
 }
 
 impl ScriptedProvider {
@@ -25,6 +27,7 @@ impl ScriptedProvider {
         Arc::new(Self {
             replies: Mutex::new(replies),
             last_user: Mutex::new(String::new()),
+            last_system: Mutex::new(String::new()),
         })
     }
 }
@@ -39,6 +42,9 @@ impl ModelProvider for ScriptedProvider {
         if let Some(user) = messages.iter().rev().find(|message| message.role == "user") {
             *self.last_user.lock().unwrap() = user.content.clone().unwrap_or_default();
         }
+        if let Some(system) = messages.iter().find(|message| message.role == "system") {
+            *self.last_system.lock().unwrap() = system.content.clone().unwrap_or_default();
+        }
         let mut replies = self.replies.lock().unwrap();
         let reply = if replies.len() > 1 {
             replies.remove(0)
@@ -46,6 +52,19 @@ impl ModelProvider for ScriptedProvider {
             replies.first().cloned().unwrap_or_default()
         };
         Ok(ModelOutput::Text(reply))
+    }
+}
+
+struct DraftMcpTool(ToolSpec);
+
+#[async_trait]
+impl Tool for DraftMcpTool {
+    fn spec(&self) -> ToolSpec {
+        self.0.clone()
+    }
+
+    async fn run(&self, _ctx: &mut ToolContext<'_>, _args: Value) -> Result<Value, String> {
+        Err("draft fixture tool must not execute".to_string())
     }
 }
 
@@ -61,6 +80,10 @@ fn fixture(replies: Vec<String>) -> Fixture {
 }
 
 fn fixture_with_provider(provider: Arc<ScriptedProvider>) -> Fixture {
+    fixture_with_registry(provider, ToolRegistry::new())
+}
+
+fn fixture_with_registry(provider: Arc<ScriptedProvider>, tools: ToolRegistry) -> Fixture {
     let temp = tempfile::tempdir().unwrap();
     let workspace = temp.path().join("ws");
     let data_root = temp.path().join("data");
@@ -68,7 +91,7 @@ fn fixture_with_provider(provider: Arc<ScriptedProvider>) -> Fixture {
     std::fs::create_dir_all(&data_root).unwrap();
     let agent = Agent::new(
         Arc::clone(&provider) as Arc<dyn ModelProvider>,
-        ToolRegistry::new(),
+        tools,
         Policy::new(&workspace),
         Default::default(),
     );
@@ -122,6 +145,35 @@ async fn call(
         serde_json::from_slice(&bytes).unwrap_or(json!(null))
     };
     (status, value)
+}
+
+#[tokio::test]
+async fn draft_defaults_to_the_currently_connected_workflow_tools() {
+    let provider = ScriptedProvider::new(vec![good_reply()]);
+    let mut tools = ToolRegistry::new();
+    tools.register(DraftMcpTool(ToolSpec::with_effect(
+        "mcp__media_provider__video_generate",
+        "Generate a video".to_string(),
+        json!({"type":"object","properties":{}}),
+        None,
+    )));
+    let fixture = fixture_with_registry(Arc::clone(&provider), tools);
+    let (status, body) = call(
+        &fixture.state,
+        "POST",
+        "/workflows/draft",
+        Some(r#"{"description":"按参考制作游戏预告片"}"#),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let system = provider.last_system.lock().unwrap().clone();
+    assert!(
+        system.contains("mcp__media_provider__video_generate"),
+        "{system}"
+    );
+    assert!(system.contains("Generate a video"), "{system}");
+    assert!(system.contains("web_fetch"), "{system}");
+    assert!(system.contains("read_file"), "{system}");
 }
 
 /// 模型"生成"的一份合法工作流（游戏关卡生成流水线，含人工验收节点）。

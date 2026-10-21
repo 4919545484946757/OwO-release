@@ -26,7 +26,8 @@ pub struct RoleSpec {
     /// 角色级写白名单（相对工作区根；空 = 工作区内可写）。
     /// 声明后写角色可与其他范围不重叠的写角色并发落盘（范围租约）。
     pub write_paths: Vec<String>,
-    /// 职责能力。review 控制只读与评审语义；未知能力不授予工具权限。
+    /// 职责与调度能力。review 控制只读语义；orchestrator/task_worker/integrator
+    /// 参与动态任务图调度；这些标签本身不授予工具权限。
     pub capabilities: Vec<String>,
     /// 模板声明的角色工具白名单（用户自定义工作流）：空 = 沿用角色画像的缺省工具面；
     /// 非空时按声明装配工具，不从角色名称推断能力；仍受宿主策略、审批与写范围限制。
@@ -67,6 +68,17 @@ impl RoleSpec {
         self.has_capability("review")
             || (self.tools.is_empty()
                 && super::util::is_review_role(&self.role, &self.capabilities))
+    }
+
+    /// Orchestration is an explicit capability; the legacy lead label remains valid.
+    pub fn is_orchestrator(&self) -> bool {
+        self.has_capability("orchestrator") || self.role == "lead"
+    }
+
+    /// A downstream node that merges or packages the dynamically assigned task outputs.
+    pub fn is_integrator(&self) -> bool {
+        self.has_capability("integrator")
+            || matches!(self.role.as_str(), "leader" | "project_integrator")
     }
 }
 

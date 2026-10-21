@@ -1696,6 +1696,26 @@ async fn openapi_json_covers_snapshot_and_registered_routes() {
         .unwrap();
     let served: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     let snapshot: serde_json::Value = serde_json::from_str(CONTRACT_SNAPSHOT).unwrap();
+    for field in [
+        "model",
+        "parallel",
+        "max_agent_members",
+        "acknowledge_risk",
+        "allow_scoped_writes",
+    ] {
+        let served_property = &served["paths"]["/teams"]["post"]["requestBody"]["content"]
+            ["application/json"]["schema"]["properties"][field];
+        let snapshot_property = &snapshot["paths"]["/teams"]["post"]["requestBody"]["content"]
+            ["application/json"]["schema"]["properties"][field];
+        assert!(
+            !served_property.is_null(),
+            "POST /teams field {field} must be documented"
+        );
+        assert_eq!(
+            served_property, snapshot_property,
+            "POST /teams field {field} drifted"
+        );
+    }
     for schema in ["ProductEvalRun", "ProductEvalMetrics", "CaseModeMetrics"] {
         assert_eq!(
             served["components"]["schemas"][schema], snapshot["components"]["schemas"][schema],
