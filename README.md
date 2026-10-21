@@ -19,7 +19,7 @@ OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入
 
 ## 安装与使用
 
-运行 `OwO-Input-Method-0.2.3-windows-x64-Setup.exe` 后直接进入独立 WinUI 3 安装向导，不再经过 Inno Setup 界面：先查看软件介绍，再选择安装位置和快捷方式；确认安装后才校验、解压内置安装文件并调用注册后端。安装器自带运行时，首次启动会在本机展开运行依赖。也可解压便携包后双击 `Install-OwO.cmd` 使用脚本入口。系统需要 Windows 11 x64，以及“中文（简体，中国）”语言和基本输入支持；不要求把中文设为 Windows 显示语言。
+运行 `OwO-Input-Method-0.2.3-windows-x64-Setup.exe`，允许系统管理员授权后，由 Setup 解包并启动 WinUI 3 安装助手：先查看软件介绍，再选择安装位置和快捷方式，最后确认安装并查看进度。Setup 保留原生解包进度；软件安装选项和实际安装仍由 WinUI 助手处理。安装助手自带运行时，无需另外安装 .NET 或 Windows App SDK。也可解压便携包后双击 `Install-OwO.cmd` 使用脚本入口。系统需要 Windows 11 x64，以及“中文（简体，中国）”语言和基本输入支持；不要求把中文设为 Windows 显示语言。
 
 安装完成后按 `Win + Space` 选择 OwO Input Method。常用入口：
 
@@ -60,7 +60,7 @@ Agent 返回的自然语言只用于显示，控制行为必须使用结构化�
 
 ## 构建与打包
 
-需要 Visual Studio 2022 Build Tools、MSVC x64、CMake 3.25+、.NET 10 SDK 和 Windows 11 SDK。
+需要 Visual Studio 2022 Build Tools、MSVC x64、CMake 3.25+、.NET 10 SDK 和 Windows 11 SDK；Setup 打包另需 Inno Setup 6/7（可通过 `-CompilerPath` 指定编译器）。
 
 ```powershell
 cmake --preset windows-debug
@@ -89,4 +89,4 @@ cmake --build --preset windows-release
 
 当前构建未进行商业代码签名。请只从可信来源获取，并核对发行目录中的 `SHA256SUMS.txt`。
 
-独立安装器的构建、安全校验与测试说明见 [WinUI 安装器](docs/standalone-winui-setup.md)。
+Setup 引导与 WinUI 安装助手的构建、安全校验与测试说明见 [WinUI 安装器](docs/standalone-winui-setup.md)。

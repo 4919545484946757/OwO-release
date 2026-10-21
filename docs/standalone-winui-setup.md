@@ -1,48 +1,52 @@
-# 独立 WinUI 3 安装器
+# Setup 引导与 WinUI 3 安装助手
 
-`apps/setup_center/OwO.Setup.csproj` 生成独立的 `OwO.Setup.exe`。它共享设置中心的向导页面，但不编译普通设置页面。`scripts/package_setup.ps1` 不再调用 Inno Setup；旧 `.iss` 仅保留作历史参考。
+当前发行恢复使用 `packaging/windows/OwO-Setup.iss`：Inno Setup 负责管理员授权、完整解包和临时目录生命周期，随后运行 `settings/OwO.Settings.exe --install <安装包目录>`。保留最新 WinUI 页面，不回退整个代码版本。`apps/setup_center` 的单文件实验宿主仍保留，但不再作为默认发行入口。
 
 ## 执行顺序
 
-1. .NET 单文件宿主展开自身运行依赖并显示 WinUI 开始页。此时不解压或安装 OwO 载荷，不请求管理员权限。
-2. 安装选项页检查系统架构、语言支持、用户路径和可信确认。
-3. 用户点击安装后，在后台验证内置 ZIP 的 SHA-256，检查路径、重复项、链接属性和展开大小限制。
-4. 在独立 GUID 临时目录展开 ZIP，然后按包内 `SHA256SUMS.txt` 校验所有文件。校验失败不启动安装脚本。
-5. 调用现有 PowerShell 安装后端；TSF 注册需要的 UAC 保持为 Windows 系统界面。安装期间拒绝关闭窗口；结束或失败后可以关闭并清理本次安装临时目录。
+1. 原生 Setup 先检查 x64 架构并请求 Windows UAC 授权，再将随包文件解压到自己的临时目录。这个解包进度不是输入法的实际安装进度。
+2. 启动自带 .NET / Windows App SDK 的 WinUI 助手；Setup 等待其结束，不提前清理临时目录。
+3. 助手保留“软件介绍→安装选项→安装进度”三个阶段，检查当前用户语言支持、用户路径和可信确认。未确认前不复制到安装位置，不注册 TSF。
+4. 用户点击安装后调用现有 PowerShell 后端。助手已由 Setup 提权，通常无需再次创建提权进程，标准输出/错误可直接回传到详细信息区。
+5. 安装期间拒绝关闭窗口；失败可返回选项重试，结束并关闭助手后由 Setup 清理自己的临时文件。
 
-独立安装器只接受 x64 Windows。ZIP 脚本入口仍可用。单文件不等于零解压：运行依赖由 .NET 单文件宿主管理，其缓存不由 OwO 删除；完整安装载荷只在确认后展开。因为安装器与被安装的设置中心分别携带依赖，Setup 体积比旧 Inno 包更大。
+当前发行只接受原生 x64 Windows；x64 Windows 中的 32 位应用仍使用 x86 TSF。ZIP 脚本入口继续可用。UAC 授权不能代替 WinUI 页内的可信确认；使用另一个管理员账户授权时，语言配置和用户数据归属于实际运行助手的账户，最终仍需在目标用户账户验收。
 
 ## 安全边界
 
-- 提权前验证载荷。哈希只用于完整性检查，不替代来源信任或代码签名；当前仍未签名。
-- 拒绝绝对路径、路径越界、重复文件名、符号链接和未列入校验清单的文件。
-- 只清理本次随机工作目录，遇到重解析点不执行递归删除。
-- 真实安装阶段继续使用既有注册、升级、卸载后端，不把 WinUI 安装器安装到目标目录。
-- 提权取消或后端失败会显示错误，允许返回选项重试。
+- 打包时核验发行 ZIP 的 SHA-256、暂存目录与 ZIP 内清单一致性及暂存目录逐文件哈希；拒绝越界、重复、链接和未列入清单的文件。
+- Inno 使用自身的打包文件完整性检查和临时目录管理，不依赖单文件 WinUI 的运行时资源重定位。现有源码中的安全 ZIP 解压实现及测试保留，但不再属于默认 Setup 运行路径。
+- 哈希不替代来源信任和代码签名；当前仍未签名。请从可信来源获取并核对发行校验清单。
+- 实际安装沿用目录重叠保护、并排升级避免覆盖已加载 TSF、原生 x64 / x86 注册、语言检测和卸载后端。
+- 本次切换不修改设置页、候选算法、插件或用户配置。
 
 ## 构建与验证
 
-先发布最新设置中心并生成发行 ZIP，再运行：
+需要 Inno Setup 6/7。依次构建最新版设置中心、生成发行目录、编译 Setup（新目录避免覆盖旧包）：
 
 ```powershell
+.\scripts\build_settings_center.ps1 -Configuration Release -NoRestore
+.\scripts\package_release.ps1 -Version 0.2.3 -OutputDirectory <新的发行目录>
 .\scripts\package_setup.ps1 -Version 0.2.3 -OutputDirectory <新的发行目录>
+.\scripts\package_setup.ps1 -Version 0.2.3 -OutputDirectory <新的发行目录> -ValidateOnly
 dotnet run --project tests/settings_center/preferences_tests.csproj -c Release -- <发行ZIP绝对路径>
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/settings_center/SetupPackagingTests.ps1
 ```
 
-Setup 发布使用专用锁文件和自包含单文件模式。构建脚本检查未留下运行必需的独立 DLL/XBF/PRI，并避免覆盖已有 Setup。
+`-CompilerPath` 可指定 `ISCC.exe`。设置中心仍使用锁文件发布自包含依赖，必须带齐 XBF、PRI、图标和横幅。打包不会运行真实安装。
 
-独立宿主使用最小 `App.xaml` 初始化 WinUI，窗口以代码创建。启动时把运行库路径定位到 .NET 自解压目录，并通过 `ResourceManagerRequested` 显式加载固定名称 `resources.pri`。项目必须设置 `ProjectPriFileName=resources.pri`：仅显式加载旧的 `OwO.Setup.pri` 不足以覆盖 WinUI 控件延迟加载，发行版改名或浏览器添加 `(1)` 后缀后，进入选项页仍会闪退。此处理依据 [Windows App SDK 官方问题记录及建议](https://github.com/microsoft/WindowsAppSDK/issues/6248)。启动阶段和失败日志分别写入 `%LOCALAPPDATA%\OwO\InputMethod\logs\setup-startup.log` 与 `setup-crash.log`。
+### 保留的界面与关键修复
+
+- 三阶段界面、顶部横幅、步骤指示、百分比排版、可折叠详情及保持窗口位置的响应式尺寸。
+- 选项/进度页面缓存，避免重复挂接控件；可信按钮、语言检测超时/异常区分、当前用户语言回退及路径检查。
+- 完整 WinUI 资源发布，避免缺少 XBF/PRI；旧实验宿主的固定 `resources.pri` 改名修复同样保留，没有使用 Git 整体回退。
 
 ### 导航回归检查
 
 ```powershell
-.\scripts\test_setup_navigation.ps1 -SetupPath <生成的Setup.exe>
+.\scripts\test_setup_navigation.ps1 -PackageRoot <发行暂存目录>
 ```
 
-该检查分别使用原文件名、发行文件名和下载重复文件名运行同一个 EXE。每次重复四轮“下一步→选项页→上一步”，检查真实语言探测结束及安装按钮在未授权时保持禁用，然后检查进度页和详情展开/收起。只读验证模式 `--verify-installer-navigation` 不授权、不安装、不注册输入法、不解压安装负载；完成后自动关闭窗口。测试在本机已安装 OwO 的情况下同样适用。
+该检查直接运行包内助手，不运行外层 Setup、不触发 UAC。重复四轮“下一步→选项页→上一步”，检查真实语言探测结束及未确认时安装按钮保持禁用，再检查进度页和详情展开/收起。只读验证模式 `--verify-installer-navigation` 不授权、不安装、不注册输入法，完成后自动关闭窗口。旧单文件实验宿主的三种文件名检查须显式使用 `-Standalone -SetupPath <旧宿主EXE>`，不可将新 Inno Setup 传入该模式。
 
-测试覆盖延迟解压、真实发行载荷的逐文件校验、越界/重复/链接/损坏载荷拒绝和临时目录清理。导航回归模式额外覆盖原名/改名/下载后缀 EXE 的选项页延迟资源加载、重复返回与进入、进度页详情展开/收起。本机界面自动化工具将窗口误识别为 Visual Studio Installer，无法可靠绑定，因此视觉布局和鼠标点击仍需手动验收。未自动确认可信来源、批准 UAC 或执行实际安装。
-
-单文件部署与自定义资源管理器采用微软提供的机制：[单文件部署要求](https://learn.microsoft.com/zh-cn/windows/apps/package-and-deploy/unpackage-winui-app)、[ResourceManagerRequested](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.application.resourcemanagerrequested)。
-
-在未安装 .NET/Windows App SDK 的干净 Windows 11 x64 虚拟机上仍需完成最终安装、升级、卸载验收。
+现有安全解压、前置条件、导航及设置偏好测试继续保留。外层 Setup 的 UAC、临时目录等待/清理、实际安装、升级与卸载须在 Windows 11 x64（含无 .NET / Windows App SDK 的干净虚拟机）进行最终手动验收。

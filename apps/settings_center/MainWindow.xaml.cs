@@ -28,7 +28,19 @@ public sealed partial class MainWindow : Window
             AppTitleBar.Title = App.InstallPreviewStage is null
                 ? "安装 OwO 输入法" : "安装 OwO 输入法 · 阶段预览";
             try {
-                RootFrame.Content = new SetupPage();
+                var setupPage = new SetupPage();
+                RootFrame.Content = setupPage;
+                if (Environment.GetCommandLineArgs().Contains("--verify-installer-navigation")) {
+                    setupPage.Loaded += async (_, _) => {
+                        try {
+                            await setupPage.VerifyNavigationAsync();
+                            App.LogStage("Navigation verification passed");
+                        } catch (Exception error) {
+                            Environment.ExitCode = 1;
+                            App.LogStage("Navigation verification failed: " + error);
+                        } finally { Close(); }
+                    };
+                }
                 AppWindow.Closing += (_, args) => {
                     if (RootFrame.Content is SetupPage page && page.InstallationInProgress)
                         args.Cancel = true;

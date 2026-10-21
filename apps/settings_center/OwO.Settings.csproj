@@ -49,6 +49,7 @@
 
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
+    <Compile Include="../setup_center/SetupPage.NavigationVerification.cs" Link="SetupPage.NavigationVerification.cs" />
   </ItemGroup>
 
   <!--

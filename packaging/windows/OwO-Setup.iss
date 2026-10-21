@@ -12,6 +12,8 @@
 #endif
 
 [Setup]
+; Native bootstrapper only: preserve the current WinUI pages and backend.
+; Elevate before starting the assistant so backend stdout/stderr stay attached.
 AppId={{6D31C9B1-8978-4F49-89B4-66EB1E741591}
 AppName=OwO Input Method
 AppVersion={#MyVersion}

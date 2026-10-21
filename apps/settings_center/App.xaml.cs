@@ -52,6 +52,17 @@ public partial class App : Application
         }
     }
 
+    internal static void LogStage(string stage)
+    {
+        try {
+            var directory = System.IO.Path.Combine(Environment.GetFolderPath(
+                Environment.SpecialFolder.LocalApplicationData), "OwO", "InputMethod", "logs");
+            Directory.CreateDirectory(directory);
+            File.AppendAllText(System.IO.Path.Combine(directory, "setup-startup.log"),
+                $"{DateTimeOffset.Now:O} {stage}\n");
+        } catch { }
+    }
+
     /// <summary>
     /// Invoked when the application is launched.
     /// </summary>
