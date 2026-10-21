@@ -9,5 +9,6 @@
     <Compile Include="../../apps/settings_center/SettingsUiPreferences.cs" Link="SettingsUiPreferences.cs"/>
     <Compile Include="../../apps/settings_center/SetupPrerequisites.cs" Link="SetupPrerequisites.cs"/>
     <Compile Include="../../apps/settings_center/InstallerPayload.cs" Link="InstallerPayload.cs"/>
+    <Compile Include="../../apps/settings_center/InstallerProcessRunner.cs" Link="InstallerProcessRunner.cs"/>
   </ItemGroup>
 </Project>

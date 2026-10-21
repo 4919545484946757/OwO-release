@@ -2,10 +2,18 @@
 param(
     [switch]$NoSettingsStartMenuShortcut,
     [switch]$CreateSettingsDesktopShortcut,
-    [string]$InstallDirectory
+    [string]$InstallDirectory,
+    [switch]$ReportProgress
 )
 
 $ErrorActionPreference = 'Stop'
+if ($ReportProgress) { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) }
+function Write-OwOInstallProgress([int]$Percent, [string]$Stage) {
+    if ($ReportProgress) {
+        [Console]::Out.WriteLine("OWO_SETUP_PROGRESS|$Percent|$Stage")
+        [Console]::Out.Flush()
+    }
+}
 . (Join-Path $PSScriptRoot 'Install-Prerequisites.ps1')
 Assert-OwOX64OperatingSystem
 $nativeSystem = Get-OwONativeSystemDirectory
@@ -16,6 +24,7 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     $arguments = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "' + $PSCommandPath + '"'
     if ($NoSettingsStartMenuShortcut) { $arguments += ' -NoSettingsStartMenuShortcut' }
     if ($CreateSettingsDesktopShortcut) { $arguments += ' -CreateSettingsDesktopShortcut' }
+    if ($ReportProgress) { $arguments += ' -ReportProgress' }
     if (-not [string]::IsNullOrWhiteSpace($InstallDirectory)) {
         $arguments += ' -InstallDirectory "' + $InstallDirectory.Replace('"', '""') + '"'
     }
@@ -28,6 +37,7 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     exit $elevated.ExitCode
 }
 
+Write-OwOInstallProgress 3 'prepare'
 # OwO is registered as a Simplified Chinese TSF profile (LANGID 0x0804).
 # Without the corresponding user-language entry Windows can register the COM
 # server while still refusing to expose or activate the input profile. Fail
@@ -113,7 +123,9 @@ if (-not $installRoot.StartsWith($programRoot + [IO.Path]::DirectorySeparatorCha
 $installMarker = Join-Path $installRoot '.owo-install-state.json'
 $installState = [ordered]@{ application = 'OwO.InputMethod'; schema = 1; state = 'copying'; version = $version }
 [IO.File]::WriteAllText($installMarker, ($installState | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+$copyProgress = @{ bin = 8; data = 20; model = 32; settings = 45; scripts = 60; LICENSES = 65 }
 foreach ($directory in @('bin', 'data', 'model', 'settings', 'scripts', 'LICENSES')) {
+    Write-OwOInstallProgress $copyProgress[$directory] "copy-$directory"
     $source = Join-Path $packageRoot $directory
     if (-not (Test-Path -LiteralPath $source)) { throw "Package directory is missing: $directory" }
     Copy-Item -LiteralPath $source -Destination $installRoot -Recurse -Force
@@ -132,6 +144,7 @@ Copy-Item -LiteralPath (Join-Path $packageRoot 'Uninstall-OwO.cmd') `
 # copied OwO installation tree before Windows loads its DLLs and executables.
 Get-ChildItem -LiteralPath $installRoot -File -Recurse | Unblock-File
 
+Write-OwOInstallProgress 70 'verify'
 # Verify the copied v2 lexicon once during installation. Runtime loading uses
 # this immutable validation record (format, size and write timestamp) to avoid
 # scanning the complete mapped payload after every sign-in.
@@ -199,6 +212,7 @@ $oldTsf = if ($null -ne $previousInstallRoot) {
 $oldX86Tsf = if ($null -ne $previousInstallRoot) {
     Join-Path $previousInstallRoot 'bin\x86\OwO.TSF.dll'
 } else { $null }
+Write-OwOInstallProgress 80 'retire'
 # Retire services started from old extracted packages as well as registered
 # install roots. Their global pipe names can mask the newly installed service.
 foreach ($process in Get-CimInstance Win32_Process | Where-Object {
@@ -241,6 +255,7 @@ if ($null -ne $oldX86Tsf -and (Test-Path -LiteralPath $oldX86Tsf -PathType Leaf)
 }
 
 $tsf = Join-Path $installRoot 'bin\OwO.TSF.dll'
+Write-OwOInstallProgress 85 'register'
 $x86Tsf = Join-Path $installRoot 'bin\x86\OwO.TSF.dll'
 $profileCheck = Join-Path $installRoot 'bin\owo_tsf_profile_check.exe'
 $register = Start-Process -FilePath (Join-Path $nativeSystem 'regsvr32.exe') `
@@ -255,6 +270,7 @@ if ($x86Register.ExitCode -ne 0) {
 if ($LASTEXITCODE -ne 0) { throw "OwO profile enable failed: $LASTEXITCODE" }
 
 $owoTip = '0804:{6D31C9B1-8978-4F49-89B4-66EB1E741591}{5D9F39C3-BDB4-453C-A7BA-B9EF82487629}'
+Write-OwOInstallProgress 89 'preferences'
 if ($null -eq $chinese) {
     Write-Warning 'Chinese language readiness was verified through the user registry, but the writable language list is unavailable. Keeping existing language preferences; use Win+Space to select OwO.'
 } elseif ($chinese.InputMethodTips -notcontains $owoTip) {
@@ -328,6 +344,7 @@ try {
     Write-Warning "OwO was installed, but one or more shortcuts could not be created: $($_.Exception.Message)"
 }
 
+Write-OwOInstallProgress 94 'start'
 & $launcher
 if ($LASTEXITCODE -ne 0) {
     throw "OwO native runtime launcher failed: $LASTEXITCODE"
@@ -354,3 +371,4 @@ if ($null -ne $previousInstallRoot -and
 $installState.state = 'completed'
 [IO.File]::WriteAllText($installMarker, ($installState | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
 Write-Output "OwO Input Method $version installed: $installRoot"
+Write-OwOInstallProgress 99 'complete'

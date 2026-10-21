@@ -337,7 +337,7 @@ public sealed partial class SetupPage : Page
         _progress.Minimum = 0;
         _progress.Maximum = 100;
         _progress.Value = 0;
-        _progressPercentage.Text = "0%";
+        _progressPercentage.Text = indeterminate ? "—" : "0%";
         _installLog.Text = "";
         _installStatus.Severity = InfoBarSeverity.Informational;
         _stageMessage.Text = message;
@@ -547,11 +547,21 @@ public sealed partial class SetupPage : Page
             var arguments = new List<string> {
                 "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                 "-File", Path.Combine(_packageRoot, "scripts", "Install-OwO.ps1"),
-                "-InstallDirectory", installDirectory
+                "-InstallDirectory", installDirectory, "-ReportProgress"
             };
+            // Bundled-payload preparation has its own progress scale.
+            _progress.Value = 0;
             if (_startMenuShortcut.IsChecked != true) arguments.Add("-NoSettingsStartMenuShortcut");
             if (_desktopShortcut.IsChecked == true) arguments.Add("-CreateSettingsDesktopShortcut");
-            var result = await RunProcessAsync(WindowsPowerShell, arguments);
+            var receiving = true;
+            var progress = new Progress<InstallerProcessLine>(line => {
+                if (!receiving) return;
+                ShowBackendLine(line);
+            });
+            InstallerProcessResult result;
+            try { result = await InstallerProcessRunner.RunAsync(WindowsPowerShell, arguments, lines: progress); }
+            finally { receiving = false; }
+            App.LogStage($"Installer backend exited: {result.ExitCode}");
             _installLog.Text = string.Join(Environment.NewLine,
                 new[] { result.Output, result.Error }.Where(value => !string.IsNullOrWhiteSpace(value)));
             if (result.ExitCode != 0)
@@ -569,8 +579,6 @@ public sealed partial class SetupPage : Page
             Environment.ExitCode = 0;
         } catch (Exception exception) {
             _progress.IsIndeterminate = false;
-            _progress.Value = 0;
-            _progressPercentage.Text = "0%";
             _installStatus.Severity = InfoBarSeverity.Error;
             _stageMessage.Text = $"安装失败：{exception.Message}";
             _installLog.Text = string.IsNullOrWhiteSpace(_installLog.Text)
@@ -629,6 +637,21 @@ public sealed partial class SetupPage : Page
                 break;
             default:
                 throw new ArgumentException($"未知安装预览阶段：{stage}");
+        }
+    }
+
+    private void ShowBackendLine(InstallerProcessLine line)
+    {
+        App.LogStage("Installer backend: " + line.Text);
+        if (!line.IsError && InstallerProcessRunner.TryProgress(line.Text, out var percent, out var stage)) {
+            if (percent < _progress.Value) return;
+            _progress.IsIndeterminate = false;
+            _progress.Value = percent;
+            _progressPercentage.Text = $"{percent}%";
+            _stageMessage.Text = stage;
+        } else {
+            var text = _installLog.Text + line.Text + Environment.NewLine;
+            _installLog.Text = text.Length > 65536 ? text[^65536..] : text;
         }
     }
 
@@ -786,30 +809,7 @@ public sealed partial class SetupPage : Page
 
     private static void CloseWindow() => ((App)Application.Current).MainWindow.Close();
 
-    private sealed record ProcessResult(int ExitCode, string Output, string Error);
-
-    private static async Task<ProcessResult> RunProcessAsync(string executable,
+    private static Task<InstallerProcessResult> RunProcessAsync(string executable,
         IEnumerable<string> arguments, TimeSpan? timeout = null)
-    {
-        var start = new ProcessStartInfo(executable) {
-            UseShellExecute = false, CreateNoWindow = true,
-            RedirectStandardOutput = true, RedirectStandardError = true,
-        };
-        foreach (var argument in arguments) start.ArgumentList.Add(argument);
-        using var process = Process.Start(start) ??
-            throw new InvalidOperationException($"无法启动 {executable}。");
-        var output = process.StandardOutput.ReadToEndAsync();
-        var error = process.StandardError.ReadToEndAsync();
-        using var cancellation = new CancellationTokenSource();
-        if (timeout is { } duration) cancellation.CancelAfter(duration);
-        try {
-            await process.WaitForExitAsync(cancellation.Token);
-        } catch (OperationCanceledException) {
-            try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
-            await process.WaitForExitAsync();
-            await Task.WhenAll(output, error);
-            throw new TimeoutException("语言检测超时");
-        }
-        return new ProcessResult(process.ExitCode, await output, await error);
-    }
+        => InstallerProcessRunner.RunAsync(executable, arguments, timeout);
 }

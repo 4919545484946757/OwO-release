@@ -1,7 +1,8 @@
 using OwO_Settings;
 
 await InstallerPayloadTests.RunAsync();
-if (args.Length == 1) await InstallerPayloadTests.VerifyReleaseAsync(args[0]);
+if (args.Length > 0) await InstallerPayloadTests.VerifyReleaseAsync(args[0]);
+if (args.Length == 3 && args[1] == "--process-fixture") await InstallerProcessRunnerTests.RunAsync(args[2]);
 
 foreach (var architecture in Enum.GetValues<System.Runtime.InteropServices.Architecture>()) {
     var supported = SetupPrerequisites.ArchitectureError(architecture).Length == 0;

@@ -1,5 +1,6 @@
 #include <Windows.h>
 #include <TlHelp32.h>
+#include "process_launch.h"
 
 #include <chrono>
 #include <filesystem>
@@ -88,19 +89,9 @@ StartedProcess start_process(const std::filesystem::path& executable,
     }
     std::vector<wchar_t> mutable_command(command.begin(), command.end());
     mutable_command.push_back(L'\0');
-    STARTUPINFOW startup{sizeof(startup)};
-    const bool inherit_handles = log != nullptr && log != INVALID_HANDLE_VALUE;
-    if (inherit_handles) {
-        startup.dwFlags = STARTF_USESTDHANDLES;
-        startup.hStdInput = log;
-        startup.hStdOutput = log;
-        startup.hStdError = log;
-    }
     PROCESS_INFORMATION process{};
-    if (!CreateProcessW(executable.c_str(), mutable_command.data(), nullptr, nullptr,
-                        inherit_handles ? TRUE : FALSE,
-                        CREATE_NO_WINDOW, nullptr, working_directory.c_str(), &startup,
-                        &process))
+    if (!owo::runtime::create_logged_process(executable.c_str(), mutable_command.data(),
+                                             working_directory.c_str(), log, &process))
         return {};
     CloseHandle(process.hThread);
     return {process.hProcess, process.dwProcessId};

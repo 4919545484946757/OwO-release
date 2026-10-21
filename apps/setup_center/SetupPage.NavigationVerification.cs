@@ -24,6 +24,13 @@ public sealed partial class SetupPage
             await Task.Delay(300);
         }
         ShowProgress("Read-only navigation verification", false);
+        ShowBackendLine(new InstallerProcessLine("OWO_SETUP_PROGRESS|45|copy-settings", false));
+        if (_progress.Value != 45 || _progressPercentage.Text != "45%" || _progress.IsIndeterminate)
+            throw new InvalidOperationException("Backend stage did not update visible progress.");
+        ShowBackendLine(new InstallerProcessLine("OWO_SETUP_PROGRESS|3|prepare", false));
+        ShowBackendLine(new InstallerProcessLine("OWO_SETUP_PROGRESS|99|complete", true));
+        if (_progress.Value != 45 || _progressPercentage.Text != "45%")
+            throw new InvalidOperationException("Stale or stderr progress changed the visible stage.");
         _detailsToggle.IsChecked = true;
         await Task.Delay(500);
         _detailsToggle.IsChecked = false;

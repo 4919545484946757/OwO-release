@@ -16,6 +16,10 @@
 
 安装复制前写入 `.owo-install-state.json`，成功后标记完成。重试遇到完整 OwO 安装、有效状态标记或与当前包 TSF/Core 二进制哈希相符的旧版失败残留时，使用全新的同级目录，不覆盖或删除残留目录。缺少卸载脚本的残留不会作为旧安装清理目标；无关的非空目录、无法核验的残留、文件路径或链接目录仍拒绝安装。日志记录实际安装位置。
 
+安装助手以 `-ReportProgress` 启动后端，按复制组件/词典/模型/设置中心、校验、注册、配置、启动等真实阶段输出结构化进度；这些百分比表示阶段完成度，不是逐字节进度或剩余时间预测。仅解析 stdout 中合法的阶段标记，stderr、未知标记和倒退进度不改变显示。100% 只在后端退出码为 0 后显示。详细信息实时更新，阶段及输出记录在 `setup-startup.log`，失败保留最后已知进度而不是重置为 0%。
+
+启动器使用 `PROC_THREAD_ATTRIBUTE_HANDLE_LIST`，仅将日志句柄传给 Core / ModelHost，避免继承安装器的 stdout/stderr 管道。助手等待后端进程结束后最多再收尾读取 2 秒，之后关闭自己的读取端并保留退出码及诊断，不等待或终止持续运行的后台服务。因此不会因安装已经结束、子进程仍持有管道而卡在进度页。
+
 定向验证：
 
 ```powershell
@@ -23,6 +27,9 @@ dotnet build apps/settings_center/OwO.Settings.csproj -c Release -p:Platform=x64
 dotnet run --project tests/settings_center/preferences_tests.csproj -c Release
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/settings_center/InstallerPrerequisitesTests.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/settings_center/InstallerDirectoryTests.ps1
+cmake --build --preset windows-release --target owo_runtime_launcher owo_runtime_launcher_handles_tests
+ctest --test-dir build/windows-release -C Release -R '^owo.runtime.launcher_handles$' --output-on-failure
+dotnet run --project tests/settings_center/preferences_tests.csproj -c Release -- <发行ZIP> --process-fixture <owo_runtime_launcher_handles_tests.exe>
 ```
 
 手动验证：运行 `open-owo-installer.cmd`（不使用阶段预览参数），反复切换上一步/下一步，检查设置与可信确认是否保留；检查完成后，勾选可信应启用安装按钮。安装失败返回选项后可重试。阶段预览脚本只用于观察布局，不能用于验证实际安装按钮。

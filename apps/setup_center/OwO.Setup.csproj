@@ -34,6 +34,7 @@
   <ItemGroup>
     <Compile Include="../settings_center/SetupPage.cs" Link="SetupPage.cs" />
     <Compile Include="../settings_center/SetupPrerequisites.cs" Link="SetupPrerequisites.cs" />
+    <Compile Include="../settings_center/InstallerProcessRunner.cs" Link="InstallerProcessRunner.cs" />
     <Compile Include="../settings_center/InstallerPayload.cs" Link="InstallerPayload.cs" />
     <Content Include="../settings_center/Assets/**" Link="Assets/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <EmbeddedResource Include="$(OwOSetupPayload)" LogicalName="OwO.Setup.Payload.zip" Condition="Exists('$(OwOSetupPayload)')" />
