@@ -83,6 +83,10 @@ int main() {
         {{"he"}, "和", 5000}, {{"he"}, "合", 4000},
         {{"he"}, "盒", 3900}, {{"he"}, "喝", 3800},
         {{"gong", "neng"}, "功能", 1700},
+        {{"hai", "chan"}, "海产", 1000000},
+        {{"hai", "cha"}, "还差", 500000},
+        {{"na", "xie"}, "哪些", 500000},
+        {{"hai"}, "还", 1000000}, {{"a"}, "啊", 1000000}, {{"xie"}, "些", 1000000},
         {{"shi", "jie"}, "世界", 1600},
         {{"liang"}, "两", 1800}, {{"liang"}, "亮", 1700},
         {{"liang"}, "量", 1600}, {{"liang"}, "梁", 1500},
@@ -149,6 +153,27 @@ int main() {
         corrected_second_syllable.message.candidates.front() == "功能" &&
         corrected_second_syllable.message.syllables ==
             std::vector<std::string>{"gong", "nneg"};
+    const auto ambiguous_short = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request, 190, 8, "haichanaxie"});
+    owo::protocol::Message explicit_boundary_request{owo::protocol::MessageType::candidate_request, 191, 8, "hai'chan'a'xie"};
+    explicit_boundary_request.correction_enabled = false;
+    const auto explicit_boundary = send_request(pipe_name, explicit_boundary_request);
+    owo::protocol::Message strict_boundary_request{owo::protocol::MessageType::candidate_request, 192, 8, "haichanaxie"};
+    strict_boundary_request.correction_enabled = false;
+    const auto strict_boundary = send_request(pipe_name, strict_boundary_request);
+    const auto remaining_boundary = send_request(
+        pipe_name, {owo::protocol::MessageType::candidate_request, 193, 8, "naxie"});
+    const auto short_head = std::find(ambiguous_short.message.candidates.begin(), ambiguous_short.message.candidates.end(), "还差");
+    const bool ambiguous_short_ok = ambiguous_short.validation &&
+        !ambiguous_short.message.candidates.empty() && ambiguous_short.message.candidates.front() == "还差哪些" &&
+        ambiguous_short.message.syllables == std::vector<std::string>{"hai", "cha", "na", "xie"} &&
+        ambiguous_short.message.candidate_consumed.front() == 11 &&
+        explicit_boundary.validation && explicit_boundary.message.syllables == std::vector<std::string>{"hai", "chan", "a", "xie"} &&
+        strict_boundary.validation && strict_boundary.message.syllables == std::vector<std::string>{"hai", "cha", "na", "xie"} &&
+        !strict_boundary.message.candidates.empty() && strict_boundary.message.candidates.front() == "还差哪些" &&
+        short_head != ambiguous_short.message.candidates.end() &&
+        ambiguous_short.message.candidate_consumed[static_cast<std::size_t>(short_head - ambiguous_short.message.candidates.begin())] == 6 &&
+        remaining_boundary.validation && !remaining_boundary.message.candidates.empty() && remaining_boundary.message.candidates.front() == "哪些";
     const auto stable_xingb = send_request(
         pipe_name, {owo::protocol::MessageType::candidate_request, 112, 8, "xingb"});
     const auto stable_xingbaf = send_request(
@@ -333,7 +358,7 @@ int main() {
         deferred_correction_complete.message.candidates !=
             std::vector<std::string>{"你好", "你号"} ||
         !valid_response(corrected, 110, 8, {"你好", "你号"}, {"ni", "aho"}) ||
-        !stable_xingb.validation ||
+        !ambiguous_short_ok || !stable_xingb.validation ||
         stable_xingb.message.syllables != std::vector<std::string>{"xing", "b"} ||
         !stable_xingbaf.validation ||
         stable_xingbaf.message.syllables !=

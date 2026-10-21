@@ -1370,8 +1370,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // comparison set need the more detailed phrase-chain pass.
     const auto coherence_limit = std::min(
         full.size(), std::max<std::size_t>(16, limit * 2));
-    for (std::size_t index = 0; index < coherence_limit; ++index)
+    std::vector<bool> coherence_scored(full.size(), false);
+    for (std::size_t index = 0; index < coherence_limit; ++index) {
         apply_cross_boundary_coherence(full[index]);
+        coherence_scored[index] = true;
+    }
     if (expose_long_alternatives) {
         std::vector<std::string> scored_segmentations;
         for (std::size_t index = 0; index < coherence_limit; ++index) {
@@ -1385,7 +1388,40 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 scored_segmentations.end()) continue;
             scored_segmentations.push_back(std::move(key));
             apply_cross_boundary_coherence(full[index]);
+            coherence_scored[index] = true;
             if (scored_segmentations.size() >= exact_path_limit) break;
+        }
+    }
+    if (exact_paths_added > 1) {
+        // A high-frequency reading can fill the raw top-N pool with character
+        // permutations. Reserve a bounded comparison slice for every exact
+        // source reading, including short inputs. Otherwise increasing the
+        // page/search budget can hide an entire dictionary-backed phrase chain.
+        constexpr std::size_t representatives_per_reading = 2;
+        std::vector<std::pair<std::vector<std::string>, std::size_t>> readings;
+        const auto count_for = [&readings](const Candidate& candidate) -> std::size_t& {
+            const auto found = std::find_if(readings.begin(), readings.end(), [&](const auto& item) {
+                return item.first == candidate.source_segments;
+            });
+            if (found != readings.end()) return found->second;
+            readings.emplace_back(candidate.source_segments, 0);
+            return readings.back().second;
+        };
+        for (std::size_t index = 0; index < full.size(); ++index) {
+            if (coherence_scored[index] && full[index].match_kind == InputMatchKind::exact)
+                ++count_for(full[index]);
+        }
+        for (std::size_t index = coherence_limit; index < full.size(); ++index) {
+            auto& candidate = full[index];
+            if (coherence_scored[index] || candidate.match_kind != InputMatchKind::exact) continue;
+            auto& count = count_for(candidate);
+            if (count >= representatives_per_reading) continue;
+            apply_cross_boundary_coherence(candidate);
+            ++count;
+            if (readings.size() >= exact_paths_added &&
+                std::all_of(readings.begin(), readings.end(), [](const auto& item) {
+                    return item.second >= representatives_per_reading;
+                })) break;
         }
     }
     const auto sentence_less = [](const Candidate& left, const Candidate& right) {

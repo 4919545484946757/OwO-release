@@ -30,6 +30,8 @@ int main(int argc, char** argv) {
     bool assisted = false;
     bool parse_only = false;
     bool print_candidates = false;
+    bool model_alternatives = false;
+    std::size_t candidate_limit = 10;
     std::size_t partition_page_size = 0;
     for (int index = 1; index < argc; ++index) {
         if (std::string_view(argv[index]) == "--assisted") {
@@ -38,6 +40,12 @@ int main(int argc, char** argv) {
         } else if (std::string_view(argv[index]) == "--query") {
             if (custom_query.has_value() || index + 1 >= argc) return 2;
             custom_query = argv[++index];
+        } else if (std::string_view(argv[index]) == "--limit") {
+            if (index + 1 >= argc) return 2;
+            try { candidate_limit = std::stoul(argv[++index]); } catch (...) { return 2; }
+            if (candidate_limit == 0 || candidate_limit > 256) return 2;
+        } else if (std::string_view(argv[index]) == "--model-alternatives") {
+            model_alternatives = true;
         } else if (std::string_view(argv[index]) == "--parse-only") {
             parse_only = true;
         } else if (std::string_view(argv[index]) == "--print-candidates") {
@@ -134,7 +142,7 @@ int main(int argc, char** argv) {
         const auto parsed = schema.parse(query_at(index), 32, true, &parse_metrics);
         owo::engine::CandidateGenerationMetrics generation_metrics;
         const auto candidates = generator.generate(
-            parsed, 10, false, {}, &generation_metrics, {}, false,
+            parsed, candidate_limit, false, {}, &generation_metrics, {}, model_alternatives,
             partition_page_size);
         if (print_candidates) {
             for (std::size_t candidate_index = 0;

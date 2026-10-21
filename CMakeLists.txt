@@ -698,6 +698,13 @@ if(BUILD_TESTING)
         target_compile_options(owo_candidate_generator_tests PRIVATE -Wall -Wextra -Wpedantic)
     endif()
     add_test(NAME owo.engine.candidates COMMAND owo_candidate_generator_tests)
+    add_executable(owo_ambiguous_boundary_tests tests/engine/ambiguous_boundary_tests.cpp)
+    target_link_libraries(owo_ambiguous_boundary_tests PRIVATE owo_engine)
+    target_compile_features(owo_ambiguous_boundary_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_ambiguous_boundary_tests PRIVATE /W4 /permissive- /utf-8)
+    endif()
+    add_test(NAME owo.engine.ambiguous_boundaries COMMAND owo_ambiguous_boundary_tests)
 
     add_executable(owo_candidate_scheduler_tests
         tests/engine/candidate_scheduler_tests.cpp)

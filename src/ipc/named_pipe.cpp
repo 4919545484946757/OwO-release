@@ -309,7 +309,8 @@ std::string read_frame(const HANDLE pipe) {
 std::vector<std::string> preferred_source_segmentation(
     const engine::ParseResult& parsed,
     const std::vector<std::string>& candidate_segments,
-    const bool correction_enabled) {
+    const bool correction_enabled,
+    const engine::Candidate* const winning_candidate) {
     const auto source_segments = [&parsed](const engine::ParsePath& path) {
         std::vector<std::string> segments;
         segments.reserve(path.syllables.size());
@@ -342,11 +343,28 @@ std::vector<std::string> preferred_source_segmentation(
         parsed.paths.begin(), parsed.paths.end(), [](const engine::ParsePath& path) {
             return path.match_kind == engine::InputMatchKind::exact && !path.syllables.empty();
         });
-    // For long compact input the engine may intentionally compare two exact
-    // segmentations. Keep the preview aligned with the winning candidate;
-    // short input and user-authored apostrophe boundaries retain the existing
-    // preview rules.
-    if (parsed.normalized_input.size() >= 12 &&
+    // Use lexical evidence only for a complete exact candidate whose raw
+    // source boundaries are present in the parse graph. Never let a prefix,
+    // abbreviation or completed spelling replace the user's actual input.
+    const bool winning_exact_source = winning_candidate != nullptr &&
+        winning_candidate->match_kind == engine::InputMatchKind::exact &&
+        winning_candidate->consumed_input_bytes == parsed.normalized_input.size() &&
+        std::any_of(parsed.paths.begin(), parsed.paths.end(), [&](const auto& path) {
+            if (path.match_kind != engine::InputMatchKind::exact ||
+                path.syllables.size() != candidate_segments.size()) return false;
+            for (std::size_t index = 0; index < path.syllables.size(); ++index) {
+                const auto& syllable = path.syllables[index];
+                if (!syllable.complete || syllable.end > parsed.normalized_input.size() ||
+                    syllable.begin >= syllable.end ||
+                    std::string_view(parsed.normalized_input).substr(syllable.begin, syllable.end - syllable.begin) != candidate_segments[index])
+                    return false;
+            }
+            return true;
+        });
+    // Exact full-input evidence can choose a different source boundary even
+    // for short input; keep it aligned with the candidate. Retain the existing
+    // long-input policy, and never reinterpret user-authored apostrophes.
+    if ((parsed.normalized_input.size() >= 12 || winning_exact_source) &&
         parsed.normalized_input.find('\'') == std::string::npos &&
         !candidate_segments.empty())
         return candidate_segments;
@@ -1834,7 +1852,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                                             ? std::vector<std::string>{}
                                                             : candidates.front().source_segments;
                         response.syllables = preferred_source_segmentation(
-                            parsed, candidate_segments, decoded.message.correction_enabled);
+                            parsed, candidate_segments, decoded.message.correction_enabled,
+                            candidates.empty() ? nullptr : &candidates.front());
                         if (response.syllables.empty())
                             response.syllables = candidate_segments;
                     }
