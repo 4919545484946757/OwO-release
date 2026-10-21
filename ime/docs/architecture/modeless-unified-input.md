@@ -1,6 +1,6 @@
 # 无模式统一编码、智能候选与多模态输出（引擎切片 v1）
 
-状态：已实现引擎层并提供实时 IPC 契约验证；TSF 按键路由与多模态素材插入为后续工作。
+状态：已实现引擎层并提供实时 IPC 契约验证；TSF 数字路由已部分接入并保护修饰键，符号路由、真实 GUI 验收与多模态素材插入仍为后续工作。
 日期：2026-10-19
 相关代码：`src/engine/unified_input.cpp`、`src/engine/smart_candidates.cpp`、`src/engine/expressive_candidates.cpp`、`src/ipc/named_pipe.cpp`
 
@@ -141,6 +141,8 @@ call "<VS2022>\VC\Auxiliary\Build\vcvars64.bat"
 ```
 
 基线核对：`owo.engine.candidates` 在本次改动前的 `origin/master` 干净检出上同样失败（"a complete shorter reading displaced an incomplete learned word"），属于既有问题，与本切片无关。
+
+修饰键边界（2026-10-21 修复）：仅无修饰数字进入候选选择或预编辑。`Shift+数字` 留给已有中文标点转换（启用且选中时）或宿主；`Ctrl/Alt/Win+数字` 留给宿主快捷键。`OnTestKeyDown` 与 `OnKeyDown` 共用的路由读取相同修饰键状态，避免 `Shift+0` 被误插成 `0`。路由回归覆盖所有数字、修饰键组合、候选存在/不存在和请求挂起状态。
 
 ## 8. 后续工作
 

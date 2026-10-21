@@ -1183,6 +1183,8 @@ owo::tsf::DigitKeyAction TextService::digit_key_action(const WPARAM key) const n
     owo::tsf::DigitKeyState state;
     state.request_pending = candidate_request_pending_;
     state.has_composition = has_composition();
+    state.shift_down = key_down(VK_SHIFT);
+    state.command_modifier_down = command_modifier_down();
     state.candidate_count = candidates_.size();
     const auto cursor = std::min(input_cursor_, input_buffer_.size());
     state.previous_character =

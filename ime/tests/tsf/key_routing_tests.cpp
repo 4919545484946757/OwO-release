@@ -35,6 +35,28 @@ int main() {
         DigitKeyAction::select_candidate)
         return fail("pending request did not keep the digit for selection");
 
+    // Shift+0 is a closing parenthesis, not a zero in the preedit. Modified
+    // digits must never select a candidate or join the composition, even when
+    // a candidate request is pending. The TSF handles selected punctuation
+    // separately; unselected symbols and application shortcuts reach the host.
+    for (const bool shift : {false, true}) {
+        for (const bool command : {false, true}) {
+            if (!shift && !command) continue;
+            for (const bool pending : {false, true}) {
+                for (const std::size_t count : {std::size_t{0}, std::size_t{9}}) {
+                    auto state = composed(count, L'i', pending);
+                    state.shift_down = shift;
+                    state.command_modifier_down = command;
+                    for (wchar_t key = L'0'; key <= L'9'; ++key) {
+                        if (owo::tsf::route_digit_key(state, key) !=
+                            DigitKeyAction::pass_through)
+                            return fail("modified digit was consumed as input or selection");
+                    }
+                }
+            }
+        }
+    }
+
     // Tone digits join the composition when no candidate occupies the slot.
     if (owo::tsf::route_digit_key(composed(0, L'i'), L'3') !=
         DigitKeyAction::join_composition)

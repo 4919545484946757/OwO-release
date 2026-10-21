@@ -10,6 +10,10 @@ bool is_composition_letter(const wchar_t character) noexcept {
 DigitKeyAction route_digit_key(const DigitKeyState& state,
                                const wchar_t key) noexcept {
     if (key < L'0' || key > L'9') return DigitKeyAction::pass_through;
+    // Virtual digit keys also represent symbols with Shift and application
+    // shortcuts with Ctrl/Alt/Win. Only plain digits belong to this router.
+    if (state.shift_down || state.command_modifier_down)
+        return DigitKeyAction::pass_through;
     // `0` is not a candidate selection key, but it is still input text.
     const auto index = key == L'0' ? static_cast<std::size_t>(-1)
                                    : static_cast<std::size_t>(key - L'1');
