@@ -32,3 +32,17 @@ cmake --build --preset windows-x86-release --target owo_tsf
 ```
 
 此为专项验证，不代替真实应用、不同显示器 DPI 和远程桌面的人工验收，不执行全量自检。开发测试部署通过带 SHA256 的 x64/x86 DLL 注册，不覆盖被宿主占用的 DLL，不停止用户应用；已经加载旧 TSF 的应用需保存后重新打开。Core 与 ModelHost 不因 UI 更新而重启。
+
+## 注册成功但界面未更新
+
+本机复核发现，新记事本也曾加载安装目录的旧 DLL，而用户级 COM 注册已指向新版。只检查注册路径或重启 Core 不能证明新界面实际生效。
+
+Windows 的 [TF_InvalidAssemblyListCacheIfExist](https://learn.microsoft.com/en-us/windows/win32/tsf/tf-invalidassemblylistcacheifexist) 可刷新当前会话的 TSF 描述缓存。注册入口现从系统目录加载 `msctf.dll` 并调用该 API；开发注册脚本也执行显式检查。缓存刷新失败只警告，不撤销已有可用输入法配置；可用以下命令单独诊断：
+
+```powershell
+.\build\windows-release\Release\owo_tsf_profile_check.exe --refresh-cache
+```
+
+`scripts/open-candidate-testpad.ps1` 提供全新进程的普通文本控件，规避记事本复用旧进程的影响。它不重启现有应用，不保存文本，不更改系统动画设置。使用 Windows PowerShell 的 `-STA -File` 参数运行即可。验证部署时应读取该进程实际装载的 `OwO.TSF.*.dll` 路径，而不只查看注册表。
+
+本机实际验证：缓存刷新后，独立测试窗口加载了 `OwO.TSF.0c86e994f7f6c449.dll`（原生 UI 动画版）；未重启 `ctfmon`、Core、ModelHost 或用户应用。已打开的记事本仍可能保留此前加载的旧模块，需保存并完全退出后再开启。

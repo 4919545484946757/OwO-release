@@ -347,6 +347,7 @@ if(WIN32)
     endif()
 
     add_executable(owo_tsf_profile_check tools/tsf_profile_check.cpp)
+    target_include_directories(owo_tsf_profile_check PRIVATE include)
     target_compile_features(owo_tsf_profile_check PRIVATE cxx_std_20)
     target_compile_definitions(owo_tsf_profile_check PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
     target_link_libraries(owo_tsf_profile_check PRIVATE ole32 uuid)
