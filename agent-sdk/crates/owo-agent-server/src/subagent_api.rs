@@ -1,7 +1,7 @@
 //! 子代理 HTTP API（§12：从 lib.rs 机械外移的 subagent 域）。
 //!
-//! 路由面（`POST /subagent/run`）与 /openapi.json 登记保持不变，零行为变化。
-//! 只读探索（@explore 对齐）与通用子代理（@subagent 对齐）语义原样保留。
+//! Direct HTTP exploration is read-only until an action approval channel is wired.
+//! Request flags cannot authorize writes or command execution.
 //!
 //! 独立编译约束（沿 notes_api 惯例）：不使用 `crate::`/`super::`；引用 server
 //! 类型一律写全限定名 `owo_agent_server::AppState`。
@@ -18,13 +18,10 @@ use owo_agent_server::AppState;
 #[derive(Deserialize)]
 pub(super) struct SubagentRunRequest {
     prompt: String,
-    /// true 为只读探索模式（对齐 CLI `@explore`）；false 为通用子代理（对齐 `@subagent`）。
-    ///
-    /// 缺省从"通用"改为"只读"：调用方忘传字段时 fail-closed，避免非只读子代理
-    /// 在无审批通道的情况下执行命令（审查 N3）。
+    /// Defaults to read-only; false requires a bound approval channel and is rejected here.
     #[serde(default = "default_read_only")]
     read_only: bool,
-    /// `read_only=false` 时是否放行工作区内命令执行；缺省 false（必须显式 opt-in）。
+    /// Must remain false; a request flag cannot grant command execution.
     #[serde(default)]
     allow_commands: bool,
     #[serde(default)]
@@ -64,6 +61,14 @@ pub(super) async fn subagent_run(
 ) -> Result<Json<Value>, (StatusCode, String)> {
     if request.prompt.trim().is_empty() {
         return Err((StatusCode::BAD_REQUEST, "缺少 prompt".to_string()));
+    }
+    // A request field is not an action approval. This synchronous endpoint has
+    // no parameter-bound approval channel, so side-effect modes stay closed.
+    if !request.read_only || request.allow_commands {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "subagent/approval_channel_required".into(),
+        ));
     }
     let started = std::time::Instant::now();
     let workspace = state.workspace.clone();

@@ -1,4 +1,4 @@
-//! In-memory pairing lifecycle policy, not a credential verifier or enrollment endpoint.
+//! In-memory pairing lifecycle and exact-frame proof verification; no enrollment endpoint.
 //! Only a trusted host may create records after verifying consent and connector integrity.
 //! Callers must supply kernel-derived identity and a verified executable digest, never JSON claims.
 use std::{
@@ -13,6 +13,8 @@ pub const MAX_REQUEST_NONCES: usize = 4096;
 // No Debug/Serialize: identity metadata is not ordinary diagnostic output.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ConnectorBinding {
+    pub process_id: u32,
+    pub process_created_at: u64,
     pub user_sid: Vec<u8>,
     pub session_id: u32,
     pub authentication_id: (u32, i32),
@@ -24,6 +26,7 @@ struct Record {
     issued: Instant,
     expires: Instant,
     revoked: bool,
+    proof_key: Option<zeroize::Zeroizing<[u8; 32]>>,
     consumed_nonces: HashSet<[u8; 32]>,
 }
 
@@ -41,6 +44,9 @@ pub enum PairingError {
     InvalidNonce,
     Replay,
     NonceCapacity,
+    InvalidProof,
+    InvalidEnvelope,
+    InvalidPayload,
 }
 
 /// Process-local policy only. Restart discards all grants; nothing auto-enrolls.
@@ -61,7 +67,12 @@ impl PairingRegistry {
         if lifetime.is_zero() || lifetime > MAX_PAIRING_LIFETIME {
             return Err(PairingError::InvalidLifetime);
         }
-        if binding.user_sid.is_empty() || binding.executable_sha256 == [0; 32] || id == [0; 32] {
+        if binding.process_id == 0
+            || binding.process_created_at == 0
+            || binding.user_sid.is_empty()
+            || binding.executable_sha256 == [0; 32]
+            || id == [0; 32]
+        {
             return Err(PairingError::InvalidBinding);
         }
         if self.records.contains_key(&id) {
@@ -81,6 +92,7 @@ impl PairingRegistry {
                 issued: now,
                 expires,
                 revoked: false,
+                proof_key: None,
                 consumed_nonces: HashSet::new(),
             },
         );
@@ -115,7 +127,7 @@ impl PairingRegistry {
     /// and this nonce. This function does not verify that proof. Consume before
     /// dispatch, including when the handler later fails; retries need a fresh proof.
     /// Keep this check and consumption under the same registry lock in the host.
-    pub fn consume_verified_request(
+    fn consume_verified_request(
         &mut self,
         id: &[u8; 32],
         actual: &ConnectorBinding,
@@ -138,11 +150,88 @@ impl PairingRegistry {
         Ok(())
     }
 
-    pub fn revoke(&mut self, id: &[u8; 32]) -> Result<(), PairingError> {
+    /// Trusted enrollment only. Never reuse the model API key or HTTP bearer here.
+    /// Legacy lifecycle-only records have no key and cannot authorize a request.
+    pub fn approve_with_key_from_trusted_host(
+        &mut self,
+        id: [u8; 32],
+        binding: ConnectorBinding,
+        now: Instant,
+        lifetime: Duration,
+        key: zeroize::Zeroizing<[u8; 32]>,
+    ) -> Result<(), PairingError> {
+        if *key == [0; 32] {
+            return Err(PairingError::InvalidProof);
+        }
+        self.approve_from_trusted_host(id, binding, now, lifetime)?;
         self.records
-            .get_mut(id)
+            .get_mut(&id)
             .ok_or(PairingError::Unknown)?
-            .revoked = true;
+            .proof_key = Some(key);
+        Ok(())
+    }
+
+    /// Verify the exact framed payload BEFORE parsing it or dispatching business logic.
+    /// Proof bytes cover domain, pairing ID, nonce, little-endian length and raw payload.
+    /// A host must enforce one parser's semantics (including duplicate-key rejection).
+    /// This is a local transport proof, not the later canonical signed Intent Capsule.
+    #[allow(clippy::too_many_arguments)] // Keep proof bytes and kernel identity explicit at this boundary.
+    pub fn authorize_proven_request(
+        &mut self,
+        id: &[u8; 32],
+        actual: &ConnectorBinding,
+        nonce: [u8; 32],
+        payload: &[u8],
+        tag: &[u8; 32],
+        now: Instant,
+    ) -> Result<(), PairingError> {
+        use hmac::{Hmac, Mac};
+        self.check(id, actual, now)?;
+        if payload.is_empty() || payload.len() > crate::protocol::MAXIMUM_AGENT_PAYLOAD_BYTES {
+            return Err(PairingError::InvalidPayload);
+        }
+        let record = self.records.get(id).ok_or(PairingError::Unknown)?;
+        let key = record
+            .proof_key
+            .as_ref()
+            .ok_or(PairingError::InvalidProof)?;
+        let mut mac = Hmac::<sha2::Sha256>::new_from_slice(key.as_ref())
+            .map_err(|_| PairingError::InvalidProof)?;
+        mac.update(b"OwO/IME/pipe-request/v1\0");
+        mac.update(id);
+        mac.update(&nonce);
+        mac.update(&(payload.len() as u64).to_le_bytes());
+        mac.update(payload);
+        mac.verify_slice(tag)
+            .map_err(|_| PairingError::InvalidProof)?;
+        self.consume_verified_request(id, actual, nonce, now)
+    }
+
+    /// Authenticate exact envelope bytes before strict DTO decoding. No legacy fallback.
+    /// Caller holds the registry lock through verification/consumption; dispatch follows.
+    pub fn authorize_frame(
+        &mut self,
+        actual: &ConnectorBinding,
+        bytes: &[u8],
+        now: Instant,
+    ) -> Result<crate::protocol::AgentIpcRequest, PairingError> {
+        let frame = crate::proof_frame::ProofFrame::decode(bytes)?;
+        self.authorize_proven_request(
+            frame.pairing_id,
+            actual,
+            *frame.nonce,
+            frame.payload,
+            frame.tag,
+            now,
+        )?;
+        crate::protocol::AgentIpcRequest::decode(frame.payload)
+            .map_err(|_| PairingError::InvalidPayload)
+    }
+
+    pub fn revoke(&mut self, id: &[u8; 32]) -> Result<(), PairingError> {
+        let record = self.records.get_mut(id).ok_or(PairingError::Unknown)?;
+        record.revoked = true;
+        record.proof_key = None; // Zeroizing drops the revoked key immediately.
         Ok(())
     }
 }
@@ -152,6 +241,8 @@ mod tests {
     use super::*;
     fn binding() -> ConnectorBinding {
         ConnectorBinding {
+            process_id: 12,
+            process_created_at: 12345,
             user_sid: vec![1, 2, 3],
             session_id: 7,
             authentication_id: (9, 0),
@@ -194,14 +285,16 @@ mod tests {
         store
             .approve_from_trusted_host([1; 32], binding(), now, MAX_PAIRING_LIFETIME)
             .unwrap();
-        for field in 0..5 {
+        for field in 0..7 {
             let mut wrong = binding();
             match field {
                 0 => wrong.user_sid.push(4),
                 1 => wrong.session_id += 1,
                 2 => wrong.authentication_id.0 += 1,
                 3 => wrong.authentication_id.1 += 1,
-                _ => wrong.executable_sha256[0] ^= 1,
+                4 => wrong.executable_sha256[0] ^= 1,
+                5 => wrong.process_id += 1,
+                _ => wrong.process_created_at += 1,
             }
             assert_eq!(
                 store.check(&[1; 32], &wrong, now),
@@ -242,6 +335,18 @@ mod tests {
             assert_eq!(
                 store.approve_from_trusted_host([1; 32], binding(), now, ttl),
                 Err(PairingError::InvalidLifetime)
+            );
+        }
+        for field in 0..2 {
+            let mut invalid = binding();
+            if field == 0 {
+                invalid.process_id = 0;
+            } else {
+                invalid.process_created_at = 0;
+            }
+            assert_eq!(
+                store.approve_from_trusted_host([1; 32], invalid, now, MAX_PAIRING_LIFETIME),
+                Err(PairingError::InvalidBinding)
             );
         }
         let mut invalid = binding();
@@ -334,6 +439,112 @@ mod tests {
         assert_eq!(
             store.consume_verified_request(&[2; 32], &binding(), first, now),
             Ok(())
+        );
+    }
+    fn tag(key: &[u8], id: &[u8; 32], nonce: &[u8; 32], payload: &[u8]) -> [u8; 32] {
+        use hmac::{Hmac, Mac};
+        let mut mac = Hmac::<sha2::Sha256>::new_from_slice(key).unwrap();
+        mac.update(b"OwO/IME/pipe-request/v1\0");
+        mac.update(id);
+        mac.update(nonce);
+        mac.update(&(payload.len() as u64).to_le_bytes());
+        mac.update(payload);
+        mac.finalize().into_bytes().into()
+    }
+    #[test]
+    fn proof_binds_entire_frame_and_consumes_only_after_verification() {
+        let mut store = PairingRegistry::default();
+        let now = Instant::now();
+        let id = [1; 32];
+        let nonce = [2; 32];
+        let key = [3; 32];
+        let payload = b"synthetic text";
+        store
+            .approve_with_key_from_trusted_host(
+                id,
+                binding(),
+                now,
+                MAX_PAIRING_LIFETIME,
+                zeroize::Zeroizing::new(key),
+            )
+            .unwrap();
+        let valid = tag(&key, &id, &nonce, payload);
+        assert_eq!(
+            valid,
+            [
+                150, 72, 218, 47, 139, 151, 240, 49, 153, 89, 238, 98, 178, 176, 189, 40, 237, 177,
+                224, 35, 2, 70, 130, 73, 213, 18, 58, 230, 60, 94, 84, 88
+            ]
+        );
+        for bad in [
+            b"synthetic texT".as_slice(),
+            b"synthetic text extra".as_slice(),
+        ] {
+            assert_eq!(
+                store.authorize_proven_request(&id, &binding(), nonce, bad, &valid, now),
+                Err(PairingError::InvalidProof)
+            );
+        }
+        assert_eq!(
+            store.authorize_proven_request(&id, &binding(), [4; 32], payload, &valid, now),
+            Err(PairingError::InvalidProof)
+        );
+        let wrong_key = tag(&[5; 32], &id, &nonce, payload);
+        assert_eq!(
+            store.authorize_proven_request(&id, &binding(), nonce, payload, &wrong_key, now),
+            Err(PairingError::InvalidProof)
+        );
+        assert_eq!(
+            store.authorize_proven_request(&id, &binding(), nonce, payload, &valid, now),
+            Ok(())
+        );
+        assert_eq!(
+            store.authorize_proven_request(&id, &binding(), nonce, payload, &valid, now),
+            Err(PairingError::Replay)
+        );
+        store.revoke(&id).unwrap();
+        assert_eq!(
+            store.authorize_proven_request(
+                &id,
+                &binding(),
+                [6; 32],
+                payload,
+                &tag(&key, &id, &[6; 32], payload),
+                now
+            ),
+            Err(PairingError::Revoked)
+        );
+    }
+    #[test]
+    fn keyless_records_and_cross_pairing_proofs_fail_closed() {
+        let mut store = PairingRegistry::default();
+        let now = Instant::now();
+        let key = [3; 32];
+        let nonce = [2; 32];
+        store
+            .approve_from_trusted_host([1; 32], binding(), now, MAX_PAIRING_LIFETIME)
+            .unwrap();
+        let valid = tag(&key, &[1; 32], &nonce, b"synthetic");
+        assert_eq!(
+            store.authorize_proven_request(&[1; 32], &binding(), nonce, b"synthetic", &valid, now),
+            Err(PairingError::InvalidProof)
+        );
+        store
+            .approve_with_key_from_trusted_host(
+                [4; 32],
+                binding(),
+                now,
+                MAX_PAIRING_LIFETIME,
+                zeroize::Zeroizing::new(key),
+            )
+            .unwrap();
+        assert_eq!(
+            store.authorize_proven_request(&[4; 32], &binding(), nonce, b"synthetic", &valid, now),
+            Err(PairingError::InvalidProof)
+        );
+        assert_eq!(
+            store.authorize_proven_request(&[4; 32], &binding(), nonce, b"", &valid, now),
+            Err(PairingError::InvalidPayload)
         );
     }
 }

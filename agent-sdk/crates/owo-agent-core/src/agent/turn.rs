@@ -683,6 +683,26 @@ impl Agent {
                                 } else {
                                     ReviewVerdict::Unknown
                                 };
+                                let verdict = if verdict == ReviewVerdict::Allow
+                                    && request.is_destructive()
+                                {
+                                    // A model recommendation is not a concrete action approval.
+                                    // Preserve the actual approver, parameter binding and live
+                                    // ToolHost policy recheck for every side-effect request.
+                                    self.audit
+                                        .lock()
+                                        .map_err(|_| AgentError::Session("审计锁中毒".into()))?
+                                        .record(
+                                            &session.id,
+                                            "auto_review_recommendation",
+                                            Some(call.name.clone()),
+                                            None,
+                                            "模型建议允许；副作用动作仍须实际审批".to_string(),
+                                        );
+                                    ReviewVerdict::Unknown
+                                } else {
+                                    verdict
+                                };
                                 if self.reviewer.is_some() {
                                     phase_timings.push(PhaseTiming {
                                         phase: Phase::Approval.as_str().to_string(),

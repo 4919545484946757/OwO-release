@@ -1,0 +1,42 @@
+{
+  "prompt": "synthetic rewrite",
+  "synthetic_key_hex": "0707070707070707070707070707070707070707070707070707070707070707",
+  "canonical_payload": "{\"ic_version\":1,\"capsule_id\":\"11111111111111111111111111111111\",\"issuer\":\"owo-intent-gateway\",\"audience\":\"owo-daemon-expression\",\"binding\":{\"session_id\":\"22222222222222222222222222222222\",\"request_id\":\"synthetic-request\",\"task_revision\":1},\"origin\":{\"source\":\"ime\",\"context_id\":\"synthetic-context\",\"connector_pid\":1234,\"process_created_at_hex\":\"01dc123456789abc\",\"executable_sha256\":\"3333333333333333333333333333333333333333333333333333333333333333\",\"selection_sha256\":null,\"application_metadata\":\"connector_claim\"},\"origin_request_sha256\":\"db9f1d39b0d6564f130bfe78ab22503678430c8a42a7b7aaf856475863d23578\",\"prompt_sha256\":\"d21288c633a0ed4efae9eab90104463028de42c681690f8d762fe48e461d5098\",\"freshness\":{\"issued_at_ms\":1800000000000,\"ttl_ms\":120000},\"nonce\":\"4444444444444444444444444444444444444444444444444444444444444444\",\"scope\":{\"mode\":\"expression_only\"}}",
+  "capsule": {
+    "payload": {
+      "ic_version": 1,
+      "capsule_id": "11111111111111111111111111111111",
+      "issuer": "owo-intent-gateway",
+      "audience": "owo-daemon-expression",
+      "binding": {
+        "session_id": "22222222222222222222222222222222",
+        "request_id": "synthetic-request",
+        "task_revision": 1
+      },
+      "origin": {
+        "source": "ime",
+        "context_id": "synthetic-context",
+        "connector_pid": 1234,
+        "process_created_at_hex": "01dc123456789abc",
+        "executable_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "selection_sha256": null,
+        "application_metadata": "connector_claim"
+      },
+      "origin_request_sha256": "db9f1d39b0d6564f130bfe78ab22503678430c8a42a7b7aaf856475863d23578",
+      "prompt_sha256": "d21288c633a0ed4efae9eab90104463028de42c681690f8d762fe48e461d5098",
+      "freshness": {
+        "issued_at_ms": 1800000000000,
+        "ttl_ms": 120000
+      },
+      "nonce": "4444444444444444444444444444444444444444444444444444444444444444",
+      "scope": {
+        "mode": "expression_only"
+      }
+    },
+    "signature": {
+      "alg": "HMAC-SHA256",
+      "key_id": "gateway-expression-v1",
+      "value": "2c2e61fcf4c63c785a02ca15593c20a9cf0823444483f8d1996d3d8fe7d1845b"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+# Expression origin v1 (read-only subset)
+
+This capsule is only for `/expression`. It grants no tools, MCP, hooks, workspace, file writes, command execution or UI control. It is not full Intent Capsule / task authorization.
+
+The paired Windows pipe adapter supplies process ID, process creation FILETIME and executable digest from the held kernel process handle. The issuer hashes exact authenticated request bytes and the final expression prompt. Application/context/selection claims remain connector claims; a valid signature does not establish user intent or document identity.
+
+Registration uses an independent random 32-byte `OWO_EXPRESSION_ORIGIN_KEY`, supplied only in the trusted gateway and Daemon process environments. Never reuse model, bearer or pairing credentials. This developer host registration is not installer signature attestation or protection from arbitrary code running as that user. Restart with a fresh key invalidates old capsules; no durable key/registration API exists.
+
+Canonical bytes are compact UTF-8 JSON in the exact declared DTO field order (including nested objects), ASCII-only identifiers, lowercase hexadecimal, integers at most 2^53-1, no floats/maps. The absent selection hash normalizes to explicit null. Unknown and duplicate object fields are rejected. Signature is lowercase hex HMAC-SHA256 over `OwO/expression-origin/v1` followed by a NUL byte followed by canonical payload bytes. The signature object is excluded. The synthetic golden vector is independently encoded by Python, uses repeated byte 07 exclusively as a test key, and is never a production default.
+
+Maximum lifetime is 120 seconds, future-clock allowance 5 seconds. Daemon rejects a backwards clock observation, checks expiry before cache lookup, reserves each nonce before the model call, caches a completed result, and rejects different payloads or ambiguous in-flight/failed/cancelled retries without another model call. Maximum 256 receipts; periodic pruning removes expired results. Gateway retains at most 64 raw authenticated request receipts (256 KiB each), in memory only, pruned every 15 seconds and on issue. No raw content or keys are logged. Process restart discards all receipts.
+
+Unsigned desktop expression requests remain an explicitly unverified, bearer-protected no-tools compatibility path. The production IME gateway requires a registered signer and kernel-authenticated evidence; a response lacking origin_verified=true is refused without insertion or downgrade. Signed origin does not expand expression permissions. This is not action approval, execution isolation or full revocation/consent lifecycle acceptance.

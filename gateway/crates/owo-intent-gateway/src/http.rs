@@ -110,6 +110,7 @@ pub struct OwoHttpClient {
     base_url: String,
     token_file: PathBuf,
     token: tokio::sync::RwLock<Option<String>>,
+    origin_signer: Option<crate::source_capsule::SourceSigner>,
 }
 
 impl OwoHttpClient {
@@ -132,9 +133,41 @@ impl OwoHttpClient {
             base_url,
             token_file: token_file.into(),
             token: tokio::sync::RwLock::new(None),
+            origin_signer: None,
         })
     }
 
+    pub fn requiring_origin_from_env(mut self) -> Result<Self, BridgeError> {
+        self.origin_signer = Some(crate::source_capsule::SourceSigner::from_env()?);
+        Ok(self)
+    }
+    pub fn prune_origin_receipts(&self) {
+        if let Some(signer) = &self.origin_signer {
+            signer.prune();
+        }
+    }
+    pub(crate) fn requires_origin(&self) -> bool {
+        self.origin_signer.is_some()
+    }
+    pub(crate) fn issue_origin(
+        &self,
+        origin: Option<&crate::source_capsule::VerifiedOrigin>,
+        request: &crate::protocol::AgentIpcRequest,
+        prompt: &str,
+    ) -> Result<Option<owo_agent_protocol::ExpressionOriginCapsule>, BridgeError> {
+        match &self.origin_signer {
+            Some(signer) => signer
+                .issue(
+                    origin.ok_or_else(|| {
+                        BridgeError::Protocol("authenticated origin required".into())
+                    })?,
+                    request,
+                    prompt,
+                )
+                .map(Some),
+            None => Ok(None),
+        }
+    }
     pub fn base_url(&self) -> &str {
         &self.base_url
     }
@@ -217,8 +250,22 @@ impl OwoHttpClient {
     // ────────────────────────── 回合 ──────────────────────────
 
     pub async fn expression(&self, prompt: &str) -> Result<String, BridgeError> {
+        self.expression_with_capsule(prompt, None).await
+    }
+    pub(crate) async fn expression_with_capsule(
+        &self,
+        prompt: &str,
+        capsule: Option<owo_agent_protocol::ExpressionOriginCapsule>,
+    ) -> Result<String, BridgeError> {
+        if self.requires_origin() && capsule.is_none() {
+            return Err(BridgeError::Protocol(
+                "authenticated origin required".into(),
+            ));
+        }
+        let require_verified = capsule.is_some();
         let body = owo_agent_protocol::ExpressionRequest {
             prompt: prompt.into(),
+            origin_capsule: capsule,
         };
         let response = self
             .authed(|http, token| {
@@ -240,7 +287,10 @@ impl OwoHttpClient {
             bytes.extend_from_slice(&chunk);
         }
         let result: owo_agent_protocol::ExpressionResponse = serde_json::from_slice(&bytes)?;
-        if result.text.trim().is_empty() || result.text.chars().count() > 4096 {
+        if (require_verified && !result.origin_verified)
+            || result.text.trim().is_empty()
+            || result.text.chars().count() > 4096
+        {
             return Err(BridgeError::Protocol("invalid expression output".into()));
         }
         Ok(result.text)
@@ -452,6 +502,53 @@ mod origin_tests {
                 matches!(result, Err(BridgeError::Status { status: actual, .. }) if actual == status)
             );
             assert_eq!(sink.load(Ordering::SeqCst), 0);
+        }
+    }
+}
+
+#[cfg(test)]
+mod signed_origin_http_tests {
+    use super::*;
+    #[tokio::test]
+    async fn signed_request_refuses_unverified_response_without_downgrade() {
+        use axum::{routing::post, Json, Router};
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+        for verified in [false, true] {
+            let calls = Arc::new(AtomicUsize::new(0));
+            let count = calls.clone();
+            let router = Router::new().route(
+                "/expression",
+                post(move |Json(body): Json<serde_json::Value>| {
+                    let count = count.clone();
+                    async move {
+                        count.fetch_add(1, Ordering::SeqCst);
+                        assert!(body["origin_capsule"].is_object());
+                        Json(serde_json::json!({"text":"synthetic","origin_verified":verified}))
+                    }
+                }),
+            );
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let client = OwoHttpClient::new(
+                format!("http://{}", listener.local_addr().unwrap()),
+                "unused",
+            )
+            .unwrap();
+            *client.token.write().await = Some("synthetic-only".into());
+            let task = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+            let golden: serde_json::Value = serde_json::from_str(include_str!(
+                "../../../../contracts/expression-origin/synthetic-golden.json"
+            ))
+            .unwrap();
+            let capsule = serde_json::from_value(golden["capsule"].clone()).unwrap();
+            let result = client
+                .expression_with_capsule("synthetic", Some(capsule))
+                .await;
+            assert_eq!(result.is_ok(), verified);
+            assert_eq!(calls.load(Ordering::SeqCst), 1);
+            task.abort();
         }
     }
 }

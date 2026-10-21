@@ -345,19 +345,34 @@ fn app_container_network_capabilities_follow_policy() {
         ..SandboxPolicy::default()
     };
     let allow_sids = app_container_network_capabilities(&allowlist);
-    assert!(!allow_sids.is_empty());
-    assert!(validate_app_container_network(&allowlist, &allow_sids).is_ok());
-    // 内网 host 推断为 PrivateNetworkClientServer。
+    assert!(
+        allow_sids.is_empty(),
+        "an exact destination list must not gain broad Internet/LAN capability SIDs"
+    );
+    assert!(matches!(
+        allowlist.validate(),
+        Err(SandboxError::Unsupported(_))
+    ));
+    assert!(matches!(
+        validate_app_container_network(&allowlist, &allow_sids),
+        Err(SandboxError::Unsupported(_))
+    ));
+    // A private-host list must also fail closed until a destination broker exists.
     let private_only = SandboxPolicy {
         network_policy: NetworkPolicy::AllowList,
         allow_hosts: vec!["192.168.1.10".to_string()],
         ..SandboxPolicy::default()
     };
     let private_sids = app_container_network_capabilities(&private_only);
-    assert!(private_sids
-        .iter()
-        .any(|sid| *sid == private_network_client_server_sid()));
-    assert!(!private_sids.iter().any(|sid| *sid == internet_client_sid()));
+    assert!(private_sids.is_empty());
+    assert!(matches!(
+        private_only.validate(),
+        Err(SandboxError::Unsupported(_))
+    ));
+    assert!(
+        validate_app_container_network(&private_only, &[private_network_client_server_sid()])
+            .is_err()
+    );
 }
 
 // ---- R9 冒烟 A：存储加密接入真实数据面（settings/会话 落盘加密 + DEK 托管） ----

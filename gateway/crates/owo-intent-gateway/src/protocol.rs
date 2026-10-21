@@ -645,7 +645,7 @@ impl AgentIpcRequest {
                 max: MAXIMUM_AGENT_PAYLOAD_BYTES,
             });
         }
-        let request: Self = serde_json::from_slice(bytes)?;
+        let request: Self = crate::strict_json::from_slice(bytes)?;
         request.validate()?;
         Ok(request)
     }
@@ -730,7 +730,7 @@ impl AgentIpcResponse {
                 max: MAXIMUM_AGENT_PAYLOAD_BYTES,
             });
         }
-        let response: Self = serde_json::from_slice(bytes)?;
+        let response: Self = crate::strict_json::from_slice(bytes)?;
         response.validate()?;
         Ok(response)
     }

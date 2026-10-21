@@ -17,10 +17,23 @@ pub mod frame;
 pub mod http;
 pub mod intent;
 pub mod pairing;
+pub mod proof_frame;
 pub mod protocol;
+pub mod source_capsule;
 pub mod sse;
 pub mod state;
+mod strict_json;
 
+#[cfg(windows)]
+pub mod auth_pipe;
+#[cfg(windows)]
+pub mod credential_store;
+#[cfg(windows)]
+pub mod enrollment;
+#[cfg(windows)]
+pub mod pairing_key;
+#[cfg(windows)]
+pub mod pairing_setup;
 #[cfg(windows)]
 pub mod peer;
 #[cfg(windows)]

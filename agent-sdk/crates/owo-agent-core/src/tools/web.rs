@@ -298,7 +298,13 @@ pub(super) fn validate_fetch_target(url: &reqwest::Url) -> Result<(), String> {
         return Ok(());
     }
     let host = url.host_str().ok_or_else(|| "URL 缺少主机名".to_string())?;
-    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+    // URL host strings retain IPv6 brackets; IP parsing expects the bare literal.
+    // Literal addresses bypass the DNS resolver, so classify them before sending.
+    let literal = host
+        .strip_prefix("[")
+        .and_then(|value| value.strip_suffix("]"))
+        .unwrap_or(host);
+    if let Ok(ip) = literal.parse::<std::net::IpAddr>() {
         if ip_is_forbidden(ip) {
             return Err(format!("web_fetch 拒绝私网/本机目标：{host}"));
         }

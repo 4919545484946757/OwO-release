@@ -1041,7 +1041,7 @@ export interface paths {
         put?: never;
         /**
          * Stateless bounded text; no tools, hooks, MCP, workspace or history
-         * @description Requires a single loopback Host (localhost, 127.0.0.1 or [::1]). Browser Origin, when present, must be a plain allowed desktop/development origin. Forwarded headers do not grant trust. Native callers may omit Origin; Bearer authentication is still required. This does not implement IME pairing.
+         * @description Requires a single loopback Host (localhost, 127.0.0.1 or [::1]). Browser Origin, when present, must be a plain allowed desktop/development origin. Forwarded headers do not grant trust. Native callers may omit Origin; Bearer authentication is still required. This does not implement IME pairing. Optional signed expression-only origin is independently validated. It never grants tools or executable authority.
          */
         post: operations["expression"];
         delete?: never;
@@ -4142,6 +4142,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{id}/conversation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["workswarmConversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{id}/diagnostic": {
         parameters: {
             query?: never;
@@ -4894,22 +4910,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/teams/{id}/conversation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["workswarmConversation"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5017,6 +5017,51 @@ export interface components {
         };
         EvalRunRequest: {
             suite_id: string;
+        };
+        ExpressionOriginCapsule: {
+            payload: {
+                /** @enum {string} */
+                audience: "owo-daemon-expression";
+                binding: {
+                    request_id: string;
+                    session_id: string;
+                    task_revision: number;
+                };
+                capsule_id: string;
+                freshness: {
+                    issued_at_ms: number;
+                    ttl_ms: number;
+                };
+                /** @enum {integer} */
+                ic_version: 1;
+                /** @enum {string} */
+                issuer: "owo-intent-gateway";
+                nonce: string;
+                origin: {
+                    /** @enum {string} */
+                    application_metadata: "connector_claim";
+                    connector_pid: number;
+                    context_id: string;
+                    executable_sha256: string;
+                    process_created_at_hex: string;
+                    selection_sha256: string | null;
+                    /** @enum {string} */
+                    source: "ime";
+                };
+                origin_request_sha256: string;
+                prompt_sha256: string;
+                scope: {
+                    /** @enum {string} */
+                    mode: "expression_only";
+                };
+            };
+            signature: {
+                /** @enum {string} */
+                alg: "HMAC-SHA256";
+                /** @enum {string} */
+                key_id: "gateway-expression-v1";
+                value: string;
+            };
         };
         /** @description /health 响应（十期一路：build 为 additive 字段；§4.2 实例握手字段 additive） */
         HealthResponse: {
@@ -7212,6 +7257,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description Optional expression-only signed origin. Invalid supplied capsule fails closed; omission stays unverified and grants no tools. */
+                    origin_capsule?: components["schemas"]["ExpressionOriginCapsule"];
                     prompt: string;
                 };
             };
@@ -7224,6 +7271,11 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /**
+                         * @description True only after registered issuer, exact prompt, freshness and nonce checks.
+                         * @default false
+                         */
+                        origin_verified: boolean;
                         text: string;
                     };
                 };
@@ -7242,8 +7294,15 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Invalid or duplicate Host/Origin; rejected before provider execution */
+            /** @description Invalid or duplicate Host/Origin; rejected before provider execution; supplied signed origin invalid, expired, unregistered or mismatched. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Signed nonce in flight, ambiguous or bound to another payload; no new model call. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11992,13 +12051,16 @@ export interface operations {
             content: {
                 "application/json": {
                     /**
-                     * @description read_only=false 时是否放行工作区内命令执行；缺省拒绝（无审批通道 fail-closed）
+                     * @description Must remain false. Request flags do not authorize command execution.
                      * @default false
                      */
                     allow_commands?: boolean;
                     model?: string;
                     prompt: string;
-                    /** @description 缺省 true（只读探索）；false 为通用子代理（工作区内写入放行） */
+                    /**
+                     * @description Defaults to true. False is rejected until a parameter-bound approval channel is available.
+                     * @default true
+                     */
                     read_only?: boolean;
                 };
             };
@@ -12010,6 +12072,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Action approval channel required; no model or tool execution */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": "subagent/approval_channel_required";
+                };
             };
         };
     };
@@ -12254,12 +12325,28 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
+                    /** @default false */
+                    acknowledge_risk?: boolean;
+                    /**
+                     * @description Preauthorize file writes only within each node's declared write_paths; does not authorize commands, network or MCP operations.
+                     * @default false
+                     */
+                    allow_scoped_writes?: boolean;
                     budget?: Record<string, never>;
                     goal_id?: string;
                     human_policy?: string;
+                    /** @description Optional explicit agent membership limit. Explicit roles/templates retain their node count when omitted. */
+                    max_agent_members?: number;
                     /** @enum {string} */
                     mode?: "single" | "team" | "swarmflow";
+                    /** @description Default model for agent nodes; roles[].model overrides this value. */
+                    model?: string;
                     objective: string;
+                    /**
+                     * @description Enable the legacy lead/writer dynamic-assignment preset; custom DAG branches run according to dependencies and budget.max_parallel.
+                     * @default false
+                     */
+                    parallel?: boolean;
                     /** @description optional REPL session; server snapshots bounded same-workspace user constraints */
                     parent_session_id?: string;
                     roles?: Record<string, never>[];
@@ -12280,22 +12367,6 @@ export interface operations {
                         /** @description 相对 root 的允许写入路径 */
                         write_allowed_paths?: string[];
                     };
-                    /** @description Default model for agent nodes; roles[].model overrides this value. */
-                    model?: string;
-                    /**
-                     * @description Enable the legacy lead/writer dynamic-assignment preset; custom DAG branches run according to dependencies and budget.max_parallel.
-                     * @default false
-                     */
-                    parallel?: boolean;
-                    /** @description Optional explicit agent membership limit. Explicit roles/templates retain their node count when omitted. */
-                    max_agent_members?: number;
-                    /** @default false */
-                    acknowledge_risk?: boolean;
-                    /**
-                     * @description Preauthorize file writes only within each node's declared write_paths; does not authorize commands, network or MCP operations.
-                     * @default false
-                     */
-                    allow_scoped_writes?: boolean;
                 };
             };
         };
@@ -12659,6 +12730,28 @@ export interface operations {
             };
             /** @description stale expected_revision */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workswarmConversation: {
+        parameters: {
+            query?: {
+                cursors?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded public worker events, next_cursors, has_more and handoffs */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14001,28 +14094,6 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description active rule model + candidates + per-signature samples + calibration report */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    workswarmConversation: {
-        parameters: {
-            query?: {
-                cursors?: string;
-            };
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Bounded public worker events, next_cursors, has_more and handoffs */
             200: {
                 headers: {
                     [name: string]: unknown;

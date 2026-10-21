@@ -48,6 +48,67 @@ impl From<EffectClass> for crate::permissions::Level {
     }
 }
 
+/// Host-declared capability dimensions. An external tool's readOnlyHint does
+/// not establish what its process can access. Empty means an explicitly known
+/// internal/observation operation, never an unclassified tool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToolDimension {
+    Filesystem,
+    Command,
+    Network,
+}
+const UNBOUNDED_DIMENSIONS: &[ToolDimension] = &[
+    ToolDimension::Filesystem,
+    ToolDimension::Command,
+    ToolDimension::Network,
+];
+
+/// Fail closed for external/MCP and unclassified tools. This is conservative
+/// capability classification, not OS-level isolation or proof of confinement.
+pub fn capability_dimensions(tool: &str) -> &'static [ToolDimension] {
+    builtin_dimensions(tool).unwrap_or(UNBOUNDED_DIMENSIONS)
+}
+/// Only immutable host builtin declarations establish constrained capabilities.
+/// MCP hints, even an administrator's readonly declaration, do not establish
+/// filesystem paths, command programs or network destination confinement.
+pub fn has_declared_capability_dimensions(tool: &str) -> bool {
+    builtin_dimensions(tool).is_some()
+}
+
+fn builtin_dimensions(tool: &str) -> Option<&'static [ToolDimension]> {
+    use ToolDimension::{Command, Filesystem, Network};
+    Some(match tool {
+        "read_file" | "write_file" | "edit_file" | "multi_edit" | "apply_patch" | "list_dir"
+        | "search_files" | "grep" | "find_symbol" | "read_artifact" | "read_image"
+        | "delete_file" | "move_file" | "git_status" | "git_diff" | "git_log" => &[Filesystem],
+        // Arbitrary command text is not confined merely by its working directory.
+        // Without a verified capability broker it can both write and connect.
+        "run_command" => &[Command, Filesystem, Network],
+        "shell_output" | "kill_shell" => &[Command],
+        "web_fetch" | "web_search" | "http_get" | "http_post" | "fetch_url" | "download_file"
+        | "browser_snapshot" | "browser_navigate" | "browser_search" | "browser_click"
+        | "browser_type" | "browser_press" | "browser_close" | "screen_vision"
+        | "vision_verify" | "vision_ground" => &[Network],
+        "browser_screenshot" | "browser_download_image" => &[Network, Filesystem],
+        // Unconfined UI input can trigger writes, commands and external sends.
+        "text.inject" | "clipboard" | "desktop_click" | "desktop_type" | "desktop_key"
+        | "desktop_shortcut" | "desktop_activate" | "desktop_launch" | "desktop_scroll" => {
+            UNBOUNDED_DIMENSIONS
+        }
+        "todo"
+        | "verification_plan"
+        | "ask_user"
+        | "screen_ocr"
+        | "desktop_window_ocr"
+        | "ocr_region"
+        | "desktop_foreground"
+        | "desktop_window_list"
+        | "desktop_wait"
+        | "desktop_wait_until" => &[],
+        _ => return None,
+    })
+}
+
 /// 单个工具的副作用元数据。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolEffect {
@@ -610,6 +671,28 @@ mod tests {
                 crate::permissions::Level::Execute,
                 crate::permissions::Level::Inject,
             ]
+        );
+    }
+}
+
+#[cfg(test)]
+mod dimension_declaration_tests {
+    use super::*;
+    #[test]
+    fn every_builtin_effect_has_explicit_capability_dimensions() {
+        for (name, _) in builtin_effects() {
+            assert!(
+                builtin_dimensions(name).is_some(),
+                "missing host capability declaration for {name}"
+            );
+        }
+        assert_eq!(
+            capability_dimensions("mcp__synthetic__readonly"),
+            UNBOUNDED_DIMENSIONS
+        );
+        assert_eq!(
+            capability_dimensions("future_unknown_tool"),
+            UNBOUNDED_DIMENSIONS
         );
     }
 }

@@ -52,6 +52,18 @@ impl ImeBridge {
     ///
     /// 非法请求照官方 mock 行为：记录并断连（无法回填 session_id/request_id，不伪造响应）。
     pub async fn handle_frame(&self, payload: Vec<u8>) -> Option<Vec<u8>> {
+        self.handle_frame_with_origin(payload, None).await
+    }
+    async fn handle_frame_with_origin(
+        &self,
+        payload: Vec<u8>,
+        origin: Option<crate::source_capsule::VerifiedOrigin>,
+    ) -> Option<Vec<u8>> {
+        if origin.as_ref().is_some_and(|e| !e.matches(&payload))
+            || (self.client.requires_origin() && origin.is_none())
+        {
+            return None;
+        }
         let request = match AgentIpcRequest::decode(&payload) {
             Ok(request) => request,
             Err(error) => {
@@ -69,12 +81,18 @@ impl ImeBridge {
         let response = match self.state.dispatch(&request) {
             StateAction::Respond(response) => response,
             StateAction::StartTurn { immediate, turn } => {
-                tokio::spawn(run_turn_task(
+                let capsule = self.client.issue_origin(
+                    origin.as_ref(),
+                    &request,
+                    turn.prompt.as_deref().unwrap_or(""),
+                );
+                tokio::spawn(run_turn_task_with_capsule(
                     Arc::clone(&self.state),
                     Arc::clone(&self.client),
                     Arc::clone(&self.sessions),
                     self.workspace.clone(),
                     turn,
+                    capsule,
                 ));
                 immediate
             }
@@ -176,10 +194,23 @@ pub async fn run_turn_task(
     workspace: String,
     turn: Box<StartTurnRequest>,
 ) {
+    run_turn_task_with_capsule(state, client, sessions, workspace, turn, Ok(None)).await;
+}
+async fn run_turn_task_with_capsule(
+    state: Arc<ImeState>,
+    client: Arc<OwoHttpClient>,
+    sessions: Arc<Mutex<HashMap<String, String>>>,
+    workspace: String,
+    turn: Box<StartTurnRequest>,
+    capsule: Result<Option<owo_agent_protocol::ExpressionOriginCapsule>, BridgeError>,
+) {
     let ime_session_id = turn.session_id.clone();
     let request = turn.request.clone();
 
-    let outcome = execute_turn(&client, &sessions, &workspace, &turn).await;
+    let outcome = match capsule {
+        Ok(capsule) => execute_turn(&client, &sessions, &workspace, &turn, capsule).await,
+        Err(error) => Err(error),
+    };
     let (mut final_response, insert_text) = match outcome {
         Ok(accumulator) => build_final_response(&request, &accumulator),
         Err(_) => {
@@ -210,6 +241,7 @@ async fn execute_turn(
     _sessions: &Mutex<HashMap<String, String>>,
     _workspace: &str,
     turn: &StartTurnRequest,
+    capsule: Option<owo_agent_protocol::ExpressionOriginCapsule>,
 ) -> Result<TurnAccumulator, BridgeError> {
     let prompt = turn
         .prompt
@@ -218,7 +250,7 @@ async fn execute_turn(
     let accumulator = tokio::select! {
         biased;
         _ = turn.slot.cancelled() => TurnAccumulator { cancelled: true, ..Default::default() },
-        result = client.expression(prompt) => TurnAccumulator { final_text: result?, ..Default::default() },
+        result = client.expression_with_capsule(prompt,capsule) => TurnAccumulator { final_text: result?, ..Default::default() },
     };
     Ok(accumulator)
 }
@@ -342,6 +374,13 @@ pub fn open_in_browser(url: &str) {
 impl crate::pipe::FrameHandler for ImeBridge {
     async fn handle(&self, payload: Vec<u8>) -> Option<Vec<u8>> {
         self.handle_frame(payload).await
+    }
+    async fn handle_verified(
+        &self,
+        payload: Vec<u8>,
+        origin: crate::source_capsule::VerifiedOrigin,
+    ) -> Option<Vec<u8>> {
+        self.handle_frame_with_origin(payload, Some(origin)).await
     }
 }
 

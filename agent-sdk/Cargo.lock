@@ -2033,6 +2033,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "futures-util",
+ "hmac",
  "http-body-util",
  "owo-agent-core",
  "owo-agent-env",
@@ -2050,6 +2051,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "uuid",
+ "zeroize",
  "zip",
 ]
 

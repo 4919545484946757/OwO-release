@@ -1322,10 +1322,17 @@ pub fn canonical_turn_id(value: &str) -> Option<String> {
 #[serde(deny_unknown_fields)]
 pub struct ExpressionRequest {
     pub prompt: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin_capsule: Option<ExpressionOriginCapsule>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExpressionResponse {
     pub text: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub origin_verified: bool,
 }
+
+pub mod expression_origin;
+pub use expression_origin::*;

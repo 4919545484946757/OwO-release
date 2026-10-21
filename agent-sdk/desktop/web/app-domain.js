@@ -2340,6 +2340,10 @@ async function runSubagent() {
   }
   const mode = $("subagentMode").value;
   const readOnly = mode === "read_only";
+  if (!readOnly) {
+    addMessage("system", "写入或执行任务请转到主对话，并逐项确认实际操作。");
+    return;
+  }
   // 命令执行需显式选择"通用子代理 + 命令执行"：无审批通道的子代理默认拒绝执行命令。
   const allowCommands = mode === "full_commands";
   const button = $("subagentRunBtn");

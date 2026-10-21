@@ -142,6 +142,11 @@ impl SandboxPolicy {
                 "AllowList 网络策略需要非空 allow_hosts".to_string(),
             ));
         }
+        if self.network_policy == NetworkPolicy::AllowList {
+            return Err(SandboxError::Unsupported(
+                "Exact network destination allowlists require a destination-enforcing broker; broad AppContainer capability SIDs cannot enforce allow_hosts".to_string(),
+            ));
+        }
         if self.cpu_ms == Some(0) {
             return Err(SandboxError::PolicyViolation(
                 "cpu_ms 为 0 非法：None=不限制，Some(n>0)=限制".to_string(),
@@ -258,6 +263,15 @@ impl SandboxCommand {
     /// 命令级校验：策略自检 + 工作区越界 + 危险程序黑名单。
     pub fn validate(&self) -> Result<(), SandboxError> {
         self.policy.validate()?;
+        if self
+            .env
+            .iter()
+            .any(|(key, value)| key.is_empty() || key.contains(['=', '\0']) || value.contains('\0'))
+        {
+            return Err(SandboxError::PolicyViolation(
+                "Invalid explicit worker environment entry".into(),
+            ));
+        }
         if self.policy.file_scope == FileScope::WorkspaceOnly {
             if let (Some(cwd), Some(root)) = (&self.cwd, &self.policy.workspace) {
                 // 比对前必须剥掉 Windows verbatim 前缀（`\\?\`）。
@@ -980,50 +994,17 @@ fn app_package_sid(rid: u32) -> Vec<u8> {
     sid
 }
 
-/// host 是否为内网（私有 IP 段 / 无点 netbios 名）。host 可含 :port。
-fn is_private_host(host: &str) -> bool {
-    let hostname = host.split(':').next().unwrap_or(host);
-    if hostname.starts_with("127.")
-        || hostname.starts_with("10.")
-        || hostname.starts_with("192.168.")
-        || hostname.starts_with("169.254.")
-        || hostname.starts_with("172.16.")
-        || hostname.starts_with("172.17.")
-        || hostname.starts_with("172.18.")
-        || hostname.starts_with("172.19.")
-        || hostname.starts_with("172.2")
-        || hostname.starts_with("172.30.")
-        || hostname.starts_with("172.31.")
-    {
-        return true;
-    }
-    !hostname.contains('.')
-}
-
-/// 按网络策略生成 AppContainer 网络能力 SID 列表：
-/// - `None`/`Loopback` → 空（默认 deny；AppContainer 下 loopback 需 OS 级豁免，Wave 3 接入）；
-/// - `AllowList` → 按 host 推断（内网 → PrivateNetworkClientServer，公网 → InternetClient）；
-/// - `Unrestricted` → InternetClient + PrivateNetworkClientServer（需显式放行，policy.validate 把关）。
+/// AppContainer network capability classes, not destination allowlists.
+/// None/Loopback receive no network capability. AllowList is unsupported until
+/// a destination-enforcing broker exists and must never gain broad capability
+/// SIDs. Unrestricted is an explicitly acknowledged broad network policy.
 pub fn app_container_network_capabilities(policy: &SandboxPolicy) -> Vec<Vec<u8>> {
     match policy.network_policy {
         NetworkPolicy::None | NetworkPolicy::Loopback => Vec::new(),
         NetworkPolicy::Unrestricted => {
             vec![internet_client_sid(), private_network_client_server_sid()]
         }
-        NetworkPolicy::AllowList => {
-            let mut sids: Vec<Vec<u8>> = Vec::new();
-            for host in &policy.allow_hosts {
-                let sid = if is_private_host(host) {
-                    private_network_client_server_sid()
-                } else {
-                    internet_client_sid()
-                };
-                if !sids.contains(&sid) {
-                    sids.push(sid);
-                }
-            }
-            sids
-        }
+        NetworkPolicy::AllowList => Vec::new(),
     }
 }
 
@@ -1041,11 +1022,9 @@ pub fn validate_app_container_network(
             }
         }
         NetworkPolicy::AllowList => {
-            if sids.is_empty() {
-                return Err(SandboxError::PolicyViolation(
-                    "AllowList 网络策略要求网络能力但生成为空".to_string(),
-                ));
-            }
+            return Err(SandboxError::Unsupported(
+                "Exact destination allowlists are not enforced by AppContainer network capability classes".to_string(),
+            ));
         }
         NetworkPolicy::Unrestricted => {
             if !sids.iter().any(|sid| *sid == internet_client_sid()) {
@@ -1059,7 +1038,8 @@ pub fn validate_app_container_network(
 }
 
 /// 网络 egress 边界（R9）：`AllowList`/`Unrestricted` 网络策略必须在 OS 边界强制
-/// （AppContainer 网络能力），仅 Job/LowIL 隔离无法限制网络 → 调用方必须显式拒绝。
+/// （AppContainer 网络能力）；目的域 AllowList 另外需要 broker，当前拒绝。
+/// 仅 Job/LowIL 隔离无法提供网络限制，不得据此宣称目的域白名单通过。
 pub fn network_requires_app_container(policy: &SandboxPolicy) -> bool {
     matches!(
         policy.network_policy,
@@ -1256,7 +1236,9 @@ mod windows_isolation_spawn_tests {
             .canonicalize()
             .unwrap_or_else(|_| workspace.clone());
         assert!(
-            stdout.contains(&expected.to_string_lossy().to_string()),
+            stdout.lines().any(|line| std::path::Path::new(line.trim())
+                .canonicalize()
+                .is_ok_and(|path| path == expected)),
             "cwd 必须生效（lpCurrentDirectory，期望 {expected:?}）：{stdout:?}"
         );
         let _ = std::fs::remove_dir_all(&workspace);

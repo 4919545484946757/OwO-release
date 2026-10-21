@@ -48,6 +48,7 @@ mod eval_gate;
 /// 可靠事件流集线器（§3.1：公开给契约测试发布续传事件用；路由在 build_router 挂载）。
 pub mod event_stream;
 mod expression_api;
+mod expression_origin;
 mod fleet_api;
 mod fs_api;
 mod goal_api;
@@ -221,6 +222,7 @@ pub struct AppState {
     pub trust_store: Arc<owo_agent_core::trust::TrustStore>,
     /// 启动时是否因未信任而进入受限模式（跳过 hooks/权限放宽/白名单）。
     pub workspace_trust_gated: bool,
+    pub(crate) expression_origin: Arc<Mutex<expression_origin::OriginVerifier>>,
 }
 
 impl AppState {
@@ -433,6 +435,7 @@ impl AppState {
             pending_question_sessions: Arc::new(Mutex::new(HashMap::new())),
             trust_store,
             workspace_trust_gated,
+            expression_origin: Arc::new(Mutex::new(expression_origin::OriginVerifier::from_env())),
         }
     }
 }

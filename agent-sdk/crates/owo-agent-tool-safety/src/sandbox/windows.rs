@@ -11,6 +11,7 @@ use std::io::Read;
 use std::os::raw::c_char;
 
 pub type BOOL = i32;
+pub type HRESULT = i32;
 pub type DWORD = u32;
 pub type Handle = *mut c_void;
 pub type SIZE_T = usize;
@@ -54,6 +55,7 @@ pub const SECURITY_MANDATORY_LOW_RID: DWORD = 0x1000;
 // 进程/线程属性（AppContainer）
 pub const EXTENDED_STARTUPINFO_PRESENT: DWORD = 0x0008_0000;
 pub const PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES: ULONG_PTR = 0x0002_0009;
+pub const PROC_THREAD_ATTRIBUTE_HANDLE_LIST: ULONG_PTR = 0x0002_0002;
 
 // STARTUPINFO / CreateProcess 标志与文件访问常量（审查 N2：受限令牌路径要真正
 // 用上管道句柄、cwd 与环境块，否则子进程既拿不到 stdout 也看不到 cwd/env）。
@@ -62,6 +64,7 @@ pub const PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES: ULONG_PTR = 0x0002_0009;
 pub const STARTF_USESTDHANDLES: DWORD = 0x0000_0100;
 /// CreateProcess 标志：lpEnvironment 是 Unicode 环境块。
 pub const CREATE_UNICODE_ENVIRONMENT: DWORD = 0x0000_0400;
+pub const CREATE_NO_WINDOW: DWORD = 0x0800_0000;
 pub const GENERIC_READ: DWORD = 0x8000_0000;
 pub const FILE_SHARE_READ: DWORD = 0x0000_0001;
 pub const FILE_SHARE_WRITE: DWORD = 0x0000_0002;
@@ -148,6 +151,7 @@ extern "system" {
     fn GetExitCodeProcess(h_process: Handle, lp_exit_code: *mut DWORD) -> BOOL;
     fn GetLastError() -> DWORD;
     fn LoadLibraryW(lp_file_name: *const u16) -> Handle;
+    fn FreeLibrary(h_module: Handle) -> BOOL;
     fn GetProcAddress(h_module: Handle, lp_proc_name: *const c_char) -> *mut c_void;
     fn TerminateProcess(h_process: Handle, u_exit_code: u32) -> BOOL;
     fn LocalFree(h_mem: *mut c_void) -> *mut c_void;
@@ -193,11 +197,7 @@ extern "system" {
         lp_startup_info: *mut c_void,
         lp_process_information: *mut PROCESS_INFORMATION,
     ) -> BOOL;
-    fn DeriveAppContainerSidFromAppContainerName(
-        psz_app_container_name: *const u16,
-        psid: *mut PSID,
-    ) -> BOOL;
-    fn FreeSid(psid: PSID);
+    fn FreeSid(psid: PSID) -> PSID;
     fn CredWriteW(credential: *const CREDENTIALW, flags: DWORD) -> BOOL;
     fn CredReadW(
         target_name: *mut u16,
@@ -207,6 +207,23 @@ extern "system" {
     ) -> BOOL;
     fn CredDeleteW(target_name: *mut u16, typ: DWORD, flags: DWORD) -> BOOL;
     fn CredFree(buffer: *mut c_void);
+}
+
+#[link(name = "userenv")]
+extern "system" {
+    fn DeriveAppContainerSidFromAppContainerName(
+        psz_app_container_name: *const u16,
+        psid: *mut PSID,
+    ) -> HRESULT;
+    fn CreateAppContainerProfile(
+        name: *const u16,
+        display: *const u16,
+        description: *const u16,
+        capabilities: *const SID_AND_ATTRIBUTES,
+        count: DWORD,
+        sid: *mut PSID,
+    ) -> HRESULT;
+    fn DeleteAppContainerProfile(name: *const u16) -> HRESULT;
 }
 
 #[link(name = "ntdll")]
@@ -427,43 +444,114 @@ pub fn os_version() -> (u32, u32) {
     (info.dw_major_version, info.dw_minor_version)
 }
 
-/// AppContainer API 是否存在（Win8+；动态解析避免旧系统加载失败）。
+/// Verify the actual Userenv export. This neither registers a profile nor grants ACLs.
 fn app_container_api_present() -> bool {
-    let advapi = unsafe { LoadLibraryW(to_wide("advapi32.dll").as_ptr()) };
-    if advapi.is_null() {
+    let module = unsafe { LoadLibraryW(to_wide("userenv.dll").as_ptr()) };
+    if module.is_null() {
         return false;
     }
     let proc = unsafe {
         GetProcAddress(
-            advapi,
+            module,
             c"DeriveAppContainerSidFromAppContainerName".as_ptr(),
         )
     };
-    // advapi32 恒驻留，无需 FreeLibrary。
+    unsafe {
+        FreeLibrary(module);
+    }
     !proc.is_null()
 }
 
-/// 探测 AppContainer：API 存在 + 派生 SID 成功。
+/// Own exactly the API-allocated SID through success and every early error.
+struct AppContainerSid(PSID);
+impl AppContainerSid {
+    fn derive(name: &str) -> Result<Self, SandboxError> {
+        let name = to_wide(name);
+        let mut raw: PSID = std::ptr::null_mut();
+        let result = unsafe { DeriveAppContainerSidFromAppContainerName(name.as_ptr(), &mut raw) };
+        let sid = Self(raw);
+        // HRESULT success is nonnegative, including S_OK=0; it is not a BOOL.
+        if result < 0 || sid.0.is_null() {
+            return Err(SandboxError::Spawn(format!(
+                "AppContainer SID derivation failed (HRESULT 0x{:08x})",
+                result as u32
+            )));
+        }
+        Ok(sid)
+    }
+}
+impl Drop for AppContainerSid {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            unsafe {
+                FreeSid(self.0);
+            }
+        }
+    }
+}
+
+/// A fresh user-scope profile per child, never a shared sandbox identity.
+/// Creation does not grant access to any user workspace. The OS-owned private
+/// profile is deleted after the process has terminated and its handles close.
+pub struct OwnedAppContainerProfile {
+    name: Vec<u16>,
+    sid: AppContainerSid,
+}
+impl OwnedAppContainerProfile {
+    fn create() -> Result<Self, SandboxError> {
+        let name = to_wide(&format!("owo-sandbox-{}", uuid::Uuid::new_v4().simple()));
+        let description = to_wide("OwO isolated ephemeral process");
+        let mut raw: PSID = std::ptr::null_mut();
+        let result = unsafe {
+            CreateAppContainerProfile(
+                name.as_ptr(),
+                name.as_ptr(),
+                description.as_ptr(),
+                std::ptr::null(),
+                0,
+                &mut raw,
+            )
+        };
+        let sid = AppContainerSid(raw);
+        if result < 0 {
+            return Err(SandboxError::Spawn(format!(
+                "CreateAppContainerProfile failed (HRESULT 0x{:08x})",
+                result as u32
+            )));
+        }
+        let profile = Self { name, sid };
+        if profile.sid.0.is_null() {
+            return Err(SandboxError::Spawn(
+                "CreateAppContainerProfile returned no SID".into(),
+            ));
+        }
+        Ok(profile)
+    }
+}
+impl Drop for OwnedAppContainerProfile {
+    fn drop(&mut self) {
+        let result = unsafe { DeleteAppContainerProfile(self.name.as_ptr()) };
+        if result < 0 {
+            eprintln!(
+                "AppContainer profile cleanup failed (HRESULT 0x{:08x})",
+                result as u32
+            );
+        }
+    }
+}
+
+/// SID derivation proves only that the API is usable, not process confinement.
 pub fn probe_app_container() -> (bool, String) {
     if !app_container_api_present() {
-        return (
-            false,
-            "AppContainer API 不可用（需要 Windows 8+）".to_string(),
-        );
+        return (false, "AppContainer Userenv API unavailable".to_string());
     }
-    let name = to_wide("owo-agent-cap-probe");
-    let mut sid: PSID = std::ptr::null_mut();
-    let ok = unsafe { DeriveAppContainerSidFromAppContainerName(name.as_ptr(), &mut sid) };
-    if ok == TRUE && !sid.is_null() {
-        unsafe {
-            FreeSid(sid);
-        }
-        return (true, "AppContainer API 可用".to_string());
+    match AppContainerSid::derive("owo-agent-cap-probe") {
+        Ok(_sid) => (
+            true,
+            "AppContainer Userenv SID derivation available; confinement not verified".to_string(),
+        ),
+        Err(error) => (false, error.to_string()),
     }
-    (
-        false,
-        format!("AppContainer SID 派生失败（错误 {}）", last_error()),
-    )
 }
 
 /// `SE_GROUP_INTEGRITY`：TOKEN_MANDATORY_LABEL.Label.Attributes 的必需取值。
@@ -749,7 +837,9 @@ impl WindowsSandboxExecutor {
         if required >= IsolationLevel::AppContainerJob && self.support.app_container {
             return self.spawn_app_container(command, job);
         }
-        if required >= IsolationLevel::LowIntegrity && self.support.low_integrity {
+        // JobOnly is a resource/lifecycle boundary, not a request for a Low IL token.
+        // Enum ordering must not silently add token restrictions to that path.
+        if required == IsolationLevel::LowIntegrity && self.support.low_integrity {
             return self.spawn_low_integrity(command, job);
         }
         self.spawn_plain(command, job)
@@ -779,9 +869,8 @@ impl WindowsSandboxExecutor {
         if let Some(cwd) = &command.cwd {
             cmd.current_dir(cwd);
         }
-        for (key, value) in &command.env {
-            cmd.env(key, value);
-        }
+        cmd.env_clear().envs(worker_environment(&command.env));
+        cmd.creation_flags(CREATE_NO_WINDOW);
         let mut child = cmd
             .spawn()
             .map_err(|error| SandboxError::Spawn(format!("{}：{error}", command.program)))?;
@@ -846,7 +935,7 @@ impl WindowsSandboxExecutor {
                 last_error()
             )));
         }
-        let (pi, pipes) = create_process_with_token(command, job, |context| {
+        let (pi, mut pipes) = create_process_with_token(command, job, |context| {
             let result = unsafe {
                 CreateProcessAsUserW(
                     primary,
@@ -874,8 +963,9 @@ impl WindowsSandboxExecutor {
         close_handle(primary);
         Ok(OsChild::OsChild {
             pi,
-            stdout_read: pipes.read_stdout,
-            stderr_read: pipes.read_stderr,
+            stdout_read: pipes.take_stdout(),
+            stderr_read: pipes.take_stderr(),
+            _profile: None,
         })
     }
 
@@ -885,17 +975,9 @@ impl WindowsSandboxExecutor {
         command: &SandboxCommand,
         job: Handle,
     ) -> Result<OsChild, SandboxError> {
-        let name = to_wide("owo-agent-container");
-        let mut sid: PSID = std::ptr::null_mut();
-        if unsafe { DeriveAppContainerSidFromAppContainerName(name.as_ptr(), &mut sid) } == FALSE
-            || sid.is_null()
-        {
-            return Err(SandboxError::Spawn(format!(
-                "AppContainer SID 派生失败（错误 {}）",
-                last_error()
-            )));
-        }
-        // 网络能力白名单：按策略生成 SID 并校验（隔离策略不得带网络能力）。
+        let profile = OwnedAppContainerProfile::create()?;
+        let sid = profile.sid.0;
+        // Broad network capability classes only; exact-host AllowList fails closed.
         let capability_sids = app_container_network_capabilities(&command.policy);
         validate_app_container_network(&command.policy, &capability_sids)?;
         let sid_boxes: Vec<Box<[u8]>> = capability_sids
@@ -911,14 +993,18 @@ impl WindowsSandboxExecutor {
             .collect();
         let capabilities = SECURITY_CAPABILITIES {
             app_container_sid: sid,
-            capabilities: attrs.as_ptr() as *mut SID_AND_ATTRIBUTES,
+            capabilities: if attrs.is_empty() {
+                std::ptr::null_mut()
+            } else {
+                attrs.as_ptr() as *mut SID_AND_ATTRIBUTES
+            },
             capability_count: attrs.len() as DWORD,
             reserved: 0,
         };
-        let (pi, pipes) = create_process_with_token(command, job, move |context| {
+        let (pi, mut pipes) = create_process_with_token(command, job, move |context| {
             let mut size: SIZE_T = 0;
             let size_ok =
-                unsafe { InitializeProcThreadAttributeList(std::ptr::null_mut(), 1, 0, &mut size) };
+                unsafe { InitializeProcThreadAttributeList(std::ptr::null_mut(), 2, 0, &mut size) };
             if size_ok == FALSE && size == 0 {
                 return Err(SandboxError::Spawn(
                     "InitializeProcThreadAttributeList 尺寸获取失败".to_string(),
@@ -926,7 +1012,7 @@ impl WindowsSandboxExecutor {
             }
             let mut buffer = vec![0u8; size];
             let list = buffer.as_mut_ptr() as *mut c_void;
-            if unsafe { InitializeProcThreadAttributeList(list, 1, 0, &mut size) } == FALSE {
+            if unsafe { InitializeProcThreadAttributeList(list, 2, 0, &mut size) } == FALSE {
                 return Err(SandboxError::Spawn(format!(
                     "InitializeProcThreadAttributeList 失败（错误 {}）",
                     last_error()
@@ -952,6 +1038,33 @@ impl WindowsSandboxExecutor {
                     last_error()
                 )));
             }
+            let handles = unsafe {
+                [
+                    (*context.startup).startup_info.h_std_input,
+                    (*context.startup).startup_info.h_std_output,
+                    (*context.startup).startup_info.h_std_error,
+                ]
+            };
+            if unsafe {
+                UpdateProcThreadAttribute(
+                    list,
+                    0,
+                    PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+                    handles.as_ptr().cast(),
+                    std::mem::size_of_val(&handles),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                )
+            } == FALSE
+            {
+                let error = last_error();
+                unsafe {
+                    DeleteProcThreadAttributeList(list);
+                }
+                return Err(SandboxError::Spawn(format!(
+                    "AppContainer handle list rejected (error {error})"
+                )));
+            }
             // 把属性列表挂上 STARTUPINFOEXW：不挂等于建了列表却不用，进程不会进容器。
             context.set_attribute_list(list);
             let result = unsafe {
@@ -968,6 +1081,8 @@ impl WindowsSandboxExecutor {
                     context.process_information(),
                 )
             };
+            // Preserve CreateProcess's error before cleanup can overwrite it.
+            let creation_error = if result == FALSE { last_error() } else { 0 };
             // 属性列表仅需存活到 CreateProcessW 返回。
             unsafe {
                 DeleteProcThreadAttributeList(list);
@@ -975,19 +1090,17 @@ impl WindowsSandboxExecutor {
             if result == FALSE {
                 Err(SandboxError::Spawn(format!(
                     "CreateProcessW(AppContainer) 失败（错误 {}）",
-                    last_error()
+                    creation_error
                 )))
             } else {
                 Ok(())
             }
         })?;
-        unsafe {
-            FreeSid(sid);
-        }
         Ok(OsChild::OsChild {
             pi,
-            stdout_read: pipes.read_stdout,
-            stderr_read: pipes.read_stderr,
+            stdout_read: pipes.take_stdout(),
+            stderr_read: pipes.take_stderr(),
+            _profile: Some(profile),
         })
     }
 }
@@ -1083,25 +1196,74 @@ fn null_device_handle() -> Result<Handle, SandboxError> {
     Ok(handle)
 }
 
-/// 构造 CreateProcess 的 Unicode 环境块（`K=V\0…\0\0`，按键排序）。
-///
-/// 合并父进程环境与 `command.env` 覆盖项；键名含 `=` 或为空会被 Windows 截断，直接跳过。
-fn environment_block(overrides: &[(String, String)]) -> Vec<u16> {
-    use std::collections::BTreeMap;
-    let mut vars: BTreeMap<String, String> = std::env::vars().collect();
-    for (key, value) in overrides {
-        vars.insert(key.clone(), value.clone());
+/// Minimum ambient Windows/toolchain environment. Never forward arbitrary
+/// parent credentials, bearer tokens or issuer keys to a worker. Additional
+/// entries are explicit trusted-host overrides, not model-supplied fields.
+fn worker_environment(
+    overrides: &[(String, String)],
+) -> std::collections::BTreeMap<String, String> {
+    let mut vars = std::collections::BTreeMap::new();
+    for (key, value) in std::env::vars_os() {
+        let (Some(key), Some(value)) = (key.to_str(), value.to_str()) else {
+            continue;
+        };
+        let canonical = key.to_ascii_uppercase();
+        if matches!(
+            canonical.as_str(),
+            "SYSTEMROOT"
+                | "WINDIR"
+                | "SYSTEMDRIVE"
+                | "COMSPEC"
+                | "PATH"
+                | "PATHEXT"
+                | "TEMP"
+                | "TMP"
+                | "USERPROFILE"
+                | "HOMEDRIVE"
+                | "HOMEPATH"
+                | "APPDATA"
+                | "LOCALAPPDATA"
+                | "PROGRAMDATA"
+                | "PROGRAMFILES"
+                | "PROGRAMFILES(X86)"
+                | "PROGRAMW6432"
+                | "ALLUSERSPROFILE"
+                | "PUBLIC"
+                | "OS"
+                | "PROCESSOR_ARCHITECTURE"
+                | "PROCESSOR_IDENTIFIER"
+                | "NUMBER_OF_PROCESSORS"
+                | "INCLUDE"
+                | "LIB"
+                | "LIBPATH"
+                | "VSINSTALLDIR"
+                | "VCTOOLSINSTALLDIR"
+                | "WINDOWSSDKDIR"
+                | "WINDOWSSDKVERSION"
+                | "VSCMD_ARG_HOST_ARCH"
+                | "VSCMD_ARG_TGT_ARCH"
+        ) {
+            vars.insert(canonical, value.to_string());
+        }
     }
-    let mut block: Vec<u16> = Vec::new();
-    for (key, value) in vars {
-        if key.is_empty() || key.contains('=') {
+    for (key, value) in overrides {
+        if key.is_empty() || key.contains(['=', '\0']) || value.contains('\0') {
             continue;
         }
+        vars.insert(key.to_ascii_uppercase(), value.clone());
+    }
+    vars
+}
+/// Unicode block sorted with case-insensitive unique Windows names.
+fn environment_block(overrides: &[(String, String)]) -> Vec<u16> {
+    let mut block = Vec::new();
+    for (key, value) in worker_environment(overrides) {
         block.extend(format!("{key}={value}").encode_utf16());
         block.push(0);
     }
-    // 环境块必须以双 NUL 结尾（空环境也要两个 NUL）。
-    block.push(0);
+    if block.is_empty() {
+        block.push(0);
+    }
     block.push(0);
     block
 }
@@ -1116,15 +1278,11 @@ fn create_process_with_token<F>(
 where
     F: FnOnce(&mut CreateProcessContext) -> Result<(), SandboxError>,
 {
-    let pipes = PipePair::create()
+    let mut pipes = PipePair::create()
         .map_err(|error| SandboxError::Spawn(format!("CreatePipe 失败：{error}")))?;
     let stdin_handle = match null_device_handle() {
         Ok(handle) => handle,
         Err(error) => {
-            close_handle(pipes.read_stdout);
-            close_handle(pipes.read_stderr);
-            close_handle(pipes.write_stdout);
-            close_handle(pipes.write_stderr);
             return Err(error);
         }
     };
@@ -1152,14 +1310,15 @@ where
             .map_or(std::ptr::null(), |value| value.as_ptr()),
         // EXTENDED_STARTUPINFO_PRESENT 是**创建标志**：没有它 STARTUPINFOEXW 的
         // 属性列表按 STARTUPINFOW 解释被忽略（AppContainer 静默失效）。
-        creation_flags: EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
+        creation_flags: EXTENDED_STARTUPINFO_PRESENT
+            | CREATE_UNICODE_ENVIRONMENT
+            | CREATE_NO_WINDOW,
         process_information: &mut pi as *mut _,
     };
     let creation = create(&mut context);
     close_handle(stdin_handle);
     // 子进程已创建（或失败）：关闭父侧写端副本。
-    close_handle(pipes.write_stdout);
-    close_handle(pipes.write_stderr);
+    pipes.close_writers();
     creation?;
     if pi.h_process.is_null() {
         return Err(SandboxError::Spawn(
@@ -1233,6 +1392,25 @@ pub struct PipePair {
 }
 
 impl PipePair {
+    fn take_stdout(&mut self) -> Handle {
+        std::mem::replace(&mut self.read_stdout, std::ptr::null_mut())
+    }
+
+    fn take_stderr(&mut self) -> Handle {
+        std::mem::replace(&mut self.read_stderr, std::ptr::null_mut())
+    }
+
+    fn close_writers(&mut self) {
+        close_handle(std::mem::replace(
+            &mut self.write_stdout,
+            std::ptr::null_mut(),
+        ));
+        close_handle(std::mem::replace(
+            &mut self.write_stderr,
+            std::ptr::null_mut(),
+        ));
+    }
+
     pub fn create() -> std::io::Result<Self> {
         let mut read_stdout: Handle = std::ptr::null_mut();
         let mut write_stdout: Handle = std::ptr::null_mut();
@@ -1368,6 +1546,7 @@ pub enum OsChild {
         pi: PROCESS_INFORMATION,
         stdout_read: Handle,
         stderr_read: Handle,
+        _profile: Option<OwnedAppContainerProfile>,
     },
 }
 
@@ -1405,6 +1584,7 @@ impl OsChild {
                 pi,
                 stdout_read,
                 stderr_read,
+                ..
             } => {
                 // 并行读两个管道（避免管道满死锁），再等进程退出。
                 let (stdout, stderr) = std::thread::scope(|scope| {
@@ -1453,6 +1633,7 @@ impl Drop for OsChild {
                 pi,
                 stdout_read,
                 stderr_read,
+                ..
             } => unsafe {
                 TerminateProcess(pi.h_process, 1);
                 WaitForSingleObject(pi.h_process, 5_000);
@@ -1509,7 +1690,7 @@ impl SandboxExecutor for WindowsSandboxExecutor {
             && self.support.app_container;
         if network_requires_app_container(&command.policy) && !uses_app_container {
             return Err(SandboxError::Unsupported(format!(
-                "网络策略 {:?} 需要 AppContainer 隔离才能强制网络白名单，\
+                "网络策略 {:?} 需要 AppContainer 网络能力；目的域白名单还需要 broker，\
                  当前执行路径仅提供 {:?}（显式拒绝，不静默放开网络）",
                 command.policy.network_policy,
                 super::available_isolation(&self.support)
@@ -1715,11 +1896,12 @@ mod token_spawn_plumbing_tests {
         });
         close_handle(token);
         match created {
-            Ok((pi, pipes)) => {
+            Ok((pi, mut pipes)) => {
                 let mut child = OsChild::OsChild {
                     pi,
-                    stdout_read: pipes.read_stdout,
-                    stderr_read: pipes.read_stderr,
+                    stdout_read: pipes.take_stdout(),
+                    stderr_read: pipes.take_stderr(),
+                    _profile: None,
                 };
                 let info = child.wait().expect("等待应成功");
                 let stdout = String::from_utf8_lossy(&info.stdout);
@@ -1763,4 +1945,65 @@ pub(crate) fn assert_struct_layouts() -> bool {
         ok &= std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() == 112;
     }
     ok
+}
+
+#[cfg(test)]
+mod worker_environment_boundary_tests {
+    use super::*;
+    #[test]
+    fn ambient_private_environment_is_not_forwarded_to_worker() {
+        let name = format!("OWO_SYNTHETIC_PRIVATE_{}", uuid::Uuid::new_v4().simple());
+        std::env::set_var(&name, "synthetic-private-value");
+        let block = environment_block(&[]);
+        std::env::remove_var(&name);
+        let decoded = String::from_utf16_lossy(&block);
+        assert!(
+            !decoded.contains(&name),
+            "an undeclared parent variable must not be delivered to a sandbox worker"
+        );
+        assert!(
+            decoded.to_ascii_uppercase().contains("SYSTEMROOT="),
+            "basic Windows runtime environment must remain usable"
+        );
+    }
+}
+
+#[cfg(test)]
+mod pipe_ownership_tests {
+    use super::*;
+
+    #[test]
+    fn transferred_pipe_ends_survive_pair_drop() {
+        let mut pipes = PipePair::create().expect("create owned pipes");
+        pipes.close_writers();
+        assert!(pipes.write_stdout.is_null());
+        assert!(pipes.write_stderr.is_null());
+        let stdout = pipes.take_stdout();
+        let stderr = pipes.take_stderr();
+        assert!(pipes.read_stdout.is_null());
+        assert!(pipes.read_stderr.is_null());
+        drop(pipes);
+        // With all writers closed, a still-owned read handle reports broken pipe,
+        // never ERROR_INVALID_HANDLE. No handle number is closed twice.
+        for handle in [stdout, stderr] {
+            let mut byte = 0u8;
+            let mut count = 0u32;
+            let result = unsafe {
+                ReadFile(
+                    handle,
+                    &mut byte as *mut u8,
+                    1,
+                    &mut count,
+                    std::ptr::null_mut(),
+                )
+            };
+            let error = last_error();
+            close_handle(handle);
+            assert_eq!(result, FALSE);
+            assert_eq!(
+                error, 109,
+                "transferred pipe must remain valid until its owner closes it"
+            );
+        }
+    }
 }

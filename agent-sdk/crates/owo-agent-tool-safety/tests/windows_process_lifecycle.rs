@@ -88,6 +88,15 @@ fn sandbox_child_payload() {
             }
             println!("drained-large-stderr");
         }
+        Ok("environment") => {
+            let private_name = std::env::var("OWO_TEST_PRIVATE_NAME").unwrap();
+            assert!(std::env::var_os(private_name).is_none());
+            assert_eq!(
+                std::env::var("OWO_TEST_EXPLICIT").unwrap(),
+                "synthetic-host-value"
+            );
+            println!("worker-environment-boundary-ok");
+        }
         Ok("tree") => {
             let mut grandchild = std::process::Command::new(std::env::current_exe().unwrap())
                 .args([
@@ -198,10 +207,15 @@ fn manager_kill_terminates_the_descendant_process_tree() {
         {
             break pid;
         }
-        assert!(
-            ready.elapsed() < Duration::from_secs(5),
-            "controlled descendant did not start"
-        );
+        if ready.elapsed() >= Duration::from_secs(5) {
+            let _ = manager.lock().unwrap().kill(&process.handle);
+            let result = wait_bounded(&manager, process);
+            panic!(
+                "controlled descendant did not start; synthetic child stdout={:?} stderr={:?}",
+                String::from_utf8_lossy(&result.stdout),
+                String::from_utf8_lossy(&result.stderr)
+            );
+        }
         std::thread::sleep(Duration::from_millis(10));
     };
     // Retain a handle before termination so PID reuse cannot affect the observation.
@@ -219,4 +233,29 @@ fn manager_kill_terminates_the_descendant_process_tree() {
         "descendant survived its owned Job termination"
     );
     std::fs::remove_file(pid_file).unwrap();
+}
+
+#[test]
+fn real_worker_excludes_ambient_private_values_and_accepts_host_overrides() {
+    let manager = manager();
+    let name = format!("OWO_SYNTHETIC_PRIVATE_{}", uuid::Uuid::new_v4().simple());
+    struct RemoveEnv(String);
+    impl Drop for RemoveEnv {
+        fn drop(&mut self) {
+            std::env::remove_var(&self.0);
+        }
+    }
+    std::env::set_var(&name, "synthetic-private-value");
+    let _cleanup = RemoveEnv(name.clone());
+    let process = child_with_env(
+        &manager,
+        "environment",
+        vec![
+            ("OWO_TEST_PRIVATE_NAME".into(), name),
+            ("OWO_TEST_EXPLICIT".into(), "synthetic-host-value".into()),
+        ],
+    );
+    let result = wait_bounded(&manager, process);
+    assert_eq!(result.exit_code, 0);
+    assert!(String::from_utf8_lossy(&result.stdout).contains("worker-environment-boundary-ok"));
 }

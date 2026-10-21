@@ -1,4 +1,4 @@
-# 集成工作流（integration/ime-agent）：输入法 / 网关 / 协议契约 / Agent 边界
+# 集成工作流（master / agent-frame）：输入法 / 网关 / 协议契约 / Agent 边界
 # 只读权限，无发布、无密钥。agent-sdk 自身的门禁仍在 agent-sdk/.github/workflows。
 name: CI - integration
 
@@ -12,7 +12,7 @@ on:
       - 'agent-sdk/scripts/check-agent-boundary.py'
       - '.github/workflows/integration.yml'
   push:
-    branches: [ integration/ime-agent ]
+    branches: [ master, agent-frame ]
 
 permissions:
   contents: read

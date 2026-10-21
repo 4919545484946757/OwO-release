@@ -326,19 +326,28 @@ impl PermissionSpec {
     /// 只收紧的叠加判定：返回 `Some(Decision::Deny)` 表示维度直接拒绝。
     /// 永不返回 `Some(Allow)`——放宽只能靠切档位或 grant（两条路径都有审计）。
     pub fn extra_denial(&self, request: &PermissionRequest) -> Option<Decision> {
-        match dimension_of(request) {
-            Some("filesystem") => match self.filesystem {
-                // 只读档拒绝写；None 档连读也拒绝（Read 级里只有文件读取会归到这一维）。
-                FilesystemScope::None => Some(Decision::Deny),
-                FilesystemScope::WorkspaceRead if request.level == Level::Write => {
-                    Some(Decision::Deny)
-                }
-                _ => None,
-            },
-            Some("command") if self.command == RuleScope::Deny => Some(Decision::Deny),
-            Some("network") if self.network == RuleScope::Deny => Some(Decision::Deny),
-            _ => None,
+        use crate::tool_effects::ToolDimension;
+        if !crate::tool_effects::has_declared_capability_dimensions(&request.tool)
+            && (self.filesystem != FilesystemScope::Unrestricted
+                || self.command != RuleScope::Unrestricted
+                || self.network != RuleScope::Unrestricted)
+        {
+            // No broker-verified dimensions/scopes: an external Read annotation
+            // cannot prove confinement to this workspace or an allowed endpoint.
+            return Some(Decision::Deny);
         }
+        crate::tool_effects::capability_dimensions(&request.tool)
+            .iter()
+            .any(|dimension| match dimension {
+                ToolDimension::Filesystem => {
+                    self.filesystem == FilesystemScope::None
+                        || (self.filesystem == FilesystemScope::WorkspaceRead
+                            && request.level != Level::Read)
+                }
+                ToolDimension::Command => self.command == RuleScope::Deny,
+                ToolDimension::Network => self.network == RuleScope::Deny,
+            })
+            .then_some(Decision::Deny)
     }
 
     /// 完全访问风险拆解（§4.5.2：选择后必须列明范围与不可逆性）。
@@ -360,7 +369,7 @@ impl PermissionSpec {
             RuleScope::Unrestricted => "命令：不设限制，外部程序与系统副作用无法回滚".to_string(),
         });
         notes.push(match self.network {
-            RuleScope::Deny => "网络：拒绝（数据不出境）".to_string(),
+            RuleScope::Deny => "网络工具：拒绝；模型服务通信另行配置".to_string(),
             RuleScope::Allowlisted => "网络：按端点与审批放行".to_string(),
             RuleScope::Unrestricted => "网络：不设限制，出境数据无法召回".to_string(),
         });
@@ -373,52 +382,18 @@ impl PermissionSpec {
     }
 }
 
-/// 把一次权限请求归到 §4.5.3 的维度；归不进去（UI 注入 / 编排 / 提问类）返回
-/// `None`，由既有档位/审批链处理——本模块不接管第四类动作。
-///
-/// 覆盖范围必须与内置工具注册表同步：所有会碰文件、命令、网络的内置工具都要
-/// 归到对应维度，否则 `spec{filesystem=workspace_read}` 这类"只读承诺"会被
-/// `edit_file` / `apply_patch` / `web_fetch` 绕过（审查 N7）。
-/// 编排类（`explore` / `subagent` / `fan_out_subagents`）与交互类（`todo` /
-/// `ask_user` / `use_skill` / `verification_plan`）不在这里收敛：它们各自有
-/// 子会话策略/审批链，且拆分子会话维度会重复计权。
+/// Legacy presentation helper returning the first capability dimension only.
+/// Authorization MUST use all host-declared dimensions via extra_denial, not
+/// this single label. Unknown/external tools conservatively affect all three.
 pub fn dimension_of(request: &PermissionRequest) -> Option<&'static str> {
-    let tool = request.tool.as_str();
-    if tool.starts_with("browser_")
-        || tool.starts_with("http_")
-        || matches!(
-            tool,
-            "web_fetch" | "web_search" | "http_get" | "http_post" | "fetch_url" | "download_file"
-        )
-    {
-        return Some("network");
-    }
-    if matches!(tool, "run_command" | "shell_output" | "kill_shell")
-        || tool.starts_with("shell.")
-        || tool.starts_with("command:")
-    {
-        return Some("command");
-    }
-    if matches!(
-        tool,
-        "read_file"
-            | "write_file"
-            | "edit_file"
-            | "multi_edit"
-            | "apply_patch"
-            | "list_dir"
-            | "search_files"
-            | "grep"
-            | "find_symbol"
-            | "read_artifact"
-            | "read_image"
-            | "delete_file"
-            | "move_file"
-    ) || tool.starts_with("git_")
-    {
-        return Some("filesystem");
-    }
-    None
+    use crate::tool_effects::ToolDimension;
+    crate::tool_effects::capability_dimensions(&request.tool)
+        .first()
+        .map(|dimension| match dimension {
+            ToolDimension::Filesystem => "filesystem",
+            ToolDimension::Command => "command",
+            ToolDimension::Network => "network",
+        })
 }
 
 #[cfg(test)]

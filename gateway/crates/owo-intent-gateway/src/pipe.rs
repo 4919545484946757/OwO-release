@@ -28,6 +28,13 @@ pub const MAX_OP_TIMEOUT_MS: u64 = 30_000;
 #[async_trait::async_trait]
 pub trait FrameHandler: Send + Sync + 'static {
     async fn handle(&self, payload: Vec<u8>) -> Option<Vec<u8>>;
+    async fn handle_verified(
+        &self,
+        payload: Vec<u8>,
+        _origin: crate::source_capsule::VerifiedOrigin,
+    ) -> Option<Vec<u8>> {
+        self.handle(payload).await
+    }
 }
 
 /// 管道服务错误。
@@ -78,11 +85,32 @@ pub fn clamp_timeout_ms(ms: u64) -> u64 {
 ///
 /// 每接受一个连接就立即创建下一个实例（tokio 标准模式，允许多客户端并发）；
 /// 单个连接内的读+处理+写整体受 `op_timeout` 约束。
+/// Explicit authenticated listener. Every connection uses proof admission, never legacy fallback.
+pub async fn run_authenticated_pipe_server(
+    pipe_name: &str,
+    op_timeout: Duration,
+    handler: Arc<dyn FrameHandler>,
+    shutdown: watch::Receiver<bool>,
+    registry: Arc<std::sync::Mutex<crate::pairing::PairingRegistry>>,
+) -> Result<(), PipeError> {
+    run_pipe_server_mode(pipe_name, op_timeout, handler, shutdown, Some(registry)).await
+}
+
 pub async fn run_pipe_server(
     pipe_name: &str,
     op_timeout: Duration,
     handler: Arc<dyn FrameHandler>,
+    shutdown: watch::Receiver<bool>,
+) -> Result<(), PipeError> {
+    run_pipe_server_mode(pipe_name, op_timeout, handler, shutdown, None).await
+}
+
+async fn run_pipe_server_mode(
+    pipe_name: &str,
+    op_timeout: Duration,
+    handler: Arc<dyn FrameHandler>,
     mut shutdown: watch::Receiver<bool>,
+    registry: Option<Arc<std::sync::Mutex<crate::pairing::PairingRegistry>>>,
 ) -> Result<(), PipeError> {
     validate_pipe_name(pipe_name)?;
     let expected_peer = Arc::new(crate::peer::current_process_identity()?);
@@ -117,8 +145,17 @@ pub async fn run_pipe_server(
         let handler = Arc::clone(&handler);
         let timeout = op_timeout;
         let expected_peer = Arc::clone(&expected_peer);
+        let registry = registry.clone();
         tokio::spawn(async move {
-            if let Err(error) = serve_connection(connected, handler, timeout, expected_peer).await {
+            let result = if let Some(registry) = registry {
+                crate::auth_pipe::serve_authenticated_connection(
+                    connected, handler, registry, timeout,
+                )
+                .await
+            } else {
+                serve_connection(connected, handler, timeout, expected_peer).await
+            };
+            if let Err(error) = result {
                 debug!(%error, "IME 管道连接结束");
             }
         });

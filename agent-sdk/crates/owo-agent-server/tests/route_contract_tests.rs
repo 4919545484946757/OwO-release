@@ -4106,3 +4106,391 @@ async fn expression_rejects_invalid_host_or_origin_before_provider() {
     assert_eq!(state.shutdown_gate.active_turns(), 0);
     assert!(state.sessions.lock().unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn direct_subagent_flags_cannot_authorize_side_effects_without_approval_channel() {
+    struct CountedProvider(Arc<std::sync::atomic::AtomicUsize>);
+    #[async_trait::async_trait]
+    impl owo_agent_core::gateway::ModelProvider for CountedProvider {
+        async fn complete(
+            &self,
+            _messages: &[owo_agent_core::ChatMessage],
+            _tools: &[owo_agent_core::ToolSpec],
+        ) -> Result<owo_agent_core::ModelOutput, String> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(owo_agent_core::ModelOutput::Text(
+                r#"{"status":"done","summary":"synthetic read-only result","review_result":{"verdict":"approved","findings":[]},"evidence":[],"open_issues":[]}"#.into(),
+            ))
+        }
+    }
+    let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let temp = tempfile::tempdir().unwrap();
+    let workspace = temp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let state = {
+        let _guard = STATE_ENV_LOCK
+            .get_or_init(|| tokio::sync::Mutex::new(()))
+            .lock()
+            .await;
+        let agent = Agent::new(
+            Arc::new(CountedProvider(calls.clone())),
+            ToolRegistry::new(),
+            Policy::new(&workspace),
+            Default::default(),
+        );
+        let store = SqliteSessionStore::open(&temp.path().join("index.db")).unwrap();
+        Arc::new(owo_agent_server::AppState::new(
+            agent,
+            store,
+            temp.path().join("traces"),
+            temp.path().to_path_buf(),
+            workspace,
+        ))
+    };
+    let app = build_router(Arc::clone(&state));
+    for body in [
+        r#"{"prompt":"synthetic boundary check","read_only":false}"#,
+        r#"{"prompt":"synthetic boundary check","read_only":false,"allow_commands":true}"#,
+        r#"{"prompt":"synthetic boundary check","read_only":true,"allow_commands":true}"#,
+    ] {
+        let response = app
+            .clone()
+            .oneshot(request(&state, "POST", "/subagent/run", Some(body)))
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status().as_u16(),
+            403,
+            "request flags must not substitute for action approval"
+        );
+        let bytes = axum::body::to_bytes(response.into_body(), 4096)
+            .await
+            .unwrap();
+        assert_eq!(&bytes[..], b"subagent/approval_channel_required");
+    }
+    assert_eq!(
+        calls.load(std::sync::atomic::Ordering::SeqCst),
+        0,
+        "denied flags must not call the model"
+    );
+    let response = app
+        .oneshot(request(
+            &state,
+            "POST",
+            "/subagent/run",
+            Some(r#"{"prompt":"synthetic read-only check"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status().as_u16(),
+        200,
+        "read-only exploration stays available"
+    );
+    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn signed_expression_origin_is_bound_fresh_and_at_most_once() {
+    use hmac::{Hmac, Mac};
+    use sha2::{Digest, Sha256};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    struct Counted(Arc<AtomicUsize>);
+    #[async_trait::async_trait]
+    impl owo_agent_core::gateway::ModelProvider for Counted {
+        async fn complete(
+            &self,
+            _: &[owo_agent_core::ChatMessage],
+            _: &[owo_agent_core::ToolSpec],
+        ) -> Result<owo_agent_core::ModelOutput, String> {
+            panic!("no generic Agent/tools path");
+        }
+        async fn complete_expression(
+            &self,
+            messages: &[owo_agent_core::ChatMessage],
+        ) -> Result<String, String> {
+            assert_eq!(messages.len(), 2);
+            self.0.fetch_add(1, Ordering::SeqCst);
+            if messages[1].content.as_deref() == Some("cancel") {
+                return std::future::pending::<Result<String, String>>().await;
+            }
+            if messages[1].content.as_deref() == Some("fail") {
+                Err("synthetic ambiguous provider failure".into())
+            } else {
+                Ok("synthetic output".into())
+            }
+        }
+    }
+    fn sign(capsule: &mut owo_agent_protocol::ExpressionOriginCapsule) {
+        let mut mac = Hmac::<Sha256>::new_from_slice(&[7; 32]).unwrap();
+        mac.update(owo_agent_protocol::EXPRESSION_ORIGIN_PURPOSE);
+        mac.update(&capsule.payload.canonical_bytes().unwrap());
+        capsule.signature.value = mac
+            .finalize()
+            .into_bytes()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+    }
+    fn body(capsule: &owo_agent_protocol::ExpressionOriginCapsule, prompt: &str) -> String {
+        serde_json::json!({"prompt":prompt,"origin_capsule":capsule}).to_string()
+    }
+    let _guard = STATE_ENV_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await;
+    struct EnvRestore(Option<std::ffi::OsString>);
+    impl Drop for EnvRestore {
+        fn drop(&mut self) {
+            if let Some(v) = &self.0 {
+                std::env::set_var("OWO_EXPRESSION_ORIGIN_KEY", v);
+            } else {
+                std::env::remove_var("OWO_EXPRESSION_ORIGIN_KEY");
+            }
+        }
+    }
+    let _restore = EnvRestore(std::env::var_os("OWO_EXPRESSION_ORIGIN_KEY"));
+    std::env::set_var("OWO_EXPRESSION_ORIGIN_KEY", "07".repeat(32));
+    let calls = Arc::new(AtomicUsize::new(0));
+    let temp = tempfile::tempdir().unwrap();
+    let ws = temp.path().join("ws");
+    std::fs::create_dir_all(&ws).unwrap();
+    let make_state = || {
+        let agent = Agent::new(
+            Arc::new(Counted(calls.clone())),
+            ToolRegistry::new(),
+            Policy::new(&ws),
+            Default::default(),
+        );
+        let store = SqliteSessionStore::open(&ws.join("index.db")).unwrap();
+        Arc::new(owo_agent_server::AppState::new(
+            agent,
+            store,
+            ws.join("traces"),
+            temp.path().into(),
+            ws.clone(),
+        ))
+    };
+    let state = make_state();
+    let app = build_router(state.clone());
+    let golden: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../contracts/expression-origin/synthetic-golden.json"
+    ))
+    .unwrap();
+    let mut capsule: owo_agent_protocol::ExpressionOriginCapsule =
+        serde_json::from_value(golden["capsule"].clone()).unwrap();
+    assert_eq!(
+        capsule.payload.canonical_bytes().unwrap(),
+        golden["canonical_payload"].as_str().unwrap().as_bytes()
+    );
+    let expected = capsule.signature.value.clone();
+    sign(&mut capsule);
+    assert_eq!(
+        capsule.signature.value, expected,
+        "independent Python golden HMAC"
+    );
+    capsule.payload.freshness.issued_at_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    sign(&mut capsule);
+    for pointer in [
+        "/binding/request_id",
+        "/binding/session_id",
+        "/binding/task_revision",
+        "/origin/connector_pid",
+        "/origin/process_created_at_hex",
+        "/origin/executable_sha256",
+        "/origin/context_id",
+        "/origin_request_sha256",
+        "/scope/mode",
+        "/audience",
+    ] {
+        let mut value = serde_json::to_value(&capsule).unwrap();
+        let path = format!("/payload{pointer}");
+        let target = value.pointer_mut(&path).unwrap();
+        *target = if target.is_number() {
+            serde_json::json!(999)
+        } else {
+            serde_json::json!("tampered")
+        };
+        let payload =
+            serde_json::json!({"prompt":"synthetic rewrite","origin_capsule":value}).to_string();
+        assert_eq!(
+            app.clone()
+                .oneshot(request(&state, "POST", "/expression", Some(&payload)))
+                .await
+                .unwrap()
+                .status()
+                .as_u16(),
+            403,
+            "{pointer}"
+        );
+    }
+    assert_eq!(
+        app.clone()
+            .oneshot(request(
+                &state,
+                "POST",
+                "/expression",
+                Some(&body(&capsule, "different prompt"))
+            ))
+            .await
+            .unwrap()
+            .status()
+            .as_u16(),
+        403
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    for _ in 0..2 {
+        let response = app
+            .clone()
+            .oneshot(request(
+                &state,
+                "POST",
+                "/expression",
+                Some(&body(&capsule, "synthetic rewrite")),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status().as_u16(), 200);
+        let bytes = axum::body::to_bytes(response.into_body(), 32768)
+            .await
+            .unwrap();
+        let result: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(result["origin_verified"], true);
+        assert_eq!(result["text"], "synthetic output");
+    }
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "replay must use receipt");
+    let mut conflict = capsule.clone();
+    conflict.payload.binding.request_id = "other-request".into();
+    sign(&mut conflict);
+    assert_eq!(
+        app.clone()
+            .oneshot(request(
+                &state,
+                "POST",
+                "/expression",
+                Some(&body(&conflict, "synthetic rewrite"))
+            ))
+            .await
+            .unwrap()
+            .status()
+            .as_u16(),
+        409
+    );
+    for future in [false, true] {
+        let mut expired = capsule.clone();
+        expired.payload.nonce = "55".repeat(32);
+        if future {
+            expired.payload.freshness.issued_at_ms += 60000;
+        } else {
+            expired.payload.freshness.issued_at_ms -= 180000;
+        }
+        sign(&mut expired);
+        assert_eq!(
+            app.clone()
+                .oneshot(request(
+                    &state,
+                    "POST",
+                    "/expression",
+                    Some(&body(&expired, "synthetic rewrite"))
+                ))
+                .await
+                .unwrap()
+                .status()
+                .as_u16(),
+            403
+        );
+    }
+    let mut failed = capsule.clone();
+    failed.payload.nonce = "66".repeat(32);
+    failed.payload.prompt_sha256 = format!("{:x}", Sha256::digest(b"fail"));
+    sign(&mut failed);
+    for expected in [502, 409] {
+        assert_eq!(
+            app.clone()
+                .oneshot(request(
+                    &state,
+                    "POST",
+                    "/expression",
+                    Some(&body(&failed, "fail"))
+                ))
+                .await
+                .unwrap()
+                .status()
+                .as_u16(),
+            expected
+        );
+    }
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        2,
+        "ambiguous provider error must never reissue"
+    );
+    let mut cancelled = capsule.clone();
+    cancelled.payload.nonce = "77".repeat(32);
+    cancelled.payload.prompt_sha256 = format!("{:x}", Sha256::digest(b"cancel"));
+    sign(&mut cancelled);
+    let cancelled_body = body(&cancelled, "cancel");
+    assert!(tokio::time::timeout(
+        std::time::Duration::from_millis(50),
+        app.clone().oneshot(request(
+            &state,
+            "POST",
+            "/expression",
+            Some(&cancelled_body)
+        ))
+    )
+    .await
+    .is_err());
+    assert_eq!(
+        app.clone()
+            .oneshot(request(
+                &state,
+                "POST",
+                "/expression",
+                Some(&cancelled_body)
+            ))
+            .await
+            .unwrap()
+            .status()
+            .as_u16(),
+        409
+    );
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        3,
+        "cancelled model call must not be reissued"
+    );
+    // Strict DTO parsing rejects duplicate and unknown fields before provider execution.
+    let duplicate = body(&capsule, "synthetic rewrite")
+        .replace("\"ic_version\":1", "\"ic_version\":1,\"ic_version\":1");
+    assert_eq!(
+        app.clone()
+            .oneshot(request(&state, "POST", "/expression", Some(&duplicate)))
+            .await
+            .unwrap()
+            .status()
+            .as_u16(),
+        422
+    );
+    std::env::remove_var("OWO_EXPRESSION_ORIGIN_KEY");
+    let unregistered = make_state();
+    assert_eq!(
+        build_router(unregistered.clone())
+            .oneshot(request(
+                &unregistered,
+                "POST",
+                "/expression",
+                Some(&body(&capsule, "synthetic rewrite"))
+            ))
+            .await
+            .unwrap()
+            .status()
+            .as_u16(),
+        403
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 3);
+    assert!(state.sessions.lock().unwrap().is_empty());
+}

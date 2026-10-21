@@ -137,20 +137,60 @@ pub(crate) fn verify_connected_client(
 /// Not production admission: compare with trusted installation metadata before granting.
 /// Blocking file IO must be dispatched off the async executor by the host.
 pub fn connected_image_digest(server: &NamedPipeServer) -> io::Result<[u8; 32]> {
-    use std::os::windows::{ffi::OsStringExt, fs::OpenOptionsExt};
-    use windows_sys::Win32::System::Threading::{QueryFullProcessImageNameW, PROCESS_NAME_WIN32};
-    verify_connected_client(server, &current_process_identity()?)?;
+    Ok(connected_connector_binding(server)?.executable_sha256)
+}
+
+/// Same held process handle supplies both token identity and on-disk executable path.
+/// This is still not a trusted installation approval or loaded-memory attestation.
+pub fn connected_connector_binding(
+    server: &NamedPipeServer,
+) -> io::Result<crate::pairing::ConnectorBinding> {
     let mut pid = 0;
     if unsafe { GetNamedPipeClientProcessId(server.as_raw_handle().cast(), &mut pid) } == 0 {
         return Err(io::Error::last_os_error());
     }
+    process_connector_binding(pid)
+}
+
+/// Enrollment-only inspection of a kernel process, still requiring explicit user consent.
+pub fn process_connector_binding(pid: u32) -> io::Result<crate::pairing::ConnectorBinding> {
+    use std::os::windows::{ffi::OsStringExt, fs::OpenOptionsExt};
+    use windows_sys::Win32::System::Threading::{QueryFullProcessImageNameW, PROCESS_NAME_WIN32};
+
     let raw = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
     if raw.is_null() {
         return Err(io::Error::last_os_error());
     }
     let process = Handle(raw);
+    // Bind enrollment to this process incarnation, including PID reuse defense.
+    // Read from the same held handle used for token and image identity.
+    let mut created = windows_sys::Win32::Foundation::FILETIME {
+        dwLowDateTime: 0,
+        dwHighDateTime: 0,
+    };
+    let mut exited = created;
+    let mut kernel = created;
+    let mut user = created;
+    if unsafe {
+        windows_sys::Win32::System::Threading::GetProcessTimes(
+            process.0,
+            &mut created,
+            &mut exited,
+            &mut kernel,
+            &mut user,
+        )
+    } == 0
+    {
+        return Err(io::Error::last_os_error());
+    }
+    let process_created_at =
+        (u64::from(created.dwHighDateTime) << 32) | u64::from(created.dwLowDateTime);
+    if pid == 0 || process_created_at == 0 {
+        return Err(io::Error::other("invalid process incarnation"));
+    }
     // Recheck using this held process handle rather than relying on a prior PID lookup.
-    if process_identity(process.0)? != current_process_identity()? {
+    let identity = process_identity(process.0)?;
+    if identity != current_process_identity()? {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             "pipe identity mismatch",
@@ -179,7 +219,15 @@ pub fn connected_image_digest(server: &NamedPipeServer) -> io::Result<[u8; 32]> 
         .share_mode(1)
         .open(path)
         .map_err(|_| io::Error::other("cannot open client image"))?;
-    digest_image(&mut file)
+    let executable_sha256 = digest_image(&mut file)?;
+    Ok(crate::pairing::ConnectorBinding {
+        process_id: pid,
+        process_created_at,
+        user_sid: identity.user_sid,
+        session_id: identity.session_id,
+        authentication_id: identity.authentication_id,
+        executable_sha256,
+    })
 }
 fn digest_image(reader: &mut impl std::io::Read) -> io::Result<[u8; 32]> {
     use sha2::{Digest, Sha256};

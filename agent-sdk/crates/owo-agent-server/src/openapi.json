@@ -1244,6 +1244,210 @@
           "dirty",
           "built_at"
         ]
+      },
+      "ExpressionOriginCapsule": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "payload",
+          "signature"
+        ],
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ic_version",
+              "capsule_id",
+              "issuer",
+              "audience",
+              "binding",
+              "origin",
+              "origin_request_sha256",
+              "prompt_sha256",
+              "freshness",
+              "nonce",
+              "scope"
+            ],
+            "properties": {
+              "ic_version": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "enum": [
+                  1
+                ]
+              },
+              "capsule_id": {
+                "type": "string",
+                "pattern": "^(?!0+$)[0-9a-f]{32}$"
+              },
+              "issuer": {
+                "type": "string",
+                "enum": [
+                  "owo-intent-gateway"
+                ]
+              },
+              "audience": {
+                "type": "string",
+                "enum": [
+                  "owo-daemon-expression"
+                ]
+              },
+              "binding": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "session_id",
+                  "request_id",
+                  "task_revision"
+                ],
+                "properties": {
+                  "session_id": {
+                    "type": "string",
+                    "pattern": "^(?!0+$)[0-9a-f]{32}$"
+                  },
+                  "request_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_.:-]+$"
+                  },
+                  "task_revision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                }
+              },
+              "origin": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source",
+                  "context_id",
+                  "connector_pid",
+                  "process_created_at_hex",
+                  "executable_sha256",
+                  "selection_sha256",
+                  "application_metadata"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "ime"
+                    ]
+                  },
+                  "context_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_.:-]+$"
+                  },
+                  "connector_pid": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4294967295
+                  },
+                  "process_created_at_hex": {
+                    "type": "string",
+                    "pattern": "^(?!0+$)[0-9a-f]{16}$"
+                  },
+                  "executable_sha256": {
+                    "type": "string",
+                    "pattern": "^(?!0+$)[0-9a-f]{64}$"
+                  },
+                  "selection_sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$",
+                    "nullable": true
+                  },
+                  "application_metadata": {
+                    "type": "string",
+                    "enum": [
+                      "connector_claim"
+                    ]
+                  }
+                }
+              },
+              "origin_request_sha256": {
+                "type": "string",
+                "pattern": "^(?!0+$)[0-9a-f]{64}$"
+              },
+              "prompt_sha256": {
+                "type": "string",
+                "pattern": "^(?!0+$)[0-9a-f]{64}$"
+              },
+              "freshness": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "issued_at_ms",
+                  "ttl_ms"
+                ],
+                "properties": {
+                  "issued_at_ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "ttl_ms": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 120000
+                  }
+                }
+              },
+              "nonce": {
+                "type": "string",
+                "pattern": "^(?!0+$)[0-9a-f]{64}$"
+              },
+              "scope": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "mode"
+                ],
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "expression_only"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "signature": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "alg",
+              "key_id",
+              "value"
+            ],
+            "properties": {
+              "alg": {
+                "type": "string",
+                "enum": [
+                  "HMAC-SHA256"
+                ]
+              },
+              "key_id": {
+                "type": "string",
+                "enum": [
+                  "gateway-expression-v1"
+                ]
+              },
+              "value": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -3573,6 +3777,10 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 8192
+                  },
+                  "origin_capsule": {
+                    "$ref": "#/components/schemas/ExpressionOriginCapsule",
+                    "description": "Optional expression-only signed origin. Invalid supplied capsule fails closed; omission stays unverified and grants no tools."
                   }
                 }
               }
@@ -3595,6 +3803,11 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 4096
+                    },
+                    "origin_verified": {
+                      "type": "boolean",
+                      "default": false,
+                      "description": "True only after registered issuer, exact prompt, freshness and nonce checks."
                     }
                   }
                 }
@@ -3620,13 +3833,16 @@
             "description": "60 second timeout"
           },
           "403": {
-            "description": "Invalid or duplicate Host/Origin; rejected before provider execution"
+            "description": "Invalid or duplicate Host/Origin; rejected before provider execution; supplied signed origin invalid, expired, unregistered or mismatched."
           },
           "421": {
             "description": "Untrusted Host rejected by the global DNS rebinding guard before the expression route (http/untrusted_host)."
+          },
+          "409": {
+            "description": "Signed nonce in flight, ambiguous or bound to another payload; no new model call."
           }
         },
-        "description": "Requires a single loopback Host (localhost, 127.0.0.1 or [::1]). Browser Origin, when present, must be a plain allowed desktop/development origin. Forwarded headers do not grant trust. Native callers may omit Origin; Bearer authentication is still required. This does not implement IME pairing."
+        "description": "Requires a single loopback Host (localhost, 127.0.0.1 or [::1]). Browser Origin, when present, must be a plain allowed desktop/development origin. Forwarded headers do not grant trust. Native callers may omit Origin; Bearer authentication is still required. This does not implement IME pairing. Optional signed expression-only origin is independently validated. It never grants tools or executable authority."
       }
     },
     "/fleet/approvals/{id}/respond": {
@@ -8978,7 +9194,7 @@
                 "properties": {
                   "allow_commands": {
                     "default": false,
-                    "description": "read_only=false 时是否放行工作区内命令执行；缺省拒绝（无审批通道 fail-closed）",
+                    "description": "Must remain false. Request flags do not authorize command execution.",
                     "type": "boolean"
                   },
                   "model": {
@@ -8988,8 +9204,9 @@
                     "type": "string"
                   },
                   "read_only": {
-                    "description": "缺省 true（只读探索）；false 为通用子代理（工作区内写入放行）",
-                    "type": "boolean"
+                    "description": "Defaults to true. False is rejected until a parameter-bound approval channel is available.",
+                    "type": "boolean",
+                    "default": true
                   }
                 },
                 "required": [
@@ -9003,6 +9220,19 @@
         "responses": {
           "200": {
             "description": "subagent execution result"
+          },
+          "403": {
+            "description": "Action approval channel required; no model or tool execution",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "subagent/approval_channel_required"
+                  ]
+                }
+              }
+            }
           }
         }
       }
