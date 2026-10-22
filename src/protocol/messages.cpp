@@ -140,7 +140,7 @@ std::optional<bool> parse_bool(std::string_view input, std::size_t& offset) {
 bool valid_syllables(const std::vector<std::string>& syllables) {
     if (syllables.size() > 256) return false;
     for (const auto& syllable : syllables) {
-        if (syllable.empty() || syllable.size() > 16) return false;
+        if (syllable.empty() || syllable.size() > kMaximumSyllableBytes) return false;
         for (const unsigned char value : syllable) {
             if (value < 'a' || value > 'z') return false;
         }

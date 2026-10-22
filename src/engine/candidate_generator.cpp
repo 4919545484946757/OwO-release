@@ -51,6 +51,117 @@ constexpr std::int64_t kPreferredExactSegmentationBonus =
 constexpr std::int64_t kAlternativeSegmentationPromotionMargin = 16'000;
 constexpr std::int64_t kHighConfidenceAlternativeScore = 12'000;
 
+// A request-local snapshot: nothing survives a dictionary/config/user update.
+// Keep full lookup rows; beam-specific trimming must never poison a later
+// prefix/coherence lookup needing more entries from the same reading.
+class RequestLexiconCache {
+    using Reading = std::vector<std::string>;
+    struct ReadingHash {
+        using is_transparent = void;
+        template<class R> std::size_t operator()(const R& reading) const {
+            std::size_t hash = reading.size();
+            for (const auto& syllable : reading)
+                hash ^= std::hash<std::string_view>{}(syllable) +
+                    std::size_t{0x9e3779b9} + (hash << 6) + (hash >> 2);
+            return hash;
+        }
+    };
+    struct ReadingEqual {
+        using is_transparent = void;
+        template<class L, class R> bool operator()(const L& left, const R& right) const {
+            return left.size() == right.size() &&
+                std::equal(left.begin(), left.end(), right.begin());
+        }
+    };
+    struct PhraseKey { Reading reading; std::string text; };
+    struct PhraseView { std::span<const std::string_view> reading; std::string_view text; };
+    struct PhraseHash {
+        using is_transparent = void;
+        template<class P> std::size_t operator()(const P& phrase) const {
+            return ReadingHash{}(phrase.reading) ^ (std::hash<std::string_view>{}(phrase.text) << 1);
+        }
+    };
+    struct PhraseEqual {
+        using is_transparent = void;
+        template<class L, class R> bool operator()(const L& left, const R& right) const {
+            return left.text == right.text && ReadingEqual{}(left.reading, right.reading);
+        }
+    };
+public:
+    RequestLexiconCache(const Lexicon& lexicon, CandidateGenerationMetrics* metrics)
+        : lexicon_(lexicon), metrics_(metrics) {}
+
+    const std::vector<LexiconTextEntry>& lookup(std::span<const std::string_view> reading) {
+        auto found = rows_.find(reading);
+        if (found != rows_.end()) {
+            if (metrics_) ++metrics_->exact_lookup_cache_hits;
+            return found->second;
+        }
+        const auto started = std::chrono::steady_clock::now();
+        auto entries = lexicon_.lookup_texts(reading);
+        record_lookup(started);
+        if (rows_.size() < 1024 && cached_entries_ + entries.size() <= 32768) {
+            cached_entries_ += entries.size();
+            return rows_.emplace(own_reading(reading), std::move(entries)).first->second;
+        }
+        scratch_ = std::move(entries);
+        return scratch_;
+    }
+
+    std::uint32_t maximum(std::span<const std::string_view> reading) {
+        if (const auto found = maxima_.find(reading); found != maxima_.end()) {
+            if (metrics_) ++metrics_->exact_lookup_cache_hits;
+            return found->second;
+        }
+        const auto started = std::chrono::steady_clock::now();
+        const auto value = lexicon_.lookup_max_frequency(reading);
+        record_lookup(started);
+        if (maxima_.size() < 1024) maxima_.emplace(own_reading(reading), value);
+        return value;
+    }
+
+    std::optional<std::int64_t> phrase_score(std::span<const std::string_view> reading,
+                                           std::string_view text) {
+        const PhraseView key{reading, text};
+        if (const auto found = phrases_.find(key); found != phrases_.end()) {
+            if (metrics_) ++metrics_->coherence_cache_hits;
+            return found->second;
+        }
+        std::optional<std::int64_t> score;
+        for (const auto& entry : lookup(reading)) {
+            if (entry.text != text) continue;
+            const auto value = std::min(kMaximumBoundaryCoherenceBonus,
+                candidate_unigram_score(entry.frequency) * 3 / 2);
+            score = score ? std::max(*score, value) : value;
+        }
+        if (phrases_.size() < 4096)
+            phrases_.emplace(PhraseKey{own_reading(reading), std::string(text)}, score);
+        return score;
+    }
+
+private:
+    static Reading own_reading(std::span<const std::string_view> reading) {
+        Reading key;
+        key.reserve(reading.size());
+        for (const auto syllable : reading) key.emplace_back(syllable);
+        return key;
+    }
+    void record_lookup(std::chrono::steady_clock::time_point started) {
+        if (!metrics_) return;
+        ++metrics_->lexicon_lookup_count;
+        metrics_->lexicon_lookup_us += static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - started).count());
+    }
+    const Lexicon& lexicon_;
+    CandidateGenerationMetrics* metrics_;
+    std::size_t cached_entries_{};
+    std::unordered_map<Reading, std::vector<LexiconTextEntry>, ReadingHash, ReadingEqual> rows_;
+    std::unordered_map<Reading, std::uint32_t, ReadingHash, ReadingEqual> maxima_;
+    std::unordered_map<PhraseKey, std::optional<std::int64_t>, PhraseHash, PhraseEqual> phrases_;
+    std::vector<LexiconTextEntry> scratch_;
+};
+
 std::int64_t common_initial_seed_bonus(const char initial,
                                        const std::string_view text) {
     // Raw dictionary counts mix several corpora and otherwise put 大/多 ahead
@@ -107,17 +218,25 @@ void prune(std::vector<SearchState>& states, const std::size_t width) {
 template <class Extend>
 void append_successor(std::vector<SearchState>& destination, const std::size_t width,
                       const SearchState& source, const std::string_view text,
-                      const std::int64_t score, Extend&& extend,
+                      const std::int64_t score, const std::size_t extra_syllables, Extend&& extend,
                       CandidateGenerationMetrics* metrics) {
     if (metrics != nullptr) ++metrics->beam_transitions;
     if (destination.size() == width && score < destination.front().score) return;
-    auto joined_text = source.text;
+    std::string joined_text;
+    joined_text.reserve(source.text.size() + text.size());
+    joined_text = source.text;
     joined_text += text;
     if (destination.size() == width && score == destination.front().score &&
         joined_text >= destination.front().text) return;
-    SearchState next = source;
+    SearchState next;
     next.text = std::move(joined_text);
     next.score = score;
+    next.segment_count = source.segment_count;
+    next.segment_lengths.reserve(source.segment_lengths.size() + 1);
+    next.segment_lengths.insert(next.segment_lengths.end(),
+        source.segment_lengths.begin(), source.segment_lengths.end());
+    next.syllables.reserve(source.syllables.size() + extra_syllables);
+    next.syllables.insert(next.syllables.end(), source.syllables.begin(), source.syllables.end());
     extend(next);
     if (metrics != nullptr) ++metrics->beam_materialized;
     if (destination.size() == width) {
@@ -498,6 +617,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // were visible.
     constexpr std::size_t kMinimumSearchLimit = 12;
     const auto search_limit = std::max(kMinimumSearchLimit, limit);
+    RequestLexiconCache lookup_cache(lexicon_, metrics);
     const bool phonetic_assistance = parsed.phonetic_assistance;
     // A correction-only parse is an isolated fallback source. Looking up
     // abbreviations from the raw typo here can overwrite a full corrected
@@ -870,14 +990,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 reading.reserve(path.syllables.size());
                 for (const auto& syllable : path.syllables)
                     reading.push_back(syllable.text);
-                const auto lookup_started = std::chrono::steady_clock::now();
-                full_span_frequency = lexicon_.lookup_max_frequency(reading);
-                if (metrics != nullptr) {
-                    metrics->lexicon_lookup_us += static_cast<std::uint64_t>(
-                        std::chrono::duration_cast<std::chrono::microseconds>(
-                            std::chrono::steady_clock::now() - lookup_started).count());
-                    ++metrics->lexicon_lookup_count;
-                }
+                full_span_frequency = lookup_cache.maximum(reading);
             }
             ordered_paths.push_back({&path, full_span_frequency, 0, 0});
         }
@@ -915,7 +1028,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     reading.push_back(path.syllables[end - 1].text);
                     if (end - begin < 2) continue;
                     const auto best_frequency =
-                        lexicon_.lookup_max_frequency(reading);
+                        lookup_cache.maximum(reading);
                     if (best_frequency == 0) continue;
                     const auto next_covered = covered[begin] + end - begin;
                     const auto next_evidence = phrase_evidence[begin] + best_frequency;
@@ -1008,14 +1121,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 reading.reserve(end - begin);
                 for (std::size_t index = begin; index < end; ++index)
                     reading.push_back(path.syllables[index].text);
-                const auto lookup_started = std::chrono::steady_clock::now();
-                auto entries = lexicon_.lookup_texts(reading);
-                if (metrics != nullptr) {
-                    metrics->lexicon_lookup_us += static_cast<std::uint64_t>(
-                        std::chrono::duration_cast<std::chrono::microseconds>(
-                            std::chrono::steady_clock::now() - lookup_started).count());
-                    ++metrics->lexicon_lookup_count;
-                }
+                auto entries = lookup_cache.lookup(reading);
                 retain_frequent_entries(entries, beam_width);
                 std::vector<std::int64_t> entry_scores;
                 entry_scores.reserve(entries.size());
@@ -1029,13 +1135,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         if (!state.previous.empty()) score -= kAdditionalSegmentPenalty;
                         if (bigram_ != nullptr && !state.previous.empty())
                             score += bigram_->score(state.previous, entry.text);
-                        append_successor(chart[end], beam_width, state, entry.text, score,
+                        append_successor(chart[end], beam_width, state, entry.text, score, 0,
                             [&](SearchState& next) {
                                 next.previous.assign(entry.text);
                                 ++next.segment_count;
                                 next.segment_lengths.push_back(reading.size());
-                                for (const auto syllable : reading)
-                                    next.syllables.emplace_back(syllable);
                             }, metrics);
                     }
                 }
@@ -1043,6 +1147,12 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
 
         prune(chart.back(), beam_width);
+        // Every exact/assisted path has one fixed reading, independent of
+        // which word transitions won. Materialize it only for final results,
+        // not in every intermediate beam state.
+        std::vector<std::string> full_reading;
+        full_reading.reserve(path.syllables.size());
+        for (const auto& syllable : path.syllables) full_reading.push_back(syllable.text);
         for (auto& state : chart.back()) {
             if (user_frequency_ != nullptr) {
                 state.score += user_frequency_->score(state.text);
@@ -1053,7 +1163,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     state.score += user_frequency_->language_context_score(
                         language_context, parsed.normalized_input, state.text);
             }
-            Candidate candidate{std::move(state.text), std::move(state.syllables), state.score,
+            Candidate candidate{std::move(state.text), full_reading, state.score,
                                 path.match_kind, raw_segments,
                                 path.syllables.back().end, state.segment_count};
             candidate.segment_lengths = std::move(state.segment_lengths);
@@ -1071,14 +1181,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             reading.reserve(end);
             for (std::size_t index = 0; index < end; ++index)
                 reading.push_back(path.syllables[index].text);
-            const auto lookup_started = std::chrono::steady_clock::now();
-            auto prefix_entries = lexicon_.lookup_texts(reading);
-            if (metrics != nullptr) {
-                metrics->lexicon_lookup_us += static_cast<std::uint64_t>(
-                    std::chrono::duration_cast<std::chrono::microseconds>(
-                        std::chrono::steady_clock::now() - lookup_started).count());
-                ++metrics->lexicon_lookup_count;
-            }
+            auto prefix_entries = lookup_cache.lookup(reading);
             retain_frequent_entries(prefix_entries, search_limit);
             for (const auto& entry : prefix_entries) {
                 auto score = candidate_unigram_score(entry.frequency) -
@@ -1158,7 +1261,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     if (!state.previous.empty()) score -= kAdditionalSegmentPenalty;
                     if (bigram_ != nullptr && !state.previous.empty())
                         score += bigram_->score(state.previous, entry.text);
-                    append_successor(chart[offset + 1], beam_width, state, entry.text, score,
+                    append_successor(chart[offset + 1], beam_width, state, entry.text, score, 1,
                         [&](SearchState& next) {
                             next.previous.assign(entry.text);
                             ++next.segment_count;
@@ -1204,6 +1307,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         if (bigram_ != nullptr && !state.previous.empty())
                             score += bigram_->score(state.previous, phrase.text);
                         append_successor(chart[end], beam_width, state, phrase.text, score,
+                            phrase.syllables.size(),
                             [&](SearchState& next) {
                                 next.previous.assign(phrase.text);
                                 ++next.segment_count;
@@ -1374,7 +1478,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     const bool preserve_learned_alternative = partition_page_size != 0 &&
         std::any_of(full.begin(), full.end(), [](const auto& candidate) { return candidate.user_lexicon; });
     std::optional<Candidate> coherent_sentence_alternative;
-    const auto apply_cross_boundary_coherence = [this, metrics, preserve_learned_alternative,
+    const auto apply_cross_boundary_coherence = [this, &lookup_cache, preserve_learned_alternative,
                                                 &coherent_sentence_alternative](Candidate& candidate) {
         constexpr std::size_t kMaximumPhraseCharacters = 4;
         const auto character_count = candidate.syllables.size();
@@ -1429,34 +1533,19 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 reading.push_back(candidate.syllables[end - 1]);
                 if (end - begin < 2 || (begin == 0 && end == character_count))
                     continue;
-                const auto lookup_started = std::chrono::steady_clock::now();
-                const auto entries = lexicon_.lookup_texts(reading);
-                if (metrics != nullptr) {
-                    metrics->lexicon_lookup_us += static_cast<std::uint64_t>(
-                        std::chrono::duration_cast<std::chrono::microseconds>(
-                            std::chrono::steady_clock::now() - lookup_started).count());
-                    ++metrics->lexicon_lookup_count;
-                }
                 const auto expected = std::string_view(candidate.text).substr(
                     boundaries[begin], boundaries[end] - boundaries[begin]);
-                std::int64_t phrase_score = unreachable;
-                for (const auto& entry : entries) {
-                    if (entry.text != expected) continue;
-                    phrase_score = std::max(
-                        phrase_score,
-                        std::min(kMaximumBoundaryCoherenceBonus,
-                                 candidate_unigram_score(entry.frequency) * 3 / 2));
-                }
+                const auto phrase_score = lookup_cache.phrase_score(reading, expected);
                 // A missing word is not a zero-cost phrase edge: it must
                 // retain the uncovered-character penalty instead of letting
                 // unrelated fragments jump across unsupported text.
-                if (phrase_score == unreachable) continue;
+                if (!phrase_score) continue;
                 std::fill(dictionary_covered.begin() + begin, dictionary_covered.begin() + end, true);
                 if (end - begin >= 3 &&
                     std::any_of(dictionary_boundaries.begin(), dictionary_boundaries.end(),
                         [begin, end](const auto boundary) { return begin < boundary && boundary < end; }))
                     dictionary_bridge = true;
-                best[end] = std::max(best[end], best[begin] + phrase_score);
+                best[end] = std::max(best[end], best[begin] + *phrase_score);
             }
         }
         candidate.coherence_score = std::max<std::int64_t>(0, best.back());
@@ -1903,7 +1992,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     syllable_offset + 1 < seed.syllables.size()) {
                     const std::array<std::string_view, 1> reading{
                         seed.syllables[syllable_offset]};
-                    auto entries = lexicon_.lookup_texts(reading);
+                    auto entries = lookup_cache.lookup(reading);
                     retain_frequent_entries(entries, kAlternativesPerReading);
                     for (const auto& entry : entries) {
                         if (utf8_character_count(entry.text) != 1) continue;

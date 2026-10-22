@@ -1751,6 +1751,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 corrected_parse_metrics.segmentation_us;
                             parse_metrics.correction_us +=
                                 corrected_parse_metrics.correction_us;
+                            parse_metrics.assistance_us +=
+                                corrected_parse_metrics.assistance_us;
                             generation_metrics.lexicon_lookup_us +=
                                 corrected_generation_metrics.lexicon_lookup_us;
                             generation_metrics.lexicon_lookup_count +=
@@ -1761,6 +1763,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 corrected_generation_metrics.beam_transitions;
                             generation_metrics.beam_materialized +=
                                 corrected_generation_metrics.beam_materialized;
+                            generation_metrics.exact_lookup_cache_hits +=
+                                corrected_generation_metrics.exact_lookup_cache_hits;
+                            generation_metrics.coherence_cache_hits +=
+                                corrected_generation_metrics.coherence_cache_hits;
                             const bool complete_correction = std::any_of(
                                 corrected_candidates.begin(),
                                 corrected_candidates.end(),
@@ -1945,6 +1951,13 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             candidates.empty() ? nullptr : &candidates.front());
                         if (response.syllables.empty())
                             response.syllables = candidate_segments;
+                        // An unresolved raw chunk can be the entire long input.
+                        // It is NOT a protocol-sized syllable. Leave preview
+                        // segmentation unspecified (TSF owns the original input)
+                        // rather than inventing boundaries or dropping the reply.
+                        if (std::any_of(response.syllables.begin(), response.syllables.end(),
+                            [](const auto& part) { return part.size() > protocol::kMaximumSyllableBytes; }))
+                            response.syllables.clear();
                     }
                     if (begin < candidates.size()) {
                         response.candidates.reserve(end - begin);
@@ -1978,12 +1991,15 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         << R"(,"normalization_us":)" << parse_metrics.normalization_us
                         << R"(,"segmentation_us":)" << parse_metrics.segmentation_us
                         << R"(,"correction_us":)" << parse_metrics.correction_us
+                        << R"(,"assistance_us":)" << parse_metrics.assistance_us
                         << R"(,"generation_us":)" << generation_us
                         << R"(,"lexicon_lookup_us":)" << generation_metrics.lexicon_lookup_us
                         << R"(,"lexicon_lookup_count":)" << generation_metrics.lexicon_lookup_count
                         << R"(,"sort_us":)" << generation_metrics.sort_us
                         << R"(,"beam_transitions":)" << generation_metrics.beam_transitions
                         << R"(,"beam_materialized":)" << generation_metrics.beam_materialized
+                        << R"(,"exact_lookup_cache_hits":)" << generation_metrics.exact_lookup_cache_hits
+                        << R"(,"coherence_cache_hits":)" << generation_metrics.coherence_cache_hits
                         << R"(,"total_us":)" << total_us
                         << R"(,"correction_enabled":)"
                         << (decoded.message.correction_enabled ? "true" : "false")
@@ -2168,7 +2184,17 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
             }
         }
 
-        const auto encoded = protocol::encode_message(response);
+        auto encoded = protocol::encode_message(response);
+        if (encoded.empty()) {
+            std::clog << R"({"process":"core_service","module":"ipc","level":"error","event_id":"response_encoding_failed","request_id":)"
+                      << response.request_id << "}\n";
+            protocol::Message error;
+            error.type = protocol::MessageType::error_response;
+            error.request_id = response.request_id;
+            error.context_generation = response.context_generation;
+            error.text = "invalid service response";
+            encoded = protocol::encode_message(error);
+        }
         if (!encoded.empty()) write_frame(pipe, encoded);
         FlushFileBuffers(pipe);
         }

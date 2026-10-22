@@ -10,6 +10,7 @@ struct FullPinyinParseMetrics {
     std::uint64_t normalization_us{};
     std::uint64_t segmentation_us{};
     std::uint64_t correction_us{};
+    std::uint64_t assistance_us{};
 };
 
 struct FullPinyinIncrementalState {

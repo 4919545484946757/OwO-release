@@ -145,10 +145,12 @@ int main(int argc, char** argv) {
     std::size_t total_candidates = 0;
     std::uint64_t total_parse_us = 0;
     std::uint64_t total_correction_us = 0;
+    std::uint64_t total_assistance_us = 0;
     std::uint64_t total_lookup_us = 0;
     std::uint64_t total_sort_us = 0;
     std::uint64_t total_transitions = 0;
     std::uint64_t total_materialized = 0;
+    std::uint64_t total_cache_hits = 0, total_coherence_hits = 0, total_lookups = 0;
     for (std::size_t index = 0; index < sample_count; ++index) {
         const auto start = std::chrono::steady_clock::now();
         owo::engine::FullPinyinParseMetrics parse_metrics;
@@ -180,12 +182,16 @@ int main(int argc, char** argv) {
         samples.push_back(std::chrono::duration<double, std::micro>(elapsed).count());
         total_candidates += candidates.size();
         total_parse_us += parse_metrics.normalization_us + parse_metrics.segmentation_us +
-                          parse_metrics.correction_us;
+                          parse_metrics.correction_us + parse_metrics.assistance_us;
         total_correction_us += parse_metrics.correction_us;
+        total_assistance_us += parse_metrics.assistance_us;
         total_lookup_us += generation_metrics.lexicon_lookup_us;
         total_sort_us += generation_metrics.sort_us;
         total_transitions += generation_metrics.beam_transitions;
         total_materialized += generation_metrics.beam_materialized;
+        total_cache_hits += generation_metrics.exact_lookup_cache_hits;
+        total_coherence_hits += generation_metrics.coherence_cache_hits;
+        total_lookups += generation_metrics.lexicon_lookup_count;
     }
     std::sort(samples.begin(), samples.end());
     std::error_code ignored;
@@ -214,8 +220,12 @@ int main(int argc, char** argv) {
               << ",\"total_candidates\":" << total_candidates
               << ",\"average_beam_transitions\":" << total_transitions / sample_count
               << ",\"average_beam_materialized\":" << total_materialized / sample_count
+              << ",\"average_lexicon_lookups\":" << total_lookups / sample_count
+              << ",\"average_exact_cache_hits\":" << total_cache_hits / sample_count
+              << ",\"average_coherence_cache_hits\":" << total_coherence_hits / sample_count
               << ",\"average_phase_us\":{\"parse\":" << total_parse_us / sample_count
               << ",\"correction\":" << total_correction_us / sample_count
+              << ",\"assistance\":" << total_assistance_us / sample_count
               << ",\"lookup\":" << total_lookup_us / sample_count
               << ",\"sort\":" << total_sort_us / sample_count << "}"
               << ",\"latency_us\":{\"p50\":" << percentile(samples, 0.50)

@@ -152,12 +152,28 @@ bool assisted_path_less(const ParsePath& left, const ParsePath& right) {
 }
 
 std::string assisted_reading_key(const ParsePath& path) {
+    std::size_t size = 1;
+    for (const auto& syllable : path.syllables) size += syllable.text.size() + 1;
     std::string key(1, static_cast<char>(path.match_kind));
+    key.reserve(size);
     for (const auto& syllable : path.syllables) {
         key += syllable.text;
         key.push_back('\'');
     }
     return key;
+}
+
+ParsePath extend_path(const ParsePath& source, Syllable syllable) {
+    ParsePath result;
+    result.match_kind = source.match_kind;
+    result.edit_count = source.edit_count;
+    result.completion_characters = source.completion_characters;
+    // Copy construction followed by push_back allocated/copies the entire
+    // syllable vector twice for virtually every assisted transition.
+    result.syllables.reserve(source.syllables.size() + 1);
+    result.syllables.insert(result.syllables.end(), source.syllables.begin(), source.syllables.end());
+    result.syllables.push_back(std::move(syllable));
+    return result;
 }
 
 struct KeyboardPosition {
@@ -247,18 +263,36 @@ void append_incomplete_completions(const std::vector<ParsePath>& base_paths,
 
 void prune_assisted_paths(std::vector<ParsePath>& paths, const std::size_t limit,
                           const bool deduplicate = false) {
-    std::sort(paths.begin(), paths.end(), assisted_path_less);
+    struct KeyedPath { ParsePath path; std::string key; };
+    std::vector<KeyedPath> keyed;
+    keyed.reserve(paths.size());
+    for (auto& path : paths) {
+        auto key = assisted_reading_key(path);
+        keyed.push_back({std::move(path), std::move(key)});
+    }
+    std::sort(keyed.begin(), keyed.end(), [](const auto& left, const auto& right) {
+        if (left.path.syllables.size() != right.path.syllables.size())
+            return left.path.syllables.size() < right.path.syllables.size();
+        if (left.path.completion_characters != right.path.completion_characters)
+            return left.path.completion_characters < right.path.completion_characters;
+        // Canonical syllables contain a-z only. Apostrophe sorts before those
+        // letters, exactly matching vector-of-syllables lexicographic order.
+        // Match kind is part of dedup identity, NOT the original sort order.
+        return std::string_view(left.key).substr(1) < std::string_view(right.key).substr(1);
+    });
     if (!deduplicate) {
-        if (paths.size() > limit) paths.resize(limit);
+        paths.clear();
+        for (std::size_t index = 0; index < std::min(keyed.size(), limit); ++index)
+            paths.push_back(std::move(keyed[index].path));
         return;
     }
     std::vector<ParsePath> deduplicated;
     deduplicated.reserve(paths.size());
-    std::unordered_set<std::string> seen;
+    std::unordered_set<std::string_view> seen;
     seen.reserve(paths.size() * 2);
-    for (auto& path : paths) {
-        if (!seen.insert(assisted_reading_key(path)).second) continue;
-        deduplicated.push_back(std::move(path));
+    for (auto& item : keyed) {
+        if (!seen.insert(item.key).second) continue;
+        deduplicated.push_back(std::move(item.path));
     }
     if (deduplicated.size() <= limit) {
         paths = std::move(deduplicated);
@@ -364,7 +398,8 @@ void prune_assisted_paths(std::vector<ParsePath>& paths, const std::size_t limit
 
 void append_abbreviated_completions(const std::string_view normalized,
                                     std::vector<ParsePath>& paths,
-                                    const std::size_t max_paths) {
+                                    const std::size_t max_paths,
+                                    const std::function<bool()>& cancelled) {
     constexpr std::size_t kMinimumAbbreviatedInputBytes = 2;
     constexpr std::size_t kMaximumAbbreviatedInputBytes = 256;
     constexpr std::size_t kMaximumAbbreviatedSyllables = 256;
@@ -382,24 +417,27 @@ void append_abbreviated_completions(const std::string_view normalized,
     chart[0].push_back(std::move(initial));
 
     for (std::size_t offset = 0; offset < normalized.size(); ++offset) {
+        if (cancelled && cancelled()) return;
         if (chart[offset].empty()) continue;
         prune_assisted_paths(chart[offset], beam_width, true);
+        struct Token { std::string_view syllable; std::size_t consumed; };
+        std::vector<Token> tokens;
+        const auto maximum = std::min<std::size_t>(6, normalized.size() - offset);
+        for (std::size_t consumed = maximum; consumed > 0; --consumed)
+            for (const auto syllable : syllable_prefix_matches(normalized.substr(offset, consumed)))
+                tokens.push_back({syllable, consumed});
         for (const auto& state : chart[offset]) {
+            if (cancelled && cancelled()) return;
             if (state.syllables.size() >= kMaximumAbbreviatedSyllables) continue;
-            const auto maximum = std::min<std::size_t>(6, normalized.size() - offset);
-            for (std::size_t consumed = maximum; consumed > 0; --consumed) {
-                const auto prefix = normalized.substr(offset, consumed);
-                for (const auto syllable : syllable_prefix_matches(prefix)) {
-                    ParsePath next = state;
-                    next.syllables.push_back({std::string(syllable), offset,
-                                              offset + consumed, true});
-                    next.completion_characters +=
-                        static_cast<std::uint32_t>(syllable.size() - prefix.size());
-                    auto& destination = chart[offset + consumed];
-                    destination.push_back(std::move(next));
-                    if (destination.size() >= beam_width * 4)
-                        prune_assisted_paths(destination, beam_width, true);
-                }
+            for (const auto& [syllable, consumed] : tokens) {
+                auto next = extend_path(state, {std::string(syllable), offset,
+                                                offset + consumed, true});
+                next.completion_characters +=
+                    static_cast<std::uint32_t>(syllable.size() - consumed);
+                auto& destination = chart[offset + consumed];
+                destination.push_back(std::move(next));
+                if (destination.size() >= beam_width * 4)
+                    prune_assisted_paths(destination, beam_width, true);
             }
         }
     }
@@ -571,15 +609,15 @@ void append_corrected_paths(const std::string_view normalized,
             if (state.path.syllables.size() + 1 > exclusive_syllable_limit) continue;
             for (const auto& token : tokens_at(offset)) {
                 if (token.corrected && state.edit_count >= maximum_edits) continue;
-                CorrectionState next = state;
-                next.reading_key.clear();
+                CorrectionState next{
+                    extend_path(state.path, {std::string(token.syllable), offset,
+                                offset + token.consumed, true}),
+                    state.edit_count, state.first_edit_offset, {}};
                 if (token.corrected) {
                     if (next.edit_count == 0) next.first_edit_offset = offset;
                     ++next.edit_count;
                 }
                 next.path.edit_count = next.edit_count;
-                next.path.syllables.push_back({std::string(token.syllable), offset,
-                                               offset + token.consumed, true});
                 auto& destination = chart[offset + token.consumed];
                 destination.push_back(std::move(next));
                 if (destination.size() >= beam_width * 8) prune_states(destination);
@@ -914,7 +952,7 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
             });
         if (chunk_paths.empty() && consonant_abbreviation) {
             std::vector<ParsePath> abbreviated;
-            append_abbreviated_completions(chunk, abbreviated, max_paths);
+            append_abbreviated_completions(chunk, abbreviated, max_paths, cancelled);
             chunk_paths.reserve(abbreviated.size());
             for (auto& path : abbreviated) {
                 for (auto& syllable : path.syllables) {
@@ -958,6 +996,7 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
         chunk_begin = separator + 1;
     }
     const auto segmentation_finished = std::chrono::steady_clock::now();
+    const auto previous_correction_us = metrics ? metrics->correction_us : 0;
 
     if (base_valid) result.paths = std::move(combined);
     const auto base_paths = result.paths;
@@ -1004,7 +1043,7 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
         // creates hundreds of duplicate families that are later discarded.
         if (!long_stable_trailing_prefix && !stable_trailing_prefix)
             append_abbreviated_completions(result.normalized_input, abbreviated_paths,
-                                           std::max<std::size_t>(max_paths, 256));
+                                           std::max<std::size_t>(max_paths, 256), cancelled);
         incomplete_paths.insert(incomplete_paths.end(),
                                 std::make_move_iterator(abbreviated_paths.begin()),
                                 std::make_move_iterator(abbreviated_paths.end()));
@@ -1096,6 +1135,11 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
         metrics->segmentation_us = static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::microseconds>(
                 segmentation_finished - normalization_finished).count());
+        const auto assisted_total = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - segmentation_finished).count());
+        const auto correction_us = metrics->correction_us - previous_correction_us;
+        metrics->assistance_us = assisted_total - std::min(assisted_total, correction_us);
     }
     return result;
 }
