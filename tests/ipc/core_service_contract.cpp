@@ -83,6 +83,10 @@ int main() {
         {{"an", "you", "xian"}, "按优先", 800},
         {{"you", "xian", "du"}, "优先度", 100},
         {{"du"}, "度", 2000000}, {{"du"}, "读", 1000000},
+        {{"rang"}, "让", 3000000}, {{"xue", "xi"}, "学习", 100000},
+        {{"ji", "lu"}, "记录", 100000}, {{"xue", "xi", "ji", "lu"}, "学习记录", 500},
+        {{"xue", "xi", "ji"}, "学习记", 20},
+        {{"ji"}, "记", 1000000}, {{"lu"}, "路", 1000000}, {{"lu"}, "录", 1000},
         {{"chang"}, "长", 2000}, {{"chang"}, "常", 1900},
         {{"shang"}, "上", 2000}, {{"zhong"}, "中", 2000},
         {{"cheng"}, "成", 2000}, {{"jing"}, "京", 2000},
@@ -212,6 +216,38 @@ int main() {
             !value.candidates.empty() && value.candidates.front() == "按优先度" &&
             dictionary_index < value.candidates.size() && value.candidates[dictionary_index] == "案由先读";
     }
+    bool long_suffix_ok = true;
+    std::uint64_t suffix_request_id = 700;
+    for (const bool correction : {false, true}) {
+        owo::protocol::Message request{owo::protocol::MessageType::candidate_request,
+            ++suffix_request_id, 700, "rangxuexijilu"};
+        request.correction_enabled = correction;
+        const auto result = send_request(pipe_name, request);
+        const auto head = std::find(result.message.candidates.begin(), result.message.candidates.end(), "让");
+        const auto head_index = static_cast<std::size_t>(head - result.message.candidates.begin());
+        long_suffix_ok = long_suffix_ok && result.validation && !result.message.candidates.empty() &&
+            result.message.candidates.front() == "让学习记录" &&
+            result.message.syllables == std::vector<std::string>{"rang", "xue", "xi", "ji", "lu"} &&
+            !result.message.candidate_consumed.empty() && result.message.candidate_consumed.front() == 13 &&
+            head_index < result.message.candidate_consumed.size() && result.message.candidate_consumed[head_index] == 4;
+    }
+    owo::protocol::Message suffix_feedback{owo::protocol::MessageType::candidate_committed,
+        ++suffix_request_id, 700, "让学习记路"};
+    suffix_feedback.input = "rangxuexijilu";
+    const auto suffix_ack = send_request(pipe_name, suffix_feedback);
+    for (const bool expanded : {false, true}) {
+        owo::protocol::Message request{owo::protocol::MessageType::candidate_request,
+            ++suffix_request_id, 700, "rangxuexijilu"};
+        request.expanded = expanded;
+        const auto result = send_request(pipe_name, request);
+        long_suffix_ok = long_suffix_ok && suffix_ack.validation && result.validation &&
+            !result.message.candidates.empty() && result.message.candidates.front() == "让学习记录" &&
+            std::find(result.message.candidates.begin(), result.message.candidates.end(), "让学习记路") != result.message.candidates.end();
+    }
+    const auto suffix_remainder = send_request(pipe_name,
+        {owo::protocol::MessageType::candidate_request, ++suffix_request_id, 700, "xuexijilu"});
+    long_suffix_ok = long_suffix_ok && suffix_remainder.validation &&
+        std::find(suffix_remainder.message.candidates.begin(), suffix_remainder.message.candidates.end(), "学习记录") != suffix_remainder.message.candidates.end();
     bool transposition_contract_ok = true;
     std::uint64_t transposition_id = 400;
     for (const auto& [input, expected] : {
@@ -476,6 +512,10 @@ int main() {
     const auto ambiguous_word_ack = send_request(pipe_name, ambiguous_word_commit);
     const auto shutdown = send_request(pipe_name, {owo::protocol::MessageType::shutdown_request, 103, 9, {}});
     server.join();
+    if (!long_suffix_ok) {
+        std::cerr << "long suffix/local bridge Core contract failed\n";
+        return 9;
+    }
     if (!dictionary_bridge_ok) {
         std::cerr << "dictionary-bridge Core preview/prefix contract failed\n";
         return 8;

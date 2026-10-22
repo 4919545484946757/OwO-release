@@ -7,13 +7,17 @@
 namespace {
 class LearnedPhrase final : public owo::engine::UserFrequencyModel {
 public:
+    explicit LearnedPhrase(std::string input = "anyouxiandu", std::string text = "案由先读")
+        : input_(std::move(input)), text_(std::move(text)) {}
     std::int64_t score(std::string_view text) const override {
-        return text == "案由先读" ? 2000 : 0;
+        return text == text_ ? 2000 : 0;
     }
     std::vector<owo::engine::UserLexiconEntry> lookup(std::string_view input, std::size_t) const override {
-        return input == "anyouxiandu" ? std::vector<owo::engine::UserLexiconEntry>{{"案由先读", 1, "anyouxiandu"}}
+        return input == input_ ? std::vector<owo::engine::UserLexiconEntry>{{text_, 1, input_}}
                                       : std::vector<owo::engine::UserLexiconEntry>{};
     }
+private:
+    std::string input_, text_;
 };
 std::vector<owo::engine::LexiconEntry> fixture(bool bridge, bool whole_word = false) {
     std::vector<owo::engine::LexiconEntry> entries{
@@ -113,6 +117,48 @@ int main() {
             std::cerr << "learned dictionary source suppressed the bridged sentence source\n";
             return 7;
         }
+    }
+    const owo::engine::MemoryLexicon suffix_lexicon({
+        {{"rang"}, "让", 3000000}, {{"shi"}, "使", 3000000}, {{"jiang"}, "将", 3000000},
+        {{"xue", "xi"}, "学习", 100000}, {{"ji", "lu"}, "记录", 100000},
+        {{"xue", "xi", "ji", "lu"}, "学习记录", 500},
+        {{"xue", "xi", "ji"}, "学习记", 20},
+        {{"ji"}, "记", 1000000}, {{"lu"}, "路", 1000000}, {{"lu"}, "录", 1000}});
+    const owo::engine::CandidateGenerator suffix_generator(suffix_lexicon);
+    for (const auto& [head, text] : {std::pair{"rang", "让"}, {"shi", "使"}, {"jiang", "将"}}) {
+        const auto input = std::string(head) + "xuexijilu";
+        const auto expected = std::string(text) + "学习记录";
+        const auto unsupported_text = std::string(text) + "学习记路";
+        const LearnedPhrase old_selection(input, unsupported_text);
+        const owo::engine::CandidateGenerator personalized_suffix(suffix_lexicon, nullptr, &old_selection);
+        owo::engine::FullPinyinIncrementalState state;
+        for (std::size_t size = 1; size <= input.size(); ++size)
+            static_cast<void>(schema.parse_incremental(std::string_view(input).substr(0, size), 32, state));
+        for (const auto limit : {8u, 18u, 48u, 128u}) for (const auto page : {0u, 5u, 7u, 9u})
+        for (const bool model : {false, true}) for (const bool incremental : {false, true}) {
+            const auto parsed_suffix = incremental ? state.result : schema.parse(input, 32, false);
+            const auto result = suffix_generator.generate(parsed_suffix, limit, false, {}, nullptr, {}, model, page);
+            if (result.empty() || result.front().text != expected ||
+                result.front().segment_count != 2 || result.front().coherence_score <= 0 ||
+                result.front().consumed_input_bytes != input.size() || find_text(result, text) == result.end()) {
+                std::cerr << "long dictionary suffix displaced by local bridge: " << input << '\n';
+                return 8;
+            }
+            const auto local = find_text(result, unsupported_text);
+            if (local != result.end() && local->coherence_score != 0) return 9;
+            if (page != 0) {
+                const auto personalized_result = personalized_suffix.generate(
+                    parsed_suffix, limit, false, {}, nullptr, {}, model, page);
+                const auto retained = find_text(personalized_result, expected);
+                if (retained == personalized_result.end() || retained->model_only ||
+                    find_text(personalized_result, unsupported_text) == personalized_result.end()) return 10;
+            }
+        }
+        const auto explicit_input = std::string(head) + "'xue'xi'ji'lu";
+        const auto separated = suffix_generator.generate(schema.parse(explicit_input, 32, false),
+            18, false, {}, nullptr, {}, false, 7);
+        if (separated.empty() || separated.front().text != expected ||
+            separated.front().consumed_input_bytes != explicit_input.size()) return 11;
     }
     std::cout << "Dictionary bridges, unmatched edges, quotas and prefix commits passed\n";
 }

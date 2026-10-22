@@ -9,6 +9,7 @@
 #include <deque>
 #include <iterator>
 #include <limits>
+#include <optional>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -1321,11 +1322,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // from filling pages for inputs such as chan+wu or ni+jian.
     if (partition_page_size == 0)
         limit_two_syllable_full_candidates(full);
-    const bool preserve_learned_bridge = partition_page_size != 0 &&
+    const bool preserve_learned_alternative = partition_page_size != 0 &&
         std::any_of(full.begin(), full.end(), [](const auto& candidate) { return candidate.user_lexicon; });
-    std::optional<Candidate> dictionary_bridge_alternative;
-    const auto apply_cross_boundary_coherence = [this, metrics, preserve_learned_bridge,
-                                                &dictionary_bridge_alternative](Candidate& candidate) {
+    std::optional<Candidate> coherent_sentence_alternative;
+    const auto apply_cross_boundary_coherence = [this, metrics, preserve_learned_alternative,
+                                                &coherent_sentence_alternative](Candidate& candidate) {
         constexpr std::size_t kMaximumPhraseCharacters = 4;
         const auto character_count = candidate.syllables.size();
         if (character_count < 3 ||
@@ -1355,6 +1356,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             }
         }
         bool dictionary_bridge = false;
+        std::vector<bool> dictionary_covered(character_count, false);
 
         // Weighted interval scheduling over dictionary phrases gives a phrase
         // chain such as “以我” + “的想法” a continuity advantage without
@@ -1400,6 +1402,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 // retain the uncovered-character penalty instead of letting
                 // unrelated fragments jump across unsupported text.
                 if (phrase_score == unreachable) continue;
+                std::fill(dictionary_covered.begin() + begin, dictionary_covered.begin() + end, true);
                 if (end - begin >= 3 &&
                     std::any_of(dictionary_boundaries.begin(), dictionary_boundaries.end(),
                         [begin, end](const auto boundary) { return begin < boundary && boundary < end; }))
@@ -1409,14 +1412,17 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
         candidate.coherence_score = std::max<std::int64_t>(0, best.back());
         // A real overlapping phrase that crosses a selected word boundary
-        // provides evidence the two fragments belong together. Award this
-        // once, bounded independently of sentence length or corpus counts.
-        if (dictionary_bridge)
+        // provides evidence the two fragments belong together only when the
+        // matched multi-character words cover the entire text. A local match
+        // must not reward unsupported leading/trailing character permutations.
+        if (dictionary_bridge && std::all_of(dictionary_covered.begin(), dictionary_covered.end(),
+                                             [](const bool covered) { return covered; }))
             candidate.coherence_score += kMaximumBoundaryCoherenceBonus * 2;
         candidate.score += candidate.coherence_score;
-        if (preserve_learned_bridge && dictionary_bridge && (!dictionary_bridge_alternative ||
-            score_less(candidate, *dictionary_bridge_alternative)))
-            dictionary_bridge_alternative = candidate;
+        if (preserve_learned_alternative && candidate.match_kind == InputMatchKind::exact &&
+            candidate.segment_count > 1 && candidate.coherence_score > 0 &&
+            (!coherent_sentence_alternative || score_less(candidate, *coherent_sentence_alternative)))
+            coherent_sentence_alternative = candidate;
     };
     // Only the candidates already close enough to reach the visible/model
     // comparison set need the more detailed phrase-chain pass.
@@ -1704,15 +1710,15 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     if (partition_page_size != 0) {
         // A learned whole-input phrase belongs to the dictionary source. It
         // must not consume the only sentence slot and hide every independently
-        // dictionary-backed correction to a previously selected composition.
+        // dictionary-backed coherent alternative to a selected composition.
         // Keep one such alternative without deleting or demoting learned data.
         if (!ordered.empty() && ordered.front().user_lexicon &&
-            dictionary_bridge_alternative &&
+            coherent_sentence_alternative &&
             std::none_of(ordered.begin(), ordered.end(), [&](const auto& candidate) {
-                return candidate.text == dictionary_bridge_alternative->text &&
-                    candidate.consumed_input_bytes == dictionary_bridge_alternative->consumed_input_bytes;
+                return candidate.text == coherent_sentence_alternative->text &&
+                    candidate.consumed_input_bytes == coherent_sentence_alternative->consumed_input_bytes;
             }))
-            ordered.push_back(std::move(*dictionary_bridge_alternative));
+            ordered.push_back(std::move(*coherent_sentence_alternative));
         std::vector<Candidate> sentences;
         std::vector<Candidate> dictionary_words;
         std::vector<Candidate> compositions;
