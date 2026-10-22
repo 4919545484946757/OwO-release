@@ -36,6 +36,12 @@ bool exchange(owo::ipc::PersistentPipeClient& client, const owo::protocol::Messa
     response = std::move(decoded.message);
     return true;
 }
+owo::protocol::Message ranking_request(const owo::protocol::Message& candidate) {
+    // Model polls have a smaller protocol contract; do not copy first-stage
+    // defer/refinement flags or input fields into them.
+    return {owo::protocol::MessageType::candidate_update_request,
+        candidate.request_id, candidate.context_generation, {}};
+}
 int measure(const std::wstring& pipe, unsigned count, bool wait_model) {
     using namespace owo::protocol;
     unsigned failures = 0;
@@ -63,9 +69,7 @@ int measure(const std::wstring& pipe, unsigned count, bool wait_model) {
                 refinement.add(start);
             }
             if (wait_model && response.model_pending) {
-                auto update = request;
-                update.type = MessageType::candidate_update_request;
-                update.text.clear();
+                const auto update = ranking_request(request);
                 start = Clock::now();
                 const auto deadline = start + std::chrono::milliseconds(500);
                 while (Clock::now() < deadline) {
@@ -140,6 +144,11 @@ int wmain(int argc, wchar_t** argv) {
         unresolved.correction_enabled = correction;
         unresolved_ok = exchange(preview_client,unresolved,response,
             owo::protocol::MessageType::candidate_response) && response.syllables.empty() && unresolved_ok;
+    }
+    {
+        owo::ipc::PersistentPipeClient poll_client(pipe);
+        unresolved_ok = exchange(poll_client,ranking_request(unresolved),response,
+            owo::protocol::MessageType::candidate_update_response) && unresolved_ok;
     }
     shutdown.type = owo::protocol::MessageType::shutdown_request;
     owo::ipc::PersistentPipeClient client(pipe);
