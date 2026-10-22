@@ -160,5 +160,34 @@ int main() {
         if (separated.empty() || separated.front().text != expected ||
             separated.front().consumed_input_bytes != explicit_input.size()) return 11;
     }
+    // Hidden model seeds must not undo the visible phrase-chain decision by
+    // reintroducing weak, more fragmented homophone permutations. No phrase
+    // blacklist: the same structural rule applies to multiple leading words.
+    const owo::engine::MemoryLexicon model_seed_lexicon({
+        {{"xiu", "fu"}, "修复", 50000}, {{"hui", "fu"}, "恢复", 50000},
+        {{"lei", "si", "wen", "ti"}, "类似问题", 50000},
+        {{"lei", "si"}, "类似", 40000}, {{"lei", "si"}, "累死", 500},
+        {{"wen", "ti"}, "问题", 40000},
+        {{"xiu"}, "修", 50000}, {{"hui"}, "恢", 50000}});
+    for (const auto& [head, text] : {std::pair{"xiufu", "修复"}, {"huifu", "恢复"}}) {
+        const auto input = std::string(head) + "leisiwenti";
+        const auto expected = std::string(text) + "类似问题";
+        const auto weak = std::string(text) + "累死问题";
+        const auto request = schema.parse(input, 32, false);
+        for (const auto limit : {18u, 48u, 128u}) for (const auto page : {0u, 5u, 7u, 9u}) {
+            const auto result = owo::engine::CandidateGenerator(model_seed_lexicon).generate(
+                request, limit, false, {}, nullptr, {}, true, page);
+            if (result.empty() || result.front().text != expected ||
+                find_text(result, weak) != result.end()) {
+                std::cerr << "weak fragmented model seed survived: " << input << '\n';
+                return 12;
+            }
+            const LearnedPhrase selected(input, weak);
+            const auto learned_result = owo::engine::CandidateGenerator(
+                model_seed_lexicon, nullptr, &selected).generate(
+                    request, limit, false, {}, nullptr, {}, true, page);
+            if (find_text(learned_result, weak) == learned_result.end()) return 13;
+        }
+    }
     std::cout << "Dictionary bridges, unmatched edges, quotas and prefix commits passed\n";
 }

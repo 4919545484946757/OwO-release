@@ -1669,10 +1669,23 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     if (include_model_alternatives && !full.empty() &&
         full.front().syllables.size() >= 3) {
         constexpr std::size_t kMaximumModelStructures = 24;
+        const auto& reference = full.front();
         std::unordered_set<std::string_view> texts;
         texts.reserve(kMaximumModelStructures);
         for (const auto& candidate : full) {
             if (candidate.consumed_input_bytes != full_input_bytes) continue;
+            // A model rank is not evidence that an arbitrarily fragmented
+            // homophone sequence is a valid alternative. Keep genuine source
+            // readings and learned words, but do not let a much weaker split
+            // of the same exact reading bypass the visible sentence budget.
+            if (!candidate.user_lexicon && reference.match_kind == InputMatchKind::exact &&
+                reference.coherence_score > candidate.coherence_score &&
+                reference.score - candidate.score >= kAlternativeSegmentationPromotionMargin &&
+                (candidate.match_kind != InputMatchKind::exact ||
+                 (candidate.source_segments == reference.source_segments &&
+                  candidate.syllables == reference.syllables &&
+                  candidate.segment_count > reference.segment_count)))
+                continue;
             if (!texts.insert(candidate.text).second) continue;
             model_seeds.push_back(candidate);
             if (model_seeds.size() == kMaximumModelStructures) break;
