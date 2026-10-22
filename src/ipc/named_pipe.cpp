@@ -1142,6 +1142,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
         std::vector<std::string> candidates;
         std::vector<std::uint64_t> candidate_consumed;
         std::vector<std::uint64_t> candidate_groups;
+        std::vector<std::uint64_t> candidate_confidence;
         std::size_t full_input_bytes{};
         std::size_t visible_count{};
         std::vector<std::string> contextual_preferences;
@@ -1421,7 +1422,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         apply_contextual_candidate_order(
                             update.candidates, pending.full_input_bytes,
                             pending.candidates, pending.candidate_consumed,
-                            response.candidates, response.candidate_consumed);
+                            response.candidates, response.candidate_consumed,
+                            pending.candidate_confidence);
                         promote_preferred_candidates(
                             pending.contextual_preferences, response.candidates,
                             response.candidate_consumed);
@@ -1501,6 +1503,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 bool request_cancelled = false;
                 std::vector<std::string> model_candidate_pool;
                 std::vector<std::size_t> model_candidate_consumed;
+                std::vector<std::uint64_t> model_candidate_confidence;
                 std::vector<std::string> model_hidden_candidates;
                 std::vector<std::uint64_t> model_hidden_consumed;
                 std::vector<std::uint64_t> model_hidden_groups;
@@ -1915,10 +1918,34 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         first_model_only - candidates.begin());
                     model_candidate_pool.reserve(candidates.size());
                     model_candidate_consumed.reserve(candidates.size());
+                    // Preserve lexical evidence when a rank-only backend
+                    // returns an arbitrary permutation. This is not a pinned
+                    // first candidate: alternatives within one confidence band
+                    // remain free to respond to context/model evidence.
+                    constexpr std::int64_t kModelLexicalConfidenceBand = 16'000;
+                    const auto reference = std::find_if(candidates.begin(), candidates.end(),
+                        [full_input_bytes](const engine::Candidate& candidate) {
+                            return !candidate.model_only && !candidate.user_lexicon &&
+                                candidate.match_kind == engine::InputMatchKind::exact &&
+                                candidate.segment_count > 1 &&
+                                candidate.consumed_input_bytes == full_input_bytes;
+                        });
                     for (const auto& candidate : candidates) {
                         model_candidate_pool.push_back(candidate.text);
                         model_candidate_consumed.push_back(
                             candidate.consumed_input_bytes);
+                        std::uint64_t confidence = 0;
+                        if (reference != candidates.end() && !candidate.user_lexicon &&
+                            candidate.match_kind == engine::InputMatchKind::exact &&
+                            candidate.segment_count > 1 &&
+                            candidate.consumed_input_bytes == full_input_bytes &&
+                            candidate.source_segments == reference->source_segments &&
+                            candidate.syllables == reference->syllables &&
+                            candidate.coherence_score <= reference->coherence_score &&
+                            candidate.score < reference->score)
+                            confidence = static_cast<std::uint64_t>(
+                                (reference->score - candidate.score) / kModelLexicalConfidenceBand);
+                        model_candidate_confidence.push_back(confidence);
                     }
                     if (begin == 0) {
                         for (std::size_t index = visible_candidate_count;
@@ -2105,6 +2132,14 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     pending_model.candidates = std::move(model_update_candidates);
                     pending_model.candidate_consumed = std::move(model_update_consumed);
                     pending_model.candidate_groups = std::move(model_update_groups);
+                    pending_model.candidate_confidence.reserve(pending_model.candidates.size());
+                    for (const auto& text : pending_model.candidates) {
+                        const auto found = std::find(model_candidate_pool.begin(),
+                            model_candidate_pool.end(), text);
+                        pending_model.candidate_confidence.push_back(found == model_candidate_pool.end()
+                            ? 0 : model_candidate_confidence[static_cast<std::size_t>(
+                                found - model_candidate_pool.begin())]);
+                    }
                     pending_model.full_input_bytes = full_input_bytes;
                     pending_model.visible_count = response.candidates.size();
                     pending_model.contextual_preferences =

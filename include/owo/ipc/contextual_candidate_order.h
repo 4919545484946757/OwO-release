@@ -17,7 +17,8 @@ namespace owo::ipc {
         }));
 }
 
-// Model ranking is authoritative inside one structural tier. Tier boundaries remain stable:
+// Model ranking is authoritative inside one structural/confidence tier.
+// Tier boundaries remain stable:
 // whole-input candidates, then multi-character prefixes, then single-character fallbacks.
 inline void apply_contextual_candidate_order(
     const std::vector<std::string>& model_order,
@@ -25,8 +26,11 @@ inline void apply_contextual_candidate_order(
     const std::vector<std::string>& original_candidates,
     const std::vector<std::uint64_t>& original_consumed,
     std::vector<std::string>& ordered_candidates,
-    std::vector<std::uint64_t>& ordered_consumed) {
+    std::vector<std::uint64_t>& ordered_consumed,
+    const std::vector<std::uint64_t>& original_confidence = {}) {
     if (original_candidates.size() != original_consumed.size()) return;
+    if (!original_confidence.empty() && original_confidence.size() != original_candidates.size())
+        return;
 
     const auto model_rank = [&model_order](const std::string& candidate) {
         const auto found = std::find(model_order.begin(), model_order.end(), candidate);
@@ -50,6 +54,9 @@ inline void apply_contextual_candidate_order(
         if (left_tier != right_tier) return left_tier < right_tier;
         if (left_tier == 1 && original_consumed[left] != original_consumed[right])
             return original_consumed[left] > original_consumed[right];
+        if (left_tier == 0 && !original_confidence.empty() &&
+            original_confidence[left] != original_confidence[right])
+            return original_confidence[left] < original_confidence[right];
         const auto left_rank = model_rank(original_candidates[left]);
         const auto right_rank = model_rank(original_candidates[right]);
         if (left_rank != right_rank) return left_rank < right_rank;

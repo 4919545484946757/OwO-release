@@ -56,5 +56,17 @@ int main() {
         {10, 3, 3, 10}, ordered, consumed);
     if (ordered != std::vector<std::string>{"进保留", "仅保留", "仅", "今"} ||
         consumed != std::vector<std::uint64_t>{10, 10, 3, 3}) return 8;
+    // Strong dictionary evidence survives an adversarial rank-only model;
+    // equally credible alternatives still follow the model's contextual order.
+    owo::ipc::apply_contextual_candidate_order(
+        {"朽腐类似问题", "修复类似文体", "修复类似问题", "修复", "修"}, 15,
+        {"修复类似问题", "朽腐类似问题", "修复", "修", "修复类似文体"},
+        {15, 15, 5, 3, 15}, ordered, consumed, {0, 2, 0, 0, 0});
+    if (ordered != std::vector<std::string>{"修复类似文体", "修复类似问题",
+                                          "朽腐类似问题", "修复", "修"}) return 9;
+    owo::ipc::apply_contextual_candidate_order(
+        {"朽腐类似问题", "修复类似问题"}, 15,
+        {"修复类似问题", "朽腐类似问题"}, {15, 15}, ordered, consumed, {0, 2});
+    if (ordered.front() != "修复类似问题" || consumed != std::vector<std::uint64_t>{15, 15}) return 10;
     return 0;
 }
