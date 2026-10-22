@@ -814,6 +814,12 @@ void arrange_partitioned_candidate_pages(
         }
     }
 
+    const auto exact_learned_whole_word = [full_input_bytes](const engine::Candidate& candidate) {
+        return candidate.user_lexicon && candidate.segment_count == 1 &&
+            candidate.match_kind == engine::InputMatchKind::exact &&
+            candidate.consumed_input_bytes == full_input_bytes &&
+            utf8_character_count(candidate.text) == candidate.syllables.size();
+    };
     // The generator works with an internal pool that is intentionally much
     // larger than one visible page. Its pool-relative placement can therefore
     // bury the first character of the best sentence behind every homophone.
@@ -832,6 +838,8 @@ void arrange_partitioned_candidate_pages(
                     preferred_heads.end()) return;
             preferred_heads.push_back(head);
         };
+        for (const auto& candidate : dictionary_candidates)
+            if (exact_learned_whole_word(candidate)) collect_head(candidate);
         for (const auto& sentence : sentences) collect_head(sentence);
         for (const auto& candidate : dictionary_candidates) {
             if (preferred_heads.size() == 2) break;
@@ -883,7 +891,9 @@ void arrange_partitioned_candidate_pages(
     // “我市吗” ahead of the dictionary-backed “为什么”. This is score-driven
     // and applies to every input: sentence-first remains the default unless a
     // real whole-input dictionary entry has stronger evidence AND the
-    // competing sentences lack a verified exact-reading phrase chain.
+    // competing sentences lack a verified exact-reading phrase chain. An
+    // exact learned whole word preserves the generator's personalization
+    // precedence even when it also has a compositional sentence spelling.
     const bool coherent_exact_sentence = std::any_of(
         sentences.begin(), sentences.end(), [](const engine::Candidate& candidate) {
             return candidate.match_kind == engine::InputMatchKind::exact &&
@@ -898,23 +908,27 @@ void arrange_partitioned_candidate_pages(
                            })->score;
     const auto best_whole_dictionary = std::max_element(
         dictionary.begin(), dictionary.end(),
-        [full_input_bytes](const engine::Candidate& left,
+        [full_input_bytes, &exact_learned_whole_word](const engine::Candidate& left,
                            const engine::Candidate& right) {
-            const auto evidence = [full_input_bytes](const engine::Candidate& value) {
-                return value.segment_count == 1 &&
-                       value.consumed_input_bytes == full_input_bytes
-                    ? value.score
-                    : (std::numeric_limits<std::int64_t>::min)();
+            const auto evidence = [full_input_bytes, &exact_learned_whole_word](const engine::Candidate& value) {
+                const bool whole = value.segment_count == 1 &&
+                    value.consumed_input_bytes == full_input_bytes;
+                return std::pair{whole && exact_learned_whole_word(value), whole
+                    ? value.score : (std::numeric_limits<std::int64_t>::min)()};
             };
             return evidence(left) < evidence(right);
         });
     // An original abbreviation sentence remains available beside a repaired
     // whole syllable, but must not take over its leading character partition.
     const bool dictionary_before_sentences = corrected_single_syllable || (
-        !coherent_exact_sentence && !sentences.empty() && best_whole_dictionary != dictionary.end() &&
+        !sentences.empty() && best_whole_dictionary != dictionary.end() &&
         best_whole_dictionary->segment_count == 1 &&
         best_whole_dictionary->consumed_input_bytes == full_input_bytes &&
-        best_whole_dictionary->score > best_sentence_score);
+        // Learning an existing sentence turns it into a whole user word. It
+        // must not become LESS preferred merely because its structural group
+        // changes from sentence to dictionary after the first commit.
+        (exact_learned_whole_word(*best_whole_dictionary) ||
+         (!coherent_exact_sentence && best_whole_dictionary->score > best_sentence_score)));
 
     std::vector<engine::Candidate> paged;
     paged.reserve(sentences.size() + dictionary.size() + single_characters.size());
