@@ -186,10 +186,32 @@ int main() {
         personalized_bridge.message.candidates.end(), "按优先度");
     const auto bridged_index = static_cast<std::size_t>(bridged_text - personalized_bridge.message.candidates.begin());
     dictionary_bridge_ok = dictionary_bridge_ok && bridge_ack.validation && personalized_bridge.validation &&
-        bridged_index < personalized_bridge.message.candidate_groups.size() &&
+        bridged_index == 0 && bridged_index < personalized_bridge.message.candidate_groups.size() &&
         personalized_bridge.message.candidate_groups[bridged_index] == 0 &&
         std::find(personalized_bridge.message.candidates.begin(), personalized_bridge.message.candidates.end(),
             "案由先读") != personalized_bridge.message.candidates.end();
+    // Learning remains effective inside the dictionary area, but more usage
+    // cannot move that entire area ahead of an evidenced exact sentence.
+    bool repeated_bridge_learning_ok = true;
+    for (std::uint64_t index = 0; index < 8; ++index) {
+        bridge_feedback.request_id = 660 + index;
+        const auto ack = send_request(pipe_name, bridge_feedback);
+        repeated_bridge_learning_ok = repeated_bridge_learning_ok && ack.validation;
+    }
+    owo::protocol::Message learned_request{owo::protocol::MessageType::candidate_request,
+        670, 650, "anyouxiandu"};
+    const auto repeatedly_learned_bridge = send_request(pipe_name, learned_request);
+    learned_request.request_id = 671;
+    learned_request.expanded = true;
+    const auto expanded_learned_bridge = send_request(pipe_name, learned_request);
+    for (const auto* result : {&repeatedly_learned_bridge, &expanded_learned_bridge}) {
+        const auto& value = result->message;
+        const auto dictionary = std::find(value.candidate_groups.begin(), value.candidate_groups.end(), 1);
+        const auto dictionary_index = static_cast<std::size_t>(dictionary - value.candidate_groups.begin());
+        dictionary_bridge_ok = dictionary_bridge_ok && repeated_bridge_learning_ok && result->validation &&
+            !value.candidates.empty() && value.candidates.front() == "按优先度" &&
+            dictionary_index < value.candidates.size() && value.candidates[dictionary_index] == "案由先读";
+    }
     bool transposition_contract_ok = true;
     std::uint64_t transposition_id = 400;
     for (const auto& [input, expected] : {

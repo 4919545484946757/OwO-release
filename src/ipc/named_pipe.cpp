@@ -882,7 +882,13 @@ void arrange_partitioned_candidate_pages(
     // beside a much stronger real phrase. Do not let the fixed group order put
     // “我市吗” ahead of the dictionary-backed “为什么”. This is score-driven
     // and applies to every input: sentence-first remains the default unless a
-    // real whole-input dictionary entry has stronger evidence.
+    // real whole-input dictionary entry has stronger evidence AND the
+    // competing sentences lack a verified exact-reading phrase chain.
+    const bool coherent_exact_sentence = std::any_of(
+        sentences.begin(), sentences.end(), [](const engine::Candidate& candidate) {
+            return candidate.match_kind == engine::InputMatchKind::exact &&
+                   candidate.coherence_score > 0;
+        });
     const auto best_sentence_score = sentences.empty()
         ? (std::numeric_limits<std::int64_t>::min)()
         : std::max_element(sentences.begin(), sentences.end(),
@@ -905,7 +911,7 @@ void arrange_partitioned_candidate_pages(
     // An original abbreviation sentence remains available beside a repaired
     // whole syllable, but must not take over its leading character partition.
     const bool dictionary_before_sentences = corrected_single_syllable || (
-        !sentences.empty() && best_whole_dictionary != dictionary.end() &&
+        !coherent_exact_sentence && !sentences.empty() && best_whole_dictionary != dictionary.end() &&
         best_whole_dictionary->segment_count == 1 &&
         best_whole_dictionary->consumed_input_bytes == full_input_bytes &&
         best_whole_dictionary->score > best_sentence_score);
