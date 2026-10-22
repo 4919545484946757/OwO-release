@@ -1,0 +1,21 @@
+# 组合候选的跨词边界字典证据
+
+`anyouxiandu` 已能正确分为 `an'you'xian'du`，但基础候选原先偏向“案由先读”，未在可见区域保留“按优先度”。这不是音节缺失或用户词库污染：不加载用户词频时也能复现。
+
+本次仅优化基础词链评分，不添加具体拼音或汉字规则，不修改词典、用户数据或模型：
+
+- 修复不存在的字典词仍被当作零成本词链边的问题。未命中的片段必须继续承担原有未覆盖字符成本。
+- 对精确读音的组合候选，如果存在至少三个字、真实命中字典并跨过已选词片段边界的另一词条，加入一次有上限的跨界证据分。相邻片段至少一侧须为多字词，排除纯单字排列组合；不按句长或命中次数重复加分。
+- 例如候选“按优先＋度”具有跨界词条“优先度”；“按＋有限度”只有自身后缀词条，不能因此获得跨界加分。无字典支持的同音字符不会获得这种加分。
+- 不增加解析路径、Beam、可见句子数或模型备选上限，保留短词及首字的部分消耗候选、手动分隔和增量输入。智能模型后续仍按其现有协议进行排序。
+
+真实词典下，8/18/48 条候选预算均将“按优先度”列为基础首候选，并保留“按优先”“按”。人工词典专项覆盖不同首音节、8/18/48/128 预算、普通／手动分隔、整串／增量解析、分区开关和 5/7/9 页长、模型备选开关；另验证不存在的连接不加分、移除跨界词条后加分消失、完整词条仍可用、可见组合句不超过两项。
+
+Core 独立管道专项覆盖纠错开关、拼音预览、完整消耗 11 字节，以及短词“按优先”消耗 9 字节。相关歧义边界、局部纠错、分区配置、候选调度和上下文排列测试保留。
+
+```powershell
+cmake --build --preset windows-release --target owo_dictionary_bridge_tests owo_core_service_contract owo_core_config_contract owo_core_service
+ctest --test-dir build/windows-release -C Release -R '^owo\.(engine\.(dictionary_bridges|full_pinyin|ambiguous_boundaries|local_corrections|candidate_scheduler)|ipc\.(contextual_candidate_order|core_config_contract|core_service_contract))$' --output-on-failure
+```
+
+本次只做专项验证，不进行全量自检，不生成发行包。字典证据用于改善组合词连贯性，并不等同于完整语义理解；歧义词句最终仍受上下文、模型及个人词频影响。

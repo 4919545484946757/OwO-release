@@ -77,6 +77,12 @@ int main() {
         {{"wo", "ai"}, "我爱", 1500}, {{"wo"}, "我", 1400},
         {{"ai"}, "爱", 1350}, {{"shi"}, "是", 1300},
         {{"ma"}, "吗", 1250},
+        {{"an"}, "按", 3000000}, {{"an", "you"}, "案由", 20000},
+        {{"xian", "du"}, "先读", 5000}, {{"xian", "du"}, "限度", 5000},
+        {{"you", "xian", "du"}, "有限度", 8000},
+        {{"an", "you", "xian"}, "按优先", 800},
+        {{"you", "xian", "du"}, "优先度", 100},
+        {{"du"}, "度", 2000000}, {{"du"}, "读", 1000000},
         {{"chang"}, "长", 2000}, {{"chang"}, "常", 1900},
         {{"shang"}, "上", 2000}, {{"zhong"}, "中", 2000},
         {{"cheng"}, "成", 2000}, {{"jing"}, "京", 2000},
@@ -147,6 +153,29 @@ int main() {
                                        102, 8, "nihao"}),
         std::chrono::seconds(2)).response);
     persistent.reset();
+    bool dictionary_bridge_ok = true;
+    std::uint64_t bridge_request_id = 600;
+    for (const bool correction : {false, true}) {
+        owo::protocol::Message request{owo::protocol::MessageType::candidate_request,
+            ++bridge_request_id, 600, "anyouxiandu"};
+        request.correction_enabled = correction;
+        const auto result = send_request(pipe_name, request);
+        const auto prefix = std::find(result.message.candidates.begin(), result.message.candidates.end(), "按优先");
+        const auto prefix_index = static_cast<std::size_t>(prefix - result.message.candidates.begin());
+        dictionary_bridge_ok = dictionary_bridge_ok && result.validation &&
+            !result.message.candidates.empty() && result.message.candidates.front() == "按优先度" &&
+            result.message.syllables == std::vector<std::string>{"an", "you", "xian", "du"} &&
+            !result.message.candidate_consumed.empty() && result.message.candidate_consumed.front() == 11 &&
+            prefix_index < result.message.candidate_consumed.size() &&
+            result.message.candidate_consumed[prefix_index] == 9 &&
+            std::find(result.message.candidates.begin(), result.message.candidates.end(), "按") != result.message.candidates.end();
+        request.request_id = ++bridge_request_id;
+        request.text = "an'you'xian'du";
+        const auto separated = send_request(pipe_name, request);
+        dictionary_bridge_ok = dictionary_bridge_ok && separated.validation &&
+            !separated.message.candidates.empty() && separated.message.candidates.front() == "按优先度" &&
+            separated.message.syllables == std::vector<std::string>{"an", "you", "xian", "du"};
+    }
     bool transposition_contract_ok = true;
     std::uint64_t transposition_id = 400;
     for (const auto& [input, expected] : {
@@ -411,6 +440,10 @@ int main() {
     const auto ambiguous_word_ack = send_request(pipe_name, ambiguous_word_commit);
     const auto shutdown = send_request(pipe_name, {owo::protocol::MessageType::shutdown_request, 103, 9, {}});
     server.join();
+    if (!dictionary_bridge_ok) {
+        std::cerr << "dictionary-bridge Core preview/prefix contract failed\n";
+        return 8;
+    }
     if (!transposition_contract_ok) {
         std::cerr << "single-syllable transposition Core contract failed\n";
         return 7;

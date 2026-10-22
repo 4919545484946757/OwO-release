@@ -1338,6 +1338,20 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         boundaries.push_back(candidate.text.size());
         if (boundaries.size() != character_count + 1) return;
 
+        std::vector<std::size_t> dictionary_boundaries;
+        if (candidate.match_kind == InputMatchKind::exact && candidate.segment_count > 1) {
+            std::size_t offset = 0;
+            for (std::size_t index = 0; index + 1 < candidate.segment_lengths.size(); ++index) {
+                offset += candidate.segment_lengths[index];
+                // Require an existing multi-character fragment on at least
+                // one side, not arbitrary all-character permutations.
+                if (candidate.segment_lengths[index] >= 2 ||
+                    candidate.segment_lengths[index + 1] >= 2)
+                    dictionary_boundaries.push_back(offset);
+            }
+        }
+        bool dictionary_bridge = false;
+
         // Weighted interval scheduling over dictionary phrases gives a phrase
         // chain such as “以我” + “的想法” a continuity advantage without
         // repeatedly counting overlapping fragments such as every adjacent
@@ -1370,7 +1384,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 }
                 const auto expected = std::string_view(candidate.text).substr(
                     boundaries[begin], boundaries[end] - boundaries[begin]);
-                std::int64_t phrase_score = 0;
+                std::int64_t phrase_score = unreachable;
                 for (const auto& entry : entries) {
                     if (entry.text != expected) continue;
                     phrase_score = std::max(
@@ -1378,10 +1392,23 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         std::min(kMaximumBoundaryCoherenceBonus,
                                  candidate_unigram_score(entry.frequency) * 3 / 2));
                 }
+                // A missing word is not a zero-cost phrase edge: it must
+                // retain the uncovered-character penalty instead of letting
+                // unrelated fragments jump across unsupported text.
+                if (phrase_score == unreachable) continue;
+                if (end - begin >= 3 &&
+                    std::any_of(dictionary_boundaries.begin(), dictionary_boundaries.end(),
+                        [begin, end](const auto boundary) { return begin < boundary && boundary < end; }))
+                    dictionary_bridge = true;
                 best[end] = std::max(best[end], best[begin] + phrase_score);
             }
         }
         candidate.coherence_score = std::max<std::int64_t>(0, best.back());
+        // A real overlapping phrase that crosses a selected word boundary
+        // provides evidence the two fragments belong together. Award this
+        // once, bounded independently of sentence length or corpus counts.
+        if (dictionary_bridge)
+            candidate.coherence_score += kMaximumBoundaryCoherenceBonus * 2;
         candidate.score += candidate.coherence_score;
     };
     // Only the candidates already close enough to reach the visible/model
