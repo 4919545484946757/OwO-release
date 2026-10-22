@@ -939,21 +939,24 @@ void arrange_partitioned_candidate_pages(
         const auto dictionary_end = dictionary_index + dictionary_count;
         // A compact input that is itself one complete syllable expresses a
         // stronger single-character intent than an alternative cross-boundary
-        // parse (for example liang versus li'ang). Put only the first page's
-        // single-character area first; later pages retain the stable dictionary-
-        // then-character layout used by paging and expanded views.
-        if (first_page && dictionary_before_sentences) {
+        // parse (for example liang versus li'ang). Use the same area order on
+        // every page, including the rows returned by the expanded view. Keep
+        // each area's quota unchanged (odd pages still give characters one more).
+        if (single_syllable_input) {
+            while (single_index < single_end)
+                paged.push_back(std::move(single_characters[single_index++]));
+            while (dictionary_index < dictionary_end)
+                paged.push_back(std::move(dictionary[dictionary_index++]));
+            if (first_page && dictionary_before_sentences)
+                for (auto& sentence : sentences)
+                    paged.push_back(std::move(sentence));
+        } else if (first_page && dictionary_before_sentences) {
             while (dictionary_index < dictionary_end)
                 paged.push_back(std::move(dictionary[dictionary_index++]));
             for (auto& sentence : sentences)
                 paged.push_back(std::move(sentence));
             while (single_index < single_end)
                 paged.push_back(std::move(single_characters[single_index++]));
-        } else if (first_page && single_syllable_input) {
-            while (single_index < single_end)
-                paged.push_back(std::move(single_characters[single_index++]));
-            while (dictionary_index < dictionary_end)
-                paged.push_back(std::move(dictionary[dictionary_index++]));
         } else {
             while (dictionary_index < dictionary_end)
                 paged.push_back(std::move(dictionary[dictionary_index++]));
@@ -1792,7 +1795,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             std::make_move_iterator(model_begin),
                             std::make_move_iterator(candidates.end()));
                         candidates.erase(model_begin, candidates.end());
-                        const bool single_syllable_input = std::any_of(
+                        const bool single_syllable_input =
+                            (runtime_config == nullptr ||
+                             runtime_config->candidate_single_character_first_enabled) &&
+                            std::any_of(
                             parsed.paths.begin(), parsed.paths.end(),
                             [&parsed](const engine::ParsePath& path) {
                                 return path.match_kind == engine::InputMatchKind::exact &&

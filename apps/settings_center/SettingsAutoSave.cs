@@ -25,7 +25,7 @@ public sealed partial class MainPage
             await FlushAutoSaveAsync();
         };
         Control[] settings = [InputScheme, CandidatePageSize, CandidateWrapLength,
-            CandidatePartition, CandidateImmediateCommit, FocusLossCommit, ChinesePunctuation,
+            CandidatePartition, CandidateSingleCharacterFirst, CandidateImmediateCommit, FocusLossCommit, ChinesePunctuation,
             AltCodePreview, AltCodePreviewPageSize, AltCodePreviewWheel, UserLearning,
             UserLearningSensitivity, UserCompletion, UserCompletionRange, ModelRanking, ModelTimeout,
             CorrectionShortcutEnabled, LanguageShortcutEnabled, RawInputShortcutEnabled,

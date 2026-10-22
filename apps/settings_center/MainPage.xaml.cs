@@ -174,6 +174,7 @@ public sealed partial class MainPage : Page
         CandidatePageSize.Value = value.CandidatePageSize;
         CandidateWrapLength.Value = value.CandidateWrapLength;
         CandidatePartition.IsOn = value.CandidatePartitionEnabled;
+        CandidateSingleCharacterFirst.IsOn = value.CandidateSingleCharacterFirstEnabled;
         CandidateImmediateCommit.IsOn = value.CandidateImmediateCommitEnabled;
         FocusLossCommit.IsOn = value.FocusLossCommitEnabled;
         ChinesePunctuation.IsOn = value.ChinesePunctuationEnabled;
@@ -238,6 +239,8 @@ public sealed partial class MainPage : Page
         SetCardEnabled(PunctuationShortcutCard, !pluginScheme);
         var pinyinScheme = (InputScheme.SelectedItem as InputSchemeOption)?.Id ==
             "full_pinyin";
+        if (CandidateSingleCharacterFirstCard is not null)
+            SetCardEnabled(CandidateSingleCharacterFirstCard, pinyinScheme && CandidatePartition.IsOn);
         SetCardEnabled(UserCompletionCard, pinyinScheme);
         SetCardEnabled(UserCompletionRangeCard, pinyinScheme && UserCompletion.IsOn);
         SetCardEnabled(ModelTimeoutCard, !pluginScheme && ModelRanking.IsOn);
@@ -290,6 +293,7 @@ public sealed partial class MainPage : Page
                 (uint)CandidatePageSize.Value,
                 (uint)CandidateWrapLength.Value,
                 CandidatePartition.IsOn,
+                CandidateSingleCharacterFirst.IsOn,
                 CandidateImmediateCommit.IsOn,
                 FocusLossCommit.IsOn,
                 ChinesePunctuation.IsOn,
@@ -414,7 +418,7 @@ public sealed partial class MainPage : Page
                       InputSchemeCapabilities, DiscoverSchemesButton);
         SetVisibility(page == "candidates", CandidateSectionTitle,
                       CandidatePageSizeCard, CandidateWrapLengthCard,
-                      CandidatePartitionCard, CandidateImmediateCommitCard,
+                      CandidatePartitionCard, CandidateSingleCharacterFirstCard, CandidateImmediateCommitCard,
                       FocusLossCommitCard, ChinesePunctuationCard,
                       AltCodeSectionTitle, AltCodePreviewCard,
                       AltCodePreviewPageSizeCard, AltCodePreviewWheelCard);
@@ -461,6 +465,7 @@ public sealed partial class MainPage : Page
         Add("每页候选数", "候选 显示 数量", "candidates", CandidatePageSizeCard);
         Add("候选词换行长度", "长词 换行", "candidates", CandidateWrapLengthCard);
         Add("候选分区", "字典区 单字区", "candidates", CandidatePartitionCard);
+        Add("完整单字拼音时单字区优先", "候选 分区 单字 多字 顺序 每页", "candidates", CandidateSingleCharacterFirstCard);
         Add("候选词即时上屏", "暂存 组合 上屏", "candidates", CandidateImmediateCommitCard);
         Add("失焦保护", "候选框 关闭 上屏", "candidates", FocusLossCommitCard);
         Add("中文标点", "全角 标点", "candidates", ChinesePunctuationCard);

@@ -322,7 +322,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 12 ? std::size(text_navigation_required) : 0) +
                                (version >= 13 ? std::size(input_scheme_required) : 0) +
                                (version >= 14 ? std::size(user_completion_required) : 0) +
-                               (version >= 15 ? 1 : 0);
+                               (version >= 15 ? 1 : 0) +
+                               (version >= 16 ? 1 : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -362,6 +363,11 @@ ConfigParseResult parse_config(const std::string_view utf8) {
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
+    if (version >= 16 &&
+        (!fields.contains("candidate_single_character_first_enabled") ||
+         !parse_bool(fields["candidate_single_character_first_enabled"],
+                     value.candidate_single_character_first_enabled)))
+        return {false, {}, "candidate_single_character_first_enabled is missing or invalid"};
     if (version >= 15 &&
         (!fields.contains("chinese_punctuation_mask") ||
          !parse_u32(fields["chinese_punctuation_mask"], value.chinese_punctuation_mask)))
@@ -500,6 +506,8 @@ std::string serialize_config(const AppConfig& value) {
            "\ncandidate_wrap_length=" + std::to_string(value.candidate_wrap_length) +
            "\ncandidate_partition_enabled=" +
                (value.candidate_partition_enabled ? std::string("true") : "false") +
+           "\ncandidate_single_character_first_enabled=" +
+               (value.candidate_single_character_first_enabled ? std::string("true") : "false") +
            "\ncandidate_immediate_commit_enabled=" +
                (value.candidate_immediate_commit_enabled ? std::string("true") : "false") +
            "\nfocus_loss_commit_enabled=" +

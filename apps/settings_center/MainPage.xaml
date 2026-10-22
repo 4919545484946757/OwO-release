@@ -193,7 +193,20 @@
                                             <TextBlock Text="候选分区" Style="{StaticResource SettingTitleStyle}"/>
                                             <TextBlock Text="平衡词语候选与首字候选的屏内位置。" Style="{StaticResource SettingDescriptionStyle}"/>
                                         </StackPanel>
-                                        <ToggleSwitch x:Name="CandidatePartition" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
+                                        <ToggleSwitch x:Name="CandidatePartition" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="CandidateSingleCharacterFirstCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center" Spacing="4">
+                                            <TextBlock Text="完整单字拼音时单字区优先" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="启用候选分区时，可完整组成一个字的拼音会在每一页先显示单字区，再显示多字区；不改变各区数量。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="CandidateSingleCharacterFirst" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="CandidateImmediateCommitCard" Style="{StaticResource SettingsCardStyle}">

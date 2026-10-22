@@ -16,6 +16,29 @@ void write(const std::filesystem::path& path, const std::string_view text) {
 int main(const int argc, char** argv) {
     if (argc != 2) return 1;
     const std::filesystem::path root(argv[1]);
+    auto single_first = owo::config::AppConfig{};
+    if (!single_first.candidate_single_character_first_enabled) return 56;
+    single_first.candidate_single_character_first_enabled = false;
+    const auto single_first_roundtrip = owo::config::parse_config(
+        owo::config::serialize_config(single_first));
+    if (!single_first_roundtrip.ok || single_first_roundtrip.value != single_first) return 57;
+    auto version_fifteen = owo::config::serialize_config(single_first);
+    version_fifteen.replace(0, std::string("schema_version=16").size(), "schema_version=15");
+    const auto single_first_begin = version_fifteen.find("candidate_single_character_first_enabled=");
+    version_fifteen.erase(single_first_begin,
+        version_fifteen.find('\n', single_first_begin) - single_first_begin + 1);
+    const auto migrated_single_first = owo::config::parse_config(version_fifteen);
+    if (!migrated_single_first.ok ||
+        !migrated_single_first.value.candidate_single_character_first_enabled) return 58;
+    auto invalid_single_first = owo::config::serialize_config(single_first);
+    const auto flag_begin = invalid_single_first.find("candidate_single_character_first_enabled=");
+    invalid_single_first.replace(flag_begin,
+        invalid_single_first.find('\n', flag_begin) - flag_begin,
+        "candidate_single_character_first_enabled=invalid");
+    if (owo::config::parse_config(invalid_single_first).ok) return 59;
+    invalid_single_first.erase(flag_begin,
+        invalid_single_first.find('\n', flag_begin) - flag_begin + 1);
+    if (owo::config::parse_config(invalid_single_first).ok) return 60;
     // Per-key preferences survive persistence, while older schemas preserve all conversions.
     auto punctuation = owo::config::AppConfig{};
     for (const char source : owo::config::kChinesePunctuationSources)
@@ -29,7 +52,7 @@ int main(const int argc, char** argv) {
     if (!owo::config::parse_config(owo::config::serialize_config(punctuation)).ok) return 53;
     punctuation.chinese_punctuation_mask = 0x80000000;
     if (owo::config::validate_config(punctuation).ok) return 54;
-    auto version_fourteen = owo::config::serialize_config(owo::config::AppConfig{});
+    auto version_fourteen = version_fifteen;
     version_fourteen.replace(0, std::string("schema_version=15").size(), "schema_version=14");
     const auto mask_begin = version_fourteen.find("chinese_punctuation_mask=");
     version_fourteen.erase(mask_begin, version_fourteen.find('\n', mask_begin) - mask_begin + 1);
@@ -51,6 +74,7 @@ int main(const int argc, char** argv) {
     changed.candidate_page_size = 7;
     changed.candidate_wrap_length = 18;
     changed.candidate_partition_enabled = false;
+    changed.candidate_single_character_first_enabled = false;
     changed.candidate_immediate_commit_enabled = false;
     changed.focus_loss_commit_enabled = true;
     changed.user_learning_enabled = false;

@@ -97,6 +97,8 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         config.punctuation_shortcut_enabled = parsed;
     else if (field == L"candidate_partition_enabled")
         config.candidate_partition_enabled = parsed;
+    else if (field == L"candidate_single_character_first_enabled")
+        config.candidate_single_character_first_enabled = parsed;
     else if (field == L"candidate_immediate_commit_enabled")
         config.candidate_immediate_commit_enabled = parsed;
     else if (field == L"focus_loss_commit_enabled")
@@ -143,7 +145,7 @@ void usage() {
                  "[<candidate-immediate-commit-enabled> "
                  "<focus-loss-commit-enabled> [<input-scheme> "
                  "[<user-completion-enabled> <user-completion-max-syllables> "
-                 "[<chinese-punctuation-mask>]]]]]]]]]] | "
+                 "[<chinese-punctuation-mask> [<single-character-first-enabled>]]]]]]]]]]] | "
                  "watch <timeout-ms>\n";
 }
 
@@ -204,7 +206,7 @@ int wmain(const int argc, wchar_t** argv) {
     if (command == L"set-all" &&
         (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23 ||
          argc == 24 || argc == 27 || argc == 30 || argc == 32 || argc == 35 ||
-         argc == 36 || argc == 38 || argc == 39)) {
+         argc == 36 || argc == 38 || argc == 39 || argc == 40)) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);
         if (!loaded.success) return 3;
@@ -252,7 +254,8 @@ int wmain(const int argc, wchar_t** argv) {
             (argc >= 38 &&
              (!apply(value, L"user_lexicon_completion_enabled", argv[36]) ||
               !apply(value, L"user_lexicon_completion_max_syllables", argv[37]))) ||
-            (argc >= 39 && !apply(value, L"chinese_punctuation_mask", argv[38]))) {
+            (argc >= 39 && !apply(value, L"chinese_punctuation_mask", argv[38])) ||
+            (argc >= 40 && !apply(value, L"candidate_single_character_first_enabled", argv[39]))) {
             std::cerr << "invalid configuration value type\n";
             return 4;
         }

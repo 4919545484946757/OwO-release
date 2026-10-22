@@ -5,6 +5,7 @@ namespace OwO_Settings;
 internal sealed record SettingsSnapshot(string InputScheme,
                                         uint CandidatePageSize, uint CandidateWrapLength,
                                         bool CandidatePartitionEnabled,
+                                        bool CandidateSingleCharacterFirstEnabled,
                                         bool CandidateImmediateCommitEnabled,
                                         bool FocusLossCommitEnabled,
                                         bool ChinesePunctuationEnabled,
@@ -60,6 +61,7 @@ internal sealed class ConfigShellClient
                    uint.Parse(values["candidate_page_size"]),
                    uint.Parse(values["candidate_wrap_length"]),
                    bool.Parse(values["candidate_partition_enabled"]),
+                   bool.Parse(values["candidate_single_character_first_enabled"]),
                    bool.Parse(values["candidate_immediate_commit_enabled"]),
                    bool.Parse(values["focus_loss_commit_enabled"]),
                    bool.Parse(values["chinese_punctuation_enabled"]),
@@ -130,7 +132,8 @@ internal sealed class ConfigShellClient
                   value.InputScheme,
                   value.UserCompletionEnabled.ToString().ToLowerInvariant(),
                   value.UserCompletionMaxSyllables.ToString(),
-                  value.ChinesePunctuationMask.ToString()], cancellationToken);
+                  value.ChinesePunctuationMask.ToString(),
+                  value.CandidateSingleCharacterFirstEnabled.ToString().ToLowerInvariant()], cancellationToken);
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
