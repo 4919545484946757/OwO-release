@@ -7,5 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../apps/settings_center/SettingsUiPreferences.cs" Link="SettingsUiPreferences.cs"/>
+    <Compile Include="../../apps/settings_center/ConfigShellClient.cs" Link="ConfigShellClient.cs"/>
+    <Compile Include="../../apps/settings_center/ToneFeedbackText.cs" Link="ToneFeedbackText.cs"/>
   </ItemGroup>
 </Project>

@@ -80,9 +80,18 @@ add_library(owo_engine STATIC
     src/engine/lexicon.cpp
     src/engine/language_model.cpp
     src/engine/user_frequency.cpp
+    src/engine/user_corpus.cpp
+    src/engine/collocation.cpp
+    src/engine/style_profile.cpp
+    src/engine/tone_draft.cpp
+    src/engine/tone_feedback.cpp
 )
 target_include_directories(owo_engine PUBLIC include)
 target_compile_features(owo_engine PUBLIC cxx_std_20)
+if(WIN32)
+    # DPAPI protects the authorized personal corpus at rest.
+    target_link_libraries(owo_engine PUBLIC crypt32)
+endif()
 if(MSVC)
     target_compile_options(owo_engine PRIVATE /W4 /permissive- /utf-8)
 else()
@@ -248,6 +257,12 @@ if(WIN32)
     target_compile_features(owo_config_shell PRIVATE cxx_std_20)
     target_compile_options(owo_config_shell PRIVATE /W4 /permissive- /utf-8 /EHsc)
 
+    add_executable(owo_corpus_shell apps/corpus_shell/main.cpp)
+    target_link_libraries(owo_corpus_shell PRIVATE owo_engine owo_config)
+    target_compile_features(owo_corpus_shell PRIVATE cxx_std_20)
+    target_compile_options(owo_corpus_shell PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    target_compile_definitions(owo_corpus_shell PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+
     add_executable(owo_plugin_shell apps/plugin_shell/main.cpp)
     target_link_libraries(owo_plugin_shell PRIVATE owo_plugin owo_core_plugin)
     target_compile_features(owo_plugin_shell PRIVATE cxx_std_20)
@@ -333,6 +348,32 @@ if(WIN32)
         target_compile_options(owo_model_shell PRIVATE /W4 /permissive- /utf-8)
     endif()
 
+    add_library(owo_tone STATIC src/engine/tone_session.cpp)
+    target_include_directories(owo_tone PUBLIC include)
+    target_compile_features(owo_tone PUBLIC cxx_std_20)
+    target_compile_definitions(owo_tone PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_options(owo_tone PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    target_link_libraries(owo_tone PUBLIC owo_engine owo_config owo_agent winhttp windowsapp)
+
+    if(BUILD_TESTING)
+        add_executable(owo_tone_session_tests tests/engine/tone_session_tests.cpp)
+        target_link_libraries(owo_tone_session_tests PRIVATE owo_tone)
+        target_compile_features(owo_tone_session_tests PRIVATE cxx_std_20)
+        target_compile_options(owo_tone_session_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+        add_test(NAME owo.engine.tone_session COMMAND owo_tone_session_tests)
+        add_executable(owo_tone_transport_probe tests/engine/tone_transport_probe.cpp)
+        target_link_libraries(owo_tone_transport_probe PRIVATE owo_tone)
+        target_compile_features(owo_tone_transport_probe PRIVATE cxx_std_20)
+        target_compile_options(owo_tone_transport_probe PRIVATE /W4 /permissive- /utf-8 /EHsc)
+        find_package(Python3 COMPONENTS Interpreter QUIET)
+        if(Python3_Interpreter_FOUND)
+            add_test(NAME owo.engine.tone_transport COMMAND ${Python3_EXECUTABLE} -I
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/engine/tone_transport_tests.py
+                $<TARGET_FILE:owo_tone_transport_probe> ${CMAKE_CURRENT_BINARY_DIR}/tone-transport-test)
+            set_tests_properties(owo.engine.tone_transport PROPERTIES TIMEOUT 40)
+        endif()
+    endif()
+
     add_library(owo_tsf SHARED
         src/tsf/owo_tsf.def
         src/tsf/dll_main.cpp
@@ -340,13 +381,28 @@ if(WIN32)
         src/tsf/pinyin_cursor.cpp
         src/tsf/text_service.cpp
         src/tsf/agent_writeback.cpp
+        src/tsf/tone_preview.cpp
+        src/tsf/tone_input.cpp
         src/tsf/input_method_context.cpp
     )
     target_include_directories(owo_tsf PRIVATE include src/tsf)
     target_compile_features(owo_tsf PRIVATE cxx_std_20)
     target_compile_definitions(owo_tsf PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
-    target_link_libraries(owo_tsf PRIVATE owo_ipc owo_plugin owo_agent ole32 oleaut32 advapi32 uuid user32
+    target_link_libraries(owo_tsf PRIVATE owo_tone owo_ipc owo_plugin owo_agent ole32 oleaut32 advapi32 uuid user32
                                              gdi32 d2d1 dwrite dwmapi bcrypt)
+    if(BUILD_TESTING)
+        add_executable(owo_tone_input_tests tests/tsf/tone_input_tests.cpp
+            src/tsf/text_service.cpp src/tsf/tone_input.cpp src/tsf/tone_preview.cpp
+            src/tsf/agent_writeback.cpp src/tsf/input_method_context.cpp
+            src/tsf/key_routing.cpp src/tsf/pinyin_cursor.cpp)
+        target_include_directories(owo_tone_input_tests PRIVATE include src/tsf)
+        target_compile_features(owo_tone_input_tests PRIVATE cxx_std_20)
+        target_compile_definitions(owo_tone_input_tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
+        target_compile_options(owo_tone_input_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+        target_link_libraries(owo_tone_input_tests PRIVATE owo_tone owo_ipc owo_plugin owo_agent
+            ole32 oleaut32 advapi32 uuid user32 gdi32 d2d1 dwrite dwmapi bcrypt)
+        add_test(NAME owo.tsf.tone_input COMMAND owo_tone_input_tests)
+    endif()
     set_target_properties(owo_tsf PROPERTIES OUTPUT_NAME "OwO.TSF")
     if(MSVC)
         target_compile_options(owo_tsf PRIVATE /W4 /permissive- /utf-8)
@@ -832,6 +888,85 @@ if(BUILD_TESTING)
         target_compile_options(owo_user_frequency_tests PRIVATE -Wall -Wextra -Wpedantic)
     endif()
     add_test(NAME owo.engine.user_frequency COMMAND owo_user_frequency_tests)
+
+    add_executable(owo_user_corpus_tests tests/engine/user_corpus_tests.cpp)
+    target_link_libraries(owo_user_corpus_tests PRIVATE owo_engine)
+    target_compile_features(owo_user_corpus_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_user_corpus_tests PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(owo_user_corpus_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME owo.engine.user_corpus COMMAND owo_user_corpus_tests)
+
+    add_executable(owo_collocation_tests tests/engine/collocation_tests.cpp)
+    target_link_libraries(owo_collocation_tests PRIVATE owo_engine)
+    target_compile_features(owo_collocation_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_collocation_tests PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(owo_collocation_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME owo.engine.collocation COMMAND owo_collocation_tests)
+
+    add_executable(owo_style_profile_tests tests/engine/style_profile_tests.cpp)
+    target_link_libraries(owo_style_profile_tests PRIVATE owo_engine owo_config)
+    target_compile_features(owo_style_profile_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_style_profile_tests PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(owo_style_profile_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME owo.engine.style_profile COMMAND owo_style_profile_tests)
+
+    add_executable(owo_tone_draft_tests tests/engine/tone_draft_tests.cpp)
+    target_link_libraries(owo_tone_draft_tests PRIVATE owo_engine owo_config)
+    target_compile_features(owo_tone_draft_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_tone_draft_tests PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(owo_tone_draft_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME owo.engine.tone_draft COMMAND owo_tone_draft_tests)
+
+    add_executable(owo_tone_feedback_tests tests/engine/tone_feedback_tests.cpp)
+    target_link_libraries(owo_tone_feedback_tests PRIVATE owo_engine owo_config)
+    target_compile_features(owo_tone_feedback_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_tone_feedback_tests PRIVATE /W4 /permissive- /utf-8)
+    else()
+        target_compile_options(owo_tone_feedback_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME owo.engine.tone_feedback COMMAND owo_tone_feedback_tests
+             ${CMAKE_CURRENT_BINARY_DIR}/tone-feedback-test)
+
+    if(WIN32)
+        add_executable(owo_corpus_shell_style_tests
+            tests/engine/corpus_shell_style_tests.cpp)
+        target_link_libraries(owo_corpus_shell_style_tests PRIVATE owo_engine)
+        target_compile_features(owo_corpus_shell_style_tests PRIVATE cxx_std_20)
+        target_compile_definitions(owo_corpus_shell_style_tests PRIVATE
+            WIN32_LEAN_AND_MEAN NOMINMAX)
+        target_compile_options(owo_corpus_shell_style_tests PRIVATE
+            /W4 /permissive- /utf-8 /EHsc)
+        add_test(NAME owo.engine.corpus_shell_style COMMAND owo_corpus_shell_style_tests
+                 $<TARGET_FILE:owo_corpus_shell>
+                 ${CMAKE_CURRENT_BINARY_DIR}/corpus-shell-style-test
+                 $<TARGET_FILE:owo_config_shell>)
+
+        add_executable(owo_corpus_shell_tone_tests
+            tests/engine/corpus_shell_tone_tests.cpp)
+        target_link_libraries(owo_corpus_shell_tone_tests PRIVATE owo_engine owo_config)
+        target_compile_features(owo_corpus_shell_tone_tests PRIVATE cxx_std_20)
+        target_compile_definitions(owo_corpus_shell_tone_tests PRIVATE
+            WIN32_LEAN_AND_MEAN NOMINMAX)
+        target_compile_options(owo_corpus_shell_tone_tests PRIVATE
+            /W4 /permissive- /utf-8 /EHsc)
+        add_test(NAME owo.engine.corpus_shell_tone COMMAND owo_corpus_shell_tone_tests
+                 $<TARGET_FILE:owo_corpus_shell>
+                 ${CMAKE_CURRENT_BINARY_DIR}/corpus-shell-tone-test
+                 $<TARGET_FILE:owo_config_shell>)
+    endif()
 
     add_test(NAME owo.lexicon.compiler
              COMMAND owo_lexicon_compiler

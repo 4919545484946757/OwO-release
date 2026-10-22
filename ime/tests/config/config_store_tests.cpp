@@ -29,6 +29,35 @@ int main(const int argc, char** argv) {
     if (!owo::config::parse_config(owo::config::serialize_config(punctuation)).ok) return 53;
     punctuation.chinese_punctuation_mask = 0x80000000;
     if (owo::config::validate_config(punctuation).ok) return 54;
+    // Style preferences are one line of free text; `~` escapes itself so the
+    // key=value file stays unambiguous, and line breaks are rejected.
+    {
+        auto styled = owo::config::AppConfig{};
+        styled.style_scene_mask = 1;
+        styled.style_preferences = "简短、少用感叹号~谢谢";
+        const auto serialized = owo::config::serialize_config(styled);
+        if (serialized.find("style_scene_mask=1\n") == std::string::npos ||
+            serialized.find("style_preferences=简短、少用感叹号~~谢谢\n") ==
+                std::string::npos) return 81;
+        const auto roundtrip = owo::config::parse_config(serialized);
+        if (!roundtrip.ok || roundtrip.value.style_scene_mask != 1 ||
+            roundtrip.value.style_preferences != styled.style_preferences) return 82;
+        auto invalid_style = styled;
+        invalid_style.style_scene_mask = 8;
+        if (owo::config::validate_config(invalid_style).ok) return 83;
+        invalid_style = styled;
+        invalid_style.style_preferences = "第一行\n第二行";
+        if (owo::config::validate_config(invalid_style).ok) return 84;
+        invalid_style.style_preferences = std::string(
+            owo::config::kMaximumStylePreferencesBytes + 1, 'a');
+        if (owo::config::validate_config(invalid_style).ok) return 85;
+        // A dangling escape is not silently repaired.
+        auto dangling = serialized;
+        const auto begin = dangling.find("style_preferences=");
+        dangling.replace(begin, dangling.find('\n', begin) - begin,
+                         "style_preferences=bad~escape");
+        if (owo::config::parse_config(dangling).ok) return 86;
+    }
     auto version_fourteen = owo::config::serialize_config(owo::config::AppConfig{});
     const auto erase_field = [](std::string& text, const std::string_view key) {
         const auto begin = text.find(key);
@@ -36,19 +65,45 @@ int main(const int argc, char** argv) {
         text.erase(begin, text.find('\n', begin) - begin + 1);
         return true;
     };
-    version_fourteen.replace(0, std::string("schema_version=16").size(), "schema_version=14");
+    version_fourteen.replace(0, std::string("schema_version=20").size(), "schema_version=14");
     const auto mask_begin = version_fourteen.find("chinese_punctuation_mask=");
     version_fourteen.erase(mask_begin, version_fourteen.find('\n', mask_begin) - mask_begin + 1);
-    // v14 predates the assistive candidate switches.
+    // v14 predates the assistive candidate switches and corpus learning.
     for (const auto key : {"smart_candidates_enabled=",
                            "expressive_candidates_enabled=",
-                           "concept_candidates_enabled="})
+                           "concept_candidates_enabled=",
+                           "corpus_learning_enabled=",
+                           "corpus_learning_paused=",
+                           "corpus_learning_allowed_apps=",
+                           "corpus_learning_excluded_apps=",
+                           "corpus_retention_days=",
+                           "corpus_prediction_enabled=",
+                           "style_scene_mask=",
+                           "style_preferences=",
+                           "tone_reply_enabled=",
+                           "tone_continuation_enabled=",
+                           "tone_cloud_model_enabled="})
         if (!erase_field(version_fourteen, key)) return 56;
     const auto migrated = owo::config::parse_config(version_fourteen);
     if (!migrated.ok || migrated.value.chinese_punctuation_mask != owo::config::kChinesePunctuationAll) return 55;
     if (!migrated.value.smart_candidates_enabled ||
         !migrated.value.expressive_candidates_enabled ||
         !migrated.value.concept_candidates_enabled) return 56;
+    // Corpus learning stays off for upgraded configurations until the user opts in.
+    if (migrated.value.corpus_learning_enabled || migrated.value.corpus_learning_paused ||
+        migrated.value.corpus_retention_days != 180 ||
+        !migrated.value.corpus_learning_allowed_apps.empty() ||
+        migrated.value.corpus_learning_excluded_apps.empty()) return 80;
+    // Next-phrase prediction defaults on once learning is enabled, but only
+    // changes behavior when the corpus itself is enabled.
+    if (!migrated.value.corpus_prediction_enabled) return 80;
+    // Style scenes default to all three; preferences stay empty until typed.
+    if (migrated.value.style_scene_mask != owo::config::kStyleSceneAll ||
+        !migrated.value.style_preferences.empty()) return 80;
+    // Tone drafting is an explicit opt-in: every switch stays off for an
+    // upgraded configuration, including cloud sending.
+    if (migrated.value.tone_reply_enabled || migrated.value.tone_continuation_enabled ||
+        migrated.value.tone_cloud_model_enabled) return 80;
     // v15 predates the assistive switches as well; they must default to on.
     auto version_fifteen = version_fourteen;
     version_fifteen.replace(version_fifteen.find("schema_version=14"),
@@ -79,6 +134,16 @@ int main(const int argc, char** argv) {
     auto missing_assistive = owo::config::serialize_config(owo::config::AppConfig{});
     if (!erase_field(missing_assistive, "concept_candidates_enabled=")) return 60;
     if (owo::config::parse_config(missing_assistive).ok) return 61;
+    // Tone drafting fields are strict like every other field of their version:
+    // a missing or non-boolean switch is rejected rather than defaulted.
+    auto missing_tone = owo::config::serialize_config(owo::config::AppConfig{});
+    if (!erase_field(missing_tone, "tone_cloud_model_enabled=")) return 87;
+    if (owo::config::parse_config(missing_tone).ok) return 88;
+    auto invalid_tone = owo::config::serialize_config(owo::config::AppConfig{});
+    invalid_tone.replace(invalid_tone.find("tone_reply_enabled=false"),
+                         std::string("tone_reply_enabled=false").size(),
+                         "tone_reply_enabled=1");
+    if (owo::config::parse_config(invalid_tone).ok) return 89;
     std::error_code error;
     std::filesystem::remove_all(root, error);
     std::filesystem::create_directories(root, error);
@@ -120,6 +185,9 @@ int main(const int argc, char** argv) {
     changed.alt_code_preview_wheel_enabled = false;
     changed.punctuation_shortcut_enabled = true;
     changed.punctuation_shortcuts = {"Ctrl+Period"};
+    changed.tone_reply_enabled = true;
+    changed.tone_continuation_enabled = true;
+    changed.tone_cloud_model_enabled = true;
     const auto first_save = store.save(changed);
     if (!first_save.success || !first_save.changed || first_save.generation != 2) return 4;
     changed.candidate_page_size = 8;

@@ -8,7 +8,13 @@
 
 namespace owo::config {
 
-inline constexpr std::uint32_t kConfigSchemaVersion = 16;
+inline constexpr std::uint32_t kConfigSchemaVersion = 20;
+
+// Style scenes (learning layer 3). The order and bits mirror
+// engine::StyleScene in owo/engine/style_profile.h; the settings and the
+// profile viewer must agree on them, so an engine test keeps the two equal.
+inline constexpr std::uint32_t kStyleSceneAll = (std::uint32_t{1} << 3) - 1;
+inline constexpr std::size_t kMaximumStylePreferencesBytes = 512;
 
 // Append-only bit order: each physical ASCII punctuation has its own preference.
 inline constexpr std::string_view kChinesePunctuationSources = ",.<>?;:[]{}\\|-_+=`~'\"()!$^";
@@ -21,6 +27,10 @@ inline constexpr std::uint32_t kChinesePunctuationAll =
 
 // Persisted reference only, never a grant or filesystem path.
 [[nodiscard]] bool is_plugin_input_scheme(std::string_view) noexcept;
+
+inline constexpr std::size_t kMaximumCorpusApplications = 64;
+/// Executable file name such as `WeChat.exe`; compared case-insensitively.
+[[nodiscard]] bool valid_corpus_application(std::string_view) noexcept;
 
 struct AppConfig {
     std::string input_scheme{"full_pinyin"};
@@ -65,6 +75,35 @@ struct AppConfig {
     std::vector<std::string> text_navigation_shortcuts{
         "Shift+Left", "Shift+Right", "Shift+Up", "Shift+Down"};
     bool text_navigation_select_enabled{false};
+    // Authorized corpus learning (schema 17). Off until the user opts in; an
+    // empty allow list means every application except the excluded ones.
+    bool corpus_learning_enabled{false};
+    bool corpus_learning_paused{false};
+    std::vector<std::string> corpus_learning_allowed_apps{};
+    std::vector<std::string> corpus_learning_excluded_apps{
+        "KeePass.exe", "KeePassXC.exe", "1Password.exe", "Bitwarden.exe"};
+    // 0 keeps sentences until the user deletes them.
+    std::uint32_t corpus_retention_days{180};
+    // Local next-phrase suggestions derived from the corpus (schema 18). It
+    // needs an enabled corpus but is otherwise independent of recording, so a
+    // user can keep a corpus for tone drafting and refuse suggestions.
+    bool corpus_prediction_enabled{true};
+    // Style profile (schema 19). The mask selects which inferred scenes the
+    // profile viewer reports and, later, which examples tone drafting may use.
+    std::uint32_t style_scene_mask{kStyleSceneAll};
+    // The user's own words about how they want to write ("简短、少用感叹号").
+    // They are stored as-is and are never learned or overwritten automatically.
+    std::string style_preferences;
+    // Reply drafting (schema 20). Both switches default off: drafting reads the
+    // corpus and may send the current message to a model, so it is an explicit
+    // opt-in like corpus learning itself.
+    bool tone_reply_enabled{false};
+    // The continuation switch covers "write an opening and let the model finish
+    // it"; it is independent of reply drafting.
+    bool tone_continuation_enabled{false};
+    // Without this, drafting can still assemble the local request but the caller
+    // must not send it to a cloud model. Local-only operation stays unchanged.
+    bool tone_cloud_model_enabled{false};
     bool operator==(const AppConfig&) const = default;
 };
 
@@ -89,6 +128,8 @@ struct ConfigIoResult {
 };
 
 [[nodiscard]] ConfigValidationResult validate_config(const AppConfig&);
+/// Whether a committed fragment from `executable` may enter the user corpus.
+[[nodiscard]] bool corpus_learning_allows(const AppConfig&, std::string_view executable) noexcept;
 [[nodiscard]] ConfigParseResult parse_config(std::string_view utf8);
 [[nodiscard]] std::string serialize_config(const AppConfig&);
 

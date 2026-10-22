@@ -144,6 +144,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR command_line, int) {
     const auto data_root = std::filesystem::path(local_app_data) / L"OwO" / L"InputMethod";
     const auto logs = data_root / L"logs";
     const auto frequency = data_root / L"data" / L"user-frequency.owuf";
+    const auto corpus = data_root / L"data" / L"user-corpus.owuc";
     std::error_code error;
     std::filesystem::create_directories(logs, error);
     std::filesystem::create_directories(frequency.parent_path(), error);
@@ -185,6 +186,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR command_line, int) {
     if (!core_was_running)
         core_process = start_process(core,
             {L"--lexicon", lexicon.native(), L"--user-frequency", frequency.native(),
+             L"--user-corpus", corpus.native(),
              L"--model-host"}, root, core_log);
     StartedProcess model_process;
     if (!process_is_running(model_host))

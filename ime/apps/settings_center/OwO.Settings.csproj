@@ -42,6 +42,10 @@
     <Content Include="$(OwOConfigShellPath)" Link="owo_config_shell.exe"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup Condition="'$(OwOCorpusShellPath)' != '' and Exists('$(OwOCorpusShellPath)')">
+    <Content Include="$(OwOCorpusShellPath)" Link="owo_corpus_shell.exe"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <ItemGroup Condition="'$(OwOPluginShellPath)' != '' and Exists('$(OwOPluginShellPath)')">
     <Content Include="$(OwOPluginShellPath)" Link="owo_plugin_shell.exe"
              CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

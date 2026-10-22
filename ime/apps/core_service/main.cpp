@@ -27,6 +27,7 @@ int wmain(int argc, wchar_t** argv) {
     };
     const wchar_t* lexicon_path = nullptr;
     const wchar_t* user_frequency_path = nullptr;
+    const wchar_t* user_corpus_path = nullptr;
     const wchar_t* model_pipe_name = nullptr;
     const wchar_t* config_path = nullptr;
     const wchar_t* plugin_store_path = nullptr;
@@ -52,6 +53,9 @@ int wmain(int argc, wchar_t** argv) {
             index += 2;
         } else if (option == L"--user-frequency") {
             user_frequency_path = argv[index + 1];
+            index += 2;
+        } else if (option == L"--user-corpus") {
+            user_corpus_path = argv[index + 1];
             index += 2;
         } else if (option == L"--config") {
             config_path = argv[index + 1];
@@ -160,6 +164,10 @@ int wmain(int argc, wchar_t** argv) {
     }
     const auto concept_table_ptr =
         concept_table ? &*concept_table : nullptr;
+    // The corpus file is only written after the user enables corpus learning.
+    std::optional<std::filesystem::path> user_corpus;
+    if (user_corpus_path != nullptr) user_corpus.emplace(user_corpus_path);
+    const auto user_corpus_ptr = user_corpus ? &*user_corpus : nullptr;
     owo::engine::UserFrequencyStore user_frequency;
     owo::engine::UserFrequencyStore* user_frequency_ptr = nullptr;
     if (user_frequency_path != nullptr) {
@@ -185,7 +193,7 @@ int wmain(int argc, wchar_t** argv) {
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, lexicon,
                                          user_frequency_ptr, model_pipe_name,
                                          config_monitor_ptr, &plugin_executor,
-                                         concept_table_ptr);
+                                         concept_table_ptr, user_corpus_ptr);
     }
     if (user_frequency_ptr != nullptr) {
         const owo::engine::MemoryLexicon fallback({
@@ -194,7 +202,7 @@ int wmain(int argc, wchar_t** argv) {
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, fallback,
                                          user_frequency_ptr, model_pipe_name,
                                          config_monitor_ptr, &plugin_executor,
-                                         concept_table_ptr);
+                                         concept_table_ptr, user_corpus_ptr);
     }
     if (model_pipe_name != nullptr) {
         const owo::engine::MemoryLexicon fallback({
@@ -202,7 +210,8 @@ int wmain(int argc, wchar_t** argv) {
             {{"xian"}, "先", 800}, {{"xian"}, "线", 700}, {{"xi", "an"}, "西安", 900}});
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, fallback, nullptr,
                                          model_pipe_name, config_monitor_ptr,
-                                         &plugin_executor, concept_table_ptr);
+                                         &plugin_executor, concept_table_ptr,
+                                         user_corpus_ptr);
     }
     if (config_monitor_ptr != nullptr) {
         const owo::engine::MemoryLexicon fallback({
@@ -210,12 +219,13 @@ int wmain(int argc, wchar_t** argv) {
             {{"xian"}, "先", 800}, {{"xian"}, "线", 700}, {{"xi", "an"}, "西安", 900}});
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, fallback, nullptr,
                                          nullptr, config_monitor_ptr,
-                                         &plugin_executor, concept_table_ptr);
+                                         &plugin_executor, concept_table_ptr,
+                                         user_corpus_ptr);
     }
     const owo::engine::MemoryLexicon fallback({
         {{"ni", "hao"}, "你好", 1000}, {{"ni", "hao"}, "你号", 50},
         {{"xian"}, "先", 800}, {{"xian"}, "线", 700}, {{"xi", "an"}, "西安", 900}});
     return owo::ipc::run_core_server(owo::ipc::kCorePipeName, fallback, nullptr,
                                      nullptr, nullptr, &plugin_executor,
-                                     concept_table_ptr);
+                                     concept_table_ptr, user_corpus_ptr);
 }

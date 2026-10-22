@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$Version = '0.2.3',
     [string]$BuildDirectory,
@@ -75,6 +75,7 @@ $required = @(
     (Join-Path $settings 'Assets\AppIcon.ico'),
     (Join-Path $settings 'owo_config_shell.exe'),
     (Join-Path $settings 'owo_plugin_shell.exe'),
+    (Join-Path $settings 'owo_corpus_shell.exe'),
     $runtime, $model, $lexicon, $vcRuntime
 )
 foreach ($path in $required) {

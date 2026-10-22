@@ -119,7 +119,8 @@ int wmain(const int argc, wchar_t** argv) {
                 L" set-all 4 true true 40 true Ctrl+Alt+C false Ctrl+Shift+Space true Enter 18 9"
                 L" true Ctrl+Shift+Left true Ctrl+Shift+Right true Ctrl+Shift+Up true Ctrl+Shift+Down"
                 L" false true false \"\" true 6 false false true"
-                L" true Shift+Left;Shift+Right;Shift+Up;Shift+Down false exact_code false 4 7",
+                L" true Shift+Left;Shift+Right;Shift+Up;Shift+Down false exact_code false 4 7"
+                L" true false \"\" true 90 false 6 简短、少用感叹号~ true false true",
                 navigation) || wait_and_close(navigation) != 0) return 21;
     std::ifstream navigation_input(path, std::ios::binary);
     const std::string navigation_bytes((std::istreambuf_iterator<char>(navigation_input)), {});
@@ -160,7 +161,22 @@ int wmain(const int argc, wchar_t** argv) {
             std::string::npos ||
         navigation_bytes.find("chinese_punctuation_mask=7\n") == std::string::npos ||
         navigation_bytes.find("user_lexicon_completion_max_syllables=4\n") ==
-            std::string::npos) return 22;
+            std::string::npos ||
+        navigation_bytes.find("corpus_learning_enabled=true\n") ==
+            std::string::npos ||
+        navigation_bytes.find("corpus_learning_paused=false\n") ==
+            std::string::npos ||
+        navigation_bytes.find("corpus_retention_days=90\n") ==
+            std::string::npos ||
+        navigation_bytes.find("corpus_prediction_enabled=false\n") ==
+            std::string::npos ||
+        navigation_bytes.find("style_scene_mask=6\n") == std::string::npos ||
+        navigation_bytes.find("style_preferences=简短、少用感叹号~~\n") ==
+            std::string::npos ||
+        navigation_bytes.find("tone_reply_enabled=true\n") == std::string::npos ||
+        navigation_bytes.find("tone_continuation_enabled=false\n") == std::string::npos ||
+        navigation_bytes.find("tone_cloud_model_enabled=true\n") == std::string::npos)
+        return 22;
     PROCESS_INFORMATION invalid_all{};
     if (!launch(executable + L" " + config + L" set-all 4 true false 999", invalid_all) ||
         wait_and_close(invalid_all) == 0) return 15;
@@ -168,6 +184,35 @@ int wmain(const int argc, wchar_t** argv) {
     const std::string after_invalid_all((std::istreambuf_iterator<char>(invalid_all_input)), {});
     invalid_all_input.close();
     if (after_invalid_all != navigation_bytes) return 16;
+
+    // Single-field updates accept UTF-8 preferences and stay one line.
+    PROCESS_INFORMATION style{};
+    if (!launch(executable + L" " + config +
+                L" set style_preferences \"简短，别用感叹号\"", style) ||
+        wait_and_close(style) != 0) return 23;
+    std::ifstream style_input(path, std::ios::binary);
+    const std::string style_bytes((std::istreambuf_iterator<char>(style_input)), {});
+    style_input.close();
+    if (style_bytes.find("style_preferences=简短，别用感叹号\n") == std::string::npos)
+        return 24;
+    PROCESS_INFORMATION bad_style{};
+    if (!launch(executable + L" " + config + L" set style_scene_mask 8", bad_style) ||
+        wait_and_close(bad_style) == 0) return 25;
+    // Tone switches are separate single-field updates and are reflected in show.
+    PROCESS_INFORMATION tone{};
+    if (!launch(executable + L" " + config +
+                L" set tone_continuation_enabled true", tone) ||
+        wait_and_close(tone) != 0) return 26;
+    PROCESS_INFORMATION tone_invalid{};
+    if (!launch(executable + L" " + config +
+                L" set tone_cloud_model_enabled maybe", tone_invalid) ||
+        wait_and_close(tone_invalid) == 0) return 27;
+    std::ifstream tone_input(path, std::ios::binary);
+    const std::string tone_bytes((std::istreambuf_iterator<char>(tone_input)), {});
+    tone_input.close();
+    if (tone_bytes.find("tone_continuation_enabled=true\n") == std::string::npos ||
+        tone_bytes.find("tone_cloud_model_enabled=true\n") == std::string::npos)
+        return 28;
 
     PROCESS_INFORMATION show{};
     if (!launch(executable + L" " + config + L" show", show) || wait_and_close(show) != 0) return 10;

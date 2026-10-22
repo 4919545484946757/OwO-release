@@ -171,7 +171,7 @@ bool valid_candidate_groups(const Message& message) {
     if (message.candidate_groups.size() != message.candidates.size()) return false;
     return std::all_of(message.candidate_groups.begin(),
                        message.candidate_groups.end(), [](const std::uint64_t value) {
-        return value <= static_cast<std::uint64_t>(CandidateGroup::single_character);
+        return value <= static_cast<std::uint64_t>(CandidateGroup::continuation);
     });
 }
 
@@ -209,6 +209,12 @@ bool valid_candidate_refinement(const Message& message) {
     return true;
 }
 
+bool valid_corpus_eligibility(const Message& message) {
+    return !message.corpus_eligible ||
+           (message.type == MessageType::agent_context_recorded &&
+            !message.application_sensitive_input);
+}
+
 bool valid_application_context(const Message& message) {
     const bool empty = message.application_context_id.empty() &&
         message.application_process_id == 0 && message.application_thread_id == 0 &&
@@ -240,7 +246,8 @@ std::string encode_message(const Message& message) {
         !valid_candidate_layout(message) || !valid_feedback_input(message) ||
         !valid_language_context(message) ||
         !valid_candidate_refinement(message) ||
-        !valid_application_context(message)) return {};
+        !valid_application_context(message) ||
+        !valid_corpus_eligibility(message)) return {};
     const auto escaped = escape_json(message.text);
     if (!message.text.empty() && escaped.empty()) return {};
     const auto escaped_input = escape_json(message.input);
@@ -311,7 +318,8 @@ std::string encode_message(const Message& message) {
            "\",\"application_focus_window_class\":\"" +
                escaped_application_focus_window_class +
            "\",\"application_sensitive_input\":" +
-               (message.application_sensitive_input ? "true" : "false") + "}";
+               (message.application_sensitive_input ? "true" : "false") +
+           ",\"corpus_eligible\":" + (message.corpus_eligible ? "true" : "false") + "}";
 }
 
 DecodeResult decode_message(const std::string_view json) {
@@ -482,6 +490,12 @@ DecodeResult decode_message(const std::string_view json) {
         if (!value) goto invalid;
         output.message.application_sensitive_input = *value;
     }
+    if (!consume(json, offset, ",\"corpus_eligible\":")) goto invalid;
+    {
+        const auto value = parse_bool(json, offset);
+        if (!value) goto invalid;
+        output.message.corpus_eligible = *value;
+    }
     if (!consume(json, offset, "}") || offset != json.size()) goto invalid;
     if (!valid_candidate_consumed(output.message) ||
         !valid_candidate_groups(output.message) ||
@@ -489,7 +503,8 @@ DecodeResult decode_message(const std::string_view json) {
         !valid_feedback_input(output.message) ||
         !valid_language_context(output.message) ||
         !valid_candidate_refinement(output.message) ||
-        !valid_application_context(output.message)) goto invalid;
+        !valid_application_context(output.message) ||
+        !valid_corpus_eligibility(output.message)) goto invalid;
     output.validation = {};
     return output;
 

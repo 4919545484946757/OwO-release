@@ -167,6 +167,24 @@ int main() {
         std::cerr << "expanded candidate capacity was rejected\n";
         ++failures;
     }
+    // Learned continuations are a distinct, first-page group.
+    auto continuation_group = original;
+    continuation_group.candidate_groups.back() =
+        static_cast<std::uint64_t>(CandidateGroup::continuation);
+    const auto decoded_continuation =
+        decode_message(encode_message(continuation_group));
+    if (!decoded_continuation.validation ||
+        decoded_continuation.message.candidate_groups.back() !=
+            static_cast<std::uint64_t>(CandidateGroup::continuation)) {
+        std::cerr << "continuation candidate group round trip failed\n";
+        ++failures;
+    }
+    auto unknown_group = original;
+    unknown_group.candidate_groups.back() = 4;
+    if (!encode_message(unknown_group).empty()) {
+        std::cerr << "unknown candidate group was encoded\n";
+        ++failures;
+    }
     expanded_capacity.candidates.push_back("越界");
     expanded_capacity.candidate_consumed.push_back(5);
     expanded_capacity.candidate_groups.push_back(
@@ -180,6 +198,42 @@ int main() {
     if (!encode_message(invalid_page_size).empty()) {
         std::cerr << "invalid candidate page size was encoded\n";
         ++failures;
+    }
+    // Corpus eligibility may only be claimed by a user-authored context record.
+    Message context_entry{MessageType::agent_context_recorded, 13, 8, "今天开会"};
+    context_entry.application_context_id = "ctx-13-8";
+    context_entry.corpus_eligible = true;
+    const auto decoded_entry = decode_message(encode_message(context_entry));
+    if (!decoded_entry.validation || !decoded_entry.message.corpus_eligible) {
+        std::cerr << "corpus eligible context record round trip failed\n";
+        ++failures;
+    }
+    auto sensitive_entry = context_entry;
+    sensitive_entry.application_sensitive_input = true;
+    if (!encode_message(sensitive_entry).empty()) {
+        std::cerr << "sensitive context record claimed corpus eligibility\n";
+        ++failures;
+    }
+    auto forged_eligibility = context_entry;
+    forged_eligibility.type = MessageType::candidate_committed;
+    forged_eligibility.text = "你好";
+    if (!encode_message(forged_eligibility).empty()) {
+        std::cerr << "commit feedback claimed corpus eligibility\n";
+        ++failures;
+    }
+    auto minted_eligibility = encoded;
+    const auto eligibility_offset = minted_eligibility.find("\"corpus_eligible\":false");
+    if (eligibility_offset == std::string::npos) {
+        std::cerr << "encoded corpus eligibility missing\n";
+        ++failures;
+    } else {
+        minted_eligibility.replace(eligibility_offset,
+                                   std::string("\"corpus_eligible\":false").size(),
+                                   "\"corpus_eligible\":true");
+        if (decode_message(minted_eligibility).validation.error != ErrorCode::invalid_payload) {
+            std::cerr << "minted corpus eligibility was accepted\n";
+            ++failures;
+        }
     }
     return failures == 0 ? 0 : 1;
 }

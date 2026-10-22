@@ -1,4 +1,5 @@
 #include "text_service.h"
+#include "text_service_internal.h"
 #include "owo/tsf/input_method_context.h"
 #include "owo/tsf/agent_writeback.h"
 #include "owo/tsf/clipboard_write.h"
@@ -54,6 +55,8 @@ constexpr UINT kAgentReady = WM_APP + 5;
 constexpr UINT_PTR kPluginInputTimer = 0x4f57;
 constexpr UINT_PTR kCandidateWindowOrderTimer = 0x4f58;
 constexpr UINT kPluginCommitReady = WM_APP + 6;
+using detail::kToneReady;
+using detail::kToneTimer;
 constexpr float kCandidateWindowMinWidthDip = 240.0F;
 constexpr float kCandidateWindowMaxWidthDip = 1400.0F;
 constexpr float kHeaderHeightDip = 40.0F;
@@ -63,6 +66,12 @@ constexpr float kCandidateRowGapDip = 6.0F;
 constexpr float kHorizontalPaddingDip = 14.0F;
 constexpr float kCandidateGapDip = 6.0F;
 constexpr float kCandidateGroupGapDip = 18.0F;
+// The learned continuation is visually separated from dictionary candidates
+// and carries a short badge instead of a number, because it is accepted only
+// by clicking it, never through Space or a number key.
+constexpr float kContinuationGapDip = 14.0F;
+constexpr float kContinuationBadgeWidthDip = 26.0F;
+constexpr float kCandidateNumberBadgeWidthDip = 20.0F;
 constexpr float kCandidatePillBaseWidthDip = 45.0F;
 constexpr float kButtonWidthDip = 30.0F;
 constexpr float kExpandButtonWidthDip = 52.0F;
@@ -490,31 +499,6 @@ std::chrono::milliseconds candidate_request_timeout(const std::size_t input_leng
                     kCandidateRequestMaximumTimeout);
 }
 
-class SchemeEditSession final : public ITfEditSession {
-public:
-    SchemeEditSession(ITfContext* context, std::function<HRESULT(TfEditCookie)> action,
-                      IUnknown* owner = nullptr)
-        : context_(context), action_(std::move(action)), owner_(owner) {
-        context_->AddRef(); if (owner_) owner_->AddRef();
-    }
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** object) override {
-        if (!object) return E_POINTER;
-        *object = nullptr;
-        if (iid != IID_IUnknown && iid != IID_ITfEditSession) return E_NOINTERFACE;
-        *object = static_cast<ITfEditSession*>(this); AddRef(); return S_OK;
-    }
-    ULONG STDMETHODCALLTYPE AddRef() override { return static_cast<ULONG>(InterlockedIncrement(&refs_)); }
-    ULONG STDMETHODCALLTYPE Release() override {
-        const auto count = InterlockedDecrement(&refs_); if (!count) delete this;
-        return static_cast<ULONG>(count);
-    }
-    HRESULT STDMETHODCALLTYPE DoEditSession(TfEditCookie cookie) override {
-        try { return action_(cookie); } catch (...) { return E_FAIL; }
-    }
-private:
-    ~SchemeEditSession() { context_->Release(); if (owner_) owner_->Release(); }
-    LONG refs_{1}; ITfContext* context_; std::function<HRESULT(TfEditCookie)> action_; IUnknown* owner_;
-};
 
 class CommitEditSession final : public ITfEditSession {
 public:
@@ -956,6 +940,8 @@ HRESULT TextService::ActivateEx(ITfThreadMgr* thread_manager,
 }
 
 HRESULT TextService::Deactivate() {
+    cancel_tone();
+    if (tone_worker_.joinable()) tone_worker_.join();
     if (worker_.joinable()) {
         worker_.request_stop();
         request_ready_.notify_all();
@@ -1045,7 +1031,7 @@ HRESULT TextService::OnSetFocus(ITfDocumentMgr* document_manager,
         const bool agent_mode = is_agent_mode();
         if (agent_mode) cancel_agent_session();
         refresh_shortcut_config();
-        if (!plugin_scheme_selected() && !agent_mode && shortcut_config_.focus_loss_commit_enabled && has_composition() &&
+        if (!tone_active_ && !plugin_scheme_selected() && !agent_mode && shortcut_config_.focus_loss_commit_enabled && has_composition() &&
             previous_document_manager != nullptr) {
             ITfContext* previous_context = nullptr;
             if (SUCCEEDED(previous_document_manager->GetTop(&previous_context)) &&
@@ -1079,7 +1065,7 @@ HRESULT TextService::OnPopContext(ITfContext* context) {
     const bool agent_mode = is_agent_mode();
     if (agent_mode) cancel_agent_session();
     refresh_shortcut_config();
-    if (!plugin_scheme_selected() && !agent_mode && shortcut_config_.focus_loss_commit_enabled && has_composition() &&
+    if (!tone_active_ && !plugin_scheme_selected() && !agent_mode && shortcut_config_.focus_loss_commit_enabled && has_composition() &&
         context != nullptr) {
         if (staged_candidates_.empty()) commit_raw_input(context);
         else commit_pending_composition(context);
@@ -1128,7 +1114,21 @@ HRESULT TextService::OnChange(REFGUID guid) {
     return result;
 }
 
+std::size_t TextService::numbered_candidate_count() const noexcept {
+    if (candidate_groups_.size() != candidates_.size()) return candidates_.size();
+    std::size_t count = 0;
+    while (count < candidate_groups_.size() &&
+           candidate_groups_[count] !=
+               static_cast<std::uint64_t>(protocol::CandidateGroup::continuation))
+        ++count;
+    return count;
+}
+
 bool TextService::should_eat_key(const WPARAM key) const noexcept {
+    if (tone_active_) return tone_preview_key(key);
+    if (!has_composition() && tone_shortcut(key)) return true;
+    if (!has_composition() && tone_undo_available_ && agent_origin_valid_ &&
+        key == 'Z' && key_down(VK_CONTROL) && !key_down(VK_SHIFT) && !key_down(VK_MENU)) return true;
     if (unicode_palette_visible_) {
         if (key == VK_ESCAPE || key == VK_PRIOR || key == VK_NEXT ||
             key == VK_OEM_4 || key == VK_OEM_6) return true;
@@ -1174,7 +1174,10 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
         return candidates_expanded_ ||
                candidate_page_ > 0;
     if (key == VK_SPACE)
-        return is_agent_mode() || candidate_request_pending_ || !candidates_.empty() ||
+        // A page holding only the unnumbered learned continuation leaves
+        // Space to the application instead of swallowing it.
+        return is_agent_mode() || candidate_request_pending_ ||
+               numbered_candidate_count() != 0 ||
                (!staged_candidates_.empty() && input_buffer_.empty());
     return digit_key_action(key) != owo::tsf::DigitKeyAction::pass_through;
 }
@@ -1185,7 +1188,7 @@ owo::tsf::DigitKeyAction TextService::digit_key_action(const WPARAM key) const n
     state.has_composition = has_composition();
     state.shift_down = key_down(VK_SHIFT);
     state.command_modifier_down = command_modifier_down();
-    state.candidate_count = candidates_.size();
+    state.candidate_count = numbered_candidate_count();
     const auto cursor = std::min(input_cursor_, input_buffer_.size());
     state.previous_character =
         cursor > 0 && !input_buffer_.empty() ? input_buffer_[cursor - 1] : 0;
@@ -1203,6 +1206,20 @@ HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags
 HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) {
     if (eaten == nullptr) return E_POINTER;
     refresh_shortcut_config();
+    if (!plugin_scheme_selected() && !has_composition() && tone_shortcut(key)) {
+        *eaten = TRUE;
+        begin_tone(context, key == 'J' ? engine::ToneDraftMode::continuation : engine::ToneDraftMode::reply);
+        return S_OK;
+    }
+    if (tone_active_) {
+        *eaten = tone_preview_key(key) ? TRUE : FALSE;
+        if (*eaten) handle_tone_key(context, key, flags);
+        return S_OK;
+    }
+    if (!has_composition() && tone_undo_available_ && agent_origin_valid_ &&
+        key == 'Z' && key_down(VK_CONTROL) && !key_down(VK_SHIFT) && !key_down(VK_MENU)) {
+        *eaten = undo_tone() ? TRUE : FALSE; return S_OK;
+    }
     if (plugin_scheme_selected()) return handle_plugin_key(context, key, flags, eaten);
     *eaten = should_eat_key(key) ? TRUE : FALSE;
     if (!*eaten) return S_OK;
@@ -1319,7 +1336,7 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         const bool caps_lock = (GetKeyState(VK_CAPITAL) & 1) != 0;
         const wchar_t base = shift != caps_lock ? L'A' : L'a';
         const wchar_t character = static_cast<wchar_t>(base + (key - 'A'));
-        if (character == L'v' && input_buffer_.empty() && staged_candidates_.empty())
+        if (!tone_active_ && character == L'v' && input_buffer_.empty() && staged_candidates_.empty())
             (void)capture_agent_origin(context);
         insert_at_pinyin_cursor(input_buffer_, segmented_input_, input_cursor_,
                                 character);
@@ -1371,8 +1388,11 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
             defer_punctuation(*punctuation, context);
             return S_OK;
         }
-        if (!input_buffer_.empty() && !candidate_request_pending_ && !candidates_.empty())
+        if (!input_buffer_.empty() && !candidate_request_pending_ &&
+            numbered_candidate_count() != 0)
             return commit_candidate(context, 0, *punctuation);
+        // Without a numbered candidate the typed letters and the punctuation
+        // are committed raw; a learned continuation never absorbs them.
         if (!input_buffer_.empty()) {
             const std::wstring raw = input_buffer_ + *punctuation;
             clear_composition();
@@ -1457,7 +1477,10 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         ++context_generation_;
         if (was_agent_mode && (input_buffer_.empty() || input_buffer_.front() != L'v'))
             cancel_agent_session();
-        if (input_buffer_.empty()) clear_composition();
+        if (input_buffer_.empty() && tone_active_) {
+            candidates_.clear(); candidate_consumed_.clear(); candidate_groups_.clear();
+            candidate_request_pending_ = false; hide_candidate_windows();
+        } else if (input_buffer_.empty()) clear_composition();
         else queue_candidate_request();
     } else if (key == VK_ESCAPE) {
         cancel_agent_session();
@@ -1486,7 +1509,10 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         defer_candidate_selection(index, context);
     } else if (context != nullptr && !candidates_.empty()) {
         const std::size_t index = key == VK_SPACE ? 0 : static_cast<std::size_t>(key - '1');
-        if (index < candidates_.size()) {
+        // Space and the number keys only address the numbered candidates that
+        // belong to the typed pinyin. The learned continuation has no number
+        // and is committed only by clicking it.
+        if (index < numbered_candidate_count()) {
             if (is_agent_mode() && index < agent_commands_.size()) {
                 if (agent_commands_[index].high_risk) {
                     agent_status_ = agent::Status::error;
@@ -1584,6 +1610,7 @@ HRESULT TextService::initialize_windows() {
 }
 
 void TextService::destroy_windows() noexcept {
+    tone_preview_.destroy();
     discard_rendering();
     if (candidate_window_ != nullptr) DestroyWindow(candidate_window_);
     if (candidate_shadow_window_ != nullptr) DestroyWindow(candidate_shadow_window_);
@@ -1842,11 +1869,18 @@ SIZE TextService::desired_candidate_window_size() const {
                                      ? kExpandButtonWidthDip
                                      : kButtonWidthDip * 2.0F + kExpandButtonWidthDip +
                                            kControlGapDip * 2.0F;
-    const bool partitioned = !plugin_scheme_selected() && page_size >= 4 &&
+    // The row layout is used whenever per-candidate groups exist; only the
+    // divider style depends on the partition setting.
+    const bool partitioned = !plugin_scheme_selected() &&
         candidate_groups_.size() == candidates_.size();
     const auto item_width = [this, wrap_length](const std::size_t index) {
         const auto display = wrapped_candidate_text(candidates_[index], wrap_length);
-        return kCandidatePillBaseWidthDip +
+        const bool learned = candidate_groups_.size() == candidates_.size() &&
+            candidate_groups_[index] ==
+                static_cast<std::uint64_t>(protocol::CandidateGroup::continuation);
+        return kCandidatePillBaseWidthDip + (learned ? kContinuationBadgeWidthDip -
+                                                           kCandidateNumberBadgeWidthDip
+                                                     : 0.0F) +
                measure_text_width(dwrite_factory_, candidate_text_format_, display);
     };
     const auto row_width = [this, partitioned, &item_width](const std::size_t begin,
@@ -1856,7 +1890,13 @@ SIZE TextService::desired_candidate_window_size() const {
             if (index != begin) {
                 const bool group_boundary = partitioned &&
                     candidate_groups_[index] != candidate_groups_[index - 1];
-                width += group_boundary ? kCandidateGroupGapDip : kCandidateGapDip;
+                const bool learned = candidate_groups_.size() == candidates_.size() &&
+                    (candidate_groups_[index] ==
+                         static_cast<std::uint64_t>(protocol::CandidateGroup::continuation) ||
+                     candidate_groups_[index - 1] ==
+                         static_cast<std::uint64_t>(protocol::CandidateGroup::continuation));
+                width += learned ? kContinuationGapDip
+                                 : group_boundary ? kCandidateGroupGapDip : kCandidateGapDip;
             }
             width += item_width(index);
         }
@@ -2751,7 +2791,17 @@ bool TextService::render_candidate_window() {
     };
     const auto wrap_length = std::max<std::size_t>(
         1, static_cast<std::size_t>(shortcut_config_.candidate_wrap_length));
+    const auto continuation_index = [this]() -> std::optional<std::size_t> {
+        if (candidate_groups_.size() != candidates_.size() || candidates_.empty())
+            return std::nullopt;
+        const auto found = std::find(
+            candidate_groups_.begin(), candidate_groups_.end(),
+            static_cast<std::uint64_t>(protocol::CandidateGroup::continuation));
+        if (found == candidate_groups_.end()) return std::nullopt;
+        return static_cast<std::size_t>(found - candidate_groups_.begin());
+    }();
     const auto draw_candidate = [this, &target_matches, &add_hit_region, wrap_length,
+                                 &continuation_index,
                                  mode_accent_brush, mode_border_brush,
                                  mode_highlight_brush, candidate_number_brush](
                                     const D2D1_RECT_F bounds, const std::size_t index) {
@@ -2759,28 +2809,36 @@ bool TextService::render_candidate_window() {
         const D2D1_ROUNDED_RECT pill{bounds, 7.0F, 7.0F};
         const bool hovered = target_matches(hovered_target_, target);
         const bool pressed = target_matches(pressed_target_, target);
-        if (index == 0 || hovered || pressed)
+        const bool learned = continuation_index.has_value() && *continuation_index == index;
+        // The learned continuation has no number, so it never receives the
+        // first-candidate highlight; its accent border marks it instead.
+        if ((index == 0 && !learned) || hovered || pressed)
             render_target_->FillRoundedRectangle(pill, mode_highlight_brush);
-        if (hovered || pressed)
+        if (hovered || pressed || learned)
             render_target_->DrawRoundedRectangle(pill, mode_accent_brush, 1.0F);
 
         const float badge_center = (bounds.top + bounds.bottom) * 0.5F;
+        const std::wstring label = learned ? std::wstring(L"续")
+                                          : std::to_wstring(index + 1);
         const D2D1_ROUNDED_RECT badge{
             D2D1::RectF(bounds.left + 6.0F, badge_center - 11.0F,
-                        bounds.left + 26.0F, badge_center + 11.0F),
+                        bounds.left + 6.0F +
+                            (learned ? kContinuationBadgeWidthDip
+                                     : kCandidateNumberBadgeWidthDip),
+                        badge_center + 11.0F),
             5.0F, 5.0F};
         render_target_->FillRoundedRectangle(badge, mode_border_brush);
-        const std::wstring label = std::to_wstring(index + 1);
         render_target_->DrawTextW(label.data(), static_cast<UINT32>(label.size()),
                                   label_text_format_, badge.rect, candidate_number_brush,
                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        const float text_left = badge.rect.right + 7.0F;
         const auto display = wrapped_candidate_text(candidates_[index], wrap_length);
         render_target_->DrawTextW(
             display.data(), static_cast<UINT32>(display.size()),
             candidate_text_format_,
-            D2D1::RectF(bounds.left + 33.0F, bounds.top, bounds.right - 6.0F,
-                        bounds.bottom),
-            text_brush_, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            D2D1::RectF(text_left, bounds.top, bounds.right - 6.0F, bounds.bottom),
+            learned ? mode_accent_brush : text_brush_,
+            D2D1_DRAW_TEXT_OPTIONS_CLIP);
         add_hit_region(bounds, target);
     };
 
@@ -2791,24 +2849,44 @@ bool TextService::render_candidate_window() {
                                            kControlGapDip * 2.0F;
     const float controls_left = size.width - kHorizontalPaddingDip - controls_width;
     const float candidate_right = controls_left - kCandidateControlGapDip;
-    const bool partitioned = !plugin_scheme_selected() && candidate_page_size_ >= 4 &&
+    const bool partitioned = !plugin_scheme_selected() &&
         candidate_groups_.size() == candidates_.size();
+    // The partition setting only controls visual dividers; group-aware
+    // spacing is always applied so a learned continuation keeps its distance
+    // from dictionary candidates.
     const auto draw_candidate_row = [this, partitioned, candidate_right,
                                      &draw_candidate, wrap_length](const std::size_t begin,
                                                         const std::size_t end,
                                                         const float top,
                                                         const float row_height) {
+        const std::size_t page_size = std::max<std::size_t>(
+            1, static_cast<std::size_t>(candidate_page_size_));
         if (begin >= end) return;
+        const auto learned_gap = [this](const std::size_t index) {
+            return candidate_groups_.size() == candidates_.size() &&
+                (candidate_groups_[index] ==
+                     static_cast<std::uint64_t>(protocol::CandidateGroup::continuation) ||
+                 candidate_groups_[index - 1] ==
+                     static_cast<std::uint64_t>(protocol::CandidateGroup::continuation));
+        };
         float gaps_width = 0.0F;
         for (std::size_t index = begin + 1; index < end; ++index) {
-            const bool boundary = partitioned &&
+            const bool learned = learned_gap(index);
+            const bool boundary = partitioned && page_size >= 4 &&
                 candidate_groups_[index] != candidate_groups_[index - 1];
-            gaps_width += boundary ? kCandidateGroupGapDip : kCandidateGapDip;
+            gaps_width += learned ? kContinuationGapDip
+                                  : boundary ? kCandidateGroupGapDip : kCandidateGapDip;
         }
         float requested_total = 0.0F;
         for (std::size_t index = begin; index < end; ++index) {
             const auto display = wrapped_candidate_text(candidates_[index], wrap_length);
+            const bool learned = candidate_groups_.size() == candidates_.size() &&
+                candidate_groups_[index] ==
+                    static_cast<std::uint64_t>(protocol::CandidateGroup::continuation);
             requested_total += kCandidatePillBaseWidthDip +
+                               (learned ? kContinuationBadgeWidthDip -
+                                              kCandidateNumberBadgeWidthDip
+                                        : 0.0F) +
                                measure_text_width(dwrite_factory_, candidate_text_format_,
                                                   display);
         }
@@ -2819,10 +2897,20 @@ bool TextService::render_candidate_window() {
                                       : 1.0F;
         float x = kHorizontalPaddingDip;
         for (std::size_t index = begin; index < end; ++index) {
+            const bool learned = candidate_groups_.size() == candidates_.size() &&
+                candidate_groups_[index] ==
+                    static_cast<std::uint64_t>(protocol::CandidateGroup::continuation);
             if (index != begin) {
-                const bool boundary = partitioned &&
+                const bool boundary = partitioned && page_size >= 4 &&
                     candidate_groups_[index] != candidate_groups_[index - 1];
-                if (boundary) {
+                if (learned_gap(index)) {
+                    x += kContinuationGapDip * 0.5F;
+                    render_target_->DrawLine(
+                        D2D1::Point2F(x, top + 3.0F),
+                        D2D1::Point2F(x, top + row_height - 3.0F),
+                        divider_brush_, 1.0F);
+                    x += kContinuationGapDip * 0.5F;
+                } else if (boundary) {
                     x += kCandidateGroupGapDip * 0.5F;
                     render_target_->DrawLine(
                         D2D1::Point2F(x, top + 3.0F),
@@ -2836,6 +2924,9 @@ bool TextService::render_candidate_window() {
             const auto display = wrapped_candidate_text(candidates_[index], wrap_length);
             const float requested_width =
                 kCandidatePillBaseWidthDip +
+                (learned ? kContinuationBadgeWidthDip -
+                               kCandidateNumberBadgeWidthDip
+                         : 0.0F) +
                 measure_text_width(dwrite_factory_, candidate_text_format_, display);
             const float width = requested_width * width_scale;
             draw_candidate(D2D1::RectF(x, top, x + width, top + row_height), index);
@@ -2953,6 +3044,15 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     if (message == candidate_theme_changed && service != nullptr) {
         service->next_candidate_theme_refresh_ = 0;
         service->refresh_candidate_theme(true);
+        return 0;
+    }
+    if (message == kToneReady && service != nullptr) { service->handle_tone_result(); return 0; }
+    if (message == WM_TIMER && wparam == kToneTimer && service != nullptr) {
+        service->refresh_shortcut_config(true);
+        if (service->tone_active_ && (!service->agent_origin_valid_ ||
+            service->shortcut_config_ != service->tone_config_)) {
+            service->clear_composition();
+        }
         return 0;
     }
     if (message == kCandidateReady && service != nullptr) {
@@ -3208,6 +3308,7 @@ void TextService::queue_candidate_request() {
 }
 
 bool TextService::is_agent_mode() const noexcept {
+    if (tone_active_) return false;
     return !plugin_scheme_selected() && ((!input_buffer_.empty() && input_buffer_.front() == L'v') ||
            !agent_session_id_.empty());
 }
@@ -3781,10 +3882,11 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
     }
 }
 
-void TextService::append_language_context(const std::wstring_view text) {
+void TextService::append_language_context(const std::wstring_view text,
+                                          const bool user_authored) {
     append_bounded_language_context(recent_language_context_, text);
     append_bounded_language_context(recent_agent_context_, text, 4096);
-    queue_agent_context(std::wstring(text));
+    queue_agent_context(std::wstring(text), user_authored);
 }
 
 void TextService::rotate_agent_context() {
@@ -3797,7 +3899,7 @@ void TextService::rotate_agent_context() {
         : "ctx-" + id;
 }
 
-void TextService::queue_agent_context(std::wstring text) {
+void TextService::queue_agent_context(std::wstring text, const bool user_authored) {
     if (text.empty()) return;
     if (agent_context_id_.empty()) rotate_agent_context();
     const auto application = current_agent_application(agent_context_id_, agent_context_sensitive_);
@@ -3810,6 +3912,7 @@ void TextService::queue_agent_context(std::wstring text) {
     request.generation = context_generation_;
     request.input = std::move(text);
     request.application_context = application;
+    request.corpus_eligible = user_authored;
     feedback_requests_.push_back(std::move(request));
     request_ready_.notify_one();
 }
@@ -3872,6 +3975,8 @@ void TextService::worker_loop(const std::stop_token stop_token) {
             request.application_context.focus_window_class;
         paged_message.application_sensitive_input =
             request.application_context.sensitive_input;
+        paged_message.corpus_eligible = request.corpus_eligible &&
+            !request.application_context.sensitive_input;
         const auto post_candidate_failure = [this, &request, request_type](
                                                 std::wstring detail) {
             if (request_type != protocol::MessageType::candidate_request) return;
@@ -4272,9 +4377,11 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
             std::exchange(deferred_punctuation_context_, nullptr);
         if (selected_context != nullptr) {
             HRESULT committed = E_FAIL;
-            if (!candidates_.empty()) {
+            if (numbered_candidate_count() != 0) {
                 committed = commit_candidate(selected_context, 0, punctuation);
             } else {
+                // Only the learned continuation is visible: the user's
+                // punctuation belongs to the typed letters, not to it.
                 std::wstring raw = input_buffer_ + punctuation;
                 clear_composition();
                 committed = commit_text(selected_context, std::move(raw));
@@ -4291,9 +4398,12 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
         deferred_candidate_text_.reset();
         if (selected != candidates_.end() && selected_context != nullptr) {
             const auto index = static_cast<std::size_t>(selected - candidates_.begin());
-            const HRESULT committed = is_agent_mode()
-                ? stage_agent_candidate(selected_context, index)
-                : commit_candidate(selected_context, index);
+            // A key pressed while the request was in flight must never land on
+            // the unnumbered learned continuation.
+            const HRESULT committed = index < numbered_candidate_count()
+                ? (is_agent_mode() ? stage_agent_candidate(selected_context, index)
+                                   : commit_candidate(selected_context, index))
+                : E_INVALIDARG;
             selected_context->Release();
             if (SUCCEEDED(committed)) return;
         } else if (selected_context != nullptr) {
@@ -4943,6 +5053,8 @@ void TextService::update_candidate_anchor(ITfContext* context) {
 }
 
 void TextService::clear_composition() {
+    cancel_tone();
+    tone_adoption_id_ = 0; tone_undo_available_ = false;
     trace_tsf_event("edit.clear", static_cast<HRESULT>(context_generation_),
         static_cast<HRESULT>(static_cast<unsigned>(agent_request_pending_) | (agent_response_visible_ << 1)));
     reset_agent_origin();
@@ -5054,7 +5166,7 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
     const std::wstring previous_context = recent_language_context_;
     std::wstring learned_input = input_buffer_.substr(0, static_cast<std::size_t>(consumed));
     while (!learned_input.empty() && learned_input.back() == L'\'') learned_input.pop_back();
-    if (!shortcut_config_.candidate_immediate_commit_enabled && suffix.empty()) {
+    if (!tone_active_ && !shortcut_config_.candidate_immediate_commit_enabled && suffix.empty()) {
         auto source_end = static_cast<std::size_t>(consumed);
         while (source_end < input_buffer_.size() && input_buffer_[source_end] == L'\'')
             ++source_end;
@@ -5078,6 +5190,19 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
         update_candidate_anchor(context);
         if (input_buffer_.empty()) update_candidate_window();
         else queue_candidate_request();
+        return S_OK;
+    }
+    if (tone_active_ && tone_editing_) {
+        auto preview_text = staged_text() + inserted;
+        const auto result = append_tone_edit(preview_text);
+        if (FAILED(result)) return result;
+        staged_candidates_.clear(); staged_cursor_ = 0;
+        input_buffer_.erase(0, static_cast<std::size_t>(consumed));
+        while (!input_buffer_.empty() && input_buffer_.front() == L'\'') input_buffer_.erase(0, 1);
+        input_cursor_ = input_buffer_.size(); ++context_generation_;
+        candidates_.clear(); candidate_consumed_.clear(); candidate_groups_.clear();
+        candidate_request_pending_ = false;
+        if (!input_buffer_.empty()) queue_candidate_request(); else hide_candidate_windows();
         return S_OK;
     }
     const auto prior_staged = staged_candidates_;
@@ -5201,6 +5326,7 @@ HRESULT TextService::stage_agent_candidate(ITfContext* context,
 
 HRESULT TextService::commit_text(ITfContext* context, std::wstring text) {
     if (context == nullptr || text.empty()) return E_INVALIDARG;
+    if (tone_active_ && tone_editing_) return append_tone_edit(text);
     const std::wstring committed = text;
     auto* session = new (std::nothrow) CommitEditSession(context, std::move(text));
     if (session == nullptr) return E_OUTOFMEMORY;
@@ -5216,6 +5342,15 @@ HRESULT TextService::commit_text(ITfContext* context, std::wstring text) {
 HRESULT TextService::commit_raw_input(ITfContext* context) {
     if (context == nullptr || input_buffer_.empty()) return E_INVALIDARG;
     const std::wstring committed = input_buffer_;
+    if (tone_active_ && tone_editing_) {
+        const auto result = append_tone_edit(staged_text() + committed);
+        if (SUCCEEDED(result)) {
+            input_buffer_.clear(); staged_candidates_.clear(); staged_cursor_ = input_cursor_ = 0;
+            ++context_generation_; candidates_.clear(); candidate_consumed_.clear(); candidate_groups_.clear();
+            candidate_request_pending_ = false; hide_candidate_windows();
+        }
+        return result;
+    }
     auto* session = new (std::nothrow) CommitEditSession(context, committed);
     if (session == nullptr) return E_OUTOFMEMORY;
     HRESULT session_result = E_FAIL;
@@ -5233,6 +5368,7 @@ HRESULT TextService::commit_raw_input(ITfContext* context) {
 
 HRESULT TextService::commit_pending_composition(ITfContext* context) {
     if (context == nullptr || !has_composition()) return E_INVALIDARG;
+    if (tone_active_ && tone_editing_) return commit_raw_input(context);
     const std::wstring previous_context = recent_language_context_;
     const auto staged = staged_candidates_;
     std::wstring text = staged_text();
@@ -5262,6 +5398,7 @@ HRESULT TextService::commit_pending_composition(ITfContext* context) {
 
 void TextService::commit_pending_on_focus_loss() {
     refresh_shortcut_config();
+    if (tone_active_) return;
     if (plugin_scheme_selected()) return; // no blind writes to a retired document
     if (!shortcut_config_.focus_loss_commit_enabled || !has_composition() ||
         thread_manager_ == nullptr) return;
@@ -5440,7 +5577,7 @@ bool TextService::capture_agent_origin(ITfContext* context) {
     rotate_agent_context();
     if (!plugin_context_is_current(context)) { trace_tsf_event("origin.not_current", E_FAIL); return false; }
     bool safety_blocked = false;
-    auto* edit = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
+    auto* edit = new (std::nothrow) detail::SchemeEditSession(context, [&](TfEditCookie cookie) {
         InputMethodContextFacts observed;
         const auto safety = inspect_input_method_context(context, cookie, &observed);
         const unsigned facts = static_cast<unsigned>(observed.status_known) | (observed.compartments_known << 1) |
@@ -5545,7 +5682,7 @@ bool TextService::plugin_context_is_current(ITfContext* context) const {
     return same;
 }
 
-NativeWriteResult TextService::apply_agent_effect(const agent::CommandEffect& effect) {
+NativeWriteResult TextService::apply_agent_effect(const agent::CommandEffect& effect, const bool local_confirmation) {
     if (effect.kind == agent::EffectKind::copy_text) {
         const agent::EffectTargetFacts facts{agent_effects_negotiated_, false, false, {}, {}};
         if (agent::decide_effect(effect, facts) != agent::EffectDecision::write)
@@ -5567,9 +5704,9 @@ NativeWriteResult TextService::apply_agent_effect(const agent::CommandEffect& ef
     const std::wstring text = wide_from_utf8(effect.text);
     bool written = false;
     auto outcome = NativeWriteResult::rejected;
-    auto* edit = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
+    auto* edit = new (std::nothrow) detail::SchemeEditSession(context, [&](TfEditCookie cookie) {
         agent::EffectTargetFacts facts;
-        facts.capability_negotiated = agent_effects_negotiated_;
+        facts.capability_negotiated = agent_effects_negotiated_ || local_confirmation;
         facts.same_document = agent_origin_valid_ && same_context(context, agent_origin_context_) &&
             plugin_context_is_current(context) && scheme_selection_matches(context, cookie, agent_origin_range_);
         facts.context_allowed = inspect_input_method_context(context, cookie) == InputMethodContextSafety::allowed;
@@ -5597,8 +5734,11 @@ NativeWriteResult TextService::apply_agent_effect(const agent::CommandEffect& ef
                 } else if (native == NativeWriteResult::not_applicable &&
                            SUCCEEDED(selections[0].range->SetText(
                                cookie, 0, text.data(), static_cast<LONG>(text.size())))) {
-                    outcome = NativeWriteResult::completed;
-                    written = true; // A caret failure must never permit a second write.
+                    const auto readback = local_confirmation ? read_range_text(cookie, selections[0].range)
+                                                             : std::optional<std::wstring>(text);
+                    written = readback && *readback == text;
+                    outcome = written ? NativeWriteResult::completed : NativeWriteResult::uncertain;
+                    // The origin was already consumed, even when verification fails.
                     (void)selections[0].range->Collapse(cookie, TF_ANCHOR_END);
                     (void)context->SetSelection(cookie, 1, selections);
                 }
@@ -5613,7 +5753,7 @@ NativeWriteResult TextService::apply_agent_effect(const agent::CommandEffect& ef
         edit->Release();
     }
     context->Release();
-    if (written) append_language_context(text);
+    if (written) append_language_context(text, false);
     return outcome;
 }
 
@@ -5622,7 +5762,7 @@ void TextService::refresh_agent_context_safety(ITfContext* context) {
     agent_context_sensitive_ = true;
     if (!context) return;
     InputMethodContextSafety safety = InputMethodContextSafety::unknown;
-    auto* edit = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
+    auto* edit = new (std::nothrow) detail::SchemeEditSession(context, [&](TfEditCookie cookie) {
         safety = inspect_input_method_context(context, cookie);
         return S_OK;
     });
@@ -5637,7 +5777,7 @@ void TextService::refresh_agent_context_safety(ITfContext* context) {
 bool TextService::plugin_context_allowed(ITfContext* context) {
     if (!plugin_context_is_current(context)) return false;
     InputMethodContextSafety safety = InputMethodContextSafety::unknown;
-    auto* edit = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
+    auto* edit = new (std::nothrow) detail::SchemeEditSession(context, [&](TfEditCookie cookie) {
         safety = inspect_input_method_context(context, cookie);
         if (!scheme_selection_matches(context, cookie, plugin_input_selection_)) safety = InputMethodContextSafety::unknown;
         return S_OK;
@@ -5700,7 +5840,7 @@ HRESULT TextService::handle_plugin_key(ITfContext* context, WPARAM key, LPARAM f
     if (plugin_input_context_ && !same_context(context, plugin_input_context_)) clear_composition();
     if (!plugin_input_context_) {
         plugin_input_context_ = context; context->AddRef();
-        auto* capture = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
+        auto* capture = new (std::nothrow) detail::SchemeEditSession(context, [&](TfEditCookie cookie) {
             TF_SELECTION selection{}; ULONG count{};
             if (SUCCEEDED(context->GetSelection(cookie, TF_DEFAULT_SELECTION, 1, &selection, &count)) && count == 1)
                 plugin_input_selection_ = selection.range;
@@ -5931,7 +6071,7 @@ void TextService::commit_plugin_text(std::wstring text, bool selected, bool swit
     plugin_commit_deadline_ = GetTickCount64() + 2000;
     const auto deadline = plugin_commit_deadline_;
     SetTimer(message_window_, kPluginInputTimer, 16, nullptr);
-    auto* edit = new (std::nothrow) SchemeEditSession(context,
+    auto* edit = new (std::nothrow) detail::SchemeEditSession(context,
         [this, context, generation, deadline, selected, switch_language, text = std::move(text)](TfEditCookie cookie) {
             const bool current = plugin_context_is_current(context);
             const bool valid = input_method_write_allowed({generation, plugin_input_document_.generation(),
@@ -6001,7 +6141,7 @@ void TextService::finish_plugin_input_on_ui() {
     auto* selection = std::exchange(plugin_replay_selection_, nullptr);
     if (!context) { if (selection) selection->Release(); return; }
     bool same_selection = false;
-    auto* check = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
+    auto* check = new (std::nothrow) detail::SchemeEditSession(context, [&](TfEditCookie cookie) {
         same_selection = selection && scheme_selection_matches(context, cookie, selection); return S_OK;
     });
     HRESULT checked = E_FAIL;
@@ -6082,3 +6222,21 @@ void decrement_server_lock() noexcept { InterlockedDecrement(&lock_count); }
 long server_lock_count() noexcept { return object_count + lock_count; }
 
 }  // namespace owo::tsf
+
+namespace owo::tsf::detail {
+std::string utf8_from_wide(std::wstring_view v) { return owo::tsf::utf8_from_wide(v); }
+std::wstring wide_from_utf8(std::string_view v) { return owo::tsf::wide_from_utf8(v); }
+bool key_down(int v) noexcept { return owo::tsf::key_down(v); }
+bool command_modifier_down() noexcept { return owo::tsf::command_modifier_down(); }
+std::wstring scheme_key_text(WPARAM key, LPARAM flags) { return owo::tsf::scheme_key_text(key, flags); }
+std::optional<std::wstring> read_range_text(TfEditCookie cookie, ITfRange* range) {
+    return owo::tsf::read_range_text(cookie, range);
+}
+bool scheme_selection_matches(ITfContext* context, TfEditCookie cookie, ITfRange* range) {
+    return owo::tsf::scheme_selection_matches(context, cookie, range);
+}
+std::uint64_t current_unix_time_ms() { return owo::tsf::current_unix_time_ms(); }
+agent::ApplicationContext current_agent_application(std::string_view id, bool sensitive) {
+    return owo::tsf::current_agent_application(id, sensitive);
+}
+}  // namespace owo::tsf::detail

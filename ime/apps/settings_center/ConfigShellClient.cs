@@ -26,7 +26,18 @@ internal sealed record SettingsSnapshot(string InputScheme,
                                         bool PunctuationShortcutEnabled, IReadOnlyList<string> PunctuationShortcuts,
                                         bool TextNavigationShortcutEnabled, IReadOnlyList<string> TextNavigationShortcuts,
                                         bool TextNavigationSelectEnabled,
-                                        uint ChinesePunctuationMask);
+                                        uint ChinesePunctuationMask,
+                                        bool CorpusLearningEnabled,
+                                        bool CorpusLearningPaused,
+                                        IReadOnlyList<string> CorpusAllowedApps,
+                                        IReadOnlyList<string> CorpusExcludedApps,
+                                        uint CorpusRetentionDays,
+                                        bool CorpusPredictionEnabled,
+                                        uint StyleSceneMask,
+                                        string StylePreferences,
+                                        bool ToneReplyEnabled,
+                                        bool ToneContinuationEnabled,
+                                        bool ToneCloudModelEnabled);
 
 internal sealed class ConfigShellClient
 {
@@ -91,7 +102,18 @@ internal sealed class ConfigShellClient
                    bool.Parse(values["text_navigation_shortcut_enabled"]),
                    SplitShortcuts(values["text_navigation_shortcut"]),
                    bool.Parse(values["text_navigation_select_enabled"]),
-                   uint.Parse(values["chinese_punctuation_mask"]));
+                   uint.Parse(values["chinese_punctuation_mask"]),
+                   bool.Parse(values["corpus_learning_enabled"]),
+                   bool.Parse(values["corpus_learning_paused"]),
+                   SplitShortcuts(values["corpus_learning_allowed_apps"]),
+                   SplitShortcuts(values["corpus_learning_excluded_apps"]),
+                   uint.Parse(values["corpus_retention_days"]),
+                   bool.Parse(values["corpus_prediction_enabled"]),
+                   uint.Parse(values["style_scene_mask"]),
+                   UnescapeStylePreferences(values["style_preferences"]),
+                   bool.Parse(values["tone_reply_enabled"]),
+                   bool.Parse(values["tone_continuation_enabled"]),
+                   bool.Parse(values["tone_cloud_model_enabled"]));
     }
 
     internal Task SaveAsync(SettingsSnapshot value, CancellationToken cancellationToken = default) =>
@@ -130,7 +152,41 @@ internal sealed class ConfigShellClient
                   value.InputScheme,
                   value.UserCompletionEnabled.ToString().ToLowerInvariant(),
                   value.UserCompletionMaxSyllables.ToString(),
-                  value.ChinesePunctuationMask.ToString()], cancellationToken);
+                  value.ChinesePunctuationMask.ToString(),
+                  value.CorpusLearningEnabled.ToString().ToLowerInvariant(),
+                  value.CorpusLearningPaused.ToString().ToLowerInvariant(),
+                  JoinShortcuts(value.CorpusAllowedApps),
+                  JoinShortcuts(value.CorpusExcludedApps),
+                  value.CorpusRetentionDays.ToString(),
+                  value.CorpusPredictionEnabled.ToString().ToLowerInvariant(),
+                  value.StyleSceneMask.ToString(),
+                  NormalizeStylePreferences(value.StylePreferences),
+                  value.ToneReplyEnabled.ToString().ToLowerInvariant(),
+                  value.ToneContinuationEnabled.ToString().ToLowerInvariant(),
+                  value.ToneCloudModelEnabled.ToString().ToLowerInvariant()],
+            cancellationToken);
+
+    // Preferences are one line in the key=value file. A literal newline cannot
+    // be represented, so it is dropped rather than rejected after the user has
+    // already typed the rest of the setting.
+    internal static string NormalizeStylePreferences(string value) =>
+        value.Replace("\r", " ", StringComparison.Ordinal)
+             .Replace("\n", " ", StringComparison.Ordinal);
+
+    // The file format escapes `~` when it serializes; the shell reads `show`
+    // output, so it must undo exactly that escaping.
+    internal static string UnescapeStylePreferences(string value)
+    {
+        var result = new System.Text.StringBuilder(value.Length);
+        for (var index = 0; index < value.Length; ++index) {
+            if (value[index] != '~') { result.Append(value[index]); continue; }
+            if (index + 1 >= value.Length || value[index + 1] != '~')
+                throw new FormatException("style_preferences 含有无效的转义。");
+            result.Append('~');
+            ++index;
+        }
+        return result.ToString();
+    }
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

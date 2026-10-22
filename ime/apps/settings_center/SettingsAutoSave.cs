@@ -34,6 +34,11 @@ public sealed partial class MainPage
             TextNavigationSelectEnabled];
         foreach (var control in settings) ObserveAutoSave(control);
         foreach (var control in _punctuationSwitches.Values) ObserveAutoSave(control);
+        foreach (var toggle in _styleSceneToggles) ObserveAutoSave(toggle);
+        ObserveAutoSave(StylePreferencesBox);
+        ObserveAutoSave(ToneReply);
+        ObserveAutoSave(ToneContinuation);
+        ObserveAutoSave(ToneCloudModel);
         Unloaded += (_, _) => _autoSaveTimer.Stop();
     }
 

@@ -25,6 +25,55 @@ bool parse_u32(const std::string_view text, std::uint32_t& output) {
     return result.ec == std::errc{} && result.ptr == text.data() + text.size();
 }
 
+bool valid_utf8(const std::string_view text) noexcept {
+    std::size_t index = 0;
+    while (index < text.size()) {
+        const auto lead = static_cast<unsigned char>(text[index]);
+        std::size_t length = 0;
+        std::uint32_t scalar = 0;
+        if (lead < 0x80U) { ++index; continue; }
+        if ((lead & 0xe0U) == 0xc0U) { length = 2; scalar = lead & 0x1fU; }
+        else if ((lead & 0xf0U) == 0xe0U) { length = 3; scalar = lead & 0x0fU; }
+        else if ((lead & 0xf8U) == 0xf0U) { length = 4; scalar = lead & 0x07U; }
+        else return false;
+        if (index + length > text.size()) return false;
+        for (std::size_t offset = 1; offset < length; ++offset) {
+            const auto next = static_cast<unsigned char>(text[index + offset]);
+            if ((next & 0xc0U) != 0x80U) return false;
+            scalar = (scalar << 6U) | (next & 0x3fU);
+        }
+        if ((length == 2 && scalar < 0x80U) || (length == 3 && scalar < 0x800U) ||
+            (length == 4 && (scalar < 0x10000U || scalar > 0x10ffffU)) ||
+            (scalar >= 0xd800U && scalar <= 0xdfffU)) return false;
+        index += length;
+    }
+    return true;
+}
+
+// Style preferences are one line of free text. Line breaks cannot be
+// represented in the key=value file, and `~` escapes a literal `~`.
+std::string escape_style_preferences(const std::string_view value) {
+    std::string result;
+    result.reserve(value.size());
+    for (const char character : value) {
+        if (character == '~') result += "~~";
+        else result.push_back(character);
+    }
+    return result;
+}
+
+bool parse_style_preferences(const std::string_view text, std::string& output) {
+    output.clear();
+    output.reserve(text.size());
+    for (std::size_t index = 0; index < text.size(); ++index) {
+        if (text[index] != '~') { output.push_back(text[index]); continue; }
+        if (index + 1 >= text.size() || text[index + 1] != '~') return false;
+        output.push_back('~');
+        ++index;
+    }
+    return true;
+}
+
 bool parse_bool(const std::string_view text, bool& output) {
     if (text == "true") {
         output = true;
@@ -195,7 +244,57 @@ bool is_plugin_input_scheme(std::string_view value) noexcept {
     return valid(value.substr(0, slash)) && valid(value.substr(slash + 1));
 }
 
+bool valid_corpus_application(const std::string_view value) noexcept {
+    if (value.empty() || value.size() > 96 || value.front() == '.' || value.front() == ' ' ||
+        value.back() == ' ') return false;
+    return std::all_of(value.begin(), value.end(), [](const char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+            c == '.' || c == '_' || c == '-' || c == ' ' || c == '+';
+    });
+}
+
+bool corpus_learning_allows(const AppConfig& value, const std::string_view executable) noexcept {
+    if (!value.corpus_learning_enabled || value.corpus_learning_paused || executable.empty())
+        return false;
+    const auto same = [executable](const std::string& app) {
+        return app.size() == executable.size() &&
+            std::equal(app.begin(), app.end(), executable.begin(), [](const char l, const char r) {
+                const auto lower = [](const char c) {
+                    return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
+                };
+                return lower(l) == lower(r);
+            });
+    };
+    const auto& excluded = value.corpus_learning_excluded_apps;
+    if (std::any_of(excluded.begin(), excluded.end(), same)) return false;
+    const auto& allowed = value.corpus_learning_allowed_apps;
+    return allowed.empty() || std::any_of(allowed.begin(), allowed.end(), same);
+}
+
 ConfigValidationResult validate_config(const AppConfig& value) {
+    const auto valid_apps = [](const std::vector<std::string>& apps) {
+        if (apps.size() > kMaximumCorpusApplications) return false;
+        std::set<std::string> seen;
+        return std::all_of(apps.begin(), apps.end(), [&seen](const std::string& app) {
+            std::string lower(app);
+            std::transform(lower.begin(), lower.end(), lower.begin(), [](const char c) {
+                return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
+            });
+            return valid_corpus_application(app) && seen.insert(std::move(lower)).second;
+        });
+    };
+    if (!valid_apps(value.corpus_learning_allowed_apps) ||
+        !valid_apps(value.corpus_learning_excluded_apps))
+        return {false, "corpus learning application lists must contain unique executable names"};
+    if (value.corpus_retention_days > 3650)
+        return {false, "corpus_retention_days must be between 0 and 3650"};
+    if (value.style_scene_mask & ~kStyleSceneAll)
+        return {false, "style_scene_mask contains unknown scenes"};
+    if (value.style_preferences.size() > kMaximumStylePreferencesBytes ||
+        !valid_utf8(value.style_preferences) ||
+        value.style_preferences.find_first_of("\r\n") != std::string::npos)
+        return {false,
+                "style_preferences must be one UTF-8 line within the size limit"};
     if (value.chinese_punctuation_mask & ~kChinesePunctuationAll)
         return {false, "chinese_punctuation_mask contains unknown punctuation bits"};
     if (value.input_scheme != "full_pinyin" &&
@@ -312,6 +411,15 @@ ConfigParseResult parse_config(const std::string_view utf8) {
         "user_lexicon_completion_enabled", "user_lexicon_completion_max_syllables"};
     constexpr std::string_view assistive_required[]{"smart_candidates_enabled",
         "expressive_candidates_enabled", "concept_candidates_enabled"};
+    constexpr std::string_view corpus_required[]{"corpus_learning_enabled",
+        "corpus_learning_paused", "corpus_learning_allowed_apps",
+        "corpus_learning_excluded_apps", "corpus_retention_days"};
+    constexpr std::string_view corpus_prediction_required[]{
+        "corpus_prediction_enabled"};
+    constexpr std::string_view style_required[]{"style_scene_mask",
+        "style_preferences"};
+    constexpr std::string_view tone_required[]{"tone_reply_enabled",
+        "tone_continuation_enabled", "tone_cloud_model_enabled"};
     const auto expected_size = std::size(base_required) +
                                (version >= 2 ? std::size(shortcut_required) : 0) +
                                (version >= 3 ? std::size(wrap_required) : 0) +
@@ -325,7 +433,11 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 13 ? std::size(input_scheme_required) : 0) +
                                (version >= 14 ? std::size(user_completion_required) : 0) +
                                (version >= 15 ? 1 : 0) +
-                               (version >= 16 ? std::size(assistive_required) : 0);
+                               (version >= 16 ? std::size(assistive_required) : 0) +
+                               (version >= 17 ? std::size(corpus_required) : 0) +
+                               (version >= 18 ? std::size(corpus_prediction_required) : 0) +
+                               (version >= 19 ? std::size(style_required) : 0) +
+                               (version >= 20 ? std::size(tone_required) : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -365,6 +477,18 @@ ConfigParseResult parse_config(const std::string_view utf8) {
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
     if (version >= 16) for (const auto key : assistive_required)
+        if (!fields.contains(std::string(key)))
+            return {false, {}, "configuration fields are missing or unknown"};
+    if (version >= 17) for (const auto key : corpus_required)
+        if (!fields.contains(std::string(key)))
+            return {false, {}, "configuration fields are missing or unknown"};
+    if (version >= 18) for (const auto key : corpus_prediction_required)
+        if (!fields.contains(std::string(key)))
+            return {false, {}, "configuration fields are missing or unknown"};
+    if (version >= 19) for (const auto key : style_required)
+        if (!fields.contains(std::string(key)))
+            return {false, {}, "configuration fields are missing or unknown"};
+    if (version >= 20) for (const auto key : tone_required)
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
@@ -458,6 +582,37 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                         value.concept_candidates_enabled))
             return {false, {}, "configuration field type is invalid"};
     }
+    if (version >= 17) {
+        if (!parse_bool(fields["corpus_learning_enabled"], value.corpus_learning_enabled) ||
+            !parse_bool(fields["corpus_learning_paused"], value.corpus_learning_paused) ||
+            !parse_shortcut_list(fields["corpus_learning_allowed_apps"],
+                                 value.corpus_learning_allowed_apps) ||
+            !parse_shortcut_list(fields["corpus_learning_excluded_apps"],
+                                 value.corpus_learning_excluded_apps) ||
+            !parse_u32(fields["corpus_retention_days"], value.corpus_retention_days))
+            return {false, {}, "configuration field type is invalid"};
+    }
+    if (version >= 18) {
+        if (!parse_bool(fields["corpus_prediction_enabled"],
+                        value.corpus_prediction_enabled))
+            return {false, {}, "configuration field type is invalid"};
+    }
+    if (version >= 19) {
+        if (!parse_u32(fields["style_scene_mask"], value.style_scene_mask) ||
+            (value.style_scene_mask & ~kStyleSceneAll) != 0)
+            return {false, {}, "style_scene_mask contains unknown scenes"};
+        if (!parse_style_preferences(fields["style_preferences"],
+                                     value.style_preferences))
+            return {false, {}, "style_preferences is invalid"};
+    }
+    if (version >= 20) {
+        if (!parse_bool(fields["tone_reply_enabled"], value.tone_reply_enabled) ||
+            !parse_bool(fields["tone_continuation_enabled"],
+                        value.tone_continuation_enabled) ||
+            !parse_bool(fields["tone_cloud_model_enabled"],
+                        value.tone_cloud_model_enabled))
+            return {false, {}, "configuration field type is invalid"};
+    }
     if (version >= 5) {
         if (!parse_bool(fields["cursor_left_shortcut_enabled"],
                         value.cursor_left_shortcut_enabled) ||
@@ -545,6 +700,25 @@ std::string serialize_config(const AppConfig& value) {
                (value.expressive_candidates_enabled ? std::string("true") : "false") +
            "\nconcept_candidates_enabled=" +
                (value.concept_candidates_enabled ? std::string("true") : "false") +
+           "\ncorpus_learning_enabled=" +
+               (value.corpus_learning_enabled ? std::string("true") : "false") +
+           "\ncorpus_learning_paused=" +
+               (value.corpus_learning_paused ? std::string("true") : "false") +
+           "\ncorpus_learning_allowed_apps=" +
+               serialize_shortcut_list(value.corpus_learning_allowed_apps) +
+           "\ncorpus_learning_excluded_apps=" +
+               serialize_shortcut_list(value.corpus_learning_excluded_apps) +
+           "\ncorpus_retention_days=" + std::to_string(value.corpus_retention_days) +
+           "\ncorpus_prediction_enabled=" +
+               (value.corpus_prediction_enabled ? std::string("true") : "false") +
+           "\nstyle_scene_mask=" + std::to_string(value.style_scene_mask) +
+           "\nstyle_preferences=" + escape_style_preferences(value.style_preferences) +
+           "\ntone_reply_enabled=" +
+               (value.tone_reply_enabled ? std::string("true") : "false") +
+           "\ntone_continuation_enabled=" +
+               (value.tone_continuation_enabled ? std::string("true") : "false") +
+           "\ntone_cloud_model_enabled=" +
+               (value.tone_cloud_model_enabled ? std::string("true") : "false") +
            "\nmodel_ranking_enabled=" + (value.model_ranking_enabled ? std::string("true") : "false") +
            "\nmodel_timeout_ms=" + std::to_string(value.model_timeout_ms) +
            "\ncorrection_shortcut_enabled=" +

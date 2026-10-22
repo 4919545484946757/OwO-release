@@ -3,6 +3,7 @@
 #include "owo/protocol/envelope.h"
 
 #include <chrono>
+#include <filesystem>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -89,7 +90,8 @@ private:
                                   const wchar_t* model_pipe_name,
                                   const config::ConfigMonitor* config_monitor,
                                   core::PluginExecutor* plugin_executor,
-                                  const engine::ConceptTable* concept_table);
+                                  const engine::ConceptTable* concept_table,
+                                  const std::filesystem::path* user_corpus_path = nullptr);
 
 /// 运行 ModelHost v1 串行服务循环。后端在服务退出前必须保持有效。
 [[nodiscard]] int run_model_server(const wchar_t* pipe_name, model::IModelBackend& backend);

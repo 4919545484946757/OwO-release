@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Release',
@@ -14,13 +14,14 @@ $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $preset = if ($Configuration -eq 'Debug') { 'windows-debug' } else { 'windows-release' }
 $configShell = Join-Path $projectRoot "build/$preset/$Configuration/owo_config_shell.exe"
 $pluginShell = Join-Path $projectRoot "build/$preset/$Configuration/owo_plugin_shell.exe"
+$corpusShell = Join-Path $projectRoot "build/$preset/$Configuration/owo_corpus_shell.exe"
 $project = Join-Path $projectRoot 'apps/settings_center/OwO.Settings.csproj'
 $platform = 'x64'
 $targetFramework = 'net10.0-windows10.0.26100.0'
 $buildOutput = Join-Path $projectRoot "apps/settings_center/bin/$platform/$Configuration/$targetFramework/$RuntimeIdentifier"
 $publishOutput = Join-Path $projectRoot "build/settings-publish/$RuntimeIdentifier"
 
-cmake --build --preset $preset --target owo_config_shell owo_plugin_shell
+cmake --build --preset $preset --target owo_config_shell owo_plugin_shell owo_corpus_shell -- /m:2
 if ($LASTEXITCODE -ne 0) { throw "owo_config_shell build failed: $LASTEXITCODE" }
 
 if (-not $NoRestore) {
@@ -30,7 +31,8 @@ if (-not $NoRestore) {
 
 dotnet build $project -c $Configuration -r $RuntimeIdentifier --no-restore `
     "-p:Platform=$platform" `
-    "-p:OwOConfigShellPath=$configShell" "-p:OwOPluginShellPath=$pluginShell"
+    "-p:OwOConfigShellPath=$configShell" "-p:OwOPluginShellPath=$pluginShell" `
+    "-p:OwOCorpusShellPath=$corpusShell"
 if ($LASTEXITCODE -ne 0) { throw "settings build failed: $LASTEXITCODE" }
 
 $publishRoot = [IO.Path]::GetFullPath((Join-Path $projectRoot 'build/settings-publish'))
@@ -46,7 +48,8 @@ if (Test-Path -LiteralPath $publishOutput) {
 dotnet publish $project -c $Configuration -r $RuntimeIdentifier --no-restore `
     --self-contained true -o $publishOutput `
     "-p:Platform=$platform" "-p:WindowsAppSDKSelfContained=true" `
-    "-p:OwOConfigShellPath=$configShell" "-p:OwOPluginShellPath=$pluginShell"
+    "-p:OwOConfigShellPath=$configShell" "-p:OwOPluginShellPath=$pluginShell" `
+    "-p:OwOCorpusShellPath=$corpusShell"
 if ($LASTEXITCODE -ne 0) { throw "settings publish failed: $LASTEXITCODE" }
 
 # The current Windows App SDK publish target omits the app's generated XAML/PRI
@@ -60,7 +63,8 @@ Copy-Item -LiteralPath (Join-Path $buildOutput 'Assets') -Destination $publishOu
     -Recurse -Force
 
 $required = @('OwO.Settings.exe', 'OwO.Settings.dll', 'owo_config_shell.exe',
-              'owo_plugin_shell.exe', 'App.xbf', 'MainPage.xbf', 'MainWindow.xbf',
+              'owo_plugin_shell.exe', 'owo_corpus_shell.exe', 'App.xbf', 'MainPage.xbf',
+              'MainWindow.xbf',
               'OwO.Settings.pri', 'Assets/AppIcon.ico')
 foreach ($name in $required) {
     if (-not (Test-Path -LiteralPath (Join-Path $publishOutput $name) -PathType Leaf)) {

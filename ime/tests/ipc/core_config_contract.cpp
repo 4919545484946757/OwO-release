@@ -1,6 +1,7 @@
 #include "owo/config/config_monitor.h"
 #include "owo/config/config_store.h"
 #include "owo/engine/lexicon.h"
+#include "owo/engine/user_corpus.h"
 #include "owo/engine/user_frequency.h"
 #include "owo/ipc/named_pipe.h"
 #include "owo/protocol/messages.h"
@@ -39,6 +40,22 @@ int wmain(int argc, wchar_t** argv) {
     std::filesystem::create_directories(root, ignored);
     const auto config_path = root / "owo.conf";
     const auto frequency_path = root / "user.bin";
+    const auto corpus_path = root / "user-corpus.owuc";
+
+    // Seed an authorized corpus before Core starts. Two observations make the
+    // continuation stable; the application matches the allowed list below. The
+    // timestamps are current so retention pruning keeps the seed.
+    {
+        const auto now = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
+        const auto seeded = owo::engine::UserCorpusStore::modify(
+            corpus_path, [now](owo::engine::UserCorpusStore& store) {
+                (void)store.append("WeChat.exe", "老师我们这周把流程跑通了", now);
+                (void)store.append("WeChat.exe", "老师我们这周把流程跑通了", now + 1);
+            });
+        if (!seeded.success) return 2;
+    }
 
     owo::config::ConfigStore writer;
     if (!writer.load(config_path).success) return 2;
@@ -73,7 +90,8 @@ int wmain(int argc, wchar_t** argv) {
     int server_exit = -1;
     std::jthread server([&] {
         server_exit = owo::ipc::run_core_server(pipe.c_str(), lexicon, &frequencies,
-                                                model_pipe.c_str(), &monitor);
+                                                model_pipe.c_str(), &monitor, nullptr,
+                                                nullptr, &corpus_path);
     });
     const auto model_disabled = send(pipe, {owo::protocol::MessageType::candidate_request,
                                             10, 1, "nihao"});
@@ -168,9 +186,103 @@ int wmain(int argc, wchar_t** argv) {
         pipe, {owo::protocol::MessageType::candidate_request, 28, 1, "ni'hao"});
     const auto exact_code_without_abbreviation = send(
         pipe, {owo::protocol::MessageType::candidate_request, 29, 1, "gd"});
+    // Authorized corpus learning is off by default: eligible sentences from an
+    // allowed application must not be recorded before the user opts in.
+    auto corpus_entry = [](const std::uint64_t id, std::string text) {
+        owo::protocol::Message message{owo::protocol::MessageType::agent_context_recorded,
+                                       id, 1, std::move(text)};
+        message.application_context_id = "ctx-corpus-" + std::to_string(id);
+        message.application_executable = "WeChat.exe";
+        message.corpus_eligible = true;
+        return message;
+    };
+    const auto corpus_while_off = send(pipe, corpus_entry(41, "默认关闭时不该记住这句话。"));
+    const auto generation_before_corpus = monitor.generation();
+    config.corpus_learning_enabled = true;
+    config.corpus_learning_allowed_apps = {"WeChat.exe"};
+    // Prediction follows the ordinary pinyin page as an extra candidate.
+    config.candidate_partition_enabled = true;
+    config.input_scheme = "full_pinyin";
+    const bool corpus_enabled_reload = writer.save(config).success &&
+        monitor.wait_for_generation(generation_before_corpus, std::chrono::seconds(2));
+    const auto corpus_allowed = send(pipe, corpus_entry(42, "开启后记住这句话。"));
+    owo::protocol::Message prediction_request{
+        owo::protocol::MessageType::candidate_request, 50, 1, "ba"};
+    prediction_request.context = "老师我们这周";
+    const auto predicted = send(pipe, prediction_request);
+    // The learned continuation is visible during normal pinyin input, but the
+    // typed reading keeps the numbered positions: Space and "1"/"2" still
+    // select pinyin candidates.
+    const auto& predicted_candidates = predicted.message.candidates;
+    const bool prediction_ok = predicted.validation &&
+        !predicted_candidates.empty() &&
+        predicted_candidates.back() == "把流程跑通了" &&
+        predicted.message.candidate_groups.size() == predicted_candidates.size() &&
+        predicted.message.candidate_groups.back() ==
+            static_cast<std::uint64_t>(owo::protocol::CandidateGroup::continuation) &&
+        std::all_of(predicted.message.candidate_groups.begin(),
+                    predicted.message.candidate_groups.end() - 1,
+                    [](const std::uint64_t group) {
+                        return group != static_cast<std::uint64_t>(
+                                            owo::protocol::CandidateGroup::continuation);
+                    }) &&
+        predicted.message.candidate_consumed.size() == predicted_candidates.size() &&
+        predicted.message.candidate_consumed.back() == 2;
+    // The same reading without learned evidence shows no extra entry.
+    owo::protocol::Message no_prediction_request{
+        owo::protocol::MessageType::candidate_request, 51, 1, "ba"};
+    no_prediction_request.context = "今天下午";
+    const auto not_predicted = send(pipe, no_prediction_request);
+    // Turning the separate prediction switch off removes it while recording
+    // stays on.
+    const auto generation_before_prediction_off = monitor.generation();
+    config.corpus_prediction_enabled = false;
+    const bool prediction_disabled_reload = writer.save(config).success &&
+        monitor.wait_for_generation(generation_before_prediction_off,
+                                    std::chrono::seconds(2));
+    owo::protocol::Message disabled_prediction_request{
+        owo::protocol::MessageType::candidate_request, 52, 1, "ba"};
+    disabled_prediction_request.context = "老师我们这周";
+    const auto prediction_disabled = send(pipe, disabled_prediction_request);
+    const auto generation_before_prediction_on = monitor.generation();
+    config.corpus_prediction_enabled = true;
+    const bool prediction_enabled_reload = writer.save(config).success &&
+        monitor.wait_for_generation(generation_before_prediction_on,
+                                    std::chrono::seconds(2));
+    owo::protocol::Message restored_prediction_request{
+        owo::protocol::MessageType::candidate_request, 53, 1, "ba"};
+    restored_prediction_request.context = "老师我们这周";
+    const auto prediction_restored = send(pipe, restored_prediction_request);
+    // Deleting the learned sentences also removes the prediction: the Core
+    // rebuilds its statistics from the corpus file instead of keeping a copy.
+    const auto deleted = owo::engine::UserCorpusStore::modify(
+        corpus_path, [](owo::engine::UserCorpusStore& store) {
+            (void)store.erase(1);
+            (void)store.erase(2);
+        });
+    owo::protocol::Message deleted_prediction_request{
+        owo::protocol::MessageType::candidate_request, 54, 1, "ba"};
+    deleted_prediction_request.context = "老师我们这周";
+    const auto prediction_deleted = send(pipe, deleted_prediction_request);
+    auto disallowed = corpus_entry(43, "未授权的应用不该记住。");
+    disallowed.application_executable = "other.exe";
+    const auto corpus_disallowed = send(pipe, disallowed);
+    auto sensitive = corpus_entry(44, "密码框里的话不该记住。");
+    sensitive.application_sensitive_input = true;
+    const auto corpus_sensitive = send(pipe, sensitive);
+    auto ineligible = corpus_entry(45, "Agent 回写的内容不该记住。");
+    ineligible.corpus_eligible = false;
+    const auto corpus_ineligible = send(pipe, ineligible);
     const auto shutdown = send(pipe, {owo::protocol::MessageType::shutdown_request,
                                       3, 1, {}});
     server.join();
+    owo::engine::UserCorpusStore corpus;
+    const auto corpus_loaded = corpus.load(corpus_path);
+    // The two seeded observations were deleted during the run; only the entry
+    // recorded after opt-in remains, written by the shutdown flush.
+    const bool corpus_ok = corpus_loaded.success && corpus.entries().size() == 1 &&
+        corpus.entries().front().text == "开启后记住这句话。" &&
+        corpus.entries().front().application == "WeChat.exe";
 
     owo::engine::UserFrequencyStore persisted;
     const auto loaded = persisted.load(frequency_path);
@@ -244,7 +356,37 @@ int wmain(int argc, wchar_t** argv) {
                     exact_code_without_abbreviation.message.candidates.empty() &&
                     loaded.success && persisted.count("你好") == 1 &&
                     persisted.contextual_count("nihao", "你好") == 1 &&
-                    persisted.language_context_score("我说", "nihao", "你好") > 0;
+                    persisted.language_context_score("我说", "nihao", "你好") > 0 &&
+                    acknowledged(corpus_while_off, "agent_context_ack") &&
+                    acknowledged(corpus_allowed, "agent_context_ack") &&
+                    acknowledged(corpus_disallowed, "agent_context_ack") &&
+                    // A sensitive context entry is refused by validation and can
+                    // never carry corpus eligibility.
+                    corpus_sensitive.validation &&
+                    corpus_sensitive.message.type ==
+                        owo::protocol::MessageType::error_response &&
+                    acknowledged(corpus_ineligible, "agent_context_ack") &&
+                    corpus_enabled_reload && prediction_ok &&
+                    predicted.message.syllables ==
+                        std::vector<std::string>{"ba"} &&
+                    not_predicted.validation &&
+                    std::find(not_predicted.message.candidates.begin(),
+                              not_predicted.message.candidates.end(),
+                              "把流程跑通了") == not_predicted.message.candidates.end() &&
+                    prediction_disabled_reload &&
+                    std::find(prediction_disabled.message.candidates.begin(),
+                              prediction_disabled.message.candidates.end(),
+                              "把流程跑通了") ==
+                        prediction_disabled.message.candidates.end() &&
+                    prediction_enabled_reload &&
+                    !prediction_restored.message.candidates.empty() &&
+                    prediction_restored.message.candidates.back() == "把流程跑通了" &&
+                    deleted.success && prediction_deleted.validation &&
+                    std::find(prediction_deleted.message.candidates.begin(),
+                              prediction_deleted.message.candidates.end(),
+                              "把流程跑通了") ==
+                        prediction_deleted.message.candidates.end() &&
+                    corpus_ok;
     std::filesystem::remove_all(root, ignored);
     if (!ok) {
         std::cerr << "core hot configuration contract failed\n";

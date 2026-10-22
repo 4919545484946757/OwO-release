@@ -15,6 +15,11 @@ enum class CandidateGroup : std::uint64_t {
     sentence = 0,
     dictionary = 1,
     single_character = 2,
+    // A whole-sentence continuation learned from the user's authorized corpus.
+    // It follows the page's normal candidates, consumes the full preedit, and
+    // is accepted only by explicit choice, so the typed pinyin keeps its
+    // Space/number key selection.
+    continuation = 3,
 };
 
 enum class MessageType {
@@ -57,6 +62,9 @@ struct Message {
     std::string application_window_class;
     std::string application_focus_window_class;
     bool application_sensitive_input{};
+    // Only agent_context_recorded may set this: the fragment was typed by the
+    // user (not written back by an Agent) and may enter the authorized corpus.
+    bool corpus_eligible{};
 };
 
 struct DecodeResult {

@@ -10,6 +10,7 @@ namespace OwO_Settings;
 public sealed partial class MainPage : Page
 {
     private readonly ConfigShellClient _client = new();
+    private readonly CorpusShellClient _corpusClient = new();
     private readonly PluginShellClient _pluginClient = new();
     private Button? _shortcutCaptureTarget;
     private IntPtr _shortcutCaptureHook;
@@ -101,6 +102,8 @@ public sealed partial class MainPage : Page
         SetShortcutBindings("punctuation", []);
         UpdateShortcutButtons();
         InitializePunctuationSettings();
+        InitializeStyleProfilePage();
+        InitializeToneFeedbackPage();
         InitializeAutoSave();
         InitializeSearchIndex();
         ShowPage("schemes");
@@ -192,6 +195,18 @@ public sealed partial class MainPage : Page
         UserCompletionRange.Value = value.UserCompletionMaxSyllables;
         ModelRanking.IsOn = value.ModelRankingEnabled;
         ModelTimeout.Value = value.ModelTimeoutMs;
+        CorpusLearning.IsOn = value.CorpusLearningEnabled;
+        CorpusPaused.IsOn = value.CorpusLearningPaused;
+        CorpusAllowedApps.Text = string.Join(';', value.CorpusAllowedApps);
+        CorpusExcludedApps.Text = string.Join(';', value.CorpusExcludedApps);
+        CorpusRetention.Value = value.CorpusRetentionDays;
+        CorpusPrediction.IsOn = value.CorpusPredictionEnabled;
+        StylePreferencesBox.Text = value.StylePreferences;
+        ApplyStyleSceneMask(value.StyleSceneMask);
+        ToneReply.IsOn = value.ToneReplyEnabled;
+        ToneContinuation.IsOn = value.ToneContinuationEnabled;
+        ToneCloudModel.IsOn = value.ToneCloudModelEnabled;
+        UpdateToneSendingScope();
         UpdateDependentSettings();
     }
 
@@ -228,6 +243,22 @@ public sealed partial class MainPage : Page
             .StartsWith("plugin:", StringComparison.Ordinal) == true;
         SetCardEnabled(UserLearningCard, !pluginScheme);
         SetCardEnabled(LearningSensitivityCard, !pluginScheme && UserLearning.IsOn);
+        SetCardEnabled(CorpusLearningCard, !pluginScheme);
+        var corpusLearning = !pluginScheme && CorpusLearning.IsOn;
+        SetCardEnabled(CorpusPauseCard, corpusLearning);
+        SetCardEnabled(CorpusAllowedCard, corpusLearning);
+        SetCardEnabled(CorpusExcludedCard, corpusLearning);
+        SetCardEnabled(CorpusRetentionCard, corpusLearning);
+        SetCardEnabled(CorpusPredictionCard, corpusLearning);
+        SetCardEnabled(StyleProfileCard, corpusLearning);
+        // Drafting needs the same corpus; the scene switches further decide
+        // which examples may be read. Cloud sending needs drafting to be on at
+        // all, but stays a separate, stricter switch.
+        SetCardEnabled(ToneReplyCard, corpusLearning);
+        SetCardEnabled(ToneContinuationCard, corpusLearning);
+        SetCardEnabled(ToneCloudModelCard,
+            corpusLearning && (ToneReply.IsOn || ToneContinuation.IsOn));
+        UpdateToneSendingScope();
         SetCardEnabled(ModelRankingCard, !pluginScheme);
         SetCardEnabled(CandidatePartitionCard, !pluginScheme);
         SetCardEnabled(CandidateImmediateCommitCard, !pluginScheme);
@@ -281,7 +312,7 @@ public sealed partial class MainPage : Page
     private SettingsSnapshot CaptureSettings()
     {
             NumberBox[] numbers = [CandidatePageSize, CandidateWrapLength,
-                AltCodePreviewPageSize, UserCompletionRange, ModelTimeout];
+                AltCodePreviewPageSize, UserCompletionRange, ModelTimeout, CorpusRetention];
             if (numbers.Any(number => !double.IsFinite(number.Value)))
                 throw new InvalidOperationException("数值设置尚未填写完整，请输入有效数字后保存。");
             ValidateShortcutConflicts();
@@ -310,7 +341,18 @@ public sealed partial class MainPage : Page
                 PunctuationShortcutEnabled.IsOn, ShortcutValues("punctuation"),
                 TextNavigationShortcutEnabled.IsOn, ShortcutValues("text-navigation"),
                 TextNavigationSelectEnabled.IsOn,
-                PunctuationMask());
+                PunctuationMask(),
+                CorpusLearning.IsOn,
+                CorpusPaused.IsOn,
+                CorpusListText.Split(CorpusAllowedApps.Text),
+                CorpusListText.Split(CorpusExcludedApps.Text),
+                (uint)CorpusRetention.Value,
+                CorpusPrediction.IsOn,
+                StyleSceneMask(),
+                StylePreferences(),
+                ToneReply.IsOn,
+                ToneContinuation.IsOn,
+                ToneCloudModel.IsOn);
     }
 
     private async void ReloadButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) =>
@@ -359,6 +401,7 @@ public sealed partial class MainPage : Page
                 case "candidates": ApplyCandidateSettings(defaults); break;
                 case "punctuation": ApplyPunctuationMask(defaults.ChinesePunctuationMask); break;
                 case "intelligence": ApplyIntelligenceSettings(defaults); break;
+                case "style": ApplyIntelligenceSettings(defaults); break;
                 case "shortcuts": ApplyShortcutSettings(defaults); break;
                 default: return;
             }
@@ -406,9 +449,17 @@ public sealed partial class MainPage : Page
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         ChinesePunctuationPage.Visibility = page == "punctuation"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        StyleProfilePage.Visibility = page == "style"
+            ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        ToneFeedbackPage.Visibility = page == "feedback"
+            ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         if (page == "punctuation") {
             ChinesePunctuationPage.ChangeView(null, 0, null, true);
             UpdatePunctuationNotice();
+        }
+        if (page == "style") {
+            UpdateStyleNotice();
+            _ = RefreshStyleProfileAsync();
         }
         SetVisibility(page == "schemes", InputSchemeSectionTitle, InputSchemeCard,
                       InputSchemeCapabilities, DiscoverSchemesButton);
@@ -421,15 +472,18 @@ public sealed partial class MainPage : Page
         SetVisibility(page == "intelligence", LearningSectionTitle,
                       UserLearningCard, LearningSensitivityCard,
                       UserCompletionCard, UserCompletionRangeCard,
-                      ModelRankingCard, ModelTimeoutCard);
+                      CorpusLearningCard, CorpusPauseCard, CorpusAllowedCard,
+                      CorpusExcludedCard, CorpusRetentionCard, CorpusPredictionCard,
+                      StyleProfileCard, ToneReplyCard, ToneContinuationCard, ToneCloudModelCard,
+                      ToneFeedbackCard, ModelRankingCard, ModelTimeoutCard);
         if (generalPage) GeneralSettingsPage.ChangeView(null, 0, null, true);
-        var configurationPage = generalPage || page is "shortcuts" or "punctuation";
+        var configurationPage = generalPage || page is "shortcuts" or "punctuation" or "style";
         SaveButton.Visibility = configurationPage
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         ReloadButton.Visibility = configurationPage
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         ResetPageButton.Visibility = page is "schemes" or "candidates" or
-            "intelligence" or "shortcuts" or "plugins" or "punctuation" or "general"
+            "intelligence" or "shortcuts" or "plugins" or "punctuation" or "general" or "style"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         (CurrentPageTitle.Text, CurrentPageDescription.Text) = page switch {
             "general" => ("通用设置", "设置中心的保存行为与通用偏好"),
@@ -437,6 +491,8 @@ public sealed partial class MainPage : Page
             "candidates" => ("候选与输入", "调整候选显示、组合上屏、标点和符号预览"),
             "punctuation" => ("中文标点", "逐项选择中文格式；总开关和中英文模式仍决定是否启用"),
             "intelligence" => ("学习与排序", "管理本地词频学习、上下文排序和模型预算"),
+            "style" => ("我的风格", "查看按场景统计的风格档案，写下自己的偏好"),
+            "feedback" => ("语气反馈", "查看并回滚从草稿中学到的说法"),
             "shortcuts" => ("快捷键", "管理输入、翻页和模式切换的多组按键绑定"),
             "plugins" => ("插件", "安装、授权、配置和维护 OwO 插件"),
             _ => ("输入方案", "选择编码方案并查看当前方案能力"),
@@ -471,6 +527,17 @@ public sealed partial class MainPage : Page
         Add("词频学习灵敏度", "灵敏度 1 10", "intelligence", LearningSensitivityCard);
         Add("用户词拼音补全", "学习 词库 前缀 补全", "intelligence", UserCompletionCard);
         Add("最多补全后续音节", "用户词 补全 范围 长短", "intelligence", UserCompletionRangeCard);
+        Add("授权语料学习", "语料 记忆 学习 语料库", "intelligence", CorpusLearningCard);
+        Add("暂停语料学习", "暂停 停止 学习", "intelligence", CorpusPauseCard);
+        Add("允许学习的应用", "语料 应用 白名单 允许", "intelligence", CorpusAllowedCard);
+        Add("排除的应用", "语料 应用 黑名单 排除", "intelligence", CorpusExcludedCard);
+        Add("语料保留天数", "语料 保留 期限 删除", "intelligence", CorpusRetentionCard);
+        Add("下一词联想", "联想 预测 下一词 搭配", "intelligence", CorpusPredictionCard);
+        Add("我的风格", "风格 档案 语气 场景 正式 口头语", "intelligence", StyleProfileCard);
+        Add("语气反馈", "反馈 采纳 修改 拒绝 撤销 回滚 清空", "intelligence", ToneFeedbackCard);
+        Add("按我的语气回复", "语气 回复 起草 生成 例句", "intelligence", ToneReplyCard);
+        Add("整句续写", "续写 开头 起草 生成", "intelligence", ToneContinuationCard);
+        Add("语气回复调用云端模型", "云端 模型 发送 范围 隐私", "intelligence", ToneCloudModelCard);
         Add("智能排序", "模型 上下文 本地", "intelligence", ModelRankingCard);
         Add("外部模型预算", "模型 超时 毫秒", "intelligence", ModelTimeoutCard);
         Add("Alt 数字符号预览", "小键盘 符号", "candidates", AltCodePreviewCard);
@@ -534,6 +601,8 @@ public sealed partial class MainPage : Page
             "candidates" => CandidateNavigationItem,
             "punctuation" => CandidateNavigationItem,
             "intelligence" => IntelligenceNavigationItem,
+            "style" => IntelligenceNavigationItem,
+            "feedback" => IntelligenceNavigationItem,
             "shortcuts" => ShortcutNavigationItem,
             "plugins" => PluginNavigationItem,
             _ => SchemeNavigationItem,
@@ -868,6 +937,8 @@ public sealed partial class MainPage : Page
             ShortcutSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             ChinesePunctuationPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            StyleProfilePage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            ToneFeedbackPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             GeneralPreferencesPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
             ResetPageButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;

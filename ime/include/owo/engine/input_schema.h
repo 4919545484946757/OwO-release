@@ -27,6 +27,9 @@ enum class InputMatchKind : std::uint8_t {
     incomplete_completion,
     corrected,
     abbreviated_completion,
+    // Learned continuation of the text before this composition. It is not
+    // parsed from pinyin, so it always consumes the complete preedit.
+    input_continuation,
 };
 
 struct ParsePath {

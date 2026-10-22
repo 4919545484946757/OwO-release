@@ -1,6 +1,11 @@
 #include "owo/config/config_monitor.h"
 #include "owo/config/config_store.h"
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+
 #include <charconv>
 #include <chrono>
 #include <cstdint>
@@ -30,6 +35,20 @@ bool parse_ascii(const std::wstring_view text, std::string& output) {
         output.push_back(static_cast<char>(character));
     }
     return !output.empty();
+}
+
+// Preferences are free text, so they arrive as UTF-8 rather than ASCII.
+bool parse_utf8(const std::wstring_view text, std::string& output) {
+    output.clear();
+    if (text.empty()) return true;
+    const int size = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text.data(),
+                                         static_cast<int>(text.size()), nullptr, 0,
+                                         nullptr, nullptr);
+    if (size <= 0) return false;
+    output.resize(static_cast<std::size_t>(size));
+    return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text.data(),
+                               static_cast<int>(text.size()), output.data(), size,
+                               nullptr, nullptr) == size;
 }
 
 bool parse_shortcuts(const std::wstring_view text, std::vector<std::string>& output) {
@@ -85,6 +104,16 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         return parse_shortcuts(value, config.text_navigation_shortcuts);
     if (field == L"punctuation_shortcut")
         return parse_shortcuts(value, config.punctuation_shortcuts);
+    if (field == L"corpus_learning_allowed_apps")
+        return parse_shortcuts(value, config.corpus_learning_allowed_apps);
+    if (field == L"corpus_learning_excluded_apps")
+        return parse_shortcuts(value, config.corpus_learning_excluded_apps);
+    if (field == L"corpus_retention_days")
+        return parse_u32(value, config.corpus_retention_days);
+    if (field == L"style_scene_mask")
+        return parse_u32(value, config.style_scene_mask);
+    if (field == L"style_preferences")
+        return parse_utf8(value, config.style_preferences);
     bool parsed{};
     if (value == L"true") parsed = true;
     else if (value != L"false") return false;
@@ -124,6 +153,15 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         config.text_navigation_shortcut_enabled = parsed;
     else if (field == L"text_navigation_select_enabled")
         config.text_navigation_select_enabled = parsed;
+    else if (field == L"corpus_learning_enabled") config.corpus_learning_enabled = parsed;
+    else if (field == L"corpus_learning_paused") config.corpus_learning_paused = parsed;
+    else if (field == L"corpus_prediction_enabled")
+        config.corpus_prediction_enabled = parsed;
+    else if (field == L"tone_reply_enabled") config.tone_reply_enabled = parsed;
+    else if (field == L"tone_continuation_enabled")
+        config.tone_continuation_enabled = parsed;
+    else if (field == L"tone_cloud_model_enabled")
+        config.tone_cloud_model_enabled = parsed;
     else return false;
     return true;
 }
@@ -143,7 +181,13 @@ void usage() {
                  "[<candidate-immediate-commit-enabled> "
                  "<focus-loss-commit-enabled> [<input-scheme> "
                  "[<user-completion-enabled> <user-completion-max-syllables> "
-                 "[<chinese-punctuation-mask>]]]]]]]]]] | "
+                 "[<chinese-punctuation-mask> "
+                 "[<corpus-learning-enabled> <corpus-learning-paused> "
+                 "<corpus-allowed-apps> <corpus-excluded-apps> "
+                 "<corpus-retention-days> [<corpus-prediction-enabled> "
+                 "[<style-scene-mask> <style-preferences> "
+                 "[<tone-reply-enabled> <tone-continuation-enabled> "
+                 "<tone-cloud-model-enabled>]]]]]]]]]]]]] | "
                  "watch <timeout-ms>\n";
 }
 
@@ -204,7 +248,8 @@ int wmain(const int argc, wchar_t** argv) {
     if (command == L"set-all" &&
         (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23 ||
          argc == 24 || argc == 27 || argc == 30 || argc == 32 || argc == 35 ||
-         argc == 36 || argc == 38 || argc == 39)) {
+         argc == 36 || argc == 38 || argc == 39 || argc == 44 || argc == 45 ||
+         argc == 47 || argc == 50)) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);
         if (!loaded.success) return 3;
@@ -252,7 +297,22 @@ int wmain(const int argc, wchar_t** argv) {
             (argc >= 38 &&
              (!apply(value, L"user_lexicon_completion_enabled", argv[36]) ||
               !apply(value, L"user_lexicon_completion_max_syllables", argv[37]))) ||
-            (argc >= 39 && !apply(value, L"chinese_punctuation_mask", argv[38]))) {
+            (argc >= 39 && !apply(value, L"chinese_punctuation_mask", argv[38])) ||
+            (argc >= 44 &&
+             (!apply(value, L"corpus_learning_enabled", argv[39]) ||
+              !apply(value, L"corpus_learning_paused", argv[40]) ||
+              !apply(value, L"corpus_learning_allowed_apps", argv[41]) ||
+              !apply(value, L"corpus_learning_excluded_apps", argv[42]) ||
+              !apply(value, L"corpus_retention_days", argv[43]))) ||
+            (argc >= 45 &&
+             !apply(value, L"corpus_prediction_enabled", argv[44])) ||
+            (argc >= 47 &&
+             (!apply(value, L"style_scene_mask", argv[45]) ||
+              !apply(value, L"style_preferences", argv[46]))) ||
+            (argc >= 50 &&
+             (!apply(value, L"tone_reply_enabled", argv[47]) ||
+              !apply(value, L"tone_continuation_enabled", argv[48]) ||
+              !apply(value, L"tone_cloud_model_enabled", argv[49])))) {
             std::cerr << "invalid configuration value type\n";
             return 4;
         }

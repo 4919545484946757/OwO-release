@@ -303,6 +303,150 @@
                                         <NumberBox x:Name="UserCompletionRange" Grid.Column="1" Minimum="0" Maximum="8" Value="0" SpinButtonPlacementMode="Inline" VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
+                                <Border x:Name="CorpusLearningCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="授权语料学习" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="只记住经本输入法上屏、你自己打的文字，用于下一词联想和按你的语气起草；敏感输入框自动跳过。默认关闭。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="CorpusLearning" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="CorpusPauseCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="暂停学习" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="暂停后不再记录新句子；已学内容保留，可随时恢复。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="CorpusPaused" Grid.Column="1" OnContent="已暂停" OffContent="学习中" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="CorpusAllowedCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="允许学习的应用" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="用分号分隔可执行文件名，如 WeChat.exe;WINWORD.EXE。留空表示除排除项外的全部应用。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <TextBox x:Name="CorpusAllowedApps" Grid.Column="1" PlaceholderText="WeChat.exe;WINWORD.EXE" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="CorpusExcludedCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="排除的应用" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="这些应用里打的字永不记录；密码管理器默认排除。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <TextBox x:Name="CorpusExcludedApps" Grid.Column="1" PlaceholderText="KeePass.exe" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="CorpusRetentionCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="语料保留天数" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="超过天数的句子自动清除；0 表示一直保留到手动删除。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <NumberBox x:Name="CorpusRetention" Grid.Column="1" Minimum="0" Maximum="3650" Value="180" SpinButtonPlacementMode="Inline" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="CorpusPredictionCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="下一词联想" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="根据你以前打过的句子，在候选栏末尾给出你自己常接的下文。完全在本机计算，不调用模型，可随时关闭。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="CorpusPrediction" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="StyleProfileCard" Style="{StaticResource SettingsCardStyle}" Tapped="StyleProfileCard_Tapped">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="我的风格" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="从语料按场景汇总句长、标点、口头语和正式程度，并写下你自己的偏好。可查看、可修改。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="查看风格" Click="OpenStyleProfile_Click" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="ToneReplyCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="按我的语气回复" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="在可编辑输入框中选中消息，按 Ctrl+Shift+R 生成草稿。F6 切换、F7 修改、Ctrl+Enter 确认替换所选文字。请核对事实后确认。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="ToneReply" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="ToneContinuationCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="整句续写" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="选中已经写好的开头，按 Ctrl+Shift+J 续写。草稿保留原开头；预览确认后才替换所选文字。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="ToneContinuation" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="ToneFeedbackCard" Style="{StaticResource SettingsCardStyle}" Tapped="ToneFeedbackCard_Tapped">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="语气反馈" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="查看草稿的采纳、修改、拒绝和即时撤销记录，调整后续排序和请求。可逐条删除或清空。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="查看反馈" Click="OpenToneFeedback_Click" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="ToneCloudModelCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="语气回复允许调用云端模型" Style="{StaticResource SettingDescriptionStyle}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="关闭时仅允许调用已配置的本机回环模型；打开后可向已配置的 HTTPS 模型发送下面列出的内容。需通过环境变量配置模型；模型不可用不影响普通输入。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                            <TextBlock x:Name="ToneSendingScope" Style="{StaticResource SettingDescriptionStyle}" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="ToneCloudModel" Grid.Column="1" OnContent="允许" OffContent="仅本机" VerticalAlignment="Center" Toggled="DependentSetting_Toggled"/>
+                                    </Grid>
+                                </Border>
                                 <Border x:Name="ModelRankingCard" Style="{StaticResource SettingsCardStyle}">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
@@ -640,6 +784,94 @@
                                 </Grid>
                             </Border>
                             <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Message="连续调整会合并为一次保存。无效配置不会覆盖已保存内容；安装、启用插件及权限授权仍需明确操作。"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <ScrollViewer x:Name="StyleProfilePage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">
+                            <Button Content="返回学习与排序" Click="StyleProfileBack_Click"/>
+                            <InfoBar x:Name="StyleProfileNotice" IsOpen="True" IsClosable="False" Severity="Informational"/>
+                            <Border x:Name="StyleSceneCard" Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="按场景统计" Style="{StaticResource SettingTitleStyle}"/>
+                                    <TextBlock Text="场景由应用名推断，同一句话只归入一个场景。关闭某个场景后，档案和按语气起草都不再用它。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                    <StackPanel x:Name="StyleSceneFields" Spacing="8"/>
+                                </StackPanel>
+                            </Border>
+                            <Border x:Name="StylePreferencesCard" Style="{StaticResource SettingsCardStyle}">
+                                <Grid ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="3">
+                                        <TextBlock Text="我手写的偏好" Style="{StaticResource SettingTitleStyle}"/>
+                                        <TextBlock Text="用一句话描述你希望怎么说话，例如“简短、少用感叹号”。它会和统计结果一起交给按语气起草；不会自动改写。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="StylePreferencesCount" Grid.Column="1" Text="0/512" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </Grid>
+                            </Border>
+                            <TextBox x:Name="StylePreferencesBox" MaxLength="512" PlaceholderText="简短、少用感叹号；对老师要正式一些" TextChanged="StylePreferences_TextChanged" AcceptsReturn="False"/>
+                            <TextBlock Text="档案" Style="{StaticResource SectionTitleStyle}"/>
+                            <InfoBar x:Name="StyleProfileStatus" IsOpen="True" IsClosable="False" Severity="Informational"/>
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock x:Name="StyleProfileText" Text="打开此页后自动统计。" FontFamily="Consolas" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                                    <Button Content="重新统计" Click="RefreshStyleProfile_Click"/>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="发送预览" Style="{StaticResource SectionTitleStyle}"/>
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="输入一条消息或一句开头，查看按语气起草时究竟会发送什么。这里只读取本机语料和配置，不会联网。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                    <TextBox x:Name="TonePreviewMessage" PlaceholderText="例如：明天组会几点？" AcceptsReturn="False"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button x:Name="TonePreviewButton" Content="查看将要发送的内容" Click="TonePreview_Click"/>
+                                        <ToggleSwitch x:Name="TonePreviewContinuation" OnContent="整句续写" OffContent="回复消息" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="TonePreviewText" Text="尚未预览。" FontFamily="Consolas" TextWrapping="Wrap" IsTextSelectionEnabled="True"/>
+                                </StackPanel>
+                            </Border>
+                            <InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Message="档案只显示汇总数字和重复出现过的口头语，不列出原句。删除语料后刷新即可看到变化；已发给云端模型的内容无法撤回。"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                    <ScrollViewer x:Name="ToneFeedbackPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">
+                            <Button Content="返回学习与排序" Click="ToneFeedbackBack_Click"/>
+                            <InfoBar x:Name="ToneFeedbackNotice" IsOpen="True" IsClosable="False" Severity="Informational"/>
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="学到了什么" Style="{StaticResource SettingTitleStyle}"/>
+                                    <TextBlock x:Name="ToneFeedbackSummary" Text="打开此页后自动统计。" TextWrapping="Wrap"/>
+                                    <TextBlock Text="反馈加密保存在本机，包含草稿、最终文字、应用、时间与类型。超过 12 字的采纳、拒绝、撤销仅计数；局部修改可学习替换。最多 3 条说法进入后续请求。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="记录" Style="{StaticResource SectionTitleStyle}"/>
+                            <Border Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="8">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button x:Name="ToneFeedbackRefreshButton" Content="刷新" Click="RefreshToneFeedback_Click"/>
+                                        <Button x:Name="ToneFeedbackClearButton" Content="全部清空" Click="ToneFeedbackClear_Click" IsEnabled="False"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="ToneFeedbackEmpty" Text="还没有反馈记录。" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <ItemsControl x:Name="ToneFeedbackList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource SettingsCardStyle}" Margin="0,0,0,8">
+                                                    <Grid ColumnSpacing="16">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Spacing="3">
+                                                            <TextBlock Text="{Binding Title}"/>
+                                                            <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                        </StackPanel>
+                                                        <Button Grid.Column="1" Content="删除" Tag="{Binding}" Click="ToneFeedbackDelete_Click"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                            <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Message="这里的记录与授权语料完全分开：删除反馈不会删除语料，关闭语料学习也不会删除反馈。"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer x:Name="ChinesePunctuationPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">

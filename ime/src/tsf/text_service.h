@@ -6,6 +6,8 @@
 #include "owo/plugin/unicode_palette.h"
 #include "owo/tsf/input_method_session.h"
 #include "owo/tsf/key_routing.h"
+#include "owo/engine/tone_session.h"
+#include "tone_preview.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -98,6 +100,7 @@ public:
 
 private:
     friend class LanguageBarItem;
+    friend struct ToneInputTest;
     struct CandidateResult {
         std::uint64_t request_id{};
         std::uint64_t generation{};
@@ -133,6 +136,7 @@ private:
         agent::ApplicationContext application_context;
         std::chrono::steady_clock::time_point queued_at{std::chrono::steady_clock::now()};
         bool defer_expensive_candidates{};
+        bool corpus_eligible{};
     };
     enum class HitKind : std::uint8_t {
         pinyin_cursor,
@@ -173,6 +177,35 @@ private:
     [[nodiscard]] bool render_candidate_window();
     [[nodiscard]] SIZE desired_candidate_window_size() const;
     void worker_loop(std::stop_token stop_token);
+    bool tone_shortcut(WPARAM key) const;
+    bool tone_preview_key(WPARAM key) const;
+    void begin_tone(ITfContext*, engine::ToneDraftMode);
+    void cancel_tone() noexcept;
+    void update_tone_preview();
+    void handle_tone_key(ITfContext*, WPARAM key, LPARAM flags);
+    void handle_tone_result();
+    HRESULT append_tone_edit(std::wstring_view);
+    void confirm_tone();
+    bool undo_tone();
+    std::uint64_t record_tone_feedback(engine::ToneFeedbackKind,
+        std::string_view draft, std::string_view final_text, std::uint64_t replace_id = 0);
+    TonePreview tone_preview_;
+    std::jthread tone_worker_;
+    std::mutex tone_result_mutex_;
+    std::optional<engine::ToneGeneration> tone_result_;
+    bool tone_active_{}, tone_pending_{}, tone_editing_{};
+    engine::ToneDraftMode tone_mode_{};
+    std::vector<std::string> tone_drafts_;
+    std::size_t tone_index_{};
+    std::wstring tone_edited_;
+    std::size_t tone_edit_cursor_{};
+    std::string tone_application_, tone_message_;
+    config::AppConfig tone_config_;
+    std::wstring tone_notice_;
+    std::uint64_t tone_adoption_id_{};
+    bool tone_undo_available_{};
+    std::string tone_adopted_draft_, tone_committed_, tone_original_;
+
     void queue_candidate_request();
     void schedule_candidate_request(bool reset_retry);
     [[nodiscard]] bool is_agent_mode() const noexcept;
@@ -187,9 +220,10 @@ private:
     [[nodiscard]] std::wstring agent_preview_text() const;
     void queue_commit_feedback(std::wstring candidate, std::wstring input,
                                std::wstring context);
-    void queue_agent_context(std::wstring text);
+    void queue_agent_context(std::wstring text, bool user_authored);
     void rotate_agent_context();
-    void append_language_context(std::wstring_view text);
+    // `user_authored` is false for Agent write-backs so they never enter the corpus.
+    void append_language_context(std::wstring_view text, bool user_authored = true);
     void refresh_shortcut_config(bool force = false);
     void refresh_candidate_theme(bool force = false);
     void toggle_unicode_palette();
@@ -236,6 +270,10 @@ private:
     void update_candidate_anchor(ITfContext* context);
     void clear_composition();
     [[nodiscard]] bool should_eat_key(WPARAM key) const noexcept;
+    // Candidates reachable through Space and the number keys. A learned
+    // continuation is unnumbered and is committed only by clicking it, so it
+    // never shifts what the typed pinyin selects.
+    [[nodiscard]] std::size_t numbered_candidate_count() const noexcept;
     // Routes a digit key against the current composition state. Candidate
     // selection keeps priority; a digit after a reading character that does not
     // select a candidate joins the composition so modeless mixed input stays in
@@ -257,7 +295,7 @@ private:
     bool plugin_context_allowed(ITfContext*);
     void refresh_agent_context_safety(ITfContext*);
     // Returns true only when the effect was written (document or clipboard).
-    NativeWriteResult apply_agent_effect(const agent::CommandEffect& effect);
+    NativeWriteResult apply_agent_effect(const agent::CommandEffect& effect, bool local_confirmation = false);
     bool capture_agent_origin(ITfContext* context);
     void reset_agent_origin() noexcept;
     bool plugin_context_is_current(ITfContext*) const;

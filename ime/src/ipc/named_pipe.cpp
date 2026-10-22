@@ -7,10 +7,12 @@
 #include "owo/model/model_protocol.h"
 
 #include "owo/engine/candidate_generator.h"
+#include "owo/engine/collocation.h"
 #include "owo/engine/exact_code_schema.h"
 #include "owo/engine/full_pinyin_schema.h"
 #include "owo/engine/lexicon.h"
 #include "owo/engine/unified_input.h"
+#include "owo/engine/user_corpus.h"
 #include "owo/engine/user_frequency.h"
 
 #include "owo/protocol/messages.h"
@@ -467,6 +469,9 @@ struct CandidateCacheKey {
     std::string context_input;
     std::string context;
     std::uint64_t config_generation{};
+    // Changes whenever the authorized corpus file changes, because deleting a
+    // sentence must also drop predictions that were learned from it.
+    std::uint64_t corpus_revision{};
     std::uint64_t learning_generation{};
     std::size_t parse_path_limit{};
     bool correction_enabled{};
@@ -484,6 +489,7 @@ struct CandidateCacheKeyHash {
         combine(std::hash<std::string>{}(key.context_input));
         combine(std::hash<std::string>{}(key.context));
         combine(std::hash<std::uint64_t>{}(key.config_generation));
+        combine(std::hash<std::uint64_t>{}(key.corpus_revision));
         combine(std::hash<std::uint64_t>{}(key.learning_generation));
         combine(key.parse_path_limit);
         combine(key.correction_enabled);
@@ -780,6 +786,13 @@ void arrange_double_initial_pages(std::vector<engine::Candidate>& candidates,
 std::uint64_t candidate_group(const engine::Candidate& candidate,
                               const std::size_t full_input_bytes) {
     const auto characters = utf8_character_count(candidate.text);
+    // A local continuation learned from the user's own corpus consumes the
+    // whole composition, but only when its source bytes were actually typed.
+    // Otherwise the consumer could adjust the preedit by more units than it
+    // holds.
+    if (candidate.match_kind == engine::InputMatchKind::input_continuation &&
+        candidate.consumed_input_bytes == full_input_bytes)
+        return static_cast<std::uint64_t>(protocol::CandidateGroup::continuation);
     const bool sentence = candidate.consumed_input_bytes == full_input_bytes &&
                           candidate.syllables.size() >= 3 &&
                           characters == candidate.syllables.size() &&
@@ -811,6 +824,11 @@ void arrange_partitioned_candidate_pages(
         const auto group = static_cast<protocol::CandidateGroup>(
             candidate_group(candidate, full_input_bytes));
         switch (group) {
+            case protocol::CandidateGroup::continuation:
+                // Learned continuations are produced after the page layout
+                // runs; keep the switch exhaustive without changing order.
+                dictionary_candidates.push_back(std::move(candidate));
+                break;
             case protocol::CandidateGroup::sentence:
                 if (sentences.size() < 2)
                     sentences.push_back(std::move(candidate));
@@ -1124,12 +1142,83 @@ ExchangeResult PersistentPipeClient::exchange(
     return {io_error("persistent pipe exchange"), {}};
 }
 
+std::uint64_t wall_clock_ms() {
+    return static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count());
+}
+
+// Rebuilds the in-memory continuation statistics from the corpus file. The
+// revision changes every time the file changes, so the candidate cache cannot
+// serve predictions derived from a deleted sentence. Comparing the write stamp
+// keeps a running Core from reloading the file on every keystroke, and an
+// unreadable corpus is reported once per file change instead of silently
+// disabling predictions.
+std::uint64_t refresh_user_collocation(const std::filesystem::path* path,
+                                       engine::UserCollocationModel& model,
+                                       std::uint64_t& revision) {
+    std::uint64_t stamp = 0;
+    if (path != nullptr) {
+        std::error_code error;
+        const auto modified = std::filesystem::last_write_time(*path, error);
+        if (!error) {
+            stamp = static_cast<std::uint64_t>(modified.time_since_epoch().count());
+            if (stamp == 0) stamp = 1;
+        }
+    }
+    if (stamp != revision) {
+        revision = stamp;
+        model.clear();
+        if (path != nullptr) {
+            engine::UserCorpusStore store;
+            const auto loaded = store.load(*path);
+            if (loaded.success) {
+                model = engine::build_user_collocation_model(store.entries());
+            } else if (!loaded.error.empty()) {
+                std::clog
+                    << R"({"process":"core_service","module":"corpus","level":"warn","event_id":"corpus_prediction_unreadable"})"
+                    << '\n';
+            }
+        }
+        std::clog << R"({"process":"core_service","module":"corpus","level":"info","event_id":"corpus_prediction_rebuilt","sentences":)"
+                  << model.sentence_count() << "}\n";
+    }
+    return revision;
+}
+
+// Writes completed corpus sentences. Buffered sentences are kept in memory
+// only briefly; a failure drops them rather than retrying indefinitely.
+void flush_user_corpus(const std::filesystem::path* path, engine::UserCorpusCollector& collector,
+                       const std::uint32_t retention_days, const bool force) {
+    if (path == nullptr || collector.completed_count() == 0) return;
+    const auto now = wall_clock_ms();
+    if (!force && collector.completed_count() < 8 &&
+        now < collector.oldest_completed_ms() + 30'000) return;
+    auto sentences = collector.take_completed();
+    const auto saved = engine::UserCorpusStore::modify(*path, [&](engine::UserCorpusStore& store) {
+        for (const auto& sentence : sentences)
+            (void)store.append(sentence.application, sentence.text, sentence.created_at_ms);
+        (void)store.prune(now, retention_days);
+    });
+    std::clog << R"({"process":"core_service","module":"corpus","level":")"
+              << (saved.success ? "info" : "warn")
+              << R"(","event_id":")" << (saved.success ? "corpus_flushed" : "corpus_flush_failed")
+              << R"(","sentences":)" << sentences.size() << "}\n";
+}
+
 int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     engine::UserFrequencyStore* user_frequency,
                     const wchar_t* model_pipe_name,
                     const config::ConfigMonitor* config_monitor,
                     core::PluginExecutor* plugin_executor,
-                    const engine::ConceptTable* concept_table) {
+                    const engine::ConceptTable* concept_table,
+                    const std::filesystem::path* user_corpus_path) {
+    engine::UserCorpusCollector corpus_collector;
+    std::uint32_t corpus_retention_days = 0;
+    // Continuation statistics derived from the authorized corpus. They are
+    // rebuilt from the file whenever the corpus changes, so a deletion also
+    // removes what was learned from it.
+    engine::UserCollocationModel collocation_model;
+    std::uint64_t collocation_revision = 0;
     const engine::FullPinyinSchema full_pinyin_schema;
     const engine::ExactCodeSchema exact_code_schema;
     const engine::CandidateGenerator generator(lexicon, nullptr, user_frequency);
@@ -1251,7 +1340,23 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 runtime_config->expressive_candidates_enabled;
             const bool concept_candidates_enabled = runtime_config == nullptr ||
                 runtime_config->concept_candidates_enabled;
+            // Corpus learning needs an explicit opt-in in the live config.
+            const bool corpus_learning_active = user_corpus_path != nullptr &&
+                runtime_config != nullptr && runtime_config->corpus_learning_enabled &&
+                !runtime_config->corpus_learning_paused;
+            corpus_retention_days = runtime_config != nullptr
+                ? runtime_config->corpus_retention_days : 0U;
+            if (!corpus_learning_active) corpus_collector.discard();
+            // Prediction is a separate opt-in: a user may keep recording a
+            // corpus for tone drafting while refusing in-candidate suggestions.
+            const bool collocation_enabled = corpus_learning_active &&
+                runtime_config->corpus_prediction_enabled;
+            refresh_user_collocation(collocation_enabled ? user_corpus_path : nullptr,
+                                     collocation_model, collocation_revision);
             if (decoded.message.type == protocol::MessageType::shutdown_request) {
+                corpus_collector.finish_all();
+                flush_user_corpus(user_corpus_path, corpus_collector,
+                                  corpus_retention_days, true);
                 std::clog << R"({"process":"core_service","module":"lifecycle","level":"info","event_id":"shutdown_requested"})"
                           << '\n';
                 if (user_frequency != nullptr && unflushed_selections != 0) {
@@ -1565,6 +1670,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         decoded.message.input,
                         decoded.message.context,
                         config_monitor != nullptr ? config_monitor->generation() : 0,
+                        // Corpus edits change what can be predicted from the
+                        // preceding text, so they join the cached evidence
+                        // identity.
+                        collocation_revision,
                         learning_generation,
                         parse_path_limit,
                         decoded.message.correction_enabled,
@@ -1862,6 +1971,39 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         candidates.clear();
                         response.candidate_refinement_pending = false;
                     }
+                    // Local continuation from the user's own corpus. It is
+                    // computed after the page layout because it never changes
+                    // what the typed pinyin selects: the consumer shows it
+                    // after the page and accepts it only by explicit choice.
+                    // A leading lowercase `v` is an Agent composition, not
+                    // Chinese text, and the TSF already routes it elsewhere.
+                    const bool agent_composition = !decoded.message.text.empty() &&
+                        decoded.message.text.front() == 'v';
+                    std::optional<engine::Candidate> continuation_candidate;
+                    if (!request_cancelled && begin == 0 &&
+                        !decoded.message.expanded && collocation_enabled &&
+                        !decoded.message.context.empty() &&
+                        !parsed.normalized_input.empty() && !agent_composition) {
+                        const auto filtered = agent::filter_sensitive_text(
+                            decoded.message.context, 256);
+                        if (filtered.ok && !filtered.redacted) {
+                            const auto prediction = collocation_model.continuation(
+                                filtered.value);
+                            if (!prediction.empty() &&
+                                std::none_of(candidates.begin(), candidates.end(),
+                                             [&prediction](const engine::Candidate& candidate) {
+                                                 return candidate.text == prediction;
+                                             })) {
+                                engine::Candidate learned;
+                                learned.text = prediction;
+                                learned.match_kind =
+                                    engine::InputMatchKind::input_continuation;
+                                learned.consumed_input_bytes =
+                                    parsed.normalized_input.size();
+                                continuation_candidate = std::move(learned);
+                            }
+                        }
+                    }
                     const auto generation_finished = std::chrono::steady_clock::now();
                     const auto first_model_only = std::find_if(
                         candidates.begin(), candidates.end(),
@@ -1919,25 +2061,51 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         if (response.syllables.empty())
                             response.syllables = candidate_segments;
                     }
+                    // Normal candidates own the page's positions and hotkeys.
+                    // The learned continuation is appended last so Space and
+                    // the number keys keep selecting what the typed pinyin
+                    // produced, and accepting it stays an explicit choice.
+                    const bool emit_candidate_groups =
+                        partitioned_layout || continuation_candidate.has_value();
                     if (begin < candidates.size()) {
-                        response.candidates.reserve(end - begin);
-                        response.candidate_consumed.reserve(end - begin);
-                        response.candidate_groups.reserve(end - begin);
+                        response.candidates.reserve(response.candidates.size() +
+                                                    (end - begin));
+                        response.candidate_consumed.reserve(
+                            response.candidate_consumed.size() + (end - begin));
+                        if (emit_candidate_groups)
+                            response.candidate_groups.reserve(
+                                response.candidate_groups.size() + (end - begin));
                         const auto append_candidate = [
                             &response, &candidates, partitioned_layout,
-                            full_input_bytes,
+                            full_input_bytes, emit_candidate_groups,
                             &decoded](const std::size_t index) {
                             response.candidates.push_back(candidates[index].text);
                             response.candidate_consumed.push_back(
                                 consumed_code_units(
                                     decoded.message.text,
                                     candidates[index].consumed_input_bytes));
-                            if (partitioned_layout)
-                                response.candidate_groups.push_back(candidate_group(
-                                    candidates[index], full_input_bytes));
+                            if (emit_candidate_groups) {
+                                // With partitioning off the whole page is one
+                                // visual group; the learned entry still needs
+                                // its own value to be recognisable.
+                                response.candidate_groups.push_back(
+                                    partitioned_layout
+                                        ? candidate_group(candidates[index],
+                                                          full_input_bytes)
+                                        : 0);
+                            }
                         };
                         for (std::size_t index = begin; index < end; ++index)
                             append_candidate(index);
+                    }
+                    if (continuation_candidate.has_value()) {
+                        response.candidates.push_back(continuation_candidate->text);
+                        response.candidate_consumed.push_back(consumed_code_units(
+                            decoded.message.text,
+                            continuation_candidate->consumed_input_bytes));
+                        response.candidate_groups.push_back(
+                            static_cast<std::uint64_t>(
+                                protocol::CandidateGroup::continuation));
                     }
                     const auto parse_us = parse_phase_us;
                     const auto generation_us = generation_phase_us;
@@ -2100,6 +2268,21 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 application.context_id = decoded.message.application_context_id;
                 application.sensitive_input =
                     decoded.message.application_sensitive_input;
+                if (corpus_learning_active && decoded.message.corpus_eligible &&
+                    !application.sensitive_input &&
+                    config::corpus_learning_allows(*runtime_config, application.executable)) {
+                    // The PII filter runs before anything reaches the corpus.
+                    const auto filtered = agent::filter_sensitive_text(
+                        decoded.message.text, engine::kMaximumUserCorpusSentenceBytes * 4);
+                    if (filtered.ok && !filtered.redacted && !filtered.value.empty())
+                        corpus_collector.observe(application.context_id,
+                                                 application.executable,
+                                                 filtered.value, wall_clock_ms());
+                    else
+                        corpus_collector.observe(application.context_id,
+                                                 application.executable, "\n",
+                                                 wall_clock_ms());
+                }
                 record_agent_context(agent_context_history,
                     {application.context_id, std::move(application),
                      decoded.message.text, ++agent_context_sequence});
@@ -2134,6 +2317,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
             }
         }
 
+        corpus_collector.finish_idle(wall_clock_ms());
+        flush_user_corpus(user_corpus_path, corpus_collector, corpus_retention_days, false);
         const auto encoded = protocol::encode_message(response);
         if (!encoded.empty()) write_frame(pipe, encoded);
         FlushFileBuffers(pipe);
@@ -2151,14 +2336,14 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     const config::ConfigMonitor* config_monitor,
                     core::PluginExecutor* plugin_executor) {
     return run_core_server(pipe_name, lexicon, user_frequency, model_pipe_name,
-                           config_monitor, plugin_executor, nullptr);
+                           config_monitor, plugin_executor, nullptr, nullptr);
 }
 
 int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     engine::UserFrequencyStore* user_frequency,
                     const wchar_t* model_pipe_name) {
     return run_core_server(pipe_name, lexicon, user_frequency, model_pipe_name,
-                           nullptr, nullptr, nullptr);
+                           nullptr, nullptr, nullptr, nullptr);
 }
 
 int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
