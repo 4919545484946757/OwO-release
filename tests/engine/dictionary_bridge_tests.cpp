@@ -5,6 +5,16 @@
 #include <iostream>
 
 namespace {
+class LearnedPhrase final : public owo::engine::UserFrequencyModel {
+public:
+    std::int64_t score(std::string_view text) const override {
+        return text == "案由先读" ? 2000 : 0;
+    }
+    std::vector<owo::engine::UserLexiconEntry> lookup(std::string_view input, std::size_t) const override {
+        return input == "anyouxiandu" ? std::vector<owo::engine::UserLexiconEntry>{{"案由先读", 1, "anyouxiandu"}}
+                                      : std::vector<owo::engine::UserLexiconEntry>{};
+    }
+};
 std::vector<owo::engine::LexiconEntry> fixture(bool bridge, bool whole_word = false) {
     std::vector<owo::engine::LexiconEntry> entries{
         {{"an"}, "按", 3000000}, {{"gao"}, "高", 3000000}, {{"di"}, "低", 3000000},
@@ -92,5 +102,17 @@ int main() {
     const auto partitioned_whole = owo::engine::CandidateGenerator(whole).generate(
         parsed, 48, false, {}, nullptr, {}, true, 7);
     if (find_text(partitioned_whole, "案由先读") == partitioned_whole.end()) return 6;
+    const LearnedPhrase learned;
+    const owo::engine::CandidateGenerator personalized(lexicon, nullptr, &learned);
+    for (const auto limit : {8u, 18u, 48u, 128u}) for (const bool model : {false, true}) {
+        const auto result = personalized.generate(parsed, limit, true, {}, nullptr, {}, model, 7);
+        const auto old_word = find_text(result, "案由先读");
+        const auto alternative = find_text(result, "按优先度");
+        if (old_word == result.end() || !old_word->user_lexicon || alternative == result.end() ||
+            alternative->model_only || alternative->user_lexicon) {
+            std::cerr << "learned dictionary source suppressed the bridged sentence source\n";
+            return 7;
+        }
+    }
     std::cout << "Dictionary bridges, unmatched edges, quotas and prefix commits passed\n";
 }

@@ -1321,7 +1321,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // from filling pages for inputs such as chan+wu or ni+jian.
     if (partition_page_size == 0)
         limit_two_syllable_full_candidates(full);
-    const auto apply_cross_boundary_coherence = [this, metrics](Candidate& candidate) {
+    const bool preserve_learned_bridge = partition_page_size != 0 &&
+        std::any_of(full.begin(), full.end(), [](const auto& candidate) { return candidate.user_lexicon; });
+    std::optional<Candidate> dictionary_bridge_alternative;
+    const auto apply_cross_boundary_coherence = [this, metrics, preserve_learned_bridge,
+                                                &dictionary_bridge_alternative](Candidate& candidate) {
         constexpr std::size_t kMaximumPhraseCharacters = 4;
         const auto character_count = candidate.syllables.size();
         if (character_count < 3 ||
@@ -1410,6 +1414,9 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         if (dictionary_bridge)
             candidate.coherence_score += kMaximumBoundaryCoherenceBonus * 2;
         candidate.score += candidate.coherence_score;
+        if (preserve_learned_bridge && dictionary_bridge && (!dictionary_bridge_alternative ||
+            score_less(candidate, *dictionary_bridge_alternative)))
+            dictionary_bridge_alternative = candidate;
     };
     // Only the candidates already close enough to reach the visible/model
     // comparison set need the more detailed phrase-chain pass.
@@ -1695,6 +1702,17 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     if (!pure_initial_sequence && !multiword_input)
         promote_alternative_exact_segmentation(ordered, full_input_bytes);
     if (partition_page_size != 0) {
+        // A learned whole-input phrase belongs to the dictionary source. It
+        // must not consume the only sentence slot and hide every independently
+        // dictionary-backed correction to a previously selected composition.
+        // Keep one such alternative without deleting or demoting learned data.
+        if (!ordered.empty() && ordered.front().user_lexicon &&
+            dictionary_bridge_alternative &&
+            std::none_of(ordered.begin(), ordered.end(), [&](const auto& candidate) {
+                return candidate.text == dictionary_bridge_alternative->text &&
+                    candidate.consumed_input_bytes == dictionary_bridge_alternative->consumed_input_bytes;
+            }))
+            ordered.push_back(std::move(*dictionary_bridge_alternative));
         std::vector<Candidate> sentences;
         std::vector<Candidate> dictionary_words;
         std::vector<Candidate> compositions;

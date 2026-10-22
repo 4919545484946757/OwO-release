@@ -176,6 +176,20 @@ int main() {
             !separated.message.candidates.empty() && separated.message.candidates.front() == "按优先度" &&
             separated.message.syllables == std::vector<std::string>{"an", "you", "xian", "du"};
     }
+    owo::protocol::Message bridge_feedback{owo::protocol::MessageType::candidate_committed,
+        650, 650, "案由先读"};
+    bridge_feedback.input = "anyouxiandu";
+    const auto bridge_ack = send_request(pipe_name, bridge_feedback);
+    const auto personalized_bridge = send_request(pipe_name,
+        {owo::protocol::MessageType::candidate_request, 651, 650, "anyouxiandu"});
+    const auto bridged_text = std::find(personalized_bridge.message.candidates.begin(),
+        personalized_bridge.message.candidates.end(), "按优先度");
+    const auto bridged_index = static_cast<std::size_t>(bridged_text - personalized_bridge.message.candidates.begin());
+    dictionary_bridge_ok = dictionary_bridge_ok && bridge_ack.validation && personalized_bridge.validation &&
+        bridged_index < personalized_bridge.message.candidate_groups.size() &&
+        personalized_bridge.message.candidate_groups[bridged_index] == 0 &&
+        std::find(personalized_bridge.message.candidates.begin(), personalized_bridge.message.candidates.end(),
+            "案由先读") != personalized_bridge.message.candidates.end();
     bool transposition_contract_ok = true;
     std::uint64_t transposition_id = 400;
     for (const auto& [input, expected] : {
