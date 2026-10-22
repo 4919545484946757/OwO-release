@@ -788,7 +788,8 @@ void arrange_partitioned_candidate_pages(
     std::vector<engine::Candidate>& candidates,
     const std::size_t page_size,
     const std::size_t full_input_bytes,
-    const bool single_syllable_input) {
+    const bool single_syllable_input,
+    const bool corrected_single_syllable) {
     if (page_size < 4 || candidates.empty()) return;
     std::vector<engine::Candidate> sentences;
     std::vector<engine::Candidate> dictionary_candidates;
@@ -819,7 +820,7 @@ void arrange_partitioned_candidate_pages(
     // Within the optional partitioned layout, keep that character first in the
     // single-character area; the configured page split then determines its
     // exact visible slot without relying on a hard-coded page size.
-    if (!single_characters.empty()) {
+    if (!single_characters.empty() && !corrected_single_syllable) {
         std::vector<std::string> preferred_heads;
         preferred_heads.reserve(2);
         const auto collect_head = [&](const engine::Candidate& candidate) {
@@ -901,11 +902,13 @@ void arrange_partitioned_candidate_pages(
             };
             return evidence(left) < evidence(right);
         });
-    const bool dictionary_before_sentences =
+    // An original abbreviation sentence remains available beside a repaired
+    // whole syllable, but must not take over its leading character partition.
+    const bool dictionary_before_sentences = corrected_single_syllable || (
         !sentences.empty() && best_whole_dictionary != dictionary.end() &&
         best_whole_dictionary->segment_count == 1 &&
         best_whole_dictionary->consumed_input_bytes == full_input_bytes &&
-        best_whole_dictionary->score > best_sentence_score;
+        best_whole_dictionary->score > best_sentence_score);
 
     std::vector<engine::Candidate> paged;
     paged.reserve(sentences.size() + dictionary.size() + single_characters.size());
@@ -1741,12 +1744,23 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                                correction_only.normalized_input.size();
                                 });
                             if (complete_correction) {
+                                std::vector<engine::Candidate> correction_tail;
+                                if (single_syllable_typo && !candidates.empty()) {
+                                    // Reserve bounded pool capacity for the
+                                    // unmodified segmentation as well as the
+                                    // repaired syllable. Otherwise common
+                                    // corrected characters can fill the whole
+                                    // budget before original alternatives enter.
+                                    const auto base_reserve = std::min(
+                                        candidates.size(), generation_limit / 2);
+                                    const auto correction_prefix = std::min(
+                                        corrected_candidates.size(), generation_limit - base_reserve);
+                                    correction_tail.assign(
+                                        std::make_move_iterator(corrected_candidates.begin() + correction_prefix),
+                                        std::make_move_iterator(corrected_candidates.end()));
+                                    corrected_candidates.resize(correction_prefix);
+                                }
                                 for (auto& candidate : candidates) {
-                                    // A recovered whole syllable is one
-                                    // character source, not a multiword input.
-                                    // Do not let abbreviation sentences retake
-                                    // the first partition after this repair.
-                                    if (single_syllable_typo) break;
                                     if (corrected_candidates.size() >= generation_limit)
                                         break;
                                     const auto duplicate = std::any_of(
@@ -1760,6 +1774,16 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                     if (!duplicate)
                                         corrected_candidates.push_back(
                                             std::move(candidate));
+                                }
+                                for (auto& candidate : correction_tail) {
+                                    if (corrected_candidates.size() >= generation_limit) break;
+                                    const auto duplicate = std::any_of(
+                                        corrected_candidates.begin(), corrected_candidates.end(),
+                                        [&candidate](const auto& existing) {
+                                            return existing.text == candidate.text &&
+                                                existing.consumed_input_bytes == candidate.consumed_input_bytes;
+                                        });
+                                    if (!duplicate) corrected_candidates.push_back(std::move(candidate));
                                 }
                                 parsed = std::move(correction_only);
                                 candidates = std::move(corrected_candidates);
@@ -1795,10 +1819,21 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             std::make_move_iterator(model_begin),
                             std::make_move_iterator(candidates.end()));
                         candidates.erase(model_begin, candidates.end());
+                        // A multi-syllable repair may also contain a weaker
+                        // single-syllable deletion (niaho -> niao). That alone
+                        // must not turn the request into single-character mode.
+                        const bool corrected_single_syllable = !parsed.paths.empty() &&
+                            std::all_of(parsed.paths.begin(), parsed.paths.end(),
+                                [&parsed](const engine::ParsePath& path) {
+                                    return path.match_kind == engine::InputMatchKind::corrected &&
+                                        path.syllables.size() == 1 && path.syllables.front().complete &&
+                                        path.syllables.front().begin == 0 &&
+                                        path.syllables.front().end == parsed.normalized_input.size();
+                                });
                         const bool single_syllable_input =
                             (runtime_config == nullptr ||
                              runtime_config->candidate_single_character_first_enabled) &&
-                            std::any_of(
+                            (corrected_single_syllable || std::any_of(
                             parsed.paths.begin(), parsed.paths.end(),
                             [&parsed](const engine::ParsePath& path) {
                                 return path.match_kind == engine::InputMatchKind::exact &&
@@ -1807,10 +1842,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                        path.syllables.front().begin == 0 &&
                                        path.syllables.front().end ==
                                            parsed.normalized_input.size();
-                            });
+                            }));
                         arrange_partitioned_candidate_pages(
                             candidates, page_size, full_input_bytes,
-                            single_syllable_input);
+                            single_syllable_input, corrected_single_syllable);
                         candidates.insert(candidates.end(),
                                           std::make_move_iterator(hidden.begin()),
                                           std::make_move_iterator(hidden.end()));

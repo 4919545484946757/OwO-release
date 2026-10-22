@@ -7,6 +7,7 @@
 #include <atomic>
 #include <iostream>
 #include <filesystem>
+#include <set>
 #include <thread>
 
 namespace {
@@ -66,7 +67,7 @@ int main() {
     std::error_code ignored;
     std::filesystem::remove(user_path, ignored);
     std::filesystem::remove(user_path.wstring() + L".bak", ignored);
-    const auto written = owo::engine::write_binary_lexicon(path, {
+    std::vector<owo::engine::LexiconEntry> entries{
         {{"ni", "hao"}, "你好", 1000}, {{"ni", "hao"}, "你号", 50},
         {{"ce", "shi"}, "测试一", 1000}, {{"ce", "shi"}, "测试二", 900},
         {{"ce", "shi"}, "测试三", 800}, {{"ce", "shi"}, "测试四", 700},
@@ -116,7 +117,18 @@ int main() {
         {{"ga", "da"}, "aa", 2000}, {{"ge", "de"}, "bb", 1900},
         {{"gou", "dong"}, "cc", 1800}, {{"gu", "dian"}, "dd", 1700},
         {{"gang", "du"}, "ee", 1600}, {{"gong", "di"}, "ff", 1500},
-        {{"gui", "dao"}, "gg", 1400}});
+        {{"gui", "dao"}, "gg", 1400}};
+    // More repaired characters than the ordinary generation budget: merely
+    // removing the old early-exit still starves the raw segmentation here.
+    for (std::uint32_t index = 0; index < 80; ++index) {
+        const auto point = 0x9fa0u + index;
+        std::string text;
+        text.push_back(static_cast<char>(0xe0 | (point >> 12)));
+        text.push_back(static_cast<char>(0x80 | ((point >> 6) & 0x3f)));
+        text.push_back(static_cast<char>(0x80 | (point & 0x3f)));
+        entries.push_back({{"chang"}, std::move(text), 500 - index});
+    }
+    const auto written = owo::engine::write_binary_lexicon(path, entries);
     owo::engine::BinaryLexicon lexicon;
     const auto loaded = lexicon.load(path);
     owo::engine::UserFrequencyStore user_frequency;
@@ -172,8 +184,9 @@ int main() {
         transposition_contract_ok = transposition_contract_ok && strict.validation &&
             !strict_repair;
         if (std::string_view(input) == "chnag") {
-            // The large abbreviation pool must not suppress the repair, but
-            // remains available when correction is explicitly disabled.
+            // Both sources survive even when the repaired characters alone
+            // can fill an ordinary pool. Retain original partial-consumption
+            // metadata rather than relabeling abbreviation text as corrected.
             transposition_contract_ok = transposition_contract_ok &&
                 base.message.candidate_refinement_pending &&
                 strict.message.candidates.size() == 7;
@@ -181,9 +194,42 @@ int main() {
             request.correction_enabled = true;
             request.expanded = true;
             const auto expanded_repair = send_request(pipe_name, request);
+            bool retained_original_full = false;
+            bool retained_original_prefix = false;
+            std::set<std::pair<std::string, std::uint64_t>> identities;
+            for (std::size_t index = 0; index < expanded_repair.message.candidates.size(); ++index) {
+                if (index >= expanded_repair.message.candidate_consumed.size()) {
+                    transposition_contract_ok = false;
+                    break;
+                }
+                const auto& text = expanded_repair.message.candidates[index];
+                const auto consumed = expanded_repair.message.candidate_consumed[index];
+                retained_original_full |= (text == "出那个" && consumed == 5);
+                retained_original_prefix |= (text == "刹那" && consumed == 4);
+                transposition_contract_ok &= identities.emplace(text, consumed).second;
+            }
+            std::vector<std::string> paged;
+            std::vector<std::uint64_t> consumed, groups;
+            for (std::uint64_t page = 0; page < 40; ++page) {
+                request.request_id = ++transposition_id;
+                request.expanded = false;
+                request.page = page;
+                const auto row = send_request(pipe_name, request);
+                transposition_contract_ok &= static_cast<bool>(row.validation);
+                paged.insert(paged.end(), row.message.candidates.begin(), row.message.candidates.end());
+                consumed.insert(consumed.end(), row.message.candidate_consumed.begin(), row.message.candidate_consumed.end());
+                groups.insert(groups.end(), row.message.candidate_groups.begin(), row.message.candidate_groups.end());
+                if (!row.message.has_more) break;
+            }
             transposition_contract_ok = transposition_contract_ok &&
                 expanded_repair.validation && !expanded_repair.message.candidates.empty() &&
-                expanded_repair.message.candidates.front() == expected;
+                expanded_repair.message.candidates.front() == expected &&
+                retained_original_full && retained_original_prefix &&
+                std::any_of(complete.message.candidates.begin(), complete.message.candidates.end(),
+                    [](const auto& text) { return text == "出那个" || text == "刹那"; }) &&
+                paged == expanded_repair.message.candidates &&
+                consumed == expanded_repair.message.candidate_consumed &&
+                groups == expanded_repair.message.candidate_groups;
         }
     }
     auto invalid_payload = owo::protocol::encode_message(

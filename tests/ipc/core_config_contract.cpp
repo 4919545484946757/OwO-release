@@ -78,7 +78,11 @@ int wmain(int argc, wchar_t** argv) {
         {{"li", "ang"}, "立昂", 1000}, {{"li", "ang"}, "礼昂", 900},
         {{"li", "ang"}, "李昂", 800}, {{"li", "ang"}, "理昂", 700},
         {{"li", "ang"}, "历昂", 600}, {{"li", "ang"}, "俐昂", 500},
-        {{"li", "ang"}, "栗昂", 400}, {{"li", "ang"}, "梨昂", 300}});
+        {{"li", "ang"}, "栗昂", 400}, {{"li", "ang"}, "梨昂", 300},
+        {{"chang"}, "长", 3000}, {{"chang"}, "常", 2900},
+        {{"cha"}, "刹", 100000}, {{"na"}, "那", 100000},
+        {{"ge"}, "个", 100000}, {{"cha", "na"}, "刹那", 90000},
+        {{"niao"}, "鸟", 1000}});
     const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
     const auto pipe = LR"(\\.\pipe\OwO.InputMethod.ConfigContract.)" + std::to_wstring(suffix);
     const auto model_pipe = LR"(\\.\pipe\OwO.InputMethod.ConfigModelContract.)" +
@@ -190,6 +194,30 @@ int wmain(int argc, wchar_t** argv) {
         const auto all = send(pipe, expanded_single);
         single_first_pages_ok &= mixed_pages >= 3 && all.validation &&
             all.message.candidates == paged_text && all.message.candidate_groups == paged_groups;
+        owo::protocol::Message repaired{owo::protocol::MessageType::candidate_request,
+            ++single_first_request_id, 500, "chnag"};
+        repaired.expanded = true;
+        const auto repaired_all = send(pipe, repaired);
+        const auto retains = [&](std::string_view text, std::uint64_t consumed,
+                                 std::uint64_t group) {
+            const auto& value = repaired_all.message;
+            for (std::size_t index = 0; index < value.candidates.size(); ++index)
+                if (value.candidates[index] == text &&
+                    index < value.candidate_consumed.size() && value.candidate_consumed[index] == consumed &&
+                    index < value.candidate_groups.size() && value.candidate_groups[index] == group)
+                    return true;
+            return false;
+        };
+        single_first_pages_ok &= repaired_all.validation &&
+            !repaired_all.message.candidate_groups.empty() &&
+            repaired_all.message.candidate_groups.front() == (single_first ? 2 : 1) &&
+            retains("长", 5, 2) && retains("刹那", 4, 1) && retains("刹那个", 5, 0);
+        repaired.request_id = ++single_first_request_id;
+        repaired.text = "niaho";
+        const auto multi_syllable_repair = send(pipe, repaired);
+        single_first_pages_ok &= multi_syllable_repair.validation &&
+            !multi_syllable_repair.message.candidate_groups.empty() &&
+            multi_syllable_repair.message.candidate_groups.front() == 1;
     }
     config.candidate_page_size = 5;
     const auto generation_before_legacy = monitor.generation();
@@ -198,6 +226,10 @@ int wmain(int argc, wchar_t** argv) {
         monitor.wait_for_generation(generation_before_legacy, std::chrono::seconds(2));
     const auto legacy_layout = send(
         pipe, {owo::protocol::MessageType::candidate_request, 25, 1, "gd"});
+    owo::protocol::Message legacy_repair_request{owo::protocol::MessageType::candidate_request,
+        ++single_first_request_id, 500, "chnag"};
+    legacy_repair_request.expanded = true;
+    const auto legacy_repair = send(pipe, legacy_repair_request);
     const auto completion_default = send(
         pipe, {owo::protocol::MessageType::candidate_request, 30, 1, "tianjiage"});
     const auto generation_before_completion = monitor.generation();
@@ -231,6 +263,13 @@ int wmain(int argc, wchar_t** argv) {
     if (!single_first_pages_ok) {
         std::cerr << "single-character-first per-page/configuration/expanded contract failed\n";
         return 3;
+    }
+    if (!legacy_repair.validation || legacy_repair.message.candidates.empty() ||
+        legacy_repair.message.candidates.front() != "长" ||
+        std::find(legacy_repair.message.candidates.begin(), legacy_repair.message.candidates.end(),
+                  "刹那个") == legacy_repair.message.candidates.end()) {
+        std::cerr << "legacy correction/original-segmentation coexistence failed\n";
+        return 4;
     }
 
     owo::engine::UserFrequencyStore persisted;
