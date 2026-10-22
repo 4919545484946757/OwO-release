@@ -515,6 +515,7 @@ void append_corrected_paths(const std::string_view normalized,
         ParsePath path;
         std::uint32_t edit_count{};
         std::size_t first_edit_offset{};
+        std::string reading_key;
     };
     const std::uint32_t maximum_edits = normalized.size() >= 12 ? 2U : 1U;
     const auto beam_width = normalized.size() >= 12
@@ -522,6 +523,11 @@ void append_corrected_paths(const std::string_view normalized,
         : std::max<std::size_t>(
               8, std::min<std::size_t>(32, std::min<std::size_t>(max_paths, 16) * 2));
     const auto prune_states = [beam_width](std::vector<CorrectionState>& states) {
+        // Sorting used to rebuild two allocating reading strings for EVERY
+        // comparison. The key is immutable once a state reaches this cell.
+        for (auto& state : states)
+            if (state.reading_key.empty())
+                state.reading_key = assisted_reading_key(state.path);
         std::stable_sort(states.begin(), states.end(), [](const auto& left, const auto& right) {
             if (left.edit_count != right.edit_count)
                 return left.edit_count < right.edit_count;
@@ -533,7 +539,7 @@ void append_corrected_paths(const std::string_view normalized,
             if (left.edit_count >= 2 &&
                 left.first_edit_offset != right.first_edit_offset)
                 return left.first_edit_offset > right.first_edit_offset;
-            return assisted_reading_key(left.path) < assisted_reading_key(right.path);
+            return left.reading_key < right.reading_key;
         });
         std::vector<CorrectionState> retained;
         retained.reserve(std::min(states.size(), beam_width * 2));
@@ -543,7 +549,7 @@ void append_corrected_paths(const std::string_view normalized,
             const auto bucket = static_cast<std::size_t>(state.edit_count);
             if (bucket >= counts.size()) continue;
             if (counts[bucket] >= beam_width) continue;
-            auto key = assisted_reading_key(state.path);
+            auto key = state.reading_key;
             key.push_back(static_cast<char>('0' + state.edit_count));
             if (!seen.insert(std::move(key)).second) continue;
             ++counts[bucket];
@@ -557,13 +563,16 @@ void append_corrected_paths(const std::string_view normalized,
     initial.match_kind = InputMatchKind::corrected;
     chart[0].push_back({std::move(initial), 0});
     for (std::size_t offset = 0; offset < normalized.size(); ++offset) {
-        if ((cancelled && cancelled()) || chart[offset].empty()) continue;
+        if (cancelled && cancelled()) return;
+        if (chart[offset].empty()) continue;
         prune_states(chart[offset]);
         for (const auto& state : chart[offset]) {
+            if (cancelled && cancelled()) return;
             if (state.path.syllables.size() + 1 > exclusive_syllable_limit) continue;
             for (const auto& token : tokens_at(offset)) {
                 if (token.corrected && state.edit_count >= maximum_edits) continue;
                 CorrectionState next = state;
+                next.reading_key.clear();
                 if (token.corrected) {
                     if (next.edit_count == 0) next.first_edit_offset = offset;
                     ++next.edit_count;

@@ -1474,9 +1474,26 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     decoded.message.request_id, decoded.message.context_generation);
                 const HANDLE cancellation_event = CreateEventW(
                     nullptr, TRUE, FALSE, cancellation_name.c_str());
-                const auto cancelled = [cancellation_event] {
-                    return cancellation_event != nullptr &&
-                           WaitForSingleObject(cancellation_event, 0) == WAIT_OBJECT_0;
+                bool client_disconnected = false;
+                auto next_connection_check = request_started;
+                const auto cancelled = [cancellation_event, pipe,
+                                        &client_disconnected, &next_connection_check] {
+                    if (client_disconnected || (cancellation_event != nullptr &&
+                        WaitForSingleObject(cancellation_event, 0) == WAIT_OBJECT_0))
+                        return true;
+                    // A timed-out client closes its pipe without necessarily
+                    // issuing a new keystroke/cancellation event. Do not keep
+                    // the serial Core occupied by that abandoned composition.
+                    const auto now = std::chrono::steady_clock::now();
+                    if (now >= next_connection_check) {
+                        next_connection_check = now + std::chrono::milliseconds(8);
+                        if (!PeekNamedPipe(pipe, nullptr, 0, nullptr, nullptr, nullptr)) {
+                            const auto error = GetLastError();
+                            client_disconnected = error == ERROR_BROKEN_PIPE ||
+                                error == ERROR_PIPE_NOT_CONNECTED || error == ERROR_NO_DATA;
+                        }
+                    }
+                    return client_disconnected;
                 };
                 response.type = protocol::MessageType::candidate_response;
                 constexpr std::uint64_t maximum_page = 100;
@@ -1740,6 +1757,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 corrected_generation_metrics.lexicon_lookup_count;
                             generation_metrics.sort_us +=
                                 corrected_generation_metrics.sort_us;
+                            generation_metrics.beam_transitions +=
+                                corrected_generation_metrics.beam_transitions;
+                            generation_metrics.beam_materialized +=
+                                corrected_generation_metrics.beam_materialized;
                             const bool complete_correction = std::any_of(
                                 corrected_candidates.begin(),
                                 corrected_candidates.end(),
@@ -1961,11 +1982,14 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         << R"(,"lexicon_lookup_us":)" << generation_metrics.lexicon_lookup_us
                         << R"(,"lexicon_lookup_count":)" << generation_metrics.lexicon_lookup_count
                         << R"(,"sort_us":)" << generation_metrics.sort_us
+                        << R"(,"beam_transitions":)" << generation_metrics.beam_transitions
+                        << R"(,"beam_materialized":)" << generation_metrics.beam_materialized
                         << R"(,"total_us":)" << total_us
                         << R"(,"correction_enabled":)"
                         << (decoded.message.correction_enabled ? "true" : "false")
                         << R"(,"expanded":)" << (decoded.message.expanded ? "true" : "false")
                         << R"(,"cancelled":)" << (request_cancelled ? "true" : "false")
+                        << R"(,"client_disconnected":)" << (client_disconnected ? "true" : "false")
                         << R"(,"cache_hit":)" << (cache_hit ? "true" : "false")
                         << R"(,"correction_fallback":)"
                         << (correction_fallback ? "true" : "false")

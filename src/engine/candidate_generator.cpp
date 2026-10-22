@@ -87,12 +87,46 @@ std::int64_t source_initial_bonus(const ParseResult& parsed, const ParsePath& pa
     return bonus;
 }
 
+bool search_state_better(const SearchState& left, const SearchState& right) {
+    if (left.score != right.score) return left.score > right.score;
+    return left.text < right.text;
+}
+
 void prune(std::vector<SearchState>& states, const std::size_t width) {
-    std::sort(states.begin(), states.end(), [](const SearchState& left, const SearchState& right) {
-        if (left.score != right.score) return left.score > right.score;
-        return left.text < right.text;
-    });
+    if (states.size() > width)
+        std::partial_sort(states.begin(), states.begin() + width, states.end(),
+                          search_state_better);
+    else
+        std::sort(states.begin(), states.end(), search_state_better);
     if (states.size() > width) states.resize(width);
+}
+
+// Future chart cells stay as worst-first heaps, bounded by the existing beam
+// width. Reject losing transitions BEFORE copying strings and syllable vectors.
+// A cell is sorted only when consumed, preserving score/text iteration order.
+template <class Extend>
+void append_successor(std::vector<SearchState>& destination, const std::size_t width,
+                      const SearchState& source, const std::string_view text,
+                      const std::int64_t score, Extend&& extend,
+                      CandidateGenerationMetrics* metrics) {
+    if (metrics != nullptr) ++metrics->beam_transitions;
+    if (destination.size() == width && score < destination.front().score) return;
+    auto joined_text = source.text;
+    joined_text += text;
+    if (destination.size() == width && score == destination.front().score &&
+        joined_text >= destination.front().text) return;
+    SearchState next = source;
+    next.text = std::move(joined_text);
+    next.score = score;
+    extend(next);
+    if (metrics != nullptr) ++metrics->beam_materialized;
+    if (destination.size() == width) {
+        std::pop_heap(destination.begin(), destination.end(), search_state_better);
+        destination.back() = std::move(next);
+    } else {
+        destination.push_back(std::move(next));
+    }
+    std::push_heap(destination.begin(), destination.end(), search_state_better);
 }
 
 void retain_frequent_entries(std::vector<LexiconEntry>& entries,
@@ -457,7 +491,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                     const std::size_t partition_page_size,
                                                     const bool user_completion_enabled,
                                                     const std::size_t user_completion_max_syllables) const {
-    if (!parsed.valid || limit == 0) return {};
+    if (!parsed.valid || limit == 0 || (cancelled && cancelled())) return {};
     // A normal first page needs only page_size + one look-ahead candidate.
     // Keeping a small quality margin avoids the former 32-result floor, which
     // expanded every beam to at least 128 states even when only five results
@@ -815,6 +849,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                             InputMatchKind::corrected,
                             InputMatchKind::abbreviated_completion}) {
         for (const auto& path : parsed.paths) {
+            if (cancelled && cancelled()) return {};
             if (path.match_kind != kind) continue;
             // The first exact path is also the segmentation shown by the
             // pinyin preview. Evaluating other equally valid segmentations
@@ -858,6 +893,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // preview segmentation and never consumes this evidence.
     if (!assisted_full_span_found) {
         for (auto& ordered : ordered_paths) {
+            if (cancelled && cancelled()) return {};
             const auto& path = *ordered.path;
             if (path.match_kind == InputMatchKind::exact) continue;
             std::vector<std::size_t> covered(path.syllables.size() + 1);
@@ -865,6 +901,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             const auto maximum_phrase_length = std::min<std::size_t>(
                 4, lexicon_.maximum_reading_length());
             for (std::size_t begin = 0; begin < path.syllables.size(); ++begin) {
+                if (cancelled && cancelled()) return {};
                 if (begin != 0 && covered[begin] == 0) continue;
                 if (covered[begin + 1] < covered[begin]) {
                     covered[begin + 1] = covered[begin];
@@ -980,26 +1017,32 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     ++metrics->lexicon_lookup_count;
                 }
                 retain_frequent_entries(entries, beam_width);
+                std::vector<std::int64_t> entry_scores;
+                entry_scores.reserve(entries.size());
+                for (const auto& entry : entries)
+                    entry_scores.push_back(candidate_unigram_score(entry.frequency));
                 for (const auto& state : chart[begin]) {
-                    for (const auto& entry : entries) {
-                        SearchState next = state;
-                        next.text += entry.text;
-                        next.score += candidate_unigram_score(entry.frequency);
-                        if (!state.previous.empty()) next.score -= kAdditionalSegmentPenalty;
+                    if (cancelled && cancelled()) return {};
+                    for (std::size_t entry_index = 0; entry_index < entries.size(); ++entry_index) {
+                        const auto& entry = entries[entry_index];
+                        auto score = state.score + entry_scores[entry_index];
+                        if (!state.previous.empty()) score -= kAdditionalSegmentPenalty;
                         if (bigram_ != nullptr && !state.previous.empty())
-                            next.score += bigram_->score(state.previous, entry.text);
-                        next.previous.assign(entry.text);
-                        ++next.segment_count;
-                        next.segment_lengths.push_back(reading.size());
-                        for (const auto syllable : reading)
-                            next.syllables.emplace_back(syllable);
-                        chart[end].push_back(std::move(next));
+                            score += bigram_->score(state.previous, entry.text);
+                        append_successor(chart[end], beam_width, state, entry.text, score,
+                            [&](SearchState& next) {
+                                next.previous.assign(entry.text);
+                                ++next.segment_count;
+                                next.segment_lengths.push_back(reading.size());
+                                for (const auto syllable : reading)
+                                    next.syllables.emplace_back(syllable);
+                            }, metrics);
                     }
                 }
-                prune(chart[end], beam_width);
             }
         }
 
+        prune(chart.back(), beam_width);
         for (auto& state : chart.back()) {
             if (user_frequency_ != nullptr) {
                 state.score += user_frequency_->score(state.text);
@@ -1087,6 +1130,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         chart.front().push_back(std::move(initial));
         for (std::size_t offset = 0; offset < initial_sequence_input.size(); ++offset) {
             if (cancelled && cancelled()) return {};
+            prune(chart[offset], beam_width);
             const auto lookup_started = std::chrono::steady_clock::now();
             auto entries = lexicon_.lookup_initial_texts(
                 initial_sequence_input[offset], beam_width);
@@ -1096,24 +1140,31 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         std::chrono::steady_clock::now() - lookup_started).count());
                 ++metrics->lexicon_lookup_count;
             }
+            std::vector<std::int64_t> entry_scores;
+            entry_scores.reserve(entries.size());
+            for (const auto& entry : entries) {
+                auto score = candidate_unigram_score(entry.frequency) -
+                    static_cast<std::int64_t>(entry.syllable.size() - 1) *
+                        kIncompleteCharacterPenalty;
+                if (preferred_initial_syllable(initial_sequence_input[offset]) == entry.syllable)
+                    score += kPreferredInitialBonus;
+                entry_scores.push_back(score);
+            }
             for (const auto& state : chart[offset]) {
-                for (const auto& entry : entries) {
-                    SearchState next = state;
-                    next.text += entry.text;
-                    next.score += candidate_unigram_score(entry.frequency);
-                    next.score -= static_cast<std::int64_t>(
-                        entry.syllable.size() - 1) * kIncompleteCharacterPenalty;
-                    if (preferred_initial_syllable(initial_sequence_input[offset]) ==
-                        entry.syllable)
-                        next.score += kPreferredInitialBonus;
-                    if (!state.previous.empty()) next.score -= kAdditionalSegmentPenalty;
+                if (cancelled && cancelled()) return {};
+                for (std::size_t entry_index = 0; entry_index < entries.size(); ++entry_index) {
+                    const auto& entry = entries[entry_index];
+                    auto score = state.score + entry_scores[entry_index];
+                    if (!state.previous.empty()) score -= kAdditionalSegmentPenalty;
                     if (bigram_ != nullptr && !state.previous.empty())
-                        next.score += bigram_->score(state.previous, entry.text);
-                    next.previous.assign(entry.text);
-                    ++next.segment_count;
-                    next.segment_lengths.push_back(1);
-                    next.syllables.emplace_back(entry.syllable);
-                    chart[offset + 1].push_back(std::move(next));
+                        score += bigram_->score(state.previous, entry.text);
+                    append_successor(chart[offset + 1], beam_width, state, entry.text, score,
+                        [&](SearchState& next) {
+                            next.previous.assign(entry.text);
+                            ++next.segment_count;
+                            next.segment_lengths.push_back(1);
+                            next.syllables.emplace_back(entry.syllable);
+                        }, metrics);
                 }
             }
             // Also consume two or more initials as one real dictionary word.
@@ -1133,6 +1184,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     ++metrics->lexicon_lookup_count;
                 }
                 for (const auto& phrase : phrases) {
+                    if (cancelled && cancelled()) return {};
                     if (phrase.syllables.size() != source.size() ||
                         phrase.source_segments.size() != source.size() ||
                         !std::all_of(phrase.source_segments.begin(),
@@ -1141,32 +1193,29 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                          return segment.size() == 1;
                                      }))
                         continue;
+                    const auto phrase_score = candidate_unigram_score(phrase.frequency) +
+                        kMixedAbbreviationPhraseBonus - kAbbreviationBasePenalty -
+                        static_cast<std::int64_t>(mixed_completion_characters(
+                            phrase.syllables, phrase.source_segments)) * kIncompleteCharacterPenalty;
                     for (const auto& state : chart[offset]) {
-                        SearchState next = state;
-                        next.text += phrase.text;
-                        next.score += candidate_unigram_score(phrase.frequency) +
-                                      kMixedAbbreviationPhraseBonus -
-                                      kAbbreviationBasePenalty -
-                                      static_cast<std::int64_t>(
-                                          mixed_completion_characters(
-                                              phrase.syllables,
-                                              phrase.source_segments)) *
-                                          kIncompleteCharacterPenalty;
+                        auto score = state.score + phrase_score;
                         if (!state.previous.empty())
-                            next.score -= kAdditionalSegmentPenalty;
+                            score -= kAdditionalSegmentPenalty;
                         if (bigram_ != nullptr && !state.previous.empty())
-                            next.score += bigram_->score(state.previous, phrase.text);
-                        next.previous.assign(phrase.text);
-                        ++next.segment_count;
-                        next.segment_lengths.push_back(phrase.syllables.size());
-                        for (const auto syllable : phrase.syllables)
-                            next.syllables.emplace_back(syllable);
-                        chart[end].push_back(std::move(next));
+                            score += bigram_->score(state.previous, phrase.text);
+                        append_successor(chart[end], beam_width, state, phrase.text, score,
+                            [&](SearchState& next) {
+                                next.previous.assign(phrase.text);
+                                ++next.segment_count;
+                                next.segment_lengths.push_back(phrase.syllables.size());
+                                for (const auto syllable : phrase.syllables)
+                                    next.syllables.emplace_back(syllable);
+                            }, metrics);
                     }
                 }
             }
-            prune(chart[offset + 1], beam_width);
         }
+        prune(chart.back(), beam_width);
         for (std::size_t consumed = 1; consumed < chart.size(); ++consumed) {
             for (auto state : chart[consumed]) {
                 if (user_frequency_ != nullptr) {
@@ -1430,6 +1479,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         full.size(), std::max<std::size_t>(16, limit * 2));
     std::vector<bool> coherence_scored(full.size(), false);
     for (std::size_t index = 0; index < coherence_limit; ++index) {
+        if (cancelled && cancelled()) return {};
         apply_cross_boundary_coherence(full[index]);
         coherence_scored[index] = true;
     }
@@ -1440,6 +1490,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 scored_segmentations.push_back(candidate_structure_key(full[index]));
         }
         for (std::size_t index = coherence_limit; index < full.size(); ++index) {
+            if (cancelled && cancelled()) return {};
             if (full[index].match_kind != InputMatchKind::exact) continue;
             auto key = candidate_structure_key(full[index]);
             if (std::find(scored_segmentations.begin(), scored_segmentations.end(), key) !=
@@ -1470,6 +1521,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 ++count_for(full[index]);
         }
         for (std::size_t index = coherence_limit; index < full.size(); ++index) {
+            if (cancelled && cancelled()) return {};
             auto& candidate = full[index];
             if (coherence_scored[index] || candidate.match_kind != InputMatchKind::exact) continue;
             auto& count = count_for(candidate);
@@ -1823,6 +1875,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         // page, but allow the external language model to choose a coherent
         // homophone sequence that raw single-character frequency would prune.
         for (auto seed : model_seeds) {
+            if (cancelled && cancelled()) return {};
             if (ordered.size() >= limit + kMaximumModelAlternatives) break;
             if (known_texts.contains(seed.text)) continue;
             seed.model_only = true;
@@ -1831,6 +1884,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
 
         for (const auto& seed : model_seeds) {
+            if (cancelled && cancelled()) return {};
             if (ordered.size() >= limit + kMaximumModelAlternatives) break;
             if (seed.syllables.size() < 5 ||
                 utf8_character_count(seed.text) != seed.syllables.size())

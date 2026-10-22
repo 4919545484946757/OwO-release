@@ -34,6 +34,8 @@ struct CandidateGenerationMetrics {
     std::uint64_t lexicon_lookup_us{};
     std::uint64_t sort_us{};
     std::uint64_t lexicon_lookup_count{};
+    std::uint64_t beam_transitions{};
+    std::uint64_t beam_materialized{};
 };
 
 class CandidateGenerator {
