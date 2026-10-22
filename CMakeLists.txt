@@ -14,6 +14,7 @@ if(MSVC)
 endif()
 
 option(OWO_ENABLE_ONNXRUNTIME "Enable ONNX Runtime only in ModelHost" OFF)
+option(OWO_BUILD_DEVELOPER_TOOLS "Build isolated opt-in developer CLI (never part of release payload)" OFF)
 set(OWO_ONNXRUNTIME_ROOT "" CACHE PATH "Extracted ONNX Runtime SDK root")
 option(OWO_ENABLE_ZLIB "Enable audited raw Deflate extraction in the plugin installer" OFF)
 set(OWO_ZLIB_ROOT "" CACHE PATH "Verified zlib 1.3.2 source root")
@@ -381,6 +382,25 @@ endif()
 add_executable(owo_engine_benchmark benchmarks/engine_benchmark.cpp)
 target_link_libraries(owo_engine_benchmark PRIVATE owo_engine)
 target_compile_features(owo_engine_benchmark PRIVATE cxx_std_20)
+if(WIN32 AND OWO_BUILD_DEVELOPER_TOOLS)
+    add_executable(owo_dev_cli apps/dev_cli/main.cpp)
+    target_link_libraries(owo_dev_cli PRIVATE owo_ipc owo_core_plugin owo_config owo_agent)
+    target_compile_features(owo_dev_cli PRIVATE cxx_std_20)
+    target_compile_definitions(owo_dev_cli PRIVATE OWO_DEVELOPER_TOOLS=1 WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_options(owo_dev_cli PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    if(BUILD_TESTING)
+        foreach(mode contract plugins)
+            add_test(NAME owo.dev_cli.${mode}
+                COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli/dev_cli_contract.ps1
+                    -Cli $<TARGET_FILE:owo_dev_cli> -Parent ${CMAKE_CURRENT_BINARY_DIR}
+                    -Repo ${CMAKE_CURRENT_SOURCE_DIR} -Mode ${mode}
+                    -ProcessPlugin $<TARGET_FILE:owo_example_process_plugin>
+                    -SchemePlugin $<TARGET_FILE:owo_example_input_method_plugin>)
+            set_tests_properties(owo.dev_cli.${mode} PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
+        endforeach()
+    endif()
+endif()
 if(WIN32)
     add_executable(owo_candidate_ipc_benchmark benchmarks/candidate_ipc_benchmark.cpp)
     target_link_libraries(owo_candidate_ipc_benchmark PRIVATE owo_ipc)
