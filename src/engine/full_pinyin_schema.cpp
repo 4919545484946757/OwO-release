@@ -832,6 +832,25 @@ ParseResult FullPinyinSchema::parse_incremental(
     return result;
 }
 
+bool FullPinyinSchema::is_single_syllable_transposition(
+    const std::string_view normalized_input) const {
+    // At least four letters avoids treating short intentional initials as
+    // typos; six is the longest canonical toneless syllable.
+    if (normalized_input.size() < 4 || normalized_input.size() > 6 ||
+        is_complete(normalized_input) ||
+        !std::all_of(normalized_input.begin(), normalized_input.end(),
+                     [](const char value) { return value >= 'a' && value <= 'z'; }))
+        return false;
+    auto swapped = std::string(normalized_input);
+    for (std::size_t index = 1; index < swapped.size(); ++index) {
+        if (swapped[index - 1] == swapped[index]) continue;
+        std::swap(swapped[index - 1], swapped[index]);
+        if (is_complete(swapped)) return true;
+        std::swap(swapped[index - 1], swapped[index]);
+    }
+    return false;
+}
+
 ParseResult FullPinyinSchema::parse(const std::string_view input,
                                     const std::size_t max_paths) const {
     return parse(input, max_paths, true);

@@ -21,6 +21,10 @@ struct FullPinyinIncrementalState {
 class FullPinyinSchema final : public InputSchema {
 public:
     FullPinyinSchema();
+    // Bounded preflight for normalized, unseparated input. This does not
+    // generate correction paths or consult the dictionary.
+    [[nodiscard]] bool is_single_syllable_transposition(
+        std::string_view normalized_input) const;
     [[nodiscard]] ParseResult parse(std::string_view input,
                                     std::size_t max_paths = 32) const override;
     [[nodiscard]] ParseResult parse(std::string_view input, std::size_t max_paths,

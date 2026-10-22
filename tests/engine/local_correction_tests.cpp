@@ -12,7 +12,10 @@ int main() {
         {{"kai", "gan"}, "开干", 1000000}, {{"kai", "gua"}, "开挂", 1000000},
         {{"gong", "neng", "cai", "dan"}, "功能菜单", 5000},
         {{"cai", "dan"}, "菜单", 1000},
-        {{"zhong", "wen", "neng", "li"}, "中文能力", 5000}
+        {{"zhong", "wen", "neng", "li"}, "中文能力", 5000},
+        {{"chang"}, "长", 5000}, {{"cheng"}, "成", 5000},
+        {{"cha", "na", "ge"}, "刹那个", 1000000},
+        {{"cha", "nei", "gui"}, "查内鬼", 1000000}
     });
     const owo::engine::CandidateGenerator generator(lexicon);
     struct Case {
@@ -21,6 +24,8 @@ int main() {
         std::vector<std::string> source;
     };
     for (const auto& item : std::vector<Case>{
+        {"chnag", "长", {"chnag"}},
+        {"chneg", "成", {"chneg"}},
         {"gongnnegkaiguan", "功能开关", {"gong", "nneg", "kai", "guan"}},
         {"gongnegnkaiguan", "功能开关", {"gong", "negn", "kai", "guan"}},
         {"gongnnegcaidan", "功能菜单", {"gong", "nneg", "cai", "dan"}},
@@ -55,6 +60,12 @@ int main() {
                     std::cerr << "Bad local correction: " << item.input << " budget=" << budget << " limit=" << limit << '\n';
                     if (!candidates.empty()) std::cerr << candidates.front().text << '\n';
                     return 2;
+                }
+                if (std::any_of(candidates.begin(), candidates.end(), [](const auto& candidate) {
+                        return candidate.match_kind != owo::engine::InputMatchKind::corrected;
+                    })) {
+                    std::cerr << "Correction-only generation leaked unrelated raw-input sources\n";
+                    return 3;
                 }
             }
         }

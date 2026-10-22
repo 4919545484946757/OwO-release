@@ -464,6 +464,13 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     constexpr std::size_t kMinimumSearchLimit = 12;
     const auto search_limit = std::max(kMinimumSearchLimit, limit);
     const bool phonetic_assistance = parsed.phonetic_assistance;
+    // A correction-only parse is an isolated fallback source. Looking up
+    // abbreviations from the raw typo here can overwrite a full corrected
+    // character with a higher-scoring, one-letter prefix of the same text.
+    const bool correction_only = !parsed.paths.empty() &&
+        std::all_of(parsed.paths.begin(), parsed.paths.end(), [](const ParsePath& path) {
+            return path.match_kind == InputMatchKind::corrected;
+        });
 
     // A lone consonant is a request for common characters across every valid
     // final, not for the first parser completion bucket (da, dai, dan, ...).
@@ -475,7 +482,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     const bool trailing_separator = parsed.normalized_input.ends_with('\'');
     const auto initial_sequence_input = std::string_view(parsed.normalized_input).substr(
         0, parsed.normalized_input.size() - (trailing_separator ? 1 : 0));
-    const bool pure_initial_sequence = phonetic_assistance &&
+    const bool pure_initial_sequence = phonetic_assistance && !correction_only &&
         initial_sequence_input.size() >= 2 &&
         initial_sequence_input.size() <= 256 &&
         std::all_of(initial_sequence_input.begin(), initial_sequence_input.end(),
@@ -483,7 +490,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             return value >= 'a' && value <= 'z' &&
                    vowels.find(value) == std::string_view::npos;
         });
-    const bool single_initial = phonetic_assistance &&
+    const bool single_initial = phonetic_assistance && !correction_only &&
         initial_sequence_input.size() == 1 &&
         initial_sequence_input.front() >= 'a' &&
         initial_sequence_input.front() <= 'z' &&
@@ -638,7 +645,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     const auto store_candidate = [&unique](Candidate candidate) {
         unique.store(std::move(candidate));
     };
-    if (user_frequency_ != nullptr) {
+    if (user_frequency_ != nullptr && !correction_only) {
         std::string lookup_input;
         lookup_input.reserve(parsed.normalized_input.size());
         std::copy_if(parsed.normalized_input.begin(), parsed.normalized_input.end(),
@@ -724,7 +731,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                : std::max<std::size_t>(64, search_limit * 8);
     bool direct_mixed_candidate_found = false;
     const auto has_consonant_tail = [&] {
-        if (!phonetic_assistance) return false;
+        if (!phonetic_assistance || correction_only) return false;
         if (parsed.normalized_input.size() < 4 ||
             parsed.normalized_input.size() > 12 ||
             parsed.normalized_input.find('\'') != std::string::npos)
@@ -1193,12 +1200,12 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     if (cancelled && cancelled()) return {};
     const bool mixed_fallback = unique.size() == 0 || pure_initial_sequence;
     const auto mixed_lookup_started = std::chrono::steady_clock::now();
-    const auto mixed_matches = !phonetic_assistance ||
+    const auto mixed_matches = !phonetic_assistance || correction_only ||
                                direct_mixed_candidate_found || exact_candidate_found
                                    ? std::vector<AbbreviatedLexiconTextMatch>{}
                                    : lexicon_.lookup_mixed_abbreviation_texts(
                                          parsed.normalized_input, mixed_limit);
-    if (metrics != nullptr && phonetic_assistance &&
+    if (metrics != nullptr && phonetic_assistance && !correction_only &&
         !direct_mixed_candidate_found && !exact_candidate_found) {
         metrics->lexicon_lookup_us += static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::microseconds>(

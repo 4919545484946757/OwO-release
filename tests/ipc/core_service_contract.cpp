@@ -76,6 +76,19 @@ int main() {
         {{"wo", "ai"}, "我爱", 1500}, {{"wo"}, "我", 1400},
         {{"ai"}, "爱", 1350}, {{"shi"}, "是", 1300},
         {{"ma"}, "吗", 1250},
+        {{"chang"}, "长", 2000}, {{"chang"}, "常", 1900},
+        {{"shang"}, "上", 2000}, {{"zhong"}, "中", 2000},
+        {{"cheng"}, "成", 2000}, {{"jing"}, "京", 2000},
+        {{"ci"}, "此", 2000}, {{"cai"}, "才", 2000},
+        {{"cu"}, "粗", 2000}, {{"cuo"}, "错", 2000},
+        {{"cha", "na"}, "刹那", 900000},
+        {{"cha", "na", "ge"}, "刹那个", 800000},
+        {{"che", "na", "ge"}, "车那个", 700000},
+        {{"chi", "na", "ge"}, "吃那个", 600000},
+        {{"chu", "na", "ge"}, "出那个", 500000},
+        {{"chao", "nan", "gua"}, "炒南瓜", 400000},
+        {{"chao", "nian", "gao"}, "炒年糕", 300000},
+        {{"cha", "nei", "gui"}, "查内鬼", 200000},
         {{"wei", "shen", "me"}, "为什么", 9000},
         {{"wan", "shen", "me"}, "玩什么", 3000},
         {{"jun", "jiang"}, "均将", 5000},
@@ -122,6 +135,57 @@ int main() {
                                        102, 8, "nihao"}),
         std::chrono::seconds(2)).response);
     persistent.reset();
+    bool transposition_contract_ok = true;
+    std::uint64_t transposition_id = 400;
+    for (const auto& [input, expected] : {
+             std::pair{"chnag", "长"}, {"shnag", "上"},
+             {"zhogn", "中"}, {"chneg", "成"}, {"jnig", "京"}}) {
+        owo::protocol::Message request{
+            owo::protocol::MessageType::candidate_request,
+            ++transposition_id, 400, input};
+        request.defer_expensive_candidates = true;
+        const auto base = send_request(pipe_name, request);
+        request.defer_expensive_candidates = false;
+        const auto complete = send_request(pipe_name, request);
+        if (!complete.validation || complete.message.candidates.empty() ||
+            complete.message.candidates.front() != expected) {
+            std::cerr << "repair " << input << " candidates:";
+            for (const auto& text : complete.message.candidates) std::cerr << '[' << text << ']';
+            std::cerr << '\n';
+        }
+        transposition_contract_ok = transposition_contract_ok && base.validation &&
+            complete.validation && !complete.message.candidates.empty() &&
+            complete.message.candidates.front() == expected &&
+            complete.message.syllables == std::vector<std::string>{input} &&
+            !complete.message.candidate_refinement_pending &&
+            !complete.message.candidate_consumed.empty() &&
+            complete.message.candidate_consumed.front() == std::string_view(input).size();
+        request.request_id = ++transposition_id;
+        request.correction_enabled = false;
+        const auto strict = send_request(pipe_name, request);
+        bool strict_repair = false;
+        for (std::size_t index = 0; index < strict.message.candidates.size(); ++index)
+            if (strict.message.candidates[index] == expected &&
+                index < strict.message.candidate_consumed.size() &&
+                strict.message.candidate_consumed[index] == std::string_view(input).size())
+                strict_repair = true;
+        transposition_contract_ok = transposition_contract_ok && strict.validation &&
+            !strict_repair;
+        if (std::string_view(input) == "chnag") {
+            // The large abbreviation pool must not suppress the repair, but
+            // remains available when correction is explicitly disabled.
+            transposition_contract_ok = transposition_contract_ok &&
+                base.message.candidate_refinement_pending &&
+                strict.message.candidates.size() == 7;
+            request.request_id = ++transposition_id;
+            request.correction_enabled = true;
+            request.expanded = true;
+            const auto expanded_repair = send_request(pipe_name, request);
+            transposition_contract_ok = transposition_contract_ok &&
+                expanded_repair.validation && !expanded_repair.message.candidates.empty() &&
+                expanded_repair.message.candidates.front() == expected;
+        }
+    }
     auto invalid_payload = owo::protocol::encode_message(
         {owo::protocol::MessageType::candidate_request, 120, 12, "nihao"});
     const auto page_size_offset = invalid_payload.find("\"page_size\":0");
@@ -301,6 +365,10 @@ int main() {
     const auto ambiguous_word_ack = send_request(pipe_name, ambiguous_word_commit);
     const auto shutdown = send_request(pipe_name, {owo::protocol::MessageType::shutdown_request, 103, 9, {}});
     server.join();
+    if (!transposition_contract_ok) {
+        std::cerr << "single-syllable transposition Core contract failed\n";
+        return 7;
+    }
     std::filesystem::remove(path, ignored);
     owo::engine::UserFrequencyStore persisted;
     const auto persisted_result = persisted.load(user_path);

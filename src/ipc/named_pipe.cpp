@@ -1631,13 +1631,27 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             std::chrono::duration_cast<std::chrono::microseconds>(
                                 std::chrono::steady_clock::now() -
                                 strict_generation_started).count());
+                        const bool single_syllable_typo = full_pinyin_scheme &&
+                            decoded.message.correction_enabled &&
+                            full_pinyin_schema.is_single_syllable_transposition(
+                                parsed.normalized_input) &&
+                            std::none_of(parsed.paths.begin(), parsed.paths.end(),
+                                [](const auto& path) {
+                                    return path.match_kind == engine::InputMatchKind::exact &&
+                                        std::all_of(path.syllables.begin(), path.syllables.end(),
+                                            [](const auto& syllable) { return syllable.complete; });
+                                });
                         const auto strict_evidence = std::any_of(
                             candidates.begin(), candidates.end(),
-                            [&parsed](const auto& candidate) {
+                            [&parsed, single_syllable_typo](const auto& candidate) {
                                 if (candidate.consumed_input_bytes !=
                                     parsed.normalized_input.size()) return false;
                                 if (candidate.match_kind == engine::InputMatchKind::exact)
                                     return true;
+                                // Broad abbreviation expansions must not hide a
+                                // one-swap whole syllable (chnag -> chang).
+                                // Genuine complete exact readings still win.
+                                if (single_syllable_typo) return false;
                                 // A full-input dictionary phrase is conclusive
                                 // evidence even when only one source segment is
                                 // abbreviated, such as sh -> sheng in
@@ -1679,9 +1693,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 decoded.message.text, parse_path_limit, true,
                                 &corrected_parse_metrics, cancelled);
                             engine::ParseResult correction_only = corrected;
-                            std::erase_if(correction_only.paths, [](const auto& path) {
+                            std::erase_if(correction_only.paths, [single_syllable_typo](const auto& path) {
                                 return path.match_kind !=
-                                       engine::InputMatchKind::corrected;
+                                           engine::InputMatchKind::corrected ||
+                                       (single_syllable_typo && path.syllables.size() != 1);
                             });
                             correction_only.valid = !correction_only.paths.empty();
                             parse_phase_us += static_cast<std::uint64_t>(
@@ -1724,6 +1739,11 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 });
                             if (complete_correction) {
                                 for (auto& candidate : candidates) {
+                                    // A recovered whole syllable is one
+                                    // character source, not a multiword input.
+                                    // Do not let abbreviation sentences retake
+                                    // the first partition after this repair.
+                                    if (single_syllable_typo) break;
                                     if (corrected_candidates.size() >= generation_limit)
                                         break;
                                     const auto duplicate = std::any_of(
