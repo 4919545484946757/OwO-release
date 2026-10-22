@@ -479,6 +479,7 @@ struct CandidateCacheKey {
     std::string context;
     std::uint64_t config_generation{};
     std::uint64_t learning_generation{};
+    std::uint64_t learning_epoch{};
     std::size_t parse_path_limit{};
     bool correction_enabled{};
     bool contextual_ranking{};
@@ -496,6 +497,7 @@ struct CandidateCacheKeyHash {
         combine(std::hash<std::string>{}(key.context));
         combine(std::hash<std::uint64_t>{}(key.config_generation));
         combine(std::hash<std::uint64_t>{}(key.learning_generation));
+        combine(std::hash<std::uint64_t>{}(key.learning_epoch));
         combine(key.parse_path_limit);
         combine(key.correction_enabled);
         combine(key.contextual_ranking);
@@ -815,7 +817,7 @@ void arrange_partitioned_candidate_pages(
     }
 
     const auto exact_learned_whole_word = [full_input_bytes](const engine::Candidate& candidate) {
-        return candidate.user_lexicon && candidate.segment_count == 1 &&
+        return candidate.user_preferred() && candidate.segment_count == 1 &&
             candidate.match_kind == engine::InputMatchKind::exact &&
             candidate.consumed_input_bytes == full_input_bytes &&
             utf8_character_count(candidate.text) == candidate.syllables.size();
@@ -1595,6 +1597,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         decoded.message.context,
                         config_monitor != nullptr ? config_monitor->generation() : 0,
                         learning_generation,
+                        user_frequency != nullptr ? user_frequency->ranking_epoch() : 0,
                         parse_path_limit,
                         decoded.message.correction_enabled,
                         adaptive_ranking_enabled};
@@ -1939,7 +1942,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     constexpr std::int64_t kModelLexicalConfidenceBand = 16'000;
                     const auto reference = std::find_if(candidates.begin(), candidates.end(),
                         [full_input_bytes](const engine::Candidate& candidate) {
-                            return !candidate.model_only && !candidate.user_lexicon &&
+                            return !candidate.model_only && !candidate.user_preferred() &&
                                 candidate.match_kind == engine::InputMatchKind::exact &&
                                 candidate.segment_count > 1 &&
                                 candidate.consumed_input_bytes == full_input_bytes;
@@ -1949,7 +1952,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         model_candidate_consumed.push_back(
                             candidate.consumed_input_bytes);
                         std::uint64_t confidence = 0;
-                        if (reference != candidates.end() && !candidate.user_lexicon &&
+                        if (reference != candidates.end() && !candidate.user_preferred() &&
                             candidate.match_kind == engine::InputMatchKind::exact &&
                             candidate.segment_count > 1 &&
                             candidate.consumed_input_bytes == full_input_bytes &&

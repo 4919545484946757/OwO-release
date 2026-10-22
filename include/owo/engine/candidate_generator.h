@@ -26,6 +26,10 @@ struct Candidate {
     std::vector<std::size_t> segment_lengths;
     bool model_only{};
     bool user_lexicon{};
+    bool provisional_user_word{};
+    [[nodiscard]] bool user_preferred() const noexcept {
+        return user_lexicon && !provisional_user_word;
+    }
 
     bool operator==(const Candidate&) const = default;
 };

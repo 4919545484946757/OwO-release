@@ -321,8 +321,10 @@ std::string candidate_structure_key(const Candidate& candidate) {
 bool candidate_better(const Candidate& candidate, const Candidate& existing) {
     if (candidate.consumed_input_bytes != existing.consumed_input_bytes)
         return candidate.consumed_input_bytes > existing.consumed_input_bytes;
-    if (candidate.user_lexicon != existing.user_lexicon)
-        return candidate.user_lexicon;
+    if (candidate.user_preferred() != existing.user_preferred())
+        return candidate.user_preferred();
+    if (candidate.provisional_user_word != existing.provisional_user_word)
+        return !candidate.provisional_user_word;
     if ((candidate.segment_count == 1) != (existing.segment_count == 1))
         return candidate.segment_count == 1;
     if (candidate.score != existing.score) return candidate.score > existing.score;
@@ -343,6 +345,7 @@ void replace_candidate_payload(Candidate& existing, Candidate replacement) {
     existing.segment_lengths = std::move(replacement.segment_lengths);
     existing.model_only = replacement.model_only;
     existing.user_lexicon = replacement.user_lexicon;
+    existing.provisional_user_word = replacement.provisional_user_word;
 }
 
 class CandidateAccumulator {
@@ -385,8 +388,8 @@ private:
 };
 
 bool score_less(const Candidate& left, const Candidate& right) {
-    if (left.user_lexicon != right.user_lexicon)
-        return left.user_lexicon;
+    if (left.user_preferred() != right.user_preferred())
+        return left.user_preferred();
     if (left.score != right.score) return left.score > right.score;
     if (left.match_kind != right.match_kind) return left.match_kind < right.match_kind;
     if (left.syllables.size() != right.syllables.size())
@@ -829,7 +832,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 learned_syllables.reserve(learned_path->syllables.size());
                 for (const auto& syllable : learned_path->syllables)
                     learned_syllables.push_back(syllable.text);
-                auto score = 12'000 + candidate_unigram_score(entry.count) +
+                auto score = (entry.preferred ? 12'000 : 0) + candidate_unigram_score(entry.count) +
                              user_frequency_->score(entry.text) +
                              user_frequency_->contextual_score(lookup_input,
                                                                 entry.text);
@@ -841,6 +844,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                     parsed.normalized_input.size(), 1};
                 candidate.segment_lengths = {learned_syllables.size()};
                 candidate.user_lexicon = true;
+                candidate.provisional_user_word = !entry.preferred;
                 store_candidate(std::move(candidate));
             }
         }
@@ -868,7 +872,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     continue;
                 const auto completion_characters =
                     entry.input.size() - lookup_input.size();
-                auto score = 12'000 + candidate_unigram_score(entry.count) +
+                auto score = (entry.preferred ? 12'000 : 0) + candidate_unigram_score(entry.count) +
                              user_frequency_->score(entry.text) - 1'500 -
                              static_cast<std::int64_t>(completion_characters) *
                                  kIncompleteCharacterPenalty;
@@ -878,6 +882,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     parsed.normalized_input.size(), 1};
                 candidate.segment_lengths = {learned_syllables.size()};
                 candidate.user_lexicon = true;
+                candidate.provisional_user_word = !entry.preferred;
                 store_candidate(std::move(candidate));
             }
         }
@@ -1476,7 +1481,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     if (partition_page_size == 0)
         limit_two_syllable_full_candidates(full);
     const bool preserve_learned_alternative = partition_page_size != 0 &&
-        std::any_of(full.begin(), full.end(), [](const auto& candidate) { return candidate.user_lexicon; });
+        std::any_of(full.begin(), full.end(), [](const auto& candidate) { return candidate.user_preferred(); });
     std::optional<Candidate> coherent_sentence_alternative;
     const auto apply_cross_boundary_coherence = [this, &lookup_cache, preserve_learned_alternative,
                                                 &coherent_sentence_alternative](Candidate& candidate) {
@@ -1624,10 +1629,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
     }
     const auto sentence_less = [](const Candidate& left, const Candidate& right) {
-        if (left.user_lexicon != right.user_lexicon)
-            return left.user_lexicon;
+        if (left.user_preferred() != right.user_preferred())
+            return left.user_preferred();
         const auto full_dictionary_word = [](const Candidate& candidate) {
             return candidate.match_kind == InputMatchKind::exact &&
+                   !candidate.provisional_user_word &&
                    candidate.segment_count == 1 &&
                    utf8_character_count(candidate.text) ==
                        candidate.syllables.size();
@@ -1678,7 +1684,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             // homophone sequence is a valid alternative. Keep genuine source
             // readings and learned words, but do not let a much weaker split
             // of the same exact reading bypass the visible sentence budget.
-            if (!candidate.user_lexicon && reference.match_kind == InputMatchKind::exact &&
+            if (!candidate.user_preferred() && reference.match_kind == InputMatchKind::exact &&
                 reference.coherence_score > candidate.coherence_score &&
                 reference.score - candidate.score >= kAlternativeSegmentationPromotionMargin &&
                 (candidate.match_kind != InputMatchKind::exact ||
@@ -1745,7 +1751,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         return candidate.match_kind == InputMatchKind::exact;
     });
     if (exact != full.end() && exact != full.begin() &&
-        (full.empty() || !full.front().user_lexicon))
+        (full.empty() || !full.front().user_preferred()))
         std::rotate(full.begin(), exact, exact + 1);
 
     std::vector<Candidate> ordered;
@@ -1763,6 +1769,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             const auto& second = full[1];
             const auto exact_full_dictionary_word = [](const Candidate& candidate) {
                 return candidate.match_kind == InputMatchKind::exact &&
+                       !candidate.provisional_user_word &&
                        candidate.segment_count == 1 &&
                        utf8_character_count(candidate.text) ==
                            candidate.syllables.size();
@@ -1866,7 +1873,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         // must not consume the only sentence slot and hide every independently
         // dictionary-backed coherent alternative to a selected composition.
         // Keep one such alternative without deleting or demoting learned data.
-        if (!ordered.empty() && ordered.front().user_lexicon &&
+        if (!ordered.empty() && ordered.front().user_preferred() &&
             coherent_sentence_alternative &&
             std::none_of(ordered.begin(), ordered.end(), [&](const auto& candidate) {
                 return candidate.text == coherent_sentence_alternative->text &&
@@ -1913,6 +1920,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             [full_input_bytes](const Candidate& left, const Candidate& right) {
                 const auto complete_word = [full_input_bytes](const Candidate& candidate) {
                     return candidate.match_kind == InputMatchKind::exact &&
+                           !candidate.provisional_user_word &&
                            candidate.segment_count == 1 &&
                            candidate.consumed_input_bytes == full_input_bytes &&
                            utf8_character_count(candidate.text) ==
