@@ -884,27 +884,6 @@ if(BUILD_TESTING)
             target_compile_options(owo_candidate_window_order_tests PRIVATE /W4 /permissive- /utf-8)
         endif()
         add_test(NAME owo.tsf.candidate_window_order COMMAND owo_candidate_window_order_tests)
-
-        add_executable(owo_candidate_motion_tests tests/tsf/candidate_motion_tests.cpp)
-        target_include_directories(owo_candidate_motion_tests PRIVATE include)
-        target_compile_features(owo_candidate_motion_tests PRIVATE cxx_std_20)
-        add_test(NAME owo.tsf.candidate_motion COMMAND owo_candidate_motion_tests)
-
-        add_executable(owo_candidate_render_preview
-            tests/tsf/candidate_render_preview.cpp
-            src/tsf/pinyin_cursor.cpp src/tsf/text_service.cpp src/tsf/input_method_context.cpp)
-        target_include_directories(owo_candidate_render_preview PRIVATE include src/tsf)
-        target_compile_features(owo_candidate_render_preview PRIVATE cxx_std_20)
-        target_compile_definitions(owo_candidate_render_preview PRIVATE
-            WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE OWO_CANDIDATE_RENDER_PREVIEW)
-        target_link_libraries(owo_candidate_render_preview PRIVATE
-            owo_ipc owo_plugin owo_agent ole32 oleaut32 advapi32 uuid user32 gdi32 d2d1 dwrite dwmapi)
-        if(MSVC)
-            target_compile_options(owo_candidate_motion_tests PRIVATE /W4 /permissive- /utf-8)
-            target_compile_options(owo_candidate_render_preview PRIVATE /W4 /permissive- /utf-8)
-        endif()
-        add_test(NAME owo.tsf.candidate_render_preview COMMAND owo_candidate_render_preview
-            "${CMAKE_CURRENT_BINARY_DIR}/candidate-ui-preview")
         add_executable(owo_pinyin_cursor_tests
             tests/tsf/pinyin_cursor_tests.cpp
             src/tsf/pinyin_cursor.cpp)

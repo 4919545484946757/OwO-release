@@ -5,11 +5,9 @@
 #include "owo/plugin/candidate_theme.h"
 #include "owo/plugin/unicode_palette.h"
 #include "owo/tsf/input_method_session.h"
-#include "owo/tsf/candidate_motion.h"
 
 #include <Windows.h>
 #include <msctf.h>
-#include <d2d1.h>
 
 #include <atomic>
 #include <chrono>
@@ -95,7 +93,6 @@ public:
 
 private:
     friend class LanguageBarItem;
-    friend struct CandidateRenderPreviewHarness;
     struct CandidateResult {
         std::uint64_t request_id{};
         std::uint64_t generation{};
@@ -167,12 +164,6 @@ private:
     void maintain_candidate_window_order() noexcept;
     void update_candidate_shadow() noexcept;
     void hide_candidate_windows() noexcept;
-    void refresh_candidate_motion_preferences() noexcept;
-    void schedule_candidate_motion() noexcept;
-    void animate_candidate_frame();
-    void draw_candidate_interaction(const D2D1_RECT_F& bounds, HitTarget target,
-                                    bool selected = false, bool outlined = false,
-                                    bool enabled = true);
     [[nodiscard]] bool render_candidate_window();
     [[nodiscard]] SIZE desired_candidate_window_size() const;
     void worker_loop(std::stop_token stop_token);
@@ -293,9 +284,6 @@ private:
     HWND candidate_shadow_window_{nullptr};
     HWND candidate_window_{nullptr};
     bool candidate_resize_in_progress_{};
-#if defined(OWO_CANDIDATE_RENDER_PREVIEW)
-    bool candidate_preview_only_{true};
-#endif
     POINT candidate_present_position_{};
     SIZE candidate_present_size_{};
     SIZE candidate_content_size_{};
@@ -362,19 +350,6 @@ private:
     std::vector<HitRegion> hit_regions_;
     std::optional<HitTarget> hovered_target_;
     std::optional<HitTarget> pressed_target_;
-    struct CandidateInteractionMotion {
-        HitTarget target;
-        CandidateMotion hover;
-        CandidateMotion press;
-    };
-    std::vector<CandidateInteractionMotion> candidate_interactions_;
-    bool candidate_motion_enabled_{true};
-    bool candidate_motion_timer_running_{};
-    UINT candidate_motion_interval_ms_{16};
-    CandidateMotion candidate_disclosure_motion_;
-    CandidateMotion candidate_emphasis_motion_{1.0F};
-    std::uint64_t candidate_visual_page_{};
-    bool candidate_visual_expanded_{};
     std::optional<std::wstring> deferred_candidate_text_;
     ITfContext* deferred_candidate_context_{nullptr};
     std::optional<std::wstring> deferred_punctuation_;
