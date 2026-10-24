@@ -527,7 +527,10 @@ fn apply_team_settings(req: &mut CreateTeamRequest, settings: &owo_agent_core::S
         }
     }
 
-    if req.max_agent_members.is_none() && !req.roles.is_empty() {
+    // Only the generated parallel topology (lead + writers + leader) opts into a
+    // larger member budget. A user-supplied non-parallel graph remains subject to
+    // the documented five-Agent default unless it sets the override explicitly.
+    if req.max_agent_members.is_none() && req.parallel && !req.roles.is_empty() {
         req.max_agent_members = Some(req.roles.len());
     }
     applied

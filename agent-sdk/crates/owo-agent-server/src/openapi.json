@@ -59,18 +59,24 @@
         "type": "object",
         "properties": {
           "workspace": {
-            "type": "string"
+            "type": "string",
+            "description": "工作目录。agent 模式必填；chat 模式可省略，服务端会在数据目录下分配隔离工作区，显式给出的路径仍必须存在。"
           },
           "model": {
             "type": "string"
           },
           "system_prompt": {
             "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "chat"
+            ],
+            "description": "会话工作模式：agent 可读写工作区，chat 只给联网检索/提问等必要工具。"
           }
-        },
-        "required": [
-          "workspace"
-        ]
+        }
       },
       "SessionInfo": {
         "type": "object",
@@ -104,6 +110,53 @@
           },
           "created_at": {
             "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "chat"
+            ],
+            "description": "会话工作模式：agent 可读写工作区，chat 只给联网检索/提问等必要工具。"
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "objective": {
+                    "type": "string"
+                  },
+                  "iterations": {
+                    "type": "integer"
+                  },
+                  "done": {
+                    "type": "boolean"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  },
+                  "origin": {
+                    "type": "string",
+                    "enum": [
+                      "user",
+                      "model"
+                    ]
+                  }
+                },
+                "required": [
+                  "objective",
+                  "iterations",
+                  "done",
+                  "updated_at",
+                  "origin"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "会话级目标状态；null = 未设定。"
           }
         }
       },
@@ -261,6 +314,107 @@
               "null"
             ],
             "additionalProperties": true
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "parent_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fork_point": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "todos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "content": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "in_progress",
+                    "completed"
+                  ]
+                }
+              },
+              "required": [
+                "content",
+                "status"
+              ]
+            }
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "objective": {
+                    "type": "string"
+                  },
+                  "iterations": {
+                    "type": "integer"
+                  },
+                  "done": {
+                    "type": "boolean"
+                  },
+                  "updated_at": {
+                    "type": "string"
+                  },
+                  "origin": {
+                    "type": "string",
+                    "enum": [
+                      "user",
+                      "model"
+                    ]
+                  }
+                },
+                "required": [
+                  "objective",
+                  "iterations",
+                  "done",
+                  "updated_at",
+                  "origin"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "会话级目标状态；null = 未设定。"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "chat"
+            ],
+            "description": "会话工作模式：agent 可读写工作区，chat 只给联网检索/提问等必要工具。"
+          },
+          "system_prompt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "会话级自定义提示词；null = 使用默认提示词。"
           }
         }
       },
@@ -8390,6 +8544,54 @@
         }
       }
     },
+    "/session/{id}/mode": {
+      "post": {
+        "operationId": "sessionSetMode",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "mode"
+                ],
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "agent",
+                      "chat"
+                    ],
+                    "description": "agent（默认，完整工具链）或 chat（纯对话：只给联网检索与提问，不开放本地文件与命令）；兼容输入 default/conversation/dialogue，响应始终是规范值。"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "{ id, mode }"
+          },
+          "400": {
+            "description": "未知会话模式"
+          },
+          "404": {
+            "description": "session not found"
+          }
+        }
+      }
+    },
     "/session/{id}/model": {
       "post": {
         "operationId": "sessionSetModel",
@@ -11179,6 +11381,149 @@
         "responses": {
           "200": {
             "description": "active rule model + candidates + per-signature samples + calibration report"
+          }
+        }
+      }
+    },
+    "/providers/presets": {
+      "get": {
+        "summary": "列出内置的模型提供商预设（端点/模型/多模态能力，不含凭据）",
+        "responses": {
+          "200": {
+            "description": "提供商预设表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "providers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/prompts": {
+      "get": {
+        "operationId": "promptsList",
+        "responses": {
+          "200": {
+            "description": "{ prompts: [{id,name,content,updated_at}], limits }"
+          }
+        }
+      },
+      "post": {
+        "operationId": "promptsSave",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "content"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "缺省为新建；给已存在的 id 表示更新"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "最多 60 字"
+                  },
+                  "content": {
+                    "type": "string",
+                    "description": "最多 20000 字"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "{ prompt, prompts }"
+          },
+          "400": {
+            "description": "名称/内容非法或超出数量上限"
+          },
+          "404": {
+            "description": "给了 id 但提示词不存在"
+          }
+        }
+      }
+    },
+    "/prompts/{id}": {
+      "delete": {
+        "operationId": "promptsDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ deleted, prompts }"
+          },
+          "404": {
+            "description": "提示词不存在"
+          }
+        }
+      }
+    },
+    "/session/{id}/system-prompt": {
+      "post": {
+        "operationId": "sessionSetSystemPrompt",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "prompt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "自定义提示词正文；null/空串表示清除，回到默认系统提示词。只影响后续回合"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "{ id, system_prompt }"
+          },
+          "400": {
+            "description": "提示词过长"
+          },
+          "404": {
+            "description": "session not found"
           }
         }
       }

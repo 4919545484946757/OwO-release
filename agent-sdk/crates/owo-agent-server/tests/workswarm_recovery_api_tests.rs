@@ -475,6 +475,9 @@ async fn interrupted_leftover_is_surfaced_then_continue_recovers() {
         .as_str()
         .unwrap()
         .to_string();
+    let completed_seq = detail["progress"]["seq"]
+        .as_u64()
+        .expect("完成快照应携带 progress.seq");
     let (_, arts0) = call(
         &state,
         &app,
@@ -506,6 +509,25 @@ async fn interrupted_leftover_is_surfaced_then_continue_recovers() {
         body["team"]["status"].as_str().unwrap(),
         "running",
         "磁盘状态保持 Running 展示（由 interrupted 标记区分中断）：{body}"
+    );
+    assert_eq!(
+        body["progress"]["supervisor"]["state"], "blocked",
+        "中断遗留必须被监督器标记为 blocked，而不是 idle：{body}"
+    );
+    assert!(
+        body["progress"]["seq"].as_u64().unwrap_or(0) > completed_seq,
+        "监督状态变化必须推进 progress.seq，否则 SSE 客户端看不到新快照：{body}"
+    );
+    assert_eq!(
+        body["progress"]["supervisor"]["interrupted"], true,
+        "监督器快照应携带中断标记：{body}"
+    );
+    assert!(
+        body["progress"]["supervisor"]["recommendation"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("恢复"),
+        "监督建议应指向恢复入口：{body}"
     );
 
     // 列表与事件快照同样暴露标记。

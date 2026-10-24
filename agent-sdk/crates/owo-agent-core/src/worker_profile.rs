@@ -140,7 +140,13 @@ impl WorkerProfile {
         profile.read_only = !profile.visible_tools.iter().any(|tool| {
             matches!(
                 tool.as_str(),
-                "write_file" | "apply_patch" | "edit_file" | "multi_edit" | "run_command"
+                "write_file"
+                    | "apply_patch"
+                    | "edit_file"
+                    | "multi_edit"
+                    | "run_command"
+                    | "generate_image"
+                    | "text_to_speech"
             )
         });
         profile.can_run_command = profile
@@ -171,6 +177,19 @@ impl WorkerProfile {
         }
         let workspace_root = canonicalize_scope_path(workspace_root)?;
         let mut paths = Vec::with_capacity(spec.write_paths.len());
+        if spec.write_paths.is_empty()
+            && spec
+                .tools
+                .iter()
+                .any(|tool| matches!(tool.as_str(), "generate_image" | "text_to_speech"))
+            && !spec
+                .tools
+                .iter()
+                .any(|tool| matches!(tool.as_str(), "write_file" | "apply_patch"))
+        {
+            paths.push(canonicalize_scope_path(&workspace_root.join("outputs"))?);
+            return Ok(paths);
+        }
         for raw in &spec.write_paths {
             let path = canonicalize_scope_path(&workspace_root.join(Path::new(raw.trim())))?;
             if !path.starts_with(&workspace_root) {
@@ -406,12 +425,18 @@ impl WorkerProfile {
             .min();
         let can_write_files = !task_has_no_write_scope
             && (required.contains("write_file") || required.contains("apply_patch"));
+        let can_write_media = !task_has_no_write_scope
+            && (required.contains("generate_image") || required.contains("text_to_speech"));
         self.can_run_command =
             self.can_run_command && can_write_files && required.contains("run_command");
         self.visible_tools.retain(|tool| {
-            required.contains(tool.as_str()) && (tool != "run_command" || self.can_run_command)
+            required.contains(tool.as_str())
+                && (tool != "run_command" || self.can_run_command)
+                && (!matches!(tool.as_str(), "write_file" | "apply_patch") || can_write_files)
+                && (!matches!(tool.as_str(), "generate_image" | "text_to_speech")
+                    || can_write_media)
         });
-        if !can_write_files {
+        if !can_write_files && !can_write_media {
             self.read_only = true;
             self.visible_tools
                 .retain(|tool| !matches!(tool.as_str(), "write_file" | "apply_patch"));
@@ -1054,7 +1079,7 @@ mod tests {
     }
 
     #[test]
-    fn task_graph_capability_scope_keeps_a_declared_media_tool() {
+    fn task_graph_capability_scope_keeps_external_media_tools_read_only() {
         const MEDIA_TOOL: &str = "mcp__media__video_generate";
         let mut profile = WorkerProfile::for_declared_tools(&[MEDIA_TOOL.to_string()], 4);
         let task = crate::task_context::ResolvedTaskContext {
@@ -1068,9 +1093,48 @@ mod tests {
         assert_eq!(profile.visible_tools, vec![MEDIA_TOOL.to_string()]);
         assert!(
             profile.read_only,
-            "media generation does not grant file writes"
+            "an MCP media API does not grant workspace writes"
         );
         assert!(!profile.can_run_command);
+    }
+
+    #[test]
+    fn builtin_media_tools_get_only_the_outputs_write_scope() {
+        use crate::workswarm::RoleSpec;
+
+        let mut role = RoleSpec::agent("音频与图像生成");
+        role.tools = vec!["generate_image".into(), "text_to_speech".into()];
+        let profile = WorkerProfile::for_team_role_spec(&role, 4, false, None);
+        assert!(!profile.read_only);
+        let workspace = tempfile::tempdir().unwrap();
+        let expected_outputs = super::canonicalize_scope_path(&workspace.path().join("outputs"))
+            .expect("输出范围应可解析");
+        assert_eq!(
+            WorkerProfile::team_role_write_allowed_paths(&role, workspace.path(), true).unwrap(),
+            vec![expected_outputs]
+        );
+
+        let task = crate::task_context::ResolvedTaskContext {
+            origin: crate::task_context::TaskContextOrigin::TaskGraph,
+            required_capabilities: Some(vec!["generate_image".into()]),
+            write_paths: Some(vec!["outputs".into()]),
+            ..Default::default()
+        };
+        let mut task_profile = profile;
+        task_profile.apply_task_capability_scope(&task, false);
+        assert!(!task_profile.read_only);
+        assert_eq!(task_profile.visible_tools, vec!["generate_image"]);
+        assert!(!task_profile.can_run_command);
+
+        let mut unscoped = WorkerProfile::for_declared_tools(&["generate_image".into()], 4);
+        let no_output_path = crate::task_context::ResolvedTaskContext {
+            origin: crate::task_context::TaskContextOrigin::TaskGraph,
+            required_capabilities: Some(vec!["generate_image".into()]),
+            ..Default::default()
+        };
+        unscoped.apply_task_capability_scope(&no_output_path, true);
+        assert!(unscoped.read_only);
+        assert_eq!(unscoped.visible_tools, vec!["__owo_no_task_tool__"]);
     }
 
     #[test]

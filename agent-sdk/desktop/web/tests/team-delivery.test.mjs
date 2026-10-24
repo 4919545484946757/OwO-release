@@ -29,3 +29,12 @@ test('a failed first listing can be retried for the same task',async()=>{
   await handler({target:{closest:()=>({dataset:{teamFileAction:'refresh'}})}});
   assert.equal(calls,2);assert.match(box.innerHTML,/RETRIED/);
 });
+
+test('browser without a desktop file bridge explains the available artifact path without an inert retry',async()=>{
+  const box={innerHTML:'',addEventListener(){},removeEventListener(){}};
+  const view=create({box});
+  await view.load('team-browser','succeeded');
+  assert.match(box.innerHTML,/在下方预览或下载任务产物/);
+  assert.doesNotMatch(box.innerHTML,/重新加载|role="alert"|data-team-file-action/);
+  view.dispose();
+});

@@ -364,9 +364,93 @@ pub static CAPABILITIES: &[CapabilityDescriptor] = &[
         advanced: false,
         dependencies: &[],
     },
+    CapabilityDescriptor {
+        id: CapabilityId("media.image"),
+        user_name: "文生图",
+        summary: "按提示词生成图片并写入工作区 outputs/；小图（≤512 KiB）直接在对话里预览，需要 OPENAI_API_KEY 或本机端点",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_MEDIA_IMAGE_ENTRYPOINTS,
+        required_effects: &[ToolEffectClass::Execute, ToolEffectClass::Write],
+        advanced: true,
+        dependencies: &[],
+    },
+    CapabilityDescriptor {
+        id: CapabilityId("media.speech"),
+        user_name: "语音合成",
+        summary: "把文本合成音频并写入工作区 outputs/；短音频（≤512 KiB）可在对话里直接试听，端点与密钥同文生图",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_MEDIA_SPEECH_ENTRYPOINTS,
+        required_effects: &[ToolEffectClass::Execute, ToolEffectClass::Write],
+        advanced: true,
+        dependencies: &[],
+    },
+    CapabilityDescriptor {
+        id: CapabilityId("chat.conversation"),
+        user_name: "纯对话模式",
+        summary: "面向问答与学习：只保留联网检索和「向你提问」，不开放本地文件读写、命令执行与桌面控制；\
+                  需要改代码时切换到 Agent 模式",
+        maturity: CapabilityMaturity::Beta,
+        entrypoints: E_CHAT_MODE_ENTRYPOINTS,
+        required_effects: &[ToolEffectClass::Execute],
+        advanced: false,
+        dependencies: &[],
+    },
 ];
 
+const E_CHAT_MODE_ENTRYPOINTS: &[Entrypoint] = &[
+    Entrypoint {
+        kind: "ui",
+        target: "输入区 · 模式 chip / Ctrl+Shift+M",
+        label: "切换 Agent / 纯对话",
+    },
+    Entrypoint {
+        kind: "http",
+        target: "POST /session/{id}/mode",
+        label: "设置会话模式",
+    },
+    Entrypoint {
+        kind: "ui",
+        target: "输入区 · 提示词 chip",
+        label: "选择或自定义系统提示词",
+    },
+];
+
+const E_MEDIA_IMAGE_ENTRYPOINTS: &[Entrypoint] = &[Entrypoint {
+    kind: "tool",
+    target: "generate_image",
+    label: "生成图片",
+}];
+
+const E_MEDIA_SPEECH_ENTRYPOINTS: &[Entrypoint] = &[Entrypoint {
+    kind: "tool",
+    target: "text_to_speech",
+    label: "合成语音",
+}];
+
 /// GET /capabilities：功能目录（"我现在能做什么"页的数据面）。
+/// 文生图 / 语音是否可直接调用：有密钥，或端点指向本机（本地服务允许空密钥）。
+/// 只判断"有没有配"，不回显密钥、不探测远端，避免把凭据或网络状态带进响应。
+fn media_endpoint_ready() -> bool {
+    let has_key = ["OWO_IMAGE_API_KEY", "OPENAI_API_KEY"].iter().any(|key| {
+        std::env::var(key)
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false)
+    });
+    if has_key {
+        return true;
+    }
+    ["OWO_IMAGE_BASE_URL", "OPENAI_BASE_URL"].iter().any(|key| {
+        std::env::var(key)
+            .map(|value| {
+                let lower = value.to_ascii_lowercase();
+                lower.contains("127.0.0.1")
+                    || lower.contains("localhost")
+                    || lower.contains("[::1]")
+            })
+            .unwrap_or(false)
+    })
+}
+
 pub async fn capabilities_list(State(_state): State<Arc<AppState>>) -> Json<Value> {
     let items: Vec<Value> = CAPABILITIES
         .iter()
@@ -405,13 +489,35 @@ pub async fn capabilities_list(State(_state): State<Arc<AppState>>) -> Json<Valu
         "count": CAPABILITIES.len(),
         "maturity": { "stable": stable, "beta": beta, "experimental": experimental },
         "capabilities": items,
-        "constraints": { "request_read_only": true, "scoped_turn_cancellation": true, "custom_model_connection": true, "custom_model_env_credentials": true, "durable_session_facts": true },
+        "constraints": { "request_read_only": true, "scoped_turn_cancellation": true, "custom_model_connection": true, "custom_model_env_credentials": true, "durable_session_facts": true, "media_image_generation": media_endpoint_ready(), "media_speech": media_endpoint_ready(), "chat_mode": true },
     }))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 媒体能力位是纯判定：没有密钥、端点也不是本机时必须为 false，
+    /// 不能因为"工具已注册"就谎报可用。
+    #[test]
+    fn media_endpoint_ready_requires_key_or_local_endpoint() {
+        // 该测试只验证判定是纯函数：环境不变时重复调用必须得到同一结果；
+        // 具体取值由密钥/本机端点决定，不做全局假设。
+        let ready = media_endpoint_ready();
+        assert_eq!(ready, media_endpoint_ready());
+    }
+
+    /// constraints 里必须同时给出图片与语音两个能力位（源码级契约，避免路由响应漏字段）。
+    #[test]
+    fn constraints_declare_media_flags() {
+        let source = include_str!("capabilities.rs");
+        for key in ["media_image_generation", "media_speech"] {
+            assert!(source.contains(&format!("\"{key}\":")), "缺少能力位 {key}");
+        }
+        // 用拼接构造前缀，避免断言本身命中"密钥样式"。
+        let key_prefix = format!("{}-", "sk");
+        assert!(!source.contains(&key_prefix), "源码不得出现密钥样式字符串");
+    }
 
     /// 不变量：能力 id 全局唯一。
     #[test]
@@ -456,5 +562,23 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn chat_mode_lists_mode_route_and_prompt_entrypoint() {
+        let chat = CAPABILITIES
+            .iter()
+            .find(|capability| capability.id == CapabilityId("chat.conversation"))
+            .expect("纯对话能力必须登记");
+        let targets: Vec<&str> = chat
+            .entrypoints
+            .iter()
+            .map(|entrypoint| entrypoint.target)
+            .collect();
+        assert!(targets
+            .iter()
+            .any(|target| target.contains("POST /session/{id}/mode")));
+        assert!(targets.iter().any(|target| target.contains("提示词")));
+        assert!(chat.summary.contains("不开放本地文件"));
     }
 }

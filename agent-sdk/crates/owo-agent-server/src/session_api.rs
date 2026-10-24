@@ -43,6 +43,7 @@ pub(super) fn to_session_info(session: &Session) -> SessionInfo {
         fork_point: session.fork_point,
         // 目标状态映射归 `session_goal_api` 所有（一个功能一个文件）。
         goal: owo_agent_server::session_goal_api::goal_to_wire(session),
+        mode: session.mode.as_str().to_string(),
     }
 }
 
@@ -121,11 +122,40 @@ pub(super) async fn create_session(
     State(state): State<Arc<AppState>>,
     Json(request): Json<CreateSessionRequest>,
 ) -> Result<Json<SessionInfo>, (StatusCode, String)> {
-    let workspace = PathBuf::from(&request.workspace);
+    // 纯对话模式在创建时即可指定；非法值直接 400，不做静默降级。
+    let mode = match request
+        .mode
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+    {
+        None => owo_agent_core::SessionMode::Agent,
+        Some(raw) => owo_agent_core::SessionMode::parse(raw).ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("未知会话模式：{raw}（可用：agent、chat）"),
+            )
+        })?,
+    };
+    // 纯对话不读写本机文件，创建时可以不选工作区：给一个隔离在数据目录下的会话目录，
+    // 避免把「聊天」绑到用户项目上。显式给出的路径仍然必须存在，防止拼错被静默吞掉。
+    let requested = request.workspace.trim();
+    let workspace = if requested.is_empty() && mode.is_chat() {
+        let fallback = state.data_root.join("chat");
+        std::fs::create_dir_all(&fallback).map_err(|error| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("无法创建纯对话目录：{error}"),
+            )
+        })?;
+        fallback
+    } else {
+        PathBuf::from(&request.workspace)
+    };
     if !workspace.is_dir() {
         return Err((
             StatusCode::BAD_REQUEST,
-            format!("工作区不存在：{}", request.workspace),
+            format!("工作区不存在：{}", workspace.display()),
         ));
     }
     // M4.2 会话级模型路由：显式请求的模型进入 `model_override`（真正参与请求体）；
@@ -146,6 +176,8 @@ pub(super) async fn create_session(
         .create(&workspace, &model, request.system_prompt.as_deref())
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .with_model_override(explicit);
+    let mut session = session;
+    session.set_mode(mode);
     state
         .store
         .save(&session)
@@ -161,7 +193,7 @@ pub(super) async fn create_session(
         .publish_invalidate(owo_agent_server::event_stream::InvalidateDomain::Sessions);
     Ok(Json(SessionInfo {
         id: session.id,
-        workspace: request.workspace,
+        workspace: session.workspace.display().to_string(),
         model: session.model,
         created_at: session.created_at,
         updated_at: session.updated_at,
@@ -171,6 +203,7 @@ pub(super) async fn create_session(
         parent_id: session.parent_id,
         fork_point: session.fork_point,
         goal,
+        mode: session.mode.as_str().to_string(),
     }))
 }
 
@@ -203,6 +236,10 @@ pub(super) async fn get_session(
         "todos": session.todos,
         // 目标模式状态：客户端 `/resume` 据此恢复目标与已推进轮次。
         "goal": owo_agent_server::session_goal_api::goal_to_wire(&session),
+        // 工作模式：客户端据此决定显示"纯对话"还是"Agent"、以及是否提示本地工具。
+        "mode": session.mode.as_str(),
+        // 会话级自定义提示词（null = 用默认提示词），UI 据此显示"当前提示词"。
+        "system_prompt": session.system_prompt,
         "messages": session.messages,
     })))
 }
@@ -253,6 +290,46 @@ pub(super) async fn session_set_model(
         "model": session.model,
         "model_override": session.model_override,
     })))
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct SetModeRequest {
+    /// `agent` | `chat`；未知值 400，不接受静默降级。
+    mode: String,
+}
+
+/// 切换会话工作模式（`agent` / `chat`）。
+///
+/// 模式只影响"能用哪些工具"，不改写历史、不改权限档位：
+/// 从 chat 切回 agent 后，之前被拒绝的工具调用不会被追溯执行。
+pub(super) async fn session_set_mode(
+    State(state): State<Arc<AppState>>,
+    AxumPath(id): AxumPath<String>,
+    Json(request): Json<SetModeRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let mode = owo_agent_core::SessionMode::parse(&request.mode).ok_or_else(|| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("未知会话模式：{}（可用：agent、chat）", request.mode),
+        )
+    })?;
+    let _session_guard = owo_agent_server::acquire_session_lock(&state, &id).await?;
+    let mut session = load_session(&state, &id)?;
+    session.set_mode(mode);
+    state
+        .store
+        .save(&session)
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    state
+        .sessions
+        .lock()
+        .map_err(poison)?
+        .insert(session.id.clone(), session.clone());
+    owo_agent_server::event_stream::hub()
+        .publish_invalidate(owo_agent_server::event_stream::InvalidateDomain::Sessions);
+    Ok(Json(
+        json!({ "id": session.id, "mode": session.mode.as_str() }),
+    ))
 }
 
 pub(super) async fn session_rename(

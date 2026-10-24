@@ -8,7 +8,9 @@ mod tests;
 
 pub use config::*;
 pub use message::*;
+pub use presets::{ModalitySupport, ProviderPreset, PROVIDER_PRESETS};
 
+mod presets;
 mod provider;
 mod resilience;
 mod stream;

@@ -975,7 +975,7 @@ test("渲染·权限事实未就绪时隐藏推测状态，只留重试；只读
   assert.match(failedRoot.innerHTML, /data-perm-data-unavailable/);
   assert.match(failedRoot.innerHTML, /auth\/pairing_required\/not_retryable/);
   assert.doesNotMatch(failedRoot.innerHTML, /当前档位|待审批请求|完全访问|撤销当前工作区/);
-  assert.match(failedRoot.innerHTML, /data-perm-action="submit" disabled/);
+  assert.doesNotMatch(failedRoot.innerHTML, /data-perm-action="submit"/, "读取失败时没有可提交的配置");
   assert.match(failedRoot.innerHTML, />权限概览不可用</);
   assert.equal((failedRoot.innerHTML.match(/data-perm-action="reload"/g) || []).length, 1, "页头只保留一个重试入口");
 
@@ -988,8 +988,118 @@ test("渲染·权限事实未就绪时隐藏推测状态，只留重试；只读
     fullAccess: OVERVIEW.full_access,
   }));
   assert.match(readonlyRoot.innerHTML, /核心处于只读降级/);
-  const mutationButtons = [...readonlyRoot.innerHTML.matchAll(/<button[^>]*data-perm-action="(?!reload)[^"]+"[^>]*>/g)].map((match) => match[0]);
+  const mutationButtons = [...readonlyRoot.innerHTML.matchAll(/<button[^>]*data-perm-action="(?!reload|tab)[^"]+"[^>]*>/g)].map((match) => match[0]);
   assert.ok(mutationButtons.length > 0);
   assert.ok(mutationButtons.every((button) => /\sdisabled(?:\s|>)/.test(button)), "所有审批、保存、授权与撤销动作均禁用");
   assert.match(readonlyRoot.innerHTML, /<select[^>]+disabled/);
+});
+
+
+test("controller·撤销草稿恢复服务端基线、取消确认且不发送配置", async () => {
+  const h = harness([{ value: OVERVIEW }]);
+  await h.controller.load();
+  const before = h.calls.length;
+  h.controller.setDimension("command", "unrestricted");
+  h.controller.setScopes(["new/**"]);
+  h.controller.requestFullAccess(h.controller.snapshot().draft);
+  assert.ok(h.controller.snapshot().confirming);
+  h.controller.resetDraft();
+  assert.deepEqual(plain(h.controller.snapshot().draft), OVERVIEW.spec);
+  assert.equal(h.controller.snapshot().confirming, null);
+  assert.equal(h.controller.snapshot().changedFields.length, 0);
+  assert.equal(h.calls.length, before);
+});
+
+test("view·未修改时保存与撤销禁用，只有已读取数据才显示分区计数", () => {
+  const sandbox = loadModules(), root = makeRoot();
+  sandbox.OwoPermissionsView._test.render(root, baseSnapshot({ pending: [], grants: [], recentDecisions: [], changedFields: [] }));
+  assert.match(root.innerHTML, /data-perm-action="submit" disabled/);
+  assert.match(root.innerHTML, /data-perm-action="reset-draft" disabled/);
+  assert.match(root.innerHTML, /待审批<span>0<\/span>/);
+  sandbox.OwoPermissionsView._test.render(root, baseSnapshot({ phase: "loading" }));
+  assert.doesNotMatch(root.innerHTML, /待审批<span>0/);
+});
+
+test("view·same-root remount binds one action listener and late old overview cannot replace the current host", async () => {
+  const sandbox = loadModules(), root = makeRoot(), calls = [];
+  let resolveOld;
+  sandbox.OwoPanels.permissions.mount(root, { fetchJson: () => new Promise(resolve => { resolveOld = resolve; }) });
+  const second = { ...clone(OVERVIEW), profile: "current-host" };
+  sandbox.OwoPanels.permissions.mount(root, { fetchJson: async path => { calls.push(path); return second; } });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  resolveOld(OVERVIEW);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.match(root.innerHTML, /current-host/);
+  assert.doesNotMatch(root.innerHTML, /workspace（工作区编辑）/);
+  assert.equal(root.listeners.click.length, 1);
+  const reload = makeElement("button");
+  reload.setAttribute("data-perm-action", "reload");
+  root.listeners.click[0]({ target: { closest: () => reload } });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 2, "一个点击只触发一次重新读取");
+});
+
+test("view·未标注工具的授权只允许逐条撤销，不生成虚假的工具撤销范围", () => {
+  const sandbox = loadModules();
+  const html = sandbox.OwoPermissionsView._test.renderGrants(baseSnapshot({ grants: [{ grant_id: "g", tool_id: "", scope: "task" }] }));
+  assert.match(html, /data-perm-action="revoke-grant"/);
+  assert.doesNotMatch(html, /data-perm-action="revoke-tool"/);
+  const known = sandbox.OwoPermissionsView._test.renderGrants(baseSnapshot({ grants: OVERVIEW.grants }));
+  assert.doesNotMatch(known, /data-tool="file_write""/);
+});
+
+
+test("controller·完全访问确认随维度或范围更改失效，必须重新核对", async () => {
+  const h = harness([{ value: OVERVIEW }]);
+  await h.controller.load();
+  h.controller.setDimension("command", "unrestricted");
+  h.controller.requestFullAccess(h.controller.snapshot().draft);
+  assert.ok(h.controller.snapshot().confirming);
+  h.controller.setDimension("network", "deny");
+  assert.equal(h.controller.snapshot().confirming, null);
+  h.controller.requestFullAccess(h.controller.snapshot().draft);
+  h.controller.setScopes(["docs/**"]);
+  assert.equal(h.controller.snapshot().confirming, null);
+  assert.equal(h.calls.length, 1);
+});
+
+test("view·保存按钮不能代替完全访问确认卡上的最终确认", () => {
+  const sandbox = loadModules(), view = sandbox.OwoPermissionsView._test, calls = [];
+  view.setController({ snapshot: () => ({ confirming: { durationSecs: 300 } }), submitDraft: () => calls.push("confirmed") });
+  const node = makeElement("button");
+  node.setAttribute("data-perm-action", "submit");
+  view.onAction({ target: { closest: () => node } }, makeRoot());
+  assert.equal(calls.length, 0);
+  node.setAttribute("data-perm-action", "confirm-full-access");
+  view.onAction({ target: { closest: () => node } }, makeRoot());
+  assert.deepEqual(calls, ["confirmed"]);
+});
+
+test("controller·页面在提交前关闭时，不发送配置、审批或撤销请求", async () => {
+  for (const action of ["submit", "approval", "revoke"]) {
+    const h = harness([{ value: OVERVIEW }]);
+    await h.controller.load();
+    const promise = action === "submit" ? h.controller.submitDraft() :
+      action === "approval" ? h.controller.respondApproval(OVERVIEW.pending[0], "deny") : h.controller.revoke({ grant_id: "g-1" });
+    h.controller.dispose();
+    const result = await promise;
+    assert.equal(result.disposed, true);
+    assert.equal(h.calls.length, 1);
+  }
+});
+
+
+test("controller·关闭页面会结清待复查的撤销请求，不遗留悬挂 Promise", async () => {
+  const cancelled = [];
+  const h = harness([{ value: OVERVIEW }, { value: { ok: true, revoked: 1 } }], {
+    setTimeout: () => 17, clearTimeout: id => cancelled.push(id)
+  });
+  await h.controller.load();
+  const pending = h.controller.revoke({ grant_id: "g-1" });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  h.controller.dispose();
+  const result = await pending;
+  assert.equal(result.disposed, true);
+  assert.deepEqual(cancelled, [17]);
+  assert.equal(h.calls.length, 2);
 });

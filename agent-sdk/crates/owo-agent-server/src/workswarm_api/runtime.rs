@@ -215,11 +215,20 @@ async fn run_bounded_team_phase(
     let budget_coordinator = Arc::clone(coordinator);
     let budget_team_id = team_id.to_string();
     let budget_watch = tokio::spawn(async move {
+        let mut supervisor_ticks = 0u64;
         loop {
             tokio::select! {
                 _ = budget_done_rx.changed() => break,
                 _ = tokio::time::sleep(Duration::from_secs(1)) => {
                     if stop_if_budget_exhausted(&budget_coordinator, &budget_team_id).await { break; }
+                    // Proactive supervision: without a connected SSE client nobody would
+                    // otherwise sample a long phase. Snapshotting also records health
+                    // transitions in the audit stream; errors are non-fatal because the
+                    // phase result remains the source of truth.
+                    supervisor_ticks = supervisor_ticks.saturating_add(1);
+                    if supervisor_ticks.is_multiple_of(5) {
+                        let _ = budget_coordinator.progress_snapshot(&budget_team_id).await;
+                    }
                 }
             }
         }

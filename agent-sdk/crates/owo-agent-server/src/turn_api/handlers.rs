@@ -363,9 +363,16 @@ pub(crate) async fn turn(
         let options = owo_agent_core::TurnExecutionOptions {
             read_only: request.read_only.unwrap_or(false),
             turn_id: Some(producer_turn_id.clone()),
+            // 模式是会话属性：纯对话模式只下发联网检索工具，且执行层拒绝其它工具。
+            mode: current.mode,
         };
-        match agent
-            .run_turn_with_images_options(
+        // 回合级 watchdog：模型流/收尾链路一旦静默（实测出现过 20~30 分钟零事件），
+        // 这里按总时长兜底中止，避免"永远执行中"。默认 30 分钟，可用
+        // OWO_TURN_MAX_DURATION_SECS 覆盖（30..=86400）。
+        let turn_budget = turn_watchdog_budget();
+        let turn_result = tokio::time::timeout(
+            turn_budget,
+            agent.run_turn_with_images_options(
                 &mut current,
                 &effective_prompt,
                 &attachment_images,
@@ -374,9 +381,20 @@ pub(crate) async fn turn(
                 &abort_flag,
                 &mut on_event,
                 &options,
-            )
-            .await
-        {
+            ),
+        )
+        .await;
+        let turn_result = match turn_result {
+            Ok(result) => result,
+            Err(_) => {
+                abort_flag.store(true, Ordering::Relaxed);
+                Err(owo_agent_core::AgentError::Session(format!(
+                    "turn/watchdog_timeout: 回合超过 {}s 未结束（可能卡在模型流或收尾链路），已强制中止",
+                    turn_budget.as_secs()
+                )))
+            }
+        };
+        match turn_result {
             Ok(outcome) => {
                 let trace = owo_agent_core::TraceRecord::from_outcome(&current, &outcome);
                 let _ = owo_agent_core::save_trace(&traces_dir, &trace);
@@ -705,4 +723,14 @@ impl owo_agent_core::question::Questioner for TurnQuestioner {
             }
         }
     }
+}
+
+/// 回合总时长上限（回合级 watchdog）。
+fn turn_watchdog_budget() -> std::time::Duration {
+    let secs = std::env::var("OWO_TURN_MAX_DURATION_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| (30..=86_400).contains(value))
+        .unwrap_or(1_800);
+    std::time::Duration::from_secs(secs)
 }

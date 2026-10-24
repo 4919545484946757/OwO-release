@@ -84,7 +84,7 @@ fn ensure_builtin_seeded() {
                     tool: tool.to_string(),
                     class,
                     source: "builtin".to_string(),
-                    risk_note: None,
+                    risk_note: builtin_risk_note(tool),
                     annotations: None,
                     host_verified_readonly: true,
                 },
@@ -146,7 +146,7 @@ pub fn builtin_effect_for(tool: &str) -> Option<ToolEffect> {
             tool: name.to_string(),
             class,
             source: "builtin".to_string(),
-            risk_note: None,
+            risk_note: builtin_risk_note(name),
             annotations: None,
             host_verified_readonly: class == EffectClass::Read && name != "kill_shell",
         })
@@ -331,6 +331,17 @@ pub fn builtin_class_for(tool: &str) -> Option<EffectClass> {
     Some(class)
 }
 
+/// 只有"会出境 + 写盘"的工具需要向审批卡解释一句；其余保持 None，避免噪音。
+fn builtin_risk_note(tool: &str) -> Option<String> {
+    match tool {
+        "generate_image" => {
+            Some("将访问外部图像模型端点，并把生成的图片写入工作区 outputs/".to_string())
+        }
+        "text_to_speech" => Some("将访问外部语音模型端点，并把音频写入工作区 outputs/".to_string()),
+        _ => None,
+    }
+}
+
 fn builtin_effects() -> Vec<(&'static str, EffectClass)> {
     [
         ("read_file", EffectClass::Read),
@@ -353,6 +364,9 @@ fn builtin_effects() -> Vec<(&'static str, EffectClass)> {
         ("ask_user", EffectClass::Read),
         ("web_fetch", EffectClass::Execute),
         ("web_search", EffectClass::Execute),
+        // 多模态媒体工具：既走网络出口又写工作区 outputs/，按 Execute 从严判定。
+        ("generate_image", EffectClass::Execute),
+        ("text_to_speech", EffectClass::Execute),
         ("screen_ocr", EffectClass::Read),
         ("desktop_window_ocr", EffectClass::Read),
         ("ocr_region", EffectClass::Read),
@@ -411,14 +425,34 @@ mod tests {
         assert_eq!(effect_class_for("ask_user"), EffectClass::Read);
         assert_eq!(effect_class_for("verification_plan"), EffectClass::Read);
         assert_eq!(effect_class_for("web_fetch"), EffectClass::Execute);
+        // 媒体工具必须与网络出口同档：不能因为名字里带 "image" 就被当只读。
+        assert_eq!(effect_class_for("generate_image"), EffectClass::Execute);
+        assert_eq!(effect_class_for("text_to_speech"), EffectClass::Execute);
         let builtin = all_effects()
             .into_iter()
             .filter(|effect| effect.source == "builtin")
             .count();
         assert_eq!(
-            builtin, 50,
-            "内置矩阵应完整播种 50 个工具（含 multi_edit / read_artifact / find_symbol / git 只读 / ask_user / verification_plan）"
+            builtin, 52,
+            "内置矩阵应完整播种 52 个工具（在 50 个基础上新增 generate_image / text_to_speech）"
         );
+    }
+
+    #[test]
+    fn media_tools_expose_risk_note_for_approval_card() {
+        for tool in ["generate_image", "text_to_speech"] {
+            let effect = effect_for(tool).expect("媒体工具必须在内置矩阵里");
+            let note = effect.risk_note.unwrap_or_default();
+            assert!(
+                note.contains("outputs/"),
+                "{tool} 的风险说明应指向 outputs/"
+            );
+            assert!(note.contains("外部"), "{tool} 的风险说明应提示出境");
+        }
+        assert!(effect_for("read_file")
+            .expect("read_file")
+            .risk_note
+            .is_none());
     }
 
     #[test]

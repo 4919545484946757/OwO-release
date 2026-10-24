@@ -198,8 +198,8 @@ impl SqliteSessionStore {
                  redo_json, message_redo_json, title, archived, pinned, model_override,
                  validation_receipts_json, single_verification_plan_json,
                  single_verification_plan_input_sha256, single_verification_plan_turn_id,
-                 single_review_issues_json, completion_record_json, goal_json
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
+                 single_review_issues_json, completion_record_json, goal_json, mode
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)
              ON CONFLICT(id) DO UPDATE SET
                  workspace=excluded.workspace,
                  model=excluded.model,
@@ -222,7 +222,8 @@ impl SqliteSessionStore {
                  single_verification_plan_turn_id=excluded.single_verification_plan_turn_id,
                  single_review_issues_json=excluded.single_review_issues_json,
                  completion_record_json=excluded.completion_record_json,
-                 goal_json=excluded.goal_json",
+                 goal_json=excluded.goal_json,
+                 mode=excluded.mode",
             params![
                 session.id,
                 session.workspace.to_string_lossy(),
@@ -248,6 +249,7 @@ impl SqliteSessionStore {
                 serde_json::to_string(&session.single_review_issues).map_err(json_error)?,
                 session.completion_record.as_ref().map(serde_json::to_string).transpose().map_err(json_error)?,
                 session.goal.as_ref().map(serde_json::to_string).transpose().map_err(json_error)?,
+                session.mode.as_str(),
             ],
         )
         .map_err(sqlite_error)?;
@@ -262,7 +264,7 @@ impl SqliteSessionStore {
                         redo_json, message_redo_json, title, archived, pinned, model_override,
                         validation_receipts_json, single_verification_plan_json,
                         single_verification_plan_input_sha256, single_verification_plan_turn_id,
-                        single_review_issues_json, completion_record_json, goal_json
+                        single_review_issues_json, completion_record_json, goal_json, mode
                  FROM sessions WHERE id = ?1",
                 [id],
                 |row| {
@@ -291,6 +293,7 @@ impl SqliteSessionStore {
                         row.get::<_, String>(21)?,
                         row.get::<_, Option<String>>(22)?,
                         row.get::<_, Option<String>>(23)?,
+                        row.get::<_, Option<String>>(24)?,
                     ))
                 },
             )
@@ -346,6 +349,12 @@ impl SqliteSessionStore {
                 .map(serde_json::from_str)
                 .transpose()
                 .map_err(json_error)?,
+            // 旧库缺列（或空值）按 agent 处理：不做静默收紧。
+            mode: row
+                .24
+                .as_deref()
+                .and_then(crate::session::SessionMode::parse)
+                .unwrap_or_default(),
         })
     }
 }
@@ -467,6 +476,55 @@ impl SessionStore for SqliteSessionStore {
             .optional()
             .map_err(sqlite_error)?
             .unwrap_or(0);
+        // 思维链合并：模型一次回合可吐数万条 reasoning_delta，逐条入库会造成
+        // ~95% 的写放大（实测单会话 7.8 万行）。连续 reasoning 增量并入上一行，
+        // 单行超过 64KiB 才另起一行，既有 seq 语义与断点续传都不受影响。
+        if let SseEvent::ReasoningDelta { delta } = payload {
+            let previous: Option<(i64, String)> = transaction
+                .query_row(
+                    "SELECT seq, payload_json FROM turn_events
+                     WHERE session_id = ?1 ORDER BY seq DESC LIMIT 1",
+                    [session_id],
+                    |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+                )
+                .optional()
+                .map_err(sqlite_error)?;
+            if let Some((previous_seq, previous_json)) = previous {
+                if let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&previous_json) {
+                    if value.get("type").and_then(|kind| kind.as_str()) == Some("reasoning_delta") {
+                        let merged = format!(
+                            "{}{}",
+                            value
+                                .get("delta")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or_default(),
+                            delta
+                        );
+                        if merged.len() <= 64 * 1024 {
+                            value["delta"] = serde_json::Value::String(merged.clone());
+                            let merged_json = serde_json::to_string(&value).map_err(|error| {
+                                AgentError::Session(format!("回合事件编码失败：{error}"))
+                            })?;
+                            transaction
+                                .execute(
+                                    "UPDATE turn_events SET payload_json = ?1
+                                     WHERE session_id = ?2 AND seq = ?3",
+                                    params![merged_json, session_id, previous_seq],
+                                )
+                                .map_err(sqlite_error)?;
+                            transaction.commit().map_err(sqlite_error)?;
+                            return Ok(TurnEventRecord {
+                                session_id: session_id.to_string(),
+                                turn_id: turn_id.to_string(),
+                                seq: previous_seq as u64,
+                                created_at: chrono::Utc::now().to_rfc3339(),
+                                payload: SseEvent::ReasoningDelta { delta: merged },
+                            });
+                        }
+                    }
+                }
+            }
+        }
         let seq = last_seq
             .checked_add(1)
             .ok_or_else(|| AgentError::Session("回合事件 seq 已耗尽".into()))?;
@@ -955,6 +1013,28 @@ mod tests {
         let _ = std::fs::remove_file(format!("{}-shm", path.display()));
     }
 
+    /// 工作模式随会话落库：重开进程后 chat 仍是 chat，旧行按 agent 处理。
+    #[test]
+    fn mode_roundtrip_survives_reopen() {
+        let path =
+            std::env::temp_dir().join(format!("owo-sqlite-mode-{}.db", uuid::Uuid::new_v4()));
+        let store = SqliteSessionStore::open(&path).unwrap();
+        let mut session = Session::new(".", "m", None);
+        assert_eq!(session.mode, crate::session::SessionMode::Agent);
+        session.set_mode(crate::session::SessionMode::Chat);
+        store.save(&session).unwrap();
+        let loaded = store.load(&session.id).unwrap();
+        assert!(loaded.mode.is_chat(), "chat 模式应随会话落库");
+
+        // 缺列/空值（模拟旧库）按 agent 处理：不做静默收紧。
+        assert_eq!(
+            crate::session::SessionMode::parse("").unwrap_or_default(),
+            crate::session::SessionMode::Agent
+        );
+        drop(store);
+        std::fs::remove_file(&path).ok();
+    }
+
     /// 目标模式状态（migration v10）往返：持久化后重开库仍在，旧库旧行按 None 加载。
     #[test]
     fn goal_roundtrip_survives_reopen_and_legacy_rows() {
@@ -1048,20 +1128,22 @@ mod tests {
         let path =
             std::env::temp_dir().join(format!("owo-sqlite-migrate-{}.db", uuid::Uuid::new_v4()));
         let store = SqliteSessionStore::open(&path).unwrap();
-        assert_eq!(store.migration_status().schema_version, 10);
+        // 最新版本与迁移表保持同源：新增迁移不需要再改这里。
+        let latest = MIGRATIONS.last().expect("迁移表不能为空").version;
+        assert_eq!(store.migration_status().schema_version, latest);
         assert!(store.migration_status().pending.is_empty());
         assert!(!store.is_read_only());
         drop(store);
         // 再次打开：无新迁移应用，schema_version 保持。
         let reopened = SqliteSessionStore::open(&path).unwrap();
-        assert_eq!(reopened.migration_status().schema_version, 10);
+        assert_eq!(reopened.migration_status().schema_version, latest);
         assert!(reopened.migration_status().applied.is_empty());
         assert!(!reopened.is_read_only());
         let conn = Connection::open(&path).unwrap();
         let version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 10);
+        assert_eq!(version, latest);
         let _ = std::fs::remove_file(&path);
         let _ = std::fs::remove_file(format!("{}-wal", path.display()));
         let _ = std::fs::remove_file(format!("{}-shm", path.display()));
@@ -1091,21 +1173,12 @@ mod tests {
         drop(conn);
         let store = SqliteSessionStore::open(&path).unwrap();
         assert!(!store.is_read_only());
-        assert_eq!(
-            store.migration_status().applied,
-            vec![
-                "v1: sessions 列补齐（message_redo_json/title/archived/pinned）",
-                "v2: sessions 列补齐（model_override：M4.2 会话级模型路由）",
-                "v3: session turn events 持久化与单调 seq",
-                "v4: session execution receipts 持久化",
-                "v5: session behavior validation receipts 持久化",
-                "v6: session Single VerificationPlan 持久化",
-                "v7: session VerificationPlan 回合身份绑定",
-                "v8: session Single review issues 持久化",
-                "v9: session Single completion record 持久化",
-                "v10: session 目标模式状态持久化（/goal）",
-            ]
-        );
+        // 从迁移表推导期望值：历史硬编码会在新增迁移时假失败。
+        let expected: Vec<String> = MIGRATIONS
+            .iter()
+            .map(|migration| format!("v{}: {}", migration.version, migration.name))
+            .collect();
+        assert_eq!(store.migration_status().applied, expected);
         let mut session = store.create(Path::new("."), "mock", None).unwrap();
         session.rename("v1 迁移会话".to_string());
         store.save(&session).unwrap();

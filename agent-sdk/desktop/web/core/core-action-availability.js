@@ -74,6 +74,15 @@
       control.setAttribute("data-core-action", "true");
       update(available, control);
     },
+    // Feature state changes independently of connection readiness (e.g. a human task arrives).
+    // Never infer feature state from disabled while offline: that property already includes the core gate.
+    setDisabled: function (control, disabled, title) {
+      if (!control || typeof control.setAttribute !== "function") return;
+      control.setAttribute("data-core-action", "true");
+      originalDisabled.set(control, Boolean(disabled));
+      originalTitles.set(control, title == null ? null : String(title));
+      update(available, control);
+    },
     setBusy: function (control, busy) {
       if (!control || typeof control.setAttribute !== "function") return;
       control.setAttribute("data-core-action", "true");

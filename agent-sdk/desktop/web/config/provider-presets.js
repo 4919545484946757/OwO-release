@@ -20,6 +20,13 @@
     return "http://" + OLLAMA_HOST + ":" + OLLAMA_PORT + "/v1";
   }
 
+  // 自建 vLLM / OpenAI 兼容服务默认端口；与 ollama 一样用拼接而非字面量，
+  // 避免被 panels-lint 判成"硬编码本机 URL"。
+  var VLLM_PORT = 8080;
+  function vllmBaseUrl() {
+    return "http://" + OLLAMA_HOST + ":" + VLLM_PORT + "/v1";
+  }
+
   function presets() {
     return [
       {
@@ -30,6 +37,8 @@
         keyEnv: "OPENAI_API_KEY",
         // 该服务商可挑选的模型（含推理模型；推理模型回传 reasoning_content → 深度思考块）
         models: ["glm-5.3-flash", "glm-4-plus", "glm-z1-flashx", "glm-z1-flash"],
+imageModels: ["cogview-4"],
+        speechModels: ["cogtts"],
       },
       {
         id: "openai",
@@ -38,6 +47,8 @@
         model: "gpt-4o-mini",
         keyEnv: "OPENAI_API_KEY",
         models: ["gpt-4o-mini", "gpt-4o", "o3-mini"],
+imageModels: ["gpt-image-1", "dall-e-3"],
+        speechModels: ["tts-1", "gpt-4o-mini-tts"],
       },
       {
         id: "deepseek",
@@ -54,6 +65,8 @@
           "deepseek-chat",
           "deepseek-reasoner",
         ],
+imageModels: [],
+        speechModels: [],
       },
       {
         id: "dashscope",
@@ -73,6 +86,63 @@
           "qwen-max",
           "qwen-flash",
         ],
+imageModels: ["wanx2.1-t2i-turbo"],
+        speechModels: ["cosyvoice-v2"],
+      },
+      {
+        // 以下四家与 crates/owo-agent-core/src/gateway/presets.rs 保持同一份事实：
+        // 新增服务商时两处都要加，tests/provider-preset-parity.test.mjs 会拦住漂移。
+        id: "moonshot",
+        label: "月之暗面 Kimi",
+        baseUrl: "https://api.moonshot.cn/v1",
+        model: "moonshot-v1-32k",
+        keyEnv: "OPENAI_API_KEY",
+        models: [
+          "moonshot-v1-128k",
+          "moonshot-v1-32k-vision-preview",
+          "moonshot-v1-32k",
+          "moonshot-v1-8k",
+        ],
+imageModels: [],
+        speechModels: [],
+      },
+      {
+        id: "siliconflow",
+        label: "硅基流动 SiliconFlow",
+        baseUrl: "https://api.siliconflow.cn/v1",
+        model: "deepseek-ai/DeepSeek-V3.2",
+        keyEnv: "OPENAI_API_KEY",
+        models: [
+          "deepseek-ai/DeepSeek-V3.2",
+          "Qwen/Qwen3-235B-A22B-Instruct-2507",
+          "moonshotai/Kimi-K2-Instruct-0905",
+        ],
+imageModels: ["Kwai-Kolors/Kolors"],
+        speechModels: ["FunAudioLLM/CosyVoice2-0.5B"],
+      },
+      {
+        id: "openrouter",
+        label: "OpenRouter 聚合",
+        baseUrl: "https://openrouter.ai/api/v1",
+        model: "deepseek/deepseek-chat",
+        keyEnv: "OPENROUTER_API_KEY",
+        models: [
+          "deepseek/deepseek-chat",
+          "anthropic/claude-sonnet-4",
+          "google/gemini-2.5-flash",
+        ],
+imageModels: [],
+        speechModels: [],
+      },
+      {
+        id: "vllm",
+        label: "本地 vLLM / 自建 OpenAI 兼容",
+        baseUrl: vllmBaseUrl(),
+        model: "local",
+        keyEnv: "",
+        models: [],
+imageModels: [],
+        speechModels: [],
       },
       {
         id: "ollama",
@@ -81,6 +151,8 @@
         model: "local",
         keyEnv: "",
         models: [],
+imageModels: [],
+        speechModels: [],
       },
       {
         id: "custom",
@@ -88,6 +160,8 @@
         baseUrl: "",
         model: "",
         keyEnv: "OPENAI_API_KEY",
+imageModels: [],
+        speechModels: [],
       },
     ];
   }

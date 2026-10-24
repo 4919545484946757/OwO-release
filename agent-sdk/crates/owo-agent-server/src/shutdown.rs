@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// 默认全局并发回合上限（环境变量 OWO_SERVER_MAX_CONCURRENT_TURNS 可调）。
-pub const DEFAULT_MAX_CONCURRENT_TURNS: usize = 4;
+pub const DEFAULT_MAX_CONCURRENT_TURNS: usize = 32;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TurnBusy {

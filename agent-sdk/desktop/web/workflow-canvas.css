@@ -1,0 +1,422 @@
+/* 团队协作 · 一句话工作流画布。
+   Loaded after chatgpt.css; presentation only. */
+
+.owo-wf {
+  display: grid;
+  gap: 16px;
+}
+
+.owo-wf-brief {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  padding: clamp(16px, 2.4vw, 24px);
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 100% at 100% 0%, var(--accent-soft) 0%, transparent 58%),
+    var(--surface);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 4%);
+  overflow: hidden;
+}
+.owo-wf-brief::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: .55;
+  pointer-events: none;
+}
+.owo-wf-brief-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+.owo-wf-brief-head h3 {
+  margin: 3px 0 5px;
+  font-size: clamp(18px, 2.2vw, 24px);
+  line-height: 1.2;
+  letter-spacing: -.02em;
+}
+.owo-wf-brief-head .hint {
+  max-width: 70ch;
+  line-height: 1.55;
+}
+.owo-wf-eyebrow {
+  margin: 0;
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.owo-wf-flow-badge {
+  flex: none;
+  padding: 5px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.owo-wf-brief-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 10px;
+}
+.owo-wf-brief-input .owo-wf-desc {
+  width: 100%;
+  min-height: 62px;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--canvas);
+  color: var(--text);
+  font: inherit;
+  line-height: 1.5;
+}
+.owo-wf-brief-input .owo-wf-desc:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.owo-wf-brief-input .owo-wf-draft {
+  align-self: stretch;
+  min-width: 128px;
+  border-radius: 14px;
+  font-weight: 650;
+}
+.owo-wf-brief-input .owo-wf-draft:disabled {
+  cursor: wait;
+  opacity: .75;
+}
+.owo-wf-brief-extra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.owo-wf-brief-extra .owo-wf-constraints {
+  flex: 1 1 320px;
+  min-width: 220px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+.owo-wf-rounds-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.owo-wf-rounds-wrap input {
+  width: 52px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.owo-wf-catalog {
+  display: grid;
+  gap: 7px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+}
+.owo-wf-catalog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 650;
+}
+.owo-wf-catalog-head button,
+.owo-wf-canvas-toolbar button {
+  padding: 3px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.owo-wf-catalog-head button:hover,
+.owo-wf-canvas-toolbar button:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.owo-wf-catalog-list {
+  min-height: 24px;
+}
+.owo-wf-tool-groups {
+  display: grid;
+  gap: 7px;
+}
+.owo-wf-tool-label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-3);
+  font-size: 10px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.owo-wf-tool-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.owo-wf-tool {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 10.5px;
+  word-break: break-all;
+}
+
+.owo-wf-graph-box-hero {
+  position: relative;
+  min-height: 210px;
+  max-height: 520px;
+  overflow: auto;
+  border: 1px dashed var(--border-strong);
+  border-radius: 16px;
+  background:
+    linear-gradient(var(--border) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, var(--border) 1px, transparent 1px) 0 0 / 24px 24px,
+    var(--canvas);
+  background-blend-mode: soft-light, soft-light, normal;
+}
+.owo-wf-graph-box-hero:empty::before {
+  content: "生成后，角色节点会出现在这里。拖动节点即可调整布局。";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+.owo-wf-canvas-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--canvas) 90%, transparent);
+  color: var(--text-3);
+  font-size: 10.5px;
+  backdrop-filter: blur(6px);
+}
+.owo-wf-graph {
+  display: block;
+  min-width: 100%;
+  overflow: visible;
+}
+.owo-wf-node {
+  cursor: grab;
+  outline: none;
+}
+.owo-wf-node:focus-visible .owo-wf-node-box,
+.owo-wf-node:hover .owo-wf-node-box {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+}
+.owo-wf-node.is-dragging {
+  cursor: grabbing;
+}
+.owo-wf-node.is-dragging .owo-wf-node-box {
+  stroke: var(--accent);
+  stroke-width: 2;
+  filter: drop-shadow(0 6px 12px rgb(0 0 0 / 16%));
+}
+.owo-wf-node-box {
+  fill: var(--surface);
+  stroke: var(--border-strong);
+  stroke-width: 1.1;
+  transition: stroke .15s ease, filter .15s ease;
+}
+.owo-wf-node-dot {
+  fill: var(--accent);
+}
+.owo-wf-node-title {
+  fill: var(--text);
+  font-weight: 650;
+}
+.owo-wf-node-meta {
+  fill: var(--text-2);
+}
+.owo-wf-graph-info:not(:empty) {
+  display: grid;
+  gap: 8px;
+}
+
+.owo-wf-draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.owo-wf-draft-actions button {
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.owo-wf-draft-actions button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+.owo-wf-draft-out {
+  max-height: 160px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+/* 工具条/列表/JSON 区：沿用旧面板结构，补齐产品化间距与可读性。 */
+.owo-wf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.owo-wf-toolbar input[type="text"] {
+  flex: 1 1 260px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+.owo-wf-toolbar button,
+.owo-wf-actions button {
+  padding: 6px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.owo-wf-toolbar button:hover,
+.owo-wf-actions button:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.owo-wf-list,
+.owo-wf-stats-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.owo-wf-item,
+.owo-wf-stats-list > li {
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+  font-size: 12px;
+}
+.owo-wf-item button {
+  margin: 2px 2px 0 0;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.owo-wf-item button:hover,
+.owo-wf-actions button:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.owo-wf-section {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.owo-wf-section > summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 650;
+}
+.owo-wf-editor,
+.owo-wf-package {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.owo-wf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 8px;
+}
+.owo-wf-preview {
+  max-height: 190px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+.owo-wf-error {
+  padding: 8px 10px;
+  border: 1px solid #d9534f66;
+  border-radius: 9px;
+  background: #d9534f12;
+}
+.chat-starter-accent {
+  border-color: var(--accent) !important;
+  color: var(--accent-text) !important;
+  background: var(--accent-soft) !important;
+}
+
+@media (max-width: 720px) {
+  .owo-wf-brief-head {
+    flex-direction: column;
+  }
+  .owo-wf-brief-input {
+    grid-template-columns: 1fr;
+  }
+  .owo-wf-brief-input .owo-wf-draft {
+    min-height: 40px;
+  }
+}

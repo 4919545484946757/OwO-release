@@ -77,6 +77,7 @@ impl TeamCoordinator {
             let integration_required = parallel_tasks_require_integration(&state.plan.steps);
 
             let ready = Self::ready_steps(&state);
+            let ready = super::phase_subplan::filter_pre_fanout_ready_steps(&meta, &state, &ready);
             let is_human_step = |s: &StepSpec, meta: &RunMeta| -> bool {
                 Self::role_spec_of_member(meta, &s.worker)
                     .map(|r| r.assignee == "human")

@@ -367,3 +367,96 @@ test("note title rename has a visible button and ignores a response after switch
   assert.deepEqual(JSON.parse(JSON.stringify(updates)), [["/notes/existing-note", { title: "改名后" }]]);
   assert.equal(h.detail.querySelector(".owo-notes-detail-title").textContent, "改名后");
 });
+
+test("semantic reading preserves headings, list structure, tables and multiline code", () => {
+  const h=makeNotesPanel();
+  const html=h.panel.renderDocument({root:"root",blocks:{
+    root:{kind:{Paragraph:{text:""}},children:["heading","list","code","table"]},
+    heading:{kind:{Heading:{level:2,text:"验证范围"}},children:[]},
+    list:{kind:{List:{ordered:true}},children:["item"]},
+    item:{kind:{ListItem:{text:"第一步"}},children:[]},
+    code:{kind:{Code:{language:"js",text:"first\\nsecond"}},children:[]},
+    table:{kind:{Table:{rows:[["A","B"],["1","2"]]}},children:[]}
+  }});
+  assert.match(html,/<h2>验证范围<\/h2>/);
+  assert.match(html,/<ol><li>第一步<\/li><\/ol>/);
+  assert.match(html,/<pre><code>first\\nsecond<\/code><\/pre>/);
+  assert.match(html,/<td>A<\/td><td>B<\/td>/);
+  assert.doesNotMatch(html,/owo-notes-block-id/);
+});
+
+test("untrusted embedded markup is escaped and cyclic document trees terminate", () => {
+  const h=makeNotesPanel();
+  h.panel.esc=value=>String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const doc={root:"root",blocks:{
+    root:{kind:{Paragraph:{text:""}},children:["embed","loop"]},
+    embed:{kind:{HtmlEmbed:{html:"<img src=x onerror=bad()>"}},children:[]},
+    loop:{kind:{Paragraph:{text:"safe"}},children:["loop"]}
+  }};
+  const html=h.panel.renderDocument(doc);
+  assert.doesNotMatch(html,/<img/);
+  assert.match(html,/&lt;img/);
+  assert.match(html,/引用循环/);
+  assert.match(h.panel.blockList(doc.blocks,["root"]),/引用循环/);
+});
+
+test("malformed successful list responses remain a read error rather than verified empty", async () => {
+  const h=makeNotesPanel(async()=>({unexpected:[]}));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.match(h.section.selectors[".owo-notes-list"].innerHTML,/列表加载失败/);
+  assert.doesNotMatch(h.section.selectors[".owo-notes-list"].innerHTML,/暂无笔记/);
+});
+
+test("search groups multiple matching blocks under their real document title", async () => {
+  const h=makeNotesPanel(async path=>path==="/notes"?
+    {notes:[{id:"n",title:"真实标题"}]}:{hits:[{doc_id:"n",snippet:"第一处"},{doc_id:"n",snippet:"第二处"}]});
+  await new Promise(resolve=>setImmediate(resolve));
+  const search=h.section.selectors[".owo-notes-search"];
+  search.value="matching";
+  search.handlers.keydown({key:"Enter"});
+  await new Promise(resolve=>setImmediate(resolve));
+  const html=h.section.selectors[".owo-notes-list"].innerHTML;
+  assert.equal((html.match(/data-notes-open/g)||[]).length,1);
+  assert.match(html,/真实标题/); assert.match(html,/第一处/); assert.match(html,/第二处/);
+});
+
+test("same-host remount restores a local note draft and host change clears it without a write", () => {
+  const h=makeNotesPanel();
+  h.section.selectors[".owo-notes-btn-new"].handlers.click();
+  h.section.selectors[".owo-notes-title"].value="草稿";
+  h.section.selectors[".owo-notes-md"].value="first\\nsecond";
+  const helpers=h.panel.helpers;
+  h.panel.dispose();
+  h.editor.hidden=true;h.section.selectors[".owo-notes-title"].value="";
+  h.panel.mount(h.section,helpers);
+  assert.equal(h.editor.hidden,false);
+  assert.equal(h.section.selectors[".owo-notes-title"].value,"草稿");
+  assert.equal(h.section.selectors[".owo-notes-md"].value,"first\\nsecond");
+  h.panel.dispose();h.editor.hidden=true;
+  h.panel.mount(h.section,{...helpers,baseUrl:"http://other-core"});
+  assert.equal(h.panel.draft,null);
+  assert.equal(h.editor.hidden,true);
+  assert.equal(h.posts.length,0);
+});
+
+test("typing after a create starts preserves the newer draft when the response returns", async () => {
+  const h=makeNotesPanel();
+  h.section.selectors[".owo-notes-btn-new"].handlers.click();
+  h.section.selectors[".owo-notes-title"].value="原始";
+  h.section.selectors[".owo-notes-md"].value="submitted";
+  let resolveCreate;
+  h.panel.post=()=>new Promise(resolve=>{resolveCreate=resolve;});
+  const pending=h.section.selectors[".owo-notes-btn-save"].handlers.click();
+  h.section.selectors[".owo-notes-md"].value="new unsaved text";
+  resolveCreate({id:"created"});
+  await pending;
+  assert.equal(h.editor.hidden,false);
+  assert.equal(h.section.selectors[".owo-notes-md"].value,"new unsaved text");
+});
+
+test("local timestamps never render an invalid or missing date as a recent update", () => {
+  const h=makeNotesPanel();
+  assert.equal(h.panel.localTime(null),"时间未知");
+  assert.equal(h.panel.localTime("not-a-date"),"时间未知");
+  assert.doesNotMatch(h.panel.localTime("2026-10-24T03:00:00+08:00"),/时间未知|Invalid/);
+});

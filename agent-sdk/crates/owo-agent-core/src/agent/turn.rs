@@ -55,12 +55,32 @@ impl Agent {
         session.message_redo_stack.clear();
         // 指令文件按目录层级发现（根 → 进程 cwd，Codex 同级语义）：越靠近工作目录的
         // AGENTS.md/CLAUDE.md 越具体；cwd 不在工作区内时退化为仅根目录。
+        // 纯对话模式不注入这些规则：它们面向"在这个仓库里改代码"，会挤占上下文并诱导 Agent 语义。
+        // 会话模式是持久化事实；options 只做请求侧确认。任一侧为 Chat 都按纯对话执行，
+        // 避免调用方漏传 options.mode 时把本地工具/hook 带进纯对话。
+        let chat_mode = options.mode.is_chat() || session.mode.is_chat();
         let rules = match std::env::current_dir() {
-            Ok(cwd) => load_project_rules_hierarchical(&session.workspace, &cwd),
-            Err(_) => load_project_rules(&session.workspace),
+            Ok(cwd) => load_project_rules_for_mode(chat_mode, &session.workspace, &cwd),
+            Err(_) => {
+                if chat_mode {
+                    String::new()
+                } else {
+                    load_project_rules(&session.workspace)
+                }
+            }
         };
-        let mut system = build_system_prompt(session.system_prompt.as_deref(), &rules);
-        if !self.skills.list_enabled().is_empty() {
+        let mut system = if chat_mode {
+            // 纯对话模式换一套面向问答的提示：不要求验证计划、不鼓励"执行到底"，
+            // 只要求结论先行、给出处、别编造。时间锚点避免把训练截止日当成今天。
+            let mut prompt = build_chat_system_prompt(session.system_prompt.as_deref(), &rules);
+            prompt.push_str("\n\n");
+            prompt.push_str(&chat_time_context(chrono::Local::now()));
+            prompt
+        } else {
+            build_system_prompt(session.system_prompt.as_deref(), &rules)
+        };
+        // 技能会间接调用本地文件/命令，纯对话模式不注入技能目录。
+        if !chat_mode && !self.skills.list_enabled().is_empty() {
             let mut catalog = vec!["可用技能（通过 use_skill 工具按名调用）：".to_string()];
             for skill in self.skills.list_enabled() {
                 catalog.push(format!("- {}：{}", skill.name, skill.description));
@@ -82,7 +102,13 @@ impl Agent {
         sanitize_history(&mut messages);
         // A2-1 UserPromptSubmit hook：exit 2 = 拒绝本回合（敏感词门卫/强制工单号等
         // 确定性控制），stderr 回喂模型与用户。
-        let hooks = self.hooks_snapshot();
+        // 纯对话模式不执行工作区 hooks：hook 命令本身就是本机进程，会读写文件/跑命令，
+        // 与「不碰本机」的承诺冲突；与不注入 AGENTS.md/技能保持同一口径。
+        let hooks = if chat_mode {
+            crate::hooks::HookManager::default()
+        } else {
+            self.hooks_snapshot()
+        };
         if !hooks.is_empty() {
             let outcome = hooks
                 .run(
@@ -107,6 +133,11 @@ impl Agent {
         let tools = self
             .visible_tool_specs()
             .into_iter()
+            // 纯对话模式：只留联网检索与提问；本地文件/命令/桌面工具既不下发也不可执行
+            // （下面的 schema 校验会用本轮 tools 列表拒绝模型臆造的工具名）。
+            .filter(|spec| {
+                !chat_mode || crate::agent::CHAT_MODE_TOOLS.contains(&spec.name.as_str())
+            })
             .filter(|spec| {
                 !turn_policy.is_read_only()
                     || spec.effect.as_ref().is_some_and(|effect| {
@@ -156,7 +187,12 @@ impl Agent {
                 return Err(AgentError::Aborted);
             }
             // A2-1 PreCompact hook：通知性质（不阻断——压缩是保护性动作）。
-            let hooks = self.hooks_snapshot();
+            // 纯对话下 hooks 为空，不启动工作区进程。
+            let hooks = if chat_mode {
+                crate::hooks::HookManager::default()
+            } else {
+                self.hooks_snapshot()
+            };
             if !hooks.is_empty() {
                 let _ = hooks
                     .run(
@@ -592,10 +628,18 @@ impl Agent {
                         // hooks, approval, or execution; feed failures back for model repair.
                         let Some(schema_check) = tools.iter().find(|spec| spec.name == call.name)
                         else {
-                            let error = format!(
-                                "工具 {} 不在本轮工具列表中（可能已禁用或名称错误）；本次未执行。",
-                                call.name
-                            );
+                            let error = if chat_mode {
+                                format!(
+                                    "纯对话模式不开放工具 {}；本模式只能联网检索和向用户提问，\
+                                     需要读写本地文件或执行命令时请切换到 Agent 模式。本次未执行。",
+                                    call.name
+                                )
+                            } else {
+                                format!(
+                                    "工具 {} 不在本轮工具列表中（可能已禁用或名称错误）；本次未执行。",
+                                    call.name
+                                )
+                            };
                             prepared.push(PreparedCall {
                                 approval: None,
                                 reason: error.clone(),
@@ -625,7 +669,12 @@ impl Agent {
                         }
                         // A2-1 PreToolUse hook：exit 2 = 阻断该次调用，stderr 原样作为
                         // 拒绝原因回喂模型（模型可据此换策略），不终止回合。
-                        let hooks = self.hooks_snapshot();
+                        // 纯对话下 hooks 为空，pre-tool 也不得启动工作区命令。
+                        let hooks = if chat_mode {
+                            crate::hooks::HookManager::default()
+                        } else {
+                            self.hooks_snapshot()
+                        };
                         if !hooks.is_empty() {
                             let outcome = hooks
                                 .run(
@@ -1348,7 +1397,12 @@ impl Agent {
         let persist_started = std::time::Instant::now();
         commit_turn_messages(session, &messages);
         // A2-1 Stop hook：回合结束通知（finally 类动作如测试/通知）。
-        let hooks = self.hooks_snapshot();
+        // 纯对话下 hooks 为空：Stop hook 常用于跑测试/发通知，不能借纯对话触发本机命令。
+        let hooks = if chat_mode {
+            crate::hooks::HookManager::default()
+        } else {
+            self.hooks_snapshot()
+        };
         if !hooks.is_empty() {
             let _ = hooks
                 .run(

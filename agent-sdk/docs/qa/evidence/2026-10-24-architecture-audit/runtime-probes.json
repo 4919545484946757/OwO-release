@@ -1,0 +1,33 @@
+[
+  {
+    "route": "/perception/ocr/status",
+    "status": 200,
+    "body": "{\"engine_created\":true,\"max_image_dimension\":10000,\"onnx_models_present\":false}"
+  },
+  {
+    "route": "/workflow",
+    "status": 200,
+    "body": "{\"flows\":[{\"name\":\"ui-qa-check\",\"path\":\"ui-qa-check.owflow\"}]}"
+  },
+  {
+    "probe": "invalid-cycle",
+    "status": 200,
+    "body": "{\"errors\":[\"角色依赖存在环：a → b → a\"],\"ok\":false}"
+  },
+  {
+    "probe": "unconnected-mcp",
+    "status": 200,
+    "body": "{\"errors\":[],\"ok\":true}"
+  },
+  {
+    "probe": "builtin-media",
+    "status": 200,
+    "body": "{\"errors\":[],\"ok\":true}"
+  },
+  {
+    "probe": "local-stt-one-second-silence",
+    "status": 400,
+    "body": "本地 STT 模型未就绪：C:\\Users\\23843\\AppData\\Local\\Temp\\owo-codex-frontend-20261023\\data\\models\\stt\\SenseVoice-Small（运行 scripts/download-stt-model.ps1）",
+    "note": "Synthetic silence, not microphone capture or cloud call"
+  }
+]

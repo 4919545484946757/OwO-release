@@ -69,6 +69,7 @@ mod plugin_api;
 mod plugin_market_api;
 pub mod product_eval_api;
 mod project_api;
+mod prompt_api;
 mod rate_limit;
 mod routes;
 pub use routes::build_router;
@@ -95,6 +96,7 @@ mod usage;
 mod user_workflows_api;
 mod whitelist_api;
 mod workflow_api;
+mod workflow_author_tool;
 mod workflow_draft_api;
 mod workflow_stats_api;
 mod workflows_share_api;
@@ -334,8 +336,15 @@ impl AppState {
         let shutdown_gate = Arc::new(shutdown::ShutdownGate::from_env());
         // V1 三日（第四路）：ProductEval suite 注册根目录（v1 → workspace/evals/v1/suite.json）。
         let product_eval_suite_root = workspace.join("evals");
+        let agent = Arc::new(agent);
+        // 团队协作（对话主导）：让 Agent 在 Work 模式把一句话落成可编辑的团队工作流。
+        // 与 `/workflows/draft` 共用同一份校验/评审/注册表；写入 data_root，不碰用户文件。
+        agent.register_tool(Arc::new(workflow_author_tool::WorkflowAuthorTool::new(
+            data_root.join("workswarm"),
+            workspace.clone(),
+        )));
         Self {
-            agent: Arc::new(agent),
+            agent,
             store: Arc::new(store),
             sessions: Arc::new(Mutex::new(HashMap::new())),
             pending_approvals: Arc::new(Mutex::new(HashMap::new())),

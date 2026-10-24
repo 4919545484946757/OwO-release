@@ -254,6 +254,65 @@ mod parallel_assignment_validation_tests {
     }
 
     #[test]
+    fn implicit_worker_assignment_matches_disjoint_declared_write_paths() {
+        let mut orchestrator = RoleSpec::agent("workflow-director");
+        orchestrator.capabilities = vec!["orchestrator".into()];
+        let mut docs_a = RoleSpec::agent("文档分支");
+        docs_a.capabilities = vec!["task_worker".into()];
+        docs_a.tools = vec!["write_file".into()];
+        docs_a.write_paths = vec!["docs/a".into()];
+        let mut docs_b = RoleSpec::agent("游戏分支");
+        docs_b.capabilities = vec!["task_worker".into()];
+        docs_b.tools = vec!["write_file".into()];
+        docs_b.write_paths = vec!["docs/b".into()];
+        let roles = vec![orchestrator, docs_a, docs_b];
+
+        let graph = validate_parallel_subtasks(
+            &roles,
+            &[serde_json::json!({
+                "task_id":"write-game-notes",
+                "task":"写游戏分支说明",
+                "acceptance":"docs/b 已写入",
+                "write_paths":["docs/b"],
+                "required_capabilities":["write_file"]
+            })],
+            false,
+        )
+        .expect("implicit assignment must skip a same-tool worker with the wrong path scope");
+        assert_eq!(graph.tasks[0].worker, "游戏分支");
+    }
+
+    #[test]
+    fn builtin_media_task_requires_its_outputs_write_scope() {
+        let mut director = RoleSpec::agent("视觉总控");
+        director.capabilities = vec!["orchestrator".into()];
+        let mut artist = RoleSpec::agent("图像生成");
+        artist.capabilities = vec!["task_worker".into()];
+        artist.tools = vec!["generate_image".into()];
+        artist.write_paths = vec!["outputs".into()];
+        let roles = vec![director, artist];
+        let base = serde_json::json!({
+            "task_id":"cover",
+            "worker":"图像生成",
+            "task":"生成封面图",
+            "acceptance":"封面图已生成",
+            "required_capabilities":["generate_image"]
+        });
+
+        let mut missing_scope = base.clone();
+        missing_scope["write_paths"] = serde_json::json!([]);
+        assert!(validate_parallel_subtasks(&roles, &[missing_scope], false)
+            .unwrap_err()
+            .contains("writes workspace/outputs"));
+
+        let mut scoped = base;
+        scoped["write_paths"] = serde_json::json!(["outputs"]);
+        let graph = validate_parallel_subtasks(&roles, &[scoped], false)
+            .expect("media task may write only after declaring outputs");
+        assert_eq!(graph.tasks[0].effective_paths, vec!["outputs"]);
+    }
+
+    #[test]
     fn integration_waits_for_every_task_even_when_one_worker_has_multiple_tasks() {
         let contract_prep = StepSpec::new("s-contract-prep", "m-contract-prep");
         let coordinator = StepSpec::new("s-coordinator", "m-coordinator");

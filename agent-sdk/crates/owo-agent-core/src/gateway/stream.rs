@@ -184,6 +184,9 @@ pub(super) struct StreamState {
     pub(super) finish_reason: Option<String>,
     pub(super) saw_done: bool,
     pub(super) semantic_progress: bool,
+    /// 只统计正文/工具调用/usage/finish_reason：思维链不算"真实产出"，
+    /// 用于 reasoning 预算（模型长时间只思考不产出时必须能中止）。
+    pub(super) content_progress: bool,
 }
 
 impl StreamState {
@@ -227,6 +230,19 @@ pub(super) fn consume_stream_buffer(
             continue;
         }
         if let Some(delta) = parse_sse_payload(payload) {
+            state.content_progress |= delta.content.is_some()
+                || delta.tool_call_fragments.iter().any(|fragment| {
+                    ["/id", "/function/name", "/function/arguments"]
+                        .iter()
+                        .any(|path| {
+                            fragment
+                                .pointer(path)
+                                .and_then(Value::as_str)
+                                .is_some_and(|text| !text.is_empty())
+                        })
+                })
+                || delta.usage.is_some()
+                || delta.finish_reason.is_some();
             state.semantic_progress |= delta.content.is_some()
                 || delta.reasoning.is_some()
                 || delta.tool_call_fragments.iter().any(|fragment| {

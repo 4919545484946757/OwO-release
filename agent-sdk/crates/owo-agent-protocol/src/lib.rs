@@ -739,6 +739,9 @@ pub struct CreateSessionRequest {
     pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system_prompt: Option<String>,
+    /// 会话工作模式：`agent`（默认）或 `chat`（纯对话，只给联网检索）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -762,6 +765,13 @@ pub struct SessionInfo {
     /// 会话级目标模式状态（`/goal`）；`None` = 未设定。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub goal: Option<SessionGoalV1>,
+    /// 当前工作模式：`agent` | `chat`。
+    #[serde(default = "default_session_mode")]
+    pub mode: String,
+}
+
+pub fn default_session_mode() -> String {
+    "agent".to_string()
 }
 
 /// 会话级目标模式状态（与 core `SessionGoal` 同构；线格式契约）。

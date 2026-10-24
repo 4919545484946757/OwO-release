@@ -161,7 +161,35 @@ mod env_limit_tests {
         assert_eq!(parse_env_usize("-1"), None);
         assert_eq!(parse_env_usize("unlimited"), None);
     }
+
+    /// 纯对话模式的工具白名单必须只有联网检索与提问：
+    /// 一旦有人往里加本地文件/命令/桌面工具，这里会立刻失败。
+    #[test]
+    fn chat_mode_allowlist_excludes_local_capabilities() {
+        use super::CHAT_MODE_TOOLS;
+        assert!(CHAT_MODE_TOOLS.contains(&"web_search"));
+        assert!(CHAT_MODE_TOOLS.contains(&"web_fetch"));
+        for forbidden in [
+            "write_file",
+            "read_file",
+            "list_dir",
+            "run_command",
+            "apply_patch",
+            "generate_image",
+            "computer_use",
+        ] {
+            assert!(
+                !CHAT_MODE_TOOLS.contains(&forbidden),
+                "纯对话模式不应开放 {forbidden}"
+            );
+        }
+    }
 }
+
+/// 纯对话模式允许的工具（按名字精确匹配）：
+/// 只有联网检索和"向用户提问"，本地文件读写、命令执行、桌面控制一律不开放。
+/// 这是执行层的硬边界，模型就算臆造出工具名也会被拒绝，而不只是 schema 不可见。
+pub const CHAT_MODE_TOOLS: &[&str] = &["web_search", "web_fetch", "ask_user"];
 
 #[derive(Debug, Clone, Default)]
 pub struct TurnExecutionOptions {
@@ -169,4 +197,6 @@ pub struct TurnExecutionOptions {
     pub read_only: bool,
     /// Host-validated identity shared by SSE, cancellation, traces and receipts.
     pub turn_id: Option<String>,
+    /// 会话工作模式；`Chat` 只暴露 [`CHAT_MODE_TOOLS`]，其余调用在执行层被拒绝。
+    pub mode: crate::session::SessionMode,
 }

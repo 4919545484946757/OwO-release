@@ -1908,3 +1908,36 @@ async fn observed_methods_do_not_fallback_after_permanent_failure() {
         assert_eq!(*fallback.calls.lock().unwrap(), 0);
     }
 }
+
+#[test]
+fn unknown_tool_error_lists_available_tools() {
+    let tools = vec![
+        ToolSpec {
+            name: "web_search".into(),
+            description: "search".into(),
+            input_schema: json!({"type":"object"}),
+            effect: None,
+        },
+        ToolSpec {
+            name: "ask_user".into(),
+            description: "ask".into(),
+            input_schema: json!({"type":"object"}),
+            effect: None,
+        },
+    ];
+    let error = validate_tool_calls(
+        vec![ToolCall {
+            id: "call_x".into(),
+            name: "write_file".into(),
+            arguments: json!({}),
+        }],
+        &tools,
+    )
+    .unwrap_err();
+    assert!(error.contains("write_file"));
+    assert!(
+        error.contains("本轮只提供：web_search、ask_user"),
+        "{error}"
+    );
+    assert!(error.contains("未执行任何操作"));
+}

@@ -1553,6 +1553,123 @@ async fn user_prompt_submit_hook_blocks_turn() {
     assert!(session.messages.is_empty(), "被 hook 拒绝的回合不落历史");
 }
 
+/// 纯对话模式不得执行工作区 hooks：hook 命令会读写本机、起进程，
+/// 与「不碰本机文件 / 不执行命令」冲突（UserPromptSubmit 与 Stop 都要覆盖）。
+#[tokio::test]
+async fn chat_mode_skips_workspace_hooks() {
+    let marker = std::env::temp_dir().join(format!(
+        "owo-chat-hook-{}-{}.marker",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("系统时间应晚于 UNIX_EPOCH")
+            .as_nanos()
+    ));
+    let _ = std::fs::remove_file(&marker);
+    let marker_command = if cfg!(windows) {
+        format!("echo ran> \"{}\"", marker.display())
+    } else {
+        format!("printf ran > '{}'", marker.display())
+    };
+    let outputs = Mutex::new(VecDeque::from(vec![ModelOutput::Text(
+        "纯对话回答".to_string(),
+    )]));
+    let agent = Agent::new(
+        Arc::new(ScriptedTestProvider { outputs }),
+        ToolRegistry::new(),
+        Policy::new("."),
+        AgentConfig::default(),
+    );
+    agent.set_hooks(crate::hooks::HookManager::from_configs(&[
+        blocking_hook("user_prompt_submit", None, "不应执行"),
+        crate::hooks::HookConfig {
+            event: "stop".to_string(),
+            matcher: None,
+            command: marker_command,
+            fail_mode: None,
+        },
+    ]));
+    let mut session = Session::new(std::env::temp_dir(), "test-model", None);
+    session.set_mode(crate::session::SessionMode::Chat);
+    let outcome = agent
+        .run_turn_with_images_options(
+            &mut session,
+            "你好",
+            &[],
+            &crate::permissions::AutoApprover { allow: true },
+            None,
+            &AtomicBool::new(false),
+            &mut |_| {},
+            // 故意不传 options.mode：会话已落库为 Chat 时仍必须按纯对话执行，
+            // 防止调用方漏传请求侧模式就恢复本地 hook/工具。
+            &TurnExecutionOptions::default(),
+        )
+        .await
+        .expect("纯对话不应被工作区 hook 阻断");
+    assert_eq!(outcome.final_text.as_deref(), Some("纯对话回答"));
+    assert!(!marker.exists(), "纯对话不得执行 Stop hook");
+    let _ = std::fs::remove_file(&marker);
+}
+
+/// 会话已落库为 Chat 时，即使调用方漏传 options.mode，也必须按纯对话过滤工具。
+#[tokio::test]
+async fn chat_session_mode_rejects_local_tools_without_request_mode() {
+    let state = ProbeState::new();
+    let mut registry = ToolRegistry::new();
+    registry.register(ProbeTool {
+        label: "probe_a",
+        delay_ms: 0,
+        class: EffectClass::Read,
+        host_verified: true,
+        state: Arc::clone(&state),
+    });
+    let outputs = Mutex::new(VecDeque::from(vec![
+        ModelOutput::ToolCalls(vec![crate::gateway::ToolCall {
+            id: "chat-call-a".to_string(),
+            name: "probe_a".to_string(),
+            arguments: serde_json::json!({}),
+        }]),
+        ModelOutput::Text("已改用纯对话回答".to_string()),
+    ]));
+    let agent = Agent::new(
+        Arc::new(ScriptedTestProvider { outputs }),
+        registry,
+        Policy::new("."),
+        AgentConfig::default(),
+    );
+    let mut session = Session::new(std::env::temp_dir(), "test-model", None);
+    session.set_mode(crate::session::SessionMode::Chat);
+    let outcome = agent
+        .run_turn_with_images_options(
+            &mut session,
+            "跑探针",
+            &[],
+            &crate::permissions::AutoApprover { allow: true },
+            None,
+            &AtomicBool::new(false),
+            &mut |_| {},
+            &TurnExecutionOptions::default(),
+        )
+        .await
+        .expect("工具被拒绝不应终止回合");
+    assert_eq!(outcome.final_text.as_deref(), Some("已改用纯对话回答"));
+    assert!(
+        state.completed.lock().unwrap().is_empty(),
+        "纯对话模式不得执行本地工具"
+    );
+    let blocked = outcome
+        .events
+        .iter()
+        .find_map(|event| match event {
+            TurnEvent::ToolResult {
+                error: Some(error), ..
+            } if error.contains("纯对话模式不开放工具") => Some(error.clone()),
+            _ => None,
+        })
+        .expect("应留下纯对话拒绝工具的结果");
+    assert!(blocked.contains("probe_a"), "{blocked}");
+}
+
 /// A2-1 hooks：PreToolUse exit 2 = 阻断该次调用但回合继续（stderr 回喂模型）。
 #[tokio::test]
 async fn pre_tool_use_hook_blocks_call_but_keeps_turn() {

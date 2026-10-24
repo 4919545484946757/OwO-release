@@ -391,7 +391,7 @@ mod tests {
         assert!(render_run_evidence(&empty).is_empty());
         let prompt = draft_user_prompt_with_evidence("新建一条", None, None, Some(&empty));
         assert!(!prompt.contains("## 运行证据"), "{prompt}");
-        assert!(prompt.contains("现有草稿") == false, "{prompt}");
+        assert!(!prompt.contains("现有草稿"), "{prompt}");
 
         // 无终态：给出"暂无终态"而不是 0%。
         let cancelled_only = WorkflowRunEvidence {

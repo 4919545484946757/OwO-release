@@ -49,7 +49,11 @@ impl Agent {
         names
             .iter()
             .filter(|name| {
-                name.starts_with("mcp__") || matches!(name.as_str(), "web_fetch" | "web_search")
+                name.starts_with("mcp__")
+                    || matches!(
+                        name.as_str(),
+                        "web_fetch" | "web_search" | "generate_image" | "text_to_speech"
+                    )
             })
             .map(|name| {
                 let spec = specs

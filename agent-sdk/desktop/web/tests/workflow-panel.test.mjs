@@ -339,7 +339,7 @@ test("renderGraphSvg：节点/边/分层坐标与环提示", () => {
   assert.match(svg, /aria-label="工作流依赖图"/);
   assert.match(svg, />a</);
   assert.match(svg, />b</);
-  assert.match(svg, /<path d="M /, "应有依赖边");
+  assert.match(svg, /<path[^>]*d="M /, "应有依赖边");
   assert.equal((svg.match(/<rect /g) || []).length, 2, "两个角色两个节点");
 
   const cyclic = panel.renderGraphSvg({
@@ -352,6 +352,28 @@ test("renderGraphSvg：节点/边/分层坐标与环提示", () => {
   assert.doesNotMatch(cyclic, /<svg/);
 
   assert.equal(panel.renderGraphSvg({ roles: [] }), "");
+
+  assert.match(svg, /class="owo-wf-node"/, "节点应可拖拽");
+  assert.match(svg, /data-node-id="a"/);
+  assert.match(svg, /class="owo-wf-graph-reset"/, "应提供重排入口");
+  assert.match(svg, /transform="translate\(18 18\)"/, "节点位置写入 transform");
+});
+
+test("renderToolCatalog：工具与 MCP 分组，明确未连接状态", () => {
+  const panel = loadPanel().OwoPanels["custom-workflows"];
+  const html = panel.renderToolCatalog([
+    "read_file",
+    "run_command",
+    "mcp__media__video_generate",
+    "mcp__studio__render",
+  ]);
+  assert.match(html, /内置工具 2/);
+  assert.match(html, /MCP 工具 2/);
+  assert.match(html, /mcp__media__video_generate/);
+  assert.match(html, /mcp__studio__render/);
+  const empty = panel.renderToolCatalog([]);
+  assert.match(empty, /内置工具 0/);
+  assert.match(empty, /未连接 MCP/);
 });
 
 test("describeLocalDiff 与评审输出可拼接（导入前看到本地差异）", () => {
@@ -380,4 +402,17 @@ test("面板源码遵守前端约定（无 console.log / 无硬编码 http URL�
   assert.doesNotMatch(source, /console\.log/);
   assert.doesNotMatch(source, /https?:\/\//);
   assert.match(source, /window\.OwoPanels\.workflows/);
+});
+
+test("画布拖拽/布局持久化/对话直达入口已接线", () => {
+  const source = read("panels/workflows.panel.js");
+  assert.match(source, /onpointerdown/);
+  assert.match(source, /onpointermove/);
+  assert.match(source, /clampNodePosition/);
+  assert.match(source, /saveSavedLayout\(template/);
+  assert.match(source, /owo\.wf\.canvas\.v1:/);
+  assert.match(source, /function focusBrief\(text\)/);
+  assert.match(source, /focusBrief: focusBrief/);
+  assert.match(read("index.html"), /workflow-canvas\.css/);
+  assert.match(read("index.html"), /data-workflow-brief=/);
 });

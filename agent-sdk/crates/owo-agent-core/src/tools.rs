@@ -37,6 +37,10 @@ mod mcp_adapters;
 use command_tools::{KillShellTool, RunCommandTool, ShellOutputTool};
 use mcp_adapters::{McpPromptAdapter, McpResourceAdapter, McpToolAdapter};
 
+#[path = "tools/media.rs"]
+mod media_tools;
+use media_tools::{GenerateImageTool, TextToSpeechTool};
+
 #[path = "tools/web.rs"]
 mod web;
 #[cfg(test)]
@@ -154,6 +158,8 @@ impl ToolRegistry {
         registry.register_builtin(WebFetchTool);
         registry.register_builtin(WebSearchTool);
         registry.register_builtin(ReadImageTool);
+        registry.register_builtin(GenerateImageTool);
+        registry.register_builtin(TextToSpeechTool);
         registry.register_delegation_tools();
         registry
     }
@@ -1748,6 +1754,8 @@ mod tests {
                 "web_fetch",
                 "web_search",
                 "read_image",
+                "generate_image",
+                "text_to_speech",
                 "explore",
                 "subagent",
                 "fan_out_subagents",
@@ -2316,5 +2324,37 @@ mod tests {
             decode_search_href("https://direct.example"),
             "https://direct.example"
         );
+    }
+
+    #[test]
+    fn media_tools_are_registered_with_schemas() {
+        let registry = ToolRegistry::new();
+        let specs = registry.specs();
+        for (name, required) in [("generate_image", "prompt"), ("text_to_speech", "text")] {
+            let spec = specs
+                .iter()
+                .find(|spec| spec.name == name)
+                .unwrap_or_else(|| panic!("缺少内置工具 {name}"));
+            assert!(
+                spec.input_schema["required"]
+                    .as_array()
+                    .map(|items| items.iter().any(|item| item == required))
+                    .unwrap_or(false),
+                "{name} 的 schema 必须要求 {required}"
+            );
+            assert!(
+                spec.description.contains("outputs/"),
+                "{name} 的描述应说明产物落 outputs/"
+            );
+            let effect = spec
+                .effect
+                .as_ref()
+                .unwrap_or_else(|| panic!("{name} 必须带副作用声明"));
+            let note = effect.risk_note.clone().unwrap_or_default();
+            assert!(
+                note.contains("outputs/") && note.contains("外部"),
+                "{name} 的审批风险说明要能解释出境与落盘，实际：{note}"
+            );
+        }
     }
 }

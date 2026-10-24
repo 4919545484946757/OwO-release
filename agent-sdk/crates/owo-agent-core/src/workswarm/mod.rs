@@ -18,6 +18,19 @@
 //! - 成功收尾：生成交付清单 + [`TeamTemplateProposal`]（**只提案，不自动启用**；
 //!   用户采纳后才进 TeamTemplateRegistry）。
 //!
+//! 运行分工（三个独立关注点）：
+//! - **监督**：[`supervisor`] 是宿主侧、确定性的进度监督器。它只读取持久化步骤、
+//!   当前阶段领取记录和中断标记，输出
+//!   `on_track/stalled/blocked/idle/complete/cancelled`、中断恢复提示和下一步建议；
+//!   不调用模型、不放宽权限、不把"进程结束"误判成交付验收；
+//! - **执行**：`task_worker` 能力节点由 `task_graph` 按依赖、工具面、写范围和估算
+//!   工作量动态分配；执行结果回到 Artifact + Handoff + DeliveryGate；
+//! - **对抗评审**：`review`/`critic` 只读节点独立复核，自动 reviewer 只在存在源码/
+//!   高风险信号时加入，发现问题走有界 rework，而不是由执行者自评通过。
+//!
+//! 三条链路共享同一 TeamRun/审计/进度事件，但职责不互相替代：监督器不会替 Worker
+//! 执行，评审器也不会替监督器宣布成功。
+//!
 //! 并发模型：
 //! - 每个 team 一个运行任务（server 侧 tokio 任务）顺序驱动阶段循环；
 //! - 磁盘状态变更临界区由 per-team 异步锁串行化（阶段边界 / steer / handoff / human-result）;
@@ -95,11 +108,13 @@ mod delivery_gate_evidence;
 mod phase_subplan;
 mod review_evidence;
 mod role_worker;
+mod supervisor;
 mod task_graph;
 mod task_graph_policy;
 mod task_profile;
 
 pub use role_worker::*;
+pub use supervisor::*;
 pub use util::{is_review_role, is_review_role_name};
 /// 阶段领取记录（进程内；进度视图 current_steps 的数据源）。
 #[derive(Debug, Clone)]
@@ -137,6 +152,8 @@ pub struct TeamCoordinator {
     pub(crate) phase_claims: Arc<Mutex<HashMap<String, PhaseClaim>>>,
     /// per-team 进度事件序号（进程内单调；状态转移时 +1）。
     pub(crate) progress_seqs: Arc<Mutex<HashMap<String, u64>>>,
+    /// Last emitted supervisor health per team, so only transitions enter the audit stream.
+    pub(crate) supervisor_states: Arc<Mutex<HashMap<String, String>>>,
     /// Per-team watch channel for event-driven runtime waits (human handoff, progress).
     pub(crate) progress_watchers: Arc<Mutex<HashMap<String, tokio::sync::watch::Sender<u64>>>>,
     /// Host-bound workspace roots used only by the registered read-only Validator lane.

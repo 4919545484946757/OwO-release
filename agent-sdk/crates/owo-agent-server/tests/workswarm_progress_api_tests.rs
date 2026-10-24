@@ -396,3 +396,42 @@ async fn sse_stream_emits_monotonic_progress_events() {
         "取消转移应至少产生两个 progress 帧：{progress_frames:?}"
     );
 }
+#[tokio::test]
+async fn supervisor_samples_long_phase_without_progress_clients() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+    let body = json!({
+        "strategy": "team",
+        "objective": "监督长阶段",
+        "roles": [
+            { "role": "runner", "assignee": "agent", "worker": "sleep",
+              "extra_input": { "ms": 8000 }, "verify": "non_empty" }
+        ]
+    });
+    let (status, created) = call(&state, &app, "POST", "/teams", Some(&body.to_string())).await;
+    assert_eq!(status, 202, "{created}");
+    let team_id = created["team_id"].as_str().unwrap().to_string();
+
+    // Do not call /teams/{id} or subscribe to SSE: the proactive supervisor tick
+    // inside the phase runner must still sample the long phase and audit its state.
+    tokio::time::sleep(Duration::from_secs(6)).await;
+    let coordinator = state.workswarm.coordinator().unwrap();
+    let audit = coordinator.audit_log().unwrap();
+    let has_supervisor = audit
+        .lock()
+        .unwrap()
+        .entries
+        .iter()
+        .any(|entry| entry.session_id == team_id && entry.event == "team_supervisor");
+    assert!(has_supervisor, "长时间无客户端轮询时仍应留下监督审计");
+
+    let (status, _) = call(
+        &state,
+        &app,
+        "POST",
+        &format!("/teams/{team_id}/steer"),
+        Some(&json!({ "command": "cancel" }).to_string()),
+    )
+    .await;
+    assert_eq!(status, 200);
+}

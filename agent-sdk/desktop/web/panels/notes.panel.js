@@ -1,42 +1,42 @@
-/* notes 面板（Lane A）：文档列表 + 新建（标题+markdown）+ 块树渲染 + 搜索 + 导出 + 内联编辑。
- * 纯脚本 IIFE 注册；helpers 缺省时复用统一 ApiClient；样式 owo-notes- 前缀，mount 时注入 <style>。 */
+/* Local note library, Markdown creation, semantic document reading, block inspection and export.
+ * Uses the shared API transport; all workbench styles live in workbench-pages.css. */
 (function () {
   window.OwoPanels = window.OwoPanels || {};
+  function checkedResponse(response) {
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    return response.json();
+  }
   window.OwoPanels.notes = {
     id: "notes",
     title: "笔记",
 
     nav: function () {
       return (
-        '<section data-panel="notes" class="owo-notes-root">' +
+        '<section data-panel="notes" data-layout="custom" class="owo-notes-root">' +
         '<div class="owo-notes-bar">' +
-        '<input class="owo-notes-search" type="search" aria-label="搜索笔记全文" aria-describedby="owo-notes-core-hint" data-core-action placeholder="全文搜索…">' +
-        '<button type="button" class="owo-notes-btn owo-notes-btn-new" data-core-action aria-label="新建笔记">＋ 新建</button>' +
-        "</div>" +
+        '<input class="owo-notes-search" type="search" aria-label="搜索笔记全文" aria-describedby="owo-notes-core-hint" data-core-action placeholder="搜索笔记全文">' +
+        '<button type="button" class="owo-notes-btn owo-notes-btn-search" data-core-action>搜索</button>' +
+        '<button type="button" class="owo-notes-btn owo-notes-btn-refresh" data-core-action>刷新</button>' +
+        '<button type="button" class="owo-notes-btn primary owo-notes-btn-new" data-core-action aria-label="新建笔记">新建笔记</button></div>' +
         '<p class="owo-notes-hint" id="owo-notes-core-hint" data-core-action-hint>连接并授权本地核心后可搜索笔记全文和管理笔记。</p>' +
-        '<ul class="owo-notes-list"></ul>' +
-        '<div class="owo-notes-editor" hidden>' +
-        '<input class="owo-notes-title" type="text" aria-label="笔记标题" placeholder="标题" required>' +
-        '<textarea class="owo-notes-md" aria-label="Markdown 正文" rows="8" placeholder="Markdown 正文"></textarea>' +
-        '<div class="owo-notes-editor-actions">' +
-        '<button type="button" class="owo-notes-btn owo-notes-btn-save" data-core-action>保存</button>' +
-        '<button type="button" class="owo-notes-btn owo-notes-btn-cancel">取消</button>' +
-        "</div>" +
-        "</div>" +
-        '<div class="owo-notes-detail" hidden>' +
-        '<div class="owo-notes-detail-head"><h3 class="owo-notes-detail-title"></h3>' +
+        '<div class="owo-notes-workspace"><aside class="owo-notes-library" aria-label="本地笔记">' +
+        '<h3>本地笔记</h3><ul class="owo-notes-list" aria-label="笔记列表"></ul></aside>' +
+        '<div class="owo-notes-content"><div class="owo-notes-editor" hidden>' +
+        '<h3>新建笔记</h3><label for="owo-notes-title">笔记标题</label>' +
+        '<input id="owo-notes-title" class="owo-notes-title" type="text" aria-label="笔记标题" placeholder="标题" required>' +
+        '<label for="owo-notes-md">Markdown 正文</label><textarea id="owo-notes-md" class="owo-notes-md" aria-label="Markdown 正文" rows="12" placeholder="Markdown 正文"></textarea>' +
+        '<div class="owo-notes-editor-actions"><button type="button" class="owo-notes-btn owo-notes-btn-cancel">取消</button>' +
+        '<button type="button" class="owo-notes-btn primary owo-notes-btn-save" data-core-action>保存</button></div></div>' +
+        '<p class="owo-notes-welcome">选择一篇笔记，或新建笔记。</p>' +
+        '<div class="owo-notes-detail" hidden><div class="owo-notes-detail-head"><h3 class="owo-notes-detail-title"></h3>' +
         '<button type="button" class="owo-notes-btn owo-notes-btn-rename" data-core-action>修改标题</button></div>' +
-        '<div class="owo-notes-detail-actions">' +
-        '<button type="button" class="owo-notes-btn owo-notes-btn-export-md">导出 MD</button>' +
+        '<div class="owo-notes-detail-meta"><span class="owo-notes-meta-item" id="owo-notes-detail-count"></span></div>' +
+        '<div class="owo-notes-detail-actions"><button type="button" class="owo-notes-btn owo-notes-btn-export-md">导出 MD</button>' +
         '<button type="button" class="owo-notes-btn owo-notes-btn-export-html">导出 HTML</button>' +
-        '<button type="button" class="owo-notes-btn owo-notes-btn-del" data-core-action>删除</button>' +
-        "</div>" +
-        '<div class="owo-notes-detail-meta">' +
-        '<span class="owo-notes-meta-item" id="owo-notes-detail-count"></span>' +
-        "</div>" +
-        '<div class="owo-notes-tree"></div>' +
-        "</div>" +
-        "</section>"
+        '<button type="button" class="owo-notes-btn owo-notes-btn-del" data-core-action>删除</button></div>' +
+        '<article class="owo-notes-reading" aria-label="笔记正文"></article>' +
+        '<details class="owo-notes-structure"><summary>块结构</summary><div class="owo-notes-tree"></div></details></div>' +
+        '</div></div></section>'
       );
     },
 
@@ -49,28 +49,36 @@
       this.editorGeneration = 0;
       this.root = root;
       root.innerHTML = this.nav();
-      this.setSaveBusy(root, !!this.saveInFlight);
       this.helpers = helpers || {};
       this.baseUrl = this.helpers.baseUrl || window.OwoPanels.baseUrl || window.location.origin;
+      var scope = String(this.baseUrl) + "#" + String(this.helpers.coreInstanceId || (window.OwoApi && window.OwoApi.coreInstanceId) || "");
+      if (this.hostScope && this.hostScope !== scope) {
+        this.draft = null;
+        this.selectedDoc = null;
+        this.saveInFlight = false;
+        this.saveOwner = null;
+      }
+      this.hostScope = scope;
+      this.setSaveBusy(root, !!this.saveInFlight);
       this.get = this.helpers.get || function (path) {
-        return window.OwoApi.stream(path).then(function (r) { return r.json(); });
+        return window.OwoApi.stream(path).then(function (r) { return checkedResponse(r); });
       };
       this.post = this.helpers.post || function (path, body) {
         return window.OwoApi.stream(path, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(body || {}),
-        }).then(function (r) { return r.json(); });
+        }).then(function (r) { return checkedResponse(r); });
       };
       this.put = this.helpers.put || function (path, body) {
         return window.OwoApi.stream(path, {
           method: "PUT",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(body || {}),
-        }).then(function (r) { return r.json(); });
+        }).then(function (r) { return checkedResponse(r); });
       };
       this.del = this.helpers.del || function (path) {
-        return window.OwoApi.stream(path, { method: "DELETE" }).then(function (r) { return r.json(); });
+        return window.OwoApi.stream(path, { method: "DELETE" }).then(function (r) { return checkedResponse(r); });
       };
       // 宿主提供样式化弹窗时优先使用（Promise<boolean> / Promise<string|null>）
       this.confirm = this.helpers.confirm || function (opts) {
@@ -85,43 +93,7 @@
         });
       };
       this.friendlyError = this.helpers.friendlyError || function (e) { return String(e); };
-      var style = document.createElement("style");
-      style.textContent =
-        ".owo-notes-root{display:flex;flex-direction:column;gap:8px}" +
-        ".owo-notes-bar{display:flex;gap:8px}" +
-        ".owo-notes-search{flex:1;padding:6px}" +
-        ".owo-notes-btn{padding:6px 10px;cursor:pointer}" +
-        ".owo-notes-list{margin:0;padding:0;list-style:none}" +
-        ".owo-notes-list li{padding:6px 4px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between}" +
-        ".owo-notes-list li:hover{background:var(--surface-2)}" +
-        ".owo-notes-open{display:flex;width:100%;justify-content:space-between;gap:12px;padding:4px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit}" +
-        ".owo-notes-open:focus-visible,.owo-notes-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}" +
-        ".owo-notes-detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}" +
-        ".owo-notes-list li.owo-notes-state{list-style:none;cursor:default;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-1);color:var(--text-2)}" +
-        ".owo-notes-list li.owo-notes-state:hover{background:var(--surface-1)}" +
-        ".owo-notes-retry{flex:none;border:1px solid var(--border-strong);border-radius:6px;padding:5px 10px;background:var(--surface);color:var(--text);cursor:pointer}" +
-        ".owo-notes-retry:hover{border-color:var(--accent);color:var(--accent)}" +
-        ".owo-notes-editor{display:flex;flex-direction:column;gap:8px;border:1px solid var(--border-strong);padding:10px}" +
-        ".owo-notes-editor[hidden]{display:none}" +
-        ".owo-notes-title,.owo-notes-md{padding:6px}" +
-        ".owo-notes-detail{border:1px solid var(--border-strong);padding:10px}" +
-        // 块树（原 pre JSON 直出 → 嵌套树卡片）
-        ".owo-notes-detail-meta{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0;color:var(--text-3);font-size:12px}" +
-        ".owo-notes-tree{background:var(--surface-2);border-radius:8px;padding:8px;max-height:50vh;overflow:auto;font-size:12px}" +
-        ".owo-notes-block-tree,.owo-notes-block-tree ul{list-style:none;margin:0;padding:0}" +
-        ".owo-notes-block-tree ul{margin-left:14px;border-left:1px solid var(--border);padding-left:8px}" +
-        ".owo-notes-block{margin:2px 0}" +
-        ".owo-notes-block-row{display:flex;gap:8px;align-items:baseline;padding:2px 0}" +
-        ".owo-notes-kind{flex:none;font-size:12px;padding:0 8px;border-radius:999px;background:var(--surface-3);color:var(--text-2)}" +
-        ".owo-notes-kind.k-heading{background:var(--accent-soft);color:var(--accent)}" +
-        ".owo-notes-kind.k-code{background:var(--yellow-soft);color:var(--yellow)}" +
-        ".owo-notes-kind.k-table{background:var(--green-soft);color:var(--green)}" +
-        ".owo-notes-block-id{flex:none;font-size:12px;color:var(--text-3);font-family:monospace}" +
-        ".owo-notes-block-preview{color:var(--text-2);word-break:break-all}" +
-        ".owo-notes-block-missing{color:var(--red);font-size:12px}" +
-        ".owo-notes-hint{color:var(--text-3);font-size:12px}";
-      root.appendChild(style);
-      this.styleElement = style;
+      this.restoreDraft();
       this.refresh();
       this.bind();
     },
@@ -130,7 +102,9 @@
       var button = root && root.querySelector ? root.querySelector(".owo-notes-btn-save") : null;
       button = button || fallbackButton;
       if (!button) return;
-      button.disabled = !!busy;
+      if (button.setAttribute) button.setAttribute("data-core-busy", busy ? "true" : "false");
+      if (window.OwoCoreActionAvailability && window.OwoCoreActionAvailability.setBusy) window.OwoCoreActionAvailability.setBusy(button,!!busy);
+      else button.disabled = !!busy;
       if (busy) {
         if (!button.dataset.idleText) button.dataset.idleText = button.textContent || "保存";
         button.setAttribute("aria-busy", "true");
@@ -143,6 +117,7 @@
     },
 
     dispose: function () {
+      this.captureDraft();
       this.lifecycleGeneration = (this.lifecycleGeneration || 0) + 1;
       this.listGeneration = (this.listGeneration || 0) + 1;
       this.detailGeneration = (this.detailGeneration || 0) + 1;
@@ -173,7 +148,10 @@
           if (!section) return;
           var ul = section.querySelector(".owo-notes-list");
           if (!ul) return;
-          var list = data.notes || [];
+          if (!data || !Array.isArray(data.notes)) throw new Error("笔记列表响应格式不完整");
+          self.notesById = Object.create(null);
+          data.notes.forEach(function(note) { if (note && note.id) self.notesById[note.id]=note; });
+          var list = data.notes.slice().sort(function (a, b) { return String(b.updated_at || "").localeCompare(String(a.updated_at || "")); });
           if (!list.length) {
             ul.innerHTML = '<li class="owo-notes-hint">（暂无笔记，点"新建"创建）</li>';
             return;
@@ -185,11 +163,12 @@
                 '<li><button type="button" class="owo-notes-open" data-notes-open data-id="' + self.esc(n.id) +
                 '" aria-label="打开笔记：' + self.esc(title) + '">' +
                 '<span class="owo-notes-name">' + self.esc(title) + "</span>" +
-                '<span class="owo-notes-hint">' + self.esc((n.updated_at || "").slice(0, 19)) + "</span>" +
+                '<span class="owo-notes-hint">' + self.esc(self.localTime(n.updated_at)) + "</span>" +
                 "</button></li>"
               );
             })
             .join("");
+          self.markSelection(self.selectedDoc && self.selectedDoc.id);
         })
         .catch(function (e) {
           if (!self.isCurrent(generation) || request !== self.listGeneration) return;
@@ -208,9 +187,16 @@
       var root = this.rootEl();
       var on = function (sel, ev, fn) {
         var el = root.querySelector(sel);
-        if (el) el.addEventListener(ev, fn);
+        if (el) el.addEventListener(ev, function (event) { if (self.isCurrent(generation)) return fn(event); });
       };
       on(".owo-notes-btn-new", "click", function () {
+        var activeEditor = root.querySelector(".owo-notes-editor");
+        if (!activeEditor.hidden && (root.querySelector(".owo-notes-title").value || root.querySelector(".owo-notes-md").value)) {
+          var activeTitle = root.querySelector(".owo-notes-title");
+          if (activeTitle.focus) activeTitle.focus({ preventScroll: true });
+          return;
+        }
+        self.draft = null;
         self.editorGeneration++;
         self.detailGeneration++;
         var editor = root.querySelector(".owo-notes-editor");
@@ -221,6 +207,9 @@
         editor.querySelector(".owo-notes-md").value = "";
         detail.hidden = true;
         detail.dataset.id = "";
+        self.syncWelcome();
+        var titleInput = editor.querySelector(".owo-notes-title");
+        if (titleInput && titleInput.focus) titleInput.focus({ preventScroll: true });
       });
       on(".owo-notes-btn-save", "click", async function () {
         var editor = root.querySelector(".owo-notes-editor");
@@ -231,20 +220,24 @@
         if (!title) { self.alert("标题不能为空"); return; }
         var editorGeneration = self.editorGeneration;
         var detailGeneration = self.detailGeneration;
+        var transport = self.post;
+        var saveOwner = {};
+        self.saveOwner = saveOwner;
         self.saveInFlight = true;
         self.setSaveBusy(root, true, saveButton);
         try {
-          var created = await self.post("/notes", { title: title, markdown: md });
+          var created = await transport("/notes", { title: title, markdown: md });
           if (!self.isCurrent(generation)) return;
-          if (editorGeneration === self.editorGeneration) {
+          if (editorGeneration === self.editorGeneration && root.querySelector(".owo-notes-title").value.trim() === title && root.querySelector(".owo-notes-md").value === md) {
+            self.draft = null;
             editor.hidden = true;
             editor.dataset.returnNoteId = "";
           }
-          if (detailGeneration === self.detailGeneration) {
+          if (detailGeneration === self.detailGeneration && editor.hidden) {
             root.querySelector(".owo-notes-detail").hidden = true;
           }
           self.refresh();
-          if (created && created.id && detailGeneration === self.detailGeneration) {
+          if (created && created.id && editor.hidden && detailGeneration === self.detailGeneration) {
             Promise.resolve()
               .then(function () { return self.get("/notes/" + encodeURIComponent(created.id)); })
               .then(function (doc) {
@@ -257,9 +250,12 @@
         } catch (e) {
           if (self.isCurrent(generation)) self.alert("创建失败：" + self.friendlyError(e));
         } finally {
-          self.saveInFlight = false;
-          // 释放当前挂载页的按钮，即使请求发起后用户切走并重新进入了笔记页。
-          self.setSaveBusy(self.root, false, saveButton);
+          if (self.saveOwner === saveOwner) {
+            self.saveOwner = null;
+            self.saveInFlight = false;
+            self.setSaveBusy(self.root, false, saveButton);
+          }
+          if (self.isCurrent(generation)) self.syncWelcome();
         }
       });
       on(".owo-notes-btn-cancel", "click", function () {
@@ -268,10 +264,12 @@
         var editor = root.querySelector(".owo-notes-editor");
         var detail = root.querySelector(".owo-notes-detail");
         var returnId = editor.dataset.returnNoteId || "";
+        self.draft = null;
         editor.hidden = true;
         editor.dataset.returnNoteId = "";
         detail.dataset.id = returnId;
         detail.hidden = !returnId;
+        self.syncWelcome();
       });
       var runSearch = function () {
         var q = root.querySelector(".owo-notes-search").value.trim();
@@ -288,21 +286,24 @@
             if (!section) return;
             var ul = section.querySelector(".owo-notes-list");
             if (!ul) return;
-            var hits = data.hits || [];
+            if (!data || !Array.isArray(data.hits)) throw new Error("搜索响应格式不完整");
+            var hits = data.hits;
             if (!hits.length) {
               ul.innerHTML = '<li class="owo-notes-hint">没有找到匹配笔记</li>';
               return;
             }
-            ul.innerHTML = hits
-              .map(function (h) {
-                var snippet = h.snippet || h.doc_id;
-                return '<li><button type="button" class="owo-notes-open" data-notes-open data-id="' +
-                  self.esc(h.doc_id) + '" aria-label="打开搜索结果：' + self.esc(snippet) + '">' +
-                  '<span class="owo-notes-name">' + self.esc(snippet) + "</span>" +
-                  '<span class="owo-notes-hint">' + self.esc(h.doc_id.slice(0, 8)) + "</span>" +
-                  "</button></li>";
-              })
-              .join("");
+            var grouped = Object.create(null);
+            hits.forEach(function(hit) {
+              if (!hit || typeof hit.doc_id !== "string" || !hit.doc_id) throw new Error("搜索结果缺少笔记编号");
+              if (!grouped[hit.doc_id]) grouped[hit.doc_id]=[];
+              if (grouped[hit.doc_id].indexOf(hit.snippet || "") === -1) grouped[hit.doc_id].push(hit.snippet || "");
+            });
+            ul.innerHTML = Object.keys(grouped).map(function(id) {
+              var note=self.notesById && self.notesById[id], title=note && note.title || id;
+              return '<li><button type="button" class="owo-notes-open" data-notes-open data-id="'+self.esc(id)+'" aria-label="打开搜索结果：'+self.esc(title)+'">' +
+                '<span class="owo-notes-name">'+self.esc(title)+'</span>'+
+                grouped[id].map(function(snippet){return '<span class="owo-notes-hint">'+self.esc(snippet)+'</span>';}).join("")+'</button></li>';
+            }).join("");
           })
           .catch(function (err) {
             if (!self.isCurrent(searchGeneration) || request !== self.listGeneration) return;
@@ -313,6 +314,15 @@
               '</span><button type="button" class="owo-notes-retry" data-notes-search-retry>重试搜索</button></li>';
           });
       };
+      on(".owo-notes-btn-search", "click", runSearch);
+      on(".owo-notes-btn-refresh", "click", function () {
+        var search = root.querySelector(".owo-notes-search");
+        if (search && search.value.trim()) return runSearch();
+        return self.refresh();
+      });
+      on(".owo-notes-search", "search", function () { if (!root.querySelector(".owo-notes-search").value) self.refresh(); });
+      on(".owo-notes-title", "input", function () { self.captureDraft(); });
+      on(".owo-notes-md", "input", function () { self.captureDraft(); });
       on(".owo-notes-search", "keydown", function (e) {
         if (e.key === "Escape") {
           var search = root.querySelector(".owo-notes-search");
@@ -347,14 +357,14 @@
         var id = root.querySelector(".owo-notes-detail").dataset.id;
         Promise.resolve()
           .then(function () { return self.get("/notes/" + encodeURIComponent(id) + "/export/md"); })
-          .then(function (r) { if (self.isCurrent(generation)) self.download(id + ".md", r.content); })
+          .then(function (r) { if (self.isCurrent(generation)) self.download(id + ".md", r.content, "text/markdown"); })
           .catch(function (e) { if (self.isCurrent(generation)) self.alert("导出失败：" + self.friendlyError(e)); });
       });
       on(".owo-notes-btn-export-html", "click", function () {
         var id = root.querySelector(".owo-notes-detail").dataset.id;
         Promise.resolve()
           .then(function () { return self.get("/notes/" + encodeURIComponent(id) + "/export/html"); })
-          .then(function (r) { if (self.isCurrent(generation)) self.download(id + ".html", r.content); })
+          .then(function (r) { if (self.isCurrent(generation)) self.download(id + ".html", r.content, "text/html"); })
           .catch(function (e) { if (self.isCurrent(generation)) self.alert("导出失败：" + self.friendlyError(e)); });
       });
       on(".owo-notes-btn-del", "click", function () {
@@ -378,7 +388,12 @@
             .then(function () {
               if (!self.isCurrent(owner)) return;
               // Deletion applies to the captured note; never hide a different note selected meanwhile.
-              if (request === self.detailGeneration && detail.dataset.id === id) detail.hidden = true;
+              if (request === self.detailGeneration && detail.dataset.id === id) {
+                detail.hidden = true;
+                detail.dataset.id = "";
+                self.selectedDoc = null;
+                self.syncWelcome();
+              }
               self.refresh();
             })
             .catch(function (err) {
@@ -395,7 +410,8 @@
         self
           .prompt({ title: "修改标题", label: "新标题：", value: current, confirmText: "保存" })
           .then(function (title) {
-            if (!title || !self.isCurrent(generation) || request !== self.detailGeneration || detail.dataset.id !== id) return;
+            title = typeof title === "string" ? title.trim() : "";
+            if (!title || title === current || !self.isCurrent(generation) || request !== self.detailGeneration || detail.dataset.id !== id) return;
             return self.put("/notes/" + encodeURIComponent(id), { title: title });
           })
           .then(function (result) {
@@ -419,14 +435,26 @@
       if (!section) return;
       var detail = section.querySelector(".owo-notes-detail");
       if (!detail) return;
+      if (!doc || !doc.id || !doc.blocks || typeof doc.root !== "string") {
+        this.alert("笔记详情响应格式不完整");
+        return;
+      }
+      this.selectedDoc = doc;
       detail.hidden = false;
       detail.dataset.id = doc.id;
       detail.querySelector(".owo-notes-detail-title").textContent = doc.title || doc.id;
       var blocks = doc.blocks || {};
       var meta = detail.querySelector("#owo-notes-detail-count");
       if (meta) {
-        meta.textContent = Object.keys(blocks).length + " 个块 ｜ 更新于 " + (doc.updated_at || "—");
+        meta.textContent = Object.keys(blocks).length + " 个块 ｜ 更新于 " + (self.localTime(doc.updated_at) + "（本地时间）");
       }
+      var article = detail.querySelector(".owo-notes-reading");
+      if (article) article.innerHTML = self.renderDocument(doc);
+      var editor = section.querySelector(".owo-notes-editor");
+      if (editor && !editor.hidden) self.captureDraft();
+      if (editor) editor.hidden = true;
+      this.syncWelcome();
+      this.markSelection(doc.id);
       var tree = detail.querySelector(".owo-notes-tree");
       if (!tree) return;
       if (!blocks[doc.root]) {
@@ -437,11 +465,16 @@
     },
 
     // 递归渲染块树：kind 徽章 + 块 id + 内容预览 + 子块缩进列表
-    blockList: function (blocks, ids) {
+    blockList: function (blocks, ids, ancestors) {
+      ancestors = ancestors || [];
       var self = this;
       var html = "";
       for (var i = 0; i < ids.length; i++) {
         var b = blocks[ids[i]];
+        if (ancestors.indexOf(ids[i]) !== -1 || ancestors.length >= 80) {
+          html += '<li class="owo-notes-block-missing">块引用循环或层级过深</li>';
+          continue;
+        }
         if (!b) {
           html += '<li class="owo-notes-block"><span class="owo-notes-block-missing">缺失块 ' +
             self.esc(ids[i]) + "</span></li>";
@@ -455,11 +488,93 @@
           '<span class="owo-notes-block-preview">' + self.esc(self.kindPreview(b.kind)) + "</span>" +
           "</div>" +
           (b.children && b.children.length
-            ? "<ul>" + self.blockList(blocks, b.children) + "</ul>"
+            ? "<ul>" + self.blockList(blocks, b.children, ancestors.concat(ids[i])) + "</ul>"
             : "") +
           "</li>";
       }
       return html;
+    },
+
+    captureDraft: function () {
+      var section = this.rootEl();
+      var editor = section && section.querySelector(".owo-notes-editor");
+      if (!editor || editor.hidden) return;
+      var title = editor.querySelector(".owo-notes-title");
+      var body = editor.querySelector(".owo-notes-md");
+      this.draft = { title: title.value, markdown: body.value, returnNoteId: editor.dataset.returnNoteId || "" };
+    },
+
+    restoreDraft: function () {
+      var section = this.rootEl();
+      var editor = section && section.querySelector(".owo-notes-editor");
+      if (editor && this.draft) {
+        editor.hidden = false;
+        editor.querySelector(".owo-notes-title").value = this.draft.title;
+        editor.querySelector(".owo-notes-md").value = this.draft.markdown;
+        editor.dataset.returnNoteId = "";
+      }
+      this.syncWelcome();
+    },
+
+    syncWelcome: function () {
+      var section = this.rootEl();
+      if (!section) return;
+      var welcome = section.querySelector(".owo-notes-welcome");
+      var editor = section.querySelector(".owo-notes-editor");
+      var detail = section.querySelector(".owo-notes-detail");
+      if (welcome) welcome.hidden = !!((editor && !editor.hidden) || (detail && !detail.hidden));
+    },
+
+    markSelection: function (id) {
+      var section = this.rootEl();
+      if (!section || !section.querySelectorAll) return;
+      Array.prototype.forEach.call(section.querySelectorAll("[data-notes-open]"), function (button) {
+        button.setAttribute("aria-current", button.dataset.id === id ? "true" : "false");
+      });
+    },
+
+    localTime: function (value) {
+      if (!value) return "时间未知";
+      var date = new Date(value);
+      return Number.isNaN(date.getTime()) ? "时间未知" : date.toLocaleString("zh-CN", { hour12: false });
+    },
+
+    renderDocument: function (doc) {
+      var self = this, blocks = doc.blocks || {}, remaining = 5000;
+      function inline(value) {
+        var text=value == null ? "" : String(value);
+        if (window.OwoMarkdown && window.OwoMarkdown.inlineMarkdown) return window.OwoMarkdown.inlineMarkdown(text).replace(/\n/g, "<br>");
+        return self.esc(text).replace(/\n/g, "<br>");
+      }
+      function render(id, ancestors) {
+        if (--remaining < 0) return '<p class="owo-notes-hint">文档过长，余下内容可导出查看。</p>';
+        if (ancestors.indexOf(id) !== -1 || ancestors.length >= 80) return '<p class="owo-notes-hint">块引用循环或层级过深。</p>';
+        var block = blocks[id];
+        if (!block) return '<p class="owo-notes-hint">缺失块：' + self.esc(id) + '</p>';
+        var kind = block.kind || {}, key = Object.keys(kind)[0], value = kind[key] || {};
+        var children = Array.isArray(block.children) ? block.children : [];
+        var nested = children.map(function (child) { return render(child, ancestors.concat(id)); }).join("");
+        if (id === doc.root) return (value.text ? "<p>" + inline(value.text) + "</p>" : "") + nested;
+        if (key === "Heading") {
+          var level = Math.max(1, Math.min(6, Number(value.level) || 2));
+          return "<h" + level + ">" + inline(value.text) + "</h" + level + ">" + nested;
+        }
+        if (key === "Paragraph" || key === "AiGenerated") return "<p>" + inline(value.text) + "</p>" + nested;
+        if (key === "Quote") return "<blockquote>" + inline(value.text) + nested + "</blockquote>";
+        if (key === "Code") return "<pre><code>" + self.esc(value.text || "") + "</code></pre>" + nested;
+        if (key === "List") { var tag = value.ordered ? "ol" : "ul"; return "<" + tag + ">" + nested + "</" + tag + ">"; }
+        if (key === "ListItem") return "<li>" + inline(value.text) + nested + "</li>";
+        if (key === "Table") return '<div class="owo-notes-table"><table><tbody>' + (Array.isArray(value.rows) ? value.rows : []).map(function (row) {
+          return "<tr>" + (Array.isArray(row) ? row : []).map(function (cell) { return "<td>" + inline(cell) + "</td>"; }).join("") + "</tr>";
+        }).join("") + "</tbody></table></div>" + nested;
+        // Arbitrary embedded HTML, local files and remote media do not execute on read.
+        if (key === "HtmlEmbed") return '<pre class="owo-notes-embedded">' + self.esc(value.html || "") + "</pre>" + nested;
+        if (key === "Image") return '<p class="owo-notes-hint">图片：' + inline(value.alt || value.src || "") + "</p>" + nested;
+        if (key === "File") return '<p class="owo-notes-hint">文件：' + inline(value.path || "") + "</p>" + nested;
+        if (key === "Canvas") return '<p class="owo-notes-hint">画布：' + inline(self.kindPreview(kind)) + "</p>" + nested;
+        return '<p class="owo-notes-hint">' + inline(self.kindLabel(kind)) + "</p>" + nested;
+      }
+      return render(doc.root, []);
     },
 
     // BlockKind（外标签 serde enum，如 {"Heading":{"level":1,"text":"…"}}）→ 中文标签
@@ -508,8 +623,9 @@
       return v.text || "";
     },
 
-    download: function (name, content) {
-      var blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    download: function (name, content, mime) {
+      if (typeof content !== "string") throw new Error("导出响应没有正文");
+      var blob = new Blob([content], { type: (mime || "text/plain") + ";charset=utf-8" });
       var a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = name;
@@ -525,10 +641,7 @@
 
     rootEl: function () {
       if (!this.root) return null;
-      // 必须限定在 #panelRoot 内查找：全局 querySelector('[data-panel="notes"]')
-      // 会先匹配到 #panelNav 里的 tab 按钮（DOM 顺序在前），导致拿到错误元素。
-      var root = document.getElementById("panelRoot");
-      return root ? root.querySelector('[data-panel="notes"]') : null;
+      return this.root.querySelector('[data-panel="notes"]') || this.root;
     },
   };
 })();

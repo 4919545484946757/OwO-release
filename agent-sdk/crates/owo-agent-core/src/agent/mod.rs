@@ -2,7 +2,10 @@ use crate::audit::AuditLog;
 mod workflow_tools;
 
 use crate::autoreview::{ReviewVerdict, Reviewer};
-use crate::context::{build_system_prompt, load_project_rules, load_project_rules_hierarchical};
+use crate::context::{
+    build_chat_system_prompt, build_system_prompt, chat_time_context, load_project_rules,
+    load_project_rules_for_mode,
+};
 use crate::deadline::{DeadlineBudget, Phase, PhaseBudgets, PhaseTiming};
 use crate::error::AgentError;
 use crate::gateway::{
@@ -39,7 +42,7 @@ mod tests;
 
 pub(crate) use config::DEFAULT_BOUNDED_TOOL_CALL_CAP;
 use config::*;
-pub use config::{AgentConfig, TurnExecutionOptions};
+pub use config::{AgentConfig, TurnExecutionOptions, CHAT_MODE_TOOLS};
 
 /// 达到最大回合数后的收尾指令：不再调用工具，强制产出可见结论
 /// （审查/分析类任务据此给出结构化报告；信息不足时列出需要用户澄清的问题）。
@@ -308,6 +311,16 @@ impl Agent {
     ) {
         if let Ok(mut registry) = self.registry.write() {
             registry.register_mcp_extras(server_name, client, resources, prompts);
+        }
+    }
+
+    /// 宿主在 Agent 构造后追加受控工具（如团队工作流编排器）。
+    ///
+    /// 与 MCP 热注册共用同一注册表；调用方必须保证工具自身已声明 effect，
+    /// 不在工具面层绕过 Policy/审批。
+    pub fn register_tool(&self, tool: Arc<dyn crate::tools::Tool>) {
+        if let Ok(mut registry) = self.registry.write() {
+            registry.register_arc(tool);
         }
     }
 

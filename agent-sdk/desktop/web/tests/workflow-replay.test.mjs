@@ -83,3 +83,31 @@ test("denied tools render their terminal failure without a tool-use event", () =
  assert.match(html,/permission denied: approval declined/);
  assert.doesNotMatch(html,/调用参数|已完成/);
 });
+
+test("WorkSwarm 会话里的媒体产物显示为播放器而不是原始 JSON", () => {
+ const preview = JSON.stringify({ path: "outputs/a.png", bytes: 70, data_url: "data:image/png;base64,AAAA" });
+ const replay = C.mergeReplay({}, [{ session_id: "s", role: "美术", events: [
+  row(1, { type: "tool_use", tool: "generate_image", args: { prompt: "阳光" } }),
+  row(2, { type: "tool_result", tool: "generate_image", ok: true, preview }),
+ ]}]);
+ const html = R.teamConversationHtml([], [], null, "", replay);
+ assert.match(html, /<img class="owo-media-inline"/, "缺少内联图片");
+ assert.match(html, /src="data:image\/png;base64,AAAA"/, "图片地址未写入");
+ assert.match(html, /已生成图片（70 B）：outputs\/a\.png/, "缺少产物摘要");
+ assert.doesNotMatch(html, /data_url/, "不应把原始 JSON 键名暴露给用户");
+
+ const audio = C.mediaPreviewHtml(
+  (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"),
+  "text_to_speech",
+  JSON.stringify({ path: "outputs/a.mp3", bytes: 2048, data_url: "data:audio/mpeg;base64,BBBB" })
+ );
+ assert.match(audio, /<audio class="owo-media-audio" controls/, "缺少音频播放器");
+ assert.match(audio, /已生成语音（2 KB）：outputs\/a\.mp3/);
+});
+
+test("媒体预览缺失或非法时退回普通文本", () => {
+ const esc = (v) => String(v == null ? "" : v).replace(/</g, "&lt;");
+ assert.equal(C.mediaPreviewHtml(esc, "generate_image", "not json"), "");
+ assert.equal(C.mediaPreviewHtml(esc, "generate_image", JSON.stringify({ bytes: 1 })), "");
+ assert.equal(C.mediaPreviewHtml(esc, "write_file", JSON.stringify({ path: "a" })), "");
+});

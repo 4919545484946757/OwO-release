@@ -259,7 +259,7 @@ test("load() 经 OwoApi 取两个端点并渲染；端点不可达时给出可�
   });
   const root2 = makeRoot();
   await broken.OwoDiagnosticsLedger.load(root2, { force: true });
-  assert.ok(root2.innerHTML.includes("台账端点不可达"), "端点失败必须说明白，禁止静默 loading 骨架");
+  assert.ok(root2.innerHTML.includes("台账读取失败"), "端点失败必须说明白，禁止静默 loading 骨架");
   assert.ok(root2.innerHTML.includes("刷新台账"), "失败时仍保留重试出口");
   assert.ok(!root2.innerHTML.includes("最近请求数量"), "失败态不得播报请求数量（那是拿不到的事实）");
 });
@@ -362,7 +362,7 @@ test("§4.6 重启口径：壳上报 generation/attempt 时用权威计数，不
   assert.equal(bundle.core.shell_attempt, 2);
 });
 
-test("§4.6 旧壳未上报代际：显式说「壳未上报」并保留近似口径（不得用 0 冒充）", () => {
+test("§4.6 旧壳未上报代际：明确未知且不能以引导次数近似重启次数", () => {
   const sandbox = makeSandbox({
     __owoCoreDiagnostics: { state: "ready", pid: 8, instanceId: "old-shell-instance-01" },
   });
@@ -372,7 +372,7 @@ test("§4.6 旧壳未上报代际：显式说「壳未上报」并保留近似�
   const root = makeRoot();
   ledger.render(root, { ledger: seedLedger(), overview: OVERVIEW, core: core, updated_at: "2026-09-18T10:00:09.000Z" });
   assert.ok(root.innerHTML.includes("壳未上报"), "缺失必须显式呈现为未知");
-  assert.ok(root.innerHTML.includes("以 /auth/token 引导次数近似"), "无权威计数时才允许近似口径");
+  assert.ok(root.innerHTML.includes("引导次数不能作为重启次数"), "无权威计数时必须保持未知，不能以引导计数替代");
 });
 
 test("§4.6 auth 卡片口径修正：壳注入 token 后引导数为 0 不等于未引导", () => {
@@ -399,3 +399,39 @@ test("§4.6 auth 卡片口径修正：壳注入 token 后引导数为 0 不等�
   assert.ok(root.innerHTML.includes("窗口内未见 /auth/token"), "无引导记录时说明事实而不是显示 0 就完事");
 });
 
+
+test("malformed ledger cannot generate a plausible empty diagnostic export", async () => {
+  const sandbox=makeSandbox({OwoApi:{get:async()=>({})}});
+  const root=makeRoot();
+  await sandbox.OwoDiagnosticsLedger.load(root,{force:true});
+  assert.match(root.innerHTML,/台账读取失败/);
+  assert.match(root.innerHTML,/id="owoLedgerExport" disabled/);
+  root.querySelector("#owoLedgerExport").click();
+  assert.equal(root.__owoLedgerBundle,undefined);
+  assert.doesNotMatch(root.innerHTML,/最近请求数量/);
+});
+
+test("all route aggregates remain searchable and the query survives refresh rendering", () => {
+  const sandbox=makeSandbox();const root=makeRoot();
+  const records=Array.from({length:35},(_,i)=>({method:"GET",route_template:"/route-"+i,started_at:"2026-10-24T00:00:00Z",status:200,duration_ms:i,source:"web"}));
+  const data={ledger:{records,returned:35,total:35,cap:512},core:{},overview:{}};
+  sandbox.OwoDiagnosticsLedger.render(root,data);
+  assert.match(root.innerHTML,/<code>\/route-34<\/code>/);
+  const search=root.querySelector("#owoLedgerRouteSearch");
+  search.listeners.input[0]({target:{value:"route-34"}});
+  assert.match(root.querySelector("#owoLedgerRoutes").innerHTML,/<code>\/route-34<\/code>/);
+  assert.doesNotMatch(root.querySelector("#owoLedgerRoutes").innerHTML,/<code>\/route-1<\/code>/);
+  sandbox.OwoDiagnosticsLedger.render(root,data);
+  assert.match(root.innerHTML,/value="route-34"/);
+  root.querySelector("#owoLedgerRouteSearch").listeners.input[0]({target:{value:"no-such-route"}});
+  assert.match(root.querySelector("#owoLedgerRoutes").innerHTML,/没有匹配的路由模板/);
+});
+
+test("superseded diagnostic buttons cannot export a new render's data", () => {
+  const sandbox=makeSandbox();const root=makeRoot();
+  sandbox.OwoDiagnosticsLedger.render(root,{ledger:seedLedger(),core:{},overview:OVERVIEW});
+  const old=root.querySelector("#owoLedgerExport");
+  sandbox.OwoDiagnosticsLedger.render(root,{failed:true,errorText:"offline"});
+  old.click();
+  assert.equal(root.__owoLedgerBundle,undefined);
+});

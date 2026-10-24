@@ -322,6 +322,9 @@ fn sample_body(path: &str) -> Option<&'static str> {
     match path {
         "/session" => Some(r#"{"workspace":".","model":"idle"}"#),
         "/session/{id}/turn" => Some(r#"{"prompt":"hi"}"#),
+        // 自定义提示词：用合法短文本，可达性测试要 200。
+        "/session/{id}/system-prompt" => Some(r#"{"prompt":"契约样例提示词"}"#),
+        "/prompts" => Some(r#"{"name":"契约样例","content":"契约样例提示词"}"#),
         "/permissions" => Some(r#"{"profile":"workspace"}"#),
         // §4.5.3 结构化配置：给一份**合法且收紧**的 body（可达性测试要 200，不是 400）。
         "/permissions/spec" => Some(
@@ -349,6 +352,8 @@ fn sample_body(path: &str) -> Option<&'static str> {
         "/skills/{name}/enabled" => Some(r#"{"enabled":false}"#),
         // `/goal` 会话级目标状态：默认 action=set 且 objective 必填（可达性测试要 200）。
         "/session/{id}/goal" => Some(r#"{"action":"set","objective":"契约测试目标"}"#),
+        // 会话工作模式：agent / chat；未知值 400，可达性测试给合法值。
+        "/session/{id}/mode" => Some(r#"{"mode":"chat"}"#),
         // 逐 hunk 审阅的应用：缺 accept/reject 会 422，可达性测试只要求路由存在与请求体可解析。
         "/session/{id}/hunks/apply" => Some(r#"{"path":"fixture.txt","accept":[0]}"#),
         // 用户自定义工作流：非法配置会 422（可达性测试接受 4xx，这里给"能解析"的最小体）。
@@ -511,6 +516,7 @@ fn resource_404_ok(path: &str) -> bool {
             | "/computer-use/task/{id}/run"
             | "/cloud/tasks/{id}"
             | "/cloud/tasks/{id}/result"
+            | "/prompts/{id}"
             | "/notes/{id}"
             | "/notes/{id}/export/{format}"
             | "/notes/{id}/blocks"
@@ -1683,6 +1689,56 @@ async fn turn_replay_openapi_documents_identity_and_terminal_state() {
 }
 
 #[tokio::test]
+async fn openapi_documents_chat_mode_and_optional_workspace() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+    let response = app
+        .oneshot(request(&state, "GET", "/openapi.json", None))
+        .await
+        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), 10 * 1024 * 1024)
+        .await
+        .unwrap();
+    let served: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    // 纯对话可以不选工作区：文档不能继续把 workspace 标成必填。
+    let create = &served["components"]["schemas"]["CreateSessionRequest"];
+    assert_eq!(create["properties"]["workspace"]["type"], "string");
+    assert!(
+        create["properties"]["workspace"]["description"]
+            .as_str()
+            .unwrap()
+            .contains("chat 模式可省略"),
+        "workspace 必须说明纯对话可省略"
+    );
+    assert!(
+        !create["required"]
+            .as_array()
+            .map(|fields| fields.iter().any(|field| field == "workspace"))
+            .unwrap_or(false),
+        "workspace 不应继续出现在 required"
+    );
+    assert_eq!(
+        create["properties"]["mode"]["enum"],
+        serde_json::json!(["agent", "chat"])
+    );
+
+    // 模式切换与详情也必须是可枚举的，客户端才能生成联合类型。
+    assert_eq!(
+        served["paths"]["/session/{id}/mode"]["post"]["requestBody"]["content"]["application/json"]
+            ["schema"]["properties"]["mode"]["enum"],
+        serde_json::json!(["agent", "chat"])
+    );
+    for schema in ["SessionInfo", "SessionDetail"] {
+        assert_eq!(
+            served["components"]["schemas"][schema]["properties"]["mode"]["enum"],
+            serde_json::json!(["agent", "chat"]),
+            "{schema} 必须暴露 mode 枚举"
+        );
+    }
+}
+
+#[tokio::test]
 async fn openapi_json_covers_snapshot_and_registered_routes() {
     let (state, _temp) = test_state().await;
     let app = build_router(Arc::clone(&state));
@@ -2061,6 +2117,8 @@ async fn unauthorized_requests_get_401() {
         // §3.4 引导页「测试连接」：它会回显掩码端点与连通结论，属受保护面——
         // 无 token 必须 401，否则任何本机进程都能拿它探测（并可能探测内网）。
         ("POST", "/settings/provider-test", Some("{}")),
+        // 提供商预设表同属受保护面：无 token 必须 401。
+        ("GET", "/providers/presets", None),
     ] {
         let response = app
             .clone()
@@ -4105,4 +4163,363 @@ async fn expression_rejects_invalid_host_or_origin_before_provider() {
     }
     assert_eq!(state.shutdown_gate.active_turns(), 0);
     assert!(state.sessions.lock().unwrap().is_empty());
+}
+
+/// 纯对话模式：创建时指定 -> 切回 agent -> 读回一致 -> 非法值 400。
+///
+/// 走真实 Router + 真 SQLite，避免只断言"函数存在"。
+#[tokio::test]
+async fn chat_session_mode_roundtrip_and_validation() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/session",
+            Some(r#"{"workspace":".","model":"idle","mode":"chat"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let created: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(created["mode"], "chat", "创建时应返回 chat 模式");
+    let id = created["id"].as_str().unwrap().to_string();
+
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/session/{id}/mode"),
+            Some(r#"{"mode":"agent"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let switched: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(switched["mode"], "agent");
+
+    // 读回会话确认落库（不是只改了内存副本）。
+    let response = app
+        .clone()
+        .oneshot(request(&state, "GET", &format!("/session/{id}"), None))
+        .await
+        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let detail: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(detail["mode"], "agent");
+
+    // 未知模式必须 400：不能静默降级成 agent 或 chat。
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/session/{id}/mode"),
+            Some(r#"{"mode":"telepathy"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::BAD_REQUEST);
+}
+
+/// 纯对话可以不选工作区（ChatGPT 式直接开聊）；Agent 模式仍然必须有工作区，
+/// 显式写错的路径在两种模式下都必须是 400，不能静默落到默认目录。
+#[tokio::test]
+async fn chat_session_creates_isolated_workspace_when_none_is_given() {
+    let (state, temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/session",
+            Some(r#"{"workspace":"   ","model":"idle","mode":"chat"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let created: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(created["mode"], "chat");
+    let workspace = created["workspace"].as_str().unwrap();
+    assert!(
+        !workspace.trim().is_empty(),
+        "纯对话会话也必须返回真实工作区"
+    );
+    assert!(
+        std::path::Path::new(workspace).is_dir(),
+        "返回的工作区应当已存在：{workspace}"
+    );
+    assert_eq!(
+        std::path::Path::new(workspace),
+        temp.path().join("chat"),
+        "纯对话目录应隔离在数据根下，而不是用户项目"
+    );
+
+    // 会话详情读回同一路径，后续回合才能落到同一个沙箱。
+    let detail = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "GET",
+            &format!("/session/{}", created["id"].as_str().unwrap()),
+            None,
+        ))
+        .await
+        .unwrap();
+    let body = axum::body::to_bytes(detail.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let detail: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(detail["workspace"], workspace);
+
+    // Agent 模式缺少工作区必须拒绝。
+    let denied = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/session",
+            Some(r#"{"workspace":"","model":"idle"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(denied.status(), axum::http::StatusCode::BAD_REQUEST);
+
+    // 显式写错的路径不能被默认目录兜底。
+    let typo = app
+        .oneshot(request(
+            &state,
+            "POST",
+            "/session",
+            Some(r#"{"workspace":"Z:/definitely-missing-owo","model":"idle","mode":"chat"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(typo.status(), axum::http::StatusCode::BAD_REQUEST);
+}
+#[tokio::test]
+async fn prompt_presets_crud_and_session_apply_contract() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+
+    let create = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/session",
+            Some(r#"{"workspace":".","model":"idle"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create.status().as_u16(), 200, "POST /session 应 200");
+    let bytes = axum::body::to_bytes(create.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let session_id = serde_json::from_slice::<serde_json::Value>(&bytes).unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    // 初始为空库（测试数据目录是独立的临时目录）。
+    let list = app
+        .clone()
+        .oneshot(request(&state, "GET", "/prompts", None))
+        .await
+        .unwrap();
+    assert_eq!(list.status().as_u16(), 200);
+    let body = axum::body::to_bytes(list.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body["prompts"].as_array().unwrap().len(), 0);
+
+    // 创建
+    let saved = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompts",
+            Some(r#"{"name":"严谨评审","content":"先给结论，再列证据。"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(saved.status().as_u16(), 200, "创建提示词应 200");
+    let saved = axum::body::to_bytes(saved.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let saved: serde_json::Value = serde_json::from_slice(&saved).unwrap();
+    let preset_id = saved["prompt"]["id"].as_str().unwrap().to_string();
+    assert_eq!(saved["prompt"]["name"], "严谨评审");
+
+    // 名称非法：明确 400，不落库
+    let bad = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompts",
+            Some(r#"{"name":"   ","content":"x"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(bad.status().as_u16(), 400, "空名称应 400");
+
+    // 带 id 保存 = 更新同一条（前端导入/编辑都依赖这个语义）
+    let updated = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompts",
+            Some(&format!(
+                r#"{{"id":"{preset_id}","name":"严谨评审 v2","content":"先给结论，再列证据，最后给适用边界。"}}"#
+            )),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(updated.status().as_u16(), 200, "更新提示词应 200");
+    let updated = axum::body::to_bytes(updated.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let updated: serde_json::Value = serde_json::from_slice(&updated).unwrap();
+    assert_eq!(updated["prompt"]["id"].as_str().unwrap(), preset_id);
+    assert_eq!(updated["prompt"]["name"], "严谨评审 v2");
+    assert_eq!(
+        updated["prompts"].as_array().unwrap().len(),
+        1,
+        "更新不能新增第二条"
+    );
+
+    // 不存在的 id 更新：404 而不是悄悄变成新建
+    let missing = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompts",
+            Some(r#"{"id":"no-such-id","name":"x","content":"y"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(missing.status().as_u16(), 404, "未知 id 应 404");
+
+    // 内容超限：400，且不落库
+    let oversize = "长".repeat(20_001);
+    let too_long = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompts",
+            Some(&format!(r#"{{"name":"超长","content":"{oversize}"}}"#)),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(too_long.status().as_u16(), 400, "超长内容应 400");
+    let still = app
+        .clone()
+        .oneshot(request(&state, "GET", "/prompts", None))
+        .await
+        .unwrap();
+    let still = axum::body::to_bytes(still.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let still: serde_json::Value = serde_json::from_slice(&still).unwrap();
+    assert_eq!(still["prompts"].as_array().unwrap().len(), 1);
+
+    // 应用到会话
+    let applied = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/session/{session_id}/system-prompt"),
+            Some(r#"{"prompt":"先给结论，再列证据。"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(applied.status().as_u16(), 200, "应用提示词应 200");
+    let applied = axum::body::to_bytes(applied.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let applied: serde_json::Value = serde_json::from_slice(&applied).unwrap();
+    assert_eq!(applied["system_prompt"], "先给结论，再列证据。");
+
+    // 会话详情读回（重启恢复也走同一字段）
+    let detail = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "GET",
+            &format!("/session/{session_id}"),
+            None,
+        ))
+        .await
+        .unwrap();
+    let detail = axum::body::to_bytes(detail.into_body(), 4 * 1024 * 1024)
+        .await
+        .unwrap();
+    let detail: serde_json::Value = serde_json::from_slice(&detail).unwrap();
+    assert_eq!(detail["system_prompt"], "先给结论，再列证据。");
+
+    // 空串 = 清除
+    let cleared = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/session/{session_id}/system-prompt"),
+            Some(r#"{"prompt":"  "}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(cleared.status().as_u16(), 200);
+    let cleared = axum::body::to_bytes(cleared.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let cleared: serde_json::Value = serde_json::from_slice(&cleared).unwrap();
+    assert!(cleared["system_prompt"].is_null(), "空串应清除提示词");
+
+    // 删除
+    let deleted = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "DELETE",
+            &format!("/prompts/{preset_id}"),
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(deleted.status().as_u16(), 200, "删除应 200");
+    let again = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "DELETE",
+            &format!("/prompts/{preset_id}"),
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(again.status().as_u16(), 404, "重复删除应 404");
 }

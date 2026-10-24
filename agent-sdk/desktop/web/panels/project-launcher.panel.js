@@ -19,9 +19,7 @@
 // 幂等（replayed 如实提示）。创建成功后经 window.OwoPanels.workswarm.open()
 // 直达团队详情（不重复挂载面板）。
 //
-// 七期第四路：步骤⑥预览升级为"实际执行权限"——每角色附由工作区设置 + 角色
-// 画像推导的权限行（只读/可写路径/命令/浏览器；真实生效以团队详情
-// worker_profiles 为准），不再只展示模板描述文字。
+// 预览显示已选择的模板角色与请求的工作区范围；实际角色权限由宿主授权决定。
 //
 // Node 兼容：globalThis 回退 + module.exports 导出 _test 纯逻辑挂钩（浏览器
 // 零差异），供 tests/project-launcher.panel.test.mjs 断言。
@@ -41,6 +39,9 @@
     var lifecycleGeneration = 0;
     var treeGeneration = 0;
     var catalogGeneration = 0;
+    var creationGeneration = 0;
+    var hostScope = "";
+    var draftWorkspace = null;
 
     function isCurrent(generation) {
       return generation === lifecycleGeneration && !!rootEl;
@@ -121,7 +122,7 @@
 
     /// 解析写入范围输入：逗号/换行分隔 → 去空白/去重/去空项。
     function parseWritePaths(raw) {
-      var seen = {};
+      var seen = Object.create(null);
       var out = [];
       String(raw == null ? "" : raw).split(/[\n,]+/).forEach(function (p) {
         var t = String(p).trim();
@@ -137,7 +138,7 @@
     function pathIsSafe(p) {
       if (!p) return false;
       if (p === ".." || p.indexOf("..\\") >= 0 || p.indexOf("../") >= 0) return false;
-      if (/^[a-zA-Z]:/.test(p)) return false; // 允许 root 本身带盘符；允许路径必须相对
+      if (/^[\\/]|^[a-zA-Z]:/.test(p) || /(^|[\\/])\.\.([\\/]|$)/.test(p)) return false; // 允许 root 本身带盘符；允许路径必须相对
       return true;
     }
 
@@ -172,14 +173,14 @@
     /// 勾选行合入 writePathsRaw：剔除 prevRows（上一轮勾选）保留手输，再并入当前勾选。
     /// pathIsSafe 为额外防线（服务端树本身不含 `..`/符号链接）。
     function mergePickedIntoRaw(raw, rows, prevRows) {
-      var prevSet = {};
+      var prevSet = Object.create(null);
       (Array.isArray(prevRows) ? prevRows : []).forEach(function (r) {
         if (r && r.path) prevSet[String(r.path)] = true;
       });
       var manual = parseWritePaths(raw).filter(function (p) {
         return !prevSet[p];
       });
-      var seen = {};
+      var seen = Object.create(null);
       manual.forEach(function (p) {
         seen[p] = true;
       });
@@ -344,36 +345,17 @@
       };
     }
 
-    /// 无模板时按组队模式生成预览（auto 交由服务端策略判定，不伪造角色数）。
+    /// 无模板时只显示请求的执行方式；角色名称与分工由宿主决定。
     function previewFromStrategy(strategy) {
-      var s = String(strategy || "auto");
-      if (s === "single") {
-        return {
-          source: "strategy",
-          roleCount: 1,
-          roles: [{ role: "producer", duty: "单 Agent 独立完成并自检" }],
-          budget: null,
-          note: "强制单 Agent：零评审零裁决，调用量最小",
-        };
-      }
-      if (s === "team") {
-        return {
-          source: "strategy",
-          roleCount: null,
-          roles: [
-            { role: "producer", duty: "产出主交付物" },
-            { role: "critic", duty: "只读评审（只提交评审结论，不覆盖交付物）" },
-          ],
-          budget: null,
-          note: "强制多 Agent：完整评审流水线",
-        };
-      }
+      var mode = String(strategy || "auto");
       return {
         source: "strategy",
-        roleCount: null,
+        roleCount: mode === "single" ? 1 : null,
         roles: [],
         budget: null,
-        note: "自动组队：系统按任务画像判定单/多 Agent（简单任务默认单 Agent），判定理由可在团队详情查看",
+        note: mode === "single" ? "单 Agent 执行；具体角色和预算在创建后确认。" :
+          mode === "team" ? "多 Agent 协作；角色、依赖和预算在创建后确认。" :
+          "自动选择执行方式；创建后查看实际角色、预算和组队理由。",
       };
     }
 
@@ -390,45 +372,25 @@
       return parts.join(" · ");
     }
 
-    // ---------- 七期：角色实际执行权限预览（纯函数） ----------
-    // 与二路 WorkerProfile 语义对齐的客户端推导：
-    //   - 工作区只读（默认）→ 全部角色 read_only；
-    //   - 评审类角色（critic/reviewer）恒只读（评审只提交结论，不覆盖交付物）；
-    //   - 可写工作区按允许路径下发；路径留空 = 拒绝一切写入；
-    //   - 浏览器能力按角色画像（research/search/browser 命名）推导，与读写正交。
-    // 真实生效以团队详情 worker_profiles 为准（运行中可见）。
-    var REVIEWER_ROLE_RE = /critic|review|judge|arbitrat/i;
-    var BROWSER_ROLE_RE = /research|search|browser/i;
-
+    // 这里只能预览用户请求的工作区约束，不能从角色名称推断宿主授权。
     function rolePermissions(role, s) {
-      var name = String(role == null ? "" : role).trim();
-      var workspaceReadOnly = !(s && s.readOnly === false);
-      var isReviewer = REVIEWER_ROLE_RE.test(name);
-      var readOnly = workspaceReadOnly || isReviewer;
+      var readOnly = !(s && s.readOnly === false);
       var paths = readOnly ? [] : parseWritePaths(s && s.writePathsRaw);
       return {
-        role: name,
+        role: String(role == null ? "" : role).trim(),
         read_only: readOnly,
-        can_run_command: !readOnly,
-        can_use_browser: BROWSER_ROLE_RE.test(name),
+        can_run_command: null,
+        can_use_browser: null,
         write_allowed_paths: paths,
-        // read_only=工作区只读或评审角色；scoped=按允许路径下发；denied=可写工作区但未声明路径
         write_mode: readOnly ? "read_only" : paths.length ? "scoped" : "denied",
       };
     }
 
-    /// 角色权限行文案。
     function rolePermText(perm) {
       if (!perm || !perm.role) return "";
-      var head = perm.read_only
-        ? "实际执行权限：只读"
-        : perm.write_mode === "scoped"
-          ? "实际执行权限：可写 " + perm.write_allowed_paths.join("、")
-          : "实际执行权限：写入被拒绝（未声明允许路径）";
-      var extra = [];
-      if (perm.can_run_command) extra.push("可执行命令");
-      if (perm.can_use_browser) extra.push("可浏览网页");
-      return head + (extra.length ? " · " + extra.join(" · ") : "");
+      return perm.read_only ? "工作区约束：只读" :
+        perm.write_mode === "scoped" ? "申请写入范围：" + perm.write_allowed_paths.join("、") :
+        "工作区约束：未声明允许路径，写入被拒绝";
     }
 
     /// 组装预览视图模型。
@@ -453,8 +415,7 @@
       html += "<div><b>来源</b> " + esc(p.source === "template" ? "模板 " + (p.title || "") + (p.version ? " v" + p.version : "") : "组队模式") + "</div>";
       html += "<div><b>角色</b> " + (p.roleCount != null ? esc(String(p.roleCount)) + " 个" : "由策略判定");
       if (p.roles && p.roles.length) {
-        // 七期：每个角色附"实际执行权限"行（由工作区设置 + 角色画像推导；
-        // 真实生效以团队详情 worker_profiles 为准）。
+        // 模板角色来自目录；这里只展示请求范围，不宣称角色已获授权。
         html += '<div class="owo-pl-roles">' + p.roles.map(function (r) {
           return (
             '<span class="owo-pl-role"><b>' + esc(r.role) + "</b>" +
@@ -467,7 +428,11 @@
       if (p.budget != null) html += "<div><b>调用预算</b> " + esc(String(p.budget)) + " 次</div>";
       if (p.artifactKinds && p.artifactKinds.length) html += "<div><b>产物类型</b> " + esc(p.artifactKinds.join("、")) + "</div>";
       if (p.note) html += '<div class="hint">' + esc(p.note) + "</div>";
-      html += "<div><b>权限</b> " + esc(permissionsSummary(s)) + "</div>";
+      html += "<div><b>任务目标</b> " + esc(s && s.objective || "未填写") + "</div>";
+      html += "<div><b>项目目录</b> " + esc(s && s.root || "未选择") + "</div>";
+      html += "<div><b>工作区约束</b> " + esc(permissionsSummary(s)) + "</div>";
+      if (p.budget == null) html += '<div><b>调用预算</b> 创建后确认</div>';
+      html += '<p class="hint">角色的工具权限以创建后的实际授权为准，命令和联网仍需通过权限检查。</p>';
       html += "</div>";
       return html;
     }
@@ -542,7 +507,7 @@
       // 元素不存在（Node 测试/未挂载）时保留当前 state，不清空。
       var e;
       if ((e = el("#pl-objective"))) state.objective = e.value || "";
-      if ((e = el("#pl-root")) && (/[\\/]|^[A-Za-z]:/.test(e.value.trim()) || !state.root)) state.root = e.value || "";
+      if ((e = el("#pl-root"))) state.root = e.value || "";
       if ((e = el("#pl-readonly"))) state.readOnly = !!e.checked;
       if ((e = el("#pl-writepaths"))) state.writePathsRaw = e.value || "";
       if ((e = el("#pl-depth"))) {
@@ -559,6 +524,8 @@
       if (box) box.innerHTML = previewHtml(buildPreview(state, state.catalog), state);
       var errs = el("#pl-errors");
       if (errs) errs.innerHTML = "";
+      var wizardError = el("#pl-wizard-error");
+      if (wizardError) { wizardError.textContent = ""; wizardError.hidden = true; }
     }
 
     // ---------- §8.1 目录树多选（交互） ----------
@@ -654,12 +621,18 @@
         .then(function () { return H.get("/teams/templates/catalog"); })
         .then(function (d) {
         if (!isCurrent(lifecycle) || request !== catalogGeneration) return;
-        state.catalog = (d && d.catalog) || [];
+        if (!d || !Array.isArray(d.catalog)) throw new Error("模板目录格式无效");
+        state.catalog = d.catalog;
+        if (state.selectedTemplate && !state.catalog.some(function (raw) {
+          var template = normTemplate(raw);
+          return template && template.id === state.selectedTemplate && template.installed;
+        })) state.selectedTemplate = "";
         state.catalogLoaded = true;
         state.catalogError = "";
         if (box) box.innerHTML = catalogHtml(state.catalog, state.installBusy);
         var sel = el("#pl-template");
         if (sel) sel.innerHTML = templateOptionsHtml(state.catalog, state.selectedTemplate);
+        repaintPreview();
         }).catch(function (e) {
         if (!isCurrent(lifecycle) || request !== catalogGeneration) return;
         state.catalog = [];
@@ -676,7 +649,9 @@
     function installTemplate(id) {
       if (!id || state.installBusy[id]) return Promise.resolve();
       var lifecycle = lifecycleGeneration;
-      state.installBusy[id] = true;
+      var locks = state.installBusy;
+      var post = H.post;
+      locks[id] = true;
       var box = el("#pl-catalog");
       if (box) {
         var btn = box.querySelector('[data-pl-install="' + id.replace(/"/g, '\\"') + '"]');
@@ -690,7 +665,7 @@
         }
       }
       return Promise.resolve()
-        .then(function () { return H.post("/teams/templates/catalog/" + encodeURIComponent(id) + "/install", {}); })
+        .then(function () { if (isCurrent(lifecycle)) return post("/teams/templates/catalog/" + encodeURIComponent(id) + "/install", {}); })
         .then(function (d) {
           if (!isCurrent(lifecycle)) return;
           var already = !!(d && (d.replayed || d.already_installed));
@@ -712,7 +687,8 @@
           if (msg) msg.innerHTML = '<div class="owo-pl-failed">安装失败：' + esc(friendly(e)) + "</div>";
         })
         .then(function () {
-          delete state.installBusy[id];
+          delete locks[id];
+          if (!isCurrent(lifecycle)) return;
           var currentBox = el("#pl-catalog");
           if (currentBox) {
             currentBox.innerHTML = state.catalogError
@@ -732,6 +708,10 @@
         return;
       }
       var lifecycle = lifecycleGeneration;
+      var request = ++creationGeneration;
+      var scope = hostScope;
+      var post = H.post;
+      var explain = H.friendlyError || defaultFriendlyError;
       state.creating = true;
       var btn = el("#pl-create");
       if (btn) {
@@ -743,9 +723,13 @@
         btn.textContent = "创建中…";
       }
       var body = buildCreateBody(state);
-      Promise.resolve()
-        .then(function () { return H.post("/teams", body); })
+      return Promise.resolve()
+        .then(function () {
+          if (!isCurrent(lifecycle) || request !== creationGeneration || scope !== hostScope) return null;
+          return post("/teams", body);
+        })
         .then(function (d) {
+          if (!d || request !== creationGeneration || scope !== hostScope) return;
           state.result = d || {};
           state.error = "";
           if (isCurrent(lifecycle)) {
@@ -761,12 +745,14 @@
             // Keep the host decision visible before opening execution details.
           }
         }).catch(function (e) {
-          state.error = friendly(e);
+          if (request !== creationGeneration || scope !== hostScope) return;
+          state.error = explain(e);
           if (isCurrent(lifecycle)) {
             var currentErrors = el("#pl-errors");
             if (currentErrors) currentErrors.innerHTML = '<div class="owo-pl-failed">创建失败：' + esc(state.error) + "</div>";
           }
         }).then(function () {
+          if (request !== creationGeneration || scope !== hostScope) return;
           state.creating = false;
           // 创建锁属于共享面板状态；释放时可解锁当前挂载的按钮，但不能把旧请求结果写入新页面。
           var currentButton = el("#pl-create");
@@ -786,6 +772,7 @@
     }
 
     function gotoTeam(teamId) {
+      if (teamId && typeof H.openTeam === "function") return H.openTeam(teamId);
       // 经导航按钮切到 WorkSwarm 面板（app.js 挂载），再用公开 open() 直达详情。
       var btn = document.querySelector('#panelNav button[data-panel="workswarm"]');
       if (btn) btn.click();
@@ -808,20 +795,19 @@
     function viewHtml() {
       return (
         '<div class="owo-pl">' +
-        '<h2>新建任务</h2>' +
-        '<p class="hint">目标 → 范围与方式 → 预览并开始。默认只读，执行仍受权限与审批约束。</p>' +
+        '<p class="hint owo-pl-intro">定义目标，确认执行范围，再开始任务。</p>' +
         '<nav class="owo-pl-wizard" aria-label="新任务步骤"><button type="button" data-pl-wizard="1">1 · 任务目标</button><button type="button" data-pl-wizard="2">2 · 范围与方式</button><button type="button" data-pl-wizard="3">3 · 预览并开始</button></nav><p id="pl-wizard-error" role="alert" hidden></p>' +
-        '<div class="owo-pl-step"><label class="owo-pl-label">任务目标</label>' +
+        '<div class="owo-pl-step"><label class="owo-pl-label" for="pl-objective">任务目标</label>' +
         '<textarea id="pl-objective" rows="3" placeholder="例如：修复登录超时问题并补充回归测试（结构化/文档/研究任务均可）">' + esc(state.objective) + "</textarea></div>" +
-        '<div class="owo-pl-step"><label class="owo-pl-label">项目目录 <span class="hint">Agent 将以该目录为工作区</span></label>' +
-        '<input id="pl-root" size="60" placeholder="例如 T:\\我的项目\\demo（真实存在的目录）" value="' + esc(win.OwoWorkspaceDisplay ? win.OwoWorkspaceDisplay.alias(state.root) : state.root) + '"><span class="hint">日常显示项目别名，完整位置仅在详情中查看</span></div>' +
+        '<div class="owo-pl-step"><label class="owo-pl-label" for="pl-root">项目目录</label>' +
+        '<input id="pl-root" size="60" placeholder="例如 T:\\我的项目\\demo（真实存在的目录）" value="' + esc(state.root) + '"><span class="hint">填写任务执行的实际项目目录；清空后需重新选择。</span></div>' +
         '<div class="owo-pl-step"><label class="owo-pl-label">读写范围</label>' +
         '<div class="owo-ws-inline"><label><input type="checkbox" id="pl-readonly"' + (state.readOnly ? " checked" : "") + "> 只读（默认；取消勾选进入受控写入）</label></div>" +
         '<div id="pl-writebox"' + (state.readOnly ? ' hidden' : "") + ">" +
-        '<label class="owo-pl-label">允许写入路径（相对 root，逗号或换行分隔；留空 = 拒绝一切写入）</label>' +
+        '<label class="owo-pl-label" for="pl-writepaths">允许写入路径（相对 root，逗号或换行分隔；留空 = 拒绝一切写入）</label>' +
         '<textarea id="pl-writepaths" rows="2" placeholder="例如：src/，tests/">' + esc(state.writePathsRaw) + "</textarea>" +
         '<div class="owo-ws-inline"><button type="button" class="owo-ws-mini" data-pl-tree-load>从目录树勾选允许路径（推荐）</button>' +
-        '<span class="hint">读取 ② 目录的目录树（不跟随符号链接），勾选目录/文件即并入上方允许路径</span></div>' +
+        '<span class="hint">读取项目目录的目录树（不跟随符号链接），勾选目录/文件即并入上方允许路径</span></div>' +
         '<div id="pl-treebox" class="owo-pl-treebox">' +
           (state.treeLoadFailed
             ? '<div class="owo-pl-failed owo-pl-load-error" role="alert"><span>目录树读取失败：' + esc(state.treeError) +
@@ -837,27 +823,27 @@
         '<button type="button" class="owo-ws-mini' + (Number(state.treeDepth) > 4 ? " primary" : "") + '" data-pl-depth="8">深入 · 8 层</button>' +
         '<details class="owo-pl-advanced"><summary>自定义深度（1–8）</summary><input id="pl-depth" type="number" min="1" max="8" value="' + esc(String(state.treeDepth)) + '" size="3"></details>' +
         "</div></div>" +
-        '<div class="owo-pl-step"><label class="owo-pl-label">执行方式</label>' +
+        '<div class="owo-pl-step"><label class="owo-pl-label" for="pl-strategy">执行方式</label>' +
         '<select id="pl-strategy">' +
-        '<option value="auto"' + (state.strategy === "auto" ? " selected" : "") + ">自动组队（推荐：简单任务自动单 Agent）</option>" +
+        '<option value="auto"' + (state.strategy === "auto" ? " selected" : "") + ">自动组队（由系统选择）</option>" +
         '<option value="single"' + (state.strategy === "single" ? " selected" : "") + ">单 Agent</option>" +
         '<option value="team"' + (state.strategy === "team" ? " selected" : "") + ">多 Agent</option>" +
-        "</select></div>" +
-        '<div class="owo-pl-step"><label class="owo-pl-label">任务模板 <span class="hint">仅已安装模板可选；候选需先安装（幂等）</span></label>' +
+        '</select><button type="button" class="owo-pl-custom" data-pl-custom>自定义角色与工作流</button></div>' +
+        '<div class="owo-pl-step"><label class="owo-pl-label" for="pl-template">任务模板</label>' +
         '<select id="pl-template">' + templateOptionsHtml(state.catalog, state.selectedTemplate) + "</select>" +
-        '<div id="pl-catalog" class="owo-pl-cats">' +
+        '<details class="owo-pl-catalog-disclosure"><summary>浏览可用模板</summary><div id="pl-catalog" class="owo-pl-cats">' +
         (state.catalogError
           ? stateBox("failed", "模板目录加载失败：" + state.catalogError + "（目录不可用时仍可按组队模式手动创建）")
           : state.catalogLoaded
             ? catalogHtml(state.catalog, state.installBusy)
             : stateBox("loading", "正在加载内置模板目录…")) +
-        "</div></div>" +
+        "</div></details></div>" +
         '<div class="owo-pl-step"><label class="owo-pl-label">执行预览 · 角色 / 预算 / 权限</label>' +
         '<div id="pl-preview">' + previewHtml(buildPreview(state, state.catalog), state) + "</div></div>" +
         '<div class="owo-pl-step"><label class="owo-pl-label">开始任务</label>' +
         '<div class="owo-ws-inline"><button id="pl-create" data-core-action data-core-busy="' + (state.creating ? "true" : "false") + '" class="primary"' + (state.creating ? ' disabled aria-busy="true"' : "") + ">创建团队并开始执行</button></div>" +
         '<div id="pl-errors" aria-live="polite"></div>' +
-        '<div id="pl-result">' + resultHtml(state.result) + '</div></div><div class="owo-pl-wizard-actions"><button type="button" id="pl-prev">← 上一步</button><button type="button" id="pl-next" class="primary">下一步 →</button></div>' +
+        '<div id="pl-result">' + resultHtml(state.result) + '</div></div><div class="owo-pl-wizard-actions"><button type="button" id="pl-prev">上一步</button><button type="button" id="pl-next" class="primary">下一步</button></div>' +
         "</div>"
       );
     }
@@ -878,7 +864,7 @@
       syncStateFromDom();
       let message = "";
       if (next > state.wizardStep && !String(state.objective || "").trim()) message = "先描述任务目标，再选择执行范围。";
-      if (next === 3 && !String(state.root || "").trim()) message = "请选择项目目录，再预览任务。";
+      if (next === 3) message = validateState(state).join("；");
       const error = el("#pl-wizard-error");
       if (error) { error.textContent = message; error.hidden = !message; }
       if (message) return;
@@ -902,7 +888,6 @@
       if (rootI) rootI.addEventListener("input", function () {
         treeGeneration++;
         state.treeBusy = false;
-        if (/[\\/]|^[A-Za-z]:/.test(rootI.value.trim())) rootI.dataset.workspaceRoot = rootI.value.trim();
         repaintPreview();
       });
       var ro = el("#pl-readonly");
@@ -991,6 +976,10 @@
           }
         });
 
+      var custom = rootEl.querySelector("[data-pl-custom]");
+      if (custom) custom.onclick = function () {
+        if (H.openPanel) H.openPanel("custom-workflows");
+      };
       // 已有结果：直达按钮重绑
       var go = el("#pl-goto-team");
       if (go && state.result && state.result.team_id)
@@ -1004,7 +993,30 @@
       lifecycleGeneration++;
       rootEl = root;
       H = helpers || {};
-      if (!state.root && typeof localStorage !== "undefined") state.root = localStorage.getItem("owo.workspace") || "";
+      var scope = H.baseUrl || (win.OwoPanels && win.OwoPanels.baseUrl) || "";
+      if (scope !== hostScope) {
+        creationGeneration++;
+        state.creating = false;
+        state.result = null;
+        state.error = "";
+        state.catalog = [];
+        state.selectedTemplate = "";
+        state.installBusy = {};
+        draftWorkspace = null;
+      }
+      hostScope = scope;
+      var snapshot = H.snapshot ? H.snapshot() : {};
+      if (snapshot && typeof snapshot.workspace === "string" && snapshot.workspace !== draftWorkspace) {
+        draftWorkspace = snapshot.workspace;
+        state.root = snapshot.workspace;
+        state.readOnly = true;
+        state.writePathsRaw = "";
+        state.treeEntries = null;
+        state.treePickerOpen = false;
+        state.pickedRows = [];
+      } else if (!state.root && draftWorkspace === null && typeof localStorage !== "undefined") {
+        state.root = localStorage.getItem("owo.workspace") || "";
+      }
       if (!H.get) H.get = defaultGet;
       if (!H.post) H.post = defaultPost;
       if (!H.esc) H.esc = defaultEsc;
@@ -1071,7 +1083,7 @@
 
     return {
       id: ID,
-      setObjective: function (text) { state.objective = String(text || ""); state.wizardStep = 1; render(); },
+      setObjective: function (text) { state.objective = String(text || ""); state.wizardStep = 1; state.result = null; state.error = ""; render(); },
       title: "新建项目任务",
       mount: mount,
       dispose: dispose,

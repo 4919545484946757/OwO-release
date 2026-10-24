@@ -2646,6 +2646,20 @@ kbd {
 .modal-body { padding: 4px 18px 14px; overflow-y: auto; }
 .modal-message { margin: 4px 0 12px; color: var(--text-2); font-size: 12.5px; line-height: 1.7; }
 .modal-message strong { color: var(--text); }
+#modalBody textarea {
+  width: 100%;
+  min-height: 160px;
+  max-height: 52vh;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.65;
+  resize: vertical;
+}
 .modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px 16px; }
 .form-grid { display: grid; gap: 12px; }
 .form-check { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 12.5px; }

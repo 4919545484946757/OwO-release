@@ -104,9 +104,26 @@ pub(crate) fn validate_tool_calls(
     validate_tool_call_shapes(&calls)?;
     for call in &calls {
         if !tools.iter().any(|spec| spec.name == call.name) {
+            // 把"本轮实际提供了什么"写进错误：纯对话模式下最常见的失败就是模型
+            // 凭记忆调用本地工具，只说"未提供"用户无从判断是模式限制还是模型抽风。
+            let shown: Vec<&str> = tools
+                .iter()
+                .take(12)
+                .map(|spec| spec.name.as_str())
+                .collect();
+            let suffix = if tools.len() > shown.len() {
+                format!(" 等 {} 个", tools.len())
+            } else {
+                String::new()
+            };
+            let available = if shown.is_empty() {
+                "本轮没有提供任何工具".to_string()
+            } else {
+                format!("本轮只提供：{}{}", shown.join("、"), suffix)
+            };
             return Err(format!(
-                "模型请求了本轮未提供的工具 {}；可用工具列表与响应不一致",
-                call.name
+                "模型请求了本轮未提供的工具 {}（{}）。该调用被拒绝，未执行任何操作；需要该工具时请切换到 Agent 模式或调整工具范围",
+                call.name, available
             ));
         }
     }
@@ -849,6 +866,10 @@ impl OpenAiCompatibleProvider {
             .and_then(|o| o.timeout_secs)
             .map(Duration::from_secs)
             .unwrap_or_else(model_stream_idle_timeout);
+        // 思维链预算：模型只吐 reasoning_delta、长期不产出正文/工具调用时，
+        // 回合会一直"看起来在跑"却永远不结束。用语义进度计时兜底。
+        let reasoning_budget = duration_from_env("OWO_MODEL_REASONING_BUDGET_SECS", 240);
+        let mut last_semantic = tokio::time::Instant::now();
         let mut last_progress = tokio::time::Instant::now();
         while let Some(chunk) = tokio::time::timeout(
             idle_timeout.saturating_sub(last_progress.elapsed()),
@@ -866,6 +887,7 @@ impl OpenAiCompatibleProvider {
                 return Err("provider/stream_chunk_too_large".into());
             }
             state.semantic_progress = false;
+            state.content_progress = false;
             append_utf8_chunk(&mut state.buffer, &mut state.utf8_pending, &chunk);
             if state
                 .buffer
@@ -889,6 +911,14 @@ impl OpenAiCompatibleProvider {
             state.validate_resource_bounds()?;
             if state.semantic_progress {
                 last_progress = tokio::time::Instant::now();
+            }
+            if state.content_progress {
+                last_semantic = tokio::time::Instant::now();
+            } else if last_semantic.elapsed() > reasoning_budget {
+                return Err(format!(
+                    "provider/reasoning_budget_exceeded: 连续 {}s 只有思维链、没有正文或工具调用",
+                    reasoning_budget.as_secs()
+                ));
             }
             if state.saw_done {
                 break;

@@ -78,6 +78,7 @@
     var H = {};
     var rootEl = null;
     var deliveryView = null;
+    var detailTabsByTeam = {};
     function defaultGet(path, options) {
       return window.OwoApi.get(path, options);
     }
@@ -368,6 +369,7 @@
       btn.setAttribute("aria-busy", "true");
       btn.__idleText = btn.textContent;
       btn.disabled = true;
+      if (win.OwoCoreActionAvailability) win.OwoCoreActionAvailability.setBusy(btn, true);
       if (busyLabel) btn.textContent = busyLabel;
     }
 
@@ -376,6 +378,7 @@
       btn.removeAttribute("data-busy");
       btn.removeAttribute("aria-busy");
       btn.disabled = false;
+      if (win.OwoCoreActionAvailability) win.OwoCoreActionAvailability.setBusy(btn, false);
       if (btn.__idleText != null) btn.textContent = btn.__idleText;
       applyGating(); // 解锁后按最新状态重新应用终态门控
     }
@@ -420,6 +423,15 @@
       return isTerminalTeam(st) || st === "stopping" || st === "stopped";
     }
 
+    function setActionDisabled(button, disabled, title) {
+      if (win.OwoCoreActionAvailability && win.OwoCoreActionAvailability.setDisabled) {
+        win.OwoCoreActionAvailability.setDisabled(button, disabled, title);
+      } else {
+        button.disabled = disabled;
+        button.title = title || "";
+      }
+    }
+
     function applyGating() {
       var st = normStatus(currentTeamStatus());
       var term = isTerminalTeam(st);
@@ -428,29 +440,26 @@
         var b = el(id);
         if (!b) return;
         if (b.getAttribute("data-busy") === "1") return; // 提交中的锁优先
-        b.disabled = gated;
-        b.title = term
+        setActionDisabled(b, gated, term
           ? "团队已进入终态，该操作不可用"
           : gated
             ? "团队正在停止/已停止，该操作不可用"
-            : "";
+            : "");
       });
       var hGo = el("ws-h-go"); // 人节点结果提交：终态/停止禁用；没有未完成的人节点任务也禁用
       if (hGo && hGo.getAttribute("data-busy") !== "1") {
         var noHuman = humanTasks().length === 0;
-        hGo.disabled = gated || noHuman;
-        hGo.title = term
+        setActionDisabled(hGo, gated || noHuman, term
           ? "团队已进入终态，人节点结果提交不可用"
           : gated
             ? "团队正在停止/已停止，人节点结果提交不可用"
             : noHuman
               ? "当前没有未完成的人节点任务"
-              : "";
+              : "");
       }
       var xGo = el("ws-x-go"); // 任务交接：终态/停止禁用
       if (xGo && xGo.getAttribute("data-busy") !== "1") {
-        xGo.disabled = gated;
-        xGo.title = term ? "团队已进入终态，交接不可用" : gated ? "团队正在停止/已停止，交接不可用" : "";
+        setActionDisabled(xGo, gated, term ? "团队已进入终态，交接不可用" : gated ? "团队正在停止/已停止，交接不可用" : "");
       }
       // 节点重试按钮：仅 succeeded / cancelled / stopping / stopped 隐藏为禁用
       //（failed 终态正是 retry 的合法场景）；提交中的锁优先。渲染层已按
@@ -1064,6 +1073,7 @@
       var box = el("#ws-d-conversation-messages");
       if (!box) return;
       var roleSelect = el("#ws-d-conversation-role");
+      paintConversationRoles(roleSelect);
       var onlyRole = roleSelect ? roleSelect.value : "";
       var opened = Array.from(box.querySelectorAll("details[data-event-key][open]")).map(function (node) { return node.getAttribute("data-event-key"); });
       var scrollBox = box;
@@ -1080,7 +1090,6 @@
       if (box._conversationHtml === html) return;
       box._conversationHtml = html;
       box.innerHTML = html;
-      paintConversationRoles(roleSelect);
       box.querySelectorAll("details[data-event-key]").forEach(function (node) {
         node.open = opened.indexOf(node.getAttribute("data-event-key")) >= 0;
       });
@@ -1091,8 +1100,8 @@
     function paintConversationRoles(select) {
       if (!select) return;
       var helper = win.OwoWorkswarmRenderConversation;
-      var roles = helper && typeof helper.replayRoles === "function"
-        ? helper.replayRoles(state.conversationReplay)
+      var roles = helper && typeof helper.conversationRoles === "function"
+        ? helper.conversationRoles(state.conversationReplay, state.handoffs, (state.team && state.team.members) || [])
         : [];
       var current = select.value || "";
       var wanted = ["all"].concat(roles);
@@ -1737,6 +1746,8 @@
                   : "○ 已暂停";
         act.className = "owo-ws-active" + (iv ? " interrupted" : state.active ? " on" : "");
       }
+      var title = el("#ws-d-title");
+      if (title && win.OwoTeamDetailLayout) title.textContent = win.OwoTeamDetailLayout.title(t, state.audit);
       var meta = el("#ws-d-meta");
       if (meta && t && t.team_id) {
         var metaText =
@@ -1757,7 +1768,7 @@
       var continueButton=el('#ws-act-continue'),cancelButton=el('#ws-act-cancel');
       if(continueButton)continueButton.style.display=interruptedView()||status==='paused'?'':'none';
       if(cancelButton)cancelButton.style.display=isTerminalTeam(status)?'none':'';
-      var manual=el('[data-team-section="调整任务与人工协作"]');
+      var manual=rootEl && rootEl.querySelector('[data-team-section="调整任务与人工协作"]');
       if(manual && status==='awaiting_human')manual.open=true;
       if(deliveryView && state.current)deliveryView.load(state.current, currentTeamStatus()+":"+(state.tasks||[]).map(function(t){return t.status+":"+t.attempts;}).join(","));
       paintStatusLive();
@@ -2069,21 +2080,27 @@
     }
 
     // ---------- 产物 ----------
+    var artifactRequestSeq = 0;
     function loadArtifacts() {
       var box = el("#ws-d-artifacts");
       if (!box) return Promise.resolve();
       var t = state.team;
+      var request = ++artifactRequestSeq;
       var pid = (t && t.project_space_id) || (state.current ? "proj-" + state.current : "");
       if (!pid) {
         box.innerHTML = '<div class="hint">项目空间尚不可用</div>';
         return Promise.resolve();
       }
       state.artifactLoadError = "";
-      box.innerHTML = '<div class="hint">project_id：' + esc(pid) + "</div>" + stateBox("loading", "正在加载产物…");
+      if (!box.querySelector || !box.querySelector("[data-art-row]")) {
+        box.innerHTML = '<div class="hint">project_id：' + esc(pid) + "</div>" + stateBox("loading", "正在加载产物…");
+      }
+      box.setAttribute && box.setAttribute("aria-busy", "true");
       return H.get("/projects/" + encodeURIComponent(pid) + "/artifacts")
         .then(function (d) {
-          if (el("#ws-d-artifacts") !== box) return; // 视图已切走
+          if (el("#ws-d-artifacts") !== box || request !== artifactRequestSeq) return; // 已切走或被更新请求取代
           var arts = (d && d.artifacts) || [];
+          box.removeAttribute && box.removeAttribute("aria-busy");
           state.artifactLoadError = "";
           state.artifacts = arts;
           state.artifactCount = arts.length; // 运行摘要「产物」计数
@@ -2093,24 +2110,30 @@
             if (state.handoffArtsFetched) paintHandoffRefPickers();
             return;
           }
+          var drafts = win.OwoTeamDetailLayout ? win.OwoTeamDetailLayout.captureArtifactDrafts(box) : [];
           var chains = groupArtifactChain(arts);
           box.innerHTML =
             '<div class="hint">project_id：' + esc(pid) + " · 共 " + arts.length + " 个产物 · " + chains.length + " 条版本链</div>" +
             renderArtifactsChains(chains);
           bindArtifactReviewHandlers(box);
+          if (win.OwoTeamDetailLayout) win.OwoTeamDetailLayout.restoreArtifactDrafts(box, drafts);
           if (state.handoffArtsFetched) paintHandoffRefPickers();
         })
         .catch(function (e) {
-          if (el("#ws-d-artifacts") !== box) return;
+          if (el("#ws-d-artifacts") !== box || request !== artifactRequestSeq) return;
+          box.removeAttribute && box.removeAttribute("aria-busy");
           state.artifactLoadError = explainError(e, "产物加载");
           if (state.handoffArtsFetched) {
             state.handoffArtsFetched = false;
             state.handoffArtsError = state.artifactLoadError;
             paintHandoffRefPickers();
           }
-          box.innerHTML =
-            '<div class="hint">project_id：' + esc(pid) + "</div>" +
-            stateBox("error", state.artifactLoadError, "artifacts");
+          var errorHtml = stateBox("error", state.artifactLoadError, "artifacts");
+          if (box.querySelector && box.querySelector("[data-art-row]")) {
+            var previousError = box.querySelector(".team-artifact-refresh-error");
+            if (previousError) previousError.remove();
+            box.insertAdjacentHTML("afterbegin", '<div class="team-artifact-refresh-error">' + errorHtml + "</div>");
+          } else box.innerHTML = '<div class="hint">project_id：' + esc(pid) + "</div>" + errorHtml;
         });
     }
 
@@ -2471,6 +2494,10 @@
             state.cancelling = false; // 终态确认：清除"取消中"
             loadTeamConversation(state.current, true);
             stopLive("已结束：团队进入终态（" + String(snap.status) + "）");
+            syncDetail();
+            loadArtifacts();
+            loadWorkspaceChanges();
+            loadChangeSets();
           }
         })
         .catch(function (e) {
@@ -2550,7 +2577,11 @@
         if (isTerminalTeam(f.status)) {
           state.cancelling = false; // 终态确认：清除"取消中"
           loadTeamConversation(state.current, true);
-            stopLive("已结束：团队进入终态（" + String(f.status) + "）");
+          stopLive("已结束：团队进入终态（" + String(f.status) + "）");
+          syncDetail();
+          loadArtifacts();
+          loadWorkspaceChanges();
+          loadChangeSets();
         }
       }
     }
@@ -2663,6 +2694,7 @@
         '<input class="owo-ws-role-tools" aria-label="节点工具" placeholder="工具，逗号分隔；支持 mcp__服务__工具" value="' + esc((role.tools || []).join(",")) + '">' +
         '<input class="owo-ws-role-paths" aria-label="输出路径范围" placeholder="输出目录，逗号分隔（独立目录可并行）" value="' + esc((role.write_paths || []).join(",")) + '">' +
         '<textarea class="owo-ws-role-contract" aria-label="职责与交付契约" placeholder="自定义职责、输入和交付要求" rows="2">' + esc(role.handoff_contract || "") + '</textarea>' +
+        '<label class="owo-ws-role-verify-label"><span>输出验收规则</span><input class="owo-ws-role-verify" aria-label="输出验收规则" placeholder="non_empty、contains:文本 或 equals:文本" value="' + esc(role.verify || "") + '"><small>非空规则仅验证存在输出；内容质量和文件正确性仍需相应检查。留空的角色输出保持未验证。</small></label>' +
         '<button class="owo-ws-role-del" type="button" aria-label="删除角色" title="删除该角色">✕</button>' +
         "</div>"
       );
@@ -2699,6 +2731,7 @@
           tools: r.querySelector(".owo-ws-role-tools").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean),
           write_paths: r.querySelector(".owo-ws-role-paths").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean),
           handoff_contract: r.querySelector(".owo-ws-role-contract").value.trim(),
+          verify: r.querySelector(".owo-ws-role-verify") ? r.querySelector(".owo-ws-role-verify").value.trim() : "",
         });
       }
       return out;
@@ -2721,7 +2754,7 @@
           return Object.assign({}, r.original, {
             role: r.role, assignee: r.assignee, worker: r.worker, depends_on: deps,
             model: r.model || null, capabilities: r.capabilities, tools: r.tools, write_paths: r.write_paths,
-            handoff_contract: r.handoff_contract || null,
+            handoff_contract: r.handoff_contract || null, verify: r.verify || null,
           });
         })
       );
@@ -3365,8 +3398,10 @@
         show("ws-h-result", "err", "人节点结果不能为空：请填写结果内容");
         return null;
       }
-      return H.post("/tasks/" + encodeURIComponent(tid) + "/human-result", { team_id: state.current, result: result })
+      var teamId = state.current, seq = detailSeq;
+      return H.post("/tasks/" + encodeURIComponent(tid) + "/human-result", { team_id: teamId, result: result })
         .then(function (d) {
+          if (state.current !== teamId || seq !== detailSeq || state.view !== "detail") return;
           show(
             "ws-h-result",
             "ok",
@@ -3377,9 +3412,10 @@
               "），下游任务将自动继续。"
           );
           if (textEl) textEl.value = "";
-          syncDetail();
+          return Promise.all([syncDetail(), loadArtifacts(), loadTeamConversation(teamId, true)]);
         })
         .catch(function (e) {
+          if (state.current !== teamId || seq !== detailSeq || state.view !== "detail") return;
           show("ws-h-result", "err", explainError(e, "提交人节点结果"));
         });
     }
@@ -3422,8 +3458,10 @@
       };
       var to = toEl ? toEl.value.trim() : "";
       if (to) body.to_member = to;
+      var teamId = state.current, seq = detailSeq;
       return H.post("/tasks/" + encodeURIComponent(tid) + "/handoff", body)
         .then(function (d) {
+          if (state.current !== teamId || seq !== detailSeq || state.view !== "detail") return;
           show(
             "ws-x-result",
             "ok",
@@ -3439,6 +3477,7 @@
           syncDetail();
         })
         .catch(function (e) {
+          if (state.current !== teamId || seq !== detailSeq || state.view !== "detail") return;
           show("ws-x-result", "err", explainError(e, "提交交接结果"));
         });
     }
@@ -3446,7 +3485,8 @@
     function renderDetail() {
       return (
         '<div class="owo-ws-d-head">' +
-        '<button class="owo-ws-mini" id="ws-d-back">← 团队列表</button>' +
+        '<button class="owo-ws-mini" id="ws-d-back"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 5-7 7 7 7M5 12h14"/></svg>团队列表</button>' +
+        '<h3 class="team-run-title" id="ws-d-title">团队运行</h3>' +
         '<span class="owo-ws-d-id" id="ws-d-id">…</span>' +
         '<span class="owo-ws-badge" id="ws-d-status">加载中</span>' +
         '<span class="owo-ws-active" id="ws-d-active"></span>' +
@@ -3455,12 +3495,12 @@
         "</div>" +
         '<div id="ws-d-main" style="display:flex;flex-direction:column;gap:10px">' +
         '<pre class="owo-ws-result sub" id="ws-d-error"></pre>' +
-        '<details class="owo-ws-sec owo-ws-conversation" id="ws-d-conversation" open>' +
-        '<summary>团队对话与工作详情 <span class="hint">成员回复、工具参数与结果、工作计划；支持断线后回看</span></summary>' +
-        '<div class="owo-ws-inline"><label class="hint">只看成员 <select id="ws-d-conversation-role"><option value="all">全部成员</option></select></label></div>' +
+        '<section class="owo-ws-sec owo-ws-conversation" id="ws-d-conversation" aria-labelledby="ws-conversation-title">' +
+        '<div class="team-conversation-toolbar"><h3 id="ws-conversation-title">团队对话与工作详情</h3>' +
+        '<div class="owo-ws-inline"><label class="hint">只看成员 <select id="ws-d-conversation-role"><option value="all">全部成员</option></select></label>' +
+        '<button type="button" class="owo-ws-mini" id="ws-d-conversation-refresh" aria-label="刷新对话" title="刷新对话"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17"/></svg></button></div></div>' +
         '<div id="ws-d-conversation-messages" class="owo-ws-chat-wrap"><div class="hint">正在加载团队对话…</div></div>' +
-        '<button type="button" class="owo-ws-mini" id="ws-d-conversation-refresh">刷新对话</button>' +
-        "</details>" +
+        "</section>" +
         '<section class="team-delivery" id="ws-d-delivery" aria-label="本次任务的生成文件"></section>' +
         '<div class="owo-ws-sec">' +
         '<h3>运行摘要 <span class="hint">状态 / 活动阶段 / 任务计数 / 失败步骤 / 尝试 / 产物</span></h3>' +
@@ -3541,30 +3581,31 @@
         '<pre class="owo-ws-result sub" id="ws-x-result">—</pre>' +
         "</div>" +
         '<div class="owo-ws-sec">' +
-        '<h3>实时进度 <span class="hint">progress 事件（步骤开始/完成/失败/取消，seq 单调递增；断线恢复后旧 seq 自动跳过）</span></h3>' +
+        '<h3>实时进度 <span class="hint">步骤状态与运行耗时，断线后可恢复查看</span></h3>' +
         '<div id="ws-d-progress" class="owo-ws-prog" aria-live="polite"><div class="hint">等待进度数据…</div></div>' +
         "</div>" +
         '<div class="owo-ws-sec">' +
-        '<h3>工作区与模板 <span class="hint">六期：绑定目录 / 读写范围 / 模板及版本 / 失败原因代码</span>' +
+        '<h3>工作区与模板 <span class="hint">绑定目录、读写范围与所用模板</span>' +
         '<button class="owo-ws-mini" id="ws-ws-refresh">刷新工作区</button></h3>' +
         '<div id="ws-d-workspace"></div>' +
         '<div id="ws-d-failures"></div>' +
         "</div>" +
         '<div class="owo-ws-sec">' +
-        '<h3>Worker 能力与执行详情 <span class="hint">节点工具与预算 / 写范围冲突协调 / 文件变更与审批</span></h3>' +
-        '<div id="ws-d-profiles"></div>' +
-        '<div id="ws-d-lease"></div>' +
+        '<h3>文件变更与审批 <span class="hint">查看本次任务的文件变化，并处理待审变更</span></h3>' +
         '<div id="ws-d-changes"></div>' +
         '<div id="ws-d-csets"></div>' +
+        '<details class="team-node-capabilities"><summary>节点能力与写范围</summary>' +
+        '<div id="ws-d-profiles"></div>' +
+        '<div id="ws-d-lease"></div></details>' +
         "</div>" +
         '<div class="owo-ws-sec">' +
-        '<h3>组队策略与角色指标 <span class="hint">auto 判定理由 —— 耗时·调用·token·费用·预算余量</span>' +
+        '<h3>组队策略与角色指标 <span class="hint">组队理由、耗时、模型用量与预算</span>' +
         '<button class="owo-ws-mini" id="ws-metrics-refresh">刷新指标</button></h3>' +
         '<div id="ws-d-strategy" class="owo-ws-strategybox">' + strategyBoxHtml(state.strategyDecision) + "</div>" +
         '<div id="ws-d-metrics">' + metricsCardsHtml(state.metrics, state.strategyDecision && state.strategyDecision.budgetPerRole) + "</div>" +
         "</div>" +
         '<div class="owo-ws-sec">' +
-        '<h3>产物 <span class="hint">CAS 引用，版本链 + 评审闭环</span>' +
+        '<h3>产物 <span class="hint">版本、预览、评审与交付</span>' +
         '<button class="owo-ws-mini" id="ws-art-refresh">刷新产物</button>' +
         '<button class="owo-ws-mini" id="ws-dlv-toggle">最终交付物</button>' +
         '<button class="owo-ws-mini" id="ws-dlv-dl" title="版本/哈希/校验/证据汇总文本">下载交付清单</button></h3>' +
@@ -3580,29 +3621,18 @@
     }
 
     function simplifyTeamDetail() {
-      var main=el('#ws-d-main');
-      if(!main || !main.children || !win.document) return;
-      var groups={};
-      ['执行过程','调整任务与人工协作','记录与诊断'].forEach(function(label){
-        var details=win.document.createElement('details');details.className='team-more';details.dataset.teamSection=label;
-        var summary=win.document.createElement('summary');summary.textContent=label;details.appendChild(summary);groups[label]=details;
-      });
-      Array.from(main.children).forEach(function(section){
-        if(!section.classList.contains('owo-ws-sec') || section.id === 'ws-d-conversation')return;
-        var heading=section.querySelector('h3,summary');
-        var text=heading?heading.textContent:'';
-        if(text.indexOf('运行摘要')===0){section.classList.add('team-progress');heading.firstChild.textContent='执行进度 ';return;}
-        var group=/^(成员与职责|任务 DAG|实时进度|团队交接对话)/.test(text)?'执行过程':/^(运行操作|人节点结果|任务交接)/.test(text)?'调整任务与人工协作':'记录与诊断';
-        groups[group].appendChild(section);
-      });
-      var metadata=win.document.createElement('div');metadata.className='team-run-meta';
-      ['ws-d-id','ws-d-meta','ws-d-diag'].forEach(function(id){var element=el('#'+id);if(element)metadata.appendChild(element);});
-      groups['记录与诊断'].insertBefore(metadata,groups['记录与诊断'].children[1]||null);
-      Object.keys(groups).forEach(function(key){main.appendChild(groups[key]);});
-      var header=el('.owo-ws-d-head');
-      [['ws-act-continue','继续任务'],['ws-act-cancel','停止任务']].forEach(function(item){var button=el('#'+item[0]);if(button&&header){button.textContent=item[1];header.appendChild(button);}});
-      var box=el('#ws-d-delivery');
-      if(box && win.OwoTeamDelivery)deliveryView=win.OwoTeamDelivery.create({box:box,bridge:win.owo&&win.owo.teamFiles});
+      var main = el("#ws-d-main"), header = rootEl && rootEl.querySelector(".owo-ws-d-head");
+      if (!main || !win.document) return;
+      if (win.OwoTeamDetailLayout) {
+        var teamId = state.current;
+        win.OwoTeamDetailLayout.mount({
+          main: main, header: header, document: win.document,
+          selected: detailTabsByTeam[teamId],
+          onSelect: function (name) { detailTabsByTeam[teamId] = name; },
+        });
+      }
+      var box = el("#ws-d-delivery");
+      if (box && win.OwoTeamDelivery) deliveryView = win.OwoTeamDelivery.create({box: box, bridge: win.owo && win.owo.teamFiles});
     }
 
     function bindDetail() {
@@ -3677,10 +3707,6 @@
         }
         return loadArtifacts();
       }, "刷新中…");
-      var conversation = el("#ws-d-conversation");
-      if (conversation) conversation.addEventListener("toggle", function () {
-        if (conversation.open) loadTeamConversation(state.current, false);
-      });
       // 「查看该工作流」：跳到自定义工作流面板（那里有检查清单与一键修复）。
       if (rootEl && !rootEl._owoWorkflowJumpBound) {
         rootEl._owoWorkflowJumpBound = true;
@@ -4045,6 +4071,7 @@
       renderArtifactsChains: renderArtifactsChains,
       loadArtifactHistory: loadArtifactHistory,
       loadArtifacts: loadArtifacts,
+      doHumanResult: doHumanResult,
       findArtifactById: findArtifactById,
       // —— §8.1 挂钩：交接引用选择器（可搜索 + 可增删结构化行） ——
       artifactRefOptions: artifactRefOptions,

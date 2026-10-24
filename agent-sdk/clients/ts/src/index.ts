@@ -42,11 +42,18 @@ export class TurnFailure extends Error {
 }
 
 export type ApiClient = ReturnType<typeof createFetchClient<paths>> & {
-  /** 便捷方法：创建会话。 */
-  createSession(input: { workspace: string; prompt?: string }): Promise<{
-    id: string;
-    [key: string]: unknown;
-  }>;
+  /**
+   * 便捷方法：创建会话。
+   * - Agent 模式必须给 workspace；
+   * - 纯对话（mode=chat）可省略 workspace，服务端会分配隔离工作区；
+   * - system_prompt 是会话级自定义提示词（persona）。
+   */
+  createSession(input: {
+    workspace?: string;
+    model?: string;
+    mode?: "agent" | "chat";
+    system_prompt?: string;
+  }): Promise<components["schemas"]["SessionInfo"]>;
   /** 便捷方法：发起 Agent 回合（SSE 流式，逐事件回调）。 */
   runTurn(
     input: { id: string; prompt: string; read_only?: boolean; turn_id?: string; model_connection?: components["schemas"]["CustomModelConnection"] },
@@ -93,10 +100,10 @@ export function createClient(options: ClientOptions): ApiClient {
 
   api.createSession = async (input) => {
     const { data, error } = await client.POST("/session", {
-      body: input as never,
+      body: input,
     });
     if (error) throw new Error(`createSession 失败：${JSON.stringify(error)}`);
-    return data as { id: string; [key: string]: unknown };
+    return data;
   };
 
   api.runTurn = async (input, stream) => {

@@ -4910,6 +4910,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/session/{id}/mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sessionSetMode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["promptsList"];
+        put?: never;
+        post: operations["promptsSave"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/prompts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["promptsDelete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/session/{id}/system-prompt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sessionSetSystemPrompt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/providers/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 列出内置的模型提供商预设（端点/模型/多模态能力，不含凭据） */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 提供商预设表 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            providers?: Record<string, never>[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4980,9 +5082,15 @@ export interface components {
             total_tokens: ((number | null) | null) | null;
         };
         CreateSessionRequest: {
+            /** @description 工作目录。agent 模式必填；chat 模式可省略，服务端会在数据目录下分配隔离工作区，显式给出的路径仍必须存在。 */
+            workspace?: string;
             model?: string;
             system_prompt?: string;
-            workspace: string;
+            /**
+             * @description 会话工作模式：agent 可读写工作区，chat 只给联网检索/提问等必要工具。
+             * @enum {string}
+             */
+            mode?: "agent" | "chat";
         };
         /** @description Explicit connection for this turn only; credentials are never persisted with sessions or traces. */
         CustomModelConnection: {
@@ -5184,6 +5292,33 @@ export interface components {
             turn_history?: components["schemas"]["SessionTurnHistoryV1"] | null;
             turn_history_error?: string | null;
             workspace?: string;
+            created_at?: string;
+            updated_at?: string;
+            archived?: boolean;
+            pinned?: boolean;
+            parent_id?: string | null;
+            fork_point?: number | null;
+            todos?: {
+                content: string;
+                /** @enum {string} */
+                status: "pending" | "in_progress" | "completed";
+            }[];
+            /** @description 会话级目标状态；null = 未设定。 */
+            goal?: {
+                objective: string;
+                iterations: number;
+                done: boolean;
+                updated_at: string;
+                /** @enum {string} */
+                origin: "user" | "model";
+            } | null;
+            /**
+             * @description 会话工作模式：agent 可读写工作区，chat 只给联网检索/提问等必要工具。
+             * @enum {string}
+             */
+            mode?: "agent" | "chat";
+            /** @description 会话级自定义提示词；null = 使用默认提示词。 */
+            system_prompt?: string | null;
         };
         SessionInfo: {
             archived?: boolean;
@@ -5196,6 +5331,20 @@ export interface components {
             title?: string;
             updated_at?: string;
             workspace?: string;
+            /**
+             * @description 会话工作模式：agent 可读写工作区，chat 只给联网检索/提问等必要工具。
+             * @enum {string}
+             */
+            mode?: "agent" | "chat";
+            /** @description 会话级目标状态；null = 未设定。 */
+            goal?: {
+                objective: string;
+                iterations: number;
+                done: boolean;
+                updated_at: string;
+                /** @enum {string} */
+                origin: "user" | "model";
+            } | null;
         };
         SessionTurnHistoryV1: {
             last_event_at?: string;
@@ -14024,6 +14173,179 @@ export interface operations {
         responses: {
             /** @description Bounded public worker events, next_cursors, has_more and handoffs */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sessionSetMode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description agent（默认，完整工具链）或 chat（纯对话：只给联网检索与提问，不开放本地文件与命令）；兼容输入 default/conversation/dialogue，响应始终是规范值。
+                     * @enum {string}
+                     */
+                    mode: "agent" | "chat";
+                };
+            };
+        };
+        responses: {
+            /** @description { id, mode } */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未知会话模式 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description session not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    promptsList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description { prompts: [{id,name,content,updated_at}], limits } */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    promptsSave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description 缺省为新建；给已存在的 id 表示更新 */
+                    id?: string;
+                    /** @description 最多 60 字 */
+                    name: string;
+                    /** @description 最多 20000 字 */
+                    content: string;
+                };
+            };
+        };
+        responses: {
+            /** @description { prompt, prompts } */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 名称/内容非法或超出数量上限 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 给了 id 但提示词不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    promptsDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description { deleted, prompts } */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 提示词不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sessionSetSystemPrompt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description 自定义提示词正文；null/空串表示清除，回到默认系统提示词。只影响后续回合 */
+                    prompt?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description { id, system_prompt } */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 提示词过长 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description session not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

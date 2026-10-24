@@ -696,21 +696,22 @@ test("buildResolveBody：按 kind 分派（冻结③）+ 非法动作报错", ()
     { error: "missing_result" });
 });
 
-test("inboxSectionsHtml：四节骨架 + 计数徽标 + 动作按钮 data 属性", () => {
-  const items = T.inboxItemsOf({
-    items: [inboxItem("i1", "artifact_review", "claimed"), inboxItem("i2", "change_set", "claimed"), inboxItem("i3", "step_retry", "open")],
-  });
+test("Inbox list exposes only matching real items and no empty category containers", () => {
+  T.state.filters = { status: "", kind: "", q: "" };
+  const items = T.inboxItemsOf({items: [
+    inboxItem("i1", "artifact_review", "claimed"), inboxItem("i2", "change_set", "claimed"),
+    inboxItem("i3", "step_retry", "open")
+  ]});
   const html = T.inboxSectionsHtml(items);
-  assert.match(html, /data-ic-sec="artifact_review"/);
-  assert.match(html, /data-ic-sec="change_set"/);
-  assert.match(html, /data-ic-sec="human_result"/);
-  assert.match(html, /data-ic-sec="step_retry"/);
+  assert.match(html, /data-ic-item-row="i1"/);
   assert.match(html, /data-ic-act="approve"/);
-  assert.match(html, /data-ic-act="request_changes"/);
   assert.match(html, /data-ic-act="accept"/);
   assert.match(html, /data-ic-act="claim"/);
-  assert.match(html, /待你处理的人工事项/);
-  assert.ok(!/\/human\/inbox/.test(html.match(/<h3>[\s\S]*?<\/h3>/g).join("")), "分区标题不得出现 API 路径");
+  assert.match(html, /data-ac-goto="team-a"/);
+  assert.doesNotMatch(html, /data-ic-sec=/);
+  T.state.filters = {status: "open"};
+  assert.doesNotMatch(T.inboxSectionsHtml(items), /data-ic-item-row="i1"/);
+  T.state.filters = {status: "", kind: "", q: ""};
 });
 
 test("load()：inbox 优先（不触发 /teams 客户端聚合）", async () => {
@@ -877,4 +878,41 @@ test("startInboxAction()：失败兜底（friendly 文本，不抛错）", async
   await T.startInboxAction("i1", "accept");
   assert.equal(T.state.inboxResults["i1"].ok, false);
   assert.match(T.state.inboxResults["i1"].text, /操作失败/);
+});
+
+test("Inbox preserves multiline result and review drafts across refresh and filtering", async () => {
+  resetState();
+  T.state.filters = {};
+  T.state.drafts = Object.create(null);
+  const it = inboxItem("draft-human", "human_result", "claimed");
+  T.rememberInput({target:{value:"第一行\\n第二行", getAttribute:k => k === "data-ic-note" ? it.item_id : "result"}});
+  assert.match(T.inboxItemHtml(it), /第一行\\n第二行/);
+  T.state.inboxSource = "inbox";
+  T.setTransport({get:async()=>({items:[it]})});
+  await T.refreshInbox();
+  assert.equal(T.state.drafts[it.item_id].result, "第一行\\n第二行");
+  T.state.filters = {q:"not-found"};
+  assert.match(T.inboxSectionsHtml([it]), /没有匹配/);
+  T.state.filters = {};
+  assert.match(T.inboxSectionsHtml([it]), /第一行\\n第二行/);
+});
+
+test("Inbox serializes different actions on the same item but allows another item", async () => {
+  resetState();
+  T.state.inbox = T.inboxItemsOf({items:[inboxItem("lock", "change_set", "claimed")]});
+  let finish, posts=0;
+  T.setTransport({post:()=>{posts++; return new Promise(r=>{finish=r;});},get:async()=>({items:[]})});
+  const pending=T.startInboxAction("lock","accept");
+  await Promise.resolve(); await Promise.resolve();
+  await T.startInboxAction("lock","release");
+  assert.equal(posts,1);
+  finish({});
+  await pending;
+});
+
+test("Inbox respects assignee and rejects prototype property kinds", () => {
+  const other=inboxItem("owned", "human_result", "claimed", {assignee:"another-user"});
+  assert.doesNotMatch(T.inboxItemHtml(other), /data-ic-act=|textarea/);
+  assert.equal(T.inboxItemsOf({items:[{item_id:"bad",kind:"constructor"}]}).length,0);
+  assert.equal(T.filteredInbox([other],{q:"ANOTHER-USER"}).length,1);
 });

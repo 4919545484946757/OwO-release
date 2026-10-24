@@ -55,11 +55,18 @@ test("layout flags module is wired before app-domain panel layout", () => {
   assert.match(domain, /OwoPanelRuntime\.layoutFlags\(children, wideFlags\)/);
 });
 
-test("Team tools use their own responsive grid instead of heuristic full-width layout", () => {
+test("Shared skills owns its tab layout instead of the generic panel heuristic", () => {
   const domain = readFileSync(fileURLToPath(new URL("../app-domain.js", import.meta.url)), "utf8");
   const team = readFileSync(fileURLToPath(new URL("../panels/team.panel.js", import.meta.url)), "utf8");
   assert.match(domain, /section\.dataset\.layout === "custom"\) return/);
-  assert.match(team, /data-layout="custom" class="owo-team-panel"/);
-  assert.match(team, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(team, /@media \(max-width: 760px\)/);
+  const context = { window: {} };
+  vm.runInNewContext(team, context);
+  const html = context.window.OwoPanels.team.nav();
+  assert.match(html, /data-layout="custom" class="owo-team-panel\b/);
+  assert.equal((html.match(/role="tab"/g) || []).length, 4);
+  assert.equal((html.match(/role="tabpanel"/g) || []).length, 4);
+  assert.match(html, /id="team-pane-import" role="tabpanel" aria-labelledby="team-tab-import">/);
+  for (const id of ["export", "versions", "audit"]) {
+    assert.match(html, new RegExp('id="team-pane-' + id + '" role="tabpanel"[^>]* hidden>'));
+  }
 });

@@ -685,6 +685,13 @@ async fn client_round_trips_against_fake_daemon() {
     let session = client.create_session("ws").await.expect("create");
     assert_eq!(session.id, "sess-1");
 
+    // 纯对话可以不传工作区：客户端必须原样发出空 workspace，由服务端分配隔离目录。
+    let chat = client
+        .create_chat_session(None)
+        .await
+        .expect("create chat without workspace");
+    assert_eq!(chat.id, "sess-1");
+
     let mut stream = client.open_turn(&session.id, "hi").await.expect("turn");
     let mut deltas = Vec::new();
     let mut final_text = None;

@@ -66,22 +66,31 @@
     };
 
     const timers = new Set();
+    const timerCancellations = new Map();
     let disposed = false;
     let inFlight = null;
     let loadToken = 0;
 
-    function schedule(fn, ms) {
+    function schedule(fn, ms, onCancel) {
       const id = later(() => {
         timers.delete(id);
+        timerCancellations.delete(id);
         if (!disposed) fn();
+        else if (onCancel) onCancel();
       }, ms);
       timers.add(id);
+      if (onCancel) timerCancellations.set(id, onCancel);
       return id;
     }
 
     function clearTimers() {
-      for (const id of Array.from(timers)) cancelLater(id);
+      for (const id of Array.from(timers)) {
+        cancelLater(id);
+        const settle = timerCancellations.get(id);
+        if (settle) settle();
+      }
       timers.clear();
+      timerCancellations.clear();
     }
 
     function paint() {
@@ -252,6 +261,7 @@
       if (blocked) return blocked;
       if (!state.draft) state.draft = defaultDraft();
       state.draft[key] = value;
+      state.confirming = null;
       state.errors = [];
       state.notice = "";
       paint();
@@ -262,7 +272,20 @@
       if (blocked) return blocked;
       if (!state.draft) state.draft = defaultDraft();
       state.draft.scopes = (Array.isArray(scopes) ? scopes : []).map(text).filter(Boolean);
+      state.confirming = null;
       paint();
+    }
+
+    /** Discard only the unsaved local draft; this never calls the permission API. */
+    function resetDraft() {
+      const blocked = blockMutation();
+      if (blocked) return blocked;
+      state.draft = JSON.parse(JSON.stringify(state.baselineDraft || defaultDraft()));
+      state.confirming = null;
+      state.errors = [];
+      state.notice = "";
+      paint();
+      return snapshot();
     }
 
     /** 一步关闭完全访问：把不受限维度收回白名单档，不需要确认要素。 */
@@ -350,8 +373,9 @@
       state.notice = "正在提交权限配置…";
       paint();
       return Promise.resolve()
-        .then(() => api.submitSpec(spec, options))
+        .then(() => disposed ? null : api.submitSpec(spec, options))
         .then((result) => {
+          if (disposed) return { ok: false, disposed: true };
           state.busy = false;
           state.confirming = null;
           if (result && result.ok === false) {
@@ -369,6 +393,7 @@
           return reload().then(() => snapshot());
         })
         .catch((error) => {
+          if (disposed) return { ok: false, disposed: true };
           state.busy = false;
           state.confirming = null;
           const info = domain ? domain.normalizeError(error) : { code: "", message: text(error && error.message) || "提交失败" };
@@ -400,9 +425,10 @@
       state.notice = "正在提交审批结果…";
       paint();
       return Promise.resolve()
-        .then(() => api.respondApproval(item.session_id, item.request_id, { allow: decision.allow, scope: decision.scope }))
+        .then(() => disposed ? null : api.respondApproval(item.session_id, item.request_id, { allow: decision.allow, scope: decision.scope }))
         .then(
           (result) => {
+            if (disposed) return { ok: false, disposed: true };
             state.busy = false;
             if (result && result.ok === false) {
               const info = domain ? domain.normalizeError(result.error || result) : { code: "", message: "审批失败" };
@@ -420,6 +446,7 @@
             return reload().then(() => snapshot());
           },
           (error) => {
+            if (disposed) return { ok: false, disposed: true };
             state.busy = false;
             if (domain && domain.isErrorGone(error)) return markGone(item, "gone");
             fail(error, "审批失败");
@@ -462,9 +489,10 @@
       state.notice = "";
       paint();
       return Promise.resolve()
-        .then(() => api.revoke(normalized.payload))
+        .then(() => disposed ? null : api.revoke(normalized.payload))
         .then(
           (result) => {
+            if (disposed) return { ok: false, disposed: true };
             if (result && result.ok === false) {
               const info = domain ? domain.normalizeError(result.error || result) : { code: "", message: "撤销失败" };
               state.busy = false;
@@ -475,7 +503,7 @@
                 return new Promise((resolve) => {
                   schedule(() => {
                     reload().then(() => resolve({ ok: true, gone: true })).catch(() => resolve({ ok: true, gone: true }));
-                  }, RECHECK_DELAY_MS);
+                  }, RECHECK_DELAY_MS, () => resolve({ ok: false, disposed: true }));
                 });
               }
               state.errors = [info.message || "撤销失败"];
@@ -488,10 +516,11 @@
             return new Promise((resolve) => {
               schedule(() => {
                 reload().then(() => resolve(finishRevoke(revoked, normalized))).catch(() => resolve(finishRevoke(revoked, normalized)));
-              }, RECHECK_DELAY_MS);
+              }, RECHECK_DELAY_MS, () => resolve({ ok: false, disposed: true }));
             });
           },
           (error) => {
+            if (disposed) return { ok: false, disposed: true };
             state.busy = false;
             state.verify = "";
             if (domain && domain.isErrorGone(error)) {
@@ -499,7 +528,7 @@
               return new Promise((resolve) => {
                 schedule(() => {
                   reload().then(() => resolve({ ok: true, gone: true })).catch(() => resolve({ ok: true, gone: true }));
-                }, RECHECK_DELAY_MS);
+                }, RECHECK_DELAY_MS, () => resolve({ ok: false, disposed: true }));
               });
             }
             fail(error, "撤销失败");
@@ -510,6 +539,7 @@
     }
 
     function finishRevoke(revoked, normalized) {
+      if (disposed) return { ok: false, disposed: true };
       state.busy = false;
       state.verify = "";
       const stillThere = normalized && normalized.payload && domain && domain.isGrantGone(state.grants, normalized.payload) === false;
@@ -542,6 +572,7 @@
       reload: reload,
       setDimension: setDimension,
       setScopes: setScopes,
+      resetDraft: resetDraft,
       submitDraft: submitDraft,
       requestFullAccess: requestFullAccess,
       chooseDuration: chooseDuration,

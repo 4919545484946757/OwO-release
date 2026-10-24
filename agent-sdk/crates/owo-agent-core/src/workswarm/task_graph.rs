@@ -311,6 +311,17 @@ pub(super) fn validate_parallel_subtasks(
                 "task {task_id} requires a write capability but declares no write_paths"
             ));
         }
+        if required_capabilities
+            .iter()
+            .any(|cap| matches!(cap.as_str(), "generate_image" | "text_to_speech"))
+            && !paths
+                .iter()
+                .any(|path| write_path_is_within("outputs", path))
+        {
+            return Err(format!(
+                "task {task_id} uses a built-in media tool that writes workspace/outputs; write_paths must include outputs"
+            ));
+        }
         let (verification, verification_plan) = match item.get("verification") {
             Some(Value::String(value)) => {
                 let value = value.trim();
@@ -567,7 +578,15 @@ pub(super) fn validate_parallel_subtasks(
         let task = &tasks[index];
         let worker = writers
             .iter()
-            .filter(|role| role_supports_task_capabilities(role, &task.required_capabilities))
+            .filter(|role| {
+                role_supports_task_capabilities(role, &task.required_capabilities)
+                    && (role.write_paths.is_empty()
+                        || task.effective_paths.iter().all(|path| {
+                            role.write_paths
+                                .iter()
+                                .any(|base| write_path_is_within(path, base))
+                        }))
+            })
             .min_by_key(|role| {
                 (
                     assigned_effort.get(&role.role).copied().unwrap_or(0),
@@ -576,9 +595,10 @@ pub(super) fn validate_parallel_subtasks(
             })
             .ok_or_else(|| {
                 format!(
-                    "task {} has no task_worker node with the required declared tools: {}",
+                    "task {} has no task_worker node whose declared tools and write scope cover: tools=[{}], paths=[{}]",
                     task.task_id,
-                    task.required_capabilities.join(", ")
+                    task.required_capabilities.join(", "),
+                    task.effective_paths.join(", ")
                 )
             })?
             .role

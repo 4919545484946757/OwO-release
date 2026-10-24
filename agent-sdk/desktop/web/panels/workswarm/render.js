@@ -79,7 +79,7 @@
 
 
   // ---------- 本模块私有常量（随函数从面板迁入） ----------
-  var REVIEW_CN = { draft: "草稿（返工中）", pendingreview: "待评审", approved: "已批准", changesrequested: "要求修改", rejected: "已驳回", superseded: "已被取代" };
+  var REVIEW_CN = { draft: "草稿", pendingreview: "待评审", approved: "已批准", changesrequested: "要求修改", rejected: "已驳回", superseded: "已被取代" };
   var REVIEW_CLS = { draft: "off", pendingreview: "warn", approved: "ok", changesrequested: "warn", rejected: "bad", superseded: "off" };
   var CHG_STATE_CN = { added: "新增", modified: "修改", deleted: "删除" };
   var CHG_STATE_CLS = { added: "st-running", modified: "st-awaiting_human", deleted: "st-failed" };
@@ -820,7 +820,7 @@
 
   function teamConversationHtml(handoffs, members, markdown, errorText, replay, onlyRole) {
     var workerHtml = convo.workerConversationHtml({ esc: esc, short: short }, replay, markdown, onlyRole);
-    var handoffHtml = convo.teamConversationHtml({ esc: esc, short: short }, handoffs, members, markdown, errorText);
+    var handoffHtml = convo.teamConversationHtml({ esc: esc, short: short }, handoffs, members, markdown, errorText, onlyRole);
     return workerHtml + (workerHtml ? '<details><summary>交接记录</summary>' + handoffHtml + '</details>' : handoffHtml);
   }
 

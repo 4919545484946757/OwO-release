@@ -132,10 +132,11 @@ impl TeamCoordinator {
             )
             .map_err(WorkSwarmError::Validation)?;
         }
-        // An explicitly chosen graph defines its membership. The legacy default
-        // limit only sizes automatically assembled teams; an explicit caller limit
-        // still applies, independently of the scheduler's max_parallel budget.
-        let default_member_limit = if has_explicit_roles || has_explicit_template {
+        // §6.1: ad-hoc graphs and auto-assembled teams use the five-Agent default.
+        // An explicitly selected registered template owns its declared membership
+        // (the host already validated/imported that graph); callers may still lower
+        // it with `max_agent_members`.
+        let default_member_limit = if has_explicit_template && !has_explicit_roles {
             agent_count
         } else {
             self.max_agent_members
@@ -275,7 +276,10 @@ impl TeamCoordinator {
         bind_missing_strategy_budgets(&strategy_plan.roles, &specs, &mut budget_map);
         let mut adaptive_skips: Vec<crate::team_strategy::SkippedRole> = Vec::new();
         let mut adaptive_saved_calls = 0usize;
-        if specs.len() > 1 && !has_explicit_roles && !has_explicit_template {
+        // 角色来自模板（包括用户显式选用内置/已安装模板）时允许宿主自适应裁剪；
+        // 只有调用方显式提交的角色图必须原样尊重。未知模板不会命中具体模板策略，
+        // 因此这里不会因为 template_id 存在就跳过模板级优化。
+        if specs.len() > 1 && !has_explicit_roles {
             let role_names: Vec<String> = specs.iter().map(|s| s.role.clone()).collect();
             let adaptive = crate::team_strategy::plan_adaptive_roles(
                 template_id.as_deref(),

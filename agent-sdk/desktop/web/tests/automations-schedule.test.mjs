@@ -84,6 +84,7 @@ function makeAutomationHarness(overrides = {}) {
       removeAttribute(name) { delete this[name]; },
       parentElement: null,
       querySelector(selector) {
+        if (selector.startsWith("#")) return document.getElementById(selector.slice(1));
         if (selector === 'button[type="submit"]') return submitButton;
         return this.children.find((child) => selector === ".automation-runs" && child.className === "list automation-runs") || null;
       },
@@ -91,6 +92,7 @@ function makeAutomationHarness(overrides = {}) {
         if (this.parentElement) this.parentElement.children = this.parentElement.children.filter((child) => child !== this);
       },
       focus() {},
+      click() { return this.handlers.click?.({ stopPropagation() {} }); },
     };
   }
   let submitButton = element("button");
@@ -139,10 +141,10 @@ function makeAutomationHarness(overrides = {}) {
       nodes,
       get submitButton() { return submitButton; },
       form: document.getElementById("owo-aut-form"),
-      remount() {
+      remount(nextHelpers = helpers) {
         nodes.delete("owo-aut-form");
         submitButton = element("button");
-        panel.mount(element(), helpers);
+        panel.mount(element(), nextHelpers);
       },
     });
   }, 0));
@@ -202,7 +204,8 @@ test("automation deletion stays locked across panel remounts until confirmation 
   resolveConfirm(true);
   await pending;
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.equal(h.calls.filter(([method, path]) => method === "DELETE" && path === "/automations/daily%2F1").length, 1);
+  assert.equal(h.calls.filter(([method, path]) => method === "DELETE" && path === "/automations/daily%2F1").length, 0,
+    "确认来自已关闭的页面，不能再执行删除");
   const refreshedDelete = h.taskList.children[0].children[0].children[2];
   assert.equal(refreshedDelete.disabled, false);
 });
@@ -247,7 +250,7 @@ test("automation and reminder lists show inline errors and recover through retry
   assert.equal(attempts.tasks, 2);
   assert.equal(attempts.reminders, 2);
   assert.match(h.taskList.children[0].innerHTML, /恢复后的任务/);
-  assert.equal(h.reminderList.children[0].textContent, "⏰ 恢复后的提醒");
+  assert.equal(h.reminderList.children[0].textContent, "恢复后的提醒");
 });
 
 
@@ -324,6 +327,7 @@ test("late automation list responses cannot repaint after a newer refresh or dis
   pending[2]([{ id: "new", name: "Newest result", enabled: true, schedule: {}, action: {} }]);
   await new Promise((resolve) => setTimeout(resolve, 0));
   pending[0]([{ id: "old", name: "Stale result", enabled: true, schedule: {}, action: {} }]);
+  pending[1]([]);
   await Promise.all([first, second]);
   pending[0]([{ id: "stale", name: "Disposed result", enabled: true, schedule: {}, action: {} }]);
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -400,4 +404,117 @@ test("failed automation run history offers retry and ignores a response after re
   assert.equal(runAttempts, 3);
   assert.match(runBox.children[0].innerHTML, /fresh record/);
   assert.doesNotMatch(runBox.children[0].innerHTML, /stale record/);
+});
+
+
+test("malformed task and reminder responses are errors and filtering cannot hide the error", async () => {
+  const h = await makeAutomationHarness({ get: async () => ({ tasks: [] }) });
+  assert.match(h.taskList.innerHTML, /加载失败/);
+  assert.match(h.reminderList.innerHTML, /加载失败/);
+  h.nodes.get("owo-aut-search").value = "missing";
+  h.nodes.get("owo-aut-search").handlers.input();
+  assert.match(h.taskList.innerHTML, /加载失败/, "search must not replace an unavailable response with a fake empty state");
+});
+
+test("task filtering searches action content and keeps paused state exact", async () => {
+  const h = await makeAutomationHarness({ get: async path => path === "/automations/reminders" ? [] : [
+    { id: "1", name: "Daily", enabled: true, schedule: { kind: "daily", time: "09:00" }, action: { kind: "reminder", text: "review project" } },
+    { id: "2", name: "Other", enabled: false, schedule: {}, action: { kind: "reminder", text: "long content" } }
+  ] });
+  const search = h.nodes.get("owo-aut-search"), filter = h.nodes.get("owo-aut-filter");
+  search.value = "PROJECT"; search.handlers.input();
+  assert.equal(h.taskList.children.length, 1);
+  assert.match(h.taskList.children[0].innerHTML, /Daily/);
+  assert.match(h.taskList.children[0].innerHTML, /09:00 UTC/);
+  filter.value = "paused"; filter.handlers.change();
+  assert.match(h.taskList.innerHTML, /没有符合条件/);
+  search.value = ""; search.handlers.input();
+  assert.equal(h.taskList.children.length, 1);
+  assert.match(h.taskList.children[0].innerHTML, /Other/);
+});
+
+test("draft and selected reminder tab survive same-host remount without creating a task", async () => {
+  const h = await makeAutomationHarness();
+  h.nodes.get("owo-aut-name").value = "Unsent draft";
+  h.nodes.get("owo-aut-content").value = "line one\nline two";
+  h.nodes.get("owo-aut-form").handlers.input();
+  h.nodes.get("owo-aut-tab-reminders").handlers.click();
+  h.panel.dispose(); h.remount();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(h.nodes.get("owo-aut-name").value, "Unsent draft");
+  assert.equal(h.nodes.get("owo-aut-content").value, "line one\nline two");
+  assert.equal(h.nodes.get("owo-aut-tab-reminders")["aria-selected"], "true");
+  assert.equal(h.calls.some(([method]) => method === "POST"), false);
+});
+
+test("changing core while a delete confirmation waits never sends the old request to either host", async () => {
+  let resolveConfirm;
+  const h = await makeAutomationHarness({ confirm: () => new Promise(resolve => { resolveConfirm = resolve; }) });
+  const pending = h.deleteButton.handlers.click({ stopPropagation() {} });
+  const foreignDeletes = [];
+  h.panel.dispose();
+  h.remount({ baseUrl: "http://another-core", get: async () => [], del: async path => foreignDeletes.push(path) });
+  resolveConfirm(true); await pending;
+  assert.equal(h.calls.some(([method]) => method === "DELETE"), false);
+  assert.deepEqual(foreignDeletes, []);
+});
+
+test("toggle and deletion share a task lock until its state refresh finishes", async () => {
+  let resolveToggle, resolveRefresh;
+  let reads = 0;
+  const h = await makeAutomationHarness({
+    call: () => new Promise(resolve => { resolveToggle = resolve; }),
+    get(path) {
+      if (path === "/automations/reminders") return Promise.resolve([]);
+      reads += 1;
+      if (reads > 1) return new Promise(resolve => { resolveRefresh = resolve; });
+      return Promise.resolve([{ id: "t1", name: "Task", enabled: true, schedule: {}, action: {} }]);
+    }
+  });
+  const pending = h.toggleButton.handlers.click({ stopPropagation() {} });
+  await h.deleteButton.handlers.click({ stopPropagation() {} });
+  assert.equal(h.calls.some(([method]) => method === "CONFIRM"), false);
+  resolveToggle({ enabled: false });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(h.toggleButton.disabled, true);
+  resolveRefresh([{ id: "t1", name: "Task", enabled: false, schedule: {}, action: {} }]);
+  await pending;
+  assert.equal(h.taskList.children[0].children[0].children[0].textContent, "启用");
+});
+
+test("run history retains complete multiline output and unknown status", async () => {
+  const output = "first line\n" + "x".repeat(700) + "\nlast line";
+  const h = await makeAutomationHarness({ get: async path => path.includes("/runs?") ? [
+    { at: "2030-06-15T12:30:00Z", status: "unrecognized", output }
+  ] : path === "/automations/reminders" ? [] : [
+    { id: "task", name: "Task", enabled: true, schedule: {}, action: {} }
+  ] });
+  await h.runsButton.handlers.click({ stopPropagation() {} });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const html = h.taskList.children[0].children[1].children[0].innerHTML;
+  assert.match(html, /状态未知/);
+  assert.ok(html.includes(output));
+  assert.match(html, /本地时间/);
+});
+
+test("past one-shot creation is rejected before posting and preserves its draft", async () => {
+  const h = await makeAutomationHarness();
+  for (const [key, value] of Object.entries({ name: "Past", kind: "oneshot", oneshot: "2000-01-01T01:00", action: "reminder", content: "Keep this" })) h.nodes.get("owo-aut-" + key).value = value;
+  await h.panel._test.createTask({ preventDefault() {}, submitter: h.submitButton });
+  assert.equal(h.calls.some(([method]) => method === "POST"), false);
+  assert.match(h.status.textContent, /未来/);
+  assert.equal(h.nodes.get("owo-aut-content").value, "Keep this");
+});
+
+
+test("a successful create does not erase text edited while the request was pending", async () => {
+  let resolvePost;
+  const h = await makeAutomationHarness({ post: () => new Promise(resolve => { resolvePost = resolve; }) });
+  for (const [key, value] of Object.entries({ name: "First", kind: "interval", interval: "60", action: "reminder", content: "Original text" })) h.nodes.get("owo-aut-" + key).value = value;
+  const pending = h.panel._test.createTask({ preventDefault() {}, submitter: h.submitButton });
+  h.nodes.get("owo-aut-content").value = "Next draft";
+  resolvePost({});
+  await pending;
+  assert.equal(h.nodes.get("owo-aut-content").value, "Next draft");
+  assert.match(h.status.textContent, /草稿已保留/);
 });

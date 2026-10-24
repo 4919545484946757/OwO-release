@@ -496,7 +496,10 @@ impl owo_agent_core::permissions::Approver for WorkflowApprover<'_> {
             }
         }
         let external = request.tool.starts_with("mcp__")
-            || matches!(request.tool.as_str(), "web_fetch" | "web_search");
+            || matches!(
+                request.tool.as_str(),
+                "web_fetch" | "web_search" | "generate_image" | "text_to_speech"
+            );
         if external {
             self.external.decide(request).await
         } else {
@@ -514,7 +517,10 @@ impl owo_agent_core::permissions::Approver for WorkflowApprover<'_> {
             }
         }
         let external = request.tool.starts_with("mcp__")
-            || matches!(request.tool.as_str(), "web_fetch" | "web_search");
+            || matches!(
+                request.tool.as_str(),
+                "web_fetch" | "web_search" | "generate_image" | "text_to_speech"
+            );
         if external {
             self.external
                 .decide_with_notification(request, notify)
@@ -571,7 +577,19 @@ fn safe_team_tool_event(
 }
 
 fn task_lacks_file_write_capability(task: &ResolvedTaskContext) -> bool {
-    task.lacks_file_write_capability()
+    let scoped_media_output = task
+        .required_capabilities
+        .as_deref()
+        .is_some_and(|capabilities| {
+            capabilities
+                .iter()
+                .any(|tool| matches!(tool.as_str(), "generate_image" | "text_to_speech"))
+        })
+        && task
+            .write_paths
+            .as_deref()
+            .is_some_and(|paths| paths.iter().any(|path| path.trim() == "outputs"));
+    task.lacks_file_write_capability() && !scoped_media_output
 }
 
 /// Compatibility adapter; the shared capability narrowing lives in Core.
