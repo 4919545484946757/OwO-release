@@ -36,7 +36,7 @@ use std::sync::Arc;
 /// `data_root/workswarm/templates/templates/{id}.json`。目录 API 用同一根，
 /// 安装结果对协调器立即可见（注册表无进程内缓存，读写直达磁盘）。
 fn registry(state: &AppState) -> TeamTemplateRegistry {
-    TeamTemplateRegistry::new(state.data_root.join("workswarm").join("templates"))
+    TeamTemplateRegistry::for_workswarm_root(&state.data_root.join("workswarm"))
 }
 
 fn error(status: StatusCode, message: impl Into<String>) -> (StatusCode, Json<Value>) {

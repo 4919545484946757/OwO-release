@@ -138,6 +138,8 @@ pub enum TurnEvent {
         /// 序列化向后兼容（缺省为 None）。
         #[serde(default, skip_serializing_if = "Option::is_none")]
         preview: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        outputs: Vec<owo_agent_protocol::ToolOutputArtifact>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         command_receipt: Option<CommandExecutionReceipt>,
     },
@@ -321,6 +323,14 @@ impl Agent {
     pub fn register_tool(&self, tool: Arc<dyn crate::tools::Tool>) {
         if let Ok(mut registry) = self.registry.write() {
             registry.register_arc(tool);
+        }
+    }
+
+    /// Attach the Daemon's existing Artifact/CAS store to registered media tools.
+    /// Worker proxies resolve these same tool instances, preserving one execution path.
+    pub fn publish_media_outputs(&self, publisher: Arc<dyn crate::tools::ToolOutputPublisher>) {
+        if let Ok(mut registry) = self.registry.write() {
+            registry.publish_media_outputs(publisher);
         }
     }
 
@@ -897,6 +907,13 @@ fn command_execution_receipt(
         workspace_hashes,
         workspace_hashes_before,
     })
+}
+
+fn tool_outputs(outcome: &Result<serde_json::Value, String>) -> Vec<owo_agent_protocol::ToolOutputArtifact> {
+    outcome.as_ref().ok()
+        .and_then(|value| value.get("outputs"))
+        .and_then(|value| serde_json::from_value(value.clone()).ok())
+        .unwrap_or_default()
 }
 
 fn tool_preview(outcome: &Result<serde_json::Value, String>) -> Option<String> {

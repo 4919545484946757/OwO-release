@@ -45,7 +45,7 @@ fn audit(
 }
 
 fn registry(state: &AppState) -> TeamTemplateRegistry {
-    TeamTemplateRegistry::new(state.data_root.join("workswarm").join("templates"))
+    TeamTemplateRegistry::for_workswarm_root(&state.data_root.join("workswarm"))
 }
 
 fn error(status: StatusCode, message: impl Into<String>) -> (StatusCode, Json<Value>) {

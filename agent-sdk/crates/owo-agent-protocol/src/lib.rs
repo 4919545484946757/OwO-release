@@ -148,6 +148,18 @@ pub enum ReviewState {
     Superseded,
 }
 
+/// Small, durable tool output metadata. Bytes are fetched through the authenticated
+/// Artifact content API, never recovered from a truncated display preview.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ToolOutputArtifact {
+    pub artifact_id: String,
+    pub kind: String,
+    pub mime_type: String,
+    pub bytes: u64,
+    pub sha256: String,
+    pub path: String,
+}
+
 /// 共享产物（§6.6 Artifact）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Artifact {
@@ -1045,6 +1057,8 @@ pub enum SseEvent {
         /// 老客户端忽略即可，完整结果仍以会话记录为准。
         #[serde(default, skip_serializing_if = "Option::is_none")]
         preview: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        outputs: Vec<ToolOutputArtifact>,
     },
     PermissionRequest {
         request_id: String,

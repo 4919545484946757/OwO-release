@@ -420,6 +420,7 @@ impl ContractSubagentRunner<'_> {
                     error,
                     preview,
                     command_receipt,
+                    outputs,
                 } => sink(&TurnEvent::ToolResult {
                     id: id.clone(),
                     tool: format!("sub:{tool}"),
@@ -427,6 +428,7 @@ impl ContractSubagentRunner<'_> {
                     error: error.clone(),
                     preview: preview.clone(),
                     command_receipt: command_receipt.clone(),
+                    outputs: outputs.clone(),
                 }),
                 _ => {}
             }

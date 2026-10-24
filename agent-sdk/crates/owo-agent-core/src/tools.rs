@@ -123,6 +123,10 @@ impl<T: Tool> Tool for DeclaredBuiltin<T> {
     }
 }
 
+#[path = "tools/output.rs"]
+mod output;
+pub use output::ToolOutputPublisher;
+
 pub struct ToolRegistry {
     tools: Vec<Arc<dyn Tool>>,
     /// MCP 大 schema 的完整副本（注册时超预算被压缩为骨架；此处保留原始 schema 供按需查询）。
@@ -323,6 +327,16 @@ impl ToolRegistry {
             self.tools[index] = tool;
         } else {
             self.tools.push(tool);
+        }
+    }
+
+    pub fn publish_media_outputs(&mut self, publisher: Arc<dyn ToolOutputPublisher>) {
+        for name in ["generate_image", "text_to_speech"] {
+            if let Some(inner) = self.get(name) {
+                self.register_arc(Arc::new(output::PublishedMediaTool {
+                    inner, publisher: Arc::clone(&publisher),
+                }));
+            }
         }
     }
 

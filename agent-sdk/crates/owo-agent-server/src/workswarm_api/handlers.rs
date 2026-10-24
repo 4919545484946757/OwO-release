@@ -273,8 +273,8 @@ async fn create_team(
     // 必须由调用方显式确认（UI 确认框 / CLI --yes / API acknowledge_risk）。
     // 这是宿主侧兜底：即使客户端跳过了提示，也不会在未确认的情况下把社区配置跑起来。
     if let Some(template_id) = req.template_id.as_deref() {
-        let registry = owo_agent_core::workswarm::TeamTemplateRegistry::new(
-            state.data_root.join("workswarm").join("templates"),
+        let registry = owo_agent_core::workswarm::TeamTemplateRegistry::for_workswarm_root(
+            &state.data_root.join("workswarm"),
         );
         if let Some(template) = registry.get_template(template_id) {
             if template.origin.as_deref() == Some("community") {

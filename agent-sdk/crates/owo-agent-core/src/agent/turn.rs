@@ -947,6 +947,7 @@ impl Agent {
                                             ok: outcome.is_ok(),
                                             error: outcome.as_ref().err().cloned(),
                                             preview: tool_preview(&outcome),
+                                            outputs: tool_outputs(&outcome),
                                             command_receipt,
                                         });
                                     }
@@ -1049,6 +1050,7 @@ impl Agent {
                                         error: Some(guard.clone()),
                                         // 未执行（宿主拦截）没有结果正文可预览。
                                         preview: None,
+                                        outputs: Vec::new(),
                                         command_receipt: None,
                                     },
                                 );
@@ -1173,6 +1175,7 @@ impl Agent {
                                         ok: outcome.is_ok(),
                                         error: outcome.as_ref().err().cloned(),
                                         preview: tool_preview(&outcome),
+                                            outputs: tool_outputs(&outcome),
                                         command_receipt,
                                     },
                                 );

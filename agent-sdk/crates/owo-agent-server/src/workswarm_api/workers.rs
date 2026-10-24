@@ -354,8 +354,8 @@ impl Worker for AgentSubagentWorker {
                         TurnEvent::ToolStart { id, tool, args_preview } => Some(owo_agent_protocol::SseEvent::ToolUse {
                             id: id.clone(), tool: tool.clone(), args: serde_json::json!(args_preview),
                         }),
-                        TurnEvent::ToolResult { id, tool, ok, error, preview, .. } => Some(owo_agent_protocol::SseEvent::ToolResult {
-                            id: id.clone(), tool: tool.clone(), ok: *ok, error: error.clone(), preview: preview.clone(),
+                        TurnEvent::ToolResult { id, tool, ok, error, preview, outputs, .. } => Some(owo_agent_protocol::SseEvent::ToolResult {
+                            id: id.clone(), tool: tool.clone(), ok: *ok, error: error.clone(), preview: preview.clone(), outputs: outputs.clone(),
                         }),
                         TurnEvent::PermissionRequest(request) => Some(owo_agent_protocol::SseEvent::Progress {
                             message: format!("等待审批：{}", request.tool),

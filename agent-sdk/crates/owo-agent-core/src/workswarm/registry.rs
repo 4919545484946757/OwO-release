@@ -1,7 +1,7 @@
 use owo_agent_protocol::{
     TeamMode, TeamTemplate, TeamTemplateProposal, TeamTemplateProposalStatus,
 };
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 /// 团队模板注册表：`templates/`（已采纳）+ `proposals/`（提案，只提案不自动启用）。
 #[derive(Debug, Clone)]
 pub struct TeamTemplateRegistry {
@@ -9,6 +9,13 @@ pub struct TeamTemplateRegistry {
 }
 
 impl TeamTemplateRegistry {
+    /// All Daemon entry points use the same historical on-disk layout.
+    /// `new` remains available for standalone coordinators and test registries.
+    /// Keep the nested templates directory until an explicit data migration.
+    pub fn for_workswarm_root(root: &Path) -> Self {
+        Self::new(root.join("templates"))
+    }
+
     pub fn new(root: PathBuf) -> Self {
         let _ = std::fs::create_dir_all(root.join("templates"));
         let _ = std::fs::create_dir_all(root.join("proposals"));

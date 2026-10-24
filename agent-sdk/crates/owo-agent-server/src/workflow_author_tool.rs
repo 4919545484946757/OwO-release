@@ -127,6 +127,8 @@ impl Tool for WorkflowAuthorTool {
                                             "type": "string",
                                             "enum": ["agent", "human", "worker"]
                                         },
+                                        "worker": { "type": "string" },
+                                        "model": { "type": "string" },
                                         "depends_on": {
                                             "type": "array",
                                             "items": { "type": "string" }
@@ -197,12 +199,18 @@ impl Tool for WorkflowAuthorTool {
             ));
         }
 
-        let registry = TeamTemplateRegistry::new(self.workswarm_root.clone());
+        let registry = TeamTemplateRegistry::for_workswarm_root(&self.workswarm_root);
         let overwrite = args
             .get("overwrite")
             .and_then(Value::as_bool)
             .unwrap_or(false);
-        let exists = registry.get_template(&template.template_id).is_some();
+        let existing = registry.get_template(&template.template_id);
+        if existing.as_ref().is_some_and(|saved| {
+            !matches!(saved.origin.as_deref(), Some("user") | Some("community"))
+        }) {
+            return Err("内置工作流不可覆盖；请使用新的 template_id 保存副本".to_string());
+        }
+        let exists = existing.is_some();
         if exists && !overwrite {
             return Err(format!(
                 "工作流 {} 已存在；如确认覆盖，请传 overwrite=true",
@@ -345,6 +353,7 @@ mod tests {
         assert_eq!(saved["template_id"], "research-plan");
         assert!(workswarm_root
             .join("templates")
+            .join("templates")
             .join("research-plan.json")
             .exists());
 
@@ -359,4 +368,83 @@ mod tests {
         let saved = tool.run(&mut ctx, overwrite).await.unwrap();
         assert_eq!(saved["overwritten"], true);
     }
+
+    #[tokio::test]
+    async fn author_template_is_visible_to_http_team_creation_and_reopened_registry() {
+        use owo_agent_core::{Agent, AuditLog, ElementRegistry, Policy, Session, SkillRegistry};
+        use owo_agent_core::tools::ToolRegistry;
+        use owo_agent_core::sqlite_store::SqliteSessionStore;
+        use std::sync::{Arc, Mutex};
+        use tower::ServiceExt;
+
+        struct NoModel;
+        #[async_trait]
+        impl owo_agent_core::gateway::ModelProvider for NoModel {
+            async fn complete(
+                &self,
+                _: &[owo_agent_core::ChatMessage],
+                _: &[ToolSpec],
+            ) -> Result<owo_agent_core::ModelOutput, String> {
+                Err("human-node persistence regression must not call a model".into())
+            }
+        }
+        let temp = tempfile::tempdir().unwrap();
+        let workspace = temp.path().join("workspace");
+        let data_root = temp.path().join("data");
+        std::fs::create_dir_all(&workspace).unwrap();
+        let workswarm_root = data_root.join("workswarm");
+        let author = WorkflowAuthorTool::new(workswarm_root.clone(), workspace.clone());
+        let policy = Policy::new(&workspace);
+        let mut session = Session::new(&workspace, "test", None);
+        let audit = Arc::new(Mutex::new(AuditLog::default()));
+        let elements = Arc::new(Mutex::new(ElementRegistry::new()));
+        let skills = SkillRegistry::default();
+        let mut ctx = ToolContext {
+            workspace: &workspace, policy: &policy, session: &mut session,
+            audit: &audit, subagent: None, skills: &skills, elements: &elements,
+            fanout: None, abort: None, questioner: None,
+        };
+        let mut args = valid_template();
+        args["template"]["roles"][0]["assignee"] = json!("human");
+        args["template"]["roles"][0]["tools"] = json!([]);
+        author.run(&mut ctx, args).await.unwrap();
+        let registry = TeamTemplateRegistry::for_workswarm_root(&workswarm_root);
+        assert_eq!(registry.list_templates().len(), 1);
+        let mut builtin = registry.get_template("research-plan").unwrap();
+        builtin.template_id = "protected-builtin".into();
+        builtin.origin = None;
+        registry.save_template(&builtin).unwrap();
+        let mut overwrite = valid_template();
+        overwrite["template"]["template_id"] = json!("protected-builtin");
+        overwrite["overwrite"] = json!(true);
+        assert!(author.run(&mut ctx, overwrite).await.unwrap_err().contains("内置"));
+        assert!(registry.get_template("protected-builtin").unwrap().origin.is_none());
+
+        let agent = Agent::new(Arc::new(NoModel), ToolRegistry::empty(), Policy::new(&workspace), Default::default());
+        let store = SqliteSessionStore::open(&workspace.join("sessions.db")).unwrap();
+        let state = Arc::new(crate::AppState::new(agent, store, workspace.join("traces"), data_root, workspace));
+        let app = crate::build_router(Arc::clone(&state));
+        let response = app.clone().oneshot(axum::http::Request::builder()
+            .uri("/workflows/user")
+            .header("Authorization", format!("Bearer {}", state.auth_token.token()))
+            .body(axum::body::Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let listing: Value = serde_json::from_slice(&body).unwrap();
+        assert!(listing["templates"].as_array().unwrap().iter().any(|item| item["template"]["template_id"] == "research-plan"));
+        let response = app.oneshot(axum::http::Request::builder()
+            .method("POST").uri("/teams")
+            .header("Authorization", format!("Bearer {}", state.auth_token.token()))
+            .header("Content-Type", "application/json")
+            .body(axum::body::Body::from(json!({
+                "objective": "check authored human workflow", "mode": "team", "strategy": "team", "template_id": "research-plan"
+            }).to_string())).unwrap()).await.unwrap();
+        let status = response.status();
+        let body = axum::body::to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let created: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(status, axum::http::StatusCode::ACCEPTED, "{created}");
+        assert_eq!(created["template_id"], "research-plan");
+        assert!(TeamTemplateRegistry::for_workswarm_root(&workswarm_root).get_template("research-plan").is_some());
+    }
+
 }

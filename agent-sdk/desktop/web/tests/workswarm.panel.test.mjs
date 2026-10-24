@@ -1655,3 +1655,23 @@ test("模板加载失败时可就地重试，手工角色配置仍保留", async
     T.state.templates = [];
   }
 });
+
+
+test("dagSvg dependency endpoints are numeric and inside the viewport", () => {
+  const tasks = [
+    { task_id: "source", role: "source", status: "Succeeded", depends_on: [] },
+    { task_id: "left", role: "left", status: "Running", depends_on: ["source"] },
+    { task_id: "right", role: "right", status: "Pending", depends_on: ["source"] },
+    { task_id: "merge", role: "merge", status: "Pending", depends_on: ["left", "right"] },
+  ];
+  const svg = T.dagSvg(tasks, "Running");
+  const width = Number(svg.match(/width="([0-9]+)"/)[1]);
+  const edges = [...svg.matchAll(/<line x1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)"/g)];
+  assert.equal(edges.length, 4);
+  assert.equal(Number(edges[0][1]), 222);
+  for (const edge of edges) {
+    const [x1, y1, x2, y2] = edge.slice(1).map(Number);
+    assert.ok([x1, y1, x2, y2].every(Number.isFinite));
+    assert.ok(x1 >= 0 && x1 < x2 && x2 < width, JSON.stringify({ x1, x2, width }));
+  }
+});

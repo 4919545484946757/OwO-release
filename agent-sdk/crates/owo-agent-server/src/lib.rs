@@ -343,6 +343,14 @@ impl AppState {
             data_root.join("workswarm"),
             workspace.clone(),
         )));
+        let artifact_review = artifact_review_api::ArtifactReviewState::new(
+            workswarm_db_root.join("space.db"),
+        );
+        agent.publish_media_outputs(Arc::new(
+            artifact_review_api::artifact_media::MediaOutputPublisher::new(
+                artifact_review.clone(), workswarm_db_root.join("cas"),
+            ),
+        ));
         Self {
             agent,
             store: Arc::new(store),
@@ -431,9 +439,7 @@ impl AppState {
             rate_limiter,
             shutdown_gate,
             // V1 四期（第三路）：评审闭环复用 WorkSwarm 的 space.db（独立连接 + busy_timeout）。
-            artifact_review: artifact_review_api::ArtifactReviewState::new(
-                workswarm_db_root.join("space.db"),
-            ),
+            artifact_review,
             // A8-2 / A8-3（取优合并自远端 engine）。
             activities: Arc::new(Mutex::new(HashMap::new())),
             pet_state: Arc::new(Mutex::new(PetState::default())),

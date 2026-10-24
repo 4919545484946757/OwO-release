@@ -53,6 +53,7 @@ pub(crate) fn to_sse(event: &owo_agent_core::TurnEvent) -> Option<SseEvent> {
             ok,
             error,
             preview,
+            outputs,
             ..
         } => Some(SseEvent::ToolResult {
             id: id.clone(),
@@ -61,6 +62,7 @@ pub(crate) fn to_sse(event: &owo_agent_core::TurnEvent) -> Option<SseEvent> {
             error: error.clone(),
             // 步骤 chip 展开区展示结果正文（core 已按属性截断到 1600 字符）。
             preview: preview.clone(),
+            outputs: outputs.clone(),
         }),
         owo_agent_core::TurnEvent::Final { text } => Some(SseEvent::Final { text: text.clone() }),
     }

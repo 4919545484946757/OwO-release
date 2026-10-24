@@ -158,7 +158,7 @@ fn load_saved_template(
     state: &Arc<AppState>,
     template_id: &str,
 ) -> Result<TeamTemplate, (StatusCode, Json<Value>)> {
-    let registry = TeamTemplateRegistry::new(state.data_root.join("workswarm").join("templates"));
+    let registry = TeamTemplateRegistry::for_workswarm_root(&state.data_root.join("workswarm"));
     registry.get_template(template_id).ok_or_else(|| {
         error(
             StatusCode::NOT_FOUND,
@@ -317,7 +317,7 @@ fn audit(
 }
 
 fn registry(state: &AppState) -> TeamTemplateRegistry {
-    TeamTemplateRegistry::new(state.data_root.join("workswarm").join("templates"))
+    TeamTemplateRegistry::for_workswarm_root(&state.data_root.join("workswarm"))
 }
 
 fn drafts_dir(state: &AppState) -> PathBuf {
