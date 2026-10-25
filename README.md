@@ -2,7 +2,7 @@
 
 OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入方案；解析、候选服务和设置层允许切换或扩展其他编码方案。基础输入、词典查询和上屏均可离线运行；智能排序不可用时保留基础候选。明确选择的插件输入方案不可用时保留编码，不自动切回拼音。
 
-当前版本：`0.2.3`
+当前版本：`0.2.5`
 
 ## 功能概览
 
@@ -19,7 +19,7 @@ OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入
 
 ## 安装与使用
 
-运行 `OwO-Input-Method-0.2.3-windows-x64-Setup.exe`，允许系统管理员授权后，由 Setup 解包并启动 WinUI 3 安装助手：先查看软件介绍，再选择安装位置和快捷方式，最后确认安装并查看进度。Setup 保留原生解包进度；软件安装选项和实际安装仍由 WinUI 助手处理。安装助手自带运行时，无需另外安装 .NET 或 Windows App SDK。也可解压便携包后双击 `Install-OwO.cmd` 使用脚本入口。系统需要 Windows 11 x64，以及“中文（简体，中国）”语言和基本输入支持；不要求把中文设为 Windows 显示语言。
+运行 `OwO-Input-Method-0.2.5-windows-x64-Setup.exe`，允许系统管理员授权后，由 Setup 解包并启动 WinUI 3 安装助手：先查看软件介绍，再选择安装位置和快捷方式，最后确认安装并查看进度。Setup 保留原生解包进度；软件安装选项和实际安装仍由 WinUI 助手处理。安装助手自带运行时，无需另外安装 .NET 或 Windows App SDK。也可解压便携包后双击 `Install-OwO.cmd` 使用脚本入口。系统需要 Windows 11 x64，以及“中文（简体，中国）”语言和基本输入支持；不要求把中文设为 Windows 显示语言。
 
 安装完成后按 `Win + Space` 选择 OwO Input Method。常用入口：
 
@@ -77,8 +77,8 @@ cmake --preset windows-release
 cmake --build --preset windows-release
 .\scripts\build_settings_center.ps1 -Configuration Release
 .\open-owo-installer.cmd
-.\scripts\package_release.ps1 -Version 0.2.3
-.\scripts\package_setup.ps1 -Version 0.2.3
+.\scripts\package_release.ps1 -Version 0.2.5
+.\scripts\package_setup.ps1 -Version 0.2.5
 .\scripts\package_plugins.ps1
 .\scripts\package-agent-sdk.ps1 -Version 1.2.0
 ```

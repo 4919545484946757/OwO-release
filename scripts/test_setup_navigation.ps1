@@ -19,7 +19,7 @@ if ($Standalone) {
     }
     $testRoot = Join-Path $root ('build\setup-navigation-check-' + [Guid]::NewGuid().ToString('N'))
     [void](New-Item -ItemType Directory -Path $testRoot)
-    foreach ($name in @('OwO.Setup.exe', 'OwO-Input-Method-0.2.3-windows-x64-Setup.exe', 'OwO-Input-Method-0.2.3-windows-x64-Setup (1).exe')) {
+    foreach ($name in @('OwO.Setup.exe', 'OwO-Input-Method-0.2.5-windows-x64-Setup.exe', 'OwO-Input-Method-0.2.5-windows-x64-Setup (1).exe')) {
         $target = Join-Path $testRoot $name
         Copy-Item -LiteralPath $source -Destination $target
         $targets += [pscustomobject]@{ Path = $target; Arguments = '--verify-installer-navigation' }

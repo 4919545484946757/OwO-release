@@ -57,9 +57,9 @@
                 <StackPanel Orientation="Horizontal"
                             Spacing="10"
                             VerticalAlignment="Center">
-                    <FontIcon Glyph=""
-                            FontSize="22"
-                            VerticalAlignment="Center"/>
+                    <Image Source="Assets/Square44x44Logo.scale-200.png"
+                           Width="28" Height="28"
+                           VerticalAlignment="Center"/>
 
                     <Button Click="GeneralSettings_Click" Background="Transparent" BorderThickness="0" Padding="0" AutomationProperties.Name="打开通用设置">
                         <TextBlock Text="OwO 输入法"
@@ -103,7 +103,7 @@
                 </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.PaneFooter>
-                <TextBlock Text="OwO 0.2.3" Margin="16,8,8,16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <TextBlock Text="OwO 0.2.5" Margin="16,8,8,16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             </NavigationView.PaneFooter>
             <Grid Background="{ThemeResource SettingsContentBackgroundBrush}" x:Name="MainContentRoot">
                 <Grid.RowDefinitions>

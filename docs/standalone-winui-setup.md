@@ -26,9 +26,9 @@
 
 ```powershell
 .\scripts\build_settings_center.ps1 -Configuration Release -NoRestore
-.\scripts\package_release.ps1 -Version 0.2.3 -OutputDirectory <新的发行目录>
-.\scripts\package_setup.ps1 -Version 0.2.3 -OutputDirectory <新的发行目录>
-.\scripts\package_setup.ps1 -Version 0.2.3 -OutputDirectory <新的发行目录> -ValidateOnly
+.\scripts\package_release.ps1 -Version 0.2.5 -OutputDirectory <新的发行目录>
+.\scripts\package_setup.ps1 -Version 0.2.5 -OutputDirectory <新的发行目录>
+.\scripts\package_setup.ps1 -Version 0.2.5 -OutputDirectory <新的发行目录> -ValidateOnly
 dotnet run --project tests/settings_center/preferences_tests.csproj -c Release -- <发行ZIP绝对路径>
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/settings_center/SetupPackagingTests.ps1
 ```

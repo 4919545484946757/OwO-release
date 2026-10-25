@@ -16,7 +16,7 @@ public sealed partial class SetupPage : Page
 {
     private enum SetupStep { Welcome, Options, Progress }
 
-    private const string Version = "0.2.3";
+    private const string Version = "0.2.5";
     private readonly string _packageRoot;
     private readonly string? _previewStage;
     private readonly Grid _pageHost = new();

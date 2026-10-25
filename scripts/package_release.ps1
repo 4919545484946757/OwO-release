@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.2.3',
+    [string]$Version = '0.2.5',
     [string]$BuildDirectory,
     [string]$X86BuildDirectory,
     [string]$SettingsDirectory,

@@ -27,7 +27,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <Nullable>enable</Nullable>
-    <Version>0.2.3</Version>
+    <Version>0.2.5</Version>
     <ApplicationIcon>../settings_center/Assets/AppIcon.ico</ApplicationIcon>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
