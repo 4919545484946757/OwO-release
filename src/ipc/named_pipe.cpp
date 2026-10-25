@@ -2,6 +2,7 @@
 #include "owo/agent/agent_protocol.h"
 #include "owo/core/plugin_executor.h"
 #include "owo/ipc/contextual_candidate_order.h"
+#include "owo/ipc/user_lexicon_management.h"
 #include "owo/config/config_monitor.h"
 #include "owo/model/model_backend.h"
 #include "owo/model/model_protocol.h"
@@ -157,6 +158,33 @@ private:
     PSECURITY_DESCRIPTOR descriptor_{};
     SECURITY_ATTRIBUTES attributes_{};
 };
+
+bool lexicon_editor_peer_allowed(HANDLE pipe) {
+    if (!ImpersonateNamedPipeClient(pipe)) return false;
+    HANDLE token{};
+    const bool opened = OpenThreadToken(GetCurrentThread(), TOKEN_QUERY, TRUE, &token) != FALSE;
+    if (!RevertToSelf()) {
+        // Never continue store/file operations under an untrusted client token.
+        if (token != nullptr) CloseHandle(token);
+        TerminateProcess(GetCurrentProcess(), ERROR_ACCESS_DENIED);
+        return false;
+    }
+    if (!opened) return false;
+    DWORD appcontainer{}, bytes{};
+    bool allowed = GetTokenInformation(token, TokenIsAppContainer, &appcontainer,
+        sizeof(appcontainer), &bytes) && appcontainer == 0;
+    GetTokenInformation(token, TokenIntegrityLevel, nullptr, 0, &bytes);
+    std::vector<std::byte> storage(bytes);
+    if (bytes == 0 || !GetTokenInformation(token, TokenIntegrityLevel, storage.data(), bytes, &bytes)) allowed = false;
+    else {
+        const auto label = reinterpret_cast<const TOKEN_MANDATORY_LABEL*>(storage.data());
+        const auto count = *GetSidSubAuthorityCount(label->Label.Sid);
+        allowed = allowed && count != 0 &&
+            *GetSidSubAuthority(label->Label.Sid, count - 1) >= SECURITY_MANDATORY_MEDIUM_RID;
+    }
+    CloseHandle(token);
+    return allowed;
+}
 
 protocol::ValidationResult io_error(const char* operation) {
     const DWORD error = GetLastError();
@@ -1184,6 +1212,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
     std::optional<PendingCandidateRefinement> pending_candidate_refinement;
     engine::FullPinyinIncrementalState incremental_parse_state;
     std::uint64_t learning_generation = 0;
+    const auto lexicon_revision_base = static_cast<std::uint64_t>(
+        std::chrono::steady_clock::now().time_since_epoch().count()) ^
+        (static_cast<std::uint64_t>(GetCurrentProcessId()) << 32);
     const auto model_key = [](const std::uint64_t request_id, const std::uint64_t generation) {
         return std::to_string(request_id) + ':' + std::to_string(generation);
     };
@@ -1196,7 +1227,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
     bool ready_signalled = false;
     while (running) {
         const HANDLE pipe = CreateNamedPipeW(
-            pipe_name, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+            pipe_name, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
             1, protocol::kMaximumPayloadBytes + 4U, protocol::kMaximumPayloadBytes + 4U,
             5000, pipe_security.get());
         if (pipe == INVALID_HANDLE_VALUE) {
@@ -1280,6 +1311,32 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     response.text = "shutdown_ack";
                 }
                 running = false;
+            } else if (decoded.message.type == protocol::MessageType::user_lexicon_request) {
+                if (user_frequency == nullptr || !lexicon_editor_peer_allowed(pipe)) {
+                    response.type = protocol::MessageType::error_response;
+                    response.text = "词库管理不可用，或客户端权限不足。请从普通桌面设置中心操作。";
+                } else {
+                    try {
+                        auto lexicon_revision = lexicon_revision_base + learning_generation;
+                        const auto managed = manage_user_lexicon(*user_frequency,
+                            decoded.message.text, lexicon_revision);
+                        response.type = managed.ok ? protocol::MessageType::user_lexicon_response
+                                                   : protocol::MessageType::error_response;
+                        response.text = managed.text;
+                        if (managed.mutated) {
+                            ++learning_generation;
+                            unflushed_selections = 0;
+                            model_requests.clear();
+                            pending_candidate_refinement.reset();
+                        }
+                    } catch (const std::exception&) {
+                        ++learning_generation;
+                        model_requests.clear();
+                        pending_candidate_refinement.reset();
+                        response.type = protocol::MessageType::error_response;
+                        response.text = "词库操作未能正常完成，请刷新确认结果后重试；不会自动重复提交。";
+                    }
+                }
             } else if (decoded.message.type == protocol::MessageType::agent_request) {
                 response.type = protocol::MessageType::agent_response;
                 auto agent_request = agent::decode_request(decoded.message.text);

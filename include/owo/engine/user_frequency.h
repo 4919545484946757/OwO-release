@@ -54,6 +54,10 @@ struct UserFrequencyIoResult {
     bool recovered_from_backup{};
     std::string error;
 };
+struct UserLexiconPage {
+    std::vector<UserLexiconEntry> entries;
+    std::size_t total{};
+};
 
 class UserFrequencyStore final : public UserFrequencyModel {
 public:
@@ -80,6 +84,14 @@ public:
         std::string_view input, std::size_t limit) const override;
     [[nodiscard]] UserFrequencyIoResult flush() const;
     [[nodiscard]] std::uint64_t ranking_epoch() const;
+    [[nodiscard]] UserLexiconPage list_words(std::string_view query, std::size_t offset,
+                                             std::size_t limit) const;
+    [[nodiscard]] static std::string validate_word(const UserLexiconEntry& entry);
+    // Explicit user edits are confirmed preferences, not simulated selections.
+    [[nodiscard]] std::string edit_words(const std::vector<UserLexiconEntry>& entries,
+                                         std::string_view old_input = {},
+                                         std::string_view old_text = {}, bool replace = false);
+    void clear_learning();
 
 private:
     void rebuild_user_lexicon();

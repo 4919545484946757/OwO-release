@@ -93,6 +93,9 @@
                         <FontIcon Glyph=""/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem x:Name="UserLexiconNavigationItem" Content="用户词库" Tag="user-lexicon">
+                    <NavigationViewItem.Icon><SymbolIcon Symbol="Library"/></NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem x:Name="PluginNavigationItem" Content="插件" Tag="plugins">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph=""/>
@@ -640,6 +643,7 @@
                             </ContentControl>
                         </Grid>
                     </ScrollViewer>
+                    <ContentControl x:Name="UserLexiconPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                     <ScrollViewer x:Name="GeneralPreferencesPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">
                             <Border x:Name="AutoSaveCard" Style="{StaticResource SettingsCardStyle}">

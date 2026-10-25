@@ -1,5 +1,8 @@
 #include "owo/config/config_monitor.h"
 #include "owo/config/config_store.h"
+#include "owo/ipc/named_pipe.h"
+#include "owo/protocol/messages.h"
+#include <Windows.h>
 
 #include <charconv>
 #include <chrono>
@@ -152,6 +155,36 @@ void usage() {
 }  // namespace
 
 int wmain(const int argc, wchar_t** argv) {
+    if (argc == 2 && std::wstring_view(argv[1]) == L"--user-lexicon") {
+        std::string payload;
+        char c{};
+        while (std::cin.get(c)) {
+            if (payload.size() >= 512 * 1024) { std::cerr << "词库请求过大。\n"; return 2; }
+            payload += c;
+        }
+        owo::protocol::Message request;
+        request.type = owo::protocol::MessageType::user_lexicon_request;
+        request.request_id = GetTickCount64();
+        request.context_generation = (std::uint64_t{GetCurrentProcessId()} << 32) | 0x4c455831;
+        request.text = std::move(payload);
+        const auto encoded = owo::protocol::encode_message(request);
+        if (encoded.empty() || encoded.size() > owo::protocol::kMaximumPayloadBytes) {
+            std::cerr << "词库请求编码后过大，请拆分导入。\n"; return 2;
+        }
+        const auto reply = owo::ipc::exchange(owo::ipc::kCorePipeName,
+            encoded, std::chrono::seconds(10));
+        if (!reply.status) { std::cerr << "无法连接词库服务，请先启动最新版 OwO Core。\n"; return 4; }
+        const auto decoded = owo::protocol::decode_message(reply.response);
+        if (!decoded.validation || decoded.message.request_id != request.request_id ||
+            decoded.message.context_generation != request.context_generation) {
+            std::cerr << "词库响应无效或版本不匹配。\n"; return 4;
+        }
+        if (decoded.message.type != owo::protocol::MessageType::user_lexicon_response) {
+            std::cerr << decoded.message.text << '\n'; return 5;
+        }
+        std::cout << decoded.message.text;
+        return 0;
+    }
     if (argc < 3) {
         usage();
         return 2;

@@ -24,6 +24,8 @@ enum class MessageType {
     candidate_update_request,
     candidate_update_response,
     candidate_committed,
+    user_lexicon_request,
+    user_lexicon_response,
     agent_context_recorded,
     agent_request,
     agent_response,

@@ -77,6 +77,7 @@ add_library(owo_engine STATIC
     src/engine/lexicon.cpp
     src/engine/language_model.cpp
     src/engine/user_frequency.cpp
+    src/engine/user_lexicon_editor.cpp
 )
 target_include_directories(owo_engine PUBLIC include)
 target_compile_features(owo_engine PUBLIC cxx_std_20)
@@ -241,7 +242,7 @@ endif()
 
 if(WIN32)
     add_executable(owo_config_shell apps/config_shell/main.cpp)
-    target_link_libraries(owo_config_shell PRIVATE owo_config)
+    target_link_libraries(owo_config_shell PRIVATE owo_config owo_ipc)
     target_compile_features(owo_config_shell PRIVATE cxx_std_20)
     target_compile_options(owo_config_shell PRIVATE /W4 /permissive- /utf-8 /EHsc)
 
@@ -250,7 +251,7 @@ if(WIN32)
     target_compile_features(owo_plugin_shell PRIVATE cxx_std_20)
     target_compile_options(owo_plugin_shell PRIVATE /W4 /permissive- /utf-8 /EHsc)
 
-    add_library(owo_ipc STATIC src/ipc/named_pipe.cpp src/ipc/input_method_server.cpp src/ipc/input_method_client.cpp)
+    add_library(owo_ipc STATIC src/ipc/named_pipe.cpp src/ipc/input_method_server.cpp src/ipc/input_method_client.cpp src/ipc/user_lexicon_management.cpp)
     target_include_directories(owo_ipc PUBLIC include)
     target_link_libraries(owo_ipc PUBLIC owo_protocol owo_engine owo_model owo_config)
     target_link_libraries(owo_ipc PRIVATE owo_agent owo_core_plugin owo_input_method_control)
@@ -1011,5 +1012,13 @@ if(BUILD_TESTING)
         endif()
         add_test(NAME owo.ipc.singleton_decay_contract COMMAND owo_singleton_decay_contract)
         set_tests_properties(owo.ipc.singleton_decay_contract PROPERTIES TIMEOUT 20)
+        add_executable(owo_user_lexicon_management_tests tests/ipc/user_lexicon_management_tests.cpp)
+        target_link_libraries(owo_user_lexicon_management_tests PRIVATE owo_ipc)
+        target_compile_features(owo_user_lexicon_management_tests PRIVATE cxx_std_20)
+        if(MSVC)
+            target_compile_options(owo_user_lexicon_management_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+        endif()
+        add_test(NAME owo.ipc.user_lexicon_management COMMAND owo_user_lexicon_management_tests)
+        set_tests_properties(owo.ipc.user_lexicon_management PROPERTIES TIMEOUT 20)
     endif()
 endif()
