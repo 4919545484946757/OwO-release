@@ -561,6 +561,13 @@ void promote_full_candidate_heads(const std::vector<Candidate>& sentences,
     std::vector<Candidate> promoted;
     promoted.reserve(single_characters.size());
     std::vector<bool> used(single_characters.size());
+    // Explicit source-bound learning outranks a sentence/dictionary head hint.
+    // Keep its score order; the structural hint only reorders the remainder.
+    for (std::size_t index = 0; index < single_characters.size(); ++index) {
+        if (!single_characters[index].user_preferred()) continue;
+        used[index] = true;
+        promoted.push_back(std::move(single_characters[index]));
+    }
     for (const auto& head : preferred) {
         const auto found = std::find_if(
             single_characters.begin(), single_characters.end(),
@@ -622,6 +629,16 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     constexpr std::size_t kMinimumSearchLimit = 12;
     const auto search_limit = std::max(kMinimumSearchLimit, limit);
     RequestLexiconCache lookup_cache(lexicon_, metrics);
+    const auto apply_learned_preference = [this, &parsed](Candidate& candidate) {
+        if (user_frequency_ == nullptr || candidate.consumed_input_bytes == 0 ||
+            candidate.consumed_input_bytes > parsed.normalized_input.size()) return;
+        const auto source = std::string_view(parsed.normalized_input).substr(
+            0, candidate.consumed_input_bytes);
+        if (user_frequency_->preferred(source, candidate.text)) {
+            candidate.user_lexicon = true;
+            candidate.provisional_user_word = false;
+        }
+    };
     const bool phonetic_assistance = parsed.phonetic_assistance;
     // A correction-only parse is an isolated fallback source. Looking up
     // abbreviations from the raw typo here can overwrite a full corrected
@@ -685,6 +702,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 InputMatchKind::incomplete_completion,
                                 {std::string(initial_sequence_input)},
                                 parsed.normalized_input.size()};
+            apply_learned_preference(candidate);
             initial_candidates.store(std::move(candidate));
         }
         auto candidates = initial_candidates.take();
@@ -744,11 +762,12 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         language_context, parsed.normalized_input,
                         match.text);
             }
-            dictionary_unique.store(
-                Candidate{std::string(match.text), own_syllables(match.syllables), score,
-                          InputMatchKind::abbreviated_completion,
-                          std::move(match.source_segments),
-                          parsed.normalized_input.size()});
+            Candidate candidate{std::string(match.text), own_syllables(match.syllables), score,
+                                InputMatchKind::abbreviated_completion,
+                                std::move(match.source_segments),
+                                parsed.normalized_input.size()};
+            apply_learned_preference(candidate);
+            dictionary_unique.store(std::move(candidate));
         }
 
         for (const auto& entry : prefix_entries) {
@@ -768,10 +787,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         std::string_view(parsed.normalized_input).substr(0, 1),
                         entry.text);
             }
-            prefix_unique.store(
-                Candidate{std::string(entry.text), {std::string(entry.syllable)}, score,
-                          InputMatchKind::abbreviated_completion,
-                          {std::string(initial_sequence_input.substr(0, 1))}, 1});
+            Candidate candidate{std::string(entry.text), {std::string(entry.syllable)}, score,
+                                InputMatchKind::abbreviated_completion,
+                                {std::string(initial_sequence_input.substr(0, 1))}, 1};
+            apply_learned_preference(candidate);
+            prefix_unique.store(std::move(candidate));
         }
 
         auto dictionary = dictionary_unique.take();
@@ -801,7 +821,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     }
 
     CandidateAccumulator unique(std::max<std::size_t>(64, search_limit * 2));
-    const auto store_candidate = [&unique](Candidate candidate) {
+    const auto store_candidate = [&unique, &apply_learned_preference](Candidate candidate) {
+        apply_learned_preference(candidate);
         unique.store(std::move(candidate));
     };
     if (user_frequency_ != nullptr && !correction_only) {

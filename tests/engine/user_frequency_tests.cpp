@@ -222,9 +222,11 @@ int main() {
     const auto initial_language = timed.language_context_score("上下文", "ceshi", "单次词");
     const auto epoch = timed.ranking_epoch();
     if (initial_global <= 0 || initial_input <= 0 || initial_language <= 0 ||
-        !timed.lookup("ceshi", 1).front().preferred) return 19;
+        !timed.lookup("ceshi", 1).front().preferred ||
+        !timed.preferred("ce'shi", "单次词") || timed.preferred("ce", "单次词")) return 19;
     now += 10;
-    if (timed.lookup("ceshi", 1).front().preferred || timed.ranking_epoch() == epoch) return 20;
+    if (timed.lookup("ceshi", 1).front().preferred || timed.preferred("ceshi", "单次词") ||
+        timed.ranking_epoch() == epoch) return 20;
     now += 20;
     if (timed.score("单次词") != initial_global / 4 ||
         timed.contextual_score("ceshi", "单次词") != initial_input / 4 ||
@@ -247,7 +249,8 @@ int main() {
     if (!restarted.flush().success) return 32;
     owo::engine::UserFrequencyStore confirmed([&] { return now; });
     if (!confirmed.load(timed_path).success || confirmed.score("单次词") != repeated_score ||
-        !confirmed.lookup("ceshi", 1).front().preferred) return 33;
+        !confirmed.lookup("ceshi", 1).front().preferred ||
+        !confirmed.preferred("ce'shi", "单次词")) return 33;
     restarted.record("xi'an", "别名词");
     restarted.record("xian", "别名词");
     now += 60;

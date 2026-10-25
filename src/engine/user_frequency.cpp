@@ -490,6 +490,15 @@ std::int64_t UserFrequencyStore::score(const std::string_view text) const {
     return decay_singleton(bounded_learning_score(count(text), gain, 32), text, singleton_times_);
 }
 
+bool UserFrequencyStore::preferred(const std::string_view input,
+                                   const std::string_view text) const {
+    const auto reading = user_lexicon_.find(compact_input_key(input));
+    if (reading == user_lexicon_.end() || !reading->second.contains(std::string(text)))
+        return false;
+    const auto times = user_lexicon_times_.find(reading->first);
+    return times == user_lexicon_times_.end() || preferred_observation(text, times->second);
+}
+
 std::int64_t UserFrequencyStore::contextual_score(const std::string_view input,
                                                   const std::string_view text) const {
     const auto gain = 500LL + static_cast<std::int64_t>(sensitivity_ - 1U) * 500LL;

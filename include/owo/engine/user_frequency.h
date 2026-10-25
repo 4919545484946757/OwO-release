@@ -22,6 +22,13 @@ class UserFrequencyModel {
 public:
     virtual ~UserFrequencyModel() = default;
     [[nodiscard]] virtual std::int64_t score(std::string_view text) const = 0;
+    // Preference is bound to the actually consumed encoding, not just the
+    // displayed word. This also applies when it is a prefix of a longer input.
+    [[nodiscard]] virtual bool preferred(std::string_view input, std::string_view text) const {
+        (void)input;
+        (void)text;
+        return false;
+    }
     [[nodiscard]] virtual std::int64_t contextual_score(std::string_view input,
                                                         std::string_view text) const {
         (void)input;
@@ -73,6 +80,7 @@ public:
     [[nodiscard]] std::uint32_t contextual_count(std::string_view input,
                                                  std::string_view text) const;
     [[nodiscard]] std::int64_t score(std::string_view text) const override;
+    [[nodiscard]] bool preferred(std::string_view input, std::string_view text) const override;
     [[nodiscard]] std::int64_t contextual_score(std::string_view input,
                                                 std::string_view text) const override;
     [[nodiscard]] std::int64_t language_context_score(

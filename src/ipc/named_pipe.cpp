@@ -883,6 +883,11 @@ void arrange_partitioned_candidate_pages(
         std::vector<engine::Candidate> reordered;
         reordered.reserve(single_characters.size());
         std::vector<bool> used(single_characters.size());
+        for (std::size_t index = 0; index < single_characters.size(); ++index) {
+            if (!single_characters[index].user_preferred()) continue;
+            used[index] = true;
+            reordered.push_back(std::move(single_characters[index]));
+        }
         for (const auto& head : preferred_heads) {
             const auto found = std::find_if(
                 single_characters.begin(), single_characters.end(),
@@ -891,6 +896,7 @@ void arrange_partitioned_candidate_pages(
                 });
             if (found == single_characters.end()) continue;
             const auto index = static_cast<std::size_t>(found - single_characters.begin());
+            if (used[index]) continue;
             used[index] = true;
             reordered.push_back(std::move(*found));
         }
