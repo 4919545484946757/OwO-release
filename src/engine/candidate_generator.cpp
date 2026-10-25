@@ -346,6 +346,7 @@ void replace_candidate_payload(Candidate& existing, Candidate replacement) {
     existing.model_only = replacement.model_only;
     existing.user_lexicon = replacement.user_lexicon;
     existing.provisional_user_word = replacement.provisional_user_word;
+    existing.joint_phrase_partition = replacement.joint_phrase_partition;
 }
 
 class CandidateAccumulator {

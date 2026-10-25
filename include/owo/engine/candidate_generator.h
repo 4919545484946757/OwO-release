@@ -27,6 +27,7 @@ struct Candidate {
     bool model_only{};
     bool user_lexicon{};
     bool provisional_user_word{};
+    bool joint_phrase_partition{};
     [[nodiscard]] bool user_preferred() const noexcept {
         return user_lexicon && !provisional_user_word;
     }

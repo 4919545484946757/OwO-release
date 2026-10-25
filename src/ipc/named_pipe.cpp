@@ -8,6 +8,7 @@
 #include "owo/model/model_protocol.h"
 
 #include "owo/engine/candidate_generator.h"
+#include "owo/engine/candidate_partition.h"
 #include "owo/engine/exact_code_schema.h"
 #include "owo/engine/full_pinyin_schema.h"
 #include "owo/engine/lexicon.h"
@@ -799,6 +800,10 @@ void arrange_double_initial_pages(std::vector<engine::Candidate>& candidates,
 std::uint64_t candidate_group(const engine::Candidate& candidate,
                               const std::size_t full_input_bytes) {
     const auto characters = utf8_character_count(candidate.text);
+    // Reuse the phrase-area wire group for a joined word/sentence band, so
+    // both rendering and asynchronous model updates see one area.
+    if (candidate.joint_phrase_partition && characters >= 2)
+        return static_cast<std::uint64_t>(protocol::CandidateGroup::sentence);
     const bool sentence = candidate.consumed_input_bytes == full_input_bytes &&
                           candidate.syllables.size() >= 3 &&
                           characters == candidate.syllables.size() &&
@@ -1187,6 +1192,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
         std::vector<std::uint64_t> candidate_consumed;
         std::vector<std::uint64_t> candidate_groups;
         std::vector<std::uint64_t> candidate_confidence;
+        std::vector<bool> joint_phrase_partition;
+        std::vector<bool> generated_sentences;
+        std::size_t sentence_limit{};
         std::size_t full_input_bytes{};
         std::size_t visible_count{};
         std::vector<std::string> contextual_preferences;
@@ -1496,14 +1504,20 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             update.candidates, pending.full_input_bytes,
                             pending.candidates, pending.candidate_consumed,
                             response.candidates, response.candidate_consumed,
-                            pending.candidate_confidence);
+                            pending.candidate_confidence, pending.joint_phrase_partition);
                         promote_preferred_candidates(
                             pending.contextual_preferences, response.candidates,
                             response.candidate_consumed);
                         restore_preferred_candidate_positions(
                             pending.learned_preferences, pending.candidates,
                             pending.candidate_consumed, response.candidates,
-                            response.candidate_consumed);
+                            response.candidate_consumed, pending.joint_phrase_partition);
+                        if (std::any_of(pending.joint_phrase_partition.begin(),
+                                        pending.joint_phrase_partition.end(), [](bool value) { return value; }))
+                            limit_model_sentence_candidates(
+                                pending.candidates, pending.candidate_consumed,
+                                pending.generated_sentences, pending.sentence_limit,
+                                response.candidates, response.candidate_consumed);
                         response.candidate_groups = candidate_groups_for_order(
                             response.candidates, response.candidate_consumed,
                             pending.candidates, pending.candidate_consumed,
@@ -1518,8 +1532,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             response.candidate_consumed = pending.candidate_consumed;
                             response.candidate_groups = pending.candidate_groups;
                         } else {
-                            // Model ranking is authoritative only inside each
-                            // candidate group. Reapply the visible base layout
+                            // Model ranking is authoritative inside each
+                            // candidate group, including a joined word/sentence
+                            // band. Reapply the visible base layout
                             // before truncation so hidden whole-input words
                             // cannot consume every sentence slot (wsm used to
                             // lose both short sentences at this point).
@@ -1577,6 +1592,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 std::vector<std::string> model_candidate_pool;
                 std::vector<std::size_t> model_candidate_consumed;
                 std::vector<std::uint64_t> model_candidate_confidence;
+                std::vector<bool> model_candidate_joint_partition;
+                std::vector<bool> model_candidate_generated_sentence;
                 std::vector<std::string> model_hidden_candidates;
                 std::vector<std::uint64_t> model_hidden_consumed;
                 std::vector<std::uint64_t> model_hidden_groups;
@@ -1975,6 +1992,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         candidates.insert(candidates.end(),
                                           std::make_move_iterator(hidden.begin()),
                                           std::make_move_iterator(hidden.end()));
+                        if (!single_syllable_input && !corrected_single_syllable)
+                            engine::merge_similar_length_partitions(candidates, full_input_bytes);
                     }
                     if (!cache_hit && previous_pool)
                         preserve_candidate_pool_prefix(
@@ -2020,10 +2039,22 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 candidate.segment_count > 1 &&
                                 candidate.consumed_input_bytes == full_input_bytes;
                         });
+                    const engine::Candidate* joint_reference = nullptr;
+                    for (const auto& candidate : candidates) {
+                        if (candidate.joint_phrase_partition && !candidate.model_only &&
+                            !candidate.user_preferred() &&
+                            (joint_reference == nullptr || candidate.score > joint_reference->score))
+                            joint_reference = &candidate;
+                    }
                     for (const auto& candidate : candidates) {
                         model_candidate_pool.push_back(candidate.text);
                         model_candidate_consumed.push_back(
                             candidate.consumed_input_bytes);
+                        model_candidate_joint_partition.push_back(candidate.joint_phrase_partition);
+                        model_candidate_generated_sentence.push_back(
+                            candidate.segment_count > 1 && candidate.syllables.size() >= 3 &&
+                            candidate.consumed_input_bytes == full_input_bytes &&
+                            utf8_character_count(candidate.text) == candidate.syllables.size());
                         std::uint64_t confidence = 0;
                         if (reference != candidates.end() && !candidate.user_preferred() &&
                             candidate.match_kind == engine::InputMatchKind::exact &&
@@ -2036,6 +2067,11 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             confidence = static_cast<std::uint64_t>(
                                 (reference->score - candidate.score) / kModelLexicalConfidenceBand);
                         model_candidate_confidence.push_back(confidence);
+                        if (candidate.joint_phrase_partition && !candidate.user_preferred() &&
+                            joint_reference != nullptr && candidate.score < joint_reference->score)
+                            model_candidate_confidence.back() = std::max(confidence,
+                                static_cast<std::uint64_t>((joint_reference->score - candidate.score) /
+                                    kModelLexicalConfidenceBand));
                     }
                     if (begin == 0) {
                         for (std::size_t index = visible_candidate_count;
@@ -2222,13 +2258,25 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     pending_model.candidates = std::move(model_update_candidates);
                     pending_model.candidate_consumed = std::move(model_update_consumed);
                     pending_model.candidate_groups = std::move(model_update_groups);
+                    pending_model.joint_phrase_partition.reserve(pending_model.candidates.size());
                     pending_model.candidate_confidence.reserve(pending_model.candidates.size());
-                    for (const auto& text : pending_model.candidates) {
-                        const auto found = std::find(model_candidate_pool.begin(),
-                            model_candidate_pool.end(), text);
-                        pending_model.candidate_confidence.push_back(found == model_candidate_pool.end()
-                            ? 0 : model_candidate_confidence[static_cast<std::size_t>(
-                                found - model_candidate_pool.begin())]);
+                    pending_model.generated_sentences.reserve(pending_model.candidates.size());
+                    for (std::size_t index = 0; index < pending_model.candidates.size(); ++index) {
+                        auto match = model_candidate_pool.size();
+                        for (std::size_t source = 0; source < model_candidate_pool.size(); ++source) {
+                            if (model_candidate_pool[source] == pending_model.candidates[index] &&
+                                model_candidate_consumed[source] == pending_model.candidate_consumed[index]) {
+                                match = source;
+                                break;
+                            }
+                        }
+                        pending_model.joint_phrase_partition.push_back(
+                            match < model_candidate_pool.size() && model_candidate_joint_partition[match]);
+                        pending_model.candidate_confidence.push_back(match < model_candidate_pool.size()
+                            ? model_candidate_confidence[match] : 0);
+                        const bool sentence = match < model_candidate_pool.size() && model_candidate_generated_sentence[match];
+                        pending_model.generated_sentences.push_back(sentence);
+                        if (index < response.candidates.size() && sentence) ++pending_model.sentence_limit;
                     }
                     pending_model.full_input_bytes = full_input_bytes;
                     pending_model.visible_count = response.candidates.size();

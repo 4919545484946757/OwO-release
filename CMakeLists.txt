@@ -65,6 +65,7 @@ endif()
 add_library(owo_engine STATIC
     src/engine/binary_lexicon.cpp
     src/engine/candidate_generator.cpp
+    src/engine/candidate_partition.cpp
     src/engine/candidate_scoring.cpp
     src/engine/composition_candidate_provider.cpp
     src/engine/candidate_scheduler.cpp
@@ -754,6 +755,13 @@ if(BUILD_TESTING)
         target_compile_options(owo_phrase_chain_tests PRIVATE /W4 /permissive- /utf-8)
     endif()
     add_test(NAME owo.engine.phrase_chains COMMAND owo_phrase_chain_tests)
+    add_executable(owo_candidate_partition_tests tests/engine/candidate_partition_tests.cpp)
+    target_link_libraries(owo_candidate_partition_tests PRIVATE owo_engine)
+    target_compile_features(owo_candidate_partition_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_candidate_partition_tests PRIVATE /W4 /permissive- /utf-8)
+    endif()
+    add_test(NAME owo.engine.candidate_partition COMMAND owo_candidate_partition_tests)
     add_executable(owo_candidate_search_budget_tests tests/engine/candidate_search_budget_tests.cpp)
     target_link_libraries(owo_candidate_search_budget_tests PRIVATE owo_engine)
     target_compile_features(owo_candidate_search_budget_tests PRIVATE cxx_std_20)
@@ -999,6 +1007,14 @@ if(BUILD_TESTING)
         endif()
         add_test(NAME owo.ipc.local_correction_contract COMMAND owo_local_correction_contract)
         set_tests_properties(owo.ipc.local_correction_contract PROPERTIES TIMEOUT 20)
+        add_executable(owo_joint_partition_contract tests/ipc/joint_partition_contract.cpp)
+        target_link_libraries(owo_joint_partition_contract PRIVATE owo_ipc)
+        target_compile_features(owo_joint_partition_contract PRIVATE cxx_std_20)
+        if(MSVC)
+            target_compile_options(owo_joint_partition_contract PRIVATE /W4 /permissive- /utf-8 /EHsc)
+        endif()
+        add_test(NAME owo.ipc.joint_partition_contract COMMAND owo_joint_partition_contract)
+        set_tests_properties(owo.ipc.joint_partition_contract PROPERTIES TIMEOUT 20)
         add_executable(owo_core_config_contract tests/ipc/core_config_contract.cpp)
         target_link_libraries(owo_core_config_contract PRIVATE owo_ipc)
         target_compile_features(owo_core_config_contract PRIVATE cxx_std_20)

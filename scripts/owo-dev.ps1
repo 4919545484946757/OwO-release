@@ -19,7 +19,7 @@ try {
         if ($cliArguments.Count -ne 3 -or $cliArguments[1] -ne '--suite') { throw 'Usage: owo-dev test --suite cli|engine|plugin|scheme|agent' }
         $testSuites = @{
             cli = '^owo\.dev_cli\.'
-            engine = '^owo\.engine\.(full_pinyin|ambiguous_boundaries|dictionary_bridges|phrase_chains|local_corrections|candidate_search_budget|lookup_reuse|binary_lexicon|candidate_scheduler)$'
+            engine = '^owo\.engine\.(full_pinyin|ambiguous_boundaries|dictionary_bridges|phrase_chains|candidate_partition|local_corrections|candidate_search_budget|lookup_reuse|binary_lexicon|candidate_scheduler)$'
             plugin = '^owo\.plugin\.'
             scheme = '^owo\.(engine\.input_method|core\.input_method|ipc\.input_method|tsf\.input_method)'
             agent = '^owo\.agent\.'
