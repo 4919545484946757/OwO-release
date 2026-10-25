@@ -59,6 +59,10 @@ var root = Path.Combine(Path.GetTempPath(), "owo-ui-preferences-" + Guid.NewGuid
 var path = Path.Combine(root, "config", "settings-ui.json");
 try {
     if (!SettingsUiPreferences.Load(path).AutoSaveEnabled) throw new Exception("Default must enable auto-save");
+    if (!new SettingsUiPreferences().AutoSaveEnabled) throw new Exception("New preferences must enable auto-save");
+    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+    File.WriteAllText(path, "{}");
+    if (!SettingsUiPreferences.Load(path).AutoSaveEnabled) throw new Exception("Missing preference field must retain enabled default");
     new SettingsUiPreferences(false).Save(path);
     if (SettingsUiPreferences.Load(path).AutoSaveEnabled) throw new Exception("Disabled state was not persisted");
     new SettingsUiPreferences(true).Save(path);

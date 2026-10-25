@@ -654,7 +654,7 @@
                                         <TextBlock Text="自动保存设置" Style="{StaticResource SettingTitleStyle}"/>
                                         <TextBlock Text="自动保存输入、快捷键、标点及插件配置。关闭后使用保存按钮；此开关立即保存。" Style="{StaticResource SettingDescriptionStyle}"/>
                                     </StackPanel>
-                                    <ToggleSwitch x:Name="AutoSaveSettings" Grid.Column="1" Toggled="AutoSaveSettings_Toggled" AutomationProperties.Name="自动保存设置"/>
+                                    <ToggleSwitch x:Name="AutoSaveSettings" Grid.Column="1" IsOn="True" Toggled="AutoSaveSettings_Toggled" AutomationProperties.Name="自动保存设置"/>
                                 </Grid>
                             </Border>
                             <Border x:Name="ConfigurationTransferCard" Style="{StaticResource SettingsCardStyle}">

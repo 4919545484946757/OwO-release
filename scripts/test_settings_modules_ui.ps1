@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([string]$PublishDirectory = '')
+param([string]$PublishDirectory = '', [switch]$FreshAutoSaveDefaults)
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -99,7 +99,10 @@ foreach ($scheme in @('full_pinyin', 'exact_code', 'plugin:example.input/cangjie
     Save-Field $config 'candidate_page_size' '9'
     Save-Field $config 'chinese_punctuation_mask' '3'
     Save-Field $config 'user_learning_sensitivity' '2'
-    [IO.File]::WriteAllText((Join-Path $fixture 'settings-ui.json'), '{"AutoSaveEnabled":false}')
+    $preferences = Join-Path $fixture 'settings-ui.json'
+    if (-not $FreshAutoSaveDefaults -or $scheme -ne 'full_pinyin') {
+        [IO.File]::WriteAllText($preferences, '{"AutoSaveEnabled":false}')
+    }
     $startInfo = New-Object Diagnostics.ProcessStartInfo
     $startInfo.FileName = $application
     $startInfo.WorkingDirectory = $publish
@@ -173,7 +176,16 @@ foreach ($scheme in @('full_pinyin', 'exact_code', 'plugin:example.input/cangjie
         $script:checks++
         if ($phonetic) {
             Navigate $window '通用设置'
-            (Find-Id $window 'AutoSaveSettings').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
+            $autoSave = (Find-Id $window 'AutoSaveSettings').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
+            if ($FreshAutoSaveDefaults) {
+                if ($autoSave.Current.ToggleState -ne [Windows.Automation.ToggleState]::On -or
+                    (Test-Path -LiteralPath $preferences)) { throw 'Fresh defaults must enable auto-save without writing a preference on startup.' }
+                $script:checks++
+            } else {
+                if ($autoSave.Current.ToggleState -ne [Windows.Automation.ToggleState]::Off) { throw 'Startup replaced explicit disabled preference.' }
+                $autoSave.Toggle()
+                $script:checks++
+            }
             Start-Sleep -Milliseconds 800
             Navigate $window '学习与排序'
             (Find-Id $window 'UserCompletion').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()

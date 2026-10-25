@@ -8,7 +8,9 @@ public sealed partial class MainPage
     private readonly DispatcherTimer _autoSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(450) };
     private readonly SemaphoreSlim _settingsSaveGate = new(1, 1);
     private readonly Dictionary<PluginSettingsModel, Dictionary<string, object?>> _pendingPluginSaves = [];
-    private bool _settingsLoaded, _settingsBusy, _pendingSettingsSave, _loadingUiPreferences, _buildingPluginSettings;
+    private bool _settingsLoaded, _settingsBusy, _pendingSettingsSave, _buildingPluginSettings;
+    // XAML 默认开启也会触发 Toggled；读取偏好前不能将默认值写回，覆盖用户手动关闭的选择。
+    private bool _loadingUiPreferences = true;
     private string UiPreferencesPath => Path.Combine(Path.GetDirectoryName(_client.ConfigPath)!, "settings-ui.json");
 
     private void InitializeAutoSave()

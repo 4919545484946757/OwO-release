@@ -35,6 +35,7 @@
 ## 值保留、重置和兼容
 
 - 切换方案只改变功能可用性，不改写停用功能的存储值。切回受支持方案后恢复原偏好。
+- 自动保存首次使用默认开启；缺少偏好字段时也使用开启默认值。启动不会写回默认值，用户已明确关闭时保持关闭；偏好读取失败则暂停自动保存，避免覆盖已有配置。
 - 自动保存、手动保存、重新加载和导入共享同一字段适配管线；批量载入/重置期间抑制自动保存，避免保存中间状态。
 - 页面重置仅处理归属该页、且当前方案支持的字段；不重置其他模块或不支持的偏好。例如候选页重置不会重置中文标点掩码、学习灵敏度或方案选择；中文标点页独立重置标点总开关和逐项掩码。
 - 搜索保留未支持功能的入口并标注原因，不将其伪装为已经可用的功能。用户词库页明确说明管理的是宿主内置词库，而不是插件私有词库。
@@ -58,6 +59,7 @@ dotnet run --project tests/settings_center/settings_modules_tests.csproj -c Rele
 dotnet run --project tests/settings_center/configuration_transfer_tests.csproj -c Release -- build/windows-release/Release/owo_config_shell.exe
 dotnet build apps/settings_center/OwO.Settings.csproj -c Release -r win-x64 --no-restore -p:Platform=x64 -p:NuGetAudit=false
 .\scripts\test_settings_modules_ui.ps1 -PublishDirectory .\build\settings-publish\win-x64
+.\scripts\test_settings_modules_ui.ps1 -PublishDirectory .\build\settings-publish\win-x64 -FreshAutoSaveDefaults
 ```
 
 UI 检查只启动自己创建的测试进程，用随机 `build/settings-modules-ui-*` 配置及空插件目录；测试全拼、精确编码、未安装的插件方案引用（保守能力，不安装或授权插件）、同窗口方案切换、实际控件禁用、按页重置和自动保存。关闭/超时只结束自己启动的窗口，保留夹具供检查；不重启 Core、不操作日常词库或用户打开的设置窗口。
