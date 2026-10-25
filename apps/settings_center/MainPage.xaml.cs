@@ -441,7 +441,7 @@ public sealed partial class MainPage : Page
             "intelligence" or "shortcuts" or "plugins" or "punctuation" or "general"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         (CurrentPageTitle.Text, CurrentPageDescription.Text) = page switch {
-            "general" => ("通用设置", "设置中心的保存行为与通用偏好"),
+            "general" => ("通用设置", "管理自动保存、配置备份与迁移"),
             "schemes" => ("输入方案", "选择编码方案并查看当前方案能力"),
             "candidates" => ("候选与输入", "调整候选显示、组合上屏、标点和符号预览"),
             "punctuation" => ("中文标点", "逐项选择中文格式；总开关和中英文模式仍决定是否启用"),
@@ -467,6 +467,7 @@ public sealed partial class MainPage : Page
                  Microsoft.UI.Xaml.FrameworkElement target) =>
             _baseSearchItems.Add(new SearchItem(title, detail, page, target));
         Add("自动保存设置", "通用 自动 保存 配置", "general", AutoSaveCard);
+        Add("配置导入与导出", "通用 备份 恢复 迁移 JSON import export", "general", ConfigurationTransferCard);
         Add("输入方案", "全拼 拼音 精确编码 表码", "schemes", InputSchemeCard);
         Add("每页候选数", "候选 显示 数量", "candidates", CandidatePageSizeCard);
         Add("候选词换行长度", "长词 换行", "candidates", CandidateWrapLengthCard);
@@ -1387,6 +1388,10 @@ public sealed partial class MainPage : Page
         PluginConfigResetButton.IsEnabled = !busy && _pluginSettings?.Fields.Count != 0;
         ShortcutSection.IsEnabled = !busy;
         PluginSection.IsEnabled = !busy;
+        GeneralPreferencesPage.IsEnabled = !busy;
+        GeneralSettingsPage.IsEnabled = !busy;
+        ChinesePunctuationPage.IsEnabled = !busy;
+        SettingsNavigation.IsEnabled = !busy;
         Status.IsOpen = true;
     }
 

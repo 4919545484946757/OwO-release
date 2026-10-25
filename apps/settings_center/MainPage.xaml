@@ -656,6 +656,17 @@
                                     <ToggleSwitch x:Name="AutoSaveSettings" Grid.Column="1" Toggled="AutoSaveSettings_Toggled" AutomationProperties.Name="自动保存设置"/>
                                 </Grid>
                             </Border>
+                            <Border x:Name="ConfigurationTransferCard" Style="{StaticResource SettingsCardStyle}">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="配置导入与导出" Style="{StaticResource SettingTitleStyle}"/>
+                                    <TextBlock Text="备份或迁移输入方案、候选、学习与排序、快捷键、标点和自动保存偏好。不包含用户词库、插件配置及权限授权。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="导入配置" Click="ImportConfiguration_Click"/>
+                                        <Button Content="导出配置" Click="ExportConfiguration_Click"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <InfoBar x:Name="ConfigurationTransferStatus" IsOpen="False" IsClosable="True"/>
                             <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Message="连续调整会合并为一次保存。无效配置不会覆盖已保存内容；安装、启用插件及权限授权仍需明确操作。"/>
                         </StackPanel>
                     </ScrollViewer>

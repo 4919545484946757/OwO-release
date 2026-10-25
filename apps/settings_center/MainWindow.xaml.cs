@@ -58,6 +58,7 @@ public sealed partial class MainWindow : Window
             AppWindow.Closing += async (_, args) => {
                 if (_closingAfterSave || RootFrame.Content is not MainPage page) return;
                 args.Cancel = true;
+                if (page.ConfigurationTransferInProgress) return;
                 if (_checkingSaveOnClose) return;
                 _checkingSaveOnClose = true;
                 page.IsEnabled = false;
