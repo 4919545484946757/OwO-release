@@ -5,6 +5,7 @@
 #include "owo/plugin/candidate_theme.h"
 #include "owo/plugin/unicode_palette.h"
 #include "owo/tsf/input_method_session.h"
+#include "owo/tsf/composition_learning.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -323,9 +324,7 @@ private:
     std::size_t input_cursor_{0};
     std::vector<StagedCandidate> staged_candidates_;
     std::size_t staged_cursor_{0};
-    std::wstring learning_chain_text_;
-    std::wstring learning_chain_input_;
-    std::wstring learning_chain_context_;
+    CompositionLearningChain learning_chain_;
     std::wstring recent_language_context_;
     std::wstring recent_agent_context_;
     std::wstring recent_language_input_;

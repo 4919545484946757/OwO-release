@@ -3278,9 +3278,7 @@ void TextService::apply_agent_task(const agent::TaskDraft& task) {
     segmented_input_ = remaining;
     staged_candidates_.clear();
     staged_cursor_ = 0;
-    learning_chain_text_.clear();
-    learning_chain_input_.clear();
-    learning_chain_context_.clear();
+    learning_chain_.clear();
 }
 
 bool TextService::select_agent_command(const std::size_t index) {
@@ -4815,6 +4813,7 @@ void TextService::update_candidate_anchor(ITfContext* context) {
 
 void TextService::clear_composition() {
     reset_plugin_input();
+    learning_chain_.clear();
     ++context_generation_;
     latest_candidate_request_id_.store(0, std::memory_order_release);
     if (candidate_cancellation_event_ != nullptr) SetEvent(candidate_cancellation_event_);
@@ -4949,9 +4948,7 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
         return S_OK;
     }
     const auto prior_staged = staged_candidates_;
-    const std::wstring prior_chain_text = learning_chain_text_;
-    const std::wstring prior_chain_input = learning_chain_input_;
-    const std::wstring prior_chain_context = learning_chain_context_;
+    auto learning_chain = learning_chain_;
     std::wstring remaining_input = input_buffer_.substr(static_cast<std::size_t>(consumed));
     while (!remaining_input.empty() && remaining_input.front() == L'\'')
         remaining_input.erase(remaining_input.begin());
@@ -5003,24 +5000,13 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
 
         composite_text += committed;
         composite_input += compact_feedback_input(learned_input);
-        if (!prior_chain_text.empty()) {
-            composite_text.insert(0, prior_chain_text);
-            composite_input.insert(0, prior_chain_input);
-            if (finishes_composition)
-                queue_commit_feedback(composite_text, composite_input,
-                                      prior_chain_context);
-            else {
-                learning_chain_text_ = std::move(composite_text);
-                learning_chain_input_ = std::move(composite_input);
-                learning_chain_context_ = prior_chain_context;
-            }
-        } else if (!prior_staged.empty()) {
-            queue_commit_feedback(composite_text, composite_input, previous_context);
-        } else if (!finishes_composition) {
-            learning_chain_text_ = std::move(composite_text);
-            learning_chain_input_ = std::move(composite_input);
-            learning_chain_context_ = previous_context;
-        }
+        const bool combined = !learning_chain.empty() || !prior_staged.empty();
+        auto completed = learning_chain.append(composite_text, composite_input, previous_context,
+                                               finishes_composition || !suffix.empty());
+        if (combined && completed)
+            queue_commit_feedback(std::move(completed->text), std::move(completed->input),
+                                  std::move(completed->context));
+        learning_chain_ = std::move(learning_chain);
     }
     return FAILED(request_result) ? request_result : session_result;
 }
@@ -5103,6 +5089,7 @@ HRESULT TextService::commit_pending_composition(ITfContext* context) {
     if (context == nullptr || !has_composition()) return E_INVALIDARG;
     const std::wstring previous_context = recent_language_context_;
     const auto staged = staged_candidates_;
+    auto learning_chain = learning_chain_;
     std::wstring text = staged_text();
     text.append(input_buffer_);
     const HRESULT result = commit_text(context, std::move(text));
@@ -5120,9 +5107,13 @@ HRESULT TextService::commit_pending_composition(ITfContext* context) {
             composite_input += compact_feedback_input(feedback_input);
             recent_language_input_ = std::move(feedback_input);
         }
-        if (staged.size() > 1)
-            queue_commit_feedback(std::move(composite_text),
-                                  std::move(composite_input), previous_context);
+        const bool combined = !learning_chain.empty() || staged.size() > 1;
+        auto completed = learning_chain.append(composite_text, composite_input, previous_context, true);
+        // If only raw letters remain, the previously selected fragment was
+        // already learned. Do not count that same selection a second time.
+        if (combined && completed && !composite_text.empty())
+            queue_commit_feedback(std::move(completed->text), std::move(completed->input),
+                                  std::move(completed->context));
         clear_composition();
     }
     return result;
