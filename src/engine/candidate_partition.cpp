@@ -21,14 +21,13 @@ void merge_similar_length_partitions(std::vector<Candidate> &candidates,
     });
     if (anchor == candidates.end())
         return;
-    // Anchor the band once. A pairwise "length gap <= 1" sort relation is
-    // non-transitive and could accidentally merge a chain of unrelated lengths.
+    // Only equal character counts share a band. Even a one-character gap
+    // retains the original word/sentence partition order.
     const auto anchor_length = characters(anchor->text);
     const auto anchor_kind = anchor->match_kind;
     const auto eligible = [&](const Candidate &value) {
         const auto length = characters(value.text);
-        return length >= 2 && value.match_kind == anchor_kind &&
-               (length > anchor_length ? length - anchor_length : anchor_length - length) <= 1;
+        return length >= 2 && length == anchor_length && value.match_kind == anchor_kind;
     };
     if (std::none_of(candidates.begin(), candidates.end(), [&](const auto &value) {
             return !value.model_only && !sentence(value, full_input_bytes) && eligible(value);

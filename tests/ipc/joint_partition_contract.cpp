@@ -62,7 +62,10 @@ int main() {
                                               {{"zi"}, "姿", 5000},
                                               {{"zi"}, "滋", 4000},
                                               {{"zi"}, "兹", 3000},
-                                              {{"zi"}, "梓", 2000}});
+                                              {{"zi"}, "梓", 2000},
+                                              {{"wei", "shen", "me"}, "为什么", 10000},
+                                              {{"wo"}, "我", 10000}, {{"shi"}, "市", 10000},
+                                              {{"ma"}, "吗", 10000}});
     const auto suffix = std::wstring(nonce.begin(), nonce.end());
     const auto core_pipe = LR"(\\.\pipe\OwO.Test.Joint.Core.)" + suffix;
     const auto model_pipe = LR"(\\.\pipe\OwO.Test.Joint.Model.)" + suffix;
@@ -99,9 +102,12 @@ int main() {
                             base.message.candidate_consumed.end());
             if (page == 0) {
                 const auto &value = base.message;
-                ok &= value.candidates.front() == "自动站" &&
-                      value.candidate_consumed.front() == 10 &&
+                ok &= value.candidates.front() == "自动展开" &&
+                      value.candidate_consumed.front() == 13 &&
                       value.candidate_groups.front() == 0 && value.model_pending;
+                const auto prefix = std::find(value.candidates.begin(), value.candidates.end(), "自动站");
+                ok &= prefix != value.candidates.end() && value.candidate_groups[
+                    static_cast<std::size_t>(prefix - value.candidates.begin())] == 1;
                 const auto sentence =
                     std::find(value.candidates.begin(), value.candidates.end(), "自动展开");
                 ok &= sentence != value.candidates.end();
@@ -121,14 +127,21 @@ int main() {
             ranked =
                 send(core_pipe, {owo::protocol::MessageType::candidate_update_request, id, 998});
         ok &= ranked.validation && !ranked.message.candidates.empty() &&
-              ranked.message.candidates.front() == "自动站" &&
-              ranked.message.candidate_consumed.front() == 10 &&
+              ranked.message.candidates.front() == "自动展开" &&
+              ranked.message.candidate_consumed.front() == 13 &&
               ranked.message.candidate_groups == groups &&
               ranked.message.candidates.size() == all.size();
         if (!ok)
             std::cerr << "Joint partition/pagination/model contract failed at page size "
                       << page_size << '\n';
     }
+    const auto equal_length = send(core_pipe,
+        {owo::protocol::MessageType::candidate_request, ++id, 998, "wsm"});
+    const auto whole = std::find(equal_length.message.candidates.begin(),
+                                equal_length.message.candidates.end(), "为什么");
+    ok &= equal_length.validation && whole != equal_length.message.candidates.end() &&
+        equal_length.message.candidate_groups[static_cast<std::size_t>(
+            whole - equal_length.message.candidates.begin())] == 0;
     const auto generation = monitor.generation();
     config.candidate_partition_enabled = false;
     ok &= writer.save(config).success &&
