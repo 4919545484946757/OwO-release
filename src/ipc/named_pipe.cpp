@@ -1774,12 +1774,28 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 }
                                 // A short trailing prefix (nih -> ni+hao) is
                                 // already useful. Longer compact forms require
-                                // at least two independent abbreviation matches
-                                // (bugd -> bu+gan+dang) before they suppress typo
-                                // correction such as niaho -> ni+hao.
-                                return candidate.source_segments.size() <= 2 ||
-                                       (abbreviated_segments >= 2 &&
-                                        abbreviated_segments <= 4);
+                                // at least two dictionary-backed abbreviation
+                                // matches before they suppress typo correction.
+                                // Expanding isolated letters into unrelated
+                                // characters is not lexical evidence: nneg can
+                                // become n+ne+g and hide the local neng repair.
+                                if (candidate.source_segments.size() <= 2) return true;
+                                if (abbreviated_segments < 2 || abbreviated_segments > 4)
+                                    return false;
+                                std::size_t dictionary_abbreviations = 0;
+                                std::size_t begin = 0;
+                                for (const auto length : candidate.segment_lengths) {
+                                    if (begin >= shared || length > shared - begin) return false;
+                                    if (length >= 2) {
+                                        for (auto index = begin; index < begin + length; ++index) {
+                                            if (candidate.source_segments[index].size() <
+                                                candidate.syllables[index].size())
+                                                ++dictionary_abbreviations;
+                                        }
+                                    }
+                                    begin += length;
+                                }
+                                return begin == shared && dictionary_abbreviations >= 2;
                             });
                         correction_fallback = full_pinyin_scheme &&
                                               decoded.message.correction_enabled &&
