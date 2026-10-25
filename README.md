@@ -48,7 +48,7 @@ OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入
 
 设置中心「用户词库」支持搜索编辑、删除/清空，以及 JSON/TSV 导入导出。详见[词库管理与备份](docs/user-lexicon-editor.md)。
 
-设置中心「通用设置」支持配置导入/导出，导入前校验、确认并备份原配置；不包含词库、插件配置或权限。详见[配置备份与迁移](docs/settings-transfer.md)。
+设置中心「通用设置」支持配置导入/导出，导入前校验、确认并备份原配置；不包含词库、插件配置或权限。配置项按输入方案能力启用，不支持的功能保留原值。详见[配置备份与迁移](docs/settings-transfer.md)与[设置模块化](docs/settings-modularity.md)。
 
 ## Agent 模式
 

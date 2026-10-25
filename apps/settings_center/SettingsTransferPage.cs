@@ -83,10 +83,7 @@ public sealed partial class MainPage
             }
             var backup = await SettingsTransfer.ApplyAsync(_client, UiPreferencesPath, document);
             _settingsLoaded = false;
-            ApplySchemeSettings(snapshot);
-            ApplyCandidateSettings(snapshot);
-            ApplyIntelligenceSettings(snapshot);
-            ApplyShortcutSettings(snapshot);
+            ApplySettings(snapshot);
             _loadingUiPreferences = true;
             try { AutoSaveSettings.IsOn = document.UiPreferences.AutoSaveEnabled; }
             finally { _loadingUiPreferences = false; }

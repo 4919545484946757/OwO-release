@@ -24,16 +24,7 @@ public sealed partial class MainPage
             _autoSaveTimer.Stop();
             await FlushAutoSaveAsync();
         };
-        Control[] settings = [InputScheme, CandidatePageSize, CandidateWrapLength,
-            CandidatePartition, CandidateSingleCharacterFirst, CandidateImmediateCommit, FocusLossCommit, ChinesePunctuation,
-            AltCodePreview, AltCodePreviewPageSize, AltCodePreviewWheel, UserLearning,
-            UserLearningSensitivity, UserCompletion, UserCompletionRange, ModelRanking, ModelTimeout,
-            CorrectionShortcutEnabled, LanguageShortcutEnabled, RawInputShortcutEnabled,
-            CursorLeftShortcutEnabled, CursorRightShortcutEnabled, PreviousPageShortcutEnabled,
-            NextPageShortcutEnabled, PunctuationShortcutEnabled, TextNavigationShortcutEnabled,
-            TextNavigationSelectEnabled];
-        foreach (var control in settings) ObserveAutoSave(control);
-        foreach (var control in _punctuationSwitches.Values) ObserveAutoSave(control);
+        foreach (var control in _settingsEditors.ObservedControls) ObserveAutoSave(control);
         Unloaded += (_, _) => _autoSaveTimer.Stop();
     }
 
@@ -53,7 +44,11 @@ public sealed partial class MainPage
             var current = Value();
             if (Equals(previous, current)) return; // Template initialization is not a user edit.
             previous = current;
-            if (plugin) QueuePluginAutoSave(); else QueueSettingsAutoSave();
+            if (plugin) QueuePluginAutoSave();
+            else {
+                UpdateDependentSettings();
+                QueueSettingsAutoSave();
+            }
         }
         switch (control) {
             case ToggleSwitch toggle: toggle.Toggled += (_, _) => Changed(); break;

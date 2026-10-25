@@ -137,6 +137,7 @@
                     <StackPanel x:Name="PageHeaderContent" Spacing="4" HorizontalAlignment="Stretch" MaxWidth="960">
                         <TextBlock x:Name="CurrentPageTitle" Text="输入方案" Style="{StaticResource TitleTextBlockStyle}"/>
                         <TextBlock x:Name="CurrentPageDescription" Text="选择编码方案并查看当前方案能力" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <InfoBar x:Name="SchemeSettingsNotice" IsOpen="False" IsClosable="False" Severity="Informational" Margin="0,6,0,0"/>
                     </StackPanel>
                 </Grid>
                 <Grid Grid.Row="1">
