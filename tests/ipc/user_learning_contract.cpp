@@ -56,6 +56,7 @@ int main() {
     const auto frequency_path = root / "frequency.owuf";
     if (!frequency.load(frequency_path).success)
         return 4;
+    frequency.record("dongkeyi", "董柯伊");
     const engine::MemoryLexicon lexicon({{{"ke", "yi"}, "可以", 1000000},
                                          {{"ke", "yi"}, "刻意", 1},
                                          {{"ke", "yi"}, "可疑", 100000},
@@ -63,7 +64,14 @@ int main() {
                                          {{"ke"}, "刻", 1000},
                                          {{"ke"}, "克", 100},
                                          {{"yi"}, "以", 10000},
-                                         {{"yi"}, "意", 1000}});
+                                         {{"yi"}, "意", 1000},
+                                         {{"yi"}, "伊", 10},
+                                         {{"dong"}, "动", 1000000},
+                                         {{"dong"}, "东", 900000},
+                                         {{"dong"}, "董", 10},
+                                         {{"ke"}, "柯", 10},
+                                         {{"dong", "ke"}, "冬科", 100000},
+                                         {{"dong", "ke"}, "鮗科", 90000}});
     const auto core_pipe = LR"(\\.\pipe\OwO.Test.Learning.Core.)" + nonce;
     const auto model_pipe = LR"(\\.\pipe\OwO.Test.Learning.Model.)" + nonce;
     ReverseRanker backend;
@@ -136,6 +144,43 @@ int main() {
           "Abbreviation learning did not affect ranking");
     check(query("k", false, false).message.candidates.front() == "可",
           "A different source encoding incorrectly inherited strong learned priority");
+    const auto retains_name = [&](const protocol::DecodeResult &response, std::size_t consumed) {
+        const auto &value = response.message;
+        const auto found = std::find(value.candidates.begin(), value.candidates.end(), "董柯伊");
+        const auto index = static_cast<std::size_t>(found - value.candidates.begin());
+        return response.validation && found != value.candidates.end() &&
+               index < value.candidate_consumed.size() &&
+               value.candidate_consumed[index] == consumed;
+    };
+    for (const bool confirmed : {false, true}) {
+        if (confirmed)
+            learn("dongkeyi", "董柯伊");
+        // Match the TSF fast request followed by refinement with the SAME ID.
+        for (const auto input :
+             {"d", "do", "don", "dong", "dongk", "dongke", "dongkey", "dongkeyi"}) {
+            protocol::Message request{protocol::MessageType::candidate_request, ++id, 888, input};
+            for (const bool deferred : {true, false}) {
+                request.defer_expensive_candidates = deferred;
+                const auto result = send(core_pipe, request);
+                check(result.validation && !result.message.candidates.empty(),
+                      "Incremental user-word query failed");
+                if (std::string_view(input) == "dongkey" || std::string_view(input) == "dongkeyi") {
+                    check(retains_name(result, std::string_view(input).size()),
+                          "User word disappeared during fast/refined incremental input");
+                    if (confirmed && std::string_view(input) == "dongkeyi")
+                        check(result.message.candidates.front() == "董柯伊",
+                              "Confirmed full user word lost first place");
+                }
+            }
+        }
+        for (const auto input : {"dongkey", "dongkeyi"}) {
+            for (const bool expanded : {false, true})
+                for (const bool ranked : {false, true})
+                    check(retains_name(query(input, expanded, ranked),
+                                       std::string_view(input).size()),
+                          "User word disappeared in the expanded/model candidate list");
+        }
+    }
     const auto generation = monitor.generation();
     settings.model_ranking_enabled = false;
     settings.user_learning_enabled = false;

@@ -856,6 +856,13 @@ if(BUILD_TESTING)
         target_compile_options(owo_user_frequency_tests PRIVATE -Wall -Wextra -Wpedantic)
     endif()
     add_test(NAME owo.engine.user_frequency COMMAND owo_user_frequency_tests)
+    add_executable(owo_user_word_retention_tests tests/engine/user_word_retention_tests.cpp)
+    target_link_libraries(owo_user_word_retention_tests PRIVATE owo_engine)
+    target_compile_features(owo_user_word_retention_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_user_word_retention_tests PRIVATE /W4 /permissive- /utf-8)
+    endif()
+    add_test(NAME owo.engine.user_word_retention COMMAND owo_user_word_retention_tests)
 
     add_test(NAME owo.lexicon.compiler
              COMMAND owo_lexicon_compiler

@@ -323,10 +323,13 @@ bool candidate_better(const Candidate& candidate, const Candidate& existing) {
         return candidate.consumed_input_bytes > existing.consumed_input_bytes;
     if (candidate.user_preferred() != existing.user_preferred())
         return candidate.user_preferred();
-    if (candidate.provisional_user_word != existing.provisional_user_word)
-        return !candidate.provisional_user_word;
+    // A remembered word remains a word after its one-off priority expires.
+    // A native whole-word match can replace its stale duplicate below, but
+    // an arbitrary composition must not erase the user-lexicon identity.
     if ((candidate.segment_count == 1) != (existing.segment_count == 1))
         return candidate.segment_count == 1;
+    if (candidate.provisional_user_word != existing.provisional_user_word)
+        return !candidate.provisional_user_word;
     if (candidate.score != existing.score) return candidate.score > existing.score;
     return candidate.match_kind < existing.match_kind;
 }
@@ -1680,6 +1683,15 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         return score_less(left, right);
     };
     std::sort(full.begin(), full.end(), sentence_less);
+    // Expiring a one-off preference removes its boost, not the user's word.
+    // Keep one independently recalled full word available when the sentence
+    // budget below discards weaker homophone compositions of the same input.
+    const auto recalled_user_word = std::find_if(full.begin(), full.end(), [](const Candidate& value) {
+        return value.user_lexicon && value.segment_count == 1 &&
+               utf8_character_count(value.text) == value.syllables.size();
+    });
+    std::optional<Candidate> retained_user_word;
+    if (recalled_user_word != full.end()) retained_user_word = *recalled_user_word;
     // Prefer a whole-dictionary correction over generated
     // character/phrase permutations of that same repaired reading. Such
     // permutations otherwise enter the sentence partition ahead of the
@@ -1827,6 +1839,14 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
         for (std::size_t index = 0; index < sentence_count; ++index)
             ordered.push_back(std::move(full[index]));
+
+        if (retained_user_word && std::none_of(ordered.begin(), ordered.end(),
+                [&](const Candidate& value) { return value.text == retained_user_word->text; })) {
+            // Do not restore a permanent first-place preference or enlarge the
+            // two-item long-candidate budget. The current leading result stays.
+            if (ordered.size() == 2) ordered.back() = std::move(*retained_user_word);
+            else ordered.push_back(std::move(*retained_user_word));
+        }
 
         const auto leading_text = utf8_first_character(ordered.front().text);
         std::vector<Candidate> initial_characters;
