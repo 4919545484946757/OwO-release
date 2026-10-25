@@ -41,7 +41,7 @@ internal static class InputSchemeSettingsPolicy
         SettingsCapability.UserLearning | SettingsCapability.ModelRanking;
     internal static readonly InputSchemeOption[] BuiltIns = [
         new("full_pinyin", "全拼", "使用汉语拼音连续输入，适合日常中文输入。",
-            "支持自动分割、不完整拼音、简拼、混拼与可切换纠错。",
+            "", // 默认方案不显示常驻能力说明；能力标记不变。
             BuiltIn | SettingsCapability.Correction | SettingsCapability.UserCompletion |
                 SettingsCapability.SingleCharacterFirst),
         new("exact_code", "精确编码（实验性）", "按显式撇号分段并精确查询词典，用于验证表码方案接入。",

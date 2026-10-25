@@ -29,6 +29,17 @@ function Navigate($window, [string]$name) {
     if ($null -eq $item -or -not $item.Current.IsEnabled) { throw "Missing navigation: $name" }
     $item.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Start-Sleep -Milliseconds 150
+    $schemeNotice = Find-Id $window 'SchemeSettingsNotice'
+    if ($null -ne $schemeNotice -and -not $schemeNotice.Current.IsOffscreen) { throw 'Passive scheme notice became visible again.' }
+    foreach ($message in @(
+        '此页管理宿主内置词库，不是插件方案的私有词库。插件词库配置请进入对应插件设置。',
+        '词库已加载。编辑会直接保存；导出文件包含个人用词，请妥善保管。',
+        '连续调整会合并为一次保存。无效配置不会覆盖已保存内容；安装、启用插件及权限授权仍需明确操作。',
+        '支持自动分割、不完整拼音、简拼、混拼与可切换纠错。')) {
+        $notice = Find-Name $window $message
+        if ($null -ne $notice -and -not $notice.Current.IsOffscreen) { throw 'Hidden informational message became visible again.' }
+    }
+    $script:checks++
 }
 function Check-Enabled($window, [string]$id, [bool]$enabled) {
     $element = Find-Id $window $id

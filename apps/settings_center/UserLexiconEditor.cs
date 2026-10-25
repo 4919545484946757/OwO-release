@@ -13,8 +13,7 @@ internal sealed class UserLexiconEditor : UserControl
     private readonly TextBox _search = new() { PlaceholderText = "搜索编码或词语", MinWidth = 0 };
     private readonly ListView _list = new() { SelectionMode = ListViewSelectionMode.Single };
     private readonly TextBlock _summary = new() { TextWrapping = TextWrapping.Wrap };
-    private readonly InfoBar _notice = new() { IsOpen = true, IsClosable = false, Severity = InfoBarSeverity.Informational,
-        Message = "编辑直接保存到当前 Core；单独确认后才执行删除、清空或导入。导出包含个人用词，请妥善保管。" };
+    private readonly InfoBar _notice = new() { IsOpen = false, IsClosable = false };
     private readonly CommandBar _commands = new() { DefaultLabelPosition = CommandBarDefaultLabelPosition.Right };
     private readonly Button _previous = new() { Content = "上一页" }, _next = new() { Content = "下一页" };
     private int _offset, _total;
@@ -65,7 +64,7 @@ internal sealed class UserLexiconEditor : UserControl
     }
     private LexiconWord Selected() => (_list.SelectedItem as ListViewItem)?.Tag as LexiconWord
         ?? throw new InvalidOperationException("请先选择一个词条。");
-    internal Task RefreshAsync() => RunAsync(async () => { await LoadAsync(); Notify("词库已加载。编辑会直接保存；导出文件包含个人用词，请妥善保管。", InfoBarSeverity.Informational); });
+    internal Task RefreshAsync() => RunAsync(LoadAsync);
     private async Task RunAsync(Func<Task> action)
     {
         if (_busy) return;
@@ -97,6 +96,7 @@ internal sealed class UserLexiconEditor : UserControl
             _list.Items.Add(item);
         }
         _summary.Text = $"共 {_total} 条 · 第 {_offset / PageSize + 1} 页 · 每页 {PageSize} 条";
+        _notice.IsOpen = false;
     }
     private ContentDialog Dialog(string title, object content, string primary) => new() {
         XamlRoot = XamlRoot, Title = title, Content = content, PrimaryButtonText = primary,

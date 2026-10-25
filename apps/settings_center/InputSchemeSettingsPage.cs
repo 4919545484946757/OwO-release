@@ -49,17 +49,15 @@ public sealed partial class MainPage
         InputSchemeDescription.Text = CurrentScheme.Description;
         InputSchemeCapabilities.Message = CurrentScheme.Capabilities;
         UpdateDependentSettings();
-        UpdateSchemeSettingsNotice();
+        UpdateSchemeHintVisibility();
     }
 
-    private void UpdateSchemeSettingsNotice()
+    private void UpdateSchemeHintVisibility()
     {
-        if (SchemeSettingsNotice is null) return;
-        SchemeSettingsNotice.IsOpen = _currentPage is "schemes" or "candidates" or "intelligence" or
-            "shortcuts" or "punctuation" or "user-lexicon";
-        SchemeSettingsNotice.Message = _currentPage == "user-lexicon"
-            ? "此页管理宿主内置词库，不是插件方案的私有词库。插件词库配置请进入对应插件设置。"
-            : $"当前方案：{CurrentScheme.Name}。通用功能由宿主管理；不支持的功能会禁用并保留原值，切回支持的方案后恢复。";
+        if (InputSchemeCapabilities is null) return;
+        var visible = _currentPage == "schemes" && !string.IsNullOrWhiteSpace(CurrentScheme.Capabilities);
+        InputSchemeCapabilities.IsOpen = visible;
+        InputSchemeCapabilities.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void DependentSetting_Toggled(object sender, RoutedEventArgs e) => UpdateDependentSettings();

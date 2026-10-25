@@ -252,7 +252,7 @@ public sealed partial class MainPage : Page
             "plugins" => ("插件", "安装、授权、配置和维护 OwO 插件"),
             _ => ("输入方案", "选择编码方案并查看当前方案能力"),
         };
-        UpdateSchemeSettingsNotice();
+        UpdateSchemeHintVisibility();
     }
 
     private static void SetVisibility(

@@ -50,6 +50,9 @@ try {
         SettingsCapability.CandidateDisplay | SettingsCapability.Correction);
     var allCapabilities = Enum.GetValues<SettingsCapability>().Aggregate(SettingsCapability.None, (a, b) => a | b);
     Check(full.Supports(allCapabilities), "Full pinyin supports all currently connected settings");
+    Check(string.IsNullOrEmpty(full.Capabilities), "Full pinyin does not show the passive capability banner");
+    Check(!string.IsNullOrEmpty(exact.Capabilities) && !string.IsNullOrEmpty(plugin.Capabilities),
+        "Other scheme explanations are not removed by the full pinyin UI change");
     Check(exact.Supports(SettingsCapability.UserLearning | SettingsCapability.ModelRanking | SettingsCapability.CandidatePartition), "Exact code keeps scheme-independent core features");
     Check(!exact.Supports(SettingsCapability.Correction) && !exact.Supports(SettingsCapability.UserCompletion) &&
         !exact.Supports(SettingsCapability.SingleCharacterFirst), "Exact code excludes pinyin assistance");

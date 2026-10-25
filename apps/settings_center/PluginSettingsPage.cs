@@ -77,7 +77,7 @@ public sealed partial class MainPage
         try {
             _pluginSettings = PluginSettingsModel.Load(_pluginClient.StorePath, plugin);
             _currentPage = $"plugin:{plugin.Id}:{plugin.Version}";
-            UpdateSchemeSettingsNotice();
+            UpdateSchemeHintVisibility();
             PluginConfigFields.Children.Clear();
             _pluginConfigControls.Clear();
             _pluginConfigExpanders.Clear();

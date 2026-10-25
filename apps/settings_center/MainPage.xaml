@@ -137,7 +137,6 @@
                     <StackPanel x:Name="PageHeaderContent" Spacing="4" HorizontalAlignment="Stretch" MaxWidth="960">
                         <TextBlock x:Name="CurrentPageTitle" Text="输入方案" Style="{StaticResource TitleTextBlockStyle}"/>
                         <TextBlock x:Name="CurrentPageDescription" Text="选择编码方案并查看当前方案能力" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                        <InfoBar x:Name="SchemeSettingsNotice" IsOpen="False" IsClosable="False" Severity="Informational" Margin="0,6,0,0"/>
                     </StackPanel>
                 </Grid>
                 <Grid Grid.Row="1">
@@ -158,7 +157,7 @@
                                         <ComboBox x:Name="InputScheme" Grid.Column="1" MinWidth="200" SelectedValuePath="Id" DisplayMemberPath="Name" VerticalAlignment="Center" SelectionChanged="InputScheme_SelectionChanged"/>
                                     </Grid>
                                 </Border>
-                                <InfoBar x:Name="InputSchemeCapabilities" IsOpen="True" IsClosable="False" Severity="Informational" Message="正在读取输入方案能力。"/>
+                                <InfoBar x:Name="InputSchemeCapabilities" Visibility="Collapsed" IsOpen="False" IsClosable="False" Severity="Informational"/>
                                 <Button x:Name="DiscoverSchemesButton" Content="发现已授权插件输入方案" Click="DiscoverSchemes_Click"/>
                                 <TextBlock x:Name="CandidateSectionTitle" Text="候选显示与组合" Style="{StaticResource SectionTitleStyle}"/>
                                 <Border x:Name="CandidatePageSizeCard" Style="{StaticResource SettingsCardStyle}">
@@ -668,7 +667,6 @@
                                 </StackPanel>
                             </Border>
                             <InfoBar x:Name="ConfigurationTransferStatus" IsOpen="False" IsClosable="True"/>
-                            <InfoBar IsOpen="True" IsClosable="False" Severity="Informational" Message="连续调整会合并为一次保存。无效配置不会覆盖已保存内容；安装、启用插件及权限授权仍需明确操作。"/>
                         </StackPanel>
                     </ScrollViewer>
                     <ScrollViewer x:Name="ChinesePunctuationPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
