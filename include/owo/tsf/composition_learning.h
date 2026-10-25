@@ -18,6 +18,7 @@ struct CompositionLearningRecord {
 class CompositionLearningChain {
   public:
     [[nodiscard]] bool empty() const noexcept { return record_.text.empty(); }
+    [[nodiscard]] std::wstring_view text() const noexcept { return record_.text; }
     void clear() { record_ = {}; }
 
     [[nodiscard]] std::optional<CompositionLearningRecord> append(std::wstring_view text,

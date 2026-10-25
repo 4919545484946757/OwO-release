@@ -230,13 +230,14 @@ private:
     [[nodiscard]] std::optional<HitTarget> hit_test(POINT point) const;
     void update_candidate_anchor(ITfContext* context);
     void clear_composition();
+    void reset_learning_chain();
     [[nodiscard]] bool should_eat_key(WPARAM key) const noexcept;
     [[nodiscard]] std::optional<std::wstring> chinese_punctuation_for_key(
         WPARAM key, bool advance_quote_state = false);
     HRESULT commit_candidate(ITfContext* context, std::size_t index,
                              std::wstring_view suffix = {});
     HRESULT stage_agent_candidate(ITfContext* context, std::size_t index);
-    HRESULT commit_text(ITfContext* context, std::wstring text);
+    HRESULT commit_text(ITfContext* context, std::wstring text, bool* learning_continues = nullptr);
     HRESULT commit_raw_input(ITfContext* context);
     HRESULT commit_candidate_from_window(std::size_t index);
     HRESULT toggle_language_mode(ITfContext* context);
@@ -325,6 +326,8 @@ private:
     std::vector<StagedCandidate> staged_candidates_;
     std::size_t staged_cursor_{0};
     CompositionLearningChain learning_chain_;
+    ITfContext* learning_document_{nullptr};
+    ITfRange* learning_insertion_end_{nullptr};
     std::wstring recent_language_context_;
     std::wstring recent_agent_context_;
     std::wstring recent_language_input_;

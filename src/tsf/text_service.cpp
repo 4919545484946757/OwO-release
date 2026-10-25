@@ -3,6 +3,7 @@
 #include "owo/tsf/candidate_window_order.h"
 #include <functional>
 #include "owo/tsf/language_context.h"
+#include "owo/tsf/learning_anchor.h"
 
 #include "owo/tsf/pinyin_cursor.h"
 
@@ -77,6 +78,7 @@ constexpr auto kFeedbackRequestTimeout = std::chrono::milliseconds(100);
 thread_local TextService* keyboard_hook_service = nullptr;
 
 std::string utf8_from_wide(std::wstring_view input);
+bool same_context(ITfContext* a, ITfContext* b);
 
 std::wstring compact_feedback_input(const std::wstring_view input) {
     std::wstring result;
@@ -505,10 +507,17 @@ private:
 
 class CommitEditSession final : public ITfEditSession {
 public:
-    CommitEditSession(ITfContext* context, std::wstring text)
-        : context_(context), text_(std::move(text)) {
+    CommitEditSession(ITfContext* context, std::wstring text,
+                      ITfRange* expected_end = nullptr, std::wstring_view expected_prefix = {},
+                      bool capture_end = false)
+        : context_(context), text_(std::move(text)), expected_end_(expected_end),
+          expected_prefix_(expected_prefix), capture_end_(capture_end) {
         context_->AddRef();
+        if (expected_end_) expected_end_->AddRef();
     }
+
+    [[nodiscard]] bool learning_continues() const noexcept { return learning_continues_; }
+    [[nodiscard]] ITfRange* take_end() noexcept { return std::exchange(committed_end_, nullptr); }
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** object) override {
         if (object == nullptr) return E_POINTER;
@@ -533,22 +542,44 @@ public:
         ULONG fetched = 0;
         HRESULT result = context_->GetSelection(cookie, TF_DEFAULT_SELECTION, 1,
                                                 &selection, &fetched);
-        if (FAILED(result) || fetched != 1 || selection.range == nullptr) return result;
+        if (FAILED(result) || fetched != 1 || selection.range == nullptr) {
+            release_interface(selection.range);
+            return FAILED(result) ? result : E_FAIL;
+        }
+        learning_continues_ = learning_range_is_contiguous(
+            selection.range, expected_end_, cookie, expected_prefix_);
         result = selection.range->SetText(cookie, 0, text_.data(),
                                           static_cast<LONG>(text_.size()));
         if (SUCCEEDED(result)) {
             selection.range->Collapse(cookie, TF_ANCHOR_END);
             result = context_->SetSelection(cookie, 1, &selection);
+            if (SUCCEEDED(result) && capture_end_) {
+                BOOL empty = FALSE;
+                if (FAILED(selection.range->Clone(&committed_end_)) || !committed_end_ ||
+                    FAILED(committed_end_->IsEmpty(cookie, &empty)) || !empty ||
+                    FAILED(committed_end_->SetGravity(cookie, TF_GRAVITY_BACKWARD,
+                                                       TF_GRAVITY_BACKWARD)))
+                    release_interface(committed_end_);
+            }
         }
         selection.range->Release();
         return result;
     }
 
 private:
-    ~CommitEditSession() { context_->Release(); }
+    ~CommitEditSession() {
+        release_interface(expected_end_);
+        release_interface(committed_end_);
+        context_->Release();
+    }
     LONG references_{1};
     ITfContext* context_;
     std::wstring text_;
+    ITfRange* expected_end_{};
+    std::wstring expected_prefix_;
+    ITfRange* committed_end_{};
+    bool capture_end_{};
+    bool learning_continues_{};
 };
 
 class CaretEditSession final : public ITfEditSession {
@@ -1007,6 +1038,7 @@ HRESULT TextService::OnInitDocumentMgr(ITfDocumentMgr*) {
 }
 
 HRESULT TextService::OnUninitDocumentMgr(ITfDocumentMgr*) {
+    reset_learning_chain();
     // Retire experimental results even if a host omits a separate focus-loss callback.
     if (plugin_scheme_selected()) clear_composition();
     else reset_plugin_input();
@@ -3278,7 +3310,7 @@ void TextService::apply_agent_task(const agent::TaskDraft& task) {
     segmented_input_ = remaining;
     staged_candidates_.clear();
     staged_cursor_ = 0;
-    learning_chain_.clear();
+    reset_learning_chain();
 }
 
 bool TextService::select_agent_command(const std::size_t index) {
@@ -4759,7 +4791,12 @@ HRESULT TextService::move_document_caret(ITfContext* context, const WPARAM key,
     const HRESULT request = context->RequestEditSession(
         client_id_, session, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
     session->Release();
-    if (SUCCEEDED(request) && SUCCEEDED(session_result)) update_candidate_anchor(context);
+    if (SUCCEEDED(request) && SUCCEEDED(session_result)) {
+        reset_learning_chain();
+        recent_language_context_.clear();
+        recent_language_input_.clear();
+        update_candidate_anchor(context);
+    }
     return FAILED(request) ? request : session_result;
 }
 
@@ -4811,9 +4848,15 @@ void TextService::update_candidate_anchor(ITfContext* context) {
     session->Release();
 }
 
+void TextService::reset_learning_chain() {
+    learning_chain_.clear();
+    release_interface(learning_insertion_end_);
+    release_interface(learning_document_);
+}
+
 void TextService::clear_composition() {
     reset_plugin_input();
-    learning_chain_.clear();
+    reset_learning_chain();
     ++context_generation_;
     latest_candidate_request_id_.store(0, std::memory_order_release);
     if (candidate_cancellation_event_ != nullptr) SetEvent(candidate_cancellation_event_);
@@ -4949,18 +4992,25 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
     }
     const auto prior_staged = staged_candidates_;
     auto learning_chain = learning_chain_;
+    const auto learning_generation = context_generation_;
     std::wstring remaining_input = input_buffer_.substr(static_cast<std::size_t>(consumed));
     while (!remaining_input.empty() && remaining_input.front() == L'\'')
         remaining_input.erase(remaining_input.begin());
     const bool finishes_composition = remaining_input.empty();
     if (!staged_candidates_.empty()) inserted.insert(0, staged_text());
-    auto* session = new (std::nothrow) CommitEditSession(context, std::move(inserted));
+    auto* session = new (std::nothrow) CommitEditSession(context, std::move(inserted),
+        same_context(context, learning_document_) ? learning_insertion_end_ : nullptr,
+        learning_chain.text(), !finishes_composition && suffix.empty());
     if (session == nullptr) return E_OUTOFMEMORY;
     HRESULT session_result = E_FAIL;
     const HRESULT request_result = context->RequestEditSession(
         client_id_, session, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
+    const bool learning_continues = session->learning_continues() &&
+        learning_generation == context_generation_;
+    ITfRange* committed_end = session->take_end();
     session->Release();
     if (SUCCEEDED(request_result) && SUCCEEDED(session_result)) {
+        if (!learning_continues) learning_chain.clear();
         if (!staged_candidates_.empty()) append_language_context(staged_text());
         append_language_context(committed);
         append_language_context(suffix);
@@ -5006,8 +5056,19 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
         if (combined && completed)
             queue_commit_feedback(std::move(completed->text), std::move(completed->input),
                                   std::move(completed->context));
+        reset_learning_chain();
         learning_chain_ = std::move(learning_chain);
+        if (!learning_chain_.empty() && committed_end) {
+            learning_document_ = context;
+            learning_document_->AddRef();
+            learning_insertion_end_ = std::exchange(committed_end, nullptr);
+        } else if (!learning_chain_.empty()) {
+            // A host unable to provide a reliable end anchor still gets normal
+            // input and fragment learning, but not speculative phrase joining.
+            reset_learning_chain();
+        }
     }
+    release_interface(committed_end);
     return FAILED(request_result) ? request_result : session_result;
 }
 
@@ -5053,17 +5114,25 @@ HRESULT TextService::stage_agent_candidate(ITfContext* context,
     return S_OK;
 }
 
-HRESULT TextService::commit_text(ITfContext* context, std::wstring text) {
+HRESULT TextService::commit_text(ITfContext* context, std::wstring text, bool* learning_continues) {
+    if (learning_continues) *learning_continues = false;
     if (context == nullptr || text.empty()) return E_INVALIDARG;
     const std::wstring committed = text;
-    auto* session = new (std::nothrow) CommitEditSession(context, std::move(text));
+    const auto generation = context_generation_;
+    auto* session = new (std::nothrow) CommitEditSession(context, std::move(text),
+        learning_continues && same_context(context, learning_document_) ? learning_insertion_end_ : nullptr,
+        learning_continues ? learning_chain_.text() : std::wstring_view{});
     if (session == nullptr) return E_OUTOFMEMORY;
     HRESULT session_result = E_FAIL;
     const HRESULT request_result = context->RequestEditSession(
         client_id_, session, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
+    if (learning_continues)
+        *learning_continues = session->learning_continues() && generation == context_generation_;
     session->Release();
-    if (SUCCEEDED(request_result) && SUCCEEDED(session_result))
+    if (SUCCEEDED(request_result) && SUCCEEDED(session_result)) {
+        if (!learning_continues) reset_learning_chain();
         append_language_context(committed);
+    }
     return FAILED(request_result) ? request_result : session_result;
 }
 
@@ -5092,8 +5161,10 @@ HRESULT TextService::commit_pending_composition(ITfContext* context) {
     auto learning_chain = learning_chain_;
     std::wstring text = staged_text();
     text.append(input_buffer_);
-    const HRESULT result = commit_text(context, std::move(text));
+    bool learning_continues = false;
+    const HRESULT result = commit_text(context, std::move(text), &learning_continues);
     if (SUCCEEDED(result)) {
+        if (!learning_continues) learning_chain.clear();
         std::wstring feedback_context = previous_context;
         std::wstring composite_text;
         std::wstring composite_input;
