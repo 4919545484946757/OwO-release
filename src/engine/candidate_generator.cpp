@@ -1523,6 +1523,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         constexpr auto unreachable = (std::numeric_limits<std::int64_t>::min)() / 4;
         std::vector<std::int64_t> best(character_count + 1, unreachable);
         best[0] = 0;
+        std::vector<bool> dictionary_chain(character_count + 1, false);
+        dictionary_chain[0] = true;
         const auto maximum_phrase = std::min(
             {kMaximumPhraseCharacters, character_count,
              lexicon_.maximum_reading_length()});
@@ -1545,6 +1547,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 // retain the uncovered-character penalty instead of letting
                 // unrelated fragments jump across unsupported text.
                 if (!phrase_score) continue;
+                if (dictionary_chain[begin]) dictionary_chain[end] = true;
                 std::fill(dictionary_covered.begin() + begin, dictionary_covered.begin() + end, true);
                 if (end - begin >= 3 &&
                     std::any_of(dictionary_boundaries.begin(), dictionary_boundaries.end(),
@@ -1558,8 +1561,14 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         // provides evidence the two fragments belong together only when the
         // matched multi-character words cover the entire text. A local match
         // must not reward unsupported leading/trailing character permutations.
-        if (dictionary_bridge && std::all_of(dictionary_covered.begin(), dictionary_covered.end(),
-                                             [](const bool covered) { return covered; }))
+        // A complete chain of non-overlapping multi-character words already
+        // received its phrase scores. Overlapping dictionary substrings must
+        // not count as another independent signal and overwhelm a stronger
+        // homophone chain. Reserve bridge rescue for text that actually needs
+        // overlapping words to cover its isolated characters.
+        if (dictionary_bridge && !dictionary_chain.back() &&
+            std::all_of(dictionary_covered.begin(), dictionary_covered.end(),
+                        [](const bool covered) { return covered; }))
             candidate.coherence_score += kMaximumBoundaryCoherenceBonus * 2;
         candidate.score += candidate.coherence_score;
         if (preserve_learned_alternative && candidate.match_kind == InputMatchKind::exact &&
