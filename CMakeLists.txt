@@ -834,6 +834,11 @@ if(BUILD_TESTING)
         target_compile_features(owo_expanded_candidate_pages_tests PRIVATE cxx_std_20)
         target_compile_options(owo_expanded_candidate_pages_tests PRIVATE /W4 /permissive- /utf-8)
         add_test(NAME owo.tsf.expanded_candidate_pages COMMAND owo_expanded_candidate_pages_tests)
+        add_executable(owo_candidate_backdrop_tests tests/tsf/candidate_backdrop_tests.cpp)
+        target_include_directories(owo_candidate_backdrop_tests PRIVATE include)
+        target_compile_features(owo_candidate_backdrop_tests PRIVATE cxx_std_20)
+        target_compile_options(owo_candidate_backdrop_tests PRIVATE /W4 /permissive- /utf-8)
+        add_test(NAME owo.tsf.candidate_backdrop COMMAND owo_candidate_backdrop_tests)
         add_executable(owo_expanded_candidate_service_tests
             tests/tsf/expanded_candidate_service_tests.cpp src/tsf/text_service.cpp
             src/tsf/pinyin_cursor.cpp src/tsf/input_method_context.cpp)

@@ -7,6 +7,7 @@
 #include "owo/tsf/input_method_session.h"
 #include "owo/tsf/composition_learning.h"
 #include "owo/tsf/expanded_candidate_pages.h"
+#include "owo/tsf/backdrop_snapshot.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -319,6 +320,7 @@ private:
     void* layered_surface_pixels_{nullptr};
     SIZE layered_surface_size_{};
     std::vector<std::uint32_t> blurred_candidate_background_;
+    BackdropSnapshot clean_candidate_background_;
     SIZE candidate_shadow_surface_size_{};
     owo::plugin::CandidateTheme candidate_shadow_theme_{};
     bool candidate_shadow_surface_valid_{false};

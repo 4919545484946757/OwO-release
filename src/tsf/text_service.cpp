@@ -25,6 +25,7 @@
 #include <charconv>
 #include <cmath>
 #include <chrono>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -1912,8 +1913,14 @@ bool TextService::prepare_blurred_candidate_background() noexcept {
         // Capture and blur the stable backing canvas, not just the current card.
         // Candidate text and card width can then change without another screen
         // capture, Gaussian pass, or compositor synchronization.
-        const int capture_width = surface_width + radius * 2;
-        const int capture_height = surface_height + radius * 2;
+        const float scale = static_cast<float>(dpi) / 96.0F;
+        const int shadow_margin = candidate_theme_.shadow_enabled
+            ? static_cast<int>(std::ceil(std::max(candidate_theme_.shadow_blur_radius * scale * 0.5F, 0.5F) * 3.0F)) +
+                static_cast<int>(std::ceil(std::max(std::abs(candidate_theme_.shadow_offset_x),
+                                                  std::abs(candidate_theme_.shadow_offset_y)) * scale)) + 2 : 0;
+        const int padding = std::max(radius, shadow_margin);
+        const int capture_width = surface_width + padding * 2;
+        const int capture_height = surface_height + padding * 2;
         const auto capture_count = static_cast<std::size_t>(capture_width) *
                                    static_cast<std::size_t>(capture_height);
 
@@ -1952,6 +1959,26 @@ bool TextService::prepare_blurred_candidate_background() noexcept {
             }
             capture_origin = {window_bounds.left, window_bounds.top};
         }
+        // Wait for preceding layered presents/hides to reach the compositor.
+        // No hide/show or display-affinity toggling is needed for this capture.
+        if (FAILED(DwmFlush())) {
+            SelectObject(capture_dc, capture_previous);
+            DeleteObject(capture_bitmap);
+            DeleteDC(capture_dc);
+            return false;
+        }
+        std::vector<BackdropRect> occluders;
+        for (const HWND own_window : {candidate_window_, candidate_shadow_window_}) {
+            if (own_window == nullptr || !IsWindowVisible(own_window)) continue;
+            RECT bounds{};
+            if (!GetWindowRect(own_window, &bounds)) {
+                SelectObject(capture_dc, capture_previous);
+                DeleteObject(capture_bitmap);
+                DeleteDC(capture_dc);
+                return false;
+            }
+            occluders.push_back({bounds.left, bounds.top, bounds.right, bounds.bottom});
+        }
         HDC screen = GetDC(nullptr);
         if (screen == nullptr) {
             SelectObject(capture_dc, capture_previous);
@@ -1959,13 +1986,11 @@ bool TextService::prepare_blurred_candidate_background() noexcept {
             DeleteDC(capture_dc);
             return false;
         }
-        // SRCCOPY deliberately omits CAPTUREBLT, so the layered candidate and
-        // shadow windows do not feed back into their own backdrop. Avoiding the
-        // previous display-affinity toggle also prevents DWM from withdrawing
-        // the candidate surface for a frame.
+        // Do not rely on SRCCOPY excluding layered windows on every compositor.
+        // Repair self-occluded pixels from the previous clean capture below.
         const BOOL copied = BitBlt(
             capture_dc, 0, 0, capture_width, capture_height, screen,
-            capture_origin.x - radius, capture_origin.y - radius, SRCCOPY);
+            capture_origin.x - padding, capture_origin.y - padding, SRCCOPY);
         ReleaseDC(nullptr, screen);
         if (!copied) {
             SelectObject(capture_dc, capture_previous);
@@ -1974,11 +1999,19 @@ bool TextService::prepare_blurred_candidate_background() noexcept {
             return false;
         }
 
-        const auto* captured = static_cast<const Pixel*>(capture_pixels);
-        std::vector<Pixel> source(captured, captured + capture_count);
+        const auto* captured = static_cast<const std::uint32_t*>(capture_pixels);
+        std::vector<std::uint32_t> clean(captured, captured + capture_count);
         SelectObject(capture_dc, capture_previous);
         DeleteObject(capture_bitmap);
         DeleteDC(capture_dc);
+        const BackdropRect capture_bounds{
+            static_cast<std::int64_t>(capture_origin.x) - padding,
+            static_cast<std::int64_t>(capture_origin.y) - padding,
+            static_cast<std::int64_t>(capture_origin.x) - padding + capture_width,
+            static_cast<std::int64_t>(capture_origin.y) - padding + capture_height};
+        if (!clean_candidate_background_.accept(capture_bounds, clean, occluders)) return false;
+        std::vector<Pixel> source(capture_count);
+        std::memcpy(source.data(), clean.data(), capture_count * sizeof(Pixel));
 
         std::vector<Pixel> blurred;
         if (radius > 0) {
@@ -2047,8 +2080,8 @@ bool TextService::prepare_blurred_candidate_background() noexcept {
         for (int y = 0; y < surface_height; ++y) {
             for (int x = 0; x < surface_width; ++x) {
                 cached[static_cast<std::size_t>(y) * surface_width + x] =
-                    blurred[static_cast<std::size_t>(y + radius) * capture_width +
-                            x + radius];
+                    blurred[static_cast<std::size_t>(y + padding) * capture_width +
+                            x + padding];
             }
         }
     }
@@ -2310,6 +2343,7 @@ void TextService::hide_candidate_windows() noexcept {
     if (candidate_window_ != nullptr) ShowWindow(candidate_window_, SW_HIDE);
     if (candidate_shadow_window_ != nullptr) ShowWindow(candidate_shadow_window_, SW_HIDE);
     blurred_candidate_background_.clear();
+    clean_candidate_background_.clear();
 }
 
 bool TextService::render_candidate_window() {
@@ -3503,8 +3537,8 @@ void TextService::refresh_candidate_theme(const bool force) {
     blurred_candidate_background_.clear();
     discard_device_resources();
     if (candidate_window_ != nullptr) {
-        update_candidate_shadow();
-        InvalidateRect(candidate_window_, nullptr, FALSE);
+        // Capture against the old shadow geometry before publishing the new one.
+        update_candidate_window();
     }
 }
 
