@@ -2907,7 +2907,7 @@ bool TextService::render_candidate_window() {
                                            candidate_right + 3.0F, top + row_height + 2.0F);
             if (row == expanded_pages_.selected) {
                 const auto opacity = mode_highlight_brush->GetOpacity();
-                mode_highlight_brush->SetOpacity(opacity * 0.45F);
+                mode_highlight_brush->SetOpacity(opacity * 0.70F);
                 render_target_->FillRoundedRectangle(D2D1::RoundedRect(bounds, 7.0F, 7.0F), mode_highlight_brush);
                 mode_highlight_brush->SetOpacity(opacity);
             }
