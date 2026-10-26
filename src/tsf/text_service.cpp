@@ -1142,6 +1142,10 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
             shortcut_matches(shortcut_config_.previous_page_shortcuts, key)) return true;
         if (shortcut_config_.next_page_shortcut_enabled &&
             shortcut_matches(shortcut_config_.next_page_shortcuts, key)) return true;
+        if (shortcut_config_.expanded_previous_page_shortcut_enabled &&
+            shortcut_matches(shortcut_config_.expanded_previous_page_shortcuts, key)) return true;
+        if (shortcut_config_.expanded_next_page_shortcut_enabled &&
+            shortcut_matches(shortcut_config_.expanded_next_page_shortcuts, key)) return true;
     }
     if (shortcut_config_.input_scheme == "full_pinyin" &&
         shortcut_config_.correction_shortcut_enabled &&
@@ -1162,6 +1166,10 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
         shortcut_matches(shortcut_config_.previous_page_shortcuts, key)) return true;
     if (!input_buffer_.empty() && shortcut_config_.next_page_shortcut_enabled &&
         shortcut_matches(shortcut_config_.next_page_shortcuts, key)) return true;
+    if (!input_buffer_.empty() && shortcut_config_.expanded_previous_page_shortcut_enabled &&
+        shortcut_matches(shortcut_config_.expanded_previous_page_shortcuts, key)) return true;
+    if (!input_buffer_.empty() && shortcut_config_.expanded_next_page_shortcut_enabled &&
+        shortcut_matches(shortcut_config_.expanded_next_page_shortcuts, key)) return true;
     if (!chinese_mode_) return false;
     if (is_agent_mode() && (key == VK_RETURN || key == VK_SPACE)) return true;
     if (key >= 'A' && key <= 'Z') return !command_modifier_down();
@@ -1171,8 +1179,6 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
     if (!has_composition()) return false;
     if (key == VK_OEM_7) return GetKeyState(VK_SHIFT) >= 0 && !command_modifier_down();
     if (key == VK_BACK || key == VK_ESCAPE) return true;
-    if ((key == VK_UP || key == VK_DOWN) && candidates_expanded_ &&
-        !key_down(VK_SHIFT) && !command_modifier_down()) return true;
     if (key == VK_NEXT || key == VK_OEM_6)
         return candidates_expanded_ ||
                candidate_request_pending_ || has_more_candidates_;
@@ -1206,10 +1212,14 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
     if (unicode_palette_visible_) {
         const bool previous = key == VK_PRIOR || key == VK_OEM_4 ||
             (shortcut_config_.previous_page_shortcut_enabled &&
-             shortcut_matches(shortcut_config_.previous_page_shortcuts, key));
+             shortcut_matches(shortcut_config_.previous_page_shortcuts, key)) ||
+            (shortcut_config_.expanded_previous_page_shortcut_enabled &&
+             shortcut_matches(shortcut_config_.expanded_previous_page_shortcuts, key));
         const bool next = key == VK_NEXT || key == VK_OEM_6 ||
             (shortcut_config_.next_page_shortcut_enabled &&
-             shortcut_matches(shortcut_config_.next_page_shortcuts, key));
+             shortcut_matches(shortcut_config_.next_page_shortcuts, key)) ||
+            (shortcut_config_.expanded_next_page_shortcut_enabled &&
+             shortcut_matches(shortcut_config_.expanded_next_page_shortcuts, key));
         if (key == VK_ESCAPE) {
             toggle_unicode_palette();
             return S_OK;
@@ -1258,13 +1268,15 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
             return S_OK;
         }
         if (agent_response_visible_ && !agent_commands_.empty() && key == VK_SPACE) {
-            if (agent_commands_.front().high_risk) {
+            const auto selected = candidate_shortcut_index(0);
+            if (!selected || *selected >= agent_commands_.size()) return S_OK;
+            if (agent_commands_[*selected].high_risk) {
                 agent_status_ = agent::Status::error;
                 agent_message_ = L"高风险指令必须在第三方 Agent 内单独确认";
                 update_candidate_window();
                 return S_OK;
             }
-            select_agent_command(0);
+            select_agent_command(*selected);
         } else if (input_buffer_.size() > 1 || !staged_candidates_.empty()) {
             queue_agent_action(agent::Action::submit);
         }
@@ -1291,6 +1303,12 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
     } else if (!input_buffer_.empty() && shortcut_config_.next_page_shortcut_enabled &&
                shortcut_matches(shortcut_config_.next_page_shortcuts, key)) {
         move_candidate_page_from_shortcut(1);
+    } else if (!input_buffer_.empty() && shortcut_config_.expanded_previous_page_shortcut_enabled &&
+               shortcut_matches(shortcut_config_.expanded_previous_page_shortcuts, key)) {
+        move_expanded_page(-1);
+    } else if (!input_buffer_.empty() && shortcut_config_.expanded_next_page_shortcut_enabled &&
+               shortcut_matches(shortcut_config_.expanded_next_page_shortcuts, key)) {
+        move_expanded_page(1);
     } else if (key >= 'A' && key <= 'Z') {
         if (input_buffer_.size() >= kMaximumPinyinInputLength) return S_OK;
         if (is_agent_mode() && agent_response_visible_) {
@@ -1349,8 +1367,11 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
             defer_punctuation(*punctuation, context);
             return S_OK;
         }
-        if (!input_buffer_.empty() && !candidate_request_pending_ && !candidates_.empty())
-            return commit_candidate(context, 0, *punctuation);
+        if (!input_buffer_.empty() && !candidate_request_pending_ && !candidates_.empty()) {
+            const auto index = candidate_shortcut_index(0);
+            if (index) return commit_candidate(context, *index, *punctuation);
+            return S_OK;
+        }
         if (!input_buffer_.empty()) {
             const std::wstring raw = input_buffer_ + *punctuation;
             clear_composition();
@@ -1430,14 +1451,10 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
     } else if (key == VK_ESCAPE) {
         cancel_agent_session();
         clear_composition();
-    } else if (candidates_expanded_ &&
-               ((key == VK_DOWN && !key_down(VK_SHIFT) && !command_modifier_down()) ||
-                key == VK_NEXT || key == VK_OEM_6)) {
-        scroll_expanded_candidates(1);
-    } else if (candidates_expanded_ &&
-               ((key == VK_UP && !key_down(VK_SHIFT) && !command_modifier_down()) ||
-                key == VK_PRIOR || key == VK_OEM_4)) {
-        scroll_expanded_candidates(-1);
+    } else if (candidates_expanded_ && (key == VK_NEXT || key == VK_OEM_6)) {
+        move_expanded_page(1);
+    } else if (candidates_expanded_ && (key == VK_PRIOR || key == VK_OEM_4)) {
+        move_expanded_page(-1);
     } else if (!candidates_expanded_ &&
                (key == VK_NEXT || key == VK_OEM_6) &&
                (candidate_request_pending_ || has_more_candidates_)) {
@@ -1451,10 +1468,11 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
         clear_composition();
     } else if (candidate_request_pending_) {
         const std::size_t index = key == VK_SPACE ? 0 : static_cast<std::size_t>(key - '1');
-        defer_candidate_selection(index, context);
+        defer_candidate_selection(index, context, true);
     } else if (context != nullptr && !candidates_.empty()) {
-        const std::size_t index = key == VK_SPACE ? 0 : static_cast<std::size_t>(key - '1');
-        if (index < candidates_.size()) {
+        const auto selected = candidate_shortcut_index(key == VK_SPACE ? 0 : static_cast<std::size_t>(key - '1'));
+        if (selected) {
+            const auto index = *selected;
             if (is_agent_mode() && index < agent_commands_.size()) {
                 if (agent_commands_[index].high_risk) {
                     agent_status_ = agent::Status::error;
@@ -1793,7 +1811,7 @@ SIZE TextService::desired_candidate_window_size() const {
     };
     float content_height = kCandidateItemHeightDip;
     if (!candidates_.empty() && candidates_expanded_) {
-        const auto first = std::min(candidates_.size(), expanded_scroll_row_ * page_size);
+        const auto first = std::min(candidates_.size(), expanded_pages_.first_visible * page_size);
         const auto visible_end = std::min(
             candidates_.size(), first + kExpandedVisibleRows * page_size);
         content_height = 0.0F;
@@ -2728,7 +2746,9 @@ bool TextService::render_candidate_window() {
         const D2D1_ROUNDED_RECT pill{bounds, 7.0F, 7.0F};
         const bool hovered = target_matches(hovered_target_, target);
         const bool pressed = target_matches(pressed_target_, target);
-        if (index == 0 || hovered || pressed)
+        const auto page_size = std::max<std::size_t>(1, candidate_page_width());
+        const bool active_page = !candidates_expanded_ || index / page_size == expanded_pages_.selected;
+        if ((active_page && index % page_size == 0) || hovered || pressed)
             render_target_->FillRoundedRectangle(pill, mode_highlight_brush);
         if (hovered || pressed)
             render_target_->DrawRoundedRectangle(pill, mode_accent_brush, 1.0F);
@@ -2739,9 +2759,9 @@ bool TextService::render_candidate_window() {
                         bounds.left + 26.0F, badge_center + 11.0F),
             5.0F, 5.0F};
         render_target_->FillRoundedRectangle(badge, mode_border_brush);
-        const std::wstring label = std::to_wstring(index + 1);
+        const std::wstring label = std::to_wstring(candidates_expanded_ ? index % page_size + 1 : index + 1);
         render_target_->DrawTextW(label.data(), static_cast<UINT32>(label.size()),
-                                  label_text_format_, badge.rect, candidate_number_brush,
+                                  label_text_format_, badge.rect, active_page ? candidate_number_brush : secondary_text_brush_,
                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
         const auto display = wrapped_candidate_text(candidates_[index], wrap_length);
         render_target_->DrawTextW(
@@ -2836,7 +2856,7 @@ bool TextService::render_candidate_window() {
         const auto page_size = std::max<std::size_t>(
             1, static_cast<std::size_t>(candidate_page_size_));
         const auto first_candidate = std::min(
-            candidates_.size(), expanded_scroll_row_ * page_size);
+            candidates_.size(), expanded_pages_.first_visible * page_size);
         const auto visible_end = std::min(
             candidates_.size(), first_candidate + kExpandedVisibleRows * page_size);
         float top = content_top;
@@ -2848,6 +2868,17 @@ bool TextService::render_candidate_window() {
                 row_height = std::max(
                     row_height, wrapped_candidate_height(candidates_[index], wrap_length));
             }
+            const auto row = begin / page_size;
+            const auto bounds = D2D1::RectF(kHorizontalPaddingDip - 3.0F, top - 2.0F,
+                                           candidate_right + 3.0F, top + row_height + 2.0F);
+            if (row == expanded_pages_.selected) {
+                const auto opacity = mode_highlight_brush->GetOpacity();
+                mode_highlight_brush->SetOpacity(opacity * 0.35F);
+                render_target_->FillRoundedRectangle(D2D1::RoundedRect(bounds, 7.0F, 7.0F), mode_highlight_brush);
+                mode_highlight_brush->SetOpacity(opacity);
+                render_target_->DrawRoundedRectangle(D2D1::RoundedRect(bounds, 7.0F, 7.0F), mode_accent_brush, 1.0F);
+            }
+            add_hit_region(bounds, {HitKind::candidate_page, row});
             draw_candidate_row(begin, end, top, row_height);
             top += row_height + kCandidateRowGapDip;
         }
@@ -3639,7 +3670,7 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
     hovered_target_.reset();
     pressed_target_.reset();
     hit_regions_.clear();
-    if (!candidates_expanded_) expanded_scroll_row_ = 0;
+    if (!candidates_expanded_) expanded_pages_.reset();
     {
         std::lock_guard lock(request_mutex_);
         if (candidate_cancellation_event_ != nullptr) {
@@ -4138,15 +4169,8 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
         candidate_groups_.clear();
     if (!result->preserve_paging && result->page_size >= 1 && result->page_size <= 9)
         candidate_page_size_ = result->page_size;
-    if (candidates_expanded_) {
-        const auto page_size = std::max<std::size_t>(
-            1, static_cast<std::size_t>(candidate_page_size_));
-        const auto total_rows = (candidates_.size() + page_size - 1) / page_size;
-        const auto maximum_scroll = total_rows > kExpandedVisibleRows
-                                        ? total_rows - kExpandedVisibleRows
-                                        : 0;
-        expanded_scroll_row_ = std::min(expanded_scroll_row_, maximum_scroll);
-    }
+    if (candidates_expanded_)
+        expanded_pages_.ensure_visible(candidates_.size(), candidate_page_width(), kExpandedVisibleRows);
     if (!result->preserve_paging) {
         has_more_candidates_ = result->has_more;
         if (!result->segmented_input.empty()) {
@@ -4179,12 +4203,25 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
         if (selected_context != nullptr) {
             HRESULT committed = E_FAIL;
             if (!candidates_.empty()) {
-                committed = commit_candidate(selected_context, 0, punctuation);
+                const auto index = candidate_shortcut_index(0);
+                if (index) committed = commit_candidate(selected_context, *index, punctuation);
             } else {
                 std::wstring raw = input_buffer_ + punctuation;
                 clear_composition();
                 committed = commit_text(selected_context, std::move(raw));
             }
+            selected_context->Release();
+            if (SUCCEEDED(committed)) return;
+        }
+    }
+    if (deferred_expanded_choice_) {
+        const auto choice = std::exchange(deferred_expanded_choice_, {});
+        ITfContext* selected_context = std::exchange(deferred_candidate_context_, nullptr);
+        const auto index = expanded_pages_.index(choice->second, candidates_.size(), candidate_page_width());
+        if (selected_context != nullptr) {
+            const HRESULT committed = candidates_expanded_ && choice->first == expanded_pages_.selected && index
+                ? (is_agent_mode() ? stage_agent_candidate(selected_context, *index)
+                                   : commit_candidate(selected_context, *index)) : E_FAIL;
             selected_context->Release();
             if (SUCCEEDED(committed)) return;
         }
@@ -4260,6 +4297,7 @@ void TextService::handle_agent_result(AgentResult* raw_result) {
         }
     }
     candidate_page_ = terminal ? 0 : result->response.page;
+    expanded_pages_.reset();
     has_more_candidates_ = !terminal && result->response.has_more;
     agent_response_visible_ = true;
     if (result->response.task.intent.empty() && !agent_message_.empty() &&
@@ -4650,28 +4688,88 @@ void TextService::move_pinyin_cursor(const int direction) {
 
 void TextService::move_candidate_page_from_shortcut(const int direction) {
     if (candidates_expanded_)
-        scroll_expanded_candidates(direction);
+        move_expanded_page(direction);
     else
         change_candidate_page(direction);
 }
 
 void TextService::scroll_expanded_candidates(const int rows) {
-    if (!candidates_expanded_ || rows == 0) return;
-    const auto page_size = std::max<std::size_t>(
-        1, static_cast<std::size_t>(candidate_page_size_));
-    const auto total_rows = (candidates_.size() + page_size - 1) / page_size;
-    const auto maximum_scroll = total_rows > kExpandedVisibleRows
-                                    ? total_rows - kExpandedVisibleRows
-                                    : 0;
-    const auto current = static_cast<std::int64_t>(expanded_scroll_row_);
-    const auto requested = current + static_cast<std::int64_t>(rows);
-    const auto clamped = std::clamp<std::int64_t>(
-        requested, 0, static_cast<std::int64_t>(maximum_scroll));
-    if (clamped == current) return;
-    expanded_scroll_row_ = static_cast<std::size_t>(clamped);
+    if (!candidates_expanded_ || rows == 0 || candidate_request_pending_) return;
+    expanded_pages_.scroll(rows, candidates_.size(), candidate_page_width(), kExpandedVisibleRows);
+    clear_deferred_candidate_selection();
+    plugin_pending_selection_.reset();
     hovered_target_.reset();
     pressed_target_.reset();
     update_candidate_window();
+}
+
+std::size_t TextService::candidate_page_width() const noexcept {
+    return static_cast<std::size_t>(std::clamp<std::uint64_t>(candidate_page_size_, 1, 9));
+}
+
+std::optional<std::size_t> TextService::candidate_shortcut_index(const std::size_t slot) const {
+    if (candidates_expanded_) return expanded_pages_.index(slot, candidates_.size(), candidate_page_width());
+    return slot < candidates_.size() ? std::optional{slot} : std::nullopt;
+}
+
+void TextService::set_candidates_expanded(const bool expanded) {
+    if (expanded == candidates_expanded_) return;
+    clear_deferred_candidate_selection();
+    plugin_pending_selection_.reset();
+    const bool agent_commands = is_agent_mode() && agent_response_visible_;
+    if (expanded) {
+        const auto rows = plugin_scheme_selected() ? plugin_expanded_block_rows() : std::numeric_limits<std::size_t>::max();
+        expanded_pages_.reset(agent_commands ? 0 : static_cast<std::size_t>(candidate_page_) % rows);
+        if (!agent_commands) candidate_page_ = plugin_scheme_selected() ? candidate_page_ / rows : 0;
+    } else {
+        if (!agent_commands) candidate_page_ = (plugin_scheme_selected()
+            ? candidate_page_ * plugin_expanded_block_rows() : 0) + expanded_pages_.selected;
+        expanded_pages_.reset();
+    }
+    candidates_expanded_ = expanded;
+    hovered_target_.reset();
+    pressed_target_.reset();
+    if (agent_commands) {
+        expanded_pages_.ensure_visible(candidates_.size(), candidate_page_width(), kExpandedVisibleRows);
+        update_candidate_window();
+    } else if (plugin_scheme_selected()) {
+        if (plugin_input_descriptor_ && !plugin_input_committing_) queue_plugin_compose();
+    } else {
+        has_more_candidates_ = false;
+        queue_candidate_request();
+    }
+}
+
+void TextService::move_expanded_page(const int direction) {
+    if (input_buffer_.empty() || direction == 0 || plugin_input_committing_) return;
+    if (is_agent_mode() && agent_response_visible_ && agent_request_pending_) return;
+    if (!candidates_expanded_) set_candidates_expanded(true);
+    clear_deferred_candidate_selection();
+    plugin_pending_selection_.reset();
+    if (candidate_request_pending_) {
+        expanded_pages_.move_requested(direction);
+        return;
+    }
+    if (plugin_scheme_selected() && plugin_input_descriptor_) {
+        const auto pages = ExpandedCandidatePages::page_count(candidates_.size(), candidate_page_width());
+        if (direction < 0 && expanded_pages_.selected == 0 && candidate_page_ > 0) {
+            --candidate_page_;
+            expanded_pages_.reset(plugin_expanded_block_rows() - 1);
+            queue_plugin_compose(); return;
+        }
+        if (direction > 0 && expanded_pages_.selected + 1 >= pages && has_more_candidates_) {
+            ++candidate_page_;
+            expanded_pages_.reset();
+            queue_plugin_compose(); return;
+        }
+    }
+    const auto first_visible = expanded_pages_.first_visible;
+    expanded_pages_.move(direction, candidates_.size(), candidate_page_width(), kExpandedVisibleRows);
+    hovered_target_.reset();
+    pressed_target_.reset();
+    if (first_visible == expanded_pages_.first_visible && candidate_window_ != nullptr)
+        InvalidateRect(candidate_window_, nullptr, FALSE);
+    else update_candidate_window();
 }
 
 std::optional<TextService::HitTarget> TextService::hit_test(const POINT point) const {
@@ -4684,12 +4782,16 @@ std::optional<TextService::HitTarget> TextService::hit_test(const POINT point) c
 void TextService::invoke_hit_target(const HitTarget& target) {
     if (plugin_scheme_selected()) {
         if (target.kind == HitKind::candidate) select_plugin_candidate(target.candidate_index);
+        else if (target.kind == HitKind::candidate_page && candidates_expanded_ && !candidate_request_pending_) {
+            plugin_pending_selection_.reset();
+            expanded_pages_.selected = target.candidate_index;
+            expanded_pages_.ensure_visible(candidates_.size(), candidate_page_width(), kExpandedVisibleRows);
+            update_candidate_window();
+        }
         else if (target.kind == HitKind::previous_page) change_plugin_page(-1);
         else if (target.kind == HitKind::next_page) change_plugin_page(1);
         else if (target.kind == HitKind::toggle_expanded && plugin_input_descriptor_ && !plugin_input_committing_) {
-            plugin_pending_selection_.reset();
-            candidates_expanded_ = !candidates_expanded_; candidate_page_ = 0;
-            expanded_scroll_row_ = 0; queue_plugin_compose();
+            set_candidates_expanded(!candidates_expanded_);
         }
         else if (target.kind == HitKind::pinyin_cursor && !plugin_input_opening_ && !plugin_input_committing_) {
             if (plugin_input_document_.composition().set_caret_utf16(target.candidate_index)) {
@@ -4760,18 +4862,14 @@ void TextService::invoke_hit_target(const HitTarget& target) {
             change_candidate_page(1);
             break;
         case HitKind::toggle_expanded:
-            if (!candidates_.empty() || candidates_expanded_) {
-                const bool expanding = !candidates_expanded_;
-                candidates_expanded_ = expanding;
-                candidate_page_ = 0;
-                has_more_candidates_ = false;
-                expanded_scroll_row_ = 0;
-                hovered_target_.reset();
-                pressed_target_.reset();
-                if (is_agent_mode() && agent_response_visible_)
-                    update_candidate_window();
-                else
-                    queue_candidate_request();
+            if (!candidates_.empty() || candidates_expanded_) set_candidates_expanded(!candidates_expanded_);
+            break;
+        case HitKind::candidate_page:
+            if (candidates_expanded_) {
+                clear_deferred_candidate_selection();
+                expanded_pages_.selected = target.candidate_index;
+                expanded_pages_.ensure_visible(candidates_.size(), candidate_page_width(), kExpandedVisibleRows);
+                update_candidate_window();
             }
             break;
         case HitKind::unicode_toggle:
@@ -4801,8 +4899,9 @@ HRESULT TextService::move_document_caret(ITfContext* context, const WPARAM key,
 }
 
 void TextService::defer_candidate_selection(const std::size_t index,
-                                            ITfContext* context) {
-    if (index >= candidates_.size()) return;
+                                            ITfContext* context, const bool shortcut) {
+    const bool expanded_shortcut = shortcut && candidates_expanded_;
+    if (expanded_shortcut ? index >= candidate_page_size_ : index >= candidates_.size()) return;
     ITfContext* selected_context = context;
     if (selected_context != nullptr) {
         selected_context->AddRef();
@@ -4816,12 +4915,14 @@ void TextService::defer_candidate_selection(const std::size_t index,
     }
     if (selected_context == nullptr) return;
     clear_deferred_candidate_selection();
-    deferred_candidate_text_ = candidates_[index];
+    if (expanded_shortcut) deferred_expanded_choice_ = std::pair{expanded_pages_.selected, index};
+    else deferred_candidate_text_ = candidates_[index];
     deferred_candidate_context_ = selected_context;
 }
 
 void TextService::clear_deferred_candidate_selection() noexcept {
     deferred_candidate_text_.reset();
+    deferred_expanded_choice_.reset();
     release_interface(deferred_candidate_context_);
 }
 
@@ -4885,7 +4986,7 @@ void TextService::clear_composition() {
     candidate_request_failed_ = false;
     candidate_retry_count_ = 0;
     candidates_expanded_ = false;
-    expanded_scroll_row_ = 0;
+    expanded_pages_.reset();
     unicode_palette_visible_ = false;
     unicode_scroll_row_ = 0;
     unicode_category_scroll_offset_dip_ = 0.0F;
@@ -5348,6 +5449,8 @@ bool TextService::plugin_should_eat_key(ITfContext* context, WPARAM key, LPARAM 
         if (shortcut_config_.cursor_right_shortcut_enabled && shortcut_matches(shortcut_config_.cursor_right_shortcuts, key)) return true;
         if (shortcut_config_.previous_page_shortcut_enabled && shortcut_matches(shortcut_config_.previous_page_shortcuts, key)) return true;
         if (shortcut_config_.next_page_shortcut_enabled && shortcut_matches(shortcut_config_.next_page_shortcuts, key)) return true;
+        if (shortcut_config_.expanded_previous_page_shortcut_enabled && shortcut_matches(shortcut_config_.expanded_previous_page_shortcuts, key)) return true;
+        if (shortcut_config_.expanded_next_page_shortcut_enabled && shortcut_matches(shortcut_config_.expanded_next_page_shortcuts, key)) return true;
         if (key >= '1' && key <= '9' && !command_modifier_down() && !key_down(VK_SHIFT)) return true;
     }
     const auto text = scheme_key_text(key, flags);
@@ -5405,20 +5508,38 @@ HRESULT TextService::handle_plugin_key(ITfContext* context, WPARAM key, LPARAM f
         else *eaten = FALSE;
         return S_OK;
     }
+    if (has_composition() && shortcut_config_.expanded_previous_page_shortcut_enabled &&
+        shortcut_matches(shortcut_config_.expanded_previous_page_shortcuts, key)) {
+        move_expanded_page(-1); return S_OK;
+    }
+    if (has_composition() && shortcut_config_.expanded_next_page_shortcut_enabled &&
+        shortcut_matches(shortcut_config_.expanded_next_page_shortcuts, key)) {
+        move_expanded_page(1); return S_OK;
+    }
     if (key == VK_RETURN || (shortcut_config_.raw_input_shortcut_enabled &&
         shortcut_matches(shortcut_config_.raw_input_shortcuts, key))) {
         commit_plugin_text(input_buffer_, false); return S_OK;
     }
-    if (key == VK_SPACE) { select_plugin_candidate(0, true); return S_OK; }
+    if (key == VK_SPACE) {
+        const auto index = candidate_shortcut_index(0);
+        if (index || candidate_request_pending_) select_plugin_candidate(index.value_or(
+            expanded_pages_.selected * candidate_page_width()), true, 0);
+        return S_OK;
+    }
     if (has_composition() && key >= '1' && key <= '9' && !key_down(VK_SHIFT) && !command_modifier_down()) {
-        select_plugin_candidate(static_cast<std::size_t>(key - '1'), true); return S_OK;
+        const auto slot = static_cast<std::size_t>(key - '1');
+        const auto index = candidate_shortcut_index(slot);
+        if (index || (candidate_request_pending_ && slot < candidate_page_size_))
+            select_plugin_candidate(index.value_or(candidates_expanded_
+                ? expanded_pages_.selected * candidate_page_width() + slot : slot), true, slot);
+        return S_OK;
     }
     if (has_composition() && shortcut_config_.previous_page_shortcut_enabled && shortcut_matches(shortcut_config_.previous_page_shortcuts, key)) {
-        if (candidates_expanded_) scroll_expanded_candidates(-1); else change_plugin_page(-1);
+        if (candidates_expanded_) move_expanded_page(-1); else change_plugin_page(-1);
         return S_OK;
     }
     if (has_composition() && shortcut_config_.next_page_shortcut_enabled && shortcut_matches(shortcut_config_.next_page_shortcuts, key)) {
-        if (candidates_expanded_) scroll_expanded_candidates(1); else change_plugin_page(1);
+        if (candidates_expanded_) move_expanded_page(1); else change_plugin_page(1);
         return S_OK;
     }
     if (key == VK_PRIOR || key == VK_NEXT) { change_plugin_page(key == VK_PRIOR ? -1 : 1); return S_OK; }
@@ -5484,14 +5605,24 @@ void TextService::sync_plugin_display() {
     }
     // Display raw source for caret fidelity until the provider supports an explicit preview mapping.
     segmented_input_.clear(); candidate_groups_.clear(); candidate_consumed_.clear();
-    candidate_page_size_ = shortcut_config_.candidate_page_size;
+    candidate_page_size_ = plugin_input_descriptor_ ? std::min<std::size_t>(
+        shortcut_config_.candidate_page_size, plugin_input_descriptor_->max_candidates)
+        : shortcut_config_.candidate_page_size;
     const auto& display = composition.display();
     if (display) {
         candidates_.clear();
         for (const auto& candidate : display->candidates) candidates_.push_back(wide_from_utf8(candidate.text));
         has_more_candidates_ = display->has_more;
     }
+    if (candidates_expanded_ && !candidate_request_pending_)
+        expanded_pages_.ensure_visible(candidates_.size(), candidate_page_width(), kExpandedVisibleRows);
     update_candidate_window();
+}
+
+std::size_t TextService::plugin_expanded_block_rows() const noexcept {
+    const auto maximum = plugin_input_descriptor_ ? plugin_input_descriptor_->max_candidates : 256;
+    const auto size = std::min<std::size_t>(maximum, std::max<std::size_t>(1, shortcut_config_.candidate_page_size));
+    return ExpandedCandidatePages::block_size(maximum, size) / size;
 }
 
 void TextService::queue_plugin_compose() {
@@ -5499,7 +5630,8 @@ void TextService::queue_plugin_compose() {
         !plugin_context_allowed(plugin_input_context_)) return;
     auto request = plugin_input_document_.composition().compose_request(++plugin_input_request_id_,
         static_cast<std::size_t>(candidate_page_), candidates_expanded_
-            ? plugin_input_descriptor_->max_candidates : std::min<std::size_t>(
+            ? ExpandedCandidatePages::block_size(plugin_input_descriptor_->max_candidates,
+                                                  shortcut_config_.candidate_page_size) : std::min<std::size_t>(
                 plugin_input_descriptor_->max_candidates, shortcut_config_.candidate_page_size));
     if (!request) return;
     plugin_input_future_ = plugin_input_client_->submit(plugin_input_document_.generation(), std::move(*request), false);
@@ -5508,10 +5640,12 @@ void TextService::queue_plugin_compose() {
     sync_plugin_display();
 }
 
-void TextService::select_plugin_candidate(std::size_t index, bool defer) {
+void TextService::select_plugin_candidate(std::size_t index, bool defer,
+                                        std::optional<std::size_t> shortcut_slot) {
     auto& composition = plugin_input_document_.composition();
     if (defer && candidate_request_pending_ && !plugin_input_committing_) {
-        plugin_pending_selection_ = PluginPendingSelection{index, input_buffer_, plugin_input_document_.generation(), candidate_page_};
+        plugin_pending_selection_ = PluginPendingSelection{index, input_buffer_, plugin_input_document_.generation(), candidate_page_,
+            candidates_expanded_, expanded_pages_.selected, shortcut_slot};
         return;
     }
     if (plugin_input_committing_ || !composition.selectable() || !composition.display() ||
@@ -5529,7 +5663,7 @@ void TextService::change_plugin_page(int direction) {
     if (direction > 0 && has_more_candidates_) ++candidate_page_;
     else if (direction < 0 && candidate_page_) --candidate_page_;
     else return;
-    expanded_scroll_row_ = 0;
+    expanded_pages_.reset();
     queue_plugin_compose();
 }
 
@@ -5595,10 +5729,29 @@ void TextService::poll_plugin_input() {
         candidate_request_failed_ = true;
         candidate_failure_detail_ = L"输入方案暂不可用；编码已保留";
     }
+    const auto requested_row = expanded_pages_.selected;
     sync_plugin_display();
+    if (candidates_expanded_ && requested_row >= plugin_expanded_block_rows() && has_more_candidates_) {
+        candidate_page_ += requested_row / plugin_expanded_block_rows();
+        expanded_pages_.reset(requested_row % plugin_expanded_block_rows());
+        if (plugin_pending_selection_) {
+            auto& pending = *plugin_pending_selection_;
+            pending.page = candidate_page_;
+            pending.selected_page = expanded_pages_.selected;
+            pending.index = expanded_pages_.selected * candidate_page_width() +
+                pending.shortcut_slot.value_or(pending.index % candidate_page_width());
+        }
+        queue_plugin_compose(); return;
+    }
     if (auto selected = std::exchange(plugin_pending_selection_, {}); selected &&
         selected->input == input_buffer_ && selected->generation == plugin_input_document_.generation() &&
-        selected->page == candidate_page_) select_plugin_candidate(selected->index);
+        selected->page == candidate_page_ && selected->expanded == candidates_expanded_ &&
+        (!candidates_expanded_ || selected->selected_page == expanded_pages_.selected)) {
+        if (selected->shortcut_slot) {
+            if (const auto index = candidate_shortcut_index(*selected->shortcut_slot))
+                select_plugin_candidate(*index);
+        } else select_plugin_candidate(selected->index);
+    }
 }
 
 void TextService::commit_plugin_text(std::wstring text, bool selected, bool switch_language) {

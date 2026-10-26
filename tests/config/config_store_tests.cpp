@@ -23,7 +23,12 @@ int main(const int argc, char** argv) {
         owo::config::serialize_config(single_first));
     if (!single_first_roundtrip.ok || single_first_roundtrip.value != single_first) return 57;
     auto version_fifteen = owo::config::serialize_config(single_first);
-    version_fifteen.replace(0, std::string("schema_version=16").size(), "schema_version=15");
+    version_fifteen.replace(0, std::string("schema_version=17").size(), "schema_version=15");
+    for (const auto key : {"expanded_previous_page_shortcut_enabled=", "expanded_previous_page_shortcut=",
+                            "expanded_next_page_shortcut_enabled=", "expanded_next_page_shortcut="}) {
+        const auto begin = version_fifteen.find(key);
+        version_fifteen.erase(begin, version_fifteen.find('\n', begin) - begin + 1);
+    }
     const auto single_first_begin = version_fifteen.find("candidate_single_character_first_enabled=");
     version_fifteen.erase(single_first_begin,
         version_fifteen.find('\n', single_first_begin) - single_first_begin + 1);
@@ -171,7 +176,8 @@ int main(const int argc, char** argv) {
         legacy.value.language_shortcuts != std::vector<std::string>{"Ctrl+Space"} ||
         legacy.value.raw_input_shortcuts != std::vector<std::string>{"Enter"} ||
         legacy.value.cursor_left_shortcuts != std::vector<std::string>{"Left"} ||
-        legacy.value.next_page_shortcuts != std::vector<std::string>{"]", "Down"} ||
+        legacy.value.next_page_shortcuts != std::vector<std::string>{"]"} ||
+        legacy.value.expanded_next_page_shortcuts != std::vector<std::string>{"Down"} ||
         legacy.value.candidate_wrap_length != 12 ||
         !legacy.value.candidate_partition_enabled ||
         !legacy.value.candidate_immediate_commit_enabled ||
@@ -218,20 +224,21 @@ int main(const int argc, char** argv) {
     version_ten_text.replace(version_ten_text.find("cursor_right_shortcut=Right"),
                              std::string("cursor_right_shortcut=Right").size(),
                              "cursor_right_shortcut=Shift+Right");
-    version_ten_text.replace(version_ten_text.find("previous_page_shortcut=[;Up"),
-                             std::string("previous_page_shortcut=[;Up").size(),
-                             "previous_page_shortcut=[;Shift+Up");
-    version_ten_text.replace(version_ten_text.find("next_page_shortcut=];Down"),
-                             std::string("next_page_shortcut=];Down").size(),
-                             "next_page_shortcut=];Shift+Down");
+    version_ten_text.replace(version_ten_text.find("previous_page_shortcut=[\n"),
+                             std::string("previous_page_shortcut=[\n").size(),
+                             "previous_page_shortcut=[;Shift+Up\n");
+    version_ten_text.replace(version_ten_text.find("next_page_shortcut=]\n"),
+                             std::string("next_page_shortcut=]\n").size(),
+                             "next_page_shortcut=];Shift+Down\n");
     const auto version_ten = owo::config::parse_config(version_ten_text);
     if (!version_ten.ok ||
         version_ten.value.cursor_left_shortcuts != std::vector<std::string>{"Left"} ||
         version_ten.value.cursor_right_shortcuts != std::vector<std::string>{"Right"} ||
         version_ten.value.previous_page_shortcuts !=
-            std::vector<std::string>{"[", "Up"} ||
+            std::vector<std::string>{"["} ||
         version_ten.value.next_page_shortcuts !=
-            std::vector<std::string>{"]", "Down"}) return 34;
+            std::vector<std::string>{"]"} ||
+        version_ten.value.expanded_previous_page_shortcuts != std::vector<std::string>{"Up"}) return 34;
 
     const auto version_two = owo::config::parse_config(
         "schema_version=2\ncandidate_page_size=5\nuser_learning_enabled=true\n"

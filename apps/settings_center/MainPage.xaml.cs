@@ -84,8 +84,10 @@ public sealed partial class MainPage : Page
         SetShortcutBindings("raw", ["Enter"]);
         SetShortcutBindings("cursor-left", ["Left"]);
         SetShortcutBindings("cursor-right", ["Right"]);
-        SetShortcutBindings("previous-page", ["[", "Up"]);
-        SetShortcutBindings("next-page", ["]", "Down"]);
+        SetShortcutBindings("previous-page", ["["]);
+        SetShortcutBindings("next-page", ["]"]);
+        SetShortcutBindings("expanded-previous-page", ["Up"]);
+        SetShortcutBindings("expanded-next-page", ["Down"]);
         SetShortcutBindings("text-navigation", ["Shift+Left", "Shift+Right", "Shift+Up", "Shift+Down"]);
         SetShortcutBindings("punctuation", []);
         UpdateShortcutButtons();

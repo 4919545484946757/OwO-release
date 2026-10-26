@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 
 namespace OwO_Settings;
 
@@ -21,7 +22,7 @@ internal static class SettingsTransfer
     };
 
     internal static SettingsTransferDocument Create(SettingsSnapshot settings, bool autoSave) =>
-        new(1, "OwO.Settings", settings, new(autoSave));
+        new(2, "OwO.Settings", settings, new(autoSave));
 
     internal static async Task<SettingsTransferDocument> ReadAsync(string path)
     {
@@ -36,10 +37,59 @@ internal static class SettingsTransfer
         var json = new UTF8Encoding(false, true).GetString(bytes, offset, count - offset);
         using var parsed = JsonDocument.Parse(json, new() { MaxDepth = 8 });
         RejectDuplicateProperties(parsed.RootElement);
+        var legacy = parsed.RootElement.ValueKind == JsonValueKind.Object &&
+            parsed.RootElement.TryGetProperty("formatVersion", out var version) &&
+            version.ValueKind == JsonValueKind.Number && version.TryGetInt32(out var number) && number == 1;
+        if (legacy) {
+            var root = JsonNode.Parse(json)!.AsObject();
+            var settings = root["settings"] as JsonObject ?? throw new InvalidDataException("旧版设置快照无效。");
+            string[] newFields = ["expandedPreviousPageShortcutEnabled", "expandedPreviousPageShortcuts",
+                "expandedNextPageShortcutEnabled", "expandedNextPageShortcuts"];
+            if (newFields.Any(settings.ContainsKey)) throw new InvalidDataException("旧版设置包含未知字段。");
+            settings[newFields[0]] = false;
+            settings[newFields[1]] = new JsonArray("Up");
+            settings[newFields[2]] = false;
+            settings[newFields[3]] = new JsonArray("Down");
+            root["formatVersion"] = 2;
+            json = root.ToJsonString();
+        }
         var document = JsonSerializer.Deserialize<SettingsTransferDocument>(json, Options)
             ?? throw new InvalidDataException("配置文件内容为空。");
         ValidateStructure(document);
+        if (legacy) document = document with { Settings = MigrateLegacyShortcuts(document.Settings) };
         return document;
+    }
+
+    private static SettingsSnapshot MigrateLegacyShortcuts(SettingsSnapshot value)
+    {
+        // 与原生 v16→v17 迁移保持一致；不覆盖其他动作已占用的方向键。
+        ShortcutSettingsValidation.Validate(value);
+        var up = value.PreviousPageShortcuts.Contains("Up");
+        var down = value.NextPageShortcuts.Contains("Down");
+        var previous = value.PreviousPageShortcuts.Where(key => key != "Up").ToArray();
+        var next = value.NextPageShortcuts.Where(key => key != "Down").ToArray();
+        var migrated = value with {
+            PreviousPageShortcuts = previous, NextPageShortcuts = next,
+            PreviousPageShortcutEnabled = value.PreviousPageShortcutEnabled && (!up || previous.Length != 0),
+            NextPageShortcutEnabled = value.NextPageShortcutEnabled && (!down || next.Length != 0),
+            ExpandedPreviousPageShortcuts = new[] { "Up" }, ExpandedNextPageShortcuts = new[] { "Down" },
+            ExpandedPreviousPageShortcutEnabled = !up || value.PreviousPageShortcutEnabled,
+            ExpandedNextPageShortcutEnabled = !down || value.NextPageShortcutEnabled
+        };
+        var used = new List<string>();
+        if (migrated.CorrectionShortcutEnabled) used.AddRange(migrated.CorrectionShortcuts);
+        if (migrated.LanguageShortcutEnabled) used.AddRange(migrated.LanguageShortcuts);
+        if (migrated.RawInputShortcutEnabled) used.AddRange(migrated.RawInputShortcuts);
+        if (migrated.CursorLeftShortcutEnabled) used.AddRange(migrated.CursorLeftShortcuts);
+        if (migrated.CursorRightShortcutEnabled) used.AddRange(migrated.CursorRightShortcuts);
+        if (migrated.PreviousPageShortcutEnabled) used.AddRange(previous);
+        if (migrated.NextPageShortcutEnabled) used.AddRange(next);
+        if (migrated.TextNavigationShortcutEnabled) used.AddRange(migrated.TextNavigationShortcuts);
+        if (migrated.PunctuationShortcutEnabled) used.AddRange(migrated.PunctuationShortcuts);
+        return migrated with {
+            ExpandedPreviousPageShortcutEnabled = migrated.ExpandedPreviousPageShortcutEnabled && !used.Contains("Up"),
+            ExpandedNextPageShortcutEnabled = migrated.ExpandedNextPageShortcutEnabled && !used.Contains("Down")
+        };
     }
 
     private static void RejectDuplicateProperties(JsonElement element)
@@ -57,13 +107,13 @@ internal static class SettingsTransfer
 
     private static void ValidateStructure(SettingsTransferDocument document)
     {
-        if (document.FormatVersion != 1 || document.Kind != "OwO.Settings")
+        if (document.FormatVersion != 2 || document.Kind != "OwO.Settings")
             throw new InvalidDataException("不支持此配置文件格式或版本。");
         var value = document.Settings;
         IReadOnlyList<string>[] groups = [value.CorrectionShortcuts, value.LanguageShortcuts,
             value.RawInputShortcuts, value.CursorLeftShortcuts, value.CursorRightShortcuts,
             value.PreviousPageShortcuts, value.NextPageShortcuts, value.PunctuationShortcuts,
-            value.TextNavigationShortcuts];
+            value.TextNavigationShortcuts, value.ExpandedPreviousPageShortcuts, value.ExpandedNextPageShortcuts];
         foreach (var group in groups) {
             if (group.Count > 16 || group.Any(key => string.IsNullOrWhiteSpace(key) ||
                 key.Length > 128 || key.Contains(';') || key.Any(char.IsControl)))

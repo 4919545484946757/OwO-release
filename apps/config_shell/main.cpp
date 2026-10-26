@@ -84,6 +84,10 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         return parse_shortcuts(value, config.previous_page_shortcuts);
     if (field == L"next_page_shortcut")
         return parse_shortcuts(value, config.next_page_shortcuts);
+    if (field == L"expanded_previous_page_shortcut")
+        return parse_shortcuts(value, config.expanded_previous_page_shortcuts);
+    if (field == L"expanded_next_page_shortcut")
+        return parse_shortcuts(value, config.expanded_next_page_shortcuts);
     if (field == L"text_navigation_shortcut")
         return parse_shortcuts(value, config.text_navigation_shortcuts);
     if (field == L"punctuation_shortcut")
@@ -125,6 +129,10 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         config.previous_page_shortcut_enabled = parsed;
     else if (field == L"next_page_shortcut_enabled")
         config.next_page_shortcut_enabled = parsed;
+    else if (field == L"expanded_previous_page_shortcut_enabled")
+        config.expanded_previous_page_shortcut_enabled = parsed;
+    else if (field == L"expanded_next_page_shortcut_enabled")
+        config.expanded_next_page_shortcut_enabled = parsed;
     else if (field == L"text_navigation_shortcut_enabled")
         config.text_navigation_shortcut_enabled = parsed;
     else if (field == L"text_navigation_select_enabled")
@@ -148,7 +156,9 @@ void usage() {
                  "[<candidate-immediate-commit-enabled> "
                  "<focus-loss-commit-enabled> [<input-scheme> "
                  "[<user-completion-enabled> <user-completion-max-syllables> "
-                 "[<chinese-punctuation-mask> [<single-character-first-enabled>]]]]]]]]]]] | "
+                 "[<chinese-punctuation-mask> [<single-character-first-enabled> "
+                 "[<expanded-previous-enabled> <expanded-previous-keys> "
+                 "<expanded-next-enabled> <expanded-next-keys>]]]]]]]]]]]] | "
                  "watch <timeout-ms>\n";
 }
 
@@ -239,7 +249,7 @@ int wmain(const int argc, wchar_t** argv) {
     if (command == L"set-all" &&
         (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23 ||
          argc == 24 || argc == 27 || argc == 30 || argc == 32 || argc == 35 ||
-         argc == 36 || argc == 38 || argc == 39 || argc == 40)) {
+         argc == 36 || argc == 38 || argc == 39 || argc == 40 || argc == 44)) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);
         if (!loaded.success) return 3;
@@ -288,7 +298,12 @@ int wmain(const int argc, wchar_t** argv) {
              (!apply(value, L"user_lexicon_completion_enabled", argv[36]) ||
               !apply(value, L"user_lexicon_completion_max_syllables", argv[37]))) ||
             (argc >= 39 && !apply(value, L"chinese_punctuation_mask", argv[38])) ||
-            (argc >= 40 && !apply(value, L"candidate_single_character_first_enabled", argv[39]))) {
+            (argc >= 40 && !apply(value, L"candidate_single_character_first_enabled", argv[39])) ||
+            (argc >= 44 &&
+             (!apply(value, L"expanded_previous_page_shortcut_enabled", argv[40]) ||
+              !apply(value, L"expanded_previous_page_shortcut", argv[41]) ||
+              !apply(value, L"expanded_next_page_shortcut_enabled", argv[42]) ||
+              !apply(value, L"expanded_next_page_shortcut", argv[43])))) {
             std::cerr << "invalid configuration value type\n";
             return 4;
         }

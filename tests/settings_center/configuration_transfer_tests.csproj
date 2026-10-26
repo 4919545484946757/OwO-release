@@ -9,5 +9,6 @@
     <Compile Include="../../apps/settings_center/ConfigShellClient.cs" Link="ConfigShellClient.cs"/>
     <Compile Include="../../apps/settings_center/SettingsTransfer.cs" Link="SettingsTransfer.cs"/>
     <Compile Include="../../apps/settings_center/SettingsUiPreferences.cs" Link="SettingsUiPreferences.cs"/>
+    <Compile Include="../../apps/settings_center/ShortcutSettingsValidation.cs" Link="ShortcutSettingsValidation.cs"/>
   </ItemGroup>
 </Project>

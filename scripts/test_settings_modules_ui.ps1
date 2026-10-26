@@ -153,7 +153,8 @@ foreach ($scheme in @('full_pinyin', 'exact_code', 'plugin:example.input/cangjie
         Navigate $window '快捷键'
         Check-Enabled $window 'CorrectionShortcutEnabled' $phonetic
         foreach ($id in @('LanguageShortcutEnabled', 'RawInputShortcutEnabled', 'CursorLeftShortcutEnabled',
-            'CursorRightShortcutEnabled', 'PreviousPageShortcutEnabled', 'NextPageShortcutEnabled')) {
+            'CursorRightShortcutEnabled', 'PreviousPageShortcutEnabled', 'NextPageShortcutEnabled',
+            'ExpandedPreviousPageShortcutEnabled', 'ExpandedNextPageShortcutEnabled')) {
             Check-Enabled $window $id $true
         }
         foreach ($id in @('PunctuationShortcutEnabled', 'TextNavigationShortcutEnabled', 'TextNavigationSelectEnabled')) {

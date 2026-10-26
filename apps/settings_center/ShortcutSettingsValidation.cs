@@ -12,6 +12,8 @@ internal static class ShortcutSettingsValidation
         if (snapshot.CursorRightShortcutEnabled) shortcuts.AddRange(snapshot.CursorRightShortcuts);
         if (snapshot.PreviousPageShortcutEnabled) shortcuts.AddRange(snapshot.PreviousPageShortcuts);
         if (snapshot.NextPageShortcutEnabled) shortcuts.AddRange(snapshot.NextPageShortcuts);
+        if (snapshot.ExpandedPreviousPageShortcutEnabled) shortcuts.AddRange(snapshot.ExpandedPreviousPageShortcuts);
+        if (snapshot.ExpandedNextPageShortcutEnabled) shortcuts.AddRange(snapshot.ExpandedNextPageShortcuts);
         if (snapshot.TextNavigationShortcutEnabled)
             shortcuts.AddRange(snapshot.TextNavigationShortcuts);
         if (snapshot.PunctuationShortcutEnabled) {

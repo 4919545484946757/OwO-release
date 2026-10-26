@@ -537,6 +537,34 @@
                                             <StackPanel x:Name="NextPageShortcutBindings" Spacing="8"/>
                                         </StackPanel>
                                     </Border>
+                                    <Border x:Name="ExpandedPreviousPageShortcutCard" Style="{StaticResource SettingsCardStyle}">
+                                        <StackPanel Spacing="10">
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="展开并选中上一候选页" Style="{StaticResource SettingTitleStyle}"/>
+                                                    <TextBlock Text="自动展开并将高亮移到上一页，数字键选择高亮页内的候选。默认 ↑。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                                </StackPanel>
+                                                <ToggleSwitch x:Name="ExpandedPreviousPageShortcutEnabled" Grid.Column="1"/>
+                                                <Button Grid.Column="2" Content="＋" Tag="expanded-previous-page" Click="AddShortcutButton_Click"/>
+                                            </Grid>
+                                            <StackPanel x:Name="ExpandedPreviousPageShortcutBindings" Spacing="8"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border x:Name="ExpandedNextPageShortcutCard" Style="{StaticResource SettingsCardStyle}">
+                                        <StackPanel Spacing="10">
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="展开并选中下一候选页" Style="{StaticResource SettingTitleStyle}"/>
+                                                    <TextBlock Text="自动展开并将高亮移到下一页，数字键选择高亮页内的候选。默认 ↓。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                                </StackPanel>
+                                                <ToggleSwitch x:Name="ExpandedNextPageShortcutEnabled" Grid.Column="1"/>
+                                                <Button Grid.Column="2" Content="＋" Tag="expanded-next-page" Click="AddShortcutButton_Click"/>
+                                            </Grid>
+                                            <StackPanel x:Name="ExpandedNextPageShortcutBindings" Spacing="8"/>
+                                        </StackPanel>
+                                    </Border>
                                     <Border x:Name="TextNavigationShortcutCard" Style="{StaticResource SettingsCardStyle}">
                                         <StackPanel Spacing="10">
                                             <Grid ColumnSpacing="8">

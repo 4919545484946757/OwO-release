@@ -27,7 +27,9 @@ internal sealed record SettingsSnapshot(string InputScheme,
                                         bool PunctuationShortcutEnabled, IReadOnlyList<string> PunctuationShortcuts,
                                         bool TextNavigationShortcutEnabled, IReadOnlyList<string> TextNavigationShortcuts,
                                         bool TextNavigationSelectEnabled,
-                                        uint ChinesePunctuationMask);
+                                        uint ChinesePunctuationMask,
+                                        bool ExpandedPreviousPageShortcutEnabled, IReadOnlyList<string> ExpandedPreviousPageShortcuts,
+                                        bool ExpandedNextPageShortcutEnabled, IReadOnlyList<string> ExpandedNextPageShortcuts);
 
 internal sealed class ConfigShellClient
 {
@@ -112,7 +114,11 @@ internal sealed class ConfigShellClient
                    bool.Parse(values["text_navigation_shortcut_enabled"]),
                    SplitShortcuts(values["text_navigation_shortcut"]),
                    bool.Parse(values["text_navigation_select_enabled"]),
-                   uint.Parse(values["chinese_punctuation_mask"]));
+                   uint.Parse(values["chinese_punctuation_mask"]),
+                   bool.Parse(values["expanded_previous_page_shortcut_enabled"]),
+                   SplitShortcuts(values["expanded_previous_page_shortcut"]),
+                   bool.Parse(values["expanded_next_page_shortcut_enabled"]),
+                   SplitShortcuts(values["expanded_next_page_shortcut"]));
     }
 
     internal Task SaveAsync(SettingsSnapshot value, CancellationToken cancellationToken = default) =>
@@ -152,7 +158,11 @@ internal sealed class ConfigShellClient
                   value.UserCompletionEnabled.ToString().ToLowerInvariant(),
                   value.UserCompletionMaxSyllables.ToString(),
                   value.ChinesePunctuationMask.ToString(),
-                  value.CandidateSingleCharacterFirstEnabled.ToString().ToLowerInvariant()], cancellationToken);
+                  value.CandidateSingleCharacterFirstEnabled.ToString().ToLowerInvariant(),
+                  value.ExpandedPreviousPageShortcutEnabled.ToString().ToLowerInvariant(),
+                  JoinShortcuts(value.ExpandedPreviousPageShortcuts),
+                  value.ExpandedNextPageShortcutEnabled.ToString().ToLowerInvariant(),
+                  JoinShortcuts(value.ExpandedNextPageShortcuts)], cancellationToken);
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

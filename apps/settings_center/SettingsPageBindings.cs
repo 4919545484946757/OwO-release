@@ -84,6 +84,8 @@ public sealed partial class MainPage
         Shortcut(nameof(SettingsSnapshot.CursorRightShortcutEnabled), nameof(SettingsSnapshot.CursorRightShortcuts), CursorRightShortcutEnabled, "cursor-right", CursorRightShortcutCard, "预编辑光标右移", "快捷键 编码 光标");
         Shortcut(nameof(SettingsSnapshot.PreviousPageShortcutEnabled), nameof(SettingsSnapshot.PreviousPageShortcuts), PreviousPageShortcutEnabled, "previous-page", PreviousPageShortcutCard, "候选词上一页", "快捷键 翻页");
         Shortcut(nameof(SettingsSnapshot.NextPageShortcutEnabled), nameof(SettingsSnapshot.NextPageShortcuts), NextPageShortcutEnabled, "next-page", NextPageShortcutCard, "候选词下一页", "快捷键 翻页");
+        Shortcut(nameof(SettingsSnapshot.ExpandedPreviousPageShortcutEnabled), nameof(SettingsSnapshot.ExpandedPreviousPageShortcuts), ExpandedPreviousPageShortcutEnabled, "expanded-previous-page", ExpandedPreviousPageShortcutCard, "展开并选中上一候选页", "快捷键 上方向键 展开 高亮 选中 页");
+        Shortcut(nameof(SettingsSnapshot.ExpandedNextPageShortcutEnabled), nameof(SettingsSnapshot.ExpandedNextPageShortcuts), ExpandedNextPageShortcutEnabled, "expanded-next-page", ExpandedNextPageShortcutCard, "展开并选中下一候选页", "快捷键 下方向键 展开 高亮 选中 页");
         Shortcut(nameof(SettingsSnapshot.PunctuationShortcutEnabled), nameof(SettingsSnapshot.PunctuationShortcuts), PunctuationShortcutEnabled, "punctuation", PunctuationShortcutCard, "切换中文标点", "快捷键");
         Shortcut(nameof(SettingsSnapshot.TextNavigationShortcutEnabled), nameof(SettingsSnapshot.TextNavigationShortcuts), TextNavigationShortcutEnabled, "text-navigation", TextNavigationShortcutCard, "移动应用文本光标", "快捷键 Shift 方向键 选中");
         Toggle(nameof(SettingsSnapshot.TextNavigationSelectEnabled), TextNavigationSelectEnabled);

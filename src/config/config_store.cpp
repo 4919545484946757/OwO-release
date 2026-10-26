@@ -195,6 +195,37 @@ bool is_plugin_input_scheme(std::string_view value) noexcept {
     return valid(value.substr(0, slash)) && valid(value.substr(slash + 1));
 }
 
+void migrate_expanded_page_shortcuts(AppConfig& value) {
+    const auto move_key = [](bool& enabled, std::vector<std::string>& keys,
+                              bool& expanded_enabled, const std::string& key) {
+        if (std::find(keys.begin(), keys.end(), key) != keys.end()) {
+            expanded_enabled = enabled;
+            std::erase(keys, key);
+            if (keys.empty()) enabled = false;
+        }
+    };
+    move_key(value.previous_page_shortcut_enabled, value.previous_page_shortcuts,
+             value.expanded_previous_page_shortcut_enabled, "Up");
+    move_key(value.next_page_shortcut_enabled, value.next_page_shortcuts,
+             value.expanded_next_page_shortcut_enabled, "Down");
+    const auto used = [&value](const std::string& key) {
+        const auto contains = [&key](bool enabled, const auto& keys) {
+            return enabled && std::find(keys.begin(), keys.end(), key) != keys.end();
+        };
+        return contains(value.correction_shortcut_enabled, value.correction_shortcuts) ||
+            contains(value.language_shortcut_enabled, value.language_shortcuts) ||
+            contains(value.raw_input_shortcut_enabled, value.raw_input_shortcuts) ||
+            contains(value.cursor_left_shortcut_enabled, value.cursor_left_shortcuts) ||
+            contains(value.cursor_right_shortcut_enabled, value.cursor_right_shortcuts) ||
+            contains(value.previous_page_shortcut_enabled, value.previous_page_shortcuts) ||
+            contains(value.next_page_shortcut_enabled, value.next_page_shortcuts) ||
+            contains(value.text_navigation_shortcut_enabled, value.text_navigation_shortcuts) ||
+            contains(value.punctuation_shortcut_enabled, value.punctuation_shortcuts);
+    };
+    if (used("Up")) value.expanded_previous_page_shortcut_enabled = false;
+    if (used("Down")) value.expanded_next_page_shortcut_enabled = false;
+}
+
 ConfigValidationResult validate_config(const AppConfig& value) {
     if (value.chinese_punctuation_mask & ~kChinesePunctuationAll)
         return {false, "chinese_punctuation_mask contains unknown punctuation bits"};
@@ -226,6 +257,8 @@ ConfigValidationResult validate_config(const AppConfig& value) {
         !valid_list(value.cursor_right_shortcut_enabled, value.cursor_right_shortcuts) ||
         !valid_list(value.previous_page_shortcut_enabled, value.previous_page_shortcuts) ||
         !valid_list(value.next_page_shortcut_enabled, value.next_page_shortcuts) ||
+        !valid_list(value.expanded_previous_page_shortcut_enabled, value.expanded_previous_page_shortcuts) ||
+        !valid_list(value.expanded_next_page_shortcut_enabled, value.expanded_next_page_shortcuts) ||
         !valid_list(value.text_navigation_shortcut_enabled,
                     value.text_navigation_shortcuts) ||
         !valid_list(value.punctuation_shortcut_enabled, value.punctuation_shortcuts))
@@ -247,6 +280,10 @@ ConfigValidationResult validate_config(const AppConfig& value) {
                            value.previous_page_shortcuts) ||
         !unique_if_enabled(value.next_page_shortcut_enabled,
                            value.next_page_shortcuts) ||
+        !unique_if_enabled(value.expanded_previous_page_shortcut_enabled,
+                           value.expanded_previous_page_shortcuts) ||
+        !unique_if_enabled(value.expanded_next_page_shortcut_enabled,
+                           value.expanded_next_page_shortcuts) ||
         !unique_if_enabled(value.text_navigation_shortcut_enabled,
                            value.text_navigation_shortcuts))
         return {false, "enabled shortcuts must be unique"};
@@ -310,6 +347,9 @@ ConfigParseResult parse_config(const std::string_view utf8) {
     constexpr std::string_view input_scheme_required[]{"input_scheme"};
     constexpr std::string_view user_completion_required[]{
         "user_lexicon_completion_enabled", "user_lexicon_completion_max_syllables"};
+    constexpr std::string_view expanded_navigation_required[]{
+        "expanded_previous_page_shortcut_enabled", "expanded_previous_page_shortcut",
+        "expanded_next_page_shortcut_enabled", "expanded_next_page_shortcut"};
     const auto expected_size = std::size(base_required) +
                                (version >= 2 ? std::size(shortcut_required) : 0) +
                                (version >= 3 ? std::size(wrap_required) : 0) +
@@ -323,7 +363,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 13 ? std::size(input_scheme_required) : 0) +
                                (version >= 14 ? std::size(user_completion_required) : 0) +
                                (version >= 15 ? 1 : 0) +
-                               (version >= 16 ? 1 : 0);
+                               (version >= 16 ? 1 : 0) +
+                               (version >= 17 ? std::size(expanded_navigation_required) : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -362,7 +403,16 @@ ConfigParseResult parse_config(const std::string_view utf8) {
     if (version >= 14) for (const auto key : user_completion_required)
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
+    if (version >= 17) for (const auto key : expanded_navigation_required)
+        if (!fields.contains(std::string(key)))
+            return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
+    if (version >= 17 &&
+        (!parse_bool(fields["expanded_previous_page_shortcut_enabled"], value.expanded_previous_page_shortcut_enabled) ||
+         !parse_shortcut_list(fields["expanded_previous_page_shortcut"], value.expanded_previous_page_shortcuts) ||
+         !parse_bool(fields["expanded_next_page_shortcut_enabled"], value.expanded_next_page_shortcut_enabled) ||
+         !parse_shortcut_list(fields["expanded_next_page_shortcut"], value.expanded_next_page_shortcuts)))
+        return {false, {}, "expanded page shortcut fields are invalid"};
     if (version >= 16 &&
         (!fields.contains("candidate_single_character_first_enabled") ||
          !parse_bool(fields["candidate_single_character_first_enabled"],
@@ -493,6 +543,14 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                 value.next_page_shortcuts = {"]", "Down"};
         }
     }
+    if (version < 17) {
+        auto legacy = value;
+        legacy.expanded_previous_page_shortcut_enabled = false;
+        legacy.expanded_next_page_shortcut_enabled = false;
+        const auto valid_legacy = validate_config(legacy);
+        if (!valid_legacy.ok) return {false, {}, valid_legacy.diagnostic};
+        migrate_expanded_page_shortcuts(value);
+    }
     const auto validation = validate_config(value);
     if (!validation.ok) return {false, {}, validation.diagnostic};
     return {true, value, {}};
@@ -555,6 +613,12 @@ std::string serialize_config(const AppConfig& value) {
            "\nnext_page_shortcut_enabled=" +
                (value.next_page_shortcut_enabled ? std::string("true") : "false") +
            "\nnext_page_shortcut=" + serialize_shortcut_list(value.next_page_shortcuts) +
+           "\nexpanded_previous_page_shortcut_enabled=" +
+               (value.expanded_previous_page_shortcut_enabled ? std::string("true") : "false") +
+           "\nexpanded_previous_page_shortcut=" + serialize_shortcut_list(value.expanded_previous_page_shortcuts) +
+           "\nexpanded_next_page_shortcut_enabled=" +
+               (value.expanded_next_page_shortcut_enabled ? std::string("true") : "false") +
+           "\nexpanded_next_page_shortcut=" + serialize_shortcut_list(value.expanded_next_page_shortcuts) +
            "\ntext_navigation_shortcut_enabled=" +
                (value.text_navigation_shortcut_enabled ? std::string("true") : "false") +
            "\ntext_navigation_shortcut=" +

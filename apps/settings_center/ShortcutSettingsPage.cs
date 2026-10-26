@@ -166,6 +166,8 @@ public sealed partial class MainPage
         "cursor-right" => CursorRightShortcutBindings,
         "previous-page" => PreviousPageShortcutBindings,
         "next-page" => NextPageShortcutBindings,
+        "expanded-previous-page" => ExpandedPreviousPageShortcutBindings,
+        "expanded-next-page" => ExpandedNextPageShortcutBindings,
         "text-navigation" => TextNavigationShortcutBindings,
         "punctuation" => PunctuationShortcutBindings,
         _ => throw new ArgumentOutOfRangeException(nameof(group)),

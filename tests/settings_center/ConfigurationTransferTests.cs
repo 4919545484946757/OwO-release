@@ -49,8 +49,8 @@ try {
         await Reject(() => SettingsTransfer.ReadAsync(invalid), name);
     }
     await InvalidJson("{", "malformed");
-    await InvalidJson(encoded.Replace("\"formatVersion\": 1", "\"formatVersion\": 2"), "future version");
-    await InvalidJson(encoded.Replace("\"formatVersion\": 1", "\"formatVersion\": 1, \"formatVersion\": 1"), "duplicate");
+    await InvalidJson(encoded.Replace("\"formatVersion\": 2", "\"formatVersion\": 3"), "future version");
+    await InvalidJson(encoded.Replace("\"formatVersion\": 2", "\"formatVersion\": 2, \"formatVersion\": 2"), "duplicate");
     await InvalidJson(encoded.Replace("\"candidatePageSize\": 9", "\"candidatePageSize\": 9, \"candidatePageSize\": 7"), "nested duplicate");
     await InvalidJson(encoded.Replace("\"autoSaveEnabled\": false", "\"unknown\": false"), "unknown/missing preference");
     var node = JsonNode.Parse(encoded)!.AsObject();
@@ -72,6 +72,30 @@ try {
     await Reject(() => client.ValidateAsync(changed with { LanguageShortcuts = ["not a key"] }), "native key validation");
     await Reject(() => client.ValidateAsync(changed with { LanguageShortcuts = defaults.RawInputShortcuts }), "key conflict");
     Check(original.SequenceEqual(File.ReadAllBytes(client.ConfigPath)), "Invalid imports leave config unchanged");
+    var legacy = JsonNode.Parse(encoded)!.AsObject();
+    legacy["formatVersion"] = 1;
+    foreach (var field in new[] { "expandedPreviousPageShortcutEnabled", "expandedPreviousPageShortcuts",
+        "expandedNextPageShortcutEnabled", "expandedNextPageShortcuts" }) legacy["settings"]!.AsObject().Remove(field);
+    legacy["settings"]!["previousPageShortcuts"] = new JsonArray("[", "Up");
+    legacy["settings"]!["nextPageShortcuts"] = new JsonArray("]", "Down");
+    await File.WriteAllTextAsync(invalid, legacy.ToJsonString());
+    var migrated = await SettingsTransfer.ReadAsync(invalid);
+    Check(migrated.FormatVersion == 2 && migrated.Settings.PreviousPageShortcuts.SequenceEqual(new[] { "[" }) &&
+        migrated.Settings.ExpandedPreviousPageShortcuts.SequenceEqual(new[] { "Up" }) &&
+        migrated.Settings.ExpandedNextPageShortcutEnabled, "Version 1 migrates legacy arrow bindings");
+    await client.ValidateAsync(migrated.Settings);
+    legacy["settings"]!["previousPageShortcutEnabled"] = false;
+    await File.WriteAllTextAsync(invalid, legacy.ToJsonString());
+    Check(!(await SettingsTransfer.ReadAsync(invalid)).Settings.ExpandedPreviousPageShortcutEnabled,
+        "Legacy disabled paging remains disabled after migration");
+    legacy["settings"]!["previousPageShortcuts"] = new JsonArray("[");
+    legacy["settings"]!["rawInputShortcuts"] = new JsonArray("Up");
+    legacy["settings"]!["rawInputShortcutEnabled"] = true;
+    await File.WriteAllTextAsync(invalid, legacy.ToJsonString());
+    var conflict = await SettingsTransfer.ReadAsync(invalid);
+    Check(!conflict.Settings.ExpandedPreviousPageShortcutEnabled && conflict.Settings.RawInputShortcuts[0] == "Up",
+        "Legacy custom key wins over newly added shortcut");
+    await client.ValidateAsync(conflict.Settings);
 
     var learning = Path.Combine(root, "user-frequency.owuf");
     var plugin = Path.Combine(root, "plugin-permissions.json");
