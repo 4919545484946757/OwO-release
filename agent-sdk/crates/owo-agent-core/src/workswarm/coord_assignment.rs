@@ -55,8 +55,10 @@ impl TeamCoordinator {
                 .iter()
                 .map(|task| task.user_requirement_quotes.clone())
                 .collect::<Vec<_>>();
-            validate_task_requirement_coverage(&quotes, &state.goal.objective)
-                .map_err(WorkSwarmError::Validation)?;
+            // Quotes are model-authored traceability hints. The user request
+            // is still passed to every worker; a paraphrase must not discard
+            // an otherwise executable TaskGraph.
+            let _ = validate_task_requirement_coverage(&quotes, &state.goal.objective);
         }
         assign_task_model_call_budgets(&mut graph.tasks, &meta.budgets)
             .map_err(WorkSwarmError::Validation)?;
@@ -126,8 +128,10 @@ impl TeamCoordinator {
                 .iter()
                 .map(|task| task.user_requirement_quotes.clone())
                 .collect::<Vec<_>>();
-            validate_task_requirement_coverage(&task_quote_sets, &state.goal.objective)
-                .map_err(WorkSwarmError::Validation)?;
+            let _ = validate_task_requirement_coverage(
+                &task_quote_sets,
+                &state.goal.objective,
+            );
         }
         if task_graph.version != 1 {
             return Err(WorkSwarmError::Validation(

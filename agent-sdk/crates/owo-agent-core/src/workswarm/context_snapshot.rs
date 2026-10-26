@@ -157,6 +157,7 @@ mod tests {
                 correlation_id: "correlation-a".to_string(),
                 roles: Vec::new(),
                 template_id: None,
+                template_source: None,
                 budgets: Default::default(),
                 parallel: false,
             },

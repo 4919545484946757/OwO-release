@@ -11,6 +11,8 @@ use std::{collections::BTreeMap, sync::Arc};
 pub(super) struct ConversationQuery {
     #[serde(default)]
     cursors: Option<String>,
+    handoff_before: Option<String>,
+    session_after: Option<String>,
 }
 
 pub(super) async fn team_conversation(
@@ -39,21 +41,48 @@ pub(super) async fn team_conversation(
         })?
         .unwrap_or_default();
     let prefix = format!("{id}-worker-");
+    if query.session_after.as_ref().is_some_and(|sid| {
+        !sid.starts_with(&prefix) || sid.len() > 384 || sid.chars().any(char::is_control)
+    }) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"invalid session rotation cursor"})),
+        ));
+    }
+    if cursors.iter().any(|(sid, seq)| {
+        !sid.starts_with(&prefix)
+            || sid.len() > 384
+            || sid.chars().any(char::is_control)
+            || *seq > i64::MAX as u64
+    }) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"invalid or foreign conversation cursor"})),
+        ));
+    }
     let mut sessions = Vec::new();
-    let mut more = false;
     let mut next = cursors.clone();
     let mut remaining = 512usize;
-    // Only sessions with a host-generated team-specific prefix can be returned.
-    for session_id in state
+    // Indexed Team range and high-water cursors skip caught-up/foreign sessions.
+    // The extra ID detects another page without loading all Team/global sessions.
+    let mut pending = state
         .store
-        .list()
-        .into_iter()
-        .filter(|sid| sid.starts_with(&prefix))
-    {
+        .pending_conversation_sessions(&id, &cursors, query.session_after.as_deref(), 17)
+        .map_err(|error| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error":error.to_string()})),
+            )
+        })?;
+    let mut more = pending.len() > 16;
+    pending.truncate(16);
+    let mut next_session_after = query.session_after.clone();
+    for session_id in pending {
         if remaining == 0 {
             more = true;
             break;
         }
+        next_session_after = Some(session_id.clone());
         let limit = remaining.min(128);
         let after = cursors.get(&session_id).copied().unwrap_or(0);
         let mut events = state
@@ -82,11 +111,13 @@ pub(super) async fn team_conversation(
         }));
     }
     let handoffs = coordinator
-        .list_handoffs(&id)
+        .handoffs_before(&id, query.handoff_before.as_deref(), 64)
         .await
         .map_err(|e| dto::error_response(&e))?;
     Ok(Json(json!({
         "team_id": id, "sessions": sessions, "next_cursors": next, "has_more": more,
-        "handoffs": workswarm_metrics::sanitize_value(&json!(handoffs)),
+        "next_session_after": next_session_after,
+        "handoffs": workswarm_metrics::sanitize_value(&json!(handoffs.handoffs)),
+        "next_handoff_before": handoffs.next_before, "handoffs_has_more": handoffs.has_more,
     })))
 }

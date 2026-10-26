@@ -12,6 +12,11 @@ impl AgentClient {
         self.get_json("/workflows/user").await
     }
 
+    /// 读取完整配置及其 revision；修改时必须回传读取时的版本。
+    pub async fn get_user_workflow(&self, id: &str) -> Result<serde_json::Value> {
+        self.get_json(&format!("/workflows/user/{id}")).await
+    }
+
     /// 某工作流最近一次运行（含可复用的 objective；从未运行 → `last_run` 为 null）。
     pub async fn workflow_last_run(&self, id: &str) -> Result<serde_json::Value> {
         self.get_json(&format!("/workflows/user/{id}/last-run"))
@@ -29,6 +34,18 @@ impl AgentClient {
     /// 删除用户/社区工作流（内置 403、不存在 404）。
     pub async fn delete_user_workflow(&self, id: &str) -> Result<serde_json::Value> {
         self.delete_json(&format!("/workflows/user/{id}")).await
+    }
+
+    /// 按用户审阅的版本删除，避免删掉其他编辑者的新版本。
+    pub async fn delete_user_workflow_at_revision(
+        &self,
+        id: &str,
+        revision: u64,
+    ) -> Result<serde_json::Value> {
+        self.delete_json(&format!(
+            "/workflows/user/{id}?expected_revision={revision}"
+        ))
+        .await
     }
 
     /// AI 生成工作流草稿（自然语言 → 候选；可基于既有草稿迭代）。
@@ -115,6 +132,19 @@ impl AgentClient {
         .await
     }
 
+    /// 显式以审阅后的版本采纳；不提供时使用草稿生成前冻结的版本。
+    pub async fn adopt_workflow_draft_at_revision(
+        &self,
+        id: &str,
+        revision: Option<u64>,
+    ) -> Result<serde_json::Value> {
+        self.post_json(
+            &format!("/workflows/draft/{id}/adopt"),
+            &serde_json::json!({"expected_revision":revision}),
+        )
+        .await
+    }
+
     /// 丢弃草稿。
     pub async fn discard_workflow_draft(&self, id: &str) -> Result<serde_json::Value> {
         self.delete_json(&format!("/workflows/draft/{id}")).await
@@ -134,6 +164,19 @@ impl AgentClient {
         self.post_json(
             "/workflows/import/review",
             &serde_json::json!({ "package_b64": package_b64 }),
+        )
+        .await
+    }
+
+    /// 导入时携带评审返回的 local_revision，避免覆盖评审后的新版本。
+    pub async fn import_user_workflow_at_revision(
+        &self,
+        package_b64: &str,
+        revision: Option<u64>,
+    ) -> Result<serde_json::Value> {
+        self.post_json(
+            "/workflows/import",
+            &serde_json::json!({"package_b64":package_b64,"expected_revision":revision}),
         )
         .await
     }

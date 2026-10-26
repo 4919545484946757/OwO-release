@@ -131,6 +131,8 @@ fn template_adopt_is_idempotent_and_reject_blocks() {
     let dir = std::env::temp_dir().join(format!("owo-workswarm-test-{}", now_ms()));
     let reg = TeamTemplateRegistry::new(dir.clone());
     let template = TeamTemplate {
+        budget_calls_per_role: Default::default(),
+        editor: None,
         template_id: "tpl-x".into(),
         name: "test".into(),
         mode: TeamMode::Team,

@@ -1,0 +1,77 @@
+{
+  "template_id": "parkour-3d-v1",
+  "name": "3D 跑酷游戏（并行实现 → 集成 → 独立评审）",
+  "mode": "team",
+  "applicability": "3D 跑酷 游戏 three.js webgl 浏览器游戏",
+  "roles": [
+    {
+      "role": "lead",
+      "assignee": "agent",
+      "worker": "agent",
+      "depends_on": [],
+      "handoff_contract": "你是 3D 跑酷游戏团队的编排者。先输出 WorkerOutputV1，artifact.content 为 TaskGraphV1 JSON；TaskGraph 必须含 \"version\":1（数字，也可写 \"schema\":\"TaskGraphV1\"）。必须只拆成三个可并行执行的任务，worker 分别为 world、player、ui，且 depends_on 均为空。测试由执行任务自己编写并运行，你不写任何文件。每项任务必须：用 task 字段写清 3D 跑酷游戏的具体交付（不要只写 description/deliverable）；write_paths 包含实现文件和该任务自己的测试文件；required_capabilities 必须为 [\"write_file\",\"run_command\"]；read_refs/contract_refs 可省略或写 []；verification 必须是带 workspace-command-success-v1 的 VerificationPlan，命令和 scope 如下。\nworld: task_id=world, worker=world, write_paths=[\"src/world.js\",\"tests/world.test.mjs\"], scope.relative_paths=[\"src/world.js\",\"tests/world.test.mjs\"], command=\"node --test tests/world.test.mjs\"。\nplayer: task_id=player, worker=player, write_paths=[\"src/player.js\",\"tests/player.test.mjs\"], scope.relative_paths=[\"src/player.js\",\"tests/player.test.mjs\"], command=\"node --test tests/player.test.mjs\"。\nui: task_id=ui, worker=ui, write_paths=[\"index.html\",\"styles.css\",\"src/ui.js\",\"tests/ui.test.mjs\"], scope.relative_paths=[\"index.html\",\"styles.css\",\"src/ui.js\",\"tests/ui.test.mjs\"], command=\"node --test tests/ui.test.mjs\"。\nVerificationPlan 形状：{\"plan_id\":\"<task>-plan\",\"requirements\":[{\"requirement_id\":\"<task>-behavior\",\"validator_id\":\"workspace-command-success-v1\",\"validator_version\":\"1\",\"scope\":{\"kind\":\"workspace_paths\",\"relative_paths\":[...]}, \"arguments\":{\"command\":\"node --test tests/<task>.test.mjs\"},\"required\":true,\"resources\":{\"cpu_slots\":1,\"memory_mb\":64,\"exclusive_workspace\":false,\"timeout_ms\":30000}}]}。requirement_quotes 必须使用下列逐字短语，并确保这些短语原样出现在对应任务的 task 或 acceptance 中：world=[\"平台/障碍/移动平台/掉落重生\",\"到达终点胜利\"]；player=[\"WASD/方向键移动\",\"空格跳跃\"]；ui=[\"计时和得分\",\"restart\"]。所有任务 risk=normal，priority 80-90，estimated_effort 2-3，acceptance 必须可被测试证据验证。禁止把三个实现任务交给 lead、integrator 或 reviewer。重要：integrator 和 reviewer 已由宿主工作流预置为后续步骤，不在你的 TaskGraph 中；main.js、README 和集成测试由 integrator 负责，独立评审由 reviewer 负责。你的 TaskGraph 只包含 world/player/ui 三个任务，不得因缺少 main.js 或集成测试而返回 blocked、failed 或把它们写进 open_issues；你的交付就是这三任务的可执行图。",
+      "verify": "non_empty",
+      "capabilities": ["orchestrator"],
+      "tools": ["read_file", "list_dir"]
+    },
+    {
+      "role": "world",
+      "assignee": "agent",
+      "worker": "agent",
+      "depends_on": ["lead"],
+      "handoff_contract": "只写 src/world.js 和 tests/world.test.mjs，不得修改 index.html、styles.css、src/player.js、src/ui.js、src/main.js 或其它角色的测试。先用 Node 内置 test 写测试，再实现 3D 跑酷关卡数据：WORLD_SPEC 至少 8 个平台、至少一个移动平台、至少 2 个障碍、终点和重生点；buildWorld(THREE) 返回 {group, platforms, goal, update(dt, elapsed)}，每个平台是 THREE.Mesh 或 Group，update 负责移动平台。代码必须是浏览器原生 ES module，测试使用纯 JS/fake THREE，不依赖 DOM。完成后必须运行 node --test tests/world.test.mjs，失败先自行修复，不得删除或放宽断言。你的交付边界仅是 src/world.js 和 tests/world.test.mjs；不要因 player/ui 未完成、字段未对齐或浏览器联调未做而返回 blocked，把这些写入 handoff 交给 integrator/reviewer，不要写进 open_issues；blocked 会被宿主判定失败并取消整个团队不能使用，本模块测试通过必须返回 done 且 open_issues 为空。run_command 只允许执行 node --test tests/<本模块>.test.mjs；禁止 cmd /c、>、>>、|、&&、; 和 certutil/哈希/诊断脚本，避免创建白名单外文件。",
+      "verify": "non_empty",
+      "write_paths": ["src/world.js", "tests/world.test.mjs"],
+      "capabilities": ["task_worker"],
+      "tools": ["read_file", "list_dir", "write_file", "apply_patch", "run_command"]
+    },
+    {
+      "role": "player",
+      "assignee": "agent",
+      "worker": "agent",
+      "depends_on": ["lead"],
+      "handoff_contract": "只写 src/player.js 和 tests/player.test.mjs，不得修改 index.html、styles.css、src/world.js、src/ui.js、src/main.js 或其它角色的测试。先用 Node 内置 test 写测试，再实现纯 JS 玩家物理：PLAYER 配置、createPlayerState()、stepPlayer(state, input, dt)。支持前后左右移动、跳跃、重力、落地、最高下落速度限制，输入为 {forward,right,jump}；不依赖 DOM 或 THREE，供 main.js 渲染。完成后必须运行 node --test tests/player.test.mjs，失败先自行修复，不得删除或放宽断言。你的交付边界仅是 src/player.js 和 tests/player.test.mjs；不要因 world/ui 未完成、字段未对齐或浏览器联调未做而返回 blocked，把这些写入 handoff 交给 integrator/reviewer，不要写进 open_issues；blocked 会被宿主判定失败并取消整个团队不能使用，本模块测试通过必须返回 done 且 open_issues 为空。run_command 只允许执行 node --test tests/<本模块>.test.mjs；禁止 cmd /c、>、>>、|、&&、; 和 certutil/哈希/诊断脚本，避免创建白名单外文件。",
+      "verify": "non_empty",
+      "write_paths": ["src/player.js", "tests/player.test.mjs"],
+      "capabilities": ["task_worker"],
+      "tools": ["read_file", "list_dir", "write_file", "apply_patch", "run_command"]
+    },
+    {
+      "role": "ui",
+      "assignee": "agent",
+      "worker": "agent",
+      "depends_on": ["lead"],
+      "handoff_contract": "只写 index.html、styles.css、src/ui.js 和 tests/ui.test.mjs，不得修改 src/world.js、src/player.js、src/main.js 或其它角色的测试。先用 Node 内置 test 写测试，再做可玩页面外壳：index.html 含 id=game 的 canvas、score/time/status/overlay/restart 元素，用 CDN 加载 three.js，<script type=module src=\"./src/main.js\">；styles.css 做全屏深色界面和 HUD；src/ui.js 导出 formatHud({score,time,status})、createHud(documentRef)、updateHud(hud,state)，不导入 THREE。页面必须无构建步骤即可打开。完成后必须运行 node --test tests/ui.test.mjs，失败先自行修复，不得删除或放宽断言。你的交付边界仅是 index.html、styles.css、src/ui.js 和 tests/ui.test.mjs；不要因 world/player/main.js 未完成或浏览器联调未做而返回 blocked，把这些写入 handoff 交给 integrator/reviewer，不要写进 open_issues；blocked 会被宿主判定失败并取消整个团队不能使用，本模块测试通过必须返回 done 且 open_issues 为空。run_command 只允许执行 node --test tests/<本模块>.test.mjs；禁止 cmd /c、>、>>、|、&&、; 和 certutil/哈希/诊断脚本，避免创建白名单外文件。",
+      "verify": "non_empty",
+      "write_paths": ["index.html", "styles.css", "src/ui.js", "tests/ui.test.mjs"],
+      "capabilities": ["task_worker"],
+      "tools": ["read_file", "list_dir", "write_file", "apply_patch", "run_command"]
+    },
+    {
+      "role": "integrator",
+      "assignee": "agent",
+      "worker": "agent",
+      "depends_on": ["world", "player", "ui"],
+      "handoff_contract": "只写 src/main.js、README.md 和 tests/integration.test.mjs，不得修改 index.html、styles.css、src/world.js、src/player.js、src/ui.js 或其它角色的测试。先用 Node 内置 test 写集成测试，再把 world/player/ui 接成真正可玩的 3D 跑酷游戏：使用 CDN three.js 的全局 THREE，初始化场景/相机/灯光/阴影、键盘输入、玩家移动跳跃、平台碰撞/落地、掉落重生、收集终点、计时计分、HUD 更新、胜利/失败 overlay、restart；使用 requestAnimationFrame 和固定步长物理。README 写清打开方式、操作、文件分工和已知限制。完成后必须运行 node --test tests/integration.test.mjs，失败先自行修复，不得删除或放宽断言，不得修改他人产物。",
+      "verify": "non_empty",
+      "write_paths": ["src/main.js", "README.md", "tests/integration.test.mjs"],
+      "capabilities": ["integrator"],
+      "tools": ["read_file", "list_dir", "write_file", "apply_patch", "run_command"]
+    },
+    {
+      "role": "reviewer",
+      "assignee": "agent",
+      "worker": "agent",
+      "depends_on": ["integrator"],
+      "handoff_contract": "只读独立评审，不写文件、不运行命令、不修改任何文件。检查三项：1) 页面无构建步骤、three.js 加载和模块路径完整；2) 玩家移动/跳跃/重力/重生/胜利流程与 HUD 接口一致；3) 关卡数据、移动平台、障碍和终点可被 main.js 使用。输出带文件/行号/证据的 findings；无问题时明确说明证据与剩余风险。不得声称运行过未执行的命令。",
+      "verify": "non_empty",
+      "capabilities": ["review"],
+      "tools": ["read_file", "list_dir"]
+    }
+  ],
+  "applicability_notes": "本工作流只用于浏览器 3D 跑酷游戏实验，不自动扩大权限。",
+  "created_at": "2026-10-24T00:00:00+00:00",
+  "description": "五角色实验工作流：lead 拆解，world/player/ui 并行实现，integrator 接线，reviewer 独立评审。",
+  "version": "1.0.0",
+  "tags": ["game", "threejs", "experiment"]
+}

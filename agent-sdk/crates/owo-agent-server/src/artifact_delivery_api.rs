@@ -3,7 +3,7 @@
 //! 路由面（经 [`crate::artifact_review_api::router`] 合并挂载）：
 //! - `GET /artifacts/{id}/content`：产物正文交付。默认 JSON 信封（冻结契约：
 //!   `artifact_id/format/sha256/size_bytes/content`）；`?raw=true` 时返回原始字节
-//!   下载流（`Content-Type: <media_type>; charset=utf-8` +
+//!   下载流（`Content-Type: <media_type>`; textual bodies retain UTF-8 charset +
 //!   `Content-Disposition: attachment; filename="<file_name>"`）；
 //! - `GET /artifacts/{id}/metadata`：交付元数据（冻结契约：`artifact_id/team_id/
 //!   kind/format/version/sha256/size_bytes/validation/evidence_refs`，可选 `handoff`
@@ -25,7 +25,7 @@
 //! 存储：复用 WorkSwarm 的 `space.db` 与 `cas/`（与 TeamCoordinator 同一物理目录）。
 
 use axum::extract::{Path as AxumPath, Query, State};
-use axum::http::{header, HeaderValue, StatusCode};
+use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use owo_agent_core::project_space_store::{ProjectSpaceStoreBackend, ProjectSpaceStoreError};
@@ -103,6 +103,7 @@ pub(crate) async fn artifact_content(
     State(state): State<Arc<AppState>>,
     AxumPath(artifact_id): AxumPath<String>,
     Query(query): Query<ContentQuery>,
+    headers: HeaderMap,
 ) -> Result<Response, (StatusCode, Json<Value>)> {
     let store = state.artifact_review.store()?;
     let artifact = load_artifact(store.as_ref(), &artifact_id).await?;
@@ -137,20 +138,12 @@ pub(crate) async fn artifact_content(
     };
 
     if query.raw {
-        // 原始下载流：正确 media type + 下载文件名（验收项：按文件名与媒体类型下载）。
-        let content_type = HeaderValue::from_str(&format!("{media_type}; charset=utf-8"))
-            .unwrap_or(HeaderValue::from_static("text/plain; charset=utf-8"));
-        let safe_name = file_name.replace('"', "_");
-        let disposition = HeaderValue::from_str(&format!("attachment; filename=\"{safe_name}\""))
-            .unwrap_or(HeaderValue::from_static("attachment"));
-        let mut response = (StatusCode::OK, bytes).into_response();
-        response
-            .headers_mut()
-            .insert(header::CONTENT_TYPE, content_type);
-        response
-            .headers_mut()
-            .insert(header::CONTENT_DISPOSITION, disposition);
-        return Ok(response);
+        return Ok(raw_response(
+            bytes,
+            media_type,
+            &file_name,
+            headers.get(header::RANGE),
+        ));
     }
 
     Ok((
@@ -174,6 +167,87 @@ pub(crate) async fn artifact_content(
         })),
     )
         .into_response())
+}
+
+// A single range is sufficient for browser media seeking; ambiguous multipart
+// requests fail closed instead of returning incorrect bytes or full responses.
+fn byte_range(value: &str, len: usize) -> Option<(usize, usize)> {
+    let (start, end) = value.strip_prefix("bytes=")?.split_once('-')?;
+    if len == 0 || end.contains(',') {
+        return None;
+    }
+    if start.is_empty() {
+        let suffix = end.parse::<usize>().ok()?;
+        return (suffix > 0).then(|| (len.saturating_sub(suffix), len - 1));
+    }
+    let start = start.parse::<usize>().ok()?;
+    let end = if end.is_empty() {
+        len - 1
+    } else {
+        end.parse::<usize>().ok()?.min(len - 1)
+    };
+    (start < len && start <= end).then_some((start, end))
+}
+
+fn raw_response(bytes: Vec<u8>, mime: &str, name: &str, range: Option<&HeaderValue>) -> Response {
+    let len = bytes.len();
+    let selection = range.map(|value| value.to_str().ok().and_then(|value| byte_range(value, len)));
+    if selection == Some(None) {
+        let mut response = StatusCode::RANGE_NOT_SATISFIABLE.into_response();
+        response.headers_mut().insert(
+            header::CONTENT_RANGE,
+            HeaderValue::from_str(&format!("bytes */{len}")).unwrap(),
+        );
+        response
+            .headers_mut()
+            .insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+        return response;
+    }
+    let selected = selection.flatten();
+    let status = if selected.is_some() {
+        StatusCode::PARTIAL_CONTENT
+    } else {
+        StatusCode::OK
+    };
+    let body = match selected {
+        Some((start, end)) => bytes[start..=end].to_vec(),
+        None => bytes,
+    };
+    let body_len = body.len();
+    let mut response = (status, body).into_response();
+    let content_type = if mime.starts_with("text/") && !mime.contains("charset=") {
+        format!("{mime}; charset=utf-8")
+    } else {
+        mime.to_string()
+    };
+    let content_type = HeaderValue::from_str(&content_type)
+        .unwrap_or(HeaderValue::from_static("application/octet-stream"));
+    let safe_name = name.replace(['"', '\r', '\n', '\\'], "_");
+    let disposition = HeaderValue::from_str(&format!("attachment; filename=\"{safe_name}\""))
+        .unwrap_or(HeaderValue::from_static("attachment"));
+    let headers = response.headers_mut();
+    headers.insert(header::CONTENT_TYPE, content_type);
+    headers.insert(header::CONTENT_DISPOSITION, disposition);
+    headers.insert(
+        header::CONTENT_LENGTH,
+        HeaderValue::from_str(&body_len.to_string()).unwrap(),
+    );
+    headers.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    if let Some((start, end)) = selected {
+        headers.insert(
+            header::CONTENT_RANGE,
+            HeaderValue::from_str(&format!("bytes {start}-{end}/{len}")).unwrap(),
+        );
+    }
+    response
 }
 
 // ---------------------------------------------------------------------------
@@ -301,4 +375,43 @@ pub(crate) async fn project_delivery_manifest(
         "generated_at": chrono::Utc::now().to_rfc3339(),
         "manifest": manifest,
     })))
+}
+
+#[cfg(test)]
+mod media_range_tests {
+    use super::*;
+    #[tokio::test]
+    async fn binary_mime_and_inclusive_open_suffix_ranges() {
+        for (range, expected) in [
+            ("bytes=1-3", vec![1, 2, 3]),
+            ("bytes=3-", vec![3, 4]),
+            ("bytes=-2", vec![3, 4]),
+            ("bytes=0-99", vec![0, 1, 2, 3, 4]),
+        ] {
+            let header = HeaderValue::from_str(range).unwrap();
+            let response = raw_response(
+                vec![0, 1, 2, 3, 4],
+                "audio/mpeg",
+                "voice.mp3",
+                Some(&header),
+            );
+            assert_eq!(response.status(), StatusCode::PARTIAL_CONTENT);
+            assert_eq!(response.headers()[header::CONTENT_TYPE], "audio/mpeg");
+            let body = axum::body::to_bytes(response.into_body(), 16)
+                .await
+                .unwrap();
+            assert_eq!(body.as_ref(), expected.as_slice());
+        }
+        for range in ["bytes=10-", "bytes=4-1", "bytes=-0", "bytes=0-1,3-4", "bad"] {
+            let response = raw_response(
+                vec![0, 1, 2, 3, 4],
+                "image/png",
+                "image.png",
+                Some(&HeaderValue::from_str(range).unwrap()),
+            );
+            assert_eq!(response.status(), StatusCode::RANGE_NOT_SATISFIABLE);
+            assert_eq!(response.headers()[header::CONTENT_RANGE], "bytes */5");
+        }
+        assert!(byte_range("bytes=0-", 0).is_none());
+    }
 }

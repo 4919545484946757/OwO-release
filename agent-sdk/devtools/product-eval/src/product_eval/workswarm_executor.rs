@@ -514,6 +514,7 @@ impl Worker for EvalAgentWorker {
         let runner = owo_agent_core::worker_profile::ProfileSubagentRunner {
             provider: worker_provider,
             parent_policy: &parent_policy,
+            parent_agent: None,
             approver: &approver,
             abort: &self.cancel,
             depth: 0,
@@ -1460,6 +1461,7 @@ impl WorkSwarmExecutor {
             tool_calls: None,
             tool_call_id: None,
             images: Vec::new(),
+            input: None,
         }];
         let output = match self.provider.complete(&messages, &[]).await {
             Ok(output) => output,

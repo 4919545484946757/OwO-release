@@ -40,6 +40,7 @@ pub fn open_encrypted_snapshot(
 }
 
 mod migrations;
+mod team_turn_events;
 
 use migrations::{base_schema, run_migrations, user_version};
 pub use migrations::{Migration, MIGRATIONS};
@@ -154,6 +155,9 @@ impl SqliteSessionStore {
             .execute("DELETE FROM audit", [])
             .map_err(sqlite_error)?;
         transaction
+            .execute("DELETE FROM team_turn_delivery", [])
+            .map_err(sqlite_error)?;
+        transaction
             .execute("DELETE FROM turn_events", [])
             .map_err(sqlite_error)?;
         transaction
@@ -198,8 +202,8 @@ impl SqliteSessionStore {
                  redo_json, message_redo_json, title, archived, pinned, model_override,
                  validation_receipts_json, single_verification_plan_json,
                  single_verification_plan_input_sha256, single_verification_plan_turn_id,
-                 single_review_issues_json, completion_record_json, goal_json, mode
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)
+                 single_review_issues_json, completion_record_json, goal_json, mode, todos_json
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)
              ON CONFLICT(id) DO UPDATE SET
                  workspace=excluded.workspace,
                  model=excluded.model,
@@ -223,7 +227,8 @@ impl SqliteSessionStore {
                  single_review_issues_json=excluded.single_review_issues_json,
                  completion_record_json=excluded.completion_record_json,
                  goal_json=excluded.goal_json,
-                 mode=excluded.mode",
+                 mode=excluded.mode,
+                 todos_json=excluded.todos_json",
             params![
                 session.id,
                 session.workspace.to_string_lossy(),
@@ -250,6 +255,7 @@ impl SqliteSessionStore {
                 session.completion_record.as_ref().map(serde_json::to_string).transpose().map_err(json_error)?,
                 session.goal.as_ref().map(serde_json::to_string).transpose().map_err(json_error)?,
                 session.mode.as_str(),
+                serde_json::to_string(&session.todos).map_err(json_error)?,
             ],
         )
         .map_err(sqlite_error)?;
@@ -264,7 +270,7 @@ impl SqliteSessionStore {
                         redo_json, message_redo_json, title, archived, pinned, model_override,
                         validation_receipts_json, single_verification_plan_json,
                         single_verification_plan_input_sha256, single_verification_plan_turn_id,
-                        single_review_issues_json, completion_record_json, goal_json, mode
+                        single_review_issues_json, completion_record_json, goal_json, mode, todos_json
                  FROM sessions WHERE id = ?1",
                 [id],
                 |row| {
@@ -294,6 +300,7 @@ impl SqliteSessionStore {
                         row.get::<_, Option<String>>(22)?,
                         row.get::<_, Option<String>>(23)?,
                         row.get::<_, Option<String>>(24)?,
+                        row.get::<_, String>(25)?,
                     ))
                 },
             )
@@ -340,8 +347,7 @@ impl SqliteSessionStore {
             archived: row.14,
             pinned: row.15,
             model_override: row.16,
-            // 任务清单暂不落库（会话内存态）；需要跨重启保留时再补列迁移。
-            todos: Vec::new(),
+            todos: serde_json::from_str(&row.25).map_err(json_error)?,
             // 目标模式状态落库（migration v10）：重开进程 /resume 后目标与进度不丢。
             goal: row
                 .23
@@ -362,12 +368,15 @@ impl SqliteSessionStore {
 impl SessionStore for SqliteSessionStore {
     /// 删除会话及其回合事件/游标。
     fn remove(&self, id: &str) -> Result<(), AgentError> {
-        let conn = self
+        let mut conn = self
             .conn
             .lock()
             .map_err(|_| AgentError::Session("SQLite 锁中毒".into()))?;
+        let transaction = conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sqlite_error)?;
         // 先确认存在：不能"删了 0 行也回报成功"，否则界面显示删除成功而会话还在。
-        let count: i64 = conn
+        let count: i64 = transaction
             .query_row("SELECT COUNT(*) FROM sessions WHERE id = ?1", [id], |row| {
                 row.get(0)
             })
@@ -377,13 +386,16 @@ impl SessionStore for SqliteSessionStore {
         }
         // 事件与游标按 session_id 关联，一并清理；否则会留下永远读不到的孤儿记录。
         for statement in [
+            "DELETE FROM team_turn_delivery WHERE session_id = ?1",
             "DELETE FROM turn_events WHERE session_id = ?1",
             "DELETE FROM turn_event_cursors WHERE session_id = ?1",
             "DELETE FROM sessions WHERE id = ?1",
         ] {
-            conn.execute(statement, [id])
+            transaction
+                .execute(statement, [id])
                 .map_err(|error| AgentError::Session(format!("删除会话失败：{error}")))?;
         }
+        transaction.commit().map_err(sqlite_error)?;
         Ok(())
     }
 
@@ -467,92 +479,41 @@ impl SessionStore for SqliteSessionStore {
         let transaction = conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sqlite_error)?;
-        let last_seq = transaction
-            .query_row(
-                "SELECT last_seq FROM turn_event_cursors WHERE session_id = ?1",
-                [session_id],
-                |row| row.get::<_, i64>(0),
-            )
-            .optional()
-            .map_err(sqlite_error)?
-            .unwrap_or(0);
-        // 思维链合并：模型一次回合可吐数万条 reasoning_delta，逐条入库会造成
-        // ~95% 的写放大（实测单会话 7.8 万行）。连续 reasoning 增量并入上一行，
-        // 单行超过 64KiB 才另起一行，既有 seq 语义与断点续传都不受影响。
-        if let SseEvent::ReasoningDelta { delta } = payload {
-            let previous: Option<(i64, String)> = transaction
-                .query_row(
-                    "SELECT seq, payload_json FROM turn_events
-                     WHERE session_id = ?1 ORDER BY seq DESC LIMIT 1",
-                    [session_id],
-                    |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
-                )
-                .optional()
-                .map_err(sqlite_error)?;
-            if let Some((previous_seq, previous_json)) = previous {
-                if let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&previous_json) {
-                    if value.get("type").and_then(|kind| kind.as_str()) == Some("reasoning_delta") {
-                        let merged = format!(
-                            "{}{}",
-                            value
-                                .get("delta")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or_default(),
-                            delta
-                        );
-                        if merged.len() <= 64 * 1024 {
-                            value["delta"] = serde_json::Value::String(merged.clone());
-                            let merged_json = serde_json::to_string(&value).map_err(|error| {
-                                AgentError::Session(format!("回合事件编码失败：{error}"))
-                            })?;
-                            transaction
-                                .execute(
-                                    "UPDATE turn_events SET payload_json = ?1
-                                     WHERE session_id = ?2 AND seq = ?3",
-                                    params![merged_json, session_id, previous_seq],
-                                )
-                                .map_err(sqlite_error)?;
-                            transaction.commit().map_err(sqlite_error)?;
-                            return Ok(TurnEventRecord {
-                                session_id: session_id.to_string(),
-                                turn_id: turn_id.to_string(),
-                                seq: previous_seq as u64,
-                                created_at: chrono::Utc::now().to_rfc3339(),
-                                payload: SseEvent::ReasoningDelta { delta: merged },
-                            });
-                        }
-                    }
-                }
-            }
-        }
-        let seq = last_seq
-            .checked_add(1)
-            .ok_or_else(|| AgentError::Session("回合事件 seq 已耗尽".into()))?;
-        let created_at = chrono::Utc::now().to_rfc3339();
-        let payload_json = serde_json::to_string(payload)
-            .map_err(|error| AgentError::Session(format!("回合事件编码失败：{error}")))?;
-        transaction
-            .execute(
-                "INSERT INTO turn_event_cursors(session_id, last_seq) VALUES (?1, ?2)
-                 ON CONFLICT(session_id) DO UPDATE SET last_seq = excluded.last_seq",
-                params![session_id, seq],
-            )
-            .map_err(sqlite_error)?;
-        transaction
-            .execute(
-                "INSERT INTO turn_events(session_id, seq, turn_id, created_at, payload_json)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![session_id, seq, turn_id, created_at, payload_json],
-            )
-            .map_err(sqlite_error)?;
+        let record = team_turn_events::append_event_tx(&transaction, session_id, turn_id, payload)?;
         transaction.commit().map_err(sqlite_error)?;
-        Ok(TurnEventRecord {
-            session_id: session_id.to_string(),
-            turn_id: turn_id.to_string(),
-            seq: seq as u64,
-            created_at,
-            payload: payload.clone(),
-        })
+        Ok(record)
+    }
+
+    fn append_team_turn_event(
+        &self,
+        binding: &crate::session::TeamTurnBinding,
+        session_id: &str,
+        turn_id: &str,
+        payload: &SseEvent,
+    ) -> Result<TurnEventRecord, AgentError> {
+        self.append_team_event_sql(binding, session_id, turn_id, payload)
+    }
+    fn pending_team_turn_events(
+        &self,
+        run_id: &str,
+        limit: usize,
+    ) -> Result<Vec<crate::session::TeamTurnDelivery>, AgentError> {
+        self.pending_team_events_sql(run_id, limit)
+    }
+    fn acknowledge_team_turn_event(
+        &self,
+        run_id: &str,
+        delivery_id: i64,
+    ) -> Result<(), AgentError> {
+        self.acknowledge_team_event_sql(run_id, delivery_id)
+    }
+    fn turn_event_json_bounded(
+        &self,
+        session_id: &str,
+        seq: u64,
+        max_bytes: usize,
+    ) -> Result<Option<String>, AgentError> {
+        self.turn_event_json_bounded_sql(session_id, seq, max_bytes)
     }
 
     fn turn_events_after(
@@ -598,6 +559,16 @@ impl SessionStore for SqliteSessionStore {
             })
             .map_err(sqlite_error)?;
         rows.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)
+    }
+
+    fn pending_conversation_sessions(
+        &self,
+        run_id: &str,
+        cursors: &std::collections::BTreeMap<String, u64>,
+        after_session: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<String>, AgentError> {
+        self.pending_conversation_sessions_sql(run_id, cursors, after_session, limit)
     }
 
     fn turn_history(

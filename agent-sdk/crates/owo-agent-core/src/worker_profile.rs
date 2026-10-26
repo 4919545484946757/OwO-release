@@ -22,10 +22,10 @@ use std::sync::Arc;
 pub type TurnEventSink = Arc<dyn Fn(&TurnEvent) + Send + Sync>;
 
 /// 画像回合上限（与 `SubagentRunner` 子代理口径一致：max_turns 硬上限 16）。
-pub const PROFILE_MAX_TURNS_CAP: usize = 16;
+pub const PROFILE_MAX_TURNS_CAP: usize = 32;
 
 /// 模板未声明该角色预算（`budget_calls == 0`）时的缺省回合上限。
-pub const DEFAULT_PROFILE_MAX_TURNS: usize = 12;
+pub const DEFAULT_PROFILE_MAX_TURNS: usize = 24;
 
 /// 角色族（工具面装配依据）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -124,6 +124,12 @@ impl WorkerProfile {
             profile.write_allowed_paths = spec.write_paths.clone();
         } else {
             profile.declared_tools_dropped = profile.apply_declared_tools(&spec.tools);
+        }
+        // The orchestrator is an architect/quality authority, never a writer. This is
+        // also a runtime defense for persisted teams created before validation existed.
+        if spec.is_orchestrator() {
+            profile = profile.restricted_to_read_only();
+            profile.write_allowed_paths.clear();
         }
         profile
     }
@@ -346,10 +352,14 @@ impl WorkerProfile {
         Ok(total_calls - 1)
     }
 
-    /// Limit a TaskGraph attempt to its host-assigned total request budget. The final
+    /// Apply the TaskGraph attempt's host-assigned total request budget. The final
     /// request remains available to the single WorkerOutputV1 correction path.
+    ///
+    /// The role template budget is only a suggestion; the task graph allocation is
+    /// authoritative for this attempt, including raising a lower suggestion (otherwise
+    /// a 4-call template would silently cap an 8-call coding task at 3 turns).
     pub fn with_task_model_call_budget(mut self, total_calls: usize) -> Result<Self, String> {
-        self.max_turns = self.max_turns.min(Self::task_agent_turn_cap(total_calls)?);
+        self.max_turns = Self::task_agent_turn_cap(total_calls)?;
         Ok(self)
     }
 
@@ -594,6 +604,16 @@ impl WorkerProfile {
             registry.register_browser_tools();
         }
         registry.specs().into_iter().map(|spec| spec.name).collect()
+    }
+
+    /// Metadata projection of the same assembler used by runtime workers; no second persistent registry.
+    pub fn supported_native_tool_specs() -> Vec<crate::tools::ToolSpec> {
+        let mut profile = Self::for_role("builder", 1);
+        profile.read_only = false;
+        profile.can_run_command = true;
+        profile.can_use_browser = true;
+        profile.visible_tools.clear();
+        profile.build_registry(Vec::new()).specs()
     }
 
     /// 按画像装配工具注册表：注册表面即权限边界。
@@ -909,6 +929,7 @@ mod tests {
 
         let fullstack_worker = WorkerProfile::for_team_role_spec(
             &crate::workswarm::RoleSpec {
+                node_id: None,
                 role: "w1".to_string(),
                 write_paths: vec!["apps/web".to_string()],
                 ..Default::default()
@@ -1324,6 +1345,11 @@ mod tests {
         assert!(WorkerProfile::for_role("implementer", 12)
             .with_task_model_call_budget(2)
             .is_err());
+        // 任务图分配可以提升模板建议的 4 次预算；否则 8 次分配仍只有 3 回合。
+        let raised = WorkerProfile::for_role("implementer", 4)
+            .with_task_model_call_budget(8)
+            .unwrap();
+        assert_eq!(raised.max_turns, 7);
     }
 
     #[test]

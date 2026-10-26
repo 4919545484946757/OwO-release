@@ -6,6 +6,29 @@ use super::coord_artifacts::{
 };
 use super::*;
 
+/// Reviewers see the deliverable they are judging plus every transitive upstream
+/// artifact, not only the last handoff report. The reviewer still gets normal
+/// role permissions; this only widens the read-only context slice.
+pub(super) fn collect_review_dependency_ids(
+    step_id: &str,
+    direct: &[String],
+    steps: &std::collections::HashMap<String, crate::plan::StepSpec>,
+) -> Vec<String> {
+    let mut seen = HashSet::from([step_id.to_string()]);
+    let mut pending = direct.to_vec();
+    let mut expanded = Vec::new();
+    while let Some(id) = pending.pop() {
+        if !seen.insert(id.clone()) {
+            continue;
+        }
+        if let Some(dep_step) = steps.get(&id) {
+            expanded.push(id.clone());
+            pending.extend(dep_step.depends_on.iter().cloned());
+        }
+    }
+    expanded
+}
+
 impl TeamCoordinator {
     // -- 上下文切片（handoff 的运行时视图；A3 结构化 context slice） --
 
@@ -189,7 +212,16 @@ impl TeamCoordinator {
         const UPSTREAM_READ_CONCURRENCY: usize = 4;
         let mut upstream_sources = Vec::new();
         let mut upstream_body_budget = crate::team_prompt::DEFAULT_TOTAL_UPSTREAM_BYTES;
-        for dep in &step.depends_on {
+        // A reviewer must see the deliverables it is reviewing, not only the
+        // immediately preceding report. Otherwise a critic can identify a defect
+        // in an earlier implementation task but the host cannot bind the finding
+        // to a reviewed artifact, causing the whole run to fail at rework planning.
+        let dependency_ids = if super::util::is_review_role(&spec.role, &spec.capabilities) {
+            collect_review_dependency_ids(&step.id, &step.depends_on, &steps_by_id)
+        } else {
+            step.depends_on.clone()
+        };
+        for dep in &dependency_ids {
             let Some(dep_step) = steps_by_id.get(dep) else {
                 continue;
             };
@@ -230,6 +262,8 @@ impl TeamCoordinator {
             upstream_body_budget = upstream_body_budget.saturating_sub(content.len());
             upstream.push(json!({
                 "role": dep_role,
+                "step_id": dep_step.id,
+                "worker": dep_step.worker,
                 "task_id": artifact.task_id,
                 "attempt_id": artifact.attempt_id,
                 "artifact_id": artifact.artifact_id,
@@ -299,6 +333,7 @@ impl TeamCoordinator {
                 "team_id": team_id,
                 "objective_text": goal_objective,
                 "role": spec.role,
+                "node_id": spec.node_id,
                 "capabilities": spec.capabilities,
                 "write_paths": spec.write_paths,
                 "member_id": member_id,
@@ -399,4 +434,30 @@ fn context_cas_hash(content_ref: &str) -> WorkSwarmResult<&str> {
         .strip_prefix("cas://sha256:")
         .filter(|hash| hash.len() == 64 && hash.bytes().all(|byte| byte.is_ascii_hexdigit()))
         .ok_or_else(|| WorkSwarmError::Validation("上下文缺少合法 CAS 哈希引用".into()))
+}
+
+#[cfg(test)]
+mod review_scope_tests {
+    use super::collect_review_dependency_ids;
+    use crate::plan::StepSpec;
+    use std::collections::HashMap;
+
+    fn step(id: &str, deps: &[&str]) -> StepSpec {
+        let mut step = StepSpec::new(id, "worker");
+        step.depends_on = deps.iter().map(|dep| dep.to_string()).collect();
+        step
+    }
+
+    #[test]
+    fn reviewer_scope_walks_transitive_ancestors_without_cycles() {
+        let steps = HashMap::from([
+            ("research".to_string(), step("research", &[])),
+            ("design".to_string(), step("design", &["research"])),
+            ("test".to_string(), step("test", &["design"])),
+            ("review".to_string(), step("review", &["test"])),
+        ]);
+        let mut ids = collect_review_dependency_ids("review", &steps["review"].depends_on, &steps);
+        ids.sort();
+        assert_eq!(ids, vec!["design", "research", "test"]);
+    }
 }

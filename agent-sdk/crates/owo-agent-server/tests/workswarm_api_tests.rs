@@ -402,8 +402,10 @@ async fn template_proposal_adopt_then_template_run() {
     let app = build_router(Arc::clone(&state));
 
     // 先跑一次 echo 接力 → 成功收尾产生 TeamTemplateProposal（只提案，不自动启用）。
+    let mut roles = echo_relay_roles();
+    roles[0]["tools"] = json!(["read_file"]);
     let body = json!({
-        "strategy": "team", "objective": "模板来源运行", "roles": echo_relay_roles() });
+        "strategy": "team", "objective": "模板来源运行", "roles": roles });
     let (status, created) = call(&state, &app, "POST", "/teams", Some(&body.to_string())).await;
     assert_eq!(status, 202, "{created}");
     let team_id = created["team_id"].as_str().unwrap().to_string();
@@ -422,6 +424,11 @@ async fn template_proposal_adopt_then_template_run() {
     assert_eq!(proposals.len(), 1, "应产生一个模板提案：{props}");
     let proposal_id = proposals[0]["proposal_id"].as_str().unwrap().to_string();
     assert_eq!(proposals[0]["status"], "proposed");
+    assert_eq!(
+        proposals[0]["template"]["roles"][0]["tools"],
+        json!(["read_file"])
+    );
+    assert_eq!(proposals[0]["base_revision"], 0);
 
     // 采纳 → 模板进入注册表。
     let (status, adopted) = call(
@@ -1581,6 +1588,7 @@ async fn custom_workflow_preserves_media_roles_and_parallel_branches_without_ins
     let coordinator = state.workswarm.coordinator().unwrap();
     let roles = vec![
         RoleSpec {
+            node_id: None,
             role: "reviewer".into(),
             assignee: "agent".into(),
             tools: vec!["write_file".into()],
@@ -1589,6 +1597,7 @@ async fn custom_workflow_preserves_media_roles_and_parallel_branches_without_ins
             ..Default::default()
         },
         RoleSpec {
+            node_id: None,
             role: "配音与音效".into(),
             assignee: "agent".into(),
             tools: vec!["mcp__voice__generate".into()],
@@ -1625,10 +1634,13 @@ async fn saved_custom_workflow_membership_is_not_the_legacy_default_limit() {
     let (state, _temp) = test_state().await;
     let coordinator = state.workswarm.coordinator().unwrap();
     let template = TeamTemplate {
+        budget_calls_per_role: Default::default(),
+        editor: None,
         template_id: "multimedia-seven".into(),
         name: "多媒体并行制作".into(),
         roles: (0..7)
             .map(|index| TeamTemplateRole {
+                node_id: None,
                 role: format!("媒体节点-{index}"),
                 worker: Some("echo".into()),
                 tools: vec!["mcp__media__generate".into()],
@@ -1691,4 +1703,66 @@ async fn ad_hoc_six_agent_graph_uses_the_five_member_default_cap() {
         response.to_string().contains("6 > 5"),
         "错误应说明实际成员数与默认上限：{response}"
     );
+}
+
+#[path = "workswarm/timeline.rs"]
+mod timeline;
+
+#[tokio::test]
+async fn conversation_handoff_history_is_bounded_and_exclusive() {
+    use owo_agent_core::project_space_store::{ProjectSpaceStoreBackend, SqliteProjectSpaceStore};
+    use owo_agent_core::workswarm::{CreateTeamRequest, RoleSpec};
+    use owo_agent_protocol::{HandoffRecord, TeamMode};
+    let (state, temp) = test_state().await;
+    let coordinator = state.workswarm.coordinator().unwrap();
+    let team = coordinator
+        .create_team_run(&CreateTeamRequest {
+            roles: vec![RoleSpec::agent("writer")],
+            ..CreateTeamRequest::new("handoff history", TeamMode::Team)
+        })
+        .await
+        .unwrap();
+    let project = team.project_space_id.as_ref().unwrap();
+    let store = SqliteProjectSpaceStore::open(&temp.path().join("workswarm/space.db")).unwrap();
+    for i in 0..130 {
+        let record: HandoffRecord = serde_json::from_value(json!({
+            "handoff_id":format!("history-{i:03}"),"from_member":"writer","to_member":"reader",
+            "completed_summary":format!("public {i}"),"output_artifact_refs":["actual-ref"],
+            "created_at":"2026-10-25T00:00:00Z"
+        }))
+        .unwrap();
+        store.save_handoff(&record, project).await.unwrap();
+    }
+    let app = build_router(Arc::clone(&state));
+    let path = format!("/teams/{}/conversation", team.team_id);
+    let mut uri = path.clone();
+    let mut ids = std::collections::BTreeSet::new();
+    for expected in [64, 64, 2] {
+        let (status, page) = call(&state, &app, "GET", &uri, None).await;
+        assert_eq!(status, 200, "{page}");
+        let rows = page["handoffs"].as_array().unwrap();
+        assert_eq!(rows.len(), expected);
+        for row in rows {
+            assert_eq!(row["output_artifact_refs"], json!(["actual-ref"]));
+            assert!(ids.insert(row["handoff_id"].as_str().unwrap().to_string()));
+        }
+        assert_eq!(page["has_more"], false, "no Worker history was seeded");
+        assert_eq!(page["handoffs_has_more"], expected == 64);
+        uri = format!(
+            "{path}?handoff_before={}",
+            page["next_handoff_before"].as_str().unwrap()
+        );
+    }
+    assert_eq!(ids.len(), 130);
+    for cursor in ["missing", ""] {
+        let (status, _) = call(
+            &state,
+            &app,
+            "GET",
+            &format!("{path}?handoff_before={cursor}"),
+            None,
+        )
+        .await;
+        assert_eq!(status, 400);
+    }
 }

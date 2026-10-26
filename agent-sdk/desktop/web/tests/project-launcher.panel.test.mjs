@@ -746,3 +746,40 @@ test("旧面板的创建响应不污染后来挂载的页面，并释放新页�
   assert.equal(button.disabled, false, "新挂载页面的共享创建锁应解开");
   assert.equal(button.textContent, "创建团队并开始执行");
 });
+
+test("安装冻结已审阅目录版本，冲突保留状态且不自动刷新重试", async () => {
+  resetState();
+  const error = { innerHTML: "" };
+  T.setRoot({ querySelector(selector) { return selector === "#pl-errors" ? error : null; } });
+  T.state.catalog = [{ template_id: "example-v1", installed: false, revision: 2 }];
+  const paths = [];
+  let gets = 0;
+  T.setTransport({
+    get() { gets++; return Promise.resolve({catalog: []}); },
+    post(path) { paths.push(path); return Promise.reject(new Error("409：工作流已被其他编辑者修改，请重新审阅")); },
+  });
+  const pending = T.installTemplate("example-v1");
+  T.state.catalog[0].revision = 3;
+  await pending;
+  assert.deepEqual(paths, ["/teams/templates/catalog/example-v1/install?expected_revision=2"]);
+  assert.equal(gets, 0, "冲突不自动刷新基础版本");
+  assert.equal(T.state.selectedTemplate, "");
+  assert.match(error.innerHTML, /安装失败.*重新审阅/);
+  assert.equal(T.state.installBusy["example-v1"], undefined);
+});
+
+test("重新审阅删除记录后安装携带当前目录版本", async () => {
+  resetState();
+  const notice = {innerHTML: ""};
+  T.setRoot({querySelector: (selector) => selector === "#pl-errors" ? notice : null});
+  T.state.catalog = [{ template: {template_id: "example-v1"}, installed: false, revision: 7 }];
+  const paths = [];
+  T.setTransport({
+    get() { return Promise.resolve({catalog: [{template_id:"example-v1", installed:true, revision:8}]}); },
+    post(path) { paths.push(path); return Promise.resolve({installed:true, revision:8}); },
+  });
+  await T.installTemplate("example-v1");
+  assert.deepEqual(paths, ["/teams/templates/catalog/example-v1/install?expected_revision=7"]);
+  assert.equal(T.state.selectedTemplate, "example-v1");
+  assert.match(notice.innerHTML, /安装成功.*已自动选用/, "重绘预览不能清掉成功通知");
+});

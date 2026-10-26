@@ -11,13 +11,23 @@
 //! - 线程安全：内部使用 `Mutex<Connection>`，与既有 `SqliteSessionStore` 一致。
 
 use async_trait::async_trait;
+mod handoff_history;
+mod run_events;
+mod task_events;
+mod worker_inputs;
 use owo_agent_protocol::{
     Artifact, ArtifactReviewDecision, ArtifactReviewRecord, ArtifactReworkTask, DecisionRecord,
     HandoffRecord, ProjectSpace, SharedContextFact, SharedContextSnapshot, TeamRun,
 };
-use rusqlite::{params, Connection};
+use owo_agent_protocol::{RunEvent, RunEventPage};
+pub use run_events::{NewRunEvent, MAX_RUN_EVENT_BYTES, MAX_RUN_EVENT_PAGE};
+use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 use std::sync::Mutex;
+pub use task_events::{task_source_key, TaskEventOutbox, TaskRunEvent};
+pub use worker_inputs::{
+    PreparedInputEncoding, PreparedInputSource, PreparedWorkerInput, WorkerInputTarget,
+};
 
 /// 存储层错误。
 #[derive(Debug, thiserror::Error)]
@@ -50,6 +60,27 @@ type Result<T> = std::result::Result<T, ProjectSpaceStoreError>;
 /// 异步后端（如远程存储）预留接口。
 #[async_trait]
 pub trait ProjectSpaceStoreBackend: Send + Sync {
+    /// Indexed durable observations, independent of process-local progress counters.
+    fn task_event_cursor(&self, run: &str) -> Result<u64>;
+    fn publish_task_events(&self, run: &str, events: &[TaskRunEvent]) -> Result<u64>;
+    fn append_run_event(&self, event: &NewRunEvent) -> Result<RunEvent>;
+    /// Commit the prepared payload header and all source references atomically.
+    /// Backends without this boundary must fail before Worker execution.
+    fn append_worker_input(&self, _receipt: &PreparedWorkerInput) -> Result<RunEvent> {
+        Err(ProjectSpaceStoreError::InvalidState(
+            "worker input receipts unsupported".into(),
+        ))
+    }
+
+    fn run_event_by_source(&self, run_id: &str, source: &str) -> Result<Option<RunEvent>>;
+    fn run_events_after(&self, run_id: &str, after: u64, limit: usize) -> Result<RunEventPage>;
+    fn run_events_before(
+        &self,
+        run_id: &str,
+        before: u64,
+        limit: usize,
+    ) -> Result<owo_agent_protocol::RunEventHistoryPage>;
+
     // -- ProjectSpace --
     async fn save_project_space(&self, space: &ProjectSpace) -> Result<()>;
     async fn get_project_space(&self, project_id: &str) -> Result<ProjectSpace>;
@@ -79,6 +110,12 @@ pub trait ProjectSpaceStoreBackend: Send + Sync {
     async fn save_handoff(&self, handoff: &HandoffRecord, project_id: &str) -> Result<()>;
     async fn get_handoff(&self, handoff_id: &str) -> Result<HandoffRecord>;
     async fn list_handoffs_by_project(&self, project_id: &str) -> Result<Vec<HandoffRecord>>;
+    fn handoffs_before(
+        &self,
+        project_id: &str,
+        before: Option<&str>,
+        limit: usize,
+    ) -> Result<owo_agent_protocol::HandoffPage>;
 
     // -- TeamRun --
     async fn save_team_run(&self, team_run: &TeamRun) -> Result<()>;
@@ -151,6 +188,7 @@ fn worksarm_schema() -> &'static str {
          created_at TEXT NOT NULL
      );
      CREATE INDEX IF NOT EXISTS idx_handoffs_project ON handoffs(project_id);
+     CREATE INDEX IF NOT EXISTS idx_handoffs_history ON handoffs(project_id, created_at, handoff_id);
      CREATE TABLE IF NOT EXISTS team_runs (
          team_id TEXT PRIMARY KEY,
          data_json TEXT NOT NULL,
@@ -218,6 +256,8 @@ impl SqliteProjectSpaceStore {
         // 多连接共存（协调器 + 评审 API 各持一条连接）：写锁竞争在 busy_timeout 内自旋等待。
         conn.busy_timeout(std::time::Duration::from_millis(2000))?;
         conn.execute_batch(worksarm_schema())?;
+        conn.execute_batch(run_events::SCHEMA)?;
+        conn.execute_batch(task_events::SCHEMA)?;
         migrate_artifact_reviews_columns(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
@@ -228,6 +268,8 @@ impl SqliteProjectSpaceStore {
     pub fn from_connection(conn: Connection) -> Result<Self> {
         conn.busy_timeout(std::time::Duration::from_millis(2000))?;
         conn.execute_batch(worksarm_schema())?;
+        conn.execute_batch(run_events::SCHEMA)?;
+        conn.execute_batch(task_events::SCHEMA)?;
         migrate_artifact_reviews_columns(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
@@ -245,6 +287,36 @@ impl SqliteProjectSpaceStore {
 
 #[async_trait]
 impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
+    fn task_event_cursor(&self, run: &str) -> Result<u64> {
+        self.task_event_cursor_sql(run)
+    }
+    fn publish_task_events(&self, run: &str, events: &[TaskRunEvent]) -> Result<u64> {
+        self.publish_task_events_sql(run, events)
+    }
+
+    fn run_event_by_source(&self, run_id: &str, source: &str) -> Result<Option<RunEvent>> {
+        self.run_event_by_source_sql(run_id, source)
+    }
+
+    fn append_run_event(&self, event: &NewRunEvent) -> Result<RunEvent> {
+        self.append_run_event_sql(event)
+    }
+    fn append_worker_input(&self, receipt: &PreparedWorkerInput) -> Result<RunEvent> {
+        self.append_worker_input_sql(receipt)
+    }
+
+    fn run_events_after(&self, run_id: &str, after: u64, limit: usize) -> Result<RunEventPage> {
+        self.run_events_after_sql(run_id, after, limit)
+    }
+    fn run_events_before(
+        &self,
+        run_id: &str,
+        before: u64,
+        limit: usize,
+    ) -> Result<owo_agent_protocol::RunEventHistoryPage> {
+        self.run_events_before_sql(run_id, before, limit)
+    }
+
     // -- ProjectSpace --
 
     async fn save_project_space(&self, space: &ProjectSpace) -> Result<()> {
@@ -422,16 +494,28 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
             }
         }
         let json = Self::serialize(&artifact)?;
-        let conn = self
+        let mut conn = self
             .conn
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        conn.execute(
+        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let previous: Option<String> = tx
+            .query_row(
+                "SELECT data_json FROM artifacts WHERE artifact_id=?1",
+                [&artifact.artifact_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        tx.execute(
             "INSERT INTO artifacts (artifact_id, project_id, data_json, created_at)
              VALUES (?1, ?2, ?3, ?4)
              ON CONFLICT(artifact_id) DO UPDATE SET data_json = excluded.data_json",
             params![artifact.artifact_id, project_id, json, artifact.created_at],
         )?;
+        if previous.as_deref() != Some(json.as_str()) {
+            run_events::artifact_saved(&tx, &artifact, &json, project_id)?;
+        }
+        tx.commit()?;
         Ok(())
     }
 
@@ -546,16 +630,28 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
 
     async fn save_handoff(&self, handoff: &HandoffRecord, project_id: &str) -> Result<()> {
         let json = Self::serialize(handoff)?;
-        let conn = self
+        let mut conn = self
             .conn
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        conn.execute(
+        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let previous: Option<String> = tx
+            .query_row(
+                "SELECT data_json FROM handoffs WHERE handoff_id=?1",
+                [&handoff.handoff_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        tx.execute(
             "INSERT INTO handoffs (handoff_id, project_id, data_json, created_at)
              VALUES (?1, ?2, ?3, ?4)
              ON CONFLICT(handoff_id) DO UPDATE SET data_json = excluded.data_json",
             params![handoff.handoff_id, project_id, json, handoff.created_at],
         )?;
+        if previous.as_deref() != Some(json.as_str()) {
+            run_events::handoff_saved(&tx, handoff, &json, project_id)?;
+        }
+        tx.commit()?;
         Ok(())
     }
 
@@ -577,6 +673,15 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
                 other => ProjectSpaceStoreError::Sqlite(other),
             })?;
         Self::deserialize(&json)
+    }
+
+    fn handoffs_before(
+        &self,
+        project_id: &str,
+        before: Option<&str>,
+        limit: usize,
+    ) -> Result<owo_agent_protocol::HandoffPage> {
+        self.handoffs_before_sql(project_id, before, limit)
     }
 
     async fn list_handoffs_by_project(&self, project_id: &str) -> Result<Vec<HandoffRecord>> {
@@ -602,16 +707,26 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
 
     async fn save_team_run(&self, team_run: &TeamRun) -> Result<()> {
         let json = Self::serialize(team_run)?;
-        let conn = self
+        let mut conn = self
             .conn
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        conn.execute(
+        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let previous: Option<String> = tx
+            .query_row(
+                "SELECT data_json FROM team_runs WHERE team_id=?1",
+                [&team_run.team_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        tx.execute(
             "INSERT INTO team_runs (team_id, data_json, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4)
              ON CONFLICT(team_id) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at",
             params![team_run.team_id, json, team_run.created_at, team_run.updated_at],
         )?;
+        run_events::team_transition(&tx, team_run, previous.as_deref())?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -632,7 +747,15 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
             .conn
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let previous: Option<String> = tx
+            .query_row(
+                "SELECT data_json FROM team_runs WHERE team_id=?1",
+                [&team_run.team_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+
         tx.execute(
             "INSERT INTO team_runs (team_id, data_json, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4)
@@ -645,6 +768,7 @@ impl ProjectSpaceStoreBackend for SqliteProjectSpaceStore {
              ON CONFLICT(project_id) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at",
             params![space.project_id, space_json, space.created_at, space.updated_at],
         )?;
+        run_events::team_transition(&tx, team_run, previous.as_deref())?;
         tx.commit()?;
         Ok(())
     }

@@ -535,6 +535,7 @@ fn human_relay_roles() -> Vec<RoleSpec> {
     planner.worker = Some("echo".to_string());
     planner.verify = Some("non_empty".to_string());
     let mut approver = RoleSpec {
+        node_id: None,
         role: "approver".to_string(),
         assignee: "human".to_string(),
         worker: Some("alice".to_string()),
@@ -1173,11 +1174,14 @@ async fn swarmflow_requires_versioned_template() {
 
     // 提供模板 → 允许（显式 template_id）。
     let tpl = owo_agent_protocol::TeamTemplate {
+        budget_calls_per_role: Default::default(),
+        editor: None,
         template_id: "tpl-fixed".into(),
         name: "固定流程".into(),
         mode: TeamMode::Swarmflow,
         roles: vec![
             owo_agent_protocol::TeamTemplateRole {
+                node_id: None,
                 role: "planner".into(),
                 assignee: "agent".into(),
                 worker: Some("echo".into()),
@@ -1190,6 +1194,7 @@ async fn swarmflow_requires_versioned_template() {
                 tools: Vec::new(),
             },
             owo_agent_protocol::TeamTemplateRole {
+                node_id: None,
                 role: "builder".into(),
                 assignee: "agent".into(),
                 worker: Some("echo".into()),

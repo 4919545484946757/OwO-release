@@ -176,6 +176,64 @@ async fn draft_defaults_to_the_currently_connected_workflow_tools() {
     assert!(system.contains("read_file"), "{system}");
 }
 
+#[tokio::test]
+async fn draft_checks_live_availability_even_for_structurally_valid_mcp_names() {
+    let tool_name = "mcp__media_provider__video_generate";
+    for connected in [false, true] {
+        let mut template = good_template_value();
+        template["roles"][0]["tools"] = json!([tool_name]);
+        let provider = ScriptedProvider::new(vec![template.to_string()]);
+        let mut tools = ToolRegistry::new();
+        if connected {
+            tools.register(DraftMcpTool(ToolSpec::with_effect(
+                tool_name,
+                "Generate a video".to_string(),
+                json!({"type":"object","properties":{}}),
+                None,
+            )));
+        }
+        let fixture = fixture_with_registry(provider, tools);
+        let (status, body) = call(
+            &fixture.state,
+            "POST",
+            "/workflows/draft",
+            Some(r#"{"description":"使用指定视频工具生成片段"}"#),
+        )
+        .await;
+        assert_eq!(status, 200, "{body}");
+        assert_eq!(body["ok"], json!(connected), "{body}");
+        let errors = body["errors"].as_array().unwrap();
+        assert_eq!(errors.len(), usize::from(!connected), "{errors:?}");
+        if !connected {
+            assert!(errors[0]
+                .as_str()
+                .unwrap()
+                .contains("不在本次宿主可用列表中"));
+        } else {
+            // A successful generation is not a lease on tool availability.
+            fixture
+                .state
+                .agent
+                .set_tool_prefix_enabled(tool_name, false);
+        }
+        let id = body["draft"]["draft_id"].as_str().unwrap();
+        let path = format!("/workflows/draft/{id}/adopt");
+        let (status, rejected) = call(&fixture.state, "POST", &path, Some("{}")).await;
+        assert_eq!(status, 422, "{rejected}");
+        let (_, listed) = call(&fixture.state, "GET", "/workflows/user", None).await;
+        assert_eq!(
+            listed["count"], 0,
+            "rejected draft must not enter the registry"
+        );
+        if connected {
+            fixture.state.agent.set_tool_prefix_enabled(tool_name, true);
+            let (status, adopted) = call(&fixture.state, "POST", &path, Some("{}")).await;
+            assert_eq!(status, 200, "{adopted}");
+            assert_eq!(adopted["revision"], 1);
+        }
+    }
+}
+
 /// 模型"生成"的一份合法工作流（游戏关卡生成流水线，含人工验收节点）。
 fn good_reply() -> String {
     let template = json!({
@@ -256,13 +314,19 @@ async fn draft_list_adopt_discard_round_trip() {
         "{body}"
     );
     let draft_id = body["draft"]["draft_id"].as_str().unwrap().to_string();
-    // 草稿已落盘（但不等于启用）。
-    let draft_file = fixture
-        .data_root
-        .join("workswarm")
-        .join("drafts")
-        .join(format!("{draft_id}.json"));
-    assert!(draft_file.exists(), "草稿应落盘：{draft_file:?}");
+    // Draft is persisted in the same canonical database, but no template is enabled.
+    let registry = owo_agent_core::workswarm::TeamTemplateRegistry::for_workswarm_root(
+        &fixture.data_root.join("workswarm"),
+    );
+    let store = registry
+        .workflow_draft_store(&fixture.data_root.join("workswarm/drafts"))
+        .unwrap();
+    assert!(store.get_draft_record(&draft_id).unwrap().is_some());
+    assert!(registry
+        .get_revision("level-design-pipeline")
+        .unwrap()
+        .is_none());
+    drop(store);
 
     // 列表可见且有效。
     let (status, listed) = call(&fixture.state, "GET", "/workflows/draft", None).await;
@@ -632,7 +696,7 @@ async fn adopt_returns_verify_plan_with_baseline_objective() {
         &fixture.state,
         "POST",
         &format!("/workflows/draft/{plain_id}/adopt"),
-        Some("{}"),
+        Some(&json!({"expected_revision":body["revision"]}).to_string()),
     )
     .await;
     assert_eq!(status, 200, "{adopted_plain}");
@@ -1148,4 +1212,332 @@ async fn refine_reuses_previous_draft_and_missing_description_is_400() {
     )
     .await;
     assert_eq!(status, 404);
+}
+
+#[tokio::test]
+async fn workflow_graph_adopts_edited_document_and_preserves_identity_and_portable_layout() {
+    let fixture = fixture(vec![good_reply()]);
+    let (status, generated) = call(
+        &fixture.state,
+        "POST",
+        "/workflows/draft",
+        Some(r#"{"description":"fixture graph"}"#),
+    )
+    .await;
+    assert_eq!(status, 200, "{generated}");
+    let draft_id = generated["draft"]["draft_id"].as_str().unwrap();
+    let mut edited = generated["template"].clone();
+    for (index, role) in edited["roles"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .enumerate()
+    {
+        role["node_id"] = json!(format!("node-{index}"));
+    }
+    edited["roles"][0]["role"] = json!("renamed_designer");
+    edited["roles"][1]["depends_on"] = json!(["renamed_designer"]);
+    edited["editor"] = json!({"version":1,"nodes":[{"id":"node-0","position":{"x":15.5,"y":230}}]});
+    let mut invalid = edited.clone();
+    invalid["editor"]["nodes"][0]["id"] = json!("missing");
+    let (status, rejected) = call(
+        &fixture.state,
+        "POST",
+        &format!("/workflows/draft/{draft_id}/adopt"),
+        Some(&json!({"template":invalid}).to_string()),
+    )
+    .await;
+    assert_eq!(status, 422, "{rejected}");
+    let (_, before) = call(&fixture.state, "GET", "/workflows/user", None).await;
+    assert_eq!(before["count"], 0);
+    let (status, adopted) = call(
+        &fixture.state,
+        "POST",
+        &format!("/workflows/draft/{draft_id}/adopt"),
+        Some(&json!({"template":edited}).to_string()),
+    )
+    .await;
+    assert_eq!(status, 200, "{adopted}");
+    assert_eq!(adopted["template"]["roles"][0]["role"], "renamed_designer");
+    assert_eq!(adopted["template"]["roles"][0]["node_id"], "node-0");
+    let (_, listed) = call(&fixture.state, "GET", "/workflows/user", None).await;
+    assert_eq!(
+        listed["templates"][0]["template"]["editor"],
+        serde_json::to_value(
+            serde_json::from_value::<owo_agent_protocol::WorkflowEditorMetadata>(
+                edited["editor"].clone(),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+    );
+    let reopened = owo_agent_core::workswarm::TeamTemplateRegistry::for_workswarm_root(
+        &fixture.data_root.join("workswarm"),
+    );
+    let saved = reopened
+        .get_template(edited["template_id"].as_str().unwrap())
+        .unwrap();
+    assert_eq!(saved.roles[0].node_id.as_deref(), Some("node-0"));
+    assert_eq!(saved.editor.unwrap().nodes[0].position.unwrap().y, 230.0);
+}
+
+#[tokio::test]
+async fn versioned_workflow_http_rejects_stale_writes_and_retains_deletion_history() {
+    let fixture = fixture_with_provider(ScriptedProvider::new(vec![good_reply()]));
+    let mut template = good_template_value();
+    let id = template["template_id"].as_str().unwrap().to_owned();
+    let path = format!("/workflows/user/{id}");
+    let (status, first) = call(
+        &fixture.state,
+        "POST",
+        "/workflows/user",
+        Some(&template.to_string()),
+    )
+    .await;
+    assert_eq!(status, 200, "{first}");
+    assert_eq!(first["revision"], 1);
+    let (status, read) = call(&fixture.state, "GET", &path, None).await;
+    assert_eq!(status, 200, "{read}");
+    assert_eq!(read["revision"], 1);
+    template["name"] = json!("newer edit");
+    let (status, missing) = call(
+        &fixture.state,
+        "POST",
+        "/workflows/user",
+        Some(&template.to_string()),
+    )
+    .await;
+    assert_eq!(status, 428, "{missing}");
+    template["expected_revision"] = json!(1);
+    let (status, updated) = call(
+        &fixture.state,
+        "POST",
+        "/workflows/user",
+        Some(&template.to_string()),
+    )
+    .await;
+    assert_eq!(status, 200, "{updated}");
+    assert_eq!(updated["revision"], 2);
+    template["name"] = json!("stale edit");
+    let (status, stale) = call(
+        &fixture.state,
+        "POST",
+        "/workflows/user",
+        Some(&template.to_string()),
+    )
+    .await;
+    assert_eq!(status, 409, "{stale}");
+    assert_eq!(stale["current_revision"], 2);
+    let (status, missing) = call(&fixture.state, "DELETE", &path, None).await;
+    assert_eq!(status, 428, "{missing}");
+    let (status, stale) = call(
+        &fixture.state,
+        "DELETE",
+        &format!("{path}?expected_revision=1"),
+        None,
+    )
+    .await;
+    assert_eq!(status, 409, "{stale}");
+    let (status, deleted) = call(
+        &fixture.state,
+        "DELETE",
+        &format!("{path}?expected_revision=2"),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{deleted}");
+    assert_eq!(deleted["revision"], 3);
+    let (_, tombstone) = call(&fixture.state, "GET", &path, None).await;
+    assert_eq!(tombstone["deleted"], true);
+    assert_eq!(tombstone["revision"], 3);
+    let (status, history) = call(
+        &fixture.state,
+        "GET",
+        &format!("{path}/revisions?limit=2"),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{history}");
+    assert_eq!(history["revisions"][0]["revision"], 3);
+    assert!(history["revisions"][0]["template"].is_null());
+    assert_eq!(history["revisions"][1]["template"]["name"], "newer edit");
+    let (_, page) = call(
+        &fixture.state,
+        "GET",
+        &format!("{path}/revisions?before=2"),
+        None,
+    )
+    .await;
+    assert_eq!(page["revisions"].as_array().unwrap().len(), 1);
+    assert_eq!(page["revisions"][0]["revision"], 1);
+}
+
+#[tokio::test]
+async fn ai_draft_adoption_uses_frozen_base_and_rejects_intervening_edits() {
+    let fixture = fixture_with_provider(ScriptedProvider::new(vec![good_reply()]));
+    let mut template = good_template_value();
+    let id = template["template_id"].as_str().unwrap().to_owned();
+    let (status, saved) = call(
+        &fixture.state,
+        "POST",
+        "/workflows/user",
+        Some(&template.to_string()),
+    )
+    .await;
+    assert_eq!(status, 200, "{saved}");
+    let (status, draft) = call(
+        &fixture.state,
+        "POST",
+        "/workflows/draft",
+        Some(&json!({"description":"refine","based_on":id}).to_string()),
+    )
+    .await;
+    assert_eq!(status, 200, "{draft}");
+    assert_eq!(draft["draft"]["base_revision"], 1);
+    template["expected_revision"] = json!(1);
+    template["name"] = json!("human update during AI generation");
+    let (status, saved) = call(
+        &fixture.state,
+        "POST",
+        "/workflows/user",
+        Some(&template.to_string()),
+    )
+    .await;
+    assert_eq!(status, 200, "{saved}");
+    let draft_id = draft["draft"]["draft_id"].as_str().unwrap();
+    let (status, rejected) = call(
+        &fixture.state,
+        "POST",
+        &format!("/workflows/draft/{draft_id}/adopt"),
+        Some("{}"),
+    )
+    .await;
+    assert_eq!(status, 409, "{rejected}");
+    assert_eq!(rejected["expected_revision"], 1);
+    let (_, current) = call(
+        &fixture.state,
+        "GET",
+        &format!("/workflows/user/{id}"),
+        None,
+    )
+    .await;
+    assert_eq!(
+        current["template"]["name"],
+        "human update during AI generation"
+    );
+    assert_eq!(current["revision"], 2);
+}
+
+#[tokio::test]
+async fn draft_adoption_is_durable_idempotent_and_never_overwrites_a_later_edit() {
+    let fixture = fixture(vec![good_reply()]);
+    let (status, generated) = call(
+        &fixture.state,
+        "POST",
+        "/workflows/draft",
+        Some(r#"{"description":"durable draft"}"#),
+    )
+    .await;
+    assert_eq!(status, 200, "{generated}");
+    let id = generated["draft"]["draft_id"].as_str().unwrap();
+    let endpoint = format!("/workflows/draft/{id}/adopt");
+    let (status, saved) = call(&fixture.state, "POST", &endpoint, Some("{}")).await;
+    assert_eq!(status, 200, "{saved}");
+    let registry = owo_agent_core::workswarm::TeamTemplateRegistry::for_workswarm_root(
+        &fixture.data_root.join("workswarm"),
+    );
+    // Every HTTP request opens a new storage connection; directly reopen and
+    // independently verify that the two committed identities agree.
+    let store = registry
+        .workflow_draft_store(&fixture.data_root.join("workswarm/drafts"))
+        .unwrap();
+    let draft = store.get_draft_record(id).unwrap().unwrap();
+    assert_eq!(draft.adopted_revision, Some(1));
+    assert_eq!(
+        serde_json::to_value(draft.template).unwrap(),
+        saved["template"]
+    );
+    drop(store);
+    let (status, replay) = call(&fixture.state, "POST", &endpoint, Some("{}")).await;
+    assert_eq!(status, 200, "{replay}");
+    assert_eq!(replay["revision"], saved["revision"]);
+    assert_eq!(replay["content_hash"], saved["content_hash"]);
+    assert_eq!(
+        registry
+            .revision_history("level-design-pipeline", None, 100)
+            .unwrap()
+            .len(),
+        1
+    );
+    let mut newer = saved["template"].clone();
+    newer["name"] = json!("User edited after adoption");
+    newer["expected_revision"] = json!(1);
+    let (status, updated) = call(
+        &fixture.state,
+        "POST",
+        "/workflows/user",
+        Some(&newer.to_string()),
+    )
+    .await;
+    assert_eq!(status, 200, "{updated}");
+    let (status, rejected) = call(&fixture.state, "POST", &endpoint, Some("{}")).await;
+    assert_eq!(status, 428, "{rejected}");
+    assert_eq!(
+        registry
+            .get_revision("level-design-pipeline")
+            .unwrap()
+            .unwrap()
+            .template
+            .unwrap()
+            .name,
+        "User edited after adoption"
+    );
+    let (status, detail) = call(
+        &fixture.state,
+        "GET",
+        &format!("/workflows/draft/{id}"),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{detail}");
+    assert_eq!(detail["draft"]["adopted_revision"], 1);
+}
+
+#[tokio::test]
+async fn legacy_draft_migration_failures_are_visible_and_retained_files_never_resurrect_deletions()
+{
+    let fixture = fixture(vec![]);
+    let dir = fixture.data_root.join("workswarm/drafts");
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("legacy.json");
+    std::fs::write(&path, b"{broken").unwrap();
+    let (status, failed) = call(&fixture.state, "GET", "/workflows/draft", None).await;
+    assert_eq!(status, 500, "{failed}");
+    assert_eq!(failed["code"], "workflow/storage_failed");
+    assert_eq!(std::fs::read(&path).unwrap(), b"{broken");
+    let legacy = json!({"draft_id":"legacy","description":"Imported old draft",
+        "template":good_template_value(),"errors":[],"model":"legacy","created_at":"fixture"});
+    let raw = serde_json::to_vec(&legacy).unwrap();
+    std::fs::write(&path, &raw).unwrap();
+    let (status, listed) = call(&fixture.state, "GET", "/workflows/draft", None).await;
+    assert_eq!(status, 200, "{listed}");
+    assert_eq!(listed["count"], 1);
+    assert!(listed["drafts"][0]["base_revision"].is_null());
+    let endpoint = "/workflows/draft/legacy";
+    let (status, deleted) = call(&fixture.state, "DELETE", endpoint, None).await;
+    assert_eq!(status, 200, "{deleted}");
+    let (status, detail) = call(&fixture.state, "GET", endpoint, None).await;
+    assert_eq!(status, 404, "{detail}");
+    let (status, listed) = call(&fixture.state, "GET", "/workflows/draft", None).await;
+    assert_eq!(status, 200, "{listed}");
+    assert_eq!(listed["count"], 0);
+    let (status, adopted) = call(
+        &fixture.state,
+        "POST",
+        "/workflows/draft/legacy/adopt",
+        Some("{}"),
+    )
+    .await;
+    assert_eq!(status, 404, "{adopted}");
+    assert_eq!(std::fs::read(&path).unwrap(), raw);
 }

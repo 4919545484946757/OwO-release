@@ -299,6 +299,7 @@ impl TeamCoordinator {
                         "version": artifact.get("version").cloned().unwrap_or(Value::Null),
                         "sha256": artifact.get("sha256").cloned().unwrap_or(Value::Null),
                         "producer": producer,
+                        "role": artifact.get("role").cloned().unwrap_or(Value::Null),
                         "reviewed_source": reviewed_source,
                         "review_requirements": artifact.get("review_requirements").cloned().unwrap_or_else(|| json!([])),
                     }))
@@ -367,14 +368,34 @@ impl TeamCoordinator {
         } else {
             declared_kind.to_string()
         };
-        let eff = effective_format(&declared.format, &kind_for_meta);
+        let mut eff = effective_format(&declared.format, &kind_for_meta);
         self.audit(
             team_id,
             "team.artifact.validation_started",
             format!("member={member_id} step={step_id} format={eff}"),
         );
         let validation_started = std::time::Instant::now();
-        let validation = validate_artifact_content(&eff, &declared.content, &output.evidence);
+        let mut validation = validate_artifact_content(&eff, &declared.content, &output.evidence);
+        // Report-oriented roles often declare json while writing a Markdown
+        // report. The content is still a valid, inspectable artifact; downgrade
+        // only that narrow case to markdown instead of failing the whole step.
+        let report_artifact =
+            matches!(role, "tester" | "playtester") || kind_for_meta.contains("report");
+        if !validation.valid && eff == "json" && report_artifact {
+            let markdown =
+                validate_artifact_content("markdown", &declared.content, &output.evidence);
+            if markdown.valid {
+                self.audit(
+                    team_id,
+                    "team.artifact.format_normalized",
+                    format!(
+                        "member={member_id} step={step_id} json->markdown fallback (invalid JSON)"
+                    ),
+                );
+                eff = "markdown".to_string();
+                validation = markdown;
+            }
+        }
         let validation_ms = validation_started.elapsed().as_millis() as u64;
         if !validation.valid {
             // 门控（登记前）：未通过格式校验的产物不进任何登记流程。

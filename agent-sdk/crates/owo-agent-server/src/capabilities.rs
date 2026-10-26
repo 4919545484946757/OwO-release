@@ -428,30 +428,47 @@ const E_MEDIA_SPEECH_ENTRYPOINTS: &[Entrypoint] = &[Entrypoint {
 }];
 
 /// GET /capabilities：功能目录（"我现在能做什么"页的数据面）。
-/// 文生图 / 语音是否可直接调用：有密钥，或端点指向本机（本地服务允许空密钥）。
-/// 只判断"有没有配"，不回显密钥、不探测远端，避免把凭据或网络状态带进响应。
-fn media_endpoint_ready() -> bool {
-    let has_key = ["OWO_IMAGE_API_KEY", "OPENAI_API_KEY"].iter().any(|key| {
-        std::env::var(key)
-            .map(|value| !value.trim().is_empty())
-            .unwrap_or(false)
-    });
-    if has_key {
-        return true;
-    }
-    ["OWO_IMAGE_BASE_URL", "OPENAI_BASE_URL"].iter().any(|key| {
-        std::env::var(key)
-            .map(|value| {
-                let lower = value.to_ascii_lowercase();
-                lower.contains("127.0.0.1")
-                    || lower.contains("localhost")
-                    || lower.contains("[::1]")
-            })
-            .unwrap_or(false)
-    })
+/// Configuration evidence only, using the exact resolver used by media execution.
+#[cfg(test)]
+fn media_connection_views() -> (Value, Value) {
+    use owo_agent_core::gateway::media_config::{media_connection_status, MediaService};
+    (
+        media_connection_status(MediaService::ImageGeneration),
+        media_connection_status(MediaService::TextToSpeech),
+    )
 }
 
-pub async fn capabilities_list(State(_state): State<Arc<AppState>>) -> Json<Value> {
+pub async fn capabilities_list(State(state): State<Arc<AppState>>) -> Json<Value> {
+    use owo_agent_core::gateway::{
+        media_config::MediaService,
+        media_profiles::{checked_status, MediaProfileStore},
+    };
+    let store = MediaProfileStore::new(&state.data_root);
+    let snapshot = tokio::task::spawn_blocking(move || {
+        let catalog = store.load()?;
+        let checks = store.checks(catalog.revision)?;
+        Ok::<_, String>((catalog, checks))
+    })
+    .await
+    .unwrap_or_else(|_| Err("media_profiles/storage_error: 连接读取任务失败".into()));
+    let image_connection = snapshot
+        .as_ref()
+        .map(|(c, checks)| checked_status(c, MediaService::ImageGeneration, checks))
+        .unwrap_or_else(|reason| {
+            owo_agent_core::gateway::media_profiles::invalid_status(
+                MediaService::ImageGeneration,
+                reason.clone(),
+            )
+        });
+    let speech_connection = snapshot
+        .as_ref()
+        .map(|(c, checks)| checked_status(c, MediaService::TextToSpeech, checks))
+        .unwrap_or_else(|reason| {
+            owo_agent_core::gateway::media_profiles::invalid_status(
+                MediaService::TextToSpeech,
+                reason.clone(),
+            )
+        });
     let items: Vec<Value> = CAPABILITIES
         .iter()
         .map(|capability| {
@@ -486,10 +503,11 @@ pub async fn capabilities_list(State(_state): State<Arc<AppState>>) -> Json<Valu
         .filter(|capability| capability.maturity == CapabilityMaturity::Experimental)
         .count();
     Json(json!({
+        "media_connections": {"image_generation": image_connection, "text_to_speech": speech_connection},
         "count": CAPABILITIES.len(),
         "maturity": { "stable": stable, "beta": beta, "experimental": experimental },
         "capabilities": items,
-        "constraints": { "request_read_only": true, "scoped_turn_cancellation": true, "custom_model_connection": true, "custom_model_env_credentials": true, "durable_session_facts": true, "media_image_generation": media_endpoint_ready(), "media_speech": media_endpoint_ready(), "chat_mode": true },
+        "constraints": { "request_read_only": true, "scoped_turn_cancellation": true, "structured_input_parts": true, "custom_model_connection": true, "custom_model_env_credentials": true, "durable_session_facts": true, "media_image_generation": image_connection["configured"] == true, "media_speech": speech_connection["configured"] == true, "chat_mode": true },
     }))
 }
 
@@ -497,14 +515,17 @@ pub async fn capabilities_list(State(_state): State<Arc<AppState>>) -> Json<Valu
 mod tests {
     use super::*;
 
-    /// 媒体能力位是纯判定：没有密钥、端点也不是本机时必须为 false，
-    /// 不能因为"工具已注册"就谎报可用。
+    /// 配置投影不得把工具注册、端点或凭据存在误报为连接/服务验证。
     #[test]
-    fn media_endpoint_ready_requires_key_or_local_endpoint() {
-        // 该测试只验证判定是纯函数：环境不变时重复调用必须得到同一结果；
-        // 具体取值由密钥/本机端点决定，不做全局假设。
-        let ready = media_endpoint_ready();
-        assert_eq!(ready, media_endpoint_ready());
+    fn media_configuration_views_do_not_claim_connection_or_service_verification() {
+        let (image, speech) = media_connection_views();
+        for view in [image, speech] {
+            assert!(view["configured"].is_boolean());
+            assert!(view["connected"].is_null());
+            assert!(view["verified"].is_null());
+            assert!(view["last_verified_at"].is_null());
+            assert!(view.get("api_key").is_none());
+        }
     }
 
     /// constraints 里必须同时给出图片与语音两个能力位（源码级契约，避免路由响应漏字段）。

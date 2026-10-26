@@ -157,6 +157,28 @@ impl TeamCoordinator {
             .map_err(WorkSwarmError::Store)
     }
 
+    /// Bounded canonical history for interactive observers, without loading goal history.
+    pub async fn handoffs_before(
+        &self,
+        team_id: &str,
+        before: Option<&str>,
+        limit: usize,
+    ) -> WorkSwarmResult<owo_agent_protocol::HandoffPage> {
+        let team = self.get_team_run(team_id).await?;
+        let project = team
+            .project_space_id
+            .as_deref()
+            .ok_or_else(|| WorkSwarmError::NotFound("team has no project space".into()))?;
+        self.store
+            .handoffs_before(project, before, limit)
+            .map_err(|e| match e {
+                ProjectSpaceStoreError::InvalidState(message) => {
+                    WorkSwarmError::Validation(message)
+                }
+                other => WorkSwarmError::Store(other),
+            })
+    }
+
     /// 按团队列出全部结构化 Handoff（评测适配器/诊断用）。
     pub async fn list_handoffs(&self, team_id: &str) -> WorkSwarmResult<Vec<HandoffRecord>> {
         let (_team, space, _state) = self.load_bundle(team_id).await?;
@@ -181,33 +203,13 @@ impl TeamCoordinator {
     }
 
     pub(crate) fn persist_state(&self, state: &GoalRunState) -> WorkSwarmResult<()> {
-        // 损坏保护：目标状态文件已存在且无法解析时拒绝写入——
-        // 任何路径都不得把损坏文件静默覆盖成"新状态"（R2：明确失败并保留原文件）。
-        let path = self.run_dir.join(format!("{}.json", state.run_id));
-        if path.exists() {
-            if let Ok(raw) = std::fs::read_to_string(&path) {
-                if serde_json::from_str::<GoalRunState>(&raw).is_err() {
-                    return Err(WorkSwarmError::CorruptState(format!(
-                        "拒绝覆盖损坏的运行状态文件（请人工修复或移除后再试）：{}",
-                        path.display()
-                    )));
-                }
-            }
-        }
         let epoch = Self::durable_execution_epoch(state).max(self.phase_epoch(&state.run_id));
         if epoch == state.execution_epoch {
-            return state
-                .persist(&self.run_dir)
-                .map(|_| ())
-                .map_err(WorkSwarmError::Run);
+            return self.persist_observed_state(state);
         }
-        // Clone only on a generation change, not on every progress checkpoint.
         let mut checkpoint = state.clone();
         checkpoint.execution_epoch = epoch;
-        checkpoint
-            .persist(&self.run_dir)
-            .map(|_| ())
-            .map_err(WorkSwarmError::Run)
+        self.persist_observed_state(&checkpoint)
     }
 
     pub(crate) fn step_deps_satisfied(state: &GoalRunState, step: &StepSpec) -> bool {
@@ -254,6 +256,79 @@ impl TeamCoordinator {
     }
 
     // -- 组队（§6.1：模板优先 + 动态组队 ≤5 Agent） --
+}
+
+// The journal remains in the existing ProjectSpace store; this exposes no write authority.
+impl TeamCoordinator {
+    pub fn run_events_before(
+        &self,
+        team_id: &str,
+        before: u64,
+        limit: usize,
+    ) -> WorkSwarmResult<owo_agent_protocol::RunEventHistoryPage> {
+        self.store
+            .run_events_before(team_id, before, limit)
+            .map_err(|error| match error {
+                ProjectSpaceStoreError::NotFound(message) => WorkSwarmError::NotFound(message),
+                ProjectSpaceStoreError::InvalidState(message) => {
+                    WorkSwarmError::Validation(message)
+                }
+                other => WorkSwarmError::Store(other),
+            })
+    }
+
+    pub fn run_events_after(
+        &self,
+        team_id: &str,
+        after: u64,
+        limit: usize,
+    ) -> WorkSwarmResult<owo_agent_protocol::RunEventPage> {
+        self.store
+            .run_events_after(team_id, after, limit)
+            .map_err(|error| match error {
+                ProjectSpaceStoreError::NotFound(message) => WorkSwarmError::NotFound(message),
+                ProjectSpaceStoreError::InvalidState(message) => {
+                    WorkSwarmError::Validation(message)
+                }
+                other => WorkSwarmError::Store(other),
+            })
+    }
+}
+
+impl TeamCoordinator {
+    /// Project one durable canonical message reference. Safe to replay before acknowledging its outbox row.
+    pub fn publish_team_turn_delivery(
+        &self,
+        delivery: &crate::session::TeamTurnDelivery,
+    ) -> WorkSwarmResult<owo_agent_protocol::RunEvent> {
+        use crate::project_space_store::NewRunEvent;
+        let run = &delivery.binding.run_id;
+        let key = |seq| format!("turn:{}:{seq}", delivery.session_id);
+        let mut event = NewRunEvent::new(
+            run,
+            key(delivery.session_seq),
+            &delivery.event_type,
+            serde_json::json!({"record_ref":{"session_id":delivery.session_id,
+                "seq":delivery.session_seq,"turn_id":delivery.turn_id},
+                "source_timestamp":delivery.created_at,
+                "artifact_refs_complete":delivery.artifact_refs_complete}),
+        );
+        event.node_id = delivery.binding.node_id.clone();
+        event.task_id = Some(delivery.binding.task_id.clone());
+        event.attempt = delivery.binding.attempt.clone();
+        event.tool_call_id = delivery.tool_call_id.clone();
+        event.artifact_refs = delivery.artifact_refs.clone();
+        if let Some(seq) = delivery.cause_seq {
+            let cause = self
+                .store
+                .run_event_by_source(run, &key(seq))?
+                .ok_or_else(|| {
+                    WorkSwarmError::Run("tool start reference has not been delivered".into())
+                })?;
+            event.causation_id = Some(cause.event_id);
+        }
+        Ok(self.store.append_run_event(&event)?)
+    }
 }
 
 #[cfg(test)]

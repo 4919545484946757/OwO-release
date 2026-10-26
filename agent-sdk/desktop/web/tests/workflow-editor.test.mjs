@@ -644,3 +644,13 @@ test("buildTeamCreateConfirm：warn 一次性确认；blocked 直接拒绝；无
   assert.match(blocked, /不能建队/);
   assert.match(blocked, /依赖不存在的角色/);
 });
+
+test("reserved property names remain valid role labels in checks, layout and position lookup", () => {
+ const doc={template_id:"reserved-labels",name:"Reserved",roles:[{role:"__proto__",assignee:"human"},{role:"constructor",assignee:"agent",depends_on:["__proto__"]},{role:"toString",depends_on:["constructor"]}]};
+ assert.deepEqual(E.quickCheck(doc),[]);
+ const graph=E.graphPositions(doc,JSON.parse('{"__proto__":{"x":10,"y":20}}'));
+ assert.equal(graph.ok,true);assert.equal(graph.nodes.length,3);
+ assert.equal(graph.nodes.find(node=>node.id==="__proto__").x,10);
+ assert.deepEqual(graph.edges,[{from:"__proto__",to:"constructor"},{from:"constructor",to:"toString"}]);
+ assert.equal({}.x,undefined);
+});

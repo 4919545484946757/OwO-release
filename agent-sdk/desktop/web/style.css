@@ -1557,6 +1557,10 @@ main > .codex-stage { order: 1; }
 }
 .composer-menu-label { display: flex; align-items: center; gap: 7px; }
 .composer-menu-desc { color: var(--text-3); font-size: 11px; font-weight: 400; }
+.composer-menu.composer-media-menu { width: 336px; max-width: calc(100vw - 24px); }
+.composer-media-menu .composer-menu-item, .composer-media-menu .composer-menu-desc {
+  white-space: normal; max-width: 100%; overflow-wrap: anywhere; line-height: 1.45;
+}
 .composer-menu-check { color: var(--accent); font-weight: 700; }
 .composer-menu-foot { margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border); }
 .composer-menu-link {
@@ -3359,3 +3363,13 @@ body.dark-theme { --accent-text: #8cb4ff; }
  #panelNav button { flex: 0 0 auto; }
  #panelNav .workbench-nav-group { display: none; }
 }
+
+/* Host media configuration, scoped to the existing settings section. */
+.media-profiles-settings .media-profiles-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+.media-profiles-settings .field-label {min-width:0;display:flex;flex-direction:column;gap:5px}
+.media-profiles-settings input:not([type=checkbox]),.media-profiles-settings select {max-width:100%;min-width:0;width:100%;box-sizing:border-box}
+.media-profiles-settings .media-profiles-actions {display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.media-profiles-settings .media-profiles-actions select {width:auto;flex:1 1 150px}
+.media-profiles-settings .media-profiles-actions label {flex-direction:row;align-items:center}
+.media-profiles-settings p {overflow-wrap:anywhere}.media-profiles-settings [data-error=true] {color:var(--danger,#b42318)}
+@media(max-width:600px){.media-profiles-settings .media-profiles-grid {grid-template-columns:minmax(0,1fr)}}

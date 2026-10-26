@@ -14,7 +14,43 @@
     var ID = "custom-workflows";
     var H = {};
     var rootEl = null;
+    var inputAssets = null;
+    var graphController = null, graphBox = null, jsonBase = null, editorParsedText = null, capabilityCatalog = [];
     var lifecycleGeneration = 0;
+    var revisionTracker = createRevisionTracker(), writeBusy = false, importReview = null;
+    // Keep the version read by this editor; list refreshes cannot advance it.
+    function createRevisionTracker() {
+      var base = null, epoch = 0;
+      return {
+        open: function (id, revision) { epoch += 1; base = { id: id, revision: Number.isSafeInteger(revision) && revision >= 0 ? revision : 0 }; },
+        capture: function (id) { return { epoch: epoch, id: id, expected_revision: base && base.id === id ? base.revision : 0 }; },
+        commit: function (token, result) {
+          if (token.epoch !== epoch || !result || !Number.isSafeInteger(result.revision)) return false;
+          base = { id: token.id, revision: result.revision }; return true;
+        }
+      };
+    }
+    function draftRevision(draft) {
+      var meta = draft && draft.draft || draft || {};
+      revisionTracker.open(meta.base_template_id || (draft.template && draft.template.template_id), meta.base_revision);
+    }
+    function beginWrite(root) {
+      if (writeBusy) return false;
+      writeBusy = true;
+      setError(root, "");
+      root.querySelector(".owo-wf-save").disabled = true;
+      root.querySelector(".owo-wf-adopt").disabled = true;
+      return true;
+    }
+    function editorStamp(root) {
+      return JSON.stringify([root.querySelector(".owo-wf-editor").value, Array.prototype.map.call(root.querySelectorAll(".owo-wfc-form input, .owo-wfc-form textarea, .owo-wfc-form select"), function (field) { return [field.name, field.value]; })]);
+    }
+    function endWrite(root, generation) {
+      if (generation !== lifecycleGeneration || rootEl !== root) return;
+      writeBusy = false;
+      root.querySelector(".owo-wf-save").disabled = false;
+      root.querySelector(".owo-wf-adopt").disabled = !root.getAttribute("data-draft-id");
+    }
     var editor = function () {
       return win.OwoWorkflowEditor || null;
     };
@@ -68,7 +104,7 @@
         '  <section class="owo-wf-brief" aria-labelledby="owoWfBriefTitle">',
         '    <div class="owo-wf-brief-head">',
         '      <div><p class="owo-wf-eyebrow">团队协作 · 一句话编排</p><h3 id="owoWfBriefTitle">说一句，生成一张可拖拽的团队画布</h3>',
-        '      <p class="hint">模型会把目标拆成角色、依赖、工具与交付契约；生成后直接拖动节点调整布局。采纳只保存配置，不会自动执行。</p></div>',
+        '      <p class="hint">模型会把目标拆成角色、依赖、工具与交付契约；生成后可增删角色、连接依赖和修改参数。采纳保存当前配置，不会自动执行。</p></div>',
         '      <span class="owo-wf-flow-badge">对话 → 画布 → 团队</span>',
         '    </div>',
         '    <div class="owo-wf-brief-input">',
@@ -80,16 +116,17 @@
         '      <label class="owo-wf-rounds-wrap hint">收敛轮次 <input class="owo-wf-rounds" type="number" min="1" max="5" value="1" title=">1 走多轮收敛（按校验错误迭代，最多 5 轮）"></label>',
         '    </div>',
         '    <details class="owo-wf-catalog">',
-        '      <summary class="owo-wf-catalog-head"><span>本次可用工具与 MCP</span><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></summary>',
+        '      <summary class="owo-wf-catalog-head"><span>工作流工具与能力状态</span><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></summary>',
         '      <div class="owo-wf-catalog-actions"><button type="button" class="owo-wf-catalog-refresh">刷新工具列表</button></div>',
         '      <div class="owo-wf-catalog-list hint">正在读取当前工具面…</div>',
         '    </details>',
         '    <div class="owo-wf-graph-box owo-wf-graph-box-hero"></div>',
         '    <div class="owo-wf-graph-info"></div>',
         '    <div class="owo-wf-draft-actions">',
-        '      <button type="button" class="owo-wf-adopt" disabled>采纳草稿</button>',
+        '      <button type="button" class="owo-wf-new">新建空白工作流</button>',
+        '      <button type="button" class="owo-wf-adopt" disabled>采纳当前草稿</button>',
         '      <button type="button" class="owo-wf-discard" disabled>丢弃草稿</button>',
-        '      <span class="hint">蓝色节点可拖动；双击「重排」回到自动分层布局。</span>',
+        '      <span class="hint">节点与 JSON 同步；布局随配置保存和导出。</span>',
         '    </div>',
         '    <pre class="owo-wf-draft-out hint"></pre>',
         '  </section>',
@@ -99,6 +136,7 @@
         '    <label title="团队运行没有交互式审批通道：不勾选时，写节点等待审批直到超时被拒，工作流必然失败"><input class="owo-wf-allow-writes" type="checkbox" checked>允许节点按各自声明的 write_paths 写入当前工作区<span class="hint">（不勾选 = 写节点会被拒绝）</span></label>',
         '    <span class="owo-wf-meta hint"></span>',
         "  </div>",
+        '  <div data-task-inputs></div>',
         '  <ul class="owo-wf-list"></ul>',
         '  <div class="owo-wf-error hint" hidden></div>',
         '  <details class="owo-wf-section">',
@@ -159,7 +197,7 @@
             " · " +
             row.roles +
             " 个角色 · " +
-            esc(row.tag) +
+            esc(item.preflight && item.preflight.ok === false ? "运行前检查未通过" : row.tag) +
             (row.warnings ? " · " + row.warnings + " 条提示" : "") +
             (row.riskLabel ? " · 风险 " + esc(row.riskLabel) : "") +
             (row.provenanceLabel ? " · " + esc(row.provenanceLabel) : "") +
@@ -190,201 +228,105 @@
         .join("");
     }
 
-    /// 读取/持久化单条工作流的拖拽布局（坏 JSON 静默回落默认布局）。
-    function layoutStorageKey(template) {
-      var id = template && template.template_id ? String(template.template_id) : "draft";
-      return "owo.wf.canvas.v1:" + id;
-    }
-    function loadSavedLayout(template) {
-      try {
-        var raw = win.localStorage && win.localStorage.getItem(layoutStorageKey(template));
-        var parsed = raw ? JSON.parse(raw) : null;
-        return parsed && typeof parsed === "object" ? parsed : {};
-      } catch (error) {
-        return {};
-      }
-    }
-    function saveSavedLayout(template, layout) {
-      try {
-        if (win.localStorage) win.localStorage.setItem(layoutStorageKey(template), JSON.stringify(layout));
-      } catch (error) {
-        // 隐私模式/配额满：拖拽仍生效，仅本次会话不持久化。
-      }
+    function renderGraphSvg(template) {
+      if (!template || !Array.isArray(template.roles) || !template.roles.length) return "";
+      if (!win.OwoWorkflowCanvas) return '<p class="hint">画布模块未加载</p>';
+      return win.OwoWorkflowCanvas.renderGraphSvg(template, editor());
     }
 
-    /// DAG 画布（SVG 字符串）：默认分层布局；`saved` 覆盖节点位置，节点可拖拽。
-    function renderGraphSvg(template, saved) {
-      var helper = editor();
-      if (!helper || !helper.graphPositions) return "";
-      var layout = helper.graphPositions(template, saved || {});
-      if (!layout.ok) return '<p class="hint">' + esc(layout.error) + "</p>";
-      if (!layout.nodes.length) return "";
-      var size = helper.graphNodeSize || { width: 124, height: 48 };
-      var nodeW = size.width, nodeH = size.height, pad = 18;
-      var svg = [
-        '<div class="owo-wf-canvas-toolbar"><span>拖动节点调整布局</span><button type="button" class="owo-wf-graph-reset">重排</button></div>',
-        '<svg class="owo-wf-graph" viewBox="0 0 ' + layout.width + " " + layout.height + '" width="100%" height="' + layout.height + '" role="img" aria-label="工作流依赖图" style="touch-action:none">',
-      ];
-      var positions = {};
-      layout.nodes.forEach(function (node) {
-        positions[node.id] = { x: node.x, y: node.y };
-      });
-      layout.edges.forEach(function (edge) {
-        var from = positions[edge.from];
-        var to = positions[edge.to];
-        if (!from || !to) return;
-        svg.push(
-          '<path class="owo-wf-edge" data-edge-from="' + esc(edge.from) + '" data-edge-to="' + esc(edge.to) +
-            '" d="' + esc(helper.edgePath(from, to)) + '" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.55"/>'
-        );
-      });
-      layout.nodes.forEach(function (node) {
-        var position = positions[node.id];
-        svg.push(
-          '<g class="owo-wf-node" data-node-id="' + esc(node.id) + '" transform="translate(' + position.x + " " + position.y +
-            ')" tabindex="0" role="button" aria-label="节点 ' + esc(node.id) + '，可拖动">'
-        );
-        svg.push('<rect width="' + nodeW + '" height="' + nodeH + '" rx="10" class="owo-wf-node-box"/>');
-        svg.push('<circle cx="14" cy="16" r="3.5" class="owo-wf-node-dot"/>');
-        svg.push('<text x="24" y="20" font-size="11" class="owo-wf-node-title">' + esc(node.id) + "</text>");
-        svg.push('<text x="24" y="35" font-size="9" opacity="0.68" class="owo-wf-node-meta">' + esc(node.assignee) + "</text>");
-        svg.push("</g>");
-      });
-      svg.push("</svg>");
-      return svg.join("");
-    }
-
-    /// 工具/MCP 清单（纯函数便于测试）：mcp__ 单独成组，明确“来自 MCP”。
-    function renderToolCatalog(names) {
-      var list = Array.isArray(names) ? names.map(function (name) { return String(name || "").trim(); }).filter(Boolean) : [];
-      var mcp = list.filter(function (name) { return name.indexOf("mcp__") === 0; });
-      var builtin = list.filter(function (name) { return name.indexOf("mcp__") !== 0; });
-      function chips(values) {
-        return values.map(function (name) { return '<code class="owo-wf-tool">' + esc(name) + "</code>"; }).join("");
+    // This projection is supplied by the same capability resolver as AI drafting and run preflight.
+    function renderToolCatalog(tools) {
+      var list = Array.isArray(tools) ? tools.map(function (tool) {
+        return typeof tool === "string" ? { name: tool, status: "unknown", worker_supported: false } : tool;
+      }).filter(function (tool) { return tool && typeof tool.name === "string" && tool.name.trim(); }) : [];
+      var labels = { registered: "已注册", not_configured: "未配置", disabled: "已禁用", unsupported: "Worker 未接入", unknown: "状态未知" };
+      function rows(values) {
+        return values.map(function (tool) {
+          var status = Object.prototype.hasOwnProperty.call(labels, tool.status) ? tool.status : "unknown";
+          var selectable = status === "registered" && tool.worker_supported === true;
+          var description = tool.description ? '<p class="hint">' + esc(tool.description) + '</p>' : "";
+          var profiles = Array.isArray(tool.profiles) ? tool.profiles.join(" / ") : "";
+          var inputs = Array.isArray(tool.input_modalities) ? tool.input_modalities.join(" / ") : "unknown";
+          var outputs = Array.isArray(tool.output_modalities) ? tool.output_modalities.join(" / ") : "unknown";
+          var effect = tool.effect && tool.effect.class || "未声明（执行时按高风险处理）";
+          return '<details class="owo-wf-tool-detail" data-tool-status="' + esc(status) + '"><summary><code class="owo-wf-tool">' +
+            esc(tool.name) + '</code> <span class="hint">' + esc(labels[status]) + (selectable ? ' · 可声明' : ' · 暂不可运行') +
+            '</span></summary>' + description +
+            (tool.reason ? '<p class="hint owo-wf-risk">' + esc(tool.reason) + '</p>' : '') +
+            '<p class="hint">输入 ' + esc(inputs) + ' → 输出 ' + esc(outputs) + ' · 副作用 ' + esc(effect) +
+            (profiles ? ' · 画像 ' + esc(profiles) : '') + '</p>' +
+            (tool.input_schema ? '<pre class="owo-wf-tool-schema">' + esc(JSON.stringify(tool.input_schema, null, 2)) + '</pre>' : '') + '</details>';
+        }).join("");
       }
-      return (
-        '<div class="owo-wf-tool-groups">' +
-        '<div><span class="owo-wf-tool-label">内置工具 ' + builtin.length + '</span><div class="owo-wf-tool-chips">' +
-        (builtin.length ? chips(builtin) : '<span class="hint">当前没有内置工具</span>') +
-        "</div></div>" +
-        '<div><span class="owo-wf-tool-label">MCP 工具 ' + mcp.length + '</span><div class="owo-wf-tool-chips">' +
-        (mcp.length ? chips(mcp) : '<span class="hint">未连接 MCP；接入后可直接写进角色 tools</span>') +
-        "</div></div></div>"
-      );
+      var mcp = list.filter(function (tool) { return tool.name.indexOf("mcp__") === 0; });
+      var builtin = list.filter(function (tool) { return tool.name.indexOf("mcp__") !== 0; });
+      return '<p class="hint">已注册表示工具已装配，未验证远端服务；执行仍受审批、角色及任务范围约束。</p>' +
+        '<div class="owo-wf-tool-groups"><div><span class="owo-wf-tool-label">内置工具 ' + builtin.length + '</span>' +
+        (builtin.length ? rows(builtin) : '<span class="hint">当前没有内置工具</span>') + '</div>' +
+        '<div><span class="owo-wf-tool-label">MCP 工具 ' + mcp.length + '</span>' +
+        (mcp.length ? rows(mcp) : '<span class="hint">未连接 MCP；接入后刷新并检查 Worker 状态</span>') + '</div></div>';
     }
 
-    /// 读取当前 Agent 真实工具面，避免把“未连接”的 MCP 画进画布。
+    var catalogRequest = 0;
     function refreshCatalog(root) {
       root = root || rootEl;
       if (!root) return Promise.resolve();
+      var generation = lifecycleGeneration;
+      var request = ++catalogRequest;
       var box = root.querySelector(".owo-wf-catalog-list");
-      if (box) box.innerHTML = '<span class="hint">正在读取当前工具面…</span>';
-      return H.get("/settings")
-        .then(function (settings) {
-          var names = settings && settings.runtime && Array.isArray(settings.runtime.active_tool_names)
-            ? settings.runtime.active_tool_names
-            : [];
-          if (box) box.innerHTML = renderToolCatalog(names);
+      if (box) box.innerHTML = '<span class="hint">正在读取 Worker 工具能力…</span>';
+      return (H.get || defaultGet)("/workflows/tools")
+        .then(function (catalog) {
+          if (generation !== lifecycleGeneration || request !== catalogRequest) return;
+          if (!catalog || !Array.isArray(catalog.tools)) throw new Error("工具目录响应不完整");
+          capabilityCatalog = catalog.tools;
+          if (graphController) graphController.setCatalog(capabilityCatalog);
+          if (box) box.innerHTML = renderToolCatalog(catalog.tools);
         })
-        .catch(function () {
-          if (box) {
-            box.innerHTML = '<span class="hint">工具面读取失败；确认本地核心已连接后点「刷新」。</span>';
-          }
+        .catch(function (error) {
+          if (generation !== lifecycleGeneration || request !== catalogRequest) return;
+          if (box) box.innerHTML = '<span class="hint" role="alert">工具目录读取失败：' + esc(defaultFriendlyError(error)) + '；请刷新重试。</span>';
         });
     }
 
-    /// 把布局状态挂到画布容器：一次绑定事件，innerHTML 重绘后仍生效。
-    function paintGraph(root, template) {
+    function writeEditor(root, template) {
+      var area = root.querySelector(".owo-wf-editor");
+      if (area) { area.value = JSON.stringify(template, null, 2); editorParsedText = area.value; }
+      jsonBase = template;
+    }
+    function updateGraphInfo(root, template) {
+      var info = root.querySelector(".owo-wf-graph-info");
+      if (info) info.innerHTML = renderChecklist(template) + renderRoleRows(template);
+    }
+    function paintGraph(root, template, fromJson) {
       var box = root.querySelector(".owo-wf-graph-box");
-      if (!box || !template) return;
-      var helper = editor();
-      if (!helper || !helper.graphPositions) return;
-      var saved = loadSavedLayout(template);
-      var layout = helper.graphPositions(template, saved);
-      if (!layout.ok) {
-        box.innerHTML = '<p class="hint">' + esc(layout.error) + "</p>";
-        return;
-      }
-      box.setAttribute("data-template-id", String(template.template_id || "draft"));
-      box.innerHTML = renderGraphSvg(template, saved);
-      var svg = box.querySelector("svg");
-      if (!svg) return;
-      var current = {};
-      layout.nodes.forEach(function (node) {
-        current[node.id] = { x: node.x, y: node.y };
-      });
-      var drag = null;
-      function point(event) {
-        var matrix = svg.getScreenCTM && svg.getScreenCTM();
-        if (matrix) {
-          var pt = svg.createSVGPoint();
-          pt.x = event.clientX;
-          pt.y = event.clientY;
-          var local = pt.matrixTransform(matrix.inverse());
-          return { x: local.x, y: local.y };
-        }
-        var rect = svg.getBoundingClientRect();
-        return {
-          x: ((event.clientX - rect.left) / Math.max(1, rect.width)) * layout.width,
-          y: ((event.clientY - rect.top) / Math.max(1, rect.height)) * layout.height,
-        };
-      }
-      function updateEdges() {
-        Array.prototype.slice.call(svg.querySelectorAll("[data-edge-from]")).forEach(function (path) {
-          var from = current[path.getAttribute("data-edge-from")];
-          var to = current[path.getAttribute("data-edge-to")];
-          if (from && to) path.setAttribute("d", helper.edgePath(from, to));
+      if (!box || !template || !win.OwoWorkflowCanvas || !win.OwoWorkflowDocument) return;
+      if (box !== graphBox || !graphController) {
+        if (graphController) graphController.dispose();
+        graphBox = box;
+        graphController = win.OwoWorkflowCanvas.create({ root: box, helper: editor(),
+          onChange: function (document, message) { if (root !== rootEl) return; writeEditor(root, document); updateGraphInfo(root, document); setMeta(root, message); },
+          onMessage: function (message) { if (root === rootEl) setMeta(root, message); }
         });
+        graphController.setCatalog(capabilityCatalog);
       }
-      box.onpointerdown = function (event) {
-        var node = event.target && event.target.closest ? event.target.closest(".owo-wf-node") : null;
-        if (!node || event.button !== 0) return;
-        var id = node.getAttribute("data-node-id");
-        if (!id || !current[id]) return;
-        event.preventDefault();
-        var start = point(event);
-        drag = { id: id, offsetX: start.x - current[id].x, offsetY: start.y - current[id].y, node: node, moved: false };
-        if (node.setPointerCapture) {
-          try { node.setPointerCapture(event.pointerId); } catch (error) { /* 忽略合成事件 */ }
-        }
-        node.classList.add("is-dragging");
-      };
-      box.onpointermove = function (event) {
-        if (!drag) return;
-        event.preventDefault();
-        var at = point(event);
-        var next = helper.clampNodePosition(at.x - drag.offsetX, at.y - drag.offsetY, layout.width, layout.height);
-        current[drag.id] = next;
-        drag.node.setAttribute("transform", "translate(" + next.x + " " + next.y + ")");
-        drag.moved = true;
-        updateEdges();
-      };
-      function finishDrag() {
-        if (!drag) return;
-        var node = drag.node;
-        var id = drag.id;
-        var moved = drag.moved;
-        node.classList.remove("is-dragging");
-        drag = null;
-        if (moved) {
-          var merged = {};
-          Object.keys(current).forEach(function (key) { merged[key] = current[key]; });
-          saved[id] = merged[id];
-          saveSavedLayout(template, saved);
-          box.setAttribute("data-dragged", "1");
-          setMeta(root, "已保存「" + (template.name || template.template_id || "工作流") + "」的节点布局（仅界面，不改配置）");
-        }
+      var result = graphController.setDocument(template);
+      if (result.ok) {
+        if (!fromJson) writeEditor(root, result.document);
+        else editorParsedText = root.querySelector(".owo-wf-editor").value;
+        updateGraphInfo(root, result.document);
+      } else setError(root, result.error);
+    }
+    function syncJson(root) {
+      var area = root.querySelector(".owo-wf-editor"), parsed = editor().parseTemplate(area.value);
+      if (!jsonBase) jsonBase = graphController && graphController.getDocument();
+      var result = parsed.ok ? (jsonBase ? win.OwoWorkflowDocument.reconcile(jsonBase, parsed.template) : win.OwoWorkflowDocument.normalize(parsed.template)) : parsed;
+      if (!result.ok) {
+        editorParsedText = null;
+        if (graphController) graphController.invalidate(result.error);
+        setError(root, result.error); return;
       }
-      box.onpointerup = finishDrag;
-      box.onpointercancel = finishDrag;
-      box.onclick = function (event) {
-        var reset = event.target && event.target.closest ? event.target.closest(".owo-wf-graph-reset") : null;
-        if (!reset) return;
-        event.preventDefault();
-        saveSavedLayout(template, {});
-        paintGraph(root, template);
-        setMeta(root, "已恢复自动分层布局");
-      };
+      setError(root, ""); paintGraph(root, result.document, true);
     }
 
     /// 统计列表 HTML（纯函数便于测试）。
@@ -567,11 +509,17 @@
       meta.appendChild(button);
     }
     function editorTemplate(root) {
-      var helper = editor();
+      var helper = editor(), area = root.querySelector(".owo-wf-editor");
       if (!helper) throw new Error("工作流编辑器模块未加载");
-      var parsed = helper.parseTemplate(root.querySelector(".owo-wf-editor").value);
+      var parsed = helper.parseTemplate(area.value);
       if (!parsed.ok) throw new Error(parsed.error);
-      return parsed.template;
+      if (!win.OwoWorkflowDocument) return parsed.template;
+      var current = graphController && graphController.getDocument();
+      var result = area.value === editorParsedText && current ? { ok: true, document: current } :
+        (jsonBase ? win.OwoWorkflowDocument.reconcile(jsonBase, parsed.template) : win.OwoWorkflowDocument.normalize(parsed.template));
+      if (!result.ok) throw new Error(result.error);
+      writeEditor(root, result.document);
+      return result.document;
     }
     /// 逐角色健康行（HTML；风险用 title 展开，避免表格过宽）。
     function renderRoleRows(template) {
@@ -679,6 +627,10 @@
             : Promise.resolve(true);
           Promise.resolve(confirmation).then(function (confirmed) {
             if (!confirmed || generation !== lifecycleGeneration || rootEl !== root) return;
+            revisionTracker.open(id, item.revision);
+            root.removeAttribute("data-draft-id");
+            root.querySelector(".owo-wf-adopt").disabled = true;
+            root.querySelector(".owo-wf-discard").disabled = true;
             area.value = text;
             var section = area.closest("details");
             if (section) section.open = true;
@@ -718,12 +670,19 @@
       Array.prototype.slice.call(root.querySelectorAll(".owo-wf-delete")).forEach(function (button) {
         button.addEventListener("click", function () {
           var id = button.closest(".owo-wf-item").getAttribute("data-id");
-          H.delete("/workflows/user/" + encodeURIComponent(id))
+          var entry = ((listed && listed.templates) || []).find(function (item) { return item.template && item.template.template_id === id; });
+          if (!entry || !Number.isSafeInteger(entry.revision)) return setError(root, "缺少版本信息，请刷新列表后再删除。");
+          var generation = lifecycleGeneration;
+          button.disabled = true;
+          H.delete("/workflows/user/" + encodeURIComponent(id) + "?expected_revision=" + entry.revision)
             .then(function () {
+              if (generation !== lifecycleGeneration || rootEl !== root) return;
               setMeta(root, "已删除 " + id);
               return refresh(root);
             })
             .catch(function (error) {
+              if (generation !== lifecycleGeneration || rootEl !== root) return;
+              button.disabled = false;
               setError(root, "删除失败：" + H.friendlyError(error));
             });
         });
@@ -766,6 +725,7 @@
               var discard = root.querySelector(".owo-wf-discard");
               if (adopt) adopt.disabled = !draftId;
               if (discard) discard.disabled = !draftId;
+              if (draft && draft.template) { draftRevision(draft); showPreview(root, "按运行证据生成的候选", draft.template); }
             })
             .catch(function (error) {
               if (out) out.textContent = "";
@@ -814,7 +774,7 @@
         var parent = (snapshot.sessions || []).find(function (s) { return s.id === snapshot.sessionId; });
         if (parent && parent.workspace === snapshot.workspace) body.parent_session_id = parent.id;
       }
-      return body;
+      return inputAssets ? inputAssets.applyTo(body) : body;
     }
 
     /// 建队前读取"允许按声明范围写入"复选框（缺省勾选：自定义工作流没有交互审批通道）。
@@ -856,7 +816,7 @@
       if (request.body) request.body.acknowledge_risk = true;
       setError(root, "");
       setMeta(root, "正在用 " + id + " 创建团队…");
-      H.post(request.path, attachWorkspaceContext(root, request.body))
+      return Promise.resolve().then(function () { return H.post(request.path, attachWorkspaceContext(root, request.body)); })
         .then(function (created) {
           var teamId = (created && (created.team_id || (created.team && created.team.team_id))) || "";
           setMeta(root, "已创建团队 " + (teamId || "(未知 id)") + "：可就地查看成员对话");
@@ -881,6 +841,20 @@
       if (!root) return;
       rootEl = root;
       root.innerHTML = nav();
+      if (win.OwoInputAssets) inputAssets = win.OwoInputAssets.mountPanel(inputAssets, root.querySelector("[data-task-inputs]"), H);
+      root.querySelector(".owo-wf-new").addEventListener("click", function () {
+        revisionTracker.open(null, 0);
+        root.removeAttribute("data-draft-id");
+        root.querySelector(".owo-wf-adopt").disabled = true;
+        root.querySelector(".owo-wf-discard").disabled = true;
+        showPreview(root, "未保存的新工作流。添加角色后可校验并保存。", { template_id: "my-flow", name: "我的工作流", mode: "team", applicability: "自定义工作流", roles: [] });
+      });
+      var jsonArea = root.querySelector(".owo-wf-editor");
+      jsonArea.addEventListener("input", function () { syncJson(root); });
+      jsonArea.addEventListener("blur", function () {
+        var current = graphController && graphController.getDocument();
+        if (current && jsonArea.value === editorParsedText) writeEditor(root, current);
+      });
       refreshCatalog(root);
       root.querySelector(".owo-wf-catalog-refresh").addEventListener("click", function () {
         refreshCatalog(root);
@@ -956,14 +930,23 @@
           showPreview(root, String(error.message || error));
           return;
         }
-        H.post("/workflows/user", template)
-          .then(function () {
-            showPreview(root, "已保存：" + String(template.template_id || ""), template);
-            return refresh(root);
+        if (!beginWrite(root)) return;
+        var token = revisionTracker.capture(template.template_id), generation = lifecycleGeneration;
+        var submittedStamp = editorStamp(root);
+        H.post("/workflows/user", Object.assign({}, template, { expected_revision: token.expected_revision }))
+          .then(function (saved) {
+            if (generation !== lifecycleGeneration || rootEl !== root || !revisionTracker.commit(token, saved)) return;
+            if (editorStamp(root) === submittedStamp) {
+              showPreview(root, "已保存版本 " + saved.revision + "：" + String(template.template_id || ""), saved.template || template);
+            }
+            return refresh(root).then(function () {
+              if (generation === lifecycleGeneration && rootEl === root && editorStamp(root) !== submittedStamp) setMeta(root, "已保存版本 " + saved.revision + "；当前新增修改尚未保存。");
+            });
           })
           .catch(function (error) {
-            showPreview(root, "保存失败：" + H.friendlyError(error));
-          });
+            if (generation === lifecycleGeneration && rootEl === root) setError(root, "保存失败，编辑内容已保留：" + H.friendlyError(error));
+          })
+          .then(function () { endWrite(root, generation); });
       });
       root.querySelector(".owo-wf-draft").addEventListener("click", function () {
         var request = editor().buildDraftRequest(
@@ -990,6 +973,7 @@
             root.querySelector(".owo-wf-adopt").disabled = !draftId;
             root.querySelector(".owo-wf-discard").disabled = !draftId;
             if (draft && draft.template) {
+              draftRevision(draft);
               var preview = root.querySelector(".owo-wf-preview");
               showPreview(root, preview ? preview.textContent : "", draft.template);
               var info = root.querySelector(".owo-wf-graph-info");
@@ -1012,8 +996,15 @@
       root.querySelector(".owo-wf-adopt").addEventListener("click", function () {
         var draftId = root.getAttribute("data-draft-id");
         if (!draftId) return;
-        H.post("/workflows/draft/" + encodeURIComponent(draftId) + "/adopt", {})
+        var candidate;
+        try { candidate = editorTemplate(root); } catch (error) { setError(root, String(error.message || error)); return; }
+        if (!beginWrite(root)) return;
+        var token = revisionTracker.capture(candidate.template_id), generation = lifecycleGeneration;
+        var submittedStamp = editorStamp(root);
+        H.post("/workflows/draft/" + encodeURIComponent(draftId) + "/adopt", { template: candidate, expected_revision: token.expected_revision })
           .then(function (adopted) {
+            if (generation !== lifecycleGeneration || rootEl !== root || !revisionTracker.commit(token, adopted)) return;
+            if (adopted.template && editorStamp(root) === submittedStamp) showPreview(root, "已采纳当前编辑配置（版本 " + adopted.revision + "）", adopted.template);
             var plan = adopted && adopted.verify ? adopted.verify : null;
             if (!plan) {
               setMeta(root, "已采纳草稿 " + draftId + "（这版没有运行基线，跑一次后再用「按证据改进」对比）");
@@ -1033,12 +1024,12 @@
             var out = root.querySelector(".owo-wf-draft-out");
             if (out && window.confirm("采纳成功。现在用同一个目标再跑一次做前后对比？")) {
               setMeta(root, "验证运行（沿用基线目标）：" + plan.objective);
-              H.post("/teams", attachWorkspaceContext(root, {
+              Promise.resolve().then(function () { return H.post("/teams", attachWorkspaceContext(root, {
                 objective: plan.objective,
                 mode: "team",
                 template_id: adopted.template ? adopted.template.template_id : plan.adopted_template_id,
                 acknowledge_risk: true,
-              }))
+              })); })
                 .then(function (created) {
                   var teamId =
                     (created && (created.team_id || (created.team && created.team.team_id))) || "";
@@ -1061,8 +1052,9 @@
             return refresh(root);
           })
           .catch(function (error) {
-            setError(root, "采纳失败：" + H.friendlyError(error));
-          });
+            if (generation === lifecycleGeneration && rootEl === root) setError(root, "采纳失败，编辑内容已保留：" + H.friendlyError(error));
+          })
+          .then(function () { endWrite(root, generation); });
       });
       root.querySelector(".owo-wf-discard").addEventListener("click", function () {
         var draftId = root.getAttribute("data-draft-id");
@@ -1085,6 +1077,7 @@
         }
         H.post(request.path, request.body)
           .then(function (result) {
+            importReview = { package_b64: request.body.package_b64, revision: result.local_revision };
             var diffLines = editor() && editor().describeLocalDiff ? editor().describeLocalDiff(result) : [];
             root.querySelector(".owo-wf-review-out").textContent =
               renderReviewText(result) + (diffLines.length ? "\n\n" + diffLines.join("\n") : "");
@@ -1099,8 +1092,10 @@
           setError(root, request.error);
           return;
         }
+        request.body.expected_revision = importReview && importReview.package_b64 === request.body.package_b64 ? importReview.revision : 0;
         H.post(request.path, request.body)
           .then(function (imported) {
+            importReview = null;
             var importedDiff = editor() && editor().describeLocalDiff ? editor().describeLocalDiff(imported) : [];
             root.querySelector(".owo-wf-review-out").textContent =
               "已导入（" + String((imported && imported.template && imported.template.origin) || "?") + "）：\n" +
@@ -1128,8 +1123,13 @@
     }
 
     function dispose() {
+      if (inputAssets) inputAssets.dispose();
+      inputAssets = null;
       lifecycleGeneration += 1;
+      if (graphController) graphController.dispose();
+      graphController = null; graphBox = null; jsonBase = null; editorParsedText = null; capabilityCatalog = [];
       rootEl = null;
+      revisionTracker = createRevisionTracker(); writeBusy = false; importReview = null;
     }
 
     return {
@@ -1148,12 +1148,15 @@
       renderStatsRows: renderStatsRows,
       refreshStats: refreshStats,
       _test: {
+        createRevisionTracker: createRevisionTracker,
         renderWorkflowRows: renderWorkflowRows,
         renderReviewText: renderReviewText,
         renderDraftText: renderDraftText,
         renderChecklist: renderChecklist,
         renderGraphSvg: renderGraphSvg,
         renderToolCatalog: renderToolCatalog,
+        refreshCatalog: refreshCatalog,
+        paintGraph: paintGraph, syncJson: syncJson, editorTemplate: editorTemplate,
         renderRoleRows: renderRoleRows,
         renderStatsRows: renderStatsRows,
       },

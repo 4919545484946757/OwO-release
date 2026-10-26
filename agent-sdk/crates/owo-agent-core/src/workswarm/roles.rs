@@ -9,6 +9,9 @@ use super::error::{WorkSwarmError, WorkSwarmResult};
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RoleSpec {
+    /// Stable template node identity retained in RunMeta snapshots.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<String>,
     pub role: String,
     /// 承担者种类：`agent` | `human` | `worker`。
     pub assignee: String,
@@ -35,15 +38,131 @@ pub struct RoleSpec {
     pub tools: Vec<String>,
 }
 
+/// Tools that create a workspace or external side effect. A role that declares one
+/// of these tools is an executor unless the workflow explicitly labels it read-only.
+/// Browser/search/MCP tools are deliberately not inferred: their effect depends on
+/// the concrete tool and the workflow should declare `task_worker` explicitly.
+pub fn is_effectful_role_tool(tool: &str) -> bool {
+    matches!(
+        tool.trim(),
+        "write_file"
+            | "apply_patch"
+            | "edit_file"
+            | "multi_edit"
+            | "run_command"
+            | "generate_image"
+            | "text_to_speech"
+    )
+}
+
+/// A task worker needs a write/production capability, not merely command execution.
+/// Command-only roles are deliberately not inferred: the current worker runtime
+/// treats a task with no write capability as read-only and would silently drop
+/// `run_command`. A tester must declare `write_file` plus a test write scope (or
+/// the host must first add an explicit execute-only permission model).
+pub fn is_writer_role_tool(tool: &str) -> bool {
+    matches!(
+        tool.trim(),
+        "write_file"
+            | "apply_patch"
+            | "edit_file"
+            | "multi_edit"
+            | "generate_image"
+            | "text_to_speech"
+    )
+}
+
+/// Derive the scheduling capability from the declared tool surface when the user
+/// did not spell one out. Custom workflow roles must not depend on built-in names
+/// (`builder`/`writer`/`w1`). `review` is still name-compatible for old templates,
+/// but an explicit semantic capability always wins.
+pub fn infer_role_capabilities(role: &str, tools: &[String], declared: &[String]) -> Vec<String> {
+    let has_semantic = declared.iter().any(|capability| {
+        matches!(
+            capability.to_ascii_lowercase().as_str(),
+            "orchestrator" | "task_worker" | "integrator" | "review"
+        )
+    });
+    if has_semantic {
+        return declared.to_vec();
+    }
+    // Keep a user's display-only marker, but do not let it disable tool inference.
+    let mut inferred: Vec<String> = declared
+        .iter()
+        .filter(|capability| capability.eq_ignore_ascii_case("custom"))
+        .cloned()
+        .collect();
+    if super::util::is_review_role_name(role) {
+        inferred.push("review".to_string());
+        return inferred;
+    }
+    if tools.iter().any(|tool| is_writer_role_tool(tool)) {
+        inferred.push("task_worker".to_string());
+    }
+    inferred
+}
+
+/// Reject a workflow whose declared tools contradict its semantic role. This is
+/// the host-side half of custom-role matching: a Lead/architect is read-only, a
+/// Reviewer cannot become a writer or command runner by adding tools, and an
+/// effectful tool requires a task_worker/integrator (or legacy writer name) role.
+///
+/// A dedicated `tester` should be a `task_worker`; the final reviewer stays
+/// read-only and judges the resulting evidence instead of writing tests itself.
+pub fn validate_role_tool_capabilities(
+    role: &str,
+    capabilities: &[String],
+    tools: &[String],
+    write_paths: &[String],
+) -> Result<(), String> {
+    let has = |capability: &str| {
+        capabilities
+            .iter()
+            .any(|value| value.eq_ignore_ascii_case(capability))
+    };
+    let orchestrator = role == "lead" || has("orchestrator");
+    let reviewer = super::util::is_review_role(role, capabilities);
+    let effectful: Vec<&str> = tools
+        .iter()
+        .map(String::as_str)
+        .filter(|tool| is_effectful_role_tool(tool))
+        .collect();
+    if orchestrator && !write_paths.is_empty() {
+        return Err(format!(
+            "orchestrator {role} must be read-only; write_paths are not allowed: {write_paths:?}"
+        ));
+    }
+    if orchestrator && !effectful.is_empty() {
+        return Err(format!(
+            "orchestrator {role} must be read-only; effectful tools are not allowed: {effectful:?}"
+        ));
+    }
+    if reviewer && !write_paths.is_empty() {
+        return Err(format!("review role {role} cannot declare write paths"));
+    }
+    if reviewer && !effectful.is_empty() {
+        return Err(format!(
+            "review role {role} may declare read-only tools only; use task_worker/tester for commands: {effectful:?}"
+        ));
+    }
+    let executor = has("task_worker")
+        || has("integrator")
+        || matches!(role, "leader" | "project_integrator")
+        || crate::worker_profile::is_parallel_writer_name(role);
+    if !executor && !orchestrator && !reviewer && !effectful.is_empty() {
+        return Err(format!(
+            "role {role} declares effectful tools but is not task_worker/integrator: {effectful:?}"
+        ));
+    }
+    Ok(())
+}
+
 impl RoleSpec {
     pub fn agent(role: impl Into<String>) -> Self {
         let role = role.into();
-        let capabilities = if super::util::is_review_role_name(&role) {
-            vec!["review".to_string()]
-        } else {
-            Vec::new()
-        };
+        let capabilities = infer_role_capabilities(&role, &[], &[]);
         Self {
+            node_id: None,
             role,
             assignee: "agent".to_string(),
             worker: None,
@@ -121,20 +240,18 @@ pub fn validate_role_write_paths_with_capabilities(
 
 impl From<TeamTemplateRole> for RoleSpec {
     fn from(r: TeamTemplateRole) -> Self {
-        let capabilities = if !r.tools.is_empty() && r.capabilities.is_empty() {
-            vec!["custom".to_string()]
-        } else if r.capabilities.is_empty() && super::util::is_review_role_name(&r.role) {
-            vec!["review".to_string()]
-        } else {
-            r.capabilities
-        };
+        let capabilities = infer_role_capabilities(&r.role, &r.tools, &r.capabilities);
         Self {
+            node_id: r.node_id,
             role: r.role,
             assignee: r.assignee,
             worker: r.worker,
             depends_on: r.depends_on,
             handoff_contract: r.handoff_contract,
-            verify: r.verify,
+            // Every team role produces an artifact. A missing verification used
+            // to leave fixed/user workflow steps unverified at the delivery gate
+            // even when the task succeeded; non_empty is the safe host default.
+            verify: r.verify.or_else(|| Some("non_empty".to_string())),
             extra_input: Value::Null,
             model: r.model,
             write_paths: r.write_paths,
@@ -196,6 +313,20 @@ pub fn parallel_roles(writers: usize) -> Vec<RoleSpec> {
     roles
 }
 
+/// Provenance of the stored document read when a team was created.
+/// The resolved RunMeta roles remain the execution snapshot, including later explicit steering.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RunTemplateSource {
+    pub template_id: String,
+    pub revision: u64,
+    pub content_hash: String,
+    /// The request supplied its own roles instead of using the source document's role graph.
+    pub roles_overridden: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Request-level model default; a role may still select its own explicit model.
+    pub requested_model: Option<String>,
+}
+
 /// 运行元数据（sidecar 文件 `<run_dir>/<team_id>-meta.json`）：
 /// correlation_id + 角色规格（worker 构建的唯一来源；replace 在此生效）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -206,6 +337,9 @@ pub struct RunMeta {
     /// 八期一路：模板 id（内置模板 → 角色专属 Prompt 段；动态组队为 None）。
     #[serde(default)]
     pub template_id: Option<String>,
+    /// Frozen at the same read as the template roles. Old sidecars retain unknown provenance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub template_source: Option<RunTemplateSource>,
     /// 八期一路：角色 → 调用预算（模板 `budget_calls_per_role`；Prompt 预算段与
     /// 运行期跳过的 `saved_budget_calls` 口径来源）。旧 sidecar 缺省为空。
     #[serde(default)]
@@ -230,8 +364,13 @@ impl RunMeta {
 
     pub(super) fn load(run_dir: &Path, team_id: &str) -> WorkSwarmResult<Self> {
         let path = Self::file_path(run_dir, team_id);
-        let raw = std::fs::read_to_string(&path)
-            .map_err(|_| WorkSwarmError::NotFound(format!("运行元数据 {team_id} 不存在")))?;
+        let raw = std::fs::read_to_string(&path).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                WorkSwarmError::NotFound(format!("运行元数据 {team_id} 不存在"))
+            } else {
+                WorkSwarmError::Io(format!("运行元数据 {team_id} 不可读：{error}"))
+            }
+        })?;
         serde_json::from_str(&raw).map_err(WorkSwarmError::from)
     }
 }
@@ -340,5 +479,160 @@ mod cancel_token_tests {
 
         assert!(abort.load(Ordering::SeqCst));
         assert!(token.is_cancelled());
+    }
+}
+
+#[cfg(test)]
+mod role_capability_tool_matching_tests {
+    use super::*;
+    use crate::worker_profile::WorkerProfile;
+
+    fn role_spec(
+        role: &str,
+        tools: &[&str],
+        capabilities: &[&str],
+        write_paths: &[&str],
+    ) -> RoleSpec {
+        RoleSpec::from(TeamTemplateRole {
+            node_id: None,
+            role: role.to_string(),
+            assignee: "agent".to_string(),
+            worker: None,
+            depends_on: Vec::new(),
+            handoff_contract: None,
+            verify: None,
+            model: None,
+            write_paths: write_paths
+                .iter()
+                .map(|value| (*value).to_string())
+                .collect(),
+            capabilities: capabilities
+                .iter()
+                .map(|value| (*value).to_string())
+                .collect(),
+            tools: tools.iter().map(|value| (*value).to_string()).collect(),
+        })
+    }
+
+    #[test]
+    fn custom_writer_tools_infer_task_worker_without_builtin_role_name() {
+        let combat = role_spec(
+            "combat_module",
+            &["read_file", "write_file", "run_command"],
+            &[],
+            &["src/combat"],
+        );
+        assert!(combat.has_capability("task_worker"));
+        assert!(super::validate_role_tool_capabilities(
+            &combat.role,
+            &combat.capabilities,
+            &combat.tools,
+            &combat.write_paths,
+        )
+        .is_ok());
+        let profile = WorkerProfile::for_team_role_spec(&combat, 6, true, None);
+        assert!(!profile.read_only);
+        assert!(profile.can_run_command);
+        assert!(profile
+            .visible_tools
+            .iter()
+            .any(|tool| tool == "write_file"));
+    }
+
+    #[test]
+    fn custom_read_only_tools_do_not_create_a_task_worker() {
+        let lore = role_spec("lore", &["read_file", "list_dir"], &[], &[]);
+        assert!(!lore.has_capability("task_worker"));
+        assert!(!lore.has_capability("review"));
+        let profile = WorkerProfile::for_team_role_spec(&lore, 4, true, None);
+        assert!(profile.read_only);
+        assert!(!profile.can_run_command);
+    }
+
+    #[test]
+    fn command_only_roles_are_not_inferred_as_task_workers() {
+        let tester = role_spec("tester", &["read_file", "run_command"], &[], &[]);
+        assert!(!tester.has_capability("task_worker"));
+        assert!(super::validate_role_tool_capabilities(
+            &tester.role,
+            &tester.capabilities,
+            &tester.tools,
+            &tester.write_paths,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn explicit_custom_marker_does_not_suppress_tool_inference() {
+        let custom = role_spec(
+            "custom_writer",
+            &["write_file", "run_command"],
+            &["custom"],
+            &["src/custom"],
+        );
+        assert!(custom.has_capability("custom"));
+        assert!(custom.has_capability("task_worker"));
+    }
+
+    #[test]
+    fn orchestrator_is_read_only_even_with_declared_effect_tools() {
+        let architect = role_spec(
+            "architect",
+            &["read_file", "write_file"],
+            &["orchestrator"],
+            &[],
+        );
+        assert!(super::validate_role_tool_capabilities(
+            &architect.role,
+            &architect.capabilities,
+            &architect.tools,
+            &architect.write_paths,
+        )
+        .is_err());
+        let profile = WorkerProfile::for_team_role_spec(&architect, 6, true, None);
+        assert!(profile.read_only);
+        assert!(!profile.can_run_command);
+    }
+
+    #[test]
+    fn reviewer_cannot_become_a_command_runner_or_writer() {
+        let quality = role_spec(
+            "quality_gate",
+            &["read_file", "run_command", "write_file"],
+            &["review"],
+            &[],
+        );
+        assert!(super::validate_role_tool_capabilities(
+            &quality.role,
+            &quality.capabilities,
+            &quality.tools,
+            &quality.write_paths,
+        )
+        .is_err());
+        let profile = WorkerProfile::for_team_role_spec(&quality, 6, true, None);
+        assert!(profile.read_only);
+        assert!(!profile.can_run_command);
+    }
+
+    #[test]
+    fn custom_task_worker_and_integrator_keep_their_declared_tool_surface() {
+        for (role, capability) in [("gameplay", "task_worker"), ("assembler", "integrator")] {
+            let spec = role_spec(
+                role,
+                &["read_file", "write_file", "apply_patch", "run_command"],
+                &[capability],
+                &["src/game"],
+            );
+            assert!(super::validate_role_tool_capabilities(
+                &spec.role,
+                &spec.capabilities,
+                &spec.tools,
+                &spec.write_paths,
+            )
+            .is_ok());
+            let profile = WorkerProfile::for_team_role_spec(&spec, 6, true, None);
+            assert!(!profile.read_only, "{capability} must remain writable");
+            assert!(profile.can_run_command);
+        }
     }
 }

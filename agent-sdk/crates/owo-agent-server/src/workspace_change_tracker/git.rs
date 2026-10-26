@@ -77,23 +77,60 @@ pub fn parse_porcelain_rename(line: &str) -> Option<(String, String)> {
     }
 }
 
+/// 把 `git status` 行中的仓库根相对路径改写成 workspace 根相对路径。
+///
+/// 保留 porcelain 的 `XY ` 前缀；重命名行同时改写 old/new 两侧。`prefix` 为空
+/// （workspace 就是仓库根）时原样返回。
+fn normalize_status_line(line: &str, prefix: &str) -> String {
+    let prefix = prefix.trim_end_matches('/');
+    if prefix.is_empty() {
+        return line.trim_end().to_string();
+    }
+    let code = line.get(..3).unwrap_or("");
+    let relative = |path: &str| {
+        let normalized = path.replace('\\', "/");
+        normalized
+            .strip_prefix(prefix)
+            .and_then(|rest| rest.strip_prefix('/'))
+            .map(str::to_string)
+            .unwrap_or_else(|| path.to_string())
+    };
+    if let Some((old, new)) = parse_porcelain_rename(line) {
+        return format!("{code}{} -> {}", relative(&old), relative(&new));
+    }
+    if let Some(path) = parse_porcelain_path(line) {
+        return format!("{code}{}", relative(&path));
+    }
+    line.trim_end().to_string()
+}
+
 impl GitSnapshot {
     /// 采集快照（git 不可用 → `git:false` 空快照，不视为错误）。
     ///
     /// `-uall`：未跟踪目录展开为具体文件（否则 porcelain 只给 `?? dir/`，
     /// 变更文件列表与白名单校验都拿不到文件级路径）。
+    ///
+    /// `git status` 即使在 workspace 子目录执行也返回**仓库根相对路径**；团队以
+    /// 子目录为 workspace 时，白名单/写租约却是子目录绝对路径，直接比对会把所有
+    /// 合法写入判成越界。这里用 `git rev-parse --show-prefix` 把状态路径改写成
+    /// 当前 workspace 根相对路径，并限制 pathspec 为当前目录。
     pub async fn snapshot(root: &Path) -> Self {
         let at = now_ms();
-        match git_output(root, &["status", "--porcelain", "-uall"]).await {
+        let prefix = git_output(root, &["rev-parse", "--show-prefix"])
+            .await
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        match git_output(root, &["status", "--porcelain", "-uall", "--", "."]).await {
             Some(text) => {
                 let status: Vec<String> = text
                     .lines()
                     .map(str::trim_end)
                     .filter(|line| !line.is_empty())
                     .take(STATUS_LINE_CAP)
-                    .map(str::to_string)
+                    .map(|line| normalize_status_line(line, &prefix))
                     .collect();
-                let diff_stat = git_output(root, &["diff", "--stat"])
+                let diff_stat = git_output(root, &["diff", "--stat", "--relative", "--", "."])
                     .await
                     .unwrap_or_default();
                 Self {
@@ -235,6 +272,18 @@ pub(crate) fn simplify_path(path: &Path) -> PathBuf {
 /// 去 verbatim；白名单空 = 未约束 → 放行）。
 ///
 /// 与 [`check_whitelist`] 同一判定口径；十一期（二路）范围归属过滤复用。
+/// Host-managed workspace internals (shell command wrappers/logs, artifact cache,
+/// git metadata) are not deliverables and must not be attributed to a role's write
+/// scope. `run_command` creates `.owo/shells/*` on every invocation; without this
+/// exclusion a correctly scoped run_command fails as a scope violation.
+pub fn is_host_internal_path(relative: &str) -> bool {
+    let normalized = relative.replace('\\', "/");
+    normalized == ".owo"
+        || normalized.starts_with(".owo/")
+        || normalized == ".git"
+        || normalized.starts_with(".git/")
+}
+
 pub fn path_in_allowed(relative: &str, root: &Path, allowed: &[PathBuf]) -> bool {
     if allowed.is_empty() {
         return true;
@@ -282,4 +331,30 @@ pub fn check_whitelist(changed: &[String], root: &Path, allowed: &[PathBuf]) -> 
         "scope_violation: 白名单外文件变更：{}（允许：{list}）",
         offenders.join(", ")
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_status_line;
+
+    #[test]
+    fn status_paths_are_rebased_to_workspace_root() {
+        let prefix = "agent-sdk/team-runs/parkour3d/";
+        assert_eq!(
+            normalize_status_line("?? agent-sdk/team-runs/parkour3d/index.html", prefix),
+            "?? index.html"
+        );
+        assert_eq!(
+            normalize_status_line(
+                "R  agent-sdk/team-runs/parkour3d/old.js -> agent-sdk/team-runs/parkour3d/new.js",
+                prefix
+            ),
+            "R  old.js -> new.js"
+        );
+    }
+
+    #[test]
+    fn repo_root_prefix_keeps_paths_unchanged() {
+        assert_eq!(normalize_status_line(" M src/lib.rs", ""), " M src/lib.rs");
+    }
 }

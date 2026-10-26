@@ -199,4 +199,9 @@ pub struct TurnExecutionOptions {
     pub turn_id: Option<String>,
     /// 会话工作模式；`Chat` 只暴露 [`CHAT_MODE_TOOLS`]，其余调用在执行层被拒绝。
     pub mode: crate::session::SessionMode,
+    /// Supplied by the host only after validating asset custody and integrity.
+    pub input: Option<owo_agent_protocol::StoredUserInput>,
+    /// Canonical host store: input is saved before hooks/models, progress before
+    /// each request, and the final in-memory session on success or failure.
+    pub session_checkpoint: Option<super::checkpoint::TurnSessionCheckpoint>,
 }

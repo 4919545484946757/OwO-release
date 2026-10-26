@@ -5,7 +5,7 @@ target/
 /agent-sdk/dist/
 /.owo-agent/
 # 代理运行期数据目录（shell 会话/临时态；每次运行可再生，永不入库）
-/.owo/
+**/.owo/
 /.vs/
 /.vscode/
 CMakeUserPresets.json

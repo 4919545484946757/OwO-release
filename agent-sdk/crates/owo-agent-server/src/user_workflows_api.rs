@@ -13,7 +13,7 @@
 //! 模块纪律（team_template_catalog_api 先例）：不引用 `crate::`/`super::`，
 //! AppState 全限定 `owo_agent_server::AppState`。
 
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -23,6 +23,7 @@ use owo_agent_core::user_workflow::{
 use owo_agent_core::workswarm::TeamTemplateRegistry;
 use owo_agent_protocol::TeamTemplate;
 use owo_agent_server::AppState;
+use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -52,13 +53,6 @@ fn error(status: StatusCode, message: impl Into<String>) -> (StatusCode, Json<Va
     (status, Json(json!({ "error": message.into() })))
 }
 
-fn validation_error(errors: Vec<String>) -> (StatusCode, Json<Value>) {
-    (
-        StatusCode::UNPROCESSABLE_ENTITY,
-        Json(json!({ "ok": false, "errors": errors })),
-    )
-}
-
 /// 单条模板的运行次数（无运行记录 → 0）。
 fn attention_run_count(
     stats: &std::collections::BTreeMap<String, crate::workflow_stats_api::TemplateStats>,
@@ -77,8 +71,22 @@ fn is_user_visible(template: &TeamTemplate) -> bool {
     )
 }
 
-fn template_json(template: &TeamTemplate) -> Value {
+fn template_json(template: &TeamTemplate, state: &AppState) -> Value {
     let errors = validate_workflow_template(template);
+    let roles = template
+        .roles
+        .iter()
+        .cloned()
+        .map(owo_agent_core::workswarm::RoleSpec::from)
+        .collect::<Vec<_>>();
+    let preflight =
+        match state
+            .agent
+            .preflight_workflow_roles(&roles, false, Some(&template.template_id))
+        {
+            Ok(issues) => json!({"ok": errors.is_empty() && issues.is_empty(), "issues": issues}),
+            Err(message) => json!({"ok": false, "error": message}),
+        };
     let findings = review_workflow_template(template);
     // 能力面评审随列表返回：UI 在建队前可据此做一次性知情确认
     // （执行/联网工具、MCP 依赖、未声明写范围、人工节点）。
@@ -91,6 +99,7 @@ fn template_json(template: &TeamTemplate) -> Value {
         "origin": template.origin.clone().unwrap_or_else(|| "builtin".to_string()),
         "valid": errors.is_empty(),
         "validation_errors": errors,
+        "preflight": preflight,
         "warnings": warnings,
         "blocked": workflow_review_blocked(&findings),
         "findings": findings,
@@ -102,9 +111,16 @@ fn template_json(template: &TeamTemplate) -> Value {
 async fn list_user_workflows(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let mut templates: Vec<TeamTemplate> = registry(&state)
-        .list_templates()
+    let records = registry(&state)
+        .list_revisions()
+        .map_err(owo_agent_server::workflow_write_service::store_error)?;
+    let revisions = records
+        .iter()
+        .map(|record| (record.template_id.clone(), record.clone()))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let mut templates: Vec<TeamTemplate> = records
         .into_iter()
+        .filter_map(|record| record.template)
         .filter(is_user_visible)
         .collect();
     templates.sort_by(|left, right| right.created_at.cmp(&left.created_at));
@@ -117,7 +133,10 @@ async fn list_user_workflows(
     let items: Vec<Value> = templates
         .iter()
         .map(|template| {
-            let mut item = template_json(template);
+            let mut item = template_json(template, &state);
+            if let Some(record) = revisions.get(&template.template_id) {
+                add_revision(&mut item, record);
+            }
             // 社区导入溯源（导入时间/sha256/当时的发现数）；用户自建为 null。
             if let Some(object) = item.as_object_mut() {
                 object.insert(
@@ -161,51 +180,88 @@ async fn list_user_workflows(
     })))
 }
 
-/// `POST /workflows/user`：创建/更新用户工作流（校验通过才落盘）。
-///
-/// - 不允许覆盖内置模板（同 id 且 origin 缺失 → 409）；
-/// - 缺省 origin 归一为 `user`；`community` 仅用于导入流程（导入路由会显式标注）；
-/// - 已存在的用户模板可被覆盖（更新），返回 200。
+#[derive(Deserialize)]
+struct UpsertWorkflowRequest {
+    #[serde(flatten)]
+    template: TeamTemplate,
+    #[serde(default)]
+    expected_revision: Option<u64>,
+}
+#[derive(Default, Deserialize)]
+struct RevisionQuery {
+    expected_revision: Option<u64>,
+    before: Option<u64>,
+    limit: Option<usize>,
+}
+fn add_revision(value: &mut Value, record: &owo_agent_core::workswarm::WorkflowRevision) {
+    if let Some(value) = value.as_object_mut() {
+        value.insert("revision".into(), json!(record.revision));
+        value.insert("content_hash".into(), json!(record.content_hash));
+        value.insert("committed_at".into(), json!(record.committed_at));
+    }
+}
+async fn get_user_workflow(
+    State(state): State<Arc<AppState>>,
+    AxumPath(id): AxumPath<String>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    owo_agent_core::user_workflow::validate_template_id(&id)
+        .map_err(|message| error(StatusCode::BAD_REQUEST, message))?;
+    let record = registry(&state)
+        .get_revision(&id)
+        .map_err(owo_agent_server::workflow_write_service::store_error)?
+        .ok_or_else(|| error(StatusCode::NOT_FOUND, format!("模板不存在：{id}")))?;
+    let mut value = match &record.template {
+        Some(template) => template_json(template, &state),
+        None => json!({"template":null,"deleted":true}),
+    };
+    add_revision(&mut value, &record);
+    Ok(Json(value))
+}
+async fn workflow_revisions(
+    State(state): State<Arc<AppState>>,
+    AxumPath(id): AxumPath<String>,
+    Query(query): Query<RevisionQuery>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    owo_agent_core::user_workflow::validate_template_id(&id)
+        .map_err(|message| error(StatusCode::BAD_REQUEST, message))?;
+    let registry = registry(&state);
+    if registry
+        .get_revision(&id)
+        .map_err(owo_agent_server::workflow_write_service::store_error)?
+        .is_none()
+    {
+        return Err(error(StatusCode::NOT_FOUND, format!("模板不存在：{id}")));
+    }
+    let limit = query.limit.unwrap_or(25).clamp(1, 100);
+    let revisions = registry
+        .revision_history(&id, query.before, limit)
+        .map_err(owo_agent_server::workflow_write_service::store_error)?;
+    let next_before = if revisions.len() == limit {
+        revisions.last().map(|record| record.revision)
+    } else {
+        None
+    };
+    Ok(Json(
+        json!({"template_id":id,"revisions":revisions,"next_before":next_before}),
+    ))
+}
+
+/// Creation defaults to revision zero; updates require the revision the editor actually read.
 async fn upsert_user_workflow(
     State(state): State<Arc<AppState>>,
-    Json(mut template): Json<TeamTemplate>,
+    Json(request): Json<UpsertWorkflowRequest>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let registry = registry(&state);
-    template.template_id = template.template_id.trim().to_string();
-    if template.created_at.trim().is_empty() {
-        template.created_at = chrono::Utc::now().to_rfc3339();
-    }
-    match template.origin.as_deref() {
-        None | Some(ORIGIN_USER) => template.origin = Some(ORIGIN_USER.to_string()),
-        Some(ORIGIN_COMMUNITY) => {}
-        Some(other) => {
-            return Err(error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                format!("origin 只能是 user/community（收到 {other}）"),
-            ))
-        }
-    }
-    if let Some(existing) = registry.get_template(&template.template_id) {
-        if !is_user_visible(&existing) {
-            return Err(error(
-                StatusCode::CONFLICT,
-                format!(
-                    "模板 id 与内置模板冲突：{}（换个 template_id，或先删除用户模板）",
-                    template.template_id
-                ),
-            ));
-        }
-    }
-    let errors = validate_workflow_template(&template);
-    if !errors.is_empty() {
-        return Err(validation_error(errors));
-    }
-    registry.save_template(&template).map_err(|write_error| {
-        error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("模板落盘失败：{write_error}"),
-        )
-    })?;
+    let saved = owo_agent_core::user_workflow::save_user_workflow(
+        &registry,
+        request.template,
+        request.expected_revision,
+    )
+    .map_err(owo_agent_server::workflow_write_service::edit_error)?;
+    let template = saved
+        .template
+        .as_ref()
+        .expect("save returns a live template");
     audit(
         &state,
         "workflow_save",
@@ -220,25 +276,57 @@ async fn upsert_user_workflow(
                 .unwrap_or_else(|| "user".to_string())
         ),
     );
-    Ok(Json(json!({ "ok": true, "template": template })))
+    Ok(Json(
+        json!({ "ok": true, "template": template, "revision":saved.revision,"content_hash":saved.content_hash }),
+    ))
 }
 
-/// `POST /workflows/user/validate`：只校验（UI 实时提示 / AI 生成后自检）。
-async fn validate_user_workflow(Json(template): Json<TeamTemplate>) -> Json<Value> {
+/// GET /workflows/tools: actual worker tool assembly, without credentials or remote probes.
+async fn workflow_tool_catalog(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let tools = state
+        .agent
+        .workflow_tool_capabilities()
+        .map_err(|message| error(StatusCode::SERVICE_UNAVAILABLE, message))?;
+    Ok(Json(
+        json!({"tools":tools,"authorization":"runtime_policy_and_role_task_scope","service_verification":"not_performed"}),
+    ))
+}
+
+async fn validate_user_workflow(
+    State(state): State<Arc<AppState>>,
+    Json(template): Json<TeamTemplate>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let errors = validate_workflow_template(&template);
-    Json(json!({
+    let roles = template
+        .roles
+        .iter()
+        .cloned()
+        .map(owo_agent_core::workswarm::RoleSpec::from)
+        .collect::<Vec<_>>();
+    let issues = state
+        .agent
+        .preflight_workflow_roles(&roles, false, Some(&template.template_id))
+        .map_err(|message| error(StatusCode::SERVICE_UNAVAILABLE, message))?;
+    Ok(Json(json!({
         "ok": errors.is_empty(),
         "errors": errors,
-    }))
+        "preflight": { "ok": errors.is_empty() && issues.is_empty(), "issues": issues },
+    })))
 }
 
 /// `DELETE /workflows/user/{id}`：删除用户/社区模板（内置 403，不存在 404）。
 async fn delete_user_workflow(
     State(state): State<Arc<AppState>>,
     AxumPath(id): AxumPath<String>,
+    Query(query): Query<RevisionQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let registry = registry(&state);
-    let Some(existing) = registry.get_template(&id) else {
+    let record = registry
+        .get_revision(&id)
+        .map_err(owo_agent_server::workflow_write_service::store_error)?;
+    let Some(existing) = record.and_then(|record| record.template) else {
         return Err(error(StatusCode::NOT_FOUND, format!("模板不存在：{id}")));
     };
     if !is_user_visible(&existing) {
@@ -247,12 +335,9 @@ async fn delete_user_workflow(
             format!("内置模板不可删除：{id}（如需停用请在团队创建时不要选择它）"),
         ));
     }
-    registry.delete_template(&id).map_err(|delete_error| {
-        error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("删除失败：{delete_error}"),
-        )
-    })?;
+    let deleted = registry
+        .delete_user_template(&id, query.expected_revision)
+        .map_err(owo_agent_server::workflow_write_service::store_error)?;
     // 删除时清掉导入溯源（再导入再记录，避免残留旧 sha256）。
     {
         let mut imports =
@@ -276,12 +361,15 @@ async fn delete_user_workflow(
             existing.origin.unwrap_or_default()
         ),
     );
-    Ok(Json(json!({ "ok": true, "deleted": id })))
+    Ok(Json(
+        json!({ "ok": true, "deleted": id,"revision":deleted.map(|record|record.revision) }),
+    ))
 }
 
 /// 用户自定义工作流路由（由 build_router 合并；与目录路由同形：自带 state）。
 pub fn user_workflows_router(state: Arc<AppState>) -> Router {
     Router::new()
+        .route("/workflows/tools", get(workflow_tool_catalog))
         .route(
             "/workflows/user",
             get(list_user_workflows).post(upsert_user_workflow),
@@ -289,7 +377,8 @@ pub fn user_workflows_router(state: Arc<AppState>) -> Router {
         .route("/workflows/user/validate", post(validate_user_workflow))
         .route(
             "/workflows/user/{id}",
-            axum::routing::delete(delete_user_workflow),
+            get(get_user_workflow).delete(delete_user_workflow),
         )
+        .route("/workflows/user/{id}/revisions", get(workflow_revisions))
         .with_state(state)
 }

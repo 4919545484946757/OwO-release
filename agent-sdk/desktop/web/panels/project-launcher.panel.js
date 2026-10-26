@@ -36,6 +36,7 @@
     // ---------- helpers（优先 app.js 注入，缺失时自建回退，与 workswarm 面板同款） ----------
     var H = {};
     var rootEl = null;
+    var inputAssets = null;
     var lifecycleGeneration = 0;
     var treeGeneration = 0;
     var catalogGeneration = 0;
@@ -342,6 +343,7 @@
         budgetTotal: isFinite(budgetTotal) ? budgetTotal : null,
         kinds: (Array.isArray(t.artifact_kinds) ? t.artifact_kinds : []).map(String),
         installed: !!t.installed,
+        revision: Number.isSafeInteger(t.revision) && t.revision >= 0 ? t.revision : 0,
       };
     }
 
@@ -649,6 +651,9 @@
     function installTemplate(id) {
       if (!id || state.installBusy[id]) return Promise.resolve();
       var lifecycle = lifecycleGeneration;
+      // Freeze the catalog version the user reviewed; never refresh it to retry a conflict.
+      var reviewed = state.catalog.map(normTemplate).filter(function (t) { return t && t.id === id; })[0];
+      var reviewedRevision = reviewed ? reviewed.revision : 0;
       var locks = state.installBusy;
       var post = H.post;
       locks[id] = true;
@@ -665,7 +670,7 @@
         }
       }
       return Promise.resolve()
-        .then(function () { if (isCurrent(lifecycle)) return post("/teams/templates/catalog/" + encodeURIComponent(id) + "/install", {}); })
+        .then(function () { if (isCurrent(lifecycle)) return post("/teams/templates/catalog/" + encodeURIComponent(id) + "/install?expected_revision=" + reviewedRevision, {}); })
         .then(function (d) {
           if (!isCurrent(lifecycle)) return;
           var already = !!(d && (d.replayed || d.already_installed));
@@ -676,9 +681,9 @@
             if (!isCurrent(lifecycle)) return;
             var sel = el("#pl-template");
             if (sel) sel.value = id;
+            repaintPreview();
             var msg = el("#pl-errors");
             if (msg) msg.innerHTML = '<div class="hint">' + (already ? "该模板已安装过（幂等重放，未覆盖）。" : "安装成功。") + "已自动选用。</div>";
-            repaintPreview();
           });
         })
         .catch(function (e) {
@@ -726,7 +731,7 @@
       return Promise.resolve()
         .then(function () {
           if (!isCurrent(lifecycle) || request !== creationGeneration || scope !== hostScope) return null;
-          return post("/teams", body);
+          return post("/teams", inputAssets ? inputAssets.applyTo(body) : body);
         })
         .then(function (d) {
           if (!d || request !== creationGeneration || scope !== hostScope) return;
@@ -839,11 +844,10 @@
             : stateBox("loading", "正在加载内置模板目录…")) +
         "</div></details></div>" +
         '<div class="owo-pl-step"><label class="owo-pl-label">执行预览 · 角色 / 预算 / 权限</label>' +
-        '<div id="pl-preview">' + previewHtml(buildPreview(state, state.catalog), state) + "</div></div>" +
+        '<div id="pl-preview">' + previewHtml(buildPreview(state, state.catalog), state) + '</div><div data-task-inputs></div></div>' +
         '<div class="owo-pl-step"><label class="owo-pl-label">开始任务</label>' +
         '<div class="owo-ws-inline"><button id="pl-create" data-core-action data-core-busy="' + (state.creating ? "true" : "false") + '" class="primary"' + (state.creating ? ' disabled aria-busy="true"' : "") + ">创建团队并开始执行</button></div>" +
-        '<div id="pl-errors" aria-live="polite"></div>' +
-        '<div id="pl-result">' + resultHtml(state.result) + '</div></div><div class="owo-pl-wizard-actions"><button type="button" id="pl-prev">上一步</button><button type="button" id="pl-next" class="primary">下一步</button></div>' +
+        '<div id="pl-result">' + resultHtml(state.result) + '</div></div><div id="pl-errors" aria-live="polite"></div><div class="owo-pl-wizard-actions"><button type="button" id="pl-prev">上一步</button><button type="button" id="pl-next" class="primary">下一步</button></div>' +
         "</div>"
       );
     }
@@ -875,6 +879,7 @@
     function render() {
       if (!rootEl) return;
       rootEl.innerHTML = viewHtml();
+      if (win.OwoInputAssets) inputAssets = win.OwoInputAssets.mountPanel(inputAssets, rootEl.querySelector("[data-task-inputs]"), H);
 
       syncWizard();
       rootEl.querySelectorAll("[data-pl-wizard]").forEach(button => button.addEventListener("click", () => moveWizard(Number(button.getAttribute("data-pl-wizard")))));
@@ -1026,6 +1031,8 @@
     }
 
     function dispose() {
+      if (inputAssets) inputAssets.dispose();
+      inputAssets = null;
       lifecycleGeneration++;
       treeGeneration++;
       catalogGeneration++;

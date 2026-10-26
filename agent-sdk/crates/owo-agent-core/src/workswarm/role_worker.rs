@@ -13,6 +13,104 @@ pub struct RoleWorker {
     inner: Arc<dyn Worker>,
 }
 
+/// `blocked` 但已经产出非空 artifact：这是候选交付，不是硬失败。
+///
+/// Worker 常把“跨模块联调尚未做”写成 blocked，即使本模块测试已通过；若直接取消
+/// 全队，会把已经写好的代码丢掉。宿主改为登记候选并执行自己的验证命令，由验证
+/// 结果决定步骤成败；风险只进入 summary/handoff，不进入 open_issues。
+fn blocked_with_artifact(output: &crate::workswarm_output::WorkerOutputV1) -> bool {
+    output.status == crate::workswarm_output::WorkerOutputStatus::Blocked
+        && output
+            .artifact
+            .as_ref()
+            .is_some_and(|artifact| !artifact.content.trim().is_empty())
+}
+
+/// Reviewers sometimes put the scorecard into `artifact` despite the critic
+/// contract forbidding it (and then the one-shot repair repeats the same shape).
+/// Treat the artifact as prose evidence: drop it, and derive a structured
+/// review_result when the payload has a decision/verdict. A reviewer can never
+/// become a producer, and an ambiguous artifact still fails validation.
+fn review_result_from_artifact(
+    content: &str,
+) -> Option<crate::workswarm_output::WorkerReviewResultV1> {
+    let start = content.find('{')?;
+    let end = content.rfind('}')?;
+    let value: Value = serde_json::from_str(content.get(start..=end)?).ok()?;
+    if let Some(result) = value.get("review_result") {
+        if let Ok(result) = serde_json::from_value(result.clone()) {
+            return Some(result);
+        }
+    }
+    let raw = value
+        .get("decision")
+        .and_then(Value::as_str)
+        .or_else(|| value.get("verdict").and_then(Value::as_str))?;
+    let verdict = match raw.trim().to_ascii_lowercase().as_str() {
+        "ship" | "approved" | "approve" | "pass" | "??" => {
+            crate::workswarm_output::WorkerReviewVerdict::Approved
+        }
+        "revise" | "changes_requested" | "changes-requested" | "changes requested" => {
+            crate::workswarm_output::WorkerReviewVerdict::ChangesRequested
+        }
+        "block" | "rejected" | "reject" | "blocked" => {
+            crate::workswarm_output::WorkerReviewVerdict::Rejected
+        }
+        _ => return None,
+    };
+    let mut findings = Vec::new();
+    for (key, severity) in [
+        (
+            "blockers",
+            crate::workswarm_output::WorkerReviewSeverity::Blocker,
+        ),
+        (
+            "major",
+            crate::workswarm_output::WorkerReviewSeverity::Major,
+        ),
+    ] {
+        for detail in value
+            .get(key)
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .filter(|detail| !detail.trim().is_empty())
+        {
+            findings.push(crate::workswarm_output::WorkerReviewFindingV1 {
+                severity,
+                detail: detail.to_string(),
+                requirement_id: None,
+                evidence_refs: Vec::new(),
+                suggested_owner: None,
+                target_task_id: None,
+                target_artifact_id: None,
+            });
+        }
+    }
+    Some(crate::workswarm_output::WorkerReviewResultV1 {
+        verdict,
+        reviewed_requirement_ids: Vec::new(),
+        findings,
+    })
+}
+
+fn normalize_reviewer_output(
+    mut output: crate::workswarm_output::WorkerOutputV1,
+) -> crate::workswarm_output::WorkerOutputV1 {
+    if let Some(artifact) = output.artifact.take() {
+        let content = artifact.content;
+        if output.summary.trim().is_empty() {
+            output.summary = content.clone();
+        }
+        if output.review_result.is_none() {
+            output.review_result = review_result_from_artifact(&content);
+        }
+    }
+    output.normalize_reviewer_verdict();
+    output
+}
+
 fn apply_retry_context(ctx: &mut Value, input: &Value) {
     let Some(note) = input
         .get("_workswarm")
@@ -73,6 +171,38 @@ fn apply_assigned_task_context(
 }
 
 impl RoleWorker {
+    // The journal commits before calling the inner Worker. A prepared receipt
+    // proves the Value and assembled source previews, never provider delivery.
+    async fn run_with_input_receipt(
+        &self,
+        input: &Value,
+        task: &crate::task_context::ResolvedTaskContext,
+        encoding: crate::project_space_store::PreparedInputEncoding,
+    ) -> Result<String, String> {
+        use crate::project_space_store::{PreparedWorkerInput, WorkerInputTarget};
+        let target = WorkerInputTarget {
+            worker_id: self.member_id.clone(),
+            step_id: task.step_id.clone().unwrap_or_default(),
+            task_id: task.task_id.clone(),
+            attempt_id: task.attempt_id.clone(),
+            phase_epoch: task.phase_epoch,
+        };
+        let receipt = PreparedWorkerInput::capture(
+            &self.team_id,
+            &uuid::Uuid::new_v4().to_string(),
+            target,
+            input,
+            encoding,
+        )
+        .map_err(|error| format!("Worker 输入记录失败：{error}"))?;
+        let event = self
+            .coordinator
+            .store
+            .append_worker_input(&receipt)
+            .map_err(|error| format!("Worker 输入记录未提交，未开始执行：{error}"))?;
+        super::input_observation::scope_worker_input(event, self.inner.run(input)).await
+    }
+
     pub fn new(
         coordinator: Arc<TeamCoordinator>,
         team_id: String,
@@ -179,6 +309,13 @@ impl Worker for RoleWorker {
             })
             .unwrap_or_else(|| self.capabilities.clone());
         let is_reviewer = super::util::is_review_role(&self.role, &effective_capabilities);
+        let input_encoding = if worker_kind == "agent" {
+            crate::project_space_store::PreparedInputEncoding::Structured
+        } else if input.get("text").map(Value::is_null).unwrap_or(true) {
+            crate::project_space_store::PreparedInputEncoding::Serialized
+        } else {
+            crate::project_space_store::PreparedInputEncoding::NoContext
+        };
         let mut enriched = TeamCoordinator::build_enriched_input_owned(ctx, input, &worker_kind);
         // Prompt 上下文指标在 Server 使用最终 WorkerProfile 编译后记录，
         // 避免这里先用粗略角色画像生成一份与实际工具面不一致的 Prompt。
@@ -187,7 +324,9 @@ impl Worker for RoleWorker {
         self.coordinator
             .mark_phase_step_running(&self.team_id, &step_id);
         let plan_epoch = self.coordinator.current_execution_epoch(&self.team_id);
-        let mut out = self.inner.run(&enriched).await?;
+        let mut out = self
+            .run_with_input_receipt(&enriched, &task_context, input_encoding)
+            .await?;
         if self.role == "lead"
             || effective_capabilities
                 .iter()
@@ -222,7 +361,7 @@ impl Worker for RoleWorker {
                             return Err("指挥计划纠正前任务已取消或代次变化".into());
                         }
                         let reason = reason.chars().take(2000).collect::<String>();
-                        let note = format!("上次 TaskGraph 被宿主拒绝：{reason}。修正同一用户目标的计划，禁止扩大权限、写范围或改变需求。聊天文本任务 verification 必须为 JSON 字符串 \"non_empty\"，不要包装成文件 VerificationPlan；文件验证必须列出具体文件路径。返回完整 WorkerOutputV1，artifact.content 为修正后的 TaskGraph JSON。");
+                        let note = format!("上次 TaskGraph 被宿主拒绝：{reason}。修正同一用户目标的计划，禁止扩大权限、写范围或改变需求。只把 task_worker 角色写进 tasks；assembler/lead_review 是宿主固定步骤，不得创建任务。必须使用 task_id/worker/estimated_effort（数字 1..=5）/requirement_quotes/verification 字段，write_paths 必须落在所选角色声明范围内。聊天文本任务 verification 必须为 JSON 字符串 \"non_empty\"，不要包装成文件 VerificationPlan；文件验证必须是宿主登记的 WorkspacePaths VerificationPlan（workspace-command-success-v1 + node --test 单命令）。返回完整 WorkerOutputV1，artifact.content 必须是 JSON 字符串（不能直接放对象）。");
                         enriched["task_graph_repair"] = json!({"reason": reason});
                         if let Some(context) = enriched
                             .get_mut("team_prompt_context")
@@ -239,7 +378,9 @@ impl Worker for RoleWorker {
                         } else if let Some(object) = enriched.as_object_mut() {
                             object.insert("task_graph_repair_note".into(), json!(note));
                         }
-                        out = self.inner.run(&enriched).await?;
+                        out = self
+                            .run_with_input_receipt(&enriched, &task_context, input_encoding)
+                            .await?;
                     }
                     Err(error) => return Err(format!("task_graph_invalid:{error}")),
                 }
@@ -253,7 +394,31 @@ impl Worker for RoleWorker {
         // 随 Artifact/HandoffRecord 落盘）；legacy 纯文本登记行为不变。
         let out = match crate::workswarm_output::parse_worker_output(&out) {
             crate::workswarm_output::WorkerOutputParse::Parsed(output) => {
+                let mut output = *output;
+                // The architect often records open questions (e.g. whether the
+                // host has browser tools) as open_issues while still returning a
+                // complete TaskGraph. Those are planning notes, not failed
+                // deliverables; preserve them in handoff so downstream roles can
+                // read them without failing the producer gate.
+                if !is_reviewer
+                    && self.role == "architect"
+                    && output.status == crate::workswarm_output::WorkerOutputStatus::Done
+                    && !output.open_issues.is_empty()
+                {
+                    let notes = std::mem::take(&mut output.open_issues);
+                    let prefix = output
+                        .handoff
+                        .take()
+                        .filter(|value| !value.trim().is_empty())
+                        .map(|value| format!("{value}\n"))
+                        .unwrap_or_default();
+                    output.handoff = Some(format!(
+                        "{prefix}架构阶段待确认事项（非阻塞）：{}",
+                        notes.join("；")
+                    ));
+                }
                 if is_reviewer {
+                    output = normalize_reviewer_output(output);
                     if let Err(e) = output.validate_critic() {
                         return Err(format!("scope_violation:{e}"));
                     }
@@ -308,6 +473,42 @@ impl Worker for RoleWorker {
                                 return Err(format!("产物登记失败：{e}"));
                             }
                             output.artifact.map(|a| a.content).unwrap_or_default()
+                        }
+                        crate::workswarm_output::WorkerOutputStatus::Blocked
+                            if blocked_with_artifact(&output) =>
+                        {
+                            // 已有候选产物：登记为 done 候选，风险并入 summary/handoff；
+                            // 随后由宿主验证命令决定是否真的可用。没有产物的 blocked
+                            // 仍走下面的硬失败分支。
+                            let mut candidate = output.clone();
+                            if !candidate.open_issues.is_empty() {
+                                candidate.summary = format!(
+                                    "{}（Worker 曾标记 blocked 的跨模块风险：{}）",
+                                    candidate.summary,
+                                    candidate.open_issues.join("；")
+                                );
+                                candidate.open_issues.clear();
+                            }
+                            candidate.status = crate::workswarm_output::WorkerOutputStatus::Done;
+                            if let Err(e) = self
+                                .coordinator
+                                .register_step_output_contract_bound(
+                                    &self.team_id,
+                                    &self.member_id,
+                                    &self.role,
+                                    &step_id,
+                                    &candidate,
+                                    OutputAttemptBinding {
+                                        phase_epoch,
+                                        attempt_id: attempt_id.as_deref(),
+                                        reviewed_sources: Some(&reviewed_sources),
+                                    },
+                                )
+                                .await
+                            {
+                                return Err(format!("产物登记失败：{e}"));
+                            }
+                            candidate.artifact.map(|a| a.content).unwrap_or_default()
                         }
                         other => {
                             // producer 如实申报 failed/blocked：步骤失败（可局部重试），不登记空产物。
@@ -383,5 +584,57 @@ mod tests {
         let (retry_prompt, _) = TeamCoordinator::compile_role_prompt_with_meta(&context);
         assert!(retry_prompt.contains("分页边界测试缺失"));
         assert!(retry_prompt.contains("不得放宽验收或扩大权限"));
+    }
+
+    #[test]
+    fn blocked_with_artifact_is_a_soft_candidate_but_empty_artifact_is_not() {
+        let output = crate::workswarm_output::WorkerOutputV1 {
+            status: crate::workswarm_output::WorkerOutputStatus::Blocked,
+            summary: "模块测试通过，跨模块联调待 integrator".to_string(),
+            artifact: Some(crate::workswarm_output::WorkerArtifactV1 {
+                kind: "code".to_string(),
+                format: "text".to_string(),
+                content: "export const world = {};".to_string(),
+            }),
+            evidence: Vec::new(),
+            open_issues: vec!["等待联调".to_string()],
+            handoff: None,
+            review_result: None,
+        };
+        assert!(blocked_with_artifact(&output));
+
+        let mut empty = output.clone();
+        empty.artifact.as_mut().unwrap().content = "   ".to_string();
+        assert!(!blocked_with_artifact(&empty));
+
+        let mut without_artifact = output;
+        without_artifact.artifact = None;
+        assert!(!blocked_with_artifact(&without_artifact));
+    }
+    #[test]
+    fn reviewer_artifact_is_converted_to_structured_review_result() {
+        use crate::workswarm_output::{
+            WorkerArtifactV1, WorkerOutputStatus, WorkerOutputV1, WorkerReviewVerdict,
+        };
+        let output = WorkerOutputV1 {
+            status: WorkerOutputStatus::Done,
+            summary: "ship".to_string(),
+            artifact: Some(WorkerArtifactV1 {
+                kind: "scorecard".to_string(),
+                format: "json".to_string(),
+                content:
+                    r#"{"decision":"ship","scores":{"playability":4},"blockers":[],"major":[]}"#
+                        .to_string(),
+            }),
+            evidence: vec![],
+            open_issues: vec![],
+            handoff: None,
+            review_result: None,
+        };
+        let normalized = normalize_reviewer_output(output);
+        assert!(normalized.artifact.is_none());
+        let review = normalized.review_result.expect("review result");
+        assert_eq!(review.verdict, WorkerReviewVerdict::Approved);
+        assert!(review.findings.is_empty());
     }
 }

@@ -38,7 +38,51 @@ impl Tool for WorkflowTool {
     }
 }
 
+pub(super) fn is_parent_workflow_tool(name: &str) -> bool {
+    name.starts_with("mcp__")
+        || matches!(
+            name,
+            "web_fetch" | "web_search" | "generate_image" | "text_to_speech"
+        )
+}
+
+struct HostGuardedTool {
+    parent: Arc<Agent>,
+    inner: Arc<dyn Tool>,
+}
+#[async_trait]
+impl Tool for HostGuardedTool {
+    fn spec(&self) -> ToolSpec {
+        self.inner.spec()
+    }
+    async fn run(&self, ctx: &mut ToolContext<'_>, args: Value) -> Result<Value, String> {
+        if self.parent.tool_disabled(&self.inner.spec().name) {
+            return Err("workflow tool disabled by host".into());
+        }
+        self.inner.run(ctx, args).await
+    }
+}
+
 impl Agent {
+    pub(crate) fn guard_workflow_registry(
+        self: &Arc<Self>,
+        registry: &mut crate::tools::ToolRegistry,
+    ) -> Result<(), String> {
+        for spec in registry.specs() {
+            if self.tool_disabled(&spec.name) {
+                return Err(format!("workflow tool disabled: {}", spec.name));
+            }
+            let inner = registry
+                .get(&spec.name)
+                .ok_or_else(|| "worker registry changed".to_string())?;
+            registry.register_arc(Arc::new(HostGuardedTool {
+                parent: Arc::clone(self),
+                inner,
+            }));
+        }
+        Ok(())
+    }
+
     /// Return controlled proxies for explicitly selected, connected external tools.
     /// Workspace file/command tools always come from the scoped worker registry.
     pub fn declared_workflow_tools(
@@ -48,13 +92,7 @@ impl Agent {
         let specs = self.visible_tool_specs();
         names
             .iter()
-            .filter(|name| {
-                name.starts_with("mcp__")
-                    || matches!(
-                        name.as_str(),
-                        "web_fetch" | "web_search" | "generate_image" | "text_to_speech"
-                    )
-            })
+            .filter(|name| is_parent_workflow_tool(name))
             .map(|name| {
                 let spec = specs
                     .iter()

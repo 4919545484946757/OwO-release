@@ -32,7 +32,10 @@ impl Agent {
         session.active_task_context = Some(
             crate::task_context::ResolvedTaskContext::for_single_turn(&turn_id, prompt),
         );
-        if abort.load(Ordering::Acquire) {
+        // A durable host turn retains its admitted input even when cancellation
+        // arrived before execution. Non-durable compatibility calls keep the
+        // original early-abort behavior.
+        if abort.load(Ordering::Acquire) && options.session_checkpoint.is_none() {
             return Err(AgentError::Aborted);
         }
         let turn_policy = self
@@ -90,16 +93,15 @@ impl Agent {
         }
         let mut messages = vec![ChatMessage::system(system)];
         messages.extend(session.messages.iter().cloned());
-        if images.is_empty() {
-            messages.push(ChatMessage::user(prompt.to_string()));
-        } else {
-            messages.push(ChatMessage::user_with_images(
-                prompt.to_string(),
-                images.to_vec(),
-            ));
-        }
+        let mut user_message = ChatMessage::user_with_images(prompt.to_string(), images.to_vec());
+        user_message.input = options.input.clone();
+        messages.push(user_message);
         // 存量历史可能带非法序列（压缩切分、中断半截、外部导入）：发请求前归一。
         sanitize_history(&mut messages);
+        checkpoint::checkpoint_messages(session, &messages, options)?;
+        if abort.load(Ordering::Acquire) {
+            return Err(AgentError::Aborted);
+        }
         // A2-1 UserPromptSubmit hook：exit 2 = 拒绝本回合（敏感词门卫/强制工单号等
         // 确定性控制），stderr 回喂模型与用户。
         // 纯对话模式不执行工作区 hooks：hook 命令本身就是本机进程，会读写文件/跑命令，
@@ -205,6 +207,10 @@ impl Agent {
                     )
                     .await;
             }
+            // Persist completed tool/result groups before the next request,
+            // including a compaction request. A dropped future keeps this
+            // checkpoint; it is not an authorization to replay unknown tools.
+            checkpoint::checkpoint_messages(session, &messages, options)?;
             let compaction = self.maybe_compact(&mut messages, &session.id, false).await;
             let summary = match compaction {
                 Ok(summary) => summary,
@@ -213,6 +219,7 @@ impl Agent {
                     return Err(error);
                 }
             };
+            let history_compacted = summary.is_some();
             if let Some(summary) = summary {
                 // 压缩请求目前未暴露 per-request usage，因此总用量必须标为不完整。
                 usage_known = false;
@@ -224,8 +231,12 @@ impl Agent {
                     },
                 );
             }
-            if messages.len() > self.config.context_limit {
+            let history_truncated = messages.len() > self.config.context_limit;
+            if history_truncated {
                 compact_truncate(&mut messages, self.config.context_limit);
+            }
+            if history_compacted || history_truncated {
+                checkpoint::checkpoint_messages(session, &messages, options)?;
             }
 
             emit(&mut events, &event_cell, TurnEvent::ModelCall);
@@ -1175,7 +1186,7 @@ impl Agent {
                                         ok: outcome.is_ok(),
                                         error: outcome.as_ref().err().cloned(),
                                         preview: tool_preview(&outcome),
-                                            outputs: tool_outputs(&outcome),
+                                        outputs: tool_outputs(&outcome),
                                         command_receipt,
                                     },
                                 );

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Parkour 3D — 跑酷</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <!-- three.js 直接从 CDN 加载（无构建步骤，浏览器可直接打开） -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <!-- 3D 渲染画布：全屏，位于所有 UI 之下 -->
+    <canvas id="game" aria-label="3D 跑酷游戏画面"></canvas>
+
+    <!-- HUD：计时、得分、状态 -->
+    <section id="hud" aria-live="polite">
+      <div class="hud-row">
+        <div class="hud-item">
+          <span class="hud-label">时间</span>
+          <span id="hud-time" class="hud-value">00:00.000</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">得分</span>
+          <span id="hud-score" class="hud-value">0</span>
+        </div>
+      </div>
+      <div id="hud-status" class="hud-status">按 Enter / 空格 开始</div>
+    </section>
+
+    <!-- 操作提示 -->
+    <aside id="hint" class="hint">
+      <p><strong>WASD / 方向键</strong> 移动 · <strong>空格</strong> 跳跃 · <strong>R</strong> 重新开始</p>
+    </aside>
+
+    <!-- 胜利 / 提示浮层（默认隐藏，由 src/ui.js 控制） -->
+    <div id="overlay" class="overlay" hidden>
+      <div class="overlay-panel" role="dialog" aria-modal="true" aria-labelledby="overlay-title">
+        <h1 id="overlay-title">胜利！</h1>
+        <p id="overlay-text">得分 0 · 用时 00:00.000</p>
+        <button id="restart" type="button" class="restart-button">重新开始 (R)</button>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

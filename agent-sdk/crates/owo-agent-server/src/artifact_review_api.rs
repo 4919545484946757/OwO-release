@@ -55,6 +55,9 @@ pub(crate) mod human_inbox_store;
 #[path = "artifact_media.rs"]
 pub(crate) mod artifact_media;
 
+#[path = "input_assets.rs"]
+pub(crate) mod input_assets;
+
 // ---------------------------------------------------------------------------
 // 状态（进程内单例连接，懒初始化）
 // ---------------------------------------------------------------------------

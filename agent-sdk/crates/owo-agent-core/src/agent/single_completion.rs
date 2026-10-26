@@ -821,6 +821,7 @@ mod single_verification_plan_tests {
             ok: true,
             error: None,
             preview: None,
+            outputs: Vec::new(),
             command_receipt: Some(CommandExecutionReceipt {
                 command_sha256: crate::CasStore::hash_of(command.as_bytes()),
                 exit_code: 0,
@@ -913,6 +914,7 @@ mod single_verification_plan_tests {
             ok: true,
             error: None,
             preview: None,
+            outputs: Vec::new(),
             command_receipt: Some(CommandExecutionReceipt {
                 command_sha256: crate::CasStore::hash_of(command.trim().as_bytes()),
                 exit_code: 0,

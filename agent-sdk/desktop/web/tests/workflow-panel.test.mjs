@@ -18,7 +18,9 @@ const read = (name) => readFileSync(join(here, "..", name), "utf8");
 
 function loadPanel() {
   const win = {};
+  new Function("window", read("core/workflow-document.js"))(win);
   new Function("window", read("core/workflow-editor.js"))(win);
+  new Function("window", read("core/workflow-canvas.js"))(win);
   new Function("window", read("panels/workflows.panel.js"))(win);
   return win;
 }
@@ -335,7 +337,7 @@ test("renderGraphSvg：节点/边/分层坐标与环提示", () => {
       { role: "b", assignee: "human", depends_on: ["a"] },
     ],
   });
-  assert.match(svg, /<svg class="owo-wf-graph"/);
+  assert.match(svg, /<svg class="owo-wfc-graph owo-wf-graph"/);
   assert.match(svg, /aria-label="工作流依赖图"/);
   assert.match(svg, />a</);
   assert.match(svg, />b</);
@@ -349,13 +351,13 @@ test("renderGraphSvg：节点/边/分层坐标与环提示", () => {
     ],
   });
   assert.match(cyclic, /环/);
-  assert.doesNotMatch(cyclic, /<svg/);
+  assert.match(cyclic, /<svg/, "循环导入保留图形以便删除错误连接");
 
   assert.equal(panel.renderGraphSvg({ roles: [] }), "");
 
-  assert.match(svg, /class="owo-wf-node"/, "节点应可拖拽");
-  assert.match(svg, /data-node-id="a"/);
-  assert.match(svg, /class="owo-wf-graph-reset"/, "应提供重排入口");
+  assert.match(svg, /class="owo-wf-node owo-wfc-node/, "节点应可拖拽");
+  assert.match(svg, /aria-label="编辑节点 a"/);
+  assert.match(svg, /data-output-port="node-/, "应提供可编辑连接端口");
   assert.match(svg, /transform="translate\(18 18\)"/, "节点位置写入 transform");
 });
 
@@ -404,15 +406,79 @@ test("面板源码遵守前端约定（无 console.log / 无硬编码 http URL�
   assert.match(source, /window\.OwoPanels\.workflows/);
 });
 
-test("画布拖拽/布局持久化/对话直达入口已接线", () => {
-  const source = read("panels/workflows.panel.js");
-  assert.match(source, /onpointerdown/);
-  assert.match(source, /onpointermove/);
-  assert.match(source, /clampNodePosition/);
-  assert.match(source, /saveSavedLayout\(template/);
-  assert.match(source, /owo\.wf\.canvas\.v1:/);
-  assert.match(source, /function focusBrief\(text\)/);
-  assert.match(source, /focusBrief: focusBrief/);
-  assert.match(read("index.html"), /workflow-canvas\.css/);
-  assert.match(read("index.html"), /data-workflow-brief=/);
+
+
+
+test("tool capability catalog distinguishes media configuration and main-only tools and escapes metadata", () => {
+  const panel = loadPanel().OwoPanels["custom-workflows"];
+  const html = panel.renderToolCatalog([
+    { name: "generate_image", status: "not_configured", worker_supported: true, reason: "缺少媒体凭据", input_modalities: ["text"], output_modalities: ["image"] },
+    { name: "text_to_speech", status: "registered", worker_supported: true, profiles: ["declared"], input_schema: { description: "<script>unsafe</script>" }, effect: { class: "write" } },
+    { name: "subagent", status: "unsupported", worker_supported: false, description: "<img src=x onerror=alert(1)>" },
+  ]);
+  assert.match(html, /generate_image.*未配置/s);
+  assert.match(html, /缺少媒体凭据/);
+  assert.match(html, /text → 输出 image/);
+  assert.match(html, /text_to_speech.*已注册 · 可声明/s);
+  assert.match(html, /subagent.*Worker 未接入/s);
+  assert.match(html, /副作用 write/);
+  assert.match(html, /&lt;script&gt;unsafe/);
+  assert.doesNotMatch(html, /<script>|<img/);
+  assert.match(html, /执行仍受审批、角色及任务范围约束/);
+});
+
+test("catalog reads the worker endpoint and ignores stale or disposed responses", async () => {
+  const win = loadPanel();
+  const pending = [];
+  win.OwoApi = { get(path) { assert.equal(path, "/workflows/tools"); return new Promise(resolve => pending.push(resolve)); } };
+  const panel = win.OwoPanels["custom-workflows"];
+  const box = { innerHTML: "" };
+  const root = { querySelector() { return box; } };
+  const first = panel._test.refreshCatalog(root);
+  const second = panel._test.refreshCatalog(root);
+  pending[1]({ tools: [{ name: "current", status: "registered", worker_supported: true }] });
+  await second;
+  pending[0]({ tools: [{ name: "old" }] });
+  await first;
+  assert.match(box.innerHTML, /current/);
+  assert.doesNotMatch(box.innerHTML, />old</);
+  const disposed = panel._test.refreshCatalog(root);
+  panel.dispose();
+  box.innerHTML = "detached";
+  pending[2]({ tools: [] });
+  await disposed;
+  assert.equal(box.innerHTML, "detached");
+  const malformed = panel._test.refreshCatalog(root);
+  pending[3]({});
+  await malformed;
+  assert.match(box.innerHTML, /工具目录读取失败/);
+});
+
+
+test("workflow validation and list distinguish valid JSON from unavailable node tools", () => {
+  const panel=loadPanel().OwoPanels["custom-workflows"];
+  const preflight={ok:false,issues:[{role:"draw",tool:"generate_image",code:"not_configured",message:"请配置媒体连接"}]};
+  const text=panel.renderReviewText({ok:true,errors:[],preflight});
+  assert.match(text,/运行前工具检查未通过/);
+  assert.match(text,/\[not_configured\] draw · generate_image：请配置媒体连接/);
+  assert.doesNotMatch(text,/没有发现需要关注的问题/);
+  const html=panel.renderWorkflowRows({templates:[{valid:true,preflight,template:{template_id:"draw",roles:[{}]}}]});
+  assert.match(html,/运行前检查未通过/);
+  assert.doesNotMatch(html,/可创建团队/);
+});
+
+
+test("读取版本冻结：成功推进版本，改 id 创建新文档，迟到回包不改变新会话", () => {
+  const tracker = loadPanel().OwoPanels["custom-workflows"]._test.createRevisionTracker();
+  tracker.open("a", 3);
+  const first = tracker.capture("a");
+  assert.equal(first.expected_revision, 3);
+  assert.equal(tracker.capture("b").expected_revision, 0);
+  assert.ok(tracker.commit(first, { revision: 4 }));
+  assert.equal(tracker.capture("a").expected_revision, 4);
+  const delayed = tracker.capture("a");
+  tracker.open("b", 8);
+  assert.equal(tracker.commit(delayed, { revision: 5 }), false);
+  assert.equal(tracker.capture("b").expected_revision, 8);
+  assert.equal(tracker.capture("a").expected_revision, 0);
 });

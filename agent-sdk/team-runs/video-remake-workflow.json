@@ -1,0 +1,43 @@
+{
+  "template_id": "video-remake",
+  "name": "视频分镜与动效复刻",
+  "mode": "team",
+  "applicability": "视频 复刻 分镜 动画 短片 短视频 脚本 剪辑 动效 镜头",
+  "applicability_notes": "不伪造视频渲染：先把参考视频拆成分镜和可运行的 CSS/Canvas 动态分镜（animatic），再评审镜头节奏与信息还原；需要真实 MP4 时再接入外部渲染服务。",
+  "created_at": "2026-10-26T00:00:00Z",
+  "description": "四角色视频复刻前端链路：director 拆镜头/节奏 → storyboard 写可运行 animatic → critic 只读评审节奏、信息与可访问性。交付物是 HTML 动态分镜，不宣称已渲染 MP4。",
+  "version": "1.0.0",
+  "tags": ["video", "storyboard", "animation", "animatic"],
+  "roles": [
+    {
+      "role": "director",
+      "assignee": "agent",
+      "depends_on": [],
+      "capabilities": ["task_worker"],
+      "model": "deepseek-chat",
+      "write_paths": ["docs/"],
+      "tools": ["read_file", "list_dir", "write_file"],
+      "handoff_contract": "你是 director。把用户给出的视频复刻目标拆成 docs/storyboard.md：镜头序号、时长、画面主体、动作、字幕/旁白、转场、节奏点和参考风格；明确本工作流只交付 HTML 动态分镜，不伪造 MP4。输出 WorkerOutputV1，artifact.format=markdown，供 animator 直接实现。"
+    },
+    {
+      "role": "storyboard",
+      "assignee": "agent",
+      "depends_on": ["director"],
+      "capabilities": ["task_worker"],
+      "model": "deepseek-chat",
+      "write_paths": ["animatic/"],
+      "tools": ["read_file", "list_dir", "write_file", "apply_patch"],
+      "handoff_contract": "你是 storyboard/animator。按 docs/storyboard.md 写 animatic/index.html 和 animatic/styles.css：用 CSS keyframes/过渡按镜头时间线播放，支持播放/暂停/重播，显示镜头号/时间/字幕，移动端自适应，无外部依赖。只写 animatic/；不要伪造真实视频文件。输出 WorkerOutputV1，artifact.format=markdown，列时间线、交互和限制。"
+    },
+    {
+      "role": "critic",
+      "assignee": "agent",
+      "depends_on": ["storyboard"],
+      "capabilities": ["review"],
+      "model": "deepseek-chat",
+      "write_paths": [],
+      "tools": ["read_file", "list_dir"],
+      "handoff_contract": "你是只读 critic。读取 docs/storyboard.md 和 animatic/index.html/styles.css，核对镜头顺序/时长、字幕、播放/暂停/重播、响应式、无外部依赖，并检查是否诚实标注“动态分镜而非 MP4”。只输出合法 WorkerOutputV1 JSON，不提交 artifact：{\"status\":\"done\",\"summary\":\"评分与证据\",\"review_result\":{\"verdict\":\"approved|changes_requested|rejected\",\"reviewed_requirement_ids\":[],\"findings\":[{\"severity\":\"blocker|major|minor|note\",\"detail\":\"...\",\"target_task_id\":\"s-storyboard\"}]},\"evidence\":[],\"open_issues\":[],\"handoff\":\"\"}。无 blocker/major 才 approved。"
+    }
+  ]
+}

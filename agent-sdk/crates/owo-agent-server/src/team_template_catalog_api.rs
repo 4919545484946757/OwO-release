@@ -6,8 +6,8 @@
 //!   `TeamTemplateRegistry`，自动匹配（`find_match`）不会命中——「自动模式只
 //!   匹配已安装模板」由注册表机制保证。
 //! - `POST /teams/templates/catalog/{id}/install`——用户手动安装（幂等、非破坏：
-//!   已存在同名模板时返回现状不覆盖，避免冲掉用户定制；安装只写
-//!   `templates/{id}.json`，不触碰任何权限/设置面——不自动扩大文件、命令或
+//!   已存在同名模板时返回现状不覆盖，避免冲掉用户定制；安装只写注册表的
+//!   模板修订，不触碰任何权限/设置面——不自动扩大文件、命令或
 //!   网络权限）。
 //!
 //! 模块纪律（usage.rs 先例）：不引用 `crate::`/`super::`，AppState 全限定
@@ -18,23 +18,19 @@
 //! 直读同目录 `data_root/workswarm`；注册表无缓存，读写一致），避免目录浏览
 //! 产生 space.db/CAS 等重副作用。
 
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use owo_agent_core::builtin_team_templates::{self, BuiltinTemplateDescriptor};
 use owo_agent_core::workswarm::TeamTemplateRegistry;
-use owo_agent_protocol::TeamTemplate;
 use owo_agent_server::AppState;
+use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
-/// 目录/安装的注册表根：与 WorkSwarm 协调器**完全同一实例路径**——
-/// 协调器在 `WorkSwarmState::coordinator()` 里以
-/// `TeamTemplateRegistry::new(workswarm_base.join("templates"))` 构造（注册表
-/// 自建 `templates/`+`proposals/` 子目录），因此模板文件实际位于
-/// `data_root/workswarm/templates/templates/{id}.json`。目录 API 用同一根，
-/// 安装结果对协调器立即可见（注册表无进程内缓存，读写直达磁盘）。
+/// The coordinator and catalog share this registry root. Legacy templates/templates/*.json
+/// are imported once into templates/workflow-templates.sqlite3, retaining the original files.
 fn registry(state: &AppState) -> TeamTemplateRegistry {
     TeamTemplateRegistry::for_workswarm_root(&state.data_root.join("workswarm"))
 }
@@ -64,10 +60,16 @@ async fn catalog(
     let entries: Vec<Value> = builtin_team_templates::catalog()
         .iter()
         .map(|d| {
-            let installed = registry.get_template(&d.template.template_id).is_some();
-            descriptor_json(d, installed)
+            let record = registry
+                .get_revision(&d.template.template_id)
+                .map_err(owo_agent_server::workflow_write_service::store_error)?;
+            let installed = record.as_ref().is_some_and(|r| r.template.is_some());
+            let mut entry = descriptor_json(d, installed);
+            entry["revision"] = json!(record.as_ref().map(|r| r.revision).unwrap_or(0));
+            entry["content_hash"] = json!(record.and_then(|r| r.content_hash));
+            Ok(entry)
         })
-        .collect();
+        .collect::<Result<Vec<_>, (StatusCode, Json<Value>)>>()?;
     let installed_count = entries
         .iter()
         .filter(|e| e["installed"] == Value::Bool(true))
@@ -82,16 +84,21 @@ async fn catalog(
 
 /// POST /teams/templates/catalog/{id}/install：安装内置模板（幂等、非破坏）。
 ///
-/// - 首次安装：写入 `templates/{id}.json` → `{installed: true}`（此后该模板可
+/// - 首次安装：保存模板修订 → `{installed: true}`（此后该模板可
 ///   参与自动匹配与显式 template_id 建队）。
 /// - 重复安装：已存在同名模板（可能是用户定制版）→ 不覆盖，返回现状
-///   `{installed: false, already_installed: true, template: 现状}`；需要重置为
-///   内置版时先删除 `templates/{id}.json` 再安装。
+///   `{installed: false, already_installed: true, template: 现状}`。
 /// - 未知 id → 404。
-/// - 安装不触碰任何权限/设置面（只写一个模板 JSON 文件）。
+/// - 安装不触碰任何权限/设置面（只写模板注册表）。
+#[derive(Default, Deserialize)]
+struct InstallQuery {
+    expected_revision: Option<u64>,
+}
+
 async fn install(
     State(state): State<Arc<AppState>>,
     AxumPath(id): AxumPath<String>,
+    Query(query): Query<InstallQuery>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let Some(descriptor) = builtin_team_templates::descriptor(&id) else {
         return Err(error(
@@ -103,26 +110,13 @@ async fn install(
         ));
     };
     let registry = registry(&state);
-    if let Some(existing) = registry.get_template(&id) {
-        return Ok(Json(json!({
-            "installed": false,
-            "already_installed": true,
-            "template": existing,
-            "note": "幂等：已存在同名模板（可能是用户定制版），未覆盖；如需重置为内置版请先删除 templates/{id}.json",
-        })));
-    }
-    let TeamTemplate { template_id, .. } = &descriptor.template;
-    registry.save_template(&descriptor.template).map_err(|e| {
-        error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("模板 {template_id} 写入失败：{e}"),
-        )
-    })?;
+    let (saved, installed) = registry
+        .install_if_absent(&descriptor.template, query.expected_revision)
+        .map_err(owo_agent_server::workflow_write_service::store_error)?;
     Ok(Json(json!({
-        "installed": true,
-        "already_installed": false,
-        "template": descriptor.template,
-        "auto_match": "已可参与自动匹配与显式 template_id 建队（applicability 关键词命中即匹配）",
+        "installed": installed, "already_installed": !installed,
+        "template": saved.template, "revision": saved.revision, "content_hash": saved.content_hash,
+        "auto_match": "已可参与自动匹配与显式 template_id 建队；安装不扩大权限",
         "budget_hint": descriptor.budget,
     })))
 }

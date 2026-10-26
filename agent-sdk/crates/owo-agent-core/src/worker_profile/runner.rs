@@ -23,6 +23,8 @@ pub struct ProfileSubagentRunner<'a> {
     pub provider: Arc<dyn ModelProvider>,
     /// Host restrictions are inherited live; role constraints may only narrow them.
     pub parent_policy: &'a Policy,
+    /// Optional live host tool enablement ceiling; Team workers always supply it.
+    pub parent_agent: Option<Arc<crate::Agent>>,
     pub approver: &'a dyn Approver,
     /// 中断标志：团队取消桥共享置位，`run_turn` 协作式检查。
     pub abort: &'a AtomicBool,
@@ -99,12 +101,68 @@ impl ProfileSubagentRunner<'_> {
             .map_err(|error| error.message)
     }
 
+    pub async fn run_with_images(
+        &self,
+        workspace: &Path,
+        prompt: &str,
+        images: &[crate::gateway::MessageImage],
+    ) -> Result<String, String> {
+        self.run_report_with_images(workspace, prompt, images)
+            .await
+            .map(|report| report.output)
+            .map_err(|error| error.message)
+    }
+
     /// Resolve the capability profile here, then delegate all worker execution to WorkerRuntime.
     pub async fn run_report(
         &self,
         workspace: &Path,
         prompt: &str,
     ) -> Result<ProfileSubagentRunReport, ProfileSubagentRunError> {
+        self.run_report_with_images(workspace, prompt, &[]).await
+    }
+
+    pub async fn run_report_with_images(
+        &self,
+        workspace: &Path,
+        prompt: &str,
+        images: &[crate::gateway::MessageImage],
+    ) -> Result<ProfileSubagentRunReport, ProfileSubagentRunError> {
+        self.run_report_with_input(workspace, prompt, images, None)
+            .await
+    }
+
+    /// Host-validated input refs are persisted with the same turn that receives the pixels.
+    pub async fn run_with_input(
+        &self,
+        workspace: &Path,
+        prompt: &str,
+        images: &[crate::gateway::MessageImage],
+        input: owo_agent_protocol::StoredUserInput,
+    ) -> Result<String, String> {
+        self.run_report_with_input(workspace, prompt, images, Some(input))
+            .await
+            .map(|r| r.output)
+            .map_err(|e| e.message)
+    }
+
+    pub async fn run_report_with_input(
+        &self,
+        workspace: &Path,
+        prompt: &str,
+        images: &[crate::gateway::MessageImage],
+        input: Option<owo_agent_protocol::StoredUserInput>,
+    ) -> Result<ProfileSubagentRunReport, ProfileSubagentRunError> {
+        if let Some(parent) = &self.parent_agent {
+            let issues = parent.preflight_workflow_profile(&self.profile)?;
+            if !issues.is_empty() {
+                return Err(format!(
+                    "workflow preflight: {}",
+                    serde_json::to_string(&issues).unwrap_or_default()
+                )
+                .into());
+            }
+        }
         let policy = self.parent_policy.for_workspace(workspace.to_path_buf())?;
         let has_external_tools = self.profile.visible_tools.iter().any(|name| {
             name.starts_with("mcp__") || matches!(name.as_str(), "web_fetch" | "web_search")
@@ -116,7 +174,13 @@ impl ProfileSubagentRunner<'_> {
         };
         let mut registry = self.profile.build_registry(self.write_allowed.clone());
         for tool in &self.extra_tools {
-            registry.register_arc(Arc::clone(tool));
+            registry.register_arc(crate::tools::scoped_workflow_tool(
+                Arc::clone(tool),
+                self.write_allowed.clone(),
+            ));
+        }
+        if let Some(parent) = &self.parent_agent {
+            parent.guard_workflow_registry(&mut registry)?;
         }
         let registered = registry.specs();
         let missing = self
@@ -187,7 +251,7 @@ impl ProfileSubagentRunner<'_> {
             parent_session_id: self.parent_session_id.clone(),
         };
         runtime
-            .run_report(prompt)
+            .run_report_with_input(prompt, images, input)
             .await
             .map(|report| ProfileSubagentRunReport {
                 output: report.output,

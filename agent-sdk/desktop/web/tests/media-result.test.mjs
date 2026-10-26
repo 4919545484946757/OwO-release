@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
+import {webcrypto, createHash} from "node:crypto";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const web = join(here, "..");
@@ -112,8 +113,8 @@ test("应用层为音频插入 audio 控件而不是 img", () => {
 test("模型菜单展示媒体能力，且未配置时给出明确提示", () => {
   const app = readFileSync(join(web, "app.js"), "utf8");
   assert.match(app, /function mediaHintHtml\(\)/, "缺少能力提示函数");
-  assert.match(app, /constraints\.media_image_generation === true/, "图片能力位读取错误");
-  assert.match(app, /constraints\.media_speech === true/, "语音能力位读取错误");
+  assert.match(app, /mediaConnectionInfo\("image"\)/, "图片连接状态读取错误");
+  assert.match(app, /mediaConnectionInfo\("audio"\)/, "语音连接状态读取错误");
   assert.match(app, /typeof mediaHintHtml === "function" \? mediaHintHtml\(\)/, "菜单未挂载提示");
   assert.match(app, /OPENAI_API_KEY/, "提示应告诉用户配哪个变量");
 
@@ -135,7 +136,9 @@ test("输入栏媒体入口：插入模板而不是直接发请求", () => {
   // 关键约束：不直接调用 API，仍由模型发起工具调用并走审批。
   assert.equal(/openMediaMenu[\s\S]{0,1200}OwoApi\.stream/.test(app), false, "媒体入口不得绕过回合直接发请求");
   // 未配置时给出提示，而不是禁用入口。
-  assert.match(app, /尚未配置（OPENAI_API_KEY 或本机端点）/, "缺少未配置提示");
+  const capability = readFileSync(join(web, "core/media-capability.js"), "utf8");
+  assert.match(capability, /未配置/, "缺少未配置提示");
+  assert.match(capability, /请配置该能力/, "缺少按能力配置的提示");
 });
 
 test("媒体菜单的键盘可达性与收起行为", () => {
@@ -168,4 +171,158 @@ test("大文件媒体不内联时给出可复制的路径", () => {
   const css = readFileSync(join(web, "experience.css"), "utf8");
   assert.match(css, /\.owo-media-file \{/, "缺少路径行样式");
   assert.match(css, /\.owo-media-copy \{/, "缺少复制按钮样式");
+});
+
+
+function output(kind, bytes, id = "media-fixture") {
+  return { artifact_id: id, kind, mime_type: kind === "image" ? "image/png" : "audio/mpeg", bytes, path: `outputs/${id}` };
+}
+
+test("typed media survives a truncated preview at every acceptance size", () => {
+  for (const kind of ["image", "audio"]) for (const size of [2048, 100 * 1024, 1024 * 1024]) {
+    const payload = { ok: true, tool: kind === "image" ? "generate_image" : "text_to_speech", preview: '{"data_url":"truncated', outputs: [output(kind, size)] };
+    // Historical replay serializes the exact same event contract.
+    for (const event of [payload, JSON.parse(JSON.stringify(payload))]) {
+      const result = media.mediaFromToolResult(event);
+      assert.equal(result.bytes, size);
+      assert.equal(result.contentPath, "/artifacts/media-fixture/content?raw=true");
+      assert.equal(result.dataUrl, "");
+    }
+  }
+});
+
+test("typed outputs reject invalid MIME, ids and sizes without parsing a legacy fallback", () => {
+  for (const item of [
+    { ...output("image", 1), mime_type: "image/svg+xml" },
+    { ...output("image", 1), artifact_id: "../../secret" },
+    { ...output("image", 1), bytes: 33 * 1024 * 1024 },
+    { ...output("image", 1), bytes: -1 },
+    output("audio", 1),
+  ]) assert.equal(media.mediaFromToolResult({ ok: true, tool: "generate_image", outputs: [item], preview: '{"path":"legacy.png"}' }), null);
+});
+
+function rendererHarness(api, expectedSha256) {
+  const urls = [], revoked = [];
+  let cleanup;
+  class Node {
+    constructor(tag) { this.tagName = tag; this.children = []; this.attrs = {}; this.listeners = {}; this.isConnected = true; this.ownerDocument = doc; }
+    append(...nodes) { for (const n of nodes) this.appendChild(n); }
+    appendChild(n) { n.parent = this; this.children.push(n); return n; }
+    setAttribute(k, v) { this.attrs[k] = v; }
+    getAttribute(k) { return this.attrs[k] || null; }
+    replaceWith(node) { this.parent.current = node; node.isConnected = true; node.parent = this.parent; }
+    removeAttribute(k) { delete this[k]; delete this.attrs[k]; }
+    remove() { this.isConnected = false; if (this.parent) this.parent.children = this.parent.children.filter(x => x !== this); }
+    addEventListener(k, v) { this.listeners[k] = v; }
+    removeEventListener(k) { delete this.listeners[k]; }
+  }
+  const doc = { createElement: tag => new Node(tag), documentElement: {} };
+  const root = {
+    AbortController, OwoApi: api, crypto: webcrypto,
+    URL: { createObjectURL: blob => { const url = "blob:" + urls.length; urls.push({ url, blob }); return url; }, revokeObjectURL: url => revoked.push(url) },
+    MutationObserver: class { constructor(fn) { cleanup = fn; } observe() {} disconnect() {} },
+  };
+  vm.runInNewContext(source, { window: root });
+  const container = new Node("div");
+  const item = root.OwoMediaResult.mediaFromToolResult({ tool: "generate_image", ok: true, outputs: [output("image", 2048)] });
+  if (expectedSha256) item.expectedSha256 = expectedSha256;
+  const handle = root.OwoMediaResult.mount(container, item);
+  return { root, container, handle, urls, revoked, cleanup: () => cleanup() };
+}
+
+test("authenticated renderer bounds downloads, creates a blob preview and releases it on removal", async () => {
+  const calls = [];
+  const h = rendererHarness({ download: async (path, opts) => { calls.push({ path, opts }); return new Blob([new Uint8Array(2048)], { type: "image/png" }); } });
+  assert.equal(calls.length, 0, "media loads on demand");
+  await h.handle.load();
+  assert.equal(calls[0].path, "/artifacts/media-fixture/content?raw=true");
+  assert.equal(calls[0].opts.maxResponseBytes, 32 * 1024 * 1024);
+  assert.ok(calls[0].opts.signal);
+  assert.equal(h.container.children[2].src, "blob:0");
+  h.container.isConnected = false;
+  h.cleanup();
+  assert.deepEqual(h.revoked, ["blob:0"]);
+});
+
+test("media loading can be cancelled and a late response never creates a URL", async () => {
+  let finish, signal;
+  const h = rendererHarness({ download: (_, opts) => { signal = opts.signal; return new Promise(resolve => { finish = resolve; }); } });
+  const pending = h.handle.load();
+  h.handle.cancel();
+  assert.equal(signal.aborted, true);
+  finish(new Blob([new Uint8Array(2048)], { type: "image/png" }));
+  await pending;
+  assert.equal(h.urls.length, 0);
+  h.handle.dispose();
+});
+
+test("missing files, denied access and mismatched MIME/size remain retryable", async () => {
+  for (const failure of [404, 403, "mime", "size"]) {
+    const h = rendererHarness({ download: async () => {
+      if (typeof failure === "number") throw Object.assign(new Error("denied"), { status: failure });
+      return new Blob([new Uint8Array(failure === "size" ? 1 : 2048)], { type: failure === "mime" ? "text/html" : "image/png" });
+    } });
+    await h.handle.load();
+    assert.equal(h.urls.length, 0);
+    assert.match(h.container.children[1].textContent, /不存在|权限|不符/);
+    assert.equal(h.container.children[0].textContent, "重试加载");
+    h.handle.dispose();
+  }
+});
+
+
+test("Team updates preserve an already loaded player instead of replacing its URL", async () => {
+  let requests = 0;
+  const h = rendererHarness({ download: async () => { requests++; return new Blob([new Uint8Array(2048)], { type: "image/png" }); } });
+  await h.handle.load();
+  const key = JSON.stringify({ ok: true, tool: "generate_image", outputs: [output("image", 2048)] });
+  h.container.setAttribute("data-media-artifact", key);
+  const outer = {
+    current: h.container,
+    querySelectorAll() { return [this.current]; },
+    set innerHTML(value) {
+      this.current.isConnected = false;
+      this.current = new h.container.constructor("div");
+      this.current.setAttribute("data-media-artifact", key);
+      this.current.parent = this;
+    },
+  };
+  h.container.parent = outer;
+  h.root.OwoMediaResult.renderInto(outer, "new conversation message");
+  assert.equal(outer.current, h.container);
+  assert.equal(outer.current.children[2].src, "blob:0");
+  assert.equal(requests, 1);
+  h.cleanup();
+  assert.deepEqual(h.revoked, []);
+  h.handle.dispose();
+});
+
+test("immutable input images verify SHA-256 before creating a preview URL", async () => {
+ const bytes=new Uint8Array(2048),hash=createHash("sha256").update(bytes).digest("hex");
+ for(const expected of [hash,"b".repeat(64)]){
+  const h=rendererHarness({download:async()=>new Blob([bytes],{type:"image/png"})},expected);
+  await h.handle.load();
+  assert.equal(h.urls.length,expected===hash?1:0);
+  if(expected!==hash)assert.match(h.container.children[1].textContent,/摘要不符/);
+  h.handle.dispose();
+ }
+ const item=media.mediaFromToolResult({tool:"generate_image",ok:true,outputs:[{...output("image",2048),sha256:hash}]});
+ assert.equal(item.expectedSha256,hash);
+ assert.equal(media.mediaFromToolResult({tool:"generate_image",outputs:[{...output("image",2048),sha256:"bad"}]}),null);
+});
+test("cancellation while verifying a digest never creates a late media URL", async () => {
+ let finish;const h=rendererHarness({download:async()=>new Blob([new Uint8Array(2048)],{type:"image/png"})},"a".repeat(64));
+ h.root.crypto={subtle:{digest:()=>new Promise(r=>finish=r)}};
+ const loading=h.handle.load();await new Promise(r=>setImmediate(r));assert(finish);
+ h.handle.cancel();finish(new ArrayBuffer(32));await loading;assert.equal(h.urls.length,0);h.handle.dispose();
+});
+
+test("disposing a visible inspector immediately releases its previews but preserves other views",async()=>{
+ const a=rendererHarness({download:async()=>new Blob([new Uint8Array(2048)],{type:"image/png"})});
+ await a.handle.load();a.root.OwoMediaResult.disposeWithin({contains:node=>node===a.container});
+ assert.deepEqual(a.revoked,["blob:0"]);assert.equal(a.container.children.some(n=>n.src),false);
+ await a.handle.load();assert.equal(a.urls.length,1);
+ const b=rendererHarness({download:async()=>new Blob([new Uint8Array(2048)],{type:"image/png"})});
+ await b.handle.load();b.root.OwoMediaResult.disposeWithin({contains:()=>false});
+ assert.deepEqual(b.revoked,[]);b.handle.dispose();
 });

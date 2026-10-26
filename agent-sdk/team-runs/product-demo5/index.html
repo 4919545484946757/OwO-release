@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OwO Agent SDK — 少写代码，构建可编排、可观测的 agent 能力</title>
+  <meta name="description" content="OwO Agent SDK 是面向开发者的 agent 能力 SDK：定义工具、编排流程、观测每一次调用。三步接入，离线可读文档说明。">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body id="top">
+  <a class="skip-link" href="#main">跳到主内容</a>
+
+  <header class="site-header">
+    <div class="wrap site-header__inner">
+      <a class="brand" href="#top">
+        <span class="brand__mark" aria-hidden="true">OwO</span>
+        <span class="brand__name">OwO Agent SDK</span>
+      </a>
+      <nav class="site-nav" aria-label="主导航">
+        <ul class="site-nav__list">
+          <li><a href="#features">能力</a></li>
+          <li><a href="#quickstart">接入</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a class="nav-cta" href="#quickstart">开始接入</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="hero" aria-labelledby="hero-heading">
+      <div class="wrap hero__inner">
+        <p class="hero__eyebrow">Developer SDK · agent 能力层</p>
+        <h1 id="hero-heading">
+          <span class="hero__claim">少写代码，构建可编排的 agent</span>
+          <span class="hero__positioning">OwO Agent SDK 让开发者用少量代码构建可编排、可观测的 agent 能力。</span>
+        </h1>
+        <p class="hero__lede">
+          用声明式工具定义替代手写调度：注册工具、编排步骤、拿到结构化日志。
+        </p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#quickstart">开始接入</a>
+          <a class="btn btn--secondary" href="#docs-placeholder">阅读文档（占位）</a>
+        </div>
+        <div class="hero__figure" aria-hidden="true">
+          <span class="hero__grid"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features" aria-labelledby="features-heading">
+      <div class="wrap">
+        <h2 id="features-heading" tabindex="-1">核心能力</h2>
+        <p class="section__intro">四条能力覆盖从工具接入到线上观测的完整链路；每条都可以单独使用。</p>
+        <ul class="feature-list">
+          <li class="feature">
+            <h3>声明式定义工具</h3>
+            <p>用一个对象描述参数与返回值，SDK 负责校验、类型映射与错误包装。</p>
+          </li>
+          <li class="feature">
+            <h3>可编排的执行流程</h3>
+            <p>把多个工具串成有顺序的步骤，支持条件分支与失败重试的显式配置。</p>
+          </li>
+          <li class="feature">
+            <h3>逐次调用的可观测性</h3>
+            <p>每次运行输出结构化事件：输入、工具、耗时、结果与失败原因。</p>
+          </li>
+          <li class="feature">
+            <h3>可插拔的运行时适配</h3>
+            <p>自定义传输层与环境绑定，便于在本地、CI 或服务端复用同一套定义。</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section section--alt" id="quickstart" aria-labelledby="quickstart-heading">
+      <div class="wrap">
+        <h2 id="quickstart-heading" tabindex="-1">三步接入</h2>
+        <p class="section__intro">以下路径在本地即可完成，不依赖任何外部服务即可跑通最小示例。</p>
+        <ol class="steps">
+          <li class="step">
+            <h3>安装 SDK</h3>
+            <p>在项目根目录安装包本体；无构建步骤，无额外运行时依赖。</p>
+            <pre><code>npm install owo-agent-sdk</code></pre>
+          </li>
+          <li class="step">
+            <h3>初始化客户端</h3>
+            <p>创建一个客户端实例，注册你需要的工具定义。</p>
+            <pre><code>import { createClient } from "owo-agent-sdk";
+
+const client = createClient({ name: "demo" });</code></pre>
+          </li>
+          <li class="step">
+            <h3>运行一次流程</h3>
+            <p>调用工具并读取结构化结果与事件日志。</p>
+            <pre><code>const run = await client.run("lookup", { query: "agent" });
+console.log(run.events, run.result);</code></pre>
+          </li>
+        </ol>
+        <p class="docs-slot" id="docs-placeholder" tabindex="-1">
+          文档说明位 · 占位链接位：真实文档站未在本次交付中提供，参数表与错误码暂不对外。
+          <a class="docs-slot__link" href="#docs-placeholder-note">阅读文档状态说明</a>
+        </p>
+        <p class="docs-slot__note" id="docs-placeholder-note">
+          文档尚未发布：本次交付只提供上方三步接入路径与 FAQ 说明；参数表、错误码与运行时适配细节将在文档站上线后补全，届时此处会替换为真实链接。
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="faq" aria-labelledby="faq-heading">
+      <div class="wrap">
+        <h2 id="faq-heading" tabindex="-1">常见问题</h2>
+        <div class="faq">
+          <details>
+            <summary>OwO Agent SDK 是什么？</summary>
+            <p>一个面向开发者的 agent 能力 SDK：用它定义工具、编排执行步骤，并拿到每次调用的结构化事件。</p>
+          </details>
+          <details>
+            <summary>接入需要改动现有技术栈吗？</summary>
+            <p>不需要。SDK 是独立包，通过函数调用接入；你可以只使用工具定义部分，不启用流程编排。</p>
+          </details>
+          <details>
+            <summary>它包含托管服务或账号体系吗？</summary>
+            <p>不包含。SDK 只提供本地运行时的能力与可观测事件；模型与传输由你自行配置。</p>
+          </details>
+          <details>
+            <summary>如何调试一次失败的调用？</summary>
+            <p>读取运行结果中的事件列表，定位失败步骤的输入与错误信息，再针对该工具补充校验。</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap site-footer__inner">
+      <p class="site-footer__brand">OwO Agent SDK</p>
+      <p class="site-footer__copy">© 2024 OwO Agent SDK. 保留所有权利。</p>
+      <ul class="site-footer__links">
+        <li><a href="#docs-placeholder">SDK 文档（占位链接位）</a></li>
+        <li><a href="#faq">常见问题</a></li>
+        <li><a href="#top">回到顶部</a></li>
+      </ul>
+    </div>
+  </footer>
+</body>
+</html>

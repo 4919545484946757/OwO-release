@@ -505,8 +505,8 @@ mod tests {
             prompt.contains("只允许在允许写路径内用 write_file 或 apply_patch 落盘最终变更"),
             "交付角色的护栏行应声明落盘义务：\n{prompt}"
         );
-        // 未声明预算 → 缺省 12（与画像硬上限一致）。
-        assert!(prompt.contains("回合预算为 12 回合"));
+        // 未声明预算 → 缺省 24（与画像硬上限一致）。
+        assert!(prompt.contains("回合预算为 24 回合"));
     }
 
     #[test]

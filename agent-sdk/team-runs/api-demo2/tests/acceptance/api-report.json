@@ -1,0 +1,117 @@
+{
+  "report_type": "api-acceptance-test-report",
+  "tester": "tester",
+  "role": "independent-tester (no product code modified)",
+  "environment": {
+    "node": "v22.17.0",
+    "os": "Windows (workspace team-runs/api-demo2)",
+    "third_party_deps": "none (uses node:test, node:assert, node:http, fetch)"
+  },
+  "runs": [
+    {
+      "id": "run-1",
+      "command": "node --test",
+      "cwd": ".",
+      "exit_code": 0,
+      "counts": { "tests": 15, "pass": 15, "fail": 0, "cancelled": 0, "skipped": 0, "todo": 0 },
+      "duration_ms": 271.5083,
+      "failed_test_names": [],
+      "notes": "运行两次（仅查看头部/尾部），两次结果一致：15/15 通过。"
+    },
+    {
+      "id": "run-2",
+      "command": "node tests/acceptance/api-probe.cjs",
+      "cwd": ".",
+      "exit_code": 0,
+      "description": "独立黑盒探针：createServer().listen(0)，用 node:http 原生请求逐个用例验证契约，每个用例独立 server 实例，避免 413 后连接销毁影响后续断言。",
+      "counts": { "probes": 11, "pass": 11, "fail": 0 },
+      "failed_probe_names": []
+    }
+  ],
+  "contract_matrix": [
+    {
+      "requirement": "GET /health 返回 200 且 body 恰为 {\"ok\":true}",
+      "expected": "200 + application/json + {\"ok\":true}",
+      "observed": "200, content-type=application/json; charset=utf-8, body={\"ok\":true}",
+      "status": "PASS",
+      "evidence": ["node --test #1 GET /health → 200 {\"ok\":true}", "api-probe.cjs 'GET /health'"]
+    },
+    {
+      "requirement": "GET /health?x=1 查询串被忽略",
+      "expected": "200 + {\"ok\":true}",
+      "observed": "200, body={\"ok\":true}",
+      "status": "PASS",
+      "evidence": ["node --test #2", "api-probe.cjs 'GET /health?x=1'"]
+    },
+    {
+      "requirement": "POST /echo 合法 JSON → 200 原样回显（含 receivedAt ISO-8601）",
+      "expected": "200 + {receivedAt, body:<原值>}",
+      "observed": "200, body={\"receivedAt\":\"2026-10-26T04:17:27.908Z\",\"body\":{\"a\":1}}",
+      "status": "PASS",
+      "evidence": ["node --test #3,#4", "api-probe.cjs 'POST /echo ok'"]
+    },
+    {
+      "requirement": "POST /echo 非法 JSON → 400",
+      "expected": "400 + error.code=INVALID_JSON",
+      "observed": "400, {\"error\":{\"code\":\"INVALID_JSON\",...}}；截断/尾随值/空体/非法 UTF-8 均 400",
+      "status": "PASS",
+      "evidence": ["node --test #5,#6,#7", "api-probe.cjs 'POST /echo bad-json'", "api-probe.cjs 'POST /echo empty-body'"]
+    },
+    {
+      "requirement": "未知路径 → 404",
+      "expected": "404 + error.code=NOT_FOUND",
+      "observed": "404, {\"error\":{\"code\":\"NOT_FOUND\",...}}；/Nope 大小写不折叠、/health/ 尾斜杠不折叠（node --test #12）",
+      "status": "PASS",
+      "evidence": ["node --test #12", "api-probe.cjs 'GET /Nope'"]
+    },
+    {
+      "requirement": "非 JSON Content-Type → 415（解析前判定）",
+      "expected": "415 + UNSUPPORTED_MEDIA_TYPE",
+      "observed": "415, {\"error\":{\"code\":\"UNSUPPORTED_MEDIA_TYPE\",...}}",
+      "status": "PASS",
+      "evidence": ["node --test #8", "api-probe.cjs 'POST /echo 415 text-plain'"]
+    },
+    {
+      "requirement": "超过 maxBodyBytes(1048576) → 413 + Connection: close",
+      "expected": "413 + PAYLOAD_TOO_LARGE + connection=close",
+      "observed": "413, connection=close, {\"error\":{\"code\":\"PAYLOAD_TOO_LARGE\",...}}",
+      "status": "PASS",
+      "evidence": ["node --test #9", "api-probe.cjs 'POST /echo 413 oversize'"]
+    },
+    {
+      "requirement": "体长恰等于上限且合法 → 200",
+      "expected": "200（边界不提前拒绝）",
+      "observed": "200，content-length=1048576 的合法 JSON 被正常回显",
+      "status": "PASS",
+      "evidence": ["node --test #10", "api-probe.cjs 'POST /echo exactly-limit'"]
+    },
+    {
+      "requirement": "已注册路径方法不匹配 → 405 + Allow 头",
+      "expected": "405 + allow=GET(/health) / POST(/echo)",
+      "observed": "405, allow=GET；GET /echo → 405, allow=POST",
+      "status": "PASS",
+      "evidence": ["node --test #13", "api-probe.cjs 'POST /health'", "api-probe.cjs 'GET /echo'"]
+    },
+    {
+      "requirement": "仅用 Node 内置能力（node:http / node:test），无第三方依赖",
+      "expected": "package.json 无 dependencies 或仅内置模块；src 中 require 仅 node: 前缀",
+      "observed": "src/server.js 仅 require('node:http')、require('node:util')；tests 用 node:test/node:assert；工作区无 node_modules/package-lock 依赖",
+      "status": "PASS",
+      "evidence": ["read src/server.js (sha256:c475749d...)", "node --test 在无安装步骤下直接运行成功"]
+    },
+    {
+      "requirement": "createServer 导出、返回未监听 http.Server；DEFAULT_MAX_BODY_BYTES=1048576；ERROR_CODES 固定映射",
+      "expected": "导出三项；监听前 listening=false",
+      "observed": "node --test #11,#14,#15 通过；ERROR_CODES={NOT_FOUND:404,METHOD_NOT_ALLOWED:405,UNSUPPORTED_MEDIA_TYPE:415,INVALID_JSON:400,PAYLOAD_TOO_LARGE:413,INTERNAL_ERROR:500}",
+      "status": "PASS",
+      "evidence": ["node --test #11,#14,#15", "read src/server.js"]
+    }
+  ],
+  "failed_test_names": [],
+  "conclusion": "PASS — 15/15 产品自带 node:test 用例通过，11/11 独立黑盒契约探针通过；目标契约（GET /health → 200 {\"ok\":true}；POST /echo 合法 JSON 回显；非法 JSON → 400 JSON 错误体；未知路径 → 404 JSON；方法不匹配 → 405 + Allow；超大/非 JSON 体 → 413/415）全部被真实验证覆盖。",
+  "observations_notes": [
+    "非阻塞观察：POST /echo 空体（content-length 0）返回 400 INVALID_JSON 而非 415/200，与产品既有用例 #5 一致，属于契约允许范围（空体不是合法 JSON）。",
+    "非阻塞观察：413 路径先响应再 destroy 连接，客户端侧可能直接表现为 socket 断开（fetch 报 'fetch failed'），但服务端状态码与 Connection: close 已实测正确；产品用例 #9 与黑盒探针均确认。",
+    "未执行 git 或其他仓库级命令；未修改 src/ 与 docs/。"
+  ]
+}

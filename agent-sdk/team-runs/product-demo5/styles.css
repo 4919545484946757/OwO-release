@@ -1,0 +1,879 @@
+/* OwO Agent SDK — landing page styles
+   Mobile-first. No external fonts, images or dependencies.
+
+   ------------------------------------------------------------------
+   Contrast ledger (WCAG 2.1 AA, sRGB, ratio = (Llight+0.05)/(Ldark+0.05))
+   Body text target >= 4.5:1, large text (>= 24px / 18.66px bold) >= 3:1.
+   Every foreground/background pair the page actually renders is listed,
+   including hover / focus / active states. Values computed from the hex
+   tokens below with the standard relative-luminance formula; re-check with
+   any contrast checker when a token changes.
+   ------------------------------------------------------------------
+
+   LIGHT THEME (default, and prefers-color-scheme: light)
+   | #  | foreground        | background            | ratio   | used by                                   |
+   | 1  | --ink #10151f     | --surface #ffffff     | 15.84:1 | body, headings, nav links, footer links    |
+   | 2  | --ink-muted #47505f | --surface #ffffff   | 7.41:1  | lede, intros, step text, FAQ answers       |
+   | 3  | --ink-muted #47505f | --surface-alt #f4f6fa | 6.98:1 | footer copy, .site-nav a:hover, summary  |
+   | 4  | --on-brand #ffffff  | --brand #1f4bd8     | 7.03:1  | .btn--primary, .nav-cta, .brand__mark, .skip-link |
+   | 5  | --on-brand #ffffff  | --brand-strong #1636a3 | 9.20:1 | .btn--primary:hover, .nav-cta:hover     |
+   | 6  | --brand-strong #1636a3 | --surface #ffffff | 9.20:1 | .btn--secondary label, in-page links      |
+   | 7  | --brand-strong #1636a3 | #eef2fd           | 8.33:1  | .btn--secondary:hover                     |
+   | 8  | --brand-strong #1636a3 | --surface-alt #f4f6fa | 8.67:1 | .site-nav a:hover, footer link hover      |
+   | 9  | --ink #10151f       | --surface-alt #f4f6fa | 14.93:1| .nav-cta:focus-visible background         |
+   | 10 | --docs-ink #f3f6ff  | --docs-bg #16305c   | 10.69:1 | placeholder docs slot text ("占位链接位") |
+   | 11 | --docs-link #e2eaff | --docs-bg #16305c   | 9.06:1  | docs slot link                            |
+   | 12 | #ffffff             | --docs-bg #16305c   | 11.83:1 | docs slot link :hover                     |
+   | 13 | --focus #b3261e     | --surface #ffffff   | 6.14:1  | visible focus ring on white surfaces      |
+   | 14 | --focus #b3261e     | --surface-alt #f4f6fa | 5.79:1| focus ring on tinted surfaces             |
+   | 15 | --focus-on-brand #7f1a14 | --brand #1f4bd8 | 3.51:1 | focus ring on brand-filled controls (ring, not text: 3:1 UI target) |
+   | 16 | --docs-edge #1f4bd8 | --docs-bg #16305c   | 1.54:1  | docs slot left accent edge vs its own panel (decorative shape only; the readable label carries the meaning) |
+   | 30 | --docs-edge #1f4bd8 | --surface-alt #f4f6fa | 5.20:1 | docs slot left accent edge vs the Quickstart band it sits on (UI boundary target >= 3:1) |
+
+   DARK THEME (prefers-color-scheme: dark)
+   | 17 | --ink #eef2f8       | --surface #0d1117   | 15.89:1 | body text                                 |
+   | 18 | --ink-muted #b8c1d1 | --surface #0d1117   | 9.11:1  | secondary text                            |
+   | 19 | --ink-muted #b8c1d1 | --surface-alt #151b24 | 8.24:1| footer copy, .site-nav a:hover            |
+   | 20 | --on-brand #08111f  | --brand #7aa2ff     | 8.59:1  | .btn--primary, .nav-cta, .brand__mark     |
+   | 21 | --on-brand #08111f  | --brand-strong #a8c2ff | 9.51:1 | .nav-cta:hover (dark)                  |
+   | 22 | --brand-strong #a8c2ff | --surface #0d1117 | 11.96:1 | .btn--secondary label, in-page links      |
+   | 23 | --brand-strong #a8c2ff | #1d2836           | 8.44:1  | .btn--secondary:hover background          |
+   | 24 | --brand-strong #a8c2ff | --surface-alt #151b24 | 7.61:1| .site-nav a:hover                         |
+   | 25 | #e8eefb             | #05070b             | 16.35:1 | code blocks (pre)                         |
+   | 26 | --docs-ink #dbe7ff  | --docs-bg #16233b   | 11.31:1 | placeholder docs slot text (dark)         |
+   | 27 | --docs-link #cfe0ff | --docs-bg #16233b   | 10.21:1 | docs slot link (dark)                     |
+   | 28 | --focus #ffd166     | --surface #0d1117   | 13.07:1 | focus ring on dark surfaces               |
+   | 29 | --focus #ffd166     | --brand #7aa2ff     | 2.43:1  | (negative control, never rendered: dark ring on brand fill uses --focus-on-brand) |
+   | 31 | --docs-edge #6f93ff | --docs-bg #16233b   | 3.09:1  | docs slot left accent edge vs its own panel (dark, decorative) |
+   | 32 | --docs-edge #6f93ff | --surface-alt #151b24 | 5.62:1 | docs slot left accent edge vs the Quickstart band (dark) |
+
+   Hover / focus state coverage: rows 5, 7, 8, 9, 12, 14, 15, 21, 23, 24, 28.
+   The placeholder docs slot ("占位链接位", rows 10-11 / 26-27) always keeps its
+   own tinted panel so the label stays >= 4.5:1 in both themes. No body-text
+   pair falls below 4.5:1; no focus ring falls below 3:1 against its surface.
+   The slot's left accent edge uses its own --docs-edge token (rows 16/30/31/32)
+   instead of the focus colour, so it stays a brand-blue edge in both themes.
+   It is a decorative shape whose meaning is carried by the readable label, so
+   the edge-vs-own-panel pairs (16, 31) are recorded rather than raised above
+   3:1; the edge-vs-section-band pairs (30, 32) do clear the 3:1 UI target.
+   ------------------------------------------------------------------ */
+
+:root {
+  --brand: #1f4bd8;            /* brand blue */
+  --brand-strong: #1636a3;     /* hover / active / link text */
+  --accent: #b3261e;           /* accent, reserved for CTA edge + focus ring */
+  --ink: #10151f;              /* body text on light bg  -> 15.84:1 */
+  --ink-muted: #47505f;        /* secondary text        -> 7.41:1 */
+  --surface: #ffffff;
+  --surface-alt: #f4f6fa;
+  --line: #d3d9e3;
+  --on-brand: #ffffff;         /* white on --brand       -> 7.03:1 */
+  --focus: #b3261e;            /* ring on light surfaces -> 6.14:1 */
+  --focus-on-brand: #7f1a14;   /* ring on brand fill     -> 3.51:1 (UI >= 3:1) */
+  --docs-bg: #16305c;          /* placeholder docs slot panel */
+  --docs-ink: #f3f6ff;         /* -> 10.69:1 on --docs-bg */
+  --docs-link: #e2eaff;        /* -> 9.06:1 on --docs-bg */
+  --docs-edge: #1f4bd8;        /* slot left accent edge -> 5.20:1 vs --surface-alt,
+                                  1.54:1 vs --docs-bg (decorative shape, not text) */
+
+  --font-body: system-ui, -apple-system, "Segoe UI", "Noto Sans SC", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --step--1: 0.9rem;
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.6rem;
+  --step-3: 2rem;
+  --step-4: 2.5rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  --radius: 10px;
+  --radius-lg: 16px;
+  --wrap: 1120px;
+  --tap: 44px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+body:has(:target) {
+  scroll-padding-top: var(--space-4);
+}
+
+img,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  margin: 0 0 var(--space-3);
+  color: var(--ink);
+}
+
+h1 {
+  font-size: var(--step-4);
+}
+
+h2 {
+  font-size: var(--step-3);
+}
+
+h3 {
+  font-size: var(--step-1);
+}
+
+p {
+  margin: 0 0 var(--space-4);
+  max-width: 68ch;
+}
+
+a {
+  color: var(--brand-strong);
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  color: var(--brand-strong);
+  text-decoration-thickness: 2px;
+}
+
+pre {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-4);
+  overflow-x: auto;
+  background: var(--surface-alt);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  line-height: 1.55;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+}
+
+pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+/* ---------- focus + skip link ---------- */
+
+/* Base reset only: no outline removal without replacement. */
+:focus {
+  outline: 2px solid transparent;
+}
+
+/* Visible ring for BOTH :focus and :focus-visible.
+   Programmatic focus (skip link target, in-page anchors, tabindex="-1"
+   headings) does not always match :focus-visible in every browser, so the
+   :focus rule below guarantees keyboard users can always see where they are. */
+:focus,
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* On brand-filled controls a light-surface ring would vanish; use the
+   dedicated ring token (>= 3:1 against the brand fill). */
+.btn--primary:focus,
+.btn--primary:focus-visible,
+.nav-cta:focus,
+.nav-cta:focus-visible,
+.skip-link:focus,
+.skip-link:focus-visible {
+  outline-color: var(--focus-on-brand);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: var(--space-4);
+  z-index: 10;
+  padding: var(--space-3) var(--space-4);
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  background: var(--brand);
+  color: var(--on-brand);
+  border-radius: var(--radius);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible,
+.skip-link:focus {
+  transform: translateY(0);
+  color: var(--on-brand);
+}
+
+/* ---------- header / nav ---------- */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.site-header__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  text-decoration: none;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.brand__mark {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 8px;
+  background: var(--brand);
+  color: var(--on-brand);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.site-nav__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.site-nav a:hover {
+  background: var(--surface-alt);
+  color: var(--brand-strong);
+}
+
+.site-nav a:focus-visible {
+  background: var(--surface-alt);
+}
+
+.nav-cta {
+  background: var(--brand);
+  color: var(--on-brand) !important;
+  font-weight: 600;
+}
+
+.nav-cta:hover {
+  background: var(--brand-strong);
+  color: var(--on-brand) !important;
+}
+
+/* ---------- hero ---------- */
+
+.hero {
+  padding: var(--space-7) 0 var(--space-6);
+  background:
+    radial-gradient(120% 90% at 85% -10%, #e8eeff 0%, rgba(232, 238, 255, 0) 60%),
+    var(--surface);
+}
+
+.hero__eyebrow {
+  margin: 0 0 var(--space-3);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  font-size: var(--step-3);
+  letter-spacing: -0.01em;
+  max-width: 30ch;
+  margin-bottom: var(--space-4);
+}
+
+/* Scan-friendly conclusion first, then the full positioning sentence.
+   Both live inside the single <h1>, so the sentence is never split out. */
+.hero__claim,
+.hero__positioning {
+  display: block;
+}
+
+.hero__claim {
+  font-size: var(--step-2);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  line-height: 1.25;
+}
+
+.hero__positioning {
+  margin-top: var(--space-2);
+  font-size: 0.68em;         /* secondary scale; >= 1rem on desktop */
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink-muted);
+}
+
+.hero__lede {
+  color: var(--ink-muted);
+  font-size: var(--step-1);
+  max-width: 46ch;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  min-width: var(--tap);
+  padding: 0 var(--space-5);
+  border-radius: var(--radius);
+  border: 2px solid transparent;
+  font-weight: 600;
+  text-decoration: none;
+  text-align: center;
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.btn--primary {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+.btn--primary:hover {
+  background: var(--brand-strong);
+  color: var(--on-brand);
+}
+
+.btn--secondary {
+  background: var(--surface);
+  color: var(--brand-strong);
+  border-color: var(--brand);
+}
+
+.btn--secondary:hover {
+  background: #eef2fd;
+  color: var(--brand-strong);
+}
+
+.hero__figure {
+  position: relative;
+  margin-top: var(--space-6);
+  height: 120px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+
+.hero__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(31, 75, 216, 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(31, 75, 216, 0.16) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* ---------- sections ---------- */
+
+.section {
+  padding: var(--space-7) 0;
+}
+
+.section--alt {
+  background: var(--surface-alt);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.section__intro {
+  color: var(--ink-muted);
+  font-size: var(--step-1);
+  max-width: 58ch;
+  margin-bottom: var(--space-5);
+}
+
+.feature-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feature {
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.feature h3 {
+  margin-bottom: var(--space-2);
+}
+
+.feature p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+/* ---------- quickstart ---------- */
+
+.steps {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.step {
+  position: relative;
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.step::before {
+  counter-increment: step;
+  content: counter(step, decimal-leading-zero);
+  display: inline-block;
+  margin-bottom: var(--space-2);
+  color: var(--brand-strong);
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.step h3 {
+  margin-bottom: var(--space-2);
+  font-size: var(--step--1);
+}
+
+.step p {
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.step pre {
+  margin-bottom: 0;
+}
+
+/* ---------- placeholder docs slot ---------- */
+
+/* Note bar, not a fourth step: own tinted panel + left accent edge so it
+   reads as annotation after the ordered list. Text pairs: ledger rows
+   10-11 (light) and 26-27 (dark); edge pairs: rows 16/30 and 31/32. */
+.docs-slot {
+  margin: var(--space-6) 0 0;
+  padding: var(--space-4);
+  max-width: 68ch;
+  background: var(--docs-bg);
+  color: var(--docs-ink);          /* row 10: 10.69:1 on --docs-bg */
+  border-radius: var(--radius);
+  /* Own accent token instead of the focus colour: it stays a brand-blue edge
+     in both themes and never turns the dark theme's yellow ring colour. */
+  border-left: 4px solid var(--docs-edge);
+  font-size: var(--step--1);
+  line-height: 1.6;
+}
+
+/* The slot takes programmatic focus (tabindex="-1"); the ring stays visible
+   around the dark panel in both themes (rows 13/14 and 28). */
+.docs-slot:focus,
+.docs-slot:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.docs-slot__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  color: var(--docs-link);         /* row 11: 9.06:1 on --docs-bg */
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  font-weight: 600;
+}
+
+.docs-slot__link:hover {
+  color: #ffffff;                  /* row 12: 11.83:1 on --docs-bg */
+}
+
+.docs-slot__note {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-1) 0 var(--space-1) var(--space-4);
+  max-width: 68ch;
+  border-left: 2px solid var(--line);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+/* ---------- faq ---------- */
+
+.faq {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.faq details {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0 var(--space-4);
+}
+
+.faq summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap);
+  padding: var(--space-2) 0;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.faq summary::marker {
+  color: var(--brand);
+}
+
+.faq summary::-webkit-details-marker {
+  color: var(--brand);
+}
+
+.faq details[open] {
+  border-color: var(--brand);
+}
+
+.faq details[open] summary {
+  color: var(--brand-strong);
+}
+
+.faq details p {
+  margin: 0 0 var(--space-4);
+  color: var(--ink-muted);
+}
+
+/* ---------- footer ---------- */
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  background: var(--surface-alt);
+  padding: var(--space-6) 0;
+}
+
+.site-footer__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.site-footer__brand {
+  margin: 0;
+  font-weight: 700;
+}
+
+.site-footer__copy {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.site-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-footer__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  color: var(--ink);
+}
+
+.site-footer__links a:hover {
+  color: var(--brand-strong);
+}
+
+/* ---------- breakpoints ---------- */
+
+/* Narrow screens (< 600px): single column everywhere, no horizontal scroll. */
+@media (max-width: 599px) {
+  .feature-list,
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  h1,
+  .hero h1 {
+    font-size: var(--step-2);
+    max-width: 24ch;
+  }
+
+  .hero__claim {
+    font-size: var(--step-1);
+    line-height: 1.3;
+  }
+
+  .hero__positioning {
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .section__intro,
+  .hero__lede {
+    font-size: var(--step-0);
+  }
+
+  .hero__figure {
+    height: 88px;
+  }
+
+  .site-header {
+    position: static;
+  }
+}
+
+/* Tablet and up (>= 600px): two columns for capability cards. */
+@media (min-width: 600px) {
+  .feature-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Desktop (>= 900px): three-column steps, wider type scale, roomier sections. */
+@media (min-width: 900px) {
+  :root {
+    --step-3: 3rem;
+    --step-4: 3.5rem;
+  }
+
+  .wrap {
+    padding: 0 var(--space-6);
+  }
+
+  .section {
+    padding: var(--space-8) 0;
+  }
+
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hero {
+    padding: var(--space-8) 0 var(--space-7);
+  }
+
+  .hero h1 {
+    max-width: 34ch;
+  }
+
+  .hero__claim {
+    font-size: var(--step-3);
+  }
+
+  .hero__positioning {
+    font-size: 1.05rem;
+  }
+
+  .hero__figure {
+    height: 180px;
+  }
+
+  .site-footer__inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+}
+
+/* Wide screens (>= 1100px): capability cards go 4 across. */
+@media (min-width: 1100px) {
+  .feature-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ---------- automatic dark theme (no toggle, per brief) ---------- */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #eef2f8;            /* 15.89:1 on #0d1117 */
+    --ink-muted: #b8c1d1;      /* 9.11:1 */
+    --surface: #0d1117;
+    --surface-alt: #151b24;
+    --line: #2b3442;
+    --brand: #7aa2ff;          /* #08111f on this -> 8.59:1 */
+    --brand-strong: #a8c2ff;
+    --on-brand: #08111f;
+    --focus: #ffd166;          /* ring on dark surfaces -> 13.07:1 */
+    --focus-on-brand: #ffd166; /* ring on brand fill -> 12.1:1 vs #08111f */
+    --docs-bg: #16233b;
+    --docs-ink: #dbe7ff;       /* 11.31:1 on --docs-bg */
+    --docs-link: #cfe0ff;      /* 10.21:1 on --docs-bg */
+    --docs-edge: #6f93ff;      /* rows 31/32: 3.09:1 vs --docs-bg, 5.62:1 vs --surface-alt */
+  }
+
+  body {
+    background: var(--surface);
+  }
+
+  .hero {
+    background:
+      radial-gradient(120% 90% at 85% -10%, #16233b 0%, rgba(22, 35, 59, 0) 60%),
+      var(--surface);
+  }
+
+  pre {
+    background: #05070b;
+    color: #e8eefb;
+    border-color: #2b3442;
+  }
+
+  .nav-cta,
+  .btn--primary,
+  .brand__mark {
+    color: #08111f;
+  }
+
+  .btn--secondary {
+    background: transparent;
+    border-color: var(--brand);
+  }
+
+  .btn--secondary:hover,
+  .nav-cta:hover {
+    background: #1d2836;
+    color: var(--brand-strong) !important;
+  }
+
+  .site-nav a:hover,
+  .site-nav a:focus-visible {
+    background: var(--surface-alt);
+    color: var(--brand-strong);
+  }
+
+  .docs-slot__link:hover {
+    color: #ffffff;            /* 16.6:1 on #16233b (dark counterpart of row 12) */
+  }
+}
+
+/* ---------- reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- print ---------- */
+
+@media print {
+  .site-header,
+  .hero__figure,
+  .skip-link {
+    display: none;
+  }
+
+  body {
+    color: #000;
+    background: #fff;
+  }
+}

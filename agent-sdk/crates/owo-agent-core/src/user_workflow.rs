@@ -7,6 +7,15 @@
 //! 决定角色拆分；只保证：可解析、可调度（DAG 无环）、权限面不越界、工具名认得。
 
 use owo_agent_protocol::{TeamMode, TeamTemplate};
+mod edit;
+mod graph;
+pub use edit::{
+    adopt_user_workflow_proposal, prepare_user_workflow, save_user_workflow, WorkflowEditError,
+};
+pub(crate) use graph::validate_node_ids;
+pub use owo_agent_workswarm::workflow_patch::{
+    propose_workflow_patch, with_stable_node_ids, WorkflowPatch,
+};
 
 /// 单个模板的角色数上限（超过基本无法审阅，也会把交接面撑爆）。
 pub const MAX_ROLES: usize = 12;
@@ -69,7 +78,7 @@ pub fn validate_template_id(id: &str) -> Result<(), String> {
 
 /// 全量校验（错误一次性返回；空 Vec 表示通过）。
 pub fn validate_workflow_template(template: &TeamTemplate) -> Vec<String> {
-    let mut errors = Vec::new();
+    let mut errors = graph::validate_template_graph(template);
 
     if let Err(error) = validate_template_id(&template.template_id) {
         errors.push(error);
@@ -164,6 +173,28 @@ pub fn validate_workflow_template(template: &TeamTemplate) -> Vec<String> {
                 }
             }
         }
+        // 编排角色是只读架构/质量角色：写路径或写/执行工具会破坏“先设计、再交给 Worker”的边界。
+        let orchestrator = role.role == "lead"
+            || role
+                .capabilities
+                .iter()
+                .any(|cap| cap.eq_ignore_ascii_case("orchestrator"));
+        if orchestrator {
+            for tool in &role.tools {
+                if crate::workswarm::is_effectful_role_tool(tool.trim()) {
+                    errors.push(format!(
+                        "编排角色 {} 必须只读，不得声明写/执行工具：{tool}",
+                        role.role
+                    ));
+                }
+            }
+            if !role.write_paths.is_empty() {
+                errors.push(format!(
+                    "编排角色 {} 必须只读，不能声明 write_paths",
+                    role.role
+                ));
+            }
+        }
         // 写白名单：必须是工作区内相对路径（与运行期范围租约同一口径）。
         let mut seen_paths: Vec<&str> = Vec::new();
         for path in &role.write_paths {
@@ -188,6 +219,22 @@ pub fn validate_workflow_template(template: &TeamTemplate) -> Vec<String> {
         .iter()
         .map(|role| role.role.trim().to_string())
         .collect();
+
+    // Per-role budget: only declared roles, bounded by the runtime profile cap.
+    for (role, calls) in &template.budget_calls_per_role {
+        if !role_names.iter().any(|name| name == role) {
+            errors.push(format!(
+                "budget_calls_per_role references unknown role: {role}"
+            ));
+        }
+        if *calls == 0 || *calls > crate::worker_profile::PROFILE_MAX_TURNS_CAP {
+            errors.push(format!(
+                "role {role} budget_calls must be in 1..={}",
+                crate::worker_profile::PROFILE_MAX_TURNS_CAP
+            ));
+        }
+    }
+
     for role in &template.roles {
         for dependency in &role.depends_on {
             if !role_names.iter().any(|name| name == dependency) {
@@ -686,6 +733,7 @@ mod tests {
 
     fn role(name: &str, depends_on: &[&str]) -> TeamTemplateRole {
         TeamTemplateRole {
+            node_id: None,
             role: name.to_string(),
             assignee: "agent".to_string(),
             worker: None,
@@ -701,6 +749,8 @@ mod tests {
 
     fn template(roles: Vec<TeamTemplateRole>) -> TeamTemplate {
         TeamTemplate {
+            budget_calls_per_role: Default::default(),
+            editor: None,
             template_id: "video-recreate".to_string(),
             name: "视频复刻流水线".to_string(),
             mode: TeamMode::Team,
@@ -730,6 +780,34 @@ mod tests {
         assert_eq!(slugify_template_id("视频复刻"), None);
         assert_eq!(slugify_template_id("123"), None);
         assert_eq!(slugify_template_id(""), None);
+    }
+
+    #[test]
+    fn per_role_budget_validates_role_existence_and_runtime_cap() {
+        let mut valid = template(vec![role("builder", &[])]);
+        valid
+            .budget_calls_per_role
+            .insert("builder".to_string(), 24);
+        assert!(validate_workflow_template(&valid).is_empty());
+
+        let mut unknown = valid.clone();
+        unknown
+            .budget_calls_per_role
+            .insert("missing".to_string(), 8);
+        assert!(validate_workflow_template(&unknown)
+            .iter()
+            .any(|error| error.contains("unknown role")));
+
+        let mut zero = valid.clone();
+        zero.budget_calls_per_role.insert("builder".to_string(), 0);
+        assert!(!validate_workflow_template(&zero).is_empty());
+
+        let mut too_high = valid;
+        too_high.budget_calls_per_role.insert(
+            "builder".to_string(),
+            crate::worker_profile::PROFILE_MAX_TURNS_CAP + 1,
+        );
+        assert!(!validate_workflow_template(&too_high).is_empty());
     }
 
     #[test]
@@ -852,6 +930,7 @@ mod tests {
         ];
         risky.roles[1].write_paths = Vec::new();
         risky.roles.push(TeamTemplateRole {
+            node_id: None,
             role: "human-review".into(),
             assignee: "human".into(),
             ..Default::default()
@@ -876,6 +955,7 @@ mod tests {
         let mut workflow = template(vec![
             role("writer", &[]),
             TeamTemplateRole {
+                node_id: None,
                 role: "reviewer".to_string(),
                 assignee: "agent".to_string(),
                 capabilities: vec!["review".to_string()],
@@ -904,6 +984,39 @@ mod tests {
     }
 
     #[test]
+    fn orchestrator_roles_are_read_only_for_custom_workflows() {
+        let mut workflow = template(vec![
+            TeamTemplateRole {
+                node_id: None,
+                role: "architect".to_string(),
+                assignee: "agent".to_string(),
+                capabilities: vec!["orchestrator".to_string()],
+                tools: vec!["read_file".to_string(), "run_command".to_string()],
+                write_paths: vec!["src".to_string()],
+                ..Default::default()
+            },
+            role("worker", &["architect"]),
+        ]);
+        workflow.roles[1].capabilities = vec!["task_worker".to_string()];
+        workflow.roles[1].write_paths = vec!["src".to_string()];
+        let errors = validate_workflow_template(&workflow);
+        let joined = errors.join("\n");
+        assert!(
+            joined.contains("编排角色 architect 必须只读，不得声明写/执行工具"),
+            "{joined}"
+        );
+        assert!(
+            joined.contains("编排角色 architect 必须只读，不能声明 write_paths"),
+            "{joined}"
+        );
+
+        workflow.roles[0].tools = vec!["read_file".to_string(), "list_dir".to_string()];
+        workflow.roles[0].write_paths.clear();
+        let errors = validate_workflow_template(&workflow);
+        assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    #[test]
     fn health_reports_counts_depth_and_risk_levels() {
         // low：纯只读、无人工、无 MCP、有写范围的单角色。
         let safe = template(vec![role("reader", &[])]);
@@ -915,6 +1028,7 @@ mod tests {
         // medium：含人工节点。
         let mut with_human = template(vec![role("a", &[])]);
         with_human.roles.push(TeamTemplateRole {
+            node_id: None,
             role: "accept".to_string(),
             assignee: "human".to_string(),
             depends_on: vec!["a".to_string()],
@@ -962,12 +1076,14 @@ mod tests {
             role("impl", &[]),
             role("fetch", &["impl"]),
             TeamTemplateRole {
+                node_id: None,
                 role: "accept".to_string(),
                 assignee: "human".to_string(),
                 depends_on: vec!["fetch".to_string()],
                 ..Default::default()
             },
             TeamTemplateRole {
+                node_id: None,
                 role: "talker".to_string(),
                 assignee: "agent".to_string(),
                 depends_on: vec!["accept".to_string()],

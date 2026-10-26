@@ -72,6 +72,32 @@ impl From<String> for WorkerRuntimeError {
 
 impl WorkerRuntime<'_> {
     pub async fn run_report(self, prompt: &str) -> Result<WorkerRuntimeReport, WorkerRuntimeError> {
+        self.run_report_with_images(prompt, &[]).await
+    }
+
+    pub async fn run_report_with_images(
+        self,
+        prompt: &str,
+        images: &[crate::gateway::MessageImage],
+    ) -> Result<WorkerRuntimeReport, WorkerRuntimeError> {
+        self.run_report_with_input(prompt, images, None).await
+    }
+
+    pub async fn run_report_with_input(
+        self,
+        prompt: &str,
+        images: &[crate::gateway::MessageImage],
+        input: Option<owo_agent_protocol::StoredUserInput>,
+    ) -> Result<WorkerRuntimeReport, WorkerRuntimeError> {
+        let input = input.unwrap_or_else(|| owo_agent_protocol::StoredUserInput {
+            prompt: prompt.to_string(),
+            content_parts: Vec::new(),
+            legacy_attachments: if images.is_empty() {
+                Vec::new()
+            } else {
+                vec!["worker-image-without-asset-reference".into()]
+            },
+        });
         let started = Instant::now();
         if self.depth >= MAX_SUBAGENT_DEPTH {
             return Err(format!("子代理深度超限（最多 {MAX_SUBAGENT_DEPTH} 层）").into());
@@ -100,11 +126,12 @@ impl WorkerRuntime<'_> {
             session.id = session_id.clone();
         }
         session.parent_id = self.parent_session_id.clone();
-        if let (Some(store), Some(_)) = (&self.session_store, &self.worker_session_id) {
-            store
-                .save(&session)
-                .map_err(|error| format!("Worker 会话初始化保存失败：{error}"))?;
-        }
+        let session_checkpoint = match (&self.session_store, &self.worker_session_id) {
+            (Some(store), Some(_)) => {
+                Some(crate::agent::TurnSessionCheckpoint::new(Arc::clone(store)))
+            }
+            _ => None,
+        };
         let event_sink = self.event_sink.clone();
         let observed_steps = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let observed_steps_for_sink = Arc::clone(&observed_steps);
@@ -117,48 +144,29 @@ impl WorkerRuntime<'_> {
             }
         };
         let outcome = agent
-            .run_turn(
+            .run_turn_with_images_options(
                 &mut session,
                 prompt,
+                images,
                 self.approver,
+                None,
                 self.abort,
                 &mut on_event,
+                &crate::agent::TurnExecutionOptions {
+                    input: Some(input),
+                    session_checkpoint,
+                    ..Default::default()
+                },
             )
             .await;
-        let session_save_error =
-            if let (Some(store), Some(_)) = (&self.session_store, &self.worker_session_id) {
-                store
-                    .save(&session)
-                    .err()
-                    .map(|error| format!("Worker 会话执行后保存失败：{error}"))
-            } else {
-                None
-            };
-        let outcome = match outcome {
-            Err(error) => {
-                let mut message = format!("子代理执行失败：{error}");
-                if let Some(save_error) = session_save_error {
-                    message.push_str(&format!("；{save_error}"));
-                }
-                return Err(worker_runtime_error(
-                    message,
-                    started.elapsed().as_millis() as u64,
-                    observed_steps.load(std::sync::atomic::Ordering::Relaxed),
-                    &session.transient_model_calls,
-                ));
-            }
-            Ok(outcome) => {
-                if let Some(save_error) = session_save_error {
-                    return Err(worker_runtime_error(
-                        save_error,
-                        started.elapsed().as_millis() as u64,
-                        outcome.steps,
-                        &session.transient_model_calls,
-                    ));
-                }
-                outcome
-            }
-        };
+        let outcome = outcome.map_err(|error| {
+            worker_runtime_error(
+                format!("子代理执行失败：{error}"),
+                started.elapsed().as_millis() as u64,
+                observed_steps.load(std::sync::atomic::Ordering::Relaxed),
+                &session.transient_model_calls,
+            )
+        })?;
         let model_calls = u32::try_from(outcome.model_calls.len()).unwrap_or(u32::MAX);
         if outcome.reached_model_turn_limit {
             return Err(WorkerRuntimeError {
@@ -332,9 +340,18 @@ mod tests {
     use std::path::Path;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    struct FailingSecondSave(AtomicUsize);
+    struct FailingAfterSaves {
+        count: AtomicUsize,
+        successful: usize,
+    }
+    pub(super) fn failing_store(successful: usize) -> Arc<dyn SessionStore> {
+        Arc::new(FailingAfterSaves {
+            count: AtomicUsize::new(0),
+            successful,
+        })
+    }
 
-    impl SessionStore for FailingSecondSave {
+    impl SessionStore for FailingAfterSaves {
         fn create(
             &self,
             workspace: &Path,
@@ -353,7 +370,7 @@ mod tests {
         }
 
         fn save(&self, _session: &Session) -> Result<(), AgentError> {
-            if self.0.fetch_add(1, Ordering::SeqCst) == 0 {
+            if self.count.fetch_add(1, Ordering::SeqCst) < self.successful {
                 Ok(())
             } else {
                 Err(AgentError::Session("test save failure".to_string()))
@@ -449,7 +466,7 @@ mod tests {
             system_prompt: None,
             is_critic: false,
             event_sink: None,
-            session_store: Some(Arc::new(FailingSecondSave(AtomicUsize::new(0)))),
+            session_store: Some(failing_store(2)),
             worker_session_id: Some("worker-test".to_string()),
             parent_session_id: None,
         };
@@ -499,4 +516,94 @@ mod tests {
         )
         .is_err());
     }
+
+    struct ObservedInputProvider {
+        observed: Arc<std::sync::Mutex<Vec<ChatMessage>>>,
+        fail: bool,
+    }
+    #[async_trait::async_trait]
+    impl ModelProvider for ObservedInputProvider {
+        async fn complete(
+            &self,
+            messages: &[ChatMessage],
+            _: &[ToolSpec],
+        ) -> Result<ModelOutput, String> {
+            *self.observed.lock().unwrap() = messages.to_vec();
+            if self.fail {
+                return Err("fixture provider failure".into());
+            }
+            Ok(ModelOutput::Text(r#"{"status":"done","summary":"seen","artifact":{"kind":"note","format":"text","content":"accepted"},"evidence":[],"open_issues":[]}"#.into()))
+        }
+    }
+    #[tokio::test]
+    async fn worker_model_input_and_reopened_history_keep_same_refs_on_success_and_failure() {
+        for fail in [false, true] {
+            let workspace = tempfile::tempdir().unwrap();
+            let store: Arc<dyn SessionStore> = Arc::new(
+                crate::sqlite_store::SqliteSessionStore::open(&workspace.path().join("history.db"))
+                    .unwrap(),
+            );
+            let observed = Arc::new(std::sync::Mutex::new(Vec::new()));
+            let approver = AutoApprover { allow: false };
+            let abort = AtomicBool::new(false);
+            let runtime = WorkerRuntime {
+                provider: Arc::new(ObservedInputProvider {
+                    observed: Arc::clone(&observed),
+                    fail,
+                }),
+                approver: &approver,
+                abort: &abort,
+                depth: 0,
+                model: "fixture".into(),
+                workspace: workspace.path().to_path_buf(),
+                registry: ToolRegistry::empty(),
+                policy: Policy::new(workspace.path()),
+                config: AgentConfig {
+                    max_turns: 2,
+                    compaction_enabled: false,
+                    ..Default::default()
+                },
+                system_prompt: None,
+                is_critic: false,
+                event_sink: None,
+                session_store: Some(Arc::clone(&store)),
+                worker_session_id: Some("team-worker-input".into()),
+                parent_session_id: Some("parent".into()),
+            };
+            let input = owo_agent_protocol::StoredUserInput {
+                prompt: "original prompt".into(),
+                content_parts: vec![owo_agent_protocol::ContentPart::Image {
+                    asset: owo_agent_protocol::AssetRef {
+                        artifact_id: "input-12345678-1234-5678-9012-123456789012".into(),
+                        sha256: "a".repeat(64),
+                    },
+                }],
+                legacy_attachments: Vec::new(),
+            };
+            let images = vec![crate::gateway::MessageImage::from_url(
+                "data:image/png;base64,cGl4ZWxz",
+            )];
+            let result = runtime
+                .run_report_with_input(
+                    "compiled prompt with attachment metadata",
+                    &images,
+                    Some(input.clone()),
+                )
+                .await;
+            assert_eq!(result.is_err(), fail);
+            let request = observed.lock().unwrap();
+            let sent = request.iter().find(|m| m.role == "user").unwrap();
+            assert_eq!(sent.images, images);
+            assert_eq!(sent.input.as_ref(), Some(&input));
+            let restored = store.load("team-worker-input").unwrap();
+            assert_eq!(restored.parent_id.as_deref(), Some("parent"));
+            let saved = restored.messages.iter().find(|m| m.role == "user").unwrap();
+            assert_eq!(saved.input.as_ref(), Some(&input));
+            assert_eq!(saved.images, images);
+        }
+    }
 }
+
+#[cfg(test)]
+#[path = "worker_checkpoint_tests.rs"]
+mod checkpoint_tests;

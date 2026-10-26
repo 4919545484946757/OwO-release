@@ -252,6 +252,8 @@
     async request(path, options) {
       const opts = Object.assign({}, options || {});
       const responseType = opts.responseType || "json";
+      const maxResponseBytes = opts.maxResponseBytes;
+      delete opts.maxResponseBytes;
       const retryAuth = opts.retryAuth !== false;
       const isPublic = opts.public === true;
       // 网络错误自动重试仅限幂等方法：POST/PATCH 可能在服务端已执行、只是响应丢失，
@@ -287,6 +289,7 @@
         } catch (error) {
           // 连接层失败（端口没了 / 连接被拒）：可能是壳刚重启了 core。
           // 先整体重查连接再重试一次；非幂等方法不自动重放（见上）。
+          if (opts.signal && opts.signal.aborted) throw error;
           if (networkRetrySafe && this.handleNetworkFailure(allowRetry)) {
             headers.delete("Authorization");
             return execute(false);
@@ -332,7 +335,29 @@
         this.networkFailures = 0;
         this.emit(true, { status: response.status, path: path });
         if (responseType === "response") return response;
-        if (responseType === "blob") return response.blob();
+        if (responseType === "blob") {
+          if (!Number.isSafeInteger(maxResponseBytes) || maxResponseBytes <= 0) return response.blob();
+          const length = Number(response.headers.get("content-length"));
+          if (length > maxResponseBytes) {
+            if (response.body) await response.body.cancel();
+            throw new Error("媒体响应超过允许大小");
+          }
+          if (!response.body || typeof response.body.getReader !== "function") throw new Error("当前环境不支持受限媒体下载");
+          const reader = response.body.getReader();
+          const chunks = [];
+          let bytes = 0;
+          try {
+            while (true) {
+              if (opts.signal && opts.signal.aborted) throw new Error("媒体加载已取消");
+              const part = await reader.read();
+              if (part.done) break;
+              bytes += part.value.byteLength;
+              if (bytes > maxResponseBytes) throw new Error("媒体响应超过允许大小");
+              chunks.push(part.value);
+            }
+            return new global.Blob(chunks, { type: response.headers.get("content-type") || "" });
+          } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+        }
         if (responseType === "text") return response.text();
         if (responseType === "stream") return response;
         if (response.status === 204) return null;

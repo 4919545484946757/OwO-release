@@ -135,6 +135,34 @@
       }).join("") + "</div>";
   }
 
+  // Keep only a recent rendering window; older public observations remain in the
+  // daemon's cursor-paged run history. This is not another transcript database.
+  var REPLAY_EVENTS = 1024, REPLAY_BYTES = 2 * 1024 * 1024;
+  function boundReplay(replay, priorTruncated) {
+    var rows = [];
+    Object.keys(replay).forEach(function(sessionId) {
+      var session = replay[sessionId];
+      (session.events || []).forEach(function(event) { rows.push({ sessionId: sessionId, role: session.role, event: event }); });
+    });
+    rows.sort(function(a,b) {
+      return String(a.event.created_at || "").localeCompare(String(b.event.created_at || "")) ||
+        Number(a.event.seq)-Number(b.event.seq) || a.sessionId.localeCompare(b.sessionId);
+    });
+    var kept = [], bytes = 0, truncated = !!priorTruncated, encoder = new TextEncoder();
+    for (var i=rows.length-1;i>=0;i--) {
+      var size = encoder.encode(JSON.stringify(rows[i].event)).byteLength;
+      if (kept.length >= REPLAY_EVENTS || size > REPLAY_BYTES-bytes) { truncated=true; continue; }
+      bytes += size; kept.push(rows[i]);
+    }
+    var result = {};
+    kept.reverse().forEach(function(row) {
+      if (!result[row.sessionId]) result[row.sessionId] = { role: row.role, events: [] };
+      result[row.sessionId].events.push(row.event);
+    });
+    Object.defineProperty(result,"windowInfo",{enumerable:false,value:{truncated:truncated,events:kept.length,bytes:bytes}});
+    return result;
+  }
+
   function mergeReplay(previous, sessions) {
     var map = Object.assign({}, previous || {});
     (sessions || []).forEach(function (session) {
@@ -147,7 +175,7 @@
         events: Object.keys(bySeq).map(function (seq) { return bySeq[seq]; }).sort(function (a, b) { return a.seq - b.seq; }),
       };
     });
-    return map;
+    return boundReplay(map, previous && previous.windowInfo && previous.windowInfo.truncated);
   }
 
   /// 成员对话（按时间合并所有角色）。`onlyRole` 非空时只渲染该角色——
@@ -201,7 +229,7 @@
           }
           resultRow.result = {
             ok: p.ok === true, error: String(p.error || ""),
-            preview: String(p.preview || ""), time: event.created_at || "",
+            preview: String(p.preview || ""), outputs: p.outputs, time: event.created_at || "",
           };
         } else if (kind === "progress") {
           textRow(p.message, event);
@@ -220,7 +248,10 @@
         (toolFailures ? ' · ' + toolFailures + ' 个失败' : '') +
         (toolRunning ? ' · ' + toolRunning + ' 个进行中' : '') + '</div>'
       : "";
-    return summary + rows.map(function (row) {
+    var windowNotice = replay && replay.windowInfo && replay.windowInfo.truncated
+      ? '<p class="hint" role="status">仅展示近期消息窗口；片段可能从中途开始。较早公开记录可在「执行记录 → 持久运行时间线」按页查看，旧运行缺失的历史会明确提示。</p>'
+      : "";
+    return windowNotice + summary + rows.map(function (row) {
       if (row.html) return row.html;
       var result = row.result;
       var state = !result ? "进行中" : (result.ok ? "已完成" : "失败");
@@ -228,7 +259,7 @@
       var detail = '<div class="owo-ws-tool-parts">';
       if (row.args) detail += '<section><b>参数</b><pre>' + esc(row.args) + "</pre></section>";
       if (result) {
-        var media = result.ok ? mediaPreviewHtml(esc, row.tool, result.preview) : "";
+        var media = result.ok ? mediaPreviewHtml(esc, row.tool, result.preview, result.outputs) : "";
         if (media) {
           detail += '<section><b>结果</b>' + media + "</section>";
         } else {
@@ -261,7 +292,7 @@
     return roles;
   }
 
-  function conversationRoles(replay, handoffs, members) {
+  function conversationRoles(replay, handoffs, members, selectedRole) {
     var roles = replayRoles(replay);
     var memberMap = Object.create(null);
     (members || []).forEach(function (member) { if (member) memberMap[member.member_id] = member; });
@@ -270,6 +301,12 @@
       var role = String((memberMap[id] && memberMap[id].role) || id || "团队成员");
       if (roles.indexOf(role) < 0) roles.push(role);
     });
+    // A quiet selected member may have fallen outside the recent rendering window.
+    // Keep this one real member selectable instead of silently switching to "all".
+    if (selectedRole && roles.indexOf(selectedRole) < 0 &&
+        (members || []).some(function(member) { return member && member.role === selectedRole; })) {
+      roles.push(selectedRole);
+    }
     return roles;
   }
 
@@ -305,7 +342,13 @@
     }
   }
 
-  function mediaPreviewHtml(esc, tool, preview) {
+  function mediaPreviewHtml(esc, tool, preview, outputs) {
+    if (Array.isArray(outputs) && win.OwoMediaResult) {
+      var payload = { tool: tool, ok: true, outputs: outputs };
+      var media = win.OwoMediaResult.mediaFromToolResult(payload);
+      if (!media) return "";
+      return '<div class="owo-ws-media" data-media-artifact="' + esc(JSON.stringify(payload)) + '">' + esc(win.OwoMediaResult.describeMedia(media)) + '</div>';
+    }
     var kind = MEDIA_TOOL_KIND[String(tool || "")];
     if (!kind) return "";
     var value = parseMediaPreview(preview);
@@ -328,6 +371,8 @@
   var api = {
     timeHtml: timeHtml,
     mergeReplay: mergeReplay,
+    boundReplay: boundReplay,
+    replayLimits: { events: REPLAY_EVENTS, bytes: REPLAY_BYTES },
     replayRoles: replayRoles,
     conversationRoles: conversationRoles,
     pickConversationRole: pickConversationRole,

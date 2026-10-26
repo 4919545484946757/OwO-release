@@ -37,7 +37,7 @@
       }
     });
     var roles = Array.isArray(template.roles) ? template.roles : [];
-    var seen = {};
+    var seen = Object.create(null);
     roles.forEach(function (role) {
       var name = role && role.role ? String(role.role).trim() : "";
       if (!name) {
@@ -69,13 +69,13 @@
    */
   function layoutGraph(template) {
     var roles = template && Array.isArray(template.roles) ? template.roles : [];
-    var byId = {};
+    var byId = Object.create(null);
     roles.forEach(function (role) {
       var id = String((role && role.role) || "").trim();
       if (id) byId[id] = role;
     });
-    var layerOf = {};
-    var visiting = {};
+    var layerOf = Object.create(null);
+    var visiting = Object.create(null);
     function resolve(id) {
       if (Object.prototype.hasOwnProperty.call(layerOf, id)) return layerOf[id];
       if (visiting[id]) throw new Error("sync_cycle");
@@ -155,7 +155,7 @@
   function graphPositions(template, saved) {
     var layout = layoutGraph(template);
     if (!layout.ok) return layout;
-    var positions = {};
+    var positions = Object.create(null);
     var maxX = 0;
     var maxY = 0;
     layout.nodes.forEach(function (node) {
@@ -560,6 +560,13 @@
       );
     });
     if (review.blocked === true) lines.push("[门禁] 评审未通过：存在阻止项，导入会被拒绝");
+    if (result.preflight) {
+      lines.push(result.preflight.ok ? "运行前工具检查通过（执行时仍需权限校验）" : "运行前工具检查未通过");
+      if (Array.isArray(result.preflight.issues)) result.preflight.issues.forEach(function (issue) {
+        lines.push("[" + String(issue.code || "unavailable") + "] " + String(issue.role || "?") + " · " + String(issue.tool || "?") + "：" + String(issue.message || ""));
+      });
+      if (result.preflight.error) lines.push(String(result.preflight.error));
+    }
     if (!lines.length) lines.push("校验通过，没有发现需要关注的问题");
     return lines;
   }

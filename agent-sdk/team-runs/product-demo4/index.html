@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>OwO Agent SDK — 在你自己的进程里跑起 agent 循环</title>
+<meta name="description" content="OwO Agent SDK 把「调模型 → 解析工具调用 → 执行 → 回填 → 再调」的循环收敛成几行代码，工具注册、重试、超时、trace 都由 SDK 负责。">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#main">跳到正文</a>
+
+<header class="site-header">
+  <nav class="nav" aria-label="主导航">
+    <a class="wordmark" href="#top">
+      <span class="wordmark__mark" aria-hidden="true">&gt;_</span>
+      <span class="wordmark__text">OwO&nbsp;Agent&nbsp;SDK</span>
+    </a>
+    <ul class="nav__links">
+      <li><a href="#capabilities">功能</a></li>
+      <li><a href="#quickstart">快速开始</a></li>
+      <li><a href="#how-it-works">工作原理</a></li>
+      <li><a href="#faq">常见问题</a></li>
+    </ul>
+    <a class="button button--primary button--small" href="#quickstart">开始使用</a>
+  </nav>
+</header>
+
+<main id="main">
+
+  <section class="hero" id="top" aria-labelledby="hero-title">
+    <div class="hero__text">
+      <p class="eyebrow">TypeScript SDK · 零网络依赖文档页</p>
+      <h1 id="hero-title">OwO Agent SDK 把 agent 循环从你的业务代码里挪出来</h1>
+      <p class="lede">
+        工具调用、多步推理、状态回填，这一整套循环由 SDK 托管：你只注册工具、写一句 prompt。
+        现有技术栈不用动——它就是一个可以 <code>npm install</code> 进你项目的库，不是云平台，也不是聊天应用。
+      </p>
+      <div class="hero__actions">
+        <a class="button button--primary" href="#quickstart">开始使用</a>
+        <a class="button button--ghost" href="https://github.com/todo/owo-agent-sdk">在 GitHub 上看源码</a>
+      </div>
+      <ul class="hero__points">
+        <li>工具在你的进程里执行，SDK 不接管你的数据和权限</li>
+        <li>内置重试、超时与步骤 trace，失败能看到卡在哪一步</li>
+        <li>无构建步骤依赖，Node 18+ 与任意支持 fetch 的运行时都能跑</li>
+      </ul>
+    </div>
+
+    <figure class="code-window">
+      <figcaption class="code-window__caption">最小可运行示例（示例代码，非真实 API 密钥）</figcaption>
+      <pre class="code-block" tabindex="0" role="region" aria-label="最小可运行示例代码"><code><span class="tok-kw">import</span> { Agent } <span class="tok-kw">from</span> <span class="tok-str">"@owo/agent-sdk"</span>;
+
+<span class="tok-kw">const</span> agent = <span class="tok-kw">new</span> <span class="tok-fn">Agent</span>({
+  model: <span class="tok-str">"your-model-name"</span>,   <span class="tok-cmt">// 填你自己的模型标识</span>
+  tools: { searchDocs, createTicket },
+  retries: <span class="tok-num">2</span>,               <span class="tok-cmt">// 失败自动重试次数</span>
+});
+
+<span class="tok-kw">const</span> run = <span class="tok-kw">await</span> agent.<span class="tok-fn">run</span>(
+  <span class="tok-str">"把客户这封邮件整理成工单草稿"</span>
+);
+
+console.<span class="tok-fn">log</span>(run.output, run.trace.length);</code></pre>
+    </figure>
+  </section>
+
+  <section class="context-bar" aria-labelledby="context-title">
+    <h2 class="context-bar__title" id="context-title">装进来只需要一条命令</h2>
+    <div class="context-bar__row">
+      <p class="install">
+        <span class="install__label">安装（包名为示例占位）</span>
+        <code class="install__cmd">npm install @owo/agent-sdk</code>
+      </p>
+      <p class="context-bar__note">
+        兼容性：TypeScript 5+ 类型定义随包发布；Node.js 18+ 原生可用；其他运行时只要有 <code>fetch</code> 即可。
+        不支持的环境会在初始化时直接抛出明确错误，而不是运行到一半静默失败。
+      </p>
+    </div>
+  </section>
+
+  <section class="section" id="capabilities" aria-labelledby="capabilities-title">
+    <div class="section__head">
+      <h2 id="capabilities-title">四个能力，对应你手写过的那四段胶水代码</h2>
+      <p class="section__sub">每张卡片说的都是一个具体机制，不是形容词。</p>
+    </div>
+    <div class="cards">
+      <article class="card">
+        <h3>工具注册</h3>
+        <p>用 <code>tools</code> 对象声明工具：名称、描述、参数 schema。SDK 负责把 schema 转成模型可读的工具清单，你只需保留自己的实现函数。</p>
+        <p class="card__detail">机制：参数进入执行前先按 schema 校验，类型不符直接返回结构化错误给模型，不会把脏参数传进你的代码。</p>
+      </article>
+      <article class="card">
+        <h3>多步循环</h3>
+        <p>模型决定调用工具后，SDK 执行工具、把结果回填进对话、再次请求模型，直到模型给出最终答案。</p>
+        <p class="card__detail">机制：每一步都是一个可序列化的 step 对象，循环次数与终止原因都写在 run 结果里。</p>
+      </article>
+      <article class="card">
+        <h3>重试与超时</h3>
+        <p>单次模型请求失败、或多个工具调用并发超时，SDK 按你配置的次数重试，并把已完成的步骤结果保留下来。</p>
+        <p class="card__detail">机制：长任务不会因为一次失败从零重来；重试日志与首次失败原因一起进入 trace。</p>
+      </article>
+      <article class="card">
+        <h3>步骤 trace</h3>
+        <p>每次 <code>run()</code> 都返回一份步骤记录：哪一步、调了哪个工具、传了什么参数、耗时多久、返回了什么。</p>
+        <p class="card__detail">机制：trace 是普通对象，可以直接写进你自己的日志系统或断言进测试。</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section section--raised" id="quickstart" aria-labelledby="quickstart-title">
+    <div class="section__head">
+      <h2 id="quickstart-title">三步接进来</h2>
+      <p class="section__sub">下面右侧是可以直接照着跑的最小示例，不含任何隐藏配置。</p>
+    </div>
+    <div class="quickstart">
+      <ol class="steps">
+        <li>
+          <h3>安装并初始化</h3>
+          <p><code>npm install @owo/agent-sdk</code>，然后 <code>new Agent({ model, tools })</code>。模型标识用你已经在用的那个，不绑定厂商。</p>
+        </li>
+        <li>
+          <h3>注册你自己的工具</h3>
+          <p>一个工具就是一个带 <code>description</code> 和 <code>parameters</code> 的普通对象。执行逻辑仍写在你的进程里，SDK 不代跑、不托管凭证。</p>
+        </li>
+        <li>
+          <h3>调用 run 并读结果</h3>
+          <p><code>await agent.run("...")</code> 返回 <code>output</code> 与 <code>trace</code>。把 trace 打进日志，出错时就能定位到具体步骤。</p>
+        </li>
+      </ol>
+
+      <figure class="code-window code-window--flush">
+        <figcaption class="code-window__caption">完整示例（示例内容，模型名与工单字段为占位）</figcaption>
+        <pre class="code-block" tabindex="0" role="region" aria-label="快速开始完整示例代码"><code><span class="tok-kw">import</span> { Agent, tool } <span class="tok-kw">from</span> <span class="tok-str">"@owo/agent-sdk"</span>;
+
+<span class="tok-kw">const</span> searchDocs = <span class="tok-fn">tool</span>({
+  description: <span class="tok-str">"在内网知识库里按关键词检索文档"</span>,
+  parameters: { query: { type: <span class="tok-str">"string"</span> } },
+  <span class="tok-kw">async</span> <span class="tok-fn">run</span>({ query }) {
+    <span class="tok-kw">return</span> knowledgeBase.<span class="tok-fn">search</span>(query);
+  },
+});
+
+<span class="tok-kw">const</span> createTicket = <span class="tok-fn">tool</span>({
+  description: <span class="tok-str">"创建工单草稿，不直接提交"</span>,
+  parameters: {
+    title: { type: <span class="tok-str">"string"</span> },
+    body: { type: <span class="tok-str">"string"</span> },
+  },
+  <span class="tok-kw">async</span> <span class="tok-fn">run</span>({ title, body }) {
+    <span class="tok-kw">return</span> ticketing.<span class="tok-fn">draft</span>({ title, body });
+  },
+});
+
+<span class="tok-kw">const</span> agent = <span class="tok-kw">new</span> <span class="tok-fn">Agent</span>({
+  model: <span class="tok-str">"your-model-name"</span>,
+  tools: { searchDocs, createTicket },
+  retries: <span class="tok-num">2</span>,
+  timeoutMs: <span class="tok-num">30000</span>,
+});
+
+<span class="tok-kw">const</span> run = <span class="tok-kw">await</span> agent.<span class="tok-fn">run</span>(<span class="tok-str">"根据这封邮件起草一张工单，标题不超过 20 字"</span>);
+
+<span class="tok-kw">for</span> (<span class="tok-kw">const</span> step <span class="tok-kw">of</span> run.trace) {
+  console.<span class="tok-fn">log</span>(step.index, step.tool ?? <span class="tok-str">"model"</span>, step.status, step.durationMs);
+}</code></pre>
+      </figure>
+    </div>
+    <p class="quickstart__foot">
+      说明：复制按钮与平滑滚动由页面内联的一小段原生 JS 提供，脚本缺失时页面内容与代码块依旧完整可读。
+    </p>
+  </section>
+
+  <section class="section" id="how-it-works" aria-labelledby="how-title">
+    <div class="section__head">
+      <h2 id="how-title">一次 run 的四个步骤，全部由 SDK 串起来</h2>
+      <p class="section__sub">重试与超时托管在第 2 步和第 4 步之间，你不必自己写 while 循环。</p>
+    </div>
+    <ol class="flow" aria-label="agent 循环示意">
+      <li class="flow__step">
+        <span class="flow__index" aria-hidden="true">1</span>
+        <h3>prompt</h3>
+        <p>你传入的自然语言任务，加上系统提示与工具清单，组成第一次请求。</p>
+      </li>
+      <li class="flow__step">
+        <span class="flow__index" aria-hidden="true">2</span>
+        <h3>模型决策</h3>
+        <p>模型要么直接回答，要么返回一个或多个工具调用及参数。</p>
+      </li>
+      <li class="flow__step">
+        <span class="flow__index" aria-hidden="true">3</span>
+        <h3>工具执行</h3>
+        <p>SDK 校验参数后在你的进程内调用你注册的函数，捕获异常与耗时。</p>
+      </li>
+      <li class="flow__step">
+        <span class="flow__index" aria-hidden="true">4</span>
+        <h3>结果回填</h3>
+        <p>工具结果写回对话上下文，再次请求模型，直到得出最终答案或达到步数上限。</p>
+      </li>
+    </ol>
+    <p class="flow__note">
+      托管部分：第 2、4 步的请求会按 <code>retries</code> 与 <code>timeoutMs</code> 重试；每次重试都记录进 trace，
+      因此失败时你能看到「哪一步、哪个工具、什么参数」出了问题，而不是只拿到一句超时。
+    </p>
+  </section>
+
+  <section class="section section--raised" id="use-cases" aria-labelledby="usecases-title">
+    <div class="section__head">
+      <h2 id="usecases-title">三个具体场景</h2>
+      <p class="section__sub">以下均为示例任务与示例输出，用于说明形态，不代表真实客户案例。</p>
+    </div>
+    <div class="cards cards--three">
+      <article class="card">
+        <h3>客户邮件分诊</h3>
+        <p class="card__label">输入（示例）</p>
+        <p class="card__snippet">“发票抬头写错了，麻烦重开一张，订单号 A-1042。”</p>
+        <p class="card__label">输出（示例）</p>
+        <p class="card__snippet">工单草稿：标题「重开发票 A-1042」，类型=财务，草稿状态=待人工确认。</p>
+      </article>
+      <article class="card">
+        <h3>表格清洗</h3>
+        <p class="card__label">输入（示例）</p>
+        <p class="card__snippet">导出的 CSV 含 3 种日期格式与重复公司名。</p>
+        <p class="card__label">输出（示例）</p>
+        <p class="card__snippet">统一为 ISO 日期、合并重复行，并输出一份改动清单（哪行改了什么）。</p>
+      </article>
+      <article class="card">
+        <h3>内部问答</h3>
+        <p class="card__label">输入（示例）</p>
+        <p class="card__snippet">“试用期员工的年假怎么算？”</p>
+        <p class="card__label">输出（示例）</p>
+        <p class="card__snippet">先调用知识库检索工具，再给出答案并附上命中的文档标题与章节。</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="faq" aria-labelledby="faq-title">
+    <div class="section__head">
+      <h2 id="faq-title">工程上的常见追问</h2>
+      <p class="section__sub">决定要不要引入之前，先看这几条。</p>
+    </div>
+    <div class="faq">
+      <details open>
+        <summary>我需要改现有技术栈吗？</summary>
+        <p>不需要。SDK 是普通的 npm 包，在现有 Node 服务里 import 即可用；把 <code>agent.run()</code> 当成一个异步函数调用，路由、鉴权、数据库都留在原处。</p>
+      </details>
+      <details>
+        <summary>我的数据会出网到哪里？</summary>
+        <p>只有你显式发给模型的请求内容会离开你的进程，去往你自己配置的模型端点。工具的返回结果是否回填也由你决定——SDK 不额外上报、不带遥测。</p>
+      </details>
+      <details>
+        <summary>可以自托管吗？</summary>
+        <p>SDK 本身运行在你的服务器上，不依赖 OwO 提供的任何在线服务。只要模型端点是你能访问的（自建或第三方），整条链路就在你的网络边界内。</p>
+      </details>
+      <details>
+        <summary>怎么接已有的内部工具？</summary>
+        <p>把已有函数包一层 <code>tool({ description, parameters, run })</code>，描述写清楚什么时候该用它、参数写清类型即可。返回值会原样作为工具结果回填给模型。</p>
+      </details>
+      <details>
+        <summary>工具执行失败会怎样？</summary>
+        <p>异常会被捕获成结构化错误回填给模型，模型可以选择换一个参数重试或直接回答；超出 <code>retries</code> 后整次 run 以失败结束，已完成步骤的 trace 仍然保留。</p>
+      </details>
+      <details>
+        <summary>许可协议是什么？</summary>
+        <p>待定（TODO：仓库初始化后补充具体许可证与版本号）。在这一点明确之前，请把本页当作产品形态说明而不是发布承诺。</p>
+      </details>
+    </div>
+  </section>
+
+  <section class="cta-final" aria-labelledby="cta-title">
+    <h2 id="cta-title">先用一个真实任务跑通一次 run，再决定要不要推广给团队</h2>
+    <p>接一个你已经有的工具，写一句 prompt，看 trace 里每一步是否都符合预期——这是评估它最省时间的方式。</p>
+    <div class="cta-final__actions">
+      <a class="button button--primary" href="#quickstart">开始使用</a>
+      <a class="button button--ghost" href="https://github.com/todo/owo-agent-sdk">在 GitHub 上看源码</a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="site-footer__inner">
+    <p class="site-footer__copy">© 2025 OwO Agent SDK（占位版权行，TODO：替换为实际主体）</p>
+    <ul class="site-footer__links">
+      <li><a href="https://github.com/todo/owo-agent-sdk/tree/main/docs">文档</a></li>
+      <li><a href="https://github.com/todo/owo-agent-sdk">GitHub</a></li>
+      <li><a href="https://github.com/todo/owo-agent-sdk/blob/main/LICENSE">许可</a></li>
+      <li><a href="mailto:todo@example.com">联系</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+  // 渐进增强：仅处理代码复制。脚本缺失时按钮不出现，页面内容不受影响。
+  (function () {
+    var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.querySelectorAll(".code-window").forEach(function (figure) {
+      var pre = figure.querySelector("pre");
+      if (!pre || !navigator.clipboard) return;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "copy-button";
+      btn.textContent = "复制";
+      btn.setAttribute("aria-label", "复制这段示例代码");
+      figure.appendChild(btn);
+      var timer;
+      btn.addEventListener("click", function () {
+        navigator.clipboard.writeText(pre.innerText).then(function () {
+          btn.textContent = "已复制";
+          clearTimeout(timer);
+          timer = setTimeout(function () {
+            btn.textContent = "复制";
+          }, 2000);
+        });
+      });
+    });
+    if (reduced) return;
+    document.querySelectorAll('a[href^="#"]').forEach(function (link) {
+      link.addEventListener("click", function (event) {
+        var target = document.querySelector(link.getAttribute("href"));
+        if (!target) return;
+        event.preventDefault();
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  })();
+</script>
+</body>
+</html>

@@ -179,6 +179,7 @@ mod tests {
             correlation_id: "corr-phase".to_string(),
             roles: vec![human],
             template_id: None,
+            template_source: None,
             budgets: BTreeMap::new(),
             parallel: false,
         }
@@ -246,6 +247,7 @@ mod tests {
             correlation_id: "corr-phase".to_string(),
             roles: vec![orchestrator, worker, integrator],
             template_id: None,
+            template_source: None,
             budgets: BTreeMap::new(),
             parallel: true,
         };

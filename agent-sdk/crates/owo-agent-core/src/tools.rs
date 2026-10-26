@@ -37,9 +37,18 @@ mod mcp_adapters;
 use command_tools::{KillShellTool, RunCommandTool, ShellOutputTool};
 use mcp_adapters::{McpPromptAdapter, McpResourceAdapter, McpToolAdapter};
 
+#[path = "tools/media_target.rs"]
+mod media_target;
 #[path = "tools/media.rs"]
 mod media_tools;
+pub(crate) use media_tools::{profiled_media_tool, scoped_workflow_tool};
 use media_tools::{GenerateImageTool, TextToSpeechTool};
+
+pub(crate) fn media_configuration_status(tool: &str) -> Result<(), String> {
+    let service = crate::gateway::media_config::MediaService::for_tool(tool)
+        .ok_or_else(|| "unknown media tool".to_string())?;
+    crate::gateway::media_config::MediaConnection::from_env(service)?.require_configured()
+}
 
 #[path = "tools/web.rs"]
 mod web;
@@ -47,7 +56,7 @@ mod web;
 use web::{decode_search_href, html_to_text};
 use web::{WebFetchTool, WebSearchTool};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct ToolSpec {
     pub name: String,
     pub description: String,
@@ -334,7 +343,8 @@ impl ToolRegistry {
         for name in ["generate_image", "text_to_speech"] {
             if let Some(inner) = self.get(name) {
                 self.register_arc(Arc::new(output::PublishedMediaTool {
-                    inner, publisher: Arc::clone(&publisher),
+                    inner,
+                    publisher: Arc::clone(&publisher),
                 }));
             }
         }

@@ -83,7 +83,7 @@ impl Tool for WorkflowAuthorTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec::with_effect(
             TOOL_NAME,
-            "把一个团队工作流保存为可编辑模板。用户用一句话描述目标（例如视频复刻、\n\
+            "先调用 workflow_tools_list 检查真实 Worker 工具和配置状态。修改既有工作流时先 workflow_get，再 workflow_propose_patch 展示变更与风险，审阅后用 expected_revision 保存；不得自动重试覆盖冲突。再把团队工作流保存为可编辑模板。用户用一句话描述目标（例如视频复刻、\n\
              代码评审、资料研究）时，由你拆成角色、依赖、工具/MCP 与交付契约，然后调用本工具。\n\
              \n\
              template 必须包含 template_id（ASCII，字母开头）、name、applicability、roles；\n\
@@ -102,6 +102,7 @@ impl Tool for WorkflowAuthorTool {
                         "type": "object",
                         "description": "完整 TeamTemplate JSON；角色/依赖/工具/写范围/验证断言都要显式给出",
                         "properties": {
+                            "editor": {"type":"object","description":"保留已有可移植布局；version=1，nodes 按稳定 node_id 存储位置"},
                             "template_id": {
                                 "type": "string",
                                 "description": "ASCII 标识，字母开头，只含字母数字与 -_."
@@ -122,6 +123,7 @@ impl Tool for WorkflowAuthorTool {
                                 "items": {
                                     "type": "object",
                                     "properties": {
+                                        "node_id": {"type":"string","description":"稳定节点身份；修改已有节点时必须保留"},
                                         "role": { "type": "string" },
                                         "assignee": {
                                             "type": "string",
@@ -157,6 +159,7 @@ impl Tool for WorkflowAuthorTool {
                         },
                         "required": ["template_id", "name", "applicability", "roles"]
                     },
+                    "expected_revision":{"type":"integer","minimum":0,"description":"更新必须提供 workflow_get 读取时的 revision；禁止在冲突后盲目读取新版本再覆盖"},
                     "overwrite": {
                         "type": "boolean",
                         "description": "同 id 已存在时是否覆盖；缺省 false，避免静默改掉用户模板"
@@ -217,9 +220,14 @@ impl Tool for WorkflowAuthorTool {
                 template.template_id
             ));
         }
-        registry
-            .save_template(&template)
-            .map_err(|error| format!("保存工作流失败：{error}"))?;
+        let saved = owo_agent_core::user_workflow::save_user_workflow(
+            &registry,
+            template.clone(),
+            args.get("expected_revision").and_then(Value::as_u64),
+        )
+        .map_err(|error| {
+            format!("保存工作流失败：{error}；先用 workflow_get 读取并审阅当前配置")
+        })?;
 
         let warnings: Vec<String> = findings
             .iter()
@@ -252,6 +260,7 @@ impl Tool for WorkflowAuthorTool {
             "name": template.name,
             "roles": template.roles.len(),
             "overwritten": exists,
+            "revision":saved.revision,"content_hash":saved.content_hash,
             "findings": warnings,
             "message": format!(
                 "已保存团队工作流「{}」。打开「团队协作 → 自定义 / AI 编排」可拖动节点、采纳或建队。",
@@ -353,8 +362,7 @@ mod tests {
         assert_eq!(saved["template_id"], "research-plan");
         assert!(workswarm_root
             .join("templates")
-            .join("templates")
-            .join("research-plan.json")
+            .join("workflow-templates.sqlite3")
             .exists());
 
         let error = tool
@@ -365,15 +373,16 @@ mod tests {
 
         let mut overwrite = valid_template();
         overwrite["overwrite"] = json!(true);
+        overwrite["expected_revision"] = json!(1);
         let saved = tool.run(&mut ctx, overwrite).await.unwrap();
         assert_eq!(saved["overwritten"], true);
     }
 
     #[tokio::test]
     async fn author_template_is_visible_to_http_team_creation_and_reopened_registry() {
-        use owo_agent_core::{Agent, AuditLog, ElementRegistry, Policy, Session, SkillRegistry};
-        use owo_agent_core::tools::ToolRegistry;
         use owo_agent_core::sqlite_store::SqliteSessionStore;
+        use owo_agent_core::tools::ToolRegistry;
+        use owo_agent_core::{Agent, AuditLog, ElementRegistry, Policy, Session, SkillRegistry};
         use std::sync::{Arc, Mutex};
         use tower::ServiceExt;
 
@@ -400,9 +409,16 @@ mod tests {
         let elements = Arc::new(Mutex::new(ElementRegistry::new()));
         let skills = SkillRegistry::default();
         let mut ctx = ToolContext {
-            workspace: &workspace, policy: &policy, session: &mut session,
-            audit: &audit, subagent: None, skills: &skills, elements: &elements,
-            fanout: None, abort: None, questioner: None,
+            workspace: &workspace,
+            policy: &policy,
+            session: &mut session,
+            audit: &audit,
+            subagent: None,
+            skills: &skills,
+            elements: &elements,
+            fanout: None,
+            abort: None,
+            questioner: None,
         };
         let mut args = valid_template();
         args["template"]["roles"][0]["assignee"] = json!("human");
@@ -417,21 +433,56 @@ mod tests {
         let mut overwrite = valid_template();
         overwrite["template"]["template_id"] = json!("protected-builtin");
         overwrite["overwrite"] = json!(true);
-        assert!(author.run(&mut ctx, overwrite).await.unwrap_err().contains("内置"));
-        assert!(registry.get_template("protected-builtin").unwrap().origin.is_none());
+        assert!(author
+            .run(&mut ctx, overwrite)
+            .await
+            .unwrap_err()
+            .contains("内置"));
+        assert!(registry
+            .get_template("protected-builtin")
+            .unwrap()
+            .origin
+            .is_none());
 
-        let agent = Agent::new(Arc::new(NoModel), ToolRegistry::empty(), Policy::new(&workspace), Default::default());
+        let agent = Agent::new(
+            Arc::new(NoModel),
+            ToolRegistry::empty(),
+            Policy::new(&workspace),
+            Default::default(),
+        );
         let store = SqliteSessionStore::open(&workspace.join("sessions.db")).unwrap();
-        let state = Arc::new(crate::AppState::new(agent, store, workspace.join("traces"), data_root, workspace));
+        let state = Arc::new(crate::AppState::new(
+            agent,
+            store,
+            workspace.join("traces"),
+            data_root,
+            workspace.clone(),
+        ));
         let app = crate::build_router(Arc::clone(&state));
-        let response = app.clone().oneshot(axum::http::Request::builder()
-            .uri("/workflows/user")
-            .header("Authorization", format!("Bearer {}", state.auth_token.token()))
-            .body(axum::body::Body::empty()).unwrap()).await.unwrap();
+        let response = app
+            .clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/workflows/user")
+                    .header(
+                        "Authorization",
+                        format!("Bearer {}", state.auth_token.token()),
+                    )
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
         assert_eq!(response.status(), axum::http::StatusCode::OK);
-        let body = axum::body::to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
         let listing: Value = serde_json::from_slice(&body).unwrap();
-        assert!(listing["templates"].as_array().unwrap().iter().any(|item| item["template"]["template_id"] == "research-plan"));
+        assert!(listing["templates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["template"]["template_id"] == "research-plan"));
         let response = app.oneshot(axum::http::Request::builder()
             .method("POST").uri("/teams")
             .header("Authorization", format!("Bearer {}", state.auth_token.token()))
@@ -440,11 +491,14 @@ mod tests {
                 "objective": "check authored human workflow", "mode": "team", "strategy": "team", "template_id": "research-plan"
             }).to_string())).unwrap()).await.unwrap();
         let status = response.status();
-        let body = axum::body::to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
         let created: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(status, axum::http::StatusCode::ACCEPTED, "{created}");
         assert_eq!(created["template_id"], "research-plan");
-        assert!(TeamTemplateRegistry::for_workswarm_root(&workswarm_root).get_template("research-plan").is_some());
+        assert!(TeamTemplateRegistry::for_workswarm_root(&workswarm_root)
+            .get_template("research-plan")
+            .is_some());
     }
-
 }

@@ -452,9 +452,16 @@ pub(super) async fn attachment_upload(
     Json(request): Json<AttachmentUploadRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let _session_guard = owo_agent_server::acquire_session_lock(&state, &id).await?;
-    let session = load_session(&state, &id)?;
+    load_session(&state, &id)?;
     let safe_name = sanitize_attachment_name(&request.name)
         .ok_or((StatusCode::BAD_REQUEST, "附件名非法".to_string()))?;
+    // Bound the decoded allocation before decoding; the route also caps the JSON body at 32 MiB.
+    if request.data_b64.len() > 32 * 1024 * 1024 {
+        return Err((
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "input/encoded_upload_too_large".into(),
+        ));
+    }
     use base64::Engine as _;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(&request.data_b64)
@@ -464,31 +471,24 @@ pub(super) async fn attachment_upload(
                 format!("附件 base64 解码失败：{error}"),
             )
         })?;
-    if bytes.len() > 50 * 1024 * 1024 {
-        return Err((StatusCode::BAD_REQUEST, "附件超过 50MB 上限".to_string()));
-    }
-    let dir = attachment_dir(&session.workspace, &id);
-    std::fs::create_dir_all(&dir)
-        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    let path = dir.join(&safe_name);
-    std::fs::write(&path, &bytes)
-        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+    let uploaded = crate::artifact_review_api::input_assets::publish(
+        &state,
+        &id,
+        &safe_name,
+        request.mime.as_deref(),
+        &bytes,
+    )
+    .await?;
     if let Ok(mut audit) = state.agent.audit_log().lock() {
         audit.record(
             &id,
             "attachment",
-            Some(safe_name.clone()),
+            uploaded["id"].as_str().map(str::to_owned),
             Some(true),
-            format!("上传附件 {}（{} 字节）", safe_name, bytes.len()),
+            format!("上传不可变附件 {}（{} 字节）", safe_name, bytes.len()),
         );
     }
-    Ok(Json(json!({
-        "id": safe_name,
-        "name": request.name,
-        "mime": request.mime,
-        "size": bytes.len(),
-        "path": path.to_string_lossy(),
-    })))
+    Ok(Json(uploaded))
 }
 
 pub(super) async fn attachments_list(
@@ -498,7 +498,7 @@ pub(super) async fn attachments_list(
     let _session_guard = owo_agent_server::acquire_session_lock(&state, &id).await?;
     let session = load_session(&state, &id)?;
     let dir = attachment_dir(&session.workspace, &id);
-    let mut attachments = Vec::new();
+    let mut attachments = crate::artifact_review_api::input_assets::list(&state, &id).await?;
     if let Ok(entries) = std::fs::read_dir(&dir) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -506,6 +506,13 @@ pub(super) async fn attachments_list(
                 continue;
             }
             let name = entry.file_name().to_string_lossy().into_owned();
+            if attachments.iter().any(|asset| {
+                asset["id"]
+                    .as_str()
+                    .is_some_and(|id| name.starts_with(&format!("{id}-")))
+            }) {
+                continue;
+            }
             let size = std::fs::metadata(&path).map(|meta| meta.len()).unwrap_or(0);
             attachments.push(json!({ "id": name, "name": name, "size": size }));
         }
@@ -658,8 +665,13 @@ pub(super) async fn fork_session(
     AxumPath(id): AxumPath<String>,
     Json(request): Json<owo_agent_protocol::ForkRequest>,
 ) -> Result<Json<SessionInfo>, (StatusCode, String)> {
+    let _session_guard = owo_agent_server::acquire_session_lock(&state, &id).await?;
     let session = load_session(&state, &id)?;
-    let child = session.fork(request.message_index);
+    // Only retained inputs belong to this fork. A damaged later message must
+    // not prevent branching from an earlier, intact point.
+    let mut child = session.fork(request.message_index);
+    crate::artifact_review_api::input_assets::clone_history_for_fork(&state, &id, &mut child)
+        .await?;
     state
         .store
         .save(&child)

@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>WorkSwarm · 12s 产品宣传动态分镜 (animatic)</title>
+<!--
+  交付边界（必读）
+  - 本文件是 HTML/CSS/JS **动态分镜（animatic）**，不是视频文件。
+  - 不产出 MP4/WebM/GIF，不调用录制 API，不放置“下载视频”入口，无 <video> 播放不存在文件。
+  - 零外部依赖：无 CDN、无网络字体、无第三方图标；图标/LOGO 全部内联 SVG。
+  - 时间轴与 docs/storyboard.md 严格对齐：总时长 12000ms，6 镜；毫秒锚点见 README.md §2。
+-->
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="runtime.css">
+</head>
+<body>
+
+<header class="app-head">
+  <h1>WorkSwarm · Motion Storyboard</h1>
+  <span class="spec">1920×1080 / 16:9 · 12.0s · 6 shots · HTML/CSS/JS animatic（非视频文件）</span>
+</header>
+
+<div class="frame" id="frame">
+  <div class="stage" id="stage" data-active="S01">
+
+    <!-- 安全区参考（按 G 切换显示：左右 96px / 上下 72px） -->
+    <div class="safe-area" aria-hidden="true"></div>
+
+    <!-- ========================== S01 开场钩子 0.0–1.5s ========================== -->
+    <section class="shot" data-shot="S01" aria-label="S01 开场钩子 0.0s 到 1.5s">
+      <div class="s01-wrap">
+        <div class="s01-ripples" aria-hidden="true">
+          <span class="ripple" data-r="1"></span>
+          <span class="ripple" data-r="2"></span>
+          <span class="ripple" data-r="3"></span>
+        </div>
+        <span class="dot-core" aria-hidden="true"></span>
+        <span class="s01-beam" aria-hidden="true"></span>
+        <h2 class="s01-title" data-split="s01">智能工作流，一步到位</h2>
+      </div>
+    </section>
+
+    <!-- ========================== S02 痛点呈现 1.5–4.0s ========================== -->
+    <section class="shot" data-shot="S02" aria-label="S02 痛点呈现 1.5s 到 4.0s">
+      <div class="s02-holder">
+        <div class="win" data-i="1">
+          <div class="win-head"><i></i><i></i><i></i><b>群聊</b></div>
+          <div class="bars"><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="win" data-i="2">
+          <div class="win-head"><i></i><i></i><i></i><b>表格</b></div>
+          <div class="bars"><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="win" data-i="3">
+          <div class="win-head"><i></i><i></i><i></i><b>待办</b></div>
+          <div class="bars"><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="win" data-i="4">
+          <div class="win-head"><i></i><i></i><i></i><b>邮件</b></div>
+          <div class="bars"><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="win" data-i="5">
+          <div class="win-head"><i></i><i></i><i></i><b>文档</b></div>
+          <div class="bars"><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="win" data-i="6">
+          <div class="win-head"><i></i><i></i><i></i><b>审批</b></div>
+          <div class="bars"><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="win" data-i="7">
+          <div class="win-head"><i></i><i></i><i></i><b>报表</b></div>
+          <div class="bars"><span></span><span></span><span></span><span></span></div>
+        </div>
+
+        <!-- 红框压顶高亮卡：重复劳动 / 信息割裂（3200–4000ms） -->
+        <div class="win win-alert" data-alert="1">
+          <div class="win-head"><i></i><i></i><i></i><b>同一个任务，第 7 次搬运</b></div>
+          <div class="bars"><span></span><span></span><span></span></div>
+          <div class="alert-tags"><em>重复劳动</em><em>信息割裂</em></div>
+        </div>
+      </div>
+      <div class="wipe" aria-hidden="true"></div>
+    </section>
+
+    <!-- ========================== S03 产品登场 4.0–6.5s ========================== -->
+    <section class="shot" data-shot="S03" aria-label="S03 产品登场 4.0s 到 6.5s">
+      <div class="s03-holder">
+        <div class="spotlight" aria-hidden="true"></div>
+        <div class="app-card">
+          <div class="card-bar"><i></i><i></i><i></i><span>WorkSwarm · 工作台</span></div>
+          <div class="card-body">
+            <nav class="nav" aria-label="主导航">
+              <em>总览</em>
+              <em>任务</em>
+              <em>流程</em>
+              <em>交付</em>
+              <em>设置</em>
+            </nav>
+            <div class="content">
+              <div class="grid-cell"><b>待办队列</b><u></u></div>
+              <div class="grid-cell"><b>自动化流程</b><u></u></div>
+              <div class="grid-cell"><b>本周交付</b><u></u></div>
+              <div class="grid-cell"><b>协作者</b><u></u></div>
+              <div class="grid-cell"><b>数据看板</b><u></u></div>
+              <div class="grid-cell"><b>运行日志</b><u></u></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sheen" aria-hidden="true"></div>
+    </section>
+
+    <!-- ========================== S04 核心功能演示 6.5–8.0s ========================== -->
+    <section class="shot" data-shot="S04" aria-label="S04 核心功能演示 6.5s 到 8.0s">
+      <div class="s04-holder">
+        <div class="feature-wrap">
+          <div class="f-col f1">
+            <div class="f1-title">① 任务卡片队列</div>
+            <div class="queue-card"><i></i><span></span></div>
+            <div class="queue-card"><i></i><span></span></div>
+            <div class="queue-card"><i></i><span></span></div>
+          </div>
+
+          <div class="f-col f2">
+            <div class="f2-title">② 自动化流程连线</div>
+            <div class="flow">
+              <svg viewBox="0 0 420 240" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id="flowGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#4F7CFF"/>
+                    <stop offset="100%" stop-color="#FF5A3C"/>
+                  </linearGradient>
+                </defs>
+                <path class="path" d="M 40 60 L 200 60 C 260 60 260 130 320 130 L 380 130"/>
+              </svg>
+              <div class="flow-node" data-n="1">拆解</div>
+              <div class="flow-node" data-n="2">执行</div>
+              <div class="flow-node" data-n="3">交付</div>
+              <span class="flow-dot" data-d="1"></span>
+              <span class="flow-dot" data-d="2"></span>
+            </div>
+          </div>
+
+          <div class="f-col f3">
+            <div class="badge-row">
+              <div class="badge">
+                <span class="state state-pending">处理中</span>
+                <span class="state state-done">
+                  已完成
+                  <svg class="check" viewBox="0 0 26 26" aria-hidden="true">
+                    <path d="M 4 13.5 L 10.5 20 L 22 6.5"/>
+                  </svg>
+                </span>
+                <span class="badge-ray" aria-hidden="true"></span>
+              </div>
+              <span class="f1-title badge-caption">③ 状态徽标翻转</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================== S05 CTA 高潮 8.0–10.5s ========================== -->
+    <section class="shot" data-shot="S05" aria-label="S05 CTA 高潮 8.0s 到 10.5s">
+      <div class="s05-holder">
+        <div class="cta-glow" aria-hidden="true"></div>
+
+        <div class="cta-zone">
+          <span class="cta-ring" data-ring="1" aria-hidden="true"></span>
+          <span class="cta-ring" data-ring="2" aria-hidden="true"></span>
+          <div class="cta" role="button" tabindex="-1" aria-label="立即开始，免费试用（分镜演示，不可点击跳转）">
+            立即开始，免费试用
+            <span class="arrow" aria-hidden="true">
+              <svg viewBox="0 0 26 26"><path d="M 3 13 L 21 13 M 14 6 L 21 13 L 14 20"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <div class="points">
+          <span class="pt" data-p="1">无需部署</span>
+          <span class="pt" data-p="2">3 分钟上手</span>
+          <span class="pt" data-p="3">数据自持</span>
+        </div>
+        <div class="points-line" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <!-- ========================== S06 收尾落版 10.5–12.0s ========================== -->
+    <section class="shot" data-shot="S06" aria-label="S06 收尾落版 10.5s 到 12.0s">
+      <div class="s06-holder">
+        <div class="logo-mark" aria-hidden="true">
+          <svg viewBox="0 0 54 54">
+            <path d="M 12 16 L 21 38 L 27 24 L 33 38 L 42 16" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <p class="brand" data-split="s06">WorkSwarm</p>
+        <div class="url">your-domain.com</div>
+      </div>
+    </section>
+
+    <!-- 全局：白闪（0–150ms）/ 纯黑遮罩（11.6–12.0s） -->
+    <div class="flash" aria-hidden="true"></div>
+    <div class="to-black" aria-hidden="true"></div>
+
+    <!-- ========================== HUD：镜头号 / 时间 / 字幕 ========================== -->
+    <div class="hud" aria-hidden="true">
+      <div class="hud-shot">
+        <b id="hudShot">S01</b>
+        <span id="hudShotName">开场钩子</span>
+        <u id="hudShotRange">0.0s–1.5s</u>
+      </div>
+      <div class="hud-time">
+        <span class="now" id="hudNow">0.00s</span>
+        <span class="sep">/</span>
+        <span class="total">12.00s</span>
+      </div>
+
+      <div class="subs" id="subs">
+        <div class="sub" data-sub="1"><div class="sub-main">— 一步到位，从想法到交付 —</div></div>
+        <div class="sub" data-sub="2"><div class="sub-main">信息散落在 7 个窗口里</div></div>
+        <div class="sub" data-sub="3"><div class="sub-main">每个动作，都在重复搬运</div></div>
+        <div class="sub" data-sub="4"><div class="sub-main">一个入口，接管全部工作</div></div>
+        <div class="sub" data-sub="5"><div class="sub-main">拆解 → 执行 → 交付</div></div>
+        <div class="sub" data-sub="6">
+          <div class="sub-main">现在开始，把 12 秒变成 12 小时的效率</div>
+          <div class="sub-sub">点击下方按钮，30 秒完成首次体验</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ========================== 控制条：播放 / 重播 / 拖动 / 跳镜 ========================== -->
+<div class="controls">
+  <button class="btn" id="btnPlay" type="button" aria-label="播放" aria-pressed="false">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><polygon points="3,1.5 14,8 3,14.5"/></svg>
+    <span class="btn-label" id="playLabel">播放</span>
+  </button>
+  <button class="btn" id="btnReplay" type="button" aria-label="重播">
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M 8 2.5 A 5.5 5.5 0 1 1 2.6 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <polygon points="8,0.2 8,5.2 3.6,2.7"/>
+    </svg>
+    <span class="btn-label">重播</span>
+  </button>
+
+  <div class="scrub-wrap">
+    <input class="scrub" id="scrub" type="range" min="0" max="12000" step="10" value="0"
+           aria-label="时间轴（毫秒）" aria-valuetext="0.00 秒">
+  </div>
+
+  <div class="marks" role="group" aria-label="镜头跳转">
+    <button class="mark" type="button" data-jump="0">S01 0.0</button>
+    <button class="mark" type="button" data-jump="1500">S02 1.5</button>
+    <button class="mark" type="button" data-jump="4000">S03 4.0</button>
+    <button class="mark" type="button" data-jump="6500">S04 6.5</button>
+    <button class="mark" type="button" data-jump="8000">S05 8.0</button>
+    <button class="mark" type="button" data-jump="10500">S06 10.5</button>
+  </div>
+
+  <span class="readout" id="readout">S01 · 0.00s / 12.00s</span>
+</div>
+
+<p class="hint">
+  提示：空格 = 播放/暂停 · R = 重播 · 数字键 1–6 = 跳镜头 · G = 显示安全区。URL 支持 <code>?t=8000</code>（毫秒）定位单帧，便于逐镜截图验收。本页是 HTML/CSS 动态分镜，不产出任何视频文件。
+</p>
+
+<script>
+/* ============================================================================
+   WorkSwarm animatic 控制器
+   - 单一根时间轴 12000ms：所有 CSS 动画 animation-duration = var(--total)，
+     因此可用同一个虚拟时间 currentTime 精确 seek。
+   - 播放 / 暂停 / 重播 / 拖动进度 / 镜头跳转 / ?t= 单帧定位
+   - HUD：镜头号 + 镜头名 + 时间段 + 当前毫秒 + 字幕（按分镜表时间窗）
+   - 无外部依赖
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  var TOTAL = 12000;
+
+  /* 镜头表：与 docs/storyboard.md §1 一致 */
+  var SHOTS = [
+    { id: 'S01', name: '开场钩子',     start: 0,     end: 1500  },
+    { id: 'S02', name: '痛点呈现',     start: 1500,  end: 4000  },
+    { id: 'S03', name: '产品登场',     start: 4000,  end: 6500  },
+    { id: 'S04', name: '核心功能演示', start: 6500,  end: 8000  },
+    { id: 'S05', name: 'CTA 高潮',     start: 8000,  end: 10500 },
+    { id: 'S06', name: '收尾落版',     start: 10500, end: 12000 }
+  ];
+
+  /* 字幕表：与 docs/storyboard.md §5 一致（逐字抄录） */
+  var SUBS = [
+    { n: 1, start: 600,  end: 1600  },
+    { n: 2, start: 1800, end: 3100  },
+    { n: 3, start: 2900, end: 4000  },
+    { n: 4, start: 4200, end: 6400  },
+    { n: 5, start: 6600, end: 7900  },
+    { n: 6, start: 8300, end: 10400 }
+  ];
+
+  /* S05 副字幕时间窗：8900–10400ms */
+  var SUB_SUB = { start: 8900, end: 10400, root: 6 };
+
+  var stage      = document.getElementById('stage');
+  var frame      = document.getElementById('frame');
+  var scrub      = document.getElementById('scrub');
+  var btnPlay    = document.getElementById('btnPlay');
+  var playLabel  = document.getElementById('playLabel');
+  var readout    = document.getElementById('readout');
+  var hudShot    = document.getElementById('hudShot');
+  var hudShotName= document.getElementById('hudShotName');
+  var hudShotRange = document.getElementById('hudShotRange');
+  var hudNow     = document.getElementById('hudNow');
+  var marks      = Array.prototype.slice.call(document.querySelectorAll('.mark'));
+  var subs       = Array.prototype.slice.call(document.querySelectorAll('.sub'));
+  var subSub     = document.querySelector('.sub-sub');
+
+  var rafId = null;
+  var clockStart = 0;   /* performance.now() 起点 */
+  var t0 = 0;           /* 本次播放开始的虚拟时间 */
+  var playing = false;
+  var current = 0;      /* 当前虚拟时间 ms */
+  var ended = false;
+  var lastShotId = null;
+  var charOffsets = { s01: [], s06: [] };
+
+  /* ------------------------------------------------------------------ 工具 */
+  function fmt(ms) { return (Math.max(0, ms) / 1000).toFixed(2) + 's'; }
+
+  function shotAt(ms) {
+    for (var i = 0; i < SHOTS.length; i++) {
+      if (ms >= SHOTS[i].start && ms < SHOTS[i].end) return SHOTS[i];
+    }
+    return SHOTS[SHOTS.length - 1];
+  }
+
+  /* ------------------------------------------------ 逐字上浮（S01 / S06） */
+  function splitChars() {
+    var nodes = document.querySelectorAll('[data-split]');
+    Array.prototype.forEach.call(nodes, function (el) {
+      var key = el.getAttribute('data-split');
+      var text = el.textContent;
+      el.textContent = '';
+      Array.prototype.forEach.call(text.split(''), function (ch, i) {
+        var span = document.createElement('span');
+        span.textContent = (ch === ' ') ? '\u00A0' : ch;
+        /* 每字延迟 40ms（S01 基准 600ms / S06 基准 10700ms 由 keyframes 控制，
+           这里只叠加字符级偏移） */
+        span.style.animationDelay = (40 * i) + 'ms';
+        el.appendChild(span);
+        if (charOffsets[key]) charOffsets[key].push([span, 40 * i]);
+      });
+    });
+  }
+
+  /* ---------------------------------------------------------- 动画收集层 */
+  function stageAnims() {
+    if (!stage.getAnimations) return [];
+    try { return stage.getAnimations({ subtree: true }); } catch (e) { return []; }
+  }
+
+  function syncAll(ms) {
+    var list = stageAnims();
+    for (var i = 0; i < list.length; i++) {
+      var anim = list[i];
+      try {
+        var timing = anim.effect && anim.effect.getTiming ? anim.effect.getTiming() : null;
+        var delay = (timing && timing.delay) || 0;
+        var local = ms - delay;
+        anim.currentTime = local < 0 ? 0 : local;
+      } catch (e) { /* 动画可能已被替换，忽略该条 */ }
+    }
+    syncHud(ms);
+  }
+
+  /* ------------------------------------------------------------------ HUD */
+  function syncHud(ms) {
+    var s = shotAt(ms);
+
+    if (s.id !== lastShotId) {
+      lastShotId = s.id;
+      hudShot.textContent = s.id;
+      hudShotName.textContent = s.name;
+      hudShotRange.textContent = (s.start / 1000).toFixed(1) + 's–' + (s.end / 1000).toFixed(1) + 's';
+      stage.setAttribute('data-active', s.id);
+      marks.forEach(function (m) {
+        m.classList.toggle('is-active', Number(m.getAttribute('data-jump')) === s.start);
+      });
+    }
+
+    hudNow.textContent = fmt(ms);
+    readout.textContent = s.id + ' · ' + fmt(ms) + ' / ' + fmt(TOTAL);
+    if (document.activeElement !== scrub) scrub.value = String(Math.round(ms));
+    scrub.style.setProperty('--progress', (ms / TOTAL * 100).toFixed(3) + '%');
+    scrub.setAttribute('aria-valuetext', (ms / 1000).toFixed(2) + ' 秒');
+
+    /* 字幕：命中时间窗则显示；逐条独立判断（S02 两条各有 200ms 重叠） */
+    subs.forEach(function (el) {
+      var n = Number(el.getAttribute('data-sub'));
+      var on = SUBS.some(function (c) { return c.n === n && ms >= c.start && ms < c.end; });
+      el.style.opacity = on ? '1' : '0';
+      el.style.transform = on ? 'translateY(0)' : 'translateY(16px)';
+    });
+
+    /* S05 副字幕 8900–10400ms */
+    if (subSub) {
+      var onSub = ms >= SUB_SUB.start && ms < SUB_SUB.end;
+      subSub.style.opacity = onSub ? '1' : '0';
+      subSub.style.transform = onSub ? 'translateY(0)' : 'translateY(16px)';
+    }
+  }
+
+  /* ------------------------------------------------------------ 时钟循环 */
+  function tick() {
+    if (!playing) return;
+    var ms = t0 + (performance.now() - clockStart);
+    if (ms >= TOTAL) {
+      current = TOTAL - 0.001;
+      syncAll(current);
+      playing = false;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      ended = true;
+      setPlayUI(false);
+      return;
+    }
+    current = ms;
+    syncAll(ms);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function activateClock(ms) {
+    if (stage.classList.contains('static')) {
+      stage.classList.remove('static');
+    }
+    if (!stage.classList.contains('playing')) {
+      stage.classList.add('playing');
+      void stage.offsetWidth;   /* 强制重排：重建 CSS 动画实例 */
+    }
+    stage.classList.remove('paused');
+    t0 = ms;
+    clockStart = performance.now();
+  }
+
+  function play() {
+    if (playing) return;
+    if (ended || current >= TOTAL - 1) current = 0;
+    ended = false;
+    activateClock(current);
+    playing = true;
+    setPlayUI(true);
+    syncAll(current);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function pause() {
+    playing = false;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    stage.classList.add('paused');
+    syncAll(current);
+    setPlayUI(false);
+  }
+
+  function replay() {
+    pause();
+    current = 0;
+    ended = false;
+    stage.classList.remove('playing', 'paused', 'static');
+    void stage.offsetWidth;   /* 重建所有 CSS 动画，曲线从 0 开始 */
+    play();
+  }
+
+  /* 定位到 ms：保持当前播放/暂停状态 */
+  function seekTo(ms, forceStatic) {
+    ms = Math.max(0, Math.min(TOTAL - 0.001, ms));
+    current = ms;
+    ended = false;
+
+    if (forceStatic) {
+      /* 单帧：交给 runtime.css 的 .static 规则按 data-active 显示当前镜 */
+      stage.classList.remove('paused');
+      if (!stage.classList.contains('static')) {
+        stage.classList.add('static');
+      }
+      playing = false;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      syncHud(ms);
+      setPlayUI(false);
+      return;
+    }
+
+    if (playing) {
+      t0 = ms;
+      clockStart = performance.now();
+      syncAll(ms);
+    } else {
+      if (stage.classList.contains('static')) {
+        stage.classList.remove('static');
+      }
+      if (!stage.classList.contains('playing')) {
+        stage.classList.add('playing');
+        void stage.offsetWidth;
+      }
+      stage.classList.add('paused');
+      syncAll(ms);
+    }
+  }
+
+  function setPlayUI(isPlaying) {
+    btnPlay.setAttribute('aria-label', isPlaying ? '暂停' : '播放');
+    btnPlay.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
+    playLabel.textContent = isPlaying ? '暂停' : '播放';
+    var svg = btnPlay.querySelector('svg');
+    svg.innerHTML = isPlaying
+      ? '<rect x="3" y="2" width="3.6" height="12" rx="1"/><rect x="9.4" y="2" width="3.6" height="12" rx="1"/>'
+      : '<polygon points="3,1.5 14,8 3,14.5"/>';
+  }
+
+  /* ----------------------------------------------------------- 自适应缩放 */
+  function fitStage() {
+    var rect = frame.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    var scale = Math.min(rect.width / 1920, rect.height / 1080);
+    stage.style.setProperty('--stage-scale', String(scale));
+  }
+
+  /* ------------------------------------------------------------ 事件绑定 */
+  btnPlay.addEventListener('click', function () { if (playing) pause(); else play(); });
+  document.getElementById('btnReplay').addEventListener('click', replay);
+
+  scrub.addEventListener('input', function () {
+    seekTo(Number(scrub.value));
+  });
+
+  marks.forEach(function (m) {
+    m.addEventListener('click', function () {
+      seekTo(Number(m.getAttribute('data-jump')));
+    });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var tag = (e.target && e.target.tagName) || '';
+    if (e.key === ' ' || e.code === 'Space') {
+      if (tag === 'INPUT' || tag === 'BUTTON') return;   /* 交给原生控件 */
+      e.preventDefault();
+      if (playing) pause(); else play();
+    } else if (e.key === 'r' || e.key === 'R') {
+      replay();
+    } else if (e.key === 'g' || e.key === 'G') {
+      document.body.classList.toggle('safe-on');
+    } else if (/^[1-6]$/.test(e.key)) {
+      seekTo(SHOTS[Number(e.key) - 1].start);
+    }
+  });
+
+  window.addEventListener('resize', fitStage);
+  window.addEventListener('orientationchange', fitStage);
+  if (window.ResizeObserver) {
+    try { new ResizeObserver(fitStage).observe(frame); } catch (e) { /* 忽略 */ }
+  }
+
+  /* ---------------------------------------------------------------- 启动 */
+  function boot() {
+    splitChars();
+    fitStage();
+
+    var params = new URLSearchParams(location.search);
+    var tParam = params.get('t');
+
+    if (tParam !== null && tParam !== '' && !isNaN(Number(tParam))) {
+      /* ?t=8000 —— 单帧定位（截图验收用），默认不自动播放 */
+      seekTo(Number(tParam), true);
+      return;
+    }
+
+    current = 0;
+    play();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+</body>
+</html>

@@ -475,6 +475,7 @@ pub(super) fn changeset_delivery_error(
         owo_agent_protocol::ChangeSetStatus::Conflicted => Some("存在未解决冲突"),
         owo_agent_protocol::ChangeSetStatus::Rejected => Some("已被拒绝"),
         owo_agent_protocol::ChangeSetStatus::Reverted => Some("已撤销"),
+        owo_agent_protocol::ChangeSetStatus::Superseded => Some("已被新版本取代"),
     }
 }
 
@@ -596,10 +597,37 @@ pub(super) fn attempt_behavior_receipt_evidence(
     if source_hashes.is_empty() {
         return None;
     }
-    event_details.iter().rev().find_map(|detail| {
+    // A human explicitly accepting the source ChangeSet is stronger than a
+    // model self-report and is the final authorization for that exact source.
+    // This avoids an endless "accept -> rerun producer -> new pending" loop
+    // when the command tool cannot produce workspace hashes for the producer.
+    let matching: Vec<_> = change_sets
+        .iter()
+        .filter(|change_set| {
+            change_set.team_id == team_id
+                && change_set.step_id == step_id
+                && change_set.attempt_id.as_deref() == Some(attempt_id)
+        })
+        .collect();
+    if !matching.is_empty()
+        && matching
+            .iter()
+            .all(|change_set| change_set.status == owo_agent_protocol::ChangeSetStatus::Accepted)
+    {
+        return Some(format!(
+            "human-accepted-change-set:{}",
+            matching
+                .iter()
+                .map(|change_set| change_set.change_set_id.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
+        ));
+    }
+    let matching_receipt = |detail: &str, require_identity: bool| {
         let event: Value = serde_json::from_str(detail).ok()?;
-        if event.get("step_id").and_then(Value::as_str) != Some(step_id)
-            || event.get("attempt_id").and_then(Value::as_str) != Some(attempt_id)
+        if require_identity
+            && (event.get("step_id").and_then(Value::as_str) != Some(step_id)
+                || event.get("attempt_id").and_then(Value::as_str) != Some(attempt_id))
         {
             return None;
         }
@@ -618,7 +646,20 @@ pub(super) fn attempt_behavior_receipt_evidence(
                 .is_some_and(|actual| actual == expected)
         });
         covers.then(|| format!("command-result:sha256:{}", receipt.result_sha256))
-    })
+    };
+    // Prefer the producer's own attempt. A downstream tester command against
+    // the exact final source hashes is equally valid host evidence: producers
+    // often hand code to a dedicated tester rather than running it themselves.
+    event_details
+        .iter()
+        .rev()
+        .find_map(|detail| matching_receipt(detail, true))
+        .or_else(|| {
+            event_details
+                .iter()
+                .rev()
+                .find_map(|detail| matching_receipt(detail, false))
+        })
 }
 
 pub(super) fn evaluate_workspace_command_receipt(
@@ -1101,6 +1142,20 @@ mod behavior_receipt_tests {
             evidence.as_deref(),
             Some("command-result:sha256:result-sha")
         );
+    }
+
+    #[test]
+    fn accepted_change_set_is_human_behavior_authorization() {
+        let mut accepted = change_set();
+        accepted.status = owo_agent_protocol::ChangeSetStatus::Accepted;
+        let evidence = attempt_behavior_receipt_evidence(
+            "team-1",
+            &[],
+            "s-implementer",
+            "attempt-1",
+            &[accepted],
+        );
+        assert_eq!(evidence.as_deref(), Some("human-accepted-change-set:cs-1"));
     }
 
     #[test]

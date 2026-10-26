@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwO Agent — 面向开发者的智能体编排与协作平台</title>
+<meta name="description" content="OwO Agent 用版本化共享产物、宿主校验与定向验证，把一次需求拆给研究员、设计师、实现者与评审者并行推进，让每一步产出可追溯、可核对。">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0e1116">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#main">跳到主内容</a>
+
+<header class="site-header" id="top">
+  <div class="wrap header-inner">
+    <a class="brand" href="#top" aria-label="OwO Agent 首页">
+      <span class="brand-mark" aria-hidden="true">OwO</span>
+      <span class="brand-name">OwO Agent</span>
+      <span class="brand-tag" aria-hidden="true">v0.1</span>
+    </a>
+
+    <nav class="site-nav" aria-label="主导航">
+      <ul class="nav-list">
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#capabilities">Capabilities</a></li>
+        <li><a href="#workflow">Workflow</a></li>
+        <li><a href="#docs">Docs</a></li>
+      </ul>
+    </nav>
+
+    <div class="header-cta">
+      <a class="btn btn-primary btn-sm" href="#docs">Get Started</a>
+    </div>
+
+    <details class="mobile-menu">
+      <summary aria-label="展开导航菜单">菜单</summary>
+      <ul>
+        <li><a href="#overview">Overview · 产品定位</a></li>
+        <li><a href="#capabilities">Capabilities · 关键能力</a></li>
+        <li><a href="#workflow">Workflow · 协作流程</a></li>
+        <li><a href="#docs">Docs · 快速开始</a></li>
+      </ul>
+    </details>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero" id="overview" aria-labelledby="overview-title">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="dot" aria-hidden="true"></span>OwO Agent SDK · 多成员智能体团队</p>
+        <h1 id="overview-title">把一次需求，拆给一支可核对的智能体团队</h1>
+        <p class="lede">
+          OwO Agent 由 SDK 驱动的研究员、设计师、实现者与评审者组成，围绕同一个项目空间协作。
+          每一步都留下版本化产物、证据来源与验收记录，你随时可以回到任意一版核对它到底做了什么。
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#docs">Get Started</a>
+          <a class="btn btn-ghost" href="#workflow">浏览示例工作流</a>
+        </div>
+        <ul class="hero-facts">
+          <li><strong>4</strong> 种默认角色分工</li>
+          <li><strong>1</strong> 个项目空间共享全部产物</li>
+          <li><strong>0</strong> 条没有证据来源的结论</li>
+        </ul>
+      </div>
+
+      <figure class="hero-visual" aria-labelledby="hero-visual-caption">
+        <div class="node-graph">
+          <svg viewBox="0 0 360 260" role="img" aria-label="任务从目标拆解流向四个角色的节点示意图">
+            <defs>
+              <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#2ee6a8" stop-opacity="0.85"/>
+                <stop offset="100%" stop-color="#2ee6a8" stop-opacity="0.15"/>
+              </linearGradient>
+            </defs>
+            <g stroke="url(#edge)" stroke-width="2" fill="none">
+              <path d="M60 130 H150"/>
+              <path d="M150 130 C200 130 200 50 260 50"/>
+              <path d="M150 130 C200 130 200 130 260 130"/>
+              <path d="M150 130 C200 130 200 210 260 210"/>
+            </g>
+            <g fill="#161c24" stroke="#2b3644" stroke-width="1.5">
+              <rect x="16" y="106" width="88" height="48" rx="8"/>
+              <rect x="252" y="26" width="92" height="48" rx="8"/>
+              <rect x="252" y="106" width="92" height="48" rx="8"/>
+              <rect x="252" y="186" width="92" height="48" rx="8"/>
+            </g>
+            <g fill="#c9d4e3" font-size="11" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+              <text x="60" y="135">goal</text>
+              <text x="298" y="55">researcher</text>
+              <text x="298" y="135">designer</text>
+              <text x="298" y="215">builder</text>
+            </g>
+          </svg>
+          <p class="artifact-chip"><span aria-hidden="true">◆</span> artifact · v1 · review: draft</p>
+        </div>
+        <figcaption id="hero-visual-caption">目标进入共享空间后，由不同角色并行产出可版本化的产物。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="capabilities" id="capabilities" aria-labelledby="capabilities-title">
+    <div class="wrap">
+      <header class="section-head">
+        <p class="eyebrow">Capabilities</p>
+        <h2 id="capabilities-title">六项能力，把「说得对」变成「验得过」</h2>
+        <p class="section-sub">每一项都对应工程流里的一个具体环节，而不是演示用的效果图。</p>
+      </header>
+
+      <ul class="card-grid">
+        <li class="card">
+          <span class="card-icon" aria-hidden="true">01</span>
+          <h3>任务拆解与角色分工</h3>
+          <p>把一条目标拆成带验收条件的子任务，分配给研究员、设计师、实现者与评审者。</p>
+        </li>
+        <li class="card">
+          <span class="card-icon" aria-hidden="true">02</span>
+          <h3>版本化共享产物</h3>
+          <p>每个产物带 revision 与内容哈希，下游读到的是确定的某一版，而不是「大概那份」。</p>
+        </li>
+        <li class="card">
+          <span class="card-icon" aria-hidden="true">03</span>
+          <h3>源码级落盘与补丁</h3>
+          <p>变更以精确补丁或整文件写入真实文件系统，基线哈希不匹配就拒绝覆盖。</p>
+        </li>
+        <li class="card">
+          <span class="card-icon" aria-hidden="true">04</span>
+          <h3>测试与验收登记</h3>
+          <p>先登记验证计划，再跑定向检查；计划本身不算通过证据，只有实际结果算。</p>
+        </li>
+        <li class="card">
+          <span class="card-icon" aria-hidden="true">05</span>
+          <h3>人类审批闸口</h3>
+          <p>写文件、跑命令等敏感动作需要你点同意，拒绝之后不会用同样参数重试。</p>
+        </li>
+        <li class="card">
+          <span class="card-icon" aria-hidden="true">06</span>
+          <h3>跨会话事实同步</h3>
+          <p>共享事实按 revision 发布与冲突检测，冲突时重读再写，不静默覆盖别人的结论。</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="workflow" id="workflow" aria-labelledby="workflow-title">
+    <div class="wrap">
+      <header class="section-head">
+        <p class="eyebrow">Workflow</p>
+        <h2 id="workflow-title">四步协作流程</h2>
+        <p class="section-sub">从一句话目标到可交付结果，每一步都有明确的输入与输出。</p>
+      </header>
+
+      <ol class="steps">
+        <li class="step">
+          <span class="step-no" aria-hidden="true">1</span>
+          <h3>理解目标</h3>
+          <p>先把需求读成可执行的约束清单：输入、期望结果、不允许做的事项。</p>
+          <p class="step-out"><span>产出</span> 约束与目标陈述</p>
+        </li>
+        <li class="step">
+          <span class="step-no" aria-hidden="true">2</span>
+          <h3>分工执行</h3>
+          <p>按角色分配任务，各成员只在自己被允许的路径里动手。</p>
+          <p class="step-out"><span>产出</span> 任务与写入白名单</p>
+        </li>
+        <li class="step">
+          <span class="step-no" aria-hidden="true">3</span>
+          <h3>产物共享</h3>
+          <p>结论以版本化产物发布到项目空间，下游按 artifact 引用读取对应版本。</p>
+          <p class="step-out"><span>产出</span> artifact v1 / v2 / …</p>
+        </li>
+        <li class="step">
+          <span class="step-no" aria-hidden="true">4</span>
+          <h3>校验交付</h3>
+          <p>按验收条件跑定向检查，评审者给出结论，未验证部分显式标注。</p>
+          <p class="step-out"><span>产出</span> 证据与评审结论</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="trust" aria-labelledby="trust-title">
+    <div class="wrap">
+      <header class="section-head">
+        <p class="eyebrow">Trust &amp; Evidence</p>
+        <h2 id="trust-title">为什么可以核对</h2>
+        <p class="section-sub">三条可验证性设计，对应三种常见的「看起来做完了」风险。</p>
+      </header>
+
+      <div class="trust-table-wrap">
+        <table class="trust-table">
+          <caption class="visually-hidden">可验证性设计对照表</caption>
+          <thead>
+            <tr>
+              <th scope="col">机制</th>
+              <th scope="col">解决的风险</th>
+              <th scope="col">你看到的东西</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">版本化产物</th>
+              <td>下游读到过期或被改写的内容</td>
+              <td>revision、内容哈希、发布者与时间</td>
+            </tr>
+            <tr>
+              <th scope="row">审批闸口</th>
+              <td>敏感操作未经确认就发生</td>
+              <td>待审批动作列表与拒绝后的收尾说明</td>
+            </tr>
+            <tr>
+              <th scope="row">证据留存</th>
+              <td>把计划当成已通过的验收结果</td>
+              <td>检查命令、实际输出与未验证项清单</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="quickstart" id="docs" aria-labelledby="docs-title">
+    <div class="wrap quickstart-grid">
+      <div>
+        <header class="section-head section-head-left">
+          <p class="eyebrow">Docs · Quick Start</p>
+          <h2 id="docs-title">三步接入</h2>
+          <p class="section-sub">示例以 Node 环境的本地项目为基准，整个站点本身也无需联网即可打开。</p>
+        </header>
+
+        <ol class="code-steps">
+          <li>
+            <p class="code-label">1 · 初始化项目并安装 SDK</p>
+            <pre class="code"><code>npm init -y
+npm install owo-agent-sdk</code></pre>
+          </li>
+          <li>
+            <p class="code-label">2 · 在项目空间注册角色</p>
+            <pre class="code"><code>const team = await owo.team.create({
+  roles: ["researcher", "designer", "builder", "reviewer"]
+});</code></pre>
+          </li>
+          <li>
+            <p class="code-label">3 · 提交目标并等待可核对产物</p>
+            <pre class="code"><code>const task = await team.dispatch({
+  goal: "写一个可离线打开的静态介绍页",
+  accept: ["index.html 非空", "无外部依赖"]
+});</code></pre>
+          </li>
+        </ol>
+      </div>
+
+      <aside class="cta-panel" aria-labelledby="cta-panel-title">
+        <h2 id="cta-panel-title" class="cta-panel-title">从一条目标开始</h2>
+        <p>先跑通一个小需求：单页站点、无外部依赖、带验收断言。跑通之后再谈扩展。</p>
+        <div class="cta-panel-actions">
+          <a class="btn btn-primary" href="#overview">Get Started</a>
+          <a class="btn btn-ghost" href="#workflow">浏览示例工作流</a>
+        </div>
+        <p class="cta-note">首版不含登录与后端请求，所有链接均为页内锚点。</p>
+      </aside>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <p class="footer-name">OwO Agent</p>
+      <p class="footer-desc">面向开发者的智能体编排与协作平台 · SDK 驱动的多成员团队。</p>
+    </div>
+    <nav class="footer-nav" aria-label="页脚导航">
+      <ul>
+        <li><a href="#docs">文档 Docs</a></li>
+        <li><a href="#workflow">工作流</a></li>
+        <li><a href="#capabilities">能力清单</a></li>
+        <li><a href="#overview">状态 Status</a></li>
+      </ul>
+    </nav>
+    <p class="footer-meta">© 2025 OwO Agent · 静态演示页，无跟踪、无外部资源。</p>
+  </div>
+</footer>
+
+</body>
+</html>

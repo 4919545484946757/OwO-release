@@ -1520,7 +1520,9 @@ function noteMediaOutput(payload) {
   if (!media) return;
   const bubble = addMessage("system", window.OwoMediaResult.describeMedia(media), "media");
   // 小图（<=512 KiB）由工具内联成 data URL，直接显示；大图只留路径。
-  if (media.dataUrl && bubble) {
+  if (media.contentPath && bubble) {
+    window.OwoMediaResult.mount(bubble, media, { onLoad: followScroll });
+  } else if (media.dataUrl && bubble) {
     let node;
     if (media.kind === "audio") {
       node = document.createElement("audio");
@@ -2245,6 +2247,7 @@ let settingsSearch = null;
 function setSettingsTab(name) {
   if (!document.querySelector('.settings-tab[data-settings-tab="' + name + '"]')) return;
   settingsSearch?.clear();
+  if (name === "models") window.owoMediaProfilesSettings?.refresh();
 
   for (const item of document.querySelectorAll(".settings-nav-item")) {
     item.classList.toggle("active", item.dataset.settingsTab === name);
@@ -2259,6 +2262,10 @@ for (const item of document.querySelectorAll(".settings-nav-item")) {
   item.addEventListener("click", () => setSettingsTab(item.dataset.settingsTab));
 }
 settingsSearch = window.OwoSettingsSearch?.init(document, setSettingsTab);
+window.owoMediaProfilesSettings = window.OwoMediaProfilesSettings?.mount($("mediaConnectionSettings"), {
+  api,
+  onSaved: async () => { state.capabilities = await api("/capabilities"); },
+});
 $("settingsBackBtn")?.addEventListener("click", () => { setSettingsPageVisible(false); $("prompt")?.focus(); });
 
 
@@ -2840,16 +2847,14 @@ function focusComposerModelChoice(menu, key, currentTarget) {
   return choices[next] || null;
 }
 
-// 媒体能力提示：只说明"配没配"，不暴露密钥，也不阻止用户继续用文本模型。
+// 状态只来自核心的能力投影；配置存在不代表网络连接或模型服务已验证。
+function mediaConnectionInfo(kind) {
+  return window.OwoMediaCapability.describe(state.capabilities, kind);
+}
 function mediaHintHtml() {
-  const constraints = (state.capabilities && state.capabilities.constraints) || {};
-  const image = constraints.media_image_generation === true;
-  const speech = constraints.media_speech === true;
-  if (!image && !speech) {
-    return '<div class="composer-model-scope">文生图 / 语音：未配置端点或密钥（可用 OPENAI_API_KEY 或本机端点）</div>';
-  }
-  return '<div class="composer-model-scope">文生图：' + (image ? "可用" : "未配置") +
-    '　语音：' + (speech ? "可用" : "未配置") + '</div>';
+  const image = mediaConnectionInfo("image"), speech = mediaConnectionInfo("audio");
+  return '<div class="composer-model-scope">文生图：' + esc(image.label) +
+    '　语音：' + esc(speech.label) + '</div>';
 }
 
 // 媒体入口：不直接替用户发请求，只插入一条明确的工具指令，让模型自己决定参数。
@@ -3394,18 +3399,17 @@ function openMediaMenu() {
     showToast("对话模式不开放媒体生成，切到 Work 再用", "error");
     return;
   }
-  const constraints = (state.capabilities && state.capabilities.constraints) || {};
-  const image = constraints.media_image_generation === true;
-  const speech = constraints.media_speech === true;
+  const image = mediaConnectionInfo("image"), speech = mediaConnectionInfo("audio");
   let html = '<div class="composer-menu-title">生成媒体</div>' +
     '<button type="button" class="composer-menu-item has-desc" data-media-kind="image">' +
       '<span class="composer-menu-label">图片 · generate_image</span>' +
-      '<span class="composer-menu-desc">' + (image ? "端点已配置" : "尚未配置（OPENAI_API_KEY 或本机端点）") + '</span></button>' +
+      '<span class="composer-menu-desc">' + esc(image.label + "；" + image.detail) + '</span></button>' +
     '<button type="button" class="composer-menu-item has-desc" data-media-kind="audio">' +
       '<span class="composer-menu-label">语音 · text_to_speech</span>' +
-      '<span class="composer-menu-desc">' + (speech ? "端点已配置" : "尚未配置（同上）") + '</span></button>' +
+      '<span class="composer-menu-desc">' + esc(speech.label + "；" + speech.detail) + '</span></button>' +
     '<div class="composer-model-scope">插入的是指令模板，发送后仍按当前权限档位审批</div>';
   openComposerMenu($("mediaBtn"), html, (menu) => {
+    menu.classList.add("composer-media-menu");
     for (const button of menu.querySelectorAll("[data-media-kind]")) {
       button.addEventListener("click", () => {
         const kind = button.dataset.mediaKind;

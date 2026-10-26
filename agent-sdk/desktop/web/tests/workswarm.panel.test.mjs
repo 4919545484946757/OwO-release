@@ -44,6 +44,11 @@ const TASKS_MIXED = [
 
 function resetState() {
   T.setRoot(null);
+  T.state.conversationSessionAfter = null;
+  T.state.handoffBefore = null;
+  T.state.handoffNextBefore = null;
+  T.state.handoffHasMore = false;
+  T.state.handoffBusy = false;
   T.state.current = null;
   T.state.team = null;
   T.state.teamStatus = "";
@@ -1372,6 +1377,8 @@ test("changeSetBadge：状态徽标配色（accepted 绿 / conflicted 红 / pend
   assert.match(T.changeSetBadge("conflicted"), /rv-bad/);
   assert.match(T.changeSetBadge("pending_review"), /rv-warn/);
   assert.match(T.changeSetBadge("reverted"), /已撤销/);
+  assert.match(T.changeSetBadge("superseded"), /\u5df2\u88ab\u65b0\u7248\u672c\u53d6\u4ee3/);
+  assert.match(T.changeSetBadge("superseded"), /rv-off/);
 });
 
 test("changeSetsHtml：空态 + 待审批动作（data 属性/提交锁）+ 结果区", () => {
@@ -1674,4 +1681,103 @@ test("dagSvg dependency endpoints are numeric and inside the viewport", () => {
     assert.ok([x1, y1, x2, y2].every(Number.isFinite));
     assert.ok(x1 >= 0 && x1 < x2 && x2 < width, JSON.stringify({ x1, x2, width }));
   }
+});
+
+
+test("持久事件高频刷新只合并一次在途会话请求，离开页面取消请求并忽略迟到数据", async () => {
+  T.stopLive(); resetState();
+  const previous = T.getTransport();
+  const callbacks = [];
+  T.state.current = "team-a"; T.state.view = "detail"; T.state.handoffs = null;
+  T.setTransport({ get(path, options) {
+    return new Promise(resolve => callbacks.push({ resolve, path, signal: options.signal }));
+  }});
+  try {
+    const first = T.loadTeamConversation("team-a", true);
+    assert.equal(T.loadTeamConversation("team-a", true), first);
+    assert.equal(T.loadTeamConversation("team-a", true), first);
+    assert.equal(callbacks.length, 1);
+    T.stopLive("已离开");
+    assert.equal(callbacks[0].signal.aborted, true);
+    callbacks[0].resolve({ handoffs: [{handoff_id:"late"}], sessions: [], next_cursors: {}, has_more: true });
+    await first; await drain();
+    assert.equal(callbacks.length, 1);
+    assert.equal(T.state.handoffs, null);
+    assert.equal(T.state.conversationPageTimer, null);
+  } finally { T.stopLive(); T.setTransport(previous); resetState(); }
+});
+
+test("会话补页定时器在退出时清理，不产生详情页外的幽灵请求", async () => {
+  T.stopLive(); resetState();
+  const previous = T.getTransport();
+  globalThis.OwoWorkswarmRenderConversation = require("../panels/workswarm/render_conversation.js");
+  let calls = 0;
+  T.state.current = "team-a"; T.state.view = "detail";
+  T.state.conversationReplay = {}; T.state.conversationCursors = {};
+  T.setTransport({ get: async () => {
+    calls++;
+    return { handoffs: [], sessions: [], next_cursors: {}, has_more: true };
+  }});
+  try {
+    await T.loadTeamConversation("team-a", true);
+    assert.notEqual(T.state.conversationPageTimer, null);
+    T.stopLive();
+    await drain();
+    assert.equal(calls, 1);
+    assert.equal(T.state.conversationPageTimer, null);
+  } finally { T.stopLive(); T.setTransport(previous); resetState(); }
+});
+
+test("交接按实际游标翻页，刷新保留历史页，返回最新不携带旧游标", async () => {
+  T.stopLive(); resetState();
+  const previous = T.getTransport();
+  globalThis.OwoWorkswarmRenderConversation = require("../panels/workswarm/render_conversation.js");
+  const paths = [];
+  T.state.current = "team-a"; T.state.view = "detail";
+  T.setTransport({ get: async path => {
+    paths.push(path);
+    const older = new URL(path,"http://fixture").searchParams.has("handoff_before");
+    return { handoffs: [{handoff_id:older ? "h-01" : "h-65"}], sessions: [],
+      next_cursors:{}, next_session_after:"team-a-worker-next", has_more:false, next_handoff_before:older ? "h-01" : "h-65", handoffs_has_more:!older };
+  }});
+  try {
+    await T.loadTeamConversation("team-a",true);
+    assert.equal(T.state.handoffNextBefore,"h-65"); assert.equal(T.state.handoffHasMore,true);
+    await T.navigateHandoffs(T.state.handoffNextBefore);
+    assert.equal(new URL(paths.at(-1),"http://fixture").searchParams.get("session_after"),"team-a-worker-next");
+    assert.equal(T.state.handoffBefore,"h-65"); assert.equal(T.state.handoffs[0].handoff_id,"h-01");
+    assert.equal(T.state.handoffHasMore,false);
+    assert.match(T.handoffPagingHtml(),/较早交接/);
+    assert.match(T.handoffPagingHtml(),/data-handoff-page="older" disabled/);
+    await T.loadTeamConversation("team-a",true);
+    assert.equal(new URL(paths.at(-1),"http://fixture").searchParams.get("handoff_before"),"h-65");
+    await T.navigateHandoffs(null);
+    assert.equal(new URL(paths.at(-1),"http://fixture").searchParams.has("handoff_before"),false);
+    assert.equal(T.state.handoffs[0].handoff_id,"h-65");
+  } finally { T.stopLive(); T.setTransport(previous); resetState(); }
+});
+
+test("交接读取失败保留已读数据，退出取消且迟到页不覆盖当前团队", async () => {
+  T.stopLive(); resetState();
+  const previous = T.getTransport();
+  const callbacks = [];
+  T.state.current="team-a"; T.state.view="detail"; T.state.handoffs=[{handoff_id:"kept"}];
+  T.setTransport({ get: () => Promise.reject(new Error("offline")) });
+  try {
+    await T.navigateHandoffs("h-65");
+    assert.equal(T.state.handoffs[0].handoff_id,"kept");
+    assert.ok(T.state.conversationError); assert.equal(T.state.handoffBusy,false);
+    T.setTransport({ get: (path,options) => new Promise(resolve => callbacks.push({resolve,signal:options.signal})) });
+    const pending=T.navigateHandoffs(null);
+    assert.equal(T.state.handoffBusy,true);
+    await T.navigateHandoffs("ignored");
+    assert.equal(callbacks.length,1,"busy page navigation is serialized");
+    T.stopLive();
+    assert.equal(callbacks[0].signal.aborted,true);
+    callbacks[0].resolve({handoffs:[{handoff_id:"late"}],sessions:[],next_cursors:{},has_more:false,
+      next_handoff_before:"late",handoffs_has_more:true});
+    await pending;
+    assert.equal(T.state.handoffs[0].handoff_id,"kept");
+    assert.equal(T.state.handoffBusy,false);
+  } finally { T.stopLive(); T.setTransport(previous); resetState(); }
 });

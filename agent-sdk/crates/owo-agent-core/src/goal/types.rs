@@ -338,6 +338,9 @@ pub struct GoalRunState {
     /// Durable fencing high-water mark; legacy snapshots recover from step records.
     #[serde(default)]
     pub execution_epoch: u64,
+    /// Host checkpoint delivery metadata. Kept out of ordinary API/context serialization.
+    #[serde(default, skip_serializing)]
+    pub team_task_events: Option<crate::project_space_store::TaskEventOutbox>,
     pub goal: Goal,
     pub plan: Plan,
     /// step_id → 执行记录。
@@ -389,6 +392,7 @@ impl GoalRunState {
         Self {
             run_id: format!("run-{}", chrono::Utc::now().timestamp_millis()),
             execution_epoch: 0,
+            team_task_events: None,
             goal,
             plan,
             records,
@@ -409,6 +413,13 @@ impl GoalRunState {
         super::persistence::persist_checkpoint(self, dir)
     }
 
+    pub(crate) fn persist_team_checkpoint(
+        &self,
+        dir: &Path,
+        outbox: &crate::project_space_store::TaskEventOutbox,
+    ) -> Result<PathBuf, String> {
+        super::persistence::persist_checkpoint_with_tasks(self, dir, Some(outbox))
+    }
     /// 从磁盘恢复运行状态。
     pub fn load(dir: &Path, run_id: &str) -> Result<GoalRunState, String> {
         let path = dir.join(format!("{run_id}.json"));

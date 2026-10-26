@@ -1,5 +1,7 @@
 use crate::audit::AuditLog;
+mod workflow_capabilities;
 mod workflow_tools;
+pub use workflow_capabilities::{WorkflowToolCapability, WorkflowToolIssue};
 
 use crate::autoreview::{ReviewVerdict, Reviewer};
 use crate::context::{
@@ -23,9 +25,12 @@ use crate::tools::{
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
+mod checkpoint;
+pub use checkpoint::TurnSessionCheckpoint;
 mod config;
 mod single_completion;
 mod single_manual_acceptance;
@@ -194,6 +199,7 @@ pub struct ModelCallRecord {
 /// ```
 pub struct Agent {
     provider: Arc<dyn ModelProvider>,
+    media_connections_root: Option<PathBuf>,
     /// 工具注册表（RwLock：MCP 服务器热连接/热卸载时无需重建 Agent）。
     registry: Arc<RwLock<ToolRegistry>>,
     /// 受信工具执行门面：能力签发、执行和 receipt 统一从此处经过。
@@ -230,6 +236,7 @@ impl Agent {
         let tool_host = ToolHostService::new(Arc::clone(&registry), Arc::clone(&audit));
         Self {
             provider,
+            media_connections_root: None,
             registry,
             tool_host,
             disabled_tool_prefixes: Arc::new(RwLock::new(HashSet::new())),
@@ -321,6 +328,10 @@ impl Agent {
     /// 与 MCP 热注册共用同一注册表；调用方必须保证工具自身已声明 effect，
     /// 不在工具面层绕过 Policy/审批。
     pub fn register_tool(&self, tool: Arc<dyn crate::tools::Tool>) {
+        let tool = match &self.media_connections_root {
+            Some(root) => crate::tools::profiled_media_tool(tool, root),
+            None => tool,
+        };
         if let Ok(mut registry) = self.registry.write() {
             registry.register_arc(tool);
         }
@@ -470,6 +481,7 @@ impl Agent {
     pub fn with_turn_provider(&self, provider: Arc<dyn ModelProvider>) -> Result<Self, String> {
         Ok(Self {
             provider,
+            media_connections_root: self.media_connections_root.clone(),
             registry: Arc::clone(&self.registry),
             tool_host: self.tool_host.clone(),
             disabled_tool_prefixes: Arc::clone(&self.disabled_tool_prefixes),
@@ -484,6 +496,19 @@ impl Agent {
             artifact_store: self.artifact_store.clone(),
             hooks: RwLock::new(self.hooks.read().unwrap_or_else(|e| e.into_inner()).clone()),
         })
+    }
+
+    /// Bind only a trusted Daemon data root. Tool policy, publisher and audit stay intact.
+    pub fn with_media_connections_root(mut self, root: PathBuf) -> Self {
+        if let Ok(mut registry) = self.registry.write() {
+            for name in ["generate_image", "text_to_speech"] {
+                if let Some(tool) = registry.get(name) {
+                    registry.register_arc(crate::tools::profiled_media_tool(tool, &root));
+                }
+            }
+        }
+        self.media_connections_root = Some(root);
+        self
     }
 
     pub fn provider(&self) -> Arc<dyn ModelProvider> {
@@ -690,10 +715,20 @@ impl Agent {
         on_event: &mut (dyn FnMut(&TurnEvent) + Send),
         options: &TurnExecutionOptions,
     ) -> Result<TurnOutcome, AgentError> {
-        self.run_turn_inner(
-            session, prompt, images, approver, abort, on_event, questioner, options,
-        )
-        .await
+        let result = self
+            .run_turn_inner(
+                session, prompt, images, approver, abort, on_event, questioner, options,
+            )
+            .await;
+        if let Some(checkpoint) = &options.session_checkpoint {
+            if let Err(save_error) = checkpoint.save(session) {
+                return Err(match result {
+                    Ok(_) => save_error,
+                    Err(error) => AgentError::Session(format!("{error}; {save_error}")),
+                });
+            }
+        }
+        result
     }
 
     /// 当估算 token 超过预算时，用模型把旧历史压缩为摘要（保留最近消息）。
@@ -881,9 +916,11 @@ fn command_execution_receipt(
     }
     let value = outcome.as_ref().ok()?;
     let command = value.get("command")?.as_str()?.trim();
+    let verification_command = crate::verification::normalize_verification_command(command);
     let exit_code = i32::try_from(value.get("exit_code")?.as_i64()?).ok()?;
     let duration_ms = value.get("duration_ms").and_then(serde_json::Value::as_u64);
-    let registered_behavior_command = crate::verification::is_registered_behavior_command(command);
+    let registered_behavior_command =
+        crate::verification::is_registered_behavior_command(&verification_command);
     let (workspace_hashes_complete, workspace_hashes_before, workspace_hashes) = match before {
         Some(before) if registered_behavior_command => {
             let after = crate::command_evidence::capture_command_snapshot(session);
@@ -896,7 +933,7 @@ fn command_execution_receipt(
         _ => (false, Default::default(), Default::default()),
     };
     Some(CommandExecutionReceipt {
-        command_sha256: crate::CasStore::hash_of(command.as_bytes()),
+        command_sha256: crate::CasStore::hash_of(verification_command.as_bytes()),
         exit_code,
         result_sha256: crate::CasStore::hash_of(value.to_string().as_bytes()),
         duration_ms,
@@ -909,8 +946,12 @@ fn command_execution_receipt(
     })
 }
 
-fn tool_outputs(outcome: &Result<serde_json::Value, String>) -> Vec<owo_agent_protocol::ToolOutputArtifact> {
-    outcome.as_ref().ok()
+fn tool_outputs(
+    outcome: &Result<serde_json::Value, String>,
+) -> Vec<owo_agent_protocol::ToolOutputArtifact> {
+    outcome
+        .as_ref()
+        .ok()
         .and_then(|value| value.get("outputs"))
         .and_then(|value| serde_json::from_value(value.clone()).ok())
         .unwrap_or_default()

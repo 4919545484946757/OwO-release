@@ -255,6 +255,16 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             get(settings_api::settings_get).post(settings_api::settings_update),
         )
         .route("/settings/egress", post(settings_api::settings_egress))
+        .route(
+            "/settings/media-connections",
+            get(media_profiles_api::get)
+                .put(media_profiles_api::put)
+                .layer(DefaultBodyLimit::max(256 * 1024)),
+        )
+        .route(
+            "/settings/media-connections/check",
+            post(media_profiles_api::check).layer(DefaultBodyLimit::max(4096)),
+        )
         .route("/providers/presets", get(settings_api::providers_presets))
         .route(
             "/settings/provider-test",

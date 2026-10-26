@@ -21,10 +21,8 @@
 //   POST /teams/templates/proposals/{pid}/adopt    采纳 → {template}
 //   POST /teams/templates/proposals/{pid}/reject   拒绝 → {proposal_id, status}
 //
-// 说明：/teams/* 为受保护路由，仅识别 Authorization: Bearer 头；浏览器
-// EventSource 无法携带请求头，SSE 若出错（如 401）本面板自动降级为 2.5s 轮询
-// （GET /teams/{id}/events?format=json + GET /teams/{id}），审计事件按
-// ts|event|detail 去重，两种通道可无缝拼接。
+// /teams/* 使用 Bearer 认证。首选 /timeline 持久 SSE 与排他游标续传，网络失败
+// 按相同游标补读；仅在旧服务端返回 404/501 时使用原进度/会话兼容通道。
 //
 // 修复/体验记录：
 // - el() 同时接受裸 ID 与 "#selector"。历史版本对 "#id" 再拼一次 "#"，生成
@@ -66,6 +64,12 @@
   if (!render && typeof require !== "undefined") render = require("./workswarm/render.js");
   if (!render) throw new Error("WorkSwarm render helpers 未加载");
   if (!fmt) throw new Error("WorkSwarm format helpers 未加载");
+  var timelineClient = win.OwoRunTimeline;
+  if (!timelineClient && typeof require !== "undefined") timelineClient = require("../core/run-timeline.js");
+  var dependencyClient = win.OwoDependencyInspector;
+  if (!dependencyClient && typeof require === "function") dependencyClient = require("../core/dependency-inspector.js");
+  var historyClient = win.OwoRunHistory;
+  if (!historyClient && typeof require !== "undefined") historyClient = require("../core/run-history.js");
 
   if (!domain) throw new Error("WorkSwarm domain helpers 未加载");
 
@@ -77,7 +81,10 @@
     // ---------- helpers（优先 app.js 注入，缺失时自建回退） ----------
     var H = {};
     var rootEl = null;
+    var inputAssets = null;
     var deliveryView = null;
+    var runHistoryView = null;
+    var dependencyView = null;
     var detailTabsByTeam = {};
     function defaultGet(path, options) {
       return window.OwoApi.get(path, options);
@@ -125,6 +132,12 @@
       streamNote: "",
       liveMode: "off", // sse | poll | off
       es: null,
+      timeline: null,
+      timelineRefresh: null,
+      timelineDetailRequest: null,
+      timelineDetailController: null,
+      timelineDirty: {},
+      timelineMeta: null,
       pollTimer: null,
       pollRequest: null,
       pollNoteShown: false,
@@ -151,12 +164,20 @@
       reworkResult: null, // 最近一次返工提交结果
       historyReviews: {}, // artifact_id -> 最近一次评审历史记录（rework 预填 review_id 用）
       diagnostic: null, // 最近一次下载的诊断 JSON（已脱敏）
+      handoffBefore: null,
+      handoffNextBefore: null,
+      handoffHasMore: false,
+      handoffBusy: false,
       handoffs: null, // 按需从脱敏诊断端点加载的持久化交接消息
       conversationError: "",
       conversationRequest: null,
+      conversationController: null,
+      conversationNeedsRefresh: false,
+      conversationPageTimer: null,
       conversationSeq: 0,
       conversationReplay: {},
       conversationCursors: {},
+      conversationSessionAfter: null,
       // 每个团队记住"只看哪个成员"（角色可自定义，恢复时按当时可用角色校验）。
       conversationRoleByTeam: {},
       // —— 六期：工作区绑定 / 模板信息 / 输出契约失败原因 ——
@@ -344,11 +365,42 @@
     // 重试按钮走事件委托：绑定在面板 section 上（随 innerHTML 重建一起销毁），
     // 绝不能绑在 rootEl 上——app.js 用同一个 #panelRoot 反复挂载各面板，
     // 挂在根上的监听器会在多次切换后累积并污染其他面板。
+    function selectDependency(from, to) {
+      var source=(state.tasks||[]).find(function(task){return task.task_id===from;});
+      var target=(state.tasks||[]).find(function(task){return task.task_id===to;});
+      if(!source||!target||!(target.depends_on||[]).includes(from))return Promise.resolve();
+      if(!dependencyView && dependencyClient) dependencyView=dependencyClient.create({
+        box:el("#ws-d-dependency-inspector"),api:H,runId:state.current,cursors:function(){return state.conversationCursors;},
+        inspectInput:async function(event){
+          var history=runHistoryView,box=el("#ws-d-run-history");
+          if(!history || !box || typeof history.locate!=="function")return;
+          var activityTab=el("#team-tab-activity");
+          if(activityTab)activityTab.click();
+          await history.locate(event);
+          if(history!==runHistoryView)return;
+          var parent=box.parentElement;
+          while(parent){if(parent.tagName==="DETAILS")parent.open=true;parent=parent.parentElement;}
+          if(box.scrollIntoView)box.scrollIntoView({block:"nearest"});
+        }
+      });
+      return dependencyView ? dependencyView.select(source,target) : Promise.resolve();
+    }
+
     function bindDelegates(section) {
       if (!section || !section.addEventListener) return;
+      section.addEventListener("keydown", function(ev) {
+        var edge=ev.target.closest && ev.target.closest("[data-ws-edge-from]");
+        if(edge && section.contains(edge) && (ev.key==="Enter" || ev.key===" ")) {
+          ev.preventDefault();selectDependency(edge.getAttribute("data-ws-edge-from"),edge.getAttribute("data-ws-edge-to"));
+        }
+      });
       section.addEventListener("click", function (ev) {
         var t = ev.target;
         if (!t || !t.getAttribute) return;
+        var edge = t.closest && t.closest("[data-ws-edge-from]");
+        if (edge && section.contains(edge)) {
+          ev.preventDefault();selectDependency(edge.getAttribute("data-ws-edge-from"),edge.getAttribute("data-ws-edge-to"));return;
+        }
         var r = t.getAttribute("data-retry");
         if (r != null && !t.disabled) {
           ev.preventDefault();
@@ -1069,7 +1121,38 @@
       }).catch(function () { /* 目录不可用 → 仅显示 template_id */ });
     }
 
+    function handoffPagingHtml() {
+      return '<span class="hint" role="status">' +
+        (state.handoffBefore ? "正在查看较早交接；成员消息仍继续更新。" : "交接仅展示最新一页（最多 64 条）。") +
+        '</span><button type="button" class="owo-ws-mini" data-handoff-page="older"' +
+        (state.handoffBusy || !state.handoffHasMore || !state.handoffNextBefore ? ' disabled' : '') +
+        '>更早交接</button><button type="button" class="owo-ws-mini" data-handoff-page="latest"' +
+        (state.handoffBusy ? ' disabled' : '') + '>最新交接</button>';
+    }
+
+    function navigateHandoffs(before) {
+      if (state.handoffBusy) return Promise.resolve(null);
+      if (before != null && !before) return Promise.resolve(null);
+      if (state.conversationController) state.conversationController.abort();
+      if (state.conversationPageTimer != null) clearTimeout(state.conversationPageTimer);
+      state.conversationPageTimer = null;
+      state.conversationSeq += 1;
+      state.conversationRequest = null;
+      state.conversationNeedsRefresh = false;
+      state.handoffBefore = before == null ? null : String(before);
+      return loadTeamConversation(state.current, true);
+    }
+
     function paintTeamConversation() {
+      var paging = el("#ws-d-handoff-paging");
+      if (paging) {
+        paging.innerHTML = handoffPagingHtml();
+        paging.querySelectorAll("[data-handoff-page]").forEach(function (button) {
+          button.onclick = function () {
+            navigateHandoffs(button.getAttribute("data-handoff-page") === "older" ? state.handoffNextBefore : null);
+          };
+        });
+      }
       var box = el("#ws-d-conversation-messages");
       if (!box) return;
       var roleSelect = el("#ws-d-conversation-role");
@@ -1089,7 +1172,8 @@
       );
       if (box._conversationHtml === html) return;
       box._conversationHtml = html;
-      box.innerHTML = html;
+      if (win.OwoMediaResult) win.OwoMediaResult.renderInto(box, html);
+      else box.innerHTML = html;
       box.querySelectorAll("details[data-event-key]").forEach(function (node) {
         node.open = opened.indexOf(node.getAttribute("data-event-key")) >= 0;
       });
@@ -1101,7 +1185,7 @@
       if (!select) return;
       var helper = win.OwoWorkswarmRenderConversation;
       var roles = helper && typeof helper.conversationRoles === "function"
-        ? helper.conversationRoles(state.conversationReplay, state.handoffs, (state.team && state.team.members) || [])
+        ? helper.conversationRoles(state.conversationReplay, state.handoffs, (state.team && state.team.members) || [], state.conversationRoleByTeam[state.current])
         : [];
       var current = select.value || "";
       var wanted = ["all"].concat(roles);
@@ -1125,31 +1209,59 @@
     function loadTeamConversation(teamId, force) {
       var tid = String(teamId || state.current || "");
       if (!tid) return Promise.resolve(null);
-      if (!force && state.conversationRequest) return state.conversationRequest;
+      if (state.conversationRequest) {
+        if (force) state.conversationNeedsRefresh = true;
+        return state.conversationRequest;
+      }
       if (!force && state.handoffs !== null) return Promise.resolve(state.handoffs);
+      var controller = new AbortController();
+      state.conversationController = controller;
       var requestSeq = ++state.conversationSeq;
       var detailVersion = detailSeq;
       state.conversationError = "";
-      var request = H.get("/teams/" + encodeURIComponent(tid) + "/conversation?cursors=" + encodeURIComponent(JSON.stringify(state.conversationCursors)))
+      state.handoffBusy = true;
+      paintTeamConversation();
+      var handoffQuery = state.handoffBefore == null ? "" : "&handoff_before=" + encodeURIComponent(state.handoffBefore);
+      if (state.conversationSessionAfter) handoffQuery += "&session_after=" + encodeURIComponent(state.conversationSessionAfter);
+      var request = H.get("/teams/" + encodeURIComponent(tid) + "/conversation?cursors=" + encodeURIComponent(JSON.stringify(state.conversationCursors)) + handoffQuery, { signal: controller.signal })
         .then(function (d) {
           if (requestSeq !== state.conversationSeq || tid !== state.current || detailVersion !== detailSeq) return null;
           state.handoffs = Array.isArray(d && d.handoffs) ? d.handoffs : [];
+          state.handoffNextBefore = typeof d.next_handoff_before === "string" ? d.next_handoff_before : null;
+          state.handoffHasMore = d.handoffs_has_more === true;
           state.conversationReplay = win.OwoWorkswarmRenderConversation.mergeReplay(state.conversationReplay, d.sessions || []);
           state.conversationCursors = d.next_cursors || state.conversationCursors;
+          state.conversationSessionAfter = typeof d.next_session_after === "string" ? d.next_session_after : state.conversationSessionAfter;
           state.conversationError = "";
-          if (d.has_more) setTimeout(function () { if (tid === state.current) loadTeamConversation(tid, true); }, 0);
+          if (d.has_more) {
+            if (state.conversationPageTimer != null) clearTimeout(state.conversationPageTimer);
+            state.conversationPageTimer = setTimeout(function () {
+              state.conversationPageTimer = null;
+              if (!controller.signal.aborted && tid === state.current && detailVersion === detailSeq && state.view === "detail") {
+                loadTeamConversation(tid, true);
+              }
+            }, 0);
+          }
           paintTeamConversation();
           return state.handoffs;
         })
         .catch(function (error) {
           if (requestSeq !== state.conversationSeq || tid !== state.current || detailVersion !== detailSeq) return null;
-          state.handoffs = [];
           state.conversationError = explainError(error, "团队交接对话");
           paintTeamConversation();
           return null;
         })
         .finally(function () {
-          if (requestSeq === state.conversationSeq) state.conversationRequest = null;
+          if (requestSeq === state.conversationSeq) {
+            state.conversationRequest = null;
+            state.conversationController = null;
+            state.handoffBusy = false;
+            paintTeamConversation();
+            if (state.conversationNeedsRefresh && !controller.signal.aborted) {
+              state.conversationNeedsRefresh = false;
+              if (tid === state.current && detailVersion === detailSeq) loadTeamConversation(tid, true);
+            }
+          }
         });
       state.conversationRequest = request;
       return request;
@@ -1590,6 +1702,7 @@
     // teamStatus 用于节点级「重试此节点」按钮的可见性（succeeded/cancelled 终态不出按钮）。
     // DAG SVG 构建（迁入 render.js）（模块化拆分后不再内联，见 panels/workswarm/render.js）
     function paintDag() {
+      if (dependencyView) dependencyView.refreshTasks(state.tasks || []);
       var box = el("ws-d-dag");
       if (!box) return;
       var tasks = state.tasks || [];
@@ -2364,16 +2477,17 @@
         });
     }
 
-    function syncDetail() {
+    function syncDetail(options) {
       if (!state.current) return Promise.resolve();
       var seq = detailSeq;
       // 五期：角色指标随轮询轻量刷新（接口未上线时静默保持空态）
       if (state.active || !isTerminalTeam(state.teamStatus)) loadMetrics();
-      return H.get("/teams/" + encodeURIComponent(state.current))
+      return H.get("/teams/" + encodeURIComponent(state.current), options)
         .then(function (d) {
-          if (seq !== detailSeq) return;
+          if (seq !== detailSeq || (options && options.signal && options.signal.aborted)) return;
           if (d.team && d.team.team_id !== state.current) return; // 已切到其他团队
           state.team = d.team || state.team;
+          if (state.timeline && d.team) state.teamStatus = d.team.status;
           state.tasks = d.tasks || [];
           state.interrupted = !!d.interrupted;
           // 七期：轮询同步同样刷新 Worker 能力/写租约/文件变更（容错同上）。
@@ -2415,11 +2529,16 @@
     function paintStreamNote() {
       var box = el("#ws-d-stream");
       if (!box) return;
-      box.textContent = state.streamNote || "";
+      var note = state.streamNote || "";
+      if (state.timeline && state.timelineMeta &&
+          (state.timelineMeta.history_complete === false || state.timelineMeta.task_history_complete === false)) {
+        note += " · 此运行的早期历史不完整";
+      }
+      box.textContent = note;
       var cls =
         state.liveMode === "sse" ? "owo-ws-live on" : state.liveMode === "poll" ? "owo-ws-live poll" : "owo-ws-live off";
       box.className = cls;
-      box.title = state.streamNote || "";
+      box.title = note;
     }
 
     function abortPollRequest() {
@@ -2436,6 +2555,22 @@
 
     var conversationTimer = null;
     function stopLive(note) {
+      if (runHistoryView) { runHistoryView.dispose(); runHistoryView = null; }
+      if (dependencyView) { dependencyView.dispose(); dependencyView = null; }
+      if (state.timeline) { state.timeline.stop(); state.timeline = null; }
+      if (state.timelineDetailController) state.timelineDetailController.abort();
+      state.timelineDetailController = null;
+      state.timelineDetailRequest = null;
+      if (state.timelineRefresh != null) { clearTimeout(state.timelineRefresh); state.timelineRefresh = null; }
+      state.timelineDirty = {};
+      if (state.conversationController) state.conversationController.abort();
+      state.conversationController = null;
+      state.conversationRequest = null;
+      state.handoffBusy = false;
+      state.conversationNeedsRefresh = false;
+      if (state.conversationPageTimer != null) clearTimeout(state.conversationPageTimer);
+      state.conversationPageTimer = null;
+      state.conversationSeq += 1;
       if (conversationTimer) { clearInterval(conversationTimer); conversationTimer = null; }
       abortPollRequest();
       if (state.es) {
@@ -2642,7 +2777,104 @@
         });
     }
 
+    // Coalesce public observations into bounded snapshot refreshes. Do not keep a second
+    // transcript here; canonical message bodies continue to come from /conversation.
+    function queueTimelineRefresh(record) {
+      var kind = record && record.event_type || "";
+      if (/^(team|task)\./.test(kind)) state.timelineDirty.detail = true;
+      if (/^(message|member|plan|tool|handoff)\./.test(kind)) state.timelineDirty.conversation = true;
+      if (/^(artifact|delivery)\./.test(kind)) state.timelineDirty.artifacts = true;
+      if (state.timelineRefresh != null) return; // throttle, rather than starve under token traffic
+      var id = state.current, seq = detailSeq;
+      state.timelineRefresh = setTimeout(function () {
+        state.timelineRefresh = null;
+        if (id !== state.current || seq !== detailSeq || state.view !== "detail") return;
+        var dirty = state.timelineDirty;
+        state.timelineDirty = {};
+        if (dirty.detail) {
+          if (state.timelineDetailRequest) state.timelineDirty.detail = true;
+          else {
+            var controller = new AbortController();
+            state.timelineDetailController = controller;
+            var request = syncDetail({ signal: controller.signal });
+            state.timelineDetailRequest = request;
+            request.finally(function () {
+              if (state.timelineDetailRequest !== request) return;
+              state.timelineDetailRequest = null;
+              state.timelineDetailController = null;
+              if (state.timelineDirty.detail && id === state.current && seq === detailSeq && state.timeline) {
+                queueTimelineRefresh({ event_type: "task.updated" });
+              }
+            });
+          }
+        }
+        if (dirty.conversation) {
+          loadTeamConversation(id, true);
+        }
+        if (dirty.artifacts) loadArtifacts();
+      }, 250);
+    }
+
     function connectEvents(teamId) {
+      stopLive();
+      if (!timelineClient) return connectLegacyEvents(teamId);
+      var id = teamId, seq = detailSeq, subscription;
+      state.timelineMeta = null;
+      var historyBox = el("#ws-d-run-history");
+      if (historyClient && historyBox) {
+        runHistoryView = historyClient.create({ box: historyBox, api: win.OwoApi, runId: id });
+        runHistoryView.start();
+      }
+      loadTeamConversation(teamId, true); // legacy history still has its original canonical source
+      function current() { return state.timeline === subscription && state.current === id && seq === detailSeq; }
+      subscription = timelineClient.create({
+        runId: id, api: win.OwoApi,
+        onEvent: function (record) {
+          if (!current()) return;
+          if (runHistoryView) runHistoryView.push(record);
+          if (dependencyView) dependencyView.notice(record);
+          if (/^team\./.test(record.event_type) && record.data && record.data.status) {
+            state.teamStatus = record.data.status;
+            state.active = normStatus(record.data.status) === "running";
+            paintStatusLive();
+          }
+          queueTimelineRefresh(record);
+        },
+        onMeta: function (meta) {
+          if (!current()) return;
+          state.timelineMeta = meta;
+          paintStreamNote();
+        },
+        onSnapshot: function (detail) {
+          if (!current()) return;
+          state.team = detail.team || state.team;
+          state.tasks = detail.tasks || state.tasks;
+          state.interrupted = !!detail.interrupted;
+          if (detail.team) state.teamStatus = detail.team.status;
+          paintDetailLive();
+        },
+        onState: function (info) {
+          if (!current()) return;
+          state.liveMode = info.mode === "sse" ? "sse" : info.mode === "poll" ? "poll" : "off";
+          var notes = { connecting: "正在连接持久时间线…", sse: "实时观察已连接 · 游标断线续传",
+            poll: "实时连接暂不可用，正按游标补读并重连", done: "运行已结束，持久事件已排空",
+            error: "实时观察已停止：" + String(info.error && info.error.message || "协议或鉴权错误") };
+          state.streamNote = notes[info.mode] || state.streamNote;
+          paintStreamNote();
+          if (info.mode === "done") {
+            state.cancelling = false;
+            // Flush the canonical final message after the durable tail has drained.
+            loadTeamConversation(id, true);
+            syncDetail(); loadArtifacts(); loadWorkspaceChanges(); loadChangeSets();
+          }
+        },
+        onUnsupported: function () { if (current()) connectLegacyEvents(id); },
+      });
+      state.timeline = subscription;
+      subscription.start();
+    }
+
+    function connectLegacyEvents(teamId) {
       stopLive();
       loadTeamConversation(teamId, true);
       conversationTimer = setInterval(function () {
@@ -2866,6 +3098,8 @@
         var parent = (snapshot.sessions || []).find(function (s) { return s.id === snapshot.sessionId; });
         if (parent && parent.workspace === snapshot.workspace) body.parent_session_id = parent.id;
       }
+      try { if (inputAssets) inputAssets.applyTo(body); }
+      catch (error) { show("ws-create-result", "err", error.message); return null; }
       show("ws-create-result", "", "创建中…");
       return H.post("/teams", body)
         .then(function (d) {
@@ -2951,6 +3185,7 @@
         '<div id="ws-roles" class="owo-ws-role-list"></div>' +
         '<div class="owo-ws-inline owo-ws-create-role-actions"><button id="ws-role-add" class="owo-ws-mini" type="button">＋ 添加角色</button><span class="hint">角色任意命名；无依赖节点并行。按节点配置模型、MCP 工具和输出目录。</span></div></div>' +
         '<div class="owo-ws-inline"><input id="ws-workflow-name" aria-label="工作流名称" placeholder="工作流名称（保存后可复用）"><button id="ws-workflow-save" type="button" class="owo-ws-mini">保存编排</button></div>' +
+        '<div data-task-inputs></div>' +
         '<div class="owo-ws-inline owo-ws-create-submit"><button id="ws-create-go" data-core-action class="primary" type="button">创建并启动</button><span class="hint">Agent 使用已连接的模型服务；echo、sleep、fail 可用于流程测试。</span></div>' +
         '<pre class="owo-ws-result sub" id="ws-create-result" role="status" aria-live="polite">—</pre>' +
         '</div>'
@@ -2965,6 +3200,7 @@
     }
 
     function bindCreate() {
+      if (win.OwoInputAssets) inputAssets = win.OwoInputAssets.mountPanel(inputAssets, rootEl.querySelector("[data-task-inputs]"), H);
       var addBtn = el("#ws-role-add");
       if (addBtn) addBtn.onclick = function () {
         addRoleRow();
@@ -3499,6 +3735,7 @@
         '<div class="team-conversation-toolbar"><h3 id="ws-conversation-title">团队对话与工作详情</h3>' +
         '<div class="owo-ws-inline"><label class="hint">只看成员 <select id="ws-d-conversation-role"><option value="all">全部成员</option></select></label>' +
         '<button type="button" class="owo-ws-mini" id="ws-d-conversation-refresh" aria-label="刷新对话" title="刷新对话"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17"/></svg></button></div></div>' +
+        '<div id="ws-d-handoff-paging" class="owo-ws-inline" aria-label="交接历史分页"></div>' +
         '<div id="ws-d-conversation-messages" class="owo-ws-chat-wrap"><div class="hint">正在加载团队对话…</div></div>' +
         "</section>" +
         '<section class="team-delivery" id="ws-d-delivery" aria-label="本次任务的生成文件"></section>' +
@@ -3549,6 +3786,7 @@
         '<div class="owo-ws-sec">' +
         '<h3>任务 DAG <span class="hint">红色边框 = 已阻塞（上游失败/中止，不会再运行）</span> <button class="owo-ws-mini" id="ws-dag-refresh">刷新任务</button></h3>' +
         '<div id="ws-d-dag">' + stateBox("loading", "正在加载任务…") + "</div>" +
+        '<section id="ws-d-dependency-inspector" aria-label="依赖边交接检查"><p class="hint">点击依赖连线，查看已保存的交接声明与产物引用。</p></section>' +
         "</div>" +
         '<div class="owo-ws-sec">' +
         '<h3>人节点结果 <span class="hint">团队处于"等待人节点"时由人工提交结果，下游任务自动继续</span></h3>' +
@@ -3612,6 +3850,7 @@
         '<div id="ws-dlv-box" hidden></div>' +
         '<div id="ws-d-artifacts">' + stateBox("loading", "正在加载产物…") + "</div>" +
         "</div>" +
+        '<section class="owo-ws-sec"><h3>持久运行时间线</h3><div id="ws-d-run-history" aria-live="polite"></div></section>' +
         '<div class="owo-ws-sec">' +
         '<h3>审计事件（实时） <span class="hint">团队事件流</span> <span class="owo-ws-live off" id="ws-d-stream"></span></h3>' +
         '<div class="owo-ws-audit" id="ws-d-audit" role="log" aria-label="审计事件流（可聚焦后用方向键滚动）" tabindex="0">' + stateBox("loading", "正在连接审计通道…") + "</div>" +
@@ -3780,8 +4019,13 @@
       state.interrupted = false;
       state.artifactCount = null;
       state.handoffs = null;
+      state.handoffBefore = null;
+      state.handoffNextBefore = null;
+      state.handoffHasMore = false;
+      state.handoffBusy = false;
       state.conversationReplay = {};
       state.conversationCursors = {};
+      state.conversationSessionAfter = null;
       state.conversationError = "";
       state.conversationRequest = null;
       state.conversationSeq += 1;
@@ -3997,11 +4241,14 @@
     }
 
     function mount(root, helpers) {
+      if (inputAssets) inputAssets.dispose();
+      inputAssets = null;
       rootEl = root;
       H = helpers || {};
       H.baseUrl = H.baseUrl || (win.OwoPanels && win.OwoPanels.baseUrl) || "";
       H.get = H.get || defaultGet;
       H.post = H.post || defaultPost;
+      H.download = H.download || function(path,options){return win.OwoApi.download(path,options);};
       H.esc = H.esc || defaultEsc;
       stopLive();
       detailSeq++; // 上一次详情流水的响应全部作废
@@ -4059,6 +4306,12 @@
       stopProgressTimer: stopProgressTimer,
       pollOnce: pollOnce,
       stopLive: stopLive,
+      connectEvents: connectEvents,
+      queueTimelineRefresh: queueTimelineRefresh,
+      loadTeamConversation: loadTeamConversation,
+      selectDependency: selectDependency,
+      navigateHandoffs: navigateHandoffs,
+      handoffPagingHtml: handoffPagingHtml,
       normReviewState: normReviewState,
       reviewBadgeHtml: reviewBadgeHtml,
       isReviewable: isReviewable,
@@ -4177,7 +4430,7 @@
       nav: nav,
       mount: mount,
       refresh: refresh,
-      dispose: function () { stopLive("已离开团队页面"); rootEl = null; },
+      dispose: function () { if (inputAssets) inputAssets.dispose(); inputAssets = null; stopLive("已离开团队页面"); rootEl = null; },
       open: openTeam, // 六期：Project Launcher 创建成功后直达团队详情
       _test: TEST_API,
     };

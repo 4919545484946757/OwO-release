@@ -121,7 +121,7 @@ test("blank prompt and model setup gates run before automatic session creation",
   const body = /async function sendPrompt\(\) \{([\s\S]*?)\n\}/.exec(domain)?.[1];
   assert.ok(body);
   assert.ok(body.indexOf('const prompt = $("prompt").value.trim()') < body.indexOf("promptSessionStart.run(() => newSession())"));
-  assert.ok(body.indexOf("if (!prompt) return;") < body.indexOf("promptSessionStart.run(() => newSession())"));
+  assert.ok(body.indexOf("if (!prompt && !state.attachments.length) return;") < body.indexOf("promptSessionStart.run(() => newSession())"));
   assert.ok(body.indexOf("if (modelGateMissing())") < body.indexOf("promptSessionStart.run(() => newSession())"));
   assert.match(body, /if \(promptInput\.value === promptValue\) promptInput\.value = ""/);
 });
@@ -273,7 +273,7 @@ test("first send without a workspace opens the project picker before the model g
   assert.ok(workspaceGate >= 0);
   assert.ok(modelGate > workspaceGate);
   assert.match(body, /openWorkspaceMenu\(\$\("composerProjectBtn"\)\)/);
-  assert.match(body, /if \(!prompt\) return;/);
+  assert.match(body, /if \(!prompt && !state\.attachments\.length\) return;/);
   // 纯对话不需要工作区：同一道门在 chat 下直接放行。
   assert.match(body, /const chatMode = typeof currentSessionMode === "function" && currentSessionMode\(\) === "chat"/);
 });

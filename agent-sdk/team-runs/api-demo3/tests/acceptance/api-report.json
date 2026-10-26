@@ -1,0 +1,99 @@
+{
+  "report_kind": "acceptance-run",
+  "generated_by": "tester",
+  "environment": {
+    "runtime": "node",
+    "node_version": "v22.17.0",
+    "test_runner": "node:test (node --test)",
+    "cwd": "workspace root",
+    "network": "none (tests bind 127.0.0.1:0 ephemeral port only)"
+  },
+  "command": {
+    "executed": "node --test",
+    "single_invocation": true,
+    "redirect_or_pipe_used": false,
+    "exit_code": 0,
+    "duration_ms": 380,
+    "test_duration_ms": 249.985
+  },
+  "counts": {
+    "tests": 17,
+    "suites": 0,
+    "pass": 17,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "total_assertions_reported": "not available in TAP summary (node:test summary omits assertion count)"
+  },
+  "failed_test_names": [],
+  "test_names_observed": [
+    "1. GET /health -> 200 {\"ok\":true}",
+    "2. POST /echo 对象 -> 200 等价回显",
+    "3. POST /echo 截断 JSON -> 400 bad_request",
+    "4. POST /echo 空 body -> 400 bad_request",
+    "5. GET /nope -> 404 not_found",
+    "6. GET /echo（方法不匹配）-> 404 not_found",
+    "7. POST /echo 数组 -> 200 等价回显",
+    "8. GET /health?x=1 -> 200（忽略 query）",
+    "边界: POST /health（方法不匹配）-> 404 not_found",
+    "边界: /health/ 尾斜杠不归一化 -> 404",
+    "边界: PUT /echo -> 404，不被当作 echo 成功",
+    "边界: 顶层 JSON 字面量与 null 也原样回显",
+    "边界: 多余尾随字符 -> 400",
+    "边界: UTF-8 多字节字符按字节计 Content-Length 且正确回显",
+    "边界: 请求体超过 1048576 字节 -> 413 payload_too_large",
+    "边界: 分块传输（chunked）编码的 JSON 也能正确回显",
+    "边界: 同一 keep-alive 连接连续两次请求均正常（无跨请求状态泄漏）"
+  ],
+  "contract_coverage": [
+    {
+      "requirement": "GET /health 返回 200 且 body 为 {\"ok\":true}",
+      "covered": true,
+      "evidence": "test 1 passed; test 8 (query 被忽略) passed"
+    },
+    {
+      "requirement": "POST /echo 返回 200 并对合法 JSON 等价回显",
+      "covered": true,
+      "evidence": "test 2 (对象), test 7 (数组), test 12 (顶层字面量与 null) passed"
+    },
+    {
+      "requirement": "非法/缺失 JSON body 返回 400",
+      "covered": true,
+      "evidence": "test 3 (截断), test 4 (空 body), test 13 (多余尾随字符) passed"
+    },
+    {
+      "requirement": "未匹配路由/方法返回 404",
+      "covered": true,
+      "evidence": "test 5 (未知路径), test 6 (GET /echo), test 9 (POST /health), test 10 (/health/ 尾斜杠), test 11 (PUT /echo) passed"
+    },
+    {
+      "requirement": "超限请求体（>1048576 字节）返回 413",
+      "covered": true,
+      "evidence": "test 15 passed（超出既定 400 之外的补充约束）"
+    },
+    {
+      "requirement": "编码/流式健壮性（UTF-8 字节长度、chunked、keep-alive 无状态泄漏）",
+      "covered": true,
+      "evidence": "test 14, test 16, test 17 passed"
+    },
+    {
+      "requirement": "实现零第三方依赖、仅 node:http（静态核对）",
+      "covered": false,
+      "evidence": "本次仅执行 node --test，未做依赖/源码静态审计；由 backend 交付说明声称无第三方依赖，未在验收中独立复核"
+    },
+    {
+      "requirement": "进程缺省 PORT=3000/HOST=0.0.0.0 启动行为",
+      "covered": false,
+      "evidence": "未在依赖端口/地址的独立进程启动中验证（受本次单命令限制）"
+    }
+  ],
+  "scope_limits": [
+    "tester 未修改 src/ 与 docs/，未写入 tests/acceptance/ 之外的任何路径",
+    "仅执行 node --test 一条命令（外加读取 node 版本做环境记录），未运行构建、lint、打包或全仓检查",
+    "未做性能/负载/并发压力测试，测试时长与用例数量不足以代表容量结论",
+    "未验证真实部署环境（容器、反向代理、TLS）下的行为"
+  ],
+  "conclusion": "PASS — node --test 在 Node v22.17.0 上以 exit code 0 通过全部 17 个 node:test 用例（pass 17 / fail 0 / skipped 0 / cancelled 0），GET /health、POST /echo、400 与 404 分支以及 UTF-8、chunked、413、keep-alive 边界均被真实 HTTP 请求覆盖并通过；零第三方依赖与默认端口/主机启动两项仅为静态/配置层面，未被本次动态验收覆盖。",
+  "release_recommendation": "可接受为 API 契约层面的通过；如需发布级结论，建议由 CI 补齐启动参数（PORT/HOST）冒烟与依赖清单核对。"
+}

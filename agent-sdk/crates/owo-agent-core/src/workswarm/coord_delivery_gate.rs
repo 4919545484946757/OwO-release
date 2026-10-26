@@ -69,8 +69,8 @@ impl TeamCoordinator {
             .plan
             .steps
             .iter()
-            .enumerate()
-            .map(|(index, step)| (step.id.clone(), index))
+            .cloned()
+            .map(|step| (step.id.clone(), step))
             .collect::<std::collections::HashMap<_, _>>();
         for step in state.plan.steps.clone() {
             let record = state.records.get(&step.id).cloned().ok_or_else(|| {
@@ -314,11 +314,21 @@ impl TeamCoordinator {
                             )
                         })?;
                     let mut expected = Vec::new();
-                    for dependency in &step.depends_on {
-                        let Some(dep_index) = steps_by_id.get(dependency).copied() else {
-                            continue;
-                        };
-                        let Some(dep_step) = state.plan.steps.get(dep_index) else {
+                    let is_reviewer_step = run_meta.roles.iter().any(|role| {
+                        step.worker == format!("m-{}", role.role)
+                            && super::task_graph::is_independent_reviewer_role(role)
+                    });
+                    let dependency_ids = if is_reviewer_step {
+                        super::coord_context_slice::collect_review_dependency_ids(
+                            &step.id,
+                            &step.depends_on,
+                            &steps_by_id,
+                        )
+                    } else {
+                        step.depends_on.clone()
+                    };
+                    for dependency in &dependency_ids {
+                        let Some(dep_step) = steps_by_id.get(dependency) else {
                             continue;
                         };
                         let Some(_dep_role) = worker_role(&dep_step.worker) else {

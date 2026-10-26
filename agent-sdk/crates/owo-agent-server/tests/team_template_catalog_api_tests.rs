@@ -222,7 +222,7 @@ async fn install_is_idempotent_and_enables_auto_match_only_after_install() {
     // 注册表根与协调器一致（workswarm/templates 下再嵌 templates/）。
     let tpl_path = temp
         .path()
-        .join("workswarm/templates/templates/code-change-v1.json");
+        .join("workswarm/templates/workflow-templates.sqlite3");
     assert!(tpl_path.exists(), "安装应落盘注册表模板文件：{tpl_path:?}");
 
     // ③ 重复安装：幂等且非破坏（不覆盖，返回现状）。
@@ -242,10 +242,19 @@ async fn install_is_idempotent_and_enables_auto_match_only_after_install() {
         json!("code-change-v1"),
         "重复安装返回注册表现状"
     );
+    let registry = owo_agent_core::workswarm::TeamTemplateRegistry::for_workswarm_root(
+        &temp.path().join("workswarm"),
+    );
+    let current = registry.get_revision("code-change-v1").unwrap().unwrap();
+    assert_eq!(current.revision, 1, "重复安装不得创建额外修订");
+    assert_eq!(current.template.unwrap().template_id, "code-change-v1");
     assert_eq!(
-        dir_entries(&temp.path().join("workswarm/templates/templates")).len(),
+        registry
+            .revision_history("code-change-v1", None, 10)
+            .unwrap()
+            .len(),
         1,
-        "不产生重复模板文件"
+        "重启读取规范存储时仍只有初次安装修订"
     );
 
     // ④ 目录反映安装态。
@@ -350,6 +359,9 @@ async fn team_from_template_matches_roles_and_budget() {
         .find(|e| e["template"]["template_id"] == json!("structured-extract-v1"))
         .expect("已安装模板应在目录中");
     let template_budget = entry["budget"].clone();
+    // The launcher omits this opt-in field; the persisted budget must default to false.
+    let mut expected_budget = template_budget.clone();
+    expected_budget["allow_scoped_writes"] = json!(false);
     let expected_roles: Vec<String> = entry["template"]["roles"]
         .as_array()
         .unwrap()
@@ -401,7 +413,7 @@ async fn team_from_template_matches_roles_and_budget() {
         "团队应记录来源模板"
     );
     assert_eq!(
-        body["team"]["budget"], template_budget,
+        body["team"]["budget"], expected_budget,
         "预算与模板目录值逐字段一致"
     );
 
@@ -444,11 +456,11 @@ async fn install_touches_no_permission_surfaces() {
     let registry_root = swarm_dir.join("templates");
     assert_eq!(
         dir_entries(&registry_root),
-        vec!["proposals", "templates"],
-        "注册表根只含注册表自身子目录"
+        vec!["proposals", "templates", "workflow-templates.sqlite3"],
+        "注册表根只含注册表自身目录与修订数据库"
     );
 
-    // 安装只新增一个模板 JSON，且不扩大任何权限面。
+    // 安装只新增一个模板修订，且不扩大任何权限面。
     let (status, _) = call(
         &state,
         &catalog_router,
@@ -465,14 +477,20 @@ async fn install_touches_no_permission_surfaces() {
     );
     assert_eq!(
         dir_entries(&registry_root.join("templates")),
-        vec!["document-delivery-v1.json"],
-        "安装只写模板文件本身"
+        Vec::<String>::new(),
+        "新模板保存在事务注册表，不增加旧版 JSON 文件"
     );
-    let stored: Value = serde_json::from_str(
-        &std::fs::read_to_string(registry_root.join("templates/document-delivery-v1.json"))
-            .unwrap(),
-    )
-    .unwrap();
+    let registry = owo_agent_core::workswarm::TeamTemplateRegistry::new(registry_root.clone());
+    let stored =
+        serde_json::to_value(registry.get_template("document-delivery-v1").unwrap()).unwrap();
+    assert_eq!(
+        registry
+            .get_revision("document-delivery-v1")
+            .unwrap()
+            .unwrap()
+            .revision,
+        1
+    );
     assert_eq!(stored["template_id"], json!("document-delivery-v1"));
     // 模板角色不携带任何工具白名单/写权限（权限仍走运行时审批策略）。
     for role in stored["roles"].as_array().unwrap() {
@@ -481,4 +499,71 @@ async fn install_touches_no_permission_surfaces() {
             "模板角色不得内嵌权限授权：{role}"
         );
     }
+}
+
+#[tokio::test]
+async fn install_requires_the_reviewed_tombstone_revision_and_never_overwrites_a_customization() {
+    let (state, temp) = test_state().await;
+    let app = team_template_catalog_api::team_template_catalog_router(state.clone());
+    let path = "/teams/templates/catalog/code-change-v1/install";
+    let (status, first) = call(&state, &app, "POST", path, None).await;
+    assert_eq!(status, 200, "{first}");
+    assert_eq!(first["revision"], 1);
+    let registry = owo_agent_core::workswarm::TeamTemplateRegistry::for_workswarm_root(
+        &temp.path().join("workswarm"),
+    );
+    registry
+        .delete_template_checked("code-change-v1", Some(1))
+        .unwrap();
+    let (status, conflict) = call(&state, &app, "POST", path, None).await;
+    assert_eq!(status, 409, "{conflict}");
+    assert_eq!(conflict["current_revision"], 2);
+    assert!(registry
+        .get_revision("code-change-v1")
+        .unwrap()
+        .unwrap()
+        .template
+        .is_none());
+    let (_, catalog) = call(&state, &app, "GET", "/teams/templates/catalog", None).await;
+    let entry = catalog["catalog"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["template"]["template_id"] == "code-change-v1")
+        .unwrap();
+    assert_eq!(entry["revision"], 2);
+    assert_eq!(entry["installed"], false);
+    let (status, installed) = call(
+        &state,
+        &app,
+        "POST",
+        &format!("{path}?expected_revision=2"),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{installed}");
+    assert_eq!(installed["revision"], 3);
+    let mut custom = registry.get_template("code-change-v1").unwrap();
+    custom.name = "User customization".into();
+    custom.origin = Some("user".into());
+    registry.save_template_checked(&custom, Some(3)).unwrap();
+    let (status, replay) = call(
+        &state,
+        &app,
+        "POST",
+        &format!("{path}?expected_revision=3"),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{replay}");
+    assert_eq!(replay["already_installed"], true);
+    assert_eq!(replay["template"]["name"], "User customization");
+    assert_eq!(replay["revision"], 4);
+    assert_eq!(
+        registry
+            .revision_history("code-change-v1", None, 100)
+            .unwrap()
+            .len(),
+        4
+    );
 }

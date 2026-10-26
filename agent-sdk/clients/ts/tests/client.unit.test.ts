@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createClient, type TurnEvent } from "../src/index.js";
+import { createClient, type TurnEvent, type RunEvent, type RunEventPage, type RunEventHistoryPage, type TeamConversationPage } from "../src/index.js";
 import type { components, operations, paths } from "../src/schema.js";
 
 test("runTurn 复用自定义请求头并处理无换行的最后一个 SSE 事件", async () => {
@@ -1053,4 +1053,147 @@ test("expression does not retry a source rejection", async () => {
     await assert.rejects(createClient({ baseUrl: "http://127.0.0.1:4096" }).expression({ prompt: "synthetic" }), /403/);
     assert.equal(calls, 1);
   } finally { globalThis.fetch = originalFetch; }
+});
+
+
+test("run timeline uses typed bounded paging and preserves exact cursor identity", async () => {
+  const event: RunEvent = {
+    schema_version: 1, seq: 17, event_id: "run:team:17", run_id: "team",
+    event_type: "artifact.saved", timestamp: "2026-10-25T00:00:00Z",
+    node_id: "node", task_id: "task", attempt: "attempt", tool_call_id: "call",
+    causation_id: "run:team:11", artifact_refs: ["art"], data: { artifact_id: "art" },
+  };
+  const page: RunEventPage = {
+    run_id: "team", events: [event], next_after: 17, high_watermark: 23,
+    has_more: true, history_complete: false, task_history_complete: true,
+  };
+  const originalFetch = globalThis.fetch;
+  let submitted: Request | undefined;
+  globalThis.fetch = async (input, init) => {
+    submitted = input instanceof Request ? input : new Request(input, init);
+    return new Response(JSON.stringify(page), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  try {
+    const client = createClient({ baseUrl: "http://127.0.0.1:4096", headers: { Authorization: "Bearer fixture" } });
+    const { data, error } = await client.GET("/teams/{id}/timeline", {
+      params: { path: { id: "team" }, query: { after: 11, limit: 64, format: "json" } },
+    });
+    assert.equal(error, undefined);
+    assert.deepEqual(data, page);
+    assert.equal(submitted?.headers.get("Authorization"), "Bearer fixture");
+    const url = new URL(submitted!.url);
+    assert.equal(url.pathname, "/teams/team/timeline");
+    assert.equal(url.searchParams.get("after"), "11");
+    assert.equal(url.searchParams.get("limit"), "64");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+
+test("reverse run history sends the exclusive before cursor and exposes nullable next_before", async () => {
+  const page: RunEventHistoryPage = {
+    run_id: "team", events: [], next_before: null, high_watermark: 23,
+    has_more: false, history_complete: false, task_history_complete: false,
+  };
+  const originalFetch = globalThis.fetch;
+  let submitted: Request | undefined;
+  globalThis.fetch = async (input, init) => {
+    submitted = input instanceof Request ? input : new Request(input, init);
+    return new Response(JSON.stringify(page), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  try {
+    const client = createClient({ baseUrl: "http://127.0.0.1:4096", headers: { Authorization: "Bearer fixture" } });
+    const { data, error } = await client.GET("/teams/{id}/timeline", {
+      params: { path: { id: "team" }, query: { before: 17, limit: 64, format: "json" } },
+    });
+    assert.equal(error, undefined); assert.deepEqual(data, page);
+    assert.equal(new URL(submitted!.url).searchParams.get("before"), "17");
+    assert.equal(new URL(submitted!.url).searchParams.has("after"), false);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("conversation handoff page sends actual cursor and exposes separate history metadata", async () => {
+  const page: TeamConversationPage = {team_id:"team",sessions:[],next_cursors:{},has_more:false,
+    handoffs:[],next_handoff_before:null,handoffs_has_more:false,next_session_after:"team-worker-next"};
+  const originalFetch=globalThis.fetch;
+  let submitted: Request | undefined;
+  globalThis.fetch=async (input,init) => {
+    submitted=input instanceof Request ? input : new Request(input,init);
+    return new Response(JSON.stringify(page),{status:200,headers:{"Content-Type":"application/json"}});
+  };
+  try {
+    const client=createClient({baseUrl:"http://127.0.0.1:4096"});
+    const {data,error}=await client.GET("/teams/{id}/conversation",{
+      params:{path:{id:"team"},query:{handoff_before:"h-65",session_after:"team-worker-prev",cursors:"{}"}}});
+    assert.equal(error,undefined); assert.deepEqual(data,page);
+    assert.equal(new URL(submitted!.url).searchParams.get("handoff_before"),"h-65");
+    assert.equal(new URL(submitted!.url).searchParams.get("session_after"),"team-worker-prev");
+  } finally { globalThis.fetch=originalFetch; }
+});
+
+
+test("runTurn forwards immutable input parts and explicit legacy attachment IDs", async () => {
+  const originalFetch = globalThis.fetch;
+  let body: Record<string, unknown> = {};
+  globalThis.fetch = async (input, init) => {
+    const url = input instanceof Request ? input.url : String(input);
+    if (url.endsWith("/capabilities")) return Response.json({ constraints: { structured_input_parts: true } });
+    body = JSON.parse(String(init?.body));
+    return new Response('data: {"type":"final","text":"complete"}\n\ndata: {"type":"turn_stats","completion_status":"accepted"}\n\n', { headers: { "Content-Type": "text/event-stream" } });
+  };
+  try {
+    const client = createClient({ baseUrl: "http://127.0.0.1:4096" });
+    const part: components["schemas"]["ContentPart"] = { type: "image", asset: { artifact_id: "input-12345678-1234-4321-9876-123456789abc", sha256: "a".repeat(64) } };
+    await client.runTurn({ id: "session", prompt: "inspect", attachments: ["legacy.txt"], content_parts: [part] }, { onEvent: () => {} });
+    assert.deepEqual(body.attachments, ["legacy.txt"]);
+    assert.deepEqual(body.content_parts, [part]);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+
+test("runTurn never silently drops input parts against an old core", async () => {
+  const originalFetch = globalThis.fetch;
+  let turns = 0;
+  globalThis.fetch = async (input) => {
+    const url = input instanceof Request ? input.url : String(input);
+    if (url.endsWith("/capabilities")) return Response.json({ constraints: {} });
+    turns++; throw new Error("turn must not be submitted");
+  };
+  try {
+    const client = createClient({ baseUrl: "http://127.0.0.1:4096" });
+    await assert.rejects(client.runTurn({ id: "session", prompt: "inspect", content_parts: [{ type: "image", asset: { artifact_id: "input-12345678-1234-4321-9876-123456789abc", sha256: "a".repeat(64) } }] }, { onEvent: () => {} }), /structured_parts_unsupported/);
+    assert.equal(turns, 0);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+
+test("media profiles use typed host GET/PUT, preserve revision and surface conflicts", async () => {
+  const originalFetch = globalThis.fetch;
+  const submitted: { method: string; url: string; body?: unknown }[] = [];
+  const catalog: components["schemas"]["MediaProfileCatalog"] = { schema_version: 1, revision: 3,
+    profiles: [{ id: "speech", name: "Local speech", base_url: "http://localhost:9000/v1", model: "voice", credential_env: null, services: ["text_to_speech"] }], assignments: { text_to_speech: "speech" } };
+  globalThis.fetch = async (input, init) => {
+    const req = input instanceof Request ? input : new Request(input, init);
+    submitted.push({ method: req.method, url: req.url, body: req.method === "PUT" ? await req.json() : undefined });
+    if (req.method === "PUT") return new Response("media_profiles/conflict", { status: 409 });
+    return Response.json({ catalog, services: {}, supported_services: ["image_generation", "text_to_speech"], verification_supported: false });
+  };
+  try {
+    const client = createClient({ baseUrl: "http://127.0.0.1:4096" });
+    const read = await client.GET("/settings/media-connections");
+    assert.equal(read.data!.catalog.revision, 3);
+    const save = await client.PUT("/settings/media-connections", { body: catalog });
+    assert.equal(save.response.status, 409);
+    assert.equal(save.data, undefined);
+    assert.deepEqual(submitted.map(r => r.method), ["GET", "PUT"]);
+    assert.deepEqual(submitted[1].body, catalog);
+    assert.equal(new URL(submitted[1].url).pathname, "/settings/media-connections");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+
+test("media TCP check sends exact revision and exposes observation without service verification", async () => {
+ const originalFetch=globalThis.fetch;let submitted:unknown;
+ const observation:components["schemas"]["MediaConnectionCheck"]={profile_id:"local",service:"text_to_speech",catalog_revision:3,kind:"tcp",connected:true,started_at_ms:1000,checked_at_ms:1005,latency_ms:5,code:"media_profiles/tcp_reachable"};
+ globalThis.fetch=async(input,init)=>{const req=input instanceof Request?input:new Request(input,init);assert.equal(req.method,"POST");assert.equal(new URL(req.url).pathname,"/settings/media-connections/check");submitted=await req.json();return Response.json(observation);};
+ try{const client=createClient({baseUrl:"http://127.0.0.1:4096"});const {data,error}=await client.POST("/settings/media-connections/check",{body:{expected_revision:3,profile_id:"local",service:"text_to_speech"}});assert.equal(error,undefined);assert.deepEqual(data,observation);assert.deepEqual(submitted,{expected_revision:3,profile_id:"local",service:"text_to_speech"});assert.equal("verified" in data!,false);}finally{globalThis.fetch=originalFetch;}
 });

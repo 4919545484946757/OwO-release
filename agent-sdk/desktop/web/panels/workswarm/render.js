@@ -89,6 +89,7 @@
     rejected: "已拒绝",
     reverted: "已撤销",
     conflicted: "冲突",
+    superseded: "已被新版本取代",
   };
 
   // ================= 迁移的详情渲染函数（原面板 workswarm.panel.js） =================
@@ -564,7 +565,14 @@
           var s = pos[dep];
           var e2 = pos[t.task_id];
           edges +=
-            '<line x1="' + (s.x + NW) + '" y1="' + (s.y + NH / 2) + '" x2="' + (e2.x - 5) + '" y2="' + (e2.y + NH / 2) + '" marker-end="url(#ws-arrow' + (dead ? "-dead" : "") + ')"' + (dead ? ' class="dead"' : "") + "></line>";
+            '<g role="button" tabindex="0" data-ws-edge-from="' + esc(dep) + '" data-ws-edge-to="' + esc(t.task_id) +
+            '" aria-label="查看依赖交接 ' + esc(dep) + ' 到 ' + esc(t.task_id) + '" style="cursor:pointer">' +
+            '<title>查看交接声明与产物引用</title><rect x="' + ((s.x + NW + e2.x - 5) / 2 - 10) +
+            '" y="' + ((s.y + e2.y + NH) / 2 - 10) +
+            '" width="20" height="20" style="fill:transparent;stroke:none;pointer-events:all"></rect>' +
+            '<line style="stroke:transparent;stroke-width:18;pointer-events:stroke" x1="' + (s.x + NW) +
+            '" y1="' + (s.y + NH / 2) + '" x2="' + (e2.x - 5) + '" y2="' + (e2.y + NH / 2) + '"></line>' +
+            '<line x1="' + (s.x + NW) + '" y1="' + (s.y + NH / 2) + '" x2="' + (e2.x - 5) + '" y2="' + (e2.y + NH / 2) + '" marker-end="url(#ws-arrow' + (dead ? "-dead" : "") + ')"' + (dead ? ' class="dead"' : "") + "></line></g>";
         });
       });
       var nodes = "";
@@ -821,7 +829,7 @@
   function teamConversationHtml(handoffs, members, markdown, errorText, replay, onlyRole) {
     var workerHtml = convo.workerConversationHtml({ esc: esc, short: short }, replay, markdown, onlyRole);
     var handoffHtml = convo.teamConversationHtml({ esc: esc, short: short }, handoffs, members, markdown, errorText, onlyRole);
-    return workerHtml + (workerHtml ? '<details><summary>交接记录</summary>' + handoffHtml + '</details>' : handoffHtml);
+    return workerHtml + (workerHtml ? '<details data-event-key="handoff-history"><summary>交接记录</summary>' + handoffHtml + '</details>' : handoffHtml);
   }
 
   var api = {

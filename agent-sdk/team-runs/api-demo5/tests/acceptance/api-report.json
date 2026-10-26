@@ -1,0 +1,86 @@
+{
+  "report_version": 1,
+  "role": "tester",
+  "generated_at": "2026-02-14",
+  "subject": "api-service (src/server.js + tests/api.test.js)",
+  "source_artifact": {
+    "artifact_id": "team-56210c54:backend:v1",
+    "kind": "backend",
+    "sha256": "ed3504a0f9ef05774fa543dcb322b148b2ed8beb2a161398fe5d660a6a9ffe76"
+  },
+  "command": {
+    "line": "node --test",
+    "cwd": "workspace root",
+    "runner": "Node built-in test runner (node:test)",
+    "redirects_or_pipes": false,
+    "exit_code": 0,
+    "wall_duration_ms": 451
+  },
+  "counts": {
+    "tests": 16,
+    "suites": 0,
+    "pass": 16,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "duration_ms": 328.9354
+  },
+  "failures": [],
+  "discovered_tests": [
+    "ok 1 - GET /health returns 200 {\"ok\":true} with JSON content type",
+    "ok 2 - GET /health with query string still returns 200 {\"ok\":true}",
+    "ok 3 - POST /echo echoes a nested JSON object",
+    "ok 4 - POST /echo accepts content type with charset and empty object",
+    "ok 5 - POST /echo with invalid JSON returns 400 INVALID_JSON",
+    "ok 6 - POST /echo with empty body returns 400 INVALID_JSON",
+    "ok 7 - POST /echo with non-object JSON returns 400 INVALID_BODY_TYPE",
+    "ok 8 - POST /echo without JSON content type returns 415 UNSUPPORTED_MEDIA_TYPE",
+    "ok 9 - unknown path returns 404 NOT_FOUND including trailing-slash variants",
+    "ok 10 - wrong method on known path returns 405 METHOD_NOT_ALLOWED",
+    "ok 11 - payload over 1 MiB returns 413 PAYLOAD_TOO_LARGE (declared and streamed)",
+    "ok 12 - body exactly at 1 MiB limit is accepted",
+    "ok 13 - 413 takes priority over 404 for oversized body on unknown path",
+    "ok 14 - keep-alive sequential requests on one connection stay isolated",
+    "ok 15 - very long URL (>= 8 KiB) returns 404 and does not crash",
+    "ok 16 - concurrent requests are isolated"
+  ],
+  "contract_coverage": [
+    {
+      "requirement": "GET /health 返回 200 且响应体为 {\"ok\":true}",
+      "status": "covered_pass",
+      "evidence": ["ok 1", "ok 2"],
+      "note": "断言 content-type 精确等于 application/json; charset=utf-8、deepStrictEqual({ok:true})、仅 1 个键；查询串 /health?x=1 仍 200。"
+    },
+    {
+      "requirement": "POST /echo 对合法 JSON 对象原样回显（echo 字段）",
+      "status": "covered_pass",
+      "evidence": ["ok 3", "ok 4", "ok 12", "ok 16"],
+      "note": "嵌套对象（含数组/null/布尔）回显一致；空对象 {} 回显；恰好 1 MiB 回显长度正确；10 并发各自回显自己的 index。"
+    },
+    {
+      "requirement": "未定义路径返回 404",
+      "status": "covered_pass",
+      "evidence": ["ok 9"],
+      "note": "/、/nope、/health/、/echo/、/health/extra 均 404 NOT_FOUND；/health/ 与 /echo/ 不做宽松匹配。"
+    },
+    {
+      "requirement": "非法 JSON / 空 body 返回 400（而非 5xx）",
+      "status": "covered_pass",
+      "evidence": ["ok 5", "ok 6", "ok 7"],
+      "note": "非法 JSON 与空 body 均 400 INVALID_JSON，message 为字符串；合法 JSON 但非对象返回 400 INVALID_BODY_TYPE，证明不会因 null/数组进入 500。"
+    }
+  ],
+  "extra_behaviors_observed": [
+    "405 METHOD_NOT_ALLOWED：POST /health、GET /echo（ok 10）",
+    "415 UNSUPPORTED_MEDIA_TYPE：非 JSON content-type（ok 8）",
+    "413 PAYLOAD_TOO_LARGE：声明长度与 chunked 流式两种超 1 MiB 路径（ok 11），且优先于 404（ok 13）",
+    "健壮性：单连接 keep-alive 串行隔离（ok 14）、≥8 KiB 超长 URL 返回 404 不崩溃（ok 15）"
+  ],
+  "conclusion": "PASS — `node --test` 退出码 0，16 个用例全部通过，0 失败；四项核心契约（健康检查、回显、404、JSON 400）均有真实 HTTP 请求级用例覆盖，无缺口。",
+  "limitations": [
+    "仅在当前环境执行一次 `node --test`，未做多轮重复或跨平台复跑，未测性能/压测。",
+    "未验证 CORS、鉴权、TLS、gzip、HTTP/2 等设计非目标项（无需验证）。",
+    "本次 tester 未修改 src/ 与 docs/，未新增依赖；仅产出本报告。"
+  ]
+}

@@ -235,16 +235,27 @@ pub(crate) async fn enforce_worker_output_contract_controlled(
     allow_repair: bool,
 ) -> Result<ContractEnforcementResult, ContractEnforcementError> {
     let first_violation = match parse_worker_output(text) {
-        WorkerOutputParse::Parsed(output) => match validate_by_role(&output, is_critic) {
-            Ok(()) => {
-                return Ok(ContractEnforcementResult {
-                    text: text.to_string(),
-                    repairs: 0,
-                    usage: None,
-                })
+        WorkerOutputParse::Parsed(output) => {
+            let mut output = *output;
+            if is_critic {
+                output.normalize_critic_artifact();
+                output.normalize_reviewer_verdict();
             }
-            Err(violation) => violation,
-        },
+            match validate_by_role(&output, is_critic) {
+                Ok(()) => {
+                    return Ok(ContractEnforcementResult {
+                        text: if is_critic {
+                            serde_json::to_string(&output).unwrap_or_else(|_| text.to_string())
+                        } else {
+                            text.to_string()
+                        },
+                        repairs: 0,
+                        usage: None,
+                    })
+                }
+                Err(violation) => violation,
+            }
+        }
         WorkerOutputParse::Invalid { error } => error,
         WorkerOutputParse::Legacy => {
             "输出不是 WorkerOutputV1 契约 JSON（自由文本不能登记为交付物）".to_string()
@@ -257,6 +268,7 @@ pub(crate) async fn enforce_worker_output_contract_controlled(
         tool_calls: None,
         tool_call_id: None,
         images: Vec::new(),
+        input: None,
     }];
     let refusal = if abort.is_some_and(|signal| signal.load(std::sync::atomic::Ordering::Relaxed)) {
         Some("worker_aborted: 输出修复前任务已取消")
@@ -315,16 +327,27 @@ pub(crate) async fn enforce_worker_output_contract_controlled(
         }
     };
     let violation = match parse_worker_output(&repaired) {
-        WorkerOutputParse::Parsed(output) => match validate_by_role(&output, is_critic) {
-            Ok(()) => {
-                return Ok(ContractEnforcementResult {
-                    text: repaired,
-                    repairs: 1,
-                    usage: repair_usage,
-                })
+        WorkerOutputParse::Parsed(output) => {
+            let mut output = *output;
+            if is_critic {
+                output.normalize_critic_artifact();
+                output.normalize_reviewer_verdict();
             }
-            Err(violation) => violation,
-        },
+            match validate_by_role(&output, is_critic) {
+                Ok(()) => {
+                    return Ok(ContractEnforcementResult {
+                        text: if is_critic {
+                            serde_json::to_string(&output).unwrap_or(repaired)
+                        } else {
+                            repaired
+                        },
+                        repairs: 1,
+                        usage: repair_usage,
+                    })
+                }
+                Err(violation) => violation,
+            }
+        }
         WorkerOutputParse::Invalid { error } => error,
         WorkerOutputParse::Legacy => {
             "定向修复后仍是自由文本（自由文本不能登记为交付物）".to_string()

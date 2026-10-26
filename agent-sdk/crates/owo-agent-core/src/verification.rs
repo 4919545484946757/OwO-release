@@ -186,6 +186,54 @@ pub fn execute_registered_requirement(
     }
 }
 
+/// 归一化行为验证命令的**输出包装**，不改变实际执行的测试命令。
+///
+/// Worker 常把 `node --test x` 写成 `node --test x 2>&1 | tail -40` 以便阅读；
+/// 宿主原先只接受逐字命令，导致测试已通过却没有匹配回执。这里仅剥离明确只影响
+/// stdout/stderr 的安全后缀；`&&`、`;`、`| rm` 等仍保持原样并被注册表拒绝。
+pub(crate) fn normalize_verification_command(command: &str) -> String {
+    let mut current = command.trim().to_string();
+    loop {
+        let trimmed = current.trim_end();
+        let Some((head, tail)) = trimmed.rsplit_once('|') else {
+            break;
+        };
+        if !is_safe_output_filter(tail) {
+            break;
+        }
+        current = head.trim().to_string();
+    }
+    for _ in 0..2 {
+        let trimmed = current.trim_end();
+        if let Some(stripped) = trimmed.strip_suffix("2>&1") {
+            current = stripped.trim_end().to_string();
+        } else {
+            break;
+        }
+    }
+    current.trim().to_string()
+}
+
+fn is_safe_output_filter(tail: &str) -> bool {
+    let tail = tail.trim().to_ascii_lowercase();
+    if matches!(tail.as_str(), "more" | "cat") {
+        return true;
+    }
+    let mut parts = tail.split_whitespace();
+    let Some(kind) = parts.next() else {
+        return false;
+    };
+    if !matches!(kind, "head" | "tail") {
+        return false;
+    }
+    let rest: Vec<&str> = parts.collect();
+    match rest.as_slice() {
+        [] => true,
+        ["-n", count] | [count] => count.trim_start_matches('-').parse::<usize>().is_ok(),
+        _ => false,
+    }
+}
+
 pub fn is_registered_behavior_command(command: &str) -> bool {
     let command = command.trim();
     if command.is_empty()
@@ -240,15 +288,29 @@ pub fn is_registered_behavior_command(command: &str) -> bool {
         return false;
     }
     if tokens.first() == Some(&"node") {
+        // `node --test` with no paths is the documented auto-discovery form and
+        // works on Windows; `node --test tests/dir` is not accepted by Node 22
+        // (it treats the directory as an entry module), so callers should use
+        // this form or an explicit test file.
+        if tokens.as_slice() == ["node", "--test"] {
+            return true;
+        }
         return tokens.len() >= 3
             && tokens[1] == "--test"
             && tokens[2..].iter().all(|file| {
-                !file.starts_with('-')
-                    && !file.contains('*')
-                    && !file.contains('?')
-                    && [".js", ".cjs", ".mjs"]
-                        .iter()
-                        .any(|extension| file.ends_with(extension))
+                if file.starts_with('-') || file.contains('*') || file.contains('?') {
+                    return false;
+                }
+                if [".js", ".cjs", ".mjs"]
+                    .iter()
+                    .any(|extension| file.ends_with(extension))
+                {
+                    return true;
+                }
+                // Node 22 treats a directory argument as an entry module and
+                // fails before running tests. Require an explicit file or the
+                // no-path auto-discovery form (`node --test`, handled above).
+                false
             });
     }
     matches!(
@@ -517,15 +579,43 @@ mod tests {
 
 #[cfg(test)]
 mod node_behavior_regressions {
-    use super::is_registered_behavior_command;
+    use super::{is_registered_behavior_command, normalize_verification_command};
+
+    #[test]
+    fn output_only_wrappers_are_removed_before_command_identity_check() {
+        for command in [
+            "node --test outputs/page.test.cjs 2>&1",
+            "node --test outputs/page.test.cjs 2>&1 | tail -40",
+            "node --test outputs/page.test.cjs | head -n 20",
+            "node --test outputs/page.test.cjs | more",
+        ] {
+            let normalized = normalize_verification_command(command);
+            assert_eq!(normalized, "node --test outputs/page.test.cjs", "{command}");
+            assert!(is_registered_behavior_command(&normalized));
+        }
+        assert_eq!(
+            normalize_verification_command("node --test outputs/page.test.cjs | rm -rf outputs"),
+            "node --test outputs/page.test.cjs | rm -rf outputs"
+        );
+        assert_eq!(
+            normalize_verification_command("node --test a.test.cjs && rm -rf outputs"),
+            "node --test a.test.cjs && rm -rf outputs"
+        );
+    }
+
     #[test]
     fn node_test_entry_is_registered_but_skip_and_shell_bypass_are_not() {
         assert!(is_registered_behavior_command(
             "node --test outputs/page.test.cjs"
         ));
+        assert!(is_registered_behavior_command("node --test"));
+        assert!(is_registered_behavior_command("node --test tests/systems/loop.test.mjs"));
+        assert!(!is_registered_behavior_command("node --test tests/systems"));
+        assert!(!is_registered_behavior_command("node --test playtest"));
+        assert!(!is_registered_behavior_command("node --test src"));
+        assert!(!is_registered_behavior_command("node --test tests/*.mjs"));
         for command in [
             "node --eval malicious",
-            "node --test",
             "node --test --test-skip-pattern=.* outputs/page.test.cjs",
             "node --test --test-shard=2/2 outputs/page.test.cjs",
             "node --test --test-only outputs/page.test.cjs",

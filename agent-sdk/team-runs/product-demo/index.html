@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OwO Agent SDK — 目标驱动的智能体编排层</title>
+    <meta
+      name="description"
+      content="OwO Agent SDK 用一个函数调用把「理解目标 → 规划 → 调用工具 → 校正结果」的智能体循环嵌入你的应用：统一接口、权限内建、调用可审计。"
+    >
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#hero">跳到主要内容</a>
+
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="#hero">
+          <svg class="brand-mark" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle>
+            <circle cx="8.75" cy="11" r="1.6" fill="currentColor"></circle>
+            <circle cx="15.25" cy="11" r="1.6" fill="currentColor"></circle>
+          </svg>
+          <span class="brand-text">OwO Agent SDK</span>
+        </a>
+
+        <nav class="site-nav" id="primary-navigation" aria-label="主导航">
+          <ul class="nav-list">
+            <li><a href="#capabilities">能力</a></li>
+            <li><a href="#quickstart">代码示例</a></li>
+            <li><a href="#security">安全</a></li>
+            <li><a href="#footer">文档</a></li>
+          </ul>
+        </nav>
+
+        <a class="btn btn-primary btn-compact" href="#quickstart">开始使用</a>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- 1. Hero -->
+      <section class="hero section" id="hero" aria-labelledby="hero-title">
+        <div class="shell hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow">Agent orchestration layer · v0.9</p>
+            <h1 id="hero-title">让智能体能力，成为你应用里的一个函数调用。</h1>
+            <p class="lead">
+              OwO Agent SDK 是目标驱动的智能体编排层：统一接口、权限内建、调用可审计。
+              它只负责循环本身，业务逻辑与数据始终留在你自己的系统里。
+            </p>
+            <div class="cta-row">
+              <a class="btn btn-primary" href="#quickstart">快速开始</a>
+              <a class="btn btn-ghost" href="#footer">查看文档</a>
+            </div>
+            <dl class="hero-facts">
+              <div class="fact">
+                <dt>接入成本</dt>
+                <dd>4 行代码跑通</dd>
+              </div>
+              <div class="fact">
+                <dt>运行时依赖</dt>
+                <dd>0 个重型依赖</dd>
+              </div>
+              <div class="fact">
+                <dt>工具调用</dt>
+                <dd>默认拒绝，显式授权</dd>
+              </div>
+            </dl>
+          </div>
+
+          <figure class="code-card hero-code">
+            <figcaption class="code-bar">
+              <span class="code-lang">TypeScript</span>
+              <span class="code-file">agent.ts</span>
+            </figcaption>
+            <pre class="code-block"><code>import { Agent } from "owo-agent-sdk";
+
+const agent = new Agent({
+  tools: { readFile, writeReport },
+  approve: "on-sensitive",
+});
+
+await agent.run("整理这份周报并生成摘要");</code></pre>
+          </figure>
+        </div>
+      </section>
+
+      <!-- 2. Capabilities -->
+      <section class="section" id="capabilities" aria-labelledby="capabilities-title">
+        <div class="shell">
+          <header class="section-head">
+            <p class="eyebrow">Capabilities</p>
+            <h2 id="capabilities-title">四项能力，覆盖智能体循环的全部关键点</h2>
+            <p class="section-sub">
+              模型、工具、状态管理被抽象成统一接口；危险操作默认阻塞待审批；每一步工具调用都有结构化事件，可打日志、可回放。
+            </p>
+          </header>
+
+          <ul class="card-grid">
+            <li class="card">
+              <h3>统一接口</h3>
+              <p>把模型、工具与状态管理抽象成同一套接口，更换模型供应商时业务代码不需要改动。</p>
+            </li>
+            <li class="card">
+              <h3>权限与审批</h3>
+              <p>危险工具调用默认阻塞等待审批，可按工具名与参数配置白名单，审批结果写入调用记录。</p>
+            </li>
+            <li class="card">
+              <h3>可观测事件</h3>
+              <p>规划、工具调用、结果校正各自发出结构化事件，便于接入现有日志系统并回放一次完整运行。</p>
+            </li>
+            <li class="card">
+              <h3>轻量无重依赖</h3>
+              <p>零重型运行时依赖，Node 18 及以上即可启动，也可部署在你自己的服务器上离线运行。</p>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 3. Quickstart -->
+      <section class="section section-quickstart" id="quickstart" aria-labelledby="quickstart-title">
+        <div class="shell">
+          <header class="section-head">
+            <p class="eyebrow">Quickstart</p>
+            <h2 id="quickstart-title">三步接入：安装、初始化、一次调用</h2>
+            <p class="section-sub">
+              下面的示例是完整可运行的最小流程，全程不需要配置文件，也不需要额外的构建步骤。
+            </p>
+          </header>
+
+          <div class="quickstart-grid">
+            <ol class="steps">
+              <li class="step">
+                <h3><span class="step-index">01</span> 安装</h3>
+                <p>在项目根目录执行一次安装命令，SDK 只有一个包，不引入重型传递依赖。</p>
+              </li>
+              <li class="step">
+                <h3><span class="step-index">02</span> 初始化</h3>
+                <p>创建 <code class="inline-code">Agent</code> 实例并传入你要暴露给智能体的工具，其余能力按需开启。</p>
+              </li>
+              <li class="step">
+                <h3><span class="step-index">03</span> 调用</h3>
+                <p>用一句自然语言目标启动循环，SDK 负责规划、调用工具并在结果偏离目标时自行校正。</p>
+              </li>
+            </ol>
+
+            <figure class="code-card">
+              <figcaption class="code-bar">
+                <span class="code-lang">bash + JavaScript</span>
+                <span class="code-file">quickstart.md</span>
+                <button
+                  class="copy-btn"
+                  type="button"
+                  data-copy-target="quickstart-code"
+                  aria-label="复制快速开始代码"
+                >复制代码</button>
+              </figcaption>
+              <pre class="code-block" id="quickstart-code"><code>npm i owo-agent-sdk
+
+import { Agent } from "owo-agent-sdk";
+
+const agent = new Agent({ tools: { readFile } });
+
+await agent.run("整理这份周报");</code></pre>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Why OwO -->
+      <section class="section" id="why-owo" aria-labelledby="why-title">
+        <div class="shell">
+          <header class="section-head">
+            <p class="eyebrow">Why OwO</p>
+            <h2 id="why-title">自带编排循环，而不是让你再拼一套</h2>
+            <p class="section-sub">三种常见做法与本 SDK 的差别，集中在循环、权限与可验证性上。</p>
+          </header>
+
+          <div class="compare" role="table" aria-labelledby="why-title">
+            <div class="compare-row compare-head" role="row">
+              <span role="columnheader">维度</span>
+              <span role="columnheader">自己拼装</span>
+              <span role="columnheader">OwO Agent SDK</span>
+            </div>
+            <div class="compare-row" role="row">
+              <span role="cell" class="compare-key">编排循环</span>
+              <span role="cell">自己实现重试、规划与结果校正，边界情况分散在业务代码里</span>
+              <span role="cell">循环内建，一次 <code class="inline-code">run()</code> 完成规划、执行与校正</span>
+            </div>
+            <div class="compare-row" role="row">
+              <span role="cell" class="compare-key">权限控制</span>
+              <span role="cell">事后补审批逻辑，容易漏掉某个工具入口</span>
+              <span role="cell">权限内建，默认拒绝，白名单在初始化时声明</span>
+            </div>
+            <div class="compare-row" role="row">
+              <span role="cell" class="compare-key">可审计性</span>
+              <span role="cell">黑盒运行，出问题只能靠散落的自定义日志</span>
+              <span role="cell">每步工具调用发出结构化事件，可回放整次运行</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Security -->
+      <section class="section" id="security" aria-labelledby="security-title">
+        <div class="shell">
+          <header class="section-head">
+            <p class="eyebrow">Security</p>
+            <h2 id="security-title">安全边界写在配置里，不写在注释里</h2>
+            <p class="section-sub">
+              SDK 只做编排：它不托管你的数据，也不替你决定可以做什么。每个工具调用都要先通过权限判定。
+            </p>
+          </header>
+
+          <div class="security-grid">
+            <div class="flow-card">
+              <h3>权限审批流程</h3>
+              <ol class="flow">
+                <li>
+                  <span class="flow-step">工具调用</span>
+                  <p>智能体请求调用某个工具，SDK 先把请求与参数交给权限判定。</p>
+                </li>
+                <li>
+                  <span class="flow-step">审批</span>
+                  <p>命中白名单则放行；未声明或涉及写操作时阻塞，等待人工或策略批准。</p>
+                </li>
+                <li>
+                  <span class="flow-step">执行</span>
+                  <p>批准后才真正执行，结果与审批记录一并写入事件流。</p>
+                </li>
+              </ol>
+            </div>
+
+            <div class="rule-list">
+              <article class="rule">
+                <h3>默认拒绝，显式授权</h3>
+                <p>未在 <code class="inline-code">tools</code> 里注册的工具不可调用；已注册但被标记为敏感的工具仍需审批。</p>
+              </article>
+              <article class="rule">
+                <h3>数据不出域</h3>
+                <p>SDK 只负责编排，文件、数据库与业务服务都留在你的基础设施内，可自托管部署离线运行。</p>
+              </article>
+              <article class="rule">
+                <h3>可回放的调用记录</h3>
+                <p>每次运行都会产出带时间顺序的事件，包含工具名、参数摘要与审批结果，便于审计与问题定位。</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer" id="footer">
+      <div class="shell footer-inner">
+        <div class="footer-brand">
+          <p class="brand-text">OwO Agent SDK</p>
+          <p class="footer-note">目标驱动的智能体编排层。统一接口、权限内建、调用可审计。</p>
+        </div>
+
+        <nav class="footer-nav" aria-label="页脚导航">
+          <ul>
+            <li><a href="#quickstart">文档</a></li>
+            <li><a href="#why-owo">仓库</a></li>
+            <li><a href="#capabilities">变更日志</a></li>
+            <li><a href="#security">安全策略</a></li>
+          </ul>
+        </nav>
+
+        <p class="copyright">© 2025 OwO Agent SDK · 基于 MIT 许可证发布</p>
+      </div>
+    </footer>
+
+    <!-- 复制按钮的无依赖实现：只在支持剪贴板 API 时生效，不影响页面静态可读性 -->
+    <script>
+      document.addEventListener("click", (event) => {
+        const btn = event.target.closest("[data-copy-target]");
+        if (!btn) return;
+        const source = document.getElementById(btn.dataset.copyTarget);
+        if (!source || !navigator.clipboard) return;
+        navigator.clipboard.writeText(source.innerText).then(() => {
+          const original = btn.textContent;
+          btn.textContent = "已复制";
+          setTimeout(() => {
+            btn.textContent = original;
+          }, 1500);
+        });
+      });
+    </script>
+  </body>
+</html>

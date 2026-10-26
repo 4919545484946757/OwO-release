@@ -620,6 +620,7 @@
               </div>
               <div id="customModelStorageState" class="storage-status" role="status"></div><div id="customModelList" class="model-list"><div class="sub">暂无自定义模型，点击右上角添加。</div></div>
             </div>
+            <section id="mediaConnectionSettings" class="settings-block media-profiles-settings" aria-label="媒体连接配置" style="margin-top:14px"></section>
             <div class="settings-block" style="margin-top:14px">
               <div class="settings-block-head"><strong>密钥</strong></div>
               <div class="settings-row">
@@ -913,7 +914,7 @@
       <textarea id="prompt" aria-label="消息或任务" rows="3" placeholder="问点什么…（Enter 发送，Shift+Enter 换行）"></textarea>
       <div class="prompt-toolbar">
         <div class="prompt-tools">
-          <button type="button" id="attachmentBtn" title="添加附件（图片/文件）" aria-label="添加附件">
+          <button type="button" id="attachmentBtn" title="添加附件：PNG/JPEG/WebP/GIF 图片单张 ≤5 MiB，其他文件约24 MiB上限" aria-label="添加附件">
             <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3.2v9.6M3.2 8h9.6"/></svg>
           </button>
           <button type="button" id="accessChip" class="codex-access-chip" title="本机审批方式；实际授权由服务端策略决定">
@@ -1054,6 +1055,11 @@
   <script src="panels/workswarm/render.js"></script>
   <script src="panels/workswarm/delivery.js"></script>
   <script src="panels/workswarm/detail-layout.js"></script>
+  <script src="core/run-timeline.js"></script>
+  <script src="core/run-history.js"></script>
+  <script src="core/provider-call-inspector.js"></script>
+  <script src="core/dependency-inputs.js"></script>
+  <script src="core/dependency-inspector.js"></script>
   <script src="panels/workswarm.panel.js"></script>
   <script src="core/recovery.js"></script>
   <script src="core/workbench-refresh.js"></script>
@@ -1085,12 +1091,20 @@
   <script src="core/turn-model.js"></script>
   <script src="core/model-bar.js"></script>
   <script src="core/media-result.js"></script>
+    <script src="core/media-capability.js"></script>
   <script src="core/hunk-review.js"></script>
   <script src="core/symbol-search.js"></script>
+  <script src="core/workflow-document.js"></script>
   <script src="core/workflow-editor.js"></script>
+  <script src="core/workflow-canvas.js"></script>
   <script src="core/quick-navigation.js"></script>
+  <script src="core/attachment-upload.js"></script>
+  <script src="core/input-assets.js"></script>
+  <script src="core/history-input.js"></script>
+  <script src="core/worker-input-snapshot.js"></script>
   <script src="app-domain.js"></script>
   <script src="core/settings-search.js"></script>
+  <script src="core/media-profiles-settings.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
