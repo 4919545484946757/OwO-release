@@ -49,7 +49,13 @@ int main() {
                                               {{"yi", "xia"}, "一下", 10000},
                                               {{"yi"}, "仪", 9000},
                                               {{"xi", "ai"}, "喜爱", 1000000},
-                                              {{"ji", "xu"}, "继续", 10000}});
+                                              {{"ji", "xu"}, "继续", 10000},
+                                              {{"jie", "mian"}, "界面", 10000},
+                                              {{"chang", "du"}, "长度", 10000},
+                                              {{"qing", "kuang"}, "情况", 10000},
+                                              {{"zhe", "ge"}, "这个", 10000},
+                                              {{"fang", "fa"}, "方法", 10000},
+                                              {{"fang", "shi"}, "方式", 10000}});
     const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
     const auto pipe = LR"(\\.\pipe\OwO.Test.LocalCorrection.)" + std::to_wstring(nonce);
     int exit_code = -1;
@@ -92,6 +98,9 @@ int main() {
     }
     for (const auto& [input, expected] : {std::pair{"ceshiyixa", "测试一下"},
             {"ceshiyixajixu", "测试一下继续"},
+            {"ceshigongnneg", "测试功能"}, {"ceshijiemain", "测试界面"},
+            {"ceshichnagdu", "测试长度"}, {"ceshiqignkuang", "测试情况"},
+            {"zhegefnagfa", "这个方法"}, {"zhegefnagshi", "这个方式"},
             {"xianzaiceshiyixa", "现在测试一下"},
             {"xianzaixianceshiyixa", "现在先测试一下"}}) {
         const auto base = query(input, true, true);

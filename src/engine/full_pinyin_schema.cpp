@@ -528,6 +528,28 @@ std::vector<FuzzyToken> fuzzy_tokens(const std::string_view input,
     return matches;
 }
 
+bool initial_preserving_syllable_repair(const std::string_view input,
+                                        const std::string_view excluded = {}) {
+    if (input.size() < 2 || input.size() > 7 || is_complete(input)) return false;
+    const auto& table = fuzzy_token_table();
+    const auto found = table.find(std::string(input));
+    return found != table.end() && std::any_of(found->second.begin(), found->second.end(),
+        [input, excluded](const FuzzyToken& token) {
+            return token.corrected && token.syllable.front() == input.front() && token.syllable != excluded;
+        });
+}
+
+bool initial_preserving_transposition(const std::string_view input) {
+    if (input.size() < 4 || input.size() > 6 || is_complete(input)) return false;
+    auto swapped = std::string(input);
+    for (std::size_t index = 2; index < swapped.size(); ++index) {
+        std::swap(swapped[index - 1], swapped[index]);
+        if (is_complete(swapped)) return true;
+        std::swap(swapped[index - 1], swapped[index]);
+    }
+    return false;
+}
+
 void append_corrected_paths(const std::string_view normalized,
                             std::vector<ParsePath>& paths,
                             const std::size_t max_paths,
@@ -906,14 +928,7 @@ bool FullPinyinSchema::is_single_syllable_transposition(
 
 bool FullPinyinSchema::has_initial_preserving_syllable_repair(
     const std::string_view normalized_input) const {
-    if (normalized_input.size() < 2 || normalized_input.size() > 7 ||
-        is_complete(normalized_input)) return false;
-    const auto& table = fuzzy_token_table();
-    const auto found = table.find(std::string(normalized_input));
-    return found != table.end() && std::any_of(found->second.begin(), found->second.end(),
-        [normalized_input](const FuzzyToken& token) {
-            return token.corrected && token.syllable.front() == normalized_input.front();
-        });
+    return initial_preserving_syllable_repair(normalized_input);
 }
 
 ParseResult FullPinyinSchema::parse(const std::string_view input,
@@ -1039,10 +1054,43 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
             }
             return true;
         });
+    const bool repairable_trailing_boundary = correction_enabled && long_stable_trailing_prefix &&
+        result.normalized_input.find('\'') == std::string::npos &&
+        std::any_of(base_paths.begin(), base_paths.end(), [&](const ParsePath& path) {
+            if (path.syllables.size() < 2 || path.syllables.back().complete) return false;
+            const auto tail = path.syllables.back().begin;
+            for (auto index = path.syllables.size() - 1; index-- > 0;) {
+                const auto begin = path.syllables[index].begin;
+                const auto suffix = std::string_view(result.normalized_input).substr(begin);
+                if (suffix.size() > 7) break;
+                // Keep a real next-syllable initial (ming+d). Only consider
+                // repairs that also change the preceding complete boundary,
+                // such as mai+n -> mian or n+ne+g -> neng.
+                if (initial_preserving_syllable_repair(suffix, suffix.substr(0, tail - begin)))
+                    return true;
+            }
+            return false;
+        });
     std::size_t corrected_syllable_limit = std::numeric_limits<std::size_t>::max();
     for (const auto& path : base_paths) {
         if (std::any_of(path.syllables.begin(), path.syllables.end(),
                         [](const Syllable& syllable) { return !syllable.complete; })) continue;
+        // Nasal interjections n/m are legal syllables, but may also be a
+        // transposed final. Keep the raw path while allowing mai+n -> mian.
+        // Restrict this exception to transposition: deleting a newly typed
+        // initial from shi+n would damage ordinary mixed-pinyin input.
+        const bool nasal_boundary = correction_enabled && path.syllables.size() >= 2 &&
+            result.normalized_input.find('\'') == std::string::npos &&
+            (path.syllables.back().text == "n" || path.syllables.back().text == "m") &&
+            [&] {
+                for (auto index = path.syllables.size() - 1; index-- > 0;) {
+                    const auto suffix = std::string_view(result.normalized_input).substr(path.syllables[index].begin);
+                    if (suffix.size() > 6) break;
+                    if (initial_preserving_transposition(suffix)) return true;
+                }
+                return false;
+            }();
+        if (nasal_boundary) continue;
         corrected_syllable_limit = std::min(corrected_syllable_limit, path.syllables.size());
     }
     std::vector<ParsePath> incomplete_paths;
@@ -1069,7 +1117,7 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
 
         std::vector<ParsePath> corrected_paths;
         const auto correction_started = std::chrono::steady_clock::now();
-        if (correction_enabled && !long_stable_trailing_prefix)
+        if (correction_enabled && (!long_stable_trailing_prefix || repairable_trailing_boundary))
             append_corrected_paths(result.normalized_input, corrected_paths, max_paths,
                                    corrected_syllable_limit, cancelled);
         if (metrics != nullptr)
