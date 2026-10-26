@@ -2873,10 +2873,9 @@ bool TextService::render_candidate_window() {
                                            candidate_right + 3.0F, top + row_height + 2.0F);
             if (row == expanded_pages_.selected) {
                 const auto opacity = mode_highlight_brush->GetOpacity();
-                mode_highlight_brush->SetOpacity(opacity * 0.35F);
+                mode_highlight_brush->SetOpacity(opacity * 0.45F);
                 render_target_->FillRoundedRectangle(D2D1::RoundedRect(bounds, 7.0F, 7.0F), mode_highlight_brush);
                 mode_highlight_brush->SetOpacity(opacity);
-                render_target_->DrawRoundedRectangle(D2D1::RoundedRect(bounds, 7.0F, 7.0F), mode_accent_brush, 1.0F);
             }
             add_hit_region(bounds, {HitKind::candidate_page, row});
             draw_candidate_row(begin, end, top, row_height);
