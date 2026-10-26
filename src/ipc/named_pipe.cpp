@@ -1772,7 +1772,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 });
                         const auto strict_evidence = std::any_of(
                             candidates.begin(), candidates.end(),
-                            [&parsed, single_syllable_typo](const auto& candidate) {
+                            [&parsed, &full_pinyin_schema, single_syllable_typo](const auto& candidate) {
                                 if (candidate.consumed_input_bytes !=
                                     parsed.normalized_input.size()) return false;
                                 if (candidate.match_kind == engine::InputMatchKind::exact)
@@ -1803,6 +1803,22 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 // characters is not lexical evidence: nneg can
                                 // become n+ne+g and hide the local neng repair.
                                 if (candidate.source_segments.size() <= 2) return true;
+                                // Two separately expanded letters are weak
+                                // evidence when they form one repairable syllable.
+                                // Otherwise yi+x+a -> 仪喜爱 can suppress yi+xia
+                                // even though only a medial letter was omitted.
+                                if (shared == candidate.source_segments.size() && shared >= 3) {
+                                    for (std::size_t index = 1; index < shared; ++index) {
+                                        const auto& first = candidate.source_segments[index - 1];
+                                        const auto& last = candidate.source_segments[index];
+                                        if (first.size() == 1 && last.size() == 1 &&
+                                            candidate.syllables[index - 1].size() > 1 &&
+                                            candidate.syllables[index].size() > 1 &&
+                                            std::string_view("aeiouv").find(last.front()) != std::string_view::npos &&
+                                            full_pinyin_schema.has_initial_preserving_syllable_repair(first + last))
+                                            return false;
+                                    }
+                                }
                                 if (abbreviated_segments < 2 || abbreviated_segments > 4)
                                     return false;
                                 std::size_t dictionary_abbreviations = 0;

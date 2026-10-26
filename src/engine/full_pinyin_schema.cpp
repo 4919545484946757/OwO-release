@@ -553,6 +553,7 @@ void append_corrected_paths(const std::string_view normalized,
         ParsePath path;
         std::uint32_t edit_count{};
         std::size_t first_edit_offset{};
+        std::uint32_t changed_initials{};
         std::string reading_key;
     };
     const std::uint32_t maximum_edits = normalized.size() >= 12 ? 2U : 1U;
@@ -574,6 +575,10 @@ void append_corrected_paths(const std::string_view normalized,
             // local typos later in a sentence.
             if (left.path.syllables.size() != right.path.syllables.size())
                 return left.path.syllables.size() < right.path.syllables.size();
+            // A missing medial should not lose its initial to alphabetically
+            // earlier deletion/substitution repairs (xa -> xia, not a/ca/da).
+            if (left.changed_initials != right.changed_initials)
+                return left.changed_initials < right.changed_initials;
             if (left.edit_count >= 2 &&
                 left.first_edit_offset != right.first_edit_offset)
                 return left.first_edit_offset > right.first_edit_offset;
@@ -612,10 +617,11 @@ void append_corrected_paths(const std::string_view normalized,
                 CorrectionState next{
                     extend_path(state.path, {std::string(token.syllable), offset,
                                 offset + token.consumed, true}),
-                    state.edit_count, state.first_edit_offset, {}};
+                    state.edit_count, state.first_edit_offset, state.changed_initials, {}};
                 if (token.corrected) {
                     if (next.edit_count == 0) next.first_edit_offset = offset;
                     ++next.edit_count;
+                    if (normalized[offset] != token.syllable.front()) ++next.changed_initials;
                 }
                 next.path.edit_count = next.edit_count;
                 auto& destination = chart[offset + token.consumed];
@@ -896,6 +902,18 @@ bool FullPinyinSchema::is_single_syllable_transposition(
         std::swap(swapped[index - 1], swapped[index]);
     }
     return false;
+}
+
+bool FullPinyinSchema::has_initial_preserving_syllable_repair(
+    const std::string_view normalized_input) const {
+    if (normalized_input.size() < 2 || normalized_input.size() > 7 ||
+        is_complete(normalized_input)) return false;
+    const auto& table = fuzzy_token_table();
+    const auto found = table.find(std::string(normalized_input));
+    return found != table.end() && std::any_of(found->second.begin(), found->second.end(),
+        [normalized_input](const FuzzyToken& token) {
+            return token.corrected && token.syllable.front() == normalized_input.front();
+        });
 }
 
 ParseResult FullPinyinSchema::parse(const std::string_view input,

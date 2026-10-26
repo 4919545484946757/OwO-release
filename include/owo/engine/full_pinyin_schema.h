@@ -26,6 +26,10 @@ public:
     // generate correction paths or consult the dictionary.
     [[nodiscard]] bool is_single_syllable_transposition(
         std::string_view normalized_input) const;
+    // One-edit repair of an invalid local token, preserving its typed initial.
+    // Used only to distinguish fragmented vowel tokens from strong abbreviations.
+    [[nodiscard]] bool has_initial_preserving_syllable_repair(
+        std::string_view normalized_input) const;
     [[nodiscard]] ParseResult parse(std::string_view input,
                                     std::size_t max_paths = 32) const override;
     [[nodiscard]] ParseResult parse(std::string_view input, std::size_t max_paths,

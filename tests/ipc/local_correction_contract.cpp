@@ -40,7 +40,16 @@ int main() {
                                               {{"wei", "shen", "me"}, "为什么", 5000},
                                               {{"wo"}, "我", 5000},
                                               {{"ren", "wei"}, "认为", 6000},
-                                              {{"ke", "yi"}, "可以", 6000}});
+                                              {{"ke", "yi"}, "可以", 6000},
+                                              {{"xian", "zai"}, "现在", 20000},
+                                              {{"xian"}, "先", 5000}, {{"xian"}, "现", 4900},
+                                              {{"xian"}, "县", 4800}, {{"xian"}, "线", 4700},
+                                              {{"xian"}, "鲜", 4600}, {{"xian"}, "仙", 4500},
+                                              {{"ce", "shi"}, "测试", 10000},
+                                              {{"yi", "xia"}, "一下", 10000},
+                                              {{"yi"}, "仪", 9000},
+                                              {{"xi", "ai"}, "喜爱", 1000000},
+                                              {{"ji", "xu"}, "继续", 10000}});
     const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
     const auto pipe = LR"(\\.\pipe\OwO.Test.LocalCorrection.)" + std::to_wstring(nonce);
     int exit_code = -1;
@@ -78,6 +87,26 @@ int main() {
             std::cerr << "Fragmented abbreviation hid local repair: " << input << '\n';
             if (repaired.validation)
                 std::cerr << owo::protocol::encode_message(repaired.message) << '\n';
+            ok = false;
+        }
+    }
+    for (const auto& [input, expected] : {std::pair{"ceshiyixa", "测试一下"},
+            {"ceshiyixajixu", "测试一下继续"},
+            {"xianzaiceshiyixa", "现在测试一下"},
+            {"xianzaixianceshiyixa", "现在先测试一下"}}) {
+        const auto base = query(input, true, true);
+        const auto repaired = query(input, true);
+        const auto expanded = query(input, true, false, true);
+        const auto strict = query(input, false);
+        if (!base.validation || !base.message.candidate_refinement_pending ||
+            !repaired.validation || repaired.message.candidates.empty() ||
+            repaired.message.candidates.front() != expected ||
+            repaired.message.candidate_consumed.front() != std::string_view(input).size() ||
+            !expanded.validation || expanded.message.candidates.empty() ||
+            expanded.message.candidates.front() != expected ||
+            !strict.validation || std::find(strict.message.candidates.begin(),
+                strict.message.candidates.end(), expected) != strict.message.candidates.end()) {
+            std::cerr << "Fragmented vowel suffix hid missing-letter repair: " << input << '\n';
             ok = false;
         }
     }

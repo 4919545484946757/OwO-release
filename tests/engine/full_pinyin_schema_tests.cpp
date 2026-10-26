@@ -51,6 +51,12 @@ int fail(const std::string_view message) {
 
 int main() {
     const owo::engine::FullPinyinSchema schema;
+    if (!schema.has_initial_preserving_syllable_repair("xa") ||
+        !schema.has_initial_preserving_syllable_repair("qe") ||
+        schema.has_initial_preserving_syllable_repair("xia") ||
+        schema.has_initial_preserving_syllable_repair("duo") ||
+        schema.has_initial_preserving_syllable_repair("wsm"))
+        return fail("local initial-preserving typo preflight failed");
 
     for (const auto& [input, expected] : {
              std::pair{"chnag", "chang"}, {"shnag", "shang"},
