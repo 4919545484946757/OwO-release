@@ -1006,6 +1006,20 @@ impl AnthropicProvider {
 
 #[async_trait]
 impl ModelProvider for AnthropicProvider {
+    fn validate_image_input(&self, model: Option<&str>, has_images: bool) -> Result<(), String> {
+        let model = model
+            .map(str::trim)
+            .filter(|m| !m.is_empty() && *m != "default")
+            .unwrap_or(&self.config.model);
+        crate::gateway::input_capabilities::ensure_image_presence(
+            model,
+            &self.config.base_url,
+            "anthropic",
+            self.connection_options.as_ref(),
+            has_images,
+        )
+    }
+
     async fn complete(
         &self,
         messages: &[ChatMessage],

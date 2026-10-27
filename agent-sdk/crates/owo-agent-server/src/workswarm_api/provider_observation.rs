@@ -281,6 +281,11 @@ impl Drop for RequestReceipt<'_> {
 
 #[async_trait]
 impl ModelProvider for InputObservedProvider {
+    fn validate_image_input(&self, model: Option<&str>, has_images: bool) -> Result<(), String> {
+        // A declaration check does not reserve a request or emit execution observations.
+        self.inner.validate_image_input(model, has_images)
+    }
+
     async fn complete_expression(&self, messages: &[ChatMessage]) -> Result<String, String> {
         self.observe(
             None,

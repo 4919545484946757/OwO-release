@@ -1197,3 +1197,32 @@ test("media TCP check sends exact revision and exposes observation without servi
  globalThis.fetch=async(input,init)=>{const req=input instanceof Request?input:new Request(input,init);assert.equal(req.method,"POST");assert.equal(new URL(req.url).pathname,"/settings/media-connections/check");submitted=await req.json();return Response.json(observation);};
  try{const client=createClient({baseUrl:"http://127.0.0.1:4096"});const {data,error}=await client.POST("/settings/media-connections/check",{body:{expected_revision:3,profile_id:"local",service:"text_to_speech"}});assert.equal(error,undefined);assert.deepEqual(data,observation);assert.deepEqual(submitted,{expected_revision:3,profile_id:"local",service:"text_to_speech"});assert.equal("verified" in data!,false);}finally{globalThis.fetch=originalFetch;}
 });
+
+test("preflightInput uses the protected shared contract and requires explicit admission",async()=>{
+ const originalFetch=globalThis.fetch;let captured:Request|undefined;
+ try {
+  for(const [status,body] of [[200,{ok:true}],[200,{}],[400,{}]] as const) {
+   globalThis.fetch=async(input)=>{captured=input instanceof Request?input:new Request(input);return new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json"}});};
+   const client=createClient({baseUrl:"http://127.0.0.1:4096",headers:{Authorization:"Bearer fixture-token"}});
+   const input={session_id:"session-fixture",has_images:true,history_keep:2};
+   if(status===200&&"ok" in body) assert.deepEqual(await client.preflightInput(input),{ok:true});
+   else await assert.rejects(client.preflightInput(input),/preflight_rejected/);
+   assert.equal(captured?.url,"http://127.0.0.1:4096/input/preflight");
+   assert.equal(captured?.headers.get("authorization"),"Bearer fixture-token");
+   assert.deepEqual(await captured?.json(),input);
+  }
+ }finally{globalThis.fetch=originalFetch;}
+});
+
+
+test("preflightInput preserves native rejection codes without echoing diagnostic bodies",async()=>{
+ const originalFetch=globalThis.fetch;
+ try {
+  for(const [status,body,expected] of [[400,"input/image_not_supported: diagnostic detail","input/image_not_supported"],
+    [400,"private unrecognized failure","input/preflight_rejected"],[200,"not JSON","input/preflight_rejected"]] as const) {
+   globalThis.fetch=async()=>new Response(body,{status,headers:{"Content-Type":"text/plain"}});
+   const client=createClient({baseUrl:"http://127.0.0.1:4096"});
+   await assert.rejects(client.preflightInput({has_images:true}),error=>error instanceof Error&&error.message===expected);
+  }
+ }finally{globalThis.fetch=originalFetch;}
+});

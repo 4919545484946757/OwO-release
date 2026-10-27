@@ -268,17 +268,7 @@ fn inline_data_url(bytes: &[u8]) -> Option<String> {
     if bytes.len() > 512 * 1024 {
         return None;
     }
-    let mime = if bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
-        "image/png"
-    } else if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
-        "image/jpeg"
-    } else if bytes.starts_with(b"GIF8") {
-        "image/gif"
-    } else if bytes.len() > 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
-        "image/webp"
-    } else {
-        return None;
-    };
+    let mime = super::media_output_mime(bytes, "image")?;
     let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
     Some(format!("data:{mime};base64,{encoded}"))
 }
@@ -288,19 +278,7 @@ fn inline_audio_data_url(bytes: &[u8]) -> Option<String> {
     if bytes.len() > 512 * 1024 {
         return None;
     }
-    let mime = if bytes.starts_with(b"ID3")
-        || (bytes.len() > 1 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0)
-    {
-        "audio/mpeg"
-    } else if bytes.len() > 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WAVE" {
-        "audio/wav"
-    } else if bytes.starts_with(b"OggS") {
-        "audio/ogg"
-    } else if bytes.starts_with(b"fLaC") {
-        "audio/flac"
-    } else {
-        return None;
-    };
+    let mime = super::media_output_mime(bytes, "audio")?;
     let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
     Some(format!("data:{mime};base64,{encoded}"))
 }
@@ -483,6 +461,8 @@ impl Tool for GenerateImageTool {
                 "url".to_string(),
             ),
         };
+        super::media_output_mime(&bytes, "image")
+            .ok_or("media/invalid_content: 返回内容不是支持的图片格式，未写入文件")?;
         let saved = write_media(ctx, &target, &bytes)?;
         let mut result = json!({
             "path": saved,
@@ -577,6 +557,8 @@ impl Tool for TextToSpeechTool {
                 detail.chars().take(200).collect::<String>()
             ));
         }
+        super::media_output_mime(&bytes, "audio")
+            .ok_or("media/invalid_content: 返回内容不是支持的音频格式，未写入文件")?;
         let saved = write_media(ctx, &target, &bytes)?;
         let mut result = json!({
             "path": saved,

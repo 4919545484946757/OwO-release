@@ -47,6 +47,33 @@ fn contract_endpoints() -> Vec<(String, Vec<String>)> {
         .collect()
 }
 
+#[test]
+fn input_preflight_route_and_schema_are_synchronized() {
+    let spec: serde_json::Value = serde_json::from_str(CONTRACT_SNAPSHOT).unwrap();
+    let source: serde_json::Value =
+        serde_json::from_str(include_str!("../src/openapi.json")).unwrap();
+    assert!(registered_routes().contains(&"/input/preflight".to_string()));
+    assert_eq!(
+        source["paths"]["/input/preflight"],
+        spec["paths"]["/input/preflight"]
+    );
+    assert_eq!(
+        source["components"]["schemas"]["InputPreflightRequest"],
+        spec["components"]["schemas"]["InputPreflightRequest"]
+    );
+    assert_eq!(
+        spec["paths"]["/input/preflight"]["post"]["requestBody"]["content"]["application/json"]
+            ["schema"]["$ref"],
+        "#/components/schemas/InputPreflightRequest"
+    );
+    assert!(
+        serde_json::from_value::<owo_agent_protocol::InputPreflightRequest>(
+            serde_json::json!({"verified":true})
+        )
+        .is_err()
+    );
+}
+
 /// 从 lib.rs 与 routes.rs 提取实际注册的路由路径。
 fn registered_routes() -> Vec<String> {
     let mut routes = Vec::new();

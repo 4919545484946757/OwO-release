@@ -5902,6 +5902,18 @@ export interface components {
             use_full_url?: boolean;
             image_input: boolean;
         };
+        /** @description Read-only model declaration admission. Does not send a model request or certify remote capability. */
+        InputPreflightRequest: {
+            /** @description Existing authoritative session, omitted for a prospective session. */
+            session_id?: string | null;
+            /** @description Retained message count; requires session_id. */
+            history_keep?: number | null;
+            /** @default false */
+            has_images: boolean;
+            /** @description Prospective sessions only; existing sessions resolve their saved override. */
+            model?: string | null;
+            model_connection?: components["schemas"]["CustomModelConnection"] | null;
+        };
     };
     responses: never;
     parameters: never;

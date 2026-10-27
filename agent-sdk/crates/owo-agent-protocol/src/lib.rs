@@ -923,6 +923,25 @@ impl std::fmt::Debug for CustomModelConnection {
     }
 }
 
+/// Non-mutating admission before creating a session or rewinding its history.
+/// A declaration check only; true does not mean the remote model was tested.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InputPreflightRequest {
+    #[serde(default)]
+    pub session_id: Option<String>,
+    /// Retained message count for edit/regenerate; absent means all current history.
+    #[serde(default)]
+    pub history_keep: Option<usize>,
+    #[serde(default)]
+    pub has_images: bool,
+    /// Only for a prospective session; existing sessions use their authoritative override.
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub model_connection: Option<CustomModelConnection>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TurnRequest {
     pub prompt: String,

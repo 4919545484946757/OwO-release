@@ -307,6 +307,23 @@ pub(crate) async fn turn(
     // Load the authoritative snapshot only after acquiring the per-session turn lock.
     let session = crate::session_api::load_session(&state, &id)?;
     let mut session = session;
+    // Reject before event registration, checkpoints, or session mutations. Native sends check again.
+    let has_images = !attachment_images.is_empty()
+        || session
+            .messages
+            .iter()
+            .any(super::input_preflight::message_has_image);
+    let admission_provider = turn_provider
+        .clone()
+        .unwrap_or_else(|| state.agent.provider());
+    let admission_model = request
+        .model_connection
+        .as_ref()
+        .map(|c| c.model.as_str())
+        .or(session.model_override.as_deref());
+    admission_provider
+        .validate_image_input(admission_model, has_images)
+        .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
     crate::artifact_review_api::input_assets::rehydrate_history(&state, &mut session).await?;
     // R8：全局并发 turn 上限 + 关闭中拒绝新回合。
     let concurrency_permit = state.shutdown_gate.try_acquire_turn().map_err(|busy| {

@@ -43,6 +43,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     let session_detail = get(session_api::get_session).delete(session_api::delete_session);
     let protected = Router::new()
         .route("/expression", post(expression_api::expression))
+        .route("/input/preflight", post(turn_api::input_preflight))
         .route("/audit", get(audit_api::audit_list))
         .route("/session", post(session_api::create_session))
         .route("/session/{id}", session_detail)

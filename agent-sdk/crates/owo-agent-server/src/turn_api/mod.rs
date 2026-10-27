@@ -12,6 +12,7 @@
 
 mod approval;
 mod handlers;
+mod input_preflight;
 mod queue;
 mod wire;
 
@@ -20,3 +21,4 @@ mod tests;
 
 pub(crate) use approval::*;
 pub(crate) use handlers::*;
+pub(crate) use input_preflight::input_preflight;

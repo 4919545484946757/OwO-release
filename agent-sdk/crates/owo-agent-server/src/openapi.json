@@ -3094,6 +3094,41 @@
             "type": "boolean"
           }
         }
+      },
+      "InputPreflightRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Read-only model declaration admission. Does not send a model request or certify remote capability.",
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "description": "Existing authoritative session, omitted for a prospective session.",
+            "nullable": true
+          },
+          "history_keep": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Retained message count; requires session_id.",
+            "nullable": true
+          },
+          "has_images": {
+            "type": "boolean",
+            "default": false
+          },
+          "model": {
+            "type": "string",
+            "description": "Prospective sessions only; existing sessions resolve their saved override.",
+            "nullable": true
+          },
+          "model_connection": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CustomModelConnection"
+              }
+            ],
+            "nullable": true
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -13973,6 +14008,57 @@
           },
           "500": {
             "description": "Observation could not be persisted"
+          }
+        }
+      }
+    },
+    "/input/preflight": {
+      "post": {
+        "operationId": "input_preflight",
+        "summary": "Check input declarations without changing a session or calling the model",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InputPreflightRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Admission at this configuration snapshot, not verified remote capability",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown, unsupported or mismatched model declaration, or invalid context"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Session not found"
+          },
+          "422": {
+            "description": "Malformed or unknown request fields"
           }
         }
       }

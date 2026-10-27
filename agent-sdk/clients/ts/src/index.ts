@@ -67,6 +67,8 @@ export type ApiClient = ReturnType<typeof createFetchClient<paths>> & {
   ): Promise<TurnCompletion>;
   /** Local loopback server only; browser supplies Host/Origin. A 403 source rejection is not retried. */
   expression(input: { prompt: string }, signal?: AbortSignal): Promise<{ text: string }>;
+  /** Read-only input admission; does not certify a remote model or create a session. */
+  preflightInput(input: components["schemas"]["InputPreflightRequest"]): Promise<{ok:true}>;
   /** 便捷方法：健康检查。 */
   health(): Promise<boolean>;
 };
@@ -103,6 +105,19 @@ export function createClient(options: ClientOptions): ApiClient {
   Object.assign(client, { expression });
 
   const api = client as ApiClient;
+
+  api.preflightInput = async (input) => {
+    // Native admission errors are plain text; do not assume every error body is JSON.
+    const {data, error, response} = await client.POST("/input/preflight", {body:input, parseAs:"text"});
+    if (!response.ok || error) {
+      const code = typeof error === "string" ? /^(input|model_connection|provider)\/[a-z_]+/.exec(error)?.[0] : undefined;
+      throw new Error(code || "input/preflight_rejected");
+    }
+    let receipt: unknown;
+    try { receipt = JSON.parse(data || ""); } catch { throw new Error("input/preflight_rejected"); }
+    if (!receipt || typeof receipt !== "object" || !("ok" in receipt) || receipt.ok !== true) throw new Error("input/preflight_rejected");
+    return {ok:true};
+  };
 
   api.createSession = async (input) => {
     const { data, error } = await client.POST("/session", {

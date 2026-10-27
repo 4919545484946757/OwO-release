@@ -848,7 +848,8 @@ function resumeHostTurn(sessionId, detail) {
 }
 /// 把会话回退到 `keep` 条消息，再以 `content` 重发。
 /// 编辑与重新生成共用：服务端负责回滚该回合后的文件写入，前端只重载历史并发送。
-async function prepareHistoryReplay(sessionId, message, isCurrent) {
+async function prepareHistoryReplay(sessionId, message, isCurrent, historyKeep) {
+  const requestedModel = getComposerModel();
   if (modelGateMissing()) throw new Error("模型尚未配置，未回退或重发");
   const modelConnection = ModelRouting.buildCustomModelConnection(getComposerModel(), loadCustomModels(), customModelKeys());
   const capabilities = await api("/capabilities");
@@ -856,8 +857,34 @@ async function prepareHistoryReplay(sessionId, message, isCurrent) {
   if (capabilities?.constraints?.scoped_turn_cancellation !== true) throw new Error("当前核心不支持按回合停止，未回退或重发");
   if (modelConnection && capabilities?.constraints?.custom_model_connection !== true) throw new Error("当前核心不支持自定义模型连接，未回退或重发");
   if (modelConnection?.api_key_env && capabilities?.constraints?.custom_model_env_credentials !== true) throw new Error("当前核心不支持安全凭据引用，未回退或重发");
-  return window.OwoHistoryInput.prepare(message, {sessionId, capabilities, get: path => api(path),
-    download: (path, options) => window.OwoApi.download(path, options), isCurrent});
+  const connectionSnapshot = JSON.stringify(modelConnection);
+  const sameInput = () => {
+    if (!isCurrent() || getComposerModel() !== requestedModel) return false;
+    try { return JSON.stringify(ModelRouting.buildCustomModelConnection(requestedModel, loadCustomModels(), customModelKeys())) === connectionSnapshot; }
+    catch (_) { return false; }
+  };
+  const replay = await window.OwoHistoryInput.prepare(message, {sessionId, capabilities, get: path => api(path),
+    download: (path, options) => window.OwoApi.download(path, options), isCurrent: sameInput});
+  if (capabilities?.constraints?.model_input_preflight === true) {
+    await preflightModelInput(sessionId, replay.attachments, modelConnection, requestedModel, historyKeep, sameInput);
+  }
+  if (!sameInput()) throw new Error("会话或模型已变化，未回退或重发");
+  return replay;
+}
+
+async function preflightModelInput(sessionId, attachments, modelConnection, requestedModel, historyKeep, isCurrent) {
+  const input = window.OwoAttachmentUpload.turnInput(attachments);
+  const hasImages = input.content_parts.some(part => part.type === "image")
+    || attachments.some(item => !item.content_part && (/^image\//i.test(item.mime || "") || /\.(png|jpe?g|webp|gif)$/i.test(item.name || "")));
+  if (!isCurrent()) throw new Error("会话或输入已变化，未回退或发送");
+  const result = await api("/input/preflight", {method:"POST", body:JSON.stringify({
+    has_images:hasImages,
+    ...(sessionId ? {session_id:sessionId} : {model:requestedModel || null}),
+    ...(historyKeep == null ? {} : {history_keep:historyKeep}),
+    ...(modelConnection ? {model_connection:modelConnection} : {})
+  })});
+  if (!isCurrent()) throw new Error("会话或输入已变化，未回退或发送");
+  if (result?.ok !== true) throw new Error("输入能力预检未确认，未回退或发送");
 }
 
 async function rewindAndResend(sessionId, keep, content, message) {
@@ -865,7 +892,7 @@ async function rewindAndResend(sessionId, keep, content, message) {
   const isCurrent = () => state.sessionId === sessionId && state.selectionVersion === selection && !currentTurn();
   if (!isCurrent()) { showToast("会话已切换或仍在运行，未执行回退", "error"); return; }
   // Validate before destructive rewind; a missing/corrupt input must leave history intact.
-  const replay = await prepareHistoryReplay(sessionId, message || {content}, isCurrent);
+  const replay = await prepareHistoryReplay(sessionId, message || {content}, isCurrent, keep);
   if (!isCurrent()) { showToast("会话已切换，未执行回退", "error"); return; }
   await api(`/session/${sessionId}/rewind`, {method: "POST", body: JSON.stringify({ keep })});
   if (!isCurrent()) { showToast("会话已切换；回退已生效，请回到该会话重发", "error"); return; }
@@ -1336,8 +1363,15 @@ async function sendPrompt() {
   const sameSelection = () => state.sessionId === sourceSessionId && state.selectionVersion === sourceSelection;
   const changedDraft = () => showToast("会话或输入已变化，请检查当前草稿后重新发送", "error");
   let modelConnection;
+  let connectionSnapshot;
+  const sameConnection = () => {
+    try { return JSON.stringify(ModelRouting.buildCustomModelConnection(requestedModel, loadCustomModels(), customModelKeys())) === connectionSnapshot; }
+    catch (_) { return false; }
+  };
+  const sameInput = () => sameSelection() && sameDraft() && sameConnection();
   try {
     modelConnection = ModelRouting.buildCustomModelConnection(requestedModel, loadCustomModels(), customModelKeys());
+    connectionSnapshot = JSON.stringify(modelConnection);
     const capabilities = await api("/capabilities");
     if (!sameSelection() || !sameDraft()) { changedDraft(); return; }
     state.capabilities = capabilities;
@@ -1348,12 +1382,16 @@ async function sendPrompt() {
         throw new Error("当前核心不支持自定义模型连接配置，请更新核心；本次未发送");
       }
     }
+    if (modelGateMissing()) {
+      openModelGateSettings();
+      return;
+    }
+    if (capabilities?.constraints?.model_input_preflight === true) {
+      await preflightModelInput(sourceSessionId, state.attachments, modelConnection, requestedModel, undefined,
+        sameInput);
+    }
   } catch (error) {
     showToast(friendlyError(error), "error");
-    return;
-  }
-  if (modelGateMissing()) {
-    openModelGateSettings();
     return;
   }
   // 无会话时**自动新建**再发，而不是甩一句"请先新建或选择一个会话"。
@@ -1362,7 +1400,7 @@ async function sendPrompt() {
   if (!state.sessionId) {
     try {
       const created = await promptSessionStart.run(() => newSession());
-      if (!created || state.sessionId !== created.id || state.selectionVersion !== created.selectionVersion || !sameDraft()) { changedDraft(); return; }
+      if (!created || state.sessionId !== created.id || state.selectionVersion !== created.selectionVersion || !sameDraft() || !sameConnection()) { changedDraft(); return; }
     } catch (error) {
       showToast(`创建会话失败：${friendlyError(error)}`, "error");
       return;

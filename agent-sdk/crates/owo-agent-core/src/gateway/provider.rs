@@ -555,6 +555,16 @@ fn max_output_tokens_for_model(model: &str) -> u64 {
 
 #[async_trait]
 impl ModelProvider for OpenAiCompatibleProvider {
+    fn validate_image_input(&self, model: Option<&str>, has_images: bool) -> Result<(), String> {
+        super::input_capabilities::ensure_image_presence(
+            &self.effective_model(model),
+            &self.config.base_url,
+            "openai",
+            self.connection_options.as_ref(),
+            has_images,
+        )
+    }
+
     async fn complete_expression(&self, messages: &[ChatMessage]) -> Result<String, String> {
         let result = self.complete_once(None, messages, &[], Some(1024)).await?;
         match result.output {
