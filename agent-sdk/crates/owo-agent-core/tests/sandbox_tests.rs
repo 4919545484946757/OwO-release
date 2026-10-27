@@ -53,7 +53,10 @@ fn allowlist_network_requires_hosts() {
     assert!(matches!(err, SandboxError::PolicyViolation(_)));
 
     policy.allow_hosts = vec!["api.openai.com:443".to_string()];
-    assert!(policy.validate().is_ok());
+    assert!(matches!(
+        policy.validate(),
+        Err(SandboxError::Unsupported(_))
+    ));
 }
 
 #[test]
