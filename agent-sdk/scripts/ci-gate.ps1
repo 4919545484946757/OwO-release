@@ -365,40 +365,42 @@ if (-not $SkipDesktop) {
     if (-not $shellPresent) {
         Write-Host "    [desktop] 无 src-tauri Cargo.toml，跳过壳侧四步"
     }
-    Invoke-CiStep -Name "桌面壳随包 core 预置（externalBin 命名+身份+SHA-256）" -Id "desktop-stage" -Cwd $root -LogDir $LogDir -Block {
-        if (-not $shellPresent) { $global:LASTEXITCODE = 0; return }
-        # Tauri 硬要求 binaries/owo-agent-<triple>.exe 存在。历史上开发者用手工复制
-        # 旧 core 救火，制造了安装包错包与开发期同目录劫持（build-installer 还曾用错
-        # 文件名，tauri-build 根本不读）。门禁内自动预置 = 每次都校验该产物来自当前
-        # 源码、命名正确、哈希一致，等价于把那条门禁视野外的隐藏路径纳入门禁。
-        . (Join-Path $PSScriptRoot "stage-desktop-sidecar.ps1")
-        try {
-            $null = Stage-OwoDesktopSidecar -Configuration debug
-            $global:LASTEXITCODE = 0
-        } catch {
-            Write-Host "    [desktop-stage] $($_.Exception.Message)"
-            $global:LASTEXITCODE = 1
+    if ($shellPresent) {
+        Invoke-CiStep -Name "桌面壳随包 core 预置（externalBin 命名+身份+SHA-256）" -Id "desktop-stage" -Cwd $root -LogDir $LogDir -Block {
+            if (-not $shellPresent) { $global:LASTEXITCODE = 0; return }
+            # Tauri 硬要求 binaries/owo-agent-<triple>.exe 存在。历史上开发者用手工复制
+            # 旧 core 救火，制造了安装包错包与开发期同目录劫持（build-installer 还曾用错
+            # 文件名，tauri-build 根本不读）。门禁内自动预置 = 每次都校验该产物来自当前
+            # 源码、命名正确、哈希一致，等价于把那条门禁视野外的隐藏路径纳入门禁。
+            . (Join-Path $PSScriptRoot "stage-desktop-sidecar.ps1")
+            try {
+                $null = Stage-OwoDesktopSidecar -Configuration debug
+                $global:LASTEXITCODE = 0
+            } catch {
+                Write-Host "    [desktop-stage] $($_.Exception.Message)"
+                $global:LASTEXITCODE = 1
+            }
         }
-    }
-    Invoke-CiStep -Name "桌面壳 cargo fmt --check（src-tauri）" -Id "desktop-fmt" -Cwd $shellDir -LogDir $LogDir -Block {
-        if (-not $shellPresent) { $global:LASTEXITCODE = 0; return }
-        $log = if ($LogDir) { Join-Path $LogDir "desktop-fmt.stream.log" } else { "" }
-        Invoke-CiCargo -Arguments @('fmt', '--check') `
-            -Cwd $shellDir -TimeoutSec 300 -HeartbeatSec $HeartbeatSec -LogFile $log -Label 'desktop-fmt' -PolicyMode 'normal'
-    }
-    Invoke-CiStep -Name "桌面壳 cargo clippy --all-targets --locked -- -D warnings（src-tauri）" -Id "desktop-clippy" -Cwd $shellDir -LogDir $LogDir -Block {
-        if (-not $shellPresent) { $global:LASTEXITCODE = 0; return }
-        $log = if ($LogDir) { Join-Path $LogDir "desktop-clippy.stream.log" } else { "" }
-        # 壳 workspace 全量 lint + 链接 tauri/webview 原生依赖 → §2.4 红线 2 strict 档。
-        Invoke-CiCargo `
-            -Arguments @('clippy', '--all-targets', '--locked', '--', '-D', 'warnings') `
-            -Cwd $shellDir -TimeoutSec 7200 -HeartbeatSec $HeartbeatSec -LogFile $log -Label 'desktop-clippy' -PolicyMode 'strict'
-    }
-    Invoke-CiStep -Name "桌面壳 cargo test --locked（src-tauri）" -Id "desktop-test" -Cwd $shellDir -LogDir $LogDir -Block {
-        if (-not $shellPresent) { $global:LASTEXITCODE = 0; return }
-        $log = if ($LogDir) { Join-Path $LogDir "desktop-test.stream.log" } else { "" }
-        Invoke-CiCargo -Arguments @('test', '--locked') `
-            -Cwd $shellDir -TimeoutSec 7200 -HeartbeatSec $HeartbeatSec -LogFile $log -Label 'desktop-test' -PolicyMode 'strict'
+        Invoke-CiStep -Name "桌面壳 cargo fmt --check（src-tauri）" -Id "desktop-fmt" -Cwd $shellDir -LogDir $LogDir -Block {
+            if (-not $shellPresent) { $global:LASTEXITCODE = 0; return }
+            $log = if ($LogDir) { Join-Path $LogDir "desktop-fmt.stream.log" } else { "" }
+            Invoke-CiCargo -Arguments @('fmt', '--check') `
+                -Cwd $shellDir -TimeoutSec 300 -HeartbeatSec $HeartbeatSec -LogFile $log -Label 'desktop-fmt' -PolicyMode 'normal'
+        }
+        Invoke-CiStep -Name "桌面壳 cargo clippy --all-targets --locked -- -D warnings（src-tauri）" -Id "desktop-clippy" -Cwd $shellDir -LogDir $LogDir -Block {
+            if (-not $shellPresent) { $global:LASTEXITCODE = 0; return }
+            $log = if ($LogDir) { Join-Path $LogDir "desktop-clippy.stream.log" } else { "" }
+            # 壳 workspace 全量 lint + 链接 tauri/webview 原生依赖 → §2.4 红线 2 strict 档。
+            Invoke-CiCargo `
+                -Arguments @('clippy', '--all-targets', '--locked', '--', '-D', 'warnings') `
+                -Cwd $shellDir -TimeoutSec 7200 -HeartbeatSec $HeartbeatSec -LogFile $log -Label 'desktop-clippy' -PolicyMode 'strict'
+        }
+        Invoke-CiStep -Name "桌面壳 cargo test --locked（src-tauri）" -Id "desktop-test" -Cwd $shellDir -LogDir $LogDir -Block {
+            if (-not $shellPresent) { $global:LASTEXITCODE = 0; return }
+            $log = if ($LogDir) { Join-Path $LogDir "desktop-test.stream.log" } else { "" }
+            Invoke-CiCargo -Arguments @('test', '--locked') `
+                -Cwd $shellDir -TimeoutSec 7200 -HeartbeatSec $HeartbeatSec -LogFile $log -Label 'desktop-test' -PolicyMode 'strict'
+        }
     }
 }
 
