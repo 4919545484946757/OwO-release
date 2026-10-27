@@ -215,7 +215,8 @@ fn raw_response(bytes: Vec<u8>, mime: &str, name: &str, range: Option<&HeaderVal
     };
     let body_len = body.len();
     let mut response = (status, body).into_response();
-    let content_type = if mime.starts_with("text/") && !mime.contains("charset=") {
+    let textual = mime.starts_with("text/") || mime.eq_ignore_ascii_case("application/json");
+    let content_type = if textual && !mime.contains("charset=") {
         format!("{mime}; charset=utf-8")
     } else {
         mime.to_string()
