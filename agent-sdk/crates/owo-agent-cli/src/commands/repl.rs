@@ -80,6 +80,7 @@ impl Repl {
         apply_egress_setting(&settings);
         settings.apply_usage_env();
         settings.apply_reasoning_env();
+        settings.apply_model_input_capabilities_env();
         let model = resolve_model(args.model, settings.model.as_deref());
         let read_only = args.agent == "plan" || settings.read_only;
         let root = ensure_data_root(args.data_dir, &workspace);

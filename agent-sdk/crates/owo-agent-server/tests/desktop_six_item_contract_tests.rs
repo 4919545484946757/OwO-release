@@ -131,6 +131,7 @@ fn secure_credential_references_are_endpoint_bound_and_revocable() {
         api_key_env: Some(name.clone()),
         temperature: None,
         timeout_secs: None,
+        input_capabilities: None,
     };
     assert!(owo_agent_core::gateway::custom_model_provider(&connection).is_ok());
     connection.base_url = "http://127.0.0.1:5999/v1".into();

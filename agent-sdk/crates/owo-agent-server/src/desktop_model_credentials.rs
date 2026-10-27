@@ -58,6 +58,7 @@ pub(crate) async fn register(
             api_key_env: None,
             temperature: None,
             timeout_secs: None,
+            input_capabilities: None,
         };
         // Validate through the same gateway boundary used for execution; no model request is made.
         owo_agent_core::gateway::custom_model_provider(&connection)

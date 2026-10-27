@@ -180,6 +180,7 @@ async fn reasoning_only_max_tokens_is_retried_with_boosted_budget_and_low_effort
         api_key_env: None,
         temperature: Some(0.25),
         timeout_secs: Some(5),
+        input_capabilities: None,
     };
     let provider = OpenAiCompatibleProvider::new(OpenAiCompatibleConfig {
         base_url: endpoint,

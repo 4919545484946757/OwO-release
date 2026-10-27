@@ -872,6 +872,17 @@ impl AnthropicProvider {
         if !self.cloud_enabled() {
             return Err("云端模型已禁用（数据出境开关关闭）".to_string());
         }
+        let effective_model = model
+            .map(str::trim)
+            .filter(|m| !m.is_empty() && *m != MODEL_DEFAULT_SENTINEL)
+            .unwrap_or(&self.config.model);
+        crate::gateway::input_capabilities::ensure_image_input(
+            effective_model,
+            &self.config.base_url,
+            "anthropic",
+            self.connection_options.as_ref(),
+            messages,
+        )?;
         let started = std::time::Instant::now();
         let body = self.request_body(model, messages, tools, false);
         let response = self.post_messages(&body, false).await?;
@@ -908,6 +919,17 @@ impl AnthropicProvider {
         if !self.cloud_enabled() {
             return Err("云端模型已禁用（数据出境开关关闭）".to_string());
         }
+        let effective_model = model
+            .map(str::trim)
+            .filter(|m| !m.is_empty() && *m != MODEL_DEFAULT_SENTINEL)
+            .unwrap_or(&self.config.model);
+        crate::gateway::input_capabilities::ensure_image_input(
+            effective_model,
+            &self.config.base_url,
+            "anthropic",
+            self.connection_options.as_ref(),
+            messages,
+        )?;
         let started = std::time::Instant::now();
         let body = self.request_body(model, messages, tools, true);
         let response = self.post_messages(&body, true).await?;

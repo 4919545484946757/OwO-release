@@ -2,44 +2,45 @@
   "components": {
     "schemas": {
       "ArtifactReviewRecord": {
+        "type": "object",
         "description": "不可变评审记录（V1 四期第三路；只增不改，append-only）",
         "properties": {
+          "review_id": {
+            "type": "string"
+          },
           "artifact_id": {
             "type": "string"
           },
           "artifact_version": {
-            "description": "被评审的产物版本",
-            "type": "integer"
+            "type": "integer",
+            "description": "被评审的产物版本"
           },
-          "comment": {
-            "type": "string"
-          },
-          "content_ref": {
-            "description": "评审时的产物内容引用（取证锚点）",
-            "type": "string"
-          },
-          "created_at": {
+          "team_id": {
             "type": "string"
           },
           "decision": {
+            "type": "string",
             "enum": [
               "approve",
               "request_changes",
               "reject"
-            ],
-            "type": "string"
-          },
-          "idempotency_key": {
-            "description": "唯一约束；同键重放零副作用",
-            "type": "string"
-          },
-          "review_id": {
-            "type": "string"
+            ]
           },
           "reviewer": {
             "type": "string"
           },
-          "team_id": {
+          "comment": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "description": "唯一约束；同键重放零副作用"
+          },
+          "content_ref": {
+            "type": "string",
+            "description": "评审时的产物内容引用（取证锚点）"
+          },
+          "created_at": {
             "type": "string"
           }
         },
@@ -52,67 +53,67 @@
           "reviewer",
           "idempotency_key",
           "created_at"
-        ],
-        "type": "object"
+        ]
       },
       "BuildInfo": {
+        "type": "object",
         "description": "构建信息（§7.1 单一来源 owo-build-info：编译期烧录优先，OWO_BUILD_INFO 覆写文件兼容发布链）",
         "properties": {
-          "built_at": {
-            "type": "string"
-          },
           "commit": {
             "type": "string"
           },
           "dirty": {
             "type": "boolean"
+          },
+          "built_at": {
+            "type": "string"
           }
         },
         "required": [
           "commit",
           "dirty",
           "built_at"
-        ],
-        "type": "object"
+        ]
       },
       "CalibrationReport": {
+        "type": "object",
         "description": "预测校准报告（WM0 聚合：命中、误差与不确定度分桶）",
         "properties": {
+          "samples": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "success_hit_rate": {
+            "type": "number"
+          },
           "mean_calibration_error": {
             "type": "number"
           },
           "mean_delta_jaccard": {
             "type": "number"
           },
-          "samples": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "success_hit_rate": {
-            "type": "number"
-          },
           "uncertainty_buckets": {
+            "type": "array",
             "items": {
+              "type": "object",
               "properties": {
-                "hit_rate": {
-                  "type": "number"
-                },
                 "label": {
                   "type": "string"
                 },
                 "samples": {
-                  "format": "int64",
-                  "type": "integer"
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "hit_rate": {
+                  "type": "number"
                 }
               },
               "required": [
                 "label",
                 "samples",
                 "hit_rate"
-              ],
-              "type": "object"
-            },
-            "type": "array"
+              ]
+            }
           }
         },
         "required": [
@@ -121,102 +122,102 @@
           "mean_calibration_error",
           "mean_delta_jaccard",
           "uncertainty_buckets"
-        ],
-        "type": "object"
+        ]
       },
       "CandidateProviderRef": {
         "description": "候选 provider 身份（§5.12.4 治理，声明≠接线）：external 需进程内真实接线后才积累影子样本；metadata_only 零样本且不可晋升",
         "oneOf": [
           {
+            "type": "object",
             "properties": {
-              "kind": {
-                "description": "provider 类型标识（如 wm1-http、local-onnx）",
-                "type": "string"
-              },
-              "locator": {
-                "description": "定位串（端点或资源标识）",
-                "type": "string"
-              },
               "type": {
+                "type": "string",
                 "enum": [
                   "external"
-                ],
-                "type": "string"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "description": "provider 类型标识（如 wm1-http、local-onnx）"
+              },
+              "locator": {
+                "type": "string",
+                "description": "定位串（端点或资源标识）"
               }
             },
             "required": [
               "type",
               "kind",
               "locator"
-            ],
-            "type": "object"
+            ]
           },
           {
+            "type": "object",
             "properties": {
               "type": {
+                "type": "string",
                 "enum": [
                   "metadata_only"
-                ],
-                "type": "string"
+                ]
               }
             },
             "required": [
               "type"
-            ],
-            "type": "object"
+            ]
           }
         ]
       },
       "CaseModeMetrics": {
+        "type": "object",
         "description": "按 (case_id, mode) 分组的细分统计（单 Agent vs WorkSwarm 对照列）",
         "properties": {
-          "agent_mode": {
-            "enum": [
-              "single",
-              "multi"
-            ],
-            "type": "string"
-          },
           "case_id": {
             "type": "string"
           },
           "category": {
+            "type": "string",
             "enum": [
               "code",
               "research",
               "document"
-            ],
-            "type": "string"
-          },
-          "mean_model_calls": {
-            "type": "number"
-          },
-          "mean_tool_calls": {
-            "nullable": true,
-            "type": [
-              "number",
-              "null"
             ]
           },
-          "mean_wall_ms": {
-            "type": "number"
-          },
-          "passed": {
-            "type": "integer"
+          "agent_mode": {
+            "type": "string",
+            "enum": [
+              "single",
+              "multi"
+            ]
           },
           "runs_total": {
+            "type": "integer"
+          },
+          "passed": {
             "type": "integer"
           },
           "success_rate": {
             "type": "number"
           },
+          "mean_wall_ms": {
+            "type": "number"
+          },
+          "mean_model_calls": {
+            "type": "number"
+          },
+          "mean_tool_calls": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "nullable": true
+          },
           "total_tokens": {
-            "format": "int64",
-            "nullable": true,
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "format": "int64",
+            "nullable": true
           }
         },
         "required": [
@@ -230,8 +231,7 @@
           "mean_model_calls",
           "mean_tool_calls",
           "total_tokens"
-        ],
-        "type": "object"
+        ]
       },
       "CreateSessionRequest": {
         "type": "object",
@@ -257,110 +257,114 @@
         }
       },
       "CustomModelConnection": {
+        "type": "object",
         "additionalProperties": false,
+        "required": [
+          "model",
+          "base_url"
+        ],
         "description": "Explicit connection for this turn only; credentials are never persisted with sessions or traces.",
         "properties": {
+          "model": {
+            "type": "string"
+          },
+          "base_url": {
+            "type": "string",
+            "format": "uri"
+          },
           "api_format": {
+            "type": "string",
             "enum": [
               "openai",
               "anthropic"
-            ],
-            "type": "string"
+            ]
+          },
+          "use_full_url": {
+            "type": "boolean"
           },
           "api_key": {
             "type": "string",
             "writeOnly": true
           },
           "api_key_env": {
-            "pattern": "^OWO_CUSTOM_MODEL_SECRET_[a-fA-F0-9]{32}$",
-            "type": "string"
-          },
-          "base_url": {
-            "format": "uri",
-            "type": "string"
-          },
-          "model": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^OWO_CUSTOM_MODEL_SECRET_[a-fA-F0-9]{32}$"
           },
           "temperature": {
-            "maximum": 2,
+            "type": "number",
             "minimum": 0,
-            "type": "number"
+            "maximum": 2
           },
           "timeout_secs": {
-            "maximum": 3600,
+            "type": "integer",
             "minimum": 1,
-            "type": "integer"
+            "maximum": 3600
           },
-          "use_full_url": {
-            "type": "boolean"
+          "input_capabilities": {
+            "$ref": "#/components/schemas/ModelInputCapabilityBinding"
           }
-        },
-        "required": [
-          "model",
-          "base_url"
-        ],
-        "type": "object"
+        }
       },
       "DesktopModelCredentialBinding": {
+        "type": "object",
         "additionalProperties": false,
-        "properties": {
-          "api_format": {
-            "enum": [
-              "openai",
-              "anthropic"
-            ],
-            "type": "string"
-          },
-          "api_key": {
-            "description": "Omit to revoke. Never persisted by this API.",
-            "maxLength": 8192,
-            "type": [
-              "string",
-              "null"
-            ],
-            "writeOnly": true
-          },
-          "base_url": {
-            "format": "uri",
-            "type": "string"
-          },
-          "credential_ref": {
-            "pattern": "^[a-fA-F0-9]{32}$",
-            "type": "string"
-          },
-          "model": {
-            "maxLength": 200,
-            "type": "string"
-          }
-        },
         "required": [
           "credential_ref",
           "model",
           "base_url"
         ],
-        "type": "object"
+        "properties": {
+          "credential_ref": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{32}$"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "base_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "api_format": {
+            "type": "string",
+            "enum": [
+              "openai",
+              "anthropic"
+            ]
+          },
+          "api_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "writeOnly": true,
+            "maxLength": 8192,
+            "description": "Omit to revoke. Never persisted by this API."
+          }
+        }
       },
       "EnablementRule": {
+        "type": "object",
         "properties": {
-          "detail": {
-            "type": "string"
-          },
           "name": {
             "type": "string"
           },
           "satisfied": {
             "type": "boolean"
+          },
+          "detail": {
+            "type": "string"
           }
         },
         "required": [
           "name",
           "satisfied",
           "detail"
-        ],
-        "type": "object"
+        ]
       },
       "Error": {
+        "type": "object",
         "properties": {
           "error": {
             "type": "string"
@@ -368,10 +372,10 @@
         },
         "required": [
           "error"
-        ],
-        "type": "object"
+        ]
       },
       "EvalRunRequest": {
+        "type": "object",
         "properties": {
           "suite_id": {
             "type": "string"
@@ -379,8 +383,7 @@
         },
         "required": [
           "suite_id"
-        ],
-        "type": "object"
+        ]
       },
       "ExpressionOriginCapsule": {
         "additionalProperties": false,
@@ -587,11 +590,18 @@
         "type": "object"
       },
       "HealthResponse": {
+        "type": "object",
         "description": "/health 响应（十期一路：build 为 additive 字段；§4.2 实例握手字段 additive）",
         "properties": {
-          "api_version": {
-            "description": "桌面壳与核心服务兼容性握手版本",
+          "healthy": {
+            "type": "boolean"
+          },
+          "version": {
             "type": "string"
+          },
+          "api_version": {
+            "type": "string",
+            "description": "桌面壳与核心服务兼容性握手版本"
           },
           "auto_approve": {
             "type": "boolean"
@@ -600,28 +610,22 @@
             "$ref": "#/components/schemas/BuildInfo",
             "nullable": true
           },
-          "build_id": {
-            "description": "构建标识（git_commit，缺失 unknown）",
-            "type": "string"
-          },
-          "healthy": {
-            "type": "boolean"
-          },
           "instance_id": {
-            "description": "桌面壳注入的实例身份（开发模式不序列化）",
+            "type": "string",
             "nullable": true,
-            "type": "string"
+            "description": "桌面壳注入的实例身份（开发模式不序列化）"
           },
           "pid": {
-            "description": "服务进程 pid",
-            "type": "integer"
+            "type": "integer",
+            "description": "服务进程 pid"
           },
           "stage": {
-            "description": "启动阶段（当前恒为 ready）",
-            "type": "string"
+            "type": "string",
+            "description": "启动阶段（当前恒为 ready）"
           },
-          "version": {
-            "type": "string"
+          "build_id": {
+            "type": "string",
+            "description": "构建标识（git_commit，缺失 unknown）"
           }
         },
         "required": [
@@ -629,21 +633,21 @@
           "version",
           "api_version",
           "auto_approve"
-        ],
-        "type": "object"
+        ]
       },
       "MatrixKey": {
+        "type": "object",
         "description": "矩阵单元格：(case_id, agent_mode, repetition)；agent_mode 为核心小写词（workswarm 拓扑序列化为 multi）",
         "properties": {
+          "case_id": {
+            "type": "string"
+          },
           "agent_mode": {
+            "type": "string",
             "enum": [
               "single",
               "multi"
-            ],
-            "type": "string"
-          },
-          "case_id": {
-            "type": "string"
+            ]
           },
           "repetition": {
             "type": "integer"
@@ -653,76 +657,76 @@
           "case_id",
           "agent_mode",
           "repetition"
-        ],
-        "type": "object"
+        ]
       },
       "ModeComparison": {
+        "type": "object",
         "description": "共享 Team 自动启用结论：质量/成功率守卫、样本量、收益与资源护栏",
         "properties": {
-          "alignment_guardrails": {
-            "items": {
-              "$ref": "#/components/schemas/EnablementRule"
-            },
-            "type": "array"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "multi_calls_rel_change": {
-            "nullable": true,
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "multi_cost_rel_change": {
-            "nullable": true,
-            "type": [
-              "number",
-              "null"
-            ]
-          },
           "multi_success_rate_diff": {
             "type": "number"
           },
-          "multi_tokens_rel_change": {
-            "nullable": true,
+          "multi_wall_rel_change": {
             "type": [
               "number",
               "null"
-            ]
+            ],
+            "nullable": true
+          },
+          "multi_calls_rel_change": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "nullable": true
           },
           "multi_tool_calls_rel_change": {
-            "nullable": true,
             "type": [
               "number",
               "null"
-            ]
+            ],
+            "nullable": true
           },
-          "multi_wall_rel_change": {
-            "nullable": true,
+          "multi_tokens_rel_change": {
             "type": [
               "number",
               "null"
-            ]
+            ],
+            "nullable": true
           },
-          "quality_guardrails": {
-            "items": {
-              "$ref": "#/components/schemas/EnablementRule"
-            },
-            "type": "array"
-          },
-          "resource_guardrails": {
-            "items": {
-              "$ref": "#/components/schemas/EnablementRule"
-            },
-            "type": "array"
+          "multi_cost_rel_change": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "nullable": true
           },
           "rules": {
+            "type": "array",
             "items": {
               "$ref": "#/components/schemas/EnablementRule"
-            },
-            "type": "array"
+            }
+          },
+          "alignment_guardrails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnablementRule"
+            }
+          },
+          "quality_guardrails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnablementRule"
+            }
+          },
+          "resource_guardrails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnablementRule"
+            }
+          },
+          "enabled": {
+            "type": "boolean"
           },
           "sample_sufficient": {
             "type": "boolean"
@@ -741,26 +745,13 @@
           "resource_guardrails",
           "enabled",
           "sample_sufficient"
-        ],
-        "type": "object"
+        ]
       },
       "ModelCandidate": {
+        "type": "object",
         "description": "世界模型候选（新候选恒 shadow 起步，达标后显式人工晋升；Option 字段缺省序列化为 null）",
         "properties": {
-          "calibration_summary": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/CalibrationReport"
-              }
-            ],
-            "description": "晋升时刻的校准摘要快照（从未晋升过为 null）",
-            "nullable": true
-          },
           "candidate_id": {
-            "type": "string"
-          },
-          "created_at": {
-            "description": "RFC3339",
             "type": "string"
           },
           "model_id": {
@@ -769,28 +760,41 @@
           "model_version": {
             "type": "string"
           },
-          "promote_reason": {
-            "nullable": true,
+          "source": {
             "type": "string"
           },
+          "status": {
+            "type": "string",
+            "enum": [
+              "shadow",
+              "active",
+              "rejected"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "description": "RFC3339"
+          },
           "promoted_at": {
-            "nullable": true,
-            "type": "string"
+            "type": "string",
+            "nullable": true
+          },
+          "promote_reason": {
+            "type": "string",
+            "nullable": true
           },
           "provider": {
             "$ref": "#/components/schemas/CandidateProviderRef",
             "description": "provider 身份治理（响应 wire 字段名为 provider；注册请求侧字段名为 provider_ref）"
           },
-          "source": {
-            "type": "string"
-          },
-          "status": {
-            "enum": [
-              "shadow",
-              "active",
-              "rejected"
+          "calibration_summary": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CalibrationReport"
+              }
             ],
-            "type": "string"
+            "nullable": true,
+            "description": "晋升时刻的校准摘要快照（从未晋升过为 null）"
           }
         },
         "required": [
@@ -804,62 +808,62 @@
           "promote_reason",
           "provider",
           "calibration_summary"
-        ],
-        "type": "object"
+        ]
       },
       "ProductEvalMetrics": {
+        "type": "object",
         "description": "聚合指标：成功率分母为全部已尝试运行（失败/错误/超时一律计入，禁止剔除重算）",
         "properties": {
-          "cancelled": {
+          "runs_total": {
+            "type": "integer"
+          },
+          "passed": {
+            "type": "integer"
+          },
+          "failed": {
             "type": "integer"
           },
           "errors": {
             "type": "integer"
           },
-          "estimated_cost_usd": {
-            "nullable": true,
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "failed": {
+          "timeouts": {
             "type": "integer"
           },
-          "mean_wall_ms": {
-            "type": "number"
-          },
-          "passed": {
-            "type": "integer"
-          },
-          "runs_total": {
+          "cancelled": {
             "type": "integer"
           },
           "success_rate": {
             "type": "number"
           },
-          "timeouts": {
-            "type": "integer"
+          "mean_wall_ms": {
+            "type": "number"
           },
           "total_model_calls": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "total_tokens": {
-            "format": "int64",
-            "nullable": true,
-            "type": [
-              "integer",
-              "null"
-            ]
+            "type": "integer",
+            "format": "int64"
           },
           "total_tool_calls": {
-            "format": "int64",
-            "nullable": true,
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "format": "int64",
+            "nullable": true
+          },
+          "total_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "nullable": true
+          },
+          "estimated_cost_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "nullable": true
           }
         },
         "required": [
@@ -875,62 +879,62 @@
           "total_tool_calls",
           "total_tokens",
           "estimated_cost_usd"
-        ],
-        "type": "object"
+        ]
       },
       "ProductEvalReport": {
+        "type": "object",
         "description": "ProductEvalReport 原样（core 序列化；聚合全部 journal 记录含失败 + 未完成单元格清单）",
         "properties": {
-          "comparison": {
-            "$ref": "#/components/schemas/ModeComparison",
-            "nullable": true
-          },
-          "execution": {
-            "enum": [
-              "reference",
-              "live"
-            ],
-            "type": "string"
-          },
-          "generated_at": {
-            "type": "string"
-          },
-          "metrics": {
-            "$ref": "#/components/schemas/ProductEvalMetrics"
-          },
-          "model": {
-            "nullable": true,
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "pending": {
-            "items": {
-              "$ref": "#/components/schemas/MatrixKey"
-            },
-            "type": "array"
-          },
-          "per_case": {
-            "items": {
-              "$ref": "#/components/schemas/CaseModeMetrics"
-            },
-            "type": "array"
-          },
-          "runs": {
-            "items": {
-              "$ref": "#/components/schemas/ProductEvalRun"
-            },
-            "type": "array"
-          },
           "schema_version": {
             "type": "integer"
+          },
+          "suite_name": {
+            "type": "string"
           },
           "suite_hash": {
             "type": "string"
           },
-          "suite_name": {
+          "execution": {
+            "type": "string",
+            "enum": [
+              "reference",
+              "live"
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true
+          },
+          "generated_at": {
             "type": "string"
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductEvalRun"
+            }
+          },
+          "pending": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatrixKey"
+            }
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/ProductEvalMetrics"
+          },
+          "per_case": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CaseModeMetrics"
+            }
+          },
+          "comparison": {
+            "$ref": "#/components/schemas/ModeComparison",
+            "nullable": true
           }
         },
         "required": [
@@ -944,91 +948,25 @@
           "pending",
           "metrics",
           "per_case"
-        ],
-        "type": "object"
+        ]
       },
       "ProductEvalRun": {
+        "type": "object",
         "description": "一次运行的完整记录（journal 最小单元；失败记录同样保留；Option 字段缺数据时序列化为 null）",
         "properties": {
-          "artifact_refs": {
-            "description": "最终 Artifact 引用（沙盒内相对路径）",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "cancellations": {
-            "type": "integer"
+          "key": {
+            "$ref": "#/components/schemas/MatrixKey"
           },
           "category": {
+            "type": "string",
             "enum": [
               "code",
               "research",
               "document"
-            ],
-            "type": "string"
-          },
-          "completion_tokens": {
-            "format": "int64",
-            "nullable": true,
-            "type": [
-              "integer",
-              "null"
             ]
-          },
-          "cost_usd": {
-            "nullable": true,
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "error": {
-            "nullable": true,
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "failed_steps": {
-            "description": "失败步骤（检查器描述/执行器阶段名）",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "finished_at": {
-            "type": "string"
-          },
-          "key": {
-            "$ref": "#/components/schemas/MatrixKey"
-          },
-          "model": {
-            "nullable": true,
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "model_calls": {
-            "type": "integer"
-          },
-          "prompt_tokens": {
-            "format": "int64",
-            "nullable": true,
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "retries": {
-            "type": "integer"
-          },
-          "started_at": {
-            "type": "string"
           },
           "status": {
-            "description": "单元格级状态（核心 RunStatus 小写词）",
+            "type": "string",
             "enum": [
               "passed",
               "failed",
@@ -1036,34 +974,100 @@
               "timeout",
               "cancelled"
             ],
-            "type": "string"
+            "description": "单元格级状态（核心 RunStatus 小写词）"
+          },
+          "wall_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "model_calls": {
+            "type": "integer"
           },
           "tool_calls": {
-            "description": "精确工具调用数；旧记录或执行器无法观测时为 null",
-            "nullable": true,
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "nullable": true,
+            "description": "精确工具调用数；旧记录或执行器无法观测时为 null"
           },
-          "tool_log": {
-            "description": "真实工具调用轨迹（单 Agent 执行器填写：工具+实参摘要+结果；旧记录缺省为空数组）",
+          "prompt_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "nullable": true
+          },
+          "completion_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "nullable": true
+          },
+          "total_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "nullable": true
+          },
+          "cost_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "nullable": true
+          },
+          "failed_steps": {
+            "type": "array",
             "items": {
               "type": "string"
             },
-            "type": "array"
+            "description": "失败步骤（检查器描述/执行器阶段名）"
           },
-          "total_tokens": {
-            "format": "int64",
-            "nullable": true,
-            "type": [
-              "integer",
-              "null"
-            ]
-          },
-          "wall_ms": {
-            "format": "int64",
+          "retries": {
             "type": "integer"
+          },
+          "cancellations": {
+            "type": "integer"
+          },
+          "artifact_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "最终 Artifact 引用（沙盒内相对路径）"
+          },
+          "tool_log": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "真实工具调用轨迹（单 Agent 执行器填写：工具+实参摘要+结果；旧记录缺省为空数组）"
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "finished_at": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true
           }
         },
         "required": [
@@ -1086,41 +1090,51 @@
           "started_at",
           "finished_at",
           "error"
-        ],
-        "type": "object"
+        ]
       },
       "ProductEvalRunSummary": {
+        "type": "object",
         "description": "ProductEval 运行摘要（列表元素与详情基底；六态：queued/running/cancelled/completed/failed/interrupted）",
         "properties": {
+          "run_id": {
+            "type": "string"
+          },
+          "suite": {
+            "type": "string"
+          },
+          "execution": {
+            "type": "string",
+            "enum": [
+              "reference",
+              "live"
+            ]
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "single",
+                "workswarm"
+              ]
+            }
+          },
+          "repetitions": {
+            "type": "integer"
+          },
           "category": {
+            "type": [
+              "string",
+              "null"
+            ],
             "enum": [
               "code",
               "research",
               "document",
               null
-            ],
-            "type": [
-              "string",
-              "null"
             ]
           },
-          "created_at": {
-            "type": "string"
-          },
-          "error": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "execution": {
-            "enum": [
-              "reference",
-              "live"
-            ],
-            "type": "string"
-          },
-          "finished_at": {
+          "only": {
             "type": [
               "string",
               "null"
@@ -1132,47 +1146,18 @@
               "null"
             ]
           },
-          "modes": {
-            "items": {
-              "enum": [
-                "single",
-                "workswarm"
-              ],
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "only": {
-            "type": [
-              "string",
-              "null"
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "cancelled",
+              "completed",
+              "failed",
+              "interrupted"
             ]
           },
-          "planned_total": {
-            "description": "计划单元格总数（modes × cases × repetitions）",
-            "type": "integer"
-          },
-          "progress": {
-            "properties": {
-              "done": {
-                "description": "已完成单元格（journal 行数）",
-                "type": "integer"
-              },
-              "total": {
-                "description": "= planned_total",
-                "type": "integer"
-              }
-            },
-            "required": [
-              "done",
-              "total"
-            ],
-            "type": "object"
-          },
-          "repetitions": {
-            "type": "integer"
-          },
-          "run_id": {
+          "created_at": {
             "type": "string"
           },
           "started_at": {
@@ -1181,19 +1166,38 @@
               "null"
             ]
           },
-          "status": {
-            "enum": [
-              "queued",
-              "running",
-              "cancelled",
-              "completed",
-              "failed",
-              "interrupted"
-            ],
-            "type": "string"
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
-          "suite": {
-            "type": "string"
+          "planned_total": {
+            "type": "integer",
+            "description": "计划单元格总数（modes × cases × repetitions）"
+          },
+          "progress": {
+            "type": "object",
+            "properties": {
+              "done": {
+                "type": "integer",
+                "description": "已完成单元格（journal 行数）"
+              },
+              "total": {
+                "type": "integer",
+                "description": "= planned_total"
+              }
+            },
+            "required": [
+              "done",
+              "total"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -1206,8 +1210,7 @@
           "created_at",
           "planned_total",
           "progress"
-        ],
-        "type": "object"
+        ]
       },
       "SessionDetail": {
         "type": "object",
@@ -1451,63 +1454,63 @@
         }
       },
       "SessionTurnHistoryV1": {
+        "type": "object",
         "properties": {
+          "last_turn_id": {
+            "type": "string"
+          },
+          "latest_seq": {
+            "type": "integer"
+          },
           "last_event_at": {
             "type": "string"
           },
           "last_event_type": {
             "type": "string"
           },
-          "last_stats": {
-            "properties": {
-              "created_at": {
-                "type": "string"
-              },
-              "payload": {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              "seq": {
-                "type": "integer"
-              },
-              "turn_id": {
-                "type": "string"
-              }
-            },
-            "type": [
-              "object",
-              "null"
-            ]
-          },
           "last_terminal": {
+            "type": [
+              "object",
+              "null"
+            ],
             "properties": {
-              "created_at": {
+              "turn_id": {
                 "type": "string"
-              },
-              "payload": {
-                "additionalProperties": true,
-                "type": "object"
               },
               "seq": {
                 "type": "integer"
               },
-              "turn_id": {
+              "created_at": {
                 "type": "string"
+              },
+              "payload": {
+                "type": "object",
+                "additionalProperties": true
               }
-            },
+            }
+          },
+          "last_stats": {
             "type": [
               "object",
               "null"
-            ]
-          },
-          "last_turn_id": {
-            "type": "string"
-          },
-          "latest_seq": {
-            "type": "integer"
+            ],
+            "properties": {
+              "turn_id": {
+                "type": "string"
+              },
+              "seq": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "payload": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
           }
-        },
-        "type": "object"
+        }
       },
       "TurnEventRecord": {
         "type": "object",
@@ -1549,29 +1552,30 @@
         ]
       },
       "TurnEventReplayPage": {
+        "type": "object",
         "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TurnEventRecord"
+            }
+          },
           "active": {
             "type": "boolean"
           },
-          "events": {
-            "items": {
-              "$ref": "#/components/schemas/TurnEventRecord"
-            },
-            "type": "array"
-          },
-          "next_after_seq": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
           "state": {
+            "type": "string",
             "enum": [
               "active",
               "completed",
               "failed",
               "interrupted"
-            ],
-            "type": "string"
+            ]
+          },
+          "next_after_seq": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         },
         "required": [
@@ -1579,8 +1583,7 @@
           "active",
           "state",
           "next_after_seq"
-        ],
-        "type": "object"
+        ]
       },
       "TurnRequest": {
         "type": "object",
@@ -3057,12 +3060,46 @@
           }
         },
         "description": "Persisted TCP observation for one immutable catalog revision. Does not test TLS, credentials, model compatibility or generation."
+      },
+      "ModelInputCapabilityBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Explicit user/host declaration, not remote verification. Bound to the actual model, endpoint, protocol and URL mode.",
+        "required": [
+          "model",
+          "base_url",
+          "image_input"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "base_url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          },
+          "api_format": {
+            "type": "string",
+            "enum": [
+              "openai",
+              "anthropic"
+            ]
+          },
+          "use_full_url": {
+            "type": "boolean"
+          },
+          "image_input": {
+            "type": "boolean"
+          }
+        }
       }
     },
     "securitySchemes": {
       "bearerAuth": {
-        "scheme": "bearer",
-        "type": "http"
+        "type": "http",
+        "scheme": "bearer"
       }
     }
   },

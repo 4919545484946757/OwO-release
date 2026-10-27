@@ -5104,66 +5104,66 @@ export interface components {
     schemas: {
         /** @description 不可变评审记录（V1 四期第三路；只增不改，append-only） */
         ArtifactReviewRecord: {
+            review_id: string;
             artifact_id: string;
             /** @description 被评审的产物版本 */
             artifact_version: number;
+            team_id: string;
+            /** @enum {string} */
+            decision: "approve" | "request_changes" | "reject";
+            reviewer: string;
             comment?: string;
+            /** @description 唯一约束；同键重放零副作用 */
+            idempotency_key: string;
             /** @description 评审时的产物内容引用（取证锚点） */
             content_ref?: string;
             created_at: string;
-            /** @enum {string} */
-            decision: "approve" | "request_changes" | "reject";
-            /** @description 唯一约束；同键重放零副作用 */
-            idempotency_key: string;
-            review_id: string;
-            reviewer: string;
-            team_id: string;
         };
         /** @description 构建信息（§7.1 单一来源 owo-build-info：编译期烧录优先，OWO_BUILD_INFO 覆写文件兼容发布链） */
         BuildInfo: {
-            built_at: string;
             commit: string;
             dirty: boolean;
+            built_at: string;
         };
         /** @description 预测校准报告（WM0 聚合：命中、误差与不确定度分桶） */
         CalibrationReport: {
-            mean_calibration_error: number;
-            mean_delta_jaccard: number;
             /** Format: int64 */
             samples: number;
             success_hit_rate: number;
+            mean_calibration_error: number;
+            mean_delta_jaccard: number;
             uncertainty_buckets: {
-                hit_rate: number;
                 label: string;
                 /** Format: int64 */
                 samples: number;
+                hit_rate: number;
             }[];
         };
         /** @description 候选 provider 身份（§5.12.4 治理，声明≠接线）：external 需进程内真实接线后才积累影子样本；metadata_only 零样本且不可晋升 */
         CandidateProviderRef: {
+            /** @enum {string} */
+            type: "external";
             /** @description provider 类型标识（如 wm1-http、local-onnx） */
             kind: string;
             /** @description 定位串（端点或资源标识） */
             locator: string;
-            /** @enum {string} */
-            type: "external";
         } | {
             /** @enum {string} */
             type: "metadata_only";
         };
         /** @description 按 (case_id, mode) 分组的细分统计（单 Agent vs WorkSwarm 对照列） */
         CaseModeMetrics: {
-            /** @enum {string} */
-            agent_mode: "single" | "multi";
             case_id: string;
             /** @enum {string} */
             category: "code" | "research" | "document";
+            /** @enum {string} */
+            agent_mode: "single" | "multi";
+            runs_total: number;
+            passed: number;
+            success_rate: number;
+            mean_wall_ms: number;
             mean_model_calls: number;
             mean_tool_calls: ((number | null) | null) | null;
-            mean_wall_ms: number;
-            passed: number;
-            runs_total: number;
-            success_rate: number;
             /** Format: int64 */
             total_tokens: ((number | null) | null) | null;
         };
@@ -5180,31 +5180,32 @@ export interface components {
         };
         /** @description Explicit connection for this turn only; credentials are never persisted with sessions or traces. */
         CustomModelConnection: {
-            /** @enum {string} */
-            api_format?: "openai" | "anthropic";
-            api_key?: string;
-            api_key_env?: string;
+            model: string;
             /** Format: uri */
             base_url: string;
-            model: string;
+            /** @enum {string} */
+            api_format?: "openai" | "anthropic";
+            use_full_url?: boolean;
+            api_key?: string;
+            api_key_env?: string;
             temperature?: number;
             timeout_secs?: number;
-            use_full_url?: boolean;
+            input_capabilities?: components["schemas"]["ModelInputCapabilityBinding"];
         };
         DesktopModelCredentialBinding: {
+            credential_ref: string;
+            model: string;
+            /** Format: uri */
+            base_url: string;
             /** @enum {string} */
             api_format?: "openai" | "anthropic";
             /** @description Omit to revoke. Never persisted by this API. */
             api_key?: string | null;
-            /** Format: uri */
-            base_url: string;
-            credential_ref: string;
-            model: string;
         };
         EnablementRule: {
-            detail: string;
             name: string;
             satisfied: boolean;
+            detail: string;
         };
         Error: {
             error: string;
@@ -5259,140 +5260,145 @@ export interface components {
         };
         /** @description /health 响应（十期一路：build 为 additive 字段；§4.2 实例握手字段 additive） */
         HealthResponse: {
+            healthy: boolean;
+            version: string;
             /** @description 桌面壳与核心服务兼容性握手版本 */
             api_version: string;
             auto_approve: boolean;
             build?: components["schemas"]["BuildInfo"];
-            /** @description 构建标识（git_commit，缺失 unknown） */
-            build_id?: string;
-            healthy: boolean;
             /** @description 桌面壳注入的实例身份（开发模式不序列化） */
             instance_id?: string | null;
             /** @description 服务进程 pid */
             pid?: number;
             /** @description 启动阶段（当前恒为 ready） */
             stage?: string;
-            version: string;
+            /** @description 构建标识（git_commit，缺失 unknown） */
+            build_id?: string;
         };
         /** @description 矩阵单元格：(case_id, agent_mode, repetition)；agent_mode 为核心小写词（workswarm 拓扑序列化为 multi） */
         MatrixKey: {
+            case_id: string;
             /** @enum {string} */
             agent_mode: "single" | "multi";
-            case_id: string;
             repetition: number;
         };
         /** @description 共享 Team 自动启用结论：质量/成功率守卫、样本量、收益与资源护栏 */
         ModeComparison: {
-            alignment_guardrails: components["schemas"]["EnablementRule"][];
-            enabled: boolean;
-            multi_calls_rel_change: ((number | null) | null) | null;
-            multi_cost_rel_change: ((number | null) | null) | null;
             multi_success_rate_diff: number;
-            multi_tokens_rel_change: ((number | null) | null) | null;
-            multi_tool_calls_rel_change: ((number | null) | null) | null;
             multi_wall_rel_change: ((number | null) | null) | null;
+            multi_calls_rel_change: ((number | null) | null) | null;
+            multi_tool_calls_rel_change: ((number | null) | null) | null;
+            multi_tokens_rel_change: ((number | null) | null) | null;
+            multi_cost_rel_change: ((number | null) | null) | null;
+            rules: components["schemas"]["EnablementRule"][];
+            alignment_guardrails: components["schemas"]["EnablementRule"][];
             quality_guardrails: components["schemas"]["EnablementRule"][];
             resource_guardrails: components["schemas"]["EnablementRule"][];
-            rules: components["schemas"]["EnablementRule"][];
+            enabled: boolean;
             sample_sufficient: boolean;
         };
         /** @description 世界模型候选（新候选恒 shadow 起步，达标后显式人工晋升；Option 字段缺省序列化为 null） */
         ModelCandidate: {
-            /** @description 晋升时刻的校准摘要快照（从未晋升过为 null） */
-            calibration_summary: components["schemas"]["CalibrationReport"] | null;
             candidate_id: string;
-            /** @description RFC3339 */
-            created_at: string;
             model_id: string;
             model_version: string;
-            promote_reason: string | null;
-            promoted_at: string | null;
-            /** @description provider 身份治理（响应 wire 字段名为 provider；注册请求侧字段名为 provider_ref） */
-            provider: components["schemas"]["CandidateProviderRef"];
             source: string;
             /** @enum {string} */
             status: "shadow" | "active" | "rejected";
+            /** @description RFC3339 */
+            created_at: string;
+            promoted_at: string | null;
+            promote_reason: string | null;
+            /** @description provider 身份治理（响应 wire 字段名为 provider；注册请求侧字段名为 provider_ref） */
+            provider: components["schemas"]["CandidateProviderRef"];
+            /** @description 晋升时刻的校准摘要快照（从未晋升过为 null） */
+            calibration_summary: components["schemas"]["CalibrationReport"] | null;
         };
         /** @description 聚合指标：成功率分母为全部已尝试运行（失败/错误/超时一律计入，禁止剔除重算） */
         ProductEvalMetrics: {
-            cancelled: number;
-            errors: number;
-            estimated_cost_usd: ((number | null) | null) | null;
-            failed: number;
-            mean_wall_ms: number;
-            passed: number;
             runs_total: number;
-            success_rate: number;
+            passed: number;
+            failed: number;
+            errors: number;
             timeouts: number;
+            cancelled: number;
+            success_rate: number;
+            mean_wall_ms: number;
             /** Format: int64 */
             total_model_calls: number;
             /** Format: int64 */
-            total_tokens: ((number | null) | null) | null;
-            /** Format: int64 */
             total_tool_calls: ((number | null) | null) | null;
+            /** Format: int64 */
+            total_tokens: ((number | null) | null) | null;
+            estimated_cost_usd: ((number | null) | null) | null;
         };
         /** @description ProductEvalReport 原样（core 序列化；聚合全部 journal 记录含失败 + 未完成单元格清单） */
         ProductEvalReport: {
-            comparison?: components["schemas"]["ModeComparison"];
+            schema_version: number;
+            suite_name: string;
+            suite_hash: string;
             /** @enum {string} */
             execution: "reference" | "live";
-            generated_at: string;
-            metrics: components["schemas"]["ProductEvalMetrics"];
             model: ((string | null) | null) | null;
-            pending: components["schemas"]["MatrixKey"][];
-            per_case: components["schemas"]["CaseModeMetrics"][];
+            generated_at: string;
             runs: components["schemas"]["ProductEvalRun"][];
-            schema_version: number;
-            suite_hash: string;
-            suite_name: string;
+            pending: components["schemas"]["MatrixKey"][];
+            metrics: components["schemas"]["ProductEvalMetrics"];
+            per_case: components["schemas"]["CaseModeMetrics"][];
+            comparison?: components["schemas"]["ModeComparison"];
         };
         /** @description 一次运行的完整记录（journal 最小单元；失败记录同样保留；Option 字段缺数据时序列化为 null） */
         ProductEvalRun: {
-            /** @description 最终 Artifact 引用（沙盒内相对路径） */
-            artifact_refs: string[];
-            cancellations: number;
+            key: components["schemas"]["MatrixKey"];
             /** @enum {string} */
             category: "code" | "research" | "document";
-            /** Format: int64 */
-            completion_tokens: ((number | null) | null) | null;
-            cost_usd: ((number | null) | null) | null;
-            error: ((string | null) | null) | null;
-            /** @description 失败步骤（检查器描述/执行器阶段名） */
-            failed_steps: string[];
-            finished_at: string;
-            key: components["schemas"]["MatrixKey"];
-            model: ((string | null) | null) | null;
-            model_calls: number;
-            /** Format: int64 */
-            prompt_tokens: ((number | null) | null) | null;
-            retries: number;
-            started_at: string;
             /**
              * @description 单元格级状态（核心 RunStatus 小写词）
              * @enum {string}
              */
             status: "passed" | "failed" | "error" | "timeout" | "cancelled";
-            /** @description 精确工具调用数；旧记录或执行器无法观测时为 null */
-            tool_calls: ((number | null) | null) | null;
-            /** @description 真实工具调用轨迹（单 Agent 执行器填写：工具+实参摘要+结果；旧记录缺省为空数组） */
-            tool_log: string[];
-            /** Format: int64 */
-            total_tokens: ((number | null) | null) | null;
             /** Format: int64 */
             wall_ms: number;
+            model_calls: number;
+            /** @description 精确工具调用数；旧记录或执行器无法观测时为 null */
+            tool_calls: ((number | null) | null) | null;
+            /** Format: int64 */
+            prompt_tokens: ((number | null) | null) | null;
+            /** Format: int64 */
+            completion_tokens: ((number | null) | null) | null;
+            /** Format: int64 */
+            total_tokens: ((number | null) | null) | null;
+            cost_usd: ((number | null) | null) | null;
+            /** @description 失败步骤（检查器描述/执行器阶段名） */
+            failed_steps: string[];
+            retries: number;
+            cancellations: number;
+            /** @description 最终 Artifact 引用（沙盒内相对路径） */
+            artifact_refs: string[];
+            /** @description 真实工具调用轨迹（单 Agent 执行器填写：工具+实参摘要+结果；旧记录缺省为空数组） */
+            tool_log: string[];
+            model: ((string | null) | null) | null;
+            started_at: string;
+            finished_at: string;
+            error: ((string | null) | null) | null;
         };
         /** @description ProductEval 运行摘要（列表元素与详情基底；六态：queued/running/cancelled/completed/failed/interrupted） */
         ProductEvalRunSummary: {
-            /** @enum {string|null} */
-            category?: "code" | "research" | "document" | null;
-            created_at: string;
-            error?: string | null;
+            run_id: string;
+            suite: string;
             /** @enum {string} */
             execution: "reference" | "live";
-            finished_at?: string | null;
-            model?: string | null;
             modes: ("single" | "workswarm")[];
+            repetitions: number;
+            /** @enum {string|null} */
+            category?: "code" | "research" | "document" | null;
             only?: string | null;
+            model?: string | null;
+            /** @enum {string} */
+            status: "queued" | "running" | "cancelled" | "completed" | "failed" | "interrupted";
+            created_at: string;
+            started_at?: string | null;
+            finished_at?: string | null;
             /** @description 计划单元格总数（modes × cases × repetitions） */
             planned_total: number;
             progress: {
@@ -5401,12 +5407,7 @@ export interface components {
                 /** @description = planned_total */
                 total: number;
             };
-            repetitions: number;
-            run_id: string;
-            started_at?: string | null;
-            /** @enum {string} */
-            status: "queued" | "running" | "cancelled" | "completed" | "failed" | "interrupted";
-            suite: string;
+            error?: string | null;
         };
         SessionDetail: {
             id?: string;
@@ -5476,26 +5477,26 @@ export interface components {
             } | null;
         };
         SessionTurnHistoryV1: {
-            last_event_at?: string;
-            last_event_type?: string;
-            last_stats?: {
-                created_at?: string;
-                payload?: {
-                    [key: string]: unknown;
-                };
-                seq?: number;
-                turn_id?: string;
-            } | null;
-            last_terminal?: {
-                created_at?: string;
-                payload?: {
-                    [key: string]: unknown;
-                };
-                seq?: number;
-                turn_id?: string;
-            } | null;
             last_turn_id?: string;
             latest_seq?: number;
+            last_event_at?: string;
+            last_event_type?: string;
+            last_terminal?: {
+                turn_id?: string;
+                seq?: number;
+                created_at?: string;
+                payload?: {
+                    [key: string]: unknown;
+                };
+            } | null;
+            last_stats?: {
+                turn_id?: string;
+                seq?: number;
+                created_at?: string;
+                payload?: {
+                    [key: string]: unknown;
+                };
+            } | null;
         };
         TurnEventRecord: {
             session_id: string;
@@ -5510,12 +5511,12 @@ export interface components {
             };
         };
         TurnEventReplayPage: {
-            active: boolean;
             events: components["schemas"]["TurnEventRecord"][];
-            /** Format: int64 */
-            next_after_seq: number;
+            active: boolean;
             /** @enum {string} */
             state: "active" | "completed" | "failed" | "interrupted";
+            /** Format: int64 */
+            next_after_seq: number;
         };
         TurnRequest: {
             prompt: string;
@@ -5890,6 +5891,16 @@ export interface components {
             latency_ms: number;
             /** @enum {string} */
             code: "media_profiles/tcp_reachable" | "media_profiles/tcp_unreachable" | "media_profiles/tcp_timeout";
+        };
+        /** @description Explicit user/host declaration, not remote verification. Bound to the actual model, endpoint, protocol and URL mode. */
+        ModelInputCapabilityBinding: {
+            model: string;
+            /** Format: uri */
+            base_url: string;
+            /** @enum {string} */
+            api_format?: "openai" | "anthropic";
+            use_full_url?: boolean;
+            image_input: boolean;
         };
     };
     responses: never;

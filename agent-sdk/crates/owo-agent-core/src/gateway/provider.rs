@@ -832,8 +832,17 @@ impl OpenAiCompatibleProvider {
         max_tokens_override: Option<u64>,
         force_low_reasoning: bool,
     ) -> Result<ObservedModelOutput, String> {
+        // Resolve once: a concurrent settings update cannot retarget admitted images.
+        let admitted_model = self.effective_model(model);
+        super::input_capabilities::ensure_image_input(
+            &admitted_model,
+            &self.config.base_url,
+            "openai",
+            self.connection_options.as_ref(),
+            messages,
+        )?;
         let body = self.request_body_with_options(
-            model,
+            Some(&admitted_model),
             messages,
             tools,
             true,
@@ -1085,11 +1094,25 @@ impl OpenAiCompatibleProvider {
         if let Some(reason) = self.usage_budget_check() {
             return Err(reason);
         }
+        // Resolve once: a concurrent settings update cannot retarget admitted images.
+        let admitted_model = self.effective_model(model);
+        super::input_capabilities::ensure_image_input(
+            &admitted_model,
+            &self.config.base_url,
+            "openai",
+            self.connection_options.as_ref(),
+            messages,
+        )?;
         let body = match output_cap {
-            Some(cap) => {
-                self.request_body_with_options(model, messages, tools, false, Some(cap), false)
-            }
-            None => self.request_body(model, messages, tools, false),
+            Some(cap) => self.request_body_with_options(
+                Some(&admitted_model),
+                messages,
+                tools,
+                false,
+                Some(cap),
+                false,
+            ),
+            None => self.request_body(Some(&admitted_model), messages, tools, false),
         };
         ensure_request_body_size(&body)?;
         let request_model = body

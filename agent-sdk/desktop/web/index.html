@@ -589,16 +589,26 @@
                 </div>
               </div>
               <div class="settings-row">
+                <div class="settings-row-label"><strong>图片输入能力</strong><span>只针对当前端点和默认模型；声明不代表实测。切换模型或端点后需重新声明。</span></div>
+                <div class="settings-row-control">
+                  <select id="providerImageInput" data-core-action aria-label="默认模型图片输入能力">
+                    <option value="unknown">能力未知</option>
+                    <option value="supported">声明支持（未实测）</option>
+                    <option value="unsupported">声明不支持</option>
+                  </select>
+                </div>
+              </div>
+              <div class="settings-row">
                 <div class="settings-row-label"><strong>API 密钥</strong><span>默认服务商密钥由核心加密保存；自定义模型使用独立的本机存储</span></div>
                 <div class="settings-row-control">
                   <input id="providerApiKey" data-core-action type="password" placeholder="未保存" spellcheck="false" autocomplete="off">
                 </div>
               </div>
               <div class="settings-row">
-                <div class="settings-row-label"><strong>保存并连接</strong><span>写入本机设置，新回合即时生效</span></div>
+                <div class="settings-row-label"><strong>保存配置</strong><span>写入本机设置，新回合即时生效</span></div>
                 <div class="settings-row-control">
                   <span class="pill" id="providerKeyState">未保存</span>
-                  <button type="button" id="providerSaveBtn" class="primary" data-core-action>保存并连接</button>
+                  <button type="button" id="providerSaveBtn" class="primary" data-core-action>保存配置</button>
                 </div>
               </div>
             </div>
@@ -611,7 +621,7 @@
                 <button id="presetApplyModelBtn" type="button" data-core-action>使用默认模型并保存</button>
                 <button id="presetCopyCmdBtn" type="button">复制 PowerShell 环境变量命令</button>
               </div>
-              <p class="sub" id="presetHint">选预设会自动填入上方端点与模型；密钥请在「API 密钥」填写后点「保存并连接」。</p>
+              <p class="sub" id="presetHint">选预设会自动填入上方端点与模型；密钥请在「API 密钥」填写后点「保存配置」。</p>
             </div>
             <div class="settings-block" style="margin-top:14px">
               <div class="settings-block-head">

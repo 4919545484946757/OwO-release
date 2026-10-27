@@ -6068,6 +6068,34 @@ async fn immutable_input_checkpoint_is_readable_while_provider_is_pending() {
     }
 }
 
+#[test]
+fn image_input_capability_wire_contract_is_bound_and_not_verified() {
+    let connection: owo_agent_protocol::CustomModelConnection = serde_json::from_value(serde_json::json!({
+        "model":"vision", "base_url":"http://127.0.0.1:4999/v1",
+        "input_capabilities":{"model":"vision","base_url":"http://127.0.0.1:4999/v1","image_input":true}
+    })).unwrap();
+    assert!(connection.input_capabilities.as_ref().unwrap().image_input);
+    let mut value = serde_json::to_value(&connection).unwrap();
+    value["input_capabilities"]["verified"] = serde_json::json!(true);
+    assert!(serde_json::from_value::<owo_agent_protocol::CustomModelConnection>(value).is_err());
+    let spec: serde_json::Value = serde_json::from_str(CONTRACT_SNAPSHOT).unwrap();
+    assert_eq!(
+        spec["components"]["schemas"]["CustomModelConnection"]["properties"]["input_capabilities"]
+            ["$ref"],
+        "#/components/schemas/ModelInputCapabilityBinding"
+    );
+    assert_eq!(
+        spec["components"]["schemas"]["ModelInputCapabilityBinding"]["additionalProperties"],
+        false
+    );
+    let source: serde_json::Value =
+        serde_json::from_str(include_str!("../src/openapi.json")).unwrap();
+    assert_eq!(
+        source["components"]["schemas"]["ModelInputCapabilityBinding"],
+        spec["components"]["schemas"]["ModelInputCapabilityBinding"]
+    );
+}
+
 #[tokio::test]
 async fn direct_subagent_flags_cannot_authorize_side_effects_without_approval_channel() {
     struct CountedProvider(Arc<std::sync::atomic::AtomicUsize>);

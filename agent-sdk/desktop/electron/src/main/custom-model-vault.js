@@ -14,6 +14,15 @@ function normalize(input) {
   const out = { id, label: String(input.label || id).slice(0, 200), baseUrl: url.href, apiFormat: format, useFullUrl: input.useFullUrl === true };
   if (input.temperature != null) { const v = Number(input.temperature); if (!Number.isFinite(v) || v < 0 || v > 2) throw Error("credentials/invalid_temperature"); out.temperature = v; }
   if (input.timeoutSecs != null) { const v = Number(input.timeoutSecs); if (!Number.isInteger(v) || v < 1 || v > 3600) throw Error("credentials/invalid_timeout"); out.timeoutSecs = v; }
+  if (input.inputCapabilities != null) {
+    const b = input.inputCapabilities;
+    if (!b || typeof b.image_input !== "boolean" || Object.keys(b).some(k => !["model","base_url","api_format","use_full_url","image_input"].includes(k))) throw Error("credentials/invalid_capability_declaration");
+    let endpoint; try { endpoint = new URL(String(b.base_url || "").trim()); } catch { throw Error("credentials/invalid_capability_declaration"); }
+    const canonical = (u, full) => full ? u.href : u.href.replace(/\/+$/, "");
+    if (b.model !== out.id || canonical(endpoint, b.use_full_url === true) !== canonical(url, out.useFullUrl)
+        || (b.api_format || "openai") !== format || (b.use_full_url === true) !== out.useFullUrl) throw Error("credentials/capability_binding_mismatch");
+    out.inputCapabilities = {model:out.id, base_url:out.baseUrl, api_format:format, use_full_url:out.useFullUrl, image_input:b.image_input};
+  }
   return out;
 }
 function binding(model) { return { model: model.id, base_url: model.baseUrl, api_format: model.apiFormat }; }

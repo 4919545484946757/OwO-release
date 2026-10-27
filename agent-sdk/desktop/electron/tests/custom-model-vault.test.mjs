@@ -74,3 +74,22 @@ test("old port candidates are bounded and never include remote origins",t=>{
 test("full URL probe makes no request and never claims successful connectivity",async t=>{
  const f=fixture(t);const result=await probe(f.vault,{...f.model,useFullUrl:true,apiKey:f.secret});assert.equal(result.ok,false);assert.match(result.error,/requires_turn/);
 });
+
+test("image declarations survive encrypted model storage and cannot move to another endpoint or model",async t=>{
+ const f=fixture(t);
+ const capability={model:f.model.id,base_url:f.model.baseUrl,api_format:"openai",image_input:true};
+ await f.vault.upsert({...f.model,inputCapabilities:capability,apiKey:f.secret});
+ const reopened=new CustomModelVault(f.file,f.codec);
+ const record=reopened.snapshot().models[0];
+ assert.equal(record.inputCapabilities.image_input,true);
+ assert.equal(record.inputCapabilities.model,f.model.id);
+ assert.equal(record.inputCapabilities.base_url,new URL(f.model.baseUrl).href);
+ for(const changed of [{id:"other"},{baseUrl:"http://127.0.0.1:4001/v1"},{apiFormat:"anthropic"},{useFullUrl:true}]) {
+   await assert.rejects(f.vault.upsert({...f.model,...changed,inputCapabilities:capability,previousId:f.model.id}),/capability_binding_mismatch/);
+ }
+ await assert.rejects(f.vault.upsert({...f.model,inputCapabilities:{...capability,verified:true}}),/invalid_capability_declaration/);
+ await f.vault.upsert({...f.model,inputCapabilities:{...capability,image_input:false}});
+ assert.equal(new CustomModelVault(f.file,f.codec).snapshot().models[0].inputCapabilities.image_input,false);
+ await f.vault.upsert({...f.model});
+ assert.equal(f.vault.snapshot().models[0].inputCapabilities,undefined);
+});
