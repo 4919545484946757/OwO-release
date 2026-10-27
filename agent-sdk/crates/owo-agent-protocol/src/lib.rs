@@ -877,6 +877,19 @@ pub struct SessionTurnHistoryV1 {
     pub last_stats: Option<TurnEventRecord>,
 }
 
+/// User/host declaration, not a remote verification. Identity must match the actual request.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ModelInputCapabilityBinding {
+    pub model: String,
+    pub base_url: String,
+    #[serde(default)]
+    pub api_format: String,
+    #[serde(default)]
+    pub use_full_url: bool,
+    pub image_input: bool,
+}
+
 /// Ephemeral, explicit connection for one turn. Never saved with the session.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -895,6 +908,9 @@ pub struct CustomModelConnection {
     pub temperature: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timeout_secs: Option<u64>,
+    /// Missing means unknown; never infer support from a provider preset or a model name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_capabilities: Option<ModelInputCapabilityBinding>,
 }
 
 impl std::fmt::Debug for CustomModelConnection {

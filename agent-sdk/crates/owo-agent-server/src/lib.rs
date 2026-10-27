@@ -266,6 +266,7 @@ impl AppState {
         }
         settings.apply_usage_env();
         settings.apply_reasoning_env();
+        settings.apply_model_input_capabilities_env();
         // R8：用量预算接线（Agent 4 交付 usage）——单价/预算从环境变量注入，turn 入口硬熔断。
         {
             let usage_store = usage::global();

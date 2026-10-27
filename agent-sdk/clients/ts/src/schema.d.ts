@@ -5225,6 +5225,14 @@ export interface components {
             system_prompt?: string | null;
         };
         /** @description Explicit connection for this turn only; credentials are never persisted with sessions or traces. */
+        /** @description User/host declaration, not remote verification; exact connection and model identity. */
+        ModelInputCapabilityBinding: {
+            model: string;
+            base_url: string;
+            api_format?: "openai" | "anthropic";
+            use_full_url?: boolean;
+            image_input: boolean;
+        };
         CustomModelConnection: {
             model: string;
             /** Format: uri */
@@ -5236,6 +5244,7 @@ export interface components {
             api_key_env?: string;
             temperature?: number;
             timeout_secs?: number;
+            input_capabilities?: components["schemas"]["ModelInputCapabilityBinding"];
         };
         TurnRequest: {
             prompt: string;

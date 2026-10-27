@@ -228,3 +228,20 @@ test("invalid custom configuration fails before submitting a turn", () => {
     assert.throws(() => routing.buildCustomModelConnection("x", [{id:"x",baseUrl:"https://example.com/v1", ...patch}], {}));
   }
 });
+
+test("image declaration is bound to endpoint, model, protocol and URL mode", () => {
+  const binding={model:"vision",base_url:"https://EXAMPLE.com:443/v1/",api_format:"openai",image_input:true};
+  assert.equal(routing.imageInputDeclaration({...binding,base_url:"https://example.com/v1"},[binding]),"supported");
+  for(const change of [{model:"other"},{base_url:"https://example.com/V1"},{api_format:"anthropic"},{use_full_url:true}]) {
+    assert.equal(routing.imageInputDeclaration({...binding,...change},[binding]),"unknown");
+  }
+  assert.equal(routing.imageInputDeclaration(binding,[{...binding,image_input:false}]),"unsupported");
+  assert.equal(routing.imageInputDeclaration(binding,[]),"unknown");
+  assert.match(routing.imageInputLabel("supported"),/声明支持.*未实测/);
+});
+test("custom connections carry exact declarations and reject stale declarations", () => {
+  const model={id:"vision",baseUrl:"https://example.com/v1",apiFormat:"anthropic",inputCapabilities:{model:"vision",base_url:"https://example.com/v1",api_format:"anthropic",image_input:true}};
+  assert.deepEqual(routing.buildCustomModelConnection("vision",[model],{}).input_capabilities,model.inputCapabilities);
+  assert.throws(()=>routing.buildCustomModelConnection("changed",[{...model,id:"changed"}],{}),/声明.*不匹配/);
+  assert.equal(routing.buildCustomModelConnection("unknown",[{id:"unknown",baseUrl:model.baseUrl}],{}).input_capabilities,undefined);
+});

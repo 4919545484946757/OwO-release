@@ -3916,7 +3916,7 @@ function renderCustomModels() {
     row.innerHTML = `
       <div class="model-row-main">
         <strong>${esc(model.label || model.id)}</strong>
-        <span class="sub">${esc(model.id)} ｜ ${esc(model.apiFormat === "anthropic" ? "Anthropic" : "OpenAI 兼容")} ｜ ${esc(model.baseUrl || "默认端点")}${model.hasKey ? " ｜ 已加密存储" : ""}</span>
+        <span class="sub">${esc(model.id)} ｜ ${esc(model.apiFormat === "anthropic" ? "Anthropic" : "OpenAI 兼容")} ｜ ${esc(model.baseUrl || "默认端点")}${model.hasKey ? " ｜ 已加密存储" : ""} ｜ ${esc(ModelRouting.imageInputLabel(ModelRouting.customImageInputDeclaration(model)))}</span>
       </div>
       <div class="model-row-actions">
         <button type="button" class="ghost" data-act="default">设为默认</button>
@@ -3972,6 +3972,7 @@ async function fillPresetOptions() {
         if (!$("cmLabel").value.trim()) $("cmLabel").value = `${form.name} · ${form.model}`;
       }
       if (form.apiFormat) $("cmApiFormat").value = form.apiFormat;
+      $("cmImageInput").value = "unknown";
     });
   } catch {
     // 预设拉取失败不阻塞手动填写；用户仍可填地址与模型 ID。
@@ -4009,6 +4010,14 @@ function openCustomModelDialog(existing) {
           <input type="checkbox" id="cmFullUrl" ${model.useFullUrl ? "checked" : ""}>
           <span>使用完整 URL（不做路径拼接）</span>
         </label>
+        <label class="field-label">图片输入能力（只针对当前连接和模型）
+          <select id="cmImageInput">
+            <option value="unknown">能力未知</option>
+            <option value="supported">声明支持（未实测）</option>
+            <option value="unsupported">声明不支持</option>
+          </select>
+          <span class="sub">能力未知或不支持时拒绝图片；连通性测试不会验证图片理解。</span>
+        </label>
         <label class="field-label">API 密钥（桌面壳加密保存，不进入浏览器存储）
           <input type="password" id="cmKey" autocomplete="new-password" placeholder="${model.hasKey ? "已加密保存，留空保留" : "填写此端点的密钥"}">
         </label>
@@ -4031,6 +4040,7 @@ function openCustomModelDialog(existing) {
         kind: "ghost",
         onClick: ({ body }) => {
           body.querySelector("#cmApiFormat").value = "openai";
+          body.querySelector("#cmImageInput").value = "unknown";
           for (const input of body.querySelectorAll("input")) {
             if (input.type === "checkbox") input.checked = false;
             else input.value = "";
@@ -4081,6 +4091,11 @@ function openCustomModelDialog(existing) {
             ...(temperature !== "" ? { temperature: Number(temperature) } : {}),
             ...(timeoutSecs !== "" ? { timeoutSecs: Number(timeoutSecs) } : {}),
           };
+          const imageState = $("cmImageInput").value;
+          if (imageState !== "unknown") next.inputCapabilities = {
+            model: id, base_url: next.baseUrl, api_format: next.apiFormat,
+            use_full_url: next.useFullUrl, image_input: imageState === "supported",
+          };
           try { ModelRouting.buildCustomModelConnection(id, [next], {}); }
           catch (error) { showToast(error.message, "error"); return; }
           try {
@@ -4097,6 +4112,20 @@ function openCustomModelDialog(existing) {
     ],
   });
   $("cmApiFormat").value = model.apiFormat || "openai";
+  $("cmImageInput").value = ModelRouting.customImageInputDeclaration(model);
+  const readIdentity = () => JSON.stringify([
+    $("cmId").value.trim(), $("cmBaseUrl").value.trim(), $("cmApiFormat").value, $("cmFullUrl").checked,
+  ]);
+  let previousIdentity = readIdentity();
+  const resetImageDeclaration = () => {
+    const currentIdentity = readIdentity();
+    if (currentIdentity !== previousIdentity) $("cmImageInput").value = "unknown";
+    previousIdentity = currentIdentity;
+  };
+  for (const id of ["cmId", "cmBaseUrl", "cmApiFormat", "cmFullUrl"]) {
+    $(id).addEventListener("input", resetImageDeclaration);
+    $(id).addEventListener("change", resetImageDeclaration);
+  }
   fillPresetOptions();
 }
 $("modeChip").addEventListener("click", () => openModeMenu());
@@ -4331,7 +4360,7 @@ function renderPresetInfo() {
   $("presetModel").textContent = preset.model || "（不指定，保持当前模型）";
   $("presetKeyEnv").textContent = preset.keyEnv || "（本地端点无需密钥）";
   $("presetCmdPreview").textContent = command || "（自定义端点无预设命令）";
-  $("presetHint").textContent = `${preset.note} 选预设会填入上方端点与模型，密钥填在「API 密钥」后点「保存并连接」。`;
+  $("presetHint").textContent = `${preset.note} 选预设会填入上方端点与模型，密钥填在「API 密钥」后点「保存配置」。`;
   updatePresetApplyAvailability(preset);
   // 预设一键填入表单：端点 + 默认模型，用户只需补密钥。
   if (preset.baseUrl) $("providerBaseUrl").value = preset.baseUrl;
@@ -4340,6 +4369,7 @@ function renderPresetInfo() {
     $("settingsModel").value = preset.model;
   }
   syncProviderModels(preset);
+  refreshProviderImageInput();
   info.classList.remove("hidden");
 }
 
@@ -4462,6 +4492,7 @@ function renderProviderForm() {
   const settings = state.settings || {};
   const provider = settings.provider || {};
   $("providerBaseUrl").value = provider.base_url || "";
+  refreshProviderImageInput();
   // 密钥只显示状态，不回填明文；已保存时留空即代表"不改动"。
   $("providerApiKey").value = "";
   $("providerApiKey").placeholder = provider.api_key_set ? "已保存（加密）· 留空则不修改" : "未保存";
@@ -4476,6 +4507,16 @@ function renderProviderForm() {
     state$.classList.remove("ok");
   }
 }
+
+function refreshProviderImageInput() {
+  const settings = state.settings || {};
+  const bindings = settings.runtime?.model_input_capabilities ?? settings.model_input_capabilities ?? [];
+  $("providerImageInput").value = ModelRouting.imageInputDeclaration({
+    model: $("settingsModel").value, base_url: $("providerBaseUrl").value, api_format: "openai", use_full_url: false,
+  }, bindings);
+}
+$("providerBaseUrl").addEventListener("input", () => refreshProviderImageInput());
+$("settingsModel").addEventListener("change", () => refreshProviderImageInput());
 
 // 保存模型接入：端点 + 模型 + 密钥（留空密钥 = 保留已存值），写本机设置并即时生效。
 async function saveProvider() {
@@ -4496,6 +4537,13 @@ async function saveProvider() {
       // 留空不下发密钥字段，服务端据此保留加密信封里的旧值。
       ...(apiKey ? { api_key: apiKey } : {}),
     };
+    const imageState = $("providerImageInput").value;
+    const identity = {model: settings.model, base_url: baseUrl, api_format: "openai", use_full_url: false};
+    const identityKey = ModelRouting.inputIdentity(identity);
+    if (!identityKey) throw new Error("请填写有效的模型和 HTTP(S) 端点");
+    const bindings = state.settings?.runtime?.model_input_capabilities ?? settings.model_input_capabilities ?? [];
+    settings.model_input_capabilities = bindings.filter(item => ModelRouting.inputIdentity(item) !== identityKey);
+    if (imageState !== "unknown") settings.model_input_capabilities.push({...identity, image_input: imageState === "supported"});
     const resp = await api("/settings", {
       method: "POST",
       body: JSON.stringify(settings),
@@ -4503,10 +4551,10 @@ async function saveProvider() {
     await refreshSettings();
     renderProviderForm();
     updateModelGate();
-    showToast(`模型服务已连接：${settings.model}`, "ok");
+    showToast(`模型配置已保存：${settings.model}`, "ok");
     return { ok: true, note: (resp && resp.note) || "ok" };
   } catch (error) {
-    showToast(`连接失败：${error.message || error}`, "error");
+    showToast(`配置未保存：${error.message || error}`, "error");
     return { ok: false };
   }
 }

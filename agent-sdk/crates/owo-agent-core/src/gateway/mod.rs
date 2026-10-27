@@ -1,5 +1,6 @@
 mod config;
 mod custom;
+pub mod input_capabilities;
 pub mod media_config;
 pub mod media_profiles;
 pub use custom::custom_model_provider;

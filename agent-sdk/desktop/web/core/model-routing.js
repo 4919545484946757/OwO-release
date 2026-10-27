@@ -6,6 +6,30 @@
       : settings && settings.model;
     return String(value || "").trim();
   }
+  function inputIdentity(binding) {
+    if (!binding) return null;
+    try {
+      const url = new URL(String(binding.base_url || "").trim());
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) return null;
+      const format = String(binding.api_format || "openai").trim();
+      const model = String(binding.model || "").trim();
+      if (!model || model === "default" || !["openai", "anthropic"].includes(format)) return null;
+      const full = binding.use_full_url === true;
+      return JSON.stringify([model, full ? url.href : url.href.replace(/\/+$/, ""), format, full]);
+    } catch (_) { return null; }
+  }
+  function imageInputDeclaration(connection, bindings) {
+    const key = inputIdentity(connection);
+    if (!key) return "unknown";
+    const binding = (Array.isArray(bindings) ? bindings : []).find(item => inputIdentity(item) === key);
+    return binding && typeof binding.image_input === "boolean" ? (binding.image_input ? "supported" : "unsupported") : "unknown";
+  }
+  function customImageInputDeclaration(model) {
+    return imageInputDeclaration({model:model.id, base_url:model.baseUrl, api_format:model.apiFormat, use_full_url:model.useFullUrl}, [model.inputCapabilities]);
+  }
+  function imageInputLabel(value) {
+    return value === "supported" ? "图片：声明支持（未实测）" : value === "unsupported" ? "图片：声明不支持" : "图片：能力未知";
+  }
   function buildCustomModelConnection(id, models, keys) {
     const model = (Array.isArray(models) ? models : []).find((item) => item && item.id === id);
     if (!model) return null;
@@ -23,6 +47,10 @@
       model: String(model.id).trim(), base_url: baseUrl, api_format: format,
       use_full_url: model.useFullUrl === true,
     };
+    if (model.inputCapabilities) {
+      if (customImageInputDeclaration(model) === "unknown") throw new Error("图片能力声明与当前连接不匹配，请重新选择图片输入能力");
+      request.input_capabilities = { ...model.inputCapabilities };
+    }
     const key = String((keys && keys[model.id]) || "").trim();
     if (model.apiKeyEnv) {
       if (!/^OWO_CUSTOM_MODEL_SECRET_[a-fA-F0-9]{32}$/.test(model.apiKeyEnv)) throw new Error("无效的模型凭据引用");
@@ -112,6 +140,7 @@
     return { known: true, compatible: supported.includes(value) };
   }
   const api = {
+    inputIdentity, imageInputDeclaration, customImageInputDeclaration, imageInputLabel,
     effectiveDefaultModel,
     buildCustomModelConnection,
     buildSessionModelRequest,

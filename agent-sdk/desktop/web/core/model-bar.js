@@ -21,7 +21,7 @@
     if ((preset.image_models || []).length > 0) badges.push("图出");
     if (chat.audio_input) badges.push("音入");
     if ((preset.speech_models || []).length > 0) badges.push("TTS");
-    return badges.map((text) => `<span class="mb-badge">${escapeHtml(text)}</span>`).join("");
+    return badges.map((text) => `<span class="mb-badge" title="服务商能力提示，不代表此模型已验证；图片输入以连接和模型声明为准">${escapeHtml(text)}</span>`).join("");
   }
 
   /** 胶囊按钮（输入区右下角）。 */

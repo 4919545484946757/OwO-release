@@ -136,6 +136,8 @@ pub(super) fn effective_runtime_config(settings: &owo_agent_core::Settings) -> V
         "base_url_set": settings.provider.has_base_url()
             || std::env::var("OPENAI_BASE_URL").is_ok_and(|v| !v.trim().is_empty()),
         "api_key_set": key_present,
+        "model_input_capabilities": owo_agent_core::gateway::input_capabilities::input_capability_bindings_from_env().ok(),
+        "input_capability_config_error": owo_agent_core::gateway::input_capabilities::input_capability_bindings_from_env().err(),
     })
 }
 
@@ -659,6 +661,7 @@ pub(super) async fn settings_update(
     }
     settings.apply_usage_env();
     settings.apply_reasoning_env();
+    settings.apply_model_input_capabilities_env();
     // §13 批次六：遥测开关即时生效（默认关；与 cli serve 启动应用同一出口）。
     owo_agent_server::apply_telemetry_setting(settings.telemetry_enabled == Some(true));
     state

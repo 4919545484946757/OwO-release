@@ -230,6 +230,9 @@ pub struct Settings {
     /// 模型提供商接入（端点 / 密钥）。缺失时 provider_ready 仍可由环境变量满足。
     #[serde(default)]
     pub provider: ProviderSettings,
+    /// Exact connection/model declarations; None inherits host environment, Some([]) clears.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_input_capabilities: Option<Vec<owo_agent_protocol::ModelInputCapabilityBinding>>,
     /// 启动默认只读（plan）模式。
     #[serde(default)]
     pub read_only: bool,
@@ -309,6 +312,9 @@ impl Settings {
     }
 
     pub fn save(&self, workspace: &Path) -> Result<(), String> {
+        if let Some(bindings) = &self.model_input_capabilities {
+            crate::gateway::input_capabilities::validate_input_capability_bindings(bindings)?;
+        }
         let path = workspace.join("settings.json");
         std::fs::write(
             &path,
@@ -320,6 +326,9 @@ impl Settings {
     /// 加密落盘（R9）：`settings.json.owo-crypt` 信封加密；settings 仍零明文密钥
     /// （api_key_ref 引用模型不变，加密的是配置整体）。非 Windows 显式失败。
     pub fn save_encrypted(&self, workspace: &Path) -> Result<(), String> {
+        if let Some(bindings) = &self.model_input_capabilities {
+            crate::gateway::input_capabilities::validate_input_capability_bindings(bindings)?;
+        }
         let path = workspace.join("settings.json.owo-crypt");
         let content = serde_json::to_vec_pretty(self).map_err(|error| error.to_string())?;
         crate::storage_crypto::encrypt_file_envelope(&path, &content)
@@ -336,6 +345,24 @@ impl Settings {
             return serde_json::from_slice(&content).map_err(|error| error.to_string());
         }
         Ok(Self::load(workspace))
+    }
+
+    /// Apply host declarations only. Per-turn connections never mutate this environment.
+    pub fn apply_model_input_capabilities_env(&self) {
+        if let Some(bindings) = &self.model_input_capabilities {
+            // Malformed persisted declarations remain fail-closed at the request boundary.
+            let raw =
+                crate::gateway::input_capabilities::validate_input_capability_bindings(bindings)
+                    .and_then(|()| {
+                        serde_json::to_string(bindings).map_err(|error| error.to_string())
+                    })
+                    // Explicit invalid marker: do not silently retain stale support or overflow Windows.
+                    .unwrap_or_else(|_| "null".to_string());
+            std::env::set_var(
+                crate::gateway::input_capabilities::INPUT_CAPABILITIES_ENV,
+                raw,
+            );
+        }
     }
 
     /// 把用量预算配置写回环境变量（provider 每次调用前读取，即时生效）。

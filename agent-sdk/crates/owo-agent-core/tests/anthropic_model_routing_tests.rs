@@ -123,7 +123,8 @@ impl Fixture {
     fn provider(&self) -> Arc<dyn ModelProvider> {
         let connection = serde_json::from_value(json!({
             "model":"base-model", "base_url":self.base, "api_format":"anthropic",
-            "api_key":"fixture-only", "timeout_secs":3
+            "api_key":"fixture-only", "timeout_secs":3,
+            "input_capabilities":{"model":"image-worker","base_url":self.base,"api_format":"anthropic","image_input":true}
         }))
         .unwrap();
         custom_model_provider(&connection).unwrap()
