@@ -26,7 +26,7 @@ const PRODUCER_OK: &str = r###"{"status":"done","summary":"交付完成","artifa
 const CRITIC_OK: &str = r#"{"status":"done","summary":"评审完成","artifact":null,"evidence":[],"open_issues":[],"handoff":null,"review_result":{"verdict":"approved","reviewed_requirement_ids":[],"findings":[]}}"#;
 
 /// critic 越权：携带 artifact（首轮违例，应触发定向修复）。
-const CRITIC_WITH_ARTIFACT: &str = r#"{"status":"done","summary":"评审完成","artifact":{"kind":"review","format":"json","content":"{\"score\":60}"},"evidence":[],"open_issues":[],"review_result":{"verdict":"approved","findings":[]}}"#;
+const CRITIC_WITH_ARTIFACT: &str = r#"{"status":"done","summary":"评审完成","artifact":{"kind":"review","format":"json","content":"{\"score\":60}"},"evidence":[],"open_issues":[]}"#;
 
 /// 自由文本（Legacy：不是契约 JSON，不能登记为交付物）。
 const FREE_TEXT: &str = "任务完成：我已经修好了 bug 并通过了测试。";
