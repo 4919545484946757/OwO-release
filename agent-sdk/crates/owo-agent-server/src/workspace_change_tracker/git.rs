@@ -284,23 +284,35 @@ pub fn is_host_internal_path(relative: &str) -> bool {
         || normalized.starts_with(".git/")
 }
 
+fn canonical_scope_candidate(path: &Path) -> PathBuf {
+    let mut current = path.to_path_buf();
+    loop {
+        if let Ok(canonical) = current.canonicalize() {
+            let canonical = simplify_path(&canonical);
+            if let Ok(suffix) = path.strip_prefix(&current) {
+                return canonical.join(suffix);
+            }
+            return canonical;
+        }
+        match current.parent() {
+            Some(parent) if parent != current => current = parent.to_path_buf(),
+            _ => return simplify_path(path),
+        }
+    }
+}
+
 pub fn path_in_allowed(relative: &str, root: &Path, allowed: &[PathBuf]) -> bool {
     if allowed.is_empty() {
         return true;
     }
-    let base = simplify_path(&root.canonicalize().unwrap_or_else(|_| root.to_path_buf()));
-    let candidate = base.join(relative);
-    let candidate = candidate.canonicalize().unwrap_or_else(|_| {
-        candidate
-            .parent()
-            .and_then(|parent| parent.canonicalize().ok())
-            .map(|parent| parent.join(candidate.file_name().unwrap_or_default()))
-            .unwrap_or_else(|| candidate.clone())
-    });
-    let candidate = simplify_path(&candidate);
+    // Canonicalize both the workspace root and each allowed prefix. Windows can
+    // hand us a short-name/junction alias on one side and a long canonical path
+    // on the other; stripping `\\?\\` alone does not make those identities equal.
+    let base = canonical_scope_candidate(root);
+    let candidate = canonical_scope_candidate(&base.join(relative));
     allowed
         .iter()
-        .any(|prefix| candidate.starts_with(simplify_path(prefix)))
+        .any(|prefix| candidate.starts_with(canonical_scope_candidate(prefix)))
 }
 
 /// 写白名单校验：`changed`（相对路径）必须全部落在 `allowed`（绝对前缀）内。
