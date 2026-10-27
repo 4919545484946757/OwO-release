@@ -319,7 +319,16 @@ if (-not $SkipNode) {
 if (-not $SkipWebTests) {
     Invoke-CiStep -Name "桌面 web + Electron 壳契约测试（node --test）" -Id "web-tests" -Cwd $root -LogDir $LogDir -Block {
         $log = if ($LogDir) { Join-Path $LogDir "web-tests.stream.log" } else { "" }
-        Invoke-CiLoggedCommand -Exe node -Arguments @('--test', 'desktop/web/tests/*.test.mjs', 'desktop/electron/tests/*.test.mjs') `
+        $testFiles = @(
+            Get-ChildItem (Join-Path $root "desktop\web\tests") -Filter *.test.mjs -File -ErrorAction SilentlyContinue
+            Get-ChildItem (Join-Path $root "desktop\electron\tests") -Filter *.test.mjs -File -ErrorAction SilentlyContinue
+        ) | ForEach-Object { $_.FullName }
+        if (-not $testFiles) {
+            Write-Host "    [web-tests] 未找到契约测试文件"
+            $global:LASTEXITCODE = 1
+            return
+        }
+        Invoke-CiLoggedCommand -Exe node -Arguments (@('--test') + $testFiles) `
             -Cwd $root -TimeoutSec 900 -HeartbeatSec $HeartbeatSec -LogFile $log -Label 'web-tests'
     }
 }

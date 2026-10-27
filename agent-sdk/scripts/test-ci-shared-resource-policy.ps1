@@ -1,4 +1,4 @@
-﻿﻿#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
 test-ci-shared-resource-policy.ps1 — §2.4 资源安全红线脚本层的**离线**负例/正例自测。
 

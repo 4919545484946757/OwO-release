@@ -36,7 +36,28 @@ impl InstructionFile {
 
 /// 规范路径：`canonicalize` 失败回退原路径；Windows 去掉 `\\?\` 前缀便于比较与展示。
 fn normalize(path: &Path) -> PathBuf {
-    let canonical = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let canonical = if let Ok(canonical) = std::fs::canonicalize(path) {
+        canonical
+    } else {
+        // `cwd` may not exist yet. Canonicalize the nearest existing parent so
+        // Windows path prefixes/case still match the workspace root.
+        let mut missing = Vec::new();
+        let mut existing = path.to_path_buf();
+        while !existing.exists() {
+            let Some(name) = existing.file_name().map(|name| name.to_os_string()) else {
+                break;
+            };
+            missing.push(name);
+            if !existing.pop() {
+                break;
+            }
+        }
+        let mut canonical = std::fs::canonicalize(&existing).unwrap_or(existing);
+        for name in missing.iter().rev() {
+            canonical.push(name);
+        }
+        canonical
+    };
     let text = canonical.to_string_lossy();
     if let Some(stripped) = text.strip_prefix(r"\\?\") {
         return PathBuf::from(stripped.to_string());
