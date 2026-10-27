@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+﻿﻿#requires -Version 5.1
 <#
 test-ci-shared-resource-policy.ps1 — §2.4 资源安全红线脚本层的**离线**负例/正例自测。
 
@@ -111,7 +111,7 @@ Add-Result 'Set-CiRustResourcePolicy 注入子进程环境变量' `
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ('owo-ci-res-selftest-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Force -Path $tmp | Out-Null
 Write-CiStepSummary -LogDir $tmp -CurrentStep 'selftest' -CurrentId 'selftest' -StepState 'passed'
-$sum = Get-Content (Join-Path $tmp 'summary.json') -Raw | ConvertFrom-Json
+$sum = Get-Content (Join-Path $tmp 'summary.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 Add-Result 'summary.json 落盘 resources 段（可证明安全参数）' `
     (($sum.resources.jobs -eq 1) -and ($sum.resources.test_threads -eq 1) -and ($sum.resources.memory_gate.min_free_gb -eq 6)) `
     "jobs=$($sum.resources.jobs) threads=$($sum.resources.test_threads) step=$($sum.step_state)"
