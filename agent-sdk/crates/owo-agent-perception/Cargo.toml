@@ -42,7 +42,6 @@ reqwest.workspace = true
 # 不再依赖人工维护的词表。
 tokio.workspace = true
 tracing.workspace = true
-windows-future = { version = "0.2", features = ["std"] }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 png = "0.17"
 ndarray = "0.17"
@@ -50,6 +49,7 @@ ort = { version = "2.0.0-rc.13", features = ["ndarray"] }
 sherpa-onnx = { version = "1.13", optional = true }
 
 [target.'cfg(windows)'.dependencies]
+windows-future = { version = "0.2", features = ["std"] }
 futures = "0.3"
 windows = { version = "0.61", features = [
     "Win32_Foundation",

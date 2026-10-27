@@ -232,6 +232,7 @@ impl OwoHttpClient {
             workspace: workspace.to_string(),
             model: None,
             system_prompt: None,
+            mode: None,
         };
         let response = self
             .authed(|http, token| {
@@ -309,6 +310,7 @@ impl OwoHttpClient {
             model_connection: None,
             prompt: prompt.to_string(),
             attachments: Vec::new(),
+            content_parts: Vec::new(),
             read_only: Some(read_only),
             turn_id: None,
         };
