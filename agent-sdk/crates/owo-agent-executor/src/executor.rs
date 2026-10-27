@@ -1023,11 +1023,48 @@ impl WindowsUiaSource {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
+impl UiActionSource for WindowsUiaSource {
+    fn find(&self, _anchor: &SemanticAnchor) -> Result<u64, String> {
+        Err("Native desktop input requires Windows".to_string())
+    }
+    fn invoke(&self, _handle: u64) -> Result<(), String> {
+        Err("Native desktop input requires Windows".to_string())
+    }
+    fn type_text(&self, _handle: u64, text: &str) -> Result<(), String> {
+        send_unicode(text)
+    }
+    fn shortcut(&self, combo: &str) -> Result<(), String> {
+        send_shortcut(combo)
+    }
+    fn launch(&self, _target: &str) -> Result<(), String> {
+        Err("Native desktop input requires Windows".to_string())
+    }
+    fn click_at(&self, x: i32, y: i32) -> Result<(), String> {
+        click_at_screen(x, y)
+    }
+    fn verify(&self, _predicate: &str) -> Result<bool, String> {
+        Err("Native desktop input requires Windows".to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use owo_agent_memory::learn::{ActionGraph, ActionType, SemanticAnchor};
     use owo_agent_perception::element_registry::{ElementRegistry, SceneElement};
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn unsupported_native_input_fails_closed() {
+        assert!(click_at_screen(0, 0).is_err());
+        assert!(scroll_at_screen(0, 0, 120).is_err());
+        assert!(send_unicode("text").is_err());
+        assert!(send_shortcut("enter").is_err());
+        assert!(WindowsUiaSource::new().is_err());
+        assert!(WindowsUiaSource::new_with_registry(None).is_err());
+        assert!(WindowsUiaSource.verify("anything").is_err());
+    }
 
     struct ScriptedSource {
         find_ok: bool,
