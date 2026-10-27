@@ -469,7 +469,9 @@ pub use scene::{
     merge_sources, text_hash, ElementRelation, EntityState, Evidence, EvidenceSource, GraphElement,
     SceneGraph, WindowState,
 };
-pub use session::{JsonSessionStore, Session, SessionGoal, SessionStore, TurnEventRecord};
+pub use session::{
+    JsonSessionStore, Session, SessionGoal, SessionMode, SessionStore, TurnEventRecord,
+};
 pub use settings::{EgressSettings, Settings, TeamSettings};
 pub use share::{export_html, export_markdown};
 pub use share_skill::{export_flow_skill_package, import_flow_skill_package};

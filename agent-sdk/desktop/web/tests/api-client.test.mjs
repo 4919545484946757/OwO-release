@@ -828,3 +828,44 @@ test("本地端点（Ollama）不因缺密钥被拦", () => {
     "本地端点不得被判为缺配置"
   );
 });
+
+
+test("bounded blob download preserves authentication and stops oversized streams", async () => {
+  const original = global.fetch;
+  let cancelled = 0, calls = [];
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return new Response(new ReadableStream({
+      start(controller) { controller.enqueue(new Uint8Array(8)); controller.enqueue(new Uint8Array(8)); },
+      cancel() { cancelled += 1; },
+    }), { headers: { "content-type": "image/png" } });
+  };
+  try {
+    const client = new ApiClient("http://127.0.0.1:4096", { token: "fixture-token" });
+    client.bootstrapToken = async () => "fixture-token";
+    client.ensureCoreConnection = async () => {};
+    await assert.rejects(client.download("/artifacts/a/content?raw=true", { maxResponseBytes: 12 }), /超过/);
+    assert.equal(cancelled, 1);
+    assert.equal(calls[0].options.headers.get("Authorization"), "Bearer fixture-token");
+    assert.equal(calls[0].options.maxResponseBytes, undefined);
+  } finally { global.fetch = original; }
+});
+
+test("bounded blob download keeps bytes and MIME and cancellation does not retry", async () => {
+  const original = global.fetch;
+  let calls = 0;
+  global.fetch = async () => { calls++; return new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "audio/mpeg", "content-length": "3" } }); };
+  try {
+    const client = new ApiClient("http://127.0.0.1:4096");
+    client.bootstrapToken = async () => "fixture-token";
+    client.ensureCoreConnection = async () => {};
+    const blob = await client.download("/artifacts/a/content?raw=true", { maxResponseBytes: 3 });
+    assert.equal(blob.type, "audio/mpeg");
+    assert.deepEqual([...new Uint8Array(await blob.arrayBuffer())], [1, 2, 3]);
+    const controller = new AbortController();
+    controller.abort();
+    global.fetch = async () => { calls++; throw new Error("aborted"); };
+    await assert.rejects(client.download("/artifacts/a/content?raw=true", { signal: controller.signal, maxResponseBytes: 3 }), /aborted/);
+    assert.equal(calls, 2);
+  } finally { global.fetch = original; }
+});

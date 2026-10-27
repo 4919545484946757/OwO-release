@@ -642,6 +642,22 @@ async fn team_create_status_cancel_round_trip_against_fake_daemon() {
 }
 
 #[tokio::test]
+async fn auto_team_round_trips_against_fake_daemon() {
+    // `owo-agent workflow auto` 的客户端/路由配对守卫：不传模板 ID 时走同一条
+    // POST /teams，由服务端按目标匹配已安装工作流。
+    let base_url = spawn_fake_daemon().await;
+    let client = AgentClient::new(ClientConfig::new(base_url, Some("test-token".to_string())))
+        .expect("client");
+
+    let created = client
+        .create_auto_team("做一个坦克大战游戏", true, true)
+        .await
+        .expect("auto create team");
+    assert_eq!(created["team_id"], serde_json::json!("team-1"));
+    assert_eq!(created["members"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
 async fn mcp_management_round_trips_against_fake_daemon() {
     // 客户端/路由配对守卫：/mcp、/mcp/add、/mcp/remove 的路径与方法写错时立刻失败。
     let base_url = spawn_fake_daemon().await;
@@ -684,6 +700,13 @@ async fn client_round_trips_against_fake_daemon() {
 
     let session = client.create_session("ws").await.expect("create");
     assert_eq!(session.id, "sess-1");
+
+    // 纯对话可以不传工作区：客户端必须原样发出空 workspace，由服务端分配隔离目录。
+    let chat = client
+        .create_chat_session(None)
+        .await
+        .expect("create chat without workspace");
+    assert_eq!(chat.id, "sess-1");
 
     let mut stream = client.open_turn(&session.id, "hi").await.expect("turn");
     let mut deltas = Vec::new();

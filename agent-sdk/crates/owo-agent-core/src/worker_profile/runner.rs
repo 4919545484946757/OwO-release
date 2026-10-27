@@ -11,11 +11,23 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+/// Hard per-turn tool-call ceiling derived from the role profile. The global
+/// bounded cap (64) is sized for interactive subagents; team workers repeatedly
+/// burned it retrying the same failed edit/test cycle. Writers get enough room
+/// for a few read/edit/verify passes; reviewers stay read-only and tighter.
+fn profile_tool_call_cap(is_critic: bool, profile: &WorkerProfile) -> usize {
+    if is_critic || !profile.is_writer() {
+        16
+    } else {
+        24
+    }
+}
+
 /// 画像驱动子代理执行器（七期 · 二路）：与一路 `ContractSubagentRunner` 同口径
 /// （完整回合循环 + `WorkerOutputV1` 输出契约执行 + 至多一次定向修复），区别仅在：
 ///
 /// - 工具注册表由 [`WorkerProfile::build_registry`] 按角色装配（注册表面即权限边界）；
-/// - 回合上限取画像值（模板预算，硬上限 16）；
+/// - 回合上限取画像值（模板预算，硬上限 32）；
 /// - 写面为「角色 ∩ 绑定」交集白名单工具（越界写入在工具层被拒）；
 /// - `is_critic` 由服务端按角色名判定（`role == "critic"`；引擎注入的 `read_only`
 ///   只覆盖 critic，其余内置角色都是 producer，画像另管只读面）。
@@ -23,6 +35,8 @@ pub struct ProfileSubagentRunner<'a> {
     pub provider: Arc<dyn ModelProvider>,
     /// Host restrictions are inherited live; role constraints may only narrow them.
     pub parent_policy: &'a Policy,
+    /// Optional live host tool enablement ceiling; Team workers always supply it.
+    pub parent_agent: Option<Arc<crate::Agent>>,
     pub approver: &'a dyn Approver,
     /// 中断标志：团队取消桥共享置位，`run_turn` 协作式检查。
     pub abort: &'a AtomicBool,
@@ -99,12 +113,68 @@ impl ProfileSubagentRunner<'_> {
             .map_err(|error| error.message)
     }
 
+    pub async fn run_with_images(
+        &self,
+        workspace: &Path,
+        prompt: &str,
+        images: &[crate::gateway::MessageImage],
+    ) -> Result<String, String> {
+        self.run_report_with_images(workspace, prompt, images)
+            .await
+            .map(|report| report.output)
+            .map_err(|error| error.message)
+    }
+
     /// Resolve the capability profile here, then delegate all worker execution to WorkerRuntime.
     pub async fn run_report(
         &self,
         workspace: &Path,
         prompt: &str,
     ) -> Result<ProfileSubagentRunReport, ProfileSubagentRunError> {
+        self.run_report_with_images(workspace, prompt, &[]).await
+    }
+
+    pub async fn run_report_with_images(
+        &self,
+        workspace: &Path,
+        prompt: &str,
+        images: &[crate::gateway::MessageImage],
+    ) -> Result<ProfileSubagentRunReport, ProfileSubagentRunError> {
+        self.run_report_with_input(workspace, prompt, images, None)
+            .await
+    }
+
+    /// Host-validated input refs are persisted with the same turn that receives the pixels.
+    pub async fn run_with_input(
+        &self,
+        workspace: &Path,
+        prompt: &str,
+        images: &[crate::gateway::MessageImage],
+        input: owo_agent_protocol::StoredUserInput,
+    ) -> Result<String, String> {
+        self.run_report_with_input(workspace, prompt, images, Some(input))
+            .await
+            .map(|r| r.output)
+            .map_err(|e| e.message)
+    }
+
+    pub async fn run_report_with_input(
+        &self,
+        workspace: &Path,
+        prompt: &str,
+        images: &[crate::gateway::MessageImage],
+        input: Option<owo_agent_protocol::StoredUserInput>,
+    ) -> Result<ProfileSubagentRunReport, ProfileSubagentRunError> {
+        if let Some(parent) = &self.parent_agent {
+            let issues = parent.preflight_workflow_profile(&self.profile)?;
+            if !issues.is_empty() {
+                return Err(format!(
+                    "workflow preflight: {}",
+                    serde_json::to_string(&issues).unwrap_or_default()
+                )
+                .into());
+            }
+        }
         let policy = self.parent_policy.for_workspace(workspace.to_path_buf())?;
         let has_external_tools = self.profile.visible_tools.iter().any(|name| {
             name.starts_with("mcp__") || matches!(name.as_str(), "web_fetch" | "web_search")
@@ -116,7 +186,13 @@ impl ProfileSubagentRunner<'_> {
         };
         let mut registry = self.profile.build_registry(self.write_allowed.clone());
         for tool in &self.extra_tools {
-            registry.register_arc(Arc::clone(tool));
+            registry.register_arc(crate::tools::scoped_workflow_tool(
+                Arc::clone(tool),
+                self.write_allowed.clone(),
+            ));
+        }
+        if let Some(parent) = &self.parent_agent {
+            parent.guard_workflow_registry(&mut registry)?;
         }
         let registered = registry.specs();
         let missing = self
@@ -143,9 +219,12 @@ impl ProfileSubagentRunner<'_> {
         } else {
             config.max_turns.min(profile_turn_cap)
         };
-        if config.max_tool_calls_per_turn == 0 {
-            config.max_tool_calls_per_turn = crate::agent::DEFAULT_BOUNDED_TOOL_CALL_CAP;
-        }
+        let tool_call_cap = profile_tool_call_cap(self.is_critic, &self.profile);
+        config.max_tool_calls_per_turn = if config.max_tool_calls_per_turn == 0 {
+            tool_call_cap
+        } else {
+            config.max_tool_calls_per_turn.min(tool_call_cap)
+        };
         if let Some(task_timeout_ms) = self.profile.verification_timeout_ms {
             config.max_command_timeout_ms = Some(
                 config
@@ -187,7 +266,7 @@ impl ProfileSubagentRunner<'_> {
             parent_session_id: self.parent_session_id.clone(),
         };
         runtime
-            .run_report(prompt)
+            .run_report_with_input(prompt, images, input)
             .await
             .map(|report| ProfileSubagentRunReport {
                 output: report.output,
@@ -207,5 +286,19 @@ impl ProfileSubagentRunner<'_> {
                 usage_known: error.usage_known,
                 output_repairs: error.output_repairs,
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn team_worker_tool_caps_bound_retry_loops() {
+        let writer = WorkerProfile::for_role("implementer", 8);
+        let reviewer = WorkerProfile::for_role("reviewer", 8);
+        assert_eq!(profile_tool_call_cap(false, &writer), 24);
+        assert_eq!(profile_tool_call_cap(true, &reviewer), 16);
+        assert_eq!(profile_tool_call_cap(false, &reviewer), 16);
     }
 }

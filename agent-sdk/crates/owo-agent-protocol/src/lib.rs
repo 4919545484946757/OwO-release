@@ -1,7 +1,15 @@
 //! Agent SDK 公开线协议（v1 契约，HTTP JSON + SSE 事件）。
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+mod content_parts;
+pub use content_parts::{AssetRef, ContentPart, StoredUserInput};
+
+mod run_events;
+pub use run_events::{HandoffPage, RunEvent, RunEventHistoryPage, RunEventPage};
 
 // ---------------------------------------------------------------------------
 // WorkSwarm 协同 DTO（§6.1 / §6.6）
@@ -146,6 +154,18 @@ pub enum ReviewState {
     Approved,
     Rejected,
     Superseded,
+}
+
+/// Small, durable tool output metadata. Bytes are fetched through the authenticated
+/// Artifact content API, never recovered from a truncated display preview.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ToolOutputArtifact {
+    pub artifact_id: String,
+    pub kind: String,
+    pub mime_type: String,
+    pub bytes: u64,
+    pub sha256: String,
+    pub path: String,
 }
 
 /// 共享产物（§6.6 Artifact）。
@@ -383,6 +403,8 @@ pub enum ChangeSetStatus {
     /// 冲突：恢复前检测到用户改过文件（当前哈希 ≠ 结果哈希 ≠ 基线哈希），
     /// 不覆盖用户新内容；用户处理后可重试 accept/reject/revert。
     Conflicted,
+    /// Replaced by a newer attempt for the same task; kept for audit, not blocking delivery.
+    Superseded,
 }
 
 /// ChangeSet 决定记录（幂等 + 审计锚点）。
@@ -444,6 +466,7 @@ impl ChangeSet {
             ChangeSetStatus::Rejected => "已拒绝",
             ChangeSetStatus::Reverted => "已撤销",
             ChangeSetStatus::Conflicted => "冲突",
+            ChangeSetStatus::Superseded => "已被新版本取代",
         }
     }
 }
@@ -588,6 +611,9 @@ fn default_project_status() -> ProjectSpaceStatus {
 /// 团队模板中的角色定义（角色组合 + 依赖 + 交付契约，不含历史敏感上下文）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamTemplateRole {
+    /// Stable graph identity. Labels may change without changing this ID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<String>,
     /// 宽松反序列化：缺失字段按空串处理，由 `user_workflow` 校验器给出可读原因
     ///（AI 生成与社区包导入不该因为少一个字段就得到 serde 解析错误）。
     #[serde(default)]
@@ -624,12 +650,38 @@ pub struct TeamTemplateRole {
     pub tools: Vec<String>,
 }
 
+/// Portable layout keyed by role.node_id, never by the editable role label.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowEditorMetadata {
+    pub version: u32,
+    pub nodes: Vec<WorkflowEditorNode>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowEditorNode {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<WorkflowNodePosition>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowNodePosition {
+    pub x: f64,
+    pub y: f64,
+}
+
 /// 团队模板：已验证的角色组合、Swarmflow 与适用条件（§6.1）。
 ///
 /// 只接受经用户采纳的提案进入注册表（§6.7）；复用任务图与交付契约，
 /// 不复制历史敏感上下文。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamTemplate {
+    /// Portable editor layout; does not change execution or authorization.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub editor: Option<WorkflowEditorMetadata>,
     /// 宽松反序列化（AI 生成/社区包常见缺字段）：缺失交给 `user_workflow` 校验器
     /// 逐条报告，而不是在 serde 层就失败。
     #[serde(default)]
@@ -661,12 +713,16 @@ pub struct TeamTemplate {
     /// 标签（检索/分类；不参与权限判定）。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
+    /// Per-role model call budget: keys must be template role names; values 1..=32.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub budget_calls_per_role: BTreeMap<String, usize>,
 }
 
 /// 角色默认值（新字段扩展时保持旧字面量可用：`..Default::default()`）。
 impl Default for TeamTemplateRole {
     fn default() -> Self {
         Self {
+            node_id: None,
             role: String::new(),
             assignee: "agent".to_string(),
             worker: None,
@@ -685,6 +741,7 @@ impl Default for TeamTemplateRole {
 impl Default for TeamTemplate {
     fn default() -> Self {
         Self {
+            editor: None,
             template_id: String::new(),
             name: String::new(),
             mode: TeamMode::Team,
@@ -696,6 +753,7 @@ impl Default for TeamTemplate {
             description: None,
             version: None,
             tags: Vec::new(),
+            budget_calls_per_role: BTreeMap::new(),
         }
     }
 }
@@ -739,6 +797,9 @@ pub struct CreateSessionRequest {
     pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system_prompt: Option<String>,
+    /// 会话工作模式：`agent`（默认）或 `chat`（纯对话，只给联网检索）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -762,6 +823,13 @@ pub struct SessionInfo {
     /// 会话级目标模式状态（`/goal`）；`None` = 未设定。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub goal: Option<SessionGoalV1>,
+    /// 当前工作模式：`agent` | `chat`。
+    #[serde(default = "default_session_mode")]
+    pub mode: String,
+}
+
+pub fn default_session_mode() -> String {
+    "agent".to_string()
 }
 
 /// 会话级目标模式状态（与 core `SessionGoal` 同构；线格式契约）。
@@ -853,6 +921,9 @@ pub struct TurnRequest {
     /// 附件 ID（由 `POST /session/{id}/attachments` 返回；发送时注入路径上下文）。
     #[serde(default)]
     pub attachments: Vec<String>,
+    /// Host-owned immutable assets; audio/video require a supported input adapter.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub content_parts: Vec<ContentPart>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1035,6 +1106,8 @@ pub enum SseEvent {
         /// 老客户端忽略即可，完整结果仍以会话记录为准。
         #[serde(default, skip_serializing_if = "Option::is_none")]
         preview: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        outputs: Vec<ToolOutputArtifact>,
     },
     PermissionRequest {
         request_id: String,
@@ -1336,3 +1409,40 @@ pub struct ExpressionResponse {
 
 pub mod expression_origin;
 pub use expression_origin::*;
+
+#[cfg(test)]
+mod workflow_graph_contract_tests {
+    use super::*;
+    #[test]
+    fn workflow_graph_metadata_roundtrips_and_legacy_remains_additive() {
+        let legacy: TeamTemplate = serde_json::from_str(r#"{"roles":[{"role":"A"}]}"#).unwrap();
+        assert!(legacy.editor.is_none());
+        assert!(legacy.roles[0].node_id.is_none());
+        let mut value = legacy;
+        value.roles[0].node_id = Some("node-a".into());
+        value.editor = Some(WorkflowEditorMetadata {
+            version: 1,
+            nodes: vec![WorkflowEditorNode {
+                id: "node-a".into(),
+                position: Some(WorkflowNodePosition { x: 12.5, y: 30.0 }),
+            }],
+        });
+        value.roles[0].role = "Renamed".into();
+        let encoded = serde_json::to_value(&value).unwrap();
+        let reopened: TeamTemplate = serde_json::from_value(encoded.clone()).unwrap();
+        assert_eq!(reopened.roles[0].node_id.as_deref(), Some("node-a"));
+        assert_eq!(encoded["editor"]["nodes"][0]["position"]["x"], 12.5);
+        assert!(encoded["editor"]["nodes"][0].get("role").is_none());
+    }
+    #[test]
+    fn workflow_graph_metadata_rejects_unknown_execution_fields_and_wrong_types() {
+        assert!(serde_json::from_str::<WorkflowEditorMetadata>(
+            r#"{"version":1,"nodes":[],"tools":["run_command"]}"#
+        )
+        .is_err());
+        assert!(serde_json::from_str::<WorkflowNodePosition>(r#"{"x":"10","y":20}"#).is_err());
+        assert!(
+            serde_json::from_str::<WorkflowEditorNode>(r#"{"id":"node-a","role":"A"}"#).is_err()
+        );
+    }
+}

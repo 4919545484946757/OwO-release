@@ -1,0 +1,6 @@
+command=node --test playtest/live-playtest.mjs
+run_at=2026-10-26T04:02:35.885Z
+duration_ms=57337
+frames=130
+statuses=playing
+console_errors=0

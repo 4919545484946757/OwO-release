@@ -6,6 +6,65 @@ use super::coord_artifacts::{
 };
 use super::*;
 
+/// Reviewers see the deliverable they are judging plus every transitive upstream
+/// artifact, not only the last handoff report. The reviewer still gets normal
+/// role permissions; this only widens the read-only context slice.
+pub(super) fn collect_review_dependency_ids(
+    step_id: &str,
+    direct: &[String],
+    steps: &std::collections::HashMap<String, crate::plan::StepSpec>,
+) -> Vec<String> {
+    let mut seen = HashSet::from([step_id.to_string()]);
+    let mut pending = direct.to_vec();
+    let mut expanded = Vec::new();
+    while let Some(id) = pending.pop() {
+        if !seen.insert(id.clone()) {
+            continue;
+        }
+        if let Some(dep_step) = steps.get(&id) {
+            expanded.push(id.clone());
+            pending.extend(dep_step.depends_on.iter().cloned());
+        }
+    }
+    expanded
+}
+
+/// Host-recorded command receipts for one upstream step. Reviewers are read-only
+/// and cannot execute `npm test` themselves; exposing only the receipt summary
+/// (exit code / validator / duration, never argv or file hashes) lets them tell
+/// whether the host observed a successful command without widening permissions.
+pub(super) fn command_evidence_for_step(
+    events: &[String],
+    step_id: &str,
+    attempt_id: Option<&str>,
+) -> Vec<Value> {
+    let mut evidence = events
+        .iter()
+        .filter_map(|raw| serde_json::from_str::<Value>(raw).ok())
+        .filter(|event| event.get("step_id").and_then(Value::as_str) == Some(step_id))
+        .filter(|event| {
+            attempt_id.is_none_or(|expected| {
+                event.get("attempt_id").and_then(Value::as_str) == Some(expected)
+            })
+        })
+        .filter_map(|event| {
+            let receipt = event.get("receipt")?;
+            Some(json!({
+                "command_sha256": receipt.get("command_sha256"),
+                "command_preview": event.get("command_preview"),
+                "exit_code": receipt.get("exit_code"),
+                "duration_ms": receipt.get("duration_ms"),
+                "workspace_hashes_complete": receipt.get("workspace_hashes_complete"),
+                "validator_id": receipt.get("validator_id"),
+            }))
+        })
+        .collect::<Vec<_>>();
+    if evidence.len() > 6 {
+        evidence.drain(0..evidence.len() - 6);
+    }
+    evidence
+}
+
 impl TeamCoordinator {
     // -- 上下文切片（handoff 的运行时视图；A3 结构化 context slice） --
 
@@ -189,7 +248,16 @@ impl TeamCoordinator {
         const UPSTREAM_READ_CONCURRENCY: usize = 4;
         let mut upstream_sources = Vec::new();
         let mut upstream_body_budget = crate::team_prompt::DEFAULT_TOTAL_UPSTREAM_BYTES;
-        for dep in &step.depends_on {
+        // A reviewer must see the deliverables it is reviewing, not only the
+        // immediately preceding report. Otherwise a critic can identify a defect
+        // in an earlier implementation task but the host cannot bind the finding
+        // to a reviewed artifact, causing the whole run to fail at rework planning.
+        let dependency_ids = if super::util::is_review_role(&spec.role, &spec.capabilities) {
+            collect_review_dependency_ids(&step.id, &step.depends_on, &steps_by_id)
+        } else {
+            step.depends_on.clone()
+        };
+        for dep in &dependency_ids {
             let Some(dep_step) = steps_by_id.get(dep) else {
                 continue;
             };
@@ -204,8 +272,16 @@ impl TeamCoordinator {
                 break;
             }
             let declared_bytes = usize::try_from(artifact.size_bytes).unwrap_or(usize::MAX);
+            // Review JSON carries reviewer_id and reviewed-artifact bindings at
+            // the end; use a larger cap so identity is not cut off by the
+            // ordinary artifact preview limit.
+            let per_artifact_limit = if artifact.kind == "review" {
+                crate::team_prompt::DEFAULT_REVIEW_BODY_BYTES
+            } else {
+                crate::team_prompt::DEFAULT_PER_ARTIFACT_BYTES
+            };
             let read_limit = upstream_body_budget
-                .min(crate::team_prompt::DEFAULT_PER_ARTIFACT_BYTES)
+                .min(per_artifact_limit)
                 .min(declared_bytes);
             // Reserve each artifact's full size when small and the preview limit
             // when large before fan-out. Summed request limits therefore stay
@@ -221,6 +297,7 @@ impl TeamCoordinator {
             .read_many(preview_requests, UPSTREAM_READ_CONCURRENCY)
             .await?;
         let mut upstream = Vec::with_capacity(upstream_sources.len());
+        let command_events = self.runtime_event_details(team_id, "team.command.executed");
         let mut upstream_body_budget = crate::team_prompt::DEFAULT_TOTAL_UPSTREAM_BYTES;
         for ((dep_step, dep_role, artifact, _), page) in
             upstream_sources.into_iter().zip(preview_pages)
@@ -230,6 +307,8 @@ impl TeamCoordinator {
             upstream_body_budget = upstream_body_budget.saturating_sub(content.len());
             upstream.push(json!({
                 "role": dep_role,
+                "step_id": dep_step.id,
+                "worker": dep_step.worker,
                 "task_id": artifact.task_id,
                 "attempt_id": artifact.attempt_id,
                 "artifact_id": artifact.artifact_id,
@@ -244,6 +323,11 @@ impl TeamCoordinator {
                 "review_requirements": super::delivery_gate_evidence::review_requirements_for_step(
                     &dep_step,
                     &goal_objective,
+                ),
+                "host_command_evidence": command_evidence_for_step(
+                    &command_events,
+                    &dep_step.id,
+                    artifact.attempt_id.as_deref(),
                 ),
                 "version": artifact.version,
                 "content": content,
@@ -283,14 +367,28 @@ impl TeamCoordinator {
                 ));
             }
             if !source_manifest.is_empty() {
+                let expected_ids = source_manifest
+                    .iter()
+                    .flat_map(|artifact| {
+                        artifact
+                            .get("review_requirements")
+                            .and_then(Value::as_array)
+                            .into_iter()
+                            .flatten()
+                    })
+                    .filter_map(|requirement| {
+                        requirement.get("requirement_id").and_then(Value::as_str)
+                    })
+                    .collect::<Vec<_>>();
                 let base = review_handoff_contract
                     .as_deref()
                     .unwrap_or_default()
                     .trim();
                 review_handoff_contract = Some(format!(
-                    "{base}
+                    "只允许逐字复制的 requirement_id：{expected_ids:?}。不得自造 REQ-001 等编号；approved 必须完整覆盖，changes_requested 只需报告已发现的问题。
+{base}
 
-宿主绑定的评审清单（只读）：{manifest}。逐项审查每个上游任务的 review_requirements，最终在 review_result.reviewed_requirement_ids 中原样列出全部 requirement_id，且不得重复、遗漏或增加；对 code/source artifact 逐个读取清单中的工作区文件并按源码证据提交 findings。交付门会校验这些哈希及要求在评审期间和交付时未变化。"
+宿主绑定的评审清单（只读）：{manifest}。逐项审查每个上游任务的 review_requirements，最终在 review_result.reviewed_requirement_ids 中原样列出全部 requirement_id，且不得重复、遗漏或增加；对 code/source artifact 逐个读取清单中的工作区文件并按源码证据提交 findings。host_command_evidence 是宿主记录的命令回执摘要（含命令预览、exit_code 和工作区哈希）；若其中存在 exit_code=0 且命令就是目标测试的回执，视为宿主已完成行为验证，**不得**以“我无法运行测试”“需用户运行”或“无法获取退出码”为由 changes_requested；交付门会独立校验该回执是否覆盖最终源码哈希。只有源码本身有缺陷或确实缺少任何宿主命令回执时，才要求 producer 返修。交付门会校验这些哈希及要求在评审期间和交付时未变化。"
                 ));
             }
         }
@@ -299,6 +397,7 @@ impl TeamCoordinator {
                 "team_id": team_id,
                 "objective_text": goal_objective,
                 "role": spec.role,
+                "node_id": spec.node_id,
                 "capabilities": spec.capabilities,
                 "write_paths": spec.write_paths,
                 "member_id": member_id,
@@ -399,4 +498,71 @@ fn context_cas_hash(content_ref: &str) -> WorkSwarmResult<&str> {
         .strip_prefix("cas://sha256:")
         .filter(|hash| hash.len() == 64 && hash.bytes().all(|byte| byte.is_ascii_hexdigit()))
         .ok_or_else(|| WorkSwarmError::Validation("上下文缺少合法 CAS 哈希引用".into()))
+}
+
+#[cfg(test)]
+mod review_scope_tests {
+    use super::{collect_review_dependency_ids, command_evidence_for_step};
+    use crate::plan::StepSpec;
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    fn step(id: &str, deps: &[&str]) -> StepSpec {
+        let mut step = StepSpec::new(id, "worker");
+        step.depends_on = deps.iter().map(|dep| dep.to_string()).collect();
+        step
+    }
+
+    #[test]
+    fn review_command_evidence_is_bound_to_step_and_attempt_without_leaking_hashes() {
+        let events = vec![
+            json!({
+                "step_id": "s-build",
+                "attempt_id": "a1",
+                "command_preview": "npm test",
+                "receipt": {
+                    "command_sha256": "c1",
+                    "exit_code": 0,
+                    "duration_ms": 12,
+                    "workspace_hashes_complete": true,
+                    "validator_id": "workspace-command-success-v1",
+                    "workspace_hashes": {"src/lib.rs": "secret-hash"}
+                }
+            })
+            .to_string(),
+            json!({
+                "step_id": "s-build",
+                "attempt_id": "a2",
+                "receipt": {"command_sha256": "c2", "exit_code": 1}
+            })
+            .to_string(),
+            json!({
+                "step_id": "s-other",
+                "attempt_id": "a1",
+                "receipt": {"command_sha256": "c3", "exit_code": 0}
+            })
+            .to_string(),
+            "not json".to_string(),
+        ];
+        let evidence = command_evidence_for_step(&events, "s-build", Some("a1"));
+        assert_eq!(evidence.len(), 1);
+        assert_eq!(evidence[0]["command_sha256"], "c1");
+        assert_eq!(evidence[0]["command_preview"], "npm test");
+        assert_eq!(evidence[0]["exit_code"], 0);
+        assert_eq!(evidence[0]["validator_id"], "workspace-command-success-v1");
+        assert!(evidence[0].get("workspace_hashes").is_none());
+    }
+
+    #[test]
+    fn reviewer_scope_walks_transitive_ancestors_without_cycles() {
+        let steps = HashMap::from([
+            ("research".to_string(), step("research", &[])),
+            ("design".to_string(), step("design", &["research"])),
+            ("test".to_string(), step("test", &["design"])),
+            ("review".to_string(), step("review", &["test"])),
+        ]);
+        let mut ids = collect_review_dependency_ids("review", &steps["review"].depends_on, &steps);
+        ids.sort();
+        assert_eq!(ids, vec!["design", "research", "test"]);
+    }
 }

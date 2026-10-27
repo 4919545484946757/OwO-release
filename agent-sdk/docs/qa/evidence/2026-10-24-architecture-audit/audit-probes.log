@@ -1,0 +1,6 @@
+{"probe":"media-preview-boundary","bytes":32,"cap":1600,"serialized":143,"fullParsed":true,"truncatedParsed":true,"pathVisible":"outputs/audit.png"}
+{"probe":"media-preview-boundary","bytes":1200,"cap":1600,"serialized":1701,"fullParsed":true,"truncatedParsed":false,"pathVisible":null}
+{"probe":"media-preview-boundary","bytes":4096,"cap":1600,"serialized":5565,"fullParsed":true,"truncatedParsed":false,"pathVisible":null}
+{"probe":"media-preview-boundary","bytes":524289,"cap":1600,"serialized":67,"fullParsed":true,"truncatedParsed":true,"pathVisible":"outputs/audit.png"}
+{"probe":"draft-default-media-vocabulary","image":false,"speech":false,"note":"source membership check, not Rust execution"}
+{"probe":"team-dag-edge","x1":"12210","expectedX1":222,"svgWidth":"504"}

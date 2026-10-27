@@ -33,6 +33,8 @@ const MAX_PACKAGE_BYTES: usize = 1_000_000;
 #[derive(Debug, Deserialize)]
 struct PackageBody {
     package_b64: String,
+    #[serde(default)]
+    expected_revision: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -75,7 +77,7 @@ fn audit(
 }
 
 fn registry(state: &AppState) -> TeamTemplateRegistry {
-    TeamTemplateRegistry::new(state.data_root.join("workswarm").join("templates"))
+    TeamTemplateRegistry::for_workswarm_root(&state.data_root.join("workswarm"))
 }
 
 fn error(status: StatusCode, message: impl Into<String>) -> (StatusCode, Json<Value>) {
@@ -224,6 +226,10 @@ async fn review_import(
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let package = decode_package(&body.package_b64)
         .map_err(|reason| error(StatusCode::UNPROCESSABLE_ENTITY, reason))?;
+    let local_revision = registry(&state)
+        .get_revision(&package.template.template_id)
+        .map_err(owo_agent_server::workflow_write_service::store_error)?
+        .map_or(0, |record| record.revision);
     let diff_vs_local = local_diff(&state, &package.template);
     Ok(Json(json!({
         "ok": true,
@@ -232,6 +238,7 @@ async fn review_import(
         "sha256": package.sha256,
         "review": review_json(&package.template),
         "diff_vs_local": diff_vs_local,
+        "local_revision": local_revision,
     })))
 }
 
@@ -296,12 +303,16 @@ async fn import_workflow(
     if template.created_at.trim().is_empty() {
         template.created_at = chrono::Utc::now().to_rfc3339();
     }
-    registry.save_template(&template).map_err(|write_error| {
-        error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("模板落盘失败：{write_error}"),
-        )
-    })?;
+    let saved = owo_agent_core::user_workflow::save_user_workflow(
+        &registry,
+        template.clone(),
+        body.expected_revision,
+    )
+    .map_err(owo_agent_server::workflow_write_service::edit_error)?;
+    let template = saved
+        .template
+        .clone()
+        .expect("saved workflow has a template");
     // 导入溯源：记录 sha256 与当时的发现数（放在 templates/ 之外，避免被模板扫描）。
     {
         let mut imports =
@@ -351,6 +362,8 @@ async fn import_workflow(
     Ok(Json(json!({
         "ok": true,
         "template": template,
+        "revision": saved.revision,
+        "content_hash": saved.content_hash,
         "manifest": package.manifest,
         "review": review,
         "diff_vs_local": diff_vs_local,

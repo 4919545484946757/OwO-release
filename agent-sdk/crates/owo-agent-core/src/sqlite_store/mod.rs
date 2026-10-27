@@ -40,6 +40,7 @@ pub fn open_encrypted_snapshot(
 }
 
 mod migrations;
+mod team_turn_events;
 
 use migrations::{base_schema, run_migrations, user_version};
 pub use migrations::{Migration, MIGRATIONS};
@@ -154,6 +155,9 @@ impl SqliteSessionStore {
             .execute("DELETE FROM audit", [])
             .map_err(sqlite_error)?;
         transaction
+            .execute("DELETE FROM team_turn_delivery", [])
+            .map_err(sqlite_error)?;
+        transaction
             .execute("DELETE FROM turn_events", [])
             .map_err(sqlite_error)?;
         transaction
@@ -198,8 +202,8 @@ impl SqliteSessionStore {
                  redo_json, message_redo_json, title, archived, pinned, model_override,
                  validation_receipts_json, single_verification_plan_json,
                  single_verification_plan_input_sha256, single_verification_plan_turn_id,
-                 single_review_issues_json, completion_record_json, goal_json
-             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)
+                 single_review_issues_json, completion_record_json, goal_json, mode, todos_json
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)
              ON CONFLICT(id) DO UPDATE SET
                  workspace=excluded.workspace,
                  model=excluded.model,
@@ -222,7 +226,9 @@ impl SqliteSessionStore {
                  single_verification_plan_turn_id=excluded.single_verification_plan_turn_id,
                  single_review_issues_json=excluded.single_review_issues_json,
                  completion_record_json=excluded.completion_record_json,
-                 goal_json=excluded.goal_json",
+                 goal_json=excluded.goal_json,
+                 mode=excluded.mode,
+                 todos_json=excluded.todos_json",
             params![
                 session.id,
                 session.workspace.to_string_lossy(),
@@ -248,6 +254,8 @@ impl SqliteSessionStore {
                 serde_json::to_string(&session.single_review_issues).map_err(json_error)?,
                 session.completion_record.as_ref().map(serde_json::to_string).transpose().map_err(json_error)?,
                 session.goal.as_ref().map(serde_json::to_string).transpose().map_err(json_error)?,
+                session.mode.as_str(),
+                serde_json::to_string(&session.todos).map_err(json_error)?,
             ],
         )
         .map_err(sqlite_error)?;
@@ -262,7 +270,7 @@ impl SqliteSessionStore {
                         redo_json, message_redo_json, title, archived, pinned, model_override,
                         validation_receipts_json, single_verification_plan_json,
                         single_verification_plan_input_sha256, single_verification_plan_turn_id,
-                        single_review_issues_json, completion_record_json, goal_json
+                        single_review_issues_json, completion_record_json, goal_json, mode, todos_json
                  FROM sessions WHERE id = ?1",
                 [id],
                 |row| {
@@ -291,6 +299,8 @@ impl SqliteSessionStore {
                         row.get::<_, String>(21)?,
                         row.get::<_, Option<String>>(22)?,
                         row.get::<_, Option<String>>(23)?,
+                        row.get::<_, Option<String>>(24)?,
+                        row.get::<_, String>(25)?,
                     ))
                 },
             )
@@ -337,8 +347,7 @@ impl SqliteSessionStore {
             archived: row.14,
             pinned: row.15,
             model_override: row.16,
-            // 任务清单暂不落库（会话内存态）；需要跨重启保留时再补列迁移。
-            todos: Vec::new(),
+            todos: serde_json::from_str(&row.25).map_err(json_error)?,
             // 目标模式状态落库（migration v10）：重开进程 /resume 后目标与进度不丢。
             goal: row
                 .23
@@ -346,6 +355,12 @@ impl SqliteSessionStore {
                 .map(serde_json::from_str)
                 .transpose()
                 .map_err(json_error)?,
+            // 旧库缺列（或空值）按 agent 处理：不做静默收紧。
+            mode: row
+                .24
+                .as_deref()
+                .and_then(crate::session::SessionMode::parse)
+                .unwrap_or_default(),
         })
     }
 }
@@ -353,12 +368,15 @@ impl SqliteSessionStore {
 impl SessionStore for SqliteSessionStore {
     /// 删除会话及其回合事件/游标。
     fn remove(&self, id: &str) -> Result<(), AgentError> {
-        let conn = self
+        let mut conn = self
             .conn
             .lock()
             .map_err(|_| AgentError::Session("SQLite 锁中毒".into()))?;
+        let transaction = conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(sqlite_error)?;
         // 先确认存在：不能"删了 0 行也回报成功"，否则界面显示删除成功而会话还在。
-        let count: i64 = conn
+        let count: i64 = transaction
             .query_row("SELECT COUNT(*) FROM sessions WHERE id = ?1", [id], |row| {
                 row.get(0)
             })
@@ -368,13 +386,16 @@ impl SessionStore for SqliteSessionStore {
         }
         // 事件与游标按 session_id 关联，一并清理；否则会留下永远读不到的孤儿记录。
         for statement in [
+            "DELETE FROM team_turn_delivery WHERE session_id = ?1",
             "DELETE FROM turn_events WHERE session_id = ?1",
             "DELETE FROM turn_event_cursors WHERE session_id = ?1",
             "DELETE FROM sessions WHERE id = ?1",
         ] {
-            conn.execute(statement, [id])
+            transaction
+                .execute(statement, [id])
                 .map_err(|error| AgentError::Session(format!("删除会话失败：{error}")))?;
         }
+        transaction.commit().map_err(sqlite_error)?;
         Ok(())
     }
 
@@ -458,43 +479,41 @@ impl SessionStore for SqliteSessionStore {
         let transaction = conn
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sqlite_error)?;
-        let last_seq = transaction
-            .query_row(
-                "SELECT last_seq FROM turn_event_cursors WHERE session_id = ?1",
-                [session_id],
-                |row| row.get::<_, i64>(0),
-            )
-            .optional()
-            .map_err(sqlite_error)?
-            .unwrap_or(0);
-        let seq = last_seq
-            .checked_add(1)
-            .ok_or_else(|| AgentError::Session("回合事件 seq 已耗尽".into()))?;
-        let created_at = chrono::Utc::now().to_rfc3339();
-        let payload_json = serde_json::to_string(payload)
-            .map_err(|error| AgentError::Session(format!("回合事件编码失败：{error}")))?;
-        transaction
-            .execute(
-                "INSERT INTO turn_event_cursors(session_id, last_seq) VALUES (?1, ?2)
-                 ON CONFLICT(session_id) DO UPDATE SET last_seq = excluded.last_seq",
-                params![session_id, seq],
-            )
-            .map_err(sqlite_error)?;
-        transaction
-            .execute(
-                "INSERT INTO turn_events(session_id, seq, turn_id, created_at, payload_json)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![session_id, seq, turn_id, created_at, payload_json],
-            )
-            .map_err(sqlite_error)?;
+        let record = team_turn_events::append_event_tx(&transaction, session_id, turn_id, payload)?;
         transaction.commit().map_err(sqlite_error)?;
-        Ok(TurnEventRecord {
-            session_id: session_id.to_string(),
-            turn_id: turn_id.to_string(),
-            seq: seq as u64,
-            created_at,
-            payload: payload.clone(),
-        })
+        Ok(record)
+    }
+
+    fn append_team_turn_event(
+        &self,
+        binding: &crate::session::TeamTurnBinding,
+        session_id: &str,
+        turn_id: &str,
+        payload: &SseEvent,
+    ) -> Result<TurnEventRecord, AgentError> {
+        self.append_team_event_sql(binding, session_id, turn_id, payload)
+    }
+    fn pending_team_turn_events(
+        &self,
+        run_id: &str,
+        limit: usize,
+    ) -> Result<Vec<crate::session::TeamTurnDelivery>, AgentError> {
+        self.pending_team_events_sql(run_id, limit)
+    }
+    fn acknowledge_team_turn_event(
+        &self,
+        run_id: &str,
+        delivery_id: i64,
+    ) -> Result<(), AgentError> {
+        self.acknowledge_team_event_sql(run_id, delivery_id)
+    }
+    fn turn_event_json_bounded(
+        &self,
+        session_id: &str,
+        seq: u64,
+        max_bytes: usize,
+    ) -> Result<Option<String>, AgentError> {
+        self.turn_event_json_bounded_sql(session_id, seq, max_bytes)
     }
 
     fn turn_events_after(
@@ -540,6 +559,16 @@ impl SessionStore for SqliteSessionStore {
             })
             .map_err(sqlite_error)?;
         rows.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)
+    }
+
+    fn pending_conversation_sessions(
+        &self,
+        run_id: &str,
+        cursors: &std::collections::BTreeMap<String, u64>,
+        after_session: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<String>, AgentError> {
+        self.pending_conversation_sessions_sql(run_id, cursors, after_session, limit)
     }
 
     fn turn_history(
@@ -955,6 +984,28 @@ mod tests {
         let _ = std::fs::remove_file(format!("{}-shm", path.display()));
     }
 
+    /// 工作模式随会话落库：重开进程后 chat 仍是 chat，旧行按 agent 处理。
+    #[test]
+    fn mode_roundtrip_survives_reopen() {
+        let path =
+            std::env::temp_dir().join(format!("owo-sqlite-mode-{}.db", uuid::Uuid::new_v4()));
+        let store = SqliteSessionStore::open(&path).unwrap();
+        let mut session = Session::new(".", "m", None);
+        assert_eq!(session.mode, crate::session::SessionMode::Agent);
+        session.set_mode(crate::session::SessionMode::Chat);
+        store.save(&session).unwrap();
+        let loaded = store.load(&session.id).unwrap();
+        assert!(loaded.mode.is_chat(), "chat 模式应随会话落库");
+
+        // 缺列/空值（模拟旧库）按 agent 处理：不做静默收紧。
+        assert_eq!(
+            crate::session::SessionMode::parse("").unwrap_or_default(),
+            crate::session::SessionMode::Agent
+        );
+        drop(store);
+        std::fs::remove_file(&path).ok();
+    }
+
     /// 目标模式状态（migration v10）往返：持久化后重开库仍在，旧库旧行按 None 加载。
     #[test]
     fn goal_roundtrip_survives_reopen_and_legacy_rows() {
@@ -1048,20 +1099,22 @@ mod tests {
         let path =
             std::env::temp_dir().join(format!("owo-sqlite-migrate-{}.db", uuid::Uuid::new_v4()));
         let store = SqliteSessionStore::open(&path).unwrap();
-        assert_eq!(store.migration_status().schema_version, 10);
+        // 最新版本与迁移表保持同源：新增迁移不需要再改这里。
+        let latest = MIGRATIONS.last().expect("迁移表不能为空").version;
+        assert_eq!(store.migration_status().schema_version, latest);
         assert!(store.migration_status().pending.is_empty());
         assert!(!store.is_read_only());
         drop(store);
         // 再次打开：无新迁移应用，schema_version 保持。
         let reopened = SqliteSessionStore::open(&path).unwrap();
-        assert_eq!(reopened.migration_status().schema_version, 10);
+        assert_eq!(reopened.migration_status().schema_version, latest);
         assert!(reopened.migration_status().applied.is_empty());
         assert!(!reopened.is_read_only());
         let conn = Connection::open(&path).unwrap();
         let version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 10);
+        assert_eq!(version, latest);
         let _ = std::fs::remove_file(&path);
         let _ = std::fs::remove_file(format!("{}-wal", path.display()));
         let _ = std::fs::remove_file(format!("{}-shm", path.display()));
@@ -1091,21 +1144,12 @@ mod tests {
         drop(conn);
         let store = SqliteSessionStore::open(&path).unwrap();
         assert!(!store.is_read_only());
-        assert_eq!(
-            store.migration_status().applied,
-            vec![
-                "v1: sessions 列补齐（message_redo_json/title/archived/pinned）",
-                "v2: sessions 列补齐（model_override：M4.2 会话级模型路由）",
-                "v3: session turn events 持久化与单调 seq",
-                "v4: session execution receipts 持久化",
-                "v5: session behavior validation receipts 持久化",
-                "v6: session Single VerificationPlan 持久化",
-                "v7: session VerificationPlan 回合身份绑定",
-                "v8: session Single review issues 持久化",
-                "v9: session Single completion record 持久化",
-                "v10: session 目标模式状态持久化（/goal）",
-            ]
-        );
+        // 从迁移表推导期望值：历史硬编码会在新增迁移时假失败。
+        let expected: Vec<String> = MIGRATIONS
+            .iter()
+            .map(|migration| format!("v{}: {}", migration.version, migration.name))
+            .collect();
+        assert_eq!(store.migration_status().applied, expected);
         let mut session = store.create(Path::new("."), "mock", None).unwrap();
         session.rename("v1 迁移会话".to_string());
         store.save(&session).unwrap();

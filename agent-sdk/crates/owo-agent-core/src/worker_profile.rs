@@ -22,10 +22,10 @@ use std::sync::Arc;
 pub type TurnEventSink = Arc<dyn Fn(&TurnEvent) + Send + Sync>;
 
 /// 画像回合上限（与 `SubagentRunner` 子代理口径一致：max_turns 硬上限 16）。
-pub const PROFILE_MAX_TURNS_CAP: usize = 16;
+pub const PROFILE_MAX_TURNS_CAP: usize = 32;
 
 /// 模板未声明该角色预算（`budget_calls == 0`）时的缺省回合上限。
-pub const DEFAULT_PROFILE_MAX_TURNS: usize = 12;
+pub const DEFAULT_PROFILE_MAX_TURNS: usize = 24;
 
 /// 角色族（工具面装配依据）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,7 +58,7 @@ pub struct WorkerProfile {
     pub read_only: bool,
     /// 角色级写白名单（相对工作区根；空 = 交由团队绑定白名单决定）。
     pub write_allowed_paths: Vec<String>,
-    /// 回合上限（模板 `budget_calls_per_role[].budget_calls`；硬上限 16）。
+    /// 回合上限（模板 `budget_calls_per_role[].budget_calls`；硬上限 32）。
     pub max_turns: usize,
     /// 允许浏览器（搜索/导航/快照；写工作区变体不在可见面）。
     pub can_use_browser: bool,
@@ -125,6 +125,12 @@ impl WorkerProfile {
         } else {
             profile.declared_tools_dropped = profile.apply_declared_tools(&spec.tools);
         }
+        // The orchestrator is an architect/quality authority, never a writer. This is
+        // also a runtime defense for persisted teams created before validation existed.
+        if spec.is_orchestrator() {
+            profile = profile.restricted_to_read_only();
+            profile.write_allowed_paths.clear();
+        }
         profile
     }
 
@@ -140,7 +146,13 @@ impl WorkerProfile {
         profile.read_only = !profile.visible_tools.iter().any(|tool| {
             matches!(
                 tool.as_str(),
-                "write_file" | "apply_patch" | "edit_file" | "multi_edit" | "run_command"
+                "write_file"
+                    | "apply_patch"
+                    | "edit_file"
+                    | "multi_edit"
+                    | "run_command"
+                    | "generate_image"
+                    | "text_to_speech"
             )
         });
         profile.can_run_command = profile
@@ -171,6 +183,19 @@ impl WorkerProfile {
         }
         let workspace_root = canonicalize_scope_path(workspace_root)?;
         let mut paths = Vec::with_capacity(spec.write_paths.len());
+        if spec.write_paths.is_empty()
+            && spec
+                .tools
+                .iter()
+                .any(|tool| matches!(tool.as_str(), "generate_image" | "text_to_speech"))
+            && !spec
+                .tools
+                .iter()
+                .any(|tool| matches!(tool.as_str(), "write_file" | "apply_patch"))
+        {
+            paths.push(canonicalize_scope_path(&workspace_root.join("outputs"))?);
+            return Ok(paths);
+        }
         for raw in &spec.write_paths {
             let path = canonicalize_scope_path(&workspace_root.join(Path::new(raw.trim())))?;
             if !path.starts_with(&workspace_root) {
@@ -327,10 +352,14 @@ impl WorkerProfile {
         Ok(total_calls - 1)
     }
 
-    /// Limit a TaskGraph attempt to its host-assigned total request budget. The final
+    /// Apply the TaskGraph attempt's host-assigned total request budget. The final
     /// request remains available to the single WorkerOutputV1 correction path.
+    ///
+    /// The role template budget is only a suggestion; the task graph allocation is
+    /// authoritative for this attempt, including raising a lower suggestion (otherwise
+    /// a 4-call template would silently cap an 8-call coding task at 3 turns).
     pub fn with_task_model_call_budget(mut self, total_calls: usize) -> Result<Self, String> {
-        self.max_turns = self.max_turns.min(Self::task_agent_turn_cap(total_calls)?);
+        self.max_turns = Self::task_agent_turn_cap(total_calls)?;
         Ok(self)
     }
 
@@ -406,12 +435,18 @@ impl WorkerProfile {
             .min();
         let can_write_files = !task_has_no_write_scope
             && (required.contains("write_file") || required.contains("apply_patch"));
+        let can_write_media = !task_has_no_write_scope
+            && (required.contains("generate_image") || required.contains("text_to_speech"));
         self.can_run_command =
             self.can_run_command && can_write_files && required.contains("run_command");
         self.visible_tools.retain(|tool| {
-            required.contains(tool.as_str()) && (tool != "run_command" || self.can_run_command)
+            required.contains(tool.as_str())
+                && (tool != "run_command" || self.can_run_command)
+                && (!matches!(tool.as_str(), "write_file" | "apply_patch") || can_write_files)
+                && (!matches!(tool.as_str(), "generate_image" | "text_to_speech")
+                    || can_write_media)
         });
-        if !can_write_files {
+        if !can_write_files && !can_write_media {
             self.read_only = true;
             self.visible_tools
                 .retain(|tool| !matches!(tool.as_str(), "write_file" | "apply_patch"));
@@ -571,6 +606,16 @@ impl WorkerProfile {
         registry.specs().into_iter().map(|spec| spec.name).collect()
     }
 
+    /// Metadata projection of the same assembler used by runtime workers; no second persistent registry.
+    pub fn supported_native_tool_specs() -> Vec<crate::tools::ToolSpec> {
+        let mut profile = Self::for_role("builder", 1);
+        profile.read_only = false;
+        profile.can_run_command = true;
+        profile.can_use_browser = true;
+        profile.visible_tools.clear();
+        profile.build_registry(Vec::new()).specs()
+    }
+
     /// 按画像装配工具注册表：注册表面即权限边界。
     ///
     /// - `write_allowed`：最终写白名单（角色 ∩ 团队绑定，见 [`intersect_paths`]；
@@ -723,12 +768,25 @@ pub fn compile_worker_system_prompt(
     let base_prompt = if is_review_role {
         "你是只读评审子代理：critic 不得提交 artifact；只能读取/搜索工作区文件，禁止写入或执行命令；独立检查交付并简洁汇报发现。\n"
     } else if profile.is_writer() {
-        "你是写角色子代理：凡涉及代码/文件变更，必须在允许路径内真实落盘：小范围修改优先用 apply_patch，并传入 read_file 返回的 sha256 作为 expected_hashes；整文件生成或确需重写时使用 write_file（工具面之外没有其他写入手段）；artifact.content 只写变更说明、影响面与验证方式，不要把完整变更只放在 artifact 里而不落盘。回合预算有限：先做必要读取并完成写入；仅当任务验收需要且权限允许时，运行范围明确的定向检查，避免重复读取和全仓构建。最后一个回合只输出契约 JSON，不再调用工具。工具调用仍需审批；无法验证时如实说明。\n"
+        "你是写角色子代理：凡涉及代码/文件变更，必须在允许路径内真实落盘：小范围修改已有文件必须用 apply_patch，并传入 read_file 返回的 sha256 作为 expected_hashes；不要用 write_file 重写已有文件来掩盖增量修改；write_file 只用于新建文件或确需整体重写且一次成文（工具面之外没有其他写入手段）；artifact.content 只写变更说明、影响面与验证方式，不要把完整变更只放在 artifact 里而不落盘。回合预算有限：先做必要读取并完成写入；仅当任务验收需要且权限允许时，运行范围明确的定向检查；同一验证命令已明确通过后不要重复运行，不要接 grep/tail/head 等 bash 过滤器，直接读取宿主保留的首尾输出；避免重复读取和全仓构建。最后一个回合只输出契约 JSON，不再调用工具。工具调用仍需审批；无法验证时如实说明。\n"
     } else {
         "你是通用子代理：独立完成委派任务，工具调用仍需审批，完成后汇报结果。\n"
     };
+    // Worker commands run through the host sandbox shell, not an arbitrary
+    // bash.  State the real shell so models stop wasting calls on `| tail`,
+    // `grep`, `$?` and other bash-only fragments on Windows.
+    let shell_note = if cfg!(windows)
+        && profile
+            .visible_tools
+            .iter()
+            .any(|tool| tool == "run_command")
+    {
+        "本机命令壳是 Windows cmd.exe：不要使用 bash 专用的 tail/head/grep/sed/awk、$?、$(...) 或反引号；直接运行原命令，输出由宿主保留首尾并截断中段。\n"
+    } else {
+        ""
+    };
     format!(
-        "{}{base_prompt}{budget_note}{}",
+        "{}{base_prompt}{shell_note}{budget_note}{}",
         extra_system_prompt.unwrap_or_default(),
         crate::workswarm_output::contract_system_prompt(is_review_role)
     )
@@ -884,6 +942,7 @@ mod tests {
 
         let fullstack_worker = WorkerProfile::for_team_role_spec(
             &crate::workswarm::RoleSpec {
+                node_id: None,
                 role: "w1".to_string(),
                 write_paths: vec!["apps/web".to_string()],
                 ..Default::default()
@@ -1054,7 +1113,7 @@ mod tests {
     }
 
     #[test]
-    fn task_graph_capability_scope_keeps_a_declared_media_tool() {
+    fn task_graph_capability_scope_keeps_external_media_tools_read_only() {
         const MEDIA_TOOL: &str = "mcp__media__video_generate";
         let mut profile = WorkerProfile::for_declared_tools(&[MEDIA_TOOL.to_string()], 4);
         let task = crate::task_context::ResolvedTaskContext {
@@ -1068,9 +1127,48 @@ mod tests {
         assert_eq!(profile.visible_tools, vec![MEDIA_TOOL.to_string()]);
         assert!(
             profile.read_only,
-            "media generation does not grant file writes"
+            "an MCP media API does not grant workspace writes"
         );
         assert!(!profile.can_run_command);
+    }
+
+    #[test]
+    fn builtin_media_tools_get_only_the_outputs_write_scope() {
+        use crate::workswarm::RoleSpec;
+
+        let mut role = RoleSpec::agent("音频与图像生成");
+        role.tools = vec!["generate_image".into(), "text_to_speech".into()];
+        let profile = WorkerProfile::for_team_role_spec(&role, 4, false, None);
+        assert!(!profile.read_only);
+        let workspace = tempfile::tempdir().unwrap();
+        let expected_outputs = super::canonicalize_scope_path(&workspace.path().join("outputs"))
+            .expect("输出范围应可解析");
+        assert_eq!(
+            WorkerProfile::team_role_write_allowed_paths(&role, workspace.path(), true).unwrap(),
+            vec![expected_outputs]
+        );
+
+        let task = crate::task_context::ResolvedTaskContext {
+            origin: crate::task_context::TaskContextOrigin::TaskGraph,
+            required_capabilities: Some(vec!["generate_image".into()]),
+            write_paths: Some(vec!["outputs".into()]),
+            ..Default::default()
+        };
+        let mut task_profile = profile;
+        task_profile.apply_task_capability_scope(&task, false);
+        assert!(!task_profile.read_only);
+        assert_eq!(task_profile.visible_tools, vec!["generate_image"]);
+        assert!(!task_profile.can_run_command);
+
+        let mut unscoped = WorkerProfile::for_declared_tools(&["generate_image".into()], 4);
+        let no_output_path = crate::task_context::ResolvedTaskContext {
+            origin: crate::task_context::TaskContextOrigin::TaskGraph,
+            required_capabilities: Some(vec!["generate_image".into()]),
+            ..Default::default()
+        };
+        unscoped.apply_task_capability_scope(&no_output_path, true);
+        assert!(unscoped.read_only);
+        assert_eq!(unscoped.visible_tools, vec!["__owo_no_task_tool__"]);
     }
 
     #[test]
@@ -1240,7 +1338,13 @@ mod tests {
         assert!(writer_prompt.starts_with("host"));
         assert!(writer_prompt.contains("apply_patch"));
         assert!(writer_prompt.contains("write_file"));
+        assert!(writer_prompt.contains("不要用 write_file 重写已有文件"));
+        assert!(writer_prompt.contains("同一验证命令已明确通过后不要重复运行"));
         assert!(writer_prompt.contains("无法验证时如实说明"));
+        if cfg!(windows) {
+            assert!(writer_prompt.contains("Windows cmd.exe"), "{writer_prompt}");
+            assert!(writer_prompt.contains("tail"), "{writer_prompt}");
+        }
 
         let reviewer = WorkerProfile::for_role("reviewer", 4);
         let review_prompt = compile_worker_system_prompt(&reviewer, true, "budget", None);
@@ -1260,6 +1364,11 @@ mod tests {
         assert!(WorkerProfile::for_role("implementer", 12)
             .with_task_model_call_budget(2)
             .is_err());
+        // 任务图分配可以提升模板建议的 4 次预算；否则 8 次分配仍只有 3 回合。
+        let raised = WorkerProfile::for_role("implementer", 4)
+            .with_task_model_call_budget(8)
+            .unwrap();
+        assert_eq!(raised.max_turns, 7);
     }
 
     #[test]

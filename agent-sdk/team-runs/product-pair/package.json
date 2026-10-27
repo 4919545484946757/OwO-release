@@ -1,0 +1,28 @@
+{
+  "name": "focusflow-timer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FocusFlow 专注计时器：可直接用浏览器打开的单页产品落地页（开始/暂停/重置、可调时长、完成提示、响应式布局）。",
+  "type": "module",
+  "main": "script.js",
+  "files": [
+    "index.html",
+    "styles.css",
+    "script.js",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "test:watch": "node --test --watch"
+  },
+  "keywords": [
+    "focus",
+    "pomodoro",
+    "timer",
+    "landing-page"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

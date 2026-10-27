@@ -59,6 +59,7 @@ mod tests {
             id: id.to_string(),
             workspace: workspace.to_string(),
             model: "mock".to_string(),
+            mode: Default::default(),
             created_at: updated_at.to_string(),
             updated_at: updated_at.to_string(),
             title: None,

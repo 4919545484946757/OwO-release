@@ -1,15 +1,10 @@
-/* R5 Agent 3 面板：eval 护栏（历史列表/报告详情/运行按钮）。
- * 纯脚本 IIFE，注册 window.OwoPanels.eval；helpers 防御性降级。
- * 报告详情为结构化卡片（概览 + 失败用例列表），无裸 JSON 直出；
- * 面板内查找一律限定 sectionEl（挂载后赋值），异步渲染带"已卸载则跳过"防御。
- */
+// 模型评测：服务执行、历史报告和可核对的结果详情。
 window.OwoPanels = window.OwoPanels || {};
 window.OwoPanels.eval = (function () {
   "use strict";
-
-  var id = "eval";
-  var sectionEl = null;
-
+  var id = "eval", H = null, sectionEl = null, state = null;
+  var scopes = Object.create(null), tabs = ["run", "history", "detail"];
+  var lifecycleGeneration = 0, historyGeneration = 0, detailGeneration = 0;
   function defaultHelpers() {
     var baseUrl = (window.OwoPanels && window.OwoPanels.baseUrl) || window.location.origin;
     function get(path) {
@@ -45,237 +40,186 @@ window.OwoPanels.eval = (function () {
     return { baseUrl: baseUrl, get: get, post: post, esc: esc, friendlyError: friendlyError };
   }
 
-  var H = defaultHelpers();
-  var state = { reports: [], current: null, currentFile: "", running: false };
-  var lifecycleGeneration = 0;
-  var historyGeneration = 0;
-  var detailGeneration = 0;
-
+  function alive() { return sectionEl && document.contains(sectionEl); }
+  function current(generation, owner) { return generation === lifecycleGeneration && (!owner || owner === state) && alive(); }
+  function $(selector) { return alive() ? sectionEl.querySelector(selector) : null; }
   function nav() {
-    return (
-      '<section data-panel="' + id + '" class="owo-eval-panel">' +
-      '<style>' +
-      '.owo-eval-row{display:flex;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)}' +
-      '.owo-eval-item{cursor:pointer}' +
-      '.owo-eval-item{width:100%;text-align:left;color:inherit;background:transparent;border:0;font:inherit}' +
-      '.owo-eval-item:hover{background:var(--surface-2)}' +
-      '.owo-eval-badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:12px;color:var(--accent-ink)}' +
-      '.owo-eval-badge.ok{background:var(--green)}.owo-eval-badge.bad{background:var(--red)}' +
-      '.owo-eval-badge.warn{background:var(--yellow)}' +
-      // 报告详情卡（原 pre JSON 直出 → 结构化卡片）
-      '.owo-eval-detail{display:flex;flex-direction:column;gap:8px}' +
-      '.owo-eval-detail-card{border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--surface-2);display:flex;flex-direction:column;gap:4px}' +
-      '.owo-eval-detail-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}' +
-      '.owo-eval-meta{color:var(--text-3);font-size:12px}' +
-      '.owo-eval-failure{border:1px solid var(--red);border-radius:8px;padding:8px 10px;background:var(--red-soft);display:flex;flex-direction:column;gap:4px}' +
-      '.owo-eval-failure-head{display:flex;gap:8px;align-items:baseline;justify-content:space-between}' +
-      '.owo-eval-failure-err{font-size:12px;color:var(--red)}' +
-      '.owo-eval-failure-out{font-size:12px;color:var(--text-2);word-break:break-all}' +
-      '.owo-eval-allok{border:1px solid var(--green);border-radius:8px;padding:8px 10px;background:var(--green-soft);color:var(--green);font-size:12px}' +
-      '</style>' +
-      '<div class="stack">' +
-      '<div class="sub">eval 护栏（真实模型，缺 OPENAI_API_KEY 自动跳过）</div>' +
-      '<div class="owo-eval-row">' +
-      '<input id="owo-eval-suite" placeholder="套件（留空=内置 builtin；可填 .json 路径）" style="flex:1">' +
-      '<button class="primary" id="owo-eval-run" data-core-action>运行</button></div>' +
-      '<div id="owo-eval-status" class="sub">—</div>' +
-      '<div class="sub">历史报告</div>' +
-      '<div id="owo-eval-list" class="list"></div>' +
-      '<details><summary>最新报告详情</summary><div class="owo-eval-detail" id="owo-eval-detail"></div></details>' +
-      '</div>' +
-      '</section>'
-    );
+    return '<section data-panel="eval" data-layout="custom" class="owo-eval-panel owo-insight">' +
+      '<div class="owo-insight-toolbar"><div class="owo-insight-tabs" role="tablist" aria-label="模型评测">' +
+      tabs.map(function (tab, i) {
+        return '<button type="button" role="tab" id="eval-tab-' + tab + '" data-eval-tab="' + tab +
+          '" aria-controls="eval-pane-' + tab + '" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' + ["运行评测", "历史报告", "报告详情"][i] + '</button>';
+      }).join("") + '</div><button type="button" id="owo-eval-refresh">刷新历史</button></div>' +
+      '<section role="tabpanel" id="eval-pane-run" aria-labelledby="eval-tab-run"><h3>运行评测</h3>' +
+      '<p class="sub">运行会调用已配置的模型并可能产生费用；凭据缺失时由服务跳过。</p>' +
+      '<label for="owo-eval-suite">套件路径</label><input id="owo-eval-suite" placeholder="留空使用内置套件">' +
+      '<label for="owo-eval-model">模型（可选）</label><input id="owo-eval-model" placeholder="留空使用核心默认">' +
+      '<div class="owo-insight-actions"><button type="button" class="primary" id="owo-eval-run" data-core-action>运行评测</button></div>' +
+      '<section class="owo-insight-section"><h3>运行状态</h3><div id="owo-eval-status" class="sub" role="status" aria-live="polite">尚未运行</div></section></section>' +
+      '<section role="tabpanel" id="eval-pane-history" aria-labelledby="eval-tab-history" hidden><h3>历史报告</h3>' +
+      '<label for="owo-eval-search">搜索报告</label><input type="search" id="owo-eval-search" placeholder="按套件、模型或文件名搜索">' +
+      '<div id="owo-eval-history-status" class="sub" role="status"></div><div id="owo-eval-list" class="owo-eval-list"></div></section>' +
+      '<section role="tabpanel" id="eval-pane-detail" aria-labelledby="eval-tab-detail" hidden><h3>报告详情</h3>' +
+      '<div class="owo-eval-detail" id="owo-eval-detail"><div class="owo-insight-empty">选择一份历史报告查看详情</div></div></section></section>';
   }
-
+  function selectTab(tab) {
+    if (!alive() || tabs.indexOf(tab) < 0) return;
+    state.tab = tab;
+    tabs.forEach(function (id) {
+      var btn = $('[data-eval-tab="' + id + '"]');
+      if (btn && btn.setAttribute) { btn.setAttribute("aria-selected", String(tab === id)); btn.setAttribute("tabindex", tab === id ? "0" : "-1"); }
+      var pane = $("#eval-pane-" + id); if (pane) pane.hidden = tab !== id;
+    });
+  }
+  function status(message, error) {
+    state.status = message; state.error = !!error;
+    var el = $("#owo-eval-status"); if (el) { el.textContent = message; el.className = error ? "owo-insight-error" : "sub"; }
+  }
+  function runUi() {
+    var button = $("#owo-eval-run"); if (!button) return;
+    button.disabled = !!state.running;
+    if (button.setAttribute) button.setAttribute("aria-busy", String(!!state.running));
+    button.textContent = state.running ? "评测运行中…" : "运行评测";
+    if (window.OwoCoreActionAvailability) window.OwoCoreActionAvailability.setBusy(button, !!state.running);
+  }
   function mount(root, helpers) {
-    lifecycleGeneration += 1;
-    historyGeneration += 1;
-    detailGeneration += 1;
-    if (helpers) H = helpers;
-    root.innerHTML = nav();
-    sectionEl = root.querySelector(".owo-eval-panel");
-    var runButton = sectionEl.querySelector("#owo-eval-run");
-    runButton.disabled = state.running;
-    runButton.addEventListener("click", run);
-    if (state.running) $("#owo-eval-status").textContent = "评测仍在运行…";
-    refresh();
+    dispose();
+    H = Object.assign(defaultHelpers(), helpers || {});
+    var scope = (H.baseUrl || window.location.origin) + "#" + (H.coreInstanceId || (window.OwoApi && window.OwoApi.coreInstanceId) || "");
+    state = scopes[scope] || (scopes[scope] = {reports:[],current:null,currentFile:"",running:null,suite:"",model:"",search:"",tab:"run",status:"尚未运行"});
+    root.innerHTML = nav(); sectionEl = root.querySelector(".owo-eval-panel");
+    var generation = lifecycleGeneration, owner = state;
+    function bind(selector, event, action) {
+      var el = $(selector); if (el) el.addEventListener(event, function (e) { if (current(generation, owner)) return action(e); });
+    }
+    $("#owo-eval-suite").value = state.suite; $("#owo-eval-model").value = state.model; $("#owo-eval-search").value = state.search;
+    bind("#owo-eval-run", "click", run);
+    bind("#owo-eval-refresh", "click", refresh);
+    bind("#owo-eval-search", "input", function () { state.search = $("#owo-eval-search").value; renderList(); });
+    tabs.forEach(function (tab, i) {
+      bind('[data-eval-tab="' + tab + '"]', "click", function () { selectTab(tab); });
+      bind('[data-eval-tab="' + tab + '"]', "keydown", function (e) {
+        var next = e.key === "ArrowRight" ? (i + 1) % 3 : e.key === "ArrowLeft" ? (i + 2) % 3 : e.key === "Home" ? 0 : e.key === "End" ? 2 : -1;
+        if (next < 0) return; e.preventDefault(); selectTab(tabs[next]); $('[data-eval-tab="' + tabs[next] + '"]').focus();
+      });
+    });
+    selectTab(state.tab); runUi(); status(state.running ? "评测仍在运行…" : state.status, state.error);
+    if (state.current) renderDetail();
+    renderList(); refresh();
   }
-
-  // 面板可能已被切换/卸载（异步返回时），此时静默跳过渲染
-  function alive() {
-    return sectionEl && document.contains(sectionEl);
-  }
-  function current(generation) {
-    return generation === lifecycleGeneration && alive();
-  }
-  function $(sel) {
-    return alive() ? sectionEl.querySelector(sel) : null;
-  }
-
-  // "20260924T035000Z" → "2026-09-24 03:50:00"（无法解析时原样返回）
   function prettyTs(ts) {
-    var m = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/.exec(String(ts || ""));
-    if (!m) return String(ts || "");
-    return m[1] + "-" + m[2] + "-" + m[3] + " " + m[4] + ":" + m[5] + ":" + m[6];
+    var raw = String(ts || ""), m = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/.exec(raw);
+    if (m) raw = m[1] + "-" + m[2] + "-" + m[3] + "T" + m[4] + ":" + m[5] + ":" + m[6] + "Z";
+    var d = new Date(raw); return isNaN(d.getTime()) ? String(ts || "—") : d.toLocaleString();
   }
-
+  function count(value) { return typeof value === "number" && isFinite(value) && value >= 0 && Math.floor(value) === value ? value : null; }
+  function rate(r) { return typeof r.pass_rate === "number" && isFinite(r.pass_rate) && r.pass_rate >= 0 && r.pass_rate <= 1 ? r.pass_rate : null; }
+  function rateText(r) { var total = count(r.total), passed = count(r.passed); return total == null || total === 0 || passed == null || passed > total || rate(r) == null || Math.abs(rate(r) - passed / total) > 0.000001 ? "—" : (rate(r) * 100).toFixed(1) + "%"; }
+  function valueText(value) { return value == null ? "—" : String(value); }
+  function summary(r) {
+    return "套件 " + (r.suite || "—") + " · 通过率 " + rateText(r) + "（" + valueText(count(r.passed)) + "/" + valueText(count(r.total)) +
+      "）· 耗时 " + (typeof r.total_duration_ms === "number" && r.total_duration_ms >= 0 ? (r.total_duration_ms / 1000).toFixed(1) + "s" : "—") + " · 模型 " + (r.model || "—");
+  }
   function run() {
-    if (state.running) return;
-    var suite = $("#owo-eval-suite").value.trim();
-    var btn = $("#owo-eval-run");
-    if (!btn) return;
-    var generation = lifecycleGeneration;
-    btn.disabled = true;
-    state.running = true;
-    $("#owo-eval-status").textContent = "正在运行评测…";
-    H.post("/eval/gate/run", suite ? { suite: suite } : {})
-      .then(function (data) {
-        if (!current(generation)) return;
-        var status = $("#owo-eval-status");
-        if (data.skipped) {
-          status.textContent = "已跳过：" + (data.reason || "无凭据");
-          status.className = "sub";
-        } else {
-          var r = data.report || {};
-          status.textContent =
-            "套件 " + (r.suite || "?") + " 通过率 " + (r.pass_rate * 100).toFixed(1) + "%（" +
-            r.passed + "/" + r.total + "）耗时 " + (r.total_duration_ms / 1000).toFixed(1) + "s 模型 " + (r.model || "?");
-          status.className = "sub";
-          state.current = r;
-          state.currentFile = r.file || "";
-          renderDetail();
-        }
-        return refresh();
-      })
-      .catch(function (e) {
-        if (!current(generation)) return;
-        var status = $("#owo-eval-status");
-        status.textContent = H.friendlyError(e);
-        status.className = "owo-eval-badge bad";
-      })
-      .finally(function () {
-        state.running = false;
-        if (alive()) {
-          $("#owo-eval-run").disabled = false;
-          if (generation !== lifecycleGeneration) {
-            $("#owo-eval-status").textContent = "评测已结束；历史报告已刷新";
-            refresh();
-          }
-        }
-      });
-  }
-
-  function refresh() {
-    var generation = lifecycleGeneration;
-    var request = ++historyGeneration;
-    return H.get("/eval/gate/reports")
-      .then(function (data) {
-        if (!current(generation) || request !== historyGeneration) return;
-        state.reports = (data && data.reports) || [];
-        renderList();
-      })
-      .catch(function (e) {
-        if (!current(generation) || request !== historyGeneration) return;
-        var el = $("#owo-eval-list");
-        if (el) el.innerHTML = '<div class="owo-eval-badge bad">' + H.esc(H.friendlyError(e)) + "</div>";
-      });
-  }
-
-  function renderList() {
-    var el = $("#owo-eval-list");
-    if (!el) return;
-    if (!state.reports.length) {
-      el.innerHTML = '<div class="sub">暂无报告（点"运行"生成；无凭据会提示跳过原因）</div>';
-      return;
-    }
-    el.innerHTML = state.reports
-      .map(function (r) {
-        var badge = (r.pass_rate || 0) >= 0.8 ? "ok" : (r.pass_rate || 0) > 0 ? "warn" : "bad";
-        return (
-          '<button type="button" class="owo-eval-row owo-eval-item" data-file="' + H.esc(r.file) + '">' +
-          '<span class="owo-eval-badge ' + badge + '">' + Math.round((r.pass_rate || 0) * 100) + "%</span> " +
-          "<strong>" + H.esc(r.suite || "?") + "</strong>" +
-          '<span class="sub">' + (r.passed || 0) + "/" + (r.total || 0) + " ｜ " +
-          H.esc(prettyTs((r.timestamp || "").slice(0, 19))) + " ｜ " + H.esc(r.model || "") + "</span>" +
-          "</button>"
-        );
-      })
-      .join("");
-    var buttons = el.querySelectorAll(".owo-eval-item");
-    for (var i = 0; i < buttons.length; i++) {
-      buttons[i].addEventListener("click", function () {
-        var file = this.getAttribute("data-file") || "";
-        if (!file) return;
-        var generation = lifecycleGeneration;
-        var request = ++detailGeneration;
-        H.get("/eval/gate/report?file=" + encodeURIComponent(file))
-          .then(function (data) {
-            if (!current(generation) || request !== detailGeneration) return;
-            state.current = data.report || null;
-            state.currentFile = data.file || "";
-            renderDetail();
-          })
-          .catch(function (e) {
-            if (!current(generation) || request !== detailGeneration) return;
-            var el = $("#owo-eval-detail");
-            if (el) el.innerHTML = '<div class="owo-eval-badge bad">' + H.esc(H.friendlyError(e)) + "</div>";
-          });
-      });
-    }
-  }
-
-  function renderDetail() {
-    var el = $("#owo-eval-detail");
-    if (!el) return;
-    var r = state.current;
-    if (!r) {
-      el.innerHTML = '<div class="sub">—（点上方任一报告查看）</div>';
-      return;
-    }
-    var rate = (r.pass_rate || 0) * 100;
-    var badge = rate >= 80 ? "ok" : rate > 0 ? "warn" : "bad";
-    var html =
-      '<div class="owo-eval-detail-card">' +
-      '<div class="owo-eval-detail-head">' +
-      '<span class="owo-eval-badge ' + badge + '">' + rate.toFixed(1) + "%</span>" +
-      "<strong>" + H.esc(r.suite || "?") + "</strong>" +
-      '<span class="sub">' + H.esc(r.passed || 0) + "/" + H.esc(r.total || 0) + " 通过 ｜ " +
-      ((r.total_duration_ms || 0) / 1000).toFixed(1) + "s ｜ " + H.esc(r.model || "?") + "</span>" +
-      "</div>" +
-      '<div class="owo-eval-meta">' + H.esc(prettyTs(r.timestamp)) +
-      (state.currentFile ? " ｜ 文件 " + H.esc(state.currentFile) : "") + "</div>" +
-      "</div>";
-    var failures = r.failures || [];
-    if (!failures.length) {
-      html += '<div class="owo-eval-allok">全部用例通过</div>';
-    } else {
-      for (var i = 0; i < failures.length; i++) {
-        var f = failures[i] || {};
-        html +=
-          '<div class="owo-eval-failure">' +
-          '<div class="owo-eval-failure-head">' +
-          "<strong>" + H.esc(f.name || "?") + "</strong>" +
-          '<span class="sub">' + H.esc(f.duration_ms || 0) + "ms</span>" +
-          "</div>" +
-          (f.error ? '<div class="owo-eval-failure-err">' + H.esc(f.error) + "</div>" : "") +
-          (f.output ? '<div class="owo-eval-failure-out">' + H.esc(f.output) + "</div>" : "") +
-          "</div>";
+    if (!alive() || state.running) return Promise.resolve();
+    var suite = $("#owo-eval-suite").value.trim(), model = $("#owo-eval-model").value.trim();
+    state.suite = suite; state.model = model;
+    var generation = lifecycleGeneration, owner = state, token = {}, detailAtStart = detailGeneration;
+    var body = {}; if (suite) body.suite = suite; if (model) body.model = model;
+    owner.running = token; runUi(); status("正在运行评测…");
+    var pending;
+    try { pending = H.post("/eval/gate/run", body); } catch (error) { pending = Promise.reject(error); }
+    return Promise.resolve(pending).then(function (data) {
+      if (!data || typeof data !== "object") throw new Error("评测响应不完整");
+      if (data.skipped === true) { owner.status = "已跳过：" + (data.reason || "服务未说明原因"); owner.error = false; }
+      else {
+        if (!data.report || typeof data.report !== "object" || Array.isArray(data.report)) throw new Error("服务未返回评测报告，无法确认结果");
+        owner.status = summary(data.report); owner.error = false;
+        if (detailAtStart === detailGeneration && owner === state) { owner.current = data.report; owner.currentFile = data.report.file || ""; }
       }
-    }
+      if (owner !== state || !alive()) return;
+      status((generation === lifecycleGeneration ? "" : "评测已结束：") + owner.status);
+      if (data.report && detailAtStart === detailGeneration) {
+        renderDetail(); if (generation === lifecycleGeneration) selectTab("detail");
+      }
+      return refresh();
+    }).catch(function (error) {
+      owner.status = "评测失败：" + H.friendlyError(error); owner.error = true;
+      if (owner === state && alive()) status(owner.status, true);
+    }).finally(function () {
+      if (owner.running !== token) return;
+      owner.running = null;
+      if (owner === state && alive()) runUi();
+    });
+  }
+  function refresh() {
+    if (!alive()) return Promise.resolve();
+    var generation = lifecycleGeneration, owner = state, request = ++historyGeneration;
+    $("#owo-eval-history-status").textContent = "正在读取历史报告…";
+    return H.get("/eval/gate/reports").then(function (data) {
+      if (!current(generation, owner) || request !== historyGeneration) return;
+      if (!data || !Array.isArray(data.reports) || data.reports.some(function (r) { return !r || typeof r !== "object"; })) throw new Error("历史报告响应不完整");
+      state.reports = data.reports; $("#owo-eval-history-status").textContent = ""; renderList();
+    }).catch(function (error) {
+      if (!current(generation, owner) || request !== historyGeneration) return;
+      $("#owo-eval-history-status").textContent = "历史报告读取失败：" + H.friendlyError(error) + (state.reports.length ? "（保留上次结果）" : "。可刷新重试。");
+    });
+  }
+  function renderList() {
+    var el = $("#owo-eval-list"); if (!el) return;
+    var query = String(state.search || "").trim().toLowerCase(), generation = lifecycleGeneration, owner = state;
+    var reports = state.reports.filter(function (r) { return !query || [r.suite,r.model,r.file].join(" ").toLowerCase().indexOf(query) >= 0; });
+    el.innerHTML = reports.length ? reports.map(function (r) {
+      return '<button type="button" class="owo-eval-row owo-eval-item" data-file="' + H.esc(r.file || "") + '" aria-pressed="' + (state.currentFile === r.file) + '">' +
+        '<span class="owo-eval-badge">' + H.esc(rateText(r)) + '</span><span><strong>' + H.esc(r.suite || "未命名套件") +
+        '</strong><span class="sub">' + H.esc(valueText(count(r.passed)) + "/" + valueText(count(r.total)) + " · " + prettyTs(r.timestamp) + " · " + (r.model || "—")) + '</span></span></button>';
+    }).join("") : '<div class="owo-insight-empty">' + (query ? "没有匹配的报告" : "暂无历史报告") + '</div>';
+    var buttons = el.querySelectorAll(".owo-eval-item");
+    for (var i = 0; i < buttons.length; i++) buttons[i].addEventListener("click", function () {
+      if (!current(generation, owner)) return;
+      return loadDetail(this.getAttribute("data-file") || "");
+    });
+  }
+  function loadDetail(file) {
+    if (!alive() || !file) return Promise.resolve();
+    var generation = lifecycleGeneration, owner = state, request = ++detailGeneration;
+    selectTab("detail"); $("#owo-eval-detail").textContent = "正在读取 " + file + "…";
+    return H.get("/eval/gate/report?file=" + encodeURIComponent(file)).then(function (data) {
+      if (!current(generation, owner) || request !== detailGeneration) return;
+      if (!data || !data.report || typeof data.report !== "object" || Array.isArray(data.report)) throw new Error("报告响应不完整");
+      state.current = data.report; state.currentFile = data.file || file; renderDetail(); renderList();
+    }).catch(function (error) {
+      if (!current(generation, owner) || request !== detailGeneration) return;
+      $("#owo-eval-detail").innerHTML = '<p class="owo-insight-error">' + H.esc(H.friendlyError(error)) + '</p><button type="button" id="owo-eval-detail-retry">重新读取报告</button>';
+      var retry = $("#owo-eval-detail-retry");
+      if (retry) retry.addEventListener("click", function () { if (current(generation, owner)) return loadDetail(file); });
+    });
+  }
+  function renderDetail() {
+    var el = $("#owo-eval-detail"), r = state.current; if (!el || !r) return;
+    var esc = H.esc, total = count(r.total), passed = count(r.passed), failures = Array.isArray(r.failures) ? r.failures : null;
+    var html = '<div class="owo-eval-overview"><h3>' + esc(r.suite || "未命名套件") + '</h3><p>' + esc(summary(r)) + '</p><p class="sub">' +
+      esc(prettyTs(r.timestamp)) + (state.currentFile ? " · " + esc(state.currentFile) : "") + '</p></div>';
+    var verdict, okay = false;
+    if (total === 0) verdict = "报告未执行用例，不计算通过率。";
+    else if (total == null || passed == null || passed > total) verdict = "报告统计不完整，无法判断通过情况。";
+    else if (rate(r) != null && Math.abs(rate(r) - passed / total) > 0.000001) verdict = "通过率与用例计数不一致，请检查报告。";
+    else if (!failures) verdict = "报告未提供失败明细。";
+    else if (passed === total && !failures.length) { verdict = "全部用例通过"; okay = true; }
+    else if (!failures.length) verdict = "有未通过用例，报告未提供失败明细。";
+    else verdict = "未通过用例 " + failures.length + " 项";
+    html += '<p class="' + (okay ? "owo-eval-allok" : "sub") + '">' + esc(verdict) + '</p>';
+    (failures || []).forEach(function (f) {
+      f = f || {};
+      html += '<section class="owo-eval-failure"><div class="owo-eval-failure-head"><strong>' + esc(f.name || "未命名用例") +
+        '</strong><span class="sub">' + esc(typeof f.duration_ms === "number" ? f.duration_ms + "ms" : "耗时未知") + '</span></div>' +
+        (f.error ? '<p class="owo-insight-error">' + esc(f.error) + '</p>' : "") + (f.output ? '<pre>' + esc(f.output) + '</pre>' : "") + '</section>';
+    });
     el.innerHTML = html;
   }
-
-  return {
-    id: id,
-    title: "eval 护栏",
-    nav: nav,
-    mount: mount,
-    refresh: refresh,
-    dispose: function () {
-      lifecycleGeneration += 1;
-      historyGeneration += 1;
-      detailGeneration += 1;
-      sectionEl = null;
-    },
-  };
+  function dispose() {
+    if (alive() && state) { state.suite = $("#owo-eval-suite").value; state.model = $("#owo-eval-model").value; state.search = $("#owo-eval-search").value; }
+    lifecycleGeneration += 1; historyGeneration += 1; detailGeneration += 1; sectionEl = null;
+  }
+  return {id:id,title:"模型评测",nav:nav,mount:mount,refresh:refresh,dispose:dispose,_test:{loadDetail:loadDetail,renderDetail:renderDetail}};
 })();

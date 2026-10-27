@@ -322,6 +322,9 @@ fn sample_body(path: &str) -> Option<&'static str> {
     match path {
         "/session" => Some(r#"{"workspace":".","model":"idle"}"#),
         "/session/{id}/turn" => Some(r#"{"prompt":"hi"}"#),
+        // 自定义提示词：用合法短文本，可达性测试要 200。
+        "/session/{id}/system-prompt" => Some(r#"{"prompt":"契约样例提示词"}"#),
+        "/prompts" => Some(r#"{"name":"契约样例","content":"契约样例提示词"}"#),
         "/permissions" => Some(r#"{"profile":"workspace"}"#),
         // §4.5.3 结构化配置：给一份**合法且收紧**的 body（可达性测试要 200，不是 400）。
         "/permissions/spec" => Some(
@@ -349,6 +352,8 @@ fn sample_body(path: &str) -> Option<&'static str> {
         "/skills/{name}/enabled" => Some(r#"{"enabled":false}"#),
         // `/goal` 会话级目标状态：默认 action=set 且 objective 必填（可达性测试要 200）。
         "/session/{id}/goal" => Some(r#"{"action":"set","objective":"契约测试目标"}"#),
+        // 会话工作模式：agent / chat；未知值 400，可达性测试给合法值。
+        "/session/{id}/mode" => Some(r#"{"mode":"chat"}"#),
         // 逐 hunk 审阅的应用：缺 accept/reject 会 422，可达性测试只要求路由存在与请求体可解析。
         "/session/{id}/hunks/apply" => Some(r#"{"path":"fixture.txt","accept":[0]}"#),
         // 用户自定义工作流：非法配置会 422（可达性测试接受 4xx，这里给"能解析"的最小体）。
@@ -511,6 +516,7 @@ fn resource_404_ok(path: &str) -> bool {
             | "/computer-use/task/{id}/run"
             | "/cloud/tasks/{id}"
             | "/cloud/tasks/{id}/result"
+            | "/prompts/{id}"
             | "/notes/{id}"
             | "/notes/{id}/export/{format}"
             | "/notes/{id}/blocks"
@@ -528,6 +534,7 @@ fn resource_404_ok(path: &str) -> bool {
             | "/workflow/{name}/run"
             // 用户自定义工作流：删除不存在的模板按契约 404。
             | "/workflows/user/{id}"
+            | "/workflows/user/{id}/revisions"
             | "/workflows/draft/{id}"
             | "/workflows/draft/{id}/verify"
             | "/workflows/draft/{id}/adopt"
@@ -560,6 +567,7 @@ fn resource_404_ok(path: &str) -> bool {
             | "/teams/{id}/conversation"
             | "/teams/{id}/steer"
             | "/teams/{id}/events"
+            | "/teams/{id}/timeline"
             | "/projects/{id}"
             | "/projects/{id}/artifacts"
             | "/tasks/{id}/handoff"
@@ -1683,6 +1691,56 @@ async fn turn_replay_openapi_documents_identity_and_terminal_state() {
 }
 
 #[tokio::test]
+async fn openapi_documents_chat_mode_and_optional_workspace() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+    let response = app
+        .oneshot(request(&state, "GET", "/openapi.json", None))
+        .await
+        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), 10 * 1024 * 1024)
+        .await
+        .unwrap();
+    let served: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    // 纯对话可以不选工作区：文档不能继续把 workspace 标成必填。
+    let create = &served["components"]["schemas"]["CreateSessionRequest"];
+    assert_eq!(create["properties"]["workspace"]["type"], "string");
+    assert!(
+        create["properties"]["workspace"]["description"]
+            .as_str()
+            .unwrap()
+            .contains("chat 模式可省略"),
+        "workspace 必须说明纯对话可省略"
+    );
+    assert!(
+        !create["required"]
+            .as_array()
+            .map(|fields| fields.iter().any(|field| field == "workspace"))
+            .unwrap_or(false),
+        "workspace 不应继续出现在 required"
+    );
+    assert_eq!(
+        create["properties"]["mode"]["enum"],
+        serde_json::json!(["agent", "chat"])
+    );
+
+    // 模式切换与详情也必须是可枚举的，客户端才能生成联合类型。
+    assert_eq!(
+        served["paths"]["/session/{id}/mode"]["post"]["requestBody"]["content"]["application/json"]
+            ["schema"]["properties"]["mode"]["enum"],
+        serde_json::json!(["agent", "chat"])
+    );
+    for schema in ["SessionInfo", "SessionDetail"] {
+        assert_eq!(
+            served["components"]["schemas"][schema]["properties"]["mode"]["enum"],
+            serde_json::json!(["agent", "chat"]),
+            "{schema} 必须暴露 mode 枚举"
+        );
+    }
+}
+
+#[tokio::test]
 async fn openapi_json_covers_snapshot_and_registered_routes() {
     let (state, _temp) = test_state().await;
     let app = build_router(Arc::clone(&state));
@@ -2061,6 +2119,8 @@ async fn unauthorized_requests_get_401() {
         // §3.4 引导页「测试连接」：它会回显掩码端点与连通结论，属受保护面——
         // 无 token 必须 401，否则任何本机进程都能拿它探测（并可能探测内网）。
         ("POST", "/settings/provider-test", Some("{}")),
+        // 提供商预设表同属受保护面：无 token 必须 401。
+        ("GET", "/providers/presets", None),
     ] {
         let response = app
             .clone()
@@ -4105,6 +4165,1907 @@ async fn expression_rejects_invalid_host_or_origin_before_provider() {
     }
     assert_eq!(state.shutdown_gate.active_turns(), 0);
     assert!(state.sessions.lock().unwrap().is_empty());
+}
+
+/// 纯对话模式：创建时指定 -> 切回 agent -> 读回一致 -> 非法值 400。
+///
+/// 走真实 Router + 真 SQLite，避免只断言"函数存在"。
+#[tokio::test]
+async fn chat_session_mode_roundtrip_and_validation() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/session",
+            Some(r#"{"workspace":".","model":"idle","mode":"chat"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let created: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(created["mode"], "chat", "创建时应返回 chat 模式");
+    let id = created["id"].as_str().unwrap().to_string();
+
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/session/{id}/mode"),
+            Some(r#"{"mode":"agent"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let switched: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(switched["mode"], "agent");
+
+    // 读回会话确认落库（不是只改了内存副本）。
+    let response = app
+        .clone()
+        .oneshot(request(&state, "GET", &format!("/session/{id}"), None))
+        .await
+        .unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let detail: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(detail["mode"], "agent");
+
+    // 未知模式必须 400：不能静默降级成 agent 或 chat。
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/session/{id}/mode"),
+            Some(r#"{"mode":"telepathy"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::BAD_REQUEST);
+}
+
+/// 纯对话可以不选工作区（ChatGPT 式直接开聊）；Agent 模式仍然必须有工作区，
+/// 显式写错的路径在两种模式下都必须是 400，不能静默落到默认目录。
+#[tokio::test]
+async fn chat_session_creates_isolated_workspace_when_none_is_given() {
+    let (state, temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/session",
+            Some(r#"{"workspace":"   ","model":"idle","mode":"chat"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let created: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(created["mode"], "chat");
+    let workspace = created["workspace"].as_str().unwrap();
+    assert!(
+        !workspace.trim().is_empty(),
+        "纯对话会话也必须返回真实工作区"
+    );
+    assert!(
+        std::path::Path::new(workspace).is_dir(),
+        "返回的工作区应当已存在：{workspace}"
+    );
+    assert_eq!(
+        std::path::Path::new(workspace),
+        temp.path().join("chat"),
+        "纯对话目录应隔离在数据根下，而不是用户项目"
+    );
+
+    // 会话详情读回同一路径，后续回合才能落到同一个沙箱。
+    let detail = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "GET",
+            &format!("/session/{}", created["id"].as_str().unwrap()),
+            None,
+        ))
+        .await
+        .unwrap();
+    let body = axum::body::to_bytes(detail.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let detail: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(detail["workspace"], workspace);
+
+    // Agent 模式缺少工作区必须拒绝。
+    let denied = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/session",
+            Some(r#"{"workspace":"","model":"idle"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(denied.status(), axum::http::StatusCode::BAD_REQUEST);
+
+    // 显式写错的路径不能被默认目录兜底。
+    let typo = app
+        .oneshot(request(
+            &state,
+            "POST",
+            "/session",
+            Some(r#"{"workspace":"Z:/definitely-missing-owo","model":"idle","mode":"chat"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(typo.status(), axum::http::StatusCode::BAD_REQUEST);
+}
+#[tokio::test]
+async fn prompt_presets_crud_and_session_apply_contract() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+
+    let create = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/session",
+            Some(r#"{"workspace":".","model":"idle"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create.status().as_u16(), 200, "POST /session 应 200");
+    let bytes = axum::body::to_bytes(create.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let session_id = serde_json::from_slice::<serde_json::Value>(&bytes).unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    // 初始为空库（测试数据目录是独立的临时目录）。
+    let list = app
+        .clone()
+        .oneshot(request(&state, "GET", "/prompts", None))
+        .await
+        .unwrap();
+    assert_eq!(list.status().as_u16(), 200);
+    let body = axum::body::to_bytes(list.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body["prompts"].as_array().unwrap().len(), 0);
+
+    // 创建
+    let saved = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompts",
+            Some(r#"{"name":"严谨评审","content":"先给结论，再列证据。"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(saved.status().as_u16(), 200, "创建提示词应 200");
+    let saved = axum::body::to_bytes(saved.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let saved: serde_json::Value = serde_json::from_slice(&saved).unwrap();
+    let preset_id = saved["prompt"]["id"].as_str().unwrap().to_string();
+    assert_eq!(saved["prompt"]["name"], "严谨评审");
+
+    // 名称非法：明确 400，不落库
+    let bad = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompts",
+            Some(r#"{"name":"   ","content":"x"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(bad.status().as_u16(), 400, "空名称应 400");
+
+    // 带 id 保存 = 更新同一条（前端导入/编辑都依赖这个语义）
+    let updated = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompts",
+            Some(&format!(
+                r#"{{"id":"{preset_id}","name":"严谨评审 v2","content":"先给结论，再列证据，最后给适用边界。"}}"#
+            )),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(updated.status().as_u16(), 200, "更新提示词应 200");
+    let updated = axum::body::to_bytes(updated.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let updated: serde_json::Value = serde_json::from_slice(&updated).unwrap();
+    assert_eq!(updated["prompt"]["id"].as_str().unwrap(), preset_id);
+    assert_eq!(updated["prompt"]["name"], "严谨评审 v2");
+    assert_eq!(
+        updated["prompts"].as_array().unwrap().len(),
+        1,
+        "更新不能新增第二条"
+    );
+
+    // 不存在的 id 更新：404 而不是悄悄变成新建
+    let missing = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompts",
+            Some(r#"{"id":"no-such-id","name":"x","content":"y"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(missing.status().as_u16(), 404, "未知 id 应 404");
+
+    // 内容超限：400，且不落库
+    let oversize = "长".repeat(20_001);
+    let too_long = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/prompts",
+            Some(&format!(r#"{{"name":"超长","content":"{oversize}"}}"#)),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(too_long.status().as_u16(), 400, "超长内容应 400");
+    let still = app
+        .clone()
+        .oneshot(request(&state, "GET", "/prompts", None))
+        .await
+        .unwrap();
+    let still = axum::body::to_bytes(still.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let still: serde_json::Value = serde_json::from_slice(&still).unwrap();
+    assert_eq!(still["prompts"].as_array().unwrap().len(), 1);
+
+    // 应用到会话
+    let applied = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/session/{session_id}/system-prompt"),
+            Some(r#"{"prompt":"先给结论，再列证据。"}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(applied.status().as_u16(), 200, "应用提示词应 200");
+    let applied = axum::body::to_bytes(applied.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let applied: serde_json::Value = serde_json::from_slice(&applied).unwrap();
+    assert_eq!(applied["system_prompt"], "先给结论，再列证据。");
+
+    // 会话详情读回（重启恢复也走同一字段）
+    let detail = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "GET",
+            &format!("/session/{session_id}"),
+            None,
+        ))
+        .await
+        .unwrap();
+    let detail = axum::body::to_bytes(detail.into_body(), 4 * 1024 * 1024)
+        .await
+        .unwrap();
+    let detail: serde_json::Value = serde_json::from_slice(&detail).unwrap();
+    assert_eq!(detail["system_prompt"], "先给结论，再列证据。");
+
+    // 空串 = 清除
+    let cleared = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/session/{session_id}/system-prompt"),
+            Some(r#"{"prompt":"  "}"#),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(cleared.status().as_u16(), 200);
+    let cleared = axum::body::to_bytes(cleared.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let cleared: serde_json::Value = serde_json::from_slice(&cleared).unwrap();
+    assert!(cleared["system_prompt"].is_null(), "空串应清除提示词");
+
+    // 删除
+    let deleted = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "DELETE",
+            &format!("/prompts/{preset_id}"),
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(deleted.status().as_u16(), 200, "删除应 200");
+    let again = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "DELETE",
+            &format!("/prompts/{preset_id}"),
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(again.status().as_u16(), 404, "重复删除应 404");
+}
+
+#[tokio::test]
+async fn media_delivery_contract_is_authenticated_binary_and_range_aware() {
+    use owo_agent_core::project_space_store::ProjectSpaceStoreBackend;
+    let (state, temp) = test_state().await;
+    let root = temp.path().join("workswarm");
+    let cas = owo_agent_core::CasStore::new(root.join("cas")).unwrap();
+    let content = b"ID3\0\x01\x02\x03\x04";
+    let hash = cas.put(content).unwrap();
+    let store = owo_agent_core::SqliteProjectSpaceStore::open(&root.join("space.db")).unwrap();
+    let artifact: owo_agent_protocol::Artifact = serde_json::from_value(serde_json::json!({
+        "artifact_id":"media-route", "kind":"audio", "version":1, "producer":"session-1",
+        "content_ref":format!("cas://sha256:{hash}"), "classification":"private", "review_state":"draft",
+        "created_at":"2026-10-25T00:00:00Z", "format":"binary", "media_type":"audio/mpeg",
+        "sha256":hash, "size_bytes":content.len(), "file_name":"voice.mp3"
+    })).unwrap();
+    store
+        .save_artifact(&artifact, "session:session-1")
+        .await
+        .unwrap();
+    let app = build_router(state.clone());
+    let path = "/artifacts/media-route/content?raw=true";
+    let mut req = request(&state, "GET", path, None);
+    req.headers_mut()
+        .insert("Range", "bytes=1-3".parse().unwrap());
+    let response = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(response.status(), 206);
+    assert_eq!(response.headers()["content-type"], "audio/mpeg");
+    assert_eq!(
+        response.headers()["content-range"],
+        format!("bytes 1-3/{}", content.len())
+    );
+    assert_eq!(
+        axum::body::to_bytes(response.into_body(), 100)
+            .await
+            .unwrap()
+            .as_ref(),
+        &content[1..=3]
+    );
+    let mut req = request(&state, "GET", path, None);
+    req.headers_mut()
+        .insert("Range", "bytes=100-".parse().unwrap());
+    assert_eq!(app.clone().oneshot(req).await.unwrap().status(), 416);
+    let req = axum::http::Request::builder()
+        .uri(path)
+        .body(axum::body::Body::empty())
+        .unwrap();
+    assert_eq!(app.oneshot(req).await.unwrap().status(), 401);
+    for source in [CONTRACT_SNAPSHOT, include_str!("../src/openapi.json")] {
+        let spec: serde_json::Value = serde_json::from_str(source).unwrap();
+        let route = &spec["paths"]["/artifacts/{id}/content"]["get"];
+        assert!(route["responses"]["206"].is_object());
+        assert!(route["responses"]["416"].is_object());
+        assert_eq!(
+            spec["components"]["schemas"]["ToolOutputArtifact"]["properties"]["artifact_id"]
+                ["type"],
+            "string"
+        );
+    }
+}
+
+#[tokio::test]
+async fn workflow_catalog_contract_matches_draft_preflight_and_rejects_before_team_persistence() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(state.clone());
+    let anonymous = anonymous_request("GET", "/workflows/tools", None);
+    assert_eq!(app.clone().oneshot(anonymous).await.unwrap().status(), 401);
+    let response = app
+        .clone()
+        .oneshot(request(&state, "GET", "/workflows/tools", None))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let body = axum::body::to_bytes(response.into_body(), 4 * 1024 * 1024)
+        .await
+        .unwrap();
+    let catalog: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let tools = catalog["tools"].as_array().unwrap();
+    assert!(tools
+        .iter()
+        .any(|tool| tool["name"] == "generate_image" && tool["worker_supported"] == true));
+    assert!(tools
+        .iter()
+        .any(|tool| tool["name"] == "read_image" && tool["status"] == "unsupported"));
+    assert_eq!(catalog["service_verification"], "not_performed");
+    assert!(!String::from_utf8_lossy(&body).contains("api_key"));
+    let template = serde_json::json!({"template_id":"offline-catalog","name":"离线连接验证","mode":"team","applicability":"offline","created_at":"","roles":[{"role":"media creator","assignee":"agent","tools":["mcp__offline__draw"],"verify":"non_empty"}]});
+    let body = template.to_string();
+    let saved = app
+        .clone()
+        .oneshot(request(&state, "POST", "/workflows/user", Some(&body)))
+        .await
+        .unwrap();
+    assert_eq!(
+        saved.status(),
+        200,
+        "unconfigured templates remain editable and saveable"
+    );
+    let checked = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/workflows/user/validate",
+            Some(&body),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(checked.status(), 200);
+    let checked = axum::body::to_bytes(checked.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let checked: serde_json::Value = serde_json::from_slice(&checked).unwrap();
+    assert_eq!(
+        checked["ok"], true,
+        "structural validation is distinct from runtime availability"
+    );
+    assert_eq!(checked["preflight"]["ok"], false);
+    assert_eq!(checked["preflight"]["issues"][0]["code"], "not_connected");
+    let start = r#"{"objective":"offline","mode":"team","template_id":"offline-catalog"}"#;
+    let rejected = app
+        .clone()
+        .oneshot(request(&state, "POST", "/teams", Some(start)))
+        .await
+        .unwrap();
+    assert_eq!(rejected.status(), 400);
+    let rejected = axum::body::to_bytes(rejected.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    assert!(String::from_utf8_lossy(&rejected).contains("workflow preflight"));
+    let teams = app
+        .clone()
+        .oneshot(request(&state, "GET", "/teams", None))
+        .await
+        .unwrap();
+    let teams = axum::body::to_bytes(teams.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let teams: serde_json::Value = serde_json::from_slice(&teams).unwrap();
+    assert!(
+        teams["teams"].as_array().unwrap().is_empty(),
+        "rejection must not leave a team run behind"
+    );
+    let invalid_draft = r#"{"description":"offline","tools":["mcp__offline__draw"]}"#;
+    assert_eq!(
+        app.oneshot(request(
+            &state,
+            "POST",
+            "/workflows/draft",
+            Some(invalid_draft)
+        ))
+        .await
+        .unwrap()
+        .status(),
+        422,
+        "must reject before IdleProvider is called"
+    );
+    for source in [CONTRACT_SNAPSHOT, include_str!("../src/openapi.json")] {
+        let doc: serde_json::Value = serde_json::from_str(source).unwrap();
+        assert!(
+            doc["paths"]["/workflows/tools"]["get"]["responses"]["200"]["content"]
+                ["application/json"]["schema"]
+                .is_object()
+        );
+        assert!(
+            doc["components"]["schemas"]["WorkflowToolPreflight"]["properties"]["issues"]
+                .is_object()
+        );
+    }
+}
+
+#[tokio::test]
+async fn workflow_graph_document_contract_validates_and_preserves_portable_layout() {
+    async fn json_body(response: axum::response::Response) -> serde_json::Value {
+        serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), 1024 * 1024)
+                .await
+                .unwrap(),
+        )
+        .unwrap()
+    }
+    let (state, _temp) = test_state().await;
+    let app = build_router(state.clone());
+    let template = serde_json::json!({"template_id":"graph-contract","name":"Graph fixture","applicability":"graph","roles":[{"node_id":"node-a","role":"First","assignee":"human"},{"node_id":"node-b","role":"Second","assignee":"human","depends_on":["First"]}],"editor":{"version":1,"nodes":[{"id":"node-a","position":{"x":10.5,"y":220}}]}});
+    let saved = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/workflows/user",
+            Some(&template.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(saved.status(), 200);
+    let listed = json_body(
+        app.clone()
+            .oneshot(request(&state, "GET", "/workflows/user", None))
+            .await
+            .unwrap(),
+    )
+    .await;
+    // Positions use f64: JSON 220 and 220.0 describe the same coordinate.
+    // Compare the complete editor payload after the public DTO's numeric normalization.
+    let expected_editor: owo_agent_protocol::WorkflowEditorMetadata =
+        serde_json::from_value(template["editor"].clone()).unwrap();
+    assert_eq!(
+        listed["templates"][0]["template"]["editor"],
+        serde_json::to_value(expected_editor).unwrap()
+    );
+    let mut invalid = template.clone();
+    invalid["roles"][1]["node_id"] = serde_json::json!("node-a");
+    let rejected = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/workflows/user",
+            Some(&invalid.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(rejected.status(), 422);
+    let retained = json_body(
+        app.clone()
+            .oneshot(request(&state, "GET", "/workflows/user", None))
+            .await
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(
+        retained["templates"][0]["template"]["roles"][1]["node_id"],
+        "node-b"
+    );
+    for source in [CONTRACT_SNAPSHOT, include_str!("../src/openapi.json")] {
+        let schema: serde_json::Value = serde_json::from_str(source).unwrap();
+        assert_eq!(
+            schema["components"]["schemas"]["WorkflowTemplate"]["properties"]["editor"]["$ref"],
+            "#/components/schemas/WorkflowEditorMetadata"
+        );
+        assert!(
+            schema["paths"]["/workflows/draft/{id}/adopt"]["post"]["requestBody"]["content"]
+                ["application/json"]["schema"]["properties"]["template"]
+                .is_object()
+        );
+    }
+}
+
+#[tokio::test]
+async fn proposal_routes_enforce_frozen_revision_and_publish_committed_identity() {
+    use serde_json::json;
+    let (state, _temp) = test_state().await;
+    let app = build_router(state.clone());
+    let registry = owo_agent_core::workswarm::TeamTemplateRegistry::for_workswarm_root(
+        &state.data_root.join("workswarm"),
+    );
+    let proposal:owo_agent_protocol::TeamTemplateProposal=serde_json::from_value(json!({
+        "proposal_id":"contract-proposal","source_team_id":"fixture","created_at":"fixture",
+        "template":{"template_id":"contract-proposal-flow","name":"Reviewed candidate","origin":"user","applicability":"fixture",
+        "roles":[{"role":"author","assignee":"agent","worker":"echo","tools":["read_file"]}]}
+    })).unwrap();
+    registry.save_proposal(&proposal).unwrap();
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/teams/templates/proposals/contract-proposal/adopt",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let body: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(body["revision"], 1);
+    assert_eq!(body["content_hash"].as_str().unwrap().len(), 64);
+    let mut stale = proposal.clone();
+    stale.proposal_id = "stale-proposal".into();
+    registry.save_proposal(&stale).unwrap();
+    let mut newer = registry.get_template("contract-proposal-flow").unwrap();
+    newer.name = "Concurrent edit".into();
+    registry.save_user_template(&newer, Some(1)).unwrap();
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/teams/templates/proposals/stale-proposal/adopt",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 409);
+    assert_eq!(
+        registry
+            .get_template("contract-proposal-flow")
+            .unwrap()
+            .name,
+        "Concurrent edit"
+    );
+    assert_eq!(
+        registry
+            .get_proposal_record("stale-proposal")
+            .unwrap()
+            .unwrap()
+            .base_revision,
+        1
+    );
+    assert_eq!(
+        registry.get_proposal("stale-proposal").unwrap().status,
+        owo_agent_protocol::TeamTemplateProposalStatus::Proposed
+    );
+    let mut invalid = proposal.clone();
+    invalid.proposal_id = "invalid-proposal".into();
+    invalid.template.template_id = "invalid-proposal-flow".into();
+    invalid.template.roles[0].depends_on = vec!["missing".into()];
+    registry.save_proposal(&invalid).unwrap();
+    let response = app
+        .oneshot(request(
+            &state,
+            "POST",
+            "/teams/templates/proposals/invalid-proposal/adopt",
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 422);
+    assert!(registry
+        .get_revision("invalid-proposal-flow")
+        .unwrap()
+        .is_none());
+    for source in [CONTRACT_SNAPSHOT, include_str!("../src/openapi.json")] {
+        let spec: serde_json::Value = serde_json::from_str(source).unwrap();
+        let install = &spec["paths"]["/teams/templates/catalog/{id}/install"]["post"];
+        assert!(install["parameters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["in"] == "query" && p["name"] == "expected_revision"));
+        assert!(install["responses"]["409"].is_object());
+        assert!(
+            spec["paths"]["/teams/templates/proposals/{proposal_id}/adopt"]["post"]["responses"]
+                ["409"]
+                .is_object()
+        );
+    }
+}
+
+#[tokio::test]
+async fn team_detail_reports_frozen_template_identity_and_keeps_legacy_unknown() {
+    use serde_json::json;
+    let (state, _temp) = test_state().await;
+    let app = build_router(state.clone());
+    let coordinator = state.workswarm.coordinator().unwrap();
+    let registry = coordinator.templates();
+    let mut template: owo_agent_protocol::TeamTemplate = serde_json::from_value(json!({
+        "template_id":"contract-source", "name":"Original", "mode":"swarmflow",
+        "applicability":"contract-source", "origin":"user",
+        "roles":[{"node_id":"source-node","role":"human-author","assignee":"human","worker":"user"}]
+    }))
+    .unwrap();
+    let saved = registry.save_template_checked(&template, Some(0)).unwrap();
+    let mut create = owo_agent_core::CreateTeamRequest::new(
+        "contract-source",
+        owo_agent_protocol::TeamMode::Swarmflow,
+    );
+    create.template_id = Some(template.template_id.clone());
+    let team = coordinator.create_team_run(&create).await.unwrap();
+    template.name = "Edited after team creation".into();
+    template.roles[0].role = "different-role".into();
+    registry.save_template_checked(&template, Some(1)).unwrap();
+    let endpoint = format!("/teams/{}", team.team_id);
+    let response = app
+        .clone()
+        .oneshot(request(&state, "GET", &endpoint, None))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let body: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(body["template_source"]["revision"], 1);
+    assert_eq!(
+        body["template_source"]["content_hash"],
+        saved.content_hash.unwrap()
+    );
+    assert_eq!(body["template_source"]["template_id"], "contract-source");
+    assert_eq!(body["template_source"]["roles_overridden"], false);
+    assert_eq!(body["team"]["members"][0]["role"], "human-author");
+    let path = coordinator
+        .run_dir()
+        .join(format!("{}-meta.json", team.team_id));
+    let mut legacy: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    legacy.as_object_mut().unwrap().remove("template_source");
+    std::fs::write(&path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+    let response = app
+        .clone()
+        .oneshot(request(&state, "GET", &endpoint, None))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let legacy_body: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(legacy_body["template_source"].is_null());
+    std::fs::write(&path, b"{corrupt metadata").unwrap();
+    let response = app
+        .oneshot(request(&state, "GET", &endpoint, None))
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        500,
+        "corrupt metadata must remain a visible diagnostic error"
+    );
+    assert_eq!(std::fs::read(&path).unwrap(), b"{corrupt metadata");
+    for source in [CONTRACT_SNAPSHOT, include_str!("../src/openapi.json")] {
+        let spec: serde_json::Value = serde_json::from_str(source).unwrap();
+        let field = &spec["paths"]["/teams/{id}"]["get"]["responses"]["200"]["content"]
+            ["application/json"]["schema"]["properties"]["template_source"];
+        assert_eq!(field["nullable"], true);
+        assert_eq!(
+            field["allOf"][0]["$ref"],
+            "#/components/schemas/RunTemplateSource"
+        );
+        assert_eq!(
+            spec["components"]["schemas"]["RunTemplateSource"]["properties"]["revision"]["minimum"],
+            1
+        );
+    }
+}
+
+#[test]
+fn workflow_draft_contract_exposes_transaction_conflicts_and_storage_failures() {
+    for source in [CONTRACT_SNAPSHOT, include_str!("../src/openapi.json")] {
+        let spec: serde_json::Value = serde_json::from_str(source).unwrap();
+        for (path, methods) in [
+            ("/workflows/draft", vec!["get", "post"]),
+            ("/workflows/draft/converge", vec!["post"]),
+            ("/workflows/draft/{id}", vec!["get", "delete"]),
+            ("/workflows/draft/{id}/adopt", vec!["post"]),
+            ("/workflows/draft/{id}/verify", vec!["post"]),
+        ] {
+            for method in methods {
+                let responses = &spec["paths"][path][method]["responses"];
+                assert!(responses["500"].is_object(), "{path} {method}");
+                if method == "post" || method == "delete" {
+                    assert!(responses["409"].is_object(), "{path} {method}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn run_timeline_contract_matches_durable_cursor_and_page_bounds() {
+    for raw in [
+        include_str!("../src/openapi.json"),
+        include_str!("../../../clients/ts/openapi.json"),
+    ] {
+        let spec: serde_json::Value = serde_json::from_str(raw).unwrap();
+        let route = &spec["paths"]["/teams/{id}/timeline"]["get"];
+        for code in ["200", "400", "401", "404", "500"] {
+            assert!(route["responses"].get(code).is_some(), "{code}");
+        }
+        assert_eq!(
+            route["responses"]["200"]["content"]["application/json"]["schema"]["oneOf"],
+            serde_json::json!([{"$ref":"#/components/schemas/RunEventPage"},{"$ref":"#/components/schemas/RunEventHistoryPage"}])
+        );
+        assert!(route["description"]
+            .as_str()
+            .unwrap()
+            .contains("pending delivery"));
+        let before = route["parameters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|parameter| parameter["name"] == "before")
+            .unwrap();
+        assert!(before["description"]
+            .as_str()
+            .unwrap()
+            .contains("Mutually exclusive"));
+        let history = &spec["components"]["schemas"]["RunEventHistoryPage"]["properties"];
+        assert_eq!(history["next_before"]["nullable"], true);
+        assert!(history["has_more"]["description"]
+            .as_str()
+            .unwrap()
+            .contains("older committed"));
+        let data = &spec["components"]["schemas"]["RunEvent"]["properties"]["data"];
+        for field in [
+            "record_ref",
+            "source_timestamp",
+            "payload_preview",
+            "payload_complete",
+            "payload_unavailable",
+            "artifact_refs_complete",
+        ] {
+            assert!(data["properties"].get(field).is_some(), "{field}");
+        }
+        assert!(
+            spec["components"]["schemas"]["RunEventPage"]["properties"]["has_more"]["description"]
+                .as_str()
+                .unwrap()
+                .contains("pending Worker")
+        );
+        let page = &spec["components"]["schemas"]["RunEventPage"]["properties"];
+        assert_eq!(page["task_history_complete"]["type"], "boolean");
+        assert!(page["task_history_complete"]["description"]
+            .as_str()
+            .unwrap()
+            .contains("legacy"));
+        assert!(page["has_more"]["description"]
+            .as_str()
+            .unwrap()
+            .contains("task checkpoint"));
+        for field in [
+            "task",
+            "source_seq",
+            "step_id",
+            "previous_status",
+            "removed",
+        ] {
+            assert!(data["properties"].get(field).is_some(), "{field}");
+        }
+        assert_eq!(
+            data["properties"]["task"]["properties"]["waiting_for"]["maxItems"],
+            64
+        );
+        let parameters = route["parameters"].as_array().unwrap();
+        assert!(parameters
+            .iter()
+            .any(|p| p["name"] == "Last-Event-ID" && p["in"] == "header"));
+        assert!(parameters
+            .iter()
+            .any(|p| p["name"] == "limit" && p["schema"]["maximum"] == 256));
+        for field in [
+            "seq",
+            "run_id",
+            "node_id",
+            "task_id",
+            "attempt",
+            "event_type",
+            "causation_id",
+            "tool_call_id",
+            "artifact_refs",
+            "timestamp",
+        ] {
+            assert!(
+                spec["components"]["schemas"]["RunEvent"]["properties"]
+                    .get(field)
+                    .is_some(),
+                "{field}"
+            );
+        }
+    }
+}
+
+#[test]
+fn conversation_contract_declares_bounded_handoff_history_and_distinct_cursors() {
+    let spec: serde_json::Value = serde_json::from_str(CONTRACT_SNAPSHOT).unwrap();
+    let op = &spec["paths"]["/teams/{id}/conversation"]["get"];
+    assert!(op["parameters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|p| p["name"] == "handoff_before"));
+    assert_eq!(
+        op["responses"]["200"]["content"]["application/json"]["schema"]["$ref"],
+        "#/components/schemas/TeamConversationPage"
+    );
+    let page = &spec["components"]["schemas"]["TeamConversationPage"]["properties"];
+    assert_eq!(page["handoffs"]["maxItems"], 64);
+    assert!(page["next_handoff_before"]["type"]
+        .as_array()
+        .unwrap()
+        .contains(&serde_json::json!("null")));
+    assert!(page.get("has_more").is_some());
+    assert!(page.get("handoffs_has_more").is_some());
+}
+
+struct InputImageContractProvider {
+    messages: Arc<std::sync::Mutex<Vec<Vec<owo_agent_core::ChatMessage>>>>,
+}
+#[async_trait::async_trait]
+impl owo_agent_core::gateway::ModelProvider for InputImageContractProvider {
+    async fn complete(
+        &self,
+        messages: &[owo_agent_core::ChatMessage],
+        _: &[owo_agent_core::ToolSpec],
+    ) -> Result<owo_agent_core::ModelOutput, String> {
+        self.messages.lock().unwrap().push(messages.to_vec());
+        Ok(owo_agent_core::ModelOutput::Text(serde_json::json!({"status":"done","summary":"image fixture observed","artifact":{"kind":"document","format":"text","content":"image fixture observed"},"evidence":[],"open_issues":[]}).to_string()))
+    }
+}
+
+#[tokio::test]
+async fn immutable_input_contract_upload_turn_and_authenticated_delivery_preserve_exact_bytes() {
+    let temp = tempfile::tempdir().unwrap();
+    let workspace = temp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let observed = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let provider = InputImageContractProvider {
+        messages: Arc::clone(&observed),
+    };
+    let state = Arc::new(owo_agent_server::AppState::new(
+        Agent::new(
+            Arc::new(provider),
+            ToolRegistry::empty(),
+            Policy::new(&workspace),
+            Default::default(),
+        ),
+        SqliteSessionStore::open(&workspace.join("sessions.db")).unwrap(),
+        workspace.join("traces"),
+        temp.path().to_path_buf(),
+        workspace.clone(),
+    ));
+    let session = owo_agent_core::session::Session::new(workspace.clone(), "fixture", None);
+    let other = owo_agent_core::session::Session::new(workspace, "fixture", None);
+    state.store.save(&session).unwrap();
+    state.store.save(&other).unwrap();
+    let app = build_router(Arc::clone(&state));
+    // Valid tiny PNG; tests prove byte transport, not vision interpretation.
+    let png = base64::engine::general_purpose::STANDARD.decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==").unwrap();
+    let mut uploads = Vec::new();
+    for bytes in [
+        &png[..],
+        b"\x89PNG\r\n\x1a\nsecond-header-only-fixture".as_slice(),
+    ] {
+        let body = serde_json::json!({"name":"same.png","mime":"image/png","data_b64":base64::engine::general_purpose::STANDARD.encode(bytes)}).to_string();
+        let response = app
+            .clone()
+            .oneshot(request(
+                &state,
+                "POST",
+                &format!("/session/{}/attachments", session.id),
+                Some(&body),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status().as_u16(), 200);
+        uploads.push(
+            serde_json::from_slice::<serde_json::Value>(
+                &axum::body::to_bytes(response.into_body(), 64 * 1024)
+                    .await
+                    .unwrap(),
+            )
+            .unwrap(),
+        );
+    }
+    assert_ne!(uploads[0]["id"], uploads[1]["id"]);
+    assert_ne!(uploads[0]["asset"]["sha256"], uploads[1]["asset"]["sha256"]);
+    let content_url = uploads[0]["content_url"].as_str().unwrap();
+    let response = app
+        .clone()
+        .oneshot(anonymous_request("GET", content_url, None))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 401);
+    let response = app
+        .clone()
+        .oneshot(request(&state, "GET", content_url, None))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    assert_eq!(
+        axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap()
+            .as_ref(),
+        png.as_slice()
+    );
+    for (part, owner, expected) in [
+        (uploads[0]["content_part"].clone(), other.id.as_str(), 403),
+        (
+            serde_json::json!({"type":"image","asset":{"artifact_id":uploads[0]["id"],"sha256":"0".repeat(64)}}),
+            session.id.as_str(),
+            400,
+        ),
+        (
+            serde_json::json!({"type":"file","asset":uploads[0]["asset"]}),
+            session.id.as_str(),
+            400,
+        ),
+    ] {
+        let body = serde_json::json!({"prompt":"inspect","content_parts":[part]}).to_string();
+        let response = app
+            .clone()
+            .oneshot(request(
+                &state,
+                "POST",
+                &format!("/session/{owner}/turn"),
+                Some(&body),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status().as_u16(), expected);
+    }
+    assert!(observed.lock().unwrap().is_empty());
+    let body=serde_json::json!({"prompt":"inspect original","content_parts":[uploads[0]["content_part"]]}).to_string();
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/session/{}/turn", session.id),
+            Some(&body),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    let stream = axum::body::to_bytes(response.into_body(), 2 * 1024 * 1024)
+        .await
+        .unwrap();
+    assert!(String::from_utf8_lossy(&stream).contains("image fixture observed"));
+    {
+        let messages = observed.lock().unwrap();
+        assert!(!messages.is_empty());
+        let user = messages[0].iter().rev().find(|m| m.role == "user").unwrap();
+        assert_eq!(user.images.len(), 1);
+        assert_eq!(
+            user.images[0].url,
+            format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(&png)
+            )
+        );
+    }
+    let persisted = state.store.load(&session.id).unwrap();
+    assert!(persisted
+        .messages
+        .iter()
+        .any(|m| m.role == "user" && m.images.len() == 1));
+    let list = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "GET",
+            &format!("/session/{}/attachments", session.id),
+            None,
+        ))
+        .await
+        .unwrap();
+    let list: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(list.into_body(), 64 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(list.as_array().unwrap().len(), 2);
+    let original_user = persisted
+        .messages
+        .iter()
+        .find(|m| m.role == "user")
+        .unwrap();
+    let input = original_user
+        .input
+        .as_ref()
+        .expect("persist original input refs");
+    assert_eq!(input.prompt, "inspect original");
+    assert_eq!(
+        serde_json::to_value(&input.content_parts).unwrap(),
+        serde_json::json!([uploads[0]["content_part"]])
+    );
+    // An excluded, damaged later input must not block an earlier fork.
+    let mut with_tail = persisted.clone();
+    let mut tail = owo_agent_core::ChatMessage::user("later image".to_string());
+    tail.input = Some(owo_agent_protocol::StoredUserInput {
+        prompt: "later image".into(),
+        content_parts: vec![serde_json::from_value(uploads[1]["content_part"].clone()).unwrap()],
+        legacy_attachments: Vec::new(),
+    });
+    with_tail.messages.push(tail);
+    state.store.save(&with_tail).unwrap();
+    state
+        .sessions
+        .lock()
+        .unwrap()
+        .insert(session.id.clone(), with_tail);
+    let tail_cas = temp
+        .path()
+        .join("workswarm")
+        .join("cas")
+        .join(uploads[1]["asset"]["sha256"].as_str().unwrap());
+    std::fs::write(&tail_cas, b"tampered excluded tail").unwrap();
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/session/{}/fork", session.id),
+            Some("{\"message_index\":0}"),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    let fork: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(response.into_body(), 64 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let fork_id = fork["id"].as_str().unwrap();
+    let forked = state.store.load(fork_id).unwrap();
+    let fork_input = forked
+        .messages
+        .iter()
+        .find(|m| m.role == "user")
+        .unwrap()
+        .input
+        .as_ref()
+        .unwrap();
+    let fork_parts = serde_json::to_value(&fork_input.content_parts).unwrap();
+    assert_ne!(fork_parts[0]["asset"]["artifact_id"], uploads[0]["id"]);
+    assert_eq!(
+        fork_parts[0]["asset"]["sha256"],
+        uploads[0]["asset"]["sha256"]
+    );
+    {
+        use owo_agent_core::project_space_store::{
+            ProjectSpaceStoreBackend, SqliteProjectSpaceStore,
+        };
+        let asset_store =
+            SqliteProjectSpaceStore::open(&temp.path().join("workswarm").join("space.db")).unwrap();
+        let copied = asset_store
+            .get_artifact(fork_parts[0]["asset"]["artifact_id"].as_str().unwrap())
+            .await
+            .unwrap();
+        assert_eq!(copied.producer, fork_id);
+        assert!(copied.source_refs.contains(&"input:fork".to_string()));
+        assert!(copied
+            .source_refs
+            .contains(&format!("artifact:{}", uploads[0]["id"].as_str().unwrap())));
+        assert!(copied
+            .source_refs
+            .contains(&format!("session:{}", session.id)));
+    }
+    state.store.save(&persisted).unwrap();
+    state
+        .sessions
+        .lock()
+        .unwrap()
+        .insert(session.id.clone(), persisted.clone());
+    std::fs::write(tail_cas, b"\x89PNG\r\n\x1a\nsecond-header-only-fixture").unwrap();
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/session/{fork_id}/turn"),
+            Some("{\"prompt\":\"continue from original image\"}"),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    let _ = axum::body::to_bytes(response.into_body(), 2 * 1024 * 1024)
+        .await
+        .unwrap();
+    observed.lock().unwrap().clear();
+    let body = serde_json::json!({"objective":"Inspect the uploaded image fixture","strategy":"team","mode":"team",
+        "parent_session_id":session.id,"content_parts":[uploads[0]["content_part"]],
+        "roles":[{"role":"visual-reader","assignee":"agent","tools":[],"write_paths":[]}],"budget":{"max_steps":4,"max_model_calls":4}}).to_string();
+    let response = app
+        .clone()
+        .oneshot(request(&state, "POST", "/teams", Some(&body)))
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), 64 * 1024)
+        .await
+        .unwrap();
+    assert_eq!(status.as_u16(), 202, "{}", String::from_utf8_lossy(&bytes));
+    let team: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let team_id = team["team_id"].as_str().unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(12), async {
+        loop {
+            let response = app
+                .clone()
+                .oneshot(request(&state, "GET", &format!("/teams/{team_id}"), None))
+                .await
+                .unwrap();
+            let detail: serde_json::Value = serde_json::from_slice(
+                &axum::body::to_bytes(response.into_body(), 1024 * 1024)
+                    .await
+                    .unwrap(),
+            )
+            .unwrap();
+            let status: owo_agent_protocol::TeamRunStatus =
+                serde_json::from_value(detail["team"]["status"].clone()).unwrap();
+            if status.is_terminal() {
+                assert_eq!(
+                    status,
+                    owo_agent_protocol::TeamRunStatus::Succeeded,
+                    "{detail}"
+                );
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .expect("fixture team must finish");
+    // The role omitted verify: the host must compile the default output
+    // obligation rather than defer a missing plan to the delivery gate.
+    let run = state
+        .workswarm
+        .coordinator()
+        .unwrap()
+        .load_run_state(team_id)
+        .unwrap();
+    let step = run
+        .plan
+        .steps
+        .iter()
+        .find(|step| step.id == "s-visual-reader")
+        .unwrap();
+    let requirement = &step
+        .verification_plan
+        .as_ref()
+        .expect("default role verification plan")
+        .requirements[0];
+    assert_eq!(requirement.validator_id, "artifact-output-non-empty-v1");
+    assert!(requirement.required);
+    let worker_input = {
+        let calls = observed.lock().unwrap();
+        assert!(!calls.is_empty());
+        let user = calls[0].iter().rev().find(|m| m.role == "user").unwrap();
+        assert_eq!(user.images.len(), 1);
+        assert_eq!(
+            user.images[0].url,
+            format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(&png)
+            )
+        );
+        let worker_input = user
+            .input
+            .as_ref()
+            .expect("Team provider receives persisted structured input")
+            .clone();
+        assert_eq!(worker_input.content_parts.len(), 1);
+        assert_ne!(
+            serde_json::to_value(&worker_input.content_parts).unwrap()[0]["asset"]["artifact_id"],
+            uploads[0]["id"]
+        );
+        assert_eq!(
+            serde_json::to_value(&worker_input.content_parts).unwrap()[0]["asset"]["sha256"],
+            uploads[0]["asset"]["sha256"]
+        );
+        worker_input
+    };
+    let journal = state
+        .workswarm
+        .coordinator()
+        .unwrap()
+        .store()
+        .run_events_after(team_id, 0, 256)
+        .unwrap()
+        .events;
+    let prepared = journal
+        .iter()
+        .find(|e| e.event_type == "model.input.prepared")
+        .expect("actual role execution must record provider input");
+    let parent = journal
+        .iter()
+        .find(|e| Some(&e.event_id) == prepared.causation_id.as_ref())
+        .expect("provider input has a persisted causal parent");
+    assert_eq!(parent.event_type, "worker.input.prepared");
+    assert_eq!(parent.run_id, prepared.run_id);
+    assert_eq!(prepared.data["image_count"], 1);
+    assert_eq!(
+        prepared.data["last_user_input"]["parts"][0]["asset"],
+        serde_json::to_value(&worker_input.content_parts).unwrap()[0]["asset"]
+    );
+    let result = journal
+        .iter()
+        .find(|e| {
+            e.event_type == "model.request.completed"
+                && e.causation_id.as_ref() == Some(&prepared.event_id)
+        })
+        .unwrap();
+    assert_eq!(result.data["provider_succeeded"], true);
+    assert_eq!(result.data["model_delivery"], "not_proven");
+    // Follow the actual public Team index to the persisted worker session.
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "GET",
+            &format!("/teams/{team_id}/conversation"),
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    let conversation: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(response.into_body(), 2 * 1024 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    let worker_id = conversation["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["role"] == "visual-reader")
+        .unwrap()["session_id"]
+        .as_str()
+        .unwrap();
+    let reopened = SqliteSessionStore::open(&state.workspace.join("sessions.db")).unwrap();
+    use owo_agent_core::session::SessionStore as _;
+    let worker_session = reopened.load(worker_id).unwrap();
+    assert_eq!(
+        worker_session.parent_id.as_deref(),
+        Some(session.id.as_str())
+    );
+    let saved = worker_session
+        .messages
+        .iter()
+        .find(|m| m.role == "user")
+        .unwrap();
+    assert_eq!(saved.input.as_ref(), Some(&worker_input));
+    assert_eq!(
+        saved.images[0].url,
+        format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(&png)
+        )
+    );
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "GET",
+            &format!("/session/{worker_id}/attachments"),
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    let child_assets: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(response.into_body(), 64 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(child_assets.as_array().unwrap().len(), 1);
+    assert_eq!(
+        child_assets[0]["content_part"],
+        serde_json::to_value(&worker_input.content_parts[0]).unwrap()
+    );
+    // Child custody never grants reuse of the original parent identity.
+    let foreign=serde_json::json!({"prompt":"wrong parent reference","content_parts":[uploads[0]["content_part"]]}).to_string();
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            &format!("/session/{worker_id}/turn"),
+            Some(&foreign),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 403);
+}
+
+#[tokio::test]
+async fn immutable_input_contract_documents_shared_parts_and_accurate_upload_limits() {
+    let (state, _temp) = test_state().await;
+    let response = build_router(Arc::clone(&state))
+        .oneshot(request(&state, "GET", "/capabilities", None))
+        .await
+        .unwrap();
+    let capability: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(response.into_body(), 64 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(capability["constraints"]["structured_input_parts"], true);
+    for (name, flag) in [
+        ("image_generation", "media_image_generation"),
+        ("text_to_speech", "media_speech"),
+    ] {
+        let view = &capability["media_connections"][name];
+        assert_eq!(capability["constraints"][flag], view["configured"]);
+        assert!(view["connected"].is_null());
+        assert!(view["verified"].is_null());
+        assert!(view["last_verified_at"].is_null());
+        assert!(view.get("api_key").is_none());
+    }
+
+    let document: serde_json::Value =
+        serde_json::from_str(CONTRACT_SNAPSHOT.trim_start_matches('﻿')).unwrap();
+    assert_eq!(
+        document["components"]["schemas"]["TurnRequest"]["properties"]["content_parts"]["maxItems"],
+        32
+    );
+    assert_eq!(
+        document["components"]["schemas"]["ContentPart"]["oneOf"]
+            .as_array()
+            .unwrap()
+            .len(),
+        5
+    );
+    assert!(
+        document["paths"]["/session/{id}/attachments"]["post"]["description"]
+            .as_str()
+            .unwrap()
+            .contains("5 MiB")
+    );
+    assert_eq!(
+        document["paths"]["/session/{id}/attachments"]["post"]["responses"]["200"]["content"]
+            ["application/json"]["schema"]["$ref"],
+        "#/components/schemas/UploadedAttachment"
+    );
+}
+
+#[tokio::test]
+async fn immutable_input_contract_rejects_corrupt_cas_and_unsupported_audio_before_model() {
+    let (state, _temp) = test_state().await;
+    let session = owo_agent_core::session::Session::new(state.workspace.clone(), "fixture", None);
+    state.store.save(&session).unwrap();
+    let app = build_router(Arc::clone(&state));
+    for (name, mime, bytes, expected) in [
+        ("bad.png", "image/png", b"not png".as_slice(), 400),
+        ("photo.heic", "image/heic", b"fixture".as_slice(), 400),
+        ("sound.wav", "audio/wav", b"RIFFfixture".as_slice(), 200),
+        (
+            "image.png",
+            "image/png",
+            b"\x89PNG\r\n\x1a\nfixture".as_slice(),
+            200,
+        ),
+    ] {
+        let body=serde_json::json!({"name":name,"mime":mime,"data_b64":base64::engine::general_purpose::STANDARD.encode(bytes)}).to_string();
+        let response = app
+            .clone()
+            .oneshot(request(
+                &state,
+                "POST",
+                &format!("/session/{}/attachments", session.id),
+                Some(&body),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status().as_u16(), expected);
+        if expected != 200 {
+            continue;
+        }
+        let item: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), 64 * 1024)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        if mime == "image/png" {
+            std::fs::write(
+                state
+                    .data_root
+                    .join("workswarm/cas")
+                    .join(item["asset"]["sha256"].as_str().unwrap()),
+                b"tampered",
+            )
+            .unwrap();
+        }
+        let body = serde_json::json!({"prompt":"inspect","content_parts":[item["content_part"]]})
+            .to_string();
+        let response = app
+            .clone()
+            .oneshot(request(
+                &state,
+                "POST",
+                &format!("/session/{}/turn", session.id),
+                Some(&body),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status().as_u16(),
+            if mime == "audio/wav" { 422 } else { 400 }
+        );
+    }
+}
+
+#[tokio::test]
+async fn media_profiles_host_config_is_authenticated_versioned_and_used_by_capabilities_and_workers(
+) {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+    let unauthorized = app
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/settings/media-connections")
+                .header("host", "127.0.0.1:4096")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(unauthorized.status(), 401);
+    let initial = app
+        .clone()
+        .oneshot(request(&state, "GET", "/settings/media-connections", None))
+        .await
+        .unwrap();
+    assert_eq!(initial.status(), 200);
+    let initial: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(initial.into_body(), 512 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(initial["catalog"]["revision"], 0);
+    assert!(!state.data_root.join("media-connections.sqlite3").exists());
+    let mut proposal = serde_json::json!({"schema_version":1,"revision":0,"profiles":[{"id":"speech-local","name":"Local speech","base_url":"http://127.0.0.1:9999/v1","model":"local-profile-speech","credential_env":null,"services":["text_to_speech"]}],"assignments":{"text_to_speech":"speech-local"}});
+    let saved = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "PUT",
+            "/settings/media-connections",
+            Some(&proposal.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(saved.status(), 200);
+    let saved: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(saved.into_body(), 512 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(saved["catalog"]["revision"], 1);
+    assert_eq!(
+        saved["services"]["text_to_speech"]["profile_id"],
+        "speech-local"
+    );
+    assert!(saved["services"]["text_to_speech"]["connected"].is_null());
+    assert!(saved["services"]["text_to_speech"]["verified"].is_null());
+    let conflict = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "PUT",
+            "/settings/media-connections",
+            Some(&proposal.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(conflict.status(), 409);
+    let capability = app
+        .clone()
+        .oneshot(request(&state, "GET", "/capabilities", None))
+        .await
+        .unwrap();
+    let capability: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(capability.into_body(), 512 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        capability["media_connections"]["text_to_speech"]["model"],
+        "local-profile-speech"
+    );
+    assert_eq!(
+        capability["media_connections"]["text_to_speech"]["configuration_source"],
+        "named_profile"
+    );
+    assert!(state
+        .agent
+        .workflow_tool_capabilities()
+        .unwrap()
+        .iter()
+        .any(|tool| tool.name == "text_to_speech" && tool.status == "registered"));
+    proposal["revision"] = 1.into();
+    proposal["profiles"][0]["credential_env"] =
+        format!("OWO_PROFILE_CONTRACT_{}", uuid::Uuid::new_v4().simple()).into();
+    let saved = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "PUT",
+            "/settings/media-connections",
+            Some(&proposal.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        saved.status(),
+        200,
+        "Missing credentials may be saved; runtime must reject"
+    );
+    assert!(state
+        .agent
+        .workflow_tool_capabilities()
+        .unwrap()
+        .iter()
+        .any(|tool| tool.name == "text_to_speech" && tool.status == "not_configured"));
+    proposal["revision"] = 2.into();
+    proposal["profiles"][0]["api_key"] = "fixture-inline-secret".into();
+    let rejected = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "PUT",
+            "/settings/media-connections",
+            Some(&proposal.to_string()),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(rejected.status(), 422);
+    let loaded = owo_agent_core::gateway::media_profiles::MediaProfileStore::new(&state.data_root)
+        .load()
+        .unwrap();
+    assert_eq!(loaded.revision, 2);
+    assert!(!serde_json::to_string(&loaded)
+        .unwrap()
+        .contains("fixture-inline-secret"));
+}
+
+#[tokio::test]
+async fn media_profile_tcp_check_is_authenticated_persisted_and_revision_scoped() {
+    let (state, _temp) = test_state().await;
+    let app = build_router(Arc::clone(&state));
+    let unauth = app
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/settings/media-connections/check")
+                .header("host", "127.0.0.1:4096")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    r#"{"expected_revision":0,"profile_id":"local","service":"text_to_speech"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(unauth.status(), 401);
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let store = owo_agent_core::gateway::media_profiles::MediaProfileStore::new(&state.data_root);
+    let proposal = serde_json::json!({"schema_version":1,"revision":0,"profiles":[{"id":"local","name":"local","base_url":format!("http://{}/v1",listener.local_addr().unwrap()),"model":"fixture","credential_env":null,"services":["text_to_speech"]}],"assignments":{"text_to_speech":"local"}});
+    let saved = store
+        .save(serde_json::from_value(proposal).unwrap())
+        .unwrap();
+    let request_body=serde_json::json!({"expected_revision":saved.revision,"profile_id":"local","service":"text_to_speech"}).to_string();
+    let response = app
+        .clone()
+        .oneshot(request(
+            &state,
+            "POST",
+            "/settings/media-connections/check",
+            Some(&request_body),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let observed: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(response.into_body(), 8192)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(observed["connected"], true);
+    assert_eq!(observed["kind"], "tcp");
+    assert!(observed["checked_at_ms"].as_u64().unwrap() > 0);
+    assert!(observed.get("verified").is_none());
+    for (path, key) in [
+        ("/settings/media-connections", "services"),
+        ("/capabilities", "media_connections"),
+    ] {
+        let response = app
+            .clone()
+            .oneshot(request(&state, "GET", path, None))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let value: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), 512 * 1024)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(value[key]["text_to_speech"]["connected"], true);
+        assert_eq!(
+            value[key]["text_to_speech"]["last_checked_at_ms"],
+            observed["checked_at_ms"]
+        );
+        assert!(value[key]["text_to_speech"]["verified"].is_null());
+    }
+    let mut updated = saved;
+    updated.profiles[0].model = "new-model".into();
+    let updated = store.save(updated).unwrap();
+    assert!(store.checks(updated.revision).unwrap().is_empty());
+    let stale = app
+        .oneshot(request(
+            &state,
+            "POST",
+            "/settings/media-connections/check",
+            Some(&request_body),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(stale.status(), 409);
+    assert!(
+        store.status(owo_agent_core::gateway::media_config::MediaService::TextToSpeech)
+            ["connected"]
+            .is_null()
+    );
+}
+
+struct PendingCheckpointContractProvider {
+    entered: Arc<tokio::sync::Notify>,
+    release: Arc<tokio::sync::Notify>,
+    fail: bool,
+}
+#[async_trait::async_trait]
+impl owo_agent_core::gateway::ModelProvider for PendingCheckpointContractProvider {
+    async fn complete(
+        &self,
+        _: &[owo_agent_core::ChatMessage],
+        _: &[owo_agent_core::ToolSpec],
+    ) -> Result<owo_agent_core::ModelOutput, String> {
+        self.entered.notify_one();
+        self.release.notified().await;
+        if self.fail {
+            Err("fixture checkpoint provider failure".into())
+        } else {
+            Ok(owo_agent_core::ModelOutput::Text(
+                "checkpoint completed".into(),
+            ))
+        }
+    }
+}
+#[tokio::test]
+async fn immutable_input_checkpoint_is_readable_while_provider_is_pending() {
+    use owo_agent_core::SessionStore;
+    for fail in [false, true] {
+        let temp = tempfile::tempdir().unwrap();
+        let workspace = temp.path().join("workspace");
+        std::fs::create_dir_all(&workspace).unwrap();
+        let db = workspace.join("sessions.db");
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let release = Arc::new(tokio::sync::Notify::new());
+        let state = Arc::new(owo_agent_server::AppState::new(
+            Agent::new(
+                Arc::new(PendingCheckpointContractProvider {
+                    entered: Arc::clone(&entered),
+                    release: Arc::clone(&release),
+                    fail,
+                }),
+                ToolRegistry::empty(),
+                Policy::new(&workspace),
+                owo_agent_core::AgentConfig {
+                    max_turns: 2,
+                    compaction_enabled: false,
+                    ..Default::default()
+                },
+            ),
+            SqliteSessionStore::open(&db).unwrap(),
+            workspace.join("traces"),
+            temp.path().to_path_buf(),
+            workspace.clone(),
+        ));
+        let mut session = owo_agent_core::session::Session::new(&workspace, "fixture", None);
+        session.set_mode(owo_agent_core::session::SessionMode::Chat);
+        state.store.save(&session).unwrap();
+        let app = build_router(Arc::clone(&state));
+        let part = serde_json::json!({"type":"text","text":"attached textual input"});
+        let body =
+            serde_json::json!({"prompt":"original HTTP request","content_parts":[part.clone()]})
+                .to_string();
+        let response = app
+            .oneshot(request(
+                &state,
+                "POST",
+                &format!("/session/{}/turn", session.id),
+                Some(&body),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status().as_u16(), 200);
+        tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified())
+            .await
+            .unwrap();
+        let reopened = SqliteSessionStore::open(&db).unwrap();
+        let during = reopened.load(&session.id).unwrap();
+        assert_eq!(
+            during.messages.iter().filter(|m| m.role == "user").count(),
+            1
+        );
+        let original = during.messages[0]
+            .input
+            .as_ref()
+            .expect("input committed before Provider completes");
+        assert_eq!(original.prompt, "original HTTP request");
+        assert_eq!(
+            serde_json::to_value(&original.content_parts).unwrap(),
+            serde_json::json!([part])
+        );
+        assert!(!during.messages.iter().any(|m| m.role == "assistant"));
+        release.notify_one();
+        let stream = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            axum::body::to_bytes(response.into_body(), 1024 * 1024),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let stream = String::from_utf8_lossy(&stream);
+        assert!(
+            stream.contains(if fail {
+                "fixture checkpoint provider failure"
+            } else {
+                "checkpoint completed"
+            }),
+            "{stream}"
+        );
+        let after = reopened.load(&session.id).unwrap();
+        assert_eq!(
+            after.messages.iter().filter(|m| m.role == "user").count(),
+            1
+        );
+        assert_eq!(after.messages[0].input.as_ref(), Some(original));
+    }
 }
 
 #[tokio::test]

@@ -49,9 +49,19 @@ pub enum WorkflowAction {
     /// 本地评审配置文件：能力面/写范围/MCP 依赖/人工节点（离线）
     Review { file: PathBuf },
     /// 从配置文件创建/更新用户工作流（经 Daemon 校验并落盘）
-    Create { file: PathBuf },
+    Create {
+        file: PathBuf,
+        /// 更新时提供 show --json 返回的 revision；冲突后应先审阅新版本。
+        #[arg(long)]
+        expected_revision: Option<u64>,
+    },
     /// 删除用户/社区工作流
-    Delete { id: String },
+    Delete {
+        id: String,
+        /// 要删除的已审阅版本（通过 show --json 获取）。
+        #[arg(long)]
+        expected_revision: u64,
+    },
     /// 用自然语言让 AI 生成工作流草稿（需要配置模型）
     Draft {
         #[arg(long)]
@@ -73,6 +83,9 @@ pub enum WorkflowAction {
     /// 采纳草稿 → 用户工作流
     Adopt {
         draft_id: String,
+        /// 审阅冲突后的显式版本；缺省沿用草稿原始基线。
+        #[arg(long)]
+        expected_revision: Option<u64>,
         /// 采纳后沿用基线工作流的目标再跑一次，打印前后对比（改配置是否真的康复）
         #[arg(long)]
         verify: bool,
@@ -94,6 +107,9 @@ pub enum WorkflowAction {
     /// 导入社区包（--review-only 只评审不落盘）
     Import {
         file: PathBuf,
+        /// 更新已有配置时提供 review-only --json 返回的 local_revision。
+        #[arg(long)]
+        expected_revision: Option<u64>,
         #[arg(long)]
         review_only: bool,
     },
@@ -126,6 +142,32 @@ pub enum WorkflowAction {
         /// 核对有问题时以退出码 4 失败（CI/交接门禁）
         #[arg(long)]
         strict: bool,
+    },
+    /// 列出成功运行沉淀的模板提案（只提案，不自动启用）
+    Proposals,
+    /// 采纳一条模板提案到用户工作流注册表
+    AdoptProposal { proposal_id: String },
+    /// 拒绝一条模板提案（保留审计记录）
+    RejectProposal { proposal_id: String },
+    /// 自动匹配已安装工作流并创建团队运行（用户只给目标，不指定模板）
+    Auto {
+        /// 允许节点按声明的 write_paths 范围写入当前工作区
+        #[arg(long, default_value_t = true)]
+        allow_scoped_writes: bool,
+        #[arg(long)]
+        objective: String,
+        /// 确认已知情（匹配到带 warn 级能力面的模板时）
+        #[arg(long)]
+        yes: bool,
+        /// 建队后跟随进度直到终态
+        #[arg(long)]
+        follow: bool,
+        /// 跟随的最大秒数（缺省 120，硬顶 600）
+        #[arg(long)]
+        follow_timeout: Option<u64>,
+        /// 只打印会匹配的模板和理由，不建队
+        #[arg(long)]
+        dry_run: bool,
     },
     /// 用这条工作流创建团队运行（有 warn 级能力面时需 --yes 确认）
     Run {
@@ -715,7 +757,7 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
             if let Ok(last) = client.workflow_last_run(&template.template_id).await {
                 match last["last_run"].as_object() {
                     Some(run) => println!(
-                        "  最近一次：{} · {} · {}{}",
+                        "  最近一次：{} · {} · {}   （复用：owo-agent workflow rerun <id>）",
                         run.get("status")
                             .and_then(|value| value.as_str())
                             .unwrap_or("?"),
@@ -727,18 +769,22 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
                             .collect::<String>(),
                         run.get("objective")
                             .and_then(|value| value.as_str())
-                            .unwrap_or("?"),
-                        // 有运行记录时给出可复现入口（沿用同一目标）。
-                        "   （复用：owo-agent workflow rerun <id>）"
+                            .unwrap_or("?")
                     ),
                     None => println!("  最近一次：从未运行"),
                 }
             }
             Ok(())
         }
-        WorkflowAction::Create { file } => {
+        WorkflowAction::Create {
+            file,
+            expected_revision,
+        } => {
             let template = read_template(&file)?;
-            let value = serde_json::to_value(&template)?;
+            let mut value = serde_json::to_value(&template)?;
+            if let Some(revision) = expected_revision {
+                value["expected_revision"] = serde_json::json!(revision);
+            }
             match client.upsert_user_workflow(&value).await {
                 Ok(saved) => {
                     if args.json {
@@ -762,8 +808,13 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
                 }
             }
         }
-        WorkflowAction::Delete { id } => {
-            let deleted = client.delete_user_workflow(&id).await?;
+        WorkflowAction::Delete {
+            id,
+            expected_revision,
+        } => {
+            let deleted = client
+                .delete_user_workflow_at_revision(&id, expected_revision)
+                .await?;
             if args.json {
                 println!("{}", serde_json::to_string_pretty(&deleted)?);
             } else {
@@ -957,11 +1008,14 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
         }
         WorkflowAction::Adopt {
             draft_id,
+            expected_revision,
             verify,
             follow,
             follow_timeout,
         } => {
-            let adopted = client.adopt_workflow_draft(&draft_id).await?;
+            let adopted = client
+                .adopt_workflow_draft_at_revision(&draft_id, expected_revision)
+                .await?;
             let template_id = adopted["template"]["template_id"]
                 .as_str()
                 .unwrap_or("?")
@@ -1106,7 +1160,11 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
             }
             Ok(())
         }
-        WorkflowAction::Import { file, review_only } => {
+        WorkflowAction::Import {
+            file,
+            review_only,
+            expected_revision,
+        } => {
             let package = std::fs::read_to_string(&file)?;
             let review = client.review_workflow_import(package.trim()).await?;
             if args.json && review_only {
@@ -1138,7 +1196,9 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
             if review_only {
                 return Ok(());
             }
-            let imported = client.import_user_workflow(package.trim()).await?;
+            let imported = client
+                .import_user_workflow_at_revision(package.trim(), expected_revision)
+                .await?;
             if args.json {
                 println!("{}", serde_json::to_string_pretty(&imported)?);
             } else {
@@ -1151,6 +1211,97 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
             }
             Ok(())
         }
+        WorkflowAction::Proposals => {
+            let proposals = client.list_template_proposals().await?;
+            if args.json {
+                println!("{}", serde_json::to_string_pretty(&proposals)?);
+            } else {
+                let items = proposals["proposals"]
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default();
+                println!(
+                    "Template proposals ({}; proposal only, not enabled):",
+                    items.len()
+                );
+                for item in items {
+                    println!(
+                        "  {} [{}] source {} - {}",
+                        item["proposal_id"].as_str().unwrap_or("?"),
+                        item["status"].as_str().unwrap_or("?"),
+                        item["source_team_id"].as_str().unwrap_or("?"),
+                        item["template"]["name"].as_str().unwrap_or("?")
+                    );
+                }
+            }
+            Ok(())
+        }
+        WorkflowAction::AdoptProposal { proposal_id } => {
+            let saved = client.adopt_template_proposal(&proposal_id).await?;
+            if args.json {
+                println!("{}", serde_json::to_string_pretty(&saved)?);
+            } else {
+                println!(
+                    "Adopted proposal: {} -> {} (revision {})",
+                    proposal_id,
+                    saved["template"]["template_id"].as_str().unwrap_or("?"),
+                    saved["revision"].as_u64().unwrap_or(0)
+                );
+            }
+            Ok(())
+        }
+        WorkflowAction::RejectProposal { proposal_id } => {
+            let saved = client.reject_template_proposal(&proposal_id).await?;
+            if args.json {
+                println!("{}", serde_json::to_string_pretty(&saved)?);
+            } else {
+                println!("Rejected proposal: {}", proposal_id);
+            }
+            Ok(())
+        }
+        WorkflowAction::Auto {
+            objective,
+            yes,
+            follow,
+            follow_timeout,
+            allow_scoped_writes,
+            dry_run,
+        } => {
+            if dry_run {
+                match choose_auto_workflow(&client, &objective).await? {
+                    Some(template_id) => {
+                        if args.json {
+                            println!("{}", serde_json::json!({"template_id": template_id}));
+                        } else {
+                            println!("auto workflow: {template_id} (dry-run; no team created)");
+                        }
+                    }
+                    None => {
+                        if args.json {
+                            println!(
+                                "{}",
+                                serde_json::json!({"template_id": null, "fallback": "server-auto"})
+                            );
+                        } else {
+                            println!("no user template matched; server auto-team fallback");
+                        }
+                    }
+                }
+                return Ok(());
+            }
+            create_auto_team(
+                &client,
+                &objective,
+                WorkflowRunOptions {
+                    json: args.json,
+                    yes,
+                    follow,
+                    follow_timeout,
+                    allow_scoped_writes,
+                },
+            )
+            .await
+        }
         WorkflowAction::Run {
             id,
             objective,
@@ -1161,13 +1312,15 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
         } => {
             create_team_from_workflow(
                 &client,
-                args.json,
                 &id,
                 &objective,
-                yes,
-                follow,
-                follow_timeout,
-                allow_scoped_writes,
+                WorkflowRunOptions {
+                    json: args.json,
+                    yes,
+                    follow,
+                    follow_timeout,
+                    allow_scoped_writes,
+                },
             )
             .await
         }
@@ -1215,13 +1368,15 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
             }
             create_team_from_workflow(
                 &client,
-                args.json,
                 &id,
                 &objective,
-                yes,
-                follow,
-                follow_timeout,
-                allow_scoped_writes,
+                WorkflowRunOptions {
+                    json: args.json,
+                    yes,
+                    follow,
+                    follow_timeout,
+                    allow_scoped_writes,
+                },
             )
             .await
         }
@@ -1234,17 +1389,171 @@ async fn run_workflow(args: WorkflowArgs) -> Result<(), Box<dyn std::error::Erro
     }
 }
 
-/// 按工作流建队（`run` 与 `rerun` 共用同一套门禁：block 拒绝、warn 需 --yes、可选跟随）。
-async fn create_team_from_workflow(
+/// 自动组队：不指定模板，交由服务端按目标匹配已安装的工作流。
+///
+/// 这与 `workflow run <id>` 共用跟随/输出选项，但省掉“先找模板 ID”的步骤；
+/// 匹配失败时服务端仍会创建默认接力角色，因此调用方只需给出真实目标。
+/// 选择已安装工作流：适用条件匹配 + 历史成功率。
+///
+/// 这不是“先猜模板再让服务端兜底”，而是把多次运行的经验纳入选择：
+/// - 没有任何运行记录的新模板给 0.5 先验，避免被一次失败永久埋没；
+/// - 有记录时按 success_rate 排序，成功率相同再看运行次数；
+/// - 已 blocked/校验失败的模板不参与；
+/// - 没有候选时返回 None，回退服务端默认自动组队。
+async fn choose_auto_workflow(
     client: &owo_agent_client::AgentClient,
-    json: bool,
-    id: &str,
     objective: &str,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let listed = client.list_user_workflows().await?;
+    let stats = client.workflow_stats().await.unwrap_or_default();
+    let objective_lower = objective.to_lowercase();
+    let mut candidates: Vec<(String, f64, usize, u64, usize)> = Vec::new();
+    for item in listed["templates"].as_array().into_iter().flatten() {
+        if item["blocked"].as_bool().unwrap_or(false)
+            || item["valid"].as_bool().unwrap_or(true) == false
+        {
+            continue;
+        }
+        let Some(template) = item.get("template") else {
+            continue;
+        };
+        let applicability = template["applicability"].as_str().unwrap_or_default();
+        if !owo_agent_core::team_strategy::applicability_matches(applicability, objective) {
+            continue;
+        }
+        let Some(template_id) = template["template_id"].as_str() else {
+            continue;
+        };
+        let run = stats["templates"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|stat| stat["template_id"].as_str() == Some(template_id));
+        let runs = run
+            .and_then(|stat| stat["runs"].as_u64())
+            .or_else(|| item["runs"].as_u64())
+            .unwrap_or(0);
+        let succeeded = run.and_then(|stat| stat["succeeded"].as_u64()).unwrap_or(0);
+        // Laplace-smoothed success rate: a new template starts near 0.5, a
+        // single failure falls to 1/3, and sustained success must be earned.
+        let score = (succeeded + 1) as f64 / (runs + 2) as f64;
+        let role_count = template["roles"]
+            .as_array()
+            .map(Vec::len)
+            .unwrap_or(usize::MAX);
+        // Prefer the template whose applicability describes this request most
+        // specifically. Both a builder and a QA template may mention "??";
+        // a creation request that says "????" should not lose to generic QA.
+        let fit = owo_agent_core::team_strategy::applicability_tokens(applicability)
+            .iter()
+            .filter(|token| objective_lower.contains(&token.to_lowercase()))
+            .count();
+        candidates.push((template_id.to_string(), score, role_count, runs, fit));
+    }
+    candidates.sort_by(|left, right| {
+        // Fit first: template applicability is the task-type contract. Success
+        // rate then decides between templates that fit equally well.
+        right
+            .4
+            .cmp(&left.4)
+            .then_with(|| {
+                right
+                    .1
+                    .partial_cmp(&left.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            // A cheaper team is the safer tie-break when experience is equally
+            // bad: avoid sending a simple QA request through a seven-role build.
+            .then_with(|| left.2.cmp(&right.2))
+            .then_with(|| right.3.cmp(&left.3))
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    Ok(candidates.into_iter().next().map(|(id, _, _, _, _)| id))
+}
+
+async fn create_auto_team(
+    client: &owo_agent_client::AgentClient,
+    objective: &str,
+    options: WorkflowRunOptions,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let objective = objective.trim();
+    if objective.is_empty() {
+        return Err("目标不能为空（自动组队要完成什么）；用 --objective 指定".into());
+    }
+    if let Some(template_id) = choose_auto_workflow(client, objective).await? {
+        if !options.json {
+            eprintln!("自动匹配工作流：{template_id}（按适用条件与历史成功率）");
+        }
+        return create_team_from_workflow(client, &template_id, objective, options).await;
+    }
+    let WorkflowRunOptions {
+        json,
+        yes,
+        follow,
+        follow_timeout,
+        allow_scoped_writes,
+    } = options;
+    let created = client
+        .create_auto_team(objective, yes, allow_scoped_writes)
+        .await?;
+    let team_id = created["team_id"]
+        .as_str()
+        .or_else(|| created["team"]["team_id"].as_str())
+        .unwrap_or("?")
+        .to_string();
+    let mut template_id = created["team"]["template_id"]
+        .as_str()
+        .or_else(|| created["template_id"].as_str())
+        .unwrap_or("dynamic")
+        .to_string();
+    if template_id == "dynamic" {
+        // 部分服务端建队响应只回 team_id；读取详情补上实际自动匹配的模板名。
+        if let Ok(detail) = client.get_team(&team_id).await {
+            if let Some(matched) = detail["team"]["template_id"].as_str() {
+                template_id = matched.to_string();
+            }
+        }
+    }
+    if json {
+        println!("{}", serde_json::to_string_pretty(&created)?);
+    } else {
+        println!(
+            "{} {}（自动匹配模板 {template_id}，{} 个成员）",
+            "已自动组队：".green(),
+            team_id,
+            created["members"].as_array().map(Vec::len).unwrap_or(0)
+        );
+        println!("  跟踪：桌面「团队协作」面板，或 GET /teams/{team_id}");
+    }
+    if follow {
+        let timeout_secs = follow_timeout.unwrap_or(120).clamp(5, 600);
+        follow_team(client, &team_id, timeout_secs).await?;
+    }
+    Ok(())
+}
+
+struct WorkflowRunOptions {
+    json: bool,
     yes: bool,
     follow: bool,
     follow_timeout: Option<u64>,
     allow_scoped_writes: bool,
+}
+
+/// 按工作流建队（`run` 与 `rerun` 共用同一套门禁：block 拒绝、warn 需 --yes、可选跟随）。
+async fn create_team_from_workflow(
+    client: &owo_agent_client::AgentClient,
+    id: &str,
+    objective: &str,
+    options: WorkflowRunOptions,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let WorkflowRunOptions {
+        json,
+        yes,
+        follow,
+        follow_timeout,
+        allow_scoped_writes,
+    } = options;
     let objective = objective.trim().to_string();
     if objective.is_empty() {
         return Err("目标不能为空（这条团队运行要达成什么）；用 --objective 指定".into());
@@ -1293,12 +1602,15 @@ async fn create_team_from_workflow(
                 owo_agent_protocol::TeamMode::Team => "team",
             };
             let created = client
-                .create_team_with_scoped_writes(
+                .create_team_with_scoped_writes_and_members(
                     &objective,
                     mode,
                     Some(id),
                     yes,
                     allow_scoped_writes,
+                    // 用户工作流的拓扑是审阅后的显式角色；不能在建队时被默认 5 人
+                    // 上限截断（例如游戏流水线有 7 个角色）。
+                    Some(template.roles.len().max(1)),
                 )
                 .await?;
             let team_id = created["team_id"]

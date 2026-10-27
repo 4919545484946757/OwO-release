@@ -14,7 +14,43 @@
     var ID = "custom-workflows";
     var H = {};
     var rootEl = null;
+    var inputAssets = null;
+    var graphController = null, graphBox = null, jsonBase = null, editorParsedText = null, capabilityCatalog = [];
     var lifecycleGeneration = 0;
+    var revisionTracker = createRevisionTracker(), writeBusy = false, importReview = null;
+    // Keep the version read by this editor; list refreshes cannot advance it.
+    function createRevisionTracker() {
+      var base = null, epoch = 0;
+      return {
+        open: function (id, revision) { epoch += 1; base = { id: id, revision: Number.isSafeInteger(revision) && revision >= 0 ? revision : 0 }; },
+        capture: function (id) { return { epoch: epoch, id: id, expected_revision: base && base.id === id ? base.revision : 0 }; },
+        commit: function (token, result) {
+          if (token.epoch !== epoch || !result || !Number.isSafeInteger(result.revision)) return false;
+          base = { id: token.id, revision: result.revision }; return true;
+        }
+      };
+    }
+    function draftRevision(draft) {
+      var meta = draft && draft.draft || draft || {};
+      revisionTracker.open(meta.base_template_id || (draft.template && draft.template.template_id), meta.base_revision);
+    }
+    function beginWrite(root) {
+      if (writeBusy) return false;
+      writeBusy = true;
+      setError(root, "");
+      root.querySelector(".owo-wf-save").disabled = true;
+      root.querySelector(".owo-wf-adopt").disabled = true;
+      return true;
+    }
+    function editorStamp(root) {
+      return JSON.stringify([root.querySelector(".owo-wf-editor").value, Array.prototype.map.call(root.querySelectorAll(".owo-wfc-form input, .owo-wfc-form textarea, .owo-wfc-form select"), function (field) { return [field.name, field.value]; })]);
+    }
+    function endWrite(root, generation) {
+      if (generation !== lifecycleGeneration || rootEl !== root) return;
+      writeBusy = false;
+      root.querySelector(".owo-wf-save").disabled = false;
+      root.querySelector(".owo-wf-adopt").disabled = !root.getAttribute("data-draft-id");
+    }
     var editor = function () {
       return win.OwoWorkflowEditor || null;
     };
@@ -65,16 +101,45 @@
         function nav() {
       return [
         '<div class="owo-wf">',
-        '  <p class="hint">用「角色 / 依赖 / 工具 / 交付契约」描述任意特定功能的工作流。校验与评审都由宿主完成；AI 只生成候选，采纳后才可用。</p>',
+        '  <section class="owo-wf-brief" aria-labelledby="owoWfBriefTitle">',
+        '    <div class="owo-wf-brief-head">',
+        '      <div><p class="owo-wf-eyebrow">团队协作 · 一句话编排</p><h3 id="owoWfBriefTitle">说一句，生成一张可拖拽的团队画布</h3>',
+        '      <p class="hint">模型会把目标拆成角色、依赖、工具与交付契约；生成后可增删角色、连接依赖和修改参数。采纳保存当前配置，不会自动执行。</p></div>',
+        '      <span class="owo-wf-flow-badge">对话 → 画布 → 团队</span>',
+        '    </div>',
+        '    <div class="owo-wf-brief-input">',
+        '      <textarea class="owo-wf-desc" rows="2" placeholder="例如：把一段素材做成可发布的竖屏短片，最后要人工验收"></textarea>',
+        '      <button type="button" class="owo-wf-draft primary">生成工作流</button>',
+        '    </div>',
+        '    <div class="owo-wf-brief-extra">',
+        '      <input class="owo-wf-constraints" type="text" placeholder="附加约束（可选）：必须有人工节点 / 只用本地工具 / 必须用 MCP 渲染工具">',
+        '      <label class="owo-wf-rounds-wrap hint">收敛轮次 <input class="owo-wf-rounds" type="number" min="1" max="5" value="1" title=">1 走多轮收敛（按校验错误迭代，最多 5 轮）"></label>',
+        '    </div>',
+        '    <details class="owo-wf-catalog">',
+        '      <summary class="owo-wf-catalog-head"><span>工作流工具与能力状态</span><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></summary>',
+        '      <div class="owo-wf-catalog-actions"><button type="button" class="owo-wf-catalog-refresh">刷新工具列表</button></div>',
+        '      <div class="owo-wf-catalog-list hint">正在读取当前工具面…</div>',
+        '    </details>',
+        '    <div class="owo-wf-graph-box owo-wf-graph-box-hero"></div>',
+        '    <div class="owo-wf-graph-info"></div>',
+        '    <div class="owo-wf-draft-actions">',
+        '      <button type="button" class="owo-wf-new">新建空白工作流</button>',
+        '      <button type="button" class="owo-wf-adopt" disabled>采纳当前草稿</button>',
+        '      <button type="button" class="owo-wf-discard" disabled>丢弃草稿</button>',
+        '      <span class="hint">节点与 JSON 同步；布局随配置保存和导出。</span>',
+        '    </div>',
+        '    <pre class="owo-wf-draft-out hint"></pre>',
+        '  </section>',
         '  <div class="owo-wf-toolbar">',
         '    <button type="button" class="owo-wf-refresh">刷新我的工作流</button>',
         '    <input class="owo-wf-objective" type="text" placeholder="本次目标（用下面任一条工作流建队时必填）">',
         '    <label title="团队运行没有交互式审批通道：不勾选时，写节点等待审批直到超时被拒，工作流必然失败"><input class="owo-wf-allow-writes" type="checkbox" checked>允许节点按各自声明的 write_paths 写入当前工作区<span class="hint">（不勾选 = 写节点会被拒绝）</span></label>',
         '    <span class="owo-wf-meta hint"></span>',
         "  </div>",
+        '  <div data-task-inputs></div>',
         '  <ul class="owo-wf-list"></ul>',
         '  <div class="owo-wf-error hint" hidden></div>',
-        '  <details class="owo-wf-section" open>',
+        '  <details class="owo-wf-section">',
         "    <summary>新建 / 编辑（JSON）</summary>",
         '    <textarea class="owo-wf-editor" rows="10" spellcheck="false" placeholder=\'{"template_id":"my-flow","name":"我的工作流","mode":"team","applicability":"关键词","roles":[…]}\'></textarea>',
         '    <div class="owo-wf-actions">',
@@ -82,20 +147,7 @@
         '      <button type="button" class="owo-wf-validate">服务端校验</button>',
         '      <button type="button" class="owo-wf-save">保存为用户工作流</button>',
         "    </div>",
-        '    <div class="owo-wf-graph-box"></div>',
         '    <pre class="owo-wf-preview hint"></pre>',
-        "  </details>",
-        '  <details class="owo-wf-section">',
-        "    <summary>用 AI 生成（自然语言）</summary>",
-        '    <input class="owo-wf-desc" type="text" placeholder="例如：把一段素材做成可发布的竖屏短片，最后要人工验收">',
-        '    <input class="owo-wf-constraints" type="text" placeholder="附加约束（可选）：必须有人工节点 / 只用本地工具">',
-        '    <input class="owo-wf-rounds" type="number" min="1" max="5" value="1" title="生成轮次：>1 走多轮收敛（按校验错误迭代，最多 5 轮）">',
-        '    <div class="owo-wf-actions">',
-        '      <button type="button" class="owo-wf-draft">生成候选</button>',
-        '      <button type="button" class="owo-wf-adopt" disabled>采纳草稿</button>',
-        '      <button type="button" class="owo-wf-discard" disabled>丢弃草稿</button>',
-        "    </div>",
-        '    <pre class="owo-wf-draft-out hint"></pre>',
         "  </details>",
         '  <details class="owo-wf-section">',
         "    <summary>使用统计（跑过几次 / 成败 / 最近失败）</summary>",
@@ -145,7 +197,7 @@
             " · " +
             row.roles +
             " 个角色 · " +
-            esc(row.tag) +
+            esc(item.preflight && item.preflight.ok === false ? "运行前检查未通过" : row.tag) +
             (row.warnings ? " · " + row.warnings + " 条提示" : "") +
             (row.riskLabel ? " · 风险 " + esc(row.riskLabel) : "") +
             (row.provenanceLabel ? " · " + esc(row.provenanceLabel) : "") +
@@ -166,7 +218,7 @@
                 row.checklistFixable +
                 " 项</span>"
               : "") +
-            '</span> <button type="button" class="owo-wf-export">导出</button> <button type="button" class="owo-wf-delete">删除</button> <button type="button" class="owo-wf-improve" title="把这条件工作流的真实运行证据交给 AI，生成改进候选">按证据改进</button> <button type="button" class="owo-wf-rerun">再跑</button> <button type="button" class="owo-wf-run">建队</button>' +
+            '</span> <button type="button" class="owo-wf-edit">编辑</button> <button type="button" class="owo-wf-export">导出</button> <button type="button" class="owo-wf-delete">删除</button> <button type="button" class="owo-wf-improve" title="把这条件工作流的真实运行证据交给 AI，生成改进候选">按证据改进</button> <button type="button" class="owo-wf-rerun">再跑</button> <button type="button" class="owo-wf-run">建队</button>' +
             (row.attention.length
               ? '<div class="hint owo-wf-risk">⚠ 需要修复：' + esc(row.attention.join("；")) + "</div>"
               : "") +
@@ -176,40 +228,105 @@
         .join("");
     }
 
-    /// DAG 预览（SVG 字符串）：层从左到右，同层按行上下排。
     function renderGraphSvg(template) {
-      var helper = editor();
-      if (!helper || !helper.layoutGraph) return "";
-      var layout = helper.layoutGraph(template);
-      if (!layout.ok) return '<p class="hint">' + esc(layout.error) + "</p>";
-      if (!layout.nodes.length) return "";
-      var nodeW = 96, nodeH = 34, gapX = 56, gapY = 20;
-      var positions = {};
-      var maxRow = 0;
-      layout.nodes.forEach(function (node) {
-        positions[node.id] = { x: 8 + node.layer * (nodeW + gapX), y: 8 + node.row * (nodeH + gapY) };
-        if (node.row + 1 > maxRow) maxRow = node.row + 1;
-      });
-      var width = 16 + layout.layers * (nodeW + gapX);
-      var height = 16 + maxRow * (nodeH + gapY);
-      var svg = ['<svg class="owo-wf-graph" viewBox="0 0 ' + width + " " + height + '" width="100%" height="' + height + '" role="img" aria-label="工作流依赖图">'];
-      layout.edges.forEach(function (edge) {
-        var from = positions[edge.from];
-        var to = positions[edge.to];
-        if (!from || !to) return;
-        var x1 = from.x + nodeW, y1 = from.y + nodeH / 2;
-        var x2 = to.x, y2 = to.y + nodeH / 2;
-        var mid = (x1 + x2) / 2;
-        svg.push('<path d="M ' + x1 + " " + y1 + " C " + mid + " " + y1 + ", " + mid + " " + y2 + ", " + x2 + " " + y2 + '" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.6"/>');
-      });
-      layout.nodes.forEach(function (node) {
-        var position = positions[node.id];
-        svg.push('<g><rect x="' + position.x + '" y="' + position.y + '" width="' + nodeW + '" height="' + nodeH + '" rx="6" fill="none" stroke="currentColor" stroke-width="1"/>');
-        svg.push('<text x="' + (position.x + 8) + '" y="' + (position.y + 14) + '" font-size="11">' + esc(node.id) + "</text>");
-        svg.push('<text x="' + (position.x + 8) + '" y="' + (position.y + 27) + '" font-size="9" opacity="0.7">' + esc(node.assignee) + "</text></g>");
-      });
-      svg.push("</svg>");
-      return svg.join("");
+      if (!template || !Array.isArray(template.roles) || !template.roles.length) return "";
+      if (!win.OwoWorkflowCanvas) return '<p class="hint">画布模块未加载</p>';
+      return win.OwoWorkflowCanvas.renderGraphSvg(template, editor());
+    }
+
+    // This projection is supplied by the same capability resolver as AI drafting and run preflight.
+    function renderToolCatalog(tools) {
+      var list = Array.isArray(tools) ? tools.map(function (tool) {
+        return typeof tool === "string" ? { name: tool, status: "unknown", worker_supported: false } : tool;
+      }).filter(function (tool) { return tool && typeof tool.name === "string" && tool.name.trim(); }) : [];
+      var labels = { registered: "已注册", not_configured: "未配置", disabled: "已禁用", unsupported: "Worker 未接入", unknown: "状态未知" };
+      function rows(values) {
+        return values.map(function (tool) {
+          var status = Object.prototype.hasOwnProperty.call(labels, tool.status) ? tool.status : "unknown";
+          var selectable = status === "registered" && tool.worker_supported === true;
+          var description = tool.description ? '<p class="hint">' + esc(tool.description) + '</p>' : "";
+          var profiles = Array.isArray(tool.profiles) ? tool.profiles.join(" / ") : "";
+          var inputs = Array.isArray(tool.input_modalities) ? tool.input_modalities.join(" / ") : "unknown";
+          var outputs = Array.isArray(tool.output_modalities) ? tool.output_modalities.join(" / ") : "unknown";
+          var effect = tool.effect && tool.effect.class || "未声明（执行时按高风险处理）";
+          return '<details class="owo-wf-tool-detail" data-tool-status="' + esc(status) + '"><summary><code class="owo-wf-tool">' +
+            esc(tool.name) + '</code> <span class="hint">' + esc(labels[status]) + (selectable ? ' · 可声明' : ' · 暂不可运行') +
+            '</span></summary>' + description +
+            (tool.reason ? '<p class="hint owo-wf-risk">' + esc(tool.reason) + '</p>' : '') +
+            '<p class="hint">输入 ' + esc(inputs) + ' → 输出 ' + esc(outputs) + ' · 副作用 ' + esc(effect) +
+            (profiles ? ' · 画像 ' + esc(profiles) : '') + '</p>' +
+            (tool.input_schema ? '<pre class="owo-wf-tool-schema">' + esc(JSON.stringify(tool.input_schema, null, 2)) + '</pre>' : '') + '</details>';
+        }).join("");
+      }
+      var mcp = list.filter(function (tool) { return tool.name.indexOf("mcp__") === 0; });
+      var builtin = list.filter(function (tool) { return tool.name.indexOf("mcp__") !== 0; });
+      return '<p class="hint">已注册表示工具已装配，未验证远端服务；执行仍受审批、角色及任务范围约束。</p>' +
+        '<div class="owo-wf-tool-groups"><div><span class="owo-wf-tool-label">内置工具 ' + builtin.length + '</span>' +
+        (builtin.length ? rows(builtin) : '<span class="hint">当前没有内置工具</span>') + '</div>' +
+        '<div><span class="owo-wf-tool-label">MCP 工具 ' + mcp.length + '</span>' +
+        (mcp.length ? rows(mcp) : '<span class="hint">未连接 MCP；接入后刷新并检查 Worker 状态</span>') + '</div></div>';
+    }
+
+    var catalogRequest = 0;
+    function refreshCatalog(root) {
+      root = root || rootEl;
+      if (!root) return Promise.resolve();
+      var generation = lifecycleGeneration;
+      var request = ++catalogRequest;
+      var box = root.querySelector(".owo-wf-catalog-list");
+      if (box) box.innerHTML = '<span class="hint">正在读取 Worker 工具能力…</span>';
+      return (H.get || defaultGet)("/workflows/tools")
+        .then(function (catalog) {
+          if (generation !== lifecycleGeneration || request !== catalogRequest) return;
+          if (!catalog || !Array.isArray(catalog.tools)) throw new Error("工具目录响应不完整");
+          capabilityCatalog = catalog.tools;
+          if (graphController) graphController.setCatalog(capabilityCatalog);
+          if (box) box.innerHTML = renderToolCatalog(catalog.tools);
+        })
+        .catch(function (error) {
+          if (generation !== lifecycleGeneration || request !== catalogRequest) return;
+          if (box) box.innerHTML = '<span class="hint" role="alert">工具目录读取失败：' + esc(defaultFriendlyError(error)) + '；请刷新重试。</span>';
+        });
+    }
+
+    function writeEditor(root, template) {
+      var area = root.querySelector(".owo-wf-editor");
+      if (area) { area.value = JSON.stringify(template, null, 2); editorParsedText = area.value; }
+      jsonBase = template;
+    }
+    function updateGraphInfo(root, template) {
+      var info = root.querySelector(".owo-wf-graph-info");
+      if (info) info.innerHTML = renderChecklist(template) + renderRoleRows(template);
+    }
+    function paintGraph(root, template, fromJson) {
+      var box = root.querySelector(".owo-wf-graph-box");
+      if (!box || !template || !win.OwoWorkflowCanvas || !win.OwoWorkflowDocument) return;
+      if (box !== graphBox || !graphController) {
+        if (graphController) graphController.dispose();
+        graphBox = box;
+        graphController = win.OwoWorkflowCanvas.create({ root: box, helper: editor(),
+          onChange: function (document, message) { if (root !== rootEl) return; writeEditor(root, document); updateGraphInfo(root, document); setMeta(root, message); },
+          onMessage: function (message) { if (root === rootEl) setMeta(root, message); }
+        });
+        graphController.setCatalog(capabilityCatalog);
+      }
+      var result = graphController.setDocument(template);
+      if (result.ok) {
+        if (!fromJson) writeEditor(root, result.document);
+        else editorParsedText = root.querySelector(".owo-wf-editor").value;
+        updateGraphInfo(root, result.document);
+      } else setError(root, result.error);
+    }
+    function syncJson(root) {
+      var area = root.querySelector(".owo-wf-editor"), parsed = editor().parseTemplate(area.value);
+      if (!jsonBase) jsonBase = graphController && graphController.getDocument();
+      var result = parsed.ok ? (jsonBase ? win.OwoWorkflowDocument.reconcile(jsonBase, parsed.template) : win.OwoWorkflowDocument.normalize(parsed.template)) : parsed;
+      if (!result.ok) {
+        editorParsedText = null;
+        if (graphController) graphController.invalidate(result.error);
+        setError(root, result.error); return;
+      }
+      setError(root, ""); paintGraph(root, result.document, true);
     }
 
     /// 统计列表 HTML（纯函数便于测试）。
@@ -392,11 +509,17 @@
       meta.appendChild(button);
     }
     function editorTemplate(root) {
-      var helper = editor();
+      var helper = editor(), area = root.querySelector(".owo-wf-editor");
       if (!helper) throw new Error("工作流编辑器模块未加载");
-      var parsed = helper.parseTemplate(root.querySelector(".owo-wf-editor").value);
+      var parsed = helper.parseTemplate(area.value);
       if (!parsed.ok) throw new Error(parsed.error);
-      return parsed.template;
+      if (!win.OwoWorkflowDocument) return parsed.template;
+      var current = graphController && graphController.getDocument();
+      var result = area.value === editorParsedText && current ? { ok: true, document: current } :
+        (jsonBase ? win.OwoWorkflowDocument.reconcile(jsonBase, parsed.template) : win.OwoWorkflowDocument.normalize(parsed.template));
+      if (!result.ok) throw new Error(result.error);
+      writeEditor(root, result.document);
+      return result.document;
     }
     /// 逐角色健康行（HTML；风险用 title 展开，避免表格过宽）。
     function renderRoleRows(template) {
@@ -462,10 +585,9 @@
       var preview = root.querySelector(".owo-wf-preview");
       if (preview) preview.textContent = text || "";
       if (template) {
-        var box = root.querySelector(".owo-wf-graph-box");
-        if (box) {
-          box.innerHTML = renderGraphSvg(template) + renderChecklist(template) + renderRoleRows(template);
-        }
+        paintGraph(root, template);
+        var info = root.querySelector(".owo-wf-graph-info");
+        if (info) info.innerHTML = renderChecklist(template) + renderRoleRows(template);
       }
     }
 
@@ -480,7 +602,7 @@
           var list = root.querySelector(".owo-wf-list");
           if (list) list.innerHTML = renderWorkflowRows(listed);
           setMeta(root, "共 " + String((listed && listed.count) || 0) + " 条（校验未通过 " + String((listed && listed.invalid) || 0) + " 条）");
-          bindRowActions(root);
+          bindRowActions(root, listed);
         })
         .catch(function (error) {
           if (generation !== lifecycleGeneration) return;
@@ -489,7 +611,36 @@
         });
     }
 
-    function bindRowActions(root) {
+    function bindRowActions(root, listed) {
+      Array.prototype.slice.call(root.querySelectorAll(".owo-wf-edit")).forEach(function (button) {
+        button.addEventListener("click", function () {
+          var id = button.closest(".owo-wf-item").getAttribute("data-id");
+          var item = ((listed && listed.templates) || []).find(function (entry) {
+            return entry.template && entry.template.template_id === id;
+          });
+          if (!item) return setError(root, "此工作流已不可用，请刷新列表后重试。");
+          var area = root.querySelector(".owo-wf-editor");
+          var text = JSON.stringify(item.template, null, 2);
+          var generation = lifecycleGeneration;
+          var confirmation = area.value.trim() && area.value.trim() !== text.trim()
+            ? H.confirm({ title: "打开其他工作流？", message: "编辑器中已有内容。打开这条工作流会替换当前编辑内容；已保存的配置不会改变。", confirmText: "打开工作流" })
+            : Promise.resolve(true);
+          Promise.resolve(confirmation).then(function (confirmed) {
+            if (!confirmed || generation !== lifecycleGeneration || rootEl !== root) return;
+            revisionTracker.open(id, item.revision);
+            root.removeAttribute("data-draft-id");
+            root.querySelector(".owo-wf-adopt").disabled = true;
+            root.querySelector(".owo-wf-discard").disabled = true;
+            area.value = text;
+            var section = area.closest("details");
+            if (section) section.open = true;
+            setError(root, "");
+            showPreview(root, "正在编辑：" + String(item.template.name || id) + "。修改后请重新校验并保存。", item.template);
+            area.scrollIntoView({ block: "center" });
+            area.focus({ preventScroll: true });
+          });
+        });
+      });
       Array.prototype.slice.call(root.querySelectorAll(".owo-wf-export")).forEach(function (button) {
         button.addEventListener("click", function () {
           var id = button.closest(".owo-wf-item").getAttribute("data-id");
@@ -519,12 +670,19 @@
       Array.prototype.slice.call(root.querySelectorAll(".owo-wf-delete")).forEach(function (button) {
         button.addEventListener("click", function () {
           var id = button.closest(".owo-wf-item").getAttribute("data-id");
-          H.delete("/workflows/user/" + encodeURIComponent(id))
+          var entry = ((listed && listed.templates) || []).find(function (item) { return item.template && item.template.template_id === id; });
+          if (!entry || !Number.isSafeInteger(entry.revision)) return setError(root, "缺少版本信息，请刷新列表后再删除。");
+          var generation = lifecycleGeneration;
+          button.disabled = true;
+          H.delete("/workflows/user/" + encodeURIComponent(id) + "?expected_revision=" + entry.revision)
             .then(function () {
+              if (generation !== lifecycleGeneration || rootEl !== root) return;
               setMeta(root, "已删除 " + id);
               return refresh(root);
             })
             .catch(function (error) {
+              if (generation !== lifecycleGeneration || rootEl !== root) return;
+              button.disabled = false;
               setError(root, "删除失败：" + H.friendlyError(error));
             });
         });
@@ -567,6 +725,7 @@
               var discard = root.querySelector(".owo-wf-discard");
               if (adopt) adopt.disabled = !draftId;
               if (discard) discard.disabled = !draftId;
+              if (draft && draft.template) { draftRevision(draft); showPreview(root, "按运行证据生成的候选", draft.template); }
             })
             .catch(function (error) {
               if (out) out.textContent = "";
@@ -615,7 +774,7 @@
         var parent = (snapshot.sessions || []).find(function (s) { return s.id === snapshot.sessionId; });
         if (parent && parent.workspace === snapshot.workspace) body.parent_session_id = parent.id;
       }
-      return body;
+      return inputAssets ? inputAssets.applyTo(body) : body;
     }
 
     /// 建队前读取"允许按声明范围写入"复选框（缺省勾选：自定义工作流没有交互审批通道）。
@@ -657,7 +816,7 @@
       if (request.body) request.body.acknowledge_risk = true;
       setError(root, "");
       setMeta(root, "正在用 " + id + " 创建团队…");
-      H.post(request.path, attachWorkspaceContext(root, request.body))
+      return Promise.resolve().then(function () { return H.post(request.path, attachWorkspaceContext(root, request.body)); })
         .then(function (created) {
           var teamId = (created && (created.team_id || (created.team && created.team.team_id))) || "";
           setMeta(root, "已创建团队 " + (teamId || "(未知 id)") + "：可就地查看成员对话");
@@ -672,6 +831,7 @@
       dispose();
       H = {
         snapshot: helpers && helpers.snapshot,
+        confirm: (helpers && helpers.confirm) || function (options) { return Promise.resolve(win.confirm(options.message)); },
         get: (helpers && helpers.get) || defaultGet,
         post: (helpers && helpers.post) || defaultPost,
         delete: (helpers && helpers.delete) || defaultDelete,
@@ -681,6 +841,24 @@
       if (!root) return;
       rootEl = root;
       root.innerHTML = nav();
+      if (win.OwoInputAssets) inputAssets = win.OwoInputAssets.mountPanel(inputAssets, root.querySelector("[data-task-inputs]"), H);
+      root.querySelector(".owo-wf-new").addEventListener("click", function () {
+        revisionTracker.open(null, 0);
+        root.removeAttribute("data-draft-id");
+        root.querySelector(".owo-wf-adopt").disabled = true;
+        root.querySelector(".owo-wf-discard").disabled = true;
+        showPreview(root, "未保存的新工作流。添加角色后可校验并保存。", { template_id: "my-flow", name: "我的工作流", mode: "team", applicability: "自定义工作流", roles: [] });
+      });
+      var jsonArea = root.querySelector(".owo-wf-editor");
+      jsonArea.addEventListener("input", function () { syncJson(root); });
+      jsonArea.addEventListener("blur", function () {
+        var current = graphController && graphController.getDocument();
+        if (current && jsonArea.value === editorParsedText) writeEditor(root, current);
+      });
+      refreshCatalog(root);
+      root.querySelector(".owo-wf-catalog-refresh").addEventListener("click", function () {
+        refreshCatalog(root);
+      });
       root.querySelector(".owo-wf-refresh").addEventListener("click", function () {
         refresh(root);
       });
@@ -752,14 +930,23 @@
           showPreview(root, String(error.message || error));
           return;
         }
-        H.post("/workflows/user", template)
-          .then(function () {
-            showPreview(root, "已保存：" + String(template.template_id || ""), template);
-            return refresh(root);
+        if (!beginWrite(root)) return;
+        var token = revisionTracker.capture(template.template_id), generation = lifecycleGeneration;
+        var submittedStamp = editorStamp(root);
+        H.post("/workflows/user", Object.assign({}, template, { expected_revision: token.expected_revision }))
+          .then(function (saved) {
+            if (generation !== lifecycleGeneration || rootEl !== root || !revisionTracker.commit(token, saved)) return;
+            if (editorStamp(root) === submittedStamp) {
+              showPreview(root, "已保存版本 " + saved.revision + "：" + String(template.template_id || ""), saved.template || template);
+            }
+            return refresh(root).then(function () {
+              if (generation === lifecycleGeneration && rootEl === root && editorStamp(root) !== submittedStamp) setMeta(root, "已保存版本 " + saved.revision + "；当前新增修改尚未保存。");
+            });
           })
           .catch(function (error) {
-            showPreview(root, "保存失败：" + H.friendlyError(error));
-          });
+            if (generation === lifecycleGeneration && rootEl === root) setError(root, "保存失败，编辑内容已保留：" + H.friendlyError(error));
+          })
+          .then(function () { endWrite(root, generation); });
       });
       root.querySelector(".owo-wf-draft").addEventListener("click", function () {
         var request = editor().buildDraftRequest(
@@ -773,24 +960,51 @@
           return;
         }
         setError(root, "");
-        root.querySelector(".owo-wf-draft-out").textContent = "生成中…（模型返回前保持等待）";
+        var button = root.querySelector(".owo-wf-draft");
+        var out = root.querySelector(".owo-wf-draft-out");
+        button.disabled = true;
+        button.textContent = "生成中…";
+        out.textContent = "正在拆解角色、依赖、工具与交付契约…（模型返回前保持等待）";
         H.post(request.path, request.body)
           .then(function (draft) {
-            root.querySelector(".owo-wf-draft-out").textContent = renderDraftText(draft);
+            out.textContent = renderDraftText(draft);
             var draftId = (draft && draft.draft_id) || (draft && draft.draft && draft.draft.draft_id) || "";
             root.setAttribute("data-draft-id", draftId);
             root.querySelector(".owo-wf-adopt").disabled = !draftId;
             root.querySelector(".owo-wf-discard").disabled = !draftId;
+            if (draft && draft.template) {
+              draftRevision(draft);
+              var preview = root.querySelector(".owo-wf-preview");
+              showPreview(root, preview ? preview.textContent : "", draft.template);
+              var info = root.querySelector(".owo-wf-graph-info");
+              if (info && !draft.ok) {
+                info.insertAdjacentHTML(
+                  "afterbegin",
+                  '<p class="hint owo-wf-risk">候选仍有校验问题：可直接拖动节点看结构，修正后再采纳。</p>'
+                );
+              }
+            }
           })
           .catch(function (error) {
-            root.querySelector(".owo-wf-draft-out").textContent = "生成失败：" + H.friendlyError(error);
+            out.textContent = "生成失败：" + H.friendlyError(error);
+          })
+          .then(function () {
+            button.disabled = false;
+            button.textContent = "生成工作流";
           });
       });
       root.querySelector(".owo-wf-adopt").addEventListener("click", function () {
         var draftId = root.getAttribute("data-draft-id");
         if (!draftId) return;
-        H.post("/workflows/draft/" + encodeURIComponent(draftId) + "/adopt", {})
+        var candidate;
+        try { candidate = editorTemplate(root); } catch (error) { setError(root, String(error.message || error)); return; }
+        if (!beginWrite(root)) return;
+        var token = revisionTracker.capture(candidate.template_id), generation = lifecycleGeneration;
+        var submittedStamp = editorStamp(root);
+        H.post("/workflows/draft/" + encodeURIComponent(draftId) + "/adopt", { template: candidate, expected_revision: token.expected_revision })
           .then(function (adopted) {
+            if (generation !== lifecycleGeneration || rootEl !== root || !revisionTracker.commit(token, adopted)) return;
+            if (adopted.template && editorStamp(root) === submittedStamp) showPreview(root, "已采纳当前编辑配置（版本 " + adopted.revision + "）", adopted.template);
             var plan = adopted && adopted.verify ? adopted.verify : null;
             if (!plan) {
               setMeta(root, "已采纳草稿 " + draftId + "（这版没有运行基线，跑一次后再用「按证据改进」对比）");
@@ -810,12 +1024,12 @@
             var out = root.querySelector(".owo-wf-draft-out");
             if (out && window.confirm("采纳成功。现在用同一个目标再跑一次做前后对比？")) {
               setMeta(root, "验证运行（沿用基线目标）：" + plan.objective);
-              H.post("/teams", attachWorkspaceContext(root, {
+              Promise.resolve().then(function () { return H.post("/teams", attachWorkspaceContext(root, {
                 objective: plan.objective,
                 mode: "team",
                 template_id: adopted.template ? adopted.template.template_id : plan.adopted_template_id,
                 acknowledge_risk: true,
-              }))
+              })); })
                 .then(function (created) {
                   var teamId =
                     (created && (created.team_id || (created.team && created.team.team_id))) || "";
@@ -838,8 +1052,9 @@
             return refresh(root);
           })
           .catch(function (error) {
-            setError(root, "采纳失败：" + H.friendlyError(error));
-          });
+            if (generation === lifecycleGeneration && rootEl === root) setError(root, "采纳失败，编辑内容已保留：" + H.friendlyError(error));
+          })
+          .then(function () { endWrite(root, generation); });
       });
       root.querySelector(".owo-wf-discard").addEventListener("click", function () {
         var draftId = root.getAttribute("data-draft-id");
@@ -862,6 +1077,7 @@
         }
         H.post(request.path, request.body)
           .then(function (result) {
+            importReview = { package_b64: request.body.package_b64, revision: result.local_revision };
             var diffLines = editor() && editor().describeLocalDiff ? editor().describeLocalDiff(result) : [];
             root.querySelector(".owo-wf-review-out").textContent =
               renderReviewText(result) + (diffLines.length ? "\n\n" + diffLines.join("\n") : "");
@@ -876,8 +1092,10 @@
           setError(root, request.error);
           return;
         }
+        request.body.expected_revision = importReview && importReview.package_b64 === request.body.package_b64 ? importReview.revision : 0;
         H.post(request.path, request.body)
           .then(function (imported) {
+            importReview = null;
             var importedDiff = editor() && editor().describeLocalDiff ? editor().describeLocalDiff(imported) : [];
             root.querySelector(".owo-wf-review-out").textContent =
               "已导入（" + String((imported && imported.template && imported.template.origin) || "?") + "）：\n" +
@@ -892,9 +1110,26 @@
       refresh(root);
     }
 
+    /// 从对话/Work 建议直达：打开面板后把一句话填进生成框并聚焦。
+    function focusBrief(text) {
+      if (!rootEl) return false;
+      var input = rootEl.querySelector(".owo-wf-desc");
+      if (!input) return false;
+      var value = String(text == null ? "" : text).trim();
+      if (value) input.value = value;
+      input.focus();
+      if (typeof input.scrollIntoView === "function") input.scrollIntoView({ block: "center", behavior: "smooth" });
+      return true;
+    }
+
     function dispose() {
+      if (inputAssets) inputAssets.dispose();
+      inputAssets = null;
       lifecycleGeneration += 1;
+      if (graphController) graphController.dispose();
+      graphController = null; graphBox = null; jsonBase = null; editorParsedText = null; capabilityCatalog = [];
       rootEl = null;
+      revisionTracker = createRevisionTracker(); writeBusy = false; importReview = null;
     }
 
     return {
@@ -902,20 +1137,26 @@
       mount: mount,
       dispose: dispose,
       refresh: refresh,
+      focusBrief: focusBrief,
       renderWorkflowRows: renderWorkflowRows,
       renderReviewText: renderReviewText,
       renderDraftText: renderDraftText,
       renderChecklist: renderChecklist,
       renderGraphSvg: renderGraphSvg,
+      renderToolCatalog: renderToolCatalog,
       renderRoleRows: renderRoleRows,
       renderStatsRows: renderStatsRows,
       refreshStats: refreshStats,
       _test: {
+        createRevisionTracker: createRevisionTracker,
         renderWorkflowRows: renderWorkflowRows,
         renderReviewText: renderReviewText,
         renderDraftText: renderDraftText,
         renderChecklist: renderChecklist,
         renderGraphSvg: renderGraphSvg,
+        renderToolCatalog: renderToolCatalog,
+        refreshCatalog: refreshCatalog,
+        paintGraph: paintGraph, syncJson: syncJson, editorTemplate: editorTemplate,
         renderRoleRows: renderRoleRows,
         renderStatsRows: renderStatsRows,
       },

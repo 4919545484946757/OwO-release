@@ -156,5 +156,28 @@ test("renders the authoritative shared Team enablement verdict and each guardrai
   assert.match(html, /Token ≤ 1\.50x：Team = 5\.0x/);
   assert.match(html, /成功率 \+5%：低于门槛/);
   data.comparison.enabled = true;
-  assert.match(reportHtml(run("r", "completed", data)), /建议启用 Team/);
+  assert.match(reportHtml(run("r", "completed", data)), /报告启用标志：开启（未满足本页的比较前提）/);
+  assert.doesNotMatch(reportHtml(run("r", "completed", data)), /判定：建议启用 Team/);
+  data.comparison.sample_sufficient = true;
+  for (const key of ["alignment_guardrails", "quality_guardrails", "resource_guardrails", "rules"]) data.comparison[key].forEach(rule => rule.satisfied = true);
+  assert.match(reportHtml(run("r", "completed", data)), /判定：建议启用 Team/);
+  data.execution = "reference";
+  assert.doesNotMatch(reportHtml(run("r", "completed", data)), /判定：建议启用 Team/);
+});
+
+
+test("malformed historical responses do not replace an already loaded list with an empty state", async () => {
+  let reads = 0;
+  const f = fixture({ get: async () => ++reads === 1 ? {runs:[run('kept','completed')]} : {runs:{unexpected:true}} });
+  await f.controller.refreshList(); await f.controller.refreshList();
+  assert.equal(f.controller.state.runs[0].run_id, 'kept');
+  assert.match(f.controller.state.error, /历史运行列表无效/); f.controller.dispose();
+});
+
+test("malformed samples and rules render diagnostics without throwing or inventing successful modes", () => {
+  const data = report(); data.runs = [null, {key:{agent_mode:'constructor',case_id:'bad',repetition:0}, status:'passed'}];
+  data.comparison = {enabled:true, sample_sufficient:true, rules:{bad:true}, quality_guardrails:[null]};
+  const summary = summarize(data); assert.equal(summary.invalid, 2); assert.equal(summary.comparable, false);
+  const html = reportHtml(run('bad','completed',data));
+  assert.match(html,/身份未知|模式未知/); assert.doesNotMatch(html,/判定：建议启用 Team/);
 });

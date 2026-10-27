@@ -53,6 +53,7 @@ pub(crate) fn to_sse(event: &owo_agent_core::TurnEvent) -> Option<SseEvent> {
             ok,
             error,
             preview,
+            outputs,
             ..
         } => Some(SseEvent::ToolResult {
             id: id.clone(),
@@ -61,6 +62,7 @@ pub(crate) fn to_sse(event: &owo_agent_core::TurnEvent) -> Option<SseEvent> {
             error: error.clone(),
             // 步骤 chip 展开区展示结果正文（core 已按属性截断到 1600 字符）。
             preview: preview.clone(),
+            outputs: outputs.clone(),
         }),
         owo_agent_core::TurnEvent::Final { text } => Some(SseEvent::Final { text: text.clone() }),
     }
@@ -113,4 +115,41 @@ pub(crate) fn is_turn_failed_event(event: &SseEvent) -> bool {
     matches!(event, SseEvent::TurnFailed { .. })
         || matches!(event, SseEvent::Progress { message }
             if message.starts_with("turn failed:") || message.starts_with("session save failed:"))
+}
+
+#[cfg(test)]
+mod media_tests {
+    use super::*;
+    #[test]
+    fn tool_outputs_are_independent_of_the_truncated_human_preview() {
+        let output = owo_agent_protocol::ToolOutputArtifact {
+            artifact_id: "media-1".into(),
+            kind: "image".into(),
+            mime_type: "image/png".into(),
+            bytes: 1024 * 1024,
+            sha256: "abc".into(),
+            path: "outputs/image.png".into(),
+        };
+        let event = owo_agent_core::TurnEvent::ToolResult {
+            id: "call-1".into(),
+            tool: "generate_image".into(),
+            ok: true,
+            error: None,
+            preview: Some("{truncated".into()),
+            outputs: vec![output.clone()],
+            command_receipt: None,
+        };
+        let wire = to_sse(&event).unwrap();
+        let serialized = serde_json::to_value(&wire).unwrap();
+        assert_eq!(serialized["outputs"][0]["artifact_id"], output.artifact_id);
+        let restored: SseEvent = serde_json::from_value(serialized).unwrap();
+        assert!(
+            matches!(restored, SseEvent::ToolResult { outputs, .. } if outputs == vec![output])
+        );
+        let legacy: SseEvent = serde_json::from_value(
+            json!({"type":"tool_result","id":"old","tool":"read_file","ok":true}),
+        )
+        .unwrap();
+        assert!(matches!(legacy, SseEvent::ToolResult { outputs, .. } if outputs.is_empty()));
+    }
 }

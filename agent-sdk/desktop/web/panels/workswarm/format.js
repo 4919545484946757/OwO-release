@@ -62,11 +62,24 @@
       var roles = raw.roles || [];
       if (!Array.isArray(roles)) roles = [];
       var budget = Number(raw.budget_per_role);
+      var resolved = raw.resolved_roles;
+      if (!Array.isArray(resolved)) resolved = [];
       return {
         mode: mode,
         roles: roles.map(function (r) {
           if (typeof r === "string") return { role: r, duty: "" };
           return { role: String((r && r.role) || ""), duty: String((r && r.duty) || (r && r.responsibility) || "") };
+        }).filter(function (r) { return r.role; }),
+        // Actual runnable topology after template/adaptive/auto-reviewer
+        // resolution; budget_calls is the per-role cap the run will use.
+        resolvedRoles: resolved.map(function (r) {
+          var n = Number(r && r.budget_calls);
+          return {
+            role: String((r && r.role) || ""),
+            assignee: String((r && r.assignee) || ""),
+            budgetCalls: isFinite(n) && n > 0 ? n : null,
+            writePaths: Array.isArray(r && r.write_paths) ? r.write_paths.map(String) : [],
+          };
         }).filter(function (r) { return r.role; }),
         parallelism: raw.parallelism == null ? null : Number(raw.parallelism),
         budgetPerRole: isFinite(budget) && budget > 0 ? budget : null,

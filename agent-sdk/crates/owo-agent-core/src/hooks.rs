@@ -47,12 +47,18 @@ impl HookEvent {
     }
 
     fn parse(value: &str) -> Option<Self> {
-        match value.trim().to_ascii_lowercase().as_str() {
-            "pre_tool_use" => Some(HookEvent::PreToolUse),
-            "post_tool_use" => Some(HookEvent::PostToolUse),
-            "user_prompt_submit" => Some(HookEvent::UserPromptSubmit),
+        // 同时接受 snake_case（as_str 输出）与 Claude Code 风格的 CamelCase：
+        // settings.json 手写配置常用 `UserPromptSubmit`/`PreToolUse`，不能静默忽略。
+        let normalized = value
+            .trim()
+            .to_ascii_lowercase()
+            .replace(['_', '-', ' '], "");
+        match normalized.as_str() {
+            "pretooluse" => Some(HookEvent::PreToolUse),
+            "posttooluse" => Some(HookEvent::PostToolUse),
+            "userpromptsubmit" => Some(HookEvent::UserPromptSubmit),
             "stop" => Some(HookEvent::Stop),
-            "pre_compact" => Some(HookEvent::PreCompact),
+            "precompact" => Some(HookEvent::PreCompact),
             _ => None,
         }
     }
@@ -175,7 +181,11 @@ async fn run_one(config: &HookConfig, payload: &Value) -> HookOutcome {
     #[cfg(target_os = "windows")]
     let mut command = {
         let mut command = tokio::process::Command::new("cmd");
-        command.arg("/C").arg(&config.command);
+        // `cmd.exe` 不按 CommandLineToArgvW 规则解析引号；普通 arg 会把
+        // `"C:\path with space"` 的引号吃掉/转义，导致 echo 重定向报
+        // 「文件名、目录名或卷标语法不正确」。raw_arg 让用户命令原样进入
+        // `/C` 后的命令行，保留其中引号。
+        command.arg("/C").raw_arg(&config.command);
         command
     };
     #[cfg(not(target_os = "windows"))]

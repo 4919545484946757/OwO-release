@@ -79,7 +79,7 @@
 
 
   // ---------- 本模块私有常量（随函数从面板迁入） ----------
-  var REVIEW_CN = { draft: "草稿（返工中）", pendingreview: "待评审", approved: "已批准", changesrequested: "要求修改", rejected: "已驳回", superseded: "已被取代" };
+  var REVIEW_CN = { draft: "草稿", pendingreview: "待评审", approved: "已批准", changesrequested: "要求修改", rejected: "已驳回", superseded: "已被取代" };
   var REVIEW_CLS = { draft: "off", pendingreview: "warn", approved: "ok", changesrequested: "warn", rejected: "bad", superseded: "off" };
   var CHG_STATE_CN = { added: "新增", modified: "修改", deleted: "删除" };
   var CHG_STATE_CLS = { added: "st-running", modified: "st-awaiting_human", deleted: "st-failed" };
@@ -89,6 +89,7 @@
     rejected: "已拒绝",
     reverted: "已撤销",
     conflicted: "冲突",
+    superseded: "已被新版本取代",
   };
 
   // ================= 迁移的详情渲染函数（原面板 workswarm.panel.js） =================
@@ -108,6 +109,11 @@
         (dec.mode === "single" ? "单 Agent" : "多 Agent 团队") + "</span>";
       if (dec.roles.length) {
         html += '<span class="hint">角色：' + esc(dec.roles.map(function (r) { return r.role; }).join(" → ")) + "</span>";
+      }
+      if (dec.resolvedRoles && dec.resolvedRoles.length) {
+        html += '<span class="hint">\u5b9e\u9645\u9884\u7b97\uff1a' + esc(dec.resolvedRoles.map(function (r) {
+          return r.role + (r.budgetCalls == null ? "" : " " + r.budgetCalls);
+        }).join(" \u00b7 ")) + "</span>";
       }
       if (dec.parallelism != null) html += '<span class="hint">并行度 ' + esc(dec.parallelism) + "</span>";
       if (dec.budgetPerRole != null) html += '<span class="hint">每角色调用预算 ' + esc(dec.budgetPerRole) + "</span>";
@@ -564,7 +570,14 @@
           var s = pos[dep];
           var e2 = pos[t.task_id];
           edges +=
-            '<line x1="' + s.x + NW + '" y1="' + (s.y + NH / 2) + '" x2="' + (e2.x - 5) + '" y2="' + (e2.y + NH / 2) + '" marker-end="url(#ws-arrow' + (dead ? "-dead" : "") + ')"' + (dead ? ' class="dead"' : "") + "></line>";
+            '<g role="button" tabindex="0" data-ws-edge-from="' + esc(dep) + '" data-ws-edge-to="' + esc(t.task_id) +
+            '" aria-label="查看依赖交接 ' + esc(dep) + ' 到 ' + esc(t.task_id) + '" style="cursor:pointer">' +
+            '<title>查看交接声明与产物引用</title><rect x="' + ((s.x + NW + e2.x - 5) / 2 - 10) +
+            '" y="' + ((s.y + e2.y + NH) / 2 - 10) +
+            '" width="20" height="20" style="fill:transparent;stroke:none;pointer-events:all"></rect>' +
+            '<line style="stroke:transparent;stroke-width:18;pointer-events:stroke" x1="' + (s.x + NW) +
+            '" y1="' + (s.y + NH / 2) + '" x2="' + (e2.x - 5) + '" y2="' + (e2.y + NH / 2) + '"></line>' +
+            '<line x1="' + (s.x + NW) + '" y1="' + (s.y + NH / 2) + '" x2="' + (e2.x - 5) + '" y2="' + (e2.y + NH / 2) + '" marker-end="url(#ws-arrow' + (dead ? "-dead" : "") + ')"' + (dead ? ' class="dead"' : "") + "></line></g>";
         });
       });
       var nodes = "";
@@ -820,8 +833,8 @@
 
   function teamConversationHtml(handoffs, members, markdown, errorText, replay, onlyRole) {
     var workerHtml = convo.workerConversationHtml({ esc: esc, short: short }, replay, markdown, onlyRole);
-    var handoffHtml = convo.teamConversationHtml({ esc: esc, short: short }, handoffs, members, markdown, errorText);
-    return workerHtml + (workerHtml ? '<details><summary>交接记录</summary>' + handoffHtml + '</details>' : handoffHtml);
+    var handoffHtml = convo.teamConversationHtml({ esc: esc, short: short }, handoffs, members, markdown, errorText, onlyRole);
+    return workerHtml + (workerHtml ? '<details data-event-key="handoff-history"><summary>交接记录</summary>' + handoffHtml + '</details>' : handoffHtml);
   }
 
   var api = {

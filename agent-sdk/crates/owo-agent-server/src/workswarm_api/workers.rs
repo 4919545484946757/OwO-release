@@ -34,6 +34,35 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::time::Instant;
 
+/// Evidence-only change sets do not gate delivery on a human: the QA/test/playtest
+/// roles intentionally write only reports, screenshots and test evidence. Product
+/// source changes still stay pending_review and require explicit acceptance.
+fn is_evidence_only_change(files: &[String]) -> bool {
+    !files.is_empty()
+        && files.iter().all(|file| {
+            let file = file.replace('\\', "/");
+            file.starts_with("tests/")
+                || file.starts_with("playtest/")
+                || file.starts_with("docs/")
+                || file.starts_with("reports/")
+        })
+}
+
+#[cfg(test)]
+mod evidence_change_tests {
+    use super::is_evidence_only_change;
+
+    #[test]
+    fn evidence_paths_auto_accept_but_product_source_does_not() {
+        assert!(is_evidence_only_change(&[
+            "tests/acceptance/report.json".to_string(),
+            "playtest/live-report.json".to_string(),
+        ]));
+        assert!(!is_evidence_only_change(&["src/game-core.js".to_string()]));
+        assert!(!is_evidence_only_change(&[]));
+    }
+}
+
 pub(super) fn resolve_agent_model(input: &Value, configured_model: Option<&str>) -> String {
     owo_agent_core::gateway::resolve_subagent_model(
         input.get("model").and_then(Value::as_str),
@@ -51,6 +80,8 @@ pub(super) fn resolve_agent_model(input: &Value, configured_model: Option<&str>)
 /// 权限边界）、回合上限取模板预算、写面为「角色 ∩ 绑定」交集白名单。
 pub struct AgentSubagentWorker {
     pub(super) agent: Arc<owo_agent_core::Agent>,
+    pub(super) input: Arc<crate::artifact_review_api::input_assets::ResolvedInputs>,
+    pub(super) input_assets: crate::artifact_review_api::input_assets::InputAssetContext,
     pub(super) workspace: PathBuf,
     /// 指标层注入的 per-span 模型调用计数（None = 不计数，行为不变）。
     pub(super) model_calls: Option<Arc<AtomicU64>>,
@@ -164,7 +195,7 @@ impl Worker for AgentSubagentWorker {
                 prompt_workspace_write_paths(&self.workspace, &effective_write_allowed)
             };
         }
-        let prompt = if let Some(team_context) = input.get("team_prompt_context") {
+        let mut prompt = if let Some(team_context) = input.get("team_prompt_context") {
             let (mut prompt, prompt_meta) = match task_profile.as_ref() {
                 Some(profile) => {
                     TeamCoordinator::compile_role_prompt_with_profile(team_context, profile)
@@ -196,8 +227,30 @@ impl Worker for AgentSubagentWorker {
                 .ok_or_else(|| "agent 步骤缺少 prompt 参数".to_string())?
                 .to_string()
         };
+        let original_input_prompt = prompt.clone();
+        prompt.push_str(&self.input.prompt_suffix);
+        if !self.input.content_parts.is_empty() && task_profile.is_none() {
+            return Err("input/worker_profile_required_for_structured_inputs".into());
+        }
         let configured_model = std::env::var("OWO_AGENT_MODEL").ok();
         let model = resolve_agent_model(input, configured_model.as_deref());
+        let observed_provider = super::provider_observation::InputObservedProvider::for_worker(
+            self.agent.provider(),
+            Arc::clone(self.coordinator.store()),
+            &self.team_id,
+            &task_context,
+            task_profile.as_ref().map(|_| {
+                worker_session_id(
+                    &self.team_id,
+                    task_context
+                        .task_id
+                        .as_deref()
+                        .or(task_context.step_id.as_deref())
+                        .unwrap_or("unknown"),
+                    task_context.attempt_id.as_deref().unwrap_or("unbound"),
+                )
+            }),
+        )?;
         // 指标计数注入：MeasuredProvider 包装共享 provider（计数仅对本 span 生效）。
         let provider: Arc<dyn ModelProvider> =
             if self.model_calls.is_some() || self.team_request_budget.is_some() {
@@ -219,7 +272,7 @@ impl Worker for AgentSubagentWorker {
                 );
                 Arc::new(
                     workswarm_metrics::MeasuredProvider::new_with_task_attempt_request_budget(
-                        self.agent.provider(),
+                        observed_provider,
                         counter,
                         request_usage,
                         phase_scope_key,
@@ -229,7 +282,7 @@ impl Worker for AgentSubagentWorker {
                     ),
                 )
             } else {
-                self.agent.provider()
+                observed_provider
             };
         // 审批器（七期 · 二路）：绑定作用域 → 白名单审批器，白名单取「角色 ∩ 绑定」
         // 交集（角色白名单空 = 绑定原样）；未绑定保持 AutoApprover 原行为。
@@ -265,10 +318,32 @@ impl Worker for AgentSubagentWorker {
                     .unwrap_or_else(|| self.workspace.clone()),
             )
         });
+        // Roles that explicitly declare browser tools in a scoped workflow have
+        // no interactive approval channel. `--yes`/allow_scoped_writes is the
+        // user's acknowledgement; preauthorize only the declared browser surface,
+        // never an undeclared tool or a filesystem write outside the rule.
+        let preauthorized_tools = if self.scoped_write_rule.is_some() {
+            task_profile
+                .as_ref()
+                .map(|profile| {
+                    profile
+                        .visible_tools
+                        .iter()
+                        .filter(|tool| tool.starts_with("browser_"))
+                        .cloned()
+                        .collect()
+                })
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         let workflow_approver = WorkflowApprover {
             scoped: scoped_approver,
             external: self.external_approver.as_ref(),
             preauthorized_writes,
+            preauthorized_commands: assigned_verification_commands(&task_context),
+            preauthorized_tools,
+            allow_registered_commands: self.scoped_write_rule.is_some(),
         };
         let approver: &dyn owo_agent_core::permissions::Approver = &workflow_approver;
         // 中断标志（七期 · 二路）：优先团队取消桥共享标志（cancel → 即时置位，
@@ -330,6 +405,11 @@ impl Worker for AgentSubagentWorker {
                     }));
                 }
                 let tool_started_at = Arc::new(Mutex::new(HashMap::<String, Instant>::new()));
+                // ToolResult carries the receipt but not argv. Keep the already
+                // sanitized ToolStart preview so reviewers/audit can identify the
+                // command (e.g. `npm test`) behind a successful receipt.
+                let tool_command_preview =
+                    Arc::new(Mutex::new(HashMap::<String, String>::new()));
                 let coordinator = Arc::clone(&self.coordinator);
                 let team_id = self.team_id.clone();
                 let role = self.role.clone();
@@ -342,6 +422,18 @@ impl Worker for AgentSubagentWorker {
                     assigned_task_id.as_deref().unwrap_or(&raw_step_id),
                     task_context.attempt_id.as_deref().unwrap_or("unbound"),
                 );
+                let replay_session_id_for_input=replay_session_id.clone();
+                let replay_binding = owo_agent_core::session::TeamTurnBinding {
+                    run_id: self.team_id.clone(),
+                    node_id: self.coordinator.load_run_meta(&self.team_id)
+                        .map_err(|e| e.to_string())?.roles.iter()
+                        .find(|spec| spec.role == self.role).and_then(|spec| spec.node_id.clone()),
+                    task_id: event_task_id.clone(),
+                    attempt: event_attempt_id.clone(),
+                };
+                let failure_binding = replay_binding.clone();
+                let replay_error = Arc::new(Mutex::new(None::<String>));
+                let sink_error = Arc::clone(&replay_error);
                 let replay_role = self.role.clone();
                 let replay_model = model.clone();
                 let event_sink: TurnEventSink = Arc::new(move |event| {
@@ -354,8 +446,8 @@ impl Worker for AgentSubagentWorker {
                         TurnEvent::ToolStart { id, tool, args_preview } => Some(owo_agent_protocol::SseEvent::ToolUse {
                             id: id.clone(), tool: tool.clone(), args: serde_json::json!(args_preview),
                         }),
-                        TurnEvent::ToolResult { id, tool, ok, error, preview, .. } => Some(owo_agent_protocol::SseEvent::ToolResult {
-                            id: id.clone(), tool: tool.clone(), ok: *ok, error: error.clone(), preview: preview.clone(),
+                        TurnEvent::ToolResult { id, tool, ok, error, preview, outputs, .. } => Some(owo_agent_protocol::SseEvent::ToolResult {
+                            id: id.clone(), tool: tool.clone(), ok: *ok, error: error.clone(), preview: preview.clone(), outputs: outputs.clone(),
                         }),
                         TurnEvent::PermissionRequest(request) => Some(owo_agent_protocol::SseEvent::Progress {
                             message: format!("等待审批：{}", request.tool),
@@ -364,21 +456,37 @@ impl Worker for AgentSubagentWorker {
                         _ => None,
                     };
                     if let Some(payload) = replay {
-                        // The same store supplies ordinary chat replay; no parallel transcript database.
-                        if let Err(error) = replay_store.append_turn_event(&replay_session_id, &replay_role, &payload) {
-                            coordinator.record_runtime_event(&team_id, "team.conversation.failed", error.to_string());
+                        // Canonical message and pending journal reference commit together.
+                        match replay_store.append_team_turn_event(&replay_binding, &replay_session_id, &replay_role, &payload) {
+                            Ok(_) => {
+                                if let Err(error) = super::team_event_delivery::relay(&coordinator,replay_store.as_ref(),&team_id,8) {
+                                    // The durable outbox remains pending; timeline reads retry without duplicating it.
+                                    coordinator.record_runtime_event(&team_id, "team.delivery.pending", error.to_string());
+                                }
+                            }
+                            Err(error) => {
+                                let mut failure=sink_error.lock().unwrap_or_else(|p|p.into_inner());
+                                failure.get_or_insert_with(||error.to_string());
+                                coordinator.record_runtime_event(&team_id, "team.conversation.failed", error.to_string());
+                            }
                         }
                     }
                     if let TurnEvent::ToolResult {
+                        id,
                         command_receipt: Some(receipt),
                         ..
                     } = event
                     {
+                        let command_preview = tool_command_preview
+                            .lock()
+                            .ok()
+                            .and_then(|mut previews| previews.remove(id));
                         let detail = serde_json::json!({
                             "step_id": &event_step_id,
                             "task_id": &event_task_id,
                             "attempt_id": &event_attempt_id,
                             "receipt": receipt,
+                            "command_preview": command_preview,
                         })
                         .to_string();
                         coordinator.record_runtime_event(
@@ -392,9 +500,19 @@ impl Worker for AgentSubagentWorker {
                         return;
                     }
                     let duration_ms = match event {
-                        TurnEvent::ToolStart { id, .. } => {
+                        TurnEvent::ToolStart {
+                            id, args_preview, ..
+                        } => {
                             if let Ok(mut started) = tool_started_at.lock() {
                                 started.insert(id.clone(), Instant::now());
+                            }
+                            if let Some(preview) = args_preview {
+                                if let Ok(mut previews) = tool_command_preview.lock() {
+                                    previews.insert(
+                                        id.clone(),
+                                        preview.chars().take(240).collect::<String>(),
+                                    );
+                                }
                             }
                             None
                         }
@@ -410,7 +528,7 @@ impl Worker for AgentSubagentWorker {
                     }
                 });
                 let runner = ProfileSubagentRunner {
-                    provider, parent_policy: self.agent.policy(), approver, abort, depth: 0, model,
+                    provider, parent_policy: self.agent.policy(), parent_agent: Some(Arc::clone(&self.agent)), approver, abort, depth: 0, model,
                     is_critic: self.is_critic,
                     write_allowed: effective_write_allowed,
                     profile: task_profile.clone(),
@@ -434,19 +552,36 @@ impl Worker for AgentSubagentWorker {
                     )),
                     parent_session_id: self.parent_session_id.clone(),
                 };
-                let result = runner.run(&self.workspace, &prompt).await;
+                let source_parts=if self.input.content_parts.is_empty(){Vec::new()}else{
+                    let owner=self.parent_session_id.as_deref().ok_or("input/missing_parent_session")?;
+                    crate::artifact_review_api::input_assets::clone_parts_for_session(
+                        &self.input_assets,owner,&replay_session_id_for_input,&self.input.content_parts,"input:worker",
+                    ).await.map_err(|(_,message)|message)?
+                };
+                let resolved=crate::artifact_review_api::input_assets::resolve(
+                    &self.input_assets,&replay_session_id_for_input,&self.workspace,&source_parts,
+                ).await.map_err(|(_,message)|message)?;
+                let stored_input=owo_agent_protocol::StoredUserInput{prompt:original_input_prompt.clone(),content_parts:source_parts,legacy_attachments:Vec::new()};
+                let worker_prompt=format!("{}{}",original_input_prompt,resolved.prompt_suffix);
+                let result = runner.run_with_input(&self.workspace, &worker_prompt, &resolved.images, stored_input).await;
+                if let Some(error)=replay_error.lock().unwrap_or_else(|p|p.into_inner()).clone() {
+                    return Err(format!("成员公开消息未能可靠持久化，任务不能报告成功：{error}"));
+                }
                 if let Err(error) = &result {
                     let session_id = worker_session_id(
                         &self.team_id,
                         assigned_task_id.as_deref().unwrap_or(&raw_step_id),
                         task_context.attempt_id.as_deref().unwrap_or("unbound"),
                     );
-                    let _ = self.session_store.append_turn_event(
-                        &session_id, &self.role,
+                    let record=self.session_store.append_team_turn_event(
+                        &failure_binding, &session_id, &self.role,
                         &owo_agent_protocol::SseEvent::Progress {
                             message: format!("节点执行失败：{error}"),
                         },
                     );
+                    if record.is_ok() {
+                        let _=super::team_event_delivery::relay(&self.coordinator,self.session_store.as_ref(),&self.team_id,8);
+                    }
                 }
                 result
             }
@@ -476,6 +611,15 @@ impl Worker for AgentSubagentWorker {
 struct WorkflowApprover<'a> {
     scoped: &'a dyn owo_agent_core::permissions::Approver,
     external: &'a dyn owo_agent_core::permissions::Approver,
+    /// Exact behavior commands assigned by the validated TaskGraph. The team
+    /// path has no interactive approver; only these commands are preauthorized.
+    preauthorized_commands: Vec<String>,
+    /// Explicitly declared browser tools on this role. Scoped workflow runs have
+    /// no interactive approval channel; only these names are preauthorized.
+    preauthorized_tools: Vec<String>,
+    /// Fixed template roles have no TaskGraph verification command. Allow only
+    /// host-registered test runners in that scoped-workflow mode.
+    allow_registered_commands: bool,
     /// 用户自定义工作流：建队时勾选「允许节点按声明的范围写入」后的预授权规则。
     ///
     /// 团队运行没有交互式审批通道（`/approvals/pending` 里永远没有条目），
@@ -495,8 +639,36 @@ impl owo_agent_core::permissions::Approver for WorkflowApprover<'_> {
                 return rule.authorize().0;
             }
         }
+        if self
+            .preauthorized_tools
+            .iter()
+            .any(|allowed| allowed == &request.tool)
+        {
+            return owo_agent_core::permissions::Decision::Allow;
+        }
+        if request.tool == "run_command" {
+            if let Some(command) = request.args.get("command").and_then(|value| value.as_str()) {
+                if self
+                    .preauthorized_commands
+                    .iter()
+                    .any(|allowed| allowed == command)
+                {
+                    return owo_agent_core::permissions::Decision::Allow;
+                }
+            }
+        }
+        if self.allow_registered_commands && request.tool == "run_command" {
+            if let Some(command) = request.args.get("command").and_then(|value| value.as_str()) {
+                if owo_agent_core::verification::is_registered_behavior_command(command) {
+                    return owo_agent_core::permissions::Decision::Allow;
+                }
+            }
+        }
         let external = request.tool.starts_with("mcp__")
-            || matches!(request.tool.as_str(), "web_fetch" | "web_search");
+            || matches!(
+                request.tool.as_str(),
+                "web_fetch" | "web_search" | "generate_image" | "text_to_speech"
+            );
         if external {
             self.external.decide(request).await
         } else {
@@ -513,8 +685,45 @@ impl owo_agent_core::permissions::Approver for WorkflowApprover<'_> {
                 return rule.authorize().1;
             }
         }
+        if self
+            .preauthorized_tools
+            .iter()
+            .any(|allowed| allowed == &request.tool)
+        {
+            return owo_agent_core::permissions::ApprovalOutcome {
+                decision: owo_agent_core::permissions::Decision::Allow,
+                reason: Some("approval/scoped_declared_tool".to_string()),
+            };
+        }
+        if request.tool == "run_command" {
+            if let Some(command) = request.args.get("command").and_then(|value| value.as_str()) {
+                if self
+                    .preauthorized_commands
+                    .iter()
+                    .any(|allowed| allowed == command)
+                {
+                    return owo_agent_core::permissions::ApprovalOutcome {
+                        decision: owo_agent_core::permissions::Decision::Allow,
+                        reason: Some("approval/scoped_verification_command".to_string()),
+                    };
+                }
+            }
+        }
+        if self.allow_registered_commands && request.tool == "run_command" {
+            if let Some(command) = request.args.get("command").and_then(|value| value.as_str()) {
+                if owo_agent_core::verification::is_registered_behavior_command(command) {
+                    return owo_agent_core::permissions::ApprovalOutcome {
+                        decision: owo_agent_core::permissions::Decision::Allow,
+                        reason: Some("approval/scoped_behavior_command".to_string()),
+                    };
+                }
+            }
+        }
         let external = request.tool.starts_with("mcp__")
-            || matches!(request.tool.as_str(), "web_fetch" | "web_search");
+            || matches!(
+                request.tool.as_str(),
+                "web_fetch" | "web_search" | "generate_image" | "text_to_speech"
+            );
         if external {
             self.external
                 .decide_with_notification(request, notify)
@@ -523,6 +732,40 @@ impl owo_agent_core::permissions::Approver for WorkflowApprover<'_> {
             self.scoped.decide_with_notification(request, notify).await
         }
     }
+}
+
+fn assigned_verification_commands(
+    task: &owo_agent_core::task_context::ResolvedTaskContext,
+) -> Vec<String> {
+    let Some(value) = task.verification.as_ref() else {
+        return Vec::new();
+    };
+    let plan = if let Some(text) = value.as_str() {
+        serde_json::from_str::<serde_json::Value>(text).ok()
+    } else {
+        Some(value.clone())
+    };
+    let Some(plan) = plan else {
+        return Vec::new();
+    };
+    plan.get("requirements")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|requirement| {
+            requirement
+                .get("validator_id")
+                .and_then(serde_json::Value::as_str)
+                == Some("workspace-command-success-v1")
+        })
+        .filter_map(|requirement| {
+            requirement
+                .get("arguments")
+                .and_then(|arguments| arguments.get("command"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string)
+        })
+        .collect()
 }
 
 fn worker_session_id(team_id: &str, task_id: &str, attempt_id: &str) -> String {
@@ -571,7 +814,19 @@ fn safe_team_tool_event(
 }
 
 fn task_lacks_file_write_capability(task: &ResolvedTaskContext) -> bool {
-    task.lacks_file_write_capability()
+    let scoped_media_output = task
+        .required_capabilities
+        .as_deref()
+        .is_some_and(|capabilities| {
+            capabilities
+                .iter()
+                .any(|tool| matches!(tool.as_str(), "generate_image" | "text_to_speech"))
+        })
+        && task
+            .write_paths
+            .as_deref()
+            .is_some_and(|paths| paths.iter().any(|path| path.trim() == "outputs"));
+    task.lacks_file_write_capability() && !scoped_media_output
 }
 
 /// Compatibility adapter; the shared capability narrowing lives in Core.
@@ -879,6 +1134,7 @@ mod team_context_scope_tests {
             ok: false,
             error: Some("private contents".into()),
             preview: Some("payload".into()),
+            outputs: Vec::new(),
             command_receipt: None,
         };
         let (_, detail) = safe_team_tool_event(&finish, "worker", "step-1", Some(12)).unwrap();
@@ -1071,6 +1327,9 @@ impl Worker for TrackedRoleWorker {
             changed
                 .into_iter()
                 .filter(|path| {
+                    if workspace_change_tracker::is_host_internal_path(path) {
+                        return false;
+                    }
                     if workspace_change_tracker::path_in_allowed(
                         path,
                         &tracking.root,
@@ -1153,6 +1412,15 @@ impl Worker for TrackedRoleWorker {
             record.as_ref().and_then(|record| record.diff_ref.clone()),
         );
         change_set.attempt_id = task_context.attempt_id.clone();
+        if is_evidence_only_change(&change_set.changed_files) {
+            change_set.status = owo_agent_protocol::ChangeSetStatus::Accepted;
+            change_set.decision = Some(owo_agent_protocol::ChangeSetDecision {
+                action: "accept".to_string(),
+                idempotency_key: format!("host-evidence:{}", change_set.change_set_id),
+                decided_at: change_set.created_at.clone(),
+                note: Some("host auto-accepted test/playtest evidence only; product source still needs human review".to_string()),
+            });
+        }
         let store = owo_agent_core::change_set_store::ChangeSetStore::new(&tracking.run_dir);
         let changeset_error = match store.save_upsert(&change_set) {
             Ok(()) => {

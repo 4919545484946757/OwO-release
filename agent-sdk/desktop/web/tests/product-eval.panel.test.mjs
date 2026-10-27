@@ -61,7 +61,7 @@ const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 test("engineering eval panel registers as a lazy browser panel", () => {
   const { panel } = harness();
   assert.equal(panel.id, "eval");
-  assert.equal(panel.title, "eval 护栏");
+  assert.equal(panel.title, "模型评测");
   assert.match(panel.nav(), /id="owo-eval-run"/);
   assert.match(panel.nav(), /id="owo-eval-list"/);
 });
@@ -159,4 +159,27 @@ test("leaving and reopening while a run is pending restores the run button when 
   assert.equal(nodes.get("#owo-eval-run").disabled, false);
   assert.match(nodes.get("#owo-eval-status").textContent, /评测已结束/);
   assert.ok(section);
+});
+
+
+for (const [label,report,expected] of [
+  ['zero cases',{total:0,passed:0,pass_rate:1,failures:[]},/未执行用例/],
+  ['missing failure details',{total:2,passed:1,pass_rate:.5},/未提供失败明细/],
+  ['partial outcome without details',{total:2,passed:1,pass_rate:.5,failures:[]},/有未通过用例/],
+  ['inconsistent rate',{total:2,passed:1,pass_rate:1,failures:[]},/不一致/],
+  ['missing counts',{pass_rate:1,failures:[]},/统计不完整/],
+]) test('eval never reports all passed for '+label,async()=>{
+  const {panel,root,nodes}=harness();
+  panel.mount(root,{get:async path=>path.includes('report?')?{file:'case.json',report}:{reports:[]}});
+  await panel._test.loadDetail('case.json');
+  const html=nodes.get('#owo-eval-detail').innerHTML;
+  assert.match(html,expected);assert.doesNotMatch(html,/全部用例通过/);
+});
+
+test('newer report selection wins when older request finishes last',async()=>{
+  const {panel,root,nodes}=harness();let finishOld;
+  panel.mount(root,{get:path=>path.includes('old.json')?new Promise(resolve=>finishOld=resolve):Promise.resolve(path.includes('report?')?{file:'new.json',report:{suite:'current selection',total:1,passed:1,pass_rate:1,failures:[]}}:{reports:[]})});
+  const old=panel._test.loadDetail('old.json');await panel._test.loadDetail('new.json');
+  finishOld({file:'old.json',report:{suite:'stale selection'}});await old;
+  assert.match(nodes.get('#owo-eval-detail').innerHTML,/current selection/);assert.doesNotMatch(nodes.get('#owo-eval-detail').innerHTML,/stale selection/);
 });

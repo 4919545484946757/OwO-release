@@ -54,6 +54,9 @@ struct CreateTeamHttpRequest {
     /// 当前 REPL 父会话；服务端验证工作区后自行生成 CoreSpec。
     #[serde(default)]
     parent_session_id: Option<String>,
+    /// Explicit immutable inputs owned by the source session, frozen for this run.
+    #[serde(default)]
+    content_parts: Vec<owo_agent_protocol::ContentPart>,
     /// 已经确认过该工作流的能力面提示（社区来源 + 有风险时必须为 true）。
     #[serde(default)]
     acknowledge_risk: bool,
@@ -174,6 +177,7 @@ pub fn router(state: Arc<AppState>) -> Router {
             get(super::conversation::team_conversation),
         )
         .route("/teams/{id}/events", get(team_events))
+        .route("/teams/{id}/timeline", get(run_timeline::team_timeline))
         .route("/teams/{id}/metrics", get(team_metrics))
         .route(
             "/teams/{id}/context",
@@ -273,8 +277,8 @@ async fn create_team(
     // 必须由调用方显式确认（UI 确认框 / CLI --yes / API acknowledge_risk）。
     // 这是宿主侧兜底：即使客户端跳过了提示，也不会在未确认的情况下把社区配置跑起来。
     if let Some(template_id) = req.template_id.as_deref() {
-        let registry = owo_agent_core::workswarm::TeamTemplateRegistry::new(
-            state.data_root.join("workswarm").join("templates"),
+        let registry = owo_agent_core::workswarm::TeamTemplateRegistry::for_workswarm_root(
+            &state.data_root.join("workswarm"),
         );
         if let Some(template) = registry.get_template(template_id) {
             if template.origin.as_deref() == Some("community") {
@@ -310,6 +314,12 @@ async fn create_team(
         ),
         None => None,
     };
+    if !req.content_parts.is_empty() && req.parent_session_id.is_none() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"input/source_session_required"})),
+        ));
+    }
     let parent_context_snapshot = if let Some(parent_id) = req.parent_session_id.as_deref() {
         let parent = crate::session_api::load_session(&state, parent_id)
             .map_err(|(status, message)| (status, Json(json!({ "error": message }))))?;
@@ -331,6 +341,14 @@ async fn create_team(
                 Json(json!({ "error": "父会话必须属于当前工作区" })),
             ));
         }
+        crate::artifact_review_api::input_assets::resolve(
+            &state,
+            parent_id,
+            &parent.workspace,
+            &req.content_parts,
+        )
+        .await
+        .map_err(|(status, message)| (status, Json(json!({"error":message}))))?;
         let system_constraints = parent
             .system_prompt
             .as_deref()
@@ -367,7 +385,8 @@ async fn create_team(
                 "source_updated_at": parent.updated_at,
                 "core_spec": {
                     "system_constraints": system_constraints,
-                    "recent_user_requirements": recent_user_requirements
+                    "recent_user_requirements": recent_user_requirements,
+                    "input_content_parts": req.content_parts
                 }
             })
             .to_string(),
@@ -420,7 +439,20 @@ async fn create_team(
     }
 
     let team = coordinator
-        .create_team_run(&req)
+        .create_team_run_with_preflight(&req, |roles, parallel, template_id| {
+            let issues = state
+                .agent
+                .preflight_workflow_roles(roles, parallel, template_id)
+                .map_err(WorkSwarmError::Validation)?;
+            if issues.is_empty() {
+                Ok(())
+            } else {
+                Err(WorkSwarmError::Validation(format!(
+                    "workflow preflight: {}",
+                    serde_json::to_string(&issues).unwrap_or_default()
+                )))
+            }
+        })
         .await
         .map_err(|e| error_response(&e))?;
     let team_id = team.team_id.clone();
@@ -527,7 +559,10 @@ fn apply_team_settings(req: &mut CreateTeamRequest, settings: &owo_agent_core::S
         }
     }
 
-    if req.max_agent_members.is_none() && !req.roles.is_empty() {
+    // Only the generated parallel topology (lead + writers + leader) opts into a
+    // larger member budget. A user-supplied non-parallel graph remains subject to
+    // the documented five-Agent default unless it sets the override explicitly.
+    if req.max_agent_members.is_none() && req.parallel && !req.roles.is_empty() {
         req.max_agent_members = Some(req.roles.len());
     }
     applied
@@ -592,8 +627,14 @@ async fn get_team(
         .load_run_state(&id)
         .map_err(|e| error_response(&e))?;
     let progress = coordinator.progress_snapshot(&id).await.ok();
+    let template_source = match coordinator.load_run_meta(&id) {
+        Ok(meta) => meta.template_source,
+        Err(WorkSwarmError::NotFound(_)) => None,
+        Err(error) => return Err(error_response(&error)),
+    };
     Ok(Json(json!({
         "team": team,
+        "template_source": template_source,
         "interrupted": coordinator.is_interrupted(&id),
         "tasks": task_view(&run_state),
         "progress": progress,
@@ -689,6 +730,9 @@ async fn get_team_tasks(
         "tasks": task_view(&run_state),
     })))
 }
+
+#[path = "run_timeline.rs"]
+mod run_timeline;
 
 #[path = "team_observability.rs"]
 mod team_observability;
@@ -852,7 +896,10 @@ async fn list_proposals(
         .workswarm
         .coordinator()
         .map_err(|e| error_response(&e))?;
-    let proposals = coordinator.templates().list_proposals();
+    let proposals = coordinator
+        .templates()
+        .list_proposal_records()
+        .map_err(crate::workflow_write_service::store_error)?;
     Ok(Json(json!({ "proposals": proposals })))
 }
 
@@ -865,18 +912,14 @@ async fn adopt_proposal(
         .workswarm
         .coordinator()
         .map_err(|e| error_response(&e))?;
-    let template = coordinator
-        .templates()
-        .adopt_proposal(&proposal_id)
-        .map_err(|m| {
-            let code = if m.contains("不存在") {
-                StatusCode::NOT_FOUND
-            } else {
-                StatusCode::BAD_REQUEST
-            };
-            (code, Json(json!({ "error": m })))
-        })?;
-    Ok(Json(json!({ "template": template })))
+    let saved = owo_agent_core::user_workflow::adopt_user_workflow_proposal(
+        coordinator.templates(),
+        &proposal_id,
+    )
+    .map_err(crate::workflow_write_service::edit_error)?;
+    Ok(Json(
+        json!({ "template": saved.template, "revision": saved.revision, "content_hash": saved.content_hash }),
+    ))
 }
 
 /// POST /teams/templates/proposals/{proposal_id}/reject：拒绝提案（保留记录，可审计；已采纳 → 400）。
@@ -890,15 +933,8 @@ async fn reject_proposal(
         .map_err(|e| error_response(&e))?;
     coordinator
         .templates()
-        .reject_proposal(&proposal_id)
-        .map_err(|m| {
-            let code = if m.contains("不存在") {
-                StatusCode::NOT_FOUND
-            } else {
-                StatusCode::BAD_REQUEST
-            };
-            (code, Json(json!({ "error": m })))
-        })?;
+        .reject_proposal_checked(&proposal_id)
+        .map_err(crate::workflow_write_service::store_error)?;
     Ok(Json(json!({
         "proposal_id": proposal_id,
         "status": "rejected",

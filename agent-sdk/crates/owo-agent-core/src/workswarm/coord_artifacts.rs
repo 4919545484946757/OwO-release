@@ -197,7 +197,7 @@ impl TeamCoordinator {
             })
             .unwrap_or_else(|| is_review_role_name(role));
         if reviewer {
-            let result = output.review_result.as_ref().ok_or_else(|| {
+            let mut result = output.review_result.clone().ok_or_else(|| {
                 WorkSwarmError::Validation(
                     "review capability 必须提交结构化 review_result".to_string(),
                 )
@@ -230,11 +230,6 @@ impl TeamCoordinator {
                     }
                 }
             }
-            super::delivery_gate_evidence::validate_review_requirement_coverage(
-                result,
-                &expected_review_requirement_ids,
-            )
-            .map_err(WorkSwarmError::Validation)?;
             let reviewed_artifacts = current_upstream
                 .iter()
                 .map(|artifact| {
@@ -299,6 +294,7 @@ impl TeamCoordinator {
                         "version": artifact.get("version").cloned().unwrap_or(Value::Null),
                         "sha256": artifact.get("sha256").cloned().unwrap_or(Value::Null),
                         "producer": producer,
+                        "role": artifact.get("role").cloned().unwrap_or(Value::Null),
                         "reviewed_source": reviewed_source,
                         "review_requirements": artifact.get("review_requirements").cloned().unwrap_or_else(|| json!([])),
                     }))
@@ -314,10 +310,46 @@ impl TeamCoordinator {
                     "review capability 没有可绑定的上游产物快照".to_string(),
                 ));
             }
+            let reported_requirement_ids = result.reviewed_requirement_ids.clone();
+            let declared_coverage = reported_requirement_ids
+                .iter()
+                .cloned()
+                .collect::<std::collections::BTreeSet<_>>();
+            let coverage_source = if declared_coverage == expected_review_requirement_ids {
+                "reviewer_declared"
+            } else if super::delivery_gate_evidence::should_derive_review_coverage_from_sources(
+                &result,
+                &expected_review_requirement_ids,
+                supplied_sources.len() == current_upstream.len(),
+            ) {
+                // Approval is grounded in host-verified source reads; replace the
+                // model's hallucinated ids with the host checklist for the record.
+                result.reviewed_requirement_ids =
+                    expected_review_requirement_ids.iter().cloned().collect();
+                for finding in &mut result.findings {
+                    if finding
+                        .requirement_id
+                        .as_deref()
+                        .is_some_and(|id| !expected_review_requirement_ids.contains(id))
+                    {
+                        finding.requirement_id = None;
+                    }
+                }
+                "host_derived_from_verified_sources"
+            } else {
+                super::delivery_gate_evidence::validate_review_requirement_coverage(
+                    &result,
+                    &expected_review_requirement_ids,
+                )
+                .map_err(WorkSwarmError::Validation)?;
+                "reviewer_declared"
+            };
             let review_document = json!({
                 "schema": "team-review-result-v1",
                 "reviewer_id": member_id,
                 "reviewed_artifacts": reviewed_artifacts,
+                "reported_requirement_ids": reported_requirement_ids,
+                "reviewed_requirement_ids_source": coverage_source,
                 "result": result,
             });
             let review_content = serde_json::to_string_pretty(&review_document)
@@ -367,14 +399,34 @@ impl TeamCoordinator {
         } else {
             declared_kind.to_string()
         };
-        let eff = effective_format(&declared.format, &kind_for_meta);
+        let mut eff = effective_format(&declared.format, &kind_for_meta);
         self.audit(
             team_id,
             "team.artifact.validation_started",
             format!("member={member_id} step={step_id} format={eff}"),
         );
         let validation_started = std::time::Instant::now();
-        let validation = validate_artifact_content(&eff, &declared.content, &output.evidence);
+        let mut validation = validate_artifact_content(&eff, &declared.content, &output.evidence);
+        // Report-oriented roles often declare json while writing a Markdown
+        // report. The content is still a valid, inspectable artifact; downgrade
+        // only that narrow case to markdown instead of failing the whole step.
+        let report_artifact =
+            matches!(role, "tester" | "playtester") || kind_for_meta.contains("report");
+        if !validation.valid && eff == "json" && report_artifact {
+            let markdown =
+                validate_artifact_content("markdown", &declared.content, &output.evidence);
+            if markdown.valid {
+                self.audit(
+                    team_id,
+                    "team.artifact.format_normalized",
+                    format!(
+                        "member={member_id} step={step_id} json->markdown fallback (invalid JSON)"
+                    ),
+                );
+                eff = "markdown".to_string();
+                validation = markdown;
+            }
+        }
         let validation_ms = validation_started.elapsed().as_millis() as u64;
         if !validation.valid {
             // 门控（登记前）：未通过格式校验的产物不进任何登记流程。

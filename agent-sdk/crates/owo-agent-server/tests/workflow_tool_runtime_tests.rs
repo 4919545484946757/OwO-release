@@ -153,6 +153,7 @@ async fn exercise(change: Change, approve: bool) -> (usize, usize, Vec<TurnEvent
         Default::default(),
     ));
     let role = RoleSpec {
+        node_id: None,
         role: "Custom visual coordinator".into(),
         assignee: "agent".into(),
         model: Some(MODEL.into()),
@@ -211,6 +212,7 @@ async fn exercise(change: Change, approve: bool) -> (usize, usize, Vec<TurnEvent
     let runner = ProfileSubagentRunner {
         provider: provider.clone(),
         parent_policy: parent.policy(),
+        parent_agent: Some(Arc::clone(&parent)),
         approver: &consent,
         abort: &abort,
         depth: 0,
@@ -307,4 +309,89 @@ async fn unselected_media_tools_are_not_executable_by_a_workflow_node() {
         requests, 0,
         "an undeclared tool is rejected before approval"
     );
+}
+
+struct NativeConsent;
+#[async_trait]
+impl Approver for NativeConsent {
+    async fn decide(&self, request: &PermissionRequest) -> Decision {
+        assert_eq!(request.tool, "write_file");
+        Decision::Allow
+    }
+}
+
+#[tokio::test]
+async fn workflow_catalog_native_tools_obey_live_host_disable_before_write() {
+    for disable_before_start in [false, true] {
+        let temp = tempfile::tempdir().unwrap();
+        let idle: Arc<dyn ModelProvider> = Arc::new(FixtureModel {
+            outputs: Mutex::new(VecDeque::new()),
+            models: Mutex::new(Vec::new()),
+            before_tool: None,
+            calls: AtomicUsize::new(0),
+        });
+        let parent = Arc::new(Agent::new(
+            idle,
+            ToolRegistry::new(),
+            Policy::new(temp.path()),
+            Default::default(),
+        ));
+        let hook_parent = Arc::clone(&parent);
+        let provider = Arc::new(FixtureModel {
+            outputs: Mutex::new(VecDeque::from([
+                ModelOutput::ToolCalls(vec![ToolCall {
+                    id: "write-1".into(),
+                    name: "write_file".into(),
+                    arguments: json!({"path":"should-not-exist.txt","content":"unwanted"}),
+                }]),
+                ModelOutput::Text(OUTPUT.into()),
+            ])),
+            models: Mutex::new(Vec::new()),
+            calls: AtomicUsize::new(0),
+            before_tool: Some(Box::new(move || {
+                hook_parent.set_tool_prefix_enabled("write_file", false)
+            })),
+        });
+        if disable_before_start {
+            parent.set_tool_prefix_enabled("write_file", false);
+        }
+        let abort = AtomicBool::new(false);
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let captured = Arc::clone(&events);
+        let runner = ProfileSubagentRunner {
+            provider: provider.clone(),
+            parent_policy: parent.policy(),
+            parent_agent: Some(Arc::clone(&parent)),
+            approver: &NativeConsent,
+            abort: &abort,
+            depth: 0,
+            model: MODEL.into(),
+            is_critic: false,
+            write_allowed: vec![temp.path().into()],
+            profile: WorkerProfile::for_declared_tools(&["write_file".into()], 3),
+            agent_config: None,
+            budget_note_override: None,
+            extra_tools: Vec::new(),
+            extra_system_prompt: None,
+            event_sink: Some(Arc::new(move |event| {
+                captured.lock().unwrap().push(event.clone())
+            })),
+            session_store: None,
+            worker_session_id: None,
+            parent_session_id: None,
+        };
+        let result = runner
+            .run(
+                temp.path(),
+                "Attempt a scoped write, then report the result",
+            )
+            .await;
+        assert!(!temp.path().join("should-not-exist.txt").exists());
+        if disable_before_start {
+            assert!(result.unwrap_err().contains("disabled"));
+            assert_eq!(provider.calls.load(Ordering::SeqCst), 0);
+        } else {
+            assert!(events.lock().unwrap().iter().any(|event| matches!(event,TurnEvent::ToolResult{tool,ok:false,error:Some(reason),..} if tool=="write_file" && reason.contains("disabled"))));
+        }
+    }
 }

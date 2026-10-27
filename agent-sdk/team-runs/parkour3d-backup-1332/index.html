@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OwO Parkour 3D</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <!-- three.js 通过 CDN 引入：main.js 可直接 import * as THREE from 'three'（见下方 importmap）。 -->
+  <link rel="modulepreload" href="https://unpkg.com/three@0.160.0/build/three.module.js" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game" width="1280" height="720"></canvas>
+
+  <div id="hud" class="hud">
+    <div class="hud__panel hud__panel--score">
+      <span class="hud__label">得分</span>
+      <span id="score" class="hud__value">0</span>
+    </div>
+    <div class="hud__panel hud__panel--time">
+      <span class="hud__label">时间</span>
+      <span id="time" class="hud__value">00:00.0</span>
+    </div>
+    <div id="status" class="hud__status">准备中</div>
+  </div>
+
+  <div id="overlay" class="overlay">
+    <div class="overlay__card">
+      <h1 id="overlay-title" class="overlay__title">准备开始</h1>
+      <p id="overlay-text" class="overlay__text">按 Enter 或点击下方按钮开始 / 重新开始</p>
+      <button id="restart" class="overlay__button" type="button">重新开始</button>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+/* ==========================================================================
+   WorkSwarm — WorkSwarm animatic 运行时补丁层（必须在 styles.css 之后加载）
+   本文件只做三件事，不新增任何外部依赖：
+   1) 暂停 / 单帧（.static）状态下，镜头与元素可见性的显式覆盖
+      —— 避免“JS 把动画 seek 到某帧但元素仍停在 opacity:0”的截图黑屏。
+   2) 字幕改为 JS 直控透明度，补上过渡曲线。
+   3) HUD / 控制条在窄屏与触屏下的细化。
+   ========================================================================== */
+
+/* ------------------------------------------------------- 1. 镜头层可见性 */
+
+/* 暂停或单帧：镜头容器一律可见，显隐由动画当前帧或 data-active 决定 */
+.stage.static .shot,
+.stage.paused .shot { visibility: visible; }
+
+/* 单帧态：仅显示 data-active 指定的那一镜，其它镜透明 */
+.stage.static .shot { opacity: 0; animation: none; }
+.stage.static[data-active="S01"] .shot[data-shot="S01"],
+.stage.static[data-active="S02"] .shot[data-shot="S02"],
+.stage.static[data-active="S03"] .shot[data-shot="S03"],
+.stage.static[data-active="S04"] .shot[data-shot="S04"],
+.stage.static[data-active="S05"] .shot[data-shot="S05"],
+.stage.static[data-active="S06"] .shot[data-shot="S06"] { opacity: 1; }
+
+/* 单帧态：各镜内部“动画结束态”统一为可视终态（便于定帧截图） */
+.stage.static .s01-wrap { opacity: 1; }
+.stage.static .dot-core { opacity: 1; transform: translate(-50%, -50%) scale(1); animation: none; }
+.stage.static .s01-title span { opacity: 1; transform: none; animation: none; }
+.stage.static .s01-ripples .ripple { opacity: 0; animation: none; }
+
+.stage.static .s02-holder { opacity: 1; animation: none; }
+.stage.static .win { opacity: 1; animation: none; transform: rotate(var(--rot, 0deg)); }
+.stage.static .bars span { animation: none; opacity: .7; }
+.stage.static .win-alert {
+  left: 50%;
+  top: 50%;
+  opacity: 1;
+  animation: none;
+  transform: translate(-50%, -50%) scale(1) rotate(0deg);
+}
+
+.stage.static .s03-holder { opacity: 1; animation: none; transform: none; }
+.stage.static .spotlight { opacity: .9; animation: none; }
+.stage.static .app-card { opacity: 1; animation: none; transform: none; }
+.stage.static .nav em { opacity: 1; animation: none; }
+.stage.static .grid-cell { opacity: 1; transform: none; animation: none; }
+
+.stage.static .s04-holder { opacity: 1; animation: none; transform: translateY(-24px); }
+.stage.static .queue-card {
+  animation: none;
+  transform: translateX(0);
+  border-color: rgba(79, 124, 255, .6);
+}
+.stage.static .flow .path { animation: none; stroke-dashoffset: 0; }
+.stage.static .flow-dot { animation: none; opacity: 0; }
+.stage.static .badge .state-pending { animation: none; opacity: 0; }
+.stage.static .badge .state-done { animation: none; opacity: 1; transform: none; }
+.stage.static .check path { animation: none; stroke-dashoffset: 0; }
+.stage.static .badge-ray { animation: none; opacity: 0; }
+
+.stage.static .s05-holder { opacity: 1; animation: none; transform: none; }
+.stage.static .cta-glow { opacity: .9; animation: none; }
+.stage.static .cta { opacity: 1; animation: none; transform: none; }
+.stage.static .cta .arrow { animation: none; }
+.stage.static .cta-ring { animation: none; opacity: 0; }
+.stage.static .points .pt { opacity: 1; transform: none; animation: none; }
+.stage.static .points-line { animation: none; transform: scaleX(1); }
+
+.stage.static .s06-holder { opacity: 1; animation: none; }
+.stage.static .logo-mark { opacity: 1; animation: none; transform: none; }
+.stage.static .brand span { opacity: 1; transform: none; animation: none; }
+.stage.static .url { opacity: 1; transform: none; animation: none; }
+
+/* 单帧态隐藏全局过渡层，保证定帧画面干净 */
+.stage.static .flash,
+.stage.static .to-black,
+.stage.static .wipe,
+.stage.static .sheen { opacity: 0; animation: none; }
+
+/* --------------------------------------------- 2. 字幕：JS 直控透明度 */
+.stage .sub,
+.stage .sub-sub {
+  transition: opacity 180ms cubic-bezier(.16, 1, .3, 1),
+              transform 180ms cubic-bezier(.16, 1, .3, 1);
+  will-change: opacity, transform;
+}
+.stage.playing .sub { animation: none; }
+.subs { position: relative; height: 112px; }
+.subs .sub { bottom: 0; }
+
+/* --------------------------------------------- 3. HUD / 控件窄屏细化 */
+@media (max-width: 900px) {
+  .hud-shot,
+  .hud-time {
+    top: 14px;
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+  .hud-shot { left: 14px; gap: 8px; }
+  .hud-time { right: 14px; }
+  .subs { bottom: 34px; height: 84px; padding: 0 6%; }
+  .sub-main { font-size: 22px; }
+  .sub-sub { font-size: 16px; }
+  .safe-area { inset: 5% 5%; }
+}
+
+@media (max-width: 560px) {
+  .hud-shot u { display: none; }
+  .sub-main { font-size: 18px; }
+  .sub-sub { font-size: 14px; }
+}
+
+/* 触屏：去掉 hover 视觉残留 */
+@media (hover: none) {
+  .btn:hover { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .14); }
+  .mark:hover {
+    color: rgba(169, 180, 204, .8);
+    border-color: rgba(255, 255, 255, .12);
+    background: transparent;
+  }
+}

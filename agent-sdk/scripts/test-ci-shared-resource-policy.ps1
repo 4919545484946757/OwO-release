@@ -173,6 +173,92 @@ $sleepLeft = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -Er
     Where-Object { $_.CommandLine -match 'Start-Sleep -Seconds 60' }).Count
 Add-Result '超时门：进程树被 taskkill /T 终止（无残留睡眠进程）' ($sleepLeft -eq 0) "残留睡眠进程=$sleepLeft"
 
+# Reproduce native stderr after successful termination, without Cargo or a
+# resource threshold override. The mock still kills the real sleeping process.
+$actualTaskkill = (Get-Command taskkill.exe -CommandType Application).Source
+$priorFailures = @($script:ciFailures)
+$originalMemoryStatus = (Get-Command Get-CiMemoryStatus).ScriptBlock
+try {
+    function taskkill {
+        & $actualTaskkill @args | Out-Null
+        & powershell.exe -NoProfile -EncodedCommand WwBDAG8AbgBzAG8AbABlAF0AOgA6AEUAcgByAG8AcgAuAFcAcgBpAHQAZQBMAGkAbgBlACgAIgBjAGgAaQBsAGQAIABhAGwAcgBlAGEAZAB5ACAAZQB4AGkAdABlAGQAIAAoAHMAZQBsAGYAdABlAHMAdAApACIAKQA7ACAAZQB4AGkAdAAgADEAMgA4AA==
+    }
+    $raceCode = -1
+    try {
+        Invoke-CiLoggedCommand -Exe 'powershell' -Arguments @('-NoProfile', '-Command', 'Start-Sleep -Seconds 60') `
+            -TimeoutSec 1 -HeartbeatSec 1 -Label 'timeout-stderr-race' | Out-Null
+        $raceCode = $global:LASTEXITCODE
+    } catch { }
+    Add-Result 'taskkill stderr race preserves timeout result under Stop preference' `
+        (($raceCode -eq 124) -and ($ErrorActionPreference -eq 'Stop')) "exit=$raceCode"
+    function Get-CiMemoryStatus {
+        [pscustomobject]@{ status = 'limited'; free_gb = 0; used_percent = 100; gate = [pscustomobject]@{ min_free_gb = 6; max_used_percent = 80 } }
+    }
+    $raceCode = -1
+    try {
+        Invoke-CiLoggedCommand -Exe 'powershell' -Arguments @('-NoProfile', '-Command', 'Start-Sleep -Seconds 60') `
+            -MemoryGuard -HeartbeatSec 1 -Label 'memory-stderr-race' | Out-Null
+        $raceCode = $global:LASTEXITCODE
+    } catch { }
+    Add-Result 'taskkill stderr race preserves resource_limited result and reason' `
+        (($raceCode -eq 137) -and $script:ciLastCommandResourceLimited) "exit=$raceCode"
+    $diagnostics = @($script:ciFailures | Where-Object { $_.name -like '*-stderr-race-termination' })
+    Add-Result 'nonzero taskkill remains visible as unverified termination' `
+        (($diagnostics.Count -eq 2) -and ($diagnostics[0].detail -like '*taskkill exit=128 root_exited=True*') -and ($diagnostics[1].detail -like '*taskkill exit=128 root_exited=True*')) "diagnostics=$($diagnostics.Count)"
+} finally {
+    Remove-Item Function:taskkill -ErrorAction SilentlyContinue
+    $null = Set-Item Function:Get-CiMemoryStatus -Value $originalMemoryStatus
+    $script:ciFailures = $priorFailures
+}
+$sleepLeft = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'Start-Sleep -Seconds 60' }).Count
+Add-Result 'stderr race tests leave no sleeping process' ($sleepLeft -eq 0) "remaining=$sleepLeft"
+
+# An idle wait can outlive the resource snapshot. Simulate a resource
+# changing during that wait; no real Cargo or executable is launched.
+$memoryProvider = (Get-Command Get-CiMemoryStatus).ScriptBlock
+$diskProvider = (Get-Command Get-CiDiskStatus).ScriptBlock
+$idleProvider = (Get-Command Assert-CiBuildIdle).ScriptBlock
+try {
+    function Get-CiMemoryStatus {
+        $limited = $script:idleObserved -and ($script:changedResource -eq 'memory')
+        [pscustomobject]@{
+            status = $(if ($limited) { 'limited' } else { 'ok' })
+            ok = (-not $limited)
+            free_gb = $(if ($limited) { 1 } else { 20 })
+            used_percent = $(if ($limited) { 97 } else { 37.5 })
+            gate = [pscustomobject]@{ min_free_gb = 6; max_used_percent = 80 }
+        }
+    }
+    function Get-CiDiskStatus {
+        param($Path, $MinFreeGbStrict, $MinFreeGbNormal)
+        [pscustomobject]@{
+            status = 'ok'; drive = 'T'; source = 'offline-selftest'; total_gb = 200
+            free_gb = $(if ($script:idleObserved -and ($script:changedResource -eq 'disk')) { 1 } else { 100 })
+            min_free_gb = 0; ok = $true
+        }
+    }
+    function Assert-CiBuildIdle {
+        param($WaitSec, $PollSec, $Context)
+        $script:idleObserved = $true
+        return $true
+    }
+    foreach ($changed in @('memory', 'disk')) {
+        $script:changedResource = $changed
+        $script:idleObserved = $false
+        $msg = Invoke-Guard {
+            Invoke-CiCargo -Arguments @('check', '-j', '1') -PolicyMode strict `
+                -CargoExe 'owo-ci-offline-missing-exe.exe' -Label ('idle-recheck-' + $changed) -PassThru
+        }
+        Add-Result ('idle wait rechecks current ' + $changed + ' before launching') `
+            ($script:idleObserved -and ($msg -match 'resource_limited')) "msg=$msg"
+    }
+} finally {
+    $null = Set-Item Function:Get-CiMemoryStatus -Value $memoryProvider
+    $null = Set-Item Function:Get-CiDiskStatus -Value $diskProvider
+    $null = Set-Item Function:Assert-CiBuildIdle -Value $idleProvider
+}
+
 $fail = @($results | Where-Object { -not $_.ok })
 Write-Host ("[selftest] {0}/{1} 通过" -f (@($results).Count - $fail.Count), @($results).Count)
 if ($fail.Count -gt 0) { exit 1 }

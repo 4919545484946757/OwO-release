@@ -1,0 +1,367 @@
+{
+  "url": "http://127.0.0.1:8102/index.html",
+  "duration_ms": 57337,
+  "frames": 130,
+  "statuses": [
+    "playing"
+  ],
+  "console_errors": [],
+  "max_score": 800,
+  "max_wave": 2,
+  "max_kills": 6,
+  "last": {
+    "status": "playing",
+    "paused": false,
+    "score": 800,
+    "wave": 2,
+    "lives": 1,
+    "hp": 2,
+    "kills": 6,
+    "enemies": 1,
+    "time": 18.856100000000257,
+    "fps": "FPS 175"
+  },
+  "menu": {
+    "status": "menu",
+    "paused": false,
+    "score": 0,
+    "wave": 1,
+    "lives": 3,
+    "hp": 3,
+    "kills": 0,
+    "enemies": 0,
+    "time": 0
+  },
+  "pause_samples": [
+    {
+      "paused": true,
+      "time_stable": true,
+      "before": {
+        "status": "playing",
+        "paused": true,
+        "score": 0,
+        "wave": 1,
+        "lives": 3,
+        "hp": 3,
+        "kills": 0,
+        "enemies": 3,
+        "time": 0.695
+      },
+      "after": {
+        "status": "playing",
+        "paused": true,
+        "score": 0,
+        "wave": 1,
+        "lives": 3,
+        "hp": 3,
+        "kills": 0,
+        "enemies": 3,
+        "time": 0.695
+      }
+    },
+    {
+      "paused": true,
+      "time_stable": true,
+      "before": {
+        "status": "playing",
+        "paused": true,
+        "score": 0,
+        "wave": 1,
+        "lives": 3,
+        "hp": 2,
+        "kills": 0,
+        "enemies": 3,
+        "time": 4.792599999999984
+      },
+      "after": {
+        "status": "playing",
+        "paused": true,
+        "score": 0,
+        "wave": 1,
+        "lives": 3,
+        "hp": 2,
+        "kills": 0,
+        "enemies": 3,
+        "time": 4.792599999999984
+      }
+    },
+    {
+      "paused": true,
+      "time_stable": true,
+      "before": {
+        "status": "playing",
+        "paused": true,
+        "score": 100,
+        "wave": 1,
+        "lives": 3,
+        "hp": 2,
+        "kills": 1,
+        "enemies": 2,
+        "time": 8.857799999999958
+      },
+      "after": {
+        "status": "playing",
+        "paused": true,
+        "score": 100,
+        "wave": 1,
+        "lives": 3,
+        "hp": 2,
+        "kills": 1,
+        "enemies": 2,
+        "time": 8.857799999999958
+      }
+    },
+    {
+      "paused": true,
+      "time_stable": true,
+      "before": {
+        "status": "playing",
+        "paused": true,
+        "score": 100,
+        "wave": 1,
+        "lives": 3,
+        "hp": 2,
+        "kills": 1,
+        "enemies": 2,
+        "time": 12.923400000000072
+      },
+      "after": {
+        "status": "playing",
+        "paused": true,
+        "score": 100,
+        "wave": 1,
+        "lives": 3,
+        "hp": 2,
+        "kills": 1,
+        "enemies": 2,
+        "time": 12.923400000000072
+      }
+    },
+    {
+      "paused": true,
+      "time_stable": true,
+      "before": {
+        "status": "playing",
+        "paused": true,
+        "score": 500,
+        "wave": 2,
+        "lives": 2,
+        "hp": 3,
+        "kills": 3,
+        "enemies": 4,
+        "time": 16.995300000000206
+      },
+      "after": {
+        "status": "playing",
+        "paused": true,
+        "score": 500,
+        "wave": 2,
+        "lives": 2,
+        "hp": 3,
+        "kills": 3,
+        "enemies": 4,
+        "time": 16.995300000000206
+      }
+    },
+    {
+      "paused": true,
+      "time_stable": true,
+      "before": {
+        "status": "playing",
+        "paused": true,
+        "score": 600,
+        "wave": 2,
+        "lives": 2,
+        "hp": 1,
+        "kills": 4,
+        "enemies": 3,
+        "time": 21.02290000000043
+      },
+      "after": {
+        "status": "playing",
+        "paused": true,
+        "score": 600,
+        "wave": 2,
+        "lives": 2,
+        "hp": 1,
+        "kills": 4,
+        "enemies": 3,
+        "time": 21.02290000000043
+      }
+    },
+    {
+      "paused": true,
+      "time_stable": true,
+      "before": {
+        "status": "playing",
+        "paused": true,
+        "score": 800,
+        "wave": 2,
+        "lives": 1,
+        "hp": 3,
+        "kills": 6,
+        "enemies": 1,
+        "time": 25.087100000000667
+      },
+      "after": {
+        "status": "playing",
+        "paused": true,
+        "score": 800,
+        "wave": 2,
+        "lives": 1,
+        "hp": 3,
+        "kills": 6,
+        "enemies": 1,
+        "time": 25.087100000000667
+      }
+    },
+    {
+      "paused": true,
+      "time_stable": true,
+      "before": {
+        "status": "playing",
+        "paused": true,
+        "score": 800,
+        "wave": 2,
+        "lives": 1,
+        "hp": 1,
+        "kills": 6,
+        "enemies": 1,
+        "time": 29.17170000000085
+      },
+      "after": {
+        "status": "playing",
+        "paused": true,
+        "score": 800,
+        "wave": 2,
+        "lives": 1,
+        "hp": 1,
+        "kills": 6,
+        "enemies": 1,
+        "time": 29.17170000000085
+      }
+    },
+    {
+      "paused": true,
+      "time_stable": true,
+      "before": {
+        "status": "playing",
+        "paused": true,
+        "score": 0,
+        "wave": 1,
+        "lives": 3,
+        "hp": 3,
+        "kills": 0,
+        "enemies": 3,
+        "time": 3.7576999999999896
+      },
+      "after": {
+        "status": "playing",
+        "paused": true,
+        "score": 0,
+        "wave": 1,
+        "lives": 3,
+        "hp": 3,
+        "kills": 0,
+        "enemies": 3,
+        "time": 3.7576999999999896
+      }
+    },
+    {
+      "paused": true,
+      "time_stable": true,
+      "before": {
+        "status": "playing",
+        "paused": true,
+        "score": 200,
+        "wave": 1,
+        "lives": 3,
+        "hp": 1,
+        "kills": 2,
+        "enemies": 1,
+        "time": 7.782399999999951
+      },
+      "after": {
+        "status": "playing",
+        "paused": true,
+        "score": 200,
+        "wave": 1,
+        "lives": 3,
+        "hp": 1,
+        "kills": 2,
+        "enemies": 1,
+        "time": 7.782399999999951
+      }
+    },
+    {
+      "paused": true,
+      "time_stable": true,
+      "before": {
+        "status": "playing",
+        "paused": true,
+        "score": 500,
+        "wave": 2,
+        "lives": 2,
+        "hp": 3,
+        "kills": 3,
+        "enemies": 4,
+        "time": 11.828200000000022
+      },
+      "after": {
+        "status": "playing",
+        "paused": true,
+        "score": 500,
+        "wave": 2,
+        "lives": 2,
+        "hp": 3,
+        "kills": 3,
+        "enemies": 4,
+        "time": 11.828200000000022
+      }
+    },
+    {
+      "paused": true,
+      "time_stable": true,
+      "before": {
+        "status": "playing",
+        "paused": true,
+        "score": 700,
+        "wave": 2,
+        "lives": 2,
+        "hp": 1,
+        "kills": 5,
+        "enemies": 2,
+        "time": 15.883500000000101
+      },
+      "after": {
+        "status": "playing",
+        "paused": true,
+        "score": 700,
+        "wave": 2,
+        "lives": 2,
+        "hp": 1,
+        "kills": 5,
+        "enemies": 2,
+        "time": 15.883500000000101
+      }
+    }
+  ],
+  "restarted": {
+    "status": "playing",
+    "paused": false,
+    "score": 0,
+    "wave": 1,
+    "lives": 3,
+    "hp": 3,
+    "kills": 0,
+    "enemies": 3,
+    "time": 0.41330000000000316
+  },
+  "screenshots": [
+    "playtest/live-menu.png",
+    "playtest/live-play.png",
+    "playtest/live-paused.png",
+    "playtest/live-restart.png"
+  ],
+  "screenshot": "playtest/live-play.png"
+}

@@ -37,7 +37,7 @@
       }
     });
     var roles = Array.isArray(template.roles) ? template.roles : [];
-    var seen = {};
+    var seen = Object.create(null);
     roles.forEach(function (role) {
       var name = role && role.role ? String(role.role).trim() : "";
       if (!name) {
@@ -69,13 +69,13 @@
    */
   function layoutGraph(template) {
     var roles = template && Array.isArray(template.roles) ? template.roles : [];
-    var byId = {};
+    var byId = Object.create(null);
     roles.forEach(function (role) {
       var id = String((role && role.role) || "").trim();
       if (id) byId[id] = role;
     });
-    var layerOf = {};
-    var visiting = {};
+    var layerOf = Object.create(null);
+    var visiting = Object.create(null);
     function resolve(id) {
       if (Object.prototype.hasOwnProperty.call(layerOf, id)) return layerOf[id];
       if (visiting[id]) throw new Error("sync_cycle");
@@ -124,6 +124,75 @@
         });
       });
     return { ok: true, layers: depth, nodes: nodes, edges: edges };
+  }
+
+  var GRAPH_NODE_W = 124;
+  var GRAPH_NODE_H = 48;
+  var GRAPH_GAP_X = 58;
+  var GRAPH_GAP_Y = 22;
+  var GRAPH_PAD = 18;
+
+  /** 数字统一到 1 位小数，避免拖拽后 SVG path 出现超长浮点数。 */
+  function roundCoord(value) {
+    return Math.round(Number(value || 0) * 10) / 10;
+  }
+
+  /** 拖拽位置夹取：节点始终留在画布内（x/y 为节点左上角）。 */
+  function clampNodePosition(x, y, canvasWidth, canvasHeight) {
+    var maxX = Math.max(0, Number(canvasWidth || 0) - GRAPH_NODE_W - 4);
+    var maxY = Math.max(0, Number(canvasHeight || 0) - GRAPH_NODE_H - 4);
+    return {
+      x: Math.min(Math.max(0, roundCoord(x)), maxX),
+      y: Math.min(Math.max(0, roundCoord(y)), maxY),
+    };
+  }
+
+  /**
+   * 可拖拽 DAG 画布布局：默认按最长路径分层，`saved[id]={x,y}` 覆盖节点位置。
+   * 画布尺寸随最右/最下节点增长，拖到画布外也会自动扩容（不会丢节点）。
+   * 返回 {ok, width, height, nodes:[{id,assignee,x,y}], edges}。
+   */
+  function graphPositions(template, saved) {
+    var layout = layoutGraph(template);
+    if (!layout.ok) return layout;
+    var positions = Object.create(null);
+    var maxX = 0;
+    var maxY = 0;
+    layout.nodes.forEach(function (node) {
+      var fallbackX = GRAPH_PAD + node.layer * (GRAPH_NODE_W + GRAPH_GAP_X);
+      var fallbackY = GRAPH_PAD + node.row * (GRAPH_NODE_H + GRAPH_GAP_Y);
+      var override = saved && saved[node.id];
+      var x = override && Number.isFinite(Number(override.x)) ? Number(override.x) : fallbackX;
+      var y = override && Number.isFinite(Number(override.y)) ? Number(override.y) : fallbackY;
+      positions[node.id] = { x: Math.max(0, roundCoord(x)), y: Math.max(0, roundCoord(y)) };
+      maxX = Math.max(maxX, positions[node.id].x + GRAPH_NODE_W);
+      maxY = Math.max(maxY, positions[node.id].y + GRAPH_NODE_H);
+    });
+    return {
+      ok: true,
+      width: Math.max(240, maxX + GRAPH_PAD),
+      height: Math.max(96, maxY + GRAPH_PAD),
+      nodes: layout.nodes.map(function (node) {
+        return {
+          id: node.id,
+          assignee: node.assignee,
+          x: positions[node.id].x,
+          y: positions[node.id].y,
+        };
+      }),
+      edges: layout.edges,
+    };
+  }
+
+  /** 两个节点之间的贝塞尔边路径（拖拽时复用同一函数重算）。 */
+  function edgePath(from, to) {
+    if (!from || !to) return "";
+    var x1 = roundCoord(from.x + GRAPH_NODE_W);
+    var y1 = roundCoord(from.y + GRAPH_NODE_H / 2);
+    var x2 = roundCoord(to.x);
+    var y2 = roundCoord(to.y + GRAPH_NODE_H / 2);
+    var mid = roundCoord((x1 + x2) / 2);
+    return "M " + x1 + " " + y1 + " C " + mid + " " + y1 + ", " + mid + " " + y2 + ", " + x2 + " " + y2;
   }
 
   /** 依赖边（画图/预览用）：[{from, to}]。 */
@@ -491,6 +560,13 @@
       );
     });
     if (review.blocked === true) lines.push("[门禁] 评审未通过：存在阻止项，导入会被拒绝");
+    if (result.preflight) {
+      lines.push(result.preflight.ok ? "运行前工具检查通过（执行时仍需权限校验）" : "运行前工具检查未通过");
+      if (Array.isArray(result.preflight.issues)) result.preflight.issues.forEach(function (issue) {
+        lines.push("[" + String(issue.code || "unavailable") + "] " + String(issue.role || "?") + " · " + String(issue.tool || "?") + "：" + String(issue.message || ""));
+      });
+      if (result.preflight.error) lines.push(String(result.preflight.error));
+    }
     if (!lines.length) lines.push("校验通过，没有发现需要关注的问题");
     return lines;
   }
@@ -700,6 +776,10 @@
     quickCheck: quickCheck,
     buildEdges: buildEdges,
     layoutGraph: layoutGraph,
+    graphPositions: graphPositions,
+    edgePath: edgePath,
+    clampNodePosition: clampNodePosition,
+    graphNodeSize: { width: GRAPH_NODE_W, height: GRAPH_NODE_H },
     previewLines: previewLines,
     buildValidateRequest: buildValidateRequest,
     buildTeamCreateRequest: buildTeamCreateRequest,
@@ -730,6 +810,10 @@
       quickCheck: quickCheck,
       buildEdges: buildEdges,
       layoutGraph: layoutGraph,
+      graphPositions: graphPositions,
+      edgePath: edgePath,
+      clampNodePosition: clampNodePosition,
+      graphNodeSize: { width: GRAPH_NODE_W, height: GRAPH_NODE_H },
       previewLines: previewLines,
       buildDraftRequest: buildDraftRequest,
       buildTeamCreateRequest: buildTeamCreateRequest,

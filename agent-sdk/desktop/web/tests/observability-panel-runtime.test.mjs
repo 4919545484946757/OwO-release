@@ -191,3 +191,31 @@ test("observability metrics escape labels and reject malformed numeric payloads"
   assert.match(rendered, /—/);
   assert.doesNotMatch(rendered, /NaN/);
 });
+
+test("unknown price never reports zero estimated cost and missing telemetry is an error", async () => {
+  const h=harness({get:async path=>path==="/usage/summary"?{count:1,price_per_mtok:0,dimensions:[{dimension:"session",calls:1,tokens:2,cost_usd:0}]}:path==="/metrics/telemetry/status"?{}:dataFor(path),esc:String,friendlyError:String});
+  await h.panel.refresh();
+  assert.match(h.get("owo-mtr-usage").innerHTML,/未配置有效单价/);
+  assert.match(h.get("owo-mtr-usage").innerHTML,/—/);
+  assert.match(h.get("owo-mtr-telemetry").textContent,/遥测开关状态未知/);
+});
+
+test("overview failure updates its status and retry recovers without an error color", async () => {
+  let broken=true;
+  const h=harness({get:async path=>path==="/metrics/overview"&&broken?{}:dataFor(path),esc:String,friendlyError:String});
+  await h.panel.refresh();
+  assert.match(h.get("owo-mtr-updated").textContent,/概览读取失败/);
+  broken=false;await h.panel.refresh();
+  assert.match(h.get("owo-mtr-cards").innerHTML,/>1</);
+  assert.equal(h.get("owo-mtr-cards").style.color,"");
+  assert.doesNotMatch(h.get("owo-mtr-updated").textContent,/读取失败/);
+});
+
+test("insight tabs maintain one selected tab and one visible pane", () => {
+  const h=harness({get:async path=>dataFor(path),esc:String,friendlyError:String});
+  h.panel._test.selectTab("quality");
+  for(const name of ["overview","usage","quality","telemetry"]) {
+    assert.equal(h.get("owo-mtr-tab-"+name)["aria-selected"],String(name==="quality"));
+    assert.equal(h.get("owo-mtr-pane-"+name).hidden,name!=="quality");
+  }
+});

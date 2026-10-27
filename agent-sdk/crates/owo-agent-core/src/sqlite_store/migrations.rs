@@ -189,6 +189,44 @@ pub const MIGRATIONS: &[Migration] = &[
             Ok(())
         },
     },
+    Migration {
+        version: 11,
+        name: "会话工作模式持久化（agent / chat）",
+        run: |conn| {
+            let columns = table_columns(conn, "sessions")?;
+            if !columns.iter().any(|existing| existing == "mode") {
+                // 旧会话一律按 agent 加载：纯对话是新增的收紧模式，不能默认收紧。
+                conn.execute_batch(
+                    "ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'agent'",
+                )
+                .map_err(sqlite_error)?;
+            }
+            Ok(())
+        },
+    },
+    Migration {
+        version: 12,
+        name: "Team public turn-event delivery index",
+        run: |conn| {
+            conn.execute_batch(super::team_turn_events::SCHEMA)
+                .map_err(sqlite_error)?;
+            Ok(())
+        },
+    },
+    Migration {
+        version: 13,
+        name: "session todo plan ???",
+        run: |conn| {
+            let columns = table_columns(conn, "sessions")?;
+            if !columns.iter().any(|existing| existing == "todos_json") {
+                conn.execute_batch(
+                    "ALTER TABLE sessions ADD COLUMN todos_json TEXT NOT NULL DEFAULT '[]'",
+                )
+                .map_err(sqlite_error)?;
+            }
+            Ok(())
+        },
+    },
 ];
 
 /// 基表结构（CREATE TABLE IF NOT EXISTS，幂等）。
@@ -218,7 +256,9 @@ pub(super) fn base_schema() -> &'static str {
          single_verification_plan_turn_id TEXT,
          single_review_issues_json TEXT NOT NULL DEFAULT '[]',
          completion_record_json TEXT,
-         goal_json TEXT
+         goal_json TEXT,
+         mode TEXT NOT NULL DEFAULT 'agent',
+         todos_json TEXT NOT NULL DEFAULT '[]'
      );
      CREATE TABLE IF NOT EXISTS audit (
          id INTEGER PRIMARY KEY AUTOINCREMENT,

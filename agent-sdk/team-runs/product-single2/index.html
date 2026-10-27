@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OwO Agent SDK — Ship agents, not infrastructure</title>
+  <meta
+    name="description"
+    content="OwO Agent SDK is a small, typed toolkit for building, testing and deploying tool-using agents. One dependency, first-class tests, zero vendor lock-in."
+  />
+  <meta name="theme-color" content="#0b1020" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#top" aria-label="OwO Agent SDK home">
+        <span class="brand-mark" aria-hidden="true">◕‿◕</span>
+        <span class="brand-name">OwO&nbsp;Agent&nbsp;SDK</span>
+      </a>
+
+      <button
+        class="nav-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="primary-navigation"
+        data-nav-toggle
+      >
+        <span class="nav-toggle-bars" aria-hidden="true"></span>
+        <span class="visually-hidden">Toggle navigation menu</span>
+      </button>
+
+      <nav id="primary-navigation" class="primary-nav" aria-label="Primary" data-nav>
+        <ul class="nav-list">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#quickstart">Quickstart</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a class="nav-cta" href="#quickstart">Get started</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Open-source · MIT licensed · v1.4</p>
+          <h1 id="hero-title">Ship tool-using agents without rebuilding the plumbing.</h1>
+          <p class="lede">
+            OwO Agent SDK bundles typed tool calling, retries, streaming and
+            record-and-replay tests into one small dependency — so your team ships
+            agent features instead of agent infrastructure.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#quickstart">Start in 3 minutes</a>
+            <a class="button button-ghost" href="#features">See what's included</a>
+          </div>
+          <ul class="hero-badges" aria-label="Key guarantees">
+            <li><span aria-hidden="true">✓</span> No account required</li>
+            <li><span aria-hidden="true">✓</span> 12&nbsp;kB min+gzip core</li>
+            <li><span aria-hidden="true">✓</span> Node 18+ &amp; edge runtimes</li>
+          </ul>
+        </div>
+
+        <div class="hero-card">
+          <div class="code-window" role="group" aria-labelledby="code-window-title">
+            <div class="code-window-bar">
+              <span class="dot dot-red" aria-hidden="true"></span>
+              <span class="dot dot-amber" aria-hidden="true"></span>
+              <span class="dot dot-green" aria-hidden="true"></span>
+              <h2 class="code-window-title" id="code-window-title">agent.mjs</h2>
+            </div>
+<pre class="code-block" tabindex="0" aria-label="Example OwO Agent SDK source code"><code>import { Agent, tool } from "owo-agent-sdk";
+
+const weather = tool({
+  name: "get_weather",
+  description: "Current weather for a city",
+  schema: { city: "string" },
+  run: ({ city }) =&gt; fetchWeather(city),
+});
+
+const agent = new Agent({
+  model: "owo-fast",
+  tools: [weather],
+});
+
+const reply = await agent.run("Do I need a jacket in Oslo?");</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="container">
+        <header class="section-header">
+          <p class="eyebrow">Features</p>
+          <h2 id="features-title">Everything an agent needs, nothing it doesn't</h2>
+          <p class="section-lede">
+            Each primitive is independently usable and covered by the same public
+            test suite you run locally.
+          </p>
+        </header>
+
+        <ul class="card-grid">
+          <li class="card">
+            <span class="card-icon" aria-hidden="true">⚙️</span>
+            <h3>Typed tool calling</h3>
+            <p>
+              Declare a schema once and get argument validation, structured errors
+              and automatic JSON repair on every call.
+            </p>
+          </li>
+          <li class="card">
+            <span class="card-icon" aria-hidden="true">🔁</span>
+            <h3>Retries you can reason about</h3>
+            <p>
+              Idempotency keys, jittered backoff and a hard budget cap keep failures
+              cheap and observable.
+            </p>
+          </li>
+          <li class="card">
+            <span class="card-icon" aria-hidden="true">🎥</span>
+            <h3>Record &amp; replay tests</h3>
+            <p>
+              Capture a real transcript once, then replay it in CI with zero network
+              calls, zero flakiness.
+            </p>
+          </li>
+          <li class="card">
+            <span class="card-icon" aria-hidden="true">🌊</span>
+            <h3>Streaming by default</h3>
+            <p>
+              Token deltas, tool events and partial objects arrive on one async
+              iterator you can forward to any transport.
+            </p>
+          </li>
+          <li class="card">
+            <span class="card-icon" aria-hidden="true">🔌</span>
+            <h3>Bring your own model</h3>
+            <p>
+              Adapters for hosted APIs, local runtimes and your own gateway. Swap
+              providers with one config line.
+            </p>
+          </li>
+          <li class="card">
+            <span class="card-icon" aria-hidden="true">🛡️</span>
+            <h3>Guardrails built in</h3>
+            <p>
+              Budget limits, redaction hooks and approval gates for destructive tools
+              ship as first-party plugins.
+            </p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="quickstart" aria-labelledby="quickstart-title">
+      <div class="container">
+        <header class="section-header">
+          <p class="eyebrow">Quickstart</p>
+          <h2 id="quickstart-title">Three commands to a running agent</h2>
+          <p class="section-lede">
+            No config file, no dashboard. The CLI writes a working example and a
+            matching test for you.
+          </p>
+        </header>
+
+        <ol class="steps">
+          <li class="step">
+            <h3><span class="step-number" aria-hidden="true">1</span> Install</h3>
+<pre class="code-block code-block-light" tabindex="0" aria-label="Install command"><code>npm install owo-agent-sdk</code></pre>
+          </li>
+          <li class="step">
+            <h3><span class="step-number" aria-hidden="true">2</span> Scaffold</h3>
+<pre class="code-block code-block-light" tabindex="0" aria-label="Scaffold command"><code>npx owo-agent init my-agent</code></pre>
+          </li>
+          <li class="step">
+            <h3><span class="step-number" aria-hidden="true">3</span> Verify</h3>
+<pre class="code-block code-block-light" tabindex="0" aria-label="Test command"><code>npm test</code></pre>
+          </li>
+        </ol>
+
+        <p class="quickstart-note">
+          The generated test suite uses <code>node:test</code> and replays fixtures,
+          so it runs offline in under a second.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="proof" aria-labelledby="proof-title">
+      <div class="container proof-grid">
+        <div class="proof-copy">
+          <p class="eyebrow">Trusted in production</p>
+          <h2 id="proof-title">Teams replace ~600 lines of glue with one import</h2>
+          <p>
+            Shipping agents usually means hand-rolling retries, tool schemas,
+            streaming parsers and test doubles. OwO Agent SDK is that work, done once
+            and tested in the open.
+          </p>
+        </div>
+        <ul class="stat-grid">
+          <li class="stat">
+            <p class="stat-value">12<span class="stat-unit">kB</span></p>
+            <p class="stat-label">core, min+gzip</p>
+          </li>
+          <li class="stat">
+            <p class="stat-value">1.4<span class="stat-unit">k</span></p>
+            <p class="stat-label">public tests</p>
+          </li>
+          <li class="stat">
+            <p class="stat-value">6</p>
+            <p class="stat-label">model adapters</p>
+          </li>
+          <li class="stat">
+            <p class="stat-value">MIT</p>
+            <p class="stat-label">forever free core</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="pricing" aria-labelledby="pricing-title">
+      <div class="container">
+        <header class="section-header">
+          <p class="eyebrow">Pricing</p>
+          <h2 id="pricing-title">Free for the way most teams start</h2>
+          <p class="section-lede">
+            The SDK itself is MIT licensed. Paid tiers only add hosted observability
+            and support.
+          </p>
+        </header>
+
+        <div class="plan-grid">
+          <article class="plan" aria-labelledby="plan-community">
+            <h3 id="plan-community">Community</h3>
+            <p class="plan-price">$0<span class="plan-period">/forever</span></p>
+            <ul class="plan-features">
+              <li>Full SDK &amp; CLI</li>
+              <li>Unlimited local runs</li>
+              <li>Record &amp; replay fixtures</li>
+              <li>GitHub discussions support</li>
+            </ul>
+            <a class="button button-primary" href="#quickstart">Install now</a>
+          </article>
+
+          <article class="plan plan-featured" aria-labelledby="plan-team">
+            <p class="plan-badge">Most popular</p>
+            <h3 id="plan-team">Team</h3>
+            <p class="plan-price">$29<span class="plan-period">/seat&nbsp;·&nbsp;month</span></p>
+            <ul class="plan-features">
+              <li>Everything in Community</li>
+              <li>Hosted transcript explorer</li>
+              <li>Shared eval suites</li>
+              <li>Budget alerts per project</li>
+            </ul>
+            <a class="button button-primary" href="#quickstart">Start free trial</a>
+          </article>
+
+          <article class="plan" aria-labelledby="plan-enterprise">
+            <h3 id="plan-enterprise">Enterprise</h3>
+            <p class="plan-price">Custom</p>
+            <ul class="plan-features">
+              <li>Everything in Team</li>
+              <li>SSO &amp; audit log export</li>
+              <li>Self-hosted gateway</li>
+              <li>Named support engineer</li>
+            </ul>
+            <a class="button button-ghost" href="#faq">Talk to us</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="container container-narrow">
+        <header class="section-header">
+          <p class="eyebrow">FAQ</p>
+          <h2 id="faq-title">Questions teams ask before adopting</h2>
+        </header>
+
+        <div class="faq-list">
+          <details class="faq-item">
+            <summary>Do I need an API key to evaluate it?</summary>
+            <p>
+              No. The scaffold ships with a replay fixture, so <code>npm test</code>
+              works offline. Add a key only when you point the agent at a live model.
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary>Which runtimes are supported?</summary>
+            <p>
+              Node 18 and newer, Deno, Bun and edge workers that expose standard
+              <code>fetch</code> and <code>WebStreams</code>.
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary>How are tool arguments validated?</summary>
+            <p>
+              Each tool declares a schema. Invalid arguments never reach your
+              function; they surface as a structured error the model can retry
+              against.
+            </p>
+          </details>
+          <details class="faq-item">
+            <summary>Can I self-host everything?</summary>
+            <p>
+              Yes. The SDK is client-side code, and the Enterprise tier ships the
+              gateway and explorer as containers you run in your own network.
+            </p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-band" aria-labelledby="cta-title">
+      <div class="container cta-inner">
+        <h2 id="cta-title">Build your first agent this afternoon</h2>
+        <p>One dependency, a typed tool layer, and a test suite that runs offline.</p>
+        <a class="button button-primary" href="#quickstart">Install OwO Agent SDK</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-brand">◕‿◕ OwO Agent SDK</p>
+      <nav aria-label="Footer">
+        <ul class="footer-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a href="#top">Back to top</a></li>
+        </ul>
+      </nav>
+      <p class="footer-legal">MIT licensed · Documentation sample · No data collected by this page.</p>
+    </div>
+  </footer>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>

@@ -327,14 +327,15 @@ fn select_reviewed_owner_binding<'a>(reviewed: &'a [Value], finding: &Value) -> 
     let matches = reviewed
         .iter()
         .filter(|artifact| {
-            owner
-                .is_none_or(|owner| artifact.get("producer").and_then(Value::as_str) == Some(owner))
-                && task_id.is_none_or(|task_id| {
-                    artifact.get("task_id").and_then(Value::as_str) == Some(task_id)
-                })
-                && artifact_id.is_none_or(|artifact_id| {
-                    artifact.get("artifact_id").and_then(Value::as_str) == Some(artifact_id)
-                })
+            owner.is_none_or(|owner| {
+                artifact.get("producer").and_then(Value::as_str) == Some(owner)
+                    || artifact.get("task_id").and_then(Value::as_str) == Some(owner)
+                    || artifact.get("role").and_then(Value::as_str) == Some(owner)
+            }) && task_id.is_none_or(|task_id| {
+                artifact.get("task_id").and_then(Value::as_str) == Some(task_id)
+            }) && artifact_id.is_none_or(|artifact_id| {
+                artifact.get("artifact_id").and_then(Value::as_str) == Some(artifact_id)
+            })
         })
         .collect::<Vec<_>>();
     (matches.len() == 1).then(|| matches[0])
@@ -346,8 +347,8 @@ mod review_owner_binding_tests {
 
     fn reviewed() -> Vec<Value> {
         vec![
-            json!({"producer":"m-w1", "task_id":"step-a", "artifact_id":"artifact-a"}),
-            json!({"producer":"m-w1", "task_id":"step-b", "artifact_id":"artifact-b"}),
+            json!({"producer":"m-w1", "task_id":"step-a", "artifact_id":"artifact-a", "role":"builder"}),
+            json!({"producer":"m-w1", "task_id":"step-b", "artifact_id":"artifact-b", "role":"builder"}),
         ]
     }
 
@@ -367,6 +368,24 @@ mod review_owner_binding_tests {
     fn ambiguous_legacy_owner_does_not_pick_the_first_task() {
         let finding = json!({"suggested_owner":"m-w1"});
         assert!(select_reviewed_owner_binding(&reviewed(), &finding).is_none());
+    }
+
+    #[test]
+    fn suggested_owner_may_be_a_task_id_or_role_name() {
+        let by_task = json!({"suggested_owner":"step-b"});
+        assert_eq!(
+            select_reviewed_owner_binding(&reviewed(), &by_task)
+                .and_then(|artifact| artifact.get("artifact_id"))
+                .and_then(Value::as_str),
+            Some("artifact-b")
+        );
+        let by_role = json!({"suggested_owner":"builder", "target_task_id":"step-a"});
+        assert_eq!(
+            select_reviewed_owner_binding(&reviewed(), &by_role)
+                .and_then(|artifact| artifact.get("artifact_id"))
+                .and_then(Value::as_str),
+            Some("artifact-a")
+        );
     }
 
     #[test]

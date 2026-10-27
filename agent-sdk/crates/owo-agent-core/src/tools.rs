@@ -37,13 +37,26 @@ mod mcp_adapters;
 use command_tools::{KillShellTool, RunCommandTool, ShellOutputTool};
 use mcp_adapters::{McpPromptAdapter, McpResourceAdapter, McpToolAdapter};
 
+#[path = "tools/media_target.rs"]
+mod media_target;
+#[path = "tools/media.rs"]
+mod media_tools;
+pub(crate) use media_tools::{profiled_media_tool, scoped_workflow_tool};
+use media_tools::{GenerateImageTool, TextToSpeechTool};
+
+pub(crate) fn media_configuration_status(tool: &str) -> Result<(), String> {
+    let service = crate::gateway::media_config::MediaService::for_tool(tool)
+        .ok_or_else(|| "unknown media tool".to_string())?;
+    crate::gateway::media_config::MediaConnection::from_env(service)?.require_configured()
+}
+
 #[path = "tools/web.rs"]
 mod web;
 #[cfg(test)]
 use web::{decode_search_href, html_to_text};
 use web::{WebFetchTool, WebSearchTool};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct ToolSpec {
     pub name: String,
     pub description: String,
@@ -119,6 +132,10 @@ impl<T: Tool> Tool for DeclaredBuiltin<T> {
     }
 }
 
+#[path = "tools/output.rs"]
+mod output;
+pub use output::ToolOutputPublisher;
+
 pub struct ToolRegistry {
     tools: Vec<Arc<dyn Tool>>,
     /// MCP 大 schema 的完整副本（注册时超预算被压缩为骨架；此处保留原始 schema 供按需查询）。
@@ -154,6 +171,8 @@ impl ToolRegistry {
         registry.register_builtin(WebFetchTool);
         registry.register_builtin(WebSearchTool);
         registry.register_builtin(ReadImageTool);
+        registry.register_builtin(GenerateImageTool);
+        registry.register_builtin(TextToSpeechTool);
         registry.register_delegation_tools();
         registry
     }
@@ -317,6 +336,17 @@ impl ToolRegistry {
             self.tools[index] = tool;
         } else {
             self.tools.push(tool);
+        }
+    }
+
+    pub fn publish_media_outputs(&mut self, publisher: Arc<dyn ToolOutputPublisher>) {
+        for name in ["generate_image", "text_to_speech"] {
+            if let Some(inner) = self.get(name) {
+                self.register_arc(Arc::new(output::PublishedMediaTool {
+                    inner,
+                    publisher: Arc::clone(&publisher),
+                }));
+            }
         }
     }
 
@@ -1748,6 +1778,8 @@ mod tests {
                 "web_fetch",
                 "web_search",
                 "read_image",
+                "generate_image",
+                "text_to_speech",
                 "explore",
                 "subagent",
                 "fan_out_subagents",
@@ -2316,5 +2348,37 @@ mod tests {
             decode_search_href("https://direct.example"),
             "https://direct.example"
         );
+    }
+
+    #[test]
+    fn media_tools_are_registered_with_schemas() {
+        let registry = ToolRegistry::new();
+        let specs = registry.specs();
+        for (name, required) in [("generate_image", "prompt"), ("text_to_speech", "text")] {
+            let spec = specs
+                .iter()
+                .find(|spec| spec.name == name)
+                .unwrap_or_else(|| panic!("缺少内置工具 {name}"));
+            assert!(
+                spec.input_schema["required"]
+                    .as_array()
+                    .map(|items| items.iter().any(|item| item == required))
+                    .unwrap_or(false),
+                "{name} 的 schema 必须要求 {required}"
+            );
+            assert!(
+                spec.description.contains("outputs/"),
+                "{name} 的描述应说明产物落 outputs/"
+            );
+            let effect = spec
+                .effect
+                .as_ref()
+                .unwrap_or_else(|| panic!("{name} 必须带副作用声明"));
+            let note = effect.risk_note.clone().unwrap_or_default();
+            assert!(
+                note.contains("outputs/") && note.contains("外部"),
+                "{name} 的审批风险说明要能解释出境与落盘，实际：{note}"
+            );
+        }
     }
 }

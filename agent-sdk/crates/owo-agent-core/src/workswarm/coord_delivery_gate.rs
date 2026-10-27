@@ -69,8 +69,8 @@ impl TeamCoordinator {
             .plan
             .steps
             .iter()
-            .enumerate()
-            .map(|(index, step)| (step.id.clone(), index))
+            .cloned()
+            .map(|step| (step.id.clone(), step))
             .collect::<std::collections::HashMap<_, _>>();
         for step in state.plan.steps.clone() {
             let record = state.records.get(&step.id).cloned().ok_or_else(|| {
@@ -250,7 +250,7 @@ impl TeamCoordinator {
                     pending_delivery_repair.get_or_insert(WorkSwarmError::DeliveryRepair {
                         step_id: step.id.clone(), attempt_id: attempt_id.to_string(),
                         validator_id: "workspace-command-success-v1".into(),
-                        reason: "当前源码缺少匹配最终文件哈希的宿主行为验证证据；请在修改后运行获准测试（例如 node --test outputs/page.test.cjs），检查后不要修改源码，重新交付并独立评审".into(),
+                        reason: "当前源码缺少匹配最终文件哈希的宿主行为验证证据；请在修改后运行任务对应的已注册测试命令（如 python test_calc.py、cargo test、npm test、node --test），检查后不要修改源码，重新交付并独立评审".into(),
                     });
                 }
                 let actual_hash = artifact.sha256.clone();
@@ -314,11 +314,21 @@ impl TeamCoordinator {
                             )
                         })?;
                     let mut expected = Vec::new();
-                    for dependency in &step.depends_on {
-                        let Some(dep_index) = steps_by_id.get(dependency).copied() else {
-                            continue;
-                        };
-                        let Some(dep_step) = state.plan.steps.get(dep_index) else {
+                    let is_reviewer_step = run_meta.roles.iter().any(|role| {
+                        step.worker == format!("m-{}", role.role)
+                            && super::task_graph::is_independent_reviewer_role(role)
+                    });
+                    let dependency_ids = if is_reviewer_step {
+                        super::coord_context_slice::collect_review_dependency_ids(
+                            &step.id,
+                            &step.depends_on,
+                            &steps_by_id,
+                        )
+                    } else {
+                        step.depends_on.clone()
+                    };
+                    for dependency in &dependency_ids {
+                        let Some(dep_step) = steps_by_id.get(dependency) else {
                             continue;
                         };
                         let Some(_dep_role) = worker_role(&dep_step.worker) else {

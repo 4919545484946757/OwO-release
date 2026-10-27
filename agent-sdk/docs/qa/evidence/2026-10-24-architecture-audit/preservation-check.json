@@ -1,0 +1,26 @@
+{
+  "baseline_files": 4394,
+  "changed": [
+    {
+      "path": "agent-sdk/team-runs/parkour3d-workflow.json",
+      "change": "modified"
+    },
+    {
+      "path": "agent-sdk/team-runs/parkour3d/tests/integration.test.mjs",
+      "change": "removed"
+    },
+    {
+      "path": "agent-sdk/team-runs/parkour3d/tests/player.test.mjs",
+      "change": "removed"
+    },
+    {
+      "path": "agent-sdk/team-runs/parkour3d/tests/ui.test.mjs",
+      "change": "removed"
+    },
+    {
+      "path": "agent-sdk/team-runs/parkour3d/tests/world.test.mjs",
+      "change": "removed"
+    }
+  ],
+  "git_diff_check_exit": 0
+}

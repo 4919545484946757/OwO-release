@@ -67,16 +67,23 @@ impl TeamCoordinator {
             });
             if parallel_assignment_missing && lead_already_succeeded {
                 if let Err(error) = self.apply_parallel_assignment(team_id, &mut state, &mut meta) {
-                    let reason = format!("并行子任务计划无效，已停止调度：{error}");
-                    self.fail_run_internal(team_id, &mut team, &mut state, &reason)
-                        .await?;
-                    return Ok(PhaseOutcome::Failed);
+                    // A template orchestrator may return a prose design brief
+                    // instead of a TaskGraph. Keep the validated fixed-role
+                    // pipeline as a safe fallback instead of killing the run.
+                    tracing::warn!(
+                        team_id,
+                        %error,
+                        "dynamic TaskGraph invalid; continuing with fixed template roles"
+                    );
+                    meta.parallel = false;
+                    meta.save(&self.run_dir)?;
                 }
                 self.persist_state(&state)?;
             }
             let integration_required = parallel_tasks_require_integration(&state.plan.steps);
 
             let ready = Self::ready_steps(&state);
+            let ready = super::phase_subplan::filter_pre_fanout_ready_steps(&meta, &state, &ready);
             let is_human_step = |s: &StepSpec, meta: &RunMeta| -> bool {
                 Self::role_spec_of_member(meta, &s.worker)
                     .map(|r| r.assignee == "human")
@@ -326,6 +333,7 @@ impl TeamCoordinator {
             let mut sub_state = GoalRunState {
                 run_id: state.run_id.clone(),
                 execution_epoch: epoch,
+                team_task_events: None,
                 goal: state.goal.clone(),
                 plan: Plan {
                     id: state.plan.id.clone(),

@@ -21,6 +21,7 @@ impl TeamCoordinator {
             phase_epochs: Arc::new(Mutex::new(HashMap::new())),
             phase_claims: Arc::new(Mutex::new(HashMap::new())),
             progress_seqs: Arc::new(Mutex::new(HashMap::new())),
+            supervisor_states: Arc::new(Mutex::new(HashMap::new())),
             progress_watchers: Arc::new(Mutex::new(HashMap::new())),
             verification_workspaces: Arc::new(Mutex::new(HashMap::new())),
             context_assembly_timings: Arc::new(Mutex::new(
@@ -302,14 +303,62 @@ impl TeamCoordinator {
             // After a restart, persisted Running steps are recoverable claims, not live execution.
             counts.claimed = persisted_running;
         }
+        let status = format!("{:?}", team.status);
+        let active = self.is_run_active(team_id);
+        // Only consult the interrupted marker for a persisted Running team with no
+        // live loop; normal polling must not add a filesystem read on every tick.
+        let interrupted =
+            !active && team.status == TeamRunStatus::Running && self.is_interrupted(team_id);
+        let supervisor = supervise_progress(
+            &status,
+            active,
+            interrupted,
+            &counts,
+            &current_steps,
+            chrono::Utc::now(),
+            stall_after_secs(),
+        );
+        // Progress polling is the only supervisor clock: emit an audit event once per
+        // health transition, never once per poll tick. The detail is content-free.
+        let changed = {
+            let mut states = self
+                .supervisor_states
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            if states.len() >= 4096 && !states.contains_key(team_id) {
+                states.clear();
+            }
+            let previous = states.insert(team_id.to_string(), supervisor.state.clone());
+            previous.as_deref() != Some(supervisor.state.as_str())
+        };
+        if changed {
+            self.record_runtime_event(
+                team_id,
+                "team_supervisor",
+                format!(
+                    "state={} active={} interrupted={} stalled_steps={} threshold_secs={}",
+                    supervisor.state,
+                    supervisor.active,
+                    supervisor.interrupted,
+                    supervisor.stalled_steps.join(","),
+                    supervisor.threshold_secs
+                ),
+            );
+            // Supervisor transitions are part of the public progress contract. Advance
+            // the shared sequence so SSE clients and watch subscribers receive the new
+            // supervisor snapshot even when no step record changed (for example, a
+            // running step crosses the stall threshold).
+            self.advance_progress(team_id);
+        }
         Ok(TeamProgress {
             seq: self.progress_seq(team_id),
             team_id: team_id.to_string(),
-            status: format!("{:?}", team.status),
-            active: self.is_run_active(team_id),
+            status,
+            active,
             current_steps,
             counts,
             updated_at: now_ts(),
+            supervisor,
         })
     }
 

@@ -63,7 +63,16 @@
     );
   }
 
-  function teamConversationHtml(ctx, handoffs, members, markdown, errorText) {
+  // Compact local display; preserve the original timestamp for exact provenance.
+  function timeHtml(esc, value) {
+    var raw = String(value || ""), date = new Date(raw);
+    if (!raw) return "";
+    if (!isFinite(date.getTime())) return "<time>" + esc(raw) + "</time>";
+    var text = date.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+    return '<time datetime="' + esc(raw) + '" title="' + esc(raw) + '">' + esc(text) + "</time>";
+  }
+
+  function teamConversationHtml(ctx, handoffs, members, markdown, errorText, onlyRole) {
     var esc = ctx.esc;
     if (errorText) {
       return '<div class="owo-ws-chat-state bad" role="alert">' + esc(errorText) + "</div>";
@@ -78,7 +87,12 @@
     (Array.isArray(members) ? members : []).forEach(function (m) {
       if (m && m.member_id) memberMap[String(m.member_id)] = m;
     });
-    var rows = handoffs.slice().sort(function (a, b) {
+    var filterRole = String(onlyRole || "").trim();
+    var rows = handoffs.filter(function (handoff) {
+      if (!filterRole || filterRole === "all") return true;
+      var id = String((handoff && handoff.from_member) || "");
+      return String((memberMap[id] && memberMap[id].role) || id || "团队成员") === filterRole;
+    }).sort(function (a, b) {
       return String((a && a.created_at) || "").localeCompare(String((b && b.created_at) || ""));
     });
     return '<div class="owo-ws-chat-log" role="log" aria-label="团队交接对话">' +
@@ -114,11 +128,39 @@
           '<div class="owo-ws-chat-avatar" aria-hidden="true">' + esc(initial) + "</div>" +
           '<div class="owo-ws-chat-card"><header class="owo-ws-chat-head"><b>' + esc(role) + "</b>" +
           '<span class="owo-ws-chat-id">' + esc(senderId) + "</span>" + receiver +
-          '<time>' + esc(h.created_at || "") + "</time></header>" +
+          timeHtml(esc, h.created_at) + "</header>" +
           '<div class="owo-ws-chat-body">' + body + "</div>" + extras +
           (refs.length ? '<div class="owo-ws-chat-refs">关联产物：' + refs.map(esc).join(" · ") + "</div>" : "") +
           "</div></article>";
       }).join("") + "</div>";
+  }
+
+  // Keep only a recent rendering window; older public observations remain in the
+  // daemon's cursor-paged run history. This is not another transcript database.
+  var REPLAY_EVENTS = 1024, REPLAY_BYTES = 2 * 1024 * 1024;
+  function boundReplay(replay, priorTruncated) {
+    var rows = [];
+    Object.keys(replay).forEach(function(sessionId) {
+      var session = replay[sessionId];
+      (session.events || []).forEach(function(event) { rows.push({ sessionId: sessionId, role: session.role, event: event }); });
+    });
+    rows.sort(function(a,b) {
+      return String(a.event.created_at || "").localeCompare(String(b.event.created_at || "")) ||
+        Number(a.event.seq)-Number(b.event.seq) || a.sessionId.localeCompare(b.sessionId);
+    });
+    var kept = [], bytes = 0, truncated = !!priorTruncated, encoder = new TextEncoder();
+    for (var i=rows.length-1;i>=0;i--) {
+      var size = encoder.encode(JSON.stringify(rows[i].event)).byteLength;
+      if (kept.length >= REPLAY_EVENTS || size > REPLAY_BYTES-bytes) { truncated=true; continue; }
+      bytes += size; kept.push(rows[i]);
+    }
+    var result = {};
+    kept.reverse().forEach(function(row) {
+      if (!result[row.sessionId]) result[row.sessionId] = { role: row.role, events: [] };
+      result[row.sessionId].events.push(row.event);
+    });
+    Object.defineProperty(result,"windowInfo",{enumerable:false,value:{truncated:truncated,events:kept.length,bytes:bytes}});
+    return result;
   }
 
   function mergeReplay(previous, sessions) {
@@ -133,7 +175,7 @@
         events: Object.keys(bySeq).map(function (seq) { return bySeq[seq]; }).sort(function (a, b) { return a.seq - b.seq; }),
       };
     });
-    return map;
+    return boundReplay(map, previous && previous.windowInfo && previous.windowInfo.truncated);
   }
 
   /// 成员对话（按时间合并所有角色）。`onlyRole` 非空时只渲染该角色——
@@ -153,7 +195,7 @@
         rows.push({ time: event.created_at || "", seq: Number(event.seq) || 0,
           html: '<article class="owo-ws-chat-row"><div class="owo-ws-chat-avatar" aria-hidden="true">' + esc(role.slice(0, 1)) +
           '</div><div class="owo-ws-chat-card"><header class="owo-ws-chat-head"><b>' + esc(role) +
-          '</b><time>' + esc(event.created_at || "") + '</time></header><div class="owo-ws-chat-body">' +
+          '</b>' + timeHtml(esc, event.created_at) + '</header><div class="owo-ws-chat-body">' +
           (typeof markdown === "function" ? markdown(text) : '<div class="md-p">' + esc(text).replace(/\n/g, "<br>") + "</div>") + "</div></div></article>" });
       }
       function flushPending(event) {
@@ -187,7 +229,7 @@
           }
           resultRow.result = {
             ok: p.ok === true, error: String(p.error || ""),
-            preview: String(p.preview || ""), time: event.created_at || "",
+            preview: String(p.preview || ""), outputs: p.outputs, time: event.created_at || "",
           };
         } else if (kind === "progress") {
           textRow(p.message, event);
@@ -206,7 +248,10 @@
         (toolFailures ? ' · ' + toolFailures + ' 个失败' : '') +
         (toolRunning ? ' · ' + toolRunning + ' 个进行中' : '') + '</div>'
       : "";
-    return summary + rows.map(function (row) {
+    var windowNotice = replay && replay.windowInfo && replay.windowInfo.truncated
+      ? '<p class="hint" role="status">仅展示近期消息窗口；片段可能从中途开始。较早公开记录可在「执行记录 → 持久运行时间线」按页查看，旧运行缺失的历史会明确提示。</p>'
+      : "";
+    return windowNotice + summary + rows.map(function (row) {
       if (row.html) return row.html;
       var result = row.result;
       var state = !result ? "进行中" : (result.ok ? "已完成" : "失败");
@@ -214,15 +259,20 @@
       var detail = '<div class="owo-ws-tool-parts">';
       if (row.args) detail += '<section><b>参数</b><pre>' + esc(row.args) + "</pre></section>";
       if (result) {
-        var resultText = result.error || result.preview || (result.ok ? "工具已完成，没有可展示的文本预览。" : "工具失败，服务端没有返回错误详情。");
-        detail += '<section><b>' + (result.ok ? "结果" : "失败详情") + "</b><pre>" + esc(resultText) + "</pre></section>";
+        var media = result.ok ? mediaPreviewHtml(esc, row.tool, result.preview, result.outputs) : "";
+        if (media) {
+          detail += '<section><b>结果</b>' + media + "</section>";
+        } else {
+          var resultText = result.error || result.preview || (result.ok ? "工具已完成，没有可展示的文本预览。" : "工具失败，服务端没有返回错误详情。");
+          detail += '<section><b>' + (result.ok ? "结果" : "失败详情") + "</b><pre>" + esc(resultText) + "</pre></section>";
+        }
       } else {
         detail += '<div class="hint">等待工具返回结果。</div>';
       }
       detail += "</div>";
       return '<article class="owo-ws-chat-row"><div class="owo-ws-chat-avatar" aria-hidden="true">' + esc(row.role.slice(0, 1)) +
         '</div><div class="owo-ws-chat-card"><header class="owo-ws-chat-head"><b>' + esc(row.role) +
-        '</b><time>' + esc(row.time || "") + '</time></header><details class="owo-ws-tool-detail" data-event-key="' +
+        '</b>' + timeHtml(esc, row.time) + '</header><details class="owo-ws-tool-detail" data-event-key="' +
         esc(row.eventKey) + '"><summary><b>' + esc(row.tool) + "</b> · <span class=\"owo-ws-badge " +
         stateClass + "\">" + state + "</span></summary>" + detail + "</details></div></article>";
     }).join("");
@@ -230,7 +280,7 @@
 
   /// 当前回放里出现过的角色（按出现顺序去重），供"只看某成员"下拉框。
   function replayRoles(replay) {
-    var seen = {};
+    var seen = Object.create(null);
     var roles = [];
     Object.keys(replay || {}).forEach(function (sessionId) {
       var role = String((replay[sessionId] || {}).role || "").trim();
@@ -242,6 +292,24 @@
     return roles;
   }
 
+  function conversationRoles(replay, handoffs, members, selectedRole) {
+    var roles = replayRoles(replay);
+    var memberMap = Object.create(null);
+    (members || []).forEach(function (member) { if (member) memberMap[member.member_id] = member; });
+    (handoffs || []).forEach(function (handoff) {
+      var id = String((handoff && handoff.from_member) || "");
+      var role = String((memberMap[id] && memberMap[id].role) || id || "团队成员");
+      if (roles.indexOf(role) < 0) roles.push(role);
+    });
+    // A quiet selected member may have fallen outside the recent rendering window.
+    // Keep this one real member selectable instead of silently switching to "all".
+    if (selectedRole && roles.indexOf(selectedRole) < 0 &&
+        (members || []).some(function(member) { return member && member.role === selectedRole; })) {
+      roles.push(selectedRole);
+    }
+    return roles;
+  }
+
   /// 解析"上次选的成员过滤"：只在该角色本次仍存在时沿用，否则回到 `all`。
   /// 角色是用户自定义的（随时会改名/删角色），所以持久化值必须每次校验。
   function pickConversationRole(saved, roles) {
@@ -250,11 +318,66 @@
     return (Array.isArray(roles) ? roles : []).indexOf(wanted) >= 0 ? wanted : "all";
   }
 
+  /// 媒体类工具（文生图/语音合成，含 MCP 同名工具）的预览是 JSON 字符串，
+  /// 直接 <pre> 出来是一坨 base64。这里解析成路径摘要 + 内联播放器。
+  var MEDIA_TOOL_KIND = { generate_image: "image", text_to_speech: "audio" };
+
+  function mediaFormatBytes(bytes) {
+    if (!(bytes > 0)) return "";
+    if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    if (bytes >= 1024) return Math.round(bytes / 1024) + " KB";
+    return bytes + " B";
+  }
+
+  function parseMediaPreview(preview) {
+    var text = String(preview == null ? "" : preview).trim();
+    var start = text.indexOf("{");
+    var end = text.lastIndexOf("}");
+    if (start < 0 || end <= start) return null;
+    try {
+      var value = JSON.parse(text.slice(start, end + 1));
+      return value && typeof value === "object" ? value : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function mediaPreviewHtml(esc, tool, preview, outputs) {
+    if (Array.isArray(outputs) && win.OwoMediaResult) {
+      var payload = { tool: tool, ok: true, outputs: outputs };
+      var media = win.OwoMediaResult.mediaFromToolResult(payload);
+      if (!media) return "";
+      return '<div class="owo-ws-media" data-media-artifact="' + esc(JSON.stringify(payload)) + '">' + esc(win.OwoMediaResult.describeMedia(media)) + '</div>';
+    }
+    var kind = MEDIA_TOOL_KIND[String(tool || "")];
+    if (!kind) return "";
+    var value = parseMediaPreview(preview);
+    if (!value || typeof value.path !== "string" || !value.path.trim()) return "";
+    var path = value.path.trim();
+    var bytes = Number(value.bytes);
+    var label = (kind === "image" ? "已生成图片" : "已生成语音") +
+      (bytes > 0 ? "（" + mediaFormatBytes(bytes) + "）" : "") + "：" + path;
+    var url = typeof value.data_url === "string" ? value.data_url : "";
+    var prefix = kind === "image" ? /^data:image\// : /^data:audio\//;
+    var html = '<div class="owo-ws-media">' + esc(label);
+    if (prefix.test(url)) {
+      html += kind === "image"
+        ? '<img class="owo-media-inline" loading="lazy" alt="' + esc(path) + '" src="' + esc(url) + '">'
+        : '<audio class="owo-media-audio" controls preload="none" src="' + esc(url) + '"></audio>';
+    }
+    return html + "</div>";
+  }
+
   var api = {
+    timeHtml: timeHtml,
     mergeReplay: mergeReplay,
+    boundReplay: boundReplay,
+    replayLimits: { events: REPLAY_EVENTS, bytes: REPLAY_BYTES },
     replayRoles: replayRoles,
+    conversationRoles: conversationRoles,
     pickConversationRole: pickConversationRole,
     workerConversationHtml: workerConversationHtml,
+    mediaPreviewHtml: mediaPreviewHtml,
     refPickerHtml: refPickerHtml,
     teamConversationHtml: teamConversationHtml,
   };

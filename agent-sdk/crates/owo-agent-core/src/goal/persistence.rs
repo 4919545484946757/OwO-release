@@ -5,6 +5,20 @@ use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 
 pub(super) fn persist_checkpoint(state: &GoalRunState, dir: &Path) -> Result<PathBuf, String> {
+    persist_checkpoint_with_tasks(state, dir, state.team_task_events.as_ref())
+}
+pub(super) fn persist_checkpoint_with_tasks(
+    state: &GoalRunState,
+    dir: &Path,
+    outbox: Option<&crate::project_space_store::TaskEventOutbox>,
+) -> Result<PathBuf, String> {
+    #[derive(serde::Serialize)]
+    struct Checkpoint<'a> {
+        #[serde(flatten)]
+        state: &'a GoalRunState,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        team_task_events: Option<&'a crate::project_space_store::TaskEventOutbox>,
+    }
     let mut parts = Path::new(&state.run_id).components();
     if !matches!(parts.next(), Some(Component::Normal(_)))
         || parts.next().is_some()
@@ -12,8 +26,11 @@ pub(super) fn persist_checkpoint(state: &GoalRunState, dir: &Path) -> Result<Pat
     {
         return Err("运行状态 ID 必须是单个文件名".into());
     }
-    let bytes =
-        serde_json::to_vec_pretty(state).map_err(|error| format!("运行状态序列化失败：{error}"))?;
+    let bytes = serde_json::to_vec_pretty(&Checkpoint {
+        state,
+        team_task_events: outbox,
+    })
+    .map_err(|error| format!("运行状态序列化失败：{error}"))?;
     std::fs::create_dir_all(dir).map_err(|error| format!("创建运行目录失败：{error}"))?;
     let path = dir.join(format!("{}.json", state.run_id));
     let pending = dir.join(format!(

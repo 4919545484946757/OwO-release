@@ -10,7 +10,7 @@
 //!   `find_match`（自动匹配）不会命中——「自动模式只匹配已安装模板」由注册表
 //!   机制天然保证（注册表只包含已安装/已采纳模板）。
 //! - 安装动作在 server 侧 `team_template_catalog_api`（用户手动触发、幂等、
-//!   只写 `templates/{id}.json`，不触碰任何权限/设置面——不自动扩大文件、
+//!   只写共享注册表中的模板修订，不触碰任何权限/设置面——不自动扩大文件、
 //!   命令或网络权限）。
 //! - 预算语义：`budget` 为 GoalBudget 兼容键（max_steps / max_retries_per_step /
 //!   max_total_retries / max_replans）+ 五期 additive 键（max_wall_secs /
@@ -88,6 +88,7 @@ pub const CATALOG_IDS: [&str; 6] = [
 
 fn role(role: &str, depends_on: &[&str], handoff_contract: &str, verify: &str) -> TeamTemplateRole {
     TeamTemplateRole {
+        node_id: None,
         role: role.to_string(),
         assignee: "agent".to_string(),
         worker: None, // agent 角色缺省模型驱动（create_team_run 归一为 "agent"）
@@ -112,6 +113,8 @@ fn role(role: &str, depends_on: &[&str], handoff_contract: &str, verify: &str) -
 /// Critic（reviewer）只提交评审结论，不得覆盖 implementer 交付物。
 fn code_change_v1() -> BuiltinTemplateDescriptor {
     let template = TeamTemplate {
+        budget_calls_per_role: Default::default(),
+        editor: None,
         template_id: CODE_CHANGE_V1.to_string(),
         name: "代码变更（分析 → 实现落盘 → 只读审查）".to_string(),
         mode: TeamMode::Team,
@@ -188,6 +191,8 @@ fn code_change_v1() -> BuiltinTemplateDescriptor {
 /// Code change v2 removes the redundant serial analysis hop while retaining independent review.
 fn code_change_v2() -> BuiltinTemplateDescriptor {
     let template = TeamTemplate {
+        budget_calls_per_role: Default::default(),
+        editor: None,
         template_id: CODE_CHANGE_V2.to_string(),
         name: "代码变更（实现 → 独立审查）".to_string(),
         mode: TeamMode::Team,
@@ -298,6 +303,8 @@ fn fullstack_web_v1() -> BuiltinTemplateDescriptor {
         "docs".to_string(),
     ];
     let template = TeamTemplate {
+        budget_calls_per_role: Default::default(),
+        editor: None,
         template_id: FULLSTACK_WEB_V1.to_string(),
         name: "全栈 Web（任务拆分 → 并行实现 → 宿主验收）".to_string(),
         mode: TeamMode::Team,
@@ -355,6 +362,8 @@ fn fullstack_web_v1() -> BuiltinTemplateDescriptor {
 /// 交付必须带来源：每条结论附引用（URL/文件路径），无源结论在核验环节剔除。
 fn research_brief_v1() -> BuiltinTemplateDescriptor {
     let template = TeamTemplate {
+        budget_calls_per_role: Default::default(),
+        editor: None,
         template_id: RESEARCH_BRIEF_V1.to_string(),
         name: "研究简报（并行研究 → 证据核验 → 汇总交付）".to_string(),
         mode: TeamMode::Team,
@@ -437,6 +446,8 @@ fn research_brief_v1() -> BuiltinTemplateDescriptor {
 /// 文档交付模板：起草 → 只读内容审查 → 最终版本（终稿由 finalizer 落盘）。
 fn document_delivery_v1() -> BuiltinTemplateDescriptor {
     let template = TeamTemplate {
+        budget_calls_per_role: Default::default(),
+        editor: None,
         template_id: DOCUMENT_DELIVERY_V1.to_string(),
         name: "文档交付（起草 → 内容审查 → 最终版本）".to_string(),
         mode: TeamMode::Team,
@@ -510,6 +521,8 @@ fn document_delivery_v1() -> BuiltinTemplateDescriptor {
 /// 交付必须是机器可解析的 JSON/CSV（校验失败列出具体违规，禁止自由文本冒充）。
 fn structured_extract_v1() -> BuiltinTemplateDescriptor {
     let template = TeamTemplate {
+        budget_calls_per_role: Default::default(),
+        editor: None,
         template_id: STRUCTURED_EXTRACT_V1.to_string(),
         name: "结构化抽取（抽取 → Schema 校验 → JSON/CSV Artifact）".to_string(),
         mode: TeamMode::Team,
@@ -1094,6 +1107,60 @@ mod tests {
             32
         );
         assert!(prompt_sections_for(CODE_CHANGE_V2, "implementer").is_some());
+
+        // 紧凑模板必须真的可写：implementer 空 write_paths 由画像落到工作区根，
+        // reviewer 保持只读且没有写路径；否则会出现“实现角色只评审”的空交付。
+        let workspace = tempfile::tempdir().unwrap();
+        let implementer = compact.template.roles[0].clone().into();
+        let implementer_profile = crate::worker_profile::WorkerProfile::for_team_role_spec(
+            &implementer,
+            16,
+            false,
+            Some(CODE_CHANGE_V2),
+        );
+        assert!(!implementer_profile.read_only, "{implementer_profile:?}");
+        for tool in ["read_file", "write_file", "apply_patch", "run_command"] {
+            assert!(
+                implementer_profile
+                    .visible_tools
+                    .iter()
+                    .any(|visible| visible == tool),
+                "implementer 缺 {tool}: {:?}",
+                implementer_profile.visible_tools
+            );
+        }
+        let implementer_paths =
+            crate::worker_profile::WorkerProfile::team_role_write_allowed_paths(
+                &implementer,
+                workspace.path(),
+                true,
+            )
+            .unwrap();
+        assert_eq!(implementer_paths.len(), 1);
+        assert_eq!(
+            implementer_paths[0].file_name(),
+            workspace.path().file_name(),
+            "implementer 的根写面必须覆盖工作区"
+        );
+
+        let reviewer = compact.template.roles[1].clone().into();
+        let reviewer_profile = crate::worker_profile::WorkerProfile::for_team_role_spec(
+            &reviewer,
+            16,
+            false,
+            Some(CODE_CHANGE_V2),
+        );
+        assert!(reviewer_profile.read_only, "{reviewer_profile:?}");
+        assert!(
+            crate::worker_profile::WorkerProfile::team_role_write_allowed_paths(
+                &reviewer,
+                workspace.path(),
+                false,
+            )
+            .unwrap()
+            .is_empty(),
+            "reviewer 不得获得写路径"
+        );
 
         // 代码 v1 保留现有落盘角色与只读审查语义，已持久化团队不受影响。
         let code = descriptor(CODE_CHANGE_V1).unwrap();

@@ -1,0 +1,97 @@
+{
+  "template_id": "api-service",
+  "name": "REST API 交付流水线",
+  "mode": "team",
+  "applicability": "API REST 服务 后端 接口 接口测试 开发 实现 数据 测试",
+  "applicability_notes": "用于需要真实可运行后端接口与自动化测试的请求；不使用浏览器角色。",
+  "created_at": "2026-10-26T00:00:00Z",
+  "description": "四角色 API 流水线：architect 定契约 → backend 实现 Node HTTP 服务与接口测试 → tester 独立验收 → lead_review 只读交付评分；默认写范围为 src/、tests/、docs/。",
+  "version": "1.0.2",
+  "tags": [
+    "api",
+    "backend",
+    "rest",
+    "node"
+  ],
+  "roles": [
+    {
+      "role": "architect",
+      "assignee": "agent",
+      "depends_on": [],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "docs/"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file"
+      ],
+      "handoff_contract": "你是 architect。先读现有工作区，写 docs/api-design.md：目标、资源/路由、请求/响应 JSON、错误码、状态码、边界与非目标。只写 docs/，不写产品代码。输出 WorkerOutputV1，artifact.format=markdown，artifact.content 写契约摘要和下游必须遵守的字段；不要写大段探索过程。"
+    },
+    {
+      "role": "backend",
+      "assignee": "agent",
+      "depends_on": [
+        "architect"
+      ],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "src/",
+        "tests/"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "handoff_contract": "你是 backend。按 docs/api-design.md 用 Node 内置 http 实现 src/server.js（无第三方依赖），并提供 tests/api.test.js 覆盖成功路径、400/404 与至少一个边界。启动测试用 node:test 直接调用 handler 或临时端口；不要依赖外部服务。运行 `node --test` 并真实记录通过/失败；不改 docs/，不伪造运行结果。输出 WorkerOutputV1，artifact.kind=code，artifact.format=markdown，列出口、测试命令和限制。"
+    },
+    {
+      "role": "tester",
+      "assignee": "agent",
+      "depends_on": [
+        "backend"
+      ],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "tests/acceptance/"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "run_command"
+      ],
+      "handoff_contract": "你是独立 tester，不重写产品。运行 `node --test` 获取真实结果；只写 tests/acceptance/api-report.json，记录命令、计数、失败名称、契约覆盖与结论。不要修改 src/docs；不要运行无关命令。输出 WorkerOutputV1，artifact.format=markdown 写报告路径和真实结果；不要设置 format=json。 Do not use shell redirection/tee or write any file outside tests/acceptance/: run node --test directly, then write only tests/acceptance/api-report.json. Execute exactly the single command `node --test` with no redirect, pipe, semicolon, braces, `>`, `|`, `&&`, or shell wrapper; read the command tool output for counts, never redirect to a file."
+    },
+    {
+      "role": "lead_review",
+      "assignee": "agent",
+      "depends_on": [
+        "tester"
+      ],
+      "capabilities": [
+        "review"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [],
+      "tools": [
+        "read_file",
+        "list_dir"
+      ],
+      "handoff_contract": "你是只读 lead_review 和交付质量门。核对：路由与 JSON 契约、400/404、边界、真实 node --test 计数、无产品代码被 tester 改、报告与代码一致。只输出合法 WorkerOutputV1 JSON，不提交 artifact：{\"status\":\"done\",\"summary\":\"评分卡JSON\",\"review_result\":{\"verdict\":\"approved\",\"reviewed_requirement_ids\":[],\"findings\":[]},\"evidence\":[],\"open_issues\":[],\"handoff\":\"\"}。summary 中写 scores{routes,contract,errors,tests,evidence} 和真实字段；五项>=4 且无 blocker/major 才 approved，否则 changes_requested，为每个 finding 写 target_task_id（s-backend 或 s-tester）。"
+    }
+  ]
+}

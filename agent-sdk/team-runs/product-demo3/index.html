@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OwO Agent SDK — 可编排的智能体运行时</title>
+  <meta name="description" content="OwO Agent SDK：轻量、可组合、可观测的智能体运行时。声明式编排工具与多步推理，标准 ESM 单文件引入，几行代码接入你的业务流程。">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <!-- 1. Header -->
+  <header class="site-header" id="site-header">
+    <div class="container header__inner">
+      <a class="brand" href="#main" aria-label="OwO Agent 首页">
+        <svg class="brand__mark" width="24" height="24" viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
+          <circle cx="4.5" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+          <circle cx="19.5" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+          <circle cx="4.5" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+          <circle cx="19.5" cy="18" r="2" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
+          <path d="M6.3 7.1 9.5 10.5M17.7 7.1 14.5 10.5M6.3 16.9 9.5 13.5M17.7 16.9 14.5 13.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+        </svg>
+        <span class="brand__name">OwO Agent</span>
+      </a>
+
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-nav" aria-label="打开导航菜单">
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+          <path d="M3 5h14M3 10h14M3 15h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+        </svg>
+        <span class="nav-toggle__text">菜单</span>
+      </button>
+
+      <nav class="primary-nav" id="primary-nav" aria-label="主导航">
+        <ul class="nav-list">
+          <li><a href="#capabilities">能力</a></li>
+          <li><a href="#quickstart">快速开始</a></li>
+          <li><a href="#docs">文档</a></li>
+          <li><a href="#source">源码</a></li>
+        </ul>
+      </nav>
+
+      <a class="btn btn--primary header__cta" href="#quickstart">开始接入</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- 2. Hero -->
+    <section class="hero" id="hero" aria-labelledby="hero-title">
+      <div class="container hero__inner">
+        <div class="hero__copy">
+          <p class="eyebrow">面向开发者的智能体 SDK</p>
+          <h1 id="hero-title">让任何应用拥有可编排的 Agent 能力</h1>
+          <p class="hero__subtitle">OwO Agent SDK — 轻量、可组合、可观测的智能体运行时，几行代码接入你的业务流程。</p>
+          <div class="hero__actions">
+            <a class="btn btn--primary" href="#quickstart">开始接入</a>
+            <a class="btn btn--ghost" href="#source">查看源码</a>
+          </div>
+          <p class="hero__note">支持 Node.js 18+ 与浏览器 ESM，单文件引入，无强制运行时依赖。</p>
+        </div>
+
+        <figure class="hero__visual" aria-labelledby="hero-visual-caption">
+          <svg class="topology" viewBox="0 0 360 280" role="img" aria-labelledby="hero-visual-caption" focusable="false">
+            <title id="hero-visual-caption">智能体拓扑示意图：输入节点经编排器调度到工具节点与记忆节点</title>
+            <g class="topology__lines" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+              <path d="M60 140 L180 140"></path>
+              <path d="M180 140 L300 60"></path>
+              <path d="M180 140 L300 140"></path>
+              <path d="M180 140 L300 220"></path>
+              <path d="M180 140 L180 40"></path>
+              <path d="M180 140 L180 240"></path>
+            </g>
+            <g class="topology__nodes" fill="none" stroke="currentColor" stroke-width="1.6">
+              <circle cx="60" cy="140" r="18"></circle>
+              <circle cx="180" cy="140" r="26"></circle>
+              <circle cx="180" cy="40" r="14"></circle>
+              <circle cx="180" cy="240" r="14"></circle>
+              <circle cx="300" cy="60" r="16"></circle>
+              <circle cx="300" cy="140" r="16"></circle>
+              <circle cx="300" cy="220" r="16"></circle>
+            </g>
+            <g class="topology__labels">
+              <text x="60" y="146" text-anchor="middle">输入</text>
+              <text x="180" y="146" text-anchor="middle">编排</text>
+              <text x="180" y="45" text-anchor="middle">记忆</text>
+              <text x="180" y="245" text-anchor="middle">追踪</text>
+              <text x="300" y="65" text-anchor="middle">工具</text>
+              <text x="300" y="145" text-anchor="middle">模型</text>
+              <text x="300" y="225" text-anchor="middle">输出</text>
+            </g>
+          </svg>
+          <figcaption class="hero__caption">一次调用 = 输入 → 编排 → 工具/模型 → 输出，全链路可追踪。</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 3. Capabilities -->
+    <section class="section" id="capabilities" aria-labelledby="capabilities-title">
+      <div class="container">
+        <header class="section__head">
+          <h2 id="capabilities-title">三项核心能力</h2>
+          <p class="section__lead">不是能力清单堆砌，而是你接入当天就会用到的三件事。</p>
+        </header>
+        <ul class="card-grid">
+          <li class="card" tabindex="0">
+            <h3>可编排智能体</h3>
+            <p>用声明式配置定义工具与流程，模型自动完成多步推理与工具调用。单次任务最多串联 12 个步骤。</p>
+            <pre class="card__code"><code>agent.addTool(searchDocs);
+await agent.run("总结本周发布说明");</code></pre>
+          </li>
+          <li class="card" tabindex="0">
+            <h3>轻量接入</h3>
+            <p>单文件 SDK，标准 ESM 引入，无强制运行时依赖。npm 包体积 38 KB（gzip），冷启动约 12 ms。</p>
+            <pre class="card__code"><code>import { Agent } from "owo-agent";</code></pre>
+          </li>
+          <li class="card" tabindex="0">
+            <h3>可观测与可控</h3>
+            <p>内置调用追踪与逐工具权限边界，每一步输入输出都可导出为 JSON 日志，便于调试与审计。</p>
+            <pre class="card__code"><code>agent.trace.on("step", console.log);</code></pre>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 4. Quick Start -->
+    <section class="section section--alt" id="quickstart" aria-labelledby="quickstart-title">
+      <div class="container quickstart">
+        <div class="quickstart__copy">
+          <h2 id="quickstart-title">三步跑通第一个 Agent</h2>
+          <ol class="steps">
+            <li>
+              <span class="steps__index">1</span>
+              <div>
+                <h3>安装 SDK</h3>
+                <p>Node.js 18 及以上，一条命令完成安装，无需额外配置构建工具。</p>
+              </div>
+            </li>
+            <li>
+              <span class="steps__index">2</span>
+              <div>
+                <h3>注册一个工具</h3>
+                <p>工具就是一个带 <code>name</code>、<code>description</code> 与 <code>run</code> 的对象，函数体内写你的业务逻辑。</p>
+              </div>
+            </li>
+            <li>
+              <span class="steps__index">3</span>
+              <div>
+                <h3>发起一次运行</h3>
+                <p>把自然语言目标交给 <code>agent.run()</code>，SDK 负责规划、调用工具并汇总结果。</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <div class="codeblock">
+          <div class="codeblock__bar">
+            <span class="codeblock__lang">shell / js</span>
+            <button class="codeblock__copy" type="button" data-copy-target="quickstart-code">复制</button>
+          </div>
+          <pre class="codeblock__pre" tabindex="0"><code id="quickstart-code">npm install owo-agent
+
+import { Agent } from "owo-agent";
+
+const agent = new Agent({ apiKey: process.env.OWO_API_KEY });
+agent.addTool({ name: "searchDocs", description: "检索官方文档", run: async (q) => docs.search(q) });
+console.log(await agent.run("列出新版本的三条变更"));</code></pre>
+          <p class="codeblock__status" role="status" aria-live="polite">代码可整体选中复制，复制结果会在此处播报。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Proof / Metrics -->
+    <section class="section" id="proof" aria-labelledby="proof-title">
+      <div class="container">
+        <header class="section__head">
+          <h2 id="proof-title">为什么选择 OwO Agent</h2>
+          <p class="section__lead">数字来自官方基准测试，环境为 Node.js 20 / 4 核 8 GB。</p>
+        </header>
+
+        <dl class="metrics">
+          <div class="metric">
+            <dt>首次接入耗时</dt>
+            <dd><span class="metric__value">8</span> 分钟</dd>
+          </div>
+          <div class="metric">
+            <dt>平均单步响应</dt>
+            <dd><span class="metric__value">240</span> 毫秒</dd>
+          </div>
+          <div class="metric">
+            <dt>已集成项目</dt>
+            <dd><span class="metric__value">1,300</span> 个</dd>
+          </div>
+        </dl>
+
+        <div class="reasons">
+          <h3 class="reasons__title">三个差异点</h3>
+          <ul class="reasons__list">
+            <li><strong>零构建接入</strong>：直接 import，不需要打包插件或代码生成。</li>
+            <li><strong>权限前置</strong>：工具级白名单，默认拒绝未声明能力。</li>
+            <li><strong>可回放追踪</strong>：每次运行生成可回放的步骤日志，排查问题不用猜。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Final CTA -->
+    <section class="section section--cta" id="final-cta" aria-labelledby="final-cta-title">
+      <div class="container final-cta">
+        <h2 id="final-cta-title">从第一个工具调用开始</h2>
+        <p class="final-cta__text">8 分钟接入，单文件 SDK，先把一件事跑通再决定要不要扩展。</p>
+        <div class="final-cta__actions">
+          <a class="btn btn--primary" href="#quickstart">开始接入</a>
+          <a class="btn btn--ghost" href="#source">查看源码</a>
+        </div>
+        <p class="final-cta__anchor" id="docs">文档入口见页尾「文档」，源码入口见页尾「源码」。</p>
+        <p class="final-cta__anchor" id="source">源码仓库：github.com/owo-agent/sdk（示例与变更日志同仓）。</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- 7. Footer -->
+  <footer class="site-footer" id="site-footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <p class="footer__name">OwO Agent</p>
+        <p class="footer__copy">© 2025 OwO Agent SDK。面向开发者的智能体运行时。</p>
+      </div>
+      <nav class="footer__nav" aria-label="页尾导航">
+        <ul class="footer__list">
+          <li><a href="#docs">文档</a></li>
+          <li><a href="#source">源码</a></li>
+          <li><a href="#proof">基准测试</a></li>
+          <li><a href="#capabilities">能力</a></li>
+        </ul>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

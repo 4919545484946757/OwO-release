@@ -1,0 +1,71 @@
+   Compiling owo-agent-core v0.1.0 (T:\创新创业\OwO-master\agent-sdk\crates\owo-agent-core)
+
+running 8 tests
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 16.94s
+     Running tests\anthropic_stream_integrity_tests.rs (native-target\debug\deps\anthropic_stream_integrity_tests-fdb603565d99fe3b.exe)
+test clean_http_eof_cannot_complete_partial_text_or_executable_tool_calls ... FAILED
+test completed_utf8_events_are_delivered_before_the_next_partial_character_finishes ... FAILED
+test crlf_multiline_data_and_unknown_events_preserve_text_and_reasoning ... FAILED
+test incomplete_terminal_event_and_ping_only_stream_are_not_successful_messages ... FAILED
+test malformed_json_and_invalid_utf8_fail_instead_of_disappearing_from_the_stream ... FAILED
+test message_stop_finishes_without_waiting_for_the_http_connection_to_close ... FAILED
+test oversized_unterminated_sse_frame_is_rejected_before_the_peer_closes ... FAILED
+test stream_error_is_failure_and_never_a_content_delta_or_leaked_credential ... FAILED
+
+failures:
+
+---- clean_http_eof_cannot_complete_partial_text_or_executable_tool_calls stdout ----
+thread 'clean_http_eof_cannot_complete_partial_text_or_executable_tool_calls' (13000) panicked at crates\owo-agent-core\tests\anthropic_stream_integrity_tests.rs:149:17:
+called `Result::unwrap_err()` on an `Ok` value: Text("partial")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- completed_utf8_events_are_delivered_before_the_next_partial_character_finishes stdout ----
+
+thread 'completed_utf8_events_are_delivered_before_the_next_partial_character_finishes' (61116) panicked at crates\owo-agent-core\tests\anthropic_stream_integrity_tests.rs:200:13:
+called `Result::unwrap()` on an `Err` value: "Anthropic 流式输出空闲超时（60s 无数据）"
+
+
+---- crlf_multiline_data_and_unknown_events_preserve_text_and_reasoning stdout ----
+
+thread 'crlf_multiline_data_and_unknown_events_preserve_text_and_reasoning' (44680) panicked at crates\owo-agent-core\tests\anthropic_stream_integrity_tests.rs:173:13:
+called `Result::unwrap()` on an `Err` value: "Anthropic 流式响应为空或不是 SSE 格式"
+
+---- incomplete_terminal_event_and_ping_only_stream_are_not_successful_messages stdout ----
+
+thread 'incomplete_terminal_event_and_ping_only_stream_are_not_successful_messages' (24588) panicked at crates\owo-agent-core\tests\anthropic_stream_integrity_tests.rs:258:17:
+called `Result::unwrap_err()` on an `Ok` value: Text("partial")
+
+---- malformed_json_and_invalid_utf8_fail_instead_of_disappearing_from_the_stream stdout ----
+
+thread 'malformed_json_and_invalid_utf8_fail_instead_of_disappearing_from_the_stream' (35072) panicked at crates\owo-agent-core\tests\anthropic_stream_integrity_tests.rs:217:17:
+called `Result::unwrap_err()` on an `Ok` value: Text("ok")
+
+---- message_stop_finishes_without_waiting_for_the_http_connection_to_close stdout ----
+
+thread 'message_stop_finishes_without_waiting_for_the_http_connection_to_close' (8484) panicked at crates\owo-agent-core\tests\anthropic_stream_integrity_tests.rs:245:13:
+terminal event must finish before the one-second transport idle timeout: Elapsed(())
+---- oversized_unterminated_sse_frame_is_rejected_before_the_peer_closes stdout ----
+
+thread 'oversized_unterminated_sse_frame_is_rejected_before_the_peer_closes' (68572) panicked at crates\owo-agent-core\tests\anthropic_stream_integrity_tests.rs:234:5:
+Anthropic 流式输出空闲超时（60s 无数据）
+
+---- stream_error_is_failure_and_never_a_content_delta_or_leaked_credential stdout ----
+
+
+thread 'stream_error_is_failure_and_never_a_content_delta_or_leaked_credential' (15608) panicked at crates\owo-agent-core\tests\anthropic_stream_integrity_tests.rs:126:13:
+called `Result::unwrap_err()` on an `Ok` value: Text("partial")
+
+
+failures:
+    completed_utf8_events_are_delivered_before_the_next_partial_character_finishes
+    crlf_multiline_data_and_unknown_events_preserve_text_and_reasoning
+    incomplete_terminal_event_and_ping_only_stream_are_not_successful_messages
+    malformed_json_and_invalid_utf8_fail_instead_of_disappearing_from_the_stream
+    message_stop_finishes_without_waiting_for_the_http_connection_to_close
+    oversized_unterminated_sse_frame_is_rejected_before_the_peer_closes
+    stream_error_is_failure_and_never_a_content_delta_or_leaked_credential
+
+test result: FAILED. 0 passed; 8 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.91s
+
+    clean_http_eof_cannot_complete_partial_text_or_executable_tool_calls
+error: test failed, to rerun pass `-p owo-agent-core --test anthropic_stream_integrity_tests`

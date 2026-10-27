@@ -145,7 +145,9 @@
           ? "rv-bad"
           : st === "pending_review"
             ? "rv-warn"
-            : "";
+            : st === "superseded"
+              ? "rv-off"
+              : "";
     return '<span class="owo-ws-badge ' + cls + '">' + ctx.esc(ctx.CS_STATUS_CN[st] || st || "未知") + "</span>";
   }
 

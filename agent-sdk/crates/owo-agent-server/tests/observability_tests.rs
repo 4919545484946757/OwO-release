@@ -131,6 +131,7 @@ async fn seed_five_traces(state: &Arc<owo_agent_server::AppState>) {
                 ok: true,
                 error: None,
                 preview: None,
+                outputs: Vec::new(),
                 command_receipt: None,
             },
             TurnEvent::ToolStart {
@@ -144,6 +145,7 @@ async fn seed_five_traces(state: &Arc<owo_agent_server::AppState>) {
                 ok: i % 3 != 0,
                 error: (i % 3 == 0).then(|| "denied".to_string()),
                 preview: None,
+                outputs: Vec::new(),
                 command_receipt: None,
             },
         ];

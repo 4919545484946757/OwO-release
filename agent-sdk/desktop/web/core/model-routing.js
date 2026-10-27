@@ -44,10 +44,16 @@
     const value = String(model || "").trim();
     return { model: value || null };
   }
-  function buildCreateSessionRequest(workspace, explicitModel) {
+  function buildCreateSessionRequest(workspace, explicitModel, mode, systemPrompt) {
     const request = { workspace: String(workspace || "").trim() };
     const model = String(explicitModel || "").trim();
     if (model) request.model = model;
+    // 纯对话模式必须在创建时就生效：等到第一回合再切会让模型先看到本地工具列表。
+    const normalizedMode = String(mode || "").trim().toLowerCase();
+    if (normalizedMode === "chat") request.mode = "chat";
+    // 自定义提示词同样是会话属性：建会话时没带上，第一回合就白跑一次。
+    const prompt = String(systemPrompt == null ? "" : systemPrompt).trim();
+    if (prompt) request.system_prompt = prompt;
     return request;
   }
   function createSessionModelUpdateQueue(update) {

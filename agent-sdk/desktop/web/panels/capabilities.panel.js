@@ -15,6 +15,8 @@
     var lifecycleGeneration = 0;
     var refreshGeneration = 0;
     var hasSnapshot = false;
+    var snapshot = null;
+    var links = { "workflows.custom": ["custom-workflows", "打开工作流"], "sessions.turns": ["chat", "新建对话"], "traces.replay": ["project-history", "查看历史"], "memory.skill-mining": ["memory", "打开记忆"], "usage.budget": ["observability", "查看用量"], "diagnostics": ["diagnostics-ledger", "打开诊断"], "fleet.control": ["fleet", "打开舰队"] };
 
     function defaultGet(path) {
       return window.OwoApi.get(path);
@@ -60,8 +62,13 @@
     /// 能力卡片：名称 + 成熟度 + 说明 + 影响范围 + 用户入口。
     /// 技术入口 route 仅在开发者模式显示（§8.2：普通路由不泄漏 API path）。
     function card(c, dev) {
-      var entrypoints = (c.entrypoints || []).map(function (e) {
-        var kind = e.kind === "ui" ? "界面" : e.kind === "cli" ? "命令行" : "服务";
+      var entrypoints = (Array.isArray(c.entrypoints) ? c.entrypoints : []).map(function (e) {
+        // tool 类入口（如 generate_image / text_to_speech）指的是模型可调用的工具，
+        // 显示成「工具」比笼统的「服务」更准确，普通模式也不泄漏技术标识。
+        var kind = e.kind === "ui" ? "界面"
+          : e.kind === "cli" ? "命令行"
+          : e.kind === "tool" ? "工具"
+          : "服务";
         var tech = dev && e.target ? ' <code class="hint">' + esc(e.target) + "</code>" : "";
         return (
           '<li><span class="owo-cap-kind">' + esc(kind) + "</span> " +
@@ -69,33 +76,27 @@
           (dev ? "" : "（悬停查看技术入口）") + "</span>" + tech + "</li>"
         );
       }).join("");
-      var effects = (c.required_effects || []).map(effectLabel).filter(Boolean).join(" · ");
-      var deps = (c.dependencies || []).join("、");
-      return (
-        '<div class="owo-cap-card">' +
-        '<div class="owo-cap-head"><b>' + esc(c.user_name || "") + "</b>" +
-        maturityBadge(c.maturity) +
-        (c.advanced ? '<span class="owo-cap-badge owo-cap-adv">高级</span>' : "") +
-        "</div>" +
-        '<div class="owo-cap-sum">' + esc(c.summary || "") + "</div>" +
-        (effects ? '<div class="hint">影响范围：' + esc(effects) + "</div>" : "") +
-        (deps ? '<div class="hint">依赖能力：' + esc(deps) + "</div>" : "") +
-        (entrypoints ? '<ul class="owo-cap-entries">' + entrypoints + "</ul>" : "") +
-        "</div>"
-      );
+      var effects = (Array.isArray(c.required_effects) ? c.required_effects : []).map(effectLabel).filter(Boolean).join(" · ");
+      var deps = (Array.isArray(c.dependencies) ? c.dependencies : []).join("、");
+      var link = Object.prototype.hasOwnProperty.call(links, c.id) ? links[c.id] : null;
+      var canOpen = link && (link[0] === "chat" ? H.openChat : H.openPanel);
+      return '<article class="owo-cap-card"><div class="owo-cap-title"><h3>' + esc(c.user_name || c.id || "未命名能力") + '</h3><div class="owo-cap-badges">' +
+        maturityBadge(c.maturity) + (c.advanced ? '<span class="owo-cap-badge owo-cap-adv">高级</span>' : "") +
+        '</div></div><div class="owo-cap-body"><p class="owo-cap-sum">' + esc(c.summary || "") + '</p>' +
+        (effects ? '<p class="sub">影响范围：' + esc(effects) + '</p>' : "") +
+        (entrypoints || deps ? '<details class="owo-cap-details"><summary>入口与依赖</summary>' +
+          (deps ? '<p class="sub">依赖能力：' + esc(deps) + '</p>' : "") +
+          (entrypoints ? '<ul class="owo-cap-entries">' + entrypoints + '</ul>' : "") + '</details>' : "") +
+        '</div><div class="owo-cap-action">' + (canOpen ? '<button type="button" class="primary" data-cap-open="' + esc(c.id) + '">' + esc(link[1]) + '</button>' : "") + '</div></article>';
     }
 
     function nav() {
-      return (
-        '<section data-panel="capabilities" class="owo-cap-panel">' +
-        '<div class="owo-cap-tools"><h3>我现在能做什么</h3>' +
+      return '<section data-panel="capabilities" data-layout="custom" class="owo-cap-panel owo-insight">' +
+        '<div class="owo-cap-tools"><input type="search" class="owo-cap-search" aria-label="搜索能力" placeholder="按名称或说明搜索能力">' +
+        '<select class="owo-cap-filter" aria-label="成熟度"><option value="">全部成熟度</option><option value="stable">稳定</option><option value="beta">试用</option><option value="experimental">实验</option></select>' +
         '<button type="button" class="owo-cap-refresh" aria-label="刷新能力目录">刷新</button></div>' +
-        '<div class="hint">按任务展示产品能力与入口；标记「高级」的能力在开发者模式下显示。</div>' +
-        '<div class="owo-cap-meta sub" role="status" aria-live="polite">加载中…</div>' +
-        '<div class="owo-cap-list"></div>' +
-        '<div class="owo-cap-error sub" role="alert" hidden></div>' +
-        "</section>"
-      );
+        '<div class="owo-cap-meta sub" role="status" aria-live="polite">加载中…</div><div class="owo-cap-list"></div>' +
+        '<div class="owo-cap-error sub" role="alert" hidden></div></section>';
     }
 
     function isCurrent(root, lifecycle, request) {
@@ -114,22 +115,26 @@
       if (!root) return { shown: 0, hidden: 0, total: 0 };
       var list = root.querySelector(".owo-cap-list");
       var meta = root.querySelector(".owo-cap-meta");
-      var caps = (data && data.capabilities) || [];
-      var shown = caps.filter(function (c) {
-        return dev || !c.advanced;
+      if (!data || !Array.isArray(data.capabilities) || data.capabilities.some(function (c) { return !c || typeof c !== "object"; })) throw new Error("能力目录响应不完整");
+      var caps = data.capabilities;
+      var visible = caps.filter(function (c) { return dev || !c.advanced; });
+      var search = root.querySelector(".owo-cap-search"), filter = root.querySelector(".owo-cap-filter");
+      var query = String(search && search.value || "").trim().toLowerCase(), maturity = String(filter && filter.value || "");
+      var shown = visible.filter(function (c) {
+        return (!maturity || c.maturity === maturity) && (!query || [c.user_name, c.summary, c.id].join(" ").toLowerCase().indexOf(query) >= 0);
       });
-      var m = (data && data.maturity) || {};
-      var hiddenCount = caps.length - shown.length;
+      var m = {stable: 0, beta: 0, experimental: 0};
+      caps.forEach(function (c) { if (Object.prototype.hasOwnProperty.call(m, c.maturity)) m[c.maturity] += 1; });
+      var hiddenCount = caps.length - visible.length;
       if (meta) {
-        meta.innerHTML =
-          esc("共 " + (data && data.count != null ? data.count : caps.length) + " 项能力：稳定 " +
-            (m.stable || 0) + " · 试用 " + (m.beta || 0) + " · 实验 " + (m.experimental || 0)) +
-          (hiddenCount > 0 && !dev ? "（另有 " + hiddenCount + " 项高级能力在开发者模式下显示）" : "");
+        meta.innerHTML = esc("共 " + caps.length + " 项能力：稳定 " + m.stable + " · 试用 " + m.beta + " · 实验 " + m.experimental) +
+          (hiddenCount > 0 && !dev ? '<p class="sub">另有 ' + hiddenCount + ' 项高级能力在开发者模式下显示。</p>' : "") +
+          (query || maturity ? '<p class="sub">筛选结果：' + shown.length + ' 项</p>' : "");
       }
       if (list) {
         list.innerHTML = shown.length
           ? shown.map(function (c) { return card(c, dev); }).join("")
-          : '<div class="hint">暂无已登记能力</div>';
+          : '<div class="owo-insight-empty">' + (query || maturity ? '没有匹配的能力' : '暂无已登记能力') + '</div>';
       }
       return { shown: shown.length, hidden: hiddenCount, total: caps.length };
     }
@@ -149,8 +154,10 @@
       return H.get("/capabilities")
         .then(function (data) {
           if (!isCurrent(root, lifecycle, request)) return;
-          hasSnapshot = true;
           paint(data, root, developerMode());
+          snapshot = data;
+          hasSnapshot = true;
+          bindLinks(root, lifecycle);
         })
         .catch(function (e) {
           if (!isCurrent(root, lifecycle, request)) return;
@@ -164,10 +171,31 @@
         });
     }
 
+    function bindLinks(root, lifecycle) {
+      if (!root.querySelectorAll) return;
+      root.querySelectorAll("[data-cap-open]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          if (root !== rootEl || lifecycle !== lifecycleGeneration) return;
+          var id = button.getAttribute("data-cap-open");
+          var link = Object.prototype.hasOwnProperty.call(links, id) ? links[id] : null;
+          if (!link) return;
+          var action = link[0] === "chat" ? H.openChat : H.openPanel;
+          if (!action) return;
+          var errBox = root.querySelector(".owo-cap-error");
+          Promise.resolve().then(function () { return action(link[0] === "chat" ? undefined : link[0]); }).catch(function (error) {
+            if (root !== rootEl || lifecycle !== lifecycleGeneration) return;
+            errBox.hidden = false; errBox.textContent = "打开失败：" + H.friendlyError(error);
+          });
+        });
+      });
+    }
+
     function mount(root, helpers) {
       dispose();
       H = {
         get: (helpers && helpers.get) || defaultGet,
+        openPanel: helpers && helpers.openPanel,
+        openChat: helpers && helpers.openChat,
         friendlyError: (helpers && helpers.friendlyError) || defaultFriendlyError,
         esc: (helpers && helpers.esc) || defaultEsc,
       };
@@ -178,8 +206,17 @@
       var btn = root.querySelector(".owo-cap-refresh");
       if (btn)
         btn.addEventListener("click", function () {
+          if (lifecycle !== lifecycleGeneration || root !== rootEl) return;
           refresh(root);
         });
+      var lifecycle = lifecycleGeneration;
+      [".owo-cap-search", ".owo-cap-filter"].forEach(function (selector) {
+        var input = root.querySelector(selector);
+        input.addEventListener(selector.indexOf("search") >= 0 ? "input" : "change", function () {
+          if (root !== rootEl || lifecycle !== lifecycleGeneration || !snapshot) return;
+          paint(snapshot, root, developerMode()); bindLinks(root, lifecycle);
+        });
+      });
       refresh(root);
     }
 
@@ -187,6 +224,7 @@
       lifecycleGeneration += 1;
       refreshGeneration += 1;
       rootEl = null;
+      snapshot = null;
       hasSnapshot = false;
     }
 
@@ -199,7 +237,7 @@
 
     return {
       id: ID,
-      title: "我现在能做什么",
+      title: "能力与成熟度",
       nav: nav,
       mount: mount,
       refresh: refresh,

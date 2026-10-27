@@ -12,19 +12,21 @@
 //! 选择接线在 [`crate::gateway::DeferredProvider`]：`OWO_PROVIDER=anthropic`
 //! 且 `ANTHROPIC_API_KEY` 可用时启用。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use crate::gateway::{
-    build_model_http_client, ChatMessage, MessageImage, ModelOutput, ModelProvider, StreamChunk,
-    TokenUsage, ToolCall,
+    build_model_http_client, ChatMessage, MessageImage, ModelCallMetadata, ModelOutput,
+    ModelProvider, ObservedModelOutput, StreamChunk, TokenUsage, ToolCall, MODEL_DEFAULT_SENTINEL,
 };
 use crate::tools::ToolSpec;
 
 use futures_util::StreamExt;
+
+mod sse;
 
 /// Anthropic 未显式指定 max_tokens 时必须下发（协议必填），默认 8192。
 const DEFAULT_MAX_TOKENS: u64 = 8192;
@@ -154,33 +156,20 @@ impl AnthropicProvider {
     }
 
     fn record_usage(&self, usage: &Value) {
-        let input = usage
-            .get("input_tokens")
-            .and_then(Value::as_u64)
-            .unwrap_or(0);
-        let output = usage
-            .get("output_tokens")
-            .and_then(Value::as_u64)
-            .unwrap_or(0);
+        let Some(parsed) = parse_anthropic_usage(usage) else {
+            return;
+        };
+        if let Ok(mut current) = self.usage.lock() {
+            current.add(&parsed);
+        }
         let cache_read = usage
             .get("cache_read_input_tokens")
             .and_then(Value::as_u64)
             .unwrap_or(0);
-        if input + output == 0 {
-            return;
-        }
-        if let Ok(mut current) = self.usage.lock() {
-            current.add(&TokenUsage {
-                prompt_tokens: input,
-                completion_tokens: output,
-                total_tokens: input + output,
-            });
-        }
         if cache_read > 0 {
             if let Ok(mut slot) = self.last_cache_read.lock() {
                 *slot = cache_read;
             }
-            // 缓存命中验证口径：日志明示 cache_read_input_tokens > 0。
             tracing::info!(
                 cache_read_input_tokens = cache_read,
                 "Anthropic prompt cache 命中"
@@ -510,6 +499,8 @@ fn parse_response_content(payload: &Value, tools: &[ToolSpec]) -> Result<ModelOu
 const MAX_ANTHROPIC_TEXT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_ANTHROPIC_REASONING_BYTES: usize = 8 * 1024 * 1024;
 const MAX_ANTHROPIC_TOOL_ARGUMENT_BYTES: usize = 4 * 1024 * 1024;
+const MAX_ANTHROPIC_TOOL_BLOCKS: usize = 1024;
+const MAX_ANTHROPIC_TOTAL_TOOL_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Default)]
 struct AnthStreamState {
@@ -517,7 +508,12 @@ struct AnthStreamState {
     reasoning: String,
     /// index → (tool_use_id, name, arguments json 累积)。
     tool_blocks: HashMap<u64, (String, String, String)>,
+    completed_tool_blocks: HashSet<u64>,
     usage: Option<Value>,
+    tool_bytes: usize,
+    message_started: bool,
+    message_stopped: bool,
+    error: Option<String>,
     truncated: bool,
 }
 
@@ -528,10 +524,76 @@ impl AnthStreamState {
         if payload.is_empty() {
             return None;
         }
-        let value: Value = serde_json::from_str(payload).ok()?;
-        match value.get("type").and_then(Value::as_str)? {
+        if self.message_stopped || self.error.is_some() || self.truncated {
+            return None;
+        }
+        let value: Value = match serde_json::from_str(payload) {
+            Ok(value) => value,
+            Err(_) => {
+                self.error =
+                    Some("provider/stream_invalid_json: invalid Anthropic SSE event".into());
+                return None;
+            }
+        };
+        let Some(kind) = value.get("type").and_then(Value::as_str) else {
+            self.error = Some("provider/stream_invalid_event: Anthropic event has no type".into());
+            return None;
+        };
+        let index = value.get("index").and_then(Value::as_u64);
+        let malformed = match kind {
+            "message_start" => !value.get("message").is_some_and(Value::is_object),
+            "content_block_start" => {
+                index.is_none()
+                    || value
+                        .pointer("/content_block/type")
+                        .and_then(Value::as_str)
+                        .is_none()
+            }
+            "content_block_stop" => index.is_none(),
+            "content_block_delta" => {
+                index.is_none()
+                    || match value.pointer("/delta/type").and_then(Value::as_str) {
+                        Some("text_delta") => value
+                            .pointer("/delta/text")
+                            .and_then(Value::as_str)
+                            .is_none(),
+                        Some("thinking_delta") => value
+                            .pointer("/delta/thinking")
+                            .and_then(Value::as_str)
+                            .is_none(),
+                        Some("input_json_delta") => {
+                            value
+                                .pointer("/delta/partial_json")
+                                .and_then(Value::as_str)
+                                .is_none()
+                                || index.is_some_and(|index| {
+                                    !self.tool_blocks.contains_key(&index)
+                                        || self.completed_tool_blocks.contains(&index)
+                                })
+                        }
+                        None => true,
+                        _ => false, // Future delta types remain forwards compatible.
+                    }
+            }
+            _ => false,
+        };
+        if malformed {
+            self.error = Some(format!(
+                "provider/stream_invalid_event: malformed Anthropic {kind}"
+            ));
+            return None;
+        }
+        match kind {
             "message_start" => {
-                self.usage = value.pointer("/message/usage").cloned();
+                if self.message_started {
+                    self.error =
+                        Some("provider/stream_invalid_event: duplicate message_start".into());
+                    return None;
+                }
+                self.message_started = true;
+                if let Some(usage) = value.pointer("/message/usage") {
+                    merge_anthropic_usage(&mut self.usage, usage);
+                }
                 None
             }
             "content_block_start" => {
@@ -548,6 +610,24 @@ impl AnthStreamState {
                         .and_then(Value::as_str)
                         .unwrap_or_default()
                         .to_string();
+                    if self.tool_blocks.contains_key(&index) {
+                        self.error = Some(
+                            "provider/stream_invalid_event: duplicate tool block index".into(),
+                        );
+                        return None;
+                    }
+                    if self.tool_blocks.len() >= MAX_ANTHROPIC_TOOL_BLOCKS {
+                        self.error = Some("provider/stream_tool_blocks_too_large: Anthropic tool block count exceeds 1024".into());
+                        return None;
+                    }
+                    self.tool_bytes = self
+                        .tool_bytes
+                        .saturating_add(id.len())
+                        .saturating_add(name.len());
+                    if self.tool_bytes > MAX_ANTHROPIC_TOTAL_TOOL_BYTES {
+                        self.truncated = true;
+                        return None;
+                    }
                     self.tool_blocks.insert(index, (id, name, String::new()));
                 }
                 None
@@ -580,7 +660,11 @@ impl AnthStreamState {
                                 .get("partial_json")
                                 .and_then(Value::as_str)
                                 .unwrap_or_default();
-                            if entry.2.len() + partial.len() > MAX_ANTHROPIC_TOOL_ARGUMENT_BYTES {
+                            self.tool_bytes = self.tool_bytes.saturating_add(partial.len());
+                            if entry.2.len().saturating_add(partial.len())
+                                > MAX_ANTHROPIC_TOOL_ARGUMENT_BYTES
+                                || self.tool_bytes > MAX_ANTHROPIC_TOTAL_TOOL_BYTES
+                            {
                                 self.truncated = true;
                             } else {
                                 entry.2.push_str(partial);
@@ -591,29 +675,68 @@ impl AnthStreamState {
                     _ => None,
                 }
             }
+            "content_block_stop" => {
+                if let Some(index) = index.filter(|index| self.tool_blocks.contains_key(index)) {
+                    self.completed_tool_blocks.insert(index);
+                }
+                None
+            }
             "message_delta" => {
                 if let Some(usage) = value.get("usage") {
-                    self.usage = Some(usage.clone());
+                    merge_anthropic_usage(&mut self.usage, usage);
+                }
+                None
+            }
+            "message_stop" => {
+                if !self.message_started {
+                    self.error = Some(
+                        "provider/stream_incomplete: message_stop without message_start".into(),
+                    );
+                } else {
+                    self.message_stopped = true;
                 }
                 None
             }
             "error" => {
+                let kind = value
+                    .pointer("/error/type")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown_error");
                 let detail = value
                     .pointer("/error/message")
                     .and_then(Value::as_str)
                     .unwrap_or("未知错误");
-                Some((Some(format!("[Anthropic 错误：{detail}]")), None))
+                self.error = Some(format!("provider/anthropic_stream_error: {kind}: {detail}"));
+                None
             }
             _ => None,
         }
     }
 
-    fn into_output(mut self, tools: &[ToolSpec]) -> Result<ModelOutput, String> {
+    fn validate_stream(&self) -> Result<(), String> {
+        if let Some(error) = &self.error {
+            return Err(error.clone());
+        }
         if self.truncated {
             return Err("Anthropic 流式响应超过缓冲上限，已拒绝解析".to_string());
         }
+        Ok(())
+    }
+
+    fn into_output(mut self, tools: &[ToolSpec]) -> Result<ModelOutput, String> {
+        self.validate_stream()?;
+        if !self.message_stopped {
+            return Err(
+                "provider/stream_incomplete: Anthropic response ended before message_stop".into(),
+            );
+        }
         // tool_use 块按 index 排序输出。
         if !self.tool_blocks.is_empty() {
+            if self.completed_tool_blocks.len() != self.tool_blocks.len() {
+                return Err(
+                    "provider/stream_incomplete: Anthropic tool block did not finish".into(),
+                );
+            }
             let mut calls: Vec<(u64, ToolCall)> = self
                 .tool_blocks
                 .drain()
@@ -677,18 +800,82 @@ async fn read_body_capped(
     Ok(bytes)
 }
 
-#[async_trait]
-impl ModelProvider for AnthropicProvider {
-    async fn complete(
+// A delta's token fields are cumulative, not increments. Preserve start-only fields.
+fn merge_anthropic_usage(current: &mut Option<Value>, update: &Value) {
+    if !update.is_object() {
+        *current = None;
+        return;
+    }
+    let current = current.get_or_insert_with(|| json!({}));
+    for field in [
+        "input_tokens",
+        "output_tokens",
+        "cache_creation_input_tokens",
+        "cache_read_input_tokens",
+    ] {
+        if let Some(value) = update.get(field) {
+            current[field] = value.as_u64().map(Value::from).unwrap_or(Value::Null);
+        }
+    }
+}
+
+// Cached input is still input. Invalid/incomplete/overflowing usage remains unknown.
+fn parse_anthropic_usage(value: &Value) -> Option<TokenUsage> {
+    let input = value.get("input_tokens")?.as_u64()?;
+    let output = value.get("output_tokens")?.as_u64()?;
+    let cache_tokens = |field| match value.get(field) {
+        Some(value) => value.as_u64(),
+        None => Some(0),
+    };
+    let prompt = input
+        .checked_add(cache_tokens("cache_creation_input_tokens")?)?
+        .checked_add(cache_tokens("cache_read_input_tokens")?)?;
+    Some(TokenUsage {
+        prompt_tokens: prompt,
+        completion_tokens: output,
+        total_tokens: prompt.checked_add(output)?,
+    })
+}
+
+fn anthropic_request_id(response: &reqwest::Response) -> Option<String> {
+    ["request-id", "x-request-id"]
+        .iter()
+        .find_map(|name| response.headers().get(*name))
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string)
+}
+
+impl AnthropicProvider {
+    // Model overrides affect this payload only: shared Worker providers remain immutable.
+    fn request_body(
         &self,
+        model: Option<&str>,
         messages: &[ChatMessage],
         tools: &[ToolSpec],
-    ) -> Result<ModelOutput, String> {
+        stream: bool,
+    ) -> Value {
+        let mut body = build_request_body(&self.config, messages, tools, stream);
+        let model = model
+            .map(str::trim)
+            .filter(|model| !model.is_empty() && *model != MODEL_DEFAULT_SENTINEL)
+            .unwrap_or(&self.config.model);
+        body["model"] = json!(model);
+        body
+    }
+
+    async fn complete_observed(
+        &self,
+        model: Option<&str>,
+        messages: &[ChatMessage],
+        tools: &[ToolSpec],
+    ) -> Result<ObservedModelOutput, String> {
         if !self.cloud_enabled() {
             return Err("云端模型已禁用（数据出境开关关闭）".to_string());
         }
-        let body = build_request_body(&self.config, messages, tools, false);
+        let started = std::time::Instant::now();
+        let body = self.request_body(model, messages, tools, false);
         let response = self.post_messages(&body, false).await?;
+        let request_id = anthropic_request_id(&response);
         let bytes =
             read_body_capped(response, MAX_ANTHROPIC_RESPONSE_BYTES, "Anthropic 响应").await?;
         let payload: Value =
@@ -696,7 +883,160 @@ impl ModelProvider for AnthropicProvider {
         if let Some(usage) = payload.get("usage") {
             self.record_usage(usage);
         }
-        parse_response_content(&payload, tools)
+        let output = parse_response_content(&payload, tools)?;
+        Ok(ObservedModelOutput {
+            output,
+            metadata: ModelCallMetadata {
+                request_id,
+                model: body
+                    .get("model")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                usage: payload.get("usage").and_then(parse_anthropic_usage),
+                latency_ms: Some(started.elapsed().as_millis().min(u64::MAX as u128) as u64),
+            },
+        })
+    }
+
+    async fn stream_observed(
+        &self,
+        model: Option<&str>,
+        messages: &[ChatMessage],
+        tools: &[ToolSpec],
+        on_chunk: &mut (dyn FnMut(StreamChunk) + Send),
+    ) -> Result<ObservedModelOutput, String> {
+        if !self.cloud_enabled() {
+            return Err("云端模型已禁用（数据出境开关关闭）".to_string());
+        }
+        let started = std::time::Instant::now();
+        let body = self.request_body(model, messages, tools, true);
+        let response = self.post_messages(&body, true).await?;
+        let request_id = anthropic_request_id(&response);
+        let mut stream = response.bytes_stream();
+        let mut decoder = sse::SseDecoder::default();
+        let mut state = AnthStreamState::default();
+        let idle_timeout = self
+            .connection_options
+            .as_ref()
+            .and_then(|o| o.timeout_secs)
+            .map(std::time::Duration::from_secs)
+            .unwrap_or(std::time::Duration::from_secs(60));
+
+        loop {
+            let chunk = tokio::time::timeout(idle_timeout, stream.next())
+                .await
+                .map_err(|_| {
+                    format!(
+                        "provider/stream_idle_timeout: Anthropic 流式输出空闲超时（{}s 无数据）",
+                        idle_timeout.as_secs()
+                    )
+                })?
+                .ok_or_else(|| {
+                    "provider/stream_incomplete: Anthropic response ended before message_stop"
+                        .to_string()
+                })?
+                .map_err(|e| format!("Anthropic 流式读取失败：{}", e.without_url()))?;
+            let stopped = decoder
+                .feed(&chunk, &mut |payload| {
+                    if let Some((content_delta, reasoning_delta)) = state.feed(payload) {
+                        if let Some(piece) = reasoning_delta {
+                            on_chunk(StreamChunk::Reasoning(piece));
+                        }
+                        if let Some(piece) = content_delta {
+                            on_chunk(StreamChunk::Content(piece));
+                        }
+                    }
+                    state.validate_stream()?;
+                    Ok(state.message_stopped)
+                })
+                .map_err(|error| {
+                    // A provider may echo credentials inside an SSE error message.
+                    let error = if self.config.api_key.is_empty() {
+                        error
+                    } else {
+                        error.replace(&self.config.api_key, "[REDACTED]")
+                    };
+                    error.chars().take(2048).collect::<String>()
+                })?;
+            if stopped {
+                break;
+            }
+        }
+        if let Some(usage) = state.usage.clone() {
+            self.record_usage(&usage);
+        }
+        let usage = state.usage.as_ref().and_then(parse_anthropic_usage);
+        let output = state.into_output(tools)?;
+        Ok(ObservedModelOutput {
+            output,
+            metadata: ModelCallMetadata {
+                request_id,
+                model: body
+                    .get("model")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                usage,
+                latency_ms: Some(started.elapsed().as_millis().min(u64::MAX as u128) as u64),
+            },
+        })
+    }
+}
+
+#[async_trait]
+impl ModelProvider for AnthropicProvider {
+    async fn complete(
+        &self,
+        messages: &[ChatMessage],
+        tools: &[ToolSpec],
+    ) -> Result<ModelOutput, String> {
+        self.complete_with_model(None, messages, tools).await
+    }
+
+    async fn complete_with_model(
+        &self,
+        model: Option<&str>,
+        messages: &[ChatMessage],
+        tools: &[ToolSpec],
+    ) -> Result<ModelOutput, String> {
+        self.complete_observed(model, messages, tools)
+            .await
+            .map(|observed| observed.output)
+    }
+
+    async fn complete_with_model_observed(
+        &self,
+        model: Option<&str>,
+        messages: &[ChatMessage],
+        tools: &[ToolSpec],
+    ) -> Result<ObservedModelOutput, String> {
+        self.complete_observed(model, messages, tools).await
+    }
+
+    async fn complete_stream(
+        &self,
+        messages: &[ChatMessage],
+        tools: &[ToolSpec],
+        on_delta: &mut (dyn FnMut(String) + Send),
+    ) -> Result<ModelOutput, String> {
+        self.complete_stream_with_model(None, messages, tools, on_delta)
+            .await
+    }
+
+    async fn complete_stream_with_model(
+        &self,
+        model: Option<&str>,
+        messages: &[ChatMessage],
+        tools: &[ToolSpec],
+        on_delta: &mut (dyn FnMut(String) + Send),
+    ) -> Result<ModelOutput, String> {
+        let mut forward = |chunk| {
+            if let StreamChunk::Content(text) = chunk {
+                on_delta(text);
+            }
+        };
+        self.stream_observed(model, messages, tools, &mut forward)
+            .await
+            .map(|observed| observed.output)
     }
 
     async fn complete_stream_with_reasoning(
@@ -705,110 +1045,10 @@ impl ModelProvider for AnthropicProvider {
         tools: &[ToolSpec],
         on_chunk: &mut (dyn FnMut(StreamChunk) + Send),
     ) -> Result<ModelOutput, String> {
-        if !self.cloud_enabled() {
-            return Err("云端模型已禁用（数据出境开关关闭）".to_string());
-        }
-        let body = build_request_body(&self.config, messages, tools, true);
-        let response = self.post_messages(&body, true).await?;
-        let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
-        let mut utf8_pending = Vec::new();
-        let mut state = AnthStreamState::default();
-        let mut saw_event = false;
-
-        while let Some(chunk) = tokio::time::timeout(
-            self.connection_options
-                .as_ref()
-                .and_then(|o| o.timeout_secs)
-                .map(std::time::Duration::from_secs)
-                .unwrap_or(std::time::Duration::from_secs(60)),
-            stream.next(),
-        )
-        .await
-        .map_err(|_| "Anthropic 流式输出空闲超时（60s 无数据）".to_string())?
-        {
-            let chunk = chunk.map_err(|e| format!("流式读取失败：{e}"))?;
-            // UTF-8 分片拼接（与 gateway 同策略）。
-            match std::str::from_utf8(&chunk) {
-                Ok(text) => buffer.push_str(text),
-                Err(_) => {
-                    utf8_pending.extend_from_slice(&chunk);
-                    match String::from_utf8(utf8_pending.clone()) {
-                        Ok(text) => {
-                            buffer.push_str(&text);
-                            utf8_pending.clear();
-                        }
-                        Err(_) => continue,
-                    }
-                }
-            }
-            // Anthropic SSE：`event: <name>\ndata: <json>\n\n`——type 在 data 里，event 行可忽略。
-            while let Some(pos) = buffer.find("\n\n") {
-                let frame: String = buffer.drain(..pos + 2).collect();
-                for line in frame.lines() {
-                    let Some(data) = line.strip_prefix("data:") else {
-                        continue;
-                    };
-                    saw_event = true;
-                    if let Some((content_delta, reasoning_delta)) = state.feed(data) {
-                        if let Some(piece) = reasoning_delta {
-                            on_chunk(StreamChunk::Reasoning(piece));
-                        }
-                        if let Some(piece) = content_delta {
-                            on_chunk(StreamChunk::Content(piece));
-                        }
-                    }
-                }
-            }
-        }
-        if !utf8_pending.is_empty() {
-            buffer.push_str(&String::from_utf8_lossy(&utf8_pending));
-        }
-        for line in buffer.lines() {
-            let Some(data) = line.strip_prefix("data:") else {
-                continue;
-            };
-            if let Some((content_delta, reasoning_delta)) = state.feed(data) {
-                if let Some(piece) = reasoning_delta {
-                    on_chunk(StreamChunk::Reasoning(piece));
-                }
-                if let Some(piece) = content_delta {
-                    on_chunk(StreamChunk::Content(piece));
-                }
-            }
-        }
-        if !saw_event {
-            return Err("Anthropic 流式响应为空或不是 SSE 格式".to_string());
-        }
-        if let Some(usage) = state.usage.clone() {
-            self.record_usage(&usage);
-        }
-        state.into_output(tools)
-    }
-
-    fn usage_snapshot(&self) -> TokenUsage {
-        self.usage.lock().map(|usage| *usage).unwrap_or_default()
-    }
-
-    /// 本地 trait 的带模型覆盖流式入口：Anthropic 通道固定用配置模型（覆盖仅兼容）。
-    async fn complete_stream_with_model(
-        &self,
-        model: Option<&str>,
-        messages: &[ChatMessage],
-        tools: &[ToolSpec],
-        on_delta: &mut (dyn FnMut(String) + Send),
-    ) -> Result<ModelOutput, String> {
-        let _ = model;
-        let mut forward = |chunk: StreamChunk| {
-            if let StreamChunk::Content(text) = chunk {
-                on_delta(text);
-            }
-        };
-        self.complete_stream_with_reasoning(messages, tools, &mut forward)
+        self.complete_stream_with_reasoning_and_model(None, messages, tools, on_chunk)
             .await
     }
 
-    /// 本地 trait 的带模型覆盖思考流式入口：思考增量经 `on_chunk` 透传。
     async fn complete_stream_with_reasoning_and_model(
         &self,
         model: Option<&str>,
@@ -816,9 +1056,23 @@ impl ModelProvider for AnthropicProvider {
         tools: &[ToolSpec],
         on_chunk: &mut (dyn FnMut(StreamChunk) + Send),
     ) -> Result<ModelOutput, String> {
-        let _ = model;
-        self.complete_stream_with_reasoning(messages, tools, on_chunk)
+        self.stream_observed(model, messages, tools, on_chunk)
             .await
+            .map(|observed| observed.output)
+    }
+
+    async fn complete_stream_with_reasoning_and_model_observed(
+        &self,
+        model: Option<&str>,
+        messages: &[ChatMessage],
+        tools: &[ToolSpec],
+        on_chunk: &mut (dyn FnMut(StreamChunk) + Send),
+    ) -> Result<ObservedModelOutput, String> {
+        self.stream_observed(model, messages, tools, on_chunk).await
+    }
+
+    fn usage_snapshot(&self) -> TokenUsage {
+        self.usage.lock().map(|usage| *usage).unwrap_or_default()
     }
 }
 
@@ -945,7 +1199,9 @@ mod tests {
         state.feed(r#"{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"tu_9","name":"grep"}}"#);
         state.feed(r#"{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"pa"}}"#);
         state.feed(r#"{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"ttern\":\"x\"}"}}"#);
+        state.feed(r#"{"type":"content_block_stop","index":1}"#);
         state.feed(r#"{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":7}}"#);
+        state.feed(r#"{"type":"message_stop"}"#);
         let output = state
             .into_output(&crate::tools::ToolRegistry::new().specs())
             .unwrap();
@@ -1028,7 +1284,10 @@ mod tests {
 
         let mut state = AnthStreamState::default();
         state.feed(r#"{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_2","name":"read_file"}}"#);
+        state.feed(r#"{"type":"message_start","message":{}}"#);
         state.feed(r#"{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{bad"}}"#);
+        state.feed(r#"{"type":"content_block_stop","index":0}"#);
+        state.feed(r#"{"type":"message_stop"}"#);
         assert!(state.into_output(&tools).unwrap_err().contains("JSON 非法"));
     }
 

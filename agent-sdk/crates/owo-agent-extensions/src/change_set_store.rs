@@ -93,6 +93,57 @@ fn team_mutex(team_id: &str) -> std::sync::Arc<std::sync::Mutex<()>> {
         .clone()
 }
 
+fn normalize_superseded(records: &mut [ChangeSet]) {
+    use std::collections::HashMap;
+
+    let mut latest_by_step: HashMap<&str, usize> = HashMap::new();
+    for (index, record) in records.iter().enumerate() {
+        if record.status != ChangeSetStatus::PendingReview {
+            continue;
+        }
+        match latest_by_step.get(record.step_id.as_str()).copied() {
+            Some(current)
+                if records[current].created_at > record.created_at
+                    || (records[current].created_at == record.created_at && current > index) => {}
+            Some(_) => {
+                latest_by_step.insert(record.step_id.as_str(), index);
+            }
+            None => {
+                latest_by_step.insert(record.step_id.as_str(), index);
+            }
+        }
+    }
+
+    let superseded_by: Vec<Option<(String, String)>> = records
+        .iter()
+        .enumerate()
+        .map(|(index, record)| {
+            let latest = latest_by_step.get(record.step_id.as_str()).copied()?;
+            if latest == index {
+                return None;
+            }
+            Some((
+                records[latest].change_set_id.clone(),
+                records[latest].created_at.clone(),
+            ))
+        })
+        .collect();
+
+    for (index, record) in records.iter_mut().enumerate() {
+        let Some((latest_id, decided_at)) = superseded_by[index].clone() else {
+            continue;
+        };
+        record.status = ChangeSetStatus::Superseded;
+        record.decision = Some(ChangeSetDecision {
+            action: "supersede".to_string(),
+            idempotency_key: format!("superseded-by:{latest_id}"),
+            decided_at,
+            note: Some(format!("superseded by newer attempt {latest_id}")),
+        });
+        record.conflicts.clear();
+    }
+}
+
 impl ChangeSetStore {
     pub fn new(run_dir: &Path) -> Self {
         Self {
@@ -116,12 +167,14 @@ impl ChangeSetStore {
                 )))
             }
         };
-        serde_json::from_slice(&bytes).map_err(|error| {
+        let mut records: Vec<ChangeSet> = serde_json::from_slice(&bytes).map_err(|error| {
             ChangeSetStoreError::Storage(format!(
                 "ChangeSet 文件损坏（{}）：{error}",
                 path.display()
             ))
-        })
+        })?;
+        normalize_superseded(&mut records);
+        Ok(records)
     }
 
     /// 原子落盘（十期 · 四路 R3）：先写同目录 `<file>.tmp` 再 rename 覆盖——
@@ -175,6 +228,33 @@ impl ChangeSetStore {
     pub fn save_upsert(&self, change_set: &ChangeSet) -> Result<(), ChangeSetStoreError> {
         let change_set = change_set.clone();
         self.with_team_mut(&change_set.team_id, |records| {
+            // A reworked attempt replaces the prior pending review for the same
+            // task. Keep the old record for audit, but make it terminal so the
+            // delivery gate points at the current attempt instead of an obsolete
+            // ChangeSet. Accepted history is never rewritten.
+            if change_set.status == ChangeSetStatus::PendingReview {
+                if let Some(attempt) = change_set.attempt_id.as_deref() {
+                    for record in records.iter_mut().filter(|record| {
+                        record.change_set_id != change_set.change_set_id
+                            && record.step_id == change_set.step_id
+                            && record.status == ChangeSetStatus::PendingReview
+                            && record.attempt_id.as_deref() != Some(attempt)
+                            && record.created_at <= change_set.created_at
+                    }) {
+                        record.status = ChangeSetStatus::Superseded;
+                        record.decision = Some(ChangeSetDecision {
+                            action: "supersede".to_string(),
+                            idempotency_key: format!("superseded-by:{}", change_set.change_set_id),
+                            decided_at: change_set.created_at.clone(),
+                            note: Some(format!(
+                                "superseded by newer attempt {}",
+                                change_set.change_set_id
+                            )),
+                        });
+                        record.conflicts.clear();
+                    }
+                }
+            }
             match records
                 .iter_mut()
                 .find(|record| record.change_set_id == change_set.change_set_id)
@@ -395,6 +475,33 @@ mod tests {
     }
 
     #[test]
+    fn loading_sidecar_supersedes_older_pending_same_step() {
+        let run_dir = unique_run_dir("load-backfill");
+        let mut old = sample_change_set("cs-old", "team-backfill");
+        old.attempt_id = Some("1".to_string());
+        old.created_at = "2026-01-01T00:00:00+00:00".to_string();
+        let mut new = sample_change_set("cs-new", "team-backfill");
+        new.attempt_id = Some("2".to_string());
+        new.created_at = "2026-01-01T00:01:00+00:00".to_string();
+        std::fs::write(
+            run_dir.join("team-backfill-change-sets.json"),
+            serde_json::to_vec_pretty(&vec![old, new]).unwrap(),
+        )
+        .unwrap();
+
+        let store = ChangeSetStore::new(&run_dir);
+        let records = store.list_for_team("team-backfill").unwrap();
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].status, ChangeSetStatus::Superseded);
+        assert_eq!(records[0].status_label(), "已被新版本取代");
+        assert_eq!(records[1].status, ChangeSetStatus::PendingReview);
+        assert!(ChangeSetStore::approval_block_reason(&records)
+            .unwrap()
+            .contains("cs-new"));
+        let _ = std::fs::remove_dir_all(&run_dir);
+    }
+
+    #[test]
     fn save_list_find_roundtrip_and_cross_team_isolation() {
         let run_dir = unique_run_dir("roundtrip");
         let store = ChangeSetStore::new(&run_dir);
@@ -536,6 +643,37 @@ mod tests {
             outcome.change_set.conflicts.is_empty(),
             "落决定后冲突清单清空"
         );
+        let _ = std::fs::remove_dir_all(&run_dir);
+    }
+
+    #[test]
+    fn newer_attempt_supersedes_prior_pending_review() {
+        let run_dir = unique_run_dir("supersede");
+        let store = ChangeSetStore::new(&run_dir);
+        let mut old = sample_change_set("cs-t-s1-old", "t");
+        old.attempt_id = Some("attempt-old".into());
+        old.created_at = "2026-01-01T00:00:00+00:00".into();
+        store.save_upsert(&old).unwrap();
+
+        let mut new = sample_change_set("cs-t-s1-new", "t");
+        new.attempt_id = Some("attempt-new".into());
+        new.created_at = "2026-01-01T00:01:00+00:00".into();
+        store.save_upsert(&new).unwrap();
+
+        let records = store.list_for_team("t").unwrap();
+        let old = records
+            .iter()
+            .find(|r| r.change_set_id == "cs-t-s1-old")
+            .unwrap();
+        let new = records
+            .iter()
+            .find(|r| r.change_set_id == "cs-t-s1-new")
+            .unwrap();
+        assert_eq!(old.status, ChangeSetStatus::Superseded);
+        assert_eq!(new.status, ChangeSetStatus::PendingReview);
+        let reason = ChangeSetStore::approval_block_reason(&records).unwrap();
+        assert!(reason.contains("cs-t-s1-new"), "{reason}");
+        assert!(!reason.contains("cs-t-s1-old"), "{reason}");
         let _ = std::fs::remove_dir_all(&run_dir);
     }
 

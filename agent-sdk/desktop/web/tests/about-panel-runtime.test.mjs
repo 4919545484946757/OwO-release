@@ -25,6 +25,10 @@ function makeRoot() {
     },
     element(id) { return this.querySelector("#" + id); },
   };
+  for (const id of ["owo-about-health"]) {
+    const el = root.element(id); let markup = el.innerHTML;
+    Object.defineProperty(el, "innerHTML", { get() { return markup; }, set(value) { markup = value; this.textContent = value.replace(/<[^>]*>/g, " "); } });
+  }
   return root;
 }
 function deferred() {
@@ -138,4 +142,56 @@ test("未知响应形状显示未知而不是空列表", async () => {
   assert.match(cards, /<b>未知<\/b>/);
   assert.match(cards, /服务未返回可识别的数量/);
   assert.match(cards, /服务未返回可识别的连接状态/);
+});
+
+
+test("OCR engine creation and model configuration do not imply inference readiness", async () => {
+  const panel = loadPanel(), root = makeRoot();
+  await panel.mount(root, { get: async path => {
+    if (path === '/perception/ocr/status') return { engine_created:true, onnx_models_present:false };
+    if (path === '/vision/status') return { provider:'ollama', model:'test-vlm', ollama_models:[] };
+    if (path === '/server/status') return { storage:{read_only:true} };
+    if (path === '/health') return { version:'0.1', healthy:true, stage:'ready', api_version:'0.7' };
+    return responseFor(path, 'test');
+  }});
+  assert.match(root.element('owo-about-diag').textContent, /OCR：模型文件缺失/);
+  assert.match(root.element('owo-about-diag').textContent, /视觉：推理就绪度未确认/);
+  assert.match(root.element('owo-about-diag').textContent, /本地模型列表：空/);
+  assert.doesNotMatch(root.element('owo-about-diag').textContent, /OCR：就绪|视觉：就绪/);
+  assert.match(root.element('owo-about-health').textContent, /存储模式\s+只读/);
+  assert.match(root.element('owo-about-health').textContent, /审批方式\s+未知/);
+});
+
+test("invalid count and malformed MCP connection list remain unknown", async () => {
+  const panel = loadPanel(), root = makeRoot();
+  await panel.mount(root, { get: async path => {
+    if (path === '/skills') return { count:-1 };
+    if (path === '/mcp') return { connected:'not-an-array' };
+    return responseFor(path, 'test');
+  }});
+  assert.match(root.element('owo-about-caps').innerHTML, /技能<\/span><b>未知/);
+  assert.match(root.element('owo-about-caps').innerHTML, /连接状态/);
+});
+
+test("copy failure exposes selectable diagnostic text without claiming success", async () => {
+  const panel = loadPanel(), root = makeRoot();
+  const handlers = {};
+  root.element('owo-about-copy').addEventListener = (name, action) => { handlers[name] = action; };
+  await panel.mount(root, { get: async path => responseFor(path, 'online') });
+  handlers.click();
+  assert.match(root.element('owo-about-copy-status').textContent, /手动复制/);
+  assert.equal(root.element('owo-about-copy-fallback').hidden, false);
+  assert.match(root.element('owo-about-copy-fallback').value, /OwO Agent 诊断信息\n/);
+  assert.doesNotMatch(root.element('owo-about-copy-status').textContent, /已复制/);
+});
+
+test("schema read goes through authenticated helpers and stale handlers cannot request", async () => {
+  const panel = loadPanel(), root = makeRoot(), events = {};
+  root.element('owo-about-schemas').addEventListener = (name, action) => { events[name] = action; };
+  let calls = 0;
+  await panel.mount(root, { get: async path => { if(path === '/schemas') { calls++; return {schema:'<script>bad</script>'}; } return responseFor(path, 'online'); } });
+  await events.click();
+  assert.equal(calls, 1);
+  assert.match(root.element('owo-about-schema-result').innerHTML, /&lt;script&gt;/);
+  panel.dispose(); await events.click(); assert.equal(calls, 1);
 });

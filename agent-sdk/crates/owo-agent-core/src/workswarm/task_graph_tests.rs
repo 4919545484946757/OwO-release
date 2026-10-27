@@ -2,6 +2,74 @@
 use super::*;
 
 #[cfg(test)]
+mod task_graph_parse_tests {
+    use super::parse_parallel_subtasks;
+
+    #[test]
+    fn version_one_accepts_number_and_string() {
+        for version in [serde_json::json!(1), serde_json::json!("1")] {
+            let graph = serde_json::json!({
+                "version": version,
+                "tasks": [{"task_id": "world"}],
+            });
+            let (tasks, versioned) = parse_parallel_subtasks(&graph.to_string())
+                .expect("version 1 in either JSON type must parse");
+            assert!(versioned);
+            assert_eq!(tasks.len(), 1);
+        }
+    }
+
+    #[test]
+    fn schema_marker_taskgraph_v1_is_accepted() {
+        let graph = serde_json::json!({
+            "schema": "TaskGraphV1",
+            "tasks": [{"task_id": "world"}],
+        });
+        let (tasks, versioned) =
+            parse_parallel_subtasks(&graph.to_string()).expect("schema marker must parse");
+        assert!(versioned);
+        assert_eq!(tasks.len(), 1);
+    }
+
+    #[test]
+    fn graph_version_marker_is_accepted_as_taskgraph_v1() {
+        let graph = serde_json::json!({
+            "graph_version": "TaskGraphV1",
+            "tasks": [{"task_id": "world"}],
+        });
+        let (tasks, versioned) =
+            parse_parallel_subtasks(&graph.to_string()).expect("graph_version marker must parse");
+        assert!(versioned);
+        assert_eq!(tasks.len(), 1);
+    }
+
+    #[test]
+    fn unknown_or_missing_version_is_rejected() {
+        for version in [
+            serde_json::json!("2"),
+            serde_json::json!(2),
+            serde_json::json!(null),
+        ] {
+            let graph = serde_json::json!({
+                "version": version,
+                "tasks": [{"task_id": "world"}],
+            });
+            assert!(
+                parse_parallel_subtasks(&graph.to_string()).is_none(),
+                "version {version} must not be treated as TaskGraphV1"
+            );
+        }
+        let missing = serde_json::json!({"tasks": [{"task_id": "world"}]});
+        assert!(parse_parallel_subtasks(&missing.to_string()).is_none());
+        let wrong_schema = serde_json::json!({
+            "schema": "TaskGraphV2",
+            "tasks": [{"task_id": "world"}],
+        });
+        assert!(parse_parallel_subtasks(&wrong_schema.to_string()).is_none());
+    }
+}
+
+#[cfg(test)]
 mod task_requirement_coverage_tests {
     use super::validate_task_requirement_coverage;
 
@@ -45,6 +113,16 @@ mod task_requirement_coverage_tests {
             .unwrap_err()
             .contains("不属于当前用户目标原文"));
     }
+
+    #[test]
+    fn empty_quotes_are_allowed_only_without_explicit_acceptance() {
+        let no_checklist = "实现一个 3D 跑酷游戏";
+        assert!(validate_task_requirement_coverage(&[vec![]], no_checklist).is_ok());
+
+        let checklist = "实现接口。\n验收标准：\n- 默认页码为 1";
+        let error = validate_task_requirement_coverage(&[vec![]], checklist).unwrap_err();
+        assert!(error.contains("没有引用任何用户原文要求"), "{error}");
+    }
 }
 
 #[cfg(test)]
@@ -87,13 +165,13 @@ mod parallel_assignment_validation_tests {
             .iter()
             .map(|task| (task.task_id.as_str(), task.model_calls_per_attempt))
             .collect::<std::collections::BTreeMap<_, _>>();
-        assert_eq!(assigned["small"], 4);
-        assert_eq!(assigned["large"], 6);
+        assert_eq!(assigned["small"], 8);
+        assert_eq!(assigned["large"], 10);
         assert!(assigned.values().all(|budget| *budget <= 14));
     }
 
     #[test]
-    fn task_model_call_budget_rejects_a_role_cap_below_the_output_repair_reserve() {
+    fn low_template_budget_is_raised_to_the_task_minimum() {
         let input = [serde_json::json!({
             "task_id":"small", "worker":"w1", "task":"small", "acceptance":"done",
             "write_paths":[], "estimated_effort":1
@@ -102,9 +180,53 @@ mod parallel_assignment_validation_tests {
             .unwrap()
             .tasks;
         let budgets = std::collections::BTreeMap::from([("w1".to_string(), 3)]);
-        let error = assign_task_model_call_budgets(&mut assignments, &budgets)
-            .expect_err("budget below the output repair reserve must fail before dispatch");
-        assert!(error.contains("below the 4-request minimum"));
+        assign_task_model_call_budgets(&mut assignments, &budgets)
+            .expect("a low template suggestion must be raised, not fail dispatch");
+        assert_eq!(assignments[0].model_calls_per_attempt, 8);
+    }
+
+    #[test]
+    fn acceptance_arrays_are_normalized_to_verifiable_text() {
+        let input = [serde_json::json!({
+            "task_id": "world",
+            "worker": "w1",
+            "task": "implement world",
+            "acceptance": [
+                {"id": "a1", "criterion": "node --test passes"},
+                "world renders"
+            ],
+            "write_paths": [],
+            "estimated_effort": 1,
+            "verification": "non_empty",
+            "risk": "normal",
+            "priority": 80,
+        })];
+        let graph = validate_parallel_subtasks(&roles(), &input, false)
+            .expect("string/object acceptance arrays must validate");
+        assert!(graph.tasks[0].acceptance.contains("node --test passes"));
+        assert!(graph.tasks[0].acceptance.contains("world renders"));
+    }
+
+    #[test]
+    fn task_description_aliases_and_optional_refs_are_accepted() {
+        let input = [serde_json::json!({
+            "task_id": "world",
+            "worker": "w1",
+            "deliverable": "implement world",
+            "acceptance": "node --test passes",
+            "depends_on": [],
+            "write_paths": [],
+            "required_capabilities": [],
+            "estimated_effort": 1,
+            "verification": "non_empty",
+            "risk": "normal",
+            "priority": 80,
+        })];
+        let graph = validate_parallel_subtasks(&roles(), &input, true)
+            .expect("deliverable alias and omitted optional refs must validate");
+        assert_eq!(graph.tasks[0].task, "implement world");
+        assert!(graph.tasks[0].read_refs.is_empty());
+        assert!(graph.tasks[0].contract_refs.is_empty());
     }
 
     #[test]
@@ -251,6 +373,65 @@ mod parallel_assignment_validation_tests {
         )
         .expect_err("an explicit worker without the declared tool must be rejected");
         assert!(wrong_worker.contains("outside that node's declared tool surface"));
+    }
+
+    #[test]
+    fn implicit_worker_assignment_matches_disjoint_declared_write_paths() {
+        let mut orchestrator = RoleSpec::agent("workflow-director");
+        orchestrator.capabilities = vec!["orchestrator".into()];
+        let mut docs_a = RoleSpec::agent("文档分支");
+        docs_a.capabilities = vec!["task_worker".into()];
+        docs_a.tools = vec!["write_file".into()];
+        docs_a.write_paths = vec!["docs/a".into()];
+        let mut docs_b = RoleSpec::agent("游戏分支");
+        docs_b.capabilities = vec!["task_worker".into()];
+        docs_b.tools = vec!["write_file".into()];
+        docs_b.write_paths = vec!["docs/b".into()];
+        let roles = vec![orchestrator, docs_a, docs_b];
+
+        let graph = validate_parallel_subtasks(
+            &roles,
+            &[serde_json::json!({
+                "task_id":"write-game-notes",
+                "task":"写游戏分支说明",
+                "acceptance":"docs/b 已写入",
+                "write_paths":["docs/b"],
+                "required_capabilities":["write_file"]
+            })],
+            false,
+        )
+        .expect("implicit assignment must skip a same-tool worker with the wrong path scope");
+        assert_eq!(graph.tasks[0].worker, "游戏分支");
+    }
+
+    #[test]
+    fn builtin_media_task_requires_its_outputs_write_scope() {
+        let mut director = RoleSpec::agent("视觉总控");
+        director.capabilities = vec!["orchestrator".into()];
+        let mut artist = RoleSpec::agent("图像生成");
+        artist.capabilities = vec!["task_worker".into()];
+        artist.tools = vec!["generate_image".into()];
+        artist.write_paths = vec!["outputs".into()];
+        let roles = vec![director, artist];
+        let base = serde_json::json!({
+            "task_id":"cover",
+            "worker":"图像生成",
+            "task":"生成封面图",
+            "acceptance":"封面图已生成",
+            "required_capabilities":["generate_image"]
+        });
+
+        let mut missing_scope = base.clone();
+        missing_scope["write_paths"] = serde_json::json!([]);
+        assert!(validate_parallel_subtasks(&roles, &[missing_scope], false)
+            .unwrap_err()
+            .contains("writes workspace/outputs"));
+
+        let mut scoped = base;
+        scoped["write_paths"] = serde_json::json!(["outputs"]);
+        let graph = validate_parallel_subtasks(&roles, &[scoped], false)
+            .expect("media task may write only after declaring outputs");
+        assert_eq!(graph.tasks[0].effective_paths, vec!["outputs"]);
     }
 
     #[test]

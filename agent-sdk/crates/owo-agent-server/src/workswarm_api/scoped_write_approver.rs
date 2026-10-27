@@ -38,8 +38,10 @@ impl ScopedWriteRule {
 
     /// 这次请求是否属于"范围内写入"：写类工具 + 目标路径落在声明范围内。
     ///
-    /// 只认 write_file/edit_file/multi_edit/apply_patch 的 `path`（与写租约覆盖的
-    /// 落盘工具一致）；命令/联网/MCP 一律不算，避免"借预授权跑命令"。
+    /// `apply_patch` 的参数是补丁正文而不是单个 `path`；必须解析每个
+    /// `*** Add/Update/Delete File:` 头，**全部**落在声明范围内才预授权。
+    /// 否则 worker 按提示优先用 apply_patch 时会被人审批拒绝，退回整文件
+    /// write_file（实测浪费一轮并放大上下文）。
     pub(crate) fn is_scoped_write(&self, request: &PermissionRequest) -> bool {
         if !self.allow || self.scopes.is_empty() {
             return false;
@@ -50,15 +52,22 @@ impl ScopedWriteRule {
         ) {
             return false;
         }
-        let raw = request
-            .args
-            .get("path")
-            .and_then(|value| value.as_str())
-            .map(str::trim)
-            .filter(|value| !value.is_empty());
-        let Some(raw) = raw else {
-            return false;
+        let paths: Vec<&str> = if request.tool == "apply_patch" {
+            apply_patch_paths(&request.args)
+        } else {
+            request
+                .args
+                .get("path")
+                .and_then(|value| value.as_str())
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .into_iter()
+                .collect()
         };
+        !paths.is_empty() && paths.iter().all(|raw| self.path_is_scoped(raw))
+    }
+
+    fn path_is_scoped(&self, raw: &str) -> bool {
         let candidate = Path::new(raw);
         let absolute = if candidate.is_absolute() {
             simplify_path(candidate)
@@ -97,6 +106,23 @@ impl ScopedWriteRule {
     }
 }
 
+/// Codex 风格补丁中所有文件操作的路径（与 core `parse_patch` 的头格式一致）。
+fn apply_patch_paths(args: &serde_json::Value) -> Vec<&str> {
+    let Some(patch) = args.get("patch").and_then(|value| value.as_str()) else {
+        return Vec::new();
+    };
+    patch
+        .lines()
+        .filter_map(|line| {
+            line.strip_prefix("*** Add File: ")
+                .or_else(|| line.strip_prefix("*** Update File: "))
+                .or_else(|| line.strip_prefix("*** Delete File: "))
+        })
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,13 +141,35 @@ mod tests {
         PermissionRequest::new(tool, json!({ "path": path }), Level::Write, "写入文件")
     }
 
+    fn patch_request(patch: &str) -> PermissionRequest {
+        PermissionRequest::new(
+            "apply_patch",
+            json!({ "patch": patch }),
+            Level::Write,
+            "应用补丁",
+        )
+    }
+
     #[test]
     fn authorized_scoped_writes_only_cover_declared_paths() {
         let root = PathBuf::from(r"C:\ws");
         let scoped = rule(true, &root, &["outputs"]);
 
         assert!(scoped.is_scoped_write(&request("write_file", "outputs/a.md")));
-        assert!(scoped.is_scoped_write(&request("apply_patch", "outputs/deep/b.txt")));
+        assert!(scoped.is_scoped_write(&patch_request(
+            "*** Begin Patch\n*** Update File: outputs/deep/b.txt\n@@\n-a\n+b\n*** End Patch"
+        )));
+        assert!(
+            !scoped.is_scoped_write(&patch_request(
+                "*** Begin Patch\n*** Update File: outputs/a.txt\n@@\n-a\n+b\n\
+                 *** Update File: src/escape.txt\n@@\n-a\n+b\n*** End Patch"
+            )),
+            "补丁只要有一个文件越界，整包不预授权"
+        );
+        assert!(
+            !scoped.is_scoped_write(&patch_request("*** Begin Patch\n*** End Patch")),
+            "没有文件头的补丁不预授权"
+        );
         assert!(
             !scoped.is_scoped_write(&request("write_file", "src/a.md")),
             "范围外不预授权"

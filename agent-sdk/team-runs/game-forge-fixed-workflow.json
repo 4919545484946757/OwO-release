@@ -1,0 +1,202 @@
+{
+  "template_id": "game-forge-fixed",
+  "name": "Game Forge ???????",
+  "mode": "team",
+  "applicability": "?? ???? ??? ???? game from-zero ?? 2D 3D canvas ?? ?? playtest ??",
+  "applicability_notes": "固定角色串联，适合从零交付可玩的网页小游戏；由宿主按依赖顺序调度，避免动态任务图过度拆分。",
+  "created_at": "2026-10-26T00:00:00Z",
+  "description": "???????????systems-core ? collision ? gameplay ? presentation ? assembler ? tester ? playtester ? lead_review??????????????????????",
+  "version": "1.3.0",
+  "tags": [
+    "game",
+    "game-delivery",
+    "fixed",
+    "playtest",
+    "delivery"
+  ],
+  "roles": [
+    {
+      "role": "systems-core",
+      "assignee": "agent",
+      "depends_on": [],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "src/systems",
+        "tests/systems"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "handoff_contract": "?? systems-core Worker?????????src/systems/core.js ? tests/systems/core.test.js??? fixed timestep tick?clamp/lerp????????????/??????????????DOM ??????????? `node --test tests/systems/core.test.js`??????????/??/??/???/????????? 2 ???????? WorkerOutputV1?artifact.format=markdown?????????????"
+    },
+    {
+      "role": "collision",
+      "assignee": "agent",
+      "depends_on": [
+        "systems-core"
+      ],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "src/systems",
+        "tests/systems"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "handoff_contract": "?? collision Worker?????????src/systems/collision.js ? tests/systems/collision.test.js??? systems-core ????? AABB??-????????????? core.js????DOM ?????????? `node --test tests/systems/collision.test.js`??????????/??/??/???/???????? WorkerOutputV1?artifact.format=markdown????????????????"
+    },
+    {
+      "role": "gameplay",
+      "assignee": "agent",
+      "depends_on": [
+        "collision"
+      ],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "src/gameplay",
+        "tests/gameplay"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "handoff_contract": "你是 gameplay Worker，只负责玩法层。基于 systems 的接口实现玩家、敌人 AI、子弹、生命/伤害、波次、胜负与 restart 规则；写 src/gameplay，测试放 tests/gameplay。不得修改 src/systems、index.html 或 src/presentation；接口不匹配时在 handoff 中说明，不要越界改队友文件。先实现最小可玩规则并写测试，再运行 node --test。输出 WorkerOutputV1，列出导出、事件和下游集成点。"
+    },
+    {
+      "role": "presentation",
+      "assignee": "agent",
+      "depends_on": [
+        "collision",
+        "gameplay"
+      ],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "index.html",
+        "styles.css",
+        "src/presentation",
+        "tests/presentation"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "handoff_contract": "你是 presentation Worker，只负责可见界面。交付 index.html、styles.css、src/presentation 下的 Canvas 渲染器、HUD、菜单/暂停/胜负/重开 UI 和响应式 letterbox；必须能直接双击打开。测试放 tests/presentation，用 node:test 验证渲染/状态映射的纯函数。不要编写或替换 gameplay 规则；通过 systems/gameplay 的公开接口接线。运行 node --test。输出 WorkerOutputV1，说明入口、画布尺寸、HUD 字段和控制方式。"
+    },
+    {
+      "role": "assembler",
+      "assignee": "agent",
+      "depends_on": [
+        "presentation"
+      ],
+      "capabilities": [
+        "integrator"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "src/main.js",
+        "README.md",
+        "tests/integration.test.mjs"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "handoff_contract": "你是 assembler，负责把 systems/gameplay/presentation 串成可运行入口。只写 src/main.js、README.md 和 tests/integration.test.mjs；修复接口接线，不重写队友模块的职责。确保双击 index.html 可玩，README 写清启动、操作、测试命令和已知限制。运行 node --test 并做一次语法检查。输出 WorkerOutputV1，列出真实入口、集成测试结果和仍需 tester/playtester 验证的点。"
+    },
+    {
+      "role": "tester",
+      "assignee": "agent",
+      "depends_on": [
+        "assembler"
+      ],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "tests/acceptance"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "handoff_contract": "你是 tester，负责独立验收。只写 tests/acceptance；不要修改产品代码。覆盖启动/初始状态、移动与边界、射击/冷却、碰撞/伤害、敌人 AI 存在性、波次推进、得分/生命、暂停/重开、HUD 快照和入口引用完整性。优先黑盒/公开接口；用 node:test，运行 node --test。发现缺陷时记录失败断言与复现命令，不要在测试里放宽标准。输出 WorkerOutputV1，给出通过/失败计数和真实命令输出摘要。"
+    },
+    {
+      "role": "playtester",
+      "assignee": "agent",
+      "depends_on": [
+        "tester"
+      ],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "playtest"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "run_command",
+        "browser_navigate",
+        "browser_snapshot",
+        "browser_press",
+        "browser_screenshot",
+        "browser_click",
+        "browser_type"
+      ],
+      "handoff_contract": "你是 playtester，必须实际打开页面试玩，而不是只读代码。启动静态服务器或使用浏览器打开 index.html，至少操作 60 秒：WASD 移动、鼠标瞄准、开火、受击、暂停/继续、重开；记录 FPS/画面、HUD、控制、碰撞、AI、卡死或控制台错误。把截图、逐段时间线和结论写入 playtest/report.md；截图放 playtest/。若浏览器工具不可用，明确写 blocked 和原因，不得伪造。输出 WorkerOutputV1，status 只能是 done 或 blocked，artifact.content 写报告路径和关键发现。"
+    },
+    {
+      "role": "lead_review",
+      "assignee": "agent",
+      "depends_on": [
+        "playtester"
+      ],
+      "capabilities": [
+        "review"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [],
+      "tools": [
+        "read_file",
+        "list_dir"
+      ],
+      "handoff_contract": "你是只读 lead_review，也是交付质量门。读取实现、tester 的真实测试结果和 playtest/report.md，核对真实入口、可玩性、控制、HUD、敌人 AI、胜负/重开、测试证据、试玩证据和已知限制；不修改文件，不提交 artifact。接受玩局结果随机，不因此拒绝。只输出一个合法 WorkerOutputV1 JSON：{\"status\":\"done\",\"summary\":\"...评分卡JSON...\",\"review_result\":{\"verdict\":\"approved|changes_requested|rejected\",\"reviewed_requirement_ids\":[],\"findings\":[]},\"evidence\":[{\"source\":\"playtest/report.md\",\"note\":\"...\"}],\"open_issues\":[],\"handoff\":\"...\"}。五项分数均>=4且无 blocker/major 才 approved；否则 changes_requested，并为每个 finding 写 target_task_id。status 必须是 done。"
+    }
+  ]
+}

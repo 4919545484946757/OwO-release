@@ -29,6 +29,10 @@ pub(crate) struct TurnArgs {
     /// 自动允许所有审批（仅测试用；等价 --permissions trusted）
     #[arg(long)]
     no_approval: bool,
+    /// 非交互预授权：工作区内的文件写入（write_file/edit_file/multi_edit/apply_patch）自动允许；
+    /// 命令执行、联网与越界写入仍需 --permissions trusted 或交互审批。
+    #[arg(long)]
+    approve_writes: bool,
     /// 在指定会话里执行本回合（续接历史；与 --continue 互斥）
     #[arg(long, conflicts_with = "continuation")]
     session: Option<String>,
@@ -152,6 +156,29 @@ pub(crate) async fn run_turn(
     let invocation_id = uuid::Uuid::new_v4().to_string();
     let cancel_turn_id = invocation_id.clone();
     let abort = Arc::new(AtomicBool::new(false));
+    // 模型思考阶段（glm-5 系列动辄 3~5 分钟）没有任何 SSE 事件，非交互模式也没有
+    // 状态行；用后台心跳把"还活着"打在 stderr，避免被误判为卡死。
+    let thinking = Arc::new(AtomicBool::new(false));
+    let heartbeat_stop = Arc::new(AtomicBool::new(false));
+    if !matches!(output, OutputMode::Human) {
+        let thinking_flag = Arc::clone(&thinking);
+        let stop_flag = Arc::clone(&heartbeat_stop);
+        std::thread::spawn(move || {
+            use std::io::Write as _;
+            let mut secs = 0u32;
+            while !stop_flag.load(Ordering::Relaxed) {
+                std::thread::sleep(std::time::Duration::from_secs(10));
+                if stop_flag.load(Ordering::Relaxed) {
+                    break;
+                }
+                if thinking_flag.load(Ordering::Relaxed) {
+                    secs += 10;
+                    eprint!("\r[模型思考中 {secs}s] ");
+                    let _ = std::io::stderr().flush();
+                }
+            }
+        });
+    }
     let cancel_client = client.clone();
     let cancel_session = session.id.clone();
     let abort_flag = Arc::clone(&abort);
@@ -207,12 +234,24 @@ pub(crate) async fn run_turn(
         completion.observe(&event);
         let human = matches!(output, OutputMode::Human);
         match &event {
+            SseEvent::Progress { message } => {
+                if message.contains("模型调用") {
+                    thinking.store(true, Ordering::Relaxed);
+                }
+                emit_event(output, &event);
+                if human {
+                    printer.print_sse(&event);
+                }
+            }
             SseEvent::TokenDelta { .. } => {
+                thinking.store(false, Ordering::Relaxed);
                 if human {
                     printer.print_sse(&event);
                 }
             }
             SseEvent::Final { text } => {
+                thinking.store(false, Ordering::Relaxed);
+                heartbeat_stop.store(true, Ordering::Relaxed);
                 let _ = text;
                 if human {
                     printer.print_sse(&event);
@@ -224,7 +263,7 @@ pub(crate) async fn run_turn(
                     printer.print_sse(&event);
                 }
                 emit_event(output, &event);
-                let response = decide_permission(output, trusted, &event)?;
+                let response = decide_permission(output, trusted, args.approve_writes, &event)?;
                 if let Err(error) = client
                     .respond_permission(&session.id, request_id, &response)
                     .await
@@ -256,6 +295,8 @@ pub(crate) async fn run_turn(
                 }
             }
             SseEvent::TurnFailed { message, .. } => {
+                thinking.store(false, Ordering::Relaxed);
+                heartbeat_stop.store(true, Ordering::Relaxed);
                 emit_event(output, &event);
                 if human {
                     printer.print_sse(&event);
@@ -271,6 +312,7 @@ pub(crate) async fn run_turn(
         }
     }
 
+    heartbeat_stop.store(true, Ordering::Relaxed);
     if let Some(error) = stream_error {
         emit_error(output, &error);
         return Err(error.into());
@@ -364,10 +406,38 @@ fn render_completed(
     }
 }
 
-/// 审批决策：trusted 自动允许；human 交互选择；jsonl 默认拒绝（避免编排被阻塞）。
+/// 工作区内的写文件工具：--approve-writes 可安全预授权。
+/// 破坏性写（delete_file 等）、命令执行和联网工具不在此列。
+const PREAUTHORIZED_WRITE_TOOLS: &[&str] = &[
+    "write_file",
+    "edit_file",
+    "multi_edit",
+    "apply_patch",
+    "create_directory",
+];
+
+/// 审批理由里出现这些词说明目标在工作区之外或属于越界操作，预授权必须失效。
+const OUTSIDE_WORKSPACE_MARKERS: &[&str] = &[
+    "工作区外",
+    "越界",
+    "outside the workspace",
+    "out-of-workspace",
+    "outside workspace",
+];
+
+fn is_preauthorized_write(tool: &str, reason: &str) -> bool {
+    PREAUTHORIZED_WRITE_TOOLS.contains(&tool)
+        && !OUTSIDE_WORKSPACE_MARKERS
+            .iter()
+            .any(|marker| reason.contains(marker))
+}
+
+/// 审批决策：trusted 自动允许；--approve-writes 自动允许工作区内写入；
+/// human 交互选择；非交互默认拒绝（避免编排被阻塞）。
 fn decide_permission(
     output: OutputMode,
     trusted: bool,
+    approve_writes: bool,
     event: &SseEvent,
 ) -> Result<PermissionResponse, Box<dyn std::error::Error>> {
     let SseEvent::PermissionRequest {
@@ -386,9 +456,20 @@ fn decide_permission(
             scope: Some("once".to_string()),
         });
     }
+    if approve_writes && is_preauthorized_write(tool, reason) {
+        eprintln!("写入已预授权（--approve-writes，工作区内）：{tool}");
+        return Ok(PermissionResponse {
+            allow: true,
+            remember: None,
+            scope: Some("once".to_string()),
+        });
+    }
     if !matches!(output, OutputMode::Human) || !std::io::IsTerminal::is_terminal(&std::io::stdin())
     {
-        eprintln!("需要审批（jsonl 非交互，默认拒绝）：{tool}（{reason}）");
+        eprintln!(
+            "需要审批（非交互模式默认拒绝）：{tool}（{reason}）；\
+             可用 --approve-writes（工作区内写入）或 --permissions trusted（高风险）预授权"
+        );
         return Ok(parse_approval_response("deny"));
     }
     if matches!(output, OutputMode::Human) {
@@ -445,8 +526,37 @@ fn decide_question(
 
 #[cfg(test)]
 mod tests {
-    use super::{decide_question, ensure_prompt_size, resolve_prompt_value, MAX_PROMPT_BYTES};
+    use super::{
+        decide_question, ensure_prompt_size, is_preauthorized_write, resolve_prompt_value,
+        MAX_PROMPT_BYTES,
+    };
     use crate::ui_output::OutputMode;
+
+    #[test]
+    fn approve_writes_covers_workspace_edits_only() {
+        assert!(is_preauthorized_write(
+            "write_file",
+            "write 文件操作（工作区内）"
+        ));
+        assert!(is_preauthorized_write(
+            "apply_patch",
+            "工具 apply_patch 需要审批"
+        ));
+        assert!(is_preauthorized_write(
+            "multi_edit",
+            "编辑多个文件（工作区内）"
+        ));
+        // 命令执行、联网、破坏性删除不在预授权范围。
+        assert!(!is_preauthorized_write("run_command", "执行命令"));
+        assert!(!is_preauthorized_write("web_fetch", "联网"));
+        assert!(!is_preauthorized_write("delete_file", "删除文件"));
+        // 越界写入必须回落到人工/trusted 审批。
+        assert!(!is_preauthorized_write("write_file", "写入工作区外的路径"));
+        assert!(!is_preauthorized_write(
+            "write_file",
+            "out-of-workspace write"
+        ));
+    }
 
     #[test]
     fn oversized_stdin_prompt_is_rejected_with_actionable_error() {

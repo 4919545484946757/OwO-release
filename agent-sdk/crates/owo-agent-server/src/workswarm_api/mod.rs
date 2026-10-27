@@ -71,7 +71,9 @@ pub mod workswarm_metrics;
 
 mod conversation;
 mod dto;
+mod provider_observation;
 mod scoped_write_approver;
+mod team_event_delivery;
 
 // 统计模块等兄弟模块需要读取团队审计尾部（同源实现，避免复制）。
 pub(crate) use dto::audit_tail;

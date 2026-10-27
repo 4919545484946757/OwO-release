@@ -489,7 +489,13 @@ function Invoke-CiCargo {
     if ($compiles) {
         $null = Assert-CiMemoryGate -Context $Label
         $disk = Assert-CiDiskGate -Mode $mode -Path $Cwd -Context $Label
-        if (-not $SkipIdleGate) { $null = Assert-CiBuildIdle -Context $Label }
+        if (-not $SkipIdleGate) {
+            $null = Assert-CiBuildIdle -Context $Label
+            # Waiting for another build can invalidate both earlier snapshots.
+            # Recheck at the actual launch boundary, through the same gates.
+            $null = Assert-CiMemoryGate -Context $Label
+            $disk = Assert-CiDiskGate -Mode $mode -Path $Cwd -Context $Label
+        }
     }
     $safe = Protect-CiCargoArguments -Arguments $Arguments -Jobs $limits.jobs -TestThreads $limits.test_threads
     if ($compiles) {
@@ -702,6 +708,33 @@ function Resolve-CiCommandPath {
     return $Exe
 }
 
+# taskkill can report an already-exited child on stderr. Under the caller's
+# ErrorActionPreference=Stop that is a NativeCommandError, not a build result.
+# Keep its diagnostics and nonzero status, but always finish the command log.
+function Stop-CiLoggedProcessTree {
+    param([System.Diagnostics.Process]$Process, [string]$Label)
+    $savedPreference = $ErrorActionPreference
+    $killOutput = @()
+    $killExit = -1
+    try {
+        $ErrorActionPreference = 'Continue'
+        $killOutput = @(& taskkill /PID $Process.Id /T /F 2>&1)
+        $killExit = $LASTEXITCODE
+    } catch {
+        $killOutput = @($_)
+    } finally {
+        $ErrorActionPreference = $savedPreference
+    }
+    foreach ($line in $killOutput) { Write-Host ("    [{0}] taskkill: {1}" -f $Label, $line) }
+    $rootExited = $false
+    try { $rootExited = $Process.WaitForExit(10000) } catch { }
+    if (($killExit -ne 0) -or (-not $rootExited)) {
+        $detail = "termination_unverified: taskkill exit=$killExit root_exited=$rootExited pid=$($Process.Id)"
+        Add-CiFailure -Name ($Label + '-termination') -Detail $detail
+        Write-Host ("    [{0}] {1}; inspect remaining processes before another build" -f $Label, $detail) -ForegroundColor Yellow
+    }
+}
+
 function Invoke-CiLoggedCommand {
     param(
         [Parameter(Mandatory = $true)][string]$Exe,
@@ -775,7 +808,7 @@ function Invoke-CiLoggedCommand {
                 $timedOut = $true
                 Write-Host ("    [{0}] TIMEOUT：已运行 {1}s ≥ 上限 {2}s，终止进程树（错误码 124）" -f `
                         $tag, [int]$sw.Elapsed.TotalSeconds, $TimeoutSec) -ForegroundColor Red
-                $null = & taskkill /PID $proc.Id /T /F 2>&1
+                Stop-CiLoggedProcessTree -Process $proc -Label $tag
                 break
             }
             if (([DateTime]::Now - $lastBeat).TotalSeconds -ge $HeartbeatSec) {
@@ -789,14 +822,14 @@ function Invoke-CiLoggedCommand {
                         $resourceLimited = $true
                         Write-Host ("    [{0}] RESOURCE_LIMITED：可用内存 {1} GB / 已用 {2}%（阈值 ≥{3} GB 且 <{4}%）——终止进程树，退出码 137" -f `
                                 $tag, $mem.free_gb, $mem.used_percent, $mem.gate.min_free_gb, $mem.gate.max_used_percent) -ForegroundColor Red
-                        $null = & taskkill /PID $proc.Id /T /F 2>&1
+                        Stop-CiLoggedProcessTree -Process $proc -Label $tag
                         break
                     }
                 }
             }
             Start-Sleep -Milliseconds 500
         }
-        try { $proc.WaitForExit() } catch { }
+        try { if ($proc.HasExited) { $proc.WaitForExit() } } catch { }
         Start-Sleep -Milliseconds 200
         Drain-Queues
         $code = if ($resourceLimited) {
@@ -809,7 +842,7 @@ function Invoke-CiLoggedCommand {
     } finally {
         if ($resourceLimited) {
             New-CiFailureState
-            $script:ciResourceEvents = @($script:ciResourceEvents) + @((Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ") + " " + $tag + " resource_limited（§2.4 红线 7：运行中内存越线，已终止）")
+            $script:ciResourceEvents = @($script:ciResourceEvents) + @((Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ") + " " + $tag + " resource_limited（§2.4 红线 7：运行中内存越线，已触发终止；结果见日志）")
             $script:ciLastCommandResourceLimited = $true
         }
         if ($writer) { $writer.Flush(); $writer.Dispose() }

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tank Arena · Neon Battle</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="dot"></span> TANK ARENA <small>NEON BATTLE</small></div>
+      <div class="hint">WASD 移动 · 鼠标瞄准 · 左键/空格开火 · P 暂停 · R 换图</div>
+    </header>
+    <canvas id="game" width="960" height="640" aria-label="坦克大战游戏画布"></canvas>
+    <footer class="statusbar">
+      <span>固定 60Hz 逻辑 · Canvas 2D · 程序化像素</span>
+      <span id="clock">FPS —</span>
+    </footer>
+  </main>
+  <script src="src/game-core.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>

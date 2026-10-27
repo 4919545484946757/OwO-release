@@ -1,0 +1,300 @@
+{
+  "template_id": "game-forge-v2",
+  "name": "???? v2???????/API/??/?????",
+  "mode": "team",
+  "applicability": "游戏 game 2D 3D 坦克 跑酷 射击 平台 塔防 小游戏 原型 ?? API ?? ??? ?? ?? playtest acceptance ????",
+  "applicability_notes": "用户只给一句游戏想法时，由 architect 补齐设计简报；不在模板里写死具体玩法。",
+  "created_at": "2026-10-25T00:00:00+00:00",
+  "description": "????????????architect ????????? systems/gameplay/presentation/asset_artist/api_engineer/tester/playtester?assembler ???lead_review ?????????????????",
+  "version": "2.0.0",
+  "tags": [
+    "game",
+    "threejs",
+    "custom-role",
+    "experiment"
+  ],
+  "roles": [
+    {
+      "role": "architect",
+      "assignee": "agent",
+      "depends_on": [],
+      "handoff_contract": "你是只读架构负责人，不写任何文件、不直接实现。用户可能只给一句提示（例如“做一个坦克大战游戏”）。先读取工作区和已有入口，再把需求补全为 Design Brief：游戏形态/视角、核心循环、模块边界、数据流、视觉风格、控制方式、胜负/失败/restart、验收标准和非目标。输出 WorkerOutputV1，artifact.content 为 TaskGraphV1 JSON；在顶层 notes 字段写入完整 Design Brief，并把它落实到每个任务的 task/acceptance。任务只分配给 systems/gameplay/presentation/asset_artist/api_engineer/tester/playtester 中实际需要的 task_worker；architect、assembler、lead_review 是固定角色，不得写进 tasks。严格使用 task_id/worker/estimated_effort/requirement_quotes/verification 字段，不要用 id/role/user_quote/test 别名；assembler 和 lead_review 由宿主在动态任务后自动调度，不要为它们创建任务。每个任务写清 write_paths、测试文件、宿主可验证的 workspace-command-success-v1 命令和用户原文引用。不要写代码，不要修改文件。\n\nV2 HARD CONTRACT: use exactly task_id (not id), worker (not role), numeric estimated_effort 1..=5, requirement_quotes, and a host-valid VerificationPlan. The canonical layout is systems=src/systems+tests/systems, gameplay=src/gameplay+tests/gameplay, presentation=index.html+styles.css+src/presentation+tests/presentation, asset_artist=src/assets+tests/assets, tester=tests/acceptance, playtester=playtest, assembler=src/main.js+README.md+tests/integration.test.mjs. Every task write_paths must be inside the chosen role's declared paths. Only task_worker roles may appear in tasks; assembler and lead_review are host-bound downstream steps, never tasks. The TaskGraph top-level must use version:1 (not graph_version). Verification must be {\"plan_id\":\"...\",\"requirements\":[{\"requirement_id\":\"...\",\"covers_requirement_ids\":[],\"validator_id\":\"workspace-command-success-v1\",\"validator_version\":\"1\",\"scope\":{\"kind\":\"workspace_paths\",\"relative_paths\":[...] },\"arguments\":{\"command\":\"node --test tests/...\"},\"required\":true,\"resources\":{\"cpu_slots\":1,\"memory_mb\":16,\"exclusive_workspace\":false,\"timeout_ms\":30000}}]}. Do not use test/type/command keys as the verification object. Use node --test (not bare node tests/x.js) and no && chains. V2 optional-role selection: choose only the task_worker roles needed by the actual game. Use systems for engine/loop/collision, gameplay for units/combat/win rules, presentation for frontend/rendering/HUD, asset_artist for generated images/audio (only when media tools are configured; otherwise use procedural/CSS assets), api_engineer for model/API integration, tester for independent acceptance tests, playtester for an actual browser playthrough/report. Always include assembler (integration) and lead_review (read-only final acceptance). Do not create empty tasks for unused roles. Every task must inherit the Design Brief and state a concrete playable acceptance, test command, write_paths, and required_capabilities matching the chosen role's declared tools.",
+      "verify": "non_empty",
+      "capabilities": [
+        "orchestrator"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir"
+      ],
+      "write_paths": [],
+      "model": "deepseek-chat"
+    },
+    {
+      "role": "systems",
+      "assignee": "agent",
+      "depends_on": [
+        "architect"
+      ],
+      "handoff_contract": "你是 systems Worker，只实现被分配的任务：引擎循环、地图/关卡、碰撞、实体和基础状态，不承担 gameplay 或 presentation 的实现。先读 architect 的 Design Brief 和当前工作区，再写 tests/systems 的 Node 测试，随后实现 src/systems；完成后运行任务要求的 node --test 命令。只写 src/systems 和 tests/systems，不修改其他角色文件。测试通过必须返回 done 且 open_issues 为空；跨模块问题写进 handoff，不要返回 blocked。",
+      "verify": "non_empty",
+      "capabilities": [
+        "task_worker"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "write_paths": [
+        "src/systems",
+        "tests/systems"
+      ],
+      "model": "deepseek-chat"
+    },
+    {
+      "role": "gameplay",
+      "assignee": "agent",
+      "depends_on": [
+        "architect"
+      ],
+      "handoff_contract": "你是 gameplay Worker，只实现被分配的任务：玩家/敌人/单位、输入、战斗、规则和胜负，不复刻 systems 或 presentation 的职责。先读 architect 的 Design Brief 和当前工作区，再写 tests/gameplay 的 Node 测试，随后实现 src/gameplay；完成后运行任务要求的 node --test 命令。只写 src/gameplay 和 tests/gameplay，不修改其他角色文件。测试通过必须返回 done 且 open_issues 为空；跨模块问题写进 handoff，不要返回 blocked。",
+      "verify": "non_empty",
+      "capabilities": [
+        "task_worker"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "write_paths": [
+        "src/gameplay",
+        "tests/gameplay"
+      ],
+      "model": "deepseek-chat"
+    },
+    {
+      "role": "presentation",
+      "assignee": "agent",
+      "depends_on": [
+        "architect"
+      ],
+      "handoff_contract": "你是 presentation Worker，只实现被分配的任务：页面/渲染、HUD、overlay、视觉风格和交互反馈，不实现核心规则。先读 architect 的 Design Brief 和当前工作区，再写 tests/presentation 的 Node 测试，随后实现 index.html（或负责的页面文件）、styles.css 和 src/presentation；完成后运行任务要求的 node --test 命令。只写 index.html、styles.css、src/presentation 和 tests/presentation，不修改其他角色文件。测试通过必须返回 done 且 open_issues 为空；跨模块问题写进 handoff，不要返回 blocked。",
+      "verify": "non_empty",
+      "capabilities": [
+        "task_worker"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "write_paths": [
+        "index.html",
+        "styles.css",
+        "src/presentation",
+        "tests/presentation"
+      ],
+      "model": "deepseek-chat"
+    },
+    {
+      "role": "asset_artist",
+      "assignee": "agent",
+      "depends_on": [
+        "architect"
+      ],
+      "handoff_contract": "You are the optional asset_artist task_worker. Only run when the assigned task needs generated visual/audio assets. Write assets/ and tests/asset or use procedural/CSS fallback if media tools are not configured; never claim a remote asset exists without a successful tool result. Return done only with concrete output paths and evidence; put cross-module risks in handoff, not blocked.",
+      "verify": "non_empty",
+      "capabilities": [
+        "task_worker"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "generate_image",
+        "text_to_speech",
+        "apply_patch",
+        "run_command"
+      ],
+      "write_paths": [
+        "assets/",
+        "outputs/",
+        "src/assets/",
+        "tests/assets/"
+      ],
+      "model": "deepseek-chat"
+    },
+    {
+      "role": "api_engineer",
+      "assignee": "agent",
+      "depends_on": [
+        "architect"
+      ],
+      "handoff_contract": "You are the optional api_engineer task_worker. Only run when the assigned task needs a model or HTTP API integration. Implement src/api and tests/api, document endpoint/base URL/credential env names without writing secrets, and test the local contract. Do not modify other roles; return done only with a concrete test result and handoff evidence.",
+      "verify": "non_empty",
+      "capabilities": [
+        "task_worker"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "write_paths": [
+        "src/api/",
+        "tests/api/",
+        "src/gameplay/tactics_adapter.js",
+        "tests/gameplay/tactics_adapter.test.mjs"
+      ],
+      "model": "deepseek-chat"
+    },
+    {
+      "role": "tester",
+      "assignee": "agent",
+      "depends_on": [
+        "architect"
+      ],
+      "handoff_contract": "You are the optional independent tester task_worker. Write black-box acceptance tests under tests/acceptance, run them, and report exact commands and observed results. Do not edit gameplay source to make tests pass. Return done only when the assigned acceptance suite runs; put source defects in handoff and do not return blocked.",
+      "verify": "non_empty",
+      "capabilities": [
+        "task_worker"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "write_paths": [
+        "tests/acceptance/"
+      ],
+      "model": "deepseek-chat"
+    },
+    {
+      "role": "playtester",
+      "assignee": "agent",
+      "depends_on": [
+        "architect"
+      ],
+      "handoff_contract": "You are the optional actual-play task_worker. Start the game entry with a local static server or the documented command, navigate with browser tools, exercise movement/jump/fire/restart according to the Design Brief, capture screenshots under playtest/, and write playtest/report.md with concrete observed behavior and UX issues. Do not edit game code or tests to hide a failure. Return done with evidence; put blockers in handoff.",
+      "verify": "non_empty",
+      "capabilities": [
+        "task_worker"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "run_command",
+        "browser_navigate",
+        "browser_snapshot",
+        "browser_press",
+        "browser_screenshot",
+        "browser_click",
+        "browser_type"
+      ],
+      "write_paths": [
+        "playtest/",
+        "tests/playtest/"
+      ],
+      "model": "deepseek-chat"
+    },
+    {
+      "role": "assembler",
+      "assignee": "agent",
+      "depends_on": [
+        "architect"
+      ],
+      "handoff_contract": "你是 integrator/assembler，只做接线和交付，不重写 systems/gameplay/presentation。等全部实现任务完成后，读取 Design Brief、现有模块和测试证据，写 src/main.js、README.md、tests/integration.test.mjs，把模块接成可实际启动的游戏；运行 node --test tests/integration.test.mjs 和任务要求的验证。只写 src/main.js、README.md、tests/integration.test.mjs，不改动其他角色文件。验收：真实入口、输入、核心循环、胜负、restart、HUD 和启动说明都有证据；测试通过必须返回 done 且 open_issues 为空。",
+      "verify": "non_empty",
+      "capabilities": [
+        "integrator"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "write_paths": [
+        "src/main.js",
+        "README.md",
+        "tests/integration.test.mjs"
+      ],
+      "model": "deepseek-chat"
+    },
+    {
+      "role": "lead_review",
+      "assignee": "agent",
+      "depends_on": [
+        "architect",
+        "assembler"
+      ],
+      "handoff_contract": "你是只读独立验收者（不写文件、不修改任何产物、不重新设计功能）。对照 architect 的 Design Brief、每个任务的 acceptance、宿主命令回执和 assembler 的集成测试，检查：入口能否启动、核心循环和输入是否接通、风格/HUD/胜负/restart 是否一致、测试是否真实覆盖而非改测试通过、是否有未解决的 blocker/minor。输出可复核的 findings，必须包含文件/行号或证据引用；无问题时逐项给出证据引用和剩余风险。不得声称运行过未执行的命令；不得写文件或绕过宿主评审。",
+      "verify": "non_empty",
+      "capabilities": [
+        "review"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir"
+      ],
+      "write_paths": [],
+      "model": "deepseek-chat"
+    }
+  ],
+  "budget_calls_per_role": [
+    {
+      "role": "architect",
+      "budget_calls": 12
+    },
+    {
+      "role": "systems",
+      "budget_calls": 16
+    },
+    {
+      "role": "gameplay",
+      "budget_calls": 16
+    },
+    {
+      "role": "presentation",
+      "budget_calls": 16
+    },
+    {
+      "role": "asset_artist",
+      "budget_calls": 16
+    },
+    {
+      "role": "api_engineer",
+      "budget_calls": 16
+    },
+    {
+      "role": "tester",
+      "budget_calls": 16
+    },
+    {
+      "role": "playtester",
+      "budget_calls": 16
+    },
+    {
+      "role": "assembler",
+      "budget_calls": 16
+    },
+    {
+      "role": "lead_review",
+      "budget_calls": 8
+    }
+  ]
+}
