@@ -98,7 +98,9 @@ fn normalize_for_compare(path: &Path) -> String {
         let mut current = path.to_path_buf();
         loop {
             if let Ok(existing) = current.canonicalize() {
-                let suffix = path.strip_prefix(&current).unwrap_or_else(|_| Path::new(""));
+                let suffix = path
+                    .strip_prefix(&current)
+                    .unwrap_or_else(|_| Path::new(""));
                 break existing.join(suffix);
             }
             match current.parent() {
