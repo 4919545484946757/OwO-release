@@ -892,12 +892,100 @@ async fn wait_for_abort(abort: &AtomicBool) {
 }
 
 fn truncate_tool_result(content: &str, max_chars: usize) -> String {
-    if content.chars().count() <= max_chars {
+    let total = content.chars().count();
+    if total <= max_chars {
         return content.to_string();
     }
-    let mut truncated: String = content.chars().take(max_chars).collect();
-    truncated.push_str("\n[工具输出已截断]");
-    truncated
+    const SHORT_MARKER: &str = "\n[工具输出已截断]";
+    // Tiny budgets are mostly test/display paths; there is no room for a
+    // middle-omission marker, so keep the historical prefix-only behavior.
+    if max_chars <= SHORT_MARKER.chars().count() {
+        let mut truncated: String = content.chars().take(max_chars).collect();
+        truncated.push_str(SHORT_MARKER);
+        return truncated;
+    }
+    // Keep both ends: command/test output usually ends with the decisive error
+    // and exit summary, so prefix-only truncation hides the evidence the model
+    // needs and causes redundant re-runs.
+    let head_chars = max_chars * 3 / 5;
+    let tail_chars = max_chars - head_chars;
+    let head: String = content.chars().take(head_chars).collect();
+    let tail: String = content
+        .chars()
+        .rev()
+        .take(tail_chars)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    let omitted = total - head_chars - tail_chars;
+    format!("{head}\n[工具输出已截断：中间省略 {omitted} 字符，已保留尾部]\n{tail}")
+}
+
+/// Old `read_file` observations are re-readable, so keep the recent window
+/// verbatim and compress only the stale head of the history. This bounds the
+/// prompt growth of long tool loops without hiding the just-produced evidence.
+const AGED_READ_KEEP_RECENT: usize = 10;
+const AGED_READ_MAX_CHARS: usize = 4_000;
+
+/// Compress only the `content` field of a structured `read_file` result so
+/// `path`, `sha256`, and line metadata stay valid for later `apply_patch`.
+fn age_read_result(content: &str, max_chars: usize) -> String {
+    if let Ok(mut value) = serde_json::from_str::<serde_json::Value>(content) {
+        if let Some(text) = value.get("content").and_then(serde_json::Value::as_str) {
+            if text.chars().count() > max_chars {
+                let aged = truncate_tool_result(text, max_chars);
+                if let Some(object) = value.as_object_mut() {
+                    object.insert(
+                        "content".to_string(),
+                        serde_json::Value::String(format!(
+                            "{aged}\n[较早的 read_file 内容已压缩；文件哈希与行号未变，如需精确内容请重新 read_file]"
+                        )),
+                    );
+                    object.insert("aged".to_string(), serde_json::Value::Bool(true));
+                }
+                return value.to_string();
+            }
+            return content.to_string();
+        }
+    }
+    let aged = truncate_tool_result(content, max_chars);
+    format!("{aged}\n[较早的 read_file 输出已压缩；如需精确内容请重新 read_file]")
+}
+
+fn age_old_read_observations(messages: &mut [ChatMessage], keep_recent: usize, max_chars: usize) {
+    let read_ids: std::collections::HashSet<String> = messages
+        .iter()
+        .flat_map(|message| message.tool_calls.iter().flatten())
+        .filter(|call| call.name == "read_file")
+        .map(|call| call.id.clone())
+        .collect();
+    let indices: Vec<usize> = messages
+        .iter()
+        .enumerate()
+        .filter(|(_, message)| {
+            message.role == "tool"
+                && message
+                    .tool_call_id
+                    .as_deref()
+                    .is_some_and(|id| read_ids.contains(id))
+        })
+        .map(|(index, _)| index)
+        .collect();
+    let cutoff = indices.len().saturating_sub(keep_recent);
+    for &index in &indices[..cutoff] {
+        let Some(content) = messages[index].content.as_deref() else {
+            continue;
+        };
+        if content.chars().count() <= max_chars
+            // Large results are already a valid CAS envelope (pointer + preview).
+            // Truncating that JSON would discard the pointer and make it unreadable.
+            || content.trim_start().starts_with("{\"artifact\"")
+        {
+            continue;
+        }
+        messages[index].content = Some(age_read_result(content, max_chars));
+    }
 }
 
 /// 步骤时间线的结果预览上限：够看清这步做了什么，又不会把 SSE 帧撑爆。

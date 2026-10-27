@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FocusFlow 专注计时器 · 把注意力收回这一件事</title>
+  <meta name="description" content="FocusFlow 是一个纯前端单页专注计时器：1–90 分钟自由调节，支持开始、暂停、重置，完成时有横幅与提示音提醒，手机与桌面都可直接打开使用。">
+  <meta name="theme-color" content="#0b1020">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#timer">跳到计时器</a>
+
+  <header class="site-header">
+    <a class="brand" href="#top">
+      <span class="brand__mark" aria-hidden="true">◎</span>
+      <span class="brand__name">FocusFlow</span>
+    </a>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="#timer">计时器</a>
+      <a href="#features">特性</a>
+      <a href="#how">使用方法</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero__copy">
+        <p class="badge">纯前端 · 打开即用 · 数据不出本机</p>
+        <h1 id="hero-title">把注意力，收回<span class="accent">这一件事</span></h1>
+        <p class="hero__lead">
+          FocusFlow 是一个极简专注计时器：设定一段时间，按下开始，剩下的交给倒计时。
+          到点会亮起横幅、响一声提示音，并在浏览器标题里告诉你「该休息了」。
+        </p>
+        <ul class="hero__points">
+          <li>开始 / 暂停 / 重置一键切换，随时接住被打断的节奏</li>
+          <li>1–90 分钟自由拖动，内置 15 / 25 / 45 / 60 分钟常用预设</li>
+          <li>完成后横幅 + 提示音 + 页面标题三重提醒，不会错过</li>
+        </ul>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#timer">立即开始专注</a>
+          <a class="btn btn--ghost" href="#how">看看怎么用</a>
+        </div>
+      </div>
+
+      <div class="timer-card" id="timer" data-timer>
+        <p class="timer-card__eyebrow">本次专注</p>
+
+        <div class="dial">
+          <svg class="dial__svg" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
+            <circle class="dial__track" cx="100" cy="100" r="88"></circle>
+            <circle class="dial__progress" id="progress-ring" cx="100" cy="100" r="88"></circle>
+          </svg>
+          <div class="dial__center">
+            <span class="dial__time" id="time-display" role="timer" aria-live="off">25:00</span>
+            <span class="dial__status" id="status-text">准备开始</span>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="btn btn--primary" id="toggle-btn" type="button" aria-pressed="false">开始专注</button>
+          <button class="btn btn--ghost" id="reset-btn" type="button">重置</button>
+        </div>
+
+        <div class="duration">
+          <div class="duration__label">
+            <label for="duration-input">专注时长</label>
+            <output id="duration-value" for="duration-input">25 分钟</output>
+          </div>
+          <input id="duration-input" type="range" min="1" max="90" step="1" value="25"
+                 aria-describedby="duration-hint">
+          <p class="duration__hint" id="duration-hint">拖动滑块可在 1–90 分钟之间调整，调整后会重置当前计时。</p>
+          <div class="presets" role="group" aria-label="常用时长预设">
+            <button class="chip" type="button" data-preset="15">15 分钟</button>
+            <button class="chip" type="button" data-preset="25">25 分钟</button>
+            <button class="chip" type="button" data-preset="45">45 分钟</button>
+            <button class="chip" type="button" data-preset="60">60 分钟</button>
+          </div>
+        </div>
+
+        <p class="complete-banner" id="complete-banner" role="status" aria-live="polite" hidden>
+          🎉 专注完成！起身走走、喝口水，再决定下一件事。
+        </p>
+      </div>
+    </section>
+
+    <section class="features" id="features" aria-labelledby="features-title">
+      <h2 id="features-title">为「不想被打断」而设计</h2>
+      <div class="features__grid">
+        <article class="feature-card">
+          <h3>专注只做一件事</h3>
+          <p>没有账号、没有通知流、没有排行榜。页面只保留倒计时和你此刻要做的事。</p>
+        </article>
+        <article class="feature-card">
+          <h3>节奏由你决定</h3>
+          <p>1–90 分钟任意调节，暂停后可以随时继续；同一段专注里反复调整也不会丢状态。</p>
+        </article>
+        <article class="feature-card">
+          <h3>完成会被看见</h3>
+          <p>到点后横幅提示、短促提示音和标题变更同时出现，即使切到别的标签页也能察觉。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="steps" id="how" aria-labelledby="how-title">
+      <h2 id="how-title">三步进入专注</h2>
+      <ol class="steps__list">
+        <li><strong>设定时长</strong><span>拖动滑块或点选预设，决定这一轮要专注多久。</span></li>
+        <li><strong>按下开始</strong><span>倒计时开始，圆环随时长收缩；需要中断就点暂停。</span></li>
+        <li><strong>收下提示</strong><span>完成横幅出现，喝口水，再点「再来一轮」继续。</span></li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>FocusFlow · 专注计时器 · 单页纯前端实现，所有计时都在你的浏览器里完成。</p>
+    <noscript>这个页面需要启用 JavaScript 才能运行计时器。</noscript>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- 经典脚本（非 module）：双击用 file:// 打开时也能执行，不会被 CORS 拒绝。 -->
+  <script src="script.js" defer></script>
+</body>
+</html>

@@ -58,7 +58,7 @@ pub struct WorkerProfile {
     pub read_only: bool,
     /// 角色级写白名单（相对工作区根；空 = 交由团队绑定白名单决定）。
     pub write_allowed_paths: Vec<String>,
-    /// 回合上限（模板 `budget_calls_per_role[].budget_calls`；硬上限 16）。
+    /// 回合上限（模板 `budget_calls_per_role[].budget_calls`；硬上限 32）。
     pub max_turns: usize,
     /// 允许浏览器（搜索/导航/快照；写工作区变体不在可见面）。
     pub can_use_browser: bool,
@@ -768,12 +768,25 @@ pub fn compile_worker_system_prompt(
     let base_prompt = if is_review_role {
         "你是只读评审子代理：critic 不得提交 artifact；只能读取/搜索工作区文件，禁止写入或执行命令；独立检查交付并简洁汇报发现。\n"
     } else if profile.is_writer() {
-        "你是写角色子代理：凡涉及代码/文件变更，必须在允许路径内真实落盘：小范围修改优先用 apply_patch，并传入 read_file 返回的 sha256 作为 expected_hashes；整文件生成或确需重写时使用 write_file（工具面之外没有其他写入手段）；artifact.content 只写变更说明、影响面与验证方式，不要把完整变更只放在 artifact 里而不落盘。回合预算有限：先做必要读取并完成写入；仅当任务验收需要且权限允许时，运行范围明确的定向检查，避免重复读取和全仓构建。最后一个回合只输出契约 JSON，不再调用工具。工具调用仍需审批；无法验证时如实说明。\n"
+        "你是写角色子代理：凡涉及代码/文件变更，必须在允许路径内真实落盘：小范围修改已有文件必须用 apply_patch，并传入 read_file 返回的 sha256 作为 expected_hashes；不要用 write_file 重写已有文件来掩盖增量修改；write_file 只用于新建文件或确需整体重写且一次成文（工具面之外没有其他写入手段）；artifact.content 只写变更说明、影响面与验证方式，不要把完整变更只放在 artifact 里而不落盘。回合预算有限：先做必要读取并完成写入；仅当任务验收需要且权限允许时，运行范围明确的定向检查；同一验证命令已明确通过后不要重复运行，不要接 grep/tail/head 等 bash 过滤器，直接读取宿主保留的首尾输出；避免重复读取和全仓构建。最后一个回合只输出契约 JSON，不再调用工具。工具调用仍需审批；无法验证时如实说明。\n"
     } else {
         "你是通用子代理：独立完成委派任务，工具调用仍需审批，完成后汇报结果。\n"
     };
+    // Worker commands run through the host sandbox shell, not an arbitrary
+    // bash.  State the real shell so models stop wasting calls on `| tail`,
+    // `grep`, `$?` and other bash-only fragments on Windows.
+    let shell_note = if cfg!(windows)
+        && profile
+            .visible_tools
+            .iter()
+            .any(|tool| tool == "run_command")
+    {
+        "本机命令壳是 Windows cmd.exe：不要使用 bash 专用的 tail/head/grep/sed/awk、$?、$(...) 或反引号；直接运行原命令，输出由宿主保留首尾并截断中段。\n"
+    } else {
+        ""
+    };
     format!(
-        "{}{base_prompt}{budget_note}{}",
+        "{}{base_prompt}{shell_note}{budget_note}{}",
         extra_system_prompt.unwrap_or_default(),
         crate::workswarm_output::contract_system_prompt(is_review_role)
     )
@@ -1325,7 +1338,13 @@ mod tests {
         assert!(writer_prompt.starts_with("host"));
         assert!(writer_prompt.contains("apply_patch"));
         assert!(writer_prompt.contains("write_file"));
+        assert!(writer_prompt.contains("不要用 write_file 重写已有文件"));
+        assert!(writer_prompt.contains("同一验证命令已明确通过后不要重复运行"));
         assert!(writer_prompt.contains("无法验证时如实说明"));
+        if cfg!(windows) {
+            assert!(writer_prompt.contains("Windows cmd.exe"), "{writer_prompt}");
+            assert!(writer_prompt.contains("tail"), "{writer_prompt}");
+        }
 
         let reviewer = WorkerProfile::for_role("reviewer", 4);
         let review_prompt = compile_worker_system_prompt(&reviewer, true, "budget", None);

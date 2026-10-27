@@ -329,7 +329,9 @@ impl TeamCoordinator {
                 drop(_guard);
                 let request = super::coord_rework::ReworkRequest {
                     step_id: step_id.clone(),
-                    instruction: reason.clone(),
+                    instruction: format!(
+                        "{reason}\n返修必须实际调用 write_file/apply_patch 把最终内容写入工作区，并运行已注册测试；不要只在 artifact 中返回 diff、摘要或计划。"
+                    ),
                     note: "宿主交付检查返工".into(),
                     actor: "host_validator".into(),
                     source_id: Some(format!("gate:{step_id}:{attempt_id}:{validator_id}")),

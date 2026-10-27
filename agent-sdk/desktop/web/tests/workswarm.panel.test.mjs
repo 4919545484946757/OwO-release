@@ -612,6 +612,12 @@ test("strategyDecisionOf：完整判定/字符串 reasons/字符串角色/非法
   assert.equal(T.strategyDecisionOf({}), null);
   assert.equal(T.strategyDecisionOf({ strategy_decision: { mode: "unknown" } }), null);
   assert.equal(T.strategyDecisionOf({ strategy_decision: { mode: "single" }, team: 1 }).mode, "single");
+  const resolved = T.strategyDecisionOf({ strategy_decision: { mode: "team", resolved_roles: [
+    { role: "implementer", assignee: "agent", budget_calls: 16, write_paths: ["src"] },
+    { role: "reviewer", assignee: "agent", budget_calls: 11 }
+  ] } });
+  assert.deepEqual(resolved.resolvedRoles.map(function (r) { return [r.role, r.budgetCalls]; }), [["implementer", 16], ["reviewer", 11]]);
+  assert.deepEqual(resolved.resolvedRoles[0].writePaths, ["src"]);
 });
 
 test("strategyBoxHtml：单/多 Agent 徽标与理由列表", () => {
@@ -619,6 +625,11 @@ test("strategyBoxHtml：单/多 Agent 徽标与理由列表", () => {
   const html = T.strategyBoxHtml(T.strategyDecisionOf({ strategy_decision: STRAT }));
   assert.match(html, /单 Agent/);
   assert.match(html, /writer/);
+  const budgeted = T.strategyBoxHtml(T.strategyDecisionOf({ strategy_decision: { mode: "team", resolved_roles: [
+    { role: "implementer", budget_calls: 16 }, { role: "reviewer", budget_calls: 11 }
+  ] } }));
+  assert.match(budgeted, /implementer 16/);
+  assert.match(budgeted, /reviewer 11/);
   assert.match(html, /每角色调用预算 4/);
   assert.match(html, /无并行子任务/);
   const teamHtml = T.strategyBoxHtml(T.strategyDecisionOf({ strategy_decision: { mode: "team", roles: ["producer", "critic"], reasons: [] } }));

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OwO Agent SDK — Build agents that ship</title>
+  <meta name="description" content="OwO Agent SDK is a lightweight Agent SDK for developers: tool calling, context management, approval-gated permissions and a node:test friendly harness.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="site-header" id="top">
+    <div class="wrap header-inner">
+      <a class="brand" href="#top">
+        <span class="brand-mark" aria-hidden="true">OwO</span>
+        <span class="brand-name">Agent SDK</span>
+      </a>
+
+      <details class="nav-toggle">
+        <summary class="nav-toggle-button">
+          <span class="nav-toggle-label">Menu</span>
+        </summary>
+        <nav class="site-nav" aria-label="Primary">
+          <ul class="nav-list">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how-it-works">How it works</a></li>
+            <li><a href="#quickstart">Code</a></li>
+            <li><a href="#faq">FAQ</a></li>
+          </ul>
+        </nav>
+      </details>
+
+      <nav class="site-nav site-nav--desktop" aria-label="Primary desktop">
+        <ul class="nav-list">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#how-it-works">How it works</a></li>
+          <li><a href="#quickstart">Code</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </nav>
+
+      <a class="btn btn--primary header-cta" href="#quickstart">Get started</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="hero" aria-labelledby="hero-title">
+      <div class="wrap hero-inner">
+        <p class="eyebrow">v0.4 · MIT licensed · Node 20+</p>
+        <h1 id="hero-title">Build agents that ship — a lightweight Agent SDK for developers</h1>
+        <p class="hero-sub">OwO Agent SDK gives you tool calling, context orchestration and approval-based permissions, so you can put an agent inside your product with a handful of lines of code.</p>
+        <div class="cta-row">
+          <a class="btn btn--primary" href="#quickstart">Get started</a>
+          <a class="btn btn--ghost" href="#quickstart">Read the docs</a>
+        </div>
+        <p class="trust-line">Zero runtime dependencies · Works with plain <code>node:test</code> · No hosted service required</p>
+
+        <div class="hero-diagram" role="img" aria-label="Diagram: your product calls the OwO Agent SDK, which requests approval before running a side-effect tool, then returns an audited result.">
+          <div class="diagram-node">Your product</div>
+          <div class="diagram-arrow" aria-hidden="true">→</div>
+          <div class="diagram-node diagram-node--accent">OwO Agent SDK</div>
+          <div class="diagram-arrow" aria-hidden="true">→</div>
+          <div class="diagram-node">Approval gate</div>
+          <div class="diagram-arrow" aria-hidden="true">→</div>
+          <div class="diagram-node">Tool + audit log</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="wrap">
+        <h2 id="features-title">Three things the skeleton does for you</h2>
+        <p class="section-lead">OwO only owns the agent skeleton: model calls, tools and context. Your UI and business logic stay yours.</p>
+        <ul class="card-grid">
+          <li class="card">
+            <h3>Tool calling</h3>
+            <p>Describe a tool with name, argument schema and a run function. The SDK validates the arguments the model produces and feeds the result back into the conversation.</p>
+          </li>
+          <li class="card">
+            <h3>Context management</h3>
+            <p>Session history, system prompt and tool output are trimmed against a token budget, with a summarisation strategy you can replace, so long runs do not silently drop key context.</p>
+          </li>
+          <li class="card">
+            <h3>Approval &amp; permissions</h3>
+            <p>Any side-effect tool can be marked as requiring approval. The runtime pauses for a request, waits for your decision, then executes, and the permission boundary lives in your code.</p>
+          </li>
+          <li class="card">
+            <h3>Test harness</h3>
+            <p>A deterministic execution entry point: fix the random seed and the clock, stub model responses, and assert agent behaviour in CI with plain <code>node:test</code>.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section section--alt" id="how-it-works" aria-labelledby="how-title">
+      <div class="wrap">
+        <h2 id="how-title">How it works</h2>
+        <p class="section-lead">From an empty directory to an approval-gated agent in three steps.</p>
+        <ol class="steps">
+          <li class="step">
+            <span class="step-index" aria-hidden="true">1</span>
+            <h3>Install</h3>
+            <p>Run <code>npm i owo-agent-sdk</code>. The package is plain ESM with no build step and runs directly on Node 20 or newer.</p>
+          </li>
+          <li class="step">
+            <span class="step-index" aria-hidden="true">2</span>
+            <h3>Define tools and an agent</h3>
+            <p>Register your tools, write the system prompt and pick a model. A single <code>createAgent()</code> call returns a reusable agent.</p>
+          </li>
+          <li class="step">
+            <span class="step-index" aria-hidden="true">3</span>
+            <h3>Ship it with approvals</h3>
+            <p>Call the agent from your HTTP handler or job queue, add an approval callback for write tools, and forward the emitted events to the audit store you already run.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section" id="quickstart" aria-labelledby="quickstart-title">
+      <div class="wrap">
+        <h2 id="quickstart-title">Quickstart</h2>
+        <p class="section-lead">A complete minimal example: create an agent, register a file-writing tool, and run one request that has to pass an approval gate.</p>
+
+        <figure class="code-card">
+          <figcaption>Minimal agent with an approval-gated tool</figcaption>
+          <pre tabindex="0" aria-label="Code example: creating an OwO agent with an approval-gated file write tool"><code>import { createAgent, tool } from "owo-agent-sdk";
+
+const writeFile = tool({
+  name: "writeFile",
+  description: "Write a text file inside ./out",
+  schema: { path: "string", body: "string" },
+  requiresApproval: true,
+  async run({ path, body }, ctx) {
+    await ctx.fs.write(path, body);
+    return { path, bytes: body.length };
+  },
+});
+
+const agent = createAgent({
+  model: "claude-sonnet",
+  system: "You summarize release notes into ./out files.",
+  tools: [writeFile],
+  onApproval: async ({ toolName, args, reason }) =&gt; {
+    console.log("approve?", toolName, args, reason);
+    return true;
+  },
+});
+
+const result = await agent.run("Write this week's release notes.");
+console.log(result.events); // every approval is an auditable event</code></pre>
+        </figure>
+
+        <ul class="code-notes">
+          <li><code>requiresApproval</code> routes every write through the approval gate instead of trusting the caller.</li>
+          <li><code>agent.run()</code> resolves with <code>events</code> that you can forward to your logs or assert on directly in tests.</li>
+          <li>The sample makes no network request; swap <code>model</code> for any compatible adapter to point it elsewhere.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section section--alt" id="capabilities" aria-labelledby="capabilities-title">
+      <div class="wrap">
+        <h2 id="capabilities-title">Capabilities compared</h2>
+        <div class="table-scroll">
+          <table>
+            <caption>Capability comparison: OwO Agent SDK vs a hand-written loop vs a heavy orchestration framework</caption>
+            <thead>
+              <tr>
+                <th scope="col">Capability</th>
+                <th scope="col">OwO Agent SDK</th>
+                <th scope="col">Hand-rolled loop</th>
+                <th scope="col">Heavy orchestration framework</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Runtime dependencies</th>
+                <td>Zero at runtime</td>
+                <td>Whatever you import</td>
+                <td>Dozens plus a build step</td>
+              </tr>
+              <tr>
+                <th scope="row">Tool schema validation</th>
+                <td>Built in per tool</td>
+                <td>You write it yourself</td>
+                <td>Built in</td>
+              </tr>
+              <tr>
+                <th scope="row">Approval gate for side effects</th>
+                <td>Opt-in per tool via <code>requiresApproval</code></td>
+                <td>Manual, easy to forget</td>
+                <td>Configurable, verbose to wire</td>
+              </tr>
+              <tr>
+                <th scope="row">Deterministic tests</th>
+                <td>Seed plus fake clock harness</td>
+                <td>Possible, undocumented</td>
+                <td>Requires mocking the runtime</td>
+              </tr>
+              <tr>
+                <th scope="row">Migration cost</th>
+                <td>Adopt one agent at a time, not one repo</td>
+                <td>Already yours to maintain</td>
+                <td>Rewrite the call sites</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">Basis of comparison: OwO Agent SDK v0.4 compared with a hand-written agent loop and with general-purpose orchestration frameworks as of the same release. Honest caveat: when you need a visual builder or a hosted dashboard, the heavy framework is the better fit.</p>
+      </div>
+    </section>
+
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="wrap">
+        <h2 id="faq-title">Questions developers actually ask</h2>
+        <div class="faq-list">
+          <details>
+            <summary>Do I need a hosted service to run OwO?</summary>
+            <p>No. The SDK runs inside your own process and calls the model provider you configure. There is no control plane, no account and no telemetry; you can run it fully offline against a local model adapter.</p>
+          </details>
+          <details>
+            <summary>How are permissions handled for risky tools?</summary>
+            <p>Mark a tool with <code>requiresApproval: true</code> and the runtime pauses before execution, emits a request event and waits for your <code>onApproval</code> callback. Denials are returned to the model as a tool error, so the agent can reason about the refusal instead of crashing.</p>
+          </details>
+          <details>
+            <summary>Is the SDK TypeScript-only?</summary>
+            <p>No. The package ships typed declarations, but it runs as plain ESM JavaScript. You can use it from <code>.mjs</code> files, from CommonJS through dynamic <code>import()</code>, or inside a TypeScript project without extra setup.</p>
+          </details>
+          <details>
+            <summary>How do I test an agent deterministically?</summary>
+            <p>Use the shipped harness: pass a fixed seed, a fake clock and stub model responses, then assert on the returned <code>events</code> array with <code>node:test</code>. No network, no sleeps and no flaky retries in CI.</p>
+          </details>
+          <details>
+            <summary>Can I adopt OwO incrementally?</summary>
+            <p>Yes. Agents are created per call site, so you can migrate one workflow at a time while your existing framework keeps running elsewhere. Visual orchestration UIs, hosted dashboards and zero-code builders are deliberate non-goals.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section final-cta" aria-labelledby="final-cta-title">
+      <div class="wrap final-cta-inner">
+        <h2 id="final-cta-title">Ship your first agent today</h2>
+        <p>Start with <code>npm i owo-agent-sdk</code> and have a minimal approval-gated agent running within half an hour.</p>
+        <a class="btn btn--primary" href="#quickstart">Get started</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" id="footer">
+    <div class="wrap footer-inner">
+      <p class="footer-brand">OwO Agent SDK</p>
+      <nav class="footer-nav" aria-label="Footer">
+        <ul>
+          <li><a href="#quickstart">Docs</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a href="#capabilities">Capabilities</a></li>
+        </ul>
+      </nav>
+      <p class="footer-meta">MIT licensed · GitHub: owo-agent-sdk (local link only, no network assets loaded)</p>
+      <p class="footer-a11y">Accessibility statement: this page targets WCAG 2.2 AA, keeps a single <code>h1</code>, provides a skip link, visible focus rings and respects <code>prefers-reduced-motion</code>. Report issues in the repository tracker.</p>
+    </div>
+  </footer>
+</body>
+</html>

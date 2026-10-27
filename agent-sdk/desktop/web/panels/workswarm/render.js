@@ -110,6 +110,11 @@
       if (dec.roles.length) {
         html += '<span class="hint">角色：' + esc(dec.roles.map(function (r) { return r.role; }).join(" → ")) + "</span>";
       }
+      if (dec.resolvedRoles && dec.resolvedRoles.length) {
+        html += '<span class="hint">\u5b9e\u9645\u9884\u7b97\uff1a' + esc(dec.resolvedRoles.map(function (r) {
+          return r.role + (r.budgetCalls == null ? "" : " " + r.budgetCalls);
+        }).join(" \u00b7 ")) + "</span>";
+      }
       if (dec.parallelism != null) html += '<span class="hint">并行度 ' + esc(dec.parallelism) + "</span>";
       if (dec.budgetPerRole != null) html += '<span class="hint">每角色调用预算 ' + esc(dec.budgetPerRole) + "</span>";
       if (dec.reasons.length) {

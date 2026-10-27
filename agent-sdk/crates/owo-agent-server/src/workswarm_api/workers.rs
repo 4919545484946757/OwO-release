@@ -405,6 +405,11 @@ impl Worker for AgentSubagentWorker {
                     }));
                 }
                 let tool_started_at = Arc::new(Mutex::new(HashMap::<String, Instant>::new()));
+                // ToolResult carries the receipt but not argv. Keep the already
+                // sanitized ToolStart preview so reviewers/audit can identify the
+                // command (e.g. `npm test`) behind a successful receipt.
+                let tool_command_preview =
+                    Arc::new(Mutex::new(HashMap::<String, String>::new()));
                 let coordinator = Arc::clone(&self.coordinator);
                 let team_id = self.team_id.clone();
                 let role = self.role.clone();
@@ -467,15 +472,21 @@ impl Worker for AgentSubagentWorker {
                         }
                     }
                     if let TurnEvent::ToolResult {
+                        id,
                         command_receipt: Some(receipt),
                         ..
                     } = event
                     {
+                        let command_preview = tool_command_preview
+                            .lock()
+                            .ok()
+                            .and_then(|mut previews| previews.remove(id));
                         let detail = serde_json::json!({
                             "step_id": &event_step_id,
                             "task_id": &event_task_id,
                             "attempt_id": &event_attempt_id,
                             "receipt": receipt,
+                            "command_preview": command_preview,
                         })
                         .to_string();
                         coordinator.record_runtime_event(
@@ -489,9 +500,19 @@ impl Worker for AgentSubagentWorker {
                         return;
                     }
                     let duration_ms = match event {
-                        TurnEvent::ToolStart { id, .. } => {
+                        TurnEvent::ToolStart {
+                            id, args_preview, ..
+                        } => {
                             if let Ok(mut started) = tool_started_at.lock() {
                                 started.insert(id.clone(), Instant::now());
+                            }
+                            if let Some(preview) = args_preview {
+                                if let Ok(mut previews) = tool_command_preview.lock() {
+                                    previews.insert(
+                                        id.clone(),
+                                        preview.chars().take(240).collect::<String>(),
+                                    );
+                                }
                             }
                             None
                         }

@@ -250,7 +250,7 @@ impl TeamCoordinator {
                     pending_delivery_repair.get_or_insert(WorkSwarmError::DeliveryRepair {
                         step_id: step.id.clone(), attempt_id: attempt_id.to_string(),
                         validator_id: "workspace-command-success-v1".into(),
-                        reason: "当前源码缺少匹配最终文件哈希的宿主行为验证证据；请在修改后运行获准测试（例如 node --test outputs/page.test.cjs），检查后不要修改源码，重新交付并独立评审".into(),
+                        reason: "当前源码缺少匹配最终文件哈希的宿主行为验证证据；请在修改后运行任务对应的已注册测试命令（如 python test_calc.py、cargo test、npm test、node --test），检查后不要修改源码，重新交付并独立评审".into(),
                     });
                 }
                 let actual_hash = artifact.sha256.clone();

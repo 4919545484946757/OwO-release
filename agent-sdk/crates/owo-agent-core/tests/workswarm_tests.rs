@@ -114,6 +114,41 @@ impl Worker for EchoWorker {
     }
 }
 
+struct InvalidLeadPlanWorker;
+
+#[async_trait]
+impl Worker for InvalidLeadPlanWorker {
+    fn name(&self) -> &str {
+        "invalid-lead-plan"
+    }
+
+    async fn run(&self, input: &Value) -> Result<String, String> {
+        if input.get("role").and_then(Value::as_str) == Some("lead") {
+            let graph = serde_json::json!({
+                "version": 1,
+                "tasks": [{
+                    "task_id": "task-1",
+                    "worker": "nobody",
+                    "task": "task one",
+                    "acceptance": "done",
+                    "write_paths": ["src/a"],
+                    "estimated_effort": 1
+                }]
+            })
+            .to_string();
+            return Ok(serde_json::json!({
+                "status": "done",
+                "summary": "invalid lead plan",
+                "artifact": {"kind": "plan", "format": "json", "content": graph},
+                "evidence": [],
+                "open_issues": []
+            })
+            .to_string());
+        }
+        EchoWorker.run(input).await
+    }
+}
+
 struct ReviewRepairWorker {
     review_calls: std::sync::atomic::AtomicUsize,
 }
@@ -486,7 +521,11 @@ async fn relay_run_completes_with_artifacts_handoffs_and_proposal() {
         .get_text(leader.content_ref.strip_prefix("cas://sha256:").unwrap())
         .unwrap();
     assert!(leader_content.contains(OBJECTIVE), "上下文切片应含团队目标");
-    assert!(leader_content.contains("reviewer_id"));
+    // The 4096-byte per-artifact budget keeps a two-artifact review body
+    // intact, so the leader sees both host identity and the reviewer binding.
+    assert!(leader_content.contains("m-critic"), "{leader_content}");
+    assert!(leader_content.contains("\"producer\""), "{leader_content}");
+    assert!(leader_content.contains("reviewer_id"), "{leader_content}");
     assert!(leader_content.contains(&critic.artifact_id));
     assert!(leader_content.contains("reviewed_artifacts"));
 
@@ -1350,6 +1389,20 @@ async fn strategy_auto_trims_default_relay_to_single_and_exposes_decision() {
     assert!(
         decision["budget_calls_total"].is_u64(),
         "预算（调用次数）应暴露"
+    );
+    let resolved = decision["resolved_roles"]
+        .as_array()
+        .expect("resolved_roles must expose the runnable topology");
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0]["role"], meta.roles[0].role);
+    let resolved_total: u64 = resolved
+        .iter()
+        .map(|role| role["budget_calls"].as_u64().expect("role budget"))
+        .sum();
+    assert_eq!(
+        resolved_total,
+        decision["budget_calls_total"].as_u64().unwrap(),
+        "resolved role budgets must sum to the published total"
     );
 }
 
@@ -2268,29 +2321,7 @@ async fn invalid_parallel_lead_plan_fails_team_before_reporting_success() {
         parent_context_snapshot: None,
     };
     let team = h.coordinator.create_team_run(&req).await.unwrap();
-    let mut state = h.coordinator.load_run_state(&team.team_id).unwrap();
-    let lead_id = state
-        .plan
-        .steps
-        .iter()
-        .find(|step| step.id == "s-lead")
-        .map(|step| step.id.clone())
-        .expect("lead step");
-    state.records.get_mut(&lead_id).unwrap().status = owo_agent_core::plan::StepStatus::Succeeded;
-    state.records.get_mut(&lead_id).unwrap().output = Some(
-        serde_json::json!({
-            "subtasks": [
-                {"worker": "w1", "task": "task one", "acceptance": "", "write_paths": ["src/a"]}
-            ]
-        })
-        .to_string(),
-    );
-    state
-        .goal
-        .transition(owo_agent_core::goal::GoalStatus::Running);
-    state.persist(&h.dir.join("runs")).unwrap();
-
-    let registry = build_registry(&h, &team.team_id, Arc::new(EchoWorker), &roles);
+    let registry = build_registry(&h, &team.team_id, Arc::new(InvalidLeadPlanWorker), &roles);
     let outcome = drive_next(&h, &team.team_id, &registry).await;
     assert!(matches!(outcome, PhaseOutcome::Failed), "{outcome:?}");
     let failed = h.coordinator.get_team_run(&team.team_id).await.unwrap();
@@ -2982,28 +3013,17 @@ async fn finalize_success_rejects_unaccepted_changeset_for_current_attempt() {
         note: None,
     });
     changes.save_upsert(&accepted_old).unwrap();
-    let finalized = h.coordinator.finalize_success(&team.team_id).await.unwrap();
-    assert_eq!(finalized.status, TeamRunStatus::Succeeded);
-    let project_id = team.project_space_id.as_deref().unwrap();
-    let space = h.store.get_project_space(project_id).await.unwrap();
-    let manifest_ref = space.delivery_manifest_ref.as_deref().unwrap();
-    let manifest_hash = manifest_ref.strip_prefix("cas://sha256:").unwrap();
-    let manifest_bytes = h.coordinator.cas().get(manifest_hash).unwrap();
-    let manifest: Value = serde_json::from_slice(&manifest_bytes).unwrap();
-    let accepted = manifest["acceptance_receipts"].as_array().unwrap();
-    let step_receipt = accepted
-        .iter()
-        .find(|receipt| receipt["step_id"] == step.id)
-        .unwrap();
-    let refs = step_receipt["validation_receipts"][0]["evidence_refs"]
-        .as_array()
-        .unwrap();
-    assert!(refs
-        .iter()
-        .any(|item| item == &format!("changeset://{}", accepted_old.change_set_id)));
-    assert!(refs
-        .iter()
-        .any(|item| item == &format!("changeset://{}", newer_accepted.change_set_id)));
+    // Accepting a post-review changeset is a human decision on source the
+    // reviewer did not see; finalize must fail closed rather than revive the
+    // stale ReviewResult snapshot.
+    let error = h
+        .coordinator
+        .finalize_success(&team.team_id)
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("ReviewResult"), "{error}");
+    let failed_team = h.store.get_team_run(&team.team_id).await.unwrap();
+    assert_ne!(failed_team.status, TeamRunStatus::Succeeded);
 }
 
 #[tokio::test]

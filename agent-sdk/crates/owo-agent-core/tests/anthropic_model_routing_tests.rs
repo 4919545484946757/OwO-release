@@ -70,10 +70,11 @@ impl Fixture {
                     )
                 } else if streaming {
                     ("200 OK", "text/event-stream", concat!(
-                        "data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\n",
+                        "data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":11,\"cache_creation_input_tokens\":5,\"cache_read_input_tokens\":3,\"output_tokens\":0}}}\n\n",
                         "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"trace\"}}\n\n",
                         "data: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}\n\n",
-                        "data: {\"type\":\"message_delta\",\"usage\":{\"input_tokens\":1,\"output_tokens\":1}}\n\n",
+                        "data: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":1}}\n\n",
+                        "data: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":2}}\n\n",
                         "data: {\"type\":\"message_stop\"}\n\n"
                     ).to_string())
                 } else {
@@ -82,12 +83,33 @@ impl Fixture {
                         "application/json",
                         json!({
                             "content":[{"type":"text","text":"ok"}],
-                            "stop_reason":"end_turn", "usage":{"input_tokens":1,"output_tokens":1}
+                            "stop_reason":"end_turn", "usage":{"input_tokens":11,"cache_creation_input_tokens":5,"cache_read_input_tokens":3,"output_tokens":2}
                         })
                         .to_string(),
                     )
                 };
-                let response = format!("HTTP/1.1 {status}\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+                let body = if !streaming && !rejected {
+                    let mut payload: Value = serde_json::from_str(&body).unwrap();
+                    match captured.lock().unwrap().last().unwrap()["model"]
+                        .as_str()
+                        .unwrap()
+                    {
+                        "no-usage" => {
+                            payload.as_object_mut().unwrap().remove("usage");
+                        }
+                        "overflow-usage" => {
+                            payload["usage"]["input_tokens"] = json!(u64::MAX);
+                        }
+                        "invalid-usage" => {
+                            payload["usage"]["output_tokens"] = json!("invalid");
+                        }
+                        _ => {}
+                    }
+                    payload.to_string()
+                } else {
+                    body
+                };
+                let response = format!("HTTP/1.1 {status}\r\nContent-Type: {mime}\r\nrequest-id: fixture-request\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
                 socket.write_all(response.as_bytes()).await.unwrap();
                 socket.shutdown().await.unwrap();
             }
@@ -117,6 +139,23 @@ fn assert_ok(output: ModelOutput) {
     assert!(matches!(output, ModelOutput::Text(ref text) if text == "ok"));
 }
 
+fn assert_metadata(observed: &owo_agent_core::gateway::ObservedModelOutput, model: &str) {
+    assert_eq!(observed.metadata.model.as_deref(), Some(model));
+    assert_eq!(
+        observed.metadata.request_id.as_deref(),
+        Some("fixture-request")
+    );
+    assert!(observed.metadata.latency_ms.is_some());
+    assert_eq!(
+        observed.metadata.usage,
+        Some(owo_agent_core::TokenUsage {
+            prompt_tokens: 19,
+            completion_tokens: 2,
+            total_tokens: 21,
+        })
+    );
+}
+
 #[tokio::test]
 async fn nonstream_override_and_sentinel_use_the_requested_model_without_mutation() {
     let fixture = Fixture::new().await;
@@ -141,6 +180,7 @@ async fn nonstream_override_and_sentinel_use_the_requested_model_without_mutatio
         .complete_with_model_observed(Some("observed-worker"), &messages, &[])
         .await
         .unwrap();
+    assert_metadata(&observed, "observed-worker");
     assert_ok(observed.output);
     let requests = fixture.requests();
     let models: Vec<_> = requests
@@ -160,6 +200,7 @@ async fn nonstream_override_and_sentinel_use_the_requested_model_without_mutatio
         ]
     );
     assert!(requests.iter().all(|r| r["stream"] == false));
+    assert_eq!(provider.usage_snapshot().total_tokens, 7 * 21);
 }
 
 #[tokio::test]
@@ -200,6 +241,7 @@ async fn every_stream_entry_preserves_model_selection_and_incremental_channels()
         )
         .await
         .unwrap();
+    assert_metadata(&observed, "observed-stream");
     assert_ok(observed.output);
     assert_ok(
         provider
@@ -236,6 +278,8 @@ async fn every_stream_entry_preserves_model_selection_and_incremental_channels()
         ]
     );
     assert!(requests.iter().all(|r| r["stream"] == true));
+    assert_eq!(provider.usage_snapshot().prompt_tokens, 6 * 19);
+    assert_eq!(provider.usage_snapshot().completion_tokens, 6 * 2);
 }
 
 #[tokio::test]
@@ -283,4 +327,26 @@ async fn rejected_override_does_not_fall_back_to_the_configured_model() {
     let requests = fixture.requests();
     assert_eq!(requests.len(), 1);
     assert_eq!(requests[0]["model"], "reject-model");
+}
+
+#[tokio::test]
+async fn absent_invalid_and_overflowing_usage_are_not_reported_as_zero_known_usage() {
+    let fixture = Fixture::new().await;
+    let provider = fixture.provider();
+    for model in ["no-usage", "invalid-usage", "overflow-usage"] {
+        let observed = provider
+            .complete_with_model_observed(Some(model), &prompt(), &[])
+            .await
+            .unwrap();
+        assert_eq!(observed.metadata.model.as_deref(), Some(model));
+        assert_eq!(observed.metadata.usage, None);
+        assert_ok(observed.output);
+    }
+    assert_eq!(provider.usage_snapshot().total_tokens, 0);
+    let valid = provider
+        .complete_with_model_observed(Some("valid"), &prompt(), &[])
+        .await
+        .unwrap();
+    assert_metadata(&valid, "valid");
+    assert_eq!(provider.usage_snapshot().total_tokens, 21);
 }

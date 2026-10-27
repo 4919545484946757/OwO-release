@@ -224,9 +224,7 @@ impl WorkerOutputV1 {
             return;
         };
         let verdict = match raw.trim().to_ascii_lowercase().as_str() {
-            "ship" | "approved" | "approve" | "pass" | "通过" => {
-                WorkerReviewVerdict::Approved
-            }
+            "ship" | "approved" | "approve" | "pass" | "通过" => WorkerReviewVerdict::Approved,
             "revise" | "changes_requested" | "changes-requested" | "changes requested" => {
                 WorkerReviewVerdict::ChangesRequested
             }
@@ -283,7 +281,9 @@ impl WorkerOutputV1 {
             || summary.contains("rejected")
             || summary.contains("blocked");
         let approved = !negative
-            && (summary.contains("approved") || summary.contains("ship") || summary.contains("通过"));
+            && (summary.contains("approved")
+                || summary.contains("ship")
+                || summary.contains("通过"));
         if approved {
             self.review_result = Some(WorkerReviewResultV1 {
                 verdict: WorkerReviewVerdict::Approved,
@@ -383,6 +383,7 @@ pub fn parse_worker_output(text: &str) -> WorkerOutputParse {
     // （真实团队 lead 实测：TaskGraph 内容正确，仅 evidence 是字符串，被契约修复
     // 一次后仍失败）。保留语义做确定性归一化，必需字段与角色规则仍由后续校验把关。
     normalize_optional_contract_fields(&mut value);
+    normalize_review_verdict_aliases(&mut value);
     match serde_json::from_value::<WorkerOutputV1>(value) {
         Ok(output) => WorkerOutputParse::Parsed(Box::new(output)),
         Err(error) => WorkerOutputParse::Invalid {
@@ -452,7 +453,12 @@ fn normalize_optional_contract_fields(value: &mut serde_json::Value) {
         .and_then(|artifact| artifact.get("content"))
         .and_then(serde_json::Value::as_str)
         .and_then(|content| serde_json::from_str::<serde_json::Value>(content).ok())
-        .is_some_and(|graph| graph.get("tasks").and_then(serde_json::Value::as_array).is_some());
+        .is_some_and(|graph| {
+            graph
+                .get("tasks")
+                .and_then(serde_json::Value::as_array)
+                .is_some()
+        });
     if task_graph_artifact
         && object.get("status").and_then(serde_json::Value::as_str) == Some("done")
     {
@@ -524,17 +530,14 @@ fn normalize_optional_contract_fields(value: &mut serde_json::Value) {
                 }
             }
             serde_json::Value::Null => serde_json::json!([]),
-            serde_json::Value::Array(items) => serde_json::Value::Array(
-                items
-                    .into_iter()
-                    .map(|item| match item {
-                        serde_json::Value::String(source) => {
-                            serde_json::json!({ "source": source })
-                        }
-                        other => other,
-                    })
-                    .collect(),
-            ),
+            serde_json::Value::Array(items) => {
+                serde_json::Value::Array(items.into_iter().map(normalize_evidence_item).collect())
+            }
+            serde_json::Value::Object(item) => {
+                serde_json::Value::Array(vec![normalize_evidence_item(serde_json::Value::Object(
+                    item,
+                ))])
+            }
             other => other,
         };
         object.insert("evidence".to_string(), normalized);
@@ -553,6 +556,35 @@ fn normalize_optional_contract_fields(value: &mut serde_json::Value) {
             other => other,
         };
         object.insert("open_issues".to_string(), normalized);
+    }
+}
+
+/// Evidence objects must carry a `source`. Small models often emit
+/// `{"path":"hello.py","note":"..."}` or `{"type":"file","description":"..."}`;
+/// derive `source` from a known locator field and keep the original fields.
+fn normalize_evidence_item(item: serde_json::Value) -> serde_json::Value {
+    match item {
+        serde_json::Value::String(source) => serde_json::json!({ "source": source }),
+        serde_json::Value::Object(mut object) => {
+            if object.get("source").is_none() {
+                let source = [
+                    "path",
+                    "file",
+                    "ref",
+                    "uri",
+                    "description",
+                    "detail",
+                    "note",
+                ]
+                .iter()
+                .find_map(|key| object.get(*key).and_then(serde_json::Value::as_str))
+                .map(str::to_string)
+                .unwrap_or_else(|| serde_json::Value::Object(object.clone()).to_string());
+                object.insert("source".to_string(), serde_json::Value::String(source));
+            }
+            serde_json::Value::Object(object)
+        }
+        other => other,
     }
 }
 
@@ -575,7 +607,10 @@ review_result（reviewer必填）：对象含 verdict（approved/changes_request
             "你是评审角色（review capability）：**禁止**提交 artifact；status=done 时必须提交 review_result，\
 包含 verdict、reviewed_requirement_ids（从宿主清单逐项原样复制且不得重复）和 findings（severity/detail/requirement_id/evidence_refs/suggested_owner/target_task_id/target_artifact_id）；owner 有多个被审任务时必须精确定位。\
 只报告有证据的问题；approved 不得包含 blocker。summary 可写简要结论。被审查产物由宿主绑定，\
-不要自行编造哈希或身份。交付物归 producer 链，评审无权覆盖。\n",
+不要自行编造哈希或身份。交付物归 producer 链，评审无权覆盖。\n\
+评审维度（每项都必须给出有证据的结论；缺证据视为未通过）：①需求覆盖；②行为正确性；③验证命令/测试证据；④写入范围与安全边界；⑤交付完整性。approved 前确认五个维度均无 blocker/major。\n\
+发现缺陷时用 status=done + review_result.verdict=changes_requested 表达“需要返修”，**禁止**用 status=blocked/failed 表达评审不通过；只有完全无法读取被审产物时才用 blocked。\n\
+findings 每项必须是包含 **severity** 与 **detail** 的对象（缺 severity 会直接判契约失败），最小示例：{\"severity\":\"major\",\"detail\":\"test_hello.py 未导入 greet\",\"requirement_id\":\"<宿主清单中的 id>\",\"evidence_refs\":[\"read_file: test_hello.py\"]}。\n",
         );
     } else {
         prompt.push_str(
@@ -594,6 +629,51 @@ summary/open_issues 说明原因。\n\
 
 /// 剥掉模型输出常见的代码围栏（``` 包裹），只处理首尾成对的一对（七期一路自
 /// `product_eval::workswarm_executor` 私有函数移入，成为两路共享工具）。
+/// Normalize common review-verdict spellings before serde enum parsing.
+///
+/// Small local models frequently emit `"verdict":"pass"` or `"lgtm"` even
+/// after a repair prompt. These are semantically unambiguous review decisions;
+/// rejecting the whole artifact for a spelling variant wastes a model call and
+/// turns a valid review into a failed step.
+fn normalize_review_verdict_aliases(value: &mut serde_json::Value) {
+    let Some(verdict) = value
+        .get_mut("review_result")
+        .and_then(serde_json::Value::as_object_mut)
+        .and_then(|review| review.get_mut("verdict"))
+        .and_then(|verdict| verdict.as_str())
+        .map(str::to_string)
+    else {
+        return;
+    };
+    let normalized = match verdict
+        .trim()
+        .to_ascii_lowercase()
+        .replace(['-', ' '], "_")
+        .as_str()
+    {
+        "approved" | "approve" | "pass" | "passed" | "ok" | "lgtm" | "accept" | "accepted"
+        | "yes" | "通过" | "合格" | "同意" | "批准" => "approved",
+        "changes_requested" | "change_requested" | "request_changes" | "needs_changes"
+        | "needs_revision" | "needs_fix" | "must_fix" | "revise" | "rework" | "blocker"
+        | "blocked" | "blocking" | "not_approved" | "修改" | "返修" | "需修改" | "阻断" => {
+            "changes_requested"
+        }
+        "rejected" | "reject" | "deny" | "denied" | "fail" | "failed" | "不通过" | "拒绝" => {
+            "rejected"
+        }
+        _ => return,
+    };
+    if let Some(review) = value
+        .get_mut("review_result")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        review.insert(
+            "verdict".to_string(),
+            serde_json::Value::String(normalized.to_string()),
+        );
+    }
+}
+
 pub fn strip_code_fences(text: &str) -> String {
     let trimmed = text.trim();
     let Some(rest) = trimmed.strip_prefix("```") else {
@@ -618,7 +698,7 @@ pub fn strip_code_fences(text: &str) -> String {
 /// 修复提示只回显了违例原因，模型第二次仍输出白名单外格式（如 "md"/"Markdown"）。
 pub fn contract_repair_prompt(is_critic: bool, violation: &str, broken: &str) -> String {
     let role_rule = if is_critic {
-        "你是 review capability：禁止 artifact；status=done 必须提交 review_result={verdict,reviewed_requirement_ids,findings}，reviewed_requirement_ids 必须逐项复制宿主清单且不得重复，只报告有证据的问题；同一 owner 多任务时从上游上下文的宿主 Artifact 身份原样复制 target_task_id 或 target_artifact_id 精确定位；宿主绑定评审快照"
+        "你是 review capability：禁止 artifact；status=done 必须提交 review_result={verdict,reviewed_requirement_ids,findings}，reviewed_requirement_ids 必须逐项复制宿主清单且不得重复，findings 每项必须含 severity（blocker/major/minor/note）和 detail，只报告有证据的问题；同一 owner 多任务时从上游上下文的宿主 Artifact 身份原样复制 target_task_id 或 target_artifact_id 精确定位；宿主绑定评审快照"
     } else {
         "你是交付角色：不得输出 review_result；status=done 必须携带 artifact（content=交付物正文本体；artifact.format 只能取 text|markdown|json|csv 之一，代码分析与补丁/变更报告一律用 \"markdown\"，kind 用 \"analysis\"/\"code\"）"
     };
@@ -795,7 +875,7 @@ mod tests {
     }
 
     #[test]
-    fn non_empty_open_issues_string_still_blocks_done_output() {
+    fn non_empty_open_issues_string_downgrades_done_to_blocked() {
         let output = serde_json::json!({
             "status": "done",
             "summary": "完成",
@@ -806,8 +886,12 @@ mod tests {
         match parse_worker_output(&output.to_string()) {
             WorkerOutputParse::Parsed(parsed) => {
                 assert_eq!(parsed.open_issues, vec!["仍需人工确认"]);
-                let error = parsed.validate().unwrap_err();
-                assert!(error.contains("仍需人工确认"), "{error}");
+                assert_eq!(
+                    parsed.status,
+                    WorkerOutputStatus::Blocked,
+                    "带未解决问题的 done 必须降级为 blocked，不能被当成候选完成"
+                );
+                assert!(parsed.validate().is_ok());
             }
             other => panic!("字符串 open_issues 应归一化为 Parsed：{other:?}"),
         }
@@ -829,6 +913,84 @@ mod tests {
                 assert_eq!(parsed.evidence[1].note.as_deref(), Some("证据"));
             }
             other => panic!("数组字符串项应归一化为 Parsed：{other:?}"),
+        }
+    }
+
+    #[test]
+    fn evidence_objects_without_source_are_normalized() {
+        let output = serde_json::json!({
+            "status": "done",
+            "summary": "read",
+            "artifact": {"kind": "text", "format": "text", "content": "greet"},
+            "evidence": [
+                {"path": "hello.py", "note": "read function"},
+                {"type": "file", "description": "test_hello.py"}
+            ],
+            "open_issues": [],
+        });
+        match parse_worker_output(&output.to_string()) {
+            WorkerOutputParse::Parsed(parsed) => {
+                assert_eq!(parsed.evidence.len(), 2);
+                assert_eq!(parsed.evidence[0].source, "hello.py");
+                assert_eq!(parsed.evidence[1].source, "test_hello.py");
+            }
+            other => panic!("缺 source 的 evidence 对象应派生 source：{other:?}"),
+        }
+    }
+
+    #[test]
+    fn review_verdict_aliases_are_normalized_before_parsing() {
+        let pass = serde_json::json!({
+            "status": "done",
+            "summary": "looks good",
+            "review_result": {"verdict": "pass", "reviewed_requirement_ids": [], "findings": []},
+        });
+        match parse_worker_output(&pass.to_string()) {
+            WorkerOutputParse::Parsed(parsed) => {
+                assert_eq!(
+                    parsed.review_result.as_ref().unwrap().verdict,
+                    WorkerReviewVerdict::Approved
+                );
+            }
+            other => panic!("verdict=pass 应归一化为 approved：{other:?}"),
+        }
+
+        let revise = serde_json::json!({
+            "status": "done",
+            "summary": "needs work",
+            "review_result": {
+                "verdict": "changes-requested",
+                "reviewed_requirement_ids": [],
+                "findings": [{"severity": "major", "detail": "x"}]
+            },
+        });
+        match parse_worker_output(&revise.to_string()) {
+            WorkerOutputParse::Parsed(parsed) => {
+                assert_eq!(
+                    parsed.review_result.as_ref().unwrap().verdict,
+                    WorkerReviewVerdict::ChangesRequested
+                );
+            }
+            other => panic!("changes-requested 应归一化：{other:?}"),
+        }
+
+        let blocker = serde_json::json!({
+            "status": "done",
+            "summary": "blocked",
+            "review_result": {
+                "verdict": "blocker",
+                "reviewed_requirement_ids": [],
+                "findings": [{"severity": "blocker", "detail": "x"}]
+            },
+        });
+        match parse_worker_output(&blocker.to_string()) {
+            WorkerOutputParse::Parsed(parsed) => {
+                assert_eq!(
+                    parsed.review_result.as_ref().unwrap().verdict,
+                    WorkerReviewVerdict::ChangesRequested
+                );
+            }
+            other => panic!("verdict=blocker 应归一化为 changes_requested：{other:?}"),
         }
     }
 
@@ -1031,6 +1193,18 @@ mod tests {
         assert!(producer.contains("必须") && producer.contains("artifact"));
         let critic = contract_system_prompt(true);
         assert!(critic.contains("禁止") && critic.contains("summary"));
+        for dimension in [
+            "需求覆盖",
+            "行为正确性",
+            "测试证据",
+            "安全边界",
+            "交付完整性",
+        ] {
+            assert!(
+                critic.contains(dimension),
+                "评审契约缺维度 {dimension}: {critic}"
+            );
+        }
     }
 
     // 九期（一路）：契约提示与修复提示必须传达 format 白名单/默认值/critic 禁令/
@@ -1052,6 +1226,15 @@ mod tests {
         let critic = contract_system_prompt(true);
         assert!(critic.contains("禁止**提交 artifact"));
         assert!(critic.contains("review capability"));
+        assert!(
+            critic.contains("status=done + review_result.verdict=changes_requested"),
+            "评审不通过必须走 changes_requested，而不是 blocked/failed"
+        );
+        assert!(critic.contains("severity"), "finding 必须声明 severity");
+        assert!(
+            critic.contains("\"severity\":\"major\""),
+            "需要最小 finding 示例"
+        );
     }
 
     #[test]
@@ -1063,6 +1246,10 @@ mod tests {
         let critic = contract_repair_prompt(true, "携带 artifact", "{\"status\":\"done\"}");
         assert!(critic.contains("禁止 artifact"));
         assert!(critic.contains("review capability"));
+        assert!(
+            critic.contains("severity"),
+            "修复提示必须点名 missing field severity"
+        );
     }
     #[test]
     fn done_output_with_open_issues_is_not_accepted() {
@@ -1100,5 +1287,4 @@ mod tests {
         );
         assert!(output.validate_critic().is_ok());
     }
-
 }

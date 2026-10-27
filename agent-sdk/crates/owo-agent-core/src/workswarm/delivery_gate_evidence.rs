@@ -406,6 +406,21 @@ pub(super) fn review_requirements_for_step(
     requirements
 }
 
+/// The host, not the model, owns source-level coverage: a reviewer that has
+/// host-verified reads of every upstream artifact and approves can cover those
+/// artifacts' requirements even if it hallucinated the requirement-id strings
+/// (small local models often emit REQ-001). This never upgrades a rejection and
+/// is only used after every artifact hash/snapshot has been revalidated.
+pub(super) fn should_derive_review_coverage_from_sources(
+    result: &owo_agent_workswarm::WorkerReviewResultV1,
+    expected_ids: &std::collections::BTreeSet<String>,
+    all_sources_verified: bool,
+) -> bool {
+    all_sources_verified
+        && result.verdict == owo_agent_workswarm::WorkerReviewVerdict::Approved
+        && !expected_ids.is_empty()
+}
+
 pub(super) fn validate_review_requirement_coverage(
     result: &owo_agent_workswarm::WorkerReviewResultV1,
     expected_ids: &std::collections::BTreeSet<String>,
@@ -417,6 +432,17 @@ pub(super) fn validate_review_requirement_coverage(
         .collect::<std::collections::BTreeSet<_>>();
     if reported.len() != result.reviewed_requirement_ids.len() {
         return Err("ReviewResult 重复声明 reviewed_requirement_ids".to_string());
+    }
+    // A changes_requested review only has to name the issues it found; demanding
+    // the full host requirement checklist before the rework would turn a valid
+    // rejection into a contract failure (small local models routinely omit the
+    // host ids). Approval still requires exact, unique coverage below.
+    let rejection = result.verdict != owo_agent_workswarm::WorkerReviewVerdict::Approved
+        && !result.findings.is_empty();
+    if rejection {
+        // A rejection cannot approve anything; requirement-id bookkeeping in it
+        // is advisory and must not block the rework loop.
+        return Ok(());
     }
     if &reported != expected_ids {
         return Err(format!(
@@ -491,12 +517,21 @@ pub(super) fn collect_attempt_changeset_evidence(
             change_set.step_id == step_id && change_set.attempt_id.as_deref() == Some(attempt_id)
         })
         .collect();
+    // A stale row superseded after a newer accepted version of the same attempt
+    // is history, not a blocker.  Otherwise accepting the old row later would
+    // turn an already-complete delivery into a conflict.
+    let has_accepted = matching
+        .iter()
+        .any(|change_set| change_set.status == owo_agent_protocol::ChangeSetStatus::Accepted);
     for change_set in &matching {
         if change_set.team_id != team_id {
             return Err(WorkSwarmError::Conflict(format!(
                 "任务 {step_id} 的 ChangeSet {} 团队归属不匹配",
                 change_set.change_set_id
             )));
+        }
+        if change_set.status == owo_agent_protocol::ChangeSetStatus::Superseded && has_accepted {
+            continue;
         }
         if let Some(reason) = changeset_delivery_error(change_set.status) {
             let detail = format!(
@@ -594,35 +629,37 @@ pub(super) fn attempt_behavior_receipt_evidence(
             }
         }
     }
+    // A receipt-only repair can legitimately produce no new ChangeSet (the
+    // implementer re-ran the test without changing bytes). In that case the
+    // already accepted ChangeSet still describes the final source; the fresh
+    // command receipt must match those hashes. Never widen to pending rows.
+    if source_hashes.is_empty() {
+        for change_set in change_sets.iter().filter(|change_set| {
+            change_set.team_id == team_id
+                && change_set.step_id == step_id
+                && change_set.status == owo_agent_protocol::ChangeSetStatus::Accepted
+        }) {
+            for file in &change_set.result_hashes {
+                let path = file.path.replace('\\', "/");
+                if is_source_code_path(&path) {
+                    source_hashes.insert(path, file.sha256.clone());
+                }
+            }
+            for path in &change_set.changed_files {
+                let path = path.replace('\\', "/");
+                if is_source_code_path(&path) {
+                    source_hashes.entry(path).or_insert(None);
+                }
+            }
+        }
+    }
     if source_hashes.is_empty() {
         return None;
     }
-    // A human explicitly accepting the source ChangeSet is stronger than a
-    // model self-report and is the final authorization for that exact source.
-    // This avoids an endless "accept -> rerun producer -> new pending" loop
-    // when the command tool cannot produce workspace hashes for the producer.
-    let matching: Vec<_> = change_sets
-        .iter()
-        .filter(|change_set| {
-            change_set.team_id == team_id
-                && change_set.step_id == step_id
-                && change_set.attempt_id.as_deref() == Some(attempt_id)
-        })
-        .collect();
-    if !matching.is_empty()
-        && matching
-            .iter()
-            .all(|change_set| change_set.status == owo_agent_protocol::ChangeSetStatus::Accepted)
-    {
-        return Some(format!(
-            "human-accepted-change-set:{}",
-            matching
-                .iter()
-                .map(|change_set| change_set.change_set_id.as_str())
-                .collect::<Vec<_>>()
-                .join(",")
-        ));
-    }
+    // Human acceptance authorizes a diff; it is not behavioral evidence that
+    // the final source works. Requiring a real command receipt here is the
+    // only thing that catches a producer that edits a test after its last run
+    // and then claims success.
     let matching_receipt = |detail: &str, require_identity: bool| {
         let event: Value = serde_json::from_str(detail).ok()?;
         if require_identity
@@ -1028,6 +1065,73 @@ mod review_requirement_tests {
     }
 
     #[test]
+    fn approved_review_coverage_can_be_derived_only_after_source_verification() {
+        let expected = std::collections::BTreeSet::from(["step-a:goal-objective".to_string()]);
+        let approved: owo_agent_workswarm::WorkerReviewResultV1 =
+            serde_json::from_value(serde_json::json!({
+                "verdict": "approved",
+                "reviewed_requirement_ids": ["REQ-001"],
+                "findings": []
+            }))
+            .unwrap();
+        assert!(should_derive_review_coverage_from_sources(
+            &approved, &expected, true
+        ));
+        assert!(
+            !should_derive_review_coverage_from_sources(&approved, &expected, false),
+            "未验证 source read 时不得派生 coverage"
+        );
+
+        let rejected: owo_agent_workswarm::WorkerReviewResultV1 =
+            serde_json::from_value(serde_json::json!({
+                "verdict": "changes_requested",
+                "reviewed_requirement_ids": ["REQ-001"],
+                "findings": [{"severity": "major", "detail": "x"}]
+            }))
+            .unwrap();
+        assert!(
+            !should_derive_review_coverage_from_sources(&rejected, &expected, true),
+            "rejection 不能升级成 approval coverage"
+        );
+    }
+
+    #[test]
+    fn changes_requested_may_report_only_the_findings_it_found() {
+        let expected = std::collections::BTreeSet::from([
+            "step-a:goal-objective".to_string(),
+            "step-a:verify-behavior".to_string(),
+        ]);
+        let partial: owo_agent_workswarm::WorkerReviewResultV1 =
+            serde_json::from_value(serde_json::json!({
+                "verdict": "changes_requested",
+                "reviewed_requirement_ids": [],
+                "findings": [{
+                    "severity": "major",
+                    "detail": "test_hello.py 未导入 greet",
+                    "requirement_id": "step-a:goal-objective"
+                }]
+            }))
+            .unwrap();
+        assert!(validate_review_requirement_coverage(&partial, &expected).is_ok());
+
+        let invented: owo_agent_workswarm::WorkerReviewResultV1 =
+            serde_json::from_value(serde_json::json!({
+                "verdict": "changes_requested",
+                "reviewed_requirement_ids": ["invented-requirement"],
+                "findings": [{
+                    "severity": "major",
+                    "detail": "x",
+                    "requirement_id": "invented-requirement"
+                }]
+            }))
+            .unwrap();
+        assert!(
+            validate_review_requirement_coverage(&invented, &expected).is_ok(),
+            "rejection 的 requirement id 仅是说明，不能阻断返修；approved 才要求精确覆盖"
+        );
+    }
+
+    #[test]
     fn review_requirements_include_goal_task_acceptance_and_required_verification() {
         let mut step = crate::plan::StepSpec::new("step-a", "m-builder");
         step.input = serde_json::json!({
@@ -1145,7 +1249,70 @@ mod behavior_receipt_tests {
     }
 
     #[test]
-    fn accepted_change_set_is_human_behavior_authorization() {
+    fn superseded_history_does_not_block_a_newer_accepted_record() {
+        let mut superseded = change_set();
+        superseded.change_set_id = "cs-old".to_string();
+        superseded.status = owo_agent_protocol::ChangeSetStatus::Superseded;
+        let mut accepted = change_set();
+        accepted.change_set_id = "cs-new".to_string();
+        accepted.status = owo_agent_protocol::ChangeSetStatus::Accepted;
+        accepted.decision = Some(owo_agent_protocol::ChangeSetDecision {
+            action: "accept".to_string(),
+            idempotency_key: "accept-new".to_string(),
+            decided_at: "2026-10-09T00:00:00Z".to_string(),
+            note: None,
+        });
+        assert!(collect_attempt_changeset_evidence(
+            "team-1",
+            "s-implementer",
+            "attempt-1",
+            &[superseded.clone(), accepted],
+        )
+        .is_ok());
+        // Without an accepted row the superseded row stays a hard blocker.
+        assert!(collect_attempt_changeset_evidence(
+            "team-1",
+            "s-implementer",
+            "attempt-1",
+            &[superseded],
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn receipt_only_repair_reuses_accepted_source_hashes() {
+        let mut accepted = change_set();
+        accepted.status = owo_agent_protocol::ChangeSetStatus::Accepted;
+        let detail = serde_json::json!({
+            "step_id": "s-implementer",
+            "attempt_id": "attempt-2",
+            "receipt": {
+                "command_sha256": "cmd-sha",
+                "exit_code": 0,
+                "result_sha256": "result-sha",
+                "workspace_hashes_complete": true,
+                "validator_id": "workspace-command-success-v1",
+                "validator_version": "1",
+                "workspace_hashes": {"src/calc.py": "abc123"},
+                "workspace_hashes_before": {"src/calc.py": "abc123"},
+            }
+        })
+        .to_string();
+        let evidence = attempt_behavior_receipt_evidence(
+            "team-1",
+            &[detail],
+            "s-implementer",
+            "attempt-2",
+            &[accepted],
+        );
+        assert_eq!(
+            evidence.as_deref(),
+            Some("command-result:sha256:result-sha")
+        );
+    }
+
+    #[test]
+    fn accepted_change_set_is_authorization_not_behavior_evidence() {
         let mut accepted = change_set();
         accepted.status = owo_agent_protocol::ChangeSetStatus::Accepted;
         let evidence = attempt_behavior_receipt_evidence(
@@ -1155,7 +1322,10 @@ mod behavior_receipt_tests {
             "attempt-1",
             &[accepted],
         );
-        assert_eq!(evidence.as_deref(), Some("human-accepted-change-set:cs-1"));
+        assert!(
+            evidence.is_none(),
+            "人工接受只授权 diff，不能替代最终源码上的行为命令回执"
+        );
     }
 
     #[test]

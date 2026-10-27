@@ -1,0 +1,16 @@
+{
+  "name": "owo-agent-sdk-landing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Accessible single-page landing page for OwO Agent SDK, with node:test coverage.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/landing.test.mjs",
+    "serve": "node scripts/serve.mjs"
+  },
+  "keywords": ["landing-page", "accessibility", "owo-agent-sdk"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

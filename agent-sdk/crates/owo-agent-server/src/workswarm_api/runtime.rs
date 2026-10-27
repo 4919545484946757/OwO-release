@@ -38,6 +38,19 @@ async fn fail_pending_rework_tasks(coordinator: &TeamCoordinator, team_id: &str,
         }
     }
 }
+fn delivery_lifecycle_outcome<T>(
+    result: &Result<T, owo_agent_core::workswarm::WorkSwarmError>,
+) -> &'static str {
+    match result {
+        Ok(_) => "succeeded",
+        Err(owo_agent_core::workswarm::WorkSwarmError::DeliveryPending(_)) => "awaiting_human",
+        Err(owo_agent_core::workswarm::WorkSwarmError::DeliveryRepair { .. }) => {
+            "repair_dispatched"
+        }
+        Err(_) => "failed",
+    }
+}
+
 // ---------------------------------------------------------------------------
 // 后台运行循环（阶段驱动 + 人节点门闩）
 // ---------------------------------------------------------------------------
@@ -175,8 +188,27 @@ pub(super) async fn stop_if_budget_exhausted(
 #[cfg(test)]
 #[allow(clippy::items_after_test_module)] // 测试模块历史位置靠前；移动会打乱同文件阅读顺序
 mod budget_guard_tests {
-    use super::{budget_guard_decision, BudgetGuardDecision};
+    use super::{budget_guard_decision, delivery_lifecycle_outcome, BudgetGuardDecision};
+    use owo_agent_core::workswarm::WorkSwarmError;
     use std::time::Duration;
+
+    #[test]
+    fn delivery_lifecycle_does_not_mark_expected_gates_as_failures() {
+        let ok: Result<(), WorkSwarmError> = Ok(());
+        assert_eq!(delivery_lifecycle_outcome(&ok), "succeeded");
+        let pending: Result<(), WorkSwarmError> =
+            Err(WorkSwarmError::DeliveryPending("awaiting".into()));
+        assert_eq!(delivery_lifecycle_outcome(&pending), "awaiting_human");
+        let repair: Result<(), WorkSwarmError> = Err(WorkSwarmError::DeliveryRepair {
+            step_id: "s".into(),
+            attempt_id: "a".into(),
+            validator_id: "v".into(),
+            reason: "r".into(),
+        });
+        assert_eq!(delivery_lifecycle_outcome(&repair), "repair_dispatched");
+        let failed: Result<(), WorkSwarmError> = Err(WorkSwarmError::Conflict("x".into()));
+        assert_eq!(delivery_lifecycle_outcome(&failed), "failed");
+    }
 
     #[test]
     fn budget_guard_distinguishes_continue_exhausted_and_unavailable() {
@@ -357,11 +389,7 @@ pub(crate) async fn run_team_loop(
                         delivery_timer.finish(
                             &lifecycle_journal,
                             &team_id,
-                            if result.is_ok() {
-                                "succeeded"
-                            } else {
-                                "failed"
-                            },
+                            delivery_lifecycle_outcome(&result),
                         );
                         if matches!(
                             &result,
@@ -485,11 +513,7 @@ pub(crate) async fn run_team_loop(
                                     delivery_timer.finish(
                                         &lifecycle_journal,
                                         &team_id,
-                                        if result.is_ok() {
-                                            "succeeded"
-                                        } else {
-                                            "failed"
-                                        },
+                                        delivery_lifecycle_outcome(&result),
                                     );
                                     if matches!(&result, Err(owo_agent_core::workswarm::WorkSwarmError::DeliveryRepair { .. })) {
                                     break 'latch;

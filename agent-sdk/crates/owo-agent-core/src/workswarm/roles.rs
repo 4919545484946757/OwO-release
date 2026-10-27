@@ -375,6 +375,24 @@ impl RunMeta {
     }
 }
 
+/// 单 Agent 模式的通用交付角色。
+///
+/// Single 不是“模板第一个角色”，也不是只读 planner：它必须能读、写工作区并
+/// 执行验证。保留历史角色名 `runner`（成员/步骤身份兼容），用声明的根写路径
+/// 让画像落到写角色，而不是模板角色的窄写范围（如 researcher 只写 `docs/`）。
+pub fn single_agent_role() -> RoleSpec {
+    let mut role = RoleSpec::agent("runner");
+    role.capabilities = vec!["task_worker".to_string()];
+    role.write_paths = vec![".".to_string()];
+    role.handoff_contract = Some(
+        "独立完成当前目标：读取工作区必要上下文，在允许范围内直接产出并落盘全部交付物，\
+         运行目标要求的验证，最后汇报实际改动、验证结果与未解决项。"
+            .to_string(),
+    );
+    role.verify = Some("non_empty".to_string());
+    role
+}
+
 /// 默认接力样例角色（§9.0：planner → builder → critic → leader）。
 pub fn default_relay_roles() -> Vec<RoleSpec> {
     let mut planner = RoleSpec::agent("planner");

@@ -287,6 +287,22 @@ pub fn is_registered_behavior_command(command: &str) -> bool {
     }) {
         return false;
     }
+    if tokens.first() == Some(&"python") {
+        // `python -m unittest ...` and an explicit `python test_*.py` are the
+        // standard unittest entry points. Keep the evidence registry narrow:
+        // arbitrary scripts, flags and shell chaining are still rejected.
+        if tokens.get(1) == Some(&"-m") {
+            return matches!(tokens.get(2), Some(&"unittest") | Some(&"pytest"))
+                && tokens[3..].iter().all(|token| !token.starts_with('-'));
+        }
+        if tokens.len() == 2 && !tokens[1].starts_with('-') && tokens[1].ends_with(".py") {
+            return std::path::Path::new(tokens[1])
+                .file_name()
+                .map(|name| name.to_string_lossy().starts_with("test_"))
+                .unwrap_or(false);
+        }
+        return false;
+    }
     if tokens.first() == Some(&"node") {
         // `node --test` with no paths is the documented auto-discovery form and
         // works on Windows; `node --test tests/dir` is not accepted by Node 22
@@ -531,6 +547,12 @@ mod tests {
         assert!(is_registered_behavior_command(
             "python -m pytest tests/test_api.py"
         ));
+        assert!(is_registered_behavior_command("python test_calc.py"));
+        assert!(is_registered_behavior_command(
+            "python -m unittest tests.test_calc"
+        ));
+        assert!(!is_registered_behavior_command("python script.py"));
+        assert!(!is_registered_behavior_command("python test_calc.py -v"));
         assert!(!is_registered_behavior_command("echo passed"));
         assert!(!is_registered_behavior_command("cargo test --no-run"));
         assert!(!is_registered_behavior_command("cargo test -- --list"));
@@ -609,7 +631,9 @@ mod node_behavior_regressions {
             "node --test outputs/page.test.cjs"
         ));
         assert!(is_registered_behavior_command("node --test"));
-        assert!(is_registered_behavior_command("node --test tests/systems/loop.test.mjs"));
+        assert!(is_registered_behavior_command(
+            "node --test tests/systems/loop.test.mjs"
+        ));
         assert!(!is_registered_behavior_command("node --test tests/systems"));
         assert!(!is_registered_behavior_command("node --test playtest"));
         assert!(!is_registered_behavior_command("node --test src"));

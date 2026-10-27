@@ -11,11 +11,23 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+/// Hard per-turn tool-call ceiling derived from the role profile. The global
+/// bounded cap (64) is sized for interactive subagents; team workers repeatedly
+/// burned it retrying the same failed edit/test cycle. Writers get enough room
+/// for a few read/edit/verify passes; reviewers stay read-only and tighter.
+fn profile_tool_call_cap(is_critic: bool, profile: &WorkerProfile) -> usize {
+    if is_critic || !profile.is_writer() {
+        16
+    } else {
+        24
+    }
+}
+
 /// 画像驱动子代理执行器（七期 · 二路）：与一路 `ContractSubagentRunner` 同口径
 /// （完整回合循环 + `WorkerOutputV1` 输出契约执行 + 至多一次定向修复），区别仅在：
 ///
 /// - 工具注册表由 [`WorkerProfile::build_registry`] 按角色装配（注册表面即权限边界）；
-/// - 回合上限取画像值（模板预算，硬上限 16）；
+/// - 回合上限取画像值（模板预算，硬上限 32）；
 /// - 写面为「角色 ∩ 绑定」交集白名单工具（越界写入在工具层被拒）；
 /// - `is_critic` 由服务端按角色名判定（`role == "critic"`；引擎注入的 `read_only`
 ///   只覆盖 critic，其余内置角色都是 producer，画像另管只读面）。
@@ -207,9 +219,12 @@ impl ProfileSubagentRunner<'_> {
         } else {
             config.max_turns.min(profile_turn_cap)
         };
-        if config.max_tool_calls_per_turn == 0 {
-            config.max_tool_calls_per_turn = crate::agent::DEFAULT_BOUNDED_TOOL_CALL_CAP;
-        }
+        let tool_call_cap = profile_tool_call_cap(self.is_critic, &self.profile);
+        config.max_tool_calls_per_turn = if config.max_tool_calls_per_turn == 0 {
+            tool_call_cap
+        } else {
+            config.max_tool_calls_per_turn.min(tool_call_cap)
+        };
         if let Some(task_timeout_ms) = self.profile.verification_timeout_ms {
             config.max_command_timeout_ms = Some(
                 config
@@ -271,5 +286,19 @@ impl ProfileSubagentRunner<'_> {
                 usage_known: error.usage_known,
                 output_repairs: error.output_repairs,
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn team_worker_tool_caps_bound_retry_loops() {
+        let writer = WorkerProfile::for_role("implementer", 8);
+        let reviewer = WorkerProfile::for_role("reviewer", 8);
+        assert_eq!(profile_tool_call_cap(false, &writer), 24);
+        assert_eq!(profile_tool_call_cap(true, &reviewer), 16);
+        assert_eq!(profile_tool_call_cap(false, &reviewer), 16);
     }
 }

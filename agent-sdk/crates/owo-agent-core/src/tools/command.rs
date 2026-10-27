@@ -190,6 +190,30 @@ impl Tool for KillShellTool {
     }
 }
 
+/// Windows `run_command` executes through `cmd /C`; bash-only pipeline pieces
+/// either fail with an opaque error or print a literal `$?`.  Reject them up
+/// front with an actionable message instead of spending a model round on it.
+fn prepare_command(command: &str) -> String {
+    if cfg!(windows) {
+        // Safe display-only suffixes (`2>&1 | tail -40`, `| head -n 20`) are
+        // handled by the host's head/tail truncation. Executing them through
+        // cmd.exe only produces an opaque failure and a retry. This is the
+        // same narrow, output-only identity normalization the verification
+        // registry uses; it never adds work to the command.
+        crate::verification::normalize_verification_command(command)
+    } else {
+        command.to_string()
+    }
+}
+
+fn unsupported_cmd_fragment(command: &str) -> Option<&'static str> {
+    // Deliberately omit `$(` and backticks: they are common inside `node -e`
+    // snippets passed as quoted program text and would reject valid commands.
+    ["| tail", "| head", "| grep", "| sed", "| awk", "$?"]
+        .into_iter()
+        .find(|fragment| command.contains(fragment))
+}
+
 pub(super) struct RunCommandTool;
 
 #[async_trait]
@@ -197,7 +221,14 @@ impl Tool for RunCommandTool {
     fn spec(&self) -> ToolSpec {
         ToolSpec {
             name: "run_command".into(),
-            description: "在工作区内执行 shell 命令（需审批，60 秒超时）".into(),
+            description: if cfg!(windows) {
+                "在工作区内执行 Windows cmd.exe 命令（需审批，60 秒超时）。\
+                 不要使用 bash 专用的 tail/head/grep/sed/awk、$?、$(...) 或反引号；\
+                 直接运行原命令，宿主会保留输出首尾并截断中段。"
+                    .into()
+            } else {
+                "在工作区内执行 shell 命令（需审批，60 秒超时）".into()
+            },
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -212,7 +243,15 @@ impl Tool for RunCommandTool {
     }
 
     async fn run(&self, ctx: &mut ToolContext<'_>, args: Value) -> Result<Value, String> {
-        let command = required_string(&args, "command")?;
+        let command = prepare_command(&required_string(&args, "command")?);
+        if cfg!(windows) {
+            if let Some(fragment) = unsupported_cmd_fragment(&command) {
+                return Err(format!(
+                    "Windows cmd.exe 不支持 bash 片段 `{fragment}`；请直接运行原命令，\
+                     不要用 tail/head/grep/sed/awk；退出码用 %ERRORLEVEL%，宿主会保留输出首尾并截断中段"
+                ));
+            }
+        }
         let timeout_ms = args
             .get("_host_timeout_ms")
             .and_then(Value::as_u64)
@@ -394,8 +433,52 @@ impl Tool for RunCommandTool {
 
 #[cfg(test)]
 mod tests {
-    use super::read_log_tail;
+    use super::{prepare_command, read_log_tail, unsupported_cmd_fragment, RunCommandTool};
+    use crate::tools::Tool;
     use std::io::Write;
+
+    #[test]
+    fn cmd_preflight_catches_bash_pipeline_pieces_but_allows_cmd_redirection() {
+        assert_eq!(
+            unsupported_cmd_fragment("node --test tests/design.test.cjs 2>&1 | tail -15"),
+            Some("| tail")
+        );
+        assert_eq!(
+            unsupported_cmd_fragment("node --test x 2>&1 | grep '^ok'"),
+            Some("| grep")
+        );
+        assert_eq!(
+            unsupported_cmd_fragment("node --test x > tests/.last-run.log 2>&1; echo exit=$?"),
+            Some("$?")
+        );
+        assert_eq!(
+            unsupported_cmd_fragment("node --test tests/design.test.cjs 2>&1"),
+            None
+        );
+        assert_eq!(
+            unsupported_cmd_fragment(
+                "powershell -NoProfile -Command \"Get-Content x | Select-Object -Last 5\""
+            ),
+            None
+        );
+        // The execution path normalizes this safe display wrapper first, so the
+        // preflight must not reject what is actually run.
+        let normalized = prepare_command("node --test tests/design.test.cjs 2>&1 | tail -15");
+        if cfg!(windows) {
+            assert_eq!(normalized, "node --test tests/design.test.cjs");
+        }
+        assert_eq!(unsupported_cmd_fragment(&normalized), None);
+    }
+
+    #[test]
+    fn run_command_spec_names_the_real_shell_and_rejects_bash_pipelines() {
+        let description = RunCommandTool.spec().description;
+        if cfg!(windows) {
+            assert!(description.contains("cmd.exe"), "{description}");
+            assert!(description.contains("tail"), "{description}");
+            assert!(description.contains("grep"), "{description}");
+        }
+    }
 
     /// 尾窗读取必须同时给出总长度，调用方才能机器可读地判断是否被截断。
     #[test]

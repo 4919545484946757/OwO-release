@@ -1257,6 +1257,13 @@ impl Agent {
                             );
                         steps += 1;
                     }
+                    // Keep the batch the model is about to read intact; only
+                    // compress reads that are already outside the recent window.
+                    age_old_read_observations(
+                        &mut messages,
+                        AGED_READ_KEEP_RECENT + calls.len(),
+                        AGED_READ_MAX_CHARS,
+                    );
                 }
             }
         }

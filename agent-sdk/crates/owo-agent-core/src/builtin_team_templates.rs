@@ -1108,6 +1108,60 @@ mod tests {
         );
         assert!(prompt_sections_for(CODE_CHANGE_V2, "implementer").is_some());
 
+        // 紧凑模板必须真的可写：implementer 空 write_paths 由画像落到工作区根，
+        // reviewer 保持只读且没有写路径；否则会出现“实现角色只评审”的空交付。
+        let workspace = tempfile::tempdir().unwrap();
+        let implementer = compact.template.roles[0].clone().into();
+        let implementer_profile = crate::worker_profile::WorkerProfile::for_team_role_spec(
+            &implementer,
+            16,
+            false,
+            Some(CODE_CHANGE_V2),
+        );
+        assert!(!implementer_profile.read_only, "{implementer_profile:?}");
+        for tool in ["read_file", "write_file", "apply_patch", "run_command"] {
+            assert!(
+                implementer_profile
+                    .visible_tools
+                    .iter()
+                    .any(|visible| visible == tool),
+                "implementer 缺 {tool}: {:?}",
+                implementer_profile.visible_tools
+            );
+        }
+        let implementer_paths =
+            crate::worker_profile::WorkerProfile::team_role_write_allowed_paths(
+                &implementer,
+                workspace.path(),
+                true,
+            )
+            .unwrap();
+        assert_eq!(implementer_paths.len(), 1);
+        assert_eq!(
+            implementer_paths[0].file_name(),
+            workspace.path().file_name(),
+            "implementer 的根写面必须覆盖工作区"
+        );
+
+        let reviewer = compact.template.roles[1].clone().into();
+        let reviewer_profile = crate::worker_profile::WorkerProfile::for_team_role_spec(
+            &reviewer,
+            16,
+            false,
+            Some(CODE_CHANGE_V2),
+        );
+        assert!(reviewer_profile.read_only, "{reviewer_profile:?}");
+        assert!(
+            crate::worker_profile::WorkerProfile::team_role_write_allowed_paths(
+                &reviewer,
+                workspace.path(),
+                false,
+            )
+            .unwrap()
+            .is_empty(),
+            "reviewer 不得获得写路径"
+        );
+
         // 代码 v1 保留现有落盘角色与只读审查语义，已持久化团队不受影响。
         let code = descriptor(CODE_CHANGE_V1).unwrap();
         let reviewer = code

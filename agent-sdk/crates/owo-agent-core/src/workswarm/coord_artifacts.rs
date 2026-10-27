@@ -197,7 +197,7 @@ impl TeamCoordinator {
             })
             .unwrap_or_else(|| is_review_role_name(role));
         if reviewer {
-            let result = output.review_result.as_ref().ok_or_else(|| {
+            let mut result = output.review_result.clone().ok_or_else(|| {
                 WorkSwarmError::Validation(
                     "review capability 必须提交结构化 review_result".to_string(),
                 )
@@ -230,11 +230,6 @@ impl TeamCoordinator {
                     }
                 }
             }
-            super::delivery_gate_evidence::validate_review_requirement_coverage(
-                result,
-                &expected_review_requirement_ids,
-            )
-            .map_err(WorkSwarmError::Validation)?;
             let reviewed_artifacts = current_upstream
                 .iter()
                 .map(|artifact| {
@@ -315,10 +310,46 @@ impl TeamCoordinator {
                     "review capability 没有可绑定的上游产物快照".to_string(),
                 ));
             }
+            let reported_requirement_ids = result.reviewed_requirement_ids.clone();
+            let declared_coverage = reported_requirement_ids
+                .iter()
+                .cloned()
+                .collect::<std::collections::BTreeSet<_>>();
+            let coverage_source = if declared_coverage == expected_review_requirement_ids {
+                "reviewer_declared"
+            } else if super::delivery_gate_evidence::should_derive_review_coverage_from_sources(
+                &result,
+                &expected_review_requirement_ids,
+                supplied_sources.len() == current_upstream.len(),
+            ) {
+                // Approval is grounded in host-verified source reads; replace the
+                // model's hallucinated ids with the host checklist for the record.
+                result.reviewed_requirement_ids =
+                    expected_review_requirement_ids.iter().cloned().collect();
+                for finding in &mut result.findings {
+                    if finding
+                        .requirement_id
+                        .as_deref()
+                        .is_some_and(|id| !expected_review_requirement_ids.contains(id))
+                    {
+                        finding.requirement_id = None;
+                    }
+                }
+                "host_derived_from_verified_sources"
+            } else {
+                super::delivery_gate_evidence::validate_review_requirement_coverage(
+                    &result,
+                    &expected_review_requirement_ids,
+                )
+                .map_err(WorkSwarmError::Validation)?;
+                "reviewer_declared"
+            };
             let review_document = json!({
                 "schema": "team-review-result-v1",
                 "reviewer_id": member_id,
                 "reviewed_artifacts": reviewed_artifacts,
+                "reported_requirement_ids": reported_requirement_ids,
+                "reviewed_requirement_ids_source": coverage_source,
                 "result": result,
             });
             let review_content = serde_json::to_string_pretty(&review_document)

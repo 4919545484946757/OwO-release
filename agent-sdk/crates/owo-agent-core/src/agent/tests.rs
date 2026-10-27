@@ -611,6 +611,90 @@ fn tool_result_is_bounded_without_splitting_unicode() {
     assert!(result.contains("工具输出已截断"));
 }
 
+#[test]
+fn tool_result_truncation_keeps_the_decisive_tail() {
+    let body = format!("HEAD{}TAIL: test failed with exit code 1", "x".repeat(5000));
+    let result = truncate_tool_result(&body, 200);
+    assert!(result.starts_with("HEAD"));
+    assert!(result.ends_with("TAIL: test failed with exit code 1"));
+    assert!(result.contains("中间省略"));
+}
+
+#[test]
+fn stale_read_observations_are_compressed_but_recent_and_command_outputs_survive() {
+    let call = |id: &str, name: &str| {
+        ChatMessage::assistant_tool_calls(vec![crate::gateway::ToolCall {
+            id: id.to_string(),
+            name: name.to_string(),
+            arguments: serde_json::json!({}),
+        }])
+    };
+    let mut messages = vec![ChatMessage::system("system".into())];
+    for index in 0..12 {
+        let id = format!("read-{index}");
+        messages.push(call(&id, "read_file"));
+        messages.push(ChatMessage::tool(id, "x".repeat(9_000)));
+    }
+    messages.push(call("cmd-1", "run_command"));
+    messages.push(ChatMessage::tool("cmd-1".into(), "y".repeat(9_000)));
+
+    age_old_read_observations(&mut messages, 4, 1_000);
+
+    let stale = messages[2].content.as_deref().unwrap();
+    assert!(stale.contains("较早的 read_file 输出已压缩"), "{stale}");
+    assert!(stale.chars().count() < 1_100, "{}", stale.chars().count());
+    let recent = messages[24].content.as_deref().unwrap();
+    assert_eq!(recent.len(), 9_000, "最近一次读取必须保持原文");
+    let command = messages[26].content.as_deref().unwrap();
+    assert_eq!(command.len(), 9_000, "命令输出不做读取压缩");
+}
+
+#[test]
+fn aging_a_structured_read_preserves_hash_and_line_metadata() {
+    let content = serde_json::json!({
+        "bytes": 9000,
+        "content": "x".repeat(9000),
+        "end_line": 200,
+        "path": "src/lib.rs",
+        "sha256": "sha256:abc",
+        "start_line": 1,
+        "total_lines": 200,
+        "truncated": false
+    })
+    .to_string();
+    let aged: serde_json::Value = serde_json::from_str(&age_read_result(&content, 500)).unwrap();
+    assert_eq!(aged["sha256"], "sha256:abc");
+    assert_eq!(aged["path"], "src/lib.rs");
+    assert_eq!(aged["start_line"], 1);
+    assert_eq!(aged["aged"], true);
+    let body = aged["content"].as_str().unwrap();
+    assert!(body.contains("较早的 read_file 内容已压缩"));
+    assert!(body.chars().count() < 700, "{}", body.chars().count());
+}
+
+#[test]
+fn aging_keeps_cas_artifact_envelopes_intact() {
+    let id = "read-big".to_string();
+    let mut messages = vec![
+        ChatMessage::system("system".into()),
+        ChatMessage::assistant_tool_calls(vec![crate::gateway::ToolCall {
+            id: id.clone(),
+            name: "read_file".to_string(),
+            arguments: serde_json::json!({}),
+        }]),
+        ChatMessage::tool(
+            id,
+            format!(
+                "{{\"artifact\":{{\"ref\":\"sha256:abc\",\"preview\":\"{}-tail\"}}}}",
+                "x".repeat(9_000)
+            ),
+        ),
+    ];
+    let before = messages[2].content.clone();
+    age_old_read_observations(&mut messages, 0, 1_000);
+    assert_eq!(messages[2].content, before);
+}
+
 // ---------- §9.1 安全并发只读工具 ----------
 
 use crate::tools::{Tool, ToolSpec};

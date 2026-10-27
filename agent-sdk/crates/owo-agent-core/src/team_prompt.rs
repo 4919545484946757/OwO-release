@@ -23,6 +23,10 @@ use serde_json::Value;
 
 /// 单 Artifact 全文传递的字节阈值（UTF-8；≤ 阈值传正文，> 阈值传摘要+哈希+ref）。
 pub const DEFAULT_PER_ARTIFACT_BYTES: usize = 2400;
+/// Review bodies need their reviewer identity and reviewed-artifact bindings.
+/// Keep a larger cap than ordinary artifacts so 4096-byte two-artifact reviews
+/// survive intact.
+pub const DEFAULT_REVIEW_BODY_BYTES: usize = 4096;
 /// 上游上下文总字节预算（全部条目累计；超出者降级为仅引用行）。
 pub const DEFAULT_TOTAL_UPSTREAM_BYTES: usize = 8000;
 /// 大 Artifact 摘要保留的字符数（按字符截断，避免劈开 UTF-8 多字节序列）。
@@ -94,10 +98,32 @@ fn char_truncate(text: &str, max_chars: usize) -> String {
     out
 }
 
+/// Keep head and tail while collapsing the middle. Structured review JSON
+/// carries reviewer identity and final verdict near the end; prefix-only
+/// truncation drops them. Tiny budgets fall back to prefix truncation.
+fn char_truncate_middle(text: &str, max_chars: usize) -> String {
+    let total = text.chars().count();
+    if total <= max_chars {
+        return text.to_string();
+    }
+    const MARKER: &str = "\n\u{2026}\u{ff08}\u{4e2d}\u{95f4}\u{7701}\u{7565}\u{ff09}\u{2026}\n";
+    let marker_chars = MARKER.chars().count();
+    if max_chars <= marker_chars + 8 {
+        return char_truncate(text, max_chars);
+    }
+    let keep = max_chars - marker_chars;
+    let head_chars = keep * 3 / 5;
+    let tail_chars = keep - head_chars;
+    let head: String = text.chars().take(head_chars).collect();
+    let tail: String = text.chars().skip(total - tail_chars).collect();
+    format!("{head}{MARKER}{tail}")
+}
+
 /// 上游条目编译（八期一路核心）：
 ///
 /// - 正文 ≤ `per_artifact_bytes` → 全文块（`full`）；
 /// - 正文 > 阈值 → 摘要块 + sha256 + CAS ref（`summary`，记录 `per_artifact_budget`）；
+///   评审产物使用 `DEFAULT_REVIEW_BODY_BYTES`，保留 reviewer_id 与产物绑定；
 /// - 累计超 `total_upstream_bytes` → 仅引用行（`ref_only`，记录 `total_budget`）。
 ///
 /// 条目按输入顺序处理（直接依赖在前者优先保留；调用方保证只传直接依赖）。
@@ -111,6 +137,11 @@ pub fn compile_upstream(items: &[Value], budget: PromptBudget) -> CompiledUpstre
     let mut used = 0usize;
     for item in items {
         let role = item.get("role").and_then(Value::as_str).unwrap_or("?");
+        let body_limit = if item.get("kind").and_then(Value::as_str) == Some("review") {
+            DEFAULT_REVIEW_BODY_BYTES
+        } else {
+            budget.per_artifact_bytes
+        };
         let id = item
             .get("artifact_id")
             .and_then(Value::as_str)
@@ -140,16 +171,13 @@ pub fn compile_upstream(items: &[Value], budget: PromptBudget) -> CompiledUpstre
             .or_else(|| sha256_of_ref(cas_ref))
             .unwrap_or("");
         let header = format!("### {role} v{version}（{id}）");
-        if !externally_truncated
-            && total_bytes <= budget.per_artifact_bytes
-            && content.len() <= remaining
-        {
+        if !externally_truncated && total_bytes <= body_limit && content.len() <= remaining {
             used += content.len();
             out.full_count += 1;
             blocks.push(format!("{header}\n{content}"));
             continue;
         }
-        let reason = if total_bytes <= budget.per_artifact_bytes || remaining == 0 {
+        let reason = if total_bytes <= body_limit || remaining == 0 {
             "total_budget"
         } else {
             "per_artifact_budget"
@@ -157,7 +185,7 @@ pub fn compile_upstream(items: &[Value], budget: PromptBudget) -> CompiledUpstre
         let summary = if remaining == 0 || budget.summary_chars == 0 {
             String::new()
         } else {
-            let candidate = char_truncate(content, budget.summary_chars);
+            let candidate = char_truncate_middle(content, budget.summary_chars);
             let mut end = candidate.len().min(remaining);
             while !candidate.is_char_boundary(end) {
                 end -= 1;
@@ -409,6 +437,32 @@ mod tests {
         let compiled = compile_upstream(&[], PromptBudget::default());
         assert_eq!(compiled.context_bytes, 0);
         assert_eq!(compiled.text, "（无上游产物；你是首个执行者）");
+    }
+
+    #[test]
+    fn review_artifacts_get_larger_body_budget() {
+        let body = "r".repeat(3000);
+        let review = json!({
+            "role": "critic", "artifact_id": "review-1", "version": 1,
+            "kind": "review", "content": body, "cas_ref": "cas://sha256:r1"
+        });
+        let compiled = compile_upstream(&[review], PromptBudget::default());
+        assert_eq!(compiled.full_count, 1);
+        assert_eq!(compiled.summarized_count, 0);
+        let ordinary = item("doc-1", "builder", &"d".repeat(3000));
+        let compiled = compile_upstream(&[ordinary], PromptBudget::default());
+        assert_eq!(compiled.full_count, 0);
+        assert_eq!(compiled.summarized_count, 1);
+    }
+
+    #[test]
+    fn middle_truncation_keeps_identity_and_tail_within_budget() {
+        let body = format!("HEAD-{}-TAIL-reviewer_id", "x".repeat(400));
+        let truncated = char_truncate_middle(&body, 80);
+        assert!(truncated.starts_with("HEAD-"));
+        assert!(truncated.ends_with("TAIL-reviewer_id"));
+        assert!(truncated.contains('\u{2026}'));
+        assert!(truncated.chars().count() <= 80);
     }
 
     #[test]

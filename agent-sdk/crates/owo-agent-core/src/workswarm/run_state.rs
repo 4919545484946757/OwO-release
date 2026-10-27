@@ -210,6 +210,20 @@ pub(super) fn apply_run_execution_event(
                     );
                 }
             }
+            let retried_at = super::util::now_ts();
+            for issue in &mut state.delivery_issues {
+                if !affected.contains(issue.owner_step_id.as_str())
+                    || issue.status != crate::goal::DeliveryIssueStatusV1::Resolved
+                {
+                    continue;
+                }
+                issue.status = crate::goal::DeliveryIssueStatusV1::RepairDispatched;
+                issue.repair_attempt = issue.repair_attempt.saturating_add(1);
+                issue.resolution_review_artifact_id = None;
+                issue.resolution_review_sha256 = None;
+                issue.resolution_attempt_id = None;
+                issue.updated_at = retried_at.clone();
+            }
             if let Some(step) = state.plan.step_mut(&target_step_id) {
                 if let Some(input) = step.input.as_object_mut() {
                     let metadata = input

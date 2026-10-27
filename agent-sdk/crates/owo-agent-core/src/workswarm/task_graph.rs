@@ -357,10 +357,12 @@ pub(super) fn validate_parallel_subtasks(
             && !uses_builtin_media
             && !required_capabilities
                 .iter()
-                .any(|capability| capability == "write_file")
+                .any(|capability| matches!(capability.as_str(), "write_file" | "apply_patch"))
         {
-            // A task that declares files must expose the write tool, otherwise
+            // A task that declares files must expose a write tool, otherwise
             // the worker profile becomes read-only and cannot execute its plan.
+            // An explicit apply_patch already covers the write path; adding
+            // write_file would widen the tool surface beyond the task contract.
             // Media tools write through their own publisher, not write_file.
             required_capabilities.push("write_file".to_string());
         }
