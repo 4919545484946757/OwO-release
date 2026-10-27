@@ -5150,6 +5150,10 @@ struct InputImageContractProvider {
 }
 #[async_trait::async_trait]
 impl owo_agent_core::gateway::ModelProvider for InputImageContractProvider {
+    fn validate_image_input(&self, _model: Option<&str>, _has_images: bool) -> Result<(), String> {
+        Ok(())
+    }
+
     async fn complete(
         &self,
         messages: &[owo_agent_core::ChatMessage],
