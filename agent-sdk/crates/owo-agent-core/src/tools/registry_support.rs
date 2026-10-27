@@ -237,7 +237,9 @@ mod path_identity_tests {
         let sibling = temp.path().join("workspace-sibling/new.txt");
         assert_eq!(
             workspace_relative_display(&root, &sibling),
-            canonical_candidate(&sibling).to_string_lossy().replace('\\', "/")
+            canonical_candidate(&sibling)
+                .to_string_lossy()
+                .replace('\\', "/")
         );
     }
 
