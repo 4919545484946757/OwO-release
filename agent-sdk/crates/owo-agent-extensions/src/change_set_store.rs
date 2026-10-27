@@ -122,6 +122,12 @@ fn normalize_superseded(records: &mut [ChangeSet]) {
             if latest == index {
                 return None;
             }
+            // Multiple ChangeSets can legitimately belong to one attempt (for
+            // example, separate deliverables). Only a reworked attempt replaces
+            // an older pending record; same-attempt records must remain reviewable.
+            if record.attempt_id == records[latest].attempt_id {
+                return None;
+            }
             Some((
                 records[latest].change_set_id.clone(),
                 records[latest].created_at.clone(),
