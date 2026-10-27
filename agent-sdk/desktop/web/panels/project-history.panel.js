@@ -205,7 +205,11 @@
       }, function (t, v) {
         return v === "__owo_dynamic__" ? "动态组队（无模板）" : v;
       });
-      opts.sort(function (a, b) { return a.label.localeCompare(b.label); });
+      opts.sort(function (a, b) {
+        if (a.value === "__owo_dynamic__") return -1;
+        if (b.value === "__owo_dynamic__") return 1;
+        return a.label < b.label ? -1 : (a.label > b.label ? 1 : 0);
+      });
       return opts;
     }
 

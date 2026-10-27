@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex};
 const PRODUCER_OK: &str = r###"{"status":"done","summary":"交付完成","artifact":{"kind":"document","format":"markdown","content":"## 交付正文\n关键结论 A。"},"evidence":[],"open_issues":[]}"###;
 
 /// 合法的 critic 契约输出（评审结论放 summary，禁止 artifact）。
-const CRITIC_OK: &str = r#"{"status":"done","summary":"评审完成","evidence":[],"open_issues":[],"review_result":{"verdict":"approved","findings":[]}}"#;
+const CRITIC_OK: &str = r#"{"status":"done","summary":"评审完成","artifact":null,"evidence":[],"open_issues":[],"handoff":null,"review_result":{"verdict":"approved","reviewed_requirement_ids":[],"findings":[]}}"#;
 
 /// critic 越权：携带 artifact（首轮违例，应触发定向修复）。
 const CRITIC_WITH_ARTIFACT: &str = r#"{"status":"done","summary":"评审完成","artifact":{"kind":"review","format":"json","content":"{\"score\":60}"},"evidence":[],"open_issues":[],"review_result":{"verdict":"approved","findings":[]}}"#;
