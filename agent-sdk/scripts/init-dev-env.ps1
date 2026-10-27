@@ -174,6 +174,7 @@ function Resolve-OwoOnnxRuntimeLib {
         New-Item -ItemType Directory -Force -Path $script:OwoRuntimeCache | Out-Null
         $archive = Join-Path $script:OwoRuntimeCache "$($script:OwoSherpaAsset).tar.bz2"
         Save-OwoSherpaToCache $archive
+        $cached = Get-OwoOrtLibDir
         if (Test-OwoOnnxRuntimeLib $cached) { return $cached }
         throw "Download succeeded but the extracted lib is invalid; remove '$($script:OwoRuntimeCache)' and retry."
     }

@@ -41,6 +41,10 @@ jobs:
         with:
           workspaces: './agent-sdk -> ./agent-sdk/target'
 
+      - name: ONNX Runtime cold-cache regression (offline)
+        working-directory: agent-sdk
+        run: .\scripts\selftest-ort-cold-cache.ps1
+
       - name: ONNX Runtime 预构建（sha256 固定，首次下载进稳定缓存）
         working-directory: agent-sdk
         run: .\scripts\ci-gate.ps1 -Step ort-prime -EnsureOrt -LogDir "$env:RUNNER_TEMP\ci-logs"
