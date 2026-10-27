@@ -295,6 +295,7 @@ async fn accepting_pending_changeset_over_http_resumes_delivery_finalization() {
         .plan
         .steps
         .iter()
+        .rev()
         .find_map(|step| {
             run_state
                 .records
