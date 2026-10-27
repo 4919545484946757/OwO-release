@@ -136,8 +136,24 @@ pub(crate) fn ensure_image_input(
     options: Option<&CustomModelConnection>,
     messages: &[ChatMessage],
 ) -> Result<(), String> {
-    // History also goes over the wire. Text-only calls do not need a declaration.
-    if !messages.iter().any(|message| !message.images.is_empty()) {
+    ensure_image_presence(
+        model,
+        base_url,
+        api_format,
+        options,
+        messages.iter().any(|message| !message.images.is_empty()),
+    )
+}
+
+pub(crate) fn ensure_image_presence(
+    model: &str,
+    base_url: &str,
+    api_format: &str,
+    options: Option<&CustomModelConnection>,
+    has_images: bool,
+) -> Result<(), String> {
+    // Metadata-only admission shares the exact native request boundary rules.
+    if !has_images {
         return Ok(());
     }
     let explicit = options.and_then(|o| o.input_capabilities.as_ref());

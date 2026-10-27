@@ -229,6 +229,16 @@ pub struct ObservedModelOutput {
 
 #[async_trait]
 pub trait ModelProvider: Send + Sync {
+    /// Read-only declaration check, never a network probe or a grant of tool permission.
+    /// Unknown adapters must explicitly opt in to image admission.
+    fn validate_image_input(&self, _model: Option<&str>, has_images: bool) -> Result<(), String> {
+        if has_images {
+            Err("input/image_capability_unknown: 此适配器未声明图片输入能力".into())
+        } else {
+            Ok(())
+        }
+    }
+
     /// Dedicated bounded text request. Providers must opt in; never fall back to an Agent turn.
     async fn complete_expression(&self, _messages: &[ChatMessage]) -> Result<String, String> {
         Err("provider/expression_unsupported".into())

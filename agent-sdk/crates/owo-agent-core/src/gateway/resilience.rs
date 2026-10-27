@@ -474,6 +474,11 @@ impl ResilientProvider {
 
 #[async_trait]
 impl ModelProvider for ResilientProvider {
+    fn validate_image_input(&self, model: Option<&str>, has_images: bool) -> Result<(), String> {
+        // No circuit permit, retries, fallback, or provider calls for a declaration check.
+        self.primary.validate_image_input(model, has_images)
+    }
+
     async fn complete_expression(&self, messages: &[ChatMessage]) -> Result<String, String> {
         let permit = self
             .breaker
@@ -909,6 +914,13 @@ impl DeferredProvider {
 
 #[async_trait]
 impl ModelProvider for DeferredProvider {
+    fn validate_image_input(&self, model: Option<&str>, has_images: bool) -> Result<(), String> {
+        if !has_images {
+            return Ok(());
+        }
+        self.resolve()?.validate_image_input(model, true)
+    }
+
     async fn complete_expression(&self, messages: &[ChatMessage]) -> Result<String, String> {
         self.resolve()?.complete_expression(messages).await
     }

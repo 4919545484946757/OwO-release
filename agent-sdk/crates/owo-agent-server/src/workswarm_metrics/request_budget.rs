@@ -710,6 +710,11 @@ impl MeasuredProvider {
 
 #[async_trait]
 impl ModelProvider for MeasuredProvider {
+    fn validate_image_input(&self, model: Option<&str>, has_images: bool) -> Result<(), String> {
+        // A declaration check does not reserve a request or emit execution observations.
+        self.inner.validate_image_input(model, has_images)
+    }
+
     async fn complete(
         &self,
         messages: &[owo_agent_core::ChatMessage],

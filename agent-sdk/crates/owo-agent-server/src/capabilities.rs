@@ -507,7 +507,7 @@ pub async fn capabilities_list(State(state): State<Arc<AppState>>) -> Json<Value
         "count": CAPABILITIES.len(),
         "maturity": { "stable": stable, "beta": beta, "experimental": experimental },
         "capabilities": items,
-        "constraints": { "request_read_only": true, "scoped_turn_cancellation": true, "structured_input_parts": true, "custom_model_connection": true, "model_input_capability_admission": true, "custom_model_env_credentials": true, "durable_session_facts": true, "media_image_generation": image_connection["configured"] == true, "media_speech": speech_connection["configured"] == true, "chat_mode": true },
+        "constraints": { "request_read_only": true, "scoped_turn_cancellation": true, "structured_input_parts": true, "custom_model_connection": true, "model_input_capability_admission": true, "model_input_preflight": true, "custom_model_env_credentials": true, "durable_session_facts": true, "media_image_generation": image_connection["configured"] == true, "media_speech": speech_connection["configured"] == true, "chat_mode": true },
     }))
 }
 

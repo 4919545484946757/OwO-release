@@ -9,7 +9,7 @@ const start=source.indexOf("async function sendPrompt()");
 const end=source.indexOf("\nfunction renderAttachmentChips()",start);
 assert.ok(start>=0 && end>start);
 async function submit(support, attachments=[],structured=true, options={}) {
- const prompt={value:options.prompt ?? "hi"};const requests=[];const notices=[];
+ const prompt={value:options.prompt ?? "hi"};const requests=[];const notices=[];const preflights=[];
  const model={id:"custom-x",baseUrl:"http://127.0.0.1:7777/native",apiFormat:"anthropic",useFullUrl:true,temperature:0,timeoutSecs:4};
  const context={
   URL,AbortController,Map,Set,Date,crypto:{randomUUID:()=>"11111111-1111-4111-8111-111111111111"},ModelRouting:routing,
@@ -17,8 +17,8 @@ async function submit(support, attachments=[],structured=true, options={}) {
   promptSessionStart:{run:create=>create()},newSession:async()=>options.newSession(context,prompt),
   $:id=>id==="prompt"?prompt:{value:"D:/workspace"},
   getComposerModel:()=>"custom-x",loadCustomModels:()=>[model],customModelKeys:()=>({"custom-x":"fixture-key"}),
-  api:async()=>{await options.duringPreflight?.(context,prompt);return {constraints:{custom_model_connection:support,scoped_turn_cancellation:true,structured_input_parts:structured}};},
-  modelGateMissing:()=>false, currentTurn:()=>null, friendlyError:e=>e.message,
+  api:async(path,request)=>{if(path==="/input/preflight"){preflights.push(JSON.parse(request.body));await options.duringInputPreflight?.(context,prompt);if(options.inputError)throw new Error(options.inputError);return options.inputResult ?? {ok:true};}await options.duringPreflight?.(context,prompt);return {constraints:{custom_model_connection:support,scoped_turn_cancellation:true,structured_input_parts:structured,model_input_preflight:options.inputPreflight===true}};},
+  modelGateMissing:()=>options.unconfigured===true, openModelGateSettings:()=>notices.push("settings opened"), currentTurn:()=>null, friendlyError:e=>e.message,
   showToast:(text)=>notices.push(text), addMessage:()=>({}),writeTargetSid:null,
   window:{OwoAttachmentUpload:uploads,OwoApi:{stream:async(path,request)=>{
    requests.push({path,json:request.json});
@@ -28,9 +28,9 @@ async function submit(support, attachments=[],structured=true, options={}) {
  };
  for(const name of ["updateComposerHint","updateScrollBottomBtn","updateComposerRunning","startRunStatus",
  "renderAttachmentChips","refreshSessions","refreshDiff","refreshSessionContext","showTurnFailure","addEventChip","hideApproval","finishThinking","settlePendingQuestion","stopRunStatus","resetRunBlocks"]) context[name]=()=>{};
- runInNewContext(source.slice(start,end)+"\nthis.submit=sendPrompt;",context);
+ runInNewContext(source.slice(source.indexOf("async function preflightModelInput("),source.indexOf("async function rewindAndResend("))+source.slice(start,end)+"\nthis.submit=sendPrompt;",context);
  await context.submit();
- return {requests,notices,prompt,state:context.state};
+ return {preflights,requests,notices,prompt,state:context.state};
 }
 test("actual composer sends all custom connection fields to the turn route",async()=>{
  const {requests}=await submit(true);
@@ -113,4 +113,55 @@ test("actual session creation does not steal selection or clear pending settings
   if(switched){assert.equal(result,null);assert.equal(state.pendingModelOverride,"choice");assert.equal(state.pendingSystemPrompt,"keep me");assert.equal(state.sessionId,"other");}
   else{assert.equal(result.id,"created");assert.equal(result.selectionVersion,state.selectionVersion);assert.equal(state.pendingSystemPrompt,"");}
  }
+});
+
+test("image admission rejection keeps the composer draft and never submits a turn or creates a session",async()=>{
+ let created=0;
+ const {requests,notices,prompt,preflights,state}=await submit(true,[],true,{
+  inputPreflight:true,inputError:"input/image_capability_unknown",
+  newSession:async()=>{created++;throw new Error("must not create");}
+ });
+ assert.equal(created,0);assert.equal(state.sessionId,null);assert.equal(requests.length,0);
+ assert.equal(prompt.value,"hi");assert.match(notices[0],/image_capability_unknown/);
+ assert.equal(preflights.length,1);assert.equal(preflights[0].has_images,false);
+ assert.equal(preflights[0].model,"custom-x");assert.equal(preflights[0].model_connection.api_format,"anthropic");
+});
+test("actual send preflight includes images and uses authoritative session context",async()=>{
+ const part={type:"image",asset:{artifact_id:"input-12345678-1234-4321-9876-123456789abc",sha256:"a".repeat(64)}};
+ const {requests,preflights}=await submit(true,[{id:part.asset.artifact_id,name:"same.png",content_part:part}],true,{inputPreflight:true});
+ assert.equal(requests.length,1);assert.equal(preflights[0].has_images,true);assert.equal(preflights[0].session_id,"s");
+ assert(!Object.hasOwn(preflights[0],"model"));assert(!Object.hasOwn(preflights[0],"history_keep"));
+});
+test("draft edits or session switches during native admission preserve new input and never send",async()=>{
+ for(const change of [(context,prompt)=>{prompt.value="new draft";},context=>{context.state.sessionId="other";context.state.selectionVersion++;}]){
+  const {requests,prompt,notices}=await submit(true,[],true,{inputPreflight:true,duringInputPreflight:change});
+  assert.equal(requests.length,0);assert(prompt.value.length);assert.match(notices[0],/变化/);
+ }
+});
+test("preflight needs an explicit success receipt and does not infer an image from a file name",async()=>{
+ for(const result of [{},null]){
+  const {requests,prompt}=await submit(true,[],true,{inputPreflight:true,inputResult:result ?? {}});
+  assert.equal(requests.length,0);assert.equal(prompt.value,"hi");
+ }
+ const part={type:"file",asset:{artifact_id:"input-12345678-1234-4321-9876-123456789abc",sha256:"a".repeat(64)}};
+ const {requests,preflights}=await submit(true,[{id:part.asset.artifact_id,name:"documentation.png",content_part:part}],true,{inputPreflight:true});
+ assert.equal(requests.length,1);assert.equal(preflights[0].has_images,false);
+});
+
+test("changing a custom connection while the first session is created cannot send an old admitted connection",async()=>{
+ const {requests,prompt,notices}=await submit(true,[],true,{inputPreflight:true,
+  newSession:async context=>{
+   context.state.sessionId="created";context.state.selectionVersion++;
+   context.loadCustomModels=()=>[{id:"custom-x",baseUrl:"http://127.0.0.1:8888/changed",apiFormat:"openai"}];
+   return {id:"created",selectionVersion:context.state.selectionVersion};
+  }});
+ assert.equal(requests.length,0);assert.equal(prompt.value,"hi");assert.match(notices[0],/输入已变化/);
+});
+
+test("unconfigured model still opens setup before native admission or automatic session creation",async()=>{
+ let created=0;
+ const {requests,notices,preflights,prompt}=await submit(true,[],true,{inputPreflight:true,unconfigured:true,
+  newSession:async()=>{created++;throw new Error("must not create");}});
+ assert.equal(created,0);assert.equal(requests.length,0);assert.equal(preflights.length,0);
+ assert.equal(prompt.value,"hi");assert.deepEqual(notices,["settings opened"]);
 });

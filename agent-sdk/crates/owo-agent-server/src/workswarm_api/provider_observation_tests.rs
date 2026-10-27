@@ -10,6 +10,14 @@ struct Fixture {
 }
 #[async_trait]
 impl ModelProvider for Fixture {
+    fn validate_image_input(&self, model: Option<&str>, has_images: bool) -> Result<(), String> {
+        if !has_images || model == Some("model-override") {
+            Ok(())
+        } else {
+            Err("input/capability_binding_mismatch".into())
+        }
+    }
+
     async fn complete(&self, _: &[ChatMessage], _: &[ToolSpec]) -> Result<ModelOutput, String> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         match self.mode {
@@ -337,4 +345,21 @@ fn borrowed_tool_projection_hashes_all_fields_and_changes_when_schema_changes() 
     assert_eq!(first, expected);
     tools[0].input_schema = json!({"type":"string"});
     assert_ne!(first, request_identity(None, &messages, &tools).unwrap());
+}
+
+#[tokio::test]
+async fn declaration_preflight_is_forwarded_without_calls_or_observations() {
+    let (_dir, store, fixture, provider) = observer(0).await;
+    assert!(provider
+        .validate_image_input(Some("model-override"), true)
+        .is_ok());
+    assert!(provider.validate_image_input(Some("other"), false).is_ok());
+    assert_eq!(
+        provider
+            .validate_image_input(Some("other"), true)
+            .unwrap_err(),
+        "input/capability_binding_mismatch"
+    );
+    assert_eq!(fixture.calls.load(Ordering::SeqCst), 0);
+    assert!(events(&store).is_empty());
 }

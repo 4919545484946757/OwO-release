@@ -128,10 +128,7 @@ impl TeamCoordinator {
                 .iter()
                 .map(|task| task.user_requirement_quotes.clone())
                 .collect::<Vec<_>>();
-            let _ = validate_task_requirement_coverage(
-                &task_quote_sets,
-                &state.goal.objective,
-            );
+            let _ = validate_task_requirement_coverage(&task_quote_sets, &state.goal.objective);
         }
         if task_graph.version != 1 {
             return Err(WorkSwarmError::Validation(

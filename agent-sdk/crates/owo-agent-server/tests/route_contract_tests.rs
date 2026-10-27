@@ -321,6 +321,7 @@ fn anonymous_request(
 fn sample_body(path: &str) -> Option<&'static str> {
     match path {
         "/session" => Some(r#"{"workspace":".","model":"idle"}"#),
+        "/input/preflight" => Some(r#"{"has_images":false}"#),
         "/session/{id}/turn" => Some(r#"{"prompt":"hi"}"#),
         // 自定义提示词：用合法短文本，可达性测试要 200。
         "/session/{id}/system-prompt" => Some(r#"{"prompt":"契约样例提示词"}"#),
@@ -5123,6 +5124,11 @@ struct InputImageContractProvider {
 }
 #[async_trait::async_trait]
 impl owo_agent_core::gateway::ModelProvider for InputImageContractProvider {
+    // This deterministic adapter explicitly accepts its synthetic image fixture.
+    fn validate_image_input(&self, _: Option<&str>, _: bool) -> Result<(), String> {
+        Ok(())
+    }
+
     async fn complete(
         &self,
         messages: &[owo_agent_core::ChatMessage],
@@ -6093,5 +6099,32 @@ fn image_input_capability_wire_contract_is_bound_and_not_verified() {
     assert_eq!(
         source["components"]["schemas"]["ModelInputCapabilityBinding"],
         spec["components"]["schemas"]["ModelInputCapabilityBinding"]
+    );
+}
+
+#[test]
+fn input_preflight_route_and_schema_are_synchronized() {
+    let spec: serde_json::Value = serde_json::from_str(CONTRACT_SNAPSHOT).unwrap();
+    let source: serde_json::Value =
+        serde_json::from_str(include_str!("../src/openapi.json")).unwrap();
+    assert!(registered_routes().contains(&"/input/preflight".to_string()));
+    assert_eq!(
+        source["paths"]["/input/preflight"],
+        spec["paths"]["/input/preflight"]
+    );
+    assert_eq!(
+        source["components"]["schemas"]["InputPreflightRequest"],
+        spec["components"]["schemas"]["InputPreflightRequest"]
+    );
+    assert_eq!(
+        spec["paths"]["/input/preflight"]["post"]["requestBody"]["content"]["application/json"]
+            ["schema"]["$ref"],
+        "#/components/schemas/InputPreflightRequest"
+    );
+    assert!(
+        serde_json::from_value::<owo_agent_protocol::InputPreflightRequest>(
+            serde_json::json!({"verified":true})
+        )
+        .is_err()
     );
 }

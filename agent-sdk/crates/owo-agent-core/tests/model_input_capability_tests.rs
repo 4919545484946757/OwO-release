@@ -556,3 +556,41 @@ fn oversized_or_invalid_persisted_declarations_apply_as_invalid_not_stale_suppor
     assert_eq!(std::env::var(INPUT_CAPABILITIES_ENV).unwrap(), "null");
     assert!(input_capability_bindings_from_env().is_err());
 }
+
+#[tokio::test]
+async fn native_preflight_matches_send_admission_without_network_or_breaker_changes() {
+    for format in ["openai", "anthropic"] {
+        let peer = Peer::new().await;
+        for support in [None, Some(false), Some(true)] {
+            let binding = support.map(|support| peer.binding(format, support));
+            let native = custom_model_provider(&peer.connection(format, binding)).unwrap();
+            let provider = ResilientProvider::new(
+                native,
+                Vec::new(),
+                CircuitBreaker::new(1, std::time::Duration::from_secs(300)),
+                RetryPolicy::default(),
+            );
+            assert!(provider
+                .validate_image_input(Some("different-text-model"), false)
+                .is_ok());
+            let result = provider.validate_image_input(None, true);
+            match support {
+                Some(true) => assert!(result.is_ok()),
+                Some(false) => {
+                    assert!(result.unwrap_err().starts_with("input/image_not_supported"))
+                }
+                None => assert!(result
+                    .unwrap_err()
+                    .starts_with("input/image_capability_unknown")),
+            }
+            if support.is_some() {
+                assert!(provider
+                    .validate_image_input(Some("different-worker"), true)
+                    .unwrap_err()
+                    .starts_with("input/capability_binding_mismatch"));
+            }
+            assert_eq!(provider.breaker().consecutive_failures(), 0);
+        }
+        assert_eq!(peer.hits.load(Ordering::SeqCst), 0);
+    }
+}
