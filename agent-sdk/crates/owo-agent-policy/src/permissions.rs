@@ -332,7 +332,11 @@ pub struct WorkspaceApprover {
 impl WorkspaceApprover {
     /// 工作区内的写路径判定：绝对路径直接用，相对路径相对 workspace 解析。
     fn write_path_allowed(&self, raw: &str) -> bool {
-        let root = strip_verbatim_prefix(&self.workspace);
+        // Compare canonical identities on both sides. Windows may expose the same
+        // temporary directory through a short-name or junction alias; comparing a
+        // canonical candidate with the caller's raw workspace path would reject a
+        // legitimate relative write before the new file exists.
+        let root = nearest_existing_ancestor(&strip_verbatim_prefix(&self.workspace));
         let candidate = if Path::new(raw).is_absolute() {
             PathBuf::from(raw)
         } else {

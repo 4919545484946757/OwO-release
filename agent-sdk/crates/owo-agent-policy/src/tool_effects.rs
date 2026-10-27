@@ -90,6 +90,9 @@ fn builtin_dimensions(tool: &str) -> Option<&'static [ToolDimension]> {
         | "browser_type" | "browser_press" | "browser_close" | "screen_vision"
         | "vision_verify" | "vision_ground" => &[Network],
         "browser_screenshot" | "browser_download_image" => &[Network, Filesystem],
+        // Media generation calls an external model and persists the returned
+        // artifact under the workspace outputs directory.
+        "generate_image" | "text_to_speech" => &[Network, Filesystem],
         // Unconfined UI input can trigger writes, commands and external sends.
         "text.inject" | "clipboard" | "desktop_click" | "desktop_type" | "desktop_key"
         | "desktop_shortcut" | "desktop_activate" | "desktop_launch" | "desktop_scroll" => {
