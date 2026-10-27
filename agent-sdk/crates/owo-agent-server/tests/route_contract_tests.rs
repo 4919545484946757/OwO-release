@@ -577,6 +577,7 @@ fn resource_404_ok(path: &str) -> bool {
             | "/team/export"
             | "/eval/run"
             | "/session/{id}/permission/{request_id}"
+            | "/session/{id}/hunks/apply"
             // R12 /fleet/*（任务/审批资源不存在 → 404 由资源缺失产生，非路由缺失）。
             | "/fleet/nodes/{node_id}/heartbeat"
             | "/fleet/nodes/{node_id}/tasks"
