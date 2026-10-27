@@ -6,6 +6,31 @@ use serde_json::Value;
 use std::path::Path;
 use std::sync::{atomic::Ordering, Arc};
 
+/// Recognize supported media container headers for execution and publication.
+/// This is a bounded format hint, not full codec validation or a decoding guarantee.
+pub fn media_output_mime(bytes: &[u8], kind: &str) -> Option<&'static str> {
+    match kind {
+        "image" if bytes.starts_with(b"\x89PNG\r\n\x1a\n") => Some("image/png"),
+        "image" if bytes.starts_with(&[0xff, 0xd8, 0xff]) => Some("image/jpeg"),
+        "image" if bytes.starts_with(b"GIF8") => Some("image/gif"),
+        "image" if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" => {
+            Some("image/webp")
+        }
+        "audio"
+            if bytes.starts_with(b"ID3")
+                || (bytes.len() > 1 && bytes[0] == 0xff && bytes[1] & 0xe0 == 0xe0) =>
+        {
+            Some("audio/mpeg")
+        }
+        "audio" if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WAVE" => {
+            Some("audio/wav")
+        }
+        "audio" if bytes.starts_with(b"OggS") => Some("audio/ogg"),
+        "audio" if bytes.starts_with(b"fLaC") => Some("audio/flac"),
+        _ => None,
+    }
+}
+
 #[async_trait]
 pub trait ToolOutputPublisher: Send + Sync {
     async fn publish(

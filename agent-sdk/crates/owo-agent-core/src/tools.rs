@@ -134,7 +134,7 @@ impl<T: Tool> Tool for DeclaredBuiltin<T> {
 
 #[path = "tools/output.rs"]
 mod output;
-pub use output::ToolOutputPublisher;
+pub use output::{media_output_mime, ToolOutputPublisher};
 
 pub struct ToolRegistry {
     tools: Vec<Arc<dyn Tool>>,

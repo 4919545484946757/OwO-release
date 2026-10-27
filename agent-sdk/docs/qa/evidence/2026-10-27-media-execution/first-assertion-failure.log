@@ -1,0 +1,48 @@
+   Compiling owo-build-info v0.1.0 (T:\创新创业\OwO-master\agent-sdk\crates\owo-build-info)
+   Compiling owo-agent-server v0.1.0 (T:\创新创业\OwO-master\agent-sdk\crates\owo-agent-server)
+warning: linker stdout: 正在创建库 C:\Users\23843\AppData\Local\Temp\owo-audit-iteration-20261025\native-target\debug\deps\media_execution_api_tests-779f2bee6235356c.lib 和对象 C:\Users\23843\AppData\Local\Temp\owo-audit-iteration-20261025\native-target\debug\deps\media_execution_api_tests-779f2bee6235356c.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `owo-agent-server` (test "media_execution_api_tests") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 47.62s
+     Running tests\media_execution_api_tests.rs (native-target\debug\deps\media_execution_api_tests-779f2bee6235356c.exe)
+
+running 3 tests
+test approved_builtin_media_http_publishes_all_sizes_and_survives_host_reopen ... FAILED
+
+thread 'approved_builtin_media_http_publishes_all_sizes_and_survives_host_reopen' (12604) panicked at crates\owo-agent-server\tests\media_execution_api_tests.rs:82:5:
+
+running 1 test
+test approved_builtin_media_http_publishes_all_sizes_and_survives_host_reopen ... FAILED
+
+
+failures:
+    approved_builtin_media_http_publishes_all_sizes_and_survives_host_reopen
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.36s
+failures:
+{"duration_ms":5,"level":"info","method":"POST","msg":"request","route_template":"/session","source":"other","status":200,"target":"http","trace_id":"b81e4b0ac85b4cc6843786fb","ts":"2026-10-27T06:45:03.829114800+00:00"}
+
+{"duration_ms":20,"level":"info","method":"PUT","msg":"request","route_template":"/settings/media-connections","source":"other","status":200,"target":"http","trace_id":"c372a2f6f5e7472892da4af6","ts":"2026-10-27T06:45:03.823021700+00:00"}
+
+
+
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/permission/{request_id}","source":"other","status":200,"target":"http","trace_id":"fac3694f11a94b38a92c1374","ts":"2026-10-27T06:45:03.854482500+00:00"}
+{"duration_ms":1,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/turn","source":"other","status":200,"target":"http","trace_id":"937068f0a7464e04bfe0f286","ts":"2026-10-27T06:45:03.831340900+00:00"}
+thread 'approved_builtin_media_http_publishes_all_sizes_and_survives_host_reopen' (25324) panicked at crates\owo-agent-server\tests\media_execution_api_tests.rs:395:13:
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+assertion failed: !wire.contains("data:image/") && !wire.contains("data:audio/") &&
+    !wire.contains("b64_json")
+test denied_media_never_contacts_service_or_publishes_output ... ok
+test failed_invalid_and_cancelled_media_do_not_report_published_success ... ok
+failures:
+
+    approved_builtin_media_http_publishes_all_sizes_and_survives_host_reopen
+
+
+failures:
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.33s
+
+error: test failed, to rerun pass `-p owo-agent-server --test media_execution_api_tests`

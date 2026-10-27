@@ -1409,9 +1409,7 @@ async fn choose_auto_workflow(
     let objective_lower = objective.to_lowercase();
     let mut candidates: Vec<(String, f64, usize, u64, usize)> = Vec::new();
     for item in listed["templates"].as_array().into_iter().flatten() {
-        if item["blocked"].as_bool().unwrap_or(false)
-            || item["valid"].as_bool().unwrap_or(true) == false
-        {
+        if item["blocked"].as_bool().unwrap_or(false) || !item["valid"].as_bool().unwrap_or(true) {
             continue;
         }
         let Some(template) = item.get("template") else {

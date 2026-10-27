@@ -2,7 +2,7 @@
 use super::ArtifactReviewState;
 use async_trait::async_trait;
 use owo_agent_core::project_space_store::ProjectSpaceStoreBackend;
-use owo_agent_core::tools::ToolOutputPublisher;
+use owo_agent_core::tools::{media_output_mime, ToolOutputPublisher};
 use owo_agent_core::CasStore;
 use owo_agent_protocol::{Artifact, ToolOutputArtifact};
 use serde_json::{json, Value};
@@ -19,29 +19,6 @@ pub(crate) struct MediaOutputPublisher {
 impl MediaOutputPublisher {
     pub(crate) fn new(state: ArtifactReviewState, cas_dir: PathBuf) -> Self {
         Self { state, cas_dir }
-    }
-}
-
-fn media_type(bytes: &[u8], kind: &str) -> Option<&'static str> {
-    match kind {
-        "image" if bytes.starts_with(b"\x89PNG\r\n\x1a\n") => Some("image/png"),
-        "image" if bytes.starts_with(&[0xff, 0xd8, 0xff]) => Some("image/jpeg"),
-        "image" if bytes.starts_with(b"GIF8") => Some("image/gif"),
-        "image" if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" => {
-            Some("image/webp")
-        }
-        "audio"
-            if bytes.starts_with(b"ID3")
-                || (bytes.len() > 1 && bytes[0] == 0xff && bytes[1] & 0xe0 == 0xe0) =>
-        {
-            Some("audio/mpeg")
-        }
-        "audio" if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WAVE" => {
-            Some("audio/wav")
-        }
-        "audio" if bytes.starts_with(b"OggS") => Some("audio/ogg"),
-        "audio" if bytes.starts_with(b"fLaC") => Some("audio/flac"),
-        _ => None,
     }
 }
 
@@ -104,7 +81,7 @@ impl ToolOutputPublisher for MediaOutputPublisher {
         {
             return Err("media output changed before publication".into());
         }
-        let mime = media_type(&bytes, kind).ok_or("media output format is not supported")?;
+        let mime = media_output_mime(&bytes, kind).ok_or("media output format is not supported")?;
         let cas = CasStore::new(self.cas_dir.clone())?;
         let hash = cas.put(&bytes)?;
         let id = format!("media-{}", uuid::Uuid::new_v4());
