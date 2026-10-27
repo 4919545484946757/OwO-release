@@ -1,0 +1,33 @@
+   Compiling owo-agent-core v0.1.0 (T:\创新创业\OwO-master\agent-sdk\crates\owo-agent-core)
+   Compiling owo-agent-product-eval v0.1.0 (T:\创新创业\OwO-master\agent-sdk\devtools\product-eval)
+   Compiling owo-agent-eval-facade v0.1.0 (T:\创新创业\OwO-master\agent-sdk\crates\owo-agent-eval-facade)
+
+running 5 tests
+test absent_invalid_and_overflowing_usage_are_not_reported_as_zero_known_usage ... ok
+test concurrent_worker_models_keep_separate_payloads_and_image_blocks ... ok
+test every_stream_entry_preserves_model_selection_and_incremental_channels ... ok
+test nonstream_override_and_sentinel_use_the_requested_model_without_mutation ... ok
+test rejected_override_does_not_fall_back_to_the_configured_model ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+
+
+running 13 tests
+test clean_http_eof_cannot_complete_partial_text_or_executable_tool_calls ... ok
+test completed_utf8_events_are_delivered_before_the_next_partial_character_finishes ... ok
+test crlf_multiline_data_and_unknown_events_preserve_text_and_reasoning ... ok
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 45.05s
+     Running tests\anthropic_model_routing_tests.rs (native-target\debug\deps\anthropic_model_routing_tests-f36d2c24bc211283.exe)
+     Running tests\anthropic_stream_integrity_tests.rs (native-target\debug\deps\anthropic_stream_integrity_tests-fdb603565d99fe3b.exe)
+test executable_tool_calls_require_well_formed_deltas_and_completed_blocks ... ok
+test idle_recovery_preserves_network_policy_without_repeating_partial_text ... ok
+test incomplete_terminal_event_and_ping_only_stream_are_not_successful_messages ... ok
+test malformed_json_and_invalid_utf8_fail_instead_of_disappearing_from_the_stream ... ok
+test message_stop_finishes_without_waiting_for_the_http_connection_to_close ... ok
+test oversized_unterminated_sse_frame_is_rejected_before_the_peer_closes ... ok
+test stalled_stream_reports_the_actual_connection_idle_timeout ... ok
+test stream_error_is_failure_and_never_a_content_delta_or_leaked_credential ... ok
+test tool_block_count_is_bounded_even_when_each_event_is_small ... ok
+test total_tool_memory_is_bounded_across_individually_allowed_blocks ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.21s

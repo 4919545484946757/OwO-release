@@ -12,7 +12,7 @@
 //! 选择接线在 [`crate::gateway::DeferredProvider`]：`OWO_PROVIDER=anthropic`
 //! 且 `ANTHROPIC_API_KEY` 可用时启用。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use async_trait::async_trait;
@@ -25,6 +25,8 @@ use crate::gateway::{
 use crate::tools::ToolSpec;
 
 use futures_util::StreamExt;
+
+mod sse;
 
 /// Anthropic 未显式指定 max_tokens 时必须下发（协议必填），默认 8192。
 const DEFAULT_MAX_TOKENS: u64 = 8192;
@@ -497,6 +499,8 @@ fn parse_response_content(payload: &Value, tools: &[ToolSpec]) -> Result<ModelOu
 const MAX_ANTHROPIC_TEXT_BYTES: usize = 16 * 1024 * 1024;
 const MAX_ANTHROPIC_REASONING_BYTES: usize = 8 * 1024 * 1024;
 const MAX_ANTHROPIC_TOOL_ARGUMENT_BYTES: usize = 4 * 1024 * 1024;
+const MAX_ANTHROPIC_TOOL_BLOCKS: usize = 1024;
+const MAX_ANTHROPIC_TOTAL_TOOL_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Default)]
 struct AnthStreamState {
@@ -504,7 +508,12 @@ struct AnthStreamState {
     reasoning: String,
     /// index → (tool_use_id, name, arguments json 累积)。
     tool_blocks: HashMap<u64, (String, String, String)>,
+    completed_tool_blocks: HashSet<u64>,
     usage: Option<Value>,
+    tool_bytes: usize,
+    message_started: bool,
+    message_stopped: bool,
+    error: Option<String>,
     truncated: bool,
 }
 
@@ -515,9 +524,73 @@ impl AnthStreamState {
         if payload.is_empty() {
             return None;
         }
-        let value: Value = serde_json::from_str(payload).ok()?;
-        match value.get("type").and_then(Value::as_str)? {
+        if self.message_stopped || self.error.is_some() || self.truncated {
+            return None;
+        }
+        let value: Value = match serde_json::from_str(payload) {
+            Ok(value) => value,
+            Err(_) => {
+                self.error =
+                    Some("provider/stream_invalid_json: invalid Anthropic SSE event".into());
+                return None;
+            }
+        };
+        let Some(kind) = value.get("type").and_then(Value::as_str) else {
+            self.error = Some("provider/stream_invalid_event: Anthropic event has no type".into());
+            return None;
+        };
+        let index = value.get("index").and_then(Value::as_u64);
+        let malformed = match kind {
+            "message_start" => !value.get("message").is_some_and(Value::is_object),
+            "content_block_start" => {
+                index.is_none()
+                    || value
+                        .pointer("/content_block/type")
+                        .and_then(Value::as_str)
+                        .is_none()
+            }
+            "content_block_stop" => index.is_none(),
+            "content_block_delta" => {
+                index.is_none()
+                    || match value.pointer("/delta/type").and_then(Value::as_str) {
+                        Some("text_delta") => value
+                            .pointer("/delta/text")
+                            .and_then(Value::as_str)
+                            .is_none(),
+                        Some("thinking_delta") => value
+                            .pointer("/delta/thinking")
+                            .and_then(Value::as_str)
+                            .is_none(),
+                        Some("input_json_delta") => {
+                            value
+                                .pointer("/delta/partial_json")
+                                .and_then(Value::as_str)
+                                .is_none()
+                                || index.is_some_and(|index| {
+                                    !self.tool_blocks.contains_key(&index)
+                                        || self.completed_tool_blocks.contains(&index)
+                                })
+                        }
+                        None => true,
+                        _ => false, // Future delta types remain forwards compatible.
+                    }
+            }
+            _ => false,
+        };
+        if malformed {
+            self.error = Some(format!(
+                "provider/stream_invalid_event: malformed Anthropic {kind}"
+            ));
+            return None;
+        }
+        match kind {
             "message_start" => {
+                if self.message_started {
+                    self.error =
+                        Some("provider/stream_invalid_event: duplicate message_start".into());
+                    return None;
+                }
+                self.message_started = true;
                 if let Some(usage) = value.pointer("/message/usage") {
                     merge_anthropic_usage(&mut self.usage, usage);
                 }
@@ -537,6 +610,24 @@ impl AnthStreamState {
                         .and_then(Value::as_str)
                         .unwrap_or_default()
                         .to_string();
+                    if self.tool_blocks.contains_key(&index) {
+                        self.error = Some(
+                            "provider/stream_invalid_event: duplicate tool block index".into(),
+                        );
+                        return None;
+                    }
+                    if self.tool_blocks.len() >= MAX_ANTHROPIC_TOOL_BLOCKS {
+                        self.error = Some("provider/stream_tool_blocks_too_large: Anthropic tool block count exceeds 1024".into());
+                        return None;
+                    }
+                    self.tool_bytes = self
+                        .tool_bytes
+                        .saturating_add(id.len())
+                        .saturating_add(name.len());
+                    if self.tool_bytes > MAX_ANTHROPIC_TOTAL_TOOL_BYTES {
+                        self.truncated = true;
+                        return None;
+                    }
                     self.tool_blocks.insert(index, (id, name, String::new()));
                 }
                 None
@@ -569,7 +660,11 @@ impl AnthStreamState {
                                 .get("partial_json")
                                 .and_then(Value::as_str)
                                 .unwrap_or_default();
-                            if entry.2.len() + partial.len() > MAX_ANTHROPIC_TOOL_ARGUMENT_BYTES {
+                            self.tool_bytes = self.tool_bytes.saturating_add(partial.len());
+                            if entry.2.len().saturating_add(partial.len())
+                                > MAX_ANTHROPIC_TOOL_ARGUMENT_BYTES
+                                || self.tool_bytes > MAX_ANTHROPIC_TOTAL_TOOL_BYTES
+                            {
                                 self.truncated = true;
                             } else {
                                 entry.2.push_str(partial);
@@ -580,29 +675,68 @@ impl AnthStreamState {
                     _ => None,
                 }
             }
+            "content_block_stop" => {
+                if let Some(index) = index.filter(|index| self.tool_blocks.contains_key(index)) {
+                    self.completed_tool_blocks.insert(index);
+                }
+                None
+            }
             "message_delta" => {
                 if let Some(usage) = value.get("usage") {
                     merge_anthropic_usage(&mut self.usage, usage);
                 }
                 None
             }
+            "message_stop" => {
+                if !self.message_started {
+                    self.error = Some(
+                        "provider/stream_incomplete: message_stop without message_start".into(),
+                    );
+                } else {
+                    self.message_stopped = true;
+                }
+                None
+            }
             "error" => {
+                let kind = value
+                    .pointer("/error/type")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown_error");
                 let detail = value
                     .pointer("/error/message")
                     .and_then(Value::as_str)
                     .unwrap_or("未知错误");
-                Some((Some(format!("[Anthropic 错误：{detail}]")), None))
+                self.error = Some(format!("provider/anthropic_stream_error: {kind}: {detail}"));
+                None
             }
             _ => None,
         }
     }
 
-    fn into_output(mut self, tools: &[ToolSpec]) -> Result<ModelOutput, String> {
+    fn validate_stream(&self) -> Result<(), String> {
+        if let Some(error) = &self.error {
+            return Err(error.clone());
+        }
         if self.truncated {
             return Err("Anthropic 流式响应超过缓冲上限，已拒绝解析".to_string());
         }
+        Ok(())
+    }
+
+    fn into_output(mut self, tools: &[ToolSpec]) -> Result<ModelOutput, String> {
+        self.validate_stream()?;
+        if !self.message_stopped {
+            return Err(
+                "provider/stream_incomplete: Anthropic response ended before message_stop".into(),
+            );
+        }
         // tool_use 块按 index 排序输出。
         if !self.tool_blocks.is_empty() {
+            if self.completed_tool_blocks.len() != self.tool_blocks.len() {
+                return Err(
+                    "provider/stream_incomplete: Anthropic tool block did not finish".into(),
+                );
+            }
             let mut calls: Vec<(u64, ToolCall)> = self
                 .tool_blocks
                 .drain()
@@ -779,46 +913,32 @@ impl AnthropicProvider {
         let response = self.post_messages(&body, true).await?;
         let request_id = anthropic_request_id(&response);
         let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
-        let mut utf8_pending = Vec::new();
+        let mut decoder = sse::SseDecoder::default();
         let mut state = AnthStreamState::default();
-        let mut saw_event = false;
+        let idle_timeout = self
+            .connection_options
+            .as_ref()
+            .and_then(|o| o.timeout_secs)
+            .map(std::time::Duration::from_secs)
+            .unwrap_or(std::time::Duration::from_secs(60));
 
-        while let Some(chunk) = tokio::time::timeout(
-            self.connection_options
-                .as_ref()
-                .and_then(|o| o.timeout_secs)
-                .map(std::time::Duration::from_secs)
-                .unwrap_or(std::time::Duration::from_secs(60)),
-            stream.next(),
-        )
-        .await
-        .map_err(|_| "Anthropic 流式输出空闲超时（60s 无数据）".to_string())?
-        {
-            let chunk = chunk.map_err(|e| format!("流式读取失败：{e}"))?;
-            // UTF-8 分片拼接（与 gateway 同策略）。
-            match std::str::from_utf8(&chunk) {
-                Ok(text) => buffer.push_str(text),
-                Err(_) => {
-                    utf8_pending.extend_from_slice(&chunk);
-                    match String::from_utf8(utf8_pending.clone()) {
-                        Ok(text) => {
-                            buffer.push_str(&text);
-                            utf8_pending.clear();
-                        }
-                        Err(_) => continue,
-                    }
-                }
-            }
-            // Anthropic SSE：`event: <name>\ndata: <json>\n\n`——type 在 data 里，event 行可忽略。
-            while let Some(pos) = buffer.find("\n\n") {
-                let frame: String = buffer.drain(..pos + 2).collect();
-                for line in frame.lines() {
-                    let Some(data) = line.strip_prefix("data:") else {
-                        continue;
-                    };
-                    saw_event = true;
-                    if let Some((content_delta, reasoning_delta)) = state.feed(data) {
+        loop {
+            let chunk = tokio::time::timeout(idle_timeout, stream.next())
+                .await
+                .map_err(|_| {
+                    format!(
+                        "provider/stream_idle_timeout: Anthropic 流式输出空闲超时（{}s 无数据）",
+                        idle_timeout.as_secs()
+                    )
+                })?
+                .ok_or_else(|| {
+                    "provider/stream_incomplete: Anthropic response ended before message_stop"
+                        .to_string()
+                })?
+                .map_err(|e| format!("Anthropic 流式读取失败：{}", e.without_url()))?;
+            let stopped = decoder
+                .feed(&chunk, &mut |payload| {
+                    if let Some((content_delta, reasoning_delta)) = state.feed(payload) {
                         if let Some(piece) = reasoning_delta {
                             on_chunk(StreamChunk::Reasoning(piece));
                         }
@@ -826,27 +946,21 @@ impl AnthropicProvider {
                             on_chunk(StreamChunk::Content(piece));
                         }
                     }
-                }
+                    state.validate_stream()?;
+                    Ok(state.message_stopped)
+                })
+                .map_err(|error| {
+                    // A provider may echo credentials inside an SSE error message.
+                    let error = if self.config.api_key.is_empty() {
+                        error
+                    } else {
+                        error.replace(&self.config.api_key, "[REDACTED]")
+                    };
+                    error.chars().take(2048).collect::<String>()
+                })?;
+            if stopped {
+                break;
             }
-        }
-        if !utf8_pending.is_empty() {
-            buffer.push_str(&String::from_utf8_lossy(&utf8_pending));
-        }
-        for line in buffer.lines() {
-            let Some(data) = line.strip_prefix("data:") else {
-                continue;
-            };
-            if let Some((content_delta, reasoning_delta)) = state.feed(data) {
-                if let Some(piece) = reasoning_delta {
-                    on_chunk(StreamChunk::Reasoning(piece));
-                }
-                if let Some(piece) = content_delta {
-                    on_chunk(StreamChunk::Content(piece));
-                }
-            }
-        }
-        if !saw_event {
-            return Err("Anthropic 流式响应为空或不是 SSE 格式".to_string());
         }
         if let Some(usage) = state.usage.clone() {
             self.record_usage(&usage);
@@ -1085,7 +1199,9 @@ mod tests {
         state.feed(r#"{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"tu_9","name":"grep"}}"#);
         state.feed(r#"{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"pa"}}"#);
         state.feed(r#"{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"ttern\":\"x\"}"}}"#);
+        state.feed(r#"{"type":"content_block_stop","index":1}"#);
         state.feed(r#"{"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":7}}"#);
+        state.feed(r#"{"type":"message_stop"}"#);
         let output = state
             .into_output(&crate::tools::ToolRegistry::new().specs())
             .unwrap();
@@ -1168,7 +1284,10 @@ mod tests {
 
         let mut state = AnthStreamState::default();
         state.feed(r#"{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_2","name":"read_file"}}"#);
+        state.feed(r#"{"type":"message_start","message":{}}"#);
         state.feed(r#"{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{bad"}}"#);
+        state.feed(r#"{"type":"content_block_stop","index":0}"#);
+        state.feed(r#"{"type":"message_stop"}"#);
         assert!(state.into_output(&tools).unwrap_err().contains("JSON 非法"));
     }
 
