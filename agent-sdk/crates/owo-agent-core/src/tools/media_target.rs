@@ -54,7 +54,7 @@ impl MediaTarget {
         if let Some(allowed) = allowed {
             if !allowed
                 .iter()
-                .any(|scope| path.starts_with(normalized(scope)))
+                .any(|scope| path.starts_with(super::registry_support::canonical_candidate(scope)))
             {
                 return Err("media/write_scope: output is outside the task write scope".into());
             }

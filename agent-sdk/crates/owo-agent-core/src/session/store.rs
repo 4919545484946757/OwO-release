@@ -6,15 +6,7 @@ use std::path::{Path, PathBuf};
 use super::model::*;
 
 pub(super) fn relative_display(workspace: &Path, path: &Path) -> String {
-    let normalize = |value: &Path| -> String {
-        let raw = value.to_string_lossy().replace('\\', "/");
-        raw.strip_prefix("//?/").unwrap_or(&raw).to_string()
-    };
-    let workspace = normalize(workspace);
-    let path = normalize(path);
-    path.strip_prefix(&workspace)
-        .map(|relative| relative.trim_start_matches('/').to_string())
-        .unwrap_or(path)
+    crate::tools::workspace_relative_display(workspace, path)
 }
 
 /// Host-resolved identity for one Team worker attempt. Never accepted from model output.

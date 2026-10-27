@@ -1186,7 +1186,13 @@ mod tests {
             WorkerProfile::resolve_task_write_allowlist(&task, workspace.path(), &role_scope)
                 .unwrap()
                 .unwrap();
-        assert_eq!(resolved, role_scope);
+        assert_eq!(
+            resolved,
+            role_scope
+                .iter()
+                .map(|path| canonicalize_scope_path(path).unwrap())
+                .collect::<Vec<_>>()
+        );
         assert_eq!(
             WorkerProfile::workspace_relative_write_paths(workspace.path(), &resolved),
             vec!["src/api/main.rs"]

@@ -86,8 +86,7 @@ impl Tool for FindSymbolTool {
 }
 
 fn relative_display(workspace: &Path, path: &Path) -> String {
-    let relative = path.strip_prefix(workspace).unwrap_or(path);
-    let text = relative.to_string_lossy().replace('\\', "/");
+    let text = super::workspace_relative_display(workspace, path);
     if text.is_empty() {
         ".".to_string()
     } else {

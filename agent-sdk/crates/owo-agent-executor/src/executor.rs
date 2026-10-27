@@ -854,6 +854,7 @@ pub fn click_at_screen(x: i32, y: i32) -> Result<(), String> {
 /// 在屏幕坐标处滚动鼠标滚轮（delta 为正向上、负向下，一格 120）。
 /// 在屏幕坐标处滚动。**M15 提权为 `pub`**：调用方 `computer_use` 仍在 core，
 /// 留在 `pub(crate)` 会变成新 crate 内的死代码（本步 `check` 的 dead_code 警告）。
+#[cfg(target_os = "windows")]
 pub fn scroll_at_screen(x: i32, y: i32, delta: i32) -> Result<(), String> {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_WHEEL, MOUSEINPUT,
@@ -881,6 +882,7 @@ pub fn scroll_at_screen(x: i32, y: i32, delta: i32) -> Result<(), String> {
 }
 
 /// SendInput 偶发失败重试（真实桌面实测出现过瞬时报错）。
+#[cfg(target_os = "windows")]
 fn send_inputs_retry(inputs: &[windows::Win32::UI::Input::KeyboardAndMouse::INPUT]) -> bool {
     use std::thread;
     use std::time::Duration;

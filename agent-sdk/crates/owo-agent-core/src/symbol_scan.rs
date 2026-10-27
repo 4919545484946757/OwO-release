@@ -404,8 +404,7 @@ fn truncate_chars(value: &str, max: usize) -> String {
 }
 
 fn relative_display(base: &Path, path: &Path) -> String {
-    let relative = path.strip_prefix(base).unwrap_or(path);
-    relative.to_string_lossy().replace('\\', "/")
+    crate::tools::workspace_relative_display(base, path)
 }
 
 #[cfg(test)]

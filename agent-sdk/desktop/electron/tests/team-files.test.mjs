@@ -28,7 +28,7 @@ test('real files open and reveal the generated file, not the execution report',a
   assert.equal(data.files.length,2);assert.equal(data.files[0].available,true);assert.equal(data.files[1].available,false);
   await f.service.act({teamId:'team-test',action:'open',relativePath:'outputs/poem.txt'});
   await f.service.act({teamId:'team-test',action:'reveal',relativePath:'outputs/poem.txt'});
-  assert.deepEqual(f.opened,[path.join(f.root,'outputs','poem.txt')]);assert.deepEqual(f.revealed,f.opened);
+  assert.deepEqual(f.opened,[await fs.realpath(path.join(f.root,'outputs','poem.txt'))]);assert.deepEqual(f.revealed,f.opened);
 });
 test('missing, removed and unrelated files never launch',async t=>{
   const f=await setup(t);await fs.writeFile(path.join(f.root,'outputs','other.txt'),'other');

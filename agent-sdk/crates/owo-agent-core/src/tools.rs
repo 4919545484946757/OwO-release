@@ -580,9 +580,9 @@ impl Default for ToolRegistry {
 
 mod registry_support;
 
-pub(crate) use registry_support::decode_process_output;
 pub(crate) use registry_support::resolve_session_path;
 pub use registry_support::{compact_schema, schema_budget_bytes, schema_bytes};
+pub(crate) use registry_support::{decode_process_output, workspace_relative_display};
 use registry_support::{snapshot_key, tool_sandbox_policy};
 
 #[path = "tools/workspace_edit.rs"]
