@@ -35,7 +35,6 @@ mod json_schema;
 pub mod node_agent;
 /// 用户提问通道（ask_user 工具；取优合并自远端 engine）。
 pub mod question;
-#[cfg(target_os = "windows")]
 pub mod remote_step;
 pub mod request_requirements;
 pub mod schema_budget;

@@ -901,8 +901,30 @@ fn send_inputs_retry(inputs: &[windows::Win32::UI::Input::KeyboardAndMouse::INPU
     false
 }
 
+// Keep the cross-crate API available on other hosts while explicitly refusing
+// native Windows input. Simulation remains handled above this executor boundary.
 #[cfg(not(target_os = "windows"))]
-fn launch_target(target: &str) -> Result<(), String> {
+pub fn click_at_screen(_x: i32, _y: i32) -> Result<(), String> {
+    Err("Native desktop input requires Windows".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn scroll_at_screen(_x: i32, _y: i32, _delta: i32) -> Result<(), String> {
+    Err("Native desktop input requires Windows".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn send_unicode(_text: &str) -> Result<(), String> {
+    Err("Native desktop input requires Windows".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn send_shortcut(_combo: &str) -> Result<(), String> {
+    Err("Native desktop input requires Windows".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn launch_target(target: &str) -> Result<(), String> {
     if target.trim().is_empty() {
         return Err("启动目标为空".to_string());
     }
