@@ -631,6 +631,22 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // were visible.
     constexpr std::size_t kMinimumSearchLimit = 12;
     const auto search_limit = std::max(kMinimumSearchLimit, limit);
+    const auto explicit_mappings = user_frequency_ != nullptr
+        ? user_frequency_->lookup_explicit(parsed.normalized_input, search_limit) : std::vector<UserLexiconEntry>{};
+    const auto explicit_candidate = [this, &parsed, contextual_ranking, language_context](const UserLexiconEntry& entry) {
+        Candidate candidate{entry.text, {parsed.normalized_input},
+            8'000 + candidate_unigram_score(entry.count), InputMatchKind::exact,
+            {parsed.normalized_input}, parsed.normalized_input.size(), 1};
+        if (user_frequency_ != nullptr) {
+            candidate.score += user_frequency_->score(entry.text) +
+                user_frequency_->contextual_score(parsed.normalized_input, entry.text);
+            if (contextual_ranking && !language_context.empty())
+                candidate.score += user_frequency_->language_context_score(language_context, parsed.normalized_input, entry.text);
+            candidate.user_lexicon = user_frequency_->preferred(parsed.normalized_input, entry.text);
+        }
+        candidate.segment_lengths = {1};
+        return candidate;
+    };
     RequestLexiconCache lookup_cache(lexicon_, metrics);
     const auto apply_learned_preference = [this, &parsed](Candidate& candidate) {
         if (user_frequency_ == nullptr || candidate.consumed_input_bytes == 0 ||
@@ -708,6 +724,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             apply_learned_preference(candidate);
             initial_candidates.store(std::move(candidate));
         }
+        for (const auto& entry : explicit_mappings) initial_candidates.store(explicit_candidate(entry));
         auto candidates = initial_candidates.take();
         const auto sort_started = std::chrono::steady_clock::now();
         std::sort(candidates.begin(), candidates.end(), score_less);
@@ -729,6 +746,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         // requested result count, so no candidate page size is hard-coded.
         CandidateAccumulator dictionary_unique;
         CandidateAccumulator prefix_unique;
+        for (const auto& entry : explicit_mappings) dictionary_unique.store(explicit_candidate(entry));
 
         const auto lookup_started = std::chrono::steady_clock::now();
         auto dictionary_matches = lexicon_.lookup_mixed_abbreviation_texts(
@@ -824,6 +842,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     }
 
     CandidateAccumulator unique(std::max<std::size_t>(64, search_limit * 2));
+    for (const auto& entry : explicit_mappings) unique.store(explicit_candidate(entry));
     const auto store_candidate = [&unique, &apply_learned_preference](Candidate candidate) {
         apply_learned_preference(candidate);
         unique.store(std::move(candidate));

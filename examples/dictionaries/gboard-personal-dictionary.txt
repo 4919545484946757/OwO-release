@@ -1,0 +1,6 @@
+# Gboard Dictionary version:2
+# Gboard Dictionary format:shortcut	word	language_tag	pos_tag
+ceshiciku	测试词库	zh-CN	
+nh	你好	zh-CN	
+iirc	if I remember correctly	en	
+	待补编码示例	zh-CN	

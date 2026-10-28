@@ -78,6 +78,7 @@ add_library(owo_engine STATIC
     src/engine/lexicon.cpp
     src/engine/language_model.cpp
     src/engine/user_frequency.cpp
+    src/engine/managed_dictionary.cpp
     src/engine/user_lexicon_editor.cpp
 )
 target_include_directories(owo_engine PUBLIC include)
@@ -777,6 +778,14 @@ if(BUILD_TESTING)
         target_compile_options(owo_lookup_reuse_tests PRIVATE /W4 /permissive- /utf-8)
     endif()
     add_test(NAME owo.engine.lookup_reuse COMMAND owo_lookup_reuse_tests)
+    add_executable(owo_managed_dictionary_tests tests/engine/managed_dictionary_tests.cpp)
+    target_link_libraries(owo_managed_dictionary_tests PRIVATE owo_engine)
+    target_compile_features(owo_managed_dictionary_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_managed_dictionary_tests PRIVATE /W4 /permissive- /utf-8)
+    endif()
+    add_test(NAME owo.engine.managed_dictionary COMMAND owo_managed_dictionary_tests
+        "${CMAKE_CURRENT_BINARY_DIR}/managed-dictionary-test-fixture")
     if(WIN32)
         add_executable(owo_candidate_abandonment_contract tests/ipc/candidate_abandonment_contract.cpp)
         target_link_libraries(owo_candidate_abandonment_contract PRIVATE owo_ipc)

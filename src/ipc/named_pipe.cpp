@@ -13,6 +13,7 @@
 #include "owo/engine/full_pinyin_schema.h"
 #include "owo/engine/lexicon.h"
 #include "owo/engine/user_frequency.h"
+#include "owo/engine/managed_dictionary.h"
 #include "owo/engine/user_lexicon_alignment.h"
 
 #include "owo/protocol/messages.h"
@@ -1187,7 +1188,17 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     core::PluginExecutor* plugin_executor) {
     const engine::FullPinyinSchema full_pinyin_schema;
     const engine::ExactCodeSchema exact_code_schema;
-    const engine::CandidateGenerator generator(lexicon, nullptr, user_frequency);
+    auto dictionary_root = user_frequency != nullptr && !user_frequency->storage_path().empty()
+        ? user_frequency->storage_path().parent_path() / "dictionaries" : std::filesystem::path{};
+    const auto override_size = GetEnvironmentVariableW(L"OWO_DICTIONARY_STORE_PATH", nullptr, 0);
+    if (override_size > 1 && override_size < 32768) {
+        std::wstring override_path(override_size, L'\0');
+        const auto copied = GetEnvironmentVariableW(L"OWO_DICTIONARY_STORE_PATH", override_path.data(), override_size);
+        if (copied > 0 && copied < override_size) { override_path.resize(copied); dictionary_root = override_path; }
+    }
+    engine::ManagedDictionaryModel dictionary_sources(user_frequency, dictionary_root);
+    const engine::CandidateGenerator generator(lexicon, nullptr,
+        user_frequency != nullptr || !dictionary_root.empty() ? &dictionary_sources : nullptr);
     std::size_t unflushed_selections = 0;
     int exit_code = 0;
     bool running = true;
@@ -1288,6 +1299,14 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 runtime_config->model_ranking_enabled;
             const bool full_pinyin_scheme = runtime_config == nullptr ||
                 runtime_config->input_scheme == "full_pinyin";
+            dictionary_sources.set_enabled(full_pinyin_scheme);
+            if (dictionary_sources.refresh()) {
+                ++learning_generation;
+                model_requests.clear();
+                pending_candidate_refinement.reset();
+                if (!dictionary_sources.diagnostic().empty())
+                    std::clog << "managed_dictionary: " << dictionary_sources.diagnostic() << '\n';
+            }
             const bool external_model_ranking_enabled = model_pipe_name != nullptr &&
                 (runtime_config == nullptr || runtime_config->model_ranking_enabled);
             const bool user_learning_enabled = runtime_config == nullptr ||

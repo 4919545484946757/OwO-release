@@ -54,6 +54,11 @@ public:
         (void)limit;
         return {};
     }
+    // Explicit imported code-to-text mappings are not observations of typing.
+    [[nodiscard]] virtual std::vector<UserLexiconEntry> lookup_explicit(
+        std::string_view input, std::size_t limit) const {
+        (void)input; (void)limit; return {};
+    }
 };
 
 struct UserFrequencyIoResult {
@@ -92,6 +97,7 @@ public:
         std::string_view input, std::size_t limit) const override;
     [[nodiscard]] UserFrequencyIoResult flush() const;
     [[nodiscard]] std::uint64_t ranking_epoch() const;
+    [[nodiscard]] const std::filesystem::path& storage_path() const noexcept { return path_; }
     [[nodiscard]] UserLexiconPage list_words(std::string_view query, std::size_t offset,
                                              std::size_t limit) const;
     [[nodiscard]] static std::string validate_word(const UserLexiconEntry& entry);

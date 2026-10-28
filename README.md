@@ -49,7 +49,7 @@ OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入
 
 仅一次的学习记录会快速衰减优先级，重复确认的词保持稳定学习；词条不会因此删除。详见[单次学习衰减规则](docs/singleton-learning-decay.md)。
 
-设置中心「用户词库」支持搜索编辑、删除/清空，以及 JSON/TSV 导入导出。详见[词库管理与备份](docs/user-lexicon-editor.md)。
+设置中心「词库管理器」以搜索栏与卡片管理独立字典，支持 Gboard 个人词典、Rime 文本词典、CSV、TSV 和 OwO JSON 导入。原「用户词库」作为其中一个项目，保留学习数据与编辑、清除、备份功能。详见[字典导入与管理](docs/dictionaries.md)及[用户词库与备份](docs/user-lexicon-editor.md)。
 
 设置中心「通用设置」支持配置导入/导出，导入前校验、确认并备份原配置；不包含词库、插件配置或权限。配置项按输入方案能力启用，不支持的功能保留原值。详见[配置备份与迁移](docs/settings-transfer.md)与[设置模块化](docs/settings-modularity.md)。
 
