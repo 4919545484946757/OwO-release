@@ -49,6 +49,8 @@ public sealed partial class App : Application
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.Children.Add(titleBar);
         MainWindow.Content = root;
+        LogoAppearance.Initialize();
+        LogoAppearance.BindWindow(MainWindow, titleBar);
         MainWindow.ExtendsContentIntoTitleBar = true;
         MainWindow.SetTitleBar(titleBar);
         MainWindow.AppWindow.SetIcon(Path.Combine(ResourceDirectory, "Assets", "AppIcon.ico"));

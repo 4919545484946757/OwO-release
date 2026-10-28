@@ -214,10 +214,9 @@ public sealed partial class SetupPage : Page
         ResizeInstallerWindow(760);
         var body = PageBody("欢迎使用 OwO", "面向 Windows 11 的模块化中文输入法。");
         var introduction = new StackPanel { Spacing = 14 };
-        introduction.Children.Add(new TextBlock {
-            Text = "OwO", FontSize = 52, CharacterSpacing = 80,
-            Foreground = AccentBrush()
-        });
+        var logo = new Image { Width = 96, Height = 96, HorizontalAlignment = HorizontalAlignment.Left };
+        LogoAppearance.BindImage(logo, rounded: false);
+        introduction.Children.Add(logo);
         introduction.Children.Add(new TextBlock {
             Text = "让每一次表达，更贴近你的习惯。", FontSize = 24,
             TextWrapping = TextWrapping.Wrap

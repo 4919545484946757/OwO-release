@@ -21,7 +21,8 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
 
-        AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
+        LogoAppearance.Initialize();
+        LogoAppearance.BindWindow(this, AppTitleBar);
 
         if (App.InstallPackageRoot is not null) {
             AppWindow.Resize(new SizeInt32(1040, 760));

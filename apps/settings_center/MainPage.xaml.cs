@@ -96,6 +96,7 @@ public sealed partial class MainPage : Page
         InitializeSettingsModules();
         UserLexiconPageHost.Content = new UserLexiconEditor();
         InitializeAutoSave();
+        InitializeLogoSettings();
         InitializeSearchIndex();
         ShowPage("schemes");
         ConfigPath.Text = _client.ConfigPath;
@@ -139,6 +140,7 @@ public sealed partial class MainPage : Page
         try {
             if (_currentPage == "general") {
                 AutoSaveSettings.IsOn = true;
+                _logoThemeSelector.SelectedIndex = 0;
                 return;
             }
             if (_currentPage == "plugins") {
@@ -272,6 +274,7 @@ public sealed partial class MainPage : Page
                  Microsoft.UI.Xaml.FrameworkElement target) =>
             _baseSearchItems.Add(new SearchItem(title, detail, page, target));
         Add("自动保存设置", "通用 自动 保存 配置", "general", AutoSaveCard);
+        Add("Logo 外观", "通用 图标 品牌 logo 深色 浅色 跟随系统", "general", _logoThemeCard!);
         Add("配置导入与导出", "通用 备份 恢复 迁移 JSON import export", "general", ConfigurationTransferCard);
         foreach (var binding in _settingsCards)
             _baseSearchItems.Add(new SearchItem(binding.Title, binding.Keywords,

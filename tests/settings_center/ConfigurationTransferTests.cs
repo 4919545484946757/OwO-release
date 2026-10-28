@@ -25,7 +25,7 @@ try {
     var defaults = await client.LoadDefaultsAsync();
     await client.SaveAsync(defaults);
     var prefs = Path.Combine(root, "config", "settings-ui.json");
-    new SettingsUiPreferences(true).Save(prefs);
+    new SettingsUiPreferences(true, "dark").Save(prefs);
     var original = File.ReadAllBytes(client.ConfigPath);
     var originalPrefs = File.ReadAllBytes(prefs);
     var changed = defaults with { CandidatePageSize = defaults.CandidatePageSize == 9 ? 8u : 9u,
@@ -33,11 +33,12 @@ try {
         UserLearningSensitivity = 3, UserCompletionMaxSyllables = 2,
         LanguageShortcuts = ["Ctrl+Space", "Shift+A"] };
     var exported = Path.Combine(root, "设置.json");
-    await SettingsTransfer.WriteAsync(exported, SettingsTransfer.Create(changed, false));
+    await SettingsTransfer.WriteAsync(exported, SettingsTransfer.Create(changed, false, "light"));
     var roundtrip = await SettingsTransfer.ReadAsync(exported);
     var encoded = File.ReadAllText(exported);
     Check(roundtrip.Settings.CandidatePageSize == changed.CandidatePageSize &&
         !roundtrip.UiPreferences.AutoSaveEnabled &&
+        roundtrip.UiPreferences.LogoTheme == "light" &&
         roundtrip.Settings.LanguageShortcuts.SequenceEqual(changed.LanguageShortcuts), "JSON roundtrip");
     Check(!encoded.Contains(root) && !encoded.Contains("user-frequency"), "No runtime paths or learning data");
     await client.ValidateAsync(roundtrip.Settings);
@@ -53,6 +54,7 @@ try {
     await InvalidJson(encoded.Replace("\"formatVersion\": 2", "\"formatVersion\": 2, \"formatVersion\": 2"), "duplicate");
     await InvalidJson(encoded.Replace("\"candidatePageSize\": 9", "\"candidatePageSize\": 9, \"candidatePageSize\": 7"), "nested duplicate");
     await InvalidJson(encoded.Replace("\"autoSaveEnabled\": false", "\"unknown\": false"), "unknown/missing preference");
+    await InvalidJson(encoded.Replace("\"logoTheme\": \"light\"", "\"logoTheme\": \"invalid\""), "invalid logo theme");
     var node = JsonNode.Parse(encoded)!.AsObject();
     node["settings"]!.AsObject().Remove("candidateWrapLength");
     await InvalidJson(node.ToJsonString(), "missing setting");
@@ -107,7 +109,8 @@ try {
         applied.LanguageShortcuts.SequenceEqual(changed.LanguageShortcuts), "Native import persisted");
     Check(System.Text.Json.JsonSerializer.Serialize(applied) ==
         System.Text.Json.JsonSerializer.Serialize(changed), "Every setting survives native import");
-    Check(!SettingsUiPreferences.Load(prefs).AutoSaveEnabled, "UI preference applied even with auto-save off");
+    Check(!SettingsUiPreferences.Load(prefs).AutoSaveEnabled && SettingsUiPreferences.Load(prefs).LogoTheme == "light",
+        "UI preferences including logo applied even with auto-save off");
     Check(original.SequenceEqual(File.ReadAllBytes(Path.Combine(backup, "owo.conf"))) &&
         originalPrefs.SequenceEqual(File.ReadAllBytes(Path.Combine(backup, "settings-ui.json"))), "Exact backup");
     Check(File.ReadAllText(learning) == "learning sentinel" && File.ReadAllText(plugin) == "plugin sentinel", "Excluded data unchanged");
@@ -127,5 +130,11 @@ try {
     await SettingsTransfer.WriteAsync(exported, SettingsTransfer.Create(defaults, true));
     await File.WriteAllTextAsync(exported, File.ReadAllText(exported), new UTF8Encoding(true));
     Check((await SettingsTransfer.ReadAsync(exported)).UiPreferences.AutoSaveEnabled, "Overwrite/BOM roundtrip");
+    var oldExport = JsonNode.Parse(File.ReadAllText(exported))!.AsObject();
+    oldExport["uiPreferences"]!.AsObject().Remove("logoTheme");
+    await File.WriteAllTextAsync(exported, oldExport.ToJsonString());
+    var oldDocument = await SettingsTransfer.ReadAsync(exported);
+    await SettingsTransfer.ApplyAsync(client, prefs, oldDocument);
+    Check(SettingsUiPreferences.Load(prefs).LogoTheme == "light", "Old exports retain the current logo preference");
     Console.WriteLine($"PASS: {checks} configuration transfer checks (isolated data only).");
 } finally { Directory.Delete(root, recursive: true); }

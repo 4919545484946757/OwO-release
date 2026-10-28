@@ -33,6 +33,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../settings_center/SetupPage.cs" Link="SetupPage.cs" />
+    <Compile Include="../settings_center/LogoAppearance.cs" Link="LogoAppearance.cs" />
+    <Compile Include="../settings_center/SettingsUiPreferences.cs" Link="SettingsUiPreferences.cs" />
     <Compile Include="../settings_center/SetupPrerequisites.cs" Link="SetupPrerequisites.cs" />
     <Compile Include="../settings_center/InstallerProcessRunner.cs" Link="InstallerProcessRunner.cs" />
     <Compile Include="../settings_center/InstallerPayload.cs" Link="InstallerPayload.cs" />
