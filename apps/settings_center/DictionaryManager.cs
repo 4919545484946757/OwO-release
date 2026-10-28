@@ -95,8 +95,8 @@ internal sealed class DictionaryManager : UserControl
         AutomationProperties.SetAutomationId(back, "DictionaryBack");
         back.Click += async (_, _) => await RefreshAsync();
         var heading = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
-        heading.Children.Add(back);
         if (title is not null) heading.Children.Add(new TextBlock { Text = title, FontSize = 20, VerticalAlignment = VerticalAlignment.Center });
+        heading.Children.Add(back);
         root.Children.Add(heading);
         Grid.SetRow(detail, 1); root.Children.Add(detail); _page.Content = root;
     }
