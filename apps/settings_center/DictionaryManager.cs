@@ -78,9 +78,11 @@ internal sealed class DictionaryManager : UserControl
         card.Click += async (_, _) => await RunAsync(action); _cards.Children.Add(card);
     }
     private void LayoutCards() {
-        var columns = Math.Max(1, (int)((_cards.ActualWidth + 12) / 252));
+        const double preferredCardWidth = 228;
+        var columns = Math.Max(1, (int)((_cards.ActualWidth + 12) / (preferredCardWidth + 12)));
+        var cardWidth = Math.Max(0, Math.Min(preferredCardWidth, (_cards.ActualWidth - 12 * (columns - 1)) / columns));
         _cards.ColumnDefinitions.Clear(); _cards.RowDefinitions.Clear();
-        for (var column = 0; column < columns; ++column) _cards.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
+        for (var column = 0; column < columns; ++column) _cards.ColumnDefinitions.Add(new() { Width = new GridLength(cardWidth) });
         for (var index = 0; index < _cards.Children.Count; ++index) {
             if (index % columns == 0) _cards.RowDefinitions.Add(new() { Height = GridLength.Auto });
             Grid.SetRow((FrameworkElement)_cards.Children[index], index / columns); Grid.SetColumn((FrameworkElement)_cards.Children[index], index % columns);
