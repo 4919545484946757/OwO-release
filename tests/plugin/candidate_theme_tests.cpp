@@ -80,7 +80,7 @@ int main(const int argc, char** argv) {
                   << " background=#" << std::hex << active.theme.background.rgb << std::dec
                   << " opacity=" << active.theme.background.opacity
                   << " diagnostic=" << active.diagnostic << '\n';
-        std::uint32_t expected = std::string_view(argv[1]) == "--store-light" ? 0xf5f5f5 : 0x101827;
+        std::uint32_t expected = std::string_view(argv[1]) == "--store-light" ? 0xf5f5f5 : 0x000000;
         if (argc == 4) {
             const auto parsed = std::from_chars(argv[3], argv[3] + std::strlen(argv[3]),
                                                 expected, 16);
@@ -131,8 +131,13 @@ int main(const int argc, char** argv) {
         std::abs(builtin_light.candidate_block.opacity - 0.05F) > 0.001F) return 24;
     if (argc == 3) for (const auto light_mode : {false, true}) {
         const auto official = owo::plugin::load_candidate_theme_resource(argv[2], {}, light_mode);
-        if (!official.active || !readable(official.theme) ||
-            official.theme.background.rgb != (light_mode ? 0xf5f5f5U : 0x101827U) ||
+        // The plugin preset is an explicit user snapshot, not the opaque
+        // built-in accessibility palette checked above. Preserve its tint.
+        if (!official.active ||
+            official.theme.background.rgb != (light_mode ? 0xf5f5f5U : 0x000000U) ||
+            std::abs(official.theme.background.opacity - (light_mode ? 0.65F : 0.60F)) > 0.001F ||
+            !official.theme.background_blur_enabled || official.theme.background_blur_radius != 12.0F ||
+            official.theme.shadow_enabled ||
             (light_mode && (!monochrome(official.theme) ||
                 std::abs(official.theme.candidate_block.opacity - 0.05F) > 0.001F))) return 25;
     }

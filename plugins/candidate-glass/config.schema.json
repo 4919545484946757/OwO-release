@@ -30,7 +30,7 @@
       "type": "number",
       "title": "高斯模糊半径",
       "description": "只作用于候选框下方画面；数值越大背景越柔和。",
-      "default": 4,
+      "default": 12,
       "minimum": 0,
       "maximum": 24,
       "multipleOf": 1,
@@ -41,14 +41,14 @@
       "format": "color",
       "title": "深色 · 背景颜色",
       "description": "候选框主体背景；已有自定义值保持不变。",
-      "default": "#101827",
+      "default": "#000000",
       "x-page": "dark"
     },
     "background_opacity": {
       "type": "number",
       "title": "背景透明度",
       "description": "关闭模糊时控制透明度；开启模糊时，0 为纯模糊背景，1 为纯背景色。",
-      "default": 0.9,
+      "default": 0.6,
       "minimum": 0,
       "maximum": 1,
       "multipleOf": 0.05,
@@ -90,7 +90,7 @@
       "type": "string",
       "format": "color",
       "title": "深色 · 拼音文字颜色",
-      "default": "#9CCBFF",
+      "default": "#DEEBFF",
       "x-page": "dark"
     },
     "pinyin_text_opacity": {
@@ -211,7 +211,7 @@
     "light_background_opacity": {
       "type": "number",
       "title": "背景透明度",
-      "default": 0.9,
+      "default": 0.65,
       "minimum": 0,
       "maximum": 1,
       "multipleOf": 0.05,
@@ -461,7 +461,7 @@
       "type": "string",
       "format": "color",
       "title": "深色 · 控制按钮背景颜色",
-      "default": "#000000",
+      "default": "#78AEFF",
       "x-page": "dark"
     },
     "button_background_opacity": {
@@ -477,7 +477,7 @@
       "type": "string",
       "format": "color",
       "title": "浅色 · 控制按钮背景颜色",
-      "default": "#FFFFFF",
+      "default": "#000000",
       "x-page": "light"
     },
     "light_button_background_opacity": {
@@ -589,7 +589,7 @@
       "type": "string",
       "format": "color",
       "title": "深色 · 拼音光标颜色",
-      "default": "#9CCBFF",
+      "default": "#DEEBFF",
       "x-page": "dark"
     },
     "caret_opacity": {

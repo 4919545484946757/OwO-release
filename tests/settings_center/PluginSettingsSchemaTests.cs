@@ -17,6 +17,21 @@ File.WriteAllText(Path.Combine(data, "settings.json"), existing);
 var plugin = new PluginVersionSnapshot("org.owo.candidate-glass", "OwO 亚克力候选框", version,
     true, "unverified_package", "critical", true, ["ui.candidate_theme"]);
 var model = PluginSettingsModel.Load(root, plugin);
+var resourceValues = File.ReadAllLines(Path.Combine(repository, "plugins", "candidate-glass", "resources", "candidate.theme"))
+    .Where(line => line.Contains('=') && !line.StartsWith("schema_version="))
+    .Select(line => line.Split('=', 2))
+    .ToDictionary(pair => pair[0].Replace('.', '_'), pair => pair[1], StringComparer.Ordinal);
+foreach (var field in model.Fields.Where(field => field.Key != "theme_mode")) {
+    if (!resourceValues.TryGetValue(field.Key, out var resourceValue))
+        throw new Exception($"Resource default missing for {field.Key}.");
+    var matches = field.DefaultValue.ValueKind switch {
+        JsonValueKind.Number => Math.Abs(field.DefaultValue.GetDouble() -
+            double.Parse(resourceValue, System.Globalization.CultureInfo.InvariantCulture)) < 0.000001,
+        JsonValueKind.True or JsonValueKind.False => field.DefaultValue.GetBoolean() == bool.Parse(resourceValue),
+        _ => field.DefaultValue.GetString() == resourceValue,
+    };
+    if (!matches) throw new Exception($"Reset/install default mismatch for {field.Key}.");
+}
 if (!model.Pages.Select(page => page.Id).SequenceEqual(new[] { "common", "light", "dark" }) ||
     model.Fields.Any(field => field.Key != "theme_mode" && field.PageId.Length == 0) ||
     model.Fields.Where(field => field.Key.StartsWith("light_", StringComparison.Ordinal)).Any(field => field.PageId != "light"))
