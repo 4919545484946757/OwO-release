@@ -229,6 +229,7 @@ private:
     void move_expanded_page(int direction);
     [[nodiscard]] std::optional<std::size_t> candidate_shortcut_index(std::size_t slot) const;
     [[nodiscard]] std::size_t candidate_page_width() const noexcept;
+    [[nodiscard]] float candidate_highlight_scale(bool hovered, bool pressed) const noexcept;
     [[nodiscard]] std::size_t plugin_expanded_block_rows() const noexcept;
     void append_alt_code_digit(unsigned digit);
     void finish_alt_code_preview() noexcept;
@@ -392,6 +393,7 @@ private:
     ULONGLONG next_shortcut_config_refresh_{0};
     bool shortcut_config_initialized_{false};
     plugin::CandidateTheme candidate_theme_{};
+    bool candidate_light_palette_{};
     std::string candidate_theme_source_;
     plugin::UnicodePalette unicode_palette_{};
     std::string unicode_palette_source_;

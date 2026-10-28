@@ -146,7 +146,8 @@ int main(const int argc, char** argv) {
     if (!write(resource, adaptive)) return 13;
     const auto dark = owo::plugin::load_candidate_theme_resource(resource, settings, false);
     const auto light = owo::plugin::load_candidate_theme_resource(resource, settings, true);
-    if (!light.active || !dark.active || dark.theme.background.rgb != 0x223344 ||
+    if (!light.active || !dark.active || !light.light_palette || dark.light_palette ||
+        dark.theme.background.rgb != 0x223344 ||
         light.theme.background.rgb != 0x112233 || std::abs(light.theme.background.opacity - 0.8F) > 0.001F ||
         light.theme.shadow.rgb != 0x334455 || std::abs(light.theme.shadow.opacity - 0.18F) > 0.001F ||
         light.theme.background_blur_enabled != dark.theme.background_blur_enabled ||
@@ -155,16 +156,17 @@ int main(const int argc, char** argv) {
         return 14;
     if (!write(settings, R"({"theme_mode":"dark","light_candidate_text_color":"#445566"})")) return 15;
     const auto forced_dark = owo::plugin::load_candidate_theme_resource(resource, settings, true);
-    if (!forced_dark.active || forced_dark.theme.background.rgb != 0x101827) return 16;
+    if (!forced_dark.active || forced_dark.light_palette || forced_dark.theme.background.rgb != 0x101827) return 16;
     if (!write(settings, R"({"theme_mode":"light","light_candidate_text_color":"#445566","light_background_opacity":0.6})")) return 17;
     const auto forced_light = owo::plugin::load_candidate_theme_resource(resource, settings, false);
-    if (!forced_light.active || forced_light.theme.candidate_text.rgb != 0x445566 ||
+    if (!forced_light.active || !forced_light.light_palette || forced_light.theme.candidate_text.rgb != 0x445566 ||
         std::abs(forced_light.theme.background.opacity - 0.6F) > 0.001F) return 18;
     if (!write(settings, R"({"theme_mode":"system"})")) return 19;
     for (int index = 0; index < 20; ++index) {
         const bool mode = (index % 2) != 0;
         const auto switched = owo::plugin::load_candidate_theme_resource(resource, settings, mode);
-        if (!switched.active || switched.theme.background.rgb != (mode ? 0x112233U : 0x101827U)) return 20;
+        if (!switched.active || switched.light_palette != mode ||
+            switched.theme.background.rgb != (mode ? 0x112233U : 0x101827U)) return 20;
     }
     if (!write(resource, adaptive + "light.border.color=#000000\n") ||
         owo::plugin::load_candidate_theme_resource(resource).active) return 21;

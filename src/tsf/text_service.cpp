@@ -2786,8 +2786,12 @@ bool TextService::render_candidate_window() {
         const bool pressed = target_matches(pressed_target_, target);
         const auto page_size = std::max<std::size_t>(1, candidate_page_width());
         const bool active_page = !candidates_expanded_ || index / page_size == expanded_pages_.selected;
-        if ((active_page && index % page_size == 0) || hovered || pressed)
+        if ((active_page && index % page_size == 0) || hovered || pressed) {
+            const auto opacity = mode_highlight_brush->GetOpacity();
+            mode_highlight_brush->SetOpacity(opacity * candidate_highlight_scale(hovered, pressed));
             render_target_->FillRoundedRectangle(pill, mode_highlight_brush);
+            mode_highlight_brush->SetOpacity(opacity);
+        }
         if (hovered || pressed)
             render_target_->DrawRoundedRectangle(pill, mode_accent_brush, 1.0F);
 
@@ -3519,6 +3523,7 @@ void TextService::refresh_candidate_theme(const bool force) {
         data_root.empty() ? std::filesystem::path{} : data_root / L"plugins");
     const plugin::CandidateTheme next = loaded.active ? loaded.theme
                                                        : plugin::default_candidate_theme(light);
+    const bool next_light_palette = loaded.active ? loaded.light_palette : light;
     const auto source = loaded.active ? loaded.plugin_id + "@" + loaded.version
                                       : std::string{};
     const auto unicode_source = unicode_loaded.active
@@ -3534,11 +3539,13 @@ void TextService::refresh_candidate_theme(const bool force) {
         unicode_category_scroll_offset_dip_ = 0.0F;
         if (unicode_palette_.categories.empty()) unicode_palette_visible_ = false;
     }
-    if (next == candidate_theme_ && source == candidate_theme_source_) {
+    if (next == candidate_theme_ && source == candidate_theme_source_ &&
+        next_light_palette == candidate_light_palette_) {
         if (unicode_changed) update_candidate_window();
         return;
     }
     candidate_theme_ = next;
+    candidate_light_palette_ = next_light_palette;
     candidate_theme_source_ = source;
     blurred_candidate_background_.clear();
     discard_device_resources();
@@ -4744,6 +4751,12 @@ void TextService::scroll_expanded_candidates(const int rows) {
 
 std::size_t TextService::candidate_page_width() const noexcept {
     return static_cast<std::size_t>(std::clamp<std::uint64_t>(candidate_page_size_, 1, 9));
+}
+
+float TextService::candidate_highlight_scale(const bool hovered, const bool pressed) const noexcept {
+    // The selected row already has a fill. Keep its first candidate subtle in
+    // light mode without weakening explicit hover/press feedback or dark mode.
+    return candidates_expanded_ && candidate_light_palette_ && !hovered && !pressed ? 0.5F : 1.0F;
 }
 
 std::optional<std::size_t> TextService::candidate_shortcut_index(const std::size_t slot) const {

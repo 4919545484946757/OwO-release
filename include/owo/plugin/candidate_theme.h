@@ -36,6 +36,8 @@ struct CandidateThemeResult {
     std::string plugin_id;
     std::string version;
     std::string diagnostic;
+    // Resolved palette identity, including the user's forced light/dark mode.
+    bool light_palette{};
 };
 
 [[nodiscard]] CandidateTheme default_candidate_theme(bool light);

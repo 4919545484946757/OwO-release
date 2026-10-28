@@ -12,6 +12,15 @@ struct ExpandedCandidateTestAccess {
         service->next_shortcut_config_refresh_ = std::numeric_limits<ULONGLONG>::max();
         service->input_buffer_ = L"nihao";
         service->input_cursor_ = 5;
+        for (const bool light : {false, true}) for (const bool expanded : {false, true})
+            for (const bool hovered : {false, true}) for (const bool pressed : {false, true}) {
+                service->candidate_light_palette_ = light;
+                service->candidates_expanded_ = expanded;
+                const auto expected = light && expanded && !hovered && !pressed ? 0.5F : 1.0F;
+                if (service->candidate_highlight_scale(hovered, pressed) != expected) return 14;
+            }
+        service->candidate_light_palette_ = false;
+        service->candidates_expanded_ = false;
         auto respond = [&](std::size_t count, std::size_t size = 7) {
             auto* result = new TextService::CandidateResult();
             result->request_id = service->active_candidate_request_id_;

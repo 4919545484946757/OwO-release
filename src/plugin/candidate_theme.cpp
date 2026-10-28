@@ -326,6 +326,7 @@ CandidateThemeResult load_candidate_theme_resource(
         }
     }
     result.theme = use_light ? light_theme : dark_theme;
+    result.light_palette = use_light;
     result.active = true;
     return result;
 }
