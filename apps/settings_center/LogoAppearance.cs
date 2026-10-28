@@ -53,11 +53,11 @@ internal static class LogoAppearance
         Apply();
     }
 
-    internal static void BindWindow(Window window, TitleBar titleBar) {
+    internal static void BindWindow(Window window, TitleBar titleBar, bool showTitleBarIcon = true) {
         if (window.Content is not FrameworkElement root) return;
         void Apply() {
             var light = root.ActualTheme == ElementTheme.Light;
-            titleBar.IconSource = new ImageIconSource { ImageSource = Source(root, true) };
+            titleBar.IconSource = showTitleBarIcon ? new ImageIconSource { ImageSource = Source(root, true) } : null;
             window.AppWindow.SetIcon(PathFor(LogoAssets.Icon(Mode, light)));
         }
         void ThemeChanged(FrameworkElement sender, object args) => Apply();

@@ -4,7 +4,7 @@
 
 | 资源 | 用途 |
 | --- | --- |
-| `LogoSmallLight.svg` / `LogoSmallDark.svg` | 加粗小图标：设置中心侧栏、窗口标题栏、64 px 及以下 ICO 帧 |
+| `LogoSmallLight.svg` / `LogoSmallDark.svg` | 加粗图标：设置中心搜索栏、安装窗口标题栏、64 px 及以下 ICO 帧 |
 | `LogoRoundedLight.svg` / `LogoRoundedDark.svg` | 原版圆角：大尺寸兼容 PNG、128/256 px ICO 帧 |
 | `LogoSquareLight.svg` / `LogoSquareDark.svg` | 安装欢迎页品牌展示 |
 | `AppIcon.Light.ico` / `AppIcon.Dark.ico` | 运行中窗口及任务栏图标，含 16–256 px 九档尺寸 |
@@ -13,6 +13,9 @@
 `config/settings-ui.json` 的 `LogoTheme` 字段：`system` / `light` / `dark`。
 该选项独立于整个设置中心的主题、亚克力候选框插件配色和自动保存开关，并立即保存。
 跟随系统时依据 WinUI 实际应用主题更新，无需重启；手动覆盖只作用于 Logo。
+设置中心标题栏不显示重复 Logo，搜索栏左侧显示 48 DIP 的 Logo；可用宽度不足以
+同时容纳 Logo、间距和有用的搜索输入宽度时自动隐藏，并收回对应列及间距。
+Logo 与搜索栏作为一组居中布局，不靠隐藏文本或缩小输入框来保留图标。
 配置导出包含该偏好；旧配置没有该字段时保留本机偏好，不恢复为默认。
 
 SVG 保持原始路径和配色，不依赖字体。`scripts/generate-brand-assets.cjs`

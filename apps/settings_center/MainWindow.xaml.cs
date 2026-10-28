@@ -22,7 +22,7 @@ public sealed partial class MainWindow : Window
         SetTitleBar(AppTitleBar);
 
         LogoAppearance.Initialize();
-        LogoAppearance.BindWindow(this, AppTitleBar);
+        LogoAppearance.BindWindow(this, AppTitleBar, showTitleBarIcon: App.InstallPackageRoot is not null);
 
         if (App.InstallPackageRoot is not null) {
             AppWindow.Resize(new SizeInt32(1040, 760));
