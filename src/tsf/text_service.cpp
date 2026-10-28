@@ -4756,7 +4756,8 @@ std::size_t TextService::candidate_page_width() const noexcept {
 float TextService::candidate_highlight_scale(const bool hovered, const bool pressed) const noexcept {
     // The selected row already has a fill. Keep its first candidate subtle in
     // light mode without weakening explicit hover/press feedback or dark mode.
-    return candidates_expanded_ && candidate_light_palette_ && !hovered && !pressed ? 0.5F : 1.0F;
+    // Reference 8e9851a: 5% * 0.75 = 3.75%, rounded to 4% (0.8 of the base fill).
+    return candidates_expanded_ && candidate_light_palette_ && !hovered && !pressed ? 0.8F : 1.0F;
 }
 
 std::optional<std::size_t> TextService::candidate_shortcut_index(const std::size_t slot) const {

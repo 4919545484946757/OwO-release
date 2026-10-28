@@ -16,8 +16,12 @@ struct ExpandedCandidateTestAccess {
             for (const bool hovered : {false, true}) for (const bool pressed : {false, true}) {
                 service->candidate_light_palette_ = light;
                 service->candidates_expanded_ = expanded;
-                const auto expected = light && expanded && !hovered && !pressed ? 0.5F : 1.0F;
+                const auto expected = light && expanded && !hovered && !pressed ? 0.8F : 1.0F;
                 if (service->candidate_highlight_scale(hovered, pressed) != expected) return 14;
+                if (light && expanded && !hovered && !pressed) {
+                    const auto reference_fill = 0.05F * service->candidate_highlight_scale(hovered, pressed);
+                    if (reference_fill < 0.0399F || reference_fill > 0.0401F) return 15;
+                }
             }
         service->candidate_light_palette_ = false;
         service->candidates_expanded_ = false;
