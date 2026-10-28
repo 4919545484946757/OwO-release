@@ -225,7 +225,7 @@ async fn creates_lists_and_deletes_a_user_workflow() {
     let (status, deleted) = call(
         &fixture.state,
         "DELETE",
-        "/workflows/user/video-recreate",
+        "/workflows/user/video-recreate?expected_revision=2",
         None,
     )
     .await;
