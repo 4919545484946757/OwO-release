@@ -3,7 +3,7 @@
 #include <limits>
 
 namespace owo::tsf {
-// 不激活 TSF、不创建工作线程/窗口，直接验证真实按键分派和异步响应接线。
+// 不激活 TSF/工作线程：验证真实按键、异步响应及离屏窗口的像素边界。
 struct ExpandedCandidateTestAccess {
     static int run() {
         auto* service = new TextService();
@@ -35,7 +35,8 @@ struct ExpandedCandidateTestAccess {
             result->has_more = true;
             for (std::size_t i = 0; i < count; ++i) {
                 result->candidates.push_back(L"fixture-" + std::to_wstring(i));
-                result->candidate_consumed.push_back(5);
+                result->candidate_consumed.push_back(i % 5 + 1);
+                result->candidate_groups.push_back(i % 3);
             }
             service->handle_candidate_result(result);
         };
@@ -57,6 +58,9 @@ struct ExpandedCandidateTestAccess {
         if (service->expanded_pages_.selected != 5 || service->candidate_shortcut_index(0) != 35) return 5;
         service->invoke_hit_target({TextService::HitKind::toggle_expanded, 0});
         if (service->candidates_expanded_ || service->candidate_page_ != 5) return 6;
+        if (service->candidates_.size() != 7 || service->candidates_.front() != L"fixture-35" ||
+            service->candidate_consumed_.size() != 7 || service->candidate_consumed_.front() != 1 ||
+            service->candidate_groups_.size() != 7 || service->candidate_groups_.front() != 2) return 23;
         respond(7);
         service->invoke_hit_target({TextService::HitKind::toggle_expanded, 0});
         respond(49);
@@ -106,6 +110,38 @@ struct ExpandedCandidateTestAccess {
             service->candidate_shortcut_index(1) != 1) return 22;
         service->clear_composition();
         if (service->candidates_expanded_ || service->expanded_pages_.selected || service->expanded_pages_.first_visible) return 13;
+        // Exercise actual D2D output off-screen, without activating TSF, reading
+        // desktop pixels or contacting Core. The reserved canvas must stay clear
+        // on both axes, including when stale expanded data exceeds one page.
+        if (FAILED(service->initialize_windows())) return 24;
+        service->input_buffer_ = L"nihao";
+        service->candidate_present_geometry_valid_ = true;
+        service->candidate_present_position_ = {-32000, -32000};
+        service->candidate_page_size_ = 7;
+        service->candidates_.assign(49, L"fixture");
+        service->candidate_groups_.clear();
+        for (std::size_t i = 0; i < 49; ++i) service->candidate_groups_.push_back(i % 3);
+        for (const bool blur : {false, true}) for (int transition = 0; transition < 6; ++transition) {
+            service->candidates_expanded_ = transition % 2 == 0;
+            service->candidate_present_size_ = {1100, service->candidates_expanded_ ? 264L : 88L};
+            // Intentionally constrained card: expose unbounded badges/rows.
+            service->candidate_content_size_ = {160, 88};
+            service->candidate_theme_.background_blur_enabled = blur;
+            const auto count = static_cast<std::size_t>(service->candidate_present_size_.cx) *
+                               service->candidate_present_size_.cy;
+            if (blur) service->blurred_candidate_background_.assign(count, 0xff204060U);
+            if (!service->render_candidate_window()) return 25;
+            const auto* pixels = static_cast<const std::uint32_t*>(service->layered_surface_pixels_);
+            bool content = false;
+            for (LONG y = 0; y < service->layered_surface_size_.cy; ++y)
+                for (LONG x = 0; x < service->layered_surface_size_.cx; ++x) {
+                    const auto pixel = pixels[static_cast<std::size_t>(y) * service->layered_surface_size_.cx + x];
+                    if (x >= 160 || y >= 88) { if (pixel != 0) return 26; }
+                    else content |= (pixel >> 24) != 0;
+                }
+            if (!content) return 27;
+            service->hide_candidate_windows();
+        }
         return 0;
     }
 };
@@ -115,6 +151,6 @@ int main() {
     if (!GetKeyboardState(previous) || !SetKeyboardState(cleared)) return 99;
     const int result = owo::tsf::ExpandedCandidateTestAccess::run();
     SetKeyboardState(previous);
-    if (!result) std::cout << "Real TSF dispatch, asynchronous expansion, numeric mapping and collapse checks passed.\n";
+    if (!result) std::cout << "Real TSF dispatch, asynchronous expansion, numeric mapping, collapse snapshot and D2D pixel boundary checks passed.\n";
     return result;
 }

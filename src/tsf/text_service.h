@@ -305,6 +305,7 @@ private:
     SIZE candidate_present_size_{};
     SIZE candidate_content_size_{};
     bool candidate_present_geometry_valid_{};
+    bool candidate_present_expanded_{};
     HHOOK keyboard_hook_{nullptr};
     bool language_space_key_suppressed_{false};
     std::uint16_t alt_code_numpad_down_mask_{0};

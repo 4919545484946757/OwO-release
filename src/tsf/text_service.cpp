@@ -1826,7 +1826,7 @@ SIZE TextService::desired_candidate_window_size() const {
             content_height += row_height(begin, std::min(visible_end, begin + page_size));
         }
     } else if (!candidates_.empty()) {
-        content_height = row_height(0, candidates_.size());
+        content_height = row_height(0, std::min(candidates_.size(), page_size));
     }
     const float height = kHeaderHeightDip + 16.0F + content_height;
     const float controls_width = candidates_expanded_ && !plugin_scheme_selected()
@@ -1877,7 +1877,7 @@ SIZE TextService::desired_candidate_window_size() const {
             candidates_width = std::max(candidates_width, row_width(begin, end));
         }
     } else {
-        candidates_width = row_width(0, candidates_.size());
+        candidates_width = row_width(0, std::min(candidates_.size(), page_size));
     }
     const std::wstring agent_preview = agent_preview_text();
     const std::wstring reading = agent_preview.empty()
@@ -2376,6 +2376,10 @@ bool TextService::render_candidate_window() {
     const D2D1_SIZE_F size = D2D1::SizeF(
         static_cast<float>(candidate_content_size_.cx) * pixel_to_dip,
         static_cast<float>(candidate_content_size_.cy) * pixel_to_dip);
+    // The backing canvas is wider than the visible card. Never publish badges,
+    // highlights or stale transition rows into its transparent reserve.
+    render_target_->PushAxisAlignedClip(D2D1::RectF(0, 0, size.width, size.height),
+                                       D2D1_ANTIALIAS_MODE_ALIASED);
     const D2D1_ROUNDED_RECT card{
         D2D1::RectF(0.5F, 0.5F, size.width - 0.5F, size.height - 0.5F), 10.0F, 10.0F};
     if (!blurred_background)
@@ -2452,6 +2456,7 @@ bool TextService::render_candidate_window() {
                             top + kCandidateItemHeightDip),
                 secondary_text_brush_, D2D1_DRAW_TEXT_OPTIONS_CLIP);
         }
+        render_target_->PopAxisAlignedClip();
         const HRESULT result = render_target_->EndDraw();
         if (FAILED(result)) {
             discard_device_resources();
@@ -2627,6 +2632,7 @@ bool TextService::render_candidate_window() {
                 info.data(), static_cast<UINT32>(info.size()), label_text_format_,
                 info_bounds.rect, text_brush_, D2D1_DRAW_TEXT_OPTIONS_CLIP);
         }
+        render_target_->PopAxisAlignedClip();
         const HRESULT result = render_target_->EndDraw();
         if (FAILED(result)) {
             discard_device_resources();
@@ -2925,10 +2931,11 @@ bool TextService::render_candidate_window() {
         }
     } else {
         float row_height = kCandidateItemHeightDip;
-        for (const auto& candidate : candidates_)
+        const auto end = std::min(candidates_.size(), candidate_page_width());
+        for (std::size_t index = 0; index < end; ++index)
             row_height = std::max(row_height,
-                                  wrapped_candidate_height(candidate, wrap_length));
-        draw_candidate_row(0, candidates_.size(), content_top, row_height);
+                                  wrapped_candidate_height(candidates_[index], wrap_length));
+        draw_candidate_row(0, end, content_top, row_height);
     }
 
     const auto draw_button = [this, &target_matches, &add_hit_region,
@@ -2973,6 +2980,7 @@ bool TextService::render_candidate_window() {
                 !candidate_request_pending_ &&
                     (!candidates_.empty() || candidates_expanded_));
 
+    render_target_->PopAxisAlignedClip();
     const HRESULT result = render_target_->EndDraw();
     if (FAILED(result)) {
         discard_device_resources();
@@ -3758,7 +3766,8 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
     // Core returns its matching candidate snapshot. Recomputing the layered
     // window size with stale candidates and then again with the response caused
     // two visible resizes for every key press.
-    if (candidate_window_ != nullptr && IsWindowVisible(candidate_window_)) {
+    if (candidate_window_ != nullptr && IsWindowVisible(candidate_window_) &&
+        candidate_present_expanded_ == candidates_expanded_) {
         RedrawWindow(candidate_window_, nullptr, nullptr,
                      RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE |
                          RDW_NOCHILDREN);
@@ -4420,6 +4429,7 @@ void TextService::update_candidate_window() {
         candidate_content_size_ = window_size;
         candidate_present_geometry_valid_ = true;
     }
+    candidate_present_expanded_ = candidates_expanded_;
     // Build the complete frame in memory and atomically publish pixels and
     // geometry. Never resize the visible layered HWND before its replacement
     // surface is ready.
@@ -4775,6 +4785,22 @@ void TextService::set_candidates_expanded(const bool expanded) {
         expanded_pages_.reset(agent_commands ? 0 : static_cast<std::size_t>(candidate_page_) % rows);
         if (!agent_commands) candidate_page_ = plugin_scheme_selected() ? candidate_page_ / rows : 0;
     } else {
+        if (!agent_commands && !plugin_scheme_selected()) {
+            // Keep the selected page as the interim snapshot, not every row of
+            // the expanded response. Text, consumption and partition metadata
+            // must move together so pending numeric/mouse choices stay aligned.
+            const auto begin = expanded_pages_.index(0, candidates_.size(), candidate_page_width())
+                                   .value_or(candidates_.size());
+            const auto end = begin + std::min(candidate_page_width(), candidates_.size() - begin);
+            const auto keep_page = [begin, end](auto& values) {
+                if (values.size() < end) { values.clear(); return; }
+                values.erase(values.begin() + end, values.end());
+                values.erase(values.begin(), values.begin() + begin);
+            };
+            keep_page(candidates_);
+            keep_page(candidate_consumed_);
+            keep_page(candidate_groups_);
+        }
         if (!agent_commands) candidate_page_ = (plugin_scheme_selected()
             ? candidate_page_ * plugin_expanded_block_rows() : 0) + expanded_pages_.selected;
         expanded_pages_.reset();
