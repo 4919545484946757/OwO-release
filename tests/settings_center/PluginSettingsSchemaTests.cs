@@ -36,6 +36,43 @@ model.Save(model.Values.ToDictionary(pair => pair.Key,
     pair => JsonSerializer.Deserialize<object>(pair.Value.GetRawText())));
 if (PluginSettingsModel.Load(root, plugin).Values["background_color"].GetString() != "#223344")
     throw new Exception("Saving lost old palette values.");
+var roles = new[] { "background", "border", "divider", "pinyin_text", "candidate_text",
+                    "candidate_block", "candidate_number", "shadow" };
+// Save through the same model as the editor, in an isolated store. Every role
+// needs its own color AND opacity in each palette, not a shared opacity key.
+var edited = model.Values.ToDictionary(pair => pair.Key,
+    pair => JsonSerializer.Deserialize<object>(pair.Value.GetRawText()));
+for (var index = 0; index < roles.Length; ++index) {
+    var role = roles[index];
+    foreach (var prefix in new[] { "", "light_" }) {
+        if (!model.Fields.Any(field => field.Key == prefix + role + "_color" && field.Format == "color") ||
+            !model.Fields.Any(field => field.Key == prefix + role + "_opacity" && field.Type == "number"))
+            throw new Exception($"Missing independent palette controls: {prefix}{role}");
+        edited[prefix + role + "_color"] = prefix.Length == 0 ? $"#10000{index}" : $"#20000{index}";
+        edited[prefix + role + "_opacity"] = (index + 1) / (prefix.Length == 0 ? 10.0 : 20.0);
+    }
+}
+foreach (var themeMode in new[] { "system", "light", "dark" }) {
+    edited["theme_mode"] = themeMode;
+    model.Save(edited);
+    var saved = PluginSettingsModel.Load(root, plugin);
+    foreach (var pair in edited)
+        if (saved.Values[pair.Key].GetRawText() != JsonSerializer.Serialize(pair.Value))
+            throw new Exception($"Saving/switching themes changed {pair.Key}.");
+}
+foreach (var prefix in new[] { "light_", "" }) {
+    var opposite = prefix.Length == 0 ? "light_" : "";
+    var before = PluginSettingsModel.Load(root, plugin);
+    foreach (var role in roles) {
+        edited[prefix + role + "_color"] = "#405060";
+        edited[prefix + role + "_opacity"] = 0.37;
+    }
+    model.Save(edited);
+    var after = PluginSettingsModel.Load(root, plugin);
+    foreach (var role in roles) foreach (var suffix in new[] { "_color", "_opacity" })
+        if (after.Values[opposite + role + suffix].GetRawText() != before.Values[opposite + role + suffix].GetRawText())
+            throw new Exception("Editing one palette modified the other palette.");
+}
 var schemaPath = Path.Combine(versionRoot, "config.schema.json");
 var original = JsonNode.Parse(File.ReadAllText(schemaPath))!.AsObject();
 foreach (var invalid in new[] { new JsonArray("only one"), new JsonArray("ok", "", "dark"),
@@ -47,4 +84,4 @@ foreach (var invalid in new[] { new JsonArray("only one"), new JsonArray("ok", "
     catch (InvalidOperationException) { continue; }
     throw new Exception("Invalid enum labels were accepted.");
 }
-Console.WriteLine("PASS: dual-palette schema, localized enum labels, legacy value preservation, opacity pairing and invalid-label rejection.");
+Console.WriteLine("PASS: independent colors/opacities for all eight roles, palette save isolation, theme switches, legacy values and schema validation.");

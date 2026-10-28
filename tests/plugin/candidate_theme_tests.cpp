@@ -1,6 +1,7 @@
 #include "owo/plugin/candidate_theme.h"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cmath>
 #include <cstring>
@@ -167,6 +168,39 @@ int main(const int argc, char** argv) {
         const auto switched = owo::plugin::load_candidate_theme_resource(resource, settings, mode);
         if (!switched.active || switched.light_palette != mode ||
             switched.theme.background.rgb != (mode ? 0x112233U : 0x101827U)) return 20;
+    }
+    const std::array<std::pair<std::string_view, owo::plugin::CandidateThemeColor owo::plugin::CandidateTheme::*>, 8> roles{{
+        {"background", &owo::plugin::CandidateTheme::background},
+        {"border", &owo::plugin::CandidateTheme::border},
+        {"divider", &owo::plugin::CandidateTheme::divider},
+        {"pinyin_text", &owo::plugin::CandidateTheme::pinyin_text},
+        {"candidate_text", &owo::plugin::CandidateTheme::candidate_text},
+        {"candidate_block", &owo::plugin::CandidateTheme::candidate_block},
+        {"candidate_number", &owo::plugin::CandidateTheme::candidate_number},
+        {"shadow", &owo::plugin::CandidateTheme::shadow},
+    }};
+    for (const bool edit_light : {false, true}) {
+        std::string independent = R"({"theme_mode":"system")";
+        for (std::size_t index = 0; index < roles.size(); ++index) {
+            const auto name = std::string(roles[index].first);
+            independent += ",\"" + name + "_color\":\"#10000" + std::to_string(index) + "\"";
+            independent += ",\"" + name + "_opacity\":" + std::to_string((index + 1) / 10.0);
+            independent += ",\"light_" + name + "_color\":\"#" + (edit_light ? std::string("30000") : std::string("20000")) +
+                           std::to_string(index) + "\"";
+            independent += ",\"light_" + name + "_opacity\":" + std::to_string((index + 1) / (edit_light ? 25.0 : 20.0));
+        }
+        independent += "}";
+        if (!write(settings, independent)) return 26;
+        for (const bool light_mode : {false, true}) {
+            const auto configured = owo::plugin::load_candidate_theme_resource(resource, settings, light_mode);
+            if (!configured.active || configured.light_palette != light_mode) return 27;
+            for (std::size_t index = 0; index < roles.size(); ++index) {
+                const auto color = configured.theme.*roles[index].second;
+                const auto expected_rgb = (light_mode ? (edit_light ? 0x300000U : 0x200000U) : 0x100000U) + index;
+                const auto expected_opacity = (index + 1) / (light_mode ? (edit_light ? 25.0 : 20.0) : 10.0);
+                if (color.rgb != expected_rgb || std::abs(color.opacity - expected_opacity) > 0.001) return 28;
+            }
+        }
     }
     if (!write(resource, adaptive + "light.border.color=#000000\n") ||
         owo::plugin::load_candidate_theme_resource(resource).active) return 21;
