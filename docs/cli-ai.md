@@ -131,6 +131,8 @@ TSV 必须有表头，字段同名；`expected/tags` 推荐使用单元格内紧
 无适用标签的指标为 JSON null，禁止转换成0或1。
 `base_rank:null` 只表示扫描范围内未命中；`base_scan_truncated:true` 时不是“词典无此词”。
 缺失候选映射或协议错误会报告 runtime_error，不允许靠只看文字数组掩盖。
+展开不一致时，`expansion_evidence` 保留首个差异的全局排名、两侧候选/消费字节/
+分区及总项数；未发现差异时为null。它是诊断字段，不改变生成、评分或分页算法。
 
 资产默认记录绝对路径、大小、mtime ticks；`--hash-assets` 再记录SHA-256，未启用时hash为null。
 mtime单位依赖当前文件时钟，仅用于同环境身份检查，不当作Unix时间。

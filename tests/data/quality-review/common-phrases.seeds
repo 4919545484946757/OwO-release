@@ -1,0 +1,147 @@
+# target|toneless syllables|category
+早上好|zao shang hao|greeting
+晚上好|wan shang hao|greeting
+下午好|xia wu hao|greeting
+辛苦了|xin ku le|greeting
+没关系|mei guan xi|greeting
+不客气|bu ke qi|greeting
+对不起|dui bu qi|greeting
+不好意思|bu hao yi si|greeting
+谢谢你|xie xie ni|greeting
+回头见|hui tou jian|greeting
+一会儿见|yi hui er jian|greeting
+明天见|ming tian jian|greeting
+没问题|mei wen ti|greeting
+等一下|deng yi xia|greeting
+稍等一下|shao deng yi xia|greeting
+注意安全|zhu yi an quan|daily_phrase
+早点休息|zao dian xiu xi|daily_phrase
+好好学习|hao hao xue xi|education_phrase
+天天向上|tian tian xiang shang|education_phrase
+身体健康|shen ti jian kang|daily_phrase
+生日快乐|sheng ri kuai le|greeting
+新年快乐|xin nian kuai le|greeting
+一路顺风|yi lu shun feng|travel_phrase
+一路平安|yi lu ping an|travel_phrase
+周末愉快|zhou mo yu kuai|daily_phrase
+工作顺利|gong zuo shun li|work_phrase
+认真负责|ren zhen fu ze|work_phrase
+实事求是|shi shi qiu shi|idiom
+循序渐进|xun xu jian jin|idiom
+举一反三|ju yi fan san|idiom
+一目了然|yi mu liao ran|idiom
+一举两得|yi ju liang de|idiom
+事半功倍|shi ban gong bei|idiom
+恰到好处|qia dao hao chu|idiom
+不言而喻|bu yan er yu|idiom
+理所当然|li suo dang ran|idiom
+全力以赴|quan li yi fu|idiom
+持之以恒|chi zhi yi heng|idiom
+再接再厉|zai jie zai li|idiom
+精益求精|jing yi qiu jing|idiom
+语音输入|yu yin shu ru|input_phrase
+拼音输入|pin yin shu ru|input_phrase
+输入方案|shu ru fang an|input_phrase
+候选词|hou xuan ci|input_phrase
+候选窗口|hou xuan chuang kou|input_phrase
+候选分区|hou xuan fen qu|input_phrase
+用户词库|yong hu ci ku|input_phrase
+词库管理|ci ku guan li|input_phrase
+字典管理|zi dian guan li|input_phrase
+词频学习|ci pin xue xi|input_phrase
+中文标点|zhong wen biao dian|input_phrase
+英文模式|ying wen mo shi|input_phrase
+快捷键|kuai jie jian|input_phrase
+设置中心|she zhi zhong xin|software_phrase
+安装程序|an zhuang cheng xu|software_phrase
+安装助手|an zhuang zhu shou|software_phrase
+卸载程序|xie zai cheng xu|software_phrase
+下载地址|xia zai di zhi|software_phrase
+检查更新|jian cha geng xin|software_phrase
+版本信息|ban ben xin xi|software_phrase
+系统设置|xi tong she zhi|software_phrase
+显示设置|xian shi she zhi|software_phrase
+网络设置|wang luo she zhi|software_phrase
+默认设置|mo ren she zhi|software_phrase
+恢复默认|hui fu mo ren|software_phrase
+保存配置|bao cun pei zhi|software_phrase
+导入配置|dao ru pei zhi|software_phrase
+导出配置|dao chu pei zhi|software_phrase
+添加文件|tian jia wen jian|software_phrase
+删除文件|shan chu wen jian|software_phrase
+打开文件|da kai wen jian|software_phrase
+保存文件|bao cun wen jian|software_phrase
+复制粘贴|fu zhi zhan tie|software_phrase
+查找替换|cha zhao ti huan|software_phrase
+撤销操作|che xiao cao zuo|software_phrase
+重新启动|chong xin qi dong|software_phrase
+后台运行|hou tai yun xing|software_phrase
+自动保存|zi dong bao cun|software_phrase
+自动更新|zi dong geng xin|software_phrase
+自动展开|zi dong zhan kai|software_phrase
+手动测试|shou dong ce shi|software_phrase
+批量测试|pi liang ce shi|software_phrase
+功能测试|gong neng ce shi|software_phrase
+测试结果|ce shi jie guo|software_phrase
+问题清单|wen ti qing dan|software_phrase
+人工审核|ren gong shen he|software_phrase
+人工批阅|ren gong pi yue|software_phrase
+错误提示|cuo wu ti shi|software_phrase
+详细信息|xiang xi xin xi|software_phrase
+用户反馈|yong hu fan kui|software_phrase
+解决问题|jie jue wen ti|software_phrase
+修复问题|xiu fu wen ti|software_phrase
+提交代码|ti jiao dai ma|development_phrase
+代码审查|dai ma shen cha|development_phrase
+单元测试|dan yuan ce shi|development_phrase
+集成测试|ji cheng ce shi|development_phrase
+回归测试|hui gui ce shi|development_phrase
+性能优化|xing neng you hua|development_phrase
+内存占用|nei cun zhan yong|development_phrase
+响应速度|xiang ying su du|development_phrase
+运行日志|yun xing ri zhi|development_phrase
+错误报告|cuo wu bao gao|development_phrase
+接口文档|jie kou wen dang|development_phrase
+开发文档|kai fa wen dang|development_phrase
+使用说明|shi yong shuo ming|development_phrase
+参考资料|can kao zi liao|development_phrase
+数据结构|shu ju jie gou|development_phrase
+语言模型|yu yan mo xing|development_phrase
+上下文|shang xia wen|development_phrase
+上下文识别|shang xia wen shi bie|development_phrase
+智能排序|zhi neng pai xu|development_phrase
+基础候选|ji chu hou xuan|development_phrase
+精确匹配|jing que pi pei|development_phrase
+模糊匹配|mo hu pi pei|development_phrase
+不完整拼音|bu wan zheng pin yin|input_phrase
+音节分割|yin jie fen ge|input_phrase
+输入光标|shu ru guang biao|input_phrase
+桌面图标|zhuo mian tu biao|software_phrase
+开始菜单|kai shi cai dan|software_phrase
+任务栏|ren wu lan|software_phrase
+深色模式|shen se mo shi|software_phrase
+浅色模式|qian se mo shi|software_phrase
+系统主题|xi tong zhu ti|software_phrase
+透明背景|tou ming bei jing|software_phrase
+圆角边框|yuan jiao bian kuang|software_phrase
+导航菜单|dao hang cai dan|software_phrase
+搜索结果|sou suo jie guo|software_phrase
+用户权限|yong hu quan xian|security_phrase
+隐私保护|yin si bao hu|security_phrase
+安全提示|an quan ti shi|security_phrase
+明确同意|ming que tong yi|security_phrase
+风险提示|feng xian ti shi|security_phrase
+会议记录|hui yi ji lu|work_phrase
+工作计划|gong zuo ji hua|work_phrase
+任务安排|ren wu an pai|work_phrase
+学习记录|xue xi ji lu|education_phrase
+学习资料|xue xi zi liao|education_phrase
+完成作业|wan cheng zuo ye|education_phrase
+按优先度|an you xian du|development_phrase
+功能接口|gong neng jie kou|development_phrase
+高度自定义|gao du zi ding yi|development_phrase
+宽高比例|kuan gao bi li|development_phrase
+敏感信息|min gan xin xi|security_phrase
+粗略估计|cu lve gu ji|work_phrase
+升旗仪式|sheng qi yi shi|education_phrase
+常用语句|chang yong yu ju|input_phrase
