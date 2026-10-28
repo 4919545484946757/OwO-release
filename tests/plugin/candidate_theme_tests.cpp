@@ -59,6 +59,14 @@ bool readable(const owo::plugin::CandidateTheme& palette) {
     return true;
 }
 
+bool monochrome(const owo::plugin::CandidateTheme& palette) {
+    for (const auto color : {palette.background, palette.border, palette.divider, palette.pinyin_text,
+                             palette.candidate_text, palette.candidate_block, palette.candidate_number, palette.shadow})
+        if (((color.rgb >> 16) & 255) != ((color.rgb >> 8) & 255) ||
+            ((color.rgb >> 8) & 255) != (color.rgb & 255)) return false;
+    return true;
+}
+
 }  // namespace
 
 int main(const int argc, char** argv) {
@@ -71,7 +79,7 @@ int main(const int argc, char** argv) {
                   << " background=#" << std::hex << active.theme.background.rgb << std::dec
                   << " opacity=" << active.theme.background.opacity
                   << " diagnostic=" << active.diagnostic << '\n';
-        std::uint32_t expected = std::string_view(argv[1]) == "--store-light" ? 0xf2f6fc : 0x101827;
+        std::uint32_t expected = std::string_view(argv[1]) == "--store-light" ? 0xf5f5f5 : 0x101827;
         if (argc == 4) {
             const auto parsed = std::from_chars(argv[3], argv[3] + std::strlen(argv[3]),
                                                 expected, 16);
@@ -116,13 +124,14 @@ int main(const int argc, char** argv) {
     const auto builtin_light = owo::plugin::default_candidate_theme(true);
     const auto builtin_dark = owo::plugin::default_candidate_theme(false);
     if (builtin_dark != owo::plugin::CandidateTheme{} || builtin_light == builtin_dark ||
-        builtin_light.background.rgb != 0xf6f8fc || builtin_light.candidate_text.rgb != 0x17202c)
+        builtin_light.background.rgb != 0xf5f5f5 || builtin_light.candidate_text.rgb != 0x202020)
         return 12;
-    if (!readable(builtin_dark) || !readable(builtin_light)) return 24;
+    if (!readable(builtin_dark) || !readable(builtin_light) || !monochrome(builtin_light)) return 24;
     if (argc == 3) for (const auto light_mode : {false, true}) {
         const auto official = owo::plugin::load_candidate_theme_resource(argv[2], {}, light_mode);
         if (!official.active || !readable(official.theme) ||
-            official.theme.background.rgb != (light_mode ? 0xf2f6fcU : 0x101827U)) return 25;
+            official.theme.background.rgb != (light_mode ? 0xf5f5f5U : 0x101827U) ||
+            (light_mode && !monochrome(official.theme))) return 25;
     }
     std::string adaptive(theme);
     adaptive.replace(0, std::string_view("schema_version=1").size(), "schema_version=2");

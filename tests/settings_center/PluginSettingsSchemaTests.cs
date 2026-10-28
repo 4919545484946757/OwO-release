@@ -4,7 +4,9 @@ using System.Text.Json.Nodes;
 
 var repository = Path.GetFullPath(args[0]);
 var root = Path.Combine(repository, "build", "plugin-theme-schema-" + Guid.NewGuid().ToString("N"));
-var versionRoot = Path.Combine(root, "versions", "org.owo.candidate-glass", "1.3.0");
+using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(repository, "plugins", "candidate-glass", "manifest.json")));
+var version = manifest.RootElement.GetProperty("version").GetString()!;
+var versionRoot = Path.Combine(root, "versions", "org.owo.candidate-glass", version);
 Directory.CreateDirectory(versionRoot);
 foreach (var file in new[] { "manifest.json", "config.schema.json" })
     File.Copy(Path.Combine(repository, "plugins", "candidate-glass", file), Path.Combine(versionRoot, file));
@@ -12,7 +14,7 @@ var data = Path.Combine(root, "data", "org.owo.candidate-glass");
 Directory.CreateDirectory(data);
 var existing = """{"background_color":"#223344","background_opacity":0.52,"shadow_opacity":0.43}""";
 File.WriteAllText(Path.Combine(data, "settings.json"), existing);
-var plugin = new PluginVersionSnapshot("org.owo.candidate-glass", "OwO 亚克力候选框", "1.3.0",
+var plugin = new PluginVersionSnapshot("org.owo.candidate-glass", "OwO 亚克力候选框", version,
     true, "unverified_package", "critical", true, ["ui.candidate_theme"]);
 var model = PluginSettingsModel.Load(root, plugin);
 var mode = model.Fields.Single(field => field.Key == "theme_mode");
@@ -23,7 +25,7 @@ if (model.Values["theme_mode"].GetString() != "system" ||
     model.Values["background_color"].GetString() != "#223344" ||
     model.Values["background_opacity"].GetDouble() != 0.52 ||
     model.Values["shadow_opacity"].GetDouble() != 0.43 ||
-    model.Values["light_background_color"].GetString() != "#F2F6FC" ||
+    model.Values["light_background_color"].GetString() != "#F5F5F5" ||
     File.ReadAllText(model.ConfigPath) != existing)
     throw new Exception("Loading the dual palette modified or lost old settings.");
 foreach (var field in model.Fields.Where(field => field.Format == "color"))

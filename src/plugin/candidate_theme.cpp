@@ -278,13 +278,13 @@ void apply_settings(const std::string_view json, CandidateTheme& theme,
 CandidateTheme default_candidate_theme(const bool light) {
     CandidateTheme theme;
     if (light) {
-        theme.background = {0xf6f8fc, 1.0F};
+        theme.background = {0xf5f5f5, 1.0F};
         theme.border = {0x000000, 0.14F};
         theme.divider = {0x000000, 0.12F};
-        theme.pinyin_text = {0x005a9e, 1.0F};
-        theme.candidate_text = {0x17202c, 0.96F};
-        theme.candidate_block = {0x0067c0, 0.16F};
-        theme.candidate_number = {0x005a9e, 1.0F};
+        theme.pinyin_text = {0x303030, 1.0F};
+        theme.candidate_text = {0x202020, 0.96F};
+        theme.candidate_block = {0x000000, 0.16F};
+        theme.candidate_number = {0x303030, 1.0F};
         theme.shadow.opacity = 0.18F;
     }
     return theme;
