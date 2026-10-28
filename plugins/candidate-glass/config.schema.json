@@ -37,7 +37,7 @@
     "light_candidate_text_color": {"type":"string","format":"color","title":"浅色 · 候选文字颜色","default":"#202020"},
     "light_candidate_text_opacity": {"type":"number","title":"候选文字透明度","default":0.96,"minimum":0,"maximum":1,"multipleOf":0.01},
     "light_candidate_block_color": {"type":"string","format":"color","title":"浅色 · 候选块颜色","default":"#000000"},
-    "light_candidate_block_opacity": {"type":"number","title":"候选块透明度","default":0.10,"minimum":0,"maximum":1,"multipleOf":0.01},
+    "light_candidate_block_opacity": {"type":"number","title":"候选块透明度","default":0.05,"minimum":0,"maximum":1,"multipleOf":0.01},
     "light_candidate_number_color": {"type":"string","format":"color","title":"浅色 · 候选序号颜色","default":"#303030"},
     "light_candidate_number_opacity": {"type":"number","title":"候选序号透明度","default":1,"minimum":0,"maximum":1,"multipleOf":0.05},
     "light_shadow_color": {"type":"string","format":"color","title":"浅色 · 阴影颜色","default":"#000000"},

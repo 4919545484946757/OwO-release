@@ -127,13 +127,13 @@ int main(const int argc, char** argv) {
         builtin_light.background.rgb != 0xf5f5f5 || builtin_light.candidate_text.rgb != 0x202020)
         return 12;
     if (!readable(builtin_dark) || !readable(builtin_light) || !monochrome(builtin_light) ||
-        std::abs(builtin_light.candidate_block.opacity - 0.10F) > 0.001F) return 24;
+        std::abs(builtin_light.candidate_block.opacity - 0.05F) > 0.001F) return 24;
     if (argc == 3) for (const auto light_mode : {false, true}) {
         const auto official = owo::plugin::load_candidate_theme_resource(argv[2], {}, light_mode);
         if (!official.active || !readable(official.theme) ||
             official.theme.background.rgb != (light_mode ? 0xf5f5f5U : 0x101827U) ||
             (light_mode && (!monochrome(official.theme) ||
-                std::abs(official.theme.candidate_block.opacity - 0.10F) > 0.001F))) return 25;
+                std::abs(official.theme.candidate_block.opacity - 0.05F) > 0.001F))) return 25;
     }
     std::string adaptive(theme);
     adaptive.replace(0, std::string_view("schema_version=1").size(), "schema_version=2");
