@@ -1,4 +1,5 @@
 #include "owo/engine/candidate_generator.h"
+#include "owo/engine/candidate_partition.h"
 #include "owo/engine/user_lexicon_alignment.h"
 #include "owo/engine/candidate_scoring.h"
 
@@ -1516,6 +1517,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         else
             prefixes.push_back(std::move(candidate));
     }
+    if (partition_page_size != 0)
+        apply_exact_dictionary_sentence_penalty(full, full_input_bytes);
     std::sort(full.begin(), full.end(), score_less);
     // Keep no more than two whole dictionary words for one two-syllable
     // reading. A composition assembled from arbitrary single-character entries

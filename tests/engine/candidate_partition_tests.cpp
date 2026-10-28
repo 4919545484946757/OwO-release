@@ -1,6 +1,8 @@
 #include "owo/engine/candidate_partition.h"
+#include "owo/engine/candidate_scoring.h"
 #include "owo/ipc/contextual_candidate_order.h"
 
+#include <algorithm>
 #include <iostream>
 
 namespace {
@@ -80,5 +82,40 @@ int main() {
     if (order != std::vector<std::string>{"长句一", "长句二", "字典词", "前缀"} ||
         consumed != std::vector<std::uint64_t>{13, 13, 13, 10})
         return 7;
+    // A small, one-off score adjustment, not a hard dictionary-first tier.
+    std::vector<Candidate> soft{
+        word("组合句子", 13, 10900, 2), word("精确整词", 13, 10000),
+        word("更强句子", 13, 14000, 2), word("另一整词", 13, 9000),
+        word("短句子", 13, 10900, 2), word("更长的句子", 13, 10900, 2),
+        word("单", 13, 10900), word("部分句子", 10, 10900, 2),
+        word("学习句子", 13, 5000, 2), word("纠错句子", 13, 10900, 2)};
+    soft[8].user_lexicon = true;
+    soft[9].match_kind = InputMatchKind::corrected;
+    auto expected_soft = soft;
+    expected_soft[0].score -= kCandidateExactDictionarySentencePenalty;
+    expected_soft[2].score -= kCandidateExactDictionarySentencePenalty;
+    apply_exact_dictionary_sentence_penalty(soft, 13);
+    if (soft != expected_soft)
+        return 8; // Includes no accumulation for multiple exact dictionary anchors.
+    merge_similar_length_partitions(soft, 13);
+    const auto position = [&soft](std::string_view text) {
+        return std::find_if(soft.begin(), soft.end(), [text](const Candidate &value) { return value.text == text; });
+    };
+    if (position("精确整词") >= position("组合句子") ||
+        position("更强句子") >= position("精确整词") || !soft.front().user_preferred())
+        return 9;
+    // Partial, repaired, provisional, hidden and different-length words must
+    // not act as exact whole-word evidence against a sentence.
+    std::vector<Candidate> no_exact{
+        word("组合句子", 13, 10000, 2), word("纠错整词", 13, 10000),
+        word("部分整词", 10, 10000), word("临时整词", 13, 10000),
+        word("隐藏整词", 13, 10000), word("短整词", 13, 10000)};
+    no_exact[1].match_kind = InputMatchKind::corrected;
+    no_exact[3].provisional_user_word = true;
+    no_exact[4].model_only = true;
+    const auto unchanged_no_exact = no_exact;
+    apply_exact_dictionary_sentence_penalty(no_exact, 13);
+    if (no_exact != unchanged_no_exact)
+        return 10;
     return 0;
 }
