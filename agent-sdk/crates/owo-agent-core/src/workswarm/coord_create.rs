@@ -167,12 +167,7 @@ impl TeamCoordinator {
             if r.assignee.is_empty() || r.assignee == "agent" {
                 agent_count += 1;
             }
-            super::roles::validate_role_write_paths_with_capabilities(
-                &r.role,
-                &r.capabilities,
-                &r.write_paths,
-            )
-            .map_err(WorkSwarmError::Validation)?;
+            super::roles::validate_role_spec_write_paths(r).map_err(WorkSwarmError::Validation)?;
             super::roles::validate_role_tool_capabilities(
                 &r.role,
                 &r.capabilities,

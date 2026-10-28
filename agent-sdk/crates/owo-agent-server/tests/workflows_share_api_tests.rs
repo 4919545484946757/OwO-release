@@ -229,7 +229,7 @@ async fn export_review_and_import_round_trip_between_machines() {
     let (status, _) = call(
         &machine_b.state,
         "DELETE",
-        "/workflows/user/video-recreate",
+        "/workflows/user/video-recreate?expected_revision=1",
         None,
     )
     .await;
@@ -312,8 +312,19 @@ async fn import_review_reports_diff_against_local_workflow() {
     assert!(joined.contains("工作区任意写"), "{joined}");
 
     // 2) 导入响应同样带差异；且本地被覆盖为 community + 新版本
-    let (status, imported) =
-        call(&machine.state, "POST", "/workflows/import", Some(&package)).await;
+    //    覆盖已有同名模板必须带上读取时的 revision（本地 v1 创建时为 1）。
+    let import_body = json!({
+        "package_b64": exported["package_b64"],
+        "expected_revision": 1
+    })
+    .to_string();
+    let (status, imported) = call(
+        &machine.state,
+        "POST",
+        "/workflows/import",
+        Some(&import_body),
+    )
+    .await;
     assert_eq!(status, 200, "{imported}");
     assert_eq!(imported["template"]["origin"], json!("community"));
     assert_eq!(imported["template"]["version"], json!("1.1.0"));

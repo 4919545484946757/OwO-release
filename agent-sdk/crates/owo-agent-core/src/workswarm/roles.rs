@@ -92,11 +92,14 @@ pub fn infer_role_capabilities(role: &str, tools: &[String], declared: &[String]
         .filter(|capability| capability.eq_ignore_ascii_case("custom"))
         .cloned()
         .collect();
-    if super::util::is_review_role_name(role) {
+    // 显式声明了写工具时，角色名只是标签：不能让命名推断把写角色变成评审角色，
+    // 否则它的写白名单会在组队期被拒（与 `RoleSpec::is_reviewer` 的口径一致）。
+    let writes = tools.iter().any(|tool| is_writer_role_tool(tool));
+    if super::util::is_review_role_name(role) && !writes {
         inferred.push("review".to_string());
         return inferred;
     }
-    if tools.iter().any(|tool| is_writer_role_tool(tool)) {
+    if writes {
         inferred.push("task_worker".to_string());
     }
     inferred
@@ -214,7 +217,30 @@ pub fn validate_role_write_paths_with_capabilities(
     capabilities: &[String],
     paths: &[String],
 ) -> Result<(), String> {
-    if super::util::is_review_role(role, capabilities) && !paths.is_empty() {
+    let is_reviewer = super::util::is_review_role(role, capabilities);
+    validate_role_write_paths_against_review_flag(role, is_reviewer, paths)
+}
+
+/// 按角色声明校验写白名单：评审判定与 [`RoleSpec::is_reviewer`] 同一口径。
+///
+/// 名字只是用户标签——显式声明的工具（或非 review 的能力声明）会覆盖旧的角色名
+/// 推断；否则一个名为 `reviewer` 的媒体角色会因为继承自旧记录的命名推断而被
+/// 判成评审角色，连带丢掉本来就合法的写白名单。
+pub fn validate_role_spec_write_paths(spec: &RoleSpec) -> Result<(), String> {
+    validate_role_write_paths_of(spec, &spec.write_paths)
+}
+
+/// 同上口径，但校验调用方给出的路径（任务图里是 `effective_paths`，不是角色声明的白名单）。
+pub fn validate_role_write_paths_of(spec: &RoleSpec, paths: &[String]) -> Result<(), String> {
+    validate_role_write_paths_against_review_flag(&spec.role, spec.is_reviewer(), paths)
+}
+
+fn validate_role_write_paths_against_review_flag(
+    role: &str,
+    is_reviewer: bool,
+    paths: &[String],
+) -> Result<(), String> {
+    if is_reviewer && !paths.is_empty() {
         return Err(format!("评审角色 {role} 不能声明写路径"));
     }
     for raw in paths {

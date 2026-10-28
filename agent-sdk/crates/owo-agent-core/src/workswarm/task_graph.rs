@@ -722,7 +722,7 @@ pub(super) fn validate_parallel_subtasks(
                 task.required_capabilities.join(", ")
             ));
         }
-        super::roles::validate_role_write_paths(&task.worker, &task.effective_paths)?;
+        super::roles::validate_role_write_paths_of(role, &task.effective_paths)?;
         if !role.write_paths.is_empty() {
             for path in &task.effective_paths {
                 let inside = role

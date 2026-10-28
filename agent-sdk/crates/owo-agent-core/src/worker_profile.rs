@@ -173,11 +173,7 @@ impl WorkerProfile {
         workspace_root: &Path,
         is_writer: bool,
     ) -> Result<Vec<PathBuf>, String> {
-        crate::workswarm::validate_role_write_paths_with_capabilities(
-            &spec.role,
-            &spec.capabilities,
-            &spec.write_paths,
-        )?;
+        crate::workswarm::validate_role_spec_write_paths(spec)?;
         if spec.write_paths.is_empty() && !is_writer {
             return Ok(Vec::new());
         }
