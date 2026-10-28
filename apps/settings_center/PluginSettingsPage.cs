@@ -29,21 +29,24 @@ public sealed partial class MainPage
 
     private void RebuildPluginNavigation(IReadOnlyList<PluginVersionSnapshot> plugins)
     {
-        foreach (var item in SettingsNavigation.MenuItems.OfType<NavigationViewItem>()
-                     .Where(item => item.Tag is string tag &&
-                                    tag.StartsWith("plugin:", StringComparison.Ordinal)).ToArray())
-            SettingsNavigation.MenuItems.Remove(item);
-        if (_pluginPagesHeader is not null) SettingsNavigation.MenuItems.Remove(_pluginPagesHeader);
+        var expanded = _pluginPagesGroup?.IsExpanded ?? true;
+        var selectedPage = (SettingsNavigation.SelectedItem as NavigationViewItem)?.Tag as string;
+        if (_pluginPagesGroup is not null) SettingsNavigation.MenuItems.Remove(_pluginPagesGroup);
+        _pluginPagesGroup = null;
         _pluginPages.Clear();
         _pluginSearchItems.Clear();
         if (plugins.Count == 0) return;
-        _pluginPagesHeader = new NavigationViewItemHeader { Content = "插件设置" };
-        SettingsNavigation.MenuItems.Add(_pluginPagesHeader);
+        _pluginPagesGroup = new NavigationViewItem {
+            Content = "插件设置", SelectsOnInvoked = false, IsExpanded = expanded,
+            Icon = new FontIcon { Glyph = "\uE74C" },
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_pluginPagesGroup, "PluginSettingsGroup");
+        SettingsNavigation.MenuItems.Add(_pluginPagesGroup);
         foreach (var plugin in plugins.OrderByDescending(value => value.Active)
                                       .ThenBy(value => value.Name, StringComparer.Ordinal)) {
             var page = $"plugin:{plugin.Id}:{plugin.Version}";
             _pluginPages[page] = plugin;
-            SettingsNavigation.MenuItems.Add(new NavigationViewItem {
+            _pluginPagesGroup.MenuItems.Add(new NavigationViewItem {
                 Content = plugin.Name, Tag = page,
                 Icon = new FontIcon { Glyph = "\uE74C" },
             });
@@ -58,6 +61,19 @@ public sealed partial class MainPage
                 // A damaged or legacy schema remains manageable from the main plugin page.
             }
         }
+        // Refreshing the list keeps the user's fold state and selected child.
+        var selected = _pluginPagesGroup.MenuItems.OfType<NavigationViewItem>()
+            .FirstOrDefault(item => Equals(item.Tag, selectedPage));
+        if (selected is not null) SettingsNavigation.SelectedItem = selected;
+    }
+
+    private void SelectPluginNavigation(string page)
+    {
+        var navigation = _pluginPagesGroup?.MenuItems.OfType<NavigationViewItem>()
+            .FirstOrDefault(item => Equals(item.Tag, page));
+        if (navigation is null) return;
+        _pluginPagesGroup!.IsExpanded = true;
+        SettingsNavigation.SelectedItem = navigation;
     }
 
     private async void PluginVersionSettings_Click(
@@ -65,9 +81,7 @@ public sealed partial class MainPage
     {
         if (sender is not Button { Tag: PluginVersionSnapshot plugin }) return;
         var page = $"plugin:{plugin.Id}:{plugin.Version}";
-        var navigation = SettingsNavigation.MenuItems.OfType<NavigationViewItem>()
-            .FirstOrDefault(value => Equals(value.Tag, page));
-        if (navigation is not null) SettingsNavigation.SelectedItem = navigation;
+        SelectPluginNavigation(page);
         await ShowPluginSettingsAsync(plugin);
     }
 

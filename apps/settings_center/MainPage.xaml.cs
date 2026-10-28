@@ -17,7 +17,7 @@ public sealed partial class MainPage : Page
     private readonly Dictionary<string, Microsoft.UI.Xaml.FrameworkElement> _pluginConfigControls = [];
     private readonly Dictionary<string, Expander> _pluginConfigExpanders = [];
     private ComboBox? _pluginConfigPageSelector;
-    private NavigationViewItemHeader? _pluginPagesHeader;
+    private NavigationViewItem? _pluginPagesGroup;
     private PluginSettingsModel? _pluginSettings;
     private string _currentPage = "schemes";
     private sealed record SearchItem(string Title, string Detail, string Page,
@@ -324,9 +324,7 @@ public sealed partial class MainPage : Page
     {
         if (item.Page.StartsWith("plugin:", StringComparison.Ordinal) &&
             _pluginPages.TryGetValue(item.Page, out var plugin)) {
-            var navigation = SettingsNavigation.MenuItems.OfType<NavigationViewItem>()
-                .FirstOrDefault(value => Equals(value.Tag, item.Page));
-            if (navigation is not null) SettingsNavigation.SelectedItem = navigation;
+            SelectPluginNavigation(item.Page);
             await ShowPluginSettingsAsync(plugin, item.PluginField);
             return;
         }
