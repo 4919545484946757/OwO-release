@@ -19,10 +19,12 @@ constexpr std::size_t kMaximumSettingsBytes = 256 * 1024;
 
 struct Role {
     std::string_view name;
-    CandidateThemeColor CandidateTheme::*member;
+    CandidateThemeColor CandidateTheme::*member{};
+    std::optional<CandidateThemeColor> CandidateTheme::*extension{};
 };
 
-constexpr std::array<Role, 7> kRoles{{
+constexpr std::size_t kRequiredRoles = 7;
+constexpr std::array<Role, 16> kRoles{{
     {"background", &CandidateTheme::background},
     {"border", &CandidateTheme::border},
     {"divider", &CandidateTheme::divider},
@@ -30,7 +32,33 @@ constexpr std::array<Role, 7> kRoles{{
     {"candidate_text", &CandidateTheme::candidate_text},
     {"candidate_block", &CandidateTheme::candidate_block},
     {"candidate_number", &CandidateTheme::candidate_number},
+    {"candidate_badge", nullptr, &CandidateTheme::candidate_badge},
+    {"selected_page", nullptr, &CandidateTheme::selected_page},
+    {"hover_block", nullptr, &CandidateTheme::hover_block},
+    {"pressed_block", nullptr, &CandidateTheme::pressed_block},
+    {"button_background", nullptr, &CandidateTheme::button_background},
+    {"button_border", nullptr, &CandidateTheme::button_border},
+    {"button_text", nullptr, &CandidateTheme::button_text},
+    {"secondary_text", nullptr, &CandidateTheme::secondary_text},
+    {"caret", nullptr, &CandidateTheme::caret},
 }};
+
+CandidateThemeColor& role_color(CandidateTheme& theme, const Role& role) {
+    if (role.member) return theme.*role.member;
+    auto& value = theme.*role.extension;
+    if (!value) {
+        if (role.name == "candidate_badge" || role.name == "button_border") value = theme.border;
+        else if (role.name == "button_text") value = theme.candidate_text;
+        else if (role.name == "secondary_text")
+            value = CandidateThemeColor{theme.candidate_text.rgb, theme.candidate_text.opacity * 0.64F};
+        else if (role.name == "caret") value = theme.pinyin_text;
+        else if (role.name == "button_background") value = CandidateThemeColor{theme.candidate_block.rgb, 0};
+        else if (role.name == "selected_page")
+            value = CandidateThemeColor{theme.candidate_block.rgb, theme.candidate_block.opacity * 0.70F};
+        else value = theme.candidate_block;
+    }
+    return *value;
+}
 
 std::string trim(std::string_view input) {
     const auto begin = input.find_first_not_of(" \t\r\n");
@@ -172,7 +200,7 @@ bool parse_descriptor(const std::string_view bytes, CandidateTheme& dark_theme,
         const auto index = static_cast<std::size_t>(role - kRoles.data());
         auto& color_fields = light_field ? light_colors : colors;
         auto& opacity_fields = light_field ? light_opacities : opacities;
-        auto& color = theme.*(role->member);
+        auto& color = role_color(theme, *role);
         const auto property = key.substr(dot + 1);
         if (property == "color") {
             if (color_fields[index] || !parse_color(value, color.rgb)) {
@@ -191,11 +219,15 @@ bool parse_descriptor(const std::string_view bytes, CandidateTheme& dark_theme,
             return false;
         }
     }
-    if (!version || std::find(colors.begin(), colors.end(), false) != colors.end() ||
-        std::find(opacities.begin(), opacities.end(), false) != opacities.end() ||
+    const auto complete = [](const auto& color_fields, const auto& opacity_fields) {
+        for (std::size_t index = 0; index < kRoles.size(); ++index)
+            if (index < kRequiredRoles ? !color_fields[index] || !opacity_fields[index]
+                                      : color_fields[index] != opacity_fields[index]) return false;
+        return true;
+    };
+    if (!version || !complete(colors, opacities) ||
         (version == 1 && has_light_fields) ||
-        (version == 2 && (std::find(light_colors.begin(), light_colors.end(), false) != light_colors.end() ||
-                          std::find(light_opacities.begin(), light_opacities.end(), false) != light_opacities.end()))) {
+        (version == 2 && !complete(light_colors, light_opacities))) {
         diagnostic = "candidate theme must define every semantic color and opacity";
         return false;
     }
@@ -233,7 +265,10 @@ std::optional<std::string_view> json_scalar(const std::string_view json,
 void apply_settings(const std::string_view json, CandidateTheme& theme,
                     const std::string_view prefix = {}) {
     for (const auto& role : kRoles) {
-        auto& value = theme.*(role.member);
+        const auto color_scalar = json_scalar(json, std::string(prefix) + std::string(role.name) + "_color");
+        const auto opacity_scalar = json_scalar(json, std::string(prefix) + std::string(role.name) + "_opacity");
+        if (role.extension && !color_scalar && !opacity_scalar) continue;
+        auto& value = role_color(theme, role);
         if (const auto scalar = json_scalar(json, std::string(prefix) + std::string(role.name) + "_color");
             scalar && scalar->size() == 9 && scalar->front() == '"' &&
             scalar->back() == '"') {

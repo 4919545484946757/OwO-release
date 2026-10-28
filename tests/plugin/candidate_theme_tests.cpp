@@ -202,6 +202,38 @@ int main(const int argc, char** argv) {
             }
         }
     }
+    const std::array<std::pair<std::string_view, std::optional<owo::plugin::CandidateThemeColor> owo::plugin::CandidateTheme::*>, 9> extensions{{
+        {"candidate_badge", &owo::plugin::CandidateTheme::candidate_badge},
+        {"selected_page", &owo::plugin::CandidateTheme::selected_page},
+        {"hover_block", &owo::plugin::CandidateTheme::hover_block},
+        {"pressed_block", &owo::plugin::CandidateTheme::pressed_block},
+        {"button_background", &owo::plugin::CandidateTheme::button_background},
+        {"button_border", &owo::plugin::CandidateTheme::button_border},
+        {"button_text", &owo::plugin::CandidateTheme::button_text},
+        {"secondary_text", &owo::plugin::CandidateTheme::secondary_text},
+        {"caret", &owo::plugin::CandidateTheme::caret},
+    }};
+    if (!write(settings, "{}")) return 29;
+    const auto inherited = owo::plugin::load_candidate_theme_resource(resource, settings);
+    for (const auto& [name, member] : extensions) if (inherited.theme.*member) return 30;
+    std::string extra = R"({"theme_mode":"system")";
+    for (std::size_t index = 0; index < extensions.size(); ++index) {
+        const auto name = std::string(extensions[index].first);
+        extra += ",\"" + name + "_color\":\"#40000" + std::to_string(index) + "\",\"" + name + "_opacity\":0.2";
+        extra += ",\"light_" + name + "_color\":\"#50000" + std::to_string(index) + "\",\"light_" + name + "_opacity\":0.6";
+    }
+    if (!write(settings, extra + "}")) return 31;
+    for (const bool mode : {false, true}) {
+        const auto configured = owo::plugin::load_candidate_theme_resource(resource, settings, mode);
+        if (!configured.active) return 32;
+        for (std::size_t index = 0; index < extensions.size(); ++index) {
+            const auto value = configured.theme.*extensions[index].second;
+            if (!value || value->rgb != (mode ? 0x500000U : 0x400000U) + index ||
+                std::abs(value->opacity - (mode ? 0.6F : 0.2F)) > 0.001F) return 33;
+        }
+    }
+    if (!write(resource, adaptive + "selected_page.color=#000000\n") ||
+        owo::plugin::load_candidate_theme_resource(resource).active) return 34;
     if (!write(resource, adaptive + "light.border.color=#000000\n") ||
         owo::plugin::load_candidate_theme_resource(resource).active) return 21;
     if (!write(resource, std::string(theme) + "light.border.color=#000000\n") ||

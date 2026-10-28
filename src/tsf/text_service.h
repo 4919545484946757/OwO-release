@@ -334,6 +334,14 @@ private:
     ID2D1SolidColorBrush* accent_brush_{nullptr};
     ID2D1SolidColorBrush* highlight_brush_{nullptr};
     ID2D1SolidColorBrush* strict_accent_brush_{nullptr};
+    ID2D1SolidColorBrush* candidate_badge_brush_{nullptr};
+    ID2D1SolidColorBrush* selected_page_brush_{nullptr};
+    ID2D1SolidColorBrush* hover_brush_{nullptr};
+    ID2D1SolidColorBrush* pressed_brush_{nullptr};
+    ID2D1SolidColorBrush* button_background_brush_{nullptr};
+    ID2D1SolidColorBrush* button_border_brush_{nullptr};
+    ID2D1SolidColorBrush* button_text_brush_{nullptr};
+    ID2D1SolidColorBrush* caret_brush_{nullptr};
     struct StagedCandidate {
         std::wstring text;
         std::wstring source_input;

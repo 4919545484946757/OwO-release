@@ -104,6 +104,11 @@ public sealed partial class MainPage
             }
             if (focusField is not null && _pluginConfigControls.TryGetValue(focusField, out var target))
                 DispatcherQueue.TryEnqueue(() => {
+                    if (_pluginConfigPageSelector is not null) {
+                        var pageId = _pluginSettings.Fields.First(field => field.Key == focusField).PageId;
+                        var page = _pluginSettings.Pages.FirstOrDefault(value => value.Id == pageId);
+                        if (page is not null) _pluginConfigPageSelector.SelectedItem = page;
+                    }
                     if (_pluginConfigExpanders.TryGetValue(focusField, out var expander))
                         expander.IsExpanded = true;
                     target.StartBringIntoView();
@@ -119,6 +124,26 @@ public sealed partial class MainPage
 
     private void AddPluginSettingFields()
     {
+        var pages = new Dictionary<string, StackPanel>(StringComparer.Ordinal);
+        ComboBox? pageSelector = null;
+        if (_pluginSettings!.Pages.Count != 0) {
+            pageSelector = new ComboBox {
+                Header = "配置页", ItemsSource = _pluginSettings.Pages,
+                DisplayMemberPath = nameof(PluginSettingPage.Title),
+                HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch,
+            };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(pageSelector, "PluginConfigPageSelector");
+            foreach (var page in _pluginSettings.Pages) {
+                var panel = new StackPanel { Spacing = 8 };
+                Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(panel, "PluginPage_" + page.Id);
+                pages[page.Id] = panel;
+            }
+            pageSelector.SelectionChanged += (_, _) => {
+                foreach (var page in pages)
+                    page.Value.Visibility = pageSelector.SelectedItem is PluginSettingPage selected && selected.Id == page.Key
+                        ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+            };
+        }
         var grouped = new HashSet<string>(StringComparer.Ordinal);
         foreach (var field in _pluginSettings!.Fields) {
             if (grouped.Contains(field.Key)) continue;
@@ -126,10 +151,19 @@ public sealed partial class MainPage
             if (field.Format == "color" && field.Key.EndsWith("_color", StringComparison.Ordinal)) {
                 var opacityKey = field.Key[..^"_color".Length] + "_opacity";
                 opacity = _pluginSettings.Fields.FirstOrDefault(value =>
-                    value.Key == opacityKey && value.Type is "integer" or "number");
+                    value.Key == opacityKey && value.PageId == field.PageId && value.Type is "integer" or "number");
                 if (opacity is not null) grouped.Add(opacity.Key);
             }
-            AddPluginSettingField(field, opacity);
+            AddPluginSettingField(field, opacity, pages.GetValueOrDefault(field.PageId));
+        }
+        if (pageSelector is not null) {
+            PluginConfigFields.Children.Add(pageSelector);
+            foreach (var panel in pages.Values) PluginConfigFields.Children.Add(panel);
+            pageSelector.SelectedItem = _pluginSettings.Pages.FirstOrDefault(page =>
+                page.Id == (_pluginConfigPageSelector?.SelectedItem as PluginSettingPage)?.Id) ?? _pluginSettings.Pages[0];
+            _pluginConfigPageSelector = pageSelector;
+        } else {
+            _pluginConfigPageSelector = null;
         }
     }
 
@@ -186,16 +220,19 @@ public sealed partial class MainPage
                 ? value.GetString() ?? "" : "" };
         }
         control.VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center;
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(control, "PluginField_" + field.Key);
         ObserveAutoSave(control, plugin: true);
         _pluginConfigControls[field.Key] = control;
         return control;
     }
 
     private void AddPluginSettingField(PluginSettingField field,
-                                       PluginSettingField? opacityField = null)
+                                       PluginSettingField? opacityField = null,
+                                       StackPanel? pagePanel = null)
     {
         var firstColorField = field.Format == "color" &&
-            !_pluginConfigControls.Values.Any(value => value is ColorPicker);
+            (pagePanel is not null ? !pagePanel.Children.OfType<Border>().Any(card => card.Child is Expander)
+                                  : !_pluginConfigControls.Values.Any(value => value is ColorPicker));
         var text = PluginSettingText(field);
         var grid = new Grid { ColumnSpacing = 24 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new Microsoft.UI.Xaml.GridLength(1,
@@ -257,7 +294,8 @@ public sealed partial class MainPage
                 "CardBackgroundFillColorDefaultBrush"],
             BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current.Resources[
                 "CardStrokeColorDefaultBrush"] };
-        PluginConfigFields.Children.Add(card);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(card, "PluginCard_" + field.Key);
+        (pagePanel ?? PluginConfigFields).Children.Add(card);
     }
 
     private Dictionary<string, object?> CapturePluginValues()

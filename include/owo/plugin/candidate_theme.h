@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 
 namespace owo::plugin {
@@ -20,6 +21,16 @@ struct CandidateTheme {
     CandidateThemeColor candidate_text{0xffffff, 0.96F};
     CandidateThemeColor candidate_block{0x8ab4f8, 0.18F};
     CandidateThemeColor candidate_number{0x8ab4f8, 1.0F};
+    // Optional extensions inherit the original semantic colors for old themes.
+    std::optional<CandidateThemeColor> candidate_badge;
+    std::optional<CandidateThemeColor> selected_page;
+    std::optional<CandidateThemeColor> hover_block;
+    std::optional<CandidateThemeColor> pressed_block;
+    std::optional<CandidateThemeColor> button_background;
+    std::optional<CandidateThemeColor> button_border;
+    std::optional<CandidateThemeColor> button_text;
+    std::optional<CandidateThemeColor> secondary_text;
+    std::optional<CandidateThemeColor> caret;
     bool background_blur_enabled{};
     float background_blur_radius{12.0F};
     bool shadow_enabled{};

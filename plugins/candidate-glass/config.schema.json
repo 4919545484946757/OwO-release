@@ -1,46 +1,635 @@
 {
   "title": "OwO 亚克力候选框",
-  "description": "分别配置明暗配色，默认跟随 Windows 应用主题。旧配置保留为深色配色，模糊与阴影形状两种主题共用。",
+  "description": "通过配置页选项框分别编辑浅色、深色配色；选页不切换实际主题。颜色与透明度独立保存，公共效果两套主题共用。",
   "type": "object",
   "properties": {
-    "theme_mode": {"type":"string","title":"候选框主题","description":"可跟随 Windows 应用明暗模式，或固定使用浅色、深色。","enum":["system","light","dark"],"enumNames":["跟随系统","浅色","深色"],"default":"system"},
-    "background_blur_enabled": {"type":"boolean","title":"高斯模糊背景","description":"采样候选框后方画面并进行本地高斯模糊。","default":true},
-    "background_blur_radius": {"type":"number","title":"高斯模糊半径","description":"只作用于候选框下方画面；数值越大背景越柔和。","default":4,"minimum":0,"maximum":24,"multipleOf":1},
-    "background_color": {"type":"string","format":"color","title":"深色 · 背景颜色","description":"候选框主体背景；已有自定义值保持不变。","default":"#101827"},
-    "background_opacity": {"type":"number","title":"背景透明度","description":"关闭模糊时控制透明度；开启模糊时，0 为纯模糊背景，1 为纯背景色。","default":0.9,"minimum":0,"maximum":1,"multipleOf":0.05},
-    "border_color": {"type":"string","format":"color","title":"深色 · 边框颜色","default":"#88AACC"},
-    "border_opacity": {"type":"number","title":"边框透明度","default":0.35,"minimum":0,"maximum":1,"multipleOf":0.05},
-    "divider_color": {"type":"string","format":"color","title":"深色 · 分割线颜色","default":"#FFFFFF"},
-    "divider_opacity": {"type":"number","title":"分割线透明度","default":0.16,"minimum":0,"maximum":1,"multipleOf":0.05},
-    "pinyin_text_color": {"type":"string","format":"color","title":"深色 · 拼音文字颜色","default":"#9CCBFF"},
-    "pinyin_text_opacity": {"type":"number","title":"拼音文字透明度","default":1,"minimum":0,"maximum":1,"multipleOf":0.05},
-    "candidate_text_color": {"type":"string","format":"color","title":"深色 · 候选文字颜色","default":"#F7FAFF"},
-    "candidate_text_opacity": {"type":"number","title":"候选文字透明度","default":0.96,"minimum":0,"maximum":1,"multipleOf":0.05},
-    "candidate_block_color": {"type":"string","format":"color","title":"深色 · 候选块颜色","description":"首候选、悬停和按下状态的背景。","default":"#78AEFF"},
-    "candidate_block_opacity": {"type":"number","title":"候选块透明度","default":0.22,"minimum":0,"maximum":1,"multipleOf":0.05},
-    "candidate_number_color": {"type":"string","format":"color","title":"深色 · 候选序号颜色","default":"#B9D9FF"},
-    "candidate_number_opacity": {"type":"number","title":"候选序号透明度","default":1,"minimum":0,"maximum":1,"multipleOf":0.05},
-    "shadow_enabled": {"type":"boolean","title":"候选栏阴影","description":"在候选栏后方显示独立柔化阴影。","default":false},
-    "shadow_color": {"type":"string","format":"color","title":"深色 · 阴影颜色","default":"#000000"},
-    "shadow_opacity": {"type":"number","title":"阴影透明度","default":0.32,"minimum":0,"maximum":1,"multipleOf":0.05},
-    "shadow_blur_radius": {"type":"number","title":"阴影模糊半径","default":14,"minimum":1,"maximum":32,"multipleOf":1},
-    "shadow_offset_x": {"type":"number","title":"阴影水平偏移","default":0,"minimum":-16,"maximum":16,"multipleOf":1},
-    "shadow_offset_y": {"type":"number","title":"阴影垂直偏移","default":4,"minimum":-16,"maximum":16,"multipleOf":1},
-    "light_background_color": {"type":"string","format":"color","title":"浅色 · 背景颜色","default":"#F5F5F5"},
-    "light_background_opacity": {"type":"number","title":"背景透明度","default":0.9,"minimum":0,"maximum":1,"multipleOf":0.05},
-    "light_border_color": {"type":"string","format":"color","title":"浅色 · 边框颜色","default":"#686868"},
-    "light_border_opacity": {"type":"number","title":"边框透明度","default":0.22,"minimum":0,"maximum":1,"multipleOf":0.01},
-    "light_divider_color": {"type":"string","format":"color","title":"浅色 · 分割线颜色","default":"#404040"},
-    "light_divider_opacity": {"type":"number","title":"分割线透明度","default":0.12,"minimum":0,"maximum":1,"multipleOf":0.01},
-    "light_pinyin_text_color": {"type":"string","format":"color","title":"浅色 · 拼音文字颜色","default":"#303030"},
-    "light_pinyin_text_opacity": {"type":"number","title":"拼音文字透明度","default":1,"minimum":0,"maximum":1,"multipleOf":0.05},
-    "light_candidate_text_color": {"type":"string","format":"color","title":"浅色 · 候选文字颜色","default":"#202020"},
-    "light_candidate_text_opacity": {"type":"number","title":"候选文字透明度","default":0.96,"minimum":0,"maximum":1,"multipleOf":0.01},
-    "light_candidate_block_color": {"type":"string","format":"color","title":"浅色 · 候选块颜色","default":"#000000"},
-    "light_candidate_block_opacity": {"type":"number","title":"候选块透明度","default":0.05,"minimum":0,"maximum":1,"multipleOf":0.01},
-    "light_candidate_number_color": {"type":"string","format":"color","title":"浅色 · 候选序号颜色","default":"#303030"},
-    "light_candidate_number_opacity": {"type":"number","title":"候选序号透明度","default":1,"minimum":0,"maximum":1,"multipleOf":0.05},
-    "light_shadow_color": {"type":"string","format":"color","title":"浅色 · 阴影颜色","default":"#000000"},
-    "light_shadow_opacity": {"type":"number","title":"阴影透明度","default":0.18,"minimum":0,"maximum":1,"multipleOf":0.01}
-  }
+    "theme_mode": {
+      "type": "string",
+      "title": "候选框主题",
+      "description": "可跟随 Windows 应用明暗模式，或固定使用浅色、深色。",
+      "enum": [
+        "system",
+        "light",
+        "dark"
+      ],
+      "enumNames": [
+        "跟随系统",
+        "浅色",
+        "深色"
+      ],
+      "default": "system"
+    },
+    "background_blur_enabled": {
+      "type": "boolean",
+      "title": "高斯模糊背景",
+      "description": "采样候选框后方画面并进行本地高斯模糊。",
+      "default": true,
+      "x-page": "common"
+    },
+    "background_blur_radius": {
+      "type": "number",
+      "title": "高斯模糊半径",
+      "description": "只作用于候选框下方画面；数值越大背景越柔和。",
+      "default": 4,
+      "minimum": 0,
+      "maximum": 24,
+      "multipleOf": 1,
+      "x-page": "common"
+    },
+    "background_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 背景颜色",
+      "description": "候选框主体背景；已有自定义值保持不变。",
+      "default": "#101827",
+      "x-page": "dark"
+    },
+    "background_opacity": {
+      "type": "number",
+      "title": "背景透明度",
+      "description": "关闭模糊时控制透明度；开启模糊时，0 为纯模糊背景，1 为纯背景色。",
+      "default": 0.9,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.05,
+      "x-page": "dark"
+    },
+    "border_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 边框颜色",
+      "default": "#88AACC",
+      "x-page": "dark"
+    },
+    "border_opacity": {
+      "type": "number",
+      "title": "边框透明度",
+      "default": 0.35,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.05,
+      "x-page": "dark"
+    },
+    "divider_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 分割线颜色",
+      "default": "#FFFFFF",
+      "x-page": "dark"
+    },
+    "divider_opacity": {
+      "type": "number",
+      "title": "分割线透明度",
+      "default": 0.16,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.05,
+      "x-page": "dark"
+    },
+    "pinyin_text_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 拼音文字颜色",
+      "default": "#9CCBFF",
+      "x-page": "dark"
+    },
+    "pinyin_text_opacity": {
+      "type": "number",
+      "title": "拼音文字透明度",
+      "default": 1,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.05,
+      "x-page": "dark"
+    },
+    "candidate_text_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 候选文字颜色",
+      "default": "#F7FAFF",
+      "x-page": "dark"
+    },
+    "candidate_text_opacity": {
+      "type": "number",
+      "title": "候选文字透明度",
+      "default": 0.96,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.05,
+      "x-page": "dark"
+    },
+    "candidate_block_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 候选块颜色",
+      "description": "首候选、悬停和按下状态的背景。",
+      "default": "#78AEFF",
+      "x-page": "dark"
+    },
+    "candidate_block_opacity": {
+      "type": "number",
+      "title": "候选块透明度",
+      "default": 0.22,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.05,
+      "x-page": "dark"
+    },
+    "candidate_number_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 候选序号颜色",
+      "default": "#B9D9FF",
+      "x-page": "dark"
+    },
+    "candidate_number_opacity": {
+      "type": "number",
+      "title": "候选序号透明度",
+      "default": 1,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.05,
+      "x-page": "dark"
+    },
+    "shadow_enabled": {
+      "type": "boolean",
+      "title": "候选栏阴影",
+      "description": "在候选栏后方显示独立柔化阴影。",
+      "default": false,
+      "x-page": "common"
+    },
+    "shadow_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 阴影颜色",
+      "default": "#000000",
+      "x-page": "dark"
+    },
+    "shadow_opacity": {
+      "type": "number",
+      "title": "阴影透明度",
+      "default": 0.32,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.05,
+      "x-page": "dark"
+    },
+    "shadow_blur_radius": {
+      "type": "number",
+      "title": "阴影模糊半径",
+      "default": 14,
+      "minimum": 1,
+      "maximum": 32,
+      "multipleOf": 1,
+      "x-page": "common"
+    },
+    "shadow_offset_x": {
+      "type": "number",
+      "title": "阴影水平偏移",
+      "default": 0,
+      "minimum": -16,
+      "maximum": 16,
+      "multipleOf": 1,
+      "x-page": "common"
+    },
+    "shadow_offset_y": {
+      "type": "number",
+      "title": "阴影垂直偏移",
+      "default": 4,
+      "minimum": -16,
+      "maximum": 16,
+      "multipleOf": 1,
+      "x-page": "common"
+    },
+    "light_background_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 背景颜色",
+      "default": "#F5F5F5",
+      "x-page": "light"
+    },
+    "light_background_opacity": {
+      "type": "number",
+      "title": "背景透明度",
+      "default": 0.9,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.05,
+      "x-page": "light"
+    },
+    "light_border_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 边框颜色",
+      "default": "#686868",
+      "x-page": "light"
+    },
+    "light_border_opacity": {
+      "type": "number",
+      "title": "边框透明度",
+      "default": 0.22,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "light_divider_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 分割线颜色",
+      "default": "#404040",
+      "x-page": "light"
+    },
+    "light_divider_opacity": {
+      "type": "number",
+      "title": "分割线透明度",
+      "default": 0.12,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "light_pinyin_text_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 拼音文字颜色",
+      "default": "#303030",
+      "x-page": "light"
+    },
+    "light_pinyin_text_opacity": {
+      "type": "number",
+      "title": "拼音文字透明度",
+      "default": 1,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.05,
+      "x-page": "light"
+    },
+    "light_candidate_text_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 候选文字颜色",
+      "default": "#202020",
+      "x-page": "light"
+    },
+    "light_candidate_text_opacity": {
+      "type": "number",
+      "title": "候选文字透明度",
+      "default": 0.96,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "light_candidate_block_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 候选块颜色",
+      "default": "#000000",
+      "x-page": "light"
+    },
+    "light_candidate_block_opacity": {
+      "type": "number",
+      "title": "候选块透明度",
+      "default": 0.05,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "light_candidate_number_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 候选序号颜色",
+      "default": "#303030",
+      "x-page": "light"
+    },
+    "light_candidate_number_opacity": {
+      "type": "number",
+      "title": "候选序号透明度",
+      "default": 1,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.05,
+      "x-page": "light"
+    },
+    "light_shadow_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 阴影颜色",
+      "default": "#000000",
+      "x-page": "light"
+    },
+    "light_shadow_opacity": {
+      "type": "number",
+      "title": "阴影透明度",
+      "default": 0.18,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "candidate_badge_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 序号底块颜色",
+      "default": "#88AACC",
+      "x-page": "dark"
+    },
+    "candidate_badge_opacity": {
+      "type": "number",
+      "title": "序号底块透明度",
+      "default": 0.35,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "dark"
+    },
+    "light_candidate_badge_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 序号底块颜色",
+      "default": "#686868",
+      "x-page": "light"
+    },
+    "light_candidate_badge_opacity": {
+      "type": "number",
+      "title": "序号底块透明度",
+      "default": 0.22,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "selected_page_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 展开选中页背景颜色",
+      "default": "#78AEFF",
+      "x-page": "dark"
+    },
+    "selected_page_opacity": {
+      "type": "number",
+      "title": "展开选中页背景透明度",
+      "default": 0.154,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "dark"
+    },
+    "light_selected_page_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 展开选中页背景颜色",
+      "default": "#000000",
+      "x-page": "light"
+    },
+    "light_selected_page_opacity": {
+      "type": "number",
+      "title": "展开选中页背景透明度",
+      "default": 0.035,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "hover_block_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 候选悬停背景颜色",
+      "default": "#78AEFF",
+      "x-page": "dark"
+    },
+    "hover_block_opacity": {
+      "type": "number",
+      "title": "候选悬停背景透明度",
+      "default": 0.22,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "dark"
+    },
+    "light_hover_block_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 候选悬停背景颜色",
+      "default": "#000000",
+      "x-page": "light"
+    },
+    "light_hover_block_opacity": {
+      "type": "number",
+      "title": "候选悬停背景透明度",
+      "default": 0.05,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "pressed_block_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 候选按下背景颜色",
+      "default": "#78AEFF",
+      "x-page": "dark"
+    },
+    "pressed_block_opacity": {
+      "type": "number",
+      "title": "候选按下背景透明度",
+      "default": 0.22,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "dark"
+    },
+    "light_pressed_block_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 候选按下背景颜色",
+      "default": "#000000",
+      "x-page": "light"
+    },
+    "light_pressed_block_opacity": {
+      "type": "number",
+      "title": "候选按下背景透明度",
+      "default": 0.05,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "button_background_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 控制按钮背景颜色",
+      "default": "#000000",
+      "x-page": "dark"
+    },
+    "button_background_opacity": {
+      "type": "number",
+      "title": "控制按钮背景透明度",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "dark"
+    },
+    "light_button_background_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 控制按钮背景颜色",
+      "default": "#FFFFFF",
+      "x-page": "light"
+    },
+    "light_button_background_opacity": {
+      "type": "number",
+      "title": "控制按钮背景透明度",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "button_border_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 控制按钮边框颜色",
+      "default": "#88AACC",
+      "x-page": "dark"
+    },
+    "button_border_opacity": {
+      "type": "number",
+      "title": "控制按钮边框透明度",
+      "default": 0.35,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "dark"
+    },
+    "light_button_border_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 控制按钮边框颜色",
+      "default": "#686868",
+      "x-page": "light"
+    },
+    "light_button_border_opacity": {
+      "type": "number",
+      "title": "控制按钮边框透明度",
+      "default": 0.22,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "button_text_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 控制按钮文字颜色",
+      "default": "#F7FAFF",
+      "x-page": "dark"
+    },
+    "button_text_opacity": {
+      "type": "number",
+      "title": "控制按钮文字透明度",
+      "default": 0.96,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "dark"
+    },
+    "light_button_text_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 控制按钮文字颜色",
+      "default": "#202020",
+      "x-page": "light"
+    },
+    "light_button_text_opacity": {
+      "type": "number",
+      "title": "控制按钮文字透明度",
+      "default": 0.96,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "secondary_text_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 状态与次要文字颜色",
+      "default": "#F7FAFF",
+      "x-page": "dark"
+    },
+    "secondary_text_opacity": {
+      "type": "number",
+      "title": "状态与次要文字透明度",
+      "default": 0.6144,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "dark"
+    },
+    "light_secondary_text_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 状态与次要文字颜色",
+      "default": "#202020",
+      "x-page": "light"
+    },
+    "light_secondary_text_opacity": {
+      "type": "number",
+      "title": "状态与次要文字透明度",
+      "default": 0.6144,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    },
+    "caret_color": {
+      "type": "string",
+      "format": "color",
+      "title": "深色 · 拼音光标颜色",
+      "default": "#9CCBFF",
+      "x-page": "dark"
+    },
+    "caret_opacity": {
+      "type": "number",
+      "title": "拼音光标透明度",
+      "default": 1,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "dark"
+    },
+    "light_caret_color": {
+      "type": "string",
+      "format": "color",
+      "title": "浅色 · 拼音光标颜色",
+      "default": "#303030",
+      "x-page": "light"
+    },
+    "light_caret_opacity": {
+      "type": "number",
+      "title": "拼音光标透明度",
+      "default": 1,
+      "minimum": 0,
+      "maximum": 1,
+      "multipleOf": 0.01,
+      "x-page": "light"
+    }
+  },
+  "x-pages": [
+    {
+      "id": "common",
+      "title": "公共效果"
+    },
+    {
+      "id": "light",
+      "title": "浅色配色"
+    },
+    {
+      "id": "dark",
+      "title": "深色配色"
+    }
+  ]
 }

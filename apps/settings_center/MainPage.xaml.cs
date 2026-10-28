@@ -16,6 +16,7 @@ public sealed partial class MainPage : Page
     private readonly Dictionary<string, PluginVersionSnapshot> _pluginPages = [];
     private readonly Dictionary<string, Microsoft.UI.Xaml.FrameworkElement> _pluginConfigControls = [];
     private readonly Dictionary<string, Expander> _pluginConfigExpanders = [];
+    private ComboBox? _pluginConfigPageSelector;
     private NavigationViewItemHeader? _pluginPagesHeader;
     private PluginSettingsModel? _pluginSettings;
     private string _currentPage = "schemes";

@@ -1699,8 +1699,8 @@ HRESULT TextService::ensure_device_resources(SIZE surface_size) {
     if (SUCCEEDED(result))
         result = create_brush(theme_color(candidate_theme_.candidate_text), &text_brush_);
     if (SUCCEEDED(result))
-        result = create_brush(theme_color({candidate_theme_.candidate_text.rgb,
-            candidate_theme_.candidate_text.opacity * 0.64F}), &secondary_text_brush_);
+        result = create_brush(theme_color(candidate_theme_.secondary_text.value_or(plugin::CandidateThemeColor{
+            candidate_theme_.candidate_text.rgb, candidate_theme_.candidate_text.opacity * 0.64F})), &secondary_text_brush_);
     if (SUCCEEDED(result))
         result = create_brush(theme_color(candidate_theme_.pinyin_text), &accent_brush_);
     if (SUCCEEDED(result))
@@ -1708,11 +1708,32 @@ HRESULT TextService::ensure_device_resources(SIZE surface_size) {
     if (SUCCEEDED(result))
         result = create_brush(theme_color(candidate_theme_.candidate_number),
                               &strict_accent_brush_);
+    const auto extension_brush = [&](const auto& color, const plugin::CandidateThemeColor fallback,
+                                      ID2D1SolidColorBrush** brush) {
+        if (SUCCEEDED(result)) result = create_brush(theme_color(color.value_or(fallback)), brush);
+    };
+    extension_brush(candidate_theme_.candidate_badge, candidate_theme_.border, &candidate_badge_brush_);
+    extension_brush(candidate_theme_.selected_page,
+        {candidate_theme_.candidate_block.rgb, candidate_theme_.candidate_block.opacity * 0.70F}, &selected_page_brush_);
+    extension_brush(candidate_theme_.hover_block, candidate_theme_.candidate_block, &hover_brush_);
+    extension_brush(candidate_theme_.pressed_block, candidate_theme_.candidate_block, &pressed_brush_);
+    extension_brush(candidate_theme_.button_background, {candidate_theme_.candidate_block.rgb, 0}, &button_background_brush_);
+    extension_brush(candidate_theme_.button_border, candidate_theme_.border, &button_border_brush_);
+    extension_brush(candidate_theme_.button_text, candidate_theme_.candidate_text, &button_text_brush_);
+    extension_brush(candidate_theme_.caret, candidate_theme_.pinyin_text, &caret_brush_);
     if (FAILED(result)) discard_device_resources();
     return result;
 }
 
 void TextService::discard_device_resources() noexcept {
+    release_interface(candidate_badge_brush_);
+    release_interface(selected_page_brush_);
+    release_interface(hover_brush_);
+    release_interface(pressed_brush_);
+    release_interface(button_background_brush_);
+    release_interface(button_border_brush_);
+    release_interface(button_text_brush_);
+    release_interface(caret_brush_);
     release_interface(strict_accent_brush_);
     release_interface(highlight_brush_);
     release_interface(accent_brush_);
@@ -2434,7 +2455,7 @@ bool TextService::render_candidate_window() {
                             pill.rect.left + 6.0F + badge_width,
                             badge_center + 11.0F),
                 5.0F, 5.0F};
-            render_target_->FillRoundedRectangle(badge, mode_border_brush);
+            render_target_->FillRoundedRectangle(badge, candidate_badge_brush_);
             render_target_->DrawTextW(
                 item.code.data(), static_cast<UINT32>(item.code.size()),
                 label_text_format_, badge.rect, mode_accent_brush,
@@ -2482,12 +2503,12 @@ bool TextService::render_candidate_window() {
             const bool hovered = enabled && target_matches(hovered_target_, target);
             const bool pressed = enabled && target_matches(pressed_target_, target);
             const D2D1_ROUNDED_RECT pill{bounds, 7.0F, 7.0F};
-            if (selected || hovered || pressed)
-                render_target_->FillRoundedRectangle(pill, mode_highlight_brush);
-            render_target_->DrawRoundedRectangle(pill, mode_border_brush, 1.0F);
+            render_target_->FillRoundedRectangle(pill, pressed ? pressed_brush_ : hovered ? hover_brush_ :
+                selected ? mode_highlight_brush : button_background_brush_);
+            render_target_->DrawRoundedRectangle(pill, button_border_brush_, 1.0F);
             render_target_->DrawTextW(
                 label.data(), static_cast<UINT32>(label.size()), label_text_format_,
-                bounds, enabled ? (hovered || pressed ? mode_accent_brush : text_brush_)
+                bounds, enabled ? (candidate_theme_.button_text ? button_text_brush_ : hovered || pressed ? mode_accent_brush : text_brush_)
                                 : secondary_text_brush_,
                 D2D1_DRAW_TEXT_OPTIONS_CLIP);
             if (enabled) add_hit(bounds, target);
@@ -2587,7 +2608,7 @@ bool TextService::render_candidate_window() {
             const bool hovered = target_matches(hovered_target_, target);
             const bool pressed = target_matches(pressed_target_, target);
             if (hovered || pressed)
-                render_target_->FillRectangle(bounds, mode_highlight_brush);
+                render_target_->FillRectangle(bounds, pressed ? pressed_brush_ : hover_brush_);
             const auto glyph = unicode_scalar(category.items[index].codepoint);
             render_target_->DrawTextW(
                 glyph.data(), static_cast<UINT32>(glyph.size()),
@@ -2740,7 +2761,7 @@ bool TextService::render_candidate_window() {
             render_target_->DrawLine(
                 D2D1::Point2F(caret_x, 7.0F),
                 D2D1::Point2F(caret_x, kHeaderHeightDip - 7.0F),
-                mode_accent_brush, 1.5F);
+                caret_brush_, 1.5F);
         }
         preview_layout->Release();
     } else {
@@ -2758,13 +2779,12 @@ bool TextService::render_candidate_window() {
         const bool hovered = hovered_target_.has_value() && *hovered_target_ == target;
         const bool pressed = pressed_target_.has_value() && *pressed_target_ == target;
         const D2D1_ROUNDED_RECT button{bounds, 7.0F, 7.0F};
-        if (hovered || pressed)
-            render_target_->FillRoundedRectangle(button, mode_highlight_brush);
-        render_target_->DrawRoundedRectangle(button, mode_border_brush, 1.0F);
+        render_target_->FillRoundedRectangle(button, pressed ? pressed_brush_ : hovered ? hover_brush_ : button_background_brush_);
+        render_target_->DrawRoundedRectangle(button, button_border_brush_, 1.0F);
         constexpr std::wstring_view label = L"Ω";
         render_target_->DrawTextW(
             label.data(), static_cast<UINT32>(label.size()), label_text_format_,
-            bounds, hovered || pressed ? mode_accent_brush : text_brush_,
+            bounds, candidate_theme_.button_text ? button_text_brush_ : hovered || pressed ? mode_accent_brush : text_brush_,
             D2D1_DRAW_TEXT_OPTIONS_CLIP);
         hit_regions_.push_back({dip_rect_to_pixels(bounds, dpi), target});
     }
@@ -2793,10 +2813,11 @@ bool TextService::render_candidate_window() {
         const auto page_size = std::max<std::size_t>(1, candidate_page_width());
         const bool active_page = !candidates_expanded_ || index / page_size == expanded_pages_.selected;
         if ((active_page && index % page_size == 0) || hovered || pressed) {
-            const auto opacity = mode_highlight_brush->GetOpacity();
-            mode_highlight_brush->SetOpacity(opacity * candidate_highlight_scale(hovered, pressed));
-            render_target_->FillRoundedRectangle(pill, mode_highlight_brush);
-            mode_highlight_brush->SetOpacity(opacity);
+            auto* brush = pressed ? pressed_brush_ : hovered ? hover_brush_ : mode_highlight_brush;
+            const auto opacity = brush->GetOpacity();
+            brush->SetOpacity(opacity * candidate_highlight_scale(hovered, pressed));
+            render_target_->FillRoundedRectangle(pill, brush);
+            brush->SetOpacity(opacity);
         }
         if (hovered || pressed)
             render_target_->DrawRoundedRectangle(pill, mode_accent_brush, 1.0F);
@@ -2806,7 +2827,7 @@ bool TextService::render_candidate_window() {
             D2D1::RectF(bounds.left + 6.0F, badge_center - 11.0F,
                         bounds.left + 26.0F, badge_center + 11.0F),
             5.0F, 5.0F};
-        render_target_->FillRoundedRectangle(badge, mode_border_brush);
+        render_target_->FillRoundedRectangle(badge, candidate_badge_brush_);
         const std::wstring label = std::to_wstring(candidates_expanded_ ? index % page_size + 1 : index + 1);
         render_target_->DrawTextW(label.data(), static_cast<UINT32>(label.size()),
                                   label_text_format_, badge.rect, active_page ? candidate_number_brush : secondary_text_brush_,
@@ -2920,10 +2941,7 @@ bool TextService::render_candidate_window() {
             const auto bounds = D2D1::RectF(kHorizontalPaddingDip - 3.0F, top - 2.0F,
                                            candidate_right + 3.0F, top + row_height + 2.0F);
             if (row == expanded_pages_.selected) {
-                const auto opacity = mode_highlight_brush->GetOpacity();
-                mode_highlight_brush->SetOpacity(opacity * 0.70F);
-                render_target_->FillRoundedRectangle(D2D1::RoundedRect(bounds, 7.0F, 7.0F), mode_highlight_brush);
-                mode_highlight_brush->SetOpacity(opacity);
+                render_target_->FillRoundedRectangle(D2D1::RoundedRect(bounds, 7.0F, 7.0F), selected_page_brush_);
             }
             add_hit_region(bounds, {HitKind::candidate_page, row});
             draw_candidate_row(begin, end, top, row_height);
@@ -2946,12 +2964,11 @@ bool TextService::render_candidate_window() {
         const D2D1_ROUNDED_RECT button{bounds, 7.0F, 7.0F};
         const bool hovered = enabled && target_matches(hovered_target_, target);
         const bool pressed = enabled && target_matches(pressed_target_, target);
-        if (hovered || pressed)
-            render_target_->FillRoundedRectangle(button, mode_highlight_brush);
-        render_target_->DrawRoundedRectangle(button, mode_border_brush, 1.0F);
+        render_target_->FillRoundedRectangle(button, pressed ? pressed_brush_ : hovered ? hover_brush_ : button_background_brush_);
+        render_target_->DrawRoundedRectangle(button, button_border_brush_, 1.0F);
         render_target_->DrawTextW(
             label.data(), static_cast<UINT32>(label.size()), label_text_format_, bounds,
-            enabled ? (hovered || pressed ? mode_accent_brush : text_brush_)
+            enabled ? (candidate_theme_.button_text ? button_text_brush_ : hovered || pressed ? mode_accent_brush : text_brush_)
                     : secondary_text_brush_,
             D2D1_DRAW_TEXT_OPTIONS_CLIP);
         if (enabled) add_hit_region(bounds, target);

@@ -1,4 +1,6 @@
 #include "text_service.h"
+#include <d2d1.h>
+#include <cmath>
 #include <iostream>
 #include <limits>
 
@@ -114,6 +116,15 @@ struct ExpandedCandidateTestAccess {
         // desktop pixels or contacting Core. The reserved canvas must stay clear
         // on both axes, including when stale expanded data exceeds one page.
         if (FAILED(service->initialize_windows())) return 24;
+        service->candidate_theme_.candidate_badge = {0x123456, 0.21F};
+        service->candidate_theme_.selected_page = {0x234567, 0.22F};
+        service->candidate_theme_.hover_block = {0x345678, 0.23F};
+        service->candidate_theme_.pressed_block = {0x456789, 0.24F};
+        service->candidate_theme_.button_background = {0x56789a, 0.25F};
+        service->candidate_theme_.button_border = {0x6789ab, 0.26F};
+        service->candidate_theme_.button_text = {0x789abc, 0.27F};
+        service->candidate_theme_.secondary_text = {0x89abcd, 0.28F};
+        service->candidate_theme_.caret = {0x9abcde, 0.29F};
         service->input_buffer_ = L"nihao";
         service->candidate_present_geometry_valid_ = true;
         service->candidate_present_position_ = {-32000, -32000};
@@ -131,6 +142,22 @@ struct ExpandedCandidateTestAccess {
                                service->candidate_present_size_.cy;
             if (blur) service->blurred_candidate_background_.assign(count, 0xff204060U);
             if (!service->render_candidate_window()) return 25;
+            for (const auto& [brush, expected] : {
+                std::pair{service->candidate_badge_brush_, *service->candidate_theme_.candidate_badge},
+                std::pair{service->selected_page_brush_, *service->candidate_theme_.selected_page},
+                std::pair{service->hover_brush_, *service->candidate_theme_.hover_block},
+                std::pair{service->pressed_brush_, *service->candidate_theme_.pressed_block},
+                std::pair{service->button_background_brush_, *service->candidate_theme_.button_background},
+                std::pair{service->button_border_brush_, *service->candidate_theme_.button_border},
+                std::pair{service->button_text_brush_, *service->candidate_theme_.button_text},
+                std::pair{service->secondary_text_brush_, *service->candidate_theme_.secondary_text},
+                std::pair{service->caret_brush_, *service->candidate_theme_.caret}}) {
+                const auto color = brush->GetColor();
+                if (std::abs(color.r * 255 - ((expected.rgb >> 16) & 255)) > 0.01F ||
+                    std::abs(color.g * 255 - ((expected.rgb >> 8) & 255)) > 0.01F ||
+                    std::abs(color.b * 255 - (expected.rgb & 255)) > 0.01F ||
+                    std::abs(color.a - expected.opacity) > 0.001F) return 28;
+            }
             const auto* pixels = static_cast<const std::uint32_t*>(service->layered_surface_pixels_);
             bool content = false;
             for (LONG y = 0; y < service->layered_surface_size_.cy; ++y)
