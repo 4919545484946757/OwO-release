@@ -71,6 +71,8 @@ Agent 返回的自然语言只用于显示，控制行为必须使用结构化�
 
 开发调试可使用独立的 `owo-dev.cmd`：支持隔离候选回放、插件服务调用、输入方案与模型测试。它默认不进入发行包、不连接日常 Core；完整命令和权限边界见[开发 CLI](docs/developer-cli.md)。
 
+批量拼音与候选质量评测支持 JSONL/TSV、首选/首屏/Top-K/MRR、分割与耗时统计、失败集回放和版本报告对照，见[CLI 用户手册](docs/cli-user.md)与[AI/CI 接口手册](docs/cli-ai.md)。
+
 需要 Visual Studio 2022 Build Tools、MSVC x64、CMake 3.25+、.NET 10 SDK 和 Windows 11 SDK；Setup 打包另需 Inno Setup 6/7（可通过 `-CompilerPath` 指定编译器）。
 
 ```powershell

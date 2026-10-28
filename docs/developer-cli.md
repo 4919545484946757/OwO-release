@@ -2,6 +2,9 @@
 
 入口是项目根目录 `owo-dev.cmd`，可从任意工作目录调用。原生程序位于 `build/windows-developer/Release/owo_dev_cli.exe`。Windows 11 x64 为当前验证平台；开发者需要 MSVC/CMake，不需要先注册 TSF 或安装 OwO。
 
+批量拼音/候选质量评测新增 `input batch`、JSONL/TSV 数据集、质量门槛与报告对照。
+完整工作流见[用户版手册](cli-user.md)，机器接口与指标定义见[AI/CI 版手册](cli-ai.md)。
+
 ## 开发模式与数据边界
 
 - 只有显式开启 `OWO_BUILD_DEVELOPER_TOOLS=ON` 的 `windows-developer` 预设编译此程序；默认发行构建不产生它，发行包文件白名单也不包含它。
@@ -54,7 +57,7 @@ D:\0program\OwO\owo-dev.cmd --dev --root D:\0program\OwO\build\cli-manual input 
 
 内置拼音/编码测试限 256 字节；插件方案使用其自身编码及最多 16384 字节的契约，不被转换为拼音。`input parse` 专门检查全拼；插件方案用 `scheme` 命令。
 
-这里不接入日常 ModelHost：基础候选/用户频率可复现，真实 libime 排序在独立 `model rank` 命令中检查。`--context` 只使用开发者显式给出的合成文本，不读取应用。
+这里不接入日常 ModelHost：单条查询的基础候选/用户频率可复现，真实 libime 可用独立 `model rank` 检查，或用 `input batch --model-backend libime` 在私有 Core/ModelHost 链路评测。`--context` 只使用开发者显式给出的合成文本，不读取应用。
 
 ### 回放脚本
 

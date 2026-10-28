@@ -1,8 +1,10 @@
 #ifndef OWO_DEVELOPER_TOOLS
 #error This program is available only in an explicit developer-tools build.
 #endif
+#include "batch_evaluation.h"
 #include "owo/agent/agent_protocol.h"
 #include "owo/model/model_backend.h"
+#include "owo/model/model_protocol.h"
 #include "owo/config/config_monitor.h"
 #include "owo/config/config_paths.h"
 #include "owo/core/input_method_runtime.h"
@@ -18,6 +20,7 @@
 #include "owo/plugin/unicode_palette.h"
 #include "owo/protocol/messages.h"
 #include <Windows.h>
+#include <bcrypt.h>
 #include <algorithm>
 #include <charconv>
 #include <condition_variable>
@@ -30,6 +33,7 @@
 #include <thread>
 #include <iomanip>
 #include <random>
+#include <cmath>
 
 namespace {
 using namespace owo;
@@ -127,6 +131,10 @@ struct Args {
                                           "learn",
                                           "sensitive",
                                           "help",
+                                          "check-expanded",
+                                          "allow-misses",
+                                          "use-learning",
+                                          "hash-assets",
                                           "run-model"};
         for (int i = 1; i < argc; ++i) {
             auto word = utf8(argv[i]);
@@ -304,6 +312,36 @@ class RootLock {
     }
 };
 
+class DictionaryEnvironment {
+    std::wstring previous_;
+    bool existed_{};
+public:
+    explicit DictionaryEnvironment(const fs::path& root) {
+        const auto size = GetEnvironmentVariableW(L"OWO_DICTIONARY_STORE_PATH", nullptr, 0);
+        existed_ = size != 0;
+        if (size) { previous_.resize(size); auto count = GetEnvironmentVariableW(L"OWO_DICTIONARY_STORE_PATH", previous_.data(), size); previous_.resize(count); }
+        require(SetEnvironmentVariableW(L"OWO_DICTIONARY_STORE_PATH", (root / L"dictionaries").c_str()) != 0,
+                "cannot isolate dictionary environment", 3);
+    }
+    ~DictionaryEnvironment() { SetEnvironmentVariableW(L"OWO_DICTIONARY_STORE_PATH", existed_ ? previous_.c_str() : nullptr); }
+};
+
+std::string file_sha256(const fs::path& path) {
+    struct Digest {
+        BCRYPT_ALG_HANDLE algorithm{}; BCRYPT_HASH_HANDLE hash{};
+        ~Digest() { if (hash) BCryptDestroyHash(hash); if (algorithm) BCryptCloseAlgorithmProvider(algorithm, 0); }
+    } digest;
+    require(BCryptOpenAlgorithmProvider(&digest.algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) >= 0 &&
+            BCryptCreateHash(digest.algorithm, &digest.hash, nullptr, 0, nullptr, 0, 0) >= 0, "cannot initialize SHA-256");
+    std::ifstream source(path, std::ios::binary); require(bool(source), "cannot hash asset");
+    char buffer[65536];
+    while (source.read(buffer, sizeof(buffer)) || source.gcount())
+        require(BCryptHashData(digest.hash, reinterpret_cast<PUCHAR>(buffer), ULONG(source.gcount()), 0) >= 0, "cannot hash asset bytes");
+    require(source.eof(), "asset hash read failed");
+    unsigned char hash[32]{}; require(BCryptFinishHash(digest.hash, hash, sizeof(hash), 0) >= 0, "cannot finalize SHA-256");
+    return hex_bytes(std::string_view(reinterpret_cast<char*>(hash), sizeof(hash)));
+}
+
 class InputSession {
     engine::BinaryLexicon disk_;
     engine::MemoryLexicon fallback_{{{{"ni", "hao"}, "你好", 1000},
@@ -318,12 +356,16 @@ class InputSession {
     config::ConfigMonitor config_;
     std::wstring pipe_;
     std::thread server_;
+    std::wstring model_pipe_;
+    std::thread model_server_;
     ipc::PersistentPipeClient client_;
     std::uint64_t id_{};
     unsigned timeout_;
 
   public:
-    InputSession(const fs::path &root, std::string lexicon, unsigned timeout)
+    InputSession(const fs::path &root, std::string lexicon, unsigned timeout,
+                 model::IModelBackend* backend = nullptr, const fs::path& config_path = {},
+                 bool use_learning = true)
         : pipe_(L"\\\\.\\pipe\\OwO.Developer.Core." + std::to_wstring(GetCurrentProcessId()) +
                 L"." + std::to_wstring(GetTickCount64())),
           client_(pipe_), timeout_(timeout) {
@@ -333,13 +375,26 @@ class InputSession {
             require(result.success, result.error, 4);
             selected = &disk_;
         }
-        require(frequency_.load(root / L"user-frequency.owuf").success,
-                "cannot load isolated user frequency");
-        require(config_.start(root / L"owo.conf").success, "cannot load isolated config");
+        if (use_learning)
+            require(frequency_.load(root / L"user-frequency.owuf").success,
+                    "cannot load isolated user frequency");
+        require(config_.start(config_path.empty() ? root / L"owo.conf" : config_path).success, "cannot load isolated config");
+        if (backend) {
+            model_pipe_ = pipe_ + L".Model";
+            model_server_ = std::thread([this, backend] { static_cast<void>(ipc::run_model_server(model_pipe_.c_str(), *backend)); });
+        }
+        try {
         server_ = std::thread([this, selected] {
             static_cast<void>(
-                ipc::run_core_server(pipe_.c_str(), *selected, &frequency_, nullptr, &config_));
+                ipc::run_core_server(pipe_.c_str(), *selected, &frequency_, model_pipe_.empty() ? nullptr : model_pipe_.c_str(), &config_));
         });
+        } catch (...) { stop_model(); throw; }
+    }
+    void stop_model() {
+        if (!model_server_.joinable()) return;
+        model::ModelMessage stop; stop.type = model::ModelMessageType::shutdown_request;
+        static_cast<void>(ipc::exchange(model_pipe_.c_str(), model::encode_model_message(stop), 5s));
+        model_server_.join();
     }
     ~InputSession() {
         if (!server_.joinable())
@@ -349,9 +404,10 @@ class InputSession {
         stop.type = protocol::MessageType::shutdown_request;
         static_cast<void>(ipc::exchange(pipe_.c_str(), protocol::encode_message(stop), 5s));
         server_.join();
+        stop_model();
     }
-    protocol::Message send(protocol::Message message) {
-        message.request_id = ++id_;
+    protocol::Message send(protocol::Message message, bool correlated = false) {
+        message.request_id = correlated ? id_ : ++id_;
         message.context_generation = (std::uint64_t{GetCurrentProcessId()} << 32) | 0x44455631;
         auto result = client_.exchange(protocol::encode_message(message),
                                        std::chrono::milliseconds(timeout_));
@@ -365,9 +421,112 @@ class InputSession {
                 4);
         return decoded.message;
     }
+    dev::EvaluationReply evaluate(protocol::Message request) {
+        dev::EvaluationReply reply;
+        const auto started = std::chrono::steady_clock::now();
+        const auto deadline = started + std::chrono::milliseconds(timeout_);
+        reply.base = send(request);
+        while (reply.base.candidate_refinement_pending) {
+            require(std::chrono::steady_clock::now() < deadline, "candidate refinement timeout", 4);
+            reply.base = send(request);
+        }
+        reply.base_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+        reply.final = reply.base; reply.model_requested = reply.base.model_pending;
+        while (reply.final.model_pending && std::chrono::steady_clock::now() < deadline) {
+            protocol::Message update; update.type = protocol::MessageType::candidate_update_request;
+            auto result = send(update, true);
+            if (result.model_pending) continue;
+            if (result.candidates.empty()) { reply.model_failed = true; break; }
+            reply.final.candidates = std::move(result.candidates);
+            reply.final.candidate_consumed = std::move(result.candidate_consumed);
+            reply.final.candidate_groups = std::move(result.candidate_groups);
+            reply.final.model_pending = false; reply.model_applied = true;
+        }
+        if (reply.final.model_pending) reply.model_failed = true;
+        reply.settled_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+        return reply;
+    }
 };
 
+void batch_input(Args& args, const fs::path& root) {
+    dev::EvaluationOptions options;
+    auto file = args.get("file"), format = args.get("format", "auto"), lexicon = args.get("lexicon");
+    options.mode = args.get("mode", "both"); options.typing = args.get("typing", "whole");
+    options.model = args.get("model-backend", "base");
+    options.paths = args.number("paths", 32, 128); options.top_k = args.number("top-k", 10, 256);
+    options.max_pages = args.number("max-pages", 4, 101); options.repeat = args.number("repeat", 1, 100);
+    auto correction = args.get("correction", "on"); options.correction = correction == "on";
+    options.check_expanded = args.flag("check-expanded"); options.allow_misses = args.flag("allow-misses");
+    const auto use_learning = args.flag("use-learning");
+    const auto hash_assets = args.flag("hash-assets");
+    auto threshold = [&](std::string key, double maximum) -> std::optional<double> {
+        auto value = args.get(key); if (value.empty()) return {};
+        double number{}; auto parsed = std::from_chars(value.data(), value.data() + value.size(), number);
+        require(parsed.ec == std::errc{} && parsed.ptr == value.data() + value.size() && std::isfinite(number) && number >= 0 && number <= maximum, "invalid threshold: " + key);
+        return number;
+    };
+    options.min_top1 = threshold("min-top1", 1); options.min_first_page = threshold("min-first-page", 1);
+    options.min_topk = threshold("min-topk", 1); options.max_p95_ms = threshold("max-p95-ms", 30000);
+    auto report_name = args.get("report", "batch-" + std::to_string(GetTickCount64()) + "-" + std::to_string(GetCurrentProcessId()));
+    auto page_size = args.number("page-size", 0, 9); auto partition = args.get("partition");
+    auto timeout = args.number("timeout-ms", 2500), model_timeout = args.number("model-timeout-ms", 100, 1000);
+    auto bridge = args.get("bridge"), model_path = args.get("model"); const auto run_model = args.flag("run-model");
+    args.finish();
+    require(!file.empty(), "input batch requires --file");
+    require(options.mode == "parse" || options.mode == "candidates" || options.mode == "both", "mode must be parse/candidates/both");
+    require(options.typing == "whole" || options.typing == "incremental", "typing must be whole/incremental");
+    require(correction == "on" || correction == "off", "correction must be on/off");
+    require(options.paths && options.top_k && options.max_pages && options.repeat && timeout && model_timeout, "batch budgets must be positive");
+    require(!page_size || page_size >= 4, "page-size must be 4..9");
+    require(partition.empty() || partition == "on" || partition == "off", "partition must be on/off");
+    require(!report_name.empty() && report_name.size() <= 80 && std::all_of(report_name.begin(), report_name.end(), [](unsigned char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_'; }), "report must be an ASCII basename, not a path");
+    auto device_name = report_name;
+    std::transform(device_name.begin(), device_name.end(), device_name.begin(), [](unsigned char c) { return char(c >= 'A' && c <= 'Z' ? c + 'a' - 'A' : c); });
+    const bool numbered_device = device_name.size() == 4 && (device_name.starts_with("com") || device_name.starts_with("lpt")) && device_name.back() >= '1' && device_name.back() <= '9';
+    require(device_name != "con" && device_name != "prn" && device_name != "aux" && device_name != "nul" && !numbered_device, "report cannot be a Windows device name");
+    require(options.model == "base" || options.model == "mock" || options.model == "libime", "model-backend must be base/mock/libime");
+    require(options.model == "libime" || (bridge.empty() && model_path.empty() && !run_model), "only libime accepts --run-model/--bridge/--model");
+    require(options.model != "libime" || (run_model && !bridge.empty() && !model_path.empty()), "libime needs --run-model and explicit trusted --bridge/--model paths", 3);
+    require(options.mode != "parse" || (options.model == "base" && !options.check_expanded && !options.min_top1 && !options.min_first_page && !options.min_topk && !options.max_p95_ms), "parse-only cannot evaluate candidate/model gates");
+    std::vector<dev::EvaluationCase> cases;
+    try { cases = dev::read_evaluation_cases(wide(file), format); }
+    catch (const std::exception& error) { throw Error(2, error.what()); }
+    const auto run = root / L"reports" / wide(report_name);
+    safe_chain(run); require(!fs::exists(run), "report already exists; choose a new --report name", 3);
+    auto settings = config::parse_config(read(root / L"owo.conf", 256 * 1024)); require(settings.ok, settings.diagnostic);
+    settings.value.input_scheme = "full_pinyin";
+    if (page_size) settings.value.candidate_page_size = page_size;
+    if (!partition.empty()) settings.value.candidate_partition_enabled = partition == "on";
+    settings.value.model_ranking_enabled = options.model != "base";
+    settings.value.model_timeout_ms = model_timeout;
+    require(options.mode == "parse" || options.max_pages * settings.value.candidate_page_size >= options.top_k,
+            "max-pages * page-size must cover top-k");
+    require(config::validate_config(settings.value).ok, "invalid batch configuration");
+    fs::create_directories(run);
+    config::ConfigStore snapshot; require(snapshot.load(run / L"effective.conf").success && snapshot.save(settings.value).success, "cannot save effective batch configuration");
+    const auto startup = std::chrono::steady_clock::now();
+    std::unique_ptr<model::IModelBackend> backend;
+    if (options.model == "mock") backend = std::make_unique<model::MockModelBackend>();
+    if (options.model == "libime") { auto loaded = model::load_libime_backend(bridge, model_path); require(bool(loaded), loaded.diagnostic, 5); backend = std::move(loaded.backend); }
+    std::unique_ptr<InputSession> session;
+    if (options.mode != "parse") session = std::make_unique<InputSession>(root, lexicon, timeout, backend.get(), run / L"effective.conf", use_learning);
+    auto asset = [hash_assets](const std::string& path) {
+        if (path.empty()) return std::string("null");
+        const auto absolute = fs::absolute(wide(path));
+        require(fs::is_regular_file(absolute), "asset file not found");
+        const auto size = fs::file_size(absolute); const auto modified = fs::last_write_time(absolute);
+        const auto digest = hash_assets ? file_sha256(absolute) : std::string{};
+        require(size == fs::file_size(absolute) && modified == fs::last_write_time(absolute), "asset changed during metadata capture");
+        return "{\"path\":" + json(utf8(absolute.wstring())) + ",\"bytes\":" + std::to_string(size) + ",\"mtime_ticks\":" + std::to_string(modified.time_since_epoch().count()) + ",\"sha256\":" + (digest.empty() ? "null" : json(digest)) + '}';
+    };
+    wchar_t executable[32768]{}; require(GetModuleFileNameW(nullptr, executable, 32768) > 0, "cannot identify CLI executable");
+    const auto manifest = "\"protocol_version\":" + std::to_string(protocol::kProtocolVersion) + ",\"cli_asset\":" + asset(utf8(executable)) + ",\"dataset\":" + asset(file) + ",\"lexicon\":" + asset(lexicon) + ",\"lexicon_source\":" + json(lexicon.empty() ? "synthetic_fixture" : "explicit_file") + ",\"bridge\":" + asset(bridge) + ",\"model_asset\":" + asset(model_path) + ",\"learning\":" + json(use_learning ? "isolated_session" : "disabled") + ",\"effective_config\":" + json(config::serialize_config(settings.value)) + ",\"report_directory\":" + json(utf8(run.wstring())) + ",\"startup_ms\":" + std::to_string(std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startup).count());
+    const auto code = dev::evaluate_cases(cases, options, [&](protocol::Message message) { require(bool(session), "no candidate session", 4); return session->evaluate(std::move(message)); }, run, manifest, std::cout);
+    if (code) throw Error(code, "batch quality gate or runtime failure; see summary", true);
+}
+
 void input(Args &args, const fs::path &root, std::string command) {
+    if (command == "batch") { batch_input(args, root); return; }
     require(command == "parse" || command == "query" || command == "replay" || command == "repl" ||
                 command == "bench",
             "unknown input command");
@@ -925,11 +1084,19 @@ void help() {
         << "OwO developer CLI (isolated; no TSF registration, application writes or live Core "
            "control)\n"
            "owo-dev build | test --suite cli|engine|plugin|scheme|agent\n"
+           "owo-dev compare -Baseline <report dir> -Candidate <report dir> [-FailOnRegression]\n"
            "owo-dev --dev --root <absolute empty session> init\n"
            "owo-dev --dev --root <session> doctor\n"
            "input parse|query|repl|replay|bench --text <input> [--file script] [--lexicon file]\n"
            "  [--correction on|off] [--paths 32] [--page 0] [--expanded] [--context text] "
            "[--previous input] [--learn]\n"
+           "input batch --file <UTF-8 jsonl/tsv> [--lexicon file] [--report basename]\n"
+           "  --mode parse|candidates|both --typing whole|incremental --top-k 10 --max-pages 4\n"
+           "  [--check-expanded] [--repeat 1] [--page-size 7] [--partition on|off]\n"
+           "  [--format auto|jsonl|tsv] [--hash-assets]\n"
+           "  [--allow-misses] [--min-top1 0.9] [--min-first-page 0.98] [--min-topk 0.99]\n"
+           "  [--max-p95-ms 50] [--use-learning] [--model-backend base|mock|libime]\n"
+           "  libime: --run-model --bridge <trusted dll> --model <lm> --model-timeout-ms 100\n"
            "config show|import --file <owo.conf>\n"
            "plugin inspect|install --source <folder/zip/owopkg>\n"
            "  install: --inventory <sha256> --accept-risk I_ACCEPT_PLUGIN_RISK_V1\n"
@@ -977,7 +1144,8 @@ int wmain(int argc, wchar_t **argv) {
         if (args.commands[0] == "version") {
             args.finish();
             ok("version", "\"developer_build\":true,\"protocol\":" +
-                              std::to_string(protocol::kProtocolVersion));
+                              std::to_string(protocol::kProtocolVersion) +
+                              ",\"cli_schema_version\":1,\"features\":[\"batch_quality\",\"jsonl_tsv\",\"private_model\",\"isolated_replay\"]");
             return 0;
         }
         const auto command = args.commands[0];
@@ -987,6 +1155,7 @@ int wmain(int argc, wchar_t **argv) {
             require(args.commands.size() == 1, "unexpected subcommand");
         auto root = session_root(args, command == "init");
         RootLock lock(root);
+        DictionaryEnvironment dictionary_environment(root);
         if (command == "init") {
             args.finish();
             ok(command,

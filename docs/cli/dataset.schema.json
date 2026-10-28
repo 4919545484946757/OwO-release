@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OwO CLI evaluation JSONL row v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["input"],
+  "properties": {
+    "id": {"type": "string", "maxLength": 128, "pattern": "^[^\\u0000-\\u001F\\u007F]*$"},
+    "input": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "^[ -~]+$"},
+    "expected": {"type": "array", "maxItems": 64, "items": {"type": "string", "minLength": 1, "maxLength": 4096}},
+    "segmentation": {"type": "string", "maxLength": 512},
+    "consumed": {"type": "integer", "minimum": 1, "maximum": 256},
+    "correction": {"type": "boolean"},
+    "valid": {"type": "boolean", "default": true},
+    "context": {"type": "string", "maxLength": 256},
+    "previous": {"type": "string", "maxLength": 256},
+    "tags": {"type": "array", "maxItems": 64, "items": {"type": "string", "minLength": 1, "maxLength": 64}}
+  },
+  "allOf": [{"if": {"properties": {"valid": {"const": false}}, "required": ["valid"]}, "then": {"properties": {"expected": {"maxItems": 0}, "segmentation": {"maxLength": 0}}}}],
+  "$comment": "Native CLI additionally checks UTF-8 byte lengths, rejects control characters, checks consumed <= input bytes, and enforces unique IDs/file limits. String maxLength in JSON Schema counts Unicode code points, not UTF-8 bytes. Duplicate JSON fields must be rejected before schema validation."
+}

@@ -386,12 +386,18 @@ add_executable(owo_engine_benchmark benchmarks/engine_benchmark.cpp)
 target_link_libraries(owo_engine_benchmark PRIVATE owo_engine)
 target_compile_features(owo_engine_benchmark PRIVATE cxx_std_20)
 if(WIN32 AND OWO_BUILD_DEVELOPER_TOOLS)
-    add_executable(owo_dev_cli apps/dev_cli/main.cpp)
-    target_link_libraries(owo_dev_cli PRIVATE owo_ipc owo_core_plugin owo_config owo_agent)
+    add_executable(owo_dev_cli apps/dev_cli/main.cpp apps/dev_cli/batch_evaluation.cpp)
+    target_link_libraries(owo_dev_cli PRIVATE owo_ipc owo_core_plugin owo_config owo_agent bcrypt)
     target_compile_features(owo_dev_cli PRIVATE cxx_std_20)
     target_compile_definitions(owo_dev_cli PRIVATE OWO_DEVELOPER_TOOLS=1 WIN32_LEAN_AND_MEAN NOMINMAX)
     target_compile_options(owo_dev_cli PRIVATE /W4 /permissive- /utf-8 /EHsc)
     if(BUILD_TESTING)
+        add_test(NAME owo.dev_cli.batch
+            COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli/batch_evaluation_contract.ps1
+                -Cli $<TARGET_FILE:owo_dev_cli> -Parent ${CMAKE_CURRENT_BINARY_DIR}
+                -Repo ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(owo.dev_cli.batch PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
         foreach(mode contract plugins)
             add_test(NAME owo.dev_cli.${mode}
                 COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass -File

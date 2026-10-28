@@ -1,0 +1,17 @@
+{"id":"nihao","input":"nihao","expected":["你好"],"segmentation":"ni'hao","tags":["exact"]}
+{"id":"beijing","input":"beijing","expected":["北京"],"tags":["exact"]}
+{"id":"wsm","input":"wsm","expected":["为什么"],"tags":["initials"]}
+{"id":"ky","input":"ky","expected":["可以"],"tags":["initials"]}
+{"id":"bugd","input":"bugd","expected":["不敢当"],"tags":["mixed"]}
+{"id":"nihaoshijie","input":"nihaoshijie","expected":["你好世界"],"tags":["sentence"]}
+{"id":"nihaoshijie-prefix","input":"nihaoshijie","expected":["你好"],"consumed":5,"tags":["partial"]}
+{"id":"manual-prefix","input":"ni'hao'shi'jie","expected":["你好"],"consumed":6,"tags":["partial","separator"]}
+{"id":"mingan","input":"mingan","expected":["敏感"],"tags":["boundary"]}
+{"id":"culue","input":"culue","expected":["粗略"],"tags":["correction"]}
+{"id":"kuangao","input":"kuangao","expected":["宽高"],"tags":["boundary"]}
+{"id":"zidongzhankai","input":"zidongzhankai","expected":["自动展开"],"tags":["sentence","phrase_chain"]}
+{"id":"rangxuexijilu","input":"rangxuexijilu","expected":["让学习记录"],"tags":["sentence","phrase_chain"]}
+{"id":"anyouxiandu","input":"anyouxiandu","expected":["按优先度"],"tags":["sentence","phrase_chain"]}
+{"id":"gongnnegjiekou","input":"gongnnegjiekou","expected":["功能接口"],"tags":["correction","sentence"]}
+{"id":"chnag","input":"chnag","expected":["长","常","场","唱"],"tags":["correction"]}
+{"id":"yiyixiawenben","input":"yiyixiawenben","expected":["以以下文本"],"segmentation":"yi'yi'xia'wen'ben","tags":["sentence","known_failure"]}
