@@ -46,10 +46,12 @@ public sealed partial class MainPage
                                       .ThenBy(value => value.Name, StringComparer.Ordinal)) {
             var page = $"plugin:{plugin.Id}:{plugin.Version}";
             _pluginPages[page] = plugin;
-            _pluginPagesGroup.MenuItems.Add(new NavigationViewItem {
+            var navigation = new NavigationViewItem {
                 Content = plugin.Name, Tag = page,
                 Icon = new FontIcon { Glyph = "\uE74C" },
-            });
+            };
+            _ = new PluginNavigationLayout(navigation);
+            _pluginPagesGroup.MenuItems.Add(navigation);
             _pluginSearchItems.Add(new SearchItem(plugin.Name,
                 $"插件 {plugin.Id} {plugin.Version}", page));
             try {
