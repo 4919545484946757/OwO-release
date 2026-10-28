@@ -80,6 +80,30 @@ struct ExpandedCandidateTestAccess {
         stale->expanded = true;
         service->handle_candidate_result(stale);
         if (service->expanded_pages_.selected != selected || service->candidates_.size() != 15) return 12;
+        service->shortcut_config_.expanded_previous_page_shortcut_enabled = true;
+        service->shortcut_config_.expanded_previous_page_shortcuts = {"F8"};
+        if (service->should_eat_key(VK_UP) || !press(VK_F8) ||
+            !service->candidates_expanded_ || service->expanded_pages_.selected != 1) return 16;
+        if (!press(VK_F8) || !service->candidates_expanded_ ||
+            service->expanded_pages_.selected != 0) return 17;
+        if (!press(VK_F8) || service->candidates_expanded_ ||
+            service->candidate_page_ != 0 || service->candidate_shortcut_index(0) != 0 ||
+            service->input_buffer_ != L"nihao") return 18;
+        respond(7);
+        // Opening at page one must stay open, even while its response is pending.
+        if (!press(VK_F8) || !service->candidates_expanded_ ||
+            !service->candidate_request_pending_ || service->expanded_pages_.selected != 0) return 19;
+        const auto expanded_request = service->active_candidate_request_id_;
+        if (!press(VK_F8) || service->candidates_expanded_ || service->candidate_page_ != 0) return 20;
+        auto* late_expanded = new TextService::CandidateResult();
+        late_expanded->request_id = expanded_request;
+        late_expanded->generation = service->context_generation_;
+        late_expanded->expanded = true;
+        service->handle_candidate_result(late_expanded);
+        if (service->candidates_expanded_ || !service->candidate_request_pending_) return 21;
+        respond(7);
+        if (service->candidate_request_pending_ || service->candidates_.size() != 7 ||
+            service->candidate_shortcut_index(1) != 1) return 22;
         service->clear_composition();
         if (service->candidates_expanded_ || service->expanded_pages_.selected || service->expanded_pages_.first_visible) return 13;
         return 0;

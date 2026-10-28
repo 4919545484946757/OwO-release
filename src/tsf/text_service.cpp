@@ -4796,6 +4796,14 @@ void TextService::set_candidates_expanded(const bool expanded) {
 void TextService::move_expanded_page(const int direction) {
     if (input_buffer_.empty() || direction == 0 || plugin_input_committing_) return;
     if (is_agent_mode() && agent_response_visible_ && agent_request_pending_) return;
+    // Only a repeated previous-page action at the absolute first page folds
+    // the list; opening it or crossing a plugin's batch boundary must not.
+    if (direction < 0 && candidates_expanded_ && expanded_pages_.selected == 0 &&
+        (!plugin_scheme_selected() || candidate_page_ == 0 ||
+         (is_agent_mode() && agent_response_visible_))) {
+        set_candidates_expanded(false);
+        return;
+    }
     if (!candidates_expanded_) set_candidates_expanded(true);
     clear_deferred_candidate_selection();
     plugin_pending_selection_.reset();
