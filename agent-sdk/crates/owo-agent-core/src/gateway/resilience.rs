@@ -256,6 +256,9 @@ impl Drop for BreakerPermit<'_> {
 /// 已知不可恢复的 Provider 错误，不应通过重试或 fallback 放大请求。
 /// BigModel HTTP 429 code 1113 表示余额不足或无可用资源包；其他 429 仍遵循 RetryPolicy。
 pub fn is_non_retryable_provider_failure(error: &str) -> bool {
+    if error.starts_with("input/") {
+        return true;
+    }
     let Some((_, payload)) = error.split_once("模型返回 429") else {
         return false;
     };
@@ -471,6 +474,11 @@ impl ResilientProvider {
 
 #[async_trait]
 impl ModelProvider for ResilientProvider {
+    fn validate_image_input(&self, model: Option<&str>, has_images: bool) -> Result<(), String> {
+        // No circuit permit, retries, fallback, or provider calls for a declaration check.
+        self.primary.validate_image_input(model, has_images)
+    }
+
     async fn complete_expression(&self, messages: &[ChatMessage]) -> Result<String, String> {
         let permit = self
             .breaker
@@ -480,7 +488,10 @@ impl ModelProvider for ResilientProvider {
         let result = self.primary.complete_expression(messages).await;
         if result.is_ok() {
             permit.success();
-        } else {
+        } else if !result
+            .as_ref()
+            .is_err_and(|error| error.starts_with("input/"))
+        {
             permit.failure();
         }
         result
@@ -516,6 +527,9 @@ impl ModelProvider for ResilientProvider {
                     return Ok(output);
                 }
                 Err(error) => {
+                    if error.starts_with("input/") {
+                        return Err(error);
+                    }
                     errors.push(error);
                     // 不可重试错误（预算/出境/解析）不降级到下一 Provider。
                     if !retriable {
@@ -553,6 +567,9 @@ impl ModelProvider for ResilientProvider {
                         return Ok(observed);
                     }
                     Err(error) => {
+                        if error.starts_with("input/") {
+                            return Err(error);
+                        }
                         let retriable = is_retriable(&error, &self.retry);
                         if !retriable {
                             errors.push(error);
@@ -619,6 +636,9 @@ impl ModelProvider for ResilientProvider {
                         return Ok(output);
                     }
                     Err(error) => {
+                        if error.starts_with("input/") {
+                            return Err(error);
+                        }
                         if emitted {
                             // 已输出部分内容：不重试、不降级，避免重复。
                             break (error, false, true);
@@ -718,6 +738,9 @@ impl ModelProvider for ResilientProvider {
                         return Ok(observed);
                     }
                     Err(error) => {
+                        if error.starts_with("input/") {
+                            return Err(error);
+                        }
                         if emitted_content {
                             permit.failure();
                             return Err(format!(
@@ -891,6 +914,13 @@ impl DeferredProvider {
 
 #[async_trait]
 impl ModelProvider for DeferredProvider {
+    fn validate_image_input(&self, model: Option<&str>, has_images: bool) -> Result<(), String> {
+        if !has_images {
+            return Ok(());
+        }
+        self.resolve()?.validate_image_input(model, true)
+    }
+
     async fn complete_expression(&self, messages: &[ChatMessage]) -> Result<String, String> {
         self.resolve()?.complete_expression(messages).await
     }

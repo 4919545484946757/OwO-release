@@ -1,0 +1,148 @@
+{
+  "template_id": "game-forge-v1",
+  "name": "游戏原型（只读架构 → 并行实现 → 集成 → Lead 只读验收）",
+  "mode": "team",
+  "applicability": "游戏 game 2D 3D 坦克 跑酷 射击 平台 塔防 小游戏 原型",
+  "applicability_notes": "用户只给一句游戏想法时，由 architect 补齐设计简报；不在模板里写死具体玩法。",
+  "created_at": "2026-10-25T00:00:00+00:00",
+  "description": "任意名称的自定义游戏工作流：architect 只读设计并下发任务，systems/gameplay/presentation 并行实现，assembler 集成，lead_review 独立只读验收。",
+  "version": "1.0.0",
+  "tags": [
+    "game",
+    "threejs",
+    "custom-role",
+    "experiment"
+  ],
+  "roles": [
+    {
+      "role": "architect",
+      "assignee": "agent",
+      "depends_on": [],
+      "handoff_contract": "你是只读架构负责人，不写任何文件、不直接实现。用户可能只给一句提示（例如“做一个坦克大战游戏”）。先读取工作区和已有入口，再把需求补全为 Design Brief：游戏形态/视角、核心循环、模块边界、数据流、视觉风格、控制方式、胜负/失败/restart、验收标准和非目标。输出 WorkerOutputV1，artifact.content 为 TaskGraphV1 JSON；在顶层 notes 字段写入完整 Design Brief，并把它落实到每个任务的 task/acceptance。任务只分配给 systems、gameplay、presentation 三个 task_worker，不得把实现任务交给 architect、assembler 或 lead_review。每个任务写清 write_paths、测试文件、宿主可验证的 workspace-command-success-v1 命令和用户原文引用。不要写代码，不要修改文件。",
+      "verify": "non_empty",
+      "capabilities": [
+        "orchestrator"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir"
+      ],
+      "write_paths": []
+    },
+    {
+      "role": "systems",
+      "assignee": "agent",
+      "depends_on": [
+        "architect"
+      ],
+      "handoff_contract": "你是 systems Worker，只实现被分配的任务：引擎循环、地图/关卡、碰撞、实体和基础状态，不承担 gameplay 或 presentation 的实现。先读 architect 的 Design Brief 和当前工作区，再写 tests/systems 的 Node 测试，随后实现 src/systems；完成后运行任务要求的 node --test 命令。只写 src/systems 和 tests/systems，不修改其他角色文件。测试通过必须返回 done 且 open_issues 为空；跨模块问题写进 handoff，不要返回 blocked。",
+      "verify": "non_empty",
+      "capabilities": [
+        "task_worker"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "write_paths": [
+        "src/systems",
+        "tests/systems"
+      ]
+    },
+    {
+      "role": "gameplay",
+      "assignee": "agent",
+      "depends_on": [
+        "architect"
+      ],
+      "handoff_contract": "你是 gameplay Worker，只实现被分配的任务：玩家/敌人/单位、输入、战斗、规则和胜负，不复刻 systems 或 presentation 的职责。先读 architect 的 Design Brief 和当前工作区，再写 tests/gameplay 的 Node 测试，随后实现 src/gameplay；完成后运行任务要求的 node --test 命令。只写 src/gameplay 和 tests/gameplay，不修改其他角色文件。测试通过必须返回 done 且 open_issues 为空；跨模块问题写进 handoff，不要返回 blocked。",
+      "verify": "non_empty",
+      "capabilities": [
+        "task_worker"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "write_paths": [
+        "src/gameplay",
+        "tests/gameplay"
+      ]
+    },
+    {
+      "role": "presentation",
+      "assignee": "agent",
+      "depends_on": [
+        "architect"
+      ],
+      "handoff_contract": "你是 presentation Worker，只实现被分配的任务：页面/渲染、HUD、overlay、视觉风格和交互反馈，不实现核心规则。先读 architect 的 Design Brief 和当前工作区，再写 tests/presentation 的 Node 测试，随后实现 index.html（或负责的页面文件）、styles.css 和 src/presentation；完成后运行任务要求的 node --test 命令。只写 index.html、styles.css、src/presentation 和 tests/presentation，不修改其他角色文件。测试通过必须返回 done 且 open_issues 为空；跨模块问题写进 handoff，不要返回 blocked。",
+      "verify": "non_empty",
+      "capabilities": [
+        "task_worker"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "write_paths": [
+        "index.html",
+        "styles.css",
+        "src/presentation",
+        "tests/presentation"
+      ]
+    },
+    {
+      "role": "assembler",
+      "assignee": "agent",
+      "depends_on": [
+        "systems",
+        "gameplay",
+        "presentation"
+      ],
+      "handoff_contract": "你是 integrator/assembler，只做接线和交付，不重写 systems/gameplay/presentation。等全部实现任务完成后，读取 Design Brief、现有模块和测试证据，写 src/main.js、README.md、tests/integration.test.mjs，把模块接成可实际启动的游戏；运行 node --test tests/integration.test.mjs 和任务要求的验证。只写 src/main.js、README.md、tests/integration.test.mjs，不改动其他角色文件。验收：真实入口、输入、核心循环、胜负、restart、HUD 和启动说明都有证据；测试通过必须返回 done 且 open_issues 为空。",
+      "verify": "non_empty",
+      "capabilities": [
+        "integrator"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "write_paths": [
+        "src/main.js",
+        "README.md",
+        "tests/integration.test.mjs"
+      ]
+    },
+    {
+      "role": "lead_review",
+      "assignee": "agent",
+      "depends_on": [
+        "architect",
+        "assembler"
+      ],
+      "handoff_contract": "你是只读独立验收者（不写文件、不修改任何产物、不重新设计功能）。对照 architect 的 Design Brief、每个任务的 acceptance、宿主命令回执和 assembler 的集成测试，检查：入口能否启动、核心循环和输入是否接通、风格/HUD/胜负/restart 是否一致、测试是否真实覆盖而非改测试通过、是否有未解决的 blocker/minor。输出可复核的 findings，必须包含文件/行号或证据引用；无问题时逐项给出证据引用和剩余风险。不得声称运行过未执行的命令；不得写文件或绕过宿主评审。",
+      "verify": "non_empty",
+      "capabilities": [
+        "review"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir"
+      ],
+      "write_paths": []
+    }
+  ]
+}

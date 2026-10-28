@@ -24,8 +24,14 @@ export interface TurnStreamOptions {
 }
 
 /** SSE 流式事件（对应服务端 TurnEvent JSON）。 */
+export type ToolOutputArtifact = components["schemas"]["ToolOutputArtifact"];
+export type RunEvent = components["schemas"]["RunEvent"];
+export type RunEventPage = components["schemas"]["RunEventPage"];
+export type RunEventHistoryPage = components["schemas"]["RunEventHistoryPage"];
+export type TeamConversationPage = components["schemas"]["TeamConversationPage"];
 export interface TurnEvent {
   type: string;
+  outputs?: ToolOutputArtifact[];
   [key: string]: unknown;
 }
 
@@ -42,18 +48,27 @@ export class TurnFailure extends Error {
 }
 
 export type ApiClient = ReturnType<typeof createFetchClient<paths>> & {
-  /** 便捷方法：创建会话。 */
-  createSession(input: { workspace: string; prompt?: string }): Promise<{
-    id: string;
-    [key: string]: unknown;
-  }>;
+  /**
+   * 便捷方法：创建会话。
+   * - Agent 模式必须给 workspace；
+   * - 纯对话（mode=chat）可省略 workspace，服务端会分配隔离工作区；
+   * - system_prompt 是会话级自定义提示词（persona）。
+   */
+  createSession(input: {
+    workspace?: string;
+    model?: string;
+    mode?: "agent" | "chat";
+    system_prompt?: string;
+  }): Promise<components["schemas"]["SessionInfo"]>;
   /** 便捷方法：发起 Agent 回合（SSE 流式，逐事件回调）。 */
   runTurn(
-    input: { id: string; prompt: string; read_only?: boolean; turn_id?: string; model_connection?: components["schemas"]["CustomModelConnection"] },
+    input: { id: string; prompt: string; attachments?: string[]; content_parts?: components["schemas"]["ContentPart"][]; read_only?: boolean; turn_id?: string; model_connection?: components["schemas"]["CustomModelConnection"] },
     stream: TurnStreamOptions,
   ): Promise<TurnCompletion>;
   /** Local loopback server only; browser supplies Host/Origin. A 403 source rejection is not retried. */
   expression(input: { prompt: string }, signal?: AbortSignal): Promise<{ text: string }>;
+  /** Read-only input admission; does not certify a remote model or create a session. */
+  preflightInput(input: components["schemas"]["InputPreflightRequest"]): Promise<{ok:true}>;
   /** 便捷方法：健康检查。 */
   health(): Promise<boolean>;
 };
@@ -91,12 +106,25 @@ export function createClient(options: ClientOptions): ApiClient {
 
   const api = client as ApiClient;
 
+  api.preflightInput = async (input) => {
+    // Native admission errors are plain text; do not assume every error body is JSON.
+    const {data, error, response} = await client.POST("/input/preflight", {body:input, parseAs:"text"});
+    if (!response.ok || error) {
+      const code = typeof error === "string" ? /^(input|model_connection|provider)\/[a-z_]+/.exec(error)?.[0] : undefined;
+      throw new Error(code || "input/preflight_rejected");
+    }
+    let receipt: unknown;
+    try { receipt = JSON.parse(data || ""); } catch { throw new Error("input/preflight_rejected"); }
+    if (!receipt || typeof receipt !== "object" || !("ok" in receipt) || receipt.ok !== true) throw new Error("input/preflight_rejected");
+    return {ok:true};
+  };
+
   api.createSession = async (input) => {
     const { data, error } = await client.POST("/session", {
-      body: input as never,
+      body: input,
     });
     if (error) throw new Error(`createSession 失败：${JSON.stringify(error)}`);
-    return data as { id: string; [key: string]: unknown };
+    return data;
   };
 
   api.runTurn = async (input, stream) => {
@@ -165,10 +193,13 @@ export function createClient(options: ClientOptions): ApiClient {
 
     try {
       ensureNotAborted();
-      if (input.read_only === true || canonicalTurnId || input.model_connection) {
+      if (input.read_only === true || canonicalTurnId || input.model_connection || input.content_parts?.length) {
         const capability = await client.GET("/capabilities", { signal: controller.signal });
-        const support = capability.data as { constraints?: { request_read_only?: boolean; scoped_turn_cancellation?: boolean; custom_model_connection?: boolean; custom_model_env_credentials?: boolean } } | undefined;
+        const support = capability.data as { constraints?: { structured_input_parts?: boolean; request_read_only?: boolean; scoped_turn_cancellation?: boolean; custom_model_connection?: boolean; custom_model_env_credentials?: boolean } } | undefined;
         ensureNotAborted();
+        if (input.content_parts?.length && (!capability.response.ok || support?.constraints?.structured_input_parts !== true)) {
+          throw new Error("input/structured_parts_unsupported: no turn was submitted");
+        }
         if (input.read_only === true && (!capability.response.ok || support?.constraints?.request_read_only !== true)) {
           throw new Error("permission/read_only_unsupported: no turn was submitted");
         }
@@ -186,7 +217,7 @@ export function createClient(options: ClientOptions): ApiClient {
       const response = await fetch(baseUrl + sessionPath + "/turn", {
         method: "POST",
         headers: requestHeaders,
-        body: JSON.stringify({ prompt: input.prompt, read_only: input.read_only, turn_id: canonicalTurnId, model_connection: input.model_connection }),
+        body: JSON.stringify({ prompt: input.prompt, attachments: input.attachments, content_parts: input.content_parts, read_only: input.read_only, turn_id: canonicalTurnId, model_connection: input.model_connection }),
         signal: controller.signal,
       });
       if (!response.ok || !response.body) {
@@ -328,3 +359,15 @@ interface TurnReplayPage {
   active?: boolean;
   state?: "active" | "completed" | "failed" | "interrupted";
 }
+
+/** Runtime assembly/configuration state, never an execution approval. */
+export type WorkflowToolCapability = components["schemas"]["WorkflowToolCapability"];
+export type WorkflowToolPreflight = components["schemas"]["WorkflowToolPreflight"];
+
+export type WorkflowTemplate = components["schemas"]["WorkflowTemplate"];
+
+export type WorkflowRole = components["schemas"]["WorkflowRole"];
+
+export type WorkflowEditorMetadata = components["schemas"]["WorkflowEditorMetadata"];
+
+export type WorkflowNodePosition = components["schemas"]["WorkflowNodePosition"];

@@ -10,10 +10,10 @@
 //   GET  /teams/{id}                   {team,tasks,interrupted,audit_tail}
 //                                      （复跑预填：objective 未来 additive 优先，
 //                                       回退 audit_tail「目标 …」事件启发式提取）
-//   GET  /projects/{pid}/deliverables  {approved[],pending_review[],...}
-//   GET  /projects/{pid}/workspace     {root,read_only,write_allowed_paths,...}
+//   GET  /projects/{pid}/artifacts     {artifacts:[{review_state,...}]}
+//   GET  /projects/{pid}/workspace     {workspace:{root,read_only,...}|null}
 //                                      （六期冻结；未绑定 404 → 复跑不带 workspace）
-//   POST /teams                        （复跑：同目标 + 同模板 + 同工作区）
+//   复用目标仅预填新建任务页；用户确认角色、模型、工作区后才创建任务。
 //
 // 容错原则：所有字段缺省 []/""/null；详情/交付物/工作区请求失败各自降级为空并记
 // 错误行，不阻塞列表渲染；workspace 404 视为「未绑定」静默处理。
@@ -37,10 +37,6 @@
     var rootEl = null;
     function defaultGet(path) {
       return window.OwoApi.get(path);
-    }
-
-    function defaultPost(path, body) {
-      return window.OwoApi.post(path, body || {});
     }
 
     function defaultEsc(s) {
@@ -91,14 +87,17 @@
       workspaceRequests: {},
       filterEnrichTimer: null,
       filters: { status: "", template: "", project: "", q: "" },
+      rowLimit: MAX_ROWS,
       rerunBusy: {},       // team_id -> true
       rerunResults: {},    // team_id -> { ok, text, new_team_id? }
       errors: [],
       lastLoadedAt: "",
+      hostScope: "",
     };
 
     var enrichmentGeneration = 0;
     var loadGeneration = 0;
+    var lifecycleGeneration = 0;
 
     function invalidateEnrichment() {
       enrichmentGeneration += 1;
@@ -183,7 +182,7 @@
     // "proj-"+team_id 派生，与 action-center 同款）。返回 [{value,label}]，value=""
     // 表示不过滤。
     function optionList(teams, keyOf, labelOf) {
-      var seen = {};
+      var seen = Object.create(null);
       var out = [];
       (teams || []).forEach(function (t) {
         if (!t) return;
@@ -202,11 +201,15 @@
 
     function templateOptions(teams) {
       var opts = optionList(teams, function (t) {
-        return t.template_id ? String(t.template_id) : "";
+        return t.template_id ? String(t.template_id) : "__owo_dynamic__";
       }, function (t, v) {
-        return v || "动态组队（无模板）";
+        return v === "__owo_dynamic__" ? "动态组队（无模板）" : v;
       });
-      opts.sort(function (a, b) { return a.label.localeCompare(b.label); });
+      opts.sort(function (a, b) {
+        if (a.value === "__owo_dynamic__") return -1;
+        if (b.value === "__owo_dynamic__") return 1;
+        return a.label < b.label ? -1 : (a.label > b.label ? 1 : 0);
+      });
       return opts;
     }
 
@@ -222,13 +225,13 @@
       if (!team || !team.team_id) return false;
       f = f || {};
       if (f.status && normStatus(team.status) !== f.status) return false;
-      if (f.template != null && f.template !== "") {
-        if (String(team.template_id || "") !== f.template) return false;
-      }
+      if (f.template === "__owo_dynamic__") { if (team.template_id) return false; }
+      else if (f.template && String(team.template_id || "") !== f.template) return false;
       if (f.project && projectKeyOf(team) !== f.project) return false;
       if (f.q) {
-        var q = String(f.q).toLowerCase();
-        if (String(team.team_id || "").toLowerCase().indexOf(q) < 0) return false;
+        var q = String(f.q).trim().toLocaleLowerCase();
+        var known = objectiveFromDetail(state.details[String(team.team_id)] || {}) || team.objective || "";
+        if ([team.team_id, projectKeyOf(team), team.template_id, known, (team.members || []).map(function (m) { return m.role || ""; }).join(" ")].join(" ").toLocaleLowerCase().indexOf(q) < 0) return false;
       }
       return true;
     }
@@ -246,42 +249,22 @@
     // 「目标 …」事件 → null（用户手工输入）。audit_tail 为最新在前，取最后一条匹配。
     function objectiveFromDetail(detail) {
       if (!detail) return null;
-      var direct = detail.objective;
+      var direct = detail.objective || (detail.team && detail.team.objective);
       if (typeof direct === "string" && direct.trim()) return direct.trim();
       var tail = detail.audit_tail || [];
       var found = null;
+      var completed = null;
       for (var i = 0; i < tail.length; i++) {
         var d = String((tail[i] && tail[i].detail) || "");
-        if (d.indexOf("目标") === 0) found = d.slice(2).trim();
+        if (/^目标\s+/.test(d)) found = d.replace(/^目标\s+/, "").trim();
+        if (tail[i] && tail[i].event === "team.succeeded" && /^目标达成[：:]/.test(d)) completed = d.replace(/^目标达成[：:]\s*/, "").trim();
       }
-      return found || null;
+      return found || completed || null;
     }
 
-    // 复跑请求体（Launcher buildCreateBody 同口径）：objective 必填；mode 沿用；
-    // template_id 仅历史存在时带上；workspace 仅当前仍绑定时带上（六期冻结形状）。
-    function rerunBody(detail, workspace, objectiveOverride) {
-      var team = (detail && detail.team) || {};
-      var objective = String(objectiveOverride == null ? "" : objectiveOverride).trim() ||
-        objectiveFromDetail(detail) || "";
-      if (!objective) return { error: "missing_objective" };
-      var body = {
-        objective: objective,
-        mode: team.mode ? String(team.mode).toLowerCase() : "team",
-      };
-      if (team.template_id) body.template_id = String(team.template_id);
-      if (workspace && workspace.root) {
-        body.workspace = {
-          root: String(workspace.root),
-          read_only: workspace.read_only !== false,
-        };
-        if (Array.isArray(workspace.write_allowed_paths) && workspace.write_allowed_paths.length) {
-          body.workspace.write_allowed_paths = workspace.write_allowed_paths.slice();
-        }
-        if (typeof workspace.tree_depth === "number" && workspace.tree_depth > 0) {
-          body.workspace.tree_depth = workspace.tree_depth;
-        }
-      }
-      return body;
+    function localWhen(value) {
+      var d = new Date(value);
+      return isFinite(d.getTime()) ? d.toLocaleString() : "时间未知";
     }
 
     // ---------- 渲染（纯 HTML 构建器） ----------
@@ -306,30 +289,25 @@
       return (
         '<div class="ph-row" data-ph-row="' + esc(tid) + '">' +
         '<div class="ph-row-head">' +
-        '<code class="ph-tid">' + esc(tid) + "</code>" +
+        '<h3 class="ph-title">' + esc(extras.objective || team.objective || (team.members || []).map(function (m) { return m.role || ""; }).filter(Boolean).join("、") || tid) + "</h3>" +
         statusBadge(team.status) +
         '<span class="ph-mode">' + esc(String(team.mode || "").toLowerCase() || "team") + "</span>" +
         (team.template_id
           ? '<span class="ph-tpl">' + esc(String(team.template_id)) + "</span>"
           : '<span class="ph-tpl ph-tpl-none">动态组队</span>') +
         "</div>" +
+        '<div class="ph-source hint">' + esc(tid) + " · " + esc(projectKeyOf(team)) + "</div>" +
         '<div class="ph-row-meta hint">' +
-        "<span>创建 " + esc(String(team.created_at || "").replace("T", " ").slice(0, 19)) + "</span>" +
-        (dur ? "<span>耗时 " + esc(dur) + "</span>" : "") +
+        "<span>创建 " + esc(localWhen(team.created_at)) + "</span>" +
+        (dur ? "<span>运行跨度 " + esc(dur) + "</span>" : "") +
         (calls != null ? "<span>预算 " + calls + " 次调用</span>" : "") +
         (tc ? "<span>任务 " + tc.done + "/" + tc.total + (tc.failed ? "（失败 " + tc.failed + "）" : "") + "</span>" : "") +
         (dlvText ? "<span>交付物：" + esc(dlvText) + "</span>" : "") +
-        (extras.objective ? '<span class="ph-obj" title="' + esc(extras.objective) + '">' + esc(extras.objective.slice(0, 80)) + "</span>" : "") +
         "</div>" +
         '<div class="ph-row-actions">' +
         '<button type="button" class="owo-ac-mini" data-ph-open="' + esc(tid) + '">打开详情</button>' +
-        '<button type="button" class="owo-ac-mini ph-rerun" data-core-action data-ph-rerun="' + esc(tid) + '"' +
-        (busy ? " disabled" : "") + ">同配置复跑</button>" +
-        '<span class="hint" data-ph-ws="' + esc(tid) + '">' +
-        (extras.workspaceError
-          ? "工作区读取失败（为避免错误目录，复跑已阻止）"
-          : extras.workspace === null ? "工作区未绑定（复跑不带目录）" : "") +
-        "</span>" +
+        '<button type="button" class="owo-ac-mini ph-rerun" data-ph-rerun="' + esc(tid) + '"' +
+        (busy ? " disabled" : "") + ">复用目标</button>" +
         "</div>" +
         '<div class="ph-result" data-ph-result="' + esc(tid) + '">' +
         (st ? esc(st.text) : "") +
@@ -340,7 +318,7 @@
 
     function listHtml(teams, st) {
       st = st || state;
-      var rows = visibleTeams(teams, st.filters, MAX_ROWS);
+      var rows = visibleTeams(teams, st.filters, st.rowLimit || MAX_ROWS);
       if (!rows.length) {
         return '<div class="ph-empty">没有匹配的历史运行（调整过滤条件或刷新）。</div>';
       }
@@ -361,7 +339,8 @@
             })(),
           });
         })
-        .join("");
+        .join("") + (visibleTeams(teams, st.filters, Number.MAX_SAFE_INTEGER).length > rows.length
+          ? '<button type="button" class="owo-ac-mini ph-more" data-ph-more>显示更多任务</button>' : "");
     }
 
     function filtersHtml(st) {
@@ -375,12 +354,12 @@
       }
       return (
         '<div class="ph-filters">' +
+        '<input id="ph-f-q" type="search" aria-label="搜索任务、项目或模板" placeholder="搜索任务、项目或模板" value="' + esc(f.q) + '" />' +
         '<select id="ph-f-status" aria-label="按状态过滤">' + opt(STATUS_OPTIONS, f.status) + "</select>" +
         '<select id="ph-f-template" aria-label="按模板过滤">' +
         '<option value="">全部模板</option>' + opt(templateOptions(st.teams), f.template) + "</select>" +
         '<select id="ph-f-project" aria-label="按项目过滤">' +
         '<option value="">全部项目</option>' + opt(projectOptions(st.teams), f.project) + "</select>" +
-        '<input id="ph-f-q" type="search" placeholder="按 team_id 搜索" value="' + esc(f.q) + '" />' +
         "</div>"
       );
     }
@@ -389,14 +368,14 @@
       return (
         '<div class="ph">' +
         '<div class="ph-head">' +
-        "<h2>项目与运行历史</h2>" +
-        '<span class="hint" title="技术详情：/teams · /teams/{id} · /projects/{pid}/deliverables · /projects/{pid}/workspace · POST /teams">聚合各项目的运行历史、产物与待办</span>' +
+        '<span class="hint">查找历史任务，查看结果，复用任务目标。</span>' +
         '<button type="button" id="ph-refresh" class="owo-ac-mini">刷新</button>' +
         '<span id="ph-meta" class="hint" aria-live="polite"></span>' +
         "</div>" +
         '<div id="ph-errors" aria-live="polite"></div>' +
         '<div id="ph-filters-box"></div>' +
         '<div id="ph-list"><div class="ph-empty">正在加载历史运行…</div></div>' +
+        '<p class="ph-reuse-note hint">复用目标后，在新建任务中确认角色、模型与工作区。</p>' +
         "</div>"
       );
     }
@@ -434,8 +413,10 @@
       var box = el("#ph-list");
       if (box) box.innerHTML = listHtml(state.teams, state);
       paintErrors();
+      var refresh = el("#ph-refresh");
+      if (refresh) { refresh.disabled = state.loading; refresh.textContent = state.loading ? "刷新中…" : "刷新"; }
       var total = (state.teams || []).length;
-      var shown = visibleTeams(state.teams, state.filters, MAX_ROWS).length;
+      var shown = visibleTeams(state.teams, state.filters, state.rowLimit || MAX_ROWS).length;
       paintMeta(
         state.loading
           ? "加载中…"
@@ -453,12 +434,10 @@
         div.textContent = res ? res.text : "";
         div.className = "ph-result" + (res && res.ok ? " ok" : "") + (res && !res.ok ? " bad" : "");
       }
-      if (!state.rerunBusy[tid]) {
-        var btn = box.querySelector('[data-ph-rerun="' + cssEsc(tid) + '"]');
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = "同配置复跑";
-        }
+      var btn = box.querySelector('[data-ph-rerun="' + cssEsc(tid) + '"]');
+      if (btn) {
+        btn.disabled = !!state.rerunBusy[tid];
+        btn.textContent = state.rerunBusy[tid] ? "读取目标…" : "复用目标";
       }
     }
 
@@ -496,15 +475,22 @@
       if (state.deliverableRequests[pid]) return state.deliverableRequests[pid];
       var request = Promise.resolve()
         .then(function () {
-          return H.get("/projects/" + encodeURIComponent(pid) + "/deliverables");
+          return H.get("/projects/" + encodeURIComponent(pid) + "/artifacts");
         })
         .then(
           function (d) {
             if (generation !== enrichmentGeneration) return;
-            state.deliverables[pid] = {
-              approved: (d.approved || []).length,
-              pending: (d.pending_review || []).length,
-            };
+            if (!d || !Array.isArray(d.artifacts)) {
+              state.deliverables[pid] = { error: "产物列表格式无效，暂无法统计评审状态" };
+              return;
+            }
+            var counts = { approved: 0, pending: 0 };
+            d.artifacts.forEach(function (artifact) {
+              var review = String(artifact && artifact.review_state || "").toLowerCase().replace(/[_ -]/g, "");
+              if (review === "approved") counts.approved++;
+              if (review === "pendingreview") counts.pending++;
+            });
+            state.deliverables[pid] = counts;
           },
           function (e) {
             if (generation !== enrichmentGeneration) return;
@@ -531,6 +517,10 @@
         .then(
           function (w) {
             if (generation !== enrichmentGeneration) return;
+            if (w && owns(w, "workspace")) {
+              if (w.workspace === null) { state.workspaces[pid] = null; return; }
+              w = w.workspace;
+            }
             if (w && typeof w.root === "string" && w.root.trim()) {
               state.workspaces[pid] = w;
             } else {
@@ -560,7 +550,7 @@
       var generation = enrichmentGeneration;
       var detailTargets = rows.slice(0, MAX_DETAIL);
       var projects = (function () {
-        var seen = {};
+        var seen = Object.create(null);
         var out = [];
         for (var i = 0; i < rows.length && out.length < MAX_PROJECTS; i++) {
           var pid = projectKeyOf(rows[i]);
@@ -603,7 +593,7 @@
           state.lastLoadedAt = new Date().toLocaleTimeString();
           renderFilters();
           render();
-          var rows = visibleTeams(state.teams, state.filters, MAX_ROWS);
+          var rows = visibleTeams(state.teams, state.filters, state.rowLimit || MAX_ROWS);
           return enrichVisible(rows).then(function () {
             if (requestGeneration !== loadGeneration) return;
             state.lastLoadedAt = new Date().toLocaleTimeString();
@@ -619,76 +609,44 @@
         });
     }
 
-    // 复跑：详情（objective 预填）→ 工作区绑定 → POST /teams → 结果行 + 可深链。
+    // Only prefill the goal: runtime role/model/budget settings cannot be reconstructed
+    // from TeamRun. The launcher remains the explicit, reviewable creation boundary.
     function startRerun(teamId) {
       var tid = String(teamId || "");
       if (!tid || state.rerunBusy[tid]) return Promise.resolve();
+      var generation = lifecycleGeneration, get = H.get, openPanel = H.openPanel;
       state.rerunBusy[tid] = true;
       delete state.rerunResults[tid];
       paintRerun(tid);
-      var detail = state.details[tid];
-      var pid = null;
-      var team = (state.teams || []).filter(function (t) { return t.team_id === tid; })[0];
-      if (team) pid = projectKeyOf(team);
-      var ensureDetail = detail
-        ? Promise.resolve(detail)
-        : Promise.resolve()
-            .then(function () { return H.get("/teams/" + encodeURIComponent(tid)); })
-            .then(function (d) {
-              state.details[tid] = d;
-              return d;
-            });
-      var workspaceGeneration = enrichmentGeneration;
-      var ensureWorkspace = pid && !owns(state.workspaces, pid) && !owns(state.workspaceErrors, pid)
-        ? requestWorkspace(pid, workspaceGeneration)
-        : Promise.resolve();
-      return Promise.all([ensureDetail, ensureWorkspace])
-        .then(function (results) {
-          var d = results[0];
-          if (pid && state.workspaceErrors[pid]) {
-            state.rerunResults[tid] = {
-              ok: false,
-              text: "无法确认原工作区（" + state.workspaceErrors[pid] + "）；为避免在错误目录启动，本次未创建运行。刷新历史后可重试。",
-            };
-            return null;
+      return Promise.resolve(state.details[tid] || null)
+        .then(function (detail) {
+          if (generation !== lifecycleGeneration) return null;
+          return detail || get("/teams/" + encodeURIComponent(tid));
+        })
+        .then(function (detail) {
+          if (generation !== lifecycleGeneration) return;
+          var objective = objectiveFromDetail(detail);
+          if (!objective) throw new Error("无法自动提取原目标，请打开详情确认任务内容。");
+          var launcher = win.OwoPanels && win.OwoPanels["project-launcher"];
+          if (!openPanel || !launcher || typeof launcher.setObjective !== "function") {
+            throw new Error("新建任务页暂不可用，请刷新页面后重试。");
           }
-          var ws = pid ? state.workspaces[pid] : null;
-          if (pid && ws === undefined) {
-            state.rerunResults[tid] = {
-              ok: false,
-              text: "原工作区状态尚未确认；为避免丢失工作区配置，本次未创建运行。请刷新后重试。",
-            };
-            return null;
-          }
-          var body = rerunBody(d, ws);
-          if (body && body.error === "missing_objective") {
-            state.rerunResults[tid] = {
-              ok: false,
-              text: "无法自动提取原目标（审计尾迹未含「目标 …」事件）——请在 WorkSwarm 详情确认目标后手工重跑。",
-            };
-            return null;
-          }
-          return H.post("/teams", body).then(function (created) {
-            var newId = created && created.team_id;
-            state.rerunResults[tid] = {
-              ok: true,
-              text: "已按同配置创建新运行" + (newId ? "：" + newId : "") + "。",
-              new_team_id: newId || null,
-            };
-          });
+          openPanel("project-launcher");
+          launcher.setObjective(objective);
         })
         .catch(function (e) {
-          state.rerunResults[tid] = { ok: false, text: "复跑失败：" + friendly(e) };
+          if (generation === lifecycleGeneration) state.rerunResults[tid] = { ok: false, text: friendly(e) };
         })
         .then(function () {
-          state.rerunBusy[tid] = false;
-          paintRerun(tid);
+          delete state.rerunBusy[tid];
+          if (generation === lifecycleGeneration) paintRerun(tid);
         });
     }
 
     function gotoWorkswarm(teamId) {
       var id = String(teamId || "");
       if (!id) return;
+      if (H.openTeam) { H.openTeam(id); return; }
       try {
         if (win.OwoPanels && win.OwoPanels.workswarm && win.OwoPanels.workswarm.open) {
           // 侧导航切到 workswarm 面板（app.js 挂载机制），再深链详情。
@@ -698,11 +656,6 @@
           return;
         }
       } catch (_e) { /* 深链失败静默：详情可手工打开 */ }
-    }
-
-    function openRerunPrompt(tid) {
-      var newId = (state.rerunResults[tid] || {}).new_team_id;
-      if (newId) gotoWorkswarm(newId);
     }
 
     function onListClick(ev) {
@@ -718,10 +671,8 @@
         startRerun(rerunBtn.getAttribute("data-ph-rerun") || "");
         return;
       }
-      var result = t.closest("[data-ph-result]");
-      if (result && result.textContent.indexOf("已按同配置创建") === 0) {
-        openRerunPrompt(result.getAttribute("data-ph-result") || "");
-      }
+      var more = t.closest("[data-ph-more]");
+      if (more) { state.rowLimit = (state.rowLimit || MAX_ROWS) + MAX_ROWS; render(); }
     }
 
     function onFilterChange(ev) {
@@ -732,6 +683,7 @@
       else if (t.id === "ph-f-project") state.filters.project = t.value;
       else if (t.id === "ph-f-q") state.filters.q = t.value;
       else return;
+      state.rowLimit = MAX_ROWS;
       render();
       if (state.filterEnrichTimer) {
         clearTimeout(state.filterEnrichTimer);
@@ -741,14 +693,15 @@
         // 搜索命中本地已加载列表；等待短暂停顿再补充行详情，避免每个按键都打 API。
         state.filterEnrichTimer = setTimeout(function () {
           state.filterEnrichTimer = null;
-          enrichVisible(visibleTeams(state.teams, state.filters, MAX_ROWS)).then(render);
+          enrichVisible(visibleTeams(state.teams, state.filters, state.rowLimit || MAX_ROWS)).then(render);
         }, 180);
         return;
       }
-      enrichVisible(visibleTeams(state.teams, state.filters, MAX_ROWS)).then(render);
+      enrichVisible(visibleTeams(state.teams, state.filters, state.rowLimit || MAX_ROWS)).then(render);
     }
 
     function dispose() {
+      lifecycleGeneration++;
       loadGeneration += 1;
       state.loading = false;
       if (state.filterEnrichTimer) clearTimeout(state.filterEnrichTimer);
@@ -758,19 +711,25 @@
     }
 
     function mount(root, helpers) {
+      lifecycleGeneration++;
       rootEl = root;
       H = helpers || {};
       H.baseUrl = H.baseUrl || (win.OwoPanels && win.OwoPanels.baseUrl) || "";
+      if (state.hostScope !== H.baseUrl) {
+        state.teams = []; state.errors = []; state.rerunResults = {}; state.loadedOnce = false;
+        invalidateEnrichment();
+      }
+      state.hostScope = H.baseUrl;
       if (!H.get) H.get = defaultGet;
-      if (!H.post) H.post = defaultPost;
       if (!H.esc) H.esc = defaultEsc;
       root.innerHTML = shellHtml();
       var box = el("#ph-list");
       if (box) box.addEventListener("click", onListClick);
       var fbox = el("#ph-filters-box");
-      if (fbox) fbox.addEventListener("change", onFilterChange);
-      var q = el("#ph-f-q");
-      if (q) q.addEventListener("input", onFilterChange);
+      if (fbox) {
+        fbox.addEventListener("change", function (ev) { if (ev.target.id !== "ph-f-q") onFilterChange(ev); });
+        fbox.addEventListener("input", function (ev) { if (ev.target.id === "ph-f-q") onFilterChange(ev); });
+      }
       var refresh = el("#ph-refresh");
       if (refresh) refresh.onclick = function () { load(); };
       load();
@@ -789,7 +748,10 @@
       matchesFilters: matchesFilters,
       visibleTeams: visibleTeams,
       objectiveFromDetail: objectiveFromDetail,
-      rerunBody: rerunBody,
+      localWhen: localWhen,
+      dispose: dispose,
+      onListClick: onListClick,
+      setHelpers: function (helpers) { H = helpers; },
       rowHtml: rowHtml,
       listHtml: listHtml,
       filtersHtml: filtersHtml,
@@ -815,7 +777,7 @@
 
     return {
       id: ID,
-      title: "项目与运行历史",
+      title: "任务记录",
       mount: mount,
       dispose: dispose,
       _test: TEST_API,

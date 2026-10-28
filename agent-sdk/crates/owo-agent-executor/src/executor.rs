@@ -854,6 +854,7 @@ pub fn click_at_screen(x: i32, y: i32) -> Result<(), String> {
 /// 在屏幕坐标处滚动鼠标滚轮（delta 为正向上、负向下，一格 120）。
 /// 在屏幕坐标处滚动。**M15 提权为 `pub`**：调用方 `computer_use` 仍在 core，
 /// 留在 `pub(crate)` 会变成新 crate 内的死代码（本步 `check` 的 dead_code 警告）。
+#[cfg(target_os = "windows")]
 pub fn scroll_at_screen(x: i32, y: i32, delta: i32) -> Result<(), String> {
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_WHEEL, MOUSEINPUT,
@@ -881,6 +882,7 @@ pub fn scroll_at_screen(x: i32, y: i32, delta: i32) -> Result<(), String> {
 }
 
 /// SendInput 偶发失败重试（真实桌面实测出现过瞬时报错）。
+#[cfg(target_os = "windows")]
 fn send_inputs_retry(inputs: &[windows::Win32::UI::Input::KeyboardAndMouse::INPUT]) -> bool {
     use std::thread;
     use std::time::Duration;
@@ -899,8 +901,30 @@ fn send_inputs_retry(inputs: &[windows::Win32::UI::Input::KeyboardAndMouse::INPU
     false
 }
 
+// Keep the cross-crate API available on other hosts while explicitly refusing
+// native Windows input. Simulation remains handled above this executor boundary.
 #[cfg(not(target_os = "windows"))]
-fn launch_target(target: &str) -> Result<(), String> {
+pub fn click_at_screen(_x: i32, _y: i32) -> Result<(), String> {
+    Err("Native desktop input requires Windows".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn scroll_at_screen(_x: i32, _y: i32, _delta: i32) -> Result<(), String> {
+    Err("Native desktop input requires Windows".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn send_unicode(_text: &str) -> Result<(), String> {
+    Err("Native desktop input requires Windows".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn send_shortcut(_combo: &str) -> Result<(), String> {
+    Err("Native desktop input requires Windows".to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn launch_target(target: &str) -> Result<(), String> {
     if target.trim().is_empty() {
         return Err("启动目标为空".to_string());
     }
@@ -999,11 +1023,48 @@ impl WindowsUiaSource {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
+impl UiActionSource for WindowsUiaSource {
+    fn find(&self, _anchor: &SemanticAnchor) -> Result<u64, String> {
+        Err("Native desktop input requires Windows".to_string())
+    }
+    fn invoke(&self, _handle: u64) -> Result<(), String> {
+        Err("Native desktop input requires Windows".to_string())
+    }
+    fn type_text(&self, _handle: u64, text: &str) -> Result<(), String> {
+        send_unicode(text)
+    }
+    fn shortcut(&self, combo: &str) -> Result<(), String> {
+        send_shortcut(combo)
+    }
+    fn launch(&self, _target: &str) -> Result<(), String> {
+        Err("Native desktop input requires Windows".to_string())
+    }
+    fn click_at(&self, x: i32, y: i32) -> Result<(), String> {
+        click_at_screen(x, y)
+    }
+    fn verify(&self, _predicate: &str) -> Result<bool, String> {
+        Err("Native desktop input requires Windows".to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use owo_agent_memory::learn::{ActionGraph, ActionType, SemanticAnchor};
     use owo_agent_perception::element_registry::{ElementRegistry, SceneElement};
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn unsupported_native_input_fails_closed() {
+        assert!(click_at_screen(0, 0).is_err());
+        assert!(scroll_at_screen(0, 0, 120).is_err());
+        assert!(send_unicode("text").is_err());
+        assert!(send_shortcut("enter").is_err());
+        assert!(WindowsUiaSource::new().is_err());
+        assert!(WindowsUiaSource::new_with_registry(None).is_err());
+        assert!(WindowsUiaSource.verify("anything").is_err());
+    }
 
     struct ScriptedSource {
         find_ok: bool,

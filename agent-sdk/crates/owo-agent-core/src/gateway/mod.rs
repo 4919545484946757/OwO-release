@@ -1,5 +1,8 @@
 mod config;
 mod custom;
+pub mod input_capabilities;
+pub mod media_config;
+pub mod media_profiles;
 pub use custom::custom_model_provider;
 mod message;
 
@@ -8,7 +11,9 @@ mod tests;
 
 pub use config::*;
 pub use message::*;
+pub use presets::{ModalitySupport, ProviderPreset, PROVIDER_PRESETS};
 
+mod presets;
 mod provider;
 mod resilience;
 mod stream;

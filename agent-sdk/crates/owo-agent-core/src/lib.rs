@@ -35,7 +35,6 @@ mod json_schema;
 pub mod node_agent;
 /// 用户提问通道（ask_user 工具；取优合并自远端 engine）。
 pub mod question;
-#[cfg(target_os = "windows")]
 pub mod remote_step;
 pub mod request_requirements;
 pub mod schema_budget;
@@ -469,7 +468,9 @@ pub use scene::{
     merge_sources, text_hash, ElementRelation, EntityState, Evidence, EvidenceSource, GraphElement,
     SceneGraph, WindowState,
 };
-pub use session::{JsonSessionStore, Session, SessionGoal, SessionStore, TurnEventRecord};
+pub use session::{
+    JsonSessionStore, Session, SessionGoal, SessionMode, SessionStore, TurnEventRecord,
+};
 pub use settings::{EgressSettings, Settings, TeamSettings};
 pub use share::{export_html, export_markdown};
 pub use share_skill::{export_flow_skill_package, import_flow_skill_package};

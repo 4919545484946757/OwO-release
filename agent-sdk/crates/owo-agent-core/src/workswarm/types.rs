@@ -196,4 +196,6 @@ pub struct TeamProgress {
     pub current_steps: Vec<ProgressStep>,
     pub counts: ProgressCounts,
     pub updated_at: String,
+    /// Host-side supervision derived from this snapshot (never a model opinion).
+    pub supervisor: super::supervisor::ProgressSupervisor,
 }

@@ -4,6 +4,8 @@
 //!
 //! | 模块 | 内容 |
 //! |---|---|
+//! | [`workflow_revision_store`] | TeamTemplate 事务修订、CAS、历史、迁移与删除记录 |
+//! | [`team_template_registry`] | 已安装模板及提案的共享注册表（无 Agent 运行时依赖） |
 //! | [`project_space_store`] | 项目空间持久化：`ProjectSpace` / `Artifact` / `DecisionRecord` / `HandoffRecord` / `TeamRun` 的 SQLite CRUD（trait + 实现） |
 //! | [`team_benefit`] | 组队收益判定：配对对照报告 → 冻结门槛 → `TeamPolicy` / `PolicyGate`（纯函数 + serde） |
 //! | [`workswarm_output`] | Worker 结构化输出契约（V1）：`WorkerOutputV1` 解析与校验 |
@@ -33,3 +35,16 @@ pub mod workswarm_output;
 pub use project_space_store::*;
 pub use team_benefit::*;
 pub use workswarm_output::*;
+
+/// Versioned TeamTemplate storage; shares the existing SQLite runtime.
+pub mod workflow_revision_store;
+
+/// The shared TeamTemplate registry; no Agent runtime dependency.
+pub mod team_template_registry;
+
+/// Bounded node patch proposals without IO or execution.
+pub mod workflow_patch;
+
+mod workflow_draft_store;
+/// Atomic proposal lifecycle in the same canonical workflow database.
+mod workflow_proposal_store;

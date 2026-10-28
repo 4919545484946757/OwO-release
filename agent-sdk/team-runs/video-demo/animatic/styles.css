@@ -1,0 +1,1452 @@
+/* ==========================================================================
+   WorkSwarm — 12s 产品宣传 动态分镜（animatic）主样式
+   --------------------------------------------------------------------------
+   画布 1920×1080（16:9），安全区左右 96px / 上下 72px
+   总时长 --total: 12000ms；全部关键帧动画 duration = var(--total)、infinite
+   毫秒 → 百分比换算：pct = ms / 12000 × 100
+   依赖：无（无网络字体 / 无 CDN / 图标全部内联 SVG）
+   ========================================================================== */
+
+:root {
+  --bg: #0B1020;
+  --blue: #4F7CFF;
+  --orange: #FF5A3C;
+  --green: #22C55E;
+  --white: #FFFFFF;
+  --muted: #A9B4CC;
+  --ease-in: cubic-bezier(.16, 1, .3, 1);
+  --ease-out: cubic-bezier(.4, 0, 1, 1);
+  --total: 12000ms;
+  --stage-scale: .5;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  min-height: 100%;
+  background: #05070f;
+  color: var(--white);
+  font-family: "Noto Sans SC", "Source Han Sans SC", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 12px 20px;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------- 顶部标题区 */
+.app-head {
+  width: min(1920px, 100%);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.app-head h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.app-head .spec {
+  font-size: 12px;
+  color: #66718c;
+  letter-spacing: .06em;
+}
+
+/* ------------------------------------------------------------- 自适应舞台 */
+.frame {
+  width: min(1920px, 100%, (100vh - 180px) * 16 / 9);
+  aspect-ratio: 16 / 9;
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .06);
+}
+
+.stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: 0 0;
+  transform: scale(var(--stage-scale));
+  background:
+    radial-gradient(1100px 720px at 50% 46%, #131c3a 0%, #0B1020 46%, #05070d 100%);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* 安全区参考（按 G 切换） */
+.safe-area {
+  position: absolute;
+  inset: 72px 96px;
+  border: 1px dashed rgba(79, 124, 255, .28);
+  border-radius: 8px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s;
+  z-index: 60;
+}
+body.safe-on .safe-area { opacity: 1; }
+
+/* 全局白闪（0–150ms）与纯黑遮罩（11.6–12.0s） */
+.flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+.to-black {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  z-index: 45;
+  pointer-events: none;
+}
+.stage.playing .flash { animation: flash-out var(--total) linear infinite both; }
+.stage.playing .to-black { animation: to-black var(--total) linear infinite both; }
+.stage.playing.paused .flash,
+.stage.playing.paused .to-black { animation-play-state: paused; }
+
+/* ------------------------------------------------------------------ 镜头层 */
+.shot {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.stage.playing .shot {
+  visibility: visible;
+  animation-duration: var(--total);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+.stage.playing.paused .shot,
+.stage.playing.paused .shot * { animation-play-state: paused; }
+.stage.playing .shot[data-shot="S01"] { animation-name: shot-on-1; }
+.stage.playing .shot[data-shot="S02"] { animation-name: shot-on-2; }
+.stage.playing .shot[data-shot="S03"] { animation-name: shot-on-3; }
+.stage.playing .shot[data-shot="S04"] { animation-name: shot-on-4; }
+.stage.playing .shot[data-shot="S05"] { animation-name: shot-on-5; }
+.stage.playing .shot[data-shot="S06"] { animation-name: shot-on-6; }
+
+/* 通用：逐镜元素在 !playing 时由 runtime.css 兜底为终态 */
+.stage.playing .shot * {
+  animation-duration: var(--total);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+/* ============================================================ S01 0–1.5s */
+
+.s01-wrap {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  animation-name: s01-out;
+}
+
+.dot-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%) scale(.2);
+  opacity: 0;
+  box-shadow: 0 0 24px rgba(79, 124, 255, .9), 0 0 64px rgba(79, 124, 255, .55);
+  animation-name: s01-dot;
+}
+
+.ripple {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 180px;
+  height: 180px;
+  margin: -90px 0 0 -90px;
+  border-radius: 50%;
+  border: 2px solid rgba(79, 124, 255, .75);
+  opacity: 0;
+  animation-name: s01-ripple;
+}
+.ripple[data-r="2"] { animation-delay: 120ms; }
+.ripple[data-r="3"] { animation-delay: 240ms; }
+
+.s01-title {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  margin-top: -30px;
+  font-size: 104px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  text-shadow: 0 0 24px rgba(79, 124, 255, .35);
+}
+.s01-title span {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(24px);
+  animation-name: s01-char;
+}
+
+.s01-beam {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 3px;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), #fff, rgba(255, 255, 255, 0));
+  filter: blur(1px);
+  opacity: 0;
+  animation-name: s01-beam;
+}
+
+/* ============================================================ S02 1.5–4.0s */
+
+.s02-holder {
+  position: absolute;
+  inset: 0;
+  animation-name: s02-holder;
+}
+
+.win {
+  position: absolute;
+  width: 420px;
+  height: 260px;
+  border-radius: 12px;
+  padding: 18px 20px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .04));
+  border: 1px solid rgba(255, 255, 255, .12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .38);
+  opacity: 0;
+  animation-name: s02-card;
+}
+
+.win[data-i="1"] { left: 150px;  top: 150px; --rot: -7deg; }
+.win[data-i="2"] { left: 640px;  top: 110px; --rot:  5deg; animation-delay: 80ms; }
+.win[data-i="3"] { left: 1130px; top: 175px; --rot: -4deg; animation-delay: 160ms; }
+.win[data-i="4"] { left: 1330px; top: 470px; --rot:  8deg; animation-delay: 240ms; }
+.win[data-i="5"] { left: 760px;  top: 430px; --rot: -2deg; animation-delay: 320ms; }
+.win[data-i="6"] { left: 250px;  top: 520px; --rot:  6deg; animation-delay: 400ms; }
+.win[data-i="7"] { left: 960px;  top: 700px; --rot: -8deg; animation-delay: 480ms; }
+
+.win-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.win-head i {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .3);
+}
+.win-head b {
+  margin-left: 6px;
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, .82);
+  letter-spacing: .04em;
+}
+
+.bars { display: flex; flex-direction: column; gap: 12px; }
+.bars span {
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .22);
+  animation-name: s02-noise;
+}
+.bars span:nth-child(1) { width: 82%; }
+.bars span:nth-child(2) { width: 64%; }
+.bars span:nth-child(3) { width: 74%; }
+.bars span:nth-child(4) { width: 46%; }
+
+/* 红框压顶高亮卡（3200–3700ms 出现） */
+.win-alert {
+  left: 50%;
+  top: 50%;
+  width: 660px;
+  height: 300px;
+  z-index: 5;
+  border: 2px solid rgba(255, 90, 60, .85);
+  box-shadow: 0 24px 70px rgba(255, 90, 60, .28), 0 0 0 1px rgba(255, 90, 60, .3);
+  animation-name: s02-alert;
+}
+.alert-tags { display: flex; gap: 14px; margin-top: 22px; }
+.alert-tags em {
+  font-style: normal;
+  font-size: 26px;
+  font-weight: 700;
+  color: #FFD9D1;
+  background: rgba(255, 90, 60, .18);
+  border: 1px solid rgba(255, 90, 60, .5);
+  border-radius: 999px;
+  padding: 8px 20px;
+}
+
+/* 出镜横向擦除（白色 8% 竖条自左向右 300ms） */
+.wipe {
+  position: absolute;
+  top: 0;
+  left: -14%;
+  width: 14%;
+  height: 100%;
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0), rgba(255, 255, 255, .08), rgba(255, 255, 255, 0));
+  animation-name: s02-wipe;
+}
+
+/* ============================================================ S03 4.0–6.5s */
+
+.s03-holder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  animation-name: s03-holder;
+}
+
+.spotlight {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1500px;
+  height: 900px;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(79, 124, 255, .38), rgba(79, 124, 255, 0) 70%);
+  animation-name: s03-spot;
+}
+
+.app-card {
+  position: relative;
+  width: 1280px;
+  height: 760px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: linear-gradient(165deg, rgba(22, 32, 62, .96), rgba(10, 15, 30, .96));
+  border: 1px solid rgba(255, 255, 255, .12);
+  box-shadow: 0 40px 120px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .08);
+  opacity: 0;
+  transform: scale(.86);
+  animation-name: s03-card;
+}
+/* 地面反光 */
+.app-card::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -46px;
+  height: 46px;
+  filter: blur(6px);
+  background: radial-gradient(closest-side, rgba(79, 124, 255, .22), rgba(79, 124, 255, 0));
+}
+
+.card-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 54px;
+  padding: 0 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .03);
+}
+.card-bar i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .22);
+}
+.card-bar span {
+  margin-left: 12px;
+  font-size: 16px;
+  letter-spacing: .04em;
+  color: rgba(169, 180, 204, .85);
+}
+
+.card-body {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  height: calc(100% - 54px);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 28px 18px;
+  border-right: 1px solid rgba(255, 255, 255, .07);
+}
+.nav em {
+  font-style: normal;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--white);
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .04);
+  opacity: .4;
+  animation-name: s03-nav;
+}
+.nav em:nth-child(2) { animation-delay: 100ms; }
+.nav em:nth-child(3) { animation-delay: 200ms; }
+.nav em:nth-child(4) { animation-delay: 300ms; }
+.nav em:nth-child(5) { animation-delay: 400ms; }
+
+.content {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 20px;
+  padding: 30px 32px;
+}
+.grid-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  background: linear-gradient(150deg, rgba(255, 255, 255, .07), rgba(255, 255, 255, .02));
+  opacity: 0;
+  transform: translateY(20px);
+  animation-name: s03-cell;
+}
+.grid-cell:nth-child(2) { animation-delay: 90ms; }
+.grid-cell:nth-child(3) { animation-delay: 180ms; }
+.grid-cell:nth-child(4) { animation-delay: 270ms; }
+.grid-cell:nth-child(5) { animation-delay: 360ms; }
+.grid-cell:nth-child(6) { animation-delay: 450ms; }
+.grid-cell b { font-size: 22px; font-weight: 600; color: rgba(255, 255, 255, .9); }
+.grid-cell u {
+  display: block;
+  width: 62%;
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(79, 124, 255, .45);
+  text-decoration: none;
+}
+
+/* 对角线光带（4300–4900ms） */
+.sheen {
+  position: absolute;
+  top: -30%;
+  left: -40%;
+  width: 46%;
+  height: 160%;
+  z-index: 8;
+  transform: rotate(18deg);
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0), rgba(255, 255, 255, .12), rgba(255, 255, 255, 0));
+  animation-name: s03-sheen;
+}
+
+/* ============================================================ S04 6.5–8.0s */
+
+.s04-holder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  animation-name: s04-holder;
+}
+
+.feature-wrap {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 40px;
+  width: 1280px;
+  height: 760px;
+  padding: 40px 44px;
+  border-radius: 20px;
+  background: linear-gradient(165deg, rgba(22, 32, 62, .96), rgba(10, 15, 30, .96));
+  border: 1px solid rgba(255, 255, 255, .12);
+  box-shadow: 0 40px 120px rgba(0, 0, 0, .55);
+}
+.feature-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(0, 0, 0, .35), rgba(0, 0, 0, 0) 55%);
+}
+
+.f-col { position: relative; z-index: 2; }
+
+.f1-title,
+.f2-title {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.badge-caption { margin: 0; }
+
+.f1 { display: flex; flex-direction: column; gap: 14px; padding-top: 6px; }
+
+.queue-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 92px;
+  padding: 0 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, .05);
+  animation-name: s04-q;
+  --q-offset: 44px;
+}
+.queue-card:nth-of-type(3) { --q-offset: 22px; }
+.queue-card:nth-of-type(4) { --q-offset: 0px; }
+.queue-card i { flex: none; width: 34px; height: 34px; border-radius: 10px; background: rgba(79, 124, 255, .35); }
+.queue-card span { width: 56%; height: 10px; border-radius: 5px; background: rgba(255, 255, 255, .28); }
+
+.f2 { padding-top: 12px; }
+.flow { position: relative; height: 240px; margin-top: 10px; }
+.flow svg { width: 100%; height: 100%; overflow: visible; }
+.flow .path {
+  fill: none;
+  stroke: url(#flowGrad);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 520;
+  stroke-dashoffset: 520;
+  animation-name: s04-flow;
+}
+
+.flow-node {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border-radius: 18px;
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, .88);
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(79, 124, 255, .16);
+}
+.flow-node[data-n="1"] { left: 0; top: 18px; }
+.flow-node[data-n="2"] { right: 0; top: 96px; }
+.flow-node[data-n="3"] { left: 26%; bottom: 4px; }
+
+.flow-dot {
+  position: absolute;
+  left: 34px;
+  top: 54px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+  box-shadow: 0 0 16px rgba(79, 124, 255, .95);
+  animation-name: s04-dot;
+}
+.flow-dot[data-d="2"] { animation-delay: 180ms; }
+
+.f3 { grid-column: 1 / -1; position: relative; margin-top: 18px; }
+.badge-row { display: flex; align-items: center; gap: 18px; }
+
+.badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 62px;
+  padding: 0 28px;
+  border-radius: 999px;
+  font-size: 24px;
+  font-weight: 700;
+}
+.badge .state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 999px;
+}
+.badge .state-pending {
+  color: #C7CEE0;
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid rgba(255, 255, 255, .16);
+  animation-name: s04-pending;
+}
+.badge .state-done {
+  color: #06240F;
+  background: var(--green);
+  opacity: 0;
+  animation-name: s04-done;
+}
+
+.check { width: 26px; height: 26px; }
+.check path {
+  fill: none;
+  stroke: #06240F;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation-name: s04-check;
+}
+
+.badge-ray {
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 197, 94, .5);
+  opacity: 0;
+  animation-name: s04-ray;
+}
+
+/* ============================================================ S05 8.0–10.5s */
+
+.s05-holder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 42px;
+  animation-name: s05-holder;
+}
+
+.cta-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1400px;
+  height: 900px;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 90, 60, .30), rgba(255, 90, 60, 0) 72%);
+  animation-name: s05-glow;
+}
+
+.cta-zone { position: relative; display: grid; place-items: center; }
+
+.cta-ring {
+  position: absolute;
+  width: 560px;
+  height: 130px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 90, 60, .55);
+  opacity: 0;
+  animation-name: s05-ring;
+}
+.cta-ring[data-ring="2"] { animation-delay: 600ms; }
+
+.cta {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 520px;
+  height: 104px;
+  border-radius: 52px;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: #fff;
+  background: linear-gradient(96deg, var(--blue) 0%, #8E63FF 52%, var(--orange) 100%);
+  box-shadow: 0 24px 60px rgba(255, 90, 60, .34), inset 0 0 0 1px rgba(255, 255, 255, .16);
+  opacity: 0;
+  animation-name: s05-cta;
+}
+
+.cta .arrow { display: inline-flex; width: 26px; height: 26px; animation-name: s05-arrow; }
+.cta .arrow svg { width: 100%; height: 100%; }
+.cta .arrow path {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.points { display: flex; align-items: center; height: 64px; }
+.points .pt {
+  position: relative;
+  padding: 0 40px;
+  font-size: 26px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, .92);
+  opacity: 0;
+  transform: translateY(16px);
+  animation-name: s05-point;
+}
+.points .pt[data-p="2"] { animation-delay: 120ms; }
+.points .pt[data-p="3"] { animation-delay: 240ms; }
+.points .pt::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  width: 1px;
+  height: 26px;
+  margin-top: -13px;
+  background: rgba(255, 255, 255, .2);
+}
+.points .pt:last-child::after { display: none; }
+
+.points-line {
+  width: 760px;
+  height: 1px;
+  transform: scaleX(0);
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0), rgba(255, 255, 255, .32), rgba(255, 255, 255, 0));
+  animation-name: s05-line;
+}
+
+/* ============================================================ S06 10.5–12.0s */
+
+.s06-holder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  background: radial-gradient(900px 600px at 50% 44%, #0F1830 0%, #070b16 62%, #000 100%);
+  animation-name: s06-holder;
+}
+
+.logo-mark {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 24px;
+  background: linear-gradient(150deg, var(--blue), #7B5CFF);
+  box-shadow: 0 18px 50px rgba(79, 124, 255, .4);
+  opacity: 0;
+  animation-name: s06-logo;
+}
+.logo-mark svg { width: 54px; height: 54px; }
+
+.brand {
+  margin: 0;
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: .01em;
+}
+.brand span {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(24px);
+  animation-name: s06-char;
+}
+
+.url {
+  font-size: 28px;
+  letter-spacing: .08em;
+  color: var(--muted);
+  opacity: 0;
+  transform: translateY(12px);
+  animation-name: s06-url;
+}
+
+/* ================================================================ HUD 层 */
+
+.hud {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.hud-shot {
+  position: absolute;
+  top: 44px;
+  left: 48px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-size: 20px;
+  letter-spacing: .08em;
+  color: rgba(233, 238, 250, .92);
+  background: rgba(6, 10, 22, .55);
+  border: 1px solid rgba(255, 255, 255, .12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.hud-shot b { color: var(--blue); font-weight: 700; }
+.hud-shot u {
+  text-decoration: none;
+  color: rgba(169, 180, 204, .9);
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-time {
+  position: absolute;
+  top: 44px;
+  right: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(233, 238, 250, .92);
+  background: rgba(6, 10, 22, .55);
+  border: 1px solid rgba(255, 255, 255, .12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.hud-time .now { font-weight: 700; color: #fff; }
+.hud-time .sep { color: rgba(169, 180, 204, .6); }
+.hud-time .total { color: rgba(169, 180, 204, .9); }
+
+/* 底部安全区居中字幕（40px / 600 / 行高 1.4） */
+.subs {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 74px;
+  height: 112px;
+  padding: 0 96px;
+  text-align: center;
+}
+.sub {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 96px;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 180ms var(--ease-in), transform 180ms var(--ease-in);
+}
+.sub-main {
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #fff;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, .55);
+}
+.sub-sub {
+  margin-top: 4px;
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: rgba(199, 209, 230, .95);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .55);
+  opacity: 0;
+  transform: translateY(16px);
+}
+
+/* =========================================================== 控制条样式 */
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  width: min(1920px, 100%);
+  padding: 2px 4px 0;
+}
+
+.btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  background: rgba(255, 255, 255, .06);
+  color: #E9EEFA;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: background .16s, border-color .16s, transform .16s;
+}
+.btn:hover { background: rgba(79, 124, 255, .18); border-color: rgba(79, 124, 255, .5); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.btn[aria-pressed="true"] { background: rgba(79, 124, 255, .26); border-color: rgba(79, 124, 255, .7); }
+.btn svg { width: 15px; height: 15px; }
+.btn svg polygon,
+.btn svg rect { fill: currentColor; }
+
+.scrub-wrap { display: flex; align-items: center; flex: 1 1 320px; min-width: 200px; }
+
+.scrub {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  outline: none;
+  background: linear-gradient(90deg,
+    var(--blue) 0%, var(--blue) var(--progress, 0%),
+    rgba(255, 255, 255, .14) var(--progress, 0%), rgba(255, 255, 255, .14) 100%);
+}
+.scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(79, 124, 255, .35);
+  cursor: pointer;
+}
+.scrub::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(79, 124, 255, .35);
+  cursor: pointer;
+}
+.scrub::-moz-range-track { height: 6px; background: transparent; }
+.scrub:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+
+.marks { display: flex; align-items: center; gap: 6px; }
+.mark {
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  background: transparent;
+  color: rgba(169, 180, 204, .8);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color .16s, border-color .16s, background .16s;
+}
+.mark:hover { color: #fff; border-color: rgba(79, 124, 255, .6); background: rgba(79, 124, 255, .12); }
+.mark:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.mark.is-active { color: #fff; border-color: var(--blue); background: rgba(79, 124, 255, .22); }
+
+.readout {
+  min-width: 124px;
+  text-align: right;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(169, 180, 204, .9);
+}
+
+.hint {
+  width: min(1920px, 100%);
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+  letter-spacing: .02em;
+  color: #5f6a85;
+}
+.hint code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #8695b8;
+}
+
+/* ==================================================================
+   KEYFRAMES —— 全部 12000ms 循环；注释标注毫秒锚点
+   ================================================================== */
+
+/* ---- 镜头显隐：每镜起止严格对齐分镜表（转场交叉 ~0.5% ≈ 60ms） ---- */
+
+@keyframes shot-on-1 {            /* S01 0–1500ms */
+  0%    { opacity: 1; }
+  11.7% { opacity: 1; }
+  12.5% { opacity: 0; }
+  100%  { opacity: 0; }
+}
+
+@keyframes shot-on-2 {            /* S02 1500–4000ms */
+  0%, 12.2% { opacity: 0; }
+  12.9%     { opacity: 1; }
+  32.5%     { opacity: 1; }
+  33.33%    { opacity: 0; }
+  100%      { opacity: 0; }
+}
+
+@keyframes shot-on-3 {            /* S03 4000–6500ms */
+  0%, 33.0% { opacity: 0; }
+  33.9%     { opacity: 1; }
+  53.5%     { opacity: 1; }
+  54.17%    { opacity: 0; }
+  100%      { opacity: 0; }
+}
+
+@keyframes shot-on-4 {            /* S04 6500–8000ms */
+  0%, 54.0% { opacity: 0; }
+  54.8%     { opacity: 1; }
+  66.0%     { opacity: 1; }
+  66.67%    { opacity: 0; }
+  100%      { opacity: 0; }
+}
+
+@keyframes shot-on-5 {            /* S05 8000–10500ms */
+  0%, 66.4% { opacity: 0; }
+  67.3%     { opacity: 1; }
+  86.7%     { opacity: 1; }
+  87.5%     { opacity: 0; }
+  100%      { opacity: 0; }
+}
+
+@keyframes shot-on-6 {            /* S06 10500–12000ms */
+  0%, 87.3% { opacity: 0; }
+  88.1%     { opacity: 1; }
+  95.0%     { opacity: 1; }   /* 11400ms 定格 */
+  99.9%     { opacity: 0; }   /* 12000ms 淡至纯黑 */
+  100%      { opacity: 0; }
+}
+
+/* ---- 全局过渡层 ---- */
+
+@keyframes flash-out {            /* 0–150ms 全屏白闪 */
+  0%    { opacity: .18; }
+  1.25% { opacity: 0; }
+  100%  { opacity: 0; }
+}
+
+@keyframes to-black {             /* 11.6s 起淡出至纯黑，循环无跳点 */
+  0%, 96.0% { opacity: 0; }
+  97.0%     { opacity: .65; }
+  99.9%     { opacity: 1; }
+  100%      { opacity: 0; }
+}
+
+/* ---- S01 ---- */
+
+@keyframes s01-out {
+  0%, 11.7% { opacity: 1; }
+  12.5%     { opacity: 0; }
+  100%      { opacity: 0; }
+}
+
+@keyframes s01-dot {
+  0%     { opacity: 0; transform: translate(-50%, -50%) scale(.2); }
+  2.2%   { opacity: 1; }
+  3.33%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }   /* 400ms */
+  9.6%   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  10.0%  { opacity: 1; transform: translate(-50%, -50%) scale(1.4); } /* 1200ms 扩散 */
+  12.5%  { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+  100%   { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+}
+
+@keyframes s01-ripple {           /* 300–900ms 扩散 3 圈 */
+  0%, 2.5% { opacity: 0; transform: scale(1); }
+  3.0%     { opacity: .6; transform: scale(1.05); }
+  7.5%     { opacity: 0; transform: scale(4); }
+  100%     { opacity: 0; transform: scale(4); }
+}
+
+@keyframes s01-char {             /* 600–1200ms 逐字上浮（每字 +40ms） */
+  0%, 5.0% { opacity: 0; transform: translateY(24px); }
+  9.0%     { opacity: 1; transform: translateY(0); }
+  11.7%    { opacity: 1; transform: translateY(0); }
+  12.5%    { opacity: 0; transform: translateY(0); }
+  100%     { opacity: 0; transform: translateY(0); }
+}
+
+@keyframes s01-beam {             /* 1200–1500ms 光点扩散成横向光带 */
+  0%, 9.8% { opacity: 0; width: 8px; }
+  10.4%    { opacity: 1; width: 420px; }
+  12.0%    { opacity: 0; width: 1200px; }
+  100%     { opacity: 0; width: 1200px; }
+}
+
+/* ---- S02 ---- */
+
+@keyframes s02-holder {
+  0%, 12.4% { opacity: 0; }
+  12.9%     { opacity: 1; }
+  33.0%     { opacity: 1; }
+  33.33%    { opacity: 0; }
+  100%      { opacity: 0; }
+}
+
+/* 飞入 1500–2100ms；抖动 2100–2600ms；下沉 2600–3200ms；
+   高亮 3200–3700ms；塌缩 3700–4000ms（每张在 animation-delay 上错开 80ms） */
+@keyframes s02-card {
+  0%, 12.5% { opacity: 0; transform: translateY(28px) scale(1.15) rotate(var(--rot, 0deg)); }
+  13.5%     { opacity: 1; }
+  17.5%     { opacity: 1; transform: translateY(0) scale(1) rotate(var(--rot, 0deg)); }
+  18.5%     { transform: translate(-1px, 0) scale(1) rotate(var(--rot, 0deg)); }
+  19.5%     { transform: translate(2px, -1px) scale(1) rotate(var(--rot, 0deg)); }
+  20.5%     { transform: translate(-2px, 1px) scale(1) rotate(var(--rot, 0deg)); }
+  21.7%     { transform: translate(0, 0) scale(1) rotate(var(--rot, 0deg)); }
+  24.0%     { transform: translate(0, -8px) scale(1) rotate(var(--rot, 0deg)); }
+  26.7%     { transform: translate(0, 0) scale(1) rotate(var(--rot, 0deg)); }
+  30.8%     { opacity: 1; transform: translate(0, 0) scale(1) rotate(var(--rot, 0deg)); }
+  33.33%    { opacity: .85; transform: translate(0, 0) scale(.92) rotate(var(--rot, 0deg)); }
+  100%      { opacity: 0; transform: translate(0, 0) scale(.92) rotate(var(--rot, 0deg)); }
+}
+
+/* 占位灰条乱码闪烁（2100–2600ms） */
+@keyframes s02-noise {
+  0%, 17.5% { opacity: .55; }
+  18.2%     { opacity: .9; }
+  19.0%     { opacity: .4; }
+  19.8%     { opacity: .9; }
+  20.6%     { opacity: .45; }
+  21.7%     { opacity: .7; }
+  100%      { opacity: .7; }
+}
+
+/* 红框高亮卡 3200–4000ms */
+@keyframes s02-alert {
+  0%, 26.4% { opacity: 0; transform: translate(-50%, -46%) scale(.96); }
+  27.5%     { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  30.8%     { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  33.33%    { opacity: .85; transform: translate(-50%, -50%) scale(.92); }
+  100%      { opacity: 0; transform: translate(-50%, -50%) scale(.92); }
+}
+
+/* 横向擦除 3700–4000ms（300ms） */
+@keyframes s02-wipe {
+  0%, 30.6% { opacity: 0; left: -14%; }
+  31.2%     { opacity: 1; left: -14%; }
+  33.2%     { opacity: 1; left: 100%; }
+  33.33%    { opacity: 0; left: 100%; }
+  100%      { opacity: 0; left: 100%; }
+}
+
+/* ---- S03 ---- */
+
+/* 入场 + 推镜（4600–5400ms scale 1→1.06）+ 竖向滑出（−24px，250ms） */
+@keyframes s03-holder {
+  0%, 33.0% { opacity: 0; transform: translateY(24px); }
+  34.0%     { opacity: 1; transform: translateY(0); }
+  53.6%     { opacity: 1; transform: translateY(0); }
+  54.17%    { opacity: 0; transform: translateY(-24px); }
+  100%      { opacity: 0; transform: translateY(-24px); }
+}
+
+@keyframes s03-spot {
+  0%, 32.8% { opacity: 0; }
+  34.5%     { opacity: 1; }   /* 4140ms 聚光 */
+  53.0%     { opacity: 1; }
+  54.17%    { opacity: 0; }
+  100%      { opacity: 0; }
+}
+
+@keyframes s03-card {
+  0%, 33.33% { opacity: 0; transform: scale(.86); }
+  35.0%      { opacity: 1; transform: scale(.96); }
+  38.33%     { opacity: 1; transform: scale(1); }    /* 4600ms */
+  45.0%      { opacity: 1; transform: scale(1.06); } /* 5400ms 推镜封顶 */
+  53.6%      { opacity: 1; transform: scale(1.06); }
+  54.17%     { opacity: 0; transform: scale(1.06) translateY(-24px); }
+  100%       { opacity: 0; transform: scale(1.06) translateY(-24px); }
+}
+
+/* 对角线光带 4300–4900ms */
+@keyframes s03-sheen {
+  0%, 35.4% { opacity: 0; left: -40%; }
+  36.0%     { opacity: 1; left: -30%; }
+  40.8%     { opacity: 1; left: 118%; }
+  41.2%     { opacity: 0; left: 118%; }
+  100%      { opacity: 0; left: 118%; }
+}
+
+/* 左导航 5400–6000ms 逐项点亮（每项 +100ms 延迟） */
+@keyframes s03-nav {
+  0%, 45.0% { opacity: .4; }
+  46.0%     { opacity: 1; }
+  53.6%     { opacity: 1; }
+  54.17%    { opacity: 0; }
+  100%      { opacity: 0; }
+}
+
+/* 右侧 3×2 网格 6000–6500ms 自下而上浮现（每块 +90ms 延迟） */
+@keyframes s03-cell {
+  0%, 50.0% { opacity: 0; transform: translateY(20px); }
+  51.6%     { opacity: 1; transform: translateY(0); }
+  53.6%     { opacity: 1; transform: translateY(0); }
+  54.17%    { opacity: 0; transform: translateY(0); }
+  100%      { opacity: 0; transform: translateY(0); }
+}
+
+/* ---- S04 ---- */
+
+/* 入场（卡片上移 24px）+ slide up 出场（−40px，200ms） */
+@keyframes s04-holder {
+  0%, 54.0% { opacity: 0; transform: translateY(16px); }
+  55.0%     { opacity: 1; transform: translateY(-24px); }
+  65.5%     { opacity: 1; transform: translateY(-24px); }
+  66.67%    { opacity: 0; transform: translateY(-64px); }
+  100%      { opacity: 0; transform: translateY(-64px); }
+}
+
+/* ① 6500–7000ms：高亮描边呼吸一次 + 3 卡收拢对齐 */
+@keyframes s04-q {
+  0%, 54.17% { border-color: rgba(255, 255, 255, .12); transform: translateX(var(--q-offset, 0px)); }
+  55.2%      { border-color: rgba(79, 124, 255, .85); }
+  58.33%     { border-color: rgba(79, 124, 255, .85); transform: translateX(0); }  /* 7000ms */
+  60.0%      { border-color: rgba(255, 255, 255, .14); transform: translateX(0); }
+  66.67%     { border-color: rgba(255, 255, 255, .14); transform: translateX(0); }
+  100%       { border-color: rgba(255, 255, 255, .12); transform: translateX(var(--q-offset, 0px)); }
+}
+
+/* ② 7000–7500ms：连线绘制（stroke-dashoffset 520→0，400ms 有效绘制） */
+@keyframes s04-flow {
+  0%, 58.33% { stroke-dashoffset: 520; }   /* 7000ms */
+  62.5%      { stroke-dashoffset: 0; }     /* 7500ms */
+  66.67%     { stroke-dashoffset: 0; }
+  100%       { stroke-dashoffset: 520; }
+}
+
+/* 光点沿线运动（2 个点，第二个 +180ms） */
+@keyframes s04-dot {
+  0%, 59.0% { opacity: 0; transform: translate(0, 0); }
+  59.5%     { opacity: 1; transform: translate(0, 0); }
+  61.8%     { opacity: 1; transform: translate(230px, 60px); }
+  62.5%     { opacity: 0; transform: translate(300px, 76px); }
+  100%      { opacity: 0; transform: translate(300px, 76px); }
+}
+
+/* ③ 7500–8000ms：徽标翻面 + 勾号描绘 */
+@keyframes s04-pending {
+  0%, 62.5% { opacity: 1; }
+  63.2%     { opacity: 0; }   /* 7584ms 翻面 */
+  100%      { opacity: 0; }
+}
+
+@keyframes s04-done {
+  0%, 62.5% { opacity: 0; transform: scale(.92); }
+  63.4%     { opacity: 1; transform: scale(1.08); }  /* 7608ms 弹跳 1.08 */
+  64.6%     { opacity: 1; transform: scale(1); }
+  66.67%    { opacity: 1; transform: scale(1); }
+  100%      { opacity: 0; transform: scale(1); }
+}
+
+@keyframes s04-check {
+  0%, 63.3% { stroke-dashoffset: 30; }
+  64.97%    { stroke-dashoffset: 0; }   /* 200ms 描绘完成 */
+  66.67%    { stroke-dashoffset: 0; }
+  100%      { stroke-dashoffset: 30; }
+}
+
+@keyframes s04-ray {
+  0%, 63.2% { opacity: 0; transform: scale(.94); }
+  64.0%     { opacity: .8; transform: scale(1); }
+  66.2%     { opacity: 0; transform: scale(1.18); }
+  100%      { opacity: 0; transform: scale(1.18); }
+}
+
+/* ---- S05 ---- */
+
+/* 入场（8000ms）+ 10200ms 收敛 + 10400–10500 下压 8px / opacity .92 */
+@keyframes s05-holder {
+  0%, 66.3% { opacity: 0; transform: translateY(8px); }
+  67.3%     { opacity: 1; transform: translateY(0); }
+  85.8%     { opacity: 1; transform: translateY(0); }    /* 10296ms */
+  86.67%    { opacity: .92; transform: translateY(8px); }/* 10400ms */
+  87.5%     { opacity: 0; transform: translateY(8px); }
+  100%      { opacity: 0; transform: translateY(8px); }
+}
+
+@keyframes s05-glow {
+  0%, 66.3% { opacity: 0; }
+  68.5%     { opacity: 1; }   /* 8220ms 橙红径向光 */
+  85.8%     { opacity: 1; }
+  87.5%     { opacity: 0; }
+  100%      { opacity: 0; }
+}
+
+/* CTA：8000–8400ms 回弹；8400–8900 静止；8900–10200 呼吸脉冲（周期 800ms）；
+   10200–10500 收敛至 1.0 */
+@keyframes s05-cta {
+  0%, 66.67% { opacity: 0; transform: scale(.7); }
+  68.0%      { opacity: 1; transform: scale(1.04); }
+  70.0%      { opacity: 1; transform: scale(1); }        /* 8400ms */
+  73.3%      { transform: scale(1); }                    /* 8800ms */
+  74.17%     { transform: scale(1.05); }                 /* 8900→9700 */
+  76.83%     { transform: scale(1); }
+  78.33%     { transform: scale(1.05); }                 /* 9700→10500 前的第二拍 */
+  81.0%      { transform: scale(1); }
+  82.5%      { transform: scale(1.05); }
+  85.0%      { transform: scale(1); }                    /* 10200ms 收敛 */
+  86.67%     { opacity: 1; transform: scale(1); }
+  87.5%      { opacity: 0; transform: scale(1); }
+  100%       { opacity: 0; transform: scale(.7); }
+}
+
+@keyframes s05-arrow {            /* 箭头每脉冲右移 6px */
+  0%, 70.0% { transform: translateX(0); }
+  74.17%    { transform: translateX(6px); }
+  76.83%    { transform: translateX(0); }
+  78.33%    { transform: translateX(6px); }
+  81.0%     { transform: translateX(0); }
+  82.5%     { transform: translateX(6px); }
+  85.0%     { transform: translateX(0); }
+  100%      { transform: translateX(0); }
+}
+
+/* 扩散光环：8900–10200ms 内 2 轮，单轮 1200ms（两层由 delay 600ms 错开） */
+@keyframes s05-ring {
+  0%, 73.9% { opacity: 0; transform: scale(.92); }   /* 8868ms */
+  74.3%     { opacity: .35; transform: scale(1); }
+  77.8%     { opacity: 0; transform: scale(1.16); }  /* 9336ms */
+  84.4%     { opacity: 0; transform: scale(.92); }   /* 10128ms */
+  85.0%     { opacity: .35; transform: scale(1); }
+  88.5%     { opacity: 0; transform: scale(1.16); }
+  100%      { opacity: 0; transform: scale(1.16); }
+}
+
+@keyframes s05-point {            /* 8400–8900ms 3 卖点上浮（每项 +120ms） */
+  0%, 70.0% { opacity: 0; transform: translateY(16px); }
+  71.6%     { opacity: 1; transform: translateY(0); }
+  86.67%    { opacity: 1; transform: translateY(0); }
+  87.5%     { opacity: 0; transform: translateY(0); }
+  100%      { opacity: 0; transform: translateY(0); }
+}
+
+@keyframes s05-line {             /* 细分割线横向展开 */
+  0%, 70.4% { transform: scaleX(0); }
+  74.0%     { transform: scaleX(1); }
+  86.67%    { transform: scaleX(1); }
+  87.5%     { transform: scaleX(0); }
+  100%      { transform: scaleX(0); }
+}
+
+/* ---- S06 ---- */
+
+/* 10500–10900 落版；10700–11100 品牌名；11000–11400 URL；11400 定格后淡出 */
+@keyframes s06-holder {
+  0%, 87.4% { opacity: 0; }
+  88.4%     { opacity: 1; }
+  95.0%     { opacity: 1; }   /* 11400ms 定格 */
+  99.0%     { opacity: 1; }
+  99.9%     { opacity: 0; }   /* 12000ms */
+  100%      { opacity: 0; }
+}
+
+@keyframes s06-logo {
+  0%, 87.5% { opacity: 0; transform: scale(.8) rotate(-8deg); }
+  90.83%    { opacity: 1; transform: scale(1) rotate(0deg); }  /* 10900ms */
+  95.0%     { opacity: 1; transform: scale(1) rotate(0deg); }
+  99.9%     { opacity: 0; transform: scale(1) rotate(0deg); }
+  100%      { opacity: 0; transform: scale(1) rotate(0deg); }
+}
+
+@keyframes s06-char {
+  0%, 89.17% { opacity: 0; transform: translateY(24px); }  /* 10700ms 起 */
+  93.0%      { opacity: 1; transform: translateY(0); }     /* 每字 +40ms 延迟 */
+  95.0%      { opacity: 1; transform: translateY(0); }
+  99.9%      { opacity: 0; transform: translateY(0); }
+  100%       { opacity: 0; transform: translateY(0); }
+}
+
+@keyframes s06-url {
+  0%, 91.67% { opacity: 0; transform: translateY(12px); }  /* 11000ms */
+  95.0%      { opacity: 1; transform: translateY(0); }     /* 11400ms */
+  99.0%      { opacity: 1; transform: translateY(0); }
+  99.9%      { opacity: 0; transform: translateY(0); }
+  100%       { opacity: 0; transform: translateY(0); }
+}
+
+/* ================================================================
+   prefers-reduced-motion：跳过位移与缩放，仅保留透明度淡入淡出
+   ================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .dot-core,
+  .ripple,
+  .s01-beam,
+  .win,
+  .win-alert,
+  .app-card,
+  .nav em,
+  .grid-cell,
+  .s03-holder,
+  .s04-holder,
+  .s05-holder,
+  .queue-card,
+  .flow-dot,
+  .badge .state-done,
+  .badge-ray,
+  .cta,
+  .cta .arrow,
+  .cta-ring,
+  .points .pt,
+  .points-line,
+  .logo-mark,
+  .brand span,
+  .url {
+    transform: none !important;
+  }
+  .s01-title span { transform: none !important; }
+  .flow .path,
+  .check path { stroke-dashoffset: 0 !important; }
+  .sheen,
+  .wipe { display: none; }
+}
+
+/* ================================================================
+   移动端 / 窄屏
+   ================================================================ */
+@media (max-width: 900px) {
+  body { padding: 10px 8px 14px; gap: 8px; }
+  .app-head h1 { font-size: 11px; letter-spacing: .08em; }
+  .app-head .spec { font-size: 10px; }
+  .frame { border-radius: 10px; }
+  .controls { gap: 8px; }
+  .btn { height: 34px; padding: 0 12px; font-size: 12px; }
+  .marks { display: none; }
+  .readout { min-width: 92px; font-size: 12px; text-align: left; }
+  .hint { font-size: 11px; }
+}
+
+@media (max-width: 560px) {
+  .btn .btn-label { display: none; }
+  .btn { padding: 0 11px; }
+  .scrub-wrap { flex-basis: 100%; order: 3; }
+  .readout { order: 4; }
+}

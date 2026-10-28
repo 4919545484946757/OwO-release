@@ -1,0 +1,35 @@
+   Compiling owo-agent-server v0.1.0 (T:\创新创业\OwO-master\agent-sdk\crates\owo-agent-server)
+  |
+warning: linker stdout: 正在创建库 C:\Users\23843\AppData\Local\Temp\owo-audit-iteration-20261025\native-target\debug\deps\media_execution_api_tests-779f2bee6235356c.lib 和对象 C:\Users\23843\AppData\Local\Temp\owo-audit-iteration-20261025\native-target\debug\deps\media_execution_api_tests-779f2bee6235356c.exp
+
+  = note: `#[warn(linker_messages)]` on by default
+warning: `owo-agent-server` (test "media_execution_api_tests") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 27.59s
+     Running tests\media_execution_api_tests.rs (native-target\debug\deps\media_execution_api_tests-779f2bee6235356c.exe)
+
+running 1 test
+
+
+thread 'invalid_builtin_media_is_rejected_before_file_commit_and_can_retry' (54428) panicked at crates\owo-agent-server\tests\media_execution_api_tests.rs:82:5:
+running 1 test
+
+failures:
+test invalid_builtin_media_is_rejected_before_file_commit_and_can_retry ... FAILED
+
+    invalid_builtin_media_is_rejected_before_file_commit_and_can_retry
+failures:
+
+
+{"duration_ms":4,"level":"info","method":"POST","msg":"request","route_template":"/session","source":"other","status":200,"target":"http","trace_id":"55833d7507384181bf05349a","ts":"2026-10-27T06:49:47.433012100+00:00"}
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.22s
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/turn","source":"other","status":200,"target":"http","trace_id":"12115299be1b45dbbe79904e","ts":"2026-10-27T06:49:47.434393500+00:00"}
+
+thread 'invalid_builtin_media_is_rejected_before_file_commit_and_can_retry' (24352) panicked at crates\owo-agent-server\tests\media_execution_api_tests.rs:625:9:
+failed media must not poison the requested output path: generate_image
+{"duration_ms":0,"level":"info","method":"POST","msg":"request","route_template":"/session/{id}/permission/{request_id}","source":"other","status":200,"target":"http","trace_id":"0cef463470f24179922f10b3","ts":"2026-10-27T06:49:47.456561500+00:00"}
+
+{"duration_ms":20,"level":"info","method":"PUT","msg":"request","route_template":"/settings/media-connections","source":"other","status":200,"target":"http","trace_id":"794b7e06dc4a4fd0ab82c19e","ts":"2026-10-27T06:49:47.427320500+00:00"}
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `-p owo-agent-server --test media_execution_api_tests`

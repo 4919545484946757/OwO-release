@@ -1,0 +1,53 @@
+{
+  "template_id": "game-polish",
+  "name": "游戏打磨与迭代",
+  "mode": "team",
+  "applicability": "优化 打磨 迭代 游戏 坦克大战 体验 前端 视觉 玩法 手感",
+  "applicability_notes": "用于已有可运行网页游戏的持续打磨：builder 在既有入口上改，tester 回归，playtester 真机试玩，lead 只读评分；不负责从零搭七层架构。",
+  "created_at": "2026-10-26T00:00:00Z",
+  "description": "四角色游戏打磨闭环：builder 小步修改现有游戏 → tester 跑真实 node --test 回归 → playtester 跑真实 50 秒 Playwright 试玩 → lead_review 评分；证据仅接受本轮产物。",
+  "version": "1.0.0",
+  "tags": ["game", "polish", "iteration", "playtest"],
+  "roles": [
+    {
+      "role": "builder",
+      "assignee": "agent",
+      "depends_on": [],
+      "capabilities": ["task_worker"],
+      "model": "deepseek-chat",
+      "write_paths": ["src/", "index.html", "styles.css", "README.md"],
+      "tools": ["read_file", "list_dir", "write_file", "apply_patch", "run_command"],
+      "handoff_contract": "你是 builder。先读 index.html、src/game-core.js、src/main.js、styles.css 和 tests/acceptance，理解当前可玩游戏；只做用户目标要求的最小、可回归的打磨，保持现有公开接口、键位和测试可运行。不要推倒重写，不要改 tests/；先运行 `node --test` 确认基线，再改 1-3 个具体点（例如可读性、反馈、手感、性能），最后再跑 `node --test`。输出 WorkerOutputV1，artifact.kind=code，artifact.format=markdown，列出改动文件、真实命令结果和剩余风险。"
+    },
+    {
+      "role": "tester",
+      "assignee": "agent",
+      "depends_on": ["builder"],
+      "capabilities": ["task_worker"],
+      "model": "deepseek-chat",
+      "write_paths": ["tests/acceptance/"],
+      "tools": ["read_file", "list_dir", "write_file", "run_command"],
+      "handoff_contract": "你是独立 tester，不重写产品。运行 `node --test` 获取本轮真实结果；只写 tests/acceptance/polish-report.json，记录命令、通过/失败计数、失败名称、改动文件核对和结论。不要用 shell 重定向/tee，不要写 tests/acceptance 之外的文件；不要运行 playtest/live-playtest.mjs。输出 WorkerOutputV1，artifact.format=markdown 写报告路径和真实结果。"
+    },
+    {
+      "role": "playtester",
+      "assignee": "agent",
+      "depends_on": ["tester"],
+      "capabilities": ["task_worker"],
+      "model": "deepseek-chat",
+      "write_paths": ["playtest/"],
+      "tools": ["read_file", "list_dir", "write_file", "run_command"],
+      "handoff_contract": "你是 playtester。宿主静态服务已指向当前工作区，执行一条前台命令 `node --test playtest/live-playtest.mjs`（约 58 秒）。脚本会真实操作菜单/移动/瞄准/开火/暂停/R 重开，并生成 playtest/live-report.json、report-playtester.md、live-run.log 和 4 张截图；不要手写或篡改数值。命令成功后读取 live-report 核对 duration_ms/frames/statuses/console_errors/pause_samples/restarted；失败只针对具体错误最多重试 2 次。输出 WorkerOutputV1，artifact.format=markdown，写报告路径和真实字段。"
+    },
+    {
+      "role": "lead_review",
+      "assignee": "agent",
+      "depends_on": ["playtester"],
+      "capabilities": ["review"],
+      "model": "deepseek-chat",
+      "write_paths": [],
+      "tools": ["read_file", "list_dir"],
+      "handoff_contract": "你是只读 lead_review 和最终质量门。以本轮 tests/acceptance/polish-report.json、playtest/live-report.json、report-playtester.md、live-run.log 和截图为准。核对：node --test 全通过、live duration_ms>=50000、frames>=130、console_errors=[]、statuses 含 playing、pause_samples 全部 paused=true/time_stable=true、R 重开为 playing/wave1/score0、本轮改动文件与 builder 声明一致、未改测试断言。won/lost 随机均接受；FPS 标签/画面风格/音频/覆盖率为 minor。只输出合法 WorkerOutputV1 JSON，不提交 artifact：{\"status\":\"done\",\"summary\":\"评分卡JSON\",\"review_result\":{\"verdict\":\"approved|changes_requested|rejected\",\"reviewed_requirement_ids\":[],\"findings\":[]},\"evidence\":[],\"open_issues\":[],\"handoff\":\"\"}。五项>=4 且无 blocker/major 才 approved；否则 changes_requested，并为 finding 写 target_task_id（s-builder/s-tester/s-playtester）。"
+    }
+  ]
+}

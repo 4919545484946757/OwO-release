@@ -26,10 +26,42 @@
     return value == null ? "" : String(value);
   }
 
+  function localWhen(value) {
+    const date = new Date(value || "");
+    return Number.isFinite(date.getTime()) ? date.toLocaleString() + "（本地时间）" : "时间未知";
+  }
+
   let H = {}; // 宿主注入的 helpers（esc 等），缺省自建
   let rootEl = null;
   let controller = null;
   let delegated = false;
+  const boundRoots = new WeakSet();
+  let selectedTab = "scope";
+
+  const tabs = [{ key: "scope", label: "生效范围" }, { key: "pending", label: "待审批", field: "pending" },
+    { key: "grants", label: "已有授权", field: "grants" }, { key: "decisions", label: "审批记录", field: "recentDecisions" }];
+
+  function activateTab(key, root) {
+    if (!tabs.some(tab => tab.key === key)) return;
+    selectedTab = key;
+    tabs.forEach(tab => {
+      const button = root.querySelector("#perm-tab-" + tab.key), pane = root.querySelector("#perm-pane-" + tab.key);
+      if (button) { button.setAttribute("aria-selected", String(tab.key === key)); button.setAttribute("tabindex", tab.key === key ? "0" : "-1"); }
+      if (pane) pane.hidden = tab.key !== key;
+    });
+  }
+
+  function tabBar(snap) {
+    return '<div class="owo-perm-tabs" role="tablist" aria-label="权限分区">' + tabs.map(tab =>
+      '<button type="button" id="perm-tab-' + tab.key + '" role="tab" data-perm-action="tab" data-perm-tab="' + tab.key +
+      '" aria-controls="perm-pane-' + tab.key + '" aria-selected="' + (selectedTab === tab.key) + '" tabindex="' + (selectedTab === tab.key ? "0" : "-1") + '">' +
+      tab.label + (tab.field && snap.phase === "ready" ? '<span>' + (Array.isArray(snap[tab.field]) ? snap[tab.field].length : "未知") + '</span>' : "") + '</button>').join("") + '</div>';
+  }
+
+  function pane(key, html) {
+    return '<div id="perm-pane-' + key + '" class="owo-perm-pane" role="tabpanel" aria-labelledby="perm-tab-' + key + '"' +
+      (selectedTab === key ? "" : " hidden") + '>' + html + '</div>';
+  }
 
   function esc(value) {
     return (H.esc || defaultEsc)(value);
@@ -45,32 +77,12 @@
   }
   // ---------- 片段 ----------
 
-  function styleBlock() {
-    return (
-      "<style>" +
-      ".owo-perm-grid{display:grid;gap:10px}" +
-      ".owo-perm-table{width:100%;border-collapse:collapse;font-size:12px}" +
-      ".owo-perm-table th,.owo-perm-table td{border:1px solid #ddd;padding:5px 7px;text-align:left;vertical-align:top}" +
-      ".owo-perm-card{border:1px solid #ddd;border-radius:8px;padding:8px 10px;margin:6px 0;background:#fafbfc}" +
-      ".owo-perm-kv{display:flex;gap:6px;align-items:baseline;font-size:12px}" +
-      ".owo-perm-kv span{color:#666;min-width:84px}" +
-      ".owo-perm-bad{color:#c62828}" +
-      ".owo-perm-warn{color:#b26a00}" +
-      ".owo-perm-empty{padding:8px 10px;border:1px dashed #ccc;border-radius:8px;color:#666;font-size:12px}" +
-      ".owo-perm-risk{margin:4px 0 4px 18px;padding:0}" +
-      ".owo-perm-locked{background:#f5f6f8;color:#555}" +
-      ".owo-perm-grid button:disabled,.owo-perm-grid select:disabled,.owo-perm-grid input:disabled{opacity:.55;cursor:not-allowed}" +
-      "</style>"
-    );
-  }
-
   function renderHeader(snap) {
     const d = domain();
     return (
       '<div class="owo-perm-kv"><span>当前档位</span><strong>' +
       esc(d ? d.profileLabel(snap.profile) : snap.profile) +
       "</strong></div>" +
-      '<div class="sub">档位由服务端展开为权威策略矩阵；本页只展示生效值，不在前端重算。</div>' +
       (snap.readOnly ? '<div class="owo-perm-warn">核心处于只读降级：写入类授权可能不生效。</div>' : "")
     );
   }
@@ -85,31 +97,19 @@
     if (!rows.length) return '<div class="owo-perm-empty">未收到服务端的权限维度矩阵，暂不展示可配置项。</div>';
     const draft = snap.draft || {};
     const editable = canMutate(snap);
-    const body = rows
-      .map((row) => {
-        const key = text(row.key);
-        const effective = d ? d.summarizeScope(row.effective) : text(row.effective);
-        const source = d ? d.sourceLabel(row.source) : text(row.source);
-        const summary = text(row.summary) || "（服务端未提供范围说明）";
-        const control = row.configurable ? dimensionControl(key, draft[key], editable) : honestNonConfigurable(effective);
-        return (
-          '<tr' + (Array.isArray(snap.changedFields) && snap.changedFields.includes(key) ? ' class="owo-perm-changed"' : "") + ">" +
-          "<th>" + esc(text(row.label) || (d ? d.dimensionLabel(key) : key)) + "</th>" +
-          "<td>" + esc(effective || "未知") + "</td>" +
-          "<td>" + esc(source) + "</td>" +
-          "<td>" + esc(summary) + "</td>" +
-          "<td>" + control + (Array.isArray(snap.changedFields) && snap.changedFields.includes(key) ? '<span class="owo-perm-change-note">将从 ' + esc(effective) + " 变为 " + esc(d ? d.summarizeScope(draft[key]) : draft[key]) + "</span>" : "") + "</td>" +
-          "</tr>"
-        );
-      })
-      .join("");
-    return (
-      '<table class="owo-perm-table"><thead><tr><th>维度</th><th>当前生效</th><th>来源</th><th>范围摘要</th><th>可配置项</th></tr></thead>' +
-      "<tbody>" +
-      body +
-      "</tbody></table>" +
-      '<div class="sub">改动只影响本工作区；维度只能收紧，不能绕过档位既有禁令（服务端权威校验）。</div>'
-    );
+    const body = rows.map(row => {
+      const key = text(row.key);
+      const effective = d ? d.summarizeScope(row.effective) : text(row.effective);
+      const source = d ? d.sourceLabel(row.source) : text(row.source);
+      const summary = text(row.summary) || "服务端未提供范围说明";
+      const changed = Array.isArray(snap.changedFields) && snap.changedFields.includes(key);
+      return '<div class="owo-perm-dimension' + (changed ? " owo-perm-changed" : "") + '">' +
+        '<strong>' + esc(text(row.label) || (d ? d.dimensionLabel(key) : key)) + '</strong>' +
+        '<div class="owo-perm-dimension-facts"><p>当前生效：' + esc(effective || "未知") + ' · 来源：' + esc(source) + '</p><p>' + esc(summary) + '</p>' +
+        (changed ? '<p class="owo-perm-change-note">将从 ' + esc(effective) + ' 变为 ' + esc(d ? d.summarizeScope(draft[key]) : draft[key]) + '</p>' : "") + '</div>' +
+        '<div class="owo-perm-dimension-control">' + (row.configurable ? dimensionControl(key, draft[key], editable) : honestNonConfigurable(effective)) + '</div></div>';
+    }).join("");
+    return '<div class="owo-perm-dimensions">' + body + '</div>';
   }
 
   function dimensionControl(key, value, editable) {
@@ -184,11 +184,11 @@
         )
         .join("");
       parts.push(
-        '<div class="owo-perm-card" data-perm-confirm="1">' +
+        '<div class="owo-perm-card" data-perm-confirm="1" role="region" aria-label="完全访问确认" tabindex="-1">' +
           "<b>二次确认：完全访问</b>" +
           '<div class="sub">三要素缺一不可 —— 范围、时长、风险。</div>' +
           '<div class="owo-perm-kv"><span>范围</span><code>' +
-          esc(JSON.stringify({ filesystem: confirming.spec.filesystem, command: confirming.spec.command, network: confirming.spec.network })) +
+          esc(JSON.stringify(confirming.spec)) +
           "</code></div>" +
           '<div class="owo-perm-kv"><span>时长</span></div>' +
           '<div class="inline" data-perm-durations="1">' +
@@ -229,7 +229,7 @@
       return (
         "<h4>待审批请求</h4>" +
         notices +
-        '<div class="owo-perm-empty" data-perm-empty="pending">当前没有等待审批的请求。出现新的工具申请时会自动列在这里。</div>'
+        '<div class="owo-perm-empty" data-perm-empty="pending">当前没有等待审批的请求。刷新后可查看新的工具申请。</div>'
       );
     }
     const actions = d ? d.APPROVAL_ACTIONS : [];
@@ -292,7 +292,7 @@
     }
     const rows = grants
       .map((grant, index) => {
-        const expiry = grant.expires_at ? "到期：" + esc(text(grant.expires_at)) : "无固定到期";
+        const expiry = grant.expires_at ? "到期：" + esc(localWhen(grant.expires_at)) : "无固定到期";
         const uses = grant.remaining_uses == null ? "次数不限" : "剩余 " + esc(grant.remaining_uses) + " 次";
         return (
           "<tr" + ' data-grant-row="' + esc(index) + '">' +
@@ -310,7 +310,8 @@
       .join("");
     const toolGroups = new Map();
     for (const grant of grants) {
-      const key = text(grant.tool_id) || "(未标注工具)";
+      const key = text(grant.tool_id);
+      if (!key) continue;
       if (!toolGroups.has(key)) toolGroups.set(key, 0);
       toolGroups.set(key, toolGroups.get(key) + 1);
     }
@@ -319,7 +320,7 @@
         ([toolId, count]) =>
           '<button type="button" class="secondary" data-perm-action="revoke-tool"' +
           (text(toolId) ? ' data-tool="' + esc(toolId) + '"' : "") +
-          '"' + disabled + '>撤销「' +
+          disabled + '>撤销「' +
           esc(toolId) +
           "」全部（" +
           count +
@@ -349,17 +350,16 @@
     const rows = Array.isArray(snap.recentDecisions) ? snap.recentDecisions : [];
     if (!rows.length) return '<h4>最近审批决定</h4><div class="owo-perm-empty" data-perm-empty="decisions">暂无审批历史。</div>';
     const body = rows
-      .slice(0, 12)
       .map(
         (row) =>
           "<tr><td>" +
-          esc(text(row.ts).slice(11, 19) || text(row.ts) || "—") +
+          esc(localWhen(row.ts)) +
           "</td><td>" +
           esc(text(row.tool) || "—") +
           '</td><td class="' +
-          (row.approved ? "" : "owo-perm-bad") +
+          (row.approved === false ? "owo-perm-bad" : "") +
           '">' +
-          (row.approved ? "允许" : "拒绝") +
+          (row.approved === true ? "允许" : row.approved === false ? "拒绝" : "状态未知") +
           "</td><td>" +
           esc(text(row.detail) || "—") +
           "</td></tr>",
@@ -374,7 +374,7 @@
 
   function renderStates(snap) {
     if (snap.phase === "loading") {
-      return '<div class="owo-perm-empty" data-perm-phase="loading">正在读取权限概览…（进入本页才请求，不参与首屏链路）</div>';
+      return '<div class="owo-perm-empty" data-perm-phase="loading">正在读取权限概览…</div>';
     }
     if (snap.phase === "error") {
       const info = isPlainObject(snap.lastError) ? snap.lastError : {};
@@ -395,52 +395,74 @@
     if (snap.phase === "error") return "";
     const errors = Array.isArray(snap.errors) ? snap.errors.filter(Boolean) : [];
     if (!errors.length) return "";
-    return '<div class="owo-perm-bad" data-perm-errors="1">' + errors.map((line) => "<div>" + esc(line) + "</div>").join("") + "</div>";
+    return '<div class="owo-perm-bad" role="alert" data-perm-errors="1">' + errors.map((line) => "<div>" + esc(line) + "</div>").join("") + "</div>";
   }
 
   // ---------- 整页渲染 ----------
 
   function render(root, snap) {
     if (!root || !isPlainObject(snap)) return;
-    const ready = snap.phase === "ready";
-    const editable = canMutate(snap);
-    const facts = ready
-      ? "<h4>权限档位与生效范围</h4>" +
-        renderHeader(snap) +
-        renderDimensionTable(snap) +
-        renderScopes(snap) +
-        renderFullAccess(snap) +
-        renderPending(snap) +
-        renderGrants(snap) +
-        renderDecisions(snap)
-      : '<div class="owo-perm-empty owo-perm-locked" data-perm-data-unavailable="1">只有成功读取到服务端权限概览后，才会显示权限状态与变更操作。读取失败时不推测当前授权。</div>';
-    root.innerHTML =
-      styleBlock() +
-      '<section data-panel="permissions" class="stack">' +
-      '<div class="inline">' +
-      '<button type="button" class="primary" data-perm-action="reload"' + (snap.phase === "loading" || snap.busy ? " disabled" : "") + '>刷新权限概览</button>' +
-      '<button type="button" class="primary" data-perm-action="submit"' + (editable ? "" : ' disabled title="权限概览成功读取且当前为可写模式后才能保存"') + '>' + (snap.changedFields?.length ? '保存 ' + snap.changedFields.length + ' 项改动' : '保存权限配置') + '</button>' +
-      '<span class="sub" data-perm-status="1">' +
-      esc(snap.verify || snap.notice ||
-        (snap.phase === "loading" ? "正在读取权限概览…" :
-          snap.phase === "error" ? "权限概览不可用" :
-            snap.updatedAt ? "更新于 " + text(snap.updatedAt).slice(11, 19) : "尚未加载")) +
-      "</span>" +
-      "</div>" +
-      renderStates(snap) +
-      renderErrors(snap) +
-      facts +
-      "</section>";
+    const ready = snap.phase === "ready", editable = canMutate(snap), changed = Array.isArray(snap.changedFields) ? snap.changedFields.length : 0;
+    const active = global.document && global.document.activeElement;
+    const activeName = active && active.getAttribute ? active.getAttribute("name") : "";
+    const scopeInput = root.querySelector("#permScopeInput"), scopeText = scopeInput ? scopeInput.value : "";
+    const advanced = root.querySelector(".owo-perm-advanced"), advancedOpen = snap.confirming || (advanced && advanced.open);
+    const firstConfirm = Boolean(snap.confirming) && !root.querySelector("[data-perm-confirm]");
+    const scroll = root.scrollTop;
+    if (snap.confirming) selectedTab = "scope";
+    const localDate = new Date(snap.updatedAt || "");
+    const status = snap.verify || snap.notice || (snap.phase === "loading" ? "正在读取权限概览…" :
+      snap.phase === "error" ? "权限概览不可用" : Number.isFinite(localDate.getTime()) ? "更新于 " + localDate.toLocaleTimeString() + "（本地时间）" : "尚未加载");
+    const facts = ready ?
+      pane("scope", '<p class="owo-perm-intro">配置由核心校验，页面展示实际生效值。</p>' +
+        renderDimensionTable(snap) + '<div class="owo-perm-scopes">' + renderScopes(snap) + '</div>' +
+        '<details class="owo-perm-advanced"' + (advancedOpen ? " open" : "") + '><summary>高级权限</summary>' + renderFullAccess(snap) + '</details>' +
+        '<div class="owo-perm-save"><span>' + (changed ? changed + " 项改动尚未保存" : "未修改配置") + '</span><div>' +
+        '<button type="button" data-perm-action="reset-draft"' + (editable && changed ? "" : " disabled") + '>撤销改动</button>' +
+        '<button type="button" class="primary" data-perm-action="submit"' + (editable && changed && !snap.confirming ? "" : ' disabled title="修改后可保存；完全访问请在确认卡中确认"') + '>' +
+        (changed ? "保存 " + changed + " 项改动" : "保存权限配置") + '</button></div></div>') +
+      pane("pending", renderPending(snap)) + pane("grants", renderGrants(snap)) + pane("decisions", renderDecisions(snap)) :
+      '<div class="owo-perm-empty owo-perm-locked" data-perm-data-unavailable="1">成功读取权限概览后，才能查看状态和修改配置。读取失败时不推测当前授权。</div>';
+    root.innerHTML = '<section data-panel="permissions" data-layout="custom" class="owo-perm">' +
+      '<div class="owo-perm-header"><div class="owo-perm-header-facts">' + (ready ? renderHeader(snap) : '<span>权限概览</span>') +
+      '<div class="owo-perm-status" role="status" aria-live="polite" data-perm-status="1">' + esc(status) + '</div></div>' +
+      '<button type="button" data-perm-action="reload"' + (snap.phase === "loading" || snap.busy ? " disabled" : "") + '>刷新权限概览</button></div>' +
+      tabBar(snap) + renderStates(snap) + renderErrors(snap) + facts + '</section>';
+    const restored = root.querySelector("#permScopeInput");
+    if (restored) restored.value = scopeText;
+    if (activeName && (/^perm-dimension-/.test(activeName) || activeName === "perm-duration")) {
+      const next = root.querySelector('[name="' + activeName + '"]' + (activeName === "perm-duration" ? ":checked" : ""));
+      if (next && typeof next.focus === "function") next.focus({ preventScroll: true });
+    }
+    if (typeof scroll === "number") root.scrollTop = scroll;
     bindOnce(root);
+    if (firstConfirm) {
+      const card = root.querySelector("[data-perm-confirm]");
+      if (card && typeof card.scrollIntoView === "function") {
+        card.scrollIntoView({ block: "center", behavior: "auto" });
+        card.focus({ preventScroll: true });
+      }
+    }
   }
 
   // ---------- 事件委托（一个监听吃全部动作，重绘不需要重新绑定）----------
 
   function bindOnce(root) {
-    if (delegated && rootEl === root) return;
+    if (boundRoots.has(root)) return;
+    boundRoots.add(root);
     delegated = true;
-    root.addEventListener("click", (event) => onAction(event, root));
-    root.addEventListener("change", (event) => onChange(event));
+    root.addEventListener("click", event => { if (rootEl === root) return onAction(event, root); });
+    root.addEventListener("change", event => { if (rootEl === root) return onChange(event); });
+    root.addEventListener("keydown", event => {
+      if (rootEl !== root || !event.target || !event.target.getAttribute) return;
+      const key = event.target.getAttribute("data-perm-tab"), index = tabs.findIndex(tab => tab.key === key);
+      if (index < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowLeft" ? -1 : 1) + tabs.length) % tabs.length;
+      activateTab(tabs[next].key, root);
+      const button = root.querySelector("#perm-tab-" + tabs[next].key);
+      if (button) button.focus();
+    });
   }
 
   /**
@@ -450,12 +472,20 @@
   function dispatch(node, root) {
     const action = text(node.getAttribute("data-perm-action"));
     if (!action) return undefined;
-    if (typeof node.blur === "function") node.blur();
+    if (action !== "tab" && typeof node.blur === "function") node.blur();
     switch (action) {
+      case "tab":
+        return activateTab(text(node.getAttribute("data-perm-tab")), root);
+      case "reset-draft": {
+        const input = root.querySelector("#permScopeInput");
+        if (input) input.value = "";
+        return controller.resetDraft();
+      }
       case "reload":
         return controller.reload();
       case "submit":
-        return controller.submitDraft();
+        // A second click on Save is not a full-access confirmation.
+        return controller.snapshot().confirming ? undefined : controller.submitDraft();
       case "request-full-access":
         return controller.requestFullAccess(controller.snapshot().draft);
       case "confirm-full-access":
@@ -514,8 +544,8 @@
     const snap = controller.snapshot();
     const scopes = ((snap.draft || {}).scopes || []).slice();
     if (!scopes.includes(value)) scopes.push(value);
-    controller.setScopes(scopes);
     input.value = "";
+    controller.setScopes(scopes);
   }
 
   function onChange(event) {
@@ -535,7 +565,10 @@
   // ---------- 面板契约（mount/dispose，与 panels/*.panel.js 同构）----------
 
   function mount(root, helpers) {
+    if (controller) controller.dispose();
+    selectedTab = "scope";
     rootEl = root;
+    if (rootEl) rootEl.innerHTML = "";
     H = isPlainObject(helpers) ? helpers : {};
     if (!rootEl) return;
     const domainModule = domain();
@@ -547,12 +580,14 @@
     }
     const transport = typeof H.fetchJson === "function" ? H.fetchJson : defaultTransport;
     const api = apiModule.create({ fetchJson: transport });
-    controller = controllerModule.create({
+    const mountedRoot = rootEl;
+    const nextController = controllerModule.create({
       api: api,
       domain: domainModule,
-      render: (snap) => render(rootEl, snap),
+      render: (snap) => { if (rootEl === mountedRoot && controller === nextController) render(mountedRoot, snap); },
       notify: typeof H.notify === "function" ? H.notify : undefined,
     });
+    controller = nextController;
     delegated = false;
     bindOnce(rootEl);
     // 按需加载：只有挂载到这条路由时才发第一个请求。

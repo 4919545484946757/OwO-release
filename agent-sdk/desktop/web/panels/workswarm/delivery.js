@@ -15,10 +15,13 @@
       const next=teamId+':'+status;if(!force&&next===key)return pending;
       if(currentTeamId!==teamId)data=null;
       currentTeamId=teamId;currentStatus=status;key=next;const ticket=++seq;
+      if(!bridge?.list) {
+        box.innerHTML='<div class="team-delivery-browser"><h3>任务文件</h3><p class="hint">文件打开功能由桌面客户端提供。可在下方预览或下载任务产物。</p></div>';
+        return;
+      }
       if(!data)box.innerHTML='<p class="hint">正在查找本次交付文件…</p>';
       pending=(async()=>{
         try {
-          if(!bridge?.list)throw Error('请在桌面客户端查看真实文件；执行说明仍可在下方下载。');
           const result=await bridge.list({teamId});if(disposed||ticket!==seq)return;
           data=result;box.innerHTML=html(data);
         }catch(e){if(!disposed&&ticket===seq){key='';box.innerHTML='<h2>任务成果</h2><p role="alert">'+esc(e.message||e)+'</p><button type="button" class="owo-ws-mini" data-team-file-action="refresh">重新加载</button>';}}

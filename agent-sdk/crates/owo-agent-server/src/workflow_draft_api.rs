@@ -17,17 +17,20 @@ use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use owo_agent_core::gateway::{ChatMessage, ModelOutput};
-use owo_agent_core::user_workflow::{validate_workflow_template, MAX_NAME_CHARS, MAX_ROLES};
+use owo_agent_core::user_workflow::{
+    validate_tool_name, validate_workflow_template, MAX_NAME_CHARS, MAX_ROLES,
+};
 use owo_agent_core::workflow_draft::{
     draft_repair_prompt, draft_system_prompt, draft_user_prompt_with_evidence, extract_json_object,
     render_run_evidence, WorkflowDraftTool, WorkflowRunEvidence, MAX_DRAFT_DESCRIPTION_CHARS,
 };
-use owo_agent_core::workswarm::TeamTemplateRegistry;
+use owo_agent_core::workswarm::{
+    validate_draft_id, TeamTemplateRegistry, WorkflowDraft as Draft, WorkflowRevisionStore,
+};
 use owo_agent_protocol::TeamTemplate;
 use owo_agent_server::AppState;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -60,59 +63,64 @@ struct ConvergeRequest {
 
 const MAX_CONVERGE_ROUNDS: usize = 5;
 
-/// Build the tool vocabulary used by AI workflow drafting from the same live registry
-/// that workflow workers proxy at runtime. Explicit caller lists remain authoritative.
-fn resolve_draft_tools(state: &AppState, requested: Option<Vec<String>>) -> Vec<WorkflowDraftTool> {
-    let live_specs = state.agent.visible_tool_specs();
-    let descriptions = live_specs
-        .iter()
-        .map(|spec| {
-            let description = spec
-                .description
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join(" ")
-                .chars()
-                .take(240)
-                .collect::<String>();
-            (spec.name.clone(), description)
-        })
-        .collect::<BTreeMap<_, _>>();
-    let names = if let Some(requested) = requested {
-        requested
+/// The same live Worker capability projection used by UI and team preflight.
+fn resolve_draft_tools(
+    state: &AppState,
+    requested: Option<Vec<String>>,
+) -> Result<Vec<WorkflowDraftTool>, (StatusCode, Json<Value>)> {
+    let catalog = state
+        .agent
+        .workflow_tool_capabilities()
+        .map_err(|message| error(StatusCode::SERVICE_UNAVAILABLE, message))?;
+    let names = match requested {
+        Some(names) => names
             .into_iter()
             .map(|name| name.trim().to_string())
             .filter(|name| !name.is_empty())
-            .collect::<std::collections::BTreeSet<_>>()
-    } else {
-        let mut names = [
-            "read_file",
-            "write_file",
-            "apply_patch",
-            "list_dir",
-            "search_files",
-            "run_command",
-        ]
-        .into_iter()
-        .map(str::to_string)
-        .collect::<std::collections::BTreeSet<_>>();
-        names.extend(live_specs.into_iter().map(|spec| spec.name).filter(|name| {
-            name.starts_with("mcp__")
-                || name.starts_with("browser_")
-                || matches!(name.as_str(), "web_fetch" | "web_search")
-        }));
-        names
+            .collect::<std::collections::BTreeSet<_>>(),
+        None => catalog
+            .iter()
+            .filter(|tool| tool.worker_supported && tool.status == "registered")
+            .map(|tool| tool.name.clone())
+            .collect(),
     };
-    names
-        .into_iter()
-        .map(|name| WorkflowDraftTool {
-            description: descriptions
-                .get(&name)
-                .filter(|description| !description.is_empty())
-                .cloned(),
+    let mut result = Vec::new();
+    for name in names {
+        let tool = catalog.iter().find(|tool| tool.name == name && tool.worker_supported && tool.status == "registered")
+            .ok_or_else(|| error(StatusCode::UNPROCESSABLE_ENTITY, format!("工作流工具不可用：{name}（未连接、未配置、已禁用或 Worker 未接入；请检查 /workflows/tools）")))?;
+        let schema_bytes = serde_json::to_vec(&tool.input_schema)
+            .unwrap_or_default()
+            .len();
+        result.push(WorkflowDraftTool {
             name,
-        })
-        .collect()
+            description: Some(tool.description.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(240).collect()),
+            capabilities: Some(json!({
+                "input_modalities":tool.input_modalities, "output_modalities":tool.output_modalities,
+                "effect":tool.effect, "profiles":tool.profiles,
+                "input_schema": if schema_bytes <= 4096 { tool.input_schema.clone() } else { json!({"note":"schema exceeds drafting budget; see /workflows/tools"}) },
+                "authorization":"runtime_policy_and_role_task_scope",
+            })),
+        });
+    }
+    Ok(result)
+}
+
+fn validate_draft_tools(template: &TeamTemplate, tools: &[WorkflowDraftTool]) -> Vec<String> {
+    let mut errors = validate_workflow_template(template);
+    for role in &template.roles {
+        for name in &role.tools {
+            // Structural validation already reports invalid names. Count that defect once
+            // so convergence compares distinct problems, while valid-but-offline tools
+            // must still fail this live host check.
+            if validate_tool_name(name).is_ok() && !tools.iter().any(|tool| tool.name == *name) {
+                errors.push(format!(
+                    "角色 {} 的工具 {} 不在本次宿主可用列表中",
+                    role.role, name
+                ));
+            }
+        }
+    }
+    errors
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -154,12 +162,15 @@ struct DraftRequest {
 }
 
 /// 载入已保存（用户/社区/内置）工作流模板；不存在 → 404。
-fn load_saved_template(
+fn load_saved_revision(
     state: &Arc<AppState>,
     template_id: &str,
-) -> Result<TeamTemplate, (StatusCode, Json<Value>)> {
-    let registry = TeamTemplateRegistry::new(state.data_root.join("workswarm").join("templates"));
-    registry.get_template(template_id).ok_or_else(|| {
+) -> Result<owo_agent_core::workswarm::WorkflowRevision, (StatusCode, Json<Value>)> {
+    let record = registry(state)
+        .get_revision(template_id)
+        .map_err(owo_agent_server::workflow_write_service::store_error)?
+        .filter(|record| record.template.is_some());
+    record.ok_or_else(|| {
         error(
             StatusCode::NOT_FOUND,
             format!("工作流不存在：{template_id}"),
@@ -171,20 +182,9 @@ fn load_saved_template(
 ///
 /// 只读草稿记录：没有回写过 → None（不编造"上次成功了"）。
 fn latest_verify_outcome(state: &AppState, template_id: &str) -> Option<String> {
-    let dir = drafts_dir(state);
-    let entries = std::fs::read_dir(dir).ok()?;
+    let drafts = load_drafts(state).ok()?;
     let mut best: Option<(String, Value)> = None;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|value| value.to_str()) != Some("json") {
-            continue;
-        }
-        let Ok(text) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-        let Ok(draft) = serde_json::from_str::<Draft>(&text) else {
-            continue;
-        };
+    for draft in drafts {
         if draft.based_on.as_deref() != Some(template_id) {
             continue;
         }
@@ -244,34 +244,6 @@ async fn run_evidence_for(state: &Arc<AppState>, template_id: &str) -> Option<Wo
     })
 }
 
-/// 落盘的一份草稿（候选）：模板 + 校验结果 + 生成上下文。
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Draft {
-    draft_id: String,
-    description: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    constraints: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    refine_of: Option<String>,
-    /// 迭代来源工作流 id（`based_on`）。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    based_on: Option<String>,
-    /// 实际注入提示词的运行证据段落（诊断/审计：让用户看到模型看到了什么）。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    run_evidence: Option<String>,
-    /// 采纳后的验证结果（沿用基线目标再跑一次的结果；未验证为 None）。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    verify_outcome: Option<Value>,
-    template: TeamTemplate,
-    /// 校验问题（空 = 可直接采纳）。
-    errors: Vec<String>,
-    /// 模型原始回复片段（诊断；解析失败时尤其有用）。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    raw_excerpt: Option<String>,
-    model: String,
-    created_at: String,
-}
-
 /// 解析模型回复为模板并做最小归一（缺 id/name/created_at 时补齐），失败给 422。
 fn parse_draft_template(
     text: &str,
@@ -317,7 +289,7 @@ fn audit(
 }
 
 fn registry(state: &AppState) -> TeamTemplateRegistry {
-    TeamTemplateRegistry::new(state.data_root.join("workswarm").join("templates"))
+    TeamTemplateRegistry::for_workswarm_root(&state.data_root.join("workswarm"))
 }
 
 fn drafts_dir(state: &AppState) -> PathBuf {
@@ -328,54 +300,36 @@ fn error(status: StatusCode, message: impl Into<String>) -> (StatusCode, Json<Va
     (status, Json(json!({ "error": message.into() })))
 }
 
-/// 草稿 id 安全校验（进文件名）。
-fn validate_draft_id(id: &str) -> Result<(), String> {
-    let trimmed = id.trim();
-    if trimmed.is_empty() || trimmed.chars().count() > 64 {
-        return Err("draft_id 长度非法".to_string());
-    }
-    if trimmed.contains("..") || trimmed.contains(['/', '\\', ':', '*', '?', '"', '<', '>', '|']) {
-        return Err(format!("draft_id 含路径/保留字符：{trimmed}"));
-    }
-    Ok(())
+/// Open canonical storage and batch-import the historical files once.
+fn draft_store(state: &AppState) -> Result<WorkflowRevisionStore, (StatusCode, Json<Value>)> {
+    registry(state)
+        .workflow_draft_store(&drafts_dir(state))
+        .map_err(owo_agent_server::workflow_write_service::store_error)
 }
 
-fn draft_path(state: &AppState, id: &str) -> Result<PathBuf, String> {
-    validate_draft_id(id)?;
-    Ok(drafts_dir(state).join(format!("{id}.json")))
+fn check_draft_id(id: &str) -> Result<(), (StatusCode, Json<Value>)> {
+    validate_draft_id(id).map_err(|reason| error(StatusCode::BAD_REQUEST, reason.to_string()))
 }
 
 fn load_draft(state: &AppState, id: &str) -> Result<Draft, (StatusCode, Json<Value>)> {
-    let path = draft_path(state, id).map_err(|reason| error(StatusCode::BAD_REQUEST, reason))?;
-    let raw = std::fs::read_to_string(&path)
-        .map_err(|_| error(StatusCode::NOT_FOUND, format!("草稿不存在：{id}")))?;
-    serde_json::from_str(&raw).map_err(|parse_error| {
-        error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("草稿解析失败：{parse_error}"),
-        )
-    })
+    check_draft_id(id)?;
+    draft_store(state)?
+        .get_draft_record(id)
+        .map_err(owo_agent_server::workflow_write_service::store_error)?
+        .ok_or_else(|| error(StatusCode::NOT_FOUND, format!("草稿不存在：{id}")))
 }
 
-fn save_draft(state: &AppState, draft: &Draft) -> Result<(), (StatusCode, Json<Value>)> {
-    let dir = drafts_dir(state);
-    std::fs::create_dir_all(&dir).map_err(|write_error| {
-        error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("草稿目录创建失败：{write_error}"),
-        )
-    })?;
-    let path = dir.join(format!("{}.json", draft.draft_id));
-    std::fs::write(
-        &path,
-        serde_json::to_string_pretty(draft).unwrap_or_else(|_| "{}".to_string()),
-    )
-    .map_err(|write_error| {
-        error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("草稿落盘失败：{write_error}"),
-        )
-    })
+fn load_drafts(state: &AppState) -> Result<Vec<Draft>, (StatusCode, Json<Value>)> {
+    draft_store(state)?
+        .list_draft_records()
+        .map_err(owo_agent_server::workflow_write_service::store_error)
+}
+
+fn save_draft(state: &AppState, draft: &mut Draft) -> Result<(), (StatusCode, Json<Value>)> {
+    *draft = draft_store(state)?
+        .save_draft_record(draft)
+        .map_err(owo_agent_server::workflow_write_service::store_error)?;
+    Ok(())
 }
 
 fn draft_summary(draft: &Draft) -> Value {
@@ -390,6 +344,7 @@ fn draft_summary(draft: &Draft) -> Value {
         "created_at": draft.created_at,
         "refine_of": draft.refine_of,
         "based_on": draft.based_on,
+        "base_template_id":draft.base_template_id,"base_revision":draft.base_revision,"adopted_revision":draft.adopted_revision,
         "verify_outcome": draft.verify_outcome,
         "model": draft.model,
     })
@@ -463,14 +418,24 @@ async fn create_draft(
             "based_on（基于已保存工作流）与 refine_of（基于草稿）不能同时使用",
         ));
     }
-    let previous = match request.refine_of.as_deref().map(str::trim) {
-        Some(id) if !id.is_empty() => Some(load_draft(&state, id)?.template),
-        // 基于已保存工作流迭代：把现有配置也回灌给模型（保留仍然合理的角色/依赖）。
-        _ => match based_on.as_deref() {
-            Some(id) => Some(load_saved_template(&state, id)?),
-            None => None,
-        },
-    };
+    let (previous, base_template_id, base_revision) =
+        match request.refine_of.as_deref().map(str::trim) {
+            Some(id) if !id.is_empty() => {
+                let draft = load_draft(&state, id)?;
+                (
+                    Some(draft.template),
+                    draft.base_template_id,
+                    draft.base_revision,
+                )
+            }
+            _ => match based_on.as_deref() {
+                Some(id) => {
+                    let record = load_saved_revision(&state, id)?;
+                    (record.template, Some(id.to_string()), Some(record.revision))
+                }
+                None => (None, None, None),
+            },
+        };
     // 运行证据：只来自宿主统计（从未运行 → 空证据，不注入、不编造成功率）。
     let evidence = match based_on.as_deref() {
         Some(id) => run_evidence_for(&state, id).await,
@@ -481,7 +446,7 @@ async fn create_draft(
         .map(render_run_evidence)
         .filter(|block| !block.is_empty());
     let max_roles = request.max_roles.unwrap_or(8).clamp(1, MAX_ROLES);
-    let tools = resolve_draft_tools(&state, request.tools);
+    let tools = resolve_draft_tools(&state, request.tools)?;
 
     let messages = vec![
         ChatMessage::system(draft_system_prompt(max_roles, &tools)),
@@ -520,7 +485,7 @@ async fn create_draft(
     };
     let mut attempts = 1usize;
     let mut template = parse_draft_template(&text, &description)?;
-    let mut errors = validate_workflow_template(&template);
+    let mut errors = validate_draft_tools(&template, &tools);
     let mut repaired = false;
 
     // 生成 → 宿主校验 →（一次）带着错误回灌重生成：把确定性校验器的反馈闭环给模型，
@@ -549,7 +514,7 @@ async fn create_draft(
         let Ok(candidate) = parse_draft_template(&text, &description) else {
             break;
         };
-        let candidate_errors = validate_workflow_template(&candidate);
+        let candidate_errors = validate_draft_tools(&candidate, &tools);
         if candidate_errors.len() < errors.len() {
             template = candidate;
             errors = candidate_errors;
@@ -559,7 +524,8 @@ async fn create_draft(
         }
     }
 
-    let draft = Draft {
+    let mut draft = Draft {
+        storage_revision: 0,
         draft_id: format!("draft-{}", &uuid::Uuid::new_v4().to_string()[..8]),
         description: description.clone(),
         constraints: request
@@ -570,6 +536,9 @@ async fn create_draft(
             .map(str::to_string),
         refine_of: request.refine_of.clone(),
         based_on: based_on.clone(),
+        base_template_id,
+        base_revision,
+        adopted_revision: None,
         run_evidence: evidence_block.clone(),
         verify_outcome: None,
         template: template.clone(),
@@ -578,7 +547,7 @@ async fn create_draft(
         model: "daemon-default".to_string(),
         created_at: chrono::Utc::now().to_rfc3339(),
     };
-    save_draft(&state, &draft)?;
+    save_draft(&state, &mut draft)?;
     audit(
         &state,
         "workflow_draft_generate",
@@ -653,7 +622,7 @@ async fn generate_round(
         }
     };
     let template = parse_draft_template(&text, description)?;
-    let errors = validate_workflow_template(&template);
+    let errors = validate_draft_tools(&template, tools);
     Ok((template, errors))
 }
 
@@ -685,10 +654,15 @@ async fn converge_draft(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string);
-    // 基于已保存工作流时：先确认存在（404 早失败），再取真实运行证据。
-    if let Some(id) = based_on.as_deref() {
-        load_saved_template(&state, id)?;
-    }
+    let base_record = match based_on.as_deref() {
+        Some(id) => Some(load_saved_revision(&state, id)?),
+        None => None,
+    };
+    let base_template_id = base_record
+        .as_ref()
+        .map(|record| record.template_id.clone());
+    let base_revision = base_record.as_ref().map(|record| record.revision);
+    let base_template = base_record.and_then(|record| record.template);
     let evidence = match based_on.as_deref() {
         Some(id) => run_evidence_for(&state, id).await,
         None => None,
@@ -698,7 +672,7 @@ async fn converge_draft(
         .map(render_run_evidence)
         .filter(|block| !block.is_empty());
     let max_roles = request.max_roles.unwrap_or(8).clamp(1, MAX_ROLES);
-    let tools = resolve_draft_tools(&state, request.tools);
+    let tools = resolve_draft_tools(&state, request.tools)?;
     let max_rounds = request
         .max_rounds
         .unwrap_or(3)
@@ -710,7 +684,7 @@ async fn converge_draft(
     for round in 1..=max_rounds {
         let (previous, errors) = match &best {
             Some((template, errors)) => (Some(template), errors.clone()),
-            None => (None, Vec::new()),
+            None => (base_template.as_ref(), Vec::new()),
         };
         let outcome = generate_round(
             &provider,
@@ -767,7 +741,8 @@ async fn converge_draft(
 
     let (template, errors) =
         best.ok_or_else(|| error(StatusCode::BAD_GATEWAY, "未产出任何草稿"))?;
-    let draft = Draft {
+    let mut draft = Draft {
+        storage_revision: 0,
         draft_id: format!("draft-{}", &uuid::Uuid::new_v4().to_string()[..8]),
         description: description.clone(),
         constraints: request
@@ -778,6 +753,9 @@ async fn converge_draft(
             .map(str::to_string),
         refine_of: None,
         based_on: based_on.clone(),
+        base_template_id,
+        base_revision,
+        adopted_revision: None,
         run_evidence: evidence_block.clone(),
         verify_outcome: None,
         template: template.clone(),
@@ -786,7 +764,7 @@ async fn converge_draft(
         model: "daemon-default".to_string(),
         created_at: chrono::Utc::now().to_rfc3339(),
     };
-    save_draft(&state, &draft)?;
+    save_draft(&state, &mut draft)?;
     audit(
         &state,
         "workflow_draft_converge",
@@ -857,7 +835,7 @@ async fn record_verify_outcome(
         "verified_at": chrono::Utc::now().to_rfc3339(),
     });
     draft.verify_outcome = Some(outcome.clone());
-    save_draft(&state, &draft)?;
+    save_draft(&state, &mut draft)?;
     audit(
         &state,
         "workflow_draft_verify",
@@ -881,21 +859,7 @@ async fn record_verify_outcome(
 async fn list_drafts(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let dir = drafts_dir(&state);
-    let mut drafts: Vec<Draft> = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(&dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().and_then(|value| value.to_str()) != Some("json") {
-                continue;
-            }
-            if let Ok(raw) = std::fs::read_to_string(&path) {
-                if let Ok(draft) = serde_json::from_str::<Draft>(&raw) {
-                    drafts.push(draft);
-                }
-            }
-        }
-    }
+    let mut drafts = load_drafts(&state)?;
     drafts.sort_by(|left, right| right.created_at.cmp(&left.created_at));
     let items: Vec<Value> = drafts.iter().map(draft_summary).collect();
     Ok(Json(json!({
@@ -919,16 +883,33 @@ async fn get_draft(
     })))
 }
 
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AdoptDraftRequest {
+    #[serde(default)]
+    template: Option<TeamTemplate>,
+    #[serde(default)]
+    expected_revision: Option<u64>,
+}
+
 /// `POST /workflows/draft/{id}/adopt`：采纳草稿 → 用户模板（校验不过 422，不落盘）。
 async fn adopt_draft(
     State(state): State<Arc<AppState>>,
     AxumPath(id): AxumPath<String>,
+    request: Option<Json<AdoptDraftRequest>>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let mut draft = load_draft(&state, &id)?;
-    let errors = validate_workflow_template(&draft.template);
+    let request = request.map(|Json(request)| request).unwrap_or_default();
+    if let Some(template) = request.template {
+        draft.template = template;
+    }
+    // Generation-time availability can be stale, and the reviewed document can
+    // change. Revalidate the actual candidate against the live Worker catalog.
+    let tools = resolve_draft_tools(&state, None)?;
+    let errors = validate_draft_tools(&draft.template, &tools);
     if !errors.is_empty() {
         draft.errors = errors.clone();
-        save_draft(&state, &draft)?;
+        save_draft(&state, &mut draft)?;
         return Err((
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(json!({ "ok": false, "errors": errors })),
@@ -951,16 +932,19 @@ async fn adopt_draft(
     if template.created_at.trim().is_empty() {
         template.created_at = chrono::Utc::now().to_rfc3339();
     }
-    registry.save_template(&template).map_err(|write_error| {
-        error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("模板落盘失败：{write_error}"),
+    let template = owo_agent_core::user_workflow::prepare_user_workflow(&registry, template)
+        .map_err(owo_agent_server::workflow_write_service::edit_error)?;
+    let (stored_draft, saved) = draft_store(&state)?
+        .adopt_reviewed_draft(
+            &draft,
+            &template,
+            request.expected_revision,
+            request.expected_revision.is_none(),
         )
-    })?;
-    // 采纳成功后草稿保留（可追溯），但标注已采纳。
-    draft.errors = Vec::new();
-    draft.template = template.clone();
-    save_draft(&state, &draft)?;
+        .map_err(owo_agent_server::workflow_write_service::store_error)?;
+    // Template revision and adoption identity have committed together. Verification
+    // updates cannot overwrite them using a stale draft loaded before this commit.
+    draft = stored_draft;
     // 采纳即进入"待验证"：如果这版候选是按某条工作流的运行证据改出来的，
     // 就把那条工作流**上一次运行的状态/目标**一并返回，让 CLI/面板能用同一个目标
     // 再跑一次做前后对比（改配置不是目的，康复才是）。
@@ -1006,6 +990,7 @@ async fn adopt_draft(
         "ok": true,
         "template": template,
         "draft_id": id,
+        "revision":saved.revision,"content_hash":saved.content_hash,
         "based_on": draft.based_on,
         // 有基线时才给验证计划（没有运行记录 → 无从对比，不编造）。
         "verify": verify,
@@ -1017,17 +1002,11 @@ async fn delete_draft(
     State(state): State<Arc<AppState>>,
     AxumPath(id): AxumPath<String>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
-    let path = draft_path(&state, &id).map_err(|reason| error(StatusCode::BAD_REQUEST, reason))?;
-    match std::fs::remove_file(&path) {
-        Ok(()) => Ok(Json(json!({ "ok": true, "deleted": id }))),
-        Err(remove_error) if remove_error.kind() == std::io::ErrorKind::NotFound => {
-            Err(error(StatusCode::NOT_FOUND, format!("草稿不存在：{id}")))
-        }
-        Err(remove_error) => Err(error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("删除失败：{remove_error}"),
-        )),
-    }
+    let draft = load_draft(&state, &id)?;
+    draft_store(&state)?
+        .delete_draft_record(&id, draft.storage_revision)
+        .map_err(owo_agent_server::workflow_write_service::store_error)?;
+    Ok(Json(json!({ "ok": true, "deleted": id })))
 }
 
 /// 草稿路由（由 build_router 合并；与工作流路由同形：自带 state）。
@@ -1039,4 +1018,105 @@ pub fn workflow_draft_router(state: Arc<AppState>) -> Router {
         .route("/workflows/draft/{id}/adopt", post(adopt_draft))
         .route("/workflows/draft/{id}/verify", post(record_verify_outcome))
         .with_state(state)
+}
+
+#[cfg(test)]
+mod workflow_catalog_tests {
+    use super::*;
+    struct NeverModel;
+    #[async_trait::async_trait]
+    impl owo_agent_core::gateway::ModelProvider for NeverModel {
+        async fn complete(
+            &self,
+            _: &[ChatMessage],
+            _: &[owo_agent_core::ToolSpec],
+        ) -> Result<ModelOutput, String> {
+            panic!("catalog must not call a model")
+        }
+    }
+    #[tokio::test]
+    async fn workflow_catalog_drafting_uses_actual_worker_tools_and_media_configuration() {
+        let temp = tempfile::tempdir().unwrap();
+        let workspace = temp.path().join("ws");
+        std::fs::create_dir_all(&workspace).unwrap();
+        let agent = owo_agent_core::Agent::new(
+            Arc::new(NeverModel),
+            owo_agent_core::tools::ToolRegistry::new(),
+            owo_agent_core::permissions::Policy::new(&workspace),
+            Default::default(),
+        );
+        let store =
+            owo_agent_core::sqlite_store::SqliteSessionStore::open(&workspace.join("index.db"))
+                .unwrap();
+        let state = AppState::new(
+            agent,
+            store,
+            workspace.join("traces"),
+            temp.path().into(),
+            workspace,
+        );
+        let catalog = state.agent.workflow_tool_capabilities().unwrap();
+        let defaults = resolve_draft_tools(&state, None).unwrap();
+        for name in ["read_file", "write_file", "apply_patch", "run_command"] {
+            assert!(defaults.iter().any(|tool| tool.name == name), "{name}");
+        }
+        let main_only = catalog
+            .iter()
+            .find(|tool| tool.name == "read_image")
+            .unwrap();
+        assert!(!main_only.worker_supported);
+        assert_eq!(main_only.status, "unsupported");
+        assert!(!defaults.iter().any(|tool| tool.name == "read_image"));
+        for name in ["generate_image", "text_to_speech"] {
+            let tool = catalog.iter().find(|tool| tool.name == name).unwrap();
+            assert!(tool.worker_supported);
+            assert_eq!(
+                defaults.iter().any(|entry| entry.name == name),
+                tool.status == "registered"
+            );
+            if tool.status == "registered" {
+                let selected = resolve_draft_tools(&state, Some(vec![name.into()])).unwrap();
+                assert!(selected[0].capabilities.as_ref().unwrap()["input_schema"].is_object());
+            }
+        }
+        assert_eq!(
+            resolve_draft_tools(&state, Some(vec!["mcp__offline__draw".into()]))
+                .unwrap_err()
+                .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+        state.agent.set_tool_prefix_enabled("write_file", false);
+        assert!(!resolve_draft_tools(&state, None)
+            .unwrap()
+            .iter()
+            .any(|tool| tool.name == "write_file"));
+        assert_eq!(
+            resolve_draft_tools(&state, Some(vec!["write_file".into()]))
+                .unwrap_err()
+                .0,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+        let role = owo_agent_core::workswarm::RoleSpec {
+            node_id: None,
+            role: "custom".into(),
+            tools: vec!["write_file".into()],
+            ..Default::default()
+        };
+        assert_eq!(
+            state
+                .agent
+                .preflight_workflow_roles(&[role], false, None)
+                .unwrap()[0]
+                .code,
+            "disabled"
+        );
+    }
+    #[test]
+    fn workflow_catalog_candidate_cannot_invent_an_unadvertised_tool() {
+        let template: TeamTemplate = serde_json::from_value(json!({"template_id":"catalog-test","name":"目录验证","mode":"team","applicability":"catalog","created_at":"","roles":[{"role":"creator","assignee":"agent","tools":["mcp__offline__draw"]}]})).unwrap();
+        let errors = validate_draft_tools(&template, &[]);
+        assert!(errors
+            .iter()
+            .any(|error| error.contains("不在本次宿主可用列表中")));
+    }
 }

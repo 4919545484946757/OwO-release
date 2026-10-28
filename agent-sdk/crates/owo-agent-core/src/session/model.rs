@@ -115,6 +115,44 @@ pub struct Session {
     /// 会话级目标模式状态（`/goal`）；状态与迁移见 [`super::goal`]。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub goal: Option<super::SessionGoal>,
+    /// 会话工作模式：`agent`（默认，完整工具链）或 `chat`（纯对话，只给联网检索）。
+    /// 旧会话没有此字段时按 `agent` 加载。
+    #[serde(default)]
+    pub mode: SessionMode,
+}
+
+/// 会话工作模式。
+///
+/// `Chat` 是"只用必要工具"的纯对话模式：只暴露联网检索与提问，不开放本地文件
+/// 读写、命令执行、桌面控制等能力；执行层同样拒绝越界工具（不是只隐藏 schema）。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SessionMode {
+    #[default]
+    Agent,
+    Chat,
+}
+
+impl SessionMode {
+    /// 解析线上字符串（大小写不敏感）；未知值返回 None，由调用方决定报错还是忽略。
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "" | "agent" | "default" => Some(Self::Agent),
+            "chat" | "conversation" | "dialogue" => Some(Self::Chat),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Agent => "agent",
+            Self::Chat => "chat",
+        }
+    }
+
+    pub fn is_chat(self) -> bool {
+        matches!(self, Self::Chat)
+    }
 }
 
 /// 任务清单条目（`todo` 工具写入，CLI `/todo` 渲染）。
@@ -160,6 +198,7 @@ impl Session {
             model_override: None,
             todos: Vec::new(),
             goal: None,
+            mode: SessionMode::Agent,
         }
     }
 
@@ -186,6 +225,29 @@ impl Session {
             self.model = value;
         }
         self.updated_at = Utc::now().to_rfc3339();
+    }
+
+    /// 切换会话工作模式；Chat 只给联网检索工具，执行层拒绝其它工具。
+    pub fn set_mode(&mut self, mode: SessionMode) {
+        if self.mode != mode {
+            self.mode = mode;
+            // 模式决定可执行面，任何切换都让 updated_at 前进，便于列表按活跃排序。
+            self.updated_at = Utc::now().to_rfc3339();
+        }
+    }
+
+    /// 设置/清除会话级自定义提示词（用户 persona，Hermes 式的"按会话套用"）。
+    ///
+    /// 只影响后续回合组装系统提示词；空串/纯空白等同于清除，
+    /// 不会把"空提示词"当成覆盖写进上下文。
+    pub fn set_system_prompt(&mut self, prompt: Option<String>) {
+        let normalized = prompt
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        if self.system_prompt != normalized {
+            self.system_prompt = normalized;
+            self.updated_at = Utc::now().to_rfc3339();
+        }
     }
 
     /// 展示标题：优先自定义标题，否则取首条用户消息，最后回退为会话短 ID。
@@ -559,6 +621,8 @@ impl Session {
             todos: self.todos.clone(),
             // 分支继承父会话的当前目标与进度（继续推进同一目标）。
             goal: self.goal.clone(),
+            // 分支继承工作模式：从纯对话分支不应突然拿到本地工具。
+            mode: self.mode,
         }
     }
 
@@ -604,5 +668,60 @@ impl Session {
         self.messages.extend(tail.iter().cloned());
         self.updated_at = Utc::now().to_rfc3339();
         Some(tail)
+    }
+}
+
+#[cfg(test)]
+mod mode_tests {
+    use super::SessionMode;
+
+    #[test]
+    fn mode_parse_accepts_aliases_and_rejects_unknown() {
+        assert_eq!(SessionMode::parse(""), Some(SessionMode::Agent));
+        assert_eq!(SessionMode::parse(" AGENT "), Some(SessionMode::Agent));
+        assert_eq!(SessionMode::parse("default"), Some(SessionMode::Agent));
+        assert_eq!(SessionMode::parse("Chat"), Some(SessionMode::Chat));
+        assert_eq!(SessionMode::parse("conversation"), Some(SessionMode::Chat));
+        // 未知值必须能识别出来，让调用方返回 400，而不是静默当 agent。
+        assert_eq!(SessionMode::parse("telepathy"), None);
+    }
+
+    #[test]
+    fn mode_roundtrips_through_serde_lowercase() {
+        let json = serde_json::to_string(&SessionMode::Chat).unwrap();
+        assert_eq!(json, "\"chat\"");
+        let parsed: SessionMode = serde_json::from_str("\"agent\"").unwrap();
+        assert_eq!(parsed, SessionMode::Agent);
+        // 旧会话（缺字段）默认 agent：新增的收紧模式不能反过来影响历史数据。
+        let legacy: SessionMode = serde_json::from_str("null").unwrap_or_default();
+        assert_eq!(legacy, SessionMode::Agent);
+    }
+
+    #[test]
+    fn set_mode_touches_updated_at_only_on_change() {
+        let mut session = super::Session::new(".", "m", None);
+        assert_eq!(session.mode, SessionMode::Agent);
+        let before = session.updated_at.clone();
+        session.set_mode(SessionMode::Agent);
+        assert_eq!(session.updated_at, before, "同值切换不应刷新时间");
+        session.set_mode(SessionMode::Chat);
+        assert!(session.mode.is_chat());
+    }
+
+    #[test]
+    fn set_system_prompt_trims_and_clears_blank() {
+        let mut session = super::Session::new(".", "m", None);
+        session.set_system_prompt(Some("  先给结论  ".into()));
+        assert_eq!(session.system_prompt.as_deref(), Some("先给结论"));
+        // 空白 = 清除，不能存成空 persona 覆盖默认提示词。
+        session.set_system_prompt(Some("   ".into()));
+        assert!(session.system_prompt.is_none());
+        session.set_system_prompt(Some(String::new()));
+        assert!(session.system_prompt.is_none());
+        // fork 继承当前 persona。
+        session.set_system_prompt(Some("严谨评审".into()));
+        let fork = session.fork(session.messages.len().saturating_sub(1));
+        assert_eq!(fork.system_prompt.as_deref(), Some("严谨评审"));
+        assert!(fork.mode == session.mode, "fork 必须继承模式");
     }
 }

@@ -475,6 +475,7 @@ impl StreamPrinter {
                 preview: _,
                 // Host receipts are consumed by completion validation, not rendered as tool text.
                 command_receipt: _,
+                outputs: _,
             } => {
                 self.clear_status();
                 let suffix = self.elapsed_suffix(id);
@@ -559,6 +560,7 @@ impl StreamPrinter {
                 ok,
                 error,
                 preview: _,
+                outputs: _,
             } => {
                 self.clear_status();
                 let suffix = self.elapsed_suffix(id);

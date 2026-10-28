@@ -55,6 +55,7 @@ fn inner_worker_for(
     parent_session_id: Option<&str>,
     role: &str,
     allow_scoped_writes: bool,
+    input: &Arc<crate::artifact_review_api::input_assets::ResolvedInputs>,
 ) -> Option<Arc<dyn Worker>> {
     match worker_name.map(str::trim).filter(|w| !w.is_empty()) {
         Some("echo") => Some(Arc::new(EchoWorker)),
@@ -70,6 +71,9 @@ fn inner_worker_for(
             let approver_scopes = write_allowed.clone();
             Some(Arc::new(AgentSubagentWorker {
                 agent: Arc::clone(&state.agent),
+                input: Arc::clone(input),
+                input_assets:
+                    crate::artifact_review_api::input_assets::InputAssetContext::for_state(state),
                 workspace,
                 model_calls: model_calls.cloned(),
                 request_usage: request_usage.cloned(),
@@ -148,15 +152,48 @@ pub(super) async fn build_run_registry(
     // 七期（第二路）：运行元数据是注册表和权限/预算装配的必需输入；读取失败不得
     // 降级成「无模板、无全局模型调用上限」继续派发。
     let team_run = coordinator.get_team_run(team_id).await.ok()?;
-    let parent_session_id = team_run.shared_context_refs.iter().find_map(|reference| {
+    let source_snapshot = team_run.shared_context_refs.iter().find_map(|reference| {
         let hash = reference.strip_prefix("cas://sha256:")?;
         let snapshot = coordinator.cas().get_text(hash)?;
-        serde_json::from_str::<serde_json::Value>(&snapshot)
-            .ok()?
-            .get("source_session_id")?
-            .as_str()
-            .map(str::to_string)
+        let snapshot: serde_json::Value = serde_json::from_str(&snapshot).ok()?;
+        snapshot.get("source_session_id")?.as_str()?;
+        Some(snapshot)
     });
+    let parent_session_id = source_snapshot
+        .as_ref()
+        .and_then(|s| s["source_session_id"].as_str())
+        .map(str::to_owned);
+    let parts: Vec<owo_agent_protocol::ContentPart> = match source_snapshot
+        .as_ref()
+        .and_then(|s| s.pointer("/core_spec/input_content_parts"))
+    {
+        Some(parts) => match serde_json::from_value(parts.clone()) {
+            Ok(parts) => parts,
+            Err(error) => {
+                tracing::error!(team_id, %error, "invalid frozen input parts");
+                return None;
+            }
+        },
+        None => Vec::new(),
+    };
+    let input = if parts.is_empty() {
+        Arc::new(crate::artifact_review_api::input_assets::ResolvedInputs::default())
+    } else {
+        let owner = parent_session_id.as_deref()?;
+        let workspace = scope
+            .as_ref()
+            .map(|s| s.root.as_path())
+            .unwrap_or(state.workspace.as_path());
+        match crate::artifact_review_api::input_assets::resolve(state, owner, workspace, &parts)
+            .await
+        {
+            Ok(input) => Arc::new(input),
+            Err((status, message)) => {
+                tracing::error!(team_id, %status, %message, "frozen input assets unavailable; refusing worker registry");
+                return None;
+            }
+        }
+    };
     let budgets: Vec<owo_agent_core::builtin_team_templates::RoleBudget> = team_run
         .template_id
         .as_deref()
@@ -270,6 +307,7 @@ pub(super) async fn build_run_registry(
             parent_session_id.as_deref(),
             &r.role,
             allow_scoped_writes,
+            &input,
         )?;
         // 追踪 + 租约只作用于写角色（读角色没有写工具不会改文件；并行读角色的
         // 快照窗口会误捕写角色的变更）。

@@ -43,6 +43,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     let session_detail = get(session_api::get_session).delete(session_api::delete_session);
     let protected = Router::new()
         .route("/expression", post(expression_api::expression))
+        .route("/input/preflight", post(turn_api::input_preflight))
         .route("/audit", get(audit_api::audit_list))
         .route("/session", post(session_api::create_session))
         .route("/session/{id}", session_detail)
@@ -86,7 +87,20 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/session/{id}/archive", post(session_api::session_archive))
         .route("/session/{id}/pin", post(session_api::session_pin))
         .route("/session/{id}/model", post(session_api::session_set_model))
+        .route("/session/{id}/mode", post(session_api::session_set_mode))
+        .route(
+            "/session/{id}/system-prompt",
+            post(prompt_api::session_set_system_prompt),
+        )
         .route("/session/{id}/children", get(session_api::children))
+        .route(
+            "/prompts",
+            get(prompt_api::prompts_list).post(prompt_api::prompts_save),
+        )
+        .route(
+            "/prompts/{id}",
+            axum::routing::delete(prompt_api::prompts_delete),
+        )
         .route(
             "/session/{id}/export/{format}",
             get(session_api::export_session),
@@ -242,6 +256,17 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             get(settings_api::settings_get).post(settings_api::settings_update),
         )
         .route("/settings/egress", post(settings_api::settings_egress))
+        .route(
+            "/settings/media-connections",
+            get(media_profiles_api::get)
+                .put(media_profiles_api::put)
+                .layer(DefaultBodyLimit::max(256 * 1024)),
+        )
+        .route(
+            "/settings/media-connections/check",
+            post(media_profiles_api::check).layer(DefaultBodyLimit::max(4096)),
+        )
+        .route("/providers/presets", get(settings_api::providers_presets))
         .route(
             "/settings/provider-test",
             post(settings_api::settings_provider_test),

@@ -329,7 +329,9 @@ impl TeamCoordinator {
                 drop(_guard);
                 let request = super::coord_rework::ReworkRequest {
                     step_id: step_id.clone(),
-                    instruction: reason.clone(),
+                    instruction: format!(
+                        "{reason}\n返修必须实际调用 write_file/apply_patch 把最终内容写入工作区，并运行已注册测试；不要只在 artifact 中返回 diff、摘要或计划。"
+                    ),
                     note: "宿主交付检查返工".into(),
                     actor: "host_validator".into(),
                     source_id: Some(format!("gate:{step_id}:{attempt_id}:{validator_id}")),
@@ -574,6 +576,7 @@ impl TeamCoordinator {
             .roles
             .iter()
             .map(|r| TeamTemplateRole {
+                node_id: r.node_id.clone(),
                 role: r.role.clone(),
                 assignee: r.assignee.clone(),
                 worker: r.worker.clone(),
@@ -583,21 +586,52 @@ impl TeamCoordinator {
                 model: r.model.clone(),
                 write_paths: r.write_paths.clone(),
                 capabilities: r.capabilities.clone(),
-                tools: Vec::new(),
+                tools: r.tools.clone(),
             })
             .collect();
+        // A successful run of an existing workflow should propose a reusable
+        // template, not a template whose applicability is this run's full
+        // objective sentence (which would only match the exact same text). Use
+        // the base template's name/applicability/description/tags and keep only
+        // the observed roles as the learned part.
+        let base = team
+            .template_id
+            .as_deref()
+            .and_then(|id| self.templates.get_template(id));
+        let learned_name = base
+            .as_ref()
+            .map(|template| template.name.clone())
+            .unwrap_or_else(|| preview(&state.goal.objective, 60));
+        let learned_applicability = base
+            .as_ref()
+            .map(|template| template.applicability.clone())
+            .filter(|applicability| !applicability.trim().is_empty())
+            .unwrap_or_else(|| preview(&state.goal.objective, 200));
+        let learned_description = base
+            .as_ref()
+            .and_then(|template| template.description.clone());
+        let learned_tags = base
+            .as_ref()
+            .map(|template| template.tags.clone())
+            .unwrap_or_default();
+        let learned_budgets = base
+            .as_ref()
+            .map(|template| template.budget_calls_per_role.clone())
+            .unwrap_or_default();
         let template = TeamTemplate {
+            budget_calls_per_role: learned_budgets,
+            editor: None,
             template_id: format!("tpl-{team_id}"),
-            name: preview(&state.goal.objective, 60),
+            name: learned_name,
             mode: team.mode,
             roles,
-            applicability: preview(&state.goal.objective, 200),
+            applicability: learned_applicability,
             source_team_id: Some(team_id.to_string()),
             created_at: now_ts(),
             origin: None,
-            description: None,
+            description: learned_description,
             version: None,
-            tags: Vec::new(),
+            tags: learned_tags,
         };
         TeamTemplateProposal {
             proposal_id: format!("prop-{}", &uuid::Uuid::new_v4().to_string()[..8]),
@@ -883,6 +917,7 @@ mod validation_receipt_identity_tests {
         assert!(changeset_delivery_error(ChangeSetStatus::Conflicted).is_some());
         assert!(changeset_delivery_error(ChangeSetStatus::Rejected).is_some());
         assert!(changeset_delivery_error(ChangeSetStatus::Reverted).is_some());
+        assert!(changeset_delivery_error(ChangeSetStatus::Superseded).is_some());
     }
 
     #[test]

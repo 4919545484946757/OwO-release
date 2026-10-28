@@ -35,6 +35,9 @@ pub struct ChatMessage {
     /// 附加可选字段：老会话记录缺省视为空，向前兼容。
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub images: Vec<MessageImage>,
+    /// Original user input and host-validated refs; never serialized into provider wire content.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input: Option<owo_agent_protocol::StoredUserInput>,
 }
 
 impl ChatMessage {
@@ -45,6 +48,7 @@ impl ChatMessage {
             tool_calls: None,
             tool_call_id: None,
             images: Vec::new(),
+            input: None,
         }
     }
 
@@ -55,6 +59,7 @@ impl ChatMessage {
             tool_calls: None,
             tool_call_id: None,
             images: Vec::new(),
+            input: None,
         }
     }
     /// 带图片的用户消息（多模态：截图/贴图进主对话上下文）。
@@ -65,6 +70,7 @@ impl ChatMessage {
             tool_calls: None,
             tool_call_id: None,
             images,
+            input: None,
         }
     }
 
@@ -75,6 +81,7 @@ impl ChatMessage {
             tool_calls: None,
             tool_call_id: None,
             images: Vec::new(),
+            input: None,
         }
     }
 
@@ -85,6 +92,7 @@ impl ChatMessage {
             tool_calls: Some(tool_calls),
             tool_call_id: None,
             images: Vec::new(),
+            input: None,
         }
     }
 
@@ -95,6 +103,7 @@ impl ChatMessage {
             tool_calls: None,
             tool_call_id: Some(tool_call_id),
             images: Vec::new(),
+            input: None,
         }
     }
 }
@@ -220,6 +229,16 @@ pub struct ObservedModelOutput {
 
 #[async_trait]
 pub trait ModelProvider: Send + Sync {
+    /// Read-only declaration check, never a network probe or a grant of tool permission.
+    /// Unknown adapters must explicitly opt in to image admission.
+    fn validate_image_input(&self, _model: Option<&str>, has_images: bool) -> Result<(), String> {
+        if has_images {
+            Err("input/image_capability_unknown: 此适配器未声明图片输入能力".into())
+        } else {
+            Ok(())
+        }
+    }
+
     /// Dedicated bounded text request. Providers must opt in; never fall back to an Agent turn.
     async fn complete_expression(&self, _messages: &[ChatMessage]) -> Result<String, String> {
         Err("provider/expression_unsupported".into())

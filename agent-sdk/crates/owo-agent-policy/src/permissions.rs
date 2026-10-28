@@ -332,7 +332,11 @@ pub struct WorkspaceApprover {
 impl WorkspaceApprover {
     /// 工作区内的写路径判定：绝对路径直接用，相对路径相对 workspace 解析。
     fn write_path_allowed(&self, raw: &str) -> bool {
-        let root = strip_verbatim_prefix(&self.workspace);
+        // Compare canonical identities on both sides. Windows may expose the same
+        // temporary directory through a short-name or junction alias; comparing a
+        // canonical candidate with the caller's raw workspace path would reject a
+        // legitimate relative write before the new file exists.
+        let root = nearest_existing_ancestor(&strip_verbatim_prefix(&self.workspace));
         let candidate = if Path::new(raw).is_absolute() {
             PathBuf::from(raw)
         } else {
@@ -666,6 +670,8 @@ impl Policy {
             ("browser_type", Level::Execute),
             ("browser_press", Level::Execute),
             ("browser_close", Level::Execute),
+            ("generate_image", Level::Execute),
+            ("text_to_speech", Level::Execute),
             ("text.inject", Level::Inject),
             ("clipboard", Level::Inject),
             ("desktop_click", Level::Inject),
@@ -1499,5 +1505,31 @@ mod tests {
             PermissionProfile::FullAccess,
             "档位不被这次提交改动（AutoReview 等更严档位同理，不会被降级）"
         );
+    }
+
+    /// 文生图 / 语音是"出境 + 写盘"，必须走 Execute 通道：
+    /// 没有 allow_execute 时一律 Deny，不能因为产物像图片就放宽。
+    #[tokio::test]
+    async fn media_tools_need_explicit_execute_opt_in() {
+        let workspace = std::env::temp_dir().join(format!("owo-media-perm-{}", std::process::id()));
+        std::fs::create_dir_all(&workspace).unwrap();
+        for allow in [false, true] {
+            let approver = workspace_approver(&workspace, allow, allow);
+            for tool in ["generate_image", "text_to_speech"] {
+                let level: Level = crate::tool_effects::effect_class_for(tool).into();
+                assert_eq!(level, Level::Execute, "{tool} 应为 Execute");
+                let decision = approver
+                    .decide(&request(
+                        level,
+                        json!({ "prompt": "a cat", "text": "hello" }),
+                    ))
+                    .await;
+                if allow {
+                    assert_eq!(decision, Decision::Allow, "{tool} 显式 opt-in 后放行");
+                } else {
+                    assert_eq!(decision, Decision::Deny, "{tool} 未 opt-in 必须拒绝");
+                }
+            }
+        }
     }
 }

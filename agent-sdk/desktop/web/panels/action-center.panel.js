@@ -112,6 +112,10 @@
       inboxSource: "",      // "inbox" | "legacy" | ""（渲染分支 + 头部口径提示）
       inboxBusy: {},        // key(item_id:action) -> true
       inboxResults: {},     // item_id -> { ok, text }
+      filters: { status: "", kind: "", q: "" },
+      drafts: Object.create(null),
+      notice: "",
+      hostScope: "",
     };
 
     // ---------- 纯逻辑层（Node 测试挂钩覆盖） ----------
@@ -322,13 +326,13 @@
     // HumanWorkItem: {item_id, kind: human_result|artifact_review|change_set|step_retry,
     //   team_id, project_id, target_id, status: open|claimed|resolved, assignee?,
     //   summary, created_at, claimed_at?, resolved_at?}
-    // 回退原则：inbox 404/空/任何失败 → 回退七期客户端聚合（legacyLoad），面板永远可用。
+    // 回退原则：inbox 仅 404 → 回退客户端聚合（legacyLoad），面板永远可用。
     // ===========================================================================
 
     var INBOX_KIND_CN = {
-      human_result: "等待 Human 结果",
+      human_result: "人工结果",
       artifact_review: "待评审产物",
-      change_set: "ChangeSet 审批",
+      change_set: "变更审批",
       step_retry: "失败步骤重试",
     };
     var INBOX_KIND_ORDER = ["human_result", "artifact_review", "change_set", "step_retry"];
@@ -342,7 +346,7 @@
       var items = (payload && payload.items) || [];
       return items
         .filter(function (it) {
-          return !!(it && it.item_id && INBOX_KIND_CN[it.kind]);
+          return !!(it && it.item_id && Object.prototype.hasOwnProperty.call(INBOX_KIND_CN, it.kind));
         })
         .map(function (it) {
           return {
@@ -354,6 +358,7 @@
             status: normItemStatus(it.status) || "open",
             assignee: it.assignee == null ? "" : String(it.assignee),
             summary: String(it.summary || ""),
+            role: it.detail && typeof it.detail.role === "string" ? it.detail.role : "",
             created_at: it.created_at == null ? "" : String(it.created_at),
             claimed_at: it.claimed_at == null ? "" : String(it.claimed_at),
             resolved_at: it.resolved_at == null ? "" : String(it.resolved_at),
@@ -368,7 +373,7 @@
         out[k] = [];
       });
       (items || []).forEach(function (it) {
-        if (it && INBOX_KIND_CN[it.kind] && it.status !== "resolved") out[it.kind].push(it);
+        if (it && Object.prototype.hasOwnProperty.call(INBOX_KIND_CN, it.kind) && it.status !== "resolved") out[it.kind].push(it);
       });
       return out;
     }
@@ -425,77 +430,80 @@
       return '<span class="owo-ac-badge warn">待领取</span>';
     }
 
-    // 动作按钮：open → 领取；claimed → 释放 + 按 kind 的直接处理动作。
+    function itemBusy(id) {
+      return Object.keys(state.inboxBusy).some(function (key) {
+        return key.slice(0, key.lastIndexOf(":")) === id && state.inboxBusy[key];
+      });
+    }
+    function filteredInbox(items, filters) {
+      var f = filters || {}, q = String(f.q || "").trim().toLocaleLowerCase();
+      return (items || []).filter(function (it) {
+        return it.status !== "resolved" && (!f.status || it.status === f.status) &&
+          (!f.kind || it.kind === f.kind) &&
+          (!q || [it.summary, it.team_id, it.project_id, it.target_id, it.assignee]
+            .join(" ").toLocaleLowerCase().indexOf(q) >= 0);
+      });
+    }
     function inboxActionButtons(it) {
-      var tid = it.item_id;
-      function btn(action, label, attrs) {
-        var key = tid + ":" + action;
-        return (
-          '<button type="button" class="owo-ac-mini' + (attrs && attrs.primary ? " primary" : "") +
-          '" data-ic-act="' + esc(action) + '" data-ic-item="' + esc(tid) + '"' +
-          (state.inboxBusy[key] ? " disabled" : "") + ">" + esc(label) + "</button>"
-        );
+      var tid = it.item_id, busy = itemBusy(tid), mine = !it.assignee || it.assignee === currentUser();
+      function btn(action, label, primary) {
+        return '<button type="button" class="owo-ac-mini' + (primary ? " primary" : "") +
+          '" data-core-action data-ic-act="' + esc(action) + '" data-ic-item="' + esc(tid) + '"' +
+          (busy ? " disabled" : "") + ">" + esc(label) + "</button>";
       }
       var out = [];
-      if (it.status === "open") {
-        out.push(btn("claim", "领取", { primary: true }));
-      } else if (it.status === "claimed") {
+      if (it.status === "open") out.push(btn("claim", "领取", true));
+      else if (it.status === "claimed" && mine) {
         out.push(btn("release", "释放"));
-        if (it.kind === "artifact_review") {
-          out.push(btn("approve", "批准"));
-          out.push(btn("request_changes", "要求修改"));
-          out.push(btn("reject", "拒绝"));
-        } else if (it.kind === "change_set") {
-          out.push(btn("accept", "接受", { primary: true }));
-          out.push(btn("reject", "拒绝"));
-        } else if (it.kind === "step_retry") {
-          out.push(btn("resolve", "重试", { primary: true }));
-        } else if (it.kind === "human_result") {
-          out.push(
-            '<input type="text" class="owo-ac-note" placeholder="填写 Human 结果…" data-ic-note="' +
-              esc(tid) + '" />'
-          );
-          out.push(btn("resolve", "提交结果", { primary: true }));
-        }
+        if (it.kind === "artifact_review") out.push(btn("approve", "批准", true), btn("request_changes", "要求修改"), btn("reject", "拒绝"));
+        else if (it.kind === "change_set") out.push(btn("accept", "接受", true), btn("reject", "拒绝"));
+        else if (it.kind === "step_retry") out.push(btn("resolve", "重试", true));
+        else if (it.kind === "human_result") out.push(btn("resolve", "提交结果", true));
       }
+      if (it.team_id) out.push('<button type="button" class="owo-ac-mini" data-ac-goto="' + esc(it.team_id) + '">打开任务</button>');
       return out.join("");
     }
-
     function inboxItemHtml(it) {
-      var res = state.inboxResults[it.item_id];
-      return (
-        '<div class="owo-ac-item" data-ic-item-row="' + esc(it.item_id) + '">' +
-        '<div class="owo-ac-line">' +
-        inboxStatusBadge(it) +
-        "<b>" + esc(it.team_id || it.project_id || "—") + "</b>" +
-        '<span class="hint">' + esc(it.summary || "") + "</span>" +
-        "</div>" +
-        (it.assignee ? '<div class="owo-ac-sub hint">领取人：' + esc(it.assignee) + "</div>" : "") +
-        '<div class="owo-ac-actions">' + inboxActionButtons(it) + "</div>" +
-        '<div class="owo-ac-result' + (res ? (res.ok ? " ok" : " bad") : "") +
-        '" data-ic-result="' + esc(it.item_id) + '" aria-live="polite">' +
-        (res ? esc(res.text) : "") +
-        "</div>" +
-        "</div>"
-      );
+      var res = state.inboxResults[it.item_id], mine = !it.assignee || it.assignee === currentUser();
+      var editable = it.status === "claimed" && mine && (it.kind === "human_result" || it.kind === "artifact_review");
+      var field = it.kind === "human_result" ? "result" : "comment", draft = state.drafts[it.item_id] || {};
+      return '<article class="owo-ac-item" data-ic-item-row="' + esc(it.item_id) + '">' +
+        '<div class="owo-ac-line"><h3>' + esc(it.role || it.summary || it.target_id || "待办事项") + '</h3>' + inboxStatusBadge(it) + '</div>' +
+        '<div class="owo-ac-sub hint">' + esc(INBOX_KIND_CN[it.kind]) + ' · ' + esc(it.team_id || it.project_id || "—") +
+        (it.assignee ? ' · 领取人：' + esc(it.assignee) : "") + '</div>' +
+        (editable ? '<label class="ac-draft-label">' + (field === "result" ? "处理结果" : "评审意见（选填）") +
+          '<textarea rows="3" class="owo-ac-note" data-ic-note="' + esc(it.item_id) + '" data-ic-field="' + field +
+          '" placeholder="' + (field === "result" ? "填写处理结果…" : "补充评审依据或需要修改的内容…") + '"' +
+          (itemBusy(it.item_id) ? " disabled" : "") + '>' + esc(draft[field] || "") + '</textarea></label>' : "") +
+        (!mine && it.status === "claimed" ? '<p class="hint">此事项由其他用户处理，释放后可重新领取。</p>' : "") +
+        '<div class="owo-ac-actions">' + inboxActionButtons(it) + '</div>' +
+        '<div class="owo-ac-result' + (res ? (res.ok ? " ok" : " bad") : "") + '" data-ic-result="' + esc(it.item_id) +
+        '" aria-live="polite">' + (res && !res.ok ? esc(res.text) : "") + '</div></article>';
     }
-
     function inboxSectionsHtml(items) {
-      var grouped = groupInbox(items);
-      return INBOX_KIND_ORDER.map(function (kind) {
-        var list = grouped[kind] || [];
-        var body = list.length
-          ? list.map(inboxItemHtml).join("")
-          : '<div class="owo-ac-empty">当前无此类待办。</div>';
-        return (
-          '<section class="owo-ac-sec" data-ic-sec="' + esc(kind) + '">' +
-          "<h3>" + esc(INBOX_KIND_CN[kind]) +
-          ' <span class="owo-ac-count' + (list.length ? " has" : "") + '">' + list.length + "</span>" +
-          ' <span class="hint">待你处理的人工事项</span></h3>' +
-          '<div class="owo-ac-items">' + body + "</div>" +
-          "</section>"
-        );
-      }).join("");
+      var list = filteredInbox(items, state.filters);
+      if (!list.length) return '<div class="owo-ac-empty">' +
+        (inboxTotal(items) ? "没有匹配的待办。调整筛选条件后重试。" : "当前没有待办。") + "</div>";
+      return list.map(inboxItemHtml).join("");
+    }
+    function filtersHtml() {
+      return '<div class="ac-status-tabs" role="group" aria-label="待办状态">' +
+        [["", "全部"], ["open", "待领取"], ["claimed", "已领取"]].map(function (pair) {
+          return '<button type="button" data-ac-status="' + pair[0] + '" aria-pressed="' + (state.filters.status === pair[0]) +
+            '">' + pair[1] + ' <span data-ac-count="' + pair[0] + '">0</span></button>';
+        }).join("") + '</div><div class="ac-filters"><input type="search" id="ac-search" aria-label="搜索待办、任务或项目" ' +
+        'placeholder="搜索待办、任务或项目" value="' + esc(state.filters.q) + '"><select id="ac-kind" aria-label="待办类型">' +
+        '<option value="">全部类型</option>' + INBOX_KIND_ORDER.map(function (k) {
+          return '<option value="' + k + '"' + (state.filters.kind === k ? " selected" : "") + '>' + esc(INBOX_KIND_CN[k]) + '</option>';
+        }).join("") + '</select></div>';
+    }
+    function rememberInput(ev) {
+      var t = ev.target;
+      if (!t || !t.getAttribute) return;
+      var id = t.getAttribute("data-ic-note"), field = t.getAttribute("data-ic-field");
+      if (!id || (field !== "result" && field !== "comment")) return;
+      if (!state.drafts[id]) state.drafts[id] = {};
+      state.drafts[id][field] = t.value;
     }
 
     function inboxTotal(items) {
@@ -528,7 +536,8 @@
       if (!it || it.status === "resolved") return Promise.resolve();
       var isResolve = act !== "claim" && act !== "release";
       var key = id + ":" + act;
-      if (state.inboxBusy[key]) return Promise.resolve();
+      if (itemBusy(id)) return Promise.resolve();
+      if (it.status === "claimed" && it.assignee && it.assignee !== currentUser()) return Promise.resolve();
       var lifecycle = lifecycleGeneration;
       var body = {};
       if (isResolve) {
@@ -539,7 +548,9 @@
           return Promise.resolve();
         }
       }
-      state.inboxBusy[key] = true;
+      var locks = state.inboxBusy, actionScope = state.hostScope;
+      locks[key] = true;
+      var post = H.post;
       render();
       var path = buildInboxActionPath(id, isResolve ? "resolve" : act);
       if (isResolve) {
@@ -548,7 +559,7 @@
         body = { user: currentUser() }; // claim/release：ActorRequest {user}
       }
       return Promise.resolve()
-        .then(function () { return H.post(path, body); })
+        .then(function () { if (isCurrentRequest(lifecycle)) return post(path, body); })
         .then(function (resp) {
           if (!isCurrentRequest(lifecycle)) return;
           var replayed = !!(resp && resp.replayed);
@@ -562,16 +573,27 @@
                 ? "已领取。"
                 : "已释放。",
           };
+          state.notice = (it.role || it.summary || "待办事项") + "：" + state.inboxResults[id].text;
+          if (isResolve) delete state.drafts[id];
         })
         .catch(function (e) {
           if (!isCurrentRequest(lifecycle)) return;
           state.inboxResults[id] = { ok: false, text: "操作失败：" + friendly(e) };
         })
         .then(function () {
-          delete state.inboxBusy[key];
-          if (!isCurrentRequest(lifecycle)) return;
-          if (state.inboxSource === "inbox") return refreshInbox();
-          render();
+          if (!isCurrentRequest(lifecycle)) {
+            delete locks[key];
+            if (rootEl && actionScope === state.hostScope && state.inboxSource === "inbox") return refreshInbox();
+            return;
+          }
+          var refreshed = state.inboxSource === "inbox" ? refreshInbox() : Promise.resolve();
+          return Promise.resolve(refreshed).then(function () {
+            delete locks[key];
+            if (isCurrentRequest(lifecycle)) render();
+          }, function () {
+            delete locks[key];
+            if (isCurrentRequest(lifecycle)) render();
+          });
         });
     }
 
@@ -581,12 +603,15 @@
       var lifecycle = lifecycleGeneration;
       var request = ++inboxGeneration;
       loadGeneration++;
-      state.loading = false;
+      state.loading = true;
+      state.errors = [];
+      render();
       return Promise.resolve()
         .then(function () { return H.get("/human/inbox"); })
         .then(function (d) {
           if (!isCurrentRequest(lifecycle, null, request)) return;
           state.inbox = inboxItemsOf(d);
+          state.loading = false;
           state.inboxSource = "inbox"; // 在线即以 Inbox 为准（空列表也是真实状态）
           state.lastLoadedAt = new Date().toLocaleTimeString();
           render();
@@ -598,6 +623,7 @@
             state.inboxSource = "legacy";
             return legacyLoad(lifecycle, null, request);
           }
+          state.loading = false;
           state.errors.push("Inbox 刷新失败（保持正式 Inbox 口径）：" + friendly(e));
           render();
         });
@@ -723,13 +749,15 @@
       return (
         '<div class="owo-ac">' +
         '<div class="owo-ac-head">' +
-        "<h2>待我处理</h2>" +
-        '<span class="hint" title="技术详情：/teams · /teams/{id} · /projects/{pid}/artifacts · steer(retry)">汇总各团队的待办：人工结果、待评审产物、失败步骤与写入权</span>' + // ui-lint:allow（§8.2 允许的“技术详情”提示面）
+        '<span class="hint">领取待办，提交结果，继续推进任务。</span>' +
         '<button type="button" id="ac-refresh" class="owo-ac-mini">刷新</button>' +
         '<span id="ac-meta" class="hint" aria-live="polite"></span>' +
         "</div>" +
+        '<div id="ac-meta-row"></div>' +
+        '<div id="ac-controls" hidden></div>' +
+        '<div id="ac-notice" class="ac-notice" role="status"></div>' +
         '<div id="ac-errors" aria-live="polite"></div>' +
-        '<div id="ac-sections"><div class="owo-ac-empty">正在聚合待办…</div></div>' +
+        '<div id="ac-sections"><div class="owo-ac-empty">正在加载待办…</div></div>' +
         "</div>"
       );
     }
@@ -761,23 +789,39 @@
 
     function render() {
       if (!rootEl) return;
+      var doc = rootEl.ownerDocument, active = doc && doc.activeElement;
+      var focused = active && active.getAttribute && active.getAttribute("data-ic-note");
+      var selection = focused ? [active.selectionStart, active.selectionEnd] : null;
       var box = el("#ac-sections");
-      if (box) {
-        box.innerHTML =
-          state.inboxSource === "inbox"
-            ? inboxSectionsHtml(state.inbox)
-            : sectionsHtml(state.items, state);
+      if (box) box.innerHTML = state.loading && !state.loadedOnce && !state.inbox.length
+        ? '<div class="owo-ac-empty">正在加载待办…</div>'
+        : state.errors.length && !state.inbox.length && state.inboxSource === "inbox"
+          ? '<div class="owo-ac-empty">暂时无法获取待办，请刷新重试。</div>'
+          : state.inboxSource === "inbox" ? inboxSectionsHtml(state.inbox) : sectionsHtml(state.items, state);
+      if (focused && box && box.querySelectorAll) Array.prototype.some.call(box.querySelectorAll("[data-ic-note]"), function (input) {
+        if (input.getAttribute("data-ic-note") !== focused || input.disabled) return false;
+        input.focus();
+        if (selection && input.setSelectionRange) input.setSelectionRange(selection[0], selection[1]);
+        return true;
+      });
+      var controls = el("#ac-controls");
+      if (controls) {
+        controls.hidden = state.inboxSource !== "inbox";
+        if (controls.querySelectorAll) Array.prototype.forEach.call(controls.querySelectorAll("[data-ac-status]"), function (button) {
+          var status = button.getAttribute("data-ac-status");
+          button.setAttribute("aria-pressed", String(state.filters.status === status));
+          var count = button.querySelector("[data-ac-count]");
+          if (count) count.textContent = filteredInbox(state.inbox, { status: status }).length;
+        });
       }
+      var refresh = el("#ac-refresh");
+      if (refresh) { refresh.disabled = state.loading; refresh.textContent = state.loading ? "刷新中…" : "刷新"; }
+      var notice = el("#ac-notice");
+      if (notice) notice.textContent = state.notice;
       paintErrors();
-      paintMeta(
-        state.loading
-          ? "加载中…"
-          : state.inboxSource === "inbox"
-            ? "正式 Inbox：" + inboxTotal(state.inbox) + " 项待办" +
-              (state.lastLoadedAt ? " · 更新于 " + state.lastLoadedAt : "")
-            : "共 " + totalOf(state.items) + " 项待办（客户端聚合）" +
-              (state.lastLoadedAt ? " · 更新于 " + state.lastLoadedAt : "")
-      );
+      paintMeta(state.loading ? "加载中…" : state.inboxSource === "inbox"
+        ? "共 " + inboxTotal(state.inbox) + " 项待办" + (state.lastLoadedAt ? " · 更新于 " + state.lastLoadedAt : "")
+        : "共 " + totalOf(state.items) + " 项待办（兼容视图）" + (state.lastLoadedAt ? " · 更新于 " + state.lastLoadedAt : ""));
     }
 
     // 提交锁 + 结果回写（按钮/结果区由 sectionsHtml 重建，直接按 data 属性定位）。
@@ -833,6 +877,7 @@
     // 深链：经导航按钮切到 WorkSwarm 面板，再用公开 open() 直达团队详情
     // （与 Project Launcher gotoTeam 同款）。teamId 为空时仅落在列表页。
     function gotoWorkswarm(teamId) {
+      if (H.openTeam && teamId) { H.openTeam(teamId); return; }
       var doc = typeof document !== "undefined" ? document : null;
       var btn = doc ? doc.querySelector('#panelNav button[data-panel="workswarm"]') : null;
       if (btn) btn.click();
@@ -863,7 +908,7 @@
       inboxGeneration++;
       state.loading = true;
       state.errors = [];
-      paintMeta("加载中…");
+      render();
       return H.get("/human/inbox")
         .then(function (d) {
           if (!isCurrentRequest(lifecycle, request)) return;
@@ -891,7 +936,7 @@
         });
     }
 
-    // 七期客户端聚合路径（Inbox 不可用/为空时的回退；原 load() 本体）。
+    // 七期客户端聚合路径（Inbox 明确 404 时的回退；原 load() 本体）。
     function legacyLoad(lifecycle, loadId, inboxId) {
       if (!isCurrentRequest(lifecycle, loadId, inboxId)) return Promise.resolve();
       state.inboxSource = "legacy";
@@ -965,7 +1010,7 @@
         if (act !== "claim" && act !== "release") {
           // human_result：取同条目输入框中的结果文本；其余 kind 无额外字段。
           var noteInput = el('[data-ic-note="' + itemId.replace(/"/g, '\\"') + '"]');
-          if (noteInput) extra = { result: noteInput.value };
+          if (noteInput) { rememberInput({ target: noteInput }); extra = state.drafts[itemId]; }
         }
         startInboxAction(itemId, act, extra);
         return;
@@ -991,6 +1036,9 @@
       state.loading = false;
       rootEl = root;
       H = helpers || {};
+      var scope = String(H.baseUrl || (win.OwoPanels && win.OwoPanels.baseUrl) || "");
+      if (state.hostScope !== scope) { state.drafts = Object.create(null); state.inbox = []; state.inboxResults = {}; state.notice = ""; state.loadedOnce = false; state.inboxSource = "inbox"; state.inboxBusy = {}; }
+      state.hostScope = scope;
       H.baseUrl = H.baseUrl || (win.OwoPanels && win.OwoPanels.baseUrl) || "";
       if (!H.get) H.get = defaultGet;
       if (!H.post) H.post = defaultPost;
@@ -999,7 +1047,21 @@
       var box = el("#ac-sections");
       // 事件委托绑在持久容器 #ac-sections 上：innerHTML 重建子树不丢监听，
       // 重复挂载也不会累积（容器元素随 root.innerHTML 整体重建）。
-      if (box) box.addEventListener("click", onSectionClick);
+      if (box) { box.addEventListener("click", onSectionClick); box.addEventListener("input", rememberInput); }
+      var controls = el("#ac-controls");
+      if (controls) {
+        controls.innerHTML = filtersHtml();
+        controls.addEventListener("click", function (ev) {
+          var tab = ev.target.closest && ev.target.closest("[data-ac-status]");
+          if (tab) { state.filters.status = tab.getAttribute("data-ac-status"); render(); }
+        });
+        controls.addEventListener("input", function (ev) {
+          if (ev.target.id === "ac-search") { state.filters.q = ev.target.value; render(); }
+        });
+        controls.addEventListener("change", function (ev) {
+          if (ev.target.id === "ac-kind") { state.filters.kind = ev.target.value; render(); }
+        });
+      }
       var refresh = el("#ac-refresh");
       if (refresh) refresh.onclick = function () { load(); };
       load();
@@ -1038,6 +1100,9 @@
       submitRetry: submitRetry,
       gotoWorkswarm: gotoWorkswarm,
       // 八期三路：Inbox 优先 + 回退口径
+      filteredInbox: filteredInbox,
+      rememberInput: rememberInput,
+      itemBusy: itemBusy,
       normItemStatus: normItemStatus,
       inboxItemsOf: inboxItemsOf,
       groupInbox: groupInbox,

@@ -1,0 +1,28 @@
+   Compiling owo-agent-core v0.1.0 (T:\创新创业\OwO-master\agent-sdk\crates\owo-agent-core)
+   Compiling owo-agent-product-eval v0.1.0 (T:\创新创业\OwO-master\agent-sdk\devtools\product-eval)
+   Compiling owo-agent-eval-facade v0.1.0 (T:\创新创业\OwO-master\agent-sdk\crates\owo-agent-eval-facade)
+
+running 19 tests
+test tools::media_target::tests::collision_never_overwrites_existing_output ... ok
+test tools::media_target::tests::concurrent_writers_have_one_winner ... ok
+test tools::media_target::tests::junction_parent_cannot_create_outside_workspace ... ok
+test tools::media_target::tests::scopes_reject_outputs_before_creating_directories ... ok
+test tools::media_target::tests::task_scope_can_narrow_role_scope ... ok
+test tools::media_tools::tests::builtin_media_tools_call_local_compat_http_and_save_outputs ... ok
+test tools::media_tools::tests::cancellation_interrupts_a_pending_media_operation ... ok
+test tools::media_tools::tests::error_message_is_trimmed_and_readable ... ok
+test tools::media_tools::tests::explicit_directories_survive_and_unsafe_paths_are_rejected ... ok
+test tools::media_tools::tests::local_endpoints_allow_empty_key ... ok
+test tools::media_tools::tests::media_base_url_trims_trailing_slash ... ok
+test tools::media_tools::tests::output_path_stays_inside_outputs ... ok
+test tools::media_tools::tests::parses_b64_and_url_payloads ... ok
+test tools::media_tools::tests::request_bodies_match_openai_compat_shape ... ok
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3m 54s
+     Running unittests src\lib.rs (native-target\debug\deps\owo_agent_core-874f95b7a008b88d.exe)
+test tools::media_tools::tests::response_limits_cover_declared_chunked_and_stalled_bodies ... ok
+test tools::media_tools::tests::sanitize_stem_keeps_safe_characters_only ... ok
+test tools::media_tools::tests::small_mp3_gets_inline_audio ... ok
+test tools::media_tools::tests::small_png_gets_inline_data_url ... ok
+
+test tools::media_tools::tests::worker_media_scopes_are_isolated_between_concurrent_futures ... ok
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 816 filtered out; finished in 0.37s

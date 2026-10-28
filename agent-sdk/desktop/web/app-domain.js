@@ -413,10 +413,14 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
     const badges = [];
     if (session.pinned) badges.push("📌");
     if (session.archived) badges.push("🗄");
+    // 对话会话在侧栏要可分辨：它不读写本地文件，和 Work 会话不是一回事。
+    const isChat = String(session.mode || "").toLowerCase() === "chat";
+    if (isChat) badges.push('<span class="mode-badge" title="对话模式：不读写本地文件">对话</span>');
     // Codex 风格：列表只显示标题 + 短时间，模型与完整时间收入 title 提示
     const raw = session.updated_at || session.created_at || "";
     const updated = raw ? raw.slice(5, 16).replace("T", " ") : "";
-    li.title = `${session.model || "默认模型"} · ${raw.slice(0, 19).replace("T", " ")}`;
+    li.title = `${session.model || "默认模型"} · ${raw.slice(0, 19).replace("T", " ")}` +
+      (isChat ? " · 对话模式" : "");
     li.innerHTML = `
       <div class="owo-session-row" style="margin-left:${depth * 14}px">
         <button type="button" class="owo-session-title" data-session-select aria-current="${session.id === selectedSessionId ? "page" : "false"}" title="打开会话：${esc(session.title || session.id.slice(0, 12))}">
@@ -560,17 +564,27 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
   const groups = new Map();
   for (const workspace of [$("workspace").value.trim(), ...recentWorkspaces()]) {
     if (workspace && !groups.has(workspace.toLowerCase())) {
-      groups.set(workspace.toLowerCase(), { workspace, roots: [] });
+      groups.set(workspace.toLowerCase(), { workspace, roots: [], preseeded: true });
     }
   }
   for (const session of visible) {
     if (!isRoot(session)) continue;
     const workspace = String(session.workspace || "").trim();
     const key = workspace.toLowerCase();
-    if (!groups.has(key)) groups.set(key, { workspace, roots: [] });
-    groups.get(key).roots.push(session);
+    if (!groups.has(key)) {
+      // 会话带来、且不在用户项目列表里的分组：可能全部是"无工作区纯对话"。
+      groups.set(key, { workspace, roots: [], preseeded: false, chatOnly: true });
+    }
+    const group = groups.get(key);
+    if (session.mode !== "chat") group.chatOnly = false;
+    group.roots.push(session);
   }
   for (const group of groups.values()) {
+    // 服务端为"未选工作区的纯对话"分配 <data_root>/chat；这种分组没有用户项目名，
+    // 用「纯对话」作为组名，避免侧栏出现一个叫 chat 的陌生项目。
+    const chatGroup = !group.preseeded && group.chatOnly === true &&
+      /(^|[\\/])chat$/.test(group.workspace);
+    const groupLabel = chatGroup ? "对话" : workspaceLabel(group.workspace);
     // 项目分组可折叠：组头点击折叠/展开，展开状态按「工作区名」记忆在 localStorage，
     // 刷新后保持。多项目并行时默认全部展开（同屏可见），用户可自行收起。
     const groupId = "grp:" + (group.workspace || "").toLowerCase();
@@ -581,19 +595,21 @@ async function refreshSessionsImpl(selectId, generation, selectionVersion) {
     header.setAttribute("role", "button");
     header.setAttribute("tabindex", "0");
     header.setAttribute("aria-expanded", collapsed ? "false" : "true");
-    header.title = (group.workspace || "该会话未记录工作区") + (collapsed ? "（点击展开）" : "（点击折叠）");
+    header.title = chatGroup
+      ? "对话会话（不使用本地工作区）" + (collapsed ? "（点击展开）" : "（点击折叠）")
+      : (group.workspace || "该会话未记录工作区") + (collapsed ? "（点击展开）" : "（点击折叠）");
 
     const caret = document.createElement("span");
     caret.className = "codex-group-caret" + (collapsed ? " collapsed" : "");
     caret.setAttribute("aria-hidden", "true");
     const label = document.createElement("span");
     label.className = "codex-group-label";
-    label.textContent = workspaceLabel(group.workspace);
+    label.textContent = groupLabel;
     const count = document.createElement("span");
     count.className = "codex-group-count";
     count.textContent = String(group.roots.length);
     header.append(caret, label, count);
-    if (group.workspace) {
+    if (group.workspace && !chatGroup) {
       const add = document.createElement("button");
       add.type = "button";
       add.className = "codex-project-new";
@@ -765,6 +781,10 @@ function resumeHostTurn(sessionId, detail) {
   const turnId = detail.active_turn_id;
   const temp = { tools: 0, failed: 0, modelCalls: 0, startedAt: Date.parse(detail.activity?.started_at || "") || Date.now(), files: new Set(), server: null };
   let text = "", bubble = null, terminal = null;
+  // 恢复态同样按帧合并：重放历史页可能一次带来大量 token_delta。
+  const renderer = window.OwoStreamRender
+    ? window.OwoStreamRender.createStreamRenderer(renderMarkdown, { onPaint: bindCopyButtons })
+    : null;
   const entry = { remote: true, turnId, startedAt: temp.startedAt, phase: detail.activity?.phase || "thinking", controller: new AbortController() };
   state.activeTurns.set(sessionId, entry);
   const observer = window.OwoTurnRecovery.observe({
@@ -779,12 +799,25 @@ function resumeHostTurn(sessionId, detail) {
           if (value.type === "token_delta") {
             text = (text + String(value.delta || "")).slice(-1048576);
             if (!bubble) bubble = addMessage("assistant", "");
-            bubble.innerHTML = renderMarkdown(text); followScroll();
+            if (renderer) {
+              renderer.update(bubble, text);
+            } else {
+              bubble.innerHTML = renderMarkdown(text);
+              bindCopyButtons(bubble);
+            }
+            followScroll();
           } else if (value.type === "final") {
             text = value.text || text; if (!bubble) bubble = addMessage("assistant", "");
-            bubble.innerHTML = renderMarkdown(text); bindCopyButtons(bubble);
+            // 终态才追加来源卡片；流式增量不追加，避免卡片随每个 token 重排。
+            if (renderer) renderer.reset();
+            bubble.innerHTML = renderMessage(text); bindCopyButtons(bubble);
           } else if (value.type === "tool_use") { entry.phase = "tool"; entry.tool = value.tool; pushToolUse(value); }
-          else if (value.type === "tool_result") { pushToolResult(value); entry.phase = "thinking"; }
+          else if (value.type === "tool_result") {
+            pushToolResult(value);
+            // 重载会话时也要还原媒体产物，否则刷新后图片/语音从对话里消失。
+            if (typeof noteMediaOutput === "function") noteMediaOutput(value);
+            entry.phase = "thinking";
+          }
           else if (value.type === "progress") { entry.phase = "thinking"; if (value.message === "模型调用") temp.modelCalls++; }
           else if (value.type === "user_question") showQuestionCard(value);
           else if (value.type === "user_answered") markQuestionAnswered(value);
@@ -795,6 +828,8 @@ function resumeHostTurn(sessionId, detail) {
     },
     async onEnd(page) {
       if (state.activeTurns.get(sessionId) !== entry) return;
+      // 中断/断流时把最后一批增量落盘，避免恢复出来的回答比实际短。
+      if (renderer) renderer.flush();
       state.activeTurns.delete(sessionId);
       if (terminal) rememberTurnFacts(sessionId, terminal);
       else state.completedTurnFacts.set(sessionId, { outcome: "interrupted", turnId, lastExecutionModel: "", lastCompletionRecord: null });
@@ -811,18 +846,205 @@ function resumeHostTurn(sessionId, detail) {
   });
   entry.observer = observer;
 }
+/// 把会话回退到 `keep` 条消息，再以 `content` 重发。
+/// 编辑与重新生成共用：服务端负责回滚该回合后的文件写入，前端只重载历史并发送。
+async function prepareHistoryReplay(sessionId, message, isCurrent, historyKeep) {
+  const requestedModel = getComposerModel();
+  if (modelGateMissing()) throw new Error("模型尚未配置，未回退或重发");
+  const modelConnection = ModelRouting.buildCustomModelConnection(getComposerModel(), loadCustomModels(), customModelKeys());
+  const capabilities = await api("/capabilities");
+  if (!isCurrent()) throw new Error("会话已切换，未回退或重发");
+  if (capabilities?.constraints?.scoped_turn_cancellation !== true) throw new Error("当前核心不支持按回合停止，未回退或重发");
+  if (modelConnection && capabilities?.constraints?.custom_model_connection !== true) throw new Error("当前核心不支持自定义模型连接，未回退或重发");
+  if (modelConnection?.api_key_env && capabilities?.constraints?.custom_model_env_credentials !== true) throw new Error("当前核心不支持安全凭据引用，未回退或重发");
+  const connectionSnapshot = JSON.stringify(modelConnection);
+  const sameInput = () => {
+    if (!isCurrent() || getComposerModel() !== requestedModel) return false;
+    try { return JSON.stringify(ModelRouting.buildCustomModelConnection(requestedModel, loadCustomModels(), customModelKeys())) === connectionSnapshot; }
+    catch (_) { return false; }
+  };
+  const replay = await window.OwoHistoryInput.prepare(message, {sessionId, capabilities, get: path => api(path),
+    download: (path, options) => window.OwoApi.download(path, options), isCurrent: sameInput});
+  if (capabilities?.constraints?.model_input_preflight === true) {
+    await preflightModelInput(sessionId, replay.attachments, modelConnection, requestedModel, historyKeep, sameInput);
+  }
+  if (!sameInput()) throw new Error("会话或模型已变化，未回退或重发");
+  return replay;
+}
+
+async function preflightModelInput(sessionId, attachments, modelConnection, requestedModel, historyKeep, isCurrent) {
+  const input = window.OwoAttachmentUpload.turnInput(attachments);
+  const hasImages = input.content_parts.some(part => part.type === "image")
+    || attachments.some(item => !item.content_part && (/^image\//i.test(item.mime || "") || /\.(png|jpe?g|webp|gif)$/i.test(item.name || "")));
+  if (!isCurrent()) throw new Error("会话或输入已变化，未回退或发送");
+  const result = await api("/input/preflight", {method:"POST", body:JSON.stringify({
+    has_images:hasImages,
+    ...(sessionId ? {session_id:sessionId} : {model:requestedModel || null}),
+    ...(historyKeep == null ? {} : {history_keep:historyKeep}),
+    ...(modelConnection ? {model_connection:modelConnection} : {})
+  })});
+  if (!isCurrent()) throw new Error("会话或输入已变化，未回退或发送");
+  if (result?.ok !== true) throw new Error("输入能力预检未确认，未回退或发送");
+}
+
+async function rewindAndResend(sessionId, keep, content, message) {
+  const selection = state.selectionVersion;
+  const isCurrent = () => state.sessionId === sessionId && state.selectionVersion === selection && !currentTurn();
+  if (!isCurrent()) { showToast("会话已切换或仍在运行，未执行回退", "error"); return; }
+  // Validate before destructive rewind; a missing/corrupt input must leave history intact.
+  const replay = await prepareHistoryReplay(sessionId, message || {content}, isCurrent, keep);
+  if (!isCurrent()) { showToast("会话已切换，未执行回退", "error"); return; }
+  await api(`/session/${sessionId}/rewind`, {method: "POST", body: JSON.stringify({ keep })});
+  if (!isCurrent()) { showToast("会话已切换；回退已生效，请回到该会话重发", "error"); return; }
+  const reload = selectSession(sessionId, true);
+  const reloadedSelection = state.selectionVersion;
+  await reload;
+  if (state.sessionId !== sessionId || state.selectionVersion !== reloadedSelection || currentTurn()) {
+    showToast("会话已切换；回退已生效，附件未加入其他会话", "error"); return;
+  }
+  state.attachments = replay.attachments;
+  renderAttachmentChips();
+  $("prompt").value = content;
+  $("prompt").dispatchEvent(new Event("input"));
+  $("prompt").focus();
+  await sendPrompt();
+}
+
+/// 历史用户消息的操作入口（复制 / 编辑并重发）。
+/// 编辑走服务端 rewind：保留该消息之前的上下文，由服务端同时回滚该回合的文件写入，
+/// 再把新内容作为一条新的用户消息发送（ChatGPT 式分支，不做隐式双份历史）。
+function attachUserMessageActions(node, { sessionId, messageIndex, content, message }) {
+  if (!node) return;
+  const actions = document.createElement("div");
+  actions.className = "msg-actions";
+
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "msg-action";
+  copy.textContent = "复制";
+  copy.title = "复制这条消息（Markdown 原文）";
+  copy.setAttribute("aria-label", "复制消息");
+  copy.addEventListener("click", async () => {
+    try {
+      await copyText(String(content || ""));
+      copy.textContent = "已复制";
+    } catch (_) {
+      copy.textContent = "复制失败";
+    }
+    setTimeout(() => { copy.textContent = "复制"; }, 1200);
+  });
+
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.className = "msg-action";
+  edit.textContent = "编辑";
+  edit.title = "修改这条消息并从该处重新开始";
+  edit.setAttribute("aria-label", "编辑这条消息");
+  edit.addEventListener("click", async () => {
+    if (state.sessionId !== sessionId) {
+      showToast("请先切回该会话再编辑消息");
+      return;
+    }
+    if (currentTurn()) {
+      showToast("此会话仍有任务在运行，结束后再编辑");
+      return;
+    }
+    const next = await askMultiline({
+      title: "编辑并重发",
+      label: "保存后会保留本条已验证的附件，回退之后的对话，并撤销该回合产生的文件变更。",
+      value: String(content || ""),
+      confirmText: "保存并重发",
+    });
+    if (next === null || next === content) return;
+    const draft = $("prompt").value.trim();
+    const ok = await askConfirm({
+      title: "回退并重发",
+      message:
+        "将回退到这条消息之前，撤销它之后回合产生的文件变更。" +
+        (draft && draft !== next ? "输入区现有草稿会被替换。" : "") +
+        "继续？",
+      confirmText: "回退并重发",
+      kind: "danger",
+    });
+    if (!ok) return;
+    try {
+      await rewindAndResend(sessionId, messageIndex, next, message);
+    } catch (error) {
+      const detail = friendlyError(error, { resource: true });
+      if (state.sessionId === sessionId) addEventChip("system", "编辑重发失败", detail);
+      else showToast("编辑重发失败：" + detail, "error");
+    }
+  });
+
+  actions.append(copy, edit);
+  node.appendChild(actions);
+}
+
+/// 最新回答的「重新生成」：回退到对应的用户消息并重发同一内容。
+/// 只在历史以正常回答收尾时挂出；失败占位和运行中回合不提供，避免误导。
+function attachRegenerateAction(node, sessionId, userMessage) {
+  if (!node || !userMessage) return;
+  let actions = node.querySelector(".msg-actions");
+  if (!actions) {
+    actions = document.createElement("div");
+    actions.className = "msg-actions";
+    node.appendChild(actions);
+  }
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "msg-action";
+  button.textContent = "重新生成";
+  button.title = "回退这条回答并重发同一条用户消息";
+  button.setAttribute("aria-label", "重新生成这条回答");
+  button.addEventListener("click", async () => {
+    if (state.sessionId !== sessionId) {
+      showToast("请先切回该会话再重新生成");
+      return;
+    }
+    if (currentTurn()) {
+      showToast("此会话仍有任务在运行，结束后再重新生成");
+      return;
+    }
+    const ok = await askConfirm({
+      title: "重新生成",
+      message: "会回退这条回答及其后的对话，并撤销它产生的文件变更，再重新请求一次模型。继续？",
+      confirmText: "重新生成",
+    });
+    if (!ok) return;
+    try {
+      await rewindAndResend(sessionId, userMessage.messageIndex, userMessage.content, userMessage.message);
+    } catch (error) {
+      const detail = friendlyError(error, { resource: true });
+      if (state.sessionId === sessionId) addEventChip("system", "重新生成失败", detail);
+      else showToast("重新生成失败：" + detail, "error");
+    }
+  });
+  actions.appendChild(button);
+}
+
 function turnRecoveryActions(sessionId, prompt, reason) {
+  // Bind the card to its own turn, not to the latest input at click time.
+  const original = state.lastSessionInputs?.get(sessionId) || {content: prompt};
   const row = document.createElement("div"); row.className = "turn-recovery-actions";
   for (const [label, action] of [["查看变更与证据", "evidence"], ["修改输入", "edit"], ["重试此任务", "retry"]]) {
     const button = document.createElement("button"); button.type = "button"; button.textContent = label;
     button.addEventListener("click", async () => {
       if (action === "evidence") { openPanelById("evidence"); window.OwoPanels.evidence.openSession?.(sessionId); return; }
-      if (!prompt) { showToast("未找到原始输入，请在会话中填写任务"); return; }
+      if (!prompt && !original.input?.content_parts?.length && !original.images?.length) { showToast("未找到原始输入，请在会话中填写任务"); return; }
       if (state.sessionId !== sessionId) await selectSession(sessionId);
       if (currentTurn()) { showToast("此会话仍有任务在运行"); return; }
-      if ($("prompt").value.trim() && !await askConfirm("当前输入已有草稿，是否替换为这个任务？")) return;
-      $("prompt").value = prompt; $("prompt").focus();
-      if (action === "retry" && await askConfirm("重新执行此任务？已有文件变更会保留，新操作仍由服务端策略与审批控制。")) await sendPrompt();
+      if (($("prompt").value.trim() || state.attachments.length) && !await askConfirm("当前输入已有草稿或附件，是否替换为这个任务？")) return;
+      const selection = state.selectionVersion;
+      const isCurrent = () => state.sessionId === sessionId && state.selectionVersion === selection && !currentTurn();
+      try {
+        const replay = await prepareHistoryReplay(sessionId, original, isCurrent);
+        if (!isCurrent()) return;
+        state.attachments = replay.attachments; renderAttachmentChips();
+        $("prompt").value = prompt; $("prompt").focus();
+        if (action === "retry" && await askConfirm("重新执行此任务？将保留原附件引用；已有文件变更会保留，新操作仍由服务端策略与审批控制。")) {
+          if (isCurrent()) await sendPrompt();
+        }
+      } catch (error) { showToast(friendlyError(error), "error"); }
     });
     row.appendChild(button);
   }
@@ -832,6 +1054,7 @@ function turnRecoveryActions(sessionId, prompt, reason) {
 async function selectSession(id, forceHistory = false) {
   const selectionVersion = ++state.selectionVersion;
   state.sessionId = id;
+  state.sessionWorkspace = "";
   // 记住当前对话：下次进入自动恢复，不再要求手动切换。
   localStorage.setItem("owo.lastSession", id);
   state.attachments = [];
@@ -843,6 +1066,10 @@ async function selectSession(id, forceHistory = false) {
   updateScrollBottomBtn();
   // 每会话独立视图：切回时保留该会话的本地输出（含仍在运行回合的实时内容）。
   showSessionView(id);
+  // 先回显缓存里的模式/提示词，网络回来后再以服务端为准覆盖。
+  if (typeof restoreCachedSessionMeta === "function") restoreCachedSessionMeta(id);
+  // 还原该会话上次的阅读位置（首次进入跟随到底部）。
+  if (typeof restoreSessionScroll === "function") restoreSessionScroll(id);
   // 并行回合：状态条/发送钮跟随切回来的会话（该会话在跑 → 恢复运行中视图）。
   const runningTurn = currentTurn();
   if (runningTurn) {
@@ -858,19 +1085,35 @@ async function selectSession(id, forceHistory = false) {
   try {
     const detail = await api(`/session/${id}`);
     if (selectionVersion !== state.selectionVersion) return;
+    state.sessionWorkspace = String((detail && detail.workspace) || "").trim();
     state.selectedModel = String((detail && detail.model_override) || "").trim();
     if (typeof refreshComposerModelChip === "function") refreshComposerModelChip();
-    const previousInput = [...(detail.messages || [])].reverse().find(message => message.role === "user" && message.content);
-    if (previousInput) state.lastSessionPrompts.set(id, String(previousInput.content));
+    // 工作模式是会话属性：切会话必须同步，否则会拿上一个会话的模式误导用户。
+    state.sessionMode = window.OwoSessionMode
+      ? window.OwoSessionMode.normalize(detail && detail.mode)
+      : "agent";
+    if (typeof refreshComposerModeChip === "function") refreshComposerModeChip();
+    // 自定义提示词：只影响后续回合，切会话必须同步显示。
+    state.sessionSystemPrompt = String((detail && detail.system_prompt) || "");
+    if (typeof cacheSessionMeta === "function") {
+      cacheSessionMeta(id, { mode: state.sessionMode, systemPrompt: state.sessionSystemPrompt });
+    }
+    if (typeof refreshComposerPromptChip === "function") refreshComposerPromptChip();
+    const previousInput = [...(detail.messages || [])].reverse().find(message => message.role === "user" &&
+      (message.content || message.input?.prompt || message.input?.content_parts?.length || message.images?.length));
+    // rewind/编辑之后可能已经没有用户消息：必须清掉缓存的旧任务，
+    // 否则失败卡片上的「重试此任务」会把已被删掉的回合再发一遍。
+    if (!state.lastSessionInputs) state.lastSessionInputs = new Map();
+    if (previousInput) {
+      state.lastSessionPrompts.set(id, window.OwoHistoryInput ? window.OwoHistoryInput.displayText(previousInput) : String(previousInput.content));
+      state.lastSessionInputs.set(id, {content: previousInput.content, input: previousInput.input,
+        images: previousInput.images?.length ? [{}] : []});
+    } else { state.lastSessionPrompts.delete(id); state.lastSessionInputs.delete(id); }
     const restoredFacts = restoreSessionFacts(id, detail);
     if (reusedView && (!forceHistory || runningTurn)) {
       // 本地视图还在（可能正有运行中回合的实时输出）：不重拉历史覆盖，只刷新侧栏。
       syncSessionWelcome();
-      await refreshSessions(id);
-      if (selectionVersion !== state.selectionVersion) return;
-      await refreshDiff(id);
-      if (selectionVersion !== state.selectionVersion) return;
-      await refreshSessionContext(id);
+      await refreshSessionPanels(id, selectionVersion);
       return;
     }
     sessionView(id).innerHTML = "";
@@ -879,6 +1122,11 @@ async function selectSession(id, forceHistory = false) {
     // 还原成与会话进行中一致的步骤 chip。旧实现把这些记录折叠成一句
     // 「已折叠未显示」，用户无从复核 agent 到底做过什么。
     const history = detail.messages || [];
+    let historyAssets = [];
+    if (window.OwoHistoryInput && history.some(message => message.input?.content_parts?.some(part => part.type !== "text"))) {
+      try { historyAssets = await api(`/session/${id}/attachments`); } catch (_) { /* Keep text readable; each missing preview explains why it is unavailable. */ }
+      if (selectionVersion !== state.selectionVersion) return;
+    }
     const toolResults = new Map();
     for (const message of history) {
       if (message.role !== "tool") continue;
@@ -892,9 +1140,13 @@ async function selectSession(id, forceHistory = false) {
     }
     // 仍检测「最后一条是用户消息但没回复」的失败回合，显式告诉用户。
     let lastRole = null;
+    // 只有正常的用户/回答气泡参与编辑与重新生成；工具结果和事件 chip 不算。
+    let lastUserTurn = null;
+    let lastAssistantBubble = null;
     // 连续的工具回合共用同一段折叠（见 appendHistoryToolSteps 注释）。
     let historyToolRun = null;
-    for (const message of history) {
+    for (let messageIndex = 0; messageIndex < history.length; messageIndex += 1) {
+      const message = history[messageIndex];
       if (message.role === "system") {
         // 压缩摘要等系统记录：按系统提示显示，避免被当作助手回复。
         // 历史摘要动辄上千字，直接铺成正文会把真正的对话挤出屏幕——收成可展开的
@@ -921,35 +1173,63 @@ async function selectSession(id, forceHistory = false) {
           rendered += 1;
         }
         if (!message.content) continue;
-      } else if (!message.content) {
+      } else if (!message.content && !(message.role === "user" && (message.input?.content_parts?.length || message.images?.length))) {
         continue;
       }
-      const storedContent = String(message.content || "");
+      const storedContent = message.role === "user" && window.OwoHistoryInput ? window.OwoHistoryInput.displayText(message) : String(message.content || "");
       if (message.role === "assistant" && storedContent.startsWith("回合未完成：") &&
           typeof addHistoricalTurnFailure === "function") {
         addHistoricalTurnFailure(storedContent);
+        // 失败占位不是可重发的回答：别把「重新生成」挂到更早的旧回答上。
+        lastAssistantBubble = null;
       } else {
-        addMessage(message.role === "user" ? "user" : "assistant", message.content);
+        const bubble = addMessage(message.role === "user" ? "user" : "assistant", storedContent);
+        // 循环防护提醒虽然是 user 角色，但会被折叠成事件 chip：不要再挂编辑入口。
+        if (message.role === "user" && bubble && bubble.classList.contains("msg")) {
+          if (window.OwoHistoryInput) window.OwoHistoryInput.render(bubble, message, historyAssets);
+          attachUserMessageActions(bubble, { sessionId: id, messageIndex, content: storedContent, message });
+          lastUserTurn = { messageIndex, content: storedContent, message };
+        } else if (
+          message.role === "assistant" &&
+          !(Array.isArray(message.tool_calls) && message.tool_calls.length) &&
+          bubble &&
+          bubble.classList.contains("msg")
+        ) {
+          lastAssistantBubble = bubble;
+        }
       }
       lastRole = message.role === "user" ? "user" : "assistant";
       historyToolRun = null;
       rendered += 1;
     }
+    // 回答之后又跑了工具/系统事件时，末尾不是可重发的回答，不挂「重新生成」。
+    if (lastRole === "assistant" && lastAssistantBubble && lastUserTurn && !currentTurn()) {
+      attachRegenerateAction(lastAssistantBubble, id, lastUserTurn);
+    }
     renderHistoricalCompletion(id, restoredFacts);
     if (lastRole === "user") {
       addMessage("system", "上一条消息还没有回复（回合可能失败或被中断），可重新发送让助手继续");
     }
+    // 历史重新渲染后内容高度才确定，再按记录还原一次位置。
+    if (typeof restoreSessionScroll === "function") restoreSessionScroll(id);
     syncSessionWelcome();
   } catch (error) {
     if (selectionVersion !== state.selectionVersion) return;
     sessionView(id).innerHTML = "";
     addMessage("error", `会话加载失败：${friendlyError(error, { resource: true })}`);
   }
-  await refreshSessions(id);
-  if (selectionVersion !== state.selectionVersion) return;
-  await refreshDiff(id);
-  if (selectionVersion !== state.selectionVersion) return;
-  await refreshSessionContext(id);
+  await refreshSessionPanels(id, selectionVersion);
+}
+
+/// 侧栏、diff、上下文仪表互不依赖：并行刷新，切会话少等两个网络往返。
+/// 返回 false 表示期间用户又切了会话，调用方应停止后续写入。
+async function refreshSessionPanels(sessionId, selectionVersion) {
+  await Promise.allSettled([
+    refreshSessions(sessionId),
+    refreshDiff(sessionId),
+    refreshSessionContext(sessionId),
+  ]);
+  return selectionVersion === state.selectionVersion;
 }
 
 // ---------- 会话上下文仪表（v0.5.7，对标 Codex 上下文状态显示） ----------
@@ -986,27 +1266,46 @@ async function refreshSessionContext(sessionId) {
 }
 
 async function newSession(workspaceOverride) {
+  const mode = typeof currentSessionMode === "function" ? currentSessionMode() : "agent";
   const workspace = typeof workspaceOverride === "string"
-    ? workspaceOverride.trim() : $("workspace").value.trim();
+    ? workspaceOverride.trim() : ($("workspace").value.trim() || (mode === "agent" ? state.sessionWorkspace || "" : ""));
   if (typeof workspaceOverride === "string" && workspace !== $("workspace").value.trim()) {
     if (!await persistWorkspace(workspace)) return;
   }
-  if (!workspace) {
+  // 对话不碰本地文件：可以不选项目，服务端会分配隔离在数据目录下的会话工作区。
+  if (!workspace && mode !== "chat") {
     const error = new Error("请先选择项目工作区，再新建会话");
     error.userFacing = true;
     throw error;
   }
-  localStorage.setItem("owo.workspace", workspace);
+  if (workspace) localStorage.setItem("owo.workspace", workspace);
+  const creationSessionId = state.sessionId, creationSelection = state.selectionVersion;
   const session = await api("/session", {
     method: "POST",
     body: JSON.stringify(
-      ModelRouting.buildCreateSessionRequest(workspace, state.pendingModelOverride)
+      ModelRouting.buildCreateSessionRequest(
+        workspace,
+        state.pendingModelOverride,
+        state.sessionMode,
+        state.pendingSystemPrompt
+      )
     ),
   });
+  if (state.sessionId !== creationSessionId || state.selectionVersion !== creationSelection) {
+    showToast("新对话已创建，当前会话已变化；请从列表选择新对话", "info");
+    await refreshSessions(state.sessionId);
+    return null;
+  }
   state.pendingModelOverride = null;
-  await selectSession(session.id);
+  // 提示词已随创建请求写入会话，清掉待应用值（selectSession 会从 detail 读回）。
+  state.pendingSystemPrompt = "";
+  const loading = selectSession(session.id);
+  const selectionVersion = state.selectionVersion;
+  await loading;
+  if (state.sessionId !== session.id || state.selectionVersion !== selectionVersion) return null;
   showToast("新对话已就绪");
   syncSessionWelcome();
+  return {id: session.id, selectionVersion};
 }
 
 // 进入时自动恢复上次的对话：优先 localStorage 记忆，其次最近更新的会话；
@@ -1046,19 +1345,36 @@ async function sendPrompt() {
   const promptInput = $("prompt");
   const promptValue = promptInput.value;
   const prompt = promptValue.trim();
-  if (!prompt) return;
+  if (!prompt && !state.attachments.length) return;
   // 配置门与输入校验先于自动建会话，避免空提交或未配置服务时留下空线程。
   // The composer can collect a draft before a workspace is chosen. Sending the
   // first prompt should open the project picker directly instead of surfacing a
   // model/setup error first; keep the draft in the textarea until session creation.
-  if (!state.sessionId && !$("workspace").value.trim()) {
+  // 对话不需要项目目录；Work 模式仍需先选工作区，避免把任务落到意外目录。
+  const chatMode = typeof currentSessionMode === "function" && currentSessionMode() === "chat";
+  if (!state.sessionId && !$("workspace").value.trim() && !chatMode) {
     openWorkspaceMenu($("composerProjectBtn"));
     return;
   }
+  const sourceSessionId = state.sessionId, sourceSelection = state.selectionVersion;
+  const requestedModel = getComposerModel();
+  const draftAttachments = JSON.stringify(state.attachments);
+  const sameDraft = () => promptInput.value === promptValue && getComposerModel() === requestedModel && JSON.stringify(state.attachments) === draftAttachments;
+  const sameSelection = () => state.sessionId === sourceSessionId && state.selectionVersion === sourceSelection;
+  const changedDraft = () => showToast("会话或输入已变化，请检查当前草稿后重新发送", "error");
   let modelConnection;
+  let connectionSnapshot;
+  const sameConnection = () => {
+    try { return JSON.stringify(ModelRouting.buildCustomModelConnection(requestedModel, loadCustomModels(), customModelKeys())) === connectionSnapshot; }
+    catch (_) { return false; }
+  };
+  const sameInput = () => sameSelection() && sameDraft() && sameConnection();
   try {
-    modelConnection = ModelRouting.buildCustomModelConnection(getComposerModel(), loadCustomModels(), customModelKeys());
+    modelConnection = ModelRouting.buildCustomModelConnection(requestedModel, loadCustomModels(), customModelKeys());
+    connectionSnapshot = JSON.stringify(modelConnection);
     const capabilities = await api("/capabilities");
+    if (!sameSelection() || !sameDraft()) { changedDraft(); return; }
+    state.capabilities = capabilities;
     if (capabilities?.constraints?.scoped_turn_cancellation !== true) throw new Error("当前核心不支持按回合停止，请更新核心；本次未发送");
     if (modelConnection) {
       if (modelConnection.api_key_env && capabilities?.constraints?.custom_model_env_credentials !== true) throw new Error("当前核心不支持安全凭据引用，请更新核心；本次未发送");
@@ -1066,12 +1382,16 @@ async function sendPrompt() {
         throw new Error("当前核心不支持自定义模型连接配置，请更新核心；本次未发送");
       }
     }
+    if (modelGateMissing()) {
+      openModelGateSettings();
+      return;
+    }
+    if (capabilities?.constraints?.model_input_preflight === true) {
+      await preflightModelInput(sourceSessionId, state.attachments, modelConnection, requestedModel, undefined,
+        sameInput);
+    }
   } catch (error) {
     showToast(friendlyError(error), "error");
-    return;
-  }
-  if (modelGateMissing()) {
-    openModelGateSettings();
     return;
   }
   // 无会话时**自动新建**再发，而不是甩一句"请先新建或选择一个会话"。
@@ -1079,7 +1399,8 @@ async function sendPrompt() {
   // （Codex 的做法：输入框永远可用，发送时兜底建线程）。
   if (!state.sessionId) {
     try {
-      await promptSessionStart.run(() => newSession());
+      const created = await promptSessionStart.run(() => newSession());
+      if (!created || state.sessionId !== created.id || state.selectionVersion !== created.selectionVersion || !sameDraft() || !sameConnection()) { changedDraft(); return; }
     } catch (error) {
       showToast(`创建会话失败：${friendlyError(error)}`, "error");
       return;
@@ -1091,17 +1412,29 @@ async function sendPrompt() {
     showToast("本会话已有回合在运行，可先中断再发送", "error");
     return;
   }
+  let attachmentInput;
+  try {
+    attachmentInput = window.OwoAttachmentUpload.turnInput(state.attachments);
+    if (attachmentInput.content_parts.length && state.capabilities?.constraints?.structured_input_parts !== true) {
+      throw new Error("当前核心不支持结构化附件输入，请更新核心；本次未发送");
+    }
+  }
+  catch (error) { showToast(error.message || "附件输入无效", "error"); return; }
   if (promptInput.value === promptValue) promptInput.value = "";
   updateComposerHint();
   // 主动发送：回到跟随底部（此前上滑过也要跟住新回合）。
   state.autoScroll = true;
   updateScrollBottomBtn();
-  addMessage("user", prompt);
+  const inputMessage = {role: "user", input: {prompt, content_parts: attachmentInput.content_parts, legacy_attachments: attachmentInput.attachments}};
+  const userBubble = addMessage("user", prompt);
+  if (window.OwoHistoryInput) window.OwoHistoryInput.render(userBubble, inputMessage, state.attachments);
   if (!state.lastSessionPrompts) state.lastSessionPrompts = new Map();
   state.lastSessionPrompts.set(state.sessionId, prompt);
-  const attachments = state.attachments.map((attachment) => attachment.id);
-  if (attachments.length) {
-    addMessage("system", `附带 ${attachments.length} 个附件`);
+  const { attachments, content_parts } = attachmentInput;
+  if (!state.lastSessionInputs) state.lastSessionInputs = new Map();
+  state.lastSessionInputs.set(state.sessionId, inputMessage);
+  if (attachments.length + content_parts.length) {
+    addMessage("system", `附带 ${attachments.length + content_parts.length} 个附件`);
   }
   // 助手气泡按需创建：让思考块/工具分组先于回答出现，保持时间顺序。
   let streaming = null;
@@ -1111,6 +1444,10 @@ async function sendPrompt() {
   };
   let assistantText = "";
   let failureDisplayed = false;
+  // 长回答按帧合并渲染：token 只更新文本，DOM 每个间隔最多重排一次。
+  const answerRenderer = window.OwoStreamRender
+    ? window.OwoStreamRender.createStreamRenderer(renderMarkdown, { onPaint: bindCopyButtons })
+    : null;
   const turn = { tools: 0, failed: 0, modelCalls: 0, startedAt: Date.now(), server: null, card: null, files: new Set() };
   state.turn = turn;
 
@@ -1121,18 +1458,19 @@ async function sendPrompt() {
   startRunStatus();
   // 流写入绑定发起回合的会话：切走后任务继续跑、输出留在原视图，切回即恢复。
   const turnSessionId = state.sessionId;
+  const turnSelection = state.selectionVersion;
   writeTargetSid = turnSessionId;
   state.activeTurns.set(turnSessionId, {
     controller: state.abortController,
     startedAt: Date.now(),
     turnId: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => { const v = Math.floor(Math.random() * 16); return (c === "x" ? v : (v & 3) | 8).toString(16); }),
     prompt, phase: "thinking",
-    requestedModel: getComposerModel(),
+    requestedModel,
   });
   try {
     const controller = state.abortController;
     const response = await window.OwoApi.stream("/session/" + encodeURIComponent(turnSessionId) + "/turn", {
-      method: "POST", json: { prompt, attachments, turn_id: state.activeTurns.get(turnSessionId).turnId, ...(modelConnection ? { model_connection: modelConnection } : {}) }, signal: controller.signal,
+      method: "POST", json: { prompt, attachments, content_parts, turn_id: state.activeTurns.get(turnSessionId).turnId, ...(modelConnection ? { model_connection: modelConnection } : {}) }, signal: controller.signal,
     });
     const handlePayload = (event, payload) => {
       writeTargetSid = turnSessionId;
@@ -1149,8 +1487,12 @@ async function sendPrompt() {
           setRunPhase("answering");
           assistantText += payload.delta || "";
           const bubble = ensureStreaming();
-          bubble.innerHTML = renderMarkdown(assistantText);
-          bindCopyButtons(bubble);
+          if (answerRenderer) {
+            answerRenderer.update(bubble, assistantText);
+          } else {
+            bubble.innerHTML = renderMarkdown(assistantText);
+            bindCopyButtons(bubble);
+          }
           followScroll();
           break;
         }
@@ -1171,6 +1513,7 @@ async function sendPrompt() {
         case "tool_result":
           setRunPhase("thinking", "继续思考…");
           pushToolResult(payload);
+          noteMediaOutput(payload);
           break;
         case "permission_request":
           setRunPhase("waiting");
@@ -1201,8 +1544,10 @@ async function sendPrompt() {
         case "final": {
           finishThinking();
           assistantText = payload.text || assistantText;
+          // 终态文本是权威版本：丢掉未落盘的增量帧，避免旧文本覆盖 final。
+          if (answerRenderer) answerRenderer.reset();
           const bubble = ensureStreaming();
-          bubble.innerHTML = renderMarkdown(assistantText);
+          bubble.innerHTML = renderMessage(assistantText);
           bindCopyButtons(bubble);
           setRunPhase("thinking", "等待宿主验收…");
           break;
@@ -1252,8 +1597,12 @@ async function sendPrompt() {
       : ["unverified", "blocked"].includes(result.completionStatus) ? "failed" : "completed";
     writeTargetSid = turnSessionId;
     hideApproval();
-    state.attachments = [];
-    renderAttachmentChips();
+    // A background completion must not clear another conversation's draft,
+    // or an attachment added while this turn was running.
+    if (state.sessionId === turnSessionId && state.selectionVersion === turnSelection && JSON.stringify(state.attachments) === draftAttachments) {
+      state.attachments = [];
+      renderAttachmentChips();
+    }
     await refreshSessions(state.sessionId);
     await refreshDiff(state.sessionId);
     await refreshSessionContext(state.sessionId);
@@ -1277,6 +1626,8 @@ async function sendPrompt() {
       showTurnFailure("连接已中断；宿主是否结束尚未确认，请重新打开会话查看。");
     }
   } finally {
+    // 断流/取消/异常也要把最后一批增量落到 DOM，不能丢用户已经看到的文本。
+    if (answerRenderer) answerRenderer.flush();
     if (turnSessionId) {
       state.activeTurns.delete(turnSessionId);
       if (writeTargetSid === turnSessionId) writeTargetSid = null;
@@ -1323,31 +1674,29 @@ async function uploadAttachments(files) {
     addMessage("system", "请先新建或选择一个会话，再添加附件");
     return;
   }
-  for (const file of files) {
-    try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
-      const comma = String(dataUrl).indexOf(",");
-      const dataB64 = comma >= 0 ? String(dataUrl).slice(comma + 1) : String(dataUrl);
-      const uploaded = await api(`/session/${state.sessionId}/attachments`, {
-        method: "POST",
-        body: JSON.stringify({
-          name: file.name,
-          mime: file.type || "application/octet-stream",
-          data_b64: dataB64,
-        }),
-      });
-      state.attachments.push({ id: uploaded.id, name: uploaded.name, mime: uploaded.mime });
-      renderAttachmentChips();
-    } catch (error) {
-      addMessage("system", `附件上传失败 ${file.name}：${error.message || error}`);
-    }
-  }
+  const selectedFiles = Array.from(files || []);
   $("attachmentInput").value = "";
+  const sessionId = state.sessionId;
+  const selectionVersion = state.selectionVersion;
+  await OwoAttachmentUpload.upload(selectedFiles, {
+    sessionId,
+    isCurrent: () => state.sessionId === sessionId && state.selectionVersion === selectionVersion,
+    request: api,
+    onUploaded(uploaded) {
+      if (!state.attachments.some((item) => item.id === uploaded.id)) {
+        state.attachments.push({ id: uploaded.id, name: uploaded.name, mime: uploaded.mime, size: uploaded.size, content_part: uploaded.content_part });
+      }
+      renderAttachmentChips();
+    },
+    onError(file, error) {
+      addMessage("system", `附件上传失败 ${file.name}：${error.message || error}`);
+    },
+    onStopped({ requestStarted }) {
+      showToast(requestStarted
+        ? "会话已切换；上传请求仍归原会话，未加入当前会话附件"
+        : "会话已切换，已停止本批附件上传");
+    },
+  });
 }
 
 // ---------- 审批条 ----------
@@ -2725,12 +3074,12 @@ const PANEL_ORDER = [
 function panelHelpers() {
   return {
     baseUrl: API_BASE,
-    snapshot: () => ({ sessionId: state.sessionId, workspace: $("workspace")?.value || "", settings: state.settings || {}, sessions: state.sessionIndex || [], sessionsKnown: state.sessionsKnown === true }),
+    snapshot: () => ({ sessionId: state.sessionId, workspace: state.sessionId && state.sessionWorkspace ? state.sessionWorkspace : $("workspace")?.value || "", settings: state.settings || {}, sessions: state.sessionIndex || [], sessionsKnown: state.sessionsKnown === true }),
     openPanel: openPanelById,
-    downloadArtifact: async id => {
+    downloadArtifact: async (id, fileName) => {
       if (window.owo?.downloadArtifact) return window.owo.downloadArtifact(id);
       const blob = await window.OwoApi.download("/artifacts/" + encodeURIComponent(id) + "/content?raw=true");
-      const url = URL.createObjectURL(blob), link = document.createElement("a"); link.href = url; link.download = "artifact"; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const url = URL.createObjectURL(blob), link = document.createElement("a"); link.href = url; link.download = String(fileName || "artifact").split(/[\\/]/).pop().replace(/[<>:"|?*\x00-\x1f]/g, "_").slice(0, 180) || "artifact"; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     },
     openChat: async () => { setSettingsPageVisible(false); await newSession(); $("prompt").focus(); },
     openSession: async id => { setSettingsPageVisible(false); await selectSession(id); },
@@ -2781,7 +3130,7 @@ function unmountActivePanel() {
 
 /// 主侧栏的工作入口跟随当前功能页高亮（功能页内主侧栏常驻，用户始终知道自己在哪）。
 function markSidebarPanel(id) {
-  for (const button of document.querySelectorAll(".codex-sidebar [data-workbench-panel]")) {
+  for (const button of document.querySelectorAll("#sidebar .codex-rail [data-workbench-panel], #sidebar .codex-sidebar [data-workbench-panel]")) {
     const current = Boolean(id) && button.dataset.workbenchPanel === id;
     button.classList.toggle("is-current", current);
     if (current) button.setAttribute("aria-current", "page");
@@ -3145,15 +3494,14 @@ window.addEventListener("popstate", () => { if (!applyDeepLink()) setSettingsPag
 
 function openWorkbenchSearch() {
   const entries = window.OwoWorkbenchNavigation.search("", PANEL_ORDER).filter(item => window.OwoPanels?.[item.id]);
-  openModal({ title: "查找功能", body: '<label><span class="sr-only">搜索功能</span><input id="workbenchQuickSearch" type="search" placeholder="搜索任务、笔记、权限或工具…"></label><div class="workbench-quick-results">' + entries.map(item => '<button type="button" data-quick-panel="' + esc(item.id) + '"><strong>' + esc(item.title) + '</strong><span>' + esc(item.description) + '</span></button>').join("") + "</div>" });
+  openModal({ title: "查找功能", body: '<label><span class="sr-only">搜索功能</span><input id="workbenchQuickSearch" type="search" role="combobox" aria-expanded="true" aria-autocomplete="list" aria-controls="workbenchQuickResults" autocomplete="off" placeholder="搜索任务、笔记、权限或工具…"></label><div id="workbenchQuickResults" class="workbench-quick-results" role="listbox" aria-label="功能列表">' + entries.map(item => '<button type="button" role="option" id="quick-panel-' + esc(item.id) + '" data-quick-panel="' + esc(item.id) + '"><strong>' + esc(item.title) + '</strong><span>' + esc(item.description) + '</span></button>').join("") + '</div><p id="workbenchQuickStatus" class="quick-navigation-status" role="status" aria-live="polite"></p><div class="quick-navigation-help"><span>↑ ↓ 选择</span><span>Enter 打开</span><span>Esc 关闭</span></div>' });
   const body = $("modalBody");
-  const input = $("workbenchQuickSearch");
-  input.addEventListener("input", () => {
-    const matches = new Set(window.OwoWorkbenchNavigation.search(input.value, PANEL_ORDER).map(item => item.id));
-    for (const button of body.querySelectorAll("[data-quick-panel]")) button.hidden = !matches.has(button.dataset.quickPanel);
+  const buttons = Array.from(body.querySelectorAll("[data-quick-panel]"));
+  for (const button of buttons) button.addEventListener("click", () => { closeModal(); openPanelById(button.dataset.quickPanel); });
+  window.OwoQuickNavigation.bind($("workbenchQuickSearch"), buttons, $("workbenchQuickStatus"), query => {
+    const matches = new Set(window.OwoWorkbenchNavigation.search(query, PANEL_ORDER).map(item => item.id));
+    return button => matches.has(button.dataset.quickPanel);
   });
-  for (const button of body.querySelectorAll("[data-quick-panel]")) button.addEventListener("click", () => { closeModal(); openPanelById(button.dataset.quickPanel); });
-  input.addEventListener("keydown", event => { if (event.key === "Enter") { const first = Array.from(body.querySelectorAll("[data-quick-panel]")).find(button => !button.hidden); if (first) first.click(); } });
 }
 
 // 深链：#<panel-id> 打开对应面板，#settings 打开设置页（便于分享与逐页截图验证）。

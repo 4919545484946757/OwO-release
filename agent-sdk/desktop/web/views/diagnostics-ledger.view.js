@@ -276,7 +276,7 @@
     link.click();
     link.remove();
     global.setTimeout(() => global.URL.revokeObjectURL(url), 4000);
-    return text.length;
+    return new Blob([text]).size;
   }
 
   // ---- 渲染 ----
@@ -332,10 +332,10 @@
     );
   }
 
-  function renderRoutes(rows) {
+  function renderRoutes(rows, filtered) {
+    if (!rows.length && filtered) return '<p class="sub" role="status">没有匹配的路由模板，请尝试其它关键词。</p>';
     if (!rows.length) return '<div class="sub">窗口内暂无可聚合记录。</div>';
     const body = rows
-      .slice(0, 20)
       .map(
         (row) =>
           "<tr><td><code>" +
@@ -349,7 +349,7 @@
           "</td><td>" +
           esc(msText(row.max_ms)) +
           "</td><td" +
-          (row.errors ? ' style="color:#c62828"' : "") +
+          (row.errors ? ' style="color:var(--red)"' : "") +
           ">" +
           esc(row.errors) +
           "</td></tr>",
@@ -360,8 +360,7 @@
       tableHead(["路由模板", "次数", "P50", "P95", "最大", "≥400"]) +
       "<tbody>" +
       body +
-      "</tbody></table>" +
-      (rows.length > 20 ? '<div class="sub">另有 ' + (rows.length - 20) + " 条路由未展示（导出包含全部）。</div>" : "")
+      "</tbody></table>"
     );
   }
 
@@ -387,7 +386,7 @@
       '<div class="owo-ledger-kv"><span>' +
       esc(label) +
       "</span><strong" +
-      (danger ? ' style="color:#c62828"' : "") +
+      (danger ? ' style="color:var(--red)"' : "") +
       ">" +
       esc(value == null ? "—" : value) +
       "</strong></div>"
@@ -417,16 +416,16 @@
       : "壳未上报";
     const caveat = hasGeneration
       ? "口径：重启代际/当代自动重启次数取自壳侧权威快照（Tauri IPC，不经 HTTP）；「窗口内引导次数」只统计 /auth/token，桌面正式冷启动多为 0，不能当重启数读。"
-      : "口径：壳未上报重启计数时，以 /auth/token 引导次数近似「最近一次 core 重启」。";
+      : "壳未上报重启计数，无法判断最近一次重启；/auth/token 引导次数不能作为重启次数。";
     return (
       '<div class="owo-ledger-kvlist">' +
       row("当前状态", stateText) +
       row("稳定错误码", core.errorCode ? maskSecretValue(core.errorCode) : "无", Boolean(core.errorCode)) +
       row("最近一次 core 重启", restartText) +
-      row("core PID", Number.isFinite(Number(core.pid)) ? Number(core.pid) : "—") +
+      row("core PID", core.pid!=null && Number.isFinite(Number(core.pid)) ? Number(core.pid) : "—") +
       row("实例前缀", core.instanceId ? instancePrefix(core.instanceId) : "—") +
       row("窗口内引导次数", boot.count) +
-      row("最近一次引导", boot.last_started_at ? formatClock(boot.last_started_at) : "窗口内未见 /auth/token") +
+      row("最近一次引导", boot.unavailable ? "请求台账未就绪" : boot.last_started_at ? formatClock(boot.last_started_at) : "窗口内未见 /auth/token") +
       row("日志可打开", core.logPath ? "是（路径不回显）" : "否") +
       "</div>" +
       '<div class="sub">' +
@@ -438,15 +437,15 @@
   function renderSse(overview, core) {
     const sse = (overview && overview.sse) || null;
     if (!sse) {
-      return '<div class="sub">/metrics/overview 未就绪，暂无服务端 SSE 计数' +
+      return '<div class="sub">当前概览未返回服务端 SSE 计数' +
         (core.clientStreamState ? "；本客户端事件流状态：" + esc(core.clientStreamState) : "") +
         "。</div>";
     }
     return (
       '<div class="owo-ledger-kvlist">' +
-      kvRow("当前连接数", Number(sse.active_connections) || 0) +
-      kvRow("累计连接数", Number(sse.total_connections) || 0) +
-      kvRow("背压丢弃（lagged）", Number(sse.lagged_total) || 0) +
+      kvRow("当前连接数", sse.active_connections==null ? "—" : sse.active_connections) +
+      kvRow("累计连接数", sse.total_connections==null ? "—" : sse.total_connections) +
+      kvRow("滞后事件（lagged）", sse.lagged_total==null ? "—" : sse.lagged_total) +
       "</div>"
     );
   }
@@ -465,62 +464,69 @@
     const loading = Boolean(data && data.loading);
     const failed = Boolean(data && data.failed);
     const buckets = bucketCounts(ledger);
-    const boot = lastBootstrap(records);
+    const boot = (loading || failed)?{count:null,last_started_at:null,unavailable:true}:lastBootstrap(records);
     const state = { data: data };
-    root.innerHTML =
-      '<section data-panel="diagnostics-ledger" class="owo-ledger-panel">' +
-      '<style>' +
-      ".owo-ledger-cards{display:flex;flex-wrap:wrap;gap:6px}" +
-      ".owo-ledger-card{min-width:120px;padding:6px 10px;background:#f4f6f8;border-radius:6px;text-align:center}" +
-      ".owo-ledger-card b{display:block;font-size:16px}" +
-      ".owo-ledger-card span{font-size:11px;color:#666}" +
-      ".owo-ledger-table{width:100%;border-collapse:collapse;font-size:12px}" +
-      ".owo-ledger-table td,.owo-ledger-table th{border:1px solid #ddd;padding:3px 6px;text-align:left}" +
-      ".owo-ledger-kvlist{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:4px}" +
-      ".owo-ledger-kv{display:flex;gap:6px;align-items:baseline;font-size:12px}" +
-      ".owo-ledger-kv span{color:#666}" +
-      "</style>" +
-      '<div class="owo-ledger-actions">' +
-      '<button type="button" id="owoLedgerRefresh">刷新台账</button>' +
-      '<button type="button" id="owoLedgerExport">生成脱敏诊断包</button>' +
-      '<button type="button" id="owoLedgerCopy">复制诊断包 JSON</button>' +
-      '<button type="button" id="owoLedgerDownload">下载诊断包文件</button>' +
-      '<span id="owoLedgerUpdated" class="sub">' +
-      esc(data && data.updated_at ? "更新于 " + formatClock(data.updated_at) : "加载中…") +
-      "</span></div>" +
-      (failed
-        ? '<div class="sub" style="color:#c62828">台账端点不可达：' +
-          esc(data.errorText || "GET /diagnostics/requests 未返回数据") +
-          "（core 可能未就绪）。下方为壳侧可得事实，服务端计数以恢复后刷新为准。</div>" +
-          "<h4>core 重启与引导</h4>" +
-          renderCoreFacts(core, boot) +
-          "<h4>SSE 事件流</h4>" +
-          renderSse(overview, core)
-        : loading
-        ? '<div class="sub">正在读取服务端 ledger 与运行指标…</div>'
-        : '<div class="sub">最近请求数量：<b>' +
-          esc(Number(ledger.returned) || 0) +
-          "</b> 条（窗口累计 " +
-          esc(Number(ledger.total) || 0) +
-          "，环形容量 " +
-          esc(Number(ledger.cap) || 0) +
-          "）</div>" +
-          renderBuckets(buckets) +
-          '<h4>慢请求 Top ' +
-          SLOW_TOP_N +
-          "</h4>" +
-          renderSlowest(slowest(records, SLOW_TOP_N)) +
-          "<h4>按路由模板聚合（P50 / P95）</h4>" +
-          renderRoutes(routeAggregate(records)) +
-          "<h4>来源（x-owo-client）</h4>" +
-          renderSources(sourceCounts(records)) +
-          "<h4>core 重启与引导</h4>" +
-          renderCoreFacts(core, boot) +
-          "<h4>SSE 事件流</h4>" +
-          renderSse(overview, core)) +
-      '<pre id="owoLedgerBundle" class="json-fallback" hidden></pre>' +
-      '</section>';
+    const ui=root.__owoLedgerUi || (root.__owoLedgerUi={tab:"requests",query:""});
+    function scrollTable(html,label) {
+      return '<div class="owo-insight-table-wrap" tabindex="0" role="region" aria-label="'+esc(label)+'">'+html+'</div>';
+    }
+    const ready=!loading && !failed;
+    root.innerHTML=
+      '<section data-panel="diagnostics-ledger" data-layout="custom" class="owo-ledger-panel owo-insight">'+
+      '<div class="owo-insight-toolbar"><div role="tablist" aria-label="诊断分区">'+
+      [["requests","请求台账"],["core","核心与事件流"],["bundle","诊断包"]].map(([id,title])=>
+        '<button type="button" role="tab" id="owoLedgerTab-'+id+'" aria-controls="owoLedgerPane-'+id+'">'+title+'</button>').join("")+
+      '</div><div class="owo-insight-actions"><span id="owoLedgerUpdated" class="sub" role="status">'+
+      esc(data && data.updated_at?"更新于 "+formatClock(data.updated_at)+"（本地时间）":failed?"读取失败":"加载中…")+
+      '</span><button type="button" id="owoLedgerRefresh"'+(loading?' disabled aria-busy="true"':"")+' aria-label="刷新台账"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6v6h-6"/><path d="M20 12a8 8 0 1 0-2.4 5.7"/></svg>刷新台账</button></div></div>'+
+      '<div id="owoLedgerPane-requests" role="tabpanel" aria-labelledby="owoLedgerTab-requests">'+
+      (failed?'<p class="owo-insight-error" role="alert">台账读取失败：'+esc(data.errorText || "未返回有效记录")+"。可刷新台账重试。</p>":
+      loading?'<p role="status">正在读取服务端 ledger 与运行指标…</p>':
+      '<p class="owo-ledger-summary">最近请求数量：<b>'+esc(ledger.returned == null?records.length:ledger.returned)+'</b> 条（窗口累计 '+esc(ledger.total == null?"—":ledger.total)+'，环形容量 '+esc(ledger.cap == null?"—":ledger.cap)+'）</p>'+
+      renderBuckets(buckets)+'<section class="owo-insight-section"><h3>慢请求 Top '+SLOW_TOP_N+'</h3>'+
+      scrollTable(renderSlowest(slowest(records,SLOW_TOP_N)),"慢请求，可横向滚动")+'</section>'+
+      '<section class="owo-insight-section"><h3>按路由模板聚合（P50 / P95）</h3>'+
+      '<input type="search" id="owoLedgerRouteSearch" aria-label="搜索路由模板" placeholder="搜索路由模板" value="'+esc(ui.query)+'">'+
+      '<div id="owoLedgerRoutes" aria-live="polite">'+scrollTable(renderRoutes(routeAggregate(records).filter(row=>row.route.toLowerCase().includes(ui.query.toLowerCase())),Boolean(ui.query)),"路由聚合，可横向滚动")+'</div></section>')+'</div>'+
+      '<div id="owoLedgerPane-core" role="tabpanel" aria-labelledby="owoLedgerTab-core" hidden>'+
+      '<section class="owo-insight-section"><h3>core 重启与引导</h3>'+renderCoreFacts(core,boot)+'</section>'+
+      '<section class="owo-insight-section"><h3>SSE 事件流</h3>'+renderSse(overview,core)+'</section>'+
+      '<section class="owo-insight-section"><h3>来源（x-owo-client）</h3>'+
+      (ready?scrollTable(renderSources(sourceCounts(records)),"请求来源，可横向滚动"):'<p class="sub">请求来源暂不可用。</p>')+'</section></div>'+
+      '<div id="owoLedgerPane-bundle" role="tabpanel" aria-labelledby="owoLedgerTab-bundle" hidden>'+
+      '<section class="owo-insight-section"><h3>脱敏诊断包</h3><p class="sub">包含当前请求窗口的聚合信息、核心状态与事件流统计。排除授权信息、原始查询和本地绝对路径。</p>'+
+      (!ready?'<p class="owo-insight-error" role="status">请求台账尚未就绪，请刷新成功后生成诊断包。</p>':"")+
+      '<div class="owo-insight-actions"><button type="button" class="primary" id="owoLedgerExport"'+(!ready?" disabled":"")+'>生成脱敏诊断包</button>'+
+      '<button type="button" id="owoLedgerCopy"'+(!ready?" disabled":"")+'>复制诊断包 JSON</button>'+
+      '<button type="button" id="owoLedgerDownload"'+(!ready?" disabled":"")+'>下载诊断包文件</button></div>'+
+      '<pre id="owoLedgerBundle" class="json-fallback" hidden></pre></section></div></section>';
 
+    function selectTab(name) {
+      const names=["requests","core","bundle"];
+      ui.tab=names.includes(name)?name:"requests";
+      for(const id of names) {
+        const button=root.querySelector("#owoLedgerTab-"+id), pane=root.querySelector("#owoLedgerPane-"+id);
+        if(button && button.setAttribute){button.setAttribute("aria-selected",String(id===ui.tab));button.setAttribute("tabindex",id===ui.tab?"0":"-1");}
+        if(pane)pane.hidden=id!==ui.tab;
+      }
+    }
+    const names=["requests","core","bundle"];
+    names.forEach((name,index)=>{
+      const button=root.querySelector("#owoLedgerTab-"+name);
+      if(!button)return;
+      button.addEventListener("click",()=>selectTab(name));
+      button.addEventListener("keydown",event=>{
+        const next=event.key==="ArrowRight"?(index+1)%names.length:event.key==="ArrowLeft"?(index+names.length-1)%names.length:event.key==="Home"?0:event.key==="End"?names.length-1:-1;
+        if(next<0)return;event.preventDefault();selectTab(names[next]);const target=root.querySelector("#owoLedgerTab-"+names[next]);if(target.focus)target.focus();
+      });
+    });
+    selectTab(ui.tab);
+    const search=root.querySelector("#owoLedgerRouteSearch");
+    if(search)search.addEventListener("input",event=>{
+      ui.query=event.target.value;
+      const target=root.querySelector("#owoLedgerRoutes");
+      if(target)target.innerHTML=scrollTable(renderRoutes(routeAggregate(records).filter(row=>row.route.toLowerCase().includes(ui.query.toLowerCase())),Boolean(ui.query)),"路由聚合，可横向滚动");
+    });
     root.__owoLedgerState = state;
     const refreshBtn = root.querySelector("#owoLedgerRefresh");
     if (refreshBtn) refreshBtn.addEventListener("click", () => load(root, { force: true }));
@@ -529,6 +535,7 @@
       // 「生成」只在页面内展开脱敏包：一键落盘是写用户目录的副作用，拆成显式的
       // 「下载」按钮（验收脚本只点生成，不会把文件写进真实下载目录）。
       exportBtn.addEventListener("click", () => {
+        if(root.__owoLedgerState!==state || !ready)return;
         const bundle = buildExportBundle(currentData(root));
         const text = JSON.stringify(bundle, null, 2);
         const pre = root.querySelector("#owoLedgerBundle");
@@ -537,12 +544,13 @@
           pre.textContent = text;
         }
         root.__owoLedgerBundle = bundle;
-        note(root, "已生成脱敏诊断包（" + text.length + " 字节，已在页面展开；可复制或下载）。");
+        note(root, "已生成脱敏诊断包（" + new Blob([text]).size + " 字节，已在页面展开；可复制或下载）。");
       });
     }
     const downloadBtn = root.querySelector("#owoLedgerDownload");
     if (downloadBtn) {
       downloadBtn.addEventListener("click", () => {
+        if(root.__owoLedgerState!==state || !ready)return;
         const bundle = buildExportBundle(currentData(root));
         try {
           const size = downloadJson(bundle);
@@ -555,10 +563,14 @@
     const copyBtn = root.querySelector("#owoLedgerCopy");
     if (copyBtn) {
       copyBtn.addEventListener("click", () => {
+        if(root.__owoLedgerState!==state || !ready)return;
         const bundle = buildExportBundle(currentData(root));
-        copyText(JSON.stringify(bundle, null, 2)).then((ok) =>
-          note(root, ok ? "诊断包 JSON 已复制到剪贴板（已脱敏）。" : "剪贴板不可用，已在页面展开 JSON 供手动复制。"),
-        );
+        const text=JSON.stringify(bundle,null,2);
+        copyText(text).then((ok)=>{
+          if(root.__owoLedgerState!==state)return;
+          if(!ok){const pre=root.querySelector("#owoLedgerBundle");if(pre){pre.hidden=false;pre.textContent=text;}}
+          note(root,ok?"诊断包 JSON 已复制到剪贴板（已脱敏）。":"剪贴板不可用，已在页面展开 JSON 供手动复制。");
+        });
       });
     }
   }
@@ -613,7 +625,7 @@
     const now = Date.now();
     if (!force && now - lastLoadAt < MIN_REFRESH_MS) return Promise.resolve(null);
     lastLoadAt = now;
-    render(root, { loading: true });
+    render(root, { loading: true, core: readCoreSnapshot() });
     return Promise.all([
       apiGet(LEDGER_PATH).catch(() => null),
       apiGet(OVERVIEW_PATH).catch(() => null),
@@ -626,7 +638,7 @@
           core: readCoreSnapshot(),
           updated_at: new Date().toISOString(),
         };
-        if (!results[0]) {
+        if (!results[0] || !Array.isArray(results[0].records)) {
           // 失败态必须**显式渲染**：留在「正在读取…」骨架上就是永久 loading（真机
           // 抓到过一次：轮询在骨架上误判为已加载，四类计数全 0 还被当成事实）。
           data.failed = true;

@@ -6,7 +6,7 @@ import vm from "node:vm";
 // toolLabel 在 app.js（DOM 密集文件）里，无法整体加载；按源码片段提取到 vm 中执行，
 // 保证展示层与注册命名（core `mcp_tool_full_name`）不漂移：审查 N5 之后 MCP 工具名
 // 是 `mcp__{server}__{tool}`，审批卡/时间线不能显示成 `mcp__owo_plugin_translate__translate`。
-const source = readFileSync(new URL("../app.js", import.meta.url), "utf8");
+const source = readFileSync(new URL("../app.js", import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const start = source.indexOf("function toolLabel(tool) {");
 assert.ok(start >= 0, "app.js 必须定义 toolLabel");
 const tail = source.slice(start);

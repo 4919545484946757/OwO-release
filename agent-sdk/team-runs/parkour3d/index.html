@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Parkour 3D · WorkSwarm</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <!-- three.js 通过 CDN + importmap 加载，无需构建步骤 -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/": "https://unpkg.com/three@0.160.0/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <!-- 3D 画布容器：main.js 在此挂载 renderer -->
+    <div id="app">
+      <canvas id="game"></canvas>
+    </div>
+
+    <!-- HUD 覆盖层：计时 / 得分 / 状态 / 操作提示 -->
+    <div id="hud" class="hud">
+      <div class="hud-panel">
+        <div class="hud-item">
+          <span class="hud-label">TIME</span>
+          <span id="time" class="hud-value">00:00.00</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">SCORE</span>
+          <span id="score" class="hud-value">0</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">STATUS</span>
+          <span id="status" class="hud-value">READY</span>
+        </div>
+      </div>
+      <p id="controls" class="hud-controls">WASD / 方向键 移动 · 空格 跳跃 · R 重新开始</p>
+    </div>
+
+    <!-- 开始 / 结束覆盖层与 restart 按钮 -->
+    <div id="overlay" class="overlay is-visible">
+      <div class="overlay-card">
+        <h1 class="overlay-title">PARKOUR 3D</h1>
+        <p id="overlay-text" class="overlay-text">WASD / 方向键 移动 · 空格 跳跃，抵达终点获胜</p>
+        <button id="restart" class="overlay-btn" type="button">重新开始 (R)</button>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

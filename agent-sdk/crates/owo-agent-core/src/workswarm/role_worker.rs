@@ -13,6 +13,187 @@ pub struct RoleWorker {
     inner: Arc<dyn Worker>,
 }
 
+/// `blocked` 但已经产出非空 artifact：这是候选交付，不是硬失败。
+///
+/// Worker 常把“跨模块联调尚未做”写成 blocked，即使本模块测试已通过；若直接取消
+/// 全队，会把已经写好的代码丢掉。宿主改为登记候选并执行自己的验证命令，由验证
+/// 结果决定步骤成败；风险只进入 summary/handoff，不进入 open_issues。
+fn blocked_with_artifact(output: &crate::workswarm_output::WorkerOutputV1) -> bool {
+    output.status == crate::workswarm_output::WorkerOutputStatus::Blocked
+        && output
+            .artifact
+            .as_ref()
+            .is_some_and(|artifact| !artifact.content.trim().is_empty())
+}
+
+/// Reviewers sometimes put the scorecard into `artifact` despite the critic
+/// contract forbidding it (and then the one-shot repair repeats the same shape).
+/// Treat the artifact as prose evidence: drop it, and derive a structured
+/// review_result when the payload has a decision/verdict. A reviewer can never
+/// become a producer, and an ambiguous artifact still fails validation.
+fn review_result_from_artifact(
+    content: &str,
+) -> Option<crate::workswarm_output::WorkerReviewResultV1> {
+    let start = content.find('{')?;
+    let end = content.rfind('}')?;
+    let value: Value = serde_json::from_str(content.get(start..=end)?).ok()?;
+    if let Some(result) = value.get("review_result") {
+        if let Ok(result) = serde_json::from_value(result.clone()) {
+            return Some(result);
+        }
+    }
+    let raw = value
+        .get("decision")
+        .and_then(Value::as_str)
+        .or_else(|| value.get("verdict").and_then(Value::as_str))?;
+    let verdict = match raw.trim().to_ascii_lowercase().as_str() {
+        "ship" | "approved" | "approve" | "pass" | "通过" => {
+            crate::workswarm_output::WorkerReviewVerdict::Approved
+        }
+        "revise" | "changes_requested" | "changes-requested" | "changes requested" => {
+            crate::workswarm_output::WorkerReviewVerdict::ChangesRequested
+        }
+        "block" | "rejected" | "reject" | "blocked" => {
+            crate::workswarm_output::WorkerReviewVerdict::Rejected
+        }
+        _ => return None,
+    };
+    let mut findings = Vec::new();
+    for (key, severity) in [
+        (
+            "blockers",
+            crate::workswarm_output::WorkerReviewSeverity::Blocker,
+        ),
+        (
+            "major",
+            crate::workswarm_output::WorkerReviewSeverity::Major,
+        ),
+    ] {
+        for detail in value
+            .get(key)
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .filter(|detail| !detail.trim().is_empty())
+        {
+            findings.push(crate::workswarm_output::WorkerReviewFindingV1 {
+                severity,
+                detail: detail.to_string(),
+                requirement_id: None,
+                evidence_refs: Vec::new(),
+                suggested_owner: None,
+                target_task_id: None,
+                target_artifact_id: None,
+            });
+        }
+    }
+    Some(crate::workswarm_output::WorkerReviewResultV1 {
+        verdict,
+        reviewed_requirement_ids: Vec::new(),
+        findings,
+    })
+}
+
+fn normalize_reviewer_output(
+    mut output: crate::workswarm_output::WorkerOutputV1,
+) -> crate::workswarm_output::WorkerOutputV1 {
+    if let Some(artifact) = output.artifact.take() {
+        let content = artifact.content;
+        if output.summary.trim().is_empty() {
+            output.summary = content.clone();
+        }
+        if output.review_result.is_none() {
+            output.review_result = review_result_from_artifact(&content);
+        }
+    }
+    output.normalize_reviewer_verdict();
+    if let Some(review) = output.review_result.as_mut() {
+        let blocking = review
+            .findings
+            .iter()
+            .any(|finding| finding.severity.blocks_approval());
+        if review.verdict == crate::workswarm_output::WorkerReviewVerdict::Approved && blocking {
+            // A self-contradictory "approved + major finding" is a rejection:
+            // keep the finding and let the host dispatch rework.
+            review.verdict = crate::workswarm_output::WorkerReviewVerdict::ChangesRequested;
+        }
+        if review.verdict == crate::workswarm_output::WorkerReviewVerdict::Approved {
+            // Approval means no unresolved issues. Notes belong in summary or
+            // handoff; stale open_issues otherwise block an otherwise valid
+            // delivery at the gate.
+            output.open_issues.clear();
+        }
+    }
+    output
+}
+
+/// A reviewer that reports `blocked` after actually receiving upstream artifacts
+/// is expressing a rejection, not an infrastructure failure. Weak local models
+/// often do this instead of `status=done + changes_requested`, which used to kill
+/// the whole team and discard a fixable candidate. Keep the honest review
+/// (verdict + finding) and let the delivery gate drive the rework; a reviewer
+/// with no upstream snapshot still fails closed.
+fn normalize_blocked_reviewer_with_upstream(
+    mut output: crate::workswarm_output::WorkerOutputV1,
+    has_upstream: bool,
+) -> crate::workswarm_output::WorkerOutputV1 {
+    if !has_upstream
+        || output.status != crate::workswarm_output::WorkerOutputStatus::Blocked
+        || output.review_result.is_some()
+    {
+        return output;
+    }
+    let mut notes = Vec::new();
+    if !output.summary.trim().is_empty() {
+        notes.push(output.summary.trim().to_string());
+    }
+    notes.extend(output.open_issues.iter().cloned());
+    if notes.is_empty() {
+        return output;
+    }
+    output.review_result = Some(crate::workswarm_output::WorkerReviewResultV1 {
+        verdict: crate::workswarm_output::WorkerReviewVerdict::ChangesRequested,
+        reviewed_requirement_ids: Vec::new(),
+        findings: vec![crate::workswarm_output::WorkerReviewFindingV1 {
+            severity: crate::workswarm_output::WorkerReviewSeverity::Major,
+            detail: notes.join("；"),
+            requirement_id: None,
+            evidence_refs: Vec::new(),
+            suggested_owner: None,
+            target_task_id: None,
+            target_artifact_id: None,
+        }],
+    });
+    output.status = crate::workswarm_output::WorkerOutputStatus::Done;
+    output
+}
+
+fn reviewer_legacy_repair_note() -> &'static str {
+    "你上一次回复不是合法的 WorkerOutputV1 JSON。评审角色必须只输出一个 JSON 对象：\
+status=done 时携带 review_result={verdict,reviewed_requirement_ids,findings}；\
+findings 每项必须含 severity（blocker/major/minor/note）和 detail；\
+发现缺陷用 verdict=changes_requested，不得用 blocked/failed 表达评审不通过。"
+}
+
+fn append_handoff_note(enriched: &mut Value, note: &str) {
+    if let Some(context) = enriched
+        .get_mut("team_prompt_context")
+        .and_then(Value::as_object_mut)
+    {
+        let handoff = context
+            .get("handoff_contract")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        context.insert(
+            "handoff_contract".into(),
+            json!(format!("{handoff}\n\n{note}")),
+        );
+    } else if let Some(object) = enriched.as_object_mut() {
+        object.insert("review_contract_repair_note".into(), json!(note));
+    }
+}
+
 fn apply_retry_context(ctx: &mut Value, input: &Value) {
     let Some(note) = input
         .get("_workswarm")
@@ -73,6 +254,38 @@ fn apply_assigned_task_context(
 }
 
 impl RoleWorker {
+    // The journal commits before calling the inner Worker. A prepared receipt
+    // proves the Value and assembled source previews, never provider delivery.
+    async fn run_with_input_receipt(
+        &self,
+        input: &Value,
+        task: &crate::task_context::ResolvedTaskContext,
+        encoding: crate::project_space_store::PreparedInputEncoding,
+    ) -> Result<String, String> {
+        use crate::project_space_store::{PreparedWorkerInput, WorkerInputTarget};
+        let target = WorkerInputTarget {
+            worker_id: self.member_id.clone(),
+            step_id: task.step_id.clone().unwrap_or_default(),
+            task_id: task.task_id.clone(),
+            attempt_id: task.attempt_id.clone(),
+            phase_epoch: task.phase_epoch,
+        };
+        let receipt = PreparedWorkerInput::capture(
+            &self.team_id,
+            &uuid::Uuid::new_v4().to_string(),
+            target,
+            input,
+            encoding,
+        )
+        .map_err(|error| format!("Worker 输入记录失败：{error}"))?;
+        let event = self
+            .coordinator
+            .store
+            .append_worker_input(&receipt)
+            .map_err(|error| format!("Worker 输入记录未提交，未开始执行：{error}"))?;
+        super::input_observation::scope_worker_input(event, self.inner.run(input)).await
+    }
+
     pub fn new(
         coordinator: Arc<TeamCoordinator>,
         team_id: String,
@@ -179,6 +392,13 @@ impl Worker for RoleWorker {
             })
             .unwrap_or_else(|| self.capabilities.clone());
         let is_reviewer = super::util::is_review_role(&self.role, &effective_capabilities);
+        let input_encoding = if worker_kind == "agent" {
+            crate::project_space_store::PreparedInputEncoding::Structured
+        } else if input.get("text").map(Value::is_null).unwrap_or(true) {
+            crate::project_space_store::PreparedInputEncoding::Serialized
+        } else {
+            crate::project_space_store::PreparedInputEncoding::NoContext
+        };
         let mut enriched = TeamCoordinator::build_enriched_input_owned(ctx, input, &worker_kind);
         // Prompt 上下文指标在 Server 使用最终 WorkerProfile 编译后记录，
         // 避免这里先用粗略角色画像生成一份与实际工具面不一致的 Prompt。
@@ -187,7 +407,9 @@ impl Worker for RoleWorker {
         self.coordinator
             .mark_phase_step_running(&self.team_id, &step_id);
         let plan_epoch = self.coordinator.current_execution_epoch(&self.team_id);
-        let mut out = self.inner.run(&enriched).await?;
+        let mut out = self
+            .run_with_input_receipt(&enriched, &task_context, input_encoding)
+            .await?;
         if self.role == "lead"
             || effective_capabilities
                 .iter()
@@ -222,7 +444,7 @@ impl Worker for RoleWorker {
                             return Err("指挥计划纠正前任务已取消或代次变化".into());
                         }
                         let reason = reason.chars().take(2000).collect::<String>();
-                        let note = format!("上次 TaskGraph 被宿主拒绝：{reason}。修正同一用户目标的计划，禁止扩大权限、写范围或改变需求。聊天文本任务 verification 必须为 JSON 字符串 \"non_empty\"，不要包装成文件 VerificationPlan；文件验证必须列出具体文件路径。返回完整 WorkerOutputV1，artifact.content 为修正后的 TaskGraph JSON。");
+                        let note = format!("上次 TaskGraph 被宿主拒绝：{reason}。修正同一用户目标的计划，禁止扩大权限、写范围或改变需求。只把 task_worker 角色写进 tasks；assembler/lead_review 是宿主固定步骤，不得创建任务。必须使用 task_id/worker/estimated_effort（数字 1..=5）/requirement_quotes/verification 字段，write_paths 必须落在所选角色声明范围内。聊天文本任务 verification 必须为 JSON 字符串 \"non_empty\"，不要包装成文件 VerificationPlan；文件验证必须是宿主登记的 WorkspacePaths VerificationPlan（workspace-command-success-v1 + node --test 单命令）。返回完整 WorkerOutputV1，artifact.content 必须是 JSON 字符串（不能直接放对象）。");
                         enriched["task_graph_repair"] = json!({"reason": reason});
                         if let Some(context) = enriched
                             .get_mut("team_prompt_context")
@@ -239,11 +461,32 @@ impl Worker for RoleWorker {
                         } else if let Some(object) = enriched.as_object_mut() {
                             object.insert("task_graph_repair_note".into(), json!(note));
                         }
-                        out = self.inner.run(&enriched).await?;
+                        out = self
+                            .run_with_input_receipt(&enriched, &task_context, input_encoding)
+                            .await?;
                     }
                     Err(error) => return Err(format!("task_graph_invalid:{error}")),
                 }
             }
+        }
+        // 评审角色不能用 legacy 纯文本冒充满意：这类输出没有 review_result，
+        // 会让交付门在缺少结构化证据时仍看到 “成功”。先做一次定向契约修复；
+        // 仍不符合则 fail closed，而不是静默登记成评审通过。
+        if is_reviewer
+            && matches!(
+                crate::workswarm_output::parse_worker_output(&out),
+                crate::workswarm_output::WorkerOutputParse::Legacy
+            )
+        {
+            if self.coordinator.current_execution_epoch(&self.team_id) != plan_epoch
+                || self.coordinator.cancel_token(&self.team_id).is_cancelled()
+            {
+                return Err("评审契约修复前任务已取消或代次变化".into());
+            }
+            append_handoff_note(&mut enriched, reviewer_legacy_repair_note());
+            out = self
+                .run_with_input_receipt(&enriched, &task_context, input_encoding)
+                .await?;
         }
         // 输出契约（V1）：结构化 JSON → 登记前防御——producer 取 artifact.content
         //（交付物正文，不再拿整段自由文本/信封当产物），critic 禁止携带 artifact
@@ -253,7 +496,35 @@ impl Worker for RoleWorker {
         // 随 Artifact/HandoffRecord 落盘）；legacy 纯文本登记行为不变。
         let out = match crate::workswarm_output::parse_worker_output(&out) {
             crate::workswarm_output::WorkerOutputParse::Parsed(output) => {
+                let mut output = *output;
+                // The architect often records open questions (e.g. whether the
+                // host has browser tools) as open_issues while still returning a
+                // complete TaskGraph. Those are planning notes, not failed
+                // deliverables; preserve them in handoff so downstream roles can
+                // read them without failing the producer gate.
+                if !is_reviewer
+                    && self.role == "architect"
+                    && output.status == crate::workswarm_output::WorkerOutputStatus::Done
+                    && !output.open_issues.is_empty()
+                {
+                    let notes = std::mem::take(&mut output.open_issues);
+                    let prefix = output
+                        .handoff
+                        .take()
+                        .filter(|value| !value.trim().is_empty())
+                        .map(|value| format!("{value}\n"))
+                        .unwrap_or_default();
+                    output.handoff = Some(format!(
+                        "{prefix}架构阶段待确认事项（非阻塞）：{}",
+                        notes.join("；")
+                    ));
+                }
                 if is_reviewer {
+                    output = normalize_reviewer_output(output);
+                    output = normalize_blocked_reviewer_with_upstream(
+                        output,
+                        !reviewed_sources.is_empty(),
+                    );
                     if let Err(e) = output.validate_critic() {
                         return Err(format!("scope_violation:{e}"));
                     }
@@ -309,6 +580,42 @@ impl Worker for RoleWorker {
                             }
                             output.artifact.map(|a| a.content).unwrap_or_default()
                         }
+                        crate::workswarm_output::WorkerOutputStatus::Blocked
+                            if blocked_with_artifact(&output) =>
+                        {
+                            // 已有候选产物：登记为 done 候选，风险并入 summary/handoff；
+                            // 随后由宿主验证命令决定是否真的可用。没有产物的 blocked
+                            // 仍走下面的硬失败分支。
+                            let mut candidate = output.clone();
+                            if !candidate.open_issues.is_empty() {
+                                candidate.summary = format!(
+                                    "{}（Worker 曾标记 blocked 的跨模块风险：{}）",
+                                    candidate.summary,
+                                    candidate.open_issues.join("；")
+                                );
+                                candidate.open_issues.clear();
+                            }
+                            candidate.status = crate::workswarm_output::WorkerOutputStatus::Done;
+                            if let Err(e) = self
+                                .coordinator
+                                .register_step_output_contract_bound(
+                                    &self.team_id,
+                                    &self.member_id,
+                                    &self.role,
+                                    &step_id,
+                                    &candidate,
+                                    OutputAttemptBinding {
+                                        phase_epoch,
+                                        attempt_id: attempt_id.as_deref(),
+                                        reviewed_sources: Some(&reviewed_sources),
+                                    },
+                                )
+                                .await
+                            {
+                                return Err(format!("产物登记失败：{e}"));
+                            }
+                            candidate.artifact.map(|a| a.content).unwrap_or_default()
+                        }
                         other => {
                             // producer 如实申报 failed/blocked：步骤失败（可局部重试），不登记空产物。
                             return Err(format!("worker_{}:{}", other.as_str(), output.summary));
@@ -319,6 +626,12 @@ impl Worker for RoleWorker {
             // 契约解析/校验失败：worker 层已做一次定向修复并失败会直接 Err，
             // 走不到这里；此处保守按 legacy 纯文本登记（服务端旧流程不受影响）。
             _ => {
+                if is_reviewer {
+                    return Err(
+                        "review_contract_invalid: reviewer 必须输出结构化 WorkerOutputV1 JSON（status/review_result）"
+                            .to_string(),
+                    );
+                }
                 if let Err(e) = self
                     .coordinator
                     .register_step_output_checked_bound(
@@ -383,5 +696,173 @@ mod tests {
         let (retry_prompt, _) = TeamCoordinator::compile_role_prompt_with_meta(&context);
         assert!(retry_prompt.contains("分页边界测试缺失"));
         assert!(retry_prompt.contains("不得放宽验收或扩大权限"));
+    }
+
+    #[test]
+    fn blocked_with_artifact_is_a_soft_candidate_but_empty_artifact_is_not() {
+        let output = crate::workswarm_output::WorkerOutputV1 {
+            status: crate::workswarm_output::WorkerOutputStatus::Blocked,
+            summary: "模块测试通过，跨模块联调待 integrator".to_string(),
+            artifact: Some(crate::workswarm_output::WorkerArtifactV1 {
+                kind: "code".to_string(),
+                format: "text".to_string(),
+                content: "export const world = {};".to_string(),
+            }),
+            evidence: Vec::new(),
+            open_issues: vec!["等待联调".to_string()],
+            handoff: None,
+            review_result: None,
+        };
+        assert!(blocked_with_artifact(&output));
+
+        let mut empty = output.clone();
+        empty.artifact.as_mut().unwrap().content = "   ".to_string();
+        assert!(!blocked_with_artifact(&empty));
+
+        let mut without_artifact = output;
+        without_artifact.artifact = None;
+        assert!(!blocked_with_artifact(&without_artifact));
+    }
+    #[test]
+    fn reviewer_artifact_is_converted_to_structured_review_result() {
+        use crate::workswarm_output::{
+            WorkerArtifactV1, WorkerOutputStatus, WorkerOutputV1, WorkerReviewVerdict,
+        };
+        let output = WorkerOutputV1 {
+            status: WorkerOutputStatus::Done,
+            summary: "ship".to_string(),
+            artifact: Some(WorkerArtifactV1 {
+                kind: "scorecard".to_string(),
+                format: "json".to_string(),
+                content:
+                    r#"{"decision":"ship","scores":{"playability":4},"blockers":[],"major":[]}"#
+                        .to_string(),
+            }),
+            evidence: vec![],
+            open_issues: vec![],
+            handoff: None,
+            review_result: None,
+        };
+        let normalized = normalize_reviewer_output(output);
+        assert!(normalized.artifact.is_none());
+        let review = normalized.review_result.expect("review result");
+        assert_eq!(review.verdict, WorkerReviewVerdict::Approved);
+        assert!(review.findings.is_empty());
+
+        let chinese = WorkerOutputV1 {
+            status: WorkerOutputStatus::Done,
+            summary: "通过".to_string(),
+            artifact: Some(WorkerArtifactV1 {
+                kind: "scorecard".to_string(),
+                format: "json".to_string(),
+                content: r#"{"decision":"通过","blockers":[]}"#.to_string(),
+            }),
+            evidence: vec![],
+            open_issues: vec![],
+            handoff: None,
+            review_result: None,
+        };
+        assert_eq!(
+            normalize_reviewer_output(chinese)
+                .review_result
+                .expect("中文 verdict")
+                .verdict,
+            WorkerReviewVerdict::Approved
+        );
+    }
+
+    #[test]
+    fn approved_reviewer_cannot_keep_open_issues_or_blocking_findings() {
+        use crate::workswarm_output::{
+            WorkerOutputStatus, WorkerOutputV1, WorkerReviewFindingV1, WorkerReviewResultV1,
+            WorkerReviewSeverity, WorkerReviewVerdict,
+        };
+        let approved = WorkerOutputV1 {
+            status: WorkerOutputStatus::Done,
+            summary: "ok".to_string(),
+            artifact: None,
+            evidence: vec![],
+            open_issues: vec!["stale note".to_string()],
+            handoff: None,
+            review_result: Some(WorkerReviewResultV1 {
+                verdict: WorkerReviewVerdict::Approved,
+                reviewed_requirement_ids: vec![],
+                findings: vec![],
+            }),
+        };
+        let normalized = normalize_reviewer_output(approved);
+        assert!(
+            normalized.open_issues.is_empty(),
+            "approved 不应携带 open_issues"
+        );
+
+        let contradictory = WorkerOutputV1 {
+            status: WorkerOutputStatus::Done,
+            summary: "ship but major issue".to_string(),
+            artifact: None,
+            evidence: vec![],
+            open_issues: vec![],
+            handoff: None,
+            review_result: Some(WorkerReviewResultV1 {
+                verdict: WorkerReviewVerdict::Approved,
+                reviewed_requirement_ids: vec![],
+                findings: vec![WorkerReviewFindingV1 {
+                    severity: WorkerReviewSeverity::Major,
+                    detail: "add() returns wrong value".to_string(),
+                    requirement_id: None,
+                    evidence_refs: vec![],
+                    suggested_owner: None,
+                    target_task_id: None,
+                    target_artifact_id: None,
+                }],
+            }),
+        };
+        let normalized = normalize_reviewer_output(contradictory);
+        assert_eq!(
+            normalized.review_result.expect("review").verdict,
+            WorkerReviewVerdict::ChangesRequested,
+            "approved + major finding 必须降级为返修"
+        );
+    }
+
+    #[test]
+    fn blocked_reviewer_with_upstream_becomes_an_actionable_rework() {
+        use crate::workswarm_output::{WorkerOutputStatus, WorkerOutputV1, WorkerReviewVerdict};
+        let blocked = WorkerOutputV1 {
+            status: WorkerOutputStatus::Blocked,
+            summary: "测试失败：test_hello.py 未导入 greet".to_string(),
+            artifact: None,
+            evidence: vec![],
+            open_issues: vec!["greet 未定义".to_string()],
+            handoff: None,
+            review_result: None,
+        };
+        let rework = normalize_blocked_reviewer_with_upstream(blocked.clone(), true);
+        assert_eq!(rework.status, WorkerOutputStatus::Done);
+        let review = rework.review_result.expect("应转成 changes_requested");
+        assert_eq!(review.verdict, WorkerReviewVerdict::ChangesRequested);
+        assert_eq!(review.findings.len(), 1);
+        assert!(review.findings[0].detail.contains("未导入 greet"));
+
+        let no_upstream = normalize_blocked_reviewer_with_upstream(blocked, false);
+        assert_eq!(no_upstream.status, WorkerOutputStatus::Blocked);
+        assert!(no_upstream.review_result.is_none());
+    }
+
+    #[test]
+    fn reviewer_legacy_repair_names_the_required_schema() {
+        let note = reviewer_legacy_repair_note();
+        for field in [
+            "WorkerOutputV1",
+            "review_result",
+            "severity",
+            "changes_requested",
+        ] {
+            assert!(note.contains(field), "修复提示缺 {field}: {note}");
+        }
+        assert!(matches!(
+            crate::workswarm_output::parse_worker_output("实现符合要求，测试通过"),
+            crate::workswarm_output::WorkerOutputParse::Legacy
+        ));
     }
 }

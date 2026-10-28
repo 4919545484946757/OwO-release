@@ -13,6 +13,34 @@ use super::coord_strategy::{build_auto_reviewer_role, is_auto_reviewer_role};
 #[cfg(test)]
 use super::task_graph::is_independent_reviewer_role;
 
+fn resolved_budget_total(
+    specs: &[RoleSpec],
+    budgets: &std::collections::BTreeMap<String, usize>,
+) -> usize {
+    specs
+        .iter()
+        .filter_map(|spec| budgets.get(&spec.role).copied())
+        .sum()
+}
+
+fn resolved_role_plans(
+    specs: &[RoleSpec],
+    budgets: &std::collections::BTreeMap<String, usize>,
+) -> Vec<Value> {
+    specs
+        .iter()
+        .map(|spec| {
+            json!({
+                "role": spec.role,
+                "assignee": spec.assignee,
+                "budget_calls": budgets.get(&spec.role).copied().unwrap_or(0),
+                "depends_on": spec.depends_on,
+                "write_paths": spec.write_paths,
+            })
+        })
+        .collect()
+}
+
 fn validate_parent_context_snapshot(snapshot: &str) -> WorkSwarmResult<()> {
     if snapshot.len() > super::coord_artifacts::MAX_PARENT_CONTEXT_SNAPSHOT_BYTES {
         return Err(WorkSwarmError::Validation(format!(
@@ -36,6 +64,15 @@ fn validate_parent_context_snapshot(snapshot: &str) -> WorkSwarmResult<()> {
 impl TeamCoordinator {
     /// 创建团队运行：成员/角色/assignee 绑定 + 任务图 + ProjectSpace + TeamRun。
     pub async fn create_team_run(&self, req: &CreateTeamRequest) -> WorkSwarmResult<TeamRun> {
+        self.create_team_run_with_preflight(req, |_, _, _| Ok(()))
+            .await
+    }
+
+    pub async fn create_team_run_with_preflight(
+        &self,
+        req: &CreateTeamRequest,
+        preflight: impl Fn(&[RoleSpec], bool, Option<&str>) -> WorkSwarmResult<()>,
+    ) -> WorkSwarmResult<TeamRun> {
         if let Some(snapshot) = req.parent_context_snapshot.as_deref() {
             validate_parent_context_snapshot(snapshot)?;
         }
@@ -50,66 +87,71 @@ impl TeamCoordinator {
         // 保留模板是否由调用者显式选择；策略裁剪只能覆盖自动匹配模板，不能悄悄改写用户指定拓扑。
         let has_explicit_roles = !req.roles.is_empty();
         let has_explicit_template = req.mode != TeamMode::Single && req.template_id.is_some();
-        let (mut roles, template_id): (Vec<RoleSpec>, Option<String>) = if !req.roles.is_empty() {
-            if req.mode != TeamMode::Single {
-                if let Some(id) = &req.template_id {
-                    self.templates
-                        .get_template(id)
-                        .ok_or_else(|| WorkSwarmError::NotFound(format!("模板 {id} 不存在")))?;
-                }
-            }
-            (
-                req.roles.clone(),
-                if req.mode == TeamMode::Single {
-                    None
-                } else {
-                    req.template_id.clone()
-                },
+        // Read document + revision + hash together, before preflight or any async persistence.
+        // Never re-read a newer head to describe roles resolved from an older revision.
+        let source_revision = if req.mode == TeamMode::Single {
+            None
+        } else if let Some(id) = req.template_id.as_deref() {
+            Some(
+                self.templates
+                    .get_revision(id)
+                    .map_err(|error| WorkSwarmError::Run(error.to_string()))?
+                    .filter(|record| record.template.is_some())
+                    .ok_or_else(|| WorkSwarmError::NotFound(format!("模板 {id} 不存在")))?,
             )
+        } else if has_explicit_roles {
+            None
         } else {
-            let tpl = match &req.template_id {
-                Some(_) if req.mode == TeamMode::Single => None,
-                Some(id) => Some(
-                    self.templates
-                        .get_template(id)
-                        .ok_or_else(|| WorkSwarmError::NotFound(format!("模板 {id} 不存在")))?,
-                ),
-                None if req.mode == TeamMode::Single => None,
-                None if req.mode == TeamMode::Swarmflow => {
-                    let m = self
-                        .templates
-                        .find_match(req.mode, objective)
-                        .ok_or_else(|| {
-                            WorkSwarmError::Validation(
-                                "swarmflow 模式必须基于版本化模板（无匹配模板；请先提供 template_id 或 roles）"
-                                    .to_string(),
-                            )
-                        })?;
-                    Some(m)
-                }
-                None => self.templates.find_match(req.mode, objective),
-            };
-            match tpl {
-                Some(t) => (
-                    t.roles.iter().cloned().map(RoleSpec::from).collect(),
-                    Some(t.template_id),
-                ),
-                None => {
-                    if req.mode == TeamMode::Single {
-                        // single：单一角色短任务。
-                        (vec![RoleSpec::agent("runner")], None)
-                    } else {
-                        // team 动态组队：默认接力样例。
-                        (default_relay_roles(), None)
-                    }
-                }
-            }
+            self.templates
+                .find_match_revision(req.mode, objective)
+                .map_err(|error| WorkSwarmError::Run(error.to_string()))?
+        };
+        if req.mode == TeamMode::Swarmflow && !has_explicit_roles && source_revision.is_none() {
+            return Err(WorkSwarmError::Validation(
+                "swarmflow 模式必须基于版本化模板（无匹配模板；请先提供 template_id 或 roles）"
+                    .to_string(),
+            ));
+        }
+        let template_source = source_revision
+            .as_ref()
+            .map(|record| {
+                Ok::<_, WorkSwarmError>(RunTemplateSource {
+                    template_id: record.template_id.clone(),
+                    revision: record.revision,
+                    content_hash: record.content_hash.clone().ok_or_else(|| {
+                        WorkSwarmError::Run(format!(
+                            "模板 {} 的修订缺少内容哈希",
+                            record.template_id
+                        ))
+                    })?,
+                    roles_overridden: has_explicit_roles,
+                    requested_model: req.model.clone(),
+                })
+            })
+            .transpose()?;
+        let template_id = template_source
+            .as_ref()
+            .map(|source| source.template_id.clone());
+        let mut roles: Vec<RoleSpec> = if has_explicit_roles {
+            req.roles.clone()
+        } else if let Some(template) = source_revision
+            .as_ref()
+            .and_then(|record| record.template.as_ref())
+        {
+            template.roles.iter().cloned().map(RoleSpec::from).collect()
+        } else if req.mode == TeamMode::Single {
+            vec![single_agent_role()]
+        } else {
+            default_relay_roles()
         };
 
+        // Custom workflows are matched by the capabilities/tools they declare, not
+        // by a built-in role-name allowlist. An effectful tool surface without an
+        // explicit semantic capability becomes a task_worker; a display-only
+        // `custom` marker is preserved but does not suppress inference.
         for role in &mut roles {
-            if !role.tools.is_empty() && role.capabilities.is_empty() {
-                role.capabilities.push("custom".to_string());
-            }
+            role.capabilities =
+                super::infer_role_capabilities(&role.role, &role.tools, &role.capabilities);
         }
 
         // 约束：角色唯一；Agent 成员 ≤ max_agent_members；写路径合法（权限默认 deny）。
@@ -125,17 +167,20 @@ impl TeamCoordinator {
             if r.assignee.is_empty() || r.assignee == "agent" {
                 agent_count += 1;
             }
-            super::roles::validate_role_write_paths_with_capabilities(
+            super::roles::validate_role_spec_write_paths(r).map_err(WorkSwarmError::Validation)?;
+            super::roles::validate_role_tool_capabilities(
                 &r.role,
                 &r.capabilities,
+                &r.tools,
                 &r.write_paths,
             )
             .map_err(WorkSwarmError::Validation)?;
         }
-        // An explicitly chosen graph defines its membership. The legacy default
-        // limit only sizes automatically assembled teams; an explicit caller limit
-        // still applies, independently of the scheduler's max_parallel budget.
-        let default_member_limit = if has_explicit_roles || has_explicit_template {
+        // §6.1: ad-hoc graphs and auto-assembled teams use the five-Agent default.
+        // An explicitly selected registered template owns its declared membership
+        // (the host already validated/imported that graph); callers may still lower
+        // it with `max_agent_members`.
+        let default_member_limit = if has_explicit_template && !has_explicit_roles {
             agent_count
         } else {
             self.max_agent_members
@@ -236,23 +281,27 @@ impl TeamCoordinator {
             has_explicit_template,
         );
         if trim_to_single {
-            // 单 Agent 判定：**优先保留可交付的写角色**（builder/producer/writer/leader），
-            // 而不是盲目保留首个角色——默认接力的首个是只读 planner，裁到它会让团队
-            // "成功"却零产出（"草草了事"的根因）。研究类任务没有写角色时保留首个
-            // （researcher 只读是正确语义）。
-            let keep_index = specs
-                .iter()
-                .position(|spec| {
-                    crate::worker_profile::WorkerProfile::for_role(&spec.role, 0).is_writer()
-                })
-                .unwrap_or(0);
-            let mut kept = specs.remove(keep_index);
+            let removed = specs.len().saturating_sub(1);
+            // 用户显式提交的角色图：保留其中可交付的写角色，尊重其写范围。
+            // 模板/默认拓扑：Single 是一个**通用交付 Agent**，不是模板的第一个窄角色。
+            // 否则 product-design 会裁到只写 docs/ 的 researcher，团队“成功”却
+            // 没有 index.html/styles.css/tests（实测）。
+            let mut kept = if has_explicit_roles {
+                let keep_index = specs
+                    .iter()
+                    .position(|spec| {
+                        crate::worker_profile::WorkerProfile::for_role(&spec.role, 0).is_writer()
+                    })
+                    .unwrap_or(0);
+                specs.remove(keep_index)
+            } else {
+                single_agent_role()
+            };
             // 上游角色已被裁掉：清空依赖（保持 DAG 可拓扑排序）。
             kept.depends_on.clear();
             strategy_plan.reasons.push(format!(
-                "判定单 Agent：保留可交付角色 {}（已裁剪 {} 个附加角色，上游依赖解除）",
-                kept.role,
-                specs.len()
+                "判定单 Agent：保留通用交付角色 {}（已裁剪 {} 个附加角色，上游依赖解除）",
+                kept.role, removed
             ));
             specs = vec![kept];
         }
@@ -272,10 +321,33 @@ impl TeamCoordinator {
                     .collect()
             })
             .unwrap_or_default();
+        // Installed/user templates may carry explicit per-role budgets. The
+        // template value is still only a suggestion; runtime task allocation
+        // and the team-wide max_model_calls remain authoritative.
+        if let Some(template) = source_revision
+            .as_ref()
+            .and_then(|record| record.template.as_ref())
+        {
+            for (role, calls) in &template.budget_calls_per_role {
+                budget_map.insert(role.clone(), *calls);
+            }
+        }
+        for spec in &specs {
+            budget_map.entry(spec.role.clone()).or_insert_with(|| {
+                if spec.is_orchestrator() {
+                    16
+                } else {
+                    32
+                }
+            });
+        }
         bind_missing_strategy_budgets(&strategy_plan.roles, &specs, &mut budget_map);
         let mut adaptive_skips: Vec<crate::team_strategy::SkippedRole> = Vec::new();
         let mut adaptive_saved_calls = 0usize;
-        if specs.len() > 1 && !has_explicit_roles && !has_explicit_template {
+        // 角色来自模板（包括用户显式选用内置/已安装模板）时允许宿主自适应裁剪；
+        // 只有调用方显式提交的角色图必须原样尊重。未知模板不会命中具体模板策略，
+        // 因此这里不会因为 template_id 存在就跳过模板级优化。
+        if specs.len() > 1 && !has_explicit_roles {
             let role_names: Vec<String> = specs.iter().map(|s| s.role.clone()).collect();
             let adaptive = crate::team_strategy::plan_adaptive_roles(
                 template_id.as_deref(),
@@ -369,8 +441,22 @@ impl TeamCoordinator {
                 specs.push(reviewer);
             }
         }
+        // The strategy plan is built before the concrete template roles are
+        // known, so its generic producer/critic/leader total can disagree with
+        // the roles that will actually run.  Publish the resolved total: the
+        // audit line and UI must not promise budget the run cannot spend (or
+        // hide budget it will).
+        strategy_plan.budget_calls_total = resolved_budget_total(&specs, &budget_map);
         let mut strategy_decision = serde_json::to_value(&strategy_plan).ok();
         if let Some(obj) = strategy_decision.as_mut().and_then(Value::as_object_mut) {
+            // The strategy plan's generic roles are not necessarily the roles
+            // that survived template binding, adaptive skips and auto-reviewer
+            // insertion. Publish the runnable topology so UI/audit no longer
+            // has to infer it from budget totals.
+            obj.insert(
+                "resolved_roles".to_string(),
+                json!(resolved_role_plans(&specs, &budget_map)),
+            );
             // 八期一路 additive：自适应指标（skipped_roles/skip_reason/saved_budget_calls/
             // context_bytes/提前结束原因）。运行期事件由 note_adaptive_event 追加。
             obj.insert(
@@ -432,6 +518,16 @@ impl TeamCoordinator {
                 }
             }
         }
+
+        let node_errors = crate::user_workflow::validate_node_ids(
+            specs
+                .iter()
+                .map(|spec| (spec.role.as_str(), spec.node_id.as_deref())),
+        );
+        if !node_errors.is_empty() {
+            return Err(WorkSwarmError::Validation(node_errors.join("; ")));
+        }
+        preflight(&specs, parallel_assignment, template_id.as_deref())?;
 
         // 成员（agent/human/worker 运行时绑定）。
         let mut members = Vec::new();
@@ -528,18 +624,19 @@ impl TeamCoordinator {
                     }
                 }
             }
-            let verification = spec.verify.as_ref().map(|value| parse_verify(value));
-            let verification_plan = verification
-                .as_ref()
-                .map(|value| verification_plan_for_step(&step_id, value));
+            // Every new role has a host-owned output obligation, including
+            // optional legacy verify fields. Explicit/custom validators remain
+            // unchanged; source changes still require behavioral/review evidence.
+            let verification = parse_verify(spec.verify.as_deref().unwrap_or("non_empty"));
+            let verification_plan = verification_plan_for_step(&step_id, &verification);
             let step = StepSpec {
                 id: step_id.clone(),
                 depends_on: spec.depends_on.iter().map(|d| format!("s-{d}")).collect(),
                 parallel: true,
                 worker: member_id,
                 input,
-                verify: verification,
-                verification_plan,
+                verify: Some(verification),
+                verification_plan: Some(verification_plan),
                 retries: 0,
             };
             plan.add_step(step);
@@ -552,6 +649,9 @@ impl TeamCoordinator {
         goal.budget = parse_goal_budget(&req.budget);
         let mut state = GoalRunState::new(goal, plan);
         state.run_id = team_id.clone();
+        state.team_task_events = Some(super::coord_task_events::next_outbox(
+            None, &state, &specs, 0, true,
+        )?);
         state.persist(&self.run_dir).map_err(WorkSwarmError::Run)?;
 
         // ProjectSpace（统一事实空间：任务/产物/决策/交接/活动）。
@@ -621,7 +721,7 @@ impl TeamCoordinator {
                 "组队策略：{}（selection={}，角色 {} 个，预算 {} 次调用）",
                 strategy_mode,
                 selection.as_str(),
-                strategy_plan.roles.len(),
+                specs.len(),
                 strategy_plan.budget_calls_total
             ),
         );
@@ -633,11 +733,15 @@ impl TeamCoordinator {
             correlation_id,
             roles: specs,
             template_id: template_id.clone(),
+            template_source,
             budgets: budget_map,
             parallel: parallel_assignment,
         }
         .save(&self.run_dir)?;
 
+        if let Err(error) = self.relay_task_events(&team_id, 128) {
+            self.record_runtime_event(&team_id, "team.task_delivery.pending", error.to_string());
+        }
         // 八期一路：创建期自适应裁剪审计（跳过角色/节省预算，best-effort 可读性）。
         if !adaptive_skips.is_empty() {
             self.audit(
@@ -679,31 +783,9 @@ impl TeamCoordinator {
 
 #[cfg(test)]
 mod strategy_topology_policy_tests {
-    use super::{resolve_strategy_selection, should_add_auto_reviewer, should_trim_to_single};
+    use super::{should_add_auto_reviewer, should_trim_to_single};
     use crate::team_strategy::TeamSelectionMode;
     use crate::workswarm::TeamMode;
-
-    #[test]
-    fn single_mode_resolves_to_one_worker_and_rejects_conflicting_team_selection() {
-        assert_eq!(
-            resolve_strategy_selection(TeamMode::Single, None).unwrap(),
-            TeamSelectionMode::ForceSingle,
-        );
-        assert_eq!(
-            resolve_strategy_selection(TeamMode::Single, Some(TeamSelectionMode::ForceSingle),)
-                .unwrap(),
-            TeamSelectionMode::ForceSingle,
-        );
-        assert!(
-            resolve_strategy_selection(TeamMode::Single, Some(TeamSelectionMode::ForceTeam),)
-                .unwrap_err()
-                .contains("冲突")
-        );
-        assert_eq!(
-            resolve_strategy_selection(TeamMode::Team, None).unwrap(),
-            TeamSelectionMode::Auto,
-        );
-    }
 
     #[test]
     fn forced_single_overrides_an_explicit_template_but_auto_preserves_it() {
@@ -754,6 +836,28 @@ mod strategy_topology_policy_tests {
     }
 
     #[test]
+    fn single_fallback_is_a_workspace_writer_not_a_narrow_researcher() {
+        let role = crate::workswarm::single_agent_role();
+        assert_eq!(role.role, "runner", "保留历史成员/步骤身份");
+        assert!(role.has_capability("task_worker"));
+        assert_eq!(
+            role.write_paths,
+            vec![".".to_string()],
+            "根写面 = 工作区可写"
+        );
+        let profile =
+            crate::worker_profile::WorkerProfile::for_team_role_spec(&role, 8, false, None);
+        assert!(profile.is_writer(), "{profile:?}");
+        for tool in ["read_file", "write_file", "apply_patch", "run_command"] {
+            assert!(
+                profile.visible_tools.iter().any(|visible| visible == tool),
+                "单 Agent 交付角色缺 {tool}：{:?}",
+                profile.visible_tools
+            );
+        }
+    }
+
+    #[test]
     fn single_strategy_does_not_recreate_a_hidden_reviewer_worker() {
         assert!(!should_add_auto_reviewer(TeamMode::Single, false));
         assert!(!should_add_auto_reviewer(TeamMode::Team, true));
@@ -763,7 +867,7 @@ mod strategy_topology_policy_tests {
 
 #[cfg(test)]
 mod strategy_budget_binding_tests {
-    use super::{bind_missing_strategy_budgets, RoleSpec};
+    use super::{bind_missing_strategy_budgets, resolved_budget_total, RoleSpec};
     use crate::team_strategy::RolePlan;
     use std::collections::BTreeMap;
 
@@ -799,6 +903,36 @@ mod strategy_budget_binding_tests {
         assert_eq!(budgets.get("builder"), Some(&7));
         assert_eq!(budgets.get("critic"), Some(&2));
         assert_eq!(budgets.get("leader"), Some(&3));
+    }
+
+    #[test]
+    fn resolved_role_plans_publish_runnable_budgets_and_scopes() {
+        let mut implementer = RoleSpec::agent("implementer");
+        implementer.write_paths = vec!["src/lib.rs".to_string()];
+        let reviewer = RoleSpec::agent("reviewer");
+        let budgets = BTreeMap::from([
+            ("implementer".to_string(), 16),
+            ("reviewer".to_string(), 11),
+            ("removed_role".to_string(), 99),
+        ]);
+        let plans = super::resolved_role_plans(&[implementer, reviewer], &budgets);
+        assert_eq!(plans.len(), 2);
+        assert_eq!(plans[0]["role"], "implementer");
+        assert_eq!(plans[0]["budget_calls"], 16);
+        assert_eq!(plans[0]["write_paths"], serde_json::json!(["src/lib.rs"]));
+        assert_eq!(plans[1]["role"], "reviewer");
+        assert_eq!(plans[1]["budget_calls"], 11);
+    }
+
+    #[test]
+    fn resolved_total_counts_only_roles_that_will_run() {
+        let specs = vec![RoleSpec::agent("implementer"), RoleSpec::agent("reviewer")];
+        let budgets = BTreeMap::from([
+            ("implementer".to_string(), 16),
+            ("reviewer".to_string(), 11),
+            ("removed_role".to_string(), 99),
+        ]);
+        assert_eq!(resolved_budget_total(&specs, &budgets), 27);
     }
 
     #[test]
@@ -845,7 +979,9 @@ mod dynamic_topology_alignment_tests {
         );
         assert!(specs[0].depends_on.is_empty());
         assert_eq!(specs[1].depends_on, vec!["builder"]);
-        assert_eq!(saved, 16);
+        // The strategy has no leader, so the skipped leader falls back to the
+        // current worker default (24); planner keeps its producer budget (4).
+        assert_eq!(saved, 28);
         assert_eq!(
             skipped
                 .iter()

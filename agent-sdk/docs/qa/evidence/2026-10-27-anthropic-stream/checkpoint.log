@@ -1,0 +1,10 @@
+
+running 4 tests
+test worker_runtime::checkpoint_tests::checkpoint_failure_blocks_provider_before_any_request ... ok
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.79s
+     Running unittests src\lib.rs (native-target\debug\deps\owo_agent_core-874f95b7a008b88d.exe)
+test worker_runtime::checkpoint_tests::checkpoint_input_and_completed_tool_history_survive_dropped_worker_future ... ok
+test worker_runtime::checkpoint_tests::checkpoint_precancelled_worker_keeps_input_without_model_call ... ok
+test worker_runtime::checkpoint_tests::checkpoint_terminal_save_failure_never_reports_success ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 831 filtered out; finished in 0.24s

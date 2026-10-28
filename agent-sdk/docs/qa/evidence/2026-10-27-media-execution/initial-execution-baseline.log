@@ -1,0 +1,16 @@
+   Compiling owo-agent-server v0.1.0 (T:\创新创业\OwO-master\agent-sdk\crates\owo-agent-server)
+warning: linker stdout: 正在创建库 C:\Users\23843\AppData\Local\Temp\owo-audit-iteration-20261025\native-target\debug\deps\media_execution_api_tests-779f2bee6235356c.lib 和对象 C:\Users\23843\AppData\Local\Temp\owo-audit-iteration-20261025\native-target\debug\deps\media_execution_api_tests-779f2bee6235356c.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `owo-agent-server` (test "media_execution_api_tests") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 32.13s
+     Running tests\media_execution_api_tests.rs (native-target\debug\deps\media_execution_api_tests-779f2bee6235356c.exe)
+
+running 3 tests
+test approved_builtin_media_http_publishes_all_sizes_and_survives_host_reopen ... ok
+test denied_media_never_contacts_service_or_publishes_output ... ok
+test failed_invalid_and_cancelled_media_do_not_report_published_success ... ok
+
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.24s

@@ -40,7 +40,7 @@ impl WorkSwarmState {
         let store = SqliteProjectSpaceStore::open(&store_path).map_err(WorkSwarmError::Store)?;
         let cas = owo_agent_core::cas_store::CasStore::new(base.join("cas"))
             .map_err(|e| WorkSwarmError::Io(format!("CAS 初始化失败：{e}")))?;
-        let templates = Arc::new(TeamTemplateRegistry::new(base.join("templates")));
+        let templates = Arc::new(TeamTemplateRegistry::for_workswarm_root(&base));
         let audit = Arc::new(std::sync::Mutex::new(
             owo_agent_core::audit::AuditLog::default(),
         ));

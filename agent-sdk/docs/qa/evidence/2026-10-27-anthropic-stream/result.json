@@ -1,0 +1,186 @@
+{
+  "captured_at": "2026-10-27T13:08:29.489579",
+  "head": "191c19265fc8503efc454e7f443522d1ba817a45",
+  "head_is_checkpoint_not_new_fix_commit": true,
+  "baseline": {
+    "exit_code": 101,
+    "passed": 0,
+    "failed": 8,
+    "scope": "original eight HTTP regression cases against checkpoint adapter before stream fix"
+  },
+  "verified": {
+    "check": {
+      "exit_code": 0,
+      "elapsed_seconds": 9
+    },
+    "native": {
+      "exit_code": 0,
+      "routing_passed": 5,
+      "stream_integrity_passed": 13,
+      "elapsed_seconds": 52
+    },
+    "unit": {
+      "exit_code": 0,
+      "passed": 8,
+      "elapsed_seconds": 122
+    },
+    "checkpoint": {
+      "exit_code": 0,
+      "passed": 4,
+      "elapsed_seconds": 2
+    },
+    "clippy": {
+      "exit_code": 0,
+      "warnings_denied": true,
+      "elapsed_seconds": 37
+    },
+    "rustfmt_selected": {
+      "exit_code": 0
+    },
+    "git_diff_check": {
+      "exit_code": 0
+    },
+    "agent_boundary": {
+      "exit_code": 0
+    }
+  },
+  "resource_policy": {
+    "runner": "scripts/ci-shared.ps1 Invoke-CiCargo",
+    "mode": "strict",
+    "jobs": 1,
+    "test_threads": 1,
+    "ort_resolved_for_current_process": true,
+    "cwd": "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025",
+    "target": "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025\\native-target",
+    "project_config_explicit": true,
+    "c_free_bytes_after": 346370453504
+  },
+  "commands": {
+    "check": [
+      "check",
+      "--manifest-path",
+      "T:\\创新创业\\OwO-master\\agent-sdk\\Cargo.toml",
+      "--config",
+      "T:\\创新创业\\OwO-master\\agent-sdk\\.cargo\\config.toml",
+      "--target-dir",
+      "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025\\native-target",
+      "-p",
+      "owo-agent-core",
+      "--locked",
+      "-j",
+      "1",
+      "--lib",
+      "--test",
+      "anthropic_model_routing_tests",
+      "--test",
+      "anthropic_stream_integrity_tests"
+    ],
+    "native": [
+      "test",
+      "--manifest-path",
+      "T:\\创新创业\\OwO-master\\agent-sdk\\Cargo.toml",
+      "--config",
+      "T:\\创新创业\\OwO-master\\agent-sdk\\.cargo\\config.toml",
+      "--target-dir",
+      "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025\\native-target",
+      "-p",
+      "owo-agent-core",
+      "--locked",
+      "-j",
+      "1",
+      "--test",
+      "anthropic_model_routing_tests",
+      "--test",
+      "anthropic_stream_integrity_tests",
+      "--",
+      "--test-threads=1"
+    ],
+    "unit": [
+      "test",
+      "--manifest-path",
+      "T:\\创新创业\\OwO-master\\agent-sdk\\Cargo.toml",
+      "--config",
+      "T:\\创新创业\\OwO-master\\agent-sdk\\.cargo\\config.toml",
+      "--target-dir",
+      "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025\\native-target",
+      "-p",
+      "owo-agent-core",
+      "--locked",
+      "-j",
+      "1",
+      "--lib",
+      "anthropic::tests",
+      "--",
+      "--test-threads=1"
+    ],
+    "checkpoint": [
+      "test",
+      "--manifest-path",
+      "T:\\创新创业\\OwO-master\\agent-sdk\\Cargo.toml",
+      "--config",
+      "T:\\创新创业\\OwO-master\\agent-sdk\\.cargo\\config.toml",
+      "--target-dir",
+      "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025\\native-target",
+      "-p",
+      "owo-agent-core",
+      "--locked",
+      "-j",
+      "1",
+      "--lib",
+      "worker_runtime::checkpoint_tests",
+      "--",
+      "--test-threads=1"
+    ],
+    "clippy": [
+      "clippy",
+      "--manifest-path",
+      "T:\\创新创业\\OwO-master\\agent-sdk\\Cargo.toml",
+      "--config",
+      "T:\\创新创业\\OwO-master\\agent-sdk\\.cargo\\config.toml",
+      "--target-dir",
+      "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025\\native-target",
+      "-p",
+      "owo-agent-core",
+      "--locked",
+      "-j",
+      "1",
+      "--lib",
+      "--test",
+      "anthropic_model_routing_tests",
+      "--test",
+      "anthropic_stream_integrity_tests",
+      "--",
+      "-D",
+      "warnings"
+    ]
+  },
+  "inputs_captured": 634,
+  "inputs_changed_during_validation": [],
+  "own_source_sha256": {
+    "agent-sdk/crates/owo-agent-core/src/anthropic.rs": "03f0048cf80480a5002639abb8fb3696297289407721c6dfd8afd3d365568e21",
+    "agent-sdk/crates/owo-agent-core/src/anthropic/sse.rs": "f3ade1149eb187e68f7fcb8df34b4a703fdea1d06db00f30e6aa199ea1e05ef4",
+    "agent-sdk/crates/owo-agent-core/tests/anthropic_stream_integrity_tests.rs": "0ba3b0711c5eabf4aabaea2195a598b4368313fdc85c8b7bf316d36581ef4c24"
+  },
+  "binaries": {
+    "anthropic_model_routing_tests-f36d2c24bc211283.exe": {
+      "path": "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025\\native-target\\debug\\deps\\anthropic_model_routing_tests-f36d2c24bc211283.exe",
+      "bytes": 27700224,
+      "sha256": "c01887ec55473408555d190e4a4bda3942df4d83e195436a1d8ddc89a7c7bbaa"
+    },
+    "anthropic_stream_integrity_tests-fdb603565d99fe3b.exe": {
+      "path": "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025\\native-target\\debug\\deps\\anthropic_stream_integrity_tests-fdb603565d99fe3b.exe",
+      "bytes": 36899840,
+      "sha256": "308f370d84be8852c10fae5f270efa39217d1da4425c35e1205c19aef2bd5a3b"
+    },
+    "owo_agent_core-874f95b7a008b88d.exe": {
+      "path": "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025\\native-target\\debug\\deps\\owo_agent_core-874f95b7a008b88d.exe",
+      "bytes": 58260480,
+      "sha256": "9e3204f6ef795ad5e55548ef8ca71b5b7c521be116bade2a177cb346445cd13b"
+    }
+  },
+  "boundaries": [
+    "Local real TCP/HTTP, scripted model responses, actual SQLite worker checkpoint persistence.",
+    "No cloud inference, real image understanding, microphone, media-service playback, browser, Electron, release, full Core, or workspace acceptance.",
+    "No cache cleaning or user service termination in this iteration. New stream source changes remain uncommitted."
+  ]
+}

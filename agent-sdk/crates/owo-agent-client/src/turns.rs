@@ -72,6 +72,7 @@ impl AgentClient {
             model_connection: None,
             prompt: prompt.into(),
             attachments: Vec::new(),
+            content_parts: Vec::new(),
             read_only: read_only.then_some(true),
             turn_id,
         };

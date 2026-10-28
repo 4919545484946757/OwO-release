@@ -190,7 +190,7 @@ fn apply_prepared_reworks(state: &mut GoalRunState, prepared: &[PreparedRework])
             attempt: item.attempt,
         })
         .collect();
-    match super::run_state::apply_run_execution_event(
+    let affected = match super::run_state::apply_run_execution_event(
         state,
         super::run_state::RunExecutionEvent::ReworkBatch {
             items,
@@ -200,7 +200,60 @@ fn apply_prepared_reworks(state: &mut GoalRunState, prepared: &[PreparedRework])
     ) {
         Ok(super::run_state::RunExecutionEffect::ReworkApplied(affected)) => affected,
         _ => unreachable!("rework batch must produce the matching effect"),
+    };
+    // A new attempt on the owner invalidates the prior closure evidence. Reopen
+    // resolved issues so the re-run reviewer must bind a closure to the new
+    // final attempt instead of leaving a stale success behind.
+    let reopened_at = now_ts();
+    for issue in &mut state.delivery_issues {
+        if !affected.iter().any(|step| step == &issue.owner_step_id)
+            || issue.status != crate::goal::DeliveryIssueStatusV1::Resolved
+        {
+            continue;
+        }
+        issue.status = crate::goal::DeliveryIssueStatusV1::RepairDispatched;
+        issue.repair_attempt = prepared
+            .iter()
+            .find(|item| item.step.id == issue.owner_step_id)
+            .map(|item| item.attempt.min(u64::from(u32::MAX)) as u32)
+            .unwrap_or_else(|| issue.repair_attempt.saturating_add(1));
+        issue.resolution_review_artifact_id = None;
+        issue.resolution_review_sha256 = None;
+        issue.resolution_attempt_id = None;
+        issue.updated_at = reopened_at.clone();
     }
+    // A rejected owner gets one bounded budget step up on the retry.  The
+    // first attempt may have spent its calls exploring or repairing output;
+    // repeating the same ceiling would make an otherwise valid fix fail the
+    // same way.  The host assignment is the authority, so explicit user
+    // overrides are not consulted here, and the team-wide call budget still
+    // caps the total spend.
+    const REWORK_BUDGET_STEP: usize = 4;
+    for item in prepared {
+        let Some(step) = state
+            .plan
+            .steps
+            .iter_mut()
+            .find(|step| step.id == item.step.id)
+        else {
+            continue;
+        };
+        let current = step
+            .input
+            .get("assigned_model_calls_per_attempt")
+            .and_then(Value::as_u64)
+            .unwrap_or(0) as usize;
+        if current == 0 {
+            continue;
+        }
+        let next = current
+            .saturating_add(REWORK_BUDGET_STEP)
+            .min(crate::worker_profile::PROFILE_MAX_TURNS_CAP);
+        if next > current {
+            step.input["assigned_model_calls_per_attempt"] = json!(next);
+        }
+    }
+    affected
 }
 
 impl TeamCoordinator {
@@ -370,7 +423,11 @@ mod batch_tests {
             ("sibling", vec![]),
         ] {
             let mut step = StepSpec::new(id, format!("m-{id}"));
-            step.input = json!({"objective":id,"write_paths":[format!("{id}.rs")]});
+            step.input = json!({
+                "objective": id,
+                "write_paths": [format!("{id}.rs")],
+                "assigned_model_calls_per_attempt": if id == "b" { 30 } else { 8 },
+            });
             step.depends_on = deps.into_iter().map(str::to_string).collect();
             plan.add_step(step);
         }
@@ -408,6 +465,45 @@ mod batch_tests {
     }
 
     #[test]
+    fn reopening_owner_invalidates_stale_resolution_evidence() {
+        let mut state = state();
+        state.delivery_issues.push(crate::goal::DeliveryIssueV1 {
+            issue_id: "issue-a".into(),
+            source_review_artifact_id: "review-1".into(),
+            source_review_sha256: "review-sha".into(),
+            finding_sha256: "finding-sha".into(),
+            severity: "major".into(),
+            detail: "needs repair".into(),
+            requirement_id: None,
+            target_task_id: "a".into(),
+            target_attempt_id: "attempt-a".into(),
+            target_artifact_id: Some("artifact-a".into()),
+            owner_step_id: "a".into(),
+            status: crate::goal::DeliveryIssueStatusV1::Resolved,
+            repair_attempt: 1,
+            resolution_review_artifact_id: Some("review-old".into()),
+            resolution_review_sha256: Some("review-old-sha".into()),
+            resolution_attempt_id: Some("attempt-a".into()),
+            opened_at: "t1".into(),
+            updated_at: "t2".into(),
+        });
+        let ReworkPreparation::Ready(prepared) = prepare_reworks(&state, &[request("a")]).unwrap()
+        else {
+            panic!("new batch must be ready")
+        };
+        apply_prepared_reworks(&mut state, &prepared);
+        let issue = &state.delivery_issues[0];
+        assert_eq!(
+            issue.status,
+            crate::goal::DeliveryIssueStatusV1::RepairDispatched
+        );
+        assert!(issue.resolution_review_artifact_id.is_none());
+        assert!(issue.resolution_review_sha256.is_none());
+        assert!(issue.resolution_attempt_id.is_none());
+        assert_eq!(issue.repair_attempt, 1);
+    }
+
+    #[test]
     fn dependent_owners_are_validated_together_and_reset_once() {
         let mut state = state();
         let ReworkPreparation::Ready(prepared) =
@@ -432,6 +528,33 @@ mod batch_tests {
             assert_eq!(step.input["objective"], id);
             assert_eq!(step.input["write_paths"], json!([format!("{id}.rs")]));
         }
+    }
+
+    #[test]
+    fn rework_raises_owner_budget_once_and_respects_profile_cap() {
+        let mut state = state();
+        let ReworkPreparation::Ready(prepared) =
+            prepare_reworks(&state, &[request("a"), request("b")]).unwrap()
+        else {
+            panic!("new batch must be ready")
+        };
+        apply_prepared_reworks(&mut state, &prepared);
+        let budget = |id: &str| {
+            state
+                .plan
+                .steps
+                .iter()
+                .find(|step| step.id == id)
+                .unwrap()
+                .input["assigned_model_calls_per_attempt"]
+                .as_u64()
+                .unwrap()
+        };
+        assert_eq!(budget("a"), 12);
+        assert_eq!(budget("b"), 32, "must clamp at PROFILE_MAX_TURNS_CAP");
+        // Downstream steps are reset for a fresh attempt but keep their own
+        // assignment; only the rejected owner earns the extra calls.
+        assert_eq!(budget("review"), 8);
     }
 
     #[test]

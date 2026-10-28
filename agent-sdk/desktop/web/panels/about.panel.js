@@ -10,6 +10,9 @@ window.OwoPanels.about = (function () {
   var H = null;
   var rootEl = null;
   var refreshGeneration = 0;
+  var mountGeneration = 0;
+  var activeTab = "overview";
+  var tabs = ["overview", "guide", "docs", "diagnostics"];
 
   function defaultHelpers() {
     var baseUrl = (window.OwoPanels && window.OwoPanels.baseUrl) || "";
@@ -31,6 +34,7 @@ window.OwoPanels.about = (function () {
 
   var SHORTCUTS = [
     ["Ctrl + N", "新对话"],
+    ["Ctrl + K", "搜索与切换功能"],
     ["Ctrl + O", "打开文件夹（选择工作区）"],
     ["Ctrl + B", "显示 / 隐藏会话栏"],
     ["Ctrl + ,", "打开设置"],
@@ -41,9 +45,11 @@ window.OwoPanels.about = (function () {
   ];
 
   var SLASH = [
-    ["/new", "新开一个会话"],
-    ["/undo", "撤销上一次文件改动"],
-    ["/redo", "重做被撤销的改动"],
+    ["/new", "新建会话，沿用当前模式"],
+    ["/chat", "新建对话：可联网检索，不读写本地文件"],
+    ["/agent", "新建 Work：可读写工作区、执行命令"],
+    ["/undo", "回退最近一个回合"],
+    ["/redo", "重做被回退的回合"],
     ["/export", "导出当前会话"],
     ["/stop", "中止正在跑的回合"],
     ["/settings", "打开设置页"],
@@ -68,74 +74,46 @@ window.OwoPanels.about = (function () {
   ];
 
   function nav() {
-    var shortcutRows = SHORTCUTS.map(function (row) {
-      return "<tr><td><kbd>" + row[0].replace(/ \+ /g, "</kbd> + <kbd>") + "</kbd></td><td>" + row[1] + "</td></tr>";
-    }).join("");
-    var slashRows = SLASH.map(function (row) {
-      return "<tr><td><code>" + row[0] + "</code></td><td>" + row[1] + "</td></tr>";
-    }).join("");
-    var docRows = DOCS.map(function (row) {
-      return (
-        '<div class="settings-row"><div class="settings-row-label"><strong>' +
-        row[0] +
-        "</strong><span>" +
-        row[2] +
-        '</span></div><div class="settings-row-control"><a href="' +
-        row[1] +
-        '" target="_blank" rel="noopener">打开</a></div></div>'
-      );
-    }).join("");
-    var thirdParty = THIRD_PARTY.map(function (name) {
-      return "<li>" + name + "</li>";
-    }).join("");
-
-    return (
-      '<section data-panel="' +
-      id +
-      '">' +
-      "<style>" +
-      // 固定 3 列：6 张卡片排成 2×3，避免 auto-fit 出现「5 张 + 1 张孤儿」
-      ".owo-about-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}" +
-      "@media (max-width:900px){.owo-about-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}" +
-      "@media (max-width:560px){.owo-about-cards{grid-template-columns:minmax(0,1fr)}}" +
-      ".owo-about-card{display:flex;flex-direction:column;gap:2px;border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px;background:var(--surface-2)}" +
-      ".owo-about-card b{font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1;color:var(--text)}" +
-      // 说明文字限 2 行：MCP 已连接列表这类长文本不再把卡片撑高
-      ".owo-about-card span{font-size:11.5px;color:var(--text-2);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}" +
-      ".owo-about-pre{background:var(--surface-2);border:1px solid var(--border-strong);border-radius:6px;padding:8px;font-size:12px;max-height:180px;overflow:auto;white-space:pre-wrap}" +
-      ".owo-about-table{width:100%;border-collapse:collapse;font-size:12px}" +
-      ".owo-about-table th,.owo-about-table td{border-bottom:1px solid var(--border-strong);padding:4px 6px;text-align:left}" +
-      "</style>" +
-      '<div class="stack">' +
-      '<div class="sub">服务与版本</div><div id="owo-about-health" class="owo-about-pre" role="status" aria-live="polite">加载中…</div>' +
-      '<div class="sub">能力面速览</div><div class="owo-about-cards" id="owo-about-caps" role="status" aria-live="polite">正在读取能力状态…</div>' +
-      '<div class="sub">快捷键</div><table class="owo-about-table"><thead><tr><th>快捷键</th><th>功能</th></tr></thead><tbody>' +
-      shortcutRows +
-      "</tbody></table>" +
-      '<div class="sub">斜杠命令</div><table class="owo-about-table"><thead><tr><th>命令</th><th>作用</th></tr></thead><tbody>' +
-      slashRows +
-      "</tbody></table>" +
-      '<div class="sub">文档与契约</div><div class="settings-card-list">' +
-      docRows +
-      "</div>" +
-      '<div class="sub">许可与致谢</div><div class="settings-card-list">' +
-      '<div class="settings-row"><div class="settings-row-label"><strong>许可证</strong><span>GPL-3.0-only（见仓库根 Cargo.toml 的 license 字段）</span></div>' +
-      '<div class="settings-row-control"><span class="sub">GPL-3.0-only</span></div></div>' +
-      '<div class="settings-row"><div class="settings-row-label"><strong>第三方组件</strong><span>主要依赖（完整清单见 Cargo.lock）</span></div></div>' +
-      '<ul class="sub" style="margin:0 0 6px 18px">' +
-      thirdParty +
-      "</ul>" +
-      "</div>" +
-      '<div class="sub">诊断</div>' +
-      '<div style="display:flex;gap:8px;align-items:center">' +
-      '<button type="button" id="owo-about-refresh">刷新</button>' +
-      '<button type="button" id="owo-about-copy">复制诊断信息</button>' +
-      "</div>" +
+    function table(rows, headings) {
+      return '<div class="owo-about-table-wrap"><table class="owo-about-table"><thead><tr>' + headings.map(function (v) { return '<th>' + v + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.map(function (row) {
+        return '<tr><td><code>' + escapeHtml(row[0]) + '</code></td><td>' + escapeHtml(row[1]) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+    }
+    var base = (H && H.baseUrl || '').replace(/\/$/, '');
+    return '<section data-panel="about" data-layout="custom" class="owo-about-panel owo-insight">' +
+      '<div class="owo-insight-toolbar"><div class="owo-insight-tabs" role="tablist" aria-label="帮助与关于">' + tabs.map(function (tab, i) {
+        return '<button type="button" role="tab" id="about-tab-' + tab + '" data-about-tab="' + tab + '" aria-controls="about-pane-' + tab + '" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? '0' : '-1') + '">' + ['概览', '使用指南', '文档与许可', '诊断'][i] + '</button>';
+      }).join('') + '</div><button type="button" id="owo-about-refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.6-1.5L20 9M4 15l2.3 3.5A7 7 0 0 0 17.9 17"/></svg>刷新状态</button></div>' +
+      '<section role="tabpanel" id="about-pane-overview" aria-labelledby="about-tab-overview"><h3>服务与版本</h3>' +
+      '<div id="owo-about-health" class="owo-about-health" role="status" aria-live="polite">加载中…</div>' +
+      '<section class="owo-insight-section"><h3>能力速览</h3><div class="owo-about-cards" id="owo-about-caps" role="status" aria-live="polite">正在读取能力状态…</div>' +
+      '<button type="button" id="owo-about-capabilities">查看能力与成熟度 →</button></section></section>' +
+      '<section role="tabpanel" id="about-pane-guide" aria-labelledby="about-tab-guide" hidden><h3>快捷键</h3>' + table(SHORTCUTS, ['快捷键', '功能']) +
+      '<section class="owo-insight-section"><h3>斜杠命令</h3>' + table(SLASH, ['命令', '作用']) + '</section></section>' +
+      '<section role="tabpanel" id="about-pane-docs" aria-labelledby="about-tab-docs" hidden><h3>文档与契约</h3>' + DOCS.map(function (row) {
+        return '<div class="owo-about-doc"><div><strong>' + escapeHtml(row[0]) + '</strong><p class="sub">' + escapeHtml(row[2]) + '</p></div>' +
+          (row[1] === 'schemas' ? '<button type="button" id="owo-about-schemas">读取契约</button>' : '<a href="' + escapeHtml(base + '/' + row[1]) + '" target="_blank" rel="noopener">打开 ↗</a>') + '</div>';
+      }).join('') + '<div id="owo-about-schema-result" role="status" aria-live="polite"></div>' +
+      '<section class="owo-insight-section"><h3>许可与致谢</h3><p>GPL-3.0-only（Agent SDK workspace 的 Cargo.toml）</p><p class="sub">主要依赖；完整清单见 Cargo.lock。</p><ul class="owo-about-credits">' +
+      THIRD_PARTY.map(function (v) { return '<li>' + escapeHtml(v) + '</li>'; }).join('') + '</ul></section></section>' +
+      '<section role="tabpanel" id="about-pane-diagnostics" aria-labelledby="about-tab-diagnostics" hidden><h3>诊断</h3>' +
+      '<p class="sub">配置和状态不代表已完成推理验证；请结合实际任务判断能力是否可用。</p>' +
       '<div id="owo-about-diag" class="owo-about-pre" role="status" aria-live="polite">正在读取诊断…</div>' +
-      "</div>"
-    );
+      '<div class="owo-insight-actions"><button type="button" id="owo-about-copy">复制诊断信息</button></div>' +
+      '<p id="owo-about-copy-status" class="sub" role="status" aria-live="polite"></p><textarea id="owo-about-copy-fallback" aria-label="待复制的诊断信息" readonly hidden></textarea></section></section>';
   }
-
+  function selectTab(tab) {
+    if (!rootEl || tabs.indexOf(tab) < 0) return;
+    activeTab = tab;
+    tabs.forEach(function (key) {
+      var btn = rootEl.querySelector('[data-about-tab="' + key + '"]');
+      if (btn && btn.setAttribute) { btn.setAttribute('aria-selected', String(tab === key)); btn.setAttribute('tabindex', tab === key ? '0' : '-1'); }
+      var pane = rootEl.querySelector('#about-pane-' + key); if (pane) pane.hidden = tab !== key;
+    });
+  }
+  function facts(rows) {
+    return '<dl class="owo-about-facts">' + rows.map(function (row) { return '<dt>' + escapeHtml(row[0]) + '</dt><dd>' + escapeHtml(row[1]) + '</dd>'; }).join('') + '</dl>';
+  }
   function text(id, value, targetRoot) {
     var el = targetRoot && targetRoot.querySelector("#" + id);
     if (el) el.textContent = value;
@@ -149,7 +127,7 @@ window.OwoPanels.about = (function () {
     if (data == null) return "—";
     if (Object.prototype.toString.call(data) === "[object Array]") return String(data.length);
     if (typeof data === "object") {
-      if (typeof data.count === "number") return String(data.count);
+      if (Number.isInteger(data.count) && data.count >= 0) return String(data.count);
       if (data[key] && Object.prototype.toString.call(data[key]) === "[object Array]") return String(data[key].length);
     }
     return "—";
@@ -178,29 +156,32 @@ window.OwoPanels.about = (function () {
     var base = (H && H.baseUrl) || "";
     var current = function () { return isCurrentRefresh(generation, targetRoot); };
     // 1) 服务与版本；失败单独显示，避免把“未读取”伪装成服务的实际状态。
-    Promise.all([
+    var healthRequest = Promise.all([
       H.get("/health").catch(function (error) { return { error: String(error && error.message || error) }; }),
       H.get("/server/status").catch(function (error) { return { error: String(error && error.message || error) }; }),
     ]).then(function (result) {
       if (!current()) return;
       var health = result[0] || {};
       var status = result[1] || {};
-      var lines = [];
-      lines.push("版本：" + (health.error ? "不可用（" + health.error + "）" : (health.version || "未知") + "（/health）"));
-      lines.push("健康：" + (health.error ? "未读取" : health.healthy === true ? "正常" : health.healthy === false ? "异常" : "未知"));
-      if (!health.error) lines.push("自动审批：" + (health.auto_approve ? "已开启（OWO_AUTO_APPROVE）" : "关闭（逐次审批）"));
-      if (status.error) lines.push("服务状态：不可用（" + status.error + "）");
-      else {
-        if (status.workspace) lines.push("工作区：" + status.workspace);
-        if (status.model) lines.push("模型：" + status.model);
-        if (status.read_only !== undefined) lines.push("只读模式：" + (status.read_only ? "是" : "否"));
-      }
-      lines.push("API Base：" + (base || "同源"));
-      text("owo-about-health", lines.join("\n"), targetRoot);
+      var readOnly = status.storage && status.storage.read_only;
+      if (typeof readOnly !== 'boolean') readOnly = status.read_only;
+      var rows = [
+        ['版本', health.error ? '不可用（' + health.error + '）' : health.version || '未知'],
+        ['API', health.error ? '未读取' : health.api_version || '未知'],
+        ['健康状态', health.error ? '未读取' : health.healthy === true ? '正常' : health.healthy === false ? '异常' : '未知'],
+        ['审批方式', health.error ? '未读取' : health.auto_approve === true ? '自动审批已开启' : health.auto_approve === false ? '逐次审批' : '未知'],
+        ['存储模式', status.error ? '不可用（' + status.error + '）' : readOnly === true ? '只读' : readOnly === false ? '可写' : '未知'],
+        ['核心阶段', health.error ? '未读取' : health.stage || '未知']
+      ];
+      if (status.workspace) rows.push(['工作区', status.workspace]);
+      if (status.model) rows.push(['模型', status.model]);
+      rows.push(['API Base', base || '同源']);
+      var el = targetRoot && targetRoot.querySelector('#owo-about-health');
+      if (el) el.innerHTML = facts(rows);
     });
 
     // 2) 能力速览。未读取与真实 0 个明确区分；移除未展示的用量请求。
-    Promise.all([
+    var capsRequest = Promise.all([
       H.get("/skills").catch(function () { return null; }),
       H.get("/plugins").catch(function () { return null; }),
       H.get("/mcp").catch(function () { return null; }),
@@ -212,7 +193,7 @@ window.OwoPanels.about = (function () {
       var skills = r[0];
       var plugins = r[1];
       var mcp = r[2];
-      var connected = (mcp && mcp.connected) || [];
+      var connected = mcp && Array.isArray(mcp.connected) ? mcp.connected.filter(function (v) { return typeof v === "string"; }) : [];
       var mcpCount = mcp == null ? "不可用" : countOf(mcp, "servers");
       var hint = !mcp
         ? "无法读取服务器状态；点击刷新重试"
@@ -233,18 +214,18 @@ window.OwoPanels.about = (function () {
           : card(label, value, hintText);
       };
       var caps = []
-        .concat([capabilityCard("技能", skills, "skills", "internal + 用户技能")])
-        .concat([capabilityCard("插件", plugins, "plugins", "工作区 plugins/ 与数据目录")])
-        .concat([card("MCP 服务器", mcpValue, hint)])
-        .concat([capabilityCard("自动化任务", r[3], null, "定时/间隔提醒")])
-        .concat([capabilityCard("笔记", r[4], "notes", "结构块 + 全文检索")])
-        .concat([capabilityCard("会话", r[5], "sessions", "含子会话")]);
+        .concat([capabilityCard("技能", skills, "skills", "")])
+        .concat([capabilityCard("插件", plugins, "plugins", "")])
+        .concat([card("MCP 服务器", mcpValue === "—" ? "未知" : mcpValue, hint)])
+        .concat([capabilityCard("定时任务", r[3], null, "")])
+        .concat([capabilityCard("笔记", r[4], "notes", "")])
+        .concat([capabilityCard("会话", r[5], "sessions", "")]);
       var el = targetRoot && targetRoot.querySelector("#owo-about-caps");
       if (el) el.innerHTML = caps.join("");
     });
 
     // 3) 诊断（感知 / 视觉 / 模型链路就绪度）
-    Promise.all([
+    var diagRequest = Promise.all([
       H.get("/perception/ocr/status").catch(function (e) { return { error: String(e && e.message) }; }),
       H.get("/vision/status").catch(function (e) { return { error: String(e && e.message) }; }),
       H.get("/plugins/market").catch(function (e) { return { error: String(e && e.message) }; }),
@@ -254,62 +235,77 @@ window.OwoPanels.about = (function () {
       var vision = r[1] || {};
       var market = r[2] || {};
       var lines = [];
-      lines.push("OCR：" + (ocr.error ? "不可用（" + ocr.error + "）" : (ocr.provider || ocr.engine || "就绪") + (ocr.ready === false ? "（未就绪）" : "")));
-      lines.push("视觉：" + (vision.error ? "不可用（" + vision.error + "）" : vision.provider || vision.model || "就绪"));
-      lines.push("插件市场：" + (market.error ? "不可用（" + market.error + "）" : "可用，条目 " + (market.count != null ? market.count : "—") + "（远端目录走 OWO_MARKET_URL）"));
+      var ocrState = ocr.onnx_models_present === false ? '模型文件缺失' : ocr.ready === false ? '未就绪' : ocr.ready === true ? '服务报告就绪（未验证本次识别）' : '识别就绪度未确认';
+      lines.push('OCR：' + (ocr.error ? '不可用（' + ocr.error + '）' : ocrState));
+      if (!ocr.error && typeof ocr.engine_created === 'boolean') lines.push('OCR 引擎对象：' + (ocr.engine_created ? '已创建' : '未创建'));
+      lines.push('视觉：' + (vision.error ? '不可用（' + vision.error + '）' : vision.ready === false ? '未就绪' : vision.ready === true ? '服务报告就绪（未验证本次推理）' : '推理就绪度未确认'));
+      if (!vision.error) {
+        if (vision.provider) lines.push('视觉提供方：' + vision.provider);
+        if (vision.model) lines.push('视觉模型配置：' + vision.model);
+        if (Array.isArray(vision.ollama_models)) lines.push('本地模型列表：' + (vision.ollama_models.length ? vision.ollama_models.map(function (v) { return typeof v === 'string' ? v : v && v.name || '未命名'; }).join('、') : '空'));
+      }
+      lines.push('插件市场：' + (market.error ? '不可用（' + market.error + '）' : '已读取目录，条目 ' + countOf(market, 'catalog')));
       lines.push("采样时间：" + new Date().toLocaleString());
       text("owo-about-diag", lines.join("\n"), targetRoot);
     });
+    return Promise.allSettled([healthRequest, capsRequest, diagRequest]);
   }
 
   function copyDiagnostics() {
-    var health = rootEl && rootEl.querySelector("#owo-about-health");
-    var diag = rootEl && rootEl.querySelector("#owo-about-diag");
-    var payload = [
-      "# OwO Agent 诊断信息",
-      "",
-      health ? health.textContent : "",
-      "",
-      diag ? diag.textContent : "",
-      "",
-      "userAgent: " + navigator.userAgent,
-    ].join("\n");
+    var target = rootEl, generation = mountGeneration;
+    var health = target && target.querySelector('#owo-about-health'), diag = target && target.querySelector('#owo-about-diag');
+    var payload = ['# OwO Agent 诊断信息', '', health ? health.textContent : '', '', diag ? diag.textContent : '', 'userAgent: ' + navigator.userAgent].join('\n');
+    function current() { return rootEl === target && generation === mountGeneration; }
     function fallback() {
-      var area = document.createElement("textarea");
-      area.value = payload;
-      document.body.appendChild(area);
-      area.select();
-      try {
-        document.execCommand("copy");
-      } catch (e) {
-        /* 忽略：无剪贴板权限时保持静默 */
-      }
-      document.body.removeChild(area);
+      if (!current()) return;
+      text('owo-about-copy-status', '无法访问剪贴板，请在下方选择文本后手动复制。', target);
+      var area = target.querySelector('#owo-about-copy-fallback');
+      if (area) { area.hidden = false; area.value = payload; if (area.focus) area.focus(); if (area.select) area.select(); }
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(payload).catch(fallback);
-    } else {
-      fallback();
+      return Promise.resolve().then(function () { return navigator.clipboard.writeText(payload); }).then(function () {
+        if (current()) text('owo-about-copy-status', '诊断信息已复制。', target);
+      }).catch(fallback);
     }
+    fallback();
   }
-
   function mount(root, helpers) {
-    if (helpers) H = helpers;
-    if (!H) H = defaultHelpers();
-    refreshGeneration += 1;
-    rootEl = root;
+    dispose(); H = Object.assign(defaultHelpers(), helpers || {}); rootEl = root;
+    var generation = mountGeneration;
     root.innerHTML = nav();
-    var refreshBtn = root.querySelector("#owo-about-refresh");
-    if (refreshBtn) refreshBtn.addEventListener("click", refresh);
-    var copyBtn = root.querySelector("#owo-about-copy");
-    if (copyBtn) copyBtn.addEventListener("click", copyDiagnostics);
-    refresh();
+    function bind(selector, action, event) {
+      var el = root.querySelector(selector);
+      if (el) el.addEventListener(event || 'click', function (e) { if (rootEl === root && generation === mountGeneration) return action(e); });
+    }
+    bind('#owo-about-refresh', refresh);
+    bind('#owo-about-copy', copyDiagnostics);
+    var cap = root.querySelector('#owo-about-capabilities');
+    if (cap) cap.hidden = typeof H.openPanel !== 'function';
+    bind('#owo-about-capabilities', function () { if (H.openPanel) H.openPanel('capabilities'); });
+    var schemasPending = false;
+    bind('#owo-about-schemas', function () {
+      if (schemasPending) return;
+      schemasPending = true; var button = root.querySelector('#owo-about-schemas'); button.disabled = true;
+      text('owo-about-schema-result', '正在读取契约…', root);
+      return Promise.resolve().then(function () { return H.get('/schemas'); }).then(function (value) {
+        if (rootEl !== root || generation !== mountGeneration) return;
+        var result = root.querySelector('#owo-about-schema-result');
+        if (result) result.innerHTML = '<details open><summary>接口形态</summary><pre>' + escapeHtml(JSON.stringify(value, null, 2)) + '</pre></details>';
+      }).catch(function (error) {
+        if (rootEl === root && generation === mountGeneration) text('owo-about-schema-result', '读取失败：' + (error.message || error), root);
+      }).finally(function () { schemasPending = false; if (rootEl === root && generation === mountGeneration) button.disabled = false; });
+    });
+    tabs.forEach(function (tab, i) {
+      bind('[data-about-tab="' + tab + '"]', function () { selectTab(tab); });
+      bind('[data-about-tab="' + tab + '"]', function (e) {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        var next = e.key === 'ArrowRight' ? (i + 1) % 4 : e.key === 'ArrowLeft' ? (i + 3) % 4 : e.key === 'Home' ? 0 : e.key === 'End' ? 3 : -1;
+        if (next < 0) return; e.preventDefault(); selectTab(tabs[next]); root.querySelector('[data-about-tab="' + tabs[next] + '"]').focus();
+      }, 'keydown');
+    });
+    selectTab(activeTab); return refresh();
   }
+  function dispose() { refreshGeneration += 1; mountGeneration += 1; rootEl = null; }
 
-  function dispose() {
-    refreshGeneration += 1;
-    rootEl = null;
-  }
-
-  return { id: id, title: "帮助与关于", mount: mount, dispose: dispose };
+  return { id: id, title: "帮助与关于", mount: mount, dispose: dispose, refresh: refresh };
 })();

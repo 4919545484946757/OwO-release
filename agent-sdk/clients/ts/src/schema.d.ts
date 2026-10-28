@@ -3303,6 +3303,7 @@ export interface paths {
         };
         get: operations["attachmentsList"];
         put?: never;
+        /** @description Upload at most 32 MiB JSON including base64/name/mime; decoded images at most 5 MiB, other files below approximately 24 MiB. Original filenames never overwrite older uploads. Images require a matching PNG/JPEG/WebP/GIF format header; this is not full image decoding. */
         post: operations["attachmentUpload"];
         delete?: never;
         options?: never;
@@ -4805,7 +4806,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["getUserWorkflow"];
         put?: never;
         post?: never;
         delete: operations["deleteUserWorkflow"];
@@ -4910,107 +4911,318 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/session/{id}/mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sessionSetMode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/providers/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 列出内置的模型提供商预设（端点/模型/多模态能力，不含凭据） */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 提供商预设表 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            providers?: Record<string, never>[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["promptsList"];
+        put?: never;
+        post: operations["promptsSave"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/prompts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["promptsDelete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/session/{id}/system-prompt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sessionSetSystemPrompt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Authenticated read-only projection of actual WorkerProfile assembly and live parent proxy tools. No network probes or credentials. */
+        get: operations["workflowToolCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/user/{id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["userWorkflowRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Durable Team lifecycle, artifact, handoff and public Agent Worker message/tool journal. Task-state indexing and legacy Worker paths are not yet included. Canonical public messages and pending delivery references commit together in the session store; journal publication is idempotent and acknowledged only after commit. Reads relay at most 64 pending references per page. JSON is the default. SSE emits timeline metadata (no cursor), then run_event with stable id and RunEvent JSON. Last-Event-ID resumes exclusively; unknown/foreign/conflicting cursors are rejected, never silently reset. No history retention/pruning yet. Bounded 32-frame buffer, 64-record SSE reads and 10-second blocked-send timeout; client reconnects from last processed id. Legacy /events stays available during client migration. Task observations are sourced from atomic Goal checkpoints and delivered with a transactional journal cursor. pending delivery is retried on reads and after restart. task_history_complete is false for legacy runs. Task causes point to real preceding step events (including task ID reassignment). No raw prompts, outputs or private reasoning are copied into task observations. */
+        get: operations["workswarmRunTimeline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/media-connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Read host-owned media profiles and configuration evidence only. No provider requests or verification. Absent storage returns revision 0 without creating files. */
+        get: operations["getMediaConnections"];
+        /** @description Authenticated atomic compare-and-swap save, at most 256 KiB. Supports image generation and speech synthesis. Stores credential references only. Unassigned services retain legacy environment compatibility. Missing referenced credentials may be saved but execution fails until configured. No service probe. */
+        put: operations["saveMediaConnections"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/media-connections/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Authenticated explicit TCP check. One check in flight; three-second timeout includes DNS. Does not read credentials or call a model. Respects OWO_CLOUD_ENABLED, saves observation only if configuration revision is still current. Body limited to 4 KiB. */
+        post: operations["checkMediaConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/input/preflight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check input declarations without changing a session or calling the model */
+        post: operations["input_preflight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @description 不可变评审记录（V1 四期第三路；只增不改，append-only） */
         ArtifactReviewRecord: {
+            review_id: string;
             artifact_id: string;
             /** @description 被评审的产物版本 */
             artifact_version: number;
+            team_id: string;
+            /** @enum {string} */
+            decision: "approve" | "request_changes" | "reject";
+            reviewer: string;
             comment?: string;
+            /** @description 唯一约束；同键重放零副作用 */
+            idempotency_key: string;
             /** @description 评审时的产物内容引用（取证锚点） */
             content_ref?: string;
             created_at: string;
-            /** @enum {string} */
-            decision: "approve" | "request_changes" | "reject";
-            /** @description 唯一约束；同键重放零副作用 */
-            idempotency_key: string;
-            review_id: string;
-            reviewer: string;
-            team_id: string;
         };
         /** @description 构建信息（§7.1 单一来源 owo-build-info：编译期烧录优先，OWO_BUILD_INFO 覆写文件兼容发布链） */
         BuildInfo: {
-            built_at: string;
             commit: string;
             dirty: boolean;
+            built_at: string;
         };
         /** @description 预测校准报告（WM0 聚合：命中、误差与不确定度分桶） */
         CalibrationReport: {
-            mean_calibration_error: number;
-            mean_delta_jaccard: number;
             /** Format: int64 */
             samples: number;
             success_hit_rate: number;
+            mean_calibration_error: number;
+            mean_delta_jaccard: number;
             uncertainty_buckets: {
-                hit_rate: number;
                 label: string;
                 /** Format: int64 */
                 samples: number;
+                hit_rate: number;
             }[];
         };
         /** @description 候选 provider 身份（§5.12.4 治理，声明≠接线）：external 需进程内真实接线后才积累影子样本；metadata_only 零样本且不可晋升 */
         CandidateProviderRef: {
+            /** @enum {string} */
+            type: "external";
             /** @description provider 类型标识（如 wm1-http、local-onnx） */
             kind: string;
             /** @description 定位串（端点或资源标识） */
             locator: string;
-            /** @enum {string} */
-            type: "external";
         } | {
             /** @enum {string} */
             type: "metadata_only";
         };
         /** @description 按 (case_id, mode) 分组的细分统计（单 Agent vs WorkSwarm 对照列） */
         CaseModeMetrics: {
-            /** @enum {string} */
-            agent_mode: "single" | "multi";
             case_id: string;
             /** @enum {string} */
             category: "code" | "research" | "document";
+            /** @enum {string} */
+            agent_mode: "single" | "multi";
+            runs_total: number;
+            passed: number;
+            success_rate: number;
+            mean_wall_ms: number;
             mean_model_calls: number;
             mean_tool_calls: ((number | null) | null) | null;
-            mean_wall_ms: number;
-            passed: number;
-            runs_total: number;
-            success_rate: number;
             /** Format: int64 */
             total_tokens: ((number | null) | null) | null;
         };
         CreateSessionRequest: {
+            /** @description 工作目录。agent 模式必填；chat 模式可省略，服务端会在数据目录下分配隔离工作区，显式给出的路径仍必须存在。 */
+            workspace?: string;
             model?: string;
             system_prompt?: string;
-            workspace: string;
+            /**
+             * @description 会话工作模式：agent 可读写工作区，chat 只给联网检索/提问等必要工具。
+             * @enum {string}
+             */
+            mode?: "agent" | "chat";
         };
         /** @description Explicit connection for this turn only; credentials are never persisted with sessions or traces. */
         CustomModelConnection: {
-            /** @enum {string} */
-            api_format?: "openai" | "anthropic";
-            api_key?: string;
-            api_key_env?: string;
+            model: string;
             /** Format: uri */
             base_url: string;
-            model: string;
+            /** @enum {string} */
+            api_format?: "openai" | "anthropic";
+            use_full_url?: boolean;
+            api_key?: string;
+            api_key_env?: string;
             temperature?: number;
             timeout_secs?: number;
-            use_full_url?: boolean;
+            input_capabilities?: components["schemas"]["ModelInputCapabilityBinding"];
         };
         DesktopModelCredentialBinding: {
+            credential_ref: string;
+            model: string;
+            /** Format: uri */
+            base_url: string;
             /** @enum {string} */
             api_format?: "openai" | "anthropic";
             /** @description Omit to revoke. Never persisted by this API. */
             api_key?: string | null;
-            /** Format: uri */
-            base_url: string;
-            credential_ref: string;
-            model: string;
         };
         EnablementRule: {
-            detail: string;
             name: string;
             satisfied: boolean;
+            detail: string;
         };
         Error: {
             error: string;
@@ -5065,140 +5277,145 @@ export interface components {
         };
         /** @description /health 响应（十期一路：build 为 additive 字段；§4.2 实例握手字段 additive） */
         HealthResponse: {
+            healthy: boolean;
+            version: string;
             /** @description 桌面壳与核心服务兼容性握手版本 */
             api_version: string;
             auto_approve: boolean;
             build?: components["schemas"]["BuildInfo"];
-            /** @description 构建标识（git_commit，缺失 unknown） */
-            build_id?: string;
-            healthy: boolean;
             /** @description 桌面壳注入的实例身份（开发模式不序列化） */
             instance_id?: string | null;
             /** @description 服务进程 pid */
             pid?: number;
             /** @description 启动阶段（当前恒为 ready） */
             stage?: string;
-            version: string;
+            /** @description 构建标识（git_commit，缺失 unknown） */
+            build_id?: string;
         };
         /** @description 矩阵单元格：(case_id, agent_mode, repetition)；agent_mode 为核心小写词（workswarm 拓扑序列化为 multi） */
         MatrixKey: {
+            case_id: string;
             /** @enum {string} */
             agent_mode: "single" | "multi";
-            case_id: string;
             repetition: number;
         };
         /** @description 共享 Team 自动启用结论：质量/成功率守卫、样本量、收益与资源护栏 */
         ModeComparison: {
-            alignment_guardrails: components["schemas"]["EnablementRule"][];
-            enabled: boolean;
-            multi_calls_rel_change: ((number | null) | null) | null;
-            multi_cost_rel_change: ((number | null) | null) | null;
             multi_success_rate_diff: number;
-            multi_tokens_rel_change: ((number | null) | null) | null;
-            multi_tool_calls_rel_change: ((number | null) | null) | null;
             multi_wall_rel_change: ((number | null) | null) | null;
+            multi_calls_rel_change: ((number | null) | null) | null;
+            multi_tool_calls_rel_change: ((number | null) | null) | null;
+            multi_tokens_rel_change: ((number | null) | null) | null;
+            multi_cost_rel_change: ((number | null) | null) | null;
+            rules: components["schemas"]["EnablementRule"][];
+            alignment_guardrails: components["schemas"]["EnablementRule"][];
             quality_guardrails: components["schemas"]["EnablementRule"][];
             resource_guardrails: components["schemas"]["EnablementRule"][];
-            rules: components["schemas"]["EnablementRule"][];
+            enabled: boolean;
             sample_sufficient: boolean;
         };
         /** @description 世界模型候选（新候选恒 shadow 起步，达标后显式人工晋升；Option 字段缺省序列化为 null） */
         ModelCandidate: {
-            /** @description 晋升时刻的校准摘要快照（从未晋升过为 null） */
-            calibration_summary: components["schemas"]["CalibrationReport"] | null;
             candidate_id: string;
-            /** @description RFC3339 */
-            created_at: string;
             model_id: string;
             model_version: string;
-            promote_reason: string | null;
-            promoted_at: string | null;
-            /** @description provider 身份治理（响应 wire 字段名为 provider；注册请求侧字段名为 provider_ref） */
-            provider: components["schemas"]["CandidateProviderRef"];
             source: string;
             /** @enum {string} */
             status: "shadow" | "active" | "rejected";
+            /** @description RFC3339 */
+            created_at: string;
+            promoted_at: string | null;
+            promote_reason: string | null;
+            /** @description provider 身份治理（响应 wire 字段名为 provider；注册请求侧字段名为 provider_ref） */
+            provider: components["schemas"]["CandidateProviderRef"];
+            /** @description 晋升时刻的校准摘要快照（从未晋升过为 null） */
+            calibration_summary: components["schemas"]["CalibrationReport"] | null;
         };
         /** @description 聚合指标：成功率分母为全部已尝试运行（失败/错误/超时一律计入，禁止剔除重算） */
         ProductEvalMetrics: {
-            cancelled: number;
-            errors: number;
-            estimated_cost_usd: ((number | null) | null) | null;
-            failed: number;
-            mean_wall_ms: number;
-            passed: number;
             runs_total: number;
-            success_rate: number;
+            passed: number;
+            failed: number;
+            errors: number;
             timeouts: number;
+            cancelled: number;
+            success_rate: number;
+            mean_wall_ms: number;
             /** Format: int64 */
             total_model_calls: number;
             /** Format: int64 */
-            total_tokens: ((number | null) | null) | null;
-            /** Format: int64 */
             total_tool_calls: ((number | null) | null) | null;
+            /** Format: int64 */
+            total_tokens: ((number | null) | null) | null;
+            estimated_cost_usd: ((number | null) | null) | null;
         };
         /** @description ProductEvalReport 原样（core 序列化；聚合全部 journal 记录含失败 + 未完成单元格清单） */
         ProductEvalReport: {
-            comparison?: components["schemas"]["ModeComparison"];
+            schema_version: number;
+            suite_name: string;
+            suite_hash: string;
             /** @enum {string} */
             execution: "reference" | "live";
-            generated_at: string;
-            metrics: components["schemas"]["ProductEvalMetrics"];
             model: ((string | null) | null) | null;
-            pending: components["schemas"]["MatrixKey"][];
-            per_case: components["schemas"]["CaseModeMetrics"][];
+            generated_at: string;
             runs: components["schemas"]["ProductEvalRun"][];
-            schema_version: number;
-            suite_hash: string;
-            suite_name: string;
+            pending: components["schemas"]["MatrixKey"][];
+            metrics: components["schemas"]["ProductEvalMetrics"];
+            per_case: components["schemas"]["CaseModeMetrics"][];
+            comparison?: components["schemas"]["ModeComparison"];
         };
         /** @description 一次运行的完整记录（journal 最小单元；失败记录同样保留；Option 字段缺数据时序列化为 null） */
         ProductEvalRun: {
-            /** @description 最终 Artifact 引用（沙盒内相对路径） */
-            artifact_refs: string[];
-            cancellations: number;
+            key: components["schemas"]["MatrixKey"];
             /** @enum {string} */
             category: "code" | "research" | "document";
-            /** Format: int64 */
-            completion_tokens: ((number | null) | null) | null;
-            cost_usd: ((number | null) | null) | null;
-            error: ((string | null) | null) | null;
-            /** @description 失败步骤（检查器描述/执行器阶段名） */
-            failed_steps: string[];
-            finished_at: string;
-            key: components["schemas"]["MatrixKey"];
-            model: ((string | null) | null) | null;
-            model_calls: number;
-            /** Format: int64 */
-            prompt_tokens: ((number | null) | null) | null;
-            retries: number;
-            started_at: string;
             /**
              * @description 单元格级状态（核心 RunStatus 小写词）
              * @enum {string}
              */
             status: "passed" | "failed" | "error" | "timeout" | "cancelled";
-            /** @description 精确工具调用数；旧记录或执行器无法观测时为 null */
-            tool_calls: ((number | null) | null) | null;
-            /** @description 真实工具调用轨迹（单 Agent 执行器填写：工具+实参摘要+结果；旧记录缺省为空数组） */
-            tool_log: string[];
-            /** Format: int64 */
-            total_tokens: ((number | null) | null) | null;
             /** Format: int64 */
             wall_ms: number;
+            model_calls: number;
+            /** @description 精确工具调用数；旧记录或执行器无法观测时为 null */
+            tool_calls: ((number | null) | null) | null;
+            /** Format: int64 */
+            prompt_tokens: ((number | null) | null) | null;
+            /** Format: int64 */
+            completion_tokens: ((number | null) | null) | null;
+            /** Format: int64 */
+            total_tokens: ((number | null) | null) | null;
+            cost_usd: ((number | null) | null) | null;
+            /** @description 失败步骤（检查器描述/执行器阶段名） */
+            failed_steps: string[];
+            retries: number;
+            cancellations: number;
+            /** @description 最终 Artifact 引用（沙盒内相对路径） */
+            artifact_refs: string[];
+            /** @description 真实工具调用轨迹（单 Agent 执行器填写：工具+实参摘要+结果；旧记录缺省为空数组） */
+            tool_log: string[];
+            model: ((string | null) | null) | null;
+            started_at: string;
+            finished_at: string;
+            error: ((string | null) | null) | null;
         };
         /** @description ProductEval 运行摘要（列表元素与详情基底；六态：queued/running/cancelled/completed/failed/interrupted） */
         ProductEvalRunSummary: {
-            /** @enum {string|null} */
-            category?: "code" | "research" | "document" | null;
-            created_at: string;
-            error?: string | null;
+            run_id: string;
+            suite: string;
             /** @enum {string} */
             execution: "reference" | "live";
-            finished_at?: string | null;
-            model?: string | null;
             modes: ("single" | "workswarm")[];
+            repetitions: number;
+            /** @enum {string|null} */
+            category?: "code" | "research" | "document" | null;
             only?: string | null;
+            model?: string | null;
+            /** @enum {string} */
+            status: "queued" | "running" | "cancelled" | "completed" | "failed" | "interrupted";
+            created_at: string;
+            started_at?: string | null;
+            finished_at?: string | null;
             /** @description 计划单元格总数（modes × cases × repetitions） */
             planned_total: number;
             progress: {
@@ -5207,84 +5424,121 @@ export interface components {
                 /** @description = planned_total */
                 total: number;
             };
-            repetitions: number;
-            run_id: string;
-            started_at?: string | null;
-            /** @enum {string} */
-            status: "queued" | "running" | "cancelled" | "completed" | "failed" | "interrupted";
-            suite: string;
+            error?: string | null;
         };
         SessionDetail: {
+            id?: string;
+            title?: string;
+            model?: string;
+            model_override?: string | null;
+            workspace?: string;
+            messages?: components["schemas"]["ChatMessage"][];
+            turn_history?: components["schemas"]["SessionTurnHistoryV1"] | null;
+            turn_history_error?: string | null;
             active_turn_id?: string | null;
             activity?: {
                 [key: string]: unknown;
             } | null;
-            id?: string;
-            messages?: {
-                [key: string]: unknown;
+            created_at?: string;
+            updated_at?: string;
+            archived?: boolean;
+            pinned?: boolean;
+            parent_id?: string | null;
+            fork_point?: number | null;
+            todos?: {
+                content: string;
+                /** @enum {string} */
+                status: "pending" | "in_progress" | "completed";
             }[];
-            model?: string;
-            model_override?: string | null;
-            title?: string;
-            turn_history?: components["schemas"]["SessionTurnHistoryV1"] | null;
-            turn_history_error?: string | null;
-            workspace?: string;
+            /** @description 会话级目标状态；null = 未设定。 */
+            goal?: {
+                objective: string;
+                iterations: number;
+                done: boolean;
+                updated_at: string;
+                /** @enum {string} */
+                origin: "user" | "model";
+            } | null;
+            /**
+             * @description 会话工作模式：agent 可读写工作区，chat 只给联网检索/提问等必要工具。
+             * @enum {string}
+             */
+            mode?: "agent" | "chat";
+            /** @description 会话级自定义提示词；null = 使用默认提示词。 */
+            system_prompt?: string | null;
         };
         SessionInfo: {
-            archived?: boolean;
-            created_at?: string;
-            fork_point?: number;
             id?: string;
-            model?: string;
-            parent_id?: string;
-            pinned?: boolean;
-            title?: string;
-            updated_at?: string;
             workspace?: string;
+            updated_at?: string;
+            title?: string;
+            archived?: boolean;
+            pinned?: boolean;
+            parent_id?: string;
+            fork_point?: number;
+            model?: string;
+            created_at?: string;
+            /**
+             * @description 会话工作模式：agent 可读写工作区，chat 只给联网检索/提问等必要工具。
+             * @enum {string}
+             */
+            mode?: "agent" | "chat";
+            /** @description 会话级目标状态；null = 未设定。 */
+            goal?: {
+                objective: string;
+                iterations: number;
+                done: boolean;
+                updated_at: string;
+                /** @enum {string} */
+                origin: "user" | "model";
+            } | null;
         };
         SessionTurnHistoryV1: {
-            last_event_at?: string;
-            last_event_type?: string;
-            last_stats?: {
-                created_at?: string;
-                payload?: {
-                    [key: string]: unknown;
-                };
-                seq?: number;
-                turn_id?: string;
-            } | null;
-            last_terminal?: {
-                created_at?: string;
-                payload?: {
-                    [key: string]: unknown;
-                };
-                seq?: number;
-                turn_id?: string;
-            } | null;
             last_turn_id?: string;
             latest_seq?: number;
+            last_event_at?: string;
+            last_event_type?: string;
+            last_terminal?: {
+                turn_id?: string;
+                seq?: number;
+                created_at?: string;
+                payload?: {
+                    [key: string]: unknown;
+                };
+            } | null;
+            last_stats?: {
+                turn_id?: string;
+                seq?: number;
+                created_at?: string;
+                payload?: {
+                    [key: string]: unknown;
+                };
+            } | null;
         };
         TurnEventRecord: {
-            created_at: string;
-            /** @description Versioned SseEvent payload */
-            payload: Record<string, never>;
-            /** Format: int64 */
-            seq: number;
             session_id: string;
             turn_id: string;
+            /** Format: int64 */
+            seq: number;
+            created_at: string;
+            /** @description Versioned SseEvent payload */
+            payload: {
+                /** @description Structured media refs, independent of preview text. Absent on legacy events. */
+                outputs?: components["schemas"]["ToolOutputArtifact"][];
+            };
         };
         TurnEventReplayPage: {
-            active: boolean;
             events: components["schemas"]["TurnEventRecord"][];
-            /** Format: int64 */
-            next_after_seq: number;
+            active: boolean;
             /** @enum {string} */
             state: "active" | "completed" | "failed" | "interrupted";
+            /** Format: int64 */
+            next_after_seq: number;
         };
         TurnRequest: {
-            attachments?: string[];
-            model_connection?: components["schemas"]["CustomModelConnection"];
             prompt: string;
+            model_connection?: components["schemas"]["CustomModelConnection"];
+            attachments?: string[];
             /** @description Narrow this turn to host-verified read operations; false never relaxes host policy */
             read_only?: boolean;
             /**
@@ -5292,6 +5546,390 @@ export interface components {
              * @description Preallocated identity for scoped cancellation, replay and duplicate suppression
              */
             turn_id?: string;
+            /** @description Immutable session-owned input references; images become native vision content. Audio/video currently return 422 until an input adapter is configured. */
+            content_parts?: components["schemas"]["ContentPart"][];
+        };
+        ToolOutputArtifact: {
+            artifact_id: string;
+            /** @enum {string} */
+            kind: "image" | "audio";
+            mime_type: string;
+            /** Format: int64 */
+            bytes: number;
+            sha256: string;
+            path: string;
+        };
+        WorkflowToolCapability: {
+            name: string;
+            description: string;
+            input_schema: unknown;
+            effect: {
+                [key: string]: unknown;
+            } | null;
+            /** @enum {string} */
+            source: "worker_native" | "parent_proxy" | "main_session";
+            worker_supported: boolean;
+            profiles: string[];
+            input_modalities: string[];
+            output_modalities: string[];
+            /**
+             * @description Assembly/configuration state only, never remote verification or authorization.
+             * @enum {string}
+             */
+            status: "registered" | "not_configured" | "disabled" | "unsupported";
+            reason: string | null;
+        };
+        WorkflowToolIssue: {
+            role: string;
+            tool: string;
+            code: string;
+            message: string;
+        };
+        WorkflowToolPreflight: {
+            ok: boolean;
+            issues: components["schemas"]["WorkflowToolIssue"][];
+        };
+        WorkflowToolCatalog: {
+            tools: components["schemas"]["WorkflowToolCapability"][];
+            authorization: string;
+            service_verification: string;
+        };
+        WorkflowNodePosition: {
+            x: number;
+            y: number;
+        };
+        WorkflowEditorMetadata: {
+            /** @enum {integer} */
+            version: 1;
+            nodes: {
+                id: string;
+                position?: components["schemas"]["WorkflowNodePosition"];
+            }[];
+        };
+        WorkflowRole: {
+            node_id?: string;
+            role?: string;
+            /** @enum {string} */
+            assignee?: "agent" | "human" | "worker";
+            worker?: string;
+            model?: string;
+            verify?: string;
+            handoff_contract?: string;
+            depends_on?: string[];
+            tools?: string[];
+            write_paths?: string[];
+            capabilities?: string[];
+        };
+        WorkflowTemplate: {
+            template_id?: string;
+            name?: string;
+            applicability?: string;
+            source_team_id?: string;
+            created_at?: string;
+            origin?: string;
+            description?: string;
+            version?: string;
+            /** @enum {string} */
+            mode?: "single" | "team" | "swarmflow";
+            roles?: components["schemas"]["WorkflowRole"][];
+            tags?: string[];
+            editor?: components["schemas"]["WorkflowEditorMetadata"];
+        };
+        WorkflowUpsert: components["schemas"]["WorkflowTemplate"] & {
+            /** @description Host revision read and reviewed before editing; 0 means create only. Never refresh and blindly retry conflicts. */
+            expected_revision?: number;
+        };
+        WorkflowRevision: {
+            template_id: string;
+            /** @description Host revision read and reviewed before editing; 0 means create only. Never refresh and blindly retry conflicts. */
+            revision: number;
+            committed_at: string;
+            content_hash?: string | null;
+            template: components["schemas"]["WorkflowTemplate"] | null;
+        };
+        /** @description Frozen identity of the template read when the team was created; resolved RunMeta roles remain the execution snapshot. */
+        RunTemplateSource: {
+            template_id: string;
+            revision: number;
+            content_hash: string;
+            /** @description Request supplied explicit roles rather than the stored role graph. */
+            roles_overridden: boolean;
+            /** @description Request-level model default. Explicit per-role models take precedence. */
+            requested_model?: string;
+        };
+        RunEvent: {
+            /** @enum {integer} */
+            schema_version: 1;
+            /** @description Host SQLite sequence, monotonic within this run; gaps across runs are valid. Never assume seq+1. */
+            seq: number;
+            /** @description Stable run:{run_id}:{seq}; pass exact value in Last-Event-ID. */
+            event_id: string;
+            run_id: string;
+            event_type: string;
+            /** Format: date-time */
+            timestamp: string;
+            node_id?: string;
+            task_id?: string;
+            attempt?: string;
+            causation_id?: string;
+            tool_call_id?: string;
+            /** @description Opaque existing references; download still requires authentication and scope checks. */
+            artifact_refs: string[];
+            /** @description Public sanitized observations. Worker payloads remain canonical in the session store: record_ref identifies the source; payload_preview is resolved only below an 8192-byte source-read limit and strings are sanitized/truncated to 400 characters. payload_complete=false means the preview is changed or unavailable; payload_unavailable=true means missing/deleted/oversized source. No private reasoning, credentials or inline media. Timestamp is journal publication time; source_timestamp is the canonical observation time. */
+            data: {
+                record_ref?: {
+                    session_id: string;
+                    seq: number;
+                    turn_id: string;
+                };
+                /** Format: date-time */
+                source_timestamp?: string;
+                /** @description False when the bounded envelope cannot carry all actual references; inspect canonical payload. */
+                artifact_refs_complete?: boolean;
+                payload_preview?: {
+                    [key: string]: unknown;
+                };
+                payload_complete?: boolean;
+                payload_unavailable?: boolean;
+                task_history_complete?: boolean;
+                /** @description Canonical task checkpoint source sequence; distinct from journal seq. */
+                source_seq?: number;
+                step_id?: string;
+                previous_status?: string | null;
+                removed?: boolean;
+                /** @description Bounded committed task observation. At most 64 dependency IDs and 2048 serialized bytes per dependency list. Error and skip previews are at most 400 characters; completeness flags reveal truncation. node_id and assignee come from actual persisted role metadata; unknown bindings stay null. No input, output or prompt bodies. */
+                task?: {
+                    step_id?: string;
+                    task_id?: string;
+                    worker?: string;
+                    node_id?: string | null;
+                    assignee?: string | null;
+                    /** @enum {string|null} */
+                    waiting_reason?: "dependencies" | "human_input" | "scheduler" | null;
+                    /** @enum {string} */
+                    status?: "pending" | "ready" | "running" | "succeeded" | "failed" | "aborted";
+                    attempt?: string | null;
+                    attempts?: number;
+                    phase_epoch?: number | null;
+                    depends_on?: string[];
+                    depends_on_complete?: boolean;
+                    waiting_for?: string[];
+                    waiting_for_complete?: boolean;
+                    error_preview?: string | null;
+                    error_complete?: boolean;
+                    skip_reason?: string | null;
+                    skip_reason_complete?: boolean;
+                } & {
+                    [key: string]: unknown;
+                };
+                /** @description Previous logical task binding on the same canonical step, including reassignment. */
+                previous_task_id?: string | null;
+            } & {
+                [key: string]: unknown;
+            };
+        };
+        RunEventPage: {
+            run_id: string;
+            events: components["schemas"]["RunEvent"][];
+            next_after: number;
+            high_watermark: number;
+            /** @description True when journal pages, pending Worker delivery or pending task checkpoint delivery remain. Continue with next_after even if no new published record is returned yet. */
+            has_more: boolean;
+            /** @description False when this run predates the journal. Creation history is not synthesized. Does not assert complete task-state or legacy Worker coverage. */
+            history_complete: boolean;
+            /** @description Whether task observations began in the initial durable checkpoint. False for legacy runs; absent on lower-level journal reads. This covers committed task states, not every coalesced in-memory notification. */
+            task_history_complete?: boolean;
+        };
+        RunEventHistoryPage: {
+            run_id: string;
+            events: components["schemas"]["RunEvent"][];
+            high_watermark: number;
+            /** @description True only when older committed records exist in this read snapshot; pending live delivery does not change this flag. */
+            has_more: boolean;
+            /** @description False when this run predates the journal. Creation history is not synthesized. Does not assert complete task-state or legacy Worker coverage. */
+            history_complete: boolean;
+            /** @description Whether task observations began in the initial durable checkpoint. False for legacy runs; absent on lower-level journal reads. This covers committed task states, not every coalesced in-memory notification. */
+            task_history_complete?: boolean;
+            /** @description Exclusive first event sequence for the next older page; null on an empty page. Never reuse null as before=0 when has_more=false. */
+            next_before: number | null;
+        };
+        TeamConversationPage: {
+            team_id: string;
+            sessions: {
+                session_id: string;
+                role: string | null;
+                events: {
+                    [key: string]: unknown;
+                }[];
+            }[];
+            next_cursors: {
+                [key: string]: number;
+            };
+            has_more: boolean;
+            handoffs: {
+                [key: string]: unknown;
+            }[];
+            /** @description Actual first handoff_id in the page. Null for an empty page; not a latest-page sentinel. */
+            next_handoff_before: string | null;
+            /** @description Older committed canonical handoffs exist. */
+            handoffs_has_more: boolean;
+            next_session_after: string | null;
+        };
+        AssetRef: {
+            artifact_id: string;
+            sha256: string;
+        };
+        ContentPart: {
+            /** @enum {string} */
+            type: "text";
+            text: string;
+        } | {
+            /** @enum {string} */
+            type: "image";
+            asset: components["schemas"]["AssetRef"];
+        } | {
+            /** @enum {string} */
+            type: "audio";
+            asset: components["schemas"]["AssetRef"];
+        } | {
+            /** @enum {string} */
+            type: "video";
+            asset: components["schemas"]["AssetRef"];
+        } | {
+            /** @enum {string} */
+            type: "file";
+            asset: components["schemas"]["AssetRef"];
+        };
+        UploadedAttachment: {
+            id: string;
+            name: string;
+            mime: string;
+            size: number;
+            /** @enum {string} */
+            kind: "image" | "audio" | "video" | "file";
+            asset: components["schemas"]["AssetRef"];
+            content_part: components["schemas"]["ContentPart"];
+            content_url: string;
+        };
+        /** @description Host-validated original input for display and safe replay. Legacy filename refs require explicit re-upload. */
+        StoredUserInput: {
+            prompt: string;
+            content_parts?: components["schemas"]["ContentPart"][];
+            legacy_attachments?: string[];
+        };
+        ChatMessage: {
+            role: string;
+            content?: string | null;
+            images?: {
+                url: string;
+            }[];
+            input?: components["schemas"]["StoredUserInput"] | null;
+            tool_calls?: {
+                [key: string]: unknown;
+            }[] | null;
+            tool_call_id?: string | null;
+        };
+        MediaConnectionStatus: {
+            /** @enum {string} */
+            service: "image_generation" | "text_to_speech";
+            /** @enum {string} */
+            status: "configured" | "not_configured" | "invalid_configuration";
+            configured: boolean;
+            /** @description Unknown until an explicit connection test; configuration does not prove connectivity. */
+            connected: boolean | null;
+            /** @description Unknown until explicit service verification; never inferred from configuration. */
+            verified: boolean | null;
+            last_verified_at: string | null;
+            /** @description Scheme and host/port only. Paths, queries and credentials are never returned. */
+            endpoint_origin: string | null;
+            model: string | null;
+            configuration_source: string | null;
+            /** @description Environment variable name only, never a credential value. */
+            credential_source: string | null;
+            reason: string | null;
+            profile_id?: string | null;
+            catalog_revision?: number | null;
+            last_checked_at_ms?: number | null;
+            /** @enum {string|null} */
+            connection_check_kind?: "tcp" | null;
+            connection_check_code?: string | null;
+        };
+        MediaProfile: {
+            id: string;
+            name: string;
+            /** @description HTTP(S) base endpoint; no embedded credentials, query or fragment. */
+            base_url: string;
+            model: string;
+            /** @description Environment variable name only; plaintext credentials are rejected. */
+            credential_env?: string | null;
+            services: ("image_generation" | "text_to_speech")[];
+        };
+        MediaProfileCatalog: {
+            /** @enum {integer} */
+            schema_version: 1;
+            /** @description Expected current revision on PUT; stale saves return 409. Server increments after atomic commit. */
+            revision: number;
+            profiles: components["schemas"]["MediaProfile"][];
+            assignments: {
+                image_generation?: string;
+                text_to_speech?: string;
+            };
+        };
+        MediaProfileView: {
+            catalog: components["schemas"]["MediaProfileCatalog"];
+            services: {
+                image_generation: components["schemas"]["MediaConnectionStatus"];
+                text_to_speech: components["schemas"]["MediaConnectionStatus"];
+            };
+            supported_services: ("image_generation" | "text_to_speech")[];
+            /** @enum {boolean} */
+            verification_supported: false;
+            checks: components["schemas"]["MediaConnectionCheck"][];
+            /** @enum {boolean} */
+            connection_test_supported: true;
+        };
+        MediaCheckRequest: {
+            expected_revision: number;
+            profile_id: string;
+            /** @enum {string} */
+            service: "image_generation" | "text_to_speech";
+        };
+        /** @description Persisted TCP observation for one immutable catalog revision. Does not test TLS, credentials, model compatibility or generation. */
+        MediaConnectionCheck: {
+            profile_id: string;
+            /** @enum {string} */
+            service: "image_generation" | "text_to_speech";
+            catalog_revision: number;
+            /** @enum {string} */
+            kind: "tcp";
+            connected: boolean;
+            started_at_ms: number;
+            checked_at_ms: number;
+            latency_ms: number;
+            /** @enum {string} */
+            code: "media_profiles/tcp_reachable" | "media_profiles/tcp_unreachable" | "media_profiles/tcp_timeout";
+        };
+        /** @description Explicit user/host declaration, not remote verification. Bound to the actual model, endpoint, protocol and URL mode. */
+        ModelInputCapabilityBinding: {
+            model: string;
+            /** Format: uri */
+            base_url: string;
+            /** @enum {string} */
+            api_format?: "openai" | "anthropic";
+            use_full_url?: boolean;
+            image_input: boolean;
+        };
+        /** @description Read-only model declaration admission. Does not send a model request or certify remote capability. */
+        InputPreflightRequest: {
+            /** @description Existing authoritative session, omitted for a prospective session. */
+            session_id?: string | null;
+            /** @description Retained message count; requires session_id. */
+            history_keep?: number | null;
+            /** @default false */
+            has_images: boolean;
+            /** @description Prospective sessions only; existing sessions resolve their saved override. */
+            model?: string | null;
+            model_connection?: components["schemas"]["CustomModelConnection"] | null;
         };
     };
     responses: never;
@@ -5340,8 +5978,14 @@ export interface operations {
     };
     artifactContent: {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                /** @description Return original bytes with the registered MIME; required for binary media. */
+                raw?: boolean;
+            };
+            header?: {
+                /** @description Single bytes range, only used with raw=true. */
+                Range?: string;
+            };
             path: {
                 id: string;
             };
@@ -5357,17 +6001,44 @@ export interface operations {
                 content: {
                     "application/json": {
                         artifact_id: string;
-                        content: string;
                         /** @enum {string} */
-                        format: "json" | "csv" | "research" | "markdown";
+                        format: "json" | "csv" | "research" | "markdown" | "binary";
                         sha256: string;
                         size_bytes: number;
+                        content: string;
                     };
+                    "application/octet-stream": string;
                 };
+            };
+            /** @description Authenticated partial raw content */
+            206: {
+                headers: {
+                    "Content-Range"?: string;
+                    "Accept-Ranges"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Missing or invalid authentication */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description artifact not found */
             404: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid or unsatisfiable single range */
+            416: {
+                headers: {
+                    "Content-Range"?: string;
                     [name: string]: unknown;
                 };
                 content?: never;
@@ -5816,7 +6487,16 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        media_connections?: {
+                            image_generation: components["schemas"]["MediaConnectionStatus"];
+                            text_to_speech: components["schemas"]["MediaConnectionStatus"];
+                        };
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
             };
         };
     };
@@ -5838,17 +6518,17 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        attempt_id?: string | null;
                         change_set_id: string;
-                        changed_files?: string[];
-                        created_at?: string;
-                        diff_ref?: string | null;
-                        resolved_at?: string | null;
-                        role?: string;
-                        /** @enum {string} */
-                        status: "pending_review" | "accepted" | "rejected" | "reverted" | "conflicted";
-                        step_id?: string;
                         team_id?: string;
+                        step_id?: string;
+                        attempt_id?: string | null;
+                        role?: string;
+                        changed_files?: string[];
+                        diff_ref?: string | null;
+                        /** @enum {string} */
+                        status: "pending_review" | "accepted" | "rejected" | "reverted" | "conflicted" | "superseded";
+                        created_at?: string;
+                        resolved_at?: string | null;
                     } & {
                         [key: string]: unknown;
                     };
@@ -11249,14 +11929,24 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    mime?: string;
+                    data_b64: string;
+                };
+            };
+        };
         responses: {
             /** @description uploaded attachment */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["UploadedAttachment"];
+                };
             };
         };
     };
@@ -12325,6 +13015,41 @@ export interface operations {
         requestBody?: {
             content: {
                 "application/json": {
+                    goal_id?: string;
+                    /** @description optional REPL session; server snapshots bounded same-workspace user constraints */
+                    parent_session_id?: string;
+                    objective: string;
+                    /** @enum {string} */
+                    mode?: "single" | "team" | "swarmflow";
+                    template_id?: string;
+                    roles?: Record<string, never>[];
+                    budget?: Record<string, never>;
+                    human_policy?: string;
+                    /**
+                     * @description 五期组队策略（缺省 auto：按任务画像判定，不再盲目启用多 Agent）；未知值 400
+                     * @enum {string}
+                     */
+                    strategy?: "auto" | "single" | "team";
+                    /** @description 六期（可选）：绑定真实项目工作区；缺省 = 服务端默认工作区 */
+                    workspace?: {
+                        /** @description 项目目录（绝对路径） */
+                        root: string;
+                        /** @description 缺省 true（只读）；写入需允许路径+权限审批 */
+                        read_only?: boolean;
+                        /** @description 相对 root 的允许写入路径 */
+                        write_allowed_paths?: string[];
+                        /** @description 目录树展示深度（1-8） */
+                        tree_depth?: number;
+                    };
+                    /** @description Default model for agent nodes; roles[].model overrides this value. */
+                    model?: string;
+                    /**
+                     * @description Enable the legacy lead/writer dynamic-assignment preset; custom DAG branches run according to dependencies and budget.max_parallel.
+                     * @default false
+                     */
+                    parallel?: boolean;
+                    /** @description Optional explicit agent membership limit. Explicit roles/templates retain their node count when omitted. */
+                    max_agent_members?: number;
                     /** @default false */
                     acknowledge_risk?: boolean;
                     /**
@@ -12332,47 +13057,21 @@ export interface operations {
                      * @default false
                      */
                     allow_scoped_writes?: boolean;
-                    budget?: Record<string, never>;
-                    goal_id?: string;
-                    human_policy?: string;
-                    /** @description Optional explicit agent membership limit. Explicit roles/templates retain their node count when omitted. */
-                    max_agent_members?: number;
-                    /** @enum {string} */
-                    mode?: "single" | "team" | "swarmflow";
-                    /** @description Default model for agent nodes; roles[].model overrides this value. */
-                    model?: string;
-                    objective: string;
-                    /**
-                     * @description Enable the legacy lead/writer dynamic-assignment preset; custom DAG branches run according to dependencies and budget.max_parallel.
-                     * @default false
-                     */
-                    parallel?: boolean;
-                    /** @description optional REPL session; server snapshots bounded same-workspace user constraints */
-                    parent_session_id?: string;
-                    roles?: Record<string, never>[];
-                    /**
-                     * @description 五期组队策略（缺省 auto：按任务画像判定，不再盲目启用多 Agent）；未知值 400
-                     * @enum {string}
-                     */
-                    strategy?: "auto" | "single" | "team";
-                    template_id?: string;
-                    /** @description 六期（可选）：绑定真实项目工作区；缺省 = 服务端默认工作区 */
-                    workspace?: {
-                        /** @description 缺省 true（只读）；写入需允许路径+权限审批 */
-                        read_only?: boolean;
-                        /** @description 项目目录（绝对路径） */
-                        root: string;
-                        /** @description 目录树展示深度（1-8） */
-                        tree_depth?: number;
-                        /** @description 相对 root 的允许写入路径 */
-                        write_allowed_paths?: string[];
-                    };
+                    /** @description Explicit assets owned by parent_session_id, validated before persistence and frozen in the source snapshot; revalidated on worker registry rebuild. */
+                    content_parts?: components["schemas"]["ContentPart"][];
                 };
             };
         };
         responses: {
             /** @description team run created; background run loop drives phases；body 含 strategy_decision（组队决策：mode/roles/parallelism/budget_calls_total/reasons，供 UI 渲染组队理由与调用预算）与 workspace（六期绑定回显） */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid configuration or final resolved role/tool preflight failed before persistence; no model execution. */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12407,7 +13106,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 内置模板目录（候选区）：每项含 installed 与 template 对象（template_id/name/mode/roles[{role,depends_on,handoff_contract}]）+ budget_calls_per_role[]/completion_criteria[]/tool_scope/artifact_kinds[]/auto_match_keywords；安装经 POST /teams/templates/catalog/{id}/install 后 installed=true 并参与自动匹配 */
+            /** @description 内置模板目录（候选区）：每项含 installed 与 template 对象（template_id/name/mode/roles[{role,depends_on,handoff_contract}]）+ budget_calls_per_role[]/completion_criteria[]/tool_scope/artifact_kinds[]/auto_match_keywords；安装经 POST /teams/templates/catalog/{id}/install 后 installed=true 并参与自动匹配; entries include revision (0 for no history), content_hash and installed; retained deletions keep their revision for reviewed reinstall. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -12417,9 +13116,9 @@ export interface operations {
                         catalog: ({
                             installed?: boolean;
                             template?: {
-                                mode?: string;
-                                name?: string;
                                 template_id?: string;
+                                name?: string;
+                                mode?: string;
                             } & {
                                 [key: string]: unknown;
                             };
@@ -12429,11 +13128,21 @@ export interface operations {
                     };
                 };
             };
+            /** @description Canonical registry unavailable or legacy migration failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     teamTemplateCatalogInstall: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Reviewed catalog revision. A retained deletion requires its exact revision. Never refresh and blindly retry conflicts. */
+                expected_revision?: number;
+            };
             header?: never;
             path: {
                 id: string;
@@ -12442,8 +13151,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 首次安装 {installed:true, already_installed:false, template, auto_match, budget_hint}；幂等重放 {installed:false, already_installed:true, note}（不覆盖既有同名模板）。安装后模板进入注册表并参与自动匹配（find_match），不自动扩大文件/命令/网络权限 */
+            /** @description Atomic install-if-absent. Returns installed, already_installed, template, revision and content_hash; an existing customization is returned unchanged without a new revision. */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid revision query. */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12451,6 +13167,20 @@ export interface operations {
             };
             /** @description template not found in catalog */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Reviewed revision conflicts with current state or retained deletion. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Canonical registry failure; not treated as an empty catalog. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12467,8 +13197,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description team template proposals (proposal only, never auto-enabled) */
+            /** @description team template proposals (proposal only, never auto-enabled); each record also includes frozen base_revision, adopted_revision, legacy_imported and proposal_hash. */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Canonical proposal store or migration failed. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12487,8 +13224,43 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description proposal adopted into template registry (idempotent) */
+            /** @description Atomic template CAS and proposal status commit; returns template, revision, content_hash. Exact replay returns the originally adopted revision, never overwrites later edits or restores a deletion. */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rejected proposal, deleted adopted workflow, or unverifiable legacy adoption. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Proposal not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Frozen base revision is stale or target is builtin; create and review a new proposal. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Candidate fails shared workflow validation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Storage failure; transaction rolls back both template and proposal status. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12541,51 +13313,53 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description team + task view + audit tail; R2 additive: interrupted */
+            /** @description Team, task view and audit tail; includes interrupted and frozen template_source (null for unknown legacy or non-template runs). */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": {
-                        audit_tail: {
-                            detail?: string;
-                            event?: string;
-                            ts?: string;
-                        }[];
-                        /** @description 七期（二路 wire）additive：文件变更列表（与既有 workspace git-status 路由可互用；diff 预览容错读 diff / diff_content 双键） */
-                        changes?: {
-                            added_lines?: number | null;
-                            deleted_lines?: number | null;
-                            /** @description 可选：该文件的 unified diff（UI 容错读 diff / diff_content 双键） */
-                            diff?: string | null;
-                            path: string;
-                            /** @enum {string} */
-                            state: "added" | "modified" | "deleted";
-                        }[] | null;
+                        /** @description TeamRun（透传） */
+                        team: Record<string, never>;
                         /** @description R2：中断标记（请求时先做一次幂等中断识别） */
                         interrupted: boolean;
                         /** @description 任务视图（步骤 × 状态） */
                         tasks: Record<string, never>;
-                        /** @description TeamRun（透传） */
-                        team: Record<string, never>;
+                        audit_tail: {
+                            ts?: string;
+                            event?: string;
+                            detail?: string;
+                        }[];
                         /** @description 七期（二路 wire）additive：按角色 WorkerProfile（工具权限 + 调用预算）；旧记录缺失 → UI 缺省空/false/null */
                         worker_profiles?: {
-                            can_run_command: boolean;
-                            can_use_browser: boolean;
-                            max_turns?: number | null;
-                            read_only: boolean;
                             role: string;
                             visible_tools: string[];
+                            read_only: boolean;
                             write_allowed_paths?: string[] | null;
+                            max_turns?: number | null;
+                            can_use_browser: boolean;
+                            can_run_command: boolean;
                         }[] | null;
                         /** @description 七期（二路 wire）additive：单一写租约（null = 未持有；取消中团队状态 stopping/stopped 渲染为 正在停止/已停止） */
                         write_lease?: {
-                            acquired_at_ms: number;
                             holder_role: string;
                             holder_step_id: string;
+                            acquired_at_ms: number;
                             released_at_ms?: number | null;
                         } | null;
+                        /** @description 七期（二路 wire）additive：文件变更列表（与既有 workspace git-status 路由可互用；diff 预览容错读 diff / diff_content 双键） */
+                        changes?: {
+                            path: string;
+                            /** @enum {string} */
+                            state: "added" | "modified" | "deleted";
+                            added_lines?: number | null;
+                            deleted_lines?: number | null;
+                            /** @description 可选：该文件的 unified diff（UI 容错读 diff / diff_content 双键） */
+                            diff?: string | null;
+                        }[] | null;
+                        /** @description Source revision/hash frozen with the actual template read; never inferred from the latest registry head. */
+                        template_source?: components["schemas"]["RunTemplateSource"] | null;
                     };
                 };
             };
@@ -12616,34 +13390,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        team_id: string;
                         change_sets: ({
+                            change_set_id?: string;
+                            team_id?: string;
+                            step_id?: string;
                             attempt_id?: string | null;
+                            role?: string;
                             /** @description 执行前文件内容哈希（内容进 CAS） */
                             base_hashes?: {
                                 [key: string]: unknown;
                             };
-                            change_set_id?: string;
-                            changed_files?: string[];
-                            created_at?: string;
-                            /** @description 幂等决定记录（accept/reject/revert 只增不改） */
-                            decisions?: {
-                                [key: string]: unknown;
-                            }[];
-                            diff_ref?: string | null;
-                            resolved_at?: string | null;
                             /** @description 执行后文件内容哈希 */
                             result_hashes?: {
                                 [key: string]: unknown;
                             };
-                            role?: string;
+                            changed_files?: string[];
+                            diff_ref?: string | null;
                             /** @enum {string} */
-                            status?: "pending_review" | "accepted" | "rejected" | "reverted" | "conflicted";
-                            step_id?: string;
-                            team_id?: string;
+                            status?: "pending_review" | "accepted" | "rejected" | "reverted" | "conflicted" | "superseded";
+                            /** @description 幂等决定记录（accept/reject/revert 只增不改） */
+                            decisions?: {
+                                [key: string]: unknown;
+                            }[];
+                            created_at?: string;
+                            resolved_at?: string | null;
                         } & {
                             [key: string]: unknown;
                         })[];
-                        team_id: string;
                     };
                 };
             };
@@ -12741,6 +13515,10 @@ export interface operations {
         parameters: {
             query?: {
                 cursors?: string;
+                /** @description Exclusive canonical handoff_id from next_handoff_before; omitted reads latest 64. Unknown/foreign/empty cursors return 400. Records are ascending within each page. */
+                handoff_before?: string;
+                /** @description Optional Team session rotation cursor returned as next_session_after. Reads pending sessions after this ID, wrapping once no later sessions are pending; per-session cursors remain authoritative. */
+                session_after?: string;
             };
             header?: never;
             path: {
@@ -12750,8 +13528,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Bounded public worker events, next_cursors, has_more and handoffs */
+            /** @description Bounded public worker events and at most 64 canonical handoffs. has_more concerns worker events only; handoffs_has_more concerns older handoffs. */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamConversationPage"];
+                };
+            };
+            /** @description Invalid conversation or handoff cursor */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13480,6 +14267,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Canonical draft storage or migration failed; no partial adoption is committed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     createWorkflowDraft: {
@@ -13512,8 +14306,22 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The draft or template changed during this operation; reload and review before retrying. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description 模型回复无 JSON / 结构不符 */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Canonical draft storage or migration failed; no partial adoption is committed. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13558,6 +14366,20 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The draft or template changed during this operation; reload and review before retrying. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Canonical draft storage or migration failed; no partial adoption is committed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description 模型调用失败 */
             502: {
                 headers: {
@@ -13592,8 +14414,22 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Invalid draft id or request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description draft not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Canonical draft storage or migration failed; no partial adoption is committed. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13619,8 +14455,29 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Invalid draft id or request. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description draft not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The draft or template changed during this operation; reload and review before retrying. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Canonical draft storage or migration failed; no partial adoption is committed. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13637,10 +14494,26 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        /** @description Exact edited candidate; expected_revision defaults to the frozen draft base, never the latest version. Returns saved revision/hash. */
+        requestBody?: {
+            content: {
+                "application/json": {
+                    template?: components["schemas"]["WorkflowTemplate"];
+                    /** @description Host revision read and reviewed before editing; 0 means create only. Never refresh and blindly retry conflicts. */
+                    expected_revision?: number;
+                };
+            };
+        };
         responses: {
-            /** @description adopted into user templates (origin=user); verify plan with baseline objective/status/attention when the draft was generated with based_on (for re-run comparison) */
+            /** @description adopted into user templates (origin=user); verify plan with baseline objective/status/attention when the draft was generated with based_on (for re-run comparison); exact edited candidate and portable graph layout retained when supplied */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid draft id or request. */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13653,7 +14526,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description template_id collides with a builtin template */
+            /** @description Template revision or draft state conflict; no partial adoption is committed. Repeating an identical adoption is idempotent only while that exact template revision remains current. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -13662,6 +14535,20 @@ export interface operations {
             };
             /** @description validation failed: {ok:false, errors:[...]} */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description expected_revision required for an existing workflow (including deletion tombstone). */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Storage failure; no successful save inferred. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13701,6 +14588,20 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The draft or template changed during this operation; reload and review before retrying. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Canonical draft storage or migration failed; no partial adoption is committed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     importWorkflow: {
@@ -13710,7 +14611,15 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    package_b64: string;
+                    /** @description Host revision read and reviewed before editing; 0 means create only. Never refresh and blindly retry conflicts. */
+                    expected_revision?: number;
+                };
+            };
+        };
         responses: {
             /** @description imported as origin=community */
             200: {
@@ -13719,7 +14628,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description template_id collides with a builtin template */
+            /** @description Version conflict or protected builtin; reread and review changes before retrying. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -13728,6 +14637,20 @@ export interface operations {
             };
             /** @description invalid package or blocked review */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description expected_revision required for an existing workflow (including deletion tombstone). */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Storage failure; no successful save inferred. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13742,9 +14665,17 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    package_b64: string;
+                    /** @description Host revision read and reviewed before editing; 0 means create only. Never refresh and blindly retry conflicts. */
+                    expected_revision?: number;
+                };
+            };
+        };
         responses: {
-            /** @description dry-run review of a package: manifest/template/review(blocked,findings) */
+            /** @description dry-run review of a package: manifest/template/review(blocked,findings); local_revision freezes the reviewed local version (0 if never existed). */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -13805,7 +14736,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description user/community team templates with per-template validation and capability review: {templates:[{template,origin,valid,validation_errors,warnings,blocked,findings,provenance,runs,attention}],count,invalid,needs_attention} */
+            /** @description user/community team templates with per-template validation and capability review: {templates:[{template,origin,valid,validation_errors,warnings,blocked,findings,provenance,runs,attention}],count,invalid,needs_attention}; each item also includes preflight:{ok,issues} without granting permissions; each item contains revision/content_hash/committed_at. Storage failures return 500. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -13821,16 +14752,20 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowUpsert"];
+            };
+        };
         responses: {
-            /** @description saved user workflow (origin normalized to user/community) */
+            /** @description Saved workflow, revision and content_hash; updates require the original expected_revision. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description template_id collides with a builtin template */
+            /** @description Version conflict or protected builtin; reread and review changes before retrying. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -13839,6 +14774,20 @@ export interface operations {
             };
             /** @description validation failed: {ok:false, errors:[...]} */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description expected_revision required for an existing workflow (including deletion tombstone). */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Storage failure; no successful save inferred. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13853,10 +14802,54 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowTemplate"];
+            };
+        };
+        responses: {
+            /** @description Dry-run structural validation and live tool preflight. ok describes structure; preflight.ok additionally checks tool availability. Saving an unconfigured template remains allowed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                        errors: string[];
+                        preflight: components["schemas"]["WorkflowToolPreflight"];
+                    };
+                };
+            };
+        };
+    };
+    getUserWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
         requestBody?: never;
         responses: {
-            /** @description dry-run validation: {ok, errors} */
+            /** @description Full workflow and revision/hash; deleted documents return template:null, deleted:true with deletion revision. */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No document or tombstone exists. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Storage failure; no successful save inferred. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13866,7 +14859,9 @@ export interface operations {
     };
     deleteUserWorkflow: {
         parameters: {
-            query?: never;
+            query: {
+                expected_revision: number;
+            };
             header?: never;
             path: {
                 id: string;
@@ -13891,6 +14886,27 @@ export interface operations {
             };
             /** @description template not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Version conflict or protected builtin; reread and review changes before retrying. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description expected_revision required for an existing workflow (including deletion tombstone). */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Storage failure; no successful save inferred. */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14095,6 +15111,525 @@ export interface operations {
         responses: {
             /** @description active rule model + candidates + per-signature samples + calibration report */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sessionSetMode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description agent（默认，完整工具链）或 chat（纯对话：只给联网检索与提问，不开放本地文件与命令）；兼容输入 default/conversation/dialogue，响应始终是规范值。
+                     * @enum {string}
+                     */
+                    mode: "agent" | "chat";
+                };
+            };
+        };
+        responses: {
+            /** @description { id, mode } */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未知会话模式 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description session not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    promptsList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description { prompts: [{id,name,content,updated_at}], limits } */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    promptsSave: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description 缺省为新建；给已存在的 id 表示更新 */
+                    id?: string;
+                    /** @description 最多 60 字 */
+                    name: string;
+                    /** @description 最多 20000 字 */
+                    content: string;
+                };
+            };
+        };
+        responses: {
+            /** @description { prompt, prompts } */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 名称/内容非法或超出数量上限 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 给了 id 但提示词不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    promptsDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description { deleted, prompts } */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 提示词不存在 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    sessionSetSystemPrompt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description 自定义提示词正文；null/空串表示清除，回到默认系统提示词。只影响后续回合 */
+                    prompt?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description { id, system_prompt } */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 提示词过长 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description session not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workflowToolCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Worker tool schemas, effects, modalities and current assembly/configuration state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowToolCatalog"];
+                };
+            };
+            /** @description authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description live registry unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    userWorkflowRevisions: {
+        parameters: {
+            query?: {
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Immutable revisions newest first; before is exclusive and next_before is the next page cursor. Includes retained deletion records. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        template_id?: string;
+                        revisions?: components["schemas"]["WorkflowRevision"][];
+                        next_before?: number | null;
+                    };
+                };
+            };
+            /** @description Workflow never existed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Storage failure; no successful save inferred. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    workswarmRunTimeline: {
+        parameters: {
+            query?: {
+                /** @description Exclusive existing event sequence from this run; 0 starts from the beginning. */
+                after?: number;
+                /** @description JSON page size; SSE reads cap at 64. */
+                limit?: number;
+                format?: "json" | "sse";
+                /** @description JSON reverse history only. 0 selects the latest committed page; positive values are exclusive existing sequences from this run. Mutually exclusive with after, Last-Event-ID and format=sse. Events inside the page are ascending; has_more means older records exist. */
+                before?: number;
+            };
+            header?: {
+                /** @description Exact event id from this run; if after is also present they must agree. */
+                "Last-Event-ID"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Indexed page or resumable SSE stream; ends only after terminal-state history is drained. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunEventPage"] | components["schemas"]["RunEventHistoryPage"];
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Invalid format/limit, malformed/foreign/unknown cursor or conflicting resume inputs. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing or invalid bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown team; returned before opening a stream. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Durable history read failed; no synthetic successful replay. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMediaConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Host media configuration */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaProfileView"];
+                };
+            };
+            /** @description Corrupt or unavailable host store; never falls back to workspace configuration. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    saveMediaConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediaProfileCatalog"];
+            };
+        };
+        responses: {
+            /** @description Saved with incremented revision */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaProfileView"];
+                };
+            };
+            /** @description Invalid profile or incompatible assignment */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Revision conflict; reload and merge */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Body exceeds 256 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid JSON or unknown field, including plaintext credentials */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Storage failed; no fallback */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    checkMediaConnection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediaCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description TCP observation, not provider verification */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaConnectionCheck"];
+                };
+            };
+            /** @description Invalid assignment, endpoint or cloud switch denies remote access */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Revision conflict or another check in progress */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Body exceeds 4 KiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed or unknown request fields */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Observation could not be persisted */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    input_preflight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InputPreflightRequest"];
+            };
+        };
+        responses: {
+            /** @description Admission at this configuration snapshot, not verified remote capability */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        ok: true;
+                    };
+                };
+            };
+            /** @description Unknown, unsupported or mismatched model declaration, or invalid context */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Session not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed or unknown request fields */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

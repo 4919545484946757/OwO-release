@@ -130,9 +130,9 @@ test("templateOptions/projectOptions：去重 + 动态组队桶 + 派生项目�
   const tpls = T.templateOptions(teams);
   assert.deepEqual(
     tpls.map((o) => o.value),
-    ["", "code-change-v1"]
+    ["__owo_dynamic__", "code-change-v1"]
   );
-  assert.equal(tpls.find((o) => o.value === "").label, "动态组队（无模板）");
+  assert.equal(tpls.find((o) => o.value === "__owo_dynamic__").label, "动态组队（无模板）");
   const projs = T.projectOptions(teams);
   assert.deepEqual(
     projs.map((o) => o.value).sort(),
@@ -184,46 +184,19 @@ test("objectiveFromDetail：additive 优先 → audit「目标 …」启发式 �
   assert.equal(T.objectiveFromDetail(null), null);
 });
 
-test("rerunBody：同目标+模板+工作区（六期冻结形状）；缺 objective 报错", () => {
-  const d = detail("t1", [], [{ event: "goal.started", detail: "目标 做一份研究简报" }], {
-    team: { team_id: "t1", mode: "Team", template_id: "research-brief-v1" },
-  });
-  const ws = {
-    root: "T:/ws",
-    read_only: false,
-    write_allowed_paths: ["src/out"],
-    tree_depth: 3,
-  };
-  const body = T.rerunBody(d, ws);
-  assert.equal(body.objective, "做一份研究简报");
-  assert.equal(body.mode, "team");
-  assert.equal(body.template_id, "research-brief-v1");
-  assert.deepEqual(body.workspace, {
-    root: "T:/ws",
-    read_only: false,
-    write_allowed_paths: ["src/out"],
-    tree_depth: 3,
-  });
-
-  // 未绑定工作区 → 不带 workspace 字段
-  const body2 = T.rerunBody(d, null);
-  assert.ok(!("workspace" in body2));
-
-  // objective 覆盖优先
-  const body3 = T.rerunBody(d, null, "手工目标");
-  assert.equal(body3.objective, "手工目标");
-
-  // 无 objective → 明确错误标记（不发请求）
-  assert.deepEqual(T.rerunBody({ team: {}, audit_tail: [] }, null), {
-    error: "missing_objective",
-  });
+test("Dynamic template filter has a distinct value from all templates", () => {
+  assert.ok(T.matchesFilters(team("d","succeeded"),{template:"__owo_dynamic__"}));
+  assert.ok(!T.matchesFilters(team("t","succeeded",{template_id:"custom"}),{template:"__owo_dynamic__"}));
+  assert.ok(T.matchesFilters(team("t","succeeded",{template_id:"custom"}),{q:"CUSTOM"}));
+  assert.equal(T.objectiveFromDetail({audit_tail:[{detail:"目标达成：完成所有步骤"}]}),null);
+  assert.equal(T.localWhen("bad"),"时间未知");
 });
 
 // ---------- 渲染守卫 ----------
 
 test("shellHtml：骨架完整（标题/刷新/错误区/过滤区/列表区）", () => {
   const html = T.shellHtml();
-  assert.match(html, /项目与运行历史/);
+  assert.match(html, /查找历史任务/);
   assert.match(html, /id="ph-refresh"/);
   assert.match(html, /id="ph-errors"/);
   assert.match(html, /id="ph-filters-box"/);
@@ -256,11 +229,11 @@ test("rowHtml：徽标/耗时/预算/交付物/动作 data 属性 + 提交锁 + 
   assert.match(html, /data-ph-row="team-x"/);
   assert.match(html, /ph-st-succeeded/);
   assert.match(html, /已完成/);
-  assert.match(html, /耗时 2m 0s/);
+  assert.match(html, /运行跨度 2m 0s/);
   assert.match(html, /预算 7 次调用|预算/);
   assert.match(html, /任务 1\/2（失败 1）/);
   assert.match(html, /批准 2 · 待评审 1/);
-  assert.match(html, /工作区未绑定/);
+  assert.match(html, /复用目标/);
   assert.match(html, /data-ph-open="team-x"/);
   assert.match(html, /data-ph-rerun="team-x"/);
   assert.match(html, /做一个研究简报/);
@@ -316,9 +289,9 @@ test("load()：列表 + 详情/交付物/工作区富化；404 静默降级", as
       { detail: "目标 调研要点" },
     ]),
     "/teams/t2": new Error("500: boom"),
-    "/projects/proj-p1/deliverables": { approved: [{}], pending_review: [{}] },
+    "/projects/proj-p1/artifacts": { artifacts: [{review_state:"Approved"}, {review_state:"PendingReview"}, {review_state:"Draft"}] },
     "/projects/proj-p1/workspace": { root: "T:/ws", read_only: true },
-    "/projects/proj-t2/deliverables": new Error("404: none"),
+    "/projects/proj-t2/artifacts": new Error("404: none"),
     "/projects/proj-t2/workspace": new Error("404: none"),
   };
   T.setTransport(transportMock(map, log));
@@ -336,7 +309,7 @@ test("load()：列表 + 详情/交付物/工作区富化；404 静默降级", as
   assert.equal(T.state.loading, false);
   const paths = log.map((x) => x.split(" ")[1]);
   assert.ok(paths.includes("/teams/t1"));
-  assert.ok(paths.includes("/projects/proj-p1/deliverables"));
+  assert.ok(paths.includes("/projects/proj-p1/artifacts"));
   assert.ok(!log.some((x) => x.startsWith("POST ")));
 });
 
@@ -362,13 +335,13 @@ test("enrichVisible：相同团队/项目合并并发请求，完成后复用缓
   assert.deepEqual(calls.slice().sort(), [
     "/teams/team-1",
     "/teams/team-2",
-    "/projects/project-shared/deliverables",
+    "/projects/project-shared/artifacts",
     "/projects/project-shared/workspace",
   ].sort());
 
   pending["/teams/team-1"]({ team: { team_id: "team-1" } });
   pending["/teams/team-2"]({ team: { team_id: "team-2" } });
-  pending["/projects/project-shared/deliverables"]({ approved: [{}], pending_review: [] });
+  pending["/projects/project-shared/artifacts"]({ artifacts: [{review_state:"Approved"}] });
   pending["/projects/project-shared/workspace"]({ root: "T:/shared" });
   await Promise.all([first, second]);
   await T.enrichVisible(rows);
@@ -396,7 +369,7 @@ test("项目历史搜索输入防抖：只为最终命中行补充详情", async
     get(path) {
       calls.push(path);
       if (path.startsWith("/teams/")) return Promise.resolve(detail(path.slice("/teams/".length)));
-      if (path.endsWith("/deliverables")) return Promise.resolve({ approved: [], pending_review: [] });
+      if (path.endsWith("/artifacts")) return Promise.resolve({ artifacts: [] });
       if (path.endsWith("/workspace")) return Promise.resolve({ root: "T:/project" });
       return Promise.reject(new Error("unexpected GET " + path));
     },
@@ -411,7 +384,7 @@ test("项目历史搜索输入防抖：只为最终命中行补充详情", async
 
   assert.deepEqual(calls.sort(), [
     "/teams/team-2",
-    "/projects/project-2/deliverables",
+    "/projects/project-2/artifacts",
     "/projects/project-2/workspace",
   ].sort());
   assert.match(elements["#ph-list"].innerHTML, /data-ph-row="team-2"/);
@@ -473,7 +446,7 @@ test("load() 刷新成功后失效旧富化缓存并重新读取", async () => {
       calls.push(path);
       if (path === "/teams") return Promise.resolve({ teams: [team("team-r", "Succeeded", { project_space_id: "project-r" })] });
       if (path === "/teams/team-r") return Promise.resolve({ team: { team_id: "team-r", objective: "rev-" + revision } });
-      if (path.endsWith("/deliverables")) return Promise.resolve({ approved: [], pending_review: [] });
+      if (path.endsWith("/artifacts")) return Promise.resolve({ artifacts: [] });
       if (path.endsWith("/workspace")) return Promise.resolve({ root: "T:/revision-" + revision });
       return Promise.reject(new Error("unexpected GET " + path));
     },
@@ -488,122 +461,49 @@ test("load() 刷新成功后失效旧富化缓存并重新读取", async () => {
   assert.equal(calls.filter((path) => path === "/teams/team-r").length, 2);
 });
 
-test("startRerun()：成功路径（请求体含模板与工作区）+ 提交锁双击只发一次", async () => {
+test("Goal reuse opens launcher and prefills only objective without creating a run", async () => {
   resetState();
-  const log = [];
-  T.state.teams = [team("t1", "Succeeded", { template_id: "code-change-v1", project_space_id: "proj-p1" })];
-  T.state.details["t1"] = detail("t1", [], [{ detail: "目标 修复计算bug" }], {
-    team: { team_id: "t1", mode: "Team", template_id: "code-change-v1" },
-  });
-  T.state.workspaces["proj-p1"] = { root: "T:/ws", read_only: true };
-  const map = {
-    "POST /teams": { team_id: "team-new", project_space_id: "proj-team-new" },
-  };
-  T.setTransport(transportMock(map, log));
-  const p1 = T.startRerun("t1");
-  const p2 = T.startRerun("t1"); // 提交锁：第二次调用在 busy 期间直接返回
-  await Promise.all([p1, p2]);
-  const posts = log.filter((x) => x.startsWith("POST /teams"));
-  assert.equal(posts.length, 1, "双击只发一次：" + JSON.stringify(posts));
-  assert.match(posts[0], /"objective":"修复计算bug"/);
-  assert.match(posts[0], /"template_id":"code-change-v1"/);
-  assert.match(posts[0], /"workspace":\{"root":"T:\/ws"/);
-  assert.equal(T.state.rerunResults["t1"].ok, true);
-  assert.equal(T.state.rerunResults["t1"].new_team_id, "team-new");
-  assert.equal(T.state.rerunBusy["t1"], false);
+  const events=[];
+  const old=globalThis.OwoPanels["project-launcher"];
+  globalThis.OwoPanels["project-launcher"]={setObjective:value=>events.push(["objective",value])};
+  T.setHelpers({get:async()=>({objective:"复用真实目标"}),openPanel:id=>events.push(["panel",id]),post:()=>assert.fail("reuse must not create a run")});
+  await Promise.all([T.startRerun("reuse"),T.startRerun("reuse")]);
+  assert.deepEqual(events,[["panel","project-launcher"],["objective","复用真实目标"]]);
+  globalThis.OwoPanels["project-launcher"]=old;
 });
 
-test("复跑会等待工作区读取，并复用确认过的工作区配置", async () => {
+test("Goal reuse ignores stale detail after leaving the panel", async () => {
   resetState();
-  T.state.teams = [team("t-ws", "Succeeded", { project_space_id: "project-ws" })];
-  T.state.details["t-ws"] = detail("t-ws", [], [{ detail: "目标 修复工作区" }]);
-  let resolveWorkspace;
-  const posts = [];
-  T.setTransport({
-    get(path) {
-      assert.equal(path, "/projects/project-ws/workspace");
-      return new Promise((resolve) => { resolveWorkspace = resolve; });
-    },
-    post(path, body) { posts.push([path, body]); return Promise.resolve({ team_id: "new-team" }); },
-  });
-
-  const rerun = T.startRerun("t-ws");
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(posts.length, 0, "不得在工作区状态未确认时先行创建运行");
-  resolveWorkspace({ root: "T:/project", read_only: false, write_allowed_paths: ["src"] });
-  await rerun;
-  assert.equal(posts.length, 1);
-  assert.equal(posts[0][0], "/teams");
-  assert.deepEqual(JSON.parse(JSON.stringify(posts[0][1].workspace)), {
-    root: "T:/project", read_only: false, write_allowed_paths: ["src"],
-  });
-  assert.equal(T.state.rerunResults["t-ws"].ok, true);
+  let finish, opens=0;
+  T.setHelpers({get:()=>new Promise(r=>{finish=r;}),openPanel:()=>opens++});
+  const pending=T.startRerun("stale");
+  await Promise.resolve(); await Promise.resolve();
+  T.dispose();
+  finish({objective:"不能跳转"});
+  await pending;
+  assert.equal(opens,0);
+  assert.equal(T.state.rerunBusy.stale,undefined);
 });
 
-test("工作区读取失败时阻止无工作区复跑，并展示错误原因", async () => {
+test("Missing goal and failed details surface errors without any POST", async () => {
   resetState();
-  T.state.teams = [team("t-ws-error", "Succeeded", { project_space_id: "project-ws-error" })];
-  T.state.details["t-ws-error"] = detail("t-ws-error", [], [{ detail: "目标 修复工作区" }]);
-  const posts = [];
-  const errorBox = { innerHTML: "" };
-  T.setRoot({ querySelector(selector) {
-    return selector === "#ph-errors" ? errorBox : null;
-  } });
-  T.setTransport({
-    get() { return Promise.reject(Object.assign(new Error("workspace service unavailable"), { status: 503 })); },
-    post(path, body) { posts.push([path, body]); return Promise.resolve({}); },
-  });
-
-  await T.startRerun("t-ws-error");
-  T.render();
-  assert.equal(posts.length, 0, "未知工作区状态不能静默降级为未绑定");
-  assert.match(errorBox.innerHTML, /项目 project-ws-error 工作区读取失败/);
-  assert.equal(T.state.workspaceErrors["project-ws-error"], "workspace service unavailable");
-  assert.match(T.state.rerunResults["t-ws-error"].text, /本次未创建运行/);
-  assert.match(T.state.rerunResults["t-ws-error"].text, /workspace service unavailable/);
+  T.setHelpers({get:async()=>({audit_tail:[{detail:"目标达成"}]}),post:()=>assert.fail("no automatic creation")});
+  await T.startRerun("no-goal");
+  assert.match(T.state.rerunResults["no-goal"].text,/无法自动提取原目标/);
+  T.setHelpers({get:async()=>{throw new Error("503: failed");}});
+  await T.startRerun("failed-detail");
+  assert.match(T.state.rerunResults["failed-detail"].text,/503/);
 });
 
-test("无效工作区响应不会被当成未绑定并启动复跑", async () => {
+test("History list can reveal records beyond the original 50-row cap", () => {
   resetState();
-  T.state.teams = [team("t-ws-invalid", "Succeeded", { project_space_id: "project-ws-invalid" })];
-  T.state.details["t-ws-invalid"] = detail("t-ws-invalid", [], [{ detail: "目标 修复工作区" }]);
-  const posts = [];
-  T.setTransport({
-    get() { return Promise.resolve({ read_only: true }); },
-    post(path, body) { posts.push([path, body]); return Promise.resolve({}); },
-  });
-
-  await T.startRerun("t-ws-invalid");
-  assert.equal(posts.length, 0);
-  assert.match(T.state.workspaceErrors["project-ws-invalid"], /缺少有效 root/);
-  assert.match(T.state.rerunResults["t-ws-invalid"].text, /本次未创建运行/);
-});
-
-test("startRerun()：失败兜底（friendly 文本，不抛错）", async () => {
-  resetState();
-  T.state.teams = [team("t1", "Succeeded")];
-  T.state.details["t1"] = detail("t1", [], [{ detail: "目标 X" }], {
-    team: { team_id: "t1", mode: "Team" },
-  });
-  T.setTransport(
-    transportMock({ "POST /teams": new Error("400: bad request") }, [])
-  );
-  await T.startRerun("t1");
-  assert.equal(T.state.rerunResults["t1"].ok, false);
-  assert.match(T.state.rerunResults["t1"].text, /复跑失败/);
-});
-
-test("startRerun()：缺 objective 不发请求", async () => {
-  resetState();
-  T.state.teams = [team("t1", "Succeeded")];
-  T.state.details["t1"] = detail("t1", [], [{ detail: "无关事件" }], {
-    team: { team_id: "t1", mode: "Team" },
-  });
-  const log = [];
-  T.setTransport(transportMock({}, log));
-  await T.startRerun("t1");
-  assert.ok(!log.some((x) => x.startsWith("POST ")));
-  assert.match(T.state.rerunResults["t1"].text, /无法自动提取原目标/);
+  const rows=Array.from({length:65},(_,i)=>team("team-"+i,"succeeded"));
+  T.state.rowLimit=50;
+  assert.match(T.listHtml(rows,T.state),/data-ph-more/);
+  T.state.rowLimit=100;
+  assert.doesNotMatch(T.listHtml(rows,T.state),/data-ph-more/);
+  assert.equal((T.listHtml(rows,T.state).match(/data-ph-row=/g)||[]).length,65);
+  T.state.rowLimit=50;
 });
 
 // ---------- 接线守卫 ----------
@@ -621,4 +521,29 @@ test("PANEL_ORDER 注册 project-history（唯一来源 app-domain.js）", () =>
 test("style.css 提供面板样式节（.owo-ac-* 复用 + ph 专属类）", () => {
   assert.match(shellCss, /\.ph-row\s*\{|\.ph-row\b/);
   assert.match(shellCss, /\.ph-st-/);
+});
+
+
+test("Workspace accepts the actual wrapped binding and explicit null without false errors", async () => {
+  resetState();
+  const rows=[team("wrapped","succeeded"),team("unbound","succeeded")];
+  T.setTransport({get:async path=>{
+    if (path.endsWith("/artifacts")) return {artifacts:[]};
+    if (path.endsWith("/workspace")) return path.includes("unbound") ? {workspace:null} : {workspace:{root:"T:/real",read_only:true}};
+    return {team:{}};
+  }});
+  await T.enrichVisible(rows);
+  assert.equal(T.state.workspaces["proj-wrapped"].root,"T:/real");
+  assert.equal(T.state.workspaces["proj-unbound"],null);
+  assert.deepEqual(T.state.workspaceErrors,{});
+});
+
+test("Only the exact completion audit event can recover a completed goal", () => {
+  assert.equal(T.objectiveFromDetail({audit_tail:[{event:"team.succeeded",detail:"目标达成：原始任务目标"}]}),"原始任务目标");
+  assert.equal(T.objectiveFromDetail({audit_tail:[{event:"log",detail:"目标达成：不能作为原始目标"}]}),null);
+});
+
+
+test("Search matches the visible fallback role title even without an objective", () => {
+  assert.ok(T.matchesFilters(team("role-title","failed",{members:[{role:"构建检查"}]}),{q:"构建检查"}));
 });

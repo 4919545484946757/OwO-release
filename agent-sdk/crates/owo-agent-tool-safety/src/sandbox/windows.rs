@@ -64,6 +64,8 @@ pub const PROC_THREAD_ATTRIBUTE_HANDLE_LIST: ULONG_PTR = 0x0002_0002;
 pub const STARTF_USESTDHANDLES: DWORD = 0x0000_0100;
 /// CreateProcess 标志：lpEnvironment 是 Unicode 环境块。
 pub const CREATE_UNICODE_ENVIRONMENT: DWORD = 0x0000_0400;
+/// 后台 Daemon 没有控制台：不指定它，每个 `cmd /C` 子进程都会弹出一个可见窗口，
+/// 并可能因控制台/管道创建失败返回 0x800700E8（ERROR_NO_DATA）。
 pub const CREATE_NO_WINDOW: DWORD = 0x0800_0000;
 pub const GENERIC_READ: DWORD = 0x8000_0000;
 pub const FILE_SHARE_READ: DWORD = 0x0000_0001;
@@ -866,6 +868,7 @@ impl WindowsSandboxExecutor {
         cmd.stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
+        cmd.creation_flags(CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT);
         if let Some(cwd) = &command.cwd {
             cmd.current_dir(cwd);
         }

@@ -237,11 +237,11 @@ async fn command_run_voice_invalid_wav_400() {
 async fn command_run_run_workflow_demo_executes() {
     let (state, _temp) = test_state().await;
     let app = intent_api::router(Arc::clone(&state));
-    let body = json!({ "mode": "text", "text": "运行工作流：演示流程" }).to_string();
+    let body = json!({ "mode": "text", "text": "运行工作流：demo-workflow" }).to_string();
     let (status, value) = call(&app, "POST", "/command/run", Some(&body)).await;
     assert_eq!(status, 200, "{value}");
     assert_eq!(value["intent"], "run_workflow");
-    assert_eq!(value["results"]["workflow"], "演示流程");
+    assert_eq!(value["results"]["workflow"], "demo-workflow");
     let state_str = value["results"]["state"].as_str().unwrap();
     assert!(
         state_str == "Succeeded" || state_str == "Failed",

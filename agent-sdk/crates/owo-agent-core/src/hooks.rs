@@ -47,12 +47,18 @@ impl HookEvent {
     }
 
     fn parse(value: &str) -> Option<Self> {
-        match value.trim().to_ascii_lowercase().as_str() {
-            "pre_tool_use" => Some(HookEvent::PreToolUse),
-            "post_tool_use" => Some(HookEvent::PostToolUse),
-            "user_prompt_submit" => Some(HookEvent::UserPromptSubmit),
+        // 同时接受 snake_case（as_str 输出）与 Claude Code 风格的 CamelCase：
+        // settings.json 手写配置常用 `UserPromptSubmit`/`PreToolUse`，不能静默忽略。
+        let normalized = value
+            .trim()
+            .to_ascii_lowercase()
+            .replace(['_', '-', ' '], "");
+        match normalized.as_str() {
+            "pretooluse" => Some(HookEvent::PreToolUse),
+            "posttooluse" => Some(HookEvent::PostToolUse),
+            "userpromptsubmit" => Some(HookEvent::UserPromptSubmit),
             "stop" => Some(HookEvent::Stop),
-            "pre_compact" => Some(HookEvent::PreCompact),
+            "precompact" => Some(HookEvent::PreCompact),
             _ => None,
         }
     }
@@ -169,13 +175,37 @@ fn on_hook_failure(config: &HookConfig, reason: String) -> HookOutcome {
     }
 }
 
+// cmd /U emits UTF-16LE for builtins (including echo); external tools may
+// still emit UTF-8 or OEM bytes. NUL code units distinguish redirected cmd text.
+fn decode_hook_output(bytes: &[u8]) -> String {
+    #[cfg(windows)]
+    if bytes.len().is_multiple_of(2) && (bytes.starts_with(&[0xff, 0xfe]) || bytes.contains(&0)) {
+        let bytes = bytes.strip_prefix(&[0xff, 0xfe]).unwrap_or(bytes);
+        let wide: Vec<u16> = bytes
+            .chunks_exact(2)
+            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+            .collect();
+        if let Ok(text) = String::from_utf16(&wide) {
+            return text;
+        }
+    }
+    crate::tools::decode_process_output(bytes)
+}
+
 /// 执行单条 hook：shell 包装、stdin 传 JSON、10s 超时、exit 2 = 阻断。
 async fn run_one(config: &HookConfig, payload: &Value) -> HookOutcome {
     let body = serde_json::to_string(payload).unwrap_or_else(|_| "{}".to_string());
     #[cfg(target_os = "windows")]
     let mut command = {
         let mut command = tokio::process::Command::new("cmd");
-        command.arg("/C").arg(&config.command);
+        // `cmd.exe` 不按 CommandLineToArgvW 规则解析引号；普通 arg 会把
+        // `"C:\path with space"` 的引号吃掉/转义，导致 echo 重定向报
+        // 「文件名、目录名或卷标语法不正确」。raw_arg 让用户命令原样进入
+        // `/C` 后的命令行，保留其中引号。
+        // /U preserves Unicode from cmd builtins even without a console.
+        // External programs retain their own encoding; decode_hook_output handles both.
+        command.args(["/D", "/U", "/C"]).raw_arg(&config.command);
+        command.creation_flags(0x08000000); // CREATE_NO_WINDOW
         command
     };
     #[cfg(not(target_os = "windows"))]
@@ -211,9 +241,7 @@ async fn run_one(config: &HookConfig, payload: &Value) -> HookOutcome {
             return on_hook_failure(config, format!("hook 超时（>{HOOK_TIMEOUT:?}）"));
         }
     };
-    let stderr = crate::tools::decode_process_output(&output.stderr)
-        .trim()
-        .to_string();
+    let stderr = decode_hook_output(&output.stderr).trim().to_string();
     match output.status.code() {
         Some(0) => HookOutcome::Proceed,
         Some(2) => HookOutcome::Blocked(if stderr.is_empty() {
@@ -254,6 +282,19 @@ mod tests {
             command: command.to_string(),
             fail_mode: Some("closed".to_string()),
         }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn hook_output_preserves_unicode_builtins_and_utf8_programs() {
+        let text = "\u{81ea}\u{5b9a}\u{4e49}\u{62d2}\u{7edd}\u{539f}\u{56e0}\r\n";
+        let wide: Vec<u8> = text.encode_utf16().flat_map(u16::to_le_bytes).collect();
+        assert_eq!(decode_hook_output(&wide), text);
+        assert_eq!(decode_hook_output(text.as_bytes()), text);
+        assert_eq!(
+            decode_hook_output(b"external tool failed\n"),
+            "external tool failed\n"
+        );
     }
 
     #[test]

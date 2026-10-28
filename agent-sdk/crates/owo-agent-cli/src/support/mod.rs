@@ -424,6 +424,10 @@ pub(crate) async fn ensure_daemon_client(
     workspace: &std::path::Path,
 ) -> Result<owo_agent_client::AgentClient, Box<dyn std::error::Error>> {
     let expected = owo_build_info::API_VERSION;
+    // 多客户端并发启动时，"发现不到 → spawn" 必须串行化：否则 N 个进程各起一个
+    // Daemon，各自写自己的 token/discovery，先连上的客户端拿到别人写的 token 就会
+    // 401（实测 10 路并发必然复现），并留下多个 DB writer。
+    let mut _start_lock = None;
     match owo_agent_client::connect(data_root, Some(expected)).await {
         Ok(client) => return Ok(client),
         Err(owo_agent_client::ClientError::ApiVersionMismatch {
@@ -435,13 +439,19 @@ pub(crate) async fn ensure_daemon_client(
             )
             .into());
         }
-        Err(owo_agent_client::ClientError::NotFound(_))
-        | Err(owo_agent_client::ClientError::Discovery(_)) => {
-            // 无可用 Daemon：启动一个。
+        Err(_) => {
+            // 无可用 Daemon，或正在被别人启动（401/连接拒绝都归入此列）：
+            // 抢占启动锁，拿到锁的人负责 spawn；拿不到的人只等待 discovery。
+            _start_lock = acquire_start_lock(data_root);
+            if _start_lock.is_some() {
+                // 双检：抢锁期间别人可能已经拉起来了。
+                if let Ok(client) = owo_agent_client::connect(data_root, Some(expected)).await {
+                    return Ok(client);
+                }
+                spawn_daemon(data_root, workspace)?;
+            }
         }
-        Err(other) => return Err(other.into()),
     }
-    spawn_daemon(data_root, workspace)?;
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
     let mut last = String::from("（尚未出现发现文件）");
     while std::time::Instant::now() < deadline {
@@ -461,6 +471,54 @@ pub(crate) async fn ensure_daemon_client(
         }
     }
     Err(format!("等待 Daemon 就绪超时（60s）：{last}").into())
+}
+
+/// 启动锁：`create_new` 原子抢占；Drop 时释放。
+/// 60 秒内没被释放视为陈旧（进程被强杀），后来者可接管。
+struct StartLock {
+    path: std::path::PathBuf,
+}
+
+impl Drop for StartLock {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+fn acquire_start_lock(data_root: &std::path::Path) -> Option<StartLock> {
+    let runtime = data_root.join("runtime");
+    let _ = std::fs::create_dir_all(&runtime);
+    let path = runtime.join("daemon.start.lock");
+    for attempt in 0..2 {
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(mut file) => {
+                use std::io::Write as _;
+                let _ = write!(file, "{}", std::process::id());
+                return Some(StartLock { path });
+            }
+            Err(_) if attempt == 0 => {
+                // 锁被占用：陈旧则删除后重试一次，否则直接返回（只等待 discovery）。
+                if let Ok(meta) = std::fs::metadata(&path) {
+                    let stale = meta
+                        .modified()
+                        .ok()
+                        .and_then(|m| m.elapsed().ok())
+                        .is_some_and(|age| age > std::time::Duration::from_secs(60));
+                    if stale {
+                        let _ = std::fs::remove_file(&path);
+                        continue;
+                    }
+                }
+                return None;
+            }
+            Err(_) => return None,
+        }
+    }
+    None
 }
 
 /// 分离启动 `owo-agent serve`（不占用调用方 stdout，退出不随父进程）。

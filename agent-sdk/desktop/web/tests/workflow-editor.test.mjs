@@ -126,6 +126,38 @@ test("layoutGraph：最长路径分层、扇出与环检测", () => {
   assert.deepEqual(E2.layoutGraph({}).nodes, []);
 });
 
+test("graphPositions：默认分层、保存位置覆盖、画布扩容与拖拽夹取", () => {
+  const E2 = loadEditor();
+  const template = {
+    roles: [
+      { role: "a", depends_on: [] },
+      { role: "b", depends_on: ["a"] },
+      { role: "c", depends_on: ["b"] },
+    ],
+  };
+  const auto = E2.graphPositions(template);
+  assert.equal(auto.ok, true);
+  assert.deepEqual(
+    auto.nodes.map((node) => [node.id, node.x, node.y]),
+    [["a", 18, 18], ["b", 200, 18], ["c", 382, 18]]
+  );
+  assert.ok(auto.width >= 382 + 124, "画布应容纳最右节点");
+  assert.ok(auto.height >= 48);
+
+  const moved = E2.graphPositions(template, { b: { x: 300, y: 120 } });
+  const b = moved.nodes.find((node) => node.id === "b");
+  assert.deepEqual({ x: b.x, y: b.y }, { x: 300, y: 120 }, "保存位置应覆盖自动布局");
+  assert.ok(moved.width >= 300 + 124, "拖拽后画布应扩容");
+  assert.ok(moved.height >= 120 + 48);
+
+  assert.deepEqual(E2.clampNodePosition(-20, 500, 240, 240), { x: 0, y: 188 });
+  assert.deepEqual(E2.clampNodePosition(10, 20, 240, 240), { x: 10, y: 20 });
+
+  const edge = E2.edgePath({ x: 18, y: 18 }, { x: 200, y: 18 });
+  assert.equal(edge, "M 142 42 C 171 42, 171 42, 200 42");
+  assert.equal(E2.edgePath(null, { x: 0, y: 0 }), "");
+});
+
 test("请求体组装：草稿/导出/导入（含 review-only）都做前置校验", () => {
   assert.equal(E.buildDraftRequest("   ").ok, false);
   assert.deepEqual(E.buildDraftRequest("做一条视频流水线", "必须人工", "draft-1"), {
@@ -611,4 +643,14 @@ test("buildTeamCreateConfirm：warn 一次性确认；blocked 直接拒绝；无
   });
   assert.match(blocked, /不能建队/);
   assert.match(blocked, /依赖不存在的角色/);
+});
+
+test("reserved property names remain valid role labels in checks, layout and position lookup", () => {
+ const doc={template_id:"reserved-labels",name:"Reserved",roles:[{role:"__proto__",assignee:"human"},{role:"constructor",assignee:"agent",depends_on:["__proto__"]},{role:"toString",depends_on:["constructor"]}]};
+ assert.deepEqual(E.quickCheck(doc),[]);
+ const graph=E.graphPositions(doc,JSON.parse('{"__proto__":{"x":10,"y":20}}'));
+ assert.equal(graph.ok,true);assert.equal(graph.nodes.length,3);
+ assert.equal(graph.nodes.find(node=>node.id==="__proto__").x,10);
+ assert.deepEqual(graph.edges,[{from:"__proto__",to:"constructor"},{from:"constructor",to:"toString"}]);
+ assert.equal({}.x,undefined);
 });

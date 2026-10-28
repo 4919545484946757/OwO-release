@@ -197,9 +197,10 @@ test("backend write actions across automation, intelligence, and plugins opt int
   assert.match(index, /连接并授权本地核心后，才能切换默认模型/);
   assert.match(appSource, /updatePresetApplyAvailability\(\)/, "preset save must follow the current authenticated state");
   assert.ok(index.includes("尚未运行</div>"), "offline empty-state copy must not prompt a disabled action");
-  for (const name of ["notes", "goal", "workflow", "memory", "eval", "command", "plugin-market", "fleet", "product-comparison", "team", "action-center", "project-history", "project-launcher", "workswarm"]) {
+  for (const name of ["notes", "goal", "workflow", "memory", "eval", "command", "plugin-market", "fleet", "product-comparison", "team", "action-center", "project-launcher", "workswarm"]) {
     assert.ok(panelSources[name].includes("data-core-action"), name + " panel writes should use the shared gate");
   }
+  assert.ok(!panelSources["project-history"].includes("H.post("), "history goal reuse must not create a run before launcher review");
   assert.match(source, /ensurePanelHints\(controls\)/, "dynamic feature panels need a shared offline explanation");
   assert.match(source, /可使用此页面的写入与管理操作/, "shared offline explanation must name the unavailable actions");
   assert.match(panelSources.notes, /class="owo-notes-search"[^>]*data-core-action/, "note search must be unavailable when its core API is disconnected");
@@ -216,4 +217,39 @@ test("backend write actions across automation, intelligence, and plugins opt int
     assert.ok(start >= 0 && end > start, id + " should exist");
     assert.ok(index.slice(start, end).includes("data-core-action"), id + " submit should be gated");
   }
+});
+
+test("feature readiness changes release a previously unavailable human action without bypassing the core gate", () => {
+  const button = control(true, "当前没有未完成的人节点任务");
+  const { availability } = harness([button]);
+  button.attrs.set("data-core-action", "true");
+  availability.update(true);
+  assert.equal(button.disabled, true);
+  availability.setDisabled(button, false, "");
+  availability.update(true);
+  assert.equal(button.disabled, false);
+  assert.equal(button.attrs.get("aria-disabled"), "false");
+  availability.update(false);
+  availability.setDisabled(button, false, "");
+  assert.equal(button.disabled, true);
+  assert.equal(button.attrs.get("title"), "连接并授权本地核心后可使用");
+  availability.update(true);
+  assert.equal(button.disabled, false);
+  availability.setDisabled(button, true, "团队已进入终态");
+  availability.update(false);
+  availability.update(true);
+  assert.equal(button.disabled, true);
+  assert.equal(button.attrs.get("title"), "团队已进入终态");
+});
+
+test("a feature transition cannot release an in-flight submission", () => {
+  const button = control();
+  const { availability } = harness([button]);
+  availability.update(true);
+  availability.setBusy(button, true);
+  availability.setDisabled(button, false);
+  assert.equal(button.disabled, true);
+  availability.setDisabled(button, true, "团队已进入终态");
+  availability.setBusy(button, false);
+  assert.equal(button.disabled, true);
 });

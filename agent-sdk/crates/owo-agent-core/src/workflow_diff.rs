@@ -4,7 +4,13 @@
 //! 尤其是**权限面变大**的部分（新增执行/联网工具、新增 MCP 依赖、写范围从受限变成
 //! 工作区任意写、角色数增加）。这里不做语义好坏判断，只做结构化差异 + 风险提示。
 
-use owo_agent_protocol::TeamTemplate;
+use owo_agent_protocol::{TeamTemplate, TeamTemplateRole};
+fn same_role(before: &TeamTemplateRole, after: &TeamTemplateRole) -> bool {
+    match (&before.node_id, &after.node_id) {
+        (Some(left), Some(right)) => left == right,
+        _ => before.role == after.role,
+    }
+}
 
 /// 单字段变化。
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -132,12 +138,25 @@ pub fn diff_templates(before: &TeamTemplate, after: &TeamTemplate) -> WorkflowDi
             join_list(&after.tags),
         ));
     }
+    let before_layout = serde_json::to_string(&before.editor).unwrap_or_default();
+    let after_layout = serde_json::to_string(&after.editor).unwrap_or_default();
+    if before_layout != after_layout {
+        metadata.push(field("editor", before_layout, after_layout));
+    }
     diff.metadata = metadata;
 
-    let before_roles: Vec<String> = before.roles.iter().map(|role| role.role.clone()).collect();
-    let after_roles: Vec<String> = after.roles.iter().map(|role| role.role.clone()).collect();
-    diff.roles_added = added(&before_roles, &after_roles);
-    diff.roles_removed = removed(&before_roles, &after_roles);
+    diff.roles_added = after
+        .roles
+        .iter()
+        .filter(|role| !before.roles.iter().any(|old| same_role(old, role)))
+        .map(|role| role.role.clone())
+        .collect();
+    diff.roles_removed = before
+        .roles
+        .iter()
+        .filter(|role| !after.roles.iter().any(|new| same_role(role, new)))
+        .map(|role| role.role.clone())
+        .collect();
     if diff.roles_added.len() > diff.roles_removed.len() {
         diff.risks.push(format!(
             "角色数增加（{} → {}）：新增 {}",
@@ -148,7 +167,7 @@ pub fn diff_templates(before: &TeamTemplate, after: &TeamTemplate) -> WorkflowDi
     }
 
     for role in &after.roles {
-        let Some(previous) = before.roles.iter().find(|item| item.role == role.role) else {
+        let Some(previous) = before.roles.iter().find(|item| same_role(item, role)) else {
             // 新增角色：把它的权限面也点出来（执行/联网工具、MCP 依赖）。
             let elevated: Vec<String> = role
                 .tools
@@ -183,6 +202,9 @@ pub fn diff_templates(before: &TeamTemplate, after: &TeamTemplate) -> WorkflowDi
             continue;
         };
         let mut changes = Vec::new();
+        if previous.role != role.role {
+            changes.push(field("role", &previous.role, &role.role));
+        }
         if previous.assignee != role.assignee {
             changes.push(field("assignee", &previous.assignee, &role.assignee));
         }
@@ -337,6 +359,7 @@ mod tests {
 
     fn role(name: &str, tools: &[&str], write_paths: &[&str]) -> TeamTemplateRole {
         TeamTemplateRole {
+            node_id: None,
             role: name.to_string(),
             assignee: "agent".to_string(),
             tools: tools.iter().map(|item| item.to_string()).collect(),
@@ -347,6 +370,8 @@ mod tests {
 
     fn template(version: &str, roles: Vec<TeamTemplateRole>) -> TeamTemplate {
         TeamTemplate {
+            budget_calls_per_role: Default::default(),
+            editor: None,
             template_id: "video-recreate".to_string(),
             name: "视频复刻".to_string(),
             mode: TeamMode::Team,
@@ -523,5 +548,33 @@ mod tests {
             .find(|change| change.role == "a")
             .expect("角色 a 应有变化");
         assert!(role_a.changes.iter().any(|change| change.field == "verify"));
+    }
+}
+
+#[cfg(test)]
+mod stable_identity_tests {
+    use super::*;
+    #[test]
+    fn workflow_diff_treats_rename_as_same_node_and_keeps_permission_risk() {
+        let before:TeamTemplate=serde_json::from_value(serde_json::json!({"template_id":"stable-diff","roles":[{"node_id":"a","role":"old","tools":["read_file"],"write_paths":["outputs/a"]},{"node_id":"b","role":"next","depends_on":["old"]}]})).unwrap();
+        let mut after = before.clone();
+        after.roles[0].role = "new".into();
+        after.roles[0].tools.push("run_command".into());
+        after.roles[1].depends_on = vec!["new".into()];
+        let diff = diff_templates(&before, &after);
+        assert!(diff.roles_added.is_empty());
+        assert!(diff.roles_removed.is_empty());
+        assert!(diff
+            .roles_changed
+            .iter()
+            .any(
+                |role| role.changes.iter().any(|change| change.field == "role"
+                    && change.before == "old"
+                    && change.after == "new")
+            ));
+        assert!(
+            !diff.risks.is_empty(),
+            "renaming must not hide expanded tools"
+        );
     }
 }

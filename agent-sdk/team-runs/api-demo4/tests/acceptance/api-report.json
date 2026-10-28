@@ -1,0 +1,100 @@
+{
+  "report": "Echo API 验收测试报告",
+  "tester": "tester",
+  "environment": {
+    "runtime": "Node.js 内置 http / node:test",
+    "third_party_deps": "无（零依赖）",
+    "workspace_files_present": ["docs", "src", "tests"]
+  },
+  "executed_command": "node --test",
+  "command_policy": "单条命令，直接运行，无重定向/管道/分号/花括号/&&/shell 包装；结果取自命令工具输出（TAP）",
+  "exit_code": 0,
+  "counts": {
+    "tests": 12,
+    "suites": 0,
+    "pass": 12,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "duration_ms": 277.4114
+  },
+  "failures": [],
+  "failed_test_names": [],
+  "passed_test_names": [
+    "环境：不引入第三方依赖，只用 node:http",
+    "GET /health -> 200 {\"ok\":true} 且 Content-Type 正确",
+    "POST /echo 对象：响应与请求解析值深相等",
+    "POST /echo 顶层字符串/数字/布尔/null 都原样回显（不包裹）",
+    "POST /echo 空请求体 -> 400 INVALID_JSON",
+    "POST /echo 非法 JSON（截断/尾随逗号/单引号/NaN）-> 400 INVALID_JSON",
+    "未知路径 -> 404 NOT_FOUND 且不回显请求内容",
+    "方法不匹配 -> 404（不用 405）：GET /echo、POST /health、PUT /health",
+    "边界：路径区分大小写且忽略查询串",
+    "边界：请求体超过 1 MiB -> 400 INVALID_JSON",
+    "边界：所有响应（含错误）都带 Content-Length 且 Content-Type 为 JSON",
+    "边界：并发请求之间不共享可变状态"
+  ],
+  "contract_coverage": [
+    {
+      "requirement": "GET /health 返回 {\"ok\":true}",
+      "verified": true,
+      "evidence_test": "GET /health -> 200 {\"ok\":true} 且 Content-Type 正确",
+      "status": "pass"
+    },
+    {
+      "requirement": "POST /echo 回显 JSON（对象等解析值深相等）",
+      "verified": true,
+      "evidence_test": "POST /echo 对象：响应与请求解析值深相等",
+      "status": "pass"
+    },
+    {
+      "requirement": "POST /echo 顶层标量（字符串/数字/布尔/null）原样回显不包裹",
+      "verified": true,
+      "evidence_test": "POST /echo 顶层字符串/数字/布尔/null 都原样回显（不包裹）",
+      "status": "pass"
+    },
+    {
+      "requirement": "非法/空 JSON 请求体返回 400（INVALID_JSON）",
+      "verified": true,
+      "evidence_test": "POST /echo 空请求体 -> 400 INVALID_JSON；POST /echo 非法 JSON（截断/尾随逗号/单引号/NaN）-> 400 INVALID_JSON",
+      "status": "pass"
+    },
+    {
+      "requirement": "超过 1 MiB 请求体返回 400 INVALID_JSON",
+      "verified": true,
+      "evidence_test": "边界：请求体超过 1 MiB -> 400 INVALID_JSON",
+      "status": "pass"
+    },
+    {
+      "requirement": "未知路径与其他方法（GET /echo、POST /health、PUT /health）返回 404 而非 405",
+      "verified": true,
+      "evidence_test": "未知路径 -> 404 NOT_FOUND 且不回显请求内容；方法不匹配 -> 404（不用 405）",
+      "status": "pass"
+    },
+    {
+      "requirement": "仅使用 Node 内置 http，无第三方依赖",
+      "verified": true,
+      "evidence_test": "环境：不引入第三方依赖，只用 node:http",
+      "status": "pass"
+    },
+    {
+      "requirement": "响应头一致性（Content-Type JSON、Content-Length）",
+      "verified": true,
+      "evidence_test": "边界：所有响应（含错误）都带 Content-Length 且 Content-Type 为 JSON",
+      "status": "pass"
+    },
+    {
+      "requirement": "并发无共享可变状态",
+      "verified": true,
+      "evidence_test": "边界：并发请求之间不共享可变状态",
+      "status": "pass"
+    }
+  ],
+  "untested_gaps": [
+    "仅依据现有 tests/ 中 node:test 用例覆盖；未做人工黑盒探测（如自定义端口、超大并发压测、慢速请求超时），超出本次约束范围"
+  ],
+  "conclusion": "PASS：node --test 退出码 0，12/12 通过、0 失败，全部契约点（/health、/echo 回显、400 非法 JSON、404 未知路径与方法不匹配、零依赖、响应头、并发）均有通过用例对应。",
+  "files_modified": ["tests/acceptance/api-report.json"],
+  "files_not_modified": ["src/", "docs/", "tests/ 其他文件"]
+}

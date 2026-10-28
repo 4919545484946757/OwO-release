@@ -141,3 +141,29 @@ test("command panel initializes its default API helpers when none are injected",
   assert.ok(requested.includes("/command/audit"));
   assert.match(h.document.getElementById("owo-command-audit").textContent, /ready — loaded/);
 });
+
+
+test("OCR fills a reviewable draft without executing recognized text", async () => {
+  const calls=[];
+  const h=createHarness({get:async()=>({audit:[]}),post:async(path,body)=>{calls.push([path,body]);return {text:'桌面动作：点击确认'};},prompt:async()=> '10,20,300,80'});
+  h.document.getElementById('owo-command-mode').value='region';
+  await h.document.getElementById('owo-command-run').handlers.click();
+  assert.deepEqual(calls.map(c=>c[0]),['/perception/ocr/region']);
+  assert.equal(h.document.getElementById('owo-command-text').value,'桌面动作：点击确认');
+  assert.equal(h.document.getElementById('owo-command-mode').value,'text');
+  assert.match(h.document.getElementById('owo-command-status').textContent,/检查后再执行/);
+});
+
+test("leaving while the OCR region prompt is open prevents late capture submission", async()=>{
+  const dialog=deferred(),writes=[];
+  const h=createHarness({get:async()=>({audit:[]}),post:async(path)=>{writes.push(path);return {};},prompt:()=>dialog.promise});
+  h.document.getElementById('owo-command-mode').value='region';
+  const task=h.document.getElementById('owo-command-run').handlers.click();
+  h.panel.dispose();dialog.resolve('1,2,30,40');await task;
+  assert.deepEqual(writes,[]);
+});
+
+test("invalid audit data remains a visible failure instead of an empty audit",async()=>{
+  const h=createHarness({get:async()=>({}),post:async()=>({})});await h.panel.refresh();
+  assert.match(h.document.getElementById('owo-command-audit').textContent,/失败|不完整/);
+});

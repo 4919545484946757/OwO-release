@@ -238,7 +238,7 @@ async fn workflow_stats(
     let stats = collect_template_stats(&state)
         .await
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error))?;
-    let registry = TeamTemplateRegistry::new(state.data_root.join("workswarm").join("templates"));
+    let registry = TeamTemplateRegistry::for_workswarm_root(&state.data_root.join("workswarm"));
 
     let mut items: Vec<Value> = stats
         .into_iter()

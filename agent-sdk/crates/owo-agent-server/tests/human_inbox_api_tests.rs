@@ -220,11 +220,13 @@ fn seed_run_meta(state: &owo_agent_server::AppState, team_id: &str, worker: &str
         team_id: team_id.to_string(),
         correlation_id: format!("corr-{team_id}"),
         roles: vec![RoleSpec {
+            node_id: None,
             role: "h".to_string(),
             assignee: "human".to_string(),
             worker: Some(worker.to_string()),
             ..Default::default()
         }],
+        template_source: None,
         template_id: None,
         budgets: std::collections::BTreeMap::new(),
         parallel: false,

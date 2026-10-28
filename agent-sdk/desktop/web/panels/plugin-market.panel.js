@@ -9,88 +9,49 @@
   var catalogGeneration = 0;
   var auditGeneration = 0;
   var actionBusy = Object.create(null);
+  var emptyIcon = '<svg class="owo-extension-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>';
+
 
   window.OwoPanels["plugin-market"] = {
     id: "plugin-market",
     title: "插件市场",
 
+    tabs: ["catalog", "local", "remote", "audit", "dev"],
+    fields: ["dir", "dir2", "id", "uid", "url", "rid", "rver", "seed", "search"],
     nav: function () {
-      return (
-        '<section data-panel="plugin-market" class="owo-market-panel">' +
-        '<div class="owo-market-hero">' +
-        "<div>" +
-        "<h3>插件市场</h3>" +
-        '<span class="owo-market-env sub"></span>' +
-        "</div>" +
-        '<button class="owo-market-refresh">刷新</button>' +
-        "</div>" +
-        '<div class="owo-market-block">' +
-        "<h4>已安装</h4>" +
-        '<ul class="owo-market-list list"></ul>' +
-        "</div>" +
-        '<div class="owo-market-block">' +
-        "<h4>市场目录（可安装）</h4>" +
-        '<div class="owo-market-catalog"></div>' +
-        "</div>" +
-        '<details class="owo-market-advanced">' +
-        "<summary>高级工具（扫描 / 校验 / 目录安装 / 更新 / 卸载）</summary>" +
-        '<div class="stack">' +
-        '<div class="inline"><input class="owo-market-dir" placeholder="插件目录路径（相对 workspace 或绝对）"><button class="owo-market-scan" data-core-action>扫描</button><button class="owo-market-verify" data-core-action>校验</button></div>' +
-        '<div class="inline"><input class="owo-market-dir2" placeholder="插件目录（安装/更新源）"><input class="owo-market-id" placeholder="更新目标 id（update 时）"><button class="owo-market-install" data-core-action>安装</button><button class="owo-market-update" data-core-action>更新</button></div>' +
-        '<div class="inline"><input class="owo-market-uid" placeholder="卸载 id"><button class="owo-market-uninstall" data-core-action>卸载</button></div>' +
-        '<div class="owo-market-result sub"></div>' +
-        "</div>" +
-        "</details>" +
-        '<details class="owo-market-advanced">' +
-        "<summary>远端市场（registry）</summary>" +
-        '<div class="stack">' +
-        '<div class="inline"><input class="owo-market-url" placeholder="市场 URL（OWO_MARKET_URL 缺省）"><button class="owo-market-refreshremote">拉取 registry</button></div>' +
-        '<div class="inline"><input class="owo-market-rid" placeholder="远端插件 id"><input class="owo-market-rver" placeholder="版本（可选）"><button class="owo-market-installremote primary" data-core-action>下载并安装</button></div>' +
-        "</div>" +
-        "</details>" +
-        '<details class="owo-market-advanced">' +
-        "<summary>Seed 示例市场条目</summary>" +
-        '<div class="stack">' +
-        '<textarea class="owo-market-seed" rows="4" spellcheck="false" placeholder=\'{"entries":[{"id":"owo.plugin.demo","name":"Demo","version":"1.0.0","min_app_version":"0.5.0"}]}\'></textarea>' +
-        '<button class="owo-market-seedbtn" data-core-action>写入 seed</button>' +
-        "</div>" +
-        "</details>" +
-        '<details class="owo-market-advanced">' +
-        "<summary>审计尾部</summary>" +
-        '<pre class="owo-market-audit sub">—</pre>' +
-        "</details>" +
-        "<style>" +
-        ".owo-market-panel { display: flex; flex-direction: column; gap: 12px; }" +
-        ".owo-market-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }" +
-        ".owo-market-hero h3 { margin: 0 0 2px; font-size: 14px; color: var(--text); }" +
-        ".owo-market-block h4 { margin: 0 0 8px; font-size: 12px; color: var(--text-2); font-weight: 600; }" +
-        ".owo-market-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }" +
-        ".owo-market-list li { display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); cursor: default; }" +
-        ".owo-market-list li:hover { background: var(--surface); border-color: var(--border-strong); }" +
-        ".owo-market-item-top { display: flex; align-items: center; gap: 9px; }" +
-        ".owo-market-tile { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 15px; }" +
-        ".owo-market-item-meta { flex: 1; min-width: 0; }" +
-        ".owo-market-item-meta strong { display: block; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }" +
-        ".owo-market-item-meta .sub { margin-top: 1px; }" +
-        ".owo-market-item-desc { margin: 0; min-height: 32px; font-size: 12px; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }" +
-        ".owo-market-item-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }" +
-        ".owo-market-item-foot button { height: 24px; padding: 0 9px; font-size: 11.5px; }" +
-        ".owo-market-catalog { display: flex; flex-direction: column; gap: 6px; }" +
-        ".owo-market-cat-row { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }" +
-        ".owo-market-cat-row:hover { border-color: var(--border-strong); }" +
-        ".owo-market-cat-meta { flex: 1; min-width: 0; }" +
-        ".owo-market-cat-meta strong { display: block; font-size: 12.5px; }" +
-        ".owo-market-cat-meta .sub { margin-top: 1px; }" +
-        ".owo-market-cat-install { flex: none; height: 26px; padding: 0 12px; font-size: 11.5px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-color: transparent; }" +
-        ".owo-market-cat-install:hover { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }" +
-        ".owo-market-result { white-space: pre-wrap; max-height: 200px; overflow: auto; }" +
-        ".owo-market-audit { white-space: pre-wrap; max-height: 180px; overflow: auto; }" +
-        ".owo-market-advanced > summary { font-size: 12px; }" +
-        ".owo-market-panel input { flex: 1; min-width: 0; }" +
-        ".owo-market-risk { color: var(--red); }" +
-        "</style>" +
-        "</section>"
-      );
+      function field(id, label, placeholder) {
+        return '<label for="market-' + id + '">' + label + '</label><input id="market-' + id + '" class="owo-market-' + id + '" placeholder="' + placeholder + '">';
+      }
+      var tabs = this.tabs.map(function (id, i) {
+        return '<button type="button" role="tab" id="market-tab-' + id + '" data-market-tab="' + id + '" aria-controls="market-pane-' + id +
+          '" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' + ["目录", "本地安装", "远端市场", "审计", "开发工具"][i] + '</button>';
+      }).join("");
+      return '<section data-panel="plugin-market" data-layout="custom" class="owo-market-panel owo-insight">' +
+        '<div class="owo-insight-toolbar"><div class="owo-insight-tabs" role="tablist" aria-label="插件市场">' + tabs +
+        '</div><button type="button" class="owo-market-refresh">刷新</button></div>' +
+        '<div class="owo-market-env sub" role="status">正在读取插件状态…</div>' +
+        '<pre class="owo-market-result" role="status" aria-live="polite" hidden></pre>' +
+        '<section id="market-pane-catalog" role="tabpanel" aria-labelledby="market-tab-catalog">' +
+        field("search", "搜索插件", "按名称或 ID 搜索") +
+        '<section class="owo-insight-section"><h3>已安装</h3><ul class="owo-market-list"></ul></section>' +
+        '<section class="owo-insight-section"><h3>市场目录</h3><div class="owo-market-catalog"></div></section></section>' +
+        '<section id="market-pane-local" role="tabpanel" aria-labelledby="market-tab-local" hidden><h3>扫描与校验</h3>' +
+        field("dir", "插件目录", "相对工作区或绝对路径") +
+        '<div class="owo-insight-actions"><button type="button" class="owo-market-scan" data-core-action>扫描</button><button type="button" class="owo-market-verify" data-core-action>校验</button></div>' +
+        '<section class="owo-insight-section"><h3>安装与更新</h3>' +
+        field("dir2", "安装或更新来源", "插件目录路径") + field("id", "更新目标 ID", "仅更新时填写") +
+        '<div class="owo-insight-actions"><button type="button" class="owo-market-update" data-core-action>更新</button><button type="button" class="owo-market-install primary" data-core-action>安装</button></div></section>' +
+        '<section class="owo-insight-section"><h3>卸载插件</h3>' + field("uid", "插件 ID", "已安装插件的 ID") +
+        '<div class="owo-insight-actions"><button type="button" class="owo-market-uninstall" data-core-action>卸载</button></div></section></section>' +
+        '<section id="market-pane-remote" role="tabpanel" aria-labelledby="market-tab-remote" hidden><h3>远端市场</h3><p class="sub">拉取目录后，可在目录页选择插件。</p>' +
+        field("url", "市场 URL", "留空使用配置的市场地址") +
+        '<div class="owo-insight-actions"><button type="button" class="owo-market-refreshremote" data-core-action>拉取目录</button></div>' +
+        '<section class="owo-insight-section"><h3>按 ID 安装</h3>' + field("rid", "远端插件 ID", "插件 ID") + field("rver", "版本", "可选") +
+        '<div class="owo-insight-actions"><button type="button" class="owo-market-installremote primary" data-core-action>下载并安装</button></div></section></section>' +
+        '<section id="market-pane-audit" role="tabpanel" aria-labelledby="market-tab-audit" hidden><h3>最近审计</h3><p class="sub">最近 20 条插件操作记录。</p><pre class="owo-market-audit sub" role="status">加载中…</pre></section>' +
+        '<section id="market-pane-dev" role="tabpanel" aria-labelledby="market-tab-dev" hidden><h3>写入市场条目</h3><p class="sub">向本地目录写入 seed 条目，安装前仍需经过校验。</p>' +
+        '<label for="market-seed">条目 JSON</label><textarea id="market-seed" class="owo-market-seed" rows="8" spellcheck="false" placeholder="粘贴包含 entries 的 JSON"></textarea>' +
+        '<div class="owo-insight-actions"><button type="button" class="owo-market-seedbtn" data-core-action>写入 seed</button></div></section></section>';
     },
 
     mount: function (root, helpers) {
@@ -107,36 +68,69 @@
       this.esc = this.helpers.esc || this._esc;
       this.friendlyError = this.helpers.friendlyError || this._friendlyError;
 
+      var scope = this.baseUrl + "#" + (this.helpers.coreInstanceId || (window.OwoApi && window.OwoApi.coreInstanceId) || "");
+      if (this.scope !== scope) { this.drafts = {}; this.activeTab = "catalog"; }
+      this.scope = scope;
+      this.catalogData = null;
       root.innerHTML = this.nav();
+      var owner = panelGeneration;
+      this.fields.forEach(function (id) {
+        var el = root.querySelector(".owo-market-" + id);
+        if (el && self.drafts && self.drafts[id] != null) el.value = self.drafts[id];
+      });
+      this.tabs.forEach(function (id, index) {
+        var el = root.querySelector('[data-market-tab="' + id + '"]');
+        el.addEventListener("click", function () { if (owner === panelGeneration) self.selectTab(id); });
+        el.addEventListener("keydown", function (e) {
+          if (owner !== panelGeneration) return;
+          var next = e.key === "ArrowRight" ? (index + 1) % 5 : e.key === "ArrowLeft" ? (index + 4) % 5 : e.key === "Home" ? 0 : e.key === "End" ? 4 : -1;
+          if (next < 0) return;
+          e.preventDefault(); self.selectTab(self.tabs[next]);
+          root.querySelector('[data-market-tab="' + self.tabs[next] + '"]').focus();
+        });
+      });
+      this.selectTab(this.activeTab || "catalog");
+      root.querySelector(".owo-market-search").addEventListener("input", function () {
+        if (owner === panelGeneration && self.catalogData) self.renderCatalog(self.catalogData);
+      });
       var $ = function (sel) {
         return root.querySelector(sel);
       };
 
       $(".owo-market-refresh").addEventListener("click", function () {
-        self.refresh();
+        if (owner !== panelGeneration) return;
+        self.refresh(); self.refreshAudit();
       });
       $(".owo-market-scan").addEventListener("click", function () {
+        if (owner !== panelGeneration) return;
         self.doScan($(".owo-market-dir").value, $(".owo-market-scan"));
       });
       $(".owo-market-verify").addEventListener("click", function () {
+        if (owner !== panelGeneration) return;
         self.doVerify($(".owo-market-dir").value, $(".owo-market-verify"));
       });
       $(".owo-market-install").addEventListener("click", function () {
+        if (owner !== panelGeneration) return;
         self.doInstall($(".owo-market-dir2").value, $(".owo-market-install"));
       });
       $(".owo-market-update").addEventListener("click", function () {
+        if (owner !== panelGeneration) return;
         self.doUpdate($(".owo-market-id").value, $(".owo-market-dir2").value, $(".owo-market-update"));
       });
       $(".owo-market-uninstall").addEventListener("click", function () {
+        if (owner !== panelGeneration) return;
         self.doUninstall($(".owo-market-uid").value, $(".owo-market-uninstall"));
       });
       $(".owo-market-seedbtn").addEventListener("click", function () {
+        if (owner !== panelGeneration) return;
         self.doSeed($(".owo-market-seed").value, $(".owo-market-seedbtn"));
       });
       $(".owo-market-refreshremote").addEventListener("click", function () {
+        if (owner !== panelGeneration) return;
         self.doRefreshRemote($(".owo-market-url").value, $(".owo-market-refreshremote"));
       });
       $(".owo-market-installremote").addEventListener("click", function () {
+        if (owner !== panelGeneration) return;
         self.doInstallRemote(
           $(".owo-market-rid").value,
           $(".owo-market-rver").value,
@@ -161,26 +155,29 @@
         .catch(function (error) {
           if (request !== catalogGeneration || owner !== panelGeneration) return;
           var root = self._root();
-          var list = root && root.querySelector(".owo-market-list");
-          if (list) {
-            list.innerHTML =
-              '<li class="sub">' +
-              self.esc(self.friendlyError(error)) +
-              "</li>";
-          }
+          var env = root && root.querySelector(".owo-market-env");
+          if (env) env.textContent = "目录读取失败：" + self.friendlyError(error) + (self.catalogData ? "（保留上次结果）" : "，请刷新重试");
+
         });
     },
 
     renderCatalog: function (data) {
-      var list = this._root().querySelector(".owo-market-list");
+      if (!this.root) return;
+      if (!data || !Array.isArray(data.plugins) || data.plugins.some(function (item) { return !item || typeof item !== "object"; })) throw new Error("插件目录响应不完整");
+      this.catalogData = data;
+      var list = this.root.querySelector(".owo-market-list");
       var catalog = this._root().querySelector(".owo-market-catalog");
       if (!list) return;
       var envEl = this._root().querySelector(".owo-market-env");
       if (envEl) {
         envEl.textContent =
-          "App " + data.app_version + " ｜ 签名" + (data.require_signature ? "开启" : "关闭");
+          "App " + (data.app_version || "—") + " · 签名验证" + (data.require_signature === true ? "开启" : data.require_signature === false ? "关闭" : "状态未知");
       }
-      var plugins = data.plugins || [];
+      var search = this.root.querySelector(".owo-market-search");
+      var query = String(search && search.value || "").trim().toLowerCase();
+      var plugins = data.plugins.filter(function (item) {
+        return !query || [item.id, item.name, item.description].join(" ").toLowerCase().indexOf(query) >= 0;
+      });
       var installed = plugins.filter(function (item) {
         return item.source !== "market";
       });
@@ -192,12 +189,12 @@
         list.appendChild(this._installedItem(installed[i]));
       }
       if (!installed.length) {
-        list.innerHTML = '<li class="sub">暂无已安装插件</li>';
+        list.innerHTML = '<li class="owo-insight-empty">' + emptyIcon + '<span>' + (query ? "没有匹配的已安装插件" : "暂无已安装插件") + "</span></li>";
       }
       if (catalog) {
         catalog.innerHTML = "";
         if (!market.length) {
-          catalog.innerHTML = '<div class="sub">市场目录为空（可在「远端市场」中拉取 registry）</div>';
+          catalog.innerHTML = '<div class="owo-insight-empty">' + emptyIcon + '<span>' + (query ? "没有匹配的市场条目" : "市场目录为空，可在远端市场中拉取目录。") + "</span></div>";
         }
         for (var j = 0; j < market.length; j++) {
           catalog.appendChild(this._marketItem(market[j]));
@@ -206,16 +203,16 @@
     },
 
     _installedItem: function (plugin) {
-      var self = this;
+      var self = this, owner = panelGeneration;
       var li = document.createElement("li");
-      var risks = plugin.risks && plugin.risks.length ? plugin.risks.join("；") : "";
+      var risks = Array.isArray(plugin.risks) ? plugin.risks.join("；") : "";
       var riskBadge = risks
         ? '<span class="sub owo-market-risk">⚠ ' + this.esc(risks) + "</span>"
         : "";
       var updateBadge = plugin.has_update
         ? '<span class="sub">⬆ 可更新</span>'
         : "";
-      var initial = this.esc((plugin.name || plugin.id || "?").trim().slice(0, 1).toUpperCase());
+      var initial = this.esc(String(plugin.name || plugin.id || "?").trim().slice(0, 1).toUpperCase());
       li.innerHTML =
         '<div class="owo-market-item-top">' +
         '<span class="owo-market-tile" aria-hidden="true">' +
@@ -247,16 +244,16 @@
         "<button type=\"button\" data-core-action>卸载</button>" +
         "</div>";
       li.querySelector("button").addEventListener("click", function () {
-        self.doUninstall(plugin.id);
+        if (owner === panelGeneration) self.doUninstall(plugin.id, li.querySelector("button"));
       });
       return li;
     },
 
     _marketItem: function (entry) {
-      var self = this;
+      var self = this, owner = panelGeneration;
       var row = document.createElement("div");
       row.className = "owo-market-cat-row";
-      var initial = this.esc((entry.name || entry.id || "?").trim().slice(0, 1).toUpperCase());
+      var initial = this.esc(String(entry.name || entry.id || "?").trim().slice(0, 1).toUpperCase());
       row.innerHTML =
         '<span class="owo-market-tile" aria-hidden="true">' +
         initial +
@@ -270,20 +267,23 @@
         " ｜ 最低支持 App " +
         this.esc(entry.min_app_version || "—") +
         "</span>" +
-        "</div>";
+        '<p class="owo-market-item-desc">' + this.esc(entry.description || "") + "</p></div>";
       var button = document.createElement("button");
       button.type = "button";
       button.className = "owo-market-cat-install";
       button.setAttribute("data-core-action", "true");
       button.textContent = "安装";
       button.addEventListener("click", function () {
-        self.doInstallRemote(entry.id, entry.version || "", "", button);
+        if (owner === panelGeneration) self.doInstallRemote(entry.id, entry.version || "", "", button);
       });
       row.appendChild(button);
       return row;
     },
 
     _action: function (key, button, request, success, failure) {
+      if (!this.root) return Promise.resolve();
+      var scope = this.scope;
+      key = scope + ":" + key;
       if (actionBusy[key]) {
         this._result("同一插件操作仍在执行，请稍后再试。");
         return Promise.resolve();
@@ -294,6 +294,7 @@
       var self = this;
       var idleText = button && button.textContent;
       if (button) {
+        if (window.OwoCoreActionAvailability) window.OwoCoreActionAvailability.setBusy(button, true);
         button.disabled = true;
         button.setAttribute("aria-busy", "true");
         button.textContent = "处理中…";
@@ -304,7 +305,7 @@
         .then(function (data) {
           if (owner === panelGeneration) {
             success(data);
-          } else if (self.root) {
+          } else if (self.root && scope === self.scope) {
             self._result("上一页面发起的插件操作已完成，请刷新当前目录确认状态。");
             self.refresh();
             self.refreshAudit();
@@ -313,7 +314,7 @@
         .catch(function (error) {
           if (owner === panelGeneration) {
             failure(error);
-          } else if (self.root) {
+          } else if (self.root && scope === self.scope) {
             self._result("上一页面发起的插件操作失败：" + self.friendlyError(error));
           }
         })
@@ -321,6 +322,7 @@
           if (actionBusy[key] !== actionToken) return;
           delete actionBusy[key];
           if (owner === panelGeneration && button) {
+            if (window.OwoCoreActionAvailability) window.OwoCoreActionAvailability.setBusy(button, false);
             button.disabled = false;
             button.removeAttribute("aria-busy");
             button.textContent = idleText;
@@ -374,7 +376,7 @@
     },
 
     doUninstall: function (id, button) {
-      var self = this;
+      var self = this, owner = panelGeneration, post = this.post;
       if (!id) return this._result("请填写卸载 id");
       return this._action("uninstall:" + id, button, function () {
         var confirm = self.helpers && self.helpers.confirm
@@ -386,8 +388,8 @@
             })
           : Promise.resolve(window.confirm("确定卸载插件“" + id + "”？其文件将从工作区移除。"));
         return Promise.resolve(confirm).then(function (accepted) {
-          if (!accepted) return { cancelled: true };
-          return self.post("/plugins/market/uninstall", { id: id });
+          if (!accepted || owner !== panelGeneration) return { cancelled: true };
+          return post.call(self, "/plugins/market/uninstall", { id: id });
         });
       }, function (data) {
         if (data && data.cancelled) {
@@ -447,7 +449,8 @@
           if (request !== auditGeneration || owner !== panelGeneration) return;
           var root = self._root();
           var el = root && root.querySelector(".owo-market-audit");
-          if (el) el.textContent = (((data && data.entries) || []).join("\n")) || "（空）";
+          if (!data || !Array.isArray(data.entries)) throw new Error("审计响应不完整");
+          if (el) el.textContent = data.entries.join("\n") || "暂无审计记录";
         })
         .catch(function (error) {
           if (request !== auditGeneration || owner !== panelGeneration) return;
@@ -460,14 +463,30 @@
     _result: function (text) {
       var root = this._root();
       var el = root && root.querySelector(".owo-market-result");
-      if (el) el.textContent = text;
+      if (el) { el.textContent = text; el.hidden = !text; }
     },
 
     _root: function () {
-      return (this.helpers && this.helpers.root) || this.root || null;
+      return this.root || null;
+    },
+
+    selectTab: function (id) {
+      if (!this.root || this.tabs.indexOf(id) < 0) return;
+      this.activeTab = id;
+      var self = this;
+      this.tabs.forEach(function (tab) {
+        var button = self.root.querySelector('[data-market-tab="' + tab + '"]');
+        if (button && button.setAttribute) { button.setAttribute("aria-selected", String(tab === id)); button.setAttribute("tabindex", tab === id ? "0" : "-1"); }
+        var pane = self.root.querySelector("#market-pane-" + tab);
+        if (pane) pane.hidden = tab !== id;
+      });
     },
 
     dispose: function () {
+      if (this.root) {
+        var self = this; this.drafts = {};
+        this.fields.forEach(function (id) { var el = self.root.querySelector(".owo-market-" + id); if (el) self.drafts[id] = el.value; });
+      }
       panelGeneration += 1;
       catalogGeneration += 1;
       auditGeneration += 1;

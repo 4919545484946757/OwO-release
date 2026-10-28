@@ -1113,7 +1113,7 @@ mod sandbox_workspace_scope_tests {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "windows"))]
 mod command_line_tests {
     // command_line 家族是 `win` 模块下的自由函数（Windows 平台实现）。
     use super::win::{command_line_string, is_cmd_shell, is_cmd_switch};

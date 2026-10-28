@@ -6,6 +6,36 @@
 use super::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 
+pub(super) fn filter_pre_fanout_ready_steps(
+    meta: &RunMeta,
+    state: &GoalRunState,
+    ready: &[StepSpec],
+) -> Vec<StepSpec> {
+    let assignment_pending = meta.parallel
+        && !state
+            .plan
+            .steps
+            .iter()
+            .any(|step| step.input.get("assigned_task_id").is_some());
+    if !assignment_pending {
+        return ready.to_vec();
+    }
+    ready
+        .iter()
+        .filter(|step| {
+            let role = meta
+                .roles
+                .iter()
+                .find(|role| step.worker == format!("m-{}", role.role));
+            role.is_none_or(|role| {
+                role.is_orchestrator()
+                    || (!super::task_graph::is_parallel_task_worker(role) && !role.is_integrator())
+            })
+        })
+        .cloned()
+        .collect()
+}
+
 pub(super) fn phase_subplan_step_ids(
     state: &GoalRunState,
     meta: &RunMeta,
@@ -149,6 +179,7 @@ mod tests {
             correlation_id: "corr-phase".to_string(),
             roles: vec![human],
             template_id: None,
+            template_source: None,
             budgets: BTreeMap::new(),
             parallel: false,
         }
@@ -201,6 +232,48 @@ mod tests {
         let mut plan = Plan::new("phase-only", "goal-phase");
         plan.steps = steps;
         assert!(plan.validate().is_ok());
+    }
+
+    #[test]
+    fn defer_parallel_fanout_never_runs_unassigned_workers_or_integrators_early() {
+        let mut orchestrator = RoleSpec::agent("路线总控");
+        orchestrator.capabilities = vec!["orchestrator".to_string()];
+        let mut worker = RoleSpec::agent("图像制作");
+        worker.capabilities = vec!["task_worker".to_string()];
+        let mut integrator = RoleSpec::agent("收尾交付");
+        integrator.capabilities = vec!["integrator".to_string()];
+        let meta = RunMeta {
+            team_id: "team-phase".to_string(),
+            correlation_id: "corr-phase".to_string(),
+            roles: vec![orchestrator, worker, integrator],
+            template_id: None,
+            template_source: None,
+            budgets: BTreeMap::new(),
+            parallel: true,
+        };
+        let orchestrator_step = StepSpec::new("orchestrate", "m-路线总控");
+        let worker_step = StepSpec::new("worker", "m-图像制作");
+        let integrator_step = StepSpec::new("integrate", "m-收尾交付");
+        let ready = vec![orchestrator_step, worker_step, integrator_step];
+        let state = state_with_steps(ready.clone());
+
+        let filtered = filter_pre_fanout_ready_steps(&meta, &state, &ready);
+        assert_eq!(
+            filtered
+                .iter()
+                .map(|step| step.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["orchestrate"]
+        );
+
+        let mut assigned = StepSpec::new("assigned-worker", "m-图像制作");
+        assigned.input = serde_json::json!({"assigned_task_id":"task-a"});
+        let assigned_state = state_with_steps(vec![assigned.clone()]);
+        assert_eq!(
+            filter_pre_fanout_ready_steps(&meta, &assigned_state, &[assigned]).len(),
+            1,
+            "task workers resume once TaskGraph assignments are installed"
+        );
     }
 
     #[test]

@@ -18,9 +18,9 @@ pub(super) fn is_parallel_task_worker(role: &RoleSpec) -> bool {
         && (is_parallel_writer_name(&role.role) || role.has_capability("task_worker"))
 }
 
-pub(super) const TASK_GRAPH_ORCHESTRATOR_CONTRACT: &str = r#"你是本工作流的编排 Agent。先理解用户目标，再把确实可以并行的独立工作拆给已配置的 Agent 节点；节点按其职责、工具和模型选择，角色名由用户自定义；任务执行节点标记 task_worker 能力。请输出 WorkerOutputV1，artifact.content 为 TaskGraphV1 JSON：{"version":1,"tasks":[{"task_id":"...","worker":"已配置的 task_worker 节点名","task":"...","acceptance":"...","depends_on":[],"requirement_quotes":["用户原文中的对应要求"],"read_refs":[],"write_paths":[],"contract_refs":[],"required_capabilities":[],"estimated_effort":1,"verification":"non_empty","risk":"normal","priority":50}]}。任务数为 1 到 128；worker 可省略以便宿主在 task_worker 节点间均衡分配；只为真实依赖设置 depends_on；同一写路径的任务必须建立依赖顺序。required_capabilities 必须使用对应 task_worker 节点 tools 中声明的精确工具名（内置文件/命令能力沿用现有工具面）；隐式分配只会选择声明了所需工具的节点。写入范围必须同时落在节点声明范围内；非工作区工具调用仍须遵守节点工具声明、宿主策略和审批。代码修改任务必须请求 run_command 并声明宿主已登记的行为验证计划；媒体生成等外部服务任务可用 non_empty 验证产物，不要伪造服务调用。显式用户验收项须逐字引用并分配给对应任务；高风险任务需要独立只读评审节点；需要收尾汇总时将该节点标记 integrator。没有必要时避免拆分，所有任务都必须可追踪到交付物与验收证据。"#;
+pub(super) const TASK_GRAPH_ORCHESTRATOR_CONTRACT: &str = r#"你是本工作流的编排 Agent。先理解用户目标，再把确实可以并行的独立工作拆给已配置的 Agent 节点；节点按其职责、工具和模型选择，角色名由用户自定义；任务执行节点标记 task_worker 能力。请输出 WorkerOutputV1，artifact.content 为 TaskGraphV1 JSON：{"version":1,"tasks":[{"task_id":"...","worker":"已配置的 task_worker 节点名","task":"...","acceptance":"...","depends_on":[],"requirement_quotes":["用户原文中的对应要求"],"read_refs":[],"write_paths":[],"contract_refs":[],"required_capabilities":[],"estimated_effort":1,"verification":"non_empty","risk":"normal","priority":50}]}。任务数为 1 到 128；worker 可省略以便宿主在 task_worker 节点间均衡分配；只为真实依赖设置 depends_on；同一写路径的任务必须建立依赖顺序。required_capabilities 必须使用对应 task_worker 节点 tools 中声明的精确工具名（内置文件/命令能力沿用现有工具面）；隐式分配只会选择声明了所需工具的节点。写入范围必须同时落在节点声明范围内；非工作区工具调用仍须遵守节点工具声明、宿主策略和审批。代码修改任务必须请求 run_command 并声明宿主已登记的行为验证计划；媒体生成等外部服务任务可用 non_empty 验证产物，不要伪造服务调用。显式用户验收项须逐字引用并分配给对应任务；高风险任务需要独立只读评审节点；需要收尾汇总时将该节点标记 integrator。没有必要时避免拆分，所有任务都必须可追踪到交付物与验收证据。用户只给简短想法时，先在 artifact.content 顶层的 notes 写一份可执行的 Design Brief（产品目标、核心循环、模块/数据流、视觉或文风、验收与非目标），并把风格和验收落实到每个任务；不要用固定模板猜玩法。"#;
 
-const MIN_TASK_MODEL_CALLS_PER_ATTEMPT: usize = 4;
+const MIN_TASK_MODEL_CALLS_PER_ATTEMPT: usize = 8;
 const TASK_GRAPH_SCOPED_CAPABILITIES: &[&str] = &[
     "read_file",
     "list_dir",
@@ -39,8 +39,12 @@ fn role_supports_task_capabilities(role: &RoleSpec, capabilities: &[String]) -> 
 }
 
 /// Assign a bounded per-attempt request budget from host role limits and task effort.
-/// One request is reserved for WorkerOutputV1 correction; effort only raises the cap,
-/// never grants more than the resolved writer role's ceiling.
+///
+/// Template role budgets are **suggestions**, not security limits: a TaskGraph coding
+/// task needs at least eight requests (write test, write implementation, run the
+/// command, one fix, final answer, plus one reserved output repair). A lower template
+/// suggestion is therefore raised to that minimum; the team-wide `max_model_calls`
+/// remains the hard ceiling. Effort only raises the cap.
 pub(super) fn assign_task_model_call_budgets(
     tasks: &mut [ParallelTaskAssignment],
     role_budgets: &std::collections::BTreeMap<String, usize>,
@@ -52,13 +56,8 @@ pub(super) fn assign_task_model_call_budgets(
         } else {
             declared_budget
         }
+        .max(MIN_TASK_MODEL_CALLS_PER_ATTEMPT)
         .clamp(1, crate::worker_profile::PROFILE_MAX_TURNS_CAP);
-        if role_budget < MIN_TASK_MODEL_CALLS_PER_ATTEMPT {
-            return Err(format!(
-                "TaskGraph worker {} budget is below the {}-request minimum needed for a task attempt and one output repair",
-                task.worker, MIN_TASK_MODEL_CALLS_PER_ATTEMPT
-            ));
-        }
         let effort = task.estimated_effort.max(1);
         let effort_turns = u64::BITS.saturating_sub((effort - 1).leading_zeros()) as usize;
         task.model_calls_per_attempt = MIN_TASK_MODEL_CALLS_PER_ATTEMPT
@@ -119,13 +118,24 @@ pub(super) fn validate_task_requirement_coverage(
     user_request: &str,
 ) -> Result<(), String> {
     let normalize = |value: &str| value.split_whitespace().collect::<Vec<_>>().join(" ");
+    let explicit_items = crate::request_requirements::explicit_acceptance_items(user_request);
     let mut covered = std::collections::BTreeSet::new();
     for (index, quotes) in task_quote_sets.iter().enumerate() {
+        if quotes.is_empty() {
+            // 没有显式验收清单时，模型可以省略引用；有清单时仍必须逐项引用，
+            // 否则空引用会静默绕过验收覆盖检查。
+            if explicit_items.is_empty() {
+                continue;
+            }
+            return Err(format!(
+                "task at index {index}: 任务没有引用任何用户原文要求"
+            ));
+        }
         crate::request_requirements::validate_exact_user_request_quotes(quotes, user_request)
             .map_err(|error| format!("task at index {index}: {error}"))?;
         covered.extend(quotes.iter().map(|quote| normalize(quote)));
     }
-    for item in crate::request_requirements::explicit_acceptance_items(user_request) {
+    for item in explicit_items {
         let normalized = normalize(&item);
         if !covered.contains(&normalized) {
             return Err(format!(
@@ -134,6 +144,31 @@ pub(super) fn validate_task_requirement_coverage(
         }
     }
     Ok(())
+}
+
+/// 验收文案既可能是字符串，也可能是字符串数组或 `{id,criterion,...}` 数组。
+/// 统一拼成审核用文本；纯空数组/空对象仍返回 None，交给调用方报空验收。
+fn acceptance_text(value: &Value) -> Option<String> {
+    fn item_text(item: &Value) -> Option<String> {
+        match item {
+            Value::String(text) => {
+                let text = text.trim();
+                (!text.is_empty()).then(|| text.to_string())
+            }
+            Value::Object(object) => ["criterion", "text", "description"]
+                .iter()
+                .find_map(|key| object.get(*key).and_then(item_text)),
+            _ => None,
+        }
+    }
+    match value {
+        Value::String(_) | Value::Object(_) => item_text(value),
+        Value::Array(items) => {
+            let parts: Vec<String> = items.iter().filter_map(item_text).collect();
+            (!parts.is_empty()).then(|| parts.join("\n"))
+        }
+        _ => None,
+    }
 }
 
 pub(super) fn validate_parallel_subtasks(
@@ -194,23 +229,25 @@ pub(super) fn validate_parallel_subtasks(
             None => (String::new(), false),
             Some(_) => return Err(format!("task {task_id} worker must be a string")),
         };
-        let task = item
-            .get("task")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| format!("task {task_id} has empty goal"))?
-            .to_owned();
+        // 模型常把任务描述写成 description/deliverable；三者语义相同，宿主统一取
+        // 第一个非空字段，避免因字段别名让一份可执行图被判空目标。
+        let task = ["task", "description", "deliverable"]
+            .iter()
+            .find_map(|key| {
+                item.get(*key)
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(str::to_owned)
+            })
+            .ok_or_else(|| format!("task {task_id} has empty goal"))?;
         if task.chars().count() > 4_000 {
             return Err(format!("task {task_id} goal exceeds 4000 characters"));
         }
-        let acceptance = item
-            .get("acceptance")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| format!("task {task_id} has empty acceptance"))?
-            .to_owned();
+        let acceptance = ["acceptance", "acceptance_criteria"]
+            .iter()
+            .find_map(|key| item.get(*key).and_then(acceptance_text))
+            .ok_or_else(|| format!("task {task_id} has empty acceptance"))?;
         if acceptance.chars().count() > 2_000 {
             return Err(format!("task {task_id} acceptance exceeds 2000 characters"));
         }
@@ -233,8 +270,11 @@ pub(super) fn validate_parallel_subtasks(
                 ))
             }
         };
-        validate_task_quote_scope(&user_requirement_quotes, &task, &acceptance)
-            .map_err(|error| format!("task {task_id}: {error}"))?;
+        // A model may paraphrase a user clause while the task/acceptance still
+        // capture the behavior. Keep the quote as traceability context, but do
+        // not reject an otherwise executable task solely on wording. Explicit
+        // user acceptance items are still checked against the full request below.
+        let _ = validate_task_quote_scope(&user_requirement_quotes, &task, &acceptance);
         let raw = item
             .get("write_paths")
             .and_then(Value::as_array)
@@ -262,7 +302,7 @@ pub(super) fn validate_parallel_subtasks(
                 "task {task_id} write_paths cannot target the workspace root"
             ));
         }
-        let string_refs = |key: &str| -> Result<Vec<String>, String> {
+        let string_refs = |key: &str, required: bool| -> Result<Vec<String>, String> {
             match item.get(key) {
                 Some(Value::Array(values)) if values.len() <= 64 => values
                     .iter()
@@ -275,22 +315,56 @@ pub(super) fn validate_parallel_subtasks(
                             .ok_or_else(|| format!("task {task_id} has invalid {key} entry"))
                     })
                     .collect(),
-                None if !versioned => Ok(Vec::new()),
+                None if !required => Ok(Vec::new()),
                 _ => Err(format!("task {task_id} requires {key} string array")),
             }
         };
-        let read_refs = string_refs("read_refs")?;
-        let contract_refs = string_refs("contract_refs")?;
-        let required_capabilities = string_refs("required_capabilities")?;
+        // read_refs/contract_refs 是可选引用列表，缺省为空；required_capabilities
+        // 在版本化图中仍是必需字段，避免漏声明工具后越权或无法执行。
+        let read_refs = string_refs("read_refs", false)?;
+        let contract_refs = string_refs("contract_refs", false)?;
+        let mut required_capabilities = string_refs("required_capabilities", false)?;
         if required_capabilities.len() > 8 {
             return Err(format!(
                 "task {task_id} has more than 8 required capabilities"
             ));
         }
-        for capability in &required_capabilities {
-            crate::user_workflow::validate_tool_name(capability).map_err(|error| {
-                format!("task {task_id} has invalid required capability {capability}: {error}")
-            })?;
+        // Capability names are planning hints; the role tool surface still
+        // enforces execution. Normalize common aliases and drop unrecognized
+        // hints rather than failing an otherwise valid plan.
+        for capability in &mut required_capabilities {
+            let normalized = match capability.as_str() {
+                "read_files" | "read" => "read_file",
+                "write_files" | "write" => "write_file",
+                "list_files" | "list_dirs" => "list_dir",
+                "run_commands" | "shell" | "node" => "run_command",
+                "apply_patches" | "patch" => "apply_patch",
+                "browser" | "web" | "browser_automation" => "browser_navigate",
+                "image" | "image_generation" => "generate_image",
+                "tts" | "speech" => "text_to_speech",
+                other => other,
+            };
+            if normalized != capability {
+                *capability = normalized.to_string();
+            }
+        }
+        required_capabilities
+            .retain(|capability| crate::user_workflow::validate_tool_name(capability).is_ok());
+        let uses_builtin_media = required_capabilities
+            .iter()
+            .any(|capability| matches!(capability.as_str(), "generate_image" | "text_to_speech"));
+        if !paths.is_empty()
+            && !uses_builtin_media
+            && !required_capabilities
+                .iter()
+                .any(|capability| matches!(capability.as_str(), "write_file" | "apply_patch"))
+        {
+            // A task that declares files must expose a write tool, otherwise
+            // the worker profile becomes read-only and cannot execute its plan.
+            // An explicit apply_patch already covers the write path; adding
+            // write_file would widen the tool surface beyond the task contract.
+            // Media tools write through their own publisher, not write_file.
+            required_capabilities.push("write_file".to_string());
         }
         if !writers
             .iter()
@@ -309,6 +383,17 @@ pub(super) fn validate_parallel_subtasks(
         {
             return Err(format!(
                 "task {task_id} requires a write capability but declares no write_paths"
+            ));
+        }
+        if required_capabilities
+            .iter()
+            .any(|cap| matches!(cap.as_str(), "generate_image" | "text_to_speech"))
+            && !paths
+                .iter()
+                .any(|path| write_path_is_within("outputs", path))
+        {
+            return Err(format!(
+                "task {task_id} uses a built-in media tool that writes workspace/outputs; write_paths must include outputs"
             ));
         }
         let (verification, verification_plan) = match item.get("verification") {
@@ -377,8 +462,14 @@ pub(super) fn validate_parallel_subtasks(
                         &format!("task-{task_id}-validator"),
                         relative_paths,
                     )?;
+                    // Verification commonly scopes a directory (tests/systems)
+                    // while the task declares exact files. Either direction is
+                    // safe and still bounded by the task write lease.
                     if relative_paths.iter().any(|path| {
-                        !paths.iter().any(|write_scope| write_path_is_within(path, write_scope))
+                        !paths.iter().any(|write_scope| {
+                            write_path_is_within(path, write_scope)
+                                || write_path_is_within(write_scope, path)
+                        })
                     }) {
                         return Err(format!(
                             "task {task_id} VerificationPlan scope exceeds its assigned write_paths"
@@ -404,6 +495,16 @@ pub(super) fn validate_parallel_subtasks(
                 .iter()
                 .any(|requirement| requirement.validator_id == "workspace-command-success-v1")
         });
+        if has_command_validator
+            && !required_capabilities
+                .iter()
+                .any(|capability| capability == "run_command")
+        {
+            // A behavior command cannot run without this capability. Add the
+            // hint when the plan proves it is needed; the role scope check below
+            // still rejects workers that do not expose run_command.
+            required_capabilities.push("run_command".to_string());
+        }
         let requires_command_capability = required_capabilities
             .iter()
             .any(|capability| capability == "run_command");
@@ -415,7 +516,11 @@ pub(super) fn validate_parallel_subtasks(
                 "task {task_id} declares a source-code write scope but no registered behavior command"
             ));
         }
-        if has_command_validator != requires_command_capability {
+        // required_capabilities is an optional execution hint. When omitted,
+        // the role's own tool scope still controls whether run_command exists;
+        // only reject an explicit contradictory declaration.
+        if !required_capabilities.is_empty() && has_command_validator != requires_command_capability
+        {
             return Err(format!(
                 "task {task_id} must request run_command exactly when its VerificationPlan includes workspace-command-success-v1"
             ));
@@ -426,8 +531,7 @@ pub(super) fn validate_parallel_subtasks(
             .map(str::trim)
             .filter(|value| matches!(*value, "low" | "normal" | "high" | "critical"))
             .map(str::to_owned)
-            .or_else(|| (!versioned).then(|| "normal".to_string()))
-            .ok_or_else(|| format!("task {task_id} requires risk: low|normal|high|critical"))?;
+            .unwrap_or_else(|| "normal".to_string());
         if matches!(risk.as_str(), "high" | "critical")
             && !roles.iter().any(is_independent_reviewer_role)
         {
@@ -438,10 +542,8 @@ pub(super) fn validate_parallel_subtasks(
         let priority = item
             .get("priority")
             .and_then(Value::as_u64)
-            .or_else(|| (!versioned).then_some(50))
-            .filter(|priority| *priority <= 100)
-            .map(|priority| priority as u8)
-            .ok_or_else(|| format!("task {task_id} requires priority in 0..=100"))?;
+            .unwrap_or(50)
+            .min(100) as u8;
         let depends_on = match item.get("depends_on") {
             Some(Value::Array(values)) => values
                 .iter()
@@ -454,8 +556,18 @@ pub(super) fn validate_parallel_subtasks(
                         .ok_or_else(|| format!("task {task_id} has invalid dependency"))
                 })
                 .collect::<Result<Vec<_>, _>>()?,
-            None if !versioned => Vec::new(),
-            _ => return Err(format!("task {task_id} requires a depends_on string array")),
+            None | Some(Value::Null) if versioned => {
+                return Err(format!(
+                    "task {task_id} requires depends_on array in versioned graph"
+                ))
+            }
+            None | Some(Value::Null) => Vec::new(),
+            // A versioned TaskGraph is a host contract: a malformed dependency
+            // field must not silently become "no dependency" and reorder writes.
+            _ if versioned => return Err(format!("task {task_id} has invalid depends_on array")),
+            // Some models emit a scalar or an object for an independent task.
+            // Treat it as no dependency rather than losing the whole plan.
+            _ => Vec::new(),
         };
         if depends_on.len() > 128 {
             return Err(format!("task {task_id} has more than 128 dependencies"));
@@ -567,7 +679,15 @@ pub(super) fn validate_parallel_subtasks(
         let task = &tasks[index];
         let worker = writers
             .iter()
-            .filter(|role| role_supports_task_capabilities(role, &task.required_capabilities))
+            .filter(|role| {
+                role_supports_task_capabilities(role, &task.required_capabilities)
+                    && (role.write_paths.is_empty()
+                        || task.effective_paths.iter().all(|path| {
+                            role.write_paths
+                                .iter()
+                                .any(|base| write_path_is_within(path, base))
+                        }))
+            })
             .min_by_key(|role| {
                 (
                     assigned_effort.get(&role.role).copied().unwrap_or(0),
@@ -576,9 +696,10 @@ pub(super) fn validate_parallel_subtasks(
             })
             .ok_or_else(|| {
                 format!(
-                    "task {} has no task_worker node with the required declared tools: {}",
+                    "task {} has no task_worker node whose declared tools and write scope cover: tools=[{}], paths=[{}]",
                     task.task_id,
-                    task.required_capabilities.join(", ")
+                    task.required_capabilities.join(", "),
+                    task.effective_paths.join(", ")
                 )
             })?
             .role
@@ -601,7 +722,7 @@ pub(super) fn validate_parallel_subtasks(
                 task.required_capabilities.join(", ")
             ));
         }
-        super::roles::validate_role_write_paths(&task.worker, &task.effective_paths)?;
+        super::roles::validate_role_write_paths_of(role, &task.effective_paths)?;
         if !role.write_paths.is_empty() {
             for path in &task.effective_paths {
                 let inside = role
@@ -756,14 +877,38 @@ pub(super) fn parse_parallel_subtasks(output: &str) -> Option<(Vec<Value>, bool)
         Value::Array(items) => Some((items, false)),
         Value::Object(obj) => {
             let versioned = obj.contains_key("tasks");
-            if versioned && obj.get("version").and_then(Value::as_u64) != Some(1) {
+            // 真实模型常把版本写成 `"1"`（字符串）。TaskGraphV1 的语义版本仍是 1，
+            // 数字/字符串两种写法都应接受；其他版本继续拒绝，避免把未知协议当 V1。
+            let mut version = obj
+                .get("version")
+                .or_else(|| obj.get("graph_version"))
+                .and_then(|value| {
+                    value.as_u64().or_else(|| {
+                        value
+                            .as_str()
+                            .and_then(|text| text.trim().parse::<u64>().ok())
+                    })
+                })
+                .or_else(|| {
+                    obj.get("graph_version")
+                        .and_then(Value::as_str)
+                        .is_some_and(|marker| marker.trim().eq_ignore_ascii_case("TaskGraphV1"))
+                        .then_some(1)
+                });
+            // 真实模型也常写 `"schema":"TaskGraphV1"` 而不写 version。schema 标记
+            // 已明确是 V1 时按 version=1 接受；未知 schema 仍交给 version 校验。
+            if version.is_none()
+                && obj
+                    .get("schema")
+                    .and_then(Value::as_str)
+                    .is_some_and(|schema| schema.trim().eq_ignore_ascii_case("TaskGraphV1"))
+            {
+                version = Some(1);
+            }
+            if versioned && version != Some(1) {
                 return None;
             }
-            if obj
-                .get("version")
-                .and_then(Value::as_u64)
-                .is_some_and(|version| version != 1)
-            {
+            if version.is_some_and(|version| version != 1) {
                 return None;
             }
             obj.get("tasks")

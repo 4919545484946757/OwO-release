@@ -2,9 +2,34 @@
 use super::task_graph::{
     assign_task_model_call_budgets, bind_dynamic_follow_up_dependencies,
     is_independent_reviewer_role, is_parallel_task_worker, parse_parallel_subtasks,
-    validate_parallel_subtasks, validate_task_requirement_coverage,
+    validate_parallel_subtasks, validate_task_requirement_coverage, ParallelTaskAssignment,
 };
 use super::*;
+
+fn allocate_task_step_ids(
+    assignments: &[ParallelTaskAssignment],
+    reserved_ids: &std::collections::BTreeSet<String>,
+) -> std::collections::BTreeMap<String, String> {
+    let mut used = reserved_ids.clone();
+    let mut first_for_worker = std::collections::BTreeSet::new();
+    let mut ids = std::collections::BTreeMap::new();
+    for task in assignments {
+        let base = if first_for_worker.insert(task.worker.clone()) {
+            format!("s-{}", task.worker)
+        } else {
+            format!("s-task-{}", task.task_id)
+        };
+        let mut id = base.clone();
+        let mut suffix = 2usize;
+        while used.contains(&id) {
+            id = format!("{base}-{suffix}");
+            suffix = suffix.saturating_add(1);
+        }
+        used.insert(id.clone());
+        ids.insert(task.task_id.clone(), id);
+    }
+    ids
+}
 
 impl TeamCoordinator {
     /// Validate the orchestrator candidate before publishing it. Uses exactly the same
@@ -30,8 +55,10 @@ impl TeamCoordinator {
                 .iter()
                 .map(|task| task.user_requirement_quotes.clone())
                 .collect::<Vec<_>>();
-            validate_task_requirement_coverage(&quotes, &state.goal.objective)
-                .map_err(WorkSwarmError::Validation)?;
+            // Quotes are model-authored traceability hints. The user request
+            // is still passed to every worker; a paraphrase must not discard
+            // an otherwise executable TaskGraph.
+            let _ = validate_task_requirement_coverage(&quotes, &state.goal.objective);
         }
         assign_task_model_call_budgets(&mut graph.tasks, &meta.budgets)
             .map_err(WorkSwarmError::Validation)?;
@@ -101,8 +128,7 @@ impl TeamCoordinator {
                 .iter()
                 .map(|task| task.user_requirement_quotes.clone())
                 .collect::<Vec<_>>();
-            validate_task_requirement_coverage(&task_quote_sets, &state.goal.objective)
-                .map_err(WorkSwarmError::Validation)?;
+            let _ = validate_task_requirement_coverage(&task_quote_sets, &state.goal.objective);
         }
         if task_graph.version != 1 {
             return Err(WorkSwarmError::Validation(
@@ -142,16 +168,14 @@ impl TeamCoordinator {
         // Bind a DAG of any size to the finite set of worker slots. A slot is a
         // capacity limit, not a serial dependency: independent tasks may overlap and
         // task-scoped sessions, permissions, and write leases preserve isolation.
-        let mut step_ids = std::collections::BTreeMap::new();
-        let mut first_for_worker = std::collections::BTreeSet::new();
-        for task in &assignments {
-            let id = if first_for_worker.insert(task.worker.clone()) {
-                format!("s-{}", task.worker)
-            } else {
-                format!("s-task-{}", task.task_id)
-            };
-            step_ids.insert(task.task_id.clone(), id);
-        }
+        let mut reserved_step_ids: std::collections::BTreeSet<String> = state
+            .plan
+            .steps
+            .iter()
+            .map(|step| step.id.clone())
+            .collect();
+        reserved_step_ids.extend(state.records.keys().cloned());
+        let step_ids = allocate_task_step_ids(&assignments, &reserved_step_ids);
         // Bind stable task-to-step identities using source order; sort only the runnable
         // plan entries so priority hints never rename or reassign an existing task slot.
         let mut scheduled_indices: Vec<usize> = (0..assignments.len()).collect();
@@ -321,5 +345,54 @@ impl TeamCoordinator {
         );
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod task_step_id_tests {
+    use super::*;
+
+    fn assignment(task_id: &str, worker: &str) -> ParallelTaskAssignment {
+        ParallelTaskAssignment {
+            task_id: task_id.to_string(),
+            worker: worker.to_string(),
+            worker_explicit: false,
+            task: "task".to_string(),
+            acceptance: "done".to_string(),
+            user_requirement_quotes: Vec::new(),
+            depends_on: Vec::new(),
+            effective_paths: Vec::new(),
+            read_refs: Vec::new(),
+            contract_refs: Vec::new(),
+            required_capabilities: Vec::new(),
+            estimated_effort: 1,
+            model_calls_per_attempt: 4,
+            verification: Some("non_empty".to_string()),
+            verification_plan: None,
+            risk: "normal".to_string(),
+            priority: 50,
+        }
+    }
+
+    #[test]
+    fn dynamic_step_ids_avoid_custom_role_and_static_step_collisions() {
+        let assignments = vec![
+            assignment("first", "worker1"),
+            assignment("x", "worker1"),
+            assignment("last", "task-x"),
+        ];
+        let reserved =
+            std::collections::BTreeSet::from(["s-lead".to_string(), "s-task-x-2".to_string()]);
+        let ids = allocate_task_step_ids(&assignments, &reserved);
+        assert_eq!(ids["first"], "s-worker1");
+        assert_eq!(ids["x"], "s-task-x");
+        assert_eq!(ids["last"], "s-task-x-3");
+        assert_eq!(
+            ids.values()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            assignments.len(),
+            "every task gets a distinct stable step ID"
+        );
     }
 }

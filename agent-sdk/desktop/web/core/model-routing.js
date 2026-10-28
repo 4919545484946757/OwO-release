@@ -6,6 +6,30 @@
       : settings && settings.model;
     return String(value || "").trim();
   }
+  function inputIdentity(binding) {
+    if (!binding) return null;
+    try {
+      const url = new URL(String(binding.base_url || "").trim());
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) return null;
+      const format = String(binding.api_format || "openai").trim();
+      const model = String(binding.model || "").trim();
+      if (!model || model === "default" || !["openai", "anthropic"].includes(format)) return null;
+      const full = binding.use_full_url === true;
+      return JSON.stringify([model, full ? url.href : url.href.replace(/\/+$/, ""), format, full]);
+    } catch (_) { return null; }
+  }
+  function imageInputDeclaration(connection, bindings) {
+    const key = inputIdentity(connection);
+    if (!key) return "unknown";
+    const binding = (Array.isArray(bindings) ? bindings : []).find(item => inputIdentity(item) === key);
+    return binding && typeof binding.image_input === "boolean" ? (binding.image_input ? "supported" : "unsupported") : "unknown";
+  }
+  function customImageInputDeclaration(model) {
+    return imageInputDeclaration({model:model.id, base_url:model.baseUrl, api_format:model.apiFormat, use_full_url:model.useFullUrl}, [model.inputCapabilities]);
+  }
+  function imageInputLabel(value) {
+    return value === "supported" ? "图片：声明支持（未实测）" : value === "unsupported" ? "图片：声明不支持" : "图片：能力未知";
+  }
   function buildCustomModelConnection(id, models, keys) {
     const model = (Array.isArray(models) ? models : []).find((item) => item && item.id === id);
     if (!model) return null;
@@ -23,6 +47,10 @@
       model: String(model.id).trim(), base_url: baseUrl, api_format: format,
       use_full_url: model.useFullUrl === true,
     };
+    if (model.inputCapabilities) {
+      if (customImageInputDeclaration(model) === "unknown") throw new Error("图片能力声明与当前连接不匹配，请重新选择图片输入能力");
+      request.input_capabilities = { ...model.inputCapabilities };
+    }
     const key = String((keys && keys[model.id]) || "").trim();
     if (model.apiKeyEnv) {
       if (!/^OWO_CUSTOM_MODEL_SECRET_[a-fA-F0-9]{32}$/.test(model.apiKeyEnv)) throw new Error("无效的模型凭据引用");
@@ -44,10 +72,16 @@
     const value = String(model || "").trim();
     return { model: value || null };
   }
-  function buildCreateSessionRequest(workspace, explicitModel) {
+  function buildCreateSessionRequest(workspace, explicitModel, mode, systemPrompt) {
     const request = { workspace: String(workspace || "").trim() };
     const model = String(explicitModel || "").trim();
     if (model) request.model = model;
+    // 纯对话模式必须在创建时就生效：等到第一回合再切会让模型先看到本地工具列表。
+    const normalizedMode = String(mode || "").trim().toLowerCase();
+    if (normalizedMode === "chat") request.mode = "chat";
+    // 自定义提示词同样是会话属性：建会话时没带上，第一回合就白跑一次。
+    const prompt = String(systemPrompt == null ? "" : systemPrompt).trim();
+    if (prompt) request.system_prompt = prompt;
     return request;
   }
   function createSessionModelUpdateQueue(update) {
@@ -106,6 +140,7 @@
     return { known: true, compatible: supported.includes(value) };
   }
   const api = {
+    inputIdentity, imageInputDeclaration, customImageInputDeclaration, imageInputLabel,
     effectiveDefaultModel,
     buildCustomModelConnection,
     buildSessionModelRequest,

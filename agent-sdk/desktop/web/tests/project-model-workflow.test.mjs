@@ -12,7 +12,11 @@ const style = readFileSync(join(here, "..", "style.css"), "utf8");
 const modelRouting = readFileSync(join(here, "..", "core", "model-routing.js"), "utf8");
 const sessionStartSource = readFileSync(join(here, "..", "core", "session-start.js"), "utf8");
 test("new sessions do not inherit previous model overrides and can restore default", () => {
-  assert.match(domain, /buildCreateSessionRequest\(workspace,\s*state\.pendingModelOverride\)/);
+  // 建会话请求现在同时带上工作模式与自定义提示词，原意仍是「模型覆盖参与构建」。
+  // 参数已跨行，故只断言调用存在且包含 pendingModelOverride。
+  assert.match(domain, /buildCreateSessionRequest\(/);
+  assert.match(domain, /state\.pendingModelOverride/);
+  assert.match(domain, /state\.sessionMode/);
   assert.match(app, /data-model-default/);
   assert.match(app, /sessionModelUpdateQueue\.enqueue\(sessionId, model\)/);
   assert.match(modelRouting, /createSessionModelUpdateQueue/);
@@ -30,7 +34,8 @@ test("empty workspace is shown consistently instead of a fake local project", ()
   assert.match(index, /id="composerProjectName">未选择项目</);
   assert.match(index, /当前工作区 <strong>未选择项目<\/strong>/);
   assert.match(app, /const currentName = current \?[^;]*: "未选择项目"/);
-  assert.match(app, /const displayName = name \|\| "未选择项目"/);
+  // 对话没有项目时显示"对话"，不把聊天误报成"未选择项目"。
+  assert.match(app, /const displayName = name \|\| \(chat \? "对话" : "未选择项目"\)/);
 });
 
 
@@ -116,7 +121,7 @@ test("blank prompt and model setup gates run before automatic session creation",
   const body = /async function sendPrompt\(\) \{([\s\S]*?)\n\}/.exec(domain)?.[1];
   assert.ok(body);
   assert.ok(body.indexOf('const prompt = $("prompt").value.trim()') < body.indexOf("promptSessionStart.run(() => newSession())"));
-  assert.ok(body.indexOf("if (!prompt) return;") < body.indexOf("promptSessionStart.run(() => newSession())"));
+  assert.ok(body.indexOf("if (!prompt && !state.attachments.length) return;") < body.indexOf("promptSessionStart.run(() => newSession())"));
   assert.ok(body.indexOf("if (modelGateMissing())") < body.indexOf("promptSessionStart.run(() => newSession())"));
   assert.match(body, /if \(promptInput\.value === promptValue\) promptInput\.value = ""/);
 });
@@ -229,6 +234,17 @@ test("first-run empty state makes workspace selection explicit and restores the 
     state: { sessionId: null },
     $: (id) => elements[id] || null,
     document: { querySelector: () => null },
+    currentSessionMode: () => "agent",
+    EMPTY_STATE_COPY: {
+      agent: {
+        title: "今天要一起完成什么？",
+        description: "描述目标，OwO 会拆解任务、调用工具并交付可检查的结果。",
+      },
+      chat: {
+        title: "今天想聊点什么？",
+        description: "提问、解释、查资料。对话模式不会读写本机文件，也不会执行命令。",
+      },
+    },
   };
   const sync = runInNewContext(match[0] + "\nsyncProjectChip;", context);
   sync();
@@ -238,19 +254,26 @@ test("first-run empty state makes workspace selection explicit and restores the 
   assert.equal(classes.has("needs-workspace"), true);
   elements.workspace.value = "D:\\work\\project";
   sync();
-  assert.equal(elements.emptyStateTitle.textContent, "你想完成什么？");
+  assert.equal(elements.emptyStateTitle.textContent, "在 project 中开始构建");
   assert.equal(elements.emptyStateWorkspaceBtn.hidden, true);
   assert.equal(classes.has("needs-workspace"), false);
+  // 对话会话复用同一份同步逻辑，但有问答专属文案。
+  context.currentSessionMode = () => "chat";
+  sync();
+  assert.equal(elements.emptyStateTitle.textContent, "今天想聊点什么？");
+  assert.match(elements.emptyStateDescription.textContent, /对话模式不会读写本机文件/);
 });
 
 
 test("first send without a workspace opens the project picker before the model gate", () => {
   const body = /async function sendPrompt\(\) \{([\s\S]*?)\n\}/.exec(domain)?.[1];
   assert.ok(body);
-  const workspaceGate = body.indexOf('if (!state.sessionId && !$("workspace").value.trim())');
+  const workspaceGate = body.indexOf('if (!state.sessionId && !$("workspace").value.trim() && !chatMode)');
   const modelGate = body.indexOf("if (modelGateMissing())");
   assert.ok(workspaceGate >= 0);
   assert.ok(modelGate > workspaceGate);
   assert.match(body, /openWorkspaceMenu\(\$\("composerProjectBtn"\)\)/);
-  assert.match(body, /if \(!prompt\) return;/);
+  assert.match(body, /if \(!prompt && !state\.attachments\.length\) return;/);
+  // 纯对话不需要工作区：同一道门在 chat 下直接放行。
+  assert.match(body, /const chatMode = typeof currentSessionMode === "function" && currentSessionMode\(\) === "chat"/);
 });

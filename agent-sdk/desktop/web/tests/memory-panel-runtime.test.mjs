@@ -27,7 +27,7 @@ function harness(helpers, windowOptions = {}) {
   runInNewContext(source, { window, document, Promise, String, JSON, Number, encodeURIComponent, Object });
   const panel = window.OwoPanels.memory;
   panel.mount(root, helpers);
-  return { panel, document, elements };
+  return { panel, document, elements, root };
 }
 
 function deferred() {
@@ -42,7 +42,7 @@ test("memory panel initializes its default API helpers when none are injected", 
     OwoApi: {
       stream: async path => {
         requested.push(path);
-        return { ok: true, status: 200, json: async () => ({ timeline: [], entities: [], links: [], entries: [] }) };
+        return { ok: true, status: 200, json: async () => ({ buckets: [], entities: [], links: [], entries: [] }) };
       },
     },
   });
@@ -157,4 +157,53 @@ test("memory entries reject reversed or malformed date filters without a request
   await h.panel._test.loadEntries();
   assert.equal(requested.length, 0);
   assert.equal(h.document.getElementById("owo-memory-entries").textContent, "日期格式无效，请重新选择日期");
+});
+
+test("blank recall makes no request and malformed hits remain an error", async () => {
+  const calls=[];
+  const h=harness({get:async path=>{calls.push(path);return {buckets:[],entities:[],links:[],entries:[]};},esc:String,friendlyError:String});
+  calls.length=0;
+  await h.panel._test.doRecall();
+  assert.equal(calls.length,0);
+  assert.match(h.document.getElementById("owo-memory-recall-box").innerHTML,/输入关键词/);
+  h.document.getElementById("owo-memory-recall").value="query";
+  await h.panel._test.doRecall();
+  assert.match(h.document.getElementById("owo-memory-recall-box").innerHTML,/响应格式不完整/);
+  assert.doesNotMatch(h.document.getElementById("owo-memory-recall-box").innerHTML,/未找到相关记忆/);
+});
+
+test("HTTP-success error payloads do not become empty memory lists", async () => {
+  const h=harness({get:async()=>({error:"memory lock unavailable",buckets:[],entities:[],links:[],entries:[]}),esc:String,friendlyError:String});
+  await h.panel.refresh();
+  for(const name of ["timeline","entities","relations","entries"])
+    assert.match(h.document.getElementById("owo-memory-"+name).innerHTML,/memory lock unavailable/);
+});
+
+test("same-core remount retains draft and prevents duplicate pending relation writes", async () => {
+  const pending=deferred(); let posts=0;
+  const helpers={baseUrl:"local",coreInstanceId:"one",get:async()=>({buckets:[],entities:[],links:[],entries:[]}),post(){posts++;return pending.promise;},esc:String,friendlyError:String};
+  const h=harness(helpers);
+  for(const [name,value] of [["rel-a","Ada"],["rel-r","owns"],["rel-b","Project"],["recall","draft query"]])
+    h.document.getElementById("owo-memory-"+name).value=value;
+  const write=h.panel._test.addRelation();
+  h.panel.dispose();h.panel.mount(h.root,helpers);
+  assert.equal(h.document.getElementById("owo-memory-recall").value,"draft query");
+  await h.panel._test.addRelation();
+  assert.equal(posts,1);
+  assert.equal(h.document.getElementById("owo-memory-rel-add").disabled,true);
+  pending.resolve({});await write;
+  assert.equal(h.document.getElementById("owo-memory-rel-add").disabled,false);
+});
+
+test("successful relation submission preserves values typed while it was pending", async () => {
+  const pending=deferred();
+  const h=harness({get:async()=>({buckets:[],entities:[],links:[],entries:[]}),post:()=>pending.promise,esc:String,friendlyError:String});
+  h.document.getElementById("owo-memory-rel-a").value="first";
+  h.document.getElementById("owo-memory-rel-r").value="owns";
+  h.document.getElementById("owo-memory-rel-b").value="target";
+  const write=h.panel._test.addRelation();
+  h.document.getElementById("owo-memory-rel-a").value="next";
+  pending.resolve({});await write;
+  assert.equal(h.document.getElementById("owo-memory-rel-a").value,"next");
+  assert.equal(h.document.getElementById("owo-memory-rel-b").value,"");
 });

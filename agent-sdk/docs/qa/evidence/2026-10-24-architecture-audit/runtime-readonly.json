@@ -1,0 +1,118 @@
+{
+  "at": "2026-10-24T21:41:39.834752",
+  "note": "Existing backend; no code rebuilt; read-only requests",
+  "/health": {
+    "status": 200,
+    "data": {
+      "healthy": true,
+      "version": "0.1.0",
+      "api_version": "0.7",
+      "auto_approve": false,
+      "build": {
+        "commit": "3e370fde3016694cf705a93d046609c34722f0ec",
+        "dirty": true,
+        "built_at": "2026-10-22T15:35:15Z"
+      },
+      "pid": 15216,
+      "stage": "ready",
+      "build_id": "3e370fde3016694cf705a93d046609c34722f0ec"
+    }
+  },
+  "/server/status": {
+    "status": 200,
+    "data": {
+      "shutdown_gate": {
+        "active_turns": 0,
+        "max_concurrent_turns": 32,
+        "shutting_down": false
+      },
+      "storage": {
+        "migration_warning": null,
+        "read_only": false
+      }
+    }
+  },
+  "/settings": {
+    "status": 200,
+    "data": {
+      "provider_ready": true,
+      "runtime": {
+        "active_tool_names": [
+          "read_file",
+          "write_file",
+          "edit_file",
+          "multi_edit",
+          "apply_patch",
+          "list_dir",
+          "search_files",
+          "grep",
+          "read_artifact",
+          "find_symbol",
+          "git_status",
+          "git_diff",
+          "git_log",
+          "run_command",
+          "shell_output",
+          "kill_shell",
+          "todo",
+          "goal_request",
+          "verification_plan",
+          "web_fetch",
+          "web_search",
+          "read_image",
+          "generate_image",
+          "text_to_speech",
+          "explore",
+          "subagent",
+          "fan_out_subagents",
+          "ask_user",
+          "use_skill",
+          "workflow_author"
+        ],
+        "cloud_enabled": false,
+        "model": "local-ui-fixture",
+        "provider_ready": true
+      }
+    }
+  },
+  "/workflows/user": {
+    "status": 200,
+    "data": {
+      "count": 1,
+      "templates": 1
+    }
+  },
+  "/teams": {
+    "status": 200,
+    "data": {
+      "teams": 5
+    }
+  },
+  "/stt/status": {
+    "error": "HTTP Error 404: Not Found"
+  },
+  "/vision/status": {
+    "status": 200,
+    "data": {
+      "model": "qwen2.5vl:3b",
+      "ollama_host": "http://127.0.0.1:11434",
+      "ollama_models": [],
+      "provider": "ollama"
+    }
+  },
+  "/ocr/status": {
+    "error": "HTTP Error 404: Not Found"
+  },
+  "registry_path_audit": {
+    "source_constructed_author": "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-codex-frontend-20261023\\data\\workswarm\\templates",
+    "source_constructed_rest_draft_team": "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-codex-frontend-20261023\\data\\workswarm\\templates\\templates",
+    "existing_file_names": {
+      "templates": [],
+      "templates/templates": [
+        "document-delivery-v1.json",
+        "ui-layout-qa.json"
+      ]
+    },
+    "scope": "Source path construction plus read-only directory listing; author creation not invoked"
+  }
+}

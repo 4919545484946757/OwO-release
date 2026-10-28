@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
+require("../core/media-result.js");
 const C = require("../panels/workswarm/render_conversation.js");
 const D = require("../panels/workswarm/domain.js");
 const R = require("../panels/workswarm/render.js");
@@ -82,4 +83,72 @@ test("denied tools render their terminal failure without a tool-use event", () =
  assert.match(html,/mcp__video__generate<\/b> · <span class="owo-ws-badge rv-bad">失败<\/span>/);
  assert.match(html,/permission denied: approval declined/);
  assert.doesNotMatch(html,/调用参数|已完成/);
+});
+
+test("WorkSwarm 会话里的媒体产物显示为播放器而不是原始 JSON", () => {
+ const preview = JSON.stringify({ path: "outputs/a.png", bytes: 70, data_url: "data:image/png;base64,AAAA" });
+ const replay = C.mergeReplay({}, [{ session_id: "s", role: "美术", events: [
+  row(1, { type: "tool_use", tool: "generate_image", args: { prompt: "阳光" } }),
+  row(2, { type: "tool_result", tool: "generate_image", ok: true, preview }),
+ ]}]);
+ const html = R.teamConversationHtml([], [], null, "", replay);
+ assert.match(html, /<img class="owo-media-inline"/, "缺少内联图片");
+ assert.match(html, /src="data:image\/png;base64,AAAA"/, "图片地址未写入");
+ assert.match(html, /已生成图片（70 B）：outputs\/a\.png/, "缺少产物摘要");
+ assert.doesNotMatch(html, /data_url/, "不应把原始 JSON 键名暴露给用户");
+
+ const audio = C.mediaPreviewHtml(
+  (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"),
+  "text_to_speech",
+  JSON.stringify({ path: "outputs/a.mp3", bytes: 2048, data_url: "data:audio/mpeg;base64,BBBB" })
+ );
+ assert.match(audio, /<audio class="owo-media-audio" controls/, "缺少音频播放器");
+ assert.match(audio, /已生成语音（2 KB）：outputs\/a\.mp3/);
+});
+
+test("媒体预览缺失或非法时退回普通文本", () => {
+ const esc = (v) => String(v == null ? "" : v).replace(/</g, "&lt;");
+ assert.equal(C.mediaPreviewHtml(esc, "generate_image", "not json"), "");
+ assert.equal(C.mediaPreviewHtml(esc, "generate_image", JSON.stringify({ bytes: 1 })), "");
+ assert.equal(C.mediaPreviewHtml(esc, "write_file", JSON.stringify({ path: "a" })), "");
+});
+
+
+test("Team live and historical media use typed refs despite truncated text and escape labels", () => {
+  const outputs = [{ artifact_id: "media-team-1", kind: "image", mime_type: "image/png", bytes: 1024 * 1024, path: '<img src=x onerror="bad">' }];
+  const event = { type: "tool_result", tool: "generate_image", ok: true, preview: '{"data_url":"truncated', outputs };
+  for (const value of [event, JSON.parse(JSON.stringify(event))]) {
+    const html = R.teamConversationHtml([], [], null, "", C.mergeReplay({}, [{ session_id: "s", role: "画师", events: [row(1, value)] }]));
+    assert.match(html, /data-media-artifact=/);
+    assert.match(html, /media-team-1/);
+    assert.doesNotMatch(html, /<img src=x/);
+    assert.doesNotMatch(html, /truncated/);
+  }
+});
+
+
+test("member replay retention stays within event and UTF-8 byte budgets over ten thousand records",()=>{
+ let replay={};
+ for(let start=1;start<=10000;start+=128) {
+  replay=C.mergeReplay(replay,[{session_id:"bounded",role:"任意角色",events:Array.from({length:128},(_,i)=>row(start+i,{type:"progress",message:"任务处理"}))}]);
+ }
+ assert.equal(replay.bounded.events.length,C.replayLimits.events);
+ assert(replay.windowInfo.bytes<=C.replayLimits.bytes);
+ assert.equal(replay.windowInfo.truncated,true);
+ assert.match(R.teamConversationHtml([],[],null,"",replay),/仅展示近期消息窗口/);
+ assert(!Object.keys(replay).includes("windowInfo"));
+});
+test("oversized source records never remain in the rendering cache and truncation is visible",()=>{
+ const replay=C.mergeReplay({},[{session_id:"large",role:"角色",events:[row(1,{type:"final",text:"图".repeat(800000)}),row(2,{type:"final",text:"近期输出"})]}]);
+ assert.equal(replay.large.events.length,1);
+ assert.equal(replay.large.events[0].seq,2);
+ assert.equal(replay.windowInfo.truncated,true);
+ assert.match(R.teamConversationHtml([],[],null,"",replay),/近期输出/);
+});
+
+test("eviction keeps a selected quiet real member selectable without introducing nonexistent roles",()=>{
+ const members=[{member_id:"m-quiet",role:"安静成员"}];
+ assert.deepEqual(C.conversationRoles({},[],members,"安静成员"),["安静成员"]);
+ assert.deepEqual(C.conversationRoles({},[],members,"伪造成员"),[]);
+ assert.deepEqual(C.conversationRoles({},[],members),[]);
 });

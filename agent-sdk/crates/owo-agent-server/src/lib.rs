@@ -70,9 +70,11 @@ mod plugin_api;
 mod plugin_market_api;
 pub mod product_eval_api;
 mod project_api;
+mod prompt_api;
 mod rate_limit;
 mod routes;
 pub use routes::build_router;
+mod media_profiles_api;
 /// R3（§8.1）：安全请求 ledger（六字段白名单，/diagnostics/requests 消费）。
 /// `pub` 仅为契约测试可用 `reset_for_test` 取得干净窗口（同 event_stream 先例）。
 pub mod request_ledger_api;
@@ -96,8 +98,12 @@ mod usage;
 mod user_workflows_api;
 mod whitelist_api;
 mod workflow_api;
+mod workflow_author_tool;
+mod workflow_catalog_tool;
 mod workflow_draft_api;
+mod workflow_read_tools;
 mod workflow_stats_api;
+pub mod workflow_write_service;
 mod workflows_share_api;
 mod workspace_trust_api;
 mod workswarm_api;
@@ -262,6 +268,7 @@ impl AppState {
         }
         settings.apply_usage_env();
         settings.apply_reasoning_env();
+        settings.apply_model_input_capabilities_env();
         // R8：用量预算接线（Agent 4 交付 usage）——单价/预算从环境变量注入，turn 入口硬熔断。
         {
             let usage_store = usage::global();
@@ -295,7 +302,7 @@ impl AppState {
         let grants = Arc::new(owo_agent_core::grant_store::GrantStore::persisting(
             data_root.join("grants.json"),
         ));
-        let mut agent = agent;
+        let mut agent = agent.with_media_connections_root(data_root.clone());
         agent.set_elements(elements.clone());
         agent.set_grants(Arc::clone(&grants));
         if let Some(profile) = settings
@@ -336,8 +343,37 @@ impl AppState {
         let shutdown_gate = Arc::new(shutdown::ShutdownGate::from_env());
         // V1 三日（第四路）：ProductEval suite 注册根目录（v1 → workspace/evals/v1/suite.json）。
         let product_eval_suite_root = workspace.join("evals");
+        let agent = Arc::new(agent);
+        agent.register_tool(Arc::new(workflow_catalog_tool::WorkflowCatalogTool::new(
+            Arc::downgrade(&agent),
+        )));
+        for action in [
+            workflow_read_tools::ReadAction::List,
+            workflow_read_tools::ReadAction::Get,
+            workflow_read_tools::ReadAction::Validate,
+            workflow_read_tools::ReadAction::ProposePatch,
+        ] {
+            agent.register_tool(Arc::new(workflow_read_tools::WorkflowReadTool::new(
+                data_root.join("workswarm"),
+                action,
+            )));
+        }
+        // 团队协作（对话主导）：让 Agent 在 Work 模式把一句话落成可编辑的团队工作流。
+        // 与 `/workflows/draft` 共用同一份校验/评审/注册表；写入 data_root，不碰用户文件。
+        agent.register_tool(Arc::new(workflow_author_tool::WorkflowAuthorTool::new(
+            data_root.join("workswarm"),
+            workspace.clone(),
+        )));
+        let artifact_review =
+            artifact_review_api::ArtifactReviewState::new(workswarm_db_root.join("space.db"));
+        agent.publish_media_outputs(Arc::new(
+            artifact_review_api::artifact_media::MediaOutputPublisher::new(
+                artifact_review.clone(),
+                workswarm_db_root.join("cas"),
+            ),
+        ));
         Self {
-            agent: Arc::new(agent),
+            agent,
             store: Arc::new(store),
             sessions: Arc::new(Mutex::new(HashMap::new())),
             pending_approvals: Arc::new(Mutex::new(HashMap::new())),
@@ -424,9 +460,7 @@ impl AppState {
             rate_limiter,
             shutdown_gate,
             // V1 四期（第三路）：评审闭环复用 WorkSwarm 的 space.db（独立连接 + busy_timeout）。
-            artifact_review: artifact_review_api::ArtifactReviewState::new(
-                workswarm_db_root.join("space.db"),
-            ),
+            artifact_review,
             // A8-2 / A8-3（取优合并自远端 engine）。
             activities: Arc::new(Mutex::new(HashMap::new())),
             pet_state: Arc::new(Mutex::new(PetState::default())),

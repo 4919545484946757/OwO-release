@@ -166,3 +166,30 @@ test("plugin uninstall asks for confirmation and cancellation makes no uninstall
   await accepted.panel.doUninstall("sample");
   assert.ok(accepted.calls.some(([method, path]) => method === "POST" && path === "/plugins/market/uninstall"));
 });
+
+
+test("market filters locally and missing signature state is not rendered as disabled", () => {
+  const h=harness(); h.root.querySelector(".owo-market-search").value="needle";
+  const before=h.calls.length;
+  h.panel.renderCatalog({app_version:"1",plugins:[
+    {id:"needle",source:"market",name:"Relevant"},
+    {id:"other",source:"market",name:"Other"}
+  ]});
+  const rows=h.root.querySelector(".owo-market-catalog").children;
+  assert.equal(rows.length,1); assert.match(rows[0].innerHTML,/Relevant/);
+  assert.match(h.root.querySelector(".owo-market-env").textContent,/状态未知/);
+  assert.equal(h.calls.length,before);
+});
+test("malformed market refresh preserves the snapshot and exposes an error", async () => {
+  let bad=false;
+  const h=harness(path=>Promise.resolve(path.includes("audit")?{entries:[]}:bad?{}:{app_version:"good",plugins:[]}));
+  await h.panel.refresh(); bad=true; await h.panel.refresh();
+  assert.equal(h.panel.catalogData.app_version,"good");
+  assert.match(h.root.querySelector(".owo-market-env").textContent,/读取失败.*保留上次结果/);
+});
+test("uninstall confirmation cannot send a request after the panel changes", async () => {
+  const confirmation=deferred(); const h=harness(null,null,()=>confirmation.promise);
+  const pending=h.panel.doUninstall("sample");
+  h.panel.dispose(); confirmation.resolve(true); await pending;
+  assert.equal(h.calls.filter(([m,p])=>m==="POST"&&p==="/plugins/market/uninstall").length,0);
+});

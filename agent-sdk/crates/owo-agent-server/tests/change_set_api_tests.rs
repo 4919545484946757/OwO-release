@@ -295,6 +295,7 @@ async fn accepting_pending_changeset_over_http_resumes_delivery_finalization() {
         .plan
         .steps
         .iter()
+        .rev()
         .find_map(|step| {
             run_state
                 .records
@@ -392,14 +393,17 @@ async fn accepting_pending_changeset_over_http_resumes_delivery_finalization() {
     assert_eq!(status, 200, "{body}");
     assert_eq!(body["replayed"], json!(false));
     assert_eq!(body["change_set"]["status"], json!("accepted"));
+    let final_team = coordinator.get_team_run(&team.team_id).await.unwrap();
+    let final_error = coordinator
+        .load_run_state(&team.team_id)
+        .ok()
+        .and_then(|state| state.goal.error);
     assert_eq!(
-        coordinator
-            .get_team_run(&team.team_id)
-            .await
-            .unwrap()
-            .status,
+        final_team.status,
         TeamRunStatus::Succeeded,
-        "接受最后一条待审记录后应重跑交付门并完成 TeamRun"
+        "接受最后一条待审记录后应重跑交付门并完成 TeamRun；status={:?} error={:?}",
+        final_team.status,
+        final_error
     );
 }
 

@@ -1,0 +1,76 @@
+{
+  "template_id": "game-qa",
+  "name": "Game QA 验收与实机试玩",
+  "mode": "team",
+  "applicability": "验收 试玩 实测 QA playtest 游戏 game 评分 交付检查",
+  "applicability_notes": "用于已经可运行的网页游戏：独立验收测试、真实浏览器试玩、只读交付评分，不重写产品代码。",
+  "created_at": "2026-10-26T00:00:00Z",
+  "description": "三角色质量闭环：tester 独立验收测试 → playtester 真实浏览器试玩 → lead_review 只读评分卡；适合对现有游戏做可用性/可玩性交付检查。",
+  "version": "2.1.0",
+  "tags": [
+    "game",
+    "qa",
+    "playtest",
+    "quality"
+  ],
+  "roles": [
+    {
+      "role": "tester",
+      "assignee": "agent",
+      "depends_on": [],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "tests/acceptance"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "handoff_contract": "你是 tester，负责现有游戏的独立验收，不重写产品。先运行 `node --test`（Node 22 的自动发现；不要用 `node --test tests/acceptance` 目录形式），读取真实通过/失败；如果失败，定位是测试还是产品问题，不要把失败断言放宽。已有 `tests/acceptance/game.test.js` 覆盖启动、移动、射击冷却、砖墙、暂停/重开、波次和快照；可以补一个最小缺失断言，但不要为了“更全面”生成大量新测试。最多运行 3 次测试命令。只写 `tests/acceptance/report.json`，记录命令、通过/失败计数、失败名称和结论；不要修改产品代码。输出 WorkerOutputV1，给出报告路径和真实结果。"
+    },
+    {
+      "role": "playtester",
+      "assignee": "agent",
+      "depends_on": [
+        "tester"
+      ],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "playtest"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "run_command"
+      ],
+      "handoff_contract": "你是 playtester，必须完成一次真实的浏览器试玩，并且只使用本次运行的机器证据。宿主已启动 `http://127.0.0.1:8102/index.html`，并准备了真实 Playwright/Edge 脚本：执行**一条**前台命令 `node --test playtest/live-playtest.mjs`（约 57 秒，已在宿主登记）。脚本会实际移动/瞄准/开火/暂停/重开、截图，并自动写出 `playtest/live-report.json` 和 `playtest/report-playtester.md`；这两个文件里的 duration_ms、frames、statuses、console_errors、max_score、max_wave、FPS 都是脚本真实产物。命令成功后读取这两个文件核对，不要手写或篡改数值，也不要用旧版截图/旧报告代替本轮证据。若命令失败，只允许针对具体错误最多重试 2 次，并记录真实错误；不要伪造。输出 WorkerOutputV1，status 只能 done 或 blocked，artifact.content 写报告路径和真实字段摘要。"
+    },
+    {
+      "role": "lead_review",
+      "assignee": "agent",
+      "depends_on": [
+        "playtester"
+      ],
+      "capabilities": [
+        "review"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [],
+      "tools": [
+        "read_file",
+        "list_dir"
+      ],
+      "handoff_contract": "你是只读 lead_review，也是最终交付质量门；不修改文件，不提交 artifact。以本轮 playtest/report-playtester.md、playtest/live-report.json、playtest/live-run.log、四张 live-*.png 和 tests/acceptance/report.json 为证据；历史 report-manual-legacy.* 不算。忽略 tester 报告里可能来自更早脚本运行的 browser 哈希/statuses；以 playtester 本轮生成的 live-report 为唯一试玩快照。核对：测试命令全部通过且无失败（以 tester 报告为准）；live-report duration_ms>=50000、frames>=130、console_errors=[]、statuses 含 playing、pause_samples 均 paused=true 且 time_stable=true、restarted status=playing/wave=1/score=0/lives=3；报告与 JSON 一致；无产品代码被改。won/lost 随机均接受，不因一次结局或历史报告拒绝；FPS 标签、覆盖率、音频、文案记 minor/residual risk，不阻塞。\n\n只输出一个合法 WorkerOutputV1 JSON 对象，不要 Markdown 围栏、不要 VERDICT 前缀、不要自由文本，绝不能提交 artifact。格式：\n{\"status\":\"done\",\"summary\":\"...\",\"review_result\":{\"verdict\":\"approved\",\"reviewed_requirement_ids\":[],\"findings\":[]},\"evidence\":[{\"source\":\"playtest/live-report.json\",\"note\":\"...\"}],\"open_issues\":[],\"handoff\":\"...\"}\nsummary 内放评分卡 JSON：{\"scores\":{\"playability\":4,\"visual\":4,\"robustness\":4,\"tests\":5,\"evidence\":5},\"blockers\":[],\"major\":[],\"minor\":[],\"residual_risks\":[]}，并写 duration_ms/frames/statuses/console_errors/pause_samples/restarted/测试通过数。五项都>=4、无 blocker/major 才用 verdict=approved；否则 verdict=changes_requested 或 rejected，且每个 finding 必须带 target_task_id（s-tester 或 s-playtester）和 severity/detail。status 只能是 done，不要用 blocked 表示不通过。"
+    }
+  ]
+}

@@ -6,15 +6,32 @@ use std::path::{Path, PathBuf};
 use super::model::*;
 
 pub(super) fn relative_display(workspace: &Path, path: &Path) -> String {
-    let normalize = |value: &Path| -> String {
-        let raw = value.to_string_lossy().replace('\\', "/");
-        raw.strip_prefix("//?/").unwrap_or(&raw).to_string()
-    };
-    let workspace = normalize(workspace);
-    let path = normalize(path);
-    path.strip_prefix(&workspace)
-        .map(|relative| relative.trim_start_matches('/').to_string())
-        .unwrap_or(path)
+    crate::tools::workspace_relative_display(workspace, path)
+}
+
+/// Host-resolved identity for one Team worker attempt. Never accepted from model output.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct TeamTurnBinding {
+    pub run_id: String,
+    pub node_id: Option<String>,
+    pub task_id: String,
+    pub attempt: Option<String>,
+}
+
+/// Durable delivery index. The canonical payload remains in turn_events.
+#[derive(Debug, Clone)]
+pub struct TeamTurnDelivery {
+    pub delivery_id: i64,
+    pub binding: TeamTurnBinding,
+    pub session_id: String,
+    pub session_seq: u64,
+    pub turn_id: String,
+    pub created_at: String,
+    pub event_type: String,
+    pub tool_call_id: Option<String>,
+    pub cause_seq: Option<u64>,
+    pub artifact_refs: Vec<String>,
+    pub artifact_refs_complete: bool,
 }
 
 pub trait SessionStore: Send + Sync {
@@ -41,6 +58,44 @@ pub trait SessionStore: Send + Sync {
         let _ = (session_id, turn_id, payload);
         Err(AgentError::Session("当前存储不支持持久化回合事件".into()))
     }
+    /// Persist a public worker event and its pending Team journal reference in one transaction.
+    fn append_team_turn_event(
+        &self,
+        binding: &TeamTurnBinding,
+        session_id: &str,
+        turn_id: &str,
+        payload: &SseEvent,
+    ) -> Result<TurnEventRecord, AgentError> {
+        let _ = (binding, session_id, turn_id, payload);
+        Err(AgentError::Session("当前存储不支持可靠团队事件投递".into()))
+    }
+    fn pending_team_turn_events(
+        &self,
+        run_id: &str,
+        limit: usize,
+    ) -> Result<Vec<TeamTurnDelivery>, AgentError> {
+        let _ = (run_id, limit);
+        Err(AgentError::Session("当前存储不支持团队投递恢复".into()))
+    }
+    fn acknowledge_team_turn_event(
+        &self,
+        run_id: &str,
+        delivery_id: i64,
+    ) -> Result<(), AgentError> {
+        let _ = (run_id, delivery_id);
+        Err(AgentError::Session("当前存储不支持团队投递确认".into()))
+    }
+    /// Return canonical JSON only when it fits the caller's byte budget.
+    /// None explicitly means missing/deleted or too large; callers must not invent a payload.
+    fn turn_event_json_bounded(
+        &self,
+        session_id: &str,
+        seq: u64,
+        max_bytes: usize,
+    ) -> Result<Option<String>, AgentError> {
+        let _ = (session_id, seq, max_bytes);
+        Err(AgentError::Session("当前存储不支持受限事件读取".into()))
+    }
     /// Read a bounded page of persisted events after a session-scoped sequence cursor.
     fn turn_events_after(
         &self,
@@ -52,6 +107,19 @@ pub trait SessionStore: Send + Sync {
         let _ = (session_id, turn_id, after_seq, limit);
         Err(AgentError::Session("当前存储不支持回合事件回放".into()))
     }
+    /// Find a bounded set of host-prefixed Team sessions with unseen durable events.
+    /// Unsupported stores fail explicitly rather than scanning the global session list.
+    fn pending_conversation_sessions(
+        &self,
+        run_id: &str,
+        cursors: &std::collections::BTreeMap<String, u64>,
+        after_session: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<String>, AgentError> {
+        let _ = (run_id, cursors, after_session, limit);
+        Err(AgentError::Session("当前存储不支持团队会话索引查询".into()))
+    }
+
     /// Durable facts from the host; unsupported stores explicitly return no history.
     fn turn_history(
         &self,

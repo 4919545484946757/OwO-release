@@ -136,6 +136,8 @@ pub(super) fn effective_runtime_config(settings: &owo_agent_core::Settings) -> V
         "base_url_set": settings.provider.has_base_url()
             || std::env::var("OPENAI_BASE_URL").is_ok_and(|v| !v.trim().is_empty()),
         "api_key_set": key_present,
+        "model_input_capabilities": owo_agent_core::gateway::input_capabilities::input_capability_bindings_from_env().ok(),
+        "input_capability_config_error": owo_agent_core::gateway::input_capabilities::input_capability_bindings_from_env().err(),
     })
 }
 
@@ -659,6 +661,7 @@ pub(super) async fn settings_update(
     }
     settings.apply_usage_env();
     settings.apply_reasoning_env();
+    settings.apply_model_input_capabilities_env();
     // §13 批次六：遥测开关即时生效（默认关；与 cli serve 启动应用同一出口）。
     owo_agent_server::apply_telemetry_setting(settings.telemetry_enabled == Some(true));
     state
@@ -754,6 +757,17 @@ pub(super) async fn settings_update(
 /// - `provider/endpoint_reachable` / `provider/endpoint_unreachable`：仅 TCP 层探测
 ///   （3s 超时），不发真实补全请求、不消耗 token；
 /// - 端点展示一律脱敏（scheme+host[:port]，无路径/查询/ userinfo）。
+///
+/// 提供商预设表：设置页据此渲染"选提供商 → 只填 Key"。
+/// 只返回公开端点与模型名，不含任何凭据。
+pub(super) async fn providers_presets() -> Json<Value> {
+    let presets: Vec<Value> = owo_agent_core::gateway::PROVIDER_PRESETS
+        .iter()
+        .map(|preset| json!(preset))
+        .collect();
+    Json(json!({ "providers": presets }))
+}
+
 pub(super) async fn settings_provider_test(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -841,3 +855,34 @@ pub(super) async fn settings_provider_test(
 mod provider_test;
 
 use provider_test::*;
+
+#[cfg(test)]
+mod presets_contract_tests {
+    use super::*;
+
+    /// 预设表必须可序列化给前端，且不含任何凭据字段。
+    #[tokio::test]
+    async fn providers_presets_returns_public_metadata_only() {
+        let Json(value) = providers_presets().await;
+        let providers = value["providers"].as_array().expect("providers 数组");
+        assert!(providers.len() >= 10, "至少内置 10 家提供商");
+        let first = &providers[0];
+        for key in ["id", "name", "base_url", "models", "chat_modalities"] {
+            assert!(!first[key].is_null(), "缺少字段 {key}");
+        }
+        for provider in providers {
+            for forbidden in ["api_key", "api_key_env", "secret"] {
+                assert!(
+                    provider.get(forbidden).is_none(),
+                    "预设表不得包含凭据字段：{forbidden}"
+                );
+            }
+        }
+        let custom = providers
+            .iter()
+            .find(|item| item["id"] == "custom")
+            .expect("必须有 custom 预设");
+        assert_eq!(custom["base_url"], "");
+        assert_eq!(custom["allows_empty_key"], true);
+    }
+}

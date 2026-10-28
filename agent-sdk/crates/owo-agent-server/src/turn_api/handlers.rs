@@ -128,14 +128,80 @@ pub(crate) async fn turn(
         .transpose()
         .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
     let mut effective_prompt = request.prompt.clone();
+    if request
+        .attachments
+        .len()
+        .saturating_add(request.content_parts.len())
+        > 32
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "input/too_many_content_parts".into(),
+        ));
+    }
+    let mut content_parts = request.content_parts.clone();
+    for id_ref in request
+        .attachments
+        .iter()
+        .filter(|id| crate::artifact_review_api::input_assets::is_asset_id(id))
+    {
+        content_parts
+            .push(crate::artifact_review_api::input_assets::reference(&state, &id, id_ref).await?);
+    }
+    let resolved_inputs = crate::artifact_review_api::input_assets::resolve(
+        &state,
+        &id,
+        &session.workspace,
+        &content_parts,
+    )
+    .await?;
+    effective_prompt.push_str(&resolved_inputs.prompt_suffix);
     // A1-2 多模态（取优合并自远端 engine）：图片附件 → base64 data URL 进 images
     // （真正进视觉上下文）；文本类附件维持路径注入。
-    let mut attachment_images: Vec<owo_agent_core::MessageImage> = Vec::new();
+    let mut attachment_images: Vec<owo_agent_core::MessageImage> = resolved_inputs.images;
     use base64::Engine as _;
     if !request.attachments.is_empty() {
-        let dir = crate::session_api::attachment_dir(&session.workspace, &id);
+        let root = session.workspace.canonicalize().map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("input/workspace_unavailable: {e}"),
+            )
+        })?;
+        let legacy = request
+            .attachments
+            .iter()
+            .any(|id| !crate::artifact_review_api::input_assets::is_asset_id(id));
+        let dir = if legacy {
+            let dir = crate::session_api::attachment_dir(&root, &id)
+                .canonicalize()
+                .map_err(|e| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        format!("input/legacy_directory_unavailable: {e}"),
+                    )
+                })?;
+            if !dir.starts_with(&root) {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    "input/legacy_directory_escaped".into(),
+                ));
+            }
+            dir
+        } else {
+            crate::session_api::attachment_dir(&root, &id)
+        };
+        let mut image_bytes = attachment_images
+            .iter()
+            .map(|image| {
+                let encoded = image.url.rsplit(',').next().unwrap_or_default();
+                encoded.len() / 4 * 3 - encoded.bytes().rev().take_while(|b| *b == b'=').count()
+            })
+            .sum::<usize>();
         let mut lines = Vec::new();
         for attachment in &request.attachments {
+            if crate::artifact_review_api::input_assets::is_asset_id(attachment) {
+                continue;
+            }
             let safe = Path::new(attachment)
                 .file_name()
                 .and_then(|name| name.to_str())
@@ -143,6 +209,18 @@ pub(crate) async fn turn(
             let path = dir.join(safe);
             if !path.is_file() {
                 return Err((StatusCode::BAD_REQUEST, format!("附件不存在：{safe}")));
+            }
+            let path = path.canonicalize().map_err(|e| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    format!("input/legacy_path_unavailable: {e}"),
+                )
+            })?;
+            if !path.starts_with(&dir) {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    "input/legacy_attachment_escaped".into(),
+                ));
             }
             let size = std::fs::metadata(&path).map(|meta| meta.len()).unwrap_or(0);
             let is_image = path
@@ -163,8 +241,20 @@ pub(crate) async fn turn(
                         format!("图片附件过大（{size} 字节 > 5MB）：{safe}"),
                     ));
                 }
-                let bytes = std::fs::read(&path)
+                if attachment_images.len() >= 8
+                    || image_bytes.saturating_add(size as usize) > 20 * 1024 * 1024
+                {
+                    return Err((StatusCode::BAD_REQUEST, "input/image_input_budget".into()));
+                }
+                use std::io::Read as _;
+                let mut bytes = Vec::new();
+                std::fs::File::open(&path)
+                    .and_then(|file| file.take(MAX_IMAGE_BYTES + 1).read_to_end(&mut bytes))
                     .map_err(|e| (StatusCode::BAD_REQUEST, format!("附件读取失败：{e}")))?;
+                image_bytes = image_bytes.saturating_add(bytes.len());
+                if bytes.len() as u64 > MAX_IMAGE_BYTES || image_bytes > 20 * 1024 * 1024 {
+                    return Err((StatusCode::BAD_REQUEST, "input/image_input_budget".into()));
+                }
                 let media_type = path
                     .extension()
                     .and_then(|ext| ext.to_str())
@@ -194,6 +284,16 @@ pub(crate) async fn turn(
         effective_prompt.push_str(&lines.join("\n"));
     }
 
+    let image_bytes: usize = attachment_images
+        .iter()
+        .map(|image| {
+            let encoded = image.url.rsplit(',').next().unwrap_or_default();
+            encoded.len() / 4 * 3 - encoded.bytes().rev().take_while(|b| *b == b'=').count()
+        })
+        .sum();
+    if attachment_images.len() > 8 || image_bytes > 20 * 1024 * 1024 {
+        return Err((StatusCode::BAD_REQUEST, "input/image_input_budget".into()));
+    }
     let turn_lock = {
         let mut locks = state.turn_locks.lock().map_err(poison)?;
         locks
@@ -206,6 +306,25 @@ pub(crate) async fn turn(
         .map_err(|_| (StatusCode::CONFLICT, "该会话已有回合正在运行".to_string()))?;
     // Load the authoritative snapshot only after acquiring the per-session turn lock.
     let session = crate::session_api::load_session(&state, &id)?;
+    let mut session = session;
+    // Reject before event registration, checkpoints, or session mutations. Native sends check again.
+    let has_images = !attachment_images.is_empty()
+        || session
+            .messages
+            .iter()
+            .any(super::input_preflight::message_has_image);
+    let admission_provider = turn_provider
+        .clone()
+        .unwrap_or_else(|| state.agent.provider());
+    let admission_model = request
+        .model_connection
+        .as_ref()
+        .map(|c| c.model.as_str())
+        .or(session.model_override.as_deref());
+    admission_provider
+        .validate_image_input(admission_model, has_images)
+        .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+    crate::artifact_review_api::input_assets::rehydrate_history(&state, &mut session).await?;
     // R8：全局并发 turn 上限 + 关闭中拒绝新回合。
     let concurrency_permit = state.shutdown_gate.try_acquire_turn().map_err(|busy| {
         // R10：错误码表接入（domain/reason/retryable 统一前缀，见 error_codes.rs）。
@@ -361,11 +480,31 @@ pub(crate) async fn turn(
         };
         let mut success_stats = None;
         let options = owo_agent_core::TurnExecutionOptions {
+            session_checkpoint: Some(owo_agent_core::agent::TurnSessionCheckpoint::new(
+                Arc::clone(&producer_store),
+            )),
             read_only: request.read_only.unwrap_or(false),
             turn_id: Some(producer_turn_id.clone()),
+            // 模式是会话属性：纯对话模式只下发联网检索工具，且执行层拒绝其它工具。
+            mode: current.mode,
+            input: Some(owo_agent_protocol::StoredUserInput {
+                prompt: request.prompt.clone(),
+                content_parts: content_parts.clone(),
+                legacy_attachments: request
+                    .attachments
+                    .iter()
+                    .filter(|id| !crate::artifact_review_api::input_assets::is_asset_id(id))
+                    .cloned()
+                    .collect(),
+            }),
         };
-        match agent
-            .run_turn_with_images_options(
+        // 回合级 watchdog：模型流/收尾链路一旦静默（实测出现过 20~30 分钟零事件），
+        // 这里按总时长兜底中止，避免"永远执行中"。默认 30 分钟，可用
+        // OWO_TURN_MAX_DURATION_SECS 覆盖（30..=86400）。
+        let turn_budget = turn_watchdog_budget();
+        let turn_result = tokio::time::timeout(
+            turn_budget,
+            agent.run_turn_with_images_options(
                 &mut current,
                 &effective_prompt,
                 &attachment_images,
@@ -374,9 +513,20 @@ pub(crate) async fn turn(
                 &abort_flag,
                 &mut on_event,
                 &options,
-            )
-            .await
-        {
+            ),
+        )
+        .await;
+        let turn_result = match turn_result {
+            Ok(result) => result,
+            Err(_) => {
+                abort_flag.store(true, Ordering::Relaxed);
+                Err(owo_agent_core::AgentError::Session(format!(
+                    "turn/watchdog_timeout: 回合超过 {}s 未结束（可能卡在模型流或收尾链路），已强制中止",
+                    turn_budget.as_secs()
+                )))
+            }
+        };
+        match turn_result {
             Ok(outcome) => {
                 let trace = owo_agent_core::TraceRecord::from_outcome(&current, &outcome);
                 let _ = owo_agent_core::save_trace(&traces_dir, &trace);
@@ -705,4 +855,14 @@ impl owo_agent_core::question::Questioner for TurnQuestioner {
             }
         }
     }
+}
+
+/// 回合总时长上限（回合级 watchdog）。
+fn turn_watchdog_budget() -> std::time::Duration {
+    let secs = std::env::var("OWO_TURN_MAX_DURATION_SECS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| (30..=86_400).contains(value))
+        .unwrap_or(1_800);
+    std::time::Duration::from_secs(secs)
 }

@@ -255,6 +255,14 @@ pub(super) async fn team_metrics(
             json!(lifecycle_journal.path().display().to_string()),
         );
     }
+    // 宿主监督结论与指标同一响应返回，避免调用方为了判断停滞再发一次进度请求。
+    if let Ok(progress) = coordinator.progress_snapshot(&id).await {
+        if let Ok(supervisor) = serde_json::to_value(progress.supervisor) {
+            if let Some(obj) = payload.as_object_mut() {
+                obj.insert("supervisor".to_string(), supervisor);
+            }
+        }
+    }
     // 数据源路径（可观测：UI/运维可直接定位 TeamRun 数据目录里的指标文件）。
     if let Some(obj) = payload.as_object_mut() {
         obj.insert(
@@ -343,6 +351,14 @@ pub(super) async fn team_diagnostic(
         .map(|h| workswarm_metrics::sanitize_value(&serde_json::to_value(h).unwrap_or(json!({}))))
         .collect();
 
+    // 宿主监督快照（无模型调用；与 /events 的 progress.supervisor 同口径）。
+    let supervisor = coordinator
+        .progress_snapshot(&id)
+        .await
+        .ok()
+        .and_then(|progress| serde_json::to_value(progress.supervisor).ok())
+        .map(|value| workswarm_metrics::sanitize_value(&value));
+
     // 审计尾迹（最近 200 条，detail 脱敏）。
     let audit_tail_json: Vec<Value> = match coordinator.audit_log() {
         Some(log) => match log.lock() {
@@ -409,6 +425,7 @@ pub(super) async fn team_diagnostic(
         "artifacts": artifacts_json,
         "reviews": reviews_json,
         "handoffs": handoffs_json,
+        "supervisor": supervisor,
         "metrics": metrics,
         "metrics_file": metrics_file,
         "audit_tail": audit_tail_json,

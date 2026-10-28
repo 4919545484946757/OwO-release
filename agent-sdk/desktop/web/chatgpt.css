@@ -1,0 +1,285 @@
+/* ChatGPT-like presentation layer.
+   Loaded last: it only changes presentation, never IDs, routes or handlers.
+   The product keeps two first-class modes: 对话 (chat) and Work (agent). */
+
+:root {
+  --chrome: #f9f9f7;
+  --canvas: #ffffff;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f4f4f2;
+  --surface-3: #ececea;
+  --text: #101211;
+  --text-2: #5d625f;
+  --text-3: #8a8f8c;
+  --border: #ececea;
+  --border-strong: #dededb;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-text: #1d4ed8;
+  --accent-soft: #eef2ff;
+  --accent-ink: #ffffff;
+  --user-bubble: #f4f4f2;
+  --user-bubble-border: #ececea;
+  --sidebar-bg: #f9f9f7;
+  --sidebar-hover: #f0f0ee;
+  --sidebar-active: #ffffff;
+  --r-2xl: 26px;
+}
+
+body.dark-theme {
+  --chrome: #171717;
+  --canvas: #212121;
+  --bg: #212121;
+  --surface: #2a2a2a;
+  --surface-2: #303030;
+  --surface-3: #3a3a3a;
+  --text: #ececec;
+  --text-2: #b4b4b4;
+  --text-3: #8e8e8e;
+  --border: #3a3a3a;
+  --border-strong: #4a4a4a;
+  --accent: #7aa2ff;
+  --accent-hover: #9bb8ff;
+  --accent-text: #9bb8ff;
+  --accent-soft: #1d2a44;
+  --accent-ink: #0b1220;
+  --user-bubble: #303030;
+  --user-bubble-border: #3a3a3a;
+  --sidebar-bg: #171717;
+  --sidebar-hover: #252525;
+  --sidebar-active: #2a2a2a;
+}
+
+/* The conversation canvas is a full white page, not a raised card. */
+html, body { background: var(--sidebar-bg); }
+body > main:not(#setupRoot) {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--canvas);
+}
+#menubar { background: var(--sidebar-bg); }
+/* “Agent” 是旧产品徽标，容易和「对话 / Work」模式混淆；品牌名已足够。 */
+.menubar-brand .brand-tag { display: none; }
+
+/* ---------- top centre switch: 对话 | Work ---------- */
+.workspace-page-head {
+  position: relative;
+  justify-content: center;
+  min-height: 60px;
+  padding: 12px 150px 8px;
+  border-bottom: 0;
+  background: var(--canvas);
+}
+.workspace-page-title { display: none; }
+.workspace-page-head #inspectorToggle {
+  position: absolute;
+  top: 50%;
+  right: 22px;
+  transform: translateY(-50%);
+  color: var(--text-3);
+}
+.workspace-page-head #inspectorToggle:hover { color: var(--text); background: var(--surface-2); }
+.mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.mode-switch [data-mode-switch] {
+  min-width: 86px;
+  height: 34px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background .16s var(--ease-ui), color .16s var(--ease-ui), box-shadow .16s var(--ease-ui);
+}
+.mode-switch [data-mode-switch]:hover { color: var(--text); }
+.mode-switch [data-mode-switch].is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .09), 0 0 0 1px rgba(0, 0, 0, .03);
+}
+
+/* ---------- sidebar: conversation list first ---------- */
+#sidebar { background: var(--sidebar-bg); }
+.codex-sidebar { padding: 8px 10px 12px; gap: 4px; }
+.codex-workspace-switcher { min-height: 44px; padding: 7px 10px; border-radius: 10px; }
+.codex-workspace-icon { background: transparent; box-shadow: none; }
+.codex-sidebar .workbench-create-task {
+  justify-content: flex-start;
+  height: 42px;
+  margin: 2px 0 6px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+.codex-sidebar .workbench-create-task:hover {
+  background: var(--sidebar-hover);
+  color: var(--text);
+  box-shadow: none;
+  transform: none;
+}
+.codex-sidebar .workbench-create-task .nav-icon { color: var(--text-2); }
+/* 常驻功能入口已收进 sidebar-rail.css 的图标栏，会话栏只保留工作区与记录。 */
+.codex-sessions-heading { padding: 8px 10px 6px; }
+.codex-sessions-head { color: var(--text); font-size: 12.5px; font-weight: 600; }
+.codex-sessions-heading .codex-new-chat { font-size: 11px; color: var(--text-3); }
+.codex-sessions li.active { background: var(--sidebar-active); box-shadow: 0 0 0 1px var(--border); }
+.codex-sessions li.codex-session-group { padding-top: 12px; }
+.codex-sidebar-footer { border-top-color: var(--border); }
+
+/* ---------- empty state: one large question + examples under composer ---------- */
+.codex-stage { order: 1; }
+.codex-empty {
+  width: min(820px, calc(100% - 48px));
+  margin: auto;
+  padding: 7vh 0 18px;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+}
+.codex-empty-logo { display: none; }
+.codex-empty .workspace-welcome-actions {
+  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.codex-empty .workspace-welcome-actions .welcome-tile {
+  min-height: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  gap: 8px;
+}
+.codex-empty .workspace-welcome-actions .welcome-tile-text small { display: none; }
+.codex-empty .workspace-welcome-actions .welcome-tile-go { display: none; }
+.codex-empty .workspace-welcome-flow { margin-top: 10px; font-size: 11.5px; }
+.codex-empty h2 {
+  margin: 0 0 12px;
+  font-size: clamp(28px, 3.2vw, 40px);
+  line-height: 1.22;
+  font-weight: 500;
+  letter-spacing: -.035em;
+}
+.codex-empty p {
+  max-width: 600px;
+  margin: 0 0 26px;
+  color: var(--text-2);
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+.codex-empty.needs-workspace {
+  padding-top: 16vh;
+}
+.codex-empty.needs-workspace h2 { font-size: 28px; }
+#emptyStateWorkspaceBtn { margin-top: 10px; border-radius: 999px; height: 36px; padding: 0 16px; }
+
+/* ---------- composer: wide, soft, ChatGPT-like ---------- */
+#chatForm, body.dark-theme #chatForm {
+  order: 3;
+  width: min(840px, calc(100% - 48px));
+  margin: 0 auto 10px;
+  padding: 16px 16px 10px;
+  gap: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-2xl);
+  background: var(--surface-2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .035);
+}
+#chatForm:focus-within {
+  border-color: color-mix(in srgb, var(--text-3) 38%, var(--border-strong));
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .07);
+}
+#chatForm::before { display: none !important; }
+#chatForm textarea, #chatForm #prompt {
+  min-height: 46px;
+  padding: 3px 2px 8px;
+  font-size: 15px;
+  line-height: 1.65;
+}
+#chatForm textarea::placeholder { color: var(--text-3); }
+.prompt-toolbar { padding-top: 2px; }
+.prompt-tools > button { border-radius: 999px; }
+.prompt-tools .composer-plan-task { border-radius: 999px; }
+.codex-composer-right .codex-model-chip { border-radius: 999px; }
+.codex-send {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.codex-send:hover { background: var(--accent-hover); }
+#modeChip { display: none !important; }
+body.chat-mode #composerProjectBtn,
+body.chat-mode .composer-plan-task,
+body.chat-mode #mediaBtn { display: none !important; }
+#modeNotice {
+  margin: 0 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+#modeNotice[hidden] { display: none; }
+
+/* Suggestions live under the composer, like ChatGPT. */
+.home-suggestions {
+  order: 4;
+  width: min(840px, calc(100% - 48px));
+  margin: 0 auto 22px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.home-suggestions.hidden { display: none; }
+.home-suggestions .chat-starter {
+  min-height: 42px;
+  padding: 9px 13px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12.5px;
+  text-align: left;
+  box-shadow: none;
+}
+.home-suggestions .chat-starter:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text);
+  transform: none;
+  box-shadow: none;
+}
+body:has(#emptyState.hidden) .home-suggestions { display: none; }
+body.tools-open .workspace-page-head,
+body.panel-open .workspace-page-head,
+body.settings-open .workspace-page-head,
+body.tools-open .home-suggestions,
+body.panel-open .home-suggestions,
+body.settings-open .home-suggestions { display: none !important; }
+
+/* Session messages keep the same reading axis as the composer. */
+#messages { width: min(840px, calc(100% - 48px)); }
+
+@media (max-width: 720px) {
+  .workspace-page-head { padding-left: 16px; padding-right: 56px; }
+  .mode-switch [data-mode-switch] { min-width: 68px; padding: 0 16px; }
+  .home-suggestions { grid-template-columns: 1fr; }
+  .codex-empty { padding-top: 4vh; }
+}

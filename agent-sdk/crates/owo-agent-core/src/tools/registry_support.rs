@@ -85,6 +85,21 @@ pub(crate) fn canonical_candidate(path: &Path) -> PathBuf {
     lexical_normalize(path)
 }
 
+/// Render a path relative to the same canonical workspace identity, including
+/// Windows short-name aliases and targets that do not exist yet or were reverted.
+pub(crate) fn workspace_relative_display(workspace: &Path, path: &Path) -> String {
+    let workspace = canonical_candidate(workspace);
+    let path = if path.is_absolute() {
+        canonical_candidate(path)
+    } else {
+        path.to_path_buf()
+    };
+    path.strip_prefix(&workspace)
+        .unwrap_or(&path)
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
 fn lexical_normalize(path: &Path) -> PathBuf {
     let mut result = PathBuf::new();
     for component in path.components() {
@@ -203,4 +218,56 @@ pub(super) fn tool_sandbox_policy(
         policy.allow_unrestricted_network = true;
     }
     policy
+}
+
+#[cfg(test)]
+mod path_identity_tests {
+    use super::*;
+
+    #[test]
+    fn relative_display_uses_components_and_preserves_deleted_targets() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("workspace");
+        std::fs::create_dir(&root).unwrap();
+        let canonical = canonical_candidate(&root);
+        assert_eq!(
+            workspace_relative_display(&root, &canonical.join("new.txt")),
+            "new.txt"
+        );
+        let sibling = temp.path().join("workspace-sibling/new.txt");
+        assert_eq!(
+            workspace_relative_display(&root, &sibling),
+            canonical_candidate(&sibling)
+                .to_string_lossy()
+                .replace('\\', "/")
+        );
+    }
+
+    #[test]
+    fn relative_display_resolves_workspace_alias_before_comparison() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("real workspace");
+        let alias = temp.path().join("alias");
+        std::fs::create_dir(&root).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&root, &alias).unwrap();
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            let output = std::process::Command::new("cmd")
+                .args(["/D", "/C", "mklink", "/J"])
+                .arg(&alias)
+                .arg(&root)
+                .creation_flags(0x08000000)
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "junction fixture failed");
+        }
+        assert_eq!(
+            workspace_relative_display(&alias, &canonical_candidate(&root).join("new.txt")),
+            "new.txt"
+        );
+        #[cfg(windows)]
+        std::fs::remove_dir(alias).unwrap();
+    }
 }

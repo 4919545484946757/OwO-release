@@ -1,11 +1,11 @@
-# Merge 工作流（agent-sdk）：push 到 main/master 时重复核心门禁并产出 SBOM
-# 触发：push -> main|master，路径含 agent-sdk/**
+# Merge 工作流（agent-sdk）：push 到 main/master/agent-frame 时重复核心门禁并产出 SBOM
+# 触发：push -> main|master|agent-frame，路径含 agent-sdk/**
 # 不做发布：SBOM 只作为 artifact 存档，不创建 release、不上传 release asset。
 name: CI - Merge/main (agent-sdk)
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, agent-frame ]
     paths:
       - 'agent-sdk/**'
 
@@ -40,6 +40,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: './agent-sdk -> ./agent-sdk/target'
+
+      - name: ONNX Runtime cold-cache regression (offline)
+        working-directory: agent-sdk
+        run: .\scripts\selftest-ort-cold-cache.ps1
 
       - name: ONNX Runtime 预构建（sha256 固定，首次下载进稳定缓存）
         working-directory: agent-sdk

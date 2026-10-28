@@ -20,8 +20,32 @@ impl AgentClient {
             workspace: workspace.to_string(),
             model,
             system_prompt: None,
+            mode: None,
         };
         self.post_json("/session", &request).await
+    }
+
+    /// 新建纯对话会话（只给联网检索工具，不开放本地文件与命令）。
+    ///
+    /// `workspace = None` 时不传工作区，由服务端分配隔离目录（`data/chat`）：
+    /// 会话可以立即使用，但文件工具永远碰不到用户项目。
+    pub async fn create_chat_session(&self, workspace: Option<&str>) -> Result<SessionInfo> {
+        let request = CreateSessionRequest {
+            workspace: workspace.unwrap_or_default().to_string(),
+            model: None,
+            system_prompt: None,
+            mode: Some("chat".to_string()),
+        };
+        self.post_json("/session", &request).await
+    }
+
+    /// 切换会话工作模式（`agent` / `chat`）。
+    pub async fn set_session_mode(&self, id: &str, mode: &str) -> Result<serde_json::Value> {
+        self.post_json(
+            &format!("/session/{id}/mode"),
+            &serde_json::json!({ "mode": mode }),
+        )
+        .await
     }
 
     pub async fn list_sessions(&self) -> Result<Vec<SessionInfo>> {

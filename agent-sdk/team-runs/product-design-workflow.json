@@ -1,0 +1,98 @@
+{
+  "template_id": "product-design",
+  "name": "产品设计与落地页流水线",
+  "mode": "team",
+  "applicability": "产品设计 设计稿 UI UX 落地页 视觉 交互 品牌 页面",
+  "applicability_notes": "用于先把需求变成可运行页面与设计说明，再由独立评审判断是否可交付。",
+  "created_at": "2026-10-26T00:00:00Z",
+  "description": "??????????researcher ???/???? ? designer ?? index.html + styles.css ? tester ? node:test ???????? ? critic ?????",
+  "version": "1.1.2",
+  "tags": [
+    "design",
+    "ui",
+    "ux",
+    "landing"
+  ],
+  "roles": [
+    {
+      "role": "researcher",
+      "assignee": "agent",
+      "depends_on": [],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "docs/"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file"
+      ],
+      "handoff_contract": "你是 researcher。读现有工作区与用户目标，写 docs/product-brief.md：目标用户、核心信息、页面层级、关键交互、视觉方向、验收标准和非目标。不要写 HTML/CSS。输出 WorkerOutputV1，artifact.format=markdown；内容要能直接指导 designer。"
+    },
+    {
+      "role": "designer",
+      "assignee": "agent",
+      "depends_on": [
+        "researcher"
+      ],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "index.html",
+        "styles.css"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "handoff_contract": "你是 designer。按 docs/product-brief.md 写可直接双击打开的 index.html 和 styles.css：移动端优先、桌面自适应、语义化结构、可见 focus、无外部依赖、无占位 lorem ipsum；文案必须具体。只写 index.html/styles.css，不写 JS 业务逻辑。输出 WorkerOutputV1，artifact.format=markdown，列出页面区块、响应式断点和已知限制。 After writing, run exactly `node -e \"const fs=require('fs'); if(!fs.existsSync('index.html')||!fs.existsSync('styles.css')) process.exit(1)\"` once; do not redirect, pipe, wrap in a shell, or edit files afterward."
+    },
+    {
+      "role": "tester",
+      "assignee": "agent",
+      "depends_on": [
+        "designer"
+      ],
+      "capabilities": [
+        "task_worker"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [
+        "tests/"
+      ],
+      "tools": [
+        "read_file",
+        "list_dir",
+        "write_file",
+        "apply_patch",
+        "run_command"
+      ],
+      "handoff_contract": "?? tester??? index.html ? styles.css?? tests/design.test.cjs?? Node ?? fs/assert ??????????? lorem ipsum?CSS ????/?????HTML ? lang ????????????? `node --test tests/design.test.cjs`???????????/??/??/???/???????????? artifact.format=markdown ????? critic????????????? index.html/styles.css?"
+    },
+    {
+      "role": "critic",
+      "assignee": "agent",
+      "depends_on": [
+        "tester"
+      ],
+      "capabilities": [
+        "review"
+      ],
+      "model": "deepseek-chat",
+      "write_paths": [],
+      "tools": [
+        "read_file",
+        "list_dir"
+      ],
+      "handoff_contract": "你是只读 critic。读取 docs/product-brief.md、index.html、styles.css，按目标用户、信息层级、视觉一致性、响应式、可访问性（语义/focus/对比）、文案具体性逐项评审。只输出合法 WorkerOutputV1 JSON，不提交 artifact：{\"status\":\"done\",\"summary\":\"评分与具体行号证据\",\"review_result\":{\"verdict\":\"approved|changes_requested|rejected\",\"reviewed_requirement_ids\":[],\"findings\":[{\"severity\":\"blocker|major|minor|note\",\"detail\":\"...\",\"target_task_id\":\"s-designer\"}]},\"evidence\":[],\"open_issues\":[],\"handoff\":\"\"}。没有 blocker/major 才 approved。 Every finding must set target_task_id exactly to \"s-designer\" for HTML/CSS/visual/copy issues or \"s-tester\" for test issues; never omit target_task_id when requesting changes."
+    }
+  ]
+}

@@ -27,9 +27,10 @@ test("创建会话并列出（场景 4 集成）", { skip: !INTEGRATION_ENABLED 
   });
   const session = await authorized.createSession({
     workspace: process.cwd(),
-    prompt: "SDK 集成测试",
+    system_prompt: "SDK 集成测试",
   });
   assert.ok(session.id, "应返回会话 id");
+  assert.equal(session.mode, "agent", "默认创建 Agent 会话");
   const list = await authorized.GET("/sessions");
   assert.ok(list.response.ok);
   const sessions = (list.data ?? []) as Array<{ id: string }>;
@@ -37,4 +38,23 @@ test("创建会话并列出（场景 4 集成）", { skip: !INTEGRATION_ENABLED 
     sessions.some((s) => s.id === session.id),
     "新会话应出现在列表",
   );
+});
+
+test("纯对话可以不选工作区创建隔离会话", { skip: !INTEGRATION_ENABLED }, async () => {
+  const boot = await fetch(`${BASE}/auth/token`);
+  const { token } = (await boot.json()) as { token?: string };
+  assert.ok(token, "引导响应应携带 token");
+  const authorized = createClient({
+    baseUrl: BASE,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const session = await authorized.createSession({ mode: "chat" });
+  assert.equal(session.mode, "chat");
+  assert.ok(session.workspace, "服务端应返回隔离工作区");
+  assert.ok(session.id, "应返回会话 id");
+  const detail = await authorized.GET("/session/{id}", {
+    params: { path: { id: session.id } },
+  });
+  assert.ok(detail.response.ok);
+  assert.equal((detail.data as { mode?: string }).mode, "chat");
 });

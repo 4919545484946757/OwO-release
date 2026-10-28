@@ -1,8 +1,13 @@
 use crate::audit::AuditLog;
+mod workflow_capabilities;
 mod workflow_tools;
+pub use workflow_capabilities::{WorkflowToolCapability, WorkflowToolIssue};
 
 use crate::autoreview::{ReviewVerdict, Reviewer};
-use crate::context::{build_system_prompt, load_project_rules, load_project_rules_hierarchical};
+use crate::context::{
+    build_chat_system_prompt, build_system_prompt, chat_time_context, load_project_rules,
+    load_project_rules_for_mode,
+};
 use crate::deadline::{DeadlineBudget, Phase, PhaseBudgets, PhaseTiming};
 use crate::error::AgentError;
 use crate::gateway::{
@@ -20,9 +25,12 @@ use crate::tools::{
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
+mod checkpoint;
+pub use checkpoint::TurnSessionCheckpoint;
 mod config;
 mod single_completion;
 mod single_manual_acceptance;
@@ -39,7 +47,7 @@ mod tests;
 
 pub(crate) use config::DEFAULT_BOUNDED_TOOL_CALL_CAP;
 use config::*;
-pub use config::{AgentConfig, TurnExecutionOptions};
+pub use config::{AgentConfig, TurnExecutionOptions, CHAT_MODE_TOOLS};
 
 /// 达到最大回合数后的收尾指令：不再调用工具，强制产出可见结论
 /// （审查/分析类任务据此给出结构化报告；信息不足时列出需要用户澄清的问题）。
@@ -135,6 +143,8 @@ pub enum TurnEvent {
         /// 序列化向后兼容（缺省为 None）。
         #[serde(default, skip_serializing_if = "Option::is_none")]
         preview: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        outputs: Vec<owo_agent_protocol::ToolOutputArtifact>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         command_receipt: Option<CommandExecutionReceipt>,
     },
@@ -189,6 +199,7 @@ pub struct ModelCallRecord {
 /// ```
 pub struct Agent {
     provider: Arc<dyn ModelProvider>,
+    media_connections_root: Option<PathBuf>,
     /// 工具注册表（RwLock：MCP 服务器热连接/热卸载时无需重建 Agent）。
     registry: Arc<RwLock<ToolRegistry>>,
     /// 受信工具执行门面：能力签发、执行和 receipt 统一从此处经过。
@@ -225,6 +236,7 @@ impl Agent {
         let tool_host = ToolHostService::new(Arc::clone(&registry), Arc::clone(&audit));
         Self {
             provider,
+            media_connections_root: None,
             registry,
             tool_host,
             disabled_tool_prefixes: Arc::new(RwLock::new(HashSet::new())),
@@ -308,6 +320,28 @@ impl Agent {
     ) {
         if let Ok(mut registry) = self.registry.write() {
             registry.register_mcp_extras(server_name, client, resources, prompts);
+        }
+    }
+
+    /// 宿主在 Agent 构造后追加受控工具（如团队工作流编排器）。
+    ///
+    /// 与 MCP 热注册共用同一注册表；调用方必须保证工具自身已声明 effect，
+    /// 不在工具面层绕过 Policy/审批。
+    pub fn register_tool(&self, tool: Arc<dyn crate::tools::Tool>) {
+        let tool = match &self.media_connections_root {
+            Some(root) => crate::tools::profiled_media_tool(tool, root),
+            None => tool,
+        };
+        if let Ok(mut registry) = self.registry.write() {
+            registry.register_arc(tool);
+        }
+    }
+
+    /// Attach the Daemon's existing Artifact/CAS store to registered media tools.
+    /// Worker proxies resolve these same tool instances, preserving one execution path.
+    pub fn publish_media_outputs(&self, publisher: Arc<dyn crate::tools::ToolOutputPublisher>) {
+        if let Ok(mut registry) = self.registry.write() {
+            registry.publish_media_outputs(publisher);
         }
     }
 
@@ -447,6 +481,7 @@ impl Agent {
     pub fn with_turn_provider(&self, provider: Arc<dyn ModelProvider>) -> Result<Self, String> {
         Ok(Self {
             provider,
+            media_connections_root: self.media_connections_root.clone(),
             registry: Arc::clone(&self.registry),
             tool_host: self.tool_host.clone(),
             disabled_tool_prefixes: Arc::clone(&self.disabled_tool_prefixes),
@@ -461,6 +496,19 @@ impl Agent {
             artifact_store: self.artifact_store.clone(),
             hooks: RwLock::new(self.hooks.read().unwrap_or_else(|e| e.into_inner()).clone()),
         })
+    }
+
+    /// Bind only a trusted Daemon data root. Tool policy, publisher and audit stay intact.
+    pub fn with_media_connections_root(mut self, root: PathBuf) -> Self {
+        if let Ok(mut registry) = self.registry.write() {
+            for name in ["generate_image", "text_to_speech"] {
+                if let Some(tool) = registry.get(name) {
+                    registry.register_arc(crate::tools::profiled_media_tool(tool, &root));
+                }
+            }
+        }
+        self.media_connections_root = Some(root);
+        self
     }
 
     pub fn provider(&self) -> Arc<dyn ModelProvider> {
@@ -667,10 +715,20 @@ impl Agent {
         on_event: &mut (dyn FnMut(&TurnEvent) + Send),
         options: &TurnExecutionOptions,
     ) -> Result<TurnOutcome, AgentError> {
-        self.run_turn_inner(
-            session, prompt, images, approver, abort, on_event, questioner, options,
-        )
-        .await
+        let result = self
+            .run_turn_inner(
+                session, prompt, images, approver, abort, on_event, questioner, options,
+            )
+            .await;
+        if let Some(checkpoint) = &options.session_checkpoint {
+            if let Err(save_error) = checkpoint.save(session) {
+                return Err(match result {
+                    Ok(_) => save_error,
+                    Err(error) => AgentError::Session(format!("{error}; {save_error}")),
+                });
+            }
+        }
+        result
     }
 
     /// 当估算 token 超过预算时，用模型把旧历史压缩为摘要（保留最近消息）。
@@ -834,12 +892,100 @@ async fn wait_for_abort(abort: &AtomicBool) {
 }
 
 fn truncate_tool_result(content: &str, max_chars: usize) -> String {
-    if content.chars().count() <= max_chars {
+    let total = content.chars().count();
+    if total <= max_chars {
         return content.to_string();
     }
-    let mut truncated: String = content.chars().take(max_chars).collect();
-    truncated.push_str("\n[工具输出已截断]");
-    truncated
+    const SHORT_MARKER: &str = "\n[工具输出已截断]";
+    // Tiny budgets are mostly test/display paths; there is no room for a
+    // middle-omission marker, so keep the historical prefix-only behavior.
+    if max_chars <= SHORT_MARKER.chars().count() {
+        let mut truncated: String = content.chars().take(max_chars).collect();
+        truncated.push_str(SHORT_MARKER);
+        return truncated;
+    }
+    // Keep both ends: command/test output usually ends with the decisive error
+    // and exit summary, so prefix-only truncation hides the evidence the model
+    // needs and causes redundant re-runs.
+    let head_chars = max_chars * 3 / 5;
+    let tail_chars = max_chars - head_chars;
+    let head: String = content.chars().take(head_chars).collect();
+    let tail: String = content
+        .chars()
+        .rev()
+        .take(tail_chars)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    let omitted = total - head_chars - tail_chars;
+    format!("{head}\n[工具输出已截断：中间省略 {omitted} 字符，已保留尾部]\n{tail}")
+}
+
+/// Old `read_file` observations are re-readable, so keep the recent window
+/// verbatim and compress only the stale head of the history. This bounds the
+/// prompt growth of long tool loops without hiding the just-produced evidence.
+const AGED_READ_KEEP_RECENT: usize = 10;
+const AGED_READ_MAX_CHARS: usize = 4_000;
+
+/// Compress only the `content` field of a structured `read_file` result so
+/// `path`, `sha256`, and line metadata stay valid for later `apply_patch`.
+fn age_read_result(content: &str, max_chars: usize) -> String {
+    if let Ok(mut value) = serde_json::from_str::<serde_json::Value>(content) {
+        if let Some(text) = value.get("content").and_then(serde_json::Value::as_str) {
+            if text.chars().count() > max_chars {
+                let aged = truncate_tool_result(text, max_chars);
+                if let Some(object) = value.as_object_mut() {
+                    object.insert(
+                        "content".to_string(),
+                        serde_json::Value::String(format!(
+                            "{aged}\n[较早的 read_file 内容已压缩；文件哈希与行号未变，如需精确内容请重新 read_file]"
+                        )),
+                    );
+                    object.insert("aged".to_string(), serde_json::Value::Bool(true));
+                }
+                return value.to_string();
+            }
+            return content.to_string();
+        }
+    }
+    let aged = truncate_tool_result(content, max_chars);
+    format!("{aged}\n[较早的 read_file 输出已压缩；如需精确内容请重新 read_file]")
+}
+
+fn age_old_read_observations(messages: &mut [ChatMessage], keep_recent: usize, max_chars: usize) {
+    let read_ids: std::collections::HashSet<String> = messages
+        .iter()
+        .flat_map(|message| message.tool_calls.iter().flatten())
+        .filter(|call| call.name == "read_file")
+        .map(|call| call.id.clone())
+        .collect();
+    let indices: Vec<usize> = messages
+        .iter()
+        .enumerate()
+        .filter(|(_, message)| {
+            message.role == "tool"
+                && message
+                    .tool_call_id
+                    .as_deref()
+                    .is_some_and(|id| read_ids.contains(id))
+        })
+        .map(|(index, _)| index)
+        .collect();
+    let cutoff = indices.len().saturating_sub(keep_recent);
+    for &index in &indices[..cutoff] {
+        let Some(content) = messages[index].content.as_deref() else {
+            continue;
+        };
+        if content.chars().count() <= max_chars
+            // Large results are already a valid CAS envelope (pointer + preview).
+            // Truncating that JSON would discard the pointer and make it unreadable.
+            || content.trim_start().starts_with("{\"artifact\"")
+        {
+            continue;
+        }
+        messages[index].content = Some(age_read_result(content, max_chars));
+    }
 }
 
 /// 步骤时间线的结果预览上限：够看清这步做了什么，又不会把 SSE 帧撑爆。
@@ -858,9 +1004,11 @@ fn command_execution_receipt(
     }
     let value = outcome.as_ref().ok()?;
     let command = value.get("command")?.as_str()?.trim();
+    let verification_command = crate::verification::normalize_verification_command(command);
     let exit_code = i32::try_from(value.get("exit_code")?.as_i64()?).ok()?;
     let duration_ms = value.get("duration_ms").and_then(serde_json::Value::as_u64);
-    let registered_behavior_command = crate::verification::is_registered_behavior_command(command);
+    let registered_behavior_command =
+        crate::verification::is_registered_behavior_command(&verification_command);
     let (workspace_hashes_complete, workspace_hashes_before, workspace_hashes) = match before {
         Some(before) if registered_behavior_command => {
             let after = crate::command_evidence::capture_command_snapshot(session);
@@ -873,7 +1021,7 @@ fn command_execution_receipt(
         _ => (false, Default::default(), Default::default()),
     };
     Some(CommandExecutionReceipt {
-        command_sha256: crate::CasStore::hash_of(command.as_bytes()),
+        command_sha256: crate::CasStore::hash_of(verification_command.as_bytes()),
         exit_code,
         result_sha256: crate::CasStore::hash_of(value.to_string().as_bytes()),
         duration_ms,
@@ -884,6 +1032,17 @@ fn command_execution_receipt(
         workspace_hashes,
         workspace_hashes_before,
     })
+}
+
+fn tool_outputs(
+    outcome: &Result<serde_json::Value, String>,
+) -> Vec<owo_agent_protocol::ToolOutputArtifact> {
+    outcome
+        .as_ref()
+        .ok()
+        .and_then(|value| value.get("outputs"))
+        .and_then(|value| serde_json::from_value(value.clone()).ok())
+        .unwrap_or_default()
 }
 
 fn tool_preview(outcome: &Result<serde_json::Value, String>) -> Option<String> {

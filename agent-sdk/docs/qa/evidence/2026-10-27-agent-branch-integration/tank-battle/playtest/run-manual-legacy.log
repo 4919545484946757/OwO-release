@@ -1,0 +1,13 @@
+T+05s {"status": "playing", "paused": false, "score": 0, "wave": 1, "lives": 3, "hp": 2, "kills": 0, "enemies": 3, "time": 5.649700000000015}
+T+10s {"status": "playing", "paused": false, "score": 100, "wave": 1, "lives": 2, "hp": 3, "kills": 1, "enemies": 2, "time": 10.966199999999988}
+T+16s {"status": "playing", "paused": false, "score": 100, "wave": 1, "lives": 2, "hp": 1, "kills": 1, "enemies": 2, "time": 16.265899999999892}
+T+21s {"status": "playing", "paused": false, "score": 500, "wave": 2, "lives": 1, "hp": 3, "kills": 3, "enemies": 4, "time": 21.565799999999726}
+T+26s {"status": "playing", "paused": false, "score": 600, "wave": 2, "lives": 1, "hp": 2, "kills": 4, "enemies": 3, "time": 26.932199999999586}
+T+32s {"status": "playing", "paused": false, "score": 600, "wave": 2, "lives": 1, "hp": 1, "kills": 4, "enemies": 3, "time": 32.24859999999943}
+T+37s {"status": "playing", "paused": false, "score": 600, "wave": 2, "lives": 0, "hp": 3, "kills": 4, "enemies": 3, "time": 37.56519999999977}
+T+42s {"status": "playing", "paused": false, "score": 700, "wave": 2, "lives": 0, "hp": 1, "kills": 5, "enemies": 2, "time": 42.86490000000012}
+T+48s {"status": "playing", "paused": false, "score": 0, "wave": 1, "lives": 3, "hp": 3, "kills": 5, "enemies": 3, "time": 47.16470000000035}
+T+53s {"status": "playing", "paused": false, "score": 100, "wave": 1, "lives": 3, "hp": 1, "kills": 6, "enemies": 2, "time": 52.48120000000072}
+T+58s {"status": "playing", "paused": false, "score": 200, "wave": 1, "lives": 3, "hp": 1, "kills": 7, "enemies": 1, "time": 57.74770000000108}
+FINAL {"status": "playing", "paused": false, "score": 200, "wave": 1, "lives": 3, "hp": 1, "kills": 7, "enemies": 1, "time": 60.097500000001254}
+CONSOLE_ERRORS []

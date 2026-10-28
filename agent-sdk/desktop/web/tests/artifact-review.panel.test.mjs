@@ -75,7 +75,7 @@ test("groupArtifactChain：空数组/null → 空链；无 artifact_id 的脏行
 test("normReviewState/reviewBadgeHtml：六种评审状态映射与徽标分类", () => {
   assert.equal(T.normReviewState("PendingReview"), "pendingreview");
   assert.equal(T.normReviewState("Changes_Requested"), "changesrequested");
-  assert.equal(T.reviewBadgeHtml("Draft"), '<span class="owo-ws-badge rv-off" data-art-state="draft">草稿（返工中）</span>');
+  assert.equal(T.reviewBadgeHtml("Draft"), '<span class="owo-ws-badge rv-off" data-art-state="draft">草稿</span>');
   assert.equal(T.reviewBadgeHtml("pending_review"), '<span class="owo-ws-badge rv-warn" data-art-state="pendingreview">待评审</span>');
   assert.equal(T.reviewBadgeHtml("PendingReview"), '<span class="owo-ws-badge rv-warn" data-art-state="pendingreview">待评审</span>');
   assert.equal(T.reviewBadgeHtml("Approved"), '<span class="owo-ws-badge rv-ok" data-art-state="approved">已批准</span>');

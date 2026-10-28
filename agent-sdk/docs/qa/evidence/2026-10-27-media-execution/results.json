@@ -1,0 +1,48 @@
+{
+  "captured": "2026-10-27T15:02:43.593032+08:00",
+  "head": "21d64098f6fdefd247d396fac540c1ed595d6c7b",
+  "dirty": true,
+  "phase_exit_codes": {
+    "fmt": 0,
+    "check-core": 0,
+    "check": 0,
+    "check-cli": 0,
+    "native-execution": 0,
+    "native-core-media": 0,
+    "native-media-contracts": 0,
+    "clippy-core": 0,
+    "clippy-server": 0,
+    "clippy-cli": 0
+  },
+  "native_passed": {
+    "native-execution": 4,
+    "native-core-media": 19,
+    "native-media-contracts": 3
+  },
+  "native_total": 26,
+  "selected_build_inputs": 637,
+  "changed_inputs": [],
+  "test_binaries": {
+    "native-execution": {
+      "path": "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025\\native-target\\debug\\deps\\media_execution_api_tests-779f2bee6235356c.exe",
+      "sha256": "4e5adf97d9ae5e65dc34ad4e82dac05dd238676a4af95a0f8415c928f9e72c61",
+      "bytes": 87818752
+    },
+    "native-core-media": {
+      "path": "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025\\native-target\\debug\\deps\\owo_agent_core-874f95b7a008b88d.exe",
+      "sha256": "f485ad6da049b7b8214d24ad374f2fa821793a2521b4ff2682152b7dc30238c1",
+      "bytes": 58333696
+    },
+    "native-media-contracts": {
+      "path": "C:\\Users\\23843\\AppData\\Local\\Temp\\owo-audit-iteration-20261025\\native-target\\debug\\deps\\route_contract_tests-880c92a62bc1f5fb.exe",
+      "sha256": "5469471082b2e549c69c940137c345e1dd3610d75635acbac00c5c5adf3a5c68",
+      "bytes": 90908160
+    }
+  },
+  "red_regression": {
+    "exit": 101,
+    "log": "red-invalid-content.log",
+    "failure": "failed media must not poison the requested output path: generate_image"
+  },
+  "scope": "Loopback fixture services, scripted model, actual Daemon routes/ToolHost/approval/builtin media/Artifact/CAS/history/reopen. Not full workspace, cloud, browser codecs, WorkSwarm task lease or Electron/release acceptance."
+}

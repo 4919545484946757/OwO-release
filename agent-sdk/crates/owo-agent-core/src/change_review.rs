@@ -91,7 +91,24 @@ pub fn review_files(diffs: &[FileDiff]) -> Vec<ReviewFile> {
 /// 大小写不敏感。两侧都用同一归一，避免"存在路径 vs 尚不存在路径"前缀不一致
 /// （`canonicalize()` 在 Windows 返回 `\\?\C:\...`，与普通路径直接比较必然不等）。
 fn normalize_for_compare(path: &Path) -> String {
-    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    // `canonicalize` fails for a not-yet-created target. Resolve its nearest
+    // existing ancestor so Windows short-name/junction aliases compare with the
+    // same canonical identity as the workspace root.
+    let canonical = {
+        let mut current = path.to_path_buf();
+        loop {
+            if let Ok(existing) = current.canonicalize() {
+                let suffix = path
+                    .strip_prefix(&current)
+                    .unwrap_or_else(|_| Path::new(""));
+                break existing.join(suffix);
+            }
+            match current.parent() {
+                Some(parent) if parent != current => current = parent.to_path_buf(),
+                _ => break path.to_path_buf(),
+            }
+        }
+    };
     let text = canonical.to_string_lossy().replace('\\', "/");
     let text = match text.strip_prefix("//?/UNC/") {
         Some(rest) => format!("//{rest}"),

@@ -1,0 +1,15 @@
+   Compiling owo-agent-server v0.1.0 (T:\创新创业\OwO-master\agent-sdk\crates\owo-agent-server)
+
+running 3 tests
+warning: linker stdout: 正在创建库 C:\Users\23843\AppData\Local\Temp\owo-audit-iteration-20261025\native-target\debug\deps\route_contract_tests-880c92a62bc1f5fb.lib 和对象 C:\Users\23843\AppData\Local\Temp\owo-audit-iteration-20261025\native-target\debug\deps\route_contract_tests-880c92a62bc1f5fb.exp
+  = note: `#[warn(linker_messages)]` on by default
+
+  |
+warning: `owo-agent-server` (test "route_contract_tests") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 28.98s
+     Running tests\route_contract_tests.rs (native-target\debug\deps\route_contract_tests-880c92a62bc1f5fb.exe)
+test media_delivery_contract_is_authenticated_binary_and_range_aware ... ok
+test media_profile_tcp_check_is_authenticated_persisted_and_revision_scoped ... ok
+
+test media_profiles_host_config_is_authenticated_versioned_and_used_by_capabilities_and_workers ... ok
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 71 filtered out; finished in 0.67s

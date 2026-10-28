@@ -2,10 +2,10 @@
   "use strict";
   function fromDetail(detail) {
     const h = detail?.turn_history, active = detail?.active_turn_id;
-    if (!h) return { outcome: active ? "running" : "", historyAvailable: false, lastExecutionModel: "", lastCompletionRecord: null, lastCompletionStatus: "" };
+    if (!h || !h.last_turn_id) return { outcome: active ? "running" : "", historyAvailable: !!h, lastExecutionModel: "", lastCompletionRecord: null, lastCompletionStatus: "" };
     const terminal = h.last_terminal, lastId = h.last_turn_id;
     const statsRecord = h.last_stats || (terminal?.payload?.type === "turn_stats" ? terminal : null);
-    const stats = statsRecord?.turn_id === terminal?.turn_id ? statsRecord.payload : null;
+    const stats = statsRecord && terminal?.turn_id === lastId && statsRecord.turn_id === lastId ? statsRecord.payload : null;
     const parsed = root.OwoCompletionRecord.fromTurnStats(stats);
     const sameTurn = terminal?.turn_id === lastId;
     const payload = sameTurn ? terminal?.payload : null;
