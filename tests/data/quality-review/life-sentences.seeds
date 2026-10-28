@@ -1,0 +1,91 @@
+# target|toneless syllables|category
+我想买一张明天去北京的车票|wo xiang mai yi zhang ming tian qu bei jing de che piao|travel_sentence
+这趟列车什么时候出发|zhe tang lie che shen me shi hou chu fa|travel_sentence
+请问去地铁站怎么走|qing wen qu di tie zhan zen me zou|travel_sentence
+下一站在哪里换乘|xia yi zhan zai na li huan cheng|travel_sentence
+我已经到机场了|wo yi jing dao ji chang le|travel_sentence
+航班延误了一个小时|hang ban yan wu le yi ge xiao shi|travel_sentence
+请提前到达登机口|qing ti qian dao da deng ji kou|travel_sentence
+请问我的座位在哪里|qing wen wo de zuo wei zai na li|travel_sentence
+行李箱需要办理托运|xing li xiang xu yao ban li tuo yun|travel_sentence
+到达以后给我发消息|dao da yi hou gei wo fa xiao xi|travel_sentence
+我在酒店门口等你|wo zai jiu dian men kou deng ni|travel_sentence
+请问现在可以办理入住吗|qing wen xian zai ke yi ban li ru zhu ma|travel_sentence
+明天上午十点以前退房|ming tian shang wu shi dian yi qian tui fang|travel_sentence
+我们打算周末出去旅游|wo men da suan zhou mo chu qu lv you|travel_sentence
+这个路口不能停车|zhe ge lu kou bu neng ting che|travel_sentence
+请按照导航路线行驶|qing an zhao dao hang lu xian xing shi|travel_sentence
+下雨天开车注意安全|xia yu tian kai che zhu yi an quan|travel_sentence
+我们先去超市买点东西|wo men xian qu chao shi mai dian dong xi|shopping_sentence
+家里的牛奶已经喝完了|jia li de niu nai yi jing he wan le|food_sentence
+晚饭想吃西红柿鸡蛋面|wan fan xiang chi xi hong shi ji dan mian|food_sentence
+这家店的面条很好吃|zhe jia dian de mian tiao hen hao chi|food_sentence
+请给我一杯温水|qing gei wo yi bei wen shui|food_sentence
+我不太喜欢吃辣的东西|wo bu tai xi huan chi la de dong xi|food_sentence
+今天的水果特别新鲜|jin tian de shui guo te bie xin xian|food_sentence
+这个蛋糕是你自己做的吗|zhe ge dan gao shi ni zi ji zuo de ma|food_sentence
+我已经把饭做好了|wo yi jing ba fan zuo hao le|food_sentence
+吃完饭以后再出去散步|chi wan fan yi hou zai chu qu san bu|daily_sentence
+今天晚上早点回家|jin tian wan shang zao dian hui jia|daily_sentence
+我的快递今天能到吗|wo de kuai di jin tian neng dao ma|shopping_sentence
+请帮我查询一下物流信息|qing bang wo cha xun yi xia wu liu xin xi|shopping_sentence
+这个商品还有其他颜色吗|zhe ge shang pin hai you qi ta yan se ma|shopping_sentence
+我想修改一下收货地址|wo xiang xiu gai yi xia shou huo di zhi|shopping_sentence
+订单付款以后多久发货|ding dan fu kuan yi hou duo jiu fa huo|shopping_sentence
+商品已经收到谢谢|shang pin yi jing shou dao xie xie|shopping_sentence
+请帮我申请退款|qing bang wo shen qing tui kuan|shopping_sentence
+请核对订单上的商品数量|qing he dui ding dan shang de shang pin shu liang|shopping_sentence
+这张优惠券什么时候到期|zhe zhang you hui quan shen me shi hou dao qi|shopping_sentence
+发票信息填写有误|fa piao xin xi tian xie you wu|finance_forms_sentence
+请发送电子发票到我的邮箱|qing fa song dian zi fa piao dao wo de you xiang|finance_forms_sentence
+我想查询本月的交易明细|wo xiang cha xun ben yue de jiao yi ming xi|finance_forms_sentence
+报销申请已经提交了|bao xiao shen qing yi jing ti jiao le|finance_forms_sentence
+这笔付款还没有到账|zhe bi fu kuan hai mei you dao zhang|finance_forms_sentence
+请确认账户信息是否正确|qing que ren zhang hu xin xi shi fou zheng que|finance_forms_sentence
+请不要把验证码告诉别人|qing bu yao ba yan zheng ma gao su bie ren|security_sentence
+这个密码需要重新设置|zhe ge mi ma xu yao chong xin she zhi|security_sentence
+我已经完成身份验证|wo yi jing wan cheng shen fen yan zheng|security_sentence
+个人信息不能随意公开|ge ren xin xi bu neng sui yi gong kai|security_sentence
+请问明天上午还有号吗|qing wen ming tian shang wu hai you hao ma|health_logistics_sentence
+我想预约下周的门诊|wo xiang yu yue xia zhou de men zhen|health_logistics_sentence
+请在大厅等待叫号|qing zai da ting deng dai jiao hao|health_logistics_sentence
+体检报告可以在哪里领取|ti jian bao gao ke yi zai na li ling qu|health_logistics_sentence
+医院附近有没有停车场|yi yuan fu jin you mei you ting che chang|health_logistics_sentence
+明天的课程从几点开始|ming tian de ke cheng cong ji dian kai shi|education_sentence
+这道数学题应该怎么做|zhe dao shu xue ti ying gai zen me zuo|education_sentence
+我已经完成今天的作业了|wo yi jing wan cheng jin tian de zuo ye le|education_sentence
+老师请问这部分需要复习吗|lao shi qing wen zhe bu fen xu yao fu xi ma|education_sentence
+考试结束以后我们一起吃饭|kao shi jie shu yi hou wo men yi qi chi fan|education_sentence
+请把实验报告发送给老师|qing ba shi yan bao gao fa song gei lao shi|education_sentence
+这篇文章的主要内容是什么|zhe pian wen zhang de zhu yao nei rong shi shen me|education_sentence
+我想去图书馆借一本书|wo xiang qu tu shu guan jie yi ben shu|education_sentence
+这本书对学习很有帮助|zhe ben shu dui xue xi hen you bang zhu|education_sentence
+请把课堂笔记整理一下|qing ba ke tang bi ji zheng li yi xia|education_sentence
+我们下周需要提交毕业论文|wo men xia zhou xu yao ti jiao bi ye lun wen|education_sentence
+这次考试的成绩什么时候公布|zhe ci kao shi de cheng ji shen me shi hou gong bu|education_sentence
+我正在准备明天的面试|wo zheng zai zhun bei ming tian de mian shi|work_sentence
+请问这个岗位还在招聘吗|qing wen zhe ge gang wei hai zai zhao pin ma|work_sentence
+我的简历已经发送到邮箱了|wo de jian li yi jing fa song dao you xiang le|work_sentence
+我们需要在月底之前完成任务|wo men xu yao zai yue di zhi qian wan cheng ren wu|work_sentence
+这个方案还需要进一步讨论|zhe ge fang an hai xu yao jin yi bu tao lun|work_sentence
+请把修改后的文档发给我|qing ba xiu gai hou de wen dang fa gei wo|work_sentence
+我已经把问题整理成清单了|wo yi jing ba wen ti zheng li cheng qing dan le|work_sentence
+今天的会议改到下午两点|jin tian de hui yi gai dao xia wu liang dian|work_sentence
+我们可以先从简单的部分开始|wo men ke yi xian cong jian dan de bu fen kai shi|work_sentence
+这件事情需要和同事确认一下|zhe jian shi qing xu yao he tong shi que ren yi xia|work_sentence
+我会在下班之前回复你|wo hui zai xia ban zhi qian hui fu ni|work_sentence
+请问附近哪里有便利店|qing wen fu jin na li you bian li dian|daily_sentence
+房间里的灯忘记关了|fang jian li de deng wang ji guan le|daily_sentence
+手机快没电了需要充电|shou ji kuai mei dian le xu yao chong dian|daily_sentence
+我的钥匙好像忘在办公室了|wo de yao shi hao xiang wang zai ban gong shi le|daily_sentence
+出门以前记得关好门窗|chu men yi qian ji de guan hao men chuang|daily_sentence
+请问这个地址应该怎么填写|qing wen zhe ge di zhi ying gai zen me tian xie|daily_sentence
+我们约在明天下午见面|wo men yue zai ming tian xia wu jian mian|daily_sentence
+到时候我会提前给你打电话|dao shi hou wo hui ti qian gei ni da dian hua|daily_sentence
+我想听听你对这件事的看法|wo xiang ting ting ni dui zhe jian shi de kan fa|daily_sentence
+如果有变化请及时通知我|ru guo you bian hua qing ji shi tong zhi wo|daily_sentence
+这里的环境比想象中安静|zhe li de huan jing bi xiang xiang zhong an jing|daily_sentence
+我觉得这个安排很合理|wo jue de zhe ge an pai hen he li|daily_sentence
+谢谢你帮我解决了这个问题|xie xie ni bang wo jie jue le zhe ge wen ti|daily_sentence
+我们回头再讨论具体细节|wo men hui tou zai tao lun ju ti xi jie|daily_sentence
+这段时间真的辛苦大家了|zhe duan shi jian zhen de xin ku da jia le|daily_sentence

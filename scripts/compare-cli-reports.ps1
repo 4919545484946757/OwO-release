@@ -52,7 +52,7 @@ try {
             @{schema_version=1;record='comparison_case';id=$id;input=$after.input;regression=$regressed;improvement=$improved;before_rank=$before.$rankField;after_rank=$after.$rankField;before_pass=$before.pass;after_pass=$after.pass} | ConvertTo-Json -Compress -Depth 10
         }
     }
-    @{schema_version=1;record='comparison_summary';ok=(-not $FailOnRegression -or $regressions -eq 0);cases=$left.cases.Count;changed=$changed;regressions=$regressions;improvements=$improvements;baseline_metrics=$left.summary.metrics;candidate_metrics=$right.summary.metrics;baseline_config=$left.manifest.effective_config;candidate_config=$right.manifest.effective_config;baseline_lexicon=$left.manifest.lexicon;candidate_lexicon=$right.manifest.lexicon;baseline_cli=$left.manifest.cli_asset;candidate_cli=$right.manifest.cli_asset} | ConvertTo-Json -Compress -Depth 12
+    @{schema_version=1;record='comparison_summary';ok=(-not $FailOnRegression -or $regressions -eq 0);cases=$left.cases.Count;changed=$changed;regressions=$regressions;improvements=$improvements;baseline_metrics=$left.summary.metrics;candidate_metrics=$right.summary.metrics;baseline_config=$left.manifest.effective_config;candidate_config=$right.manifest.effective_config;baseline_lexicon=$left.manifest.lexicon;candidate_lexicon=$right.manifest.lexicon;baseline_cli=$left.manifest.cli_asset;candidate_cli=$right.manifest.cli_asset;baseline_bridge=$left.manifest.bridge;candidate_bridge=$right.manifest.bridge;baseline_model=$left.manifest.model_asset;candidate_model=$right.manifest.model_asset} | ConvertTo-Json -Compress -Depth 12
     if ($FailOnRegression -and $regressions) { exit 1 }
     exit 0
 } catch {

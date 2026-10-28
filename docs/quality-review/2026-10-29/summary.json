@@ -1,57 +1,82 @@
 {
-    "generated_utc":  "2026-10-28T19:03:23.5436035Z",
-    "runs":  12,
-    "case_observations":  2250,
-    "distinct_test_definitions":  943,
-    "issue_count":  471,
+    "generated_utc":  "2026-10-28T20:04:14.3016724Z",
+    "runs":  70,
+    "case_observations":  12051,
+    "distinct_test_definitions":  4462,
+    "issue_count":  3443,
     "priorities":  [
                        {
-                           "count":  148,
+                           "count":  1557,
                            "priority":  "P1"
                        },
                        {
-                           "count":  155,
+                           "count":  918,
                            "priority":  "P2"
                        },
                        {
-                           "count":  168,
+                           "count":  968,
                            "priority":  "P3"
                        }
                    ],
     "classes":  [
                     {
                         "kind":  "分页与展开结果不一致",
-                        "count":  119
+                        "count":  897
                     },
                     {
                         "kind":  "可见候选池未命中（不等于词典缺词）",
-                        "count":  29
+                        "count":  659
+                    },
+                    {
+                        "kind":  "可解析性与标注不一致",
+                        "count":  1
                     },
                     {
                         "kind":  "基础候选未命中、模型首页已补救",
+                        "count":  163
+                    },
+                    {
+                        "kind":  "基础请求超过50毫秒（需重复测量）",
+                        "count":  1
+                    },
+                    {
+                        "kind":  "解析路径未覆盖标注分割（标注语义待评）",
+                        "count":  1
+                    },
+                    {
+                        "kind":  "可解析但基础候选为空（功能边界待评）",
                         "count":  1
                     },
                     {
                         "kind":  "模型改变了原本命中的首选（歧义待评）",
-                        "count":  18
+                        "count":  133
                     },
                     {
                         "kind":  "目标候选在首屏之外",
-                        "count":  101
+                        "count":  321
+                    },
+                    {
+                        "kind":  "拼音预览与期望分割不同",
+                        "count":  2
                     },
                     {
                         "kind":  "扫描范围内未命中（需加深复核）",
-                        "count":  35
+                        "count":  295
+                    },
+                    {
+                        "kind":  "原始标注读音错误：公司应为gongsi（见标注审计）",
+                        "count":  1
                     },
                     {
                         "kind":  "首候选与目标不同（同音歧义待评）",
-                        "count":  168
+                        "count":  968
                     }
                 ],
     "rounds":  [
                    {
                        "round":  "r01-common",
                        "backend":  "base",
+                       "runtime":  "base",
                        "page_size":  7,
                        "partition":  "on",
                        "typing":  "whole",
@@ -103,6 +128,7 @@
                    {
                        "round":  "r01-common",
                        "backend":  "libime",
+                       "runtime":  "release-legacy",
                        "page_size":  7,
                        "partition":  "on",
                        "typing":  "whole",
@@ -154,6 +180,7 @@
                    {
                        "round":  "r02-phrases",
                        "backend":  "base",
+                       "runtime":  "base",
                        "page_size":  7,
                        "partition":  "on",
                        "typing":  "whole",
@@ -205,6 +232,7 @@
                    {
                        "round":  "r02-phrases",
                        "backend":  "libime",
+                       "runtime":  "release-legacy",
                        "page_size":  7,
                        "partition":  "on",
                        "typing":  "whole",
@@ -256,6 +284,7 @@
                    {
                        "round":  "r03-sentences",
                        "backend":  "base",
+                       "runtime":  "base",
                        "page_size":  7,
                        "partition":  "on",
                        "typing":  "whole",
@@ -307,6 +336,7 @@
                    {
                        "round":  "r03-sentences",
                        "backend":  "libime",
+                       "runtime":  "release-legacy",
                        "page_size":  7,
                        "partition":  "on",
                        "typing":  "whole",
@@ -358,6 +388,7 @@
                    {
                        "round":  "r04-dictionary",
                        "backend":  "base",
+                       "runtime":  "base",
                        "page_size":  7,
                        "partition":  "on",
                        "typing":  "whole",
@@ -409,6 +440,7 @@
                    {
                        "round":  "r04-dictionary",
                        "backend":  "libime",
+                       "runtime":  "release-legacy",
                        "page_size":  7,
                        "partition":  "on",
                        "typing":  "whole",
@@ -460,6 +492,7 @@
                    {
                        "round":  "r05-initials",
                        "backend":  "base",
+                       "runtime":  "base",
                        "page_size":  7,
                        "partition":  "on",
                        "typing":  "whole",
@@ -511,6 +544,7 @@
                    {
                        "round":  "r05-initials",
                        "backend":  "libime",
+                       "runtime":  "release-legacy",
                        "page_size":  7,
                        "partition":  "on",
                        "typing":  "whole",
@@ -562,6 +596,7 @@
                    {
                        "round":  "r01-evidence",
                        "backend":  "base",
+                       "runtime":  "base",
                        "page_size":  7,
                        "partition":  "on",
                        "typing":  "whole",
@@ -613,6 +648,7 @@
                    {
                        "round":  "r01-evidence",
                        "backend":  "libime",
+                       "runtime":  "release-legacy",
                        "page_size":  7,
                        "partition":  "on",
                        "typing":  "whole",
@@ -657,6 +693,3037 @@
                                                     "p50":  0.013200,
                                                     "p95":  0.028000,
                                                     "max":  0.047900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r06-mixedwords",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r06-mixedwords-base-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  374,
+                                       "failures":  182,
+                                       "errors":  0,
+                                       "labeled":  374,
+                                       "base_top1":  0.350267,
+                                       "base_first_page":  0.556150,
+                                       "base_topk":  0.684492,
+                                       "base_mrr_at_k":  0.453774,
+                                       "final_top1":  0.350267,
+                                       "final_first_page":  0.556150,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  374,
+                                       "expansion_failed":  75
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  374,
+                                                           "p50":  2.642500,
+                                                           "p95":  9.393300,
+                                                           "max":  14.599100
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  374,
+                                                              "p50":  2.642900,
+                                                              "p95":  9.393900,
+                                                              "max":  14.599700
+                                                          },
+                                      "parse":  {
+                                                    "samples":  374,
+                                                    "p50":  0.125200,
+                                                    "p95":  3.965300,
+                                                    "max":  5.231400
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r06-mixedwords",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r06-mixedwords-libime-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  374,
+                                       "failures":  235,
+                                       "errors":  0,
+                                       "labeled":  374,
+                                       "base_top1":  0.350267,
+                                       "base_first_page":  0.556150,
+                                       "base_topk":  0.684492,
+                                       "base_mrr_at_k":  0.453774,
+                                       "final_top1":  0.566845,
+                                       "final_first_page":  0.636364,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  373,
+                                       "model_applied":  373,
+                                       "model_failed":  0,
+                                       "expansion_checked":  374,
+                                       "expansion_failed":  146
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  374,
+                                                           "p50":  2.682600,
+                                                           "p95":  9.268500,
+                                                           "max":  14.484900
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  374,
+                                                              "p50":  2.871200,
+                                                              "p95":  9.445400,
+                                                              "max":  14.633300
+                                                          },
+                                      "parse":  {
+                                                    "samples":  374,
+                                                    "p50":  0.138400,
+                                                    "p95":  3.789200,
+                                                    "max":  5.360900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r07-incomplete",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r07-incomplete-base-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  180,
+                                       "failures":  122,
+                                       "errors":  0,
+                                       "labeled":  180,
+                                       "base_top1":  0.222222,
+                                       "base_first_page":  0.305556,
+                                       "base_topk":  0.366667,
+                                       "base_mrr_at_k":  0.263934,
+                                       "final_top1":  0.222222,
+                                       "final_first_page":  0.305556,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  180,
+                                       "expansion_failed":  16
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  180,
+                                                           "p50":  0.751200,
+                                                           "p95":  2.627900,
+                                                           "max":  6.084200
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  180,
+                                                              "p50":  0.751700,
+                                                              "p95":  2.628400,
+                                                              "max":  6.084700
+                                                          },
+                                      "parse":  {
+                                                    "samples":  180,
+                                                    "p50":  0.025100,
+                                                    "p95":  0.102000,
+                                                    "max":  0.182000
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r07-incomplete",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r07-incomplete-libime-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  180,
+                                       "failures":  140,
+                                       "errors":  0,
+                                       "labeled":  180,
+                                       "base_top1":  0.222222,
+                                       "base_first_page":  0.305556,
+                                       "base_topk":  0.366667,
+                                       "base_mrr_at_k":  0.263934,
+                                       "final_top1":  0.372222,
+                                       "final_first_page":  0.416667,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  180,
+                                       "model_applied":  180,
+                                       "model_failed":  0,
+                                       "expansion_checked":  180,
+                                       "expansion_failed":  52
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  180,
+                                                           "p50":  0.761000,
+                                                           "p95":  2.882900,
+                                                           "max":  6.449600
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  180,
+                                                              "p50":  0.923100,
+                                                              "p95":  3.077600,
+                                                              "max":  6.641900
+                                                          },
+                                      "parse":  {
+                                                    "samples":  180,
+                                                    "p50":  0.020100,
+                                                    "p95":  0.103500,
+                                                    "max":  0.310300
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r08-lifetopics",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r08-lifetopics-base-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  191,
+                                       "failures":  10,
+                                       "errors":  0,
+                                       "labeled":  191,
+                                       "base_top1":  0.952880,
+                                       "base_first_page":  0.989529,
+                                       "base_topk":  0.989529,
+                                       "base_mrr_at_k":  0.967888,
+                                       "final_top1":  0.952880,
+                                       "final_first_page":  0.989529,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  191,
+                                       "expansion_failed":  8
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  191,
+                                                           "p50":  0.728400,
+                                                           "p95":  1.554100,
+                                                           "max":  3.500600
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  191,
+                                                              "p50":  0.728700,
+                                                              "p95":  1.554600,
+                                                              "max":  3.501000
+                                                          },
+                                      "parse":  {
+                                                    "samples":  191,
+                                                    "p50":  0.019300,
+                                                    "p95":  0.064400,
+                                                    "max":  0.206800
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r08-lifetopics",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r08-lifetopics-libime-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  191,
+                                       "failures":  10,
+                                       "errors":  0,
+                                       "labeled":  191,
+                                       "base_top1":  0.952880,
+                                       "base_first_page":  0.989529,
+                                       "base_topk":  0.989529,
+                                       "base_mrr_at_k":  0.967888,
+                                       "final_top1":  0.958115,
+                                       "final_first_page":  0.989529,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  191,
+                                       "model_applied":  191,
+                                       "model_failed":  0,
+                                       "expansion_checked":  191,
+                                       "expansion_failed":  8
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  191,
+                                                           "p50":  0.810400,
+                                                           "p95":  1.884100,
+                                                           "max":  3.266200
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  191,
+                                                              "p50":  0.936500,
+                                                              "p95":  2.439100,
+                                                              "max":  3.448600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  191,
+                                                    "p50":  0.019500,
+                                                    "p95":  0.065600,
+                                                    "max":  0.137600
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r09-lifesentences",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r09-lifesentences-base-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  90,
+                                       "failures":  36,
+                                       "errors":  0,
+                                       "labeled":  90,
+                                       "base_top1":  0.533333,
+                                       "base_first_page":  0.622222,
+                                       "base_topk":  0.622222,
+                                       "base_mrr_at_k":  0.577778,
+                                       "final_top1":  0.533333,
+                                       "final_first_page":  0.622222,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  90,
+                                       "expansion_failed":  5
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  90,
+                                                           "p50":  4.058700,
+                                                           "p95":  7.552200,
+                                                           "max":  10.539500
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  90,
+                                                              "p50":  4.060300,
+                                                              "p95":  7.552900,
+                                                              "max":  10.541100
+                                                          },
+                                      "parse":  {
+                                                    "samples":  90,
+                                                    "p50":  0.237000,
+                                                    "p95":  0.932900,
+                                                    "max":  1.296000
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r09-lifesentences",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r09-lifesentences-libime-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  90,
+                                       "failures":  45,
+                                       "errors":  0,
+                                       "labeled":  90,
+                                       "base_top1":  0.533333,
+                                       "base_first_page":  0.622222,
+                                       "base_topk":  0.622222,
+                                       "base_mrr_at_k":  0.577778,
+                                       "final_top1":  0.533333,
+                                       "final_first_page":  0.600000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  90,
+                                       "model_applied":  90,
+                                       "model_failed":  0,
+                                       "expansion_checked":  90,
+                                       "expansion_failed":  13
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  90,
+                                                           "p50":  4.357400,
+                                                           "p95":  8.365200,
+                                                           "max":  11.518900
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  90,
+                                                              "p50":  4.800400,
+                                                              "p95":  8.590300,
+                                                              "max":  11.781600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  90,
+                                                    "p50":  0.254200,
+                                                    "p95":  1.074700,
+                                                    "max":  1.250700
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r10-boundaries",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r10-boundaries-base-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  10,
+                                       "errors":  0,
+                                       "labeled":  58,
+                                       "base_top1":  0.637931,
+                                       "base_first_page":  0.896552,
+                                       "base_topk":  0.913793,
+                                       "base_mrr_at_k":  0.734124,
+                                       "final_top1":  0.637931,
+                                       "final_first_page":  0.896552,
+                                       "parse_validity_accuracy":  0.983333,
+                                       "segmentation_labeled":  12,
+                                       "preview_accuracy":  0.833333,
+                                       "parse_path_coverage":  0.916667,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  59,
+                                       "expansion_failed":  5
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  59,
+                                                           "p50":  0.680300,
+                                                           "p95":  22.751300,
+                                                           "max":  74.411100
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  59,
+                                                              "p50":  0.681800,
+                                                              "p95":  22.752000,
+                                                              "max":  74.412300
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.023200,
+                                                    "p95":  6.800600,
+                                                    "max":  25.998900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r10-boundaries",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r10-boundaries-libime-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  13,
+                                       "errors":  0,
+                                       "labeled":  58,
+                                       "base_top1":  0.637931,
+                                       "base_first_page":  0.896552,
+                                       "base_topk":  0.913793,
+                                       "base_mrr_at_k":  0.734124,
+                                       "final_top1":  0.603448,
+                                       "final_first_page":  0.896552,
+                                       "parse_validity_accuracy":  0.983333,
+                                       "segmentation_labeled":  12,
+                                       "preview_accuracy":  0.833333,
+                                       "parse_path_coverage":  0.916667,
+                                       "model_requested":  57,
+                                       "model_applied":  57,
+                                       "model_failed":  0,
+                                       "expansion_checked":  59,
+                                       "expansion_failed":  9
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  59,
+                                                           "p50":  0.728900,
+                                                           "p95":  26.437900,
+                                                           "max":  83.451500
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  59,
+                                                              "p50":  0.800100,
+                                                              "p95":  26.588200,
+                                                              "max":  83.684600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.018400,
+                                                    "p95":  6.416100,
+                                                    "max":  25.578500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r11-prefixes",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r11-prefixes-base-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  292,
+                                       "failures":  6,
+                                       "errors":  0,
+                                       "labeled":  292,
+                                       "base_top1":  0.000000,
+                                       "base_first_page":  0.938356,
+                                       "base_topk":  0.979452,
+                                       "base_mrr_at_k":  0.323682,
+                                       "final_top1":  0.000000,
+                                       "final_first_page":  0.938356,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  292,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  292,
+                                                           "p50":  0.442300,
+                                                           "p95":  1.549500,
+                                                           "max":  2.036200
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  292,
+                                                              "p50":  0.442800,
+                                                              "p95":  1.549900,
+                                                              "max":  2.036700
+                                                          },
+                                      "parse":  {
+                                                    "samples":  292,
+                                                    "p50":  0.025400,
+                                                    "p95":  0.078400,
+                                                    "max":  0.253300
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r11-prefixes",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r11-prefixes-libime-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  292,
+                                       "failures":  18,
+                                       "errors":  0,
+                                       "labeled":  292,
+                                       "base_top1":  0.000000,
+                                       "base_first_page":  0.938356,
+                                       "base_topk":  0.979452,
+                                       "base_mrr_at_k":  0.323682,
+                                       "final_top1":  0.000000,
+                                       "final_first_page":  0.938356,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  292,
+                                       "model_applied":  292,
+                                       "model_failed":  0,
+                                       "expansion_checked":  292,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  292,
+                                                           "p50":  0.364600,
+                                                           "p95":  1.502200,
+                                                           "max":  2.710300
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  292,
+                                                              "p50":  0.678100,
+                                                              "p95":  1.719300,
+                                                              "max":  2.797800
+                                                          },
+                                      "parse":  {
+                                                    "samples":  292,
+                                                    "p50":  0.025300,
+                                                    "p95":  0.066400,
+                                                    "max":  0.553600
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r12-typos",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r12-typos-base-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  340,
+                                       "failures":  286,
+                                       "errors":  0,
+                                       "labeled":  340,
+                                       "base_top1":  0.426471,
+                                       "base_first_page":  0.482353,
+                                       "base_topk":  0.494118,
+                                       "base_mrr_at_k":  0.454779,
+                                       "final_top1":  0.426471,
+                                       "final_first_page":  0.482353,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  340,
+                                       "expansion_failed":  129
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  340,
+                                                           "p50":  4.654200,
+                                                           "p95":  17.178600,
+                                                           "max":  28.621000
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  340,
+                                                              "p50":  4.654600,
+                                                              "p95":  17.179300,
+                                                              "max":  28.622700
+                                                          },
+                                      "parse":  {
+                                                    "samples":  340,
+                                                    "p50":  0.632200,
+                                                    "p95":  6.890200,
+                                                    "max":  10.612400
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r12-typos",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r12-typos-libime-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  340,
+                                       "failures":  290,
+                                       "errors":  0,
+                                       "labeled":  340,
+                                       "base_top1":  0.367647,
+                                       "base_first_page":  0.420588,
+                                       "base_topk":  0.432353,
+                                       "base_mrr_at_k":  0.394485,
+                                       "final_top1":  0.376471,
+                                       "final_first_page":  0.426471,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  340,
+                                       "model_applied":  340,
+                                       "model_failed":  0,
+                                       "expansion_checked":  340,
+                                       "expansion_failed":  150
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  340,
+                                                           "p50":  4.519300,
+                                                           "p95":  17.518400,
+                                                           "max":  30.035400
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  340,
+                                                              "p50":  4.676100,
+                                                              "p95":  17.786500,
+                                                              "max":  30.189600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  340,
+                                                    "p50":  0.588600,
+                                                    "p95":  6.745200,
+                                                    "max":  10.541500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r12-typoscontrol",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "off",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r12-typoscontrol-base-p7-on-whole-coff",
+                       "metrics":  {
+                                       "cases":  340,
+                                       "failures":  340,
+                                       "errors":  0,
+                                       "labeled":  340,
+                                       "base_top1":  0.000000,
+                                       "base_first_page":  0.000000,
+                                       "base_topk":  0.000000,
+                                       "base_mrr_at_k":  0.000000,
+                                       "final_top1":  0.000000,
+                                       "final_first_page":  0.000000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  340,
+                                       "expansion_failed":  19
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  340,
+                                                           "p50":  3.357300,
+                                                           "p95":  11.016700,
+                                                           "max":  18.112000
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  340,
+                                                              "p50":  3.357900,
+                                                              "p95":  11.017400,
+                                                              "max":  18.112600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  340,
+                                                    "p50":  0.497600,
+                                                    "p95":  6.647200,
+                                                    "max":  10.765200
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r12-typoscontrol",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "off",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r12-typoscontrol-libime-p7-on-whole-coff",
+                       "metrics":  {
+                                       "cases":  340,
+                                       "failures":  340,
+                                       "errors":  0,
+                                       "labeled":  340,
+                                       "base_top1":  0.000000,
+                                       "base_first_page":  0.000000,
+                                       "base_topk":  0.000000,
+                                       "base_mrr_at_k":  0.000000,
+                                       "final_top1":  0.000000,
+                                       "final_first_page":  0.000000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  340,
+                                       "model_applied":  340,
+                                       "model_failed":  0,
+                                       "expansion_checked":  340,
+                                       "expansion_failed":  62
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  340,
+                                                           "p50":  3.525400,
+                                                           "p95":  10.820500,
+                                                           "max":  19.127600
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  340,
+                                                              "p50":  3.645700,
+                                                              "p95":  10.960800,
+                                                              "max":  19.566400
+                                                          },
+                                      "parse":  {
+                                                    "samples":  340,
+                                                    "p50":  0.509800,
+                                                    "p95":  6.917500,
+                                                    "max":  10.445400
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r13-explicit",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r13-explicit-base-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  180,
+                                       "failures":  21,
+                                       "errors":  0,
+                                       "labeled":  180,
+                                       "base_top1":  0.972222,
+                                       "base_first_page":  1.000000,
+                                       "base_topk":  1.000000,
+                                       "base_mrr_at_k":  0.985185,
+                                       "final_top1":  0.972222,
+                                       "final_first_page":  1.000000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  180,
+                                       "preview_accuracy":  1.000000,
+                                       "parse_path_coverage":  1.000000,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  180,
+                                       "expansion_failed":  21
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  180,
+                                                           "p50":  0.438600,
+                                                           "p95":  1.067900,
+                                                           "max":  2.483600
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  180,
+                                                              "p50":  0.439000,
+                                                              "p95":  1.068400,
+                                                              "max":  2.484100
+                                                          },
+                                      "parse":  {
+                                                    "samples":  180,
+                                                    "p50":  0.009900,
+                                                    "p95":  0.023300,
+                                                    "max":  0.199500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r13-explicit",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r13-explicit-libime-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  180,
+                                       "failures":  21,
+                                       "errors":  0,
+                                       "labeled":  180,
+                                       "base_top1":  0.972222,
+                                       "base_first_page":  1.000000,
+                                       "base_topk":  1.000000,
+                                       "base_mrr_at_k":  0.985185,
+                                       "final_top1":  0.955556,
+                                       "final_first_page":  1.000000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  180,
+                                       "preview_accuracy":  1.000000,
+                                       "parse_path_coverage":  1.000000,
+                                       "model_requested":  180,
+                                       "model_applied":  180,
+                                       "model_failed":  0,
+                                       "expansion_checked":  180,
+                                       "expansion_failed":  21
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  180,
+                                                           "p50":  0.448800,
+                                                           "p95":  1.214800,
+                                                           "max":  3.431300
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  180,
+                                                              "p50":  0.583500,
+                                                              "p95":  1.362300,
+                                                              "max":  3.622200
+                                                          },
+                                      "parse":  {
+                                                    "samples":  180,
+                                                    "p50":  0.010000,
+                                                    "p95":  0.016000,
+                                                    "max":  0.035100
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r14-context",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r14-context-base-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  15,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.280488,
+                                       "base_first_page":  0.743902,
+                                       "base_topk":  0.975610,
+                                       "base_mrr_at_k":  0.488615,
+                                       "final_top1":  0.280488,
+                                       "final_first_page":  0.743902,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  13
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.392900,
+                                                           "p95":  1.519000,
+                                                           "max":  4.620500
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.393400,
+                                                              "p95":  1.519700,
+                                                              "max":  4.622000
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.008000,
+                                                    "p95":  0.031600,
+                                                    "max":  0.106500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r14-context",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r14-context-libime-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  32,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.280488,
+                                       "base_first_page":  0.743902,
+                                       "base_topk":  0.975610,
+                                       "base_mrr_at_k":  0.488615,
+                                       "final_top1":  0.268293,
+                                       "final_first_page":  0.743902,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  82,
+                                       "model_applied":  82,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  13
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.509500,
+                                                           "p95":  1.240400,
+                                                           "max":  4.005300
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.592500,
+                                                              "p95":  1.455400,
+                                                              "max":  4.375000
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.009500,
+                                                    "p95":  0.020100,
+                                                    "max":  0.064000
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r15-sentences-incremental",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "incremental",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r15-sentences-incremental-base-p7-on-incremental-con",
+                       "metrics":  {
+                                       "cases":  100,
+                                       "failures":  23,
+                                       "errors":  0,
+                                       "labeled":  100,
+                                       "base_top1":  0.750000,
+                                       "base_first_page":  0.790000,
+                                       "base_topk":  0.790000,
+                                       "base_mrr_at_k":  0.770000,
+                                       "final_top1":  0.750000,
+                                       "final_first_page":  0.790000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  100,
+                                       "expansion_failed":  3
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  100,
+                                                           "p50":  3.365800,
+                                                           "p95":  7.884100,
+                                                           "max":  11.587800
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  100,
+                                                              "p50":  3.366700,
+                                                              "p95":  7.885100,
+                                                              "max":  11.588300
+                                                          },
+                                      "parse":  {
+                                                    "samples":  100,
+                                                    "p50":  0.133500,
+                                                    "p95":  0.594000,
+                                                    "max":  1.718500
+                                                },
+                                      "incremental_prefix_request":  {
+                                                                         "samples":  2498,
+                                                                         "p50":  1.724200,
+                                                                         "p95":  7.457600,
+                                                                         "max":  62.065600
+                                                                     }
+                                  }
+                   },
+                   {
+                       "round":  "r15-sentences-incremental",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "incremental",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r15-sentences-incremental-libime-p7-on-incremental-con",
+                       "metrics":  {
+                                       "cases":  100,
+                                       "failures":  26,
+                                       "errors":  0,
+                                       "labeled":  100,
+                                       "base_top1":  0.750000,
+                                       "base_first_page":  0.790000,
+                                       "base_topk":  0.790000,
+                                       "base_mrr_at_k":  0.770000,
+                                       "final_top1":  0.750000,
+                                       "final_first_page":  0.790000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  100,
+                                       "model_applied":  100,
+                                       "model_failed":  0,
+                                       "expansion_checked":  100,
+                                       "expansion_failed":  6
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  100,
+                                                           "p50":  3.341900,
+                                                           "p95":  7.593300,
+                                                           "max":  13.678200
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  100,
+                                                              "p50":  3.601500,
+                                                              "p95":  7.771000,
+                                                              "max":  14.099600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  100,
+                                                    "p50":  0.176300,
+                                                    "p95":  0.675800,
+                                                    "max":  1.315000
+                                                },
+                                      "incremental_prefix_request":  {
+                                                                         "samples":  2498,
+                                                                         "p50":  1.754300,
+                                                                         "p95":  7.743600,
+                                                                         "max":  62.984600
+                                                                     }
+                                  }
+                   },
+                   {
+                       "round":  "r16-context-v2",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r16-context-v2-base-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  14,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.292683,
+                                       "base_first_page":  0.756098,
+                                       "base_topk":  0.987805,
+                                       "base_mrr_at_k":  0.500811,
+                                       "final_top1":  0.292683,
+                                       "final_first_page":  0.756098,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  13
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.396300,
+                                                           "p95":  1.154400,
+                                                           "max":  4.552400
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.396900,
+                                                              "p95":  1.154900,
+                                                              "max":  4.552900
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.008300,
+                                                    "p95":  0.027600,
+                                                    "max":  0.068800
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r16-context-v2",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r16-context-v2-libime-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  31,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.292683,
+                                       "base_first_page":  0.756098,
+                                       "base_topk":  0.987805,
+                                       "base_mrr_at_k":  0.500811,
+                                       "final_top1":  0.280488,
+                                       "final_first_page":  0.756098,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  82,
+                                       "model_applied":  82,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  13
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.490100,
+                                                           "p95":  1.247500,
+                                                           "max":  4.353600
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.596300,
+                                                              "p95":  1.386900,
+                                                              "max":  4.452800
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.009500,
+                                                    "p95":  0.024900,
+                                                    "max":  0.034200
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r17-context-previous",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r17-context-previous-base-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  14,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.292683,
+                                       "base_first_page":  0.756098,
+                                       "base_topk":  0.987805,
+                                       "base_mrr_at_k":  0.500811,
+                                       "final_top1":  0.292683,
+                                       "final_first_page":  0.756098,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  13
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.402200,
+                                                           "p95":  1.250900,
+                                                           "max":  4.202800
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.402500,
+                                                              "p95":  1.251400,
+                                                              "max":  4.203200
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.009000,
+                                                    "p95":  0.018000,
+                                                    "max":  0.030100
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r17-context-previous",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r17-context-previous-libime-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  26,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.731707,
+                                       "base_first_page":  0.914634,
+                                       "base_topk":  1.000000,
+                                       "base_mrr_at_k":  0.819069,
+                                       "final_top1":  0.804878,
+                                       "final_first_page":  0.914634,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  82,
+                                       "model_applied":  82,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  21
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.654100,
+                                                           "p95":  1.214800,
+                                                           "max":  4.138500
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.792300,
+                                                              "p95":  1.397900,
+                                                              "max":  4.281400
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.007100,
+                                                    "p95":  0.023100,
+                                                    "max":  0.031000
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r18-context-none",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r18-context-none-base-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  6,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.292683,
+                                       "base_first_page":  0.756098,
+                                       "base_topk":  0.987805,
+                                       "base_mrr_at_k":  0.500811,
+                                       "final_top1":  0.292683,
+                                       "final_first_page":  0.756098,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  5
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.116500,
+                                                           "p95":  1.008900,
+                                                           "max":  3.719700
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.117000,
+                                                              "p95":  1.010400,
+                                                              "max":  3.720000
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.008400,
+                                                    "p95":  0.028300,
+                                                    "max":  0.032500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r18-context-none",
+                       "backend":  "libime",
+                       "runtime":  "release-legacy",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r18-context-none-libime-p7-on-whole-con",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  25,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.292683,
+                                       "base_first_page":  0.756098,
+                                       "base_topk":  0.987805,
+                                       "base_mrr_at_k":  0.500811,
+                                       "final_top1":  0.280488,
+                                       "final_first_page":  0.756098,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  82,
+                                       "model_applied":  82,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  5
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.105000,
+                                                           "p95":  1.106000,
+                                                           "max":  3.730000
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.234000,
+                                                              "p95":  1.207400,
+                                                              "max":  3.807200
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.008900,
+                                                    "p95":  0.023200,
+                                                    "max":  0.058100
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r19-current-text",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r19-current-text-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  14,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.292683,
+                                       "base_first_page":  0.756098,
+                                       "base_topk":  0.987805,
+                                       "base_mrr_at_k":  0.500811,
+                                       "final_top1":  0.292683,
+                                       "final_first_page":  0.756098,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  13
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.518200,
+                                                           "p95":  1.184800,
+                                                           "max":  4.381000
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.518700,
+                                                              "p95":  1.185100,
+                                                              "max":  4.381600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.009700,
+                                                    "p95":  0.023900,
+                                                    "max":  0.031900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r19-current-text",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r19-current-text-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  31,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.292683,
+                                       "base_first_page":  0.756098,
+                                       "base_topk":  0.987805,
+                                       "base_mrr_at_k":  0.500811,
+                                       "final_top1":  0.609756,
+                                       "final_first_page":  0.756098,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  82,
+                                       "model_applied":  82,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  13
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.540300,
+                                                           "p95":  1.229500,
+                                                           "max":  4.003100
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.809800,
+                                                              "p95":  1.758300,
+                                                              "max":  4.404200
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.009600,
+                                                    "p95":  0.020700,
+                                                    "max":  0.063700
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r20-current-previous",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r20-current-previous-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  14,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.292683,
+                                       "base_first_page":  0.756098,
+                                       "base_topk":  0.987805,
+                                       "base_mrr_at_k":  0.500811,
+                                       "final_top1":  0.292683,
+                                       "final_first_page":  0.756098,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  13
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.391300,
+                                                           "p95":  1.231500,
+                                                           "max":  4.423700
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.391700,
+                                                              "p95":  1.232000,
+                                                              "max":  4.424200
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.008100,
+                                                    "p95":  0.025400,
+                                                    "max":  0.032200
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r20-current-previous",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r20-current-previous-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  26,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.731707,
+                                       "base_first_page":  0.914634,
+                                       "base_topk":  1.000000,
+                                       "base_mrr_at_k":  0.819069,
+                                       "final_top1":  0.817073,
+                                       "final_first_page":  0.914634,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  82,
+                                       "model_applied":  82,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  21
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.617900,
+                                                           "p95":  1.719500,
+                                                           "max":  4.278300
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.867400,
+                                                              "p95":  2.130900,
+                                                              "max":  4.669600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.007100,
+                                                    "p95":  0.012600,
+                                                    "max":  0.029200
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r21-current-none",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r21-current-none-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  6,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.292683,
+                                       "base_first_page":  0.756098,
+                                       "base_topk":  0.987805,
+                                       "base_mrr_at_k":  0.500811,
+                                       "final_top1":  0.292683,
+                                       "final_first_page":  0.756098,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  5
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.124000,
+                                                           "p95":  0.971900,
+                                                           "max":  3.832600
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.124400,
+                                                              "p95":  0.972500,
+                                                              "max":  3.833100
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.008500,
+                                                    "p95":  0.031600,
+                                                    "max":  0.054700
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r21-current-none",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r21-current-none-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  25,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.292683,
+                                       "base_first_page":  0.756098,
+                                       "base_topk":  0.987805,
+                                       "base_mrr_at_k":  0.500811,
+                                       "final_top1":  0.280488,
+                                       "final_first_page":  0.756098,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  82,
+                                       "model_applied":  82,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  5
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.109000,
+                                                           "p95":  0.996800,
+                                                           "max":  4.259900
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  0.233100,
+                                                              "p95":  1.147800,
+                                                              "max":  4.379200
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.008700,
+                                                    "p95":  0.026900,
+                                                    "max":  0.035700
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r22-current-words",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r22-current-words-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  180,
+                                       "failures":  20,
+                                       "errors":  0,
+                                       "labeled":  180,
+                                       "base_top1":  0.972222,
+                                       "base_first_page":  1.000000,
+                                       "base_topk":  1.000000,
+                                       "base_mrr_at_k":  0.985185,
+                                       "final_top1":  0.966667,
+                                       "final_first_page":  1.000000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  180,
+                                       "model_applied":  180,
+                                       "model_failed":  0,
+                                       "expansion_checked":  180,
+                                       "expansion_failed":  20
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  180,
+                                                           "p50":  0.514700,
+                                                           "p95":  1.106700,
+                                                           "max":  3.586400
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  180,
+                                                              "p50":  0.652000,
+                                                              "p95":  1.321600,
+                                                              "max":  3.706900
+                                                          },
+                                      "parse":  {
+                                                    "samples":  180,
+                                                    "p50":  0.013200,
+                                                    "p95":  0.028000,
+                                                    "max":  0.120800
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r23-current-phrases",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r23-current-phrases-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  146,
+                                       "failures":  0,
+                                       "errors":  0,
+                                       "labeled":  146,
+                                       "base_top1":  1.000000,
+                                       "base_first_page":  1.000000,
+                                       "base_topk":  1.000000,
+                                       "base_mrr_at_k":  1.000000,
+                                       "final_top1":  0.979452,
+                                       "final_first_page":  1.000000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  146,
+                                       "model_applied":  146,
+                                       "model_failed":  0,
+                                       "expansion_checked":  146,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  146,
+                                                           "p50":  1.067800,
+                                                           "p95":  1.816000,
+                                                           "max":  2.373800
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  146,
+                                                              "p50":  1.295200,
+                                                              "p95":  2.048700,
+                                                              "max":  2.566800
+                                                          },
+                                      "parse":  {
+                                                    "samples":  146,
+                                                    "p50":  0.026600,
+                                                    "p95":  0.065700,
+                                                    "max":  0.231700
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r24-current-sentences",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r24-current-sentences-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  100,
+                                       "failures":  12,
+                                       "errors":  0,
+                                       "labeled":  100,
+                                       "base_top1":  0.750000,
+                                       "base_first_page":  0.790000,
+                                       "base_topk":  0.790000,
+                                       "base_mrr_at_k":  0.770000,
+                                       "final_top1":  0.920000,
+                                       "final_first_page":  0.940000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  100,
+                                       "model_applied":  100,
+                                       "model_failed":  0,
+                                       "expansion_checked":  100,
+                                       "expansion_failed":  6
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  100,
+                                                           "p50":  3.637400,
+                                                           "p95":  7.456700,
+                                                           "max":  12.330400
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  100,
+                                                              "p50":  4.185100,
+                                                              "p95":  8.719000,
+                                                              "max":  13.636300
+                                                          },
+                                      "parse":  {
+                                                    "samples":  100,
+                                                    "p50":  0.160200,
+                                                    "p95":  0.630100,
+                                                    "max":  1.560600
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r25-current-lifewords",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r25-current-lifewords-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  191,
+                                       "failures":  10,
+                                       "errors":  0,
+                                       "labeled":  191,
+                                       "base_top1":  0.952880,
+                                       "base_first_page":  0.989529,
+                                       "base_topk":  0.989529,
+                                       "base_mrr_at_k":  0.967888,
+                                       "final_top1":  0.947644,
+                                       "final_first_page":  0.989529,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  191,
+                                       "model_applied":  191,
+                                       "model_failed":  0,
+                                       "expansion_checked":  191,
+                                       "expansion_failed":  8
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  191,
+                                                           "p50":  0.758500,
+                                                           "p95":  1.574500,
+                                                           "max":  3.811600
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  191,
+                                                              "p50":  0.952200,
+                                                              "p95":  1.775900,
+                                                              "max":  3.914800
+                                                          },
+                                      "parse":  {
+                                                    "samples":  191,
+                                                    "p50":  0.018000,
+                                                    "p95":  0.054500,
+                                                    "max":  0.106600
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r26-current-lifesents",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r26-current-lifesents-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  90,
+                                       "failures":  23,
+                                       "errors":  0,
+                                       "labeled":  90,
+                                       "base_top1":  0.533333,
+                                       "base_first_page":  0.622222,
+                                       "base_topk":  0.622222,
+                                       "base_mrr_at_k":  0.577778,
+                                       "final_top1":  0.833333,
+                                       "final_first_page":  0.877778,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  90,
+                                       "model_applied":  90,
+                                       "model_failed":  0,
+                                       "expansion_checked":  90,
+                                       "expansion_failed":  13
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  90,
+                                                           "p50":  4.443000,
+                                                           "p95":  8.201800,
+                                                           "max":  10.006500
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  90,
+                                                              "p50":  5.471400,
+                                                              "p95":  9.369000,
+                                                              "max":  11.144600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  90,
+                                                    "p50":  0.256800,
+                                                    "p95":  0.870800,
+                                                    "max":  1.616500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r27-current-mixed",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r27-current-mixed-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  374,
+                                       "failures":  235,
+                                       "errors":  0,
+                                       "labeled":  374,
+                                       "base_top1":  0.350267,
+                                       "base_first_page":  0.556150,
+                                       "base_topk":  0.684492,
+                                       "base_mrr_at_k":  0.453774,
+                                       "final_top1":  0.564171,
+                                       "final_first_page":  0.636364,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  373,
+                                       "model_applied":  373,
+                                       "model_failed":  0,
+                                       "expansion_checked":  374,
+                                       "expansion_failed":  146
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  374,
+                                                           "p50":  2.694200,
+                                                           "p95":  9.307500,
+                                                           "max":  14.581200
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  374,
+                                                              "p50":  2.904900,
+                                                              "p95":  9.517000,
+                                                              "max":  14.855900
+                                                          },
+                                      "parse":  {
+                                                    "samples":  374,
+                                                    "p50":  0.116200,
+                                                    "p95":  3.658000,
+                                                    "max":  5.481500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r28-current-boundaries",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r28-current-boundaries-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  12,
+                                       "errors":  0,
+                                       "labeled":  58,
+                                       "base_top1":  0.637931,
+                                       "base_first_page":  0.896552,
+                                       "base_topk":  0.913793,
+                                       "base_mrr_at_k":  0.734124,
+                                       "final_top1":  0.672414,
+                                       "final_first_page":  0.913793,
+                                       "parse_validity_accuracy":  0.983333,
+                                       "segmentation_labeled":  12,
+                                       "preview_accuracy":  0.833333,
+                                       "parse_path_coverage":  0.916667,
+                                       "model_requested":  57,
+                                       "model_applied":  57,
+                                       "model_failed":  0,
+                                       "expansion_checked":  59,
+                                       "expansion_failed":  9
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  59,
+                                                           "p50":  0.729300,
+                                                           "p95":  24.617700,
+                                                           "max":  82.450500
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  59,
+                                                              "p50":  0.893700,
+                                                              "p95":  24.880900,
+                                                              "max":  83.105000
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.019800,
+                                                    "p95":  6.931200,
+                                                    "max":  25.292500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r29-current-incremental",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "incremental",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r29-current-incremental-libime-p7-on-incremental-con-current",
+                       "metrics":  {
+                                       "cases":  100,
+                                       "failures":  12,
+                                       "errors":  0,
+                                       "labeled":  100,
+                                       "base_top1":  0.750000,
+                                       "base_first_page":  0.790000,
+                                       "base_topk":  0.790000,
+                                       "base_mrr_at_k":  0.770000,
+                                       "final_top1":  0.920000,
+                                       "final_first_page":  0.940000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  100,
+                                       "model_applied":  100,
+                                       "model_failed":  0,
+                                       "expansion_checked":  100,
+                                       "expansion_failed":  6
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  100,
+                                                           "p50":  3.461700,
+                                                           "p95":  7.382200,
+                                                           "max":  15.106300
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  100,
+                                                              "p50":  4.010300,
+                                                              "p95":  8.154100,
+                                                              "max":  16.453800
+                                                          },
+                                      "parse":  {
+                                                    "samples":  100,
+                                                    "p50":  0.165700,
+                                                    "p95":  0.570700,
+                                                    "max":  1.181300
+                                                },
+                                      "incremental_prefix_request":  {
+                                                                         "samples":  2498,
+                                                                         "p50":  1.717000,
+                                                                         "p95":  8.079800,
+                                                                         "max":  67.252300
+                                                                     }
+                                  }
+                   },
+                   {
+                       "round":  "r30-current-p5",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  5,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r30-current-p5-libime-p5-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  100,
+                                       "failures":  15,
+                                       "errors":  0,
+                                       "labeled":  100,
+                                       "base_top1":  0.760000,
+                                       "base_first_page":  0.800000,
+                                       "base_topk":  0.800000,
+                                       "base_mrr_at_k":  0.780000,
+                                       "final_top1":  0.910000,
+                                       "final_first_page":  0.930000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  100,
+                                       "model_applied":  100,
+                                       "model_failed":  0,
+                                       "expansion_checked":  100,
+                                       "expansion_failed":  9
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  100,
+                                                           "p50":  2.915500,
+                                                           "p95":  6.174900,
+                                                           "max":  10.001800
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  100,
+                                                              "p50":  3.413800,
+                                                              "p95":  6.510100,
+                                                              "max":  11.131900
+                                                          },
+                                      "parse":  {
+                                                    "samples":  100,
+                                                    "p50":  0.166400,
+                                                    "p95":  0.580600,
+                                                    "max":  1.124300
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r31-current-p9",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  9,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r31-current-p9-libime-p9-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  100,
+                                       "failures":  12,
+                                       "errors":  0,
+                                       "labeled":  100,
+                                       "base_top1":  0.750000,
+                                       "base_first_page":  0.790000,
+                                       "base_topk":  0.790000,
+                                       "base_mrr_at_k":  0.770000,
+                                       "final_top1":  0.920000,
+                                       "final_first_page":  0.940000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  100,
+                                       "model_applied":  100,
+                                       "model_failed":  0,
+                                       "expansion_checked":  100,
+                                       "expansion_failed":  6
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  100,
+                                                           "p50":  3.901900,
+                                                           "p95":  8.483600,
+                                                           "max":  13.493900
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  100,
+                                                              "p50":  4.346200,
+                                                              "p95":  8.730200,
+                                                              "max":  14.941100
+                                                          },
+                                      "parse":  {
+                                                    "samples":  100,
+                                                    "p50":  0.139200,
+                                                    "p95":  0.585100,
+                                                    "max":  1.162900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r32-current-legacyorder",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "off",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r32-current-legacyorder-libime-p7-off-whole-con-current",
+                       "metrics":  {
+                                       "cases":  100,
+                                       "failures":  31,
+                                       "errors":  0,
+                                       "labeled":  100,
+                                       "base_top1":  0.850000,
+                                       "base_first_page":  0.890000,
+                                       "base_topk":  0.890000,
+                                       "base_mrr_at_k":  0.870000,
+                                       "final_top1":  0.850000,
+                                       "final_first_page":  0.890000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  100,
+                                       "model_applied":  100,
+                                       "model_failed":  0,
+                                       "expansion_checked":  100,
+                                       "expansion_failed":  21
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  100,
+                                                           "p50":  1.324000,
+                                                           "p95":  2.488600,
+                                                           "max":  3.691900
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  100,
+                                                              "p50":  1.710200,
+                                                              "p95":  3.192300,
+                                                              "max":  5.090500
+                                                          },
+                                      "parse":  {
+                                                    "samples":  100,
+                                                    "p50":  0.150400,
+                                                    "p95":  0.594700,
+                                                    "max":  1.108500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r33-current-incomplete",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r33-current-incomplete-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  180,
+                                       "failures":  140,
+                                       "errors":  0,
+                                       "labeled":  180,
+                                       "base_top1":  0.222222,
+                                       "base_first_page":  0.305556,
+                                       "base_topk":  0.366667,
+                                       "base_mrr_at_k":  0.263934,
+                                       "final_top1":  0.372222,
+                                       "final_first_page":  0.416667,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  180,
+                                       "model_applied":  180,
+                                       "model_failed":  0,
+                                       "expansion_checked":  180,
+                                       "expansion_failed":  52
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  180,
+                                                           "p50":  0.706500,
+                                                           "p95":  2.689300,
+                                                           "max":  5.961900
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  180,
+                                                              "p50":  0.822300,
+                                                              "p95":  2.840600,
+                                                              "max":  6.119300
+                                                          },
+                                      "parse":  {
+                                                    "samples":  180,
+                                                    "p50":  0.018500,
+                                                    "p95":  0.082400,
+                                                    "max":  0.237300
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r34-current-typos",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r34-current-typos-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  340,
+                                       "failures":  290,
+                                       "errors":  0,
+                                       "labeled":  340,
+                                       "base_top1":  0.367647,
+                                       "base_first_page":  0.420588,
+                                       "base_topk":  0.432353,
+                                       "base_mrr_at_k":  0.394485,
+                                       "final_top1":  0.379412,
+                                       "final_first_page":  0.426471,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  340,
+                                       "model_applied":  340,
+                                       "model_failed":  0,
+                                       "expansion_checked":  340,
+                                       "expansion_failed":  150
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  340,
+                                                           "p50":  4.351200,
+                                                           "p95":  17.569500,
+                                                           "max":  33.162200
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  340,
+                                                              "p50":  4.525500,
+                                                              "p95":  17.733000,
+                                                              "max":  33.386900
+                                                          },
+                                      "parse":  {
+                                                    "samples":  340,
+                                                    "p50":  0.556100,
+                                                    "p95":  6.707400,
+                                                    "max":  12.179600
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r35-current-mixedphrases",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r35-current-mixedphrases-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  438,
+                                       "failures":  411,
+                                       "errors":  0,
+                                       "labeled":  438,
+                                       "base_top1":  0.299087,
+                                       "base_first_page":  0.324201,
+                                       "base_topk":  0.324201,
+                                       "base_mrr_at_k":  0.311644,
+                                       "final_top1":  0.287671,
+                                       "final_first_page":  0.340183,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  438,
+                                       "model_applied":  438,
+                                       "model_failed":  0,
+                                       "expansion_checked":  438,
+                                       "expansion_failed":  215
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  438,
+                                                           "p50":  8.834600,
+                                                           "p95":  16.568200,
+                                                           "max":  26.134400
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  438,
+                                                              "p50":  9.176200,
+                                                              "p95":  16.800800,
+                                                              "max":  26.541100
+                                                          },
+                                      "parse":  {
+                                                    "samples":  438,
+                                                    "p50":  3.698600,
+                                                    "p95":  7.629800,
+                                                    "max":  12.068500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r36-dialogue",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r36-dialogue-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  25,
+                                       "errors":  0,
+                                       "labeled":  60,
+                                       "base_top1":  0.533333,
+                                       "base_first_page":  0.600000,
+                                       "base_topk":  0.600000,
+                                       "base_mrr_at_k":  0.566667,
+                                       "final_top1":  0.533333,
+                                       "final_first_page":  0.600000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  60,
+                                       "expansion_failed":  3
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  60,
+                                                           "p50":  3.486500,
+                                                           "p95":  5.758800,
+                                                           "max":  6.965900
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  60,
+                                                              "p50":  3.488200,
+                                                              "p95":  5.760600,
+                                                              "max":  6.966500
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.121500,
+                                                    "p95":  0.341100,
+                                                    "max":  0.519900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r36-dialogue",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r36-dialogue-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  18,
+                                       "errors":  0,
+                                       "labeled":  60,
+                                       "base_top1":  0.533333,
+                                       "base_first_page":  0.600000,
+                                       "base_topk":  0.600000,
+                                       "base_mrr_at_k":  0.566667,
+                                       "final_top1":  0.833333,
+                                       "final_first_page":  0.866667,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  60,
+                                       "model_applied":  60,
+                                       "model_failed":  0,
+                                       "expansion_checked":  60,
+                                       "expansion_failed":  12
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  60,
+                                                           "p50":  3.635100,
+                                                           "p95":  5.940200,
+                                                           "max":  6.985700
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  60,
+                                                              "p50":  4.399500,
+                                                              "p95":  6.443300,
+                                                              "max":  7.415200
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.139700,
+                                                    "p95":  0.400700,
+                                                    "max":  0.603300
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r37-deep-sentences",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r37-deep-sentences-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  25,
+                                       "failures":  16,
+                                       "errors":  0,
+                                       "labeled":  25,
+                                       "base_top1":  0.120000,
+                                       "base_first_page":  0.360000,
+                                       "base_topk":  0.360000,
+                                       "base_mrr_at_k":  0.240000,
+                                       "final_top1":  0.120000,
+                                       "final_first_page":  0.360000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  25,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  25,
+                                                           "p50":  4.019400,
+                                                           "p95":  8.485400,
+                                                           "max":  9.672800
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  25,
+                                                              "p50":  4.020300,
+                                                              "p95":  8.486000,
+                                                              "max":  9.674400
+                                                          },
+                                      "parse":  {
+                                                    "samples":  25,
+                                                    "p50":  0.252400,
+                                                    "p95":  1.006900,
+                                                    "max":  1.223200
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r37-deep-sentences",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r37-deep-sentences-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  25,
+                                       "failures":  25,
+                                       "errors":  0,
+                                       "labeled":  25,
+                                       "base_top1":  0.120000,
+                                       "base_first_page":  0.360000,
+                                       "base_topk":  0.360000,
+                                       "base_mrr_at_k":  0.240000,
+                                       "final_top1":  0.000000,
+                                       "final_first_page":  0.000000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  25,
+                                       "model_applied":  25,
+                                       "model_failed":  0,
+                                       "expansion_checked":  25,
+                                       "expansion_failed":  3
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  25,
+                                                           "p50":  4.304600,
+                                                           "p95":  8.553100,
+                                                           "max":  9.677500
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  25,
+                                                              "p50":  5.174900,
+                                                              "p95":  10.208300,
+                                                              "max":  10.703500
+                                                          },
+                                      "parse":  {
+                                                    "samples":  25,
+                                                    "p50":  0.254700,
+                                                    "p95":  1.027000,
+                                                    "max":  1.443100
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r38-dictionary-fixedsample",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r38-dictionary-fixedsample-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  639,
+                                       "failures":  17,
+                                       "errors":  0,
+                                       "labeled":  639,
+                                       "base_top1":  0.984351,
+                                       "base_first_page":  0.998435,
+                                       "base_topk":  0.998435,
+                                       "base_mrr_at_k":  0.990871,
+                                       "final_top1":  0.984351,
+                                       "final_first_page":  0.998435,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  639,
+                                       "expansion_failed":  16
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  639,
+                                                           "p50":  0.829700,
+                                                           "p95":  2.122500,
+                                                           "max":  3.702700
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  639,
+                                                              "p50":  0.830200,
+                                                              "p95":  2.123000,
+                                                              "max":  3.703300
+                                                          },
+                                      "parse":  {
+                                                    "samples":  639,
+                                                    "p50":  0.021600,
+                                                    "p95":  0.093800,
+                                                    "max":  0.232900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r38-dictionary-fixedsample",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r38-dictionary-fixedsample-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  639,
+                                       "failures":  17,
+                                       "errors":  0,
+                                       "labeled":  639,
+                                       "base_top1":  0.984351,
+                                       "base_first_page":  0.998435,
+                                       "base_topk":  0.998435,
+                                       "base_mrr_at_k":  0.990871,
+                                       "final_top1":  0.935837,
+                                       "final_first_page":  0.998435,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  639,
+                                       "model_applied":  639,
+                                       "model_failed":  0,
+                                       "expansion_checked":  639,
+                                       "expansion_failed":  16
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  639,
+                                                           "p50":  0.920600,
+                                                           "p95":  2.250300,
+                                                           "max":  4.036700
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  639,
+                                                              "p50":  1.087400,
+                                                              "p95":  2.471900,
+                                                              "max":  4.526400
+                                                          },
+                                      "parse":  {
+                                                    "samples":  639,
+                                                    "p50":  0.020700,
+                                                    "p95":  0.088300,
+                                                    "max":  0.269200
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r39-dialogue-explicit",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r39-dialogue-explicit-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  34,
+                                       "errors":  0,
+                                       "labeled":  60,
+                                       "base_top1":  0.416667,
+                                       "base_first_page":  0.450000,
+                                       "base_topk":  0.450000,
+                                       "base_mrr_at_k":  0.433333,
+                                       "final_top1":  0.416667,
+                                       "final_first_page":  0.450000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  60,
+                                       "preview_accuracy":  1.000000,
+                                       "parse_path_coverage":  1.000000,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  60,
+                                       "expansion_failed":  3
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  60,
+                                                           "p50":  5.344000,
+                                                           "p95":  12.296800,
+                                                           "max":  14.432800
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  60,
+                                                              "p50":  5.344700,
+                                                              "p95":  12.297400,
+                                                              "max":  14.433400
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.028500,
+                                                    "p95":  0.055700,
+                                                    "max":  0.076400
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r39-dialogue-explicit",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r39-dialogue-explicit-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  15,
+                                       "errors":  0,
+                                       "labeled":  60,
+                                       "base_top1":  0.416667,
+                                       "base_first_page":  0.450000,
+                                       "base_topk":  0.450000,
+                                       "base_mrr_at_k":  0.433333,
+                                       "final_top1":  0.833333,
+                                       "final_first_page":  0.850000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  60,
+                                       "preview_accuracy":  1.000000,
+                                       "parse_path_coverage":  1.000000,
+                                       "model_requested":  60,
+                                       "model_applied":  60,
+                                       "model_failed":  0,
+                                       "expansion_checked":  60,
+                                       "expansion_failed":  8
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  60,
+                                                           "p50":  5.199100,
+                                                           "p95":  11.951600,
+                                                           "max":  14.517600
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  60,
+                                                              "p50":  6.021700,
+                                                              "p95":  13.168000,
+                                                              "max":  15.511500
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.032300,
+                                                    "p95":  0.084100,
+                                                    "max":  0.113500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r40-incomplete-phrases",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r40-incomplete-phrases-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  146,
+                                       "failures":  64,
+                                       "errors":  0,
+                                       "labeled":  146,
+                                       "base_top1":  0.534247,
+                                       "base_first_page":  0.575342,
+                                       "base_topk":  0.575342,
+                                       "base_mrr_at_k":  0.553653,
+                                       "final_top1":  0.534247,
+                                       "final_first_page":  0.575342,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  146,
+                                       "expansion_failed":  4
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  146,
+                                                           "p50":  1.136400,
+                                                           "p95":  3.369000,
+                                                           "max":  7.773600
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  146,
+                                                              "p50":  1.137200,
+                                                              "p95":  3.369500,
+                                                              "max":  7.774300
+                                                          },
+                                      "parse":  {
+                                                    "samples":  146,
+                                                    "p50":  0.053000,
+                                                    "p95":  0.272400,
+                                                    "max":  3.273000
+                                                },
+                                      "incremental_prefix_request":  null
+                                  }
+                   },
+                   {
+                       "round":  "r40-incomplete-phrases",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r40-incomplete-phrases-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  146,
+                                       "failures":  66,
+                                       "errors":  0,
+                                       "labeled":  146,
+                                       "base_top1":  0.527397,
+                                       "base_first_page":  0.561644,
+                                       "base_topk":  0.561644,
+                                       "base_mrr_at_k":  0.544521,
+                                       "final_top1":  0.520548,
+                                       "final_first_page":  0.650685,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  146,
+                                       "model_applied":  146,
+                                       "model_failed":  0,
+                                       "expansion_checked":  146,
+                                       "expansion_failed":  19
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  146,
+                                                           "p50":  1.268200,
+                                                           "p95":  3.334700,
+                                                           "max":  3.966100
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  146,
+                                                              "p50":  1.465400,
+                                                              "p95":  3.664500,
+                                                              "max":  4.269000
+                                                          },
+                                      "parse":  {
+                                                    "samples":  146,
+                                                    "p50":  0.055300,
+                                                    "p95":  0.224600,
+                                                    "max":  3.037300
                                                 },
                                       "incremental_prefix_request":  null
                                   }
