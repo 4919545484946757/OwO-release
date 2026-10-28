@@ -133,6 +133,16 @@ fn valid_workflow(id: &str) -> String {
     .to_string()
 }
 
+fn runnable_workflow(id: &str) -> String {
+    let mut value: Value = serde_json::from_str(&valid_workflow(id)).unwrap();
+    if let Some(roles) = value["roles"].as_array_mut() {
+        for role in roles {
+            role["tools"] = json!(["read_file"]);
+        }
+    }
+    value.to_string()
+}
+
 #[tokio::test]
 async fn creates_lists_and_deletes_a_user_workflow() {
     let fixture = fixture();
@@ -185,6 +195,7 @@ async fn creates_lists_and_deletes_a_user_workflow() {
     // 更新（同 id 覆盖）应成功，且仍是用户模板。
     let mut updated: Value = serde_json::from_str(&valid_workflow("video-recreate")).unwrap();
     updated["version"] = json!("1.1.0");
+    updated["expected_revision"] = listed["templates"][0]["revision"].clone();
     let (status, body) = call(
         &fixture.state,
         "POST",
@@ -358,7 +369,7 @@ async fn list_reports_run_attention_only_for_failing_workflows() {
         &fixture.state,
         "POST",
         "/workflows/user",
-        Some(&valid_workflow("att-list")),
+        Some(&runnable_workflow("att-list")),
     )
     .await;
     assert_eq!(status, 200, "{body}");
@@ -441,7 +452,7 @@ async fn last_run_is_null_before_any_run_and_reuses_objective_after() {
         &fixture.state,
         "POST",
         "/workflows/user",
-        Some(&valid_workflow("last-run-flow")),
+        Some(&runnable_workflow("last-run-flow")),
     )
     .await;
     assert_eq!(status, 200);
@@ -545,5 +556,5 @@ async fn origin_is_normalized_and_rejects_unknown_values() {
     )
     .await;
     assert_eq!(status, 422, "{body}");
-    assert!(body["error"].as_str().unwrap().contains("origin"));
+    assert!(body.to_string().contains("origin"), "{body}");
 }
