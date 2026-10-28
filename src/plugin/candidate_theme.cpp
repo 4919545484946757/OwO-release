@@ -283,7 +283,7 @@ CandidateTheme default_candidate_theme(const bool light) {
         theme.divider = {0x000000, 0.12F};
         theme.pinyin_text = {0x303030, 1.0F};
         theme.candidate_text = {0x202020, 0.96F};
-        theme.candidate_block = {0x000000, 0.16F};
+        theme.candidate_block = {0x000000, 0.10F};
         theme.candidate_number = {0x303030, 1.0F};
         theme.shadow.opacity = 0.18F;
     }

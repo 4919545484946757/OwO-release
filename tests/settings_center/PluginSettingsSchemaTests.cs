@@ -26,6 +26,7 @@ if (model.Values["theme_mode"].GetString() != "system" ||
     model.Values["background_opacity"].GetDouble() != 0.52 ||
     model.Values["shadow_opacity"].GetDouble() != 0.43 ||
     model.Values["light_background_color"].GetString() != "#F5F5F5" ||
+    model.Values["light_candidate_block_opacity"].GetDouble() != 0.10 ||
     File.ReadAllText(model.ConfigPath) != existing)
     throw new Exception("Loading the dual palette modified or lost old settings.");
 foreach (var field in model.Fields.Where(field => field.Format == "color"))
