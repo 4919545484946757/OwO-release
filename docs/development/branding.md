@@ -1,10 +1,11 @@
 # Logo 与主题外观
 
-四份用户提供的原始 SVG 保存在 `apps/settings_center/Assets/Brand/`：
+六份用户提供的原始 SVG 保存在 `apps/settings_center/Assets/Brand/`：
 
 | 资源 | 用途 |
 | --- | --- |
-| `LogoRoundedLight.svg` / `LogoRoundedDark.svg` | 设置中心侧栏、窗口标题栏 |
+| `LogoSmallLight.svg` / `LogoSmallDark.svg` | 加粗小图标：设置中心侧栏、窗口标题栏、64 px 及以下 ICO 帧 |
+| `LogoRoundedLight.svg` / `LogoRoundedDark.svg` | 原版圆角：大尺寸兼容 PNG、128/256 px ICO 帧 |
 | `LogoSquareLight.svg` / `LogoSquareDark.svg` | 安装欢迎页品牌展示 |
 | `AppIcon.Light.ico` / `AppIcon.Dark.ico` | 运行中窗口及任务栏图标，含 16–256 px 九档尺寸 |
 

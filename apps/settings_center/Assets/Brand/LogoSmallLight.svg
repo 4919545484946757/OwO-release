@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="255" height="255" viewBox="0 0 255 255" role="img" aria-label="OwO small-icon rounded bold logo (light)">
+  <title>OwO rounded bold icon — light</title>
+  <rect width="255" height="255" rx="42" fill="#FFFFFF"/>
+  <g fill="none" stroke="#272727" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Rounded plus symbols -->
+    <path d="M34 26V54 M20 40H48 M222 26V54 M208 40H236 M34 194V222 M20 208H48 M222 194V222 M208 208H236"/>
+    <!-- Vertical framing lines -->
+    <path d="M37.5 93V158 M211.5 93V158"/>
+  </g>
+  <g fill="#272727">
+    <!-- Discrete rounded dashes; preserved gaps for small-size visibility -->
+    <rect x="63" y="37" width="19" height="7" rx="3.5"/>
+    <rect x="91" y="37" width="19" height="7" rx="3.5"/>
+    <rect x="119" y="37" width="19" height="7" rx="3.5"/>
+    <rect x="147" y="37" width="19" height="7" rx="3.5"/>
+    <rect x="175" y="37" width="19" height="7" rx="3.5"/>
+    <rect x="63" y="205" width="19" height="7" rx="3.5"/>
+    <rect x="91" y="205" width="19" height="7" rx="3.5"/>
+    <rect x="119" y="205" width="19" height="7" rx="3.5"/>
+    <rect x="147" y="205" width="19" height="7" rx="3.5"/>
+    <rect x="175" y="205" width="19" height="7" rx="3.5"/>
+  </g>
+  <!-- Bold, round-cornered vector lettering, independent of installed fonts -->
+  <g fill="none" stroke="#272727" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="72" cy="119" rx="19" ry="21" stroke-width="9.5"/>
+    <path d="M103.5 112L113 139L124 113L135 139L144.5 112" stroke-width="8"/>
+    <ellipse cx="176" cy="119" rx="19" ry="21" stroke-width="9.5"/>
+  </g>
+</svg>

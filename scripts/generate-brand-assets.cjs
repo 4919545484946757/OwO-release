@@ -6,8 +6,8 @@ const sharp = require('sharp');
 const assets = path.resolve(__dirname, '../apps/settings_center/Assets');
 const brand = path.join(assets, 'Brand');
 const sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256];
-async function ico(svg, destination) {
-  const frames = await Promise.all(sizes.map(size => sharp(svg).resize(size, size).png().toBuffer()));
+async function ico(smallSvg, largeSvg, destination) {
+  const frames = await Promise.all(sizes.map(size => sharp(size <= 64 ? smallSvg : largeSvg).resize(size, size).png().toBuffer()));
   const header = Buffer.alloc(6 + frames.length * 16);
   header.writeUInt16LE(1, 2);
   header.writeUInt16LE(frames.length, 4);
@@ -27,7 +27,7 @@ async function ico(svg, destination) {
 async function main() {
   if (process.argv.includes('--check')) {
     for (const mode of ['Dark', 'Light']) {
-      for (const shape of ['Rounded', 'Square']) {
+      for (const shape of ['Small', 'Rounded', 'Square']) {
         const svg = fs.readFileSync(path.join(brand, `Logo${shape}${mode}.svg`));
         const metadata = await sharp(svg).metadata();
         if (metadata.width !== 255 || metadata.height !== 255) throw Error('Invalid SVG dimensions.');
@@ -46,24 +46,26 @@ async function main() {
     }
     if (!fs.readFileSync(path.join(assets, 'AppIcon.ico')).equals(fs.readFileSync(path.join(brand, 'AppIcon.Dark.ico'))))
       throw Error('Static executable icon differs from the SVG fallback.');
-    console.log('PASS: four SVG masters and both ICOs, nine sizes each, alpha and executable fallback.');
+    console.log('PASS: six SVG masters and both ICOs, nine sizes each, alpha and executable fallback.');
     return;
   }
   for (const mode of ['Dark', 'Light']) {
     const svg = fs.readFileSync(path.join(brand, `LogoRounded${mode}.svg`));
-    await ico(svg, path.join(brand, `AppIcon.${mode}.ico`));
+    const smallSvg = fs.readFileSync(path.join(brand, `LogoSmall${mode}.svg`));
+    await ico(smallSvg, svg, path.join(brand, `AppIcon.${mode}.ico`));
     await sharp(svg).resize(255, 255).png().toFile(path.join(brand, `LogoRounded${mode}.png`));
   }
   fs.copyFileSync(path.join(brand, 'AppIcon.Dark.ico'), path.join(assets, 'AppIcon.ico'));
   const dark = fs.readFileSync(path.join(brand, 'LogoRoundedDark.svg'));
-  const light = fs.readFileSync(path.join(brand, 'LogoRoundedLight.svg'));
+  const smallDark = fs.readFileSync(path.join(brand, 'LogoSmallDark.svg'));
+  const smallLight = fs.readFileSync(path.join(brand, 'LogoSmallLight.svg'));
   for (const [name, width, height, source] of [
-    ['Square44x44Logo.scale-200.png', 88, 88, dark],
+    ['Square44x44Logo.scale-200.png', 88, 88, smallDark],
     ['Square150x150Logo.scale-200.png', 300, 300, dark],
-    ['Square44x44Logo.targetsize-24_altform-unplated.png', 24, 24, dark],
-    ['Square44x44Logo.targetsize-48_altform-lightunplated.png', 48, 48, light],
-    ['LockScreenLogo.scale-200.png', 48, 48, dark],
-    ['StoreLogo.png', 50, 50, dark],
+    ['Square44x44Logo.targetsize-24_altform-unplated.png', 24, 24, smallDark],
+    ['Square44x44Logo.targetsize-48_altform-lightunplated.png', 48, 48, smallLight],
+    ['LockScreenLogo.scale-200.png', 48, 48, smallDark],
+    ['StoreLogo.png', 50, 50, smallDark],
     ['Wide310x150Logo.scale-200.png', 620, 300, dark],
     ['SplashScreen.scale-200.png', 1240, 600, dark],
   ]) await sharp(source).resize(width, height, {fit: 'contain', background: '#00000000'}).png().toFile(path.join(assets, name));

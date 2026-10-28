@@ -18,7 +18,7 @@ try {
         foreach (var systemLight in new[] { false, true }) {
             var light = mode == "light" || mode == "system" && systemLight;
             foreach (var rounded in new[] { false, true }) {
-                var expected = $"Logo{(rounded ? "Rounded" : "Square")}{(light ? "Light" : "Dark")}.svg";
+                var expected = $"Logo{(rounded ? "Small" : "Square")}{(light ? "Light" : "Dark")}.svg";
                 if (LogoAssets.Svg(mode, systemLight, rounded) != expected) throw new Exception("Wrong SVG theme resolution.");
             }
             if (LogoAssets.Icon(mode, systemLight) != $"AppIcon.{(light ? "Light" : "Dark")}.ico")

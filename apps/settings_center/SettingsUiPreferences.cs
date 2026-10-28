@@ -40,7 +40,7 @@ internal static class LogoAssets
         _ => throw new InvalidDataException("Logo 外观选项无效。")
     };
     internal static string Svg(string mode, bool systemLight, bool rounded) =>
-        $"Logo{(rounded ? "Rounded" : "Square")}{(IsLight(mode, systemLight) ? "Light" : "Dark")}.svg";
+        $"Logo{(rounded ? "Small" : "Square")}{(IsLight(mode, systemLight) ? "Light" : "Dark")}.svg";
     internal static string Icon(string mode, bool systemLight) =>
         $"AppIcon.{(IsLight(mode, systemLight) ? "Light" : "Dark")}.ico";
 }
