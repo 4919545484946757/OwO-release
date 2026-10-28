@@ -505,7 +505,8 @@ if(BUILD_TESTING)
         target_compile_options(owo_candidate_theme_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
     endif()
     add_test(NAME owo.plugin.candidate_theme COMMAND owo_candidate_theme_tests
-             ${CMAKE_CURRENT_BINARY_DIR}/candidate-theme-test)
+             ${CMAKE_CURRENT_BINARY_DIR}/candidate-theme-test
+             ${CMAKE_CURRENT_SOURCE_DIR}/plugins/candidate-glass/resources/candidate.theme)
     add_executable(owo_unicode_palette_tests tests/plugin/unicode_palette_tests.cpp)
     target_link_libraries(owo_unicode_palette_tests PRIVATE owo_plugin)
     target_compile_features(owo_unicode_palette_tests PRIVATE cxx_std_20)

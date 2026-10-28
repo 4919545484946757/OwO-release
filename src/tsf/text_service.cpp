@@ -198,14 +198,18 @@ std::optional<std::wstring> alt_code_symbol(const std::wstring_view digits) {
     return result;
 }
 
-bool system_uses_light_theme() noexcept {
+bool personalization_uses_light_theme(const wchar_t* setting) noexcept {
     DWORD value = 1;
     DWORD bytes = sizeof(value);
     const LSTATUS status = RegGetValueW(
         HKEY_CURRENT_USER,
         L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-        L"SystemUsesLightTheme", RRF_RT_REG_DWORD, nullptr, &value, &bytes);
+        setting, RRF_RT_REG_DWORD, nullptr, &value, &bytes);
     return status != ERROR_SUCCESS || value != 0;
+}
+
+bool system_uses_light_theme() noexcept {
+    return personalization_uses_light_theme(L"SystemUsesLightTheme");
 }
 
 std::wstring_view candidate_status_text(const bool pending, const bool failed,
@@ -3169,6 +3173,7 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
          message == WM_DWMCOLORIZATIONCOLORCHANGED) && service != nullptr) {
         service->update_language_bar();
         if (window == service->candidate_window_) {
+            service->refresh_candidate_theme(true);
             service->apply_candidate_window_effects();
             InvalidateRect(window, nullptr, FALSE);
         }
@@ -3507,12 +3512,13 @@ void TextService::refresh_candidate_theme(const bool force) {
     if (!force && now < next_candidate_theme_refresh_) return;
     next_candidate_theme_refresh_ = now + 1000;
     const auto data_root = config::local_data_root();
+    const bool light = personalization_uses_light_theme(L"AppsUseLightTheme");
     const auto loaded = plugin::load_active_candidate_theme(
-        data_root.empty() ? std::filesystem::path{} : data_root / L"plugins");
+        data_root.empty() ? std::filesystem::path{} : data_root / L"plugins", light);
     const auto unicode_loaded = plugin::load_active_unicode_palette(
         data_root.empty() ? std::filesystem::path{} : data_root / L"plugins");
     const plugin::CandidateTheme next = loaded.active ? loaded.theme
-                                                       : plugin::CandidateTheme{};
+                                                       : plugin::default_candidate_theme(light);
     const auto source = loaded.active ? loaded.plugin_id + "@" + loaded.version
                                       : std::string{};
     const auto unicode_source = unicode_loaded.active

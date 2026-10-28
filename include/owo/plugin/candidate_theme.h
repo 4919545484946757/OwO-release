@@ -38,13 +38,15 @@ struct CandidateThemeResult {
     std::string diagnostic;
 };
 
+[[nodiscard]] CandidateTheme default_candidate_theme(bool light);
+
 /// Loads one bounded declarative *.theme resource and optional flat settings JSON.
 [[nodiscard]] CandidateThemeResult load_candidate_theme_resource(
     const std::filesystem::path& resource,
-    const std::filesystem::path& settings = {});
+    const std::filesystem::path& settings = {}, bool system_light = false);
 
 /// Resolves the first valid active ui.candidate_theme resource deterministically.
 [[nodiscard]] CandidateThemeResult load_active_candidate_theme(
-    const std::filesystem::path& plugin_store_root);
+    const std::filesystem::path& plugin_store_root, bool system_light = false);
 
 }  // namespace owo::plugin

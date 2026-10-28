@@ -69,8 +69,18 @@ internal sealed class PluginSettingsModel
                 if (value.TryGetProperty("enum", out var enumElement)) {
                     if (enumElement.ValueKind != JsonValueKind.Array || enumElement.GetArrayLength() > 32)
                         throw new InvalidOperationException($"插件设置 {property.Name} 的枚举无效。" );
-                    foreach (var option in enumElement.EnumerateArray())
-                        options.Add(new PluginSettingOption(Display(option), option.Clone()));
+                    var hasNames = value.TryGetProperty("enumNames", out var names);
+                    if (hasNames && (names.ValueKind != JsonValueKind.Array ||
+                        names.GetArrayLength() != enumElement.GetArrayLength()))
+                        throw new InvalidOperationException($"插件设置 {property.Name} 的枚举标签无效。" );
+                    var optionIndex = 0;
+                    foreach (var option in enumElement.EnumerateArray()) {
+                        var label = hasNames ? names[optionIndex].GetString() : Display(option);
+                        if (string.IsNullOrWhiteSpace(label) || label.Length > 128)
+                            throw new InvalidOperationException($"插件设置 {property.Name} 的枚举标签无效。" );
+                        options.Add(new PluginSettingOption(label, option.Clone()));
+                        optionIndex++;
+                    }
                 }
                 fields.Add(new PluginSettingField(
                     property.Name,
