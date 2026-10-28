@@ -50,32 +50,34 @@ public sealed partial class MainPage
     }
     private void InitializeSearchLogo() {
         const double logoSize = 48, gap = 16;
-        var searchMaximum = SettingsSearchBox.MaxWidth;
         var logo = new Image {
             Width = logoSize, Height = logoSize,
             VerticalAlignment = VerticalAlignment.Center,
-            Visibility = Visibility.Collapsed,
         };
         LogoAppearance.BindImage(logo);
-        GlobalSearchArea.ColumnDefinitions.Add(new() { Width = new GridLength(0) });
-        GlobalSearchArea.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
-        GlobalSearchArea.Children.Insert(0, logo);
-        Grid.SetColumn(SettingsSearchBox, 1);
+        // Sibling containers: branding is anchored to the page's left edge,
+        // while search keeps its original independent, centered layout.
+        var logoHost = new Border {
+            Child = logo, Margin = GlobalSearchArea.Margin,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed,
+        };
+        Grid.SetRow(logoHost, Grid.GetRow(GlobalSearchArea));
+        PageRoot.Children.Add(logoHost);
         SettingsSearchBox.VerticalAlignment = VerticalAlignment.Center;
         bool? wasVisible = null;
         void Update() {
-            // Reserve a useful search width based on its font and any explicit
-            // minimum, rather than shrinking the input to keep branding visible.
             var minimumSearchWidth = Math.Max(SettingsSearchBox.MinWidth, SettingsSearchBox.FontSize * 24 + 24);
-            var visible = GlobalSearchArea.ActualWidth >= logoSize + gap + minimumSearchWidth;
+            var searchLeft = SettingsSearchBox.TransformToVisual(PageRoot).TransformPoint(default).X;
+            var visible = SettingsSearchBox.ActualWidth >= minimumSearchWidth &&
+                searchLeft >= logoHost.Margin.Left + logoSize + gap;
             if (wasVisible == visible) return;
             wasVisible = visible;
-            logo.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-            GlobalSearchArea.ColumnDefinitions[0].Width = new GridLength(visible ? logoSize : 0);
-            GlobalSearchArea.ColumnSpacing = visible ? gap : 0;
-            GlobalSearchArea.MaxWidth = searchMaximum + (visible ? logoSize + gap : 0);
+            logoHost.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         }
         GlobalSearchArea.SizeChanged += (_, _) => Update();
+        SettingsSearchBox.SizeChanged += (_, _) => Update();
         GlobalSearchArea.Loaded += (_, _) => Update();
     }
     private void SetLogoSelection(string mode) {
