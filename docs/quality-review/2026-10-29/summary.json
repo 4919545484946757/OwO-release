@@ -1,31 +1,35 @@
 {
-    "generated_utc":  "2026-10-28T20:04:14.3016724Z",
-    "runs":  70,
-    "case_observations":  12051,
-    "distinct_test_definitions":  4462,
-    "issue_count":  3443,
+    "generated_utc":  "2026-10-28T20:50:26.4125274Z",
+    "runs":  106,
+    "case_observations":  18105,
+    "distinct_test_definitions":  9013,
+    "issue_count":  4849,
     "priorities":  [
                        {
-                           "count":  1557,
+                           "count":  2122,
                            "priority":  "P1"
                        },
                        {
-                           "count":  918,
+                           "count":  1478,
                            "priority":  "P2"
                        },
                        {
-                           "count":  968,
+                           "count":  1249,
                            "priority":  "P3"
                        }
                    ],
     "classes":  [
                     {
                         "kind":  "分页与展开结果不一致",
-                        "count":  897
+                        "count":  1128
+                    },
+                    {
+                        "kind":  "基础请求超过200毫秒（需重复测量）",
+                        "count":  117
                     },
                     {
                         "kind":  "可见候选池未命中（不等于词典缺词）",
-                        "count":  659
+                        "count":  876
                     },
                     {
                         "kind":  "可解析性与标注不一致",
@@ -33,11 +37,11 @@
                     },
                     {
                         "kind":  "基础候选未命中、模型首页已补救",
-                        "count":  163
+                        "count":  227
                     },
                     {
                         "kind":  "基础请求超过50毫秒（需重复测量）",
-                        "count":  1
+                        "count":  191
                     },
                     {
                         "kind":  "解析路径未覆盖标注分割（标注语义待评）",
@@ -49,11 +53,11 @@
                     },
                     {
                         "kind":  "模型改变了原本命中的首选（歧义待评）",
-                        "count":  133
+                        "count":  171
                     },
                     {
                         "kind":  "目标候选在首屏之外",
-                        "count":  321
+                        "count":  416
                     },
                     {
                         "kind":  "拼音预览与期望分割不同",
@@ -61,7 +65,7 @@
                     },
                     {
                         "kind":  "扫描范围内未命中（需加深复核）",
-                        "count":  295
+                        "count":  468
                     },
                     {
                         "kind":  "原始标注读音错误：公司应为gongsi（见标注审计）",
@@ -69,7 +73,7 @@
                     },
                     {
                         "kind":  "首候选与目标不同（同音歧义待评）",
-                        "count":  968
+                        "count":  1249
                     }
                 ],
     "rounds":  [
@@ -123,7 +127,11 @@
                                                     "max":  0.070500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  180,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r01-common",
@@ -175,7 +183,11 @@
                                                     "max":  0.246600
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  180,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r02-phrases",
@@ -227,7 +239,11 @@
                                                     "max":  0.209500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  146,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r02-phrases",
@@ -279,7 +295,11 @@
                                                     "max":  0.226100
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  146,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r03-sentences",
@@ -331,7 +351,11 @@
                                                     "max":  1.033800
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  100,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r03-sentences",
@@ -383,7 +407,11 @@
                                                     "max":  1.221500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  100,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r04-dictionary",
@@ -435,7 +463,11 @@
                                                     "max":  0.665400
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  339,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r04-dictionary",
@@ -487,7 +519,11 @@
                                                     "max":  0.299700
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  339,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r05-initials",
@@ -539,7 +575,11 @@
                                                     "max":  2.185000
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  180,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r05-initials",
@@ -591,7 +631,11 @@
                                                     "max":  2.380700
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  180,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r01-evidence",
@@ -643,7 +687,11 @@
                                                     "max":  0.258500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  180,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r01-evidence",
@@ -695,7 +743,11 @@
                                                     "max":  0.047900
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  180,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r06-mixedwords",
@@ -747,7 +799,11 @@
                                                     "max":  5.231400
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  374,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r06-mixedwords",
@@ -799,7 +855,11 @@
                                                     "max":  5.360900
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  374,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r07-incomplete",
@@ -851,7 +911,11 @@
                                                     "max":  0.182000
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  180,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r07-incomplete",
@@ -903,7 +967,11 @@
                                                     "max":  0.310300
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  180,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r08-lifetopics",
@@ -955,7 +1023,11 @@
                                                     "max":  0.206800
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  191,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r08-lifetopics",
@@ -1007,7 +1079,11 @@
                                                     "max":  0.137600
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  191,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r09-lifesentences",
@@ -1059,7 +1135,11 @@
                                                     "max":  1.296000
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  90,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r09-lifesentences",
@@ -1111,7 +1191,11 @@
                                                     "max":  1.250700
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  90,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r10-boundaries",
@@ -1163,7 +1247,11 @@
                                                     "max":  25.998900
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  59,
+                                                         "off":  1
+                                                     }
                    },
                    {
                        "round":  "r10-boundaries",
@@ -1215,7 +1303,11 @@
                                                     "max":  25.578500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  59,
+                                                         "off":  1
+                                                     }
                    },
                    {
                        "round":  "r11-prefixes",
@@ -1267,7 +1359,11 @@
                                                     "max":  0.253300
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  292,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r11-prefixes",
@@ -1319,7 +1415,11 @@
                                                     "max":  0.553600
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  292,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r12-typos",
@@ -1371,7 +1471,11 @@
                                                     "max":  10.612400
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  340,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r12-typos",
@@ -1423,7 +1527,11 @@
                                                     "max":  10.541500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  340,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r12-typoscontrol",
@@ -1475,7 +1583,11 @@
                                                     "max":  10.765200
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  0,
+                                                         "off":  340
+                                                     }
                    },
                    {
                        "round":  "r12-typoscontrol",
@@ -1527,7 +1639,11 @@
                                                     "max":  10.445400
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  0,
+                                                         "off":  340
+                                                     }
                    },
                    {
                        "round":  "r13-explicit",
@@ -1579,7 +1695,11 @@
                                                     "max":  0.199500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  180,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r13-explicit",
@@ -1631,7 +1751,11 @@
                                                     "max":  0.035100
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  180,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r14-context",
@@ -1683,7 +1807,11 @@
                                                     "max":  0.106500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r14-context",
@@ -1735,7 +1863,11 @@
                                                     "max":  0.064000
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r15-sentences-incremental",
@@ -1792,7 +1924,11 @@
                                                                          "p95":  7.457600,
                                                                          "max":  62.065600
                                                                      }
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  100,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r15-sentences-incremental",
@@ -1849,7 +1985,11 @@
                                                                          "p95":  7.743600,
                                                                          "max":  62.984600
                                                                      }
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  100,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r16-context-v2",
@@ -1901,7 +2041,11 @@
                                                     "max":  0.068800
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r16-context-v2",
@@ -1953,7 +2097,11 @@
                                                     "max":  0.034200
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r17-context-previous",
@@ -2005,7 +2153,11 @@
                                                     "max":  0.030100
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r17-context-previous",
@@ -2057,7 +2209,11 @@
                                                     "max":  0.031000
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r18-context-none",
@@ -2109,7 +2265,11 @@
                                                     "max":  0.032500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r18-context-none",
@@ -2161,7 +2321,11 @@
                                                     "max":  0.058100
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r19-current-text",
@@ -2213,7 +2377,11 @@
                                                     "max":  0.031900
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r19-current-text",
@@ -2265,7 +2433,11 @@
                                                     "max":  0.063700
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r20-current-previous",
@@ -2317,7 +2489,11 @@
                                                     "max":  0.032200
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r20-current-previous",
@@ -2369,7 +2545,11 @@
                                                     "max":  0.029200
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r21-current-none",
@@ -2421,7 +2601,11 @@
                                                     "max":  0.054700
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r21-current-none",
@@ -2473,7 +2657,11 @@
                                                     "max":  0.035700
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r22-current-words",
@@ -2525,7 +2713,11 @@
                                                     "max":  0.120800
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  180,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r23-current-phrases",
@@ -2577,7 +2769,11 @@
                                                     "max":  0.231700
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  146,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r24-current-sentences",
@@ -2629,7 +2825,11 @@
                                                     "max":  1.560600
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  100,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r25-current-lifewords",
@@ -2681,7 +2881,11 @@
                                                     "max":  0.106600
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  191,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r26-current-lifesents",
@@ -2733,7 +2937,11 @@
                                                     "max":  1.616500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  90,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r27-current-mixed",
@@ -2785,7 +2993,11 @@
                                                     "max":  5.481500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  374,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r28-current-boundaries",
@@ -2837,7 +3049,11 @@
                                                     "max":  25.292500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  59,
+                                                         "off":  1
+                                                     }
                    },
                    {
                        "round":  "r29-current-incremental",
@@ -2894,7 +3110,11 @@
                                                                          "p95":  8.079800,
                                                                          "max":  67.252300
                                                                      }
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  100,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r30-current-p5",
@@ -2946,7 +3166,11 @@
                                                     "max":  1.124300
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  100,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r31-current-p9",
@@ -2998,7 +3222,11 @@
                                                     "max":  1.162900
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  100,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r32-current-legacyorder",
@@ -3050,7 +3278,11 @@
                                                     "max":  1.108500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  100,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r33-current-incomplete",
@@ -3102,7 +3334,11 @@
                                                     "max":  0.237300
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  180,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r34-current-typos",
@@ -3154,7 +3390,11 @@
                                                     "max":  12.179600
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  340,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r35-current-mixedphrases",
@@ -3206,7 +3446,11 @@
                                                     "max":  12.068500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  438,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r36-dialogue",
@@ -3258,7 +3502,11 @@
                                                     "max":  0.519900
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  60,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r36-dialogue",
@@ -3310,7 +3558,11 @@
                                                     "max":  0.603300
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  60,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r37-deep-sentences",
@@ -3362,7 +3614,11 @@
                                                     "max":  1.223200
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  25,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r37-deep-sentences",
@@ -3414,7 +3670,11 @@
                                                     "max":  1.443100
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  25,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r38-dictionary-fixedsample",
@@ -3466,7 +3726,11 @@
                                                     "max":  0.232900
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  639,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r38-dictionary-fixedsample",
@@ -3518,7 +3782,11 @@
                                                     "max":  0.269200
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  639,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r39-dialogue-explicit",
@@ -3570,7 +3838,11 @@
                                                     "max":  0.076400
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  60,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r39-dialogue-explicit",
@@ -3622,7 +3894,11 @@
                                                     "max":  0.113500
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  60,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r40-incomplete-phrases",
@@ -3674,7 +3950,11 @@
                                                     "max":  3.273000
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  146,
+                                                         "off":  0
+                                                     }
                    },
                    {
                        "round":  "r40-incomplete-phrases",
@@ -3726,7 +4006,2039 @@
                                                     "max":  3.037300
                                                 },
                                       "incremental_prefix_request":  null
-                                  }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  146,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r41-semantic-contrasts",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r41-semantic-contrasts-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  93,
+                                       "failures":  5,
+                                       "errors":  0,
+                                       "labeled":  93,
+                                       "base_top1":  0.924731,
+                                       "base_first_page":  0.956989,
+                                       "base_topk":  0.956989,
+                                       "base_mrr_at_k":  0.940860,
+                                       "final_top1":  0.924731,
+                                       "final_first_page":  0.956989,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  93,
+                                       "expansion_failed":  1
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  93,
+                                                           "p50":  1.011100,
+                                                           "p95":  2.218500,
+                                                           "max":  2.606700
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  93,
+                                                              "p50":  1.011600,
+                                                              "p95":  2.219000,
+                                                              "max":  2.607100
+                                                          },
+                                      "parse":  {
+                                                    "samples":  93,
+                                                    "p50":  0.029700,
+                                                    "p95":  0.136700,
+                                                    "max":  0.198500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  93,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r41-semantic-contrasts",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r41-semantic-contrasts-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  93,
+                                       "failures":  3,
+                                       "errors":  0,
+                                       "labeled":  93,
+                                       "base_top1":  0.924731,
+                                       "base_first_page":  0.956989,
+                                       "base_topk":  0.956989,
+                                       "base_mrr_at_k":  0.940860,
+                                       "final_top1":  0.956989,
+                                       "final_first_page":  0.978495,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  93,
+                                       "model_applied":  93,
+                                       "model_failed":  0,
+                                       "expansion_checked":  93,
+                                       "expansion_failed":  1
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  93,
+                                                           "p50":  1.104100,
+                                                           "p95":  2.136300,
+                                                           "max":  2.563900
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  93,
+                                                              "p50":  1.296900,
+                                                              "p95":  2.291600,
+                                                              "max":  2.915600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  93,
+                                                    "p50":  0.026000,
+                                                    "p95":  0.130200,
+                                                    "max":  0.188400
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  93,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r42-explicit-strict",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "off",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r42-explicit-strict-base-p7-on-whole-coff-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  34,
+                                       "errors":  0,
+                                       "labeled":  60,
+                                       "base_top1":  0.416667,
+                                       "base_first_page":  0.450000,
+                                       "base_topk":  0.450000,
+                                       "base_mrr_at_k":  0.433333,
+                                       "final_top1":  0.416667,
+                                       "final_first_page":  0.450000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  60,
+                                       "preview_accuracy":  1.000000,
+                                       "parse_path_coverage":  1.000000,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  60,
+                                       "expansion_failed":  3
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  60,
+                                                           "p50":  5.153900,
+                                                           "p95":  11.446200,
+                                                           "max":  14.458200
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  60,
+                                                              "p50":  5.154500,
+                                                              "p95":  11.446800,
+                                                              "max":  14.459700
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.029100,
+                                                    "p95":  0.067500,
+                                                    "max":  0.105000
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  0,
+                                                         "off":  60
+                                                     }
+                   },
+                   {
+                       "round":  "r42-explicit-strict",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "off",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r42-explicit-strict-libime-p7-on-whole-coff-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  15,
+                                       "errors":  0,
+                                       "labeled":  60,
+                                       "base_top1":  0.416667,
+                                       "base_first_page":  0.450000,
+                                       "base_topk":  0.450000,
+                                       "base_mrr_at_k":  0.433333,
+                                       "final_top1":  0.833333,
+                                       "final_first_page":  0.850000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  60,
+                                       "preview_accuracy":  1.000000,
+                                       "parse_path_coverage":  1.000000,
+                                       "model_requested":  60,
+                                       "model_applied":  60,
+                                       "model_failed":  0,
+                                       "expansion_checked":  60,
+                                       "expansion_failed":  8
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  60,
+                                                           "p50":  5.553200,
+                                                           "p95":  11.989000,
+                                                           "max":  15.091500
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  60,
+                                                              "p50":  6.298600,
+                                                              "p95":  12.944400,
+                                                              "max":  16.043400
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.033000,
+                                                    "p95":  0.052700,
+                                                    "max":  0.068000
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  0,
+                                                         "off":  60
+                                                     }
+                   },
+                   {
+                       "round":  "r43-dialogue-strict",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "off",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r43-dialogue-strict-base-p7-on-whole-coff-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  25,
+                                       "errors":  0,
+                                       "labeled":  60,
+                                       "base_top1":  0.533333,
+                                       "base_first_page":  0.600000,
+                                       "base_topk":  0.600000,
+                                       "base_mrr_at_k":  0.566667,
+                                       "final_top1":  0.533333,
+                                       "final_first_page":  0.600000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  60,
+                                       "expansion_failed":  3
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  60,
+                                                           "p50":  3.314200,
+                                                           "p95":  5.450400,
+                                                           "max":  6.852700
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  60,
+                                                              "p50":  3.314800,
+                                                              "p95":  5.451000,
+                                                              "max":  6.853300
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.132700,
+                                                    "p95":  0.374900,
+                                                    "max":  1.474400
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  0,
+                                                         "off":  60
+                                                     }
+                   },
+                   {
+                       "round":  "r43-dialogue-strict",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "off",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r43-dialogue-strict-libime-p7-on-whole-coff-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  18,
+                                       "errors":  0,
+                                       "labeled":  60,
+                                       "base_top1":  0.533333,
+                                       "base_first_page":  0.600000,
+                                       "base_topk":  0.600000,
+                                       "base_mrr_at_k":  0.566667,
+                                       "final_top1":  0.833333,
+                                       "final_first_page":  0.866667,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  60,
+                                       "model_applied":  60,
+                                       "model_failed":  0,
+                                       "expansion_checked":  60,
+                                       "expansion_failed":  12
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  60,
+                                                           "p50":  3.547200,
+                                                           "p95":  5.509200,
+                                                           "max":  7.074000
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  60,
+                                                              "p50":  4.248700,
+                                                              "p95":  6.574200,
+                                                              "max":  8.011300
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.122100,
+                                                    "p95":  0.469200,
+                                                    "max":  0.786300
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  0,
+                                                         "off":  60
+                                                     }
+                   },
+                   {
+                       "round":  "r44-initial-characters",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r44-initial-characters-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  138,
+                                       "failures":  12,
+                                       "errors":  0,
+                                       "labeled":  138,
+                                       "base_top1":  0.159420,
+                                       "base_first_page":  0.695652,
+                                       "base_topk":  0.920290,
+                                       "base_mrr_at_k":  0.345721,
+                                       "final_top1":  0.159420,
+                                       "final_first_page":  0.695652,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  138,
+                                       "expansion_failed":  1
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  138,
+                                                           "p50":  0.078400,
+                                                           "p95":  0.412400,
+                                                           "max":  0.582200
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  138,
+                                                              "p50":  0.079100,
+                                                              "p95":  0.412600,
+                                                              "max":  0.583100
+                                                          },
+                                      "parse":  {
+                                                    "samples":  138,
+                                                    "p50":  0.009400,
+                                                    "p95":  0.026800,
+                                                    "max":  0.093400
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  138,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r44-initial-characters",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r44-initial-characters-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  138,
+                                       "failures":  43,
+                                       "errors":  0,
+                                       "labeled":  138,
+                                       "base_top1":  0.159420,
+                                       "base_first_page":  0.695652,
+                                       "base_topk":  0.920290,
+                                       "base_mrr_at_k":  0.345721,
+                                       "final_top1":  0.152174,
+                                       "final_first_page":  0.695652,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  138,
+                                       "model_applied":  138,
+                                       "model_failed":  0,
+                                       "expansion_checked":  138,
+                                       "expansion_failed":  1
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  138,
+                                                           "p50":  0.086500,
+                                                           "p95":  0.503400,
+                                                           "max":  0.826400
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  138,
+                                                              "p50":  0.242500,
+                                                              "p95":  0.611700,
+                                                              "max":  0.939200
+                                                          },
+                                      "parse":  {
+                                                    "samples":  138,
+                                                    "p50":  0.010200,
+                                                    "p95":  0.025200,
+                                                    "max":  0.044300
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  138,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r45-initial-characters-deep",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r45-initial-characters-deep-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  138,
+                                       "failures":  1,
+                                       "errors":  0,
+                                       "labeled":  138,
+                                       "base_top1":  0.159420,
+                                       "base_first_page":  0.695652,
+                                       "base_topk":  1.000000,
+                                       "base_mrr_at_k":  0.348332,
+                                       "final_top1":  0.159420,
+                                       "final_first_page":  0.695652,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  138,
+                                       "expansion_failed":  1
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  138,
+                                                           "p50":  0.089300,
+                                                           "p95":  0.435000,
+                                                           "max":  0.717300
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  138,
+                                                              "p50":  0.089700,
+                                                              "p95":  0.435200,
+                                                              "max":  0.718400
+                                                          },
+                                      "parse":  {
+                                                    "samples":  138,
+                                                    "p50":  0.011800,
+                                                    "p95":  0.036700,
+                                                    "max":  0.048700
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  138,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r46-collocations",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r46-collocations-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  80,
+                                       "failures":  1,
+                                       "errors":  0,
+                                       "labeled":  80,
+                                       "base_top1":  0.987500,
+                                       "base_first_page":  0.987500,
+                                       "base_topk":  0.987500,
+                                       "base_mrr_at_k":  0.987500,
+                                       "final_top1":  0.987500,
+                                       "final_first_page":  0.987500,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  80,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  80,
+                                                           "p50":  1.069600,
+                                                           "p95":  1.506300,
+                                                           "max":  2.042800
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  80,
+                                                              "p50":  1.070100,
+                                                              "p95":  1.506800,
+                                                              "max":  2.043200
+                                                          },
+                                      "parse":  {
+                                                    "samples":  80,
+                                                    "p50":  0.026500,
+                                                    "p95":  0.084500,
+                                                    "max":  0.132500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  80,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r46-collocations",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r46-collocations-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  80,
+                                       "failures":  0,
+                                       "errors":  0,
+                                       "labeled":  80,
+                                       "base_top1":  0.987500,
+                                       "base_first_page":  0.987500,
+                                       "base_topk":  0.987500,
+                                       "base_mrr_at_k":  0.987500,
+                                       "final_top1":  0.987500,
+                                       "final_first_page":  1.000000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  80,
+                                       "model_applied":  80,
+                                       "model_failed":  0,
+                                       "expansion_checked":  80,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  80,
+                                                           "p50":  1.089500,
+                                                           "p95":  1.586800,
+                                                           "max":  2.128100
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  80,
+                                                              "p50":  1.267300,
+                                                              "p95":  1.866100,
+                                                              "max":  2.275800
+                                                          },
+                                      "parse":  {
+                                                    "samples":  80,
+                                                    "p50":  0.024400,
+                                                    "p95":  0.097800,
+                                                    "max":  0.134000
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  80,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r47-collocations-mixed",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r47-collocations-mixed-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  240,
+                                       "failures":  180,
+                                       "errors":  0,
+                                       "labeled":  240,
+                                       "base_top1":  0.225000,
+                                       "base_first_page":  0.250000,
+                                       "base_topk":  0.250000,
+                                       "base_mrr_at_k":  0.237500,
+                                       "final_top1":  0.225000,
+                                       "final_first_page":  0.250000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  240,
+                                       "expansion_failed":  8
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  240,
+                                                           "p50":  9.470500,
+                                                           "p95":  17.628400,
+                                                           "max":  23.769000
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  240,
+                                                              "p50":  9.471100,
+                                                              "p95":  17.628900,
+                                                              "max":  23.770000
+                                                          },
+                                      "parse":  {
+                                                    "samples":  240,
+                                                    "p50":  3.800500,
+                                                    "p95":  7.731600,
+                                                    "max":  10.711900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  240,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r47-collocations-mixed",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r47-collocations-mixed-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  240,
+                                       "failures":  228,
+                                       "errors":  0,
+                                       "labeled":  240,
+                                       "base_top1":  0.225000,
+                                       "base_first_page":  0.250000,
+                                       "base_topk":  0.250000,
+                                       "base_mrr_at_k":  0.237500,
+                                       "final_top1":  0.287500,
+                                       "final_first_page":  0.320833,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  240,
+                                       "model_applied":  240,
+                                       "model_failed":  0,
+                                       "expansion_checked":  240,
+                                       "expansion_failed":  129
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  240,
+                                                           "p50":  9.620400,
+                                                           "p95":  17.290300,
+                                                           "max":  22.641100
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  240,
+                                                              "p50":  9.871600,
+                                                              "p95":  17.533300,
+                                                              "max":  23.132100
+                                                          },
+                                      "parse":  {
+                                                    "samples":  240,
+                                                    "p50":  3.621900,
+                                                    "p95":  7.755000,
+                                                    "max":  11.642000
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  240,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r48-long-sentences",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r48-long-sentences-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  20,
+                                       "failures":  15,
+                                       "errors":  0,
+                                       "labeled":  20,
+                                       "base_top1":  0.150000,
+                                       "base_first_page":  0.250000,
+                                       "base_topk":  0.250000,
+                                       "base_mrr_at_k":  0.200000,
+                                       "final_top1":  0.150000,
+                                       "final_first_page":  0.250000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  20,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  20,
+                                                           "p50":  34.087300,
+                                                           "p95":  46.045300,
+                                                           "max":  52.379300
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  20,
+                                                              "p50":  34.087900,
+                                                              "p95":  46.047200,
+                                                              "max":  52.380000
+                                                          },
+                                      "parse":  {
+                                                    "samples":  20,
+                                                    "p50":  0.811700,
+                                                    "p95":  1.935100,
+                                                    "max":  2.244900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  20,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r48-long-sentences",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r48-long-sentences-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  20,
+                                       "failures":  13,
+                                       "errors":  0,
+                                       "labeled":  20,
+                                       "base_top1":  0.150000,
+                                       "base_first_page":  0.250000,
+                                       "base_topk":  0.250000,
+                                       "base_mrr_at_k":  0.200000,
+                                       "final_top1":  0.450000,
+                                       "final_first_page":  0.450000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  20,
+                                       "model_applied":  20,
+                                       "model_failed":  0,
+                                       "expansion_checked":  20,
+                                       "expansion_failed":  5
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  20,
+                                                           "p50":  34.947600,
+                                                           "p95":  51.111200,
+                                                           "max":  53.097000
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  20,
+                                                              "p50":  38.068600,
+                                                              "p95":  54.617400,
+                                                              "max":  56.061800
+                                                          },
+                                      "parse":  {
+                                                    "samples":  20,
+                                                    "p50":  0.867700,
+                                                    "p95":  1.961400,
+                                                    "max":  2.212400
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  20,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r49-long-incremental",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "incremental",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r49-long-incremental-base-p7-on-incremental-con-current",
+                       "metrics":  {
+                                       "cases":  20,
+                                       "failures":  15,
+                                       "errors":  0,
+                                       "labeled":  20,
+                                       "base_top1":  0.150000,
+                                       "base_first_page":  0.250000,
+                                       "base_topk":  0.250000,
+                                       "base_mrr_at_k":  0.200000,
+                                       "final_top1":  0.150000,
+                                       "final_first_page":  0.250000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  20,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  20,
+                                                           "p50":  34.680900,
+                                                           "p95":  49.784900,
+                                                           "max":  57.152100
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  20,
+                                                              "p50":  34.681900,
+                                                              "p95":  49.785600,
+                                                              "max":  57.153000
+                                                          },
+                                      "parse":  {
+                                                    "samples":  20,
+                                                    "p50":  0.884600,
+                                                    "p95":  1.947100,
+                                                    "max":  2.300200
+                                                },
+                                      "incremental_prefix_request":  {
+                                                                         "samples":  1859,
+                                                                         "p50":  12.594500,
+                                                                         "p95":  219.505400,
+                                                                         "max":  362.584100
+                                                                     }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  20,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r49-long-incremental",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "incremental",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r49-long-incremental-libime-p7-on-incremental-con-current",
+                       "metrics":  {
+                                       "cases":  20,
+                                       "failures":  13,
+                                       "errors":  0,
+                                       "labeled":  20,
+                                       "base_top1":  0.150000,
+                                       "base_first_page":  0.250000,
+                                       "base_topk":  0.250000,
+                                       "base_mrr_at_k":  0.200000,
+                                       "final_top1":  0.450000,
+                                       "final_first_page":  0.450000,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  20,
+                                       "model_applied":  20,
+                                       "model_failed":  0,
+                                       "expansion_checked":  20,
+                                       "expansion_failed":  5
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  20,
+                                                           "p50":  35.512500,
+                                                           "p95":  52.542600,
+                                                           "max":  58.506000
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  20,
+                                                              "p50":  38.829400,
+                                                              "p95":  54.903500,
+                                                              "max":  61.852800
+                                                          },
+                                      "parse":  {
+                                                    "samples":  20,
+                                                    "p50":  0.963400,
+                                                    "p95":  2.232800,
+                                                    "max":  2.240500
+                                                },
+                                      "incremental_prefix_request":  {
+                                                                         "samples":  1859,
+                                                                         "p50":  12.884400,
+                                                                         "p95":  217.563400,
+                                                                         "max":  367.355600
+                                                                     }
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  20,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r50-context-near",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r50-context-near-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  26,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.731707,
+                                       "base_first_page":  0.914634,
+                                       "base_topk":  1.000000,
+                                       "base_mrr_at_k":  0.819069,
+                                       "final_top1":  0.817073,
+                                       "final_first_page":  0.914634,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  82,
+                                       "model_applied":  82,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  21
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.712200,
+                                                           "p95":  1.461000,
+                                                           "max":  4.593700
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  2.851300,
+                                                              "p95":  4.157900,
+                                                              "max":  6.974700
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.009000,
+                                                    "p95":  0.027900,
+                                                    "max":  0.034900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r51-context-distant",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r51-context-distant-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  31,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.292683,
+                                       "base_first_page":  0.756098,
+                                       "base_topk":  0.987805,
+                                       "base_mrr_at_k":  0.501827,
+                                       "final_top1":  0.256098,
+                                       "final_first_page":  0.756098,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  82,
+                                       "model_applied":  82,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  13
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.726500,
+                                                           "p95":  1.437100,
+                                                           "max":  4.240100
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  2.918300,
+                                                              "p95":  4.344000,
+                                                              "max":  7.003800
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.009600,
+                                                    "p95":  0.026100,
+                                                    "max":  0.040800
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r52-context-distant-aligned",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r52-context-distant-aligned-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  82,
+                                       "failures":  46,
+                                       "errors":  0,
+                                       "labeled":  82,
+                                       "base_top1":  0.243902,
+                                       "base_first_page":  0.719512,
+                                       "base_topk":  0.987805,
+                                       "base_mrr_at_k":  0.459000,
+                                       "final_top1":  0.219512,
+                                       "final_first_page":  0.719512,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  82,
+                                       "model_applied":  82,
+                                       "model_failed":  0,
+                                       "expansion_checked":  82,
+                                       "expansion_failed":  33
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  82,
+                                                           "p50":  0.705100,
+                                                           "p95":  1.391800,
+                                                           "max":  3.843300
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  82,
+                                                              "p50":  2.779900,
+                                                              "p95":  4.214300,
+                                                              "max":  6.355000
+                                                          },
+                                      "parse":  {
+                                                    "samples":  82,
+                                                    "p50":  0.008700,
+                                                    "p95":  0.028000,
+                                                    "max":  0.033300
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  82,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r53-prefix-latency",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r53-prefix-latency-base-p7-on-whole-con-current-noexpand",
+                       "metrics":  {
+                                       "cases":  1790,
+                                       "failures":  0,
+                                       "errors":  0,
+                                       "labeled":  0,
+                                       "base_top1":  null,
+                                       "base_first_page":  null,
+                                       "base_topk":  null,
+                                       "base_mrr_at_k":  null,
+                                       "final_top1":  null,
+                                       "final_first_page":  null,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  0,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  1790,
+                                                           "p50":  13.681200,
+                                                           "p95":  224.972100,
+                                                           "max":  366.895400
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  1790,
+                                                              "p50":  13.683700,
+                                                              "p95":  224.972900,
+                                                              "max":  366.896100
+                                                          },
+                                      "parse":  {
+                                                    "samples":  1790,
+                                                    "p50":  0.838300,
+                                                    "p95":  122.529700,
+                                                    "max":  195.545200
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  1790,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r54-prefix-latency-strict",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "off",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r54-prefix-latency-strict-base-p7-on-whole-coff-current-noexpand",
+                       "metrics":  {
+                                       "cases":  1790,
+                                       "failures":  0,
+                                       "errors":  0,
+                                       "labeled":  0,
+                                       "base_top1":  null,
+                                       "base_first_page":  null,
+                                       "base_topk":  null,
+                                       "base_mrr_at_k":  null,
+                                       "final_top1":  null,
+                                       "final_first_page":  null,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  0,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  1790,
+                                                           "p50":  9.885300,
+                                                           "p95":  37.532700,
+                                                           "max":  74.056300
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  1790,
+                                                              "p50":  9.885900,
+                                                              "p95":  37.533500,
+                                                              "max":  74.057700
+                                                          },
+                                      "parse":  {
+                                                    "samples":  1790,
+                                                    "p50":  0.742200,
+                                                    "p95":  3.321900,
+                                                    "max":  11.329300
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  0,
+                                                         "off":  1790
+                                                     }
+                   },
+                   {
+                       "round":  "r55-latency-hotspots",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r55-latency-hotspots-base-p7-on-whole-con-current-noexpand",
+                       "metrics":  {
+                                       "cases":  30,
+                                       "failures":  0,
+                                       "errors":  0,
+                                       "labeled":  0,
+                                       "base_top1":  null,
+                                       "base_first_page":  null,
+                                       "base_topk":  null,
+                                       "base_mrr_at_k":  null,
+                                       "final_top1":  null,
+                                       "final_first_page":  null,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  0,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  30,
+                                                           "p50":  301.541700,
+                                                           "p95":  341.489700,
+                                                           "max":  344.387200
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  30,
+                                                              "p50":  301.542500,
+                                                              "p95":  341.490600,
+                                                              "max":  344.387900
+                                                          },
+                                      "parse":  {
+                                                    "samples":  30,
+                                                    "p50":  161.142800,
+                                                    "p95":  195.668600,
+                                                    "max":  196.254600
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  30,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r55-latency-hotspots",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r55-latency-hotspots-libime-p7-on-whole-con-current-noexpand",
+                       "metrics":  {
+                                       "cases":  30,
+                                       "failures":  0,
+                                       "errors":  0,
+                                       "labeled":  0,
+                                       "base_top1":  null,
+                                       "base_first_page":  null,
+                                       "base_topk":  null,
+                                       "base_mrr_at_k":  null,
+                                       "final_top1":  null,
+                                       "final_first_page":  null,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  30,
+                                       "model_applied":  30,
+                                       "model_failed":  0,
+                                       "expansion_checked":  0,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  30,
+                                                           "p50":  303.352300,
+                                                           "p95":  335.763100,
+                                                           "max":  339.430700
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  30,
+                                                              "p50":  307.720800,
+                                                              "p95":  339.562200,
+                                                              "max":  342.806100
+                                                          },
+                                      "parse":  {
+                                                    "samples":  30,
+                                                    "p50":  161.854400,
+                                                    "p95":  187.615300,
+                                                    "max":  190.358200
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  30,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r56-latency-hotspots-strict",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "off",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r56-latency-hotspots-strict-base-p7-on-whole-coff-current-noexpand",
+                       "metrics":  {
+                                       "cases":  30,
+                                       "failures":  0,
+                                       "errors":  0,
+                                       "labeled":  0,
+                                       "base_top1":  null,
+                                       "base_first_page":  null,
+                                       "base_topk":  null,
+                                       "base_mrr_at_k":  null,
+                                       "final_top1":  null,
+                                       "final_first_page":  null,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  0,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  30,
+                                                           "p50":  305.678200,
+                                                           "p95":  346.263800,
+                                                           "max":  361.368700
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  30,
+                                                              "p50":  305.678900,
+                                                              "p95":  346.264900,
+                                                              "max":  361.369400
+                                                          },
+                                      "parse":  {
+                                                    "samples":  30,
+                                                    "p50":  163.554500,
+                                                    "p95":  192.237500,
+                                                    "max":  196.450100
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  30,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r57-latency-hotspots-strict",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "off",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r57-latency-hotspots-strict-base-p7-on-whole-coff-current-noexpand",
+                       "metrics":  {
+                                       "cases":  30,
+                                       "failures":  0,
+                                       "errors":  0,
+                                       "labeled":  0,
+                                       "base_top1":  null,
+                                       "base_first_page":  null,
+                                       "base_topk":  null,
+                                       "base_mrr_at_k":  null,
+                                       "final_top1":  null,
+                                       "final_first_page":  null,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  0,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  30,
+                                                           "p50":  20.223500,
+                                                           "p95":  35.588500,
+                                                           "max":  35.626800
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  30,
+                                                              "p50":  20.224300,
+                                                              "p95":  35.590000,
+                                                              "max":  35.627500
+                                                          },
+                                      "parse":  {
+                                                    "samples":  30,
+                                                    "p50":  2.279200,
+                                                    "p95":  7.189500,
+                                                    "max":  7.300900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  0,
+                                                         "off":  30
+                                                     }
+                   },
+                   {
+                       "round":  "r58-typing-errors",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r58-typing-errors-base-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  47,
+                                       "failures":  36,
+                                       "errors":  0,
+                                       "labeled":  47,
+                                       "base_top1":  0.595745,
+                                       "base_first_page":  0.638298,
+                                       "base_topk":  0.638298,
+                                       "base_mrr_at_k":  0.613475,
+                                       "final_top1":  0.595745,
+                                       "final_first_page":  0.638298,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  47,
+                                       "expansion_failed":  22
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  47,
+                                                           "p50":  5.974100,
+                                                           "p95":  26.709800,
+                                                           "max":  45.616700
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  47,
+                                                              "p50":  5.974900,
+                                                              "p95":  26.710300,
+                                                              "max":  45.617200
+                                                          },
+                                      "parse":  {
+                                                    "samples":  47,
+                                                    "p50":  0.337500,
+                                                    "p95":  12.555200,
+                                                    "max":  15.446900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  47,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r58-typing-errors",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r58-typing-errors-libime-p7-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  47,
+                                       "failures":  36,
+                                       "errors":  0,
+                                       "labeled":  47,
+                                       "base_top1":  0.531915,
+                                       "base_first_page":  0.574468,
+                                       "base_topk":  0.574468,
+                                       "base_mrr_at_k":  0.549645,
+                                       "final_top1":  0.531915,
+                                       "final_first_page":  0.574468,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  47,
+                                       "model_applied":  47,
+                                       "model_failed":  0,
+                                       "expansion_checked":  47,
+                                       "expansion_failed":  23
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  47,
+                                                           "p50":  5.369500,
+                                                           "p95":  26.761700,
+                                                           "max":  46.331400
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  47,
+                                                              "p50":  5.473500,
+                                                              "p95":  27.337200,
+                                                              "max":  46.724800
+                                                          },
+                                      "parse":  {
+                                                    "samples":  47,
+                                                    "p50":  0.362500,
+                                                    "p95":  13.010200,
+                                                    "max":  15.104300
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  47,
+                                                         "off":  0
+                                                     }
+                   },
+                   {
+                       "round":  "r59-typing-errors-control",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "off",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r59-typing-errors-control-base-p7-on-whole-coff-current",
+                       "metrics":  {
+                                       "cases":  47,
+                                       "failures":  46,
+                                       "errors":  0,
+                                       "labeled":  47,
+                                       "base_top1":  0.021277,
+                                       "base_first_page":  0.021277,
+                                       "base_topk":  0.021277,
+                                       "base_mrr_at_k":  0.021277,
+                                       "final_top1":  0.021277,
+                                       "final_first_page":  0.021277,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  47,
+                                       "expansion_failed":  0
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  47,
+                                                           "p50":  4.834300,
+                                                           "p95":  12.739200,
+                                                           "max":  26.755100
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  47,
+                                                              "p50":  4.834900,
+                                                              "p95":  12.741200,
+                                                              "max":  26.755600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  47,
+                                                    "p50":  0.493800,
+                                                    "p95":  11.127400,
+                                                    "max":  14.631200
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  0,
+                                                         "off":  47
+                                                     }
+                   },
+                   {
+                       "round":  "r59-typing-errors-control",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  7,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "off",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r59-typing-errors-control-libime-p7-on-whole-coff-current",
+                       "metrics":  {
+                                       "cases":  47,
+                                       "failures":  46,
+                                       "errors":  0,
+                                       "labeled":  47,
+                                       "base_top1":  0.021277,
+                                       "base_first_page":  0.021277,
+                                       "base_topk":  0.021277,
+                                       "base_mrr_at_k":  0.021277,
+                                       "final_top1":  0.021277,
+                                       "final_first_page":  0.021277,
+                                       "parse_validity_accuracy":  1.000000,
+                                       "segmentation_labeled":  0,
+                                       "preview_accuracy":  null,
+                                       "parse_path_coverage":  null,
+                                       "model_requested":  47,
+                                       "model_applied":  47,
+                                       "model_failed":  0,
+                                       "expansion_checked":  47,
+                                       "expansion_failed":  5
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  47,
+                                                           "p50":  4.452700,
+                                                           "p95":  12.319200,
+                                                           "max":  27.313800
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  47,
+                                                              "p50":  4.619800,
+                                                              "p95":  12.396300,
+                                                              "max":  27.874300
+                                                          },
+                                      "parse":  {
+                                                    "samples":  47,
+                                                    "p50":  0.439400,
+                                                    "p95":  11.136300,
+                                                    "max":  14.464600
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  0,
+                                                         "off":  47
+                                                     }
+                   },
+                   {
+                       "round":  "r60-boundaries-p4",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  4,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r60-boundaries-p4-base-p4-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  8,
+                                       "errors":  0,
+                                       "labeled":  58,
+                                       "base_top1":  0.637931,
+                                       "base_first_page":  0.844828,
+                                       "base_topk":  0.913793,
+                                       "base_mrr_at_k":  0.735714,
+                                       "final_top1":  0.637931,
+                                       "final_first_page":  0.844828,
+                                       "parse_validity_accuracy":  0.983333,
+                                       "segmentation_labeled":  12,
+                                       "preview_accuracy":  0.833333,
+                                       "parse_path_coverage":  0.916667,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  59,
+                                       "expansion_failed":  3
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  59,
+                                                           "p50":  0.607300,
+                                                           "p95":  21.969700,
+                                                           "max":  63.644900
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  59,
+                                                              "p50":  0.607600,
+                                                              "p95":  21.971200,
+                                                              "max":  63.645600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.016900,
+                                                    "p95":  6.104900,
+                                                    "max":  23.512100
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  59,
+                                                         "off":  1
+                                                     }
+                   },
+                   {
+                       "round":  "r60-boundaries-p4",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  4,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r60-boundaries-p4-libime-p4-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  11,
+                                       "errors":  0,
+                                       "labeled":  58,
+                                       "base_top1":  0.637931,
+                                       "base_first_page":  0.844828,
+                                       "base_topk":  0.913793,
+                                       "base_mrr_at_k":  0.735714,
+                                       "final_top1":  0.655172,
+                                       "final_first_page":  0.862069,
+                                       "parse_validity_accuracy":  0.983333,
+                                       "segmentation_labeled":  12,
+                                       "preview_accuracy":  0.833333,
+                                       "parse_path_coverage":  0.916667,
+                                       "model_requested":  57,
+                                       "model_applied":  57,
+                                       "model_failed":  0,
+                                       "expansion_checked":  59,
+                                       "expansion_failed":  3
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  59,
+                                                           "p50":  0.624200,
+                                                           "p95":  22.362400,
+                                                           "max":  65.134200
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  59,
+                                                              "p50":  0.741300,
+                                                              "p95":  22.609300,
+                                                              "max":  65.716600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.016700,
+                                                    "p95":  6.154400,
+                                                    "max":  24.767800
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  59,
+                                                         "off":  1
+                                                     }
+                   },
+                   {
+                       "round":  "r61-boundaries-p6",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  6,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r61-boundaries-p6-base-p6-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  10,
+                                       "errors":  0,
+                                       "labeled":  58,
+                                       "base_top1":  0.637931,
+                                       "base_first_page":  0.896552,
+                                       "base_topk":  0.913793,
+                                       "base_mrr_at_k":  0.736864,
+                                       "final_top1":  0.637931,
+                                       "final_first_page":  0.896552,
+                                       "parse_validity_accuracy":  0.983333,
+                                       "segmentation_labeled":  12,
+                                       "preview_accuracy":  0.833333,
+                                       "parse_path_coverage":  0.916667,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  59,
+                                       "expansion_failed":  5
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  59,
+                                                           "p50":  0.631500,
+                                                           "p95":  22.011500,
+                                                           "max":  68.278100
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  59,
+                                                              "p50":  0.631700,
+                                                              "p95":  22.013300,
+                                                              "max":  68.278900
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.018200,
+                                                    "p95":  6.081700,
+                                                    "max":  23.619100
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  59,
+                                                         "off":  1
+                                                     }
+                   },
+                   {
+                       "round":  "r61-boundaries-p6",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  6,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r61-boundaries-p6-libime-p6-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  12,
+                                       "errors":  0,
+                                       "labeled":  58,
+                                       "base_top1":  0.637931,
+                                       "base_first_page":  0.896552,
+                                       "base_topk":  0.913793,
+                                       "base_mrr_at_k":  0.736864,
+                                       "final_top1":  0.672414,
+                                       "final_first_page":  0.913793,
+                                       "parse_validity_accuracy":  0.983333,
+                                       "segmentation_labeled":  12,
+                                       "preview_accuracy":  0.833333,
+                                       "parse_path_coverage":  0.916667,
+                                       "model_requested":  57,
+                                       "model_applied":  57,
+                                       "model_failed":  0,
+                                       "expansion_checked":  59,
+                                       "expansion_failed":  9
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  59,
+                                                           "p50":  0.628300,
+                                                           "p95":  22.423500,
+                                                           "max":  70.673600
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  59,
+                                                              "p50":  0.782400,
+                                                              "p95":  22.654600,
+                                                              "max":  71.411200
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.017000,
+                                                    "p95":  6.211000,
+                                                    "max":  23.214600
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  59,
+                                                         "off":  1
+                                                     }
+                   },
+                   {
+                       "round":  "r62-boundaries-p8",
+                       "backend":  "base",
+                       "runtime":  "base",
+                       "page_size":  8,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r62-boundaries-p8-base-p8-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  10,
+                                       "errors":  0,
+                                       "labeled":  58,
+                                       "base_top1":  0.637931,
+                                       "base_first_page":  0.896552,
+                                       "base_topk":  0.913793,
+                                       "base_mrr_at_k":  0.733621,
+                                       "final_top1":  0.637931,
+                                       "final_first_page":  0.896552,
+                                       "parse_validity_accuracy":  0.983333,
+                                       "segmentation_labeled":  12,
+                                       "preview_accuracy":  0.833333,
+                                       "parse_path_coverage":  0.916667,
+                                       "model_requested":  0,
+                                       "model_applied":  0,
+                                       "model_failed":  0,
+                                       "expansion_checked":  59,
+                                       "expansion_failed":  5
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  59,
+                                                           "p50":  0.742800,
+                                                           "p95":  22.132900,
+                                                           "max":  73.445400
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  59,
+                                                              "p50":  0.743200,
+                                                              "p95":  22.133500,
+                                                              "max":  73.446300
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.018300,
+                                                    "p95":  6.043200,
+                                                    "max":  22.939900
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  59,
+                                                         "off":  1
+                                                     }
+                   },
+                   {
+                       "round":  "r62-boundaries-p8",
+                       "backend":  "libime",
+                       "runtime":  "current",
+                       "page_size":  8,
+                       "partition":  "on",
+                       "typing":  "whole",
+                       "correction":  "on",
+                       "report":  "D:\\0program\\OwO\\build\\quality-review-20261029\\reports\\r62-boundaries-p8-libime-p8-on-whole-con-current",
+                       "metrics":  {
+                                       "cases":  60,
+                                       "failures":  12,
+                                       "errors":  0,
+                                       "labeled":  58,
+                                       "base_top1":  0.637931,
+                                       "base_first_page":  0.896552,
+                                       "base_topk":  0.913793,
+                                       "base_mrr_at_k":  0.733621,
+                                       "final_top1":  0.672414,
+                                       "final_first_page":  0.913793,
+                                       "parse_validity_accuracy":  0.983333,
+                                       "segmentation_labeled":  12,
+                                       "preview_accuracy":  0.833333,
+                                       "parse_path_coverage":  0.916667,
+                                       "model_requested":  57,
+                                       "model_applied":  57,
+                                       "model_failed":  0,
+                                       "expansion_checked":  59,
+                                       "expansion_failed":  9
+                                   },
+                       "timing":  {
+                                      "base_request":  {
+                                                           "samples":  59,
+                                                           "p50":  0.714600,
+                                                           "p95":  22.697600,
+                                                           "max":  74.376200
+                                                       },
+                                      "settled_request":  {
+                                                              "samples":  59,
+                                                              "p50":  0.841700,
+                                                              "p95":  23.145100,
+                                                              "max":  74.995600
+                                                          },
+                                      "parse":  {
+                                                    "samples":  60,
+                                                    "p50":  0.018700,
+                                                    "p95":  6.066400,
+                                                    "max":  23.516500
+                                                },
+                                      "incremental_prefix_request":  null
+                                  },
+                       "request_correction_counts":  {
+                                                         "on":  59,
+                                                         "off":  1
+                                                     }
                    }
-               ]
+               ],
+    "labeled_observations":  14387,
+    "unlabeled_observations":  3718
 }

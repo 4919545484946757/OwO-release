@@ -1,0 +1,11 @@
+{
+  "kind": "observational_candidate_structure_audit",
+  "current_and_base_runs": 86,
+  "observations": 14505,
+  "issues": 256,
+  "classes": {
+    "扫描分页出现重复候选元组": 256
+  },
+  "layout_rule_observations_not_defects": 358,
+  "note": "重复按文字+消费范围+分组判断；跨请求扫描可能受候选池扩容影响，不能直接当作同一静态池错误。组0包含合并词句区，不等同于纯句子。CLI在无分组时用3表示未分区，合法。未执行GUI。"
+}

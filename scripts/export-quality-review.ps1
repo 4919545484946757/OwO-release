@@ -26,20 +26,25 @@ function Add-Issue($Case,[string]$Kind,[string]$Priority,$Run) {
         $issues[$key]=[ordered]@{id=('Q-'+$key);priority=$Priority;kind=$Kind;status='待批阅';notes='';input=$Case.input;expected=@($Case.expected);test=$Case.test;tags=@($Case.tags);observations=[Collections.Generic.List[object]]::new()}
     }
     $issues[$key].tags=@(@($issues[$key].tags)+@($Case.tags) | Sort-Object -Unique)
-    $issues[$key].observations.Add([ordered]@{round=$Run.round;backend=$Run.backend;runtime=$currentRuntime;bridge_sha256=$currentBridgeHash;case_id=$Case.id;report=$Run.report;page_size=$Run.page_size;partition=$Run.partition;typing=$Run.typing;correction=$Run.correction;base_rank=$Case.base_rank;final_rank=$Case.final_first_page_rank;first_base=$Case.base_candidates[0].text;first_final=$Case.final_first_page[0].text;preview=$Case.preview;parse_paths=@($Case.paths);scan_truncated=$Case.base_scan_truncated;base_candidates=@($Case.base_candidates | Select-Object -First 7);final_candidates=@($Case.final_first_page);expansion_evidence=$Case.expansion_evidence;runtime_error=$Case.error;model_failed=$Case.model_failed;base_ms=$Case.timing_ms.base_request;settled_ms=$Case.timing_ms.settled_request})
+    $actualCorrection=if ($null -ne $Case.test.correction) {if ($Case.test.correction) {'on'} else {'off'}} else {$Run.correction}
+    $issues[$key].observations.Add([ordered]@{round=$Run.round;backend=$Run.backend;runtime=$currentRuntime;cli_sha256=$currentManifest.cli_asset.sha256;lexicon_sha256=$currentManifest.lexicon.sha256;model_sha256=$currentManifest.model_asset.sha256;bridge_sha256=$currentBridgeHash;case_id=$Case.id;report=$Run.report;page_size=$Run.page_size;partition=$Run.partition;typing=$Run.typing;correction=$actualCorrection;correction_default=$Run.correction;top_k=$currentManifest.top_k;max_pages=$currentManifest.max_pages;model_requested=$Case.model_requested;model_applied=$Case.model_applied;base_rank=$Case.base_rank;final_rank=$Case.final_first_page_rank;first_base=$Case.base_candidates[0].text;first_final=$Case.final_first_page[0].text;preview=$Case.preview;parse_paths=@($Case.paths);scan_truncated=$Case.base_scan_truncated;base_candidates=@($Case.base_candidates | Select-Object -First 7);final_candidates=@($Case.final_first_page);expansion_evidence=$Case.expansion_evidence;runtime_error=$Case.error;model_failed=$Case.model_failed;base_ms=$Case.timing_ms.base_request;settled_ms=$Case.timing_ms.settled_request})
 }
 foreach ($run in $runs) {
     $path=Join-Path $run.report 'cases.jsonl'
     if (-not $run.summary.complete -or -not (Test-Path -LiteralPath $path)) { throw 'Incomplete run; refusing to present a completed review.' }
-    $currentRuntime='base'; $currentBridgeHash=$null
+    $currentRuntime='base'; $currentBridgeHash=$null; $currentManifest=$null
+    $requestCorrectionCounts=[ordered]@{on=0;off=0}
+    $run|Add-Member -NotePropertyName request_correction_counts -NotePropertyValue $requestCorrectionCounts -Force
     foreach ($line in [IO.File]::ReadLines($path,[Text.Encoding]::UTF8)) {
         $case=$line | ConvertFrom-Json
         if ($case.record -eq 'manifest') {
+            $currentManifest=$case
             if ($case.bridge) { $currentRuntime=if ($case.bridge.path -match 'runtime-p1-x86_64') { 'release-legacy' } elseif ($case.bridge.path -match 'runtime-x86_64') { 'current' } else { 'explicit-other' }; $currentBridgeHash=$case.bridge.sha256 }
             $run | Add-Member -NotePropertyName runtime_label -NotePropertyValue $currentRuntime -Force
         }
         if ($case.record -ne 'case') { continue }
-        $noCorrectionControl=($run.correction -eq 'off' -and $case.tags -contains 'typo')
+        if ($case.test.correction) {$requestCorrectionCounts.on++} else {$requestCorrectionCounts.off++}
+        $noCorrectionControl=($case.test.correction -eq $false -and $case.tags -contains 'typo')
         $knownAnnotationError=($run.round -eq 'r14-context' -and $case.id -eq 'ctx26-a')
         if ($knownAnnotationError) { Add-Issue $case '原始标注读音错误：公司应为gongsi（见标注审计）' 'P2' $run }
         $observations++; [void]$testKeys.Add((Definition $case.test))
@@ -59,7 +64,8 @@ foreach ($run in $runs) {
             if ($case.model_applied -and $case.base_rank -eq 1 -and $case.final_first_page_rank -ne 1) { Add-Issue $case '模型改变了原本命中的首选（歧义待评）' 'P2' $run }
             elseif (($case.base_rank -gt 1) -or ($case.final_first_page_rank -gt 1)) { Add-Issue $case '首候选与目标不同（同音歧义待评）' 'P3' $run }
         }
-        if ($case.timing_ms.base_request -gt 50) { Add-Issue $case '基础请求超过50毫秒（需重复测量）' 'P2' $run }
+        if ($case.timing_ms.base_request -gt 200) { Add-Issue $case '基础请求超过200毫秒（需重复测量）' 'P1' $run }
+        elseif ($case.timing_ms.base_request -gt 50) { Add-Issue $case '基础请求超过50毫秒（需重复测量）' 'P2' $run }
     }
 }
 $all=@($issues.Values | ForEach-Object { [pscustomobject]$_ } | Sort-Object priority,kind,input,id)
@@ -67,12 +73,16 @@ $all=@($issues.Values | ForEach-Object { [pscustomobject]$_ } | Sort-Object prio
 $jsonLines=@($all | ForEach-Object { $_ | ConvertTo-Json -Depth 20 -Compress })
 [IO.File]::WriteAllLines((Join-Path $OutputDirectory 'issues.jsonl'),$jsonLines,$utf8)
 $summary=[ordered]@{generated_utc=[DateTime]::UtcNow.ToString('o');runs=$runs.Count;case_observations=$observations;distinct_test_definitions=$testKeys.Count;issue_count=$all.Count;priorities=@($all | Group-Object priority | ForEach-Object { @{priority=$_.Name;count=$_.Count} });classes=@($all | Group-Object kind | ForEach-Object { @{kind=$_.Name;count=$_.Count} });rounds=@($runs | ForEach-Object { [ordered]@{round=$_.round;backend=$_.backend;runtime=$_.runtime_label;page_size=$_.page_size;partition=$_.partition;typing=$_.typing;correction=$_.correction;report=$_.report;metrics=$_.summary.metrics;timing=$_.summary.timing_ms} })}
+$summary.Add('labeled_observations',[long](($runs|ForEach-Object {$_.summary.metrics.labeled}|Measure-Object -Sum).Sum))
+$summary.Add('unlabeled_observations',$observations-$summary.labeled_observations)
+for ($index=0;$index -lt $runs.Count;$index++) {$summary.rounds[$index].Add('request_correction_counts',$runs[$index].request_correction_counts)}
 [IO.File]::WriteAllText((Join-Path $OutputDirectory 'summary.json'),($summary | ConvertTo-Json -Depth 20),$utf8)
 function Markdown([object]$Value) { return ([string]$Value).Replace('|','\|').Replace("`r",' ').Replace("`n",' ') }
 $markdown=[Collections.Generic.List[string]]::new()
 $markdown.Add('# 拼音候选问题清单（待人工批阅）')
 $markdown.Add('')
 $markdown.Add(('已完成 '+$runs.Count+' 个后端/配置轮次，'+$observations+' 条用例观测，'+$testKeys.Count+' 个独立测试定义；自动汇总 '+$all.Count+' 个待批阅条目。'))
+$markdown.Add(('其中 '+$summary.labeled_observations+' 条观测带有目标文字，'+$summary.unlabeled_observations+' 条不带目标文字（主要用于前缀延迟/解析探测），不计作候选准确率样本。'))
 $markdown.Add('')
 $markdown.Add('自动筛出不等于确认缺陷。未命中仅指本轮可见候选与扫描预算；同音歧义、标注合理性、人工可接受性需要逐项判断。词典抽样自一致性不能当作整体输入准确率。')
 $markdown.Add('')
@@ -104,10 +114,19 @@ $html=@'
 const $=id=>document.getElementById(id);function node(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e}function persist(){try{localStorage.setItem(storage,JSON.stringify(reviews))}catch{}}
 function state(issue){return reviews[issue.id]||{status:'待批阅',notes:''}};function options(id,values){for(const value of values){const e=node('option',value);e.value=value;$(id).append(e)}};options('priority',[...new Set(data.issues.map(i=>i.priority))]);options('kind',[...new Set(data.issues.map(i=>i.kind))]);options('status',statuses);
 $('stats').textContent=`${data.summary.runs} 个后端/配置轮次 · ${data.summary.case_observations} 条观测 · ${data.summary.distinct_test_definitions} 个独立测试定义 · ${data.summary.issue_count} 个去重待批阅项`;
-function relevant(issue){const mode=$('runtime').value;return issue.observations.filter(o=>mode==='all'||(mode==='active'?(o.runtime==='base'||o.runtime==='current'):o.runtime===mode)).sort((a,b)=>(a.runtime==='current'?0:a.runtime==='base'?1:2)-(b.runtime==='current'?0:b.runtime==='base'?1:2))}function filtered(){const q=$('search').value.trim().toLowerCase();return data.issues.filter(i=>relevant(i).length&&(!$('priority').value||i.priority===$('priority').value)&&(!$('kind').value||i.kind===$('kind').value)&&(!$('status').value||state(i).status===$('status').value)&&(!q||[i.input,i.expected.join(' '),i.tags.join(' '),i.kind,...relevant(i).map(o=>o.first_final||'')].join(' ').toLowerCase().includes(q)))}
+const category=node('select');category.id='category';const categoryAll=node('option','所有语料类别');categoryAll.value='';category.append(categoryAll);$('runtime').after(category);for(const [value,label] of [['full','完整拼音'],['explicit','显式分割'],['initials','简拼'],['initial_character','单字首字母'],['mixed','混拼'],['incomplete','不完整拼音'],['typo','纠错变体'],['prefix','部分消费前缀'],['context','上下文'],['dictionary_self_consistency','词典自一致性'],['prefix_latency_probe','中间前缀延迟']]){const option=node('option',label);option.value=value;category.append(option)}
+function relevant(issue){const mode=$('runtime').value;return issue.observations.filter(o=>mode==='all'||(mode==='active'?(o.runtime==='base'||o.runtime==='current'):o.runtime===mode)).sort((a,b)=>(a.runtime==='current'?0:a.runtime==='base'?1:2)-(b.runtime==='current'?0:b.runtime==='base'?1:2))}function filtered(){const q=$('search').value.trim().toLowerCase();return data.issues.filter(i=>relevant(i).length&&(!category.value||i.tags.includes(category.value))&&(!$('priority').value||i.priority===$('priority').value)&&(!$('kind').value||i.kind===$('kind').value)&&(!$('status').value||state(i).status===$('status').value)&&(!q||[i.input,i.expected.join(' '),i.tags.join(' '),i.kind,...relevant(i).map(o=>o.first_final||'')].join(' ').toLowerCase().includes(q)))}
 function render(){const all=filtered(),size=+$('size').value;page=Math.max(0,Math.min(page,Math.ceil(all.length/size)-1));$('rows').replaceChildren();$('page').textContent=`筛选 ${all.length} 项 · 第 ${page+1} / ${Math.max(1,Math.ceil(all.length/size))} 页`;$('prev').disabled=page===0;$('next').disabled=(page+1)*size>=all.length;for(const issue of all.slice(page*size,(page+1)*size)){const tr=node('tr'),a=node('td',undefined,'priority '+issue.priority);a.append(node('div',issue.priority),node('div',issue.kind),node('div',issue.id,'small'));const b=node('td',undefined,'target');b.append(node('div',issue.expected.join(' / ')),node('code',issue.input));for(const tag of issue.tags)b.append(node('span',tag,'small badge'));const observations=relevant(issue),c=node('td',undefined,'details'),o=observations[0];c.append(node('div','实际首选（'+o.runtime+'）：'+(o.first_final||'（无）')),node('div',`基础排名 ${o.base_rank??'未命中'} / 最终首页 ${o.final_rank??'未命中'} · 当前筛选 ${observations.length} / 存档 ${issue.observations.length} 条观测`,'small'));const d=node('details');d.append(node('summary','查看配置、候选与差异证据'));d.append(node('pre',JSON.stringify({test:issue.test,observations},null,2)));c.append(d);const e=node('td'),select=node('select');for(const status of statuses){const option=node('option',status);option.value=status;select.append(option)}select.value=state(issue).status;const notes=node('textarea');notes.placeholder='人工判断依据 / 复现备注';notes.value=state(issue).notes;select.onchange=()=>{reviews[issue.id]={status:select.value,notes:notes.value};persist()};notes.oninput=()=>{reviews[issue.id]={status:select.value,notes:notes.value};persist()};e.append(select,notes);tr.append(a,b,c,e);$('rows').append(tr)}}
-for(const id of ['search','runtime','priority','kind','status','size'])$(id).addEventListener(id==='search'?'input':'change',()=>{page=0;render()});$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};$('reset').onclick=()=>{for(const id of ['search','priority','kind','status'])$(id).value='';$('runtime').value='active';page=0;render()};$('save').onclick=()=>{const result={schema_version:1,report:'OwO quality review 2026-10-29',saved_at:new Date().toISOString(),reviews:data.issues.map(i=>({id:i.id,input:i.input,expected:i.expected,...state(i)}))};const url=URL.createObjectURL(new Blob([JSON.stringify(result,null,2)],{type:'application/json;charset=utf-8'}));const link=node('a');link.href=url;link.download='owo-quality-human-review.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};$('load').onclick=()=>$('file').click();$('file').onchange=async()=>{try{const file=$('file').files[0];if(!file||file.size>16*1024*1024)throw Error('文件过大或未选择');const input=JSON.parse(await file.text());if(input.schema_version!==1||!Array.isArray(input.reviews))throw Error('不是批阅JSON');const ids=new Set(data.issues.map(i=>i.id));let count=0;for(const item of input.reviews)if(ids.has(item.id)&&statuses.includes(item.status)&&typeof item.notes==='string'&&item.notes.length<=5000){reviews[item.id]={status:item.status,notes:item.notes};count++}persist();render();alert(`已导入 ${count} 项；未匹配的旧问题没有覆盖新问题`)}catch(e){alert('导入失败：'+e.message)}};render();
+for(const id of ['search','runtime','category','priority','kind','status','size'])$(id).addEventListener(id==='search'?'input':'change',()=>{page=0;render()});$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};$('reset').onclick=()=>{for(const id of ['search','category','priority','kind','status'])$(id).value='';$('runtime').value='active';page=0;render()};$('save').onclick=()=>{const result={schema_version:1,report:'OwO quality review 2026-10-29',saved_at:new Date().toISOString(),reviews:data.issues.map(i=>({id:i.id,input:i.input,expected:i.expected,...state(i)}))};const url=URL.createObjectURL(new Blob([JSON.stringify(result,null,2)],{type:'application/json;charset=utf-8'}));const link=node('a');link.href=url;link.download='owo-quality-human-review.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};$('load').onclick=()=>$('file').click();$('file').onchange=async()=>{try{const file=$('file').files[0];if(!file||file.size>16*1024*1024)throw Error('文件过大或未选择');const input=JSON.parse(await file.text());if(input.schema_version!==1||!Array.isArray(input.reviews))throw Error('不是批阅JSON');const ids=new Set(data.issues.map(i=>i.id));let count=0;for(const item of input.reviews)if(ids.has(item.id)&&statuses.includes(item.status)&&typeof item.notes==='string'&&item.notes.length<=5000){reviews[item.id]={status:item.status,notes:item.notes};count++}persist();render();alert(`已导入 ${count} 项；未匹配的旧问题没有覆盖新问题`)}catch(e){alert('导入失败：'+e.message)}};render();
 </script></html>
 '@
-[IO.File]::WriteAllText((Join-Path $OutputDirectory 'issues.html'),$html.Replace('__DATA__',$payload),$utf8)
+$htmlPath=Join-Path $OutputDirectory 'issues.html'
+$temporaryHtml=Join-Path $OutputDirectory ('.issues-'+[Guid]::NewGuid().ToString('N')+'.tmp')
+[IO.File]::WriteAllText($temporaryHtml,$html.Replace('__DATA__',$payload),$utf8)
+if (Test-Path -LiteralPath $htmlPath) {
+    $backupDirectory=Join-Path $SessionRoot 'export-backups'
+    [void][IO.Directory]::CreateDirectory($backupDirectory)
+    $backupHtml=Join-Path $backupDirectory ('issues-'+[Guid]::NewGuid().ToString('N')+'.html')
+    [IO.File]::Replace($temporaryHtml,$htmlPath,$backupHtml)
+} else {[IO.File]::Move($temporaryHtml,$htmlPath)}
 Write-Output ([ordered]@{runs=$runs.Count;observations=$observations;distinct_tests=$testKeys.Count;issues=$all.Count;output=$OutputDirectory} | ConvertTo-Json -Compress)

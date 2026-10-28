@@ -9,7 +9,8 @@ param(
     [ValidateSet('on','off')][string]$Correction='on',
     [ValidateSet('current','release-legacy')][string]$Runtime='current',
     [ValidateRange(1,101)][int]$MaxPages=8,
-    [ValidateRange(1,256)][int]$TopK=21
+    [ValidateRange(1,256)][int]$TopK=21,
+    [switch]$SkipExpanded
 )
 $ErrorActionPreference = 'Stop'
 $utf8 = [Text.UTF8Encoding]::new($false)
@@ -26,12 +27,14 @@ $datasetPath=[IO.Path]::GetFullPath($Dataset)
 $backends = if ($Backend -eq 'both') { @('base','libime') } else { @($Backend) }
 foreach ($kind in $backends) {
     $report=$Round+'-'+$kind+'-p'+$PageSize+'-'+$Partition+'-'+$Typing+'-c'+$Correction+'-'+$Runtime
+    if ($SkipExpanded) { $report+='-noexpand' }
     if (Test-Path -LiteralPath (Join-Path $SessionRoot ('reports/'+$report))) { throw "Report already exists; use a new round: $report" }
     $arguments=@('--dev','--root',$SessionRoot,'input','batch','--file',$datasetPath,'--report',$report,
         '--lexicon',(Join-Path $repo 'build/windows-release/rime-ice-cn-2026.06.30-v2.owolx'),
         '--model-backend',$kind,'--page-size',"$PageSize",'--partition',$Partition,'--typing',$Typing,
         '--correction',$Correction,'--top-k',"$TopK",'--max-pages',"$MaxPages",'--repeat','3',
-        '--check-expanded','--hash-assets','--allow-misses')
+        '--hash-assets','--allow-misses')
+    if (-not $SkipExpanded) { $arguments+='--check-expanded' }
     $runtimeFolder=if ($Runtime -eq 'current') { 'runtime-x86_64' } else { 'runtime-p1-x86_64' }
     if ($kind -eq 'libime') { $arguments += @('--run-model','--bridge',(Join-Path $repo ('build/dependencies/libime-1.1.15/'+$runtimeFolder+'/owo_libime_bridge.dll')),'--model',(Join-Path $repo 'build/dependencies/libime-1.1.15/model-20260804/lib/libime/zh_CN.lm'),'--model-timeout-ms','100') }
     & $cli @arguments | ForEach-Object { if ($_ -match '"record":"summary"') { $null = $_ } elseif ($_ -match '"ok":false' -and $_ -notmatch '"record":') { Write-Warning $_ } }

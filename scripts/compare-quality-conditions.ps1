@@ -1,7 +1,9 @@
 param(
     [Parameter(Mandatory=$true)][string]$Baseline,
     [Parameter(Mandatory=$true)][string]$Candidate,
-    [Parameter(Mandatory=$true)][string]$OutputFile
+    [Parameter(Mandatory=$true)][string]$OutputFile,
+    [ValidateSet('gold_context','id')][string]$PairBy='gold_context',
+    [switch]$AllowModelSwitch
 )
 # Exploratory paired comparison for changed input spelling / evaluation conditions.
 # Unlike compare-cli-reports.ps1, this is NOT a strict same-policy regression gate.
@@ -19,7 +21,7 @@ function Read-Cases($Directory) {
         if ($row.record -ne 'case') { continue }
         if (-not $row.expected.Count) { throw 'Paired comparison requires gold labels.' }
         if ($null -ne $row.test.consumed -and $row.test.consumed -ne $row.input.Length) { throw 'Partial-consumption cases require separate mapping.' }
-        $key=[ordered]@{expected=@($row.expected);context=$row.test.context;previous=$row.test.previous;valid=$row.test.valid}|ConvertTo-Json -Depth 10 -Compress
+        $key=if ($PairBy -eq 'id') { [string]$row.id } else { [ordered]@{expected=@($row.expected);context=$row.test.context;previous=$row.test.previous;valid=$row.test.valid}|ConvertTo-Json -Depth 10 -Compress }
         if ($cases.ContainsKey($key)) { throw 'Ambiguous pairing: repeated gold/context definition.' }
         $cases[$key]=$row
     }
@@ -28,16 +30,26 @@ function Read-Cases($Directory) {
 }
 $left=Read-Cases $Baseline; $right=Read-Cases $Candidate
 if ($left.cases.Count -ne $right.cases.Count) { throw 'Different case counts.' }
-foreach ($field in @('cli_asset','lexicon','model_asset','bridge')) {
+$assetFields=if ($AllowModelSwitch) {@('cli_asset','lexicon')} else {@('cli_asset','lexicon','model_asset','bridge')}
+foreach ($field in $assetFields) {
     if ($left.manifest.$field.sha256 -cne $right.manifest.$field.sha256) { throw ('Different/unhashed asset: '+$field) }
     if ($left.manifest.$field -and -not $left.manifest.$field.sha256) { throw 'Assets must be hashed.' }
 }
-if ($left.manifest.model -cne $right.manifest.model -or $left.manifest.learning -cne $right.manifest.learning) { throw 'Backend/learning differs.' }
+if ($left.manifest.learning -cne $right.manifest.learning) { throw 'Learning differs.' }
+if ($AllowModelSwitch) {
+    if ($left.manifest.model -ne 'base' -or $right.manifest.model -ne 'libime') {throw 'Model-switch control requires base -> libime.'}
+    foreach ($field in @('mode','typing','top_k','max_pages','repeat','check_expanded')) {if ($left.manifest.$field -cne $right.manifest.$field) {throw ('Model-switch policy differs: '+$field)}}
+    $leftConfig=($left.manifest.effective_config -split '\r?\n'|Where-Object {$_ -notmatch '^model_(ranking_enabled|timeout_ms)='}) -join "`n"
+    $rightConfig=($right.manifest.effective_config -split '\r?\n'|Where-Object {$_ -notmatch '^model_(ranking_enabled|timeout_ms)='}) -join "`n"
+    if ($leftConfig -cne $rightConfig) {throw 'Unrelated model-switch config differences.'}
+} elseif ($left.manifest.model -cne $right.manifest.model) {throw 'Backend differs.'}
 $changes=[Collections.Generic.List[object]]::new()
 $baseLost=0;$baseGained=0;$finalLost=0;$finalGained=0;$firstChanges=0;$baseFirstChanges=0
 foreach ($key in $left.cases.Keys) {
     if (-not $right.cases.ContainsKey($key)) { throw 'Missing paired gold/context definition.' }
     $a=$left.cases[$key];$b=$right.cases[$key]
+    if (($a.expected|ConvertTo-Json -Compress) -cne ($b.expected|ConvertTo-Json -Compress)) { throw 'Paired gold labels differ.' }
+    if ($AllowModelSwitch -and ($a.test|ConvertTo-Json -Depth 12 -Compress) -cne ($b.test|ConvertTo-Json -Depth 12 -Compress)) {throw 'Model-switch corpus/requests differ.'}
     $baseChange=($a.base_candidates[0].text -cne $b.base_candidates[0].text)
     $finalChange=($a.final_first_page[0].text -cne $b.final_first_page[0].text)
     if ($baseChange) {$baseFirstChanges++};if ($finalChange) {$firstChanges++}

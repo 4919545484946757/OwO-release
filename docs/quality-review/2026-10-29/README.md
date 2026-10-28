@@ -40,10 +40,21 @@
 - 人工清单、统计及复现定位在本目录更新；原始报告路径写入索引。
 
 人工批阅入口：[交互清单](issues.html)、[轮次汇总及问题摘要](issues.md)。
+建议从 [优先批阅清单](priority-review.md) 开始；补充证据包括 [长前缀延迟](latency-repro.md)、
+[上下文距离](context-window-repro.md)、[分段选词](partial-selection-repro.md)、[候选结构巡检](structure-issues.md)。
 优先阅读 [运行时审计](runtime-audit.md)、[分页复现](pagination-repro.md)、
 [显式分割对照](explicit-segmentation-repro.md)、[学习复核](learning-repro.md) 与 [标注审计](annotation-ledger.md)。
 交互清单默认仅显示当前桥接和基础候选；旧发行桥接结果需主动切换筛选。
 全部自动条目初始为“待批阅”，没有自动批准、自动判错或自动修改算法。
+
+交互页支持语料类别、运行时、类型、优先度及人工状态筛选，批阅意见可下载/导入JSON。
+`issues.jsonl` 是主清单；`structure-issues.jsonl` 是结构补充，两者有重叠，不可简单相加为缺陷总数。
+`structure-layout-observations.jsonl` 只记录布局规则观察，不计作缺陷。
+
+报告刷新：`scripts/export-quality-review.ps1`；结构补充：`node scripts/check-quality-candidate-structure.js`。
+报告一致性及筛选/导入导出逻辑检查：`node scripts/check-quality-review.js`（模拟DOM，不是截图/真实浏览器测试）。
+便携批阅包：`scripts/export-quality-review-bundle.ps1`，包含HTML、人工清单、原始报告快照、语料、复现脚本与逐文件SHA-256；
+不包含日常用户词库、词典/模型本体、输入法运行程序或安装包。
 
 本工作不是 TSF、快捷键、焦点、窗口、插件材质或安装程序的完整自检。
 所有语料为合成/已有公开词典数据，不采集真实输入历史、密码或应用上下文。

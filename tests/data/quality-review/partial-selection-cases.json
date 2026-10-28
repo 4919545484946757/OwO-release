@@ -1,0 +1,14 @@
+[
+  {"id":"continuous-world","input":"nihaoshijie","steps":[{"select":"你好","remaining":"shijie"},{"select":"世界","remaining":""}]},
+  {"id":"explicit-world","input":"ni'hao'shi'jie","steps":[{"select":"你好","remaining":"shi'jie"},{"select":"世界","remaining":""}]},
+  {"id":"possessive","input":"wodexiangfa","steps":[{"select":"我的","remaining":"xiangfa"},{"select":"想法","remaining":""}]},
+  {"id":"three-parts","input":"mingtianzaoshangjian","steps":[{"select":"明天","remaining":"zaoshangjian"},{"select":"早上","remaining":"jian"},{"select":"见","remaining":""}]},
+  {"id":"request-reading","input":"qingxianyueduwenjian","steps":[{"select":"请先","remaining":"yueduwenjian"},{"select":"阅读","remaining":"wenjian"},{"select":"文件","remaining":""}]},
+  {"id":"this-custom","input":"zhekuangaoduzidingyi","steps":[{"select":"这款","remaining":"gaoduzidingyi"},{"select":"高度","remaining":"zidingyi"},{"select":"自定义","remaining":""}]},
+  {"id":"one-custom","input":"yikuangaoduzidingyi","steps":[{"select":"一款","remaining":"gaoduzidingyi"},{"select":"高度","remaining":"zidingyi"},{"select":"自定义","remaining":""}]},
+  {"id":"uppercase-world","input":"NIHAOSHIJIE","steps":[{"select":"你好","remaining":"SHIJIE"},{"select":"世界","remaining":""}]},
+  {"id":"separate-goodnight","input":"wanan","steps":[{"select":"晚","remaining":"an"},{"select":"安","remaining":""}]},
+  {"id":"split-xian","input":"xian","steps":[{"select":"西","remaining":"an"},{"select":"安","remaining":""}]},
+  {"id":"add-option","input":"tianjiayigexuanxiang","steps":[{"select":"添加","remaining":"yigexuanxiang"},{"select":"一个","remaining":"xuanxiang"},{"select":"选项","remaining":""}]},
+  {"id":"explicit-possessive","input":"wo'de'xiang'fa","steps":[{"select":"我的","remaining":"xiang'fa"},{"select":"想法","remaining":""}]}
+]
