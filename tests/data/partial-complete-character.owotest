@@ -1,0 +1,11 @@
+# Isolated default page size 7; no learning feedback or application commits.
+query fengeqian
+select 4
+expect-commit 分隔
+expect-input qian
+expect 前
+expand
+expect 前
+select 1
+expect-input
+expect-commit 分隔前

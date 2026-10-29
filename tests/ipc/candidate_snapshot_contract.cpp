@@ -70,6 +70,9 @@ int main() {
         {{"you", "yi", "si", "ma"}, "有意思吗", 100},
         {{"bian"}, "变", 100000}, {{"bian"}, "边", 100000},
         {{"bian"}, "便", 100000}, {{"bian"}, "编", 100000},
+        {{"qian"}, "前", 10000}, {{"qian"}, "钱", 9000},
+        {{"qi", "an"}, "奇案", 1000000}, {{"qi", "an"}, "起岸", 900000},
+        {{"qi"}, "奇", 100000}, {{"qi"}, "起", 90000},
     });
     for (unsigned index = 0; index < 120; ++index) {
         const auto text = character(0x4e00 + index);
@@ -162,6 +165,7 @@ int main() {
     expect("wang", "kuang", "狂", "妄");
     expect("jieguo", "shenshou", "伸手", "接过"); // The model may still choose a credible homophone.
     expect("mingtianshangwushidianqian", "", "", "明天上午十点前");
+    expect("qian", "fenge", "分隔", "前");
     protocol::Message stop; stop.type = protocol::MessageType::shutdown_request; static_cast<void>(send(stop));
     client.reset(); server.join();
     model::ModelMessage model_stop; model_stop.type = model::ModelMessageType::shutdown_request;

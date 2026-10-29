@@ -971,6 +971,10 @@ void arrange_partitioned_candidate_pages(
         single_characters = std::move(reordered);
     }
 
+    // A phrase head such as qi in qi+an must not displace a complete qian
+    // character, even when the whole-input phrase was strongly ranked.
+    engine::prioritize_complete_characters(single_characters, full_input_bytes);
+
     // Real multi-character dictionary entries have no quota. Compositions
     // only fill the unused capacity of two configured pages:
     // page_size * 2 - real dictionary entries. Single characters are excluded

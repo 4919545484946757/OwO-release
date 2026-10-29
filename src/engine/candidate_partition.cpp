@@ -16,6 +16,16 @@ bool sentence(const Candidate &candidate, std::size_t full_input_bytes) {
 }
 } // namespace
 
+void prioritize_complete_characters(std::vector<Candidate>& candidates,
+                                    const std::size_t full_input_bytes) {
+    std::stable_partition(candidates.begin(), candidates.end(),
+        [full_input_bytes](const Candidate& value) {
+            return value.match_kind == InputMatchKind::exact &&
+                   value.consumed_input_bytes == full_input_bytes &&
+                   value.syllables.size() == 1 && characters(value.text) == 1;
+        });
+}
+
 void apply_exact_dictionary_sentence_penalty(std::span<Candidate> candidates,
                                               std::size_t full_input_bytes) {
     std::unordered_set<std::size_t> dictionary_lengths;

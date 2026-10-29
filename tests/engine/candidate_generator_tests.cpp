@@ -1041,6 +1041,30 @@ int main() {
         }
     }
 
+    const owo::engine::MemoryLexicon complete_character_lexicon({
+        {{"qian"}, "前", 10000}, {{"qian"}, "钱", 9000},
+        {{"qi", "an"}, "奇案", 1000000}, {{"qi", "an"}, "起岸", 900000},
+        {{"qi"}, "奇", 100000}, {{"qi"}, "起", 90000}, {{"an"}, "案", 100000},
+    });
+    const owo::engine::CandidateGenerator complete_character_generator(complete_character_lexicon);
+    for (const auto limit : {std::size_t{8}, std::size_t{32}}) {
+        const auto values = complete_character_generator.generate(
+            schema.parse("qian"), limit, false, {}, nullptr, {}, true, 7);
+        bool saw_prefix = false, saw_complete = false, saw_alternative = false;
+        for (const auto& value : values) {
+            if (value.model_only) continue;
+            saw_alternative |= value.text == "奇案";
+            if (utf8_character_count(value.text) != 1) continue;
+            if (value.consumed_input_bytes == 2) saw_prefix = true;
+            if (value.consumed_input_bytes == 4) {
+                if (saw_prefix) return fail("phrase head displaced an exact whole-input character");
+                saw_complete = true;
+            }
+        }
+        if (!saw_complete || !saw_alternative)
+            return fail("complete character protection dropped exact or alternate readings");
+    }
+
     const auto cancelled_generation = word_priority_generator.generate(
         schema.parse("shi"), 32, false, {}, nullptr, [] { return true; });
     if (!cancelled_generation.empty())

@@ -2045,6 +2045,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         promote_alternative_exact_segmentation(dictionary, full_input_bytes);
         promote_full_candidate_heads(
             sentences, dictionary, full_input_bytes, single_characters);
+        prioritize_complete_characters(single_characters, full_input_bytes);
         // Preserve every source in the bounded pool passed to Core. Appending
         // all sentences, then all dictionary words, and only then characters
         // meant the final `limit` truncation could erase entire groups. Core's
