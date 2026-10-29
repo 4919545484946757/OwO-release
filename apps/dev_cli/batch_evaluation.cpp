@@ -256,7 +256,8 @@ int evaluate_cases(const std::vector<EvaluationCase>& cases, const EvaluationOpt
     for (const auto& test : cases) {
         bool pass = true, runtime_error = false, parse_ok = false, preview_ok = false, path_ok = false, model_requested = false, model_applied = false, model_failed = false, expansion_checked = false, expansion_ok = true, truncated = false;
         std::string error, actual_preview; std::vector<std::string> paths; std::vector<Item> base_items, final_items;
-        std::vector<Item> expansion_items; std::optional<std::size_t> expansion_mismatch;
+        std::vector<Item> expansion_items, presented_items; std::optional<std::size_t> expansion_mismatch;
+        std::string expansion_basis = "base";
         std::size_t base_rank = 0, final_rank = 0, first_count = 0, final_count = 0; double first_ms = 0, settled_ms = 0, parse_ms = 0;
         std::vector<double> repeats;
         const bool correction = test.correction.value_or(options.correction);
@@ -285,13 +286,18 @@ int evaluate_cases(const std::vector<EvaluationCase>& cases, const EvaluationOpt
                 truncated = has_more;
                 if (options.check_expanded) {
                     request.page = 0; request.expanded = true; auto expanded = items(query(request).base); expansion_checked = true;
-                    const auto count = std::min(expanded.size(), base_items.size());
+                    presented_items = base_items;
+                    if (first.model_applied && final_items.size() == first_count) {
+                        std::copy(final_items.begin(), final_items.end(), presented_items.begin());
+                        expansion_basis = "final_first_page";
+                    }
+                    const auto count = std::min(expanded.size(), presented_items.size());
                     for (std::size_t i = 0; i < count; ++i) {
-                        const bool same = expanded[i].text == base_items[i].text && expanded[i].consumed == base_items[i].consumed && expanded[i].group == base_items[i].group;
+                        const bool same = expanded[i].text == presented_items[i].text && expanded[i].consumed == presented_items[i].consumed && expanded[i].group == presented_items[i].group;
                         if (!same && !expansion_mismatch) expansion_mismatch = i;
                         expansion_ok &= same;
                     }
-                    const auto scanned = std::min(base_items.size(), protocol::kMaximumCandidateCount);
+                    const auto scanned = std::min(presented_items.size(), protocol::kMaximumCandidateCount);
                     if (expanded.size() < scanned || (!has_more && expanded.size() != scanned)) expansion_ok = false;
                     if (!expansion_ok && !expansion_mismatch) expansion_mismatch = count;
                     if (!expansion_ok) expansion_items = std::move(expanded);
@@ -322,7 +328,7 @@ int evaluate_cases(const std::vector<EvaluationCase>& cases, const EvaluationOpt
         std::string expansion_evidence = "null";
         if (expansion_mismatch) {
             const auto index = *expansion_mismatch;
-            expansion_evidence = "{\"rank\":" + std::to_string(index + 1) + ",\"paged_count\":" + std::to_string(base_items.size()) + ",\"expanded_count\":" + std::to_string(expansion_items.size()) + ",\"paged\":" + item_json(index < base_items.size() ? std::vector<Item>{base_items[index]} : std::vector<Item>{}) + ",\"expanded\":" + item_json(index < expansion_items.size() ? std::vector<Item>{expansion_items[index]} : std::vector<Item>{}) + '}';
+            expansion_evidence = "{\"basis\":" + quote(expansion_basis) + ",\"rank\":" + std::to_string(index + 1) + ",\"paged_count\":" + std::to_string(presented_items.size()) + ",\"expanded_count\":" + std::to_string(expansion_items.size()) + ",\"paged\":" + item_json(index < presented_items.size() ? std::vector<Item>{presented_items[index]} : std::vector<Item>{}) + ",\"expanded\":" + item_json(index < expansion_items.size() ? std::vector<Item>{expansion_items[index]} : std::vector<Item>{}) + '}';
         }
         emit("{\"schema_version\":1,\"record\":\"case\",\"id\":" + quote(test.id) + ",\"input\":" + quote(test.input) + ",\"expected\":" + strings(test.expected) + ",\"tags\":" + strings(test.tags) + ",\"test\":" + case_spec(test, correction) + ",\"pass\":" + boolean(pass) + ",\"runtime_error\":" + boolean(runtime_error) + ",\"error\":" + quote(error) +
             ",\"parse_validity_pass\":" + boolean(parse_ok) + ",\"paths\":" + strings(paths) + ",\"preview\":" + quote(actual_preview) + ",\"expected_segmentation\":" + quote(test.segmentation) + ",\"base_rank\":" + (base_rank ? std::to_string(base_rank) : "null") + ",\"final_first_page_rank\":" + (final_rank ? std::to_string(final_rank) : "null") + ",\"base_scan_truncated\":" + boolean(truncated) + ",\"base_candidates\":" + item_json(base_items) + ",\"final_first_page\":" + item_json(final_items) + ",\"model_requested\":" + boolean(model_requested) + ",\"model_applied\":" + boolean(model_applied) + ",\"model_failed\":" + boolean(model_failed) + ",\"expansion_checked\":" + boolean(expansion_checked) + ",\"expansion_pass\":" + boolean(expansion_ok) + ",\"expansion_evidence\":" + expansion_evidence + ",\"timing_ms\":{\"parse\":" + decimal(parse_ms) + ",\"base_request\":" + decimal(first_ms) + ",\"settled_request\":" + decimal(settled_ms) + ",\"repeat_base\":" + timings(repeats) + "}}");
