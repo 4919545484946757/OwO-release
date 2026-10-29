@@ -1721,6 +1721,9 @@ HRESULT TextService::ensure_device_resources(SIZE surface_size) {
         result = create_brush(theme_color(candidate_theme_.secondary_text.value_or(plugin::CandidateThemeColor{
             candidate_theme_.candidate_text.rgb, candidate_theme_.candidate_text.opacity * 0.64F})), &secondary_text_brush_);
     if (SUCCEEDED(result))
+        result = create_brush(D2D1::ColorF(candidate_light_palette_ ? 0x707070 : 0xa6a6a6,
+            candidate_theme_.candidate_text.opacity), &preview_text_brush_);
+    if (SUCCEEDED(result))
         result = create_brush(theme_color(candidate_theme_.pinyin_text), &accent_brush_);
     if (SUCCEEDED(result))
         result = create_brush(theme_color(candidate_theme_.candidate_block), &highlight_brush_);
@@ -1757,6 +1760,7 @@ void TextService::discard_device_resources() noexcept {
     release_interface(highlight_brush_);
     release_interface(accent_brush_);
     release_interface(secondary_text_brush_);
+    release_interface(preview_text_brush_);
     release_interface(text_brush_);
     release_interface(divider_brush_);
     release_interface(border_brush_);
@@ -2868,7 +2872,8 @@ bool TextService::render_candidate_window() {
         render_target_->FillRoundedRectangle(badge, candidate_badge_brush_);
         const std::wstring label = std::to_wstring(interactive && candidates_expanded_ ? index % page_size + 1 : index + 1);
         render_target_->DrawTextW(label.data(), static_cast<UINT32>(label.size()),
-                                  label_text_format_, badge.rect, active_page ? candidate_number_brush : secondary_text_brush_,
+                                  label_text_format_, badge.rect, !interactive ? preview_text_brush_ :
+                                      active_page ? candidate_number_brush : secondary_text_brush_,
                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
         const auto display = wrapped_candidate_text(text, wrap_length);
         render_target_->DrawTextW(
@@ -2876,7 +2881,7 @@ bool TextService::render_candidate_window() {
             candidate_text_format_,
             D2D1::RectF(bounds.left + 33.0F, bounds.top, bounds.right - 6.0F,
                         bounds.bottom),
-            text_brush_, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+            interactive ? text_brush_ : preview_text_brush_, D2D1_DRAW_TEXT_OPTIONS_CLIP);
         if (interactive) add_hit_region(bounds, target);
     };
 

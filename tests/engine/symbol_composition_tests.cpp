@@ -55,8 +55,8 @@ int main() {
     }, 2);
     check(choices.size() == 2 && choices[1].text == "我拟好", "replace quoted span only");
     auto config = owo::config::AppConfig{};
-    check(!config.pinyin_symbol_compatibility_enabled && config.separator_shortcuts == std::vector<std::string>{"Quote"}, "compatible defaults");
-    config.pinyin_symbol_compatibility_enabled = true;
+    check(config.pinyin_symbol_compatibility_enabled && config.separator_shortcuts == std::vector<std::string>{"Quote"}, "symbol compatibility enabled by default");
+    config.pinyin_symbol_compatibility_enabled = false;
     config.separator_shortcuts = {"Ctrl+F7", "Alt+F8"};
     const auto roundtrip = owo::config::parse_config(owo::config::serialize_config(config));
     check(roundtrip.ok && roundtrip.value == config, "multi binding config roundtrip");

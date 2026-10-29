@@ -35,7 +35,7 @@ struct AppConfig {
     bool user_lexicon_completion_enabled{true};
     std::uint32_t user_lexicon_completion_max_syllables{0};
     bool chinese_punctuation_enabled{true};
-    bool pinyin_symbol_compatibility_enabled{false};
+    bool pinyin_symbol_compatibility_enabled{true};
     bool separator_shortcut_enabled{true};
     std::vector<std::string> separator_shortcuts{"Quote"};
     std::uint32_t chinese_punctuation_mask{kChinesePunctuationAll};

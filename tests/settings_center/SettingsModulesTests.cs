@@ -16,6 +16,7 @@ string Json(object? value) => JsonSerializer.Serialize(value);
 try {
     var client = new ConfigShellClient(Path.Combine(root, "owo.conf"), Path.GetFullPath(args[0]));
     var defaults = await client.LoadDefaultsAsync();
+    Check(defaults.PinyinSymbolCompatibilityEnabled, "Symbol compatibility defaults to enabled");
     await client.SaveAsync(defaults);
     var before = File.ReadAllBytes(client.ConfigPath);
     var modules = new SettingsModules();

@@ -214,6 +214,19 @@ struct ExpandedCandidateTestAccess {
             if (region.target.candidate_index >= 7 || region.bounds.top >= single.cy) return 37;
         }
         if (active_targets != 7 || service->candidate_shortcut_index(6) != 6) return 38;
+        service->candidate_theme_.candidate_text.rgb = 0x12c47b;
+        for (const bool light : {false, true}) {
+            service->candidate_light_palette_ = light;
+            service->discard_device_resources();
+            if (!service->render_candidate_window()) return 40;
+            const auto gray = service->preview_text_brush_->GetColor();
+            const auto expected = static_cast<float>(light ? 0x70 : 0xa6) / 255.0F;
+            if (std::abs(gray.r - expected) > 0.001F || std::abs(gray.g - expected) > 0.001F ||
+                std::abs(gray.b - expected) > 0.001F ||
+                std::abs(gray.a - service->candidate_theme_.candidate_text.opacity) > 0.001F) return 41;
+            const auto main = service->text_brush_->GetColor();
+            if (std::abs(main.g - 196.0F / 255.0F) > 0.001F) return 42;
+        }
         service->candidates_expanded_ = true;
         const auto expanded_with_aux = service->desired_candidate_window_size();
         service->following_previews_.clear();

@@ -344,6 +344,7 @@ private:
     ID2D1SolidColorBrush* divider_brush_{nullptr};
     ID2D1SolidColorBrush* text_brush_{nullptr};
     ID2D1SolidColorBrush* secondary_text_brush_{nullptr};
+    ID2D1SolidColorBrush* preview_text_brush_{nullptr};
     ID2D1SolidColorBrush* accent_brush_{nullptr};
     ID2D1SolidColorBrush* highlight_brush_{nullptr};
     ID2D1SolidColorBrush* strict_accent_brush_{nullptr};

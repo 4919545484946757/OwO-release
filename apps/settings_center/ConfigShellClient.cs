@@ -31,7 +31,7 @@ internal sealed record SettingsSnapshot(string InputScheme,
                                         bool ExpandedPreviousPageShortcutEnabled, IReadOnlyList<string> ExpandedPreviousPageShortcuts,
                                         bool ExpandedNextPageShortcutEnabled, IReadOnlyList<string> ExpandedNextPageShortcuts)
 {
-    public bool PinyinSymbolCompatibilityEnabled { get; init; }
+    public bool PinyinSymbolCompatibilityEnabled { get; init; } = true;
     public bool SeparatorShortcutEnabled { get; init; } = true;
     public IReadOnlyList<string> SeparatorShortcuts { get; init; } = new[] { "Quote" };
 }
