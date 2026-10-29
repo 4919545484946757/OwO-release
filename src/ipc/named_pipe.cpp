@@ -550,7 +550,8 @@ std::size_t visible_candidate_count(const std::vector<engine::Candidate>& candid
 
 void preserve_candidate_pool_prefix(
     const std::vector<engine::Candidate>& previous,
-    std::vector<engine::Candidate>& expanded, std::size_t full_input_bytes) {
+    std::vector<engine::Candidate>& expanded, std::size_t full_input_bytes,
+    const bool model_refined) {
     if (previous.empty() || expanded.empty()) return;
     std::vector<engine::Candidate> stable;
     stable.reserve(expanded.size());
@@ -579,12 +580,13 @@ void preserve_candidate_pool_prefix(
         stable.push_back(existing);
         sentences += sentence(existing);
     }
+    const auto sentence_limit = model_refined ? sentences : std::size_t{2};
     for (std::size_t index = 0; index < expanded.size(); ++index) {
         if (used[index]) continue;
         auto& value = expanded[index];
         if (value.model_only) { hidden.push_back(std::move(value)); continue; }
         if (stable.size() >= protocol::kMaximumCandidateCount) continue;
-        if (sentence(value) && sentences >= 2) {
+        if (sentence(value) && sentences >= sentence_limit) {
             value.model_only = true; hidden.push_back(std::move(value)); continue;
         }
         sentences += sentence(value);
@@ -616,14 +618,15 @@ public:
         return found->second->second;
     }
 
-    void publish_model_prefix(const CandidateCacheKey& key,
+    bool publish_model_prefix(const CandidateCacheKey& key,
                               const std::vector<std::string>& text,
-                              const std::vector<std::uint64_t>& consumed) {
+                              const std::vector<std::uint64_t>& consumed,
+                              const std::size_t replaced_count) {
         const auto found = entries_.find(key);
-        if (found == entries_.end() || text.size() != consumed.size() || text.empty()) return;
+        if (found == entries_.end() || text.size() != consumed.size() || text.empty()) return false;
         auto& value = found->second->second;
         const auto visible = visible_candidate_count(value.candidates);
-        if (text.size() > visible) return;
+        if (text.size() > replaced_count || replaced_count > visible) return false;
         std::vector<engine::Candidate> ordered;
         std::vector<bool> used(value.candidates.size());
         ordered.reserve(visible);
@@ -633,17 +636,18 @@ public:
                 if (!used[source] && value.candidates[source].text == text[index] &&
                     value.candidates[source].consumed_input_bytes == consumed[index]) { match = source; break; }
             // A delayed result cannot steal an item from a different page.
-            if (match == value.candidates.size() || (match >= text.size() && match < visible)) return;
+            if (match == value.candidates.size() || (match >= replaced_count && match < visible)) return false;
             used[match] = true;
             auto candidate = value.candidates[match]; candidate.model_only = false;
             ordered.push_back(std::move(candidate));
         }
-        ordered.insert(ordered.end(), value.candidates.begin() + static_cast<std::ptrdiff_t>(text.size()),
+        ordered.insert(ordered.end(), value.candidates.begin() + static_cast<std::ptrdiff_t>(replaced_count),
                        value.candidates.begin() + static_cast<std::ptrdiff_t>(visible));
         // One authoritative presentation snapshot per input/context/config key.
         // Displaced/unused hidden alternatives are not additional visible pages.
         value.candidates = std::move(ordered);
         value.model_refined = true;
+        return true;
     }
 
     void put(CandidateCacheKey key, CachedCandidateResult value) {
@@ -1273,6 +1277,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
         std::vector<std::uint64_t> candidate_confidence;
         std::vector<bool> joint_phrase_partition;
         std::vector<bool> generated_sentences;
+        std::vector<std::uint64_t> sentence_segments;
         std::size_t sentence_limit{};
         std::size_t full_input_bytes{};
         std::size_t visible_count{};
@@ -1599,11 +1604,37 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             pending.learned_preferences, pending.candidates,
                             pending.candidate_consumed, response.candidates,
                             response.candidate_consumed, pending.joint_phrase_partition);
+                        // If the leader is unchanged, retain a quality-gated
+                        // alternative with the same leading phrase and a
+                        // different ending. A hidden homophone echo must not
+                        // erase the base page's only distinct completion.
+                        if (pending.visible_count >= 2 && pending.sentence_limit >= 2 &&
+                            pending.generated_sentences[0] && pending.generated_sentences[1] &&
+                            !response.candidates.empty() && response.candidates.front() == pending.candidates[0] &&
+                            utf8_character_count(pending.candidates[0]) == 4 &&
+                            utf8_character_count(pending.candidates[1]) == 4) {
+                            const auto first_boundaries = utf8_boundaries(pending.candidates[0]);
+                            const auto other_boundaries = utf8_boundaries(pending.candidates[1]);
+                            if (std::string_view(pending.candidates[0]).substr(0, first_boundaries[2]) ==
+                                std::string_view(pending.candidates[1]).substr(0, other_boundaries[2])) {
+                                const auto alternative = std::find(response.candidates.begin(),
+                                    response.candidates.end(), pending.candidates[1]);
+                                if (alternative != response.candidates.end()) {
+                                    const auto index = static_cast<std::size_t>(alternative - response.candidates.begin());
+                                    auto text = std::move(response.candidates[index]);
+                                    const auto consumed = response.candidate_consumed[index];
+                                    response.candidates.erase(response.candidates.begin() + static_cast<std::ptrdiff_t>(index));
+                                    response.candidate_consumed.erase(response.candidate_consumed.begin() + static_cast<std::ptrdiff_t>(index));
+                                    response.candidates.insert(response.candidates.begin() + 1, std::move(text));
+                                    response.candidate_consumed.insert(response.candidate_consumed.begin() + 1, consumed);
+                                }
+                            }
+                        }
                         if (!pending.generated_sentences.empty())
                             limit_model_sentence_candidates(
                                 pending.candidates, pending.candidate_consumed,
                                 pending.generated_sentences, pending.sentence_limit,
-                                response.candidates, response.candidate_consumed);
+                                response.candidates, response.candidate_consumed, pending.sentence_segments);
                         response.candidate_groups = candidate_groups_for_order(
                             response.candidates, response.candidate_consumed,
                             pending.candidates, pending.candidate_consumed,
@@ -1641,8 +1672,25 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             if (!response.candidate_groups.empty())
                                 response.candidate_groups.resize(pending.visible_count);
                         }
-                        candidate_cache.publish_model_prefix(pending.cache_key,
-                            response.candidates, response.candidate_consumed);
+                        if (candidate_cache.publish_model_prefix(pending.cache_key,
+                            response.candidates, response.candidate_consumed, pending.visible_count)) {
+                            // Filtering a weak second sentence can leave one
+                            // slot empty. Fill it from the same canonical tail,
+                            // not by resurrecting the rejected composition.
+                            if (auto snapshot = candidate_cache.get_existing(pending.cache_key)) {
+                                response.candidates.clear(); response.candidate_consumed.clear();
+                                response.candidate_groups.clear();
+                                const auto count = std::min(pending.visible_count,
+                                    visible_candidate_count(snapshot->candidates));
+                                for (std::size_t index = 0; index < count; ++index) {
+                                    const auto& candidate = snapshot->candidates[index];
+                                    response.candidates.push_back(candidate.text);
+                                    response.candidate_consumed.push_back(candidate.consumed_input_bytes);
+                                    if (!pending.candidate_groups.empty())
+                                        response.candidate_groups.push_back(candidate_group(candidate, pending.full_input_bytes));
+                                }
+                            }
+                        }
                     }
                 }
                 }
@@ -1682,6 +1730,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 std::vector<std::uint64_t> model_candidate_confidence;
                 std::vector<bool> model_candidate_joint_partition;
                 std::vector<bool> model_candidate_generated_sentence;
+                std::vector<std::uint64_t> model_candidate_segments;
                 std::vector<std::string> model_hidden_candidates;
                 std::vector<std::uint64_t> model_hidden_consumed;
                 std::vector<std::uint64_t> model_hidden_groups;
@@ -2110,7 +2159,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     }
                     if (!cache_hit && previous_pool)
                         preserve_candidate_pool_prefix(
-                            previous_pool->candidates, candidates, full_input_bytes);
+                            previous_pool->candidates, candidates, full_input_bytes, previous_pool->model_refined);
                     if (!cache_hit && !cancelled() &&
                         !response.candidate_refinement_pending)
                         candidate_cache.put(
@@ -2169,6 +2218,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             candidate.segment_count > 1 && candidate.syllables.size() >= 3 &&
                             candidate.consumed_input_bytes == full_input_bytes &&
                             utf8_character_count(candidate.text) == candidate.syllables.size());
+                        model_candidate_segments.push_back(candidate.segment_count);
                         std::uint64_t confidence = 0;
                         if (reference != candidates.end() && !candidate.user_preferred() &&
                             candidate.match_kind == engine::InputMatchKind::exact &&
@@ -2176,6 +2226,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             candidate.consumed_input_bytes == full_input_bytes &&
                             candidate.source_segments == reference->source_segments &&
                             candidate.syllables == reference->syllables &&
+                            // A different word boundary is a genuine model
+                            // alternative, not a low-confidence character swap.
+                            candidate.segment_lengths == reference->segment_lengths &&
                             candidate.coherence_score <= reference->coherence_score &&
                             candidate.score < reference->score)
                             confidence = static_cast<std::uint64_t>(
@@ -2405,6 +2458,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             ? model_candidate_confidence[match] : 0);
                         const bool sentence = match < model_candidate_pool.size() && model_candidate_generated_sentence[match];
                         pending_model.generated_sentences.push_back(sentence);
+                        pending_model.sentence_segments.push_back(match < model_candidate_pool.size()
+                            ? model_candidate_segments[match] : 0);
                         if (index < response.candidates.size() && sentence) ++pending_model.sentence_limit;
                     }
                     pending_model.full_input_bytes = full_input_bytes;

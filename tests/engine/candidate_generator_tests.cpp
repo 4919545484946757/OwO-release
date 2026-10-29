@@ -545,11 +545,8 @@ int main() {
         });
     if (ambiguous_sentences.size() < 2 ||
         ambiguous_sentences[0].text != "一款高度自定义" ||
-        ambiguous_sentences[1].text != "一狂傲独自定义" ||
-        long_sentence_count != 2 ||
-        ambiguous_sentences[0].source_segments ==
-            ambiguous_sentences[1].source_segments)
-        return fail("ambiguous long sentence alternatives were not bounded");
+        long_sentence_count != 1)
+        return fail("weak alternate split bypassed the long sentence quality gate");
 
     const owo::engine::MemoryLexicon bridge_alternative_lexicon({
         {{"wo", "de"}, "AB", 5000},

@@ -2,6 +2,7 @@
 #include "owo/engine/candidate_partition.h"
 #include "owo/engine/user_lexicon_alignment.h"
 #include "owo/engine/candidate_scoring.h"
+#include "owo/engine/sentence_quality.h"
 
 #include <algorithm>
 #include <array>
@@ -1860,10 +1861,10 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     if (multiword_input) {
         constexpr std::int64_t kSecondSentenceCoherenceMargin = 2'000;
         constexpr std::int64_t kSecondSentenceScoreMargin = 4'000;
-        std::size_t sentence_count = expose_long_alternatives
-                                         ? std::min<std::size_t>(2, full.size())
-                                         : 1;
-        if (!expose_long_alternatives && full.size() >= 2) {
+        // Long input is not evidence that an arbitrary second composition is
+        // useful. Apply the same quality gate after selecting long alternatives.
+        std::size_t sentence_count = 1;
+        if (full.size() >= 2) {
             const auto& first = full[0];
             const auto& second = full[1];
             const auto exact_full_dictionary_word = [](const Candidate& candidate) {
@@ -1889,6 +1890,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             if ((exact_full_dictionary_word(first) &&
                  exact_full_dictionary_word(second)) ||
                 (first_tail != second_tail &&
+                 (first.syllables.size() < 5 || !redundant_sentence_variant(first.text, second.text)) &&
+                 second.segment_count <= first.segment_count &&
                  coherence_gap <= kSecondSentenceCoherenceMargin &&
                  score_gap <= kSecondSentenceScoreMargin))
                 sentence_count = 2;

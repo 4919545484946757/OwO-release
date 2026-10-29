@@ -68,5 +68,20 @@ int main() {
         {"朽腐类似问题", "修复类似问题"}, 15,
         {"修复类似问题", "朽腐类似问题"}, {15, 15}, ordered, consumed, {0, 2});
     if (ordered.front() != "修复类似问题" || consumed != std::vector<std::uint64_t>{15, 15}) return 10;
+    ordered = {"家里的牛奶已经喝完了", "家里的牛奶已经合完了", "家里"};
+    consumed = {26, 26, 5};
+    owo::ipc::limit_model_sentence_candidates(ordered, consumed, {true, true, false}, 2,
+        ordered, consumed, {5, 6, 1});
+    if (ordered != std::vector<std::string>{"家里的牛奶已经喝完了", "家里"} ||
+        consumed != std::vector<std::uint64_t>{26, 5}) return 11;
+    ordered = {"这款高度自定", "这款高度自订", "这款"};
+    consumed = {17, 17, 7};
+    owo::ipc::limit_model_sentence_candidates(ordered, consumed, {true, true, false}, 2,
+        ordered, consumed, {3, 3, 1});
+    if (ordered.size() != 3) return 12;
+    if (!owo::engine::redundant_sentence_variant("家里的牛奶已经喝完了", "佳丽的牛奶已经喝完了") ||
+        !owo::engine::redundant_sentence_variant("家里的牛奶已经喝完了", "家里的牛奶意境喝完了") ||
+        owo::engine::redundant_sentence_variant("这款高度自定", "这款高度自订") ||
+        owo::engine::redundant_sentence_variant("将与概率", "降雨概率")) return 13;
     return 0;
 }

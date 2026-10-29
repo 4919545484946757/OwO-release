@@ -50,7 +50,9 @@ if (Test-Path -LiteralPath $releaseRoot) {
 [void](New-Item -ItemType Directory -Path $stage -Force)
 
 $settings = [IO.Path]::GetFullPath($SettingsDirectory)
-$runtime = Join-Path $root 'build\dependencies\libime-1.1.15\runtime-p1-x86_64'
+# Match start-dev.ps1/stage_libime_runtime.ps1: the legacy P1 bridge
+# scores entire sentences as unknown words instead of tokenizing them.
+$runtime = Join-Path $root 'build\dependencies\libime-1.1.15\runtime-x86_64'
 $model = Join-Path $root 'build\dependencies\libime-1.1.15\model-20260804\lib\libime\zh_CN.lm'
 $lexicon = Join-Path $root 'build\windows-release\rime-ice-cn-2026.06.30-v2.owolx'
 $vcBuildTools = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools'

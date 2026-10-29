@@ -1,4 +1,5 @@
 #pragma once
+#include "owo/engine/sentence_quality.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -83,20 +84,34 @@ inline void limit_model_sentence_candidates(
     const std::vector<std::string>& original_candidates,
     const std::vector<std::uint64_t>& original_consumed,
     const std::vector<bool>& generated_sentences, std::size_t limit,
-    std::vector<std::string>& candidates, std::vector<std::uint64_t>& consumed) {
+    std::vector<std::string>& candidates, std::vector<std::uint64_t>& consumed,
+    const std::vector<std::uint64_t>& sentence_segments = {}) {
     if (original_candidates.size() != original_consumed.size() ||
         generated_sentences.size() != original_candidates.size() ||
-        candidates.size() != consumed.size()) return;
+        candidates.size() != consumed.size() ||
+        (!sentence_segments.empty() && sentence_segments.size() != original_candidates.size())) return;
     std::size_t kept_sentences = 0, destination = 0;
+    std::uint64_t first_segments = 0;
+    std::string first_sentence;
     for (std::size_t source = 0; source < candidates.size(); ++source) {
         bool generated = false;
+        std::uint64_t segments = 0;
         for (std::size_t index = 0; index < original_candidates.size(); ++index) {
             if (candidates[source] == original_candidates[index] && consumed[source] == original_consumed[index]) {
                 generated = generated_sentences[index];
+                if (!sentence_segments.empty()) segments = sentence_segments[index];
                 break;
             }
         }
-        if (generated && kept_sentences++ >= limit) continue;
+        if (generated) {
+            // The model may replace the base leader with a more coherent,
+            // less fragmented sentence. Do not retain a weaker fragmented
+            // composition merely because the original base had two slots.
+            if (kept_sentences != 0 && first_segments != 0 && segments > first_segments) continue;
+            if (kept_sentences != 0 && owo::engine::redundant_sentence_variant(first_sentence, candidates[source])) continue;
+            if (kept_sentences++ >= limit) continue;
+            if (kept_sentences == 1) { first_segments = segments; first_sentence = candidates[source]; }
+        }
         if (destination != source) candidates[destination] = std::move(candidates[source]);
         consumed[destination++] = consumed[source];
     }

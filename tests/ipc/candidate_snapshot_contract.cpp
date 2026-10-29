@@ -18,7 +18,9 @@ public:
     std::string_view id() const noexcept override { return "owo.test.snapshot"; }
     model::ModelResult rank(const model::ModelRequest& request, std::stop_token) override {
         auto candidates = request.candidates;
-        const auto target = request.context == "伸手" ? "接过" : "你号世界";
+        const auto target = request.input == "mingtianshangwushidianqian" ? "明天上午十点前" :
+            request.input == "biandeyouyisima" ? "变得有意思吗" :
+            request.context == "伸手" ? "接过" : "你号世界";
         const auto found = std::find(candidates.begin(), candidates.end(), target);
         if (found != candidates.end()) std::rotate(candidates.begin(), found, found + 1);
         return {request.request_id, model::ModelStatus::success, std::move(candidates), {}};
@@ -58,6 +60,17 @@ int main() {
         {{"shou"}, "首", 100000}, {{"shou"}, "手", 1000},
         {{"kai", "jie"}, "开解", 10000000}, {{"zai", "shou"}, "在手", 10000000},
         {{"kuang", "wang"}, "狂妄", 10000}, {{"wang"}, "王", 1000000}, {{"wang"}, "妄", 100}};
+    entries.insert(entries.end(), {
+        {{"ming", "tian", "shang", "wu"}, "明天上午", 500000},
+        {{"shi"}, "十", 1000000}, {{"dian", "qian"}, "点钱", 500000},
+        {{"shi", "dian"}, "十点", 20000}, {{"qian"}, "前", 1000000},
+        {{"shang", "wu", "shi"}, "上午十", 100},
+        {{"bian", "de"}, "变得", 10000000}, {{"bian", "de"}, "变的", 10000000},
+        {{"you", "yi"}, "有一", 10000000}, {{"si", "ma"}, "司马", 10000000},
+        {{"you", "yi", "si", "ma"}, "有意思吗", 100},
+        {{"bian"}, "变", 100000}, {{"bian"}, "边", 100000},
+        {{"bian"}, "便", 100000}, {{"bian"}, "编", 100000},
+    });
     for (unsigned index = 0; index < 120; ++index) {
         const auto text = character(0x4e00 + index);
         entries.push_back({{"zi"}, text, 200000 - index * 1000});
@@ -97,7 +110,7 @@ int main() {
         const auto generation = monitor.generation();
         settings.candidate_partition_enabled = partition; settings.candidate_page_size = size;
         ok &= writer.save(settings).success && monitor.wait_for_generation(generation, 2s);
-        for (const auto& input : {"zj", "nihaoshijie"}) for (const bool expanded_first : {false, true}) {
+        for (const auto& input : {"zj", "nihaoshijie", "biandeyouyisima"}) for (const bool expanded_first : {false, true}) {
             const auto verify = [&](bool value, const char* stage) {
                 if (!value) std::cerr << stage << ": " << input << " size=" << size << " partition=" << partition << " expanded_first=" << expanded_first << '\n';
                 ok &= value;
@@ -108,6 +121,10 @@ int main() {
             if (expanded_first) { request.expanded = true; expanded = settle(send(request)); request.expanded = false; }
             auto first = settle(send(request));
             if (request.text == "nihaoshijie") verify(!first.candidates.empty() && first.candidates.front() == "你号世界", "model did not promote hidden target");
+            if (request.text == "biandeyouyisima") {
+                verify(!first.candidates.empty() && first.candidates.front() == "变得有意思吗", "model did not replace fragmented sentence");
+                verify(std::find(first.candidates.begin(), first.candidates.end(), "变得有一司马") == first.candidates.end(), "weak second sentence survived model update");
+            }
             auto paged = first; std::set<std::pair<std::string, std::uint64_t>> unique;
             const auto record = [&](const protocol::Message& row) {
                 for (std::size_t i = 0; i < row.candidates.size(); ++i) verify(unique.emplace(row.candidates[i], row.candidate_consumed[i]).second, "duplicate");
@@ -144,6 +161,7 @@ int main() {
     expect("shouxuan", "buzai", "不在", "首选");
     expect("wang", "kuang", "狂", "妄");
     expect("jieguo", "shenshou", "伸手", "接过"); // The model may still choose a credible homophone.
+    expect("mingtianshangwushidianqian", "", "", "明天上午十点前");
     protocol::Message stop; stop.type = protocol::MessageType::shutdown_request; static_cast<void>(send(stop));
     client.reset(); server.join();
     model::ModelMessage model_stop; model_stop.type = model::ModelMessageType::shutdown_request;
