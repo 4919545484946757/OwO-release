@@ -131,8 +131,15 @@ public:
         std::optional<std::int64_t> score;
         for (const auto& entry : lookup(reading)) {
             if (entry.text != text) continue;
-            const auto value = std::min(kMaximumBoundaryCoherenceBonus,
-                candidate_unigram_score(entry.frequency) * 3 / 2);
+            // This pass measures dictionary coverage, not another unigram
+            // likelihood. Frequencies and token-transition costs have already
+            // been counted in the beam score. Counting frequency again per
+            // phrase rewards re-tokenizing a coherent long word into several
+            // popular short words when a suffix is appended. Give equal
+            // covered lengths equal evidence; let the original score decide
+            // between fully backed chains. No suffix/character whitelist.
+            const auto value = kMaximumBoundaryCoherenceBonus *
+                static_cast<std::int64_t>(reading.size()) / 2;
             score = score ? std::max(*score, value) : value;
         }
         if (phrases_.size() < 4096)
@@ -1698,7 +1705,15 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             return full_dictionary_word(left);
         constexpr std::int64_t kCoherenceDecisionMargin = 3'000;
         if (left.segment_count > 1 && right.segment_count > 1) {
-            const auto difference = left.coherence_score - right.coherence_score;
+            // Alternative exact splits may produce different character counts.
+            // Equal coverage must not prefer extra characters merely because
+            // they can collect more evidence. Retain the previous margin for
+            // equal lengths, comparing density on the shorter-length scale.
+            const auto left_size = static_cast<std::int64_t>(left.syllables.size());
+            const auto right_size = static_cast<std::int64_t>(right.syllables.size());
+            const auto difference =
+                (left.coherence_score * right_size - right.coherence_score * left_size) /
+                std::max<std::int64_t>(1, std::max(left_size, right_size));
             if (difference >= kCoherenceDecisionMargin) return true;
             if (difference <= -kCoherenceDecisionMargin) return false;
         }

@@ -968,6 +968,51 @@ int main() {
         static_cast<std::size_t>(zhang - single_heads.begin()) > 1)
         return fail("leading character of a full-span candidate was buried");
 
+    // A suffix must not reward re-tokenizing the same reading into more
+    // short dictionary words. Compare equal covered lengths, not word counts.
+    // Before length normalization the 2+2+2 path earned three capped bonuses,
+    // beating the stronger 2+4 path solely on coherence (36k versus 24k).
+    const owo::engine::MemoryLexicon suffix_lexicon({
+        {{"bian", "de"}, "变得", 500000},
+        {{"you", "yi", "si"}, "有意思", 100000},
+        {{"you", "yi", "si", "ma"}, "有意思吗", 50000},
+        {{"you", "yi", "si", "ba"}, "有意思吧", 50000},
+        {{"you", "yi"}, "有一", 200000},
+        {{"si", "ma"}, "司马", 50000},
+        {{"si", "ba"}, "四把", 50000},
+        {{"ma"}, "吗", 100000}, {{"ba"}, "吧", 100000},
+        {{"ne"}, "呢", 100000},
+        {{"bi", "an"}, "彼岸", 100000},
+        {{"bi", "an", "de"}, "彼岸的", 100000},
+    });
+    const owo::engine::CandidateGenerator suffix_generator(suffix_lexicon);
+    for (const auto page_size : {std::size_t{0}, std::size_t{7}}) {
+        for (const auto limit : {std::size_t{8}, std::size_t{16}, std::size_t{32}}) {
+            for (const auto& [input, expected] : {
+                     std::pair{"biandeyouyisi", "变得有意思"},
+                     std::pair{"biandeyouyisima", "变得有意思吗"},
+                     std::pair{"biandeyouyisiba", "变得有意思吧"},
+                     std::pair{"biandeyouyisine", "变得有意思呢"},
+                     std::pair{"bian'de'you'yi'si'ma", "变得有意思吗"}}) {
+                const auto values = suffix_generator.generate(
+                    schema.parse(input), limit, false, {}, nullptr, {}, true, page_size);
+                if (values.empty() || values.front().text != expected ||
+                    values.front().consumed_input_bytes != std::string_view(input).size())
+                    return fail("suffix caused short-word coherence to overwhelm an intact phrase");
+                if (std::string_view(input).ends_with("ma") &&
+                    values.front().coherence_score != 36000)
+                    return fail("equal covered syllables did not retain the two-syllable evidence scale");
+                const auto visible_sentences = std::count_if(
+                    values.begin(), values.end(), [&](const auto& value) {
+                        return !value.model_only && value.segment_count > 1 &&
+                               value.consumed_input_bytes == std::string_view(input).size();
+                    });
+                if (visible_sentences > 2)
+                    return fail("suffix correction expanded the visible sentence budget");
+            }
+        }
+    }
+
     const auto cancelled_generation = word_priority_generator.generate(
         schema.parse("shi"), 32, false, {}, nullptr, [] { return true; });
     if (!cancelled_generation.empty())
