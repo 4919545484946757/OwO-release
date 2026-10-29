@@ -456,23 +456,6 @@ bool preserved_shortcut(const std::string_view shortcut, TF_PRESERVEDKEY& result
     return result.uVKey != 0;
 }
 
-std::wstring case_preserving_segmented_input(const std::wstring_view input,
-                                              const std::wstring_view segmented) {
-    std::wstring result;
-    result.reserve(segmented.size());
-    std::size_t source = 0;
-    for (const wchar_t character : segmented) {
-        if (character == L'\'') {
-            result.push_back(character);
-            continue;
-        }
-        while (source < input.size() && input[source] == L'\'') ++source;
-        if (source >= input.size()) return std::wstring(segmented);
-        result.push_back(input[source++]);
-    }
-    return result;
-}
-
 bool command_modifier_down() noexcept {
     return key_down(VK_CONTROL) || key_down(VK_MENU) || key_down(VK_LWIN) ||
            key_down(VK_RWIN);

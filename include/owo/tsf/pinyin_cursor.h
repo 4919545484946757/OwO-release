@@ -6,6 +6,10 @@
 
 namespace owo::tsf {
 
+// Restore the user's casing and explicit separators around parser-inserted ones.
+[[nodiscard]] std::wstring case_preserving_segmented_input(
+    std::wstring_view input, std::wstring_view segmented);
+
 // Converts between the raw input buffer and the rendered preview, whose
 // apostrophes may have been inserted automatically by the parser.
 [[nodiscard]] std::size_t preview_index_for_input_cursor(

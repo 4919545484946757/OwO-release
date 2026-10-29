@@ -17,9 +17,35 @@ bool expect(const std::size_t actual, const std::size_t expected,
 }  // namespace
 
 int main() {
+    using owo::tsf::case_preserving_segmented_input;
     using owo::tsf::input_cursor_for_preview_index;
     using owo::tsf::preview_character_for_input_index;
     using owo::tsf::preview_index_for_input_cursor;
+
+    struct PreviewCase { std::wstring_view input, segmented, expected; };
+    for (const auto& test : {
+             PreviewCase{L"nihao'", L"ni'hao", L"ni'hao'"},
+             PreviewCase{L"ni'hao''", L"ni'hao", L"ni'hao''"},
+             PreviewCase{L"ni'", L"ni'", L"ni'"},
+             PreviewCase{L"ni''hao'", L"ni'hao", L"ni''hao'"},
+             PreviewCase{L"'NiHao'", L"ni'hao", L"'Ni'Hao'"},
+             PreviewCase{L"nihao", L"ni'hao", L"ni'hao"},
+             PreviewCase{L"'", L"", L"'"},
+             PreviewCase{L"heng'", L"h", L"heng'"}}) {
+        const auto shown = case_preserving_segmented_input(test.input, test.segmented);
+        if (shown != test.expected ||
+            preview_index_for_input_cursor(test.input, shown, test.input.size()) != shown.size() ||
+            input_cursor_for_preview_index(test.input, shown, shown.size()) != test.input.size())
+            return 5;
+    }
+
+    std::wstring trailing_input = L"nihao'";
+    auto trailing_preview = case_preserving_segmented_input(trailing_input, L"ni'hao");
+    std::size_t trailing_cursor = trailing_input.size();
+    if (!owo::tsf::erase_before_pinyin_cursor(trailing_input, trailing_preview, trailing_cursor) ||
+        trailing_input != L"nihao" || trailing_preview != L"ni'hao") return 6;
+    owo::tsf::insert_at_pinyin_cursor(trailing_input, trailing_preview, trailing_cursor, L'\'');
+    if (trailing_input != L"nihao'" || trailing_preview != L"ni'hao'") return 7;
 
     constexpr std::wstring_view raw = L"nihaoshijie";
     constexpr std::wstring_view preview = L"ni'hao'shi'jie";
