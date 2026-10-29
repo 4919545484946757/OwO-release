@@ -1545,6 +1545,25 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             utf8_character_count(candidate.text) != character_count)
             return;
 
+        // A whole dictionary word covers its syllables at least as well as
+        // a chain of dictionary fragments. Previously the whole-span edge was
+        // always excluded below: exact words had a separate ordering guard,
+        // but incomplete/mixed readings lost to arbitrary compositions solely
+        // because those compositions received coverage evidence and words did
+        // not. Validate against the lexicon (not a learned alias), and retain
+        // the original completion/correction penalties in candidate.score.
+        if (candidate.segment_count == 1 && !candidate.provisional_user_word) {
+            std::vector<std::string_view> reading;
+            reading.reserve(character_count);
+            for (const auto& syllable : candidate.syllables)
+                reading.push_back(syllable);
+            if (const auto evidence = lookup_cache.phrase_score(reading, candidate.text)) {
+                candidate.coherence_score = *evidence;
+                candidate.score += *evidence;
+                return;
+            }
+        }
+
         std::vector<std::size_t> boundaries;
         boundaries.reserve(character_count + 1);
         boundaries.push_back(0);

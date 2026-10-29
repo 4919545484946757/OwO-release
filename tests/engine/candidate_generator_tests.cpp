@@ -1013,6 +1013,37 @@ int main() {
         }
     }
 
+    const owo::engine::MemoryLexicon incomplete_word_lexicon({
+        {{"bu", "yan", "er", "yu"}, "不言而喻", 30000},
+        {{"bu", "yan"}, "不言", 30000},
+        {{"er", "yi"}, "而已", 100000},
+        {{"bu"}, "不", 100000}, {{"yan"}, "言", 100000},
+        {{"er"}, "而", 100000}, {{"yu"}, "喻", 100000},
+        {{"bu", "ke", "si", "yi", "de"}, "不可思议的", 30000},
+        {{"bu", "ke"}, "不可", 30000},
+        {{"si", "yi"}, "思议", 100000}, {{"de"}, "的", 100000},
+    });
+    const owo::engine::CandidateGenerator incomplete_word_generator(incomplete_word_lexicon);
+    for (const auto page_size : {std::size_t{0}, std::size_t{7}}) {
+        for (const auto limit : {std::size_t{8}, std::size_t{32}}) {
+            for (const auto& [input, expected] : {
+                     std::pair{"buyanery", "不言而喻"},
+                     std::pair{"buyaneryu", "不言而喻"},
+                     std::pair{"bu'yan'er'y", "不言而喻"},
+                     std::pair{"bukesiyid", "不可思议的"}}) {
+                const auto values = incomplete_word_generator.generate(
+                    schema.parse(input), limit, false, {}, nullptr, {}, true, page_size);
+                if (values.empty() || values.front().text != expected ||
+                    values.front().consumed_input_bytes != std::string_view(input).size() ||
+                    values.front().segment_count != 1 || values.front().model_only)
+                    return fail("incomplete whole dictionary word lost to fragment coverage bonuses");
+                if (values.front().coherence_score !=
+                    static_cast<std::int64_t>(values.front().syllables.size()) * 6000)
+                    return fail("whole dictionary coverage was truncated to substring search length");
+            }
+        }
+    }
+
     const auto cancelled_generation = word_priority_generator.generate(
         schema.parse("shi"), 32, false, {}, nullptr, [] { return true; });
     if (!cancelled_generation.empty())

@@ -1,0 +1,5 @@
+{"id":"buyanery","input":"buyanery","expected":["不言而喻"],"tags":["incomplete-word"]}
+{"id":"buyaneryu","input":"buyaneryu","expected":["不言而喻"],"tags":["complete-word","control"]}
+{"id":"explicit","input":"bu'yan'er'y","expected":["不言而喻"],"tags":["incomplete-word","separator"]}
+{"id":"strict","input":"buyanery","expected":["不言而喻"],"correction":false,"tags":["incomplete-word","strict"]}
+{"id":"long-word","input":"bukesiyid","expected":["不可思议的","不可思议地"],"tags":["incomplete-word","long-word"]}
