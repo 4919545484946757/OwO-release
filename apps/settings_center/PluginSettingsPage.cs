@@ -32,10 +32,18 @@ public sealed partial class MainPage
         var expanded = _pluginPagesGroup?.IsExpanded ?? true;
         var selectedPage = (SettingsNavigation.SelectedItem as NavigationViewItem)?.Tag as string;
         if (_pluginPagesGroup is not null) SettingsNavigation.MenuItems.Remove(_pluginPagesGroup);
+        if (_pluginPagesSeparator is not null) SettingsNavigation.MenuItems.Remove(_pluginPagesSeparator);
         _pluginPagesGroup = null;
+        _pluginPagesSeparator = null;
         _pluginPages.Clear();
         _pluginSearchItems.Clear();
         if (plugins.Count == 0) return;
+        _pluginPagesSeparator = new NavigationViewItemSeparator {
+            HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch,
+            Margin = new Microsoft.UI.Xaml.Thickness(12, 8, 12, 8),
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_pluginPagesSeparator, "PluginSettingsSeparator");
+        SettingsNavigation.MenuItems.Add(_pluginPagesSeparator);
         _pluginPagesGroup = new NavigationViewItem {
             Content = "插件设置", SelectsOnInvoked = false, IsExpanded = expanded,
             Icon = new FontIcon { Glyph = "\uE74C" },

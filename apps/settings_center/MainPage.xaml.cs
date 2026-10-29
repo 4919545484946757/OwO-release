@@ -18,6 +18,7 @@ public sealed partial class MainPage : Page
     private readonly Dictionary<string, Expander> _pluginConfigExpanders = [];
     private ComboBox? _pluginConfigPageSelector;
     private NavigationViewItem? _pluginPagesGroup;
+    private NavigationViewItemSeparator? _pluginPagesSeparator;
     private PluginSettingsModel? _pluginSettings;
     private string _currentPage = "schemes";
     private sealed record SearchItem(string Title, string Detail, string Page,
