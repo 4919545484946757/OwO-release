@@ -6,6 +6,7 @@
 #include "owo/tsf/learning_anchor.h"
 
 #include "owo/tsf/pinyin_cursor.h"
+#include "owo/tsf/unicode_palette_scroll.h"
 
 #include "owo/config/config_paths.h"
 #include "owo/agent/agent_protocol.h"
@@ -2524,9 +2525,9 @@ bool TextService::render_candidate_window() {
                 56.0F, measure_text_width(dwrite_factory_, label_text_format_,
                                            wide_from_utf8(category.label)) + 18.0F);
         }
-        unicode_category_scroll_offset_dip_ = std::clamp(
-            unicode_category_scroll_offset_dip_, 0.0F,
-            std::max(0.0F, total_category_width - usable_width));
+        unicode_category_scroll_offset_dip_ = unicode_category_scroll_offset(
+            unicode_category_scroll_offset_dip_, 0.0F, total_category_width,
+            size.width, kHorizontalPaddingDip);
         float x = kHorizontalPaddingDip - unicode_category_scroll_offset_dip_;
         const float category_top = kHeaderHeightDip + 8.0F;
         const D2D1_RECT_F category_clip = D2D1::RectF(
@@ -3065,6 +3066,7 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     if (message == WM_MOUSEWHEEL && service != nullptr &&
         window == service->candidate_window_) {
         const int delta = GET_WHEEL_DELTA_WPARAM(wparam);
+        if (delta == 0) return 0;
         const int notches = std::max(1, (delta < 0 ? -delta : delta) / WHEEL_DELTA);
         if (service->alt_code_preview_active_) {
             if (service->shortcut_config_.alt_code_preview_wheel_enabled)
@@ -4647,17 +4649,16 @@ void TextService::scroll_unicode_categories(const float dip_delta) {
                                       wide_from_utf8(category.label)) + 18.0F);
     }
     const UINT dpi = candidate_window_ == nullptr ? 96 : GetDpiForWindow(candidate_window_);
-    RECT client{};
-    if (candidate_window_ != nullptr) GetClientRect(candidate_window_, &client);
-    const float client_width = candidate_window_ == nullptr
+    // The layered HWND retains a wider transparent surface to prevent resize
+    // flicker. Only the content rectangle is the categories' actual viewport.
+    const float content_width = !candidate_present_geometry_valid_
         ? kHorizontalPaddingDip * 2.0F +
               kUnicodeCellSizeDip * kUnicodeItemsPerRow
-        : static_cast<float>(client.right - client.left) * 96.0F /
+        : static_cast<float>(candidate_content_size_.cx) * 96.0F /
               static_cast<float>(dpi);
-    const float maximum = std::max(
-        0.0F, total_width - (client_width - kHorizontalPaddingDip * 2.0F));
-    const float clamped = std::clamp(
-        unicode_category_scroll_offset_dip_ + dip_delta, 0.0F, maximum);
+    const float clamped = unicode_category_scroll_offset(
+        unicode_category_scroll_offset_dip_, dip_delta, total_width,
+        content_width, kHorizontalPaddingDip);
     if (std::abs(clamped - unicode_category_scroll_offset_dip_) < 0.01F) return;
     unicode_category_scroll_offset_dip_ = clamped;
     hovered_target_.reset();

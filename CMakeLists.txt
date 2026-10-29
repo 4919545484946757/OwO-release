@@ -1042,6 +1042,11 @@ if(BUILD_TESTING)
         endif()
         add_test(NAME owo.tsf.pinyin_cursor COMMAND owo_pinyin_cursor_tests)
 
+        add_executable(owo_unicode_palette_scroll_tests tests/tsf/unicode_palette_scroll_tests.cpp)
+        target_include_directories(owo_unicode_palette_scroll_tests PRIVATE include)
+        target_compile_features(owo_unicode_palette_scroll_tests PRIVATE cxx_std_20)
+        add_test(NAME owo.tsf.unicode_palette_scroll COMMAND owo_unicode_palette_scroll_tests)
+
         add_executable(owo_ipc_integration tests/ipc/core_service_integration.cpp)
         target_link_libraries(owo_ipc_integration PRIVATE owo_ipc)
         target_compile_features(owo_ipc_integration PRIVATE cxx_std_20)
