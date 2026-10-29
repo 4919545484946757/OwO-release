@@ -6,7 +6,7 @@
 
 namespace owo::protocol {
 
-inline constexpr std::uint32_t kProtocolVersion = 13;
+inline constexpr std::uint32_t kProtocolVersion = 14;
 inline constexpr std::uint32_t kMaximumPayloadBytes = 1024U * 1024U;
 
 enum class ErrorCode {

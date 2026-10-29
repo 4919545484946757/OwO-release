@@ -25,7 +25,8 @@ int main(const int argc, char** argv) {
     auto version_fifteen = owo::config::serialize_config(single_first);
     version_fifteen.replace(0, std::string("schema_version=17").size(), "schema_version=15");
     for (const auto key : {"expanded_previous_page_shortcut_enabled=", "expanded_previous_page_shortcut=",
-                            "expanded_next_page_shortcut_enabled=", "expanded_next_page_shortcut="}) {
+                            "expanded_next_page_shortcut_enabled=", "expanded_next_page_shortcut=",
+                            "pinyin_symbol_compatibility_enabled=", "separator_shortcut_enabled=", "separator_shortcut="}) {
         const auto begin = version_fifteen.find(key);
         version_fifteen.erase(begin, version_fifteen.find('\n', begin) - begin + 1);
     }

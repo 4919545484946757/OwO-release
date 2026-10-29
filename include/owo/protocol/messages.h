@@ -60,6 +60,10 @@ struct Message {
     std::string application_window_class;
     std::string application_focus_window_class;
     bool application_sensitive_input{};
+    bool symbol_composition{};
+    std::vector<std::uint64_t> manual_breaks;
+    std::string symbol_preview;
+    std::vector<std::string> following_previews;
 };
 
 struct DecodeResult {

@@ -56,6 +56,23 @@ internal static class SettingsTransfer
         var document = JsonSerializer.Deserialize<SettingsTransferDocument>(json, Options)
             ?? throw new InvalidDataException("配置文件内容为空。");
         ValidateStructure(document);
+        if (!parsed.RootElement.GetProperty("settings").TryGetProperty("separatorShortcuts", out _)) {
+            var value = document.Settings;
+            var occupied = new List<string>();
+            if (value.CorrectionShortcutEnabled) occupied.AddRange(value.CorrectionShortcuts);
+            if (value.LanguageShortcutEnabled) occupied.AddRange(value.LanguageShortcuts);
+            if (value.RawInputShortcutEnabled) occupied.AddRange(value.RawInputShortcuts);
+            if (value.CursorLeftShortcutEnabled) occupied.AddRange(value.CursorLeftShortcuts);
+            if (value.CursorRightShortcutEnabled) occupied.AddRange(value.CursorRightShortcuts);
+            if (value.PreviousPageShortcutEnabled) occupied.AddRange(value.PreviousPageShortcuts);
+            if (value.NextPageShortcutEnabled) occupied.AddRange(value.NextPageShortcuts);
+            if (value.PunctuationShortcutEnabled) occupied.AddRange(value.PunctuationShortcuts);
+            if (value.TextNavigationShortcutEnabled) occupied.AddRange(value.TextNavigationShortcuts);
+            if (value.ExpandedPreviousPageShortcutEnabled) occupied.AddRange(value.ExpandedPreviousPageShortcuts);
+            if (value.ExpandedNextPageShortcutEnabled) occupied.AddRange(value.ExpandedNextPageShortcuts);
+            if (occupied.Contains("Quote"))
+                document = document with { Settings = value with { SeparatorShortcutEnabled = false } };
+        }
         if (legacy) document = document with { Settings = MigrateLegacyShortcuts(document.Settings) };
         return document;
     }
@@ -115,7 +132,8 @@ internal static class SettingsTransfer
         IReadOnlyList<string>[] groups = [value.CorrectionShortcuts, value.LanguageShortcuts,
             value.RawInputShortcuts, value.CursorLeftShortcuts, value.CursorRightShortcuts,
             value.PreviousPageShortcuts, value.NextPageShortcuts, value.PunctuationShortcuts,
-            value.TextNavigationShortcuts, value.ExpandedPreviousPageShortcuts, value.ExpandedNextPageShortcuts];
+            value.TextNavigationShortcuts, value.ExpandedPreviousPageShortcuts, value.ExpandedNextPageShortcuts,
+            value.SeparatorShortcuts];
         foreach (var group in groups) {
             if (group.Count > 16 || group.Any(key => string.IsNullOrWhiteSpace(key) ||
                 key.Length > 128 || key.Contains(';') || key.Any(char.IsControl)))

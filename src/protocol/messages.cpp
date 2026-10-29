@@ -141,6 +141,26 @@ std::optional<bool> parse_bool(std::string_view input, std::size_t& offset) {
     return std::nullopt;
 }
 
+bool valid_symbols(const Message& message) {
+    const bool request = message.type == MessageType::candidate_request ||
+        message.type == MessageType::candidate_update_request;
+    const bool response = message.type == MessageType::candidate_response ||
+        message.type == MessageType::candidate_update_response;
+    if (!request && (message.symbol_composition || !message.manual_breaks.empty())) return false;
+    if (!response && (!message.symbol_preview.empty() || !message.following_previews.empty())) return false;
+    if (message.manual_breaks.size() > 256 || message.symbol_preview.size() > 8192 ||
+        message.following_previews.size() > 16) return false;
+    std::uint64_t previous = 0;
+    bool first = true;
+    for (const auto offset : message.manual_breaks) {
+        if (offset >= message.text.size() || message.text[static_cast<std::size_t>(offset)] != '\'' ||
+            (!first && offset <= previous)) return false;
+        first = false; previous = offset;
+    }
+    return std::all_of(message.following_previews.begin(), message.following_previews.end(),
+        [](const auto& row) { return !row.empty() && row.size() <= 4096; });
+}
+
 bool valid_syllables(const std::vector<std::string>& syllables) {
     if (syllables.size() > 256) return false;
     for (const auto& syllable : syllables) {
@@ -244,7 +264,7 @@ std::string encode_message(const Message& message) {
         !valid_candidate_layout(message) || !valid_feedback_input(message) ||
         !valid_language_context(message) ||
         !valid_candidate_refinement(message) ||
-        !valid_application_context(message)) return {};
+        !valid_application_context(message) || !valid_symbols(message)) return {};
     const auto escaped = escape_json(message.text);
     if (!message.text.empty() && escaped.empty()) return {};
     const auto escaped_input = escape_json(message.input);
@@ -284,6 +304,21 @@ std::string encode_message(const Message& message) {
         encoded_groups += std::to_string(message.candidate_groups[index]);
     }
     encoded_groups += ']';
+    std::string breaks = "[", following = "[";
+    for (const auto value : message.manual_breaks) {
+        if (breaks.size() != 1) breaks += ',';
+        breaks += std::to_string(value);
+    }
+    breaks += ']';
+    for (const auto& row : message.following_previews) {
+        const auto escaped_row = escape_json(row);
+        if (escaped_row.empty()) return {};
+        if (following.size() != 1) following += ',';
+        following += "\"" + escaped_row + "\"";
+    }
+    following += ']';
+    const auto preview = escape_json(message.symbol_preview);
+    if (!message.symbol_preview.empty() && preview.empty()) return {};
     return "{\"protocol_version\":" + std::to_string(kProtocolVersion) +
            ",\"type\":\"" + type_name(message.type) +
            "\",\"request_id\":" + std::to_string(message.request_id) +
@@ -315,7 +350,10 @@ std::string encode_message(const Message& message) {
            "\",\"application_focus_window_class\":\"" +
                escaped_application_focus_window_class +
            "\",\"application_sensitive_input\":" +
-               (message.application_sensitive_input ? "true" : "false") + "}";
+               (message.application_sensitive_input ? "true" : "false") +
+           ",\"symbol_composition\":" + (message.symbol_composition ? "true" : "false") +
+           ",\"manual_breaks\":" + breaks +
+           ",\"symbol_preview\":\"" + preview + "\",\"following_previews\":" + following + "}";
 }
 
 DecodeResult decode_message(const std::string_view json) {
@@ -486,6 +524,30 @@ DecodeResult decode_message(const std::string_view json) {
         if (!value) goto invalid;
         output.message.application_sensitive_input = *value;
     }
+    if (!consume(json, offset, ",\"symbol_composition\":")) goto invalid;
+    {
+        const auto value = parse_bool(json, offset);
+        if (!value) goto invalid;
+        output.message.symbol_composition = *value;
+    }
+    if (!consume(json, offset, ",\"manual_breaks\":")) goto invalid;
+    {
+        auto value = parse_uint_array(json, offset);
+        if (!value) goto invalid;
+        output.message.manual_breaks = std::move(*value);
+    }
+    if (!consume(json, offset, ",\"symbol_preview\":")) goto invalid;
+    {
+        auto value = parse_string(json, offset);
+        if (!value) goto invalid;
+        output.message.symbol_preview = std::move(*value);
+    }
+    if (!consume(json, offset, ",\"following_previews\":")) goto invalid;
+    {
+        auto value = parse_string_array(json, offset);
+        if (!value) goto invalid;
+        output.message.following_previews = std::move(*value);
+    }
     if (!consume(json, offset, "}") || offset != json.size()) goto invalid;
     if (!valid_candidate_consumed(output.message) ||
         !valid_candidate_groups(output.message) ||
@@ -493,7 +555,7 @@ DecodeResult decode_message(const std::string_view json) {
         !valid_feedback_input(output.message) ||
         !valid_language_context(output.message) ||
         !valid_candidate_refinement(output.message) ||
-        !valid_application_context(output.message)) goto invalid;
+        !valid_application_context(output.message) || !valid_symbols(output.message)) goto invalid;
     output.validation = {};
     return output;
 

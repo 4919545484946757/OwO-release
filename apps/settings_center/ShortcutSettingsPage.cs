@@ -162,6 +162,7 @@ public sealed partial class MainPage
         "correction" => CorrectionShortcutBindings,
         "language" => LanguageShortcutBindings,
         "raw" => RawInputShortcutBindings,
+        "separator" => SeparatorShortcutBindings,
         "cursor-left" => CursorLeftShortcutBindings,
         "cursor-right" => CursorRightShortcutBindings,
         "previous-page" => PreviousPageShortcutBindings,

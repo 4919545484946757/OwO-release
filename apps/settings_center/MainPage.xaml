@@ -238,6 +238,16 @@
                                         <ToggleSwitch x:Name="FocusLossCommit" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
+                                <Border x:Name="PinyinSymbolCompatibilityCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="拼音符号兼容" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="符号保留在预编辑中；分段依次选词，引号内可独立生成候选。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="PinyinSymbolCompatibility" Grid.Column="1"/>
+                                    </Grid>
+                                </Border>
                                 <Border x:Name="ChinesePunctuationCard" Style="{StaticResource SettingsCardStyle}" Tapped="ChinesePunctuationCard_Tapped">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
@@ -463,6 +473,20 @@
                                                 <Button Grid.Column="2" Content="＋" Tag="raw" Click="AddShortcutButton_Click"/>
                                             </Grid>
                                             <StackPanel x:Name="RawInputShortcutBindings" Spacing="8"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border x:Name="SeparatorShortcutCard" Style="{StaticResource SettingsCardStyle}">
+                                        <StackPanel Spacing="10">
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="拼音分割" Style="{StaticResource SettingTitleStyle}"/>
+                                                    <TextBlock Text="默认单引号。移除该绑定后，单引号可在符号兼容模式下作为弱引号。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                                </StackPanel>
+                                                <ToggleSwitch x:Name="SeparatorShortcutEnabled" Grid.Column="1"/>
+                                                <Button Grid.Column="2" Content="＋" Tag="separator" Click="AddShortcutButton_Click"/>
+                                            </Grid>
+                                            <StackPanel x:Name="SeparatorShortcutBindings" Spacing="8"/>
                                         </StackPanel>
                                     </Border>
                                     <Border x:Name="CursorLeftShortcutCard" Style="{StaticResource SettingsCardStyle}">

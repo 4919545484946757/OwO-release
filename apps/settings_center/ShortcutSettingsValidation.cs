@@ -8,6 +8,11 @@ internal static class ShortcutSettingsValidation
         if (snapshot.CorrectionShortcutEnabled) shortcuts.AddRange(snapshot.CorrectionShortcuts);
         if (snapshot.LanguageShortcutEnabled) shortcuts.AddRange(snapshot.LanguageShortcuts);
         if (snapshot.RawInputShortcutEnabled) shortcuts.AddRange(snapshot.RawInputShortcuts);
+        if (snapshot.SeparatorShortcutEnabled) {
+            if (snapshot.SeparatorShortcuts.Count == 0)
+                throw new InvalidOperationException("启用拼音分割快捷键前，请添加至少一种绑定方案。");
+            shortcuts.AddRange(snapshot.SeparatorShortcuts);
+        }
         if (snapshot.CursorLeftShortcutEnabled) shortcuts.AddRange(snapshot.CursorLeftShortcuts);
         if (snapshot.CursorRightShortcutEnabled) shortcuts.AddRange(snapshot.CursorRightShortcuts);
         if (snapshot.PreviousPageShortcutEnabled) shortcuts.AddRange(snapshot.PreviousPageShortcuts);

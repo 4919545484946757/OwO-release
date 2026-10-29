@@ -46,6 +46,28 @@ struct ExpandedCandidateTestAccess {
             BOOL eaten = FALSE;
             return SUCCEEDED(service->OnKeyDown(nullptr, key, 0, &eaten)) && eaten;
         };
+        service->shortcut_config_.separator_shortcuts = {"F7"};
+        service->shortcut_config_.pinyin_symbol_compatibility_enabled = true;
+        service->shortcut_config_.input_scheme = "exact_code";
+        if (service->should_eat_key(VK_F7) || service->symbol_composition_enabled()) return 34;
+        service->shortcut_config_.input_scheme = "full_pinyin";
+        service->input_cursor_ = 2;
+        if (!press(VK_F7) || service->input_buffer_ != L"ni'hao" ||
+            service->manual_breaks_ != std::vector<std::size_t>{2} ||
+            !service->pending_request_->symbol_composition ||
+            service->pending_request_->manual_breaks != std::vector<std::uint64_t>{2}) return 30;
+        if (!press(VK_BACK) || service->input_buffer_ != L"nihao" || !service->manual_breaks_.empty()) return 31;
+        service->staged_candidates_.push_back({L"你好", L"ni'hao", {2}});
+        service->input_buffer_ = L"shijie";
+        service->restore_staged_suffix(0);
+        if (service->input_buffer_ != L"ni'haoshijie" || service->manual_breaks_ != std::vector<std::size_t>{2}) return 32;
+        service->consume_manual_breaks(6);
+        if (!service->manual_breaks_.empty()) return 33;
+        service->clear_composition();
+        service->shortcut_config_.separator_shortcuts = {"Quote"};
+        service->shortcut_config_.pinyin_symbol_compatibility_enabled = false;
+        service->input_buffer_ = L"nihao";
+        service->input_cursor_ = 5;
         respond(7);
         if (!press(VK_DOWN) || !service->candidates_expanded_ || !service->candidate_request_pending_ ||
             service->expanded_pages_.selected != 1) return 1;

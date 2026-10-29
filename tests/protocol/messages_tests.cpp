@@ -5,6 +5,25 @@
 int main() {
     using namespace owo::protocol;
     int failures = 0;
+    Message symbol_request{MessageType::candidate_request, 1, 1, "ni'hao，shijie"};
+    symbol_request.symbol_composition = true;
+    symbol_request.manual_breaks = {2};
+    auto symbols = decode_message(encode_message(symbol_request));
+    if (!symbols.validation || !symbols.message.symbol_composition || symbols.message.manual_breaks != symbol_request.manual_breaks) ++failures;
+    symbol_request.manual_breaks = {2, 2};
+    if (!encode_message(symbol_request).empty()) ++failures;
+    symbol_request.manual_breaks = {0};
+    if (!encode_message(symbol_request).empty()) ++failures;
+    Message symbol_response{MessageType::candidate_response, 1, 1, {}, {"你好，"}};
+    symbol_response.candidate_consumed = {9};
+    symbol_response.page_size = 7;
+    symbol_response.symbol_preview = "ni'hao，shi'jie";
+    symbol_response.following_previews = {"世界    视界"};
+    symbols = decode_message(encode_message(symbol_response));
+    if (!symbols.validation || symbols.message.symbol_preview != symbol_response.symbol_preview ||
+        symbols.message.following_previews != symbol_response.following_previews) ++failures;
+    symbol_response.following_previews.assign(17, "x");
+    if (!encode_message(symbol_response).empty()) ++failures;
     for (const auto type : {MessageType::user_lexicon_request, MessageType::user_lexicon_response}) {
         Message management{type, 77, 42, "list\t-\t0\t50\tmerge\n\n\t\n"};
         const auto result = decode_message(encode_message(management));

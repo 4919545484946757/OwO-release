@@ -9,7 +9,8 @@ std::string legacy(owo::config::AppConfig value) {
     auto text = owo::config::serialize_config(value);
     text.replace(0, std::string("schema_version=17").size(), "schema_version=16");
     for (const auto key : {"expanded_previous_page_shortcut_enabled=", "expanded_previous_page_shortcut=",
-                            "expanded_next_page_shortcut_enabled=", "expanded_next_page_shortcut="}) {
+                            "expanded_next_page_shortcut_enabled=", "expanded_next_page_shortcut=",
+                            "pinyin_symbol_compatibility_enabled=", "separator_shortcut_enabled=", "separator_shortcut="}) {
         const auto begin = text.find(key);
         if (begin != std::string::npos) text.erase(begin, text.find('\n', begin) - begin + 1);
     }

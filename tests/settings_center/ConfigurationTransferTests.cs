@@ -42,6 +42,16 @@ try {
         roundtrip.Settings.LanguageShortcuts.SequenceEqual(changed.LanguageShortcuts), "JSON roundtrip");
     Check(!encoded.Contains(root) && !encoded.Contains("user-frequency"), "No runtime paths or learning data");
     await client.ValidateAsync(roundtrip.Settings);
+    var oldTransfer = JsonNode.Parse(encoded)!.AsObject();
+    foreach (var field in new[] { "pinyinSymbolCompatibilityEnabled", "separatorShortcutEnabled", "separatorShortcuts" })
+        oldTransfer["settings"]!.AsObject().Remove(field);
+    oldTransfer["settings"]!["rawInputShortcuts"] = new JsonArray("Quote");
+    var oldPath = Path.Combine(root, "old-shortcuts.json");
+    await File.WriteAllTextAsync(oldPath, oldTransfer.ToJsonString());
+    var oldMigrated = await SettingsTransfer.ReadAsync(oldPath);
+    Check(!oldMigrated.Settings.SeparatorShortcutEnabled && oldMigrated.Settings.RawInputShortcuts.SequenceEqual(new[] { "Quote" }),
+        "Old transfer preserves an occupied apostrophe key");
+    await client.ValidateAsync(oldMigrated.Settings);
     Check(original.SequenceEqual(File.ReadAllBytes(client.ConfigPath)), "Validation must not mutate target");
 
     var invalid = Path.Combine(root, "invalid.json");

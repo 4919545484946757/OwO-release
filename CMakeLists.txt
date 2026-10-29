@@ -67,6 +67,7 @@ add_library(owo_engine STATIC
     src/engine/candidate_generator.cpp
     src/engine/candidate_partition.cpp
     src/engine/candidate_scoring.cpp
+    src/engine/symbol_composition.cpp
     src/engine/composition_candidate_provider.cpp
     src/engine/candidate_scheduler.cpp
     src/engine/full_pinyin_schema.cpp
@@ -687,6 +688,22 @@ if(BUILD_TESTING)
     add_test(NAME owo.model.protocol COMMAND owo_model_protocol_tests)
 
     add_executable(owo_config_store_tests tests/config/config_store_tests.cpp)
+    add_executable(owo_symbol_composition_tests tests/engine/symbol_composition_tests.cpp)
+    target_link_libraries(owo_symbol_composition_tests PRIVATE owo_engine owo_config)
+    target_compile_features(owo_symbol_composition_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_symbol_composition_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    endif()
+    add_test(NAME owo.engine.symbol_composition COMMAND owo_symbol_composition_tests)
+    if(WIN32)
+        add_executable(owo_symbol_composition_contract tests/ipc/symbol_composition_contract.cpp)
+        target_link_libraries(owo_symbol_composition_contract PRIVATE owo_ipc)
+        target_compile_features(owo_symbol_composition_contract PRIVATE cxx_std_20)
+        target_compile_definitions(owo_symbol_composition_contract PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+        target_compile_options(owo_symbol_composition_contract PRIVATE /W4 /permissive- /utf-8 /EHsc)
+        add_test(NAME owo.ipc.symbol_composition COMMAND owo_symbol_composition_contract
+            ${CMAKE_CURRENT_BINARY_DIR}/symbol-composition-contract)
+    endif()
     target_link_libraries(owo_config_store_tests PRIVATE owo_config)
     target_compile_features(owo_config_store_tests PRIVATE cxx_std_20)
     if(MSVC)

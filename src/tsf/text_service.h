@@ -110,11 +110,13 @@ private:
         bool preserve_paging{};
         bool request_failed{};
         bool refinement_pending{};
+        bool symbol_preview{};
         std::wstring failure_detail;
         std::wstring segmented_input;
         std::vector<std::wstring> candidates;
         std::vector<std::uint64_t> candidate_consumed;
         std::vector<std::uint64_t> candidate_groups;
+        std::vector<std::wstring> following_previews;
     };
     struct AgentResult {
         std::uint64_t request_id{};
@@ -134,6 +136,8 @@ private:
         agent::ApplicationContext application_context;
         std::chrono::steady_clock::time_point queued_at{std::chrono::steady_clock::now()};
         bool defer_expensive_candidates{};
+        bool symbol_composition{};
+        std::vector<std::uint64_t> manual_breaks;
     };
     enum class HitKind : std::uint8_t {
         pinyin_cursor,
@@ -220,6 +224,11 @@ private:
     [[nodiscard]] std::size_t composition_cursor() const noexcept;
     void set_composition_cursor(std::size_t cursor);
     void restore_staged_suffix(std::size_t first);
+    void insert_composition_character(wchar_t character, bool manual_break = false);
+    void consume_manual_breaks(std::size_t count);
+    [[nodiscard]] bool symbol_composition_enabled() const noexcept;
+    [[nodiscard]] bool apostrophe_is_separator() const noexcept;
+    [[nodiscard]] std::optional<std::wstring> composition_symbol_for_key(WPARAM key, bool advance = false);
     HRESULT commit_pending_composition(ITfContext* context);
     void commit_pending_on_focus_loss();
     void move_candidate_page_from_shortcut(int direction);
@@ -345,8 +354,10 @@ private:
     struct StagedCandidate {
         std::wstring text;
         std::wstring source_input;
+        std::vector<std::size_t> manual_breaks;
     };
     std::wstring input_buffer_;
+    std::vector<std::size_t> manual_breaks_;
     std::size_t input_cursor_{0};
     std::vector<StagedCandidate> staged_candidates_;
     std::size_t staged_cursor_{0};
@@ -360,6 +371,7 @@ private:
     std::vector<std::wstring> candidates_;
     std::vector<std::uint64_t> candidate_consumed_;
     std::vector<std::uint64_t> candidate_groups_;
+    std::vector<std::wstring> following_previews_;
     std::string agent_session_id_;
     std::string agent_context_id_;
     agent::Status agent_status_{agent::Status::agent_mode};

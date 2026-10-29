@@ -15,6 +15,7 @@
 #include "owo/engine/user_frequency.h"
 #include "owo/engine/managed_dictionary.h"
 #include "owo/engine/user_lexicon_alignment.h"
+#include "owo/engine/symbol_composition.h"
 
 #include "owo/protocol/messages.h"
 
@@ -513,6 +514,7 @@ struct CandidateCacheKey {
     std::size_t parse_path_limit{};
     bool correction_enabled{};
     bool contextual_ranking{};
+    std::string symbol_layout;
 
     bool operator==(const CandidateCacheKey&) const = default;
 };
@@ -531,6 +533,7 @@ struct CandidateCacheKeyHash {
         combine(key.parse_path_limit);
         combine(key.correction_enabled);
         combine(key.contextual_ranking);
+        combine(std::hash<std::string>{}(key.symbol_layout));
         return value;
     }
 };
@@ -1298,6 +1301,14 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
     std::deque<agent::ContextEntry> agent_context_history;
     std::uint64_t agent_context_sequence{};
     LatestModelTaskQueue model_queue;
+    struct SymbolRequestState {
+        engine::SymbolComposition composition;
+        std::unordered_map<std::string, std::vector<std::string>> source_segments;
+        std::vector<std::string> preview_segments;
+        std::vector<std::string> following;
+        std::string preview;
+    };
+    std::unordered_map<std::string, std::shared_ptr<SymbolRequestState>> symbol_requests;
     CandidateResultCache candidate_cache;
     struct PendingCandidateRefinement {
         std::uint64_t request_id{};
@@ -1344,7 +1355,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
         while (running) {
         const auto request_json = read_frame(pipe);
         if (request_json.empty()) break;
-        const auto decoded = protocol::decode_message(request_json);
+        auto decoded = protocol::decode_message(request_json);
+        std::shared_ptr<SymbolRequestState> symbol_state;
         const auto now = std::chrono::steady_clock::now();
         for (auto pending = model_requests.begin(); pending != model_requests.end();) {
             if (now - pending->second.created > std::chrono::seconds(5) &&
@@ -1370,6 +1382,26 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 runtime_config->model_ranking_enabled;
             const bool full_pinyin_scheme = runtime_config == nullptr ||
                 runtime_config->input_scheme == "full_pinyin";
+            const auto symbol_key = model_key(decoded.message.request_id, decoded.message.context_generation);
+            if (decoded.message.type == protocol::MessageType::candidate_update_request) {
+                if (const auto found = symbol_requests.find(symbol_key); found != symbol_requests.end())
+                    symbol_state = found->second;
+            } else if (decoded.message.type == protocol::MessageType::candidate_request &&
+                       decoded.message.symbol_composition && full_pinyin_scheme && runtime_config &&
+                       runtime_config->pinyin_symbol_compatibility_enabled) {
+                const bool quote_separator = runtime_config->separator_shortcut_enabled &&
+                    std::find(runtime_config->separator_shortcuts.begin(), runtime_config->separator_shortcuts.end(),
+                        "Quote") != runtime_config->separator_shortcuts.end();
+                auto composition = engine::split_symbol_composition(
+                    decoded.message.text, quote_separator, decoded.message.manual_breaks);
+                if (composition.valid) {
+                    symbol_state = std::make_shared<SymbolRequestState>();
+                    symbol_state->composition = std::move(composition);
+                    decoded.message.text = symbol_state->composition.segments.front().query;
+                    if (symbol_requests.size() >= 64) symbol_requests.clear();
+                    symbol_requests.insert_or_assign(symbol_key, symbol_state);
+                }
+            }
             dictionary_sources.set_enabled(full_pinyin_scheme);
             if (dictionary_sources.refresh()) {
                 ++learning_generation;
@@ -1819,6 +1851,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         parse_path_limit,
                         decoded.message.correction_enabled,
                         adaptive_ranking_enabled};
+                    if (symbol_state && !symbol_state->composition.segments.front().weak_spans.empty())
+                        cache_key.symbol_layout = symbol_state->composition.source;
                     model_cache_key = cache_key;
                     std::optional<engine::ParseResult> refinement_parse;
                     if (decoded.message.defer_expensive_candidates) {
@@ -2117,6 +2151,17 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         if (!cache_hit)
                             promote_contextual_preferences(contextual_preferences, candidates);
                     }
+                    if (symbol_state && !cache_hit && !cancelled()) {
+                        const auto weak_deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(20);
+                        engine::refine_weak_symbol_candidates(symbol_state->composition.segments.front(), candidates,
+                            [&](const std::string_view query) {
+                                const auto stop = [&] { return cancelled() || std::chrono::steady_clock::now() >= weak_deadline; };
+                                if (stop()) return std::vector<engine::Candidate>{};
+                                auto local = full_pinyin_schema.parse(query, 8, decoded.message.correction_enabled, nullptr, stop);
+                                return generator.generate(local, page_size, false, decoded.message.context,
+                                    nullptr, stop, false, 0, false);
+                            }, page_size);
+                    }
                     full_input_bytes = parsed.normalized_input.size();
                     if (partitioned_layout && !cache_hit && !cancelled()) {
                         const auto model_begin = std::find_if(
@@ -2208,6 +2253,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                         });
                     const engine::Candidate* joint_reference = nullptr;
                     for (const auto& candidate : candidates) {
+                        if (symbol_state)
+                            symbol_state->source_segments.insert_or_assign(
+                                candidate.text + ':' + std::to_string(candidate.consumed_input_bytes),
+                                candidate.source_segments);
                         if (candidate.joint_phrase_partition && !candidate.model_only &&
                             !candidate.user_preferred() &&
                             (joint_reference == nullptr || candidate.score > joint_reference->score))
@@ -2281,6 +2330,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                             candidates.empty() ? nullptr : &candidates.front());
                         if (response.syllables.empty())
                             response.syllables = candidate_segments;
+                        if (symbol_state) symbol_state->preview_segments = response.syllables;
                         // An unresolved raw chunk can be the entire long input.
                         // It is NOT a protocol-sized syllable. Leave preview
                         // segmentation unspecified (TSF owns the original input)
@@ -2545,6 +2595,56 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
             }
         }
 
+        // Symbols belong to the composition adapter, not the phonetic parser,
+        // candidate cache or external ranker. Project only at the IPC boundary.
+        if (symbol_state && (response.type == protocol::MessageType::candidate_response ||
+                             response.type == protocol::MessageType::candidate_update_response)) {
+            const auto& segment = symbol_state->composition.segments.front();
+            if (response.type == protocol::MessageType::candidate_response) {
+                symbol_state->preview = engine::symbol_segment_preview(segment, symbol_state->preview_segments);
+                symbol_state->following.clear();
+                const auto preview_deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(20);
+                for (std::size_t i = 1; i < symbol_state->composition.segments.size(); ++i) {
+                    const auto& next = symbol_state->composition.segments[i];
+                    // Preserve all input in the header, including segments beyond
+                    // the bounded number of auxiliary, non-interactive rows.
+                    if (!response.expanded) symbol_state->preview += engine::symbol_segment_preview(next, {});
+                    if (symbol_state->following.size() >= 16 || response.expanded) continue;
+                    const auto stop = [&] { return std::chrono::steady_clock::now() >= preview_deadline; };
+                    // Auxiliary rows never delay the interactive first segment
+                    // with typo expansion; full correction runs on promotion.
+                    auto parsed = full_pinyin_schema.parse(next.query, 4, false, nullptr, stop);
+                    auto choices = generator.generate(parsed, 3, false, {}, nullptr, stop, false, 0, false);
+                    std::string row;
+                    for (const auto& candidate : choices) {
+                        const auto projected = engine::project_symbol_candidate(next, candidate.text,
+                            candidate.source_segments, candidate.consumed_input_bytes);
+                        if (!row.empty()) row += "    ";
+                        row += projected.text;
+                    }
+                    if (row.empty()) row = symbol_state->composition.source.substr(next.source_begin,
+                        next.source_end - next.source_begin);
+                    if (!row.empty()) symbol_state->following.push_back(std::move(row));
+                }
+            }
+            for (std::size_t i = 0; i < response.candidates.size(); ++i) {
+                const auto found = symbol_state->source_segments.find(
+                    response.candidates[i] + ':' + std::to_string(response.candidate_consumed[i]));
+                const auto projected = engine::project_symbol_candidate(segment, response.candidates[i],
+                    found == symbol_state->source_segments.end() ? symbol_state->preview_segments : found->second,
+                    static_cast<std::size_t>(response.candidate_consumed[i]));
+                response.candidates[i] = projected.text;
+                response.candidate_consumed[i] = projected.consumed;
+            }
+            if (segment.query.empty() && response.type == protocol::MessageType::candidate_response &&
+                response.candidates.empty() && response.page == 0 && segment.source_end > 0) {
+                response.candidates = {symbol_state->composition.source.substr(0, segment.source_end)};
+                response.candidate_consumed = {segment.source_end};
+                response.candidate_groups.clear();
+            }
+            response.symbol_preview = symbol_state->preview;
+            if (!response.expanded) response.following_previews = symbol_state->following;
+        }
         auto encoded = protocol::encode_message(response);
         if (encoded.empty()) {
             std::clog << R"({"process":"core_service","module":"ipc","level":"error","event_id":"response_encoding_failed","request_id":)"

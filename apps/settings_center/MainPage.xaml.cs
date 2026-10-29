@@ -84,6 +84,7 @@ public sealed partial class MainPage : Page
         SetShortcutBindings("correction", ["Ctrl+Q"]);
         SetShortcutBindings("language", ["Ctrl+Space"]);
         SetShortcutBindings("raw", ["Enter"]);
+        SetShortcutBindings("separator", ["Quote"]);
         SetShortcutBindings("cursor-left", ["Left"]);
         SetShortcutBindings("cursor-right", ["Right"]);
         SetShortcutBindings("previous-page", ["["]);
@@ -232,7 +233,7 @@ public sealed partial class MainPage : Page
         SetVisibility(page == "candidates", CandidateSectionTitle,
                       CandidatePageSizeCard, CandidateWrapLengthCard,
                       CandidatePartitionCard, CandidateSingleCharacterFirstCard, CandidateImmediateCommitCard,
-                      FocusLossCommitCard, ChinesePunctuationCard,
+                      FocusLossCommitCard, ChinesePunctuationCard, PinyinSymbolCompatibilityCard,
                       AltCodeSectionTitle, AltCodePreviewCard,
                       AltCodePreviewPageSizeCard, AltCodePreviewWheelCard);
         SetVisibility(page == "intelligence", LearningSectionTitle,
