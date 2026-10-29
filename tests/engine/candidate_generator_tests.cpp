@@ -1065,6 +1065,28 @@ int main() {
             return fail("complete character protection dropped exact or alternate readings");
     }
 
+    const owo::engine::MemoryLexicon manual_boundary_lexicon({
+        {{"bin"}, "宾", 1000}, {{"ge", "wai"}, "格外", 100000},
+        {{"bing"}, "并", 1000}, {{"e", "wai"}, "额外", 1000},
+    });
+    owo::engine::UserFrequencyStore ambiguous_learning;
+    ambiguous_learning.record("bingewai", "并额外", 20);
+    const owo::engine::CandidateGenerator manual_boundary_generator(manual_boundary_lexicon, nullptr, &ambiguous_learning);
+    const auto explicit_bin = manual_boundary_generator.generate(schema.parse("bin'gewai"), 16, false, {}, nullptr, {}, true, 7);
+    if (std::any_of(explicit_bin.begin(), explicit_bin.end(), [](const auto& value) { return value.text == "并额外"; }))
+        return fail("compact learned key crossed an explicit source boundary");
+    const auto explicit_incomplete = manual_boundary_generator.generate(schema.parse("bin'gewa"), 16, false, {}, nullptr, {}, true, 7);
+    if (std::any_of(explicit_incomplete.begin(), explicit_incomplete.end(), [](const auto& value) { return value.text == "并额外"; }))
+        return fail("learned prefix completion crossed an explicit source boundary");
+    const auto compact_learned = manual_boundary_generator.generate(schema.parse("bingewai"), 16, false, {}, nullptr, {}, true, 7);
+    if (compact_learned.empty() || compact_learned.front().text != "并额外" ||
+        compact_learned.front().syllables != std::vector<std::string>{"bing", "e", "wai"})
+        return fail("ambiguous learned word inherited a conflicting reading");
+    const owo::engine::CandidateGenerator unlearned_boundary_generator(manual_boundary_lexicon);
+    const auto diverse = unlearned_boundary_generator.generate(schema.parse("bingewai"), 8, false, {}, nullptr, {}, true, 7);
+    if (std::none_of(diverse.begin(), diverse.end(), [](const auto& value) { return value.text == "并额外"; }))
+        return fail("homophones of one exact split starved the model's alternate reading");
+
     const auto cancelled_generation = word_priority_generator.generate(
         schema.parse("shi"), 32, false, {}, nullptr, [] { return true; });
     if (!cancelled_generation.empty())
