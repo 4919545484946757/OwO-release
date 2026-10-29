@@ -182,6 +182,11 @@ private:
     void hide_candidate_windows() noexcept;
     [[nodiscard]] bool render_candidate_window();
     [[nodiscard]] SIZE desired_candidate_window_size() const;
+    struct PreviewContainerLayout {
+        float left{}, top{}, right{}, bottom{};
+        std::vector<float> row_heights;
+    };
+    [[nodiscard]] std::optional<PreviewContainerLayout> layout_following_previews(float width) const;
     void worker_loop(std::stop_token stop_token);
     void queue_candidate_request();
     void schedule_candidate_request(bool reset_retry);

@@ -66,6 +66,10 @@ constexpr float kButtonWidthDip = 30.0F;
 constexpr float kExpandButtonWidthDip = 52.0F;
 constexpr float kControlGapDip = 6.0F;
 constexpr float kCandidateControlGapDip = 10.0F;
+constexpr float kCandidateCornerRadiusDip = 10.0F;
+constexpr float kPreviewContainerInsetDip = 8.0F;
+constexpr float kPreviewContainerGapDip = 8.0F;
+constexpr float kPreviewContainerVerticalPaddingDip = 8.0F;
 constexpr float kUnicodeEntryWidthDip = 30.0F;
 constexpr float kUnicodeCategoryHeightDip = 30.0F;
 constexpr float kUnicodeCellSizeDip = 42.0F;
@@ -1798,6 +1802,29 @@ void TextService::apply_candidate_window_effects() noexcept {
                           &border_color, sizeof(border_color));
 }
 
+std::optional<TextService::PreviewContainerLayout> TextService::layout_following_previews(const float width) const {
+    if (candidates_expanded_ || following_previews_.empty() || alt_code_preview_active_ || unicode_palette_visible_)
+        return std::nullopt;
+    const auto wrap = std::max<std::size_t>(1, shortcut_config_.candidate_wrap_length);
+    float first_height = kCandidateItemHeightDip;
+    for (std::size_t i = 0; i < std::min(candidates_.size(), candidate_page_width()); ++i)
+        first_height = std::max(first_height, wrapped_candidate_height(candidates_[i], wrap));
+    PreviewContainerLayout layout;
+    layout.left = kPreviewContainerInsetDip;
+    layout.right = std::max(layout.left, width - kPreviewContainerInsetDip);
+    layout.top = kHeaderHeightDip + 8.0F + first_height + kPreviewContainerGapDip;
+    layout.bottom = layout.top + 2.0F * kPreviewContainerVerticalPaddingDip;
+    for (const auto& row : following_previews_) {
+        float height = kCandidateItemHeightDip;
+        for (const auto& item : row.candidates)
+            height = std::max(height, wrapped_candidate_height(item, wrap));
+        if (!layout.row_heights.empty()) layout.bottom += kCandidateRowGapDip;
+        layout.row_heights.push_back(height);
+        layout.bottom += height;
+    }
+    return layout;
+}
+
 SIZE TextService::desired_candidate_window_size() const {
     const UINT dpi = candidate_window_ == nullptr
                          ? 96U
@@ -1872,14 +1899,9 @@ SIZE TextService::desired_candidate_window_size() const {
     } else if (!candidates_.empty()) {
         content_height = row_height(0, std::min(candidates_.size(), page_size));
     }
-    if (!candidates_expanded_)
-        for (const auto& row : following_previews_) {
-            float height = kCandidateItemHeightDip;
-            for (const auto& item : row.candidates)
-                height = std::max(height, wrapped_candidate_height(item, wrap_length));
-            content_height += height + kCandidateRowGapDip;
-        }
-    const float height = kHeaderHeightDip + 16.0F + content_height;
+    const auto preview_container = layout_following_previews(kCandidateWindowMinWidthDip);
+    const float height = preview_container ? preview_container->bottom + 8.0F
+                                          : kHeaderHeightDip + 16.0F + content_height;
     const float controls_width = candidates_expanded_ && !plugin_scheme_selected()
                                      ? kExpandButtonWidthDip
                                      : kButtonWidthDip * 2.0F + kExpandButtonWidthDip +
@@ -1930,7 +1952,8 @@ SIZE TextService::desired_candidate_window_size() const {
     } else {
         candidates_width = row_width(0, std::min(candidates_.size(), page_size));
     }
-    if (!candidates_expanded_)
+    float following_width = 0.0F;
+    if (preview_container)
         for (const auto& row : following_previews_) {
             float width = 0.0F;
             for (std::size_t i = 0; i < row.candidates.size(); ++i) {
@@ -1939,7 +1962,7 @@ SIZE TextService::desired_candidate_window_size() const {
                 width += kCandidatePillBaseWidthDip + measure_text_width(dwrite_factory_, candidate_text_format_,
                     wrapped_candidate_text(row.candidates[i], wrap_length));
             }
-            candidates_width = std::max(candidates_width, width);
+            following_width = std::max(following_width, width);
         }
     const std::wstring agent_preview = agent_preview_text();
     const std::wstring reading = agent_preview.empty()
@@ -1950,7 +1973,9 @@ SIZE TextService::desired_candidate_window_size() const {
              ? 0.0F : kUnicodeEntryWidthDip + kCandidateGapDip);
     const float candidate_row_width = kHorizontalPaddingDip * 2.0F + candidates_width +
                                       kCandidateControlGapDip + controls_width;
-    const float width = std::clamp(std::max(preview_width, candidate_row_width),
+    const float following_container_width = preview_container
+        ? following_width + 2.0F * (kPreviewContainerInsetDip + kHorizontalPaddingDip) : 0.0F;
+    const float width = std::clamp(std::max({preview_width, candidate_row_width, following_container_width}),
                                    kCandidateWindowMinWidthDip,
                                    kCandidateWindowMaxWidthDip);
     return SIZE{dips_to_pixels(width, dpi),
@@ -2443,7 +2468,8 @@ bool TextService::render_candidate_window() {
     render_target_->PushAxisAlignedClip(D2D1::RectF(0, 0, size.width, size.height),
                                        D2D1_ANTIALIAS_MODE_ALIASED);
     const D2D1_ROUNDED_RECT card{
-        D2D1::RectF(0.5F, 0.5F, size.width - 0.5F, size.height - 0.5F), 10.0F, 10.0F};
+        D2D1::RectF(0.5F, 0.5F, size.width - 0.5F, size.height - 0.5F),
+        kCandidateCornerRadiusDip, kCandidateCornerRadiusDip};
     if (!blurred_background)
         render_target_->FillRoundedRectangle(card, mode_background_brush);
     render_target_->DrawRoundedRectangle(card, mode_border_brush, 1.0F);
@@ -2892,14 +2918,16 @@ bool TextService::render_candidate_window() {
                                            kControlGapDip * 2.0F;
     const float controls_left = size.width - kHorizontalPaddingDip - controls_width;
     const float candidate_right = controls_left - kCandidateControlGapDip;
-    const auto draw_candidate_row = [this, candidate_right,
+    const auto draw_candidate_row = [this,
                                      &draw_candidate, wrap_length](const std::span<const std::wstring> items,
                                                         const std::span<const std::uint64_t> groups,
                                                         const bool interactive,
                                                         const std::size_t begin,
                                                         const std::size_t end,
                                                         const float top,
-                                                        const float row_height) {
+                                                        const float row_height,
+                                                        const float left,
+                                                        const float right) {
         if (begin >= end) return;
         const bool partitioned = !plugin_scheme_selected() && candidate_page_size_ >= 4 && groups.size() == items.size();
         float gaps_width = 0.0F;
@@ -2916,11 +2944,11 @@ bool TextService::render_candidate_window() {
                                                   display);
         }
         const float usable_width = std::max(
-            1.0F, candidate_right - kHorizontalPaddingDip - gaps_width);
+            1.0F, right - left - gaps_width);
         const float width_scale = requested_total > usable_width
                                       ? usable_width / requested_total
                                       : 1.0F;
-        float x = kHorizontalPaddingDip;
+        float x = left;
         for (std::size_t index = begin; index < end; ++index) {
             if (index != begin) {
                 const bool boundary = partitioned &&
@@ -2989,7 +3017,8 @@ bool TextService::render_candidate_window() {
                 render_target_->FillRoundedRectangle(D2D1::RoundedRect(bounds, 7.0F, 7.0F), selected_page_brush_);
             }
             add_hit_region(bounds, {HitKind::candidate_page, row});
-            draw_candidate_row(candidates_, candidate_groups_, true, begin, end, top, row_height);
+            draw_candidate_row(candidates_, candidate_groups_, true, begin, end, top, row_height,
+                kHorizontalPaddingDip, candidate_right);
             top += row_height + kCandidateRowGapDip;
         }
     } else {
@@ -2998,19 +3027,23 @@ bool TextService::render_candidate_window() {
         for (std::size_t index = 0; index < end; ++index)
             row_height = std::max(row_height,
                                   wrapped_candidate_height(candidates_[index], wrap_length));
-        draw_candidate_row(candidates_, candidate_groups_, true, 0, end, content_top, row_height);
+        draw_candidate_row(candidates_, candidate_groups_, true, 0, end, content_top, row_height,
+            kHorizontalPaddingDip, candidate_right);
     }
 
-    if (!candidates_expanded_ && !following_previews_.empty()) {
-        float first_height = kCandidateItemHeightDip;
-        for (std::size_t i = 0; i < std::min(candidates_.size(), candidate_page_width()); ++i)
-            first_height = std::max(first_height, wrapped_candidate_height(candidates_[i], wrap_length));
-        float top = content_top + first_height + kCandidateRowGapDip;
-        for (const auto& row : following_previews_) {
-            float height = kCandidateItemHeightDip;
-            for (const auto& item : row.candidates)
-                height = std::max(height, wrapped_candidate_height(item, wrap_length));
-            draw_candidate_row(row.candidates, row.groups, false, 0, row.candidates.size(), top, height);
+    if (const auto container = layout_following_previews(size.width)) {
+        const auto bounds = D2D1::RectF(container->left + 0.5F, container->top + 0.5F,
+            container->right - 0.5F, container->bottom - 0.5F);
+        // Match the original card's 10-DIP corners and theme/plugin border.
+        // Inherit the existing backdrop rather than alpha-blending it twice.
+        render_target_->DrawRoundedRectangle(D2D1::RoundedRect(bounds,
+            kCandidateCornerRadiusDip, kCandidateCornerRadiusDip), mode_border_brush, 1.0F);
+        float top = container->top + kPreviewContainerVerticalPaddingDip;
+        for (std::size_t i = 0; i < following_previews_.size(); ++i) {
+            const auto& row = following_previews_[i];
+            const auto height = container->row_heights[i];
+            draw_candidate_row(row.candidates, row.groups, false, 0, row.candidates.size(), top, height,
+                container->left + kHorizontalPaddingDip, container->right - kHorizontalPaddingDip);
             top += height + kCandidateRowGapDip;
         }
     }

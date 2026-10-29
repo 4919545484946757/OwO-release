@@ -203,6 +203,12 @@ struct ExpandedCandidateTestAccess {
             {{L"后续长候选词换行仍保留数字序号与独立行高"}, {1}}};
         const auto multi = service->desired_candidate_window_size();
         if (multi.cy <= single.cy + 64 || multi.cx < single.cx) return 35;
+        const auto scale = static_cast<float>(std::max(GetDpiForWindow(service->candidate_window_), 96U)) / 96.0F;
+        const auto panel = service->layout_following_previews(static_cast<float>(multi.cx) / scale);
+        if (!panel || panel->left != 8.0F || panel->top <= 80.0F ||
+            panel->right >= static_cast<float>(multi.cx) / scale ||
+            panel->bottom + 7.0F > static_cast<float>(multi.cy) / scale ||
+            panel->row_heights.size() != 2 || panel->row_heights[1] <= panel->row_heights[0]) return 43;
         service->candidate_theme_.background_blur_enabled = false;
         service->candidate_present_size_ = multi;
         service->candidate_content_size_ = multi;
@@ -227,7 +233,29 @@ struct ExpandedCandidateTestAccess {
             const auto main = service->text_brush_->GetColor();
             if (std::abs(main.g - 196.0F / 255.0F) > 0.001F) return 42;
         }
+        // The dropdown adds its old-style outline, not another translucent
+        // background layer. Compare its empty padding with the same canvas
+        // without the dropdown so acrylic opacity cannot accidentally double.
+        service->candidate_theme_.background = {0x202030, 0.35F};
+        service->candidate_theme_.border = {0xd0d0d0, 1.0F};
+        service->discard_device_resources();
+        if (!service->render_candidate_window()) return 44;
+        const auto pixel_at = [&](float x, float y) {
+            const auto px = static_cast<std::size_t>(x * scale);
+            const auto py = static_cast<std::size_t>(y * scale);
+            const auto* pixels = static_cast<const std::uint32_t*>(service->layered_surface_pixels_);
+            return pixels[py * service->layered_surface_size_.cx + px];
+        };
+        const auto inside = pixel_at(panel->left + 6, panel->top + 24);
+        const auto outline = pixel_at(panel->left, panel->top + 24);
+        auto saved_rows = std::move(service->following_previews_);
+        service->following_previews_.clear();
+        if (!service->render_candidate_window()) return 45;
+        if (inside != pixel_at(panel->left + 6, panel->top + 24) ||
+            outline == pixel_at(panel->left, panel->top + 24)) return 46;
+        service->following_previews_ = std::move(saved_rows);
         service->candidates_expanded_ = true;
+        if (service->layout_following_previews(static_cast<float>(multi.cx) / scale)) return 47;
         const auto expanded_with_aux = service->desired_candidate_window_size();
         service->following_previews_.clear();
         const auto expanded_without_aux = service->desired_candidate_window_size();
