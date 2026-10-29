@@ -1303,9 +1303,12 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
     LatestModelTaskQueue model_queue;
     struct SymbolRequestState {
         engine::SymbolComposition composition;
+        CandidateCacheKey identity;
+        std::vector<std::optional<protocol::Message>> first_pages;
         std::unordered_map<std::string, std::vector<std::string>> source_segments;
         std::vector<std::string> preview_segments;
-        std::vector<std::string> following;
+        std::vector<std::vector<std::string>> following;
+        std::vector<std::vector<std::uint64_t>> following_groups;
         std::string preview;
     };
     std::unordered_map<std::string, std::shared_ptr<SymbolRequestState>> symbol_requests;
@@ -1332,6 +1335,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                                   L"Local\\OwO.InputMethod.Core.Ready.P1")
                                    : nullptr;
     bool ready_signalled = false;
+    std::uint64_t preview_request_id = std::numeric_limits<std::uint64_t>::max();
     while (running) {
         const HANDLE pipe = CreateNamedPipeW(
             pipe_name, PIPE_ACCESS_DUPLEX, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
@@ -1355,7 +1359,20 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
         while (running) {
         const auto request_json = read_frame(pipe);
         if (request_json.empty()) break;
-        auto decoded = protocol::decode_message(request_json);
+        auto incoming = protocol::decode_message(request_json);
+        const auto composition_symbol_key = model_key(incoming.message.request_id, incoming.message.context_generation);
+        const auto cancel_name = candidate_cancellation_event_name(
+            incoming.message.request_id, incoming.message.context_generation);
+        const HANDLE composition_cancel = incoming.validation &&
+            incoming.message.type == protocol::MessageType::candidate_request
+            ? CreateEventW(nullptr, TRUE, FALSE, cancel_name.c_str()) : nullptr;
+        // Auxiliary rows use the same request evaluator as real first pages:
+        // parsing, correction, learning, partitions, cache and model application.
+        // No recursive pipe connection or separate reduced candidate algorithm.
+        const auto evaluate = [&](auto&& self, protocol::DecodeResult decoded,
+                                   const bool auxiliary) -> protocol::Message {
+        std::optional<engine::FullPinyinIncrementalState> saved_parse_state;
+        if (auxiliary) saved_parse_state = incremental_parse_state;
         std::shared_ptr<SymbolRequestState> symbol_state;
         const auto now = std::chrono::steady_clock::now();
         for (auto pending = model_requests.begin(); pending != model_requests.end();) {
@@ -1395,10 +1412,26 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 auto composition = engine::split_symbol_composition(
                     decoded.message.text, quote_separator, decoded.message.manual_breaks);
                 if (composition.valid) {
-                    symbol_state = std::make_shared<SymbolRequestState>();
-                    symbol_state->composition = std::move(composition);
+                    CandidateCacheKey identity{composition.source, decoded.message.input, decoded.message.context,
+                        config_monitor->generation(), learning_generation,
+                        user_frequency ? user_frequency->ranking_epoch() : 0, 32,
+                        decoded.message.correction_enabled, adaptive_ranking_enabled};
+                    const auto existing = symbol_requests.find(symbol_key);
+                    if (existing != symbol_requests.end() && existing->second->identity == identity)
+                        symbol_state = existing->second;
+                    else {
+                        symbol_state = std::make_shared<SymbolRequestState>();
+                        symbol_state->identity = std::move(identity);
+                        symbol_state->composition = std::move(composition);
+                        symbol_state->first_pages.resize(symbol_state->composition.segments.size() - 1);
+                    }
                     decoded.message.text = symbol_state->composition.segments.front().query;
-                    if (symbol_requests.size() >= 64) symbol_requests.clear();
+                    if (symbol_requests.size() >= 64) {
+                        const auto stale = std::find_if(symbol_requests.begin(), symbol_requests.end(),
+                            [&](const auto& entry) { return entry.first != composition_symbol_key &&
+                                entry.first != symbol_key && !model_requests.contains(entry.first); });
+                        if (stale != symbol_requests.end()) symbol_requests.erase(stale);
+                    }
                     symbol_requests.insert_or_assign(symbol_key, symbol_state);
                 }
             }
@@ -1738,9 +1771,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     nullptr, TRUE, FALSE, cancellation_name.c_str());
                 bool client_disconnected = false;
                 auto next_connection_check = request_started;
-                const auto cancelled = [cancellation_event, pipe,
+                const auto cancelled = [cancellation_event, composition_cancel, pipe,
                                         &client_disconnected, &next_connection_check] {
-                    if (client_disconnected || (cancellation_event != nullptr &&
+                    if (client_disconnected || (composition_cancel != nullptr &&
+                        WaitForSingleObject(composition_cancel, 0) == WAIT_OBJECT_0) || (cancellation_event != nullptr &&
                         WaitForSingleObject(cancellation_event, 0) == WAIT_OBJECT_0))
                         return true;
                     // A timed-out client closes its pipe without necessarily
@@ -2476,11 +2510,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                     // Only the newest composition can affect the active TSF
                     // window. Drop mappings for older generations before the
                     // latest-only worker accepts the new ranking task.
-                    model_requests.clear();
+                    if (!auxiliary) model_requests.clear();
                     PendingModelRequest pending_model;
                     pending_model.cache_key = model_cache_key;
-                    pending_model.future = model_queue.submit(
-                        [model_pipe, request = std::move(model_request), model_timeout] {
+                    auto rank = [model_pipe, request = std::move(model_request), model_timeout] {
                             const auto exchanged = exchange(
                                 model_pipe.c_str(), model::encode_model_message(request),
                                 std::chrono::milliseconds(model_timeout + 25U));
@@ -2489,7 +2522,15 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                                 model::decode_model_message(exchanged.response);
                             return decoded_model.validation ? decoded_model.message
                                                             : model::ModelMessage{};
-                        });
+                        };
+                    if (auxiliary) {
+                        // Resolve this page's model through the same update
+                        // path without replacing/cancelling the active row's
+                        // latest-only ranking task.
+                        std::promise<model::ModelMessage> ready;
+                        pending_model.future = ready.get_future();
+                        ready.set_value(rank());
+                    } else pending_model.future = model_queue.submit(std::move(rank));
                     pending_model.created = std::chrono::steady_clock::now();
                     pending_model.candidates = std::move(model_update_candidates);
                     pending_model.candidate_consumed = std::move(model_update_consumed);
@@ -2603,28 +2644,63 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
             if (response.type == protocol::MessageType::candidate_response) {
                 symbol_state->preview = engine::symbol_segment_preview(segment, symbol_state->preview_segments);
                 symbol_state->following.clear();
-                const auto preview_deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(20);
+                symbol_state->following_groups.clear();
+                // Complete pages are retained across refinements. A slow page
+                // may finish this slice, but subsequent pages wait for another
+                // response rather than multiplying model timeouts in one IPC.
+                const auto slice_deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(25);
                 for (std::size_t i = 1; i < symbol_state->composition.segments.size(); ++i) {
                     const auto& next = symbol_state->composition.segments[i];
-                    // Preserve all input in the header, including segments beyond
-                    // the bounded number of auxiliary, non-interactive rows.
-                    if (!response.expanded) symbol_state->preview += engine::symbol_segment_preview(next, {});
-                    if (symbol_state->following.size() >= 16 || response.expanded) continue;
-                    const auto stop = [&] { return std::chrono::steady_clock::now() >= preview_deadline; };
-                    // Auxiliary rows never delay the interactive first segment
-                    // with typo expansion; full correction runs on promotion.
-                    auto parsed = full_pinyin_schema.parse(next.query, 4, false, nullptr, stop);
-                    auto choices = generator.generate(parsed, 3, false, {}, nullptr, stop, false, 0, false);
-                    std::string row;
-                    for (const auto& candidate : choices) {
-                        const auto projected = engine::project_symbol_candidate(next, candidate.text,
-                            candidate.source_segments, candidate.consumed_input_bytes);
-                        if (!row.empty()) row += "    ";
-                        row += projected.text;
+                    if (response.expanded) continue;
+                    if (symbol_state->following.size() >= 16 || (composition_cancel &&
+                        WaitForSingleObject(composition_cancel, 0) == WAIT_OBJECT_0)) {
+                        symbol_state->preview += engine::symbol_segment_preview(next, {});
+                        continue;
                     }
-                    if (row.empty()) row = symbol_state->composition.source.substr(next.source_begin,
+                    auto& cached_page = symbol_state->first_pages[i - 1];
+                    if (!cached_page && std::chrono::steady_clock::now() >= slice_deadline) {
+                        const auto parsed = full_pinyin_schema.parse(next.query, 1, false);
+                        const auto parts = preferred_source_segmentation(parsed, {}, false, nullptr);
+                        symbol_state->preview += engine::symbol_segment_preview(next, parts);
+                        symbol_state->following.emplace_back();
+                        symbol_state->following_groups.emplace_back();
+                        response.candidate_refinement_pending = true;
+                        continue;
+                    }
+                    protocol::DecodeResult page;
+                    page.message.type = protocol::MessageType::candidate_request;
+                    page.message.request_id = preview_request_id--;
+                    page.message.context_generation = decoded.message.context_generation;
+                    page.message.text = symbol_state->composition.source.substr(next.source_begin,
                         next.source_end - next.source_begin);
-                    if (!row.empty()) symbol_state->following.push_back(std::move(row));
+                    page.message.input = decoded.message.input;
+                    page.message.context = decoded.message.context;
+                    page.message.correction_enabled = decoded.message.correction_enabled;
+                    page.message.symbol_composition = true;
+                    for (const auto offset : decoded.message.manual_breaks)
+                        if (offset >= next.source_begin && offset < next.source_end)
+                            page.message.manual_breaks.push_back(offset - next.source_begin);
+                    auto first_page = cached_page ? *cached_page : self(self, page, true);
+                    if (!cached_page && first_page.model_pending) {
+                        protocol::DecodeResult update;
+                        update.message.type = protocol::MessageType::candidate_update_request;
+                        update.message.request_id = page.message.request_id;
+                        update.message.context_generation = page.message.context_generation;
+                        auto ranked = self(self, std::move(update), true);
+                        if (!ranked.candidates.empty()) {
+                            first_page.candidates = std::move(ranked.candidates);
+                            first_page.candidate_groups = std::move(ranked.candidate_groups);
+                        }
+                    }
+                    if (!cached_page) {
+                        first_page.model_pending = false;
+                        cached_page = first_page;
+                    }
+                    symbol_state->preview += first_page.symbol_preview.empty()
+                        ? engine::symbol_segment_preview(next, {}) : first_page.symbol_preview;
+                    symbol_state->following.push_back(std::move(first_page.candidates));
+                    symbol_state->following_groups.push_back(std::move(first_page.candidate_groups));
+                    symbol_requests.erase(model_key(page.message.request_id, page.message.context_generation));
                 }
             }
             for (std::size_t i = 0; i < response.candidates.size(); ++i) {
@@ -2643,8 +2719,16 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 response.candidate_groups.clear();
             }
             response.symbol_preview = symbol_state->preview;
-            if (!response.expanded) response.following_previews = symbol_state->following;
+            if (!response.expanded) {
+                response.following_previews = symbol_state->following;
+                response.following_groups = symbol_state->following_groups;
+            }
         }
+        if (saved_parse_state) incremental_parse_state = std::move(*saved_parse_state);
+        return response;
+        };
+        auto response = evaluate(evaluate, std::move(incoming), false);
+        if (composition_cancel) CloseHandle(composition_cancel);
         auto encoded = protocol::encode_message(response);
         if (encoded.empty()) {
             std::clog << R"({"process":"core_service","module":"ipc","level":"error","event_id":"response_encoding_failed","request_id":)"

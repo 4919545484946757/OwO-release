@@ -14,9 +14,15 @@
 class SymbolRanker final : public owo::model::IModelBackend {
 public:
     std::atomic<bool> received_symbols{false};
+    std::atomic<int> delay_ms{0};
+    std::atomic<int> delayed_calls{0};
     std::string_view id() const noexcept override { return "owo.test.symbols"; }
     owo::model::ModelResult rank(const owo::model::ModelRequest& request, std::stop_token) override {
-        if (request.input != "nihao") received_symbols = true;
+        if (request.input == "shijie" && delay_ms > 0) {
+            ++delayed_calls;
+            std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms.load()));
+        }
+        if (request.input != "nihao" && request.input != "shijie") received_symbols = true;
         for (const auto& candidate : request.candidates)
             if (candidate.find('\'') != std::string::npos || candidate.find(',') != std::string::npos)
                 received_symbols = true;
@@ -42,6 +48,12 @@ int wmain(int argc, wchar_t** argv) {
     engine::MemoryLexicon lexicon({
         {{"ni", "hao"}, "你好", 10000}, {{"ni", "hao"}, "拟好", 9000},
         {{"shi", "jie"}, "世界", 10000}, {{"ni"}, "你", 9000},
+        {{"shi", "jie"}, "视界", 9000}, {{"shi", "jie"}, "时节", 8000},
+        {{"shi", "jie"}, "使节", 7000}, {{"shi", "jie"}, "十届", 6000},
+        {{"shi", "jie"}, "师姐", 5000}, {{"shi", "jie"}, "石阶", 4000},
+        {{"shi", "jie"}, "失节", 3000}, {{"shi", "jie"}, "诗界", 2000},
+        {{"shi"}, "是", 90000}, {{"shi"}, "时", 80000}, {{"shi"}, "事", 70000},
+        {{"shi"}, "市", 60000}, {{"shi"}, "十", 50000}, {{"shi"}, "使", 40000},
         {{"wo"}, "我", 10000}, {{"hao"}, "好", 8000}});
     const auto pipe = LR"(\\.\pipe\OwO.SymbolContract.)" + std::to_wstring(GetCurrentProcessId());
     const auto model_pipe = pipe + L".model";
@@ -77,6 +89,23 @@ int wmain(int argc, wchar_t** argv) {
         "expanded active segment only");
     auto next = query("shijie");
     check(next.validation && next.message.candidates[0] == "世界", "FIFO promoted segment");
+    check(first.message.symbol_preview == "ni'hao，shi'jie" &&
+        first.message.following_previews.front() == next.message.candidates &&
+        first.message.following_groups.front() == next.message.candidate_groups,
+        "following segmentation and complete canonical first page");
+    for (const auto size : {5U, 7U, 9U}) for (const auto partition : {false, true}) {
+        const auto before = monitor.generation();
+        settings.candidate_page_size = size;
+        settings.candidate_partition_enabled = partition;
+        check(writer.save(settings).success && monitor.wait_for_generation(before, std::chrono::seconds(2)), "page layout reload");
+        const auto multiple = query("nihao，shijie；nihao");
+        const auto actual = query("shijie；");
+        check(multiple.validation && actual.validation && multiple.message.following_previews.size() == 2 &&
+            multiple.message.following_previews[0] == actual.message.candidates &&
+            multiple.message.following_groups[0] == actual.message.candidate_groups &&
+            multiple.message.following_previews[0].size() > 3 && multiple.message.following_previews[0].size() <= size &&
+            multiple.message.symbol_preview == "ni'hao，shi'jie；ni'hao", "page size/partition/segmentation equality");
+    }
     auto quoted = query("wo“nihao”");
     check(quoted.validation && quoted.message.symbol_preview == "wo“ni'hao”" &&
         !quoted.message.candidates.empty() && quoted.message.candidates[0].find("“") != std::string::npos,
@@ -110,6 +139,28 @@ int wmain(int argc, wchar_t** argv) {
     const auto ranked_expanded = query("'nihao',shijie", true);
     check(ranked_expanded.validation && !ranked_expanded.message.candidates.empty() &&
         ranked_expanded.message.candidates.front() == update.message.candidates.front(), "model/paged/expanded same snapshot");
+    const auto ranked_next = query("shijie");
+    check(ranked_next.validation && ranked_base.message.following_previews[0] == ranked_next.message.candidates &&
+        ranked_base.message.following_groups[0] == ranked_next.message.candidate_groups,
+        "following model ranking equals actual first page");
+    generation = monitor.generation();
+    settings.candidate_page_size = 7;
+    check(writer.save(settings).success && monitor.wait_for_generation(generation, std::chrono::seconds(2)), "slow page config reload");
+    backend.delay_ms = 35;
+    protocol::Message slow_request{protocol::MessageType::candidate_request};
+    slow_request.text = "nihao，shijie；nihao";
+    slow_request.symbol_composition = true;
+    const auto partial_rows = send(slow_request);
+    check(partial_rows.validation && partial_rows.message.candidate_refinement_pending &&
+        partial_rows.message.following_previews.size() == 2 && !partial_rows.message.following_previews[0].empty() &&
+        partial_rows.message.following_previews[1].empty() && !partial_rows.message.candidates.empty(),
+        "slow model is sliced without inventing reduced candidate rows");
+    slow_request.request_id = partial_rows.message.request_id;
+    const auto completed_rows = send(slow_request);
+    check(completed_rows.validation && !completed_rows.message.candidate_refinement_pending &&
+        completed_rows.message.following_previews.size() == 2 && !completed_rows.message.following_previews[1].empty() &&
+        completed_rows.message.following_previews[0] == partial_rows.message.following_previews[0] && backend.delayed_calls == 1,
+        "refinement reuses completed pages and finishes remaining rows");
     send({protocol::MessageType::shutdown_request});
     server.join();
     model::ModelMessage stop;

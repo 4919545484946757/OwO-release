@@ -31,6 +31,7 @@
 #include <limits>
 #include <memory>
 #include <new>
+#include <span>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -1868,8 +1869,12 @@ SIZE TextService::desired_candidate_window_size() const {
         content_height = row_height(0, std::min(candidates_.size(), page_size));
     }
     if (!candidates_expanded_)
-        content_height += static_cast<float>(following_previews_.size()) *
-            (kCandidateItemHeightDip + kCandidateRowGapDip);
+        for (const auto& row : following_previews_) {
+            float height = kCandidateItemHeightDip;
+            for (const auto& item : row.candidates)
+                height = std::max(height, wrapped_candidate_height(item, wrap_length));
+            content_height += height + kCandidateRowGapDip;
+        }
     const float height = kHeaderHeightDip + 16.0F + content_height;
     const float controls_width = candidates_expanded_ && !plugin_scheme_selected()
                                      ? kExpandButtonWidthDip
@@ -1922,9 +1927,16 @@ SIZE TextService::desired_candidate_window_size() const {
         candidates_width = row_width(0, std::min(candidates_.size(), page_size));
     }
     if (!candidates_expanded_)
-        for (const auto& row : following_previews_)
-            candidates_width = std::max(candidates_width,
-                measure_text_width(dwrite_factory_, candidate_text_format_, row));
+        for (const auto& row : following_previews_) {
+            float width = 0.0F;
+            for (std::size_t i = 0; i < row.candidates.size(); ++i) {
+                if (i != 0) width += row.groups.size() == row.candidates.size() &&
+                    row.groups[i] != row.groups[i - 1] ? kCandidateGroupGapDip : kCandidateGapDip;
+                width += kCandidatePillBaseWidthDip + measure_text_width(dwrite_factory_, candidate_text_format_,
+                    wrapped_candidate_text(row.candidates[i], wrap_length));
+            }
+            candidates_width = std::max(candidates_width, width);
+        }
     const std::wstring agent_preview = agent_preview_text();
     const std::wstring reading = agent_preview.empty()
         ? composition_preview() : agent_preview;
@@ -2830,14 +2842,15 @@ bool TextService::render_candidate_window() {
     const auto draw_candidate = [this, &target_matches, &add_hit_region, wrap_length,
                                  mode_accent_brush, mode_border_brush,
                                  mode_highlight_brush, candidate_number_brush](
-                                    const D2D1_RECT_F bounds, const std::size_t index) {
+                                    const D2D1_RECT_F bounds, const std::size_t index,
+                                    const std::wstring_view text, const bool interactive) {
         const HitTarget target{HitKind::candidate, index};
         const D2D1_ROUNDED_RECT pill{bounds, 7.0F, 7.0F};
-        const bool hovered = target_matches(hovered_target_, target);
-        const bool pressed = target_matches(pressed_target_, target);
+        const bool hovered = interactive && target_matches(hovered_target_, target);
+        const bool pressed = interactive && target_matches(pressed_target_, target);
         const auto page_size = std::max<std::size_t>(1, candidate_page_width());
-        const bool active_page = !candidates_expanded_ || index / page_size == expanded_pages_.selected;
-        if ((active_page && index % page_size == 0) || hovered || pressed) {
+        const bool active_page = !interactive || !candidates_expanded_ || index / page_size == expanded_pages_.selected;
+        if ((interactive && active_page && index % page_size == 0) || hovered || pressed) {
             auto* brush = pressed ? pressed_brush_ : hovered ? hover_brush_ : mode_highlight_brush;
             const auto opacity = brush->GetOpacity();
             brush->SetOpacity(opacity * candidate_highlight_scale(hovered, pressed));
@@ -2853,18 +2866,18 @@ bool TextService::render_candidate_window() {
                         bounds.left + 26.0F, badge_center + 11.0F),
             5.0F, 5.0F};
         render_target_->FillRoundedRectangle(badge, candidate_badge_brush_);
-        const std::wstring label = std::to_wstring(candidates_expanded_ ? index % page_size + 1 : index + 1);
+        const std::wstring label = std::to_wstring(interactive && candidates_expanded_ ? index % page_size + 1 : index + 1);
         render_target_->DrawTextW(label.data(), static_cast<UINT32>(label.size()),
                                   label_text_format_, badge.rect, active_page ? candidate_number_brush : secondary_text_brush_,
                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
-        const auto display = wrapped_candidate_text(candidates_[index], wrap_length);
+        const auto display = wrapped_candidate_text(text, wrap_length);
         render_target_->DrawTextW(
             display.data(), static_cast<UINT32>(display.size()),
             candidate_text_format_,
             D2D1::RectF(bounds.left + 33.0F, bounds.top, bounds.right - 6.0F,
                         bounds.bottom),
             text_brush_, D2D1_DRAW_TEXT_OPTIONS_CLIP);
-        add_hit_region(bounds, target);
+        if (interactive) add_hit_region(bounds, target);
     };
 
     constexpr float content_top = kHeaderHeightDip + 8.0F;
@@ -2874,23 +2887,25 @@ bool TextService::render_candidate_window() {
                                            kControlGapDip * 2.0F;
     const float controls_left = size.width - kHorizontalPaddingDip - controls_width;
     const float candidate_right = controls_left - kCandidateControlGapDip;
-    const bool partitioned = !plugin_scheme_selected() && candidate_page_size_ >= 4 &&
-        candidate_groups_.size() == candidates_.size();
-    const auto draw_candidate_row = [this, partitioned, candidate_right,
-                                     &draw_candidate, wrap_length](const std::size_t begin,
+    const auto draw_candidate_row = [this, candidate_right,
+                                     &draw_candidate, wrap_length](const std::span<const std::wstring> items,
+                                                        const std::span<const std::uint64_t> groups,
+                                                        const bool interactive,
+                                                        const std::size_t begin,
                                                         const std::size_t end,
                                                         const float top,
                                                         const float row_height) {
         if (begin >= end) return;
+        const bool partitioned = !plugin_scheme_selected() && candidate_page_size_ >= 4 && groups.size() == items.size();
         float gaps_width = 0.0F;
         for (std::size_t index = begin + 1; index < end; ++index) {
             const bool boundary = partitioned &&
-                candidate_groups_[index] != candidate_groups_[index - 1];
+                groups[index] != groups[index - 1];
             gaps_width += boundary ? kCandidateGroupGapDip : kCandidateGapDip;
         }
         float requested_total = 0.0F;
         for (std::size_t index = begin; index < end; ++index) {
-            const auto display = wrapped_candidate_text(candidates_[index], wrap_length);
+            const auto display = wrapped_candidate_text(items[index], wrap_length);
             requested_total += kCandidatePillBaseWidthDip +
                                measure_text_width(dwrite_factory_, candidate_text_format_,
                                                   display);
@@ -2904,7 +2919,7 @@ bool TextService::render_candidate_window() {
         for (std::size_t index = begin; index < end; ++index) {
             if (index != begin) {
                 const bool boundary = partitioned &&
-                    candidate_groups_[index] != candidate_groups_[index - 1];
+                    groups[index] != groups[index - 1];
                 if (boundary) {
                     x += kCandidateGroupGapDip * 0.5F;
                     render_target_->DrawLine(
@@ -2916,12 +2931,12 @@ bool TextService::render_candidate_window() {
                     x += kCandidateGapDip;
                 }
             }
-            const auto display = wrapped_candidate_text(candidates_[index], wrap_length);
+            const auto display = wrapped_candidate_text(items[index], wrap_length);
             const float requested_width =
                 kCandidatePillBaseWidthDip +
                 measure_text_width(dwrite_factory_, candidate_text_format_, display);
             const float width = requested_width * width_scale;
-            draw_candidate(D2D1::RectF(x, top, x + width, top + row_height), index);
+            draw_candidate(D2D1::RectF(x, top, x + width, top + row_height), index, items[index], interactive);
             x += width;
         }
     };
@@ -2969,7 +2984,7 @@ bool TextService::render_candidate_window() {
                 render_target_->FillRoundedRectangle(D2D1::RoundedRect(bounds, 7.0F, 7.0F), selected_page_brush_);
             }
             add_hit_region(bounds, {HitKind::candidate_page, row});
-            draw_candidate_row(begin, end, top, row_height);
+            draw_candidate_row(candidates_, candidate_groups_, true, begin, end, top, row_height);
             top += row_height + kCandidateRowGapDip;
         }
     } else {
@@ -2978,7 +2993,7 @@ bool TextService::render_candidate_window() {
         for (std::size_t index = 0; index < end; ++index)
             row_height = std::max(row_height,
                                   wrapped_candidate_height(candidates_[index], wrap_length));
-        draw_candidate_row(0, end, content_top, row_height);
+        draw_candidate_row(candidates_, candidate_groups_, true, 0, end, content_top, row_height);
     }
 
     if (!candidates_expanded_ && !following_previews_.empty()) {
@@ -2987,10 +3002,11 @@ bool TextService::render_candidate_window() {
             first_height = std::max(first_height, wrapped_candidate_height(candidates_[i], wrap_length));
         float top = content_top + first_height + kCandidateRowGapDip;
         for (const auto& row : following_previews_) {
-            render_target_->DrawTextW(row.data(), static_cast<UINT32>(row.size()), candidate_text_format_,
-                D2D1::RectF(kHorizontalPaddingDip, top, size.width - kHorizontalPaddingDip, top + kCandidateItemHeightDip),
-                secondary_text_brush_, D2D1_DRAW_TEXT_OPTIONS_CLIP);
-            top += kCandidateItemHeightDip + kCandidateRowGapDip;
+            float height = kCandidateItemHeightDip;
+            for (const auto& item : row.candidates)
+                height = std::max(height, wrapped_candidate_height(item, wrap_length));
+            draw_candidate_row(row.candidates, row.groups, false, 0, row.candidates.size(), top, height);
+            top += height + kCandidateRowGapDip;
         }
     }
 
@@ -4187,8 +4203,12 @@ void TextService::worker_loop(const std::stop_token stop_token) {
         result->symbol_preview = !decoded.message.symbol_preview.empty();
         if (result->symbol_preview)
             result->segmented_input = wide_from_utf8(decoded.message.symbol_preview);
-        for (const auto& row : decoded.message.following_previews)
-            result->following_previews.push_back(wide_from_utf8(row));
+        for (std::size_t i = 0; i < decoded.message.following_previews.size(); ++i) {
+            CandidatePreviewRow row;
+            for (const auto& item : decoded.message.following_previews[i]) row.candidates.push_back(wide_from_utf8(item));
+            row.groups = decoded.message.following_groups[i];
+            result->following_previews.push_back(std::move(row));
+        }
         const auto consumed_units = [&request](const std::uint64_t bytes) -> std::uint64_t {
             if (!request.symbol_composition) return bytes;
             const auto raw = utf8_from_wide(request.input);
@@ -4226,8 +4246,7 @@ void TextService::worker_loop(const std::stop_token stop_token) {
             << R"(,"refinement_pending":)"
             << (decoded.message.candidate_refinement_pending ? "true" : "false")
             << "}\n";
-        if (decoded.message.candidate_refinement_pending &&
-            request.defer_expensive_candidates) {
+        if (decoded.message.candidate_refinement_pending) {
             if (PostMessageW(message_window_, kCandidateReady, 0,
                              reinterpret_cast<LPARAM>(result.get())))
                 result.release();

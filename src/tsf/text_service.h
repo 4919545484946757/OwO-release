@@ -100,6 +100,10 @@ private:
 #ifdef OWO_TSF_TEST_ACCESS
     friend struct ExpandedCandidateTestAccess;
 #endif
+    struct CandidatePreviewRow {
+        std::vector<std::wstring> candidates;
+        std::vector<std::uint64_t> groups;
+    };
     struct CandidateResult {
         std::uint64_t request_id{};
         std::uint64_t generation{};
@@ -116,7 +120,7 @@ private:
         std::vector<std::wstring> candidates;
         std::vector<std::uint64_t> candidate_consumed;
         std::vector<std::uint64_t> candidate_groups;
-        std::vector<std::wstring> following_previews;
+        std::vector<CandidatePreviewRow> following_previews;
     };
     struct AgentResult {
         std::uint64_t request_id{};
@@ -371,7 +375,7 @@ private:
     std::vector<std::wstring> candidates_;
     std::vector<std::uint64_t> candidate_consumed_;
     std::vector<std::uint64_t> candidate_groups_;
-    std::vector<std::wstring> following_previews_;
+    std::vector<CandidatePreviewRow> following_previews_;
     std::string agent_session_id_;
     std::string agent_context_id_;
     agent::Status agent_status_{agent::Status::agent_mode};

@@ -63,7 +63,8 @@ struct Message {
     bool symbol_composition{};
     std::vector<std::uint64_t> manual_breaks;
     std::string symbol_preview;
-    std::vector<std::string> following_previews;
+    std::vector<std::vector<std::string>> following_previews;
+    std::vector<std::vector<std::uint64_t>> following_groups;
 };
 
 struct DecodeResult {

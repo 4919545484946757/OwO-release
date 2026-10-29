@@ -191,6 +191,35 @@ struct ExpandedCandidateTestAccess {
             if (!content) return 27;
             service->hide_candidate_windows();
         }
+        // Auxiliary first pages share the numbered-pill renderer and sizing,
+        // but never add clickable/numeric targets belonging to the active row.
+        service->candidates_expanded_ = false;
+        service->candidates_.resize(7);
+        service->candidate_groups_.resize(7);
+        service->shortcut_config_.candidate_wrap_length = 4;
+        const auto single = service->desired_candidate_window_size();
+        service->following_previews_ = {
+            {{L"世界", L"视界", L"时节", L"使节", L"是", L"时", L"事"}, {1, 1, 1, 1, 2, 2, 2}},
+            {{L"后续长候选词换行仍保留数字序号与独立行高"}, {1}}};
+        const auto multi = service->desired_candidate_window_size();
+        if (multi.cy <= single.cy + 64 || multi.cx < single.cx) return 35;
+        service->candidate_theme_.background_blur_enabled = false;
+        service->candidate_present_size_ = multi;
+        service->candidate_content_size_ = multi;
+        if (!service->render_candidate_window()) return 36;
+        std::size_t active_targets = 0;
+        for (const auto& region : service->hit_regions_) {
+            if (region.target.kind != TextService::HitKind::candidate) continue;
+            ++active_targets;
+            if (region.target.candidate_index >= 7 || region.bounds.top >= single.cy) return 37;
+        }
+        if (active_targets != 7 || service->candidate_shortcut_index(6) != 6) return 38;
+        service->candidates_expanded_ = true;
+        const auto expanded_with_aux = service->desired_candidate_window_size();
+        service->following_previews_.clear();
+        const auto expanded_without_aux = service->desired_candidate_window_size();
+        if (expanded_with_aux.cy != expanded_without_aux.cy || expanded_with_aux.cx != expanded_without_aux.cx) return 39;
+        service->hide_candidate_windows();
         return 0;
     }
 };

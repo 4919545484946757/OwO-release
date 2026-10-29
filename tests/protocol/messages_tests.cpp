@@ -18,11 +18,21 @@ int main() {
     symbol_response.candidate_consumed = {9};
     symbol_response.page_size = 7;
     symbol_response.symbol_preview = "ni'hao，shi'jie";
-    symbol_response.following_previews = {"世界    视界"};
+    symbol_response.following_previews = {{"世界", "视界"}};
+    symbol_response.following_groups = {{1, 1}};
     symbols = decode_message(encode_message(symbol_response));
     if (!symbols.validation || symbols.message.symbol_preview != symbol_response.symbol_preview ||
-        symbols.message.following_previews != symbol_response.following_previews) ++failures;
-    symbol_response.following_previews.assign(17, "x");
+        symbols.message.following_previews != symbol_response.following_previews ||
+        symbols.message.following_groups != symbol_response.following_groups) ++failures;
+    symbol_response.following_previews.assign(17, {"x"});
+    if (!encode_message(symbol_response).empty()) ++failures;
+    symbol_response.following_previews = {{"世界", "视界"}};
+    symbol_response.following_groups = {{1}};
+    if (!encode_message(symbol_response).empty()) ++failures;
+    symbol_response.following_groups = {{1, 7}};
+    if (!encode_message(symbol_response).empty()) ++failures;
+    symbol_response.following_groups = {{}};
+    symbol_response.following_previews = {std::vector<std::string>(10, "世界")};
     if (!encode_message(symbol_response).empty()) ++failures;
     for (const auto type : {MessageType::user_lexicon_request, MessageType::user_lexicon_response}) {
         Message management{type, 77, 42, "list\t-\t0\t50\tmerge\n\n\t\n"};
