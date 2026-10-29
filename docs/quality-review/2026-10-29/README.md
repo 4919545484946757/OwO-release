@@ -48,11 +48,18 @@
 全部自动条目初始为“待批阅”，没有自动批准、自动判错或自动修改算法。
 
 交互页支持语料类别、运行时、类型、优先度及人工状态筛选，批阅意见可下载/导入JSON。
+支持勾选、单击选中、Ctrl/⌘+单击增减、Shift+单击范围选择，以及当前页/筛选全部批量选择。
+批量状态和备注可一起应用；备注支持追加/替换，留空不改。恢复待批阅不会清空已有备注。
+快捷键：空格确认问题，Z标记可接受歧义，Backspace恢复待批阅，↑/↓移动选中，Shift+↑/↓范围多选，←/→翻页，Ctrl+Z撤销批注。
+悬浮未选中行时仅批注该行；悬浮已选行或没有悬浮目标时批注全部已选项。
+键盘移动会清除旧悬浮目标，避免鼠标停留位置干扰键盘操作；输入框、下拉框和输入法组合期间不拦截快捷键。
+切换筛选会清空选择；Shift+↑/↓可跨页多选，左右翻页则选中新页首项。撤销不会覆盖该批操作之后手动修改的备注。
 `issues.jsonl` 是主清单；`structure-issues.jsonl` 是结构补充，两者有重叠，不可简单相加为缺陷总数。
 `structure-layout-observations.jsonl` 只记录布局规则观察，不计作缺陷。
 
 报告刷新：`scripts/export-quality-review.ps1`；结构补充：`node scripts/check-quality-candidate-structure.js`。
 报告一致性及筛选/导入导出逻辑检查：`node scripts/check-quality-review.js`（模拟DOM，不是截图/真实浏览器测试）。
+浏览器交互检查：`node scripts/check-quality-review-browser.js`（需本地Playwright及Edge，使用独立无头浏览器上下文，不访问真实批阅存储）。
 便携批阅包：`scripts/export-quality-review-bundle.ps1`，包含HTML、人工清单、原始报告快照、语料、复现脚本与逐文件SHA-256；
 不包含日常用户词库、词典/模型本体、输入法运行程序或安装包。
 
