@@ -49,6 +49,12 @@ public sealed partial class MainPage
             Icon = new FontIcon { Glyph = "\uE74C" },
         };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_pluginPagesGroup, "PluginSettingsGroup");
+        _pluginPagesGroup.MaxWidth = SettingsNavigation.OpenPaneLength;
+        _pluginPagesGroup.RegisterPropertyChangedCallback(NavigationViewItem.IsExpandedProperty, (sender, _) => {
+            var group = (NavigationViewItem)sender;
+            foreach (var child in group.MenuItems.OfType<NavigationViewItem>())
+                child.Visibility = group.IsExpanded ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        });
         SettingsNavigation.MenuItems.Add(_pluginPagesGroup);
         foreach (var plugin in plugins.OrderByDescending(value => value.Active)
                                       .ThenBy(value => value.Name, StringComparer.Ordinal)) {
@@ -57,8 +63,10 @@ public sealed partial class MainPage
             var navigation = new NavigationViewItem {
                 Content = plugin.Name, Tag = page,
                 Icon = new FontIcon { Glyph = "\uE74C" },
+                Visibility = expanded ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed,
             };
             _ = new PluginNavigationLayout(navigation);
+            _ = new PluginNavigationOverflow(navigation, SettingsNavigation);
             _pluginPagesGroup.MenuItems.Add(navigation);
             _pluginSearchItems.Add(new SearchItem(plugin.Name,
                 $"插件 {plugin.Id} {plugin.Version}", page));
