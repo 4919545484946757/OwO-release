@@ -197,7 +197,7 @@ internal sealed class DictionaryManager : UserControl
         var actions = new Border {
             Height = 64, VerticalAlignment = VerticalAlignment.Bottom,
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            Margin = new Thickness(1, 0, 1, 1), CornerRadius = new CornerRadius(0, 0, 9, 9),
+            Margin = new Thickness(3, 0, 3, 3), CornerRadius = new CornerRadius(0, 0, 7, 7),
             Background = operationBrush, Child = toggle,
         };
         AutomationProperties.SetAutomationId(actions, "DictionaryCardActions_" + id);
@@ -223,7 +223,7 @@ internal sealed class DictionaryManager : UserControl
         // An overlay draws inside the existing card bounds without changing
         // layout, intercepting input or inheriting the button's hover stroke.
         host.Children.Add(new Border {
-            BorderBrush = operationBrush, BorderThickness = new Thickness(1),
+            BorderBrush = operationBrush, BorderThickness = new Thickness(3),
             CornerRadius = new CornerRadius(10), IsHitTestVisible = false,
         });
         view.Menu = menu;
