@@ -345,6 +345,40 @@ struct ExpandedCandidateTestAccess {
         service->candidate_symbol_preview_ = true;
         service->clear_composition();
         if (service->candidate_symbol_preview_) return 58;
+        // Cold refinements must not clear an existing frame to a status-only
+        // row on each keystroke. The stale snapshot remains non-committable;
+        // the final response, including a genuine empty result, replaces it.
+        service->input_buffer_ = L"nipingchang";
+        service->input_cursor_ = service->input_buffer_.size();
+        service->segmented_input_ = L"ni'ping'chang";
+        respond(7);
+        for (const wchar_t letter : std::wstring_view(L"yong")) {
+            service->insert_composition_character(letter);
+            ++service->context_generation_;
+            ++service->active_candidate_request_id_;
+            service->candidate_request_pending_ = true;
+            const auto previous = service->candidates_;
+            const auto consumed = service->candidate_consumed_;
+            const auto groups = service->candidate_groups_;
+            const auto preview = service->segmented_input_;
+            const auto before = service->desired_candidate_window_size();
+            auto* waiting = new TextService::CandidateResult();
+            waiting->request_id = service->active_candidate_request_id_;
+            waiting->generation = service->context_generation_;
+            waiting->refinement_pending = true;
+            service->handle_candidate_result(waiting);
+            const auto after = service->desired_candidate_window_size();
+            if (!service->candidate_request_pending_ || service->candidates_ != previous ||
+                service->candidate_consumed_ != consumed || service->candidate_groups_ != groups ||
+                service->segmented_input_ != preview || before.cx != after.cx || before.cy != after.cy ||
+                service->commit_candidate(nullptr, 0) != E_PENDING) return 61;
+            respond(7);
+            if (service->candidate_request_pending_) return 62;
+        }
+        // Do not preserve a stale frame indefinitely on a completed no-match.
+        respond(0);
+        if (!service->candidates_.empty() || service->candidate_request_pending_) return 63;
+        service->clear_composition();
         return 0;
     }
 };

@@ -4410,6 +4410,16 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
         schedule_candidate_request(false);
         return;
     }
+    // A deferred cold query is not a final empty result. Keep the previous
+    // complete frame (and its geometry/backdrop) until this request has a
+    // usable snapshot. Clearing it here produces a status-only frame between
+    // every edited pinyin and its refinement. Pending input still gates all
+    // selection/commit paths, so retained pixels cannot commit stale entries.
+    if (!result->request_failed && result->refinement_pending &&
+        result->candidates.empty() && !candidates_.empty()) {
+        candidate_request_pending_ = true;
+        return;
+    }
     candidate_request_pending_ = result->refinement_pending &&
                                  result->candidates.empty();
     candidate_request_failed_ = result->request_failed;
