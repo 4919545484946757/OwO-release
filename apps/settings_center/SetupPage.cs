@@ -33,7 +33,7 @@ public sealed partial class SetupPage : Page
     private readonly InfoBar _packageStatus = new() { IsOpen = true, IsClosable = false };
     private readonly CheckBox _startMenuShortcut = new() { Content = "在开始菜单添加 OwO 设置中心", IsChecked = true };
     private readonly CheckBox _desktopShortcut = new() { Content = "在桌面添加 OwO 设置中心" };
-    private readonly CheckBox _taskbarGuide = new() { Content = "安装完成后显示任务栏固定提示" };
+    private readonly CheckBox _taskbarGuide = new() { Content = "安装完成后显示任务栏固定提示", Visibility = Visibility.Collapsed };
     private readonly CheckBox _bundledPlugins = new() { Content = "安装随包插件与配置，并恢复随包启用状态（逐项确认权限）", IsChecked = true };
     private readonly CheckBox _consent = new();
     private readonly TextBlock _availability = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.75 };
@@ -303,11 +303,11 @@ public sealed partial class SetupPage : Page
         options.Children.Add(_bundledPlugins);
         options.Children.Add(new TextBlock {
             Text = "本包附带亚克力候选框与 Unicode 符号列表。每个新插件仍需单独确认风险与权限；已有同版本保留本机配置和启用状态。取消勾选不会停用已有插件。",
-            TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7, Visibility = Visibility.Collapsed
         });
         options.Children.Add(new TextBlock {
             Text = "Windows 任务栏固定由你手动完成，安装器可在完成后提供操作提示。",
-            TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7, Visibility = Visibility.Collapsed
         });
 
         var languageText = new StackPanel { Spacing = 4 };
