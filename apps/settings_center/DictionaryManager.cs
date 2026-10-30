@@ -197,7 +197,7 @@ internal sealed class DictionaryManager : UserControl
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Margin = new Thickness(1, 0, 1, 1), CornerRadius = new CornerRadius(0, 0, 9, 9),
             Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                Windows.UI.Color.FromArgb(38, 0, 0, 0)), Child = toggle,
+                Windows.UI.Color.FromArgb(51, 0, 0, 0)), Child = toggle,
         };
         AutomationProperties.SetAutomationId(actions, "DictionaryCardActions_" + id);
         host.Children.Add(actions);
