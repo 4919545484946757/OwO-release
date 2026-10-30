@@ -66,7 +66,7 @@ public sealed partial class MainPage
                 Visibility = expanded ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed,
             };
             _ = new PluginNavigationLayout(navigation);
-            _ = new PluginNavigationOverflow(navigation, SettingsNavigation);
+            _ = new PluginNavigationLift(navigation, SettingsNavigation);
             _pluginPagesGroup.MenuItems.Add(navigation);
             _pluginSearchItems.Add(new SearchItem(plugin.Name,
                 $"插件 {plugin.Id} {plugin.Version}", page));
