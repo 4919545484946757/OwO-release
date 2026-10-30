@@ -5,7 +5,10 @@ param([Parameter(Mandatory)][string]$StorePath,
       [string[]]$PluginIds = @('org.owo.candidate-glass', 'org.owo.unicode-palette'))
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-Add-Type -AssemblyName System.IO.Compression.FileSystem
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+if (-not ('OwOBundleStoredZip' -as [type])) {
+    Add-Type -Path (Join-Path $PSScriptRoot '../tools/BundleStoredZip.cs')
+}
 $store = [IO.Path]::GetFullPath($StorePath)
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 if ($output.Equals($store, [StringComparison]::OrdinalIgnoreCase) -or
@@ -32,9 +35,7 @@ foreach ($plugin in $snapshot.plugins) {
     if (@(Get-ChildItem -LiteralPath $source -Recurse -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count) { throw 'Linked plugin files rejected.' }
     $relative = "packages/$($plugin.id)-$($plugin.version).owopkg"
     $package = Join-Path $output $relative
-    # The host's portable archive reader deliberately supports stored ZIP
-    # entries without requiring a Deflate runtime dependency.
-    [IO.Compression.ZipFile]::CreateFromDirectory($source, $package, [IO.Compression.CompressionLevel]::NoCompression, $false)
+    [OwOBundleStoredZip]::Create($source, $package)
     $preview = & $PluginShell $store inspect-install $package | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or -not $preview.ok -or $preview.plugin_id -ne $plugin.id -or $preview.version -ne $plugin.version) { throw 'Bundled plugin inspection failed.' }
     $entry = [ordered]@{ id = $plugin.id; version = $plugin.version; name = $plugin.name; active = [bool]$plugin.active;
