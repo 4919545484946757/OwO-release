@@ -10,6 +10,7 @@ internal static class SettingsModuleDefinitions
         new("input-scheme", "schemes", [
             F(nameof(SettingsSnapshot.InputScheme), s => s.InputScheme, (s, v) => s with { InputScheme = v })]),
         new("candidate-display", "candidates", [
+            F(nameof(SettingsSnapshot.PinyinPreviewLocation), s => s.PinyinPreviewLocation, (s, v) => s with { PinyinPreviewLocation = v }, SettingsCapability.InlinePreedit),
             F(nameof(SettingsSnapshot.CandidatePageSize), s => s.CandidatePageSize, (s, v) => s with { CandidatePageSize = v }, SettingsCapability.CandidateDisplay),
             F(nameof(SettingsSnapshot.CandidateWrapLength), s => s.CandidateWrapLength, (s, v) => s with { CandidateWrapLength = v }, SettingsCapability.CandidateDisplay)]),
         new("candidate-policy", "candidates", [

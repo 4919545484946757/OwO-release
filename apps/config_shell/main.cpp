@@ -94,6 +94,12 @@ bool apply(owo::config::AppConfig& config, const std::wstring_view field,
         return parse_shortcuts(value, config.punctuation_shortcuts);
     if (field == L"separator_shortcut")
         return parse_shortcuts(value, config.separator_shortcuts);
+    if (field == L"pinyin_preview_location") {
+        if (value == L"candidate") config.pinyin_preview_location = "candidate";
+        else if (value == L"input") config.pinyin_preview_location = "input";
+        else return false;
+        return true;
+    }
     bool parsed{};
     if (value == L"true") parsed = true;
     else if (value != L"false") return false;
@@ -254,7 +260,7 @@ int wmain(const int argc, wchar_t** argv) {
     if (command == L"set-all" &&
         (argc == 7 || argc == 13 || argc == 14 || argc == 15 || argc == 23 ||
          argc == 24 || argc == 27 || argc == 30 || argc == 32 || argc == 35 ||
-         argc == 36 || argc == 38 || argc == 39 || argc == 40 || argc == 44 || argc == 47)) {
+         argc == 36 || argc == 38 || argc == 39 || argc == 40 || argc == 44 || argc == 47 || argc == 48)) {
         owo::config::ConfigStore store;
         const auto loaded = store.load(path);
         if (!loaded.success) return 3;
@@ -311,7 +317,8 @@ int wmain(const int argc, wchar_t** argv) {
               !apply(value, L"expanded_next_page_shortcut", argv[43]))) ||
             (argc >= 47 && (!apply(value, L"pinyin_symbol_compatibility_enabled", argv[44]) ||
              !apply(value, L"separator_shortcut_enabled", argv[45]) ||
-             !apply(value, L"separator_shortcut", argv[46])))) {
+             !apply(value, L"separator_shortcut", argv[46]))) ||
+            (argc >= 48 && !apply(value, L"pinyin_preview_location", argv[47]))) {
             std::cerr << "invalid configuration value type\n";
             return 4;
         }

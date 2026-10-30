@@ -52,6 +52,7 @@ constexpr UINT kAgentReady = WM_APP + 5;
 constexpr UINT_PTR kPluginInputTimer = 0x4f57;
 constexpr UINT_PTR kCandidateWindowOrderTimer = 0x4f58;
 constexpr UINT kPluginCommitReady = WM_APP + 6;
+constexpr UINT kInlinePreeditChanged = WM_APP + 7;
 constexpr float kCandidateWindowMinWidthDip = 240.0F;
 constexpr float kCandidateWindowMaxWidthDip = 1400.0F;
 constexpr float kHeaderHeightDip = 40.0F;
@@ -504,10 +505,12 @@ class CommitEditSession final : public ITfEditSession {
 public:
     CommitEditSession(ITfContext* context, std::wstring text,
                       ITfRange* expected_end = nullptr, std::wstring_view expected_prefix = {},
-                      bool capture_end = false)
+                      bool capture_end = false, ITfComposition* composition = nullptr)
         : context_(context), text_(std::move(text)), expected_end_(expected_end),
           expected_prefix_(expected_prefix), capture_end_(capture_end) {
         context_->AddRef();
+        composition_ = composition;
+        if (composition_) composition_->AddRef();
         if (expected_end_) expected_end_->AddRef();
     }
 
@@ -543,8 +546,15 @@ public:
         }
         learning_continues_ = learning_range_is_contiguous(
             selection.range, expected_end_, cookie, expected_prefix_);
+        if (composition_) {
+            selection.range->Release(); selection.range = nullptr;
+            result = composition_->GetRange(&selection.range);
+            if (FAILED(result) || !selection.range) return FAILED(result) ? result : E_FAIL;
+        }
         result = selection.range->SetText(cookie, 0, text_.data(),
                                           static_cast<LONG>(text_.size()));
+        const bool written = SUCCEEDED(result);
+        if (SUCCEEDED(result) && composition_) composition_->EndComposition(cookie);
         if (SUCCEEDED(result)) {
             selection.range->Collapse(cookie, TF_ANCHOR_END);
             result = context_->SetSelection(cookie, 1, &selection);
@@ -558,11 +568,14 @@ public:
             }
         }
         selection.range->Release();
-        return result;
+        // A failed caret move cannot undo SetText. Retrying the candidate
+        // after that would duplicate already committed text.
+        return written ? S_OK : result;
     }
 
 private:
     ~CommitEditSession() {
+        release_interface(composition_);
         release_interface(expected_end_);
         release_interface(committed_end_);
         context_->Release();
@@ -575,6 +588,7 @@ private:
     ITfRange* committed_end_{};
     bool capture_end_{};
     bool learning_continues_{};
+    ITfComposition* composition_{};
 };
 
 class CaretEditSession final : public ITfEditSession {
@@ -958,6 +972,7 @@ HRESULT TextService::ActivateEx(ITfThreadMgr* thread_manager,
 }
 
 HRESULT TextService::Deactivate() {
+    if (inline_preedit_) { inline_preedit_->set_notification(nullptr, 0); inline_preedit_->cancel(); }
     if (worker_.joinable()) {
         worker_.request_stop();
         request_ready_.notify_all();
@@ -1205,6 +1220,24 @@ HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BO
     if (eaten == nullptr) return E_POINTER;
     refresh_shortcut_config();
     if (plugin_scheme_selected()) return handle_plugin_key(context, key, flags, eaten);
+    if (inline_preedit_ && inline_preedit_->take_termination()) clear_composition();
+    if (context && inline_preedit_ && inline_preedit_->active()) {
+        auto offset = (std::numeric_limits<std::size_t>::max)();
+        if (!inline_preedit_->caret_offset(context, client_id_, offset)) clear_composition();
+        else if (offset != (std::numeric_limits<std::size_t>::max)()) {
+            const auto staged = staged_text();
+            staged_cursor_ = staged_candidates_.size();
+            if (offset < staged.size()) {
+                std::size_t begin = 0;
+                for (std::size_t i = 0; i < staged_candidates_.size(); ++i) {
+                    const auto end = begin + staged_candidates_[i].text.size();
+                    if (offset < end) { staged_cursor_ = offset - begin < (end - begin) / 2 ? i : i + 1; break; }
+                    begin = end;
+                }
+            } else input_cursor_ = input_cursor_for_preview_index(input_buffer_,
+                segmented_input_.empty() ? input_buffer_ : segmented_input_, offset - staged.size());
+        }
+    }
     *eaten = should_eat_key(key) ? TRUE : FALSE;
     if (!*eaten) return S_OK;
     if (context != nullptr) update_candidate_anchor(context);
@@ -1822,7 +1855,7 @@ std::optional<TextService::PreviewContainerLayout> TextService::layout_following
     PreviewContainerLayout layout;
     layout.left = kPreviewContainerInsetDip;
     layout.right = std::max(layout.left, width - kPreviewContainerInsetDip);
-    layout.top = kHeaderHeightDip + 8.0F + first_height + kPreviewContainerGapDip;
+    layout.top = (candidate_preview_visible() ? kHeaderHeightDip : 0.0F) + 8.0F + first_height + kPreviewContainerGapDip;
     layout.bottom = layout.top + 2.0F * kPreviewContainerVerticalPaddingDip;
     for (const auto& row : following_previews_) {
         float height = kCandidateItemHeightDip;
@@ -1911,11 +1944,13 @@ SIZE TextService::desired_candidate_window_size() const {
     }
     const auto preview_container = layout_following_previews(kCandidateWindowMinWidthDip);
     const float height = preview_container ? preview_container->bottom + 8.0F
-                                          : kHeaderHeightDip + 16.0F + content_height;
-    const float controls_width = candidates_expanded_ && !plugin_scheme_selected()
+                                          : (candidate_preview_visible() ? kHeaderHeightDip : 0.0F) + 16.0F + content_height;
+    const float inline_unicode_width = !candidate_preview_visible() && !unicode_palette_.categories.empty()
+        ? kUnicodeEntryWidthDip + kControlGapDip : 0.0F;
+    const float controls_width = inline_unicode_width + (candidates_expanded_ && !plugin_scheme_selected()
                                      ? kExpandButtonWidthDip
                                      : kButtonWidthDip * 2.0F + kExpandButtonWidthDip +
-                                           kControlGapDip * 2.0F;
+                                           kControlGapDip * 2.0F);
     const bool partitioned = !plugin_scheme_selected() && page_size >= 4 &&
         candidate_groups_.size() == candidates_.size();
     const auto item_width = [this, wrap_length](const std::size_t index) {
@@ -1977,10 +2012,10 @@ SIZE TextService::desired_candidate_window_size() const {
     const std::wstring agent_preview = agent_preview_text();
     const std::wstring reading = agent_preview.empty()
         ? composition_preview() : agent_preview;
-    const float preview_width = kHorizontalPaddingDip * 2.0F +
+    const float preview_width = candidate_preview_visible() ? kHorizontalPaddingDip * 2.0F +
         measure_text_width(dwrite_factory_, input_text_format_, reading) +
         (unicode_palette_.categories.empty()
-             ? 0.0F : kUnicodeEntryWidthDip + kCandidateGapDip);
+             ? 0.0F : kUnicodeEntryWidthDip + kCandidateGapDip) : 0.0F;
     const float candidate_row_width = kHorizontalPaddingDip * 2.0F + candidates_width +
                                       kCandidateControlGapDip + controls_width;
     const float following_container_width = preview_container
@@ -2739,6 +2774,8 @@ bool TextService::render_candidate_window() {
         return present_candidate_surface();
     }
 
+    const bool unicode_entry_visible = !unicode_palette_.categories.empty();
+    if (candidate_preview_visible()) {
     std::wstring reading = segmented_input_.empty() ? input_buffer_ : segmented_input_;
     const std::wstring staged = staged_text();
     const std::wstring agent_preview = agent_preview_text();
@@ -2754,7 +2791,6 @@ bool TextService::render_candidate_window() {
     }
     const std::wstring preview = agent_preview.empty()
         ? composition_preview() : agent_preview;
-    const bool unicode_entry_visible = !unicode_palette_.categories.empty();
     const float preview_right = unicode_entry_visible
         ? size.width - kHorizontalPaddingDip - kUnicodeEntryWidthDip - kCandidateGapDip
         : size.width - kHorizontalPaddingDip;
@@ -2868,6 +2904,7 @@ bool TextService::render_candidate_window() {
     render_target_->DrawLine(
         D2D1::Point2F(10.0F, kHeaderHeightDip),
         D2D1::Point2F(size.width - 10.0F, kHeaderHeightDip), divider_brush_, 1.0F);
+    }
 
     const auto target_matches = [](const std::optional<HitTarget>& value,
                                    const HitTarget target) {
@@ -2921,11 +2958,13 @@ bool TextService::render_candidate_window() {
         if (interactive) add_hit_region(bounds, target);
     };
 
-    constexpr float content_top = kHeaderHeightDip + 8.0F;
-    const float controls_width = candidates_expanded_ && !plugin_scheme_selected()
+    const float content_top = (candidate_preview_visible() ? kHeaderHeightDip : 0.0F) + 8.0F;
+    const float inline_unicode_width = !candidate_preview_visible() && unicode_entry_visible
+        ? kUnicodeEntryWidthDip + kControlGapDip : 0.0F;
+    const float controls_width = inline_unicode_width + (candidates_expanded_ && !plugin_scheme_selected()
                                      ? kExpandButtonWidthDip
                                      : kButtonWidthDip * 2.0F + kExpandButtonWidthDip +
-                                           kControlGapDip * 2.0F;
+                                           kControlGapDip * 2.0F);
     const float controls_left = size.width - kHorizontalPaddingDip - controls_width;
     const float candidate_right = controls_left - kCandidateControlGapDip;
     const auto draw_candidate_row = [this,
@@ -3078,6 +3117,11 @@ bool TextService::render_candidate_window() {
     };
 
     float control_x = controls_left;
+    if (inline_unicode_width > 0) {
+        draw_button(D2D1::RectF(control_x, content_top, control_x + kUnicodeEntryWidthDip,
+            content_top + kCandidateItemHeightDip), {HitKind::unicode_toggle, 0}, L"Ω", true);
+        control_x += inline_unicode_width;
+    }
     if (!candidates_expanded_ || plugin_scheme_selected()) {
         const D2D1_RECT_F previous_bounds =
             D2D1::RectF(control_x, content_top, control_x + kButtonWidthDip,
@@ -3116,6 +3160,11 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
         const auto* creation = reinterpret_cast<CREATESTRUCTW*>(lparam);
         service = static_cast<TextService*>(creation->lpCreateParams);
         SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(service));
+    }
+    if (message == kInlinePreeditChanged && service != nullptr) {
+        if (service->inline_preedit_ && service->inline_preedit_->take_termination()) service->clear_composition();
+        else service->update_candidate_window();
+        return 0;
     }
     static const UINT candidate_theme_changed =
         RegisterWindowMessageW(kCandidateThemeChangedMessageName);
@@ -3946,6 +3995,7 @@ void TextService::schedule_candidate_request(const bool reset_retry) {
     // Core returns its matching candidate snapshot. Recomputing the layered
     // window size with stale candidates and then again with the response caused
     // two visible resizes for every key press.
+    sync_inline_preedit();
     if (candidate_window_ != nullptr && IsWindowVisible(candidate_window_) &&
         candidate_present_expanded_ == candidates_expanded_) {
         RedrawWindow(candidate_window_, nullptr, nullptr,
@@ -4596,6 +4646,7 @@ void TextService::handle_agent_result(AgentResult* raw_result) {
 }
 
 void TextService::update_candidate_window() {
+    sync_inline_preedit();
     if (candidate_window_ == nullptr) return;
     if ((!alt_code_preview_active_ &&
          (!chinese_mode_ || !has_composition())) || !foreground_focus_) {
@@ -4784,6 +4835,38 @@ void TextService::change_candidate_page(const int direction) {
 
 bool TextService::has_composition() const noexcept {
     return !input_buffer_.empty() || !staged_candidates_.empty();
+}
+
+bool TextService::candidate_preview_visible() const noexcept {
+    return !inline_preedit_ || !inline_preedit_->active() || is_agent_mode() ||
+        unicode_palette_visible_ || alt_code_preview_active_;
+}
+
+void TextService::sync_inline_preedit() {
+    if (shortcut_config_.pinyin_preview_location != "input" || !chinese_mode_ ||
+        shortcut_config_.input_scheme != "full_pinyin" || is_agent_mode() || !has_composition() || !foreground_focus_) {
+        if (inline_preedit_) inline_preedit_->cancel();
+        return;
+    }
+    if (!thread_manager_) return;
+    ITfDocumentMgr* document = nullptr; ITfContext* context = nullptr;
+    if (SUCCEEDED(thread_manager_->GetFocus(&document)) && document) {
+        document->GetTop(&context); document->Release();
+    }
+    if (!context) return;
+    if (!inline_preedit_) inline_preedit_.Attach(new (std::nothrow) InlinePreedit());
+    if (inline_preedit_) {
+        inline_preedit_->set_notification(message_window_, kInlinePreeditChanged);
+        inline_preedit_->set_termination_commit(shortcut_config_.focus_loss_commit_enabled
+            ? std::optional<std::wstring>(staged_text() + input_buffer_) : std::nullopt);
+        std::size_t cursor = 0;
+        if (staged_cursor_ < staged_candidates_.size()) {
+            for (std::size_t i = 0; i < staged_cursor_; ++i) cursor += staged_candidates_[i].text.size();
+        } else cursor = staged_text().size() + preview_index_for_input_cursor(
+            input_buffer_, segmented_input_.empty() ? input_buffer_ : segmented_input_, input_cursor_);
+        inline_preedit_->update(context, client_id_, composition_preview(), cursor);
+    }
+    context->Release();
 }
 
 std::wstring TextService::staged_text() const {
@@ -5272,6 +5355,7 @@ void TextService::reset_learning_chain() {
 }
 
 void TextService::clear_composition() {
+    if (inline_preedit_) inline_preedit_->cancel();
     reset_plugin_input();
     reset_learning_chain();
     ++context_generation_;
@@ -5428,11 +5512,13 @@ HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t ind
     if (!staged_candidates_.empty()) inserted.insert(0, staged_text());
     auto* session = new (std::nothrow) CommitEditSession(context, std::move(inserted),
         same_context(context, learning_document_) ? learning_insertion_end_ : nullptr,
-        learning_chain.text(), !finishes_composition && suffix.empty());
+        learning_chain.text(), !finishes_composition && suffix.empty(),
+        inline_preedit_ ? inline_preedit_->prepare_commit(context) : nullptr);
     if (session == nullptr) return E_OUTOFMEMORY;
     HRESULT session_result = E_FAIL;
     const HRESULT request_result = context->RequestEditSession(
         client_id_, session, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
+    if (inline_preedit_) inline_preedit_->finish_commit(SUCCEEDED(request_result) && SUCCEEDED(session_result));
     const bool learning_continues = session->learning_continues() &&
         learning_generation == context_generation_;
     ITfRange* committed_end = session->take_end();
@@ -5550,11 +5636,13 @@ HRESULT TextService::commit_text(ITfContext* context, std::wstring text, bool* l
     const auto generation = context_generation_;
     auto* session = new (std::nothrow) CommitEditSession(context, std::move(text),
         learning_continues && same_context(context, learning_document_) ? learning_insertion_end_ : nullptr,
-        learning_continues ? learning_chain_.text() : std::wstring_view{});
+        learning_continues ? learning_chain_.text() : std::wstring_view{}, false,
+        inline_preedit_ ? inline_preedit_->prepare_commit(context) : nullptr);
     if (session == nullptr) return E_OUTOFMEMORY;
     HRESULT session_result = E_FAIL;
     const HRESULT request_result = context->RequestEditSession(
         client_id_, session, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
+    if (inline_preedit_) inline_preedit_->finish_commit(SUCCEEDED(request_result) && SUCCEEDED(session_result));
     if (learning_continues)
         *learning_continues = session->learning_continues() && generation == context_generation_;
     session->Release();
@@ -5568,11 +5656,13 @@ HRESULT TextService::commit_text(ITfContext* context, std::wstring text, bool* l
 HRESULT TextService::commit_raw_input(ITfContext* context) {
     if (context == nullptr || input_buffer_.empty()) return E_INVALIDARG;
     const std::wstring committed = input_buffer_;
-    auto* session = new (std::nothrow) CommitEditSession(context, committed);
+    auto* session = new (std::nothrow) CommitEditSession(context, committed, nullptr, {}, false,
+        inline_preedit_ ? inline_preedit_->prepare_commit(context) : nullptr);
     if (session == nullptr) return E_OUTOFMEMORY;
     HRESULT session_result = E_FAIL;
     const HRESULT request_result = context->RequestEditSession(
         client_id_, session, TF_ES_SYNC | TF_ES_READWRITE, &session_result);
+    if (inline_preedit_) inline_preedit_->finish_commit(SUCCEEDED(request_result) && SUCCEEDED(session_result));
     session->Release();
     if (SUCCEEDED(request_result) && SUCCEEDED(session_result)) {
         append_language_context(committed);
@@ -6245,6 +6335,6 @@ HRESULT create_text_service(REFIID iid, void** object) {
 
 void increment_server_lock() noexcept { InterlockedIncrement(&lock_count); }
 void decrement_server_lock() noexcept { InterlockedDecrement(&lock_count); }
-long server_lock_count() noexcept { return object_count + lock_count; }
+long server_lock_count() noexcept { return object_count + lock_count + InlinePreedit::live_objects(); }
 
 }  // namespace owo::tsf

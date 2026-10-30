@@ -68,7 +68,7 @@ int main() {
     config.raw_input_shortcuts = {"Quote"};
     auto legacy = owo::config::serialize_config(config);
     legacy.replace(0, std::string("schema_version=18").size(), "schema_version=17");
-    for (const auto key : {"pinyin_symbol_compatibility_enabled=", "separator_shortcut_enabled=", "separator_shortcut="}) {
+    for (const auto key : {"pinyin_preview_location=", "pinyin_symbol_compatibility_enabled=", "separator_shortcut_enabled=", "separator_shortcut="}) {
         const auto at = legacy.find(key);
         legacy.erase(at, legacy.find('\n', at) - at + 1);
     }

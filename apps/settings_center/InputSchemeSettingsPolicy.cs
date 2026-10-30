@@ -21,7 +21,8 @@ internal enum SettingsCapability
     Correction = 1 << 13,
     UserCompletion = 1 << 14,
     SingleCharacterFirst = 1 << 15,
-    PinyinSymbols = 1 << 16
+    PinyinSymbols = 1 << 16,
+    InlinePreedit = 1 << 17
 }
 
 internal sealed record InputSchemeOption(string Id, string Name, string Description,
@@ -44,7 +45,7 @@ internal static class InputSchemeSettingsPolicy
         new("full_pinyin", "全拼", "使用汉语拼音连续输入，适合日常中文输入。",
             "", // 默认方案不显示常驻能力说明；能力标记不变。
             BuiltIn | SettingsCapability.Correction | SettingsCapability.UserCompletion |
-                SettingsCapability.SingleCharacterFirst | SettingsCapability.PinyinSymbols),
+                SettingsCapability.SingleCharacterFirst | SettingsCapability.PinyinSymbols | SettingsCapability.InlinePreedit),
         new("exact_code", "精确编码（实验性）", "按显式撇号分段并精确查询词典，用于验证表码方案接入。",
             "不启用拼音纠错、自动补全或缩写展开；当前仍使用拼音词典数据。", BuiltIn)
     ];

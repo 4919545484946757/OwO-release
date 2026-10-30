@@ -160,6 +160,18 @@
                                 <InfoBar x:Name="InputSchemeCapabilities" Visibility="Collapsed" IsOpen="False" IsClosable="False" Severity="Informational"/>
                                 <Button x:Name="DiscoverSchemesButton" Content="发现已授权插件输入方案" Click="DiscoverSchemes_Click"/>
                                 <TextBlock x:Name="CandidateSectionTitle" Text="候选显示与组合" Style="{StaticResource SectionTitleStyle}"/>
+                                <Border x:Name="PinyinPreviewLocationCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="拼音预览显示位置" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="输入位置使用未确认的组合文本；应用不支持时回退到候选栏。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="PinyinPreviewLocation" Grid.Column="1" MinWidth="120" VerticalAlignment="Center" SelectedIndex="0">
+                                            <ComboBoxItem Content="候选栏"/><ComboBoxItem Content="输入位置"/>
+                                        </ComboBox>
+                                    </Grid>
+                                </Border>
                                 <Border x:Name="CandidatePageSizeCard" Style="{StaticResource SettingsCardStyle}">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>

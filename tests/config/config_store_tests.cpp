@@ -16,6 +16,19 @@ void write(const std::filesystem::path& path, const std::string_view text) {
 int main(const int argc, char** argv) {
     if (argc != 2) return 1;
     const std::filesystem::path root(argv[1]);
+    auto preview = owo::config::AppConfig{};
+    if (preview.pinyin_preview_location != "candidate") return 70;
+    preview.pinyin_preview_location = "input";
+    const auto preview_roundtrip = owo::config::parse_config(owo::config::serialize_config(preview));
+    if (!preview_roundtrip.ok || preview_roundtrip.value != preview) return 71;
+    auto legacy_preview = owo::config::serialize_config(preview);
+    legacy_preview.replace(0, std::string("schema_version=19").size(), "schema_version=18");
+    const auto preview_begin = legacy_preview.find("pinyin_preview_location=");
+    legacy_preview.erase(preview_begin, legacy_preview.find('\n', preview_begin) - preview_begin + 1);
+    const auto migrated_preview = owo::config::parse_config(legacy_preview);
+    if (!migrated_preview.ok || migrated_preview.value.pinyin_preview_location != "candidate") return 72;
+    preview.pinyin_preview_location = "unknown";
+    if (owo::config::validate_config(preview).ok) return 73;
     auto single_first = owo::config::AppConfig{};
     if (!single_first.candidate_single_character_first_enabled) return 56;
     single_first.candidate_single_character_first_enabled = false;
@@ -24,7 +37,7 @@ int main(const int argc, char** argv) {
     if (!single_first_roundtrip.ok || single_first_roundtrip.value != single_first) return 57;
     auto version_fifteen = owo::config::serialize_config(single_first);
     version_fifteen.replace(0, std::string("schema_version=17").size(), "schema_version=15");
-    for (const auto key : {"expanded_previous_page_shortcut_enabled=", "expanded_previous_page_shortcut=",
+    for (const auto key : {"pinyin_preview_location=", "expanded_previous_page_shortcut_enabled=", "expanded_previous_page_shortcut=",
                             "expanded_next_page_shortcut_enabled=", "expanded_next_page_shortcut=",
                             "pinyin_symbol_compatibility_enabled=", "separator_shortcut_enabled=", "separator_shortcut="}) {
         const auto begin = version_fifteen.find(key);

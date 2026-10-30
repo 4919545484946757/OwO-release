@@ -227,6 +227,8 @@ void migrate_expanded_page_shortcuts(AppConfig& value) {
 }
 
 ConfigValidationResult validate_config(const AppConfig& value) {
+    if (value.pinyin_preview_location != "candidate" && value.pinyin_preview_location != "input")
+        return {false, "pinyin_preview_location must be candidate or input"};
     if (value.chinese_punctuation_mask & ~kChinesePunctuationAll)
         return {false, "chinese_punctuation_mask contains unknown punctuation bits"};
     if (value.input_scheme != "full_pinyin" &&
@@ -373,7 +375,8 @@ ConfigParseResult parse_config(const std::string_view utf8) {
                                (version >= 15 ? 1 : 0) +
                                (version >= 16 ? 1 : 0) +
                                (version >= 17 ? std::size(expanded_navigation_required) : 0) +
-                               (version >= 18 ? std::size(symbol_required) : 0);
+                               (version >= 18 ? std::size(symbol_required) : 0) +
+                               (version >= 19 ? 1 : 0);
     if (fields.size() != expected_size)
         return {false, {}, "configuration fields are missing or unknown"};
     for (const auto key : base_required)
@@ -416,6 +419,11 @@ ConfigParseResult parse_config(const std::string_view utf8) {
         if (!fields.contains(std::string(key)))
             return {false, {}, "configuration fields are missing or unknown"};
     AppConfig value;
+    if (version >= 19) {
+        if (!fields.contains("pinyin_preview_location"))
+            return {false, {}, "pinyin_preview_location is missing"};
+        value.pinyin_preview_location = fields["pinyin_preview_location"];
+    }
     if (version >= 18) {
         for (const auto key : symbol_required)
             if (!fields.contains(std::string(key))) return {false, {}, "symbol configuration fields are missing"};
@@ -589,6 +597,7 @@ std::string serialize_config(const AppConfig& value) {
            "\ninput_scheme=" + value.input_scheme +
            "\ncandidate_page_size=" + std::to_string(value.candidate_page_size) +
            "\ncandidate_wrap_length=" + std::to_string(value.candidate_wrap_length) +
+           "\npinyin_preview_location=" + value.pinyin_preview_location +
            "\ncandidate_partition_enabled=" +
                (value.candidate_partition_enabled ? std::string("true") : "false") +
            "\ncandidate_single_character_first_enabled=" +

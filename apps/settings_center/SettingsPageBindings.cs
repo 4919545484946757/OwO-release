@@ -29,6 +29,10 @@ public sealed partial class MainPage
         Card(nameof(SettingsSnapshot.InputScheme), InputSchemeCard, "输入方案", "全拼 拼音 精确编码 表码");
 
         Number(nameof(SettingsSnapshot.CandidatePageSize), CandidatePageSize, 1, 9, "每页候选数");
+        _settingsEditors.Bind(nameof(SettingsSnapshot.PinyinPreviewLocation),
+            () => PinyinPreviewLocation.SelectedIndex == 1 ? "input" : "candidate",
+            value => PinyinPreviewLocation.SelectedIndex = value == "input" ? 1 : 0, PinyinPreviewLocation);
+        Card(nameof(SettingsSnapshot.PinyinPreviewLocation), PinyinPreviewLocationCard, "拼音预览显示位置", "候选栏 输入位置 组合文本 光标");
         Number(nameof(SettingsSnapshot.CandidateWrapLength), CandidateWrapLength, 4, 64, "候选词换行长度");
         Toggle(nameof(SettingsSnapshot.CandidatePartitionEnabled), CandidatePartition);
         Toggle(nameof(SettingsSnapshot.CandidateSingleCharacterFirstEnabled), CandidateSingleCharacterFirst);

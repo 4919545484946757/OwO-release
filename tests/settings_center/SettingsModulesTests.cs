@@ -17,6 +17,9 @@ try {
     var client = new ConfigShellClient(Path.Combine(root, "owo.conf"), Path.GetFullPath(args[0]));
     var defaults = await client.LoadDefaultsAsync();
     Check(defaults.PinyinSymbolCompatibilityEnabled, "Symbol compatibility defaults to enabled");
+    Check(defaults.PinyinPreviewLocation == "candidate", "Preview defaults to candidate bar");
+    await client.SaveAsync(defaults with { PinyinPreviewLocation = "input" });
+    Check((await client.LoadAsync()).PinyinPreviewLocation == "input", "Input-position setting round trips");
     await client.SaveAsync(defaults);
     var before = File.ReadAllBytes(client.ConfigPath);
     var modules = new SettingsModules();
@@ -65,6 +68,7 @@ try {
     Check(future.Supports(SettingsCapability.Correction) && !future.Supports(SettingsCapability.UserCompletion), "Feature gating does not require a full_pinyin ID");
 
     var changedAll = defaults with { CandidatePageSize = 9, CandidateWrapLength = 40,
+        PinyinPreviewLocation = "input",
         CandidatePartitionEnabled = !defaults.CandidatePartitionEnabled,
         CandidateSingleCharacterFirstEnabled = !defaults.CandidateSingleCharacterFirstEnabled,
         ChinesePunctuationEnabled = !defaults.ChinesePunctuationEnabled, ChinesePunctuationMask = 3,

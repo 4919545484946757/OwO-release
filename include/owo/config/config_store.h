@@ -8,7 +8,7 @@
 
 namespace owo::config {
 
-inline constexpr std::uint32_t kConfigSchemaVersion = 18;
+inline constexpr std::uint32_t kConfigSchemaVersion = 19;
 
 // Append-only bit order: each physical ASCII punctuation has its own preference.
 inline constexpr std::string_view kChinesePunctuationSources = ",.<>?;:[]{}\\|-_+=`~'\"()!$^";
@@ -26,6 +26,7 @@ struct AppConfig {
     std::string input_scheme{"full_pinyin"};
     std::uint32_t candidate_page_size{7};
     std::uint32_t candidate_wrap_length{12};
+    std::string pinyin_preview_location{"candidate"};
     bool candidate_partition_enabled{true};
     bool candidate_single_character_first_enabled{true};
     bool candidate_immediate_commit_enabled{true};

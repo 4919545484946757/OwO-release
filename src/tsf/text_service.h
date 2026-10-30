@@ -8,6 +8,7 @@
 #include "owo/tsf/composition_learning.h"
 #include "owo/tsf/expanded_candidate_pages.h"
 #include "owo/tsf/backdrop_snapshot.h"
+#include "inline_preedit.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -231,6 +232,9 @@ private:
     [[nodiscard]] bool has_composition() const noexcept;
     [[nodiscard]] std::wstring staged_text() const;
     [[nodiscard]] std::wstring composition_preview() const;
+    void sync_inline_preedit();
+    [[nodiscard]] bool candidate_preview_visible() const noexcept;
+    Microsoft::WRL::ComPtr<InlinePreedit> inline_preedit_;
     [[nodiscard]] std::size_t composition_cursor() const noexcept;
     void set_composition_cursor(std::size_t cursor);
     void restore_staged_suffix(std::size_t first);

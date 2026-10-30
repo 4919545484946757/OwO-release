@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include "inline_preedit_fixture.h"
 
 namespace owo::tsf {
 // 不激活 TSF/工作线程：验证真实按键、异步响应及离屏窗口的像素边界。
@@ -378,6 +379,80 @@ struct ExpandedCandidateTestAccess {
         // Do not preserve a stale frame indefinitely on a completed no-match.
         respond(0);
         if (!service->candidates_.empty() || service->candidate_request_pending_) return 63;
+        service->clear_composition();
+        using Microsoft::WRL::ComPtr;
+        ComPtr<preedit_fixture::Context> editor;
+        editor.Attach(new preedit_fixture::Context());
+        service->inline_preedit_.Attach(new InlinePreedit());
+        auto* preedit = service->inline_preedit_.Get();
+        service->shortcut_config_.pinyin_preview_location = "input";
+        service->input_buffer_ = L"nihao"; service->input_cursor_ = 5;
+        service->segmented_input_ = L"ni'hao";
+        service->candidates_ = {L"你好"}; service->candidate_consumed_ = {5};
+        const auto with_header = service->desired_candidate_window_size();
+        preedit->update(editor.Get(), 1, L"ni'hao", 6);
+        if (!preedit->active() || editor->doc.text != L"前文ni'hao" ||
+            service->candidate_preview_visible()) return 64;
+        std::size_t native_cursor = 0;
+        if (!preedit->caret_offset(editor.Get(), 1, native_cursor) || native_cursor != 6 ||
+            editor->doc.text != L"前文ni'hao") return 74;
+        const auto without_header = service->desired_candidate_window_size();
+        if (with_header.cy - without_header.cy != static_cast<LONG>(std::lround(40.0F * scale))) return 65;
+        if (FAILED(service->commit_candidate(editor.Get(), 0)) || editor->doc.text != L"前文你好" ||
+            service->has_composition() || preedit->active()) return 66;
+        // Cancel only our preedit; unrelated application text survives.
+        preedit->update(editor.Get(), 1, L"ce'shi", 3);
+        if (editor->doc.caret != 7) return 67;
+        preedit->cancel();
+        if (editor->doc.text != L"前文你好") return 68;
+        editor->asynchronous = true;
+        preedit->update(editor.Get(), 1, L"n", 1);
+        preedit->update(editor.Get(), 1, L"ni", 2);
+        preedit->update(editor.Get(), 1, L"ni'hao", 6);
+        editor->drain();
+        if (editor->doc.text != L"前文你好ni'hao") return 69;
+        preedit->cancel(); editor->drain();
+        preedit->update(editor.Get(), 1, L"stale", 5);
+        preedit->cancel(); editor->drain();
+        if (editor->doc.text != L"前文你好" || preedit->active()) return 70;
+        editor->asynchronous = false;
+        preedit->update(editor.Get(), 1, L"ce'shi", 6);
+        editor->composition->EndComposition(1);
+        if (!preedit->take_termination() || preedit->active() || editor->doc.text != L"前文你好") return 71;
+        editor->reject = true;
+        preedit->update(editor.Get(), 1, L"fallback", 8);
+        if (preedit->active() || !service->candidate_preview_visible() || editor->doc.text != L"前文你好") return 72;
+        editor->reject = false; preedit->cancel();
+        editor->doc.caret = 0; editor->doc.end = 2;
+        preedit->update(editor.Get(), 1, L"do not replace selection", 0);
+        if (preedit->active() || editor->doc.text != L"前文你好") return 73;
+        service->clear_composition();
+        editor.Attach(new preedit_fixture::Context());
+        service->input_buffer_ = L"nihaoshijie"; service->input_cursor_ = 11;
+        service->candidates_ = {L"你好"}; service->candidate_consumed_ = {5};
+        preedit->update(editor.Get(), 1, L"ni'hao'shi'jie", 13);
+        editor->composition->notify_end = false;
+        if (FAILED(service->commit_candidate(editor.Get(), 0)) || editor->doc.text != L"前文你好" ||
+            service->input_buffer_ != L"shijie" || preedit->active()) return 75;
+        preedit->update(editor.Get(), 1, L"shi'jie", 7);
+        editor->composition->notify_end = false;
+        service->candidates_ = {L"世界"}; service->candidate_consumed_ = {6};
+        service->candidate_request_pending_ = false;
+        if (FAILED(service->commit_candidate(editor.Get(), 0)) || editor->doc.text != L"前文你好世界" ||
+            service->has_composition() || preedit->active()) return 76;
+        service->input_buffer_ = L"ceshi"; service->input_cursor_ = 5;
+        preedit->update(editor.Get(), 1, L"ce'shi", 6);
+        if (FAILED(service->commit_raw_input(editor.Get())) || editor->doc.text != L"前文你好世界ceshi") return 77;
+        preedit->set_termination_commit(L"ceshi");
+        preedit->update(editor.Get(), 1, L"ce'shi", 6);
+        editor->composition->EndComposition(1);
+        if (!preedit->take_termination() || editor->doc.text != L"前文你好世界ceshiceshi") return 78;
+        preedit->set_termination_commit(std::nullopt);
+        service->input_buffer_ = L"ceshi"; service->input_cursor_ = 5;
+        preedit->update(editor.Get(), 1, L"ce'shi", 6);
+        editor->reject_selection = true;
+        if (FAILED(service->commit_raw_input(editor.Get())) || editor->doc.text != L"前文你好世界ceshiceshiceshi" ||
+            service->has_composition()) return 79;
         service->clear_composition();
         return 0;
     }
