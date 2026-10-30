@@ -44,7 +44,7 @@ bool valid_primary_shortcut_key(const std::string_view key) {
         "Space", "Enter", "Tab", "Escape", "Backspace", "Delete", "Insert",
         "Home", "End", "PageUp", "PageDown", "Left", "Right", "Up", "Down",
         "[", "]", "Minus", "Plus", "Comma", "Period", "Slash", "Semicolon",
-        "Quote", "Backtick"};
+        "Quote", "Backtick", "Backslash"};
     if (std::find(std::begin(named), std::end(named), key) != std::end(named)) return true;
     if (key.size() >= 2 && key.front() == 'F') {
         std::uint32_t number{};

@@ -272,6 +272,16 @@ int main(const int argc, char** argv) {
     noncanonical_shortcut.correction_shortcuts = {"Alt"};
     if (!owo::config::validate_config(noncanonical_shortcut).ok) return 28;
 
+    // Pipe is Shift+Backslash on a standard keyboard. Preserve the physical
+    // key/modifiers so backslash and pipe bindings do not shadow each other.
+    for (const auto key : {"Backslash", "Shift+Backslash", "Ctrl+Shift+Backslash"}) {
+        auto backslash = changed;
+        backslash.separator_shortcuts = {key};
+        if (!owo::config::validate_config(backslash).ok) return 73;
+        const auto parsed = owo::config::parse_config(owo::config::serialize_config(backslash));
+        if (!parsed.ok || parsed.value != backslash) return 74;
+    }
+
     auto duplicate_navigation = changed;
     duplicate_navigation.cursor_right_shortcuts =
         duplicate_navigation.cursor_left_shortcuts;

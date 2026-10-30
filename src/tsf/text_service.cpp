@@ -392,6 +392,7 @@ std::string primary_shortcut_name(const WPARAM key) {
         case VK_OEM_1: return "Semicolon";
         case VK_OEM_7: return "Quote";
         case VK_OEM_3: return "Backtick";
+        case VK_OEM_5: return "Backslash";
         default: return {};
     }
 }
@@ -437,7 +438,7 @@ UINT primary_shortcut_virtual_key(const std::string_view name) {
         {"Plus", VK_OEM_PLUS}, {"Comma", VK_OEM_COMMA},
         {"Period", VK_OEM_PERIOD}, {"Slash", VK_OEM_2},
         {"Semicolon", VK_OEM_1}, {"Quote", VK_OEM_7},
-        {"Backtick", VK_OEM_3}};
+        {"Backtick", VK_OEM_3}, {"Backslash", VK_OEM_5}};
     const auto found = std::find_if(std::begin(named), std::end(named),
                                     [name](const auto& value) { return value.first == name; });
     return found == std::end(named) ? 0U : found->second;

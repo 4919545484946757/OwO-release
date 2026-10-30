@@ -46,6 +46,26 @@ struct ExpandedCandidateTestAccess {
             BOOL eaten = FALSE;
             return SUCCEEDED(service->OnKeyDown(nullptr, key, 0, &eaten)) && eaten;
         };
+        // Exercise actual dispatch with modifier state, not just stored strings.
+        service->shortcut_config_.separator_shortcuts = {"Shift+Backslash"};
+        BYTE modifiers[256]{};
+        if (service->shortcut_matches({"Shift+Backslash"}, VK_OEM_5) ||
+            !service->shortcut_matches({"Backslash"}, VK_OEM_5)) return 48;
+        modifiers[VK_SHIFT] = 0x80;
+        if (!SetKeyboardState(modifiers) ||
+            !service->shortcut_matches({"Shift+Backslash"}, VK_OEM_5) ||
+            service->shortcut_matches({"Backslash"}, VK_OEM_5) ||
+            !press(VK_OEM_5) || service->input_buffer_ != L"nihao'" ||
+            service->manual_breaks_ != std::vector<std::size_t>{5}) return 49;
+        modifiers[VK_CONTROL] = 0x80;
+        if (!SetKeyboardState(modifiers) ||
+            !service->shortcut_matches({"Ctrl+Shift+Backslash"}, VK_OEM_5) ||
+            service->shortcut_matches({"Shift+Backslash"}, VK_OEM_5)) return 50;
+        modifiers[VK_SHIFT] = modifiers[VK_CONTROL] = 0;
+        if (!SetKeyboardState(modifiers)) return 51;
+        service->clear_composition();
+        service->input_buffer_ = L"nihao";
+        service->input_cursor_ = 5;
         service->shortcut_config_.separator_shortcuts = {"F7"};
         service->shortcut_config_.pinyin_symbol_compatibility_enabled = true;
         service->shortcut_config_.input_scheme = "exact_code";
