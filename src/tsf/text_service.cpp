@@ -5038,6 +5038,9 @@ void TextService::set_candidates_expanded(const bool expanded) {
 void TextService::move_expanded_page(const int direction) {
     if (input_buffer_.empty() || direction == 0 || plugin_input_committing_) return;
     if (is_agent_mode() && agent_response_visible_ && agent_request_pending_) return;
+    // There is no previous page to reveal at the collapsed absolute start.
+    // Keep both the visual snapshot and any in-flight request untouched.
+    if (direction < 0 && !candidates_expanded_ && candidate_page_ == 0) return;
     // Only a repeated previous-page action at the absolute first page folds
     // the list; opening it or crossing a plugin's batch boundary must not.
     if (direction < 0 && candidates_expanded_ && expanded_pages_.selected == 0 &&

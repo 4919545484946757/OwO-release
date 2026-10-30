@@ -89,6 +89,16 @@ struct ExpandedCandidateTestAccess {
         service->input_buffer_ = L"nihao";
         service->input_cursor_ = 5;
         respond(7);
+        const auto collapsed_first_request = service->active_candidate_request_id_;
+        const auto collapsed_first_candidates = service->candidates_;
+        for (int repeat = 0; repeat < 3; ++repeat)
+            if (!press(VK_UP) || service->candidates_expanded_ || service->candidate_request_pending_ ||
+                service->active_candidate_request_id_ != collapsed_first_request ||
+                service->candidate_page_ != 0 || service->candidates_ != collapsed_first_candidates) return 59;
+        service->candidate_request_pending_ = true;
+        if (!press(VK_UP) || service->candidates_expanded_ || !service->candidate_request_pending_ ||
+            service->active_candidate_request_id_ != collapsed_first_request) return 60;
+        respond(7);
         if (!press(VK_DOWN) || !service->candidates_expanded_ || !service->candidate_request_pending_ ||
             service->expanded_pages_.selected != 1) return 1;
         const auto request = service->active_candidate_request_id_;
@@ -138,8 +148,13 @@ struct ExpandedCandidateTestAccess {
             service->candidate_page_ != 0 || service->candidate_shortcut_index(0) != 0 ||
             service->input_buffer_ != L"nihao") return 18;
         respond(7);
-        // Opening at page one must stay open, even while its response is pending.
-        if (!press(VK_F8) || !service->candidates_expanded_ ||
+        // The same first-page guard applies to remapped previous-page keys.
+        const auto collapsed_again_request = service->active_candidate_request_id_;
+        if (!press(VK_F8) || service->candidates_expanded_ || service->candidate_request_pending_ ||
+            service->active_candidate_request_id_ != collapsed_again_request) return 61;
+        // Explicit expansion at page one remains supported while loading.
+        service->invoke_hit_target({TextService::HitKind::toggle_expanded, 0});
+        if (!service->candidates_expanded_ ||
             !service->candidate_request_pending_ || service->expanded_pages_.selected != 0) return 19;
         const auto expanded_request = service->active_candidate_request_id_;
         if (!press(VK_F8) || service->candidates_expanded_ || service->candidate_page_ != 0) return 20;
@@ -152,6 +167,9 @@ struct ExpandedCandidateTestAccess {
         respond(7);
         if (service->candidate_request_pending_ || service->candidates_.size() != 7 ||
             service->candidate_shortcut_index(1) != 1) return 22;
+        service->candidate_page_ = 1;
+        if (!press(VK_F8) || !service->candidates_expanded_ || !service->candidate_request_pending_ ||
+            service->expanded_pages_.selected != 0) return 62;
         service->clear_composition();
         if (service->candidates_expanded_ || service->expanded_pages_.selected || service->expanded_pages_.first_visible) return 13;
         // Exercise actual D2D output off-screen, without activating TSF, reading
