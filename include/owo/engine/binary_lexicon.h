@@ -85,8 +85,10 @@ public:
         return lexicon_version_ >= 3;
     }
     [[nodiscard]] std::vector<LexiconEntry> materialize_entries() const;
+    [[nodiscard]] const std::filesystem::path& storage_path() const noexcept { return storage_path_; }
 
 private:
+    std::filesystem::path storage_path_;
     struct CompactEntry {
         std::uint32_t syllable_offset{};
         std::uint32_t text_offset{};

@@ -12,6 +12,7 @@
 #include "owo/engine/exact_code_schema.h"
 #include "owo/engine/full_pinyin_schema.h"
 #include "owo/engine/lexicon.h"
+#include "owo/engine/binary_lexicon.h"
 #include "owo/engine/user_frequency.h"
 #include "owo/engine/managed_dictionary.h"
 #include "owo/engine/user_lexicon_alignment.h"
@@ -1253,7 +1254,7 @@ ExchangeResult PersistentPipeClient::exchange(
     return {io_error("persistent pipe exchange"), {}};
 }
 
-int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
+int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexicon,
                     engine::UserFrequencyStore* user_frequency,
                     const wchar_t* model_pipe_name,
                     const config::ConfigMonitor* config_monitor,
@@ -1269,7 +1270,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
         if (copied > 0 && copied < override_size) { override_path.resize(copied); dictionary_root = override_path; }
     }
     engine::ManagedDictionaryModel dictionary_sources(user_frequency, dictionary_root);
-    const engine::CandidateGenerator generator(lexicon, nullptr,
+    const engine::MemoryLexicon empty_lexicon({});
+    const engine::CandidateGenerator base_generator(base_lexicon, nullptr,
+        user_frequency != nullptr || !dictionary_root.empty() ? &dictionary_sources : nullptr);
+    const engine::CandidateGenerator empty_generator(empty_lexicon, nullptr,
         user_frequency != nullptr || !dictionary_root.empty() ? &dictionary_sources : nullptr);
     std::size_t unflushed_selections = 0;
     int exit_code = 0;
@@ -1443,10 +1447,14 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 if (!dictionary_sources.diagnostic().empty())
                     std::clog << "managed_dictionary: " << dictionary_sources.diagnostic() << '\n';
             }
+            // Keep the real BinaryLexicon type on the enabled hot path, so its
+            // bounded, memory-mapped lookup optimizations remain available.
+            const engine::Lexicon& lexicon = dictionary_sources.base_enabled() ? base_lexicon : empty_lexicon;
+            const auto& generator = dictionary_sources.base_enabled() ? base_generator : empty_generator;
             const bool external_model_ranking_enabled = model_pipe_name != nullptr &&
                 (runtime_config == nullptr || runtime_config->model_ranking_enabled);
-            const bool user_learning_enabled = runtime_config == nullptr ||
-                runtime_config->user_learning_enabled;
+            const bool user_learning_enabled = dictionary_sources.user_enabled() &&
+                (runtime_config == nullptr || runtime_config->user_learning_enabled);
             if (user_frequency != nullptr)
                 user_frequency->set_sensitivity(runtime_config != nullptr
                     ? runtime_config->user_learning_sensitivity : 10U);
@@ -1484,6 +1492,16 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& lexicon,
                 if (user_frequency == nullptr || !lexicon_editor_peer_allowed(pipe)) {
                     response.type = protocol::MessageType::error_response;
                     response.text = "词库管理不可用，或客户端权限不足。请从普通桌面设置中心操作。";
+                } else if (decoded.message.text == "base-file\n") {
+                    const auto* binary = dynamic_cast<const engine::BinaryLexicon*>(&base_lexicon);
+                    if (binary == nullptr || binary->storage_path().empty()) {
+                        response.type = protocol::MessageType::error_response;
+                        response.text = "当前 Core 没有可导出的基础词典文件。";
+                    } else {
+                        response.type = protocol::MessageType::user_lexicon_response;
+                        const auto path = binary->storage_path().u8string();
+                        response.text.assign(reinterpret_cast<const char*>(path.data()), path.size());
+                    }
                 } else {
                     try {
                         auto lexicon_revision = lexicon_revision_base + learning_generation;

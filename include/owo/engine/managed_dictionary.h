@@ -11,6 +11,8 @@ public:
         : learned_(learned), root_(std::move(root)) {}
     bool refresh(bool force = false);
     void set_enabled(bool enabled) noexcept { enabled_ = enabled; }
+    bool base_enabled() const noexcept { return base_enabled_; }
+    bool user_enabled() const noexcept { return user_enabled_; }
     std::int64_t score(std::string_view text) const override;
     bool preferred(std::string_view input, std::string_view text) const override;
     std::int64_t contextual_score(std::string_view input, std::string_view text) const override;
@@ -27,5 +29,6 @@ private:
     std::vector<UserLexiconEntry> entries_;
     std::chrono::steady_clock::time_point next_check_{};
     bool enabled_{true};
+    bool base_enabled_{true}, user_enabled_{true};
 };
 }

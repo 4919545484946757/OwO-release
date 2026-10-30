@@ -26,6 +26,7 @@ int main() {
     if (left_bytes != right_bytes) { std::cerr << "output is not deterministic\n"; return 1; }
 
     owo::engine::BinaryLexicon lexicon;
+    if (!lexicon.storage_path().empty()) return 2;
     if (!lexicon.load(first).success || lexicon.size() != 11 ||
         lexicon.maximum_reading_length() != 3) return 1;
     const std::string_view reading[]{"ni", "hao"};
@@ -109,6 +110,7 @@ int main() {
     { std::ofstream output(second, std::ios::binary | std::ios::trunc); output.write(corrupted.data(), static_cast<std::streamsize>(corrupted.size())); }
     owo::engine::BinaryLexicon rejected;
     if (rejected.load(second).success) { std::cerr << "corruption was accepted\n"; return 1; }
+    if (!rejected.storage_path().empty() || lexicon.storage_path() != std::filesystem::absolute(first)) return 2;
     std::error_code ignored;
     std::filesystem::remove(first, ignored);
     std::filesystem::remove(second, ignored);

@@ -76,6 +76,26 @@ try {
     Check(Active() == "OWO_DICTIONARIES_V1\n", "Disable removes active candidates only");
     catalog = await store.SaveAsync(catalog, []);
     Check((await store.LoadAsync()).Dictionaries.Count == 0 && File.Exists(Path.Combine(store.Root, "snapshots", firstPointer, "catalog.json")), "Delete retains recovery snapshot");
+    string Sources() => File.ReadAllText(Path.Combine(store.Root, "snapshots", File.ReadAllText(Path.Combine(store.Root, "current")), "sources.tsv"));
+    Check(catalog.Builtins.Count == 2 && Sources() == "OWO_DICTIONARY_SOURCES_V1\nbase\t1\nuser\t1\n", "Builtins default enabled");
+    var builtins = catalog.Builtins.Select(value => value with { Name = value.Name + "改名", Enabled = false }).ToArray();
+    catalog = await store.SaveAsync(catalog, [dictionary], builtins);
+    Check((await store.LoadAsync()).Builtins.SequenceEqual(builtins) &&
+        Sources() == "OWO_DICTIONARY_SOURCES_V1\nbase\t0\nuser\t0\n" && Active().Contains("nh\t你好"), "Builtin disable/rename do not disable imported words");
+    catalog = await store.SaveAsync(catalog, [dictionary with { Name = "新名称" }]);
+    Check(catalog.Builtins.SequenceEqual(builtins) && Sources().Contains("user\t0"), "Imported edits preserve builtin flags");
+    builtins = builtins.Select(value => value with { Enabled = true, Deleted = true }).ToArray();
+    catalog = await store.SaveAsync(catalog, [], builtins);
+    Check((await store.LoadAsync()).Builtins.All(value => value.Deleted) && Sources().Contains("base\t0"), "Deleted builtins cannot remain active");
+    builtins = builtins.Select(value => value with { Deleted = false, Enabled = false }).ToArray();
+    catalog = await store.SaveAsync(catalog, [], builtins);
+    Check((await store.LoadAsync()).Builtins.All(value => !value.Deleted && !value.Enabled), "Restore keeps builtins disabled");
+    await Reject(() => store.SaveAsync(catalog, [], [new("base", "基础"), new("base", "重复")]), "Duplicate builtin rejected");
+    await Reject(() => store.SaveAsync(catalog, [], [new("base", "基础")]), "Missing builtin rejected");
+    await Reject(() => store.SaveAsync(catalog, [], [new("base", "基础"), new("user", "\n")]), "Invalid builtin name rejected");
+    var legacy = System.Text.Json.JsonSerializer.Deserialize<DictionaryCatalog>("{\"schemaVersion\":1,\"revision\":0,\"dictionaries\":[]}",
+        new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+    Check(legacy is not null && legacy.Builtins.All(value => value.Enabled && !value.Deleted), "Legacy catalog defaults preserve builtin availability");
     Check(!Directory.EnumerateFiles(store.Root, "*.tmp").Any(), "No abandoned pointer temporary files");
     Console.WriteLine($"PASS: {checks} dictionary format/store checks, isolated files only.");
 } finally { Directory.Delete(root, true); }

@@ -14,17 +14,22 @@ internal sealed class DictionaryManager : UserControl
     private readonly Grid _cards = new() { ColumnSpacing = 12, RowSpacing = 12 };
     private readonly InfoBar _notice = new() { IsOpen = false, IsClosable = true };
     private readonly Button _import = new() { Content = "导入字典" }, _refresh = new() { Content = "刷新" };
+    private readonly Button _restore = new() { Content = "恢复内置词库", Visibility = Visibility.Collapsed };
     private readonly Grid _catalogPage = new() { Margin = new Thickness(16, 0, 16, 16), RowSpacing = 12 };
     private bool _busy;
     internal DictionaryManager() {
         _catalogPage.RowDefinitions.Add(new() { Height = GridLength.Auto });
         _catalogPage.RowDefinitions.Add(new() { Height = GridLength.Auto });
         _catalogPage.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
-        var toolbar = new Grid { ColumnSpacing = 8 };
+        var toolbar = new Grid { ColumnSpacing = 8, RowSpacing = 8 };
+        toolbar.RowDefinitions.Add(new() { Height = GridLength.Auto }); toolbar.RowDefinitions.Add(new() { Height = GridLength.Auto });
         toolbar.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
         toolbar.ColumnDefinitions.Add(new() { Width = GridLength.Auto }); toolbar.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
-        toolbar.Children.Add(_search); Grid.SetColumn(_import, 1); toolbar.Children.Add(_import);
-        Grid.SetColumn(_refresh, 2); toolbar.Children.Add(_refresh);
+        toolbar.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
+        toolbar.Children.Add(_search); Grid.SetColumnSpan(_search, 4);
+        Grid.SetRow(_import, 1); _import.HorizontalAlignment = HorizontalAlignment.Left; toolbar.Children.Add(_import);
+        Grid.SetRow(_refresh, 1); Grid.SetColumn(_refresh, 2); toolbar.Children.Add(_refresh);
+        Grid.SetRow(_restore, 1); Grid.SetColumn(_restore, 3); toolbar.Children.Add(_restore);
         _catalogPage.Children.Add(toolbar); Grid.SetRow(_notice, 1); _catalogPage.Children.Add(_notice);
         var scroll = new ScrollViewer { Content = _cards, HorizontalScrollMode = ScrollMode.Disabled,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalContentAlignment = HorizontalAlignment.Stretch };
@@ -33,6 +38,7 @@ internal sealed class DictionaryManager : UserControl
         _search.TextChanged += (_, _) => RenderCards();
         _import.Click += async (_, _) => await RunAsync(ImportAsync);
         _refresh.Click += async (_, _) => await RefreshAsync();
+        AutomationProperties.SetAutomationId(_restore, "DictionaryRestoreBuiltins");
         AutomationProperties.SetAutomationId(_search, "DictionarySearch");
         AutomationProperties.SetAutomationId(_import, "DictionaryImport");
         _page.Content = _catalogPage; Content = _page;
@@ -41,41 +47,100 @@ internal sealed class DictionaryManager : UserControl
         _catalog = await _store.LoadAsync(); _page.Content = _catalogPage; RenderCards();
     });
     private async Task RunAsync(Func<Task> action) {
-        if (_busy) return; _busy = true; _import.IsEnabled = _refresh.IsEnabled = false; _cards.IsHitTestVisible = false;
+        if (_busy) return; _busy = true; _import.IsEnabled = _refresh.IsEnabled = _restore.IsEnabled = false; _cards.IsHitTestVisible = false;
         try { await action(); }
         catch (Exception error) { _notice.Message = error.Message; _notice.Severity = InfoBarSeverity.Error; _notice.IsOpen = true; }
-        finally { _busy = false; _import.IsEnabled = _refresh.IsEnabled = true; _cards.IsHitTestVisible = true; }
+        finally { _busy = false; _import.IsEnabled = _refresh.IsEnabled = _restore.IsEnabled = true; _cards.IsHitTestVisible = true; }
     }
     private void RenderCards() {
         _cards.Children.Clear();
         var query = _search.Text.Trim();
         bool Match(params string[] values) => values.Any(value => value.Contains(query, StringComparison.OrdinalIgnoreCase));
-        if (Match("用户词库", "学习", "宿主")) AddCard("用户词库", "本机学习与手动添加的词语", "新增 · 编辑 · 导入/出 · 清除学习", "user", async () => await OpenUserAsync());
-        if (Match("基础中文词典", "内置", "只读")) AddCard("基础中文词典", "随 OwO 安装的只读词典", "不参与用户词库清空操作", "base", async () => {
-            var body = new StackPanel { Spacing = 12 };
-            body.Children.Add(new TextBlock { Text = "基础中文词典", FontSize = 24 });
-            body.Children.Add(new TextBlock { Text = "由 Core 以紧凑只读词典加载，随软件维护，不允许在此编辑或删除。导入的字典独立保存，不会替换基础词典。插件方案的私有词典仍由对应插件管理。", TextWrapping = TextWrapping.Wrap });
-            ShowDetail(body); await Task.CompletedTask;
-        });
+        var restore = new MenuFlyout();
+        foreach (var builtin in _catalog.Builtins) {
+            if (builtin.Deleted) {
+                var item = new MenuFlyoutItem { Text = builtin.Name };
+                AutomationProperties.SetAutomationId(item, "DictionaryRestore_" + builtin.Id);
+                item.Click += async (_, _) => await RunAsync(async () => {
+                    await SaveBuiltinAsync(builtin with { Deleted = false, Enabled = false }); RenderCards();
+                });
+                restore.Items.Add(item); continue;
+            }
+            if (!Match(builtin.Name, builtin.Id == "user" ? "用户词库 学习 宿主" : "基础中文词典 内置 只读")) continue;
+            AddCard(builtin.Name, builtin.Id == "user" ? "本机学习与手动添加的词语" : "随 OwO 安装的只读词典",
+                builtin.Id == "user" ? "新增 · 编辑 · 导入/出 · 清除学习" : "紧凑只读 · 随软件维护", builtin.Id,
+                () => OpenBuiltinAsync(builtin), builtin.Enabled,
+                async enabled => await SaveBuiltinAsync(builtin with { Enabled = enabled }),
+                async () => {
+                    var exported = builtin.Id == "user" ? await DictionaryActions.ExportUserAsync(builtin.Name) : await DictionaryActions.ExportBaseAsync(builtin.Name);
+                    if (exported) Notify("已导出字典；请妥善保管，并在分发基础词典时遵守原词典许可。");
+                },
+                async () => { if (await DictionaryActions.ConfirmDeleteAsync(XamlRoot, builtin.Name, true)) await SaveBuiltinAsync(builtin with { Enabled = false, Deleted = true }); },
+                async () => { if (await DictionaryActions.RenameAsync(XamlRoot, builtin.Name) is { } name) await SaveBuiltinAsync(builtin with { Name = name }); });
+        }
+        _restore.Flyout = restore; _restore.Visibility = restore.Items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         foreach (var dictionary in _catalog.Dictionaries.Where(value => Match(value.Name, value.Format, value.SourceName))) {
             var pending = dictionary.Entries.Count(word => !DictionaryStore.Usable(word));
             AddCard(dictionary.Name, $"{dictionary.Format} · {dictionary.Entries.Count} 条", (dictionary.Enabled ? "已启用" : "已停用") + (pending > 0 ? $" · {pending} 条待补编码" : ""), dictionary.Id,
-                async () => { OpenDictionary(dictionary); await Task.CompletedTask; });
+                async () => { OpenDictionary(dictionary); await Task.CompletedTask; }, dictionary.Enabled,
+                async enabled => await SaveDictionaryAsync(dictionary with { Enabled = enabled }),
+                async () => { if (await DictionaryActions.ExportAsync(dictionary)) Notify("已导出。本文件包含个人词语，请妥善保管。"); },
+                async () => { if (await DictionaryActions.ConfirmDeleteAsync(XamlRoot, dictionary.Name)) await DeleteDictionaryAsync(dictionary.Id); },
+                async () => { if (await DictionaryActions.RenameAsync(XamlRoot, dictionary.Name) is { } name) await SaveDictionaryAsync(dictionary with { Name = name }); });
         }
         if (_cards.Children.Count == 0) _cards.Children.Add(new TextBlock { Text = "没有匹配的字典。", Margin = new Thickness(8) });
         LayoutCards();
     }
-    private void AddCard(string name, string description, string state, string id, Func<Task> action) {
+    private void Notify(string message) { _notice.Message = message; _notice.Severity = InfoBarSeverity.Success; _notice.IsOpen = true; }
+    private async Task SaveBuiltinAsync(BuiltinDictionary dictionary) =>
+        _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries, _catalog.Builtins.Select(value => value.Id == dictionary.Id ? dictionary : value).ToArray());
+    private async Task SaveDictionaryAsync(ManagedDictionary dictionary) =>
+        _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries.Select(value => value.Id == dictionary.Id ? dictionary : value).ToArray());
+    private async Task DeleteDictionaryAsync(string id) =>
+        _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries.Where(value => value.Id != id).ToArray());
+    private void AddCard(string name, string description, string state, string id, Func<Task> action,
+        bool enabled, Func<bool, Task> setEnabled, Func<Task> export, Func<Task> delete, Func<Task> rename) {
         var body = new StackPanel { Spacing = 8 };
         body.Children.Add(new SymbolIcon(Symbol.Library) { HorizontalAlignment = HorizontalAlignment.Left });
         body.Children.Add(new TextBlock { Text = name, FontSize = 18, TextTrimming = TextTrimming.CharacterEllipsis });
-        body.Children.Add(new TextBlock { Text = description, TextWrapping = TextWrapping.Wrap, Opacity = 0.75 });
-        body.Children.Add(new TextBlock { Text = state, FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.7 });
-        var card = new Button { Content = body, Height = 170, Padding = new Thickness(16),
+        body.Children.Add(new TextBlock { Text = description, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.Wrap, Opacity = 0.75 });
+        body.Children.Add(new TextBlock { Text = state, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.7 });
+        var card = new Button { Content = body, Padding = new Thickness(16, 16, 16, 58),
             CornerRadius = new CornerRadius(10), HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Top };
         AutomationProperties.SetAutomationId(card, "DictionaryCard_" + id);
-        card.Click += async (_, _) => await RunAsync(action); _cards.Children.Add(card);
+        AutomationProperties.SetName(card, name);
+        var host = new Grid { Height = 228 }; host.Children.Add(card);
+        card.Click += async (_, _) => await RunAsync(action);
+        // Sibling controls, never interactive children of the navigation button.
+        // Clicking the switch/menu must not enter the detail page.
+        var toggle = new ToggleSwitch { IsOn = enabled, OnContent = "已启用", OffContent = "已停用",
+            MinWidth = 0, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(16, 0, 12, 12) };
+        AutomationProperties.SetAutomationId(toggle, "DictionaryCardEnabled_" + id);
+        AutomationProperties.SetName(toggle, "启用" + name);
+        toggle.Toggled += async (_, _) => {
+            if (_busy) return;
+            await RunAsync(async () => await setEnabled(toggle.IsOn)); RenderCards();
+        };
+        host.Children.Add(toggle);
+        var flyout = new MenuFlyout();
+        void Item(string text, Symbol icon, string command, Func<Task> execute) {
+            var item = new MenuFlyoutItem { Text = text, Icon = new SymbolIcon(icon) };
+            AutomationProperties.SetAutomationId(item, "DictionaryCard" + command + "_" + id);
+            item.Click += async (_, _) => { await RunAsync(execute); RenderCards(); };
+            flyout.Items.Add(item);
+        }
+        Item("导出", Symbol.Save, "Export", export);
+        Item("重命名", Symbol.Rename, "Rename", rename);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+        Item("删除", Symbol.Delete, "Delete", delete);
+        var menu = new Button { Content = new SymbolIcon(Symbol.More) { Width = 16, Height = 16 },
+            Flyout = flyout, Padding = new Thickness(6), MinWidth = 32, MinHeight = 32,
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(8) };
+        AutomationProperties.SetAutomationId(menu, "DictionaryCardMenu_" + id);
+        AutomationProperties.SetName(menu, "管理" + name); ToolTipService.SetToolTip(menu, "字典操作");
+        host.Children.Add(menu); _cards.Children.Add(host);
     }
     private void LayoutCards() {
         const double preferredCardWidth = 228;
@@ -100,16 +165,23 @@ internal sealed class DictionaryManager : UserControl
         root.Children.Add(heading);
         Grid.SetRow(detail, 1); root.Children.Add(detail); _page.Content = root;
     }
-    private Task OpenUserAsync() {
-        var editor = new UserLexiconEditor(); ShowDetail(editor, "用户词库"); _ = editor.RefreshAsync();
+    private Task OpenBuiltinAsync(BuiltinDictionary dictionary) {
+        if (dictionary.Id == "user") {
+            var editor = new UserLexiconEditor(); ShowDetail(editor, dictionary.Name); _ = editor.RefreshAsync();
+        } else {
+            var body = new StackPanel { Spacing = 12 };
+            body.Children.Add(new TextBlock { Text = dictionary.Name, FontSize = 24 });
+            body.Children.Add(new TextBlock { Text = "由 Core 以紧凑只读词典加载。卡片菜单可导出原始 .owolx 文件、重命名或移除该候选来源；移除不会擦除安装文件，可通过恢复入口重新加入。导入字典和插件私有字典独立管理。", TextWrapping = TextWrapping.Wrap });
+            ShowDetail(body);
+        }
         return Task.CompletedTask;
     }
     private void OpenDictionary(ManagedDictionary dictionary) => ShowDetail(new DictionaryDetailEditor(dictionary,
         async updated => {
-            _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries.Select(value => value.Id == updated.Id ? updated : value).ToArray());
+            await SaveDictionaryAsync(updated);
             return updated;
         }, async () => {
-            _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries.Where(value => value.Id != dictionary.Id).ToArray());
+            await DeleteDictionaryAsync(dictionary.Id);
             _page.Content = _catalogPage; RenderCards();
         }));
     internal static void InitializePicker(object picker) => WinRT.Interop.InitializeWithWindow.Initialize(picker,

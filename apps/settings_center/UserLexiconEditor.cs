@@ -178,25 +178,7 @@ internal sealed class UserLexiconEditor : UserControl
     }
     private async Task ExportAsync()
     {
-        var picker = new FileSavePicker { SuggestedFileName = $"OwO-用户词库-{DateTime.Now:yyyyMMdd}" };
-        picker.FileTypeChoices.Add("OwO 用户词库 JSON", [".json"]);
-        picker.FileTypeChoices.Add("制表符文本 TSV", [".tsv"]);
-        InitializePicker(picker);
-        var file = await picker.PickSaveFileAsync(); if (file is null) return;
-        var words = new List<LexiconWord>();
-        ulong? revision = null;
-        for (var offset = 0;; offset += 200) {
-            var page = await _client.RequestAsync("list", revision, offset: offset, limit: 200);
-            revision = page.Revision; words.AddRange(page.Words);
-            if (words.Count >= page.Total) break;
-            if (page.Words.Count == 0) throw new IOException("导出分页异常，请刷新重试。");
-        }
-        var output = Path.GetExtension(file.Path).Equals(".tsv", StringComparison.OrdinalIgnoreCase)
-            ? "input\ttext\tcount\n" + string.Concat(words.Select(word => $"{word.Input}\t{word.Text}\t{word.Count}\n"))
-            : JsonSerializer.Serialize(new LexiconFile(1, "OwO.UserLexicon", words), new JsonSerializerOptions { WriteIndented = true });
-        var temporary = file.Path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try { await File.WriteAllTextAsync(temporary, output, new UTF8Encoding(false)); File.Move(temporary, file.Path, true); }
-        finally { if (File.Exists(temporary)) File.Delete(temporary); }
-        Notify($"已导出 {words.Count} 条，仅包含编码、词语和权重，不包含应用上下文。");
+        if (await DictionaryActions.ExportUserAsync($"OwO-用户词库-{DateTime.Now:yyyyMMdd}"))
+            Notify("已导出全部词条，仅包含编码、词语和权重，不包含应用上下文。");
     }
 }

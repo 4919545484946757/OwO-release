@@ -7,7 +7,11 @@ internal sealed record DictionaryWord(string Id, string Input, string Text, uint
     string Locale = "", string OriginalInput = "", string OriginalWeight = "", string Tag = "");
 internal sealed record ManagedDictionary(string Id, string Name, string Format, string SourceName,
     string Scheme, bool Enabled, IReadOnlyList<DictionaryWord> Entries);
-internal sealed record DictionaryCatalog(int SchemaVersion, long Revision, IReadOnlyList<ManagedDictionary> Dictionaries);
+internal sealed record BuiltinDictionary(string Id, string Name, bool Enabled = true, bool Deleted = false);
+internal sealed record DictionaryCatalog(int SchemaVersion, long Revision, IReadOnlyList<ManagedDictionary> Dictionaries)
+{
+    public IReadOnlyList<BuiltinDictionary> Builtins { get; init; } = [new("user", "用户词库"), new("base", "基础中文词典")];
+}
 internal sealed record DictionaryImport(string Format, IReadOnlyList<DictionaryWord> Entries,
     int Duplicates, int Pending, int AdjustedWeights);
 
@@ -78,6 +82,11 @@ internal sealed class DictionaryStore
         if (catalog.SchemaVersion != 1 || catalog.Revision < 0 || catalog.Dictionaries is null || catalog.Dictionaries.Count > 128)
             throw new InvalidDataException("不支持的词典目录版本或数量。" );
         var ids = new HashSet<string>(StringComparer.Ordinal);
+        if (catalog.Builtins is null || catalog.Builtins.Count != 2 ||
+            !catalog.Builtins.Select(value => value?.Id).ToHashSet().SetEquals(new[] { "user", "base" }) ||
+            catalog.Builtins.Any(value => value is null || string.IsNullOrWhiteSpace(value.Name) ||
+                value.Name.Length > 128 || value.Name.Any(char.IsControl)))
+            throw new InvalidDataException("内置词库名称或标识无效。");
         var total = 0;
         foreach (var dictionary in catalog.Dictionaries) {
             if (dictionary is null || dictionary.SourceName is null || dictionary.Format is null || !Id(dictionary.Id) || !ids.Add(dictionary.Id) || string.IsNullOrWhiteSpace(dictionary.Name) ||
@@ -93,13 +102,14 @@ internal sealed class DictionaryStore
     }
     // One atomic pointer publishes catalog and active candidates together. A
     // failed/cancelled operation never exposes a half-written dictionary.
-    internal async Task<DictionaryCatalog> SaveAsync(DictionaryCatalog previous, IReadOnlyList<ManagedDictionary> dictionaries) {
+    internal async Task<DictionaryCatalog> SaveAsync(DictionaryCatalog previous, IReadOnlyList<ManagedDictionary> dictionaries,
+        IReadOnlyList<BuiltinDictionary>? builtins = null) {
         RejectLink(Root); Directory.CreateDirectory(Root);
         var lockPath = Path.Combine(Root, "store.lock"); RejectLink(lockPath);
         using var gate = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var latest = await LoadAsync();
         if (latest.Revision != previous.Revision) throw new IOException("词典已被其他窗口修改，请刷新后重试。" );
-        var next = new DictionaryCatalog(1, checked(latest.Revision + 1), dictionaries);
+        var next = new DictionaryCatalog(1, checked(latest.Revision + 1), dictionaries) { Builtins = builtins ?? previous.Builtins };
         Validate(next);
         var bytes = JsonSerializer.SerializeToUtf8Bytes(next, JsonOptions);
         if (bytes.Length > MaximumFileBytes) throw new InvalidDataException("词典目录超过 32 MiB，未修改已有数据。" );
@@ -120,6 +130,11 @@ internal sealed class DictionaryStore
         Directory.CreateDirectory(destination);
         await DurableWrite(Path.Combine(destination, "catalog.json"), bytes);
         await DurableWrite(Path.Combine(destination, "active.tsv"), activeBytes);
+        var sources = "OWO_DICTIONARY_SOURCES_V1\n" + string.Concat(new[] { "base", "user" }.Select(id => {
+            var source = next.Builtins.Single(value => value.Id == id);
+            return $"{id}\t{(source.Enabled && !source.Deleted ? 1 : 0)}\n";
+        }));
+        await DurableWrite(Path.Combine(destination, "sources.tsv"), Encoding.ASCII.GetBytes(sources));
         var temporary = Path.Combine(Root, id + ".tmp");
         var current = Path.Combine(Root, "current"); RejectLink(current);
         try {

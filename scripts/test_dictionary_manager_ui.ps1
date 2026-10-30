@@ -22,6 +22,20 @@ function Invoke-Id($window, $id) {
     (Wait-Id $window $id).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 150
 }
+function Confirm-Dialog($window, $text) {
+    $name = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::NameProperty, $text)
+    $kind = New-Object Windows.Automation.PropertyCondition([Windows.Automation.AutomationElement]::ControlTypeProperty, [Windows.Automation.ControlType]::Button)
+    $condition = New-Object Windows.Automation.AndCondition($name, $kind)
+    $button = $window.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition)
+    if (-not $button) { throw "Missing dictionary dialog button: $text" }
+    $button.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Start-Sleep -Milliseconds 350
+}
+function Catalog {
+    $store = Join-Path $fixture 'dictionaries'
+    $snapshot = [IO.File]::ReadAllText((Join-Path $store 'current'))
+    return [IO.File]::ReadAllText((Join-Path $store ('snapshots/' + $snapshot + '/catalog.json'))) | ConvertFrom-Json
+}
 $start = New-Object Diagnostics.ProcessStartInfo
 $start.FileName = Join-Path $PublishDirectory 'OwO.Settings.exe'
 $start.WorkingDirectory = $PublishDirectory
@@ -53,6 +67,43 @@ try {
     Start-Sleep -Milliseconds 150
     if (-not (Find-Id $window $sampleId) -or (Find-Id $window 'DictionaryCard_user')) { throw 'Dictionary search did not filter cards.' }
     $search.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('')
+    $sampleKey = '1' * 32
+    $cardToggle = Wait-Id $window ('DictionaryCardEnabled_' + $sampleKey)
+    $cardToggle.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Start-Sleep -Milliseconds 350
+    if ((Catalog).dictionaries[0].enabled -or (Find-Id $window 'DictionaryBack')) { throw 'Card toggle failed or unexpectedly opened details.' }
+    (Wait-Id $window ('DictionaryCardEnabled_' + $sampleKey)).GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Start-Sleep -Milliseconds 350
+    Invoke-Id $window ('DictionaryCardMenu_' + $sampleKey)
+    $null = Wait-Id $window ('DictionaryCardExport_' + $sampleKey)
+    $null = Wait-Id $window ('DictionaryCardDelete_' + $sampleKey)
+    Invoke-Id $window ('DictionaryCardRename_' + $sampleKey)
+    (Wait-Id $window 'DictionaryRenameInput').GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('改名测试字典')
+    Confirm-Dialog $window '保存'
+    if ((Catalog).dictionaries[0].name -ne '改名测试字典' -or (Find-Id $window 'DictionaryBack')) { throw 'Card rename failed or opened details.' }
+    # Builtin sources expose the same menu/switch, without erasing installed or
+    # learned data. Restoring a removed source must leave it disabled.
+    Invoke-Id $window 'DictionaryCardMenu_base'
+    Invoke-Id $window 'DictionaryCardRename_base'
+    (Wait-Id $window 'DictionaryRenameInput').GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('基础词典改名')
+    Confirm-Dialog $window '保存'
+    if (((Catalog).builtins | Where-Object id -eq 'base').name -ne '基础词典改名') { throw 'Builtin rename not persisted.' }
+    (Wait-Id $window 'DictionaryCardEnabled_base').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Start-Sleep -Milliseconds 350
+    if (((Catalog).builtins | Where-Object id -eq 'base').enabled) { throw 'Builtin disable not persisted.' }
+    Invoke-Id $window 'DictionaryCardMenu_user'
+    $null = Wait-Id $window 'DictionaryCardExport_user'
+    Invoke-Id $window 'DictionaryCardDelete_user'
+    Confirm-Dialog $window '取消'
+    if (((Catalog).builtins | Where-Object id -eq 'user').deleted) { throw 'Cancel removed builtin source.' }
+    Invoke-Id $window 'DictionaryCardMenu_user'
+    Invoke-Id $window 'DictionaryCardDelete_user'
+    Confirm-Dialog $window '删除'
+    if (Find-Id $window 'DictionaryCard_user') { throw 'Deleted builtin still visible.' }
+    Invoke-Id $window 'DictionaryRestoreBuiltins'
+    Invoke-Id $window 'DictionaryRestore_user'
+    $restored = (Catalog).builtins | Where-Object id -eq 'user'
+    if ($restored.deleted -or $restored.enabled) { throw 'Builtin restore did not keep disabled state.' }
     Invoke-Id $window $sampleId
     $enabled = Wait-Id $window 'DictionaryEnabled'
     $null = Wait-Id $window 'DictionaryWords'
@@ -74,7 +125,7 @@ try {
         $card = Wait-Id $window $id
         if (-not $card.Current.IsOffscreen -and $card.Current.BoundingRectangle.Right -gt $bounds.Right + 1) { throw 'Dictionary card overflows narrow window.' }
     }
-    Write-Output 'PASS: manager navigation, user/base/import cards, filtering, detail/back, atomic enable state and responsive card layout.'
+    Write-Output 'PASS: card switches, imported/builtin menus, rename, delete confirmation/cancel, builtin recovery, detail/back, atomic state and responsive layout.'
 } finally {
     if (-not $process.HasExited) { $process.CloseMainWindow() | Out-Null }
     if (-not $process.WaitForExit(5000)) { $process.Kill() }

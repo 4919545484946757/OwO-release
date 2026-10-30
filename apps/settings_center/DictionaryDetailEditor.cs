@@ -1,7 +1,5 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using System.Text;
-using Windows.Storage.Pickers;
 
 namespace OwO_Settings;
 
@@ -109,11 +107,10 @@ internal sealed class DictionaryDetailEditor : UserControl
         await SaveAsync(_dictionary with { Entries = _dictionary.Entries.Where(value => value.Id != word.Id).ToArray() });
     }
     private async Task RenameAsync() {
-        var name = new TextBox { Text = _dictionary.Name, MaxLength = 128 };
-        if (await Dialog("重命名字典", name, "保存").ShowAsync() == ContentDialogResult.Primary) await SaveAsync(_dictionary with { Name = name.Text.Trim() });
+        if (await DictionaryActions.RenameAsync(XamlRoot, _dictionary.Name) is { } name) await SaveAsync(_dictionary with { Name = name });
     }
     private async Task DeleteAsync() {
-        if (await Dialog("删除字典", "从词库管理器移除该字典及其候选来源？不会清除用户已学习的词语。旧快照仍保留在本机，可用于恢复，不属于安全抹除。", "删除").ShowAsync() == ContentDialogResult.Primary) await _delete();
+        if (await DictionaryActions.ConfirmDeleteAsync(XamlRoot, _dictionary.Name)) await _delete();
     }
     private async Task MergeAsync() {
         var selected = await DictionaryManager.PickImportAsync(); if (selected is null) return;
@@ -124,14 +121,7 @@ internal sealed class DictionaryDetailEditor : UserControl
         await SaveAsync(_dictionary with { Entries = merged });
     }
     private async Task ExportAsync() {
-        var safeName = string.Concat(_dictionary.Name.Where(c => !Path.GetInvalidFileNameChars().Contains(c)));
-        var picker = new FileSavePicker { SuggestedFileName = safeName.Length > 0 ? safeName : "OwO-字典" };
-        picker.FileTypeChoices.Add("OwO 字典 JSON", [".json"]); picker.FileTypeChoices.Add("制表符文本 TSV", [".tsv"]);
-        DictionaryManager.InitializePicker(picker); var file = await picker.PickSaveFileAsync(); if (file is null) return;
-        var output = DictionaryFormats.Export(_dictionary, Path.GetExtension(file.Path).Equals(".tsv", StringComparison.OrdinalIgnoreCase));
-        var temporary = file.Path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try { await File.WriteAllTextAsync(temporary, output, new UTF8Encoding(false)); File.Move(temporary, file.Path, true); }
-        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        if (!await DictionaryActions.ExportAsync(_dictionary)) return;
         _notice.Message = "已导出。本文件包含个人词语，请妥善保管。"; _notice.Severity = InfoBarSeverity.Success; _notice.IsOpen = true;
     }
 }

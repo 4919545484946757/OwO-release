@@ -32,7 +32,7 @@ bool ManagedDictionaryModel::refresh(bool force) {
         const bool changed = !entries_.empty() || previous != id;
         entries_.clear(); diagnostic_ = std::move(message); return changed;
     };
-    if (id.empty()) return fail({});
+    if (id.empty()) { base_enabled_ = user_enabled_ = true; return fail({}); }
     if (id.size() != 32 || id.find_first_not_of("0123456789abcdef") != std::string::npos)
         return fail("invalid dictionary snapshot id");
     const auto directory = root_ / "snapshots" / id;
@@ -60,18 +60,35 @@ bool ManagedDictionaryModel::refresh(bool force) {
         staged.push_back(std::move(entry));
     }
     if (!file.eof()) return fail("dictionary snapshot read failed");
+    bool base_enabled = true, user_enabled = true;
+    const auto sources_path = directory / "sources.tsv";
+    const bool has_sources = std::filesystem::exists(sources_path, error);
+    if (error) return fail("dictionary sources metadata unavailable");
+    if (has_sources) {
+        const auto size = std::filesystem::file_size(sources_path, error);
+        if (error || size > 128 || std::filesystem::is_symlink(std::filesystem::symlink_status(sources_path, error)))
+            return fail("dictionary sources metadata is linked or too large");
+        std::ifstream sources(sources_path, std::ios::binary);
+        std::string header, base, user, extra;
+        if (!std::getline(sources, header) || header != "OWO_DICTIONARY_SOURCES_V1" ||
+            !std::getline(sources, base) || (base != "base\t0" && base != "base\t1") ||
+            !std::getline(sources, user) || (user != "user\t0" && user != "user\t1") ||
+            std::getline(sources, extra) || !sources.eof()) return fail("invalid dictionary sources metadata");
+        base_enabled = base.back() == '1'; user_enabled = user.back() == '1';
+    }
     std::sort(staged.begin(), staged.end(), [](const auto& a, const auto& b) {
         if (a.input != b.input) return a.input < b.input;
         if (a.count != b.count) return a.count > b.count;
         return a.text < b.text;
     });
-    entries_ = std::move(staged); diagnostic_.clear(); return true;
+    entries_ = std::move(staged); base_enabled_ = base_enabled; user_enabled_ = user_enabled;
+    diagnostic_.clear(); return true;
 }
-std::int64_t ManagedDictionaryModel::score(std::string_view text) const { return learned_ ? learned_->score(text) : 0; }
-bool ManagedDictionaryModel::preferred(std::string_view input, std::string_view text) const { return learned_ && learned_->preferred(input, text); }
-std::int64_t ManagedDictionaryModel::contextual_score(std::string_view input, std::string_view text) const { return learned_ ? learned_->contextual_score(input, text) : 0; }
+std::int64_t ManagedDictionaryModel::score(std::string_view text) const { return learned_ && user_enabled_ ? learned_->score(text) : 0; }
+bool ManagedDictionaryModel::preferred(std::string_view input, std::string_view text) const { return learned_ && user_enabled_ && learned_->preferred(input, text); }
+std::int64_t ManagedDictionaryModel::contextual_score(std::string_view input, std::string_view text) const { return learned_ && user_enabled_ ? learned_->contextual_score(input, text) : 0; }
 std::int64_t ManagedDictionaryModel::language_context_score(std::string_view context, std::string_view input, std::string_view text) const {
-    return learned_ ? learned_->language_context_score(context, input, text) : 0;
+    return learned_ && user_enabled_ ? learned_->language_context_score(context, input, text) : 0;
 }
 std::vector<UserLexiconEntry> ManagedDictionaryModel::lookup(std::string_view input, std::size_t limit) const { return combined(input, limit, false); }
 std::vector<UserLexiconEntry> ManagedDictionaryModel::lookup_prefix(std::string_view input, std::size_t limit) const { return combined(input, limit, true); }
@@ -84,7 +101,7 @@ std::vector<UserLexiconEntry> ManagedDictionaryModel::lookup_explicit(std::strin
     return result;
 }
 std::vector<UserLexiconEntry> ManagedDictionaryModel::combined(std::string_view input, std::size_t limit, bool prefix) const {
-    auto result = learned_ ? (prefix ? learned_->lookup_prefix(input, limit) : learned_->lookup(input, limit)) : std::vector<UserLexiconEntry>{};
+    auto result = learned_ && user_enabled_ ? (prefix ? learned_->lookup_prefix(input, limit) : learned_->lookup(input, limit)) : std::vector<UserLexiconEntry>{};
     const auto key = compact(input);
     if (!enabled_ || key.empty() || !limit || (prefix && key.size() < 2)) return result;
     auto begin = std::lower_bound(entries_.begin(), entries_.end(), key, [](const auto& entry, const auto& value) { return entry.input < value; });

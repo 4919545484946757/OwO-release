@@ -43,7 +43,28 @@ internal sealed class UserLexiconClient
             Validate(word);
             payload.Append($"{word.Input}\t{word.Text}\t{word.Count}\n");
         }
-        if (Encoding.UTF8.GetByteCount(payload.ToString()) > 512 * 1024)
+        var lines = (await ExchangeAsync(payload.ToString())).Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length == 0) throw new InvalidDataException("词库响应为空，请检查 Core 和设置中心版本。");
+        var header = lines[0].TrimEnd('\r').Split('\t');
+        if (header.Length != 4) throw new InvalidDataException("词库响应格式错误。");
+        var rows = new List<LexiconWord>();
+        foreach (var line in lines.Skip(1)) {
+            var fields = line.TrimEnd('\r').Split('\t');
+            if (fields.Length != 4) throw new InvalidDataException("词条响应无效。");
+            rows.Add(new(fields[0], fields[1], uint.Parse(fields[2], CultureInfo.InvariantCulture)));
+        }
+        return new(ulong.Parse(header[0], CultureInfo.InvariantCulture), int.Parse(header[1], CultureInfo.InvariantCulture),
+            int.Parse(header[2], CultureInfo.InvariantCulture), int.Parse(header[3], CultureInfo.InvariantCulture), rows);
+    }
+    internal async Task<string> BaseFileAsync() {
+        var path = (await ExchangeAsync("base-file\n")).TrimEnd('\r', '\n');
+        if (!Path.IsPathFullyQualified(path) || !Path.GetExtension(path).Equals(".owolx", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Core 返回的基础词典路径无效。");
+        return path;
+    }
+    private async Task<string> ExchangeAsync(string payload)
+    {
+        if (Encoding.UTF8.GetByteCount(payload) > 512 * 1024)
             throw new InvalidDataException("本批数据超过 512 KiB，请拆分后导入。");
         if (!File.Exists(_shell)) throw new FileNotFoundException("找不到词库管理后端，请使用最新版设置中心。", _shell);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -58,25 +79,14 @@ internal sealed class UserLexiconClient
         try {
             var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
             var error = process.StandardError.ReadToEndAsync(timeout.Token);
-            await process.StandardInput.WriteAsync(payload.ToString().AsMemory(), timeout.Token);
+            await process.StandardInput.WriteAsync(payload.AsMemory(), timeout.Token);
             process.StandardInput.Close();
             await process.WaitForExitAsync(timeout.Token);
             if (process.ExitCode != 0) {
                 var detail = (await error).Trim();
                 throw new IOException(detail.Length == 0 ? $"词库后端退出码：{process.ExitCode}" : detail);
             }
-            var lines = (await output).Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            if (lines.Length == 0) throw new InvalidDataException("词库响应为空，请检查 Core 和设置中心版本。");
-            var header = lines[0].TrimEnd('\r').Split('\t');
-            if (header.Length != 4) throw new InvalidDataException("词库响应格式错误。");
-            var rows = new List<LexiconWord>();
-            foreach (var line in lines.Skip(1)) {
-                var fields = line.TrimEnd('\r').Split('\t');
-                if (fields.Length != 4) throw new InvalidDataException("词条响应无效。");
-                rows.Add(new(fields[0], fields[1], uint.Parse(fields[2], CultureInfo.InvariantCulture)));
-            }
-            return new(ulong.Parse(header[0], CultureInfo.InvariantCulture), int.Parse(header[1], CultureInfo.InvariantCulture),
-                int.Parse(header[2], CultureInfo.InvariantCulture), int.Parse(header[3], CultureInfo.InvariantCulture), rows);
+            return await output;
         } catch (OperationCanceledException) {
             if (!process.HasExited) process.Kill(true);
             throw new IOException("词库操作超时，请刷新确认结果后重试；不会自动重复提交。");

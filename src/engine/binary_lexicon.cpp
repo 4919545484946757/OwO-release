@@ -371,6 +371,7 @@ void BinaryLexicon::reset_mapping() noexcept {
 }
 
 LexiconIoResult BinaryLexicon::load(const std::filesystem::path& path) {
+    storage_path_.clear();
     reset_mapping();
     entries_.clear();
     syllable_ids_.clear();
@@ -547,6 +548,7 @@ LexiconIoResult BinaryLexicon::load(const std::filesystem::path& path) {
         mapped_mixed_index_count_ = mixed_index_count;
         maximum_reading_length_ = u32(maximum_reading_length_field);
         lexicon_version_ = detected_version;
+        storage_path_ = std::filesystem::absolute(path);
         return {true, {}};
 #else
         return {false, "v2 memory-mapped lexicons require Windows"};
@@ -697,6 +699,7 @@ LexiconIoResult BinaryLexicon::load(const std::filesystem::path& path) {
     mixed_entries_ = std::move(mixed_entries);
     maximum_reading_length_ = maximum_reading_length;
     lexicon_version_ = 1;
+    storage_path_ = std::filesystem::absolute(path);
     return {true, {}};
 }
 
