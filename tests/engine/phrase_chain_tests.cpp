@@ -64,5 +64,35 @@ int main(int argc, char **argv) {
                     }
                 }
     }
+    // Same reading, different lexical boundaries: an intact name + verb
+    // must not erase a common character + adverb + verb interpretation.
+    // Dedup may retain the latter text as character + character + verb;
+    // overlapping dictionary evidence must still recall it.
+    const MemoryLexicon boundary_lexicon({
+        {{"ni"}, "你", 1422192}, {{"ta"}, "他", 1400000},
+        {{"ping"}, "平", 1439957}, {{"chang"}, "常", 1623697},
+        {{"yong"}, "用", 3170468}, {{"yong"}, "永", 399313},
+        {{"ni", "ping"}, "倪萍", 15000}, {{"ta", "ping"}, "踏平", 15000},
+        {{"ping", "chang"}, "平常", 20000}, {{"chang", "yong"}, "常用", 500000}});
+    for (const auto& [input, expected] : {
+             std::pair{"nipingchangyong", "你平常用"}, {"tapingchangyong", "他平常用"},
+             {"ni'ping'chang'yong", "你平常用"}})
+        for (const auto limit : {8U, 18U, 48U})
+            for (const auto page : {5U, 7U, 9U})
+                for (const bool model : {false, true}) {
+                    const auto result = CandidateGenerator(boundary_lexicon).generate(
+                        schema.parse(input, 32, false), limit, false, {}, nullptr, {}, model, page);
+                    const auto match = std::find_if(result.begin(), result.end(), [&](const auto& candidate) {
+                        return candidate.text == expected && !candidate.model_only &&
+                               candidate.consumed_input_bytes == std::string_view(input).size();
+                    });
+                    const auto sentences = std::count_if(result.begin(), result.end(), [&](const auto& candidate) {
+                        return !candidate.model_only && candidate.consumed_input_bytes == std::string_view(input).size();
+                    });
+                    if (match == result.end() || sentences > 2) {
+                        std::cerr << "Boundary interpretation lost or sentence quota enlarged: " << input << '\n';
+                        return 3;
+                    }
+                }
     return 0;
 }

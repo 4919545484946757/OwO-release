@@ -1,0 +1,6 @@
+{"id":"usual-you","input":"nipingchangyong","expected":["你平常用"]}
+{"id":"usual-explicit","input":"ni'ping'chang'yong","expected":["你平常用"]}
+{"id":"usual-i","input":"wopingchangyong","expected":["我平常用"]}
+{"id":"usual-they","input":"tapingchangyong","expected":["他平常用"]}
+{"id":"usual-base","input":"pingchangyong","expected":["平常用"]}
+{"id":"usual-control","input":"nichangyong","expected":["你常用"]}

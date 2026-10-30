@@ -1836,7 +1836,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         });
     }
     std::vector<Candidate> model_seeds;
-    if (include_model_alternatives && !full.empty() &&
+    std::optional<Candidate> boundary_sentence_alternative;
+    if (!full.empty() &&
         full.front().syllables.size() >= 3) {
         constexpr std::size_t kMaximumModelStructures = 24;
         const auto& reference = full.front();
@@ -1853,6 +1854,67 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             readings.push_back(candidate.source_segments);
             if (texts.insert(candidate.text).second) model_seeds.push_back(candidate);
             if (readings.size() >= exact_path_limit) break;
+        }
+        // Word-boundary ambiguity is not a homophone permutation. A pair of
+        // names/words can otherwise exhaust the pool before a common
+        // character + word + character reading reaches the language model.
+        // Reserve only the strongest representative of each different token
+        // layout; keep ordinary same-layout lexical confidence checks below.
+        // The bounded, hidden pool does not increase visible sentence quotas.
+        std::vector<std::vector<std::size_t>> layouts{reference.segment_lengths};
+        std::vector<std::size_t> reference_boundaries;
+        std::size_t reference_offset = 0;
+        for (const auto length : reference.segment_lengths) {
+            reference_offset += length;
+            reference_boundaries.push_back(reference_offset);
+        }
+        for (const auto& candidate : full) {
+            if (layouts.size() >= 8) break;
+            if (candidate.match_kind != InputMatchKind::exact ||
+                candidate.source_segments != reference.source_segments ||
+                candidate.syllables != reference.syllables ||
+                candidate.segment_count < 2 ||
+                candidate.segment_count > reference.segment_count + 1 ||
+                std::none_of(candidate.segment_lengths.begin(), candidate.segment_lengths.end(),
+                    [](const auto length) { return length >= 2; }) ||
+                std::find(layouts.begin(), layouts.end(), candidate.segment_lengths) != layouts.end())
+                continue;
+            std::size_t offset = 0;
+            bool crosses_boundary = false;
+            for (const auto length : candidate.segment_lengths) {
+                const auto end = offset + length;
+                crosses_boundary |= std::any_of(reference_boundaries.begin(), reference_boundaries.end(),
+                    [offset, end](const auto boundary) { return offset < boundary && boundary < end; });
+                offset = end;
+            }
+            // The text accumulator may have kept a higher-unigram spelling
+            // of the same text using smaller tokens. Validate overlapping
+            // words against the dictionary rather than trusting that one
+            // retained tokenization as the only possible explanation.
+            if (!crosses_boundary && utf8_character_count(candidate.text) == candidate.syllables.size()) {
+                const auto boundaries = utf8_boundaries(candidate.text);
+                for (std::size_t begin = 0; begin < candidate.syllables.size() && !crosses_boundary; ++begin) {
+                    std::vector<std::string_view> reading;
+                    for (std::size_t end = begin + 1; end <= candidate.syllables.size() && end - begin <= 4; ++end) {
+                        reading.push_back(candidate.syllables[end - 1]);
+                        if (end - begin < 2 || (begin == 0 && end == candidate.syllables.size()) ||
+                            std::none_of(reference_boundaries.begin(), reference_boundaries.end(),
+                                [begin, end](const auto boundary) { return begin < boundary && boundary < end; })) continue;
+                        if (lookup_cache.phrase_score(reading, std::string_view(candidate.text).substr(
+                                boundaries[begin], boundaries[end] - boundaries[begin]))) {
+                            crosses_boundary = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            // Merely splitting an intact phrase into smaller tokens is not
+            // independent evidence and must not undo the noise filter.
+            if (!crosses_boundary) continue;
+            layouts.push_back(candidate.segment_lengths);
+            if (!boundary_sentence_alternative && candidate.segment_count > reference.segment_count)
+                boundary_sentence_alternative = candidate;
+            if (texts.insert(candidate.text).second) model_seeds.push_back(candidate);
         }
         for (const auto& candidate : full) {
             if (candidate.consumed_input_bytes != full_input_bytes) continue;
@@ -1974,6 +2036,13 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
         for (std::size_t index = 0; index < sentence_count; ++index)
             ordered.push_back(std::move(full[index]));
+
+        // Keep one independently supported boundary interpretation selectable
+        // even without an external model. Do not enlarge the two-sentence
+        // quota or displace an existing second coherent sentence.
+        if (ordered.size() == 1 && boundary_sentence_alternative &&
+            boundary_sentence_alternative->text != ordered.front().text)
+            ordered.push_back(std::move(*boundary_sentence_alternative));
 
         if (retained_user_word && std::none_of(ordered.begin(), ordered.end(),
                 [&](const Candidate& value) { return value.text == retained_user_word->text; })) {
