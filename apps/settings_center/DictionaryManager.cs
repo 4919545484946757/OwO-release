@@ -169,7 +169,7 @@ internal sealed class DictionaryManager : UserControl
         var descriptionText = new TextBlock { Text = description, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.Wrap, Opacity = 0.75 };
         var stateText = new TextBlock { Text = state, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.7 };
         body.Children.Add(title); body.Children.Add(descriptionText); body.Children.Add(stateText);
-        var card = new Button { Content = body, Padding = new Thickness(16, 16, 16, 58),
+        var card = new Button { Content = body, Padding = new Thickness(16, 16, 16, 72),
             CornerRadius = new CornerRadius(10), MinWidth = 0,
             HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Top };
@@ -179,8 +179,8 @@ internal sealed class DictionaryManager : UserControl
         // Sibling controls, never interactive children of the navigation button.
         // Clicking the switch/menu must not enter the detail page.
         var toggle = new ToggleSwitch { IsOn = enabled, OnContent = "已启用", OffContent = "已停用",
-            MinWidth = 0, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom,
-            Margin = new Thickness(16, 0, 12, 12) };
+            MinWidth = 0, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(16, 0, 12, 0) };
         AutomationProperties.SetAutomationId(toggle, "DictionaryCardEnabled_" + id);
         AutomationProperties.SetName(toggle, "启用" + name);
         var view = new CardView(host, card, toggle, title, descriptionText, stateText);
@@ -190,7 +190,17 @@ internal sealed class DictionaryManager : UserControl
             var value = toggle.IsOn;
             await RunAsync(async () => await view.SetEnabled(value)); RenderCards();
         };
-        host.Children.Add(toggle);
+        // Tint only the footer background, not the switch or its status text.
+        // Keep it a sibling of the navigation button so toggling never opens details.
+        var actions = new Border {
+            Height = 64, VerticalAlignment = VerticalAlignment.Bottom,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(1, 0, 1, 1), CornerRadius = new CornerRadius(0, 0, 9, 9),
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                Windows.UI.Color.FromArgb(38, 0, 0, 0)), Child = toggle,
+        };
+        AutomationProperties.SetAutomationId(actions, "DictionaryCardActions_" + id);
+        host.Children.Add(actions);
         var flyout = new MenuFlyout();
         void Item(string text, Symbol icon, string command, Func<Task> execute) {
             var item = new MenuFlyoutItem { Text = text, Icon = new SymbolIcon(icon) };
@@ -218,7 +228,7 @@ internal sealed class DictionaryManager : UserControl
             var inset = Math.Clamp((e.NewSize.Width - 44) / 2, 0, 16);
             toggle.OnContent = compact ? "" : "已启用";
             toggle.OffContent = compact ? "" : "已停用";
-            toggle.Margin = new Thickness(inset, 0, inset, 12);
+            toggle.Margin = new Thickness(inset, 0, inset, 0);
         };
         _cardViews.Add(id, view); Update(view);
     }
