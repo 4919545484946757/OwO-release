@@ -39,6 +39,7 @@ int main(int argc, char** argv) {
     if (!model.lookup("ceshiciku", 7).empty()) return 8;
     model.set_enabled(true);
     learned.record("ceshiciku", "测试词库", 5);
+    if (model.lookup_related("csc", 8).empty()) return 18;
     if (model.lookup("ceshiciku", 7).size() != 2 || model.score("测试词库") != learned.score("测试词库")) return 9;
     publish(b, "OWO_DICTIONARIES_V1\n");
     if (!model.refresh(true) || model.lookup("ceshiciku", 10).size() != 1 || learned.count("测试词库") == 0) return 10;
@@ -46,7 +47,8 @@ int main(int argc, char** argv) {
     { std::ofstream file(sources, std::ios::binary); file << "OWO_DICTIONARY_SOURCES_V1\nbase\t0\nuser\t0\n"; }
     if (!model.refresh(true) || model.base_enabled() || model.user_enabled() ||
         !model.lookup("ceshiciku", 10).empty() || model.score("测试词库") ||
-        model.contextual_score("ceshiciku", "测试词库") || model.preferred("ceshiciku", "测试词库")) return 15;
+        model.contextual_score("ceshiciku", "测试词库") || model.preferred("ceshiciku", "测试词库") ||
+        !model.lookup_related("csc", 8).empty()) return 15;
     { std::ofstream file(sources, std::ios::binary); file << "OWO_DICTIONARY_SOURCES_V1\nbase\t1\nuser\t1\n"; }
     if (!model.refresh(true) || !model.base_enabled() || !model.user_enabled() ||
         model.lookup("ceshiciku", 10).size() != 1) return 16;

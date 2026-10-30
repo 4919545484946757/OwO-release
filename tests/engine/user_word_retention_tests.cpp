@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <iostream>
+#include <tuple>
+#include <cstdlib>
 
 int main(int argc, char **argv) {
     using namespace owo::engine;
@@ -75,5 +77,39 @@ int main(int argc, char **argv) {
             }
         }
     }
+    UserFrequencyStore shared([&] { return now; });
+    shared.record("ejirenyuan", "俄籍人员", 4);
+    shared.record("shenyuci", "沈昱慈", 4); // Private word absent from the base dictionary.
+    shared.record("moyu", "莫玉", 4);
+    const CandidateGenerator transferred(fixture, nullptr, &shared);
+    for (const auto& [full, text, variants] : std::vector<std::tuple<std::string, std::string, std::vector<std::string>>>{
+             {"ejirenyuan", "俄籍人员", {"ejry", "e'j'r'y", "ej'ry", "ejiren'y", "ejireny", "ejirenyuan"}},
+             {"shenyuci", "沈昱慈", {"syc", "shyci", "shen'yu'c", "shenyuci"}},
+             {"moyu", "莫玉", {"my", "moy", "moyu"}}}) {
+        for (const auto limit : {8U, 18U, 48U}) for (const bool model : {false, true}) {
+            std::int64_t reference = 0;
+            const auto original = transferred.generate(schema.parse(full, 32, false), limit, false, {}, nullptr, {}, model, 7, false, 0);
+            for (const auto& candidate : original) if (candidate.text == text) reference = candidate.score;
+            for (const auto& input : variants) {
+                const auto result = transferred.generate(schema.parse(input, 32, false), limit, false, {}, nullptr, {}, model, 7, false, 0);
+                if (result.empty() || result.front().text != text || !result.front().user_preferred() ||
+                    result.front().consumed_input_bytes != input.size() ||
+                    std::abs(result.front().score - reference) > 1000) {
+                    std::cerr << "Learned boost did not transfer: " << input << '\n'; return 6;
+                }
+            }
+        }
+    }
+    for (const auto input : {"ejr", "ejiren'yu'an", "egry"}) {
+        const auto result = transferred.generate(schema.parse(input, 32, false), 18, false, {}, nullptr, {}, true, 7, false, 0);
+        if (std::any_of(result.begin(), result.end(), [](const auto& candidate) { return candidate.text == "俄籍人员"; })) return 7;
+    }
+    if (shared.contextual_count("ejry", "俄籍人员") != 0 || shared.count("俄籍人员") != 4) return 8;
+    shared.record("moyuer", "莫玉珥");
+    if (shared.lookup_related("myer", 8).empty() || !shared.lookup_related("myer", 8).front().preferred) return 10;
+    now += 61;
+    if (shared.lookup_related("myer", 8).empty() || shared.lookup_related("myer", 8).front().preferred) return 11;
+    shared.clear_learning();
+    if (!shared.lookup_related("ejry", 8).empty()) return 9;
     return ok ? 0 : 5;
 }

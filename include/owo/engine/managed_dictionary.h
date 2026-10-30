@@ -19,6 +19,7 @@ public:
     std::int64_t language_context_score(std::string_view context, std::string_view input, std::string_view text) const override;
     std::vector<UserLexiconEntry> lookup(std::string_view input, std::size_t limit) const override;
     std::vector<UserLexiconEntry> lookup_prefix(std::string_view input, std::size_t limit) const override;
+    std::vector<UserLexiconEntry> lookup_related(std::string_view input, std::size_t limit) const override;
     std::vector<UserLexiconEntry> lookup_explicit(std::string_view input, std::size_t limit) const override;
     const std::string& diagnostic() const noexcept { return diagnostic_; }
 private:

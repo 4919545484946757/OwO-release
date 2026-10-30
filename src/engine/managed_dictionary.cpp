@@ -92,6 +92,9 @@ std::int64_t ManagedDictionaryModel::language_context_score(std::string_view con
 }
 std::vector<UserLexiconEntry> ManagedDictionaryModel::lookup(std::string_view input, std::size_t limit) const { return combined(input, limit, false); }
 std::vector<UserLexiconEntry> ManagedDictionaryModel::lookup_prefix(std::string_view input, std::size_t limit) const { return combined(input, limit, true); }
+std::vector<UserLexiconEntry> ManagedDictionaryModel::lookup_related(std::string_view input, std::size_t limit) const {
+    return learned_ && user_enabled_ ? learned_->lookup_related(input, limit) : std::vector<UserLexiconEntry>{};
+}
 std::vector<UserLexiconEntry> ManagedDictionaryModel::lookup_explicit(std::string_view input, std::size_t limit) const {
     std::vector<UserLexiconEntry> result;
     if (!enabled_ || !limit) return result;

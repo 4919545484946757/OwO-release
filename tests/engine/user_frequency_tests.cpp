@@ -291,6 +291,11 @@ int main() {
     owo::engine::UserFrequencyStore migrated([&] { return now; });
     if (!migrated.load(v3_path).success || migrated.lookup("nihao", 1).front().preferred) return 35;
     std::filesystem::remove(v3_path, ignored);
+    restarted.record("ejirenyuan", "俄籍人员", 4);
+    if (!restarted.flush().success) return 36;
+    owo::engine::UserFrequencyStore related_reload([&] { return now; });
+    if (!related_reload.load(timed_path).success || related_reload.lookup_related("ejry", 8).empty() ||
+        related_reload.lookup_related("ejry", 8).front().text != "俄籍人员") return 37;
     std::filesystem::remove(v3_path + L".bak", ignored);
     std::filesystem::remove(legacy_path, ignored);
     std::filesystem::remove(timed_path, ignored);

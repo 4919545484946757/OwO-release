@@ -701,6 +701,57 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             return path.match_kind == InputMatchKind::corrected;
         });
 
+    const auto related_user_candidates = [&]() -> std::vector<Candidate> {
+        std::vector<Candidate> result;
+        // Share one observed preference across validated syllable-prefix
+        // spellings. This is not prediction: every output syllable must have
+        // a source segment, even when trailing-syllable completion is disabled.
+        if (user_frequency_ != nullptr && phonetic_assistance && !correction_only) {
+            std::string lookup_input;
+            for (const auto value : parsed.normalized_input) if (value != '\'') lookup_input += value;
+            std::unordered_map<std::string, ParseResult> readings;
+            const auto related = user_frequency_->lookup_related(lookup_input, std::max<std::size_t>(32, search_limit));
+            for (const auto& entry : related) {
+                if (cancelled && cancelled()) return {};
+                auto [cached, inserted] = readings.try_emplace(entry.input);
+                if (inserted) cached->second = FullPinyinSchema{}.parse(entry.input, 32, false);
+                // Compact learning keys lose apostrophes. For a known word,
+                // dictionary-backed pronunciation wins over another same-
+                // length parse of that key; private unknown words keep the
+                // source-aligned fallback rather than losing recall.
+                const bool known_reading = std::any_of(cached->second.paths.begin(), cached->second.paths.end(),
+                    [&](const auto& path) { return path.match_kind == InputMatchKind::exact &&
+                        reading_matches_text(path, entry.text); });
+                for (const auto& path : cached->second.paths) {
+                    if (path.match_kind != InputMatchKind::exact ||
+                        !user_word_matches_source_path(cached->second, path, entry.text) ||
+                        (known_reading && !reading_matches_text(path, entry.text))) continue;
+                    const auto segments = abbreviated_user_reading(path, parsed.normalized_input);
+                    if (!segments) continue;
+                    std::vector<std::string> syllables;
+                    for (const auto& value : path.syllables) syllables.push_back(value.text);
+                    // Transfer the observation's own score/time, never create
+                    // a fresh alias observation or multiply its frequency.
+                    auto score = (entry.preferred ? 12'000 : 0) + candidate_unigram_score(entry.count) +
+                        user_frequency_->score(entry.text) + user_frequency_->contextual_score(entry.input, entry.text);
+                    if (contextual_ranking && !language_context.empty())
+                        score += user_frequency_->language_context_score(language_context, entry.input, entry.text);
+                    const auto kind = std::string_view(entry.input).starts_with(lookup_input)
+                        ? InputMatchKind::incomplete_completion : InputMatchKind::abbreviated_completion;
+                    Candidate candidate{entry.text, std::move(syllables), score,
+                        kind, *segments, parsed.normalized_input.size(), 1};
+                    candidate.segment_lengths = {path.syllables.size()};
+                    candidate.user_lexicon = true;
+                    candidate.provisional_user_word = !entry.preferred;
+                    result.push_back(std::move(candidate));
+                    break;
+                }
+            }
+        }
+
+        return result;
+    };
+
     // A lone consonant is a request for common characters across every valid
     // final, not for the first parser completion bucket (da, dai, dan, ...).
     // The lexicon's prebuilt initial index is globally frequency ordered, so
@@ -781,6 +832,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         CandidateAccumulator dictionary_unique;
         CandidateAccumulator prefix_unique;
         for (const auto& entry : explicit_mappings) dictionary_unique.store(explicit_candidate(entry));
+        for (auto candidate : related_user_candidates()) dictionary_unique.store(std::move(candidate));
 
         const auto lookup_started = std::chrono::steady_clock::now();
         auto dictionary_matches = lexicon_.lookup_mixed_abbreviation_texts(
@@ -945,6 +997,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 store_candidate(std::move(candidate));
             }
         }
+
+        for (auto candidate : related_user_candidates()) store_candidate(std::move(candidate));
 
         const auto prefix_path = std::find_if(
             parsed.paths.begin(), parsed.paths.end(), [](const ParsePath& value) {
