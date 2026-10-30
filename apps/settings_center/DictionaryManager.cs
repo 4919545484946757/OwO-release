@@ -169,8 +169,10 @@ internal sealed class DictionaryManager : UserControl
         var descriptionText = new TextBlock { Text = description, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.Wrap, Opacity = 0.75 };
         var stateText = new TextBlock { Text = state, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.7 };
         body.Children.Add(title); body.Children.Add(descriptionText); body.Children.Add(stateText);
+        var operationBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+            Windows.UI.Color.FromArgb(51, 0, 0, 0));
         var card = new Button { Content = body, Padding = new Thickness(16, 16, 16, 72),
-            CornerRadius = new CornerRadius(10), MinWidth = 0,
+            CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(0), MinWidth = 0,
             HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Top };
         AutomationProperties.SetAutomationId(card, "DictionaryCard_" + id);
@@ -196,8 +198,7 @@ internal sealed class DictionaryManager : UserControl
             Height = 64, VerticalAlignment = VerticalAlignment.Bottom,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Margin = new Thickness(1, 0, 1, 1), CornerRadius = new CornerRadius(0, 0, 9, 9),
-            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                Windows.UI.Color.FromArgb(51, 0, 0, 0)), Child = toggle,
+            Background = operationBrush, Child = toggle,
         };
         AutomationProperties.SetAutomationId(actions, "DictionaryCardActions_" + id);
         host.Children.Add(actions);
@@ -219,6 +220,12 @@ internal sealed class DictionaryManager : UserControl
         AutomationProperties.SetAutomationId(menu, "DictionaryCardMenu_" + id);
         AutomationProperties.SetName(menu, "管理" + name); ToolTipService.SetToolTip(menu, "字典操作");
         host.Children.Add(menu);
+        // An overlay draws inside the existing card bounds without changing
+        // layout, intercepting input or inheriting the button's hover stroke.
+        host.Children.Add(new Border {
+            BorderBrush = operationBrush, BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10), IsHitTestVisible = false,
+        });
         view.Menu = menu;
         host.SizeChanged += (_, e) => {
             // An expanded navigation pane can leave a very narrow content
