@@ -36,6 +36,38 @@ function Catalog {
     $snapshot = [IO.File]::ReadAllText((Join-Path $store 'current'))
     return [IO.File]::ReadAllText((Join-Path $store ('snapshots/' + $snapshot + '/catalog.json'))) | ConvertFrom-Json
 }
+function Check-CardBounds($window, $key) {
+    $card = Wait-Id $window ('DictionaryCard_' + $key)
+    if ($card.Current.IsOffscreen) { return }
+    $bounds = $card.Current.BoundingRectangle
+    $horizontalInset = [Math]::Min(6, [Math]::Max(0, ($bounds.Width - 44) / 2))
+    foreach ($prefix in @('DictionaryCardEnabled_', 'DictionaryCardMenu_')) {
+        $control = Wait-Id $window ($prefix + $key)
+        if ($control.Current.IsOffscreen) { continue }
+        $rect = $control.Current.BoundingRectangle
+        if ($rect.Left -lt $bounds.Left + $horizontalInset -or $rect.Right -gt $bounds.Right - $horizontalInset -or
+            $rect.Top -lt $bounds.Top + 6 -or $rect.Bottom -gt $bounds.Bottom - 6) {
+            throw "Dictionary card control outside visual card inset: $prefix$key card=$bounds control=$rect"
+        }
+    }
+    $menuControl = Wait-Id $window ('DictionaryCardMenu_' + $key)
+    if ($menuControl.Current.IsOffscreen) { return }
+    $menu = $menuControl.Current.BoundingRectangle
+    if ([Math]::Abs($menu.Width - $menu.Height) -gt 1) { throw 'Dictionary menu is not square.' }
+}
+function Save-CardScreenshot($window, $key, $name) {
+    if ($env:OWO_CAPTURE_DICTIONARY_UI -ne '1') { return }
+    Add-Type -AssemblyName System.Drawing
+    $rect = (Wait-Id $window ('DictionaryCard_' + $key)).Current.BoundingRectangle
+    $bitmap = New-Object Drawing.Bitmap([int][Math]::Ceiling($rect.Width), [int][Math]::Ceiling($rect.Height))
+    $graphics = [Drawing.Graphics]::FromImage($bitmap)
+    try {
+        $graphics.CopyFromScreen([int]$rect.Left, [int]$rect.Top, 0, 0, $bitmap.Size)
+        $path = Join-Path $fixture ($name + '.png')
+        $bitmap.Save($path, [Drawing.Imaging.ImageFormat]::Png)
+        Write-Output "Isolated card screenshot: $path"
+    } finally { $graphics.Dispose(); $bitmap.Dispose() }
+}
 $start = New-Object Diagnostics.ProcessStartInfo
 $start.FileName = Join-Path $PublishDirectory 'OwO.Settings.exe'
 $start.WorkingDirectory = $PublishDirectory
@@ -62,6 +94,8 @@ try {
     $sample = Wait-Id $window $sampleId
     $null = Wait-Id $window 'DictionaryCard_user'
     $null = Wait-Id $window 'DictionaryCard_base'
+    foreach ($key in @(('1' * 32), 'user', 'base')) { Check-CardBounds $window $key }
+    Save-CardScreenshot $window 'user' 'card-normal'
     $search = Wait-Id $window 'DictionarySearch'
     $search.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('测试字典')
     Start-Sleep -Milliseconds 150
@@ -125,6 +159,7 @@ try {
         $card = Wait-Id $window $id
         if (-not $card.Current.IsOffscreen -and $card.Current.BoundingRectangle.Right -gt $bounds.Right + 1) { throw 'Dictionary card overflows narrow window.' }
     }
+    foreach ($key in @(('1' * 32), 'user', 'base')) { Check-CardBounds $window $key }
     Write-Output 'PASS: card switches, imported/builtin menus, rename, delete confirmation/cancel, builtin recovery, detail/back, atomic state and responsive layout.'
 } finally {
     if (-not $process.HasExited) { $process.CloseMainWindow() | Out-Null }

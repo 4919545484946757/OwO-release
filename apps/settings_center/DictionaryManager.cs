@@ -33,6 +33,15 @@ internal sealed class DictionaryManager : UserControl
         _catalogPage.Children.Add(toolbar); Grid.SetRow(_notice, 1); _catalogPage.Children.Add(_notice);
         var scroll = new ScrollViewer { Content = _cards, HorizontalScrollMode = ScrollMode.Disabled,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+        scroll.LayoutUpdated += (_, _) => {
+            // Fixed grid columns otherwise preserve their old desired width
+            // when the window shrinks; UIA sees only a clipped card fragment.
+            var width = scroll.ViewportWidth;
+            if (width > 0 && double.IsFinite(width) &&
+                (double.IsNaN(_cards.Width) || Math.Abs(_cards.Width - width) > 0.5)) {
+                _cards.Width = width; LayoutCards();
+            }
+        };
         Grid.SetRow(scroll, 2); _catalogPage.Children.Add(scroll);
         _cards.SizeChanged += (_, _) => LayoutCards();
         _search.TextChanged += (_, _) => RenderCards();
@@ -106,7 +115,8 @@ internal sealed class DictionaryManager : UserControl
         body.Children.Add(new TextBlock { Text = description, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.Wrap, Opacity = 0.75 });
         body.Children.Add(new TextBlock { Text = state, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.7 });
         var card = new Button { Content = body, Padding = new Thickness(16, 16, 16, 58),
-            CornerRadius = new CornerRadius(10), HorizontalAlignment = HorizontalAlignment.Stretch,
+            CornerRadius = new CornerRadius(10), MinWidth = 0,
+            HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Top };
         AutomationProperties.SetAutomationId(card, "DictionaryCard_" + id);
         AutomationProperties.SetName(card, name);
@@ -135,17 +145,30 @@ internal sealed class DictionaryManager : UserControl
         Item("重命名", Symbol.Rename, "Rename", rename);
         flyout.Items.Add(new MenuFlyoutSeparator());
         Item("删除", Symbol.Delete, "Delete", delete);
-        var menu = new Button { Content = new SymbolIcon(Symbol.More) { Width = 16, Height = 16 },
-            Flyout = flyout, Padding = new Thickness(6), MinWidth = 32, MinHeight = 32,
+        var menu = new Button { Content = new FontIcon { Glyph = "\uE712", FontSize = 16, IsTextScaleFactorEnabled = false },
+            Flyout = flyout, Padding = new Thickness(0), Width = 32, Height = 32, MinWidth = 0, MinHeight = 0,
+            HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(8) };
         AutomationProperties.SetAutomationId(menu, "DictionaryCardMenu_" + id);
         AutomationProperties.SetName(menu, "管理" + name); ToolTipService.SetToolTip(menu, "字典操作");
-        host.Children.Add(menu); _cards.Children.Add(host);
+        host.Children.Add(menu);
+        host.SizeChanged += (_, e) => {
+            // An expanded navigation pane can leave a very narrow content
+            // viewport. Keep the switch itself inside the card, dropping its
+            // redundant status text before reducing the card's side insets.
+            var compact = e.NewSize.Width < 140;
+            var inset = Math.Clamp((e.NewSize.Width - 44) / 2, 0, 16);
+            toggle.OnContent = compact ? "" : "已启用";
+            toggle.OffContent = compact ? "" : "已停用";
+            toggle.Margin = new Thickness(inset, 0, inset, 12);
+        };
+        _cards.Children.Add(host);
     }
     private void LayoutCards() {
         const double preferredCardWidth = 228;
-        var columns = Math.Max(1, (int)((_cards.ActualWidth + 12) / (preferredCardWidth + 12)));
-        var cardWidth = Math.Max(0, Math.Min(preferredCardWidth, (_cards.ActualWidth - 12 * (columns - 1)) / columns));
+        var availableWidth = double.IsNaN(_cards.Width) ? _cards.ActualWidth : _cards.Width;
+        var columns = Math.Max(1, (int)((availableWidth + 12) / (preferredCardWidth + 12)));
+        var cardWidth = Math.Max(0, Math.Min(preferredCardWidth, (availableWidth - 12 * (columns - 1)) / columns));
         _cards.ColumnDefinitions.Clear(); _cards.RowDefinitions.Clear();
         for (var column = 0; column < columns; ++column) _cards.ColumnDefinitions.Add(new() { Width = new GridLength(cardWidth) });
         for (var index = 0; index < _cards.Children.Count; ++index) {
