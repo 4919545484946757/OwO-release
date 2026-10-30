@@ -182,6 +182,7 @@ private:
     void hide_candidate_windows() noexcept;
     [[nodiscard]] bool render_candidate_window();
     [[nodiscard]] SIZE desired_candidate_window_size() const;
+    [[nodiscard]] std::wstring_view candidate_display_text(std::wstring_view text, std::size_t row_index) const;
     struct PreviewContainerLayout {
         float left{}, top{}, right{}, bottom{};
         std::vector<float> row_heights;
@@ -382,6 +383,7 @@ private:
     std::vector<std::uint64_t> candidate_consumed_;
     std::vector<std::uint64_t> candidate_groups_;
     std::vector<CandidatePreviewRow> following_previews_;
+    bool candidate_symbol_preview_{};
     std::string agent_session_id_;
     std::string agent_context_id_;
     agent::Status agent_status_{agent::Status::agent_mode};

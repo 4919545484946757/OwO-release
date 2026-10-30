@@ -1803,13 +1803,22 @@ void TextService::apply_candidate_window_effects() noexcept {
                           &border_color, sizeof(border_color));
 }
 
+std::wstring_view TextService::candidate_display_text(std::wstring_view text, const std::size_t row_index) const {
+    // Projection retains the complete commit text. Only presentation omits
+    // repeated segment delimiters after the first candidate in each page/row.
+    if (!candidate_symbol_preview_ || row_index == 0 || is_agent_mode() || plugin_scheme_selected()) return text;
+    constexpr std::wstring_view strong = L",.;:!?，。；：！？、\n\r";
+    const auto last = text.find_last_not_of(strong);
+    return last == std::wstring_view::npos ? text : text.substr(0, last + 1);
+}
+
 std::optional<TextService::PreviewContainerLayout> TextService::layout_following_previews(const float width) const {
     if (candidates_expanded_ || following_previews_.empty() || alt_code_preview_active_ || unicode_palette_visible_)
         return std::nullopt;
     const auto wrap = std::max<std::size_t>(1, shortcut_config_.candidate_wrap_length);
     float first_height = kCandidateItemHeightDip;
     for (std::size_t i = 0; i < std::min(candidates_.size(), candidate_page_width()); ++i)
-        first_height = std::max(first_height, wrapped_candidate_height(candidates_[i], wrap));
+        first_height = std::max(first_height, wrapped_candidate_height(candidate_display_text(candidates_[i], i), wrap));
     PreviewContainerLayout layout;
     layout.left = kPreviewContainerInsetDip;
     layout.right = std::max(layout.left, width - kPreviewContainerInsetDip);
@@ -1817,8 +1826,8 @@ std::optional<TextService::PreviewContainerLayout> TextService::layout_following
     layout.bottom = layout.top + 2.0F * kPreviewContainerVerticalPaddingDip;
     for (const auto& row : following_previews_) {
         float height = kCandidateItemHeightDip;
-        for (const auto& item : row.candidates)
-            height = std::max(height, wrapped_candidate_height(item, wrap));
+        for (std::size_t i = 0; i < row.candidates.size(); ++i)
+            height = std::max(height, wrapped_candidate_height(candidate_display_text(row.candidates[i], i), wrap));
         if (!layout.row_heights.empty()) layout.bottom += kCandidateRowGapDip;
         layout.row_heights.push_back(height);
         layout.bottom += height;
@@ -1883,7 +1892,7 @@ SIZE TextService::desired_candidate_window_size() const {
         float height = kCandidateItemHeightDip;
         for (std::size_t index = begin; index < end; ++index)
             height = std::max(height,
-                              wrapped_candidate_height(candidates_[index], wrap_length));
+                              wrapped_candidate_height(candidate_display_text(candidates_[index], index % candidate_page_width()), wrap_length));
         return height;
     };
     float content_height = kCandidateItemHeightDip;
@@ -1910,7 +1919,7 @@ SIZE TextService::desired_candidate_window_size() const {
     const bool partitioned = !plugin_scheme_selected() && page_size >= 4 &&
         candidate_groups_.size() == candidates_.size();
     const auto item_width = [this, wrap_length](const std::size_t index) {
-        const auto display = wrapped_candidate_text(candidates_[index], wrap_length);
+        const auto display = wrapped_candidate_text(candidate_display_text(candidates_[index], index % candidate_page_width()), wrap_length);
         return kCandidatePillBaseWidthDip +
                measure_text_width(dwrite_factory_, candidate_text_format_, display);
     };
@@ -1961,7 +1970,7 @@ SIZE TextService::desired_candidate_window_size() const {
                 if (i != 0) width += row.groups.size() == row.candidates.size() &&
                     row.groups[i] != row.groups[i - 1] ? kCandidateGroupGapDip : kCandidateGapDip;
                 width += kCandidatePillBaseWidthDip + measure_text_width(dwrite_factory_, candidate_text_format_,
-                    wrapped_candidate_text(row.candidates[i], wrap_length));
+                    wrapped_candidate_text(candidate_display_text(row.candidates[i], i), wrap_length));
             }
             following_width = std::max(following_width, width);
         }
@@ -2939,7 +2948,7 @@ bool TextService::render_candidate_window() {
         }
         float requested_total = 0.0F;
         for (std::size_t index = begin; index < end; ++index) {
-            const auto display = wrapped_candidate_text(items[index], wrap_length);
+            const auto display = wrapped_candidate_text(candidate_display_text(items[index], index - begin), wrap_length);
             requested_total += kCandidatePillBaseWidthDip +
                                measure_text_width(dwrite_factory_, candidate_text_format_,
                                                   display);
@@ -2965,12 +2974,13 @@ bool TextService::render_candidate_window() {
                     x += kCandidateGapDip;
                 }
             }
-            const auto display = wrapped_candidate_text(items[index], wrap_length);
+            const auto text = candidate_display_text(items[index], index - begin);
+            const auto display = wrapped_candidate_text(text, wrap_length);
             const float requested_width =
                 kCandidatePillBaseWidthDip +
                 measure_text_width(dwrite_factory_, candidate_text_format_, display);
             const float width = requested_width * width_scale;
-            draw_candidate(D2D1::RectF(x, top, x + width, top + row_height), index, items[index], interactive);
+            draw_candidate(D2D1::RectF(x, top, x + width, top + row_height), index, text, interactive);
             x += width;
         }
     };
@@ -3009,7 +3019,7 @@ bool TextService::render_candidate_window() {
             float row_height = kCandidateItemHeightDip;
             for (std::size_t index = begin; index < end; ++index) {
                 row_height = std::max(
-                    row_height, wrapped_candidate_height(candidates_[index], wrap_length));
+                    row_height, wrapped_candidate_height(candidate_display_text(candidates_[index], index - begin), wrap_length));
             }
             const auto row = begin / page_size;
             const auto bounds = D2D1::RectF(kHorizontalPaddingDip - 3.0F, top - 2.0F,
@@ -3027,7 +3037,7 @@ bool TextService::render_candidate_window() {
         const auto end = std::min(candidates_.size(), candidate_page_width());
         for (std::size_t index = 0; index < end; ++index)
             row_height = std::max(row_height,
-                                  wrapped_candidate_height(candidates_[index], wrap_length));
+                                  wrapped_candidate_height(candidate_display_text(candidates_[index], index), wrap_length));
         draw_candidate_row(candidates_, candidate_groups_, true, 0, end, content_top, row_height,
             kHorizontalPaddingDip, candidate_right);
     }
@@ -4408,7 +4418,10 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
     candidates_ = std::move(result->candidates);
     candidate_consumed_ = std::move(result->candidate_consumed);
     candidate_groups_ = std::move(result->candidate_groups);
-    if (!result->preserve_paging) following_previews_ = std::move(result->following_previews);
+    if (!result->preserve_paging) {
+        following_previews_ = std::move(result->following_previews);
+        candidate_symbol_preview_ = result->symbol_preview;
+    }
     if (candidate_consumed_.size() != candidates_.size()) {
         candidates_.clear();
         candidate_consumed_.clear();
@@ -5254,6 +5267,7 @@ void TextService::clear_composition() {
     input_buffer_.clear();
     manual_breaks_.clear();
     following_previews_.clear();
+    candidate_symbol_preview_ = false;
     input_cursor_ = 0;
     staged_candidates_.clear();
     staged_cursor_ = 0;

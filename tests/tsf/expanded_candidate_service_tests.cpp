@@ -281,6 +281,52 @@ struct ExpandedCandidateTestAccess {
         const auto expanded_without_aux = service->desired_candidate_window_size();
         if (expanded_with_aux.cy != expanded_without_aux.cy || expanded_with_aux.cx != expanded_without_aux.cx) return 39;
         service->hide_candidate_windows();
+
+        // Hide only repeated strong delimiters in the presentation. The raw
+        // candidates/consumption data remain suitable for committing any item.
+        service->clear_composition();
+        service->input_buffer_ = L"nihao，shijie；";
+        service->input_cursor_ = service->input_buffer_.size();
+        auto* symbols = new TextService::CandidateResult();
+        symbols->request_id = service->active_candidate_request_id_;
+        symbols->generation = service->context_generation_;
+        symbols->page_size = 7;
+        symbols->symbol_preview = true;
+        symbols->segmented_input = L"ni'hao，shi'jie；";
+        symbols->candidates = {L"你好，", L"第二候选字符内容，"};
+        symbols->candidate_consumed = {6, 6};
+        symbols->following_previews = {{{L"世界；", L"后续候选字符内容；"}, {1, 1}}};
+        service->handle_candidate_result(symbols);
+        for (const auto suffix : {L",", L"。", L"；", L"：", L"!", L"？", L"、", L"，；!?\n\r"}) {
+            const auto text = std::wstring(L"候选") + suffix;
+            if (service->candidate_display_text(text, 0) != text ||
+                service->candidate_display_text(text, 1) != L"候选") return 52;
+        }
+        for (const auto text : {L"“你好”", L"你+好", L"你，好", L"你好🙂"})
+            if (service->candidate_display_text(text, 1) != text) return 53;
+        if (service->candidates_[1] != L"第二候选字符内容，" ||
+            service->candidate_consumed_[1] != 6 ||
+            service->candidate_display_text(service->following_previews_[0].candidates[1], 1) != L"后续候选字符内容") return 54;
+        const auto symbol_size = service->desired_candidate_window_size();
+        service->candidate_present_size_ = symbol_size;
+        service->candidate_content_size_ = symbol_size;
+        if (!service->render_candidate_window()) return 55;
+        const auto* symbol_pixels = static_cast<const std::uint32_t*>(service->layered_surface_pixels_);
+        const std::vector<std::uint32_t> visible_symbols(symbol_pixels, symbol_pixels +
+            service->layered_surface_size_.cx * service->layered_surface_size_.cy);
+        service->candidate_symbol_preview_ = false;
+        service->candidates_[1].pop_back();
+        service->following_previews_[0].candidates[1].pop_back();
+        const auto plain_size = service->desired_candidate_window_size();
+        if (symbol_size.cx != plain_size.cx || symbol_size.cy != plain_size.cy ||
+            !service->render_candidate_window() ||
+            !std::equal(visible_symbols.begin(), visible_symbols.end(),
+                static_cast<const std::uint32_t*>(service->layered_surface_pixels_))) return 56;
+        // Non-symbol responses and clear must not retain display suppression.
+        if (service->candidate_display_text(L"候选，", 1) != L"候选，") return 57;
+        service->candidate_symbol_preview_ = true;
+        service->clear_composition();
+        if (service->candidate_symbol_preview_) return 58;
         return 0;
     }
 };

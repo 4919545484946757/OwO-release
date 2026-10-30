@@ -83,6 +83,10 @@ int wmain(int argc, wchar_t** argv) {
     check(first.validation && !first.message.candidates.empty() && first.message.candidates[0] == "你好，" &&
         first.message.candidate_consumed[0] == 8 && first.message.following_previews.size() == 1,
         "strong first segment + following row");
+    const auto other = std::find(first.message.candidates.begin(), first.message.candidates.end(), "拟好，");
+    check(other != first.message.candidates.end() &&
+        first.message.candidate_consumed[static_cast<std::size_t>(other - first.message.candidates.begin())] == 8,
+        "nonfirst candidate retains delimiter in commit payload");
     auto expanded = query("nihao，shijie", true);
     check(expanded.validation && expanded.message.following_previews.empty() &&
         expanded.message.symbol_preview == "ni'hao，" && expanded.message.candidates[0] == first.message.candidates[0],
