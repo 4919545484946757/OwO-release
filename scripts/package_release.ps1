@@ -1,10 +1,11 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.2.5',
+    [string]$Version = '0.2.6',
     [string]$BuildDirectory,
     [string]$X86BuildDirectory,
     [string]$SettingsDirectory,
-    [string]$OutputDirectory
+    [string]$OutputDirectory,
+    [string]$BundledPluginStore
 )
 
 $ErrorActionPreference = 'Stop'
@@ -145,6 +146,11 @@ foreach ($entry in $licenseInputs.GetEnumerator()) {
     Copy-Item -LiteralPath $entry.Value -Destination (Join-Path $stage "LICENSES\$($entry.Key)") -Force
 }
 
+if (-not [string]::IsNullOrWhiteSpace($BundledPluginStore)) {
+    & (Join-Path $root 'scripts/export-bundled-plugins.ps1') -StorePath $BundledPluginStore `
+        -OutputDirectory (Join-Path $stage 'bundled-plugins') -PluginShell (Join-Path $build 'owo_plugin_shell.exe')
+}
+
 $hashLines = Get-ChildItem -LiteralPath $stage -File -Recurse |
     Sort-Object FullName | ForEach-Object {
         $relative = $_.FullName.Substring($stage.Length).TrimStart('\', '/').Replace('\', '/')
@@ -163,7 +169,7 @@ foreach ($directory in @('apps', 'benchmarks', 'data', 'docs', 'include', 'packa
                          'scripts', 'src', 'tests', 'tools')) {
     $source = Join-Path $root $directory
     if (Test-Path -LiteralPath $source) {
-        Copy-Item -LiteralPath $source -Destination $sourceStage -Recurse -Force
+        Copy-Item -LiteralPath $source -Destination $sourceStage -Recurse -Force -Exclude '*.log', '*.dmp'
     }
 }
 foreach ($name in @('CMakeLists.txt', 'CMakePresets.json', 'global.json', 'LICENSE',
@@ -171,9 +177,17 @@ foreach ($name in @('CMakeLists.txt', 'CMakePresets.json', 'global.json', 'LICEN
     $source = Join-Path $root $name
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $sourceStage -Force }
 }
-Get-ChildItem -LiteralPath $sourceStage -Directory -Recurse |
+$sourceBuildDirectories = @(Get-ChildItem -LiteralPath $sourceStage -Directory -Recurse |
     Where-Object { $_.Name -in @('bin', 'obj') } |
-    Sort-Object FullName -Descending | Remove-Item -Recurse -Force
+    Sort-Object FullName -Descending)
+foreach ($directory in $sourceBuildDirectories) {
+    $target = [IO.Path]::GetFullPath($directory.FullName)
+    if (-not $target.StartsWith([IO.Path]::GetFullPath($sourceStage) + [IO.Path]::DirectorySeparatorChar,
+            [StringComparison]::OrdinalIgnoreCase) -or ($directory.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw 'Unsafe generated source build directory.'
+    }
+}
+foreach ($directory in $sourceBuildDirectories) { Remove-Item -LiteralPath $directory.FullName -Recurse -Force }
 $sourceZip = Join-Path $releaseRoot "OwO-Input-Method-$Version-source.zip"
 Compress-Archive -LiteralPath $sourceStage -DestinationPath $sourceZip -CompressionLevel Optimal
 
