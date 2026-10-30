@@ -17,6 +17,9 @@ internal sealed class PluginNavigationLayout
     internal PluginNavigationLayout(NavigationViewItem item)
     {
         _item = item;
+        // Indent the entire child row (including hover/selection), placing the
+        // guide near the parent icon rather than at the navigation pane edge.
+        item.Margin = new Thickness(24, 0, 0, 0);
         item.Loaded += (_, _) => Attach();
         item.Unloaded += (_, _) => Detach();
         item.SizeChanged += (_, _) => { if (item.IsLoaded) Attach(); };
