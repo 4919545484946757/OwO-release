@@ -65,8 +65,8 @@ public sealed partial class MainPage
                 Icon = new FontIcon { Glyph = "\uE74C" },
                 Visibility = expanded ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed,
             };
-            _ = new PluginNavigationLayout(navigation);
-            _ = new PluginNavigationLift(navigation, SettingsNavigation);
+            var layout = new PluginNavigationLayout(navigation);
+            _ = new PluginNavigationLift(navigation, SettingsNavigation, layout.Refresh);
             _pluginPagesGroup.MenuItems.Add(navigation);
             _pluginSearchItems.Add(new SearchItem(plugin.Name,
                 $"插件 {plugin.Id} {plugin.Version}", page));

@@ -19,6 +19,7 @@ internal sealed class PluginNavigationLift
     private readonly NavigationViewItem _item;
     private readonly NavigationView _navigation;
     private readonly TextBlock _label;
+    private readonly Action _refreshLayout;
     private readonly Popup _popup = new() { IsLightDismissEnabled = false, ShouldConstrainToRootBounds = true };
     private readonly Border _surface;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer _closeTimer;
@@ -47,9 +48,10 @@ internal sealed class PluginNavigationLift
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool ScreenToClient(IntPtr window, ref MousePoint point);
 
-    internal PluginNavigationLift(NavigationViewItem item, NavigationView navigation)
+    internal PluginNavigationLift(NavigationViewItem item, NavigationView navigation, Action refreshLayout)
     {
         _item = item; _navigation = navigation;
+        _refreshLayout = refreshLayout;
         var name = item.Content?.ToString() ?? "";
         _label = new TextBlock { Text = name, TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis };
         item.Content = _label; AutomationProperties.SetName(item, name);
@@ -116,6 +118,7 @@ internal sealed class PluginNavigationLift
         if (!sender.IsHostVisible || sender.Size != _rootSize || sender.RasterizationScale != _rootScale)
             Close("窗口尺寸变化");
         _rootSize = sender.Size; _rootScale = sender.RasterizationScale;
+        UpdateLimit(); _refreshLayout();
     }
     private void UpdateLimit()
     {
@@ -130,6 +133,7 @@ internal sealed class PluginNavigationLift
     private void Show()
     {
         if (_popup.IsOpen || _moving || _item.XamlRoot?.Content is not FrameworkElement root || !_navigation.IsPaneOpen || _item.Visibility != Visibility.Visible) return;
+        _refreshLayout();
         var presenter = FindPresenter(_item);
         if (presenter is null || VisualTreeHelper.GetParent(presenter) is not Grid parent || presenter.ActualWidth <= 0 || presenter.ActualHeight <= 0) return;
         // Measure detached text only; never mutate the live row to measure it.
@@ -243,7 +247,7 @@ internal sealed class PluginNavigationLift
                 if (presenter is Control control) VisualStateManager.GoToState(control, _item.IsSelected ? "Selected" : "Normal", false);
             }
             _presenter = null; _parent = null; _popup.IsOpen = false;
-            _pressed = false; _outsideSince = 0; UpdateLimit();
+            _pressed = false; _outsideSince = 0; UpdateLimit(); _refreshLayout();
         } finally { _moving = false; }
     }
     private static FrameworkElement? FindPresenter(DependencyObject parent)
