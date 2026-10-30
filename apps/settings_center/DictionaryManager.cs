@@ -16,6 +16,23 @@ internal sealed class DictionaryManager : UserControl
     private readonly Button _import = new() { Content = "导入字典" }, _refresh = new() { Content = "刷新" };
     private readonly Button _restore = new() { Content = "恢复内置词库", Visibility = Visibility.Collapsed };
     private readonly Grid _catalogPage = new() { Margin = new Thickness(16, 0, 16, 16), RowSpacing = 12 };
+    private readonly Dictionary<string, CardView> _cardViews = new(StringComparer.Ordinal);
+    private readonly List<UIElement> _desiredCards = [];
+    private readonly TextBlock _empty = new() { Text = "没有匹配的字典。", Margin = new Thickness(8) };
+    private sealed class CardView(Grid host, Button card, ToggleSwitch toggle, TextBlock title, TextBlock description, TextBlock state)
+    {
+        internal Grid Host { get; } = host;
+        internal Button Card { get; } = card;
+        internal ToggleSwitch Toggle { get; } = toggle;
+        internal TextBlock Title { get; } = title;
+        internal TextBlock Description { get; } = description;
+        internal TextBlock State { get; } = state;
+        internal Button Menu { get; set; } = null!;
+        internal Func<Task> Open = () => Task.CompletedTask, Export = () => Task.CompletedTask,
+            Delete = () => Task.CompletedTask, Rename = () => Task.CompletedTask;
+        internal Func<bool, Task> SetEnabled = _ => Task.CompletedTask;
+        internal bool Updating;
+    }
     private bool _busy;
     internal DictionaryManager() {
         _catalogPage.RowDefinitions.Add(new() { Height = GridLength.Auto });
@@ -50,19 +67,22 @@ internal sealed class DictionaryManager : UserControl
         AutomationProperties.SetAutomationId(_restore, "DictionaryRestoreBuiltins");
         AutomationProperties.SetAutomationId(_search, "DictionarySearch");
         AutomationProperties.SetAutomationId(_import, "DictionaryImport");
+        AutomationProperties.SetAutomationId(_refresh, "DictionaryRefresh");
         _page.Content = _catalogPage; Content = _page;
     }
     internal async Task RefreshAsync() => await RunAsync(async () => {
-        _catalog = await _store.LoadAsync(); _page.Content = _catalogPage; RenderCards();
+        _catalog = await _store.LoadAsync();
+        if (!ReferenceEquals(_page.Content, _catalogPage)) _page.Content = _catalogPage;
+        RenderCards();
     });
     private async Task RunAsync(Func<Task> action) {
-        if (_busy) return; _busy = true; _import.IsEnabled = _refresh.IsEnabled = _restore.IsEnabled = false; _cards.IsHitTestVisible = false;
+        if (_busy) return; _busy = true; _import.IsEnabled = _refresh.IsEnabled = _restore.IsEnabled = false;
         try { await action(); }
         catch (Exception error) { _notice.Message = error.Message; _notice.Severity = InfoBarSeverity.Error; _notice.IsOpen = true; }
-        finally { _busy = false; _import.IsEnabled = _refresh.IsEnabled = _restore.IsEnabled = true; _cards.IsHitTestVisible = true; }
+        finally { _busy = false; _import.IsEnabled = _refresh.IsEnabled = _restore.IsEnabled = true; }
     }
     private void RenderCards() {
-        _cards.Children.Clear();
+        _desiredCards.Clear();
         var query = _search.Text.Trim();
         bool Match(params string[] values) => values.Any(value => value.Contains(query, StringComparison.OrdinalIgnoreCase));
         var restore = new MenuFlyout();
@@ -97,7 +117,22 @@ internal sealed class DictionaryManager : UserControl
                 async () => { if (await DictionaryActions.ConfirmDeleteAsync(XamlRoot, dictionary.Name)) await DeleteDictionaryAsync(dictionary.Id); },
                 async () => { if (await DictionaryActions.RenameAsync(XamlRoot, dictionary.Name) is { } name) await SaveDictionaryAsync(dictionary with { Name = name }); });
         }
-        if (_cards.Children.Count == 0) _cards.Children.Add(new TextBlock { Text = "没有匹配的字典。", Margin = new Thickness(8) });
+        if (_desiredCards.Count == 0) _desiredCards.Add(_empty);
+        // Keep unchanged cards attached to the visual tree: resetting Children
+        // retriggers transitions and loses keyboard focus, hover and UIA identity.
+        for (var index = _cards.Children.Count - 1; index >= 0; --index)
+            if (!_desiredCards.Contains(_cards.Children[index])) _cards.Children.RemoveAt(index);
+        for (var index = 0; index < _desiredCards.Count; ++index) {
+            var card = _desiredCards[index];
+            if (index < _cards.Children.Count && ReferenceEquals(_cards.Children[index], card)) continue;
+            var oldIndex = _cards.Children.IndexOf(card);
+            if (oldIndex >= 0) _cards.Children.RemoveAt(oldIndex);
+            _cards.Children.Insert(index, card);
+        }
+        while (_cards.Children.Count > _desiredCards.Count) _cards.Children.RemoveAt(_cards.Children.Count - 1);
+        var retained = _catalog.Dictionaries.Select(value => value.Id)
+            .Concat(_catalog.Builtins.Where(value => !value.Deleted).Select(value => value.Id)).ToHashSet(StringComparer.Ordinal);
+        foreach (var id in _cardViews.Keys.Where(id => !retained.Contains(id)).ToArray()) _cardViews.Remove(id);
         LayoutCards();
     }
     private void Notify(string message) { _notice.Message = message; _notice.Severity = InfoBarSeverity.Success; _notice.IsOpen = true; }
@@ -109,11 +144,29 @@ internal sealed class DictionaryManager : UserControl
         _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries.Where(value => value.Id != id).ToArray());
     private void AddCard(string name, string description, string state, string id, Func<Task> action,
         bool enabled, Func<bool, Task> setEnabled, Func<Task> export, Func<Task> delete, Func<Task> rename) {
+        void Update(CardView view) {
+            view.Open = action; view.SetEnabled = setEnabled; view.Export = export; view.Delete = delete; view.Rename = rename;
+            view.Updating = true;
+            try {
+                if (view.Title.Text != name) {
+                    view.Title.Text = name;
+                    AutomationProperties.SetName(view.Card, name);
+                    AutomationProperties.SetName(view.Toggle, "启用" + name);
+                    AutomationProperties.SetName(view.Menu, "管理" + name);
+                }
+                if (view.Description.Text != description) view.Description.Text = description;
+                if (view.State.Text != state) view.State.Text = state;
+                if (view.Toggle.IsOn != enabled) view.Toggle.IsOn = enabled;
+            } finally { view.Updating = false; }
+            _desiredCards.Add(view.Host);
+        }
+        if (_cardViews.TryGetValue(id, out var existing)) { Update(existing); return; }
         var body = new StackPanel { Spacing = 8 };
         body.Children.Add(new SymbolIcon(Symbol.Library) { HorizontalAlignment = HorizontalAlignment.Left });
-        body.Children.Add(new TextBlock { Text = name, FontSize = 18, TextTrimming = TextTrimming.CharacterEllipsis });
-        body.Children.Add(new TextBlock { Text = description, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.Wrap, Opacity = 0.75 });
-        body.Children.Add(new TextBlock { Text = state, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.7 });
+        var title = new TextBlock { Text = name, FontSize = 18, TextTrimming = TextTrimming.CharacterEllipsis };
+        var descriptionText = new TextBlock { Text = description, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.Wrap, Opacity = 0.75 };
+        var stateText = new TextBlock { Text = state, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.7 };
+        body.Children.Add(title); body.Children.Add(descriptionText); body.Children.Add(stateText);
         var card = new Button { Content = body, Padding = new Thickness(16, 16, 16, 58),
             CornerRadius = new CornerRadius(10), MinWidth = 0,
             HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch,
@@ -121,7 +174,6 @@ internal sealed class DictionaryManager : UserControl
         AutomationProperties.SetAutomationId(card, "DictionaryCard_" + id);
         AutomationProperties.SetName(card, name);
         var host = new Grid { Height = 228 }; host.Children.Add(card);
-        card.Click += async (_, _) => await RunAsync(action);
         // Sibling controls, never interactive children of the navigation button.
         // Clicking the switch/menu must not enter the detail page.
         var toggle = new ToggleSwitch { IsOn = enabled, OnContent = "已启用", OffContent = "已停用",
@@ -129,9 +181,12 @@ internal sealed class DictionaryManager : UserControl
             Margin = new Thickness(16, 0, 12, 12) };
         AutomationProperties.SetAutomationId(toggle, "DictionaryCardEnabled_" + id);
         AutomationProperties.SetName(toggle, "启用" + name);
+        var view = new CardView(host, card, toggle, title, descriptionText, stateText);
+        card.Click += async (_, _) => await RunAsync(view.Open);
         toggle.Toggled += async (_, _) => {
-            if (_busy) return;
-            await RunAsync(async () => await setEnabled(toggle.IsOn)); RenderCards();
+            if (_busy || view.Updating) return;
+            var value = toggle.IsOn;
+            await RunAsync(async () => await view.SetEnabled(value)); RenderCards();
         };
         host.Children.Add(toggle);
         var flyout = new MenuFlyout();
@@ -141,10 +196,10 @@ internal sealed class DictionaryManager : UserControl
             item.Click += async (_, _) => { await RunAsync(execute); RenderCards(); };
             flyout.Items.Add(item);
         }
-        Item("导出", Symbol.Save, "Export", export);
-        Item("重命名", Symbol.Rename, "Rename", rename);
+        Item("导出", Symbol.Save, "Export", () => view.Export());
+        Item("重命名", Symbol.Rename, "Rename", () => view.Rename());
         flyout.Items.Add(new MenuFlyoutSeparator());
-        Item("删除", Symbol.Delete, "Delete", delete);
+        Item("删除", Symbol.Delete, "Delete", () => view.Delete());
         var menu = new Button { Content = new FontIcon { Glyph = "\uE712", FontSize = 16, IsTextScaleFactorEnabled = false },
             Flyout = flyout, Padding = new Thickness(0), Width = 32, Height = 32, MinWidth = 0, MinHeight = 0,
             HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center,
@@ -152,6 +207,7 @@ internal sealed class DictionaryManager : UserControl
         AutomationProperties.SetAutomationId(menu, "DictionaryCardMenu_" + id);
         AutomationProperties.SetName(menu, "管理" + name); ToolTipService.SetToolTip(menu, "字典操作");
         host.Children.Add(menu);
+        view.Menu = menu;
         host.SizeChanged += (_, e) => {
             // An expanded navigation pane can leave a very narrow content
             // viewport. Keep the switch itself inside the card, dropping its
@@ -162,18 +218,25 @@ internal sealed class DictionaryManager : UserControl
             toggle.OffContent = compact ? "" : "已停用";
             toggle.Margin = new Thickness(inset, 0, inset, 12);
         };
-        _cards.Children.Add(host);
+        _cardViews.Add(id, view); Update(view);
     }
     private void LayoutCards() {
         const double preferredCardWidth = 228;
         var availableWidth = double.IsNaN(_cards.Width) ? _cards.ActualWidth : _cards.Width;
         var columns = Math.Max(1, (int)((availableWidth + 12) / (preferredCardWidth + 12)));
         var cardWidth = Math.Max(0, Math.Min(preferredCardWidth, (availableWidth - 12 * (columns - 1)) / columns));
-        _cards.ColumnDefinitions.Clear(); _cards.RowDefinitions.Clear();
-        for (var column = 0; column < columns; ++column) _cards.ColumnDefinitions.Add(new() { Width = new GridLength(cardWidth) });
+        while (_cards.ColumnDefinitions.Count > columns) _cards.ColumnDefinitions.RemoveAt(_cards.ColumnDefinitions.Count - 1);
+        while (_cards.ColumnDefinitions.Count < columns) _cards.ColumnDefinitions.Add(new());
+        foreach (var column in _cards.ColumnDefinitions)
+            if (column.Width.GridUnitType != GridUnitType.Pixel || Math.Abs(column.Width.Value - cardWidth) > 0.01)
+                column.Width = new GridLength(cardWidth);
+        var rows = (_cards.Children.Count + columns - 1) / columns;
+        while (_cards.RowDefinitions.Count > rows) _cards.RowDefinitions.RemoveAt(_cards.RowDefinitions.Count - 1);
+        while (_cards.RowDefinitions.Count < rows) _cards.RowDefinitions.Add(new() { Height = GridLength.Auto });
         for (var index = 0; index < _cards.Children.Count; ++index) {
-            if (index % columns == 0) _cards.RowDefinitions.Add(new() { Height = GridLength.Auto });
-            Grid.SetRow((FrameworkElement)_cards.Children[index], index / columns); Grid.SetColumn((FrameworkElement)_cards.Children[index], index % columns);
+            var card = (FrameworkElement)_cards.Children[index];
+            if (Grid.GetRow(card) != index / columns) Grid.SetRow(card, index / columns);
+            if (Grid.GetColumn(card) != index % columns) Grid.SetColumn(card, index % columns);
         }
     }
     private void ShowDetail(FrameworkElement detail, string? title = null) {

@@ -46,8 +46,10 @@ function Check-CardBounds($window, $key) {
         if ($control.Current.IsOffscreen) { continue }
         $rect = $control.Current.BoundingRectangle
         if ($rect.Left -lt $bounds.Left + $horizontalInset -or $rect.Right -gt $bounds.Right - $horizontalInset -or
-            $rect.Top -lt $bounds.Top + 6 -or $rect.Bottom -gt $bounds.Bottom - 6) {
-            throw "Dictionary card control outside visual card inset: $prefix$key card=$bounds control=$rect"
+            $rect.Top -lt $bounds.Top -or $rect.Bottom -gt $bounds.Bottom) {
+            # UIA clips a partially scrolled card to the viewport. A visible
+            # control may touch that clip edge without escaping the real card.
+            throw "Dictionary card control outside visual card bounds: $prefix$key card=$bounds control=$rect"
         }
     }
     $menuControl = Wait-Id $window ('DictionaryCardMenu_' + $key)
@@ -67,6 +69,22 @@ function Save-CardScreenshot($window, $key, $name) {
         $bitmap.Save($path, [Drawing.Imaging.ImageFormat]::Png)
         Write-Output "Isolated card screenshot: $path"
     } finally { $graphics.Dispose(); $bitmap.Dispose() }
+}
+function Card-Identities($window) {
+    $result = @{}
+    foreach ($key in @(('1' * 32), 'user', 'base')) {
+        foreach ($prefix in @('DictionaryCard_', 'DictionaryCardEnabled_', 'DictionaryCardMenu_')) {
+            $id = $prefix + $key
+            $result[$id] = (Wait-Id $window $id).GetRuntimeId() -join ':'
+        }
+    }
+    return $result
+}
+function Check-CardIdentities($window, $expected) {
+    $actual = Card-Identities $window
+    foreach ($id in $expected.Keys) {
+        if ($actual[$id] -ne $expected[$id]) { throw "Unchanged dictionary control was recreated: $id" }
+    }
 }
 $start = New-Object Diagnostics.ProcessStartInfo
 $start.FileName = Join-Path $PublishDirectory 'OwO.Settings.exe'
@@ -102,12 +120,36 @@ try {
     if (-not (Find-Id $window $sampleId) -or (Find-Id $window 'DictionaryCard_user')) { throw 'Dictionary search did not filter cards.' }
     $search.GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('')
     $sampleKey = '1' * 32
+    $identities = Card-Identities $window
+    foreach ($iteration in 1..3) {
+        Invoke-Id $window 'DictionaryRefresh'
+        Start-Sleep -Milliseconds 150
+        Check-CardIdentities $window $identities
+    }
     $cardToggle = Wait-Id $window ('DictionaryCardEnabled_' + $sampleKey)
+    $cardToggle.SetFocus()
     $cardToggle.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
     Start-Sleep -Milliseconds 350
     if ((Catalog).dictionaries[0].enabled -or (Find-Id $window 'DictionaryBack')) { throw 'Card toggle failed or unexpectedly opened details.' }
+    Check-CardIdentities $window $identities
+    if (-not (Wait-Id $window ('DictionaryCardEnabled_' + $sampleKey)).Current.HasKeyboardFocus) {
+        throw 'Dictionary toggle lost keyboard focus after saving.'
+    }
     (Wait-Id $window ('DictionaryCardEnabled_' + $sampleKey)).GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
     Start-Sleep -Milliseconds 350
+    Check-CardIdentities $window $identities
+    # A rejected save rolls back only the changed toggle; no recursion, extra
+    # snapshots, full-card rebuild or stale visual state is permitted.
+    $fixtureStore = Join-Path $fixture 'dictionaries'
+    $beforeRejected = [IO.File]::ReadAllText((Join-Path $fixtureStore 'current'))
+    $lock = [IO.File]::Open((Join-Path $fixtureStore 'store.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    try {
+        (Wait-Id $window ('DictionaryCardEnabled_' + $sampleKey)).GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()
+        Start-Sleep -Milliseconds 350
+        if ((Wait-Id $window ('DictionaryCardEnabled_' + $sampleKey)).GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne [Windows.Automation.ToggleState]::On -or
+            [IO.File]::ReadAllText((Join-Path $fixtureStore 'current')) -ne $beforeRejected) { throw 'Failed save did not restore the existing toggle without publishing.' }
+        Check-CardIdentities $window $identities
+    } finally { $lock.Dispose() }
     Invoke-Id $window ('DictionaryCardMenu_' + $sampleKey)
     $null = Wait-Id $window ('DictionaryCardExport_' + $sampleKey)
     $null = Wait-Id $window ('DictionaryCardDelete_' + $sampleKey)
@@ -115,6 +157,7 @@ try {
     (Wait-Id $window 'DictionaryRenameInput').GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue('改名测试字典')
     Confirm-Dialog $window '保存'
     if ((Catalog).dictionaries[0].name -ne '改名测试字典' -or (Find-Id $window 'DictionaryBack')) { throw 'Card rename failed or opened details.' }
+    Check-CardIdentities $window $identities
     # Builtin sources expose the same menu/switch, without erasing installed or
     # learned data. Restoring a removed source must leave it disabled.
     Invoke-Id $window 'DictionaryCardMenu_base'
@@ -160,7 +203,7 @@ try {
         if (-not $card.Current.IsOffscreen -and $card.Current.BoundingRectangle.Right -gt $bounds.Right + 1) { throw 'Dictionary card overflows narrow window.' }
     }
     foreach ($key in @(('1' * 32), 'user', 'base')) { Check-CardBounds $window $key }
-    Write-Output 'PASS: card switches, imported/builtin menus, rename, delete confirmation/cancel, builtin recovery, detail/back, atomic state and responsive layout.'
+    Write-Output 'PASS: stable card/switch/menu identity across refresh/toggle/rename, menus, delete confirmation/cancel, builtin recovery, detail/back, atomic state and responsive layout.'
 } finally {
     if (-not $process.HasExited) { $process.CloseMainWindow() | Out-Null }
     if (-not $process.WaitForExit(5000)) { $process.Kill() }
