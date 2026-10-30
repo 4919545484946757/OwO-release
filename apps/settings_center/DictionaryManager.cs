@@ -76,10 +76,12 @@ internal sealed class DictionaryManager : UserControl
         RenderCards();
     });
     private async Task RunAsync(Func<Task> action) {
-        if (_busy) return; _busy = true; _import.IsEnabled = _refresh.IsEnabled = _restore.IsEnabled = false;
+        // Serialize actions without a disabled/enabled pulse on the toolbar;
+        // even a fast snapshot read otherwise retriggers WinUI color transitions.
+        if (_busy) return; _busy = true;
         try { await action(); }
         catch (Exception error) { _notice.Message = error.Message; _notice.Severity = InfoBarSeverity.Error; _notice.IsOpen = true; }
-        finally { _busy = false; _import.IsEnabled = _refresh.IsEnabled = _restore.IsEnabled = true; }
+        finally { _busy = false; }
     }
     private void RenderCards() {
         _desiredCards.Clear();

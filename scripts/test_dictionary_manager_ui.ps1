@@ -2,6 +2,28 @@
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
+Add-Type -ReferencedAssemblies UIAutomationClient,UIAutomationTypes -TypeDefinition @'
+using System;
+using System.Threading;
+using System.Windows.Automation;
+public sealed class DictionaryToolbarStateWatch : IDisposable {
+    private readonly AutomationElement[] elements;
+    private readonly AutomationPropertyChangedEventHandler handler;
+    private int disabledCount;
+    public int DisabledCount { get { return Interlocked.CompareExchange(ref disabledCount, 0, 0); } }
+    public DictionaryToolbarStateWatch(AutomationElement[] targets) {
+        elements = targets;
+        handler = (sender, e) => {
+            if (e.NewValue is bool && !(bool)e.NewValue) Interlocked.Increment(ref disabledCount);
+        };
+        foreach (var element in elements)
+            Automation.AddAutomationPropertyChangedEventHandler(element, TreeScope.Element, handler, AutomationElement.IsEnabledProperty);
+    }
+    public void Dispose() {
+        foreach (var element in elements) Automation.RemoveAutomationPropertyChangedEventHandler(element, handler);
+    }
+}
+'@
 $project = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (-not $PublishDirectory) { $PublishDirectory = Join-Path $project 'build/settings-publish/win-x64' }
 $fixture = Join-Path $project ('build/dictionary-manager-ui-' + [Guid]::NewGuid().ToString('N'))
@@ -95,6 +117,7 @@ $start.EnvironmentVariables['OWO_CONFIG_PATH'] = Join-Path $fixture 'owo.conf'
 $start.EnvironmentVariables['OWO_PLUGIN_STORE_PATH'] = Join-Path $fixture 'plugins'
 $start.EnvironmentVariables['OWO_DICTIONARY_STORE_PATH'] = Join-Path $fixture 'dictionaries'
 $process = [Diagnostics.Process]::Start($start)
+$toolbarWatch = $null
 try {
     $deadline = [DateTime]::UtcNow.AddSeconds(25)
     $window = $null; $navigation = $null
@@ -112,6 +135,8 @@ try {
     $sample = Wait-Id $window $sampleId
     $null = Wait-Id $window 'DictionaryCard_user'
     $null = Wait-Id $window 'DictionaryCard_base'
+    $toolbarWatch = [DictionaryToolbarStateWatch]::new([Windows.Automation.AutomationElement[]]@(
+        (Wait-Id $window 'DictionaryImport'), (Wait-Id $window 'DictionaryRefresh')))
     foreach ($key in @(('1' * 32), 'user', 'base')) { Check-CardBounds $window $key }
     Save-CardScreenshot $window 'user' 'card-normal'
     $search = Wait-Id $window 'DictionarySearch'
@@ -203,8 +228,10 @@ try {
         if (-not $card.Current.IsOffscreen -and $card.Current.BoundingRectangle.Right -gt $bounds.Right + 1) { throw 'Dictionary card overflows narrow window.' }
     }
     foreach ($key in @(('1' * 32), 'user', 'base')) { Check-CardBounds $window $key }
-    Write-Output 'PASS: stable card/switch/menu identity across refresh/toggle/rename, menus, delete confirmation/cancel, builtin recovery, detail/back, atomic state and responsive layout.'
+    if ($toolbarWatch.DisabledCount -ne 0) { throw 'Dictionary import/refresh toolbar pulsed into disabled state.' }
+    Write-Output 'PASS: stable toolbar enabled state, card/switch/menu identity across refresh/toggle/rename, menus, delete confirmation/cancel, builtin recovery, detail/back, atomic state and responsive layout.'
 } finally {
+    if ($null -ne $toolbarWatch) { $toolbarWatch.Dispose() }
     if (-not $process.HasExited) { $process.CloseMainWindow() | Out-Null }
     if (-not $process.WaitForExit(5000)) { $process.Kill() }
 }
