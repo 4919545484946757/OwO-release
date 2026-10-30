@@ -10,6 +10,8 @@ internal sealed class PluginNavigationLayout
 {
     private readonly NavigationViewItem _item;
     private FrameworkElement? _contentRoot;
+    private Grid? _guideRoot;
+    private Border? _guide;
     private long _marginToken;
 
     internal PluginNavigationLayout(NavigationViewItem item)
@@ -25,7 +27,7 @@ internal sealed class PluginNavigationLayout
 
     private void Attach()
     {
-        var root = FindContentRoot(_item);
+        var root = FindElement(_item, "PresenterContentRootGrid");
         if (ReferenceEquals(root, _contentRoot)) return;
         Detach();
         _contentRoot = root;
@@ -33,12 +35,28 @@ internal sealed class PluginNavigationLayout
         _marginToken = root.RegisterPropertyChangedCallback(FrameworkElement.MarginProperty,
             (sender, _) => ClearIndentation((FrameworkElement)sender));
         ClearIndentation(root);
+        // Draw through each row's full height so adjacent plugin entries form
+        // one continuous guide. The native hierarchy hides it when collapsed.
+        _guideRoot = FindElement(_item, "NVIRootGrid") as Grid;
+        if (_guideRoot is not null) {
+            _guide = (Border)Microsoft.UI.Xaml.Markup.XamlReader.Load("""
+                <Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                        Width="1" Margin="2,0,0,0" HorizontalAlignment="Left"
+                        VerticalAlignment="Stretch" IsHitTestVisible="False"
+                        Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                """);
+            Grid.SetRowSpan(_guide, Math.Max(1, _guideRoot.RowDefinitions.Count));
+            _guideRoot.Children.Add(_guide);
+        }
     }
 
     private void Detach()
     {
         _contentRoot?.UnregisterPropertyChangedCallback(FrameworkElement.MarginProperty, _marginToken);
         _contentRoot = null;
+        if (_guide is not null) _guideRoot?.Children.Remove(_guide);
+        _guide = null;
+        _guideRoot = null;
     }
 
     private static void ClearIndentation(FrameworkElement root)
@@ -47,12 +65,12 @@ internal sealed class PluginNavigationLayout
         if (margin.Left != 0) root.Margin = new Thickness(0, margin.Top, margin.Right, margin.Bottom);
     }
 
-    private static FrameworkElement? FindContentRoot(DependencyObject parent)
+    private static FrameworkElement? FindElement(DependencyObject parent, string name)
     {
         for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); ++index) {
             var child = VisualTreeHelper.GetChild(parent, index);
-            if (child is FrameworkElement { Name: "PresenterContentRootGrid" } root) return root;
-            if (FindContentRoot(child) is { } nested) return nested;
+            if (child is FrameworkElement root && root.Name == name) return root;
+            if (FindElement(child, name) is { } nested) return nested;
         }
         return null;
     }
