@@ -4,10 +4,10 @@
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#d1ddec"/>
+                    <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#EDEDED"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#1A2032"/>
+                    <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#232639"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}"/>
@@ -57,15 +57,16 @@
                 <StackPanel Orientation="Horizontal"
                             Spacing="10"
                             VerticalAlignment="Center">
-                    <Image Source="Assets/Square44x44Logo.scale-200.png"
+                    <!-- Image Source="Assets/Square44x44Logo.scale-200.png"
                            Width="28" Height="28"
-                           VerticalAlignment="Center"/>
+                           VerticalAlignment="Center"/-->
 
-                    <Button Click="GeneralSettings_Click" Background="Transparent" BorderThickness="0" Padding="0" AutomationProperties.Name="打开通用设置">
+                    <Button Click="GeneralSettings_Click" Background="Transparent" BorderThickness="0" Padding="0" Margin="12,0,0,0" AutomationProperties.Name="打开通用设置">
                         <TextBlock Text="OwO 输入法"
                             FontSize="20"
                             FontWeight="SemiBold"
-                            VerticalAlignment="Center"/>
+                            VerticalAlignment="Center"
+                            Padding="2"/>
                     </Button>
                 </StackPanel>
             </NavigationView.PaneHeader>

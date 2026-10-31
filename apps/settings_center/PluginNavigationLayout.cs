@@ -21,7 +21,7 @@ internal sealed class PluginNavigationLayout
         _item = item;
         // Indent the entire child row (including hover/selection), placing the
         // guide near the parent icon rather than at the navigation pane edge.
-        item.Margin = new Thickness(24, 0, 0, 0);
+        item.Margin = new Thickness(12, 0, 0, 0);
         item.Loaded += (_, _) => { ObserveRoot(); Refresh(); };
         item.Unloaded += (_, _) => { ObserveRoot(null); Detach(); };
         item.SizeChanged += (_, _) => QueueRefresh();
@@ -71,7 +71,7 @@ internal sealed class PluginNavigationLayout
         if (_guideRoot is not null) {
             _guide = (Border)Microsoft.UI.Xaml.Markup.XamlReader.Load("""
                 <Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                        Width="1" Margin="2,0,0,0" HorizontalAlignment="Left"
+                        Width="2" Margin="2,0,0,0" HorizontalAlignment="Left"
                         VerticalAlignment="Stretch" IsHitTestVisible="False"
                         Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
                 """);

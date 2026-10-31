@@ -170,7 +170,7 @@ internal sealed class DictionaryManager : UserControl
         var stateText = new TextBlock { Text = state, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.7 };
         body.Children.Add(title); body.Children.Add(descriptionText); body.Children.Add(stateText);
         var operationBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-            Windows.UI.Color.FromArgb(51, 0, 0, 0));
+            Windows.UI.Color.FromArgb(120, 0, 0, 0));
         var card = new Button { Content = body, Padding = new Thickness(16, 16, 16, 72),
             CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(0), MinWidth = 0,
             HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch,
@@ -240,7 +240,7 @@ internal sealed class DictionaryManager : UserControl
         _cardViews.Add(id, view); Update(view);
     }
     private void LayoutCards() {
-        const double preferredCardWidth = 228;
+        const double preferredCardWidth = 210;
         var availableWidth = double.IsNaN(_cards.Width) ? _cards.ActualWidth : _cards.Width;
         var columns = Math.Max(1, (int)((availableWidth + 12) / (preferredCardWidth + 12)));
         var cardWidth = Math.Max(0, Math.Min(preferredCardWidth, (availableWidth - 12 * (columns - 1)) / columns));
