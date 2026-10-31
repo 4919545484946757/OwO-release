@@ -1717,6 +1717,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 }
                             }
                         }
+                        if (pending.sentence_limit >= 2)
+                            retain_base_sentence_ending(pending.candidates, pending.candidate_consumed,
+                                pending.generated_sentences, pending.full_input_bytes,
+                                response.candidates, response.candidate_consumed);
                         if (!pending.generated_sentences.empty())
                             limit_model_sentence_candidates(
                                 pending.candidates, pending.candidate_consumed,

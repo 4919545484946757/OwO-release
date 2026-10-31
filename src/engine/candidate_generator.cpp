@@ -52,6 +52,8 @@ constexpr std::int64_t kUncoveredBoundaryCharacterPenalty = 12'000;
 constexpr std::int64_t kPreferredExactSegmentationBonus =
     kCandidatePreferredExactSegmentationBonus;
 constexpr std::int64_t kAlternativeSegmentationPromotionMargin = 16'000;
+constexpr std::int64_t kSecondSentenceCoherenceMargin = 2'000;
+constexpr std::int64_t kSecondSentenceScoreMargin = 4'000;
 constexpr std::int64_t kHighConfidenceAlternativeScore = 12'000;
 
 // A request-local snapshot: nothing survives a dictionary/config/user update.
@@ -1656,8 +1658,9 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     const bool preserve_learned_alternative = partition_page_size != 0 &&
         std::any_of(full.begin(), full.end(), [](const auto& candidate) { return candidate.user_preferred(); });
     std::optional<Candidate> coherent_sentence_alternative;
+    std::unordered_set<std::string> dominant_endings;
     const auto apply_cross_boundary_coherence = [this, &lookup_cache, preserve_learned_alternative,
-                                                &coherent_sentence_alternative](Candidate& candidate) {
+                                                &coherent_sentence_alternative, &dominant_endings](Candidate& candidate) {
         constexpr std::size_t kMaximumPhraseCharacters = 4;
         const auto character_count = candidate.syllables.size();
         if (character_count < 3 ||
@@ -1707,6 +1710,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
         bool dictionary_bridge = false;
         std::vector<bool> dictionary_covered(character_count, false);
+        std::vector<bool> prefix_dictionary_covered(character_count - 1, false);
 
         // Weighted interval scheduling over dictionary phrases gives a phrase
         // chain such as “以我” + “的想法” a continuity advantage without
@@ -1741,6 +1745,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 if (!phrase_score) continue;
                 if (dictionary_chain[begin]) dictionary_chain[end] = true;
                 std::fill(dictionary_covered.begin() + begin, dictionary_covered.begin() + end, true);
+                if (end < character_count)
+                    std::fill(prefix_dictionary_covered.begin() + begin, prefix_dictionary_covered.begin() + end, true);
                 if (end - begin >= 3 &&
                     std::any_of(dictionary_boundaries.begin(), dictionary_boundaries.end(),
                         [begin, end](const auto boundary) { return begin < boundary && boundary < end; }))
@@ -1749,6 +1755,32 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             }
         }
         candidate.coherence_score = std::max<std::int64_t>(0, best.back());
+        bool stable_terminal_prefix = false;
+        // A dominant standalone ending must not lose all boundary coverage
+        // merely because an incidental overlapping proper name exists only
+        // for a weaker homophone. Infer dominance from this reading's actual
+        // unigram distribution, not from a particle/character whitelist.
+        if (candidate.match_kind == InputMatchKind::exact && candidate.segment_count > 1) {
+            const std::array<std::string_view, 1> tail_reading{candidate.syllables.back()};
+            const auto& endings = lookup_cache.lookup(tail_reading);
+            std::uint32_t maximum = 0, runner_up = 0, frequency = 0;
+            const auto tail = std::string_view(candidate.text).substr(boundaries[character_count - 1]);
+            for (const auto& entry : endings) {
+                if (entry.text == tail) frequency = std::max(frequency, entry.frequency);
+                if (entry.frequency >= maximum) { runner_up = maximum; maximum = entry.frequency; }
+                else runner_up = std::max(runner_up, entry.frequency);
+            }
+            if (maximum != 0 && static_cast<std::uint64_t>(maximum) >=
+                    4ULL * std::max<std::uint32_t>(1, runner_up)) {
+                if (frequency == maximum) dominant_endings.insert(candidate.text);
+                stable_terminal_prefix = std::all_of(prefix_dictionary_covered.begin(), prefix_dictionary_covered.end(),
+                    [](const bool covered) { return covered; });
+                // Keep the original weighted phrase-chain score unchanged.
+                // Only suppress the extra overlap rescue below: it must not
+                // let a terminal place/name overturn an independently covered
+                // prefix. Re-tokenizing that prefix gains no extra bridge.
+            }
+        }
         // A real overlapping phrase that crosses a selected word boundary
         // provides evidence the two fragments belong together only when the
         // matched multi-character words cover the entire text. A local match
@@ -1758,7 +1790,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         // not count as another independent signal and overwhelm a stronger
         // homophone chain. Reserve bridge rescue for text that actually needs
         // overlapping words to cover its isolated characters.
-        if (dictionary_bridge && !dictionary_chain.back() &&
+        if (dictionary_bridge && !stable_terminal_prefix && !dictionary_chain.back() &&
             std::all_of(dictionary_covered.begin(), dictionary_covered.end(),
                         [](const bool covered) { return covered; }))
             candidate.coherence_score += kMaximumBoundaryCoherenceBonus * 2;
@@ -1858,6 +1890,21 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         return score_less(left, right);
     };
     std::sort(full.begin(), full.end(), sentence_less);
+    std::optional<Candidate> terminal_alternative;
+    if (!full.empty() && full.front().segment_count > 1 && full.front().syllables.size() >= 3) {
+        const auto head_bounds = utf8_boundaries(full.front().text);
+        const auto head = std::string_view(full.front().text).substr(0, head_bounds[head_bounds.size() - 2]);
+        for (const auto& candidate : full) {
+            if (candidate.text == full.front().text || !dominant_endings.contains(candidate.text) ||
+                candidate.score + kSecondSentenceScoreMargin < full.front().score ||
+                candidate.coherence_score + kSecondSentenceCoherenceMargin < full.front().coherence_score ||
+                candidate.syllables != full.front().syllables || candidate.source_segments != full.front().source_segments) continue;
+            const auto bounds = utf8_boundaries(candidate.text);
+            if (std::string_view(candidate.text).substr(0, bounds[bounds.size() - 2]) == head) {
+                terminal_alternative = candidate; break;
+            }
+        }
+    }
     // Expiring a one-off preference removes its boost, not the user's word.
     // Keep one independently recalled full word available when the sentence
     // budget below discards weaker homophone compositions of the same input.
@@ -2051,8 +2098,6 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     const bool multiword_input = !pure_initial_sequence && !full.empty() &&
                                  full.front().syllables.size() >= 3;
     if (multiword_input) {
-        constexpr std::int64_t kSecondSentenceCoherenceMargin = 2'000;
-        constexpr std::int64_t kSecondSentenceScoreMargin = 4'000;
         // Long input is not evidence that an arbitrary second composition is
         // useful. Apply the same quality gate after selecting long alternatives.
         std::size_t sentence_count = 1;
@@ -2090,6 +2135,10 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
         for (std::size_t index = 0; index < sentence_count; ++index)
             ordered.push_back(std::move(full[index]));
+        if (terminal_alternative) {
+            if (ordered.size() == 1) ordered.push_back(std::move(*terminal_alternative));
+            else if (!ordered[1].user_preferred()) ordered[1] = std::move(*terminal_alternative);
+        }
 
         // Keep one independently supported boundary interpretation selectable
         // even without an external model. Do not enlarge the two-sentence

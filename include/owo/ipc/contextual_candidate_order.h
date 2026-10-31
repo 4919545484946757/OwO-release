@@ -78,6 +78,37 @@ inline void apply_contextual_candidate_order(
     }
 }
 
+// A model's noun/compound preference must not erase the independently scored
+// base ending when only the final character differs. Retain it as the second
+// selectable sentence; never replace the model leader or enlarge the quota.
+inline void retain_base_sentence_ending(
+    const std::vector<std::string>& base, const std::vector<std::uint64_t>& base_consumed,
+    const std::vector<bool>& generated, const std::size_t full_input_bytes,
+    std::vector<std::string>& candidates, std::vector<std::uint64_t>& consumed) {
+    if (base.empty() || base_consumed.size() != base.size() || generated.size() != base.size() ||
+        !generated.front() || base_consumed.front() != full_input_bytes || candidates.size() < 2 ||
+        consumed.size() != candidates.size() || consumed.front() != full_input_bytes) return;
+    const auto prefix = [](std::string_view text) {
+        if (text.empty()) return text;
+        auto end = text.size() - 1;
+        while (end > 0 && (static_cast<unsigned char>(text[end]) & 0xc0U) == 0x80U) --end;
+        return text.substr(0, end);
+    };
+    std::size_t reference = 0;
+    if (candidates.front() == base.front()) {
+        if (base.size() < 2 || !generated[1] || base_consumed[1] != full_input_bytes ||
+            prefix(base[1]) != prefix(base.front())) return;
+        reference = 1;
+    }
+    if (utf8_character_count(base[reference]) < 3 || prefix(candidates.front()) != prefix(base[reference])) return;
+    const auto found = std::find(candidates.begin() + 1, candidates.end(), base[reference]);
+    if (found == candidates.end()) return;
+    const auto index = static_cast<std::size_t>(found - candidates.begin());
+    if (consumed[index] != full_input_bytes) return;
+    std::rotate(candidates.begin() + 1, candidates.begin() + index, candidates.begin() + index + 1);
+    std::rotate(consumed.begin() + 1, consumed.begin() + index, consumed.begin() + index + 1);
+}
+
 // A joined area must not turn prefix slots into unlimited generated sentences
 // when the model promotes its hidden pool. Whole dictionary words do not count.
 inline void limit_model_sentence_candidates(

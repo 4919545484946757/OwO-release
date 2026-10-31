@@ -83,5 +83,17 @@ int main() {
         !owo::engine::redundant_sentence_variant("家里的牛奶已经喝完了", "家里的牛奶意境喝完了") ||
         owo::engine::redundant_sentence_variant("这款高度自定", "这款高度自订") ||
         owo::engine::redundant_sentence_variant("将与概率", "降雨概率")) return 13;
+    ordered = {"价值大妈", "价值大码", "价值大吗", "价值"};
+    consumed = {10, 10, 10, 6};
+    owo::ipc::retain_base_sentence_ending({"价值大妈", "价值大吗", "价值"}, {10, 10, 6},
+        {true, true, false}, 10, ordered, consumed);
+    if (ordered != std::vector<std::string>{"价值大妈", "价值大吗", "价值大码", "价值"}) return 14;
+    ordered = {"价值大妈", "价值大码", "价值大吗", "价值"};
+    owo::ipc::retain_base_sentence_ending({"价值大吗", "价值打吗", "价值"}, {10, 10, 6},
+        {true, true, false}, 10, ordered, consumed);
+    if (ordered[0] != "价值大妈" || ordered[1] != "价值大吗" || consumed[1] != 10) return 15;
+    const auto unchanged = ordered;
+    owo::ipc::retain_base_sentence_ending({"换个前文吗"}, {10}, {true}, 10, ordered, consumed);
+    if (ordered != unchanged) return 16;
     return 0;
 }

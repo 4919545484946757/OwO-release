@@ -10,22 +10,32 @@
 
 int main(int argc, char **argv) {
     using namespace owo::engine;
-    if (argc != 1 && argc != 2)
+    if (argc != 1 && argc != 2 && argc != 3)
         return 2;
     const FullPinyinSchema schema;
-    if (argc == 2) {
+    if (argc >= 2) {
         BinaryLexicon lexicon;
         if (!lexicon.load(argv[1]).success)
             return 2;
-        for (const auto &reading : std::vector<std::vector<std::string_view>>{
+        if (argc == 2) for (const auto &reading : std::vector<std::vector<std::string_view>>{
                  {"zi", "dong"}, {"zi", "dong", "zhan"}, {"zhan", "kai"}}) {
             for (const auto &entry : lexicon.lookup_texts(reading))
                 std::cout << entry.text << " frequency=" << entry.frequency << '\n';
         }
+        const auto input = argc == 3 ? std::string_view(argv[2]) : std::string_view("zidongzhankai");
+        if (argc == 3) {
+            const auto parsed = schema.parse(input, 32, false);
+            if (!parsed.valid || parsed.paths.empty() || parsed.paths.front().syllables.empty()) return 2;
+            const std::vector<std::string_view> tail{parsed.paths.front().syllables.back().text};
+            auto entries = lexicon.lookup_texts(tail);
+            std::sort(entries.begin(), entries.end(), [](const auto& a, const auto& b) { return a.frequency > b.frequency; });
+            for (std::size_t i = 0; i < std::min<std::size_t>(10, entries.size()); ++i)
+                std::cout << entries[i].text << " tail_frequency=" << entries[i].frequency << '\n';
+        }
         const auto result = CandidateGenerator(lexicon).generate(
-            schema.parse("zidongzhankai", 16, false), 48, false, {}, nullptr, {}, true, 7);
+            schema.parse(input, 32, false), 48, false, {}, nullptr, {}, true, 7);
         for (const auto &item : result) {
-            if (item.consumed_input_bytes != 13)
+            if (item.consumed_input_bytes != input.size())
                 continue;
             std::cout << item.text << " score=" << item.score
                       << " coherence=" << item.coherence_score << " model_only=" << item.model_only
@@ -34,7 +44,7 @@ int main(int argc, char **argv) {
                 std::cout << length << ',';
             std::cout << '\n';
         }
-        return result.empty() || result.front().text != "自动展开" ? 1 : 0;
+        return result.empty() || (argc == 2 && result.front().text != "自动展开") ? 1 : 0;
     }
     const MemoryLexicon lexicon({{{"zi", "dong"}, "自动", 50000},
                                  {{"zi", "dong", "zhan"}, "自动站", 100},
@@ -94,5 +104,22 @@ int main(int argc, char **argv) {
                         return 3;
                     }
                 }
+    const MemoryLexicon ending_lexicon({
+        {{"you"}, "有", 1000000}, {{"you", "lei", "si"}, "有类似", 50000},
+        {{"lei", "si", "de"}, "类似的", 50000}, {{"zhuan", "li"}, "专利", 500000},
+        {{"li", "ma"}, "利马", 50000}, {{"ma"}, "吗", 9000000}, {{"ma"}, "马", 1700000},
+        {{"ma"}, "妈", 900000}, {{"jia", "zhi"}, "价值", 100000},
+        {{"da", "ma"}, "大妈", 15000}, {{"da", "ma"}, "大码", 14000}, {{"da", "ma"}, "大吗", 13000}});
+    const CandidateGenerator ending_generator(ending_lexicon);
+    for (const auto limit : {8U, 18U, 48U}) for (const auto page : {0U, 5U, 7U, 9U})
+        for (const bool model : {false, true}) {
+            const auto question = ending_generator.generate(schema.parse("youleisidezhuanlima", 32, false),
+                limit, false, {}, nullptr, {}, model, page);
+            if (question.empty() || question.front().text != "有类似的专利吗") return 4;
+            const auto alternatives = ending_generator.generate(schema.parse("jiazhidama", 32, false),
+                limit, false, {}, nullptr, {}, model, page);
+            if (page != 0 && (alternatives.size() < 2 || alternatives.front().text != "价值大妈" ||
+                alternatives[1].text != "价值大吗" || alternatives[1].model_only)) return 5;
+        }
     return 0;
 }
