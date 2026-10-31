@@ -3065,13 +3065,13 @@ bool TextService::render_candidate_window() {
                                            candidate_right + 3.0F, top + row_height + 2.0F);
             if (row == expanded_pages_.selected || row == 0) {
                 // Keep page one identifiable even when another page owns the
-                // numeric shortcuts. Use neutral gray at half strength;
+                // numeric shortcuts. Use neutral gray at 40% strength;
                 // leave the selected page's theme color unchanged.
                 const auto opacity = selected_page_brush_->GetOpacity();
                 const auto color = selected_page_brush_->GetColor();
                 if (row != expanded_pages_.selected) {
                     selected_page_brush_->SetColor(D2D1::ColorF(0x808080, color.a));
-                    selected_page_brush_->SetOpacity(opacity * 0.5F);
+                    selected_page_brush_->SetOpacity(opacity * 0.4F);
                 }
                 render_target_->FillRoundedRectangle(D2D1::RoundedRect(bounds, 7.0F, 7.0F), selected_page_brush_);
                 selected_page_brush_->SetOpacity(opacity);
