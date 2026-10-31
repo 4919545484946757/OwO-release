@@ -1,5 +1,6 @@
 #include "owo/model/model_backend.h"
 #include "owo/model/terminal_scoring.h"
+#include "owo/model/medial_scoring.h"
 
 #include <chrono>
 #include <memory>
@@ -8,6 +9,13 @@
 using namespace std::chrono_literals;
 
 int main() {
+    // A near-tied isolated character may overcome a unigram prior only when
+    // its actual winning LM path has stronger continuation evidence.
+    if (!owo::model::medial_pair_flips(-11.429F, -12.092F, -2.491F, -3.488F, -4.095F, -3.515F) ||
+        owo::model::medial_pair_flips(-11.429F, -12.092F, -2.491F, -3.488F, -3.0F, -3.515F) ||
+        owo::model::medial_pair_flips(-10.0F, -12.092F, -2.491F, -3.488F, -4.095F, -3.515F) ||
+        owo::model::medial_pair_flips(-11.429F, -12.092F, -3.488F, -3.488F, -4.095F, -3.515F) ||
+        owo::model::medial_pair_flips(-11.0F, -11.0F, -2.0F, -4.0F, -4.0F, -3.0F)) return 5;
     using owo::model::calibrated_terminal_score;
     if (!owo::model::terminal_pair_flips(-9.15F, -9.89F, -11.61F, -9.89F) ||
         owo::model::terminal_pair_flips(-10.38F, -9.36F, -10.38F, -12.10F) ||

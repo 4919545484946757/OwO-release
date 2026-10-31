@@ -1,10 +1,12 @@
 #include "owo/model/libime_bridge.h"
 #include "owo/model/terminal_scoring.h"
+#include "owo/model/medial_scoring.h"
 
 #include <libime/core/languagemodel.h>
 #include <libime/core/lattice.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -29,14 +31,22 @@ std::vector<std::size_t> utf8_boundaries(const std::string_view text) {
     return result;
 }
 
+std::size_t utf8_character_count(const std::string_view text) {
+    return static_cast<std::size_t>(std::count_if(text.begin(), text.end(),
+        [](const unsigned char byte) { return (byte & 0xc0U) != 0x80U; }));
+}
+
 struct TokenizationState {
     libime::State language_state{};
     float score{};
+    bool inspected_singleton{};
+    float score_after_singleton{};
 };
 
 TokenizationState score_best_tokenization(
     const libime::LanguageModel& model, const libime::State& initial_state,
-    const std::string_view text, float* independent_ending = nullptr) {
+    const std::string_view text, float* independent_ending = nullptr,
+    std::size_t inspected_position = std::numeric_limits<std::size_t>::max()) {
     constexpr std::size_t kMaximumTokenCharacters = 4;
     constexpr std::size_t kTokenizationBeamWidth = 8;
     const auto boundaries = utf8_boundaries(text);
@@ -62,7 +72,10 @@ TokenizationState score_best_tokenization(
                 const auto transition =
                     model.score(previous.language_state, word, next_state);
                 chart[end].push_back(
-                    {next_state, previous.score + transition});
+                    {next_state, previous.score + transition,
+                     previous.inspected_singleton || (begin == inspected_position && end == begin + 1),
+                     begin == inspected_position && end == begin + 1
+                         ? previous.score + transition : previous.score_after_singleton});
             }
         }
         for (std::size_t end = begin + 1; end <= maximum_end; ++end) {
@@ -97,6 +110,63 @@ TokenizationState score_best_tokenization(
         }
     }
     return result;
+}
+
+void calibrate_medial_pair(const libime::LanguageModel& model, const char* context,
+                          const char* const* candidates, const std::size_t count, float* scores) {
+    if (count < 2) return;
+    std::size_t anchor_index = count;
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto length = utf8_character_count(candidates[i]);
+        if (length >= 5 && length <= 32 &&
+            (anchor_index == count || scores[i] > scores[anchor_index])) anchor_index = i;
+    }
+    if (anchor_index == count) return;
+    const std::string_view anchor(candidates[anchor_index]);
+    const auto bounds = utf8_boundaries(anchor);
+    const auto characters = bounds.size() - 1;
+    // A bounded sentence-only comparison: at least two characters on each
+    // side, no word-internal or terminal substitutions, no long-input rescan.
+    if (characters < 5 || characters > 32) return;
+    std::size_t best = count, second = count, position = 0;
+    for (std::size_t at = 2; at + 2 < characters; ++at) {
+        const auto prefix = anchor.substr(0, bounds[at]);
+        const auto suffix = anchor.substr(bounds[at + 1]);
+        std::size_t first = count, runner = count;
+        for (std::size_t i = 0; i < count; ++i) {
+            const std::string_view text(candidates[i]);
+            if (!text.starts_with(prefix) || !text.ends_with(suffix) ||
+                text.size() <= prefix.size() + suffix.size()) continue;
+            const auto middle = text.substr(prefix.size(), text.size() - prefix.size() - suffix.size());
+            if (utf8_character_count(middle) != 1) continue;
+            if (first == count || scores[i] > scores[first]) { runner = first; first = i; }
+            else if (runner == count || scores[i] > scores[runner]) runner = i;
+        }
+        if (runner != count && (best == count || scores[first] > scores[best])) {
+            best = first; second = runner; position = at;
+        }
+    }
+    if (best == count || scores[best] <= scores[second] || scores[best] - scores[second] > 1.0F) return;
+    auto initial = model.beginState();
+    if (context && context[0]) initial = score_best_tokenization(model, initial, context).language_state;
+    const auto first = score_best_tokenization(model, initial, candidates[best], nullptr, position);
+    const auto other = score_best_tokenization(model, initial, candidates[second], nullptr, position);
+    if (!first.inspected_singleton || !other.inspected_singleton) return;
+    const auto prior = [&](const char* value) {
+        const std::string_view text(value);
+        const auto edges = utf8_boundaries(text);
+        const auto character = text.substr(edges[position], edges[position + 1] - edges[position]);
+        const auto index = model.index(character);
+        if (model.isUnknown(index, character)) return 0.0F;
+        libime::State next{};
+        return model.score(model.nullState(), libime::WordNode(character, index), next);
+    };
+    const auto first_prior = prior(candidates[best]), other_prior = prior(candidates[second]);
+    if (!std::isfinite(first_prior) || !std::isfinite(other_prior) ||
+        first_prior >= 0 || other_prior >= 0) return;
+    if (owo::model::medial_pair_flips(scores[best], scores[second], first_prior, other_prior,
+            first.score - first.score_after_singleton, other.score - other.score_after_singleton))
+        std::swap(scores[best], scores[second]);
 }
 
 void set_diagnostic(char* output, const size_t output_size, const std::string_view value) {
@@ -206,6 +276,16 @@ extern "C" int owo_libime_score_batch(const owo_libime_handle handle,
     if (pair_has_family_winner &&
         owo::model::terminal_pair_flips(scores[0], scores[1], independent[0], independent[1]))
         std::swap(scores[0], scores[1]);
+    try {
+        calibrate_medial_pair(static_cast<const BridgeState*>(handle)->model,
+                             context, candidates, candidate_count, scores);
+    } catch (const std::exception& error) {
+        set_diagnostic(diagnostic, diagnostic_size, error.what());
+        return 0;
+    } catch (...) {
+        set_diagnostic(diagnostic, diagnostic_size, "unknown medial calibration failure");
+        return 0;
+    }
     set_diagnostic(diagnostic, diagnostic_size, {});
     return 1;
 }
