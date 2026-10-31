@@ -47,6 +47,10 @@ int main(int argc, char** argv) {
         !first_is(*loaded.backend, "制定", learning_candidates, "计划") ||
         !first_is(*loaded.backend, "学习", learning_candidates, "方法"))
         return 4;
+    if (!first_is(*loaded.backend, "", {"价值大妈", "价值大吗"}, "价值大吗") ||
+        !first_is(*loaded.backend, "", {"联系大吗", "联系大妈"}, "联系大妈") ||
+        !first_is(*loaded.backend, "", {"购买芝吗", "购买芝麻"}, "购买芝麻") ||
+        !first_is(*loaded.backend, "", {"这是一串代吗", "这是一串代码"}, "这是一串代码")) return 5;
     return 0;
 }
 

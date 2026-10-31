@@ -1,4 +1,5 @@
 #include "owo/model/libime_bridge.h"
+#include "owo/model/terminal_scoring.h"
 
 #include <libime/core/languagemodel.h>
 #include <libime/core/lattice.h>
@@ -7,6 +8,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <limits>
 #include <string_view>
 #include <vector>
 
@@ -34,7 +36,7 @@ struct TokenizationState {
 
 TokenizationState score_best_tokenization(
     const libime::LanguageModel& model, const libime::State& initial_state,
-    const std::string_view text) {
+    const std::string_view text, float* independent_ending = nullptr) {
     constexpr std::size_t kMaximumTokenCharacters = 4;
     constexpr std::size_t kTokenizationBeamWidth = 8;
     const auto boundaries = utf8_boundaries(text);
@@ -77,10 +79,24 @@ TokenizationState score_best_tokenization(
     }
     const auto& completed = chart.back();
     if (completed.empty()) return {initial_state, 0.0F};
-    return *std::max_element(completed.begin(), completed.end(),
+    const auto result = *std::max_element(completed.begin(), completed.end(),
                              [](const auto& left, const auto& right) {
                                  return left.score < right.score;
                              });
+    if (independent_ending) {
+        *independent_ending = result.score;
+        if (character_count >= 3 && !chart[character_count - 1].empty()) {
+            const auto tail = text.substr(boundaries[character_count - 1]);
+            const libime::WordNode last_word(tail, model.index(tail));
+            float best = -std::numeric_limits<float>::infinity();
+            for (const auto& prefix : chart[character_count - 1]) {
+                libime::State next{};
+                best = std::max(best, prefix.score + model.score(prefix.language_state, last_word, next));
+            }
+            *independent_ending = best;
+        }
+    }
+    return result;
 }
 
 void set_diagnostic(char* output, const size_t output_size, const std::string_view value) {
@@ -113,12 +129,12 @@ extern "C" owo_libime_handle owo_libime_open(const char* model_path,
     return nullptr;
 }
 
-extern "C" int owo_libime_score(const owo_libime_handle handle,
+static int score_candidate(const owo_libime_handle handle,
                                  const char* context,
                                  const char* candidate,
                                  float* score,
                                  char* diagnostic,
-                                 const size_t diagnostic_size) {
+                                 const size_t diagnostic_size, float* independent = nullptr) {
     if (handle == nullptr || candidate == nullptr || candidate[0] == '\0' || score == nullptr) {
         set_diagnostic(diagnostic, diagnostic_size, "invalid score request");
         return 0;
@@ -126,16 +142,10 @@ extern "C" int owo_libime_score(const owo_libime_handle handle,
     try {
         const auto& model = static_cast<const BridgeState*>(handle)->model;
         const std::string_view candidate_view(candidate);
-        if (context == nullptr || context[0] == '\0') {
-            *score = score_best_tokenization(
-                         model, model.beginState(), candidate_view).score;
-        } else {
-            const std::string_view context_view(context);
-            const auto prefix = score_best_tokenization(
-                model, model.beginState(), context_view);
-            *score = score_best_tokenization(
-                         model, prefix.language_state, candidate_view).score;
-        }
+        auto initial = model.beginState();
+        if (context && context[0] != '\0')
+            initial = score_best_tokenization(model, initial, context).language_state;
+        *score = score_best_tokenization(model, initial, candidate_view, independent).score;
         set_diagnostic(diagnostic, diagnostic_size, {});
         return 1;
     } catch (const std::exception& error) {
@@ -144,6 +154,12 @@ extern "C" int owo_libime_score(const owo_libime_handle handle,
         set_diagnostic(diagnostic, diagnostic_size, "unknown libime scoring failure");
     }
     return 0;
+}
+
+extern "C" int owo_libime_score(const owo_libime_handle handle, const char* context,
+                                 const char* candidate, float* score, char* diagnostic,
+                                 const size_t diagnostic_size) {
+    return score_candidate(handle, context, candidate, score, diagnostic, diagnostic_size);
 }
 
 extern "C" int owo_libime_score_batch(const owo_libime_handle handle,
@@ -158,12 +174,38 @@ extern "C" int owo_libime_score_batch(const owo_libime_handle handle,
         set_diagnostic(diagnostic, diagnostic_size, "invalid batch score request");
         return 0;
     }
+    bool paired_endings = false;
+    std::string_view pair_prefix;
+    std::size_t pair_characters = 0;
+    if (candidate_count >= 2 && candidates[0] && candidates[1]) {
+        const std::string_view first(candidates[0]), second(candidates[1]);
+        const auto a = utf8_boundaries(first), b = utf8_boundaries(second);
+        paired_endings = a.size() >= 4 && a.size() == b.size() && first != second &&
+            first.substr(0, a[a.size()-2]) == second.substr(0, b[b.size()-2]);
+        if (paired_endings) { pair_prefix = first.substr(0, a[a.size()-2]); pair_characters = a.size(); }
+    }
+    float independent[2]{};
     for (std::size_t index = 0; index < candidate_count; ++index) {
         if (candidates[index] == nullptr || candidates[index][0] == '\0' ||
-            !owo_libime_score(handle, context, candidates[index], &scores[index],
-                              diagnostic, diagnostic_size))
+            !score_candidate(handle, context, candidates[index], &scores[index],
+                              diagnostic, diagnostic_size,
+                              paired_endings && index < 2 ? &independent[index] : nullptr))
             return 0;
     }
+    // The host's first two candidates are its bounded, quality-gated visible
+    // alternatives. Calibrate only this same-prefix pair, and only if it
+    // contains the model's original same-prefix-family winner. Swap original score slots
+    // rather than penalizing the entire pool: unrelated hidden variants must
+    // not rise merely because a plausible visible word was down-weighted.
+    bool pair_has_family_winner = paired_endings;
+    if (paired_endings) for (std::size_t index = 2; index < candidate_count; ++index) {
+        const std::string_view text(candidates[index]);
+        if (text.starts_with(pair_prefix) && utf8_boundaries(text).size() == pair_characters &&
+            scores[index] > std::max(scores[0], scores[1])) { pair_has_family_winner = false; break; }
+    }
+    if (pair_has_family_winner &&
+        owo::model::terminal_pair_flips(scores[0], scores[1], independent[0], independent[1]))
+        std::swap(scores[0], scores[1]);
     set_diagnostic(diagnostic, diagnostic_size, {});
     return 1;
 }

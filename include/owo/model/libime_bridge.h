@@ -29,6 +29,9 @@ OWO_LIBIME_BRIDGE_API int owo_libime_score(owo_libime_handle handle,
                                            float* score,
                                            char* diagnostic,
                                            size_t diagnostic_size);
+// Batch ranking may calibrate the first two incoming, same-prefix ending
+// alternatives while preserving their original score slots. Returned scores
+// are ranking evidence, not raw normalized language-model probabilities.
 OWO_LIBIME_BRIDGE_API int owo_libime_score_batch(owo_libime_handle handle,
                                                  const char* context,
                                                  const char* const* candidates,

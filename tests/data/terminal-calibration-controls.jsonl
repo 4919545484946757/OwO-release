@@ -1,0 +1,11 @@
+{"id":"cost-question","input":"chengbendama","expected":["成本大吗"]}
+{"id":"risk-question","input":"fengxiandama","expected":["风险大吗"]}
+{"id":"impact-question","input":"yingxiangdama","expected":["影响大吗"]}
+{"id":"workload-question","input":"gongzuoliangdama","expected":["工作量大吗"]}
+{"id":"sound-question","input":"shengyindama","expected":["声音大吗"]}
+{"id":"aunt-noun","input":"woxianglianxidama","expected":["我想联系大妈"]}
+{"id":"printer-noun","input":"dayinji","expected":["打印机"]}
+{"id":"computer-noun","input":"shiyongjisuanji","expected":["使用计算机"]}
+{"id":"folder-noun","input":"dakaiwenjianjia","expected":["打开文件夹"]}
+{"id":"code-noun","input":"baocundaima","expected":["保存代码"]}
+{"id":"horse-noun","input":"yipijunma","expected":["一匹骏马"]}
