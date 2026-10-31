@@ -236,7 +236,7 @@ struct ExpandedCandidateTestAccess {
             const auto saved_background = service->candidate_theme_.background;
             const auto saved_selected = service->candidate_theme_.selected_page;
             service->candidate_theme_.background = {0x000000, 0.2F};
-            service->candidate_theme_.selected_page = {0xffffff, 0.4F};
+            service->candidate_theme_.selected_page = {0x4080ff, 0.4F};
             service->candidate_theme_.background_blur_enabled = false;
             service->discard_device_resources();
             service->candidates_expanded_ = true;
@@ -244,7 +244,7 @@ struct ExpandedCandidateTestAccess {
             service->expanded_pages_.selected = 2;
             service->candidate_present_size_ = {1100, 300};
             service->candidate_content_size_ = {1100, 300};
-            const auto page_alpha = [&](std::size_t page) {
+            const auto page_pixel = [&](std::size_t page) -> std::uint32_t {
                 for (const auto& region : service->hit_regions_) {
                     if (region.target.kind != TextService::HitKind::candidate_page ||
                         region.target.candidate_index != page) continue;
@@ -253,10 +253,13 @@ struct ExpandedCandidateTestAccess {
                     const auto x = region.bounds.left + static_cast<LONG>(12 * dpi_scale);
                     const auto y = region.bounds.top + static_cast<LONG>(dpi_scale);
                     const auto* pixels = static_cast<const std::uint32_t*>(service->layered_surface_pixels_);
-                    return static_cast<int>(pixels[static_cast<std::size_t>(y) *
-                        service->layered_surface_size_.cx + x] >> 24);
+                    return pixels[static_cast<std::size_t>(y) *
+                        service->layered_surface_size_.cx + x];
                 }
-                return -1;
+                return 0;
+            };
+            const auto page_alpha = [&](std::size_t page) {
+                return static_cast<int>(page_pixel(page) >> 24);
             };
             for (const bool light : {false, true}) {
                 service->candidate_light_palette_ = light;
@@ -266,6 +269,14 @@ struct ExpandedCandidateTestAccess {
                 if (neutral < 0 || first <= neutral || selected_alpha <= first || selected_alpha >= 255 ||
                     service->candidate_shortcut_index(0) != 14 ||
                     service->selected_page_brush_->GetOpacity() != 1.0F) return 64;
+                const auto first_rgb = page_pixel(0);
+                const auto selected_rgb = page_pixel(2);
+                const auto restored_color = service->selected_page_brush_->GetColor();
+                if ((first_rgb & 255) != ((first_rgb >> 8) & 255) ||
+                    (first_rgb & 255) != ((first_rgb >> 16) & 255) ||
+                    (selected_rgb & 255) <= ((selected_rgb >> 16) & 255) ||
+                    std::abs(restored_color.r - 64.0F / 255.0F) > 0.001F ||
+                    std::abs(restored_color.b - 1.0F) > 0.001F) return 66;
                 service->expanded_pages_.selected = 0;
                 if (!service->render_candidate_window() || page_alpha(0) != selected_alpha ||
                     page_alpha(2) != neutral || service->candidate_shortcut_index(0) != 0) return 65;
