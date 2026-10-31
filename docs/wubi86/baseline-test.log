@@ -1,0 +1,19 @@
+Start testing: Oct 30 23:09 中国标准时间
+----------------------------------------------------------
+36/80 Testing: owo.engine.candidates
+36/80 Test: owo.engine.candidates
+Command: "D:/src/OwO-release/build/wubi86-baseline-build/Debug/owo_candidate_generator_tests.exe"
+Directory: D:/src/OwO-release/build/wubi86-baseline-build
+"owo.engine.candidates" start time: Oct 30 23:09 中国标准时间
+Output:
+----------------------------------------------------------
+a complete shorter reading displaced an incomplete learned word
+<end of output>
+Test time =   0.18 sec
+----------------------------------------------------------
+Test Failed.
+"owo.engine.candidates" end time: Oct 30 23:09 中国标准时间
+"owo.engine.candidates" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Oct 30 23:09 中国标准时间

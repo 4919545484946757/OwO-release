@@ -256,7 +256,7 @@ if(WIN32)
     target_include_directories(owo_ipc PUBLIC include)
     target_link_libraries(owo_ipc PUBLIC owo_protocol owo_engine owo_model owo_config)
     target_link_libraries(owo_ipc PRIVATE owo_agent owo_core_plugin owo_input_method_control)
-    target_link_libraries(owo_ipc PRIVATE advapi32)
+    target_link_libraries(owo_ipc PRIVATE advapi32 oleaut32)
     target_compile_features(owo_ipc PUBLIC cxx_std_20)
     target_compile_definitions(owo_ipc PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
     if(MSVC)
@@ -1102,4 +1102,134 @@ if(BUILD_TESTING)
         add_test(NAME owo.ipc.user_lexicon_management COMMAND owo_user_lexicon_management_tests)
         set_tests_properties(owo.ipc.user_lexicon_management PROPERTIES TIMEOUT 20)
     endif()
+endif()
+
+# Independent Wubi86 Phase 1 library: deliberately not linked into the pinyin/runtime targets.
+add_library(owo_wubi86 STATIC
+    src/wubi86/wubi86_types.cpp
+    src/wubi86/wubi86_code_table.cpp
+    src/wubi86/wubi86_encoder.cpp
+    src/wubi86/wubi86_dictionary.cpp
+    src/wubi86/wubi86_trie.cpp)
+target_include_directories(owo_wubi86 PUBLIC include)
+target_compile_features(owo_wubi86 PUBLIC cxx_std_20)
+if(MSVC)
+    target_compile_options(owo_wubi86 PRIVATE /W4 /permissive- /utf-8 /EHsc)
+else()
+    target_compile_options(owo_wubi86 PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+if(BUILD_TESTING)
+    add_executable(owo_wubi86_tests tests/wubi86/wubi86_tests.cpp)
+    target_link_libraries(owo_wubi86_tests PRIVATE owo_wubi86)
+    if(MSVC)
+        target_compile_options(owo_wubi86_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    else()
+        target_compile_options(owo_wubi86_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME owo.wubi86.phase1 COMMAND owo_wubi86_tests
+        ${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/main.tsv)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(owo_wubi86_coverage_tests tests/wubi86/wubi86_coverage_tests.cpp)
+    target_link_libraries(owo_wubi86_coverage_tests PRIVATE owo_wubi86)
+    if(MSVC)
+        target_compile_options(owo_wubi86_coverage_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    else()
+        target_compile_options(owo_wubi86_coverage_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME owo.wubi86.coverage COMMAND owo_wubi86_coverage_tests
+        ${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/main.tsv)
+    set_tests_properties(owo.wubi86.coverage PROPERTIES TIMEOUT 180)
+endif()
+
+if(BUILD_TESTING AND Python3_Interpreter_FOUND)
+    add_test(NAME owo.wubi86.data_integrity COMMAND ${Python3_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/wubi86/verify_data.py)
+endif()
+
+if(WIN32)
+# Wubi process adapter reuses the existing engine DTO and PluginHost wire contract.
+add_library(owo_wubi86_provider STATIC plugins/wubi86/src/provider.cpp plugins/wubi86/src/learning.cpp)
+target_link_libraries(owo_wubi86_provider PUBLIC owo_wubi86 owo_engine bcrypt)
+if(MSVC)
+    target_compile_options(owo_wubi86_provider PRIVATE /W4 /permissive- /utf-8 /EHsc)
+endif()
+if(WIN32)
+    add_executable(owo_wubi86_plugin plugins/wubi86/src/main.cpp)
+    target_link_libraries(owo_wubi86_plugin PRIVATE owo_wubi86_provider owo_plugin_contract owo_input_method_protocol advapi32)
+    target_compile_options(owo_wubi86_plugin PRIVATE /W4 /permissive- /utf-8 /EHsc)
+endif()
+if(BUILD_TESTING)
+    add_executable(owo_wubi86_provider_tests tests/wubi86/provider_tests.cpp)
+    target_link_libraries(owo_wubi86_provider_tests PRIVATE owo_wubi86_provider)
+    if(MSVC)
+        target_compile_options(owo_wubi86_provider_tests PRIVATE /utf-8 /EHsc)
+    endif()
+    add_test(NAME owo.wubi86.provider COMMAND owo_wubi86_provider_tests ${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/main.tsv)
+endif()
+
+endif()
+
+if(WIN32)
+    set(OWO_WUBI86_STAGE "${CMAKE_CURRENT_BINARY_DIR}/wubi86-plugin/$<CONFIG>")
+    add_custom_command(TARGET owo_wubi86_plugin POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${OWO_WUBI86_STAGE}/bin" "${OWO_WUBI86_STAGE}/assets"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:owo_wubi86_plugin> "${OWO_WUBI86_STAGE}/bin/owo_wubi86_plugin.exe"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/plugins/wubi86/manifest.json" "${OWO_WUBI86_STAGE}/manifest.json"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/plugins/wubi86/config.schema.json" "${OWO_WUBI86_STAGE}/config.schema.json"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/main.tsv" "${OWO_WUBI86_STAGE}/assets/main.tsv"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/LICENSE.upstream" "${OWO_WUBI86_STAGE}/assets/LICENSE.upstream"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/LICENSE.pywubi" "${OWO_WUBI86_STAGE}/assets/LICENSE.pywubi")
+endif()
+
+if(WIN32 AND BUILD_TESTING)
+    add_executable(owo_wubi86_process_tests tests/wubi86/process_tests.cpp)
+    target_link_libraries(owo_wubi86_process_tests PRIVATE owo_wubi86_provider owo_core_plugin owo_ipc)
+    target_compile_options(owo_wubi86_process_tests PRIVATE /utf-8 /EHsc)
+    add_dependencies(owo_wubi86_process_tests owo_wubi86_plugin)
+    add_test(NAME owo.wubi86.process COMMAND owo_wubi86_process_tests
+        ${CMAKE_CURRENT_BINARY_DIR}/wubi86-test-stores ${OWO_WUBI86_STAGE})
+    set_tests_properties(owo.wubi86.process PROPERTIES TIMEOUT 90)
+endif()
+
+if(WIN32 AND BUILD_TESTING)
+    add_executable(owo_wubi86_learning_tests tests/wubi86/learning_tests.cpp)
+    target_link_libraries(owo_wubi86_learning_tests PRIVATE owo_wubi86_provider owo_input_method_protocol)
+    target_compile_options(owo_wubi86_learning_tests PRIVATE /utf-8 /EHsc)
+    add_test(NAME owo.wubi86.learning COMMAND owo_wubi86_learning_tests
+        ${CMAKE_CURRENT_SOURCE_DIR}/data/wubi86/main.tsv ${CMAKE_CURRENT_BINARY_DIR}/wubi86-test-stores)
+endif()
+
+if(WIN32)
+    add_library(owo_tsf_write STATIC src/tsf/scheme_commit.cpp)
+    target_include_directories(owo_tsf_write PUBLIC include)
+    target_compile_features(owo_tsf_write PUBLIC cxx_std_20)
+    target_compile_options(owo_tsf_write PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    target_link_libraries(owo_tsf PRIVATE owo_tsf_write)
+    if(TARGET owo_expanded_candidate_service_tests)
+        target_link_libraries(owo_expanded_candidate_service_tests PRIVATE owo_tsf_write)
+    endif()
+endif()
+
+if(WIN32 AND BUILD_TESTING)
+    add_executable(owo_tsf_scheme_commit_tests tests/tsf/scheme_commit_session_tests.cpp)
+    target_compile_options(owo_tsf_scheme_commit_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    target_compile_definitions(owo_tsf_scheme_commit_tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    target_link_libraries(owo_tsf_scheme_commit_tests PRIVATE owo_tsf_write ole32 uuid user32)
+    add_test(NAME owo.tsf.scheme_commit_session COMMAND owo_tsf_scheme_commit_tests)
+endif()
+
+if(WIN32 AND BUILD_TESTING)
+    add_executable(owo_wubi_commit_service_tests tests/tsf/wubi_commit_service_tests.cpp
+        src/tsf/text_service.cpp src/tsf/pinyin_cursor.cpp src/tsf/input_method_context.cpp)
+    target_include_directories(owo_wubi_commit_service_tests PRIVATE include src/tsf)
+    target_compile_features(owo_wubi_commit_service_tests PRIVATE cxx_std_20)
+    target_compile_definitions(owo_wubi_commit_service_tests PRIVATE OWO_TSF_TEST_ACCESS WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
+    target_compile_options(owo_wubi_commit_service_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    target_link_libraries(owo_wubi_commit_service_tests PRIVATE owo_tsf_write owo_wubi86_provider owo_core_plugin owo_ipc owo_plugin owo_agent ole32 oleaut32 advapi32 uuid user32 gdi32 d2d1 dwrite dwmapi)
+    add_dependencies(owo_wubi_commit_service_tests owo_wubi86_plugin)
+    add_test(NAME owo.tsf.wubi_commit_service COMMAND owo_wubi_commit_service_tests
+        ${CMAKE_CURRENT_BINARY_DIR}/wubi86-test-stores ${OWO_WUBI86_STAGE})
+    set_tests_properties(owo.tsf.wubi_commit_service PROPERTIES TIMEOUT 90)
 endif()

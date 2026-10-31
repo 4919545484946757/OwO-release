@@ -63,6 +63,27 @@ try {
     Check(unknown.SettingsCapabilities == SettingsCapability.None, "Unknown schemes fail closed");
     Check(future.Supports(SettingsCapability.Correction) && !future.Supports(SettingsCapability.UserCompletion), "Feature gating does not require a full_pinyin ID");
 
+    var wubi = InputSchemeSettingsPolicy.Plugin("plugin:owo.plugin.wubi86/wubi86", "五笔86", "zh-Hans");
+    var discovered = InputSchemeSettingsPolicy.Refresh([wubi, wubi], full);
+    Check(discovered.Count(s => s.Id == wubi.Id) == 1, "Discovery deduplicates canonical Wubi identity");
+    Check(wubi.OwnerPluginId == "owo.plugin.wubi86" && !wubi.Supports(SettingsCapability.Correction),
+        "Wubi keeps isolated ownership and no pinyin assistance");
+    var missing = InputSchemeSettingsPolicy.Refresh([], wubi);
+    Check(missing.Single(s => s.Id == wubi.Id).Description.Contains("不可用"),
+        "Missing runtime remains visible with explicit unavailable status");
+    Check(InputSchemeSettingsPolicy.Refresh([wubi], missing.Last()).Single(s => s.Id == wubi.Id).Description == "zh-Hans",
+        "Rediscovery clears unavailable status");
+    Check(InputSchemeSettingsPolicy.NeedsFallback(wubi.Id, "owo.plugin.wubi86") &&
+        !InputSchemeSettingsPolicy.NeedsFallback(full.Id, "owo.plugin.wubi86") &&
+        !InputSchemeSettingsPolicy.NeedsFallback(plugin.Id, "owo.plugin.wubi86"),
+        "Disable fallback affects only the owning plugin");
+    await client.SaveAsync(defaults with { InputScheme = wubi.Id });
+    Check((await client.LoadAsync()).InputScheme == wubi.Id, "Real config backend persists Wubi selection");
+    await client.SaveAsync(defaults with { InputScheme = "full_pinyin" });
+    Check((await client.LoadAsync()).InputScheme == "full_pinyin", "Real config backend persists pinyin fallback");
+    // Return the isolated file to the baseline expected by the remaining module checks.
+    File.WriteAllBytes(client.ConfigPath, before);
+
     var changedAll = defaults with { CandidatePageSize = 9, CandidateWrapLength = 40,
         CandidatePartitionEnabled = !defaults.CandidatePartitionEnabled,
         CandidateSingleCharacterFirstEnabled = !defaults.CandidateSingleCharacterFirstEnabled,

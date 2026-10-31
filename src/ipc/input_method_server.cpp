@@ -4,12 +4,16 @@
 #include "owo/plugin/input_method_protocol.h"
 
 #include <Windows.h>
+#include <ole2.h>
+#include <UIAutomation.h>
+#include <wrl/client.h>
 #include <sddl.h>
 #include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <future>
+#include <iostream>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -33,6 +37,49 @@ bool token_info(HANDLE process, std::vector<std::byte>& user, DWORD& session) {
     return GetTokenInformation(token.value, TokenUser, user.data(), size, &size) &&
         GetTokenInformation(token.value, TokenSessionId, &session, sizeof(session), &size);
 }
+InputMethodFocus automation_focus(std::uint32_t pid, HWND native_window) {
+    const auto initialized = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    if (FAILED(initialized)) return {};
+    struct Apartment { ~Apartment() { CoUninitialize(); } } apartment;
+    Microsoft::WRL::ComPtr<IUIAutomation2> automation;
+    if (FAILED(CoCreateInstance(__uuidof(CUIAutomation8), nullptr, CLSCTX_INPROC_SERVER,
+                               IID_PPV_ARGS(&automation)))) return {};
+    if (FAILED(automation->put_ConnectionTimeout(100)) ||
+        FAILED(automation->put_TransactionTimeout(100))) return {};
+    Microsoft::WRL::ComPtr<IUIAutomationCacheRequest> cache;
+    if (FAILED(automation->CreateCacheRequest(&cache))) return {};
+    for (const auto property : {UIA_ProcessIdPropertyId, UIA_IsPasswordPropertyId,
+                               UIA_HasKeyboardFocusPropertyId, UIA_ControlTypePropertyId})
+        if (FAILED(cache->AddProperty(property))) return {};
+    Microsoft::WRL::ComPtr<IUIAutomationElement> element;
+    if (FAILED(automation->GetFocusedElementBuildCache(cache.Get(), &element)) || !element) return {};
+    int process{}; CONTROLTYPEID type{}; BOOL password = TRUE, focused = FALSE;
+    if (FAILED(element->get_CachedProcessId(&process)) || process != static_cast<int>(pid) ||
+        FAILED(element->get_CachedIsPassword(&password)) || password ||
+        FAILED(element->get_CachedHasKeyboardFocus(&focused)) || !focused ||
+        FAILED(element->get_CachedControlType(&type)) || type != UIA_EditControlTypeId) return {};
+    SAFEARRAY* runtime{};
+    if (FAILED(element->GetRuntimeId(&runtime)) || !runtime) return {};
+    struct Runtime { SAFEARRAY* value; ~Runtime() { SafeArrayDestroy(value); } } release{runtime};
+    LONG first{}, last{};
+    VARTYPE runtime_type{};
+    if (FAILED(SafeArrayGetVartype(runtime, &runtime_type)) || runtime_type != VT_I4 ||
+        SafeArrayGetElemsize(runtime) != sizeof(LONG) || SafeArrayGetDim(runtime) != 1 ||
+        FAILED(SafeArrayGetLBound(runtime, 1, &first)) ||
+        FAILED(SafeArrayGetUBound(runtime, 1, &last))) return {};
+    const auto count = static_cast<std::int64_t>(last) - first + 1;
+    if (count <= 0 || count > 64) return {};
+    std::uint64_t identity = 14695981039346656037ULL;
+    for (std::int64_t offset = 0; offset < count; ++offset) {
+        LONG index = static_cast<LONG>(static_cast<std::int64_t>(first) + offset);
+        LONG part{}; if (FAILED(SafeArrayGetElement(runtime, &index, &part))) return {};
+        identity = (identity ^ static_cast<std::uint32_t>(part)) * 1099511628211ULL;
+    }
+    GUITHREADINFO current{sizeof(current)}; DWORD actual{};
+    const auto thread = GetWindowThreadProcessId(GetForegroundWindow(), &actual);
+    if (actual != pid || !GetGUIThreadInfo(thread, &current) || current.hwndFocus != native_window) return {};
+    return {identity ? identity : 1, false};
+}
 InputMethodFocus native_focus(std::uint32_t pid) {
     const auto foreground = GetForegroundWindow();
     DWORD actual{};
@@ -47,7 +94,25 @@ InputMethodFocus native_focus(std::uint32_t pid) {
     const std::wstring_view cls(name.data());
     const bool known = _wcsicmp(name.data(), L"Edit") == 0 ||
         (cls.size() >= 8 && _wcsnicmp(name.data(), L"RichEdit", 8) == 0);
-    if (!known || (GetWindowLongPtrW(info.hwndFocus, GWL_STYLE) & ES_PASSWORD)) return {};
+    if (!known) {
+        // Modern HWND hosts do not identify the focused child input. Require UIA
+        // evidence for a focused, non-password Edit owned by the pipe client.
+        const auto verified = automation_focus(pid, info.hwndFocus);
+        if (verified.identity) return verified;
+    }
+    if (!known || (GetWindowLongPtrW(info.hwndFocus, GWL_STYLE) & ES_PASSWORD)) {
+        // Class metadata only; never inspect the control's text or password value.
+        static thread_local ULONGLONG last_report{};
+        const auto now = GetTickCount64();
+        if (now - last_report >= 1000) {
+            last_report = now;
+            std::clog << "INPUT_METHOD_FOCUS_DENIED client_pid=" << pid
+                      << " known_edit=" << known << " class=";
+            for (const auto c : cls) std::clog << (c >= 32 && c < 127 ? static_cast<char>(c) : '?');
+            std::clog << '\n';
+        }
+        return {};
+    }
     return {reinterpret_cast<std::uintptr_t>(info.hwndFocus), false};
 }
 InputMethodControlResponse rejected(std::uint64_t id, const char* why) {
@@ -285,6 +350,9 @@ struct InputMethodPipeServer::Impl {
                 // Never publish a completed open/input result after focus invalidation.
                 if (result.status == InputMethodControlStatus::ready && !result.payload.empty() &&
                     cancelled && cancelled->load()) result = rejected(r.request_id, "Session closed");
+                if (result.status == InputMethodControlStatus::rejected)
+                    std::clog << "INPUT_METHOD_REJECT pid=" << GetCurrentProcessId()
+                              << " request_id=" << result.request_id << " reason=" << result.diagnostic << '\n';
                 if (!write(result, tick)) break;
                 // A cancelled control must finish before another discovery/open is accepted.
                 if (!ticket && control.valid() && control.wait_for(0ms) == std::future_status::ready)

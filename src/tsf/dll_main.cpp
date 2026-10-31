@@ -1,3 +1,4 @@
+#include "activation_trace.h"
 #include "text_service.h"
 #include "owo/tsf/registration_cache.h"
 
@@ -37,7 +38,7 @@ public:
                                              REFIID iid,
                                              void** object) override {
         if (outer != nullptr) return CLASS_E_NOAGGREGATION;
-        return owo::tsf::create_text_service(iid, object);
+        const auto result = owo::tsf::create_text_service(iid, object); owo::tsf::activation_trace("CreateInstance", result); return result;
     }
     HRESULT STDMETHODCALLTYPE LockServer(const BOOL lock) override {
         lock ? owo::tsf::increment_server_lock() : owo::tsf::decrement_server_lock();
@@ -245,7 +246,7 @@ STDAPI DllCanUnloadNow() {
     return owo::tsf::server_lock_count() == 0 ? S_OK : S_FALSE;
 }
 
-STDAPI DllGetClassObject(REFCLSID clsid, REFIID iid, void** object) {
+STDAPI DllGetClassObject(REFCLSID clsid, REFIID iid, void** object) { owo::tsf::activation_trace("DllGetClassObject");
     if (clsid != owo::tsf::kTextServiceClsid) return CLASS_E_CLASSNOTAVAILABLE;
     auto* factory = new (std::nothrow) ClassFactory();
     if (factory == nullptr) return E_OUTOFMEMORY;

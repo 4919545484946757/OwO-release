@@ -92,16 +92,26 @@ InputMethodValidation validate_input_method_request(const InputMethodDescriptor&
     if (request.page_size == 0 || request.page_size > descriptor.max_candidates || request.page > 1000000)
         return fail("Invalid candidate page");
     if (request.action != InputMethodAction::compose && request.action != InputMethodAction::select &&
-        request.action != InputMethodAction::cancel) return fail("Invalid request action");
-    if ((request.action == InputMethodAction::select) != !request.selected_candidate_id.empty() ||
+        request.action != InputMethodAction::cancel &&
+        !(descriptor.commit_confirmation && request.action == InputMethodAction::committed)) return fail("Invalid request action");
+    if (((request.action == InputMethodAction::select || request.action == InputMethodAction::committed)) != !request.selected_candidate_id.empty() ||
         request.selected_candidate_id.size() > 128 || !valid_utf8(request.selected_candidate_id))
         return fail("Invalid candidate selection");
+    if(request.action==InputMethodAction::committed && (request.selected_candidate_id.size()!=32 ||
+       !std::all_of(request.selected_candidate_id.begin(),request.selected_candidate_id.end(),[](char c){return (c>='0'&&c<='9')||(c>='a'&&c<='f');})))return fail("Invalid commit identity");
     return {true, {}};
 }
 
 InputMethodValidation validate_input_method_response(const InputMethodDescriptor& descriptor,
                                                      const InputMethodRequest& request,
                                                      const InputMethodResponse& response) {
+    if(request.action==InputMethodAction::committed && (!response.candidates.empty()||response.has_more))return fail("Commit acknowledgement cannot contain candidates");
+    if (!response.commit_id.empty() && (!descriptor.commit_confirmation || request.action != InputMethodAction::select ||
+        response.status != InputMethodStatus::success || response.commit_id.size() != 32 ||
+        !std::all_of(response.commit_id.begin(),response.commit_id.end(),[](char c){return (c>='0'&&c<='9')||(c>='a'&&c<='f');})))
+        return fail("Invalid commit transaction");
+    if (descriptor.commit_confirmation && request.action == InputMethodAction::select &&
+        response.status == InputMethodStatus::success && response.commit_id.empty()) return fail("Missing commit transaction");
     if (response.request_id != request.request_id || response.session_id != request.session_id ||
         response.scheme_id != request.scheme_id || response.page != request.page)
         return fail("Response identity or page mismatch");

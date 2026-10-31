@@ -14,6 +14,18 @@ constexpr LANGID kSimplifiedChinese = 0x0804;
 }
 
 int main(int argc, char** argv) {
+    if (argc == 2 && std::string_view(argv[1]) == "--focus-state") {
+        DWORD pid{};
+        const auto thread = GetWindowThreadProcessId(GetForegroundWindow(), &pid);
+        GUITHREADINFO info{sizeof(info)};
+        wchar_t name[128]{};
+        if (!thread || !GetGUIThreadInfo(thread, &info) || !info.hwndFocus ||
+            !GetClassNameW(info.hwndFocus, name, 128)) return 10;
+        std::wcout << L"pid=" << pid << L" thread=" << thread << L" focus_class=" << name
+                   << L" password=" << ((GetWindowLongPtrW(info.hwndFocus, GWL_STYLE) & ES_PASSWORD) != 0)
+                   << L" layout=" << GetKeyboardLayout(thread) << L'\n';
+        return 0;
+    }
     HRESULT result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     if (FAILED(result)) return 2;
 
@@ -50,7 +62,22 @@ int main(int argc, char** argv) {
             CoUninitialize();
             return 6;
         }
+        if (activate_session || !enable) {
+            const auto input = LoadLibraryExW(L"input.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+            using InstallTip = BOOL(WINAPI*)(LPCWSTR, DWORD);
+            const auto install = input ? reinterpret_cast<InstallTip>(GetProcAddress(input, "InstallLayoutOrTip")) : nullptr;
+            const bool enabled = install && install(L"0x0804:{6D31C9B1-8978-4F49-89B4-66EB1E741591}{5D9F39C3-BDB4-453C-A7BA-B9EF82487629}", enable ? 0 : 1);
+            if (input) FreeLibrary(input);
+            if (!enabled) { std::cerr << "InstallLayoutOrTip failed\n"; profiles->Release(); CoUninitialize(); return 9; }
+        }
         if (activate_session) {
+            // ActivateProfile(DONTCARECURRENTINPUTLANGUAGE) can merely defer activation.
+            result = profiles->ChangeCurrentLanguage(kSimplifiedChinese);
+            if (FAILED(result)) {
+                std::cerr << "Cannot switch to the profile input language: " << std::hex
+                          << static_cast<unsigned long>(result) << '\n';
+                profiles->Release(); CoUninitialize(); return 7;
+            }
             ITfInputProcessorProfileMgr* manager = nullptr;
             result = CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr,
                                       CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&manager));
@@ -58,7 +85,7 @@ int main(int argc, char** argv) {
                 result = manager->ActivateProfile(
                     TF_PROFILETYPE_INPUTPROCESSOR, kSimplifiedChinese,
                     kTextServiceClsid, kLanguageProfileGuid, nullptr,
-                    TF_IPPMF_FORSESSION | TF_IPPMF_DONTCARECURRENTINPUTLANGUAGE);
+                    TF_IPPMF_FORSESSION);
                 manager->Release();
             }
             if (FAILED(result)) {

@@ -128,8 +128,11 @@ public sealed partial class MainPage : Page
     private async void SaveButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         => await SaveSettingsManuallyAsync();
 
-    private async void ReloadButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e) =>
+    private async void ReloadButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
         await LoadConfigAsync();
+        await LoadPluginsAsync();
+    }
 
     private async void ResetPageButton_Click(
         object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

@@ -22,19 +22,46 @@ public sealed partial class MainPage
     {
         DiscoverSchemesButton.IsEnabled = false;
         try {
-            var previous = CurrentScheme;
-            var discovered = await _pluginClient.DiscoverInputSchemesAsync();
-            _availableSchemes.Clear();
-            _availableSchemes.AddRange(InputSchemeSettingsPolicy.BuiltIns);
-            _availableSchemes.AddRange(discovered.Select(s => InputSchemeSettingsPolicy.Plugin(s.Id,
-                s.Name + "（插件·实验性）", $"{s.PluginId} · {s.Language}")));
-            if (!_availableSchemes.Any(scheme => scheme.Id == previous.Id))
-                _availableSchemes.Add(previous with { Description = "方案当前不可用或未获授权；请检查插件页面。" });
-            InputScheme.ItemsSource = _availableSchemes.ToArray();
-            SelectInputScheme(previous.Id);
-            ShowStatus($"发现 {discovered.Count} 个已授权方案；选择后将按保存设置应用。", InfoBarSeverity.Informational);
+            var count = await RefreshInputSchemesAsync();
+            ShowStatus($"发现 {count} 个已授权方案；选择后将按保存设置应用。", InfoBarSeverity.Informational);
         } catch (Exception error) { ShowStatus(error.Message, InfoBarSeverity.Error); }
         finally { DiscoverSchemesButton.IsEnabled = true; }
+    }
+
+    private async Task<int> RefreshInputSchemesAsync()
+    {
+        var discovered = await _pluginClient.DiscoverInputSchemesAsync();
+        var previous = CurrentScheme;
+        var options = InputSchemeSettingsPolicy.Refresh(discovered.Select(s =>
+            InputSchemeSettingsPolicy.Plugin(s.Id, s.Name + "（插件）", $"{s.PluginId} · {s.Language}")), previous);
+        var loaded = _settingsLoaded;
+        _settingsLoaded = false; // Refreshing labels must not save a transient ComboBox selection.
+        try {
+            _availableSchemes.Clear();
+            _availableSchemes.AddRange(options);
+            InputScheme.ItemsSource = _availableSchemes.ToArray();
+            SelectInputScheme(previous.Id);
+            UpdateInputSchemePresentation();
+        } finally { _settingsLoaded = loaded; }
+        return discovered.Select(s => s.Id).Distinct(StringComparer.Ordinal).Count();
+    }
+
+    private async Task RestorePinyinForPluginAsync(string pluginId)
+    {
+        await _settingsSaveGate.WaitAsync();
+        try {
+            // Reload before writing so disabling a plugin changes only its persisted scheme.
+            var saved = await _client.LoadAsync();
+            if (InputSchemeSettingsPolicy.NeedsFallback(saved.InputScheme, pluginId)) {
+                await _client.SaveAsync(saved with { InputScheme = "full_pinyin" });
+                if (_settingsBaseline is not null)
+                    _settingsBaseline = _settingsBaseline with { InputScheme = "full_pinyin" };
+            }
+            if (InputSchemeSettingsPolicy.NeedsFallback(CurrentScheme.Id, pluginId))
+                SelectInputScheme("full_pinyin");
+        } catch (Exception error) {
+            throw new InvalidOperationException($"插件已停用，但恢复全拼配置失败：{error.Message}", error);
+        } finally { _settingsSaveGate.Release(); }
     }
 
     private void InputScheme_SelectionChanged(object sender, SelectionChangedEventArgs e)

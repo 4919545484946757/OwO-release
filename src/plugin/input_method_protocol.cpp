@@ -1,6 +1,7 @@
 #include "owo/plugin/input_method_protocol.h"
 
 #include <utility>
+#include <algorithm>
 #include <unordered_set>
 
 namespace owo::plugin {
@@ -111,6 +112,7 @@ std::string encode_input_method_response(const engine::InputMethodDescriptor& d,
             writer.integer(range.begin, 4); writer.integer(range.end, 4);
         }
     }
+    if (!v.commit_id.empty()) {writer.bytes.append("OWIC");writer.text(v.commit_id);}
     if (writer.bytes.size() > kMaximumInputMethodWireBytes) return {};
     return std::move(writer.bytes);
 }
@@ -144,6 +146,10 @@ engine::InputMethodValidation decode_input_method_response(const engine::InputMe
         }
         value.candidates.push_back(std::move(c));
     }
+    if (!reader.done()) {
+        if (!d.commit_confirmation || reader.bytes.substr(reader.offset,4)!="OWIC")return invalid();
+        reader.offset+=4;if(!reader.text(value.commit_id,32))return invalid();
+    }
     if (!reader.done()) return invalid();
     const auto validation = engine::validate_input_method_response(d, r, value);
     if (validation.ok) output = std::move(value);
@@ -164,6 +170,9 @@ std::string encode_input_method_descriptors(std::string_view plugin_id,
         writer.integer(d.max_input_bytes, 4); writer.integer(d.max_candidates, 4);
         writer.integer(d.alphabet.size(), 4);
         for (auto scalar : d.alphabet) writer.integer(scalar, 4);
+    }
+    if (std::any_of(descriptors.begin(),descriptors.end(),[](const auto& d){return d.commit_confirmation;})) {
+        writer.bytes.append("OWCC");for(const auto& d:descriptors)writer.integer(d.commit_confirmation?1:0,1);
     }
     if (writer.bytes.size() > kMaximumInputMethodWireBytes) return {};
     return std::move(writer.bytes);
@@ -195,6 +204,10 @@ engine::InputMethodValidation decode_input_method_descriptors(std::string_view p
         if (d.plugin_id != plugin_id || !engine::validate_input_method_descriptor(d).ok ||
             !ids.insert(d.id).second) return invalid();
         values.push_back(std::move(d));
+    }
+    if (!reader.done()) {
+        if(reader.bytes.substr(reader.offset,4)!="OWCC")return invalid();reader.offset+=4;
+        for(auto& d:values) {std::uint64_t flag{};if(!reader.integer(flag,1)||flag>1)return invalid();d.commit_confirmation=flag!=0;}
     }
     if (!reader.done()) return invalid();
     output = std::move(values);

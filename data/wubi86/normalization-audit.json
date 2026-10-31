@@ -1,0 +1,753 @@
+{
+  "counts": {
+    "short": 4183,
+    "full": 20925,
+    "phrase": 62586,
+    "records": 87694,
+    "source_unique_records": 89255,
+    "source_duplicates": 3,
+    "gb2312_covered": 6763,
+    "gb2312_level1": 3755,
+    "gb2312_level2": 3008,
+    "full_characters": 20924,
+    "extension_characters": 14161,
+    "excluded_private_use_characters": 80,
+    "cjk_unified_characters": 20902,
+    "compatibility_characters": 21,
+    "ideographic_zero_characters": 1,
+    "multi_full_characters": 1,
+    "quarantined": 1572,
+    "collision_codes": 8594,
+    "collision_records": 19582,
+    "single_full_collision_codes": 2906,
+    "single_full_collision_records": 6510,
+    "full_code_length_3": 1587,
+    "full_code_length_4": 19338,
+    "core_jidian_full_disagreements_after_corrections": 1
+  },
+  "phrase_validation": {
+    "phrase": 62586,
+    "missing verified character": 33,
+    "phrase code mismatch": 35
+  },
+  "source_additions": [
+    {
+      "text": "式",
+      "code": "aad",
+      "weight": 0,
+      "kind": "full"
+    },
+    {
+      "text": "隣",
+      "code": "boqh",
+      "weight": 0,
+      "kind": "full"
+    },
+    {
+      "text": "嗀",
+      "code": "fpgc",
+      "weight": 0,
+      "kind": "full"
+    },
+    {
+      "text": "兀",
+      "code": "gqv",
+      "weight": 0,
+      "kind": "full"
+    },
+    {
+      "text": "愡",
+      "code": "nqrn",
+      "weight": 0,
+      "kind": "full"
+    },
+    {
+      "text": "糖",
+      "code": "oyv",
+      "weight": 0,
+      "kind": "short"
+    },
+    {
+      "text": "秊",
+      "code": "ttfj",
+      "weight": 0,
+      "kind": "full"
+    },
+    {
+      "text": "梟",
+      "code": "tvgs",
+      "weight": 0,
+      "kind": "full"
+    },
+    {
+      "text": "凉",
+      "code": "uyiy",
+      "weight": 0,
+      "kind": "full"
+    },
+    {
+      "text": "裏",
+      "code": "yjfe",
+      "weight": 0,
+      "kind": "full"
+    },
+    {
+      "text": "郎",
+      "code": "yveb",
+      "weight": 0,
+      "kind": "full"
+    }
+  ],
+  "corrections": {
+    "发": {
+      "original": "ntyc",
+      "full": "ntcy",
+      "evidence": [
+        "KyleBing main table",
+        "rime-wubi wubi86 table"
+      ]
+    },
+    "靥": {
+      "original": "dddd",
+      "full": "dddl",
+      "evidence": [
+        "KyleBing main table",
+        "rime-wubi wubi86 table"
+      ]
+    }
+  },
+  "excluded_source_characters": [
+    {
+      "scalar": "U+E815",
+      "codes": [
+        "rtt"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E816",
+      "codes": [
+        "dgt"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E817",
+      "codes": [
+        "ttg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E818",
+      "codes": [
+        "nnll"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E819",
+      "codes": [
+        "nnll"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E81A",
+      "codes": [
+        "wqbt"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E81B",
+      "codes": [
+        "wqvg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E81C",
+      "codes": [
+        "qtn"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E81D",
+      "codes": [
+        "bnn"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E81E",
+      "codes": [
+        "cny"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E81F",
+      "codes": [
+        "kkmw"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E820",
+      "codes": [
+        "kunt"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E821",
+      "codes": [
+        "kunt"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E822",
+      "codes": [
+        "ihyt"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E823",
+      "codes": [
+        "nhty"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E824",
+      "codes": [
+        "nqbt"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E825",
+      "codes": [
+        "nqvg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E826",
+      "codes": [
+        "rtgt"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E827",
+      "codes": [
+        "rmqy"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E828",
+      "codes": [
+        "rian"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E829",
+      "codes": [
+        "rwyc"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E82A",
+      "codes": [
+        "rccy"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E82B",
+      "codes": [
+        "gggg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E82C",
+      "codes": [
+        "aghg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E82D",
+      "codes": [
+        "smqy"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E82E",
+      "codes": [
+        "gqkm"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E82F",
+      "codes": [
+        "idpy"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E830",
+      "codes": [
+        "tfd"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E831",
+      "codes": [
+        "dwi"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E832",
+      "codes": [
+        "ipb"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E833",
+      "codes": [
+        "nhd"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E834",
+      "codes": [
+        "hovg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E835",
+      "codes": [
+        "tcde"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E836",
+      "codes": [
+        "ttgy"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E837",
+      "codes": [
+        "xmg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E838",
+      "codes": [
+        "pqb"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E839",
+      "codes": [
+        "udr"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E83A",
+      "codes": [
+        "ugf"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E83B",
+      "codes": [
+        "fae"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E83C",
+      "codes": [
+        "dilx"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E83D",
+      "codes": [
+        "dilc"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E83E",
+      "codes": [
+        "vhgd"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E83F",
+      "codes": [
+        "efny"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E840",
+      "codes": [
+        "apwl"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E841",
+      "codes": [
+        "pukm"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E842",
+      "codes": [
+        "pukm"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E843",
+      "codes": [
+        "udi"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E844",
+      "codes": [
+        "yrh"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E845",
+      "codes": [
+        "yauo"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E846",
+      "codes": [
+        "mgeg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E847",
+      "codes": [
+        "mgeg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E848",
+      "codes": [
+        "khf"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E849",
+      "codes": [
+        "qynn"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E84A",
+      "codes": [
+        "qaht"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E84B",
+      "codes": [
+        "qnty"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E84C",
+      "codes": [
+        "qynn"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E84D",
+      "codes": [
+        "qafj"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E84E",
+      "codes": [
+        "qudk"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E84F",
+      "codes": [
+        "qhhc"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E850",
+      "codes": [
+        "uwwf"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E851",
+      "codes": [
+        "uqvh"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E852",
+      "codes": [
+        "uwwf"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E853",
+      "codes": [
+        "uqvh"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E854",
+      "codes": [
+        "fjj"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E855",
+      "codes": [
+        "oopb"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E856",
+      "codes": [
+        "haqt"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E857",
+      "codes": [
+        "qgqb"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E858",
+      "codes": [
+        "qgdj"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E859",
+      "codes": [
+        "qgug"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E85A",
+      "codes": [
+        "haqt"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E85B",
+      "codes": [
+        "eudg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E85C",
+      "codes": [
+        "gmhg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E85D",
+      "codes": [
+        "uqqg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E85E",
+      "codes": [
+        "gqjg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E85F",
+      "codes": [
+        "geqg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E860",
+      "codes": [
+        "hdqg"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E861",
+      "codes": [
+        "rhag"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E862",
+      "codes": [
+        "nkug"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E863",
+      "codes": [
+        "dxgd"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    },
+    {
+      "scalar": "U+E864",
+      "codes": [
+        "xyxy"
+      ],
+      "reason": "private-use source slot has no portable character identity"
+    }
+  ],
+  "exceptions": [
+    {
+      "line": 3862,
+      "record": "工作日\tawjj\t30\t2",
+      "reason": "stem is annotation, retained here, not interpreted as code"
+    },
+    {
+      "line": 7911,
+      "record": "\tcokg\t10\t全角空格",
+      "reason": "malformed code/text/columns"
+    },
+    {
+      "line": 8279,
+      "record": "ю\tcoxe\t10",
+      "reason": "duplicate: retain max weight"
+    },
+    {
+      "line": 21018,
+      "record": "一键\tggqv\t20",
+      "reason": "duplicate: retain max weight"
+    },
+    {
+      "line": 25839,
+      "record": "瞻仰\thqwq\t10",
+      "reason": "duplicate: retain max weight"
+    },
+    {
+      "line": 35391,
+      "record": "蹒跚\tkhkh",
+      "reason": "missing weight explicitly normalized to zero"
+    },
+    {
+      "line": 50719,
+      "record": "猫猫\tqaqa",
+      "reason": "missing weight explicitly normalized to zero"
+    },
+    {
+      "line": 51185,
+      "record": "触碰\tqedu\t10\t空格",
+      "reason": "stem is annotation, retained here, not interpreted as code"
+    },
+    {
+      "line": 53629,
+      "record": "狗狗\tqqqq",
+      "reason": "missing weight explicitly normalized to zero"
+    },
+    {
+      "line": 54398,
+      "record": "猫猫\tqtqt",
+      "reason": "missing weight explicitly normalized to zero"
+    },
+    {
+      "line": 54399,
+      "record": "狗狗\tqtqt",
+      "reason": "missing weight explicitly normalized to zero"
+    },
+    {
+      "line": 69086,
+      "record": "TF卡\tttfhh\t10",
+      "reason": "malformed code/text/columns"
+    },
+    {
+      "line": 73937,
+      "record": "m³\tuuyy\t10\t立方",
+      "reason": "stem is annotation, retained here, not interpreted as code"
+    },
+    {
+      "line": 78905,
+      "record": "欲加之罪，何患无辞\twlpl\t20\t欲加之罪",
+      "reason": "stem is annotation, retained here, not interpreted as code"
+    }
+  ]
+}

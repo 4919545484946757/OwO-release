@@ -1,3 +1,5 @@
+#include "activation_trace.h"
+#include "owo/tsf/scheme_commit.h"
 #include "text_service.h"
 #include "owo/tsf/input_method_context.h"
 #include "owo/tsf/candidate_window_order.h"
@@ -38,6 +40,40 @@ namespace owo::tsf {
 namespace {
 LONG object_count = 0;
 LONG lock_count = 0;
+std::atomic<unsigned> retired_commit_feedback{};
+struct RetiredCommitFeedback {
+    std::unique_ptr<ipc::InputMethodAsyncClient> client;
+    std::future<ipc::InputMethodClientResult> result;
+    HMODULE module{};
+};
+DWORD WINAPI drain_retired_commit(void* raw) {
+    HMODULE module{};
+    {
+        std::unique_ptr<RetiredCommitFeedback> state(static_cast<RetiredCommitFeedback*>(raw));
+        module=state->module;bool confirmed=false;
+        try {if(state->result.wait_for(std::chrono::seconds(2))==std::future_status::ready){auto value=state->result.get();confirmed=value.status && value.response && value.response->status==engine::InputMethodStatus::success;}}catch(...){}
+        if(!confirmed)OutputDebugStringW(L"OwO: retired commit acknowledgement unavailable; text will not be replayed.\n");
+        state->client.reset();retired_commit_feedback.fetch_sub(1);decrement_server_lock();
+    } // Destroy every C++ capture while the real module reference is still held.
+    FreeLibraryAndExitThread(module,0);
+}
+// Only captured transactions cross this boundary; never COM/context pointers.
+void retire_commit_feedback(std::unique_ptr<ipc::InputMethodAsyncClient> client,
+                            std::future<ipc::InputMethodClientResult> result) noexcept {
+    if(retired_commit_feedback.fetch_add(1)>=4) {
+        retired_commit_feedback.fetch_sub(1);OutputDebugStringW(L"OwO: bounded commit feedback retirement limit reached.\n");return;
+    }
+    HMODULE module{};
+    if(!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+         reinterpret_cast<LPCWSTR>(&retired_commit_feedback),&module)) {retired_commit_feedback.fetch_sub(1);return;}
+    increment_server_lock();
+    try {
+        auto state=std::make_unique<RetiredCommitFeedback>(RetiredCommitFeedback{std::move(client),std::move(result),module});
+        HANDLE thread=CreateThread(nullptr,0,drain_retired_commit,state.get(),0,nullptr);
+        if(thread){(void)state.release();CloseHandle(thread);return;}
+    }catch(...){}
+    retired_commit_feedback.fetch_sub(1);decrement_server_lock();FreeLibrary(module);
+}
 constexpr wchar_t kMessageClass[] = L"OwO.P1.MessageWindow";
 constexpr wchar_t kCandidateShadowClass[] = L"OwO.P1.CandidateShadowWindow";
 constexpr wchar_t kCandidateClass[] = L"OwO.P1.CandidateWindow";
@@ -865,14 +901,14 @@ private:
     ITfLangBarItemSink* sink_{};
 };
 
-TextService::TextService() noexcept {
+TextService::TextService() noexcept { activation_trace("TextService.construct");
     next_request_id_ = (static_cast<std::uint64_t>(GetCurrentProcessId()) << 32U) |
                        (GetTickCount64() & 0xffffffffULL);
     rotate_agent_context();
     InterlockedIncrement(&object_count);
 }
 
-TextService::~TextService() {
+TextService::~TextService() { activation_trace("TextService.destroy");
     Deactivate();
     InterlockedDecrement(&object_count);
 }
@@ -915,6 +951,7 @@ HRESULT TextService::Activate(ITfThreadMgr* thread_manager, const TfClientId cli
 HRESULT TextService::ActivateEx(ITfThreadMgr* thread_manager,
                                 const TfClientId client_id,
                                 DWORD) {
+    activation_trace("ActivateEx", S_OK, thread_manager);
     if (thread_manager == nullptr) return E_INVALIDARG;
     if (thread_manager_ != nullptr) return E_UNEXPECTED;
     thread_manager_ = thread_manager;
@@ -924,7 +961,7 @@ HRESULT TextService::ActivateEx(ITfThreadMgr* thread_manager,
     ITfKeystrokeMgr* keystroke_manager = nullptr;
     HRESULT result = thread_manager_->QueryInterface(IID_PPV_ARGS(&keystroke_manager));
     if (SUCCEEDED(result)) {
-        result = keystroke_manager->AdviseKeyEventSink(client_id_, this, TRUE);
+        result = keystroke_manager->AdviseKeyEventSink(client_id_, this, TRUE); activation_trace("AdviseKeyEventSink", result);
         keystroke_manager->Release();
     }
     if (FAILED(result)) {
@@ -942,13 +979,16 @@ HRESULT TextService::ActivateEx(ITfThreadMgr* thread_manager,
                                         static_cast<ITfThreadFocusSink*>(this),
                                         &thread_focus_sink_cookie_);
         }
+        activation_trace("AdviseThreadSinks.result", result);
         source->Release();
     }
     if (FAILED(result)) {
         Deactivate();
         return result;
     }
+    activation_trace("ThreadManagerSink.result", result);
     result = initialize_windows();
+    activation_trace("InitializeWindows.result", result);
     if (FAILED(result)) {
         Deactivate();
         return result;
@@ -963,7 +1003,7 @@ HRESULT TextService::ActivateEx(ITfThreadMgr* thread_manager,
     return S_OK;
 }
 
-HRESULT TextService::Deactivate() {
+HRESULT TextService::Deactivate() { activation_trace("Deactivate");
     if (worker_.joinable()) {
         worker_.request_stop();
         request_ready_.notify_all();
@@ -1006,7 +1046,7 @@ HRESULT TextService::Deactivate() {
         thread_manager_event_sink_cookie_ = TF_INVALID_COOKIE;
         ITfKeystrokeMgr* keystroke_manager = nullptr;
         if (SUCCEEDED(thread_manager_->QueryInterface(IID_PPV_ARGS(&keystroke_manager)))) {
-            keystroke_manager->UnadviseKeyEventSink(client_id_);
+            activation_trace("UnadviseKeyEventSink", keystroke_manager->UnadviseKeyEventSink(client_id_));
             keystroke_manager->Release();
         }
         thread_manager_->Release();
@@ -1194,7 +1234,7 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
             static_cast<std::size_t>(key - '1') < candidates_.size());
 }
 
-HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) {
+HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) { activation_trace("OnTestKeyDown", S_OK, context);
     if (eaten == nullptr) return E_POINTER;
     refresh_shortcut_config();
     *eaten = (plugin_scheme_selected() ? plugin_should_eat_key(context, key, flags)
@@ -1202,7 +1242,7 @@ HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags
     return S_OK;
 }
 
-HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) {
+HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) { activation_trace("OnKeyDown", S_OK, context);
     if (eaten == nullptr) return E_POINTER;
     refresh_shortcut_config();
     if (plugin_scheme_selected()) return handle_plugin_key(context, key, flags, eaten);
@@ -1498,7 +1538,7 @@ HRESULT TextService::OnTestKeyUp(ITfContext*, const WPARAM key, LPARAM, BOOL* ea
     return S_OK;
 }
 
-HRESULT TextService::OnKeyUp(ITfContext* context, const WPARAM key, LPARAM, BOOL* eaten) {
+HRESULT TextService::OnKeyUp(ITfContext* context, const WPARAM key, LPARAM, BOOL* eaten) { activation_trace("OnKeyUp", S_OK, context);
     if (eaten == nullptr) return E_POINTER;
     if (!is_alt_key(key) || !alt_code_preview_active_) {
         *eaten = FALSE;
@@ -5454,7 +5494,7 @@ bool TextService::plugin_context_is_current(ITfContext* context) const {
 }
 
 bool TextService::plugin_context_allowed(ITfContext* context) {
-    if (!plugin_context_is_current(context)) return false;
+    if (!plugin_context_is_current(context)) { activation_trace("CONTEXT_NOT_CURRENT", E_ACCESSDENIED, context); return false; }
     InputMethodContextSafety safety = InputMethodContextSafety::unknown;
     auto* edit = new (std::nothrow) SchemeEditSession(context, [&](TfEditCookie cookie) {
         safety = inspect_input_method_context(context, cookie);
@@ -5465,6 +5505,9 @@ bool TextService::plugin_context_allowed(ITfContext* context) {
     HRESULT result = E_FAIL;
     const auto request = context->RequestEditSession(client_id_, edit, TF_ES_SYNC | TF_ES_READ, &result);
     edit->Release();
+    activation_trace("CONTEXT_EDIT_REQUEST", request, context);
+    activation_trace("CONTEXT_EDIT_RESULT", result, context);
+    activation_trace(safety == InputMethodContextSafety::allowed ? "CONTEXT_ALLOWED" : "CONTEXT_DENIED", S_OK, context);
     return SUCCEEDED(request) && SUCCEEDED(result) && safety == InputMethodContextSafety::allowed;
 }
 
@@ -5472,7 +5515,8 @@ bool TextService::plugin_should_eat_key(ITfContext* context, WPARAM key, LPARAM 
     if (plugin_input_context_ && !same_context(context, plugin_input_context_)) clear_composition();
     if (shortcut_config_.language_shortcut_enabled &&
         shortcut_matches(shortcut_config_.language_shortcuts, key)) return true;
-    if (!chinese_mode_ || !plugin_context_allowed(context)) return false;
+    if (!chinese_mode_) { activation_trace("ENGLISH_MODE", S_OK, context); return false; }
+    if (!plugin_context_allowed(context)) return false;
     if (has_composition()) {
         if (key == VK_PRIOR || key == VK_NEXT) return !command_modifier_down();
         if (key == VK_ESCAPE || key == VK_BACK || key == VK_DELETE || key == VK_RETURN || key == VK_SPACE)
@@ -5496,8 +5540,11 @@ bool TextService::plugin_should_eat_key(ITfContext* context, WPARAM key, LPARAM 
 
 void TextService::reset_plugin_input() {
     plugin_input_document_.invalidate();
+    if(plugin_commit_future_.valid() && plugin_input_client_)
+        retire_commit_feedback(std::move(plugin_input_client_),std::move(plugin_commit_future_));
     if (plugin_input_client_) (void)plugin_input_client_->close();
     plugin_input_future_ = {};
+    plugin_commit_future_ = {};plugin_commit_request_.reset();
     plugin_pending_selection_.reset();
     plugin_input_descriptor_.reset(); plugin_input_session_.clear();
     plugin_input_opening_ = plugin_input_committing_ = false;
@@ -5515,6 +5562,11 @@ HRESULT TextService::handle_plugin_key(ITfContext* context, WPARAM key, LPARAM f
     if (plugin_replay_context_) finish_plugin_input_on_ui();
     *eaten = plugin_should_eat_key(context, key, flags) ? TRUE : FALSE;
     if (!*eaten) return S_OK;
+    if(plugin_commit_future_.valid() && plugin_context_allowed(context)) {
+        PluginDeferredKey deferred{key,flags,{}};
+        if(GetKeyboardState(deferred.state))plugin_deferred_keys_.push_back(deferred);else *eaten=FALSE;
+        return S_OK;
+    }
     if (shortcut_config_.language_shortcut_enabled && shortcut_matches(shortcut_config_.language_shortcuts, key))
         return toggle_language_mode(context);
     if (!plugin_context_allowed(context)) { *eaten = FALSE; return S_OK; }
@@ -5659,6 +5711,7 @@ std::size_t TextService::plugin_expanded_block_rows() const noexcept {
 }
 
 void TextService::queue_plugin_compose() {
+    if(plugin_commit_future_.valid()){plugin_input_needs_compose_=true;return;}
     if (!plugin_input_descriptor_ || plugin_input_committing_ || !plugin_input_client_ ||
         !plugin_context_allowed(plugin_input_context_)) return;
     auto request = plugin_input_document_.composition().compose_request(++plugin_input_request_id_,
@@ -5685,6 +5738,7 @@ void TextService::select_plugin_candidate(std::size_t index, bool defer,
         index >= composition.display()->candidates.size() || !plugin_context_allowed(plugin_input_context_)) return;
     auto request = composition.select_request(++plugin_input_request_id_, composition.display()->candidates[index].id);
     if (!request) return;
+    plugin_commit_request_=*request;
     plugin_input_future_ = plugin_input_client_->submit(plugin_input_document_.generation(), std::move(*request), false);
     candidate_request_pending_ = true;
     SetTimer(message_window_, kPluginInputTimer, 16, nullptr);
@@ -5723,6 +5777,20 @@ void TextService::poll_plugin_input() {
         return;
     }
     if (!plugin_context_allowed(plugin_input_context_)) { clear_composition(); return; }
+    if(plugin_commit_future_.valid()) {
+        if(plugin_commit_future_.wait_for(std::chrono::seconds(0))!=std::future_status::ready)return;
+        bool confirmed=false;
+        try {auto result=plugin_commit_future_.get();confirmed=result.status && result.response && result.response->status==engine::InputMethodStatus::success;}catch(...){}
+        if(!confirmed && plugin_commit_request_ && plugin_commit_retries_++<1 && plugin_input_client_) {
+            auto retry=*plugin_commit_request_;retry.request_id=++plugin_input_request_id_;
+            plugin_commit_future_=plugin_input_client_->submit(plugin_input_document_.generation(),std::move(retry),false);return;
+        }
+        if(!confirmed)OutputDebugStringW(L"OwO: input scheme commit acknowledgement failed; application text will not be replayed.\n");
+        plugin_commit_request_.reset();plugin_commit_retries_=0;
+        if(plugin_replay_context_)finish_plugin_input_on_ui();
+        if(plugin_input_document_.composition().input().empty()&&!candidate_request_pending_){clear_composition();return;}
+        if(!candidate_request_pending_)queue_plugin_compose();return;
+    }
     if (!plugin_input_future_.valid() || plugin_input_future_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
     ipc::InputMethodClientResult result;
     try { result = plugin_input_future_.get(); }
@@ -5736,7 +5804,8 @@ void TextService::poll_plugin_input() {
     if (!plugin_context_allowed(plugin_input_context_)) { clear_composition(); return; }
     if (!result.status) {
         plugin_input_opening_ = false; candidate_request_failed_ = true;
-        candidate_failure_detail_ = L"输入方案不可用或授权已撤销；编码已保留，可按 Enter 原样上屏";
+        candidate_failure_detail_ = L"输入方案请求失败：" + wide_from_utf8(result.status.message) +
+            L"；编码已保留，可按 Enter 原样上屏";
         update_candidate_window(); return;
     }
     if (plugin_input_opening_) {
@@ -5757,7 +5826,14 @@ void TextService::poll_plugin_input() {
         candidate_request_failed_ = true; candidate_failure_detail_ = L"方案返回无效候选；编码已保留";
         update_candidate_window(); return;
     }
-    if (applied.commit) { commit_plugin_text(wide_from_utf8(applied.commit->text), true); return; }
+    if (applied.commit) {
+        if(plugin_commit_request_ && result.response && !result.response->commit_id.empty() &&
+           plugin_commit_request_->request_id==result.response->request_id) {
+            plugin_commit_request_->action=engine::InputMethodAction::committed;
+            plugin_commit_request_->selected_candidate_id=result.response->commit_id;
+        } else plugin_commit_request_.reset();
+        commit_plugin_text(wide_from_utf8(applied.commit->text), true); return;
+    }
     if (result.response && result.response->status != engine::InputMethodStatus::success) {
         candidate_request_failed_ = true;
         candidate_failure_detail_ = L"输入方案暂不可用；编码已保留";
@@ -5811,31 +5887,22 @@ void TextService::commit_plugin_text(std::wstring text, bool selected, bool swit
                 current ? inspect_input_method_context(context, cookie) : InputMethodContextSafety::unknown});
             HRESULT written = E_ABORT;
             if (valid) {
-                TF_SELECTION selection{}; ULONG count{};
-                written = context->GetSelection(cookie, TF_DEFAULT_SELECTION, 1, &selection, &count);
-                if (SUCCEEDED(written) && count == 1 && selection.range) {
-                    written = selection.range->SetText(cookie, 0, text.data(), static_cast<LONG>(text.size()));
-                    if (SUCCEEDED(written)) {
-                        // SetText already committed even if caret positioning fails: never duplicate it on retry.
-                        (void)selection.range->Collapse(cookie, TF_ANCHOR_END);
-                        (void)context->SetSelection(cookie, 1, &selection);
-                        release_interface(plugin_input_selection_);
-                        TF_SELECTION fresh{}; ULONG fetched{};
-                        if (SUCCEEDED(context->GetSelection(cookie, TF_DEFAULT_SELECTION, 1, &fresh, &fetched)) && fetched == 1)
-                            plugin_input_selection_ = fresh.range;
-                        else if (fresh.range) fresh.range->Release();
-                    }
-                } else written = E_FAIL;
-                if (selection.range) selection.range->Release();
+                written=commit_scheme_selection(context,cookie,text,&plugin_input_selection_);
             }
             if (plugin_input_document_.generation() != generation || plugin_commit_deadline_ != deadline) return written;
             auto* replay_selection = plugin_input_selection_;
             if (replay_selection) replay_selection->AddRef();
             plugin_input_committing_ = false;
+            // Only the real application SetText success above may issue this acknowledgement.
+            if(selected && SUCCEEDED(written) && plugin_commit_request_ && plugin_input_client_ &&
+               plugin_commit_request_->action==engine::InputMethodAction::committed) {
+                plugin_commit_retries_=0;auto confirmation=*plugin_commit_request_;confirmation.request_id=++plugin_input_request_id_;
+                plugin_commit_future_=plugin_input_client_->submit(generation,std::move(confirmation),false);
+            } else if(selected)plugin_commit_request_.reset();
             if (selected) (void)plugin_input_document_.finish_commit(generation, SUCCEEDED(written));
             auto deferred = std::move(plugin_deferred_keys_);
             if (SUCCEEDED(written)) {
-                if (!selected || plugin_input_document_.composition().input().empty()) clear_composition();
+                if ((!selected || plugin_input_document_.composition().input().empty()) && !plugin_commit_future_.valid()) clear_composition();
                 else { candidate_page_ = 0; sync_plugin_display(); plugin_input_needs_compose_ = true; }
             } else {
                 candidate_request_failed_ = true; candidate_failure_detail_ = L"上屏失败；编码已保留";
@@ -5868,6 +5935,7 @@ void TextService::commit_plugin_text(std::wstring text, bool selected, bool swit
 }
 
 void TextService::finish_plugin_input_on_ui() {
+    if(plugin_commit_future_.valid())return;
     auto* context = std::exchange(plugin_replay_context_, nullptr);
     auto* selection = std::exchange(plugin_replay_selection_, nullptr);
     if (!context) { if (selection) selection->Release(); return; }

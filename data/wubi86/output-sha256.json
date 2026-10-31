@@ -1,0 +1,10 @@
+{
+  "data/wubi86/main.tsv": "a7ebe25ce75257453c4864bc00c24e0e3d5f5b3706168152b8a005baffe82263",
+  "data/wubi86/full-codes.tsv": "da84ca96a37711ef8fb8d5b91393ee9c5335478d11d7c7e8c433b3600d01bbe2",
+  "data/wubi86/gb2312.tsv": "04f086d1c8edd8adce15e2f105ba50a3ad922e30615cdaf156fe044688d24649",
+  "data/wubi86/roots.json": "f373131d5e87f3e2dbd41e4735a9e27d19b86061075058b628ed21cf2237fa79",
+  "data/wubi86/roots-chart.svg": "b44fbf2dc0c444d74d244dfa9b86a11df3fa18223f1a8240c4663a7d87f22f1c",
+  "src/wubi86/wubi86_roots.inc": "53d36330d7e0456095b714259adb8f6681ad52da023fea2d0fc3a99d67cd36e1",
+  "data/wubi86/normalization-audit.json": "efdf76ea932db16f1df4ba2722a49f3256cd82f765e8479a45b0cfea29497c00",
+  "data/wubi86/quarantine.json": "e3bfa80d178b8f9ed39b9b5fa12da0f377b06aa8447a67d1dc370269622e3548"
+}

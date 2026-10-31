@@ -19,6 +19,8 @@ struct InputMethodContextFacts {
 // Call only from a trusted TSF read/edit session with its own cookie. Reads metadata,
 // never text, phrases, selection contents, clipboard or surrounding context.
 [[nodiscard]] InputMethodContextSafety inspect_input_method_context(ITfContext*, TfEditCookie);
+// Independent OS evidence for native Edit/RichEdit hosts that do not expose InputScope.
+[[nodiscard]] InputMethodContextSafety inspect_native_edit_scope(HWND context_view, HWND focused_window);
 
 struct InputMethodWriteFacts {
     std::uint64_t expected_generation{}, current_generation{};

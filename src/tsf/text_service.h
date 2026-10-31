@@ -99,6 +99,7 @@ private:
     friend class LanguageBarItem;
 #ifdef OWO_TSF_TEST_ACCESS
     friend struct ExpandedCandidateTestAccess;
+    friend struct WubiCommitTestAccess;
 #endif
     struct CandidateResult {
         std::uint64_t request_id{};
@@ -283,6 +284,9 @@ private:
     ULONGLONG plugin_commit_deadline_{};
     std::optional<engine::InputMethodDescriptor> plugin_input_descriptor_;
     std::future<ipc::InputMethodClientResult> plugin_input_future_;
+    std::future<ipc::InputMethodClientResult> plugin_commit_future_;
+    std::optional<engine::InputMethodRequest> plugin_commit_request_;
+    unsigned plugin_commit_retries_{};
     std::string plugin_input_session_;
     std::uint64_t plugin_input_request_id_{};
     struct PluginPendingSelection { std::size_t index; std::wstring input; std::uint64_t generation, page;

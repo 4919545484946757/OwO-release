@@ -29,6 +29,10 @@ if ($process.ExitCode -ne 0) {
     throw "regsvr32 failed with exit code $($process.ExitCode)"
 }
 Write-Output "Registered development TSF ($Architecture): $DllPath"
+if ($Architecture -eq 'x64') {
+    & (Join-Path $PSScriptRoot 'sync-notepad-tsf-dev.ps1') -DllPath $DllPath `
+        -EvidenceDirectory (Join-Path $projectRoot ("build/tsf-registration/" + [guid]::NewGuid().ToString('N')))
+}
 $check = Join-Path $projectRoot "build/$preset/$Configuration/owo_tsf_profile_check.exe"
 if (Test-Path -LiteralPath $check -PathType Leaf) {
     & $check --refresh-cache

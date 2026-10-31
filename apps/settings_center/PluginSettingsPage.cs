@@ -18,6 +18,7 @@ public sealed partial class MainPage
                 ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
             NoRecovery.Visibility = value.Recovery.Count == 0
                 ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+            await RefreshInputSchemesAsync();
             ShowStatus($"插件状态已刷新：{value.Plugins.Count} 个版本，{value.Recovery.Count} 个恢复项。",
                        InfoBarSeverity.Success);
         } catch (Exception error) {
@@ -475,8 +476,10 @@ public sealed partial class MainPage
                        $"{plugin.Name} {plugin.Version}\n{plugin.Id}{warning}", action)) return;
         SetBusy(true);
         try {
-            if (plugin.Active) await _pluginClient.DeactivateAsync(plugin.Id, plugin.Version);
-            else await _pluginClient.ActivateAsync(
+            if (plugin.Active) {
+                await _pluginClient.DeactivateAsync(plugin.Id, plugin.Version);
+                await RestorePinyinForPluginAsync(plugin.Id);
+            } else await _pluginClient.ActivateAsync(
                 plugin.Id, plugin.Version, agentPrivacyConsent);
             await LoadPluginsAsync();
             NotifyCandidateThemeChanged();
@@ -536,6 +539,7 @@ public sealed partial class MainPage
         try {
             if (plugin.Active) await _pluginClient.DeactivateAsync(plugin.Id, plugin.Version);
             await _pluginClient.RevokeAsync(plugin.Id, plugin.Version);
+            await RestorePinyinForPluginAsync(plugin.Id);
             await LoadPluginsAsync();
             NotifyCandidateThemeChanged();
             ShowStatus("插件权限已撤销，插件已停用。", InfoBarSeverity.Success);

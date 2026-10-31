@@ -1,0 +1,121 @@
+{
+  "tests": [
+    {
+      "name": "owo.engine.input_method_composition",
+      "result": "PASS",
+      "seconds": 0.0281931,
+      "output": ""
+    },
+    {
+      "name": "owo.engine.input_method_provider",
+      "result": "PASS",
+      "seconds": 0.0261695,
+      "output": "Input method provider contract tests passed\n"
+    },
+    {
+      "name": "owo.engine.full_pinyin",
+      "result": "PASS",
+      "seconds": 10.3547,
+      "output": ""
+    },
+    {
+      "name": "owo.engine.candidates",
+      "result": "FAIL",
+      "seconds": 0.171302,
+      "output": "a complete shorter reading displaced an incomplete learned word\n"
+    },
+    {
+      "name": "owo.engine.ambiguous_boundaries",
+      "result": "PASS",
+      "seconds": 0.358005,
+      "output": "Ambiguous boundary budget, model, incremental and explicit-boundary tests passed\n"
+    },
+    {
+      "name": "owo.engine.dictionary_bridges",
+      "result": "PASS",
+      "seconds": 0.588514,
+      "output": "Dictionary bridges, unmatched edges, quotas and prefix commits passed\n"
+    },
+    {
+      "name": "owo.engine.phrase_chains",
+      "result": "PASS",
+      "seconds": 0.20881,
+      "output": ""
+    },
+    {
+      "name": "owo.engine.candidate_partition",
+      "result": "PASS",
+      "seconds": 0.026125,
+      "output": ""
+    },
+    {
+      "name": "owo.engine.candidate_search_budget",
+      "result": "PASS",
+      "seconds": 0.269578,
+      "output": "Bounded beam matches exhaustive expansion, with early rejection and cancellation\n"
+    },
+    {
+      "name": "owo.engine.lookup_reuse",
+      "result": "PASS",
+      "seconds": 0.180054,
+      "output": "Request lookup reuse, dictionary refresh, structured keys and memoized matching passed\n"
+    },
+    {
+      "name": "owo.engine.local_corrections",
+      "result": "PASS",
+      "seconds": 5.18241,
+      "output": "Local minimal-edit correction, suffix preservation and dictionary ranking tests passed\n"
+    },
+    {
+      "name": "owo.engine.user_lexicon_alignment",
+      "result": "PASS",
+      "seconds": 0.200454,
+      "output": "User-word source alignment and completion isolation tests passed\n"
+    },
+    {
+      "name": "owo.engine.candidate_scheduler",
+      "result": "PASS",
+      "seconds": 0.0333325,
+      "output": ""
+    },
+    {
+      "name": "owo.engine.binary_lexicon",
+      "result": "PASS",
+      "seconds": 0.0350223,
+      "output": ""
+    },
+    {
+      "name": "owo.engine.user_frequency",
+      "result": "PASS",
+      "seconds": 0.24799,
+      "output": ""
+    },
+    {
+      "name": "owo.engine.user_word_retention",
+      "result": "PASS",
+      "seconds": 0.980651,
+      "output": ""
+    },
+    {
+      "name": "owo.wubi86.phase1",
+      "result": "PASS",
+      "seconds": 1.70624,
+      "output": "PASS: golden, roots, phrase rules, UTF-8, validation, multi-code, trie, loading, 20000 lookups; entries=87694\n"
+    },
+    {
+      "name": "owo.wubi86.coverage",
+      "result": "PASS",
+      "seconds": 8.11788,
+      "output": "PASS core=6763 roots=257 rows=87694 phrases=62586 exact_codes=76706 prefixes=85921 load_ms=1407 total_ms=7497\n"
+    },
+    {
+      "name": "owo.wubi86.data_integrity",
+      "result": "PASS",
+      "seconds": 0.318694,
+      "output": "PASS generated assets, 65 raw receipts, GB2312 exact position map, 257 root identities\n"
+    }
+  ],
+  "baseline_candidate_result": "FAIL",
+  "baseline_error": "a complete shorter reading displaced an incomplete learned word",
+  "baseline_head": "0c30b077b7fe5d883ac109e6157690ebf61d9f0c"
+}

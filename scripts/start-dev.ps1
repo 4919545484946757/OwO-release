@@ -6,6 +6,7 @@ param(
     [string]$LibimeRuntimeDirectory,
     [string]$LibimeModelPath,
     [switch]$BuildLatest,
+    [switch]$AcceptDevelopmentPackageRisk,
     [switch]$RestartCore,
     [switch]$DisableModelHost,
     [switch]$SkipRegistration,
@@ -136,6 +137,11 @@ foreach ($required in @($coreService, $profileCheck, $buildTsfDll)) {
 if (-not (Test-Path -LiteralPath $buildX86TsfDll -PathType Leaf)) {
     throw "Required x86 development TSF is missing: $buildX86TsfDll"
 }
+# Publish and validate the real user-store scheme before starting Core or Settings.
+& (Join-Path $PSScriptRoot 'deploy-wubi86-dev.ps1') `
+    -BuildDirectory (Split-Path -Parent $BuildDirectory) `
+    -AcceptDevelopmentPackageRisk:$AcceptDevelopmentPackageRisk
+if (-not $?) { throw 'Wubi deployment failed; Core and Settings were not started' }
 $deployDirectory = Join-Path $projectRoot 'build/manual-deploy'
 [void](New-Item -ItemType Directory -Path $deployDirectory -Force)
 $tsfHash = Get-Sha256Hex $buildTsfDll
@@ -280,6 +286,12 @@ if ($modelHostEnabled) {
 if ($LASTEXITCODE -ne 0) {
     throw "OwO input profile verification failed after startup: $LASTEXITCODE"
 }
+
+# Do not show Settings before the actual Core listener can accept a connection.
+$readyPipe = [IO.Pipes.NamedPipeClientStream]::new('.', 'OwO.InputMethod.Core.P1', [IO.Pipes.PipeDirection]::InOut)
+try { $readyPipe.Connect(1000) }
+catch { throw "Core listener is not ready; Settings was not opened: $_" }
+finally { $readyPipe.Dispose() }
 
 if ($OpenSettings) {
     & (Join-Path $PSScriptRoot 'open-settings.ps1')

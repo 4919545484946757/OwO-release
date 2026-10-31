@@ -42,6 +42,11 @@ public:
             r.input != issued_input_ || r.page != issued_page_ ||
             std::find(issued_ids_.begin(), issued_ids_.end(), r.selected_candidate_id) == issued_ids_.end()))
             return reject(InputMethodStatus::error, "Candidate selection is stale or unknown");
+        if(r.action==InputMethodAction::committed) {
+            const auto matches=[&](const std::optional<InputMethodRequest>& prior){return prior && prior->session_id==r.session_id && prior->input==r.input && prior->page==r.page && prior->selected_candidate_id==r.selected_candidate_id;};
+            if(matches(confirmed_))return failure(r,InputMethodStatus::success);
+            if(!matches(prepared_)||!session_.valid())return reject(InputMethodStatus::error,"Unknown commit transaction");
+        } else prepared_.reset();
         issued_ids_.clear();
         const auto payload = plugin::encode_input_method_request(descriptor_, r);
         if (payload.empty()) return failure(r, InputMethodStatus::error, "Invalid scheme request");
@@ -85,6 +90,9 @@ public:
             issued_session_ = r.session_id; issued_input_ = r.input; issued_page_ = r.page;
             for (const auto& candidate : response.candidates) issued_ids_.push_back(candidate.id);
         }
+        if(r.action==InputMethodAction::select && !response.commit_id.empty()) {
+            prepared_=r;prepared_->selected_candidate_id=response.commit_id;
+        } else if(r.action==InputMethodAction::committed) {confirmed_=prepared_;prepared_.reset();}
         return response;
     }
 private:
@@ -108,6 +116,7 @@ private:
     std::string issued_input_;
     std::size_t issued_page_{};
     std::vector<std::string> issued_ids_;
+    std::optional<InputMethodRequest> prepared_,confirmed_;
 };
 } // namespace
 

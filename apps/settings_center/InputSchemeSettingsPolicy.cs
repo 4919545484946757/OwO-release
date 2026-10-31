@@ -53,6 +53,20 @@ internal static class InputSchemeSettingsPolicy
             "使用插件自身的编码与候选规则；宿主提供候选显示、编码光标、分页、原样输出和中英文切换。" +
             "宿主拼音补全、纠错、词频学习和模型排序不参与。", Shared, Owner(id));
 
+    // Discovery proves descriptor availability at refresh time, not future runtime health.
+    internal static IReadOnlyList<InputSchemeOption> Refresh(IEnumerable<InputSchemeOption> discovered,
+        InputSchemeOption selected)
+    {
+        var options = BuiltIns.Concat(discovered.Where(s => s.OwnerPluginId is not null))
+            .DistinctBy(s => s.Id, StringComparer.Ordinal).ToList();
+        if (!options.Any(s => s.Id == selected.Id))
+            options.Add(selected with { Description = "方案当前不可用或未获授权；可在插件页面启用，或选择全拼并保存。" });
+        return options;
+    }
+
+    internal static bool NeedsFallback(string schemeId, string pluginId) =>
+        Resolve(schemeId).OwnerPluginId == pluginId;
+
     internal static InputSchemeOption Resolve(string id) => BuiltIns.FirstOrDefault(s => s.Id == id)
         ?? (id.StartsWith("plugin:", StringComparison.Ordinal)
             ? Plugin(id, id[7..], "已保存的插件方案；请核对插件安装、授权和可用状态。")
