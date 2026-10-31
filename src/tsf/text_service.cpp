@@ -3063,8 +3063,15 @@ bool TextService::render_candidate_window() {
             const auto row = begin / page_size;
             const auto bounds = D2D1::RectF(kHorizontalPaddingDip - 3.0F, top - 2.0F,
                                            candidate_right + 3.0F, top + row_height + 2.0F);
-            if (row == expanded_pages_.selected) {
+            if (row == expanded_pages_.selected || row == 0) {
+                // Keep page one identifiable even when another page owns the
+                // numeric shortcuts. Reuse the theme fill at half strength;
+                // do not blend two fills when page one is selected.
+                const auto opacity = selected_page_brush_->GetOpacity();
+                if (row != expanded_pages_.selected)
+                    selected_page_brush_->SetOpacity(opacity * 0.5F);
                 render_target_->FillRoundedRectangle(D2D1::RoundedRect(bounds, 7.0F, 7.0F), selected_page_brush_);
+                selected_page_brush_->SetOpacity(opacity);
             }
             add_hit_region(bounds, {HitKind::candidate_page, row});
             draw_candidate_row(candidates_, candidate_groups_, true, begin, end, top, row_height,

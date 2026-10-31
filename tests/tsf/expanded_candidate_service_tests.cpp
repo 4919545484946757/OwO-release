@@ -230,6 +230,52 @@ struct ExpandedCandidateTestAccess {
             if (!content) return 27;
             service->hide_candidate_windows();
         }
+        // Page one retains a weaker rounded fill when unselected. Inspect the
+        // empty top padding so candidate text/badges cannot affect the sample.
+        {
+            const auto saved_background = service->candidate_theme_.background;
+            const auto saved_selected = service->candidate_theme_.selected_page;
+            service->candidate_theme_.background = {0x000000, 0.2F};
+            service->candidate_theme_.selected_page = {0xffffff, 0.4F};
+            service->candidate_theme_.background_blur_enabled = false;
+            service->discard_device_resources();
+            service->candidates_expanded_ = true;
+            service->expanded_pages_.reset();
+            service->expanded_pages_.selected = 2;
+            service->candidate_present_size_ = {1100, 300};
+            service->candidate_content_size_ = {1100, 300};
+            const auto page_alpha = [&](std::size_t page) {
+                for (const auto& region : service->hit_regions_) {
+                    if (region.target.kind != TextService::HitKind::candidate_page ||
+                        region.target.candidate_index != page) continue;
+                    const auto dpi_scale = static_cast<float>(std::max(
+                        GetDpiForWindow(service->candidate_window_), 96U)) / 96.0F;
+                    const auto x = region.bounds.left + static_cast<LONG>(12 * dpi_scale);
+                    const auto y = region.bounds.top + static_cast<LONG>(dpi_scale);
+                    const auto* pixels = static_cast<const std::uint32_t*>(service->layered_surface_pixels_);
+                    return static_cast<int>(pixels[static_cast<std::size_t>(y) *
+                        service->layered_surface_size_.cx + x] >> 24);
+                }
+                return -1;
+            };
+            for (const bool light : {false, true}) {
+                service->candidate_light_palette_ = light;
+                service->expanded_pages_.selected = 2;
+                if (!service->render_candidate_window()) return 63;
+                const auto first = page_alpha(0), neutral = page_alpha(1), selected_alpha = page_alpha(2);
+                if (neutral < 0 || first <= neutral || selected_alpha <= first || selected_alpha >= 255 ||
+                    service->candidate_shortcut_index(0) != 14 ||
+                    service->selected_page_brush_->GetOpacity() != 1.0F) return 64;
+                service->expanded_pages_.selected = 0;
+                if (!service->render_candidate_window() || page_alpha(0) != selected_alpha ||
+                    page_alpha(2) != neutral || service->candidate_shortcut_index(0) != 0) return 65;
+            }
+            service->hide_candidate_windows();
+            service->candidate_theme_.background = saved_background;
+            service->candidate_theme_.selected_page = saved_selected;
+            service->expanded_pages_.reset();
+            service->discard_device_resources();
+        }
         // Auxiliary first pages share the numbered-pill renderer and sizing,
         // but never add clickable/numeric targets belonging to the active row.
         service->candidates_expanded_ = false;
