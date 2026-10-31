@@ -1,4 +1,5 @@
 #include "owo/ipc/contextual_candidate_order.h"
+#include "owo/ipc/model_candidate_confidence.h"
 
 #include <cstdint>
 #include <string>
@@ -95,5 +96,32 @@ int main() {
     const auto unchanged = ordered;
     owo::ipc::retain_base_sentence_ending({"换个前文吗"}, {10}, {true}, 10, ordered, consumed);
     if (ordered != unchanged) return 16;
+    owo::engine::Candidate head{
+        "易货物运输的速度", {"yi", "huo", "wu", "yun", "shu", "de", "su", "du"},
+        60000, owo::engine::InputMatchKind::exact,
+        {"yi", "huo", "wu", "yun", "shu", "de", "su", "du"}, 18, 4};
+    head.segment_lengths = {1, 4, 1, 2};
+    auto alternative = head;
+    alternative.text = "以货物运输的速度";
+    alternative.score = 37000;
+    if (!owo::ipc::standalone_head_alternative(head, alternative, 18)) return 17;
+    const auto rejected = [&](auto change) {
+        auto changed = alternative;
+        change(changed);
+        return !owo::ipc::standalone_head_alternative(head, changed, 18);
+    };
+    if (!rejected([](auto& value) { value.text = "以货物运输得速度"; }) ||
+        !rejected([](auto& value) { value.text = "以货物运输的速"; }) ||
+        !rejected([](auto& value) { value.segment_lengths = {2, 3, 1, 2}; }) ||
+        !rejected([](auto& value) { value.consumed_input_bytes = 17; }) ||
+        !rejected([](auto& value) { value.match_kind = owo::engine::InputMatchKind::corrected; }) ||
+        !rejected([](auto& value) { value.source_segments.front() = "y"; }) ||
+        !rejected([](auto& value) { value.user_lexicon = true; })) return 18;
+    auto learned_head = head;
+    learned_head.user_lexicon = true;
+    if (owo::ipc::standalone_head_alternative(learned_head, alternative, 18)) return 19;
+    head.segment_lengths = alternative.segment_lengths = {1, 1, 1, 1, 1, 1, 1, 1};
+    head.segment_count = alternative.segment_count = 8;
+    if (owo::ipc::standalone_head_alternative(head, alternative, 18)) return 20;
     return 0;
 }

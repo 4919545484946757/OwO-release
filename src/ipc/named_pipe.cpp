@@ -2,6 +2,7 @@
 #include "owo/agent/agent_protocol.h"
 #include "owo/core/plugin_executor.h"
 #include "owo/ipc/contextual_candidate_order.h"
+#include "owo/ipc/model_candidate_confidence.h"
 #include "owo/ipc/user_lexicon_management.h"
 #include "owo/config/config_monitor.h"
 #include "owo/model/model_backend.h"
@@ -2330,6 +2331,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         model_candidate_segments.push_back(candidate.segment_count);
                         std::uint64_t confidence = 0;
                         if (reference != candidates.end() && !candidate.user_preferred() &&
+                            !standalone_head_alternative(*reference, candidate, full_input_bytes) &&
                             candidate.match_kind == engine::InputMatchKind::exact &&
                             candidate.segment_count > 1 &&
                             candidate.consumed_input_bytes == full_input_bytes &&
@@ -2344,7 +2346,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 (reference->score - candidate.score) / kModelLexicalConfidenceBand);
                         model_candidate_confidence.push_back(confidence);
                         if (candidate.joint_phrase_partition && !candidate.user_preferred() &&
-                            joint_reference != nullptr && candidate.score < joint_reference->score)
+                            joint_reference != nullptr && candidate.score < joint_reference->score &&
+                            !standalone_head_alternative(*joint_reference, candidate, full_input_bytes))
                             model_candidate_confidence.back() = std::max(confidence,
                                 static_cast<std::uint64_t>((joint_reference->score - candidate.score) /
                                     kModelLexicalConfidenceBand));

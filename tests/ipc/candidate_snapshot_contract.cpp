@@ -19,6 +19,9 @@ public:
     model::ModelResult rank(const model::ModelRequest& request, std::stop_token) override {
         auto candidates = request.candidates;
         const auto target = request.input == "mingtianshangwushidianqian" ? "明天上午十点前" :
+            request.input == "yihuowuyunshudesudu" ? "以货物运输的速度" :
+            request.input == "weiyonghutigongfuwu" ? "为用户提供服务" :
+            request.input == "xiufuleisiwenti" ? "朽腐类似问题" :
             request.input == "biandeyouyisima" ? "变得有意思吗" :
             request.context == "伸手" ? "接过" : "你号世界";
         const auto found = std::find(candidates.begin(), candidates.end(), target);
@@ -73,6 +76,19 @@ int main() {
         {{"qian"}, "前", 10000}, {{"qian"}, "钱", 9000},
         {{"qi", "an"}, "奇案", 1000000}, {{"qi", "an"}, "起岸", 900000},
         {{"qi"}, "奇", 100000}, {{"qi"}, "起", 90000},
+        {{"yi"}, "以", 1000000}, {{"yi"}, "易", 700000},
+        {{"wei"}, "为", 1000000}, {{"wei"}, "位", 700000},
+        {{"yi", "huo"}, "易货", 1}, {{"wei", "yong", "hu"}, "位用户", 1},
+        {{"huo", "wu", "yun", "shu"}, "货物运输", 500000},
+        {{"huo", "wu"}, "货物", 500000}, {{"yun", "shu"}, "运输", 500000},
+        {{"de"}, "的", 1000000}, {{"de", "su", "du"}, "的速度", 1},
+        {{"su", "du"}, "速度", 500000},
+        {{"yong", "hu", "ti", "gong"}, "用户提供", 500000},
+        {{"yong", "hu"}, "用户", 500000},
+        {{"ti", "gong", "fu", "wu"}, "提供服务", 500000},
+        {{"fu", "wu"}, "服务", 500000},
+        {{"xiu", "fu"}, "修复", 100000000}, {{"xiu", "fu"}, "朽腐", 1},
+        {{"lei", "si", "wen", "ti"}, "类似问题", 50000},
     });
     for (unsigned index = 0; index < 120; ++index) {
         const auto text = character(0x4e00 + index);
@@ -113,7 +129,8 @@ int main() {
         const auto generation = monitor.generation();
         settings.candidate_partition_enabled = partition; settings.candidate_page_size = size;
         ok &= writer.save(settings).success && monitor.wait_for_generation(generation, 2s);
-        for (const auto& input : {"zj", "nihaoshijie", "biandeyouyisima"}) for (const bool expanded_first : {false, true}) {
+        for (const auto& input : {"zj", "nihaoshijie", "biandeyouyisima",
+                                 "yihuowuyunshudesudu", "weiyonghutigongfuwu"}) for (const bool expanded_first : {false, true}) {
             const auto verify = [&](bool value, const char* stage) {
                 if (!value) std::cerr << stage << ": " << input << " size=" << size << " partition=" << partition << " expanded_first=" << expanded_first << '\n';
                 ok &= value;
@@ -123,6 +140,10 @@ int main() {
             protocol::Message expanded;
             if (expanded_first) { request.expanded = true; expanded = settle(send(request)); request.expanded = false; }
             auto first = settle(send(request));
+            if (request.text == "yihuowuyunshudesudu")
+                verify(!first.candidates.empty() && first.candidates.front() == "以货物运输的速度", "standalone head model choice was blocked");
+            if (request.text == "weiyonghutigongfuwu")
+                verify(!first.candidates.empty() && first.candidates.front() == "为用户提供服务", "standalone head model choice was blocked");
             if (request.text == "nihaoshijie") verify(!first.candidates.empty() && first.candidates.front() == "你号世界", "model did not promote hidden target");
             if (request.text == "biandeyouyisima") {
                 verify(!first.candidates.empty() && first.candidates.front() == "变得有意思吗", "model did not replace fragmented sentence");
@@ -157,7 +178,8 @@ int main() {
         protocol::Message request; request.type = protocol::MessageType::candidate_request; request.text = input; request.input = previous; request.context = context;
         const auto first = settle(send(request));
         const bool matched = !first.candidates.empty() && first.candidates.front() == word;
-        if (!matched) std::cerr << "context mismatch: " << input << '\n';
+        if (!matched) std::cerr << "context mismatch: " << input << ' '
+                                << protocol::encode_message(first) << '\n';
         ok &= matched;
     };
     expect("jieguo", "zhankai", "展开", "结果");
@@ -166,6 +188,7 @@ int main() {
     expect("jieguo", "shenshou", "伸手", "接过"); // The model may still choose a credible homophone.
     expect("mingtianshangwushidianqian", "", "", "明天上午十点前");
     expect("qian", "fenge", "分隔", "前");
+    expect("xiufuleisiwenti", "", "", "修复类似问题"); // An intact leading word keeps its lexical guard.
     protocol::Message stop; stop.type = protocol::MessageType::shutdown_request; static_cast<void>(send(stop));
     client.reset(); server.join();
     model::ModelMessage model_stop; model_stop.type = model::ModelMessageType::shutdown_request;
