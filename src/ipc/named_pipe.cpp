@@ -603,6 +603,8 @@ void preserve_candidate_pool_prefix(
     expanded = std::move(stable);
 }
 
+std::uint64_t candidate_group(const engine::Candidate& candidate, std::size_t full_input_bytes);
+
 class CandidateResultCache {
 public:
     [[nodiscard]] std::optional<CachedCandidateResult> get_existing(
@@ -626,7 +628,9 @@ public:
     bool publish_model_prefix(const CandidateCacheKey& key,
                               const std::vector<std::string>& text,
                               const std::vector<std::uint64_t>& consumed,
-                              const std::size_t replaced_count) {
+                              const std::size_t replaced_count,
+                              const std::size_t full_input_bytes,
+                              const bool abbreviation_recall) {
         const auto found = entries_.find(key);
         if (found == entries_.end() || text.size() != consumed.size() || text.empty()) return false;
         auto& value = found->second->second;
@@ -641,13 +645,29 @@ public:
                 if (!used[source] && value.candidates[source].text == text[index] &&
                     value.candidates[source].consumed_input_bytes == consumed[index]) { match = source; break; }
             // A delayed result cannot steal an item from a different page.
-            if (match == value.candidates.size() || (match >= replaced_count && match < visible)) return false;
+            if (match == value.candidates.size() || (match >= replaced_count && match < visible &&
+                (!abbreviation_recall || !abbreviated_model_alternative(value.candidates[match], full_input_bytes)))) return false;
             used[match] = true;
             auto candidate = value.candidates[match]; candidate.model_only = false;
             ordered.push_back(std::move(candidate));
         }
-        ordered.insert(ordered.end(), value.candidates.begin() + static_cast<std::ptrdiff_t>(replaced_count),
-                       value.candidates.begin() + static_cast<std::ptrdiff_t>(visible));
+        for (std::size_t index = replaced_count; index < visible; ++index) {
+            if (!used[index]) { ordered.push_back(value.candidates[index]); continue; }
+            // A bounded abbreviation recall may swap a later word into the
+            // first page. Fill its old slot with a displaced non-sentence
+            // from the same group, preserving page layout and uniqueness.
+            for (std::size_t displaced = 0; displaced < replaced_count; ++displaced) {
+                const auto& candidate = value.candidates[displaced];
+                if (used[displaced] ||
+                    (candidate.segment_count > 1 && candidate.consumed_input_bytes == full_input_bytes &&
+                     candidate.syllables.size() >= 3) ||
+                    candidate_group(candidate, full_input_bytes) !=
+                        candidate_group(value.candidates[index], full_input_bytes)) continue;
+                used[displaced] = true;
+                ordered.push_back(candidate);
+                break;
+            }
+        }
         // One authoritative presentation snapshot per input/context/config key.
         // Displaced/unused hidden alternatives are not additional visible pages.
         value.candidates = std::move(ordered);
@@ -1293,6 +1313,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
         std::size_t sentence_limit{};
         std::size_t full_input_bytes{};
         std::size_t visible_count{};
+        bool abbreviation_recall{};
         std::vector<std::string> contextual_preferences;
         std::vector<std::string> learned_preferences;
     };
@@ -1765,7 +1786,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 response.candidate_groups.resize(pending.visible_count);
                         }
                         if (candidate_cache.publish_model_prefix(pending.cache_key,
-                            response.candidates, response.candidate_consumed, pending.visible_count)) {
+                            response.candidates, response.candidate_consumed, pending.visible_count,
+                            pending.full_input_bytes, pending.abbreviation_recall)) {
                             // Filtering a weak second sentence can leave one
                             // slot empty. Fill it from the same canonical tail,
                             // not by resurrecting the rejected composition.
@@ -1832,6 +1854,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 CandidateCacheKey model_cache_key;
                 bool model_refined = false;
                 std::size_t model_visible_count = 0;
+                std::size_t abbreviation_sentence_limit = 0;
+                bool abbreviation_recall = false;
                 if (decoded.message.page > maximum_page ||
                     (decoded.message.expanded && decoded.message.page != 0)) {
                     response.type = protocol::MessageType::error_response;
@@ -1894,7 +1918,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     const auto full_generation_limit = result_limit;
                     const auto fast_generation_limit = std::max<std::size_t>(
                         result_size + 1, result_size * 2 + 4);
-                    const auto generation_limit =
+                    auto generation_limit =
                         decoded.message.defer_expensive_candidates
                             ? std::min(full_generation_limit, fast_generation_limit)
                             : full_generation_limit;
@@ -1936,6 +1960,17 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     }
                     const bool cache_hit = cached.has_value();
                     model_refined = cached ? cached->model_refined : previous_pool && previous_pool->model_refined;
+                    // At most two generated abbreviation sentences can be
+                    // rejected by a refined snapshot. When growing its plain
+                    // (unpartitioned) pool, budget those two slots as well as
+                    // the normal look-ahead; rejected compositions must not
+                    // hide the prefix/character tail behind a false last page.
+                    if (!cached && previous_pool && previous_pool->model_refined && !partitioned_layout &&
+                        std::any_of(previous_pool->candidates.begin(), previous_pool->candidates.end(),
+                            [&](const auto& candidate) {
+                                return abbreviated_model_alternative(candidate, decoded.message.text.size());
+                            }))
+                        generation_limit = std::min<std::size_t>(protocol::kMaximumCandidateCount, generation_limit + 2);
                     engine::ParseResult parsed;
                     std::vector<engine::Candidate> candidates;
                     bool correction_fallback = false;
@@ -2347,6 +2382,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         model_candidate_confidence.push_back(confidence);
                         if (candidate.joint_phrase_partition && !candidate.user_preferred() &&
                             joint_reference != nullptr && candidate.score < joint_reference->score &&
+                            (candidate.segment_count == 1 ||
+                             !abbreviated_model_alternative(candidate, full_input_bytes)) &&
                             !standalone_head_alternative(*joint_reference, candidate, full_input_bytes))
                             model_candidate_confidence.back() = std::max(confidence,
                                 static_cast<std::uint64_t>((joint_reference->score - candidate.score) /
@@ -2359,9 +2396,37 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     const auto ranked_hidden_count = model_candidate_pool.size() > protocol::kMaximumCandidateCount
                         ? std::min<std::size_t>(64, hidden_count) : hidden_count;
                     if (begin == 0) {
+                        // Abbreviations have many equally valid readings.
+                        // Allow a bounded slice of existing off-page whole
+                        // matches to compete, not just the accidental first
+                        // page and generator's model-only tail. Reserve the
+                        // already generated sentence alternatives before
+                        // dictionary words can exhaust the recall budget.
+                        if (external_model_ranking_enabled && full_pinyin_scheme) {
+                            std::size_t recalled = 0;
+                            for (const bool composed : {true, false}) {
+                                for (std::size_t index = 0; index < visible_candidate_count; ++index) {
+                                    const auto& candidate = candidates[index];
+                                    if ((candidate.segment_count > 1) != composed ||
+                                        !abbreviated_model_alternative(candidate, full_input_bytes)) continue;
+                                    if (composed)
+                                        abbreviation_sentence_limit = std::min<std::size_t>(2, abbreviation_sentence_limit + 1);
+                                    if (index < result_size || recalled >= 24) continue;
+                                    model_hidden_candidates.push_back(candidate.text);
+                                    model_hidden_consumed.push_back(candidate.consumed_input_bytes);
+                                    model_hidden_groups.push_back(candidate_group(candidate, full_input_bytes));
+                                    abbreviation_recall = true;
+                                    ++recalled;
+                                }
+                            }
+                        }
                         for (std::size_t index = visible_candidate_count;
                              index < candidates.size() && index - visible_candidate_count < ranked_hidden_count; ++index) {
                             if (!candidates[index].model_only) continue;
+                            if (model_hidden_candidates.size() >= 64) break;
+                            if (model_candidate_generated_sentence[index] &&
+                                abbreviated_model_alternative(candidates[index], full_input_bytes))
+                                abbreviation_sentence_limit = std::min<std::size_t>(2, abbreviation_sentence_limit + 1);
                             model_hidden_candidates.push_back(candidates[index].text);
                             model_hidden_consumed.push_back(
                                 candidates[index].consumed_input_bytes);
@@ -2583,7 +2648,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         if (index < response.candidates.size() && sentence) ++pending_model.sentence_limit;
                     }
                     pending_model.full_input_bytes = full_input_bytes;
+                    pending_model.sentence_limit = std::max(
+                        pending_model.sentence_limit, abbreviation_sentence_limit);
                     pending_model.visible_count = response.candidates.size();
+                    pending_model.abbreviation_recall = abbreviation_recall;
                     pending_model.contextual_preferences =
                         std::move(contextual_preferences);
                     pending_model.learned_preferences = std::move(learned_preferences);

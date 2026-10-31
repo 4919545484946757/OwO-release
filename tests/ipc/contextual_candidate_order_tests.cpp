@@ -123,5 +123,20 @@ int main() {
     head.segment_lengths = alternative.segment_lengths = {1, 1, 1, 1, 1, 1, 1, 1};
     head.segment_count = alternative.segment_count = 8;
     if (owo::ipc::standalone_head_alternative(head, alternative, 18)) return 20;
+    owo::engine::Candidate abbreviation{"如果是", {"ru", "guo", "shi"}, 0,
+        owo::engine::InputMatchKind::abbreviated_completion, {"r", "g", "s"}, 3, 2};
+    abbreviation.segment_lengths = {2, 1};
+    if (!owo::ipc::abbreviated_model_alternative(abbreviation, 3)) return 21;
+    for (const auto size : {2U, 13U})
+        if (owo::ipc::abbreviated_model_alternative(abbreviation, size)) return 22;
+    abbreviation.segment_count = 3;
+    abbreviation.segment_lengths = {1, 1, 1};
+    if (owo::ipc::abbreviated_model_alternative(abbreviation, 3)) return 23;
+    abbreviation.segment_count = 1;
+    abbreviation.segment_lengths = {3};
+    abbreviation.source_segments[1] = "x";
+    if (owo::ipc::abbreviated_model_alternative(abbreviation, 3)) return 24;
+    abbreviation.source_segments = {"ru", "guo", "s"};
+    if (owo::ipc::abbreviated_model_alternative(abbreviation, 6)) return 25;
     return 0;
 }

@@ -19,6 +19,7 @@ public:
     model::ModelResult rank(const model::ModelRequest& request, std::stop_token) override {
         auto candidates = request.candidates;
         const auto target = request.input == "mingtianshangwushidianqian" ? "明天上午十点前" :
+            request.input == "rgs" ? "如果是" :
             request.input == "yihuowuyunshudesudu" ? "以货物运输的速度" :
             request.input == "weiyonghutigongfuwu" ? "为用户提供服务" :
             request.input == "xiufuleisiwenti" ? "朽腐类似问题" :
@@ -26,6 +27,11 @@ public:
             request.context == "伸手" ? "接过" : "你号世界";
         const auto found = std::find(candidates.begin(), candidates.end(), target);
         if (found != candidates.end()) std::rotate(candidates.begin(), found, found + 1);
+        if (request.input == "rgs") {
+            const auto alternative = std::find(candidates.begin(), candidates.end(), "如果说");
+            if (alternative != candidates.end() && alternative > candidates.begin())
+                std::rotate(candidates.begin() + 1, alternative, alternative + 1);
+        }
         return {request.request_id, model::ModelStatus::success, std::move(candidates), {}};
     }
 };
@@ -89,7 +95,12 @@ int main() {
         {{"fu", "wu"}, "服务", 500000},
         {{"xiu", "fu"}, "修复", 100000000}, {{"xiu", "fu"}, "朽腐", 1},
         {{"lei", "si", "wen", "ti"}, "类似问题", 50000},
+        {{"ru"}, "如", 100000}, {{"ren"}, "人", 200000}, {{"ge"}, "个", 1000000},
+        {{"shi"}, "是", 10000000}, {{"ru", "guo"}, "如果", 100000},
+        {{"ru", "guo", "shuo"}, "如果说", 20},
     });
+    for (unsigned index = 0; index < 16; ++index)
+        entries.push_back({{"ru", "gu", "si"}, character(0x5100 + index) + "故事", 1000 - index});
     for (unsigned index = 0; index < 120; ++index) {
         const auto text = character(0x4e00 + index);
         entries.push_back({{"zi"}, text, 200000 - index * 1000});
@@ -130,7 +141,7 @@ int main() {
         settings.candidate_partition_enabled = partition; settings.candidate_page_size = size;
         ok &= writer.save(settings).success && monitor.wait_for_generation(generation, 2s);
         for (const auto& input : {"zj", "nihaoshijie", "biandeyouyisima",
-                                 "yihuowuyunshudesudu", "weiyonghutigongfuwu"}) for (const bool expanded_first : {false, true}) {
+                                 "yihuowuyunshudesudu", "weiyonghutigongfuwu", "rgs"}) for (const bool expanded_first : {false, true}) {
             const auto verify = [&](bool value, const char* stage) {
                 if (!value) std::cerr << stage << ": " << input << " size=" << size << " partition=" << partition << " expanded_first=" << expanded_first << '\n';
                 ok &= value;
@@ -140,6 +151,10 @@ int main() {
             protocol::Message expanded;
             if (expanded_first) { request.expanded = true; expanded = settle(send(request)); request.expanded = false; }
             auto first = settle(send(request));
+            if (request.text == "rgs")
+                verify(first.candidates.size() >= 2 && first.candidates[0] == "如果是" &&
+                       first.candidates[1] == "如果说" && first.candidate_consumed[0] == 3 &&
+                       first.candidate_consumed[1] == 3, "off-page abbreviation candidates not recalled");
             if (request.text == "yihuowuyunshudesudu")
                 verify(!first.candidates.empty() && first.candidates.front() == "以货物运输的速度", "standalone head model choice was blocked");
             if (request.text == "weiyonghutigongfuwu")
@@ -165,7 +180,13 @@ int main() {
             request.page = 0; const auto revisited = send(request);
             verify(same(first, revisited) && !revisited.model_pending, "revisit");
             request.expanded = true; const auto latest_expanded = settle(send(request));
-            if (!same(paged, latest_expanded)) std::cerr << "counts " << paged.candidates.size() << '/' << latest_expanded.candidates.size() << '\n';
+            if (!same(paged, latest_expanded)) {
+                std::cerr << "counts " << paged.candidates.size() << '/' << latest_expanded.candidates.size() << '\n';
+                for (const auto& text : paged.candidates) std::cerr << text << '/';
+                std::cerr << '\n';
+                for (const auto& text : latest_expanded.candidates) std::cerr << text << '/';
+                std::cerr << '\n';
+            }
             verify(same(paged, latest_expanded), "paged vs expanded");
             if (request.text == "nihaoshijie")
                 verify(std::count(latest_expanded.candidate_consumed.begin(), latest_expanded.candidate_consumed.end(), request.text.size()) <= 2,

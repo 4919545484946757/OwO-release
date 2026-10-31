@@ -1,0 +1,14 @@
+{"id":"rgs-say","input":"rgs","expected":["如果说"],"tags":["initials","common-phrase"]}
+{"id":"rgs-is","input":"rgs","expected":["如果是"],"tags":["initials","composition"]}
+{"id":"ruguos","input":"ruguos","expected":["如果说","如果是"],"tags":["mixed","common-phrase"]}
+{"id":"rugs","input":"rugs","expected":["如果说","如果是"],"tags":["mixed","common-phrase"]}
+{"id":"wsm","input":"wsm","expected":["为什么"],"tags":["initials","control"]}
+{"id":"nji","input":"nji","expected":["你就"],"consumed":3,"tags":["mixed","control"]}
+{"id":"rwkyy","input":"rwkyy","expected":["认为可以用"],"tags":["initials","composition"]}
+{"id":"jzhe","input":"jzhe","expected":["就这"],"tags":["mixed","control"]}
+{"id":"bugd","input":"bugd","expected":["不敢当"],"tags":["mixed","control"]}
+{"id":"jbs","input":"jbs","expected":["基本上"],"tags":["initials","control"]}
+{"id":"sjs","input":"sjs","expected":["实际上"],"tags":["initials","control"]}
+{"id":"ky","input":"ky","expected":["可以"],"tags":["double-initial","control"]}
+{"id":"ruguoshuo","input":"ruguoshuo","expected":["如果说"],"tags":["complete","control"]}
+{"id":"ruguoshi","input":"ruguoshi","expected":["如果是"],"tags":["complete","control"]}

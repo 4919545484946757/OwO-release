@@ -23,6 +23,28 @@ std::size_t utf8_character_count(const std::string_view text) {
 }  // namespace
 
 int main() {
+    // Intentional initials must not favor short pinyin, and a beam duplicate
+    // must not remove a direct dictionary word's normal lexical evidence.
+    const owo::engine::MemoryLexicon initials_quality_lexicon({
+        {{"ru", "guo", "shuo"}, "如果说", 100},
+        {{"ru", "gu", "sui"}, "入骨髓", 100},
+        {{"ren", "sheng"}, "人生", 100},
+        {{"re", "shui"}, "热水", 100}});
+    const owo::engine::CandidateGenerator initials_quality_generator(initials_quality_lexicon);
+    for (const auto limit : {8U, 18U, 48U, 128U})
+        for (const auto page : {0U, 5U, 7U, 9U}) {
+            const auto candidates = initials_quality_generator.generate(
+                owo::engine::FullPinyinSchema{}.parse("rgs"), limit, false, {}, nullptr, {}, false, page);
+            const auto first = std::find_if(candidates.begin(), candidates.end(), [](const auto& value) {
+                return value.text == "如果说";
+            });
+            const auto second = std::find_if(candidates.begin(), candidates.end(), [](const auto& value) {
+                return value.text == "入骨髓";
+            });
+            if (first == candidates.end() || second == candidates.end() || first->score != second->score ||
+                first->segment_count != 1 || second->segment_count != 1)
+                return fail("initial syllable length or beam budget changed dictionary quality");
+        }
     // A deliberately small, repository-owned fixture. It validates engine
     // semantics and is not presented as an imported Rime Ice lexicon.
     const owo::engine::MemoryLexicon lexicon({

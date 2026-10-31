@@ -295,11 +295,18 @@ std::vector<std::string> own_syllables(
 
 std::size_t mixed_completion_characters(
     const std::span<const std::string_view> syllables,
-    const std::span<const std::string> source_segments) {
+    const std::span<const std::string> source_segments,
+    const bool penalize_initials = true) {
     std::size_t result = 0;
     const auto shared = std::min(syllables.size(), source_segments.size());
-    for (std::size_t index = 0; index < shared; ++index)
+    for (std::size_t index = 0; index < shared; ++index) {
+        // A consonant initial deliberately abbreviates a syllable. Missing
+        // letters are not evidence that shorter pinyin is a better word.
+        if (!penalize_initials && source_segments[index].size() == 1 &&
+            std::string_view("aeiouv").find(source_segments[index].front()) == std::string_view::npos)
+            continue;
         result += syllables[index].size() - source_segments[index].size();
+    }
     return result;
 }
 
@@ -1100,7 +1107,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             auto score = candidate_unigram_score(match.frequency) +
                          kMixedAbbreviationPhraseBonus -
                          static_cast<std::int64_t>(mixed_completion_characters(
-                             match.syllables, match.source_segments)) *
+                             match.syllables, match.source_segments, false)) *
                              kIncompleteCharacterPenalty;
             if (user_frequency_ != nullptr) {
                 score += user_frequency_->score(match.text);
@@ -1424,9 +1431,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             std::vector<std::int64_t> entry_scores;
             entry_scores.reserve(entries.size());
             for (const auto& entry : entries) {
-                auto score = candidate_unigram_score(entry.frequency) -
-                    static_cast<std::int64_t>(entry.syllable.size() - 1) *
-                        kIncompleteCharacterPenalty;
+                auto score = candidate_unigram_score(entry.frequency);
                 if (preferred_initial_syllable(initial_sequence_input[offset]) == entry.syllable)
                     score += kPreferredInitialBonus;
                 entry_scores.push_back(score);
@@ -1477,7 +1482,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                     const auto phrase_score = candidate_unigram_score(phrase.frequency) +
                         kMixedAbbreviationPhraseBonus - kAbbreviationBasePenalty -
                         static_cast<std::int64_t>(mixed_completion_characters(
-                            phrase.syllables, phrase.source_segments)) * kIncompleteCharacterPenalty;
+                            phrase.syllables, phrase.source_segments, false)) * kIncompleteCharacterPenalty;
                     for (const auto& state : chart[offset]) {
                         auto score = state.score + phrase_score;
                         if (!state.previous.empty())
@@ -1548,7 +1553,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                pure_initial_sequence;
     for (auto match : mixed_matches) {
         if (cancelled && cancelled()) return {};
-        if (unique.contains(match.text)) continue;
+        // The initial beam pays its sentence-start penalty even for a whole
+        // dictionary edge. Still submit the direct dictionary evidence: a
+        // lower-scoring beam duplicate must not suppress the word's normal
+        // lookup score merely because it happened to survive this budget.
+        if (!pure_initial_sequence && unique.contains(match.text)) continue;
         std::size_t abbreviated_segments = 0;
         std::size_t exact_segments = 0;
         for (std::size_t index = 0; index < match.syllables.size(); ++index)
@@ -1565,7 +1574,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             continue;
         auto score = candidate_unigram_score(match.frequency) +
                      kMixedAbbreviationPhraseBonus - kAbbreviationBasePenalty -
-                     static_cast<std::int64_t>(completion_characters) *
+                     static_cast<std::int64_t>(mixed_completion_characters(
+                         match.syllables, match.source_segments, false)) *
                          kIncompleteCharacterPenalty;
         if (user_frequency_ != nullptr) {
             score += user_frequency_->score(match.text);
@@ -1944,6 +1954,21 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         const auto& reference = full.front();
         std::unordered_set<std::string_view> texts;
         texts.reserve(kMaximumModelStructures);
+        if (pure_initial_sequence) {
+            // A bounded raw-frequency dictionary slice can otherwise erase
+            // every phrase+character sentence before the model sees it.
+            // Reuse two already generated, word-backed compositions inside
+            // the existing hidden budget; never seed all-character products.
+            for (const auto& candidate : full) {
+                if (candidate.match_kind != InputMatchKind::abbreviated_completion ||
+                    candidate.segment_count < 2 ||
+                    std::none_of(candidate.segment_lengths.begin(), candidate.segment_lengths.end(),
+                        [](const auto length) { return length >= 2; }) ||
+                    utf8_character_count(candidate.text) != candidate.syllables.size()) continue;
+                if (texts.insert(candidate.text).second) model_seeds.push_back(candidate);
+                if (model_seeds.size() == 2) break;
+            }
+        }
         // Recall one representative per exact reading before spending the
         // remaining model budget on homophones of the highest-scoring split.
         // Otherwise a preferred split can consume every hidden slot.
@@ -2035,6 +2060,12 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             model_seeds.push_back(candidate);
             if (model_seeds.size() == kMaximumModelStructures) break;
         }
+    }
+    if (pure_initial_sequence && partition_page_size == 0) {
+        std::size_t composed = 0;
+        std::erase_if(full, [&composed](const Candidate& candidate) {
+            return candidate.segment_count > 1 && ++composed > 2;
+        });
     }
     // Long compact input may expose a second segmentation, but a noisier
     // composition from the winning segmentation must not consume that slot.

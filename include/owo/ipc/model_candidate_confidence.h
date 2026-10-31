@@ -7,6 +7,31 @@
 
 namespace owo::ipc {
 
+// Only already-generated, short whole-input abbreviation alternatives. Each
+// output syllable keeps a nonempty source prefix; no omitted syllables or
+// Cartesian synthesis is introduced by model recall.
+[[nodiscard]] inline bool abbreviated_model_alternative(
+    const engine::Candidate& candidate, const std::size_t full_input_bytes) {
+    if (full_input_bytes < 3 || full_input_bytes > 12 ||
+        candidate.consumed_input_bytes != full_input_bytes ||
+        candidate.match_kind != engine::InputMatchKind::abbreviated_completion ||
+        candidate.syllables.size() < 3 || candidate.syllables.size() > 8 ||
+        candidate.source_segments.size() != candidate.syllables.size()) return false;
+    if (static_cast<std::size_t>(std::count_if(candidate.text.begin(), candidate.text.end(),
+            [](const unsigned char byte) { return (byte & 0xc0U) != 0x80U; })) != candidate.syllables.size() ||
+        (candidate.segment_count > 1 && std::none_of(
+            candidate.segment_lengths.begin(), candidate.segment_lengths.end(),
+            [](const auto length) { return length >= 2; }))) return false;
+    std::size_t initials = 0;
+    for (std::size_t i = 0; i < candidate.syllables.size(); ++i) {
+        const auto& source = candidate.source_segments[i];
+        if (source.empty() || !std::string_view(candidate.syllables[i]).starts_with(source)) return false;
+        initials += source.size() == 1 && candidate.syllables[i].size() > 1 &&
+            std::string_view("aeiouv").find(source.front()) == std::string_view::npos;
+    }
+    return initials >= 2;
+}
+
 // Coherence may credit an incidental dictionary word across a standalone
 // sentence head (e.g. a noun instead of a preposition). Identical, independently
 // tokenized suffixes do not justify locking those heads into different model
