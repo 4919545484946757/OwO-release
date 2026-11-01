@@ -21,6 +21,7 @@ public:
         auto candidates = request.candidates;
         const auto target = request.input == "mingtianshangwushidianqian" ? "明天上午十点前" :
             request.input == "rgs" ? "如果是" :
+            request.input == "houxuanzhi" ? "候选只" :
             request.input == "yihuowuyunshudesudu" ? "以货物运输的速度" :
             request.input == "weiyonghutigongfuwu" ? "为用户提供服务" :
             request.input == "xiufuleisiwenti" ? "朽腐类似问题" :
@@ -101,6 +102,13 @@ int main() {
         {{"ru", "guo", "shuo"}, "如果说", 20},
         {{"ma"}, "吗", 1000000}, {{"men"}, "们", 900000}, {{"mei"}, "每", 800000},
         {{"ni", "men"}, "你们", 1000000},
+        {{"hou", "xu"}, "后续", 100000}, {{"an", "zhi"}, "安置", 100000},
+        {{"hou", "xuan"}, "候选", 100000}, {{"hou"}, "后", 1000000},
+        {{"zhi"}, "只", 5000000}, {{"zhi"}, "值", 900000},
+        {{"xu"}, "续", 100000}, {{"an"}, "安", 100000},
+        {{"cuo", "bie", "zi"}, "错别字", 100000},
+        {{"cuo"}, "错", 1000000}, {{"bie"}, "别", 1000000},
+        {{"zi", "mu"}, "字母", 100000}, {{"zi"}, "字", 1000000}, {{"mu"}, "母", 1000000},
     });
     for (unsigned index = 0; index < 16; ++index)
         entries.push_back({{"ru", "gu", "si"}, character(0x5100 + index) + "故事", 1000 - index});
@@ -144,7 +152,8 @@ int main() {
         settings.candidate_partition_enabled = partition; settings.candidate_page_size = size;
         ok &= writer.save(settings).success && monitor.wait_for_generation(generation, 2s);
         for (const auto& input : {"zj", "nihaoshijie", "biandeyouyisima",
-                                 "yihuowuyunshudesudu", "weiyonghutigongfuwu", "rgs", "nmnmnm"}) for (const bool expanded_first : {false, true}) {
+                                 "yihuowuyunshudesudu", "weiyonghutigongfuwu", "rgs", "nmnmnm",
+                                 "houxuanzhi", "cuobiezimu"}) for (const bool expanded_first : {false, true}) {
             const auto verify = [&](bool value, const char* stage) {
                 if (!value) std::cerr << stage << ": " << input << " size=" << size << " partition=" << partition << " expanded_first=" << expanded_first << '\n';
                 ok &= value;
@@ -154,6 +163,8 @@ int main() {
             protocol::Message expanded;
             if (expanded_first) { request.expanded = true; expanded = settle(send(request)); request.expanded = false; }
             auto first = settle(send(request));
+            if (request.text == "houxuanzhi")
+                verify(!first.candidates.empty() && first.candidates.front() == "后续安置", "model erased a dictionary-covered recovered boundary");
             if (request.text == "rgs")
                 verify(first.candidates.size() >= 2 && first.candidates[0] == "如果是" &&
                        first.candidates[1] == "如果说" && first.candidate_consumed[0] == 3 &&

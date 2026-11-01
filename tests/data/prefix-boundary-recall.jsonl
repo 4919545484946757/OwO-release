@@ -1,0 +1,12 @@
+{"id":"typo-full","input":"cuobiezimu","expected":["错别字母"],"tags":["word-prefix","overlap"]}
+{"id":"typo-prefix","input":"cuobiezimu","expected":["错别"],"consumed":6,"tags":["word-prefix","subword"]}
+{"id":"typo-dictionary","input":"cuobiezimu","expected":["错别字"],"consumed":8,"tags":["word-prefix","dictionary"]}
+{"id":"candidate-value","input":"houxuanzhi","expected":["候选值"],"tags":["boundary","three-syllables"]}
+{"id":"followup-placement","input":"houxuanzhi","expected":["后续安置"],"tags":["boundary","four-syllables"]}
+{"id":"candidate-prefix","input":"houxuanzhi","expected":["候选"],"consumed":7,"tags":["word-prefix","dictionary"]}
+{"id":"followup-prefix","input":"houxuanzhi","expected":["后续"],"consumed":5,"tags":["word-prefix","dictionary"]}
+{"id":"continue-placement","input":"jixuanzhi","expected":["继续安置"],"tags":["boundary","related"]}
+{"id":"continue-install","input":"jixuanzhuang","expected":["继续安装"],"tags":["boundary","related"]}
+{"id":"successive-install","input":"luxuanzhuang","expected":["陆续安装"],"tags":["boundary","related"]}
+{"id":"explicit-placement","input":"hou'xu'an'zhi","expected":["后续安置"],"tags":["boundary","explicit"]}
+{"id":"focus-control","input":"jiaodian","expected":["焦点"],"tags":["boundary","control"]}

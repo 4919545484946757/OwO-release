@@ -658,6 +658,56 @@ void retain_initial_prefix_words(std::vector<Candidate>& candidates,
     }
 }
 
+std::vector<ParsePath> dictionary_boundary_paths(const ParseResult& parsed,
+    RequestLexiconCache& cache, const std::function<bool()>& cancelled) {
+    std::vector<ParsePath> result;
+    if (!parsed.phonetic_assistance || parsed.normalized_input.size() > 32 ||
+        parsed.normalized_input.find('\'') != std::string::npos) return result;
+    const auto preferred = std::find_if(parsed.paths.begin(), parsed.paths.end(), [](const auto& path) {
+        return path.match_kind == InputMatchKind::exact;
+    });
+    if (preferred == parsed.paths.end() || preferred->syllables.size() < 3) return result;
+    for (std::size_t index = 0; index < preferred->syllables.size(); ++index) {
+        if ((cancelled && cancelled()) || result.size() == 2) break;
+        const auto& syllable = preferred->syllables[index];
+        if (syllable.text.size() < 3 || !syllable.complete ||
+            std::string_view(parsed.normalized_input).substr(syllable.begin, syllable.end - syllable.begin) != syllable.text) continue;
+        const auto local = FullPinyinSchema{}.parse(syllable.text, 8, false, nullptr, cancelled);
+        for (const auto& split : local.paths) {
+            if (split.match_kind != InputMatchKind::exact || split.syllables.size() != 2 ||
+                split.syllables.back().text.size() < 2 ||
+                std::string_view("aeo").find(split.syllables.back().text.front()) == std::string_view::npos) continue;
+            auto alternative = *preferred;
+            alternative.syllables.erase(alternative.syllables.begin() + static_cast<std::ptrdiff_t>(index));
+            auto parts = split.syllables;
+            for (auto& part : parts) { part.begin += syllable.begin; part.end += syllable.begin; }
+            alternative.syllables.insert(alternative.syllables.begin() + static_cast<std::ptrdiff_t>(index), parts.begin(), parts.end());
+            if (std::any_of(parsed.paths.begin(), parsed.paths.end(), [&](const auto& path) {
+                return path.syllables == alternative.syllables;
+            }) || std::any_of(result.begin(), result.end(), [&](const auto& path) {
+                return path.syllables == alternative.syllables;
+            })) continue;
+            // Only complete chains of real multi-character words may recover
+            // an extra vowel boundary. No one-character filler or extra Beam
+            // enumeration is used to justify a speculative split.
+            std::vector<bool> covered(alternative.syllables.size() + 1, false);
+            covered[0] = true;
+            for (std::size_t begin = 0; begin < alternative.syllables.size(); ++begin) {
+                if (!covered[begin]) continue;
+                if (cancelled && cancelled()) return {};
+                std::vector<std::string_view> reading;
+                for (std::size_t end = begin + 1; end <= alternative.syllables.size() && end - begin <= 4; ++end) {
+                    reading.push_back(alternative.syllables[end - 1].text);
+                    if (reading.size() >= 2 && cache.maximum(reading) != 0) covered[end] = true;
+                }
+            }
+            if (covered.back()) result.push_back(std::move(alternative));
+            if (result.size() == 2) break;
+        }
+    }
+    return result;
+}
+
 }  // namespace
 
 std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
@@ -1158,8 +1208,18 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             direct_mixed_candidate_found = true;
         }
     }
+    const auto boundary_paths = dictionary_boundary_paths(parsed, lookup_cache, cancelled);
+    std::vector<const ParsePath*> source_paths;
+    source_paths.reserve(parsed.paths.size() + boundary_paths.size());
+    const auto first_exact = std::find_if(parsed.paths.begin(), parsed.paths.end(), [](const auto& path) {
+        return path.match_kind == InputMatchKind::exact;
+    });
+    if (first_exact != parsed.paths.end()) source_paths.push_back(&*first_exact);
+    for (const auto& path : boundary_paths) source_paths.push_back(&path);
+    for (const auto& path : parsed.paths)
+        if (first_exact == parsed.paths.end() || &path != &*first_exact) source_paths.push_back(&path);
     std::vector<OrderedParsePath> ordered_paths;
-    ordered_paths.reserve(parsed.paths.size());
+    ordered_paths.reserve(source_paths.size());
     const bool long_ambiguous_input = phonetic_assistance &&
                                       parsed.normalized_input.size() >= 12 &&
                                       parsed.normalized_input.find('\'') ==
@@ -1167,8 +1227,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // Short input also evaluates a small exact-path set: min'gan must not be
     // hidden merely because ming'an is the parser's first legal split.
     const auto exact_path_count = static_cast<std::size_t>(std::count_if(
-        parsed.paths.begin(), parsed.paths.end(), [](const ParsePath& path) {
-            return path.match_kind == InputMatchKind::exact;
+        source_paths.begin(), source_paths.end(), [](const ParsePath* path) {
+            return path->match_kind == InputMatchKind::exact;
         }));
     const std::size_t exact_path_limit = long_ambiguous_input
         ? std::min(exact_path_count,
@@ -1186,7 +1246,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                             InputMatchKind::incomplete_completion,
                             InputMatchKind::corrected,
                             InputMatchKind::abbreviated_completion}) {
-        for (const auto& path : parsed.paths) {
+        for (const auto* path_pointer : source_paths) {
+            const auto& path = *path_pointer;
             if (cancelled && cancelled()) return {};
             if (path.match_kind != kind) continue;
             // The first exact path is also the segmentation shown by the
@@ -1418,8 +1479,24 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                 0, path.syllables[end - 1].end), entry.text);
                 }
                 store_candidate(Candidate{std::string(entry.text), own_syllables(reading), score,
-                                          path.match_kind, raw_segments,
+                                          path.match_kind, std::vector<std::string>(raw_segments.begin(), raw_segments.begin() + static_cast<std::ptrdiff_t>(end)),
                                           path.syllables[end - 1].end});
+                // An absent short word can still be a useful partial commit
+                // of a verified longer dictionary word. Expose only its
+                // leading two characters, not arbitrary character products.
+                if (partition_page_size != 0 && phonetic_assistance && path.match_kind == InputMatchKind::exact && end >= 3 &&
+                    utf8_character_count(entry.text) == end) {
+                    const std::array<std::string_view, 2> short_reading{reading[0], reading[1]};
+                    if (lookup_cache.lookup(short_reading).empty()) {
+                        const auto boundaries = utf8_boundaries(entry.text);
+                        Candidate fragment{std::string(entry.text.substr(0, boundaries[2])),
+                            {std::string(reading[0]), std::string(reading[1])},
+                            score - kAdditionalSegmentPenalty, InputMatchKind::exact,
+                            {raw_segments[0], raw_segments[1]}, path.syllables[1].end, 2};
+                        fragment.segment_lengths = {1, 1};
+                        store_candidate(std::move(fragment));
+                    }
+                }
             }
         }
 
@@ -1792,7 +1869,14 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 std::fill(dictionary_covered.begin() + begin, dictionary_covered.begin() + end, true);
                 if (end < character_count)
                     std::fill(prefix_dictionary_covered.begin() + begin, prefix_dictionary_covered.begin() + end, true);
-                if (end - begin >= 3 &&
+                // A long dictionary word followed by one character can also
+                // be connected by a real two-character terminal word. Limit
+                // this rescue to that layout: rewarding every two-character
+                // overlap favors incidental names and shorter noisy splits.
+                const bool terminal_word_overlap = end == character_count && end - begin == 2 &&
+                    candidate.segment_lengths.size() >= 2 && candidate.segment_lengths.back() == 1 &&
+                    candidate.segment_lengths[candidate.segment_lengths.size() - 2] >= 3;
+                if ((end - begin >= 3 || terminal_word_overlap) &&
                     std::any_of(dictionary_boundaries.begin(), dictionary_boundaries.end(),
                         [begin, end](const auto boundary) { return begin < boundary && boundary < end; }))
                     dictionary_bridge = true;

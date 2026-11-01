@@ -1167,6 +1167,39 @@ int main() {
     if (std::none_of(diverse.begin(), diverse.end(), [](const auto& value) { return value.text == "并额外"; }))
         return fail("homophones of one exact split starved the model's alternate reading");
 
+    const owo::engine::MemoryLexicon supported_boundary_lexicon({
+        {{"hou", "xu"}, "后续", 100000}, {{"an", "zhi"}, "安置", 100000},
+        {{"hou", "xuan"}, "候选", 100000}, {{"hou"}, "后", 1000000},
+        {{"zhi"}, "只", 5000000}, {{"zhi"}, "值", 900000},
+        {{"xu"}, "续", 100000}, {{"an"}, "安", 100000},
+        {{"cuo", "bie", "zi"}, "错别字", 100000},
+        {{"cuo"}, "错", 1000000}, {{"bie"}, "别", 1000000},
+        {{"zi", "mu"}, "字母", 100000}, {{"zi"}, "字", 1000000}, {{"mu"}, "母", 1000000}});
+    const owo::engine::CandidateGenerator supported_boundary_generator(supported_boundary_lexicon);
+    for (const auto page : {5U, 7U, 9U})
+        for (const auto limit : {8U, 18U, 48U, 128U})
+            for (const bool model : {false, true}) {
+                const auto words = supported_boundary_generator.generate(schema.parse("houxuanzhi"),
+                    limit, false, {}, nullptr, {}, model, page);
+                if (std::none_of(words.begin(), words.end(), [](const auto& word) {
+                    return word.text == "后续安置" && !word.model_only && word.consumed_input_bytes == 10 &&
+                        word.source_segments == std::vector<std::string>{"hou", "xu", "an", "zhi"};
+                })) return fail("dictionary-backed extra vowel boundary was discarded");
+                const auto explicit_words = supported_boundary_generator.generate(schema.parse("hou'xu'an'zhi", 32, false),
+                    limit, false, {}, nullptr, {}, model, page);
+                if (std::any_of(explicit_words.begin(), explicit_words.end(), [](const auto& word) {
+                    return word.source_segments == std::vector<std::string>{"hou", "xuan", "zhi"};
+                })) return fail("recovered vowel boundary crossed an explicit apostrophe");
+                const auto fragments = supported_boundary_generator.generate(schema.parse("cuobiezimu"),
+                    limit, false, {}, nullptr, {}, model, page);
+                if (std::none_of(fragments.begin(), fragments.end(), [](const auto& word) {
+                    return word.text == "错别" && !word.model_only && word.segment_count == 2 &&
+                        word.consumed_input_bytes == 6 && word.source_segments == std::vector<std::string>{"cuo", "bie"};
+                })) return fail("missing short dictionary entry erased a supported longer-word fragment");
+                if (fragments.empty() || fragments.front().text != "错别字母")
+                    return fail("verified terminal word was ignored after a longer dictionary prefix");
+            }
+
     const auto cancelled_generation = word_priority_generator.generate(
         schema.parse("shi"), 32, false, {}, nullptr, [] { return true; });
     if (!cancelled_generation.empty())

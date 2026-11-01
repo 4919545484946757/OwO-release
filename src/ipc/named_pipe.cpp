@@ -378,12 +378,13 @@ std::vector<std::string> preferred_source_segmentation(
             return path.match_kind == engine::InputMatchKind::exact && !path.syllables.empty();
         });
     // Use lexical evidence only for a complete exact candidate whose raw
-    // source boundaries are present in the parse graph. Never let a prefix,
+    // source boundaries are present in the parse graph or validated by a
+    // dictionary-backed exact split. Never let a prefix,
     // abbreviation or completed spelling replace the user's actual input.
     const bool winning_exact_source = winning_candidate != nullptr &&
         winning_candidate->match_kind == engine::InputMatchKind::exact &&
         winning_candidate->consumed_input_bytes == parsed.normalized_input.size() &&
-        std::any_of(parsed.paths.begin(), parsed.paths.end(), [&](const auto& path) {
+        (std::any_of(parsed.paths.begin(), parsed.paths.end(), [&](const auto& path) {
             if (path.match_kind != engine::InputMatchKind::exact ||
                 path.syllables.size() != candidate_segments.size()) return false;
             for (std::size_t index = 0; index < path.syllables.size(); ++index) {
@@ -394,7 +395,12 @@ std::vector<std::string> preferred_source_segmentation(
                     return false;
             }
             return true;
-        });
+        }) || [&] {
+            if (candidate_segments != winning_candidate->syllables) return false;
+            std::string source;
+            for (const auto& segment : candidate_segments) source += segment;
+            return source == parsed.normalized_input;
+        }());
     // Exact full-input evidence can choose a different source boundary even
     // for short input; keep it aligned with the candidate. Retain the existing
     // long-input policy, and never reinterpret user-authored apostrophes.
@@ -2430,12 +2436,26 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             confidence = static_cast<std::uint64_t>(
                                 (reference->score - candidate.score) / kModelLexicalConfidenceBand);
                         model_candidate_confidence.push_back(confidence);
+                        // A recovered vowel boundary backed by complete real
+                        // word coverage must not disappear behind unsupported
+                        // character combinations of another reading. Preserve
+                        // explicit learning and the within-reading LM order.
+                        if (reference != candidates.end() && !candidate.user_preferred() &&
+                            candidate.match_kind == engine::InputMatchKind::exact &&
+                            candidate.segment_count > 1 &&
+                            candidate.consumed_input_bytes == full_input_bytes &&
+                            candidate.source_segments != reference->source_segments &&
+                            reference->segment_lengths.size() >= 2 &&
+                            std::all_of(reference->segment_lengths.begin(), reference->segment_lengths.end(),
+                                [](const auto length) { return length >= 2; }) &&
+                            candidate.coherence_score == 0 && reference->coherence_score >= kModelLexicalConfidenceBand)
+                            model_candidate_confidence.back() = std::max<std::uint64_t>(confidence, 1);
                         if (candidate.joint_phrase_partition && !candidate.user_preferred() &&
                             joint_reference != nullptr && candidate.score < joint_reference->score &&
                             (candidate.segment_count == 1 ||
                              !abbreviated_model_alternative(candidate, full_input_bytes)) &&
                             !standalone_head_alternative(*joint_reference, candidate, full_input_bytes))
-                            model_candidate_confidence.back() = std::max(confidence,
+                            model_candidate_confidence.back() = std::max(model_candidate_confidence.back(),
                                 static_cast<std::uint64_t>((joint_reference->score - candidate.score) /
                                     kModelLexicalConfidenceBand));
                     }
