@@ -1,5 +1,6 @@
 #include "owo/engine/candidate_partition.h"
 #include "owo/engine/candidate_scoring.h"
+#include "owo/engine/sentence_reading_order.h"
 
 #include <algorithm>
 #include <limits>
@@ -39,21 +40,17 @@ std::size_t sentence_candidate_limit(const std::span<const Candidate> candidates
     return std::max<std::size_t>(1, readings.size()) * 2;
 }
 
-void prefer_sentence_page_reading(const std::span<Candidate> candidates) {
-    if (candidates.size() < 3 || candidates.front().source_segments.empty() ||
-        candidates[1].user_preferred()) return;
-    const auto& first = candidates.front();
-    const auto& next = candidates[1];
-    if (next.source_segments == first.source_segments) return;
-    // A small presentation preference, not another hard matching tier or an
-    // accumulated score. Stronger alternatives and explicit learning win.
-    constexpr std::int64_t kSameReadingPagePreference = 1'000;
-    const auto matching = std::find_if(candidates.begin() + 2, candidates.end(), [&](const auto& value) {
-        return value.source_segments == first.source_segments && value.match_kind == next.match_kind &&
-            (value.user_preferred() || value.score >= next.score ||
-             next.score - value.score <= kSameReadingPagePreference);
-    });
-    if (matching != candidates.end()) std::rotate(candidates.begin() + 1, matching, matching + 1);
+void arrange_sentence_reading_pages(const std::span<Candidate> candidates) {
+    if (candidates.size() < 3) return;
+    std::vector<std::string> readings;
+    readings.reserve(candidates.size());
+    for (const auto& candidate : candidates)
+        readings.push_back(candidate.qualified_sentence_reading ? sentence_reading_key(candidate) : std::string{});
+    const auto order = sentence_reading_page_order(readings);
+    std::vector<Candidate> arranged;
+    arranged.reserve(candidates.size());
+    for (const auto index : order) arranged.push_back(std::move(candidates[index]));
+    std::move(arranged.begin(), arranged.end(), candidates.begin());
 }
 
 bool requires_incomplete_candidate_limit(const ParseResult& parsed,

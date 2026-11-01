@@ -1,5 +1,6 @@
 #pragma once
 #include "owo/engine/sentence_quality.h"
+#include "owo/engine/sentence_reading_order.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -118,12 +119,33 @@ inline void limit_model_sentence_candidates(
     const std::vector<bool>& generated_sentences, std::size_t limit,
     std::vector<std::string>& candidates, std::vector<std::uint64_t>& consumed,
     const std::vector<std::uint64_t>& sentence_segments = {},
-    const std::vector<std::string>& sentence_readings = {}) {
+    const std::vector<std::string>& sentence_readings = {},
+    const bool diversify_pages = false) {
     if (original_candidates.size() != original_consumed.size() ||
         generated_sentences.size() != original_candidates.size() ||
         candidates.size() != consumed.size() ||
         (!sentence_segments.empty() && sentence_segments.size() != original_candidates.size()) ||
         (!sentence_readings.empty() && sentence_readings.size() != original_candidates.size())) return;
+    if (diversify_pages && !sentence_readings.empty()) {
+        std::vector<std::size_t> slots;
+        std::vector<std::string> readings, texts;
+        std::vector<std::uint64_t> ranges;
+        for (std::size_t index = 0; index < candidates.size(); ++index) {
+            for (std::size_t source = 0; source < original_candidates.size(); ++source) {
+                if (candidates[index] != original_candidates[source] || consumed[index] != original_consumed[source]) continue;
+                if (generated_sentences[source] && !sentence_readings[source].empty()) {
+                    slots.push_back(index); readings.push_back(sentence_readings[source]);
+                    texts.push_back(candidates[index]); ranges.push_back(consumed[index]);
+                }
+                break;
+            }
+        }
+        const auto order = owo::engine::sentence_reading_page_order(readings);
+        for (std::size_t index = 0; index < slots.size(); ++index) {
+            candidates[slots[index]] = std::move(texts[order[index]]);
+            consumed[slots[index]] = ranges[order[index]];
+        }
+    }
     std::size_t kept_sentences = 0, destination = 0;
     std::uint64_t first_segments = 0;
     std::string first_sentence;

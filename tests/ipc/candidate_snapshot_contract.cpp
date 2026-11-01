@@ -178,6 +178,10 @@ int main() {
             }
             if (request.text == "houxuanzhi")
                 verify(!first.candidates.empty() && first.candidates.front() == "后续安置", "model erased a dictionary-covered recovered boundary");
+            if (partition && request.text == "xianjiedao")
+                verify(std::find(first.candidates.begin(), first.candidates.end(), "衔接到") != first.candidates.end() &&
+                       std::find(first.candidates.begin(), first.candidates.end(), "西安街道") != first.candidates.end(),
+                       "first page did not diversify qualified sentence readings");
             if (model_enabled && request.text == "rgs")
                 verify(first.candidates.size() >= 2 && first.candidates[0] == "如果是" &&
                        first.candidates[1] == "如果说" && first.candidate_consumed[0] == 3 &&
@@ -226,6 +230,15 @@ int main() {
                     verify(sentences <= 2, "later page exceeded two sentence slots");
                     if (request.text == "xianjiedao" && page == 1)
                         verify(sentences >= 1, "sentence overflow did not continue on the next page");
+                    if (request.text == "xianjiedao" && page == 1) {
+                        std::vector<bool> first_readings, next_readings;
+                        for (std::size_t index = 0; index < first.candidates.size(); ++index)
+                            if (first.candidate_groups[index] == 0) first_readings.push_back(first.candidates[index].starts_with("西安"));
+                        for (std::size_t index = 0; index < row.candidates.size(); ++index)
+                            if (row.candidate_groups[index] == 0) next_readings.push_back(row.candidates[index].starts_with("西安"));
+                        verify(first_readings.size() == 2 && first_readings[0] != first_readings[1] &&
+                               first_readings == next_readings, "next page did not continue the previous reading order");
+                    }
                 }
                 if (request.text == "rgs" && partition)
                     verify(std::count(row.candidate_groups.begin(), row.candidate_groups.end(), 0) == 0 &&

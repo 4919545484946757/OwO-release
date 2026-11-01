@@ -654,7 +654,8 @@ public:
                               const std::size_t replaced_count,
                               const std::size_t full_input_bytes,
                               const bool abbreviation_recall,
-                              const bool sentence_recall) {
+                              const bool sentence_recall,
+                              const bool diversify_sentence_pages) {
         const auto found = entries_.find(key);
         if (found == entries_.end() || text.size() != consumed.size() || text.empty() ||
             (!groups.empty() && groups.size() != text.size())) return false;
@@ -706,6 +707,20 @@ public:
         // One authoritative presentation snapshot per input/context/config key.
         // Displaced/unused hidden alternatives are not additional visible pages.
         value.candidates = std::move(ordered);
+        if (diversify_sentence_pages) {
+            std::vector<std::size_t> slots;
+            std::vector<engine::Candidate> sentences;
+            for (std::size_t index = 0; index < value.candidates.size(); ++index) {
+                if (candidate_group(value.candidates[index], full_input_bytes) != 0) continue;
+                slots.push_back(index);
+                sentences.push_back(std::move(value.candidates[index]));
+            }
+            engine::arrange_sentence_reading_pages(sentences);
+            for (std::size_t index = 0; index < slots.size(); ++index) {
+                sentences[index].partition_slot = engine::CandidatePartitionSlot::sentence;
+                value.candidates[slots[index]] = std::move(sentences[index]);
+            }
+        }
         value.model_refined = true;
         return true;
     }
@@ -980,6 +995,7 @@ void arrange_partitioned_candidate_pages(
         }
     }
 
+    engine::arrange_sentence_reading_pages(sentences);
     const auto exact_learned_whole_word = [full_input_bytes](const engine::Candidate& candidate) {
         return candidate.user_preferred() && candidate.segment_count == 1 &&
             candidate.match_kind == engine::InputMatchKind::exact &&
@@ -1118,8 +1134,6 @@ void arrange_partitioned_candidate_pages(
             static_cast<std::size_t>(single_index < single_characters.size());
         const auto sentence_count = std::min({std::size_t{2}, sentences.size() - sentence_index,
                                               page_size - reserved});
-        if (sentence_count == 2)
-            engine::prefer_sentence_page_reading(std::span(sentences).subspan(sentence_index));
         const auto sentence_end = sentence_index + sentence_count;
         if (!dictionary_before_sentences) {
             while (sentence_index < sentence_end)
@@ -1832,7 +1846,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             limit_model_sentence_candidates(
                                 pending.candidates, pending.candidate_consumed,
                                 pending.generated_sentences, pending.sentence_limit,
-                                response.candidates, response.candidate_consumed, pending.sentence_segments, pending.sentence_readings);
+                                response.candidates, response.candidate_consumed, pending.sentence_segments, pending.sentence_readings,
+                                pending.partitioned);
                         response.candidate_groups = candidate_groups_for_order(
                             response.candidates, response.candidate_consumed,
                             pending.candidates, pending.candidate_consumed,
@@ -1881,7 +1896,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         }
                         if (candidate_cache.publish_model_prefix(pending.cache_key,
                             response.candidates, response.candidate_consumed, response.candidate_groups, pending.visible_count,
-                            pending.full_input_bytes, pending.abbreviation_recall, pending.sentence_recall)) {
+                            pending.full_input_bytes, pending.abbreviation_recall, pending.sentence_recall, pending.partitioned)) {
                             // Filtering a weak second sentence can leave one
                             // slot empty. Fill it from the same canonical tail,
                             // not by resurrecting the rejected composition.

@@ -34,21 +34,31 @@ int main() {
         {true, true, true, true, true, true}, 4, ranked_sources, ranked_consumed,
         {2, 2, 2, 3, 3, 3}, {"a", "a", "a", "b", "b", "b"});
     if (ranked_sources != std::vector<std::string>{"甲句一", "甲句二", "乙句一", "乙句二"}) return 19;
-    auto paired_a = reading_a; paired_a.text = "西安接到"; paired_a.score = 100;
-    reading_a.score = 2000; reading_b.score = 1000;
-    std::vector<Candidate> page_readings{reading_a, reading_b, paired_a};
-    prefer_sentence_page_reading(page_readings);
-    if (page_readings[1].text != paired_a.text || page_readings[2].text != reading_b.text ||
-        page_readings[1].score != 100) return 20;
-    paired_a.score = -1;
-    page_readings = {reading_a, reading_b, paired_a};
-    prefer_sentence_page_reading(page_readings);
-    if (page_readings[1].text != reading_b.text) return 21;
-    reading_b.user_lexicon = true;
-    paired_a.score = 1000;
-    page_readings = {reading_a, reading_b, paired_a};
-    prefer_sentence_page_reading(page_readings);
-    if (page_readings[1].text != reading_b.text) return 22;
+    auto paired_a = reading_a; paired_a.text = "西安接到"; paired_a.score = 1900;
+    auto paired_b = reading_b; paired_b.text = "先接到"; paired_b.score = 50;
+    reading_a.score = 2000; reading_b.score = 100;
+    std::vector<Candidate> page_readings{reading_a, paired_a, reading_b, paired_b};
+    arrange_sentence_reading_pages(page_readings);
+    if (page_readings != std::vector<Candidate>{reading_a, reading_b, paired_a, paired_b}) return 20;
+    auto reading_c = reading_a; reading_c.text = "先鸡饿到";
+    reading_c.source_segments = {"xian", "ji", "e", "dao"};
+    auto paired_c = reading_c; paired_c.text = "先寄饿到";
+    page_readings = {reading_a, paired_a, reading_b, reading_c, paired_b, paired_c};
+    arrange_sentence_reading_pages(page_readings);
+    if (page_readings != std::vector<Candidate>{reading_a, reading_b, paired_a, paired_b, reading_c, paired_c}) return 21;
+    page_readings = {reading_a, reading_b, paired_b, reading_c, paired_c};
+    arrange_sentence_reading_pages(page_readings);
+    if (page_readings != std::vector<Candidate>{reading_a, reading_b, paired_b, reading_c, paired_c}) return 22;
+    ranked_sources = source_candidates; ranked_consumed.assign(6, 10);
+    owo::ipc::limit_model_sentence_candidates(source_candidates, std::vector<std::uint64_t>(6, 10),
+        {true, true, true, true, true, true}, 4, ranked_sources, ranked_consumed,
+        {2, 2, 2, 3, 3, 3}, {"a", "a", "a", "b", "b", "b"}, true);
+    if (ranked_sources != std::vector<std::string>{"甲句一", "乙句一", "甲句二", "乙句二"}) return 25;
+    ranked_sources = source_candidates; ranked_consumed.assign(6, 10);
+    owo::ipc::limit_model_sentence_candidates(source_candidates, std::vector<std::uint64_t>(6, 10),
+        {true, true, true, true, true, true}, 2, ranked_sources, ranked_consumed,
+        {2, 2, 2, 3, 3, 3}, {"a", "a", "a", "b", "b", "b"}, true);
+    if (ranked_sources != std::vector<std::string>{"甲句一", "乙句一"}) return 26;
     std::vector<Candidate> page_slots{
         word("甲句子一", 13, 600, 2), word("甲句子二", 13, 500, 2), word("完整词甲", 13, 1000),
         word("甲", 3, 1), word("乙", 3, 1),
