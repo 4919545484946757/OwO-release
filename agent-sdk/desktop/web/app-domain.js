@@ -1161,6 +1161,8 @@ function turnRecoveryActions(sessionId, prompt, reason) {
 }
 
 async function selectSession(id, forceHistory = false) {
+  // 输入区的弹出菜单是绝对定位浮层，换会话后不会自己关闭，会浮在新对话上方。
+  if (typeof closeComposerMenu === "function") closeComposerMenu();
   const selectionVersion = ++state.selectionVersion;
   state.sessionId = id;
   state.sessionWorkspace = "";
@@ -3225,6 +3227,15 @@ function panelHelpers() {
     baseUrl: API_BASE,
     snapshot: () => ({ sessionId: state.sessionId, workspace: state.sessionId && state.sessionWorkspace ? state.sessionWorkspace : $("workspace")?.value || "", settings: state.settings || {}, sessions: state.sessionIndex || [], sessionsKnown: state.sessionsKnown === true }),
     openPanel: openPanelById,
+    // 面板里发起模型请求（如 AI 生成工作流）时要带上当前选择的模型连接：桌面端把
+    // 密钥放在核心进程环境里，核心默认 provider 在只配了桌面自定义模型时是未配置的。
+    modelConnection: () => {
+      try {
+        return ModelRouting.buildCustomModelConnection(getComposerModel(), loadCustomModels(), customModelKeys());
+      } catch (_) {
+        return null;
+      }
+    },
     downloadArtifact: async (id, fileName) => {
       if (window.owo?.downloadArtifact) return window.owo.downloadArtifact(id);
       const blob = await window.OwoApi.download("/artifacts/" + encodeURIComponent(id) + "/content?raw=true");
@@ -3581,6 +3592,8 @@ function panelFromHash() {
 // 深链打开：确保工具视图可见，再把对应面板挂上。
 function openPanelById(id) {
   if (!id || !window.OwoPanels || !window.OwoPanels[id]) return false;
+  // 输入区弹出菜单换页后不会自己关闭，会压在新面板上（截图里"选择模型"浮在团队协作上方）。
+  if (typeof closeComposerMenu === "function") closeComposerMenu();
   // showTools also leaves settings without creating an intermediate chat route.
   // Clear the sidebar group filter so the shared extension panel stays visible.
   window.OwoWorkbenchView.clearGroupFilters(document.body);

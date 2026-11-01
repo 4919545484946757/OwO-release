@@ -30,3 +30,60 @@
 /* 4) 设置项里控件换行成多行时（例如"模型输出上限"：模型名 + 上限 + 按钮 + 提示），
    align-items:center 会把标题挤到中间，看着像串行。统一顶部对齐。 */
 .settings-row { align-items: start !important; }
+
+/* 5) 设置页宽度跟着当前页签的内容走：侧栏在设置态是 auto 尺寸网格，内容列被内容
+   撑开，切标签时整块左右跳（实测左边界在 164–580px 之间摆动）。
+   agent-frame 那套三列网格是给它自己的 rail + 会话列表用的，30 号页面里那两列是空的，
+   所以这里在设置态直接退出网格、改回普通块布局，宽度由容器算，内容再也不会推动整页。 */
+body.settings-open #sidebar {
+  display: block !important;
+  overflow: auto !important;
+  /* 长页签会冒出滚动条把内容挤窄 5px；预留滚动条槽位，切换时不再横向抖动。 */
+  scrollbar-gutter: stable !important;
+  padding: 0 0 40px !important;
+}
+
+body.settings-open .settings-layout {
+  /* agent-frame 用 flex:1 1 0 把内容压在固定高度的容器里；这里容器高度是 auto，
+     flex-basis:0 会把整块压成 0 高（实测 height:0、内容消失），改回按内容取高。 */
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+body.settings-open #sidebar > section.settings-section {
+  display: flex !important;
+  flex-direction: column;
+  width: min(var(--settings-width, 1080px), 100% - 80px) !important;
+  max-width: var(--settings-width, 1080px) !important;
+  height: auto !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+/* 6) 设置页原本没有返回入口：workbench-pages.css 给 agent-frame 自带的设置头部把
+   「返回会话」按钮藏了，30 号页面没有那个头部，于是只能靠 ESC 或点别处离开。
+   把按钮放回设置页顶部。 */
+body.settings-open #codexViewBack {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  /* 与设置卡片左边缘对齐：卡片居中且最大 1080，这里补上同样的左侧留白。 */
+  margin: 14px 0 10px calc(max(40px, (100% - var(--settings-width, 1080px)) / 2)) !important;
+  padding: 0 12px 0 8px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+body.settings-open #codexViewBack:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}

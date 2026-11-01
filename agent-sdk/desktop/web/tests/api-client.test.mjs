@@ -870,3 +870,43 @@ test("bounded blob download keeps bytes and MIME and cancellation does not retry
     assert.equal(calls, 2);
   } finally { global.fetch = original; }
 });
+
+test("错误响应正文解包：{error} 只暴露文案，不把整段 JSON 抛到界面", async () => {
+  const original = global.fetch;
+  const bodies = [
+    [400, JSON.stringify({ error: "缺少 description（用自然语言说明这条工作流要完成什么）" })],
+    [502, JSON.stringify({ message: "模型调用失败：provider/not_configured" })],
+    [409, JSON.stringify({ detail: "版本冲突" })],
+    [500, "<html>内部错误</html>"],
+    [500, ""],
+    [500, JSON.stringify({ error: "   " })],
+  ];
+  try {
+    const messages = [];
+    for (const [status, body] of bodies) {
+      global.fetch = async (url) => (String(url).endsWith("/auth/token")
+        ? new Response(JSON.stringify({ token: "t" }), { status: 200 })
+        : new Response(body, { status }));
+      const client = new ApiClient("http://127.0.0.1:4096");
+      client.bootstrapToken = async () => "fixture-token";
+      try {
+        await client.request("/workflows/draft", { method: "POST", body: "{}" });
+        messages.push("NO-ERROR");
+      } catch (error) {
+        messages.push(error.message);
+        assert.equal(error.status, status, "状态码必须保留，供 friendlyError 判断");
+      }
+    }
+    assert.equal(messages[0], "400: 缺少 description（用自然语言说明这条工作流要完成什么）");
+    assert.equal(messages[1], "502: 模型调用失败：provider/not_configured");
+    assert.equal(messages[2], "409: 版本冲突");
+    assert.equal(messages[3], "500: <html>内部错误</html>", "非 JSON 正文按原文透出");
+    assert.equal(messages[4], "500: 请求失败（无错误正文）");
+    assert.equal(messages[5], "500: {\"error\":\"   \"}", "空白字段不算文案，回落到原文");
+    for (const message of messages.slice(0, 3)) {
+      assert.ok(!message.includes('{\"'), "不得把转义后的 JSON 花括号原样抛给界面");
+    }
+  } finally {
+    global.fetch = original;
+  }
+});

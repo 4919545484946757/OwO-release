@@ -60,6 +60,12 @@ struct CreateTeamHttpRequest {
     /// 已经确认过该工作流的能力面提示（社区来源 + 有风险时必须为 true）。
     #[serde(default)]
     acknowledge_risk: bool,
+    /// 桌面端保存的自定义模型连接（密钥只经环境变量引用）。团队是后台运行且可
+    /// 恢复的，所以连接会落到运行 sidecar（`<team_id>-model.json`）供每次重建
+    /// worker 注册表时复用；缺省走核心默认 provider。仅接受 `api_key_env`，
+    /// 明文密钥一律 400（运行记录不落密钥）。
+    #[serde(default)]
+    model_connection: Option<owo_agent_protocol::CustomModelConnection>,
     /// 用户自定义工作流：允许节点**按声明的 write_paths 范围**写入当前工作区。
     ///
     /// 勾选后仅预授权落在角色 write_paths 内的文件写入。未预授权操作继续由
@@ -248,7 +254,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 /// POST /teams：创建运行（202）+ 后台运行循环。
 async fn create_team(
     State(state): State<Arc<AppState>>,
-    Json(req): Json<CreateTeamHttpRequest>,
+    Json(mut req): Json<CreateTeamHttpRequest>,
 ) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
     let coordinator = state
         .workswarm
@@ -306,6 +312,23 @@ async fn create_team(
         }
     }
 
+    // 桌面端保存的模型：先验证能否构造 provider（非法连接 → 400，不建队），
+    // 再在团队落盘后写进运行 sidecar（团队后台运行/可恢复，连接必须能重建）。
+    if let Some(connection) = req.model_connection.as_ref() {
+        super::team_model_connection::reject_plaintext_key(connection)
+            .map_err(|message| (StatusCode::BAD_REQUEST, Json(json!({ "error": message }))))?;
+        owo_agent_core::gateway::custom_model_provider(connection)
+            .map_err(|code| (StatusCode::BAD_REQUEST, Json(json!({ "error": code }))))?;
+        // 团队统一模型：请求没显式给 model 时用连接里的模型，节点才会实际用上它。
+        if req
+            .model
+            .as_deref()
+            .map(str::trim)
+            .is_none_or(str::is_empty)
+        {
+            req.model = Some(connection.model.clone());
+        }
+    }
     // 六期（第二路）：工作区绑定先校验（不依赖团队存在；路径非法 → 400，不建队）。
     let workspace_binding = match &req.workspace {
         Some(spec) => Some(
@@ -394,6 +417,7 @@ async fn create_team(
     } else {
         None
     };
+    let model_connection = req.model_connection.clone();
     let mut budget = req.budget.clone();
     match budget.as_object_mut() {
         Some(object) => {
@@ -468,6 +492,17 @@ async fn create_team(
             )
         })?;
         bound_workspace = true;
+    }
+    // 模型连接先于运行循环落盘：首迭代 build_run_registry 即按它选 provider。
+    if let Some(connection) = model_connection.as_ref() {
+        super::team_model_connection::save(coordinator.run_dir(), &team_id, connection).map_err(
+            |message| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "error": message })),
+                )
+            },
+        )?;
     }
     // 后台运行循环（阶段边界串行调度；同一就绪批次内可并行执行节点，人节点等待 = 门闩）。
     tokio::spawn(run_team_loop(state, coordinator, team_id.clone()));

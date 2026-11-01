@@ -13043,6 +13043,8 @@ export interface operations {
                     };
                     /** @description Default model for agent nodes; roles[].model overrides this value. */
                     model?: string;
+                    /** @description 桌面端保存的模型连接（只接受 api_key_env 凭据引用）；团队运行会持久化到 <team_id>-model.json 供恢复，缺省走核心默认 provider */
+                    model_connection?: components["schemas"]["CustomModelConnection"] | null;
                     /**
                      * @description Enable the legacy lead/writer dynamic-assignment preset; custom DAG branches run according to dependencies and budget.max_parallel.
                      * @default false

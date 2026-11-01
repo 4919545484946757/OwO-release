@@ -482,3 +482,24 @@ test("读取版本冻结：成功推进版本，改 id 创建新文档，迟到�
   assert.equal(tracker.capture("b").expected_revision, 8);
   assert.equal(tracker.capture("a").expected_revision, 0);
 });
+
+test("建队请求带上当前模型连接：自定义工作流运行才不会落到未配置 provider", () => {
+  const panel = loadPanel().OwoPanels["custom-workflows"];
+  const T = panel._test;
+  const connection = {
+    model: "fixture-model",
+    base_url: "http://127.0.0.1:4999/v1",
+    api_format: "openai",
+    api_key_env: "OWO_CUSTOM_MODEL_SECRET_0123456789abcdef0123456789abcdef",
+  };
+  T.setModelConnection(() => connection);
+  assert.deepEqual(T.attachModelConnection({ objective: "x" }).model_connection, connection);
+
+  T.setModelConnection(() => null);
+  assert.ok(!("model_connection" in T.attachModelConnection({ objective: "x" })), "无连接时不带字段");
+
+  // 取连接抛错（模型被移除）不能挡住建队。
+  T.setModelConnection(() => { throw new Error("该自定义模型已移除，请选择其他模型"); });
+  assert.ok(!("model_connection" in T.attachModelConnection({ objective: "x" })));
+  T.setModelConnection(null);
+});

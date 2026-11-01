@@ -8,6 +8,9 @@ use std::path::Path;
 // 全文索引：内存分词 + SQLite FTS5（零新增依赖）
 // ----------------------------------------------------------------------------
 
+/// 标题在索引里的伪块 id：标题不属于任何真实块，命中时用它标出来源。
+pub const TITLE_BLOCK_ID: &str = "__title__";
+
 /// 检索命中。
 #[derive(Debug, Clone, PartialEq)]
 pub struct SearchHit {
@@ -99,6 +102,21 @@ impl InMemoryNoteIndex {
 impl NoteIndex for InMemoryNoteIndex {
     fn index_doc(&mut self, doc: &NoteDoc) -> Result<(), String> {
         self.map.clear();
+        // 标题也进索引：笔记列表按标题展示，用户常按标题找回笔记，而标题只存在
+        // NoteDoc.title，不在任何块里，只索引块正文会搜不到。
+        if !doc.title.trim().is_empty() {
+            let snippet: String = doc.title.chars().take(60).collect();
+            for word in tokenize(&doc.title) {
+                if word.len() < 2 {
+                    continue;
+                }
+                self.map.entry(word).or_default().push((
+                    doc.id.clone(),
+                    TITLE_BLOCK_ID.to_string(),
+                    snippet.clone(),
+                ));
+            }
+        }
         for block in walk(doc, &doc.root) {
             let text = block_text(doc, block);
             if text.trim().is_empty() {
@@ -172,6 +190,14 @@ impl NoteIndex for FtsNoteIndex {
         let conn = self.conn.lock().unwrap();
         conn.execute_batch("DELETE FROM note_fts;")
             .map_err(|e| e.to_string())?;
+        // 标题行：FTS 只按块建索引时，标题不在任何块里，按标题搜会漏（见内存索引注释）。
+        if !doc.title.trim().is_empty() {
+            conn.execute(
+                "INSERT INTO note_fts(doc_id, block_id, text) VALUES (?1, ?2, ?3)",
+                rusqlite::params![doc.id, TITLE_BLOCK_ID, doc.title],
+            )
+            .map_err(|e| e.to_string())?;
+        }
         for block in walk(doc, &doc.root) {
             let text = block_text(doc, block);
             if text.trim().is_empty() {
@@ -272,4 +298,66 @@ impl NoteIndex for NoteIndexer {
 /// 便捷函数：内存索引检索。
 pub fn search_notes(index: &NoteIndexer, query: &str) -> Vec<SearchHit> {
     index.search(query)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn doc_with_body(id: &str, title: &str, body: &str) -> NoteDoc {
+        let mut doc = new_doc(id, title);
+        let root = doc.root.clone();
+        add_block(
+            &mut doc,
+            &root,
+            BlockKind::Paragraph {
+                text: body.into(),
+            },
+            BTreeMap::new(),
+        )
+        .unwrap();
+        doc
+    }
+
+    fn hit_blocks(index: &mut NoteIndexer, doc: &NoteDoc, query: &str) -> Vec<String> {
+        index.index_doc(doc).unwrap();
+        let mut blocks: Vec<String> = search_notes(index, query)
+            .into_iter()
+            .filter(|hit| hit.doc_id == doc.id)
+            .map(|hit| hit.block_id)
+            .collect();
+        blocks.sort();
+        blocks.dedup();
+        blocks
+    }
+
+    #[test]
+    fn in_memory_index_matches_title_even_when_body_differs() {
+        let mut index = NoteIndexer::in_memory();
+        // 内存索引按词前缀匹配，标题用前缀词验证（FTS 走子串，见下一条用例）。
+        let doc = doc_with_body("d-title", "自检清单周报", "正文只有正文两个字");
+        // 标题独有的词应命中，并且来源标成标题伪块。
+        let blocks = hit_blocks(&mut index, &doc, "自检");
+        assert_eq!(blocks, vec![TITLE_BLOCK_ID.to_string()]);
+        // 正文词仍命中正文块，不被标题行干扰。
+        let body_blocks = hit_blocks(&mut index, &doc, "正文");
+        assert!(!body_blocks.contains(&TITLE_BLOCK_ID.to_string()));
+        assert!(!body_blocks.is_empty());
+    }
+
+    #[test]
+    fn fts_index_matches_title_with_short_and_long_queries() {
+        let db = std::env::temp_dir().join(format!("owo-notes-fts-{}.db", uuid::Uuid::new_v4()));
+        let mut index = NoteIndexer::fts(&db).unwrap();
+        let doc = doc_with_body("d-fts", "季度复盘摘要", "正文提到 alpha 和 beta");
+        // 两字查询走 LIKE 回退，三字以上走 trigram MATCH，两条路径都要能按标题找到。
+        assert!(hit_blocks(&mut index, &doc, "复盘").contains(&TITLE_BLOCK_ID.to_string()));
+        assert!(hit_blocks(&mut index, &doc, "季度复").contains(&TITLE_BLOCK_ID.to_string()));
+        // 正文命中不应被标题行取代。
+        let body_blocks = hit_blocks(&mut index, &doc, "alpha");
+        assert!(!body_blocks.is_empty());
+        assert!(!body_blocks.contains(&TITLE_BLOCK_ID.to_string()));
+        drop(index);
+        let _ = std::fs::remove_file(&db);
+    }
 }

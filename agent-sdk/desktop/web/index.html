@@ -30,7 +30,7 @@
   <link rel="stylesheet" href="workbench-pages.css?v=20261101-3">
   <link rel="stylesheet" href="workflow-canvas.css?v=20261101-3">
   <link rel="stylesheet" href="team-workbench.css?v=20261101-3">
-  <link rel="stylesheet" href="shell-compat.css?v=20261101-7">
+  <link rel="stylesheet" href="shell-compat.css?v=20261101-13">
 </head>
 <body class="dark-theme">
   <main id="setupRoot" class="setup-root" hidden aria-label="首次配置"></main>
@@ -1089,7 +1089,7 @@
   <!-- 统一 API 客户端：契约测试「业务脚本不绕过统一 API 客户端」规定全站只有它能 fetch。
        它承担桌面壳的两道认证门（x-owo-desktop-pairing 配对 + x-owo-desktop-instance 实例身份），
        必须在 app.js 与各面板之前加载，否则页面拿不到 token → 全线 401。 -->
-  <script src="core/api-client.js?v=20261009-4"></script>
+  <script src="core/api-client.js?v=20261101-1"></script>
   <script src="core/events.js"></script>
   <script src="config/provider-presets.js"></script>
   <script src="core/folder-picker.js"></script>

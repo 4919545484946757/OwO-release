@@ -282,6 +282,13 @@
       }
       if (body.strategy === "single") body.mode = "single";
       if (body.strategy === "team") body.mode = "team";
+      // 桌面端保存的模型只把密钥放在核心进程环境里，核心默认 provider 在只配了
+      // 桌面模型的机器上是未配置的（团队节点会以 provider/not_configured 失败）。
+      // 团队后台运行且可恢复，服务端只接受凭据引用（api_key_env），所以这里传
+      // buildCustomModelConnection 的结果（桌面模型本身就已带 apiKeyEnv）。
+      var connection = null;
+      try { connection = H.modelConnection ? H.modelConnection() : null; } catch (_) { connection = null; }
+      if (connection) body.model_connection = connection;
       return body;
     }
 
@@ -1080,6 +1087,10 @@
       setTransport: function (t) {
         if (t && t.get) H.get = t.get;
         if (t && t.post) H.post = t.post;
+      },
+      // 模型连接来自挂载时的 helpers.modelConnection；测试直接注入，无需真 DOM。
+      setModelConnection: function (fn) {
+        H.modelConnection = typeof fn === "function" ? fn : null;
       },
       setRoot: function (r) {
         rootEl = r;

@@ -713,6 +713,10 @@
             setError(root, request.error);
             return;
           }
+          if (H.modelConnection) {
+            var improveConnection = H.modelConnection();
+            if (improveConnection) request.body.model_connection = improveConnection;
+          }
           setError(root, "");
           var out = root.querySelector(".owo-wf-draft-out");
           if (out) out.textContent = "按运行证据生成改进候选…";
@@ -766,6 +770,16 @@
     }
 
     /// 建队（「建队」与「再跑」共用：能力面 block 拒绝、warn 需一次确认、带 acknowledge_risk）。
+    /// 团队运行要带当前模型连接：桌面端保存的模型只把密钥放进核心进程环境，
+    /// 核心默认 provider 在这种情况下是未配置的（实测团队节点 provider/not_configured）。
+    /// 服务端把连接写进运行 sidecar，恢复/重试后仍按同一连接重建 provider。
+    function attachModelConnection(body) {
+      var connection = null;
+      try { connection = H.modelConnection ? H.modelConnection() : null; } catch (_) { connection = null; }
+      if (connection) body.model_connection = connection;
+      return body;
+    }
+
     function attachWorkspaceContext(root, body) {
       var snapshot = H.snapshot ? H.snapshot() : {};
       if (snapshot.workspace) {
@@ -774,6 +788,7 @@
         var parent = (snapshot.sessions || []).find(function (s) { return s.id === snapshot.sessionId; });
         if (parent && parent.workspace === snapshot.workspace) body.parent_session_id = parent.id;
       }
+      attachModelConnection(body);
       return inputAssets ? inputAssets.applyTo(body) : body;
     }
 
@@ -837,6 +852,9 @@
         delete: (helpers && helpers.delete) || defaultDelete,
         esc: (helpers && helpers.esc) || defaultEsc,
         friendlyError: (helpers && helpers.friendlyError) || defaultFriendlyError,
+        // 生成草稿要带当前模型连接：桌面端保存的模型只把密钥放在核心进程环境里，
+        // 核心默认 provider 在这种情况下是未配置的（实测 502 provider/not_configured）。
+        modelConnection: helpers && helpers.modelConnection,
       };
       if (!root) return;
       rootEl = root;
@@ -958,6 +976,10 @@
         if (!request.ok) {
           setError(root, request.error);
           return;
+        }
+        if (H.modelConnection) {
+          var draftConnection = H.modelConnection();
+          if (draftConnection) request.body.model_connection = draftConnection;
         }
         setError(root, "");
         var button = root.querySelector(".owo-wf-draft");
@@ -1159,6 +1181,10 @@
         paintGraph: paintGraph, syncJson: syncJson, editorTemplate: editorTemplate,
         renderRoleRows: renderRoleRows,
         renderStatsRows: renderStatsRows,
+        // 建队/改进请求的模型连接（桌面保存的模型 → 服务端运行 sidecar）。
+        attachModelConnection: attachModelConnection,
+        attachWorkspaceContext: attachWorkspaceContext,
+        setModelConnection: function (fn) { H.modelConnection = typeof fn === "function" ? fn : null; },
       },
     };
   })();

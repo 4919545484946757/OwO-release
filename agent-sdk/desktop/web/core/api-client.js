@@ -22,6 +22,26 @@
     }
   }
 
+  // 把错误响应正文折叠成一行可读文字：优先取服务端 error/message/detail 字段，
+  // 非 JSON 或解析失败时按原文截断，避免整段 JSON 直接出现在界面上。
+  function errorTextOf(body) {
+    const raw = String(body == null ? "" : body).trim();
+    if (!raw) return "请求失败（无错误正文）";
+    let parsed = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (_) {
+      return raw.length > 400 ? raw.slice(0, 400) + "…" : raw;
+    }
+    if (parsed && typeof parsed === "object") {
+      const text = [parsed.error, parsed.message, parsed.detail].find(
+        (value) => typeof value === "string" && value.trim()
+      );
+      if (text) return text.trim();
+    }
+    return raw.length > 400 ? raw.slice(0, 400) + "…" : raw;
+  }
+
   class ApiClient {
     constructor(baseUrl) {
       this.initialBaseUrl = String(baseUrl || "").replace(/\/+$/, "");
@@ -330,7 +350,9 @@
             return execute(false);
           }
           const body = await response.text();
-          throw new ApiError(response.status + ": " + body, {
+          // 错误正文统一解包：服务端返回 {"error": "..."}，直接拼原文会把 JSON 花括号和
+          // 转义反斜杠原样抛到页面上（实测产品对比页显示 `400: {\"error\":\"suite…\"}`）。
+          throw new ApiError(response.status + ": " + errorTextOf(body), {
             status: response.status,
             body: body,
             traceId: response.headers.get("x-trace-id"),

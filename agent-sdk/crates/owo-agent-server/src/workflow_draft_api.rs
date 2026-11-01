@@ -7,8 +7,9 @@
 //! 3. `POST /workflows/draft/{id}/adopt`：人工确认后写入用户模板注册表；
 //!    `DELETE /workflows/draft/{id}` 丢弃。
 //!
-//! 只使用 Daemon 默认 provider 做一次非流式补全（不传工具、不写会话历史），
-//! 因此不会产生"第二个 Agent"或额外会话。
+//! 只做一次非流式补全（不传工具、不写会话历史），因此不会产生"第二个 Agent"或额外会话。
+//! provider 优先用请求里显式给的 `model_connection`（桌面端保存的模型只把密钥放进核心
+//! 进程环境，核心默认 provider 在那种部署下是未配置的），缺省时才回落到 Daemon 默认 provider。
 //!
 //! 模块纪律：不引用 `crate::`/`super::`，AppState 全限定 `owo_agent_server::AppState`。
 
@@ -59,6 +60,9 @@ struct ConvergeRequest {
     /// 基于已保存工作流迭代（同上：注入真实运行证据）。
     #[serde(default)]
     based_on: Option<String>,
+    /// 桌面端保存的自定义模型连接（密钥只经环境变量引用）；省略时用核心默认 provider。
+    #[serde(default)]
+    model_connection: Option<owo_agent_protocol::CustomModelConnection>,
 }
 
 const MAX_CONVERGE_ROUNDS: usize = 5;
@@ -159,6 +163,9 @@ struct DraftRequest {
     /// 最近失败定位）注入提示词，让模型按证据改配置，而不是凭描述重写。
     #[serde(default)]
     based_on: Option<String>,
+    /// 桌面端保存的自定义模型连接（密钥只经环境变量引用）；省略时用核心默认 provider。
+    #[serde(default)]
+    model_connection: Option<owo_agent_protocol::CustomModelConnection>,
 }
 
 /// 载入已保存（用户/社区/内置）工作流模板；不存在 → 404。
@@ -298,6 +305,19 @@ fn drafts_dir(state: &AppState) -> PathBuf {
 
 fn error(status: StatusCode, message: impl Into<String>) -> (StatusCode, Json<Value>) {
     (status, Json(json!({ "error": message.into() })))
+}
+
+/// 选草稿生成用的 provider：优先请求里显式给的自定义连接（桌面端保存的模型），
+/// 缺省回落到核心默认 provider。连接非法按 400 拒绝，不回退到默认（避免悄悄换模型）。
+fn draft_provider(
+    state: &Arc<AppState>,
+    connection: Option<&owo_agent_protocol::CustomModelConnection>,
+) -> Result<Arc<dyn owo_agent_core::gateway::ModelProvider>, (StatusCode, Json<Value>)> {
+    match connection {
+        Some(connection) => owo_agent_core::gateway::custom_model_provider(connection)
+            .map_err(|code| error(StatusCode::BAD_REQUEST, code)),
+        None => Ok(state.agent.provider()),
+    }
 }
 
 /// Open canonical storage and batch-import the historical files once.
@@ -457,7 +477,7 @@ async fn create_draft(
             evidence.as_ref(),
         )),
     ];
-    let provider = state.agent.provider();
+    let provider = draft_provider(&state, request.model_connection.as_ref())?;
     let completion = tokio::time::timeout(DRAFT_TIMEOUT, provider.complete(&messages, &[])).await;
     let output = match completion {
         Ok(Ok(output)) => output,
@@ -677,7 +697,7 @@ async fn converge_draft(
         .max_rounds
         .unwrap_or(3)
         .clamp(1, MAX_CONVERGE_ROUNDS);
-    let provider = state.agent.provider();
+    let provider = draft_provider(&state, request.model_connection.as_ref())?;
 
     let mut best: Option<(TeamTemplate, Vec<String>)> = None;
     let mut trajectory: Vec<Value> = Vec::new();

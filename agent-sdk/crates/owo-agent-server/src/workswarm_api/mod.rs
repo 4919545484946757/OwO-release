@@ -70,10 +70,12 @@ pub(crate) mod change_set_api;
 pub mod workswarm_metrics;
 
 mod conversation;
+// 团队运行的模型连接 sidecar（只存凭据引用；桌面端保存的模型走它）。
 mod dto;
 mod provider_observation;
 mod scoped_write_approver;
 mod team_event_delivery;
+mod team_model_connection;
 
 // 统计模块等兄弟模块需要读取团队审计尾部（同源实现，避免复制）。
 pub(crate) use dto::audit_tail;

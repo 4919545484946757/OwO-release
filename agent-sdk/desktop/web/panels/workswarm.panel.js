@@ -3062,6 +3062,16 @@
       if (!(t.roles || []).length) addRoleRow();
     }
 
+    /// 团队节点用核心默认 provider；桌面端保存的模型只把密钥放在核心进程环境，
+    /// 不带上连接时节点会以 provider/not_configured 失败（服务端只收凭据引用）。
+    /// 取连接失败（模型被移除等）不挡住建队：退回核心默认 provider。
+    function attachModelConnection(body) {
+      var connection = null;
+      try { connection = H.modelConnection ? H.modelConnection() : null; } catch (_) { connection = null; }
+      if (connection) body.model_connection = connection;
+      return body;
+    }
+
     // 返回 Promise（成功/失败都在内部展示结果并 resolve）；校验失败返回 null，
     // 由 bindLockedButton 据此决定是否进入提交锁。
     function doCreate() {
@@ -3079,6 +3089,7 @@
       var parallelEl = el("#ws-max-parallel");
       var maxParallel = Math.max(1, Math.min(8, Number(parallelEl && parallelEl.value) || 4));
       var body = { objective: objective, mode: mode, budget: { max_parallel: maxParallel } };
+      attachModelConnection(body);
       // 五期：组队策略（auto 为缺省值；现服务端忽略未知字段，第一路落地后生效）
       var stratEl = el("#ws-strategy");
       var strategy = stratEl ? String(stratEl.value || "auto") : "auto";
@@ -4249,6 +4260,7 @@
       H.get = H.get || defaultGet;
       H.post = H.post || defaultPost;
       H.download = H.download || function(path,options){return win.OwoApi.download(path,options);};
+      H.modelConnection = helpers && helpers.modelConnection;
       H.esc = H.esc || defaultEsc;
       stopLive();
       detailSeq++; // 上一次详情流水的响应全部作废
@@ -4421,6 +4433,11 @@
       },
       setRoot: function (root) {
         rootEl = root;
+      },
+      // 建队请求里的模型连接来自挂载时的 helpers.modelConnection（无 DOM 依赖）。
+      attachModelConnection: attachModelConnection,
+      setModelConnection: function (fn) {
+        H.modelConnection = typeof fn === "function" ? fn : null;
       },
     };
 

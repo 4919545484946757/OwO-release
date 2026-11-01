@@ -828,6 +828,9 @@ function syncSidebarHome() {
 // 首页是一个「没有选中会话」的干净对话视图：不预建空会话，
 // 真正发送时 sendPrompt 会按需创建，避免每次点首页都留下一条空记录。
 function showHomeView(options = {}) {
+  // 输入区的弹出菜单（模型/权限/提示词）是绝对定位浮层，换页后不会自己消失，
+  // 会压在新页面上看起来像残留卡片；离开对话视图时先关掉。
+  if (typeof closeComposerMenu === "function") closeComposerMenu();
   if (document.body.classList.contains("settings-open")) setSettingsPageVisible(false);
   else if (document.body.classList.contains("tools-open") || document.body.classList.contains("panel-open")) setToolsVisible(false);
   // 让仍在进行中的会话加载请求失效，避免它晚到后又把视图切回旧会话。
@@ -5245,6 +5248,8 @@ function setToolsVisible(visible, preserveRoute) {
   syncSidebarHome();
 }
 function setSettingsPageVisible(visible) {
+  // 进设置页同样要收起输入区浮层，否则它会盖在设置卡片上。
+  if (visible && typeof closeComposerMenu === "function") closeComposerMenu();
   workbenchView.showSettings(visible);
   syncSidebarHome();
 }

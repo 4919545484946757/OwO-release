@@ -80,6 +80,10 @@ pub(super) fn resolve_agent_model(input: &Value, configured_model: Option<&str>)
 /// 权限边界）、回合上限取模板预算、写面为「角色 ∩ 绑定」交集白名单。
 pub struct AgentSubagentWorker {
     pub(super) agent: Arc<owo_agent_core::Agent>,
+    /// 团队运行显式绑定的模型连接（桌面端保存的模型 → 运行 sidecar 引用）；
+    /// None = 用核心默认 provider（`OPENAI_*` 环境配置）。团队后台运行/可恢复，
+    /// 所以连接随运行记录走，而不是每次请求现传。
+    pub(super) provider: Option<Arc<dyn ModelProvider>>,
     pub(super) input: Arc<crate::artifact_review_api::input_assets::ResolvedInputs>,
     pub(super) input_assets: crate::artifact_review_api::input_assets::InputAssetContext,
     pub(super) workspace: PathBuf,
@@ -234,8 +238,12 @@ impl Worker for AgentSubagentWorker {
         }
         let configured_model = std::env::var("OWO_AGENT_MODEL").ok();
         let model = resolve_agent_model(input, configured_model.as_deref());
+        let base_provider = self
+            .provider
+            .clone()
+            .unwrap_or_else(|| self.agent.provider());
         let observed_provider = super::provider_observation::InputObservedProvider::for_worker(
-            self.agent.provider(),
+            base_provider,
             Arc::clone(self.coordinator.store()),
             &self.team_id,
             &task_context,

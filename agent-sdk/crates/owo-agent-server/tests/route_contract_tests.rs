@@ -1784,6 +1784,9 @@ async fn openapi_json_covers_snapshot_and_registered_routes() {
     let snapshot: serde_json::Value = serde_json::from_str(CONTRACT_SNAPSHOT).unwrap();
     for field in [
         "model",
+        // 桌面端保存的模型连接：团队运行会持久化它（只存凭据引用），漏登记会让
+        // 生成客户端拿不到这个字段。
+        "model_connection",
         "parallel",
         "max_agent_members",
         "acknowledge_risk",

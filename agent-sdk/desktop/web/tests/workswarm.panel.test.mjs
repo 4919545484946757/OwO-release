@@ -1792,3 +1792,23 @@ test("交接读取失败保留已读数据，退出取消且迟到页不覆盖�
     assert.equal(T.state.handoffBusy,false);
   } finally { T.stopLive(); T.setTransport(previous); resetState(); }
 });
+
+test("建队请求带上当前模型连接：桌面保存的模型才不会被记成未配置 provider", () => {
+  const connection = {
+    model: "fixture-model",
+    base_url: "http://127.0.0.1:4999/v1",
+    api_format: "openai",
+    api_key_env: "OWO_CUSTOM_MODEL_SECRET_0123456789abcdef0123456789abcdef",
+  };
+  T.setModelConnection(() => connection);
+  assert.deepEqual(T.attachModelConnection({ objective: "x" }).model_connection, connection);
+
+  // 未选自定义模型（核心默认 provider 已配好）→ 不带字段。
+  T.setModelConnection(() => null);
+  assert.ok(!("model_connection" in T.attachModelConnection({ objective: "x" })));
+
+  // 取连接抛错（模型已移除/迁移未完成）不能挡住建队。
+  T.setModelConnection(() => { throw new Error("该自定义模型已移除，请选择其他模型"); });
+  assert.ok(!("model_connection" in T.attachModelConnection({ objective: "x" })));
+  T.setModelConnection(null);
+});

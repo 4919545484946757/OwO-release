@@ -152,4 +152,13 @@ test("route hash follows chat, settings, and panel transitions while preserving 
   assert.ok(openPanel, "panel route handler must exist");
   assert.match(openPanel, /clearGroupFilters\(document\.body\)/);
   assert.doesNotMatch(openPanel, /refreshPluginSkillOverview/, "focused pages must not hydrate a hidden tools overview");
+  // 输入区浮层（模型/权限/提示词菜单）换页后不会自己消失，会压在新页面上：
+  // 三个导航入口（面板 / 设置 / 会话）都必须先收起它。
+  assert.match(openPanel, /closeComposerMenu\(\)/, "打开面板前应收起输入区浮层");
+  const showHome = /function showHomeView\(options = \{\}\) \{([\s\S]*?)\n\}/.exec(app)?.[1] || "";
+  assert.match(showHome, /closeComposerMenu\(\)/, "回首页前应收起输入区浮层");
+  const settings = /function setSettingsPageVisible\(visible\) \{([\s\S]*?)\n\}/.exec(app)?.[1] || "";
+  assert.match(settings, /if \(visible && typeof closeComposerMenu === "function"\) closeComposerMenu\(\)/, "进设置页前应收起输入区浮层");
+  const selectFn = /async function selectSession\(id, forceHistory = false\) \{([\s\S]*?)\n  const selectionVersion/.exec(domain)?.[1] || "";
+  assert.match(selectFn, /closeComposerMenu\(\)/, "切会话前应收起输入区浮层");
 });

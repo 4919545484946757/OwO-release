@@ -41,6 +41,7 @@ const NO_WRITE_SCOPE_MARKER: &str = ".owo-no-write-scope";
 #[allow(clippy::too_many_arguments)]
 fn inner_worker_for(
     state: &AppState,
+    provider: Option<Arc<dyn owo_agent_core::gateway::ModelProvider>>,
     worker_name: Option<&str>,
     model_calls: Option<&Arc<AtomicU64>>,
     request_usage: Option<&Arc<workswarm_metrics::RequestUsageCollector>>,
@@ -71,6 +72,7 @@ fn inner_worker_for(
             let approver_scopes = write_allowed.clone();
             Some(Arc::new(AgentSubagentWorker {
                 agent: Arc::clone(&state.agent),
+                provider,
                 input: Arc::clone(input),
                 input_assets:
                     crate::artifact_review_api::input_assets::InputAssetContext::for_state(state),
@@ -128,6 +130,33 @@ pub(super) async fn build_run_registry(
     cancel_flag: &Arc<AtomicBool>,
 ) -> Option<WorkerRegistry> {
     let meta = coordinator.load_run_meta(team_id).ok()?;
+    // 团队模型连接：建队时带了桌面端保存的模型就按运行 sidecar 重建 provider
+    // （团队可恢复，必须每次迭代都能从记录里恢复同一连接）。读取失败不降级——
+    // 静默换回默认 provider 会让同一团队在不同迭代里用不同模型。
+    let provider_from_run: Option<Arc<dyn owo_agent_core::gateway::ModelProvider>> =
+        match super::team_model_connection::load(coordinator.run_dir(), team_id) {
+            Ok(None) => None,
+            Ok(Some(connection)) => {
+                match owo_agent_core::gateway::custom_model_provider(&connection) {
+                    Ok(provider) => Some(provider),
+                    Err(code) => {
+                        // 凭据引用失效（桌面端删了模型/改了端点）时按未配置失败关闭：
+                        // 明确报错好过悄悄改用别的模型继续跑。
+                        tracing::error!(team_id = %team_id, %code, "团队模型连接无法重建 provider");
+                        coordinator.record_runtime_event(
+                            team_id,
+                            "team.model_connection_unavailable",
+                            format!("团队绑定的模型连接不可用：{code}"),
+                        );
+                        return None;
+                    }
+                }
+            }
+            Err(error) => {
+                tracing::error!(team_id = %team_id, %error, "团队模型连接不可读，拒绝构建注册表");
+                return None;
+            }
+        };
     // 用户自定义工作流：建队时显式勾选「允许节点按声明的范围写入当前工作区」→
     // 范围内写入预授权（越界写/命令/联网仍走内层审批）。缺省 false = 一切照旧。
     let allow_scoped_writes = coordinator
@@ -293,6 +322,7 @@ pub(super) async fn build_run_registry(
         });
         let inner = inner_worker_for(
             state,
+            provider_from_run.clone(),
             r.worker.as_deref(),
             model_calls.as_ref(),
             request_usage.as_ref(),
@@ -335,8 +365,13 @@ pub(super) async fn build_run_registry(
             r.capabilities.clone(),
             inner,
         ));
-        let provider =
-            worker_kind_uses_agent_provider(&worker_kind).then(|| state.agent.provider());
+        // 指标归因 provider 必须与节点实际使用的 provider 同源，否则 token 快照
+        // 差值永远对不上（显式连接下会记成 0 用量）。
+        let provider = worker_kind_uses_agent_provider(&worker_kind).then(|| {
+            provider_from_run
+                .clone()
+                .unwrap_or_else(|| state.agent.provider())
+        });
         registry.register(Arc::new(
             workswarm_metrics::MeasuredRoleWorker::new_with_usage_tracker(
                 role_worker,

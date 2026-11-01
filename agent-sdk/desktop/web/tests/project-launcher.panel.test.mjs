@@ -124,6 +124,28 @@ test("buildCreateBody：冻结契约形状（workspace/strategy/mode/template）
   assert.ok(!("workspace" in b4), "root 为空时不带 workspace");
 });
 
+test("buildCreateBody：带上当前模型连接（团队节点靠它才不落到未配置 provider）", () => {
+  resetState();
+  T.state.objective = "x";
+  const connection = {
+    model: "fixture-model",
+    base_url: "http://127.0.0.1:4999/v1",
+    api_format: "openai",
+    api_key_env: "OWO_CUSTOM_MODEL_SECRET_0123456789abcdef0123456789abcdef",
+  };
+  T.setModelConnection(() => connection);
+  assert.deepEqual(T.buildCreateBody(T.state).model_connection, connection, "桌面保存的模型要随建队请求下发");
+
+  // 没有可用连接（核心默认 provider 已配置时）→ 不带字段，服务端按默认走。
+  T.setModelConnection(() => null);
+  assert.ok(!("model_connection" in T.buildCreateBody(T.state)), "无连接时不带 model_connection");
+
+  // 取连接抛错（模型被移除等）不能挡住建队。
+  T.setModelConnection(() => { throw new Error("该自定义模型已移除，请选择其他模型"); });
+  assert.ok(!("model_connection" in T.buildCreateBody(T.state)), "取连接失败时静默回退到核心默认 provider");
+  T.setModelConnection(null);
+});
+
 test("buildCreateBody：tree_depth 越界收敛到 1–8", () => {
   resetState();
   T.state.objective = "x";

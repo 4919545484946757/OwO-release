@@ -11369,6 +11369,15 @@
                     "type": "string",
                     "description": "Default model for agent nodes; roles[].model overrides this value."
                   },
+                  "model_connection": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/CustomModelConnection"
+                      }
+                    ],
+                    "nullable": true,
+                    "description": "桌面端保存的模型连接（只接受 api_key_env 凭据引用）；团队运行会持久化到 <team_id>-model.json 供恢复，缺省走核心默认 provider"
+                  },
                   "parallel": {
                     "type": "boolean",
                     "default": false,
