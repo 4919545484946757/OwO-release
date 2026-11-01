@@ -3467,6 +3467,12 @@ void TextService::consume_manual_breaks(const std::size_t count) {
 }
 
 std::optional<std::wstring> TextService::composition_symbol_for_key(const WPARAM key, const bool advance) {
+    // Keep top-row digits as candidate shortcuts. Numpad digits delivered as
+    // VK_NUMPADn are literals in symbol-compatible composition; with NumLock
+    // off Windows delivers navigation keys instead. Alt-code input is handled
+    // earlier and command-modified keys never reach this composition branch.
+    if (key >= VK_NUMPAD0 && key <= VK_NUMPAD9)
+        return std::wstring(1, static_cast<wchar_t>(L'0' + key - VK_NUMPAD0));
     if (key == VK_OEM_7 && !key_down(VK_SHIFT) && apostrophe_is_separator()) return std::nullopt;
     if (chinese_punctuation_enabled_) {
         if (auto value = chinese_punctuation_for_key(key, advance)) return value;

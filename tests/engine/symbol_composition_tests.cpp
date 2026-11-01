@@ -38,6 +38,12 @@ int main() {
     const auto literal = split_symbol_composition("ni🙂+hao", true);
     check(project_symbol_candidate(literal.segments.front(), "你好", nihao,
         literal.segments.front().query.size()).text == "你🙂+好", "other symbols retained");
+    const auto digits = split_symbol_composition("ni0123456789hao", true);
+    check(digits.valid && digits.segments.size() == 1 && digits.segments.front().query == "ni'hao",
+        "numpad digit literals do not become phonetic query bytes");
+    check(symbol_segment_preview(digits.segments.front(), nihao) == "ni0123456789hao" &&
+        project_symbol_candidate(digits.segments.front(), "你好", nihao,
+            digits.segments.front().query.size()).text == "你0123456789好", "digits preserved in preview and commit");
     check(!split_symbol_composition(std::string("\xc0\xaf", 2), true).valid, "reject overlong UTF8");
     check(!split_symbol_composition(std::string("\xed\xa0\x80", 3), true).valid, "reject surrogate UTF8");
     check(!split_symbol_composition("nihao", false, manual).valid, "reject invalid break offset");

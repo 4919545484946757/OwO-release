@@ -72,6 +72,29 @@ struct ExpandedCandidateTestAccess {
         service->shortcut_config_.input_scheme = "exact_code";
         if (service->should_eat_key(VK_F7) || service->symbol_composition_enabled()) return 34;
         service->shortcut_config_.input_scheme = "full_pinyin";
+        for (WPARAM key = VK_NUMPAD0; key <= VK_NUMPAD9; ++key) {
+            service->input_buffer_ = L"nihao";
+            service->input_cursor_ = 2;
+            const auto digit = static_cast<wchar_t>(L'0' + key - VK_NUMPAD0);
+            if (!service->should_eat_key(key) || !press(key) ||
+                service->input_buffer_ != std::wstring(L"ni") + digit + L"hao" ||
+                !service->pending_request_ || !service->pending_request_->symbol_composition) return 73;
+        }
+        service->clear_composition();
+        service->input_buffer_ = L"nihao";
+        service->shortcut_config_.pinyin_symbol_compatibility_enabled = false;
+        if (service->should_eat_key(VK_NUMPAD1)) return 74;
+        service->shortcut_config_.pinyin_symbol_compatibility_enabled = true;
+        service->chinese_mode_ = false;
+        if (service->should_eat_key(VK_NUMPAD1)) return 75;
+        service->chinese_mode_ = true;
+        service->input_buffer_.clear();
+        if (service->should_eat_key(VK_NUMPAD1)) return 76;
+        service->input_buffer_ = L"nihao";
+        modifiers[VK_CONTROL] = 0x80;
+        if (!SetKeyboardState(modifiers) || service->should_eat_key(VK_NUMPAD1)) return 77;
+        modifiers[VK_CONTROL] = 0;
+        if (!SetKeyboardState(modifiers)) return 78;
         service->input_cursor_ = 2;
         if (!press(VK_F7) || service->input_buffer_ != L"ni'hao" ||
             service->manual_breaks_ != std::vector<std::size_t>{2} ||
