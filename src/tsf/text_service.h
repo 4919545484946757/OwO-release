@@ -184,6 +184,7 @@ private:
     [[nodiscard]] bool render_candidate_window();
     [[nodiscard]] SIZE desired_candidate_window_size() const;
     [[nodiscard]] std::wstring_view candidate_display_text(std::wstring_view text, std::size_t row_index) const;
+    [[nodiscard]] bool candidate_symbol_wrap(std::span<const std::wstring> row) const noexcept;
     struct PreviewContainerLayout {
         float left{}, top{}, right{}, bottom{};
         std::vector<float> row_heights;

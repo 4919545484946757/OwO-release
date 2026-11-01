@@ -4,11 +4,28 @@
 #include <iostream>
 #include <limits>
 #include "inline_preedit_fixture.h"
+#include "owo/tsf/candidate_text_layout.h"
 
 namespace owo::tsf {
 // 不激活 TSF/工作线程：验证真实按键、异步响应及离屏窗口的像素边界。
 struct ExpandedCandidateTestAccess {
     static int run() {
+        if (wrapped_candidate_text(L"一二三四五六；甲乙丙丁戊己庚", 40, true) !=
+            L"一二三四五六；\n甲乙丙丁戊己\n庚") return 101;
+        if (wrapped_candidate_text(L"甲乙丙丁；戊己庚辛", 40, true) != L"甲乙丙丁；戊己庚辛") return 102;
+        for (const auto separator : {L';', L':', L'!', L'?', L'；', L'：', L'！', L'？', L'、'}) {
+            const auto raw = std::wstring(L"abcdef") + separator + L"ghijklm";
+            if (wrapped_candidate_text(raw, 40, true) != std::wstring(L"abcdef") + separator + L"\nghijkl\nm") return 103;
+        }
+        for (const auto separator : {L',', L'.', L'，', L'。'}) {
+            const auto raw = std::wstring(L"abcdefg") + separator + L"hijklmn";
+            if (candidate_symbol_break(separator) || wrapped_candidate_text(raw, 40) != raw) return 104;
+        }
+        const std::wstring glyphs = L"🙂🙂🙂🙂🙂🙂🙂";
+        if (candidate_scalar_count(glyphs) != 7 ||
+            wrapped_candidate_text(glyphs, 40, true) != glyphs.substr(0, 12) + L"\n" + glyphs.substr(12)) return 105;
+        if (wrapped_candidate_text(L"abcdefg;hijklmn!opqrstu", 40, true) != L"abcdef\ng;\nhijklm\nn!\nopqrst\nu") return 106;
+        if (wrapped_candidate_text(L"abcdefghi", 4, true) != L"abcd\nefgh\ni") return 107;
         auto* service = new TextService();
         struct Release { TextService* value; ~Release() { value->Release(); } } release{service};
         service->shortcut_config_initialized_ = true;
@@ -426,6 +443,31 @@ struct ExpandedCandidateTestAccess {
         service->candidate_symbol_preview_ = true;
         service->clear_composition();
         if (service->candidate_symbol_preview_) return 58;
+        // The same six-character policy sizes and draws the main/auxiliary
+        // rows, including candidates whose repeated delimiter is hidden.
+        service->input_buffer_ = L"ceshi;ceshi";
+        service->candidate_symbol_preview_ = true;
+        service->shortcut_config_.candidate_wrap_length = 12;
+        service->candidates_ = {L"一二三四五六七；", L"甲乙丙丁戊己庚；"};
+        service->candidate_groups_ = {1, 1};
+        service->candidate_consumed_ = {6, 6};
+        service->following_previews_ = {{{L"一二三四五六七！", L"甲乙丙丁戊己庚！"}, {1, 1}}};
+        if (!service->candidate_symbol_wrap(service->candidates_) ||
+            !service->candidate_symbol_wrap(service->following_previews_[0].candidates)) return 108;
+        const auto wrapped_size = service->desired_candidate_window_size();
+        service->candidates_[0].back() = service->candidates_[1].back() = L'，';
+        service->following_previews_[0].candidates[0].back() = service->following_previews_[0].candidates[1].back() = L'。';
+        const auto comma_size = service->desired_candidate_window_size();
+        if (service->candidate_symbol_wrap(service->candidates_) || wrapped_size.cy <= comma_size.cy) return 109;
+        service->candidates_[0].back() = service->candidates_[1].back() = L'；';
+        service->following_previews_[0].candidates[0].back() = service->following_previews_[0].candidates[1].back() = L'！';
+        const auto raw_candidates = service->candidates_;
+        const auto raw_consumed = service->candidate_consumed_;
+        service->candidate_present_size_ = wrapped_size;
+        service->candidate_content_size_ = wrapped_size;
+        if (!service->render_candidate_window() || service->candidates_ != raw_candidates ||
+            service->candidate_consumed_ != raw_consumed) return 110;
+        service->clear_composition();
         // Cold refinements must not clear an existing frame to a status-only
         // row on each keystroke. The stale snapshot remains non-committable;
         // the final response, including a genuine empty result, replaces it.
