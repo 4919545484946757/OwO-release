@@ -39,6 +39,23 @@ std::size_t sentence_candidate_limit(const std::span<const Candidate> candidates
     return std::max<std::size_t>(1, readings.size()) * 2;
 }
 
+void prefer_sentence_page_reading(const std::span<Candidate> candidates) {
+    if (candidates.size() < 3 || candidates.front().source_segments.empty() ||
+        candidates[1].user_preferred()) return;
+    const auto& first = candidates.front();
+    const auto& next = candidates[1];
+    if (next.source_segments == first.source_segments) return;
+    // A small presentation preference, not another hard matching tier or an
+    // accumulated score. Stronger alternatives and explicit learning win.
+    constexpr std::int64_t kSameReadingPagePreference = 1'000;
+    const auto matching = std::find_if(candidates.begin() + 2, candidates.end(), [&](const auto& value) {
+        return value.source_segments == first.source_segments && value.match_kind == next.match_kind &&
+            (value.user_preferred() || value.score >= next.score ||
+             next.score - value.score <= kSameReadingPagePreference);
+    });
+    if (matching != candidates.end()) std::rotate(candidates.begin() + 1, matching, matching + 1);
+}
+
 bool requires_incomplete_candidate_limit(const ParseResult& parsed,
                                          const std::span<const Candidate> candidates) noexcept {
     if (!parsed.phonetic_assistance) return false;
@@ -117,7 +134,7 @@ void merge_similar_length_partitions(std::vector<Candidate> &candidates,
 
     std::vector<std::size_t> slots;
     std::vector<Candidate> joint;
-    std::size_t sentence_slots = 0;
+    std::vector<CandidatePartitionSlot> display_slots;
     for (std::size_t index = 0; index < candidates.size(); ++index) {
         auto &value = candidates[index];
         if (!eligible(value))
@@ -125,7 +142,9 @@ void merge_similar_length_partitions(std::vector<Candidate> &candidates,
         value.joint_phrase_partition = true;
         if (value.model_only)
             continue; // Never mix the hidden model tail into visible pages.
-        sentence_slots += sentence(value, full_input_bytes);
+        display_slots.push_back(value.partition_slot != CandidatePartitionSlot::automatic
+            ? value.partition_slot : sentence(value, full_input_bytes)
+                ? CandidatePartitionSlot::sentence : CandidatePartitionSlot::dictionary);
         slots.push_back(index);
         joint.push_back(std::move(value));
     }
@@ -141,8 +160,9 @@ void merge_similar_length_partitions(std::vector<Candidate> &candidates,
         return false;
     });
     for (std::size_t index = 0; index < slots.size(); ++index) {
-        joint[index].partition_slot = index < sentence_slots
-            ? CandidatePartitionSlot::sentence : CandidatePartitionSlot::dictionary;
+        // Layout slots belong to their original page positions. Packing all
+        // sentence flags at the front would undo the per-page sentence cap.
+        joint[index].partition_slot = display_slots[index];
         candidates[slots[index]] = std::move(joint[index]);
     }
 }

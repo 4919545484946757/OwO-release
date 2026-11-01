@@ -1925,19 +1925,19 @@ SIZE TextService::desired_candidate_window_size() const {
         float height = kCandidateItemHeightDip;
         for (std::size_t index = begin; index < end; ++index)
             height = std::max(height,
-                              wrapped_candidate_height(candidate_display_text(candidates_[index], index % candidate_page_width()), wrap_length));
+                              wrapped_candidate_height(candidate_display_text(candidates_[index], index - begin), wrap_length));
         return height;
     };
     float content_height = kCandidateItemHeightDip;
     if (!candidates_.empty() && candidates_expanded_) {
-        const auto first = std::min(candidates_.size(), expanded_pages_.first_visible * page_size);
-        const auto visible_end = std::min(
-            candidates_.size(), first + kExpandedVisibleRows * page_size);
+        const auto visible_end = std::min(expanded_pages_.count_pages(candidates_.size(), page_size),
+            expanded_pages_.first_visible + kExpandedVisibleRows);
         content_height = 0.0F;
         std::size_t rows = 0;
-        for (std::size_t begin = first; begin < visible_end; begin += page_size) {
+        for (std::size_t row = expanded_pages_.first_visible; row < visible_end; ++row) {
             if (rows++ != 0) content_height += kCandidateRowGapDip;
-            content_height += row_height(begin, std::min(visible_end, begin + page_size));
+            content_height += row_height(expanded_pages_.begin(row, candidates_.size(), page_size),
+                expanded_pages_.end(row, candidates_.size(), page_size));
         }
     } else if (!candidates_.empty()) {
         content_height = row_height(0, std::min(candidates_.size(), page_size));
@@ -1954,7 +1954,10 @@ SIZE TextService::desired_candidate_window_size() const {
     const bool partitioned = !plugin_scheme_selected() && page_size >= 4 &&
         candidate_groups_.size() == candidates_.size();
     const auto item_width = [this, wrap_length](const std::size_t index) {
-        const auto display = wrapped_candidate_text(candidate_display_text(candidates_[index], index % candidate_page_width()), wrap_length);
+        const auto width = candidate_page_width();
+        const auto row = expanded_pages_.page_for(index, candidates_.size(), width);
+        const auto slot = index - expanded_pages_.begin(row, candidates_.size(), width);
+        const auto display = wrapped_candidate_text(candidate_display_text(candidates_[index], slot), wrap_length);
         return kCandidatePillBaseWidthDip +
                measure_text_width(dwrite_factory_, candidate_text_format_, display);
     };
@@ -1990,8 +1993,9 @@ SIZE TextService::desired_candidate_window_size() const {
         candidates_width = kCandidatePillBaseWidthDip +
                            measure_text_width(dwrite_factory_, candidate_text_format_, status);
     } else if (candidates_expanded_) {
-        for (std::size_t begin = 0; begin < candidates_.size(); begin += page_size) {
-            const auto end = std::min(candidates_.size(), begin + page_size);
+        for (std::size_t row = 0; row < expanded_pages_.count_pages(candidates_.size(), page_size); ++row) {
+            const auto begin = expanded_pages_.begin(row, candidates_.size(), page_size);
+            const auto end = expanded_pages_.end(row, candidates_.size(), page_size);
             candidates_width = std::max(candidates_width, row_width(begin, end));
         }
     } else {
@@ -2926,8 +2930,10 @@ bool TextService::render_candidate_window() {
         const bool hovered = interactive && target_matches(hovered_target_, target);
         const bool pressed = interactive && target_matches(pressed_target_, target);
         const auto page_size = std::max<std::size_t>(1, candidate_page_width());
-        const bool active_page = !interactive || !candidates_expanded_ || index / page_size == expanded_pages_.selected;
-        if ((interactive && active_page && index % page_size == 0) || hovered || pressed) {
+        const auto row = expanded_pages_.page_for(index, candidates_.size(), page_size);
+        const auto slot = index - expanded_pages_.begin(row, candidates_.size(), page_size);
+        const bool active_page = !interactive || !candidates_expanded_ || row == expanded_pages_.selected;
+        if ((interactive && active_page && slot == 0) || hovered || pressed) {
             auto* brush = pressed ? pressed_brush_ : hovered ? hover_brush_ : mode_highlight_brush;
             const auto opacity = brush->GetOpacity();
             brush->SetOpacity(opacity * candidate_highlight_scale(hovered, pressed));
@@ -2943,7 +2949,7 @@ bool TextService::render_candidate_window() {
                         bounds.left + 26.0F, badge_center + 11.0F),
             5.0F, 5.0F};
         render_target_->FillRoundedRectangle(badge, candidate_badge_brush_);
-        const std::wstring label = std::to_wstring(interactive && candidates_expanded_ ? index % page_size + 1 : index + 1);
+        const std::wstring label = std::to_wstring(interactive && candidates_expanded_ ? slot + 1 : index + 1);
         render_target_->DrawTextW(label.data(), static_cast<UINT32>(label.size()),
                                   label_text_format_, badge.rect, !interactive ? preview_text_brush_ :
                                       active_page ? candidate_number_brush : secondary_text_brush_,
@@ -3047,20 +3053,17 @@ bool TextService::render_candidate_window() {
     } else if (candidates_expanded_) {
         const auto page_size = std::max<std::size_t>(
             1, static_cast<std::size_t>(candidate_page_size_));
-        const auto first_candidate = std::min(
-            candidates_.size(), expanded_pages_.first_visible * page_size);
-        const auto visible_end = std::min(
-            candidates_.size(), first_candidate + kExpandedVisibleRows * page_size);
+        const auto visible_end = std::min(expanded_pages_.count_pages(candidates_.size(), page_size),
+            expanded_pages_.first_visible + kExpandedVisibleRows);
         float top = content_top;
-        for (std::size_t begin = first_candidate; begin < visible_end;
-             begin += page_size) {
-            const auto end = std::min(candidates_.size(), begin + page_size);
+        for (std::size_t row = expanded_pages_.first_visible; row < visible_end; ++row) {
+            const auto begin = expanded_pages_.begin(row, candidates_.size(), page_size);
+            const auto end = expanded_pages_.end(row, candidates_.size(), page_size);
             float row_height = kCandidateItemHeightDip;
             for (std::size_t index = begin; index < end; ++index) {
                 row_height = std::max(
                     row_height, wrapped_candidate_height(candidate_display_text(candidates_[index], index - begin), wrap_length));
             }
-            const auto row = begin / page_size;
             const auto bounds = D2D1::RectF(kHorizontalPaddingDip - 3.0F, top - 2.0F,
                                            candidate_right + 3.0F, top + row_height + 2.0F);
             if (row == expanded_pages_.selected || row == 0) {
@@ -4508,6 +4511,9 @@ void TextService::handle_candidate_result(CandidateResult* raw_result) {
         candidate_groups_.clear();
     if (!result->preserve_paging && result->page_size >= 1 && result->page_size <= 9)
         candidate_page_size_ = result->page_size;
+    expanded_pages_.set_layout(candidates_.size(), candidate_page_width(),
+        plugin_scheme_selected() || (is_agent_mode() && agent_response_visible_)
+            ? std::span<const std::uint64_t>{} : std::span<const std::uint64_t>(candidate_groups_));
     if (candidates_expanded_)
         expanded_pages_.ensure_visible(candidates_.size(), candidate_page_width(), kExpandedVisibleRows);
     if (!result->preserve_paging) {
@@ -4663,6 +4669,9 @@ void TextService::handle_agent_result(AgentResult* raw_result) {
 }
 
 void TextService::update_candidate_window() {
+    expanded_pages_.set_layout(candidates_.size(), candidate_page_width(),
+        plugin_scheme_selected() || (is_agent_mode() && agent_response_visible_)
+            ? std::span<const std::uint64_t>{} : std::span<const std::uint64_t>(candidate_groups_));
     sync_inline_preedit();
     if (candidate_window_ == nullptr) return;
     if ((!alt_code_preview_active_ &&
@@ -5117,7 +5126,7 @@ void TextService::set_candidates_expanded(const bool expanded) {
             // must move together so pending numeric/mouse choices stay aligned.
             const auto begin = expanded_pages_.index(0, candidates_.size(), candidate_page_width())
                                    .value_or(candidates_.size());
-            const auto end = begin + std::min(candidate_page_width(), candidates_.size() - begin);
+            const auto end = expanded_pages_.end(expanded_pages_.selected, candidates_.size(), candidate_page_width());
             const auto keep_page = [begin, end](auto& values) {
                 if (values.size() < end) { values.clear(); return; }
                 values.erase(values.begin() + end, values.end());

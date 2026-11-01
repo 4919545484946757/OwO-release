@@ -6,6 +6,26 @@
 
 int main() {
     using owo::tsf::ExpandedCandidatePages;
+    const std::vector<std::uint64_t> sparse{0, 0, 1, 1, 2, 0, 0};
+    const auto boundaries = owo::protocol::candidate_page_boundaries(sparse.size(), 9, sparse);
+    if (boundaries != std::vector<std::size_t>{0, 5, 7}) return 11;
+    ExpandedCandidatePages sparse_pages;
+    sparse_pages.set_layout(sparse.size(), 9, sparse);
+    sparse_pages.move(1, sparse.size(), 9, 5);
+    if (sparse_pages.selected != 1 || sparse_pages.index(0, sparse.size(), 9) != 5 ||
+        sparse_pages.index(1, sparse.size(), 9) != 6 || sparse_pages.index(2, sparse.size(), 9) ||
+        sparse_pages.begin(1, sparse.size(), 9) != 5 || sparse_pages.end(1, sparse.size(), 9) != 7 ||
+        sparse_pages.page_for(6, sparse.size(), 9) != 1) return 12;
+    sparse_pages.scroll(-1, sparse.size(), 9, 1);
+    if (sparse_pages.selected != 0 || sparse_pages.first_visible != 0) return 13;
+    for (const auto size : {4U, 5U, 7U, 9U}) {
+        const std::vector<std::uint64_t> mixed{0, 0, 1, 2, 2, 0, 0, 1, 2, 0, 1};
+        const auto pages = owo::protocol::candidate_page_boundaries(mixed.size(), size, mixed);
+        for (std::size_t page = 0; page + 1 < pages.size(); ++page) {
+            if (pages[page + 1] - pages[page] > size ||
+                std::count(mixed.begin() + pages[page], mixed.begin() + pages[page + 1], 0) > 2) return 14;
+        }
+    }
     for (std::size_t size = 1; size <= 9; ++size) {
         for (std::size_t count = 0; count <= 256; ++count) {
             ExpandedCandidatePages state;

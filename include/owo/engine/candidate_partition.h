@@ -12,6 +12,9 @@ namespace owo::engine {
 // Two slots per qualified whole-input reading. This is a ceiling, not filler.
 [[nodiscard]] std::size_t sentence_candidate_limit(std::span<const Candidate> candidates,
                                                   std::size_t full_input_bytes);
+// Softly pair the leading sentence with a nearby-scored candidate from the
+// same raw reading. The caller passes the remaining sentence pool for a page.
+void prefer_sentence_page_reading(std::span<Candidate> candidates);
 [[nodiscard]] bool requires_incomplete_candidate_limit(
     const ParseResult& parsed, std::span<const Candidate> candidates) noexcept;
 // For incomplete input, all non-single candidates share a quota, including

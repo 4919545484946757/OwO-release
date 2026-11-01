@@ -21,6 +21,7 @@ public:
         auto candidates = request.candidates;
         const auto target = request.input == "mingtianshangwushidianqian" ? "明天上午十点前" :
             request.input == "rgs" ? "如果是" :
+            request.input == "xianjiedao" ? "衔接到" :
             request.input == "houxuanzhi" ? "候选只" :
             request.input == "yihuowuyunshudesudu" ? "以货物运输的速度" :
             request.input == "weiyonghutigongfuwu" ? "为用户提供服务" :
@@ -151,9 +152,11 @@ int main() {
         }
         ok = false; return base;
     };
+    for (const bool model_enabled : {false, true})
     for (const bool partition : {false, true}) for (const auto size : {5U, 7U, 9U}) {
         const auto generation = monitor.generation();
         settings.candidate_partition_enabled = partition; settings.candidate_page_size = size;
+        settings.model_ranking_enabled = model_enabled;
         ok &= writer.save(settings).success && monitor.wait_for_generation(generation, 2s);
         for (const auto& input : {"zj", "nihaoshijie", "biandeyouyisima",
                                  "yihuowuyunshudesudu", "weiyonghutigongfuwu", "rgs", "nmnmnm",
@@ -167,12 +170,15 @@ int main() {
             protocol::Message expanded;
             if (expanded_first) { request.expanded = true; expanded = settle(send(request)); request.expanded = false; }
             auto first = settle(send(request));
-            if (request.text == "xianjiedao")
-                verify(std::find(first.candidates.begin(), first.candidates.end(), "衔接到") != first.candidates.end(),
-                       "a second qualified reading lost its sentence quota");
+            if (partition) {
+                if (std::count(first.candidate_groups.begin(), first.candidate_groups.end(), 0) > 2)
+                    std::cerr << protocol::encode_message(first) << '\n';
+                verify(std::count(first.candidate_groups.begin(), first.candidate_groups.end(), 0) <= 2,
+                       "first page exceeded two sentence slots");
+            }
             if (request.text == "houxuanzhi")
                 verify(!first.candidates.empty() && first.candidates.front() == "后续安置", "model erased a dictionary-covered recovered boundary");
-            if (request.text == "rgs")
+            if (model_enabled && request.text == "rgs")
                 verify(first.candidates.size() >= 2 && first.candidates[0] == "如果是" &&
                        first.candidates[1] == "如果说" && first.candidate_consumed[0] == 3 &&
                        first.candidate_consumed[1] == 3, "off-page abbreviation candidates not recalled");
@@ -190,12 +196,15 @@ int main() {
                     verify(prefix_on_first_page, "whole-word model recall displaced the partial dictionary slot");
                 }
             }
-            if (request.text == "yihuowuyunshudesudu")
+            if (model_enabled && request.text == "yihuowuyunshudesudu")
                 verify(!first.candidates.empty() && first.candidates.front() == "以货物运输的速度", "standalone head model choice was blocked");
-            if (request.text == "weiyonghutigongfuwu")
+            if (model_enabled && request.text == "weiyonghutigongfuwu")
                 verify(!first.candidates.empty() && first.candidates.front() == "为用户提供服务", "standalone head model choice was blocked");
-            if (request.text == "nihaoshijie") verify(!first.candidates.empty() && first.candidates.front() == "你号世界", "model did not promote hidden target");
-            if (request.text == "biandeyouyisima") {
+            if (model_enabled && request.text == "nihaoshijie") verify(!first.candidates.empty() && first.candidates.front() == "你号世界", "model did not promote hidden target");
+            // The adversarial model requests the second reading first. Its
+            // existing lexical confidence guard may still reject promotion;
+            // page quota, uniqueness and retention are checked independently.
+            if (model_enabled && request.text == "biandeyouyisima") {
                 verify(!first.candidates.empty() && first.candidates.front() == "变得有意思吗", "model did not replace fragmented sentence");
                 verify(std::find(first.candidates.begin(), first.candidates.end(), "变得有一司马") == first.candidates.end(), "weak second sentence survived model update");
             }
@@ -212,6 +221,12 @@ int main() {
             for (unsigned page = 1; paged.has_more && page <= 100; ++page) {
                 request.page = page; const auto row = send(request);
                 if (row.candidates.empty()) { ok = false; break; }
+                if (partition) {
+                    const auto sentences = std::count(row.candidate_groups.begin(), row.candidate_groups.end(), 0);
+                    verify(sentences <= 2, "later page exceeded two sentence slots");
+                    if (request.text == "xianjiedao" && page == 1)
+                        verify(sentences >= 1, "sentence overflow did not continue on the next page");
+                }
                 if (request.text == "rgs" && partition)
                     verify(std::count(row.candidate_groups.begin(), row.candidate_groups.end(), 0) == 0 &&
                            std::is_sorted(row.candidate_groups.begin(), row.candidate_groups.end()),
@@ -222,6 +237,9 @@ int main() {
                 paged.candidate_groups.insert(paged.candidate_groups.end(), row.candidate_groups.begin(), row.candidate_groups.end());
             }
             request.page = 0; const auto revisited = send(request);
+            if (request.text == "xianjiedao")
+                verify(std::find(paged.candidates.begin(), paged.candidates.end(), "衔接到") != paged.candidates.end(),
+                       "a second qualified reading was dropped instead of paged");
             if (request.text == "rgs") {
                 bool prefix_retained = false;
                 for (std::size_t index = 0; index < paged.candidates.size(); ++index)

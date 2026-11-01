@@ -20,6 +20,7 @@
 #include "owo/engine/symbol_composition.h"
 
 #include "owo/protocol/messages.h"
+#include "owo/protocol/candidate_pages.h"
 
 #include <Windows.h>
 #include <sddl.h>
@@ -652,7 +653,8 @@ public:
                               const std::vector<std::uint64_t>& groups,
                               const std::size_t replaced_count,
                               const std::size_t full_input_bytes,
-                              const bool abbreviation_recall) {
+                              const bool abbreviation_recall,
+                              const bool sentence_recall) {
         const auto found = entries_.find(key);
         if (found == entries_.end() || text.size() != consumed.size() || text.empty() ||
             (!groups.empty() && groups.size() != text.size())) return false;
@@ -667,9 +669,14 @@ public:
             for (std::size_t source = 0; source < value.candidates.size(); ++source)
                 if (!used[source] && value.candidates[source].text == text[index] &&
                     value.candidates[source].consumed_input_bytes == consumed[index]) { match = source; break; }
-            // A delayed result cannot steal an item from a different page.
-            if (match == value.candidates.size() || (match >= replaced_count && match < visible &&
-                (!abbreviation_recall || !abbreviated_model_alternative(value.candidates[match], full_input_bytes)))) return false;
+            // Only explicit bounded recall may swap an item from another page.
+            if (match == value.candidates.size()) return false;
+            const auto& source = value.candidates[match];
+            const bool recalled_sentence = sentence_recall && source.qualified_sentence_reading &&
+                source.segment_count > 1 && source.syllables.size() >= 3 &&
+                source.consumed_input_bytes == full_input_bytes;
+            if (match >= replaced_count && match < visible && !recalled_sentence &&
+                (!abbreviation_recall || !abbreviated_model_alternative(source, full_input_bytes))) return false;
             used[match] = true;
             auto candidate = value.candidates[match]; candidate.model_only = false;
             if (candidate.joint_phrase_partition && !groups.empty())
@@ -679,13 +686,13 @@ public:
         }
         for (std::size_t index = replaced_count; index < visible; ++index) {
             if (!used[index]) { ordered.push_back(value.candidates[index]); continue; }
-            // A bounded abbreviation recall may swap a later word into the
-            // first page. Fill its old slot with a displaced non-sentence
-            // from the same group, preserving page layout and uniqueness.
+            // Bounded word/sentence recall may swap a later item into page
+            // one. Fill its old slot from the same displaced display group,
+            // preserving page layout, total membership and uniqueness.
             for (std::size_t displaced = 0; displaced < replaced_count; ++displaced) {
                 const auto& candidate = value.candidates[displaced];
                 if (used[displaced] ||
-                    (candidate.segment_count > 1 && candidate.consumed_input_bytes == full_input_bytes &&
+                    (!sentence_recall && candidate.segment_count > 1 && candidate.consumed_input_bytes == full_input_bytes &&
                      candidate.syllables.size() >= 3) ||
                     (candidate_group(candidate, full_input_bytes) != candidate_group(value.candidates[index], full_input_bytes) &&
                      !(candidate.joint_phrase_partition && value.candidates[index].joint_phrase_partition))) continue;
@@ -1109,7 +1116,10 @@ void arrange_partitioned_candidate_pages(
            single_index < single_characters.size()) {
         const auto reserved = static_cast<std::size_t>(dictionary_index < dictionary.size()) +
             static_cast<std::size_t>(single_index < single_characters.size());
-        const auto sentence_count = std::min(sentences.size() - sentence_index, page_size - reserved);
+        const auto sentence_count = std::min({std::size_t{2}, sentences.size() - sentence_index,
+                                              page_size - reserved});
+        if (sentence_count == 2)
+            engine::prefer_sentence_page_reading(std::span(sentences).subspan(sentence_index));
         const auto sentence_end = sentence_index + sentence_count;
         if (!dictionary_before_sentences) {
             while (sentence_index < sentence_end)
@@ -1364,6 +1374,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
         std::size_t sentence_limit{};
         std::size_t full_input_bytes{};
         std::size_t visible_count{};
+        std::size_t page_size{};
+        bool expanded{};
+        bool partitioned{};
+        bool sentence_recall{};
         bool abbreviation_recall{};
         std::vector<std::string> contextual_preferences;
         std::vector<std::string> learned_preferences;
@@ -1867,15 +1881,22 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         }
                         if (candidate_cache.publish_model_prefix(pending.cache_key,
                             response.candidates, response.candidate_consumed, response.candidate_groups, pending.visible_count,
-                            pending.full_input_bytes, pending.abbreviation_recall)) {
+                            pending.full_input_bytes, pending.abbreviation_recall, pending.sentence_recall)) {
                             // Filtering a weak second sentence can leave one
                             // slot empty. Fill it from the same canonical tail,
                             // not by resurrecting the rejected composition.
                             if (auto snapshot = candidate_cache.get_existing(pending.cache_key)) {
                                 response.candidates.clear(); response.candidate_consumed.clear();
                                 response.candidate_groups.clear();
-                                const auto count = std::min(pending.visible_count,
+                                auto count = std::min(pending.visible_count,
                                     visible_candidate_count(snapshot->candidates));
+                                if (!pending.expanded && pending.partitioned) {
+                                    std::vector<std::uint64_t> groups;
+                                    for (std::size_t index = 0; index < visible_candidate_count(snapshot->candidates); ++index)
+                                        groups.push_back(candidate_group(snapshot->candidates[index], pending.full_input_bytes));
+                                    const auto boundaries = protocol::candidate_page_boundaries(groups.size(), pending.page_size, groups);
+                                    if (boundaries.size() > 1) count = std::min(count, boundaries[1]);
+                                }
                                 for (std::size_t index = 0; index < count; ++index) {
                                     const auto& candidate = snapshot->candidates[index];
                                     response.candidates.push_back(candidate.text);
@@ -1928,6 +1949,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 std::vector<std::uint64_t> model_candidate_segments;
                 std::vector<std::string> model_candidate_readings;
                 std::size_t model_sentence_capacity = 2;
+                bool sentence_recall = false;
                 std::vector<std::string> model_hidden_candidates;
                 std::vector<std::uint64_t> model_hidden_consumed;
                 std::vector<std::uint64_t> model_hidden_groups;
@@ -1955,7 +1977,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     const auto result_size = decoded.message.expanded
                                                  ? protocol::kMaximumCandidateCount
                                                  : page_size;
-                    const auto begin = decoded.message.expanded ? 0 : page * page_size;
+                    auto begin = decoded.message.expanded ? 0 : page * page_size;
                     std::uint64_t parse_phase_us = 0;
                     std::uint64_t generation_phase_us = 0;
                     // Expanded mode is a view of the same candidate session,
@@ -2384,8 +2406,12 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             // band. Normalize each page's display order, not
                             // its membership or quotas, before publishing it.
                             const auto visible = visible_candidate_count(candidates);
-                            for (std::size_t page_begin = 0; page_begin < visible; page_begin += page_size) {
-                                const auto page_end = std::min(visible, page_begin + page_size);
+                            std::vector<std::uint64_t> groups;
+                            for (std::size_t index = 0; index < visible; ++index)
+                                groups.push_back(candidate_group(candidates[index], full_input_bytes));
+                            const auto boundaries = protocol::candidate_page_boundaries(visible, page_size, groups);
+                            for (std::size_t row = 0; row + 1 < boundaries.size(); ++row) {
+                                const auto page_begin = boundaries[row], page_end = boundaries[row + 1];
                                 const auto first = candidates.begin() + static_cast<std::ptrdiff_t>(page_begin);
                                 const auto last = candidates.begin() + static_cast<std::ptrdiff_t>(page_end);
                                 if (std::any_of(first, last, [](const auto& candidate) { return candidate.joint_phrase_partition; }))
@@ -2550,8 +2576,33 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 candidates[index], full_input_bytes));
                         }
                     }
-                    const auto end = std::min(visible_candidate_count,
-                                              begin + result_size);
+                    auto end = std::min(visible_candidate_count, begin + result_size);
+                    if (partitioned_layout && !decoded.message.expanded) {
+                        std::vector<std::uint64_t> groups;
+                        for (std::size_t index = 0; index < visible_candidate_count; ++index)
+                            groups.push_back(candidate_group(candidates[index], full_input_bytes));
+                        const auto boundaries = protocol::candidate_page_boundaries(visible_candidate_count, page_size, groups);
+                        begin = page + 1 < boundaries.size() ? boundaries[page] : visible_candidate_count;
+                        end = page + 1 < boundaries.size() ? boundaries[page + 1] : visible_candidate_count;
+                    }
+                    if (partitioned_layout && !decoded.message.expanded && page == 0 && external_model_ranking_enabled) {
+                        // Page membership is presentation, not a model quality
+                        // barrier. Let qualified later-page sentences compete
+                        // for the same two slots, then swap displaced entries
+                        // into the recalled entries' old positions in the cache.
+                        for (std::size_t index = end; index < visible_candidate_count; ++index) {
+                            const auto& candidate = candidates[index];
+                            if (!candidate.qualified_sentence_reading || candidate.segment_count < 2 ||
+                                candidate.consumed_input_bytes != full_input_bytes || candidate.syllables.size() < 3 ||
+                                utf8_character_count(candidate.text) != candidate.syllables.size()) continue;
+                            if (model_hidden_candidates.size() >= 64) break;
+                            if (std::find(model_hidden_candidates.begin(), model_hidden_candidates.end(), candidate.text) != model_hidden_candidates.end()) continue;
+                            model_hidden_candidates.push_back(candidate.text);
+                            model_hidden_consumed.push_back(candidate.consumed_input_bytes);
+                            model_hidden_groups.push_back(candidate_group(candidate, full_input_bytes));
+                            sentence_recall = true;
+                        }
+                    }
                     response.page = decoded.message.expanded ? 0 : decoded.message.page;
                     response.expanded = decoded.message.expanded;
                     response.page_size = candidate_page_size;
@@ -2769,6 +2820,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     pending_model.sentence_limit = std::max(
                         pending_model.sentence_limit, abbreviation_sentence_limit);
                     pending_model.visible_count = response.candidates.size();
+                    pending_model.page_size = static_cast<std::size_t>(candidate_page_size);
+                    pending_model.expanded = response.expanded;
+                    pending_model.partitioned = candidate_partition_enabled && candidate_page_size >= 4;
+                    pending_model.sentence_recall = sentence_recall;
                     pending_model.abbreviation_recall = abbreviation_recall;
                     pending_model.contextual_preferences =
                         std::move(contextual_preferences);

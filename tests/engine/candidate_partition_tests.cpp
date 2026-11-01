@@ -34,6 +34,30 @@ int main() {
         {true, true, true, true, true, true}, 4, ranked_sources, ranked_consumed,
         {2, 2, 2, 3, 3, 3}, {"a", "a", "a", "b", "b", "b"});
     if (ranked_sources != std::vector<std::string>{"甲句一", "甲句二", "乙句一", "乙句二"}) return 19;
+    auto paired_a = reading_a; paired_a.text = "西安接到"; paired_a.score = 100;
+    reading_a.score = 2000; reading_b.score = 1000;
+    std::vector<Candidate> page_readings{reading_a, reading_b, paired_a};
+    prefer_sentence_page_reading(page_readings);
+    if (page_readings[1].text != paired_a.text || page_readings[2].text != reading_b.text ||
+        page_readings[1].score != 100) return 20;
+    paired_a.score = -1;
+    page_readings = {reading_a, reading_b, paired_a};
+    prefer_sentence_page_reading(page_readings);
+    if (page_readings[1].text != reading_b.text) return 21;
+    reading_b.user_lexicon = true;
+    paired_a.score = 1000;
+    page_readings = {reading_a, reading_b, paired_a};
+    prefer_sentence_page_reading(page_readings);
+    if (page_readings[1].text != reading_b.text) return 22;
+    std::vector<Candidate> page_slots{
+        word("甲句子一", 13, 600, 2), word("甲句子二", 13, 500, 2), word("完整词甲", 13, 1000),
+        word("甲", 3, 1), word("乙", 3, 1),
+        word("乙句子一", 13, 400, 2), word("乙句子二", 13, 300, 2), word("完整词乙", 13, 900)};
+    merge_similar_length_partitions(page_slots, 13);
+    for (const auto index : {0U, 1U, 5U, 6U})
+        if (page_slots[index].partition_slot != CandidatePartitionSlot::sentence) return 23;
+    for (const auto index : {2U, 7U})
+        if (page_slots[index].partition_slot != CandidatePartitionSlot::dictionary) return 24;
     ParseResult incomplete;
     incomplete.normalized_input = "rgs";
     incomplete.has_incomplete_syllable = true;
