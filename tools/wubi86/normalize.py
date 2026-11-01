@@ -11,7 +11,7 @@ import re
 import shutil
 
 ROOT = Path(__file__).resolve().parents[2]
-ENV = ROOT / "env/wubi86"
+SOURCES = ROOT / "third_party/wubi86/sources"
 OUT = ROOT / "data/wubi86"
 COMMIT = "4d08110b8080f6577dad733ada7e5ae5c5e878fd"
 PYCOMMIT = "42c6ac6b4d2285acc7f39594274a4644cdd358ff"
@@ -31,7 +31,7 @@ def gb2312_characters():
 
 
 def read_jidian():
-    source = (ENV / "wubi86_jidian.dict.yaml").read_text(encoding="utf-8-sig")
+    source = (SOURCES / "wubi86_jidian.dict.yaml").read_text(encoding="utf-8-sig")
     header, body = source.split("...\n", 1)
     if 'version: "4.3"' not in header:
         raise ValueError("unexpected main-table version")
@@ -75,18 +75,18 @@ def phrase_codes(text, full):
 def normalize():
     lock = json.loads((OUT / "input-lock.json").read_text(encoding="utf-8"))
     for name, digest in lock.items():
-        if hashlib.sha256((ENV / name).read_bytes()).hexdigest() != digest:
+        if hashlib.sha256((SOURCES / name).read_bytes()).hexdigest() != digest:
             raise ValueError(f"source hash mismatch: {name}")
     records, audit, duplicates = read_jidian()
     full, short = {}, {}
     source_exclusions = []
     corrections = json.loads((OUT / "full-code-corrections.json").read_text(encoding="utf-8"))
     rime_pairs = set()
-    for line in (ENV / "rime-wubi86.dict.yaml").read_text(encoding="utf-8-sig").split("...\n", 1)[1].splitlines():
+    for line in (SOURCES / "rime-wubi86.dict.yaml").read_text(encoding="utf-8-sig").split("...\n", 1)[1].splitlines():
         f = line.split("\t")
         if len(f) >= 2 and not line.startswith("#"):
             rime_pairs.add((f[0], f[1]))
-    source_rows = (ENV / "pythonwubi-resource_86版_全码.txt").read_text(encoding="utf-8-sig").splitlines()
+    source_rows = (SOURCES / "pythonwubi-resource_86版_全码.txt").read_text(encoding="utf-8-sig").splitlines()
     for line in source_rows:
         f = line.split("\t")
         if len(f) < 3 or len(f[1]) != 1 or int(f[0], 16) != ord(f[1]) or f[1] in full:
@@ -184,8 +184,8 @@ def normalize():
         counts[f"full_code_length_{length}"] = sum(kind == "full" and len(code) == length for (code, text), (weight, kind) in rows.items())
     counts["core_jidian_full_disagreements_after_corrections"] = sum(not any((c, code) in records for code in full[c]) for c, _ in core)
     (OUT / "normalization-audit.json").write_text(json.dumps(dict(counts=dict(counts), phrase_validation=dict(phrase_stats), source_additions=additions, corrections=corrections, excluded_source_characters=source_exclusions, exceptions=audit), ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
-    shutil.copyfile(ENV / "LICENSE", OUT / "LICENSE.upstream")
-    shutil.copyfile(ENV / "pythonwubi-LICENSE", OUT / "LICENSE.pywubi")
+    shutil.copyfile(SOURCES / "LICENSE", OUT / "LICENSE.upstream")
+    shutil.copyfile(SOURCES / "pythonwubi-LICENSE", OUT / "LICENSE.pywubi")
     print(json.dumps(dict(counts)))
 
 

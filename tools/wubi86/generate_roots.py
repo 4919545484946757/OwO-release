@@ -9,22 +9,22 @@ import hashlib
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 ROOT = Path(__file__).resolve().parents[2]
-ENV = ROOT / "env/wubi86"
+SOURCES = ROOT / "third_party/wubi86/sources"
 OUT = ROOT / "data/wubi86"
 
 
 def generate():
     lock = json.loads((OUT / "input-lock.json").read_text(encoding="utf-8"))
     for name, digest in lock.items():
-        if hashlib.sha256((ENV / name).read_bytes()).hexdigest() != digest:
+        if hashlib.sha256((SOURCES / name).read_bytes()).hexdigest() != digest:
             raise ValueError(f"source hash mismatch: {name}")
-    font = TTFont(ENV / "rootskb-UMingCN-wubi-86-kb.ttf")
+    font = TTFont(SOURCES / "rootskb-UMingCN-wubi-86-kb.ttf")
     cmap, glyphs = font.getBestCmap(), font.getGlyphSet()
     upm = font["head"].unitsPerEm
     roots = []
     counts = {}
     for key in "gfdsahjklmtrewqyuiopnbvcx":
-        source = (ENV / f"rootskb-kb_{key}.tex").read_text(encoding="utf-8")
+        source = (SOURCES / f"rootskb-kb_{key}.tex").read_text(encoding="utf-8")
         source = re.sub(r"%[^\n]*", "", source)
         slots = []
         for match in re.finditer(r"\\[cC]\s+([^\n]+)", source):
@@ -72,7 +72,7 @@ def generate():
         "OwO conversion: extract the chart's glyphs to SVG paths, assign W86 key-scoped identifiers, "
         "and retain their source-font slots. This is a font-format conversion under Arphic-1999; "
         "no font is installed. SVG paths remain under that license, independently of C++ logic.\n", encoding="utf-8")
-    (OUT / "font-modifications.adoc").write_bytes((ENV / "rootskb-font.adoc").read_bytes())
+    (OUT / "font-modifications.adoc").write_bytes((SOURCES / "rootskb-font.adoc").read_bytes())
     print("root glyphs", len(roots), "keys", len(counts), counts)
 
 

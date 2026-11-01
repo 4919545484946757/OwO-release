@@ -50,7 +50,7 @@ int main() {
         require(manager->Activate(&client), "Activate")) {
         active = true;
         if (require(manager->CreateDocumentMgr(&document), "CreateDocumentMgr") &&
-            require(document->CreateContext(client,0,store,&context,&cookie), "CreateContext") &&
+            require(document->CreateContext(client,0,static_cast<ITextStoreACP*>(store),&context,&cookie), "CreateContext") &&
             require(document->Push(context), "Push")) {
             pushed = true;
             auto* edit = new Edit; edit->context = context;
@@ -80,6 +80,12 @@ int main() {
             check(run() == E_ABORT && store->writes == 3 && edit->confirmations == 2,
                   "caret failure cannot cause duplicate insertion");
             check(store->locks > 0 && edit->calls == 6, "Windows edit session and store lock callbacks executed");
+            check(store->compositions_started > 0 && store->compositions_ended > 0,
+                  "production commit notifies real TSF composition owner");
+            store->fail_selection = false; store->reject_composition = true; edit->pending = true;
+            const auto before_reject = store->writes;
+            check(FAILED(run()) && store->writes == before_reject && edit->confirmations == 2,
+                  "host rejected composition never writes or confirms");
             edit->Release();
         } else ++failures;
     } else ++failures;

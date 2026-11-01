@@ -3,6 +3,42 @@ cmake_minimum_required(VERSION 3.25)
 project(OwOInputMethod VERSION 0.2.5 LANGUAGES CXX)
 
 include(CTest)
+if(WIN32)
+    add_executable(owo_compatibility_host WIN32 tools/compatibility/native_host.cpp)
+    target_compile_definitions(owo_compatibility_host PRIVATE UNICODE _UNICODE)
+    target_link_libraries(owo_compatibility_host PRIVATE user32)
+    set(OWO_FRAMEWORK "$ENV{WINDIR}/Microsoft.NET/Framework64/v4.0.30319")
+    if(EXISTS "${OWO_FRAMEWORK}/csc.exe")
+        file(TO_NATIVE_PATH "${OWO_FRAMEWORK}" OWO_FRAMEWORK_NATIVE)
+        file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/tools/compatibility/managed_host.cs" OWO_MANAGED_SOURCE)
+        file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}" OWO_MANAGED_BINARY)
+        set(OWO_MANAGED_PLATFORM x64)
+        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+            set(OWO_MANAGED_PLATFORM x86)
+        endif()
+        add_custom_target(owo_managed_compatibility_host
+            COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>"
+            COMMAND "${CMAKE_COMMAND}" -E env --unset=LIB "${OWO_FRAMEWORK}/csc.exe" /nologo /target:winexe /platform:${OWO_MANAGED_PLATFORM}
+                "/out:${OWO_MANAGED_BINARY}\\$<CONFIG>\\owo_managed_compatibility_host.exe"
+                "/r:${OWO_FRAMEWORK_NATIVE}\\System.Windows.Forms.dll" "/r:${OWO_FRAMEWORK_NATIVE}\\System.Drawing.dll"
+                "/r:${OWO_FRAMEWORK_NATIVE}\\WPF\\WindowsBase.dll" "/r:${OWO_FRAMEWORK_NATIVE}\\WPF\\PresentationCore.dll"
+                "/r:${OWO_FRAMEWORK_NATIVE}\\WPF\\PresentationFramework.dll"
+                "/r:${OWO_FRAMEWORK_NATIVE}\\System.Xaml.dll"
+                "${OWO_MANAGED_SOURCE}" VERBATIM)
+    endif()
+endif()
+if(WIN32 AND BUILD_TESTING)
+    add_executable(owo_compatibility_policy_tests tests/tsf/compatibility_policy_tests.cpp)
+    target_include_directories(owo_compatibility_policy_tests PRIVATE include)
+    target_compile_features(owo_compatibility_policy_tests PRIVATE cxx_std_20)
+    target_link_libraries(owo_compatibility_policy_tests PRIVATE user32)
+    add_test(NAME owo.tsf.compatibility_policy COMMAND owo_compatibility_policy_tests)
+    add_executable(owo_candidate_ui_element_tests tests/tsf/candidate_ui_element_tests.cpp)
+    target_include_directories(owo_candidate_ui_element_tests PRIVATE include)
+    target_compile_features(owo_candidate_ui_element_tests PRIVATE cxx_std_20)
+    target_link_libraries(owo_candidate_ui_element_tests PRIVATE ole32 oleaut32 uuid)
+    add_test(NAME owo.tsf.candidate_ui_element COMMAND owo_candidate_ui_element_tests)
+endif()
 
 # OwO.TSF.dll is an in-process COM server loaded into arbitrary applications.
 # A dynamically linked MSVC runtime can bind to an older private copy shipped

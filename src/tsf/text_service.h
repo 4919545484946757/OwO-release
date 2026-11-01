@@ -8,6 +8,7 @@
 #include "owo/tsf/composition_learning.h"
 #include "owo/tsf/expanded_candidate_pages.h"
 #include "owo/tsf/backdrop_snapshot.h"
+#include "owo/compatibility/uia_text_verifier.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -35,6 +36,7 @@ struct IDWriteTextFormat;
 namespace owo::tsf {
 
 class LanguageBarItem;
+class CandidateUiElement;
 
 inline constexpr CLSID kTextServiceClsid{
     0x6d31c9b1, 0x8978, 0x4f49, {0x89, 0xb4, 0x66, 0xeb, 0x1e, 0x74, 0x15, 0x91}};
@@ -173,6 +175,12 @@ private:
     void maintain_candidate_window_order() noexcept;
     void update_candidate_shadow() noexcept;
     void hide_candidate_windows() noexcept;
+    bool publish_candidate_ui();
+    void end_candidate_ui() noexcept;
+    CandidateUiElement* candidate_ui_{};
+    DWORD candidate_ui_id_{};
+    ITfUIElementMgr* candidate_ui_manager_{};
+    bool candidate_ui_registered_{};
     [[nodiscard]] bool render_candidate_window();
     [[nodiscard]] SIZE desired_candidate_window_size() const;
     void worker_loop(std::stop_token stop_token);
@@ -258,11 +266,18 @@ private:
 
     LONG references_{1};
     bool plugin_scheme_selected() const noexcept;
-    bool plugin_context_allowed(ITfContext*);
+    bool plugin_context_allowed(ITfContext*,bool* pending=nullptr);
+    void prefetch_context_metadata();
+    std::unique_ptr<compatibility::UiaTextVerifier> context_verifier_;
     bool plugin_context_is_current(ITfContext*) const;
     bool plugin_should_eat_key(ITfContext*, WPARAM, LPARAM);
     HRESULT handle_plugin_key(ITfContext*, WPARAM, LPARAM, BOOL*);
     void poll_plugin_input();
+    void poll_plugin_input_locked();
+    void apply_pending_plugin_selection();
+    bool plugin_read_pending_{};
+    ITfContext* plugin_read_context_{}; // borrowed only during DoEditSession
+    TfEditCookie plugin_read_cookie_{};
     void finish_plugin_input_on_ui();
     void queue_plugin_compose();
     void select_plugin_candidate(std::size_t, bool defer = false,

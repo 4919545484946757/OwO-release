@@ -69,6 +69,10 @@ struct ExpandedCandidateTestAccess {
         if (service->expanded_pages_.selected != selected || service->candidates_.size() != 15) return 12;
         service->clear_composition();
         if (service->candidates_expanded_ || service->expanded_pages_.selected || service->expanded_pages_.first_visible) return 13;
+        service->input_buffer_=L"retired-document";
+        const auto prior_generation=service->context_generation_;
+        service->OnUninitDocumentMgr(nullptr);
+        if(!service->input_buffer_.empty() || service->context_generation_<=prior_generation)return 14;
         return 0;
     }
 };

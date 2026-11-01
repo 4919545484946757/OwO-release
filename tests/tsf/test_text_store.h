@@ -32,18 +32,27 @@ private:
 
 // In-process application-owned text store. TSF contexts/ranges/edit cookies are
 // provided by Windows msctf, not mocked by this fixture.
-class TestTextStore final : public ITextStoreACP {
+class TestTextStore final : public ITextStoreACP, public ITfContextOwnerCompositionSink {
 public:
     std::wstring text;
-    bool fail_write{}, fail_selection{}, defer_write_lock{};
+    bool fail_write{}, fail_selection{}, defer_write_lock{}, defer_read_lock{};
     DWORD deferred_lock{};
     DWORD last_lock_flags{};
     unsigned writes{}, locks{};
     HWND window{};
+    bool reject_composition{};
+    unsigned compositions_started{}, compositions_ended{};
+    HRESULT STDMETHODCALLTYPE OnStartComposition(ITfCompositionView*, BOOL* accept) override {
+        ++compositions_started; *accept=reject_composition?FALSE:TRUE; return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE OnUpdateComposition(ITfCompositionView*, ITfRange*) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE OnEndComposition(ITfCompositionView*) override { ++compositions_ended; return S_OK; }
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID id, void** out) override {
         if (!out) return E_POINTER; *out = nullptr;
-        if (id != IID_IUnknown && id != IID_ITextStoreACP) return E_NOINTERFACE;
-        *out = static_cast<ITextStoreACP*>(this); AddRef(); return S_OK;
+        if (id == __uuidof(ITfContextOwnerCompositionSink)) *out=static_cast<ITfContextOwnerCompositionSink*>(this);
+        else if (id == IID_IUnknown || id == IID_ITextStoreACP) *out=static_cast<ITextStoreACP*>(this);
+        else return E_NOINTERFACE;
+        AddRef(); return S_OK;
     }
     ULONG STDMETHODCALLTYPE AddRef() override { return ++refs_; }
     ULONG STDMETHODCALLTYPE Release() override { auto n = --refs_; if (!n) delete this; return n; }
@@ -59,7 +68,7 @@ public:
         last_lock_flags = flags;
         if (!result || !sink_) return E_INVALIDARG;
         if (lock_) { *result = TS_E_SYNCHRONOUS; return S_OK; }
-        if (defer_write_lock && (flags & TS_LF_READWRITE) == TS_LF_READWRITE) {
+        if ((defer_write_lock && (flags & TS_LF_READWRITE) == TS_LF_READWRITE) || defer_read_lock) {
             if (flags & TS_LF_SYNC) *result = TS_E_SYNCHRONOUS;
             else { deferred_lock = flags; *result = TS_S_ASYNC; }
             return S_OK;

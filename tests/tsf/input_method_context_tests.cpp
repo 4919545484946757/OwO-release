@@ -26,6 +26,10 @@ int main() {
     f.read_only = false; f.loading = true;
     check(evaluate_input_method_context(f) == InputMethodContextSafety::read_only, "loading");
     check(inspect_input_method_context(nullptr, 0) == InputMethodContextSafety::unknown, "null context blocked");
+    check(native_scope_fallback_allowed(S_OK,VT_EMPTY), "absent native InputScope needs independent evidence");
+    check(!native_scope_fallback_allowed(S_FALSE,VT_EMPTY), "mixed InputScope is not absence");
+    check(!native_scope_fallback_allowed(S_OK,VT_UNKNOWN), "explicit unsupported scope cannot be ignored");
+    check(!native_scope_fallback_allowed(E_FAIL,VT_UNKNOWN), "malformed failed scope cannot be ignored");
     const auto parent = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPED, 0, 0, 100, 100,
                                         nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
     const auto plain = CreateWindowExW(0, L"EDIT", L"", WS_CHILD, 0, 0, 20, 20,

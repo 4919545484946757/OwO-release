@@ -3,7 +3,7 @@
   "downloads": [
     {
       "file": "commit.json",
-      "path": "env/wubi86/commit.json",
+      "path": "third_party/wubi86/sources/commit.json",
       "url": "https://api.github.com/repos/KyleBing/rime-wubi86-jidian/commits/master",
       "bytes": 5191,
       "sha256": "8fdf43fb36c8274fdb7cff241a7acb060b7ab81947a6f69fe97e9a596d78809b",
@@ -13,7 +13,7 @@
     },
     {
       "file": "README.md",
-      "path": "env/wubi86/README.md",
+      "path": "third_party/wubi86/sources/README.md",
       "url": "https://raw.githubusercontent.com/KyleBing/rime-wubi86-jidian/4d08110b8080f6577dad733ada7e5ae5c5e878fd/README.md",
       "bytes": 20290,
       "sha256": "38e2a697df4bd35b0005091eabb70f01b19ab0c2f05b227676c103370a12ace2",
@@ -23,7 +23,7 @@
     },
     {
       "file": "LICENSE",
-      "path": "env/wubi86/LICENSE",
+      "path": "third_party/wubi86/sources/LICENSE",
       "url": "https://raw.githubusercontent.com/KyleBing/rime-wubi86-jidian/4d08110b8080f6577dad733ada7e5ae5c5e878fd/LICENSE",
       "bytes": 1061,
       "sha256": "e2396e96d15f17d1a1020e9798e5271edcef8749dcdf80f7284262659ab7ee53",
@@ -33,7 +33,7 @@
     },
     {
       "file": "wubi86_jidian.dict.yaml",
-      "path": "env/wubi86/wubi86_jidian.dict.yaml",
+      "path": "third_party/wubi86/sources/wubi86_jidian.dict.yaml",
       "url": "https://raw.githubusercontent.com/KyleBing/rime-wubi86-jidian/4d08110b8080f6577dad733ada7e5ae5c5e878fd/wubi86_jidian.dict.yaml",
       "bytes": 1320330,
       "sha256": "89df3685e4a0c3d319a1c56a3a64e3df4ee3bfa3ba3892a6dadc77b21c989c5b",
@@ -43,7 +43,7 @@
     },
     {
       "file": "roots-reference.html",
-      "path": "env/wubi86/roots-reference.html",
+      "path": "third_party/wubi86/sources/roots-reference.html",
       "url": "https://hantang.github.io/search-wubi/wiki/roots/",
       "bytes": 49933,
       "sha256": "e7c3e26b34bcf6398d3ace693c6c9770ce6f9182fc8ca6c370ba1737d314b3d4",
@@ -53,7 +53,7 @@
     },
     {
       "file": "wubi86-tup-excerpt.pdf",
-      "path": "env/wubi86/wubi86-tup-excerpt.pdf",
+      "path": "third_party/wubi86/sources/wubi86-tup-excerpt.pdf",
       "url": "https://www.tup.tsinghua.edu.cn/upload/books/yz/046215-01.pdf",
       "bytes": 2802817,
       "sha256": "cc16d83252c434a7cbf1d5b73e5a438f6aaf88f28d458deb8ed45494339c8baf",
@@ -63,7 +63,7 @@
     },
     {
       "file": "office-tup-excerpt.pdf",
-      "path": "env/wubi86/office-tup-excerpt.pdf",
+      "path": "third_party/wubi86/sources/office-tup-excerpt.pdf",
       "url": "https://www.tup.tsinghua.edu.cn/upload/books/yz/033229-01.pdf",
       "bytes": 5291179,
       "sha256": "1f5edb7b9dbfee6a61b5f249293fff35c6ae4e997063b38a634665a4ba910ae6",
@@ -73,7 +73,7 @@
     },
     {
       "file": "pythonwubi-README.md",
-      "path": "env/wubi86/pythonwubi-README.md",
+      "path": "third_party/wubi86/sources/pythonwubi-README.md",
       "url": "https://raw.githubusercontent.com/sfyc23/python-wubi/42c6ac6b4d2285acc7f39594274a4644cdd358ff/README.md",
       "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
       "bytes": 8248,
@@ -83,7 +83,7 @@
     },
     {
       "file": "pythonwubi-LICENSE",
-      "path": "env/wubi86/pythonwubi-LICENSE",
+      "path": "third_party/wubi86/sources/pythonwubi-LICENSE",
       "url": "https://raw.githubusercontent.com/sfyc23/python-wubi/42c6ac6b4d2285acc7f39594274a4644cdd358ff/LICENSE",
       "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
       "bytes": 1072,
@@ -93,7 +93,7 @@
     },
     {
       "file": "pythonwubi-pywubi_core.py",
-      "path": "env/wubi86/pythonwubi-pywubi_core.py",
+      "path": "third_party/wubi86/sources/pythonwubi-pywubi_core.py",
       "url": "https://raw.githubusercontent.com/sfyc23/python-wubi/42c6ac6b4d2285acc7f39594274a4644cdd358ff/pywubi/core.py",
       "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
       "bytes": 2920,
@@ -103,7 +103,7 @@
     },
     {
       "file": "pythonwubi-pywubi_loader.py",
-      "path": "env/wubi86/pythonwubi-pywubi_loader.py",
+      "path": "third_party/wubi86/sources/pythonwubi-pywubi_loader.py",
       "url": "https://raw.githubusercontent.com/sfyc23/python-wubi/42c6ac6b4d2285acc7f39594274a4644cdd358ff/pywubi/loader.py",
       "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
       "bytes": 3984,
@@ -113,7 +113,7 @@
     },
     {
       "file": "pythonwubi-pywubi_data_wubi_86.json",
-      "path": "env/wubi86/pythonwubi-pywubi_data_wubi_86.json",
+      "path": "third_party/wubi86/sources/pythonwubi-pywubi_data_wubi_86.json",
       "url": "https://raw.githubusercontent.com/sfyc23/python-wubi/42c6ac6b4d2285acc7f39594274a4644cdd358ff/pywubi/data/wubi_86.json",
       "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
       "bytes": 337904,
@@ -123,7 +123,7 @@
     },
     {
       "file": "pythonwubi-resource_86版_全码.txt",
-      "path": "env/wubi86/pythonwubi-resource_86版_全码.txt",
+      "path": "third_party/wubi86/sources/pythonwubi-resource_86版_全码.txt",
       "url": "https://raw.githubusercontent.com/sfyc23/python-wubi/42c6ac6b4d2285acc7f39594274a4644cdd358ff/resource/86%E7%89%88_%E5%85%A8%E7%A0%81.txt",
       "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
       "bytes": 308533,
@@ -133,7 +133,7 @@
     },
     {
       "file": "viewer-README.md",
-      "path": "env/wubi86/viewer-README.md",
+      "path": "third_party/wubi86/sources/viewer-README.md",
       "url": "https://raw.githubusercontent.com/sdcb/wubi86-viewer/77c521c2e4e3918fb32af5c0eaef5aec63847939/README.md",
       "version": "77c521c2e4e3918fb32af5c0eaef5aec63847939",
       "bytes": 3197,
@@ -143,7 +143,7 @@
     },
     {
       "file": "viewer-LICENSE",
-      "path": "env/wubi86/viewer-LICENSE",
+      "path": "third_party/wubi86/sources/viewer-LICENSE",
       "url": "https://raw.githubusercontent.com/sdcb/wubi86-viewer/77c521c2e4e3918fb32af5c0eaef5aec63847939/LICENSE",
       "version": "77c521c2e4e3918fb32af5c0eaef5aec63847939",
       "bytes": 34523,
@@ -153,7 +153,7 @@
     },
     {
       "file": "viewer-data-src_data-chars.tsv",
-      "path": "env/wubi86/viewer-data-src_data-chars.tsv",
+      "path": "third_party/wubi86/sources/viewer-data-src_data-chars.tsv",
       "url": "https://raw.githubusercontent.com/sdcb/wubi86-viewer/77c521c2e4e3918fb32af5c0eaef5aec63847939/data-src/data-chars.tsv",
       "version": "77c521c2e4e3918fb32af5c0eaef5aec63847939",
       "bytes": 1078901,
@@ -163,7 +163,7 @@
     },
     {
       "file": "viewer-data-src_data-wubi-v86.tsv",
-      "path": "env/wubi86/viewer-data-src_data-wubi-v86.tsv",
+      "path": "third_party/wubi86/sources/viewer-data-src_data-wubi-v86.tsv",
       "url": "https://raw.githubusercontent.com/sdcb/wubi86-viewer/77c521c2e4e3918fb32af5c0eaef5aec63847939/data-src/data-wubi-v86.tsv",
       "version": "77c521c2e4e3918fb32af5c0eaef5aec63847939",
       "bytes": 713635,
@@ -173,7 +173,7 @@
     },
     {
       "file": "rootskb-README.adoc",
-      "path": "env/wubi86/rootskb-README.adoc",
+      "path": "third_party/wubi86/sources/rootskb-README.adoc",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/README.adoc",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 1170,
@@ -183,7 +183,7 @@
     },
     {
       "file": "rootskb-font.adoc",
-      "path": "env/wubi86/rootskb-font.adoc",
+      "path": "third_party/wubi86/sources/rootskb-font.adoc",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/font.adoc",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 7830,
@@ -193,7 +193,7 @@
     },
     {
       "file": "rootskb-rls_font.md",
-      "path": "env/wubi86/rootskb-rls_font.md",
+      "path": "third_party/wubi86/sources/rootskb-rls_font.md",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/rls/font.md",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 625,
@@ -203,7 +203,7 @@
     },
     {
       "file": "rootskb-wubi-86-kb.tex",
-      "path": "env/wubi86/rootskb-wubi-86-kb.tex",
+      "path": "third_party/wubi86/sources/rootskb-wubi-86-kb.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/wubi-86-kb.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 1326,
@@ -213,7 +213,7 @@
     },
     {
       "file": "rootskb-kb.tex",
-      "path": "env/wubi86/rootskb-kb.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 3661,
@@ -223,7 +223,7 @@
     },
     {
       "file": "rootskb-kb_g.tex",
-      "path": "env/wubi86/rootskb-kb_g.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_g.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/g.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 217,
@@ -233,7 +233,7 @@
     },
     {
       "file": "rootskb-kb_a.tex",
-      "path": "env/wubi86/rootskb-kb_a.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_a.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/a.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 319,
@@ -243,7 +243,7 @@
     },
     {
       "file": "rootskb-kb_n.tex",
-      "path": "env/wubi86/rootskb-kb_n.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_n.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/n.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 384,
@@ -253,7 +253,7 @@
     },
     {
       "file": "rootskb-releases.json",
-      "path": "env/wubi86/rootskb-releases.json",
+      "path": "third_party/wubi86/sources/rootskb-releases.json",
       "url": "https://api.github.com/repos/riku-ri/wubi-kb/releases",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 20661,
@@ -263,7 +263,7 @@
     },
     {
       "file": "rootskb-kb_b.tex",
-      "path": "env/wubi86/rootskb-kb_b.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_b.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/b.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 265,
@@ -273,7 +273,7 @@
     },
     {
       "file": "rootskb-kb_c.tex",
-      "path": "env/wubi86/rootskb-kb_c.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_c.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/c.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 206,
@@ -283,7 +283,7 @@
     },
     {
       "file": "rootskb-kb_d.tex",
-      "path": "env/wubi86/rootskb-kb_d.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_d.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/d.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 285,
@@ -293,7 +293,7 @@
     },
     {
       "file": "rootskb-kb_e.tex",
-      "path": "env/wubi86/rootskb-kb_e.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_e.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/e.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 320,
@@ -303,7 +303,7 @@
     },
     {
       "file": "rootskb-kb_f.tex",
-      "path": "env/wubi86/rootskb-kb_f.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_f.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/f.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 268,
@@ -313,7 +313,7 @@
     },
     {
       "file": "rootskb-kb_h.tex",
-      "path": "env/wubi86/rootskb-kb_h.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_h.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/h.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 257,
@@ -323,7 +323,7 @@
     },
     {
       "file": "rootskb-kb_i.tex",
-      "path": "env/wubi86/rootskb-kb_i.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_i.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/i.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 265,
@@ -333,7 +333,7 @@
     },
     {
       "file": "rootskb-kb_j.tex",
-      "path": "env/wubi86/rootskb-kb_j.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_j.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/j.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 260,
@@ -343,7 +343,7 @@
     },
     {
       "file": "rootskb-kb_k.tex",
-      "path": "env/wubi86/rootskb-kb_k.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_k.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/k.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 182,
@@ -353,7 +353,7 @@
     },
     {
       "file": "rootskb-kb_l.tex",
-      "path": "env/wubi86/rootskb-kb_l.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_l.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/l.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 303,
@@ -363,7 +363,7 @@
     },
     {
       "file": "rootskb-kb_m.tex",
-      "path": "env/wubi86/rootskb-kb_m.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_m.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/m.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 256,
@@ -373,7 +373,7 @@
     },
     {
       "file": "rootskb-kb_p.tex",
-      "path": "env/wubi86/rootskb-kb_p.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_p.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/p.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 224,
@@ -383,7 +383,7 @@
     },
     {
       "file": "rootskb-kb_q.tex",
-      "path": "env/wubi86/rootskb-kb_q.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_q.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/q.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 305,
@@ -393,7 +393,7 @@
     },
     {
       "file": "rootskb-kb_r.tex",
-      "path": "env/wubi86/rootskb-kb_r.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_r.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/r.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 249,
@@ -403,7 +403,7 @@
     },
     {
       "file": "rootskb-kb_s.tex",
-      "path": "env/wubi86/rootskb-kb_s.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_s.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/s.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 190,
@@ -413,7 +413,7 @@
     },
     {
       "file": "rootskb-kb_t.tex",
-      "path": "env/wubi86/rootskb-kb_t.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_t.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/t.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 242,
@@ -423,7 +423,7 @@
     },
     {
       "file": "rootskb-kb_u.tex",
-      "path": "env/wubi86/rootskb-kb_u.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_u.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/u.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 284,
@@ -433,7 +433,7 @@
     },
     {
       "file": "rootskb-kb_v.tex",
-      "path": "env/wubi86/rootskb-kb_v.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_v.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/v.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 233,
@@ -443,7 +443,7 @@
     },
     {
       "file": "rootskb-kb_w.tex",
-      "path": "env/wubi86/rootskb-kb_w.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_w.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/w.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 206,
@@ -453,7 +453,7 @@
     },
     {
       "file": "rootskb-kb_x.tex",
-      "path": "env/wubi86/rootskb-kb_x.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_x.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/x.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 241,
@@ -463,7 +463,7 @@
     },
     {
       "file": "rootskb-kb_y.tex",
-      "path": "env/wubi86/rootskb-kb_y.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_y.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/y.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 249,
@@ -473,7 +473,7 @@
     },
     {
       "file": "rootskb-UMingCN-wubi-86-kb.ttf",
-      "path": "env/wubi86/rootskb-UMingCN-wubi-86-kb.ttf",
+      "path": "third_party/wubi86/sources/rootskb-UMingCN-wubi-86-kb.ttf",
       "url": "https://github.com/riku-ri/wubi-kb/releases/download/font/UMingCN-wubi-86-kb.ttf",
       "version": "font pre-release; binary pinned by SHA-256 (not necessarily identical to current source commit)",
       "bytes": 17530728,
@@ -483,7 +483,7 @@
     },
     {
       "file": "rootskb-kb_o.tex",
-      "path": "env/wubi86/rootskb-kb_o.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_o.tex",
       "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/o.tex",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 233,
@@ -493,7 +493,7 @@
     },
     {
       "file": "Arphic-1999.txt",
-      "path": "env/wubi86/Arphic-1999.txt",
+      "path": "third_party/wubi86/sources/Arphic-1999.txt",
       "url": "https://raw.githubusercontent.com/spdx/license-list-data/main/text/Arphic-1999.txt",
       "version": "snapshot pinned by SHA-256",
       "bytes": 6901,
@@ -503,7 +503,7 @@
     },
     {
       "file": "cnman-commit.json",
-      "path": "env/wubi86/cnman-commit.json",
+      "path": "third_party/wubi86/sources/cnman-commit.json",
       "url": "https://api.github.com/repos/CNMan/UnicodeCJK-WuBi/commits/master",
       "version": "7f55c865a6acfdb1d298d90c42650748f358a3cf",
       "bytes": 27498,
@@ -513,7 +513,7 @@
     },
     {
       "file": "cnman-tree.json",
-      "path": "env/wubi86/cnman-tree.json",
+      "path": "third_party/wubi86/sources/cnman-tree.json",
       "url": "https://api.github.com/repos/CNMan/UnicodeCJK-WuBi/git/trees/master?recursive=1",
       "version": "7f55c865a6acfdb1d298d90c42650748f358a3cf",
       "bytes": 3617,
@@ -523,7 +523,7 @@
     },
     {
       "file": "rime-commit.json",
-      "path": "env/wubi86/rime-commit.json",
+      "path": "third_party/wubi86/sources/rime-commit.json",
       "url": "https://api.github.com/repos/rime/rime-wubi/commits/master",
       "version": "152a0d3f3efe40cae216d1e3b338242446848d07",
       "bytes": 5069,
@@ -533,7 +533,7 @@
     },
     {
       "file": "pythonwubi-commit.json",
-      "path": "env/wubi86/pythonwubi-commit.json",
+      "path": "third_party/wubi86/sources/pythonwubi-commit.json",
       "url": "https://api.github.com/repos/sfyc23/python-wubi/commits/HEAD",
       "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
       "bytes": 52675,
@@ -543,7 +543,7 @@
     },
     {
       "file": "pythonwubi-tree.json",
-      "path": "env/wubi86/pythonwubi-tree.json",
+      "path": "third_party/wubi86/sources/pythonwubi-tree.json",
       "url": "https://api.github.com/repos/sfyc23/python-wubi/git/trees/HEAD?recursive=1",
       "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
       "bytes": 5972,
@@ -553,7 +553,7 @@
     },
     {
       "file": "rootskb-commit.json",
-      "path": "env/wubi86/rootskb-commit.json",
+      "path": "third_party/wubi86/sources/rootskb-commit.json",
       "url": "https://api.github.com/repos/riku-ri/wubi-kb/commits/HEAD",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 4920,
@@ -563,7 +563,7 @@
     },
     {
       "file": "rootskb-tree.json",
-      "path": "env/wubi86/rootskb-tree.json",
+      "path": "third_party/wubi86/sources/rootskb-tree.json",
       "url": "https://api.github.com/repos/riku-ri/wubi-kb/git/trees/HEAD?recursive=1",
       "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
       "bytes": 7440,
@@ -573,7 +573,7 @@
     },
     {
       "file": "viewer-commit.json",
-      "path": "env/wubi86/viewer-commit.json",
+      "path": "third_party/wubi86/sources/viewer-commit.json",
       "url": "https://api.github.com/repos/sdcb/wubi86-viewer/commits/HEAD",
       "version": "77c521c2e4e3918fb32af5c0eaef5aec63847939",
       "bytes": 4518,
@@ -583,7 +583,7 @@
     },
     {
       "file": "viewer-tree.json",
-      "path": "env/wubi86/viewer-tree.json",
+      "path": "third_party/wubi86/sources/viewer-tree.json",
       "url": "https://api.github.com/repos/sdcb/wubi86-viewer/git/trees/HEAD?recursive=1",
       "version": "77c521c2e4e3918fb32af5c0eaef5aec63847939",
       "bytes": 2358363,
@@ -593,7 +593,7 @@
     },
     {
       "file": "haifeng-commit.json",
-      "path": "env/wubi86/haifeng-commit.json",
+      "path": "third_party/wubi86/sources/haifeng-commit.json",
       "url": "https://api.github.com/repos/definite/ibus-table-chinese/commits/HEAD",
       "version": "bac13d268344311d48ad9bbc09c7df48b304066f",
       "bytes": 4133,
@@ -603,7 +603,7 @@
     },
     {
       "file": "haifeng-tree.json",
-      "path": "env/wubi86/haifeng-tree.json",
+      "path": "third_party/wubi86/sources/haifeng-tree.json",
       "url": "https://api.github.com/repos/definite/ibus-table-chinese/git/trees/HEAD?recursive=1",
       "version": "bac13d268344311d48ad9bbc09c7df48b304066f",
       "bytes": 25152,
@@ -613,7 +613,7 @@
     },
     {
       "file": "cnman-README.md",
-      "path": "env/wubi86/cnman-README.md",
+      "path": "third_party/wubi86/sources/cnman-README.md",
       "url": "https://raw.githubusercontent.com/CNMan/UnicodeCJK-WuBi/7f55c865a6acfdb1d298d90c42650748f358a3cf/README.md",
       "version": "7f55c865a6acfdb1d298d90c42650748f358a3cf",
       "bytes": 2238,
@@ -623,7 +623,7 @@
     },
     {
       "file": "rime-README.md",
-      "path": "env/wubi86/rime-README.md",
+      "path": "third_party/wubi86/sources/rime-README.md",
       "url": "https://raw.githubusercontent.com/rime/rime-wubi/152a0d3f3efe40cae216d1e3b338242446848d07/README.md",
       "version": "152a0d3f3efe40cae216d1e3b338242446848d07",
       "bytes": 399,
@@ -633,7 +633,7 @@
     },
     {
       "file": "rime-LICENSE",
-      "path": "env/wubi86/rime-LICENSE",
+      "path": "third_party/wubi86/sources/rime-LICENSE",
       "url": "https://raw.githubusercontent.com/rime/rime-wubi/152a0d3f3efe40cae216d1e3b338242446848d07/LICENSE",
       "version": "152a0d3f3efe40cae216d1e3b338242446848d07",
       "bytes": 7651,
@@ -643,7 +643,7 @@
     },
     {
       "file": "rime-wubi86.dict.yaml",
-      "path": "env/wubi86/rime-wubi86.dict.yaml",
+      "path": "third_party/wubi86/sources/rime-wubi86.dict.yaml",
       "url": "https://raw.githubusercontent.com/rime/rime-wubi/152a0d3f3efe40cae216d1e3b338242446848d07/wubi86.dict.yaml",
       "version": "152a0d3f3efe40cae216d1e3b338242446848d07",
       "bytes": 2289545,

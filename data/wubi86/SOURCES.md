@@ -2,7 +2,7 @@
 
 ## Inputs and exact format
 
-All raw inputs live only under env/wubi86. input-lock.json pins every file consumed by conversion; downloads.json lists every download (including rejected research sources), URL, revision, size, SHA-256, license and actual use.
+All verification and conversion inputs are vendored under third_party/wubi86/sources; env/ is an optional download backup. input-lock.json pins every file consumed by conversion; downloads.json lists every download (including rejected research sources), URL, revision, size, SHA-256, license and actual use.
 
 1. KyleBing/rime-wubi86-jidian commit `4d08110b8080f6577dad733ada7e5ae5c5e878fd`, main table version 4.3, MIT, Copyright (c) Kyle Bing. Only the main body is read; no YAML imports, extensions, user dictionaries or pinyin are followed. Main-table columns: text, code, optional weight, optional stem. The populated stem values are annotations, not reliable full-code definitions.
 2. sfyc23/python-wubi commit `42c6ac6b4d2285acc7f39594274a4644cdd358ff`, MIT. `resource/86版_全码.txt` explicitly supplies code point, character, full code, then source short forms. Import uses this positional full-code field, NOT longest-code or code-length inference. It has 21,004 rows. 80 private-use slots U+E815–U+E864 are excluded, leaving 20,924 portable characters. Source short forms can differ from full-code prefixes: 我/q, 不/i, 以/c, 为/o, 有/e, 这/p.

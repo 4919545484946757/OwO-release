@@ -12,8 +12,8 @@ def verify():
     downloads=json.loads((ROOT/"data/wubi86/downloads.json").read_text(encoding="utf-8"))["downloads"]
     for item in downloads:
         path=ROOT/item["path"]
-        if not path.resolve().is_relative_to((ROOT/"env/wubi86").resolve()):
-            raise ValueError("download outside env/wubi86")
+        if not path.resolve().is_relative_to((ROOT/"third_party/wubi86/sources").resolve()):
+            raise ValueError("download outside third_party/wubi86/sources")
         data=path.read_bytes()
         if len(data)!=item["bytes"] or hashlib.sha256(data).hexdigest()!=item["sha256"]:
             raise ValueError(f"raw download receipt mismatch: {path}")

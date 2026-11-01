@@ -1,0 +1,34 @@
+:showtitle:
+:doctype: article
+:i: pass:[<a href="."><b>wubi-kb</b></a>]
+:5b: 五笔字型86版五笔字根表
+:apl: 《Arphic Public License》《文鼎公众授权书》（1999年版本）
+:rls: link:https://github.com/riku-ri/wubi-kb/releases[Release]
+:pdf: pass:[<b>wubi-86-kb.pdf</b>]
+
+= {i}
+
+{i}是绘制{5b}的相关代码
+
+可通过下载 {rls} 页面的 {pdf} 获得由 link:wubi-86-kb.tex[`wubi-86-kb.tex`] 绘制的{5b}
+
+根据{apl}的要求，
+https://github.com/riku-ri/wubi-kb/releases/tag/font[font] Pre-release
+页面中提供了用于绘制字根表的字体
+
+* https://github.com/riku-ri/wubi-kb/releases/tag/font
+
+在 link:kb.tex[`kb.tex`] 中使用 luaTeX-ja 以文件名方式加载它： `[UMingCN-wubi-86-kb]`
+
+根据{apl}的要求， link:font.adoc[font.adoc] 中记录了对 AR PL UMing TW
+字体(uming.tcc)所做的修改
+
+---
+
+* 关于字体UMingCN-wubi-86-kb
+** 可参考 link:font.adoc[font.adoc]
+* 关于{pdf}与目前常见、通用的{5b}有所差异的问题
+** 可参考 link:wubi-86-kb.tex.adoc[wubi-86-kb.tex.adoc]
+* 关于这个字根表是如何制作的
+** 可参考 link:font.adoc[font.adoc]
+** 可参考 link:htdt.adoc[htdt.adoc]

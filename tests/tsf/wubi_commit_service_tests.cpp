@@ -44,6 +44,17 @@ struct WubiCommitTestAccess {
             }
         };
         prepare();
+        store->defer_read_lock=true;
+        service->poll_plugin_input();
+        const auto read_deadline=GetTickCount64()+500;
+        while(!store->deferred_lock && !service->input_buffer_.empty() && GetTickCount64()<read_deadline){
+            MSG message{};while(PeekMessageW(&message,nullptr,0,0,PM_REMOVE)){TranslateMessage(&message);DispatchMessageW(&message);}Sleep(1);
+        }
+        check(service->input_buffer_==L"fixture" && store->deferred_lock,
+              "host deferring read lock preserves input and queues asynchronous metadata session");
+        store->defer_read_lock=false;
+        if(store->deferred_lock)(void)store->grant_deferred_lock();
+        prepare();
         check(service->plugin_context_is_current(context), "real TSF focused context current");
         check(service->plugin_context_allowed(context), "application input scope and compartments authorize ordinary context");
         service->commit_plugin_text(L"\x4e2d\x6587", true); drain();
@@ -192,6 +203,12 @@ struct WubiCommitTestAccess {
               "submitted real confirmation survives immediate UI reset and learns once");
         check(store->writes == writes_at_reset && store->text == text_at_reset,
               "retired confirmation cannot replay application text");
+        store->fail_selection = true;
+        const auto before_native = store->writes;
+        const auto native_commit = service->commit_text(context, L"native-host-commit");
+        check(SUCCEEDED(native_commit) && store->writes == before_native + 1,
+              "native TSF SetText success is not reversed by host caret failure");
+        store->fail_selection = false;
         service->Release();
         return failures;
     }
@@ -221,7 +238,7 @@ int main(int argc, char** argv) {
     if (SUCCEEDED(CoCreateInstance(CLSID_TF_ThreadMgr,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&manager))) &&
         SUCCEEDED(manager->Activate(&client))) {
         active = true;
-        if (SUCCEEDED(manager->CreateDocumentMgr(&document)) && SUCCEEDED(document->CreateContext(client,0,store,&context,&cookie)) &&
+        if (SUCCEEDED(manager->CreateDocumentMgr(&document)) && SUCCEEDED(document->CreateContext(client,0,static_cast<ITextStoreACP*>(store),&context,&cookie)) &&
             SUCCEEDED(document->Push(context))) {
             pushed = true;
             if (SUCCEEDED(manager->SetFocus(document))) result = owo::tsf::WubiCommitTestAccess::run(manager,client,context,store,pipe,root);
