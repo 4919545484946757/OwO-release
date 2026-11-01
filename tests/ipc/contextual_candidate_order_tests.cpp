@@ -105,6 +105,14 @@ int main() {
     alternative.text = "以货物运输的速度";
     alternative.score = 37000;
     if (!owo::ipc::standalone_head_alternative(head, alternative, 18)) return 17;
+    const auto head_key = owo::ipc::standalone_head_identity(head, 18);
+    if (head_key.empty() || head_key != owo::ipc::standalone_head_identity(alternative, 18)) return 30;
+    ordered = {head.text, alternative.text, "易货物运输得速度"}; consumed = {18, 18, 18};
+    const auto head_original = ordered;
+    owo::ipc::limit_model_sentence_candidates(head_original, std::vector<std::uint64_t>{18,18,18},
+        {true,true,true}, 2, ordered, consumed, {4,4,4}, {"reading","reading","reading"}, true,
+        {head_key,head_key,{}});
+    if (ordered != std::vector<std::string>{head.text, alternative.text}) return 31;
     const auto rejected = [&](auto change) {
         auto changed = alternative;
         change(changed);

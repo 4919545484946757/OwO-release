@@ -1,0 +1,5 @@
+{"id":"optional-way","input":"yikexuandefangshi","expected":["以可选的方式"]}
+{"id":"optional-way-explicit","input":"yi'ke'xuan'de'fang'shi","expected":["以可选的方式"]}
+{"id":"optional-plan","input":"yikexuandefangan","expected":["以可选的方案"]}
+{"id":"optional-form","input":"yikexuandexingshi","expected":["以可选的形式"]}
+{"id":"optional-option","input":"yikexuandexuanxiang","expected":["以可选的选项"]}

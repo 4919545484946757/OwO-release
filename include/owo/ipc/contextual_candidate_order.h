@@ -120,12 +120,14 @@ inline void limit_model_sentence_candidates(
     std::vector<std::string>& candidates, std::vector<std::uint64_t>& consumed,
     const std::vector<std::uint64_t>& sentence_segments = {},
     const std::vector<std::string>& sentence_readings = {},
-    const bool diversify_pages = false) {
+    const bool diversify_pages = false,
+    const std::vector<std::string>& head_identities = {}) {
     if (original_candidates.size() != original_consumed.size() ||
         generated_sentences.size() != original_candidates.size() ||
         candidates.size() != consumed.size() ||
         (!sentence_segments.empty() && sentence_segments.size() != original_candidates.size()) ||
-        (!sentence_readings.empty() && sentence_readings.size() != original_candidates.size())) return;
+        (!sentence_readings.empty() && sentence_readings.size() != original_candidates.size()) ||
+        (!head_identities.empty() && head_identities.size() != original_candidates.size())) return;
     if (diversify_pages && !sentence_readings.empty()) {
         std::vector<std::size_t> slots;
         std::vector<std::string> readings, texts;
@@ -149,17 +151,19 @@ inline void limit_model_sentence_candidates(
     std::size_t kept_sentences = 0, destination = 0;
     std::uint64_t first_segments = 0;
     std::string first_sentence;
-    struct ReadingState { std::size_t count{}; std::uint64_t segments{}; std::string first; };
+    struct ReadingState { std::size_t count{}; std::uint64_t segments{}; std::string first, head_identity; };
     std::unordered_map<std::string, ReadingState> readings;
     for (std::size_t source = 0; source < candidates.size(); ++source) {
         bool generated = false;
         std::uint64_t segments = 0;
         std::string reading;
+        std::string head_identity;
         for (std::size_t index = 0; index < original_candidates.size(); ++index) {
             if (candidates[source] == original_candidates[index] && consumed[source] == original_consumed[index]) {
                 generated = generated_sentences[index];
                 if (!sentence_segments.empty()) segments = sentence_segments[index];
                 if (!sentence_readings.empty()) reading = sentence_readings[index];
+                if (!head_identities.empty()) head_identity = head_identities[index];
                 break;
             }
         }
@@ -169,8 +173,9 @@ inline void limit_model_sentence_candidates(
                 auto& state = readings[reading];
                 if (state.count >= 2 || kept_sentences >= limit ||
                     (state.count != 0 && state.segments != 0 && segments > state.segments) ||
-                    (state.count != 0 && owo::engine::redundant_sentence_variant(state.first, candidates[source]))) continue;
-                if (state.count++ == 0) { state.segments = segments; state.first = candidates[source]; }
+                    (state.count != 0 && owo::engine::redundant_sentence_variant(state.first, candidates[source]) &&
+                     (head_identity.empty() || head_identity != state.head_identity))) continue;
+                if (state.count++ == 0) { state.segments = segments; state.first = candidates[source]; state.head_identity = head_identity; }
                 ++kept_sentences;
             } else {
                 // Legacy callers without reading metadata retain their old

@@ -32,6 +32,29 @@ namespace owo::ipc {
     return initials >= 2;
 }
 
+// A validated identity for independent-head alternatives. Used by the final
+// duplicate gate as well as confidence checks; never admits internal swaps.
+[[nodiscard]] inline std::string standalone_head_identity(
+    const engine::Candidate& candidate, const std::size_t full_input_bytes) {
+    if (candidate.user_preferred() || candidate.match_kind != engine::InputMatchKind::exact ||
+        candidate.consumed_input_bytes != full_input_bytes || candidate.syllables.size() < 3 ||
+        candidate.segment_count < 2 || candidate.segment_lengths.empty() ||
+        candidate.segment_lengths.front() != 1 ||
+        std::none_of(candidate.segment_lengths.begin(), candidate.segment_lengths.end(), [](auto length) { return length >= 2; }) ||
+        static_cast<std::size_t>(std::count_if(candidate.text.begin(), candidate.text.end(),
+            [](unsigned char byte) { return (byte & 0xc0U) != 0x80U; })) != candidate.syllables.size()) return {};
+    auto start = std::size_t{1};
+    while (start < candidate.text.size() && (static_cast<unsigned char>(candidate.text[start]) & 0xc0U) == 0x80U) ++start;
+    auto identity = candidate.text.substr(start);
+    const auto append = [&](std::string_view value) { identity += '|' + std::to_string(value.size()) + ':'; identity += value; };
+    for (const auto& source : candidate.source_segments) append(source);
+    identity += '/';
+    for (const auto& syllable : candidate.syllables) append(syllable);
+    identity += '/';
+    for (const auto length : candidate.segment_lengths) identity += std::to_string(length) + ',';
+    return identity;
+}
+
 // Coherence may credit an incidental dictionary word across a standalone
 // sentence head (e.g. a noun instead of a preposition). Identical, independently
 // tokenized suffixes do not justify locking those heads into different model

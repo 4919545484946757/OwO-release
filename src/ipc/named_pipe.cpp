@@ -1385,6 +1385,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
         std::vector<bool> generated_sentences;
         std::vector<std::uint64_t> sentence_segments;
         std::vector<std::string> sentence_readings;
+        std::vector<std::string> sentence_head_identities;
         std::size_t sentence_limit{};
         std::size_t full_input_bytes{};
         std::size_t visible_count{};
@@ -1847,7 +1848,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 pending.candidates, pending.candidate_consumed,
                                 pending.generated_sentences, pending.sentence_limit,
                                 response.candidates, response.candidate_consumed, pending.sentence_segments, pending.sentence_readings,
-                                pending.partitioned);
+                                pending.partitioned, pending.sentence_head_identities);
                         response.candidate_groups = candidate_groups_for_order(
                             response.candidates, response.candidate_consumed,
                             pending.candidates, pending.candidate_consumed,
@@ -1963,6 +1964,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 std::vector<bool> model_candidate_generated_sentence;
                 std::vector<std::uint64_t> model_candidate_segments;
                 std::vector<std::string> model_candidate_readings;
+                std::vector<std::string> model_candidate_head_identities;
                 std::size_t model_sentence_capacity = 2;
                 bool sentence_recall = false;
                 std::vector<std::string> model_hidden_candidates;
@@ -2505,6 +2507,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             candidate.consumed_input_bytes == full_input_bytes &&
                             utf8_character_count(candidate.text) == candidate.syllables.size());
                         model_candidate_segments.push_back(candidate.segment_count);
+                        model_candidate_head_identities.push_back(standalone_head_identity(candidate, full_input_bytes));
                         model_candidate_readings.push_back(candidate.qualified_sentence_reading
                             ? engine::sentence_reading_key(candidate) : std::string{});
                         std::uint64_t confidence = 0;
@@ -2829,6 +2832,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             ? model_candidate_segments[match] : 0);
                         pending_model.sentence_readings.push_back(match < model_candidate_pool.size()
                             ? model_candidate_readings[match] : std::string{});
+                        pending_model.sentence_head_identities.push_back(match < model_candidate_pool.size()
+                            ? model_candidate_head_identities[match] : std::string{});
                         if (index < response.candidates.size() && sentence) ++pending_model.sentence_limit;
                     }
                     pending_model.full_input_bytes = full_input_bytes;
