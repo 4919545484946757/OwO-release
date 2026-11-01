@@ -176,12 +176,12 @@ int main() {
                 verify(std::find(first.candidates.begin(), first.candidates.end(), "变得有一司马") == first.candidates.end(), "weak second sentence survived model update");
             }
             auto paged = first; std::set<std::pair<std::string, std::uint64_t>> unique;
-            std::size_t incomplete_compositions = 0;
+            std::size_t incomplete_non_singles = 0;
             const auto record = [&](const protocol::Message& row) {
                 for (std::size_t i = 0; i < row.candidates.size(); ++i) {
                     verify(unique.emplace(row.candidates[i], row.candidate_consumed[i]).second, "duplicate");
-                    if (request.text == "nmnmnm" && ipc::utf8_character_count(row.candidates[i]) >= 2 &&
-                        row.candidates[i] != "你们") ++incomplete_compositions;
+                    if ((request.text == "nmnmnm" || request.text == "rgs" || request.text == "zj") &&
+                        ipc::utf8_character_count(row.candidates[i]) >= 2) ++incomplete_non_singles;
                 }
             };
             record(first);
@@ -198,8 +198,8 @@ int main() {
                 paged.candidate_groups.insert(paged.candidate_groups.end(), row.candidate_groups.begin(), row.candidate_groups.end());
             }
             request.page = 0; const auto revisited = send(request);
-            if (request.text == "nmnmnm")
-                verify(incomplete_compositions <= size * 2, "composition quota exceeded across candidate pages");
+            if (request.text == "nmnmnm" || request.text == "rgs" || request.text == "zj")
+                verify(incomplete_non_singles <= size * 2, "non-single quota exceeded across candidate pages");
             verify(same(first, revisited) && !revisited.model_pending, "revisit");
             request.expanded = true; const auto latest_expanded = settle(send(request));
             if (!same(paged, latest_expanded)) {

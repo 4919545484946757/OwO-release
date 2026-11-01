@@ -17,19 +17,32 @@ bool sentence(const Candidate &candidate, std::size_t full_input_bytes) {
 }
 } // namespace
 
-bool is_incomplete_composition(const Candidate& candidate) noexcept {
-    return candidate.segment_count > 1 && !candidate.user_lexicon &&
-        (candidate.match_kind == InputMatchKind::incomplete_completion ||
-         candidate.match_kind == InputMatchKind::abbreviated_completion) && characters(candidate.text) >= 2;
+bool is_non_single_candidate(const Candidate& candidate) noexcept {
+    return characters(candidate.text) >= 2;
 }
 
-void limit_incomplete_compositions(std::vector<Candidate>& candidates, const std::size_t page_size) {
-    if (page_size == 0) return;
-    const auto limit = page_size > std::numeric_limits<std::size_t>::max() / 2
+bool requires_incomplete_candidate_limit(const ParseResult& parsed,
+                                         const std::span<const Candidate> candidates) noexcept {
+    if (!parsed.phonetic_assistance) return false;
+    if (std::any_of(candidates.begin(), candidates.end(), [&](const Candidate& candidate) {
+        return candidate.match_kind == InputMatchKind::exact && !candidate.user_lexicon &&
+            candidate.consumed_input_bytes == parsed.normalized_input.size();
+    })) return false;
+    return parsed.has_incomplete_syllable || std::any_of(candidates.begin(), candidates.end(), [](const Candidate& candidate) {
+        return candidate.match_kind == InputMatchKind::incomplete_completion ||
+            candidate.match_kind == InputMatchKind::abbreviated_completion;
+    });
+}
+
+void limit_incomplete_candidates(std::vector<Candidate>& candidates, const std::size_t page_size,
+                                const bool incomplete_input, const std::size_t reserved_slots) {
+    if (page_size == 0 || !incomplete_input) return;
+    const auto capacity = page_size > std::numeric_limits<std::size_t>::max() / 2
         ? std::numeric_limits<std::size_t>::max() : page_size * 2;
+    const auto limit = capacity - std::min(capacity, reserved_slots);
     std::size_t kept = 0;
     std::erase_if(candidates, [&](const Candidate& candidate) {
-        return is_incomplete_composition(candidate) && ++kept > limit;
+        return is_non_single_candidate(candidate) && ++kept > limit;
     });
 }
 

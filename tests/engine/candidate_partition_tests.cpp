@@ -20,6 +20,19 @@ owo::engine::Candidate word(std::string text, std::size_t consumed, std::int64_t
 
 int main() {
     using namespace owo::engine;
+    ParseResult incomplete;
+    incomplete.normalized_input = "rgs";
+    incomplete.has_incomplete_syllable = true;
+    auto abbreviation = word("如果说", 3, 100);
+    abbreviation.match_kind = InputMatchKind::abbreviated_completion;
+    auto exact_prefix = word("如果", 2, 100);
+    auto learned_word = word("学习词", 3, 100); learned_word.user_lexicon = true;
+    std::vector<Candidate> detection{abbreviation, exact_prefix, learned_word};
+    if (!requires_incomplete_candidate_limit(incomplete, detection)) return 15;
+    detection.push_back(word("完整输入", 3, 100));
+    if (requires_incomplete_candidate_limit(incomplete, detection)) return 16;
+    detection.pop_back(); incomplete.phonetic_assistance = false;
+    if (requires_incomplete_candidate_limit(incomplete, detection)) return 17;
     for (const auto page : {4U, 5U, 7U, 9U}) {
         std::vector<Candidate> limited;
         for (std::size_t index = 0; index < 50; ++index) {
@@ -31,15 +44,22 @@ int main() {
             auto dictionary = word("真词条", 3, 100);
             dictionary.match_kind = composition.match_kind;
             limited.push_back(dictionary);
+            limited.push_back(word("单", 1, 100));
         }
         auto exact = word("完整句子", 12, 100, 2);
         auto corrected = exact; corrected.match_kind = InputMatchKind::corrected;
         auto learned = exact; learned.match_kind = InputMatchKind::abbreviated_completion; learned.user_lexicon = true;
         limited.insert(limited.begin(), {exact, corrected, learned});
-        limit_incomplete_compositions(limited, page);
-        if (std::count_if(limited.begin(), limited.end(), is_incomplete_composition) != page * 2 ||
-            std::count_if(limited.begin(), limited.end(), [](const auto& value) { return value.segment_count == 1; }) != 50 ||
-            limited.size() != page * 2 + 53) return 11;
+        const auto unchanged_complete = limited;
+        limit_incomplete_candidates(limited, page, false);
+        if (limited != unchanged_complete) return 13;
+        limit_incomplete_candidates(limited, page, true);
+        if (std::count_if(limited.begin(), limited.end(), is_non_single_candidate) != page * 2 ||
+            std::count_if(limited.begin(), limited.end(), [](const auto& value) { return value.text == "单"; }) != 50 ||
+            limited.size() != page * 2 + 50) return 11;
+        auto reserve = unchanged_complete;
+        limit_incomplete_candidates(reserve, page, true, 2);
+        if (std::count_if(reserve.begin(), reserve.end(), is_non_single_candidate) != page * 2 - 2) return 14;
     }
     std::vector<Candidate> candidates{
         word("自动展开", 13, 100, 2), word("自动站", 10, 300),     word("自动", 6, 10000),

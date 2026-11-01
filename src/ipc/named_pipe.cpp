@@ -2280,7 +2280,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             }, page_size);
                     }
                     full_input_bytes = parsed.normalized_input.size();
-                    engine::limit_incomplete_compositions(candidates, page_size);
+                    engine::limit_incomplete_candidates(candidates, page_size,
+                        engine::requires_incomplete_candidate_limit(parsed, candidates));
                     if (partitioned_layout && !cache_hit && !cancelled()) {
                         const auto model_begin = std::find_if(
                             candidates.begin(), candidates.end(),
@@ -2327,7 +2328,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     if (!cache_hit && previous_pool)
                         preserve_candidate_pool_prefix(
                             previous_pool->candidates, candidates, full_input_bytes, previous_pool->model_refined);
-                    engine::limit_incomplete_compositions(candidates, page_size);
+                    engine::limit_incomplete_candidates(candidates, page_size,
+                        engine::requires_incomplete_candidate_limit(parsed, candidates));
                     if (!cache_hit && !cancelled() &&
                         !response.candidate_refinement_pending)
                         candidate_cache.put(

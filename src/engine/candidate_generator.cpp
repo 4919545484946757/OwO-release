@@ -644,7 +644,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                     const std::size_t partition_page_size,
                                                     const bool user_completion_enabled,
                                                     const std::size_t user_completion_max_syllables,
-                                                    const std::size_t composition_page_size) const {
+                                                    const std::size_t incomplete_candidate_page_size) const {
     if (!parsed.valid || limit == 0 || (cancelled && cancelled())) return {};
     // A normal first page needs only page_size + one look-ahead candidate.
     // Keeping a small quality margin avoids the former 32-result floor, which
@@ -824,6 +824,9 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         auto candidates = initial_candidates.take();
         const auto sort_started = std::chrono::steady_clock::now();
         std::sort(candidates.begin(), candidates.end(), score_less);
+        limit_incomplete_candidates(candidates,
+            incomplete_candidate_page_size != 0 ? incomplete_candidate_page_size : partition_page_size,
+            requires_incomplete_candidate_limit(parsed, candidates));
         if (candidates.size() > limit) candidates.resize(limit);
         if (metrics != nullptr)
             metrics->sort_us += static_cast<std::uint64_t>(
@@ -916,6 +919,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         auto prefixes = prefix_unique.take();
         std::sort(dictionary.begin(), dictionary.end(), score_less);
         std::sort(prefixes.begin(), prefixes.end(), score_less);
+        limit_incomplete_candidates(dictionary,
+            incomplete_candidate_page_size != 0 ? incomplete_candidate_page_size : partition_page_size, true);
 
         std::vector<Candidate> candidates;
         candidates.reserve(std::min(limit, dictionary.size() + prefixes.size()));
@@ -1957,11 +1962,31 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         std::unordered_set<std::string_view> texts;
         texts.reserve(kMaximumModelStructures);
         if (pure_initial_sequence) {
+            // Keep a bounded continuation family of the strongest existing
+            // dictionary prefix. A strict all-non-single quota must not keep
+            // only unrelated whole words and erase the common prefix's
+            // word/phrase+character interpretations before model ranking.
+            const Candidate* prefix_anchor = nullptr;
+            for (const auto& prefix : prefixes) {
+                if (prefix.segment_count != 1 || utf8_character_count(prefix.text) < 2 ||
+                    prefix.consumed_input_bytes >= full_input_bytes) continue;
+                if (!prefix_anchor || score_less(prefix, *prefix_anchor)) prefix_anchor = &prefix;
+            }
+            if (prefix_anchor) for (const bool composed : {false, true}) {
+                for (const auto& candidate : full) {
+                    if (model_seeds.size() >= 2) break;
+                    if ((candidate.segment_count > 1) != composed ||
+                        candidate.match_kind != InputMatchKind::abbreviated_completion ||
+                        candidate.text == prefix_anchor->text || !candidate.text.starts_with(prefix_anchor->text)) continue;
+                    if (texts.insert(candidate.text).second) model_seeds.push_back(candidate);
+                }
+            }
             // A bounded raw-frequency dictionary slice can otherwise erase
             // every phrase+character sentence before the model sees it.
-            // Reuse two already generated, word-backed compositions inside
-            // the existing hidden budget; never seed all-character products.
+            // Fill remaining reserved slots with generated word-backed
+            // compositions; never seed all-character products.
             for (const auto& candidate : full) {
+                if (model_seeds.size() >= 2) break;
                 if (candidate.match_kind != InputMatchKind::abbreviated_completion ||
                     candidate.segment_count < 2 ||
                     std::none_of(candidate.segment_lengths.begin(), candidate.segment_lengths.end(),
@@ -2362,10 +2387,13 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             ordered.push_back(std::move(candidate));
         }
     }
-    // Remove excess compositions before truncation as well: otherwise they
-    // consume the bounded pool and discard genuine words/characters which
-    // would have fit after applying the quota.
-    limit_incomplete_compositions(ordered, composition_page_size != 0 ? composition_page_size : partition_page_size);
+    // All non-single areas share the incomplete-input quota. Reserve room
+    // for a bounded model comparison before low-value dictionary alternatives
+    // consume it; visible and hidden candidates still share the final cap.
+    const auto incomplete_input = requires_incomplete_candidate_limit(parsed, ordered);
+    const auto quota_page_size = incomplete_candidate_page_size != 0 ? incomplete_candidate_page_size : partition_page_size;
+    limit_incomplete_candidates(ordered, quota_page_size, incomplete_input,
+                                include_model_alternatives && !model_seeds.empty() ? 2 : 0);
     if (ordered.size() > limit) ordered.resize(limit);
     if (include_model_alternatives && !model_seeds.empty()) {
         constexpr std::size_t kMaximumModelAlternatives = 64;
@@ -2433,7 +2461,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             }
         }
     }
-    limit_incomplete_compositions(ordered, composition_page_size != 0 ? composition_page_size : partition_page_size);
+    limit_incomplete_candidates(ordered, quota_page_size, incomplete_input);
     if (metrics != nullptr)
         metrics->sort_us += static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::microseconds>(

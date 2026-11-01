@@ -42,17 +42,17 @@ int main() {
                 const auto result = owo::engine::CandidateGenerator(composition_lexicon).generate(
                     owo::engine::FullPinyinSchema{}.parse("nmnmnm"), 128, false, {}, nullptr, {},
                     model, partition ? page : 0, true, 0, page);
-                const auto count = std::count_if(result.begin(), result.end(), owo::engine::is_incomplete_composition);
+                const auto count = std::count_if(result.begin(), result.end(), owo::engine::is_non_single_candidate);
                 if (count == 0 || count > page * 2)
-                    return fail("incomplete compositions exceeded the shared configured page quota");
+                    return fail("incomplete non-single candidates exceeded the shared configured page quota");
                 if (std::none_of(result.begin(), result.end(), [](const auto& candidate) {
-                    return candidate.text == "你们" && candidate.segment_count == 1;
+                    return !owo::engine::is_non_single_candidate(candidate);
                 })) {
                     std::cerr << "page=" << page << " partition=" << partition << " model=" << model << '\n';
                     for (const auto& candidate : result)
                         std::cerr << candidate.text << ':' << candidate.consumed_input_bytes << ':' << candidate.segment_count << ' ';
                     std::cerr << '\n';
-                    return fail("composition quota removed a real dictionary word");
+                    return fail("non-single quota removed the single-character area");
                 }
             }
     for (const auto limit : {8U, 18U, 48U, 128U})
