@@ -32,6 +32,40 @@ int main() {
         {{"ren", "sheng"}, "人生", 100},
         {{"re", "shui"}, "热水", 100}});
     const owo::engine::CandidateGenerator initials_quality_generator(initials_quality_lexicon);
+    std::vector<owo::engine::LexiconEntry> prefix_entries{
+        {{"ru", "guo"}, "如果", 1000}, {{"ren", "gong"}, "人工", 900},
+        {{"ru"}, "如", 100000}, {{"ren"}, "人", 100000},
+        {{"guo"}, "果", 100000}, {{"shi"}, "是", 100000},
+        {{"wei", "shen"}, "为甚", 1000}, {{"wei"}, "为", 100000},
+        {{"shen"}, "甚", 100000}, {{"me"}, "么", 100000}};
+    for (unsigned index = 0; index < 40; ++index) {
+        const auto text = std::string("全串") + std::to_string(index);
+        prefix_entries.push_back({{"ru", "gu", "si"}, text, 100000 - index});
+        prefix_entries.push_back({{"wei", "shi", "ma"}, text + "词", 100000 - index});
+    }
+    const owo::engine::MemoryLexicon prefix_lexicon(std::move(prefix_entries));
+    const owo::engine::CandidateGenerator prefix_generator(prefix_lexicon);
+    for (const auto page : {5U, 7U, 9U})
+        for (const bool partition : {false, true})
+            for (const bool model : {false, true})
+                for (const auto limit : {8U, 18U, 128U})
+                    for (const auto& [input, prefix] : {std::pair{"rgs", "如果"}, std::pair{"wsm", "为甚"}}) {
+                        const auto result = prefix_generator.generate(
+                            owo::engine::FullPinyinSchema{}.parse(input), limit, false, {}, nullptr, {},
+                            model, partition ? page : 0, true, 0, page);
+                        if (std::none_of(result.begin(), result.end(), [&](const auto& candidate) {
+                            return candidate.text == prefix && !candidate.model_only &&
+                                candidate.consumed_input_bytes == 2 && candidate.segment_count == 1 &&
+                                candidate.source_segments.size() == 2;
+                        })) return fail("whole abbreviation words erased the leading dictionary-word source");
+                        if (std::count_if(result.begin(), result.end(), owo::engine::is_non_single_candidate) > page * 2)
+                            return fail("retained prefix words escaped the shared non-single quota");
+                        if (std::string_view(input) == "rgs" && limit >= 18 &&
+                            std::none_of(result.begin(), result.end(), [](const auto& candidate) {
+                                return candidate.text == "人工" && !candidate.model_only &&
+                                    candidate.consumed_input_bytes == 2;
+                            })) return fail("only one of the bounded leading dictionary alternatives survived");
+                    }
     const owo::engine::MemoryLexicon composition_lexicon({
         {{"ni"}, "你", 1000000}, {{"nian"}, "年", 900000}, {{"ne"}, "呢", 800000},
         {{"ma"}, "吗", 1000000}, {{"men"}, "们", 900000}, {{"mei"}, "每", 800000},

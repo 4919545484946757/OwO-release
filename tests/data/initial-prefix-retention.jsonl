@@ -1,0 +1,4 @@
+{"id":"rgs-prefix-ruguo","input":"rgs","expected":["如果"],"consumed":2,"tags":["initials","partial-word"]}
+{"id":"rgs-prefix-rengong","input":"rgs","expected":["人工"],"consumed":2,"tags":["initials","partial-word"]}
+{"id":"rgs-whole-is","input":"rgs","expected":["如果是"],"consumed":3,"tags":["initials","whole-word"]}
+{"id":"rgs-whole-say","input":"rgs","expected":["如果说"],"consumed":3,"tags":["initials","whole-word"]}

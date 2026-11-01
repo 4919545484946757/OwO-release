@@ -1170,7 +1170,8 @@ void restore_candidate_group_order(std::vector<std::string>& candidates,
                                    std::vector<std::uint64_t>& groups,
                                    const std::vector<std::uint64_t>& layout,
                                    const std::vector<bool>& joint,
-                                   const std::vector<bool>& layout_joint) {
+                                   const std::vector<bool>& layout_joint,
+                                   const std::vector<std::uint64_t>& layout_consumed) {
     if (candidates.size() != consumed.size() || candidates.size() != groups.size()) return;
     std::vector<std::size_t> indices;
     indices.reserve(candidates.size());
@@ -1183,6 +1184,11 @@ void restore_candidate_group_order(std::vector<std::string>& candidates,
                 layout[slot] <= 1;
             const bool joint_candidate = index < joint.size() && joint[index] && groups[index] <= 1;
             if (used[index] || (joint_slot ? !joint_candidate : groups[index] != layout[slot])) continue;
+            // A dictionary display slot may hold a partial commit. An
+            // expanded model update must not replace every such prefix with
+            // whole-input words merely because both use the dictionary group.
+            if (!joint_slot && layout[slot] == 1 && slot < layout_consumed.size() &&
+                consumed[index] != layout_consumed[slot]) continue;
             used[index] = true;
             indices.push_back(index);
             destinations.push_back(layout[slot]);
@@ -1802,7 +1808,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             restore_candidate_group_order(
                                 response.candidates, response.candidate_consumed,
                                 response.candidate_groups, visible_layout, ranked_joint,
-                                pending.joint_phrase_partition);
+                                pending.joint_phrase_partition, pending.candidate_consumed);
                         }
                         if (response.candidates.size() > pending.visible_count) {
                             response.candidates.resize(pending.visible_count);
@@ -2322,8 +2328,23 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         candidates.insert(candidates.end(),
                                           std::make_move_iterator(hidden.begin()),
                                           std::make_move_iterator(hidden.end()));
-                        if (!single_syllable_input && !corrected_single_syllable)
+                        if (!single_syllable_input && !corrected_single_syllable) {
                             engine::merge_similar_length_partitions(candidates, full_input_bytes);
+                            // Joint scores may move whole words into sentence
+                            // slots while a shorter prefix remains outside the
+                            // band. Normalize each page's display order, not
+                            // its membership or quotas, before publishing it.
+                            const auto visible = visible_candidate_count(candidates);
+                            for (std::size_t page_begin = 0; page_begin < visible; page_begin += page_size) {
+                                const auto page_end = std::min(visible, page_begin + page_size);
+                                const auto first = candidates.begin() + static_cast<std::ptrdiff_t>(page_begin);
+                                const auto last = candidates.begin() + static_cast<std::ptrdiff_t>(page_end);
+                                if (std::any_of(first, last, [](const auto& candidate) { return candidate.joint_phrase_partition; }))
+                                    std::stable_sort(first, last, [full_input_bytes](const auto& left, const auto& right) {
+                                        return candidate_group(left, full_input_bytes) < candidate_group(right, full_input_bytes);
+                                    });
+                            }
+                        }
                     }
                     if (!cache_hit && previous_pool)
                         preserve_candidate_pool_prefix(

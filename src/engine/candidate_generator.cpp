@@ -632,6 +632,32 @@ void limit_two_syllable_full_candidates(std::vector<Candidate>& candidates) {
         }), candidates.end());
 }
 
+// Whole-input abbreviation words can fill the entire bounded pool before a
+// real leading word is reached. Preserve a small partial-commit source inside
+// that same quota, rather than adding extra candidates after quota enforcement.
+void retain_initial_prefix_words(std::vector<Candidate>& candidates,
+                                 const std::size_t full_input_bytes,
+                                 const std::size_t page_size,
+                                 const std::size_t leading_slots) {
+    if (page_size == 0) return;
+    const auto count = std::min<std::size_t>(2, page_size / 2);
+    auto destination = candidates.begin() + static_cast<std::ptrdiff_t>(
+        std::min(leading_slots, candidates.size()));
+    for (std::size_t kept = 0; kept < count; ++kept) {
+        const auto found = std::find_if(destination, candidates.end(),
+            [full_input_bytes](const Candidate& candidate) {
+                return !candidate.model_only && candidate.segment_count == 1 &&
+                    candidate.consumed_input_bytes > 0 &&
+                    candidate.consumed_input_bytes < full_input_bytes &&
+                    candidate.syllables.size() >= 2 &&
+                    utf8_character_count(candidate.text) >= 2;
+            });
+        if (found == candidates.end()) break;
+        std::rotate(destination, found, found + 1);
+        ++destination;
+    }
+}
+
 }  // namespace
 
 std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
@@ -1526,7 +1552,9 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 }
                 Candidate candidate{
                     std::move(state.text), std::move(state.syllables), state.score,
-                    InputMatchKind::abbreviated_completion, raw_segments,
+                    InputMatchKind::abbreviated_completion,
+                    std::vector<std::string>(raw_segments.begin(),
+                        raw_segments.begin() + static_cast<std::ptrdiff_t>(consumed)),
                     trailing_separator && consumed == initial_sequence_input.size()
                         ? parsed.normalized_input.size()
                         : consumed,
@@ -2349,6 +2377,9 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                 return score_less(left, right);
             });
         promote_alternative_exact_segmentation(dictionary, full_input_bytes);
+        if (pure_initial_sequence)
+            retain_initial_prefix_words(dictionary, full_input_bytes,
+                incomplete_candidate_page_size != 0 ? incomplete_candidate_page_size : partition_page_size, 0);
         promote_full_candidate_heads(
             sentences, dictionary, full_input_bytes, single_characters);
         prioritize_complete_characters(single_characters, full_input_bytes);
@@ -2392,6 +2423,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // consume it; visible and hidden candidates still share the final cap.
     const auto incomplete_input = requires_incomplete_candidate_limit(parsed, ordered);
     const auto quota_page_size = incomplete_candidate_page_size != 0 ? incomplete_candidate_page_size : partition_page_size;
+    if (pure_initial_sequence && partition_page_size == 0)
+        retain_initial_prefix_words(ordered, full_input_bytes, quota_page_size, 2);
     limit_incomplete_candidates(ordered, quota_page_size, incomplete_input,
                                 include_model_alternatives && !model_seeds.empty() ? 2 : 0);
     if (ordered.size() > limit) ordered.resize(limit);

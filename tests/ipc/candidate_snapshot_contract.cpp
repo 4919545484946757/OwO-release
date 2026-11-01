@@ -165,6 +165,12 @@ int main() {
                 verify(sentences <= 2 && words > 0 && singles > 0 &&
                        std::is_sorted(first.candidate_groups.begin(), first.candidate_groups.end()),
                        "joint scoring inflated or reordered display partitions");
+                if (size >= 7) {
+                    bool prefix_on_first_page = false;
+                    for (std::size_t index = 0; index < first.candidates.size(); ++index)
+                        prefix_on_first_page |= first.candidates[index] == "如果" && first.candidate_consumed[index] == 2;
+                    verify(prefix_on_first_page, "whole-word model recall displaced the partial dictionary slot");
+                }
             }
             if (request.text == "yihuowuyunshudesudu")
                 verify(!first.candidates.empty() && first.candidates.front() == "以货物运输的速度", "standalone head model choice was blocked");
@@ -198,6 +204,12 @@ int main() {
                 paged.candidate_groups.insert(paged.candidate_groups.end(), row.candidate_groups.begin(), row.candidate_groups.end());
             }
             request.page = 0; const auto revisited = send(request);
+            if (request.text == "rgs") {
+                bool prefix_retained = false;
+                for (std::size_t index = 0; index < paged.candidates.size(); ++index)
+                    prefix_retained |= paged.candidates[index] == "如果" && paged.candidate_consumed[index] == 2;
+                verify(prefix_retained, "leading two-initial dictionary word removed by quota/model");
+            }
             if (request.text == "nmnmnm" || request.text == "rgs" || request.text == "zj")
                 verify(incomplete_non_singles <= size * 2, "non-single quota exceeded across candidate pages");
             verify(same(first, revisited) && !revisited.model_pending, "revisit");
