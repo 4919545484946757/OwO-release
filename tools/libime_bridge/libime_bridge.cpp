@@ -112,24 +112,30 @@ TokenizationState score_best_tokenization(
     return result;
 }
 
-void calibrate_medial_pair(const libime::LanguageModel& model, const char* context,
-                          const char* const* candidates, const std::size_t count, float* scores) {
-    if (count < 2) return;
+bool calibrate_singleton_pair(const libime::LanguageModel& model, const char* context,
+                          const char* const* candidates, const std::size_t count, float* scores,
+                          const bool standalone_head = false) {
+    // Sentence-initial priors dominate short function-word alternatives.
+    // Calibrate only without external context; do not discount a real
+    // application-context preference for a particular sentence head.
+    if (count < 2 || (standalone_head && context && context[0])) return false;
     std::size_t anchor_index = count;
     for (std::size_t i = 0; i < count; ++i) {
         const auto length = utf8_character_count(candidates[i]);
         if (length >= 5 && length <= 32 &&
             (anchor_index == count || scores[i] > scores[anchor_index])) anchor_index = i;
     }
-    if (anchor_index == count) return;
+    if (anchor_index == count) return false;
     const std::string_view anchor(candidates[anchor_index]);
     const auto bounds = utf8_boundaries(anchor);
     const auto characters = bounds.size() - 1;
-    // A bounded sentence-only comparison: at least two characters on each
-    // side, no word-internal or terminal substitutions, no long-input rescan.
-    if (characters < 5 || characters > 32) return;
+    // A bounded sentence-only comparison: either an independent head or a
+    // medial singleton with two characters on each side; never a word-internal
+    // or terminal substitution, nor a long-input rescan.
+    if (characters < 5 || characters > 32) return false;
     std::size_t best = count, second = count, position = 0;
-    for (std::size_t at = 2; at + 2 < characters; ++at) {
+    for (std::size_t at = standalone_head ? 0 : 2;
+         standalone_head ? at == 0 : at + 2 < characters; ++at) {
         const auto prefix = anchor.substr(0, bounds[at]);
         const auto suffix = anchor.substr(bounds[at + 1]);
         std::size_t first = count, runner = count;
@@ -146,12 +152,12 @@ void calibrate_medial_pair(const libime::LanguageModel& model, const char* conte
             best = first; second = runner; position = at;
         }
     }
-    if (best == count || scores[best] <= scores[second] || scores[best] - scores[second] > 1.0F) return;
+    if (best == count || scores[best] <= scores[second] || scores[best] - scores[second] > 1.0F) return false;
     auto initial = model.beginState();
     if (context && context[0]) initial = score_best_tokenization(model, initial, context).language_state;
     const auto first = score_best_tokenization(model, initial, candidates[best], nullptr, position);
     const auto other = score_best_tokenization(model, initial, candidates[second], nullptr, position);
-    if (!first.inspected_singleton || !other.inspected_singleton) return;
+    if (!first.inspected_singleton || !other.inspected_singleton) return false;
     const auto prior = [&](const char* value) {
         const std::string_view text(value);
         const auto edges = utf8_boundaries(text);
@@ -163,10 +169,13 @@ void calibrate_medial_pair(const libime::LanguageModel& model, const char* conte
     };
     const auto first_prior = prior(candidates[best]), other_prior = prior(candidates[second]);
     if (!std::isfinite(first_prior) || !std::isfinite(other_prior) ||
-        first_prior >= 0 || other_prior >= 0) return;
+        first_prior >= 0 || other_prior >= 0) return false;
     if (owo::model::medial_pair_flips(scores[best], scores[second], first_prior, other_prior,
-            first.score - first.score_after_singleton, other.score - other.score_after_singleton))
+            first.score - first.score_after_singleton, other.score - other.score_after_singleton)) {
         std::swap(scores[best], scores[second]);
+        return true;
+    }
+    return false;
 }
 
 void set_diagnostic(char* output, const size_t output_size, const std::string_view value) {
@@ -277,8 +286,9 @@ extern "C" int owo_libime_score_batch(const owo_libime_handle handle,
         owo::model::terminal_pair_flips(scores[0], scores[1], independent[0], independent[1]))
         std::swap(scores[0], scores[1]);
     try {
-        calibrate_medial_pair(static_cast<const BridgeState*>(handle)->model,
-                             context, candidates, candidate_count, scores);
+        const auto& model = static_cast<const BridgeState*>(handle)->model;
+        if (!calibrate_singleton_pair(model, context, candidates, candidate_count, scores, true))
+            calibrate_singleton_pair(model, context, candidates, candidate_count, scores);
     } catch (const std::exception& error) {
         set_diagnostic(diagnostic, diagnostic_size, error.what());
         return 0;

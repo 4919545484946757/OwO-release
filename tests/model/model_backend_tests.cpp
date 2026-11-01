@@ -9,6 +9,11 @@
 using namespace std::chrono_literals;
 
 int main() {
+    // The same bounded calibration also handles independent sentence heads:
+    // a stronger continuation may offset frequency, not a decisive LM lead.
+    if (!owo::model::medial_pair_flips(-8.0F, -8.2F, -1.0F, -2.0F, -7.0F, -6.2F) ||
+        owo::model::medial_pair_flips(-8.0F, -8.2F, -1.0F, -2.0F, -6.0F, -6.2F) ||
+        owo::model::medial_pair_flips(-8.0F, -9.2F, -1.0F, -3.0F, -7.0F, -6.2F)) return 6;
     // A near-tied isolated character may overcome a unigram prior only when
     // its actual winning LM path has stronger continuation evidence.
     if (!owo::model::medial_pair_flips(-11.429F, -12.092F, -2.491F, -3.488F, -4.095F, -3.515F) ||

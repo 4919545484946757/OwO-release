@@ -1,0 +1,8 @@
+{"id":"one-whole-afternoon","input":"yizhenggexiawu","expected":["一整个下午"]}
+{"id":"one-day-work","input":"yizhengtiandegongzuo","expected":["一整天的工作"]}
+{"id":"one-new-start","input":"yigexindekaishi","expected":["一个新的开始"]}
+{"id":"one-bright-star","input":"yikemingliangdexingxing","expected":["一颗明亮的星星"]}
+{"id":"one-simple-way","input":"yizhongjiandandefangshi","expected":["一种简单的方式"]}
+{"id":"one-full-report","input":"yifenwanzhengdebaogao","expected":["一份完整的报告"]}
+{"id":"reasonable-way","input":"yihelidefangshi","expected":["以合理的方式"]}
+{"id":"actual-result","input":"yishijijieguoweizhun","expected":["以实际结果为准"]}
