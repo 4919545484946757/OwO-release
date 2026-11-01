@@ -628,11 +628,13 @@ public:
     bool publish_model_prefix(const CandidateCacheKey& key,
                               const std::vector<std::string>& text,
                               const std::vector<std::uint64_t>& consumed,
+                              const std::vector<std::uint64_t>& groups,
                               const std::size_t replaced_count,
                               const std::size_t full_input_bytes,
                               const bool abbreviation_recall) {
         const auto found = entries_.find(key);
-        if (found == entries_.end() || text.size() != consumed.size() || text.empty()) return false;
+        if (found == entries_.end() || text.size() != consumed.size() || text.empty() ||
+            (!groups.empty() && groups.size() != text.size())) return false;
         auto& value = found->second->second;
         const auto visible = visible_candidate_count(value.candidates);
         if (text.size() > replaced_count || replaced_count > visible) return false;
@@ -649,6 +651,9 @@ public:
                 (!abbreviation_recall || !abbreviated_model_alternative(value.candidates[match], full_input_bytes)))) return false;
             used[match] = true;
             auto candidate = value.candidates[match]; candidate.model_only = false;
+            if (candidate.joint_phrase_partition && !groups.empty())
+                candidate.partition_slot = groups[index] == 0 ? engine::CandidatePartitionSlot::sentence
+                    : engine::CandidatePartitionSlot::dictionary;
             ordered.push_back(std::move(candidate));
         }
         for (std::size_t index = replaced_count; index < visible; ++index) {
@@ -661,10 +666,12 @@ public:
                 if (used[displaced] ||
                     (candidate.segment_count > 1 && candidate.consumed_input_bytes == full_input_bytes &&
                      candidate.syllables.size() >= 3) ||
-                    candidate_group(candidate, full_input_bytes) !=
-                        candidate_group(value.candidates[index], full_input_bytes)) continue;
+                    (candidate_group(candidate, full_input_bytes) != candidate_group(value.candidates[index], full_input_bytes) &&
+                     !(candidate.joint_phrase_partition && value.candidates[index].joint_phrase_partition))) continue;
                 used[displaced] = true;
-                ordered.push_back(candidate);
+                auto replacement = candidate;
+                replacement.partition_slot = value.candidates[index].partition_slot;
+                ordered.push_back(std::move(replacement));
                 break;
             }
         }
@@ -891,10 +898,12 @@ void arrange_double_initial_pages(std::vector<engine::Candidate>& candidates,
 std::uint64_t candidate_group(const engine::Candidate& candidate,
                               const std::size_t full_input_bytes) {
     const auto characters = utf8_character_count(candidate.text);
-    // Reuse the phrase-area wire group for a joined word/sentence band, so
-    // both rendering and asynchronous model updates see one area.
-    if (candidate.joint_phrase_partition && characters >= 2)
+    // A common scoring band may exchange words/sentences, but cannot turn
+    // every member into a sentence display slot or inflate per-page quotas.
+    if (candidate.partition_slot == engine::CandidatePartitionSlot::sentence)
         return static_cast<std::uint64_t>(protocol::CandidateGroup::sentence);
+    if (candidate.partition_slot == engine::CandidatePartitionSlot::dictionary)
+        return static_cast<std::uint64_t>(protocol::CandidateGroup::dictionary);
     const bool sentence = candidate.consumed_input_bytes == full_input_bytes &&
                           candidate.syllables.size() >= 3 &&
                           characters == candidate.syllables.size() &&
@@ -1159,22 +1168,29 @@ std::vector<std::uint64_t> candidate_groups_for_order(
 void restore_candidate_group_order(std::vector<std::string>& candidates,
                                    std::vector<std::uint64_t>& consumed,
                                    std::vector<std::uint64_t>& groups,
-                                   const std::vector<std::uint64_t>& layout) {
+                                   const std::vector<std::uint64_t>& layout,
+                                   const std::vector<bool>& joint,
+                                   const std::vector<bool>& layout_joint) {
     if (candidates.size() != consumed.size() || candidates.size() != groups.size()) return;
     std::vector<std::size_t> indices;
     indices.reserve(candidates.size());
     std::vector<bool> used(candidates.size());
+    std::vector<std::uint64_t> destinations;
     const auto desired_count = std::min(layout.size(), candidates.size());
     for (std::size_t slot = 0; slot < desired_count; ++slot) {
         for (std::size_t index = 0; index < groups.size(); ++index) {
-            if (used[index] || groups[index] != layout[slot]) continue;
+            const bool joint_slot = slot < layout_joint.size() && layout_joint[slot] &&
+                layout[slot] <= 1;
+            const bool joint_candidate = index < joint.size() && joint[index] && groups[index] <= 1;
+            if (used[index] || (joint_slot ? !joint_candidate : groups[index] != layout[slot])) continue;
             used[index] = true;
             indices.push_back(index);
+            destinations.push_back(layout[slot]);
             break;
         }
     }
     for (std::size_t index = 0; index < candidates.size(); ++index)
-        if (!used[index]) indices.push_back(index);
+        if (!used[index]) { indices.push_back(index); destinations.push_back(groups[index]); }
     std::vector<std::string> ordered_candidates;
     std::vector<std::uint64_t> ordered_consumed;
     std::vector<std::uint64_t> ordered_groups;
@@ -1184,7 +1200,7 @@ void restore_candidate_group_order(std::vector<std::string>& candidates,
     for (const auto index : indices) {
         ordered_candidates.push_back(std::move(candidates[index]));
         ordered_consumed.push_back(consumed[index]);
-        ordered_groups.push_back(groups[index]);
+        ordered_groups.push_back(destinations[ordered_groups.size()]);
     }
     candidates = std::move(ordered_candidates);
     consumed = std::move(ordered_consumed);
@@ -1775,9 +1791,18 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 pending.candidate_groups.begin(),
                                 pending.candidate_groups.begin() +
                                     static_cast<std::ptrdiff_t>(visible_layout_size));
+                            std::vector<bool> ranked_joint(response.candidates.size(), false);
+                            for (std::size_t index = 0; index < response.candidates.size(); ++index)
+                                for (std::size_t source = 0; source < pending.candidates.size(); ++source)
+                                    if (response.candidates[index] == pending.candidates[source] &&
+                                        response.candidate_consumed[index] == pending.candidate_consumed[source]) {
+                                        ranked_joint[index] = pending.joint_phrase_partition[source];
+                                        break;
+                                    }
                             restore_candidate_group_order(
                                 response.candidates, response.candidate_consumed,
-                                response.candidate_groups, visible_layout);
+                                response.candidate_groups, visible_layout, ranked_joint,
+                                pending.joint_phrase_partition);
                         }
                         if (response.candidates.size() > pending.visible_count) {
                             response.candidates.resize(pending.visible_count);
@@ -1786,7 +1811,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 response.candidate_groups.resize(pending.visible_count);
                         }
                         if (candidate_cache.publish_model_prefix(pending.cache_key,
-                            response.candidates, response.candidate_consumed, pending.visible_count,
+                            response.candidates, response.candidate_consumed, response.candidate_groups, pending.visible_count,
                             pending.full_input_bytes, pending.abbreviation_recall)) {
                             // Filtering a weak second sentence can leave one
                             // slot empty. Fill it from the same canonical tail,
@@ -2022,7 +2047,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             decoded.message.context, &generation_metrics, cancelled,
                             external_model_ranking_enabled,
                             partitioned_layout ? page_size : 0,
-                            user_completion_enabled, user_completion_max_syllables);
+                            user_completion_enabled, user_completion_max_syllables, page_size);
                         generation_phase_us += static_cast<std::uint64_t>(
                             std::chrono::duration_cast<std::chrono::microseconds>(
                                 std::chrono::steady_clock::now() -
@@ -2145,7 +2170,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 decoded.message.context, &corrected_generation_metrics,
                                 cancelled, external_model_ranking_enabled,
                                 partitioned_layout ? page_size : 0,
-                                user_completion_enabled, user_completion_max_syllables);
+                                user_completion_enabled, user_completion_max_syllables, page_size);
                             generation_phase_us += static_cast<std::uint64_t>(
                                 std::chrono::duration_cast<std::chrono::microseconds>(
                                     std::chrono::steady_clock::now() -
@@ -2255,6 +2280,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             }, page_size);
                     }
                     full_input_bytes = parsed.normalized_input.size();
+                    engine::limit_incomplete_compositions(candidates, page_size);
                     if (partitioned_layout && !cache_hit && !cancelled()) {
                         const auto model_begin = std::find_if(
                             candidates.begin(), candidates.end(),
@@ -2301,6 +2327,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     if (!cache_hit && previous_pool)
                         preserve_candidate_pool_prefix(
                             previous_pool->candidates, candidates, full_input_bytes, previous_pool->model_refined);
+                    engine::limit_incomplete_compositions(candidates, page_size);
                     if (!cache_hit && !cancelled() &&
                         !response.candidate_refinement_pending)
                         candidate_cache.put(

@@ -20,6 +20,27 @@ owo::engine::Candidate word(std::string text, std::size_t consumed, std::int64_t
 
 int main() {
     using namespace owo::engine;
+    for (const auto page : {4U, 5U, 7U, 9U}) {
+        std::vector<Candidate> limited;
+        for (std::size_t index = 0; index < 50; ++index) {
+            auto composition = word("组合词", 3, 100, 2);
+            composition.match_kind = index % 2 == 0 ? InputMatchKind::abbreviated_completion
+                                                    : InputMatchKind::incomplete_completion;
+            composition.model_only = index >= 20;
+            limited.push_back(composition);
+            auto dictionary = word("真词条", 3, 100);
+            dictionary.match_kind = composition.match_kind;
+            limited.push_back(dictionary);
+        }
+        auto exact = word("完整句子", 12, 100, 2);
+        auto corrected = exact; corrected.match_kind = InputMatchKind::corrected;
+        auto learned = exact; learned.match_kind = InputMatchKind::abbreviated_completion; learned.user_lexicon = true;
+        limited.insert(limited.begin(), {exact, corrected, learned});
+        limit_incomplete_compositions(limited, page);
+        if (std::count_if(limited.begin(), limited.end(), is_incomplete_composition) != page * 2 ||
+            std::count_if(limited.begin(), limited.end(), [](const auto& value) { return value.segment_count == 1; }) != 50 ||
+            limited.size() != page * 2 + 53) return 11;
+    }
     std::vector<Candidate> candidates{
         word("自动展开", 13, 100, 2), word("自动站", 10, 300),     word("自动", 6, 10000),
         word("自", 2, 10000),         word("词典整词", 13, 200),   word("长度更长了吧", 13, 10000),
@@ -39,6 +60,10 @@ int main() {
         std::cerr << "Joined scores changed unrelated lengths, singles or hidden slots\n";
         return 1;
     }
+    if (candidates[0].partition_slot != CandidatePartitionSlot::sentence ||
+        candidates[4].partition_slot != CandidatePartitionSlot::dictionary ||
+        candidates[3].partition_slot != CandidatePartitionSlot::automatic ||
+        candidates.back().partition_slot != CandidatePartitionSlot::automatic) return 12;
     auto learned = word("已学词条", 10, -100);
     learned.user_lexicon = true;
     auto hidden = word("隐藏词条", 10, 10000);

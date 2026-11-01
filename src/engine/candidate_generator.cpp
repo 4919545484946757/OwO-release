@@ -369,6 +369,7 @@ void replace_candidate_payload(Candidate& existing, Candidate replacement) {
     existing.user_lexicon = replacement.user_lexicon;
     existing.provisional_user_word = replacement.provisional_user_word;
     existing.joint_phrase_partition = replacement.joint_phrase_partition;
+    existing.partition_slot = replacement.partition_slot;
 }
 
 class CandidateAccumulator {
@@ -642,7 +643,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                                                     const bool include_model_alternatives,
                                                     const std::size_t partition_page_size,
                                                     const bool user_completion_enabled,
-                                                    const std::size_t user_completion_max_syllables) const {
+                                                    const std::size_t user_completion_max_syllables,
+                                                    const std::size_t composition_page_size) const {
     if (!parsed.valid || limit == 0 || (cancelled && cancelled())) return {};
     // A normal first page needs only page_size + one look-ahead candidate.
     // Keeping a small quality margin avoids the former 32-result floor, which
@@ -2360,6 +2362,10 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             ordered.push_back(std::move(candidate));
         }
     }
+    // Remove excess compositions before truncation as well: otherwise they
+    // consume the bounded pool and discard genuine words/characters which
+    // would have fit after applying the quota.
+    limit_incomplete_compositions(ordered, composition_page_size != 0 ? composition_page_size : partition_page_size);
     if (ordered.size() > limit) ordered.resize(limit);
     if (include_model_alternatives && !model_seeds.empty()) {
         constexpr std::size_t kMaximumModelAlternatives = 64;
@@ -2427,6 +2433,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             }
         }
     }
+    limit_incomplete_compositions(ordered, composition_page_size != 0 ? composition_page_size : partition_page_size);
     if (metrics != nullptr)
         metrics->sort_us += static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::microseconds>(

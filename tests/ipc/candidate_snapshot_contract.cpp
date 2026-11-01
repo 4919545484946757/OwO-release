@@ -2,6 +2,7 @@
 #include "owo/config/config_store.h"
 #include "owo/engine/lexicon.h"
 #include "owo/ipc/named_pipe.h"
+#include "owo/ipc/contextual_candidate_order.h"
 #include "owo/model/model_protocol.h"
 #include "owo/protocol/messages.h"
 #include <algorithm>
@@ -98,6 +99,8 @@ int main() {
         {{"ru"}, "如", 100000}, {{"ren"}, "人", 200000}, {{"ge"}, "个", 1000000},
         {{"shi"}, "是", 10000000}, {{"ru", "guo"}, "如果", 100000},
         {{"ru", "guo", "shuo"}, "如果说", 20},
+        {{"ma"}, "吗", 1000000}, {{"men"}, "们", 900000}, {{"mei"}, "每", 800000},
+        {{"ni", "men"}, "你们", 1000000},
     });
     for (unsigned index = 0; index < 16; ++index)
         entries.push_back({{"ru", "gu", "si"}, character(0x5100 + index) + "故事", 1000 - index});
@@ -141,7 +144,7 @@ int main() {
         settings.candidate_partition_enabled = partition; settings.candidate_page_size = size;
         ok &= writer.save(settings).success && monitor.wait_for_generation(generation, 2s);
         for (const auto& input : {"zj", "nihaoshijie", "biandeyouyisima",
-                                 "yihuowuyunshudesudu", "weiyonghutigongfuwu", "rgs"}) for (const bool expanded_first : {false, true}) {
+                                 "yihuowuyunshudesudu", "weiyonghutigongfuwu", "rgs", "nmnmnm"}) for (const bool expanded_first : {false, true}) {
             const auto verify = [&](bool value, const char* stage) {
                 if (!value) std::cerr << stage << ": " << input << " size=" << size << " partition=" << partition << " expanded_first=" << expanded_first << '\n';
                 ok &= value;
@@ -155,6 +158,14 @@ int main() {
                 verify(first.candidates.size() >= 2 && first.candidates[0] == "如果是" &&
                        first.candidates[1] == "如果说" && first.candidate_consumed[0] == 3 &&
                        first.candidate_consumed[1] == 3, "off-page abbreviation candidates not recalled");
+            if (request.text == "rgs" && partition) {
+                const auto sentences = std::count(first.candidate_groups.begin(), first.candidate_groups.end(), 0);
+                const auto words = std::count(first.candidate_groups.begin(), first.candidate_groups.end(), 1);
+                const auto singles = std::count(first.candidate_groups.begin(), first.candidate_groups.end(), 2);
+                verify(sentences <= 2 && words > 0 && singles > 0 &&
+                       std::is_sorted(first.candidate_groups.begin(), first.candidate_groups.end()),
+                       "joint scoring inflated or reordered display partitions");
+            }
             if (request.text == "yihuowuyunshudesudu")
                 verify(!first.candidates.empty() && first.candidates.front() == "以货物运输的速度", "standalone head model choice was blocked");
             if (request.text == "weiyonghutigongfuwu")
@@ -165,19 +176,30 @@ int main() {
                 verify(std::find(first.candidates.begin(), first.candidates.end(), "变得有一司马") == first.candidates.end(), "weak second sentence survived model update");
             }
             auto paged = first; std::set<std::pair<std::string, std::uint64_t>> unique;
+            std::size_t incomplete_compositions = 0;
             const auto record = [&](const protocol::Message& row) {
-                for (std::size_t i = 0; i < row.candidates.size(); ++i) verify(unique.emplace(row.candidates[i], row.candidate_consumed[i]).second, "duplicate");
+                for (std::size_t i = 0; i < row.candidates.size(); ++i) {
+                    verify(unique.emplace(row.candidates[i], row.candidate_consumed[i]).second, "duplicate");
+                    if (request.text == "nmnmnm" && ipc::utf8_character_count(row.candidates[i]) >= 2 &&
+                        row.candidates[i] != "你们") ++incomplete_compositions;
+                }
             };
             record(first);
             for (unsigned page = 1; paged.has_more && page <= 100; ++page) {
                 request.page = page; const auto row = send(request);
                 if (row.candidates.empty()) { ok = false; break; }
+                if (request.text == "rgs" && partition)
+                    verify(std::count(row.candidate_groups.begin(), row.candidate_groups.end(), 0) == 0 &&
+                           std::is_sorted(row.candidate_groups.begin(), row.candidate_groups.end()),
+                           "sentence slots leaked to later candidate pages");
                 record(row); paged.has_more = row.has_more;
                 paged.candidates.insert(paged.candidates.end(), row.candidates.begin(), row.candidates.end());
                 paged.candidate_consumed.insert(paged.candidate_consumed.end(), row.candidate_consumed.begin(), row.candidate_consumed.end());
                 paged.candidate_groups.insert(paged.candidate_groups.end(), row.candidate_groups.begin(), row.candidate_groups.end());
             }
             request.page = 0; const auto revisited = send(request);
+            if (request.text == "nmnmnm")
+                verify(incomplete_compositions <= size * 2, "composition quota exceeded across candidate pages");
             verify(same(first, revisited) && !revisited.model_pending, "revisit");
             request.expanded = true; const auto latest_expanded = settle(send(request));
             if (!same(paged, latest_expanded)) {

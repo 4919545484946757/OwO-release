@@ -2,6 +2,7 @@
 #include "owo/engine/candidate_scoring.h"
 
 #include <algorithm>
+#include <limits>
 #include <unordered_set>
 
 namespace owo::engine {
@@ -15,6 +16,22 @@ bool sentence(const Candidate &candidate, std::size_t full_input_bytes) {
            candidate.segment_count > 1 && characters(candidate.text) == candidate.syllables.size();
 }
 } // namespace
+
+bool is_incomplete_composition(const Candidate& candidate) noexcept {
+    return candidate.segment_count > 1 && !candidate.user_lexicon &&
+        (candidate.match_kind == InputMatchKind::incomplete_completion ||
+         candidate.match_kind == InputMatchKind::abbreviated_completion) && characters(candidate.text) >= 2;
+}
+
+void limit_incomplete_compositions(std::vector<Candidate>& candidates, const std::size_t page_size) {
+    if (page_size == 0) return;
+    const auto limit = page_size > std::numeric_limits<std::size_t>::max() / 2
+        ? std::numeric_limits<std::size_t>::max() : page_size * 2;
+    std::size_t kept = 0;
+    std::erase_if(candidates, [&](const Candidate& candidate) {
+        return is_incomplete_composition(candidate) && ++kept > limit;
+    });
+}
 
 void prioritize_complete_characters(std::vector<Candidate>& candidates,
                                     const std::size_t full_input_bytes) {
@@ -69,6 +86,7 @@ void merge_similar_length_partitions(std::vector<Candidate> &candidates,
 
     std::vector<std::size_t> slots;
     std::vector<Candidate> joint;
+    std::size_t sentence_slots = 0;
     for (std::size_t index = 0; index < candidates.size(); ++index) {
         auto &value = candidates[index];
         if (!eligible(value))
@@ -76,6 +94,7 @@ void merge_similar_length_partitions(std::vector<Candidate> &candidates,
         value.joint_phrase_partition = true;
         if (value.model_only)
             continue; // Never mix the hidden model tail into visible pages.
+        sentence_slots += sentence(value, full_input_bytes);
         slots.push_back(index);
         joint.push_back(std::move(value));
     }
@@ -90,7 +109,10 @@ void merge_similar_length_partitions(std::vector<Candidate> &candidates,
             return left.consumed_input_bytes > right.consumed_input_bytes;
         return false;
     });
-    for (std::size_t index = 0; index < slots.size(); ++index)
+    for (std::size_t index = 0; index < slots.size(); ++index) {
+        joint[index].partition_slot = index < sentence_slots
+            ? CandidatePartitionSlot::sentence : CandidatePartitionSlot::dictionary;
         candidates[slots[index]] = std::move(joint[index]);
+    }
 }
 } // namespace owo::engine

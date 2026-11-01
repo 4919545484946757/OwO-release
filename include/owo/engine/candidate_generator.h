@@ -14,6 +14,10 @@
 
 namespace owo::engine {
 
+// A joint scoring band is not a display partition. Preserve the destination
+// slot when a word and a sentence exchange positions inside that band.
+enum class CandidatePartitionSlot : std::uint8_t { automatic, sentence, dictionary };
+
 struct Candidate {
     std::string text;
     std::vector<std::string> syllables;
@@ -28,6 +32,7 @@ struct Candidate {
     bool user_lexicon{};
     bool provisional_user_word{};
     bool joint_phrase_partition{};
+    CandidatePartitionSlot partition_slot{CandidatePartitionSlot::automatic};
     [[nodiscard]] bool user_preferred() const noexcept {
         return user_lexicon && !provisional_user_word;
     }
@@ -60,7 +65,8 @@ public:
                                                   bool include_model_alternatives = false,
                                                   std::size_t partition_page_size = 0,
                                                   bool user_completion_enabled = true,
-                                                  std::size_t user_completion_max_syllables = 0) const;
+                                                  std::size_t user_completion_max_syllables = 0,
+                                                  std::size_t composition_page_size = 0) const;
 
 private:
     const Lexicon& lexicon_;

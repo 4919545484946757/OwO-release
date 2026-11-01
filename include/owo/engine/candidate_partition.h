@@ -6,6 +6,11 @@
 
 namespace owo::engine {
 
+[[nodiscard]] bool is_incomplete_composition(const Candidate& candidate) noexcept;
+// One shared quota across visible, partial and hidden generated compositions.
+// Dictionary/user words and complete/corrected readings are not charged.
+void limit_incomplete_compositions(std::vector<Candidate>& candidates, std::size_t page_size);
+
 // Within a character area, exact whole-input readings precede heads that
 // consume only a shorter prefix. Preserve each reading tier's existing order.
 void prioritize_complete_characters(std::vector<Candidate>& candidates,

@@ -1,4 +1,5 @@
 #include "owo/engine/candidate_generator.h"
+#include "owo/engine/candidate_partition.h"
 #include "owo/engine/exact_code_schema.h"
 #include "owo/engine/full_pinyin_schema.h"
 
@@ -31,6 +32,29 @@ int main() {
         {{"ren", "sheng"}, "人生", 100},
         {{"re", "shui"}, "热水", 100}});
     const owo::engine::CandidateGenerator initials_quality_generator(initials_quality_lexicon);
+    const owo::engine::MemoryLexicon composition_lexicon({
+        {{"ni"}, "你", 1000000}, {{"nian"}, "年", 900000}, {{"ne"}, "呢", 800000},
+        {{"ma"}, "吗", 1000000}, {{"men"}, "们", 900000}, {{"mei"}, "每", 800000},
+        {{"ni", "men"}, "你们", 1000000}});
+    for (const auto page : {4U, 5U, 7U, 9U})
+        for (const bool partition : {false, true})
+            for (const bool model : {false, true}) {
+                const auto result = owo::engine::CandidateGenerator(composition_lexicon).generate(
+                    owo::engine::FullPinyinSchema{}.parse("nmnmnm"), 128, false, {}, nullptr, {},
+                    model, partition ? page : 0, true, 0, page);
+                const auto count = std::count_if(result.begin(), result.end(), owo::engine::is_incomplete_composition);
+                if (count == 0 || count > page * 2)
+                    return fail("incomplete compositions exceeded the shared configured page quota");
+                if (std::none_of(result.begin(), result.end(), [](const auto& candidate) {
+                    return candidate.text == "你们" && candidate.segment_count == 1;
+                })) {
+                    std::cerr << "page=" << page << " partition=" << partition << " model=" << model << '\n';
+                    for (const auto& candidate : result)
+                        std::cerr << candidate.text << ':' << candidate.consumed_input_bytes << ':' << candidate.segment_count << ' ';
+                    std::cerr << '\n';
+                    return fail("composition quota removed a real dictionary word");
+                }
+            }
     for (const auto limit : {8U, 18U, 48U, 128U})
         for (const auto page : {0U, 5U, 7U, 9U}) {
             const auto candidates = initials_quality_generator.generate(
