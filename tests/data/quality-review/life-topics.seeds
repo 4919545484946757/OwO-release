@@ -1,0 +1,192 @@
+# target|toneless syllables|category
+北京|bei jing|place
+上海|shang hai|place
+广州|guang zhou|place
+深圳|shen zhen|place
+杭州|hang zhou|place
+苏州|su zhou|place
+南京|nan jing|place
+武汉|wu han|place
+成都|cheng du|place
+重庆|chong qing|place
+西安|xi an|place
+西宁|xi ning|place
+南宁|nan ning|place
+昆明|kun ming|place
+贵阳|gui yang|place
+长沙|chang sha|place
+长春|chang chun|place
+合肥|he fei|place
+济南|ji nan|place
+青岛|qing dao|place
+大连|da lian|place
+沈阳|shen yang|place
+哈尔滨|ha er bin|place
+石家庄|shi jia zhuang|place
+张家口|zhang jia kou|place
+乌鲁木齐|wu lu mu qi|place
+呼和浩特|hu he hao te|place
+火车票|huo che piao|travel
+飞机票|fei ji piao|travel
+高铁站|gao tie zhan|travel
+地铁站|di tie zhan|travel
+公交站|gong jiao zhan|travel
+候车室|hou che shi|travel
+候机楼|hou ji lou|travel
+登机口|deng ji kou|travel
+行李箱|xing li xiang|travel
+身份证|shen fen zheng|travel
+护照|hu zhao|travel
+乘车码|cheng che ma|travel
+电子客票|dian zi ke piao|travel_phrase
+出发时间|chu fa shi jian|travel_phrase
+到达时间|dao da shi jian|travel_phrase
+座位号码|zuo wei hao ma|travel_phrase
+航班延误|hang ban yan wu|travel_phrase
+行李托运|xing li tuo yun|travel_phrase
+安检通道|an jian tong dao|travel_phrase
+酒店预订|jiu dian yu ding|travel_phrase
+办理入住|ban li ru zhu|travel_phrase
+退房时间|tui fang shi jian|travel_phrase
+旅游攻略|lv you gong lve|travel_phrase
+地图导航|di tu dao hang|travel_phrase
+目的地|mu di di|travel
+停车场|ting che chang|travel
+十字路口|shi zi lu kou|travel_phrase
+人行横道|ren xing heng dao|travel_phrase
+红绿灯|hong lv deng|travel
+出租车|chu zu che|travel
+网约车|wang yue che|travel
+共享单车|gong xiang dan che|travel_phrase
+交通规则|jiao tong gui ze|travel_phrase
+米饭|mi fan|food
+面条|mian tiao|food
+馒头|man tou|food
+包子|bao zi|food
+饺子|jiao zi|food
+面包|mian bao|food
+鸡蛋|ji dan|food
+牛奶|niu nai|food
+酸奶|suan nai|food
+豆浆|dou jiang|food
+豆腐|dou fu|food
+青菜|qing cai|food
+菠菜|bo cai|food
+黄瓜|huang gua|food
+西红柿|xi hong shi|food
+胡萝卜|hu luo bo|food
+土豆|tu dou|food
+红薯|hong shu|food
+玉米|yu mi|food
+南瓜|nan gua|food
+苹果|ping guo|food
+香蕉|xiang jiao|food
+葡萄|pu tao|food
+橙子|cheng zi|food
+草莓|cao mei|food
+西瓜|xi gua|food
+火龙果|huo long guo|food
+猕猴桃|mi hou tao|food
+饮用水|yin yong shui|food
+矿泉水|kuang quan shui|food
+保温杯|bao wen bei|household
+电饭锅|dian fan guo|household
+微波炉|wei bo lu|household
+洗衣机|xi yi ji|household
+电冰箱|dian bing xiang|household
+吸尘器|xi chen qi|household
+扫地机器人|sao di ji qi ren|household
+充电器|chong dian qi|household
+数据线|shu ju xian|household
+插线板|cha xian ban|household
+麻婆豆腐|ma po dou fu|food_phrase
+宫保鸡丁|gong bao ji ding|food_phrase
+番茄炒蛋|fan qie chao dan|food_phrase
+红烧牛肉|hong shao niu rou|food_phrase
+清蒸鲈鱼|qing zheng lu yu|food_phrase
+糖醋排骨|tang cu pai gu|food_phrase
+酸辣土豆丝|suan la tu dou si|food_phrase
+西红柿鸡蛋面|xi hong shi ji dan mian|food_phrase
+订单|ding dan|shopping
+付款|fu kuan|shopping
+退款|tui kuan|shopping
+退货|tui huo|shopping
+发货|fa huo|shopping
+收货|shou huo|shopping
+物流|wu liu|shopping
+快递|kuai di|shopping
+客服|ke fu|shopping
+取件码|qu jian ma|shopping
+优惠券|you hui quan|shopping
+购物车|gou wu che|shopping
+收货地址|shou huo di zhi|shopping_phrase
+商品详情|shang pin xiang qing|shopping_phrase
+联系客服|lian xi ke fu|shopping_phrase
+申请退款|shen qing tui kuan|shopping_phrase
+物流信息|wu liu xin xi|shopping_phrase
+支付方式|zhi fu fang shi|shopping_phrase
+确认收货|que ren shou huo|shopping_phrase
+订单编号|ding dan bian hao|shopping_phrase
+无理由退货|wu li you tui huo|shopping_phrase
+配送时间|pei song shi jian|shopping_phrase
+免运费|mian yun fei|shopping_phrase
+数学|shu xue|education
+物理|wu li|education
+化学|hua xue|education
+生物|sheng wu|education
+历史|li shi|education
+地理|di li|education
+语文|yu wen|education
+英语|ying yu|education
+大学|da xue|education
+中学|zhong xue|education
+小学|xiao xue|education
+幼儿园|you er yuan|education
+考试|kao shi|education
+成绩|cheng ji|education
+复习|fu xi|education
+预习|yu xi|education
+作业|zuo ye|education
+笔记|bi ji|education
+课件|ke jian|education
+毕业论文|bi ye lun wen|education_phrase
+参考文献|can kao wen xian|education_phrase
+实验报告|shi yan bao gao|education_phrase
+阅读理解|yue du li jie|education_phrase
+基础知识|ji chu zhi shi|education_phrase
+练习题|lian xi ti|education
+选择题|xuan ze ti|education
+填空题|tian kong ti|education
+阅读笔记|yue du bi ji|education_phrase
+课程安排|ke cheng an pai|education_phrase
+学习目标|xue xi mu biao|education_phrase
+预约挂号|yu yue gua hao|health_logistics
+体检报告|ti jian bao gao|health_logistics
+医院地址|yi yuan di zhi|health_logistics
+门诊时间|men zhen shi jian|health_logistics
+门诊大厅|men zhen da ting|health_logistics
+挂号费|gua hao fei|health_logistics
+就诊卡|jiu zhen ka|health_logistics
+口罩|kou zhao|health_logistics
+体温计|ti wen ji|health_logistics
+健康码|jian kang ma|health_logistics
+银行账户|yin hang zhang hu|finance_forms
+到账通知|dao zhang tong zhi|finance_forms
+转账记录|zhuan zhang ji lu|finance_forms
+交易明细|jiao yi ming xi|finance_forms
+手续费|shou xu fei|finance_forms
+预算表|yu suan biao|finance_forms
+报销申请|bao xiao shen qing|finance_forms
+发票抬头|fa piao tai tou|finance_forms
+营业执照|ying ye zhi zhao|finance_forms
+个人信息|ge ren xin xi|finance_forms
+电子发票|dian zi fa piao|finance_forms
+发票号码|fa piao hao ma|finance_forms
+付款记录|fu kuan ji lu|finance_forms
+账户余额|zhang hu yu e|finance_forms
+验证码|yan zheng ma|security
+紧急联系人|jin ji lian xi ren|security
+通讯地址|tong xun di zhi|security
+联系电话|lian xi dian hua|security
+身份验证|shen fen yan zheng|security
+找回密码|zhao hui mi ma|security

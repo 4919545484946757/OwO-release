@@ -1,0 +1,8 @@
+{"id":"interesting-base","input":"biandeyouyisi","expected":["变得有意思"],"tags":["suffix","control"]}
+{"id":"interesting-ma","input":"biandeyouyisima","expected":["变得有意思吗"],"tags":["suffix","question"]}
+{"id":"interesting-ne","input":"biandeyouyisine","expected":["变得有意思呢"],"tags":["suffix","particle"]}
+{"id":"interesting-ba","input":"biandeyouyisiba","expected":["变得有意思吧"],"tags":["suffix","particle"]}
+{"id":"interesting-explicit","input":"bian'de'you'yi'si'ma","expected":["变得有意思吗"],"tags":["suffix","manual-segmentation"]}
+{"id":"interesting-strict","input":"biandeyouyisima","expected":["变得有意思吗"],"correction":false,"tags":["suffix","strict"]}
+{"id":"really-interesting","input":"zhendeyouyisima","expected":["真的有意思吗"],"tags":["suffix","other-prefix"]}
+{"id":"still-interesting","input":"haiyouyisima","expected":["还有意思吗"],"tags":["suffix","other-prefix"]}

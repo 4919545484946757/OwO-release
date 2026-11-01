@@ -144,7 +144,8 @@ public sealed partial class MainPage
             0x25 => "Left", 0x27 => "Right", 0x26 => "Up", 0x28 => "Down",
             0xDB => "[", 0xDD => "]", 0xBD => "Minus", 0xBB => "Plus",
             0xBC => "Comma", 0xBE => "Period", 0xBF => "Slash",
-            0xBA => "Semicolon", 0xDE => "Quote", 0xC0 => "Backtick", _ => null,
+            0xBA => "Semicolon", 0xDE => "Quote", 0xC0 => "Backtick",
+            0xDC => "Backslash", _ => null,
         };
     }
 
@@ -162,6 +163,7 @@ public sealed partial class MainPage
         "correction" => CorrectionShortcutBindings,
         "language" => LanguageShortcutBindings,
         "raw" => RawInputShortcutBindings,
+        "separator" => SeparatorShortcutBindings,
         "cursor-left" => CursorLeftShortcutBindings,
         "cursor-right" => CursorRightShortcutBindings,
         "previous-page" => PreviousPageShortcutBindings,

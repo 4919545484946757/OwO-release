@@ -1,0 +1,5 @@
+{"id":"milk","input":"jialideniunaiyijinghewanle","expected":["家里的牛奶已经喝完了"],"tags":["long-sentence","second-quality"]}
+{"id":"rain","input":"jiangyugailv","expected":["降雨概率"],"tags":["homophone","semantic"]}
+{"id":"retry","input":"shaohouchongshi","expected":["稍后重试"],"tags":["homophone","recall"]}
+{"id":"time","input":"shidianqian","expected":["十点前"],"tags":["suffix","control"]}
+{"id":"time-prefix","input":"mingtianshangwushidianqian","expected":["明天上午十点前"],"tags":["prefix","boundary"]}

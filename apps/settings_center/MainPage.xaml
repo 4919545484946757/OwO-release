@@ -4,10 +4,10 @@
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#d1ddec"/>
+                    <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#EDEDED"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#1A2032"/>
+                    <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#232639"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}"/>
@@ -57,15 +57,16 @@
                 <StackPanel Orientation="Horizontal"
                             Spacing="10"
                             VerticalAlignment="Center">
-                    <Image Source="Assets/Square44x44Logo.scale-200.png"
+                    <!-- Image Source="Assets/Square44x44Logo.scale-200.png"
                            Width="28" Height="28"
-                           VerticalAlignment="Center"/>
+                           VerticalAlignment="Center"/-->
 
-                    <Button Click="GeneralSettings_Click" Background="Transparent" BorderThickness="0" Padding="0" AutomationProperties.Name="打开通用设置">
+                    <Button Click="GeneralSettings_Click" Background="Transparent" BorderThickness="0" Padding="0" Margin="12,0,0,0" AutomationProperties.Name="打开通用设置">
                         <TextBlock Text="OwO 输入法"
                             FontSize="20"
                             FontWeight="SemiBold"
-                            VerticalAlignment="Center"/>
+                            VerticalAlignment="Center"
+                            Padding="2"/>
                     </Button>
                 </StackPanel>
             </NavigationView.PaneHeader>
@@ -103,7 +104,7 @@
                 </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.PaneFooter>
-                <TextBlock Text="OwO 0.2.5" Margin="16,8,8,16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <TextBlock Text="OwO 0.2.6" Margin="16,8,8,16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             </NavigationView.PaneFooter>
             <Grid Background="{ThemeResource SettingsContentBackgroundBrush}" x:Name="MainContentRoot">
                 <Grid.RowDefinitions>
@@ -160,6 +161,18 @@
                                 <InfoBar x:Name="InputSchemeCapabilities" Visibility="Collapsed" IsOpen="False" IsClosable="False" Severity="Informational"/>
                                 <Button x:Name="DiscoverSchemesButton" Content="发现已授权插件输入方案" Click="DiscoverSchemes_Click"/>
                                 <TextBlock x:Name="CandidateSectionTitle" Text="候选显示与组合" Style="{StaticResource SectionTitleStyle}"/>
+                                <Border x:Name="PinyinPreviewLocationCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="拼音预览显示位置" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="输入位置使用未确认的组合文本；应用不支持时回退到候选栏。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ComboBox x:Name="PinyinPreviewLocation" Grid.Column="1" MinWidth="120" VerticalAlignment="Center" SelectedIndex="0">
+                                            <ComboBoxItem Content="候选栏"/><ComboBoxItem Content="输入位置"/>
+                                        </ComboBox>
+                                    </Grid>
+                                </Border>
                                 <Border x:Name="CandidatePageSizeCard" Style="{StaticResource SettingsCardStyle}">
                                     <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
@@ -236,6 +249,16 @@
                                             <TextBlock Text="候选框意外关闭且仍有输入时，尝试将预览内容直接上屏。" Style="{StaticResource SettingDescriptionStyle}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="FocusLossCommit" Grid.Column="1" OnContent="开" OffContent="关" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                                <Border x:Name="PinyinSymbolCompatibilityCard" Style="{StaticResource SettingsCardStyle}">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="拼音符号兼容" Style="{StaticResource SettingTitleStyle}"/>
+                                            <TextBlock Text="符号保留在预编辑中；分段依次选词，引号内可独立生成候选。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="PinyinSymbolCompatibility" Grid.Column="1"/>
                                     </Grid>
                                 </Border>
                                 <Border x:Name="ChinesePunctuationCard" Style="{StaticResource SettingsCardStyle}" Tapped="ChinesePunctuationCard_Tapped">
@@ -463,6 +486,20 @@
                                                 <Button Grid.Column="2" Content="＋" Tag="raw" Click="AddShortcutButton_Click"/>
                                             </Grid>
                                             <StackPanel x:Name="RawInputShortcutBindings" Spacing="8"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border x:Name="SeparatorShortcutCard" Style="{StaticResource SettingsCardStyle}">
+                                        <StackPanel Spacing="10">
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="拼音分割" Style="{StaticResource SettingTitleStyle}"/>
+                                                    <TextBlock Text="默认单引号。移除该绑定后，单引号可在符号兼容模式下作为弱引号。" Style="{StaticResource SettingDescriptionStyle}"/>
+                                                </StackPanel>
+                                                <ToggleSwitch x:Name="SeparatorShortcutEnabled" Grid.Column="1"/>
+                                                <Button Grid.Column="2" Content="＋" Tag="separator" Click="AddShortcutButton_Click"/>
+                                            </Grid>
+                                            <StackPanel x:Name="SeparatorShortcutBindings" Spacing="8"/>
                                         </StackPanel>
                                     </Border>
                                     <Border x:Name="CursorLeftShortcutCard" Style="{StaticResource SettingsCardStyle}">

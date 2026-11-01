@@ -1,5 +1,7 @@
 #include "owo/plugin/candidate_theme.h"
 
+#include <algorithm>
+#include <array>
 #include <charconv>
 #include <cmath>
 #include <cstring>
@@ -29,17 +31,56 @@ bool write(const std::filesystem::path& path, const std::string_view bytes) {
     return static_cast<bool>(output);
 }
 
+std::uint32_t blend(const owo::plugin::CandidateThemeColor color, const std::uint32_t background) {
+    std::uint32_t result = 0;
+    for (const auto shift : {0, 8, 16}) {
+        const auto value = std::lround(((color.rgb >> shift) & 255) * color.opacity +
+                                      ((background >> shift) & 255) * (1.0F - color.opacity));
+        result |= static_cast<std::uint32_t>(value) << shift;
+    }
+    return result;
+}
+
+double luminance(const std::uint32_t rgb) {
+    const auto channel = [rgb](int shift) {
+        const double value = ((rgb >> shift) & 255) / 255.0;
+        return value <= 0.04045 ? value / 12.92 : std::pow((value + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0);
+}
+
+bool readable(const owo::plugin::CandidateTheme& palette) {
+    for (const auto underlying : {0x000000U, 0xffffffU}) {
+        const auto background = blend(palette.background, underlying);
+        for (const auto foreground : {palette.candidate_text, palette.pinyin_text, palette.candidate_number}) {
+            const auto a = luminance(background), b = luminance(blend(foreground, background));
+            if ((std::max(a, b) + 0.05) / (std::min(a, b) + 0.05) < 4.5) return false;
+        }
+    }
+    return true;
+}
+
+bool monochrome(const owo::plugin::CandidateTheme& palette) {
+    for (const auto color : {palette.background, palette.border, palette.divider, palette.pinyin_text,
+                             palette.candidate_text, palette.candidate_block, palette.candidate_number, palette.shadow})
+        if (((color.rgb >> 16) & 255) != ((color.rgb >> 8) & 255) ||
+            ((color.rgb >> 8) & 255) != (color.rgb & 255)) return false;
+    return true;
+}
+
 }  // namespace
 
 int main(const int argc, char** argv) {
-    if ((argc == 3 || argc == 4) && std::string_view(argv[1]) == "--store") {
-        const auto active = owo::plugin::load_active_candidate_theme(argv[2]);
+    if ((argc == 3 || argc == 4) && (std::string_view(argv[1]) == "--store" ||
+                                   std::string_view(argv[1]) == "--store-light")) {
+        const auto active = owo::plugin::load_active_candidate_theme(
+            argv[2], std::string_view(argv[1]) == "--store-light");
         std::cout << "active=" << (active.active ? "true" : "false")
                   << " plugin=" << active.plugin_id << " version=" << active.version
                   << " background=#" << std::hex << active.theme.background.rgb << std::dec
                   << " opacity=" << active.theme.background.opacity
                   << " diagnostic=" << active.diagnostic << '\n';
-        std::uint32_t expected = 0x101827;
+        std::uint32_t expected = std::string_view(argv[1]) == "--store-light" ? 0xf5f5f5 : 0x000000;
         if (argc == 4) {
             const auto parsed = std::from_chars(argv[3], argv[3] + std::strlen(argv[3]),
                                                 expected, 16);
@@ -48,7 +89,7 @@ int main(const int argc, char** argv) {
         return active.active && active.plugin_id == "org.owo.candidate-glass" &&
                        active.theme.background.rgb == expected ? 0 : 9;
     }
-    if (argc != 2) return 1;
+    if (argc != 2 && argc != 3) return 1;
     const std::filesystem::path root(argv[1]);
     std::error_code error;
     std::filesystem::remove_all(root, error);
@@ -79,6 +120,131 @@ int main(const int argc, char** argv) {
         std::abs(loaded.theme.shadow_blur_radius - 20.0F) > 0.001F ||
         std::abs(loaded.theme.shadow_offset_x + 3.0F) > 0.001F ||
         std::abs(loaded.theme.shadow_offset_y - 7.0F) > 0.001F) return 6;
+    if (owo::plugin::load_candidate_theme_resource(resource, settings, true).theme != loaded.theme)
+        return 11; // v1 themes remain fixed, even on a light system.
+    const auto builtin_light = owo::plugin::default_candidate_theme(true);
+    const auto builtin_dark = owo::plugin::default_candidate_theme(false);
+    if (builtin_dark != owo::plugin::CandidateTheme{} || builtin_light == builtin_dark ||
+        builtin_light.background.rgb != 0xf5f5f5 || builtin_light.candidate_text.rgb != 0x202020)
+        return 12;
+    if (!readable(builtin_dark) || !readable(builtin_light) || !monochrome(builtin_light) ||
+        std::abs(builtin_light.candidate_block.opacity - 0.05F) > 0.001F) return 24;
+    if (argc == 3) for (const auto light_mode : {false, true}) {
+        const auto official = owo::plugin::load_candidate_theme_resource(argv[2], {}, light_mode);
+        // The plugin preset is an explicit user snapshot, not the opaque
+        // built-in accessibility palette checked above. Preserve its tint.
+        if (!official.active ||
+            official.theme.background.rgb != (light_mode ? 0xf5f5f5U : 0x000000U) ||
+            std::abs(official.theme.background.opacity - (light_mode ? 0.65F : 0.60F)) > 0.001F ||
+            !official.theme.background_blur_enabled || official.theme.background_blur_radius != 12.0F ||
+            official.theme.shadow_enabled ||
+            (light_mode && (!monochrome(official.theme) ||
+                std::abs(official.theme.candidate_block.opacity - 0.05F) > 0.001F))) return 25;
+    }
+    std::string adaptive(theme);
+    adaptive.replace(0, std::string_view("schema_version=1").size(), "schema_version=2");
+    for (const auto role : {"background", "border", "divider", "pinyin_text", "candidate_text",
+                             "candidate_block", "candidate_number"}) {
+        adaptive += "light." + std::string(role) + ".color=#112233\n";
+        adaptive += "light." + std::string(role) + ".opacity=0.8\n";
+    }
+    adaptive += "light.shadow.color=#334455\nlight.shadow.opacity=0.18\n";
+    if (!write(resource, adaptive)) return 13;
+    const auto dark = owo::plugin::load_candidate_theme_resource(resource, settings, false);
+    const auto light = owo::plugin::load_candidate_theme_resource(resource, settings, true);
+    if (!light.active || !dark.active || !light.light_palette || dark.light_palette ||
+        dark.theme.background.rgb != 0x223344 ||
+        light.theme.background.rgb != 0x112233 || std::abs(light.theme.background.opacity - 0.8F) > 0.001F ||
+        light.theme.shadow.rgb != 0x334455 || std::abs(light.theme.shadow.opacity - 0.18F) > 0.001F ||
+        light.theme.background_blur_enabled != dark.theme.background_blur_enabled ||
+        light.theme.background_blur_radius != dark.theme.background_blur_radius ||
+        light.theme.shadow_enabled != dark.theme.shadow_enabled || light.theme.shadow_offset_y != 7.0F)
+        return 14;
+    if (!write(settings, R"({"theme_mode":"dark","light_candidate_text_color":"#445566"})")) return 15;
+    const auto forced_dark = owo::plugin::load_candidate_theme_resource(resource, settings, true);
+    if (!forced_dark.active || forced_dark.light_palette || forced_dark.theme.background.rgb != 0x101827) return 16;
+    if (!write(settings, R"({"theme_mode":"light","light_candidate_text_color":"#445566","light_background_opacity":0.6})")) return 17;
+    const auto forced_light = owo::plugin::load_candidate_theme_resource(resource, settings, false);
+    if (!forced_light.active || !forced_light.light_palette || forced_light.theme.candidate_text.rgb != 0x445566 ||
+        std::abs(forced_light.theme.background.opacity - 0.6F) > 0.001F) return 18;
+    if (!write(settings, R"({"theme_mode":"system"})")) return 19;
+    for (int index = 0; index < 20; ++index) {
+        const bool mode = (index % 2) != 0;
+        const auto switched = owo::plugin::load_candidate_theme_resource(resource, settings, mode);
+        if (!switched.active || switched.light_palette != mode ||
+            switched.theme.background.rgb != (mode ? 0x112233U : 0x101827U)) return 20;
+    }
+    const std::array<std::pair<std::string_view, owo::plugin::CandidateThemeColor owo::plugin::CandidateTheme::*>, 8> roles{{
+        {"background", &owo::plugin::CandidateTheme::background},
+        {"border", &owo::plugin::CandidateTheme::border},
+        {"divider", &owo::plugin::CandidateTheme::divider},
+        {"pinyin_text", &owo::plugin::CandidateTheme::pinyin_text},
+        {"candidate_text", &owo::plugin::CandidateTheme::candidate_text},
+        {"candidate_block", &owo::plugin::CandidateTheme::candidate_block},
+        {"candidate_number", &owo::plugin::CandidateTheme::candidate_number},
+        {"shadow", &owo::plugin::CandidateTheme::shadow},
+    }};
+    for (const bool edit_light : {false, true}) {
+        std::string independent = R"({"theme_mode":"system")";
+        for (std::size_t index = 0; index < roles.size(); ++index) {
+            const auto name = std::string(roles[index].first);
+            independent += ",\"" + name + "_color\":\"#10000" + std::to_string(index) + "\"";
+            independent += ",\"" + name + "_opacity\":" + std::to_string((index + 1) / 10.0);
+            independent += ",\"light_" + name + "_color\":\"#" + (edit_light ? std::string("30000") : std::string("20000")) +
+                           std::to_string(index) + "\"";
+            independent += ",\"light_" + name + "_opacity\":" + std::to_string((index + 1) / (edit_light ? 25.0 : 20.0));
+        }
+        independent += "}";
+        if (!write(settings, independent)) return 26;
+        for (const bool light_mode : {false, true}) {
+            const auto configured = owo::plugin::load_candidate_theme_resource(resource, settings, light_mode);
+            if (!configured.active || configured.light_palette != light_mode) return 27;
+            for (std::size_t index = 0; index < roles.size(); ++index) {
+                const auto color = configured.theme.*roles[index].second;
+                const auto expected_rgb = (light_mode ? (edit_light ? 0x300000U : 0x200000U) : 0x100000U) + index;
+                const auto expected_opacity = (index + 1) / (light_mode ? (edit_light ? 25.0 : 20.0) : 10.0);
+                if (color.rgb != expected_rgb || std::abs(color.opacity - expected_opacity) > 0.001) return 28;
+            }
+        }
+    }
+    const std::array<std::pair<std::string_view, std::optional<owo::plugin::CandidateThemeColor> owo::plugin::CandidateTheme::*>, 9> extensions{{
+        {"candidate_badge", &owo::plugin::CandidateTheme::candidate_badge},
+        {"selected_page", &owo::plugin::CandidateTheme::selected_page},
+        {"hover_block", &owo::plugin::CandidateTheme::hover_block},
+        {"pressed_block", &owo::plugin::CandidateTheme::pressed_block},
+        {"button_background", &owo::plugin::CandidateTheme::button_background},
+        {"button_border", &owo::plugin::CandidateTheme::button_border},
+        {"button_text", &owo::plugin::CandidateTheme::button_text},
+        {"secondary_text", &owo::plugin::CandidateTheme::secondary_text},
+        {"caret", &owo::plugin::CandidateTheme::caret},
+    }};
+    if (!write(settings, "{}")) return 29;
+    const auto inherited = owo::plugin::load_candidate_theme_resource(resource, settings);
+    for (const auto& [name, member] : extensions) if (inherited.theme.*member) return 30;
+    std::string extra = R"({"theme_mode":"system")";
+    for (std::size_t index = 0; index < extensions.size(); ++index) {
+        const auto name = std::string(extensions[index].first);
+        extra += ",\"" + name + "_color\":\"#40000" + std::to_string(index) + "\",\"" + name + "_opacity\":0.2";
+        extra += ",\"light_" + name + "_color\":\"#50000" + std::to_string(index) + "\",\"light_" + name + "_opacity\":0.6";
+    }
+    if (!write(settings, extra + "}")) return 31;
+    for (const bool mode : {false, true}) {
+        const auto configured = owo::plugin::load_candidate_theme_resource(resource, settings, mode);
+        if (!configured.active) return 32;
+        for (std::size_t index = 0; index < extensions.size(); ++index) {
+            const auto value = configured.theme.*extensions[index].second;
+            if (!value || value->rgb != (mode ? 0x500000U : 0x400000U) + index ||
+                std::abs(value->opacity - (mode ? 0.6F : 0.2F)) > 0.001F) return 33;
+        }
+    }
+    if (!write(resource, adaptive + "selected_page.color=#000000\n") ||
+        owo::plugin::load_candidate_theme_resource(resource).active) return 34;
+    if (!write(resource, adaptive + "light.border.color=#000000\n") ||
+        owo::plugin::load_candidate_theme_resource(resource).active) return 21;
+    if (!write(resource, std::string(theme) + "light.border.color=#000000\n") ||
+        owo::plugin::load_candidate_theme_resource(resource).active) return 22;
+    if (!write(resource, "schema_version=2\n" + std::string(theme).substr(theme.find('\n') + 1)) ||
+        owo::plugin::load_candidate_theme_resource(resource).active) return 23;
     if (!write(resource, "schema_version=1\nbackground.color=#000000\n")) return 7;
     if (owo::plugin::load_candidate_theme_resource(resource).active) return 8;
     std::filesystem::remove_all(root, error);

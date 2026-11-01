@@ -28,7 +28,7 @@ public sealed partial class MainPage
         SetBusy(true);
         try {
             var snapshot = await _client.ValidateAsync(CaptureSettings());
-            var document = SettingsTransfer.Create(snapshot, AutoSaveSettings.IsOn);
+            var document = SettingsTransfer.Create(snapshot, AutoSaveSettings.IsOn, LogoAppearance.Mode);
             var picker = new FileSavePicker {
                 SuggestedFileName = "OwO-设置-" + DateTime.Now.ToString("yyyyMMdd")
             };
@@ -87,6 +87,7 @@ public sealed partial class MainPage
             _loadingUiPreferences = true;
             try { AutoSaveSettings.IsOn = document.UiPreferences.AutoSaveEnabled; }
             finally { _loadingUiPreferences = false; }
+            RefreshLogoPreference();
             _pendingSettingsSave = false;
             ShowTransferStatus($"配置已导入并保存，Core Service 将自动应用。原配置备份：{backup}",
                                InfoBarSeverity.Success);

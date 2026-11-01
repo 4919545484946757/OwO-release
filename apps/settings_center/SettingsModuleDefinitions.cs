@@ -10,6 +10,7 @@ internal static class SettingsModuleDefinitions
         new("input-scheme", "schemes", [
             F(nameof(SettingsSnapshot.InputScheme), s => s.InputScheme, (s, v) => s with { InputScheme = v })]),
         new("candidate-display", "candidates", [
+            F(nameof(SettingsSnapshot.PinyinPreviewLocation), s => s.PinyinPreviewLocation, (s, v) => s with { PinyinPreviewLocation = v }, SettingsCapability.InlinePreedit),
             F(nameof(SettingsSnapshot.CandidatePageSize), s => s.CandidatePageSize, (s, v) => s with { CandidatePageSize = v }, SettingsCapability.CandidateDisplay),
             F(nameof(SettingsSnapshot.CandidateWrapLength), s => s.CandidateWrapLength, (s, v) => s with { CandidateWrapLength = v }, SettingsCapability.CandidateDisplay)]),
         new("candidate-policy", "candidates", [
@@ -17,6 +18,8 @@ internal static class SettingsModuleDefinitions
             F(nameof(SettingsSnapshot.CandidateSingleCharacterFirstEnabled), s => s.CandidateSingleCharacterFirstEnabled, (s, v) => s with { CandidateSingleCharacterFirstEnabled = v }, SettingsCapability.SingleCharacterFirst),
             F(nameof(SettingsSnapshot.CandidateImmediateCommitEnabled), s => s.CandidateImmediateCommitEnabled, (s, v) => s with { CandidateImmediateCommitEnabled = v }, SettingsCapability.StagedCommit),
             F(nameof(SettingsSnapshot.FocusLossCommitEnabled), s => s.FocusLossCommitEnabled, (s, v) => s with { FocusLossCommitEnabled = v }, SettingsCapability.FocusLossCommit)]),
+        new("pinyin-symbols", "candidates", [
+            F(nameof(SettingsSnapshot.PinyinSymbolCompatibilityEnabled), s => s.PinyinSymbolCompatibilityEnabled, (s, v) => s with { PinyinSymbolCompatibilityEnabled = v }, SettingsCapability.PinyinSymbols)]),
         new("punctuation", "punctuation", [
             F(nameof(SettingsSnapshot.ChinesePunctuationEnabled), s => s.ChinesePunctuationEnabled, (s, v) => s with { ChinesePunctuationEnabled = v }, SettingsCapability.ChinesePunctuation),
             F(nameof(SettingsSnapshot.ChinesePunctuationMask), s => s.ChinesePunctuationMask, (s, v) => s with { ChinesePunctuationMask = v }, SettingsCapability.ChinesePunctuation)]),
@@ -34,6 +37,8 @@ internal static class SettingsModuleDefinitions
             F(nameof(SettingsSnapshot.ModelRankingEnabled), s => s.ModelRankingEnabled, (s, v) => s with { ModelRankingEnabled = v }, SettingsCapability.ModelRanking),
             F(nameof(SettingsSnapshot.ModelTimeoutMs), s => s.ModelTimeoutMs, (s, v) => s with { ModelTimeoutMs = v }, SettingsCapability.ModelRanking)]),
         new("shortcuts", "shortcuts", [
+            F(nameof(SettingsSnapshot.SeparatorShortcutEnabled), s => s.SeparatorShortcutEnabled, (s, v) => s with { SeparatorShortcutEnabled = v }, SettingsCapability.PinyinSymbols),
+            F(nameof(SettingsSnapshot.SeparatorShortcuts), s => s.SeparatorShortcuts, (s, v) => s with { SeparatorShortcuts = v }, SettingsCapability.PinyinSymbols),
             F(nameof(SettingsSnapshot.CorrectionShortcutEnabled), s => s.CorrectionShortcutEnabled, (s, v) => s with { CorrectionShortcutEnabled = v }, SettingsCapability.Correction),
             F(nameof(SettingsSnapshot.CorrectionShortcuts), s => s.CorrectionShortcuts, (s, v) => s with { CorrectionShortcuts = v }, SettingsCapability.Correction),
             F(nameof(SettingsSnapshot.LanguageShortcutEnabled), s => s.LanguageShortcutEnabled, (s, v) => s with { LanguageShortcutEnabled = v }, SettingsCapability.LanguageSwitch),

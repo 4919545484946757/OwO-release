@@ -1,0 +1,12 @@
+{"id":"similar-base","input":"youleisidezhuanli","expected":["有类似的专利"]}
+{"id":"similar-ma","input":"youleisidezhuanlima","expected":["有类似的专利吗"]}
+{"id":"similar-ne","input":"youleisidezhuanline","expected":["有类似的专利呢"]}
+{"id":"similar-explicit","input":"you'lei'si'de'zhuan'li'ma","expected":["有类似的专利吗"]}
+{"id":"value-base","input":"jiazhida","expected":["价值大"]}
+{"id":"value-ma","input":"jiazhidama","expected":["价值大吗"]}
+{"id":"value-ne","input":"jiazhidane","expected":["价值大呢"]}
+{"id":"value-explicit","input":"jia'zhi'da'ma","expected":["价值大吗"]}
+{"id":"noun-aunt","input":"lianxidama","expected":["联系大妈"]}
+{"id":"noun-sesame","input":"goumaizhima","expected":["购买芝麻"]}
+{"id":"noun-horse","input":"yipidama","expected":["一匹大马"]}
+{"id":"noun-code","input":"zheyinggaishidaima","expected":["这应该是代码"]}

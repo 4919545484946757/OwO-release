@@ -1,0 +1,6 @@
+{"id":"work-service","input":"gongzuoweishenghuofuwu","expected":["工作为生活服务"],"tags":["control","preposition"]}
+{"id":"activity-students","input":"huodongweixueshengjuban","expected":["活动为学生举办"],"tags":["control","preposition"]}
+{"id":"task-system","input":"renwuyouxitongzhixing","expected":["任务由系统执行"],"tags":["control","preposition"]}
+{"id":"results-confirmed","input":"jieguojunyiqueren","expected":["结果均已确认"],"tags":["control","adverb"]}
+{"id":"dictionary-computer","input":"shiyongjisuanji","expected":["使用计算机"],"tags":["control","word"]}
+{"id":"dictionary-future","input":"weilaifazhanzhanlue","expected":["未来发展战略"],"tags":["control","word"]}

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(OwOInputMethod VERSION 0.2.5 LANGUAGES CXX)
+project(OwOInputMethod VERSION 0.2.6 LANGUAGES CXX)
 
 include(CTest)
 if(WIN32)
@@ -103,6 +103,7 @@ add_library(owo_engine STATIC
     src/engine/candidate_generator.cpp
     src/engine/candidate_partition.cpp
     src/engine/candidate_scoring.cpp
+    src/engine/symbol_composition.cpp
     src/engine/composition_candidate_provider.cpp
     src/engine/candidate_scheduler.cpp
     src/engine/full_pinyin_schema.cpp
@@ -114,6 +115,7 @@ add_library(owo_engine STATIC
     src/engine/lexicon.cpp
     src/engine/language_model.cpp
     src/engine/user_frequency.cpp
+    src/engine/managed_dictionary.cpp
     src/engine/user_lexicon_editor.cpp
 )
 target_include_directories(owo_engine PUBLIC include)
@@ -421,12 +423,18 @@ add_executable(owo_engine_benchmark benchmarks/engine_benchmark.cpp)
 target_link_libraries(owo_engine_benchmark PRIVATE owo_engine)
 target_compile_features(owo_engine_benchmark PRIVATE cxx_std_20)
 if(WIN32 AND OWO_BUILD_DEVELOPER_TOOLS)
-    add_executable(owo_dev_cli apps/dev_cli/main.cpp)
-    target_link_libraries(owo_dev_cli PRIVATE owo_ipc owo_core_plugin owo_config owo_agent)
+    add_executable(owo_dev_cli apps/dev_cli/main.cpp apps/dev_cli/batch_evaluation.cpp)
+    target_link_libraries(owo_dev_cli PRIVATE owo_ipc owo_core_plugin owo_config owo_agent bcrypt)
     target_compile_features(owo_dev_cli PRIVATE cxx_std_20)
     target_compile_definitions(owo_dev_cli PRIVATE OWO_DEVELOPER_TOOLS=1 WIN32_LEAN_AND_MEAN NOMINMAX)
     target_compile_options(owo_dev_cli PRIVATE /W4 /permissive- /utf-8 /EHsc)
     if(BUILD_TESTING)
+        add_test(NAME owo.dev_cli.batch
+            COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass -File
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli/batch_evaluation_contract.ps1
+                -Cli $<TARGET_FILE:owo_dev_cli> -Parent ${CMAKE_CURRENT_BINARY_DIR}
+                -Repo ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(owo.dev_cli.batch PROPERTIES TIMEOUT 90 RUN_SERIAL TRUE)
         foreach(mode contract plugins)
             add_test(NAME owo.dev_cli.${mode}
                 COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass -File
@@ -541,7 +549,8 @@ if(BUILD_TESTING)
         target_compile_options(owo_candidate_theme_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
     endif()
     add_test(NAME owo.plugin.candidate_theme COMMAND owo_candidate_theme_tests
-             ${CMAKE_CURRENT_BINARY_DIR}/candidate-theme-test)
+             ${CMAKE_CURRENT_BINARY_DIR}/candidate-theme-test
+             ${CMAKE_CURRENT_SOURCE_DIR}/plugins/candidate-glass/resources/candidate.theme)
     add_executable(owo_unicode_palette_tests tests/plugin/unicode_palette_tests.cpp)
     target_link_libraries(owo_unicode_palette_tests PRIVATE owo_plugin)
     target_compile_features(owo_unicode_palette_tests PRIVATE cxx_std_20)
@@ -715,6 +724,22 @@ if(BUILD_TESTING)
     add_test(NAME owo.model.protocol COMMAND owo_model_protocol_tests)
 
     add_executable(owo_config_store_tests tests/config/config_store_tests.cpp)
+    add_executable(owo_symbol_composition_tests tests/engine/symbol_composition_tests.cpp)
+    target_link_libraries(owo_symbol_composition_tests PRIVATE owo_engine owo_config)
+    target_compile_features(owo_symbol_composition_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_symbol_composition_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    endif()
+    add_test(NAME owo.engine.symbol_composition COMMAND owo_symbol_composition_tests)
+    if(WIN32)
+        add_executable(owo_symbol_composition_contract tests/ipc/symbol_composition_contract.cpp)
+        target_link_libraries(owo_symbol_composition_contract PRIVATE owo_ipc)
+        target_compile_features(owo_symbol_composition_contract PRIVATE cxx_std_20)
+        target_compile_definitions(owo_symbol_composition_contract PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+        target_compile_options(owo_symbol_composition_contract PRIVATE /W4 /permissive- /utf-8 /EHsc)
+        add_test(NAME owo.ipc.symbol_composition COMMAND owo_symbol_composition_contract
+            ${CMAKE_CURRENT_BINARY_DIR}/symbol-composition-contract)
+    endif()
     target_link_libraries(owo_config_store_tests PRIVATE owo_config)
     target_compile_features(owo_config_store_tests PRIVATE cxx_std_20)
     if(MSVC)
@@ -812,6 +837,14 @@ if(BUILD_TESTING)
         target_compile_options(owo_lookup_reuse_tests PRIVATE /W4 /permissive- /utf-8)
     endif()
     add_test(NAME owo.engine.lookup_reuse COMMAND owo_lookup_reuse_tests)
+    add_executable(owo_managed_dictionary_tests tests/engine/managed_dictionary_tests.cpp)
+    target_link_libraries(owo_managed_dictionary_tests PRIVATE owo_engine)
+    target_compile_features(owo_managed_dictionary_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_managed_dictionary_tests PRIVATE /W4 /permissive- /utf-8)
+    endif()
+    add_test(NAME owo.engine.managed_dictionary COMMAND owo_managed_dictionary_tests
+        "${CMAKE_CURRENT_BINARY_DIR}/managed-dictionary-test-fixture")
     if(WIN32)
         add_executable(owo_candidate_abandonment_contract tests/ipc/candidate_abandonment_contract.cpp)
         target_link_libraries(owo_candidate_abandonment_contract PRIVATE owo_ipc)
@@ -829,6 +862,14 @@ if(BUILD_TESTING)
         target_compile_options(owo_local_correction_tests PRIVATE /W4 /permissive- /utf-8)
     endif()
     add_test(NAME owo.engine.local_corrections COMMAND owo_local_correction_tests)
+    add_executable(owo_local_correction_matrix_tests tests/engine/local_correction_matrix_tests.cpp)
+    target_link_libraries(owo_local_correction_matrix_tests PRIVATE owo_engine)
+    target_compile_features(owo_local_correction_matrix_tests PRIVATE cxx_std_20)
+    if(MSVC)
+        target_compile_options(owo_local_correction_matrix_tests PRIVATE /W4 /permissive- /utf-8)
+    endif()
+    add_test(NAME owo.engine.local_correction_matrix COMMAND owo_local_correction_matrix_tests)
+    set_tests_properties(owo.engine.local_correction_matrix PROPERTIES TIMEOUT 60)
 
     add_executable(owo_user_lexicon_alignment_tests tests/engine/user_lexicon_alignment_tests.cpp)
     target_link_libraries(owo_user_lexicon_alignment_tests PRIVATE owo_engine)
@@ -1054,6 +1095,11 @@ if(BUILD_TESTING)
         endif()
         add_test(NAME owo.tsf.pinyin_cursor COMMAND owo_pinyin_cursor_tests)
 
+        add_executable(owo_unicode_palette_scroll_tests tests/tsf/unicode_palette_scroll_tests.cpp)
+        target_include_directories(owo_unicode_palette_scroll_tests PRIVATE include)
+        target_compile_features(owo_unicode_palette_scroll_tests PRIVATE cxx_std_20)
+        add_test(NAME owo.tsf.unicode_palette_scroll COMMAND owo_unicode_palette_scroll_tests)
+
         add_executable(owo_ipc_integration tests/ipc/core_service_integration.cpp)
         target_link_libraries(owo_ipc_integration PRIVATE owo_ipc)
         target_compile_features(owo_ipc_integration PRIVATE cxx_std_20)
@@ -1088,6 +1134,14 @@ if(BUILD_TESTING)
         add_test(NAME owo.ipc.local_correction_contract COMMAND owo_local_correction_contract)
         set_tests_properties(owo.ipc.local_correction_contract PROPERTIES TIMEOUT 20)
         add_executable(owo_joint_partition_contract tests/ipc/joint_partition_contract.cpp)
+        add_executable(owo_candidate_snapshot_contract tests/ipc/candidate_snapshot_contract.cpp)
+        target_link_libraries(owo_candidate_snapshot_contract PRIVATE owo_ipc)
+        target_compile_features(owo_candidate_snapshot_contract PRIVATE cxx_std_20)
+        if(MSVC)
+            target_compile_options(owo_candidate_snapshot_contract PRIVATE /W4 /permissive- /utf-8 /EHsc)
+        endif()
+        add_test(NAME owo.ipc.candidate_snapshot_contract COMMAND owo_candidate_snapshot_contract)
+        set_tests_properties(owo.ipc.candidate_snapshot_contract PROPERTIES TIMEOUT 60)
         target_link_libraries(owo_joint_partition_contract PRIVATE owo_ipc)
         target_compile_features(owo_joint_partition_contract PRIVATE cxx_std_20)
         if(MSVC)

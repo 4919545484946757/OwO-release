@@ -16,7 +16,9 @@ public sealed partial class MainPage : Page
     private readonly Dictionary<string, PluginVersionSnapshot> _pluginPages = [];
     private readonly Dictionary<string, Microsoft.UI.Xaml.FrameworkElement> _pluginConfigControls = [];
     private readonly Dictionary<string, Expander> _pluginConfigExpanders = [];
-    private NavigationViewItemHeader? _pluginPagesHeader;
+    private ComboBox? _pluginConfigPageSelector;
+    private NavigationViewItem? _pluginPagesGroup;
+    private NavigationViewItemSeparator? _pluginPagesSeparator;
     private PluginSettingsModel? _pluginSettings;
     private string _currentPage = "schemes";
     private sealed record SearchItem(string Title, string Detail, string Page,
@@ -82,6 +84,7 @@ public sealed partial class MainPage : Page
         SetShortcutBindings("correction", ["Ctrl+Q"]);
         SetShortcutBindings("language", ["Ctrl+Space"]);
         SetShortcutBindings("raw", ["Enter"]);
+        SetShortcutBindings("separator", ["Quote"]);
         SetShortcutBindings("cursor-left", ["Left"]);
         SetShortcutBindings("cursor-right", ["Right"]);
         SetShortcutBindings("previous-page", ["["]);
@@ -93,8 +96,10 @@ public sealed partial class MainPage : Page
         UpdateShortcutButtons();
         InitializePunctuationSettings();
         InitializeSettingsModules();
-        UserLexiconPageHost.Content = new UserLexiconEditor();
+        UserLexiconNavigationItem.Content = "词库管理器";
+        UserLexiconPageHost.Content = new DictionaryManager();
         InitializeAutoSave();
+        InitializeLogoSettings();
         InitializeSearchIndex();
         ShowPage("schemes");
         ConfigPath.Text = _client.ConfigPath;
@@ -141,6 +146,7 @@ public sealed partial class MainPage : Page
         try {
             if (_currentPage == "general") {
                 AutoSaveSettings.IsOn = true;
+                _logoThemeSelector.SelectedIndex = 0;
                 return;
             }
             if (_currentPage == "plugins") {
@@ -210,8 +216,8 @@ public sealed partial class MainPage : Page
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         UserLexiconPageHost.Visibility = page == "user-lexicon"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
-        if (page == "user-lexicon" && UserLexiconPageHost.Content is UserLexiconEditor editor)
-            _ = editor.RefreshAsync();
+        if (page == "user-lexicon" && UserLexiconPageHost.Content is DictionaryManager manager)
+            _ = manager.RefreshAsync();
         ShortcutSettingsPage.Visibility = page == "shortcuts"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         PluginSettingsPage.Visibility = page == "plugins"
@@ -230,7 +236,7 @@ public sealed partial class MainPage : Page
         SetVisibility(page == "candidates", CandidateSectionTitle,
                       CandidatePageSizeCard, CandidateWrapLengthCard,
                       CandidatePartitionCard, CandidateSingleCharacterFirstCard, CandidateImmediateCommitCard,
-                      FocusLossCommitCard, ChinesePunctuationCard,
+                      FocusLossCommitCard, ChinesePunctuationCard, PinyinSymbolCompatibilityCard,
                       AltCodeSectionTitle, AltCodePreviewCard,
                       AltCodePreviewPageSizeCard, AltCodePreviewWheelCard);
         SetVisibility(page == "intelligence", LearningSectionTitle,
@@ -252,7 +258,7 @@ public sealed partial class MainPage : Page
             "candidates" => ("候选与输入", "调整候选显示、组合上屏、标点和符号预览"),
             "punctuation" => ("中文标点", "逐项选择中文格式；总开关和中英文模式仍决定是否启用"),
             "intelligence" => ("学习与排序", "管理本地词频学习、上下文排序和模型预算"),
-            "user-lexicon" => ("用户词库", "编辑本机用户词、管理学习数据，以及安全导入和导出"),
+            "user-lexicon" => ("词库管理器", "搜索、导入和管理字典，或进入用户词库管理学习数据"),
             "shortcuts" => ("快捷键", "管理输入、翻页和模式切换的多组按键绑定"),
             "plugins" => ("插件", "安装、授权、配置和维护 OwO 插件"),
             _ => ("输入方案", "选择编码方案并查看当前方案能力"),
@@ -274,6 +280,7 @@ public sealed partial class MainPage : Page
                  Microsoft.UI.Xaml.FrameworkElement target) =>
             _baseSearchItems.Add(new SearchItem(title, detail, page, target));
         Add("自动保存设置", "通用 自动 保存 配置", "general", AutoSaveCard);
+        Add("Logo 外观", "通用 图标 品牌 logo 深色 浅色 跟随系统", "general", _logoThemeCard!);
         Add("配置导入与导出", "通用 备份 恢复 迁移 JSON import export", "general", ConfigurationTransferCard);
         foreach (var binding in _settingsCards)
             _baseSearchItems.Add(new SearchItem(binding.Title, binding.Keywords,
@@ -283,7 +290,7 @@ public sealed partial class MainPage : Page
             _baseSearchItems.Add(new SearchItem($"中文标点 · {option.Name}",
                 $"标点 {option.Source} {option.Output}", "punctuation", _punctuationCards[option.Source],
                 Capability: SettingsCapability.ChinesePunctuation));
-        Add("用户词库", "编辑 新增 删除 清除 清空 导入 导出 词频", "user-lexicon", UserLexiconPageHost);
+        Add("词库管理器", "用户词库 字典 搜索 编辑 新增 删除 清除 导入 导出 Gboard Rime CSV TSV 词频", "user-lexicon", UserLexiconPageHost);
         Add("插件管理", "安装 权限 卸载 恢复", "plugins", PluginSection);
     }
 
@@ -322,9 +329,7 @@ public sealed partial class MainPage : Page
     {
         if (item.Page.StartsWith("plugin:", StringComparison.Ordinal) &&
             _pluginPages.TryGetValue(item.Page, out var plugin)) {
-            var navigation = SettingsNavigation.MenuItems.OfType<NavigationViewItem>()
-                .FirstOrDefault(value => Equals(value.Tag, item.Page));
-            if (navigation is not null) SettingsNavigation.SelectedItem = navigation;
+            SelectPluginNavigation(item.Page);
             await ShowPluginSettingsAsync(plugin, item.PluginField);
             return;
         }

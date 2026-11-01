@@ -1,6 +1,8 @@
 #include "owo/engine/candidate_partition.h"
+#include "owo/engine/candidate_scoring.h"
 
 #include <algorithm>
+#include <unordered_set>
 
 namespace owo::engine {
 namespace {
@@ -13,6 +15,37 @@ bool sentence(const Candidate &candidate, std::size_t full_input_bytes) {
            candidate.segment_count > 1 && characters(candidate.text) == candidate.syllables.size();
 }
 } // namespace
+
+void prioritize_complete_characters(std::vector<Candidate>& candidates,
+                                    const std::size_t full_input_bytes) {
+    std::stable_partition(candidates.begin(), candidates.end(),
+        [full_input_bytes](const Candidate& value) {
+            return value.match_kind == InputMatchKind::exact &&
+                   value.consumed_input_bytes == full_input_bytes &&
+                   value.syllables.size() == 1 && characters(value.text) == 1;
+        });
+}
+
+void apply_exact_dictionary_sentence_penalty(std::span<Candidate> candidates,
+                                              std::size_t full_input_bytes) {
+    std::unordered_set<std::size_t> dictionary_lengths;
+    for (const auto &value : candidates) {
+        if (value.match_kind != InputMatchKind::exact || value.segment_count != 1 ||
+            value.consumed_input_bytes != full_input_bytes || value.model_only ||
+            value.provisional_user_word)
+            continue;
+        const auto length = characters(value.text);
+        if (length >= 3 && length == value.syllables.size())
+            dictionary_lengths.insert(length);
+    }
+    if (dictionary_lengths.empty())
+        return;
+    for (auto &value : candidates) {
+        if (!value.user_preferred() && value.match_kind == InputMatchKind::exact &&
+            sentence(value, full_input_bytes) && dictionary_lengths.contains(characters(value.text)))
+            value.score -= kCandidateExactDictionarySentencePenalty;
+    }
+}
 
 void merge_similar_length_partitions(std::vector<Candidate> &candidates,
                                      std::size_t full_input_bytes) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -54,6 +55,17 @@ public:
         (void)limit;
         return {};
     }
+    // Coarse encoding subsequences only. The input scheme must validate full
+    // syllable alignment before using these records as candidates/preferences.
+    [[nodiscard]] virtual std::vector<UserLexiconEntry> lookup_related(
+        std::string_view input, std::size_t limit) const {
+        (void)input; (void)limit; return {};
+    }
+    // Explicit imported code-to-text mappings are not observations of typing.
+    [[nodiscard]] virtual std::vector<UserLexiconEntry> lookup_explicit(
+        std::string_view input, std::size_t limit) const {
+        (void)input; (void)limit; return {};
+    }
 };
 
 struct UserFrequencyIoResult {
@@ -91,7 +103,10 @@ public:
     [[nodiscard]] std::vector<UserLexiconEntry> lookup_prefix(
         std::string_view input, std::size_t limit) const override;
     [[nodiscard]] UserFrequencyIoResult flush() const;
+    [[nodiscard]] std::vector<UserLexiconEntry> lookup_related(
+        std::string_view input, std::size_t limit) const override;
     [[nodiscard]] std::uint64_t ranking_epoch() const;
+    [[nodiscard]] const std::filesystem::path& storage_path() const noexcept { return path_; }
     [[nodiscard]] UserLexiconPage list_words(std::string_view query, std::size_t offset,
                                              std::size_t limit) const;
     [[nodiscard]] static std::string validate_word(const UserLexiconEntry& entry);
@@ -120,6 +135,7 @@ private:
     std::unordered_map<std::string,
                        std::unordered_map<std::string, std::uint32_t>> user_lexicon_;
     std::uint32_t sensitivity_{7};
+    std::array<std::vector<std::string>, 256> related_inputs_;
 };
 
 }  // namespace owo::engine

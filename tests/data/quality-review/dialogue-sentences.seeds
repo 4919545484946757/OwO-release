@@ -1,0 +1,61 @@
+# Synthetic everyday dialogue; not real user history.
+你今天感觉怎么样|ni jin tian gan jue zen me yang|dialogue_health
+我已经好多了|wo yi jing hao duo le|dialogue_health
+记得早点休息|ji de zao dian xiu xi|dialogue_care
+最近天气变化很大|zui jin tian qi bian hua hen da|dialogue_weather
+出门的时候带把伞|chu men de shi hou dai ba san|dialogue_weather
+下午可能会下雨|xia wu ke neng hui xia yu|dialogue_weather
+我们换个时间见面吧|wo men huan ge shi jian jian mian ba|dialogue_schedule
+明天上午你有空吗|ming tian shang wu ni you kong ma|dialogue_schedule
+不好意思让你久等了|bu hao yi si rang ni jiu deng le|dialogue_politeness
+没关系我也刚到|mei guan xi wo ye gang dao|dialogue_politeness
+这件事情交给我吧|zhe jian shi qing jiao gei wo ba|dialogue_work
+如果有问题随时联系我|ru guo you wen ti sui shi lian xi wo|dialogue_work
+我想再确认一下地址|wo xiang zai que ren yi xia di zhi|dialogue_navigation
+请问这里可以停车吗|qing wen zhe li ke yi ting che ma|dialogue_navigation
+前面的路口向右转|qian mian de lu kou xiang you zhuan|dialogue_navigation
+我们是不是走错路了|wo men shi bu shi zou cuo lu le|dialogue_navigation
+这家店几点关门|zhe jia dian ji dian guan men|dialogue_shopping
+可以帮我换一个尺寸吗|ke yi bang wo huan yi ge chi cun ma|dialogue_shopping
+这件衣服还有其他颜色吗|zhe jian yi fu hai you qi ta yan se ma|dialogue_shopping
+我先看看暂时不买|wo xian kan kan zan shi bu mai|dialogue_shopping
+麻烦把收据给我|ma fan ba shou ju gei wo|dialogue_shopping
+我想预约下周的时间|wo xiang yu yue xia zhou de shi jian|dialogue_schedule
+这个位置已经有人坐了|zhe ge wei zhi yi jing you ren zuo le|dialogue_seating
+我们可以坐在窗边吗|wo men ke yi zuo zai chuang bian ma|dialogue_seating
+请帮我把声音调小一点|qing bang wo ba sheng yin tiao xiao yi dian|dialogue_device
+我的手机快没电了|wo de shou ji kuai mei dian le|dialogue_device
+这里有没有充电的地方|zhe li you mei you chong dian de di fang|dialogue_device
+刚才信号不太好|gang cai xin hao bu tai hao|dialogue_device
+你能再说一遍吗|ni neng zai shuo yi bian ma|dialogue_clarification
+我没有听清最后一句|wo mei you ting qing zui hou yi ju|dialogue_clarification
+你的意思是明天再来吗|ni de yi si shi ming tian zai lai ma|dialogue_clarification
+我觉得这个办法不错|wo jue de zhe ge ban fa bu cuo|dialogue_opinion
+我们可以先试试看|wo men ke yi xian shi shi kan|dialogue_opinion
+也许还有更好的选择|ye xu hai you geng hao de xuan ze|dialogue_opinion
+先别着急慢慢说|xian bie zhao ji man man shuo|dialogue_care
+这不是你的问题|zhe bu shi ni de wen ti|dialogue_care
+谢谢你一直帮助我|xie xie ni yi zhi bang zhu wo|dialogue_care
+祝你接下来一切顺利|zhu ni jie xia lai yi qie shun li|dialogue_care
+我们到家以后再联系|wo men dao jia yi hou zai lian xi|dialogue_family
+饭已经做好了|fan yi jing zuo hao le|dialogue_family
+冰箱里还有一些水果|bing xiang li hai you yi xie shui guo|dialogue_family
+吃完饭我们出去走走|chi wan fan wo men chu qu zou zou|dialogue_family
+今天晚上想吃什么|jin tian wan shang xiang chi shen me|dialogue_food
+这个菜可以少放一点盐吗|zhe ge cai ke yi shao fang yi dian yan ma|dialogue_food
+请问里面有没有花生|qing wen li mian you mei you hua sheng|dialogue_food
+我已经提前订好座位了|wo yi jing ti qian ding hao zuo wei le|dialogue_food
+上次借你的书看完了吗|shang ci jie ni de shu kan wan le ma|dialogue_reading
+这本书比我想的有意思|zhe ben shu bi wo xiang de you yi si|dialogue_reading
+我准备周末去图书馆|wo zhun bei zhou mo qu tu shu guan|dialogue_reading
+能不能给我推荐一本书|neng bu neng gei wo tui jian yi ben shu|dialogue_reading
+这道题我还没有想明白|zhe dao ti wo hai mei you xiang ming bai|dialogue_study
+我们一起讨论一下吧|wo men yi qi tao lun yi xia ba|dialogue_study
+请把你的思路写下来|qing ba ni de si lu xie xia lai|dialogue_study
+答案不一定只有一种|da an bu yi ding zhi you yi zhong|dialogue_study
+这张照片拍得真好|zhe zhang zhao pian pai de zhen hao|dialogue_leisure
+有机会我们再去一次|you ji hui wo men zai qu yi ci|dialogue_leisure
+下次记得叫上我|xia ci ji de jiao shang wo|dialogue_leisure
+今天过得特别充实|jin tian guo de te bie chong shi|dialogue_leisure
+这段经历让我学到了很多|zhe duan jing li rang wo xue dao le hen duo|dialogue_reflection
+希望以后还能保持联系|xi wang yi hou hai neng bao chi lian xi|dialogue_reflection

@@ -60,7 +60,8 @@ my-plugin/
 当前支持 JSON Schema 风格的封闭字段集合：顶层 `title`、`description`、
 `type: "object"` 和 `properties`；属性支持 `boolean`、`string`、`integer`、
 `number`，以及可选的 `title`、`description`、`default`、`minimum`、
-`maximum`、`multipleOf` 和 `enum`。字符串还可使用 `format: "color"`，设置中心会
+`maximum`、`multipleOf` 和 `enum`。可用与 `enum` 等长的 `enumNames` 字符串数组提供
+本地化选项名称（每项 1–128 字符），仅改变显示标签，不改变保存值。字符串还可使用 `format: "color"`，设置中心会
 显示原生颜色选择器并保存 `#RRGGBB`。例如：
 
 ```json
@@ -94,7 +95,13 @@ my-plugin/
 
 配置保存到插件专属数据目录的 `settings.json`。字段名最多 64 个 ASCII
 字母、数字、点、下划线或连字符；单个结构和配置文件最大 256 KiB，最多
-64 个字段、32 个枚举值。设置中心的全局搜索会索引插件名称、字段标题和说明。
+128 个字段、32 个枚举值。设置中心的全局搜索会索引插件名称、字段标题和说明。
+
+可选的顶层 `x-pages` 为最多 16 个 `{ "id": "light", "title": "浅色配色" }` 对象；
+属性使用 `"x-page": "light"` 归入对应页。标识不得重复，属性不得引用不存在的页。
+设置中心生成配置页选项框，未指定 `x-page` 的控件始终可见。分页仅控制可见性，
+不保存选中页、不自动切换插件运行模式；所有页的修改一起保存，搜索会自动切到目标页。
+未提供分页元数据的老插件仍使用原有平铺布局，宿主不硬编码插件 ID 或颜色字段。
 
 ## 3. 启动契约
 
@@ -236,6 +243,28 @@ Agent 协议 v3 的 `tasks.slots` / `tasks.incremental` 能力允许插件返回
 视觉效果对应的设置字段为 `background_blur_enabled`、`background_blur_radius`、
 `shadow_enabled`、`shadow_color`、`shadow_opacity`、`shadow_blur_radius`、
 `shadow_offset_x` 和 `shadow_offset_y`。
+
+### 明暗双配色（主题资源 v2）
+
+`schema_version=2` 保留上述基础字段作为深色配色，并要求为七个角色完整声明
+`light.<role>.color` 与 `light.<role>.opacity`；不允许缺项、重复项或混用 v1/v2。
+可另设 `light.shadow.color` / `light.shadow.opacity`。模糊开关/半径与阴影开关、
+半径、偏移是共享效果参数，不允许 `light.` 副本。
+
+扩展角色支持 `candidate_badge`、`selected_page`、`hover_block`、`pressed_block`、
+`button_background`、`button_border`、`button_text`、`secondary_text`、`caret`，
+每个角色可选，但出现时颜色与透明度必须成对；浅色仍使用 `light.` 资源前缀和 `light_` 设置前缀。
+旧资源缺省这些字段时继承原有语义颜色，保持兼容。详见 [完整字段表](candidate-theme-fields.md)。
+
+设置中的 `theme_mode` 接受 `system`、`light`、`dark`。v2 默认 `system`，由宿主读取
+Windows 的应用明暗偏好并选取配色；v1 无该设置时仍保持原样，不自动改色。浅色的用户
+颜色覆盖键使用 `light_<role>_color` / `light_<role>_opacity`，浅色阴影使用
+`light_shadow_color` / `light_shadow_opacity`。原有不带前缀的自定义值只作用于深色。
+配置解析不写回用户文件，切换明暗不应重置颜色、透明度、模糊参数或候选页状态。
+
+宿主负责默认候选栏的明暗配色、系统主题事件和已有主题轮询回退；插件库仅接收当前
+明暗偏好、返回已解析颜色，不读取系统注册表、不执行插件代码。旧宿主会拒绝 v2 资源，
+因此必须配套升级宿主，不得在同一已安装版本下直接修改资源。
 
 官方示例位于 `plugins/candidate-glass`，所有项目维护插件统一放在 `plugins/`，可用
 `scripts/package_plugins.ps1` 批量生成 `.owopkg`。

@@ -18,11 +18,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TitleBar x:Name="AppTitleBar" Title="OwO 输入法设置">
-            <TitleBar.IconSource>
-                <ImageIconSource ImageSource="Assets/AppIcon.ico" />
-            </TitleBar.IconSource>
-        </TitleBar>
+        <TitleBar x:Name="AppTitleBar" Title="OwO 输入法设置" />
 
         <Frame x:Name="RootFrame" Grid.Row="1" />
     </Grid>

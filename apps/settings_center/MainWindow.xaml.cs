@@ -21,7 +21,8 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
 
-        AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
+        LogoAppearance.Initialize();
+        LogoAppearance.BindWindow(this, AppTitleBar, showTitleBarIcon: App.InstallPackageRoot is not null);
 
         if (App.InstallPackageRoot is not null) {
             AppWindow.Resize(new SizeInt32(1040, 760));
@@ -55,6 +56,13 @@ public sealed partial class MainWindow : Window
         } else {
             AppWindow.Resize(new SizeInt32(1080, 760));
             RootFrame.Navigate(typeof(MainPage));
+            if (Environment.GetCommandLineArgs().Contains("--verify-plugin-navigation") && RootFrame.Content is MainPage navigationPage) {
+                navigationPage.Loaded += async (_, _) => {
+                    try { await navigationPage.VerifyPluginNavigationAsync(); }
+                    catch (Exception error) { Environment.ExitCode = 1; App.LogStage("Plugin navigation verification failed: " + error); }
+                    finally { Close(); }
+                };
+            }
             AppWindow.Closing += async (_, args) => {
                 if (_closingAfterSave || RootFrame.Content is not MainPage page) return;
                 args.Cancel = true;

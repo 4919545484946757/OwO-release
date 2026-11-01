@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 namespace OwO_Settings;
 
 internal sealed record PluginSettingOption(string Label, JsonElement Value);
+internal sealed record PluginSettingPage(string Id, string Title);
 
 internal sealed record PluginSettingField(
     string Key,
@@ -15,7 +16,8 @@ internal sealed record PluginSettingField(
     double? Minimum,
     double? Maximum,
     double? Step,
-    IReadOnlyList<PluginSettingOption> Options);
+    IReadOnlyList<PluginSettingOption> Options,
+    string PageId = "");
 
 internal sealed class PluginSettingsModel
 {
@@ -27,6 +29,7 @@ internal sealed class PluginSettingsModel
     internal required string Description { get; init; }
     internal required string ConfigPath { get; init; }
     internal required IReadOnlyList<PluginSettingField> Fields { get; init; }
+    internal IReadOnlyList<PluginSettingPage> Pages { get; init; } = [];
     internal required Dictionary<string, JsonElement> Values { get; init; }
 
     internal static PluginSettingsModel Load(string storePath, PluginVersionSnapshot plugin)
@@ -49,11 +52,24 @@ internal sealed class PluginSettingsModel
         var title = Text(root, "title", $"{plugin.Name} 设置", 128);
         var description = Text(root, "description", "由插件提供的声明式配置页面。", 512);
         var fields = new List<PluginSettingField>();
+        var pages = new List<PluginSettingPage>();
+        if (root.TryGetProperty("x-pages", out var pageArray)) {
+            if (pageArray.ValueKind != JsonValueKind.Array || pageArray.GetArrayLength() > 16)
+                throw new InvalidOperationException("插件配置分页无效。");
+            foreach (var page in pageArray.EnumerateArray()) {
+                if (page.ValueKind != JsonValueKind.Object)
+                    throw new InvalidOperationException("插件配置分页必须为对象。");
+                var id = Text(page, "id", "", 64);
+                if (!SafeKey.IsMatch(id) || pages.Any(value => value.Id == id))
+                    throw new InvalidOperationException("插件配置分页标识重复或无效。");
+                pages.Add(new(id, Text(page, "title", id, 128)));
+            }
+        }
         if (root.TryGetProperty("properties", out var properties)) {
             if (properties.ValueKind != JsonValueKind.Object)
                 throw new InvalidOperationException("插件配置 properties 必须是对象。" );
             foreach (var property in properties.EnumerateObject()) {
-                if (fields.Count >= 64 || !SafeKey.IsMatch(property.Name) ||
+                if (fields.Count >= 128 || !SafeKey.IsMatch(property.Name) ||
                     property.Value.ValueKind != JsonValueKind.Object)
                     throw new InvalidOperationException("插件配置字段数量、名称或结构无效。" );
                 var value = property.Value;
@@ -66,11 +82,24 @@ internal sealed class PluginSettingsModel
                 var defaultValue = value.TryGetProperty("default", out var defaultElement)
                     ? defaultElement.Clone() : DefaultFor(type);
                 var options = new List<PluginSettingOption>();
+                var pageId = value.TryGetProperty("x-page", out _) ? Text(value, "x-page", "", 64) : "";
+                if (pageId.Length != 0 && !pages.Any(page => page.Id == pageId))
+                    throw new InvalidOperationException($"插件设置 {property.Name} 引用了不存在的分页。");
                 if (value.TryGetProperty("enum", out var enumElement)) {
                     if (enumElement.ValueKind != JsonValueKind.Array || enumElement.GetArrayLength() > 32)
                         throw new InvalidOperationException($"插件设置 {property.Name} 的枚举无效。" );
-                    foreach (var option in enumElement.EnumerateArray())
-                        options.Add(new PluginSettingOption(Display(option), option.Clone()));
+                    var hasNames = value.TryGetProperty("enumNames", out var names);
+                    if (hasNames && (names.ValueKind != JsonValueKind.Array ||
+                        names.GetArrayLength() != enumElement.GetArrayLength()))
+                        throw new InvalidOperationException($"插件设置 {property.Name} 的枚举标签无效。" );
+                    var optionIndex = 0;
+                    foreach (var option in enumElement.EnumerateArray()) {
+                        var label = hasNames ? names[optionIndex].GetString() : Display(option);
+                        if (string.IsNullOrWhiteSpace(label) || label.Length > 128)
+                            throw new InvalidOperationException($"插件设置 {property.Name} 的枚举标签无效。" );
+                        options.Add(new PluginSettingOption(label, option.Clone()));
+                        optionIndex++;
+                    }
                 }
                 fields.Add(new PluginSettingField(
                     property.Name,
@@ -82,7 +111,7 @@ internal sealed class PluginSettingsModel
                     Number(value, "minimum"),
                     Number(value, "maximum"),
                     Number(value, "multipleOf"),
-                    options));
+                    options, pageId));
             }
         }
 
@@ -101,7 +130,7 @@ internal sealed class PluginSettingsModel
             if (!values.ContainsKey(field.Key)) values[field.Key] = field.DefaultValue.Clone();
         return new PluginSettingsModel {
             Plugin = plugin, Title = title, Description = description,
-            ConfigPath = configPath, Fields = fields, Values = values,
+            ConfigPath = configPath, Fields = fields, Pages = pages, Values = values,
         };
     }
 

@@ -15,7 +15,14 @@ int main() {
         {{"zhong", "wen", "neng", "li"}, "中文能力", 5000},
         {{"chang"}, "长", 5000}, {{"cheng"}, "成", 5000},
         {{"cha", "na", "ge"}, "刹那个", 1000000},
-        {{"cha", "nei", "gui"}, "查内鬼", 1000000}
+        {{"cha", "nei", "gui"}, "查内鬼", 1000000},
+        {{"xian", "zai"}, "现在", 20000}, {{"xian"}, "先", 5000},
+        {{"ce", "shi"}, "测试", 10000}, {{"yi", "xia"}, "一下", 10000},
+        {{"yi"}, "仪", 9000}, {{"xi", "ai"}, "喜爱", 1000000},
+        {{"ji", "xu"}, "继续", 10000},
+        {{"jie", "mian"}, "界面", 10000}, {{"chang", "du"}, "长度", 10000},
+        {{"qing", "kuang"}, "情况", 10000}, {{"zhe", "ge"}, "这个", 10000},
+        {{"fang", "fa"}, "方法", 10000}, {{"fang", "shi"}, "方式", 10000}
     });
     const owo::engine::CandidateGenerator generator(lexicon);
     struct Case {
@@ -29,7 +36,17 @@ int main() {
         {"gongnnegkaiguan", "功能开关", {"gong", "nneg", "kai", "guan"}},
         {"gongnegnkaiguan", "功能开关", {"gong", "negn", "kai", "guan"}},
         {"gongnnegcaidan", "功能菜单", {"gong", "nneg", "cai", "dan"}},
-        {"zhongwennnegli", "中文能力", {"zhong", "wen", "nneg", "li"}}}) {
+        {"zhongwennnegli", "中文能力", {"zhong", "wen", "nneg", "li"}},
+        {"ceshiyixa", "测试一下", {"ce", "shi", "yi", "xa"}},
+        {"ceshigongnneg", "测试功能", {"ce", "shi", "gong", "nneg"}},
+        {"ceshijiemain", "测试界面", {"ce", "shi", "jie", "main"}},
+        {"ceshichnagdu", "测试长度", {"ce", "shi", "chnag", "du"}},
+        {"ceshiqignkuang", "测试情况", {"ce", "shi", "qign", "kuang"}},
+        {"zhegefnagfa", "这个方法", {"zhe", "ge", "fnag", "fa"}},
+        {"zhegefnagshi", "这个方式", {"zhe", "ge", "fnag", "shi"}},
+        {"ceshiyixajixu", "测试一下继续", {"ce", "shi", "yi", "xa", "ji", "xu"}},
+        {"xianzaiceshiyixa", "现在测试一下", {"xian", "zai", "ce", "shi", "yi", "xa"}},
+        {"xianzaixianceshiyixa", "现在先测试一下", {"xian", "zai", "xian", "ce", "shi", "yi", "xa"}}}) {
         for (const auto budget : {8U, 16U, 32U}) {
             const auto parsed = schema.parse(item.input, budget, true);
             const auto repair = std::find_if(parsed.paths.begin(), parsed.paths.end(), [&](const auto& path) {

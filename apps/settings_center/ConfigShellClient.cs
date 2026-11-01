@@ -29,7 +29,13 @@ internal sealed record SettingsSnapshot(string InputScheme,
                                         bool TextNavigationSelectEnabled,
                                         uint ChinesePunctuationMask,
                                         bool ExpandedPreviousPageShortcutEnabled, IReadOnlyList<string> ExpandedPreviousPageShortcuts,
-                                        bool ExpandedNextPageShortcutEnabled, IReadOnlyList<string> ExpandedNextPageShortcuts);
+                                        bool ExpandedNextPageShortcutEnabled, IReadOnlyList<string> ExpandedNextPageShortcuts)
+{
+    public bool PinyinSymbolCompatibilityEnabled { get; init; } = true;
+    public string PinyinPreviewLocation { get; init; } = "candidate";
+    public bool SeparatorShortcutEnabled { get; init; } = true;
+    public IReadOnlyList<string> SeparatorShortcuts { get; init; } = new[] { "Quote" };
+}
 
 internal sealed class ConfigShellClient
 {
@@ -118,7 +124,12 @@ internal sealed class ConfigShellClient
                    bool.Parse(values["expanded_previous_page_shortcut_enabled"]),
                    SplitShortcuts(values["expanded_previous_page_shortcut"]),
                    bool.Parse(values["expanded_next_page_shortcut_enabled"]),
-                   SplitShortcuts(values["expanded_next_page_shortcut"]));
+                   SplitShortcuts(values["expanded_next_page_shortcut"])) {
+            PinyinSymbolCompatibilityEnabled = bool.Parse(values["pinyin_symbol_compatibility_enabled"]),
+            PinyinPreviewLocation = values.GetValueOrDefault("pinyin_preview_location", "candidate"),
+            SeparatorShortcutEnabled = bool.Parse(values["separator_shortcut_enabled"]),
+            SeparatorShortcuts = SplitShortcuts(values["separator_shortcut"])
+        };
     }
 
     internal Task SaveAsync(SettingsSnapshot value, CancellationToken cancellationToken = default) =>
@@ -162,7 +173,10 @@ internal sealed class ConfigShellClient
                   value.ExpandedPreviousPageShortcutEnabled.ToString().ToLowerInvariant(),
                   JoinShortcuts(value.ExpandedPreviousPageShortcuts),
                   value.ExpandedNextPageShortcutEnabled.ToString().ToLowerInvariant(),
-                  JoinShortcuts(value.ExpandedNextPageShortcuts)], cancellationToken);
+                  JoinShortcuts(value.ExpandedNextPageShortcuts),
+                  value.PinyinSymbolCompatibilityEnabled.ToString().ToLowerInvariant(),
+                  value.SeparatorShortcutEnabled.ToString().ToLowerInvariant(),
+                  JoinShortcuts(value.SeparatorShortcuts), value.PinyinPreviewLocation], cancellationToken);
 
     private static string[] SplitShortcuts(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

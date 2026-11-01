@@ -1,0 +1,8 @@
+---
+name: owo_sample
+version: "1"
+sort: by_weight
+columns: [text, code, weight]
+...
+测试词库	ce shi ci ku	32
+独立词典	du li ci dian	24

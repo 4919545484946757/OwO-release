@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 
 namespace OwO_Settings;
 
-internal sealed record TransferUiPreferences(bool AutoSaveEnabled);
+internal sealed record TransferUiPreferences(bool AutoSaveEnabled, string? LogoTheme = null);
 internal sealed record SettingsTransferDocument(int FormatVersion, string Kind,
     SettingsSnapshot Settings, TransferUiPreferences UiPreferences);
 
@@ -21,8 +21,8 @@ internal static class SettingsTransfer
         MaxDepth = 8
     };
 
-    internal static SettingsTransferDocument Create(SettingsSnapshot settings, bool autoSave) =>
-        new(2, "OwO.Settings", settings, new(autoSave));
+    internal static SettingsTransferDocument Create(SettingsSnapshot settings, bool autoSave, string? logoTheme = null) =>
+        new(2, "OwO.Settings", settings, new(autoSave, logoTheme));
 
     internal static async Task<SettingsTransferDocument> ReadAsync(string path)
     {
@@ -56,6 +56,23 @@ internal static class SettingsTransfer
         var document = JsonSerializer.Deserialize<SettingsTransferDocument>(json, Options)
             ?? throw new InvalidDataException("配置文件内容为空。");
         ValidateStructure(document);
+        if (!parsed.RootElement.GetProperty("settings").TryGetProperty("separatorShortcuts", out _)) {
+            var value = document.Settings;
+            var occupied = new List<string>();
+            if (value.CorrectionShortcutEnabled) occupied.AddRange(value.CorrectionShortcuts);
+            if (value.LanguageShortcutEnabled) occupied.AddRange(value.LanguageShortcuts);
+            if (value.RawInputShortcutEnabled) occupied.AddRange(value.RawInputShortcuts);
+            if (value.CursorLeftShortcutEnabled) occupied.AddRange(value.CursorLeftShortcuts);
+            if (value.CursorRightShortcutEnabled) occupied.AddRange(value.CursorRightShortcuts);
+            if (value.PreviousPageShortcutEnabled) occupied.AddRange(value.PreviousPageShortcuts);
+            if (value.NextPageShortcutEnabled) occupied.AddRange(value.NextPageShortcuts);
+            if (value.PunctuationShortcutEnabled) occupied.AddRange(value.PunctuationShortcuts);
+            if (value.TextNavigationShortcutEnabled) occupied.AddRange(value.TextNavigationShortcuts);
+            if (value.ExpandedPreviousPageShortcutEnabled) occupied.AddRange(value.ExpandedPreviousPageShortcuts);
+            if (value.ExpandedNextPageShortcutEnabled) occupied.AddRange(value.ExpandedNextPageShortcuts);
+            if (occupied.Contains("Quote"))
+                document = document with { Settings = value with { SeparatorShortcutEnabled = false } };
+        }
         if (legacy) document = document with { Settings = MigrateLegacyShortcuts(document.Settings) };
         return document;
     }
@@ -109,11 +126,14 @@ internal static class SettingsTransfer
     {
         if (document.FormatVersion != 2 || document.Kind != "OwO.Settings")
             throw new InvalidDataException("不支持此配置文件格式或版本。");
+        if (document.UiPreferences.LogoTheme is not null && !LogoAssets.IsValid(document.UiPreferences.LogoTheme))
+            throw new InvalidDataException("导入文件的 Logo 外观选项无效。");
         var value = document.Settings;
         IReadOnlyList<string>[] groups = [value.CorrectionShortcuts, value.LanguageShortcuts,
             value.RawInputShortcuts, value.CursorLeftShortcuts, value.CursorRightShortcuts,
             value.PreviousPageShortcuts, value.NextPageShortcuts, value.PunctuationShortcuts,
-            value.TextNavigationShortcuts, value.ExpandedPreviousPageShortcuts, value.ExpandedNextPageShortcuts];
+            value.TextNavigationShortcuts, value.ExpandedPreviousPageShortcuts, value.ExpandedNextPageShortcuts,
+            value.SeparatorShortcuts];
         foreach (var group in groups) {
             if (group.Count > 16 || group.Any(key => string.IsNullOrWhiteSpace(key) ||
                 key.Length > 128 || key.Contains(';') || key.Any(char.IsControl)))
@@ -148,7 +168,11 @@ internal static class SettingsTransfer
             File.Copy(preferencesPath, Path.Combine(backup, "settings-ui.json"));
         try {
             await client.SaveAsync(validated);
-            new SettingsUiPreferences(document.UiPreferences.AutoSaveEnabled).Save(preferencesPath);
+            var existingPreferences = SettingsUiPreferences.Load(preferencesPath);
+            (existingPreferences with {
+                AutoSaveEnabled = document.UiPreferences.AutoSaveEnabled,
+                LogoTheme = document.UiPreferences.LogoTheme ?? existingPreferences.LogoTheme
+            }).Save(preferencesPath);
         }
         catch (Exception error) {
             // 直接原子恢复原文件，保留注释、编码及 EFS 属性；原先不存在时不留下默认配置。

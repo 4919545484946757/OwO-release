@@ -17,10 +17,10 @@
     <EnableWinAppRunSupport>false</EnableWinAppRunSupport>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>0.2.5</Version>
-    <AssemblyVersion>0.2.5.0</AssemblyVersion>
-    <FileVersion>0.2.5.0</FileVersion>
-    <InformationalVersion>0.2.5</InformationalVersion>
+    <Version>0.2.6</Version>
+    <AssemblyVersion>0.2.6.0</AssemblyVersion>
+    <FileVersion>0.2.6.0</FileVersion>
+    <InformationalVersion>0.2.6</InformationalVersion>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
@@ -36,6 +36,7 @@
     <Content Include="Assets\Square44x44Logo.targetsize-48_altform-lightunplated.png" />
     <Content Include="Assets\StoreLogo.png" />
     <Content Include="Assets\AppIcon.ico" />
+    <Content Include="Assets\Brand\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Assets\SetupProgressBanner.png" />
     <Content Include="Assets\Wide310x150Logo.scale-200.png" />
   </ItemGroup>

@@ -57,6 +57,7 @@ int main() {
     if (!frequency.load(frequency_path).success)
         return 4;
     frequency.record("dongkeyi", "董柯伊");
+    frequency.record("ejirenyuan", "俄籍人员", 4);
     const engine::MemoryLexicon lexicon({{{"ke", "yi"}, "可以", 1000000},
                                          {{"ke", "yi"}, "刻意", 1},
                                          {{"ke", "yi"}, "可疑", 100000},
@@ -115,6 +116,14 @@ int main() {
         return response;
     };
     check(query("keyi", false, false).message.candidates.front() == "可以", "Baseline changed");
+    for (const auto input : {"ejirenyuan", "ejry", "ejiren'y", "e'j'r'y"})
+        for (const bool expanded : {false, true})
+            for (const bool ranked : {false, true}) {
+                const auto response = query(input, expanded, ranked);
+                check(!response.message.candidates.empty() && response.message.candidates.front() == "俄籍人员" &&
+                      response.message.candidate_consumed.front() == std::string_view(input).size(),
+                      "Full-reading preference did not transfer through Core/partition/model");
+            }
     learn("keyi", "刻意");
     for (const bool expanded : {false, true})
         for (const bool ranked : {false, true})
@@ -187,6 +196,13 @@ int main() {
     check(writer.save(settings).success &&
               monitor.wait_for_generation(generation, std::chrono::seconds(2)),
           "Learning/ranking configuration did not reload");
+    {
+        const auto disabled = send(core_pipe, {protocol::MessageType::candidate_request, ++id, 888, "ejry"});
+        // The learning switch stops recording, not access to existing words.
+        // Disabling the user dictionary itself is tested separately.
+        check(disabled.validation && std::find(disabled.message.candidates.begin(), disabled.message.candidates.end(),
+              "俄籍人员") != disabled.message.candidates.end(), "Learning switch erased an existing abbreviated word");
+    }
     learn("keyi", "刻意"); // Acknowledged, but the disabled learning switch must not record it.
     check(query("keyi", false, false).message.candidates.front() == "刻意" &&
               query("ke", false, false).message.candidates.front() == "克" &&

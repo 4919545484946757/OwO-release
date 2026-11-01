@@ -1,0 +1,3 @@
+{"id":"compact","input":"bingewai","expected":["并额外"],"tags":["alternate-reading"]}
+{"id":"explicit-bin","input":"bin'gewai","expected":["宾格外"],"segmentation":"bin'ge'wai","tags":["manual-boundary"]}
+{"id":"explicit-bing","input":"bing'ewai","expected":["并额外"],"segmentation":"bing'e'wai","tags":["manual-boundary"]}

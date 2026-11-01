@@ -16,6 +16,30 @@ bool consumes_input(const wchar_t preview_character,
 
 }  // namespace
 
+std::wstring case_preserving_segmented_input(
+    const std::wstring_view input, const std::wstring_view segmented) {
+    std::wstring result;
+    result.reserve(input.size() + segmented.size());
+    std::size_t source = 0;
+    for (const wchar_t character : segmented) {
+        if (character == L'\'') {
+            result.push_back(character);
+            // This can be either an explicit separator or an automatic one.
+            if (source < input.size() && input[source] == L'\'') ++source;
+            continue;
+        }
+        while (source < input.size() && input[source] == L'\'')
+            result.push_back(input[source++]);
+        if (source >= input.size()) return std::wstring(input);
+        result.push_back(input[source++]);
+    }
+    // Parser syllable lists omit empty trailing segments. Keep their raw
+    // apostrophes, including repeated ones, without duplicating shown ones.
+    while (source < input.size() && input[source] == L'\'')
+        result.push_back(input[source++]);
+    return source == input.size() ? result : std::wstring(input);
+}
+
 std::size_t preview_index_for_input_cursor(
     const std::wstring_view input, const std::wstring_view preview,
     const std::size_t input_cursor) noexcept {

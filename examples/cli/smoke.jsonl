@@ -1,0 +1,5 @@
+{"id":"hello","input":"nihao","expected":["你好"],"segmentation":"ni'hao","tags":["smoke","whole"]}
+{"id":"world","input":"shijie","expected":["世界"],"segmentation":"shi'jie","tags":["smoke","whole"]}
+{"id":"explicit","input":"ni'hao","expected":["你好"],"segmentation":"ni'hao","tags":["smoke","separator"]}
+{"id":"prefix","input":"nihaoshijie","expected":["你好"],"consumed":5,"tags":["smoke","partial"]}
+{"id":"invalid","input":"123","valid":false,"tags":["smoke","invalid"]}

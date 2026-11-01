@@ -10,6 +10,8 @@ inline constexpr std::int64_t kCandidateAdditionalSegmentPenalty = 22'000;
 inline constexpr std::int64_t kCandidatePreferredExactSegmentationBonus = 16'000;
 inline constexpr std::int64_t kCandidateIncompleteCharacterPenalty = 750;
 inline constexpr std::int64_t kCandidateAbbreviationBasePenalty = 8'000;
+// Soft evidence for a complete exact dictionary word, not a forced source tier.
+inline constexpr std::int64_t kCandidateExactDictionarySentencePenalty = 1'500;
 // CandidateGenerator promotes dictionary words ahead of single characters as
 // a final ordering tier. Bounded providers encode that same tier in their
 // comparable score so the scheduler can reason about it before materializing.

@@ -1,0 +1,20 @@
+{
+  "ctx01-a":"kuang","ctx01-b":"guo","ctx02-a":"he","ctx02-b":"xiang",
+  "ctx03-a":"de","ctx03-b":"suiyi","ctx04-a":"kai","ctx04-b":"henduo",
+  "ctx05-a":"daojin","ctx05-b":"xiang","ctx06-a":"tie","ctx06-b":"yu",
+  "ctx07-a":"huoche","ctx07-b":"kongzhong","ctx08-a":"zhu","ctx08-b":"yi",
+  "ctx09-a":"bao","ctx09-b":"shan","ctx10-a":"lian","ctx10-b":"shi","ctx10-c":"wu",
+  "ctx11-a":"xue","ctx11-b":"zuo","ctx11-c":"chu","ctx12-a":"jian","ctx12-b":"ji",
+  "ctx13-a":"bai","ctx13-b":"hao","ctx14-a":"mo","ctx14-b":"xing",
+  "ctx15-a":"de","ctx15-b":"lao","ctx16-a":"ji","ctx16-b":"dao",
+  "ctx17-a":"youxian","ctx17-b":"cheng","ctx18-a":"rong","ctx18-b":"ming",
+  "ctx19-a":"hui","ctx19-b":"xing","ctx19-c":"shu","ctx20-a":"shuo","ctx20-b":"xing",
+  "ctx21-a":"can","ctx21-b":"hui","ctx22-a":"yu","ctx22-b":"ershiyi","ctx22-c":"heshide","ctx22-d":"xianjin",
+  "ctx23-a":"you","ctx23-b":"you","ctx23-c":"wenti","ctx23-d":"dajia",
+  "ctx24-a":"jiu","ctx24-b":"shi","ctx25-a":"de","ctx25-b":"zhuyao",
+  "ctx26-a":"ruanjian","ctx26-b":"shiyong","ctx26-c":"dacheng","ctx26-d":"duoshao",
+  "ctx27-a":"zhaokai","ctx27-b":"de","ctx28-a":"dangqian","ctx28-b":"feichang",
+  "ctx29-a":"chezhan","ctx29-b":"tiqian","ctx30-a":"kaishi","ctx30-b":"keguan","ctx30-c":"xuyao","ctx30-d":"xinwen",
+  "ctx31-a":"ruhe","ctx31-b":"hen","ctx31-c":"tongyang","ctx32-a":"xitong","ctx32-b":"zhengzai","ctx32-c":"zhengzai",
+  "ctx33-a":"zhongyao","ctx33-b":"zhonghua","ctx34-a":"fuhe","ctx34-b":"yijing","ctx34-c":"de"
+}

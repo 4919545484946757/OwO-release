@@ -1,0 +1,4 @@
+{"id":"qian","input":"qian","expected":["前","钱"],"tags":["complete-character"]}
+{"id":"after-fenge","input":"qian","context":"分隔","previous":"fenge","expected":["前","钱"],"tags":["complete-character","partial-selection"]}
+{"id":"after-fenge-strict","input":"qian","context":"分隔","previous":"fenge","expected":["前","钱"],"correction":false,"tags":["complete-character","strict"]}
+{"id":"xian","input":"xian","expected":["先","现","线"],"tags":["complete-character","alternative-boundary"]}

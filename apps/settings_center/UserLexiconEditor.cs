@@ -154,9 +154,13 @@ internal sealed class UserLexiconEditor : UserControl
         WinRT.Interop.WindowNative.GetWindowHandle(((App)Application.Current).MainWindow));
     private async Task ImportAsync()
     {
-        var picker = new FileOpenPicker(); picker.FileTypeFilter.Add(".json"); picker.FileTypeFilter.Add(".tsv"); InitializePicker(picker);
+        var picker = new FileOpenPicker(); foreach (var extension in DictionaryFormats.Extensions) picker.FileTypeFilter.Add(extension); InitializePicker(picker);
         var file = await picker.PickSingleFileAsync(); if (file is null) return;
-        var words = await UserLexiconClient.ReadImportAsync(file.Path);
+        var imported = await DictionaryFormats.ReadAsync(file.Path);
+        if (imported.Pending != 0) throw new InvalidDataException("该文件含待补编码词条。请从词库管理器导入为独立字典并补全编码；用户词库合并不会静默跳过这些词条。" );
+        IReadOnlyList<LexiconWord> words = imported.Entries.GroupBy(word => (UserLexiconClient.CanonicalInput(word.Input), word.Text))
+            .Select(group => new LexiconWord(group.First().Input, group.Key.Text, group.Max(word => word.Count))).ToArray();
+        if (words.Count > 5000) throw new InvalidDataException("用户学习库单次最多导入 5000 条；大文件请导入为独立字典。" );
         var mode = new ComboBox { Header = "导入方式", SelectedIndex = 0, HorizontalAlignment = HorizontalAlignment.Stretch };
         mode.Items.Add("合并：保留现有词条，同编码同词语以导入权重更新");
         mode.Items.Add("替换：清空现有词库和学习数据，再导入");
@@ -166,6 +170,7 @@ internal sealed class UserLexiconEditor : UserControl
         var preview = await _client.RequestAsync("preview", latest.Revision, mode: selected, words: words);
         var warning = $"文件包含 {words.Count} 条：新增 {preview.Added} 条，更新 {preview.Updated} 条。\n" +
             (selected == "merge" ? "现有其他词条与学习记录将保留。" : "警告：将先清空全部现有用户词条、词频和语言上下文学习。") +
+            "\n用户学习库仅接收编码、词语与权重，不保存来源语言、词性或原始频率；要保留这些信息，请导入为独立字典。" +
             "\n本次导入需单独确认。导入文件不包含应用上下文，操作前将备份原数据。";
         if (await Dialog("确认导入用户词库", warning, "确认导入").ShowAsync() != ContentDialogResult.Primary) return;
         await _client.RequestAsync("import", preview.Revision, mode: selected, words: words);
@@ -173,25 +178,7 @@ internal sealed class UserLexiconEditor : UserControl
     }
     private async Task ExportAsync()
     {
-        var picker = new FileSavePicker { SuggestedFileName = $"OwO-用户词库-{DateTime.Now:yyyyMMdd}" };
-        picker.FileTypeChoices.Add("OwO 用户词库 JSON", [".json"]);
-        picker.FileTypeChoices.Add("制表符文本 TSV", [".tsv"]);
-        InitializePicker(picker);
-        var file = await picker.PickSaveFileAsync(); if (file is null) return;
-        var words = new List<LexiconWord>();
-        ulong? revision = null;
-        for (var offset = 0;; offset += 200) {
-            var page = await _client.RequestAsync("list", revision, offset: offset, limit: 200);
-            revision = page.Revision; words.AddRange(page.Words);
-            if (words.Count >= page.Total) break;
-            if (page.Words.Count == 0) throw new IOException("导出分页异常，请刷新重试。");
-        }
-        var output = Path.GetExtension(file.Path).Equals(".tsv", StringComparison.OrdinalIgnoreCase)
-            ? "input\ttext\tcount\n" + string.Concat(words.Select(word => $"{word.Input}\t{word.Text}\t{word.Count}\n"))
-            : JsonSerializer.Serialize(new LexiconFile(1, "OwO.UserLexicon", words), new JsonSerializerOptions { WriteIndented = true });
-        var temporary = file.Path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try { await File.WriteAllTextAsync(temporary, output, new UTF8Encoding(false)); File.Move(temporary, file.Path, true); }
-        finally { if (File.Exists(temporary)) File.Delete(temporary); }
-        Notify($"已导出 {words.Count} 条，仅包含编码、词语和权重，不包含应用上下文。");
+        if (await DictionaryActions.ExportUserAsync($"OwO-用户词库-{DateTime.Now:yyyyMMdd}"))
+            Notify("已导出全部词条，仅包含编码、词语和权重，不包含应用上下文。");
     }
 }

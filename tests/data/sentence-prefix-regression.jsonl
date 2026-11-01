@@ -1,0 +1,11 @@
+{"id":"transport-yi","input":"yihuowuyunshudesudu","expected":["以货物运输的速度"],"tags":["prefix","boundary"]}
+{"id":"transport-explicit","input":"yi'huo'wu'yun'shu'de'su'du","expected":["以货物运输的速度"],"tags":["prefix","explicit"]}
+{"id":"transport-wei","input":"weihuowuyunshutigaoxiaolv","expected":["为货物运输提高效率"],"tags":["prefix","boundary"]}
+{"id":"goal-yi","input":"yitigaoxiaolvweimubiao","expected":["以提高效率为目标"],"tags":["prefix"]}
+{"id":"service-wei","input":"weiyonghutigongfuwu","expected":["为用户提供服务"],"tags":["prefix"]}
+{"id":"example-yi","input":"yishijijieguoweizhun","expected":["以实际结果为准"],"tags":["prefix"]}
+{"id":"instrument-yi","input":"yizhegefangfajiejuewenti","expected":["以这个方法解决问题"],"tags":["prefix"]}
+{"id":"noun-yihuo","input":"yihuojiaoyi","expected":["易货交易"],"tags":["noun","control"]}
+{"id":"noun-yiwu","input":"yiwujiaoyujieduan","expected":["义务教育阶段"],"tags":["noun","control"]}
+{"id":"noun-weilai","input":"weilaifazhanzhanlue","expected":["未来发展战略"],"tags":["noun","control"]}
+{"id":"noun-weisheng","input":"weishengjianguanli","expected":["卫生间管理"],"tags":["noun","control"]}

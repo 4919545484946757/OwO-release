@@ -47,6 +47,16 @@ int main(int argc, char** argv) {
         !first_is(*loaded.backend, "制定", learning_candidates, "计划") ||
         !first_is(*loaded.backend, "学习", learning_candidates, "方法"))
         return 4;
+    if (!first_is(*loaded.backend, "", {"价值大妈", "价值大吗"}, "价值大吗") ||
+        !first_is(*loaded.backend, "", {"联系大吗", "联系大妈"}, "联系大妈") ||
+        !first_is(*loaded.backend, "", {"购买芝吗", "购买芝麻"}, "购买芝麻") ||
+        !first_is(*loaded.backend, "", {"这是一串代吗", "这是一串代码"}, "这是一串代码")) return 5;
+    if (!first_is(*loaded.backend, "", {"列表为展开", "列表未展开", "列表位展开", "列表微展开"}, "列表未展开") ||
+        !first_is(*loaded.backend, "", {"列表未展开", "列表为展开"}, "列表未展开") ||
+        !first_is(*loaded.backend, "", {"窗口为打开", "窗口未打开"}, "窗口未打开") ||
+        !first_is(*loaded.backend, "", {"操作为成功", "操作未成功"}, "操作未成功") ||
+        !first_is(*loaded.backend, "", {"工作未生活服务", "工作为生活服务"}, "工作为生活服务") ||
+        !first_is(*loaded.backend, "", {"活动未学生举办", "活动为学生举办"}, "活动为学生举办")) return 6;
     return 0;
 }
 

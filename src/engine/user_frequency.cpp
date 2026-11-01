@@ -353,6 +353,7 @@ std::uint64_t UserFrequencyStore::ranking_epoch() const {
 
 UserFrequencyIoResult UserFrequencyStore::load(const std::filesystem::path& path) {
     path_ = path;
+    for (auto& bucket : related_inputs_) bucket.clear();
     counts_.clear();
     contextual_counts_.clear();
     language_context_counts_.clear();
@@ -374,6 +375,7 @@ UserFrequencyIoResult UserFrequencyStore::load(const std::filesystem::path& path
 }
 
 void UserFrequencyStore::rebuild_user_lexicon() {
+    for (auto& bucket : related_inputs_) bucket.clear();
     user_lexicon_.clear();
     user_lexicon_times_.clear();
     singleton_expires_at_ = 0;
@@ -396,6 +398,8 @@ void UserFrequencyStore::rebuild_user_lexicon() {
             user_lexicon_times_[input][text] = observed->second;
         else user_lexicon_times_[input].erase(text);
     }
+    for (const auto& [input, words] : user_lexicon_)
+        if (!input.empty()) related_inputs_[static_cast<unsigned char>(input.front())].push_back(input);
 }
 
 void UserFrequencyStore::record(const std::string_view input, const std::string_view text,
@@ -421,6 +425,8 @@ void UserFrequencyStore::record(const std::string_view input, const std::string_
         rebuild_user_lexicon();
     } else {
         const auto compact = compact_input_key(input);
+        if (!compact.empty() && !user_lexicon_.contains(compact))
+            related_inputs_[static_cast<unsigned char>(compact.front())].push_back(compact);
         const std::string word(text);
         auto& total = user_lexicon_[compact][word];
         total = static_cast<std::uint32_t>(std::min<std::uint64_t>(kInputCountCeiling,
@@ -552,6 +558,34 @@ std::vector<UserLexiconEntry> UserFrequencyStore::lookup(
     }
     std::sort(entries.begin(), entries.end(), better);
     return entries;
+}
+
+std::vector<UserLexiconEntry> UserFrequencyStore::lookup_related(
+    const std::string_view input, const std::size_t limit) const {
+    const auto compact = compact_input_key(input);
+    if (compact.size() < 2 || limit == 0) return {};
+    std::vector<UserLexiconEntry> result;
+    const auto better = [](const auto& a, const auto& b) {
+        if (a.preferred != b.preferred) return a.preferred;
+        if (a.count != b.count) return a.count > b.count;
+        if (a.input != b.input) return a.input < b.input;
+        return a.text < b.text;
+    };
+    for (const auto& stored : related_inputs_[static_cast<unsigned char>(compact.front())]) {
+        if (stored.size() <= compact.size()) continue;
+        std::size_t matched = 0;
+        for (const auto value : stored)
+            if (matched < compact.size() && value == compact[matched]) ++matched;
+        if (matched != compact.size()) continue;
+        auto entries = lookup(stored, limit);
+        result.insert(result.end(), std::make_move_iterator(entries.begin()), std::make_move_iterator(entries.end()));
+        if (result.size() > limit) {
+            std::partial_sort(result.begin(), result.begin() + limit, result.end(), better);
+            result.resize(limit);
+        }
+    }
+    std::sort(result.begin(), result.end(), better);
+    return result;
 }
 
 std::vector<UserLexiconEntry> UserFrequencyStore::lookup_prefix(

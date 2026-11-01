@@ -1,4 +1,5 @@
 #include "owo/ipc/contextual_candidate_order.h"
+#include "owo/ipc/model_candidate_confidence.h"
 
 #include <cstdint>
 #include <string>
@@ -68,5 +69,74 @@ int main() {
         {"朽腐类似问题", "修复类似问题"}, 15,
         {"修复类似问题", "朽腐类似问题"}, {15, 15}, ordered, consumed, {0, 2});
     if (ordered.front() != "修复类似问题" || consumed != std::vector<std::uint64_t>{15, 15}) return 10;
+    ordered = {"家里的牛奶已经喝完了", "家里的牛奶已经合完了", "家里"};
+    consumed = {26, 26, 5};
+    owo::ipc::limit_model_sentence_candidates(ordered, consumed, {true, true, false}, 2,
+        ordered, consumed, {5, 6, 1});
+    if (ordered != std::vector<std::string>{"家里的牛奶已经喝完了", "家里"} ||
+        consumed != std::vector<std::uint64_t>{26, 5}) return 11;
+    ordered = {"这款高度自定", "这款高度自订", "这款"};
+    consumed = {17, 17, 7};
+    owo::ipc::limit_model_sentence_candidates(ordered, consumed, {true, true, false}, 2,
+        ordered, consumed, {3, 3, 1});
+    if (ordered.size() != 3) return 12;
+    if (!owo::engine::redundant_sentence_variant("家里的牛奶已经喝完了", "佳丽的牛奶已经喝完了") ||
+        !owo::engine::redundant_sentence_variant("家里的牛奶已经喝完了", "家里的牛奶意境喝完了") ||
+        owo::engine::redundant_sentence_variant("这款高度自定", "这款高度自订") ||
+        owo::engine::redundant_sentence_variant("将与概率", "降雨概率")) return 13;
+    ordered = {"价值大妈", "价值大码", "价值大吗", "价值"};
+    consumed = {10, 10, 10, 6};
+    owo::ipc::retain_base_sentence_ending({"价值大妈", "价值大吗", "价值"}, {10, 10, 6},
+        {true, true, false}, 10, ordered, consumed);
+    if (ordered != std::vector<std::string>{"价值大妈", "价值大吗", "价值大码", "价值"}) return 14;
+    ordered = {"价值大妈", "价值大码", "价值大吗", "价值"};
+    owo::ipc::retain_base_sentence_ending({"价值大吗", "价值打吗", "价值"}, {10, 10, 6},
+        {true, true, false}, 10, ordered, consumed);
+    if (ordered[0] != "价值大妈" || ordered[1] != "价值大吗" || consumed[1] != 10) return 15;
+    const auto unchanged = ordered;
+    owo::ipc::retain_base_sentence_ending({"换个前文吗"}, {10}, {true}, 10, ordered, consumed);
+    if (ordered != unchanged) return 16;
+    owo::engine::Candidate head{
+        "易货物运输的速度", {"yi", "huo", "wu", "yun", "shu", "de", "su", "du"},
+        60000, owo::engine::InputMatchKind::exact,
+        {"yi", "huo", "wu", "yun", "shu", "de", "su", "du"}, 18, 4};
+    head.segment_lengths = {1, 4, 1, 2};
+    auto alternative = head;
+    alternative.text = "以货物运输的速度";
+    alternative.score = 37000;
+    if (!owo::ipc::standalone_head_alternative(head, alternative, 18)) return 17;
+    const auto rejected = [&](auto change) {
+        auto changed = alternative;
+        change(changed);
+        return !owo::ipc::standalone_head_alternative(head, changed, 18);
+    };
+    if (!rejected([](auto& value) { value.text = "以货物运输得速度"; }) ||
+        !rejected([](auto& value) { value.text = "以货物运输的速"; }) ||
+        !rejected([](auto& value) { value.segment_lengths = {2, 3, 1, 2}; }) ||
+        !rejected([](auto& value) { value.consumed_input_bytes = 17; }) ||
+        !rejected([](auto& value) { value.match_kind = owo::engine::InputMatchKind::corrected; }) ||
+        !rejected([](auto& value) { value.source_segments.front() = "y"; }) ||
+        !rejected([](auto& value) { value.user_lexicon = true; })) return 18;
+    auto learned_head = head;
+    learned_head.user_lexicon = true;
+    if (owo::ipc::standalone_head_alternative(learned_head, alternative, 18)) return 19;
+    head.segment_lengths = alternative.segment_lengths = {1, 1, 1, 1, 1, 1, 1, 1};
+    head.segment_count = alternative.segment_count = 8;
+    if (owo::ipc::standalone_head_alternative(head, alternative, 18)) return 20;
+    owo::engine::Candidate abbreviation{"如果是", {"ru", "guo", "shi"}, 0,
+        owo::engine::InputMatchKind::abbreviated_completion, {"r", "g", "s"}, 3, 2};
+    abbreviation.segment_lengths = {2, 1};
+    if (!owo::ipc::abbreviated_model_alternative(abbreviation, 3)) return 21;
+    for (const auto size : {2U, 13U})
+        if (owo::ipc::abbreviated_model_alternative(abbreviation, size)) return 22;
+    abbreviation.segment_count = 3;
+    abbreviation.segment_lengths = {1, 1, 1};
+    if (owo::ipc::abbreviated_model_alternative(abbreviation, 3)) return 23;
+    abbreviation.segment_count = 1;
+    abbreviation.segment_lengths = {3};
+    abbreviation.source_segments[1] = "x";
+    if (owo::ipc::abbreviated_model_alternative(abbreviation, 3)) return 24;
+    abbreviation.source_segments = {"ru", "guo", "s"};
+    if (owo::ipc::abbreviated_model_alternative(abbreviation, 6)) return 25;
     return 0;
 }

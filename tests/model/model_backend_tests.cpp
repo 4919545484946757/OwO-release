@@ -1,4 +1,6 @@
 #include "owo/model/model_backend.h"
+#include "owo/model/terminal_scoring.h"
+#include "owo/model/medial_scoring.h"
 
 #include <chrono>
 #include <memory>
@@ -7,6 +9,24 @@
 using namespace std::chrono_literals;
 
 int main() {
+    // A near-tied isolated character may overcome a unigram prior only when
+    // its actual winning LM path has stronger continuation evidence.
+    if (!owo::model::medial_pair_flips(-11.429F, -12.092F, -2.491F, -3.488F, -4.095F, -3.515F) ||
+        owo::model::medial_pair_flips(-11.429F, -12.092F, -2.491F, -3.488F, -3.0F, -3.515F) ||
+        owo::model::medial_pair_flips(-10.0F, -12.092F, -2.491F, -3.488F, -4.095F, -3.515F) ||
+        owo::model::medial_pair_flips(-11.429F, -12.092F, -3.488F, -3.488F, -4.095F, -3.515F) ||
+        owo::model::medial_pair_flips(-11.0F, -11.0F, -2.0F, -4.0F, -4.0F, -3.0F)) return 5;
+    using owo::model::calibrated_terminal_score;
+    if (!owo::model::terminal_pair_flips(-9.15F, -9.89F, -11.61F, -9.89F) ||
+        owo::model::terminal_pair_flips(-10.38F, -9.36F, -10.38F, -12.10F) ||
+        owo::model::terminal_pair_flips(-9.0F, -9.0F, -9.0F, -12.0F)) return 4;
+    if (calibrated_terminal_score(-9.0F, -12.0F) != -10.0F ||
+        calibrated_terminal_score(-9.0F, -9.0F) != -9.0F) return 2;
+    for (const auto whole : {-1.0F, -10.0F, -100.0F}) for (const auto loss : {0.0F, 1.0F, 50.0F}) {
+        const auto split = whole - loss;
+        const auto fused = calibrated_terminal_score(whole, split);
+        if (fused < split || fused > whole) return 3;
+    }
     const auto missing_libime =
         owo::model::load_libime_backend("missing-owo-libime-bridge.dll", "missing.zh_CN.lm");
     if (missing_libime || missing_libime.diagnostic.empty()) return 1;

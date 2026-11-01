@@ -19,10 +19,12 @@ constexpr std::size_t kMaximumSettingsBytes = 256 * 1024;
 
 struct Role {
     std::string_view name;
-    CandidateThemeColor CandidateTheme::*member;
+    CandidateThemeColor CandidateTheme::*member{};
+    std::optional<CandidateThemeColor> CandidateTheme::*extension{};
 };
 
-constexpr std::array<Role, 7> kRoles{{
+constexpr std::size_t kRequiredRoles = 7;
+constexpr std::array<Role, 16> kRoles{{
     {"background", &CandidateTheme::background},
     {"border", &CandidateTheme::border},
     {"divider", &CandidateTheme::divider},
@@ -30,7 +32,33 @@ constexpr std::array<Role, 7> kRoles{{
     {"candidate_text", &CandidateTheme::candidate_text},
     {"candidate_block", &CandidateTheme::candidate_block},
     {"candidate_number", &CandidateTheme::candidate_number},
+    {"candidate_badge", nullptr, &CandidateTheme::candidate_badge},
+    {"selected_page", nullptr, &CandidateTheme::selected_page},
+    {"hover_block", nullptr, &CandidateTheme::hover_block},
+    {"pressed_block", nullptr, &CandidateTheme::pressed_block},
+    {"button_background", nullptr, &CandidateTheme::button_background},
+    {"button_border", nullptr, &CandidateTheme::button_border},
+    {"button_text", nullptr, &CandidateTheme::button_text},
+    {"secondary_text", nullptr, &CandidateTheme::secondary_text},
+    {"caret", nullptr, &CandidateTheme::caret},
 }};
+
+CandidateThemeColor& role_color(CandidateTheme& theme, const Role& role) {
+    if (role.member) return theme.*role.member;
+    auto& value = theme.*role.extension;
+    if (!value) {
+        if (role.name == "candidate_badge" || role.name == "button_border") value = theme.border;
+        else if (role.name == "button_text") value = theme.candidate_text;
+        else if (role.name == "secondary_text")
+            value = CandidateThemeColor{theme.candidate_text.rgb, theme.candidate_text.opacity * 0.64F};
+        else if (role.name == "caret") value = theme.pinyin_text;
+        else if (role.name == "button_background") value = CandidateThemeColor{theme.candidate_block.rgb, 0};
+        else if (role.name == "selected_page")
+            value = CandidateThemeColor{theme.candidate_block.rgb, theme.candidate_block.opacity * 0.70F};
+        else value = theme.candidate_block;
+    }
+    return *value;
+}
 
 std::string trim(std::string_view input) {
     const auto begin = input.find_first_not_of(" \t\r\n");
@@ -93,11 +121,14 @@ const Role* find_role(const std::string_view name) {
     return found == kRoles.end() ? nullptr : &*found;
 }
 
-bool parse_descriptor(const std::string_view bytes, CandidateTheme& theme,
-                      std::string& diagnostic) {
-    bool version = false;
+bool parse_descriptor(const std::string_view bytes, CandidateTheme& dark_theme,
+                      CandidateTheme& light_theme, bool& adaptive, std::string& diagnostic) {
+    unsigned version = 0;
+    bool has_light_fields = false;
     std::array<bool, kRoles.size()> colors{};
     std::array<bool, kRoles.size()> opacities{};
+    std::array<bool, kRoles.size()> light_colors{};
+    std::array<bool, kRoles.size()> light_opacities{};
     std::size_t offset = 0;
     while (offset <= bytes.size()) {
         const auto end = bytes.find('\n', offset);
@@ -110,18 +141,27 @@ bool parse_descriptor(const std::string_view bytes, CandidateTheme& theme,
             diagnostic = "candidate theme contains an invalid line";
             return false;
         }
-        const auto key = std::string_view(line).substr(0, equal);
+        const auto raw_key = std::string_view(line).substr(0, equal);
+        const bool light_field = raw_key.starts_with("light.");
+        const auto key = light_field ? raw_key.substr(6) : raw_key;
+        auto& theme = light_field ? light_theme : dark_theme;
+        has_light_fields |= light_field;
         const auto value = std::string_view(line).substr(equal + 1);
         if (key == "schema_version") {
-            if (version || value != "1") {
-                diagnostic = "candidate theme schema_version must be exactly 1";
+            if (light_field || version || (value != "1" && value != "2")) {
+                diagnostic = "candidate theme schema_version must be 1 or 2";
                 return false;
             }
-            version = true;
+            version = value == "2" ? 2U : 1U;
             continue;
         }
         bool effect_valid = true;
         bool effect_key = true;
+        if (light_field && (key.starts_with("background_blur.") ||
+            (key.starts_with("shadow.") && key != "shadow.color" && key != "shadow.opacity"))) {
+            diagnostic = "candidate theme effects are shared between light and dark palettes";
+            return false;
+        }
         if (key == "background_blur.enabled")
             effect_valid = parse_boolean(value, theme.background_blur_enabled);
         else if (key == "background_blur.radius")
@@ -158,30 +198,40 @@ bool parse_descriptor(const std::string_view bytes, CandidateTheme& theme,
             return false;
         }
         const auto index = static_cast<std::size_t>(role - kRoles.data());
-        auto& color = theme.*(role->member);
+        auto& color_fields = light_field ? light_colors : colors;
+        auto& opacity_fields = light_field ? light_opacities : opacities;
+        auto& color = role_color(theme, *role);
         const auto property = key.substr(dot + 1);
         if (property == "color") {
-            if (colors[index] || !parse_color(value, color.rgb)) {
+            if (color_fields[index] || !parse_color(value, color.rgb)) {
                 diagnostic = "candidate theme contains an invalid or duplicate color";
                 return false;
             }
-            colors[index] = true;
+            color_fields[index] = true;
         } else if (property == "opacity") {
-            if (opacities[index] || !parse_opacity(value, color.opacity)) {
+            if (opacity_fields[index] || !parse_opacity(value, color.opacity)) {
                 diagnostic = "candidate theme contains an invalid or duplicate opacity";
                 return false;
             }
-            opacities[index] = true;
+            opacity_fields[index] = true;
         } else {
             diagnostic = "candidate theme contains an unknown property";
             return false;
         }
     }
-    if (!version || std::find(colors.begin(), colors.end(), false) != colors.end() ||
-        std::find(opacities.begin(), opacities.end(), false) != opacities.end()) {
+    const auto complete = [](const auto& color_fields, const auto& opacity_fields) {
+        for (std::size_t index = 0; index < kRoles.size(); ++index)
+            if (index < kRequiredRoles ? !color_fields[index] || !opacity_fields[index]
+                                      : color_fields[index] != opacity_fields[index]) return false;
+        return true;
+    };
+    if (!version || !complete(colors, opacities) ||
+        (version == 1 && has_light_fields) ||
+        (version == 2 && !complete(light_colors, light_opacities))) {
         diagnostic = "candidate theme must define every semantic color and opacity";
         return false;
     }
+    adaptive = version == 2;
     return true;
 }
 
@@ -212,16 +262,20 @@ std::optional<std::string_view> json_scalar(const std::string_view json,
                                                              : end - offset);
 }
 
-void apply_settings(const std::string_view json, CandidateTheme& theme) {
+void apply_settings(const std::string_view json, CandidateTheme& theme,
+                    const std::string_view prefix = {}) {
     for (const auto& role : kRoles) {
-        auto& value = theme.*(role.member);
-        if (const auto scalar = json_scalar(json, std::string(role.name) + "_color");
+        const auto color_scalar = json_scalar(json, std::string(prefix) + std::string(role.name) + "_color");
+        const auto opacity_scalar = json_scalar(json, std::string(prefix) + std::string(role.name) + "_opacity");
+        if (role.extension && !color_scalar && !opacity_scalar) continue;
+        auto& value = role_color(theme, role);
+        if (const auto scalar = json_scalar(json, std::string(prefix) + std::string(role.name) + "_color");
             scalar && scalar->size() == 9 && scalar->front() == '"' &&
             scalar->back() == '"') {
             std::uint32_t rgb = 0;
             if (parse_color(scalar->substr(1, 7), rgb)) value.rgb = rgb;
         }
-        if (const auto scalar = json_scalar(json, std::string(role.name) + "_opacity")) {
+        if (const auto scalar = json_scalar(json, std::string(prefix) + std::string(role.name) + "_opacity")) {
             float opacity = 0.0F;
             if (parse_opacity(*scalar, opacity)) value.opacity = opacity;
         }
@@ -234,48 +288,86 @@ void apply_settings(const std::string_view json, CandidateTheme& theme) {
         if (const auto scalar = json_scalar(json, key))
             parse_number(*scalar, minimum, maximum, target);
     };
-    apply_bool("background_blur_enabled", theme.background_blur_enabled);
-    apply_number("background_blur_radius", 0.0F, 24.0F,
-                 theme.background_blur_radius);
-    apply_bool("shadow_enabled", theme.shadow_enabled);
-    if (const auto scalar = json_scalar(json, "shadow_color");
+    if (prefix.empty()) {
+        apply_bool("background_blur_enabled", theme.background_blur_enabled);
+        apply_number("background_blur_radius", 0.0F, 24.0F, theme.background_blur_radius);
+        apply_bool("shadow_enabled", theme.shadow_enabled);
+    }
+    if (const auto scalar = json_scalar(json, std::string(prefix) + "shadow_color");
         scalar && scalar->size() == 9 && scalar->front() == '"' &&
         scalar->back() == '"') {
         std::uint32_t rgb = 0;
         if (parse_color(scalar->substr(1, 7), rgb)) theme.shadow.rgb = rgb;
     }
-    if (const auto scalar = json_scalar(json, "shadow_opacity"))
+    if (const auto scalar = json_scalar(json, std::string(prefix) + "shadow_opacity"))
         parse_opacity(*scalar, theme.shadow.opacity);
-    apply_number("shadow_blur_radius", 1.0F, 32.0F,
-                 theme.shadow_blur_radius);
-    apply_number("shadow_offset_x", -16.0F, 16.0F, theme.shadow_offset_x);
-    apply_number("shadow_offset_y", -16.0F, 16.0F, theme.shadow_offset_y);
+    if (prefix.empty()) {
+        apply_number("shadow_blur_radius", 1.0F, 32.0F, theme.shadow_blur_radius);
+        apply_number("shadow_offset_x", -16.0F, 16.0F, theme.shadow_offset_x);
+        apply_number("shadow_offset_y", -16.0F, 16.0F, theme.shadow_offset_y);
+    }
 }
 
 }  // namespace
 
+CandidateTheme default_candidate_theme(const bool light) {
+    CandidateTheme theme;
+    if (light) {
+        theme.background = {0xf5f5f5, 1.0F};
+        theme.border = {0x000000, 0.14F};
+        theme.divider = {0x000000, 0.12F};
+        theme.pinyin_text = {0x303030, 1.0F};
+        theme.candidate_text = {0x202020, 0.96F};
+        theme.candidate_block = {0x000000, 0.05F};
+        theme.candidate_number = {0x303030, 1.0F};
+        theme.shadow.opacity = 0.18F;
+    }
+    return theme;
+}
+
 CandidateThemeResult load_candidate_theme_resource(
-    const std::filesystem::path& resource, const std::filesystem::path& settings) {
+    const std::filesystem::path& resource, const std::filesystem::path& settings, const bool system_light) {
     CandidateThemeResult result;
     const auto descriptor = read_bounded(resource, kMaximumThemeBytes);
     if (!descriptor) {
         result.diagnostic = "candidate theme resource is missing or invalid";
         return result;
     }
-    if (!parse_descriptor(*descriptor, result.theme, result.diagnostic)) return result;
+    CandidateTheme dark_theme;
+    auto light_theme = default_candidate_theme(true);
+    bool adaptive = false;
+    if (!parse_descriptor(*descriptor, dark_theme, light_theme, adaptive, result.diagnostic)) return result;
+    std::optional<std::string> values;
     if (!settings.empty()) {
         std::error_code error;
         if (std::filesystem::exists(settings, error) && !error) {
-            if (const auto values = read_bounded(settings, kMaximumSettingsBytes))
-                apply_settings(*values, result.theme);
+            values = read_bounded(settings, kMaximumSettingsBytes);
         }
     }
+    if (values) apply_settings(*values, dark_theme);
+    light_theme.background_blur_enabled = dark_theme.background_blur_enabled;
+    light_theme.background_blur_radius = dark_theme.background_blur_radius;
+    light_theme.shadow_enabled = dark_theme.shadow_enabled;
+    light_theme.shadow_blur_radius = dark_theme.shadow_blur_radius;
+    light_theme.shadow_offset_x = dark_theme.shadow_offset_x;
+    light_theme.shadow_offset_y = dark_theme.shadow_offset_y;
+    if (values) apply_settings(*values, light_theme, "light_");
+    bool use_light = adaptive && system_light;
+    if (values) {
+        if (const auto mode = json_scalar(*values, "theme_mode")) {
+            if (*mode == "\"light\"") use_light = true;
+            else if (*mode == "\"dark\"") use_light = false;
+            else if (*mode == "\"system\"") use_light = system_light;
+        }
+    }
+    result.theme = use_light ? light_theme : dark_theme;
+    result.light_palette = use_light;
     result.active = true;
     return result;
 }
 
 CandidateThemeResult load_active_candidate_theme(
-    const std::filesystem::path& plugin_store_root) {
+    const std::filesystem::path& plugin_store_root, const bool system_light) {
     CandidateThemeResult fallback;
     if (plugin_store_root.empty()) return fallback;
     std::error_code error;
@@ -297,7 +389,7 @@ CandidateThemeResult load_active_candidate_theme(
                       "ui.candidate_theme") == installed.manifest.permissions.end()) continue;
         auto loaded = load_candidate_theme_resource(
             installed.installed_path / std::filesystem::path(installed.manifest.entry),
-            plugin_store_root / L"data" / std::filesystem::path(id) / L"settings.json");
+            plugin_store_root / L"data" / std::filesystem::path(id) / L"settings.json", system_light);
         if (!loaded.active) {
             fallback.diagnostic = loaded.diagnostic;
             continue;

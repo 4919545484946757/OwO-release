@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 
 namespace owo::plugin {
@@ -20,6 +21,16 @@ struct CandidateTheme {
     CandidateThemeColor candidate_text{0xffffff, 0.96F};
     CandidateThemeColor candidate_block{0x8ab4f8, 0.18F};
     CandidateThemeColor candidate_number{0x8ab4f8, 1.0F};
+    // Optional extensions inherit the original semantic colors for old themes.
+    std::optional<CandidateThemeColor> candidate_badge;
+    std::optional<CandidateThemeColor> selected_page;
+    std::optional<CandidateThemeColor> hover_block;
+    std::optional<CandidateThemeColor> pressed_block;
+    std::optional<CandidateThemeColor> button_background;
+    std::optional<CandidateThemeColor> button_border;
+    std::optional<CandidateThemeColor> button_text;
+    std::optional<CandidateThemeColor> secondary_text;
+    std::optional<CandidateThemeColor> caret;
     bool background_blur_enabled{};
     float background_blur_radius{12.0F};
     bool shadow_enabled{};
@@ -36,15 +47,19 @@ struct CandidateThemeResult {
     std::string plugin_id;
     std::string version;
     std::string diagnostic;
+    // Resolved palette identity, including the user's forced light/dark mode.
+    bool light_palette{};
 };
+
+[[nodiscard]] CandidateTheme default_candidate_theme(bool light);
 
 /// Loads one bounded declarative *.theme resource and optional flat settings JSON.
 [[nodiscard]] CandidateThemeResult load_candidate_theme_resource(
     const std::filesystem::path& resource,
-    const std::filesystem::path& settings = {});
+    const std::filesystem::path& settings = {}, bool system_light = false);
 
 /// Resolves the first valid active ui.candidate_theme resource deterministically.
 [[nodiscard]] CandidateThemeResult load_active_candidate_theme(
-    const std::filesystem::path& plugin_store_root);
+    const std::filesystem::path& plugin_store_root, bool system_light = false);
 
 }  // namespace owo::plugin

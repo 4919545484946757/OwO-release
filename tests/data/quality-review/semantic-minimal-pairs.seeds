@@ -1,0 +1,94 @@
+# Synthetic lexical/syntactic contrasts; homophones still require human review.
+再来一次|zai lai yi ci|contrast_zai
+在家休息|zai jia xiu xi|contrast_zai
+再确认一下|zai que ren yi xia|contrast_zai
+正在确认|zheng zai que ren|contrast_zai
+下次再说|xia ci zai shuo|contrast_zai
+就在这里|jiu zai zhe li|contrast_zai
+坐在椅子上|zuo zai yi zi shang|contrast_zuo
+做完作业|zuo wan zuo ye|contrast_zuo
+工作总结|gong zuo zong jie|contrast_zuo
+制作表格|zhi zuo biao ge|contrast_zuo
+作为参考|zuo wei can kao|contrast_zuo
+预订座位|yu ding zuo wei|contrast_zuo
+坐车回家|zuo che hui jia|contrast_zuo
+做饭洗菜|zuo fan xi cai|contrast_zuo
+想明白了|xiang ming bai le|contrast_xiang
+向右转弯|xiang you zhuan wan|contrast_xiang
+像往常一样|xiang wang chang yi yang|contrast_xiang
+互相帮助|hu xiang bang zhu|contrast_xiang
+详细说明|xiang xi shuo ming|contrast_xiang
+故乡的风景|gu xiang de feng jing|contrast_xiang
+美好的回忆|mei hao de hui yi|contrast_de
+慢慢地走|man man de zou|contrast_de
+跑得很快|pao de hen kuai|contrast_de
+说得有道理|shuo de you dao li|contrast_de
+认真地检查|ren zhen de jian cha|contrast_de
+值得纪念|zhi de ji nian|contrast_de
+带上雨伞|dai shang yu san|contrast_dai
+戴上眼镜|dai shang yan jing|contrast_dai
+等待通知|deng dai tong zhi|contrast_dai
+代表发言|dai biao fa yan|contrast_dai
+快递代收|kuai di dai shou|contrast_dai
+借书归还|jie shu gui huan|contrast_huan
+还是这样|hai shi zhe yang|contrast_hai
+把书还给他|ba shu huan gei ta|contrast_huan
+还有一个问题|hai you yi ge wen ti|contrast_hai
+使用说明|shi yong shuo ming|contrast_shi
+事实证明|shi shi zheng ming|contrast_shi
+试试这个方法|shi shi zhe ge fang fa|contrast_shi
+城市规划|cheng shi gui hua|contrast_shi
+考试时间|kao shi shi jian|contrast_shi
+正式发布|zheng shi fa bu|contrast_shi
+把门关上|ba men guan shang|contrast_ba
+我们走吧|wo men zou ba|contrast_ba
+办法总会有的|ban fa zong hui you de|contrast_de
+已经完成|yi jing wan cheng|contrast_yi
+一直坚持|yi zhi jian chi|contrast_yi
+以此为准|yi ci wei zhun|contrast_yi
+意见一致|yi jian yi zhi|contrast_yi
+意义重大|yi yi zhong da|contrast_yi
+会议纪要|hui yi ji yao|contrast_yi
+银行行长|yin hang hang zhang|polyphone_hang
+行走路线|xing zou lu xian|polyphone_xing
+这也行得通|zhe ye xing de tong|polyphone_xing
+重新开始|chong xin kai shi|polyphone_chong
+重复检查|chong fu jian cha|polyphone_chong
+重要通知|zhong yao tong zhi|polyphone_zhong
+重量变化|zhong liang bian hua|polyphone_zhong
+长大以后|zhang da yi hou|polyphone_zhang
+长时间等待|chang shi jian deng dai|polyphone_chang
+校长讲话|xiao zhang jiang hua|polyphone_zhang
+音乐教室|yin yue jiao shi|polyphone_yue
+快乐学习|kuai le xue xi|polyphone_le
+儿童乐园|er tong le yuan|polyphone_le
+角色扮演|jue se ban yan|polyphone_jue
+角度不同|jiao du bu tong|polyphone_jiao
+调整方向|tiao zheng fang xiang|polyphone_tiao
+调查结果|diao cha jie guo|polyphone_diao
+单独处理|dan du chu li|polyphone_dan
+简单明了|jian dan ming liao|polyphone_liao
+了解情况|liao jie qing kuang|polyphone_liao
+事情结束了|shi qing jie shu le|polyphone_le
+的确如此|di que ru ci|polyphone_di
+目的明确|mu di ming que|polyphone_di
+地理位置|di li wei zhi|polyphone_di
+得到认可|de dao ren ke|polyphone_de
+只好放弃|zhi hao fang qi|contrast_zhi
+只有一次|zhi you yi ci|contrast_zhi
+一只小猫|yi zhi xiao mao|contrast_zhi
+制造噪声|zhi zao zao sheng|contrast_zhi
+知道答案|zhi dao da an|contrast_zhi
+细致入微|xi zhi ru wei|contrast_zhi
+科学实验|ke xue shi yan|contrast_shiyan
+实验证明|shi yan zheng ming|contrast_shiyan
+食盐用量|shi yan yong liang|contrast_shiyan
+期限将至|qi xian jiang zhi|contrast_qixian
+曲线变化|qu xian bian hua|contrast_quxian
+权利保障|quan li bao zhang|contrast_quanli
+权力监督|quan li jian du|contrast_quanli
+努力学习|nu li xue xi|contrast_nuli
+女性读者|nv xing du zhe|contrast_nv
+绿色出行|lv se chu xing|contrast_lv
+旅游计划|lv you ji hua|contrast_lv
+略有不同|lve you bu tong|contrast_lve

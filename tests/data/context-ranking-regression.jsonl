@@ -1,0 +1,6 @@
+{"id":"jieguo-neutral","input":"jieguo","expected":["结果"],"tags":["exact","neutral"]}
+{"id":"jieguo-zhankai","input":"jieguo","expected":["结果"],"context":"展开","tags":["exact","context"]}
+{"id":"jieguo-zhankai-previous","input":"jieguo","expected":["结果"],"context":"展开","previous":"zhankai","tags":["exact","context"]}
+{"id":"shouxuan-neutral","input":"shouxuan","expected":["首选"],"tags":["exact","neutral"]}
+{"id":"shouxuan-buzai","input":"shouxuan","expected":["首选"],"context":"不在","tags":["exact","context"]}
+{"id":"shouxuan-buzai-previous","input":"shouxuan","expected":["首选"],"context":"不在","previous":"buzai","tags":["exact","context"]}

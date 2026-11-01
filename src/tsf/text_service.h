@@ -9,6 +9,7 @@
 #include "owo/tsf/expanded_candidate_pages.h"
 #include "owo/tsf/backdrop_snapshot.h"
 #include "owo/compatibility/uia_text_verifier.h"
+#include "inline_preedit.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -103,6 +104,10 @@ private:
     friend struct ExpandedCandidateTestAccess;
     friend struct WubiCommitTestAccess;
 #endif
+    struct CandidatePreviewRow {
+        std::vector<std::wstring> candidates;
+        std::vector<std::uint64_t> groups;
+    };
     struct CandidateResult {
         std::uint64_t request_id{};
         std::uint64_t generation{};
@@ -113,11 +118,13 @@ private:
         bool preserve_paging{};
         bool request_failed{};
         bool refinement_pending{};
+        bool symbol_preview{};
         std::wstring failure_detail;
         std::wstring segmented_input;
         std::vector<std::wstring> candidates;
         std::vector<std::uint64_t> candidate_consumed;
         std::vector<std::uint64_t> candidate_groups;
+        std::vector<CandidatePreviewRow> following_previews;
     };
     struct AgentResult {
         std::uint64_t request_id{};
@@ -137,6 +144,8 @@ private:
         agent::ApplicationContext application_context;
         std::chrono::steady_clock::time_point queued_at{std::chrono::steady_clock::now()};
         bool defer_expensive_candidates{};
+        bool symbol_composition{};
+        std::vector<std::uint64_t> manual_breaks;
     };
     enum class HitKind : std::uint8_t {
         pinyin_cursor,
@@ -183,6 +192,12 @@ private:
     bool candidate_ui_registered_{};
     [[nodiscard]] bool render_candidate_window();
     [[nodiscard]] SIZE desired_candidate_window_size() const;
+    [[nodiscard]] std::wstring_view candidate_display_text(std::wstring_view text, std::size_t row_index) const;
+    struct PreviewContainerLayout {
+        float left{}, top{}, right{}, bottom{};
+        std::vector<float> row_heights;
+    };
+    [[nodiscard]] std::optional<PreviewContainerLayout> layout_following_previews(float width) const;
     void worker_loop(std::stop_token stop_token);
     void queue_candidate_request();
     void schedule_candidate_request(bool reset_retry);
@@ -226,9 +241,17 @@ private:
     [[nodiscard]] bool has_composition() const noexcept;
     [[nodiscard]] std::wstring staged_text() const;
     [[nodiscard]] std::wstring composition_preview() const;
+    void sync_inline_preedit();
+    [[nodiscard]] bool candidate_preview_visible() const noexcept;
+    Microsoft::WRL::ComPtr<InlinePreedit> inline_preedit_;
     [[nodiscard]] std::size_t composition_cursor() const noexcept;
     void set_composition_cursor(std::size_t cursor);
     void restore_staged_suffix(std::size_t first);
+    void insert_composition_character(wchar_t character, bool manual_break = false);
+    void consume_manual_breaks(std::size_t count);
+    [[nodiscard]] bool symbol_composition_enabled() const noexcept;
+    [[nodiscard]] bool apostrophe_is_separator() const noexcept;
+    [[nodiscard]] std::optional<std::wstring> composition_symbol_for_key(WPARAM key, bool advance = false);
     HRESULT commit_pending_composition(ITfContext* context);
     void commit_pending_on_focus_loss();
     void move_candidate_page_from_shortcut(int direction);
@@ -238,6 +261,7 @@ private:
     void move_expanded_page(int direction);
     [[nodiscard]] std::optional<std::size_t> candidate_shortcut_index(std::size_t slot) const;
     [[nodiscard]] std::size_t candidate_page_width() const noexcept;
+    [[nodiscard]] float candidate_highlight_scale(bool hovered, bool pressed) const noexcept;
     [[nodiscard]] std::size_t plugin_expanded_block_rows() const noexcept;
     void append_alt_code_digit(unsigned digit);
     void finish_alt_code_preview() noexcept;
@@ -323,6 +347,7 @@ private:
     SIZE candidate_present_size_{};
     SIZE candidate_content_size_{};
     bool candidate_present_geometry_valid_{};
+    bool candidate_present_expanded_{};
     HHOOK keyboard_hook_{nullptr};
     bool language_space_key_suppressed_{false};
     std::uint16_t alt_code_numpad_down_mask_{0};
@@ -348,14 +373,25 @@ private:
     ID2D1SolidColorBrush* divider_brush_{nullptr};
     ID2D1SolidColorBrush* text_brush_{nullptr};
     ID2D1SolidColorBrush* secondary_text_brush_{nullptr};
+    ID2D1SolidColorBrush* preview_text_brush_{nullptr};
     ID2D1SolidColorBrush* accent_brush_{nullptr};
     ID2D1SolidColorBrush* highlight_brush_{nullptr};
     ID2D1SolidColorBrush* strict_accent_brush_{nullptr};
+    ID2D1SolidColorBrush* candidate_badge_brush_{nullptr};
+    ID2D1SolidColorBrush* selected_page_brush_{nullptr};
+    ID2D1SolidColorBrush* hover_brush_{nullptr};
+    ID2D1SolidColorBrush* pressed_brush_{nullptr};
+    ID2D1SolidColorBrush* button_background_brush_{nullptr};
+    ID2D1SolidColorBrush* button_border_brush_{nullptr};
+    ID2D1SolidColorBrush* button_text_brush_{nullptr};
+    ID2D1SolidColorBrush* caret_brush_{nullptr};
     struct StagedCandidate {
         std::wstring text;
         std::wstring source_input;
+        std::vector<std::size_t> manual_breaks;
     };
     std::wstring input_buffer_;
+    std::vector<std::size_t> manual_breaks_;
     std::size_t input_cursor_{0};
     std::vector<StagedCandidate> staged_candidates_;
     std::size_t staged_cursor_{0};
@@ -369,6 +405,8 @@ private:
     std::vector<std::wstring> candidates_;
     std::vector<std::uint64_t> candidate_consumed_;
     std::vector<std::uint64_t> candidate_groups_;
+    std::vector<CandidatePreviewRow> following_previews_;
+    bool candidate_symbol_preview_{};
     std::string agent_session_id_;
     std::string agent_context_id_;
     agent::Status agent_status_{agent::Status::agent_mode};
@@ -411,6 +449,7 @@ private:
     ULONGLONG next_shortcut_config_refresh_{0};
     bool shortcut_config_initialized_{false};
     plugin::CandidateTheme candidate_theme_{};
+    bool candidate_light_palette_{};
     std::string candidate_theme_source_;
     plugin::UnicodePalette unicode_palette_{};
     std::string unicode_palette_source_;

@@ -2,6 +2,7 @@
 #include "owo/ipc/named_pipe.h"
 #include "owo/protocol/messages.h"
 #include "owo/engine/lexicon.h"
+#include "owo/engine/binary_lexicon.h"
 #define NOMINMAX
 #include <Windows.h>
 #include <chrono>
@@ -101,8 +102,11 @@ int main() {
     // cached candidates; no production pipe, config or user store is touched.
     const auto suffix = std::wstring(nonce.begin(), nonce.end());
     const auto pipe = LR"(\\.\pipe\OwO.Test.UserLexicon.)" + suffix;
-    const owo::engine::MemoryLexicon lexicon(
-        {{{"ni", "hao"}, "你好", 50000}, {{"ni", "hao"}, "你号", 1}, {{"ni"}, "你", 1000}});
+    const auto base_path = root / "base.owolx";
+    if (!owo::engine::write_binary_lexicon(base_path,
+        {{{"ni", "hao"}, "你好", 50000}, {{"ni", "hao"}, "你号", 1}, {{"ni"}, "你", 1000}}).success) return 18;
+    owo::engine::BinaryLexicon lexicon;
+    if (!lexicon.load(base_path).success) return 18;
     store.record("nihao", "你号", 4);
     std::thread core(
         [&] { static_cast<void>(owo::ipc::run_core_server(pipe.c_str(), lexicon, &store)); });
@@ -114,6 +118,34 @@ int main() {
         return owo::protocol::decode_message(reply.response);
     };
     const auto first = send(owo::protocol::MessageType::candidate_request, "nihao");
+    const auto export_source = send(owo::protocol::MessageType::user_lexicon_request, "base-file\n");
+    const auto exported_path = base_path.u8string();
+    const bool export_ok = export_source.validation &&
+        export_source.message.type == owo::protocol::MessageType::user_lexicon_response &&
+        export_source.message.text == std::string(reinterpret_cast<const char*>(exported_path.data()), exported_path.size());
+    // Publish independent source switches while reusing exactly the same
+    // candidate cache key. Each snapshot must invalidate old source results.
+    int snapshot = 0;
+    const auto publish_sources = [&](bool base, bool user, bool imported = false) {
+        const auto id = std::string(31, '0') + char('1' + snapshot++);
+        const auto directory = root / "dictionaries" / "snapshots" / id;
+        std::filesystem::create_directories(directory);
+        { std::ofstream file(directory / "active.tsv", std::ios::binary); file << "OWO_DICTIONARIES_V1\n";
+          if (imported) file << "nihao\t导入字典\t30\n"; }
+        { std::ofstream file(directory / "sources.tsv", std::ios::binary); file << "OWO_DICTIONARY_SOURCES_V1\nbase\t" << base << "\nuser\t" << user << '\n'; }
+        { std::ofstream file(root / "dictionaries" / "current"); file << id; }
+        std::this_thread::sleep_for(std::chrono::milliseconds(270));
+        return send(owo::protocol::MessageType::candidate_request, "nihao");
+    };
+    const auto learned_only = publish_sources(false, true);
+    const auto none = publish_sources(false, false);
+    const auto imported_only = publish_sources(false, false, true);
+    const auto base_only = publish_sources(true, false);
+    const auto restored = publish_sources(true, true);
+    const bool sources_ok = learned_only.validation && learned_only.message.text == "你号" &&
+        none.validation && none.message.candidates.empty() && imported_only.validation &&
+        imported_only.message.text == "导入字典" && base_only.validation && base_only.message.text == "你好" &&
+        restored.validation && restored.message.text == "你号" && store.contextual_count("nihao", "你号") == 4;
     HANDLE process_token{}, low_token{};
     bool low_denied = false;
     if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE, &process_token) &&
@@ -131,6 +163,9 @@ int main() {
                     send(owo::protocol::MessageType::user_lexicon_request, request("list"));
                 low_denied = denied.validation &&
                              denied.message.type == owo::protocol::MessageType::error_response;
+                const auto base_denied = send(owo::protocol::MessageType::user_lexicon_request, "base-file\n");
+                low_denied = low_denied && base_denied.validation &&
+                    base_denied.message.type == owo::protocol::MessageType::error_response;
                 if (!RevertToSelf())
                     TerminateProcess(GetCurrentProcess(), 99);
             }
@@ -149,7 +184,7 @@ int main() {
                             request("save", rpc_revision, "nihao\t你号\t20\n"));
     static_cast<void>(send(owo::protocol::MessageType::shutdown_request, {}));
     core.join();
-    const bool ok = low_denied && first.validation && first.message.text == "你号" &&
+    const bool ok = export_ok && sources_ok && low_denied && first.validation && first.message.text == "你号" &&
                     listing.validation &&
                     listing.message.type == owo::protocol::MessageType::user_lexicon_response &&
                     cleared.validation &&

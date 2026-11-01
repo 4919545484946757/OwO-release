@@ -29,6 +29,10 @@ public sealed partial class MainPage
         Card(nameof(SettingsSnapshot.InputScheme), InputSchemeCard, "输入方案", "全拼 拼音 精确编码 表码");
 
         Number(nameof(SettingsSnapshot.CandidatePageSize), CandidatePageSize, 1, 9, "每页候选数");
+        _settingsEditors.Bind(nameof(SettingsSnapshot.PinyinPreviewLocation),
+            () => PinyinPreviewLocation.SelectedIndex == 1 ? "input" : "candidate",
+            value => PinyinPreviewLocation.SelectedIndex = value == "input" ? 1 : 0, PinyinPreviewLocation);
+        Card(nameof(SettingsSnapshot.PinyinPreviewLocation), PinyinPreviewLocationCard, "拼音预览显示位置", "候选栏 输入位置 组合文本 光标");
         Number(nameof(SettingsSnapshot.CandidateWrapLength), CandidateWrapLength, 4, 64, "候选词换行长度");
         Toggle(nameof(SettingsSnapshot.CandidatePartitionEnabled), CandidatePartition);
         Toggle(nameof(SettingsSnapshot.CandidateSingleCharacterFirstEnabled), CandidateSingleCharacterFirst);
@@ -43,6 +47,9 @@ public sealed partial class MainPage
         Card(nameof(SettingsSnapshot.FocusLossCommitEnabled), FocusLossCommitCard, "失焦保护", "候选框 关闭 上屏");
 
         Toggle(nameof(SettingsSnapshot.ChinesePunctuationEnabled), ChinesePunctuation);
+        Toggle(nameof(SettingsSnapshot.PinyinSymbolCompatibilityEnabled), PinyinSymbolCompatibility);
+        Card(nameof(SettingsSnapshot.PinyinSymbolCompatibilityEnabled), PinyinSymbolCompatibilityCard,
+            "拼音符号兼容", "标点 符号 强分隔 弱引号 预编辑", page: "candidates");
         _settingsEditors.Bind(nameof(SettingsSnapshot.ChinesePunctuationMask), PunctuationMask,
             ApplyPunctuationMask, _punctuationSwitches.Values.Cast<Control>().ToArray());
         Card(nameof(SettingsSnapshot.ChinesePunctuationEnabled), ChinesePunctuationCard, "中文标点", "全角 标点", page: "candidates");
@@ -80,6 +87,7 @@ public sealed partial class MainPage
         Shortcut(nameof(SettingsSnapshot.CorrectionShortcutEnabled), nameof(SettingsSnapshot.CorrectionShortcuts), CorrectionShortcutEnabled, "correction", CorrectionShortcutCard, "切换输入纠错", "快捷键 全拼 严格输入");
         Shortcut(nameof(SettingsSnapshot.LanguageShortcutEnabled), nameof(SettingsSnapshot.LanguageShortcuts), LanguageShortcutEnabled, "language", LanguageShortcutCard, "切换中英文输入", "快捷键 语言");
         Shortcut(nameof(SettingsSnapshot.RawInputShortcutEnabled), nameof(SettingsSnapshot.RawInputShortcuts), RawInputShortcutEnabled, "raw", RawInputShortcutCard, "输入编码原样上屏", "快捷键 Enter");
+        Shortcut(nameof(SettingsSnapshot.SeparatorShortcutEnabled), nameof(SettingsSnapshot.SeparatorShortcuts), SeparatorShortcutEnabled, "separator", SeparatorShortcutCard, "拼音分割", "快捷键 撇号 单引号 分隔 拼音边界");
         Shortcut(nameof(SettingsSnapshot.CursorLeftShortcutEnabled), nameof(SettingsSnapshot.CursorLeftShortcuts), CursorLeftShortcutEnabled, "cursor-left", CursorLeftShortcutCard, "预编辑光标左移", "快捷键 编码 光标");
         Shortcut(nameof(SettingsSnapshot.CursorRightShortcutEnabled), nameof(SettingsSnapshot.CursorRightShortcuts), CursorRightShortcutEnabled, "cursor-right", CursorRightShortcutCard, "预编辑光标右移", "快捷键 编码 光标");
         Shortcut(nameof(SettingsSnapshot.PreviousPageShortcutEnabled), nameof(SettingsSnapshot.PreviousPageShortcuts), PreviousPageShortcutEnabled, "previous-page", PreviousPageShortcutCard, "候选词上一页", "快捷键 翻页");

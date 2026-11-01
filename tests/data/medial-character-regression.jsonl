@@ -1,0 +1,13 @@
+{"id":"list-unexpanded","input":"liebiaoweizhankai","expected":["列表未展开"],"tags":["medial","wei"]}
+{"id":"list-explicit","input":"lie'biao'wei'zhan'kai","expected":["列表未展开"],"tags":["medial","explicit"]}
+{"id":"window-unopened","input":"chuangkouweidakai","expected":["窗口未打开"],"tags":["medial","wei"]}
+{"id":"task-incomplete","input":"renwuweiwancheng","expected":["任务未完成"],"tags":["medial","wei"]}
+{"id":"file-unsaved","input":"wenjianweibaocun","expected":["文件未保存"],"tags":["medial","wei"]}
+{"id":"operation-unsuccessful","input":"caozuoweichenggong","expected":["操作未成功"],"tags":["medial","wei"]}
+{"id":"results-zero","input":"jieguojieweiling","expected":["结果皆为零"],"tags":["medial","jie"]}
+{"id":"people-silent","input":"zhongrenjiewuyan","expected":["众人皆无言"],"tags":["medial","jie"]}
+{"id":"list-empty","input":"liebiaoweikong","expected":["列表为空"],"tags":["control","wei"]}
+{"id":"data-zero","input":"shujuweiling","expected":["数据为零"],"tags":["control","wei"]}
+{"id":"file-position","input":"wenjianweizhi","expected":["文件位置"],"tags":["control","word"]}
+{"id":"data-link","input":"shujulianjie","expected":["数据链接"],"tags":["control","word"]}
+{"id":"task-handover","input":"renwujiaojie","expected":["任务交接"],"tags":["control","word"]}

@@ -5,6 +5,11 @@ $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $cliPath = Join-Path $repoRoot 'build\windows-developer\Release\owo_dev_cli.exe'
 $cliArguments = @($args)
 try {
+    if ($cliArguments.Count -gt 0 -and $cliArguments[0] -eq 'compare') {
+        if ($cliArguments.Count -lt 2) { throw 'Usage: owo-dev compare -Baseline <report directory> -Candidate <report directory> [-FailOnRegression]' }
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'compare-cli-reports.ps1') @($cliArguments[1..($cliArguments.Count - 1)])
+        exit $LASTEXITCODE
+    }
     if ($cliArguments.Count -gt 0 -and $cliArguments[0] -eq 'build') {
         if ($cliArguments.Count -ne 1) { throw 'build accepts no other arguments.' }
         Push-Location -LiteralPath $repoRoot

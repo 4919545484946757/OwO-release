@@ -19,6 +19,8 @@ public sealed partial class SetupPage
                 throw new InvalidOperationException("Options page did not finish loading.");
             if (_consent.IsChecked == true || _primary.IsEnabled)
                 throw new InvalidOperationException("Installation must remain blocked without consent.");
+            if (_bundledPlugins.IsChecked != true || _bundledPlugins.ActualWidth <= 0)
+                throw new InvalidOperationException("Bundled plugin option must render and default to enabled.");
             App.LogStage($"Navigation round {round + 1}: options rendered; package={_packageReady}; language={_languageReady}");
             BackButton_Click(this, new Microsoft.UI.Xaml.RoutedEventArgs());
             await Task.Delay(300);

@@ -2,7 +2,7 @@
 
 OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入方案；解析、候选服务和设置层允许切换或扩展其他编码方案。基础输入、词典查询和上屏均可离线运行；智能排序不可用时保留基础候选。明确选择的插件输入方案不可用时保留编码，不自动切回拼音。
 
-当前版本：`0.2.5`
+当前版本：`0.2.6`
 
 ## 功能概览
 
@@ -19,7 +19,7 @@ OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入
 
 ## 安装与使用
 
-运行 `OwO-Input-Method-0.2.5-windows-x64-Setup.exe`，允许系统管理员授权后，由 Setup 解包并启动 WinUI 3 安装助手：先查看软件介绍，再选择安装位置和快捷方式，最后确认安装并查看进度。Setup 保留原生解包进度；软件安装选项和实际安装仍由 WinUI 助手处理。安装助手自带运行时，无需另外安装 .NET 或 Windows App SDK。也可解压便携包后双击 `Install-OwO.cmd` 使用脚本入口。系统需要 Windows 11 x64，以及“中文（简体，中国）”语言和基本输入支持；不要求把中文设为 Windows 显示语言。
+运行 `OwO-Input-Method-0.2.6-windows-x64-Setup.exe`，允许系统管理员授权后，由 Setup 解包并启动 WinUI 3 安装助手：先查看软件介绍，再选择安装位置和快捷方式，最后确认安装并查看进度。安装选项默认勾选随包插件及其启用状态；插件仍逐项告知风险并授权，可跳过，不复制原机器的授权记录。已有同版本插件保留当地设置。Setup 保留原生解包进度；软件安装选项和实际安装仍由 WinUI 助手处理。安装助手自带运行时，无需另外安装 .NET 或 Windows App SDK。也可解压便携包后双击 `Install-OwO.cmd` 使用脚本入口（不自动导入插件）。系统需要 Windows 11 x64，以及“中文（简体，中国）”语言和基本输入支持；不要求把中文设为 Windows 显示语言。
 
 安装完成后按 `Win + Space` 选择 OwO Input Method。常用入口：
 
@@ -49,7 +49,7 @@ OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入
 
 仅一次的学习记录会快速衰减优先级，重复确认的词保持稳定学习；词条不会因此删除。详见[单次学习衰减规则](docs/singleton-learning-decay.md)。
 
-设置中心「用户词库」支持搜索编辑、删除/清空，以及 JSON/TSV 导入导出。详见[词库管理与备份](docs/user-lexicon-editor.md)。
+设置中心「词库管理器」以搜索栏与卡片管理独立字典，支持 Gboard 个人词典、Rime 文本词典、CSV、TSV 和 OwO JSON 导入。原「用户词库」作为其中一个项目，保留学习数据与编辑、清除、备份功能。详见[字典导入与管理](docs/dictionaries.md)及[用户词库与备份](docs/user-lexicon-editor.md)。
 
 设置中心「通用设置」支持配置导入/导出，导入前校验、确认并备份原配置；不包含词库、插件配置或权限。配置项按输入方案能力启用，不支持的功能保留原值。详见[配置备份与迁移](docs/settings-transfer.md)与[设置模块化](docs/settings-modularity.md)。
 
@@ -71,6 +71,8 @@ Agent 返回的自然语言只用于显示，控制行为必须使用结构化�
 
 开发调试可使用独立的 `owo-dev.cmd`：支持隔离候选回放、插件服务调用、输入方案与模型测试。它默认不进入发行包、不连接日常 Core；完整命令和权限边界见[开发 CLI](docs/developer-cli.md)。
 
+批量拼音与候选质量评测支持 JSONL/TSV、首选/首屏/Top-K/MRR、分割与耗时统计、失败集回放和版本报告对照，见[CLI 用户手册](docs/cli-user.md)与[AI/CI 接口手册](docs/cli-ai.md)。
+
 需要 Visual Studio 2022 Build Tools、MSVC x64、CMake 3.25+、.NET 10 SDK 和 Windows 11 SDK；Setup 打包另需 Inno Setup 6/7（可通过 `-CompilerPath` 指定编译器）。
 
 ```powershell
@@ -82,8 +84,8 @@ cmake --preset windows-release
 cmake --build --preset windows-release
 .\scripts\build_settings_center.ps1 -Configuration Release
 .\open-owo-installer.cmd
-.\scripts\package_release.ps1 -Version 0.2.5
-.\scripts\package_setup.ps1 -Version 0.2.5
+.\scripts\package_release.ps1 -Version 0.2.6 -BundledPluginStore "$env:LOCALAPPDATA\OwO\InputMethod\plugins"
+.\scripts\package_setup.ps1 -Version 0.2.6
 .\scripts\package_plugins.ps1
 .\scripts\package-agent-sdk.ps1 -Version 1.2.0
 ```

@@ -71,7 +71,7 @@ public sealed partial class MainPage
     private void AutoSaveSettings_Toggled(object sender, RoutedEventArgs e)
     {
         if (_loadingUiPreferences) return;
-        try { new SettingsUiPreferences(AutoSaveSettings.IsOn).Save(UiPreferencesPath); }
+        try { (SettingsUiPreferences.Load(UiPreferencesPath) with { AutoSaveEnabled = AutoSaveSettings.IsOn }).Save(UiPreferencesPath); }
         catch (Exception error) {
             _loadingUiPreferences = true;
             AutoSaveSettings.IsOn = !AutoSaveSettings.IsOn;

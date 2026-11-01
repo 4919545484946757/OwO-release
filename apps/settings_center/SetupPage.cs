@@ -16,7 +16,7 @@ public sealed partial class SetupPage : Page
 {
     private enum SetupStep { Welcome, Options, Progress }
 
-    private const string Version = "0.2.5";
+    private const string Version = "0.2.6";
     private readonly string _packageRoot;
     private readonly string? _previewStage;
     private readonly Grid _pageHost = new();
@@ -33,7 +33,8 @@ public sealed partial class SetupPage : Page
     private readonly InfoBar _packageStatus = new() { IsOpen = true, IsClosable = false };
     private readonly CheckBox _startMenuShortcut = new() { Content = "在开始菜单添加 OwO 设置中心", IsChecked = true };
     private readonly CheckBox _desktopShortcut = new() { Content = "在桌面添加 OwO 设置中心" };
-    private readonly CheckBox _taskbarGuide = new() { Content = "安装完成后显示任务栏固定提示" };
+    private readonly CheckBox _taskbarGuide = new() { Content = "安装完成后显示任务栏固定提示", Visibility = Visibility.Collapsed };
+    private readonly CheckBox _bundledPlugins = new() { Content = "安装随包插件与配置，并恢复随包启用状态（逐项确认权限）", IsChecked = true };
     private readonly CheckBox _consent = new();
     private readonly TextBlock _availability = new() { TextWrapping = TextWrapping.Wrap, Opacity = 0.75 };
     private readonly Dictionary<SetupStep, UIElement> _pages = new();
@@ -72,7 +73,7 @@ public sealed partial class SetupPage : Page
     {
         _packageRoot = Path.GetFullPath(App.InstallPackageRoot ?? Path.Combine(AppContext.BaseDirectory, ".."));
         _previewStage = App.InstallPreviewStage;
-        foreach (var option in new[] { _startMenuShortcut, _desktopShortcut, _taskbarGuide }) {
+        foreach (var option in new[] { _startMenuShortcut, _desktopShortcut, _taskbarGuide, _bundledPlugins }) {
             option.Content = new TextBlock {
                 Text = option.Content.ToString(), TextWrapping = TextWrapping.Wrap
             };
@@ -96,6 +97,7 @@ public sealed partial class SetupPage : Page
         _recheckLanguage.Click += async (_, _) => await CheckEnvironmentAsync();
         _consent.Checked += (_, _) => UpdateInstallAvailability();
         _consent.Unchecked += (_, _) => UpdateInstallAvailability();
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_bundledPlugins, "InstallBundledPlugins");
         _installDirectory.TextChanged += (_, _) => UpdateInstallAvailability();
         _detailsToggle.Checked += (_, _) => SetDetailsVisibility(true);
         _detailsToggle.Unchecked += (_, _) => SetDetailsVisibility(false);
@@ -214,10 +216,9 @@ public sealed partial class SetupPage : Page
         ResizeInstallerWindow(760);
         var body = PageBody("欢迎使用 OwO", "面向 Windows 11 的模块化中文输入法。");
         var introduction = new StackPanel { Spacing = 14 };
-        introduction.Children.Add(new TextBlock {
-            Text = "OwO", FontSize = 52, CharacterSpacing = 80,
-            Foreground = AccentBrush()
-        });
+        var logo = new Image { Width = 96, Height = 96, HorizontalAlignment = HorizontalAlignment.Left };
+        LogoAppearance.BindImage(logo, rounded: false);
+        introduction.Children.Add(logo);
         introduction.Children.Add(new TextBlock {
             Text = "让每一次表达，更贴近你的习惯。", FontSize = 24,
             TextWrapping = TextWrapping.Wrap
@@ -269,6 +270,7 @@ public sealed partial class SetupPage : Page
         _startMenuShortcut.IsEnabled = _previewStage is null;
         _desktopShortcut.IsEnabled = _previewStage is null;
         _taskbarGuide.IsEnabled = _previewStage is null;
+        _bundledPlugins.IsEnabled = _previewStage is null;
         _consent.IsEnabled = _previewStage is null;
         _recheckLanguage.IsEnabled = _previewStage is null && !_checking;
         UpdateInstallAvailability();
@@ -298,9 +300,14 @@ public sealed partial class SetupPage : Page
         options.Children.Add(_startMenuShortcut);
         options.Children.Add(_desktopShortcut);
         options.Children.Add(_taskbarGuide);
+        options.Children.Add(_bundledPlugins);
+        options.Children.Add(new TextBlock {
+            Text = "本包附带亚克力候选框与 Unicode 符号列表。每个新插件仍需单独确认风险与权限；已有同版本保留本机配置和启用状态。取消勾选不会停用已有插件。",
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7, Visibility = Visibility.Collapsed
+        });
         options.Children.Add(new TextBlock {
             Text = "Windows 任务栏固定由你手动完成，安装器可在完成后提供操作提示。",
-            TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7
+            TextWrapping = TextWrapping.Wrap, FontSize = 12, Opacity = 0.7, Visibility = Visibility.Collapsed
         });
 
         var languageText = new StackPanel { Spacing = 4 };
@@ -527,6 +534,7 @@ public sealed partial class SetupPage : Page
             return;
         }
         _installing = true;
+        var pluginWarning = false;
         try {
             ShowProgress("正在复制文件、注册 TSF 并启动服务…");
             if (App.BundledInstaller is { } payload) {
@@ -566,11 +574,27 @@ public sealed partial class SetupPage : Page
                 new[] { result.Output, result.Error }.Where(value => !string.IsNullOrWhiteSpace(value)));
             if (result.ExitCode != 0)
                 throw new InvalidOperationException($"安装后端退出码：{result.ExitCode}");
+            if (_bundledPlugins.IsChecked == true) {
+                _stageMessage.Text = "正在检查随包插件与权限…";
+                try {
+                    var outcomes = await BundledPlugins.ImportAsync(_packageRoot, new PluginShellClient(), ConfirmBundledPluginAsync,
+                        new Progress<string>(message => _stageMessage.Text = message));
+                    _installLog.Text += Environment.NewLine + string.Join(Environment.NewLine, outcomes);
+                    pluginWarning = outcomes.Any(message => message.StartsWith("插件未完整恢复", StringComparison.Ordinal));
+                    if (pluginWarning) SetDetailsVisibility(true);
+                } catch (Exception error) {
+                    // The input method is already installed; optional plugin
+                    // failure must not misreport the entire installation.
+                    _installLog.Text += Environment.NewLine + "随包插件未导入，请在设置中心检查：" + error.Message;
+                    pluginWarning = true;
+                    SetDetailsVisibility(true);
+                }
+            }
             _progress.IsIndeterminate = false;
             _progress.Value = 100;
             _progressPercentage.Text = "100%";
-            _installStatus.Severity = InfoBarSeverity.Success;
-            _stageMessage.Text = _taskbarGuide.IsChecked == true
+            _installStatus.Severity = pluginWarning ? InfoBarSeverity.Warning : InfoBarSeverity.Success;
+            _stageMessage.Text = pluginWarning ? "输入法已安装成功；部分随包插件未恢复，请查看详细信息并在设置中心检查。" : _taskbarGuide.IsChecked == true
                 ? "安装成功。打开设置中心后，可右键任务栏图标并选择“固定到任务栏”。"
                 : "安装成功。现在可以按 Win＋Space 选择 OwO 输入法。";
             _openSettings.Visibility = Visibility.Visible;
@@ -593,6 +617,38 @@ public sealed partial class SetupPage : Page
         } finally {
             _installing = false;
         }
+    }
+
+    private async Task<bool> ConfirmBundledPluginAsync(BundledPlugin item, PluginInstallPreviewSnapshot preview)
+    {
+        var acknowledgement = new CheckBox { Content = "我已阅读并理解此插件的权限、风险和免责说明。" };
+        var body = new StackPanel { Spacing = 12 };
+        body.Children.Add(new TextBlock {
+            Text = $"{preview.Name} {preview.Version}\n{preview.PluginId}\n"
+                + $"随包状态：{(item.Active ? "启用" : "停用")}\n信任：{PluginUiText.Trust(preview.TrustTier)}\n风险：{PluginUiText.Risk(preview.RiskLevel)}\n\n"
+                + "申请权限：\n" + string.Join("\n", preview.Permissions.Select(PluginUiText.Permission))
+                + "\n\n仅安装你信任的插件。未验证或高权限插件可能泄露、修改、删除数据，或执行系统操作；相关损失风险由你承担。安装器不复制其他电脑的授权记录，拒绝授权不会影响输入法本体安装。"
+                + (preview.Permissions.Contains("agent.ipc")
+                    ? "\n\nAgent 隐私：v 模式确认的输入、当前应用基础信息与必要局部上下文可能经脱敏后发送给第三方 Agent；密码和安全输入框不采集上下文。第三方可能执行系统操作，高风险操作仍须宿主确认。" : ""),
+            TextWrapping = TextWrapping.Wrap
+        });
+        body.Children.Add(acknowledgement);
+        var dialog = new ContentDialog {
+            XamlRoot = XamlRoot, Title = "随包插件风险告知",
+            Content = new ScrollViewer { Content = body, MaxHeight = 420, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
+            PrimaryButtonText = "我已理解风险", CloseButtonText = "跳过此插件",
+            DefaultButton = ContentDialogButton.Close, IsPrimaryButtonEnabled = false
+        };
+        acknowledgement.Checked += (_, _) => dialog.IsPrimaryButtonEnabled = true;
+        acknowledgement.Unchecked += (_, _) => dialog.IsPrimaryButtonEnabled = false;
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return false;
+        return await new ContentDialog {
+            XamlRoot = XamlRoot, Title = "单独授权随包插件",
+            Content = $"只授权此版本：{preview.Name} {preview.Version}\n{preview.PluginId}\n"
+                + $"清单 SHA-256：{preview.InventorySha256}\n\n"
+                + $"安装后{(item.Active ? "按随包状态启用" : "保持停用")}。配置仅在本机没有已有配置时导入。",
+            PrimaryButtonText = "授权并安装", CloseButtonText = "跳过此插件", DefaultButton = ContentDialogButton.Close
+        }.ShowAsync() == ContentDialogResult.Primary;
     }
 
     private void ApplyPreviewStage(string stage)
