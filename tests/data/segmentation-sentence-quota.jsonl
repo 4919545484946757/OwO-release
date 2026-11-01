@@ -1,0 +1,8 @@
+{"id":"connect-to","input":"xianjiedao","expected":["衔接到"],"tags":["segmentation-quota","three-syllables"]}
+{"id":"xian-street","input":"xianjiedao","expected":["西安街道"],"tags":["segmentation-quota","four-syllables"]}
+{"id":"connect-to-suffix","input":"xianjiedaole","expected":["衔接到了"],"tags":["segmentation-quota","suffix"]}
+{"id":"followup-placement","input":"houxuanzhi","expected":["后续安置"],"tags":["segmentation-quota","control"]}
+{"id":"candidate-value","input":"houxuanzhi","expected":["候选值"],"tags":["segmentation-quota","homophone"]}
+{"id":"connect-interface","input":"xianjiekou","expected":["衔接口"],"tags":["segmentation-quota","word"]}
+{"id":"connect-method","input":"xianjiefangfa","expected":["衔接方法"],"tags":["segmentation-quota","control"]}
+{"id":"sensitive-control","input":"mingan","expected":["敏感"],"tags":["segmentation-quota","control"]}

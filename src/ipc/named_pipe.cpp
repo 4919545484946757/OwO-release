@@ -42,6 +42,7 @@
 #include <string_view>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -569,6 +570,8 @@ void preserve_candidate_pool_prefix(
     std::vector<bool> used(expanded.size());
     std::vector<engine::Candidate> hidden;
     std::size_t sentences = 0;
+    std::unordered_map<std::string, std::size_t> reading_counts;
+    std::unordered_set<std::string> qualified_readings;
     const auto sentence = [full_input_bytes](const auto& value) {
         return value.consumed_input_bytes == full_input_bytes && value.segment_count > 1 &&
             value.syllables.size() >= 3 && utf8_character_count(value.text) == value.syllables.size();
@@ -590,15 +593,27 @@ void preserve_candidate_pool_prefix(
         if (stable.size() >= protocol::kMaximumCandidateCount) break;
         stable.push_back(existing);
         sentences += sentence(existing);
+        if (sentence(existing)) ++reading_counts[engine::sentence_reading_key(existing)];
+        if (existing.qualified_sentence_reading) qualified_readings.insert(engine::sentence_reading_key(existing));
     }
-    const auto sentence_limit = model_refined ? sentences : std::size_t{2};
+    const auto original_counts = reading_counts;
+    for (const auto& candidate : expanded)
+        if (candidate.qualified_sentence_reading && candidate.consumed_input_bytes == full_input_bytes)
+            qualified_readings.insert(engine::sentence_reading_key(candidate));
+    const auto sentence_limit = std::max(sentences, std::max<std::size_t>(1, qualified_readings.size()) * 2);
     for (std::size_t index = 0; index < expanded.size(); ++index) {
         if (used[index]) continue;
         auto& value = expanded[index];
         if (value.model_only) { hidden.push_back(std::move(value)); continue; }
         if (stable.size() >= protocol::kMaximumCandidateCount) continue;
-        if (sentence(value) && sentences >= sentence_limit) {
-            value.model_only = true; hidden.push_back(std::move(value)); continue;
+        if (sentence(value)) {
+            const auto reading = engine::sentence_reading_key(value);
+            const auto old_reading = original_counts.find(reading);
+            const auto source_limit = model_refined && old_reading != original_counts.end() ? old_reading->second : 2;
+            if (sentences >= sentence_limit || reading_counts[reading] >= source_limit || !value.qualified_sentence_reading) {
+                value.model_only = true; hidden.push_back(std::move(value)); continue;
+            }
+            ++reading_counts[reading];
         }
         sentences += sentence(value);
         stable.push_back(std::move(value));
@@ -935,7 +950,9 @@ void arrange_partitioned_candidate_pages(
     std::vector<engine::Candidate> sentences;
     std::vector<engine::Candidate> dictionary_candidates;
     std::vector<engine::Candidate> single_characters;
-    sentences.reserve(2);
+    const auto sentence_capacity = engine::sentence_candidate_limit(candidates, full_input_bytes);
+    std::unordered_map<std::string, std::size_t> source_sentences;
+    sentences.reserve(sentence_capacity);
     dictionary_candidates.reserve(candidates.size());
     single_characters.reserve(candidates.size());
     for (auto& candidate : candidates) {
@@ -943,7 +960,8 @@ void arrange_partitioned_candidate_pages(
             candidate_group(candidate, full_input_bytes));
         switch (group) {
             case protocol::CandidateGroup::sentence:
-                if (sentences.size() < 2)
+                if (sentences.size() < sentence_capacity &&
+                    source_sentences[engine::sentence_reading_key(candidate)]++ < 2)
                     sentences.push_back(std::move(candidate));
                 break;
             case protocol::CandidateGroup::dictionary:
@@ -1085,13 +1103,17 @@ void arrange_partitioned_candidate_pages(
     paged.reserve(sentences.size() + dictionary.size() + single_characters.size());
     std::size_t dictionary_index = 0;
     std::size_t single_index = 0;
+    std::size_t sentence_index = 0;
     bool first_page = true;
-    while (first_page || dictionary_index < dictionary.size() ||
+    while (first_page || sentence_index < sentences.size() || dictionary_index < dictionary.size() ||
            single_index < single_characters.size()) {
-        const auto sentence_count = first_page ? sentences.size() : 0;
-        if (first_page && !dictionary_before_sentences) {
-            for (auto& sentence : sentences)
-                paged.push_back(std::move(sentence));
+        const auto reserved = static_cast<std::size_t>(dictionary_index < dictionary.size()) +
+            static_cast<std::size_t>(single_index < single_characters.size());
+        const auto sentence_count = std::min(sentences.size() - sentence_index, page_size - reserved);
+        const auto sentence_end = sentence_index + sentence_count;
+        if (!dictionary_before_sentences) {
+            while (sentence_index < sentence_end)
+                paged.push_back(std::move(sentences[sentence_index++]));
         }
         const auto available = page_size - std::min(page_size, sentence_count);
         // For an odd remaining count, dictionary is the left-hand floor and
@@ -1121,14 +1143,14 @@ void arrange_partitioned_candidate_pages(
                 paged.push_back(std::move(single_characters[single_index++]));
             while (dictionary_index < dictionary_end)
                 paged.push_back(std::move(dictionary[dictionary_index++]));
-            if (first_page && dictionary_before_sentences)
-                for (auto& sentence : sentences)
-                    paged.push_back(std::move(sentence));
-        } else if (first_page && dictionary_before_sentences) {
+            if (dictionary_before_sentences)
+                while (sentence_index < sentence_end)
+                    paged.push_back(std::move(sentences[sentence_index++]));
+        } else if (dictionary_before_sentences) {
             while (dictionary_index < dictionary_end)
                 paged.push_back(std::move(dictionary[dictionary_index++]));
-            for (auto& sentence : sentences)
-                paged.push_back(std::move(sentence));
+            while (sentence_index < sentence_end)
+                paged.push_back(std::move(sentences[sentence_index++]));
             while (single_index < single_end)
                 paged.push_back(std::move(single_characters[single_index++]));
         } else {
@@ -1139,7 +1161,7 @@ void arrange_partitioned_candidate_pages(
         }
 
         first_page = false;
-        if (dictionary_count + single_count == 0) break;
+        if (sentence_count + dictionary_count + single_count == 0) break;
     }
     candidates = std::move(paged);
 }
@@ -1338,6 +1360,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
         std::vector<bool> joint_phrase_partition;
         std::vector<bool> generated_sentences;
         std::vector<std::uint64_t> sentence_segments;
+        std::vector<std::string> sentence_readings;
         std::size_t sentence_limit{};
         std::size_t full_input_bytes{};
         std::size_t visible_count{};
@@ -1795,7 +1818,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             limit_model_sentence_candidates(
                                 pending.candidates, pending.candidate_consumed,
                                 pending.generated_sentences, pending.sentence_limit,
-                                response.candidates, response.candidate_consumed, pending.sentence_segments);
+                                response.candidates, response.candidate_consumed, pending.sentence_segments, pending.sentence_readings);
                         response.candidate_groups = candidate_groups_for_order(
                             response.candidates, response.candidate_consumed,
                             pending.candidates, pending.candidate_consumed,
@@ -1903,6 +1926,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 std::vector<bool> model_candidate_joint_partition;
                 std::vector<bool> model_candidate_generated_sentence;
                 std::vector<std::uint64_t> model_candidate_segments;
+                std::vector<std::string> model_candidate_readings;
+                std::size_t model_sentence_capacity = 2;
                 std::vector<std::string> model_hidden_candidates;
                 std::vector<std::uint64_t> model_hidden_consumed;
                 std::vector<std::uint64_t> model_hidden_groups;
@@ -2017,17 +2042,15 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     }
                     const bool cache_hit = cached.has_value();
                     model_refined = cached ? cached->model_refined : previous_pool && previous_pool->model_refined;
-                    // At most two generated abbreviation sentences can be
-                    // rejected by a refined snapshot. When growing its plain
-                    // (unpartitioned) pool, budget those two slots as well as
-                    // the normal look-ahead; rejected compositions must not
+                    // Model filtering may reject two sentences per qualified
+                    // reading, not just two abbreviation sentences globally.
+                    // When growing a plain pool, reserve those slots as well
+                    // as the normal look-ahead; rejected compositions must not
                     // hide the prefix/character tail behind a false last page.
-                    if (!cached && previous_pool && previous_pool->model_refined && !partitioned_layout &&
-                        std::any_of(previous_pool->candidates.begin(), previous_pool->candidates.end(),
-                            [&](const auto& candidate) {
-                                return abbreviated_model_alternative(candidate, decoded.message.text.size());
-                            }))
-                        generation_limit = std::min<std::size_t>(protocol::kMaximumCandidateCount, generation_limit + 2);
+                    if (!cached && previous_pool && previous_pool->model_refined && !partitioned_layout)
+                        generation_limit = std::min<std::size_t>(protocol::kMaximumCandidateCount,
+                            generation_limit + engine::sentence_candidate_limit(
+                                previous_pool->candidates, decoded.message.text.size()));
                     engine::ParseResult parsed;
                     std::vector<engine::Candidate> candidates;
                     bool correction_fallback = false;
@@ -2405,6 +2428,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     const auto visible_candidate_count = static_cast<std::size_t>(
                         first_model_only - candidates.begin());
                     model_visible_count = visible_candidate_count;
+                    model_sentence_capacity = engine::sentence_candidate_limit(candidates, full_input_bytes);
                     model_candidate_pool.reserve(candidates.size());
                     model_candidate_consumed.reserve(candidates.size());
                     // Preserve lexical evidence when a rank-only backend
@@ -2440,6 +2464,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             candidate.consumed_input_bytes == full_input_bytes &&
                             utf8_character_count(candidate.text) == candidate.syllables.size());
                         model_candidate_segments.push_back(candidate.segment_count);
+                        model_candidate_readings.push_back(candidate.qualified_sentence_reading
+                            ? engine::sentence_reading_key(candidate) : std::string{});
                         std::uint64_t confidence = 0;
                         if (reference != candidates.end() && !candidate.user_preferred() &&
                             !standalone_head_alternative(*reference, candidate, full_input_bytes) &&
@@ -2500,7 +2526,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                     if ((candidate.segment_count > 1) != composed ||
                                         !abbreviated_model_alternative(candidate, full_input_bytes)) continue;
                                     if (composed)
-                                        abbreviation_sentence_limit = std::min<std::size_t>(2, abbreviation_sentence_limit + 1);
+                                        abbreviation_sentence_limit = std::min(model_sentence_capacity, abbreviation_sentence_limit + 1);
                                     if (index < result_size || recalled >= 24) continue;
                                     model_hidden_candidates.push_back(candidate.text);
                                     model_hidden_consumed.push_back(candidate.consumed_input_bytes);
@@ -2516,7 +2542,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             if (model_hidden_candidates.size() >= 64) break;
                             if (model_candidate_generated_sentence[index] &&
                                 abbreviated_model_alternative(candidates[index], full_input_bytes))
-                                abbreviation_sentence_limit = std::min<std::size_t>(2, abbreviation_sentence_limit + 1);
+                                abbreviation_sentence_limit = std::min(model_sentence_capacity, abbreviation_sentence_limit + 1);
                             model_hidden_candidates.push_back(candidates[index].text);
                             model_hidden_consumed.push_back(
                                 candidates[index].consumed_input_bytes);
@@ -2735,6 +2761,8 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         pending_model.generated_sentences.push_back(sentence);
                         pending_model.sentence_segments.push_back(match < model_candidate_pool.size()
                             ? model_candidate_segments[match] : 0);
+                        pending_model.sentence_readings.push_back(match < model_candidate_pool.size()
+                            ? model_candidate_readings[match] : std::string{});
                         if (index < response.candidates.size() && sentence) ++pending_model.sentence_limit;
                     }
                     pending_model.full_input_bytes = full_input_bytes;

@@ -20,6 +20,20 @@ owo::engine::Candidate word(std::string text, std::size_t consumed, std::int64_t
 
 int main() {
     using namespace owo::engine;
+    auto reading_a = word("西安街道", 10, 100, 2);
+    reading_a.source_segments = {"xi", "an", "jie", "dao"}; reading_a.qualified_sentence_reading = true;
+    auto reading_b = word("衔接到", 10, 100, 2);
+    reading_b.source_segments = {"xian", "jie", "dao"}; reading_b.qualified_sentence_reading = true;
+    auto unqualified = word("低质分割句子", 10, 100, 3);
+    unqualified.source_segments = {"x", "i", "a", "n", "jie", "dao"};
+    if (sentence_candidate_limit(std::vector<Candidate>{reading_a, reading_a, reading_b, unqualified}, 10) != 4) return 18;
+    std::vector<std::string> ranked_sources{"甲句一", "甲句二", "甲句三", "乙句一", "乙句二", "乙句三"};
+    std::vector<std::uint64_t> ranked_consumed(6, 10);
+    const auto source_candidates = ranked_sources;
+    owo::ipc::limit_model_sentence_candidates(source_candidates, ranked_consumed,
+        {true, true, true, true, true, true}, 4, ranked_sources, ranked_consumed,
+        {2, 2, 2, 3, 3, 3}, {"a", "a", "a", "b", "b", "b"});
+    if (ranked_sources != std::vector<std::string>{"甲句一", "甲句二", "乙句一", "乙句二"}) return 19;
     ParseResult incomplete;
     incomplete.normalized_input = "rgs";
     incomplete.has_incomplete_syllable = true;

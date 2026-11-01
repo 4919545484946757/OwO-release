@@ -7,6 +7,11 @@
 namespace owo::engine {
 
 [[nodiscard]] bool is_non_single_candidate(const Candidate& candidate) noexcept;
+// Raw input boundaries identify a reading; homophones do not add quota.
+[[nodiscard]] std::string sentence_reading_key(const Candidate& candidate);
+// Two slots per qualified whole-input reading. This is a ceiling, not filler.
+[[nodiscard]] std::size_t sentence_candidate_limit(std::span<const Candidate> candidates,
+                                                  std::size_t full_input_bytes);
 [[nodiscard]] bool requires_incomplete_candidate_limit(
     const ParseResult& parsed, std::span<const Candidate> candidates) noexcept;
 // For incomplete input, all non-single candidates share a quota, including

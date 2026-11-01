@@ -107,6 +107,10 @@ int main() {
         {{"zhi"}, "只", 5000000}, {{"zhi"}, "值", 900000},
         {{"xu"}, "续", 100000}, {{"an"}, "安", 100000},
         {{"cuo", "bie", "zi"}, "错别字", 100000},
+        {{"xi", "an"}, "西安", 1000000}, {{"jie", "dao"}, "街道", 1000000},
+        {{"jie", "dao"}, "接到", 800000}, {{"xian", "jie"}, "衔接", 1000000},
+        {{"xian", "jie"}, "仙界", 100000}, {{"xian"}, "先", 500000},
+        {{"xi"}, "西", 1000000}, {{"dao"}, "到", 11000000},
         {{"cuo"}, "错", 1000000}, {{"bie"}, "别", 1000000},
         {{"zi", "mu"}, "字母", 100000}, {{"zi"}, "字", 1000000}, {{"mu"}, "母", 1000000},
     });
@@ -153,7 +157,7 @@ int main() {
         ok &= writer.save(settings).success && monitor.wait_for_generation(generation, 2s);
         for (const auto& input : {"zj", "nihaoshijie", "biandeyouyisima",
                                  "yihuowuyunshudesudu", "weiyonghutigongfuwu", "rgs", "nmnmnm",
-                                 "houxuanzhi", "cuobiezimu"}) for (const bool expanded_first : {false, true}) {
+                                 "houxuanzhi", "cuobiezimu", "xianjiedao"}) for (const bool expanded_first : {false, true}) {
             const auto verify = [&](bool value, const char* stage) {
                 if (!value) std::cerr << stage << ": " << input << " size=" << size << " partition=" << partition << " expanded_first=" << expanded_first << '\n';
                 ok &= value;
@@ -163,6 +167,9 @@ int main() {
             protocol::Message expanded;
             if (expanded_first) { request.expanded = true; expanded = settle(send(request)); request.expanded = false; }
             auto first = settle(send(request));
+            if (request.text == "xianjiedao")
+                verify(std::find(first.candidates.begin(), first.candidates.end(), "衔接到") != first.candidates.end(),
+                       "a second qualified reading lost its sentence quota");
             if (request.text == "houxuanzhi")
                 verify(!first.candidates.empty() && first.candidates.front() == "后续安置", "model erased a dictionary-covered recovered boundary");
             if (request.text == "rgs")

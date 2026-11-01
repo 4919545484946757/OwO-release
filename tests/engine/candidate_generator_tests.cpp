@@ -625,8 +625,12 @@ int main() {
         });
     if (ambiguous_sentences.size() < 2 ||
         ambiguous_sentences[0].text != "一款高度自定义" ||
-        long_sentence_count != 1)
+        long_sentence_count != 1) {
+        for (const auto& value : ambiguous_sentences)
+            if (value.consumed_input_bytes == ambiguous_sentence_parse.normalized_input.size())
+                std::cerr << value.text << ':' << value.score << ':' << value.coherence_score << ':' << value.qualified_sentence_reading << '\n';
         return fail("weak alternate split bypassed the long sentence quality gate");
+    }
 
     const owo::engine::MemoryLexicon bridge_alternative_lexicon({
         {{"wo", "de"}, "AB", 5000},
@@ -1199,6 +1203,30 @@ int main() {
                 if (fragments.empty() || fragments.front().text != "错别字母")
                     return fail("verified terminal word was ignored after a longer dictionary prefix");
             }
+
+    const owo::engine::MemoryLexicon reading_quota_lexicon({
+        {{"xi", "an"}, "西安", 1000000}, {{"jie", "dao"}, "街道", 1000000},
+        {{"jie", "dao"}, "接到", 800000}, {{"xian", "jie"}, "衔接", 1000000},
+        {{"xian", "jie"}, "仙界", 100000}, {{"xian"}, "先", 500000},
+        {{"xi"}, "西", 1000000}, {{"dao"}, "到", 11000000}});
+    const owo::engine::CandidateGenerator reading_quota_generator(reading_quota_lexicon);
+    for (const auto page : {5U, 7U, 9U}) for (const bool partition : {false, true})
+        for (const bool model : {false, true}) for (const auto limit : {8U, 18U, 128U}) {
+            const auto values = reading_quota_generator.generate(schema.parse("xianjiedao"), limit,
+                false, {}, nullptr, {}, model, partition ? page : 0);
+            if (owo::engine::sentence_candidate_limit(values, 10) != 4 ||
+                std::none_of(values.begin(), values.end(), [](const auto& value) {
+                    return value.text == "衔接到" && !value.model_only && value.consumed_input_bytes == 10;
+                })) return fail("independent word-backed reading lost its two-sentence quota");
+            std::vector<std::string> readings;
+            for (const auto& value : values) {
+                if (value.model_only || value.segment_count <= 1 || value.consumed_input_bytes != 10 || value.syllables.size() < 3) continue;
+                const auto key = owo::engine::sentence_reading_key(value);
+                readings.push_back(key);
+                if (std::count(readings.begin(), readings.end(), key) > 2 || readings.size() > 4)
+                    return fail("homophones created extra segmentation sentence slots");
+            }
+        }
 
     const auto cancelled_generation = word_priority_generator.generate(
         schema.parse("shi"), 32, false, {}, nullptr, [] { return true; });

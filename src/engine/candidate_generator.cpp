@@ -370,6 +370,7 @@ void replace_candidate_payload(Candidate& existing, Candidate replacement) {
     existing.provisional_user_word = replacement.provisional_user_word;
     existing.joint_phrase_partition = replacement.joint_phrase_partition;
     existing.partition_slot = replacement.partition_slot;
+    existing.qualified_sentence_reading = replacement.qualified_sentence_reading;
 }
 
 class CandidateAccumulator {
@@ -2019,6 +2020,50 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         return score_less(left, right);
     };
     std::sort(full.begin(), full.end(), sentence_less);
+    // A pinyin boundary interpretation is a source, not a homophone. Count
+    // only word-backed, near-score sources already produced by the bounded
+    // search; never turn every parser path or character product into a quota.
+    std::unordered_set<std::string> qualified_readings;
+    const auto primary_reading = full.empty() ? std::string{} : sentence_reading_key(full.front());
+    if (!full.empty()) qualified_readings.insert(primary_reading);
+    for (const auto& candidate : full) {
+        if (candidate.consumed_input_bytes != full_input_bytes || candidate.syllables.size() < 3 ||
+            candidate.source_segments.size() != candidate.syllables.size() ||
+            utf8_character_count(candidate.text) != candidate.syllables.size() ||
+            candidate.match_kind != full.front().match_kind ||
+            candidate.score + kAlternativeSegmentationPromotionMargin < full.front().score) continue;
+        const bool anchored_word = candidate.segment_count == 1 || candidate.user_preferred() ||
+            (!candidate.segment_lengths.empty() && candidate.segment_lengths.front() >= 2) ||
+            candidate.coherence_score >= kMaximumBoundaryCoherenceBonus * static_cast<std::int64_t>(candidate.syllables.size()) / 2;
+        if (!anchored_word) continue;
+        if (candidate.segment_count == 1 || candidate.coherence_score > 0 ||
+            std::any_of(candidate.segment_lengths.begin(), candidate.segment_lengths.end(), [](const auto length) { return length >= 2; }))
+            qualified_readings.insert(sentence_reading_key(candidate));
+    }
+    for (auto& candidate : full)
+        candidate.qualified_sentence_reading = qualified_readings.contains(sentence_reading_key(candidate));
+    if (coherent_sentence_alternative)
+        coherent_sentence_alternative->qualified_sentence_reading = qualified_readings.contains(sentence_reading_key(*coherent_sentence_alternative));
+    std::vector<Candidate> segmentation_alternatives;
+    std::unordered_map<std::string, Candidate> reading_leaders;
+    std::unordered_map<std::string, std::size_t> reading_counts;
+    for (const auto& candidate : full) {
+        const auto key = sentence_reading_key(candidate);
+        if (key == primary_reading || !candidate.qualified_sentence_reading || candidate.segment_count < 2 ||
+            candidate.syllables.size() < 3 || utf8_character_count(candidate.text) != candidate.syllables.size()) continue;
+        auto& count = reading_counts[key];
+        if (count >= 2) continue;
+        if (count != 0) {
+            const auto& first = reading_leaders.at(key);
+            const auto first_tail = std::string_view(first.text).substr(utf8_first_character(first.text).size());
+            const auto other_tail = std::string_view(candidate.text).substr(utf8_first_character(candidate.text).size());
+            if (first_tail == other_tail || candidate.segment_count > first.segment_count ||
+                std::abs(first.coherence_score - candidate.coherence_score) > kSecondSentenceCoherenceMargin ||
+                std::abs(first.score - candidate.score) > kSecondSentenceScoreMargin ||
+                (first.syllables.size() >= 5 && redundant_sentence_variant(first.text, candidate.text))) continue;
+        } else reading_leaders.emplace(key, candidate);
+        segmentation_alternatives.push_back(candidate); ++count;
+    }
     std::optional<Candidate> terminal_alternative;
     if (!full.empty() && full.front().segment_count > 1 && full.front().syllables.size() >= 3) {
         const auto head_bounds = utf8_boundaries(full.front().text);
@@ -2311,8 +2356,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
 
         // Keep one independently supported boundary interpretation selectable
-        // even without an external model. Do not enlarge the two-sentence
-        // quota or displace an existing second coherent sentence.
+        // even without an external model. Do not displace an existing second
+        // coherent sentence here; other qualified readings are added below.
         if (ordered.size() == 1 && boundary_sentence_alternative &&
             boundary_sentence_alternative->text != ordered.front().text)
             ordered.push_back(std::move(*boundary_sentence_alternative));
@@ -2323,6 +2368,17 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             // two-item long-candidate budget. The current leading result stays.
             if (ordered.size() == 2) ordered.back() = std::move(*retained_user_word);
             else ordered.push_back(std::move(*retained_user_word));
+        }
+
+        std::unordered_map<std::string, std::size_t> visible_readings;
+        for (const auto& candidate : ordered)
+            if (candidate.segment_count > 1) ++visible_readings[sentence_reading_key(candidate)];
+        for (auto& candidate : segmentation_alternatives) {
+            auto& count = visible_readings[sentence_reading_key(candidate)];
+            if (count >= 2 || std::any_of(ordered.begin(), ordered.end(), [&](const auto& existing) {
+                return existing.text == candidate.text && existing.consumed_input_bytes == candidate.consumed_input_bytes;
+            })) continue;
+            ordered.push_back(std::move(candidate)); ++count;
         }
 
         const auto leading_text = utf8_first_character(ordered.front().text);
@@ -2397,6 +2453,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     if (!pure_initial_sequence && !multiword_input)
         promote_alternative_exact_segmentation(ordered, full_input_bytes);
     if (partition_page_size != 0) {
+        const auto sentence_capacity = sentence_candidate_limit(ordered, full_input_bytes);
         // A learned whole-input phrase belongs to the dictionary source. It
         // must not consume the only sentence slot and hide every independently
         // dictionary-backed coherent alternative to a selected composition.
@@ -2471,14 +2528,16 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         // all sentences, then all dictionary words, and only then characters
         // meant the final `limit` truncation could erase entire groups. Core's
         // page arranger cannot reconstruct candidates it never receives.
-        // Reserve at most two sentence slots and split the remaining pool with
+        // Reserve the qualified readings' sentence slots, then split the pool with
         // the same dictionary-floor / character-ceiling rule used by visible
         // pages. A short source may borrow unused capacity from another source.
         ordered.clear();
         ordered.reserve(std::min(
             limit, sentences.size() + dictionary.size() +
                        single_characters.size() + other.size()));
-        const auto sentence_count = std::min<std::size_t>(2, sentences.size());
+        const auto reserved = limit >= 3 ? static_cast<std::size_t>(!dictionary.empty()) +
+            static_cast<std::size_t>(!single_characters.empty()) : 0;
+        const auto sentence_count = std::min({sentence_capacity, sentences.size(), limit - reserved});
         for (std::size_t index = 0; index < sentence_count; ++index)
             ordered.push_back(std::move(sentences[index]));
 

@@ -33,6 +33,7 @@ struct Candidate {
     bool provisional_user_word{};
     bool joint_phrase_partition{};
     CandidatePartitionSlot partition_slot{CandidatePartitionSlot::automatic};
+    bool qualified_sentence_reading{};
     [[nodiscard]] bool user_preferred() const noexcept {
         return user_lexicon && !provisional_user_word;
     }

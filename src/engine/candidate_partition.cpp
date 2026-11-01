@@ -21,6 +21,24 @@ bool is_non_single_candidate(const Candidate& candidate) noexcept {
     return characters(candidate.text) >= 2;
 }
 
+std::string sentence_reading_key(const Candidate& candidate) {
+    std::string key;
+    for (const auto& source : candidate.source_segments) {
+        key += std::to_string(source.size()); key += ':'; key += source; key += '|';
+    }
+    return key;
+}
+
+std::size_t sentence_candidate_limit(const std::span<const Candidate> candidates,
+                                     const std::size_t full_input_bytes) {
+    std::unordered_set<std::string> readings;
+    for (const auto& candidate : candidates)
+        if (candidate.qualified_sentence_reading && candidate.consumed_input_bytes == full_input_bytes &&
+            candidate.syllables.size() >= 3 && characters(candidate.text) == candidate.syllables.size())
+            readings.insert(sentence_reading_key(candidate));
+    return std::max<std::size_t>(1, readings.size()) * 2;
+}
+
 bool requires_incomplete_candidate_limit(const ParseResult& parsed,
                                          const std::span<const Candidate> candidates) noexcept {
     if (!parsed.phonetic_assistance) return false;
