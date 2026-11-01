@@ -1453,6 +1453,16 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 runtime_config->model_ranking_enabled;
             const bool full_pinyin_scheme = runtime_config == nullptr ||
                 runtime_config->input_scheme == "full_pinyin";
+            dictionary_sources.set_enabled(full_pinyin_scheme);
+            if (dictionary_sources.refresh()) {
+                ++learning_generation;
+                model_requests.clear();
+                pending_candidate_refinement.reset();
+                if (!dictionary_sources.diagnostic().empty())
+                    std::clog << "managed_dictionary: " << dictionary_sources.diagnostic() << '\n';
+            }
+            const engine::Lexicon& lexicon = dictionary_sources.base_enabled() ? base_lexicon : empty_lexicon;
+            const auto& generator = dictionary_sources.base_enabled() ? base_generator : empty_generator;
             const auto symbol_key = model_key(decoded.message.request_id, decoded.message.context_generation);
             if (decoded.message.type == protocol::MessageType::candidate_update_request) {
                 if (const auto found = symbol_requests.find(symbol_key); found != symbol_requests.end())
@@ -1474,6 +1484,28 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     if (existing != symbol_requests.end() && existing->second->identity == identity)
                         symbol_state = existing->second;
                     else {
+                        std::unordered_map<std::string, std::size_t> lengths;
+                        const auto stop = [&] { return composition_cancel && WaitForSingleObject(composition_cancel, 0) == WAIT_OBJECT_0; };
+                        engine::coalesce_symbol_segments(composition, [&](const std::string_view query) {
+                            const auto known = lengths.find(std::string(query));
+                            if (known != lengths.end()) return known->second;
+                            if (stop()) return std::size_t{7};
+                            const auto parsed = full_pinyin_schema.parse(query, 8, decoded.message.correction_enabled, nullptr, stop);
+                            const auto page_size = static_cast<std::size_t>(runtime_config->candidate_page_size);
+                            const auto candidates = generator.generate(parsed, page_size + 1, adaptive_ranking_enabled,
+                                decoded.message.context, nullptr, stop, false,
+                                runtime_config->candidate_partition_enabled ? page_size : 0,
+                                runtime_config->user_lexicon_completion_enabled,
+                                runtime_config->user_lexicon_completion_max_syllables, page_size);
+                            std::size_t maximum = 0;
+                            for (const auto& candidate : candidates)
+                                maximum = std::max(maximum, utf8_character_count(candidate.text));
+                            // Unknown/unfinished fragments remain separate until
+                            // a bounded base page can establish their size.
+                            if (maximum == 0 && !query.empty()) maximum = 7;
+                            lengths.emplace(query, maximum);
+                            return maximum;
+                        });
                         symbol_state = std::make_shared<SymbolRequestState>();
                         symbol_state->identity = std::move(identity);
                         symbol_state->composition = std::move(composition);
@@ -1489,18 +1521,6 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     symbol_requests.insert_or_assign(symbol_key, symbol_state);
                 }
             }
-            dictionary_sources.set_enabled(full_pinyin_scheme);
-            if (dictionary_sources.refresh()) {
-                ++learning_generation;
-                model_requests.clear();
-                pending_candidate_refinement.reset();
-                if (!dictionary_sources.diagnostic().empty())
-                    std::clog << "managed_dictionary: " << dictionary_sources.diagnostic() << '\n';
-            }
-            // Keep the real BinaryLexicon type on the enabled hot path, so its
-            // bounded, memory-mapped lookup optimizations remain available.
-            const engine::Lexicon& lexicon = dictionary_sources.base_enabled() ? base_lexicon : empty_lexicon;
-            const auto& generator = dictionary_sources.base_enabled() ? base_generator : empty_generator;
             const bool external_model_ranking_enabled = model_pipe_name != nullptr &&
                 (runtime_config == nullptr || runtime_config->model_ranking_enabled);
             const bool user_learning_enabled = dictionary_sources.user_enabled() &&

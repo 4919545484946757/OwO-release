@@ -81,6 +81,50 @@ SymbolComposition split_symbol_composition(std::string_view source,
     return result;
 }
 
+void coalesce_symbol_segments(SymbolComposition& composition,
+    const std::function<std::size_t(std::string_view)>& maximum_characters) {
+    if (!composition.valid || composition.segments.size() < 2) return;
+    const auto mandatory = [](std::string_view delimiter) {
+        return delimiter.find_first_of(",.\r\n") != std::string_view::npos ||
+            delimiter.find("，") != std::string_view::npos || delimiter.find("。") != std::string_view::npos;
+    };
+    if (std::none_of(composition.segments.begin(), composition.segments.end() - 1,
+        [&](const auto& segment) { return !mandatory(segment.delimiter); })) return;
+    std::vector<SymbolSegment> groups;
+    groups.push_back(std::move(composition.segments.front()));
+    std::size_t measured = 0;
+    const auto measure = [&](std::string_view query) { return ++measured <= 32 ? maximum_characters(query) : std::size_t{7}; };
+    auto length = measure(groups.back().query);
+    std::size_t joined = 0;
+    for (std::size_t index = 1; index < composition.segments.size(); ++index) {
+        auto& next = composition.segments[index];
+        const auto next_length = measure(next.query);
+        auto& current = groups.back();
+        if (mandatory(current.delimiter) || (length + next_length > 6 && next_length > 6) || joined >= 16) {
+            groups.push_back(std::move(next)); length = next_length; continue;
+        }
+        const auto delimiter_begin = current.source_end - current.delimiter.size();
+        const auto points = boundaries(current.delimiter);
+        for (std::size_t i = 0; i + 1 < points.size(); ++i)
+            current.symbols.push_back({current.delimiter.substr(points[i], points[i + 1] - points[i]),
+                current.letters, delimiter_begin + points[i], delimiter_begin + points[i + 1], false});
+        if (!current.query.empty() && !next.query.empty() && current.query.back() != '\'' && next.query.front() != '\'') {
+            current.query += '\''; current.source_ends.push_back(next.source_begin);
+        }
+        current.query += next.query;
+        current.source_ends.insert(current.source_ends.end(), next.source_ends.begin() + 1, next.source_ends.end());
+        for (auto& symbol : next.symbols) { symbol.letters += current.letters; current.symbols.push_back(std::move(symbol)); }
+        for (auto span : next.weak_spans) {
+            span.begin_letters += current.letters; span.end_letters += current.letters; current.weak_spans.push_back(span);
+        }
+        current.letters += next.letters;
+        current.source_end = next.source_end;
+        current.delimiter = std::move(next.delimiter);
+        length += next_length; ++joined;
+    }
+    composition.segments = std::move(groups);
+}
+
 SymbolProjection project_symbol_candidate(const SymbolSegment& segment,
     std::string_view text, std::span<const std::string> syllables, const std::size_t query_consumed) {
     SymbolProjection result;

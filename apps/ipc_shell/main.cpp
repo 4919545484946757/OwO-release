@@ -42,10 +42,11 @@ int wmain(int argc, wchar_t** argv) {
         request.input = input;
         if (argc == 5) request.context = utf8(argv[4]);
     } else if (!shutdown && !update && argc > 2) {
-        if (std::wstring_view(argv[2]) == L"--expanded")
-            request.expanded = true;
-        else
-            request.page = static_cast<std::uint64_t>(std::stoull(std::wstring(argv[2])));
+        for (int index = 2; index < argc; ++index) {
+            if (std::wstring_view(argv[index]) == L"--expanded") request.expanded = true;
+            else if (std::wstring_view(argv[index]) == L"--symbols") request.symbol_composition = true;
+            else request.page = static_cast<std::uint64_t>(std::stoull(std::wstring(argv[index])));
+        }
     }
     const auto result = owo::ipc::exchange(
         owo::ipc::kCorePipeName, owo::protocol::encode_message(request),

@@ -22,7 +22,7 @@ public:
             ++delayed_calls;
             std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms.load()));
         }
-        if (request.input != "nihao" && request.input != "shijie") received_symbols = true;
+        if (request.input != "nihao" && request.input != "shijie" && request.input != "nihao'shijie") received_symbols = true;
         for (const auto& candidate : request.candidates)
             if (candidate.find('\'') != std::string::npos || candidate.find(',') != std::string::npos)
                 received_symbols = true;
@@ -47,6 +47,7 @@ int wmain(int argc, wchar_t** argv) {
     if (!monitor.start(root / "owo.conf", std::chrono::milliseconds(10)).success) return 2;
     engine::MemoryLexicon lexicon({
         {{"ni", "hao"}, "你好", 10000}, {{"ni", "hao"}, "拟好", 9000},
+        {{"yi", "er"}, "一二", 100000}, {{"yi"}, "一", 1000000}, {{"er"}, "二", 1000000},
         {{"shi", "jie"}, "世界", 10000}, {{"ni"}, "你", 9000},
         {{"shi", "jie"}, "视界", 9000}, {{"shi", "jie"}, "时节", 8000},
         {{"shi", "jie"}, "使节", 7000}, {{"shi", "jie"}, "十届", 6000},
@@ -103,12 +104,23 @@ int wmain(int argc, wchar_t** argv) {
         settings.candidate_partition_enabled = partition;
         check(writer.save(settings).success && monitor.wait_for_generation(before, std::chrono::seconds(2)), "page layout reload");
         const auto multiple = query("nihao，shijie；nihao");
-        const auto actual = query("shijie；");
-        check(multiple.validation && actual.validation && multiple.message.following_previews.size() == 2 &&
+        const auto actual = query("shijie；nihao");
+        check(multiple.validation && actual.validation && multiple.message.following_previews.size() == 1 &&
             multiple.message.following_previews[0] == actual.message.candidates &&
             multiple.message.following_groups[0] == actual.message.candidate_groups &&
             multiple.message.following_previews[0].size() > 3 && multiple.message.following_previews[0].size() <= size &&
             multiple.message.symbol_preview == "ni'hao，shi'jie；ni'hao", "page size/partition/segmentation equality");
+        for (const auto separator : {"、", ";", ":", "!", "?", "；", "：", "！", "？"}) {
+            const auto raw = std::string("yi") + separator + "er";
+            const auto inline_choice = query(raw);
+            check(inline_choice.validation && !inline_choice.message.candidates.empty() &&
+                inline_choice.message.candidates.front() == std::string("一") + separator + "二" &&
+                inline_choice.message.candidate_consumed.front() == raw.size() && inline_choice.message.following_previews.empty(),
+                "short strong-symbol segments become one selectable candidate, not adjacent candidate blocks");
+            const auto all = query(raw, true);
+            check(all.validation && all.message.candidates.front() == inline_choice.message.candidates.front() &&
+                all.message.following_previews.empty(), "expanded page retains combined candidate payload");
+        }
     }
     auto quoted = query("wo“nihao”");
     check(quoted.validation && quoted.message.symbol_preview == "wo“ni'hao”" &&
@@ -147,12 +159,24 @@ int wmain(int argc, wchar_t** argv) {
     check(ranked_next.validation && ranked_base.message.following_previews[0] == ranked_next.message.candidates &&
         ranked_base.message.following_groups[0] == ranked_next.message.candidate_groups,
         "following model ranking equals actual first page");
+    const auto combined_base = query("nihao;shijie");
+    protocol::Message combined_update{protocol::MessageType::candidate_update_request, combined_base.message.request_id, 1};
+    protocol::DecodeResult combined_ranked;
+    for (int attempt = 0; attempt < 10; ++attempt) {
+        combined_ranked = send(combined_update);
+        if (!combined_ranked.message.model_pending) break;
+    }
+    check(combined_base.validation && combined_ranked.validation && !backend.received_symbols &&
+        combined_ranked.message.following_previews.empty() &&
+        std::any_of(combined_ranked.message.candidates.begin(), combined_ranked.message.candidates.end(),
+            [](const auto& candidate) { return candidate.find(';') != std::string::npos && !candidate.ends_with(';'); }),
+        "model update retains an internal separator in one candidate without exposing symbols to model");
     generation = monitor.generation();
     settings.candidate_page_size = 7;
     check(writer.save(settings).success && monitor.wait_for_generation(generation, std::chrono::seconds(2)), "slow page config reload");
     backend.delay_ms = 35;
     protocol::Message slow_request{protocol::MessageType::candidate_request};
-    slow_request.text = "nihao，shijie；nihao";
+    slow_request.text = "nihao，shijie，nihao";
     slow_request.symbol_composition = true;
     const auto partial_rows = send(slow_request);
     check(partial_rows.validation && partial_rows.message.candidate_refinement_pending &&

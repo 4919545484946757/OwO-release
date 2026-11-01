@@ -50,6 +50,40 @@ int main() {
     const auto leading = split_symbol_composition("，；nihao", true);
     check(leading.segments.size() == 2 && leading.segments[0].query.empty() &&
         leading.segments[0].delimiter == "，；", "leading/repeated strong symbols");
+    for (const auto separator : {"、", ";", ":", "!", "?", "；", "：", "！", "？"}) {
+        const auto source = std::string("yi") + separator + "er";
+        auto joined = split_symbol_composition(source, true);
+        coalesce_symbol_segments(joined, [](auto) { return std::size_t{1}; });
+        check(joined.segments.size() == 1 && joined.segments[0].query == "yi'er", "short segments share one phonetic query");
+        const auto whole_projection = project_symbol_candidate(joined.segments[0], "一二", std::vector<std::string>{"yi", "er"}, 5);
+        check(whole_projection.text == std::string("一") + separator + "二" && whole_projection.consumed == source.size(), "one candidate retains internal separator");
+        const auto partial_projection = project_symbol_candidate(joined.segments[0], "一", std::vector<std::string>{"yi"}, 2);
+        check(partial_projection.text == std::string("一") + separator && partial_projection.consumed == 2 + std::string(separator).size(), "partial choice consumes its original boundary only");
+    }
+    auto long_segments = split_symbol_composition("abcdef;ghijklm!n", true);
+    coalesce_symbol_segments(long_segments, [](auto query) { return query.size(); });
+    check(long_segments.segments.size() == 2 && long_segments.segments[0].query == "abcdef" &&
+        long_segments.segments[1].query == "ghijklm'n", "long segment starts following candidate row; short continuation joins it");
+    auto hard = split_symbol_composition("yi,er。nihao", true);
+    std::size_t probes = 0;
+    coalesce_symbol_segments(hard, [&](auto) { ++probes; return std::size_t{1}; });
+    check(hard.segments.size() == 3 && probes == 0, "commas/periods keep FIFO rows without length probes");
+    auto mixed = split_symbol_composition("ni1hao;shijie", true);
+    coalesce_symbol_segments(mixed, [](auto) { return std::size_t{2}; });
+    check(mixed.segments.size() == 1 && project_symbol_candidate(mixed.segments[0], "你好世界",
+        std::vector<std::string>{"ni", "hao", "shi", "jie"}, mixed.segments[0].query.size()).text == "你1好;世界",
+        "digits and joined separator retain their own source positions");
+    auto weak_joined = split_symbol_composition("wo“nihao”;shijie", true);
+    coalesce_symbol_segments(weak_joined, [](auto) { return std::size_t{3}; });
+    check(weak_joined.segments.size() == 1 && weak_joined.segments[0].weak_spans.size() == 1 &&
+        project_symbol_candidate(weak_joined.segments[0], "我你好世界", std::vector<std::string>{"wo", "ni", "hao", "shi", "jie"},
+            weak_joined.segments[0].query.size()).text == "我“你好”;世界", "weak quote positions survive a joined strong boundary");
+    std::string repeated = "yi";
+    for (unsigned i = 0; i < 64; ++i) repeated += ";yi";
+    auto bounded = split_symbol_composition(repeated, true);
+    probes = 0;
+    coalesce_symbol_segments(bounded, [&](auto) { ++probes; return std::size_t{1}; });
+    check(probes <= 32 && bounded.segments.size() == 49, "length probes and merged boundaries remain bounded");
     Candidate base{"我你好", full, 100};
     base.source_segments = full; base.consumed_input_bytes = quote.query.size();
     std::vector<Candidate> choices{base};

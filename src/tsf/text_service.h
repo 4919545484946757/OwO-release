@@ -184,9 +184,6 @@ private:
     [[nodiscard]] bool render_candidate_window();
     [[nodiscard]] SIZE desired_candidate_window_size() const;
     [[nodiscard]] std::wstring_view candidate_display_text(std::wstring_view text, std::size_t row_index) const;
-    [[nodiscard]] std::vector<std::vector<std::size_t>> candidate_flow_rows() const;
-    [[nodiscard]] float candidate_block_width(std::size_t block) const;
-    [[nodiscard]] float candidate_block_height(std::size_t block) const;
     struct PreviewContainerLayout {
         float left{}, top{}, right{}, bottom{};
         std::vector<float> row_heights;

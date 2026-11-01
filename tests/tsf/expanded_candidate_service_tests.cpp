@@ -4,28 +4,11 @@
 #include <iostream>
 #include <limits>
 #include "inline_preedit_fixture.h"
-#include "owo/tsf/candidate_text_layout.h"
 
 namespace owo::tsf {
 // 不激活 TSF/工作线程：验证真实按键、异步响应及离屏窗口的像素边界。
 struct ExpandedCandidateTestAccess {
     static int run() {
-        const auto rows = [](std::initializer_list<SymbolCandidateBlock> blocks) {
-            return symbol_candidate_block_rows(std::span(blocks.begin(), blocks.size()));
-        };
-        if (rows({{1, false}, {1, false}}) != std::vector<std::vector<std::size_t>>{{0, 1}} ||
-            rows({{6, false}, {6, false}}) != std::vector<std::vector<std::size_t>>{{0, 1}}) return 101;
-        if (rows({{6, false}, {7, false}, {1, false}, {7, false}}) !=
-            std::vector<std::vector<std::size_t>>{{0}, {1, 2}, {3}}) return 102;
-        if (rows({{1, true}, {1, false}}) != std::vector<std::vector<std::size_t>>{{0}, {1}}) return 103;
-        for (const auto separator : {L',', L'.', L'，', L'。'}) {
-            const auto raw = std::wstring(L"abcdefg") + separator + L"hijklmn";
-            if (candidate_symbol_break(separator) || wrapped_candidate_text(raw, 40) != raw) return 104;
-        }
-        const std::wstring glyphs = L"🙂🙂🙂🙂🙂🙂🙂";
-        if (candidate_scalar_count(glyphs) != 7 ||
-            wrapped_candidate_text(glyphs, 6) != glyphs.substr(0, 12) + L"\n" + glyphs.substr(12)) return 105;
-        if (wrapped_candidate_text(L"abcdefghi", 4) != L"abcd\nefgh\ni") return 107;
         auto* service = new TextService();
         struct Release { TextService* value; ~Release() { value->Release(); } } release{service};
         service->shortcut_config_initialized_ = true;
@@ -443,59 +426,6 @@ struct ExpandedCandidateTestAccess {
         service->candidate_symbol_preview_ = true;
         service->clear_composition();
         if (service->candidate_symbol_preview_) return 58;
-        // Screenshot regression: short yi/er blocks share a physical row,
-        // without changing the auxiliary block into selectable candidates.
-        service->input_buffer_ = L"yi、er";
-        service->candidate_symbol_preview_ = true;
-        service->shortcut_config_.candidate_wrap_length = 12;
-        service->candidates_ = {L"一、", L"以、", L"已、", L"易、", L"意、", L"亿、", L"衣、"};
-        service->candidate_groups_ = {2, 2, 2, 2, 2, 2, 2};
-        service->candidate_consumed_ = {3, 3, 3, 3, 3, 3, 3};
-        service->following_previews_ = {{{L"而", L"二", L"耳", L"儿", L"尔", L"饵", L"迩"}, {2, 2, 2, 2, 2, 2, 2}}};
-        if (service->candidate_flow_rows() != std::vector<std::vector<std::size_t>>{{0, 1}} ||
-            service->layout_following_previews(1000)) return 108;
-        const auto wrapped_size = service->desired_candidate_window_size();
-        for (const auto separator : {L';', L':', L'!', L'?', L'；', L'：', L'！', L'？', L'、'}) {
-            service->input_buffer_ = std::wstring(L"yi") + separator + L"er";
-            if (service->candidate_flow_rows() != std::vector<std::vector<std::size_t>>{{0, 1}}) return 111;
-        }
-        for (const auto separator : {L',', L'.', L'，', L'。'}) {
-            service->input_buffer_ = std::wstring(L"yi") + separator + L"er";
-            if (service->candidate_flow_rows() != std::vector<std::vector<std::size_t>>{{0}, {1}} ||
-                service->desired_candidate_window_size().cy <= wrapped_size.cy) return 109;
-        }
-        service->input_buffer_ = L"yi、er";
-        const auto raw_candidates = service->candidates_;
-        const auto raw_consumed = service->candidate_consumed_;
-        service->candidate_present_size_ = wrapped_size;
-        service->candidate_content_size_ = wrapped_size;
-        if (!service->render_candidate_window() || service->candidates_ != raw_candidates ||
-            service->candidate_consumed_ != raw_consumed) return 110;
-        std::size_t inline_targets = 0;
-        for (const auto& region : service->hit_regions_)
-            if (region.target.kind == TextService::HitKind::candidate) {
-                if (region.target.candidate_index >= 7) return 112;
-                ++inline_targets;
-            }
-        if (inline_targets != 7 || service->candidate_shortcut_index(6) != 6) return 113;
-        const auto short_preview = service->following_previews_.front();
-        service->following_previews_.assign(16, short_preview);
-        service->input_buffer_ = L"yi";
-        for (unsigned i = 0; i < 16; ++i) service->input_buffer_ += L"、er";
-        if (service->candidate_flow_rows().size() <= 1) return 117;
-        service->input_buffer_ = L"ceshi;ceshi!yi";
-        service->candidates_ = {L"一二三四五六七；"};
-        service->candidate_groups_ = {0};
-        service->following_previews_ = {{{L"甲乙丙丁戊己庚！"}, {0}}, {{L"一"}, {2}}};
-        if (service->candidate_flow_rows() != std::vector<std::vector<std::size_t>>{{0}, {1, 2}} ||
-            service->candidate_block_height(0) != 32 || service->candidate_block_height(1) != 32) return 114;
-        const auto physical_rows = service->layout_following_previews(1000);
-        if (!physical_rows || physical_rows->row_heights.size() != 1) return 115;
-        const auto multi_block_size = service->desired_candidate_window_size();
-        service->candidate_present_size_ = multi_block_size;
-        service->candidate_content_size_ = multi_block_size;
-        if (!service->render_candidate_window()) return 116;
-        service->clear_composition();
         // Cold refinements must not clear an existing frame to a status-only
         // row on each keystroke. The stale snapshot remains non-committable;
         // the final response, including a genuine empty result, replaces it.
@@ -604,6 +534,19 @@ struct ExpandedCandidateTestAccess {
         if (FAILED(service->commit_raw_input(editor.Get())) || editor->doc.text != L"前文你好世界ceshiceshiceshi" ||
             service->has_composition()) return 79;
         service->clear_composition();
+        // Combined symbol candidates commit as one item; UTF-16 consumption
+        // includes the delimiter, rather than selecting from an appended row.
+        ComPtr<preedit_fixture::Context> combined_editor;
+        combined_editor.Attach(new preedit_fixture::Context());
+        service->input_buffer_ = L"yi、er";
+        service->input_cursor_ = 5;
+        service->segmented_input_ = L"yi、er";
+        service->candidates_ = {L"一、二"};
+        service->candidate_consumed_ = {5};
+        service->candidate_request_pending_ = false;
+        service->candidate_symbol_preview_ = true;
+        if (FAILED(service->commit_candidate(combined_editor.Get(), 0)) ||
+            combined_editor->doc.text != L"前文一、二" || service->has_composition()) return 101;
         return 0;
     }
 };

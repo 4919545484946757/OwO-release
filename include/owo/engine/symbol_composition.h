@@ -35,6 +35,11 @@ struct SymbolProjection { std::string text; std::size_t consumed{}; };
 // even when the physical apostrophe key is no longer bound to that action.
 [[nodiscard]] SymbolComposition split_symbol_composition(std::string_view source,
     bool apostrophe_is_separator, std::span<const std::uint64_t> manual_breaks = {});
+// Coalesce short non-comma/period segments into one phonetic query and project
+// their delimiters inside each candidate. Lengths are measured from a bounded
+// basic candidate page, not from raw pinyin letters. Does not combine word lists.
+void coalesce_symbol_segments(SymbolComposition&,
+    const std::function<std::size_t(std::string_view)>& maximum_characters);
 [[nodiscard]] SymbolProjection project_symbol_candidate(const SymbolSegment&,
     std::string_view text, std::span<const std::string> source_syllables,
     std::size_t query_consumed);
