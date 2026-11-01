@@ -250,8 +250,8 @@ float measure_text_width(IDWriteFactory* factory,
 }
 
 float wrapped_candidate_height(const std::wstring_view text,
-                               const std::size_t wrap_length, const bool symbol_wrap = false) {
-    const auto display = wrapped_candidate_text(text, wrap_length, symbol_wrap);
+                               const std::size_t wrap_length) {
+    const auto display = wrapped_candidate_text(text, wrap_length);
     return kCandidateItemHeightDip +
            static_cast<float>(std::count(display.begin(), display.end(), L'\n')) *
                kCandidateTextLineHeightDip;
@@ -1829,31 +1829,98 @@ std::wstring_view TextService::candidate_display_text(std::wstring_view text, co
     return last == std::wstring_view::npos ? text : text.substr(0, last + 1);
 }
 
-bool TextService::candidate_symbol_wrap(const std::span<const std::wstring> row) const noexcept {
-    if (!candidate_symbol_preview_ || is_agent_mode() || plugin_scheme_selected()) return false;
-    return std::any_of(row.begin(), row.end(), [](const auto& text) {
-        return std::any_of(text.begin(), text.end(), candidate_symbol_break);
-    });
+std::vector<std::vector<std::size_t>> TextService::candidate_flow_rows() const {
+    std::vector<SymbolCandidateBlock> blocks;
+    const auto count = candidates_expanded_ || alt_code_preview_active_ || unicode_palette_visible_
+        ? std::size_t{1} : following_previews_.size() + 1;
+    if (count == 1) return {{0}};
+    for (std::size_t block = 0; block < count; ++block) {
+        const auto& items = block == 0 ? candidates_ : following_previews_[block - 1].candidates;
+        const auto end = block == 0 ? std::min(items.size(), candidate_page_width()) : items.size();
+        std::size_t maximum = 0;
+        for (std::size_t index = 0; index < end; ++index) {
+            const auto last = items[index].find_last_not_of(L",.;:!?，。；：！？、\n\r");
+            maximum = std::max(maximum, candidate_scalar_count(last == std::wstring::npos
+                ? std::wstring_view{} : std::wstring_view(items[index]).substr(0, last + 1)));
+        }
+        blocks.push_back({maximum, true});
+    }
+    if (candidate_symbol_preview_ && !is_agent_mode() && !plugin_scheme_selected() && !candidates_.empty()) {
+        // Input delimiters, not a first candidate's (possibly partial) text,
+        // identify the source boundary between candidate blocks.
+        std::size_t boundary = 0;
+        for (std::size_t at = 0; at < input_buffer_.size() && boundary < blocks.size();) {
+            if (std::wstring_view(L",.;:!?，。；：！？、\n\r").find(input_buffer_[at]) == std::wstring_view::npos) { ++at; continue; }
+            bool mandatory = false;
+            while (at < input_buffer_.size() && std::wstring_view(L",.;:!?，。；：！？、\n\r").find(input_buffer_[at]) != std::wstring_view::npos)
+                mandatory |= std::wstring_view(L",.，。\n\r").find(input_buffer_[at++]) != std::wstring_view::npos;
+            blocks[boundary++].mandatory_break_after = mandatory;
+        }
+    }
+    const auto logical_rows = symbol_candidate_block_rows(blocks);
+    std::vector<std::vector<std::size_t>> rows;
+    // Very many short blocks must not be squeezed into illegible pills when
+    // their natural width exceeds the window's responsive limit.
+    const auto control_width = kButtonWidthDip * 2.0F + kExpandButtonWidthDip +
+        kControlGapDip * 2.0F + kCandidateControlGapDip;
+    float width = 0.0F;
+    for (const auto& logical : logical_rows) {
+        if (logical.size() == 1) { rows.push_back(logical); continue; }
+        rows.emplace_back(); width = 0.0F;
+        for (const auto block : logical) {
+            const auto block_width = candidate_block_width(block);
+            const auto available = kCandidateWindowMaxWidthDip - 2.0F * kHorizontalPaddingDip -
+                (rows.size() == 1 ? control_width : 2.0F * kPreviewContainerInsetDip);
+            if (!rows.back().empty() && width + kCandidateGroupGapDip + block_width > available) {
+                rows.emplace_back(); width = 0.0F;
+            }
+            if (!rows.back().empty()) width += kCandidateGroupGapDip;
+            rows.back().push_back(block); width += block_width;
+        }
+    }
+    return rows;
+}
+
+float TextService::candidate_block_height(const std::size_t block) const {
+    const auto& items = block == 0 ? candidates_ : following_previews_[block - 1].candidates;
+    const auto end = block == 0 ? std::min(items.size(), candidate_page_width()) : items.size();
+    const auto wrap = std::max<std::size_t>(1, shortcut_config_.candidate_wrap_length);
+    float height = kCandidateItemHeightDip;
+    for (std::size_t index = 0; index < end; ++index)
+        height = std::max(height, wrapped_candidate_height(candidate_display_text(items[index], index), wrap));
+    return height;
+}
+
+float TextService::candidate_block_width(const std::size_t block) const {
+    const auto& items = block == 0 ? candidates_ : following_previews_[block - 1].candidates;
+    const auto& groups = block == 0 ? candidate_groups_ : following_previews_[block - 1].groups;
+    const auto end = block == 0 ? std::min(items.size(), candidate_page_width()) : items.size();
+    const auto wrap = std::max<std::size_t>(1, shortcut_config_.candidate_wrap_length);
+    float width = 0.0F;
+    for (std::size_t index = 0; index < end; ++index) {
+        if (index != 0) width += groups.size() == items.size() && groups[index] != groups[index - 1]
+            ? kCandidateGroupGapDip : kCandidateGapDip;
+        width += kCandidatePillBaseWidthDip + measure_text_width(dwrite_factory_, candidate_text_format_,
+            wrapped_candidate_text(candidate_display_text(items[index], index), wrap));
+    }
+    return width;
 }
 
 std::optional<TextService::PreviewContainerLayout> TextService::layout_following_previews(const float width) const {
     if (candidates_expanded_ || following_previews_.empty() || alt_code_preview_active_ || unicode_palette_visible_)
         return std::nullopt;
-    const auto wrap = std::max<std::size_t>(1, shortcut_config_.candidate_wrap_length);
+    const auto rows = candidate_flow_rows();
+    if (rows.size() <= 1) return std::nullopt;
     float first_height = kCandidateItemHeightDip;
-    const auto main_symbol_wrap = candidate_symbol_wrap(std::span(candidates_).first(std::min(candidates_.size(), candidate_page_width())));
-    for (std::size_t i = 0; i < std::min(candidates_.size(), candidate_page_width()); ++i)
-        first_height = std::max(first_height, wrapped_candidate_height(candidate_display_text(candidates_[i], i), wrap, main_symbol_wrap));
+    for (const auto block : rows.front()) first_height = std::max(first_height, candidate_block_height(block));
     PreviewContainerLayout layout;
     layout.left = kPreviewContainerInsetDip;
     layout.right = std::max(layout.left, width - kPreviewContainerInsetDip);
     layout.top = (candidate_preview_visible() ? kHeaderHeightDip : 0.0F) + 8.0F + first_height + kPreviewContainerGapDip;
     layout.bottom = layout.top + 2.0F * kPreviewContainerVerticalPaddingDip;
-    for (const auto& row : following_previews_) {
+    for (std::size_t row = 1; row < rows.size(); ++row) {
         float height = kCandidateItemHeightDip;
-        const auto symbol_wrap = candidate_symbol_wrap(row.candidates);
-        for (std::size_t i = 0; i < row.candidates.size(); ++i)
-            height = std::max(height, wrapped_candidate_height(candidate_display_text(row.candidates[i], i), wrap, symbol_wrap));
+        for (const auto block : rows[row]) height = std::max(height, candidate_block_height(block));
         if (!layout.row_heights.empty()) layout.bottom += kCandidateRowGapDip;
         layout.row_heights.push_back(height);
         layout.bottom += height;
@@ -1916,12 +1983,12 @@ SIZE TextService::desired_candidate_window_size() const {
     const auto row_height = [this, wrap_length](const std::size_t begin,
                                                 const std::size_t end) {
         float height = kCandidateItemHeightDip;
-        const auto symbol_wrap = candidate_symbol_wrap(std::span(candidates_).subspan(begin, end - begin));
         for (std::size_t index = begin; index < end; ++index)
             height = std::max(height,
-                              wrapped_candidate_height(candidate_display_text(candidates_[index], index % candidate_page_width()), wrap_length, symbol_wrap));
+                              wrapped_candidate_height(candidate_display_text(candidates_[index], index % candidate_page_width()), wrap_length));
         return height;
     };
+    const auto flow_rows = candidate_flow_rows();
     float content_height = kCandidateItemHeightDip;
     if (!candidates_.empty() && candidates_expanded_) {
         const auto first = std::min(candidates_.size(), expanded_pages_.first_visible * page_size);
@@ -1934,7 +2001,7 @@ SIZE TextService::desired_candidate_window_size() const {
             content_height += row_height(begin, std::min(visible_end, begin + page_size));
         }
     } else if (!candidates_.empty()) {
-        content_height = row_height(0, std::min(candidates_.size(), page_size));
+        for (const auto block : flow_rows.front()) content_height = std::max(content_height, candidate_block_height(block));
     }
     const auto preview_container = layout_following_previews(kCandidateWindowMinWidthDip);
     const float height = preview_container ? preview_container->bottom + 8.0F
@@ -1948,10 +2015,7 @@ SIZE TextService::desired_candidate_window_size() const {
     const bool partitioned = !plugin_scheme_selected() && page_size >= 4 &&
         candidate_groups_.size() == candidates_.size();
     const auto item_width = [this, wrap_length](const std::size_t index) {
-        const auto begin = index / candidate_page_width() * candidate_page_width();
-        const auto end = std::min(candidates_.size(), begin + candidate_page_width());
-        const auto symbol_wrap = candidate_symbol_wrap(std::span(candidates_).subspan(begin, end - begin));
-        const auto display = wrapped_candidate_text(candidate_display_text(candidates_[index], index % candidate_page_width()), wrap_length, symbol_wrap);
+        const auto display = wrapped_candidate_text(candidate_display_text(candidates_[index], index % candidate_page_width()), wrap_length);
         return kCandidatePillBaseWidthDip +
                measure_text_width(dwrite_factory_, candidate_text_format_, display);
     };
@@ -1992,18 +2056,18 @@ SIZE TextService::desired_candidate_window_size() const {
             candidates_width = std::max(candidates_width, row_width(begin, end));
         }
     } else {
-        candidates_width = row_width(0, std::min(candidates_.size(), page_size));
+        for (std::size_t index = 0; index < flow_rows.front().size(); ++index) {
+            if (index != 0) candidates_width += kCandidateGroupGapDip;
+            candidates_width += candidate_block_width(flow_rows.front()[index]);
+        }
     }
     float following_width = 0.0F;
     if (preview_container)
-        for (const auto& row : following_previews_) {
+        for (std::size_t row = 1; row < flow_rows.size(); ++row) {
             float width = 0.0F;
-            const auto symbol_wrap = candidate_symbol_wrap(row.candidates);
-            for (std::size_t i = 0; i < row.candidates.size(); ++i) {
-                if (i != 0) width += row.groups.size() == row.candidates.size() &&
-                    row.groups[i] != row.groups[i - 1] ? kCandidateGroupGapDip : kCandidateGapDip;
-                width += kCandidatePillBaseWidthDip + measure_text_width(dwrite_factory_, candidate_text_format_,
-                    wrapped_candidate_text(candidate_display_text(row.candidates[i], i), wrap_length, symbol_wrap));
+            for (std::size_t index = 0; index < flow_rows[row].size(); ++index) {
+                if (index != 0) width += kCandidateGroupGapDip;
+                width += candidate_block_width(flow_rows[row][index]);
             }
             following_width = std::max(following_width, width);
         }
@@ -2918,7 +2982,7 @@ bool TextService::render_candidate_window() {
                                  mode_accent_brush, mode_border_brush,
                                  mode_highlight_brush, candidate_number_brush](
                                     const D2D1_RECT_F bounds, const std::size_t index,
-                                    const std::wstring_view text, const bool interactive, const bool symbol_wrap) {
+                                    const std::wstring_view text, const bool interactive) {
         const HitTarget target{HitKind::candidate, index};
         const D2D1_ROUNDED_RECT pill{bounds, 7.0F, 7.0F};
         const bool hovered = interactive && target_matches(hovered_target_, target);
@@ -2946,7 +3010,7 @@ bool TextService::render_candidate_window() {
                                   label_text_format_, badge.rect, !interactive ? preview_text_brush_ :
                                       active_page ? candidate_number_brush : secondary_text_brush_,
                                   D2D1_DRAW_TEXT_OPTIONS_CLIP);
-        const auto display = wrapped_candidate_text(text, wrap_length, symbol_wrap);
+        const auto display = wrapped_candidate_text(text, wrap_length);
         render_target_->DrawTextW(
             display.data(), static_cast<UINT32>(display.size()),
             candidate_text_format_,
@@ -2976,7 +3040,6 @@ bool TextService::render_candidate_window() {
                                                         const float left,
                                                         const float right) {
         if (begin >= end) return;
-        const auto symbol_wrap = candidate_symbol_wrap(items.subspan(begin, end - begin));
         const bool partitioned = !plugin_scheme_selected() && candidate_page_size_ >= 4 && groups.size() == items.size();
         float gaps_width = 0.0F;
         for (std::size_t index = begin + 1; index < end; ++index) {
@@ -2986,7 +3049,7 @@ bool TextService::render_candidate_window() {
         }
         float requested_total = 0.0F;
         for (std::size_t index = begin; index < end; ++index) {
-            const auto display = wrapped_candidate_text(candidate_display_text(items[index], index - begin), wrap_length, symbol_wrap);
+            const auto display = wrapped_candidate_text(candidate_display_text(items[index], index - begin), wrap_length);
             requested_total += kCandidatePillBaseWidthDip +
                                measure_text_width(dwrite_factory_, candidate_text_format_,
                                                   display);
@@ -3013,15 +3076,49 @@ bool TextService::render_candidate_window() {
                 }
             }
             const auto text = candidate_display_text(items[index], index - begin);
-            const auto display = wrapped_candidate_text(text, wrap_length, symbol_wrap);
+            const auto display = wrapped_candidate_text(text, wrap_length);
             const float requested_width =
                 kCandidatePillBaseWidthDip +
                 measure_text_width(dwrite_factory_, candidate_text_format_, display);
             const float width = requested_width * width_scale;
-            draw_candidate(D2D1::RectF(x, top, x + width, top + row_height), index, text, interactive, symbol_wrap);
+            draw_candidate(D2D1::RectF(x, top, x + width, top + row_height), index, text, interactive);
             x += width;
         }
     };
+
+    const auto draw_candidate_blocks = [this, &draw_candidate_row](const std::vector<std::size_t>& blocks,
+        const float top, const float height, const float left, const float right) {
+        if (blocks.size() == 1) {
+            const auto block = blocks.front();
+            const auto& items = block == 0 ? candidates_ : following_previews_[block - 1].candidates;
+            const auto& groups = block == 0 ? candidate_groups_ : following_previews_[block - 1].groups;
+            draw_candidate_row(items, groups, block == 0, 0,
+                block == 0 ? std::min(items.size(), candidate_page_width()) : items.size(), top, height, left, right);
+            return;
+        }
+        float requested = 0.0F;
+        for (const auto block : blocks) requested += candidate_block_width(block);
+        const auto gaps = blocks.empty() ? 0.0F : static_cast<float>(blocks.size() - 1) * kCandidateGroupGapDip;
+        const auto available = std::max(1.0F, right - left - gaps);
+        const auto scale = requested > available ? available / requested : 1.0F;
+        float x = left;
+        for (std::size_t index = 0; index < blocks.size(); ++index) {
+            const auto block = blocks[index];
+            if (index != 0) {
+                x += kCandidateGroupGapDip * 0.5F;
+                render_target_->DrawLine(D2D1::Point2F(x, top + 3.0F),
+                    D2D1::Point2F(x, top + height - 3.0F), divider_brush_, 1.0F);
+                x += kCandidateGroupGapDip * 0.5F;
+            }
+            const auto width = candidate_block_width(block) * scale;
+            const auto& items = block == 0 ? candidates_ : following_previews_[block - 1].candidates;
+            const auto& groups = block == 0 ? candidate_groups_ : following_previews_[block - 1].groups;
+            draw_candidate_row(items, groups, block == 0, 0,
+                block == 0 ? std::min(items.size(), candidate_page_width()) : items.size(), top, height, x, x + width);
+            x += width;
+        }
+    };
+    const auto flow_rows = candidate_flow_rows();
 
     if (candidates_.empty()) {
         const auto status = is_agent_mode() && !agent_response_visible_ && input_buffer_.size() <= 1
@@ -3055,10 +3152,9 @@ bool TextService::render_candidate_window() {
              begin += page_size) {
             const auto end = std::min(candidates_.size(), begin + page_size);
             float row_height = kCandidateItemHeightDip;
-            const auto symbol_wrap = candidate_symbol_wrap(std::span(candidates_).subspan(begin, end - begin));
             for (std::size_t index = begin; index < end; ++index) {
                 row_height = std::max(
-                    row_height, wrapped_candidate_height(candidate_display_text(candidates_[index], index - begin), wrap_length, symbol_wrap));
+                    row_height, wrapped_candidate_height(candidate_display_text(candidates_[index], index - begin), wrap_length));
             }
             const auto row = begin / page_size;
             const auto bounds = D2D1::RectF(kHorizontalPaddingDip - 3.0F, top - 2.0F,
@@ -3084,12 +3180,8 @@ bool TextService::render_candidate_window() {
         }
     } else {
         float row_height = kCandidateItemHeightDip;
-        const auto end = std::min(candidates_.size(), candidate_page_width());
-        const auto symbol_wrap = candidate_symbol_wrap(std::span(candidates_).first(end));
-        for (std::size_t index = 0; index < end; ++index)
-            row_height = std::max(row_height,
-                                  wrapped_candidate_height(candidate_display_text(candidates_[index], index), wrap_length, symbol_wrap));
-        draw_candidate_row(candidates_, candidate_groups_, true, 0, end, content_top, row_height,
+        for (const auto block : flow_rows.front()) row_height = std::max(row_height, candidate_block_height(block));
+        draw_candidate_blocks(flow_rows.front(), content_top, row_height,
             kHorizontalPaddingDip, candidate_right);
     }
 
@@ -3101,10 +3193,9 @@ bool TextService::render_candidate_window() {
         render_target_->DrawRoundedRectangle(D2D1::RoundedRect(bounds,
             kCandidateCornerRadiusDip, kCandidateCornerRadiusDip), mode_border_brush, 1.0F);
         float top = container->top + kPreviewContainerVerticalPaddingDip;
-        for (std::size_t i = 0; i < following_previews_.size(); ++i) {
-            const auto& row = following_previews_[i];
-            const auto height = container->row_heights[i];
-            draw_candidate_row(row.candidates, row.groups, false, 0, row.candidates.size(), top, height,
+        for (std::size_t row = 1; row < flow_rows.size(); ++row) {
+            const auto height = container->row_heights[row - 1];
+            draw_candidate_blocks(flow_rows[row], top, height,
                 container->left + kHorizontalPaddingDip, container->right - kHorizontalPaddingDip);
             top += height + kCandidateRowGapDip;
         }
