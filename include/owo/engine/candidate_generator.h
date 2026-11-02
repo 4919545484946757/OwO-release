@@ -34,6 +34,8 @@ struct Candidate {
     bool joint_phrase_partition{};
     CandidatePartitionSlot partition_slot{CandidatePartitionSlot::automatic};
     bool qualified_sentence_reading{};
+    // A once-per-complete-input soft prior, not a per-token reward.
+    std::int64_t shortest_segmentation_bonus{};
     [[nodiscard]] bool user_preferred() const noexcept {
         return user_lexicon && !provisional_user_word;
     }

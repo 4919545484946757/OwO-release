@@ -374,6 +374,7 @@ void replace_candidate_payload(Candidate& existing, Candidate replacement) {
     existing.joint_phrase_partition = replacement.joint_phrase_partition;
     existing.partition_slot = replacement.partition_slot;
     existing.qualified_sentence_reading = replacement.qualified_sentence_reading;
+    existing.shortest_segmentation_bonus = replacement.shortest_segmentation_bonus;
 }
 
 class CandidateAccumulator {
@@ -1826,6 +1827,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         else
             prefixes.push_back(std::move(candidate));
     }
+    if (phonetic_assistance)
+        apply_shortest_segmentation_bonus(full, full_input_bytes);
     if (partition_page_size != 0)
         apply_exact_dictionary_sentence_penalty(full, full_input_bytes);
     std::sort(full.begin(), full.end(), score_less);

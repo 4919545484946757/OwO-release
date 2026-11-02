@@ -1,6 +1,7 @@
 #include "owo/engine/candidate_generator.h"
 #include "owo/engine/compact_collocations.h"
 #include "owo/engine/candidate_partition.h"
+#include "owo/engine/candidate_scoring.h"
 #include "owo/engine/exact_code_schema.h"
 #include "owo/engine/full_pinyin_schema.h"
 
@@ -25,6 +26,51 @@ std::size_t utf8_character_count(const std::string_view text) {
 }  // namespace
 
 int main() {
+    {
+        using namespace owo::engine;
+        const auto candidate = [](std::size_t syllables, std::size_t consumed,
+                                  InputMatchKind kind = InputMatchKind::exact) {
+            Candidate value;
+            for (std::size_t i = 0; i < syllables; ++i) value.text += "字";
+            value.syllables.resize(syllables, "a");
+            value.source_segments.resize(syllables, "a");
+            value.consumed_input_bytes = consumed;
+            value.match_kind = kind;
+            value.score = 10000;
+            return value;
+        };
+        std::vector<Candidate> values{candidate(3, 9), candidate(4, 9), candidate(6, 9),
+            candidate(1, 3), candidate(1, 9, InputMatchKind::corrected),
+            candidate(2, 9, InputMatchKind::incomplete_completion),
+            candidate(2, 9, InputMatchKind::abbreviated_completion)};
+        auto tied_shortest = values.front(); tied_shortest.segment_count = 3;
+        values.push_back(tied_shortest);
+        for (unsigned pass = 0; pass < 4; ++pass) {
+            apply_shortest_segmentation_bonus(values, 9);
+            for (std::size_t i = 0; i < values.size(); ++i) {
+                const auto expected = (i == 0 || i == 7) ? kCandidateShortestSegmentationBonus : 0;
+                if (values[i].shortest_segmentation_bonus != expected || values[i].score != 10000 + expected)
+                    return fail("shortest exact reading reward stacked, depended on token count, or leaked to assisted/partial input");
+            }
+        }
+        // Removing the competing reading removes the prior, rather than
+        // carrying a stale preference to a different candidate pool.
+        std::vector<Candidate> only_shortest{values.front(), values.back()};
+        apply_shortest_segmentation_bonus(only_shortest, 9);
+        for (const auto& value : only_shortest)
+            if (value.shortest_segmentation_bonus != 0 || value.score != 10000)
+                return fail("same-length readings received a shortest-reading reward");
+        auto malformed = candidate(1, 9); malformed.source_segments.clear();
+        values.push_back(malformed);
+        apply_shortest_segmentation_bonus(values, 9);
+        if (values.front().shortest_segmentation_bonus != kCandidateShortestSegmentationBonus ||
+            values.back().shortest_segmentation_bonus != 0)
+            return fail("invalid reading changed the shortest-reading prior");
+        apply_shortest_segmentation_bonus(values, 0);
+        for (const auto& value : values)
+            if (value.shortest_segmentation_bonus != 0 || value.score != 10000)
+                return fail("empty input retained a segmentation reward");
+    }
     {
         const owo::engine::MemoryLexicon lexicon({
             {{"bu", "tian", "jia"}, "不添加", 100},

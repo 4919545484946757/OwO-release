@@ -38,7 +38,8 @@ int main(int argc, char **argv) {
             if (item.consumed_input_bytes != input.size())
                 continue;
             std::cout << item.text << " score=" << item.score
-                      << " coherence=" << item.coherence_score << " model_only=" << item.model_only
+                      << " coherence=" << item.coherence_score
+                      << " shortest_bonus=" << item.shortest_segmentation_bonus << " model_only=" << item.model_only
                       << " segments=";
             for (const auto length : item.segment_lengths)
                 std::cout << length << ',';
@@ -160,5 +161,11 @@ int main(int argc, char **argv) {
     if (std::any_of(explicit_other.begin(), explicit_other.end(), [](const auto& value) {
             return value.text == "要全部";
         })) return 8;
+    auto non_phonetic = schema.parse("yaoquanbu", 32, false);
+    non_phonetic.phonetic_assistance = false;
+    const auto non_phonetic_values = CandidateGenerator(leading_word_lexicon).generate(
+        non_phonetic, 48, false, {}, nullptr, {}, true, 7);
+    if (non_phonetic_values.empty() || std::any_of(non_phonetic_values.begin(), non_phonetic_values.end(),
+            [](const auto& value) { return value.shortest_segmentation_bonus != 0; })) return 9;
     return 0;
 }
