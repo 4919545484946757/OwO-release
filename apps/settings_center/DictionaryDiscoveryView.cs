@@ -19,7 +19,7 @@ internal sealed class DictionaryDiscoveryView : UserControl
     private readonly Dictionary<string, Grid> _cardCache = new();
     private readonly Dictionary<string, Button> _downloadButtons = new();
     private readonly TextBlock _description = new() { TextWrapping = TextWrapping.Wrap };
-    private readonly InfoBar _status = new() { IsOpen = true, IsClosable = false };
+    private readonly Action<string, InfoBarSeverity> _reportStatus;
     private readonly ProgressBar _progress = new() { Minimum = 0, Maximum = 100, Visibility = Visibility.Collapsed };
     private readonly Func<string, PreparedDictionary, Task> _import;
     private IReadOnlyList<DictionaryDownload> _downloads = [];
@@ -30,10 +30,10 @@ internal sealed class DictionaryDiscoveryView : UserControl
         if (_source is not null && (!_started || _listing?.IsCancellationRequested == true || _downloads.Count == 0 && _listing is null && _operation is null)) await RefreshDirectoryAsync();
     }
     internal void CancelPending() { _listing?.Cancel(); _operation?.Cancel(); }
-    internal DictionaryDiscoveryView(Func<string, PreparedDictionary, Task> import) {
-        _import = import;
+    internal DictionaryDiscoveryView(Func<string, PreparedDictionary, Task> import, Action<string, InfoBarSeverity> reportStatus) {
+        _import = import; _reportStatus = reportStatus;
         var body = _detailPage;
-        for (var index = 0; index < 4; index++) body.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        for (var index = 0; index < 3; index++) body.RowDefinitions.Add(new() { Height = GridLength.Auto });
         body.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
         var toolbar = new Grid { ColumnSpacing = 12, RowSpacing = 8 };
         toolbar.RowDefinitions.Add(new() { Height = GridLength.Auto }); toolbar.RowDefinitions.Add(new() { Height = GridLength.Auto });
@@ -47,7 +47,7 @@ internal sealed class DictionaryDiscoveryView : UserControl
         var settings = new StackPanel { Spacing = 10 }; settings.Children.Add(_description); settings.Children.Add(_maximum);
         var options = new Expander { Header = "来源说明与导入选项", Content = settings, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
         Grid.SetRow(options, 1); body.Children.Add(options);
-        Grid.SetRow(_status, 2); body.Children.Add(_status); Grid.SetRow(_progress, 3); body.Children.Add(_progress);
+        Grid.SetRow(_progress, 2); body.Children.Add(_progress);
         var scroll = new ScrollViewer { Content = _items, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalScrollMode = ScrollMode.Disabled, HorizontalContentAlignment = HorizontalAlignment.Stretch };
         scroll.LayoutUpdated += (_, _) => {
             var width = scroll.ViewportWidth;
@@ -56,7 +56,7 @@ internal sealed class DictionaryDiscoveryView : UserControl
             }
         };
         _items.SizeChanged += (_, _) => DictionaryCardLayout.Arrange(_items);
-        Grid.SetRow(scroll, 4); body.Children.Add(scroll);
+        Grid.SetRow(scroll, 3); body.Children.Add(scroll);
         BuildSourcePage();
         var pages = new Grid(); pages.Children.Add(_sourcePage); pages.Children.Add(_detailPage); Content = pages;
         _back.Click += (_, _) => {
@@ -122,7 +122,7 @@ internal sealed class DictionaryDiscoveryView : UserControl
     private void Describe() {
         if (_source is { } source) _description.Text = $"{source.Description}\n许可：{source.License}\nGitHub 文件核对上游摘要；CC-CEDICT 仅 HTTPS 与本地摘要，无上游独立校验和。\n导入频率统一为中性权重 1，不伪造为个人学习记录。";
     }
-    private void Notice(string message, InfoBarSeverity severity = InfoBarSeverity.Informational) { _status.Message = message; _status.Severity = severity; }
+    private void Notice(string message, InfoBarSeverity severity = InfoBarSeverity.Informational) => _reportStatus(message, severity);
     private void Render() {
         var desired = new List<UIElement>();
         foreach (var item in _downloads.Where(d => (d.Title + " " + d.Name).Contains(_search.Text.Trim(), StringComparison.OrdinalIgnoreCase))) {

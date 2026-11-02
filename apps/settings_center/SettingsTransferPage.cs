@@ -15,9 +15,6 @@ public sealed partial class MainPage
 
     private void ShowTransferStatus(string message, InfoBarSeverity severity)
     {
-        ConfigurationTransferStatus.Message = message;
-        ConfigurationTransferStatus.Severity = severity;
-        ConfigurationTransferStatus.IsOpen = true;
         ShowStatus(message, severity);
     }
 

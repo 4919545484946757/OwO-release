@@ -12,7 +12,7 @@ internal sealed class DictionaryManager : UserControl
     private readonly ContentControl _page = new() { HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
     private readonly TextBox _search = new() { PlaceholderText = "搜索字典名称、格式或来源" };
     private readonly Grid _cards = new() { ColumnSpacing = 12, RowSpacing = 12 };
-    private readonly InfoBar _notice = new() { IsOpen = false, IsClosable = true };
+    private readonly Action<string, InfoBarSeverity> _reportStatus;
     private readonly Button _import = new() { Content = "导入字典" }, _refresh = new() { Content = "刷新" };
     private readonly Button _restore = new() { Content = "恢复内置词库", Visibility = Visibility.Collapsed };
     private readonly Grid _catalogPage = new() { Margin = new Thickness(16, 0, 16, 16), RowSpacing = 12 };
@@ -38,8 +38,8 @@ internal sealed class DictionaryManager : UserControl
         internal bool Updating;
     }
     private bool _busy;
-    internal DictionaryManager(Action? openDownloads = null) {
-        _catalogPage.RowDefinitions.Add(new() { Height = GridLength.Auto });
+    internal DictionaryManager(Action<string, InfoBarSeverity> reportStatus) {
+        _reportStatus = reportStatus;
         _catalogPage.RowDefinitions.Add(new() { Height = GridLength.Auto });
         _catalogPage.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
         var toolbar = new Grid { ColumnSpacing = 8, RowSpacing = 8 };
@@ -58,10 +58,10 @@ internal sealed class DictionaryManager : UserControl
                         $"上游有效行 {prepared.Available}；本次选取 {prepared.Data.Entries.Count}。\n未选取的其余数据不会被自动导入。\n{prepared.Provenance}");
                 });
                 ShowInstalled();
-            });
+            }, _reportStatus);
         Grid.SetRow(_refresh, 1); Grid.SetColumn(_refresh, 2); toolbar.Children.Add(_refresh);
         Grid.SetRow(_restore, 1); Grid.SetColumn(_restore, 3); toolbar.Children.Add(_restore);
-        _catalogPage.Children.Add(toolbar); Grid.SetRow(_notice, 1); _catalogPage.Children.Add(_notice);
+        _catalogPage.Children.Add(toolbar);
         var scroll = new ScrollViewer { Content = _cards, HorizontalScrollMode = ScrollMode.Disabled,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalContentAlignment = HorizontalAlignment.Stretch };
         scroll.LayoutUpdated += (_, _) => {
@@ -73,7 +73,7 @@ internal sealed class DictionaryManager : UserControl
                 _cards.Width = width; LayoutCards();
             }
         };
-        Grid.SetRow(scroll, 2); _catalogPage.Children.Add(scroll);
+        Grid.SetRow(scroll, 1); _catalogPage.Children.Add(scroll);
         _cards.SizeChanged += (_, _) => LayoutCards();
         _search.TextChanged += (_, _) => RenderCards();
         _import.Click += async (_, _) => await RunAsync(ImportAsync);
@@ -106,13 +106,14 @@ internal sealed class DictionaryManager : UserControl
         _catalog = await _store.LoadAsync();
         if (!ReferenceEquals(_page.Content, _overview)) ShowInstalled();
         RenderCards();
+        Notify($"词库目录已刷新：{_catalog.Dictionaries.Count + _catalog.Builtins.Count(value => !value.Deleted)} 个字典。");
     });
     private async Task RunAsync(Func<Task> action) {
         // Serialize actions without a disabled/enabled pulse on the toolbar;
         // even a fast snapshot read otherwise retriggers WinUI color transitions.
         if (_busy) return; _busy = true;
         try { await action(); }
-        catch (Exception error) { _notice.Message = error.Message; _notice.Severity = InfoBarSeverity.Error; _notice.IsOpen = true; }
+        catch (Exception error) { _reportStatus(error.Message, InfoBarSeverity.Error); }
         finally { _busy = false; }
     }
     private void RenderCards() {
@@ -169,7 +170,7 @@ internal sealed class DictionaryManager : UserControl
         foreach (var id in _cardViews.Keys.Where(id => !retained.Contains(id)).ToArray()) _cardViews.Remove(id);
         LayoutCards();
     }
-    private void Notify(string message) { _notice.Message = message; _notice.Severity = InfoBarSeverity.Success; _notice.IsOpen = true; }
+    private void Notify(string message) => _reportStatus(message, InfoBarSeverity.Success);
     private async Task SaveBuiltinAsync(BuiltinDictionary dictionary) =>
         _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries, _catalog.Builtins.Select(value => value.Id == dictionary.Id ? dictionary : value).ToArray());
     private async Task SaveDictionaryAsync(ManagedDictionary dictionary) =>
@@ -286,7 +287,7 @@ internal sealed class DictionaryManager : UserControl
     }
     private Task OpenBuiltinAsync(BuiltinDictionary dictionary) {
         if (dictionary.Id == "user") {
-            var editor = new UserLexiconEditor(); ShowDetail(editor, dictionary.Name); _ = editor.RefreshAsync();
+            var editor = new UserLexiconEditor(_reportStatus); ShowDetail(editor, dictionary.Name); _ = editor.RefreshAsync();
         } else {
             var body = new StackPanel { Spacing = 12 };
             body.Children.Add(new TextBlock { Text = dictionary.Name, FontSize = 24 });
@@ -302,7 +303,7 @@ internal sealed class DictionaryManager : UserControl
         }, async () => {
             await DeleteDictionaryAsync(dictionary.Id);
             ShowInstalled(); RenderCards();
-        }));
+        }, _reportStatus));
     internal static void InitializePicker(object picker) => WinRT.Interop.InitializeWithWindow.Initialize(picker,
         WinRT.Interop.WindowNative.GetWindowHandle(((App)Application.Current).MainWindow));
     internal static async Task<(string Name, string SourceName, DictionaryImport Data)?> PickImportAsync() {
@@ -332,6 +333,6 @@ internal sealed class DictionaryManager : UserControl
             PrimaryButtonText = "确认导入", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close }.ShowAsync() != ContentDialogResult.Primary) return;
         var dictionary = new ManagedDictionary(Guid.NewGuid().ToString("N"), title.Text.Trim(), data.Format, sourceName, "full_pinyin", enable.IsChecked == true, data.Entries);
         _catalog = await _store.SaveAsync(_catalog, [.. _catalog.Dictionaries, dictionary]); RenderCards();
-        _notice.Message = "字典已独立保存；启用词条会在后续输入时加载。"; _notice.Severity = InfoBarSeverity.Success; _notice.IsOpen = true;
+        Notify("字典已独立保存；启用词条会在后续输入时加载。");
     }
 }

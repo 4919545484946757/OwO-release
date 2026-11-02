@@ -32,6 +32,40 @@ internal sealed class DictionaryEncodingDialog
     private DictionaryEncodingDialog(XamlRoot root, IReadOnlyList<DictionaryWord> pending, int padding) {
         _pending = pending;
         _limit.Value = pending.Count;
+        _generate.Style = Application.Current.Resources["AccentButtonStyle"] as Style;
+        // Keep native focus/disabled/high-contrast states while making this
+        // primary action consistently blue instead of the user's accent hue.
+        _generate.Resources = (ResourceDictionary)Microsoft.UI.Xaml.Markup.XamlReader.Load("""
+            <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                <ResourceDictionary.ThemeDictionaries>
+                    <ResourceDictionary x:Key="Light">
+                        <SolidColorBrush x:Key="AccentButtonBackground" Color="#0067C0"/>
+                        <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#1976C7"/>
+                        <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#3185CE"/>
+                        <SolidColorBrush x:Key="AccentButtonForeground" Color="White"/>
+                        <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="White"/>
+                        <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#CCFFFFFF"/>
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="Dark">
+                        <SolidColorBrush x:Key="AccentButtonBackground" Color="#60CDFF"/>
+                        <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#58BDEB"/>
+                        <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#50AED9"/>
+                        <SolidColorBrush x:Key="AccentButtonForeground" Color="Black"/>
+                        <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="Black"/>
+                        <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#CC000000"/>
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="HighContrast">
+                        <StaticResource x:Key="AccentButtonBackground" ResourceKey="SystemControlHighlightAccentBrush"/>
+                        <StaticResource x:Key="AccentButtonBackgroundPointerOver" ResourceKey="SystemControlForegroundAccentBrush"/>
+                        <StaticResource x:Key="AccentButtonBackgroundPressed" ResourceKey="SystemControlBackgroundBaseMediumLowBrush"/>
+                        <StaticResource x:Key="AccentButtonForeground" ResourceKey="SystemControlHighlightAltAccentBrush"/>
+                        <StaticResource x:Key="AccentButtonForegroundPointerOver" ResourceKey="SystemControlBackgroundChromeWhiteBrush"/>
+                        <StaticResource x:Key="AccentButtonForegroundPressed" ResourceKey="SystemControlHighlightBaseHighBrush"/>
+                    </ResourceDictionary>
+                </ResourceDictionary.ThemeDictionaries>
+            </ResourceDictionary>
+            """);
         var body = new StackPanel { Spacing = 10, MinWidth = 280, MaxWidth = 620 };
         body.Children.Add(new TextBlock { Text = "自动分批补全整本词库，不必逐条勾选。优先使用整词注音及能确定读音的词语组合；多音、冲突或未知项目默认跳过，可选手动补充。保存前不会写入，也不覆盖已有编码。", TextWrapping = TextWrapping.Wrap });
         if (padding > 0) body.Children.Add(new InfoBar { IsOpen = true, IsClosable = false, Severity = InfoBarSeverity.Informational,

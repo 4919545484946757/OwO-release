@@ -13,18 +13,18 @@ internal sealed class UserLexiconEditor : UserControl
     private readonly TextBox _search = new() { PlaceholderText = "搜索编码或词语", MinWidth = 0 };
     private readonly ListView _list = new() { SelectionMode = ListViewSelectionMode.Single };
     private readonly TextBlock _summary = new() { TextWrapping = TextWrapping.Wrap };
-    private readonly InfoBar _notice = new() { IsOpen = false, IsClosable = false };
+    private readonly Action<string, InfoBarSeverity> _reportStatus;
     private readonly CommandBar _commands = new() { DefaultLabelPosition = CommandBarDefaultLabelPosition.Right };
     private readonly Button _previous = new() { Content = "上一页" }, _next = new() { Content = "下一页" };
     private int _offset, _total;
     private bool _busy;
     private const int PageSize = 50;
-    internal UserLexiconEditor()
+    internal UserLexiconEditor(Action<string, InfoBarSeverity> reportStatus)
     {
+        _reportStatus = reportStatus;
         var root = new Grid { Margin = new Thickness(16, 0, 16, 16), RowSpacing = 10 };
-        foreach (var size in new[] { GridLength.Auto, GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto })
+        foreach (var size in new[] { GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto })
             root.RowDefinitions.Add(new RowDefinition { Height = size });
-        root.Children.Add(_notice);
         AddCommand("新增", Symbol.Add, async () => await EditAsync(null));
         AddCommand("编辑", Symbol.Edit, async () => await EditAsync(Selected()));
         AddCommand("删除", Symbol.Delete, DeleteAsync);
@@ -32,7 +32,7 @@ internal sealed class UserLexiconEditor : UserControl
         AddCommand("导出", Symbol.Save, ExportAsync);
         AddCommand("刷新", Symbol.Refresh, async () => await LoadAsync());
         AddCommand("清空全部学习", Symbol.Clear, ClearAsync, true);
-        Grid.SetRow(_commands, 1); root.Children.Add(_commands);
+        root.Children.Add(_commands);
         var filter = new Grid { ColumnSpacing = 8 };
         filter.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         filter.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -42,8 +42,8 @@ internal sealed class UserLexiconEditor : UserControl
             e.Handled = true; await RunAsync(async () => { _offset = 0; await LoadAsync(); });
         } };
         filter.Children.Add(_search); Grid.SetColumn(find, 1); filter.Children.Add(find);
-        Grid.SetRow(filter, 2); root.Children.Add(filter);
-        Grid.SetRow(_list, 3); root.Children.Add(_list);
+        Grid.SetRow(filter, 1); root.Children.Add(filter);
+        Grid.SetRow(_list, 2); root.Children.Add(_list);
         _list.DoubleTapped += async (_, _) => await RunAsync(async () => await EditAsync(Selected()));
         var footer = new Grid { ColumnSpacing = 8 };
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -53,7 +53,7 @@ internal sealed class UserLexiconEditor : UserControl
         Grid.SetColumn(_next, 2); footer.Children.Add(_next);
         _previous.Click += async (_, _) => await RunAsync(async () => { _offset = Math.Max(0, _offset - PageSize); await LoadAsync(); });
         _next.Click += async (_, _) => await RunAsync(async () => { _offset += PageSize; await LoadAsync(); });
-        Grid.SetRow(footer, 4); root.Children.Add(footer);
+        Grid.SetRow(footer, 3); root.Children.Add(footer);
         Content = root;
     }
     private void AddCommand(string label, Symbol icon, Func<Task> action, bool secondary = false)
@@ -75,7 +75,7 @@ internal sealed class UserLexiconEditor : UserControl
             _previous.IsEnabled = _offset > 0; _next.IsEnabled = _offset + PageSize < _total; }
     }
     private void Notify(string message, InfoBarSeverity severity = InfoBarSeverity.Success)
-    { _notice.Message = message; _notice.Severity = severity; _notice.IsOpen = true; }
+        => _reportStatus(message, severity);
     private async Task LoadAsync()
     {
         var result = await _client.RequestAsync("list", query: _search.Text, offset: _offset);
@@ -96,7 +96,6 @@ internal sealed class UserLexiconEditor : UserControl
             _list.Items.Add(item);
         }
         _summary.Text = $"共 {_total} 条 · 第 {_offset / PageSize + 1} 页 · 每页 {PageSize} 条";
-        _notice.IsOpen = false;
     }
     private ContentDialog Dialog(string title, object content, string primary) => new() {
         XamlRoot = XamlRoot, Title = title, Content = content, PrimaryButtonText = primary,

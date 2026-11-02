@@ -12,15 +12,15 @@ internal sealed class DictionaryDetailEditor : UserControl
     private readonly TextBlock _summary = new() { TextWrapping = TextWrapping.Wrap };
     private readonly ListView _words = new() { SelectionMode = ListViewSelectionMode.Single };
     private readonly ToggleSwitch _enabled = new() { Header = "启用字典", OnContent = "开", OffContent = "关" };
-    private readonly InfoBar _notice = new() { IsOpen = false, IsClosable = true };
+    private readonly Action<string, InfoBarSeverity> _reportStatus;
     private readonly Button _previous = new() { Content = "上一页" }, _next = new() { Content = "下一页" };
     private readonly Grid _root = new() { RowSpacing = 10 };
     private readonly CommandBar _commands = new() { DefaultLabelPosition = CommandBarDefaultLabelPosition.Right };
     private int _page;
     private bool _updating, _busy;
-    internal DictionaryDetailEditor(ManagedDictionary dictionary, Func<ManagedDictionary, Task<ManagedDictionary>> save, Func<Task> delete) {
-        _dictionary = dictionary; _save = save; _delete = delete;
-        foreach (var height in new[] { GridLength.Auto, GridLength.Auto, GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto })
+    internal DictionaryDetailEditor(ManagedDictionary dictionary, Func<ManagedDictionary, Task<ManagedDictionary>> save, Func<Task> delete, Action<string, InfoBarSeverity> reportStatus) {
+        _dictionary = dictionary; _save = save; _delete = delete; _reportStatus = reportStatus;
+        foreach (var height in new[] { GridLength.Auto, GridLength.Auto, GridLength.Auto, new GridLength(1, GridUnitType.Star), GridLength.Auto })
             _root.RowDefinitions.Add(new() { Height = height });
         var commands = _commands;
         void Command(string label, Symbol icon, Func<Task> action, bool secondary = false) {
@@ -39,10 +39,10 @@ internal sealed class DictionaryDetailEditor : UserControl
         _root.Children.Add(commands);
         var header = new Grid { ColumnSpacing = 12 }; header.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) }); header.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         header.Children.Add(_summary); Grid.SetColumn(_enabled, 1); header.Children.Add(_enabled);
-        Grid.SetRow(header, 1); _root.Children.Add(header); Grid.SetRow(_notice, 2); _root.Children.Add(_notice);
-        Grid.SetRow(_query, 3); _root.Children.Add(_query); Grid.SetRow(_words, 4); _root.Children.Add(_words);
+        Grid.SetRow(header, 1); _root.Children.Add(header);
+        Grid.SetRow(_query, 2); _root.Children.Add(_query); Grid.SetRow(_words, 3); _root.Children.Add(_words);
         var footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        footer.Children.Add(_previous); footer.Children.Add(_next); Grid.SetRow(footer, 5); _root.Children.Add(footer);
+        footer.Children.Add(_previous); footer.Children.Add(_next); Grid.SetRow(footer, 4); _root.Children.Add(footer);
         _query.TextChanged += (_, _) => { _page = 0; Render(); };
         _previous.Click += (_, _) => { _page = Math.Max(0, _page - 1); Render(); };
         _next.Click += (_, _) => { _page++; Render(); };
@@ -65,7 +65,7 @@ internal sealed class DictionaryDetailEditor : UserControl
     private async Task RunAsync(Func<Task> action) {
         if (_busy) return; _busy = true; _commands.IsEnabled = _enabled.IsEnabled = _query.IsEnabled = _words.IsEnabled = false;
         try { await action(); }
-        catch (Exception error) { _notice.Message = error.Message; _notice.Severity = InfoBarSeverity.Error; _notice.IsOpen = true; }
+        catch (Exception error) { _reportStatus(error.Message, InfoBarSeverity.Error); }
         finally { _busy = false; _commands.IsEnabled = _enabled.IsEnabled = _query.IsEnabled = _words.IsEnabled = true; }
     }
     private async Task SaveAsync(ManagedDictionary dictionary) { _dictionary = await _save(dictionary); Render(); }
@@ -120,9 +120,8 @@ internal sealed class DictionaryDetailEditor : UserControl
         if (await DictionaryEncodingDialog.ShowAsync(XamlRoot, prepared, padding) is not { } selected) return;
         var result = DictionaryEncoding.Apply(_dictionary, selected);
         if (result.Updated > 0) await SaveAsync(result.Dictionary);
-        _notice.Message = $"已补充 {result.Updated} 条编码；{result.Duplicates} 条因与已有词条重复而保留待补状态。" +
-            (result.CleanedText > 0 ? $"同时清理 {result.CleanedText} 条 THUOCL 格式空白。" : "") + "词频、原始字段与启用状态未修改。";
-        _notice.Severity = InfoBarSeverity.Success; _notice.IsOpen = true;
+        _reportStatus($"已补充 {result.Updated} 条编码；{result.Duplicates} 条因与已有词条重复而保留待补状态。" +
+            (result.CleanedText > 0 ? $"同时清理 {result.CleanedText} 条 THUOCL 格式空白。" : "") + "词频、原始字段与启用状态未修改。", InfoBarSeverity.Success);
     }
     private async Task DeleteAsync() {
         if (await DictionaryActions.ConfirmDeleteAsync(XamlRoot, _dictionary.Name)) await _delete();
@@ -137,6 +136,6 @@ internal sealed class DictionaryDetailEditor : UserControl
     }
     private async Task ExportAsync() {
         if (!await DictionaryActions.ExportAsync(_dictionary)) return;
-        _notice.Message = "已导出。本文件包含个人词语，请妥善保管。"; _notice.Severity = InfoBarSeverity.Success; _notice.IsOpen = true;
+        _reportStatus("已导出。本文件包含个人词语，请妥善保管。", InfoBarSeverity.Success);
     }
 }

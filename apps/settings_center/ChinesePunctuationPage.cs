@@ -65,15 +65,15 @@ public sealed partial class MainPage
 
     private void UpdatePunctuationNotice()
     {
-        if (ChinesePunctuationNotice is null || ChinesePunctuation is null) return;
+        if (_currentPage != "punctuation" || ChinesePunctuation is null) return;
         if (!CurrentScheme.Supports(SettingsCapability.ChinesePunctuation)) {
-            ChinesePunctuationNotice.Message = "当前方案不使用宿主中文标点转换。以下偏好保持不变；方案自有标点请在对应插件中配置。";
+            ShowStatus("当前方案不使用宿主中文标点转换。以下偏好保持不变；方案自有标点请在对应插件中配置。", InfoBarSeverity.Informational);
             return;
         }
         var saveHint = AutoSaveSettings?.IsOn == true ? "修改后会自动保存。" : "修改后点击保存。";
-        ChinesePunctuationNotice.Message = ChinesePunctuation.IsOn
+        ShowStatus(ChinesePunctuation.IsOn
             ? $"总开关已开启：中文模式使用下方已开启的中文标点。{saveHint}英文模式不受影响。"
-            : "总开关已关闭：目前保留英文标点。下方偏好仍会保存，重新打开总开关后生效。";
+            : "总开关已关闭：目前保留英文标点。下方偏好仍会保存，重新打开总开关后生效。", InfoBarSeverity.Informational);
     }
 
     private void ChinesePunctuation_Toggled(object sender, RoutedEventArgs e) => UpdatePunctuationNotice();

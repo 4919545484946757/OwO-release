@@ -97,8 +97,8 @@ public sealed partial class MainPage : Page
         InitializePunctuationSettings();
         InitializeSettingsModules();
         UserLexiconNavigationItem.Content = "词库管理器";
-        UserLexiconPageHost.Content = new DictionaryManager(OpenOnlineDownloads);
-        PluginDiscoveryHost.Content = new PluginDiscoveryView(InstallPluginSourceAsync, () => PluginTabs.SelectedItem = InstalledPluginsTab);
+        UserLexiconPageHost.Content = new DictionaryManager(ShowStatus);
+        PluginDiscoveryHost.Content = new PluginDiscoveryView(InstallPluginSourceAsync, () => PluginTabs.SelectedItem = InstalledPluginsTab, ShowStatus);
         OnlineDistributionHost.Content = new OnlineDistributionView(
             async (name, path) => {
                 if (UserLexiconPageHost.Content is DictionaryManager manager) {
@@ -106,7 +106,7 @@ public sealed partial class MainPage : Page
                     SettingsNavigation.SelectedItem = UserLexiconNavigationItem;
                     ShowPage("user-lexicon");
                 }
-            });
+            }, ShowStatus);
         InitializeAutoSave();
         InitializeLogoSettings();
         InitializeSearchIndex();
@@ -238,7 +238,7 @@ public sealed partial class MainPage : Page
             UpdatePunctuationNotice();
         }
         SetVisibility(page == "schemes", InputSchemeSectionTitle, InputSchemeCard,
-                      InputSchemeCapabilities, DiscoverSchemesButton);
+                      DiscoverSchemesButton);
         SetVisibility(page == "candidates", CandidateSectionTitle,
                       CandidatePageSizeCard, CandidateWrapLengthCard,
                       CandidatePartitionCard, CandidateSingleCharacterFirstCard, CandidateImmediateCommitCard,
@@ -378,8 +378,10 @@ public sealed partial class MainPage : Page
 
     private void ShowStatus(string message, InfoBarSeverity severity)
     {
-        Status.Title = message;
+        Status.Title = "";
+        Status.Message = message;
         Status.Severity = severity;
         Status.IsOpen = true;
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(Status, message);
     }
 }

@@ -11,7 +11,7 @@ internal sealed class OnlineDistributionView : UserControl
 {
     private readonly OnlineDistribution _client = new();
     private readonly StackPanel _items = new() { Spacing = 8 };
-    private readonly InfoBar _status = new() { IsOpen = false, IsClosable = true };
+    private readonly Action<string, InfoBarSeverity> _reportStatus;
     private readonly ProgressBar _progress = new() { Minimum = 0, Maximum = 100, Visibility = Visibility.Collapsed };
     private readonly Button _check = new() { Content = "检查 GitHub 更新与资源" }, _cancel = new() { Content = "取消", IsEnabled = false };
     private readonly Func<string, string, Task> _dictionary;
@@ -19,14 +19,14 @@ internal sealed class OnlineDistributionView : UserControl
     private CancellationTokenSource? _operation;
     private readonly string _downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OwO", "InputMethod", "downloads");
     private static readonly Version Current = new((Assembly.GetExecutingAssembly().GetName().Version ?? new(0, 0, 0)).ToString(3));
-    internal OnlineDistributionView(Func<string, string, Task> dictionary) {
-        _dictionary = dictionary;
+    internal OnlineDistributionView(Func<string, string, Task> dictionary, Action<string, InfoBarSeverity> reportStatus) {
+        _dictionary = dictionary; _reportStatus = reportStatus;
         var body = new StackPanel { Spacing = 10 };
         body.Children.Add(new TextBlock { Text = "更新与资源下载", FontSize = 20 });
         body.Children.Add(new TextBlock { Text = $"当前版本 {Current} · 来源 {OnlineDistribution.Repository}\n联网仅用于查询版本及下载资源，不上传输入内容。下载校验不能替代发布者签名与插件权限审核。", TextWrapping = TextWrapping.Wrap });
         var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         commands.Children.Add(_check); commands.Children.Add(_cancel); body.Children.Add(commands);
-        body.Children.Add(_progress); body.Children.Add(_status); body.Children.Add(_items);
+        body.Children.Add(_progress); body.Children.Add(_items);
         Content = new Border { Child = body, Padding = new(16), CornerRadius = new(8), BorderThickness = new(1) };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_check, "OnlineCheckUpdates");
         _check.Click += async (_, _) => await RunAsync(CheckAsync);
@@ -34,7 +34,7 @@ internal sealed class OnlineDistributionView : UserControl
         Unloaded += (_, _) => _operation?.Cancel();
     }
     private void Notice(string message, InfoBarSeverity severity = InfoBarSeverity.Informational) {
-        _status.Message = message; _status.Severity = severity; _status.IsOpen = true;
+        _reportStatus(message, severity);
     }
     private async Task RunAsync(Func<CancellationToken, Task> action) {
         if (_operation is not null) return;

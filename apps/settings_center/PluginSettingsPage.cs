@@ -162,12 +162,10 @@ public sealed partial class MainPage
             ReloadButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             CurrentPageTitle.Text = _pluginSettings.Title;
             CurrentPageDescription.Text = $"{plugin.Name} {plugin.Version} · {plugin.Id}";
-            PluginConfigNotice.Message = _pluginSettings.Description;
-            PluginConfigNotice.Severity = InfoBarSeverity.Informational;
             PluginConfigSaveButton.IsEnabled = _pluginSettings.Fields.Count != 0;
-            if (_pluginSettings.Fields.Count == 0) {
-                PluginConfigNotice.Message = "该插件没有声明可配置字段。";
-            }
+            ShowStatus(_pluginSettings.Fields.Count == 0 ? "该插件没有声明可配置字段。" :
+                string.IsNullOrWhiteSpace(_pluginSettings.Description) ? $"{plugin.Name} 的配置已打开。" : _pluginSettings.Description,
+                InfoBarSeverity.Informational);
             if (focusField is not null && _pluginConfigControls.TryGetValue(focusField, out var target))
                 DispatcherQueue.TryEnqueue(() => {
                     if (_pluginConfigPageSelector is not null) {

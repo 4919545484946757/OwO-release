@@ -45,19 +45,16 @@ public sealed partial class MainPage
 
     private void UpdateInputSchemePresentation()
     {
-        if (InputSchemeDescription is null || InputSchemeCapabilities is null) return;
+        if (InputSchemeDescription is null) return;
         InputSchemeDescription.Text = CurrentScheme.Description;
-        InputSchemeCapabilities.Message = CurrentScheme.Capabilities;
         UpdateDependentSettings();
         UpdateSchemeHintVisibility();
     }
 
     private void UpdateSchemeHintVisibility()
     {
-        if (InputSchemeCapabilities is null) return;
-        var visible = _currentPage == "schemes" && !string.IsNullOrWhiteSpace(CurrentScheme.Capabilities);
-        InputSchemeCapabilities.IsOpen = visible;
-        InputSchemeCapabilities.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (_currentPage == "schemes" && !string.IsNullOrWhiteSpace(CurrentScheme.Capabilities))
+            ShowStatus(CurrentScheme.Capabilities, InfoBarSeverity.Informational);
     }
 
     private void DependentSetting_Toggled(object sender, RoutedEventArgs e) => UpdateDependentSettings();

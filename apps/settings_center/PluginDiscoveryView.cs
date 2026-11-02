@@ -8,7 +8,7 @@ internal sealed class PluginDiscoveryView : UserControl
 {
     private readonly OnlineDistribution _client = new();
     private readonly StackPanel _cards = new() { Spacing = 10 };
-    private readonly InfoBar _status = new() { IsOpen = true, IsClosable = false, Message = "点击刷新目录以浏览官方插件；不会自动安装或授予权限。" };
+    private readonly Action<string, InfoBarSeverity> _reportStatus;
     private readonly ProgressBar _progress = new() { Minimum = 0, Maximum = 100, Visibility = Visibility.Collapsed };
     private readonly Button _refresh = new() { Content = "刷新在线目录" }, _cancel = new() { Content = "取消下载", IsEnabled = false };
     private readonly CheckBox _updatesOnly = new() { Content = "仅显示可更新", VerticalAlignment = VerticalAlignment.Center };
@@ -21,13 +21,13 @@ internal sealed class PluginDiscoveryView : UserControl
     private string _query = "";
     private readonly string _downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OwO", "InputMethod", "downloads");
 
-    internal PluginDiscoveryView(Func<string, string, Task> install, Action showInstalled) {
-        _install = install; _showInstalled = showInstalled;
+    internal PluginDiscoveryView(Func<string, string, Task> install, Action showInstalled, Action<string, InfoBarSeverity> reportStatus) {
+        _install = install; _showInstalled = showInstalled; _reportStatus = reportStatus;
         var body = new StackPanel { Spacing = 12 };
         body.Children.Add(new TextBlock { Text = $"官方插件目录 · {OnlineDistribution.Repository}", TextWrapping = TextWrapping.Wrap });
         var toolbar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         toolbar.Children.Add(_refresh); toolbar.Children.Add(_cancel); body.Children.Add(toolbar);
-        body.Children.Add(_updatesOnly); body.Children.Add(_progress); body.Children.Add(_status); body.Children.Add(_cards);
+        body.Children.Add(_updatesOnly); body.Children.Add(_progress); body.Children.Add(_cards);
         Content = body;
         AutomationProperties.SetAutomationId(_refresh, "PluginCatalogRefresh");
         AutomationProperties.SetAutomationId(_cancel, "PluginDownloadCancel");
@@ -46,7 +46,7 @@ internal sealed class PluginDiscoveryView : UserControl
     internal void SetInstalled(IReadOnlyList<PluginVersionSnapshot> values) { _installed = values; Render(); }
     internal void SetQuery(string query) { _query = query.Trim(); Render(); }
     private void Notice(string message, InfoBarSeverity severity = InfoBarSeverity.Informational) {
-        _status.Message = message; _status.Severity = severity; _status.IsOpen = true;
+        _reportStatus(message, severity);
     }
     private void Render() {
         _cards.Children.Clear(); _actions.Clear();
