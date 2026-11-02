@@ -16,6 +16,10 @@ internal sealed class DictionaryManager : UserControl
     private readonly Button _import = new() { Content = "导入字典" }, _refresh = new() { Content = "刷新" };
     private readonly Button _restore = new() { Content = "恢复内置词库", Visibility = Visibility.Collapsed };
     private readonly Grid _catalogPage = new() { Margin = new Thickness(16, 0, 16, 16), RowSpacing = 12 };
+    private readonly Grid _overview = new() { RowSpacing = 12 };
+    private readonly SelectorBar _tabs = new() { Margin = new Thickness(16, 0, 16, 0) };
+    private readonly SelectorBarItem _installedTab = new() { Text = "已安装" }, _discoverTab = new() { Text = "发现词库" };
+    private readonly ContentControl _discoveryHost = new() { Margin = new Thickness(16, 0, 16, 16), Visibility = Visibility.Collapsed, HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
     private readonly Dictionary<string, CardView> _cardViews = new(StringComparer.Ordinal);
     private readonly List<UIElement> _desiredCards = [];
     private readonly TextBlock _empty = new() { Text = "没有匹配的字典。", Margin = new Thickness(8) };
@@ -45,9 +49,7 @@ internal sealed class DictionaryManager : UserControl
         toolbar.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         toolbar.Children.Add(_search); Grid.SetColumnSpan(_search, 4);
         Grid.SetRow(_import, 1); _import.HorizontalAlignment = HorizontalAlignment.Left; toolbar.Children.Add(_import);
-        {
-            var online = new Button { Content = "发现词库" };
-            online.Click += (_, _) => ShowDetail(new DictionaryDiscoveryView(async (name, prepared) => {
+        _discoveryHost.Content = new DictionaryDiscoveryView(async (name, prepared) => {
                 await RunAsync(async () => {
                     _catalog = await _store.LoadAsync();
                     if (_catalog.Dictionaries.Any(d => d.SourceName == prepared.Provenance && d.Entries.Count == prepared.Data.Entries.Count))
@@ -55,10 +57,8 @@ internal sealed class DictionaryManager : UserControl
                     await ImportSelectionAsync(name, prepared.Provenance, prepared.Data, XamlRoot, true,
                         $"上游有效行 {prepared.Available}；本次选取 {prepared.Data.Entries.Count}。\n未选取的其余数据不会被自动导入。\n{prepared.Provenance}");
                 });
-                _page.Content = _catalogPage;
-            }), "发现词库");
-            Grid.SetRow(online, 1); Grid.SetColumn(online, 1); toolbar.Children.Add(online);
-        }
+                ShowInstalled();
+            });
         Grid.SetRow(_refresh, 1); Grid.SetColumn(_refresh, 2); toolbar.Children.Add(_refresh);
         Grid.SetRow(_restore, 1); Grid.SetColumn(_restore, 3); toolbar.Children.Add(_restore);
         _catalogPage.Children.Add(toolbar); Grid.SetRow(_notice, 1); _catalogPage.Children.Add(_notice);
@@ -82,11 +82,25 @@ internal sealed class DictionaryManager : UserControl
         AutomationProperties.SetAutomationId(_search, "DictionarySearch");
         AutomationProperties.SetAutomationId(_import, "DictionaryImport");
         AutomationProperties.SetAutomationId(_refresh, "DictionaryRefresh");
-        _page.Content = _catalogPage; Content = _page;
+        _overview.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        _overview.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
+        _tabs.Items.Add(_installedTab); _tabs.Items.Add(_discoverTab);
+        AutomationProperties.SetAutomationId(_tabs, "DictionaryManagerTabs");
+        _tabs.SelectionChanged += (_, _) => {
+            var discovery = _tabs.SelectedItem == _discoverTab;
+            _catalogPage.Visibility = discovery ? Visibility.Collapsed : Visibility.Visible;
+            _discoveryHost.Visibility = discovery ? Visibility.Visible : Visibility.Collapsed;
+        };
+        _tabs.SelectedItem = _installedTab;
+        _overview.Children.Add(_tabs);
+        Grid.SetRow(_catalogPage, 1); _overview.Children.Add(_catalogPage);
+        Grid.SetRow(_discoveryHost, 1); _overview.Children.Add(_discoveryHost);
+        _page.Content = _overview; Content = _page;
     }
+    private void ShowInstalled() { _tabs.SelectedItem = _installedTab; _page.Content = _overview; }
     internal async Task RefreshAsync() => await RunAsync(async () => {
         _catalog = await _store.LoadAsync();
-        if (!ReferenceEquals(_page.Content, _catalogPage)) _page.Content = _catalogPage;
+        if (!ReferenceEquals(_page.Content, _overview)) ShowInstalled();
         RenderCards();
     });
     private async Task RunAsync(Func<Task> action) {
@@ -191,7 +205,7 @@ internal sealed class DictionaryManager : UserControl
             HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Top };
         AutomationProperties.SetAutomationId(card, "DictionaryCard_" + id);
         AutomationProperties.SetName(card, name);
-        var host = new Grid { Height = 228 }; host.Children.Add(card);
+        var host = new Grid { Height = DictionaryCardLayout.Height }; host.Children.Add(card);
         // Sibling controls, never interactive children of the navigation button.
         // Clicking the switch/menu must not enter the detail page.
         var toggle = new ToggleSwitch { IsOn = enabled, OnContent = "已启用", OffContent = "已停用",
@@ -253,25 +267,7 @@ internal sealed class DictionaryManager : UserControl
         };
         _cardViews.Add(id, view); Update(view);
     }
-    private void LayoutCards() {
-        const double preferredCardWidth = 210;
-        var availableWidth = double.IsNaN(_cards.Width) ? _cards.ActualWidth : _cards.Width;
-        var columns = Math.Max(1, (int)((availableWidth + 12) / (preferredCardWidth + 12)));
-        var cardWidth = Math.Max(0, Math.Min(preferredCardWidth, (availableWidth - 12 * (columns - 1)) / columns));
-        while (_cards.ColumnDefinitions.Count > columns) _cards.ColumnDefinitions.RemoveAt(_cards.ColumnDefinitions.Count - 1);
-        while (_cards.ColumnDefinitions.Count < columns) _cards.ColumnDefinitions.Add(new());
-        foreach (var column in _cards.ColumnDefinitions)
-            if (column.Width.GridUnitType != GridUnitType.Pixel || Math.Abs(column.Width.Value - cardWidth) > 0.01)
-                column.Width = new GridLength(cardWidth);
-        var rows = (_cards.Children.Count + columns - 1) / columns;
-        while (_cards.RowDefinitions.Count > rows) _cards.RowDefinitions.RemoveAt(_cards.RowDefinitions.Count - 1);
-        while (_cards.RowDefinitions.Count < rows) _cards.RowDefinitions.Add(new() { Height = GridLength.Auto });
-        for (var index = 0; index < _cards.Children.Count; ++index) {
-            var card = (FrameworkElement)_cards.Children[index];
-            if (Grid.GetRow(card) != index / columns) Grid.SetRow(card, index / columns);
-            if (Grid.GetColumn(card) != index % columns) Grid.SetColumn(card, index % columns);
-        }
-    }
+    private void LayoutCards() => DictionaryCardLayout.Arrange(_cards);
     private void ShowDetail(FrameworkElement detail, string? title = null) {
         var root = new Grid { Margin = new Thickness(16, 0, 16, 16), RowSpacing = 12 };
         root.RowDefinitions.Add(new() { Height = GridLength.Auto }); root.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
@@ -301,7 +297,7 @@ internal sealed class DictionaryManager : UserControl
             return updated;
         }, async () => {
             await DeleteDictionaryAsync(dictionary.Id);
-            _page.Content = _catalogPage; RenderCards();
+            ShowInstalled(); RenderCards();
         }));
     internal static void InitializePicker(object picker) => WinRT.Interop.InitializeWithWindow.Initialize(picker,
         WinRT.Interop.WindowNative.GetWindowHandle(((App)Application.Current).MainWindow));

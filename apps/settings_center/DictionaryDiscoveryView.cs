@@ -9,7 +9,9 @@ internal sealed class DictionaryDiscoveryView : UserControl
     private readonly ComboBox _source = new() { Header = "词库来源", ItemsSource = DictionarySources.Sources, DisplayMemberPath = "Name", SelectedIndex = 0, HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TextBox _search = new() { PlaceholderText = "搜索当前来源的词库名称、文件名或分类" };
     private readonly NumberBox _maximum = new() { Header = "本次最多选取词条（按文件顺序，不代表质量排名）", Minimum = 1, Maximum = 100000, Value = 10000, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline };
-    private readonly StackPanel _items = new() { Spacing = 10 };
+    private readonly Grid _items = new() { ColumnSpacing = 12, RowSpacing = 12 };
+    private readonly Dictionary<string, Grid> _cardCache = new();
+    private readonly Dictionary<string, Button> _downloadButtons = new();
     private readonly TextBlock _description = new() { TextWrapping = TextWrapping.Wrap };
     private readonly InfoBar _status = new() { IsOpen = true, IsClosable = false, Message = "选择来源后刷新目录；仅显式下载时联网，不上传输入、配置或本机词库。" };
     private readonly Button _refresh = new() { Content = "刷新在线目录" }, _cancel = new() { Content = "取消", IsEnabled = false };
@@ -19,11 +21,30 @@ internal sealed class DictionaryDiscoveryView : UserControl
     private CancellationTokenSource? _operation;
     internal DictionaryDiscoveryView(Func<string, PreparedDictionary, Task> import) {
         _import = import;
-        var body = new StackPanel { Spacing = 12 };
-        body.Children.Add(_source); body.Children.Add(_description); body.Children.Add(_search); body.Children.Add(_maximum);
+        var body = new Grid { RowSpacing = 12 };
+        for (var index = 0; index < 4; index++) body.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        body.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
+        var toolbar = new Grid { ColumnSpacing = 12, RowSpacing = 8 };
+        toolbar.RowDefinitions.Add(new() { Height = GridLength.Auto }); toolbar.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        toolbar.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
+        toolbar.ColumnDefinitions.Add(new() { Width = new GridLength(2, GridUnitType.Star) });
+        _source.Header = null; _search.VerticalAlignment = VerticalAlignment.Bottom;
+        toolbar.Children.Add(_source); Grid.SetColumn(_search, 1); toolbar.Children.Add(_search);
         var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 }; commands.Children.Add(_refresh); commands.Children.Add(_cancel);
-        body.Children.Add(commands); body.Children.Add(_progress); body.Children.Add(_status); body.Children.Add(_items);
-        Content = new ScrollViewer { Content = body, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalScrollMode = ScrollMode.Disabled };
+        Grid.SetRow(commands, 1); Grid.SetColumnSpan(commands, 2); toolbar.Children.Add(commands); body.Children.Add(toolbar);
+        var settings = new StackPanel { Spacing = 10 }; settings.Children.Add(_description); settings.Children.Add(_maximum);
+        var options = new Expander { Header = "来源说明与导入选项", Content = settings, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+        Grid.SetRow(options, 1); body.Children.Add(options);
+        Grid.SetRow(_status, 2); body.Children.Add(_status); Grid.SetRow(_progress, 3); body.Children.Add(_progress);
+        var scroll = new ScrollViewer { Content = _items, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalScrollMode = ScrollMode.Disabled, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+        scroll.LayoutUpdated += (_, _) => {
+            var width = scroll.ViewportWidth;
+            if (width > 0 && double.IsFinite(width) && (double.IsNaN(_items.Width) || Math.Abs(_items.Width - width) > 0.5)) {
+                _items.Width = width; DictionaryCardLayout.Arrange(_items);
+            }
+        };
+        _items.SizeChanged += (_, _) => DictionaryCardLayout.Arrange(_items);
+        Grid.SetRow(scroll, 4); body.Children.Add(scroll); Content = body;
         _source.SelectionChanged += (_, _) => { _downloads = []; Render(); Describe(); };
         _search.TextChanged += (_, _) => Render(); Describe();
         _refresh.Click += async (_, _) => await RunAsync(async token => {
@@ -39,14 +60,19 @@ internal sealed class DictionaryDiscoveryView : UserControl
     }
     private void Notice(string message, InfoBarSeverity severity = InfoBarSeverity.Informational) { _status.Message = message; _status.Severity = severity; }
     private void Render() {
-        _items.Children.Clear();
+        var desired = new List<UIElement>();
         foreach (var item in _downloads.Where(d => (d.Title + " " + d.Name).Contains(_search.Text.Trim(), StringComparison.OrdinalIgnoreCase))) {
+            var key = item.Source.Id + ":" + item.Name + ":" + item.Hash;
+            if (_cardCache.TryGetValue(key, out var cached)) {
+                _downloadButtons[key].IsEnabled = item.Size <= DictionarySources.DownloadLimit && _operation is null;
+                desired.Add(cached); continue;
+            }
             var content = new StackPanel { Spacing = 8 };
-            content.Children.Add(new TextBlock { Text = item.Title, FontSize = 18, TextWrapping = TextWrapping.Wrap });
-            if (item.Title != item.Name) content.Children.Add(new TextBlock { Text = item.Name, TextWrapping = TextWrapping.Wrap });
-            content.Children.Add(new TextBlock { Text = $"{(item.Size > 0 ? $"{item.Size / 1048576.0:F1} MiB" : "动态更新数据")} · {item.Source.License}", TextWrapping = TextWrapping.Wrap });
-            var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            var download = new Button { Content = item.Size > DictionarySources.DownloadLimit ? "超过 128 MiB 上限" : "下载并预览", IsEnabled = item.Size <= DictionarySources.DownloadLimit && _operation is null };
+            content.Children.Add(new SymbolIcon(Symbol.Library) { HorizontalAlignment = HorizontalAlignment.Left });
+            content.Children.Add(new TextBlock { Text = item.Title, FontSize = 18, TextTrimming = TextTrimming.CharacterEllipsis });
+            content.Children.Add(new TextBlock { Text = item.Source.Name + " · " + item.Name, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.Wrap, Opacity = 0.75 });
+            content.Children.Add(new TextBlock { Text = $"{(item.Size > 0 ? $"{item.Size / 1048576.0:F1} MiB" : "动态更新数据")} · {item.Source.License}", MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, FontSize = 12, TextWrapping = TextWrapping.Wrap, Opacity = 0.7 });
+            var download = new Button { Content = item.Size > DictionarySources.DownloadLimit ? "文件超过上限" : "下载并预览", MinWidth = 0, Margin = new Thickness(13, 0, 13, 0), HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Center, IsEnabled = item.Size <= DictionarySources.DownloadLimit && _operation is null };
             download.Click += async (_, _) => await RunAsync(async token => {
                 if (!double.IsFinite(_maximum.Value) || _maximum.Value < 1 || _maximum.Value > 100000) throw new InvalidDataException("请填写 1–100000 的选取上限。");
                 var accepted = await new ContentDialog { XamlRoot = XamlRoot, Title = "下载第三方词库", Content = new TextBlock { Text = $"来源：{item.Source.Name}\n许可：{item.Source.License}\n文件：{item.Name}\n\n请阅读上游许可。下载不表示已完成授权审查，也不会启用词库。仅选取设置上限内的数据，其余数量会在导入前明确显示。", TextWrapping = TextWrapping.Wrap }, PrimaryButtonText = "下载并转换", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close }.ShowAsync();
@@ -56,12 +82,34 @@ internal sealed class DictionaryDiscoveryView : UserControl
                 token.ThrowIfCancellationRequested(); await _import(item.Source.Name + " · " + item.Name, data);
             });
             var sourcePage = item.Source.Repository == "" ? "https://www.mdbg.net/chinese/dictionary?page=cedict" : "https://github.com/" + item.Source.Repository;
-            commands.Children.Add(download); commands.Children.Add(new HyperlinkButton { Content = "来源与许可", NavigateUri = new(sourcePage) });
-            content.Children.Add(commands);
-            var card = (Border)Microsoft.UI.Xaml.Markup.XamlReader.Load("""
-                <Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" Padding="16" CornerRadius="8" BorderThickness="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"/>
-                """); card.Child = content; _items.Children.Add(card);
+            async Task DetailsAsync() => await RunAsync(async _ => {
+                var details = new StackPanel { Spacing = 12 };
+                details.Children.Add(new TextBlock { Text = $"{item.Title}\n{item.Name}\n{item.Source.Name}\n许可：{item.Source.License}\n\n{item.Source.Description}\n\n下载后仍需预览确认，默认不启用。", TextWrapping = TextWrapping.Wrap });
+                details.Children.Add(new HyperlinkButton { Content = "打开上游来源与许可", NavigateUri = new(sourcePage) });
+                await new ContentDialog { XamlRoot = XamlRoot, Title = "词库详情", Content = new ScrollViewer { Content = details, MaxHeight = 420 }, CloseButtonText = "关闭" }.ShowAsync();
+            });
+            var card = new Button { Content = content, Padding = new Thickness(16, 16, 16, 72), CornerRadius = new(10), BorderThickness = new(0), MinWidth = 0, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Top };
+            card.Click += async (_, _) => await DetailsAsync();
+            var host = new Grid { Height = DictionaryCardLayout.Height }; host.Children.Add(card);
+            var brush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(120, 0, 0, 0));
+            host.Children.Add(new Border { Height = 64, VerticalAlignment = VerticalAlignment.Bottom, Margin = new(3, 0, 3, 3), CornerRadius = new(0, 0, 7, 7), Background = brush, Child = download });
+            var flyout = new MenuFlyout(); var entry = new MenuFlyoutItem { Text = "详情与许可", Icon = new SymbolIcon(Symbol.Document) }; entry.Click += async (_, _) => await DetailsAsync(); flyout.Items.Add(entry);
+            var menu = new Button { Content = new FontIcon { Glyph = "\uE712", FontSize = 16, IsTextScaleFactorEnabled = false }, Flyout = flyout, Padding = new(0), Width = 32, Height = 32, MinWidth = 0, MinHeight = 0, HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new(8) };
+            host.Children.Add(menu); host.Children.Add(new Border { BorderBrush = brush, BorderThickness = new(3), CornerRadius = new(10), IsHitTestVisible = false });
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(host, "OnlineDictionaryCard_" + item.Source.Id + "_" + item.Name);
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, item.Title);
+            ToolTipService.SetToolTip(card, item.Title + "\n" + item.Name);
+            _cardCache[key] = host; _downloadButtons[key] = download; desired.Add(host);
         }
+        // Keep unchanged card instances during progress, refresh and tab switches.
+        for (var index = _items.Children.Count - 1; index >= 0; index--)
+            if (!desired.Contains(_items.Children[index])) _items.Children.RemoveAt(index);
+        for (var index = 0; index < desired.Count; index++) {
+            if (index < _items.Children.Count && ReferenceEquals(_items.Children[index], desired[index])) continue;
+            if (_items.Children.Contains(desired[index])) _items.Children.Remove(desired[index]);
+            _items.Children.Insert(index, desired[index]);
+        }
+        DictionaryCardLayout.Arrange(_items);
     }
     private async Task RunAsync(Func<CancellationToken, Task> action) {
         if (_operation is not null) return;
