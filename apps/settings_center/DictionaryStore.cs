@@ -21,6 +21,10 @@ internal sealed class DictionaryStore
     internal const int MaximumFileBytes = 128 * 1024 * 1024;
     internal const int MaximumCatalogBytes = 256 * 1024 * 1024;
     internal const int MaximumActiveBytes = 256 * 1024 * 1024;
+    // Source metadata is not an active input key. Preserve long upstream
+    // readings as pending entries without raising the 256-character runtime
+    // encoding limit or silently truncating a word's original annotation.
+    internal const int MaximumOriginalInputLength = 4096;
     private static readonly JsonSerializerOptions JsonOptions = new() {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false, MaxDepth = 12
     };
@@ -74,9 +78,11 @@ internal sealed class DictionaryStore
         if (word is null || word.Input is null || word.Locale is null || word.OriginalInput is null || word.OriginalWeight is null || word.Tag is null ||
             !Id(word.Id) || string.IsNullOrWhiteSpace(word.Text) || word.Text.Any(char.IsControl) ||
             new UTF8Encoding(false, true).GetByteCount(word.Text) > 1024 || word.Count is < 1 or > 128 ||
-            word.Locale.Length > 128 || word.Locale.Any(char.IsControl) || word.OriginalInput.Length > 256 ||
-            word.OriginalInput.Any(char.IsControl) || word.OriginalWeight.Length > 64 || word.OriginalWeight.Any(char.IsControl))
+            word.Locale.Length > 128 || word.Locale.Any(char.IsControl) ||
+            word.OriginalWeight.Length > 64 || word.OriginalWeight.Any(char.IsControl))
             throw new InvalidDataException("词条正文、语言、原编码或权重无效。" );
+        if (word.OriginalInput.Length > MaximumOriginalInputLength || word.OriginalInput.Any(char.IsControl))
+            throw new InvalidDataException($"原编码不能含控制字符，长度不超过 {MaximumOriginalInputLength} 字符；超出运行时编码上限的原编码仅作待补编码信息保留。");
         if (word.Tag.Length > 128 || word.Tag.Any(char.IsControl)) throw new InvalidDataException("词条标签无效。" );
         if (word.Input.Length != 0) UserLexiconClient.Validate(new(word.Input, word.Text, word.Count));
     }

@@ -22,6 +22,11 @@
 
 容量现为：在线下载及解压各 256 MiB，本地单文件和 Gboard 解压文件 128 MiB，独立词库合计 50 万条，JSON 目录与 Core 启用快照各 256 MiB。超过大小的条目仍显示但不可下载。容量不足明确拒绝并保留既有词库；设置中心和 Core 上限同步，不以多文件绕过总量限制。大目录校验、序列化和启用索引生成在设置中心后台执行。
 
+运行时编码仍限 256 字符，原编码元数据独立限 4096 字符且禁止控制字符。
+上游注音过长时，词条正文和原编码完整保留为“待补编码”，不会截断、丢弃或阻断整份导入；
+待处理词条不写入启用快照，不绕过运行时限制。JSON/TSV 导入导出和再次打开均保留原编码。
+旧版本仅接受 256 字符原编码，回退前应先导出备份并处理这些超长待补项。
+
 本次是有界扩容，不是内存映射大词库重构。首次启用大型词库仍可能增加内存与加载时间，建议按需选取；旧版本无法读取超过其原有限制的数据，回退前应导出备份并减少词库规模。
 
 上游词频不可直接相互比较，转换为中性权重 1，不计为个人学习。不会覆盖用户编辑；同一内容和选取规模拒绝重复导入，较大范围可在删除旧导入后重新选取。已安装项目继续允许导出备份。
@@ -35,8 +40,24 @@ GitHub Contents 文件核对 Git blob SHA-1；发行文件核对 API SHA-256，�
 ```powershell
 dotnet run --project tests/settings_center/dictionary_sources_tests.csproj -c Release
 dotnet run --project tests/settings_center/dictionary_sources_tests.csproj -c Release -- --live
+
+# 对已下载的萌娘 Rime 文件做完整离线转换；不安装，不写日常词库
+dotnet run --project tests/settings_center/dictionary_sources_tests.csproj -c Release -- --moegirl-file D:\Tests\moegirl.dict.yaml
 dotnet run --project tests/settings_center/dictionary_manager_tests.csproj -c Release
 dotnet run --project tests/settings_center/dictionary_capacity_tests.csproj -c Release
 ```
 
 --live 会读取五个真实来源并抽样下载转换，不安装。离线测试包含来源拒绝、格式转换、拼音规范化、选取计数、中性权重、摘要错误及取消。联网成功不代表全量词条已人工校对或完成许可证法律审查。
+
+### 萌娘超长注音回归
+
+已对上游 [20261024 发行数据](https://github.com/outloudvi/mw2fcitx/releases/tag/20261024)
+的 `moegirl.dict.yaml` 完整离线验证，SHA-256 为
+`f7ed0e76e6bab529c43ff1fb59252e003267c4a339d83972b5b112d025e1b314`。
+原文件第 44677 行含 78 字正文、272 字符原注音；在线转换去除头部并添加 TSV 表头后，
+旧版会在第 44673 行因原编码元数据超过 256 字符而中止，并非下载损坏。
+
+修复后完整转换 130504 条、待补编码 1 条；默认选取 50000 条亦可正常预览，
+本地 Rime 导入取得相同的完整条数与待补数。测试未安装或启用该词库。
+合成测试另覆盖元数据上限、控制字符拒绝、正常条目继续导入、原文/编码不截断、
+JSON/TSV 往返、快照保存与重新加载，以及待补项不会进入活动编码快照。

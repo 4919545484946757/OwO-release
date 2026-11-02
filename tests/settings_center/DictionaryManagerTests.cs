@@ -34,6 +34,22 @@ try {
     Check(rime.Entries.Count == 1 && rime.Duplicates == 1 && rime.AdjustedWeights == 1 && rime.Entries[0].Input == "ce'shi'ci'ku" && rime.Entries[0].OriginalWeight == "1000", "Rime columns, whitespace, duplicates, original frequency");
     var inline = DictionaryFormats.Parse("---\ncolumns: [code, text, weight]\n...\nce shi\t测试\t12\n", "fixture.yaml");
     Check(inline.Entries[0].Count == 12, "Rime inline columns");
+    var longReading = string.Join(" ", Enumerable.Repeat("bu yao", 39));
+    var longRime = DictionaryFormats.Parse("---\nname: long\n...\n" + new string('测', 78) + "\t" + longReading + "\t1\n正常\tzheng chang\t2\n", "long.dict.yaml");
+    Check(longRime.Entries.Count == 2 && longRime.Pending == 1 && longRime.Entries[0].Input == "" &&
+        longRime.Entries[0].OriginalInput == longReading, "Long Rime code is retained pending without truncation or aborting the file");
+    var longDictionary = new ManagedDictionary(Guid.NewGuid().ToString("N"), "长原编码", "Rime", "long.dict.yaml", "full_pinyin", true, longRime.Entries);
+    foreach (var tsv in new[] { false, true }) {
+        var roundtrip = DictionaryFormats.Parse(DictionaryFormats.Export(longDictionary, tsv), tsv ? "long.tsv" : "long.json");
+        Check(roundtrip.Pending == 1 && roundtrip.Entries[0].OriginalInput == longReading && roundtrip.Entries[1].Input == "zheng'chang",
+            "Long original code survives JSON/TSV export and import");
+    }
+    var maximumMetadata = new string('a', DictionaryStore.MaximumOriginalInputLength);
+    Check(DictionaryFormats.Parse(maximumMetadata + "\t待处理\t1\n", "limit.tsv").Entries[0].OriginalInput == maximumMetadata,
+        "Original metadata bound is independent of the active encoding bound");
+    await Reject(() => { Bad(maximumMetadata + "a\t待处理\t1\n"); return Task.CompletedTask; }, "Oversized original metadata rejected");
+    await Reject(() => { DictionaryStore.ValidateWord(longRime.Entries[0] with { OriginalInput = "a\tb" }); return Task.CompletedTask; }, "Original metadata control characters rejected");
+    await Reject(() => { UserLexiconClient.Validate(new(new string('a', 257), "测试", 1)); return Task.CompletedTask; }, "Runtime input still limited to 256");
     var csv = DictionaryFormats.Parse("word,input,frequency,locale\n\"hello, world\",hello,8,en\n\"say \"\"hello\"\"\",say,2,en\n", "fixture.csv");
     Check(csv.Entries[0].Text == "hello, world" && csv.Entries[1].Text == "say \"hello\"", "CSV quotes and column order");
     Check(DictionaryFormats.Parse("foo\tinput\t2\n", "fixture.tsv").Entries[0].Text == "input", "Word input is not misdetected as a header");
@@ -66,6 +82,14 @@ try {
     var empty = await store.LoadAsync();
     var catalog = await store.SaveAsync(empty, [dictionary]);
     Check((await store.LoadAsync()).Dictionaries.Count == 1 && catalog.Revision == 1, "Atomic catalog save");
+    var longStore = new DictionaryStore(Path.Combine(root, "long-code-store"));
+    await longStore.SaveAsync(await longStore.LoadAsync(), [longDictionary]);
+    Check((await longStore.LoadAsync()).Dictionaries.Single().Entries[0].OriginalInput == longReading,
+        "Catalog persists and reloads full original code metadata");
+    var longSnapshot = File.ReadAllText(Path.Combine(longStore.Root, "current"));
+    var longActive = File.ReadAllText(Path.Combine(longStore.Root, "snapshots", longSnapshot, "active.tsv"));
+    Check(longActive.Contains("zheng'chang\t正常\t2") && !longActive.Contains(longReading) && !longActive.Contains(new string('测', 78)),
+        "Pending long code never enters the active runtime snapshot");
     string Active() => File.ReadAllText(Path.Combine(store.Root, "snapshots", File.ReadAllText(Path.Combine(store.Root, "current")), "active.tsv"));
     Check(Active().Contains("nh\t你好\t1") && !Active().Contains("没有编码") && !Active().Contains("abc123"), "Only usable words are active, pending rows retained");
     var boundaries = new ManagedDictionary(Guid.NewGuid().ToString("N"), "注音边界", "Rime", "boundary", "full_pinyin", true,
