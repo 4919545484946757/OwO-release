@@ -104,7 +104,8 @@ public sealed partial class MainPage : Page
         InitializeSettingsModules();
         UserLexiconNavigationItem.Content = "词库管理器";
         UserLexiconPageHost.Content = new DictionaryManager(ShowStatus, _windowDownloads.Start);
-        PluginDiscoveryHost.Content = new PluginDiscoveryView(InstallPluginSourceAsync, () => PluginTabs.SelectedItem = InstalledPluginsTab, ShowStatus, _windowDownloads.Start);
+        PluginDiscoveryHost.Content = new PluginDiscoveryView(InstallPluginSourceAsync, () => PluginTabs.SelectedItem = InstalledPluginsTab, ShowStatus, _windowDownloads.Start,
+            (Microsoft.UI.Xaml.Style)Resources["PluginCardBackingStyle"]);
         OnlineDistributionHost.Content = new OnlineDistributionView(
             async (name, path) => {
                 if (UserLexiconPageHost.Content is DictionaryManager manager) {

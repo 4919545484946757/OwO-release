@@ -6,6 +6,10 @@ namespace OwO_Settings;
 
 public sealed partial class MainPage
 {
+    private void PluginSettingsPage_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e) {
+        if (PluginManagerBackgroundClip is not null)
+            PluginManagerBackgroundClip.Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height);
+    }
     private void PluginConfigPage_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e) {
         if (PluginConfigBackgroundClip is not null)
             PluginConfigBackgroundClip.Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height);
@@ -223,7 +227,8 @@ public sealed partial class MainPage
             AddPluginSettingField(field, opacity, pages.GetValueOrDefault(field.PageId));
         }
         if (pageSelector is not null) {
-            PluginConfigFields.Children.Add(pageSelector);
+            PluginConfigFields.Children.Add(PluginCardSurface.Wrap(pageSelector,
+                (Microsoft.UI.Xaml.Style)Resources["PluginCardBackingStyle"]));
             foreach (var panel in pages.Values) PluginConfigFields.Children.Add(panel);
             pageSelector.SelectedItem = _pluginSettings.Pages.FirstOrDefault(page =>
                 page.Id == (_pluginConfigPageSelector?.SelectedItem as PluginSettingPage)?.Id) ?? _pluginSettings.Pages[0];
@@ -297,7 +302,7 @@ public sealed partial class MainPage
                                        StackPanel? pagePanel = null)
     {
         var firstColorField = field.Format == "color" &&
-            (pagePanel is not null ? !pagePanel.Children.OfType<Border>().Any(card => card.Child is Expander)
+            (pagePanel is not null ? !pagePanel.Children.OfType<Border>().Any(card => card.Child is Border { Child: Expander })
                                   : !_pluginConfigControls.Values.Any(value => value is ColorPicker));
         var text = PluginSettingText(field);
         var grid = new Grid { ColumnSpacing = 24 };
@@ -361,7 +366,8 @@ public sealed partial class MainPage
             BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Microsoft.UI.Xaml.Application.Current.Resources[
                 "CardStrokeColorDefaultBrush"] };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(card, "PluginCard_" + field.Key);
-        (pagePanel ?? PluginConfigFields).Children.Add(card);
+        (pagePanel ?? PluginConfigFields).Children.Add(PluginCardSurface.Wrap(card,
+            (Microsoft.UI.Xaml.Style)Resources["PluginCardBackingStyle"]));
     }
 
     private Dictionary<string, object?> CapturePluginValues()

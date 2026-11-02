@@ -17,13 +17,15 @@ internal sealed class PluginDiscoveryView : UserControl
     private readonly List<Button> _actions = [];
     private readonly Func<string, string, Task> _install;
     private readonly Action _showInstalled;
+    private readonly Style _cardBackingStyle;
     private IReadOnlyList<OnlineResource> _resources = [];
     private IReadOnlyList<PluginVersionSnapshot> _installed = [];
     private CancellationTokenSource? _operation;
     private string _query = "";
     private readonly string _downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OwO", "InputMethod", "downloads");
 
-    internal PluginDiscoveryView(Func<string, string, Task> install, Action showInstalled, Action<string, InfoBarSeverity> reportStatus, Func<string, CancellationToken, DownloadOperation> beginDownload) {
+    internal PluginDiscoveryView(Func<string, string, Task> install, Action showInstalled, Action<string, InfoBarSeverity> reportStatus, Func<string, CancellationToken, DownloadOperation> beginDownload, Style cardBackingStyle) {
+        _cardBackingStyle = cardBackingStyle;
         _install = install; _showInstalled = showInstalled; _reportStatus = reportStatus; _beginDownload = beginDownload;
         var body = new StackPanel { Spacing = 12 };
         body.Children.Add(new TextBlock { Text = $"官方插件目录 · {OnlineDistribution.Repository}", TextWrapping = TextWrapping.Wrap });
@@ -86,7 +88,7 @@ internal sealed class PluginDiscoveryView : UserControl
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" />
                 """);
             card.Child = content;
-            var frame = new Grid(); frame.Children.Add(card);
+            var frame = new Grid(); frame.Children.Add(PluginCardSurface.Wrap(card, _cardBackingStyle));
             frame.Children.Add(new Border {
                 BorderBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(120, 0, 0, 0)),
                 BorderThickness = new Thickness(3, 0, 0, 0), CornerRadius = new CornerRadius(8), IsHitTestVisible = false

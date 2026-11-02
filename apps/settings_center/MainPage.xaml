@@ -6,12 +6,12 @@
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#EDEDED"/>
                     <SvgImageSource x:Key="PluginPuzzleImageSource" UriSource="ms-appx:///Assets/Decor/PluginPuzzle.svg"/>
-                    <x:Double x:Key="PluginPuzzleOpacity">0.5</x:Double>
+                    <x:Double x:Key="PluginPuzzleOpacity">0.06</x:Double>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#232639"/>
                     <SvgImageSource x:Key="PluginPuzzleImageSource" UriSource="ms-appx:///Assets/Decor/PluginPuzzle.Dark.svg"/>
-                    <x:Double x:Key="PluginPuzzleOpacity">0.5</x:Double>
+                    <x:Double x:Key="PluginPuzzleOpacity">0.0</x:Double>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}"/>
@@ -21,6 +21,10 @@
             </ResourceDictionary.ThemeDictionaries>
             <!-- Matches the dictionary-card overlay: Color.FromArgb(120, 0, 0, 0). -->
             <SolidColorBrush x:Key="PluginItemLeftBorderBrush" Color="#78000000"/>
+            <Style x:Key="PluginCardBackingStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource SettingsContentBackgroundBrush}"/>
+                <Setter Property="CornerRadius" Value="8"/>
+            </Style>
             <!-- Fit the switch and state label instead of reserving the default minimum width. -->
             <Style TargetType="ToggleSwitch" BasedOn="{StaticResource DefaultToggleSwitchStyle}">
                 <Setter Property="MinWidth" Value="0"/>
@@ -643,7 +647,14 @@
                             </ContentControl>
                         </Grid>
                     </ScrollViewer>
-                    <ScrollViewer x:Name="PluginSettingsPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                    <Grid x:Name="PluginSettingsPage" Visibility="Collapsed" SizeChanged="PluginSettingsPage_SizeChanged">
+                        <Grid.Clip><RectangleGeometry x:Name="PluginManagerBackgroundClip"/></Grid.Clip>
+                        <Image x:Name="PluginManagerPuzzleBackground" Canvas.ZIndex="-1" Source="{ThemeResource PluginPuzzleImageSource}" Opacity="{ThemeResource PluginPuzzleOpacity}"
+                               Width="480" Height="480" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-104,-88,0"
+                               RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw">
+                            <Image.RenderTransform><RotateTransform Angle="-18"/></Image.RenderTransform>
+                        </Image>
+                        <ScrollViewer Canvas.ZIndex="0" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                         <Grid x:Name="PluginContentArea" Margin="32,0,32,24">
                             <ContentControl x:Name="PluginSection" HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch" MaxWidth="960">
                                 <StackPanel Margin="0" Spacing="10" HorizontalAlignment="Stretch">
@@ -676,6 +687,7 @@
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Grid Margin="0,0,0,8">
+                                                <Border Background="{ThemeResource SettingsContentBackgroundBrush}" CornerRadius="8" IsHitTestVisible="False"/>
                                                 <Border Style="{StaticResource SettingsCardStyle}">
                                                     <StackPanel Spacing="12">
                                                         <StackPanel Spacing="4">
@@ -711,7 +723,8 @@
                                     <ItemsControl x:Name="RecoveryItems">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Style="{StaticResource SettingsCardStyle}" Margin="0,0,0,8">
+                                                <Border Background="{ThemeResource SettingsContentBackgroundBrush}" CornerRadius="8" Margin="0,0,0,8">
+                                                <Border Style="{StaticResource SettingsCardStyle}">
                                                     <Grid ColumnSpacing="16">
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="*"/>
@@ -724,6 +737,7 @@
                                                         <Button Grid.Column="1" Content="{Binding ActionLabel}" Tag="{Binding}" IsEnabled="{Binding CanApply}" Click="RecoveryAction_Click"/>
                                                     </Grid>
                                                 </Border>
+                                                </Border>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
@@ -732,7 +746,8 @@
                                 </StackPanel>
                             </ContentControl>
                         </Grid>
-                    </ScrollViewer>
+                        </ScrollViewer>
+                    </Grid>
                     <ContentControl x:Name="UserLexiconPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                     <ScrollViewer x:Name="GeneralPreferencesPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">
@@ -767,12 +782,12 @@
                     </ScrollViewer>
                     <Grid x:Name="PluginConfigPage" Visibility="Collapsed" SizeChanged="PluginConfigPage_SizeChanged">
                         <Grid.Clip><RectangleGeometry x:Name="PluginConfigBackgroundClip"/></Grid.Clip>
-                        <Image x:Name="PluginPuzzleBackground" Source="{ThemeResource PluginPuzzleImageSource}" Opacity="{ThemeResource PluginPuzzleOpacity}"
+                        <Image x:Name="PluginPuzzleBackground" Canvas.ZIndex="-1" Source="{ThemeResource PluginPuzzleImageSource}" Opacity="{ThemeResource PluginPuzzleOpacity}"
                                Width="480" Height="480" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-104,-88,0"
                                RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw">
                             <Image.RenderTransform><RotateTransform Angle="-18"/></Image.RenderTransform>
                         </Image>
-                        <ScrollViewer HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                        <ScrollViewer Canvas.ZIndex="0" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                         <Grid x:Name="PluginConfigContentArea" Margin="32,0,32,24">
                             <StackPanel Margin="0" Spacing="10" HorizontalAlignment="Stretch" MaxWidth="960">
                                 <StackPanel x:Name="PluginConfigFields" Spacing="8"/>
