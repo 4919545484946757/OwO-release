@@ -12,14 +12,15 @@ if ($null -eq $border -or $border.GetAttribute('CornerRadius') -ne '8' -or $bord
 $image = $page.SelectSingleNode('//ui:Image[@x:Name="PluginPuzzleBackground"]', $ns)
 if ($null -eq $image -or $image.GetAttribute('IsHitTestVisible') -ne 'False' -or
     $image.GetAttribute('Width') -ne '480' -or $image.GetAttribute('Height') -ne '480' -or
-    $image.GetAttribute('Margin') -ne '0,0,-88,-104' -or
+    $image.GetAttribute('VerticalAlignment') -ne 'Top' -or $image.GetAttribute('HorizontalAlignment') -ne 'Right' -or
+    $image.GetAttribute('Margin') -ne '0,-104,-88,0' -or
     $image.SelectSingleNode('ui:Image.RenderTransform/ui:RotateTransform', $ns).GetAttribute('Angle') -ne '-18') { throw 'Unexpected decorative SVG geometry.' }
 if ($null -eq $image.ParentNode.SelectSingleNode('ui:Grid.Clip/ui:RectangleGeometry', $ns) -or
     $null -eq $image.ParentNode.SelectSingleNode('ui:ScrollViewer', $ns)) { throw 'Background must be clipped and independent from the scrolling form.' }
 foreach ($theme in @('Light','Dark','HighContrast')) {
     $dictionary = $page.SelectSingleNode('//ui:ResourceDictionary[@x:Key="' + $theme + '"]', $ns)
     $opacity = $dictionary.SelectSingleNode('x:Double[@x:Key="PluginPuzzleOpacity"]', $ns).InnerText
-    if ($opacity -ne $(if ($theme -eq 'HighContrast') { '0' } else { '0.06' })) { throw ('Unexpected opacity for ' + $theme) }
+    if ($opacity -ne $(if ($theme -eq 'HighContrast') { '0' } else { '0.5' })) { throw ('Unexpected opacity for ' + $theme) }
 }
 [xml]$light = [IO.File]::ReadAllText((Join-Path $settings 'Assets/Decor/PluginPuzzle.svg'))
 [xml]$dark = [IO.File]::ReadAllText((Join-Path $settings 'Assets/Decor/PluginPuzzle.Dark.svg'))

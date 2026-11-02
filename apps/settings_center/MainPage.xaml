@@ -6,12 +6,12 @@
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#EDEDED"/>
                     <SvgImageSource x:Key="PluginPuzzleImageSource" UriSource="ms-appx:///Assets/Decor/PluginPuzzle.svg"/>
-                    <x:Double x:Key="PluginPuzzleOpacity">0.06</x:Double>
+                    <x:Double x:Key="PluginPuzzleOpacity">0.5</x:Double>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#232639"/>
                     <SvgImageSource x:Key="PluginPuzzleImageSource" UriSource="ms-appx:///Assets/Decor/PluginPuzzle.Dark.svg"/>
-                    <x:Double x:Key="PluginPuzzleOpacity">0.06</x:Double>
+                    <x:Double x:Key="PluginPuzzleOpacity">0.5</x:Double>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}"/>
@@ -768,7 +768,7 @@
                     <Grid x:Name="PluginConfigPage" Visibility="Collapsed" SizeChanged="PluginConfigPage_SizeChanged">
                         <Grid.Clip><RectangleGeometry x:Name="PluginConfigBackgroundClip"/></Grid.Clip>
                         <Image x:Name="PluginPuzzleBackground" Source="{ThemeResource PluginPuzzleImageSource}" Opacity="{ThemeResource PluginPuzzleOpacity}"
-                               Width="480" Height="480" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-88,-104"
+                               Width="480" Height="480" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-104,-88,0"
                                RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw">
                             <Image.RenderTransform><RotateTransform Angle="-18"/></Image.RenderTransform>
                         </Image>
