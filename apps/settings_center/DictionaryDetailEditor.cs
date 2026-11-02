@@ -32,6 +32,7 @@ internal sealed class DictionaryDetailEditor : UserControl
         Command("编辑", Symbol.Edit, async () => await EditAsync(Selected()));
         Command("删除词条", Symbol.Delete, DeleteWordAsync);
         Command("合并导入", Symbol.OpenFile, MergeAsync);
+        Command("补充编码", Symbol.Edit, SupplementAsync);
         Command("导出", Symbol.Save, ExportAsync);
         Command("重命名", Symbol.Rename, RenameAsync, true);
         Command("删除字典", Symbol.Delete, DeleteAsync, true);
@@ -108,6 +109,17 @@ internal sealed class DictionaryDetailEditor : UserControl
     }
     private async Task RenameAsync() {
         if (await DictionaryActions.RenameAsync(XamlRoot, _dictionary.Name) is { } name) await SaveAsync(_dictionary with { Name = name });
+    }
+    private async Task SupplementAsync() {
+        var query = _query.Text.Trim();
+        var pending = _dictionary.Entries.Where(word => !DictionaryStore.Usable(word) &&
+            (word.Text.Contains(query, StringComparison.OrdinalIgnoreCase) || word.Locale.Contains(query, StringComparison.OrdinalIgnoreCase))).ToArray();
+        if (pending.Length == 0) throw new InvalidOperationException("当前筛选下没有待补编码词条；已有编码不会被覆盖。");
+        if (await DictionaryEncodingDialog.ShowAsync(XamlRoot, pending) is not { } selected) return;
+        var result = DictionaryEncoding.Apply(_dictionary, selected);
+        if (result.Updated > 0) await SaveAsync(result.Dictionary);
+        _notice.Message = $"已补充 {result.Updated} 条编码；{result.Duplicates} 条因与已有词条重复而保留待补状态。词频、原始字段与启用状态未修改。";
+        _notice.Severity = InfoBarSeverity.Success; _notice.IsOpen = true;
     }
     private async Task DeleteAsync() {
         if (await DictionaryActions.ConfirmDeleteAsync(XamlRoot, _dictionary.Name)) await _delete();

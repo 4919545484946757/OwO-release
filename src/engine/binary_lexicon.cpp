@@ -1261,6 +1261,53 @@ std::string_view BinaryLexicon::syllable_at(const std::uint16_t id) const {
     return {mapped_syllable_pool_ + record.offset, record.size};
 }
 
+std::vector<LexiconEntry> BinaryLexicon::lookup_readings(
+    std::span<const std::string_view> texts, std::size_t per_text_limit) const {
+    if (texts.size() > 32768 || per_text_limit == 0 || per_text_limit > 8) return {};
+    const auto entries = mapped_entries_ != nullptr
+        ? std::span<const CompactEntry>(mapped_entries_, mapped_entry_count_)
+        : std::span<const CompactEntry>(entries_);
+    const auto ids = mapped_entries_ != nullptr
+        ? std::span<const std::uint16_t>(mapped_syllable_ids_, mapped_syllable_id_count_)
+        : std::span<const std::uint16_t>(syllable_ids_);
+    const char* pool = mapped_entries_ != nullptr ? mapped_text_pool_ : text_pool_.data();
+    std::unordered_map<std::string_view, std::vector<std::size_t>> wanted;
+    for (auto text : texts) wanted.try_emplace(text);
+    for (std::size_t index = 0; index < entries.size(); ++index) {
+        const auto& row = entries[index];
+        const auto text = std::string_view(pool + row.text_offset, row.text_size);
+        const auto found = wanted.find(text);
+        if (found == wanted.end()) continue;
+        const auto characters = std::count_if(text.begin(), text.end(), [](unsigned char c) { return (c & 0xc0) != 0x80; });
+        if (characters != row.syllable_count) continue;
+        const auto reading = ids.subspan(row.syllable_offset, row.syllable_count);
+        auto& matches = found->second;
+        const auto same = std::find_if(matches.begin(), matches.end(), [&](auto previous) {
+            const auto& entry = entries[previous];
+            return std::ranges::equal(reading, ids.subspan(entry.syllable_offset, entry.syllable_count));
+        });
+        if (same != matches.end()) { if (row.frequency > entries[*same].frequency) *same = index; continue; }
+        matches.push_back(index);
+        std::sort(matches.begin(), matches.end(), [&](auto a, auto b) {
+            if (entries[a].frequency != entries[b].frequency) return entries[a].frequency > entries[b].frequency;
+            return a < b;
+        });
+        if (matches.size() > per_text_limit) matches.resize(per_text_limit);
+    }
+    std::vector<LexiconEntry> result;
+    // Stable caller order, deterministic reading order; do not expose hash order.
+    std::unordered_set<std::string_view> seen;
+    for (auto text : texts) if (seen.insert(text).second) {
+        auto& matches = wanted.at(text);
+        std::sort(matches.begin(), matches.end(), [&](auto a, auto b) {
+            if (entries[a].frequency != entries[b].frequency) return entries[a].frequency > entries[b].frequency;
+            return a < b;
+        });
+        for (auto index : matches) result.push_back(materialize(entries[index]));
+    }
+    return result;
+}
+
 std::vector<LexiconEntry> BinaryLexicon::materialize_entries() const {
     std::vector<LexiconEntry> result;
     result.reserve(size());

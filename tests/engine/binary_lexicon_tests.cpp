@@ -17,6 +17,8 @@ int main() {
     entries.push_back({{"wei", "shen", "me"}, "为什么", 3000});
     entries.push_back({{"ni", "jiu"}, "你就", 2500});
     entries.push_back({{"jie", "zhe"}, "接着", 2400});
+    entries.push_back({{"zhong"}, "重", 4000});
+    entries.push_back({{"chong"}, "重", 3000});
     if (!owo::engine::write_binary_lexicon(first, entries).success ||
         !owo::engine::write_binary_lexicon(second, {entries.rbegin(), entries.rend()}).success) return 1;
 
@@ -27,8 +29,15 @@ int main() {
 
     owo::engine::BinaryLexicon lexicon;
     if (!lexicon.storage_path().empty()) return 2;
-    if (!lexicon.load(first).success || lexicon.size() != 11 ||
+    if (!lexicon.load(first).success || lexicon.size() != entries.size() ||
         lexicon.maximum_reading_length() != 3) return 1;
+    const std::string_view words[]{"你好", "重", "西安", "不存在", "重"};
+    const auto reverse = lexicon.lookup_readings(words);
+    if (reverse.size() != 4 || reverse[0].text != "你好" || reverse[0].syllables != std::vector<std::string>{"ni", "hao"} ||
+        reverse[1].text != "重" || reverse[1].syllables != std::vector<std::string>{"zhong"} ||
+        reverse[2].syllables != std::vector<std::string>{"chong"} || reverse[3].text != "西安" ||
+        !lexicon.lookup_readings(words, 0).empty() || !lexicon.lookup_readings(words, 9).empty() ||
+        lexicon.lookup_readings(words, 1).size() != 3) return 11;
     const std::string_view reading[]{"ni", "hao"};
     const auto matches = lexicon.lookup(reading);
     if (matches.size() != 2 || matches[0].text != "你好" || matches[1].text != "你号" ||

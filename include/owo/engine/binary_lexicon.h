@@ -85,6 +85,10 @@ public:
         return lexicon_version_ >= 3;
     }
     [[nodiscard]] std::vector<LexiconEntry> materialize_entries() const;
+    // Offline management helper: one bounded batch, one mapped-table scan.
+    // Never called from the candidate/keystroke path.
+    [[nodiscard]] std::vector<LexiconEntry> lookup_readings(
+        std::span<const std::string_view> texts, std::size_t per_text_limit = 8) const;
     [[nodiscard]] const std::filesystem::path& storage_path() const noexcept { return storage_path_; }
 
 private:

@@ -1,5 +1,8 @@
 #include "owo/config/config_monitor.h"
 #include "owo/config/config_store.h"
+#include "owo/engine/binary_lexicon.h"
+#include "owo/engine/full_pinyin_schema.h"
+#include "owo/engine/user_frequency.h"
 #include "owo/ipc/named_pipe.h"
 #include "owo/protocol/messages.h"
 #include <Windows.h>
@@ -176,6 +179,45 @@ void usage() {
 }  // namespace
 
 int wmain(const int argc, wchar_t** argv) {
+    if (argc == 3 && std::wstring_view(argv[1]) == L"--dictionary-readings") {
+        const std::filesystem::path source(argv[2]);
+        auto extension = source.extension().wstring();
+        for (auto& value : extension) if (value >= L'A' && value <= L'Z') value += L'a' - L'A';
+        if (!source.is_absolute() || extension != L".owolx") {
+            std::cerr << "请选择本机 .owolx 参考词典。\n"; return 2;
+        }
+        std::string payload;
+        for (char value{}; std::cin.get(value);) {
+            if (payload.size() >= 2 * 1024 * 1024) { std::cerr << "注音请求超过 2 MiB，请减小批量。\n"; return 2; }
+            payload += value;
+        }
+        constexpr std::string_view header = "OWO_DICTIONARY_READINGS_V1\n";
+        if (!payload.starts_with(header)) { std::cerr << "注音请求格式无效。\n"; return 2; }
+        std::vector<std::string_view> words;
+        for (std::size_t offset = header.size(); offset < payload.size();) {
+            auto end = payload.find('\n', offset);
+            if (end == std::string::npos) end = payload.size();
+            const auto text = std::string_view(payload).substr(offset, end - offset);
+            if (!owo::engine::UserFrequencyStore::validate_word({std::string(text), 1, "a", false}).empty() || words.size() >= 32768) {
+                std::cerr << "注音请求词语无效或超过 32768 项，请减小批量。\n"; return 2;
+            }
+            words.push_back(text); offset = end + 1;
+        }
+        owo::engine::BinaryLexicon lexicon;
+        const auto loaded = lexicon.load(source);
+        if (!loaded.success) { std::cerr << "参考词典加载失败：" << loaded.error << '\n'; return 3; }
+        std::cout << header;
+        for (const auto& word : lexicon.lookup_readings(words)) {
+            std::string code;
+            for (const auto& syllable : word.syllables) { if (!code.empty()) code += '\''; code += syllable; }
+            const auto readings = owo::engine::FullPinyinSchema::dictionary_readings(code, word.syllables.size());
+            if (readings.empty() || word.frequency == 0) continue;
+            std::cout << word.text << '\t';
+            for (std::size_t i = 0; i < readings[0].size(); ++i) { if (i) std::cout << '\''; std::cout << readings[0][i]; }
+            std::cout << '\t' << word.frequency << '\n';
+        }
+        return 0;
+    }
     if (argc == 2 && std::wstring_view(argv[1]) == L"--user-lexicon") {
         std::string payload;
         char c{};
