@@ -11,6 +11,7 @@ internal sealed record BuiltinDictionary(string Id, string Name, bool Enabled = 
 internal sealed record DictionaryCatalog(int SchemaVersion, long Revision, IReadOnlyList<ManagedDictionary> Dictionaries)
 {
     public IReadOnlyList<BuiltinDictionary> Builtins { get; init; } = [new("user", "用户词库"), new("base", "基础中文词典")];
+    public bool PromptBeforeEnablingPending { get; init; } = true;
 }
 internal sealed record DictionaryImport(string Format, IReadOnlyList<DictionaryWord> Entries,
     int Duplicates, int Pending, int AdjustedWeights);
@@ -111,13 +112,16 @@ internal sealed class DictionaryStore
     // One atomic pointer publishes catalog and active candidates together. A
     // failed/cancelled operation never exposes a half-written dictionary.
     internal async Task<DictionaryCatalog> SaveAsync(DictionaryCatalog previous, IReadOnlyList<ManagedDictionary> dictionaries,
-        IReadOnlyList<BuiltinDictionary>? builtins = null) {
+        IReadOnlyList<BuiltinDictionary>? builtins = null, bool? promptBeforeEnablingPending = null) {
         RejectLink(Root); Directory.CreateDirectory(Root);
         var lockPath = Path.Combine(Root, "store.lock"); RejectLink(lockPath);
         using var gate = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         var latest = await LoadAsync();
         if (latest.Revision != previous.Revision) throw new IOException("词典已被其他窗口修改，请刷新后重试。" );
-        var next = new DictionaryCatalog(1, checked(latest.Revision + 1), dictionaries) { Builtins = builtins ?? previous.Builtins };
+        var next = new DictionaryCatalog(1, checked(latest.Revision + 1), dictionaries) {
+            Builtins = builtins ?? previous.Builtins,
+            PromptBeforeEnablingPending = promptBeforeEnablingPending ?? previous.PromptBeforeEnablingPending
+        };
         var bytes = await Task.Run(() => { Validate(next); return JsonSerializer.SerializeToUtf8Bytes(next, JsonOptions); });
         if (bytes.Length > MaximumCatalogBytes) throw new InvalidDataException("词典目录超过 256 MiB，未修改已有数据。" );
         var activeBytes = await Task.Run(() => {

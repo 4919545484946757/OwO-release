@@ -7,6 +7,7 @@
   <ItemGroup>
     <Compile Include="DictionaryEncodingTests.cs" />
     <Compile Include="../../apps/settings_center/DictionaryEncoding.cs" Link="DictionaryEncoding.cs" />
+    <Compile Include="../../apps/settings_center/DictionaryActivation.cs" Link="DictionaryActivation.cs" />
     <Compile Include="../../apps/settings_center/DictionaryStore.cs" Link="DictionaryStore.cs" />
     <Compile Include="../../apps/settings_center/DictionaryFormats.cs" Link="DictionaryFormats.cs" />
     <Compile Include="../../apps/settings_center/UserLexiconClient.cs" Link="UserLexiconClient.cs" />

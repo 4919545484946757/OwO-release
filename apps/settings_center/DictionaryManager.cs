@@ -15,10 +15,11 @@ internal sealed class DictionaryManager : UserControl
     private readonly Action<string, InfoBarSeverity> _reportStatus;
     private readonly Button _import = new() { Content = "导入字典" }, _refresh = new() { Content = "刷新" };
     private readonly Button _restore = new() { Content = "恢复内置词库", Visibility = Visibility.Collapsed };
+    private readonly Button _options = new() { Content = "词库选项" };
     private readonly Grid _catalogPage = new() { Margin = new Thickness(16, 0, 16, 16), RowSpacing = 12 };
     private readonly Grid _overview = new() { RowSpacing = 12 };
     private readonly SelectorBar _tabs = new() { Margin = new Thickness(16, 0, 16, 0) };
-    private readonly SelectorBarItem _installedTab = new() { Text = "已安装" }, _discoverTab = new() { Text = "发现词库" };
+    private readonly SelectorBarItem _installedTab = new() { Text = "已安装" }, _discoverTab = new() { Text = "下载词库" };
     private readonly ContentControl _discoveryHost = new() { Margin = new Thickness(16, 0, 16, 16), Visibility = Visibility.Collapsed, HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
     private readonly Dictionary<string, CardView> _cardViews = new(StringComparer.Ordinal);
     private readonly List<UIElement> _desiredCards = [];
@@ -60,6 +61,8 @@ internal sealed class DictionaryManager : UserControl
                 ShowInstalled();
             }, _reportStatus);
         Grid.SetRow(_refresh, 1); Grid.SetColumn(_refresh, 2); toolbar.Children.Add(_refresh);
+        Grid.SetRow(_options, 1); Grid.SetColumn(_options, 1); toolbar.Children.Add(_options);
+        AutomationProperties.SetAutomationId(_options, "DictionaryOptions");
         Grid.SetRow(_restore, 1); Grid.SetColumn(_restore, 3); toolbar.Children.Add(_restore);
         _catalogPage.Children.Add(toolbar);
         var scroll = new ScrollViewer { Content = _cards, HorizontalScrollMode = ScrollMode.Disabled,
@@ -118,6 +121,16 @@ internal sealed class DictionaryManager : UserControl
     }
     private void RenderCards() {
         _desiredCards.Clear();
+        var prompt = new ToggleMenuFlyoutItem { Text = "启用未补码字典时询问", IsChecked = _catalog.PromptBeforeEnablingPending };
+        AutomationProperties.SetAutomationId(prompt, "DictionaryEnablePromptPreference");
+        prompt.Click += async (_, _) => {
+            await RunAsync(async () => {
+                _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries, promptBeforeEnablingPending: prompt.IsChecked);
+                Notify(prompt.IsChecked ? "已恢复启用前补码提醒。" : "已关闭启用前补码提醒；未补码词条仍保留但不参与候选。");
+            });
+            RenderCards();
+        };
+        var options = new MenuFlyout(); options.Items.Add(prompt); _options.Flyout = options;
         var query = _search.Text.Trim();
         bool Match(params string[] values) => values.Any(value => value.Contains(query, StringComparison.OrdinalIgnoreCase));
         var restore = new MenuFlyout();
@@ -173,8 +186,15 @@ internal sealed class DictionaryManager : UserControl
     private void Notify(string message) => _reportStatus(message, InfoBarSeverity.Success);
     private async Task SaveBuiltinAsync(BuiltinDictionary dictionary) =>
         _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries, _catalog.Builtins.Select(value => value.Id == dictionary.Id ? dictionary : value).ToArray());
-    private async Task SaveDictionaryAsync(ManagedDictionary dictionary) =>
-        _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries.Select(value => value.Id == dictionary.Id ? dictionary : value).ToArray());
+    private async Task<ManagedDictionary> SaveDictionaryAsync(ManagedDictionary dictionary) {
+        var previous = _catalog.Dictionaries.Single(value => value.Id == dictionary.Id);
+        var activation = await DictionaryEnableDialog.PrepareAsync(XamlRoot, dictionary, previous.Enabled, _catalog.PromptBeforeEnablingPending);
+        if (activation.Dictionary is not { } accepted) { Notify("已取消启用，词库与提醒设置未修改。"); return previous; }
+        _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries.Select(value => value.Id == accepted.Id ? accepted : value).ToArray(),
+            promptBeforeEnablingPending: activation.PromptBeforeEnablingPending);
+        if (!previous.Enabled && accepted.Enabled) Notify($"字典已启用：{accepted.Entries.Count(DictionaryStore.Usable)} 条可用，{accepted.Entries.Count(word => !DictionaryStore.Usable(word))} 条待补编码。");
+        return accepted;
+    }
     private async Task DeleteDictionaryAsync(string id) =>
         _catalog = await _store.SaveAsync(_catalog, _catalog.Dictionaries.Where(value => value.Id != id).ToArray());
     private void AddCard(string name, string description, string state, string id, Func<Task> action,
@@ -297,10 +317,7 @@ internal sealed class DictionaryManager : UserControl
         return Task.CompletedTask;
     }
     private void OpenDictionary(ManagedDictionary dictionary) => ShowDetail(new DictionaryDetailEditor(dictionary,
-        async updated => {
-            await SaveDictionaryAsync(updated);
-            return updated;
-        }, async () => {
+        async updated => await SaveDictionaryAsync(updated), async () => {
             await DeleteDictionaryAsync(dictionary.Id);
             ShowInstalled(); RenderCards();
         }, _reportStatus));
@@ -332,7 +349,10 @@ internal sealed class DictionaryManager : UserControl
         if (await new ContentDialog { XamlRoot = dialogRoot ?? XamlRoot, Title = "预览并导入字典", Content = new ScrollViewer { Content = fields, MaxHeight = 420 },
             PrimaryButtonText = "确认导入", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close }.ShowAsync() != ContentDialogResult.Primary) return;
         var dictionary = new ManagedDictionary(Guid.NewGuid().ToString("N"), title.Text.Trim(), data.Format, sourceName, "full_pinyin", enable.IsChecked == true, data.Entries);
-        _catalog = await _store.SaveAsync(_catalog, [.. _catalog.Dictionaries, dictionary]); RenderCards();
-        Notify("字典已独立保存；启用词条会在后续输入时加载。");
+        var activation = await DictionaryEnableDialog.PrepareAsync(dialogRoot ?? XamlRoot, dictionary, false, _catalog.PromptBeforeEnablingPending);
+        dictionary = activation.Dictionary ?? dictionary with { Enabled = false };
+        _catalog = await _store.SaveAsync(_catalog, [.. _catalog.Dictionaries, dictionary],
+            promptBeforeEnablingPending: activation.PromptBeforeEnablingPending); RenderCards();
+        Notify(dictionary.Enabled ? "字典已独立保存；启用词条会在后续输入时加载。" : "字典已独立保存，未启用。");
     }
 }

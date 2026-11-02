@@ -18,6 +18,7 @@ internal sealed class DictionaryEncodingDialog
     private readonly ProgressBar _progress = new() { IsIndeterminate = true, Visibility = Visibility.Collapsed };
     private readonly ListView _list = new() { SelectionMode = ListViewSelectionMode.None, MaxHeight = 290, HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly List<Row> _rows = [];
+    private readonly CommandBar _selectionCommands = new() { DefaultLabelPosition = CommandBarDefaultLabelPosition.Right };
     private readonly ToggleSwitch _manual = new() { Header = "手动处理已跳过项", OnContent = "显示", OffContent = "隐藏" };
     private readonly Expander _preview = new() { Header = "查看自动补全明细", HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private CancellationTokenSource? _operation;
@@ -75,7 +76,7 @@ internal sealed class DictionaryEncodingDialog
         commands.Children.Add(_generate); commands.Children.Add(_pick); commands.Children.Add(_cancel); body.Children.Add(commands);
         commands.SizeChanged += (_, args) => commands.Orientation = args.NewSize.Width < 480 ? Orientation.Vertical : Orientation.Horizontal;
         body.Children.Add(_progress); body.Children.Add(_notice); body.Children.Add(_summary);
-        var select = new CommandBar { DefaultLabelPosition = CommandBarDefaultLabelPosition.Right };
+        var select = _selectionCommands;
         // Compact buttons wrap through CommandBar's overflow in narrow windows.
         void SelectionCommand(string label, Action action) {
             var command = new AppBarButton { Label = label, Icon = new SymbolIcon(Symbol.Accept) };
@@ -92,9 +93,7 @@ internal sealed class DictionaryEncodingDialog
         AutomationProperties.SetAutomationId(_generate, "DictionaryEncodingGenerate");
         AutomationProperties.SetAutomationId(_list, "DictionaryEncodingPreview");
         AutomationProperties.SetAutomationId(_manual, "DictionaryEncodingManualSkipped");
-        _generate.Click += async (_, _) => {
-            select.IsEnabled = false; await GenerateAsync(); select.IsEnabled = _rows.Count > 0 && _operation is null;
-        };
+        _generate.Click += async (_, _) => await GenerateAsync();
         _pick.Click += async (_, _) => {
             try {
                 var picker = new FileOpenPicker(); picker.FileTypeFilter.Add(".owolx"); DictionaryManager.InitializePicker(picker);
@@ -119,6 +118,7 @@ internal sealed class DictionaryEncodingDialog
         if (_operation is not null) return;
         if (!double.IsFinite(_limit.Value) || _limit.Value != Math.Truncate(_limit.Value) || _limit.Value is < 1 or > DictionaryStore.MaximumEntries) { Notice("请填写有效整数上限，最多 500000 条。"); return; }
         using var operation = new CancellationTokenSource(); _operation = operation;
+        _selectionCommands.IsEnabled = false;
         _generate.IsEnabled = _pick.IsEnabled = _limit.IsEnabled = _manual.IsEnabled = false; _dialog.IsPrimaryButtonEnabled = false;
         _cancel.Visibility = _progress.Visibility = Visibility.Visible; _notice.IsOpen = false;
         _rows.Clear(); _page = 0; Render();
@@ -136,7 +136,7 @@ internal sealed class DictionaryEncodingDialog
         catch (Exception error) { if (!_closed) Notice(error.Message + " 可先启动 Core，或选择本机 .owolx 参考词典重试。"); }
         finally {
             _operation = null;
-            if (!_closed) { _generate.IsEnabled = _pick.IsEnabled = _limit.IsEnabled = _manual.IsEnabled = true; _cancel.Visibility = _progress.Visibility = Visibility.Collapsed; Render(); }
+            if (!_closed) { _generate.IsEnabled = _pick.IsEnabled = _limit.IsEnabled = _manual.IsEnabled = true; _selectionCommands.IsEnabled = _rows.Count > 0; _cancel.Visibility = _progress.Visibility = Visibility.Collapsed; Render(); }
         }
     }
     private void Select(Func<Row, bool> match) { if (_operation is not null) return; foreach (var row in _rows) row.Selected = match(row); Render(); }
@@ -171,8 +171,18 @@ internal sealed class DictionaryEncodingDialog
         _previous.IsEnabled = _operation is null && _page > 0; _next.IsEnabled = _operation is null && (_page + 1) * 50 < visible.Length;
         UpdateSummary();
     }
-    internal static async Task<IReadOnlyDictionary<string, string>?> ShowAsync(XamlRoot root, IReadOnlyList<DictionaryWord> pending, int padding = 0) {
+    internal static async Task<DictionaryEncodingResult?> SupplementAsync(XamlRoot root, ManagedDictionary dictionary,
+        IReadOnlyList<DictionaryWord>? pending = null, bool autoStart = false) {
+        pending ??= dictionary.Entries.Where(word => !DictionaryStore.Usable(word)).ToArray();
+        if (pending.Count == 0) throw new InvalidOperationException("没有待补编码词条；已有编码不会被覆盖。");
+        var prepared = pending.Select(word => DictionaryEncoding.PrepareWord(dictionary, word)).ToArray();
+        var padding = pending.Zip(prepared).Count(pair => pair.First.Text != pair.Second.Text);
+        if (await ShowAsync(root, prepared, padding, autoStart) is not { } selected) return null;
+        return DictionaryEncoding.Apply(dictionary, selected);
+    }
+    internal static async Task<IReadOnlyDictionary<string, string>?> ShowAsync(XamlRoot root, IReadOnlyList<DictionaryWord> pending, int padding = 0, bool autoStart = false) {
         var view = new DictionaryEncodingDialog(root, pending, padding);
+        if (autoStart) view._dialog.Opened += async (_, _) => await view.GenerateAsync();
         if (await view._dialog.ShowAsync() != ContentDialogResult.Primary) return null;
         return view._rows.Where(row => row.Selected).ToDictionary(row => row.Suggestion.Word.Id, row => row.Code, StringComparer.Ordinal);
     }

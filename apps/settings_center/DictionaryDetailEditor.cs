@@ -115,10 +115,7 @@ internal sealed class DictionaryDetailEditor : UserControl
         var pending = _dictionary.Entries.Where(word => !DictionaryStore.Usable(word) &&
             (word.Text.Contains(query, StringComparison.OrdinalIgnoreCase) || word.Locale.Contains(query, StringComparison.OrdinalIgnoreCase))).ToArray();
         if (pending.Length == 0) throw new InvalidOperationException("当前筛选下没有待补编码词条；已有编码不会被覆盖。");
-        var prepared = pending.Select(word => DictionaryEncoding.PrepareWord(_dictionary, word)).ToArray();
-        var padding = pending.Zip(prepared).Count(pair => pair.First.Text != pair.Second.Text);
-        if (await DictionaryEncodingDialog.ShowAsync(XamlRoot, prepared, padding) is not { } selected) return;
-        var result = DictionaryEncoding.Apply(_dictionary, selected);
+        if (await DictionaryEncodingDialog.SupplementAsync(XamlRoot, _dictionary, pending) is not { } result) return;
         if (result.Updated > 0) await SaveAsync(result.Dictionary);
         _reportStatus($"已补充 {result.Updated} 条编码；{result.Duplicates} 条因与已有词条重复而保留待补状态。" +
             (result.CleanedText > 0 ? $"同时清理 {result.CleanedText} 条 THUOCL 格式空白。" : "") + "词频、原始字段与启用状态未修改。", InfoBarSeverity.Success);

@@ -6,6 +6,41 @@ void Reject(Action action, string message) { try { action(); } catch (InvalidDat
 DictionaryWord Word(string text, string input = "") => new(Guid.NewGuid().ToString("N"), input, text, 12, "zh-CN", "原编码", "12345", "noun");
 var exact = Word("测试"); var poly = Word("重"); var composed = Word("测试词库"); var missing = Word("𰻞"); var latin = Word("hello");
 var words = new[] { exact, poly, composed, missing, latin };
+{
+    var activationDictionary = new ManagedDictionary(Guid.NewGuid().ToString("N"), "启用测试", "text", "synthetic", "full_pinyin", true, [exact, Word("已有", "yi'you")]);
+    var choices = 0; var supplements = 0;
+    Task<DictionaryActivationDecision> Choose(int count) { choices++; Check(count == 1, "Prompt counts all pending entries"); return Task.FromResult(new DictionaryActivationDecision(DictionaryActivationChoice.EnableWithoutEncoding, true)); }
+    Task<ManagedDictionary?> Supplement(ManagedDictionary staged) { supplements++; Check(!staged.Enabled, "Do not activate before supplement confirmation"); return Task.FromResult<ManagedDictionary?>(staged with { Entries = staged.Entries.Select(word => word.Id == exact.Id ? word with { Input = "ce'shi" } : word).ToArray() }); }
+    var direct = await DictionaryActivation.PrepareAsync(activationDictionary, false, true, Choose, Supplement);
+    Check(direct.Dictionary == activationDictionary && !direct.PromptBeforeEnablingPending && choices == 1 && supplements == 0, "Explicit direct enable can suppress future prompts without encoding words");
+    var generated = await DictionaryActivation.PrepareAsync(activationDictionary, false, true,
+        _ => Task.FromResult(new DictionaryActivationDecision(DictionaryActivationChoice.Supplement, true)), Supplement);
+    Check(generated.Dictionary is { Enabled: true } && generated.Dictionary.Entries[0].Input == "ce'shi" &&
+        !generated.PromptBeforeEnablingPending && supplements == 1, "Accepted encoding and enable are staged together");
+    var cancelled = await DictionaryActivation.PrepareAsync(activationDictionary, false, true,
+        _ => Task.FromResult(new DictionaryActivationDecision(DictionaryActivationChoice.Cancel, true)), Supplement);
+    Check(cancelled.Dictionary is null && cancelled.PromptBeforeEnablingPending && supplements == 1, "Cancel does not change enable state or remember suppression");
+    var closed = await DictionaryActivation.PrepareAsync(activationDictionary, false, true,
+        _ => Task.FromResult(new DictionaryActivationDecision(DictionaryActivationChoice.Supplement, true)), _ => Task.FromResult<ManagedDictionary?>(null));
+    Check(closed.Dictionary is null && closed.PromptBeforeEnablingPending, "Cancelling encoding also cancels enable and preference changes");
+    var bypasses = new[] { (activationDictionary, true, true), (activationDictionary with { Enabled = false }, false, true),
+        (activationDictionary with { Scheme = "archive" }, false, true), (activationDictionary with { Entries = [Word("已有", "yi'you")] }, false, true), (activationDictionary, false, false) };
+    foreach (var (value, enabled, prompt) in bypasses) {
+        var result = await DictionaryActivation.PrepareAsync(value, enabled, prompt,
+            _ => throw new Exception("Unexpected prompt"), _ => throw new Exception("Unexpected encoding"));
+        Check(result.Dictionary == value && result.PromptBeforeEnablingPending == prompt, "No prompt for disabled, already enabled, archive, complete or suppressed dictionary");
+    }
+    var allPending = await DictionaryActivation.PrepareAsync(activationDictionary with { Entries = [exact, poly] }, false, true,
+        count => { Check(count == 2, "All-unencoded dictionary is prompted"); return Task.FromResult(new DictionaryActivationDecision(DictionaryActivationChoice.EnableWithoutEncoding)); }, Supplement);
+    Check(allPending.Dictionary is { Enabled: true } && allPending.PromptBeforeEnablingPending, "Explicitly skipping encoding preserves pending words and normal reminders");
+    Reject(() => DictionaryActivation.PrepareAsync(activationDictionary, false, true,
+        _ => Task.FromResult(new DictionaryActivationDecision((DictionaryActivationChoice)99)), Supplement).GetAwaiter().GetResult(),
+        "Unknown activation choice rejected");
+    Reject(() => DictionaryActivation.PrepareAsync(activationDictionary, false, true,
+        _ => Task.FromResult(new DictionaryActivationDecision(DictionaryActivationChoice.Supplement)),
+        staged => Task.FromResult<ManagedDictionary?>(staged with { Id = Guid.NewGuid().ToString("N") })).GetAwaiter().GetResult(),
+        "Mismatched encoding result cannot enable a dictionary");
+}
 if (args.Length == 2 && args[0] is "--seed-ui" or "--seed-thu-ui") {
     var path = Path.GetFullPath(args[1]);
     if (!Path.GetFileName(path).StartsWith("dictionary-encoding-ui-", StringComparison.Ordinal)) throw new ArgumentException("Use a dedicated dictionary-encoding-ui-* fixture.");

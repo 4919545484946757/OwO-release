@@ -80,8 +80,15 @@ try {
     await Reject(() => DictionaryFormats.ReadAsync(unsafeZip), "Zip path traversal");
     var store = new DictionaryStore(Path.Combine(root, "store"));
     var empty = await store.LoadAsync();
+    Check(empty.PromptBeforeEnablingPending, "Missing prompt preference defaults to enabled");
     var catalog = await store.SaveAsync(empty, [dictionary]);
     Check((await store.LoadAsync()).Dictionaries.Count == 1 && catalog.Revision == 1, "Atomic catalog save");
+    catalog = await store.SaveAsync(catalog, catalog.Dictionaries, promptBeforeEnablingPending: false);
+    Check(!(await store.LoadAsync()).PromptBeforeEnablingPending, "Do not remind preference survives reload");
+    catalog = await store.SaveAsync(catalog, catalog.Dictionaries);
+    Check(!catalog.PromptBeforeEnablingPending, "Unrelated saves preserve reminder preference");
+    catalog = await store.SaveAsync(catalog, catalog.Dictionaries, promptBeforeEnablingPending: true);
+    Check((await store.LoadAsync()).PromptBeforeEnablingPending, "Reminder preference can be restored");
     var longStore = new DictionaryStore(Path.Combine(root, "long-code-store"));
     await longStore.SaveAsync(await longStore.LoadAsync(), [longDictionary]);
     Check((await longStore.LoadAsync()).Dictionaries.Single().Entries[0].OriginalInput == longReading,
@@ -124,6 +131,7 @@ try {
     var legacy = System.Text.Json.JsonSerializer.Deserialize<DictionaryCatalog>("{\"schemaVersion\":1,\"revision\":0,\"dictionaries\":[]}",
         new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
     Check(legacy is not null && legacy.Builtins.All(value => value.Enabled && !value.Deleted), "Legacy catalog defaults preserve builtin availability");
+    Check(legacy is not null && legacy.PromptBeforeEnablingPending, "Legacy catalog enables the new reminder by default");
     Check(!Directory.EnumerateFiles(store.Root, "*.tmp").Any(), "No abandoned pointer temporary files");
     Console.WriteLine($"PASS: {checks} dictionary format/store checks, isolated files only.");
 } finally { Directory.Delete(root, true); }
