@@ -1,0 +1,11 @@
+{"id":"want-all","input":"yaoquanbu","expected":["要全部"],"tags":["leading-character-word","ambiguous"]}
+{"id":"want-all-explicit","input":"yao'quan'bu","expected":["要全部"],"tags":["leading-character-word","explicit"]}
+{"id":"want-all-boundary","input":"yaoquan'bu","expected":["要全部"],"tags":["leading-character-word","explicit"]}
+{"id":"buy-all","input":"maiquanbu","expected":["买全部","卖全部"],"tags":["leading-character-word","ambiguous"]}
+{"id":"see-all","input":"kanquanbu","expected":["看全部"],"tags":["leading-character-word","control"]}
+{"id":"is-all","input":"shiquanbu","expected":["是全部"],"tags":["leading-character-word","control"]}
+{"id":"want-security","input":"yaoanquan","expected":["要安全"],"tags":["leading-character-word","control"]}
+{"id":"all-control","input":"quanbu","expected":["全部"],"tags":["dictionary-control"]}
+{"id":"want-go-control","input":"yaoqu","expected":["要去"],"tags":["dictionary-control"]}
+{"id":"connect-to-control","input":"xianjiedao","expected":["衔接到"],"tags":["segmentation-control"]}
+{"id":"explicit-other-reading","input":"yao'qu'an'bu","expected":["要去按不","要去按部"],"tags":["explicit-control"]}

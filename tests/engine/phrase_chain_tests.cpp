@@ -121,5 +121,44 @@ int main(int argc, char **argv) {
             if (page != 0 && (alternatives.size() < 2 || alternatives.front().text != "价值大妈" ||
                 alternatives[1].text != "价值大吗" || alternatives[1].model_only)) return 5;
         }
+    // Coverage from an extra syllable split must not erase an independently
+    // backed character + word reading from the visible sentence sources.
+    const MemoryLexicon leading_word_lexicon({
+        {{"yao"}, "要", 2600000}, {{"yao"}, "摇", 200000},
+        {{"mai"}, "买", 2400000}, {{"qu"}, "去", 3000000},
+        {{"an"}, "按", 2000000}, {{"bu"}, "不", 3000000},
+        {{"yao", "qu"}, "要去", 200000}, {{"mai", "qu"}, "买去", 200000},
+        {{"an", "bu"}, "按不", 200000}, {{"an", "bu"}, "按部", 180000},
+        {{"quan", "bu"}, "全部", 200000}, {{"quan", "bu"}, "全不", 5000}});
+    for (const auto& [input, expected] : {
+             std::pair{"yaoquanbu", "要全部"}, {"maiquanbu", "买全部"},
+             {"yao'quan'bu", "要全部"}, {"yaoquan'bu", "要全部"}})
+        for (const auto limit : {8U, 18U, 48U, 128U}) for (const auto page : {0U, 5U, 7U, 9U})
+            for (const bool model : {false, true}) for (const bool correction : {false, true}) {
+                const auto result = CandidateGenerator(leading_word_lexicon).generate(
+                    schema.parse(input, 32, correction), limit, false, {}, nullptr, {}, model, page);
+                const auto match = std::find_if(result.begin(), result.end(), [&](const auto& value) {
+                    return value.text == expected && !value.model_only && value.qualified_sentence_reading &&
+                        value.consumed_input_bytes == std::string_view(input).size();
+                });
+                if (match == result.end()) {
+                    std::cerr << "Leading-character word reading lost: " << input << " limit=" << limit
+                              << " page=" << page << " model=" << model << '\n';
+                    return 6;
+                }
+                for (const auto& value : result) {
+                    if (value.model_only || value.consumed_input_bytes != std::string_view(input).size()) continue;
+                    const auto same_reading = std::count_if(result.begin(), result.end(), [&](const auto& other) {
+                        return !other.model_only && other.consumed_input_bytes == value.consumed_input_bytes &&
+                            other.source_segments == value.source_segments;
+                    });
+                    if (same_reading > 2) return 7;
+                }
+            }
+    const auto explicit_other = CandidateGenerator(leading_word_lexicon).generate(
+        schema.parse("yao'qu'an'bu", 32, true), 48, false, {}, nullptr, {}, true, 7);
+    if (std::any_of(explicit_other.begin(), explicit_other.end(), [](const auto& value) {
+            return value.text == "要全部";
+        })) return 8;
     return 0;
 }

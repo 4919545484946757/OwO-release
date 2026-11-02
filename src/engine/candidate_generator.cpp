@@ -2084,6 +2084,34 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     std::unordered_set<std::string> qualified_readings;
     const auto primary_reading = full.empty() ? std::string{} : sentence_reading_key(full.front());
     if (!full.empty()) qualified_readings.insert(primary_reading);
+    const auto dominant_leading_character_word = [&lookup_cache](const Candidate& candidate) {
+        // A common character followed by an intact word is an independent
+        // exact reading too. Requiring a multi-character *first* token (or
+        // complete phrase-chain coverage) discards this layout whenever a
+        // longer, fully word-covered split wins the coherence comparison.
+        // Admit only the strongest character and strongest trailing word of
+        // their actual readings, not arbitrary character/word permutations.
+        if (candidate.match_kind != InputMatchKind::exact || candidate.segment_count != 2 ||
+            candidate.segment_lengths.size() != 2 || candidate.segment_lengths.front() != 1 ||
+            candidate.segment_lengths.back() < 2 ||
+            candidate.segment_lengths.back() + 1 != candidate.syllables.size()) return false;
+        const auto head = utf8_first_character(candidate.text);
+        const auto dominant = [&lookup_cache](std::span<const std::string_view> reading,
+                                              std::string_view text) {
+            std::uint32_t frequency = 0, maximum = 0;
+            for (const auto& entry : lookup_cache.lookup(reading)) {
+                maximum = std::max(maximum, entry.frequency);
+                if (entry.text == text) frequency = std::max(frequency, entry.frequency);
+            }
+            return frequency != 0 && frequency == maximum;
+        };
+        const std::array<std::string_view, 1> head_reading{candidate.syllables.front()};
+        if (!dominant(head_reading, head)) return false;
+        std::vector<std::string_view> tail_reading;
+        for (std::size_t i = 1; i < candidate.syllables.size(); ++i)
+            tail_reading.push_back(candidate.syllables[i]);
+        return dominant(tail_reading, std::string_view(candidate.text).substr(head.size()));
+    };
     for (const auto& candidate : full) {
         if (candidate.consumed_input_bytes != full_input_bytes || candidate.syllables.size() < 3 ||
             candidate.source_segments.size() != candidate.syllables.size() ||
@@ -2092,7 +2120,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             candidate.score + kAlternativeSegmentationPromotionMargin < full.front().score) continue;
         const bool anchored_word = candidate.segment_count == 1 || candidate.user_preferred() ||
             (!candidate.segment_lengths.empty() && candidate.segment_lengths.front() >= 2) ||
-            candidate.coherence_score >= kMaximumBoundaryCoherenceBonus * static_cast<std::int64_t>(candidate.syllables.size()) / 2;
+            candidate.coherence_score >= kMaximumBoundaryCoherenceBonus * static_cast<std::int64_t>(candidate.syllables.size()) / 2 ||
+            dominant_leading_character_word(candidate);
         if (!anchored_word) continue;
         if (candidate.segment_count == 1 || candidate.coherence_score > 0 ||
             std::any_of(candidate.segment_lengths.begin(), candidate.segment_lengths.end(), [](const auto length) { return length >= 2; }))
