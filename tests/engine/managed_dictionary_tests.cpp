@@ -59,6 +59,15 @@ int main(int argc, char** argv) {
     if (!model.refresh(true) || model.diagnostic().empty() || model.lookup("ceshiciku", 10).size() != 1) return 11;
     { std::ofstream pointer(root / "current"); pointer << "../../outside"; }
     if (!model.refresh(true) || model.diagnostic().empty()) return 12;
+    // Exceed both old runtime limits: 100k rows and 24 MiB. This verifies
+    // that settings-side imports are not silently rejected by the Core.
+    std::string large = "OWO_DICTIONARIES_V1\n";
+    std::string label;
+    for (unsigned i = 0; i < 100; ++i) label += "测";
+    for (unsigned i = 0; i < 100001; ++i)
+        large += "kuorong\t" + label + std::to_string(i) + "\t1\n";
+    publish(a, large);
+    if (!model.refresh(true) || !model.diagnostic().empty() || model.lookup("kuorong", 1).empty()) return 19;
     std::filesystem::remove_all(root, error);
     std::cout << "Managed dictionaries: independent lookup, live snapshots, candidates, disable/delete, learned data and fail-closed validation passed.\n";
 }

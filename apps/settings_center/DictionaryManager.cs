@@ -86,10 +86,14 @@ internal sealed class DictionaryManager : UserControl
         _overview.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
         _tabs.Items.Add(_installedTab); _tabs.Items.Add(_discoverTab);
         AutomationProperties.SetAutomationId(_tabs, "DictionaryManagerTabs");
-        _tabs.SelectionChanged += (_, _) => {
+        _tabs.SelectionChanged += async (_, _) => {
             var discovery = _tabs.SelectedItem == _discoverTab;
             _catalogPage.Visibility = discovery ? Visibility.Collapsed : Visibility.Visible;
             _discoveryHost.Visibility = discovery ? Visibility.Visible : Visibility.Collapsed;
+            if (_discoveryHost.Content is DictionaryDiscoveryView view) {
+                if (discovery) await view.EnsureLoadedAsync();
+                else view.CancelPending();
+            }
         };
         _tabs.SelectedItem = _installedTab;
         _overview.Children.Add(_tabs);

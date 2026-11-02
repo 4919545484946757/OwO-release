@@ -41,7 +41,7 @@ bool ManagedDictionaryModel::refresh(bool force) {
     const auto path = directory / "active.tsv";
     std::error_code error;
     const auto length = std::filesystem::file_size(path, error);
-    if (error || length > 24 * 1024 * 1024 || std::filesystem::is_symlink(std::filesystem::symlink_status(path, error)))
+    if (error || length > 256 * 1024 * 1024 || std::filesystem::is_symlink(std::filesystem::symlink_status(path, error)))
         return fail("dictionary snapshot is missing, linked or too large");
     std::ifstream file(path, std::ios::binary);
     std::string line;
@@ -50,7 +50,7 @@ bool ManagedDictionaryModel::refresh(bool force) {
     while (std::getline(file, line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         const auto a = line.find('\t'), b = a == std::string::npos ? a : line.find('\t', a + 1);
-        if (a == std::string::npos || b == std::string::npos || line.find('\t', b + 1) != std::string::npos || staged.size() >= 100000)
+        if (a == std::string::npos || b == std::string::npos || line.find('\t', b + 1) != std::string::npos || staged.size() >= 500000)
             return fail("dictionary snapshot row is invalid or exceeds limits");
         std::uint32_t weight{};
         const auto parsed = std::from_chars(line.data() + b + 1, line.data() + line.size(), weight);

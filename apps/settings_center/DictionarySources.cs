@@ -21,7 +21,7 @@ internal sealed record PreparedDictionary(DictionaryImport Data, int Available, 
 
 internal sealed class DictionarySources : IDisposable
 {
-    internal const int DownloadLimit = 128 * 1024 * 1024;
+    internal const int DownloadLimit = 256 * 1024 * 1024;
     internal static readonly DictionarySource[] Sources = [
         new("ice", "雾凇拼音", "iDvel/rime-ice", "cn_dicts", "GPL-3.0-only", "通用中文。部分词表无拼音；与内置词库可能重复。"),
         new("wiki", "维基百科词库", "felixonmars/fcitx5-pinyin-zhwiki", "", "数据遵循 Wikimedia 许可，详见上游声明", "百科与专名；使用带拼音的 Rime 发行数据，不运行构建脚本。"),
@@ -88,7 +88,7 @@ internal sealed class DictionarySources : IDisposable
         return result;
     }
     internal async Task<PreparedDictionary> FetchAsync(DictionaryDownload item, int maximum, IProgress<double>? progress, CancellationToken token) {
-        if (maximum is < 1 or > 100000 || !Sources.Contains(item.Source) || item.Size < 0 || item.Size > DownloadLimit) throw new InvalidDataException("下载或选取数量超限。");
+        if (maximum < 1 || maximum > DictionaryStore.MaximumEntries || !Sources.Contains(item.Source) || item.Size < 0 || item.Size > DownloadLimit) throw new InvalidDataException("下载或选取数量超限。");
         var data = await ReadAsync(item.Url, DownloadLimit, progress, token, item.Size);
         var digest = Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
         if (item.Source.Id != "cedict") {
@@ -104,7 +104,7 @@ internal sealed class DictionarySources : IDisposable
         return await Task.Run(() => Prepare(item, data, maximum, digest, token), token);
     }
     internal static PreparedDictionary Prepare(DictionaryDownload item, byte[] data, int maximum, string digest, CancellationToken token) {
-        if (maximum is < 1 or > 100000) throw new InvalidDataException("选取数量无效。");
+        if (maximum < 1 || maximum > DictionaryStore.MaximumEntries) throw new InvalidDataException("选取数量无效。");
         if (item.Source.Id == "cedict") {
             using var gzip = new GZipStream(new MemoryStream(data), CompressionMode.Decompress); using var expanded = new MemoryStream();
             var buffer = new byte[65536]; int count;

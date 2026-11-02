@@ -17,8 +17,10 @@ internal sealed record DictionaryImport(string Format, IReadOnlyList<DictionaryW
 
 internal sealed class DictionaryStore
 {
-    internal const int MaximumEntries = 100000;
-    internal const int MaximumFileBytes = 32 * 1024 * 1024;
+    internal const int MaximumEntries = 500000;
+    internal const int MaximumFileBytes = 128 * 1024 * 1024;
+    internal const int MaximumCatalogBytes = 256 * 1024 * 1024;
+    internal const int MaximumActiveBytes = 256 * 1024 * 1024;
     private static readonly JsonSerializerOptions JsonOptions = new() {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false, MaxDepth = 12
     };
@@ -56,12 +58,12 @@ internal sealed class DictionaryStore
         var directory = Current();
         if (directory is null) return new(1, 0, []);
         var path = Path.Combine(directory, "catalog.json"); RejectLink(path);
-        if (new FileInfo(path).Length > MaximumFileBytes) throw new InvalidDataException("词典目录数据超过上限。" );
-        var bytes = await DictionaryFormats.ReadBoundedAsync(path);
-        if (bytes.Length > MaximumFileBytes) throw new InvalidDataException("词典数据大小发生变化。" );
+        if (new FileInfo(path).Length > MaximumCatalogBytes) throw new InvalidDataException("词典目录数据超过上限。" );
+        var bytes = await DictionaryFormats.ReadBoundedAsync(path, MaximumCatalogBytes);
+        if (bytes.Length > MaximumCatalogBytes) throw new InvalidDataException("词典数据大小发生变化。" );
         var catalog = await Task.Run(() => JsonSerializer.Deserialize<DictionaryCatalog>(bytes, JsonOptions)
             ?? throw new InvalidDataException("词典目录数据无效。"));
-        Validate(catalog);
+        await Task.Run(() => Validate(catalog));
         return catalog;
     }
     internal static bool Usable(DictionaryWord word) => word.Input.Length > 0;
@@ -97,7 +99,7 @@ internal sealed class DictionaryStore
             var words = new HashSet<string>(StringComparer.Ordinal);
             foreach (var word in dictionary.Entries) { ValidateWord(word); if (!words.Add(word.Id)) throw new InvalidDataException("词条标识重复。" ); }
             total = checked(total + dictionary.Entries.Count);
-            if (total > MaximumEntries) throw new InvalidDataException("独立词典合计最多支持 100000 条，未修改已有词典。" );
+            if (total > MaximumEntries) throw new InvalidDataException("独立词典合计最多支持 500000 条，未修改已有词典。" );
         }
     }
     // One atomic pointer publishes catalog and active candidates together. A
@@ -110,20 +112,22 @@ internal sealed class DictionaryStore
         var latest = await LoadAsync();
         if (latest.Revision != previous.Revision) throw new IOException("词典已被其他窗口修改，请刷新后重试。" );
         var next = new DictionaryCatalog(1, checked(latest.Revision + 1), dictionaries) { Builtins = builtins ?? previous.Builtins };
-        Validate(next);
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(next, JsonOptions);
-        if (bytes.Length > MaximumFileBytes) throw new InvalidDataException("词典目录超过 32 MiB，未修改已有数据。" );
-        var active = new Dictionary<(string, string), uint>();
-        foreach (var dictionary in dictionaries.Where(value => value.Enabled && value.Scheme == "full_pinyin"))
-            foreach (var word in dictionary.Entries.Where(Usable)) {
-                var key = (UserLexiconClient.CanonicalInput(word.Input), word.Text);
-                active[key] = Math.Max(active.GetValueOrDefault(key), word.Count);
-            }
-        var text = new StringBuilder("OWO_DICTIONARIES_V1\n");
-        foreach (var word in active.OrderBy(value => value.Key.Item1, StringComparer.Ordinal).ThenBy(value => value.Key.Item2, StringComparer.Ordinal))
-            text.Append(word.Key.Item1).Append('\t').Append(word.Key.Item2).Append('\t').Append(word.Value).Append('\n');
-        var activeBytes = new UTF8Encoding(false, true).GetBytes(text.ToString());
-        if (activeBytes.Length > 24 * 1024 * 1024) throw new InvalidDataException("启用的词条超过运行时上限。" );
+        var bytes = await Task.Run(() => { Validate(next); return JsonSerializer.SerializeToUtf8Bytes(next, JsonOptions); });
+        if (bytes.Length > MaximumCatalogBytes) throw new InvalidDataException("词典目录超过 256 MiB，未修改已有数据。" );
+        var activeBytes = await Task.Run(() => {
+            var active = new Dictionary<(string, string), uint>();
+            foreach (var dictionary in dictionaries.Where(value => value.Enabled && value.Scheme == "full_pinyin"))
+                foreach (var word in dictionary.Entries.Where(Usable)) {
+                    var key = (UserLexiconClient.CanonicalInput(word.Input), word.Text);
+                    active[key] = Math.Max(active.GetValueOrDefault(key), word.Count);
+                }
+            var text = new StringBuilder("OWO_DICTIONARIES_V1\n");
+            foreach (var word in active.OrderBy(value => value.Key.Item1, StringComparer.Ordinal).ThenBy(value => value.Key.Item2, StringComparer.Ordinal))
+                text.Append(word.Key.Item1).Append('\t').Append(word.Key.Item2).Append('\t').Append(word.Value).Append('\n');
+            var payload = new UTF8Encoding(false, true).GetBytes(text.ToString());
+            if (payload.Length > MaximumActiveBytes) throw new InvalidDataException("启用的词条超过运行时上限。" );
+            return payload;
+        });
         var id = Guid.NewGuid().ToString("N");
         var snapshots = Path.Combine(Root, "snapshots"); RejectLink(snapshots);
         var destination = Path.Combine(snapshots, id);

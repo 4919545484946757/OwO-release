@@ -41,7 +41,7 @@ if ($ResourceList) {
         $ids[$item.id] = $true
         $path = Join-Path $directory $item.asset
         if (!(Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing resource asset: $($item.asset)" }
-        if ($item.kind -eq 'dictionary' -and (Get-Item -LiteralPath $path).Length -gt 32MB) { throw 'Dictionary exceeds the 32 MiB import limit.' }
+        if ($item.kind -eq 'dictionary' -and (Get-Item -LiteralPath $path).Length -gt 128MB) { throw 'Dictionary exceeds the 128 MiB import limit.' }
         $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
         $resources += [ordered]@{id=$item.id; name=$item.name; kind=$item.kind; version=$item.version; license=$item.license; asset=$item.asset; sha256=$hash}
         $names += $item.asset

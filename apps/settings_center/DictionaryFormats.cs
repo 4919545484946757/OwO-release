@@ -9,7 +9,7 @@ internal static class DictionaryFormats
 {
     internal static readonly string[] Extensions = [".json", ".tsv", ".csv", ".txt", ".yaml", ".yml", ".zip"];
     internal static async Task<DictionaryImport> ReadAsync(string path) {
-        if (new FileInfo(path).Length > DictionaryStore.MaximumFileBytes) throw new InvalidDataException("导入文件不能超过 32 MiB。" );
+        if (new FileInfo(path).Length > DictionaryStore.MaximumFileBytes) throw new InvalidDataException("导入文件不能超过 128 MiB。" );
         var bytes = await ReadBoundedAsync(path);
         if (Path.GetExtension(path).Equals(".zip", StringComparison.OrdinalIgnoreCase)) {
             return await Task.Run(async () => {
@@ -24,7 +24,7 @@ internal static class DictionaryFormats
             var files = archive.Entries.Where(entry => !entry.FullName.EndsWith('/')).ToArray();
             if (files.Length != 1 || !Path.GetFileName(files[0].FullName.Replace('\\', '/')).Equals("dictionary.txt", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("只支持包含唯一 dictionary.txt 的 Gboard 个人词典 ZIP，不支持二进制学习模型。" );
-            if (files[0].Length > DictionaryStore.MaximumFileBytes) throw new InvalidDataException("压缩包展开后超过 32 MiB。" );
+            if (files[0].Length > DictionaryStore.MaximumFileBytes) throw new InvalidDataException("压缩包展开后超过 128 MiB。" );
             await using var source = files[0].Open(); using var result = new MemoryStream();
             var buffer = new byte[8192]; int read;
             while ((read = await source.ReadAsync(buffer)) > 0) {
@@ -38,11 +38,11 @@ internal static class DictionaryFormats
         }
         return await Task.Run(() => Parse(Decode(bytes), Path.GetFileName(path)));
     }
-    internal static async Task<byte[]> ReadBoundedAsync(string path) {
+    internal static async Task<byte[]> ReadBoundedAsync(string path, int maximum = DictionaryStore.MaximumFileBytes) {
         await using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, FileOptions.Asynchronous);
         using var output = new MemoryStream(); var buffer = new byte[8192]; int count;
         while ((count = await file.ReadAsync(buffer)) > 0) {
-            if (output.Length + count > DictionaryStore.MaximumFileBytes) throw new InvalidDataException("文件超过 32 MiB。" );
+            if (output.Length + count > maximum) throw new InvalidDataException("文件超过允许的大小上限。" );
             output.Write(buffer, 0, count);
         }
         return output.ToArray();
@@ -77,7 +77,7 @@ internal static class DictionaryFormats
             if (seen.TryGetValue(key, out var index)) {
                 duplicates++; if (count > entries[index].Count) entries[index] = entry; return;
             }
-            if (entries.Count >= DictionaryStore.MaximumEntries) throw new InvalidDataException("单次导入最多支持 100000 条。" );
+            if (entries.Count >= DictionaryStore.MaximumEntries) throw new InvalidDataException("单次导入最多支持 500000 条。" );
             seen[key] = entries.Count; entries.Add(entry);
         }
         var trimmed = text.TrimStart(); var format = "TSV / 文本";

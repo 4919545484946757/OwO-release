@@ -112,7 +112,7 @@ internal sealed class OnlineDistribution : IDisposable
             var hash = item.GetProperty("sha256").GetString()!;
             if (asset.Sha256.Length != 0 && !asset.Sha256.Equals(hash, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("目录与 GitHub 摘要不一致。");
             asset = asset with { Sha256 = hash }; ValidateAsset(asset);
-            if (kind == "dictionary" && asset.Size > 32 * 1024 * 1024) throw new InvalidDataException("词库超过导入器的 32 MiB 上限。");
+            if (kind == "dictionary" && asset.Size > 128 * 1024 * 1024) throw new InvalidDataException("词库超过导入器的 128 MiB 上限。");
             if (kind == "plugin" && !asset.Name.EndsWith(".owopkg", StringComparison.OrdinalIgnoreCase) ||
                 kind == "dictionary" && !new[] { ".json", ".txt", ".tsv", ".csv", ".yaml", ".yml", ".zip" }.Any(e => asset.Name.EndsWith(e, StringComparison.OrdinalIgnoreCase)) ||
                 kind == "model" && !asset.Name.EndsWith(".lm", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("资源格式不支持。");
