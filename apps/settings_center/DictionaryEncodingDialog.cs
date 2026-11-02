@@ -9,28 +9,31 @@ internal sealed class DictionaryEncodingDialog
 {
     private readonly IReadOnlyList<DictionaryWord> _pending;
     private readonly ContentDialog _dialog;
-    private readonly NumberBox _limit = new() { Header = "本批最多处理条数", Minimum = 1, Maximum = DictionaryEncoding.MaximumBatch, Value = 500, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline };
-    private readonly Button _generate = new() { Content = "生成编码建议" }, _pick = new() { Content = "选择参考词典" }, _cancel = new() { Content = "取消生成", Visibility = Visibility.Collapsed };
+    private readonly NumberBox _limit = new() { Header = "本次处理上限（自动分批）", Minimum = 1, Maximum = DictionaryStore.MaximumEntries, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline };
+    private readonly Button _generate = new() { Content = "自动补全编码" }, _pick = new() { Content = "另选参考词典" }, _cancel = new() { Content = "取消生成", Visibility = Visibility.Collapsed };
     private readonly Button _previous = new() { Content = "上一页", IsEnabled = false }, _next = new() { Content = "下一页", IsEnabled = false };
-    private readonly TextBlock _reference = new() { Text = "参考：当前 Core 的基础中文词典（只用于注音，不改变启用状态）", TextWrapping = TextWrapping.Wrap, Opacity = 0.75 };
+    private readonly TextBlock _reference = new() { Text = "自动参考基础词典和已安装的注音词库（含停用项，只读，不改变启用状态）；不读取用户学习记录。", TextWrapping = TextWrapping.Wrap, Opacity = 0.75 };
     private readonly TextBlock _summary = new() { TextWrapping = TextWrapping.Wrap };
     private readonly InfoBar _notice = new() { IsOpen = false, IsClosable = false };
     private readonly ProgressBar _progress = new() { IsIndeterminate = true, Visibility = Visibility.Collapsed };
     private readonly ListView _list = new() { SelectionMode = ListViewSelectionMode.None, MaxHeight = 290, HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly List<Row> _rows = [];
+    private readonly ToggleSwitch _manual = new() { Header = "手动处理已跳过项", OnContent = "显示", OffContent = "隐藏" };
+    private readonly Expander _preview = new() { Header = "查看自动补全明细", HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private CancellationTokenSource? _operation;
     private string? _referencePath;
     private int _page;
     private bool _closed;
     private sealed class Row(DictionaryEncodingSuggestion suggestion) {
         internal DictionaryEncodingSuggestion Suggestion = suggestion;
-        internal string Code = suggestion.Readings.FirstOrDefault()?.Code ?? "";
-        internal bool Selected = suggestion.WholeWord && suggestion.Readings.Count == 1;
+        internal string Code = suggestion.AutomaticCode ?? suggestion.Readings.FirstOrDefault()?.Code ?? "";
+        internal bool Selected = suggestion.AutomaticCode is not null;
     }
     private DictionaryEncodingDialog(XamlRoot root, IReadOnlyList<DictionaryWord> pending) {
         _pending = pending;
+        _limit.Value = pending.Count;
         var body = new StackPanel { Spacing = 10, MinWidth = 280, MaxWidth = 620 };
-        body.Children.Add(new TextBlock { Text = "仅补充待编码词条，不覆盖已有编码。整词唯一读音默认选中；多音及分词推导项请核对。所有改动须点击保存后才会写入。", TextWrapping = TextWrapping.Wrap });
+        body.Children.Add(new TextBlock { Text = "自动分批补全整本词库，不必逐条勾选。优先使用整词注音及能确定读音的词语组合；多音、冲突或未知项目默认跳过，可选手动补充。保存前不会写入，也不覆盖已有编码。", TextWrapping = TextWrapping.Wrap });
         body.Children.Add(_reference); body.Children.Add(_limit);
         var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         commands.Children.Add(_generate); commands.Children.Add(_pick); commands.Children.Add(_cancel); body.Children.Add(commands);
@@ -42,17 +45,17 @@ internal sealed class DictionaryEncodingDialog
             var command = new AppBarButton { Label = label, Icon = new SymbolIcon(Symbol.Accept) };
             command.Click += (_, _) => action(); select.PrimaryCommands.Add(command);
         }
-        SelectionCommand("仅选整词唯一读音", () => Select(row => row.Suggestion.WholeWord && row.Suggestion.Readings.Count == 1));
-        SelectionCommand("选中全部可用建议", () => Select(row => row.Code.Length > 0));
+        SelectionCommand("仅选自动确定项", () => Select(row => row.Suggestion.AutomaticCode is not null));
         SelectionCommand("全部取消", () => Select(_ => false));
         select.IsEnabled = false;
-        body.Children.Add(select); body.Children.Add(_list);
+        body.Children.Add(select); body.Children.Add(_manual); _preview.Content = _list; body.Children.Add(_preview);
         var pages = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 }; pages.Children.Add(_previous); pages.Children.Add(_next); body.Children.Add(pages);
         _dialog = new() { XamlRoot = root, Title = "补充词库编码", Content = new ScrollViewer { Content = body, MaxHeight = 650, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled },
-            PrimaryButtonText = "保存选中编码", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close, IsPrimaryButtonEnabled = false };
+            PrimaryButtonText = "保存补全结果", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close, IsPrimaryButtonEnabled = false };
         AutomationProperties.SetAutomationId(_dialog, "DictionaryEncodingDialog");
         AutomationProperties.SetAutomationId(_generate, "DictionaryEncodingGenerate");
         AutomationProperties.SetAutomationId(_list, "DictionaryEncodingPreview");
+        AutomationProperties.SetAutomationId(_manual, "DictionaryEncodingManualSkipped");
         _generate.Click += async (_, _) => {
             select.IsEnabled = false; await GenerateAsync(); select.IsEnabled = _rows.Count > 0 && _operation is null;
         };
@@ -65,6 +68,7 @@ internal sealed class DictionaryEncodingDialog
             } catch (Exception error) { Notice(error.Message); }
         };
         _cancel.Click += (_, _) => _operation?.Cancel();
+        _manual.Toggled += (_, _) => { _page = 0; _preview.IsExpanded = _manual.IsOn; Render(); };
         _previous.Click += (_, _) => { _page--; Render(); }; _next.Click += (_, _) => { _page++; Render(); };
         _dialog.PrimaryButtonClick += (_, args) => {
             try { foreach (var row in _rows.Where(row => row.Selected)) DictionaryStore.ValidateWord(row.Suggestion.Word with { Input = DictionaryEncoding.Normalize(row.Code) }); }
@@ -77,33 +81,39 @@ internal sealed class DictionaryEncodingDialog
     private void Notice(string message, InfoBarSeverity severity = InfoBarSeverity.Error) { _notice.Message = message; _notice.Severity = severity; _notice.IsOpen = true; }
     private async Task GenerateAsync() {
         if (_operation is not null) return;
-        if (!double.IsFinite(_limit.Value) || _limit.Value != Math.Truncate(_limit.Value) || _limit.Value is < 1 or > DictionaryEncoding.MaximumBatch) { Notice("请填写 1–1000 的整数批量。"); return; }
+        if (!double.IsFinite(_limit.Value) || _limit.Value != Math.Truncate(_limit.Value) || _limit.Value is < 1 or > DictionaryStore.MaximumEntries) { Notice("请填写有效整数上限，最多 500000 条。"); return; }
         using var operation = new CancellationTokenSource(); _operation = operation;
-        _generate.IsEnabled = _pick.IsEnabled = _limit.IsEnabled = false; _dialog.IsPrimaryButtonEnabled = false;
+        _generate.IsEnabled = _pick.IsEnabled = _limit.IsEnabled = _manual.IsEnabled = false; _dialog.IsPrimaryButtonEnabled = false;
         _cancel.Visibility = _progress.Visibility = Visibility.Visible; _notice.IsOpen = false;
         _rows.Clear(); _page = 0; Render();
         try {
-            var suggestions = await new DictionaryEncodingClient().SuggestAsync(_pending.Take((int)_limit.Value).ToArray(), _referencePath, operation.Token);
+            var progress = new Progress<DictionaryEncodingProgress>(value => {
+                if (_closed || !ReferenceEquals(_operation, operation)) return;
+                _summary.Text = $"正在分析 {value.Completed} / {value.Total} 条……"; _reference.Text = value.Sources;
+            });
+            var suggestions = await new DictionaryEncodingClient().SuggestAsync(_pending.Take((int)_limit.Value).ToArray(), _referencePath, operation.Token, progress: progress);
             operation.Token.ThrowIfCancellationRequested();
             if (_closed) return;
             _rows.AddRange(suggestions.Select(value => new Row(value)));
-            Notice("建议已生成。多音字和推导结果须核对；无建议的词条可手动填写，或保留待补编码。", InfoBarSeverity.Informational);
+            Notice("已自动选中能够确定读音的项目，统一保存即可。其余项目默认跳过；如有需要，打开“手动处理已跳过项”。", InfoBarSeverity.Informational);
         } catch (OperationCanceledException) { if (!_closed) Notice("生成已取消或超时，词库未修改。", InfoBarSeverity.Informational); }
         catch (Exception error) { if (!_closed) Notice(error.Message + " 可先启动 Core，或选择本机 .owolx 参考词典重试。"); }
         finally {
             _operation = null;
-            if (!_closed) { _generate.IsEnabled = _pick.IsEnabled = _limit.IsEnabled = true; _cancel.Visibility = _progress.Visibility = Visibility.Collapsed; Render(); }
+            if (!_closed) { _generate.IsEnabled = _pick.IsEnabled = _limit.IsEnabled = _manual.IsEnabled = true; _cancel.Visibility = _progress.Visibility = Visibility.Collapsed; Render(); }
         }
     }
     private void Select(Func<Row, bool> match) { if (_operation is not null) return; foreach (var row in _rows) row.Selected = match(row); Render(); }
     private void UpdateSummary() {
-        _summary.Text = $"待补 {_pending.Count} 条 · 本批 {_rows.Count} 条 · 有建议 {_rows.Count(row => row.Suggestion.Readings.Count > 0)} 条 · 已选 {_rows.Count(row => row.Selected)} 条 · 第 {_page + 1} 页";
+        _summary.Text = $"待补 {_pending.Count} 条 · 已分析 {_rows.Count} 条 · 自动可补 {_rows.Count(row => row.Suggestion.AutomaticCode is not null)} 条 · 默认跳过 {_rows.Count(row => row.Suggestion.AutomaticCode is null)} 条 · 将保存 {_rows.Count(row => row.Selected)} 条";
         _dialog.IsPrimaryButtonEnabled = _operation is null && _rows.Any(row => row.Selected) && _rows.Where(row => row.Selected).All(row => !string.IsNullOrWhiteSpace(row.Code));
     }
     private void Render() {
-        _page = Math.Clamp(_page, 0, Math.Max(0, (_rows.Count - 1) / 50));
+        var visible = _rows.Where(row => _manual.IsOn == (row.Suggestion.AutomaticCode is null)).ToArray();
+        _preview.Header = _manual.IsOn ? $"已跳过项（可选手动） · 第 {_page + 1} 页" : $"自动补全明细（无需逐条操作） · 第 {_page + 1} 页";
+        _page = Math.Clamp(_page, 0, Math.Max(0, (visible.Length - 1) / 50));
         _list.Items.Clear();
-        foreach (var row in _rows.Skip(_page * 50).Take(50)) {
+        foreach (var row in visible.Skip(_page * 50).Take(50)) {
             var panel = new StackPanel { Spacing = 5, Margin = new Thickness(0, 4, 0, 8) };
             var selected = new CheckBox { Content = row.Suggestion.Word.Text, IsChecked = row.Selected };
             selected.Checked += (_, _) => { row.Selected = true; UpdateSummary(); }; selected.Unchecked += (_, _) => { row.Selected = false; UpdateSummary(); };
@@ -119,10 +129,10 @@ internal sealed class DictionaryEncodingDialog
             }
             panel.Children.Add(field);
             panel.Children.Add(new TextBlock { Text = row.Suggestion.Readings.Count == 0 ? "未找到读音，请手动补充" :
-                $"{(row.Suggestion.WholeWord ? "整词匹配" : "分词／单字推导（需确认）")} · {row.Suggestion.Readings.Count} 种建议（最多 8 种）", Opacity = 0.7, TextWrapping = TextWrapping.Wrap });
+                $"{(row.Suggestion.AutomaticCode is not null ? "读音已确定，可自动补全" : row.Suggestion.WholeWord ? "多音／来源冲突，默认跳过" : "无法唯一确定，默认跳过")} · {row.Suggestion.Readings.Count} 种建议（最多 8 种）", Opacity = 0.7, TextWrapping = TextWrapping.Wrap });
             _list.Items.Add(new ListViewItem { Content = panel, HorizontalContentAlignment = HorizontalAlignment.Stretch });
         }
-        _previous.IsEnabled = _operation is null && _page > 0; _next.IsEnabled = _operation is null && (_page + 1) * 50 < _rows.Count;
+        _previous.IsEnabled = _operation is null && _page > 0; _next.IsEnabled = _operation is null && (_page + 1) * 50 < visible.Length;
         UpdateSummary();
     }
     internal static async Task<IReadOnlyDictionary<string, string>?> ShowAsync(XamlRoot root, IReadOnlyList<DictionaryWord> pending) {

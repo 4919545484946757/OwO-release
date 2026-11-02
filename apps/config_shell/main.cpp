@@ -11,6 +11,9 @@
 #include <chrono>
 #include <cstdint>
 #include <iostream>
+#include <algorithm>
+#include <map>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -181,9 +184,10 @@ void usage() {
 int wmain(const int argc, wchar_t** argv) {
     if (argc == 3 && std::wstring_view(argv[1]) == L"--dictionary-readings") {
         const std::filesystem::path source(argv[2]);
+        const bool installed_only = std::wstring_view(argv[2]) == L"--installed-only";
         auto extension = source.extension().wstring();
         for (auto& value : extension) if (value >= L'A' && value <= L'Z') value += L'a' - L'A';
-        if (!source.is_absolute() || extension != L".owolx") {
+        if (!installed_only && (!source.is_absolute() || extension != L".owolx")) {
             std::cerr << "请选择本机 .owolx 参考词典。\n"; return 2;
         }
         std::string payload;
@@ -194,28 +198,81 @@ int wmain(const int argc, wchar_t** argv) {
         constexpr std::string_view header = "OWO_DICTIONARY_READINGS_V1\n";
         if (!payload.starts_with(header)) { std::cerr << "注音请求格式无效。\n"; return 2; }
         std::vector<std::string_view> words;
+        struct Reference { std::string_view text, code; std::uint32_t frequency; };
+        std::vector<Reference> references;
         for (std::size_t offset = header.size(); offset < payload.size();) {
             auto end = payload.find('\n', offset);
             if (end == std::string::npos) end = payload.size();
-            const auto text = std::string_view(payload).substr(offset, end - offset);
-            if (!owo::engine::UserFrequencyStore::validate_word({std::string(text), 1, "a", false}).empty() || words.size() >= 32768) {
+            const auto line = std::string_view(payload).substr(offset, end - offset);
+            const auto a = line.find('\t'), b = a == line.npos ? a : line.find('\t', a + 1);
+            const auto text = line.substr(0, a);
+            if (!owo::engine::UserFrequencyStore::validate_word({std::string(text), 1, "a", false}).empty()) {
                 std::cerr << "注音请求词语无效或超过 32768 项，请减小批量。\n"; return 2;
             }
-            words.push_back(text); offset = end + 1;
+            if (a == line.npos) {
+                if (words.size() >= 32768) return 2;
+                words.push_back(text);
+            } else {
+                std::uint32_t frequency{};
+                if (b == line.npos || line.find('\t', b + 1) != line.npos || references.size() >= 32768) return 2;
+                const auto value = line.substr(b + 1);
+                const auto parsed = std::from_chars(value.data(), value.data() + value.size(), frequency);
+                const auto code = line.substr(a + 1, b - a - 1);
+                if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() ||
+                    !owo::engine::UserFrequencyStore::validate_word({std::string(text), frequency, std::string(code), false}).empty()) return 2;
+                references.push_back({text, code, frequency});
+            }
+            offset = end + 1;
         }
         owo::engine::BinaryLexicon lexicon;
-        const auto loaded = lexicon.load(source);
-        if (!loaded.success) { std::cerr << "参考词典加载失败：" << loaded.error << '\n'; return 3; }
-        std::cout << header;
+        if (!installed_only) {
+            const auto loaded = lexicon.load(source);
+            if (!loaded.success) { std::cerr << "参考词典加载失败：" << loaded.error << '\n'; return 3; }
+        }
+        struct Readings { std::map<std::string, std::uint32_t> codes; bool uncertain{}; };
+        std::map<std::string_view, Readings> collected;
+        for (auto text : words) collected.try_emplace(text);
+        const auto add = [&](std::string_view text, std::string_view code, std::uint32_t frequency, bool use_evidence = false) {
+            auto found = collected.find(text);
+            if (found == collected.end()) return;
+            const auto characters = std::count_if(text.begin(), text.end(), [](unsigned char value) { return (value & 0xc0) != 0x80; });
+            const auto readings = owo::engine::FullPinyinSchema::dictionary_readings(code, static_cast<std::size_t>(characters));
+            if (use_evidence && code.find('\'') == code.npos && readings.size() > 1) {
+                for (const auto& [known, weight] : found->second.codes) {
+                    std::string compact;
+                    for (auto value : known) if (value != '\'') compact += value;
+                    if (compact == code) return; // precise word evidence already supplies the boundary
+                }
+            }
+            if (readings.size() >= 4) found->second.uncertain = true;
+            for (const auto& reading : readings) {
+                std::string normalized;
+                for (const auto& syllable : reading) { if (!normalized.empty()) normalized += '\''; normalized += syllable; }
+                auto& values = found->second;
+                if (auto existing = values.codes.find(normalized); existing != values.codes.end()) existing->second = (std::max)(existing->second, frequency);
+                else if (values.codes.size() < 8) values.codes.emplace(std::move(normalized), frequency);
+                else values.uncertain = true;
+            }
+        };
+        std::map<std::string_view, std::size_t> base_counts;
         for (const auto& word : lexicon.lookup_readings(words)) {
             std::string code;
             for (const auto& syllable : word.syllables) { if (!code.empty()) code += '\''; code += syllable; }
-            const auto readings = owo::engine::FullPinyinSchema::dictionary_readings(code, word.syllables.size());
-            if (readings.empty() || word.frequency == 0) continue;
-            std::cout << word.text << '\t';
-            for (std::size_t i = 0; i < readings[0].size(); ++i) { if (i) std::cout << '\''; std::cout << readings[0][i]; }
-            std::cout << '\t' << word.frequency << '\n';
+            // Use request-owned keys: the temporary materialized row is gone
+            // after this iteration. A saturated batch is never "unique" proof.
+            const auto found = collected.find(word.text);
+            if (found == collected.end() || word.frequency == 0) continue;
+            if (++base_counts[found->first] >= 8) found->second.uncertain = true;
+            add(found->first, code, word.frequency);
         }
+        std::stable_sort(references.begin(), references.end(), [](const auto& a, const auto& b) {
+            return (a.code.find('\'') != a.code.npos) > (b.code.find('\'') != b.code.npos);
+        });
+        for (const auto& reference : references) add(reference.text, reference.code, reference.frequency, true);
+        std::cout << header;
+        for (const auto& [text, values] : collected)
+            for (const auto& [code, frequency] : values.codes)
+                std::cout << text << '\t' << code << '\t' << frequency << '\t' << (values.uncertain ? 1 : 0) << '\n';
         return 0;
     }
     if (argc == 2 && std::wstring_view(argv[1]) == L"--user-lexicon") {

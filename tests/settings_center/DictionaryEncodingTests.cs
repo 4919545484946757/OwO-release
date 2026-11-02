@@ -11,7 +11,8 @@ if (args.Length == 2 && args[0] == "--seed-ui") {
     if (!Path.GetFileName(path).StartsWith("dictionary-encoding-ui-", StringComparison.Ordinal)) throw new ArgumentException("Use a dedicated dictionary-encoding-ui-* fixture.");
     var store = new DictionaryStore(path); var empty = await store.LoadAsync();
     if (empty.Revision != 0) throw new InvalidOperationException("Do not overwrite an existing UI fixture.");
-    await store.SaveAsync(empty, [new ManagedDictionary(Guid.NewGuid().ToString("N"), "编码补充测试", "text", "synthetic", "full_pinyin", false, words)]);
+    await store.SaveAsync(empty, [new ManagedDictionary(Guid.NewGuid().ToString("N"), "编码补充测试", "text", "synthetic", "full_pinyin", false, [.. words, Word("唯测库")]),
+        new ManagedDictionary(Guid.NewGuid().ToString("N"), "已安装注音参考", "text", "synthetic", "full_pinyin", false, [Word("唯测库", "wei'ce'ku")])]);
     Console.WriteLine("Created isolated dictionary encoding UI fixture."); return;
 }
 var queries = DictionaryEncoding.Queries(words);
@@ -26,6 +27,16 @@ Check(suggestions[0].WholeWord && suggestions[0].Readings.Single().Code == "ce's
 Check(suggestions[1].WholeWord && suggestions[1].Readings.Count == 2, "Polyphonic choices retained");
 Check(!suggestions[2].WholeWord && suggestions[2].Readings.Single().Code == "ce'shi'ci'ku", "Dictionary phrase composition");
 Check(suggestions[3].Readings.Count == 0 && suggestions[4].Readings.Count == 0, "Unknown and Latin remain manual");
+Check(suggestions[0].AutomaticCode == "ce'shi" && suggestions[1].AutomaticCode is null && suggestions[2].AutomaticCode == "ce'shi'ci'ku", "Automatic unique words and phrases; ambiguous words skipped");
+var confident = DictionaryEncoding.Suggest([Word("重庆食品")], new Dictionary<string, IReadOnlyList<DictionaryReading>> {
+    ["重庆"] = [new("chong'qing", 1)], ["食品"] = [new("shi'pin", 1)], ["重"] = [new("zhong", uint.MaxValue), new("chong", 1)], ["庆"] = [new("qing", 100000)] });
+Check(confident[0].AutomaticCode == "chong'qing'shi'pin" && confident[0].Readings[0].Code == confident[0].AutomaticCode, "Unique phrase evidence resolves character polyphony, not frequency");
+var conflicts = DictionaryEncoding.Suggest([Word("甲乙丙")], new Dictionary<string, IReadOnlyList<DictionaryReading>> {
+    ["甲乙"] = [new("jia'yi", 1)], ["丙"] = [new("bing", 1)], ["甲"] = [new("jia", 1)], ["乙丙"] = [new("yi'ping", 1000000)] });
+Check(conflicts[0].AutomaticCode is null, "Equally supported phrase decompositions disagree: skip");
+var truncated = DictionaryEncoding.Suggest([Word("重")], new Dictionary<string, IReadOnlyList<DictionaryReading>> { ["重"] = [new("zhong", 1, true)] });
+Check(truncated[0].AutomaticCode is null, "Truncated evidence cannot prove unique pronunciation");
+Check(DictionaryEncoding.Parse(DictionaryEncoding.Header + "重\tzhong\t1\t1\n", queries)["重"][0].Uncertain, "Backend uncertainty is preserved");
 Reject(() => DictionaryEncoding.Parse("wrong\n", queries), "Header mismatch");
 Reject(() => DictionaryEncoding.Parse(DictionaryEncoding.Header + "别的\tbie'de\t1\n", queries), "Unexpected words");
 Reject(() => DictionaryEncoding.Parse(DictionaryEncoding.Header + "测试\tcs\t1\n", queries), "Shortcut is not pronunciation");
@@ -47,12 +58,31 @@ using (var cancellation = new CancellationTokenSource()) {
 }
 var repeated = Word(new string('重', 12));
 var many = DictionaryEncoding.Suggest([repeated], new Dictionary<string, IReadOnlyList<DictionaryReading>> { ["重"] = [new("zhong", 10), new("chong", 9)] });
-Check(many[0].Readings.Count == 8, "Exponential readings bounded to eight");
+Check(many[0].Readings.Count == 8 && many[0].AutomaticCode is null, "Exponential readings bounded and not guessed automatically");
 if (args.Length == 3 && args[0] == "--live-shell") {
     Environment.SetEnvironmentVariable("OWO_CONFIG_SHELL_PATH", Path.GetFullPath(args[1]));
-    var live = await new DictionaryEncodingClient().SuggestAsync([Word("测试方法"), Word("重庆"), Word("银行")], Path.GetFullPath(args[2]), CancellationToken.None);
+    var live = await new DictionaryEncodingClient().SuggestAsync([Word("测试方法"), Word("重庆"), Word("银行")], Path.GetFullPath(args[2]), CancellationToken.None, installed: []);
     Check(live.All(row => row.Readings.Count > 0), "Real mapped lexicon and helper process");
     Check(live[0].Readings.Any(reading => reading.Code == "ce'shi'fang'fa"), "Actual test-method pronunciation");
     foreach (var row in live) Console.WriteLine(row.Word.Text + ": " + string.Join(", ", row.Readings.Select(reading => reading.Code)));
+    var reference = new ManagedDictionary(Guid.NewGuid().ToString("N"), "已安装参考", "text", "local", "full_pinyin", false, [Word("唯测库", "wei'ce'ku"), Word("测试", "ceshi"), Word("重", "chong"), Word("重", "zhong")]);
+    var pending = new[] { Word("唯测库"), Word("测试"), Word("重") };
+    var q = DictionaryEncoding.Queries(pending); var index = DictionaryEncoding.InstalledReferences([reference]);
+    var native = await DictionaryEncodingClient.QueryAsync(DictionaryEncoding.Payload(q, index), null, CancellationToken.None);
+    var onlyInstalled = DictionaryEncoding.Suggest(pending, DictionaryEncoding.Parse(native, q));
+    Check(onlyInstalled[0].AutomaticCode == "wei'ce'ku" && onlyInstalled[1].AutomaticCode == "ce'shi" && onlyInstalled[2].AutomaticCode is null, "Installed-only references, compact code and polyphone skipping");
+    var conflictingReference = reference with { Entries = [Word("测试方法", "ce'shi'fang'fa"), Word("测试方法", "ce'si'fang'fa")] };
+    var clash = await new DictionaryEncodingClient().SuggestAsync([Word("测试方法")], Path.GetFullPath(args[2]), CancellationToken.None, [conflictingReference]);
+    Check(clash[0].Readings.Count == 2 && clash[0].AutomaticCode is null, "Conflicting installed and base pronunciations are not auto-selected");
+    var boundaryReference = reference with { Entries = [Word("宽高", "kuangao")] };
+    var boundary = await new DictionaryEncodingClient().SuggestAsync([Word("宽高")], Path.GetFullPath(args[2]), CancellationToken.None, [boundaryReference]);
+    Check(boundary[0].AutomaticCode == "kuan'gao", "Compact imported spelling does not add guessed boundaries over exact base evidence");
+    var preciseReference = reference with { Entries = [Word("宽高", "kuangao"), Word("宽高", "kuan'gao")] };
+    var boundaryQueries = DictionaryEncoding.Queries([Word("宽高")]);
+    var localBoundaries = await DictionaryEncodingClient.QueryAsync(DictionaryEncoding.Payload(boundaryQueries, DictionaryEncoding.InstalledReferences([preciseReference])), null, CancellationToken.None);
+    Check(DictionaryEncoding.Suggest([Word("宽高")], DictionaryEncoding.Parse(localBoundaries, boundaryQueries))[0].AutomaticCode == "kuan'gao", "Installed explicit boundaries take precedence independent of source ordering");
+    var batch = Enumerable.Range(0, 1001).Select(_ => Word("测试方法")).ToArray();
+    var batched = await new DictionaryEncodingClient().SuggestAsync(batch, Path.GetFullPath(args[2]), CancellationToken.None, installed: []);
+    Check(batched.Count == 1001 && batched.All(item => item.AutomaticCode == "ce'shi'fang'fa"), "Entire dictionary automatically split across batch limit");
 }
 Console.WriteLine($"PASS: {checks} dictionary encoding checks; no personal dictionary writes.");

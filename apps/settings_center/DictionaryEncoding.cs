@@ -4,9 +4,11 @@ using System.Text;
 
 namespace OwO_Settings;
 
-internal sealed record DictionaryReading(string Code, uint Frequency);
-internal sealed record DictionaryEncodingSuggestion(DictionaryWord Word, IReadOnlyList<DictionaryReading> Readings, bool WholeWord);
+internal sealed record DictionaryReading(string Code, uint Frequency, bool Uncertain = false);
+internal sealed record DictionaryEncodingSuggestion(DictionaryWord Word, IReadOnlyList<DictionaryReading> Readings, bool WholeWord, string? AutomaticCode = null);
 internal sealed record DictionaryEncodingResult(ManagedDictionary Dictionary, int Updated, int Duplicates);
+internal sealed record DictionaryEncodingProgress(int Completed, int Total, string Sources);
+internal sealed class DictionaryEncodingCapacityException(string message) : IOException(message);
 
 // Offline suggestions, separate from candidate generation and persistence.
 // No arbitrary network converters, personal learning records or enabled flags.
@@ -39,7 +41,7 @@ internal static class DictionaryEncoding
             for (var offset = 0; offset < characters.Length; ++offset)
                 for (var count = 1; count <= Math.Min(8, characters.Length - offset); ++count)
                     queries.Add(string.Concat(characters.Skip(offset).Take(count)));
-            if (queries.Count > MaximumQueries) throw new InvalidDataException("分词查询超过上限，请减小本批数量；尚未修改词库。");
+            if (queries.Count > MaximumQueries) throw new DictionaryEncodingCapacityException("分词查询超过单批上限。");
         }
         return queries.Order(StringComparer.Ordinal).ToArray();
     }
@@ -50,13 +52,14 @@ internal static class DictionaryEncoding
         var result = new Dictionary<string, List<DictionaryReading>>(StringComparer.Ordinal);
         foreach (var line in output[Header.Length..].Split('\n', StringSplitOptions.RemoveEmptyEntries)) {
             var fields = line.Split('\t');
-            if (fields.Length != 3 || !wanted.Contains(fields[0]) || !ReadingFits(fields[0], fields[1]) ||
+            if (fields.Length is not (3 or 4) || !wanted.Contains(fields[0]) || !ReadingFits(fields[0], fields[1]) ||
+                fields.Length == 4 && fields[3] is not ("0" or "1") ||
                 !uint.TryParse(fields[2], NumberStyles.None, CultureInfo.InvariantCulture, out var frequency) || frequency == 0)
                 throw new InvalidDataException("注音响应包含无效词语或编码，未应用任何改动。");
             if (!result.TryGetValue(fields[0], out var readings)) result[fields[0]] = readings = [];
             if (readings.Any(value => value.Code == fields[1]) || readings.Count >= MaximumReadings)
                 throw new InvalidDataException("注音响应重复或超过读音上限。");
-            readings.Add(new(fields[1], frequency));
+            readings.Add(new(fields[1], frequency, fields.Length == 4 && fields[3] == "1"));
         }
         return result.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<DictionaryReading>)pair.Value, StringComparer.Ordinal);
     }
@@ -66,7 +69,8 @@ internal static class DictionaryEncoding
         foreach (var word in words) {
             token.ThrowIfCancellationRequested();
             if (source.TryGetValue(word.Text, out var whole) && whole.Count > 0) {
-                result.Add(new(word, whole.OrderByDescending(value => value.Frequency).ThenBy(value => value.Code, StringComparer.Ordinal).ToArray(), true)); continue;
+                result.Add(new(word, whole.OrderByDescending(value => value.Frequency).ThenBy(value => value.Code, StringComparer.Ordinal).ToArray(), true,
+                    whole.Count == 1 && !whole[0].Uncertain ? whole[0].Code : null)); continue;
             }
             var characters = Characters(word.Text);
             if (!Chinese(word.Text) || characters.Length > 64) { result.Add(new(word, [], false)); continue; }
@@ -91,9 +95,60 @@ internal static class DictionaryEncoding
                         if (chart[offset + count].Count > 128) chart[offset + count] = Best(chart[offset + count]);
                     }
             }
-            result.Add(new(word, Best(chart[^1]).Select(value => new DictionaryReading(value.Code, 0)).ToArray(), false));
+            var automatic = UniquePhraseReading(characters, source, token);
+            var alternatives = Best(chart[^1]).Select(value => new DictionaryReading(value.Code, 0)).ToList();
+            if (automatic is not null) {
+                alternatives.RemoveAll(reading => reading.Code == automatic);
+                alternatives.Insert(0, new(automatic, 0));
+                if (alternatives.Count > MaximumReadings) alternatives.RemoveAt(alternatives.Count - 1);
+            }
+            result.Add(new(word, alternatives, false, automatic));
         }
         return result;
+    }
+    private static string? UniquePhraseReading(string[] characters, IReadOnlyDictionary<string, IReadOnlyList<DictionaryReading>> source, CancellationToken token) {
+        // Certainty is independent of frequency/beam pruning. Prefer coverage
+        // by longer dictionary words. All equally supported decompositions
+        // must agree; a high frequency alone must not resolve a polyphone.
+        var coverage = Enumerable.Repeat(-1, characters.Length + 1).ToArray(); coverage[0] = 0;
+        var codes = Enumerable.Range(0, characters.Length + 1).Select(_ => new HashSet<string>(StringComparer.Ordinal)).ToArray(); codes[0].Add("");
+        var uncertain = new bool[characters.Length + 1];
+        for (var offset = 0; offset < characters.Length; ++offset) {
+            token.ThrowIfCancellationRequested();
+            if (coverage[offset] < 0) continue;
+            for (var count = 1; count <= Math.Min(8, characters.Length - offset); ++count) {
+                var part = string.Concat(characters.Skip(offset).Take(count));
+                if (!source.TryGetValue(part, out var readings) || readings.Count == 0) continue;
+                var end = offset + count; var score = coverage[offset] + count * count;
+                if (score < coverage[end]) continue;
+                var proposals = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var prefix in codes[offset]) foreach (var reading in readings) {
+                    var code = prefix.Length == 0 ? reading.Code : prefix + "'" + reading.Code;
+                    if (code.Length <= 256 && proposals.Count < 2) proposals.Add(code);
+                }
+                if (proposals.Count == 0) continue;
+                if (score > coverage[end]) { coverage[end] = score; codes[end].Clear(); uncertain[end] = false; }
+                foreach (var proposal in proposals) if (codes[end].Count < 2) codes[end].Add(proposal);
+                uncertain[end] |= uncertain[offset] || readings.Any(reading => reading.Uncertain);
+            }
+        }
+        return codes[^1].Count == 1 && !uncertain[^1] ? codes[^1].Single() : null;
+    }
+    internal static IReadOnlyDictionary<string, IReadOnlyList<DictionaryWord>> InstalledReferences(IReadOnlyList<ManagedDictionary> dictionaries) => dictionaries
+        .Where(dictionary => dictionary.Scheme == "full_pinyin")
+        .SelectMany(dictionary => dictionary.Entries).Where(word => DictionaryStore.Usable(word) && Chinese(word.Text))
+        .GroupBy(word => word.Text, StringComparer.Ordinal)
+        .ToDictionary(group => group.Key, group => (IReadOnlyList<DictionaryWord>)group
+            .GroupBy(word => Normalize(word.Input), StringComparer.Ordinal).Select(codes => codes.MaxBy(word => word.Count)!).ToArray(), StringComparer.Ordinal);
+    internal static string Payload(IReadOnlyList<string> queries, IReadOnlyDictionary<string, IReadOnlyList<DictionaryWord>> references) {
+        var text = new StringBuilder(Header); var bytes = Encoding.UTF8.GetByteCount(Header); var rows = 0;
+        void Append(string row) { bytes += Encoding.UTF8.GetByteCount(row) + 1; if (bytes > 2 * 1024 * 1024) throw new DictionaryEncodingCapacityException("请求超过单批容量。"); text.Append(row).Append('\n'); }
+        foreach (var query in queries) Append(query);
+        foreach (var query in queries) if (references.TryGetValue(query, out var words)) foreach (var word in words) {
+            if (++rows > 32768) throw new DictionaryEncodingCapacityException("注音参考项超过单批容量。");
+            Append(word.Text + "\t" + Normalize(word.Input) + "\t" + word.Count.ToString(CultureInfo.InvariantCulture));
+        }
+        return text.ToString();
     }
     private static List<(string Code, double Score)> Best(List<(string Code, double Score)> values) => values
         .GroupBy(value => value.Code, StringComparer.Ordinal).Select(group => group.MaxBy(value => value.Score))
@@ -118,22 +173,57 @@ internal static class DictionaryEncoding
 internal sealed class DictionaryEncodingClient
 {
     internal async Task<IReadOnlyList<DictionaryEncodingSuggestion>> SuggestAsync(IReadOnlyList<DictionaryWord> words,
-        string? referencePath, CancellationToken token) {
-        var queries = await Task.Run(() => DictionaryEncoding.Queries(words), token);
-        if (queries.Count == 0) return words.Select(word => new DictionaryEncodingSuggestion(word, [], false)).ToArray();
-        referencePath ??= await new UserLexiconClient().BaseFileAsync().WaitAsync(token);
-        if (!Path.IsPathFullyQualified(referencePath) || !Path.GetExtension(referencePath).Equals(".owolx", StringComparison.OrdinalIgnoreCase))
+        string? referencePath, CancellationToken token, IReadOnlyList<ManagedDictionary>? installed = null,
+        IProgress<DictionaryEncodingProgress>? progress = null) {
+        if (words.Count is < 1 or > DictionaryStore.MaximumEntries || words.Any(DictionaryStore.Usable))
+            throw new InvalidDataException("只能自动补充待编码词条，不覆盖已有编码。");
+        installed ??= (await new DictionaryStore().LoadAsync()).Dictionaries;
+        var references = await Task.Run(() => DictionaryEncoding.InstalledReferences(installed), token);
+        var sourceCount = installed.Count(dictionary => dictionary.Scheme == "full_pinyin" && dictionary.Entries.Any(DictionaryStore.Usable));
+        string? unavailable = null;
+        if (referencePath is null) {
+            try { referencePath = await new UserLexiconClient().BaseFileAsync().WaitAsync(token); }
+            catch (IOException) { unavailable = "基础词典暂不可用；"; }
+        }
+        if (referencePath is not null && (!Path.IsPathFullyQualified(referencePath) || !Path.GetExtension(referencePath).Equals(".owolx", StringComparison.OrdinalIgnoreCase)))
             throw new InvalidDataException("请选择本机 .owolx 参考词典。");
+        var sources = referencePath is null ? $"{unavailable}仅参考 {sourceCount} 本已安装注音词库" : $"基础／自选只读词典 + {sourceCount} 本已安装注音词库";
+        var results = new List<DictionaryEncodingSuggestion>();
+        progress?.Report(new(0, words.Count, sources));
+        async Task BatchAsync(IReadOnlyList<DictionaryWord> batch) {
+            token.ThrowIfCancellationRequested();
+            try {
+                var queries = await Task.Run(() => DictionaryEncoding.Queries(batch), token);
+                if (queries.Count == 0) results.AddRange(batch.Select(word => new DictionaryEncodingSuggestion(word, [], false)));
+                else {
+                    var payload = await Task.Run(() => DictionaryEncoding.Payload(queries, references), token);
+                    var readings = await QueryAsync(payload, referencePath, token);
+                    results.AddRange(await Task.Run(() => DictionaryEncoding.Suggest(batch, DictionaryEncoding.Parse(readings, queries), token), token));
+                }
+                progress?.Report(new(results.Count, words.Count, sources));
+            } catch (DictionaryEncodingCapacityException) {
+                if (batch.Count == 1) {
+                    // An overlarge source row is a skipped manual item, never
+                    // a reason to truncate evidence and call it unambiguous.
+                    results.Add(new(batch[0], [], false)); progress?.Report(new(results.Count, words.Count, sources)); return;
+                }
+                var middle = batch.Count / 2;
+                await BatchAsync(batch.Take(middle).ToArray()); await BatchAsync(batch.Skip(middle).ToArray());
+            }
+        }
+        for (var offset = 0; offset < words.Count; offset += 500)
+            await BatchAsync(words.Skip(offset).Take(Math.Min(500, words.Count - offset)).ToArray());
+        return results;
+    }
+    internal static async Task<string> QueryAsync(string payload, string? referencePath, CancellationToken token) {
         var shell = Environment.GetEnvironmentVariable("OWO_CONFIG_SHELL_PATH") ?? Path.Combine(AppContext.BaseDirectory, "owo_config_shell.exe");
         if (!File.Exists(shell)) throw new FileNotFoundException("找不到编码补充后端，请使用新版设置中心。", shell);
-        var payload = DictionaryEncoding.Header + string.Join('\n', queries) + "\n";
-        if (Encoding.UTF8.GetByteCount(payload) > 2 * 1024 * 1024) throw new InvalidDataException("查询内容超过 2 MiB，请减小批量。");
         var start = new ProcessStartInfo(shell) {
             UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true,
             RedirectStandardOutput = true, RedirectStandardError = true,
             StandardInputEncoding = new UTF8Encoding(false), StandardOutputEncoding = new UTF8Encoding(false, true), StandardErrorEncoding = Encoding.UTF8
         };
-        start.ArgumentList.Add("--dictionary-readings"); start.ArgumentList.Add(referencePath);
+        start.ArgumentList.Add("--dictionary-readings"); start.ArgumentList.Add(referencePath ?? "--installed-only");
         using var process = Process.Start(start) ?? throw new IOException("无法启动编码补充后端。");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromMinutes(2));
         using var stop = timeout.Token.Register(() => Stop(process));
@@ -148,7 +238,7 @@ internal sealed class DictionaryEncodingClient
             await process.WaitForExitAsync(timeout.Token);
             var stdout = await output; var stderr = await error;
             if (process.ExitCode != 0) throw new IOException(string.IsNullOrWhiteSpace(stderr) ? "注音参考查询失败，请检查词典与后端版本。" : stderr.Trim());
-            return await Task.Run(() => DictionaryEncoding.Suggest(words, DictionaryEncoding.Parse(stdout, queries), token), token);
+            return stdout;
         } finally { Stop(process); }
     }
     private static void Stop(Process process) {
