@@ -1,0 +1,92 @@
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version,
+    [string]$ReleaseDirectory,
+    [string]$ResourceList,
+    [switch]$Publish
+)
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+$repository = '4919545484946757/OwO-release'
+$root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if (!$ReleaseDirectory) { $ReleaseDirectory = Join-Path $root "artifacts\release\$Version" }
+$directory = [IO.Path]::GetFullPath($ReleaseDirectory)
+$receipt = Join-Path $directory 'release-build.json'
+if (!(Test-Path -LiteralPath $receipt -PathType Leaf)) { throw 'Missing release-build.json. Rebuild a fresh release; old payloads must not be relabeled.' }
+$build = Get-Content -LiteralPath $receipt -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($build.version -ne $Version -or $build.git_commit -notmatch '^[a-f0-9]{40}$' -or $build.dirty) { throw 'Release build provenance is invalid or was built from a dirty tree.' }
+$commit = [string]$build.git_commit
+$current = (& git -C $root rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $current -ne $commit) { throw 'Release was not built from the current commit.' }
+$names = @("OwO-Input-Method-$Version-windows-x64-Setup.exe", "OwO-Input-Method-$Version-windows-x64.zip", "OwO-Input-Method-$Version-source.zip")
+$resources = @()
+if ($ResourceList) {
+    $items = Get-Content -LiteralPath $ResourceList -Raw -Encoding UTF8 | ConvertFrom-Json
+    $ids = @{}
+    if (@($items).Count -gt 100) { throw 'Too many resources.' }
+    foreach ($item in $items) {
+        if ($item.id -notmatch '^[a-zA-Z0-9][a-zA-Z0-9._-]+$' -or $ids.ContainsKey($item.id) -or
+            $item.kind -notin @('plugin','dictionary','model') -or [string]::IsNullOrWhiteSpace($item.name) -or
+            [string]::IsNullOrWhiteSpace($item.license) -or [string]::IsNullOrWhiteSpace($item.version) -or
+            $item.name.Length -gt 128 -or $item.license.Length -gt 256 -or $item.version.Length -gt 64 -or $item.id.Length -gt 180 -or
+            $item.asset -notmatch '^[a-zA-Z0-9][a-zA-Z0-9._-]+$' -or $item.asset.Length -gt 180 -or $item.asset.Contains('..') -or
+            $item.asset -in @('owo-resources.json','release-build.json','SHA256SUMS.txt') -or $item.asset -in $names) { throw 'Invalid resource metadata.' }
+        if (($item.kind -eq 'plugin' -and $item.asset -notmatch '\.owopkg$') -or
+            ($item.kind -eq 'dictionary' -and $item.asset -notmatch '\.(json|txt|tsv|csv|yaml|yml|zip)$') -or
+            ($item.kind -eq 'model' -and $item.asset -notmatch '\.lm$')) { throw 'Unsupported resource format.' }
+        $ids[$item.id] = $true
+        $path = Join-Path $directory $item.asset
+        if (!(Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing resource asset: $($item.asset)" }
+        if ($item.kind -eq 'dictionary' -and (Get-Item -LiteralPath $path).Length -gt 32MB) { throw 'Dictionary exceeds the 32 MiB import limit.' }
+        $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+        $resources += [ordered]@{id=$item.id; name=$item.name; kind=$item.kind; version=$item.version; license=$item.license; asset=$item.asset; sha256=$hash}
+        $names += $item.asset
+    }
+}
+$names = @($names | Select-Object -Unique)
+if ($names.Count + 3 -gt 100) { throw 'Too many release assets for the supported catalog.' }
+$receiptLines = @(Get-Content -LiteralPath (Join-Path $directory 'SHA256SUMS.txt') -Encoding UTF8)
+$assets = foreach ($name in $names) {
+    $path = Join-Path $directory $name
+    $file = Get-Item -LiteralPath $path
+    if ($file.Length -le 0 -or $file.Length -gt 2GB -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Invalid asset size or linked file.' }
+    $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($name -like "OwO-Input-Method-$Version-*") {
+        if ($receiptLines -notcontains "$hash  $name") { throw "Checksum receipt mismatch: $name" }
+    }
+    [pscustomobject]@{name=$name; path=$path; size=$file.Length; sha256=$hash}
+}
+$tag = "v$Version"
+Write-Output "Release plan: $repository $tag commit=$commit"
+$assets | Select-Object name, size, sha256 | Format-Table -AutoSize
+if (!$Publish) { Write-Output 'Validation only. No GitHub writes. Use -Publish after reviewing the plan.'; return }
+if (@(& git -C $root status --porcelain).Count -ne 0) { throw 'Commit or preserve all pending changes before publishing.' }
+$token = [Environment]::GetEnvironmentVariable('GH_TOKEN')
+if (!$token) { $token = [Environment]::GetEnvironmentVariable('GITHUB_TOKEN') }
+if (!$token) { throw 'Publishing requires GH_TOKEN or GITHUB_TOKEN with repository Contents:write. Never store tokens in the repository or application.' }
+$headers = @{ Authorization="Bearer $token"; Accept='application/vnd.github+json'; 'User-Agent'='OwO-release-publisher'; 'X-GitHub-Api-Version'='2026-03-10' }
+$api = "https://api.github.com/repos/$repository"
+# This also verifies that the source commit was pushed to the release repository.
+$null = Invoke-RestMethod -Uri "$api/commits/$commit" -Headers $headers
+$existing = $null
+try { $existing = Invoke-RestMethod -Uri "$api/releases/tags/$tag" -Headers $headers }
+catch { if ([int]$_.Exception.Response.StatusCode -ne 404) { throw 'Cannot verify whether the release tag already exists.' } }
+if ($existing) { throw 'Release tag already exists. Never overwrite published release assets.' }
+$catalog = [ordered]@{schema_version=1; release_tag=$tag; resources=@($resources)} | ConvertTo-Json -Depth 8
+$catalogPath = Join-Path $directory 'owo-resources.json'
+[IO.File]::WriteAllText($catalogPath, $catalog, [Text.UTF8Encoding]::new($false))
+$assets += [pscustomobject]@{name='owo-resources.json';path=$catalogPath;size=(Get-Item -LiteralPath $catalogPath).Length;sha256=(Get-FileHash -LiteralPath $catalogPath -Algorithm SHA256).Hash.ToLowerInvariant()}
+$assets += foreach ($extra in @('SHA256SUMS.txt','release-build.json')) {
+    $path = Join-Path $directory $extra
+    [pscustomobject]@{name=$extra;path=$path;size=(Get-Item -LiteralPath $path).Length;sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()}
+}
+$body = @{tag_name=$tag;target_commitish=$commit;name="OwO $Version";draft=$true;prerelease=$false;body="Windows 11 x64. Includes x86 TSF compatibility. Verify SHA256SUMS.txt before installation. Source and third-party licenses are included."} | ConvertTo-Json
+$release = Invoke-RestMethod -Uri "$api/releases" -Method Post -Headers $headers -ContentType 'application/json' -Body $body
+Write-Output "Draft created: $($release.html_url)"
+foreach ($asset in $assets) {
+    $upload = "https://uploads.github.com/repos/$repository/releases/$($release.id)/assets?name=$([Uri]::EscapeDataString($asset.name))"
+    $sent = Invoke-RestMethod -Uri $upload -Method Post -Headers $headers -ContentType 'application/octet-stream' -InFile $asset.path
+    if ($sent.size -ne $asset.size -or $sent.digest -ne "sha256:$($asset.sha256)") { throw 'Uploaded asset verification failed. The draft is retained and was NOT published.' }
+}
+$published = Invoke-RestMethod -Uri "$api/releases/$($release.id)" -Method Patch -Headers $headers -ContentType 'application/json' -Body '{"draft":false,"make_latest":"true"}'
+Write-Output "Published: $($published.html_url)"

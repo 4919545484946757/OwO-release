@@ -68,6 +68,15 @@ public sealed partial class MainPage
         ShowPage("general");
     }
 
+    private void OpenOnlineDownloads()
+    {
+        SettingsNavigation.SelectedItem = GeneralNavigationItem;
+        ShowPage("general");
+        DispatcherQueue.TryEnqueue(() => OnlineDistributionHost.StartBringIntoView());
+    }
+
+    private void OnlineDownloads_Click(object sender, RoutedEventArgs e) => OpenOnlineDownloads();
+
     private void AutoSaveSettings_Toggled(object sender, RoutedEventArgs e)
     {
         if (_loadingUiPreferences) return;

@@ -198,3 +198,7 @@ $releaseHashes = foreach ($file in @($binaryZip, $sourceZip)) {
 [IO.File]::WriteAllLines((Join-Path $releaseRoot 'SHA256SUMS.txt'), $releaseHashes,
                          [Text.UTF8Encoding]::new($false))
 Write-Output $releaseRoot
+$commit = (& git -C $root rev-parse HEAD).Trim()
+$dirty = @(& git -C $root status --porcelain).Count -ne 0
+$provenance = [ordered]@{schema_version=1; version=$Version; git_commit=$commit; dirty=$dirty; built_at_utc=[DateTime]::UtcNow.ToString('o')}
+[IO.File]::WriteAllText((Join-Path $releaseRoot 'release-build.json'), ($provenance | ConvertTo-Json), [Text.UTF8Encoding]::new($false))

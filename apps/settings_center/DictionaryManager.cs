@@ -34,7 +34,7 @@ internal sealed class DictionaryManager : UserControl
         internal bool Updating;
     }
     private bool _busy;
-    internal DictionaryManager() {
+    internal DictionaryManager(Action? openDownloads = null) {
         _catalogPage.RowDefinitions.Add(new() { Height = GridLength.Auto });
         _catalogPage.RowDefinitions.Add(new() { Height = GridLength.Auto });
         _catalogPage.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
@@ -45,6 +45,11 @@ internal sealed class DictionaryManager : UserControl
         toolbar.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         toolbar.Children.Add(_search); Grid.SetColumnSpan(_search, 4);
         Grid.SetRow(_import, 1); _import.HorizontalAlignment = HorizontalAlignment.Left; toolbar.Children.Add(_import);
+        if (openDownloads is not null) {
+            var online = new Button { Content = "在线下载" };
+            online.Click += (_, _) => openDownloads();
+            Grid.SetRow(online, 1); Grid.SetColumn(online, 1); toolbar.Children.Add(online);
+        }
         Grid.SetRow(_refresh, 1); Grid.SetColumn(_refresh, 2); toolbar.Children.Add(_refresh);
         Grid.SetRow(_restore, 1); Grid.SetColumn(_restore, 3); toolbar.Children.Add(_restore);
         _catalogPage.Children.Add(toolbar); Grid.SetRow(_notice, 1); _catalogPage.Children.Add(_notice);
@@ -298,12 +303,20 @@ internal sealed class DictionaryManager : UserControl
     }
     private async Task ImportAsync() {
         var selection = await PickImportAsync(); if (selection is null) return;
-        var (name, sourceName, data) = selection.Value;
+        await ImportSelectionAsync(selection.Value.Name, selection.Value.SourceName, selection.Value.Data);
+    }
+    internal async Task ImportDownloadedAsync(string name, string path, XamlRoot dialogRoot) {
+        await RunAsync(async () => {
+            _catalog = await _store.LoadAsync();
+            await ImportSelectionAsync(name, Path.GetFileName(path), await DictionaryFormats.ReadAsync(path), dialogRoot);
+        });
+    }
+    private async Task ImportSelectionAsync(string name, string sourceName, DictionaryImport data, XamlRoot? dialogRoot = null) {
         var title = new TextBox { Header = "字典名称", Text = name.Length > 128 ? name[..128] : name, MaxLength = 128 };
         var enable = new CheckBox { Content = "导入后启用可用编码词条（适用于宿主完整拼音）", IsChecked = data.Pending < data.Entries.Count };
         var fields = new StackPanel { Spacing = 12 };
         fields.Children.Add(title); fields.Children.Add(new TextBlock { Text = $"识别格式：{data.Format}\n词条 {data.Entries.Count} 条；待补编码 {data.Pending} 条；已合并重复项 {data.Duplicates} 条；权重调整 {data.AdjustedWeights} 条。\n无有效编码的词条会完整保留，但不会自动猜测读音或进入候选。不会修改用户词库或插件私有字典。", TextWrapping = TextWrapping.Wrap }); fields.Children.Add(enable);
-        if (await new ContentDialog { XamlRoot = XamlRoot, Title = "预览并导入字典", Content = fields,
+        if (await new ContentDialog { XamlRoot = dialogRoot ?? XamlRoot, Title = "预览并导入字典", Content = fields,
             PrimaryButtonText = "确认导入", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close }.ShowAsync() != ContentDialogResult.Primary) return;
         var dictionary = new ManagedDictionary(Guid.NewGuid().ToString("N"), title.Text.Trim(), data.Format, sourceName, "full_pinyin", enable.IsChecked == true, data.Entries);
         _catalog = await _store.SaveAsync(_catalog, [.. _catalog.Dictionaries, dictionary]); RenderCards();

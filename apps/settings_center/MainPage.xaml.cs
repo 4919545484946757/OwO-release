@@ -97,7 +97,15 @@ public sealed partial class MainPage : Page
         InitializePunctuationSettings();
         InitializeSettingsModules();
         UserLexiconNavigationItem.Content = "词库管理器";
-        UserLexiconPageHost.Content = new DictionaryManager();
+        UserLexiconPageHost.Content = new DictionaryManager(OpenOnlineDownloads);
+        OnlineDistributionHost.Content = new OnlineDistributionView(InstallPluginSourceAsync,
+            async (name, path) => {
+                if (UserLexiconPageHost.Content is DictionaryManager manager) {
+                    await manager.ImportDownloadedAsync(name, path, XamlRoot);
+                    SettingsNavigation.SelectedItem = UserLexiconNavigationItem;
+                    ShowPage("user-lexicon");
+                }
+            });
         InitializeAutoSave();
         InitializeLogoSettings();
         InitializeSearchIndex();
@@ -250,7 +258,7 @@ public sealed partial class MainPage : Page
             "intelligence" or "shortcuts" or "plugins" or "punctuation" or "general"
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
         (CurrentPageTitle.Text, CurrentPageDescription.Text) = page switch {
-            "general" => ("通用设置", "管理自动保存、配置备份与迁移"),
+            "general" => ("通用设置", "管理自动保存、配置备份、更新与资源下载"),
             "schemes" => ("输入方案", "选择编码方案并查看当前方案能力"),
             "candidates" => ("候选与输入", "调整候选显示、组合上屏、标点和符号预览"),
             "punctuation" => ("中文标点", "逐项选择中文格式；总开关和中英文模式仍决定是否启用"),
@@ -279,6 +287,7 @@ public sealed partial class MainPage : Page
         Add("自动保存设置", "通用 自动 保存 配置", "general", AutoSaveCard);
         Add("Logo 外观", "通用 图标 品牌 logo 深色 浅色 跟随系统", "general", _logoThemeCard!);
         Add("配置导入与导出", "通用 备份 恢复 迁移 JSON import export", "general", ConfigurationTransferCard);
+        Add("更新与资源下载", "GitHub 版本 更新 下载 插件 词库 字典 模型 网络", "general", OnlineDistributionHost);
         foreach (var binding in _settingsCards)
             _baseSearchItems.Add(new SearchItem(binding.Title, binding.Keywords,
                 binding.SearchPage ?? _settingsModules.PageFor(binding.Key), binding.Card,
