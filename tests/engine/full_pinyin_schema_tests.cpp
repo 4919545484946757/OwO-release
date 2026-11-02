@@ -51,6 +51,18 @@ int fail(const std::string_view message) {
 
 int main() {
     const owo::engine::FullPinyinSchema schema;
+    using Readings = std::vector<std::vector<std::string>>;
+    if (schema.dictionary_readings("NI'HAO", 2) != Readings{{"ni", "hao"}} ||
+        schema.dictionary_readings("xi'an", 2) != Readings{{"xi", "an"}} ||
+        schema.dictionary_readings("xian", 1) != Readings{{"xian"}} ||
+        schema.dictionary_readings("lue", 1) != Readings{{"lve"}} ||
+        !schema.dictionary_readings("ni''hao", 2).empty() ||
+        !schema.dictionary_readings("'nihao", 2).empty() ||
+        !schema.dictionary_readings("nihao'", 2).empty() ||
+        !schema.dictionary_readings("nh", 2).empty() ||
+        !schema.dictionary_readings("chnag", 1).empty() ||
+        !schema.dictionary_readings("nihao", 0).empty())
+        return fail("dictionary readings guessed abbreviations/corrections or lost explicit boundaries");
     if (!schema.has_initial_preserving_syllable_repair("xa") ||
         !schema.has_initial_preserving_syllable_repair("qe") ||
         schema.has_initial_preserving_syllable_repair("xia") ||

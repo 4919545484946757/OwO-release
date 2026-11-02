@@ -77,6 +77,7 @@ add_library(owo_engine STATIC
     src/engine/lexicon_candidate_provider.cpp
     src/engine/parse_candidate_sources.cpp
     src/engine/lexicon.cpp
+    src/engine/indexed_lexicon.cpp
     src/engine/language_model.cpp
     src/engine/user_frequency.cpp
     src/engine/managed_dictionary.cpp
@@ -1114,6 +1115,14 @@ if(BUILD_TESTING)
         add_test(NAME owo.ipc.joint_partition_contract COMMAND owo_joint_partition_contract)
         set_tests_properties(owo.ipc.joint_partition_contract PROPERTIES TIMEOUT 20)
         add_executable(owo_core_config_contract tests/ipc/core_config_contract.cpp)
+        add_executable(owo_managed_dictionary_contract tests/ipc/managed_dictionary_contract.cpp)
+        target_link_libraries(owo_managed_dictionary_contract PRIVATE owo_ipc)
+        target_compile_features(owo_managed_dictionary_contract PRIVATE cxx_std_20)
+        if(MSVC)
+            target_compile_options(owo_managed_dictionary_contract PRIVATE /W4 /permissive- /utf-8 /EHsc)
+        endif()
+        add_test(NAME owo.ipc.managed_dictionary_contract COMMAND owo_managed_dictionary_contract)
+        set_tests_properties(owo.ipc.managed_dictionary_contract PROPERTIES TIMEOUT 30)
         target_link_libraries(owo_core_config_contract PRIVATE owo_ipc)
         target_compile_features(owo_core_config_contract PRIVATE cxx_std_20)
         target_compile_definitions(owo_core_config_contract PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)

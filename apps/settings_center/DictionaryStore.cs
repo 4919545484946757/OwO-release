@@ -68,7 +68,7 @@ internal sealed class DictionaryStore
     }
     internal static bool Usable(DictionaryWord word) => word.Input.Length > 0;
     internal static (string, string, string, string, string) WordIdentity(DictionaryWord word) =>
-        (UserLexiconClient.CanonicalInput(word.Input), word.Text, word.Locale, word.Tag,
+        (word.Input.ToLowerInvariant(), word.Text, word.Locale, word.Tag,
          Usable(word) ? "" : word.OriginalInput);
     internal static void ValidateWord(DictionaryWord word) {
         if (word is null || word.Input is null || word.Locale is null || word.OriginalInput is null || word.OriginalWeight is null || word.Tag is null ||
@@ -118,7 +118,9 @@ internal sealed class DictionaryStore
             var active = new Dictionary<(string, string), uint>();
             foreach (var dictionary in dictionaries.Where(value => value.Enabled && value.Scheme == "full_pinyin"))
                 foreach (var word in dictionary.Entries.Where(Usable)) {
-                    var key = (UserLexiconClient.CanonicalInput(word.Input), word.Text);
+                    // Runtime phonetic indexing needs upstream syllable
+                    // boundaries; compacting here loses xi'an vs xian.
+                    var key = (word.Input.ToLowerInvariant(), word.Text);
                     active[key] = Math.Max(active.GetValueOrDefault(key), word.Count);
                 }
             var text = new StringBuilder("OWO_DICTIONARIES_V1\n");

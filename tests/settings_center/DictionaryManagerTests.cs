@@ -68,6 +68,10 @@ try {
     Check((await store.LoadAsync()).Dictionaries.Count == 1 && catalog.Revision == 1, "Atomic catalog save");
     string Active() => File.ReadAllText(Path.Combine(store.Root, "snapshots", File.ReadAllText(Path.Combine(store.Root, "current")), "active.tsv"));
     Check(Active().Contains("nh\t你好\t1") && !Active().Contains("没有编码") && !Active().Contains("abc123"), "Only usable words are active, pending rows retained");
+    var boundaries = new ManagedDictionary(Guid.NewGuid().ToString("N"), "注音边界", "Rime", "boundary", "full_pinyin", true,
+        DictionaryFormats.Parse("---\nname: boundary\n...\n西安\txi an\t12\n先\txian\t8\n", "boundary.dict.yaml").Entries);
+    catalog = await store.SaveAsync(catalog, [dictionary, boundaries]);
+    Check(Active().Contains("xi'an\t西安\t12") && Active().Contains("xian\t先\t8"), "Snapshot retains upstream syllable boundaries for phonetic indexing");
     var firstPointer = File.ReadAllText(Path.Combine(store.Root, "current"));
     await Reject(() => store.SaveAsync(empty, []), "Stale revision rejected");
     await Reject(() => store.SaveAsync(catalog, [dictionary with { Name = "" }]), "Invalid mutation rejected");

@@ -1,8 +1,12 @@
 #include "owo/engine/managed_dictionary.h"
+#include "owo/engine/full_pinyin_schema.h"
 #include <algorithm>
 #include <charconv>
 #include <fstream>
+#include <new>
 #include <set>
+#include <stdexcept>
+#include <unordered_map>
 
 namespace owo::engine {
 namespace {
@@ -29,8 +33,8 @@ bool ManagedDictionaryModel::refresh(bool force) {
     const auto previous = snapshot_;
     snapshot_ = id;
     auto fail = [&](std::string message) {
-        const bool changed = !entries_.empty() || previous != id;
-        entries_.clear(); diagnostic_ = std::move(message); return changed;
+        const bool changed = !entries_.empty() || !phonetic_.empty() || previous != id;
+        entries_.clear(); phonetic_ = {}; diagnostic_ = std::move(message); return changed;
     };
     if (id.empty()) { base_enabled_ = user_enabled_ = true; return fail({}); }
     if (id.size() != 32 || id.find_first_not_of("0123456789abcdef") != std::string::npos)
@@ -54,7 +58,9 @@ bool ManagedDictionaryModel::refresh(bool force) {
             return fail("dictionary snapshot row is invalid or exceeds limits");
         std::uint32_t weight{};
         const auto parsed = std::from_chars(line.data() + b + 1, line.data() + line.size(), weight);
-        UserLexiconEntry entry{line.substr(a + 1, b - a - 1), weight, compact(line.substr(0, a)), false};
+        // Preserve upstream syllable boundaries until the phonetic index has
+        // been built. Old compact snapshots remain readable.
+        UserLexiconEntry entry{line.substr(a + 1, b - a - 1), weight, line.substr(0, a), false};
         if (parsed.ec != std::errc{} || parsed.ptr != line.data() + line.size() || !UserFrequencyStore::validate_word(entry).empty())
             return fail("dictionary snapshot entry failed validation");
         staged.push_back(std::move(entry));
@@ -76,12 +82,59 @@ bool ManagedDictionaryModel::refresh(bool force) {
             std::getline(sources, extra) || !sources.eof()) return fail("invalid dictionary sources metadata");
         base_enabled = base.back() == '1'; user_enabled = user.back() == '1';
     }
-    std::sort(staged.begin(), staged.end(), [](const auto& a, const auto& b) {
+    IndexedLexicon phonetic;
+    std::vector<bool> is_phonetic(staged.size());
+    std::unordered_map<std::string, std::vector<std::vector<std::string>>> reading_cache;
+    // Generate indices once per snapshot, not for each keystroke. Non-Chinese
+    // expansions and shortcut-only codes remain exact aliases, not guessed
+    // pronunciations. Do not borrow disabled base/user data to infer readings.
+    try {
+    for (std::size_t index = 0; index < staged.size(); ++index) {
+        const auto& entry = staged[index];
+        std::size_t characters = 0;
+        bool chinese = true;
+        for (std::size_t offset = 0; offset < entry.text.size();) {
+            const auto lead = static_cast<unsigned char>(entry.text[offset]);
+            const std::size_t bytes = lead < 0x80 ? 1 : lead < 0xe0 ? 2 : lead < 0xf0 ? 3 : 4;
+            std::uint32_t value = lead & (bytes == 1 ? 0x7f : bytes == 2 ? 0x1f : bytes == 3 ? 0x0f : 0x07);
+            if (offset + bytes > entry.text.size()) { chinese = false; break; }
+            for (std::size_t i = 1; i < bytes; ++i) value = (value << 6) | (static_cast<unsigned char>(entry.text[offset + i]) & 0x3f);
+            if (!((value >= 0x3400 && value <= 0x9fff) || (value >= 0xf900 && value <= 0xfaff) || (value >= 0x20000 && value <= 0x323af))) { chinese = false; break; }
+            ++characters; offset += bytes;
+        }
+        if (!chinese || characters > entry.input.size()) continue;
+        const auto cache_key = entry.input + '\t' + std::to_string(characters);
+        auto cached = reading_cache.find(cache_key);
+        std::vector<std::vector<std::string>> scratch;
+        if (cached == reading_cache.end()) {
+            scratch = FullPinyinSchema::dictionary_readings(entry.input, characters);
+            if (reading_cache.size() < 4096) cached = reading_cache.emplace(cache_key, std::move(scratch)).first;
+        }
+        const auto& readings = cached == reading_cache.end() ? scratch : cached->second;
+        for (const auto& reading : readings) phonetic.add(reading, entry.text, entry.count);
+        is_phonetic[index] = !readings.empty();
+    }
+    phonetic.finish();
+    } catch (const std::length_error&) {
+        return fail("imported phonetic index exceeds limits");
+    } catch (const std::bad_alloc&) {
+        return fail("insufficient memory for imported phonetic index");
+    }
+    // Keep only shortcuts in the UserFrequencyModel surface. Re-injecting
+    // normal words there would lose syllables, bypass correction/boundary
+    // validation and incorrectly mark a dictionary phrase as a learned alias.
+    std::vector<UserLexiconEntry> aliases;
+    for (std::size_t index = 0; index < staged.size(); ++index) {
+        if (is_phonetic[index]) continue;
+        staged[index].input = compact(staged[index].input); aliases.push_back(std::move(staged[index]));
+    }
+    std::sort(aliases.begin(), aliases.end(), [](const auto& a, const auto& b) {
         if (a.input != b.input) return a.input < b.input;
         if (a.count != b.count) return a.count > b.count;
         return a.text < b.text;
     });
-    entries_ = std::move(staged); base_enabled_ = base_enabled; user_enabled_ = user_enabled;
+    entries_ = std::move(aliases); phonetic_ = std::move(phonetic);
+    base_enabled_ = base_enabled; user_enabled_ = user_enabled;
     diagnostic_.clear(); return true;
 }
 std::int64_t ManagedDictionaryModel::score(std::string_view text) const { return learned_ && user_enabled_ ? learned_->score(text) : 0; }

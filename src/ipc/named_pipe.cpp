@@ -1367,10 +1367,13 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
     }
     engine::ManagedDictionaryModel dictionary_sources(user_frequency, dictionary_root);
     const engine::MemoryLexicon empty_lexicon({});
+    const engine::CombinedLexicon combined_lexicon(base_lexicon, dictionary_sources.phonetic_lexicon());
     const engine::CandidateGenerator base_generator(base_lexicon, nullptr,
         user_frequency != nullptr || !dictionary_root.empty() ? &dictionary_sources : nullptr);
     const engine::CandidateGenerator empty_generator(empty_lexicon, nullptr,
         user_frequency != nullptr || !dictionary_root.empty() ? &dictionary_sources : nullptr);
+    const engine::CandidateGenerator combined_generator(combined_lexicon, nullptr, &dictionary_sources);
+    const engine::CandidateGenerator imported_generator(dictionary_sources.phonetic_lexicon(), nullptr, &dictionary_sources);
     std::size_t unflushed_selections = 0;
     int exit_code = 0;
     bool running = true;
@@ -1514,8 +1517,13 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                 if (!dictionary_sources.diagnostic().empty())
                     std::clog << "managed_dictionary: " << dictionary_sources.diagnostic() << '\n';
             }
-            const engine::Lexicon& lexicon = dictionary_sources.base_enabled() ? base_lexicon : empty_lexicon;
-            const auto& generator = dictionary_sources.base_enabled() ? base_generator : empty_generator;
+            const bool imported = dictionary_sources.has_phonetic_entries();
+            const engine::Lexicon& lexicon = imported
+                ? (dictionary_sources.base_enabled() ? static_cast<const engine::Lexicon&>(combined_lexicon) : dictionary_sources.phonetic_lexicon())
+                : (dictionary_sources.base_enabled() ? base_lexicon : empty_lexicon);
+            const auto& generator = imported
+                ? (dictionary_sources.base_enabled() ? combined_generator : imported_generator)
+                : (dictionary_sources.base_enabled() ? base_generator : empty_generator);
             const auto symbol_key = model_key(decoded.message.request_id, decoded.message.context_generation);
             if (decoded.message.type == protocol::MessageType::candidate_update_request) {
                 if (const auto found = symbol_requests.find(symbol_key); found != symbol_requests.end())

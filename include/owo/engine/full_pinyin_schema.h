@@ -22,6 +22,10 @@ struct FullPinyinIncrementalState {
 class FullPinyinSchema final : public InputSchema {
 public:
     FullPinyinSchema();
+    // Dictionary ingestion: exact syllables only, one syllable per output
+    // character. Never infer readings from abbreviation/correction paths.
+    [[nodiscard]] static std::vector<std::vector<std::string>> dictionary_readings(
+        std::string_view code, std::size_t characters, std::size_t limit = 4);
     // Bounded preflight for normalized, unseparated input. This does not
     // generate correction paths or consult the dictionary.
     [[nodiscard]] bool is_single_syllable_transposition(

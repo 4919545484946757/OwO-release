@@ -1,10 +1,11 @@
 #pragma once
 #include "owo/engine/user_frequency.h"
+#include "owo/engine/indexed_lexicon.h"
 #include <chrono>
 
 namespace owo::engine {
 // Read-only external dictionaries are never recorded/flushed as learning.
-// Exact/prefix indices preserve the base binary lexicon's optimized hot paths.
+// Phonetic words enter Lexicon; non-phonetic shortcuts stay explicit aliases.
 class ManagedDictionaryModel final : public UserFrequencyModel {
 public:
     ManagedDictionaryModel(const UserFrequencyModel* learned, std::filesystem::path root)
@@ -13,6 +14,8 @@ public:
     void set_enabled(bool enabled) noexcept { enabled_ = enabled; }
     bool base_enabled() const noexcept { return base_enabled_; }
     bool user_enabled() const noexcept { return user_enabled_; }
+    const IndexedLexicon& phonetic_lexicon() const noexcept { return phonetic_; }
+    bool has_phonetic_entries() const noexcept { return enabled_ && !phonetic_.empty(); }
     std::int64_t score(std::string_view text) const override;
     bool preferred(std::string_view input, std::string_view text) const override;
     std::int64_t contextual_score(std::string_view input, std::string_view text) const override;
@@ -28,6 +31,7 @@ private:
     std::filesystem::path root_;
     std::string snapshot_, diagnostic_;
     std::vector<UserLexiconEntry> entries_;
+    IndexedLexicon phonetic_;
     std::chrono::steady_clock::time_point next_check_{};
     bool enabled_{true};
     bool base_enabled_{true}, user_enabled_{true};

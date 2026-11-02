@@ -783,6 +783,74 @@ std::vector<ChunkPath> parse_chunk(const std::string_view normalized,
 
 }  // namespace
 
+std::vector<std::vector<std::string>> FullPinyinSchema::dictionary_readings(
+    std::string_view code, std::size_t characters, std::size_t limit) {
+    if (code.empty() || code.size() > 256 || !characters || characters > 256 || !limit) return {};
+    static const auto complete = [] {
+        std::unordered_map<std::string_view, std::string_view> values;
+        for (auto value : kSyllables) values.emplace(value, value);
+        values.emplace("lue", "lve"); values.emplace("nue", "nve"); values.emplace("v", "yu");
+        return values;
+    }();
+    std::string normalized(code);
+    for (auto& value : normalized) {
+        if (value >= 'A' && value <= 'Z') value += 'a' - 'A';
+        if ((value < 'a' || value > 'z') && value != '\'') return {};
+    }
+    if (normalized.front() == '\'' || normalized.back() == '\'' || normalized.find("''") != std::string::npos) return {};
+    if (normalized.find('\'') != std::string::npos) {
+        // Rime/CEDICT supply boundaries already: validate in linear time,
+        // rather than constructing a segmentation chart for every import row.
+        std::vector<std::string> reading;
+        for (std::size_t offset = 0; offset < normalized.size();) {
+            auto end = normalized.find('\'', offset);
+            if (end == std::string::npos) end = normalized.size();
+            const auto found = complete.find(std::string_view(normalized).substr(offset, end - offset));
+            if (found == complete.end()) return {};
+            reading.emplace_back(found->second); offset = end + 1;
+        }
+        if (reading.size() != characters) return {};
+        return {std::move(reading)};
+    }
+    if (normalized.size() < characters || normalized.size() > characters * 6) return {};
+    if (characters == 1) {
+        const auto found = complete.find(normalized);
+        return found == complete.end() ? std::vector<std::vector<std::string>>{} : std::vector<std::vector<std::string>>{{std::string(found->second)}};
+    }
+    const auto columns = normalized.size() + 1;
+    std::vector<unsigned char> possible((characters + 1) * columns);
+    possible[characters * columns + normalized.size()] = 1;
+    const auto edges = [&](std::size_t offset, auto&& visit) {
+        for (std::size_t length = 1; length <= 6 && offset + length <= normalized.size(); ++length) {
+            const auto token = std::string_view(normalized).substr(offset, length);
+            if (token.back() == '\'') break;
+            const auto found = complete.find(token);
+            if (found == complete.end()) continue;
+            auto next = offset + length;
+            if (next < normalized.size() && normalized[next] == '\'') ++next;
+            visit(next, found->second);
+        }
+    };
+    for (auto count = characters; count-- > 0;) {
+        for (std::size_t offset = 0; offset < normalized.size(); ++offset) {
+            if (normalized[offset] == '\'') continue;
+            edges(offset, [&](auto next, auto) { if (possible[(count + 1) * columns + next]) possible[count * columns + offset] = 1; });
+        }
+    }
+    std::vector<std::vector<std::string>> result;
+    std::vector<std::string> reading;
+    const auto collect = [&](auto&& self, std::size_t offset) -> void {
+        if (result.size() >= std::min<std::size_t>(limit, 4)) return;
+        if (reading.size() == characters) { if (offset == normalized.size()) result.push_back(reading); return; }
+        edges(offset, [&](auto next, auto syllable) {
+            if (result.size() >= std::min<std::size_t>(limit, 4) || !possible[(reading.size() + 1) * columns + next]) return;
+            reading.emplace_back(syllable); self(self, next); reading.pop_back();
+        });
+    };
+    if (possible[0]) collect(collect, 0);
+    return result;
+}
+
 FullPinyinSchema::FullPinyinSchema() {
     // Pay the immutable prefix/edit-table construction cost at service startup
     // instead of on the first user typo.
