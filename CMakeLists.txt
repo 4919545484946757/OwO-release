@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(OwOInputMethod VERSION 0.2.6 LANGUAGES CXX)
+project(OwOInputMethod VERSION 0.2.7 LANGUAGES CXX)
 
 include(CTest)
 

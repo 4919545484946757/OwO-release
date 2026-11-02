@@ -578,7 +578,7 @@ public sealed partial class SetupPage : Page
                 _stageMessage.Text = "正在检查随包插件与权限…";
                 try {
                     var outcomes = await BundledPlugins.ImportAsync(_packageRoot, new PluginShellClient(), ConfirmBundledPluginAsync,
-                        new Progress<string>(message => _stageMessage.Text = message));
+                        new Progress<string>(message => _stageMessage.Text = message), ConfirmBundledPluginsAsync);
                     _installLog.Text += Environment.NewLine + string.Join(Environment.NewLine, outcomes);
                     pluginWarning = outcomes.Any(message => message.StartsWith("插件未完整恢复", StringComparison.Ordinal));
                     if (pluginWarning) SetDetailsVisibility(true);
@@ -619,11 +619,20 @@ public sealed partial class SetupPage : Page
         }
     }
 
-    private async Task<bool> ConfirmBundledPluginAsync(BundledPlugin item, PluginInstallPreviewSnapshot preview)
+    private Task<bool> ConfirmBundledPluginAsync(BundledPlugin item, PluginInstallPreviewSnapshot preview) =>
+        Task.FromResult(false); // The installer exclusively uses the batch approval path.
+
+    private async Task<IReadOnlySet<string>> ConfirmBundledPluginsAsync(IReadOnlyList<BundledPluginConsent> plugins)
     {
-        var acknowledgement = new CheckBox { Content = "我已阅读并理解此插件的权限、风险和免责说明。" };
         var body = new StackPanel { Spacing = 12 };
-        body.Children.Add(new TextBlock {
+        body.Children.Add(new TextBlock { Text = "展开查看各插件的权限、风险和启用状态，并逐项勾选授权。未勾选的插件不会安装；不影响输入法本体。", TextWrapping = TextWrapping.Wrap });
+        var choices = new List<(BundledPluginConsent Consent, CheckBox Choice, PluginRiskDisplay Display)>();
+        foreach (var consent in plugins) {
+        var item = consent.Plugin;
+        var preview = consent.Preview;
+        var acknowledgement = new CheckBox { Content = $"明确授权安装{(item.Active ? "并启用" : "")}：{preview.Name} {preview.Version}" };
+        var details = new StackPanel { Spacing = 8 };
+        details.Children.Add(new TextBlock {
             Text = $"{preview.Name} {preview.Version}\n{preview.PluginId}\n"
                 + $"随包状态：{(item.Active ? "启用" : "停用")}\n信任：{PluginUiText.Trust(preview.TrustTier)}\n风险：{PluginUiText.Risk(preview.RiskLevel)}\n\n"
                 + "申请权限：\n" + string.Join("\n", preview.Permissions.Select(PluginUiText.Permission))
@@ -632,23 +641,28 @@ public sealed partial class SetupPage : Page
                     ? "\n\nAgent 隐私：v 模式确认的输入、当前应用基础信息与必要局部上下文可能经脱敏后发送给第三方 Agent；密码和安全输入框不采集上下文。第三方可能执行系统操作，高风险操作仍须宿主确认。" : ""),
             TextWrapping = TextWrapping.Wrap
         });
-        body.Children.Add(acknowledgement);
+        var display = new PluginRiskDisplay(PluginRiskPreferences.Key(consent.Key, preview.Permissions),
+            $"{preview.Name} {preview.Version} · {PluginUiText.Risk(preview.RiskLevel)} · {(item.Active ? "启用" : "停用")}\n清单 SHA-256：{preview.InventorySha256}", details);
+        display.Content.Children.Add(acknowledgement);
+        body.Children.Add(display.Content);
+        choices.Add((consent, acknowledgement, display));
+        }
         var dialog = new ContentDialog {
             XamlRoot = XamlRoot, Title = "随包插件风险告知",
             Content = new ScrollViewer { Content = body, MaxHeight = 420, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
-            PrimaryButtonText = "我已理解风险", CloseButtonText = "跳过此插件",
+            PrimaryButtonText = "授权并安装选中插件", CloseButtonText = "跳过所有插件",
             DefaultButton = ContentDialogButton.Close, IsPrimaryButtonEnabled = false
         };
-        acknowledgement.Checked += (_, _) => dialog.IsPrimaryButtonEnabled = true;
-        acknowledgement.Unchecked += (_, _) => dialog.IsPrimaryButtonEnabled = false;
-        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return false;
-        return await new ContentDialog {
-            XamlRoot = XamlRoot, Title = "单独授权随包插件",
-            Content = $"只授权此版本：{preview.Name} {preview.Version}\n{preview.PluginId}\n"
-                + $"清单 SHA-256：{preview.InventorySha256}\n\n"
-                + $"安装后{(item.Active ? "按随包状态启用" : "保持停用")}。配置仅在本机没有已有配置时导入。",
-            PrimaryButtonText = "授权并安装", CloseButtonText = "跳过此插件", DefaultButton = ContentDialogButton.Close
-        }.ShowAsync() == ContentDialogResult.Primary;
+        foreach (var choice in choices) {
+            choice.Choice.Checked += (_, _) => dialog.IsPrimaryButtonEnabled = choices.Any(value => value.Choice.IsChecked == true);
+            choice.Choice.Unchecked += (_, _) => dialog.IsPrimaryButtonEnabled = choices.Any(value => value.Choice.IsChecked == true);
+        }
+        var approved = new HashSet<string>(StringComparer.Ordinal);
+        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            foreach (var choice in choices.Where(value => value.Choice.IsChecked == true)) {
+                approved.Add(choice.Consent.Key); choice.Display.Accepted();
+            }
+        return approved;
     }
 
     private void ApplyPreviewStage(string stage)

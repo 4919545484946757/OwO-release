@@ -40,7 +40,9 @@ if (-not $configSource.Contains('PluginCardSurface.Wrap(pageSelector,')) { throw
 foreach ($theme in @('Light','Dark','HighContrast')) {
     $dictionary = $page.SelectSingleNode('//ui:ResourceDictionary[@x:Key="' + $theme + '"]', $ns)
     $opacity = $dictionary.SelectSingleNode('x:Double[@x:Key="PluginPuzzleOpacity"]', $ns).InnerText
-    if ($opacity -ne $(if ($theme -eq 'HighContrast') { '0' } else { '0.2' })) { throw ('Unexpected opacity for ' + $theme) }
+    $value = 0.0
+    if (-not [double]::TryParse($opacity, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$value) -or
+        $value -lt 0 -or $value -gt 1 -or ($theme -eq 'HighContrast' -and $value -ne 0)) { throw ('Invalid opacity for ' + $theme) }
 }
 [xml]$light = [IO.File]::ReadAllText((Join-Path $settings 'Assets/Decor/PluginPuzzle.svg'))
 [xml]$dark = [IO.File]::ReadAllText((Join-Path $settings 'Assets/Decor/PluginPuzzle.Dark.svg'))

@@ -8,6 +8,9 @@ namespace OwO_Settings;
 internal sealed record BundledPlugin(string Id, string Version, string Name, bool Active,
     string Package, string Sha256, string? Settings, string? SettingsSha256);
 internal sealed record BundledPluginCatalog(int SchemaVersion, IReadOnlyList<BundledPlugin> Plugins);
+internal sealed record BundledPluginConsent(BundledPlugin Plugin, PluginInstallPreviewSnapshot Preview) {
+    internal string Key => Plugin.Id + "/" + Plugin.Version + "/" + Preview.InventorySha256;
+}
 
 // Bundling stores intent, never another machine's authorization. Every new
 // package goes through the native inspector and the existing consent-bound
@@ -94,10 +97,26 @@ internal static class BundledPlugins
         return values;
     }
     internal static async Task<IReadOnlyList<string>> ImportAsync(string packageRoot, PluginShellClient client,
-        Func<BundledPlugin, PluginInstallPreviewSnapshot, Task<bool>> confirm, IProgress<string>? progress = null) {
+        Func<BundledPlugin, PluginInstallPreviewSnapshot, Task<bool>> confirm, IProgress<string>? progress = null,
+        Func<IReadOnlyList<BundledPluginConsent>, Task<IReadOnlySet<string>>>? confirmBatch = null) {
         var catalog = Load(packageRoot);
         var root = Root(packageRoot);
         var outcomes = new List<string>();
+        var prepared = new Dictionary<string, BundledPluginConsent>(StringComparer.Ordinal);
+        IReadOnlySet<string>? approved = null;
+        if (confirmBatch is not null) {
+            var installed = await client.LoadAsync();
+            foreach (var item in catalog.Plugins) {
+                if (installed.Plugins.Any(value => value.Id == item.Id && value.Version == item.Version)) continue;
+                try {
+                    var preview = await client.InspectInstallAsync(Path.Combine(root, item.Package));
+                    if (preview.PluginId != item.Id || preview.Version != item.Version)
+                        throw new InvalidDataException("随包插件身份与原生预检不一致。");
+                    prepared.Add(item.Id + "/" + item.Version, new(item, preview));
+                } catch (Exception error) { outcomes.Add($"插件未完整恢复，请在设置中心检查：{item.Name}：{error.Message}"); }
+            }
+            approved = prepared.Count == 0 ? new HashSet<string>() : await confirmBatch(prepared.Values.ToArray());
+        }
         foreach (var item in catalog.Plugins) {
             try {
                 var installed = await client.LoadAsync();
@@ -105,10 +124,14 @@ internal static class BundledPlugins
                     outcomes.Add($"保留已有版本、设置与启用状态：{item.Name} {item.Version}"); continue;
                 }
                 var path = Path.Combine(root, item.Package);
-                var preview = await client.InspectInstallAsync(path);
+                var consent = confirmBatch is null ? null : prepared.GetValueOrDefault(item.Id + "/" + item.Version);
+                if (confirmBatch is not null && consent is null) continue;
+                var preview = consent?.Preview ?? await client.InspectInstallAsync(path);
                 if (preview.PluginId != item.Id || preview.Version != item.Version)
                     throw new InvalidDataException("随包插件身份与原生预检不一致。");
-                if (!await confirm(item, preview)) { outcomes.Add($"已跳过：{item.Name}"); continue; }
+                if (approved is not null ? !approved.Contains(consent!.Key) : !await confirm(item, preview)) {
+                    outcomes.Add($"已跳过：{item.Name}"); continue;
+                }
                 progress?.Report($"正在安装随包插件：{item.Name}");
                 // Recheck payload/config hashes after the user reads the prompt.
                 Verify(root, item.Package, item.Sha256, 256L * 1024 * 1024);

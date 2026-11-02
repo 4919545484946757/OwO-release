@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="LogoPreferencesTests.cs" />
+    <Compile Include="../../apps/settings_center/PluginRiskPreferences.cs" Link="PluginRiskPreferences.cs" />
     <Compile Include="../../apps/settings_center/SettingsUiPreferences.cs" Link="SettingsUiPreferences.cs" />
   </ItemGroup>
 </Project>

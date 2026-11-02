@@ -532,16 +532,19 @@ public sealed partial class MainPage
                 + "本授权只绑定上方精确版本与包摘要，更新或新增权限必须重新授权。",
             TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
         });
-        content.Children.Add(acknowledgement);
+        var riskDisplay = new PluginRiskDisplay(PluginRiskPreferences.Key(
+            preview.PluginId + "/" + preview.Version + "/" + preview.InventorySha256, preview.Permissions),
+            $"{preview.Name} {preview.Version} · {PluginUiText.Risk(preview.RiskLevel)}\n仅授权安装此精确包，安装后保持停用。", content);
+        riskDisplay.Content.Children.Add(acknowledgement);
         var disclosure = new ContentDialog {
             XamlRoot = XamlRoot,
             Title = "高风险插件安全告知",
             Content = new ScrollViewer {
-                Content = content,
+                Content = riskDisplay.Content,
                 MaxHeight = 520,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             },
-            PrimaryButtonText = "我已理解风险",
+            PrimaryButtonText = "明确授权并安装",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close,
             IsPrimaryButtonEnabled = false,
@@ -549,24 +552,26 @@ public sealed partial class MainPage
         acknowledgement.Checked += (_, _) => disclosure.IsPrimaryButtonEnabled = true;
         acknowledgement.Unchecked += (_, _) => disclosure.IsPrimaryButtonEnabled = false;
         if (await disclosure.ShowAsync() != ContentDialogResult.Primary) return false;
-        return await ConfirmAsync("单独授权安装",
-            $"只授权安装此包：\n{preview.Name} {preview.Version}\n{preview.PluginId}\n"
-                + $"SHA-256 清单摘要：{preview.InventorySha256}\n\n"
-                + "安装后将保持停用；启用前仍可撤销权限或卸载。",
-            "授权并安装");
+        riskDisplay.Accepted();
+        return true;
     }
 
     private async Task<bool> ConfirmAsync(string title, string message, string action)
     {
+        var riskDisplay = title == "启用插件" ? new PluginRiskDisplay(
+            PluginRiskPreferences.Key(message, []), "仅启用下方精确版本；不新增权限。",
+            new TextBlock { Text = message, TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap }) : null;
         var dialog = new ContentDialog {
             XamlRoot = XamlRoot,
             Title = title,
-            Content = message,
+            Content = riskDisplay is null ? message : riskDisplay.Content,
             PrimaryButtonText = action,
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close,
         };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        var accepted = await dialog.ShowAsync() == ContentDialogResult.Primary;
+        if (accepted) riskDisplay?.Accepted();
+        return accepted;
     }
 
     private async void PluginVersionAction_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -616,12 +621,15 @@ public sealed partial class MainPage
                 + "此同意只绑定当前精确插件版本与已授权权限；更新或新增权限需要重新确认。",
             TextWrapping = Microsoft.UI.Xaml.TextWrapping.Wrap,
         });
-        content.Children.Add(acknowledgement);
+        var riskDisplay = new PluginRiskDisplay(PluginRiskPreferences.Key(
+            "agent/" + plugin.Id + "/" + plugin.Version + "/" + plugin.Detail, plugin.Permissions),
+            $"{plugin.Name} {plugin.Version}：向第三方 Agent 发送输入和局部上下文，可能执行系统操作。", content);
+        riskDisplay.Content.Children.Add(acknowledgement);
         var dialog = new ContentDialog {
             XamlRoot = XamlRoot,
             Title = "启用 Agent IPC 连接器",
             Content = new ScrollViewer {
-                Content = content,
+                Content = riskDisplay.Content,
                 MaxHeight = 520,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             },
@@ -632,7 +640,9 @@ public sealed partial class MainPage
         };
         acknowledgement.Checked += (_, _) => dialog.IsPrimaryButtonEnabled = true;
         acknowledgement.Unchecked += (_, _) => dialog.IsPrimaryButtonEnabled = false;
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        var accepted = await dialog.ShowAsync() == ContentDialogResult.Primary;
+        if (accepted) riskDisplay.Accepted();
+        return accepted;
     }
 
     private async void PluginVersionRevoke_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

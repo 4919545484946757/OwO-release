@@ -6,12 +6,12 @@
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#EDEDED"/>
                     <SvgImageSource x:Key="PluginPuzzleImageSource" UriSource="ms-appx:///Assets/Decor/PluginPuzzle.svg"/>
-                    <x:Double x:Key="PluginPuzzleOpacity">0.06</x:Double>
+                    <x:Double x:Key="PluginPuzzleOpacity">0.01</x:Double>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="#232639"/>
                     <SvgImageSource x:Key="PluginPuzzleImageSource" UriSource="ms-appx:///Assets/Decor/PluginPuzzle.Dark.svg"/>
-                    <x:Double x:Key="PluginPuzzleOpacity">0.0</x:Double>
+                    <x:Double x:Key="PluginPuzzleOpacity">0.01</x:Double>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="SettingsContentBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}"/>
@@ -116,7 +116,7 @@
                 </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.PaneFooter>
-                <TextBlock Text="OwO 0.2.6" Margin="16,8,8,16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                <TextBlock Text="OwO 0.2.7" Margin="16,8,8,16" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             </NavigationView.PaneFooter>
             <Grid Background="{ThemeResource SettingsContentBackgroundBrush}" x:Name="MainContentRoot">
                 <Grid.RowDefinitions>

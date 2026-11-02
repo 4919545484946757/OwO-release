@@ -4,6 +4,19 @@ using System.Text.Json;
 var root = Path.Combine(Path.GetTempPath(), "owo-logo-preferences-" + Guid.NewGuid().ToString("N"));
 var path = Path.Combine(root, "settings-ui.json");
 try {
+    var riskPath = Path.Combine(root, "risk.json");
+    var riskKey = PluginRiskPreferences.Key("id/1/hash", ["a", "b"]);
+    if (PluginRiskPreferences.Hidden(riskKey, riskPath)) throw new Exception("Fresh risk details hidden.");
+    PluginRiskPreferences.Remember(riskKey, riskPath);
+    if (!PluginRiskPreferences.Hidden(riskKey, riskPath)) throw new Exception("Risk display preference not saved.");
+    PluginRiskPreferences.Remember(riskKey, riskPath, hidden: false);
+    if (PluginRiskPreferences.Hidden(riskKey, riskPath)) throw new Exception("Risk display preference cannot be reset.");
+    PluginRiskPreferences.Remember(riskKey, riskPath);
+    if (riskKey != PluginRiskPreferences.Key("id/1/hash", ["b", "a"])) throw new Exception("Permission order changed identity.");
+    foreach (var changed in new[] { PluginRiskPreferences.Key("id/2/hash", ["a", "b"]), PluginRiskPreferences.Key("id/1/otherhash", ["a", "b"]), PluginRiskPreferences.Key("id/1/hash", ["a", "b", "c"]) })
+        if (PluginRiskPreferences.Hidden(changed, riskPath)) throw new Exception("New version/package/permission reused risk suppression.");
+    File.WriteAllText(riskPath, "invalid");
+    if (PluginRiskPreferences.Hidden(riskKey, riskPath)) throw new Exception("Corrupt risk preferences must show details.");
     if (SettingsUiPreferences.Load(path).LogoTheme != "system") throw new Exception("New users must follow system theme.");
     Directory.CreateDirectory(root);
     File.WriteAllText(path, "{\"AutoSaveEnabled\":false}");

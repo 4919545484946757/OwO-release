@@ -42,13 +42,21 @@ try {
     File.WriteAllBytes(firstFile, firstBytes);
     var client = new PluginShellClient();
     var confirmations = 0;
+    var batchCalls = 0;
+    await BundledPlugins.ImportAsync(package, client, (_, _) => throw new Exception("Batch must never show per-plugin dialogs"),
+        confirmBatch: items => {
+            batchCalls++; Check(items.Count == 2, "All new plugins preflight in one dialog");
+            return Task.FromResult<IReadOnlySet<string>>(new HashSet<string>());
+        });
+    Check(batchCalls == 1 && (await client.LoadAsync()).Plugins.Count == 0, "Batch cancellation installs nothing");
     var declined = await BundledPlugins.ImportAsync(package, client, (_, _) => { confirmations++; return Task.FromResult(false); });
     Check(confirmations == 2 && declined.All(line => line.StartsWith("已跳过")), "Explicit per-plugin denial skips both");
     Check((await client.LoadAsync()).Plugins.Count == 0, "No install/authorization/activation on denial");
-    var accepted = await BundledPlugins.ImportAsync(package, client, (_, preview) => {
-        Check(preview.Permissions.All(p => p is "ui.candidate_theme" or "ui.unicode_palette"), "Isolated test grants only known resource capabilities");
-        return Task.FromResult(true);
-    });
+    var accepted = await BundledPlugins.ImportAsync(package, client, (_, _) => throw new Exception("Unexpected individual prompt"),
+        confirmBatch: items => {
+            Check(items.All(item => item.Preview.Permissions.All(p => p is "ui.candidate_theme" or "ui.unicode_palette")), "Only known resource capabilities");
+            return Task.FromResult<IReadOnlySet<string>>(items.Select(item => item.Key).ToHashSet());
+        });
     Check(accepted.All(line => line.StartsWith("已安装")), "Authorized import succeeds");
     var installed = await client.LoadAsync();
     Check(installed.Plugins.Count == 2 && installed.Plugins.All(p => p.Active && p.PermissionsAuthorized), "Fresh grants bound by native installer; active intent restored");
@@ -63,17 +71,20 @@ try {
     var repeated = await BundledPlugins.ImportAsync(package, client, (_, _) => throw new Exception("Existing version must not be reauthorized"));
     Check(repeated.All(line => line.StartsWith("保留已有")) && before.SequenceEqual(SHA256.HashData(File.ReadAllBytes(model.ConfigPath))), "Reinstall preserves local configuration");
     Check(!(await client.LoadAsync()).Plugins.Single(p => p.Id == "org.owo.unicode-palette").Active, "Reinstall preserves local disabled state");
+    Environment.SetEnvironmentVariable("OWO_PLUGIN_STORE_PATH", Path.Combine(root, "subset-store"));
+    var subsetClient = new PluginShellClient();
+    await BundledPlugins.ImportAsync(package, subsetClient, (_, _) => throw new Exception("Unexpected per-plugin consent"),
+        confirmBatch: items => Task.FromResult<IReadOnlySet<string>>(new HashSet<string> { items[0].Key }));
+    Check((await subsetClient.LoadAsync()).Plugins.Count == 1, "Only independently checked plugin is installed");
     Environment.SetEnvironmentVariable("OWO_PLUGIN_STORE_PATH", Path.Combine(root, "tamper-store"));
     var tamperClient = new PluginShellClient();
-    var mutationCount = 0;
-    await BundledPlugins.ImportAsync(package, tamperClient, (item, _) => {
-        if (mutationCount++ == 0) {
+    await BundledPlugins.ImportAsync(package, tamperClient, (_, _) => throw new Exception("Unexpected per-plugin consent"),
+        confirmBatch: items => {
+            var item = items[0].Plugin;
             var path = Path.Combine(BundledPlugins.Root(package), item.Package);
             File.WriteAllBytes(path, [.. File.ReadAllBytes(path), 0]);
-            return Task.FromResult(true);
-        }
-        return Task.FromResult(false);
-    });
+            return Task.FromResult<IReadOnlySet<string>>(new HashSet<string> { items[0].Key });
+        });
     Check((await tamperClient.LoadAsync()).Plugins.Count == 0, "Tamper after consent cannot publish or activate");
     Console.WriteLine($"PASS: {checks} bundled-plugin privacy, integrity, explicit consent, real native import, configuration and enabled-state checks; isolated stores only.");
 } finally {
