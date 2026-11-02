@@ -14,13 +14,13 @@ internal sealed class OnlineDistributionView : UserControl
     private readonly InfoBar _status = new() { IsOpen = false, IsClosable = true };
     private readonly ProgressBar _progress = new() { Minimum = 0, Maximum = 100, Visibility = Visibility.Collapsed };
     private readonly Button _check = new() { Content = "检查 GitHub 更新与资源" }, _cancel = new() { Content = "取消", IsEnabled = false };
-    private readonly Func<string, string, Task> _plugin, _dictionary;
+    private readonly Func<string, string, Task> _dictionary;
     private readonly List<Button> _actions = [];
     private CancellationTokenSource? _operation;
     private readonly string _downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OwO", "InputMethod", "downloads");
     private static readonly Version Current = new((Assembly.GetExecutingAssembly().GetName().Version ?? new(0, 0, 0)).ToString(3));
-    internal OnlineDistributionView(Func<string, string, Task> plugin, Func<string, string, Task> dictionary) {
-        _plugin = plugin; _dictionary = dictionary;
+    internal OnlineDistributionView(Func<string, string, Task> dictionary) {
+        _dictionary = dictionary;
         var body = new StackPanel { Spacing = 10 };
         body.Children.Add(new TextBlock { Text = "更新与资源下载", FontSize = 20 });
         body.Children.Add(new TextBlock { Text = $"当前版本 {Current} · 来源 {OnlineDistribution.Repository}\n联网仅用于查询版本及下载资源，不上传输入内容。下载校验不能替代发布者签名与插件权限审核。", TextWrapping = TextWrapping.Wrap });
@@ -62,19 +62,18 @@ internal sealed class OnlineDistributionView : UserControl
         } else Notice(release.Version < Current ? $"官方最新版本为 {release.Tag}，低于本机 {Current}，不会降级。" : "当前已是最新正式版本。");
         var page = new HyperlinkButton { Content = "打开官方发行页", NavigateUri = release.Page };
         _items.Children.Add(page);
-        foreach (var resource in resources) {
-            var label = resource.Kind switch { "plugin" => "插件", "dictionary" => "词库", _ => "模型（下载后不自动切换）" };
+        foreach (var resource in resources.Where(r => r.Kind != "plugin")) {
+            var label = resource.Kind == "dictionary" ? "词库" : "模型（下载后不自动切换）";
             _items.Children.Add(new TextBlock { Text = $"{label} · {resource.Name} {resource.Version}\n许可：{resource.License} · {resource.Asset.Size / 1048576.0:F1} MiB", TextWrapping = TextWrapping.Wrap });
             AddAction($"下载{label}", async ct => {
                 if (!await ConfirmAsync("下载资源", $"{resource.Name}\n{resource.Asset.Name}\n许可：{resource.License}\nSHA-256：{resource.Asset.Sha256}\n\n下载后仍需单独确认安装、导入或模型切换。", "下载并校验")) return;
                 var path = await DownloadAsync(resource.Asset, ct);
                 ct.ThrowIfCancellationRequested();
-                if (resource.Kind == "plugin") await _plugin(resource.Name, path);
-                else if (resource.Kind == "dictionary") await _dictionary(resource.Name, path);
+                if (resource.Kind == "dictionary") await _dictionary(resource.Name, path);
                 else Notice($"模型已校验并保存：{path}。未更改当前模型；须在兼容性及许可证确认后另行启用。", InfoBarSeverity.Success);
             });
         }
-        if (resources.Count == 0) _items.Children.Add(new TextBlock { Text = "此发行版尚未提供可校验的插件/词库/模型目录。", TextWrapping = TextWrapping.Wrap });
+        if (!resources.Any(r => r.Kind != "plugin")) _items.Children.Add(new TextBlock { Text = "此发行版尚未提供可校验的词库/模型目录。插件下载请进入插件管理器的“发现插件”。", TextWrapping = TextWrapping.Wrap });
     }
     private void AddAction(string label, Func<CancellationToken, Task> action) {
         var button = new Button { Content = label, HorizontalAlignment = HorizontalAlignment.Left, IsEnabled = _operation is null };

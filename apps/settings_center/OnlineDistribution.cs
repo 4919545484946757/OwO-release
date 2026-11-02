@@ -88,7 +88,11 @@ internal sealed class OnlineDistribution : IDisposable
         var manifest = release.Assets.SingleOrDefault(a => a.Name == "owo-resources.json");
         if (manifest is null) {
             foreach (var asset in release.Assets.Where(a => a.Name.EndsWith(".owopkg", StringComparison.OrdinalIgnoreCase)))
-                if (Regex.IsMatch(asset.Sha256, "^[a-fA-F0-9]{64}$")) resources.Add(new(asset.Name, asset.Name, "plugin", release.Tag, "以包内许可证和安装告知为准", asset));
+                if (Regex.IsMatch(asset.Sha256, "^[a-fA-F0-9]{64}$")) {
+                    var identity = Regex.Match(asset.Name, @"^(?<id>[a-zA-Z0-9][a-zA-Z0-9._-]+)-(?<version>\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?)\.owopkg$");
+                    resources.Add(new(identity.Success ? identity.Groups["id"].Value : asset.Name, asset.Name, "plugin",
+                        identity.Success ? identity.Groups["version"].Value : release.Tag, "以包内许可证和安装告知为准", asset));
+                }
             return resources;
         }
         ValidateAsset(manifest);

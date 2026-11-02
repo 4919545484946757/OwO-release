@@ -3,9 +3,13 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version,
     [string]$ReleaseDirectory,
     [string]$ResourceList,
+    [string]$ReleaseNotesFile,
+    [switch]$UseGitCredentialManager,
+    [switch]$ResumeDraft,
     [switch]$Publish
 )
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 Set-StrictMode -Version Latest
 $repository = '4919545484946757/OwO-release'
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -57,12 +61,32 @@ $assets = foreach ($name in $names) {
     [pscustomobject]@{name=$name; path=$path; size=$file.Length; sha256=$hash}
 }
 $tag = "v$Version"
+$notes = "Windows 11 x64. Includes x86 TSF compatibility. Verify SHA256SUMS.txt before installation. Source and third-party licenses are included."
+if ($ReleaseNotesFile) {
+    if ((Get-Item -LiteralPath $ReleaseNotesFile).Length -gt 128KB) { throw 'Release notes are too large.' }
+    $notes = Get-Content -LiteralPath $ReleaseNotesFile -Raw -Encoding UTF8
+}
 Write-Output "Release plan: $repository $tag commit=$commit"
 $assets | Select-Object name, size, sha256 | Format-Table -AutoSize
 if (!$Publish) { Write-Output 'Validation only. No GitHub writes. Use -Publish after reviewing the plan.'; return }
 if (@(& git -C $root status --porcelain).Count -ne 0) { throw 'Commit or preserve all pending changes before publishing.' }
 $token = [Environment]::GetEnvironmentVariable('GH_TOKEN')
 if (!$token) { $token = [Environment]::GetEnvironmentVariable('GITHUB_TOKEN') }
+if (!$token -and $UseGitCredentialManager) {
+    # Only use existing credentials for the explicitly selected release repo.
+    # Never print helper output, start an interactive login or persist a token.
+    $oldInteractive = $env:GCM_INTERACTIVE; $oldPrompt = $env:GIT_TERMINAL_PROMPT
+    try {
+        $env:GCM_INTERACTIVE = 'Never'; $env:GIT_TERMINAL_PROMPT = '0'
+        $credentials = "protocol=https`nhost=github.com`npath=$repository.git`n`n" | & git -C $root credential fill 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            foreach ($line in $credentials) { if ($line.StartsWith('password=')) { $token = $line.Substring(9) } }
+        }
+    } finally {
+        $credentials = $null; $line = $null
+        $env:GCM_INTERACTIVE = $oldInteractive; $env:GIT_TERMINAL_PROMPT = $oldPrompt
+    }
+}
 if (!$token) { throw 'Publishing requires GH_TOKEN or GITHUB_TOKEN with repository Contents:write. Never store tokens in the repository or application.' }
 $headers = @{ Authorization="Bearer $token"; Accept='application/vnd.github+json'; 'User-Agent'='OwO-release-publisher'; 'X-GitHub-Api-Version'='2026-03-10' }
 $api = "https://api.github.com/repos/$repository"
@@ -71,7 +95,9 @@ $null = Invoke-RestMethod -Uri "$api/commits/$commit" -Headers $headers
 $existing = $null
 try { $existing = Invoke-RestMethod -Uri "$api/releases/tags/$tag" -Headers $headers }
 catch { if ([int]$_.Exception.Response.StatusCode -ne 404) { throw 'Cannot verify whether the release tag already exists.' } }
-if ($existing) { throw 'Release tag already exists. Never overwrite published release assets.' }
+if ($existing -and (!$ResumeDraft -or !$existing.draft -or $existing.target_commitish -ne $commit)) {
+    throw 'Release tag already exists. Only an explicit resume of a draft for this exact commit is allowed; published assets are never overwritten.'
+}
 $catalog = [ordered]@{schema_version=1; release_tag=$tag; resources=@($resources)} | ConvertTo-Json -Depth 8
 $catalogPath = Join-Path $directory 'owo-resources.json'
 [IO.File]::WriteAllText($catalogPath, $catalog, [Text.UTF8Encoding]::new($false))
@@ -80,10 +106,21 @@ $assets += foreach ($extra in @('SHA256SUMS.txt','release-build.json')) {
     $path = Join-Path $directory $extra
     [pscustomobject]@{name=$extra;path=$path;size=(Get-Item -LiteralPath $path).Length;sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()}
 }
-$body = @{tag_name=$tag;target_commitish=$commit;name="OwO $Version";draft=$true;prerelease=$false;body="Windows 11 x64. Includes x86 TSF compatibility. Verify SHA256SUMS.txt before installation. Source and third-party licenses are included."} | ConvertTo-Json
-$release = Invoke-RestMethod -Uri "$api/releases" -Method Post -Headers $headers -ContentType 'application/json' -Body $body
-Write-Output "Draft created: $($release.html_url)"
+$body = @{tag_name=$tag;target_commitish=$commit;name="OwO $Version";draft=$true;prerelease=$false;body=$notes} | ConvertTo-Json
+if ($existing) { $release = $existing; Write-Output "Resuming verified draft: $($release.html_url)" }
+else {
+    $release = Invoke-RestMethod -Uri "$api/releases" -Method Post -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
+    Write-Output "Draft created: $($release.html_url)"
+}
 foreach ($asset in $assets) {
+    $prior = @($release.assets | Where-Object name -eq $asset.name)
+    if ($prior.Count -gt 0) {
+        if ($prior.Count -ne 1 -or $prior[0].size -ne $asset.size -or $prior[0].digest -ne "sha256:$($asset.sha256)") {
+            throw 'Existing draft asset does not match; refusing to overwrite or delete it.'
+        }
+        Write-Output "Verified existing asset: $($asset.name)"; continue
+    }
+    Write-Output "Uploading: $($asset.name) ($($asset.size) bytes)"
     $upload = "https://uploads.github.com/repos/$repository/releases/$($release.id)/assets?name=$([Uri]::EscapeDataString($asset.name))"
     $sent = Invoke-RestMethod -Uri $upload -Method Post -Headers $headers -ContentType 'application/octet-stream' -InFile $asset.path
     if ($sent.size -ne $asset.size -or $sent.digest -ne "sha256:$($asset.sha256)") { throw 'Uploaded asset verification failed. The draft is retained and was NOT published.' }

@@ -6,16 +6,50 @@ namespace OwO_Settings;
 
 public sealed partial class MainPage
 {
+    private IReadOnlyList<PluginVersionSnapshot> _installedPlugins = [];
+    private IReadOnlyList<PluginVersionSnapshot> _visiblePlugins = [];
+
+    private void RenderInstalledPlugins()
+    {
+        if (PluginVersions is null || PluginStateFilter is null || PluginSearch is null || PluginHistory is null) return;
+        var filter = (PluginStateFilter.SelectedItem as ComboBoxItem)?.Tag as string ?? "all";
+        var visible = PluginManagerCatalog.Filter(_installedPlugins, PluginSearch.Text, filter, PluginHistory.IsChecked == true);
+        if (!_visiblePlugins.Select(p => (p.Id, p.Version, p.Detail, p.PermissionsAuthorized))
+            .SequenceEqual(visible.Select(p => (p.Id, p.Version, p.Detail, p.PermissionsAuthorized)))) {
+            _visiblePlugins = visible; PluginVersions.ItemsSource = visible;
+        }
+        NoPlugins.Visibility = visible.Count == 0 ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        PluginSummary.Text = $"{_installedPlugins.Select(p => p.Id).Distinct().Count()} 个插件 · {_installedPlugins.Count(p => p.Active)} 个已启用 · {_installedPlugins.Count} 个本机版本";
+    }
+    private void PluginTabs_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (InstalledPluginPanel is null || PluginDiscoveryHost is null || PluginRecoveryPanel is null) return;
+        InstalledPluginPanel.Visibility = sender.SelectedItem == InstalledPluginsTab ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        PluginDiscoveryHost.Visibility = sender.SelectedItem == DiscoverPluginsTab ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        PluginRecoveryPanel.Visibility = sender.SelectedItem != InstalledPluginsTab && sender.SelectedItem != DiscoverPluginsTab ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+    }
+    private void PluginSearch_TextChanged(object sender, TextChangedEventArgs args) {
+        RenderInstalledPlugins();
+        if (PluginDiscoveryHost?.Content is PluginDiscoveryView view) view.SetQuery(PluginSearch.Text);
+    }
+    private void PluginFilter_SelectionChanged(object sender, SelectionChangedEventArgs args) => RenderInstalledPlugins();
+    private void PluginHistory_Changed(object sender, Microsoft.UI.Xaml.RoutedEventArgs args) => RenderInstalledPlugins();
+    private async void PluginVersionDetails_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs args) {
+        if (sender is not Microsoft.UI.Xaml.FrameworkElement { Tag: PluginVersionSnapshot plugin }) return;
+        try {
+            await ConfirmAsync("插件详情与权限", $"{plugin.Title}\n{plugin.Detail}\n\n权限状态：{(plugin.PermissionsAuthorized ? "已授权此精确版本" : "待独立授权")}\n插件位置：{Path.Combine(_pluginClient.StorePath, "versions", plugin.Id, plugin.Version)}\n\n停用不会删除配置；撤权不删除文件；卸载保留用户数据。", "知道了");
+        } catch (Exception error) { ShowStatus(error.Message, InfoBarSeverity.Error); }
+    }
     private async Task LoadPluginsAsync()
     {
         SetBusy(true);
         try {
             var value = await _pluginClient.LoadAsync();
-            PluginVersions.ItemsSource = value.Plugins;
+            _installedPlugins = value.Plugins;
+            RenderInstalledPlugins();
+            if (PluginDiscoveryHost.Content is PluginDiscoveryView discovery) discovery.SetInstalled(value.Plugins);
             RecoveryItems.ItemsSource = value.Recovery;
             RebuildPluginNavigation(value.Plugins);
-            NoPlugins.Visibility = value.Plugins.Count == 0
-                ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
             NoRecovery.Visibility = value.Recovery.Count == 0
                 ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
             ShowStatus($"插件状态已刷新：{value.Plugins.Count} 个版本，{value.Recovery.Count} 个恢复项。",
@@ -597,7 +631,7 @@ public sealed partial class MainPage
 
     private async void PluginVersionRevoke_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: PluginVersionSnapshot plugin } || !plugin.CanRevoke) return;
+        if (sender is not Microsoft.UI.Xaml.FrameworkElement { Tag: PluginVersionSnapshot plugin } || !plugin.CanRevoke) return;
         var message = $"{plugin.Name} {plugin.Version}\n{plugin.Id}\n\n"
             + "将撤销此精确版本的全部运行权限。插件文件与数据保留；已运行的插件应先停用，"
             + "再次授权需要重新安装该精确包。";
@@ -618,7 +652,7 @@ public sealed partial class MainPage
 
     private async void PluginVersionUninstall_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: PluginVersionSnapshot plugin } || plugin.Active) return;
+        if (sender is not Microsoft.UI.Xaml.FrameworkElement { Tag: PluginVersionSnapshot plugin } || plugin.Active) return;
         var message = $"{plugin.Name} {plugin.Version}\n{plugin.Id}\n\n"
             + "此操作会删除该版本及其精确授权，无法撤销。插件用户数据会保留。";
         if (!await ConfirmAsync("卸载插件版本", message, "卸载")) return;

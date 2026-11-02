@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="PluginManagerTests.cs"/>
+    <Compile Include="../../apps/settings_center/PluginManagerCatalog.cs" Link="PluginManagerCatalog.cs"/>
+    <Compile Include="../../apps/settings_center/PluginShellClient.cs" Link="PluginShellClient.cs"/>
+    <Compile Include="../../apps/settings_center/OnlineDistribution.cs" Link="OnlineDistribution.cs"/>
+  </ItemGroup>
+</Project>

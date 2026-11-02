@@ -2,7 +2,7 @@
 
 ## 用户使用
 
-入口：设置中心 → 通用设置 → 更新与资源下载。插件、词库管理器和智能排序设置也提供在线下载入口；全局搜索可搜索“更新”“下载”“模型”。
+程序更新、词库、模型入口：设置中心 → 通用设置 → 更新与资源下载。词库管理器和智能排序设置也提供在线下载入口；全局搜索可搜索“更新”“下载”“模型”。插件下载已移至独立的“插件管理器 → 发现插件”，详见[插件管理器](plugin-manager.md)。
 
 点击“检查 GitHub 更新与资源”后，查询官方仓库 [`4919545484946757/OwO-release`](https://github.com/4919545484946757/OwO-release/releases) 的最新正式发行版。只在主动操作时联网，不在输入链路中运行，不上传拼音、正文、应用上下文、配置或用户词库。GitHub/CDN 会接收 IP、请求路径和客户端标识，这是下载连接本身所需的数据。
 
@@ -68,9 +68,11 @@
 
 `package_release.ps1` 写入 `release-build.json`，记录版本、提交、工作区是否干净和时间。发布脚本校验：收据提交必须等于 HEAD、收据无未提交改动、Setup/便携包/源码包均存在且符合 `SHA256SUMS.txt`；真正发布时要求当前工作区也干净，并检查该源提交已在官方仓库。收据是流程检查，不是密码学构建证明。
 
-真正发布读取环境变量 `GH_TOKEN` 或 `GITHUB_TOKEN`，令牌只需官方发行仓库的 `Contents: write` 权限。通过可信凭据管理或本机环境配置，禁止提交到仓库、嵌入应用、打印令牌或把令牌粘贴到聊天。没有凭据时只能验证计划，不能声称已发布。
+真正发布读取环境变量 `GH_TOKEN` 或 `GITHUB_TOKEN`，令牌只需官方发行仓库的 `Contents: write` 权限。也可显式添加 `-UseGitCredentialManager`，使用现有 Git 凭据管理器中该仓库的凭据；不弹出交互登录、不打印或保存令牌。禁止提交到仓库、嵌入应用或把令牌粘贴到聊天。没有凭据时只能验证计划，不能声称已发布。`-ReleaseNotesFile` 可指定 UTF-8 Markdown 发布说明。
 
-脚本先创建草稿，上传 Setup、便携包、源码包、校验单、构建收据、资源目录和显式列出的资源，并逐一比较 GitHub 返回的长度及 SHA-256，全部成功后才公开为最新正式版。已存在的版本拒绝覆盖；上传失败保留草稿、不会公开，也不会自动删除远程资产。处理草稿后使用新版本或由维护者明确处理原草稿，不能盲目重试覆盖。
+脚本先创建草稿，上传 Setup、便携包、源码包、校验单、构建收据、资源目录和显式列出的资源，并逐一比较 GitHub 返回的长度及 SHA-256，全部成功后才公开为最新正式版。已存在的正式版拒绝覆盖；上传失败保留草稿，不会公开或删除远程资产。可用 `-ResumeDraft` 显式续传同一提交的草稿，已有同名资产必须大小与摘要完全一致才跳过；不同提交、正式版、同名摘要冲突均拒绝，绝不覆盖。
+
+本次官方插件发布清单为 `packaging/windows/official-resources.json`，仅包含亚克力候选框和 Unicode 符号列表。打包后应检查清单版本与插件清单一致，再复制对应独立插件包至发行目录并使用 `-ResourceList` 引用它。
 
 首次实际发布前仍需独立检查许可证及资源再分发权、安装兼容性、发布说明和签名状态。程序不会自动采集或上传本机启用插件、配置、私人词库或模型。
 
@@ -80,6 +82,7 @@
 dotnet run --project tests/settings_center/online_distribution_tests.csproj -c Release
 dotnet run --project tests/settings_center/online_distribution_tests.csproj -c Release -- --live-read-only
 dotnet run --project tests/settings_center/dictionary_manager_tests.csproj -c Release
+dotnet run --project tests/settings_center/plugin_manager_tests.csproj -c Release
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/scripts/publish_github_release_tests.ps1
 ```
 

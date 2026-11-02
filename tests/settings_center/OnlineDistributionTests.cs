@@ -55,6 +55,9 @@ internal static class OnlineDistributionTests
             var release = new OnlineRelease("0.2.7", new(0,2,7), new($"https://github.com/{OnlineDistribution.Repository}/releases/tag/0.2.7"), [asset, manifest]);
             var resources = await catalogs.ResourcesAsync(release, CancellationToken.None);
             Check(resources.Count == 1 && resources[0].Kind == "model");
+            var oldPlugin = asset with { Name = "org.owo.candidate-glass-1.4.1.owopkg" };
+            var oldResources = await catalogs.ResourcesAsync(release with { Assets = [oldPlugin] }, CancellationToken.None);
+            Check(oldResources.Single().Id == "org.owo.candidate-glass" && oldResources.Single().Version == "1.4.1");
             await RejectAsync(() => catalogs.ResourcesAsync(release with { Assets = [asset with { Sha256 = new string('0',64) }, manifest] }, CancellationToken.None));
             var json = JsonSerializer.SerializeToUtf8Bytes(new { tag_name = "0.2.7", draft = false, prerelease = false, assets = new[] {
                 new { name = "test.lm", browser_download_url = urlGood.AbsoluteUri, size = bytes.Length, digest = "sha256:" + sha }

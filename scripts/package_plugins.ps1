@@ -2,7 +2,8 @@
 param(
     [string]$PluginRoot,
     [string]$OutputDirectory,
-    [string]$BuildDirectory
+    [string]$BuildDirectory,
+    [string[]]$PluginIds
 )
 
 $ErrorActionPreference = 'Stop'
@@ -24,11 +25,13 @@ $output = [IO.Path]::GetFullPath($OutputDirectory)
 $build = [IO.Path]::GetFullPath($BuildDirectory)
 [void](New-Item -ItemType Directory -Path $output -Force)
 
+$packagedIds = @()
 foreach ($directory in Get-ChildItem -LiteralPath $plugins -Directory | Sort-Object Name) {
     $manifestPath = Join-Path $directory.FullName 'manifest.json'
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { continue }
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 |
         ConvertFrom-Json
+    if ($PluginIds -and $manifest.id -notin $PluginIds) { continue }
     if ([string]::IsNullOrWhiteSpace($manifest.id) -or
         [string]::IsNullOrWhiteSpace($manifest.version)) {
         throw "Invalid plugin identity: $manifestPath"
@@ -64,9 +67,14 @@ foreach ($directory in Get-ChildItem -LiteralPath $plugins -Directory | Sort-Obj
     if (Test-Path -LiteralPath $package) { Remove-Item -LiteralPath $package -Force }
     Compress-Archive -Path (Join-Path $packageSource '*') -DestinationPath $temporary `
         -CompressionLevel NoCompression
+    if ($plugins.Equals((Join-Path $root 'plugins'), [StringComparison]::OrdinalIgnoreCase) -and $manifest.id.StartsWith('org.owo.')) {
+        Compress-Archive -LiteralPath (Join-Path $root 'LICENSE') -DestinationPath $temporary -Update -CompressionLevel NoCompression
+    }
     Move-Item -LiteralPath $temporary -Destination $package
     if ($null -ne $staging -and (Test-Path -LiteralPath $staging)) {
         Remove-Item -LiteralPath $staging -Recurse -Force
     }
     Write-Output $package
+    $packagedIds += $manifest.id
 }
+foreach ($id in $PluginIds) { if ($id -notin $packagedIds) { throw "Requested plugin not found: $id" } }
