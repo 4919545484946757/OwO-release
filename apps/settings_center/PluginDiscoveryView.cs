@@ -86,7 +86,12 @@ internal sealed class PluginDiscoveryView : UserControl
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" />
                 """);
             card.Child = content;
-            _cards.Children.Add(card);
+            var frame = new Grid(); frame.Children.Add(card);
+            frame.Children.Add(new Border {
+                BorderBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(120, 0, 0, 0)),
+                BorderThickness = new Thickness(3, 0, 0, 0), CornerRadius = new CornerRadius(8), IsHitTestVisible = false
+            });
+            _cards.Children.Add(frame);
         }
         if (_resources.Count != 0 && matched.Count == 0) _cards.Children.Add(new TextBlock { Text = "没有匹配的在线插件。" });
     }

@@ -6,6 +6,10 @@ namespace OwO_Settings;
 
 public sealed partial class MainPage
 {
+    private void PluginConfigPage_SizeChanged(object sender, Microsoft.UI.Xaml.SizeChangedEventArgs e) {
+        if (PluginConfigBackgroundClip is not null)
+            PluginConfigBackgroundClip.Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, e.NewSize.Height);
+    }
     private IReadOnlyList<PluginVersionSnapshot> _installedPlugins = [];
     private IReadOnlyList<PluginVersionSnapshot> _visiblePlugins = [];
 
