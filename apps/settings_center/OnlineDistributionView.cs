@@ -12,38 +12,39 @@ internal sealed class OnlineDistributionView : UserControl
     private readonly OnlineDistribution _client = new();
     private readonly StackPanel _items = new() { Spacing = 8 };
     private readonly Action<string, InfoBarSeverity> _reportStatus;
-    private readonly ProgressBar _progress = new() { Minimum = 0, Maximum = 100, Visibility = Visibility.Collapsed };
-    private readonly Button _check = new() { Content = "检查 GitHub 更新与资源" }, _cancel = new() { Content = "取消", IsEnabled = false };
+    private readonly DownloadProgressView _progress = new("ResourceDownload");
+    private readonly Func<string, CancellationToken, DownloadOperation> _beginDownload;
+    private DownloadOperation? _download;
+    private readonly Button _check = new() { Content = "检查 GitHub 更新与资源" };
     private readonly Func<string, string, Task> _dictionary;
     private readonly List<Button> _actions = [];
     private CancellationTokenSource? _operation;
     private readonly string _downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OwO", "InputMethod", "downloads");
     private static readonly Version Current = new((Assembly.GetExecutingAssembly().GetName().Version ?? new(0, 0, 0)).ToString(3));
-    internal OnlineDistributionView(Func<string, string, Task> dictionary, Action<string, InfoBarSeverity> reportStatus) {
-        _dictionary = dictionary; _reportStatus = reportStatus;
+    internal OnlineDistributionView(Func<string, string, Task> dictionary, Action<string, InfoBarSeverity> reportStatus, Func<string, CancellationToken, DownloadOperation> beginDownload) {
+        _dictionary = dictionary; _reportStatus = reportStatus; _beginDownload = beginDownload;
         var body = new StackPanel { Spacing = 10 };
         body.Children.Add(new TextBlock { Text = "更新与资源下载", FontSize = 20 });
         body.Children.Add(new TextBlock { Text = $"当前版本 {Current} · 来源 {OnlineDistribution.Repository}\n联网仅用于查询版本及下载资源，不上传输入内容。下载校验不能替代发布者签名与插件权限审核。", TextWrapping = TextWrapping.Wrap });
         var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        commands.Children.Add(_check); commands.Children.Add(_cancel); body.Children.Add(commands);
+        commands.Children.Add(_check); body.Children.Add(commands);
         body.Children.Add(_progress); body.Children.Add(_items);
         Content = new Border { Child = body, Padding = new(16), CornerRadius = new(8), BorderThickness = new(1) };
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_check, "OnlineCheckUpdates");
         _check.Click += async (_, _) => await RunAsync(CheckAsync);
-        _cancel.Click += (_, _) => _operation?.Cancel();
-        Unloaded += (_, _) => _operation?.Cancel();
+        Unloaded += (_, _) => { if (_download is null) _operation?.Cancel(); };
     }
     private void Notice(string message, InfoBarSeverity severity = InfoBarSeverity.Informational) {
         _reportStatus(message, severity);
     }
     private async Task RunAsync(Func<CancellationToken, Task> action) {
         if (_operation is not null) return;
-        using var operation = new CancellationTokenSource(TimeSpan.FromMinutes(15)); _operation = operation;
-        _check.IsEnabled = false; _cancel.IsEnabled = true; foreach (var button in _actions) button.IsEnabled = false;
+        using var operation = new CancellationTokenSource(); _operation = operation;
+        _check.IsEnabled = false; foreach (var button in _actions) button.IsEnabled = false;
         try { await action(operation.Token); }
         catch (OperationCanceledException) { Notice("操作已取消或超时；原安装和已启用资源保持不变。"); }
         catch (Exception error) { Notice($"联网操作失败：{error.Message} 可重新检查或重试。", InfoBarSeverity.Error); }
-        finally { _operation = null; _check.IsEnabled = true; _cancel.IsEnabled = false; _progress.Visibility = Visibility.Collapsed; foreach (var button in _actions) button.IsEnabled = true; }
+        finally { _operation = null; _check.IsEnabled = true; _progress.Bind(null); foreach (var button in _actions) button.IsEnabled = true; }
     }
     private async Task CheckAsync(CancellationToken token) {
         Notice("正在查询官方 GitHub 正式版本……");
@@ -80,8 +81,10 @@ internal sealed class OnlineDistributionView : UserControl
         button.Click += async (_, _) => await RunAsync(action); _actions.Add(button); _items.Children.Add(button);
     }
     private async Task<string> DownloadAsync(OnlineAsset asset, CancellationToken token) {
-        _progress.Value = 0; _progress.Visibility = Visibility.Visible; Notice($"正在下载并校验 {asset.Name}……");
-        var result = await _client.DownloadAsync(asset, _downloads, new Progress<double>(value => _progress.Value = value), token);
+        using var download = _beginDownload(asset.Name, token); _download = download; _progress.Bind(download);
+        string result;
+        try { result = await download.RunAsync(ct => _client.DownloadAsync(asset, _downloads, null, ct, download)); }
+        finally { _download = null; _progress.Bind(null); }
         Notice($"已校验：{asset.Name}", InfoBarSeverity.Success); return result;
     }
     private async Task InstallUpdateAsync(OnlineAsset asset, CancellationToken token) {

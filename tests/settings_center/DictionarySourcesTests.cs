@@ -77,8 +77,27 @@ Check((await fake.FetchAsync(valid, 2, null, CancellationToken.None)).Available 
 try { await fake.FetchAsync(valid with { Hash = new('0', 40) }, 2, null, CancellationToken.None); throw new Exception("Hash mismatch accepted"); } catch (InvalidDataException) { }
 using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
 try { await fake.FetchAsync(valid, 2, null, cancelled.Token); throw new Exception("Cancellation ignored"); } catch (OperationCanceledException) { }
+var large = Encoding.UTF8.GetBytes("---\nname: pause\n...\n" + string.Concat(Enumerable.Range(0, 8000).Select(i => $"测试{i}\tce shi\n")));
+using var largeHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+largeHash.AppendData(Encoding.ASCII.GetBytes($"blob {large.Length}\0")); largeHash.AppendData(large);
+var largeItem = item with { Size = large.Length, Hash = Convert.ToHexString(largeHash.GetHashAndReset()) };
+using var pausedClient = new DictionarySources(new Handler(large));
+using (var operation = new DownloadOperation(item.Name, CancellationToken.None)) {
+    var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); var once = false;
+    var progress = new ImmediateProgress(value => { if (!once && value > 0) { once = true; operation.TogglePause(); paused.SetResult(); } });
+    var transfer = operation.RunAsync(ct => pausedClient.FetchAsync(largeItem, 2, progress, ct, operation));
+    await paused.Task.WaitAsync(TimeSpan.FromSeconds(3)); var stoppedAt = operation.Snapshot.Bytes;
+    await Task.Delay(80); Check(!transfer.IsCompleted && stoppedAt < large.Length && operation.Snapshot.Bytes == stoppedAt);
+    operation.TogglePause(); var data = await transfer.WaitAsync(TimeSpan.FromSeconds(3));
+    Check(data.Available == 8000 && data.Data.Entries.Count == 2 && operation.Snapshot.State == DownloadState.Completed);
+}
+using (var operation = new DownloadOperation(item.Name, CancellationToken.None)) {
+    operation.TogglePause(); var transfer = operation.RunAsync(ct => pausedClient.FetchAsync(largeItem, 2, null, ct, operation)); operation.Cancel();
+    try { await transfer.WaitAsync(TimeSpan.FromSeconds(3)); throw new Exception("Paused dictionary cancellation ignored"); } catch (OperationCanceledException) { }
+}
 Console.WriteLine("Dictionary sources: origins, Rime/THUOCL/CEDICT conversion, selection cap, neutral weights, Git digest, mismatch and cancellation passed.");
 
+sealed class ImmediateProgress(Action<double> action) : IProgress<double> { public void Report(double value) => action(value); }
 sealed class Handler(byte[] data) : HttpMessageHandler {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token) { token.ThrowIfCancellationRequested(); return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(data) }); }
 }

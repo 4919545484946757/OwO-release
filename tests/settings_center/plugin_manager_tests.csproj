@@ -9,5 +9,6 @@
     <Compile Include="../../apps/settings_center/PluginManagerCatalog.cs" Link="PluginManagerCatalog.cs"/>
     <Compile Include="../../apps/settings_center/PluginShellClient.cs" Link="PluginShellClient.cs"/>
     <Compile Include="../../apps/settings_center/OnlineDistribution.cs" Link="OnlineDistribution.cs"/>
+    <Compile Include="../../apps/settings_center/DownloadOperation.cs"/>
   </ItemGroup>
 </Project>

@@ -6,6 +6,11 @@ namespace OwO_Settings;
 
 public sealed partial class MainPage : Page
 {
+    private readonly Microsoft.UI.Xaml.DispatcherTimer _statusExpiry = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private readonly SettingsNoticeDeadline _statusDeadline = new();
+    private readonly WindowDownloads _windowDownloads;
+    private bool _showingTransientStatus;
+    private long _statusVersion;
     private readonly ConfigShellClient _client = new();
     private readonly PluginShellClient _pluginClient = new();
     private Button? _shortcutCaptureTarget;
@@ -79,6 +84,13 @@ public sealed partial class MainPage : Page
     {
         _shortcutCaptureHookProc = ShortcutCaptureHook;
         InitializeComponent();
+        InformationCardStyle.Apply(Status);
+        _windowDownloads = new(WindowDownloadHost, ShowStatus);
+        _statusExpiry.Tick += (_, _) => { if (_statusDeadline.Expired) ShowPageStatus(); };
+        Status.Closed += (_, _) => {
+            _statusExpiry.Stop(); var version = _statusVersion;
+            DispatcherQueue.TryEnqueue(() => { if (version == _statusVersion) ShowPageStatus(); });
+        };
         InputScheme.ItemsSource = _availableSchemes;
         InputScheme.SelectedIndex = 0;
         SetShortcutBindings("correction", ["Ctrl+Q"]);
@@ -97,8 +109,8 @@ public sealed partial class MainPage : Page
         InitializePunctuationSettings();
         InitializeSettingsModules();
         UserLexiconNavigationItem.Content = "词库管理器";
-        UserLexiconPageHost.Content = new DictionaryManager(ShowStatus);
-        PluginDiscoveryHost.Content = new PluginDiscoveryView(InstallPluginSourceAsync, () => PluginTabs.SelectedItem = InstalledPluginsTab, ShowStatus);
+        UserLexiconPageHost.Content = new DictionaryManager(ShowStatus, _windowDownloads.Start);
+        PluginDiscoveryHost.Content = new PluginDiscoveryView(InstallPluginSourceAsync, () => PluginTabs.SelectedItem = InstalledPluginsTab, ShowStatus, _windowDownloads.Start);
         OnlineDistributionHost.Content = new OnlineDistributionView(
             async (name, path) => {
                 if (UserLexiconPageHost.Content is DictionaryManager manager) {
@@ -106,7 +118,7 @@ public sealed partial class MainPage : Page
                     SettingsNavigation.SelectedItem = UserLexiconNavigationItem;
                     ShowPage("user-lexicon");
                 }
-            }, ShowStatus);
+            }, ShowStatus, _windowDownloads.Start);
         InitializeAutoSave();
         InitializeLogoSettings();
         InitializeSearchIndex();
@@ -117,7 +129,7 @@ public sealed partial class MainPage : Page
             await LoadConfigAsync();
             await LoadPluginsAsync();
         };
-        Unloaded += (_, _) => StopShortcutCaptureHook();
+        Unloaded += (_, _) => { StopShortcutCaptureHook(); _statusExpiry.Stop(); _windowDownloads.Close(); };
     }
 
     private async Task LoadConfigAsync()
@@ -270,6 +282,7 @@ public sealed partial class MainPage : Page
             _ => ("输入方案", "选择编码方案并查看当前方案能力"),
         };
         UpdateSchemeHintVisibility();
+        if (!_showingTransientStatus) ShowPageStatus();
     }
 
     private static void SetVisibility(
@@ -373,15 +386,35 @@ public sealed partial class MainPage : Page
         GeneralSettingsPage.IsEnabled = !busy;
         ChinesePunctuationPage.IsEnabled = !busy;
         SettingsNavigation.IsEnabled = !busy;
-        Status.IsOpen = true;
     }
 
     private void ShowStatus(string message, InfoBarSeverity severity)
     {
+        _showingTransientStatus = true; ++_statusVersion;
+        InformationCardStyle.Apply(Status, severity == InfoBarSeverity.Informational);
         Status.Title = "";
         Status.Message = message;
         Status.Severity = severity;
+        Status.IconSource = null;
+        Status.IsClosable = true;
+        ToolTipService.SetToolTip(Status, message);
+        _statusDeadline.Show(severity switch {
+            InfoBarSeverity.Success => SettingsNoticeKind.Success, InfoBarSeverity.Warning => SettingsNoticeKind.Warning,
+            InfoBarSeverity.Error => SettingsNoticeKind.Error, _ => SettingsNoticeKind.Information
+        });
+        _statusExpiry.Start();
         Status.IsOpen = true;
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(Status, message);
+    }
+    private void ShowPageStatus() {
+        _statusExpiry.Stop(); _showingTransientStatus = false; ++_statusVersion;
+        InformationCardStyle.Apply(Status);
+        var message = string.IsNullOrWhiteSpace(CurrentPageDescription.Text) ? CurrentPageTitle.Text :
+            CurrentPageTitle.Text + "：" + CurrentPageDescription.Text;
+        Status.Title = ""; Status.Message = message; Status.Severity = InfoBarSeverity.Informational;
+        Status.IconSource = new FontIconSource { Glyph = "ⓘ", FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe UI Symbol") };
+        Status.IsClosable = false; Status.IsOpen = true;
+        ToolTipService.SetToolTip(Status, message);
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(Status, "ⓘ " + message);
     }
 }

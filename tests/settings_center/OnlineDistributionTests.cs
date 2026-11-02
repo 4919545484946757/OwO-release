@@ -11,6 +11,7 @@ internal static class OnlineDistributionTests
             cancellationToken.ThrowIfCancellationRequested(); return Task.FromResult(send(request));
         }
     }
+    private sealed class ImmediateProgress(Action<double> action) : IProgress<double> { public void Report(double value) => action(value); }
     private static void Check(bool value) { if (!value) throw new Exception("distribution assertion failed"); }
     private static void Reject(Action action) { try { action(); } catch (InvalidDataException) { return; } throw new Exception("unsafe metadata accepted"); }
     private static async Task RejectAsync(Func<Task> action) { try { await action(); } catch (InvalidDataException) { return; } throw new Exception("unsafe download accepted"); }
@@ -47,6 +48,27 @@ internal static class OnlineDistributionTests
             using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
             try { await client.DownloadAsync(asset, directory, null, cancelled.Token); throw new Exception("cancellation ignored"); } catch (OperationCanceledException) { }
             Check(!Directory.EnumerateFiles(directory, "*.partial", SearchOption.AllDirectories).Any());
+            var large = Enumerable.Range(0, 262144).Select(i => (byte)(i % 251)).ToArray();
+            var largeAsset = asset with { Name = "pause.lm", Size = large.Length, Sha256 = Convert.ToHexString(SHA256.HashData(large)) };
+            using var transfers = new OnlineDistribution(new Handler(_ => new(HttpStatusCode.OK) { Content = new ByteArrayContent(large) }));
+            string verified;
+            using (var operation = new DownloadOperation(largeAsset.Name, CancellationToken.None)) {
+                var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); var once = false;
+                var progress = new ImmediateProgress(value => { if (!once && value > 0) { once = true; operation.TogglePause(); paused.SetResult(); } });
+                var transfer = operation.RunAsync(ct => transfers.DownloadAsync(largeAsset, directory, progress, ct, operation));
+                await paused.Task.WaitAsync(TimeSpan.FromSeconds(3)); var stoppedAt = operation.Snapshot.Bytes;
+                await Task.Delay(80); Check(!transfer.IsCompleted && operation.Snapshot.Bytes == stoppedAt && stoppedAt < large.Length);
+                operation.TogglePause(); verified = await transfer.WaitAsync(TimeSpan.FromSeconds(3));
+                Check(File.ReadAllBytes(verified).SequenceEqual(large) && operation.Snapshot.State == DownloadState.Completed);
+            }
+            using (var operation = new DownloadOperation(largeAsset.Name, CancellationToken.None)) {
+                var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously); var once = false;
+                var progress = new ImmediateProgress(value => { if (!once && value > 0) { once = true; operation.TogglePause(); paused.SetResult(); } });
+                var transfer = operation.RunAsync(ct => transfers.DownloadAsync(largeAsset, directory, progress, ct, operation));
+                await paused.Task.WaitAsync(TimeSpan.FromSeconds(3)); operation.Cancel();
+                try { await transfer.WaitAsync(TimeSpan.FromSeconds(3)); throw new Exception("Paused cancellation ignored"); } catch (OperationCanceledException) { }
+                Check(File.ReadAllBytes(verified).SequenceEqual(large) && !Directory.EnumerateFiles(directory, "*.partial", SearchOption.AllDirectories).Any());
+            }
             var catalog = JsonSerializer.SerializeToUtf8Bytes(new { schema_version = 1, release_tag = "0.2.7", resources = new[] {
                 new { id = "sample.model", name = "测试模型", kind = "model", version = "1.0.0", license = "test-only", asset = "test.lm", sha256 = sha }
             }});

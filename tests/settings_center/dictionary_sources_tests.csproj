@@ -3,6 +3,7 @@
   <ItemGroup>
     <Compile Include="DictionarySourcesTests.cs"/>
     <Compile Include="../../apps/settings_center/DictionarySources.cs"/>
+    <Compile Include="../../apps/settings_center/DownloadOperation.cs"/>
     <Compile Include="../../apps/settings_center/DictionaryFormats.cs"/>
     <Compile Include="../../apps/settings_center/DictionaryStore.cs"/>
     <Compile Include="../../apps/settings_center/UserLexiconClient.cs"/>

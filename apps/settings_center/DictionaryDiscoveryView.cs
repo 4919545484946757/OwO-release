@@ -20,7 +20,10 @@ internal sealed class DictionaryDiscoveryView : UserControl
     private readonly Dictionary<string, Button> _downloadButtons = new();
     private readonly TextBlock _description = new() { TextWrapping = TextWrapping.Wrap };
     private readonly Action<string, InfoBarSeverity> _reportStatus;
-    private readonly ProgressBar _progress = new() { Minimum = 0, Maximum = 100, Visibility = Visibility.Collapsed };
+    private readonly DownloadProgressView _downloadProgress = new("DictionaryDownload");
+    private readonly ProgressBar _progress = new() { IsIndeterminate = true, Visibility = Visibility.Collapsed };
+    private readonly Func<string, CancellationToken, DownloadOperation> _beginDownload;
+    private DownloadOperation? _download;
     private readonly Func<string, PreparedDictionary, Task> _import;
     private IReadOnlyList<DictionaryDownload> _downloads = [];
     private CancellationTokenSource? _operation;
@@ -29,9 +32,9 @@ internal sealed class DictionaryDiscoveryView : UserControl
     internal async Task EnsureLoadedAsync() {
         if (_source is not null && (!_started || _listing?.IsCancellationRequested == true || _downloads.Count == 0 && _listing is null && _operation is null)) await RefreshDirectoryAsync();
     }
-    internal void CancelPending() { _listing?.Cancel(); _operation?.Cancel(); }
-    internal DictionaryDiscoveryView(Func<string, PreparedDictionary, Task> import, Action<string, InfoBarSeverity> reportStatus) {
-        _import = import; _reportStatus = reportStatus;
+    internal void CancelPending() { _listing?.Cancel(); if (_download is null) _operation?.Cancel(); }
+    internal DictionaryDiscoveryView(Func<string, PreparedDictionary, Task> import, Action<string, InfoBarSeverity> reportStatus, Func<string, CancellationToken, DownloadOperation> beginDownload) {
+        _import = import; _reportStatus = reportStatus; _beginDownload = beginDownload;
         var body = _detailPage;
         for (var index = 0; index < 3; index++) body.RowDefinitions.Add(new() { Height = GridLength.Auto });
         body.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
@@ -47,7 +50,8 @@ internal sealed class DictionaryDiscoveryView : UserControl
         var settings = new StackPanel { Spacing = 10 }; settings.Children.Add(_description); settings.Children.Add(_maximum);
         var options = new Expander { Header = "来源说明与导入选项", Content = settings, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
         Grid.SetRow(options, 1); body.Children.Add(options);
-        Grid.SetRow(_progress, 2); body.Children.Add(_progress);
+        var progress = new StackPanel(); progress.Children.Add(_progress); progress.Children.Add(_downloadProgress);
+        Grid.SetRow(progress, 2); body.Children.Add(progress);
         var scroll = new ScrollViewer { Content = _items, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalScrollMode = ScrollMode.Disabled, HorizontalContentAlignment = HorizontalAlignment.Stretch };
         scroll.LayoutUpdated += (_, _) => {
             var width = scroll.ViewportWidth;
@@ -141,8 +145,10 @@ internal sealed class DictionaryDiscoveryView : UserControl
                 if (!double.IsFinite(_maximum.Value) || _maximum.Value < 1 || _maximum.Value > DictionaryStore.MaximumEntries) throw new InvalidDataException($"请填写 1–{DictionaryStore.MaximumEntries} 的选取上限。");
                 var accepted = await new ContentDialog { XamlRoot = XamlRoot, Title = "下载第三方词库", Content = new TextBlock { Text = $"来源：{item.Source.Name}\n许可：{item.Source.License}\n文件：{item.Name}\n\n请阅读上游许可。下载不表示已完成授权审查，也不会启用词库。仅选取设置上限内的数据，其余数量会在导入前明确显示。", TextWrapping = TextWrapping.Wrap }, PrimaryButtonText = "下载并转换", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close }.ShowAsync();
                 if (accepted != ContentDialogResult.Primary) return;
-                _progress.Visibility = Visibility.Visible; _progress.Value = 0; Notice("正在下载、核对并转换数据……");
-                var data = await _client.FetchAsync(item, (int)_maximum.Value, new Progress<double>(v => _progress.Value = v), token);
+                using var download = _beginDownload(item.Name, token); _download = download; _downloadProgress.Bind(download);
+                PreparedDictionary data;
+                try { data = await download.RunAsync(ct => _client.FetchAsync(item, (int)_maximum.Value, null, ct, download)); }
+                finally { _download = null; _downloadProgress.Bind(null); }
                 token.ThrowIfCancellationRequested(); await _import(item.Source.Name + " · " + item.Name, data);
             });
             var sourcePage = item.Source.Repository == "" ? "https://www.mdbg.net/chinese/dictionary?page=cedict" : "https://github.com/" + item.Source.Repository;
@@ -178,7 +184,7 @@ internal sealed class DictionaryDiscoveryView : UserControl
     }
     private async Task RunAsync(Func<CancellationToken, Task> action) {
         if (_operation is not null || _listing is not null) return;
-        using var operation = new CancellationTokenSource(TimeSpan.FromMinutes(15)); _operation = operation;
+        using var operation = new CancellationTokenSource(); _operation = operation;
         _back.IsEnabled = false; _maximum.IsEnabled = false; Render();
         try { await action(operation.Token); }
         catch (OperationCanceledException) { Notice("已取消或超时，未发布不完整词库。"); }

@@ -120,23 +120,33 @@ internal sealed class OnlineDistribution : IDisposable
         }
         return resources;
     }
-    internal async Task<string> DownloadAsync(OnlineAsset asset, string directory, IProgress<double>? progress, CancellationToken token) {
+    internal async Task<string> DownloadAsync(OnlineAsset asset, string directory, IProgress<double>? progress, CancellationToken token, DownloadOperation? operation = null) {
+        using var linked = operation is null ? null : CancellationTokenSource.CreateLinkedTokenSource(token, operation.Token);
+        token = linked?.Token ?? token;
         ValidateAsset(asset); Directory.CreateDirectory(directory);
         var destination = Path.Combine(directory, asset.Sha256.ToLowerInvariant()); Directory.CreateDirectory(destination);
         destination = Path.Combine(destination, asset.Name);
         var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".partial";
         try {
+            if (operation is not null) await operation.WaitIfPausedAsync(token);
             using var response = await GetAsync(asset.Url, token);
+            operation?.Report(0, asset.Size);
             if (response.Content.Headers.ContentLength is long length && length != asset.Size) throw new InvalidDataException("下载长度与发布信息不符。");
             await using var input = await response.Content.ReadAsStreamAsync(token);
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             await using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, true)) {
                 var buffer = new byte[65536]; long total = 0; int count;
-                while ((count = await input.ReadAsync(buffer, token)) != 0) {
+                while (true) {
+                    if (operation is not null) await operation.WaitIfPausedAsync(token);
+                    count = await input.ReadAsync(buffer, token);
+                    if (operation is not null) await operation.WaitIfPausedAsync(token);
+                    if (count == 0) break;
                     total += count; if (total > asset.Size) throw new InvalidDataException("下载超出声明大小。");
                     hash.AppendData(buffer, 0, count); await output.WriteAsync(buffer.AsMemory(0, count), token);
+                    operation?.Report(total, asset.Size);
                     progress?.Report((double)total / asset.Size * 100);
                 }
+                operation?.Processing();
                 if (total != asset.Size || !Convert.ToHexString(hash.GetHashAndReset()).Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("下载不完整或 SHA-256 校验失败。");
                 await output.FlushAsync(token);
             }

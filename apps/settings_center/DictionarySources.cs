@@ -44,8 +44,9 @@ internal sealed class DictionarySources : IDisposable
         if (prefix is not null && Sources.Where(s => s.Repository != "").Any(s => uri.AbsolutePath.StartsWith(prefix + s.Repository + "/", StringComparison.Ordinal))) return;
         throw new InvalidDataException("地址不属于精选上游白名单。");
     }
-    private async Task<byte[]> ReadAsync(Uri uri, int limit, IProgress<double>? progress, CancellationToken token, long expected = 0) {
+    private async Task<byte[]> ReadAsync(Uri uri, int limit, IProgress<double>? progress, CancellationToken token, long expected = 0, DownloadOperation? operation = null) {
         for (var redirects = 0; redirects < 6; redirects++) {
+            if (operation is not null) await operation.WaitIfPausedAsync(token);
             ValidateUrl(uri);
             using var response = await _http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, token);
             if ((int)response.StatusCode is >= 300 and < 400) {
@@ -54,12 +55,18 @@ internal sealed class DictionarySources : IDisposable
             }
             if (!response.IsSuccessStatusCode) throw new HttpRequestException($"上游 HTTP {(int)response.StatusCode}；可能限流或网络不可用，可稍后重试。");
             var length = response.Content.Headers.ContentLength;
+            operation?.Report(0, expected > 0 ? expected : length.GetValueOrDefault());
             if (length > limit || expected > 0 && length.HasValue && length != expected) throw new InvalidDataException("词库大小不符或超过限制。");
             using var output = new MemoryStream(); await using var stream = await response.Content.ReadAsStreamAsync(token);
             var buffer = new byte[65536]; int count;
-            while ((count = await stream.ReadAsync(buffer, token)) != 0) {
+            while (true) {
+                if (operation is not null) await operation.WaitIfPausedAsync(token);
+                count = await stream.ReadAsync(buffer, token);
+                if (operation is not null) await operation.WaitIfPausedAsync(token);
+                if (count == 0) break;
                 if (output.Length + count > limit) throw new InvalidDataException("下载超限。");
                 output.Write(buffer, 0, count);
+                operation?.Report(output.Length, expected > 0 ? expected : length.GetValueOrDefault());
                 if ((expected > 0 ? expected : length.GetValueOrDefault()) is var total && total > 0) progress?.Report(output.Length * 100.0 / total);
             }
             if (expected > 0 && output.Length != expected) throw new InvalidDataException("词库下载不完整。");
@@ -87,9 +94,12 @@ internal sealed class DictionarySources : IDisposable
         }
         return result;
     }
-    internal async Task<PreparedDictionary> FetchAsync(DictionaryDownload item, int maximum, IProgress<double>? progress, CancellationToken token) {
+    internal async Task<PreparedDictionary> FetchAsync(DictionaryDownload item, int maximum, IProgress<double>? progress, CancellationToken token, DownloadOperation? operation = null) {
+        using var linked = operation is null ? null : CancellationTokenSource.CreateLinkedTokenSource(token, operation.Token);
+        token = linked?.Token ?? token;
         if (maximum < 1 || maximum > DictionaryStore.MaximumEntries || !Sources.Contains(item.Source) || item.Size < 0 || item.Size > DownloadLimit) throw new InvalidDataException("下载或选取数量超限。");
-        var data = await ReadAsync(item.Url, DownloadLimit, progress, token, item.Size);
+        var data = await ReadAsync(item.Url, DownloadLimit, progress, token, item.Size, operation);
+        token.ThrowIfCancellationRequested(); operation?.Processing("正在校验并转换词库");
         var digest = Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
         if (item.Source.Id != "cedict") {
             var actual = digest;
@@ -101,7 +111,8 @@ internal sealed class DictionarySources : IDisposable
             if (!actual.Equals(item.Hash, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("词库内容与上游摘要不一致，请刷新目录重试。");
         }
         // CEDICT has HTTPS transport + local SHA-256 only, no upstream checksum.
-        return await Task.Run(() => Prepare(item, data, maximum, digest, token), token);
+        var result = await Task.Run(() => Prepare(item, data, maximum, digest, token), token);
+        token.ThrowIfCancellationRequested(); return result;
     }
     internal static PreparedDictionary Prepare(DictionaryDownload item, byte[] data, int maximum, string digest, CancellationToken token) {
         if (maximum < 1 || maximum > DictionaryStore.MaximumEntries) throw new InvalidDataException("选取数量无效。");

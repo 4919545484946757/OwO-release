@@ -39,7 +39,7 @@ internal sealed class DictionaryManager : UserControl
         internal bool Updating;
     }
     private bool _busy;
-    internal DictionaryManager(Action<string, InfoBarSeverity> reportStatus) {
+    internal DictionaryManager(Action<string, InfoBarSeverity> reportStatus, Func<string, CancellationToken, DownloadOperation> beginDownload) {
         _reportStatus = reportStatus;
         _catalogPage.RowDefinitions.Add(new() { Height = GridLength.Auto });
         _catalogPage.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
@@ -59,7 +59,7 @@ internal sealed class DictionaryManager : UserControl
                         $"上游有效行 {prepared.Available}；本次选取 {prepared.Data.Entries.Count}。\n未选取的其余数据不会被自动导入。\n{prepared.Provenance}");
                 });
                 ShowInstalled();
-            }, _reportStatus);
+            }, _reportStatus, beginDownload);
         Grid.SetRow(_refresh, 1); Grid.SetColumn(_refresh, 2); toolbar.Children.Add(_refresh);
         Grid.SetRow(_options, 1); Grid.SetColumn(_options, 1); toolbar.Children.Add(_options);
         AutomationProperties.SetAutomationId(_options, "DictionaryOptions");
