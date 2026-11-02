@@ -766,12 +766,12 @@
                         </Grid>
                     </ScrollViewer>
                 </Grid>
-                <Border Grid.Row="2" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Padding="0" MinHeight="84" MaxHeight="240" x:Name="FooterHost">
+                <Border Grid.Row="2" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Padding="0" x:Name="FooterHost">
                     <Grid x:Name="FooterContentArea" Margin="32,10">
                         <Grid ColumnSpacing="12" HorizontalAlignment="Stretch" MaxWidth="960">
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="64"/>
-                                <RowDefinition Height="Auto" MaxHeight="148"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
@@ -782,16 +782,8 @@
                             <Button x:Name="SaveButton" Content="保存" Click="SaveButton_Click"/>
                             <Button x:Name="ReloadButton" Grid.Column="1" Content="重新加载" Click="ReloadButton_Click"/>
                             <Button x:Name="ResetPageButton" Grid.Column="2" Content="重置本页" Click="ResetPageButton_Click"/>
-                            <InfoBar x:Name="Status" Grid.Column="3" Height="64" IsOpen="True" Severity="Informational" Message="正在加载配置" IsClosable="True" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="SettingsWindowStatus" AutomationProperties.LiveSetting="Polite">
-                                <InfoBar.Resources>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="MaxLines" Value="2"/>
-                                        <Setter Property="LineHeight" Value="16"/>
-                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
-                                    </Style>
-                                </InfoBar.Resources>
-                            </InfoBar>
-                            <ContentControl x:Name="WindowDownloadHost" Grid.Row="1" Grid.ColumnSpan="4" MaxHeight="144" Margin="0,4,0,0" Visibility="Collapsed" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="SettingsWindowDownloads"/>
+                            <InfoBar x:Name="Status" Grid.Column="3" IsOpen="True" Severity="Informational" Message="正在加载配置" IsClosable="True" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="SettingsWindowStatus" AutomationProperties.LiveSetting="Polite"/>
+                            <ContentControl x:Name="WindowDownloadHost" Grid.Row="1" Grid.ColumnSpan="4" Visibility="Collapsed" HorizontalContentAlignment="Stretch" AutomationProperties.AutomationId="SettingsWindowDownloads"/>
                             <TextBlock x:Name="ConfigPath" Visibility="Collapsed"/>
                         </Grid>
                     </Grid>

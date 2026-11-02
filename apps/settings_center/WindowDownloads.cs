@@ -13,7 +13,7 @@ internal sealed class WindowDownloads
     private bool _closed;
     internal WindowDownloads(ContentControl host, Action<string, InfoBarSeverity> notify) {
         _host = host; _notify = notify;
-        host.Content = new ScrollViewer { Content = _rows, MaxHeight = 144, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        host.Content = new ScrollViewer { Content = _rows, MaxHeight = 180, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             HorizontalScrollMode = ScrollMode.Disabled, HorizontalContentAlignment = HorizontalAlignment.Stretch };
     }
     internal DownloadOperation Start(string fileName, CancellationToken token) {
