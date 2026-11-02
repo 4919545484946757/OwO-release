@@ -55,6 +55,28 @@ int main(int argc, char** argv) {
     { std::ofstream file(sources, std::ios::binary); file << "OWO_DICTIONARY_SOURCES_V1\nbase\t0\nuser\tbad\n"; }
     model.refresh(true);
     if (model.diagnostic().empty() || !model.base_enabled() || !model.user_enabled()) return 17;
+    // Mirror Core's disabled-base route with BOTH built-in sources off.
+    // Imported entries must not accidentally depend on learned data or base
+    // characters. Keep the user's real dictionary and config out of this test.
+    publish(b, "OWO_DICTIONARIES_V1\nceshiciku\t测试词库\t32\nceshi\t测试\t12\nci\t词\t4\nku\t库\t4\ncs\t测试词库\t16\n");
+    { std::ofstream file(sources, std::ios::binary); file << "OWO_DICTIONARY_SOURCES_V1\nbase\t0\nuser\t0\n"; }
+    if (!model.refresh(true) || model.base_enabled() || model.user_enabled()) return 20;
+    const owo::engine::MemoryLexicon empty({});
+    const owo::engine::CandidateGenerator standalone(empty, nullptr, &model);
+    const auto contains = [&](const std::string& input, const std::string& word) {
+        const auto found = standalone.generate(schema.parse(input), 20);
+        return std::any_of(found.begin(), found.end(), [&](const auto& candidate) { return candidate.text == word; });
+    };
+    if (!contains("ceshiciku", "测试词库") || !contains("ce'shi'ci'ku", "测试词库") ||
+        !contains("ceshi", "测试") || !contains("ci", "词") || !contains("cs", "测试词库")) return 21;
+    if (contains("nihao", "你好") || model.score("测试词库")) return 22;
+    // Report actual capability boundaries, not an assumption that the import
+    // overlay is a full Lexicon (it currently has no general initial index).
+    std::cout << "Imported-only: exact/explicit-boundary/explicit-alias passed; implicit-initials="
+              << contains("csck", "测试词库") << "; mixed=" << contains("ceshick", "测试词库")
+              << "; composed=" << contains("ciku", "词库") << '\n';
+    { std::ofstream file(sources, std::ios::binary); file << "OWO_DICTIONARY_SOURCES_V1\nbase\t1\nuser\t1\n"; }
+    if (!model.refresh(true) || !model.base_enabled() || !model.user_enabled()) return 23;
     publish(c, "OWO_DICTIONARIES_V1\nbad1\t非法编码\t1\n");
     if (!model.refresh(true) || model.diagnostic().empty() || model.lookup("ceshiciku", 10).size() != 1) return 11;
     { std::ofstream pointer(root / "current"); pointer << "../../outside"; }

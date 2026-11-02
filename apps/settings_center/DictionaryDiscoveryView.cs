@@ -6,7 +6,12 @@ namespace OwO_Settings;
 internal sealed class DictionaryDiscoveryView : UserControl
 {
     private readonly DictionarySources _client = new();
-    private readonly ComboBox _source = new() { Header = "词库来源", ItemsSource = DictionarySources.Sources, DisplayMemberPath = "Name", SelectedIndex = 0, HorizontalAlignment = HorizontalAlignment.Stretch };
+    private DictionarySource? _source;
+    private readonly Grid _sourcePage = new() { RowSpacing = 12 };
+    private readonly Grid _sourceCards = new() { ColumnSpacing = 12, RowSpacing = 12 };
+    private readonly Grid _detailPage = new() { RowSpacing = 12, Visibility = Visibility.Collapsed };
+    private readonly TextBlock _sourceTitle = new() { FontSize = 18, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+    private readonly Button _back = new() { Content = "返回词库来源" };
     private readonly TextBox _search = new() { PlaceholderText = "搜索当前来源的词库名称、文件名或分类" };
     private readonly NumberBox _maximum = new() { Header = "本次最多选取词条（按文件顺序，不代表质量排名）", Minimum = 1, Maximum = DictionaryStore.MaximumEntries, Value = 50000, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Inline };
     private readonly Grid _items = new() { ColumnSpacing = 12, RowSpacing = 12 };
@@ -14,7 +19,7 @@ internal sealed class DictionaryDiscoveryView : UserControl
     private readonly Dictionary<string, Grid> _cardCache = new();
     private readonly Dictionary<string, Button> _downloadButtons = new();
     private readonly TextBlock _description = new() { TextWrapping = TextWrapping.Wrap };
-    private readonly InfoBar _status = new() { IsOpen = true, IsClosable = false, Message = "切换来源自动获取目录，不上传输入、配置或本机词库。" };
+    private readonly InfoBar _status = new() { IsOpen = true, IsClosable = false };
     private readonly ProgressBar _progress = new() { Minimum = 0, Maximum = 100, Visibility = Visibility.Collapsed };
     private readonly Func<string, PreparedDictionary, Task> _import;
     private IReadOnlyList<DictionaryDownload> _downloads = [];
@@ -22,20 +27,22 @@ internal sealed class DictionaryDiscoveryView : UserControl
     private CancellationTokenSource? _listing;
     private bool _started;
     internal async Task EnsureLoadedAsync() {
-        if (!_started || _listing?.IsCancellationRequested == true || _downloads.Count == 0 && _listing is null && _operation is null) await RefreshDirectoryAsync();
+        if (_source is not null && (!_started || _listing?.IsCancellationRequested == true || _downloads.Count == 0 && _listing is null && _operation is null)) await RefreshDirectoryAsync();
     }
     internal void CancelPending() { _listing?.Cancel(); _operation?.Cancel(); }
     internal DictionaryDiscoveryView(Func<string, PreparedDictionary, Task> import) {
         _import = import;
-        var body = new Grid { RowSpacing = 12 };
+        var body = _detailPage;
         for (var index = 0; index < 4; index++) body.RowDefinitions.Add(new() { Height = GridLength.Auto });
         body.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
         var toolbar = new Grid { ColumnSpacing = 12, RowSpacing = 8 };
         toolbar.RowDefinitions.Add(new() { Height = GridLength.Auto }); toolbar.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        toolbar.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         toolbar.ColumnDefinitions.Add(new() { Width = new GridLength(1, GridUnitType.Star) });
         toolbar.ColumnDefinitions.Add(new() { Width = new GridLength(2, GridUnitType.Star) });
-        _source.Header = null; _search.VerticalAlignment = VerticalAlignment.Bottom;
-        toolbar.Children.Add(_source); Grid.SetColumn(_search, 1); toolbar.Children.Add(_search);
+        _search.VerticalAlignment = VerticalAlignment.Bottom;
+        toolbar.Children.Add(_back); Grid.SetColumn(_sourceTitle, 1); toolbar.Children.Add(_sourceTitle);
+        Grid.SetRow(_search, 1); Grid.SetColumnSpan(_search, 3); toolbar.Children.Add(_search);
         body.Children.Add(toolbar);
         var settings = new StackPanel { Spacing = 10 }; settings.Children.Add(_description); settings.Children.Add(_maximum);
         var options = new Expander { Header = "来源说明与导入选项", Content = settings, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch };
@@ -49,24 +56,60 @@ internal sealed class DictionaryDiscoveryView : UserControl
             }
         };
         _items.SizeChanged += (_, _) => DictionaryCardLayout.Arrange(_items);
-        Grid.SetRow(scroll, 4); body.Children.Add(scroll); Content = body;
-        _source.SelectionChanged += async (_, _) => {
-            _downloads = []; _cardCache.Clear(); _downloadButtons.Clear(); Render(); Describe();
-            if (IsLoaded) await RefreshDirectoryAsync();
+        Grid.SetRow(scroll, 4); body.Children.Add(scroll);
+        BuildSourcePage();
+        var pages = new Grid(); pages.Children.Add(_sourcePage); pages.Children.Add(_detailPage); Content = pages;
+        _back.Click += (_, _) => {
+            CancelPending(); _source = null; _started = false;
+            _detailPage.Visibility = Visibility.Collapsed; _sourcePage.Visibility = Visibility.Visible;
         };
         _search.TextChanged += (_, _) => Render(); Describe();
         Unloaded += (_, _) => CancelPending();
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_source, "DictionarySourceSelector");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_back, "DictionarySourceBack");
+    }
+    private void BuildSourcePage() {
+        _sourcePage.RowDefinitions.Add(new() { Height = GridLength.Auto });
+        _sourcePage.RowDefinitions.Add(new() { Height = new GridLength(1, GridUnitType.Star) });
+        _sourcePage.Children.Add(new TextBlock { Text = "选择词库来源", FontSize = 20 });
+        foreach (var source in DictionarySources.Sources) {
+            var content = new StackPanel { Spacing = 10 };
+            content.Children.Add(new SymbolIcon(Symbol.Library) { HorizontalAlignment = HorizontalAlignment.Left });
+            content.Children.Add(new TextBlock { Text = source.Name, FontSize = 18, TextWrapping = TextWrapping.Wrap, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis });
+            content.Children.Add(new TextBlock { Text = source.Description, TextWrapping = TextWrapping.Wrap, MaxLines = 3, TextTrimming = TextTrimming.CharacterEllipsis, Opacity = 0.75 });
+            content.Children.Add(new TextBlock { Text = source.License, FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis, Opacity = 0.7 });
+            var card = new Button { Content = content, Height = DictionaryCardLayout.Height, Padding = new(16), CornerRadius = new(10), MinWidth = 0,
+                HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Top };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(card, "DictionarySource_" + source.Id);
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(card, source.Name);
+            ToolTipService.SetToolTip(card, source.Description + "\n许可：" + source.License);
+            card.Click += async (_, _) => {
+                CancelPending(); _source = source; _started = false;
+                _downloads = []; _cardCache.Clear(); _downloadButtons.Clear(); _search.Text = "";
+                _sourceTitle.Text = source.Name; Describe(); Render();
+                _sourcePage.Visibility = Visibility.Collapsed; _detailPage.Visibility = Visibility.Visible;
+                await RefreshDirectoryAsync();
+            };
+            _sourceCards.Children.Add(card);
+        }
+        var scroll = new ScrollViewer { Content = _sourceCards, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, HorizontalScrollMode = ScrollMode.Disabled, HorizontalContentAlignment = HorizontalAlignment.Stretch };
+        scroll.LayoutUpdated += (_, _) => {
+            var width = scroll.ViewportWidth;
+            if (width > 0 && double.IsFinite(width) && (double.IsNaN(_sourceCards.Width) || Math.Abs(_sourceCards.Width - width) > 0.5)) {
+                _sourceCards.Width = width; DictionaryCardLayout.Arrange(_sourceCards);
+            }
+        };
+        _sourceCards.SizeChanged += (_, _) => DictionaryCardLayout.Arrange(_sourceCards);
+        Grid.SetRow(scroll, 1); _sourcePage.Children.Add(scroll);
     }
     private async Task RefreshDirectoryAsync() {
+        if (_source is not { } source) return;
         _listing?.Cancel();
         using var request = new CancellationTokenSource(TimeSpan.FromSeconds(40)); _listing = request; _started = true;
-        var source = (DictionarySource)_source.SelectedItem;
         _downloads = []; Render(); Notice($"{source.Name} · 正在获取目录……");
         _progress.IsIndeterminate = true; _progress.Visibility = Visibility.Visible;
         try {
             var files = await _client.ListAsync(source, request.Token);
-            if (!ReferenceEquals(_listing, request) || request.IsCancellationRequested || !Equals(_source.SelectedItem, source)) return;
+            if (!ReferenceEquals(_listing, request) || request.IsCancellationRequested || !Equals(_source, source)) return;
             _downloads = files; Notice($"{source.Name} · 已获取 {files.Count} 个数据文件。");
         } catch (OperationCanceledException) {
             if (ReferenceEquals(_listing, request)) Notice("目录请求已取消或超时，可切换来源重试。");
@@ -77,7 +120,7 @@ internal sealed class DictionaryDiscoveryView : UserControl
         }
     }
     private void Describe() {
-        if (_source.SelectedItem is DictionarySource source) _description.Text = $"{source.Description}\n许可：{source.License}\nGitHub 文件核对上游摘要；CC-CEDICT 仅 HTTPS 与本地摘要，无上游独立校验和。\n导入频率统一为中性权重 1，不伪造为个人学习记录。";
+        if (_source is { } source) _description.Text = $"{source.Description}\n许可：{source.License}\nGitHub 文件核对上游摘要；CC-CEDICT 仅 HTTPS 与本地摘要，无上游独立校验和。\n导入频率统一为中性权重 1，不伪造为个人学习记录。";
     }
     private void Notice(string message, InfoBarSeverity severity = InfoBarSeverity.Informational) { _status.Message = message; _status.Severity = severity; }
     private void Render() {
@@ -136,10 +179,10 @@ internal sealed class DictionaryDiscoveryView : UserControl
     private async Task RunAsync(Func<CancellationToken, Task> action) {
         if (_operation is not null || _listing is not null) return;
         using var operation = new CancellationTokenSource(TimeSpan.FromMinutes(15)); _operation = operation;
-        _source.IsEnabled = false; _maximum.IsEnabled = false; Render();
+        _back.IsEnabled = false; _maximum.IsEnabled = false; Render();
         try { await action(operation.Token); }
         catch (OperationCanceledException) { Notice("已取消或超时，未发布不完整词库。"); }
-        catch (Exception error) { Notice(error.Message + " 可刷新目录后重试。", InfoBarSeverity.Error); }
-        finally { _operation = null; _source.IsEnabled = true; _maximum.IsEnabled = true; _progress.Visibility = Visibility.Collapsed; Render(); }
+        catch (Exception error) { Notice(error.Message + " 可返回来源重新进入后重试。", InfoBarSeverity.Error); }
+        finally { _operation = null; _back.IsEnabled = true; _maximum.IsEnabled = true; _progress.Visibility = Visibility.Collapsed; Render(); }
     }
 }
