@@ -31,8 +31,8 @@ int main() {
     const auto second = lexicon.lookup_texts(std::vector<std::string_view>{"pa"});
     bigram.set(std::string(first.back().text), std::string(second.back().text), 100000);
     const FullPinyinSchema schema;
-    const auto parsed = schema.parse("ba'pa'ma'fa", 32, false);
-    for (const bool contextual : {false, true}) {
+    for (const auto count : {4U, 8U}) for (const bool contextual : {false, true}) {
+        const auto parsed = schema.parse(count == 4 ? "ba'pa'ma'fa" : "ba'pa'ma'fa'ba'pa'ma'fa", 32, false);
         const BigramModel* model = contextual ? &bigram : nullptr;
         CandidateGenerator generator(lexicon, model);
         // Deliberately materialize and sort every transition as an independent
@@ -41,8 +41,10 @@ int main() {
         if (std::count_if(parsed.paths.begin(), parsed.paths.end(), [](const auto& path) {
                 return path.match_kind == InputMatchKind::exact;
             }) > 1)
-            reference.front().score = kCandidatePreferredExactSegmentationBonus;
-        for (const auto& reading : readings) {
+            reference.front().score = kCandidatePreferredExactSegmentationBonus /
+                static_cast<std::int64_t>(count > 5 ? count - 4 : 1);
+        for (std::size_t step = 0; step < count; ++step) {
+            const auto& reading = readings[step % readings.size()];
             const std::vector<std::string_view> key{reading};
             const auto matches = lexicon.lookup_texts(key);
             std::vector<State> expanded;
@@ -74,7 +76,7 @@ int main() {
             return 1;
         }
         auto initials = parsed;
-        initials.normalized_input = "bpmf";
+        initials.normalized_input = count == 4 ? "bpmf" : "bpmfbpmf";
         initials.paths.clear(); // Exercise the dedicated initial-sequence beam.
         for (const auto* source : {&parsed, static_cast<const ParseResult*>(&initials)}) {
             CandidateGenerationMetrics interrupted;

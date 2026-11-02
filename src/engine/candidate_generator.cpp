@@ -153,6 +153,15 @@ public:
         return score;
     }
 
+    bool dominant(std::span<const std::string_view> reading, std::string_view text) {
+        std::uint32_t frequency = 0, maximum = 0;
+        for (const auto& entry : lookup(reading)) {
+            maximum = std::max(maximum, entry.frequency);
+            if (entry.text == text) frequency = std::max(frequency, entry.frequency);
+        }
+        return frequency != 0 && frequency == maximum;
+    }
+
 private:
     static Reading own_reading(std::span<const std::string_view> reading) {
         Reading key;
@@ -1423,8 +1432,16 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         SearchState initial;
         initial.score = -candidate_input_match_penalty(path) +
                         source_initial_bonus(parsed, path);
-        if (exact_path_count > 1 && &path == preferred_exact_path)
-            initial.score += kPreferredExactSegmentationBonus;
+        if (exact_path_count > 1 && &path == preferred_exact_path) {
+            // Parser order is a useful short-reading prior, not lexical
+            // evidence for every word in a sentence. Taper it for longer
+            // readings so a shifted vowel boundary cannot pin a weak chain
+            // above a much stronger alternative for the entire composition.
+            // Up to a four-character phrase plus a standalone character keeps
+            // the existing short-input policy, including wan'an/xian'jie'dao.
+            const auto scale = path.syllables.size() > 5 ? path.syllables.size() - 4 : 1;
+            initial.score += kPreferredExactSegmentationBonus / static_cast<std::int64_t>(scale);
+        }
         chart[0].push_back(std::move(initial));
         const std::size_t beam_width = long_ambiguous_input
             ? path.match_kind == InputMatchKind::exact
@@ -1905,14 +1922,36 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         best[0] = 0;
         std::vector<bool> dictionary_chain(character_count + 1, false);
         dictionary_chain[0] = true;
+        std::optional<std::size_t> dominant_character;
+        if (candidate.match_kind == InputMatchKind::exact && candidate.segment_lengths.size() >= 2 &&
+            std::count(candidate.segment_lengths.begin(), candidate.segment_lengths.end(), 1) == 1) {
+            std::size_t position = 0;
+            for (const auto length : candidate.segment_lengths) {
+                if (length == 1) {
+                    const std::array<std::string_view, 1> reading{candidate.syllables[position]};
+                    if (lookup_cache.dominant(reading, std::string_view(candidate.text).substr(
+                            boundaries[position], boundaries[position + 1] - boundaries[position])))
+                        dominant_character = position;
+                    break;
+                }
+                position += length;
+            }
+        }
         const auto maximum_phrase = std::min(
             {kMaximumPhraseCharacters, character_count,
              lexicon_.maximum_reading_length()});
         for (std::size_t begin = 0; begin < character_count; ++begin) {
             if (best[begin] == unreachable) continue;
+            // A single dominant standalone character alongside real words
+            // is a legitimate construction, even without an overlapping
+            // dictionary bigram. Keep half the unsupported-character cost:
+            // this is bounded evidence, not a prefix whitelist or a free edge
+            // for arbitrary character permutations.
+            const auto uncovered_penalty = dominant_character == begin
+                ? kUncoveredBoundaryCharacterPenalty / 2 : kUncoveredBoundaryCharacterPenalty;
             best[begin + 1] = std::max(
                 best[begin + 1],
-                best[begin] - kUncoveredBoundaryCharacterPenalty);
+                best[begin] - uncovered_penalty);
             std::vector<std::string_view> reading;
             reading.reserve(maximum_phrase);
             for (std::size_t end = begin + 1;
@@ -2081,6 +2120,18 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         return score_less(left, right);
     };
     std::sort(full.begin(), full.end(), sentence_less);
+    // Compare complete alternative readings before sentence pruning as well
+    // as after layout. Otherwise a stronger score can be discarded by the
+    // coverage-density tier and the final partition merger cannot recover it.
+    // Reuse the existing stable scoring band; keep within-reading homophone
+    // ordering, hidden-tail handling and destination-slot metadata consistent.
+    // Legacy (unpartitioned) long-sentence pruning keeps its stricter quality
+    // gate; only short alternative readings need the same early comparison.
+    const bool short_exact_reading = std::any_of(full.begin(), full.end(), [](const Candidate& value) {
+        return value.match_kind == InputMatchKind::exact && value.syllables.size() <= 5;
+    });
+    if (phonetic_assistance && (partition_page_size != 0 || short_exact_reading))
+        rank_full_input_segmentations(full, full_input_bytes);
     // A pinyin boundary interpretation is a source, not a homophone. Count
     // only word-backed, near-score sources already produced by the bounded
     // search; never turn every parser path or character product into a quota.
@@ -2099,21 +2150,12 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             candidate.segment_lengths.back() < 2 ||
             candidate.segment_lengths.back() + 1 != candidate.syllables.size()) return false;
         const auto head = utf8_first_character(candidate.text);
-        const auto dominant = [&lookup_cache](std::span<const std::string_view> reading,
-                                              std::string_view text) {
-            std::uint32_t frequency = 0, maximum = 0;
-            for (const auto& entry : lookup_cache.lookup(reading)) {
-                maximum = std::max(maximum, entry.frequency);
-                if (entry.text == text) frequency = std::max(frequency, entry.frequency);
-            }
-            return frequency != 0 && frequency == maximum;
-        };
         const std::array<std::string_view, 1> head_reading{candidate.syllables.front()};
-        if (!dominant(head_reading, head)) return false;
+        if (!lookup_cache.dominant(head_reading, head)) return false;
         std::vector<std::string_view> tail_reading;
         for (std::size_t i = 1; i < candidate.syllables.size(); ++i)
             tail_reading.push_back(candidate.syllables[i]);
-        return dominant(tail_reading, std::string_view(candidate.text).substr(head.size()));
+        return lookup_cache.dominant(tail_reading, std::string_view(candidate.text).substr(head.size()));
     };
     for (const auto& candidate : full) {
         if (candidate.consumed_input_bytes != full_input_bytes || candidate.syllables.size() < 3 ||

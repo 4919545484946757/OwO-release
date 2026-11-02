@@ -167,5 +167,29 @@ int main(int argc, char **argv) {
         non_phonetic, 48, false, {}, nullptr, {}, true, 7);
     if (non_phonetic_values.empty() || std::any_of(non_phonetic_values.begin(), non_phonetic_values.end(),
             [](const auto& value) { return value.shortest_segmentation_bonus != 0; })) return 9;
+    // Dominance comes from the installed lexicon, not a hardcoded prefix.
+    // Complete word coverage in ji'ang must not erase a higher-scoring jiang
+    // character + words reading before the final partition comparison.
+    for (const bool reverse_frequency : {false, true}) {
+        const MemoryLexicon command_lexicon({
+            {{"jiang"}, "将", reverse_frequency ? 1000U : 10000000U},
+            {{"jiang"}, "江", reverse_frequency ? 10000000U : 1000U},
+            {{"ji", "ang"}, "激昂", 500000},
+            {{"pei", "zhi"}, "配置", 100000}, {{"pei", "zhi"}, "配制", 50000},
+            {{"bao", "cun"}, "保存", 500000}});
+        for (const auto& input : {"jiangpeizhi", "jiang'pei'zhi", "jiangpeizhibaocun"})
+            for (const auto page : {0U, 5U, 7U, 9U}) for (const auto limit : {8U, 18U, 48U})
+                for (const bool model : {false, true}) {
+                    auto expected = std::string(reverse_frequency ? "江配置" : "将配置");
+                    if (std::string_view(input).ends_with("baocun")) expected += "保存";
+                    const auto values = CandidateGenerator(command_lexicon).generate(
+                        schema.parse(input, 32, false), limit, false, {}, nullptr, {}, model, page);
+                    if (values.empty() || values.front().text != expected || values.front().model_only ||
+                        values.front().consumed_input_bytes != std::string_view(input).size()) {
+                        std::cerr << "Dominant standalone character + words lost: " << input << '\n';
+                        return 10;
+                    }
+                }
+    }
     return 0;
 }

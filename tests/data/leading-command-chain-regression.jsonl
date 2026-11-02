@@ -1,0 +1,16 @@
+{"id":"retain-change-upload","input":"baoliudangqiangaidongbingdabaoshangchuan","expected":["保留当前改动并打包上传"],"tags":["long-chain"]}
+{"id":"retain-change-upload-explicit","input":"bao'liu'dang'qian'gai'dong'bing'da'bao'shang'chuan","expected":["保留当前改动并打包上传"],"tags":["long-chain","explicit"]}
+{"id":"retain-change","input":"baoliudangqiangaidong","expected":["保留当前改动"],"tags":["chain"]}
+{"id":"retain-current","input":"baoliudangqian","expected":["保留当前"],"tags":["chain"]}
+{"id":"change-upload","input":"gaidongbingdabaoshangchuan","expected":["改动并打包上传"],"tags":["chain"]}
+{"id":"leading-configure","input":"jiangpeizhi","expected":["将配置"],"tags":["leading-character","ambiguous"]}
+{"id":"leading-configure-explicit","input":"jiang'pei'zhi","expected":["将配置"],"tags":["leading-character","explicit"]}
+{"id":"leading-save-config","input":"jiangpeizhibaocun","expected":["将配置保存"],"tags":["leading-character","chain"]}
+{"id":"leading-save-file","input":"jiangwenjianbaocun","expected":["将文件保存"],"tags":["leading-character","chain"]}
+{"id":"leading-upload-file","input":"jiangwenjianshangchuan","expected":["将文件上传"],"tags":["leading-character","chain"]}
+{"id":"leading-delete-config","input":"shanchudangqianpeizhi","expected":["删除当前配置"],"tags":["chain"]}
+{"id":"leading-keep-config","input":"baoliudangqianpeizhi","expected":["保留当前配置"],"tags":["chain"]}
+{"id":"leading-want-all","input":"yaoquanbu","expected":["要全部"],"tags":["leading-character","guard"]}
+{"id":"leading-read-configuration","input":"duqupeizhi","expected":["读取配置"],"tags":["guard"]}
+{"id":"intact-excited-word","input":"ji'ang","expected":["激昂"],"tags":["explicit","guard"]}
+{"id":"intact-current-word","input":"dangqian","expected":["当前"],"tags":["guard"]}
