@@ -642,7 +642,7 @@
                                     <TextBlock x:Name="PluginSummary" Text="正在读取本机插件……" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                     <SelectorBar x:Name="PluginTabs" SelectionChanged="PluginTabs_SelectionChanged">
                                         <SelectorBarItem x:Name="InstalledPluginsTab" Text="已安装" IsSelected="True"/>
-                                        <SelectorBarItem x:Name="DiscoverPluginsTab" Text="发现插件"/>
+                                        <SelectorBarItem x:Name="DiscoverPluginsTab" Text="下载插件"/>
                                         <SelectorBarItem Text="恢复与维护"/>
                                     </SelectorBar>
                                     <TextBox x:Name="PluginSearch" PlaceholderText="搜索插件名称、ID、版本或权限" TextChanged="PluginSearch_TextChanged" AutomationProperties.AutomationId="PluginManagerSearch"/>
