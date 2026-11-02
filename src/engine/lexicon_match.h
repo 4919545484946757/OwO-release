@@ -107,8 +107,10 @@ inline std::optional<std::vector<std::string>> mixed_abbreviation_segments(
 }
 
 inline void retain_best_mixed_matches(std::vector<AbbreviatedLexiconMatch>& matches,
-                                      const std::size_t limit) {
-    std::sort(matches.begin(), matches.end(), [](const auto& left, const auto& right) {
+                                      const std::size_t limit, const bool initial_frequency = false) {
+    std::sort(matches.begin(), matches.end(), [initial_frequency](const auto& left, const auto& right) {
+        if (initial_frequency && left.entry.frequency != right.entry.frequency)
+            return left.entry.frequency > right.entry.frequency;
         const auto all_initials = [](const auto& match) {
             return std::all_of(match.source_segments.begin(),
                                match.source_segments.end(),
@@ -155,8 +157,13 @@ inline void retain_best_mixed_matches(std::vector<AbbreviatedLexiconMatch>& matc
 
 inline void retain_best_mixed_matches(
     std::vector<AbbreviatedLexiconTextMatch>& matches,
-    const std::size_t limit) {
-    std::sort(matches.begin(), matches.end(), [](const auto& left, const auto& right) {
+    const std::size_t limit, const bool initial_frequency = false) {
+    std::sort(matches.begin(), matches.end(), [initial_frequency](const auto& left, const auto& right) {
+        // A two-consonant query supplies no vowel-length preference. Do not
+        // erase frequent long readings before bounded sentence ranking sees
+        // them. This mode is used only by the dedicated two-initial bucket.
+        if (initial_frequency && left.frequency != right.frequency)
+            return left.frequency > right.frequency;
         const auto all_initials = [](const auto& match) {
             return std::all_of(match.source_segments.begin(),
                                match.source_segments.end(),

@@ -113,7 +113,8 @@ std::vector<AbbreviatedLexiconMatch> MemoryLexicon::lookup_mixed_abbreviation(
             matches.push_back({entry, *segments});
         }
     }
-    detail::retain_best_mixed_matches(matches, limit);
+    detail::retain_best_mixed_matches(matches, limit,
+        input.size() == 2 && input.find_first_of("aeiouv") == std::string_view::npos);
     return matches;
 }
 
@@ -141,7 +142,8 @@ MemoryLexicon::lookup_mixed_abbreviation_texts(
         matches.push_back({std::move(syllables), entry.text, entry.frequency,
                            std::move(segments)});
     }
-    detail::retain_best_mixed_matches(matches, limit);
+    detail::retain_best_mixed_matches(matches, limit,
+        input.size() == 2 && input.find_first_of("aeiouv") == std::string_view::npos);
     return matches;
 }
 

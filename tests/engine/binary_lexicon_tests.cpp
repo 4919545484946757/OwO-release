@@ -104,6 +104,23 @@ int main() {
             std::vector<std::string>{"ni", "hao"}) return 1;
 
     auto corrupted = left_bytes;
+    const auto initial_file = std::filesystem::temp_directory_path() / "owo-lexicon-initial-priority.bin";
+    std::vector<owo::engine::LexiconEntry> initial_entries{{{"xiang", "fa"}, "想法", 5000}};
+    for (unsigned index = 0; index < 300; ++index)
+        initial_entries.push_back({{"xi", "fu"}, "短读音" + std::to_string(index), 1000});
+    const owo::engine::MemoryLexicon initial_memory(initial_entries);
+    if (!owo::engine::write_binary_lexicon(initial_file, initial_entries).success) return 8;
+    owo::engine::BinaryLexicon initial_binary;
+    if (!initial_binary.load(initial_file).success) return 8;
+    for (const auto* source : std::vector<const owo::engine::Lexicon*>{&initial_memory, &initial_binary}) {
+        const auto views = source->lookup_mixed_abbreviation_texts("xf", 1);
+        const auto owned = source->lookup_mixed_abbreviation("xf", 1);
+        if (views.size() != 1 || owned.size() != 1 || views[0].text != "想法" || owned[0].entry.text != "想法" ||
+            views[0].source_segments != std::vector<std::string>{"x", "f"}) return 9;
+        const std::vector<std::string_view> complete_reading{"xi", "fu"};
+        const auto complete = source->lookup_texts(complete_reading);
+        if (complete.size() != 300 || complete[0].frequency != 1000) return 10;
+    }
     // Without an installer-created validation cache, V2 verifies its payload
     // checksum and rejects content corruption.
     corrupted.back() ^= 1;

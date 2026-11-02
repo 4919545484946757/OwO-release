@@ -1119,6 +1119,7 @@ BinaryLexicon::lookup_mixed_abbreviation_texts(
                                      ? (std::numeric_limits<std::size_t>::max)()
                                      : limit * 4;
     if (input.size() == 2) {
+        const bool initial_frequency = input.find_first_of("aeiouv") == std::string_view::npos;
         const auto syllable_count = mapped_entries_ != nullptr
                                         ? mapped_syllable_count_
                                         : syllables_.size();
@@ -1156,7 +1157,7 @@ BinaryLexicon::lookup_mixed_abbreviation_texts(
                     entry, {std::string(1, input[0]),
                             std::string(1, input[1])}));
                 if (matches.size() >= prune_threshold)
-                    detail::retain_best_mixed_matches(matches, limit);
+                    detail::retain_best_mixed_matches(matches, limit, initial_frequency);
             };
             if (mapped_entries_ != nullptr) {
                 for (auto index = bucket_begin; index != bucket_end; ++index) {
@@ -1168,7 +1169,7 @@ BinaryLexicon::lookup_mixed_abbreviation_texts(
                     append_entry(entry_index);
             }
         }
-        detail::retain_best_mixed_matches(matches, limit);
+        detail::retain_best_mixed_matches(matches, limit, initial_frequency);
         return matches;
     }
     std::unordered_set<std::uint32_t> visited_entries;

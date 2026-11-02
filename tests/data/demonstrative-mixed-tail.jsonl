@@ -1,0 +1,6 @@
+{"id":"propose-idea","input":"tichuzhegexf","expected":["提出这个想法"]}
+{"id":"propose-idea-full","input":"tichuzhegexiangfa","expected":["提出这个想法"]}
+{"id":"propose-idea-explicit","input":"ti'chu'zhe'ge'xf","expected":["提出这个想法"]}
+{"id":"accept-idea","input":"jieshouzhegexf","expected":["接受这个想法"]}
+{"id":"have-idea","input":"youzhegexf","expected":["有这个想法"]}
+{"id":"one-idea","input":"yigexf","expected":["一个想法"]}
