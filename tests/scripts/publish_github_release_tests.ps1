@@ -16,7 +16,7 @@ function Run-Plan([bool]$success) {
     # Windows PowerShell turns redirected native stderr into error records.
     # Negative cases deliberately emit these; assert the exit code instead.
     $ErrorActionPreference = 'Continue'
-    $result = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Version $version -ReleaseDirectory $fixture 2>&1
+    $result = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Version $version -ReleaseDirectory $fixture -ReleaseNotesFile (Join-Path $fixture 'notes.md') 2>&1
     $code = $LASTEXITCODE
     $ErrorActionPreference = 'Stop'
     if (($code -eq 0) -ne $success) { throw "Unexpected publisher outcome: $result" }
@@ -25,6 +25,7 @@ function Run-Plan([bool]$success) {
 }
 try {
     $null = New-Item -ItemType Directory -Path $fixture -Force
+    [IO.File]::WriteAllText((Join-Path $fixture 'notes.md'), "# Offline release notes`nOnly plain text, never PSPath/PSDrive metadata.")
     $names = @("OwO-Input-Method-$version-windows-x64-Setup.exe", "OwO-Input-Method-$version-windows-x64.zip", "OwO-Input-Method-$version-source.zip")
     $hashes = foreach ($name in $names) {
         $path = Join-Path $fixture $name
@@ -41,7 +42,7 @@ try {
     Write-Receipt $false $commit
     [IO.File]::WriteAllBytes((Join-Path $fixture $names[0]), [byte[]]@(5,6,7))
     Run-Plan $false
-    Write-Output 'Publisher offline tests passed: dry-run, no catalog writes, dirty provenance, wrong commit and modified payload rejected. No network writes.'
+    Write-Output 'Publisher offline tests passed: plain-text notes, dry-run, no catalog writes, dirty provenance, wrong commit and modified payload rejected. No network writes.'
 } finally {
     $resolved = [IO.Path]::GetFullPath($fixture)
     if (!$resolved.StartsWith($testRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe test cleanup path.' }

@@ -64,8 +64,12 @@ $tag = "v$Version"
 $notes = "Windows 11 x64. Includes x86 TSF compatibility. Verify SHA256SUMS.txt before installation. Source and third-party licenses are included."
 if ($ReleaseNotesFile) {
     if ((Get-Item -LiteralPath $ReleaseNotesFile).Length -gt 128KB) { throw 'Release notes are too large.' }
-    $notes = Get-Content -LiteralPath $ReleaseNotesFile -Raw -Encoding UTF8
+    # Get-Content decorates strings with PSPath/PSDrive in Windows PowerShell
+    # 5.1; ConvertTo-Json can serialize those as an object instead of text.
+    $notes = [IO.File]::ReadAllText([IO.Path]::GetFullPath($ReleaseNotesFile), [Text.Encoding]::UTF8)
 }
+$body = @{tag_name=$tag;target_commitish=$commit;name="OwO $Version";draft=$true;prerelease=$false;body=$notes} | ConvertTo-Json
+if (($body | ConvertFrom-Json).body -isnot [string]) { throw 'Release notes must serialize as plain JSON text.' }
 Write-Output "Release plan: $repository $tag commit=$commit"
 $assets | Select-Object name, size, sha256 | Format-Table -AutoSize
 if (!$Publish) { Write-Output 'Validation only. No GitHub writes. Use -Publish after reviewing the plan.'; return }
@@ -106,7 +110,6 @@ $assets += foreach ($extra in @('SHA256SUMS.txt','release-build.json')) {
     $path = Join-Path $directory $extra
     [pscustomobject]@{name=$extra;path=$path;size=(Get-Item -LiteralPath $path).Length;sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()}
 }
-$body = @{tag_name=$tag;target_commitish=$commit;name="OwO $Version";draft=$true;prerelease=$false;body=$notes} | ConvertTo-Json
 if ($existing) { $release = $existing; Write-Output "Resuming verified draft: $($release.html_url)" }
 else {
     $release = Invoke-RestMethod -Uri "$api/releases" -Method Post -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
