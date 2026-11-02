@@ -83,7 +83,7 @@ public sealed partial class MainPage
             ApplySettings(snapshot);
             _loadingUiPreferences = true;
             try { AutoSaveSettings.IsOn = document.UiPreferences.AutoSaveEnabled; }
-            finally { _loadingUiPreferences = false; }
+            finally { _loadingUiPreferences = false; UpdateManualSettingsActions(); }
             RefreshLogoPreference();
             _pendingSettingsSave = false;
             ShowTransferStatus($"配置已导入并保存，Core Service 将自动应用。原配置备份：{backup}",

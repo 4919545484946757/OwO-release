@@ -157,9 +157,7 @@ public sealed partial class MainPage
             ChinesePunctuationPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             GeneralPreferencesPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginConfigPage.Visibility = Microsoft.UI.Xaml.Visibility.Visible;
-            ResetPageButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-            SaveButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-            ReloadButton.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            UpdateManualSettingsActions();
             CurrentPageTitle.Text = _pluginSettings.Title;
             CurrentPageDescription.Text = $"{plugin.Name} {plugin.Version} · {plugin.Id}";
             PluginConfigSaveButton.IsEnabled = _pluginSettings.Fields.Count != 0;

@@ -256,14 +256,7 @@ public sealed partial class MainPage : Page
                       UserCompletionCard, UserCompletionRangeCard,
                       ModelRankingCard, ModelTimeoutCard);
         if (generalPage) GeneralSettingsPage.ChangeView(null, 0, null, true);
-        var configurationPage = generalPage || page is "shortcuts" or "punctuation";
-        SaveButton.Visibility = configurationPage
-            ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
-        ReloadButton.Visibility = configurationPage
-            ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
-        ResetPageButton.Visibility = page is "schemes" or "candidates" or
-            "intelligence" or "shortcuts" or "plugins" or "punctuation" or "general"
-            ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+        UpdateManualSettingsActions();
         (CurrentPageTitle.Text, CurrentPageDescription.Text) = page switch {
             "general" => ("通用设置", "管理自动保存、配置备份、更新与资源下载"),
             "schemes" => ("输入方案", "选择编码方案并查看当前方案能力"),

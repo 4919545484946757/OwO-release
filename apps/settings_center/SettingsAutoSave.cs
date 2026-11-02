@@ -20,7 +20,7 @@ public sealed partial class MainPage
         catch (Exception error) {
             AutoSaveSettings.IsOn = false; // Never overwrite configuration after a preference read failure.
             ShowStatus($"自动保存偏好读取失败：{error.Message}", InfoBarSeverity.Error);
-        } finally { _loadingUiPreferences = false; }
+        } finally { _loadingUiPreferences = false; UpdateManualSettingsActions(); }
         _autoSaveTimer.Tick += async (_, _) => {
             if (_settingsBusy) return;
             _autoSaveTimer.Stop();
@@ -85,9 +85,11 @@ public sealed partial class MainPage
             _loadingUiPreferences = true;
             AutoSaveSettings.IsOn = !AutoSaveSettings.IsOn;
             _loadingUiPreferences = false;
+            UpdateManualSettingsActions();
             ShowStatus($"自动保存开关保存失败：{error.Message}", InfoBarSeverity.Error);
             return;
         }
+        UpdateManualSettingsActions();
         if (!AutoSaveSettings.IsOn) {
             _autoSaveTimer.Stop();
             _pendingSettingsSave = false;
@@ -97,6 +99,14 @@ public sealed partial class MainPage
             QueuePluginAutoSave();
         }
         ShowStatus(AutoSaveSettings.IsOn ? "自动保存已开启。" : "自动保存已关闭，请手动保存配置。", InfoBarSeverity.Success);
+    }
+
+    private void UpdateManualSettingsActions() {
+        var actions = SettingsManualActions.ForPage(_currentPage, AutoSaveSettings.IsOn);
+        SaveButton.Visibility = ReloadButton.Visibility = actions.SaveReload ? Visibility.Visible : Visibility.Collapsed;
+        ResetPageButton.Visibility = actions.ResetPage ? Visibility.Visible : Visibility.Collapsed;
+        PluginConfigSaveButton.Visibility = PluginConfigResetButton.Visibility = actions.PluginSettings ? Visibility.Visible : Visibility.Collapsed;
+        FooterActionsGrid.ColumnSpacing = actions.SaveReload || actions.ResetPage ? 12 : 0;
     }
 
     private void QueueSettingsAutoSave()
