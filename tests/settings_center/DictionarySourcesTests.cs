@@ -32,6 +32,8 @@ Check(prepared.Data.Pending == 1);
 var thu = item with { Source = DictionarySources.Sources[3], Name = "THUOCL_IT.txt" };
 prepared = DictionarySources.Prepare(thu, Encoding.UTF8.GetBytes("人工智能\t99999\n"), 3, "test", CancellationToken.None);
 Check(prepared.Data.Pending == 1 && prepared.Data.Entries[0].Text == "人工智能");
+prepared = DictionarySources.Prepare(thu, Encoding.UTF8.GetBytes("字符串 \t1234\n 初始化　\t999\n数组\t456\n \t1\n"), 10, "test", CancellationToken.None);
+Check(prepared.Data.Pending == 3 && prepared.Available == 3 && prepared.Data.Entries.Select(word => word.Text).SequenceEqual(new[] { "字符串", "初始化", "数组" }));
 using var zipped = new MemoryStream();
 using (var gzip = new GZipStream(zipped, CompressionMode.Compress, true)) gzip.Write(Encoding.UTF8.GetBytes("# test\n女 女 [nu:3] /female/\n綠 绿 [lu:4] /green/\n"));
 prepared = DictionarySources.Prepare(item with { Source = DictionarySources.Sources[4] }, zipped.ToArray(), 3, "test", CancellationToken.None);

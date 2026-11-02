@@ -1,12 +1,13 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace OwO_Settings;
 
 internal sealed record DictionaryReading(string Code, uint Frequency, bool Uncertain = false);
 internal sealed record DictionaryEncodingSuggestion(DictionaryWord Word, IReadOnlyList<DictionaryReading> Readings, bool WholeWord, string? AutomaticCode = null);
-internal sealed record DictionaryEncodingResult(ManagedDictionary Dictionary, int Updated, int Duplicates);
+internal sealed record DictionaryEncodingResult(ManagedDictionary Dictionary, int Updated, int Duplicates, int CleanedText = 0);
 internal sealed record DictionaryEncodingProgress(int Completed, int Total, string Sources);
 internal sealed class DictionaryEncodingCapacityException(string message) : IOException(message);
 
@@ -18,6 +19,17 @@ internal static class DictionaryEncoding
     internal const int MaximumQueries = 32768;
     internal const int MaximumReadings = 8;
     internal const string Header = "OWO_DICTIONARY_READINGS_V1\n";
+    internal static DictionaryWord PrepareWord(ManagedDictionary dictionary, DictionaryWord word) {
+        // Repair the old online THUOCL import's column padding by provenance,
+        // not display name. A renamed dictionary remains recognizable; a
+        // Gboard expansion or arbitrary local file must retain its spaces.
+        var thu = Regex.IsMatch(dictionary.SourceName,
+            @"^THUOCL 专业词库/THUOCL_[A-Za-z0-9_]+\.txt sha256:[a-fA-F0-9]{64}$",
+            RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
+        if (!thu || DictionaryStore.Usable(word)) return word;
+        var text = word.Text.Trim();
+        return text.Length == 0 || text == word.Text ? word : word with { Text = text };
+    }
     internal static string Normalize(string code) => string.Join("'", code.Trim().ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     private static string[] Characters(string text) => text.EnumerateRunes().Select(value => value.ToString()).ToArray();
     private static bool Chinese(string text) => text.Length > 0 && text.EnumerateRunes().All(value =>
@@ -157,16 +169,16 @@ internal static class DictionaryEncoding
         var ids = dictionary.Entries.Select(word => word.Id).ToHashSet(StringComparer.Ordinal);
         if (selected.Keys.Any(id => !ids.Contains(id))) throw new InvalidDataException("词条已变化，请重新生成建议。");
         var identities = dictionary.Entries.Where(DictionaryStore.Usable).Select(DictionaryStore.WordIdentity).ToHashSet();
-        var updated = 0; var duplicates = 0;
+        var updated = 0; var duplicates = 0; var cleaned = 0;
         var entries = dictionary.Entries.Select(word => {
             if (!selected.TryGetValue(word.Id, out var code)) return word;
             if (DictionaryStore.Usable(word)) throw new InvalidDataException("不能通过编码补充覆盖已有编码。");
-            var next = word with { Input = Normalize(code) }; DictionaryStore.ValidateWord(next);
+            var next = PrepareWord(dictionary, word) with { Input = Normalize(code) }; DictionaryStore.ValidateWord(next);
             if (!DictionaryStore.Usable(next)) throw new InvalidDataException("选中的词条必须填写编码。");
             if (!identities.Add(DictionaryStore.WordIdentity(next))) { duplicates++; return word; }
-            updated++; return next;
+            updated++; if (next.Text != word.Text) cleaned++; return next;
         }).ToArray();
-        return new(dictionary with { Entries = entries }, updated, duplicates);
+        return new(dictionary with { Entries = entries }, updated, duplicates, cleaned);
     }
 }
 

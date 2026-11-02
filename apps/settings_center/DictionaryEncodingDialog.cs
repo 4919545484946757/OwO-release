@@ -29,11 +29,13 @@ internal sealed class DictionaryEncodingDialog
         internal string Code = suggestion.AutomaticCode ?? suggestion.Readings.FirstOrDefault()?.Code ?? "";
         internal bool Selected = suggestion.AutomaticCode is not null;
     }
-    private DictionaryEncodingDialog(XamlRoot root, IReadOnlyList<DictionaryWord> pending) {
+    private DictionaryEncodingDialog(XamlRoot root, IReadOnlyList<DictionaryWord> pending, int padding) {
         _pending = pending;
         _limit.Value = pending.Count;
         var body = new StackPanel { Spacing = 10, MinWidth = 280, MaxWidth = 620 };
         body.Children.Add(new TextBlock { Text = "自动分批补全整本词库，不必逐条勾选。优先使用整词注音及能确定读音的词语组合；多音、冲突或未知项目默认跳过，可选手动补充。保存前不会写入，也不覆盖已有编码。", TextWrapping = TextWrapping.Wrap });
+        if (padding > 0) body.Children.Add(new InfoBar { IsOpen = true, IsClosable = false, Severity = InfoBarSeverity.Informational,
+            Message = $"检测到 {padding} 条旧版 THUOCL 词条带有格式空白，已按去除首尾空白的正文查询。仅保存选中项时同步清理；跳过或取消的词条保持原样。" });
         body.Children.Add(_reference); body.Children.Add(_limit);
         var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         commands.Children.Add(_generate); commands.Children.Add(_pick); commands.Children.Add(_cancel); body.Children.Add(commands);
@@ -135,8 +137,8 @@ internal sealed class DictionaryEncodingDialog
         _previous.IsEnabled = _operation is null && _page > 0; _next.IsEnabled = _operation is null && (_page + 1) * 50 < visible.Length;
         UpdateSummary();
     }
-    internal static async Task<IReadOnlyDictionary<string, string>?> ShowAsync(XamlRoot root, IReadOnlyList<DictionaryWord> pending) {
-        var view = new DictionaryEncodingDialog(root, pending);
+    internal static async Task<IReadOnlyDictionary<string, string>?> ShowAsync(XamlRoot root, IReadOnlyList<DictionaryWord> pending, int padding = 0) {
+        var view = new DictionaryEncodingDialog(root, pending, padding);
         if (await view._dialog.ShowAsync() != ContentDialogResult.Primary) return null;
         return view._rows.Where(row => row.Selected).ToDictionary(row => row.Suggestion.Word.Id, row => row.Code, StringComparer.Ordinal);
     }

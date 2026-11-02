@@ -6,13 +6,17 @@ void Reject(Action action, string message) { try { action(); } catch (InvalidDat
 DictionaryWord Word(string text, string input = "") => new(Guid.NewGuid().ToString("N"), input, text, 12, "zh-CN", "原编码", "12345", "noun");
 var exact = Word("测试"); var poly = Word("重"); var composed = Word("测试词库"); var missing = Word("𰻞"); var latin = Word("hello");
 var words = new[] { exact, poly, composed, missing, latin };
-if (args.Length == 2 && args[0] == "--seed-ui") {
+if (args.Length == 2 && args[0] is "--seed-ui" or "--seed-thu-ui") {
     var path = Path.GetFullPath(args[1]);
     if (!Path.GetFileName(path).StartsWith("dictionary-encoding-ui-", StringComparison.Ordinal)) throw new ArgumentException("Use a dedicated dictionary-encoding-ui-* fixture.");
     var store = new DictionaryStore(path); var empty = await store.LoadAsync();
     if (empty.Revision != 0) throw new InvalidOperationException("Do not overwrite an existing UI fixture.");
-    await store.SaveAsync(empty, [new ManagedDictionary(Guid.NewGuid().ToString("N"), "编码补充测试", "text", "synthetic", "full_pinyin", false, [.. words, Word("唯测库")]),
-        new ManagedDictionary(Guid.NewGuid().ToString("N"), "已安装注音参考", "text", "synthetic", "full_pinyin", false, [Word("唯测库", "wei'ce'ku")])]);
+    if (args[0] == "--seed-thu-ui")
+        await store.SaveAsync(empty, [new ManagedDictionary(Guid.NewGuid().ToString("N"), "THUOCL 旧格式测试", "text", "THUOCL 专业词库/THUOCL_IT.txt sha256:" + new string('a', 64), "full_pinyin", false,
+            [Word("字符串 "), Word("初始化　"), Word("重 "), Word("hello ")])]);
+    else
+        await store.SaveAsync(empty, [new ManagedDictionary(Guid.NewGuid().ToString("N"), "编码补充测试", "text", "synthetic", "full_pinyin", false, [.. words, Word("唯测库")]),
+            new ManagedDictionary(Guid.NewGuid().ToString("N"), "已安装注音参考", "text", "synthetic", "full_pinyin", false, [Word("唯测库", "wei'ce'ku")])]);
     Console.WriteLine("Created isolated dictionary encoding UI fixture."); return;
 }
 var queries = DictionaryEncoding.Queries(words);
@@ -59,6 +63,31 @@ using (var cancellation = new CancellationTokenSource()) {
 var repeated = Word(new string('重', 12));
 var many = DictionaryEncoding.Suggest([repeated], new Dictionary<string, IReadOnlyList<DictionaryReading>> { ["重"] = [new("zhong", 10), new("chong", 9)] });
 Check(many[0].Readings.Count == 8 && many[0].AutomaticCode is null, "Exponential readings bounded and not guessed automatically");
+var padded = Word("字符串 ");
+var thu = dictionary with { Name = "可重命名", SourceName = "THUOCL 专业词库/THUOCL_IT.txt sha256:" + new string('a', 64), Entries = [padded, Word("未知 ")] };
+var normalized = DictionaryEncoding.PrepareWord(thu, padded);
+Check(normalized == padded with { Text = "字符串" } && DictionaryEncoding.Queries([normalized]).Contains("字符串"), "Existing THUOCL column padding is repaired only for lookup");
+Check(DictionaryEncoding.PrepareWord(dictionary, padded) == padded && DictionaryEncoding.PrepareWord(thu with { SourceName = "dictionary.txt" }, padded) == padded, "General and Gboard expansion whitespace is preserved");
+Check(DictionaryEncoding.PrepareWord(thu, padded with { Input = "zi'fu'chuan" }).Text == padded.Text, "Existing coded terms are not rewritten");
+var cleanResult = DictionaryEncoding.Apply(thu, new Dictionary<string, string> { [padded.Id] = "zi'fu'chuan" });
+Check(cleanResult.Updated == 1 && cleanResult.CleanedText == 1 && cleanResult.Dictionary.Entries[0] == padded with { Text = "字符串", Input = "zi'fu'chuan" } && cleanResult.Dictionary.Entries[1] == thu.Entries[1], "Only confirmed THUOCL entries are cleaned; skipped records and metadata survive");
+var duplicatePadding = DictionaryEncoding.Apply(thu with { Entries = [padded, Word("字符串", "zi'fu'chuan")] }, new Dictionary<string, string> { [padded.Id] = "zi'fu'chuan" });
+Check(duplicatePadding.Duplicates == 1 && duplicatePadding.CleanedText == 0 && duplicatePadding.Updated == 0 && duplicatePadding.Dictionary.Entries[0] == padded, "A duplicate after cleanup remains pending without overwriting or deleting data");
+if (args.Length == 3 && args[0] == "--installed-thu-report") {
+    Environment.SetEnvironmentVariable("OWO_CONFIG_SHELL_PATH", Path.GetFullPath(args[1]));
+    var catalog = await new DictionaryStore().LoadAsync();
+    var actual = catalog.Dictionaries.Single(value => value.SourceName.StartsWith("THUOCL 专业词库/THUOCL_IT.txt sha256:", StringComparison.Ordinal));
+    var pending = actual.Entries.Where(word => !DictionaryStore.Usable(word)).ToArray();
+    var prepared = pending.Select(word => DictionaryEncoding.PrepareWord(actual, word)).ToArray();
+    var watch = System.Diagnostics.Stopwatch.StartNew();
+    var report = await new DictionaryEncodingClient().SuggestAsync(prepared, Path.GetFullPath(args[2]), CancellationToken.None, catalog.Dictionaries);
+    var automatic = report.Count(word => word.AutomaticCode is not null);
+    Console.WriteLine($"READ ONLY THUOCL IT: pending={pending.Length}; trimmed={pending.Zip(prepared).Count(pair => pair.First.Text != pair.Second.Text)}; automatic={automatic}; skipped={report.Count - automatic}; elapsed_ms={watch.ElapsedMilliseconds}");
+    foreach (var word in report.Take(8)) Console.WriteLine($"{word.Word.Text}: {word.AutomaticCode ?? "skipped"}");
+    Check(automatic > 0 && report.Count == pending.Length, "Installed THUOCL IT produces automatic codes after padding repair");
+    Check(report.First(word => word.Word.Text == "字符串").AutomaticCode == "zi'fu'chuan", "Actual padded THUOCL sample reverse lookup");
+    Console.WriteLine("Personal dictionary was read but never saved.");
+}
 if (args.Length == 3 && args[0] == "--live-shell") {
     Environment.SetEnvironmentVariable("OWO_CONFIG_SHELL_PATH", Path.GetFullPath(args[1]));
     var live = await new DictionaryEncodingClient().SuggestAsync([Word("测试方法"), Word("重庆"), Word("银行")], Path.GetFullPath(args[2]), CancellationToken.None, installed: []);

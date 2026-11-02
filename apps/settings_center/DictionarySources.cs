@@ -115,9 +115,9 @@ internal sealed class DictionarySources : IDisposable
         var output = new StringBuilder("input\ttext\tcount\n"); var total = 0; var body = item.Source.Id == "cedict" || !item.Name.EndsWith(".yaml");
         using var reader = new StringReader(text); string? line;
         while ((line = reader.ReadLine()) is not null) {
-            token.ThrowIfCancellationRequested(); line = line.Trim();
+            token.ThrowIfCancellationRequested(); if (item.Source.Id != "thu") line = line.Trim();
             if (line == "...") { body = true; continue; }
-            if (!body || line.Length == 0 || line.StartsWith('#')) continue;
+            if (!body || string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith('#')) continue;
             string input, word;
             if (item.Source.Id == "cedict") {
                 var match = Regex.Match(line, @"^\S+ (\S+) \[([^\]]+)\] /", RegexOptions.None, TimeSpan.FromSeconds(1));
@@ -126,6 +126,10 @@ internal sealed class DictionarySources : IDisposable
                 input = Regex.Replace(match.Groups[2].Value.ToLowerInvariant().Replace("u:", "v").Replace('ü', 'v'), "[1-5]", "");
             } else {
                 var cells = line.Split('\t'); word = cells[0]; input = item.Source.Id == "thu" || cells.Length < 2 ? "" : cells[1];
+                // THUOCL uses padded term columns (e.g. "字符串 \t...").
+                // The padding is not part of the dictionary word. Do not
+                // apply this rule to general/Gboard text expansions.
+                if (item.Source.Id == "thu") word = word.Trim();
             }
             if (word.Length == 0 || word.Any(char.IsControl)) continue;
             total++;
