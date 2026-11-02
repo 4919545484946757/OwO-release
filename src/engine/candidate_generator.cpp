@@ -2619,6 +2619,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             ordered.push_back(std::move(candidate));
         }
     }
+    if (partition_page_size != 0)
+        rank_full_input_segmentations(ordered, full_input_bytes);
     // All non-single areas share the incomplete-input quota. Reserve room
     // for a bounded model comparison before low-value dictionary alternatives
     // consume it; visible and hidden candidates still share the final cap.

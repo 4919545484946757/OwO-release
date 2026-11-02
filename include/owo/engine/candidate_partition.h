@@ -38,4 +38,9 @@ void apply_exact_dictionary_sentence_penalty(std::span<Candidate> candidates,
 void merge_similar_length_partitions(std::vector<Candidate> &candidates,
                                      std::size_t full_input_bytes);
 
+// Complete exact readings of the same encoding compete by score, not output
+// length. Preserve display slots, short commits and hidden model-tail order.
+void rank_full_input_segmentations(std::vector<Candidate>& candidates,
+                                   std::size_t full_input_bytes);
+
 } // namespace owo::engine

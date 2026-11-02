@@ -109,22 +109,42 @@ void apply_exact_dictionary_sentence_penalty(std::span<Candidate> candidates,
     }
 }
 
-void merge_similar_length_partitions(std::vector<Candidate> &candidates,
-                                     std::size_t full_input_bytes) {
+static void merge_scoring_band(std::vector<Candidate> &candidates,
+                               std::size_t full_input_bytes, bool equal_length_band) {
     const auto anchor = std::find_if(candidates.begin(), candidates.end(), [&](const auto &value) {
         return !value.model_only && sentence(value, full_input_bytes);
     });
     if (anchor == candidates.end())
         return;
-    // Only equal character counts share a band. Even a one-character gap
-    // retains the original word/sentence partition order.
+    // Length is not evidence for an interpretation of the same encoding.
+    // Keep the existing equal-length band, but compare complete alternative
+    // exact readings by score as well. Partial commits never enter that band.
     const auto anchor_length = characters(anchor->text);
     const auto anchor_kind = anchor->match_kind;
+    const auto anchor_segments = anchor->source_segments;
+    const auto encoding = [](const Candidate& value) {
+        std::string result;
+        for (const auto& segment : value.source_segments) result += segment;
+        return result;
+    };
+    const auto anchor_encoding = encoding(*anchor);
+    const auto full_reading = [&](const Candidate& value) {
+        return anchor_kind == InputMatchKind::exact && value.match_kind == anchor_kind &&
+            !anchor_encoding.empty() && value.consumed_input_bytes == full_input_bytes &&
+            value.source_segments.size() == value.syllables.size() &&
+            characters(value.text) == value.syllables.size() && characters(value.text) >= 2 &&
+            encoding(value) == anchor_encoding;
+    };
+    const bool alternative_reading = std::any_of(candidates.begin(), candidates.end(), [&](const auto& value) {
+        return !value.model_only && full_reading(value) && value.source_segments != anchor_segments;
+    });
     const auto eligible = [&](const Candidate &value) {
         const auto length = characters(value.text);
-        return length >= 2 && length == anchor_length && value.match_kind == anchor_kind;
+        return value.match_kind == anchor_kind &&
+            ((equal_length_band && length >= 2 && length == anchor_length) ||
+             (alternative_reading && full_reading(value)));
     };
-    if (std::none_of(candidates.begin(), candidates.end(), [&](const auto &value) {
+    if (!alternative_reading && std::none_of(candidates.begin(), candidates.end(), [&](const auto &value) {
             return !value.model_only && !sentence(value, full_input_bytes) && eligible(value);
         }))
         return;
@@ -135,6 +155,8 @@ void merge_similar_length_partitions(std::vector<Candidate> &candidates,
     for (std::size_t index = 0; index < candidates.size(); ++index) {
         auto &value = candidates[index];
         if (!eligible(value))
+            continue;
+        if (value.model_only && !(equal_length_band && characters(value.text) == anchor_length))
             continue;
         value.joint_phrase_partition = true;
         if (value.model_only)
@@ -162,5 +184,14 @@ void merge_similar_length_partitions(std::vector<Candidate> &candidates,
         joint[index].partition_slot = display_slots[index];
         candidates[slots[index]] = std::move(joint[index]);
     }
+}
+void merge_similar_length_partitions(std::vector<Candidate>& candidates,
+                                     std::size_t full_input_bytes) {
+    merge_scoring_band(candidates, full_input_bytes, true);
+}
+
+void rank_full_input_segmentations(std::vector<Candidate>& candidates,
+                                    std::size_t full_input_bytes) {
+    merge_scoring_band(candidates, full_input_bytes, false);
 }
 } // namespace owo::engine

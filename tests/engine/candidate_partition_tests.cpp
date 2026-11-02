@@ -20,6 +20,30 @@ owo::engine::Candidate word(std::string text, std::size_t consumed, std::int64_t
 
 int main() {
     using namespace owo::engine;
+    auto split = word("不提安家", 9, 22814, 2);
+    split.source_segments = {"bu", "ti", "an", "jia"};
+    auto compact = word("不添加", 9, 38615);
+    compact.source_segments = {"bu", "tian", "jia"};
+    auto partial = word("不提", 4, 90000); partial.source_segments = {"bu", "ti"};
+    auto hidden_reading = compact; hidden_reading.model_only = true; hidden_reading.score = 99000;
+    for (const bool joint : {false, true}) {
+        std::vector<Candidate> ranked{split, partial, compact, hidden_reading};
+        if (joint) merge_similar_length_partitions(ranked, 9);
+        else rank_full_input_segmentations(ranked, 9);
+        if (ranked[0].text != compact.text || ranked[2].text != split.text ||
+            ranked[1] != partial || ranked[3].text != hidden_reading.text ||
+            !ranked[3].model_only || ranked[3].joint_phrase_partition ||
+            ranked[0].partition_slot != CandidatePartitionSlot::sentence ||
+            ranked[2].partition_slot != CandidatePartitionSlot::dictionary) return 27;
+        auto stronger_long = split; stronger_long.score = compact.score + 1;
+        ranked = {compact, stronger_long};
+        rank_full_input_segmentations(ranked, 9);
+        if (ranked.front().text != split.text) return 28;
+        auto learned_compact = compact; learned_compact.user_lexicon = true; learned_compact.score = -1;
+        ranked = {stronger_long, learned_compact};
+        rank_full_input_segmentations(ranked, 9);
+        if (ranked.front().text != compact.text || !ranked.front().user_preferred()) return 29;
+    }
     auto reading_a = word("西安街道", 10, 100, 2);
     reading_a.source_segments = {"xi", "an", "jie", "dao"}; reading_a.qualified_sentence_reading = true;
     auto reading_b = word("衔接到", 10, 100, 2);

@@ -1,0 +1,3 @@
+{"id":"compact-full-reading","input":"butianjia","expected":["不添加"],"segmentation":"bu'tian'jia","tags":["segmentation-score","full-input"]}
+{"id":"explicit-compact-reading","input":"bu'tian'jia","expected":["不添加"],"segmentation":"bu'tian'jia","tags":["segmentation-score","explicit"]}
+{"id":"uppercase-full-reading","input":"BUTIANJIA","expected":["不添加"],"segmentation":"bu'tian'jia","tags":["segmentation-score","uppercase"]}

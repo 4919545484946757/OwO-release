@@ -25,6 +25,31 @@ std::size_t utf8_character_count(const std::string_view text) {
 }  // namespace
 
 int main() {
+    {
+        const owo::engine::MemoryLexicon lexicon({
+            {{"bu", "tian", "jia"}, "不添加", 100},
+            {{"bu", "ti"}, "不提", 50000}, {{"an", "jia"}, "安家", 50000},
+            {{"bu"}, "不", 1000000}, {{"tian"}, "天", 1000000}, {{"jia"}, "家", 1000000}});
+        const owo::engine::CandidateGenerator generator(lexicon);
+        const owo::engine::FullPinyinSchema schema;
+        for (const auto page : {0U, 5U, 7U, 9U})
+            for (const auto limit : {8U, 18U, 48U})
+                for (const bool model : {false, true}) {
+                    const auto values = generator.generate(schema.parse("butianjia"), limit,
+                        false, {}, nullptr, {}, model, page);
+                    if (values.empty() || values.front().text != "不添加" ||
+                        values.front().source_segments != std::vector<std::string>{"bu", "tian", "jia"} ||
+                        values.front().consumed_input_bytes != 9 || values.front().model_only)
+                        return fail("a longer exact reading bypassed the higher-scored complete reading");
+                    if (page != 0 && std::none_of(values.begin(), values.end(), [](const auto& candidate) {
+                        return candidate.text == "不提安家" && candidate.consumed_input_bytes == 9;
+                    })) return fail("alternative full-input reading was erased instead of ranked");
+                    const auto explicit_values = generator.generate(schema.parse("bu'ti'an'jia", 32, false),
+                        limit, false, {}, nullptr, {}, model, page);
+                    if (explicit_values.empty() || explicit_values.front().text != "不提安家")
+                        return fail("score comparison crossed explicit pinyin boundaries");
+                }
+    }
     // Intentional initials must not favor short pinyin, and a beam duplicate
     // must not remove a direct dictionary word's normal lexical evidence.
     const owo::engine::MemoryLexicon initials_quality_lexicon({
