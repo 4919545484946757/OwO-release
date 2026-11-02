@@ -1,4 +1,5 @@
 #include "owo/engine/candidate_generator.h"
+#include "owo/engine/compact_collocations.h"
 #include "owo/engine/candidate_partition.h"
 #include "owo/engine/user_lexicon_alignment.h"
 #include "owo/engine/candidate_scoring.h"
@@ -27,6 +28,7 @@ struct SearchState {
     std::size_t segment_count{};
     std::int64_t score{};
     std::vector<std::size_t> segment_lengths;
+    std::int64_t collocation_bonus{};
 };
 
 struct OrderedParsePath {
@@ -244,6 +246,7 @@ void append_successor(std::vector<SearchState>& destination, const std::size_t w
     next.text = std::move(joined_text);
     next.score = score;
     next.segment_count = source.segment_count;
+    next.collocation_bonus = source.collocation_bonus;
     next.segment_lengths.reserve(source.segment_lengths.size() + 1);
     next.segment_lengths.insert(next.segment_lengths.end(),
         source.segment_lengths.begin(), source.segment_lengths.end());
@@ -1210,13 +1213,53 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
     }
     const auto boundary_paths = dictionary_boundary_paths(parsed, lookup_cache, cancelled);
+    std::vector<ParsePath> phrase_tail_paths;
+    // Recover word-backed consonant tails before the generic completion list
+    // spends its bounded path budget on Cartesian initial expansions.
+    if (phonetic_assistance && !correction_only && !parsed.paths.empty() && parsed.paths.front().edit_count == 0 && parsed.normalized_input.size() <= 64) {
+        const auto& anchor = parsed.paths.front();
+        const auto sources = source_segments(parsed, anchor);
+        for (std::size_t tail = 2; tail <= 4 && tail < sources.size(); ++tail) {
+            const auto start = sources.size() - tail;
+            if (!std::equal(sources.begin(), sources.begin() + start, anchor.syllables.begin(),
+                    [](const auto& source, const auto& syllable) { return source == syllable.text; })) continue;
+            if (!std::all_of(sources.begin() + start, sources.end(), [](const auto& value) {
+                return value.size() == 1 && std::string_view("bcdfghjklmnpqrstvwxyz").find(value[0]) != std::string_view::npos;
+            })) break;
+            if (cancelled && cancelled()) return {};
+            const auto offset = anchor.syllables[start].begin;
+            const auto suffix = std::string_view(parsed.normalized_input).substr(offset);
+            for (const auto& match : lexicon_.lookup_mixed_abbreviation_texts(suffix, 64)) {
+                if (match.source_segments.size() != tail || match.syllables.size() != tail ||
+                    utf8_character_count(match.text) != tail) continue;
+                ParsePath path = anchor;
+                path.match_kind = InputMatchKind::abbreviated_completion;
+                path.syllables.resize(start);
+                auto cursor = offset;
+                for (std::size_t i = 0; i < tail; ++i) {
+                    path.syllables.push_back({std::string(match.syllables[i]), cursor, cursor + match.source_segments[i].size(), true});
+                    cursor += match.source_segments[i].size();
+                }
+                if (cursor != parsed.normalized_input.size()) continue; // Do not cross manual apostrophes.
+                path.completion_characters = 0;
+                for (const auto& syllable : path.syllables)
+                    path.completion_characters += static_cast<std::uint32_t>(syllable.text.size() - (syllable.end - syllable.begin));
+                if (std::find(phrase_tail_paths.begin(), phrase_tail_paths.end(), path) == phrase_tail_paths.end())
+                    phrase_tail_paths.push_back(std::move(path));
+                if (phrase_tail_paths.size() == 32) break;
+            }
+            if (phrase_tail_paths.size() == 32) break;
+        }
+    }
+    CompactCollocations collocations;
     std::vector<const ParsePath*> source_paths;
-    source_paths.reserve(parsed.paths.size() + boundary_paths.size());
+    source_paths.reserve(parsed.paths.size() + boundary_paths.size() + phrase_tail_paths.size());
     const auto first_exact = std::find_if(parsed.paths.begin(), parsed.paths.end(), [](const auto& path) {
         return path.match_kind == InputMatchKind::exact;
     });
     if (first_exact != parsed.paths.end()) source_paths.push_back(&*first_exact);
     for (const auto& path : boundary_paths) source_paths.push_back(&path);
+    for (const auto& path : phrase_tail_paths) source_paths.push_back(&path);
     for (const auto& path : parsed.paths)
         if (first_exact == parsed.paths.end() || &path != &*first_exact) source_paths.push_back(&path);
     std::vector<OrderedParsePath> ordered_paths;
@@ -1415,8 +1458,23 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         if (!state.previous.empty()) score -= kAdditionalSegmentPenalty;
                         if (bigram_ != nullptr && !state.previous.empty())
                             score += bigram_->score(state.previous, entry.text);
+                        std::int64_t collocation = 0;
+                        if (path.match_kind == InputMatchKind::abbreviated_completion &&
+                            !state.segment_lengths.empty() && state.segment_lengths.back() >= 2 && reading.size() >= 2 &&
+                            state.segment_lengths.back() + reading.size() <= 4 && state.collocation_bonus < 2000) {
+                            std::string previous_key = state.previous, current_key(entry.text);
+                            for (auto i = begin - state.segment_lengths.back(); i < begin; ++i) previous_key += '/' + path.syllables[i].text;
+                            for (auto i = begin; i < end; ++i) current_key += '/' + path.syllables[i].text;
+                            collocation = collocations.score(previous_key, current_key, [&] {
+                                std::vector<std::string_view> combined;
+                                for (auto i = begin - state.segment_lengths.back(); i < end; ++i) combined.push_back(path.syllables[i].text);
+                                return lookup_cache.phrase_score(combined, state.previous + std::string(entry.text)).has_value();
+                            });
+                            score += collocation;
+                        }
                         append_successor(chart[end], beam_width, state, entry.text, score, 0,
                             [&](SearchState& next) {
+                                next.collocation_bonus += collocation;
                                 next.previous.assign(entry.text);
                                 ++next.segment_count;
                                 next.segment_lengths.push_back(reading.size());

@@ -1,4 +1,5 @@
 #include "owo/engine/candidate_generator.h"
+#include "owo/engine/compact_collocations.h"
 #include "owo/engine/candidate_partition.h"
 #include "owo/engine/exact_code_schema.h"
 #include "owo/engine/full_pinyin_schema.h"
@@ -1228,6 +1229,29 @@ int main() {
             }
         }
 
+    owo::engine::CompactCollocations collocation_index;
+    int collocation_probes = 0;
+    const auto evidence = [&] { ++collocation_probes; return true; };
+    if (collocation_index.score("left", "right", evidence) != 1000 ||
+        collocation_index.score("left", "right", evidence) != 1000 || collocation_probes != 1 ||
+        collocation_index.score("left", "absent", [] { return false; }) != 0)
+        return fail("compact collocation index repeated or inverted evidence");
+    for (unsigned i = 0; i < 400; ++i)
+        (void)collocation_index.score(std::to_string(i), "tail", evidence);
+    if (collocation_probes != 255) return fail("compact collocation evidence exceeded its bounded budget");
+    const owo::engine::MemoryLexicon mixed_tail_lexicon({
+        {{"xiu","fu"},"修复",1000000}, {{"lei","si"},"类似",1000000},
+        {{"wen","ti"},"问题",100000}, {{"wu","ti"},"物体",1000000},
+        {{"lei","si","wen","ti"},"类似问题",1000000},
+        {{"xiu"},"修",100000}, {{"fu"},"复",100000}, {{"lei"},"类",100000}, {{"si"},"似",100000}});
+    for (const auto page : {5U,7U,9U}) for (const bool partition : {false,true}) {
+        const auto values = owo::engine::CandidateGenerator(mixed_tail_lexicon).generate(
+            schema.parse("xiufuleisiwt"), 64, false, {}, nullptr, {}, false, partition ? page : 0, false, 0, page);
+        const auto target = std::find_if(values.begin(), values.end(), [](const auto& value) { return value.text == "修复类似问题"; });
+        if (target == values.end() || target->model_only || target->consumed_input_bytes != 12 ||
+            target->source_segments != std::vector<std::string>{"xiu","fu","lei","si","w","t"})
+            return fail("word-backed consonant tail was pruned before sentence composition");
+    }
     const auto cancelled_generation = word_priority_generator.generate(
         schema.parse("shi"), 32, false, {}, nullptr, [] { return true; });
     if (!cancelled_generation.empty())

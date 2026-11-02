@@ -554,6 +554,7 @@ struct CachedCandidateResult {
     std::size_t generated_limit{};
     bool exhausted{};
     bool model_refined{};
+    bool correction_fallback{};
 };
 
 std::size_t visible_candidate_count(const std::vector<engine::Candidate>& candidates) {
@@ -2233,6 +2234,10 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                               (candidates.size() < result_size ||
                                                !strict_evidence) &&
                                               !cancelled();
+                        // A larger page/expanded budget must not introduce a
+                        // new correction family after the same composition
+                        // already established a word-backed strict snapshot.
+                        if (previous_pool) correction_fallback = previous_pool->correction_fallback;
                         correction_deferred = correction_fallback &&
                             decoded.message.defer_expensive_candidates;
                         response.candidate_refinement_pending =
@@ -2448,7 +2453,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                         candidate_cache.put(
                             cache_key,
                             {parsed, candidates, generation_limit,
-                             candidate_pool_exhausted, model_refined});
+                             candidate_pool_exhausted, model_refined, correction_fallback});
                     if (!cache_hit && !cancelled() &&
                         response.candidate_refinement_pending) {
                         pending_candidate_refinement = PendingCandidateRefinement{

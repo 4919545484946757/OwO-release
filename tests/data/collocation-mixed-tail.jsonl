@@ -1,0 +1,5 @@
+{"id":"repair-mixed-tail","input":"xiufuleisiwt","expected":["修复类似问题"]}
+{"id":"repair-full","input":"xiufuleisiwenti","expected":["修复类似问题"]}
+{"id":"handle-mixed-tail","input":"chulileisiwt","expected":["处理类似问题"]}
+{"id":"solve-mixed-tail","input":"jiejueleisiwt","expected":["解决类似问题"]}
+{"id":"find-mixed-tail","input":"faxianleisiwt","expected":["发现类似问题"]}
