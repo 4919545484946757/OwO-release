@@ -45,9 +45,18 @@ internal sealed class DictionaryManager : UserControl
         toolbar.ColumnDefinitions.Add(new() { Width = GridLength.Auto });
         toolbar.Children.Add(_search); Grid.SetColumnSpan(_search, 4);
         Grid.SetRow(_import, 1); _import.HorizontalAlignment = HorizontalAlignment.Left; toolbar.Children.Add(_import);
-        if (openDownloads is not null) {
-            var online = new Button { Content = "在线下载" };
-            online.Click += (_, _) => openDownloads();
+        {
+            var online = new Button { Content = "发现词库" };
+            online.Click += (_, _) => ShowDetail(new DictionaryDiscoveryView(async (name, prepared) => {
+                await RunAsync(async () => {
+                    _catalog = await _store.LoadAsync();
+                    if (_catalog.Dictionaries.Any(d => d.SourceName == prepared.Provenance && d.Entries.Count == prepared.Data.Entries.Count))
+                        throw new InvalidDataException("同一内容及选取规模的词库已导入，请在已安装词库中管理；不会重复创建。");
+                    await ImportSelectionAsync(name, prepared.Provenance, prepared.Data, XamlRoot, true,
+                        $"上游有效行 {prepared.Available}；本次选取 {prepared.Data.Entries.Count}。\n未选取的其余数据不会被自动导入。\n{prepared.Provenance}");
+                });
+                _page.Content = _catalogPage;
+            }), "发现词库");
             Grid.SetRow(online, 1); Grid.SetColumn(online, 1); toolbar.Children.Add(online);
         }
         Grid.SetRow(_refresh, 1); Grid.SetColumn(_refresh, 2); toolbar.Children.Add(_refresh);
@@ -308,15 +317,18 @@ internal sealed class DictionaryManager : UserControl
     internal async Task ImportDownloadedAsync(string name, string path, XamlRoot dialogRoot) {
         await RunAsync(async () => {
             _catalog = await _store.LoadAsync();
-            await ImportSelectionAsync(name, Path.GetFileName(path), await DictionaryFormats.ReadAsync(path), dialogRoot);
+            await ImportSelectionAsync(name, Path.GetFileName(path), await DictionaryFormats.ReadAsync(path), dialogRoot, true);
         });
     }
-    private async Task ImportSelectionAsync(string name, string sourceName, DictionaryImport data, XamlRoot? dialogRoot = null) {
+    private async Task ImportSelectionAsync(string name, string sourceName, DictionaryImport data, XamlRoot? dialogRoot = null, bool online = false, string? extra = null) {
         var title = new TextBox { Header = "字典名称", Text = name.Length > 128 ? name[..128] : name, MaxLength = 128 };
-        var enable = new CheckBox { Content = "导入后启用可用编码词条（适用于宿主完整拼音）", IsChecked = data.Pending < data.Entries.Count };
+        var enable = new CheckBox { Content = "导入后启用可用编码词条（适用于宿主完整拼音）", IsChecked = !online && data.Pending < data.Entries.Count };
         var fields = new StackPanel { Spacing = 12 };
+        if (extra is not null) fields.Children.Add(new TextBlock { Text = extra, TextWrapping = TextWrapping.Wrap });
+        var remaining = DictionaryStore.MaximumEntries - _catalog.Dictionaries.Sum(d => d.Entries.Count);
+        if (data.Entries.Count > remaining) throw new InvalidDataException($"词库容量不足：当前剩余 {remaining} 条，请降低选取上限或删除不需要的词库。既有词库未修改。");
         fields.Children.Add(title); fields.Children.Add(new TextBlock { Text = $"识别格式：{data.Format}\n词条 {data.Entries.Count} 条；待补编码 {data.Pending} 条；已合并重复项 {data.Duplicates} 条；权重调整 {data.AdjustedWeights} 条。\n无有效编码的词条会完整保留，但不会自动猜测读音或进入候选。不会修改用户词库或插件私有字典。", TextWrapping = TextWrapping.Wrap }); fields.Children.Add(enable);
-        if (await new ContentDialog { XamlRoot = dialogRoot ?? XamlRoot, Title = "预览并导入字典", Content = fields,
+        if (await new ContentDialog { XamlRoot = dialogRoot ?? XamlRoot, Title = "预览并导入字典", Content = new ScrollViewer { Content = fields, MaxHeight = 420 },
             PrimaryButtonText = "确认导入", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close }.ShowAsync() != ContentDialogResult.Primary) return;
         var dictionary = new ManagedDictionary(Guid.NewGuid().ToString("N"), title.Text.Trim(), data.Format, sourceName, "full_pinyin", enable.IsChecked == true, data.Entries);
         _catalog = await _store.SaveAsync(_catalog, [.. _catalog.Dictionaries, dictionary]); RenderCards();
