@@ -23,6 +23,19 @@ public sealed partial class SetupPage : Page
     private readonly Button _back = new() { Content = "上一步", Visibility = Visibility.Collapsed };
     private readonly Button _cancel = new() { Content = "取消" };
     private readonly Button _primary = new() { Content = "下一步" };
+    private readonly Grid _primaryHost = new();
+    // Disabled WinUI buttons do not raise Click. This transparent, independently
+    // focusable hit target only routes to feedback; installation still rechecks
+    // the disabled primary button and all prerequisites in InstallAsync.
+    private readonly Button _blockedPrimaryFeedback = (Button)Microsoft.UI.Xaml.Markup.XamlReader.Load("""
+        <Button xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                Background="Transparent" BorderThickness="0" Padding="0" MinWidth="0" MinHeight="0"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Visibility="Collapsed">
+            <Button.Template>
+                <ControlTemplate TargetType="Button"><Border Background="Transparent"/></ControlTemplate>
+            </Button.Template>
+        </Button>
+        """);
     private readonly Button _openSettings = new() { Content = "打开设置中心", Visibility = Visibility.Collapsed };
 
     private readonly TextBox _installDirectory = new();
@@ -91,6 +104,10 @@ public sealed partial class SetupPage : Page
         _back.Click += BackButton_Click;
         _cancel.Click += (_, _) => CloseWindow();
         _primary.Click += PrimaryButton_Click;
+        _blockedPrimaryFeedback.Click += PrimaryButton_Click;
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_blockedPrimaryFeedback, "BlockedInstallFeedbackButton");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_blockedPrimaryFeedback, "查看安装条件提示");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetHelpText(_blockedPrimaryFeedback, "仅显示提示，不会绕过安装来源、语言、路径和安装包校验。");
         _openSettings.Click += OpenSettingsButton_Click;
         _browseDirectory.Click += BrowseDirectoryButton_Click;
         _openLanguageSettings.Click += async (_, _) =>
@@ -126,8 +143,10 @@ public sealed partial class SetupPage : Page
         footer.Children.Add(_cancel);
         Grid.SetColumn(_openSettings, 2);
         footer.Children.Add(_openSettings);
-        Grid.SetColumn(_primary, 3);
-        footer.Children.Add(_primary);
+        _primaryHost.Children.Add(_primary);
+        _primaryHost.Children.Add(_blockedPrimaryFeedback);
+        Grid.SetColumn(_primaryHost, 3);
+        footer.Children.Add(_primaryHost);
         _primary.Style = Application.Current.Resources["AccentButtonStyle"] as Style;
         bool? footerNarrow = null;
         footer.SizeChanged += (_, args) => {
@@ -140,7 +159,7 @@ public sealed partial class SetupPage : Page
                 for (var index = 0; index < 4; index++)
                     footer.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             }
-            var buttons = new[] { _back, _cancel, _openSettings, _primary };
+            var buttons = new FrameworkElement[] { _back, _cancel, _openSettings, _primaryHost };
             for (var index = 0; index < buttons.Length; index++) {
                 Grid.SetRow(buttons[index], narrow ? index : 0);
                 Grid.SetColumn(buttons[index], narrow ? 0 : index);
@@ -248,6 +267,7 @@ public sealed partial class SetupPage : Page
         _openSettings.Visibility = Visibility.Collapsed;
         _primary.Visibility = Visibility.Visible;
         _primary.Content = "下一步";
+        _blockedPrimaryFeedback.Visibility = Visibility.Collapsed;
         _primary.IsEnabled = _previewStage is null;
     }
 
@@ -357,6 +377,7 @@ public sealed partial class SetupPage : Page
         _cancel.IsEnabled = _previewStage is not null;
         _openSettings.Visibility = Visibility.Collapsed;
         _primary.Visibility = Visibility.Collapsed;
+        _blockedPrimaryFeedback.Visibility = Visibility.Collapsed;
     }
 
     private UIElement BuildProgressBody()
@@ -482,7 +503,9 @@ public sealed partial class SetupPage : Page
         var architectureError = SetupPrerequisites.ArchitectureError(
             System.Runtime.InteropServices.RuntimeInformation.OSArchitecture);
         if (_previewStage is null && architectureError.Length != 0) reason = architectureError;
-        _primary.IsEnabled = !_installing && reason.Length == 0;
+        _primary.IsEnabled = !_installing && !_bundledPluginFeedbackActive && reason.Length == 0;
+        _blockedPrimaryFeedback.Visibility = !_primary.IsEnabled && !_installing &&
+            !_bundledPluginFeedbackActive && _previewStage is null ? Visibility.Visible : Visibility.Collapsed;
         _availability.Text = reason.Length == 0 ? "已准备就绪，可以安装。" : reason;
     }
 

@@ -69,7 +69,7 @@ public sealed partial class SetupPage
     {
         if (_bundledPluginFeedbackActive) return;
         _bundledPluginFeedbackActive = true;
-        _primary.IsEnabled = false;
+        UpdateInstallAvailability();
         _bundledPluginWave.Opacity = 1;
         var storyboard = new Storyboard();
         _bundledPluginShake = storyboard;

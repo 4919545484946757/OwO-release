@@ -23,11 +23,30 @@ public sealed partial class SetupPage
                 throw new InvalidOperationException("Bundled plugin option must render and default to enabled.");
             if (round == 0) {
                 _bundledPlugins.IsChecked = false;
-                await ShowBundledPluginFeedbackAsync();
+                if (_primary.IsEnabled || _blockedPrimaryFeedback.Visibility != Microsoft.UI.Xaml.Visibility.Visible)
+                    throw new InvalidOperationException("Blocked installation must retain a separate feedback hit target.");
+                var bounds = _blockedPrimaryFeedback.TransformToVisual(null).TransformBounds(
+                    new Windows.Foundation.Rect(0, 0, _blockedPrimaryFeedback.ActualWidth, _blockedPrimaryFeedback.ActualHeight));
+                var center = new Windows.Foundation.Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
+                if (bounds.Width <= 0 || bounds.Height <= 0 ||
+                    !Microsoft.UI.Xaml.Media.VisualTreeHelper.FindElementsInHostCoordinates(center, this)
+                        .Any(element => ReferenceEquals(element, _blockedPrimaryFeedback)))
+                    throw new InvalidOperationException("Grey installation feedback must remain pointer hit-testable.");
+                var peer = new Microsoft.UI.Xaml.Automation.Peers.ButtonAutomationPeer(_blockedPrimaryFeedback);
+                var invoke = (Microsoft.UI.Xaml.Automation.Provider.IInvokeProvider)peer.GetPattern(
+                    Microsoft.UI.Xaml.Automation.Peers.PatternInterface.Invoke);
+                invoke.Invoke();
+                await Task.Delay(60);
+                if (!_bundledPluginFeedbackActive || _bundledPluginWave.Opacity != 1)
+                    throw new InvalidOperationException("Clicking the grey installation action did not start feedback.");
+                await Task.Delay(400);
                 if (_bundledPluginWave.Opacity != 1 || _bundledPluginWave.Data is null ||
                     _bundledPluginTranslation.X != 0 || _bundledPluginFeedbackActive ||
                     _installing || _step != SetupStep.Options || _bundledPlugins.IsChecked != false)
                     throw new InvalidOperationException("Optional-plugin feedback changed installation intent or failed to settle.");
+                if (_primary.IsEnabled || _consent.IsChecked == true ||
+                    _blockedPrimaryFeedback.Visibility != Microsoft.UI.Xaml.Visibility.Visible)
+                    throw new InvalidOperationException("Feedback must not enable installation without consent.");
                 _bundledPlugins.IsChecked = true;
                 if (_bundledPluginWave.Opacity != 0 || _bundledPluginTranslation.X != 0)
                     throw new InvalidOperationException("Checking the plugin option must clear its warning.");
