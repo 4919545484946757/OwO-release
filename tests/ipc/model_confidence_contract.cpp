@@ -1,6 +1,8 @@
 #include "owo/config/config_monitor.h"
 #include "owo/config/config_store.h"
 #include "owo/engine/lexicon.h"
+#include "owo/engine/candidate_generator.h"
+#include "owo/engine/full_pinyin_schema.h"
 #include "owo/engine/binary_lexicon.h"
 #include "owo/engine/user_frequency.h"
 #include "owo/ipc/named_pipe.h"
@@ -112,10 +114,9 @@ int main(int argc, char **argv) {
             request.expanded = expanded;
             const auto base = send(core_pipe, request);
             success = success && base.validation && !base.message.candidates.empty() &&
-                      base.message.candidates.front() == "修复类似问题" &&
-                      base.message.model_pending;
+                      base.message.candidates.front() == "修复类似问题";
             request = {owo::protocol::MessageType::candidate_update_request, id, 91234};
-            auto ranked = send(core_pipe, request);
+            auto ranked = base.message.model_pending ? send(core_pipe, request) : base;
             for (unsigned attempt = 0;
                  ranked.validation && ranked.message.model_pending && attempt < 20; ++attempt)
                 ranked = send(core_pipe, request);

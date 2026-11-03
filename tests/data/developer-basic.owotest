@@ -6,7 +6,8 @@ expect-input
 expect-commit 你好
 query nihaoshijie
 expect 你好世界
-select 2
+# The two full sentence alternatives precede the short prefix.
+select 3
 expect-input shijie
 expect 世界
 select 1

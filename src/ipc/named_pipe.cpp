@@ -942,6 +942,8 @@ void arrange_double_initial_pages(std::vector<engine::Candidate>& candidates,
 std::uint64_t candidate_group(const engine::Candidate& candidate,
                               const std::size_t full_input_bytes) {
     const auto characters = utf8_character_count(candidate.text);
+    if (candidate.user_preferred() && candidate.segment_count == 1 && characters >= 2)
+        return static_cast<std::uint64_t>(protocol::CandidateGroup::dictionary);
     // A common scoring band may exchange words/sentences, but cannot turn
     // every member into a sentence display slot or inflate per-page quotas.
     if (candidate.partition_slot == engine::CandidatePartitionSlot::sentence)
@@ -2431,6 +2433,19 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                           std::make_move_iterator(hidden.end()));
                         if (!single_syllable_input && !corrected_single_syllable) {
                             engine::merge_similar_length_partitions(candidates, full_input_bytes);
+                            // Joint score merging must not undo the reading
+                            // diversity promised by successive sentence pages.
+                            std::vector<std::size_t> sentence_slots;
+                            std::vector<engine::Candidate> reading_sentences;
+                            const auto reading_visible = visible_candidate_count(candidates);
+                            for (std::size_t index = 0; index < reading_visible; ++index)
+                                if (candidate_group(candidates[index], full_input_bytes) == 0) {
+                                    sentence_slots.push_back(index);
+                                    reading_sentences.push_back(std::move(candidates[index]));
+                                }
+                            engine::arrange_sentence_reading_pages(reading_sentences);
+                            for (std::size_t index = 0; index < sentence_slots.size(); ++index)
+                                candidates[sentence_slots[index]] = std::move(reading_sentences[index]);
                             // Joint scores may move whole words into sentence
                             // slots while a shorter prefix remains outside the
                             // band. Normalize each page's display order, not
@@ -2444,10 +2459,23 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                 const auto page_begin = boundaries[row], page_end = boundaries[row + 1];
                                 const auto first = candidates.begin() + static_cast<std::ptrdiff_t>(page_begin);
                                 const auto last = candidates.begin() + static_cast<std::ptrdiff_t>(page_end);
-                                if (std::any_of(first, last, [](const auto& candidate) { return candidate.joint_phrase_partition; }))
+                                if (std::any_of(first, last, [](const auto& candidate) { return candidate.joint_phrase_partition; })) {
+                                    std::vector<std::uint64_t> slots;
+                                    for (auto item = first; item != last; ++item) slots.push_back(candidate_group(*item, full_input_bytes));
+                                    std::sort(slots.begin(), slots.end());
                                     std::stable_sort(first, last, [full_input_bytes](const auto& left, const auto& right) {
-                                        return candidate_group(left, full_input_bytes) < candidate_group(right, full_input_bytes);
+                                        if (left.user_preferred() != right.user_preferred()) return left.user_preferred();
+                                        const auto key = [full_input_bytes](const auto& value) {
+                                            return value.joint_phrase_partition ? std::uint64_t{0} : candidate_group(value, full_input_bytes);
+                                        };
+                                        return key(left) < key(right);
                                     });
+                                    if (std::none_of(first, last, [](const auto& value) { return value.user_preferred(); }))
+                                        for (auto item = first; item != last; ++item)
+                                            if (item->joint_phrase_partition)
+                                                item->partition_slot = slots[static_cast<std::size_t>(item - first)] == 0
+                                                    ? engine::CandidatePartitionSlot::sentence : engine::CandidatePartitionSlot::dictionary;
+                                }
                             }
                         }
                     }
@@ -2491,7 +2519,7 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                     // returns an arbitrary permutation. This is not a pinned
                     // first candidate: alternatives within one confidence band
                     // remain free to respond to context/model evidence.
-                    constexpr std::int64_t kModelLexicalConfidenceBand = 16'000;
+                    constexpr std::int64_t kModelLexicalConfidenceBand = 8'000;
                     const auto reference = std::find_if(candidates.begin(), candidates.end(),
                         [full_input_bytes](const engine::Candidate& candidate) {
                             return !candidate.model_only && !candidate.user_preferred() &&
@@ -2551,10 +2579,13 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                             reference->segment_lengths.size() >= 2 &&
                             std::all_of(reference->segment_lengths.begin(), reference->segment_lengths.end(),
                                 [](const auto length) { return length >= 2; }) &&
-                            candidate.coherence_score == 0 && reference->coherence_score >= kModelLexicalConfidenceBand)
+                            candidate.coherence_score < reference->coherence_score / 2 &&
+                            reference->coherence_score >= kModelLexicalConfidenceBand)
                             model_candidate_confidence.back() = std::max<std::uint64_t>(confidence, 1);
                         if (candidate.joint_phrase_partition && !candidate.user_preferred() &&
                             joint_reference != nullptr && candidate.score < joint_reference->score &&
+                            candidate.source_segments == joint_reference->source_segments &&
+                            candidate.syllables == joint_reference->syllables &&
                             (candidate.segment_count == 1 ||
                              !abbreviated_model_alternative(candidate, full_input_bytes)) &&
                             !standalone_head_alternative(*joint_reference, candidate, full_input_bytes))

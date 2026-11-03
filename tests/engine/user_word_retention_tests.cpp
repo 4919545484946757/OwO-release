@@ -63,6 +63,7 @@ int main(int argc, char **argv) {
                             (complete && explicit_edit &&
                              (candidates.empty() || candidates.front().text != "董柯伊"))) {
                             ok = false;
+                            if (!candidates.empty()) std::cerr << "first=" << candidates.front().text << '\n';
                             std::cerr << "Lost user-word identity/visibility: input=" << input
                                       << " limit=" << limit << " page=" << page_size
                                       << " model=" << model << " edited=" << explicit_edit << '\n';

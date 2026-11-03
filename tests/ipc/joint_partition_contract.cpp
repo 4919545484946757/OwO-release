@@ -1,6 +1,8 @@
 #include "owo/config/config_monitor.h"
 #include "owo/config/config_store.h"
 #include "owo/engine/lexicon.h"
+#include "owo/engine/candidate_generator.h"
+#include "owo/engine/full_pinyin_schema.h"
 #include "owo/ipc/named_pipe.h"
 #include "owo/model/model_backend.h"
 #include "owo/model/model_protocol.h"

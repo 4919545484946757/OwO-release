@@ -166,6 +166,17 @@ foreach ($scheme in @('full_pinyin', 'exact_code', 'plugin:example.input/cangjie
         }
         $script:checks++
         $beforeSave = Read-Config $config
+        if ($FreshAutoSaveDefaults -and $phonetic) {
+            if ($null -ne (Find-Id $window 'SaveButton')) { throw 'Auto-save must hide the manual save action.' }
+            Navigate $window '通用设置'
+            $automatic = Find-Id $window 'AutoSaveSettings'
+            $toggle = $automatic.GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
+            if ($toggle.Current.ToggleState -ne [Windows.Automation.ToggleState]::On) { throw 'Fresh auto-save must default on.' }
+            if (Test-Path -LiteralPath $preferences) { throw 'Startup must not write a fresh UI preference.' }
+            $script:checks++
+            $toggle.Toggle()
+            Navigate $window '快捷键'
+        }
         Invoke-Id $window 'SaveButton'
         Wait-Enabled $window 'SaveButton'
         $afterSave = Read-Config $config
@@ -189,15 +200,9 @@ foreach ($scheme in @('full_pinyin', 'exact_code', 'plugin:example.input/cangjie
         if ($phonetic) {
             Navigate $window '通用设置'
             $autoSave = (Find-Id $window 'AutoSaveSettings').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern)
-            if ($FreshAutoSaveDefaults) {
-                if ($autoSave.Current.ToggleState -ne [Windows.Automation.ToggleState]::On -or
-                    (Test-Path -LiteralPath $preferences)) { throw 'Fresh defaults must enable auto-save without writing a preference on startup.' }
-                $script:checks++
-            } else {
-                if ($autoSave.Current.ToggleState -ne [Windows.Automation.ToggleState]::Off) { throw 'Startup replaced explicit disabled preference.' }
-                $autoSave.Toggle()
-                $script:checks++
-            }
+            if ($autoSave.Current.ToggleState -ne [Windows.Automation.ToggleState]::Off) { throw 'Manual-save phase did not preserve the disabled preference.' }
+            $autoSave.Toggle()
+            $script:checks++
             Start-Sleep -Milliseconds 800
             Navigate $window '学习与排序'
             (Find-Id $window 'UserCompletion').GetCurrentPattern([Windows.Automation.TogglePattern]::Pattern).Toggle()

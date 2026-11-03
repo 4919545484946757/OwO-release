@@ -86,7 +86,9 @@ int main() {
     const auto parsed = schema.parse("anyouxiandu", 32, false);
     const auto candidates = generator.generate(parsed, 128, false, {}, nullptr, {}, true, 7);
     const auto unsupported = find_text(candidates, "按有限度");
-    if (unsupported == candidates.end() || unsupported->coherence_score != 0) {
+    // Three covered syllables are worth 18000; the one dominant uncovered
+    // character must retain its 6000 cost. A partial match is not full coverage.
+    if (unsupported == candidates.end() || unsupported->coherence_score > 12000) {
         std::cerr << "unmatched spans still bypass uncovered-character costs\n";
         return 3;
     }
@@ -94,7 +96,7 @@ int main() {
     const auto without = owo::engine::CandidateGenerator(no_bridge).generate(
         parsed, 128, false, {}, nullptr, {}, true, 7);
     const auto unbridged = find_text(without, "按优先度");
-    if (unbridged == without.end() || unbridged->coherence_score != 0) return 4;
+    if (unbridged == without.end() || unbridged->coherence_score > 12000) return 4;
     const owo::engine::MemoryLexicon whole(fixture(true, true));
     const auto whole_candidates = owo::engine::CandidateGenerator(whole).generate(
         parsed, 48, false, {}, nullptr, {}, true, 0);

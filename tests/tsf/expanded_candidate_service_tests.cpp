@@ -39,7 +39,10 @@ struct ExpandedCandidateTestAccess {
             for (std::size_t i = 0; i < count; ++i) {
                 result->candidates.push_back(L"fixture-" + std::to_wstring(i));
                 result->candidate_consumed.push_back(i % 5 + 1);
-                result->candidate_groups.push_back(i % 3);
+                // Real regular pages: sentence, dictionary, single-character
+                // areas. Repeating 0/1/2 globally starts extra sentence pages
+                // under the current variable-page protocol.
+                result->candidate_groups.push_back(i % size < 2 ? 0 : i % size < 4 ? 1 : 2);
             }
             service->handle_candidate_result(result);
         };
@@ -129,7 +132,11 @@ struct ExpandedCandidateTestAccess {
         if (!press(VK_DOWN) || service->active_candidate_request_id_ != request ||
             service->expanded_pages_.selected != 2) return 2;
         respond(49);
-        if (service->candidate_request_pending_ || service->candidate_shortcut_index(1) != 15) return 3;
+        if (service->candidate_request_pending_ || service->candidate_shortcut_index(1) != 15) {
+            std::cerr << "expanded response: selected=" << service->expanded_pages_.selected
+                      << " width=" << service->candidate_page_width() << " count=" << service->candidates_.size()
+                      << " pending=" << service->candidate_request_pending_ << '\n'; return 3;
+        }
         if (!press(VK_DOWN) || service->active_candidate_request_id_ != request ||
             service->candidate_shortcut_index(1) != 22) return 4;
         service->invoke_hit_target({TextService::HitKind::candidate_page, 5});
@@ -138,7 +145,7 @@ struct ExpandedCandidateTestAccess {
         if (service->candidates_expanded_ || service->candidate_page_ != 5) return 6;
         if (service->candidates_.size() != 7 || service->candidates_.front() != L"fixture-35" ||
             service->candidate_consumed_.size() != 7 || service->candidate_consumed_.front() != 1 ||
-            service->candidate_groups_.size() != 7 || service->candidate_groups_.front() != 2) return 23;
+            service->candidate_groups_.size() != 7 || service->candidate_groups_.front() != 0) return 23;
         respond(7);
         service->invoke_hit_target({TextService::HitKind::toggle_expanded, 0});
         respond(49);

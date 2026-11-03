@@ -178,6 +178,16 @@ static void merge_scoring_band(std::vector<Candidate> &candidates,
             return left.consumed_input_bytes > right.consumed_input_bytes;
         return false;
     });
+    // A confirmed user word retains its dictionary identity when promoted.
+    // Exchange its destination label with a dictionary slot so the independent
+    // generated sentence is not silently erased from the display metadata.
+    for (std::size_t index = 0; index < joint.size(); ++index) {
+        if (!joint[index].user_preferred() || joint[index].segment_count != 1 ||
+            display_slots[index] != CandidatePartitionSlot::sentence) continue;
+        const auto dictionary = std::find(display_slots.begin() + static_cast<std::ptrdiff_t>(index + 1),
+            display_slots.end(), CandidatePartitionSlot::dictionary);
+        if (dictionary != display_slots.end()) std::iter_swap(display_slots.begin() + static_cast<std::ptrdiff_t>(index), dictionary);
+    }
     for (std::size_t index = 0; index < slots.size(); ++index) {
         // Layout slots belong to their original page positions. Packing all
         // sentence flags at the front would undo the per-page sentence cap.

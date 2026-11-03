@@ -1,0 +1,4 @@
+[
+  {"id":"org.owo.candidate-glass","name":"OwO 亚克力候选框","kind":"plugin","version":"1.4.1","license":"GPL-3.0-only","asset":"org.owo.candidate-glass-1.4.1.owopkg"},
+  {"id":"org.owo.unicode-palette","name":"OwO Unicode 符号列表","kind":"plugin","version":"1.0.0","license":"GPL-3.0-only","asset":"org.owo.unicode-palette-1.0.0.owopkg"}
+]

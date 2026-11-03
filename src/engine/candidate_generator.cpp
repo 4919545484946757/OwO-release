@@ -1430,6 +1430,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
 
         std::vector<std::vector<SearchState>> chart(path.syllables.size() + 1);
         SearchState initial;
+        std::int64_t exact_path_prior = 0;
         initial.score = -candidate_input_match_penalty(path) +
                         source_initial_bonus(parsed, path);
         if (exact_path_count > 1 && &path == preferred_exact_path) {
@@ -1440,7 +1441,8 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             // Up to a four-character phrase plus a standalone character keeps
             // the existing short-input policy, including wan'an/xian'jie'dao.
             const auto scale = path.syllables.size() > 5 ? path.syllables.size() - 4 : 1;
-            initial.score += kPreferredExactSegmentationBonus / static_cast<std::int64_t>(scale);
+            exact_path_prior = kPreferredExactSegmentationBonus / static_cast<std::int64_t>(scale);
+            initial.score += exact_path_prior;
         }
         chart[0].push_back(std::move(initial));
         const std::size_t beam_width = long_ambiguous_input
@@ -1860,8 +1862,11 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         std::any_of(full.begin(), full.end(), [](const auto& candidate) { return candidate.user_preferred(); });
     std::optional<Candidate> coherent_sentence_alternative;
     std::unordered_set<std::string> dominant_endings;
+    const auto preferred_source_segments = preferred_exact_path
+        ? source_segments(parsed, *preferred_exact_path) : std::vector<std::string>{};
     const auto apply_cross_boundary_coherence = [this, &lookup_cache, preserve_learned_alternative,
-                                                &coherent_sentence_alternative, &dominant_endings](Candidate& candidate) {
+                                                &coherent_sentence_alternative, &dominant_endings,
+                                                &preferred_source_segments, exact_path_count](Candidate& candidate) {
         constexpr std::size_t kMaximumPhraseCharacters = 4;
         const auto character_count = candidate.syllables.size();
         if (character_count < 3 ||
@@ -1924,7 +1929,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         dictionary_chain[0] = true;
         std::optional<std::size_t> dominant_character;
         if (candidate.match_kind == InputMatchKind::exact && candidate.segment_lengths.size() >= 2 &&
-            std::count(candidate.segment_lengths.begin(), candidate.segment_lengths.end(), 1) == 1) {
+            std::count(candidate.segment_lengths.begin(), candidate.segment_lengths.end(), std::size_t{1}) == 1) {
             std::size_t position = 0;
             for (const auto length : candidate.segment_lengths) {
                 if (length == 1) {
@@ -2025,6 +2030,15 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
                         [](const bool covered) { return covered; }))
             candidate.coherence_score += kMaximumBoundaryCoherenceBonus * 2;
         candidate.score += candidate.coherence_score;
+        // Only truly uncovered endings weaken the parser prior. A terminal
+        // overlapping word (e.g. a verb + complement) is real evidence too.
+        if (exact_path_count > 1 && candidate.match_kind == InputMatchKind::exact &&
+            candidate.source_segments == preferred_source_segments &&
+            candidate.segment_lengths.size() >= 2 && candidate.segment_lengths.front() >= 2 &&
+            candidate.segment_lengths.back() == 1 && !dictionary_covered.back()) {
+            const auto scale = character_count > 5 ? character_count - 4 : 1;
+            candidate.score -= kPreferredExactSegmentationBonus / static_cast<std::int64_t>(scale * 4);
+        }
         if (preserve_learned_alternative && candidate.match_kind == InputMatchKind::exact &&
             candidate.segment_count > 1 && candidate.coherence_score > 0 &&
             (!coherent_sentence_alternative || score_less(candidate, *coherent_sentence_alternative)))
@@ -2365,7 +2379,6 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
             // readings and learned words, but do not let a much weaker split
             // of the same exact reading bypass the visible sentence budget.
             if (!candidate.user_preferred() && reference.match_kind == InputMatchKind::exact &&
-                reference.coherence_score > candidate.coherence_score &&
                 reference.score - candidate.score >= kAlternativeSegmentationPromotionMargin &&
                 (candidate.match_kind != InputMatchKind::exact ||
                  (candidate.source_segments == reference.source_segments &&
@@ -2695,6 +2708,12 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     }
     if (partition_page_size != 0)
         rank_full_input_segmentations(ordered, full_input_bytes);
+    // Source-bound explicit preferences survive source-pool packing too.
+    // A dictionary word must not remain behind the sentence reserve solely
+    // because it was placed there before the final scoring-band comparison.
+    std::stable_partition(ordered.begin(), ordered.end(), [](const Candidate& value) {
+        return value.user_preferred();
+    });
     // All non-single areas share the incomplete-input quota. Reserve room
     // for a bounded model comparison before low-value dictionary alternatives
     // consume it; visible and hidden candidates still share the final cap.

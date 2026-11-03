@@ -10,7 +10,8 @@ std::string legacy(owo::config::AppConfig value) {
     text.replace(0, std::string("schema_version=17").size(), "schema_version=16");
     for (const auto key : {"expanded_previous_page_shortcut_enabled=", "expanded_previous_page_shortcut=",
                             "expanded_next_page_shortcut_enabled=", "expanded_next_page_shortcut=",
-                            "pinyin_symbol_compatibility_enabled=", "separator_shortcut_enabled=", "separator_shortcut="}) {
+                            "pinyin_symbol_compatibility_enabled=", "separator_shortcut_enabled=", "separator_shortcut=",
+                            "pinyin_preview_location="}) {
         const auto begin = text.find(key);
         if (begin != std::string::npos) text.erase(begin, text.find('\n', begin) - begin + 1);
     }
@@ -28,7 +29,9 @@ int main() {
     auto parsed = parse_config(legacy(value));
     if (!parsed.ok || parsed.value.previous_page_shortcuts != std::vector<std::string>{"["} ||
         parsed.value.next_page_shortcuts != std::vector<std::string>{"]"} ||
-        !parsed.value.expanded_previous_page_shortcut_enabled || !parsed.value.expanded_next_page_shortcut_enabled) return 2;
+        !parsed.value.expanded_previous_page_shortcut_enabled || !parsed.value.expanded_next_page_shortcut_enabled) {
+        std::cerr << "migration: " << parsed.diagnostic << '\n'; return 2;
+    }
     value.previous_page_shortcuts = {"Up"};
     value.previous_page_shortcut_enabled = false;
     parsed = parse_config(legacy(value));

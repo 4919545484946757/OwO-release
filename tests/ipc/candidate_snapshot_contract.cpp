@@ -1,11 +1,14 @@
 #include "owo/config/config_monitor.h"
 #include "owo/config/config_store.h"
 #include "owo/engine/lexicon.h"
+#include "owo/engine/candidate_generator.h"
+#include "owo/engine/full_pinyin_schema.h"
 #include "owo/ipc/named_pipe.h"
 #include "owo/ipc/contextual_candidate_order.h"
 #include "owo/model/model_protocol.h"
 #include "owo/protocol/messages.h"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <iostream>
@@ -237,7 +240,8 @@ int main() {
                         for (std::size_t index = 0; index < row.candidates.size(); ++index)
                             if (row.candidate_groups[index] == 0) next_readings.push_back(row.candidates[index].starts_with("西安"));
                         verify(first_readings.size() == 2 && first_readings[0] != first_readings[1] &&
-                               first_readings == next_readings, "next page did not continue the previous reading order");
+                                (next_readings.size() < 2 || next_readings[0] == next_readings[1] || first_readings == next_readings),
+                                "next page did not continue the previous reading order while both readings remain");
                     }
                 }
                 if (request.text == "rgs" && partition)
@@ -250,9 +254,32 @@ int main() {
                 paged.candidate_groups.insert(paged.candidate_groups.end(), row.candidate_groups.begin(), row.candidate_groups.end());
             }
             request.page = 0; const auto revisited = send(request);
-            if (request.text == "xianjiedao")
+            if (request.text == "xianjiedao") {
                 verify(std::find(paged.candidates.begin(), paged.candidates.end(), "衔接到") != paged.candidates.end(),
                        "a second qualified reading was dropped instead of paged");
+                if (partition) {
+                    std::vector<bool> readings;
+                    for (std::size_t index = 0; index < paged.candidates.size(); ++index)
+                        if (paged.candidate_groups[index] == 0) readings.push_back(paged.candidates[index].starts_with("西安"));
+                    std::array<std::size_t, 2> remaining{};
+                    for (const bool reading : readings) ++remaining[reading];
+                    std::vector<bool> previous_pair;
+                    for (std::size_t index = 0; index < readings.size(); index += 2) {
+                        const bool both_available = remaining[0] != 0 && remaining[1] != 0;
+                        if (both_available) {
+                            verify(index + 1 < readings.size() && readings[index] != readings[index + 1],
+                                "available sentence reading was not diversified");
+                            if (previous_pair.size() == 2 && previous_pair[0] != previous_pair[1])
+                                verify(readings[index] == previous_pair[0] && readings[index + 1] == previous_pair[1],
+                                    "available readings changed their preceding page order");
+                        }
+                        previous_pair.clear();
+                        for (std::size_t slot = index; slot < std::min(index + 2, readings.size()); ++slot) {
+                            --remaining[readings[slot]]; previous_pair.push_back(readings[slot]);
+                        }
+                    }
+                }
+            }
             if (request.text == "rgs") {
                 bool prefix_retained = false;
                 for (std::size_t index = 0; index < paged.candidates.size(); ++index)
@@ -284,6 +311,10 @@ int main() {
         const bool matched = !first.candidates.empty() && first.candidates.front() == word;
         if (!matched) std::cerr << "context mismatch: " << input << ' '
                                 << protocol::encode_message(first) << '\n';
+        if (!matched) for (const auto& item : engine::CandidateGenerator(lexicon).generate(
+            engine::FullPinyinSchema{}.parse(input), 48, false, {}, nullptr, {}, true, 7))
+            if (item.consumed_input_bytes == input.size()) std::cerr << "context fixture: " << item.text << " score=" << item.score
+                << " coherence=" << item.coherence_score << " hidden=" << item.model_only << '\n';
         ok &= matched;
     };
     expect("jieguo", "zhankai", "展开", "结果");
