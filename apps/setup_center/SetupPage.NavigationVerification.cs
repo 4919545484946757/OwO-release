@@ -3,7 +3,8 @@ namespace OwO_Settings;
 public sealed partial class SetupPage
 {
     // Read-only regression mode: never advance from Options into installation,
-    // never authorize trust, and never extract/register the bundled payload.
+    // never extract/register payloads. Any simulated UI checkbox consent is
+    // reset immediately, without invoking installation while consent is set.
     internal async Task VerifyNavigationAsync()
     {
         if (_previewStage is not null)
@@ -22,7 +23,7 @@ public sealed partial class SetupPage
             if (_bundledPlugins.IsChecked != true || _bundledPlugins.ActualWidth <= 0)
                 throw new InvalidOperationException("Bundled plugin option must render and default to enabled.");
             if (round == 0) {
-                _bundledPlugins.IsChecked = false;
+                _consent.IsChecked = false;
                 if (_primary.IsEnabled || _blockedPrimaryFeedback.Visibility != Microsoft.UI.Xaml.Visibility.Visible)
                     throw new InvalidOperationException("Blocked installation must retain a separate feedback hit target.");
                 var bounds = _blockedPrimaryFeedback.TransformToVisual(null).TransformBounds(
@@ -37,19 +38,25 @@ public sealed partial class SetupPage
                     Microsoft.UI.Xaml.Automation.Peers.PatternInterface.Invoke);
                 invoke.Invoke();
                 await Task.Delay(60);
-                if (!_bundledPluginFeedbackActive || _bundledPluginWave.Opacity != 1)
+                if (!_installConsentFeedbackActive || _installConsentWave.Opacity != 1)
                     throw new InvalidOperationException("Clicking the grey installation action did not start feedback.");
                 await Task.Delay(400);
-                if (_bundledPluginWave.Opacity != 1 || _bundledPluginWave.Data is null ||
-                    _bundledPluginTranslation.X != 0 || _bundledPluginFeedbackActive ||
-                    _installing || _step != SetupStep.Options || _bundledPlugins.IsChecked != false)
-                    throw new InvalidOperationException("Optional-plugin feedback changed installation intent or failed to settle.");
+                if (_installConsentWave.Opacity != 1 || _installConsentWave.Data is null ||
+                    _installConsentTranslation.X != 0 || _installConsentFeedbackActive ||
+                    _installing || _step != SetupStep.Options || _consent.IsChecked != false ||
+                    _bundledPlugins.IsChecked != true)
+                    throw new InvalidOperationException("Source-consent feedback changed installation intent or failed to settle.");
                 if (_primary.IsEnabled || _consent.IsChecked == true ||
                     _blockedPrimaryFeedback.Visibility != Microsoft.UI.Xaml.Visibility.Visible)
                     throw new InvalidOperationException("Feedback must not enable installation without consent.");
+                _consent.IsChecked = true;
+                if (_installConsentWave.Opacity != 0 || _installConsentTranslation.X != 0)
+                    throw new InvalidOperationException("Checking source consent must clear its warning.");
+                _consent.IsChecked = false;
+                _bundledPlugins.IsChecked = false;
+                if (_installConsentWave.Opacity != 0)
+                    throw new InvalidOperationException("The optional plugin checkbox must not own the source-consent warning.");
                 _bundledPlugins.IsChecked = true;
-                if (_bundledPluginWave.Opacity != 0 || _bundledPluginTranslation.X != 0)
-                    throw new InvalidOperationException("Checking the plugin option must clear its warning.");
             }
             App.LogStage($"Navigation round {round + 1}: options rendered; package={_packageReady}; language={_languageReady}");
             BackButton_Click(this, new Microsoft.UI.Xaml.RoutedEventArgs());

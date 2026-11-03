@@ -93,7 +93,6 @@ public sealed partial class SetupPage : Page
             option.HorizontalAlignment = HorizontalAlignment.Stretch;
             option.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         }
-        InitializeBundledPluginFeedback();
         _consent.HorizontalAlignment = HorizontalAlignment.Stretch;
         _consent.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         _installDirectory.Text = Path.Combine(
@@ -352,6 +351,7 @@ public sealed partial class SetupPage : Page
             Text = "我确认安装来源可信，并同意注册输入法组件和启动当前用户后台服务。",
             TextWrapping = TextWrapping.Wrap
         };
+        InitializeInstallConsentFeedback();
         body.Children.Add(_consent);
         body.Children.Add(_availability);
         return body;
@@ -435,10 +435,10 @@ public sealed partial class SetupPage : Page
             return;
         }
         if (_step == SetupStep.Options) {
-            if (_bundledPluginFeedbackActive) return;
-            if (_bundledPlugins.IsChecked != true) {
-                await ShowBundledPluginFeedbackAsync();
-                if (_step != SetupStep.Options || _bundledPluginFeedbackUnloaded) return;
+            if (_installConsentFeedbackActive) return;
+            if (_consent.IsChecked != true) {
+                await ShowInstallConsentFeedbackAsync();
+                return; // Feedback is never consent; require a new explicit installation click.
             }
             await InstallAsync();
         }
@@ -503,9 +503,9 @@ public sealed partial class SetupPage : Page
         var architectureError = SetupPrerequisites.ArchitectureError(
             System.Runtime.InteropServices.RuntimeInformation.OSArchitecture);
         if (_previewStage is null && architectureError.Length != 0) reason = architectureError;
-        _primary.IsEnabled = !_installing && !_bundledPluginFeedbackActive && reason.Length == 0;
+        _primary.IsEnabled = !_installing && !_installConsentFeedbackActive && reason.Length == 0;
         _blockedPrimaryFeedback.Visibility = !_primary.IsEnabled && !_installing &&
-            !_bundledPluginFeedbackActive && _previewStage is null ? Visibility.Visible : Visibility.Collapsed;
+            !_installConsentFeedbackActive && _previewStage is null ? Visibility.Visible : Visibility.Collapsed;
         _availability.Text = reason.Length == 0 ? "已准备就绪，可以安装。" : reason;
     }
 

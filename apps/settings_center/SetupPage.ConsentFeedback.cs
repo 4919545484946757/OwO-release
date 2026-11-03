@@ -8,41 +8,43 @@ namespace OwO_Settings;
 
 public sealed partial class SetupPage
 {
-    private readonly TranslateTransform _bundledPluginTranslation = new();
-    private readonly WavePath _bundledPluginWave = new() {
+    private readonly TranslateTransform _installConsentTranslation = new();
+    private readonly WavePath _installConsentWave = new() {
         Height = 5, Opacity = 0, StrokeThickness = 1.25,
         Stroke = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 196, 43, 28)),
         IsHitTestVisible = false,
     };
-    private Storyboard? _bundledPluginShake;
-    private bool _bundledPluginFeedbackActive;
-    private bool _bundledPluginFeedbackUnloaded;
+    private Storyboard? _installConsentShake;
+    private bool _installConsentFeedbackActive;
+    private bool _installConsentFeedbackUnloaded;
 
-    private void InitializeBundledPluginFeedback()
+    private void InitializeInstallConsentFeedback()
     {
-        var label = (TextBlock)_bundledPlugins.Content;
+        var label = (TextBlock)_consent.Content;
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_consent, "InstallSourceConsent");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(_consent, label.Text);
         var content = new Grid();
         content.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         // Reserve the underline space: showing it must not move other options.
         content.RowDefinitions.Add(new RowDefinition { Height = new GridLength(6) });
         content.Children.Add(label);
-        Grid.SetRow(_bundledPluginWave, 1);
-        content.Children.Add(_bundledPluginWave);
-        _bundledPlugins.Content = content;
-        _bundledPlugins.RenderTransform = _bundledPluginTranslation;
-        _bundledPlugins.Checked += (_, _) => ClearBundledPluginFeedback();
-        label.SizeChanged += (_, e) => UpdateBundledPluginWave(e.NewSize.Width);
-        Loaded += (_, _) => _bundledPluginFeedbackUnloaded = false;
+        Grid.SetRow(_installConsentWave, 1);
+        content.Children.Add(_installConsentWave);
+        _consent.Content = content;
+        _consent.RenderTransform = _installConsentTranslation;
+        _consent.Checked += (_, _) => ClearInstallConsentFeedback();
+        label.SizeChanged += (_, e) => UpdateInstallConsentWave(e.NewSize.Width);
+        Loaded += (_, _) => _installConsentFeedbackUnloaded = false;
         Unloaded += (_, _) => {
-            _bundledPluginFeedbackUnloaded = true;
-            ClearBundledPluginFeedback();
+            _installConsentFeedbackUnloaded = true;
+            ClearInstallConsentFeedback();
         };
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_bundledPluginWave, "BundledPluginWarningWave");
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAccessibilityView(_bundledPluginWave,
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(_installConsentWave, "InstallConsentWarningWave");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAccessibilityView(_installConsentWave,
             Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
     }
 
-    private void UpdateBundledPluginWave(double width)
+    private void UpdateInstallConsentWave(double width)
     {
         if (!double.IsFinite(width) || width <= 0) return;
         var figure = new PathFigure { StartPoint = new Windows.Foundation.Point(0, 2.5), IsClosed = false };
@@ -55,24 +57,24 @@ public sealed partial class SetupPage
         }
         var geometry = new PathGeometry();
         geometry.Figures.Add(figure);
-        _bundledPluginWave.Data = geometry;
+        _installConsentWave.Data = geometry;
     }
 
-    private void ClearBundledPluginFeedback()
+    private void ClearInstallConsentFeedback()
     {
-        _bundledPluginShake?.Stop();
-        _bundledPluginTranslation.X = 0;
-        _bundledPluginWave.Opacity = 0;
+        _installConsentShake?.Stop();
+        _installConsentTranslation.X = 0;
+        _installConsentWave.Opacity = 0;
     }
 
-    private async Task ShowBundledPluginFeedbackAsync()
+    private async Task ShowInstallConsentFeedbackAsync()
     {
-        if (_bundledPluginFeedbackActive) return;
-        _bundledPluginFeedbackActive = true;
+        if (_installConsentFeedbackActive) return;
+        _installConsentFeedbackActive = true;
         UpdateInstallAvailability();
-        _bundledPluginWave.Opacity = 1;
+        _installConsentWave.Opacity = 1;
         var storyboard = new Storyboard();
-        _bundledPluginShake = storyboard;
+        _installConsentShake = storyboard;
         try {
             if (new Windows.UI.ViewManagement.UISettings().AnimationsEnabled) {
                 var animation = new DoubleAnimationUsingKeyFrames { EnableDependentAnimation = true };
@@ -81,7 +83,7 @@ public sealed partial class SetupPage
                 }) animation.KeyFrames.Add(new LinearDoubleKeyFrame {
                     KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(milliseconds)), Value = offset,
                 });
-                Storyboard.SetTarget(animation, _bundledPluginTranslation);
+                Storyboard.SetTarget(animation, _installConsentTranslation);
                 Storyboard.SetTargetProperty(animation, "X");
                 storyboard.Children.Add(animation);
                 var completed = new TaskCompletionSource();
@@ -94,10 +96,10 @@ public sealed partial class SetupPage
             }
         } finally {
             storyboard.Stop();
-            _bundledPluginTranslation.X = 0;
-            _bundledPluginShake = null;
-            _bundledPluginFeedbackActive = false;
-            if (!_bundledPluginFeedbackUnloaded) UpdateInstallAvailability();
+            _installConsentTranslation.X = 0;
+            _installConsentShake = null;
+            _installConsentFeedbackActive = false;
+            if (!_installConsentFeedbackUnloaded) UpdateInstallAvailability();
         }
     }
 }
