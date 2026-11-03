@@ -21,6 +21,17 @@ public sealed partial class SetupPage
                 throw new InvalidOperationException("Installation must remain blocked without consent.");
             if (_bundledPlugins.IsChecked != true || _bundledPlugins.ActualWidth <= 0)
                 throw new InvalidOperationException("Bundled plugin option must render and default to enabled.");
+            if (round == 0) {
+                _bundledPlugins.IsChecked = false;
+                await ShowBundledPluginFeedbackAsync();
+                if (_bundledPluginWave.Opacity != 1 || _bundledPluginWave.Data is null ||
+                    _bundledPluginTranslation.X != 0 || _bundledPluginFeedbackActive ||
+                    _installing || _step != SetupStep.Options || _bundledPlugins.IsChecked != false)
+                    throw new InvalidOperationException("Optional-plugin feedback changed installation intent or failed to settle.");
+                _bundledPlugins.IsChecked = true;
+                if (_bundledPluginWave.Opacity != 0 || _bundledPluginTranslation.X != 0)
+                    throw new InvalidOperationException("Checking the plugin option must clear its warning.");
+            }
             App.LogStage($"Navigation round {round + 1}: options rendered; package={_packageReady}; language={_languageReady}");
             BackButton_Click(this, new Microsoft.UI.Xaml.RoutedEventArgs());
             await Task.Delay(300);

@@ -27,12 +27,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <Nullable>enable</Nullable>
-    <Version>0.2.6</Version>
+    <Version>0.2.7</Version>
     <ApplicationIcon>../settings_center/Assets/AppIcon.ico</ApplicationIcon>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../settings_center/SetupPage.cs" Link="SetupPage.cs" />
+    <Compile Include="../settings_center/SetupPage.PluginFeedback.cs" Link="SetupPage.PluginFeedback.cs" />
+    <Compile Include="../settings_center/PluginRiskDisplay.cs" Link="PluginRiskDisplay.cs" />
+    <Compile Include="../settings_center/PluginRiskPreferences.cs" Link="PluginRiskPreferences.cs" />
     <Compile Include="../settings_center/BundledPlugins.cs" Link="BundledPlugins.cs" />
     <Compile Include="../settings_center/PluginShellClient.cs" Link="PluginShellClient.cs" />
     <Compile Include="../settings_center/PluginSettingsSchema.cs" Link="PluginSettingsSchema.cs" />

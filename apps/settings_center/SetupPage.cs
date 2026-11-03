@@ -16,7 +16,7 @@ public sealed partial class SetupPage : Page
 {
     private enum SetupStep { Welcome, Options, Progress }
 
-    private const string Version = "0.2.6";
+    private static string Version => typeof(SetupPage).Assembly.GetName().Version!.ToString(3);
     private readonly string _packageRoot;
     private readonly string? _previewStage;
     private readonly Grid _pageHost = new();
@@ -80,6 +80,7 @@ public sealed partial class SetupPage : Page
             option.HorizontalAlignment = HorizontalAlignment.Stretch;
             option.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         }
+        InitializeBundledPluginFeedback();
         _consent.HorizontalAlignment = HorizontalAlignment.Stretch;
         _consent.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         _installDirectory.Text = Path.Combine(
@@ -412,7 +413,14 @@ public sealed partial class SetupPage : Page
             await CheckEnvironmentAsync();
             return;
         }
-        if (_step == SetupStep.Options) await InstallAsync();
+        if (_step == SetupStep.Options) {
+            if (_bundledPluginFeedbackActive) return;
+            if (_bundledPlugins.IsChecked != true) {
+                await ShowBundledPluginFeedbackAsync();
+                if (_step != SetupStep.Options || _bundledPluginFeedbackUnloaded) return;
+            }
+            await InstallAsync();
+        }
     }
 
     private void BackButton_Click(object sender, RoutedEventArgs e)
