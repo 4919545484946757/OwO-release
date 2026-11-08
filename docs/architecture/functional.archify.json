@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "OwO · 功能架构",
+    "locale": "zh-CN",
+    "output": "docs/owo-functional-archify.html",
+    "quality_profile": "showcase",
+    "repository": {"url":"https://github.com/4919545484946757/OwO-release.git","revision":"b678872b79a78b75b47befa8f10a44732d654403","link_mode":"local-only"}
+  },
+  "components": [
+    {"id":"user","type":"external","label":"用户输入","sublabel":"拼音 / 编码 / 快捷键","pos":[40,40],"size":[132,66],"sources":[{"path":"src/tsf/text_service.cpp","line":3947,"end_line":3999}]},
+    {"id":"compose","type":"frontend","label":"输入交互","sublabel":"组合态 · 光标 · 焦点","pos":[270,40],"size":[160,66],"sources":[{"path":"src/tsf/text_service.cpp","line":3947,"end_line":3999}]},
+    {"id":"scheme","type":"backend","label":"输入方案","sublabel":"全拼 / 精确编码 / 插件","pos":[550,40],"size":[176,66],"sources":[{"path":"include/owo/engine/input_method_provider.h"}]},
+    {"id":"parse","type":"backend","label":"解析与纠错","sublabel":"音节 · 简拼 · 混拼","pos":[550,190],"size":[176,66],"sources":[{"path":"src/engine/full_pinyin_schema.cpp","line":1002,"end_line":1015}]},
+    {"id":"candidate","type":"backend","label":"候选生成","sublabel":"词语 · 句子 · 单字","pos":[830,190],"size":[168,66],"sources":[{"path":"src/engine/candidate_generator.cpp","line":727,"end_line":740}]},
+    {"id":"ranking","type":"backend","label":"分区与排序","sublabel":"基础评分 · 可选模型","pos":[830,340],"size":[168,66],"sources":[{"path":"src/engine/candidate_partition.cpp"},{"path":"src/engine/candidate_scoring.cpp"}]},
+    {"id":"display","type":"frontend","label":"候选呈现","sublabel":"分页 · 展开 · 鼠标选取","pos":[550,340],"size":[176,66],"sources":[{"path":"src/tsf/text_service.cpp","line":5088,"end_line":5100}]},
+    {"id":"learning","type":"database","label":"提交与学习","sublabel":"上屏后记录用户用词","pos":[270,340],"size":[160,66],"sources":[{"path":"src/engine/user_frequency.cpp","line":405,"end_line":475}]},
+    {"id":"manage","type":"frontend","label":"设置与词库管理","sublabel":"方案 · 词库 · 插件","pos":[40,340],"size":[132,66],"sources":[{"path":"apps/settings_center/MainPage.xaml.cs","line":103,"end_line":125}]}
+  ],
+  "connections": [
+    {"from":"user","to":"compose","label":"键入"},
+    {"from":"compose","to":"scheme","label":"提交编码"},
+    {"from":"scheme","to":"parse","label":"全拼分割"},
+    {"from":"parse","to":"candidate","label":"分割方案"},
+    {"from":"candidate","to":"ranking","label":"候选集合"},
+    {"from":"ranking","to":"display","label":"有序快照"},
+    {"from":"display","to":"learning","label":"选择上屏"},
+    {"from":"manage","to":"learning","label":"管理用户词"}
+  ],
+  "cards": [
+    {"dot":"cyan","title":"主输入链","items":["输入方案决定解析方式；全拼才使用拼音分割与纠错。","TSF 保持组合态，候选结果经请求 ID 核对后呈现。"]},
+    {"dot":"violet","title":"扩展边界","items":["插件输入方案仍属实验接口。","智能模型不可用时继续展示基础候选。"]}
+  ]
+}

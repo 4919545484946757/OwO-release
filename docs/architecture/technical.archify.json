@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "OwO · 技术与运行架构",
+    "locale": "zh-CN",
+    "output": "docs/owo-technical-archify.html",
+    "quality_profile": "showcase",
+    "repository": {"url":"https://github.com/4919545484946757/OwO-release.git","revision":"b678872b79a78b75b47befa8f10a44732d654403","link_mode":"local-only"}
+  },
+  "components": [
+    {"id":"app","type":"external","label":"Windows 应用","sublabel":"输入焦点所在进程","pos":[40,190],"size":[146,64],"sources":[{"path":"src/tsf/dll_main.cpp"}]},
+    {"id":"tsf","type":"frontend","label":"① OwO.TSF.dll","sublabel":"TSF · Direct2D 候选","pos":[290,190],"size":[178,68],"sources":[{"path":"src/tsf/text_service.cpp","line":3947,"end_line":3999}]},
+    {"id":"core","type":"backend","label":"② Core Service","sublabel":"解析 · 候选 · 学习","pos":[600,190],"size":[176,68],"sources":[{"path":"apps/core_service/main.cpp","line":100,"end_line":155}]},
+    {"id":"model","type":"backend","label":"③ ModelHost","sublabel":"libime 上下文排序","pos":[900,60],"size":[176,68],"sources":[{"path":"apps/model_host/main.cpp"},{"path":"include/owo/model/model_protocol.h","line":15,"end_line":38}]},
+    {"id":"plugins","type":"security","label":"④ 隔离插件宿主","sublabel":"权限与独立进程","pos":[900,190],"size":[176,68],"sources":[{"path":"src/plugin/plugin_host.cpp","line":354,"end_line":410}]},
+    {"id":"store","type":"database","label":"⑤ 本地文件","sublabel":".owolx · .owuf · owo.conf","pos":[600,390],"size":[176,68],"sources":[{"path":"src/config/config_paths.cpp","line":12,"end_line":34},{"path":"src/engine/binary_lexicon.cpp","line":420,"end_line":428}]},
+    {"id":"settings","type":"frontend","label":"⑥ WinUI 设置中心","sublabel":"配置 · 词库 · 插件","pos":[290,390],"size":[178,68],"sources":[{"path":"apps/settings_center/MainPage.xaml.cs","line":103,"end_line":125}]},
+    {"id":"launcher","type":"backend","label":"⑦ 运行启动器","sublabel":"启动 Core / ModelHost","pos":[40,390],"size":[146,68],"sources":[{"path":"apps/runtime_launcher/main.cpp","line":163,"end_line":184}]},
+    {"id":"agent","type":"external","label":"⑧ 第三方 Agent","sublabel":"仅授权插件可连接","pos":[900,390],"size":[176,68],"sources":[{"path":"include/owo/agent/agent_protocol.h","line":12,"end_line":42}]}
+  ],
+  "connections": [
+    {"from":"app","to":"tsf","label":"加载输入法"},
+    {"from":"tsf","to":"core","label":"本机管道请求"},
+    {"from":"core","to":"model","label":"可选评分"},
+    {"from":"core","to":"plugins","label":"授权调用"},
+    {"from":"core","to":"store","label":"查词与学习"},
+    {"from":"settings","to":"store","label":"设置管理"},
+    {"from":"launcher","to":"core","label":"启动后台"},
+    {"from":"plugins","to":"agent","label":"IPC 交换"}
+  ],
+  "cards": [
+    {"dot":"emerald","title":"运行边界","items":["① 在目标应用内；②、③、④ 为独立进程或隔离组件。","⑤ 是本地文件，不是关系型数据库。"]},
+    {"dot":"amber","title":"可选路径","items":["③ 不可用时仍提供基础候选。","⑧ 需要额外安装并授权 Agent IPC 插件。"]}
+  ]
+}
