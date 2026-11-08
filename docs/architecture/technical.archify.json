@@ -4,7 +4,7 @@
   "meta": {
     "title": "OwO · 技术与运行架构",
     "locale": "zh-CN",
-    "output": "docs/owo-technical-archify.html",
+    "output": "docs/owo-project-blueprint/owo-technical-archify.html",
     "quality_profile": "showcase",
     "repository": {"url":"https://github.com/4919545484946757/OwO-release.git","revision":"b678872b79a78b75b47befa8f10a44732d654403","link_mode":"local-only"}
   },
@@ -31,6 +31,7 @@
   ],
   "cards": [
     {"dot":"emerald","title":"运行边界","items":["① 在目标应用内；②、③、④ 为独立进程或隔离组件。","⑤ 是本地文件，不是关系型数据库。"]},
-    {"dot":"amber","title":"可选路径","items":["③ 不可用时仍提供基础候选。","⑧ 需要额外安装并授权 Agent IPC 插件。"]}
+    {"dot":"amber","title":"可选路径","items":["③ 不可用时仍提供基础候选。","⑧ 需要额外安装并授权 Agent IPC 插件。"]},
+    {"dot":"violet","title":"未来可加入 · 非已实现","items":["平台适配层可为其他操作系统复用 Core，但 TSF 和安装器仍是 Windows 专属。","模型资源可加入兼容性元数据、版本回滚和多后端选择。","插件接口稳定化前需完成 ABI、权限及跨版本迁移设计。"]}
   ]
 }

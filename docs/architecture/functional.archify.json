@@ -4,7 +4,7 @@
   "meta": {
     "title": "OwO · 功能架构",
     "locale": "zh-CN",
-    "output": "docs/owo-functional-archify.html",
+    "output": "docs/owo-project-blueprint/owo-functional-archify.html",
     "quality_profile": "showcase",
     "repository": {"url":"https://github.com/4919545484946757/OwO-release.git","revision":"b678872b79a78b75b47befa8f10a44732d654403","link_mode":"local-only"}
   },
@@ -31,6 +31,7 @@
   ],
   "cards": [
     {"dot":"cyan","title":"主输入链","items":["输入方案决定解析方式；全拼才使用拼音分割与纠错。","TSF 保持组合态，候选结果经请求 ID 核对后呈现。"]},
-    {"dot":"violet","title":"扩展边界","items":["插件输入方案仍属实验接口。","智能模型不可用时继续展示基础候选。"]}
+    {"dot":"violet","title":"扩展边界","items":["插件输入方案仍属实验接口。","智能模型不可用时继续展示基础候选。"]},
+    {"dot":"amber","title":"未来可加入 · 非已实现","items":["真实仓颉、五笔和外文方案需独立词典与实机验证。","方案命名空间下的独立学习、标点和模型能力应逐项适配。","输入质量可扩展为离线评测、反馈数据与可回滚模型。"]}
   ]
 }

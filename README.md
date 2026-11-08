@@ -4,7 +4,7 @@ OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入
 
 当前版本：`0.2.7`（发布检查见 [0.2.7 检查记录](docs/releases/0.2.7-validation.md)）
 
-项目交付资料：[七项独立文档导航](docs/project-architecture.html)：功能架构、技术架构、服务清单、业务调用、API 与数据、验收清单、项目结构与编码规范。
+项目交付资料集中在 [`docs/owo-project-blueprint/`](docs/owo-project-blueprint/)；从[七项独立文档导航](docs/project-architecture.html)进入功能架构、技术架构、服务清单、业务调用、API 与数据、验收清单、项目结构与编码规范。各文档分别标注当前实现与未来可加入方向。
 
 ## 功能概览
 

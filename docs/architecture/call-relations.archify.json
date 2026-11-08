@@ -1,7 +1,7 @@
 {
   "schema_version":1,
   "diagram_type":"sequence",
-  "meta":{"title":"OwO · 候选请求与学习调用","locale":"zh-CN","output":"docs/04-business-calls.html","quality_profile":"showcase","repository":{"url":"https://github.com/4919545484946757/OwO-release.git","revision":"05f820d56e86b603eea71aeb4b7235e1585c3a13","link_mode":"local-only"}},
+  "meta":{"title":"OwO · 候选请求与学习调用","locale":"zh-CN","output":"docs/owo-project-blueprint/04-business-calls.html","quality_profile":"showcase","repository":{"url":"https://github.com/4919545484946757/OwO-release.git","revision":"05f820d56e86b603eea71aeb4b7235e1585c3a13","link_mode":"local-only"}},
   "participants":[
     {"id":"tsf","type":"frontend","label":"① TSF / 候选窗口","sublabel":"应用进程","sources":[{"path":"src/tsf/text_service.cpp","line":3947,"end_line":3999},{"path":"src/tsf/text_service.cpp","line":4299,"end_line":4352}]},
     {"id":"core","type":"backend","label":"② Core Service","sublabel":"候选与学习","sources":[{"path":"apps/core_service/main.cpp","line":100,"end_line":155},{"path":"src/ipc/input_method_server.cpp"}]},
@@ -22,6 +22,7 @@
   "cards":[
     {"dot":"cyan","title":"快照一致性","items":["① 检查 request_id 与焦点代数；过期结果不覆盖当前候选。","候选分页与展开需引用同一请求快照。"]},
     {"dot":"amber","title":"可选模型","items":["③ 不可用时，基础候选仍可显示。","图中模型请求表示能力分支，不表示每次输入都必然执行。"]},
-    {"dot":"emerald","title":"学习归属","items":["用户选择后由 ② 更新 ⑤；插件不能直接改写宿主学习库。"]}
+    {"dot":"emerald","title":"学习归属","items":["用户选择后由 ② 更新 ⑤；插件不能直接改写宿主学习库。"]},
+    {"dot":"violet","title":"未来可加入 · 非已实现","items":["插件输入方案可定义独立评分、学习和取消链路，但必须保留请求代数校验。","模型更新可增加明确的兼容性检查与上一版本回滚。"]}
   ]
 }
