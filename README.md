@@ -4,6 +4,8 @@ OwO 是面向 Windows 11 x64 的模块化中文输入法。全拼是默认输入
 
 当前版本：`0.2.7`（发布检查见 [0.2.7 检查记录](docs/releases/0.2.7-validation.md)）
 
+项目交付资料：[HTML 功能/技术架构图及服务调用关系](docs/project-architecture.html) · [API、数据、验收与工程规范](docs/project-delivery.md)。
+
 ## 功能概览
 
 - Windows TSF 输入链路，Direct2D、DirectWrite 候选窗口

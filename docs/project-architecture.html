@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OwO 0.2.7 · 项目架构</title>
+<style>
+:root{color-scheme:light dark;font:15px/1.55 "Segoe UI","Microsoft YaHei",sans-serif;--bg:#f5f7fb;--panel:#fff;--ink:#182235;--muted:#53627b;--line:#c9d4e7;--accent:#2864c9;--soft:#e9f1ff}
+@media(prefers-color-scheme:dark){:root{--bg:#101722;--panel:#192433;--ink:#eaf0fa;--muted:#aab9d1;--line:#40536f;--accent:#8ab5ff;--soft:#243750}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}main{max-width:1160px;margin:auto;padding:32px 20px 60px}h1{margin:0}h2{margin:36px 0 10px}p{color:var(--muted)}.sub{margin:6px 0 24px}.board{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;overflow:auto}.lane{display:grid;grid-template-columns:160px 1fr;gap:14px;align-items:stretch;margin:10px 0}.lane-label{background:var(--soft);border-radius:10px;padding:12px;color:var(--accent);font-weight:600}.nodes{display:flex;flex-wrap:wrap;gap:10px}.node{min-width:145px;flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:var(--panel)}.node small{display:block;color:var(--muted);font-size:12px}.arrow{color:var(--accent);font-size:21px;text-align:center;line-height:1}.flow{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:12px}.flow .node{min-height:112px}.flow .node b{color:var(--accent)}.flow .node::after{content:"→";float:right;color:var(--accent)}.flow .node:last-child::after{content:""}.branch{border-left:3px solid var(--accent);margin:14px 0 0 14px;padding-left:14px}table{border-collapse:collapse;width:100%;min-width:700px}th,td{text-align:left;border-bottom:1px solid var(--line);padding:10px;vertical-align:top}th{background:var(--soft)}code{font-family:Consolas,monospace;font-size:13px}a{color:var(--accent)}@media(max-width:760px){.lane{grid-template-columns:1fr}.flow{grid-template-columns:repeat(2,minmax(140px,1fr))}}
+</style>
+</head>
+<body><main>
+<h1>OwO 输入法 · 项目架构</h1><p class="sub">版本基线：0.2.7 · Windows 11 x64 · 依据当前源码绘制。方框代表功能或运行组件，不代表独立网络服务。</p>
+<h2>1. 功能架构图</h2>
+<div class="board" role="img" aria-label="OwO 功能架构：交互、输入、候选、扩展和管理层">
+ <div class="lane"><div class="lane-label">输入交互</div><div class="nodes"><div class="node">TSF 输入与上屏<small>预编辑、光标、快捷键</small></div><div class="node">候选窗口<small>分页、展开、点击、主题</small></div><div class="node">符号与标点<small>中文标点、Unicode 插件</small></div></div></div>
+ <div class="arrow">↓</div>
+ <div class="lane"><div class="lane-label">候选能力</div><div class="nodes"><div class="node">输入方案<small>全拼 / 精确编码 / 实验性插件方案</small></div><div class="node">解析与纠错<small>全拼、简拼、混拼、分割</small></div><div class="node">候选生成与分区<small>句子、字典、单字</small></div><div class="node">排序与学习<small>基础评分、词频、可选模型</small></div></div></div>
+ <div class="arrow">↓</div>
+ <div class="lane"><div class="lane-label">扩展与管理</div><div class="nodes"><div class="node">词库管理<small>导入、启停、补码、用户词</small></div><div class="node">插件宿主<small>授权、隔离、版本权限</small></div><div class="node">Agent 模式<small>需另装插件并授权</small></div><div class="node">设置与安装<small>WinUI 3、资源下载</small></div></div></div>
+</div>
+<h2>2. 技术架构图</h2>
+<div class="board" role="img" aria-label="进程边界和依赖：宿主应用加载 TSF，TSF 通过本地管道访问 Core，Core 访问词典与 ModelHost、隔离插件">
+ <div class="lane"><div class="lane-label">应用进程</div><div class="nodes"><div class="node">① Windows 应用 + OwO.TSF.dll<small>COM/TSF；Direct2D、DirectWrite 候选 UI</small></div><div class="node">⑥ OwO.Settings.exe<small>WinUI 3，配置与管理界面</small></div></div></div>
+ <div class="arrow">①/⑥ ⇅ 本机命名管道 / 配置与管理请求</div>
+ <div class="lane"><div class="lane-label">当前用户后台</div><div class="nodes"><div class="node">② owo_core_service.exe<small>请求校验、输入方案、候选与学习</small></div><div class="node">⑦ owo_runtime_launcher.exe<small>启动与运行管理</small></div></div></div>
+ <div class="arrow">② ⇄ ③ / ④ / ⑤ / ⑧</div>
+ <div class="lane"><div class="lane-label">可选组件与数据</div><div class="nodes"><div class="node">③ owo_model_host.exe<small>libime 模型；不可用时保留基础候选</small></div><div class="node">④ 插件进程 / 资源插件<small>PluginHost 隔离；授权后调用</small></div><div class="node">⑤ 本地数据<small>.owolx、.owuf、owo.conf、插件设置</small></div><div class="node">⑧ 第三方 Agent<small>仅经授权 Agent IPC 插件连接</small></div></div></div>
+ <p>安装链路另由 Inno Setup 解包，再启动 WinUI 3 安装助手；开发 CLI、测试工具不属于常驻服务。模型与插件均为可选依赖。</p>
+</div>
+<h2>3–4. 服务清单与业务调用关系</h2>
+<div class="board"><div class="flow" aria-label="候选查询主调用链">
+ <div class="node"><b>①</b> 宿主 TSF<small>采集当前组合输入与焦点上下文</small></div>
+ <div class="node"><b>②</b> Core<small>校验请求、解析输入、查词与分区</small></div>
+ <div class="node"><b>③ / ⑤</b> ModelHost 与本地数据<small>可选排序；词典、用户学习</small></div>
+ <div class="node"><b>①</b> 候选 UI 与上屏<small>同一请求快照渲染；选择后提交/学习</small></div>
+ </div><div class="branch">插件路径：② → ④（已授权服务）→ ② → ①；Agent 路径：② → ④ → ⑧ → ④ → ② → ①。设置路径：⑥ → 配置/管理接口 → ②/⑤。运行管理：⑦ 启动 ② 与可用的 ③。</div>
+ <table><thead><tr><th>序号</th><th>组件 / 形式</th><th>职责与主要调用对象</th><th>失效边界</th></tr></thead><tbody>
+ <tr><td>①</td><td>OwO.TSF.dll，应用进程内</td><td>组合态、焦点、候选窗口、用户上屏；调用 ②</td><td>不在应用进程运行词典/插件代码</td></tr>
+ <tr><td>②</td><td>Core Service，独立进程</td><td>输入方案、基础候选、学习、配置/词库管理；调用 ③④⑤</td><td>候选服务中断时不得伪造结果</td></tr>
+ <tr><td>③</td><td>ModelHost，独立可选进程</td><td>libime 上下文评分；由 ② 请求</td><td>失效时退回基础候选</td></tr>
+ <tr><td>④</td><td>PluginHost / 插件进程或资源</td><td>按清单与授权提供输入方案、主题、符号或 Agent 接口</td><td>不得直接进入 TSF/Core 进程</td></tr>
+ <tr><td>⑤</td><td>本地文件存储</td><td>配置、词典、词频、插件数据；由所有者组件访问</td><td>无关系型数据库服务</td></tr>
+ <tr><td>⑥</td><td>WinUI 3 设置 / 安装助手</td><td>设置、词库与插件管理、安装步骤；调用管理后端</td><td>安装授权与运行权限分开</td></tr>
+ <tr><td>⑦</td><td>运行启动器</td><td>启动和管理 ②、可用时的 ③</td><td>不是候选评分组件</td></tr>
+ <tr><td>⑧</td><td>第三方 Agent（可选）</td><td>经 ④ 的 Agent IPC 交换结构化命令</td><td>高风险操作仍受宿主确认限制</td></tr>
+ </tbody></table></div>
+<p>API、存储、验收与工程规范见 <a href="project-delivery.md">项目交付说明</a>。本图中的数字与服务清单一一对应。</p>
+</main></body></html>
