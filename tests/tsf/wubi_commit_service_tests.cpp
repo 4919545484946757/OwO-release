@@ -1,6 +1,7 @@
 #include "text_service.h"
 #include "test_text_store.h"
 #include "owo/core/input_method_runtime.h"
+#include "owo/engine/binary_lexicon.h"
 #include "owo/plugin/plugin_store.h"
 #include "owo/plugin/plugin_authorization_store.h"
 #include "../../plugins/wubi86/src/provider.h"
@@ -11,7 +12,7 @@
 namespace owo::tsf {
 struct WubiCommitTestAccess {
     static int run(ITfThreadMgr* manager, TfClientId client, ITfContext* context, TestTextStore* store,
-                   const std::wstring& pipe, const std::filesystem::path& root) {
+                   const std::wstring& pipe, const std::filesystem::path& root, bool production_pinyin) {
         auto* service = new TextService;
         service->thread_manager_ = manager; manager->AddRef(); service->client_id_ = client;
         service->shortcut_config_.input_scheme = "plugin:fixture/wubi";
@@ -203,6 +204,40 @@ struct WubiCommitTestAccess {
               "submitted real confirmation survives immediate UI reset and learns once");
         check(store->writes == writes_at_reset && store->text == text_at_reset,
               "retired confirmation cannot replay application text");
+        if (production_pinyin) {
+            prepare();
+            service->plugin_input_client_ = std::make_unique<ipc::InputMethodAsyncClient>(pipe);
+            service->plugin_input_session_ = "production-pinyin-tsf";
+            const auto current_generation = service->plugin_input_document_.generation();
+            auto open = service->plugin_input_client_->open(current_generation,
+                descriptor.plugin_id, descriptor.id, service->plugin_input_session_, false).get();
+            if (!service->plugin_input_document_.bind(open, service->plugin_input_session_)) {
+                check(false, "bind production pinyin fallback session");
+                service->Release();
+                return failures;
+            }
+            service->plugin_input_descriptor_ = open.descriptors.front();
+            check(service->plugin_input_document_.composition().insert("nihao"), "retain five-key spelling");
+            service->sync_plugin_display();
+            service->queue_plugin_compose();
+            check(poll_until([&] { return !service->candidate_request_pending_; }) &&
+                  !service->candidates_.empty() && service->candidates_.front() == L"\x4f60\x597d",
+                  "production pinyin fallback displays 你好");
+            std::ifstream learning_before(learned_file(), std::ios::binary);
+            const std::string before_fallback((std::istreambuf_iterator<char>(learning_before)), {});
+            learning_before.close();
+            const auto before_space = store->writes;
+            BOOL eaten{};
+            check(SUCCEEDED(service->handle_plugin_key(context, VK_SPACE, 0, &eaten)) && eaten,
+                  "Space selects production pinyin fallback");
+            check(poll_until([&] {
+                      return store->writes > before_space && !service->plugin_commit_future_.valid();
+                  }) && store->writes == before_space + 1 && store->text.find(L"\x4f60\x597d") != std::wstring::npos,
+                  "TSF SetText commits fallback once and receives Core acknowledgement");
+            std::ifstream learning_after(learned_file(), std::ios::binary);
+            const std::string after_fallback((std::istreambuf_iterator<char>(learning_after)), {});
+            check(before_fallback == after_fallback, "pinyin fallback leaves Wubi learning untouched");
+        }
         store->fail_selection = true;
         const auto before_native = store->writes;
         const auto native_commit = service->commit_text(context, L"native-host-commit");
@@ -216,7 +251,12 @@ struct WubiCommitTestAccess {
 }
 
 int main(int argc, char** argv) {
-    if (argc != 3) return 92;
+    if (argc != 3 && argc != 4) return 92;
+    owo::engine::BinaryLexicon lexicon;
+    if (argc == 4) {
+        const auto loaded = lexicon.load(argv[3]);
+        if (!loaded.success) { std::cerr << loaded.error << '\n'; return 98; }
+    }
     const auto root = std::filesystem::absolute(std::filesystem::path(argv[1]) / ("wubi-tsf-" + std::to_string(GetCurrentProcessId()) + "-" + std::to_string(GetTickCount64())));
     if (!owo::plugin::initialize_plugin_store(root).ok) return 93;
     const auto stage = root / "staging" / ".wubi";
@@ -228,7 +268,8 @@ int main(int argc, char** argv) {
         active_plugin.publisher_certificate_sha256,{"input.scheme"});
     if (!grant.ok || !owo::plugin::save_plugin_authorization(root,grant.value).ok) return 96;
     const auto pipe = std::wstring(LR"(\\.\pipe\OwO.Test.Wubi.TSF.)") + std::to_wstring(GetCurrentProcessId());
-    owo::ipc::InputMethodPipeServer server(root,pipe,[](std::uint32_t){ return owo::ipc::InputMethodFocus{1,false}; });
+    owo::ipc::InputMethodPipeServer server(root,pipe,[](std::uint32_t){ return owo::ipc::InputMethodFocus{1,false}; },
+        argc == 4 ? &lexicon : nullptr);
     if (!server.started()) return 97;
     if (FAILED(CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED))) return 90;
     ITfThreadMgr* manager{}; ITfDocumentMgr* document{}; ITfContext* context{};
@@ -241,7 +282,7 @@ int main(int argc, char** argv) {
         if (SUCCEEDED(manager->CreateDocumentMgr(&document)) && SUCCEEDED(document->CreateContext(client,0,static_cast<ITextStoreACP*>(store),&context,&cookie)) &&
             SUCCEEDED(document->Push(context))) {
             pushed = true;
-            if (SUCCEEDED(manager->SetFocus(document))) result = owo::tsf::WubiCommitTestAccess::run(manager,client,context,store,pipe,root);
+            if (SUCCEEDED(manager->SetFocus(document))) result = owo::tsf::WubiCommitTestAccess::run(manager,client,context,store,pipe,root,argc == 4);
         }
     }
     if (manager) manager->SetFocus(nullptr);

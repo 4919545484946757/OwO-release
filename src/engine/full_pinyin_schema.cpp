@@ -947,6 +947,17 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
                                     const bool correction_enabled,
                                     FullPinyinParseMetrics* const metrics,
                                     const std::function<bool()>& cancelled) const {
+    return parse_impl(input, max_paths, correction_enabled, metrics, cancelled, false);
+}
+
+ParseResult FullPinyinSchema::parse_spelling(std::string_view input, std::size_t max_paths,
+                                           const std::function<bool()>& cancelled) const {
+    return parse_impl(input, max_paths, false, nullptr, cancelled, true);
+}
+
+ParseResult FullPinyinSchema::parse_impl(std::string_view input, const std::size_t max_paths,
+    const bool correction_enabled, FullPinyinParseMetrics* const metrics,
+    const std::function<bool()>& cancelled, const bool spelling_only) const {
     const auto normalization_started = std::chrono::steady_clock::now();
     ParseResult result;
     if (input.empty() || max_paths == 0) return result;
@@ -974,7 +985,8 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
         const auto separator = result.normalized_input.find('\'', chunk_begin);
         const auto chunk_end = separator == std::string::npos ? result.normalized_input.size() : separator;
         auto chunk_paths = parse_chunk(result.normalized_input, chunk_begin, chunk_end,
-                                       max_paths, true, cancelled);
+                                       max_paths, !spelling_only || separator == std::string::npos,
+                                       cancelled);
         const auto chunk = std::string_view(result.normalized_input).substr(
             chunk_begin, chunk_end - chunk_begin);
         const bool consonant_abbreviation = chunk.size() >= 2 &&
@@ -983,7 +995,7 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
                 return value >= 'a' && value <= 'z' &&
                        vowels.find(value) == std::string_view::npos;
             });
-        if (chunk_paths.empty() && consonant_abbreviation) {
+        if (!spelling_only && chunk_paths.empty() && consonant_abbreviation) {
             std::vector<ParsePath> abbreviated;
             append_abbreviated_completions(chunk, abbreviated, max_paths, cancelled);
             chunk_paths.reserve(abbreviated.size());
@@ -1032,6 +1044,19 @@ ParseResult FullPinyinSchema::parse(const std::string_view input,
     const auto previous_correction_us = metrics ? metrics->correction_us : 0;
 
     if (base_valid) result.paths = std::move(combined);
+    if (spelling_only) {
+        auto paths = std::move(result.paths);
+        for (const auto& path : paths) {
+            if (std::all_of(path.syllables.begin(), path.syllables.end(),
+                            [](const Syllable& syllable) { return syllable.complete; }))
+                result.paths.push_back(path);
+        }
+        append_incomplete_completions(paths, result.paths, max_paths,
+                                      std::numeric_limits<std::size_t>::max());
+        result.valid = !result.paths.empty();
+        result.has_incomplete_syllable = any_incomplete;
+        return result;
+    }
     const auto base_paths = result.paths;
     const bool stable_trailing_prefix = std::any_of(
         base_paths.begin(), base_paths.end(), [](const ParsePath& path) {

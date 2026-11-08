@@ -7,6 +7,8 @@
 #include <future>
 #include <optional>
 
+namespace owo::engine { class Lexicon; }
+
 namespace owo::core {
 
 // Host-approved metadata only. This does not install/enable a plugin or grant permission.
@@ -49,7 +51,9 @@ private:
 // by the host, not taken from an untrusted plugin payload. Transport/TSF binding is separate.
 class InputMethodSessionRouter {
 public:
-    explicit InputMethodSessionRouter(std::filesystem::path plugin_store_root);
+    // The optional production lexicon is immutable and must outlive the router.
+    explicit InputMethodSessionRouter(std::filesystem::path plugin_store_root,
+                                      const engine::Lexicon* pinyin_lexicon = nullptr);
     ~InputMethodSessionRouter();
     InputMethodSessionRouter(const InputMethodSessionRouter&) = delete;
     InputMethodSessionRouter& operator=(const InputMethodSessionRouter&) = delete;

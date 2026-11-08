@@ -236,8 +236,9 @@ struct InputMethodPipeServer::Impl {
     std::thread control_thread;
     std::uint64_t next_owner{};
     bool disconnect_requested{}; // IO thread only: release the pipe for a new foreground client
-    explicit Impl(std::filesystem::path store, const std::wstring& name, FocusResolver resolver)
-        : router(store), root(std::move(store)), focus(resolver ? std::move(resolver) : native_focus) {
+    explicit Impl(std::filesystem::path store, const std::wstring& name, FocusResolver resolver,
+                  const engine::Lexicon* pinyin_lexicon)
+        : router(store, pinyin_lexicon), root(std::move(store)), focus(resolver ? std::move(resolver) : native_focus) {
         std::vector<std::byte> user; DWORD session{};
         if (!token_info(GetCurrentProcess(), user, session)) return;
         LPWSTR sid{};
@@ -494,8 +495,9 @@ struct InputMethodPipeServer::Impl {
         }
     }
 };
-InputMethodPipeServer::InputMethodPipeServer(std::filesystem::path root, std::wstring name, FocusResolver focus)
-    : impl_(std::make_unique<Impl>(std::move(root), name, std::move(focus))) {}
+InputMethodPipeServer::InputMethodPipeServer(std::filesystem::path root, std::wstring name,
+    FocusResolver focus, const engine::Lexicon* pinyin_lexicon)
+    : impl_(std::make_unique<Impl>(std::move(root), name, std::move(focus), pinyin_lexicon)) {}
 InputMethodPipeServer::~InputMethodPipeServer() = default;
 bool InputMethodPipeServer::started() const noexcept { return impl_->pipe != INVALID_HANDLE_VALUE; }
 } // namespace owo::ipc

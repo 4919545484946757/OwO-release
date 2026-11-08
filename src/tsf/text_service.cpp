@@ -6365,7 +6365,9 @@ void TextService::poll_plugin_input_locked() {
     }
     if (result.response && result.response->status != engine::InputMethodStatus::success) {
         candidate_request_failed_ = true;
-        candidate_failure_detail_ = L"输入方案暂不可用；编码已保留";
+        candidate_failure_detail_ = result.response->diagnostic.empty()
+            ? L"输入方案暂不可用；编码已保留"
+            : wide_from_utf8(result.response->diagnostic) + L"；编码已保留";
     }
     const auto requested_row = expanded_pages_.selected;
     sync_plugin_display();

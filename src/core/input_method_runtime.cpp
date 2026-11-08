@@ -1,5 +1,7 @@
 #include "owo/core/input_method_runtime.h"
 
+#include "owo/engine/candidate_generator.h"
+#include "owo/engine/full_pinyin_schema.h"
 #include "owo/plugin/input_method_protocol.h"
 #include "owo/plugin/plugin_authorization_store.h"
 #include "owo/plugin/plugin_host.h"
@@ -9,6 +11,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <optional>
+#include <random>
 #include <thread>
 
 namespace owo::core {
@@ -20,24 +23,58 @@ InputMethodResponse failure(const InputMethodRequest& r, InputMethodStatus statu
     v.page = r.page; v.status = status; v.diagnostic = std::move(message);
     return v;
 }
+constexpr std::string_view kWubi86Scheme = "owo.plugin.wubi86/wubi86";
+
+InputMethodDescriptor host_descriptor(InputMethodDescriptor descriptor) {
+    if (descriptor.id == kWubi86Scheme) {
+        // Keep the isolated plugin's descriptor and wire contract unchanged.
+        descriptor.max_input_bytes = 256;
+        if (descriptor.alphabet.find(U'z') == std::u32string::npos) descriptor.alphabet += U'z';
+        if (descriptor.alphabet.find(U'\'') == std::u32string::npos) descriptor.alphabet += U'\'';
+    }
+    return descriptor;
+}
+
+std::string new_pinyin_commit_id() {
+    std::random_device random;
+    constexpr std::string_view hex = "0123456789abcdef";
+    std::string id;
+    id.reserve(32);
+    for (int i = 0; i < 4; ++i) {
+        const auto bits = static_cast<std::uint32_t>(random());
+        for (int shift = 28; shift >= 0; shift -= 4) id += hex[(bits >> shift) & 15];
+    }
+    return id;
+}
+
 class ProcessProvider final : public InputMethodProvider {
 public:
     ProcessProvider(std::filesystem::path root, InputMethodDescriptor d,
-                    plugin::InstalledPluginVersionResult binding, std::chrono::milliseconds timeout)
-        : root_(std::move(root)), descriptor_(std::move(d)), binding_(std::move(binding)), timeout_(timeout) {}
+                    plugin::InstalledPluginVersionResult binding, std::chrono::milliseconds timeout,
+                    bool pinyin_fallback, const Lexicon* pinyin_lexicon)
+        : root_(std::move(root)), descriptor_(std::move(d)), binding_(std::move(binding)), timeout_(timeout),
+          pinyin_fallback_(pinyin_fallback), pinyin_lexicon_(pinyin_lexicon) {}
 
     InputMethodResponse handle(const InputMethodRequest& r, std::stop_token stop) override {
         // Registry may be dispatched by multiple callers, but a process accepts one invocation.
         std::lock_guard lock(mutex_);
         const auto reject = [&](InputMethodStatus status, std::string diagnostic = {}) {
             issued_ids_.clear();
+            pinyin_page_.reset();
             return failure(r, status, std::move(diagnostic));
         };
         if (stop.stop_requested()) return reject(InputMethodStatus::cancelled);
         if (!authorized()) {
             session_.terminate();
+            pinyin_input_.clear();
+            if (pinyin_prepared_) {
+                prepared_.reset();
+                pinyin_prepared_ = false;
+            }
             return reject(InputMethodStatus::unavailable, "Input scheme authorization unavailable");
         }
+        if (r.action == InputMethodAction::select && pinyin_page_) return select_pinyin(r);
+        pinyin_page_.reset();
         if (r.action == InputMethodAction::select && (r.session_id != issued_session_ ||
             r.input != issued_input_ || r.page != issued_page_ ||
             std::find(issued_ids_.begin(), issued_ids_.end(), r.selected_candidate_id) == issued_ids_.end()))
@@ -45,9 +82,29 @@ public:
         if(r.action==InputMethodAction::committed) {
             const auto matches=[&](const std::optional<InputMethodRequest>& prior){return prior && prior->session_id==r.session_id && prior->input==r.input && prior->page==r.page && prior->selected_candidate_id==r.selected_candidate_id;};
             if(matches(confirmed_))return failure(r,InputMethodStatus::success);
-            if(!matches(prepared_)||!session_.valid())return reject(InputMethodStatus::error,"Unknown commit transaction");
-        } else prepared_.reset();
+            if (!matches(prepared_)) return reject(InputMethodStatus::error, "Unknown commit transaction");
+            if (pinyin_prepared_) {
+                // A native candidate is acknowledged by Core, never learned by the table plugin.
+                confirmed_ = std::move(prepared_);
+                prepared_.reset();
+                pinyin_prepared_ = false;
+                return failure(r, InputMethodStatus::success);
+            }
+            if (!session_.valid()) return reject(InputMethodStatus::error, "Unknown commit transaction");
+        } else {
+            prepared_.reset();
+            pinyin_prepared_ = false;
+        }
         issued_ids_.clear();
+        if (r.action == InputMethodAction::cancel) pinyin_input_.clear();
+        const bool can_query_plugin = validate_input_method_request(descriptor_, r).ok;
+        if (pinyin_fallback_ && r.action == InputMethodAction::compose) {
+            if (pinyin_input_ != r.input || r.page == 0) pinyin_input_.clear();
+            if (!can_query_plugin || (!pinyin_input_.empty() && r.page != 0))
+                return compose_pinyin(r, stop);
+        }
+        if (pinyin_fallback_ && !can_query_plugin && r.action == InputMethodAction::cancel)
+            return failure(r, InputMethodStatus::cancelled);
         const auto payload = plugin::encode_input_method_request(descriptor_, r);
         if (payload.empty()) return failure(r, InputMethodStatus::error, "Invalid scheme request");
         const auto deadline = std::chrono::steady_clock::now() + timeout_;
@@ -86,6 +143,10 @@ public:
         if (response.status != InputMethodStatus::success)
             return failure(r, response.status, response.status == InputMethodStatus::cancelled ? std::string{} :
                 response.status == InputMethodStatus::unavailable ? "Input scheme unavailable" : "Input scheme reported an error");
+        if (pinyin_fallback_ && r.action == InputMethodAction::compose && !r.input.empty() && r.page == 0) {
+            if (response.candidates.empty() && !response.has_more) return compose_pinyin(r, stop);
+            pinyin_input_.clear();
+        }
         if (!stop.stop_requested() && response.status == InputMethodStatus::success) {
             issued_session_ = r.session_id; issued_input_ = r.input; issued_page_ = r.page;
             for (const auto& candidate : response.candidates) issued_ids_.push_back(candidate.id);
@@ -96,6 +157,81 @@ public:
         return response;
     }
 private:
+    struct PinyinPage {
+        InputMethodRequest request;
+        std::vector<InputMethodCandidate> candidates;
+    };
+
+    InputMethodResponse compose_pinyin(const InputMethodRequest& r, std::stop_token stop) {
+        auto response = failure(r, InputMethodStatus::success);
+        response.preview = r.input;
+        if (pinyin_input_ != r.input || r.page == 0) {
+            pinyin_input_.clear();
+            const auto deadline = std::chrono::steady_clock::now() + timeout_;
+            const auto cancelled = [&] {
+                return stop.stop_requested() || std::chrono::steady_clock::now() >= deadline;
+            };
+            const auto interrupted = [&] {
+                return stop.stop_requested() ? failure(r, InputMethodStatus::cancelled)
+                    : failure(r, InputMethodStatus::error, "Pinyin fallback timed out");
+            };
+            const FullPinyinSchema schema;
+            auto parsed = schema.parse_spelling(r.input, 32, cancelled);
+            if (cancelled()) return interrupted();
+            if (!parsed.valid) return response;
+            if (!pinyin_lexicon_) {
+                return failure(r, InputMethodStatus::unavailable,
+                    "Pinyin fallback requires the production lexicon (--lexicon)");
+            }
+            // Keep strict prefix paths (such as zh -> zhang) in the normal
+            // generator instead of its separate double-initial lookup.
+            parsed.phonetic_assistance = false;
+            constexpr std::size_t candidate_limit = 256;
+            auto candidates = CandidateGenerator(*pinyin_lexicon_).generate(
+                parsed, candidate_limit, false, {}, nullptr, cancelled);
+            if (cancelled()) return interrupted();
+            std::erase_if(candidates, [&](const auto& candidate) {
+                return candidate.consumed_input_bytes == 0 ||
+                    candidate.consumed_input_bytes > r.input.size() || candidate.text.size() > 4096;
+            });
+            pinyin_candidates_ = std::move(candidates);
+            pinyin_input_ = r.input;
+        }
+        const auto begin = r.page * r.page_size;
+        for (auto index = begin; index < pinyin_candidates_.size() && index - begin < r.page_size; ++index) {
+            const auto& candidate = pinyin_candidates_[index];
+            auto consumed = candidate.consumed_input_bytes;
+            // A syllable separator belongs to the committed prefix, just as in full pinyin.
+            if (consumed < r.input.size() && r.input[consumed] == '\'') ++consumed;
+            response.candidates.push_back({
+                "pinyin:" + std::to_string(r.request_id) + ":" + std::to_string(index),
+                candidate.text, {}, {{0, consumed}}});
+        }
+        response.has_more = begin + response.candidates.size() < pinyin_candidates_.size();
+        if (!response.candidates.empty()) pinyin_page_ = PinyinPage{r, response.candidates};
+        return response;
+    }
+
+    InputMethodResponse select_pinyin(const InputMethodRequest& r) {
+        auto page = std::move(*pinyin_page_);
+        pinyin_page_.reset();
+        if (r.session_id != page.request.session_id || r.input != page.request.input ||
+            r.caret_byte != page.request.caret_byte || r.page != page.request.page ||
+            r.page_size != page.request.page_size)
+            return failure(r, InputMethodStatus::error, "Pinyin candidate selection is stale");
+        const auto found = std::find_if(page.candidates.begin(), page.candidates.end(),
+            [&](const auto& candidate) { return candidate.id == r.selected_candidate_id; });
+        if (found == page.candidates.end())
+            return failure(r, InputMethodStatus::error, "Unknown pinyin candidate");
+        auto response = failure(r, InputMethodStatus::success);
+        response.commit_id = new_pinyin_commit_id();
+        response.candidates.push_back(*found);
+        prepared_ = r;
+        prepared_->selected_candidate_id = response.commit_id;
+        pinyin_prepared_ = true;
+        return response;
+    }
+
     bool authorized() const {
         const auto active = plugin::query_active_plugin_version(root_, descriptor_.plugin_id);
         if (!active.ok || active.installed_path != binding_.installed_path ||
@@ -110,6 +246,12 @@ private:
     InputMethodDescriptor descriptor_;
     plugin::InstalledPluginVersionResult binding_;
     std::chrono::milliseconds timeout_;
+    bool pinyin_fallback_{};
+    const Lexicon* pinyin_lexicon_{};
+    std::string pinyin_input_;
+    std::vector<Candidate> pinyin_candidates_;
+    std::optional<PinyinPage> pinyin_page_;
+    bool pinyin_prepared_{};
     std::mutex mutex_;
     plugin::PluginHostSession session_;
     std::string issued_session_;
@@ -118,11 +260,10 @@ private:
     std::vector<std::string> issued_ids_;
     std::optional<InputMethodRequest> prepared_,confirmed_;
 };
-} // namespace
-
-engine::InputMethodValidation register_plugin_input_method(engine::InputMethodRegistry& registry,
-    const std::filesystem::path& root, engine::InputMethodDescriptor descriptor, std::chrono::milliseconds timeout,
-    std::string_view expected_version, std::string_view expected_inventory, std::string_view expected_publisher) {
+InputMethodValidation register_process_provider(InputMethodRegistry& registry,
+    const std::filesystem::path& root, InputMethodDescriptor descriptor, std::chrono::milliseconds timeout,
+    std::string_view expected_version, std::string_view expected_inventory, std::string_view expected_publisher,
+    bool pinyin_fallback, const Lexicon* pinyin_lexicon) {
     const auto validated = engine::validate_input_method_descriptor(descriptor);
     if (!validated.ok) return validated;
     if (timeout.count() <= 0 || timeout > std::chrono::seconds(5)) return {false, "Invalid scheme timeout"};
@@ -136,8 +277,18 @@ engine::InputMethodValidation register_plugin_input_method(engine::InputMethodRe
     if (!grant.ok || !plugin::is_plugin_permission_granted(grant.value, active.manifest,
         active.inventory_sha256, active.publisher_certificate_sha256, "input.scheme"))
         return {false, "Explicit input.scheme authorization required"};
-    auto provider = std::make_shared<ProcessProvider>(root, descriptor, active, timeout);
+    auto provider = std::make_shared<ProcessProvider>(root, descriptor, active, timeout,
+        pinyin_fallback, pinyin_lexicon);
+    if (pinyin_fallback) descriptor = host_descriptor(std::move(descriptor));
     return registry.add(std::move(descriptor), std::move(provider));
+}
+} // namespace
+
+engine::InputMethodValidation register_plugin_input_method(engine::InputMethodRegistry& registry,
+    const std::filesystem::path& root, engine::InputMethodDescriptor descriptor, std::chrono::milliseconds timeout,
+    std::string_view expected_version, std::string_view expected_inventory, std::string_view expected_publisher) {
+    return register_process_provider(registry, root, std::move(descriptor), timeout, expected_version,
+        expected_inventory, expected_publisher, false, nullptr);
 }
 
 InputMethodDiscovery discover_plugin_input_methods(const std::filesystem::path& root,
@@ -276,8 +427,10 @@ void InputMethodWorker::cancel() {
 }
 
 struct InputMethodSessionRouter::Impl {
-    explicit Impl(std::filesystem::path value) : root(std::move(value)), worker(registry) {}
+    explicit Impl(std::filesystem::path value, const engine::Lexicon* lexicon)
+        : root(std::move(value)), pinyin_lexicon(lexicon), worker(registry) {}
     std::filesystem::path root;
+    const engine::Lexicon* pinyin_lexicon;
     engine::InputMethodRegistry registry;
     InputMethodWorker worker;
     std::mutex mutex;
@@ -293,8 +446,8 @@ struct InputMethodSessionRouter::Impl {
     std::uint64_t opening_owner{};
     std::string opening_session;
 };
-InputMethodSessionRouter::InputMethodSessionRouter(std::filesystem::path root)
-    : implementation_(std::make_unique<Impl>(std::move(root))) {}
+InputMethodSessionRouter::InputMethodSessionRouter(std::filesystem::path root, const engine::Lexicon* pinyin_lexicon)
+    : implementation_(std::make_unique<Impl>(std::move(root), pinyin_lexicon)) {}
 InputMethodSessionRouter::~InputMethodSessionRouter() = default;
 
 engine::InputMethodValidation InputMethodSessionRouter::open(std::uint64_t owner, std::string session,
@@ -332,11 +485,15 @@ engine::InputMethodValidation InputMethodSessionRouter::open(std::uint64_t owner
         state.worker.cancel();
         if (state.owner != 0) state.registry.remove_plugin(state.descriptor.plugin_id);
         state.owner = 0; state.session.clear();
-        const auto registered = register_plugin_input_method(state.registry, state.root, *found,
-            std::chrono::milliseconds(1000), discovery.version, discovery.inventory, discovery.publisher);
+        const bool pinyin_fallback = found->id == kWubi86Scheme;
+        const auto registered = register_process_provider(state.registry, state.root, *found,
+            std::chrono::milliseconds(1000), discovery.version, discovery.inventory, discovery.publisher,
+            pinyin_fallback, state.pinyin_lexicon);
         ++state.generation;
         if (!registered.ok) return registered;
-        state.owner = owner; state.session = std::move(session); state.descriptor = *found; state.last_request = 0;
+        state.owner = owner; state.session = std::move(session);
+        state.descriptor = pinyin_fallback ? host_descriptor(*found) : *found;
+        state.last_request = 0;
         state.version = discovery.version; state.inventory = discovery.inventory; state.publisher = discovery.publisher;
     }
     return {true, {}};
