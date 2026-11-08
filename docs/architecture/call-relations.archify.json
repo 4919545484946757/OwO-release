@@ -1,0 +1,27 @@
+{
+  "schema_version":1,
+  "diagram_type":"sequence",
+  "meta":{"title":"OwO · 候选请求与学习调用","locale":"zh-CN","output":"docs/04-business-calls.html","quality_profile":"showcase","repository":{"url":"https://github.com/4919545484946757/OwO-release.git","revision":"05f820d56e86b603eea71aeb4b7235e1585c3a13","link_mode":"local-only"}},
+  "participants":[
+    {"id":"tsf","type":"frontend","label":"① TSF / 候选窗口","sublabel":"应用进程","sources":[{"path":"src/tsf/text_service.cpp","line":3947,"end_line":3999},{"path":"src/tsf/text_service.cpp","line":4299,"end_line":4352}]},
+    {"id":"core","type":"backend","label":"② Core Service","sublabel":"候选与学习","sources":[{"path":"apps/core_service/main.cpp","line":100,"end_line":155},{"path":"src/ipc/input_method_server.cpp"}]},
+    {"id":"store","type":"database","label":"⑤ 本地数据","sublabel":"词典 / 词频","sources":[{"path":"src/engine/binary_lexicon.cpp","line":420,"end_line":428},{"path":"src/engine/user_frequency.cpp","line":405,"end_line":475}]},
+    {"id":"model","type":"backend","label":"③ ModelHost","sublabel":"可选上下文评分","sources":[{"path":"include/owo/model/model_protocol.h","line":15,"end_line":38},{"path":"apps/model_host/main.cpp"}]}
+  ],
+  "messages":[
+    {"id":"input","from":"tsf","to":"core","y":160,"label":"candidate_request + request_id","variant":"emphasis"},
+    {"id":"lookup","from":"core","to":"store","y":188,"label":"读取词典 / 词频"},
+    {"id":"base","from":"store","to":"core","y":221,"label":"基础候选数据","variant":"return"},
+    {"id":"base-response","from":"core","to":"tsf","y":254,"label":"基础候选快照","variant":"return"},
+    {"id":"model-request","from":"core","to":"model","y":302,"label":"可选 rank_request","variant":"dashed"},
+    {"id":"model-response","from":"model","to":"core","y":335,"label":"排序结果或失败","variant":"return"},
+    {"id":"refine","from":"core","to":"tsf","y":368,"label":"同请求候选更新","variant":"return"},
+    {"id":"commit","from":"tsf","to":"core","y":416,"label":"candidate_committed","variant":"emphasis"},
+    {"id":"learn","from":"core","to":"store","y":449,"label":"记录用户学习","variant":"dashed"}
+  ],
+  "cards":[
+    {"dot":"cyan","title":"快照一致性","items":["① 检查 request_id 与焦点代数；过期结果不覆盖当前候选。","候选分页与展开需引用同一请求快照。"]},
+    {"dot":"amber","title":"可选模型","items":["③ 不可用时，基础候选仍可显示。","图中模型请求表示能力分支，不表示每次输入都必然执行。"]},
+    {"dot":"emerald","title":"学习归属","items":["用户选择后由 ② 更新 ⑤；插件不能直接改写宿主学习库。"]}
+  ]
+}
