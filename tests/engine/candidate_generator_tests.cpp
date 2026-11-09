@@ -30,13 +30,16 @@ int main() {
         using namespace owo::engine;
         const MemoryLexicon mixed({
             {{"zhe", "me"}, "这么", 10000}, {{"na", "me"}, "那么", 9000},
-            {{"ni", "hao"}, "你好", 10000}, {{"zuo"}, "做", 10000},
+            {{"ni", "hao"}, "你好", 10000}, {{"zuo"}, "做", 10000}, {{"shuo"}, "说", 10000},
             {{"de", "hua"}, "的话", 10000}, {{"zhe"}, "这", 10000},
             {{"na"}, "那", 10000}, {{"n"}, "嗯", 10}});
         const CandidateGenerator generator(mixed);
         for (const auto& [input, expected] : std::vector<std::pair<std::string, std::string>>{
                 {"zhemzuodehua", "这么做的话"}, {"namzuodehua", "那么做的话"},
-                {"nhaodehua", "你好的话"}, {"zhemezuodehua", "这么做的话"}}) {
+                {"nhaodehua", "你好的话"}, {"zhemezuodehua", "这么做的话"},
+                {"zhemshuodeh", "这么说的话"}, {"namshuodeh", "那么说的话"},
+                {"zhemshuodehu", "这么说的话"}, {"zhemshuodehua", "这么说的话"},
+                {"zhemzuodeh", "这么做的话"}, {"nhaodeh", "你好的话"}}) {
             for (const bool correction : {false, true}) for (const auto page : {0U, 5U, 7U, 9U}) {
                 const auto parsed = FullPinyinSchema{}.parse(input, 16, correction);
                 const auto candidates = generator.generate(parsed, 64, false, {}, nullptr, {}, false, page);
