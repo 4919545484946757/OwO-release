@@ -1,5 +1,6 @@
 #pragma once
 #include "inline_preedit.h"
+#include <inputscope.h>
 #include <vector>
 #include <memory>
 
@@ -70,7 +71,10 @@ struct Composition final : ITfComposition {
     STUB(ShiftStart, TfEditCookie, ITfRange*)
     STUB(ShiftEnd, TfEditCookie, ITfRange*)
 };
-struct Context final : ITfContext, ITfContextComposition {
+// Supply explicit ordinary input metadata so production safety checks remain
+// enabled when these upstream preedit fixtures exercise guarded commits.
+struct Context final : ITfContext, ITfContextComposition, ITfCompartmentMgr,
+                       ITfCompartment, ITfReadOnlyProperty, ITfInputScope {
     COM_REFS(Context)
     Document doc;
     bool asynchronous{}, reject{}, reject_selection{};
@@ -80,6 +84,10 @@ struct Context final : ITfContext, ITfContextComposition {
         *out=nullptr;
         if(id==IID_IUnknown || id==IID_ITfContext) *out=static_cast<ITfContext*>(this);
         else if(id==IID_ITfContextComposition) *out=static_cast<ITfContextComposition*>(this);
+        else if(id==IID_ITfCompartmentMgr) *out=static_cast<ITfCompartmentMgr*>(this);
+        else if(id==IID_ITfCompartment) *out=static_cast<ITfCompartment*>(this);
+        else if(id==IID_ITfReadOnlyProperty) *out=static_cast<ITfReadOnlyProperty*>(this);
+        else if(id==__uuidof(ITfInputScope)) *out=static_cast<ITfInputScope*>(this);
         else return E_NOINTERFACE;
         AddRef(); return S_OK;
     }
@@ -105,9 +113,31 @@ struct Context final : ITfContext, ITfContextComposition {
     STUB(GetEnd, TfEditCookie, ITfRange**)
     STUB(GetActiveView, ITfContextView**)
     STUB(EnumViews, IEnumTfContextViews**)
-    STUB(GetStatus, TF_STATUS*)
+    HRESULT STDMETHODCALLTYPE GetStatus(TF_STATUS* out) override { *out={}; return S_OK; }
     STUB(GetProperty, REFGUID, ITfProperty**)
-    STUB(GetAppProperty, REFGUID, ITfReadOnlyProperty**)
+    HRESULT STDMETHODCALLTYPE GetAppProperty(REFGUID id,ITfReadOnlyProperty** out) override {
+        *out=nullptr;if(id!=GUID_PROP_INPUTSCOPE)return E_NOTIMPL;
+        *out=static_cast<ITfReadOnlyProperty*>(this);AddRef();return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE GetCompartment(REFGUID,ITfCompartment** out) override {*out=static_cast<ITfCompartment*>(this);AddRef();return S_OK;}
+    STUB(ClearCompartment,TfClientId,REFGUID)
+    STUB(EnumCompartments,IEnumGUID**)
+    STUB(SetValue,TfClientId,const VARIANT*)
+    HRESULT STDMETHODCALLTYPE GetValue(VARIANT* out) override {VariantInit(out);return S_OK;}
+    HRESULT STDMETHODCALLTYPE GetType(GUID* out) override {*out=GUID_PROP_INPUTSCOPE;return S_OK;}
+    STUB(EnumRanges,TfEditCookie,IEnumTfRanges**,ITfRange*)
+    HRESULT STDMETHODCALLTYPE GetValue(TfEditCookie,ITfRange*,VARIANT* out) override {
+        VariantInit(out);out->vt=VT_UNKNOWN;out->punkVal=static_cast<ITfInputScope*>(this);AddRef();return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE GetContext(ITfContext** out) override {*out=static_cast<ITfContext*>(this);AddRef();return S_OK;}
+    HRESULT STDMETHODCALLTYPE GetInputScopes(InputScope** out,UINT* count) override {
+        *out=static_cast<InputScope*>(CoTaskMemAlloc(sizeof(InputScope)));if(!*out)return E_OUTOFMEMORY;
+        **out=IS_DEFAULT;*count=1;return S_OK;
+    }
+    STUB(GetPhrase,BSTR**,UINT*)
+    STUB(GetRegularExpression,BSTR*)
+    STUB(GetSRGS,BSTR*)
+    STUB(GetXML,BSTR*)
     STUB(TrackProperties, const GUID**, ULONG, const GUID**, ULONG, ITfReadOnlyProperty**)
     STUB(EnumProperties, IEnumTfProperties**)
     STUB(GetDocumentMgr, ITfDocumentMgr**)

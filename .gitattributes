@@ -2,3 +2,6 @@ tests/data/*.tsv text eol=lf
 tests/data/*.manifest text eol=lf
 tests/data/model_vocab_fixture.txt text eol=lf
 tests/data/model_fixture.onnx binary
+
+# Preserve source receipt hashes across Git checkouts.
+third_party/wubi86/sources/** -text

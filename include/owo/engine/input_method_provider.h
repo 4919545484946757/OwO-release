@@ -16,7 +16,7 @@ namespace owo::engine {
 inline constexpr std::uint32_t kInputMethodApiVersion = 1;
 
 enum class InputMethodKind { phonetic, table, transliteration };
-enum class InputMethodAction { compose, select, cancel };
+enum class InputMethodAction { compose, select, cancel, committed };
 enum class InputMethodStatus { success, cancelled, unavailable, error };
 
 struct InputMethodDescriptor {
@@ -31,6 +31,7 @@ struct InputMethodDescriptor {
     std::u32string alphabet;
     std::size_t max_input_bytes{1024};
     std::size_t max_candidates{128};
+    bool commit_confirmation{};
 };
 
 // Half-open UTF-8 byte ranges refer to the original, unmodified input.
@@ -69,6 +70,7 @@ struct InputMethodResponse {
     std::size_t page{};
     bool has_more{};
     std::string diagnostic;
+    std::string commit_id; // Opaque selection transaction, only for opt-in schemes.
 };
 
 struct InputMethodValidation {

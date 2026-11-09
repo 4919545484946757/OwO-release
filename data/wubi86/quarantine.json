@@ -1,0 +1,9572 @@
+[
+  {
+    "text": "戈",
+    "code": "a",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "戒",
+    "code": "aa",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "葚",
+    "code": "aad",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蒸",
+    "code": "ab",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "茅",
+    "code": "ac",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "斟",
+    "code": "adw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "芰",
+    "code": "afc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鞲",
+    "code": "aff",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "葑",
+    "code": "aff",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鞻",
+    "code": "aflv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "芫",
+    "code": "afq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蓍",
+    "code": "aft",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鞒",
+    "code": "aft",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "aghg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "赜",
+    "code": "ahk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "AirPods",
+    "code": "airp",
+    "weight": 30,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "AirPods Pro",
+    "code": "airp",
+    "weight": 20,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "AirPower",
+    "code": "airp",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "惑",
+    "code": "ak",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "薗",
+    "code": "alfy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "茴",
+    "code": "alk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蔞",
+    "code": "alvf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "藪",
+    "code": "alvt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "萜",
+    "code": "amh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "芮",
+    "code": "amw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "斲",
+    "code": "anjr",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "戉",
+    "code": "anty",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蒌",
+    "code": "ao",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "薮",
+    "code": "ao",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "营",
+    "code": "ap",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鹲",
+    "code": "apfg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蔻",
+    "code": "apfl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "氋",
+    "code": "apfn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鸏",
+    "code": "apfo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Apple",
+    "code": "appl",
+    "weight": 20,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "",
+    "code": "apwl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "获",
+    "code": "aq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "茗",
+    "code": "aqk",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "菟",
+    "code": "aqk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "茑",
+    "code": "aqy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "芹",
+    "code": "ar",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蘸",
+    "code": "as",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "医",
+    "code": "at",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蘒",
+    "code": "attx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蒋",
+    "code": "au",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "虌",
+    "code": "aumx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "萧",
+    "code": "av",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "薅",
+    "code": "avd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蕭",
+    "code": "avfj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "藇",
+    "code": "avgw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "苕",
+    "code": "avk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "虋",
+    "code": "avmv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "花",
+    "code": "aw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "恭",
+    "code": "awn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蕴",
+    "code": "ax",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "荒",
+    "code": "ay",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "虀",
+    "code": "aydg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "薺",
+    "code": "ayjf",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蘼",
+    "code": "ays",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "子",
+    "code": "b",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "孲",
+    "code": "bgfg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "bnn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "院",
+    "code": "bp",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "聊",
+    "code": "bq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "阪",
+    "code": "br",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "耵",
+    "code": "bs",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "隆",
+    "code": "bt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "陪",
+    "code": "bu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "B站",
+    "code": "buh",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "除",
+    "code": "bw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "÷",
+    "code": "bwny",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "孩",
+    "code": "by",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "隮",
+    "code": "byjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "陔",
+    "code": "byn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "又",
+    "code": "c",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鹜",
+    "code": "cbt",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蟊",
+    "code": "cbt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "馬",
+    "code": "cggy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "驑",
+    "code": "cgjl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "騛",
+    "code": "cnuj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "cny",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "coap",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⌘",
+    "code": "coap",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "。",
+    "code": "cobd",
+    "weight": 460,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "，",
+    "code": "cobd",
+    "weight": 450,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "、",
+    "code": "cobd",
+    "weight": 440,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "；",
+    "code": "cobd",
+    "weight": 430,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "：",
+    "code": "cobd",
+    "weight": 420,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "？",
+    "code": "cobd",
+    "weight": 410,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "！",
+    "code": "cobd",
+    "weight": 400,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "…",
+    "code": "cobd",
+    "weight": 390,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "—",
+    "code": "cobd",
+    "weight": 380,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "·",
+    "code": "cobd",
+    "weight": 370,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "．",
+    "code": "cobd",
+    "weight": 360,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ˉ",
+    "code": "cobd",
+    "weight": 350,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ˇ",
+    "code": "cobd",
+    "weight": 340,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "¨",
+    "code": "cobd",
+    "weight": 330,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "‘",
+    "code": "cobd",
+    "weight": 320,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "’",
+    "code": "cobd",
+    "weight": 310,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "“",
+    "code": "cobd",
+    "weight": 300,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "”",
+    "code": "cobd",
+    "weight": 290,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "々",
+    "code": "cobd",
+    "weight": 280,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "～",
+    "code": "cobd",
+    "weight": 270,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "‖",
+    "code": "cobd",
+    "weight": 260,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∶",
+    "code": "cobd",
+    "weight": 250,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＂",
+    "code": "cobd",
+    "weight": 240,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＇",
+    "code": "cobd",
+    "weight": 230,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "｀",
+    "code": "cobd",
+    "weight": 220,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "｜",
+    "code": "cobd",
+    "weight": 210,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "〔",
+    "code": "cobd",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "〕",
+    "code": "cobd",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "〈",
+    "code": "cobd",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "〉",
+    "code": "cobd",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "《",
+    "code": "cobd",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "》",
+    "code": "cobd",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "「",
+    "code": "cobd",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "」",
+    "code": "cobd",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "『",
+    "code": "cobd",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "』",
+    "code": "cobd",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "〖",
+    "code": "cobd",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "〗",
+    "code": "cobd",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "【",
+    "code": "cobd",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "】",
+    "code": "cobd",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "（",
+    "code": "cobd",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "）",
+    "code": "cobd",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "［",
+    "code": "cobd",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "］",
+    "code": "cobd",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "｛",
+    "code": "cobd",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "｝",
+    "code": "cobd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "℃",
+    "code": "cocc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⌘",
+    "code": "cocm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒈",
+    "code": "cod",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒉",
+    "code": "cod",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒊",
+    "code": "cod",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒋",
+    "code": "cod",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒌",
+    "code": "cod",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒍",
+    "code": "cod",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒎",
+    "code": "cod",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒏",
+    "code": "cod",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒐",
+    "code": "cod",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒑",
+    "code": "cod",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒒",
+    "code": "cod",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒓",
+    "code": "cod",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒔",
+    "code": "cod",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒕",
+    "code": "cod",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒖",
+    "code": "cod",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒗",
+    "code": "cod",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒘",
+    "code": "cod",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒙",
+    "code": "cod",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒚",
+    "code": "cod",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒛",
+    "code": "cod",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "А",
+    "code": "code",
+    "weight": 330,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Б",
+    "code": "code",
+    "weight": 320,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "В",
+    "code": "code",
+    "weight": 310,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Г",
+    "code": "code",
+    "weight": 300,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Д",
+    "code": "code",
+    "weight": 290,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Е",
+    "code": "code",
+    "weight": 280,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ж",
+    "code": "code",
+    "weight": 270,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "З",
+    "code": "code",
+    "weight": 260,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "И",
+    "code": "code",
+    "weight": 250,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Й",
+    "code": "code",
+    "weight": 240,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "К",
+    "code": "code",
+    "weight": 230,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Л",
+    "code": "code",
+    "weight": 220,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "М",
+    "code": "code",
+    "weight": 210,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Н",
+    "code": "code",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "О",
+    "code": "code",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "П",
+    "code": "code",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Р",
+    "code": "code",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "С",
+    "code": "code",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Т",
+    "code": "code",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "У",
+    "code": "code",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ф",
+    "code": "code",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Х",
+    "code": "code",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ц",
+    "code": "code",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ч",
+    "code": "code",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ш",
+    "code": "code",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Щ",
+    "code": "code",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ъ",
+    "code": "code",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ы",
+    "code": "code",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ь",
+    "code": "code",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Э",
+    "code": "code",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ю",
+    "code": "code",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Я",
+    "code": "code",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ё",
+    "code": "code",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ⅰ",
+    "code": "codl",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ⅱ",
+    "code": "codl",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ⅲ",
+    "code": "codl",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ⅳ",
+    "code": "codl",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ⅴ",
+    "code": "codl",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ⅵ",
+    "code": "codl",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ⅶ",
+    "code": "codl",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ⅷ",
+    "code": "codl",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ⅸ",
+    "code": "codl",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ⅹ",
+    "code": "codl",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ⅺ",
+    "code": "codl",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ⅻ",
+    "code": "codl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒈",
+    "code": "cods",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒉",
+    "code": "cods",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒊",
+    "code": "cods",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒋",
+    "code": "cods",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒌",
+    "code": "cods",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒍",
+    "code": "cods",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒎",
+    "code": "cods",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒏",
+    "code": "cods",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒐",
+    "code": "cods",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒑",
+    "code": "cods",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒒",
+    "code": "cods",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒓",
+    "code": "cods",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒔",
+    "code": "cods",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒕",
+    "code": "cods",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒖",
+    "code": "cods",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒗",
+    "code": "cods",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒘",
+    "code": "cods",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒙",
+    "code": "cods",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒚",
+    "code": "cods",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒛",
+    "code": "cods",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㎎",
+    "code": "codw",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㎏",
+    "code": "codw",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㎜",
+    "code": "codw",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㎝",
+    "code": "codw",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㎞",
+    "code": "codw",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㎡",
+    "code": "codw",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㏄",
+    "code": "codw",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㏎",
+    "code": "codw",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㏑",
+    "code": "codw",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㏒",
+    "code": "codw",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㏕",
+    "code": "codw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Α",
+    "code": "codx",
+    "weight": 240,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Β",
+    "code": "codx",
+    "weight": 230,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Γ",
+    "code": "codx",
+    "weight": 220,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Δ",
+    "code": "codx",
+    "weight": 210,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ε",
+    "code": "codx",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ζ",
+    "code": "codx",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Η",
+    "code": "codx",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Θ",
+    "code": "codx",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ι",
+    "code": "codx",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Κ",
+    "code": "codx",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Λ",
+    "code": "codx",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Μ",
+    "code": "codx",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ν",
+    "code": "codx",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ξ",
+    "code": "codx",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ο",
+    "code": "codx",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Π",
+    "code": "codx",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ρ",
+    "code": "codx",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Σ",
+    "code": "codx",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Τ",
+    "code": "codx",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Υ",
+    "code": "codx",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Φ",
+    "code": "codx",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Χ",
+    "code": "codx",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ψ",
+    "code": "codx",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ω",
+    "code": "codx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑴",
+    "code": "cof",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑵",
+    "code": "cof",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑶",
+    "code": "cof",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑷",
+    "code": "cof",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑸",
+    "code": "cof",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑹",
+    "code": "cof",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑺",
+    "code": "cof",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑻",
+    "code": "cof",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑼",
+    "code": "cof",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑽",
+    "code": "cof",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑾",
+    "code": "cof",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑿",
+    "code": "cof",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒀",
+    "code": "cof",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒁",
+    "code": "cof",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒂",
+    "code": "cof",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒃",
+    "code": "cof",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒄",
+    "code": "cof",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒅",
+    "code": "cof",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒆",
+    "code": "cof",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒇",
+    "code": "cof",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＄",
+    "code": "cohb",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "￠",
+    "code": "cohb",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "￡",
+    "code": "cohb",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "￥",
+    "code": "cohb",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "¤",
+    "code": "cohb",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "cohb",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "→",
+    "code": "coj",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "↑",
+    "code": "coj",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "←",
+    "code": "coj",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "↓",
+    "code": "coj",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "↖",
+    "code": "coj",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "↗",
+    "code": "coj",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "↘",
+    "code": "coj",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "↙",
+    "code": "coj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ァ",
+    "code": "cojp",
+    "weight": 890,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ア",
+    "code": "cojp",
+    "weight": 880,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ィ",
+    "code": "cojp",
+    "weight": 870,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "イ",
+    "code": "cojp",
+    "weight": 860,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゥ",
+    "code": "cojp",
+    "weight": 850,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ウ",
+    "code": "cojp",
+    "weight": 840,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ェ",
+    "code": "cojp",
+    "weight": 830,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "エ",
+    "code": "cojp",
+    "weight": 820,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ォ",
+    "code": "cojp",
+    "weight": 810,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "オ",
+    "code": "cojp",
+    "weight": 800,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "カ",
+    "code": "cojp",
+    "weight": 790,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ガ",
+    "code": "cojp",
+    "weight": 780,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "キ",
+    "code": "cojp",
+    "weight": 770,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ギ",
+    "code": "cojp",
+    "weight": 760,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ク",
+    "code": "cojp",
+    "weight": 750,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "グ",
+    "code": "cojp",
+    "weight": 740,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ケ",
+    "code": "cojp",
+    "weight": 730,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゲ",
+    "code": "cojp",
+    "weight": 720,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "コ",
+    "code": "cojp",
+    "weight": 710,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゴ",
+    "code": "cojp",
+    "weight": 700,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "サ",
+    "code": "cojp",
+    "weight": 690,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ザ",
+    "code": "cojp",
+    "weight": 680,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "シ",
+    "code": "cojp",
+    "weight": 670,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ジ",
+    "code": "cojp",
+    "weight": 660,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ス",
+    "code": "cojp",
+    "weight": 650,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ズ",
+    "code": "cojp",
+    "weight": 640,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "セ",
+    "code": "cojp",
+    "weight": 630,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゼ",
+    "code": "cojp",
+    "weight": 620,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ソ",
+    "code": "cojp",
+    "weight": 610,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゾ",
+    "code": "cojp",
+    "weight": 600,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "タ",
+    "code": "cojp",
+    "weight": 590,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ダ",
+    "code": "cojp",
+    "weight": 580,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "チ",
+    "code": "cojp",
+    "weight": 570,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヂ",
+    "code": "cojp",
+    "weight": 560,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ッ",
+    "code": "cojp",
+    "weight": 550,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ツ",
+    "code": "cojp",
+    "weight": 540,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヅ",
+    "code": "cojp",
+    "weight": 530,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "テ",
+    "code": "cojp",
+    "weight": 520,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "デ",
+    "code": "cojp",
+    "weight": 510,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ト",
+    "code": "cojp",
+    "weight": 500,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ド",
+    "code": "cojp",
+    "weight": 490,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ナ",
+    "code": "cojp",
+    "weight": 480,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ニ",
+    "code": "cojp",
+    "weight": 470,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヌ",
+    "code": "cojp",
+    "weight": 460,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ネ",
+    "code": "cojp",
+    "weight": 450,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ノ",
+    "code": "cojp",
+    "weight": 440,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ハ",
+    "code": "cojp",
+    "weight": 430,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "バ",
+    "code": "cojp",
+    "weight": 420,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "パ",
+    "code": "cojp",
+    "weight": 410,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヒ",
+    "code": "cojp",
+    "weight": 400,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ビ",
+    "code": "cojp",
+    "weight": 390,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ピ",
+    "code": "cojp",
+    "weight": 380,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "フ",
+    "code": "cojp",
+    "weight": 370,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ブ",
+    "code": "cojp",
+    "weight": 360,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "プ",
+    "code": "cojp",
+    "weight": 350,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヘ",
+    "code": "cojp",
+    "weight": 340,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ベ",
+    "code": "cojp",
+    "weight": 330,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ペ",
+    "code": "cojp",
+    "weight": 320,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ホ",
+    "code": "cojp",
+    "weight": 310,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ボ",
+    "code": "cojp",
+    "weight": 300,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ポ",
+    "code": "cojp",
+    "weight": 290,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "マ",
+    "code": "cojp",
+    "weight": 280,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ミ",
+    "code": "cojp",
+    "weight": 270,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ム",
+    "code": "cojp",
+    "weight": 260,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "メ",
+    "code": "cojp",
+    "weight": 250,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "モ",
+    "code": "cojp",
+    "weight": 240,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ャ",
+    "code": "cojp",
+    "weight": 230,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヤ",
+    "code": "cojp",
+    "weight": 220,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ュ",
+    "code": "cojp",
+    "weight": 210,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ユ",
+    "code": "cojp",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ョ",
+    "code": "cojp",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヨ",
+    "code": "cojp",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ラ",
+    "code": "cojp",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "リ",
+    "code": "cojp",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ル",
+    "code": "cojp",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "レ",
+    "code": "cojp",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ロ",
+    "code": "cojp",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヮ",
+    "code": "cojp",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ワ",
+    "code": "cojp",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヰ",
+    "code": "cojp",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヱ",
+    "code": "cojp",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヲ",
+    "code": "cojp",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ン",
+    "code": "cojp",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヴ",
+    "code": "cojp",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヵ",
+    "code": "cojp",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヶ",
+    "code": "cojp",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ー",
+    "code": "cojp",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヽ",
+    "code": "cojp",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ヾ",
+    "code": "cojp",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "→",
+    "code": "cojt",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "←",
+    "code": "cojt",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "↑",
+    "code": "cojt",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "↓",
+    "code": "cojt",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "↖",
+    "code": "cojt",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "↗",
+    "code": "cojt",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "↘",
+    "code": "cojt",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "↙",
+    "code": "cojt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑴",
+    "code": "coks",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑵",
+    "code": "coks",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑶",
+    "code": "coks",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑷",
+    "code": "coks",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑸",
+    "code": "coks",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑹",
+    "code": "coks",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑺",
+    "code": "coks",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑻",
+    "code": "coks",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑼",
+    "code": "coks",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑽",
+    "code": "coks",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑾",
+    "code": "coks",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑿",
+    "code": "coks",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒀",
+    "code": "coks",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒁",
+    "code": "coks",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒂",
+    "code": "coks",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒃",
+    "code": "coks",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒄",
+    "code": "coks",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒅",
+    "code": "coks",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒆",
+    "code": "coks",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⒇",
+    "code": "coks",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈠",
+    "code": "coo",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈡",
+    "code": "coo",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈢",
+    "code": "coo",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈣",
+    "code": "coo",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈤",
+    "code": "coo",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈥",
+    "code": "coo",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈦",
+    "code": "coo",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈧",
+    "code": "coo",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈨",
+    "code": "coo",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈩",
+    "code": "coo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈠",
+    "code": "coos",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈡",
+    "code": "coos",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈢",
+    "code": "coos",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈣",
+    "code": "coos",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈤",
+    "code": "coos",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈥",
+    "code": "coos",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈦",
+    "code": "coos",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈧",
+    "code": "coos",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈨",
+    "code": "coos",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㈩",
+    "code": "coos",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄅ",
+    "code": "cooy",
+    "weight": 370,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄆ",
+    "code": "cooy",
+    "weight": 360,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄇ",
+    "code": "cooy",
+    "weight": 350,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄈ",
+    "code": "cooy",
+    "weight": 340,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄉ",
+    "code": "cooy",
+    "weight": 330,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄊ",
+    "code": "cooy",
+    "weight": 320,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄋ",
+    "code": "cooy",
+    "weight": 310,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄌ",
+    "code": "cooy",
+    "weight": 300,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄍ",
+    "code": "cooy",
+    "weight": 290,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄎ",
+    "code": "cooy",
+    "weight": 280,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄏ",
+    "code": "cooy",
+    "weight": 270,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄐ",
+    "code": "cooy",
+    "weight": 260,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄑ",
+    "code": "cooy",
+    "weight": 250,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄒ",
+    "code": "cooy",
+    "weight": 240,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄓ",
+    "code": "cooy",
+    "weight": 230,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄔ",
+    "code": "cooy",
+    "weight": 220,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄕ",
+    "code": "cooy",
+    "weight": 210,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄖ",
+    "code": "cooy",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄗ",
+    "code": "cooy",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄘ",
+    "code": "cooy",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄙ",
+    "code": "cooy",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄧ",
+    "code": "cooy",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄨ",
+    "code": "cooy",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄩ",
+    "code": "cooy",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄚ",
+    "code": "cooy",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄛ",
+    "code": "cooy",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄜ",
+    "code": "cooy",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄝ",
+    "code": "cooy",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄞ",
+    "code": "cooy",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄟ",
+    "code": "cooy",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄠ",
+    "code": "cooy",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄡ",
+    "code": "cooy",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄢ",
+    "code": "cooy",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄣ",
+    "code": "cooy",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄤ",
+    "code": "cooy",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄥ",
+    "code": "cooy",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ㄦ",
+    "code": "cooy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ā",
+    "code": "copa",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "á",
+    "code": "copa",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǎ",
+    "code": "copa",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "à",
+    "code": "copa",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "a",
+    "code": "copa",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ē",
+    "code": "cope",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "é",
+    "code": "cope",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ě",
+    "code": "cope",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "è",
+    "code": "cope",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ê",
+    "code": "cope",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ī",
+    "code": "copi",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "í",
+    "code": "copi",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǐ",
+    "code": "copi",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ì",
+    "code": "copi",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "i",
+    "code": "copi",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぁ",
+    "code": "copj",
+    "weight": 860,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "あ",
+    "code": "copj",
+    "weight": 850,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぃ",
+    "code": "copj",
+    "weight": 840,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "い",
+    "code": "copj",
+    "weight": 830,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぅ",
+    "code": "copj",
+    "weight": 820,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "う",
+    "code": "copj",
+    "weight": 810,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぇ",
+    "code": "copj",
+    "weight": 800,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "え",
+    "code": "copj",
+    "weight": 790,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぉ",
+    "code": "copj",
+    "weight": 780,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "お",
+    "code": "copj",
+    "weight": 770,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "か",
+    "code": "copj",
+    "weight": 760,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "が",
+    "code": "copj",
+    "weight": 750,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "き",
+    "code": "copj",
+    "weight": 740,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぎ",
+    "code": "copj",
+    "weight": 730,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "く",
+    "code": "copj",
+    "weight": 720,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぐ",
+    "code": "copj",
+    "weight": 710,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "け",
+    "code": "copj",
+    "weight": 700,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "げ",
+    "code": "copj",
+    "weight": 690,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "こ",
+    "code": "copj",
+    "weight": 680,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ご",
+    "code": "copj",
+    "weight": 670,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "さ",
+    "code": "copj",
+    "weight": 660,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ざ",
+    "code": "copj",
+    "weight": 650,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "し",
+    "code": "copj",
+    "weight": 640,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "じ",
+    "code": "copj",
+    "weight": 630,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "す",
+    "code": "copj",
+    "weight": 620,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ず",
+    "code": "copj",
+    "weight": 610,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "せ",
+    "code": "copj",
+    "weight": 600,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぜ",
+    "code": "copj",
+    "weight": 590,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "そ",
+    "code": "copj",
+    "weight": 580,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぞ",
+    "code": "copj",
+    "weight": 570,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "た",
+    "code": "copj",
+    "weight": 560,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "だ",
+    "code": "copj",
+    "weight": 550,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ち",
+    "code": "copj",
+    "weight": 540,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぢ",
+    "code": "copj",
+    "weight": 530,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "っ",
+    "code": "copj",
+    "weight": 520,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "つ",
+    "code": "copj",
+    "weight": 510,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "づ",
+    "code": "copj",
+    "weight": 500,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "て",
+    "code": "copj",
+    "weight": 490,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "で",
+    "code": "copj",
+    "weight": 480,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "と",
+    "code": "copj",
+    "weight": 470,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ど",
+    "code": "copj",
+    "weight": 460,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "な",
+    "code": "copj",
+    "weight": 450,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "に",
+    "code": "copj",
+    "weight": 440,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぬ",
+    "code": "copj",
+    "weight": 430,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ね",
+    "code": "copj",
+    "weight": 420,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "の",
+    "code": "copj",
+    "weight": 410,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "は",
+    "code": "copj",
+    "weight": 400,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ば",
+    "code": "copj",
+    "weight": 390,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ひ",
+    "code": "copj",
+    "weight": 380,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "び",
+    "code": "copj",
+    "weight": 370,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぴ",
+    "code": "copj",
+    "weight": 360,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ふ",
+    "code": "copj",
+    "weight": 350,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぶ",
+    "code": "copj",
+    "weight": 340,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぷ",
+    "code": "copj",
+    "weight": 330,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "へ",
+    "code": "copj",
+    "weight": 320,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "べ",
+    "code": "copj",
+    "weight": 310,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぺ",
+    "code": "copj",
+    "weight": 300,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ほ",
+    "code": "copj",
+    "weight": 290,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぼ",
+    "code": "copj",
+    "weight": 280,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ぽ",
+    "code": "copj",
+    "weight": 270,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ま",
+    "code": "copj",
+    "weight": 260,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "み",
+    "code": "copj",
+    "weight": 250,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "む",
+    "code": "copj",
+    "weight": 240,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "め",
+    "code": "copj",
+    "weight": 230,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "も",
+    "code": "copj",
+    "weight": 220,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゃ",
+    "code": "copj",
+    "weight": 210,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "や",
+    "code": "copj",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゅ",
+    "code": "copj",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゆ",
+    "code": "copj",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ょ",
+    "code": "copj",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "よ",
+    "code": "copj",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ら",
+    "code": "copj",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "り",
+    "code": "copj",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "る",
+    "code": "copj",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "れ",
+    "code": "copj",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ろ",
+    "code": "copj",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゎ",
+    "code": "copj",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "わ",
+    "code": "copj",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゐ",
+    "code": "copj",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゑ",
+    "code": "copj",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "を",
+    "code": "copj",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ん",
+    "code": "copj",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "゛",
+    "code": "copj",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "゜",
+    "code": "copj",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゝ",
+    "code": "copj",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ゞ",
+    "code": "copj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ō",
+    "code": "copo",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ó",
+    "code": "copo",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǒ",
+    "code": "copo",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ò",
+    "code": "copo",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "o",
+    "code": "copo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "勹",
+    "code": "copp",
+    "weight": 410,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "灬",
+    "code": "copp",
+    "weight": 400,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "冫",
+    "code": "copp",
+    "weight": 390,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "艹",
+    "code": "copp",
+    "weight": 380,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "屮",
+    "code": "copp",
+    "weight": 370,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "辶",
+    "code": "copp",
+    "weight": 360,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "刂",
+    "code": "copp",
+    "weight": 350,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "匚",
+    "code": "copp",
+    "weight": 340,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "阝",
+    "code": "copp",
+    "weight": 330,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "廾",
+    "code": "copp",
+    "weight": 320,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "丨",
+    "code": "copp",
+    "weight": 310,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "虍",
+    "code": "copp",
+    "weight": 300,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "彐",
+    "code": "copp",
+    "weight": 290,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "卩",
+    "code": "copp",
+    "weight": 280,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "钅",
+    "code": "copp",
+    "weight": 270,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "冂",
+    "code": "copp",
+    "weight": 260,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "冖",
+    "code": "copp",
+    "weight": 250,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "宀",
+    "code": "copp",
+    "weight": 240,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "疒",
+    "code": "copp",
+    "weight": 230,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "肀",
+    "code": "copp",
+    "weight": 220,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "丿",
+    "code": "copp",
+    "weight": 210,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "攵",
+    "code": "copp",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "凵",
+    "code": "copp",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "犭",
+    "code": "copp",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "亻",
+    "code": "copp",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "彡",
+    "code": "copp",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饣",
+    "code": "copp",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "礻",
+    "code": "copp",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "扌",
+    "code": "copp",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "氵",
+    "code": "copp",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "纟",
+    "code": "copp",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "亠",
+    "code": "copp",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "囗",
+    "code": "copp",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "忄",
+    "code": "copp",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "讠",
+    "code": "copp",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "衤",
+    "code": "copp",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "廴",
+    "code": "copp",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "尢",
+    "code": "copp",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "夂",
+    "code": "copp",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "丶",
+    "code": "copp",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "丬",
+    "code": "copp",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ū",
+    "code": "copu",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ú",
+    "code": "copu",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǔ",
+    "code": "copu",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ù",
+    "code": "copu",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "u",
+    "code": "copu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǖ",
+    "code": "copv",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǘ",
+    "code": "copv",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǚ",
+    "code": "copv",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǜ",
+    "code": "copv",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ü",
+    "code": "copv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ā",
+    "code": "copy",
+    "weight": 260,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "á",
+    "code": "copy",
+    "weight": 250,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǎ",
+    "code": "copy",
+    "weight": 240,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "à",
+    "code": "copy",
+    "weight": 230,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ō",
+    "code": "copy",
+    "weight": 220,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ó",
+    "code": "copy",
+    "weight": 210,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǒ",
+    "code": "copy",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ò",
+    "code": "copy",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ê",
+    "code": "copy",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ē",
+    "code": "copy",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "é",
+    "code": "copy",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ě",
+    "code": "copy",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "è",
+    "code": "copy",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ī",
+    "code": "copy",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "í",
+    "code": "copy",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǐ",
+    "code": "copy",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ì",
+    "code": "copy",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ū",
+    "code": "copy",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ú",
+    "code": "copy",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǔ",
+    "code": "copy",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ù",
+    "code": "copy",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǖ",
+    "code": "copy",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǘ",
+    "code": "copy",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǚ",
+    "code": "copy",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ǜ",
+    "code": "copy",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ü",
+    "code": "copy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＋",
+    "code": "cosx",
+    "weight": 460,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "－",
+    "code": "cosx",
+    "weight": 450,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＜",
+    "code": "cosx",
+    "weight": 440,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＝",
+    "code": "cosx",
+    "weight": 430,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＞",
+    "code": "cosx",
+    "weight": 420,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "±",
+    "code": "cosx",
+    "weight": 410,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "×",
+    "code": "cosx",
+    "weight": 400,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "÷",
+    "code": "cosx",
+    "weight": 390,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "π",
+    "code": "cosx",
+    "weight": 380,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∈",
+    "code": "cosx",
+    "weight": 370,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∏",
+    "code": "cosx",
+    "weight": 360,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∑",
+    "code": "cosx",
+    "weight": 350,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∕",
+    "code": "cosx",
+    "weight": 340,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "√",
+    "code": "cosx",
+    "weight": 330,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∝",
+    "code": "cosx",
+    "weight": 320,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∞",
+    "code": "cosx",
+    "weight": 310,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∟",
+    "code": "cosx",
+    "weight": 300,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∠",
+    "code": "cosx",
+    "weight": 290,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∣",
+    "code": "cosx",
+    "weight": 280,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∥",
+    "code": "cosx",
+    "weight": 270,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∧",
+    "code": "cosx",
+    "weight": 260,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∨",
+    "code": "cosx",
+    "weight": 250,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∩",
+    "code": "cosx",
+    "weight": 240,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∪",
+    "code": "cosx",
+    "weight": 230,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∫",
+    "code": "cosx",
+    "weight": 220,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∮",
+    "code": "cosx",
+    "weight": 210,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∴",
+    "code": "cosx",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∵",
+    "code": "cosx",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∶",
+    "code": "cosx",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∷",
+    "code": "cosx",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "∽",
+    "code": "cosx",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "≈",
+    "code": "cosx",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "≌",
+    "code": "cosx",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "≒",
+    "code": "cosx",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "≠",
+    "code": "cosx",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "≡",
+    "code": "cosx",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "≤",
+    "code": "cosx",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "≥",
+    "code": "cosx",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "≦",
+    "code": "cosx",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "≧",
+    "code": "cosx",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "≮",
+    "code": "cosx",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "≯",
+    "code": "cosx",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⊕",
+    "code": "cosx",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⊙",
+    "code": "cosx",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⊥",
+    "code": "cosx",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⊿",
+    "code": "cosx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "№",
+    "code": "cots",
+    "weight": 270,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "°",
+    "code": "cots",
+    "weight": 260,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "‰",
+    "code": "cots",
+    "weight": 250,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "♂",
+    "code": "cots",
+    "weight": 240,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "♀",
+    "code": "cots",
+    "weight": 230,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "§",
+    "code": "cots",
+    "weight": 220,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "℃",
+    "code": "cots",
+    "weight": 210,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "☆",
+    "code": "cots",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "★",
+    "code": "cots",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "○",
+    "code": "cots",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "●",
+    "code": "cots",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "◎",
+    "code": "cots",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "◇",
+    "code": "cots",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "◆",
+    "code": "cots",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "□",
+    "code": "cots",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "■",
+    "code": "cots",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "△",
+    "code": "cots",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "▲",
+    "code": "cots",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "※",
+    "code": "cots",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "〓",
+    "code": "cots",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＃",
+    "code": "cots",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＆",
+    "code": "cots",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＠",
+    "code": "cots",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＼",
+    "code": "cots",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＾",
+    "code": "cots",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "＿",
+    "code": "cots",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "￣",
+    "code": "cots",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "а",
+    "code": "coxe",
+    "weight": 340,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "б",
+    "code": "coxe",
+    "weight": 330,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "в",
+    "code": "coxe",
+    "weight": 320,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "г",
+    "code": "coxe",
+    "weight": 310,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "д",
+    "code": "coxe",
+    "weight": 300,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "е",
+    "code": "coxe",
+    "weight": 290,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ж",
+    "code": "coxe",
+    "weight": 280,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "з",
+    "code": "coxe",
+    "weight": 270,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "и",
+    "code": "coxe",
+    "weight": 260,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "й",
+    "code": "coxe",
+    "weight": 250,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "к",
+    "code": "coxe",
+    "weight": 240,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "л",
+    "code": "coxe",
+    "weight": 230,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "м",
+    "code": "coxe",
+    "weight": 220,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "н",
+    "code": "coxe",
+    "weight": 210,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "о",
+    "code": "coxe",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "п",
+    "code": "coxe",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "р",
+    "code": "coxe",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "с",
+    "code": "coxe",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "т",
+    "code": "coxe",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "у",
+    "code": "coxe",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ф",
+    "code": "coxe",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "х",
+    "code": "coxe",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ц",
+    "code": "coxe",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ч",
+    "code": "coxe",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ш",
+    "code": "coxe",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "щ",
+    "code": "coxe",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ъ",
+    "code": "coxe",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ы",
+    "code": "coxe",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ь",
+    "code": "coxe",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "э",
+    "code": "coxe",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ю",
+    "code": "coxe",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "я",
+    "code": "coxe",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ё",
+    "code": "coxe",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ⅰ",
+    "code": "coxl",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ⅱ",
+    "code": "coxl",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ⅲ",
+    "code": "coxl",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ⅳ",
+    "code": "coxl",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ⅴ",
+    "code": "coxl",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ⅵ",
+    "code": "coxl",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ⅶ",
+    "code": "coxl",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ⅷ",
+    "code": "coxl",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ⅸ",
+    "code": "coxl",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ⅹ",
+    "code": "coxl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "α",
+    "code": "coxx",
+    "weight": 240,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "β",
+    "code": "coxx",
+    "weight": 230,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "γ",
+    "code": "coxx",
+    "weight": 220,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "δ",
+    "code": "coxx",
+    "weight": 210,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ε",
+    "code": "coxx",
+    "weight": 200,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ζ",
+    "code": "coxx",
+    "weight": 190,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "η",
+    "code": "coxx",
+    "weight": 180,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "θ",
+    "code": "coxx",
+    "weight": 170,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ι",
+    "code": "coxx",
+    "weight": 160,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "κ",
+    "code": "coxx",
+    "weight": 150,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "λ",
+    "code": "coxx",
+    "weight": 140,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "μ",
+    "code": "coxx",
+    "weight": 130,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ν",
+    "code": "coxx",
+    "weight": 120,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ξ",
+    "code": "coxx",
+    "weight": 110,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ο",
+    "code": "coxx",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "π",
+    "code": "coxx",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ρ",
+    "code": "coxx",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "σ",
+    "code": "coxx",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "τ",
+    "code": "coxx",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "υ",
+    "code": "coxx",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "φ",
+    "code": "coxx",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "χ",
+    "code": "coxx",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ψ",
+    "code": "coxx",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "ω",
+    "code": "coxx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "①",
+    "code": "coy",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "②",
+    "code": "coy",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "③",
+    "code": "coy",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "④",
+    "code": "coy",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑤",
+    "code": "coy",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑥",
+    "code": "coy",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑦",
+    "code": "coy",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑧",
+    "code": "coy",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑨",
+    "code": "coy",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑩",
+    "code": "coy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "①",
+    "code": "coys",
+    "weight": 100,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "②",
+    "code": "coys",
+    "weight": 90,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "③",
+    "code": "coys",
+    "weight": 80,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "④",
+    "code": "coys",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑤",
+    "code": "coys",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑥",
+    "code": "coys",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑦",
+    "code": "coys",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑧",
+    "code": "coys",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑨",
+    "code": "coys",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "⑩",
+    "code": "coys",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "骈",
+    "code": "cu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "驌",
+    "code": "cvfj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "骓",
+    "code": "cwy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "石",
+    "code": "d",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "瓠",
+    "code": "dfn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "dgt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "奫",
+    "code": "dijg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "dilc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "耬",
+    "code": "dilv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "dilx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "翡",
+    "code": "djd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "礖",
+    "code": "dvgw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "dwi",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "dxgd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "月",
+    "code": "e",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "乳",
+    "code": "eb",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "胎",
+    "code": "ec",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "腌",
+    "code": "ed",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "貌",
+    "code": "ee",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "貗",
+    "code": "eelv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "efny",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "胩",
+    "code": "eh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "膢",
+    "code": "elvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "膦",
+    "code": "eo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "eudg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "臍",
+    "code": "eyjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "土",
+    "code": "f",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "fae",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼁",
+    "code": "fcxf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼃",
+    "code": "ffxf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "埡",
+    "code": "fgfg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "寸",
+    "code": "fgh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "霪",
+    "code": "fie",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "卌",
+    "code": "fjfh",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "fjj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嘉",
+    "code": "fku",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼘",
+    "code": "fkug",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "遠",
+    "code": "fkwp",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "塿",
+    "code": "flvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "靊",
+    "code": "fmdu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "逺",
+    "code": "fnwp",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "塜",
+    "code": "fpfe",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "霥",
+    "code": "fpfe",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "壺",
+    "code": "fpfg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "觳",
+    "code": "fpg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "黿",
+    "code": "fqxf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼀",
+    "code": "fwxf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "坳",
+    "code": "fx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "霽",
+    "code": "fyjf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "王",
+    "code": "g",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "臻",
+    "code": "gcf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "geqg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "亞",
+    "code": "gfgd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "堊",
+    "code": "gfgf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蝁",
+    "code": "gfgj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "惡",
+    "code": "gfgn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鵶",
+    "code": "gfgo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "琧",
+    "code": "gfgy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "来无影，去无踪",
+    "code": "gfjk",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "",
+    "code": "gggg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "卐",
+    "code": "ghgn",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "虁",
+    "code": "gjgt",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "曺",
+    "code": "gjhj",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "彧",
+    "code": "gkgy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "栆",
+    "code": "gkwu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "画",
+    "code": "glb",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "gmhg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "丗",
+    "code": "gmk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "帯",
+    "code": "gmph",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "琮",
+    "code": "gp",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "GoPro",
+    "code": "gpr",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "列",
+    "code": "gqj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "gqjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "gqkm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼇",
+    "code": "gqtx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "亙",
+    "code": "gqug",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餮",
+    "code": "gqw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "㎡",
+    "code": "guyy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "璛",
+    "code": "gvfj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "璵",
+    "code": "gvgw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "不信谣，不传谣",
+    "code": "gwyy",
+    "weight": 20,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "璾",
+    "code": "gyjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "目",
+    "code": "h",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "haqt",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "haqt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齰",
+    "code": "hbaj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齛",
+    "code": "hban",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齖",
+    "code": "hbat",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齱",
+    "code": "hbbc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齝",
+    "code": "hbck",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齮",
+    "code": "hbdk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齟",
+    "code": "hbeg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齻",
+    "code": "hbfw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齬",
+    "code": "hbgk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齜",
+    "code": "hbhx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齒",
+    "code": "hbj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齥",
+    "code": "hbjx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齵",
+    "code": "hbjy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齪",
+    "code": "hbkh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齶",
+    "code": "hbkn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齞",
+    "code": "hbkw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齫",
+    "code": "hbls",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齷",
+    "code": "hbnf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齓",
+    "code": "hbnn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齳",
+    "code": "hbpl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齣",
+    "code": "hbqk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齙",
+    "code": "hbqn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齺",
+    "code": "hbqt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齗",
+    "code": "hbrh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齭",
+    "code": "hbrr",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齼",
+    "code": "hbsh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齽",
+    "code": "hbsi",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齚",
+    "code": "hbtf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齕",
+    "code": "hbtn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齲",
+    "code": "hbty",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齴",
+    "code": "hbue",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齸",
+    "code": "hbul",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齩",
+    "code": "hbuq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齦",
+    "code": "hbve",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齨",
+    "code": "hbvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齠",
+    "code": "hbvk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齯",
+    "code": "hbvq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齡",
+    "code": "hbwc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齘",
+    "code": "hbwj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齔",
+    "code": "hbxn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "hdqg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "HDR",
+    "code": "hdr",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "鬮",
+    "code": "hggx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "卍",
+    "code": "hghn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鹺",
+    "code": "hloa",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鹷",
+    "code": "hloc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鹶",
+    "code": "hlon",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鹻",
+    "code": "hloo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鹵",
+    "code": "hlou",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鹸",
+    "code": "hlow",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鹼",
+    "code": "hlow",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鹹",
+    "code": "hloy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "瞜",
+    "code": "hlvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "hovg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "卡拉OK",
+    "code": "hrok",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "龉",
+    "code": "hwb",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "龀",
+    "code": "hwb",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "占比",
+    "code": "hxx",
+    "weight": 20,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "hkxx"
+    ]
+  },
+  {
+    "text": "水",
+    "code": "i",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "渫",
+    "code": "ian",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "瀟",
+    "code": "iavj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "洧",
+    "code": "ide",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "溽",
+    "code": "idf",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "idpy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "涿",
+    "code": "iey",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "渺",
+    "code": "ihi",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "ihyt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼝",
+    "code": "ijgc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "淵",
+    "code": "ijgg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "漊",
+    "code": "ilvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "潀",
+    "code": "ilwu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "潀",
+    "code": "ilww",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "IMAX",
+    "code": "imax",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "iOS",
+    "code": "ios",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "iPad",
+    "code": "ipad",
+    "weight": 20,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "",
+    "code": "ipb",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "渲",
+    "code": "ipg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "iPhone",
+    "code": "ipho",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "iPod",
+    "code": "ipod",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "溧",
+    "code": "iss",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "漾",
+    "code": "iug",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "潚",
+    "code": "ivfj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "洳",
+    "code": "ivk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "灚",
+    "code": "ivqq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "雀",
+    "code": "iwy",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "澠",
+    "code": "ixg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鎏",
+    "code": "iyc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "浏",
+    "code": "iyj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "済",
+    "code": "iyjg",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "濟",
+    "code": "iyjg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "®",
+    "code": "iymm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "漩",
+    "code": "iyt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "日",
+    "code": "j",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "曅",
+    "code": "jagh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蛲",
+    "code": "jat",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蠨",
+    "code": "javj",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蜻",
+    "code": "jge",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼂",
+    "code": "jgxf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "晁",
+    "code": "jiq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蜵",
+    "code": "jjgg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "曼岛TT",
+    "code": "jlqy",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "螻",
+    "code": "jlvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嘦巭好，兲嫑跑*_*",
+    "code": "joke",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "暝",
+    "code": "jpj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "冕",
+    "code": "jqk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蜥",
+    "code": "jsr",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蚱",
+    "code": "jth",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "览",
+    "code": "jty",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蟰",
+    "code": "jvfj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蠅",
+    "code": "jxg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蠐",
+    "code": "jyjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "口",
+    "code": "k",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蹒跚",
+    "code": "kakm",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "khkh"
+    ]
+  },
+  {
+    "text": "嗬",
+    "code": "kaw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蹂躏",
+    "code": "kcka",
+    "weight": 20,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "khkh"
+    ]
+  },
+  {
+    "text": "踊跃",
+    "code": "kckt",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "khkh"
+    ]
+  },
+  {
+    "text": "嘁",
+    "code": "kdh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "踌躇",
+    "code": "kdka",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "khkh"
+    ]
+  },
+  {
+    "text": "蹊跷",
+    "code": "keka",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "khkh"
+    ]
+  },
+  {
+    "text": "啞",
+    "code": "kgfg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "噁",
+    "code": "kgfn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "践踏",
+    "code": "kgki",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "khkh"
+    ]
+  },
+  {
+    "text": "嚙",
+    "code": "khbh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蹰",
+    "code": "khd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "khf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "遣",
+    "code": "khg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "踟",
+    "code": "kht",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "跄",
+    "code": "khw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "躖",
+    "code": "khxh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "躋",
+    "code": "khyj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "跳跃",
+    "code": "kikt",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "khkh"
+    ]
+  },
+  {
+    "text": "嚣",
+    "code": "kkd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼉",
+    "code": "kklx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "kkmw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "喂",
+    "code": "klg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嘍",
+    "code": "klvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "km/h",
+    "code": "kmh",
+    "weight": 20,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "噗",
+    "code": "ko",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "踯躅",
+    "code": "kukl",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "khkh"
+    ]
+  },
+  {
+    "text": "蹉跎",
+    "code": "kukp",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "khkh"
+    ]
+  },
+  {
+    "text": "",
+    "code": "kunt",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "kunt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嘯",
+    "code": "kvfj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "跟踪",
+    "code": "kvkp",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "khkh"
+    ]
+  },
+  {
+    "text": "呤",
+    "code": "kwy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嚌",
+    "code": "kyjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "踉跄",
+    "code": "kykw",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "khkh"
+    ]
+  },
+  {
+    "text": "田",
+    "code": "l",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "轼",
+    "code": "la",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "围堵",
+    "code": "lfft",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "lfff"
+    ]
+  },
+  {
+    "text": "園",
+    "code": "lfky",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "黩",
+    "code": "lfo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "圃",
+    "code": "lge",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "囗",
+    "code": "lhn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "囬",
+    "code": "ljfd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "辋",
+    "code": "lm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "轧",
+    "code": "ln",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "连",
+    "code": "lp",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "软",
+    "code": "lq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "暂",
+    "code": "lr",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "町",
+    "code": "ls",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "图",
+    "code": "lt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "辂",
+    "code": "ltk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "圈",
+    "code": "lu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "婁",
+    "code": "lvf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "甊",
+    "code": "lvgn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "遱",
+    "code": "lvpd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "氀",
+    "code": "lvtn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "數",
+    "code": "lvty",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鷜",
+    "code": "lvwo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "畛",
+    "code": "lwe",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "眾",
+    "code": "lwwu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "眾",
+    "code": "lwww",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "山",
+    "code": "m",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Macbook",
+    "code": "macb",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "macOS",
+    "code": "maco",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "MacbookPro",
+    "code": "mbp",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "岸",
+    "code": "md",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "髏",
+    "code": "melv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "贱",
+    "code": "mg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "岍",
+    "code": "mga",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "mgeg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "mgeg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "贝",
+    "code": "mh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "迥",
+    "code": "mk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嶁",
+    "code": "mlvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "凹",
+    "code": "mm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "赕",
+    "code": "mo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "刿",
+    "code": "mqj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "朑",
+    "code": "muan",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "胐",
+    "code": "mubm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "脧",
+    "code": "muct",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "脁",
+    "code": "muiq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "朥",
+    "code": "muol",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "胊",
+    "code": "muqk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嵜",
+    "code": "musk",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "﨑",
+    "code": "musk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "膧",
+    "code": "muuf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "肦",
+    "code": "muwv",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嶼",
+    "code": "mvgw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "已",
+    "code": "n",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "忮",
+    "code": "nfc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "恆",
+    "code": "ngqg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "nhd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "韤",
+    "code": "nhky",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "nhty",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "譬",
+    "code": "nku",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嬖",
+    "code": "nku",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "nkug",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼊",
+    "code": "nkux",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "屢",
+    "code": "nlvd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "慺",
+    "code": "nlvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "巳",
+    "code": "nng",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "nnll",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "nnll",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "nqbt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "懈",
+    "code": "nqe",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "nqvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "怵",
+    "code": "ns",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "发",
+    "code": "ntc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "忤",
+    "code": "ntf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "屨",
+    "code": "ntlv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "憧",
+    "code": "nuj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飛",
+    "code": "nutj",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飝",
+    "code": "nutj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "懙",
+    "code": "nvgw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "憴",
+    "code": "nxg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "忭",
+    "code": "nyh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "懠",
+    "code": "nyjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "心",
+    "code": "nyn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "悴",
+    "code": "nyw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "火",
+    "code": "o",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "煳",
+    "code": "ode",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "熡",
+    "code": "olvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "糭",
+    "code": "oobt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "oopb",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "熽",
+    "code": "ovfj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "之",
+    "code": "p",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "冡",
+    "code": "pfeu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "寒江孤影，江湖故人",
+    "code": "pibw",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "鼆",
+    "code": "pjux",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "屢",
+    "code": "pkgv",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "祝福",
+    "code": "pkpg",
+    "weight": 20,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "pypy"
+    ]
+  },
+  {
+    "text": "寠",
+    "code": "plvf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "pqb",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "宐",
+    "code": "pqyg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "祈祷",
+    "code": "prpd",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "pypy"
+    ]
+  },
+  {
+    "text": "襦",
+    "code": "puf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "裫",
+    "code": "pujg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "pukm",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "pukm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "褸",
+    "code": "pulv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "襷",
+    "code": "puvr",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "袷",
+    "code": "puw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "𰻝",
+    "code": "pwya",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "𰻝𰻝面",
+    "code": "ppdm",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "竈",
+    "code": "pwfx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "窶",
+    "code": "pwlv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "祀",
+    "code": "pyn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "金",
+    "code": "q",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "qafj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "qaht",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "猫猫",
+    "code": "qaqa",
+    "weight": 0,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "钸",
+    "code": "qdm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鱿鱼",
+    "code": "qdqg",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qgqg"
+    ]
+  },
+  {
+    "text": "觯",
+    "code": "qeu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "猪猡",
+    "code": "qfql",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "猿猴",
+    "code": "qfqw",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "",
+    "code": "qgdj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "匍",
+    "code": "qge",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "錏",
+    "code": "qgfg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鐚",
+    "code": "qgfn",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鲈",
+    "code": "qgh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鲤",
+    "code": "qgj",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鲥",
+    "code": "qgj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "qgqb",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鱼鳞",
+    "code": "qgqo",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qgqg"
+    ]
+  },
+  {
+    "text": "",
+    "code": "qgug",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鑡",
+    "code": "qhbh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "qhhc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "猖獗",
+    "code": "qjqd",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "猖狂",
+    "code": "qjqg",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "猩猩",
+    "code": "qjqj",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "鳄鱼",
+    "code": "qkqg",
+    "weight": 20,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qgqg"
+    ]
+  },
+  {
+    "text": "鏤",
+    "code": "qlvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "锔",
+    "code": "qnn",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "铋",
+    "code": "qnt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "qnty",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鑁",
+    "code": "qobt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鱐",
+    "code": "qovj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鱮",
+    "code": "qovw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鱦",
+    "code": "qoxg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鱭",
+    "code": "qoyj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "狩猎",
+    "code": "qpqa",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "QQ",
+    "code": "qq",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "钢铁侠",
+    "code": "qqgu",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qqwg"
+    ]
+  },
+  {
+    "text": "狰狞",
+    "code": "qqqp",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "狗狗",
+    "code": "qqqq",
+    "weight": 0,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "钓",
+    "code": "qqy",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "狐狸",
+    "code": "qrqj",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "镡",
+    "code": "qsj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "锺",
+    "code": "qtg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "猥",
+    "code": "qtl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "qtn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "獬",
+    "code": "qtq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "獍",
+    "code": "qtu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "匁",
+    "code": "qtyi",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "qudk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鲜鱼",
+    "code": "quqg",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qgqg"
+    ]
+  },
+  {
+    "text": "狡猾",
+    "code": "quqm",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "鏽",
+    "code": "qvfj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "锼",
+    "code": "qvh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "镌",
+    "code": "qwy",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "镄",
+    "code": "qx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "猕猴",
+    "code": "qxqw",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "锿",
+    "code": "qye",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鑇",
+    "code": "qyjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "凫",
+    "code": "qyn",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "qynn",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "qynn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鲸鱼",
+    "code": "qyqg",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qgqg"
+    ]
+  },
+  {
+    "text": "狼狈",
+    "code": "qyqm",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "qtqt"
+    ]
+  },
+  {
+    "text": "镰",
+    "code": "qyu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "白",
+    "code": "r",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "rccy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "翱",
+    "code": "rdf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "攉",
+    "code": "rfw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "掗",
+    "code": "rgfg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "rhag",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "rian",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼄",
+    "code": "rixf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "摟",
+    "code": "rlvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "擻",
+    "code": "rlvt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "rmqy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "擢",
+    "code": "rnw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "氦",
+    "code": "rny",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "魑",
+    "code": "rqc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "℃",
+    "code": "rqya",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "皈",
+    "code": "rrc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "挿",
+    "code": "rtfj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "揷",
+    "code": "rtgh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "rtgt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "皤",
+    "code": "rto",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "rtt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "抖",
+    "code": "ruf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "攑",
+    "code": "rvgh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "攪",
+    "code": "rvqq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "拎",
+    "code": "rwy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "rwyc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "擠",
+    "code": "ryjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "木",
+    "code": "s",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "櫹",
+    "code": "savj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "SD卡",
+    "code": "sdhh",
+    "weight": 20,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "桟",
+    "code": "sdny",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "柰",
+    "code": "sfi",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "椏",
+    "code": "sgfg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "桓",
+    "code": "sgj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "樮",
+    "code": "sgjo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "酲",
+    "code": "sgk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "醑",
+    "code": "sgn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "酪",
+    "code": "sgt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "桄",
+    "code": "siq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "棩",
+    "code": "sjgg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "樓",
+    "code": "slvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "櫢",
+    "code": "slvt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "smqy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "榌",
+    "code": "snuj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "桁",
+    "code": "stf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "櫷",
+    "code": "stxg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "橚",
+    "code": "svfj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "櫸",
+    "code": "svgh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "欅",
+    "code": "svgr",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "√",
+    "code": "svkg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "柃",
+    "code": "swy",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "櫅",
+    "code": "syjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "禾",
+    "code": "t",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "tcde",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼅",
+    "code": "tdkx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "徂",
+    "code": "teg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "艛",
+    "code": "telv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "艩",
+    "code": "teyj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "tfd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鹄",
+    "code": "tfk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "氆",
+    "code": "tfn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "迕",
+    "code": "tfp",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "埀",
+    "code": "tfuf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "稏",
+    "code": "tgfg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "穂",
+    "code": "tgjn",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "稶",
+    "code": "tgky",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "劓",
+    "code": "thl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "©",
+    "code": "thsc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "臮",
+    "code": "thwu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "臮",
+    "code": "thww",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "笪",
+    "code": "tjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "雒",
+    "code": "tkw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "囟",
+    "code": "tlq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "簍",
+    "code": "tlvf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "籔",
+    "code": "tlvt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "徵",
+    "code": "tmg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "T恤",
+    "code": "tntl",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "飜",
+    "code": "tolj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "ttg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "ttgy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "笫",
+    "code": "ttn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "龝",
+    "code": "ttxg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "箪",
+    "code": "tuj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "×",
+    "code": "tuny",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "簫",
+    "code": "tvfj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "穥",
+    "code": "tvgw",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "籅",
+    "code": "tvgw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "籂",
+    "code": "twph",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "‰",
+    "code": "twpp",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "龜",
+    "code": "txd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "穧",
+    "code": "tyjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "篙",
+    "code": "tym",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "立",
+    "code": "u",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Ubuntu",
+    "code": "ubun",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "",
+    "code": "udi",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "羯",
+    "code": "udj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "疠",
+    "code": "udn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "闼",
+    "code": "udp",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "udr",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "ugf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "瘂",
+    "code": "ugfg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "閸",
+    "code": "ugfg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "癋",
+    "code": "ugfn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "竦",
+    "code": "ugk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "♩",
+    "code": "ujtw",
+    "weight": 70,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "♪",
+    "code": "ujtw",
+    "weight": 60,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "♫",
+    "code": "ujtw",
+    "weight": 50,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "♬",
+    "code": "ujtw",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "♭",
+    "code": "ujtw",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "♮",
+    "code": "ujtw",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "竞",
+    "code": "ukq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "瘻",
+    "code": "ulvd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蹩",
+    "code": "umi",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼈",
+    "code": "umix",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "龞",
+    "code": "umix",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "uqvh",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "uqvh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "恣",
+    "code": "uqw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "猷",
+    "code": "usg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "遒",
+    "code": "usg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "竒",
+    "code": "uskf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "痄",
+    "code": "uth",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "瘅",
+    "code": "uuj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "m³",
+    "code": "uuyy",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "阕",
+    "code": "uwg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "uwwf",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "uwwf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "丬",
+    "code": "uyg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "癠",
+    "code": "uyjd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "阏",
+    "code": "uyw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "女",
+    "code": "v",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "肅",
+    "code": "vfjk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鷫",
+    "code": "vfjo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "歗",
+    "code": "vfjw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "婭",
+    "code": "vgfg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "礜",
+    "code": "vgnd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "舉",
+    "code": "vgnh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "轝",
+    "code": "vgnl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鸒",
+    "code": "vgno",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "擧",
+    "code": "vgnr",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "歟",
+    "code": "vgnw",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "與",
+    "code": "vgnw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "譽",
+    "code": "vgny",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "叟",
+    "code": "vh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "vhgd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "逯",
+    "code": "vip",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "婣",
+    "code": "vjgg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "輿",
+    "code": "vlgw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "臖",
+    "code": "vmge",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "舋",
+    "code": "vmgg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "爂",
+    "code": "vmgo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "釁",
+    "code": "vmgv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "興",
+    "code": "vmgw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鼹",
+    "code": "vnu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "學",
+    "code": "vqqb",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "斅",
+    "code": "vqqc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "礐",
+    "code": "vqqd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "觷",
+    "code": "vqqe",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "壆",
+    "code": "vqqf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "澩",
+    "code": "vqqi",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嚳",
+    "code": "vqqk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嶨",
+    "code": "vqqm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "燢",
+    "code": "vqqo",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鱟",
+    "code": "vqqo",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鷽",
+    "code": "vqqo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "覺",
+    "code": "vqqq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "斆",
+    "code": "vqqt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "黌",
+    "code": "vqqw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "雤",
+    "code": "vqqy",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "姝",
+    "code": "vr",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嬩",
+    "code": "vvgw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嬹",
+    "code": "vvmw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "臾",
+    "code": "vw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "八",
+    "code": "w",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "毹",
+    "code": "wge",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "俹",
+    "code": "wgfg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "僫",
+    "code": "wgfn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "颌",
+    "code": "wgk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "俪",
+    "code": "wgm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "Windows",
+    "code": "wind",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "保",
+    "code": "wks",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "欲加之罪，何患无辞",
+    "code": "wlpl",
+    "weight": 20,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "全民K歌",
+    "code": "wnks",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "儍",
+    "code": "wobt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "侬",
+    "code": "wp",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餞",
+    "code": "wpaa",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饃",
+    "code": "wpad",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饛",
+    "code": "wpae",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饉",
+    "code": "wpag",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饇",
+    "code": "wpak",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饚",
+    "code": "wpal",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餀",
+    "code": "wpaq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饊",
+    "code": "wpat",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餝",
+    "code": "wpay",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餌",
+    "code": "wpbg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飿",
+    "code": "wpbm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餟",
+    "code": "wpcc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飴",
+    "code": "wpck",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餕",
+    "code": "wpct",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餴",
+    "code": "wpda",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餪",
+    "code": "wpdd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餦",
+    "code": "wpde",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餬",
+    "code": "wpde",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餣",
+    "code": "wpdn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飷",
+    "code": "wpeg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餒",
+    "code": "wpev",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饀",
+    "code": "wpev",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餑",
+    "code": "wpfb",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飦",
+    "code": "wpfh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饎",
+    "code": "wpfk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饁",
+    "code": "wpfl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饙",
+    "code": "wpfm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饒",
+    "code": "wpfq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饐",
+    "code": "wpfu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饢",
+    "code": "wpge",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餺",
+    "code": "wpgf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餗",
+    "code": "wpgi",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飩",
+    "code": "wpgn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餖",
+    "code": "wpgu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餔",
+    "code": "wpgy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饖",
+    "code": "wpht",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饄",
+    "code": "wpif",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餆",
+    "code": "wpiq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饓",
+    "code": "wpis",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饅",
+    "code": "wpjc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饆",
+    "code": "wpjf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饂",
+    "code": "wpjl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餲",
+    "code": "wpjn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餳",
+    "code": "wpjr",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餜",
+    "code": "wpjs",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餛",
+    "code": "wpjx",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饋",
+    "code": "wpkm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餵",
+    "code": "wple",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饠",
+    "code": "wply",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餶",
+    "code": "wpme",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餇",
+    "code": "wpmk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飢",
+    "code": "wpmn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飼",
+    "code": "wpnk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飶",
+    "code": "wpnt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饌",
+    "code": "wpnw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餤",
+    "code": "wpoo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餫",
+    "code": "wppl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "館",
+    "code": "wppn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飹",
+    "code": "wpqb",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餚",
+    "code": "wpqe",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餙",
+    "code": "wpqh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餾",
+    "code": "wpql",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飽",
+    "code": "wpqn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餡",
+    "code": "wpqv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飲",
+    "code": "wpqw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饞",
+    "code": "wpqy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飯",
+    "code": "wprc",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餽",
+    "code": "wprc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餭",
+    "code": "wprg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餼",
+    "code": "wpro",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餷",
+    "code": "wpsg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飣",
+    "code": "wpsh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飥",
+    "code": "wpta",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飫",
+    "code": "wptd",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餂",
+    "code": "wptd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飪",
+    "code": "wptf",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飵",
+    "code": "wptf",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餠",
+    "code": "wptf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飾",
+    "code": "wpth",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餰",
+    "code": "wpth",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餉",
+    "code": "wptk",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餎",
+    "code": "wptk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飭",
+    "code": "wptl",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饡",
+    "code": "wptm",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餓",
+    "code": "wptt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餧",
+    "code": "wptv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飠",
+    "code": "wpu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餅",
+    "code": "wpua",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饈",
+    "code": "wpuf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餢",
+    "code": "wpuk",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饍",
+    "code": "wpuk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餻",
+    "code": "wpuo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餃",
+    "code": "wpuq",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餿",
+    "code": "wpvc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餱",
+    "code": "wpwd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飻",
+    "code": "wpwe",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餁",
+    "code": "wpwf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餄",
+    "code": "wpwk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餘",
+    "code": "wpwt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餩",
+    "code": "wpww",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飤",
+    "code": "wpwy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餯",
+    "code": "wpxe",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饑",
+    "code": "wpxt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饝",
+    "code": "wpyd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餏",
+    "code": "wpye",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饟",
+    "code": "wpye",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飳",
+    "code": "wpyg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "饘",
+    "code": "wpyg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "飰",
+    "code": "wpyh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餹",
+    "code": "wpyk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "wqbt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "wqvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "仫",
+    "code": "wtc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "赁",
+    "code": "wtf",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "仵",
+    "code": "wtf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "梟",
+    "code": "wvgs",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "僶",
+    "code": "wxg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "℉",
+    "code": "wxqa",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "翎",
+    "code": "wyc",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "隼",
+    "code": "wyf",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "儕",
+    "code": "wyjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "颔",
+    "code": "wyn",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "餸",
+    "code": "wyvd",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "蝕",
+    "code": "wyvj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "弓",
+    "code": "x",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "鄳",
+    "code": "xbh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "XBox",
+    "code": "xbox",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "絚",
+    "code": "xgqg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "黽",
+    "code": "xhng",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "絏",
+    "code": "xjnt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "縷",
+    "code": "xlvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "xmg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "逢年过节",
+    "code": "xrfa",
+    "weight": 10,
+    "reason": "phrase code mismatch",
+    "generated": [
+      "trfa"
+    ]
+  },
+  {
+    "text": "缥",
+    "code": "xs",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "肄",
+    "code": "xtd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "绗",
+    "code": "xtf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "≈",
+    "code": "xtgf",
+    "weight": 40,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "彇",
+    "code": "xvfj",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "繡",
+    "code": "xvfj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "繩",
+    "code": "xxg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "緕",
+    "code": "xyjg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "纃",
+    "code": "xyjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "xyxy",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "言",
+    "code": "y",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "廑",
+    "code": "yak",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "yauo",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "棄",
+    "code": "ycgs",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "韲",
+    "code": "ydjg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齏",
+    "code": "yjdg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "斉",
+    "code": "yjf",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齊",
+    "code": "yjf",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "斎",
+    "code": "yjiu",
+    "weight": 30,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齋",
+    "code": "yjiu",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "剤",
+    "code": "yjjh",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "劑",
+    "code": "yjjh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齍",
+    "code": "yjlf",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齎",
+    "code": "yjmu",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "齌",
+    "code": "yjou",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "廔",
+    "code": "ylvd",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "謱",
+    "code": "ylvg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "麡",
+    "code": "ynjj",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "羸",
+    "code": "ynk",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "嬴",
+    "code": "ynk",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "谧",
+    "code": "ynt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "诀",
+    "code": "ynw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "亳",
+    "code": "ypt",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "诋",
+    "code": "yqa",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "谄",
+    "code": "yqv",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "",
+    "code": "yrh",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "靡",
+    "code": "yss",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "麽",
+    "code": "yss",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "YouTube",
+    "code": "ytb",
+    "weight": 10,
+    "reason": "missing verified character",
+    "generated": []
+  },
+  {
+    "text": "旟",
+    "code": "ytvw",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "亹",
+    "code": "yvmg",
+    "weight": 20,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "斖",
+    "code": "yvmg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "谶",
+    "code": "yww",
+    "weight": 10,
+    "reason": "unverified character alias"
+  },
+  {
+    "text": "譝",
+    "code": "yxg",
+    "weight": 10,
+    "reason": "unverified character alias"
+  }
+]

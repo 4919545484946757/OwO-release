@@ -6,6 +6,8 @@
 #include <memory>
 #include <string>
 
+namespace owo::engine { class Lexicon; }
+
 namespace owo::ipc {
 inline constexpr wchar_t kInputMethodPipeName[] =
     LR"(\\.\pipe\OwO.InputMethod.Core.InputSchemes.experimental.v1)";
@@ -21,7 +23,8 @@ class InputMethodPipeServer final {
 public:
     using FocusResolver = std::function<InputMethodFocus(std::uint32_t client_pid)>;
     explicit InputMethodPipeServer(std::filesystem::path plugin_store,
-        std::wstring pipe_name = kInputMethodPipeName, FocusResolver resolver = {});
+        std::wstring pipe_name = kInputMethodPipeName, FocusResolver resolver = {},
+        const engine::Lexicon* pinyin_lexicon = nullptr);
     ~InputMethodPipeServer();
     InputMethodPipeServer(const InputMethodPipeServer&) = delete;
     InputMethodPipeServer& operator=(const InputMethodPipeServer&) = delete;

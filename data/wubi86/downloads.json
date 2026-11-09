@@ -1,0 +1,655 @@
+{
+  "commit": "4d08110b8080f6577dad733ada7e5ae5c5e878fd",
+  "downloads": [
+    {
+      "file": "commit.json",
+      "path": "third_party/wubi86/sources/commit.json",
+      "url": "https://api.github.com/repos/KyleBing/rime-wubi86-jidian/commits/master",
+      "bytes": 5191,
+      "sha256": "8fdf43fb36c8274fdb7cff241a7acb060b7ab81947a6f69fe97e9a596d78809b",
+      "license": "GitHub API metadata; no license grant assumed",
+      "purpose": "pin upstream commit",
+      "version": "4d08110b8080f6577dad733ada7e5ae5c5e878fd"
+    },
+    {
+      "file": "README.md",
+      "path": "third_party/wubi86/sources/README.md",
+      "url": "https://raw.githubusercontent.com/KyleBing/rime-wubi86-jidian/4d08110b8080f6577dad733ada7e5ae5c5e878fd/README.md",
+      "bytes": 20290,
+      "sha256": "38e2a697df4bd35b0005091eabb70f01b19ab0c2f05b227676c103370a12ace2",
+      "license": "MIT",
+      "purpose": "source/version scope review",
+      "version": "4d08110b8080f6577dad733ada7e5ae5c5e878fd"
+    },
+    {
+      "file": "LICENSE",
+      "path": "third_party/wubi86/sources/LICENSE",
+      "url": "https://raw.githubusercontent.com/KyleBing/rime-wubi86-jidian/4d08110b8080f6577dad733ada7e5ae5c5e878fd/LICENSE",
+      "bytes": 1061,
+      "sha256": "e2396e96d15f17d1a1020e9798e5271edcef8749dcdf80f7284262659ab7ee53",
+      "license": "MIT",
+      "purpose": "license and attribution",
+      "version": "4d08110b8080f6577dad733ada7e5ae5c5e878fd"
+    },
+    {
+      "file": "wubi86_jidian.dict.yaml",
+      "path": "third_party/wubi86/sources/wubi86_jidian.dict.yaml",
+      "url": "https://raw.githubusercontent.com/KyleBing/rime-wubi86-jidian/4d08110b8080f6577dad733ada7e5ae5c5e878fd/wubi86_jidian.dict.yaml",
+      "bytes": 1320330,
+      "sha256": "89df3685e4a0c3d319a1c56a3a64e3df4ee3bfa3ba3892a6dadc77b21c989c5b",
+      "license": "MIT",
+      "purpose": "only production lookup data source; normalized offline",
+      "version": "4d08110b8080f6577dad733ada7e5ae5c5e878fd"
+    },
+    {
+      "file": "roots-reference.html",
+      "path": "third_party/wubi86/sources/roots-reference.html",
+      "url": "https://hantang.github.io/search-wubi/wiki/roots/",
+      "bytes": 49933,
+      "sha256": "e7c3e26b34bcf6398d3ace693c6c9770ce6f9182fc8ca6c370ba1737d314b3d4",
+      "license": "Page says Copyleft 2024-2026; no specific license verified; not redistributed",
+      "purpose": "consult named root/key facts; glyph forms not copied",
+      "version": "unversioned reference snapshot 2026-10-30; exact SHA-256 retained"
+    },
+    {
+      "file": "wubi86-tup-excerpt.pdf",
+      "path": "third_party/wubi86/sources/wubi86-tup-excerpt.pdf",
+      "url": "https://www.tup.tsinghua.edu.cn/upload/books/yz/046215-01.pdf",
+      "bytes": 2802817,
+      "sha256": "cc16d83252c434a7cbf1d5b73e5a438f6aaf88f28d458deb8ed45494339c8baf",
+      "license": "Publisher copyright; no redistribution license verified; not redistributed",
+      "purpose": "consult version/coverage background",
+      "version": "unversioned reference snapshot 2026-10-30; exact SHA-256 retained"
+    },
+    {
+      "file": "office-tup-excerpt.pdf",
+      "path": "third_party/wubi86/sources/office-tup-excerpt.pdf",
+      "url": "https://www.tup.tsinghua.edu.cn/upload/books/yz/033229-01.pdf",
+      "bytes": 5291179,
+      "sha256": "1f5edb7b9dbfee6a61b5f249293fff35c6ae4e997063b38a634665a4ba910ae6",
+      "license": "Publisher copyright; no redistribution license verified; not redistributed",
+      "purpose": "consult keyboard/root background",
+      "version": "unversioned reference snapshot 2026-10-30; exact SHA-256 retained"
+    },
+    {
+      "file": "pythonwubi-README.md",
+      "path": "third_party/wubi86/sources/pythonwubi-README.md",
+      "url": "https://raw.githubusercontent.com/sfyc23/python-wubi/42c6ac6b4d2285acc7f39594274a4644cdd358ff/README.md",
+      "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
+      "bytes": 8248,
+      "sha256": "a77c8ed399b1973ddc5b897a0ce0cd92f009fdc1d6e414e4da80384ec42ae501",
+      "license": "MIT",
+      "purpose": "explicit full-code source; resource third column is full code, subsequent columns are source short forms; source implementation read for semantics"
+    },
+    {
+      "file": "pythonwubi-LICENSE",
+      "path": "third_party/wubi86/sources/pythonwubi-LICENSE",
+      "url": "https://raw.githubusercontent.com/sfyc23/python-wubi/42c6ac6b4d2285acc7f39594274a4644cdd358ff/LICENSE",
+      "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
+      "bytes": 1072,
+      "sha256": "2798c535a0816f138ea1791f229eb659400d9ce19a0317bb8f0c0b52745a3b27",
+      "license": "MIT",
+      "purpose": "explicit full-code source; resource third column is full code, subsequent columns are source short forms; source implementation read for semantics"
+    },
+    {
+      "file": "pythonwubi-pywubi_core.py",
+      "path": "third_party/wubi86/sources/pythonwubi-pywubi_core.py",
+      "url": "https://raw.githubusercontent.com/sfyc23/python-wubi/42c6ac6b4d2285acc7f39594274a4644cdd358ff/pywubi/core.py",
+      "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
+      "bytes": 2920,
+      "sha256": "fbb73590d7e7e2e6581bffc5be9c9c49e0457f88385d900c91b791c27eeb2153",
+      "license": "MIT",
+      "purpose": "explicit full-code source; resource third column is full code, subsequent columns are source short forms; source implementation read for semantics"
+    },
+    {
+      "file": "pythonwubi-pywubi_loader.py",
+      "path": "third_party/wubi86/sources/pythonwubi-pywubi_loader.py",
+      "url": "https://raw.githubusercontent.com/sfyc23/python-wubi/42c6ac6b4d2285acc7f39594274a4644cdd358ff/pywubi/loader.py",
+      "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
+      "bytes": 3984,
+      "sha256": "29d93c8d66665f4d1f0f72571cfae8dfa7f6469f6a74a67948287b39ddab1208",
+      "license": "MIT",
+      "purpose": "explicit full-code source; resource third column is full code, subsequent columns are source short forms; source implementation read for semantics"
+    },
+    {
+      "file": "pythonwubi-pywubi_data_wubi_86.json",
+      "path": "third_party/wubi86/sources/pythonwubi-pywubi_data_wubi_86.json",
+      "url": "https://raw.githubusercontent.com/sfyc23/python-wubi/42c6ac6b4d2285acc7f39594274a4644cdd358ff/pywubi/data/wubi_86.json",
+      "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
+      "bytes": 337904,
+      "sha256": "c0179f40392629a11fda59cf7c1293d22ff821e5f513cbcf972c075d564c1783",
+      "license": "MIT",
+      "purpose": "explicit full-code source; resource third column is full code, subsequent columns are source short forms; source implementation read for semantics"
+    },
+    {
+      "file": "pythonwubi-resource_86版_全码.txt",
+      "path": "third_party/wubi86/sources/pythonwubi-resource_86版_全码.txt",
+      "url": "https://raw.githubusercontent.com/sfyc23/python-wubi/42c6ac6b4d2285acc7f39594274a4644cdd358ff/resource/86%E7%89%88_%E5%85%A8%E7%A0%81.txt",
+      "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
+      "bytes": 308533,
+      "sha256": "c201906161fc4d5d94b7f16519607bb2297a6fa365cfbf9b5b961b53dec8ddd7",
+      "license": "MIT",
+      "purpose": "explicit full-code source; resource third column is full code, subsequent columns are source short forms; source implementation read for semantics"
+    },
+    {
+      "file": "viewer-README.md",
+      "path": "third_party/wubi86/sources/viewer-README.md",
+      "url": "https://raw.githubusercontent.com/sdcb/wubi86-viewer/77c521c2e4e3918fb32af5c0eaef5aec63847939/README.md",
+      "version": "77c521c2e4e3918fb32af5c0eaef5aec63847939",
+      "bytes": 3197,
+      "sha256": "57d33d026e6be7e66cddb0d13044e2337ed4cbb516acccfd1af8993d404874bb",
+      "license": "AGPL-3.0 code; third-party data retains original licenses, unresolved for these tables",
+      "purpose": "format/conflict investigation only; not imported"
+    },
+    {
+      "file": "viewer-LICENSE",
+      "path": "third_party/wubi86/sources/viewer-LICENSE",
+      "url": "https://raw.githubusercontent.com/sdcb/wubi86-viewer/77c521c2e4e3918fb32af5c0eaef5aec63847939/LICENSE",
+      "version": "77c521c2e4e3918fb32af5c0eaef5aec63847939",
+      "bytes": 34523,
+      "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+      "license": "AGPL-3.0 code; third-party data retains original licenses, unresolved for these tables",
+      "purpose": "format/conflict investigation only; not imported"
+    },
+    {
+      "file": "viewer-data-src_data-chars.tsv",
+      "path": "third_party/wubi86/sources/viewer-data-src_data-chars.tsv",
+      "url": "https://raw.githubusercontent.com/sdcb/wubi86-viewer/77c521c2e4e3918fb32af5c0eaef5aec63847939/data-src/data-chars.tsv",
+      "version": "77c521c2e4e3918fb32af5c0eaef5aec63847939",
+      "bytes": 1078901,
+      "sha256": "9694872e66985dc169672e6481ba3d6dafc4c19db45fa365dd0fc82d598048c6",
+      "license": "AGPL-3.0 code; third-party data retains original licenses, unresolved for these tables",
+      "purpose": "format/conflict investigation only; not imported"
+    },
+    {
+      "file": "viewer-data-src_data-wubi-v86.tsv",
+      "path": "third_party/wubi86/sources/viewer-data-src_data-wubi-v86.tsv",
+      "url": "https://raw.githubusercontent.com/sdcb/wubi86-viewer/77c521c2e4e3918fb32af5c0eaef5aec63847939/data-src/data-wubi-v86.tsv",
+      "version": "77c521c2e4e3918fb32af5c0eaef5aec63847939",
+      "bytes": 713635,
+      "sha256": "0557bfcb2e18699d2ebab2234ef90491734d7cfb064f09fb8ef1331ea17e8fb7",
+      "license": "AGPL-3.0 code; third-party data retains original licenses, unresolved for these tables",
+      "purpose": "format/conflict investigation only; not imported"
+    },
+    {
+      "file": "rootskb-README.adoc",
+      "path": "third_party/wubi86/sources/rootskb-README.adoc",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/README.adoc",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 1170,
+      "sha256": "fdf29acc8316f49095efe1b0636d54d47062391319918f36bc2ec47b92b231ae",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-font.adoc",
+      "path": "third_party/wubi86/sources/rootskb-font.adoc",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/font.adoc",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 7830,
+      "sha256": "65896904255a33da86cc625c0058a311f5dab601332d56abc6d23f453d4b4b85",
+      "license": "Arphic-1999 (font derivative); notices retained",
+      "purpose": "exact graphical-root outlines and license verification; no font installation"
+    },
+    {
+      "file": "rootskb-rls_font.md",
+      "path": "third_party/wubi86/sources/rootskb-rls_font.md",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/rls/font.md",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 625,
+      "sha256": "1c7720215dd97495855a5c9452ba6daa9fecaa429c5daec01039eefd8926d3e2",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-wubi-86-kb.tex",
+      "path": "third_party/wubi86/sources/rootskb-wubi-86-kb.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/wubi-86-kb.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 1326,
+      "sha256": "1f01f631c6a737bd2be8cd3183b3e967ce892906e4fdebf0b76a94ae216ab53f",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 3661,
+      "sha256": "c226c4fc85f0ea77a9b7b4bbe51e771fe6619fd83176f2647da43f2bbb022fb8",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_g.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_g.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/g.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 217,
+      "sha256": "ea1db2775605f130e622c0e0a17bcaec2bf5ff428d229654cc6ab086fdb2aaf6",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_a.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_a.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/a.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 319,
+      "sha256": "176b6bf8169cda9c19db36dbd8634f9ae7725b2be39ceefc1bf75a55168b3c25",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_n.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_n.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/n.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 384,
+      "sha256": "cb1706b6715739e57bc809f854a9b66cf3e806cc1220cf62b3ba0faf1d81a284",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-releases.json",
+      "path": "third_party/wubi86/sources/rootskb-releases.json",
+      "url": "https://api.github.com/repos/riku-ri/wubi-kb/releases",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 20661,
+      "sha256": "b61ecb25bb5a9d502a3c607a51cba72218d2278e66d740564a803376833a9fe9",
+      "license": "GitHub API metadata; not production data",
+      "purpose": "pin upstream revision / enumerate resource files"
+    },
+    {
+      "file": "rootskb-kb_b.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_b.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/b.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 265,
+      "sha256": "0318fd1fe60756a53b69a4a37de3196c53512d306401a34cb7c1387fe854c42b",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_c.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_c.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/c.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 206,
+      "sha256": "2408ac6b4975131647255ceeafeec0e4bad9ad49f812749cee69f560d40cea9d",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_d.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_d.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/d.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 285,
+      "sha256": "49a6001a68c907afd1d89381193d9c9696b7dc93d0373cf520aef732261f3906",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_e.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_e.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/e.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 320,
+      "sha256": "1ff17b366d1af392e5e14154d297452268d52a9de8f604acdda53f0749615773",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_f.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_f.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/f.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 268,
+      "sha256": "4550356fb3f90f8cf2185e27fc0b90cc635f85f97f0602bc0f3bda561066c28c",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_h.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_h.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/h.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 257,
+      "sha256": "228c7f918a088aa8a85629c7e766bc0fe92727994acfa8f4c6170ebf8e066c19",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_i.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_i.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/i.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 265,
+      "sha256": "3c7264471299a83c690d5a8f5a4e6d935fedc97b41ee9dbc2de80a968af40310",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_j.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_j.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/j.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 260,
+      "sha256": "744b14de39411c743701e0189439b33ae7dbc2c08072b50fb322bc5d8ce804e7",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_k.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_k.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/k.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 182,
+      "sha256": "8fbcb9efe37622812228ec32781589711328e210ed822ce12346210a49b854ff",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_l.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_l.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/l.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 303,
+      "sha256": "0812568434f74618d5f20ad5c78115b21f7040c2805ab24039aad726d92ef9db",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_m.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_m.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/m.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 256,
+      "sha256": "b229f2116f85b1b6b813cec0ebc18d8b1a8b04e214a47840eba0a3b8b5e97ded",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_p.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_p.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/p.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 224,
+      "sha256": "edb74073a4d94da8fed907d4a0bc350f0d9f9835142d37b7283a0579c2bc16a6",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_q.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_q.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/q.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 305,
+      "sha256": "4147336a94f47c0aff8958aba2bb08e21f1d4c9c9097ba00338e84d51f12901f",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_r.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_r.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/r.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 249,
+      "sha256": "a3cae7c8a7a0d055c40a880a2649c7a31721c046ea860ef94a22397a522cbe11",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_s.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_s.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/s.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 190,
+      "sha256": "1361a20315b6d8bdbdf54c68c556f1e1055dcc46009d8c02de6e954126be8e00",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_t.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_t.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/t.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 242,
+      "sha256": "8c1246f735f9f2ffff03371442d2f290588d287168e0011d767b186e13fcc5fc",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_u.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_u.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/u.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 284,
+      "sha256": "a5220f0cd4425d20cbc6ee89f5e5f83c744bea772372137e419cd57de867a9ba",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_v.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_v.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/v.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 233,
+      "sha256": "2954b121274d949e0e6d61ab3bd761aa43919d3b12213743b2323138052276f7",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_w.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_w.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/w.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 206,
+      "sha256": "212b44d495d0a6cf71142b0b5dad4b8797ff23442cd48a3ca2c39c7e522a96de",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_x.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_x.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/x.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 241,
+      "sha256": "1481dd9c1f0a177085244ac00020a45e37099a1c75b73fc28e3a7cabf87868f8",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-kb_y.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_y.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/y.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 249,
+      "sha256": "ac0adf3e983c9bf933a7eed1b367dbd0e6df0abecaf548fc4209fdc462ab23ce",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "rootskb-UMingCN-wubi-86-kb.ttf",
+      "path": "third_party/wubi86/sources/rootskb-UMingCN-wubi-86-kb.ttf",
+      "url": "https://github.com/riku-ri/wubi-kb/releases/download/font/UMingCN-wubi-86-kb.ttf",
+      "version": "font pre-release; binary pinned by SHA-256 (not necessarily identical to current source commit)",
+      "bytes": 17530728,
+      "sha256": "4b9d2a7a2473ff39e097565e8906875fbe1097deac7e0891c0b150244d71223a",
+      "license": "Arphic-1999 (font derivative); notices retained",
+      "purpose": "exact graphical-root outlines and license verification; no font installation"
+    },
+    {
+      "file": "rootskb-kb_o.tex",
+      "path": "third_party/wubi86/sources/rootskb-kb_o.tex",
+      "url": "https://raw.githubusercontent.com/riku-ri/wubi-kb/c65590f6a524fa7cb9459d2095be87d22bd839fc/kb/o.tex",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 233,
+      "sha256": "a9efe487a1cbe9ab1fae2d93114de4ce4b337b058202d4d31f70aec367c4ad6c",
+      "license": "No standalone TeX license found; factual key/glyph relations extracted only",
+      "purpose": "root/key factual mapping investigation; no TeX code copied or executed"
+    },
+    {
+      "file": "Arphic-1999.txt",
+      "path": "third_party/wubi86/sources/Arphic-1999.txt",
+      "url": "https://raw.githubusercontent.com/spdx/license-list-data/main/text/Arphic-1999.txt",
+      "version": "snapshot pinned by SHA-256",
+      "bytes": 6901,
+      "sha256": "3a5e90c0957524a89e48203febcd4492ca4393678abaa7e5b4d70f3ff32b386d",
+      "license": "Arphic-1999 (font derivative); notices retained",
+      "purpose": "exact graphical-root outlines and license verification; no font installation"
+    },
+    {
+      "file": "cnman-commit.json",
+      "path": "third_party/wubi86/sources/cnman-commit.json",
+      "url": "https://api.github.com/repos/CNMan/UnicodeCJK-WuBi/commits/master",
+      "version": "7f55c865a6acfdb1d298d90c42650748f358a3cf",
+      "bytes": 27498,
+      "sha256": "0a0c6ed5b95f0435a686da2a6e44ec457d2d2801486a2d407e58527a87c4d581",
+      "license": "GitHub API metadata; not production data",
+      "purpose": "pin upstream revision / enumerate resource files"
+    },
+    {
+      "file": "cnman-tree.json",
+      "path": "third_party/wubi86/sources/cnman-tree.json",
+      "url": "https://api.github.com/repos/CNMan/UnicodeCJK-WuBi/git/trees/master?recursive=1",
+      "version": "7f55c865a6acfdb1d298d90c42650748f358a3cf",
+      "bytes": 3617,
+      "sha256": "aabbef0adc983d2fbda316276500862a54332da6c771c188e9e49d7c11c44ac1",
+      "license": "GitHub API metadata; not production data",
+      "purpose": "pin upstream revision / enumerate resource files"
+    },
+    {
+      "file": "rime-commit.json",
+      "path": "third_party/wubi86/sources/rime-commit.json",
+      "url": "https://api.github.com/repos/rime/rime-wubi/commits/master",
+      "version": "152a0d3f3efe40cae216d1e3b338242446848d07",
+      "bytes": 5069,
+      "sha256": "8cd8c864c845e967756905c50602cdbb263eac6510b1dcc167d519090894639d",
+      "license": "GitHub API metadata; not production data",
+      "purpose": "pin upstream revision / enumerate resource files"
+    },
+    {
+      "file": "pythonwubi-commit.json",
+      "path": "third_party/wubi86/sources/pythonwubi-commit.json",
+      "url": "https://api.github.com/repos/sfyc23/python-wubi/commits/HEAD",
+      "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
+      "bytes": 52675,
+      "sha256": "462bf46aaf98210cd462498b5a5788df22b1a07e733bb0f94a7f7a13bf3005b5",
+      "license": "GitHub API metadata; not production data",
+      "purpose": "pin upstream revision / enumerate resource files"
+    },
+    {
+      "file": "pythonwubi-tree.json",
+      "path": "third_party/wubi86/sources/pythonwubi-tree.json",
+      "url": "https://api.github.com/repos/sfyc23/python-wubi/git/trees/HEAD?recursive=1",
+      "version": "42c6ac6b4d2285acc7f39594274a4644cdd358ff",
+      "bytes": 5972,
+      "sha256": "57c0f082ff01916bcf1ba24f1e3082c2a7f64b1c9ed08ec0ec2ec0e7cf86a614",
+      "license": "GitHub API metadata; not production data",
+      "purpose": "pin upstream revision / enumerate resource files"
+    },
+    {
+      "file": "rootskb-commit.json",
+      "path": "third_party/wubi86/sources/rootskb-commit.json",
+      "url": "https://api.github.com/repos/riku-ri/wubi-kb/commits/HEAD",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 4920,
+      "sha256": "750f8bff7773087df2ba0712e33b517496aef426adfe5ea903307eda5d6b277f",
+      "license": "GitHub API metadata; not production data",
+      "purpose": "pin upstream revision / enumerate resource files"
+    },
+    {
+      "file": "rootskb-tree.json",
+      "path": "third_party/wubi86/sources/rootskb-tree.json",
+      "url": "https://api.github.com/repos/riku-ri/wubi-kb/git/trees/HEAD?recursive=1",
+      "version": "c65590f6a524fa7cb9459d2095be87d22bd839fc",
+      "bytes": 7440,
+      "sha256": "ec13cca1f7dc50b2618e27bda896fe1a586f208d190a9654e170931eb232db10",
+      "license": "GitHub API metadata; not production data",
+      "purpose": "pin upstream revision / enumerate resource files"
+    },
+    {
+      "file": "viewer-commit.json",
+      "path": "third_party/wubi86/sources/viewer-commit.json",
+      "url": "https://api.github.com/repos/sdcb/wubi86-viewer/commits/HEAD",
+      "version": "77c521c2e4e3918fb32af5c0eaef5aec63847939",
+      "bytes": 4518,
+      "sha256": "11e1ca16126d18ee2ea0da961ab2ac1c280cbdcaa8812ac5a7d98471f7b83b16",
+      "license": "GitHub API metadata; not production data",
+      "purpose": "pin upstream revision / enumerate resource files"
+    },
+    {
+      "file": "viewer-tree.json",
+      "path": "third_party/wubi86/sources/viewer-tree.json",
+      "url": "https://api.github.com/repos/sdcb/wubi86-viewer/git/trees/HEAD?recursive=1",
+      "version": "77c521c2e4e3918fb32af5c0eaef5aec63847939",
+      "bytes": 2358363,
+      "sha256": "656089a282abe1f623a1374cfa7f332a2384800d440e9ad7e3111b7e55036dec",
+      "license": "GitHub API metadata; not production data",
+      "purpose": "pin upstream revision / enumerate resource files"
+    },
+    {
+      "file": "haifeng-commit.json",
+      "path": "third_party/wubi86/sources/haifeng-commit.json",
+      "url": "https://api.github.com/repos/definite/ibus-table-chinese/commits/HEAD",
+      "version": "bac13d268344311d48ad9bbc09c7df48b304066f",
+      "bytes": 4133,
+      "sha256": "cf9bfbc4e55df6969fe001649717555cb20fd53855475b56fc281ca931ab5659",
+      "license": "GitHub API metadata; not production data",
+      "purpose": "pin upstream revision / enumerate resource files"
+    },
+    {
+      "file": "haifeng-tree.json",
+      "path": "third_party/wubi86/sources/haifeng-tree.json",
+      "url": "https://api.github.com/repos/definite/ibus-table-chinese/git/trees/HEAD?recursive=1",
+      "version": "bac13d268344311d48ad9bbc09c7df48b304066f",
+      "bytes": 25152,
+      "sha256": "ee75fe3d6210bfed8f669d7fe56b5736f411b5bb070610eb3c9cd332ae591ffa",
+      "license": "GitHub API metadata; not production data",
+      "purpose": "pin upstream revision / enumerate resource files"
+    },
+    {
+      "file": "cnman-README.md",
+      "path": "third_party/wubi86/sources/cnman-README.md",
+      "url": "https://raw.githubusercontent.com/CNMan/UnicodeCJK-WuBi/7f55c865a6acfdb1d298d90c42650748f358a3cf/README.md",
+      "version": "7f55c865a6acfdb1d298d90c42650748f358a3cf",
+      "bytes": 2238,
+      "sha256": "d7e761216d8a2cb196f959f149b3bdbd72e8ac9d81a0088d4ba67e59a9e43feb",
+      "license": "No explicit data license found",
+      "purpose": "investigation only; rejected for production"
+    },
+    {
+      "file": "rime-README.md",
+      "path": "third_party/wubi86/sources/rime-README.md",
+      "url": "https://raw.githubusercontent.com/rime/rime-wubi/152a0d3f3efe40cae216d1e3b338242446848d07/README.md",
+      "version": "152a0d3f3efe40cae216d1e3b338242446848d07",
+      "bytes": 399,
+      "sha256": "05dc392a3f6b2b93ea61411a909380615a2d99d018c6a041c4a6ee96ba74132e",
+      "license": "LGPL-3.0",
+      "purpose": "cross-check only, not imported into production data"
+    },
+    {
+      "file": "rime-LICENSE",
+      "path": "third_party/wubi86/sources/rime-LICENSE",
+      "url": "https://raw.githubusercontent.com/rime/rime-wubi/152a0d3f3efe40cae216d1e3b338242446848d07/LICENSE",
+      "version": "152a0d3f3efe40cae216d1e3b338242446848d07",
+      "bytes": 7651,
+      "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768",
+      "license": "LGPL-3.0",
+      "purpose": "cross-check only, not imported into production data"
+    },
+    {
+      "file": "rime-wubi86.dict.yaml",
+      "path": "third_party/wubi86/sources/rime-wubi86.dict.yaml",
+      "url": "https://raw.githubusercontent.com/rime/rime-wubi/152a0d3f3efe40cae216d1e3b338242446848d07/wubi86.dict.yaml",
+      "version": "152a0d3f3efe40cae216d1e3b338242446848d07",
+      "bytes": 2289545,
+      "sha256": "f833d86b72341fe82e069a425b6625f29ef85f1bc0f34f6fb7975fe514888b5a",
+      "license": "LGPL-3.0",
+      "purpose": "cross-check only, not imported into production data"
+    }
+  ]
+}

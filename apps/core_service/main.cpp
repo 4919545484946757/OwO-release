@@ -76,14 +76,17 @@ int wmain(int argc, wchar_t** argv) {
         return 2;
     }
     owo::core::PluginExecutor plugin_executor(effective_plugin_store);
-    std::unique_ptr<owo::ipc::InputMethodPipeServer> input_schemes;
-    if (experimental_input_schemes) {
-        input_schemes = std::make_unique<owo::ipc::InputMethodPipeServer>(effective_plugin_store);
-        if (!input_schemes->started()) {
+    const auto start_input_schemes = [&](const owo::engine::Lexicon* pinyin_lexicon) {
+        if (!experimental_input_schemes) return std::unique_ptr<owo::ipc::InputMethodPipeServer>{};
+        auto server = std::make_unique<owo::ipc::InputMethodPipeServer>(
+            effective_plugin_store, owo::ipc::kInputMethodPipeName,
+            owo::ipc::InputMethodPipeServer::FocusResolver{}, pinyin_lexicon);
+        if (!server->started()) {
             std::cerr << "experimental_input_scheme_pipe_unavailable\n";
-            input_schemes.reset(); // basic candidates remain available
+            server.reset(); // basic candidates remain available
         }
-    }
+        return server;
+    };
     std::clog << R"({"process":"core_service","module":"plugin","level":"info","event_id":"plugin_worker_ready"})"
               << '\n';
     const auto default_config_path = owo::config::default_config_path();
@@ -129,11 +132,13 @@ int wmain(int argc, wchar_t** argv) {
             return 3;
         }
         startup_log("lexicon_mapped", phase_started);
+        const auto input_schemes = start_input_schemes(&lexicon);
         startup_log("core_initialized", process_started);
         return owo::ipc::run_core_server(owo::ipc::kCorePipeName, lexicon,
                                          user_frequency_ptr, model_pipe_name,
                                          config_monitor_ptr, &plugin_executor);
     }
+    const auto input_schemes = start_input_schemes(nullptr);
     if (user_frequency_ptr != nullptr) {
         const owo::engine::MemoryLexicon fallback({
             {{"ni", "hao"}, "你好", 1000}, {{"ni", "hao"}, "你号", 50},

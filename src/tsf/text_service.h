@@ -8,6 +8,7 @@
 #include "owo/tsf/composition_learning.h"
 #include "owo/tsf/expanded_candidate_pages.h"
 #include "owo/tsf/backdrop_snapshot.h"
+#include "owo/compatibility/uia_text_verifier.h"
 #include "inline_preedit.h"
 
 #include <Windows.h>
@@ -36,6 +37,7 @@ struct IDWriteTextFormat;
 namespace owo::tsf {
 
 class LanguageBarItem;
+class CandidateUiElement;
 
 inline constexpr CLSID kTextServiceClsid{
     0x6d31c9b1, 0x8978, 0x4f49, {0x89, 0xb4, 0x66, 0xeb, 0x1e, 0x74, 0x15, 0x91}};
@@ -100,6 +102,7 @@ private:
     friend class LanguageBarItem;
 #ifdef OWO_TSF_TEST_ACCESS
     friend struct ExpandedCandidateTestAccess;
+    friend struct WubiCommitTestAccess;
 #endif
     struct CandidatePreviewRow {
         std::vector<std::wstring> candidates;
@@ -181,6 +184,12 @@ private:
     void maintain_candidate_window_order() noexcept;
     void update_candidate_shadow() noexcept;
     void hide_candidate_windows() noexcept;
+    bool publish_candidate_ui();
+    void end_candidate_ui() noexcept;
+    CandidateUiElement* candidate_ui_{};
+    DWORD candidate_ui_id_{};
+    ITfUIElementMgr* candidate_ui_manager_{};
+    bool candidate_ui_registered_{};
     [[nodiscard]] bool render_candidate_window();
     [[nodiscard]] SIZE desired_candidate_window_size() const;
     [[nodiscard]] std::wstring_view candidate_display_text(std::wstring_view text, std::size_t row_index) const;
@@ -281,11 +290,18 @@ private:
 
     LONG references_{1};
     bool plugin_scheme_selected() const noexcept;
-    bool plugin_context_allowed(ITfContext*);
+    bool plugin_context_allowed(ITfContext*,bool* pending=nullptr);
+    void prefetch_context_metadata();
+    std::unique_ptr<compatibility::UiaTextVerifier> context_verifier_;
     bool plugin_context_is_current(ITfContext*) const;
     bool plugin_should_eat_key(ITfContext*, WPARAM, LPARAM);
     HRESULT handle_plugin_key(ITfContext*, WPARAM, LPARAM, BOOL*);
     void poll_plugin_input();
+    void poll_plugin_input_locked();
+    void apply_pending_plugin_selection();
+    bool plugin_read_pending_{};
+    ITfContext* plugin_read_context_{}; // borrowed only during DoEditSession
+    TfEditCookie plugin_read_cookie_{};
     void finish_plugin_input_on_ui();
     void queue_plugin_compose();
     void select_plugin_candidate(std::size_t, bool defer = false,
@@ -307,6 +323,9 @@ private:
     ULONGLONG plugin_commit_deadline_{};
     std::optional<engine::InputMethodDescriptor> plugin_input_descriptor_;
     std::future<ipc::InputMethodClientResult> plugin_input_future_;
+    std::future<ipc::InputMethodClientResult> plugin_commit_future_;
+    std::optional<engine::InputMethodRequest> plugin_commit_request_;
+    unsigned plugin_commit_retries_{};
     std::string plugin_input_session_;
     std::uint64_t plugin_input_request_id_{};
     struct PluginPendingSelection { std::size_t index; std::wstring input; std::uint64_t generation, page;

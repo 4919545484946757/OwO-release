@@ -203,6 +203,10 @@ struct ExpandedCandidateTestAccess {
             service->expanded_pages_.selected != 0) return 62;
         service->clear_composition();
         if (service->candidates_expanded_ || service->expanded_pages_.selected || service->expanded_pages_.first_visible) return 13;
+        service->input_buffer_=L"retired-document";
+        const auto prior_generation=service->context_generation_;
+        service->OnUninitDocumentMgr(nullptr);
+        if(!service->input_buffer_.empty() || service->context_generation_<=prior_generation)return 14;
         // Exercise actual D2D output off-screen, without activating TSF, reading
         // desktop pixels or contacting Core. The reserved canvas must stay clear
         // on both axes, including when stale expanded data exceeds one page.

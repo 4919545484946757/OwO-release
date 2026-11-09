@@ -42,12 +42,20 @@ public:
                                     bool correction_enabled,
                                     FullPinyinParseMetrics* metrics,
                                     const std::function<bool()>& cancelled = {}) const;
+    // Accept complete spellings and a final syllable prefix without correction or initials.
+    [[nodiscard]] ParseResult parse_spelling(std::string_view input, std::size_t max_paths,
+        const std::function<bool()>& cancelled = {}) const;
     [[nodiscard]] ParseResult parse_incremental(
         std::string_view input, std::size_t max_paths,
         FullPinyinIncrementalState& state,
         FullPinyinParseMetrics* metrics = nullptr,
         const std::function<bool()>& cancelled = {},
         bool* reused = nullptr) const;
+
+private:
+    [[nodiscard]] ParseResult parse_impl(std::string_view input, std::size_t max_paths,
+        bool correction_enabled, FullPinyinParseMetrics*, const std::function<bool()>& cancelled,
+        bool spelling_only) const;
 };
 
 }  // namespace owo::engine

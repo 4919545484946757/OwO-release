@@ -1,7 +1,8 @@
 param(
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
-    [string]$DllPath
+    [string]$DllPath,
+    [ValidateSet('x64','x86')][string]$Architecture='x64'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -16,7 +17,10 @@ if (-not (Test-Path -LiteralPath $DllPath -PathType Leaf)) {
     throw "TSF DLL not found: $DllPath"
 }
 
-$process = Start-Process -FilePath "$env:SystemRoot\System32\regsvr32.exe" `
+. (Join-Path $PSScriptRoot 'tsf-dev-image.ps1')
+Assert-TsfImageArchitecture -Path $DllPath -Architecture $Architecture
+$directory=if($Architecture -eq 'x64'){'System32'}else{'SysWOW64'}
+$process = Start-Process -FilePath "$env:SystemRoot\$directory\regsvr32.exe" `
     -ArgumentList @('/s', '/u', $DllPath) -WindowStyle Hidden -Wait -PassThru
 if ($process.ExitCode -ne 0) {
     throw "regsvr32 /u failed with exit code $($process.ExitCode)"

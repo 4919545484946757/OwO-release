@@ -23,7 +23,7 @@ std::future<InputMethodClientResult> immediate(InputMethodClientResult result) {
     std::promise<InputMethodClientResult> p; auto future = p.get_future();
     p.set_value(std::move(result)); return future;
 }
-struct Failed { Error code; };
+struct Failed { Error code; std::string diagnostic{}; };
 }
 struct InputMethodAsyncClient::Impl {
     enum class Action { discover, open, submit, close };
@@ -90,7 +90,8 @@ struct InputMethodAsyncClient::Impl {
             poll.request_id = ++wire_id; poll.action = InputMethodControlAction::poll; poll.ticket = ticket;
             response = rpc(poll, stop, deadline);
         }
-        if (response.status != InputMethodControlStatus::ready) throw Failed{Error::transport_unavailable};
+        if (response.status != InputMethodControlStatus::ready)
+            throw Failed{Error::transport_unavailable, response.diagnostic};
         if (response.ticket != ticket) throw Failed{Error::invalid_payload};
         return response;
     }
@@ -138,7 +139,10 @@ struct InputMethodAsyncClient::Impl {
             auto& j = *current;
             InputMethodClientResult result;
             try { result = run(j); }
-            catch (const Failed& e) { result = failure(j.generation, e.code); }
+            catch (const Failed& e) {
+                result = failure(j.generation, e.code);
+                if (!e.diagnostic.empty()) result.status.message = e.diagnostic.substr(0, 512);
+            }
             catch (...) { result = failure(j.generation, Error::transport_unavailable); }
             if (!result.status && result.status.error != Error::cancelled) {
                 pipe.reset(); bound.reset(); bound_generation = 0;

@@ -1,0 +1,56 @@
+[
+  {
+    "sha256": "3D83680B8CA3C9044720FA596C902FBA58358279E6FFAA6DFDF785A3E726D1EA",
+    "url": "https://api.github.com/repos/LinuxA11y/IAccessible2/commits/master",
+    "purpose": "Pin upstream version",
+    "license": "GitHub API version metadata; not redistributed",
+    "bytes": 7554,
+    "commit": "c9ae003d9c85eb707716928de97e055f5b77189c",
+    "file": "env\\compatibility\\ia2\\commit.json"
+  },
+  {
+    "sha256": "CA8C56368E463209350A2A68D941B3277E0800505B786302A42124565506E09D",
+    "url": "https://raw.githubusercontent.com/LinuxA11y/IAccessible2/c9ae003d9c85eb707716928de97e055f5b77189c/concatidl.sh",
+    "purpose": "Inspect upstream IDL dependency order",
+    "license": "NOASSERTION; inspected only, not redistributed or executed",
+    "bytes": 957,
+    "commit": "c9ae003d9c85eb707716928de97e055f5b77189c",
+    "file": "env\\compatibility\\ia2\\concatidl.sh"
+  },
+  {
+    "sha256": "E3D6A3FA6F72A1E630C746ABBA9376508CF327A4AE7648FCD176CFF8C90317F6",
+    "url": "https://raw.githubusercontent.com/LinuxA11y/IAccessible2/c9ae003d9c85eb707716928de97e055f5b77189c/api/Accessible2.idl",
+    "purpose": "Generate checked-in base IAccessible2 COM declarations",
+    "license": "BSD-3-Clause",
+    "bytes": 30918,
+    "commit": "c9ae003d9c85eb707716928de97e055f5b77189c",
+    "file": "env\\compatibility\\ia2\\Accessible2.idl"
+  },
+  {
+    "sha256": "651FEBF3CCC1CEB76E8523ED3B6C1746CA578EAD337D12B8BC20B6DDE81636B0",
+    "url": "https://raw.githubusercontent.com/LinuxA11y/IAccessible2/c9ae003d9c85eb707716928de97e055f5b77189c/api/AccessibleRelation.idl",
+    "purpose": "Generate checked-in base IAccessible2 COM declarations",
+    "license": "BSD-3-Clause",
+    "bytes": 9769,
+    "commit": "c9ae003d9c85eb707716928de97e055f5b77189c",
+    "file": "env\\compatibility\\ia2\\AccessibleRelation.idl"
+  },
+  {
+    "sha256": "51124BE3BD0F41DE60A6120A7D50B693B88545DE6634B888C4262B87AA2D1306",
+    "url": "https://raw.githubusercontent.com/LinuxA11y/IAccessible2/c9ae003d9c85eb707716928de97e055f5b77189c/api/AccessibleStates.idl",
+    "purpose": "Generate checked-in base IAccessible2 COM declarations",
+    "license": "BSD-3-Clause",
+    "bytes": 8689,
+    "commit": "c9ae003d9c85eb707716928de97e055f5b77189c",
+    "file": "env\\compatibility\\ia2\\AccessibleStates.idl"
+  },
+  {
+    "sha256": "379747C74DE3D32D813715017750E4DD8D4F0A70474A6F3ACA5CFB51394C2B5C",
+    "url": "https://raw.githubusercontent.com/LinuxA11y/IAccessible2/c9ae003d9c85eb707716928de97e055f5b77189c/api/IA2CommonTypes.idl",
+    "purpose": "Generate checked-in base IAccessible2 COM declarations",
+    "license": "BSD-3-Clause",
+    "bytes": 9043,
+    "commit": "c9ae003d9c85eb707716928de97e055f5b77189c",
+    "file": "env\\compatibility\\ia2\\IA2CommonTypes.idl"
+  }
+]

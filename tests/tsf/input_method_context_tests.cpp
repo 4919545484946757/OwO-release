@@ -26,6 +26,36 @@ int main() {
     f.read_only = false; f.loading = true;
     check(evaluate_input_method_context(f) == InputMethodContextSafety::read_only, "loading");
     check(inspect_input_method_context(nullptr, 0) == InputMethodContextSafety::unknown, "null context blocked");
+    check(native_scope_fallback_allowed(S_OK,VT_EMPTY), "absent native InputScope needs independent evidence");
+    check(!native_scope_fallback_allowed(S_FALSE,VT_EMPTY), "mixed InputScope is not absence");
+    check(!native_scope_fallback_allowed(S_OK,VT_UNKNOWN), "explicit unsupported scope cannot be ignored");
+    check(!native_scope_fallback_allowed(E_FAIL,VT_UNKNOWN), "malformed failed scope cannot be ignored");
+    const auto parent = CreateWindowExW(0, L"STATIC", L"", WS_OVERLAPPED, 0, 0, 100, 100,
+                                        nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
+    const auto plain = CreateWindowExW(0, L"EDIT", L"", WS_CHILD, 0, 0, 20, 20,
+                                       parent, nullptr, GetModuleHandleW(nullptr), nullptr);
+    const auto password = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | ES_PASSWORD, 0, 0, 20, 20,
+                                          parent, nullptr, GetModuleHandleW(nullptr), nullptr);
+    const auto readonly = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | ES_READONLY, 0, 0, 20, 20,
+                                          parent, nullptr, GetModuleHandleW(nullptr), nullptr);
+    check(parent && plain && password && readonly, "native control fixtures created");
+    check(inspect_native_edit_scope(parent, plain) == InputMethodContextSafety::allowed,
+          "ordinary OS edit supplies independent scope evidence");
+    check(inspect_native_edit_scope(parent, password) == InputMethodContextSafety::sensitive,
+          "native password remains denied without InputScope");
+    check(inspect_native_edit_scope(parent, readonly) == InputMethodContextSafety::read_only,
+          "native readonly remains denied");
+    EnableWindow(plain, FALSE);
+    check(inspect_native_edit_scope(parent, plain) == InputMethodContextSafety::read_only,
+          "disabled native edit remains denied without InputScope");
+    EnableWindow(plain, TRUE);
+    check(inspect_native_edit_scope(plain, password) == InputMethodContextSafety::unknown,
+          "unrelated view cannot authorize another control");
+    check(inspect_native_edit_scope(parent, parent) == InputMethodContextSafety::unknown,
+          "generic HWND remains unknown");
+    check(inspect_native_edit_scope(nullptr, plain) == InputMethodContextSafety::unknown,
+          "absent context view remains unknown");
+    if (parent) DestroyWindow(parent);
     const InputMethodWriteFacts write{1, 1, 2000, 2000, 1000, true, true, true, true, InputMethodContextSafety::allowed};
     check(input_method_write_allowed(write), "current safe write allowed");
     for (int n = 0; n < 10; ++n) {

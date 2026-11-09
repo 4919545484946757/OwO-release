@@ -1,0 +1,145 @@
+\input ifinput.tex
+\input luatexja.sty
+\ifinput font/cn.tex;
+
+\ifinput miniltx.tex;%graphicx.tex
+\ifinput graphicx.tex;%\resizebox Z
+\ifinput tikz.tex;%color
+
+\lfont\RM={[cmunrm]}
+\Lfont\RM={[UMingCN-wubi-86-kb];\the\jfm}
+\RM
+
+\begingroup\endlinechar=-1\catcode"09=\catcode0\relax%<TAB>,9,'011"09
+
+\global\tolerance=0
+\global\hbadness=0
+\global\vbadness=0
+\global\offinterlineskip
+\global\newdimen\lined
+\global\lined=1pt
+
+\global\newdimen\khs
+\global\khs=0.125em
+\global\newdimen\ch
+\global\ch=1em
+\global\advance\ch by\khs
+\global\newdimen\khd
+\global\khd=\ch%字根本身和左右边距
+\global\newcount\khc
+%\global\khc=4%一个键中一行中最多有几个字根
+\global\khc=5%由于 N 键字根太多而设置为 5
+\global\multiply\khd by \khc%每行\khc个字根
+\global\newdimen\lrb
+\global\lrb=0.5em
+\global\newdimen\klined
+\global\klined=\khd
+\global\advance\klined by 2\lrb%每行\khd加上最终左右两边间距
+\global\advance\klined by 2\lined%两边边框
+
+\global\newdimen\kvs
+\global\kvs=0.5em
+\global\newdimen\cv
+\global\cv=1em
+\global\advance\cv by\kvs%每个字根上下各0.5\kvs
+\global\newdimen\kvd
+\global\newcount\kvc
+\global\kvc=5%一个键中最多有几行
+\global\newdimen\tbb
+\global\tbb=0.5em
+\global\newdimen\keypanelv
+\global\keypanelv=\cv%1行本身的高度
+\global\multiply\keypanelv by\kvc%一个键中最多有\kvc行
+\global\advance\keypanelv by 2\tbb%上下\tbb
+\global\newdimen\quicklinev
+\global\quicklinev=\cv%单独用于展示键名和一级简码的
+\global\advance\quicklinev by 2\tbb%上下\tbb
+\global\kvd=\keypanelv
+\global\advance\kvd by\quicklinev
+\global\advance\kvd by\lined%键名和一级简码的分隔线
+\global\newdimen\kcolumnd
+\global\kcolumnd=\kvd
+%%\global\advance\kcolumnd by 2\tbb
+%%%键名和一级简码表、字根面板本身各有\tbb，不需要在此处增加
+\global\advance\kcolumnd by 2\lined%两边边框
+
+
+\global\pagewidth=\klined
+\global\newcount\kbhkmax
+\global\kbhkmax=10%最长行q～p行的按键数
+\global\multiply\pagewidth by \kbhkmax
+{%每个键的左右边框会重合，\kbhkmax个键就要去掉\kbhkmax个边框
+	\advance\kbhkmax by -1
+		\global\advance\pagewidth by -\kbhkmax\lined%
+}
+
+\global\pageheight=\kvd
+\global\multiply\pageheight by 3%3行字母键
+\global\advance\pageheight by 2\lined%上下边框
+\global\advance\pageheight by 2\lined%3行字母键中间重叠的2边框
+
+\global\pageleftoffset=0pt
+\global\pagerightoffset=0pt
+\global\pagetopoffset=0pt
+\global\pagebottomoffset=0pt
+
+\global\lineskip=0pt
+\global\lineskiplimit=0pt
+\global\parskip=0pt
+\global\parindent=0pt
+\global\baselineskip=0pt
+\global\maxdepth=0pt
+\global\let\vf\vfil
+
+\global\newdimen\cv
+\global\cv=1em
+\global\advance\cv by\kvs
+
+\newcount\innercolume
+\newcount\innerline
+\gdef\inline#1{
+	\ifnum\innercolume=0\else\vfill\fi%在\keypanel中重置
+		\advance\innercolume by 1
+		\innerline=0
+		\hbox{\hlrb\hbox to\khd{#1}\hlrb}
+}
+\gdef\c#1{
+	\ifnum\innerline=0\else\hfil\fi%在\inline中重置
+		\advance\innerline by 1
+		\vbox to\cv{
+			\vfill\hbox to\ch{\hss\RM#1\hss}\vfill
+		}}
+\gdef\C#1{
+	\c{
+		\vbox to\cv{\vss\hbox to\ch{\hss\fontsize\LARGE#1\hss}\vss}
+	}
+}
+
+\gdef\key#1#2#3{\hbox to\klined{
+	\vbox to\kcolumnd{\hr
+		\hbox to\klined{\vr
+			\vbox to\kvd{
+				\keypanel{#3}
+				\hr
+					\quickline{#1}{#2}
+			}
+			\vr}
+		\hr}
+}}
+\gdef\keypanel#1{\vbox to\keypanelv{
+	\innercolume=0\relax
+		\vtbb
+#1
+		\vtbb
+}}
+\gdef\quickline#1#2{
+	\vbox to \quicklinev{\vtbb\hbox{\hlrb\hbox to\khd{
+		\c{#1}\c{#2}
+	}\hlrb}\vtbb}
+}
+
+\gdef\vr{\vrule width\lined}
+\gdef\hr{\hrule height\lined depth 0pt}
+\gdef\hlrb{\hbox to\lrb{}}
+\gdef\vtbb{\hbox{\hlrb\vbox to\tbb{\hbox to\khd{}}\hlrb}}
+\endgroup

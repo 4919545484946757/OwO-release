@@ -1,0 +1,42 @@
+{
+  "debug": [
+    {
+      "name": "owo.wubi86.phase1",
+      "result": "PASS",
+      "seconds": "0.95612",
+      "output": "PASS: golden, roots, phrase rules, UTF-8, validation, multi-code, trie, loading, 20000 lookups; entries=87694\n"
+    },
+    {
+      "name": "owo.wubi86.coverage",
+      "result": "PASS",
+      "seconds": "7.20297",
+      "output": "dictionary parse_us=406760 index_us=71906\nPASS core=6763 roots=257 rows=87694 phrases=62586 exact_codes=76706 prefixes=85921 load_ms=520 total_ms=6575\n"
+    },
+    {
+      "name": "owo.wubi86.data_integrity",
+      "result": "PASS",
+      "seconds": "0.167475",
+      "output": "PASS generated assets, 65 raw receipts, GB2312 exact position map, 257 root identities\n"
+    },
+    {
+      "name": "owo.wubi86.provider",
+      "result": "PASS",
+      "seconds": "0.739708",
+      "output": "PASS production provider queries, paging, identity, selection, validation, cancellation\n"
+    },
+    {
+      "name": "owo.wubi86.process",
+      "result": "PASS",
+      "seconds": "2.45904",
+      "output": "cold IPC roundtrip ms=620\nPASS real IPC and simulated document commit (not actual Windows TSF SetText)\nPASS actual AppContainer Wubi process: permission denial, discovery, production queries, selection, pages, revoke, restart\nRetained isolated test store: D:\\src\\OwO-release\\build\\windows-debug\\wubi86-test-stores\\wubi-process-26428-260980890\n"
+    }
+  ],
+  "release": [
+    {
+      "name": "owo.wubi86.process",
+      "result": "PASS",
+      "seconds": "0.857793",
+      "output": "cold IPC roundtrip ms=140\nPASS real IPC and simulated document commit (not actual Windows TSF SetText)\nPASS actual AppContainer Wubi process: permission denial, discovery, production queries, selection, pages, revoke, restart\nRetained isolated test store: D:\\src\\OwO-release\\build\\windows-debug\\wubi86-test-stores\\wubi-process-31660-261006203\n"
+    }
+  ]
+}
