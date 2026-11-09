@@ -101,6 +101,9 @@
                         <FontIcon Glyph=""/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem x:Name="ModelManagerNavigationItem" Content="模型管理器" Tag="models">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE774;"/></NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem x:Name="ShortcutNavigationItem" Content="快捷键" Tag="shortcuts">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph=""/>
@@ -749,6 +752,7 @@
                         </ScrollViewer>
                     </Grid>
                     <ContentControl x:Name="UserLexiconPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+                    <ContentControl x:Name="ModelManagerPageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                     <ScrollViewer x:Name="GeneralPreferencesPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="32,0,32,24" Spacing="8" MaxWidth="960" HorizontalAlignment="Stretch">
                             <Border x:Name="AutoSaveCard" Style="{StaticResource SettingsCardStyle}">

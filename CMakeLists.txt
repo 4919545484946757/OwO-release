@@ -376,6 +376,7 @@ if(WIN32)
         src/tsf/dll_main.cpp
         src/tsf/pinyin_cursor.cpp
         src/tsf/text_service.cpp
+        src/tsf/selection_assistant.cpp
         src/tsf/input_method_context.cpp
     )
     target_include_directories(owo_tsf PRIVATE include src/tsf)
@@ -918,7 +919,7 @@ if(BUILD_TESTING)
         target_compile_options(owo_candidate_backdrop_tests PRIVATE /W4 /permissive- /utf-8)
         add_test(NAME owo.tsf.candidate_backdrop COMMAND owo_candidate_backdrop_tests)
         add_executable(owo_expanded_candidate_service_tests
-            tests/tsf/expanded_candidate_service_tests.cpp src/tsf/text_service.cpp
+            tests/tsf/expanded_candidate_service_tests.cpp src/tsf/text_service.cpp src/tsf/selection_assistant.cpp
             src/tsf/pinyin_cursor.cpp src/tsf/input_method_context.cpp)
         target_include_directories(owo_expanded_candidate_service_tests PRIVATE include src/tsf)
         target_compile_features(owo_expanded_candidate_service_tests PRIVATE cxx_std_20)
@@ -1321,7 +1322,7 @@ endif()
 
 if(WIN32 AND BUILD_TESTING)
     add_executable(owo_wubi_commit_service_tests tests/tsf/wubi_commit_service_tests.cpp
-        src/tsf/text_service.cpp src/tsf/pinyin_cursor.cpp src/tsf/input_method_context.cpp)
+        src/tsf/text_service.cpp src/tsf/selection_assistant.cpp src/tsf/pinyin_cursor.cpp src/tsf/input_method_context.cpp)
     target_include_directories(owo_wubi_commit_service_tests PRIVATE include src/tsf)
     target_compile_features(owo_wubi_commit_service_tests PRIVATE cxx_std_20)
     target_compile_definitions(owo_wubi_commit_service_tests PRIVATE OWO_TSF_TEST_ACCESS WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
@@ -1331,4 +1332,16 @@ if(WIN32 AND BUILD_TESTING)
     add_test(NAME owo.tsf.wubi_commit_service COMMAND owo_wubi_commit_service_tests
         ${CMAKE_CURRENT_BINARY_DIR}/wubi86-test-stores ${OWO_WUBI86_STAGE})
     set_tests_properties(owo.tsf.wubi_commit_service PROPERTIES TIMEOUT 90)
+endif()
+
+if(WIN32 AND BUILD_TESTING)
+    add_executable(owo_selection_assistant_tests tests/tsf/selection_assistant_tests.cpp
+        src/tsf/text_service.cpp src/tsf/selection_assistant.cpp src/tsf/pinyin_cursor.cpp src/tsf/input_method_context.cpp)
+    target_include_directories(owo_selection_assistant_tests PRIVATE include src/tsf tests/tsf)
+    target_compile_features(owo_selection_assistant_tests PRIVATE cxx_std_20)
+    target_compile_definitions(owo_selection_assistant_tests PRIVATE OWO_TSF_TEST_ACCESS WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
+    target_compile_options(owo_selection_assistant_tests PRIVATE /W4 /permissive- /utf-8 /EHsc)
+    target_link_libraries(owo_selection_assistant_tests PRIVATE owo_tsf_write owo_ipc owo_plugin owo_agent ole32 oleaut32 advapi32 uuid user32 gdi32 d2d1 dwrite dwmapi)
+    add_test(NAME owo.tsf.selection_assistant COMMAND owo_selection_assistant_tests)
+    set_tests_properties(owo.tsf.selection_assistant PROPERTIES TIMEOUT 30)
 endif()

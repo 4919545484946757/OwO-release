@@ -10,6 +10,7 @@
 #include "owo/tsf/backdrop_snapshot.h"
 #include "owo/compatibility/uia_text_verifier.h"
 #include "inline_preedit.h"
+#include "selection_assistant.h"
 
 #include <Windows.h>
 #include <msctf.h>
@@ -100,9 +101,11 @@ public:
 
 private:
     friend class LanguageBarItem;
+    friend class SelectionAssistant;
 #ifdef OWO_TSF_TEST_ACCESS
     friend struct ExpandedCandidateTestAccess;
     friend struct WubiCommitTestAccess;
+    friend struct SelectionAssistantTestAccess;
 #endif
     struct CandidatePreviewRow {
         std::vector<std::wstring> candidates;
@@ -483,6 +486,7 @@ private:
     std::optional<PendingRequest> pending_request_;
     std::deque<PendingRequest> feedback_requests_;
     std::jthread worker_;
+    SelectionAssistant selection_assistant_{*this};
 };
 
 HRESULT create_text_service(REFIID iid, void** object);

@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
@@ -104,6 +105,7 @@ public sealed partial class MainPage : Page
         InitializeSettingsModules();
         UserLexiconNavigationItem.Content = "词库管理器";
         UserLexiconPageHost.Content = new DictionaryManager(ShowStatus, _windowDownloads.Start);
+        ModelManagerPageHost.Content = new ModelManagerPage(_client.ConfigPath, ShowStatus);
         PluginDiscoveryHost.Content = new PluginDiscoveryView(InstallPluginSourceAsync, () => PluginTabs.SelectedItem = InstalledPluginsTab, ShowStatus, _windowDownloads.Start,
             (Microsoft.UI.Xaml.Style)Resources["PluginCardBackingStyle"]);
         OnlineDistributionHost.Content = new OnlineDistributionView(
@@ -227,6 +229,7 @@ public sealed partial class MainPage : Page
     private void ShowPage(string page)
     {
         _currentPage = page;
+        ModelManagerPageHost.Visibility = page == "models" ? Visibility.Visible : Visibility.Collapsed;
         var generalPage = page is "schemes" or "candidates" or "intelligence";
         GeneralSettingsPage.Visibility = generalPage
             ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
@@ -270,6 +273,7 @@ public sealed partial class MainPage : Page
             "user-lexicon" => ("词库管理器", "搜索、导入和管理字典，或进入用户词库管理学习数据"),
             "shortcuts" => ("快捷键", "管理输入、翻页和模式切换的多组按键绑定"),
             "plugins" => ("插件管理器", "管理已安装插件、浏览官方目录并独立审核权限"),
+            "models" => ("模型管理器", "管理模型 API、选区翻译、润色、代码纠错和内容生成"),
             _ => ("输入方案", "选择编码方案并查看当前方案能力"),
         };
         UpdateSchemeHintVisibility();
@@ -301,6 +305,7 @@ public sealed partial class MainPage : Page
                 $"标点 {option.Source} {option.Output}", "punctuation", _punctuationCards[option.Source],
                 Capability: SettingsCapability.ChinesePunctuation));
         Add("词库管理器", "用户词库 字典 搜索 编辑 新增 删除 清除 导入 导出 Gboard Rime CSV TSV 词频", "user-lexicon", UserLexiconPageHost);
+        Add("模型管理器", "API 大模型 翻译 润色 代码纠错 内容生成 首选语言 次选语言 密钥", "models", ModelManagerPageHost);
         Add("插件管理器", "下载 在线 发现 搜索 插件 更新 安装 权限 卸载 恢复", "plugins", PluginSection);
     }
 

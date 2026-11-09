@@ -161,6 +161,7 @@ public sealed partial class MainPage
             finally { _buildingPluginSettings = false; }
             GeneralSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             UserLexiconPageHost.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+            ModelManagerPageHost.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             ShortcutSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             PluginSettingsPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
             ChinesePunctuationPage.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;

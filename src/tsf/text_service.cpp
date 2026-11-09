@@ -1266,6 +1266,8 @@ bool TextService::should_eat_key(const WPARAM key) const noexcept {
 HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) { activation_trace("OnTestKeyDown", S_OK, context);
     if (eaten == nullptr) return E_POINTER;
     refresh_shortcut_config();
+    if (selection_assistant_.test(context, key)) { *eaten = TRUE; return S_OK; }
+    if (selection_assistant_.active()) clear_composition();
     *eaten = (plugin_scheme_selected() ? plugin_should_eat_key(context, key, flags)
                                      : should_eat_key(key)) ? TRUE : FALSE;
     if(*eaten && !plugin_scheme_selected() && context && !plugin_context_allowed(context)) *eaten=FALSE;
@@ -1275,6 +1277,7 @@ HRESULT TextService::OnTestKeyDown(ITfContext* context, WPARAM key, LPARAM flags
 HRESULT TextService::OnKeyDown(ITfContext* context, WPARAM key, LPARAM flags, BOOL* eaten) { activation_trace("OnKeyDown", S_OK, context);
     if (eaten == nullptr) return E_POINTER;
     refresh_shortcut_config();
+    if (selection_assistant_.key(context, key)) { *eaten = TRUE; return S_OK; }
     if (plugin_scheme_selected()) return handle_plugin_key(context, key, flags, eaten);
     if (inline_preedit_ && inline_preedit_->take_termination()) clear_composition();
     if (context && inline_preedit_ && inline_preedit_->active()) {
@@ -1931,8 +1934,7 @@ SIZE TextService::desired_candidate_window_size() const {
     const UINT dpi = candidate_window_ == nullptr
                          ? 96U
                          : std::max(GetDpiForWindow(candidate_window_), 96U);
-    const auto page_size = std::max<std::size_t>(
-        1, static_cast<std::size_t>(candidate_page_size_));
+    const auto page_size = candidate_page_width();
     const auto wrap_length = std::max<std::size_t>(
         1, static_cast<std::size_t>(shortcut_config_.candidate_wrap_length));
     if (alt_code_preview_active_) {
@@ -3253,6 +3255,9 @@ LRESULT CALLBACK TextService::window_proc(HWND window, UINT message, WPARAM wpar
     }
     if (message == WM_TIMER && wparam == kPluginInputTimer && service != nullptr) {
         service->poll_plugin_input(); return 0;
+    }
+    if (message == WM_TIMER && wparam == kSelectionAssistantTimer && service != nullptr) {
+        service->selection_assistant_.poll(); return 0;
     }
     if (message == WM_TIMER && wparam == kCandidateWindowOrderTimer && service != nullptr) {
         service->maintain_candidate_window_order(); return 0;
@@ -4752,6 +4757,7 @@ bool TextService::publish_candidate_ui() {
         [this,generation,plugin_request,native_request](UINT index)->HRESULT {
             if(context_generation_!=generation || candidate_request_pending_ || plugin_request!=plugin_input_request_id_ ||
                native_request!=active_candidate_request_id_ || index>=candidates_.size())return E_ABORT;
+            if(selection_assistant_.active()) return commit_candidate_from_window(index);
             if(plugin_scheme_selected()){
                 if(!plugin_context_allowed(plugin_input_context_))return E_ABORT;
                 select_plugin_candidate(index);return S_OK;
@@ -4784,7 +4790,7 @@ void TextService::update_candidate_window() {
     sync_inline_preedit();
     if (candidate_window_ == nullptr) return;
     if ((!alt_code_preview_active_ &&
-         (!chinese_mode_ || !has_composition())) || !foreground_focus_) {
+         ((!chinese_mode_ && !selection_assistant_.active()) || !has_composition())) || !foreground_focus_) {
         hide_candidate_windows();
         return;
     }
@@ -4975,7 +4981,7 @@ void TextService::change_candidate_page(const int direction) {
 }
 
 bool TextService::has_composition() const noexcept {
-    return !input_buffer_.empty() || !staged_candidates_.empty();
+    return selection_assistant_.active() || !input_buffer_.empty() || !staged_candidates_.empty();
 }
 
 bool TextService::candidate_preview_visible() const noexcept {
@@ -4984,6 +4990,7 @@ bool TextService::candidate_preview_visible() const noexcept {
 }
 
 void TextService::sync_inline_preedit() {
+    if (selection_assistant_.active()) { if (inline_preedit_) inline_preedit_->cancel(); return; }
     if (shortcut_config_.pinyin_preview_location != "input" || !chinese_mode_ ||
         shortcut_config_.input_scheme != "full_pinyin" || is_agent_mode() || !has_composition() || !foreground_focus_) {
         if (inline_preedit_) inline_preedit_->cancel();
@@ -5017,6 +5024,7 @@ std::wstring TextService::staged_text() const {
 }
 
 std::wstring TextService::composition_preview() const {
+    if (selection_assistant_.active()) return selection_assistant_.header();
     if (is_agent_mode() && !input_buffer_.empty() && input_buffer_.front() == L'v') {
         std::wstring result = L"v + ";
         result.append(staged_text());
@@ -5210,6 +5218,7 @@ void TextService::scroll_expanded_candidates(const int rows) {
 }
 
 std::size_t TextService::candidate_page_width() const noexcept {
+    if (selection_assistant_.active()) return 4; // Fixed action menu, independent of normal page preferences.
     return static_cast<std::size_t>(std::clamp<std::uint64_t>(candidate_page_size_, 1, 9));
 }
 
@@ -5320,6 +5329,10 @@ std::optional<TextService::HitTarget> TextService::hit_test(const POINT point) c
 }
 
 void TextService::invoke_hit_target(const HitTarget& target) {
+    if (selection_assistant_.active()) {
+        if (target.kind == HitKind::candidate) selection_assistant_.choose(target.candidate_index);
+        return;
+    }
     if (plugin_scheme_selected()) {
         if (target.kind == HitKind::candidate) select_plugin_candidate(target.candidate_index);
         else if (target.kind == HitKind::candidate_page && candidates_expanded_ && !candidate_request_pending_) {
@@ -5496,6 +5509,7 @@ void TextService::reset_learning_chain() {
 }
 
 void TextService::clear_composition() {
+    selection_assistant_.cancel();
     if (inline_preedit_) inline_preedit_->cancel();
     reset_plugin_input();
     reset_learning_chain();
@@ -5598,6 +5612,7 @@ std::optional<std::wstring> TextService::chinese_punctuation_for_key(
 
 HRESULT TextService::commit_candidate(ITfContext* context, const std::size_t index,
                                       const std::wstring_view suffix) {
+    if (selection_assistant_.active()) { selection_assistant_.choose(index); return S_OK; }
     if (candidate_request_pending_) return E_PENDING;
     if (index >= candidates_.size() || index >= candidate_consumed_.size())
         return E_INVALIDARG;
@@ -5851,6 +5866,7 @@ HRESULT TextService::commit_pending_composition(ITfContext* context) {
 }
 
 void TextService::commit_pending_on_focus_loss() {
+    if (selection_assistant_.active()) return;
     refresh_shortcut_config();
     if (plugin_scheme_selected()) return; // no blind writes to a retired document
     if (!shortcut_config_.focus_loss_commit_enabled || !has_composition() ||
@@ -5868,6 +5884,7 @@ void TextService::commit_pending_on_focus_loss() {
 }
 
 HRESULT TextService::toggle_language_mode(ITfContext* context) {
+    if (selection_assistant_.active()) clear_composition();
     return apply_language_mode(!chinese_mode_, context);
 }
 
