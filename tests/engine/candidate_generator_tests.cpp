@@ -28,6 +28,29 @@ std::size_t utf8_character_count(const std::string_view text) {
 int main() {
     {
         using namespace owo::engine;
+        const MemoryLexicon mixed({
+            {{"zhe", "me"}, "这么", 10000}, {{"na", "me"}, "那么", 9000},
+            {{"ni", "hao"}, "你好", 10000}, {{"zuo"}, "做", 10000},
+            {{"de", "hua"}, "的话", 10000}, {{"zhe"}, "这", 10000},
+            {{"na"}, "那", 10000}, {{"n"}, "嗯", 10}});
+        const CandidateGenerator generator(mixed);
+        for (const auto& [input, expected] : std::vector<std::pair<std::string, std::string>>{
+                {"zhemzuodehua", "这么做的话"}, {"namzuodehua", "那么做的话"},
+                {"nhaodehua", "你好的话"}, {"zhemezuodehua", "这么做的话"}}) {
+            for (const bool correction : {false, true}) for (const auto page : {0U, 5U, 7U, 9U}) {
+                const auto parsed = FullPinyinSchema{}.parse(input, 16, correction);
+                const auto candidates = generator.generate(parsed, 64, false, {}, nullptr, {}, false, page);
+                if (std::none_of(candidates.begin(), candidates.end(), [&](const auto& value) {
+                    return value.text == expected && value.consumed_input_bytes == input.size();
+                })) return fail("dictionary-backed interior initial did not compose a full candidate");
+            }
+        }
+        const auto strict = generator.generate(ExactCodeSchema{}.parse("zhemzuodehua"), 64);
+        if (std::any_of(strict.begin(), strict.end(), [](const auto& c) { return c.text == "这么做的话"; }))
+            return fail("mixed-pinyin recovery leaked into exact-code input");
+    }
+    {
+        using namespace owo::engine;
         const auto candidate = [](std::size_t syllables, std::size_t consumed,
                                   InputMatchKind kind = InputMatchKind::exact) {
             Candidate value;

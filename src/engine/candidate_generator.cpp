@@ -722,6 +722,61 @@ std::vector<ParsePath> dictionary_boundary_paths(const ParseResult& parsed,
     return result;
 }
 
+// A syllabic consonant can also be an initial inside a mixed-pinyin word.
+// Recover only dictionary-backed local readings, keeping every other source
+// boundary intact. Never enumerate independent syllable completions.
+std::vector<ParsePath> dictionary_initial_paths(const ParseResult& parsed,
+    const Lexicon& lexicon, const std::function<bool()>& cancelled) {
+    std::vector<ParsePath> result;
+    if (!parsed.phonetic_assistance) return result;
+    const auto anchor = std::find_if(parsed.paths.begin(), parsed.paths.end(), [](const auto& path) {
+        return path.match_kind == InputMatchKind::exact &&
+            std::all_of(path.syllables.begin(), path.syllables.end(), [](const auto& s) { return s.complete; });
+    });
+    if (anchor == parsed.paths.end()) return result;
+    const auto ambiguous = [](const Syllable& s) {
+        return s.complete && s.text.size() == 1 && std::string_view("bcdfghjklmnpqrstvwxyz").find(s.text[0]) != std::string_view::npos;
+    };
+    std::size_t lookups = 0;
+    for (std::size_t begin = 0; begin < anchor->syllables.size(); ++begin) {
+        for (auto end = begin + 2; end <= anchor->syllables.size() && end - begin <= 4; ++end) {
+            if (cancelled && cancelled()) return {};
+            const auto first = anchor->syllables.begin() + static_cast<std::ptrdiff_t>(begin);
+            const auto last = anchor->syllables.begin() + static_cast<std::ptrdiff_t>(end);
+            if (std::none_of(first, last, ambiguous)) continue;
+            const auto offset = first->begin;
+            const auto input = std::string_view(parsed.normalized_input).substr(offset, (last - 1)->end - offset);
+            if (input.find('\'') != std::string_view::npos) continue;
+            if (lookups++ == 8) return result;
+            for (const auto& match : lexicon.lookup_mixed_abbreviation_texts(input, 32)) {
+                if (cancelled && cancelled()) return {};
+                if (match.syllables.size() != end - begin || match.source_segments.size() != end - begin ||
+                    utf8_character_count(match.text) != end - begin) continue;
+                auto path = *anchor;
+                bool changed = false, fits = true;
+                for (auto i = begin; i < end; ++i) {
+                    const auto& original = anchor->syllables[i];
+                    const auto raw = std::string_view(parsed.normalized_input).substr(original.begin, original.end - original.begin);
+                    const auto j = i - begin;
+                    if (raw != match.source_segments[j] ||
+                        (!ambiguous(original) && match.syllables[j] != original.text) ||
+                        !std::string_view(match.syllables[j]).starts_with(raw)) { fits = false; break; }
+                    changed |= match.syllables[j] != original.text;
+                    path.syllables[i].text = match.syllables[j];
+                }
+                if (!fits || !changed) continue;
+                path.match_kind = InputMatchKind::abbreviated_completion;
+                path.completion_characters = 0;
+                for (const auto& s : path.syllables)
+                    path.completion_characters += static_cast<std::uint32_t>(s.text.size() - (s.end - s.begin));
+                if (std::find(result.begin(), result.end(), path) == result.end()) result.push_back(std::move(path));
+                if (result.size() == 16) return result;
+            }
+        }
+    }
+    return result;
+}
+
 }  // namespace
 
 std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
@@ -1223,6 +1278,7 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
         }
     }
     const auto boundary_paths = dictionary_boundary_paths(parsed, lookup_cache, cancelled);
+    const auto initial_paths = dictionary_initial_paths(parsed, lexicon_, cancelled);
     std::vector<ParsePath> phrase_tail_paths;
     // Recover word-backed consonant tails before the generic completion list
     // spends its bounded path budget on Cartesian initial expansions.
@@ -1263,12 +1319,13 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     }
     CompactCollocations collocations;
     std::vector<const ParsePath*> source_paths;
-    source_paths.reserve(parsed.paths.size() + boundary_paths.size() + phrase_tail_paths.size());
+    source_paths.reserve(parsed.paths.size() + boundary_paths.size() + initial_paths.size() + phrase_tail_paths.size());
     const auto first_exact = std::find_if(parsed.paths.begin(), parsed.paths.end(), [](const auto& path) {
         return path.match_kind == InputMatchKind::exact;
     });
     if (first_exact != parsed.paths.end()) source_paths.push_back(&*first_exact);
     for (const auto& path : boundary_paths) source_paths.push_back(&path);
+    for (const auto& path : initial_paths) source_paths.push_back(&path);
     for (const auto& path : phrase_tail_paths) source_paths.push_back(&path);
     for (const auto& path : parsed.paths)
         if (first_exact == parsed.paths.end() || &path != &*first_exact) source_paths.push_back(&path);
