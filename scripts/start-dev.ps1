@@ -6,6 +6,7 @@ param(
     [string]$LibimeRuntimeDirectory,
     [string]$LibimeModelPath,
     [switch]$BuildLatest,
+    [switch]$DeployWubi86,
     [switch]$AcceptDevelopmentPackageRisk,
     [switch]$RestartCore,
     [switch]$DisableModelHost,
@@ -111,7 +112,7 @@ if ($BuildLatest) {
     }
     $x86BuildTree = Split-Path -Parent $X86BuildDirectory
     if (-not (Test-Path -LiteralPath (Join-Path $x86BuildTree 'CMakeCache.txt') -PathType Leaf)) {
-        & cmake --preset windows-x86-release
+        & cmake --preset windows-x86-release -S $projectRoot
         if ($LASTEXITCODE -ne 0) {
             throw "OwO x86 configure failed: $LASTEXITCODE"
         }
@@ -137,11 +138,14 @@ foreach ($required in @($coreService, $profileCheck, $buildTsfDll)) {
 if (-not (Test-Path -LiteralPath $buildX86TsfDll -PathType Leaf)) {
     throw "Required x86 development TSF is missing: $buildX86TsfDll"
 }
-# Publish and validate the real user-store scheme before starting Core or Settings.
-& (Join-Path $PSScriptRoot 'deploy-wubi86-dev.ps1') `
-    -BuildDirectory (Split-Path -Parent $BuildDirectory) `
-    -AcceptDevelopmentPackageRisk:$AcceptDevelopmentPackageRisk
-if (-not $?) { throw 'Wubi deployment failed; Core and Settings were not started' }
+# Core startup must not require installing or activating an unrelated plugin.
+# Deployment remains explicit and retains its separate package risk checks.
+if ($DeployWubi86) {
+    & (Join-Path $PSScriptRoot 'deploy-wubi86-dev.ps1') `
+        -BuildDirectory (Split-Path -Parent $BuildDirectory) `
+        -AcceptDevelopmentPackageRisk:$AcceptDevelopmentPackageRisk
+    if (-not $?) { throw 'Wubi deployment failed; Core and Settings were not started' }
+}
 $deployDirectory = Join-Path $projectRoot 'build/manual-deploy'
 [void](New-Item -ItemType Directory -Path $deployDirectory -Force)
 $tsfHash = Get-Sha256Hex $buildTsfDll
