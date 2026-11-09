@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '0.2.7',
+    [string]$Version = '0.2.8',
     [string]$BuildDirectory,
     [string]$X86BuildDirectory,
     [string]$SettingsDirectory,
@@ -166,13 +166,13 @@ Compress-Archive -LiteralPath $stage -DestinationPath $binaryZip -CompressionLev
 $sourceStage = Join-Path $releaseRoot "OwO-Input-Method-$Version-source"
 [void](New-Item -ItemType Directory -Path $sourceStage -Force)
 foreach ($directory in @('apps', 'benchmarks', 'data', 'docs', 'include', 'packaging', 'plugins',
-                         'scripts', 'src', 'tests', 'tools')) {
+                         'scripts', 'src', 'tests', 'tools', 'third_party')) {
     $source = Join-Path $root $directory
     if (Test-Path -LiteralPath $source) {
         Copy-Item -LiteralPath $source -Destination $sourceStage -Recurse -Force -Exclude '*.log', '*.dmp'
     }
 }
-foreach ($name in @('CMakeLists.txt', 'CMakePresets.json', 'global.json', 'LICENSE',
+foreach ($name in @('CMakeLists.txt', 'CMakePresets.json', 'global.json', '.gitattributes', 'LICENSE',
                     'README.md', '项目计划.md')) {
     $source = Join-Path $root $name
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $sourceStage -Force }

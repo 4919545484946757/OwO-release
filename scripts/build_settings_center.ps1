@@ -11,6 +11,17 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$dotnetCommand = 'dotnet'
+# Prefer the repository-local pinned SDK when provisioned by the release build.
+# This does not install or change the system-wide SDK or PATH.
+$pinnedSdk = (Get-Content -LiteralPath (Join-Path $projectRoot 'global.json') -Raw | ConvertFrom-Json).sdk.version
+if ($pinnedSdk -match '^\d+\.\d+\.\d+$') {
+    $localSdk = Join-Path $projectRoot "build/dependencies/dotnet-$pinnedSdk"
+    if ((Test-Path -LiteralPath (Join-Path $localSdk 'dotnet.exe') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $localSdk "sdk/$pinnedSdk/dotnet.dll") -PathType Leaf)) {
+        $dotnetCommand = Join-Path $localSdk 'dotnet.exe'
+    }
+}
 $preset = if ($Configuration -eq 'Debug') { 'windows-debug' } else { 'windows-release' }
 $configShell = Join-Path $projectRoot "build/$preset/$Configuration/owo_config_shell.exe"
 $pluginShell = Join-Path $projectRoot "build/$preset/$Configuration/owo_plugin_shell.exe"
@@ -24,11 +35,11 @@ cmake --build --preset $preset --target owo_config_shell owo_plugin_shell
 if ($LASTEXITCODE -ne 0) { throw "owo_config_shell build failed: $LASTEXITCODE" }
 
 if (-not $NoRestore) {
-    dotnet restore $project -r $RuntimeIdentifier --locked-mode
+    & $dotnetCommand restore $project -r $RuntimeIdentifier --locked-mode
     if ($LASTEXITCODE -ne 0) { throw "settings restore failed: $LASTEXITCODE" }
 }
 
-dotnet build $project -c $Configuration -r $RuntimeIdentifier --no-restore `
+& $dotnetCommand build $project -c $Configuration -r $RuntimeIdentifier --no-restore `
     "-p:Platform=$platform" `
     "-p:OwOConfigShellPath=$configShell" "-p:OwOPluginShellPath=$pluginShell"
 if ($LASTEXITCODE -ne 0) { throw "settings build failed: $LASTEXITCODE" }
@@ -43,7 +54,7 @@ if (Test-Path -LiteralPath $publishOutput) {
     Remove-Item -LiteralPath $publishOutput -Recurse -Force
 }
 
-dotnet publish $project -c $Configuration -r $RuntimeIdentifier --no-restore `
+& $dotnetCommand publish $project -c $Configuration -r $RuntimeIdentifier --no-restore `
     --self-contained true -o $publishOutput `
     "-p:Platform=$platform" "-p:WindowsAppSDKSelfContained=true" `
     "-p:OwOConfigShellPath=$configShell" "-p:OwOPluginShellPath=$pluginShell"

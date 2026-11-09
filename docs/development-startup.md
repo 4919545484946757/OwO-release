@@ -23,3 +23,8 @@ D:\0program\OwO\start-owo-dev.cmd -DisableModelHost
 
 脚本会检查进程路径、输入法激活状态和 Core 管道是否就绪后才报告启动成功。
 此流程会更新本机开发版注册，但不会打包或发布发行版。
+
+设置中心构建遵循 `global.json` 的 SDK 版本。若发行构建已在
+`build/dependencies/dotnet-<版本>/` 准备了对应 SDK，
+`build_settings_center.ps1` 会优先使用它；否则使用系统 `dotnet`。
+该选择不修改系统 SDK 或全局 PATH。

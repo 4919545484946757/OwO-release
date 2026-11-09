@@ -5,3 +5,13 @@ tests/data/model_fixture.onnx binary
 
 # Preserve source receipt hashes across Git checkouts.
 third_party/wubi86/sources/** -text
+
+# Preserve the exact newline formats recorded in generated-asset receipts.
+data/wubi86/main.tsv text eol=lf
+data/wubi86/full-codes.tsv text eol=crlf
+data/wubi86/gb2312.tsv text eol=crlf
+data/wubi86/roots.json text eol=crlf
+data/wubi86/roots-chart.svg text eol=crlf
+data/wubi86/normalization-audit.json text eol=crlf
+data/wubi86/quarantine.json text eol=crlf
+src/wubi86/wubi86_roots.inc text eol=crlf
