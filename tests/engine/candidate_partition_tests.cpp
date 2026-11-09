@@ -20,6 +20,22 @@ owo::engine::Candidate word(std::string text, std::size_t consumed, std::int64_t
 
 int main() {
     using namespace owo::engine;
+    {
+        auto full = word("现在的", 9, 100, 2);
+        auto prefix = word("线在的", 8, 999999999);
+        prefix.user_lexicon = true;
+        std::vector<Candidate> values{prefix, full};
+        merge_similar_length_partitions(values, 9);
+        if (values.front().text != full.text || values.back().text != prefix.text) return 30;
+        auto learned_full = full;
+        learned_full.text = "先在的";
+        learned_full.user_lexicon = true;
+        learned_full.segment_count = 1;
+        learned_full.score = -1;
+        values = {full, learned_full};
+        merge_similar_length_partitions(values, 9);
+        if (values.front().text != learned_full.text) return 31;
+    }
     auto split = word("不提安家", 9, 22814, 2);
     split.source_segments = {"bu", "ti", "an", "jia"};
     auto compact = word("不添加", 9, 38615);
@@ -162,7 +178,7 @@ int main() {
     hidden.model_only = true;
     std::vector<Candidate> preferred{word("四字句子", 13, 1000, 2), learned};
     merge_similar_length_partitions(preferred, 13);
-    if (preferred.front().text != "已学词条" || !preferred.front().user_preferred())
+    if (preferred.front().text != "四字句子" || preferred.back().text != "已学词条" || !preferred.back().user_preferred())
         return 2;
     std::vector<Candidate> no_near_word{word("四字句子", 13, 1000, 2), word("短词", 6, 9000),
                                         hidden};
@@ -175,15 +191,15 @@ int main() {
     owo::ipc::apply_contextual_candidate_order(
         {"自动站点", "自动展开", "自动", "自"}, 13, {"自动展开", "自动站点", "自动", "自"},
         {13, 10, 6, 2}, order, consumed, {0, 0, 0, 0}, {true, true, false, false});
-    if (order != std::vector<std::string>{"自动站点", "自动展开", "自动", "自"} ||
-        consumed != std::vector<std::uint64_t>{10, 13, 6, 2})
+    if (order != std::vector<std::string>{"自动展开", "自动站点", "自动", "自"} ||
+        consumed != std::vector<std::uint64_t>{13, 10, 6, 2})
         return 4;
     order = {"自动展开", "自动站点", "自动", "自"};
     consumed = {13, 10, 6, 2};
     owo::ipc::restore_preferred_candidate_positions(
         {"自动站点"}, {"自动站点", "自动展开", "自动", "自"}, {10, 13, 6, 2}, order, consumed,
         {true, true, false, false});
-    if (order.front() != "自动站点" || consumed.front() != 10)
+    if (order.front() != "自动展开" || consumed.front() != 13)
         return 5;
     // Confidence still wins over an adversarial model inside the joined band.
     owo::ipc::apply_contextual_candidate_order({"自动站点", "自动展开"}, 13, {"自动展开", "自动站点"},

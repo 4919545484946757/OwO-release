@@ -2711,8 +2711,10 @@ std::vector<Candidate> CandidateGenerator::generate(const ParseResult& parsed,
     // Source-bound explicit preferences survive source-pool packing too.
     // A dictionary word must not remain behind the sentence reserve solely
     // because it was placed there before the final scoring-band comparison.
-    std::stable_partition(ordered.begin(), ordered.end(), [](const Candidate& value) {
-        return value.user_preferred();
+    std::stable_partition(ordered.begin(), ordered.end(), [full_input_bytes](const Candidate& value) {
+        // Learning is a preference among whole-input interpretations, not a
+        // reason to move a partial commit ahead of the completed input.
+        return value.user_preferred() && value.consumed_input_bytes == full_input_bytes;
     });
     // All non-single areas share the incomplete-input quota. Reserve room
     // for a bounded model comparison before low-value dictionary alternatives

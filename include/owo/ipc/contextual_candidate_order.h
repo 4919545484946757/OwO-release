@@ -22,7 +22,7 @@ namespace owo::ipc {
 
 // Model ranking is authoritative inside one structural/confidence tier.
 // Tier boundaries remain stable:
-// whole-input/joined phrases, then other prefixes, then single-character fallbacks.
+// whole-input phrases, then other prefixes, then single-character fallbacks.
 inline void apply_contextual_candidate_order(
     const std::vector<std::string>& model_order,
     const std::size_t full_input_bytes,
@@ -44,9 +44,8 @@ inline void apply_contextual_candidate_order(
                    ? model_order.size()
                    : static_cast<std::size_t>(found - model_order.begin());
     };
-    const auto tier = [full_input_bytes, &joint_phrase_partition](const std::string& candidate,
-                                         const std::uint64_t consumed, std::size_t index) {
-        if (!joint_phrase_partition.empty() && joint_phrase_partition[index]) return 0;
+    const auto tier = [full_input_bytes](const std::string& candidate,
+                                         const std::uint64_t consumed, std::size_t) {
         if (consumed == full_input_bytes) return 0;
         if (utf8_character_count(candidate) >= 2) return 1;
         return 2;
@@ -237,17 +236,8 @@ inline void restore_preferred_candidate_positions(
         const auto source = static_cast<std::size_t>(current - candidates.begin());
         const auto consumed_bytes = consumed[source];
         if (base_consumed[base_index] != consumed_bytes) continue;
-        if (!joint_phrase_partition.empty() && joint_phrase_partition[base_index]) {
-            // A learned short word may now share a tier with a whole sentence.
-            // Restoring only within equal consumed byte counts would undo its
-            // explicit preference as soon as the model update arrives.
-            auto text = std::move(candidates[source]);
-            candidates.erase(candidates.begin() + static_cast<std::ptrdiff_t>(source));
-            consumed.erase(consumed.begin() + static_cast<std::ptrdiff_t>(source));
-            candidates.insert(candidates.begin() + static_cast<std::ptrdiff_t>(base_index), std::move(text));
-            consumed.insert(consumed.begin() + static_cast<std::ptrdiff_t>(base_index), consumed_bytes);
-            continue;
-        }
+        // A joint display band must not restore a learned prefix across the
+        // whole-input coverage boundary. Preserve learning within its tier.
         const auto tier_rank = static_cast<std::size_t>(std::count(
             base_consumed.begin(),
             base_consumed.begin() + static_cast<std::ptrdiff_t>(base_index),

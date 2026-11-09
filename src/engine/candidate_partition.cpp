@@ -167,7 +167,10 @@ static void merge_scoring_band(std::vector<Candidate> &candidates,
         slots.push_back(index);
         joint.push_back(std::move(value));
     }
-    std::stable_sort(joint.begin(), joint.end(), [](const auto &left, const auto &right) {
+    std::stable_sort(joint.begin(), joint.end(), [full_input_bytes](const auto &left, const auto &right) {
+        const bool left_full = left.consumed_input_bytes == full_input_bytes;
+        const bool right_full = right.consumed_input_bytes == full_input_bytes;
+        if (left_full != right_full) return left_full;
         if (left.user_preferred() != right.user_preferred())
             return left.user_preferred();
         // Scores already include matching, lexical, coherence and user/context

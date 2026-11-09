@@ -21,7 +21,8 @@ class PrefixFirst final : public owo::model::IModelBackend {
     owo::model::ModelResult rank(const owo::model::ModelRequest &request,
                                  std::stop_token) override {
         auto result = request.candidates;
-        const auto prefix = std::find(result.begin(), result.end(), "自动站");
+        auto prefix = std::find(result.begin(), result.end(), "线");
+        if (prefix == result.end()) prefix = std::find(result.begin(), result.end(), "自动站");
         if (prefix != result.end())
             std::rotate(result.begin(), prefix, prefix + 1);
         return {request.request_id, owo::model::ModelStatus::success, std::move(result), {}};
@@ -46,7 +47,7 @@ int main() {
     auto config = writer.snapshot();
     config.model_ranking_enabled = true;
     config.model_timeout_ms = 500;
-    config.user_learning_enabled = false;
+    config.user_learning_enabled = true;
     if (!writer.save(config).success)
         return 2;
     owo::config::ConfigMonitor monitor;
@@ -67,7 +68,15 @@ int main() {
                                               {{"zi"}, "梓", 2000},
                                               {{"wei", "shen", "me"}, "为什么", 10000},
                                               {{"wo"}, "我", 10000}, {{"shi"}, "市", 10000},
-                                              {{"ma"}, "吗", 10000}});
+                                              {{"ma"}, "吗", 10000},
+                                              {{"xian", "zai"}, "现在", 10000},
+                                              {{"xian"}, "现", 10000},
+                                              {{"xian"}, "线", 9000},
+                                              {{"xian"}, "先", 8000},
+                                              {{"de"}, "的", 10000}});
+    owo::engine::UserFrequencyStore learning;
+    learning.record("xian", "线", 128);
+    learning.record("xianzai", "现在", 128);
     const auto suffix = std::wstring(nonce.begin(), nonce.end());
     const auto core_pipe = LR"(\\.\pipe\OwO.Test.Joint.Core.)" + suffix;
     const auto model_pipe = LR"(\\.\pipe\OwO.Test.Joint.Model.)" + suffix;
@@ -75,7 +84,7 @@ int main() {
     std::thread model(
         [&] { static_cast<void>(owo::ipc::run_model_server(model_pipe.c_str(), backend)); });
     std::thread core([&] {
-        static_cast<void>(owo::ipc::run_core_server(core_pipe.c_str(), lexicon, nullptr,
+        static_cast<void>(owo::ipc::run_core_server(core_pipe.c_str(), lexicon, &learning,
                                                     model_pipe.c_str(), &monitor));
     });
     std::uint64_t id = 10;
@@ -152,6 +161,48 @@ int main() {
         core_pipe, {owo::protocol::MessageType::candidate_request, ++id, 998, "zidongzhankai"});
     ok &= legacy.validation && legacy.message.candidate_groups.empty() &&
           !legacy.message.candidates.empty() && legacy.message.candidates.front() == "自动展开";
+    for (const bool partition : {false, true}) for (const auto page_size : {5U, 7U, 9U}) {
+        const auto before = monitor.generation();
+        config.candidate_partition_enabled = partition;
+        config.candidate_page_size = page_size;
+        ok &= writer.save(config).success && monitor.wait_for_generation(before, std::chrono::seconds(2));
+        const auto check = [&](const owo::protocol::DecodeResult& reply) {
+            if (!reply.validation || reply.message.candidates.empty() ||
+                reply.message.candidates.front() != "现在的" || reply.message.candidate_consumed.front() != 9) return false;
+            const auto whole = std::find(reply.message.candidates.begin(), reply.message.candidates.end(), "现在的");
+            for (const auto* text : {"现在", "线"}) {
+                const auto prefix = std::find(reply.message.candidates.begin(), reply.message.candidates.end(), text);
+                if (prefix != reply.message.candidates.end() && prefix < whole) return false;
+            }
+            return true;
+        };
+        owo::protocol::Message request{owo::protocol::MessageType::candidate_request, ++id, 998, "xianzaide"};
+        const auto base = send(core_pipe, request);
+        const bool base_ok = check(base);
+        request.request_id = ++id;
+        request.expanded = true;
+        const auto expanded = send(core_pipe, request);
+        bool expanded_ok = check(expanded);
+        if (base_ok && expanded_ok)
+            expanded_ok = expanded.message.candidates.size() >= base.message.candidates.size() &&
+                std::equal(base.message.candidates.begin(), base.message.candidates.end(), expanded.message.candidates.begin());
+        auto refined = send(core_pipe, {owo::protocol::MessageType::candidate_update_request, id, 998});
+        for (unsigned retry = 0; refined.message.model_pending && retry < 20; ++retry) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            refined = send(core_pipe, {owo::protocol::MessageType::candidate_update_request, id, 998});
+        }
+        const bool model_ok = !refined.message.model_pending && check(refined);
+        // Full-input homophones retain learning; prefixes remain selectable.
+        const auto learned = send(core_pipe,
+            {owo::protocol::MessageType::candidate_request, ++id, 998, "xian"});
+        const bool learning_ok = learned.validation && !learned.message.candidates.empty() &&
+            learned.message.candidates.front() == "线";
+        if (!base_ok || !expanded_ok || !model_ok || !learning_ok)
+            std::cerr << "Learning coverage failed: partition=" << partition << " page=" << page_size
+                      << " base=" << base_ok << " expanded=" << expanded_ok << " model=" << model_ok
+                      << " same-coverage-learning=" << learning_ok << '\n';
+        ok &= base_ok && expanded_ok && model_ok && learning_ok;
+    }
     static_cast<void>(send(core_pipe, {owo::protocol::MessageType::shutdown_request, 999, 998}));
     core.join();
     owo::model::ModelMessage stop;

@@ -2464,13 +2464,18 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
                                     for (auto item = first; item != last; ++item) slots.push_back(candidate_group(*item, full_input_bytes));
                                     std::sort(slots.begin(), slots.end());
                                     std::stable_sort(first, last, [full_input_bytes](const auto& left, const auto& right) {
-                                        if (left.user_preferred() != right.user_preferred()) return left.user_preferred();
+                                        const auto whole_preference = [full_input_bytes](const auto& value) {
+                                            return value.user_preferred() && value.consumed_input_bytes == full_input_bytes;
+                                        };
+                                        if (whole_preference(left) != whole_preference(right)) return whole_preference(left);
                                         const auto key = [full_input_bytes](const auto& value) {
                                             return value.joint_phrase_partition ? std::uint64_t{0} : candidate_group(value, full_input_bytes);
                                         };
                                         return key(left) < key(right);
                                     });
-                                    if (std::none_of(first, last, [](const auto& value) { return value.user_preferred(); }))
+                                    if (std::none_of(first, last, [full_input_bytes](const auto& value) {
+                                            return value.user_preferred() && value.consumed_input_bytes == full_input_bytes;
+                                        }))
                                         for (auto item = first; item != last; ++item)
                                             if (item->joint_phrase_partition)
                                                 item->partition_slot = slots[static_cast<std::size_t>(item - first)] == 0
