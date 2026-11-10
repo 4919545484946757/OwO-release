@@ -44,7 +44,7 @@ var words = new[] { exact, poly, composed, missing, latin };
 if (args.Length == 2 && args[0] is "--seed-ui" or "--seed-thu-ui") {
     var path = Path.GetFullPath(args[1]);
     if (!Path.GetFileName(path).StartsWith("dictionary-encoding-ui-", StringComparison.Ordinal)) throw new ArgumentException("Use a dedicated dictionary-encoding-ui-* fixture.");
-    var store = new DictionaryStore(path); var empty = await store.LoadAsync();
+    var store = new DictionaryStore(path, _ => Task.CompletedTask); var empty = await store.LoadAsync();
     if (empty.Revision != 0) throw new InvalidOperationException("Do not overwrite an existing UI fixture.");
     if (args[0] == "--seed-thu-ui")
         await store.SaveAsync(empty, [new ManagedDictionary(Guid.NewGuid().ToString("N"), "THUOCL 旧格式测试", "text", "THUOCL 专业词库/THUOCL_IT.txt sha256:" + new string('a', 64), "full_pinyin", false,

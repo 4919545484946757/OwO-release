@@ -166,12 +166,12 @@ try {
     if ($null -ne $lexiconReader) { $lexiconReader.Dispose() }
     else { $lexiconStream.Dispose() }
 }
-if ($lexiconMagic -ne 'OWLX' -or $lexiconVersion -ne 2) {
-    throw 'Installed OwO lexicon is not the required v2 format.'
+if ($lexiconMagic -ne 'OWLX' -or $lexiconVersion -notin @(2, 3)) {
+    throw 'Installed OwO lexicon is not a supported v2/v3 format.'
 }
 $lexiconValidation = @(
     'OWO_LEXICON_VALIDATION_V1'
-    'version=2'
+    "version=$lexiconVersion"
     "size=$($lexiconInfo.Length)"
     "write_time_utc_ticks=$($lexiconInfo.LastWriteTimeUtc.Ticks)"
     "sha256=$installedLexiconHash"

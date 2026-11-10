@@ -2,6 +2,7 @@
 #include "owo/config/config_store.h"
 #include "owo/engine/binary_lexicon.h"
 #include "owo/engine/full_pinyin_schema.h"
+#include "owo/engine/managed_dictionary.h"
 #include "owo/engine/user_frequency.h"
 #include "owo/ipc/named_pipe.h"
 #include "owo/protocol/messages.h"
@@ -182,6 +183,15 @@ void usage() {
 }  // namespace
 
 int wmain(const int argc, wchar_t** argv) {
+    if (argc == 3 && std::wstring_view(argv[1]) == L"--dictionary-compile") {
+        SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS);
+        try {
+            const auto result = owo::engine::prepare_managed_dictionary_snapshot(std::filesystem::path(argv[2]));
+            if (!result.success) { std::cerr << result.error << '\n'; return 3; }
+            std::cout << "OWO_DICTIONARY_RUNTIME_V1\n";
+            return 0;
+        } catch (const std::exception&) { std::cerr << "dictionary compilation failed\n"; return 3; }
+    }
     if (argc == 3 && std::wstring_view(argv[1]) == L"--dictionary-readings") {
         const std::filesystem::path source(argv[2]);
         const bool installed_only = std::wstring_view(argv[2]) == L"--installed-only";

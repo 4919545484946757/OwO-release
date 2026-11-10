@@ -2,10 +2,36 @@ using OwO_Settings;
 using System.IO.Compression;
 using System.Text;
 
+if (args.Length == 2 && args[0] == "--native-compiler") {
+    Environment.SetEnvironmentVariable("OWO_CONFIG_SHELL_PATH", Path.GetFullPath(args[1]));
+    var isolated = Path.Combine(Path.GetTempPath(), "owo-dictionary-compile-" + Guid.NewGuid().ToString("N"));
+    try {
+        var store = new DictionaryStore(isolated);
+        var data = DictionaryFormats.Parse("ce'shi\t测试\t16\niirc\tif I remember correctly\t8\n", "compiled.tsv");
+        var dictionary = new ManagedDictionary(Guid.NewGuid().ToString("N"), "compiled", data.Format, "fixture", "full_pinyin", true, data.Entries);
+        var catalog = await store.SaveAsync(await store.LoadAsync(), [dictionary]);
+        string Runtime() => Path.Combine(isolated, "snapshots", File.ReadAllText(Path.Combine(isolated, "current")), "runtime-v1");
+        using (var reader = new BinaryReader(File.OpenRead(Path.Combine(Runtime(), "phonetic.owolx")))) {
+            if (Encoding.ASCII.GetString(reader.ReadBytes(4)) != "OWLX" || reader.ReadUInt32() != 3 ||
+                reader.ReadUInt32() != 96) throw new Exception("Native v3 compilation failed");
+            _ = reader.ReadUInt32(); // file size precedes entry count
+            if (reader.ReadUInt32() != 1) throw new Exception("Native entry count mismatch");
+        }
+        if (!File.ReadAllText(Path.Combine(Runtime(), "aliases.tsv")).Contains("iirc\tif I remember correctly\t8"))
+            throw new Exception("Native compiler lost shortcut aliases");
+        if ((await store.LoadAsync()).Dictionaries.Single().Entries.Count != 2) throw new Exception("Original entries lost");
+        catalog = await store.SaveAsync(catalog, [dictionary with { Enabled = false }]);
+        if (new FileInfo(Path.Combine(Runtime(), "phonetic.owolx")).Length == 0 ||
+            File.ReadAllText(Path.Combine(Runtime(), "aliases.tsv")) != "OWO_DICTIONARIES_V1\n") throw new Exception("Empty native runtime failed");
+        Console.WriteLine("PASS: native compiler integration, v3 payload, aliases, source preservation and empty snapshot.");
+    } finally { if (Directory.Exists(isolated)) Directory.Delete(isolated, true); }
+    return;
+}
+
 if (args.Length == 2 && args[0] == "--seed-ui") {
     var fixture = Path.GetFullPath(args[1]);
     if (!Path.GetFileName(fixture).StartsWith("dictionary-manager-ui-", StringComparison.Ordinal)) throw new ArgumentException("Use an isolated UI fixture directory.");
-    var store = new DictionaryStore(Path.Combine(fixture, "dictionaries"));
+    var store = new DictionaryStore(Path.Combine(fixture, "dictionaries"), _ => Task.CompletedTask);
     var data = DictionaryFormats.Parse("# Gboard Dictionary version:2\nceshiciku\t测试词库\tzh-CN\tnoun\n\t无编码示例\tzh-CN\n", "dictionary.txt");
     var dictionary = new ManagedDictionary(new string('1', 32), "测试字典", data.Format, "dictionary.txt", "full_pinyin", true, data.Entries);
     await store.SaveAsync(await store.LoadAsync(), [dictionary]);
@@ -78,7 +104,7 @@ try {
     var unsafeZip = Path.Combine(root, "unsafe.zip");
     using (var archive = ZipFile.Open(unsafeZip, ZipArchiveMode.Create)) archive.CreateEntry("../dictionary.txt");
     await Reject(() => DictionaryFormats.ReadAsync(unsafeZip), "Zip path traversal");
-    var store = new DictionaryStore(Path.Combine(root, "store"));
+    var store = new DictionaryStore(Path.Combine(root, "store"), _ => Task.CompletedTask);
     var empty = await store.LoadAsync();
     Check(empty.PromptBeforeEnablingPending, "Missing prompt preference defaults to enabled");
     var catalog = await store.SaveAsync(empty, [dictionary]);
@@ -89,7 +115,7 @@ try {
     Check(!catalog.PromptBeforeEnablingPending, "Unrelated saves preserve reminder preference");
     catalog = await store.SaveAsync(catalog, catalog.Dictionaries, promptBeforeEnablingPending: true);
     Check((await store.LoadAsync()).PromptBeforeEnablingPending, "Reminder preference can be restored");
-    var longStore = new DictionaryStore(Path.Combine(root, "long-code-store"));
+    var longStore = new DictionaryStore(Path.Combine(root, "long-code-store"), _ => Task.CompletedTask);
     await longStore.SaveAsync(await longStore.LoadAsync(), [longDictionary]);
     Check((await longStore.LoadAsync()).Dictionaries.Single().Entries[0].OriginalInput == longReading,
         "Catalog persists and reloads full original code metadata");
@@ -107,6 +133,19 @@ try {
     await Reject(() => store.SaveAsync(empty, []), "Stale revision rejected");
     await Reject(() => store.SaveAsync(catalog, [dictionary with { Name = "" }]), "Invalid mutation rejected");
     Check(File.ReadAllText(Path.Combine(store.Root, "current")) == firstPointer, "Failed operations do not publish a snapshot");
+    var refused = new DictionaryStore(store.Root, _ => throw new IOException("compiler fixture failure"));
+    await Reject(() => refused.SaveAsync(catalog, []), "Compiler failure rejected");
+    Check(File.ReadAllText(Path.Combine(store.Root, "current")) == firstPointer &&
+        (await store.LoadAsync()).Revision == catalog.Revision, "Compiler failure cannot publish catalog, flags or candidates");
+    var compiledBeforePublish = false;
+    var ordered = new DictionaryStore(store.Root, directory => {
+        Check(File.ReadAllText(Path.Combine(store.Root, "current")) == firstPointer &&
+            File.Exists(Path.Combine(directory, "active.tsv")) && File.Exists(Path.Combine(directory, "sources.tsv")),
+            "Compiler sees complete source before pointer publication");
+        compiledBeforePublish = true; return Task.CompletedTask;
+    });
+    catalog = await ordered.SaveAsync(catalog, catalog.Dictionaries);
+    Check(compiledBeforePublish, "Every snapshot invokes compilation");
     catalog = await store.SaveAsync(catalog, [dictionary with { Enabled = false }]);
     Check(Active() == "OWO_DICTIONARIES_V1\n", "Disable removes active candidates only");
     catalog = await store.SaveAsync(catalog, []);

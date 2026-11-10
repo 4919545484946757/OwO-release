@@ -187,7 +187,8 @@ bool entry_less(const LexiconEntry& left, const LexiconEntry& right) {
 }  // namespace
 
 LexiconIoResult write_binary_lexicon(const std::filesystem::path& path,
-                                     std::vector<LexiconEntry> entries) {
+                                     std::vector<LexiconEntry> entries,
+                                     LexiconIndexOrder index_order) {
     if (entries.size() > kMaximumEntries) return {false, "too many entries"};
     std::sort(entries.begin(), entries.end(), entry_less);
 
@@ -265,6 +266,11 @@ LexiconIoResult write_binary_lexicon(const std::filesystem::path& path,
         const auto& left = disk_entries[left_index];
         const auto& right = disk_entries[right_index];
         if (left.frequency != right.frequency) return left.frequency > right.frequency;
+        if (index_order == LexiconIndexOrder::Imported) {
+            if (left.syllable_count != right.syllable_count) return left.syllable_count < right.syllable_count;
+            return std::string_view(text_pool).substr(left.text_offset, left.text_size) <
+                   std::string_view(text_pool).substr(right.text_offset, right.text_size);
+        }
         const auto& left_syllable = syllables[syllable_ids[left.syllable_offset]];
         const auto& right_syllable = syllables[syllable_ids[right.syllable_offset]];
         if (left_syllable.size() != right_syllable.size())
@@ -273,6 +279,8 @@ LexiconIoResult write_binary_lexicon(const std::filesystem::path& path,
                std::string_view(text_pool).substr(right.text_offset, right.text_size);
     };
     for (auto& bucket : initial_entries) std::sort(bucket.begin(), bucket.end(), initial_less);
+    if (index_order == LexiconIndexOrder::Imported)
+        for (auto& [key, bucket] : mixed_entries) std::sort(bucket.begin(), bucket.end(), initial_less);
 
     std::vector<DiskRange> initial_ranges;
     std::vector<std::uint32_t> initial_indices;
@@ -470,7 +478,10 @@ LexiconIoResult BinaryLexicon::load(const std::filesystem::path& path) {
         const auto initial_index_count = u32(initial_index_count_field);
         const auto mixed_bucket_count = u32(mixed_bucket_count_field);
         const auto mixed_index_count = u32(mixed_index_count_field);
-        if (entry_count > kMaximumEntries || syllable_count == 0 ||
+        if (entry_count > kMaximumEntries ||
+            (syllable_count == 0 && (entry_count != 0 || syllable_id_count != 0 ||
+             syllable_pool_size != 0 || text_pool_size != 0 || initial_index_count != 0 ||
+             mixed_bucket_count != 0 || mixed_index_count != 0 || u32(maximum_reading_length_field) != 0)) ||
             syllable_count > std::numeric_limits<std::uint16_t>::max() ||
             !valid_section(u32(entries_offset_field), entry_count, sizeof(CompactEntry)) ||
             !valid_section(u32(syllable_ids_offset_field), syllable_id_count,
@@ -1118,7 +1129,8 @@ BinaryLexicon::lookup_mixed_abbreviation_texts(
     const auto prune_threshold = limit > (std::numeric_limits<std::size_t>::max)() / 4
                                      ? (std::numeric_limits<std::size_t>::max)()
                                      : limit * 4;
-    if (input.size() == 2) {
+    const bool bounded_import = mixed_work_limit_ != (std::numeric_limits<std::size_t>::max)();
+    if (input.size() == 2 && !bounded_import) {
         const bool initial_frequency = input.find_first_of("aeiouv") == std::string_view::npos;
         const auto syllable_count = mapped_entries_ != nullptr
                                         ? mapped_syllable_count_
@@ -1174,6 +1186,7 @@ BinaryLexicon::lookup_mixed_abbreviation_texts(
     }
     std::unordered_set<std::uint32_t> visited_entries;
     visited_entries.reserve(limit * 8);
+    const bool initial_frequency = input.size() == 2 && input.find_first_of("aeiouv") == std::string_view::npos;
     const auto match_entry = [&](const std::uint32_t entry_index) {
         if (!visited_entries.insert(entry_index).second) return true;
         const auto entry_count = mapped_entries_ != nullptr
@@ -1195,9 +1208,10 @@ BinaryLexicon::lookup_mixed_abbreviation_texts(
         if (!segments) return true;
         matches.push_back(make_match(entry, *segments));
         if (matches.size() >= prune_threshold)
-            detail::retain_best_mixed_matches(matches, limit);
+            detail::retain_best_mixed_matches(matches, limit, initial_frequency);
         return true;
     };
+    std::unordered_set<std::uint32_t> visited;
     const auto maximum_first = std::min<std::size_t>(6, input.size() - 1);
     const auto syllable_count = mapped_entries_ != nullptr
                                     ? mapped_syllable_count_
@@ -1223,18 +1237,26 @@ BinaryLexicon::lookup_mixed_abbreviation_texts(
                 for (auto index = mapped_mixed_indices_ + bucket->offset;
                      index != mapped_mixed_indices_ + bucket->offset + bucket->count;
                      ++index) {
+                    if (bounded_import) {
+                        if (visited.size() >= mixed_work_limit_) break;
+                        if (!visited.insert(*index).second) continue;
+                    }
                     if (!match_entry(*index)) return {};
                 }
             } else {
                 const auto bucket = mixed_entries_.find(key);
                 if (bucket == mixed_entries_.end()) continue;
                 for (const auto entry_index : bucket->second) {
+                    if (bounded_import) {
+                        if (visited.size() >= mixed_work_limit_) break;
+                        if (!visited.insert(entry_index).second) continue;
+                    }
                     if (!match_entry(entry_index)) return {};
                 }
             }
         }
     }
-    detail::retain_best_mixed_matches(matches, limit);
+    detail::retain_best_mixed_matches(matches, limit, initial_frequency);
     return matches;
 }
 

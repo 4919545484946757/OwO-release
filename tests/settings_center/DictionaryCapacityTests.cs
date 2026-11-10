@@ -2,7 +2,7 @@ using OwO_Settings;
 
 var root = Path.Combine(Path.GetTempPath(), "owo-dictionary-capacity-" + Guid.NewGuid().ToString("N"));
 try {
-    var store = new DictionaryStore(root);
+    var store = new DictionaryStore(root, _ => Task.CompletedTask);
     var entries = Enumerable.Range(0, 100001).Select(i => new DictionaryWord(i.ToString("x32"), "kuorong", new string('测', 100) + i, 1)).ToArray();
     var dictionary = new ManagedDictionary(new string('a', 32), "扩容回归", "OwO JSON", "isolated", "full_pinyin", true, entries);
     var next = await store.SaveAsync(await store.LoadAsync(), [dictionary]);

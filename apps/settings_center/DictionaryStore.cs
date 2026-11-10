@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Diagnostics;
 
 namespace OwO_Settings;
 
@@ -42,7 +43,35 @@ internal sealed class DictionaryStore
                 "OwO", "InputMethod", "data", "dictionaries");
         }
     }
-    internal DictionaryStore(string? root = null) => Root = Path.GetFullPath(root ?? DefaultRoot);
+    private readonly Func<string, Task> _compile;
+    internal DictionaryStore(string? root = null, Func<string, Task>? compile = null) {
+        Root = Path.GetFullPath(root ?? DefaultRoot);
+        _compile = compile ?? CompileAsync;
+    }
+    private static async Task CompileAsync(string directory) {
+        var shell = Environment.GetEnvironmentVariable("OWO_CONFIG_SHELL_PATH")
+            ?? Path.Combine(AppContext.BaseDirectory, "owo_config_shell.exe");
+        if (!File.Exists(shell)) throw new FileNotFoundException("找不到词典编译后端，未修改已启用词库。", shell);
+        var start = new ProcessStartInfo(shell) {
+            UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true,
+            RedirectStandardError = true, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8
+        };
+        start.ArgumentList.Add("--dictionary-compile"); start.ArgumentList.Add(directory);
+        using var process = Process.Start(start) ?? throw new IOException("无法启动词典编译后端。");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        using var stop = timeout.Token.Register(() => {
+            try { if (!process.HasExited) process.Kill(true); }
+            catch (InvalidOperationException) { }
+            catch (System.ComponentModel.Win32Exception) { }
+        });
+        // The native compiler emits one fixed status line, not dictionary text.
+        var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
+        var error = process.StandardError.ReadToEndAsync(timeout.Token);
+        await process.WaitForExitAsync(timeout.Token);
+        var status = await output; var detail = await error;
+        if (process.ExitCode != 0 || status.Replace("\r\n", "\n", StringComparison.Ordinal) != "OWO_DICTIONARY_RUNTIME_V1\n")
+            throw new IOException($"词典运行时编译失败，未修改已启用词库。{detail.Trim()}");
+    }
     private static bool Id(string value) => Guid.TryParseExact(value, "N", out _) && value == value.ToLowerInvariant();
     private static void RejectLink(string path) {
         if ((File.Exists(path) || Directory.Exists(path)) && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
@@ -151,6 +180,9 @@ internal sealed class DictionaryStore
             return $"{id}\t{(source.Enabled && !source.Deleted ? 1 : 0)}\n";
         }));
         await DurableWrite(Path.Combine(destination, "sources.tsv"), Encoding.ASCII.GetBytes(sources));
+        // Complete all parsing/index building before publishing current. Core
+        // only maps this immutable runtime; original entries remain editable.
+        await _compile(destination);
         var temporary = Path.Combine(Root, id + ".tmp");
         var current = Path.Combine(Root, "current"); RejectLink(current);
         try {

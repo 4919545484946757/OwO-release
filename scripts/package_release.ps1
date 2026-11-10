@@ -38,6 +38,8 @@ if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
 }
 $build = [IO.Path]::GetFullPath($BuildDirectory)
 $x86Build = [IO.Path]::GetFullPath($X86BuildDirectory)
+# Build/validate the v3 asset before touching an existing release directory.
+& (Join-Path $root 'scripts/prepare-runtime-lexicon.ps1') -BuildDirectory $build
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $releaseRoot = Join-Path $output $Version
 $stage = Join-Path $releaseRoot "OwO-Input-Method-$Version-windows-x64"
@@ -55,7 +57,7 @@ $settings = [IO.Path]::GetFullPath($SettingsDirectory)
 # scores entire sentences as unknown words instead of tokenizing them.
 $runtime = Join-Path $root 'build\dependencies\libime-1.1.15\runtime-x86_64'
 $model = Join-Path $root 'build\dependencies\libime-1.1.15\model-20260804\lib\libime\zh_CN.lm'
-$lexicon = Join-Path $root 'build\windows-release\rime-ice-cn-2026.06.30-v2.owolx'
+$lexicon = Join-Path $root 'build\windows-release\rime-ice-cn-2026.06.30-v3.owolx'
 $vcBuildTools = 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools'
 $vcRedistBase = Join-Path $vcBuildTools 'VC\Redist\MSVC'
 $vcRuntime = Get-ChildItem -LiteralPath $vcRedistBase -Directory -ErrorAction SilentlyContinue |

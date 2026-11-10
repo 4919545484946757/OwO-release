@@ -8,6 +8,8 @@ namespace owo::engine {
 // Rows share integer syllables and a text pool; no per-key full-table scan.
 class IndexedLexicon final : public Lexicon {
 public:
+    // Offline snapshot compilation only; never used by candidate queries.
+    std::vector<LexiconEntry> materialize_entries() const;
     void add(std::span<const std::string> reading, std::string_view text, std::uint32_t frequency);
     void finish();
     bool empty() const noexcept { return rows_.empty(); }

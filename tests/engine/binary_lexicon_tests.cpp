@@ -3,8 +3,56 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
+#include <chrono>
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc == 3) {
+        owo::engine::BinaryLexicon before, after;
+        if (!before.load(argv[1]).success || !after.load(argv[2]).success ||
+            before.size() != after.size() || !after.exact_lookup_frequency_ordered() ||
+            before.maximum_reading_length() != after.maximum_reading_length()) return 40;
+        std::vector<std::vector<std::string>> samples;
+        {
+            const auto rows = before.materialize_entries();
+            for (std::size_t i = 0; i < rows.size(); i += 4096) samples.push_back(rows[i].syllables);
+        }
+        std::vector<std::vector<std::string_view>> readings;
+        for (const auto& sample : samples) {
+            readings.emplace_back();
+            for (const auto& syllable : sample) readings.back().push_back(syllable);
+            auto old = before.lookup_texts(readings.back()), updated = after.lookup_texts(readings.back());
+            const auto order = [](const auto& a, const auto& b) { return a.text != b.text ? a.text < b.text : a.frequency < b.frequency; };
+            std::sort(old.begin(), old.end(), order); std::sort(updated.begin(), updated.end(), order);
+            if (old.size() != updated.size()) return 41;
+            for (std::size_t j = 0; j < old.size(); ++j)
+                if (old[j].text != updated[j].text || old[j].frequency != updated[j].frequency) return 42;
+            if (before.lookup_max_frequency(readings.back()) != after.lookup_max_frequency(readings.back())) return 43;
+        }
+        const auto benchmark = [&](const auto& lexicon) {
+            const auto started = std::chrono::steady_clock::now();
+            std::uint64_t sum = 0;
+            for (int repeat = 0; repeat < 100; ++repeat)
+                for (const auto& reading : readings) sum += lexicon.lookup_max_frequency(reading);
+            const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - started).count();
+            return std::pair{sum, elapsed};
+        };
+        const auto old = benchmark(before), updated = benchmark(after);
+        if (old.first != updated.first) return 44;
+        std::cout << "{\"entries\":" << after.size() << ",\"sampled_readings\":" << readings.size()
+            << ",\"iterations\":100,\"v2_max_frequency_us\":" << old.second << ",\"v3_max_frequency_us\":" << updated.second << "}\n";
+        return 0;
+    }
+    const auto empty_path = std::filesystem::temp_directory_path() / "owo-lexicon-empty.bin";
+    if (!owo::engine::write_binary_lexicon(empty_path, {}).success) return 30;
+    {
+        owo::engine::BinaryLexicon empty;
+        const std::string_view key[]{"ni"};
+        if (!empty.load(empty_path).success || empty.size() || empty.maximum_reading_length() ||
+            !empty.lookup_texts(key).empty() || !empty.lookup_initial_texts('n').empty() ||
+            !empty.lookup_mixed_abbreviation_texts("nh", 7).empty()) return 31;
+    }
+    std::filesystem::remove(empty_path);
     const auto first = std::filesystem::temp_directory_path() / "owo-lexicon-test-1.bin";
     const auto second = std::filesystem::temp_directory_path() / "owo-lexicon-test-2.bin";
     std::vector<owo::engine::LexiconEntry> entries{

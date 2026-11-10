@@ -168,6 +168,8 @@ foreach ($required in @($tsfDll, $x86TsfDll)) {
 if ([string]::IsNullOrWhiteSpace($LexiconPath)) {
     $LexiconPath = Join-Path $projectRoot `
         'build/windows-release/rime-ice-cn-2026.06.30-v2.owolx'
+    $v3Lexicon = Join-Path $projectRoot 'build/windows-release/rime-ice-cn-2026.06.30-v3.owolx'
+    if (Test-Path -LiteralPath $v3Lexicon -PathType Leaf) { $LexiconPath = $v3Lexicon }
 }
 $LexiconPath = [IO.Path]::GetFullPath($LexiconPath)
 if (-not (Test-Path -LiteralPath $LexiconPath -PathType Leaf)) {

@@ -65,6 +65,12 @@ int main() {
             if (result.candidates[i] == word && result.candidate_consumed[i] == input.size()) return true;
         return false;
     };
+    // Loading/migrating an immutable source is asynchronous, unlike search.
+    // Wait for publication, not an arbitrary startup delay.
+    for (int attempt = 0; attempt < 100; ++attempt) {
+        if (contains("ceshiciku", "测试词库")) break;
+        std::this_thread::sleep_for(10ms);
+    }
     for (const auto* input : {"ceshiciku", "ce'shi'ci'ku", "csck", "ceshick", "cs"}) {
         if (!contains(input, "测试词库")) { std::cerr << "Missing full candidate: " << input << '\n'; ok = false; }
     }
@@ -90,6 +96,10 @@ int main() {
     { std::ofstream file(disabled / "sources.tsv", std::ios::binary); file << "OWO_DICTIONARY_SOURCES_V1\nbase\t0\nuser\t0\n"; }
     { std::ofstream file(dictionaries / "current", std::ios::binary); file << std::string(32, 'b'); }
     std::this_thread::sleep_for(300ms);
+    for (int attempt = 0; attempt < 100; ++attempt) {
+        if (!contains("ceshiciku", "测试词库")) break;
+        std::this_thread::sleep_for(10ms);
+    }
     if (contains("ceshiciku", "测试词库") || contains("csck", "测试词库")) { std::cerr << "Disabled source leaked\n"; ok = false; }
     protocol::Message shutdown{protocol::MessageType::shutdown_request, ++id, 991, ""};
     const auto reply = client.exchange(protocol::encode_message(shutdown), 2s);

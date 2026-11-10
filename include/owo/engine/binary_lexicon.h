@@ -36,8 +36,10 @@ struct BoundedLexiconLookup {
     bool exhausted{};
 };
 
+enum class LexiconIndexOrder { Standard, Imported };
 [[nodiscard]] LexiconIoResult write_binary_lexicon(
-    const std::filesystem::path& path, std::vector<LexiconEntry> entries);
+    const std::filesystem::path& path, std::vector<LexiconEntry> entries,
+    LexiconIndexOrder index_order = LexiconIndexOrder::Standard);
 
 class BinaryLexicon final : public Lexicon {
 public:
@@ -90,6 +92,8 @@ public:
     [[nodiscard]] std::vector<LexiconEntry> lookup_readings(
         std::span<const std::string_view> texts, std::size_t per_text_limit = 8) const;
     [[nodiscard]] const std::filesystem::path& storage_path() const noexcept { return storage_path_; }
+    // Retain the imported provider's existing bounded mixed-search policy.
+    void set_mixed_lookup_work_limit(std::size_t limit) noexcept { mixed_work_limit_ = limit; }
 
 private:
     std::filesystem::path storage_path_;
@@ -131,6 +135,7 @@ private:
     std::unordered_map<std::uint32_t, std::vector<std::uint32_t>> mixed_entries_;
     std::size_t maximum_reading_length_{};
     std::uint32_t lexicon_version_{};
+    std::size_t mixed_work_limit_{(std::numeric_limits<std::size_t>::max)()};
 
     void* mapped_file_handle_{reinterpret_cast<void*>(-1)};
     void* mapped_mapping_handle_{};

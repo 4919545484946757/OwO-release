@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <thread>
 
 int main(int argc, char** argv) {
     if (argc != 2) return 1;
@@ -12,18 +13,31 @@ int main(int argc, char** argv) {
     if (!root.is_absolute() || root.filename() != "managed-dictionary-test-fixture") return 98;
     std::error_code error;
     std::filesystem::remove_all(root, error); std::filesystem::create_directories(root);
-    const auto publish = [&](const std::string& id, const std::string& text) {
-        std::filesystem::create_directories(root / "snapshots" / id);
-        { std::ofstream file(root / "snapshots" / id / "active.tsv", std::ios::binary); file << text; }
-        { std::ofstream file(root / "current", std::ios::binary); file << id; }
-    };
     owo::engine::UserFrequencyStore learned;
     if (!learned.load(root / "user-frequency.owuf").success) return 2;
     owo::engine::ManagedDictionaryModel model(&learned, root);
+    const auto publish = [&](const std::string& id, const std::string& text) {
+        // Close fixture mappings before reusing file names on Windows. Real
+        // snapshots use fresh UUIDs and never rewrite a mapped directory.
+        std::filesystem::remove(root / "current", error);
+        model.refresh(true);
+        std::filesystem::create_directories(root / "snapshots" / id);
+        // Fixtures reuse IDs; real snapshots are immutable and never do.
+        for (const auto* name : {"phonetic.owolx", "aliases.tsv"})
+            std::filesystem::remove(root / "snapshots" / id / "runtime-v1" / name, error);
+        std::filesystem::remove(root / "snapshots" / id / "runtime-v1", error);
+        { std::ofstream file(root / "snapshots" / id / "active.tsv", std::ios::binary); file << text; }
+        { std::ofstream file(root / "current", std::ios::binary); file << id; }
+    };
     if (model.refresh(true) || !model.lookup("ceshiciku", 10).empty()) return 3;
     const std::string a(32, 'a'), b(32, 'b'), c(32, 'c');
     publish(a, "OWO_DICTIONARIES_V1\nceshiciku\t测试词库\t32\nceshiciku\t词典测试\t2\nceshifangfa\t测试方法\t12\ncs\t测试词库\t16\niirc\tif I remember correctly\t10\n");
     if (!model.refresh(true) || !model.diagnostic().empty()) return 4;
+    if (!std::filesystem::exists(root / "snapshots" / a / "runtime-v1" / "phonetic.owolx")) return 34;
+    // Restart must not read source TSV or recreate indices. Catalog/TSV are
+    // management sources, not part of the runtime query path after compilation.
+    { std::ofstream source(root / "snapshots" / a / "active.tsv"); source << "invalid source deliberately unreadable by parser"; }
+    if (!model.refresh(true) || !model.diagnostic().empty()) return 35;
     const auto imported_lookup = [&](std::initializer_list<std::string_view> reading) {
         return model.phonetic_lexicon().lookup_texts({reading.begin(), reading.size()});
     };
@@ -108,6 +122,7 @@ int main(int argc, char** argv) {
     if (!model.refresh(true) || !model.diagnostic().empty() || imported_lookup({"ce", "shi"}).size() != 10000 ||
         model.phonetic_lexicon().lookup_initial_texts('c', 7).size() != 1 ||
         model.phonetic_lexicon().lookup_mixed_abbreviation_texts("cs", 7).size() != 7) return 33;
+    if (!model.refresh(true) || !model.diagnostic().empty() || imported_lookup({"ce", "shi"}).size() != 10000) return 38;
     // Exceed both old runtime limits: 100k rows and 24 MiB. This verifies
     // that settings-side imports are not silently rejected by the Core.
     std::string large = "OWO_DICTIONARIES_V1\n";
@@ -117,6 +132,29 @@ int main(int argc, char** argv) {
         large += "kuorong\t" + label + std::to_string(i) + "\t1\n";
     publish(a, large);
     if (!model.refresh(true) || !model.diagnostic().empty() || model.lookup("kuorong", 1).empty()) return 19;
+    // Background load is single-flight. A superseded prepared snapshot must
+    // never replace the latest pointer, nor leave stale candidate data active.
+    publish(b, "OWO_DICTIONARIES_V1\nce'shi\t测试\t8\n");
+    {
+    owo::engine::ManagedDictionaryModel background(&learned, root);
+    background.refresh();
+    publish(c, "OWO_DICTIONARIES_V1\nxi'an\t西安\t8\n");
+    bool applied = false;
+    for (int i = 0; i < 300; ++i) {
+        background.refresh();
+        if (!background.phonetic_lexicon().lookup_texts(std::array<std::string_view, 2>{"xi", "an"}).empty()) { applied = true; break; }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    if (!applied || !background.phonetic_lexicon().lookup_texts(std::array<std::string_view, 2>{"ce", "shi"}).empty() || !background.lookup("kuorong", 1).empty()) return 36;
+    }
+    // Damaged compiled payload is rejected, never silently regenerated from
+    // a different source or accepted as a successful empty dictionary.
+    const auto damaged = root / "snapshots" / std::string(32, 'd') / "runtime-v1";
+    std::filesystem::create_directories(damaged);
+    { std::ofstream bad(damaged / "phonetic.owolx", std::ios::binary); bad << "bad"; }
+    { std::ofstream pointer(root / "current", std::ios::binary); pointer << std::string(32, 'd'); }
+    model.refresh(true);
+    if (model.diagnostic().empty() || !imported_lookup({"xi", "an"}).empty()) return 37;
     std::filesystem::remove_all(root, error);
     std::cout << "Managed dictionaries: independent lookup, live snapshots, candidates, disable/delete, learned data and fail-closed validation passed.\n";
 }

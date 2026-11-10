@@ -7,6 +7,12 @@
 #include <unordered_set>
 
 namespace owo::engine {
+std::vector<LexiconEntry> IndexedLexicon::materialize_entries() const {
+    std::vector<LexiconEntry> result;
+    result.reserve(rows_.size());
+    for (const auto& row : rows_) result.push_back(materialize(row));
+    return result;
+}
 std::span<const std::uint16_t> IndexedLexicon::reading(const Row& row) const { return {ids_.data() + row.reading, row.count}; }
 std::string_view IndexedLexicon::text(const Row& row) const { return {pool_.data() + row.text, row.bytes}; }
 LexiconEntry IndexedLexicon::materialize(const Row& row) const {

@@ -1369,6 +1369,9 @@ int run_core_server(const wchar_t* pipe_name, const engine::Lexicon& base_lexico
         if (copied > 0 && copied < override_size) { override_path.resize(copied); dictionary_root = override_path; }
     }
     engine::ManagedDictionaryModel dictionary_sources(user_frequency, dictionary_root);
+    // Prepare/map imported dictionaries while the server finishes startup.
+    // refresh() only polls a single worker; no source parsing on key requests.
+    dictionary_sources.refresh();
     const engine::MemoryLexicon empty_lexicon({});
     const engine::CombinedLexicon combined_lexicon(base_lexicon, dictionary_sources.phonetic_lexicon());
     const engine::CandidateGenerator base_generator(base_lexicon, nullptr,
