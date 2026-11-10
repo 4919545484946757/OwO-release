@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Version = '0.2.9', [string]$OutputDirectory,
+param([string]$Version = '0.3.0', [string]$OutputDirectory,
       [string]$CompilerPath, [switch]$ValidateOnly)
 
 $ErrorActionPreference = 'Stop'
